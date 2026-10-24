@@ -242,7 +242,7 @@ pub(super) const CASES: &[FigureCase] = &[
         axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(2.0), Some("C1"));
         axline_in_axes(&ax, (0.5, 0.5), AxLineThrough::Slope(0.0), Some("C2"));
         ax.set_xlim(0.0, 5.0).set_ylim(0.0, 10.0);
-        fig.set_size_inches(3.0, 3.0);
+        fig.set_size_inches(3.0, 3.0)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_d/vlines_1", |fig| {

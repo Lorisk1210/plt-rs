@@ -111,7 +111,7 @@ impl CollectionSpec {
     /// style and anti-aliasing, but not its hatch.
     pub fn patches(patches: &[CollectionPatch], match_original: bool) -> Result<Self, ColorError> {
         let mut spec = Self::new(
-            CollectionKind::Generic,
+            CollectionKind::Patch,
             patches.iter().map(|p| p.path.clone()).collect(),
         );
         if match_original {

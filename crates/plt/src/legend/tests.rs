@@ -319,3 +319,30 @@ fn location_and_anchor_read_back_and_move_the_legend() {
     legend.set_loc("best").unwrap();
     assert_eq!(legend.loc(), LegendLoc::Name("best".into()));
 }
+
+#[test]
+fn alignment_moves_the_title_across_the_frame() {
+    let (fig, ax) = canvas();
+    let wide = labelled("a label much wider than the title");
+    ax.plot_with([0.0, 1.0], [0.0, 1.0], wide).unwrap();
+    let legend = ax.legend(LegendOptions::default().title("T")).unwrap();
+    assert_eq!(legend.alignment(), LegendAlignment::Center);
+    let title_x0 = |legend: &Legend| {
+        fig.layout();
+        legend.title().window_extent().unwrap().x0()
+    };
+    let centred = title_x0(&legend);
+    legend.set_alignment(LegendAlignment::Left);
+    assert_eq!(legend.alignment(), LegendAlignment::Left);
+    let left = title_x0(&legend);
+    legend.set_alignment(LegendAlignment::Right);
+    let right = title_x0(&legend);
+    assert!(
+        left < centred && centred < right,
+        "{left} {centred} {right}"
+    );
+    let options = LegendOptions::default()
+        .title("T")
+        .alignment(LegendAlignment::Right);
+    assert_eq!(title_x0(&ax.legend(options).unwrap()), right);
+}

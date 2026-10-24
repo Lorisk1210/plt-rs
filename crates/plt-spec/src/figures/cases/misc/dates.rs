@@ -1,5 +1,6 @@
 //! Date axis cases of `figures/cases_axes_misc.py`.
 
+use plt::axes::TickLevel;
 use plt::dates::{
     AutoDateLocator, ConciseDateFormatter, DateError, DateFormatter, DateTime, Datetime64,
     RRuleLocator,
@@ -104,7 +105,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("misc/dates_autofmt_xdate", |fig| {
         fig.subplot()
             .plot(dates(at(2024, 5, 1, 0, 0)?, 3 * DAY, 30)?, wave(30))?;
-        fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
+        fig.autofmt_xdate(0.2, 30.0, HAlign::Right, TickLevel::Major)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

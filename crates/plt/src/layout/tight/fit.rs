@@ -6,8 +6,8 @@
 use plt_core::Bbox;
 
 use super::{Cell, Measured, TightLayout, TightLayoutError};
-use crate::artist::{Artist, ArtistId, LayoutContext};
-use crate::figure::{FigureFrame, FigureState};
+use crate::artist::{Artist, LayoutContext};
+use crate::figure::{FigureFrame, FigureState, SuperText};
 use crate::gridspec::SubplotOverrides;
 use crate::text::TextArtist;
 
@@ -201,12 +201,12 @@ impl Grid<'_> {
     }
 
     /// The extents of the figure's title and labels taking part in the
-    /// layout, in figure fractions.
+    /// layout (placed by hand or not), in figure fractions.
     fn super_text_extents(&self) -> SuperExtents {
         let fig = self.fig;
         let layout = LayoutContext::new(fig);
-        let extent = |id: Option<ArtistId>| {
-            let text = layout.store().get_as::<TextArtist>(id?)?;
+        let extent = |text: Option<SuperText>| {
+            let text = layout.store().get_as::<TextArtist>(text?.id)?;
             let bbox = text
                 .base()
                 .in_layout

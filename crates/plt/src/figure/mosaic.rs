@@ -130,6 +130,9 @@ pub enum MosaicError {
     /// A label appears in two separate places (for example inside and
     /// outside a nested mosaic).
     Duplicate(String),
+    /// Options name a label the mosaic does not have (matplotlib's
+    /// `per_subplot_kw` keys).
+    UnknownLabel(String),
     /// The grid itself is invalid (for example mismatched ratios).
     Grid(GridSpecError),
 }
@@ -147,6 +150,7 @@ impl fmt::Display for MosaicError {
                 write!(f, "the label {label:?} specifies a non-rectangular area")
             }
             Self::Duplicate(label) => write!(f, "the label {label:?} appears more than once"),
+            Self::UnknownLabel(label) => write!(f, "the label {label:?} is not in the mosaic"),
             Self::Grid(err) => err.fmt(f),
         }
     }
@@ -232,6 +236,15 @@ impl Mosaic {
         (self.rows.len(), self.rows[0].len())
     }
 
+    /// Whether a cell of the mosaic or of a nested one has `label`.
+    pub fn contains(&self, label: &str) -> bool {
+        self.rows.iter().flatten().any(|cell| match cell {
+            MosaicCell::Label(name) => name == label,
+            MosaicCell::Empty => false,
+            MosaicCell::Nested(inner) => inner.contains(label),
+        })
+    }
+
     /// Labels in order of first appearance, with the rectangle each
     /// covers, and the nested cells.
     fn regions(&self) -> Result<Vec<Region<'_>>, MosaicError> {
@@ -311,13 +324,20 @@ impl Figure {
     ///
     /// # Errors
     ///
-    /// When a label covers a non-rectangular area or appears twice, or the
-    /// ratios do not match the grid.
+    /// When a label covers a non-rectangular area or appears twice, the
+    /// ratios do not match the grid, or a polar label is not in the mosaic.
     pub fn subplot_mosaic(
         &self,
         mosaic: &Mosaic,
         options: MosaicOptions,
     ) -> Result<MosaicAxes, MosaicError> {
+        if let Some(label) = options
+            .polar_labels
+            .iter()
+            .find(|label| !mosaic.contains(label))
+        {
+            return Err(MosaicError::UnknownLabel(label.clone()));
+        }
         let (rows, cols) = mosaic.shape();
         let grid = GridSpec::with_ratios(
             rows,
@@ -480,5 +500,22 @@ mod tests {
         );
         let (left, _, _, _) = axes.get("A").unwrap().position().bounds();
         assert!((left - 0.6).abs() < 1e-12, "{left}");
+    }
+
+    #[test]
+    fn polar_labels_must_be_in_the_mosaic() {
+        // matplotlib's test_extra_per_subplot_kw.
+        let fig = Figure::new();
+        let options = MosaicOptions {
+            polar_labels: vec!["B".into()],
+            ..MosaicOptions::default()
+        };
+        assert_eq!(
+            fig.subplot_mosaic(&"A".parse::<Mosaic>().unwrap(), options),
+            Err(MosaicError::UnknownLabel("B".into()))
+        );
+        assert!(fig.axes().is_empty(), "no axes is made");
+        let nested = "AB".parse::<Mosaic>().unwrap();
+        assert!(nested.contains("B") && !nested.contains("C"));
     }
 }

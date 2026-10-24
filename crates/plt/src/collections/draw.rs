@@ -226,6 +226,7 @@ pub(super) fn draw_collection(
     let gc = graphics_context(c, ctx, &hatches);
     let name = match c.kind {
         CollectionKind::Generic => "Collection",
+        CollectionKind::Patch => "PatchCollection",
         CollectionKind::Path => "PathCollection",
         CollectionKind::Poly => "PolyCollection",
         CollectionKind::Line => "LineCollection",

@@ -96,6 +96,33 @@ impl Figure {
         self.insert_subfigure(ratio_extent(spec), spec.clone())
     }
 
+    /// The subfigures made directly in this figure (or subfigure), in the
+    /// order they were made (matplotlib's `subfigs`).
+    ///
+    /// ```
+    /// use plt::figure::{Figure, SubfigureOptions};
+    /// let fig = Figure::new();
+    /// let parts = fig.subfigures(2, 1, SubfigureOptions::default())?;
+    /// parts[(1, 0)].subfigures(1, 2, SubfigureOptions::default())?;
+    /// assert_eq!(fig.subfigs().len(), 2);
+    /// assert_eq!(parts[(1, 0)].subfigs().len(), 2);
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    pub fn subfigs(&self) -> Vec<Self> {
+        let children = self
+            .root
+            .with::<FigureFrame, _>(|frame| frame.children.clone());
+        let state = self.state.borrow();
+        children
+            .into_iter()
+            .filter(|&id| state.store.get_as::<FigureFrame>(id).is_some())
+            .map(|id| Self {
+                state: Rc::clone(&self.state),
+                root: RawHandle::new(Rc::clone(&self.state), id),
+            })
+            .collect()
+    }
+
     /// Every subfigure inside this figure, nested ones included.
     pub(crate) fn subfigures_nested(&self) -> Vec<Self> {
         let state = self.state.borrow();

@@ -57,6 +57,9 @@ pub enum CollectionKind {
     /// A generic `Collection` (patch defaults, z-order 1).
     #[default]
     Generic,
+    /// The outlines of patches (`PatchCollection`, patch defaults, z-order
+    /// 1).
+    Patch,
     /// Markers sized in points² at data offsets (`PathCollection`).
     Path,
     /// Polygons (`PolyCollection`, e.g. `fill_between`).

@@ -156,7 +156,7 @@ fn a_resize_pauses_until_the_figure_is_drawn() {
     let (fig, _line, animation) = blitted(10, true);
     let (timer, _) = fig.timers()[0];
     fig.fire_timer(timer);
-    fig.set_size_inches(1.0, 2.0);
+    fig.set_size_inches(1.0, 2.0).unwrap();
     fig.process_event(&Event::Resize {
         width: 50.0,
         height: 100.0,

@@ -6,6 +6,7 @@ use std::rc::Rc;
 use plt_core::Rgba;
 
 use super::artists::{Block, Extensions, Painter, SolidFill};
+use super::blocks::Blocks;
 use super::dividers::Dividers;
 use super::mappable::{ContourLevels, MappableLink, Source};
 use super::placement::{Placement, default_ticklocation, orientation_of};
@@ -149,8 +150,8 @@ impl ColorbarState {
         } else {
             (lower, upper)
         };
-        ax.set_limits(short.name(), 0.0, 1.0);
-        ax.set_limits(long.name(), lower, upper);
+        ax.set_view_limits(short.name(), 0.0, 1.0);
+        ax.set_view_limits(long.name(), lower, upper);
         if let Some(tickers) = tickers {
             tickers.install(&long);
         }
@@ -211,9 +212,8 @@ impl ColorbarState {
             rect: self.settings.extendrect,
         };
         let painter = self.painter(ax);
-        painter.remove(self.drawn.outline.take());
         painter.remove(std::mem::take(&mut self.drawn.extensions));
-        self.drawn.outline = Some(painter.outline(&extensions));
+        self.drawn.outline = Some(painter.outline(&extensions, self.drawn.outline));
         if filled {
             let last = self.blocks.values.len() - 1;
             let (low, high) = if ax.axis_of(long_axis(self.orientation)).inverted() {
@@ -255,18 +255,34 @@ impl ColorbarState {
         if !self.settings.drawedges {
             return;
         }
-        let placement = Dividers {
-            axes: ax.id(),
-            orientation: self.orientation,
-            edges: self.edges.clone(),
-            lower: self.blocks.lower,
-            upper: self.blocks.upper,
-        };
+        let placement = self.dividers(ax);
         let painter = self.painter(ax);
         match self.drawn.dividers {
             Some(dividers) => painter.move_dividers(dividers, placement),
             None => self.drawn.dividers = Some(painter.dividers(placement)),
         }
+    }
+
+    /// Where the dividers of the colorbar drawn in `ax` go.
+    pub(super) fn dividers(&self, ax: &Axes) -> Dividers {
+        Dividers {
+            axes: ax.id(),
+            orientation: self.orientation,
+            edges: self.edges.clone(),
+            lower: self.blocks.lower,
+            upper: self.blocks.upper,
+        }
+    }
+
+    /// matplotlib's `_do_extends` as the view limits change: once the
+    /// long axis was inverted or put back, the extensions swap ends, take
+    /// the colours there and move the room left for them.
+    pub(super) fn follow_view(&mut self, ax: &Axes) -> Result<(), ColorbarError> {
+        let inverted = ax.axis_of(long_axis(self.orientation)).inverted();
+        (self.blocks.lower, self.blocks.upper) = Blocks::extended_ends(self.extend, inverted);
+        let filled = self.contours.as_ref().is_none_or(|levels| levels.filled);
+        self.do_extends(ax, filled)?;
+        self.install_locator(ax)
     }
 
     /// matplotlib's `add_lines(levels, colors, linewidths)`: lines across
@@ -420,5 +436,67 @@ mod tests {
             [7],
             "cycled lists stay whole"
         );
+    }
+
+    /// A colorbar beside a new axes of the linear mapping of `cmap` to
+    /// `[0, 1]`, made with `options`.
+    fn colorbar(cmap: crate::colors::Colormap, options: ColorbarOptions) -> Colorbar {
+        let fig = crate::figure::Figure::new();
+        let ax = fig.subplot();
+        let mappable =
+            ScalarMappable::with_norm(cmap, Box::new(crate::colors::Normalize::new(0.0, 1.0)));
+        fig.colorbar(
+            &mappable,
+            ColorbarOptions {
+                axes: crate::colorbar::ColorbarAxes::Parent(ax),
+                ..options
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn extensions_swap_ends_with_the_long_axis() {
+        // matplotlib's test_colorbar_extension_inverted_axis: the minimum's
+        // extension keeps the under colour and moves to the top.
+        let cmap = crate::colors::colormaps::get("viridis")
+            .and_then(|cmap| cmap.with_under(Rgba::BLACK))
+            .unwrap();
+        let options = ColorbarOptions {
+            extend: Some(Extend::Min),
+            ..ColorbarOptions::default()
+        };
+        let colorbar = colorbar(cmap, options);
+        let extension = || {
+            let patches = colorbar.extend_patches();
+            assert_eq!(patches.len(), 1);
+            let ys: Vec<f64> = patches[0]
+                .shape()
+                .0
+                .vertices()
+                .iter()
+                .map(|p| p.y)
+                .collect();
+            (patches[0].colors().unwrap().face, ys)
+        };
+        let (face, ys) = extension();
+        assert_eq!(face, Rgba::BLACK);
+        assert!(ys.iter().all(|&y| y <= 0.0), "below the axes: {ys:?}");
+        colorbar.long_axis().set_inverted(true);
+        let (face, ys) = extension();
+        assert_eq!(face, Rgba::BLACK);
+        assert!(ys.iter().all(|&y| y >= 1.0), "above the axes: {ys:?}");
+    }
+
+    #[test]
+    fn the_outline_keeps_its_style_when_redrawn() {
+        let viridis = crate::colors::colormaps::get("viridis").unwrap();
+        let colorbar = colorbar(viridis.clone(), ColorbarOptions::default());
+        colorbar.outline().set_edgecolor("red");
+        let log =
+            ScalarMappable::with_norm(viridis, Box::new(crate::colors::LogNorm::new(1.0, 100.0)));
+        colorbar.update_normal(&log).unwrap();
+        let red = Color::from("red").resolve().unwrap();
+        assert_eq!(colorbar.outline().colors().unwrap().edge, red);
     }
 }

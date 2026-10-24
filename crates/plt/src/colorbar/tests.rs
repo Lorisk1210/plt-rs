@@ -293,6 +293,51 @@ fn colorbars_in_other_figures_keep_a_copy() {
 }
 
 #[test]
+fn colorbars_take_room_in_the_figure_of_their_parent() {
+    // matplotlib's test_colorbar_wrong_figure: asked of another figure,
+    // the colorbar goes beside the image in the image's figure.
+    let (fig, _, image) = image_figure();
+    fig.set_layout_engine(crate::layout::LayoutEngine::constrained());
+    let tight = Figure::new();
+    tight.set_layout_engine(crate::layout::LayoutEngine::tight());
+    let colorbar = tight.colorbar(&image, ColorbarOptions::default()).unwrap();
+    assert_eq!(tight.axes(), []);
+    assert_eq!(fig.axes().len(), 2);
+    image.set_clim(Some(-2.0), Some(2.0));
+    assert_eq!(colorbar.ax().ylim(), (-2.0, 2.0), "it follows the image");
+    assert!(fig.render_raster().is_ok());
+}
+
+#[test]
+fn limits_opacity_and_dividers_read_back() {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let norm = BoundaryNorm::new([0.0, 1.0, 2.0, 3.0], 3, Extend::Neither).unwrap();
+    let mappable = ScalarMappable::with_norm(colormaps::get("viridis").unwrap(), Box::new(norm));
+    let options = ColorbarOptions {
+        drawedges: true,
+        extend: Some(Extend::Max),
+        ..ColorbarOptions::beside(&ax)
+    };
+    let colorbar = fig.colorbar(&mappable, options).unwrap();
+    assert_eq!((colorbar.vmin(), colorbar.vmax()), (0.0, 3.0));
+    assert_eq!(colorbar.alpha(), None);
+    colorbar.ax().set_ylim(0.5, 2.5);
+    // The edges inside the view, then the extended top of the view.
+    let at: Vec<f64> = colorbar
+        .divider_segments()
+        .iter()
+        .map(|segment| segment.vertices()[0].y)
+        .collect();
+    assert_eq!(at.len(), 3);
+    assert!(
+        at.iter()
+            .zip([1.0, 2.0, 2.5])
+            .all(|(a, e)| (a - e).abs() < 1e-12)
+    );
+}
+
+#[test]
 fn hatched_contours_get_hatched_blocks_and_extensions() {
     let fig = Figure::new();
     let ax = fig.subplot();

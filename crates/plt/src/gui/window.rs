@@ -451,7 +451,10 @@ impl FigureWindow {
         }
         let before = (self.figure.width_height(), self.figure.dpi());
         let dpi = self.base_dpi * self.window.ui().scale_factor();
-        self.figure
+        // At a degenerate scale factor the size is invalid: the figure
+        // keeps its size.
+        let _ = self
+            .figure
             .set_dpi(dpi)
             .set_size_inches(f64::from(size.width) / dpi, f64::from(size.height) / dpi);
         before.0 != self.figure.width_height() || before.1.total_cmp(&dpi).is_ne()

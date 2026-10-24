@@ -44,9 +44,33 @@ pub(crate) struct FigureFrame {
 /// `_supxlabel`, `_supylabel`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SuperTexts {
-    pub(crate) title: Option<ArtistId>,
-    pub(crate) xlabel: Option<ArtistId>,
-    pub(crate) ylabel: Option<ArtistId>,
+    pub(crate) title: Option<SuperText>,
+    pub(crate) xlabel: Option<SuperText>,
+    pub(crate) ylabel: Option<SuperText>,
+}
+
+/// A figure-wide text and how it is placed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct SuperText {
+    /// The text artist.
+    pub(crate) id: ArtistId,
+    /// Whether constrained layout moves the text to the figure's edge and
+    /// makes room for it, as it does until the text is placed by hand
+    /// across that edge (matplotlib's `_autopos`).
+    pub(crate) auto_placed: bool,
+}
+
+impl SuperTexts {
+    /// Forgets `text` if it is one of the figure-wide texts (it was
+    /// removed), so that the figure no longer reports it and makes it
+    /// anew when asked.
+    fn forget(&mut self, text: ArtistId) {
+        for slot in [&mut self.title, &mut self.xlabel, &mut self.ylabel] {
+            if slot.is_some_and(|known| known.id == text) {
+                *slot = None;
+            }
+        }
+    }
 }
 
 impl FigureFrame {
@@ -129,6 +153,7 @@ impl Artist for FigureFrame {
 
     fn remove_child(&mut self, child: ArtistId) {
         self.children.retain(|&id| id != child);
+        self.super_texts.forget(child);
     }
 }
 

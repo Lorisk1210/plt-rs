@@ -149,13 +149,15 @@ pub enum LabelColor {
 
 impl RcValue for LabelColor {
     /// matplotlib's `_validate_color_or_linecolor`: the keywords exactly
-    /// as spelled, `none` in any case for the text colour, otherwise a
-    /// colour by name or hex code (tuple strings are not evaluated).
+    /// as spelled, otherwise a colour by name or hex code (tuple strings
+    /// are not evaluated). Legends take `none` as spelled for no colour,
+    /// and its other spellings (`None`, ...) for the text colour.
     fn parse_rc(text: &str) -> Result<Self, String> {
         Ok(match text {
             "linecolor" => Self::LineColor,
             "markerfacecolor" | "mfc" => Self::MarkerFaceColor,
             "markeredgecolor" | "mec" => Self::MarkerEdgeColor,
+            "none" => Self::Color(Color::none()),
             _ if text.eq_ignore_ascii_case("none") => Self::Unset,
             _ => Self::Color(
                 color_spec(text)
@@ -523,6 +525,10 @@ mod tests {
         assert_eq!(ColorOrAuto::parse_rc("auto"), Ok(ColorOrAuto::Auto));
         assert_eq!(LabelColor::parse_rc("mec"), Ok(LabelColor::MarkerEdgeColor));
         assert_eq!(LabelColor::parse_rc("None"), Ok(LabelColor::Unset));
+        assert_eq!(
+            LabelColor::parse_rc("none"),
+            Ok(LabelColor::Color(Color::none()))
+        );
     }
 
     #[test]

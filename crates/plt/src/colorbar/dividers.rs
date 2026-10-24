@@ -48,6 +48,12 @@ impl Dividers {
         }
         positions
     }
+
+    /// The segments across the colorbar for the view `(lo, hi)`, in data
+    /// coordinates.
+    pub(super) fn segments(&self, view: (f64, f64)) -> Vec<Path> {
+        across(self.orientation, &self.positions(view))
+    }
 }
 
 impl DrawTimeShapes for Dividers {
@@ -57,8 +63,7 @@ impl DrawTimeShapes for Dividers {
             .get_as::<AxesState>(self.axes)
             .ok_or("the colorbar axes is gone")?;
         let view = axes.view_interval(long_axis(self.orientation));
-        let paths = across(self.orientation, &self.positions(view));
-        Ok((paths, Transform::Data(self.axes)))
+        Ok((self.segments(view), Transform::Data(self.axes)))
     }
 
     fn as_any(&self) -> &dyn Any {

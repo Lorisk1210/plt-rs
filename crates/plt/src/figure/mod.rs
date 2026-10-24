@@ -1,6 +1,7 @@
 //! Figures: the top-level container of everything drawn (matplotlib.figure).
 
 mod artists;
+mod autofmt;
 mod canvas;
 mod clear;
 mod draw_order;
@@ -11,12 +12,14 @@ mod pgf;
 mod postscript;
 mod print;
 mod save;
+mod size;
 mod state;
 mod subfigure;
 mod subplots;
 mod svg;
 #[cfg(test)]
 mod tests;
+mod texts;
 
 use std::cell::RefCell;
 use std::fmt;
@@ -28,13 +31,14 @@ use plt_render::Renderer;
 pub use canvas::{BufferRegion, CanvasError, FigureCanvas, PixelBox};
 pub(crate) use canvas::{CanvasState, Presentation, Presenting};
 pub(crate) use draw_order::draws_before;
-pub(crate) use frame::FigureFrame;
+pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;
 pub use plt_render::Metadata;
 pub use print::{BboxInches, SaveOptions};
 use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
+pub use size::{FigSize, SizeError, SizeUnit};
 pub(crate) use state::FigureState;
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
@@ -43,15 +47,10 @@ pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes};
 use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState, PlotError};
 use crate::events::Event;
-use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
 use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::patches::{Patch, PatchArtist, PatchShape};
-use crate::rc::RcParams;
-use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
-use plt_core::Point;
-use plt_text::{HAlign, VAlign};
 
 /// The problems found while drawing a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,14 +137,6 @@ impl Figure {
     /// Canvas size in inches.
     pub fn size_inches(&self) -> (f64, f64) {
         self.state.borrow().size_inches
-    }
-
-    /// Resizes the canvas (in inches).
-    pub fn set_size_inches(&self, width: f64, height: f64) -> &Self {
-        let mut state = self.state.borrow_mut();
-        state.size_inches = (width, height);
-        state.stale = true;
-        self
     }
 
     /// Canvas resolution in dots per inch.
@@ -251,42 +242,6 @@ impl Figure {
         Ok(self)
     }
 
-    /// Sets the figure title (matplotlib's `suptitle`) and returns it.
-    pub fn suptitle(&self, text: impl Into<String>) -> Text {
-        self.super_text(SuperKind::Title, text.into())
-    }
-
-    /// Sets the figure-wide x label (`supxlabel`) and returns it.
-    pub fn supxlabel(&self, text: impl Into<String>) -> Text {
-        self.super_text(SuperKind::XLabel, text.into())
-    }
-
-    /// Sets the figure-wide y label (`supylabel`) and returns it.
-    pub fn supylabel(&self, text: impl Into<String>) -> Text {
-        self.super_text(SuperKind::YLabel, text.into())
-    }
-
-    /// The figure title (empty when unset).
-    pub fn suptitle_text(&self) -> String {
-        let id = self
-            .root
-            .with::<FigureFrame, _>(|frame| frame.super_texts.title);
-        id.map(|id| Text::from_raw(RawHandle::new(Rc::clone(&self.state), id)).text())
-            .unwrap_or_default()
-    }
-
-    /// Adds text at `(x, y)` in figure fractions (matplotlib's `fig.text`).
-    pub fn text(&self, x: f64, y: f64, text: impl Into<String>) -> Text {
-        let rc = crate::rc::params();
-        let mut artist = TextArtist::new(Point::new(x, y), text, rc);
-        artist.base_mut().transform = Some(Transform::Figure(self.root.id()));
-        let id = self
-            .state
-            .borrow_mut()
-            .adopt(self.root.id(), Box::new(artist));
-        Text::from_raw(RawHandle::new(Rc::clone(&self.state), id))
-    }
-
     /// Adds a line through `(x, y)` in figure fractions, styled from the
     /// rc parameters and `props` without the property cycle (matplotlib's
     /// `fig.add_artist(Line2D(...))`).
@@ -324,31 +279,6 @@ impl Figure {
             .borrow_mut()
             .adopt(self.root.id(), Box::new(patch));
         Patch::from_raw(RawHandle::new(Rc::clone(&self.state), id))
-    }
-
-    fn super_text(&self, kind: SuperKind, text: String) -> Text {
-        let existing = self.root.with::<FigureFrame, _>(|frame| match kind {
-            SuperKind::Title => frame.super_texts.title,
-            SuperKind::XLabel => frame.super_texts.xlabel,
-            SuperKind::YLabel => frame.super_texts.ylabel,
-        });
-        let id = existing.unwrap_or_else(|| {
-            let artist = kind.artist(self.root.id(), &crate::rc::params());
-            let mut state = self.state.borrow_mut();
-            let id = state.adopt(self.root.id(), Box::new(artist));
-            if let Some(frame) = state.store.get_as_mut::<FigureFrame>(self.root.id()) {
-                let slot = match kind {
-                    SuperKind::Title => &mut frame.super_texts.title,
-                    SuperKind::XLabel => &mut frame.super_texts.xlabel,
-                    SuperKind::YLabel => &mut frame.super_texts.ylabel,
-                };
-                *slot = Some(id);
-            }
-            id
-        });
-        let handle = Text::from_raw(RawHandle::new(Rc::clone(&self.state), id));
-        handle.set_text(text);
-        handle
     }
 
     /// Every axes of the figure, in creation order.
@@ -491,56 +421,6 @@ impl Figure {
     /// Whether something changed since the last draw.
     pub fn is_stale(&self) -> bool {
         self.state.borrow().stale
-    }
-}
-
-/// The figure-wide texts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum SuperKind {
-    Title,
-    XLabel,
-    YLabel,
-}
-
-impl SuperKind {
-    /// A new text placed and styled like matplotlib's `_suplabels`.
-    fn artist(self, frame: ArtistId, rc: &Rc<RcParams>) -> TextArtist {
-        let (position, halign, valign, size, weight) = match self {
-            Self::Title => (
-                (0.5, 0.98),
-                HAlign::Center,
-                VAlign::Top,
-                rc.figure_titlesize,
-                rc.figure_titleweight,
-            ),
-            Self::XLabel => (
-                (0.5, 0.01),
-                HAlign::Center,
-                VAlign::Bottom,
-                rc.figure_labelsize,
-                rc.figure_labelweight,
-            ),
-            Self::YLabel => (
-                (0.02, 0.5),
-                HAlign::Left,
-                VAlign::Center,
-                rc.figure_labelsize,
-                rc.figure_labelweight,
-            ),
-        };
-        let mut text = TextArtist::new(Point::new(position.0, position.1), "", Rc::clone(rc));
-        text.halign = halign;
-        text.valign = valign;
-        text.font = FontProperties::from_rc(rc)
-            .with_size(size, rc.font_size)
-            .with_weight(weight);
-        // matplotlib's `_suplabels` ignores the `rotation_mode` of its
-        // settings, so the y label rotates in the default mode.
-        if self == Self::YLabel {
-            text.rotation = 90.0;
-        }
-        text.base_mut().transform = Some(Transform::Figure(frame));
-        text
     }
 }
 

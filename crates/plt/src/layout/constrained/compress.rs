@@ -63,7 +63,8 @@ impl LayoutTree {
     }
 
     /// Puts the figure's suptitle just above the compressed layout,
-    /// bottom-aligned, as matplotlib does after compressing.
+    /// bottom-aligned, as matplotlib does after compressing, unless it
+    /// was placed by hand.
     pub(super) fn place_suptitle(&self, fig: &mut FigureState, h_pad: f64) {
         let inner = self
             .grids
@@ -72,8 +73,9 @@ impl LayoutTree {
         let title = fig
             .store
             .get_as::<FigureFrame>(self.frames[FIGURE].id)
-            .and_then(|frame| frame.super_texts.title);
-        if let Some(text) = title.and_then(|id| fig.store.get_as_mut::<TextArtist>(id))
+            .and_then(|frame| frame.super_texts.title)
+            .filter(|title| title.auto_placed);
+        if let Some(text) = title.and_then(|title| fig.store.get_as_mut::<TextArtist>(title.id))
             && text.base().in_layout
         {
             text.position.y = inner.y1() + h_pad;
@@ -111,28 +113,38 @@ pub(super) fn actual_parent_position(
 
 #[cfg(test)]
 mod tests {
-    use crate::axes::ImshowOptions;
+    use plt_text::VAlign;
+
+    use crate::artist::ArtistHandle;
+    use crate::axes::{Axes, ImshowOptions};
     use crate::figure::Figure;
     use crate::layout::{ConstrainedLayout, LayoutEngine};
     use crate::numeric::Grid;
+
+    /// Four square images without ticks on a 2 × 2 grid of a new figure
+    /// laid out by constrained layout, compressed or not.
+    fn square_images(compress: bool) -> (Figure, Grid<Axes>) {
+        let fig = Figure::new();
+        fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout {
+            compress,
+            ..ConstrainedLayout::default()
+        })));
+        let axs = fig.subplots(2, 2).expect("a grid");
+        for ax in axs.as_slice() {
+            let data = Grid::from_fn(10, 10, |r, c| (r * 10 + c) as f64);
+            ax.imshow(data, ImshowOptions::default()).expect("an image");
+            ax.set_xticks(Vec::<f64>::new())
+                .set_yticks(Vec::<f64>::new());
+        }
+        (fig, axs)
+    }
 
     /// The positions of the top-left and bottom-right of four square
     /// images, and the suptitle's height, under constrained layout.
     fn images(compress: bool) -> ([f64; 4], [f64; 4], f64) {
         crate::rc::context(|| {
             crate::rc::set("text.hinting", "none").expect("valid setting");
-            let fig = Figure::new();
-            fig.set_layout_engine(Some(LayoutEngine::Constrained(ConstrainedLayout {
-                compress,
-                ..ConstrainedLayout::default()
-            })));
-            let axs = fig.subplots(2, 2).expect("a grid");
-            for ax in axs.as_slice() {
-                let data = Grid::from_fn(10, 10, |r, c| (r * 10 + c) as f64);
-                ax.imshow(data, ImshowOptions::default()).expect("an image");
-                ax.set_xticks(Vec::<f64>::new())
-                    .set_yticks(Vec::<f64>::new());
-            }
+            let (fig, axs) = square_images(compress);
             let title = fig.suptitle("t");
             fig.layout();
             let bounds = |row: usize, col: usize| {
@@ -173,6 +185,25 @@ mod tests {
             [0.506_511, 0.008_681, 0.342_446, 0.456_595]
         ));
         assert!((title - 0.956_597).abs() < 1e-6, "the suptitle moves down");
+    }
+
+    #[test]
+    fn a_suptitle_placed_by_hand_or_out_of_the_layout_stays() {
+        // matplotlib's test_compressed_suptitle: each `suptitle` call
+        // resets the title, which compressing then moves above the axes,
+        // bottom-aligned, unless it is placed by hand or out of the layout.
+        let (fig, _) = square_images(true);
+        let title = fig.suptitle("t");
+        fig.layout();
+        assert!(title.position().y < 0.97, "{:?}", title.position());
+        assert_eq!(title.valign(), VAlign::Bottom);
+        fig.suptitle("t");
+        fig.set_suptitle_y(0.98);
+        fig.layout();
+        assert_eq!((title.position().y, title.valign()), (0.98, VAlign::Top));
+        fig.suptitle("t").set_in_layout(false);
+        fig.layout();
+        assert_eq!((title.position().y, title.valign()), (0.98, VAlign::Top));
     }
 
     #[test]

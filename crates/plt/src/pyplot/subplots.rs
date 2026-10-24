@@ -12,7 +12,7 @@ use crate::figure::{
     Figure, Mosaic, MosaicAxes, MosaicError, MosaicOptions, SaveError, SaveOptions, Share,
 };
 use crate::geo::{GeoAxes, GeoProjection};
-use crate::gridspec::{GridSpec, GridSpecError};
+use crate::gridspec::GridSpecError;
 use crate::lines::Line2D;
 use crate::numeric::Grid;
 use crate::polar::PolarAxes;
@@ -169,11 +169,21 @@ fn projected(ax: Axes, projection: ProjectionKind) -> Axes {
 /// A new current axes spanning `rowspan × colspan` cells from cell `loc`
 /// (row, column) of a `shape` (rows, columns) grid of the current figure
 /// (matplotlib's `subplot2grid`). The grid of the figure's other axes is
-/// reused when it has that shape, so layout engines see a single grid.
+/// reused when it has that shape, so layout engines see a single grid. A
+/// span reaching past the grid stops at its edge, as matplotlib slices
+/// the grid.
+///
+/// ```
+/// use plt::pyplot as plt;
+/// let ax = plt::subplot2grid((3, 2), (2, 1), 1, 2)?;
+/// assert_eq!(ax.subplot_spec().unwrap().cols(), 1..2);
+/// plt::close_all();
+/// # Ok::<(), ::plt::gridspec::GridSpecError>(())
+/// ```
 ///
 /// # Errors
 ///
-/// When the grid is empty or the block leaves it.
+/// When the grid is empty or the block starts outside it.
 pub fn subplot2grid(
     shape: (usize, usize),
     loc: (usize, usize),
@@ -181,12 +191,12 @@ pub fn subplot2grid(
     colspan: usize,
 ) -> Result<Axes, GridSpecError> {
     let fig = gcf();
-    let grid = match fig.existing_gridspec(shape.0, shape.1) {
-        Some(grid) => grid,
-        None => GridSpec::new(shape.0, shape.1)?,
-    };
+    let grid = fig.figure_grid(shape.0, shape.1)?;
     let (row, col) = loc;
-    let spec = grid.span(row..row + rowspan, col..col + colspan)?;
+    let spec = grid.span(
+        row..(row + rowspan).min(shape.0),
+        col..(col + colspan).min(shape.1),
+    )?;
     fig.add_subplot_spec(&spec)
 }
 
@@ -387,8 +397,14 @@ mod tests {
         let (wide_spec, tall_spec) = (wide.subplot_spec().unwrap(), tall.subplot_spec().unwrap());
         assert!(wide_spec.gridspec().is_same(tall_spec.gridspec()));
         assert_eq!((wide_spec.cols(), tall_spec.rows()), (0..3, 1..3));
+        let clipped = subplot2grid((3, 3), (2, 2), 2, 1).unwrap();
         assert_eq!(
-            subplot2grid((3, 3), (2, 2), 2, 1).unwrap_err(),
+            clipped.subplot_spec().unwrap().rows(),
+            2..3,
+            "spans stop at the grid's edge, as matplotlib slices it"
+        );
+        assert_eq!(
+            subplot2grid((3, 3), (3, 0), 1, 1).unwrap_err(),
             GridSpecError::OutOfRange
         );
         close_all();

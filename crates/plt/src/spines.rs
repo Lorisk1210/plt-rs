@@ -45,6 +45,17 @@ impl SpineSide {
         }
     }
 
+    /// The side matplotlib calls `name`, if any.
+    ///
+    /// ```
+    /// use plt::spines::SpineSide;
+    /// assert_eq!(SpineSide::from_name("top"), Some(SpineSide::Top));
+    /// assert_eq!(SpineSide::from_name("middle"), None);
+    /// ```
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|side| side.name() == name)
+    }
+
     /// The side of axis `name` at its low (bottom, left) or high (top,
     /// right) end.
     pub const fn of(name: AxisName, high: bool) -> Self {

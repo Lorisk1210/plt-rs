@@ -9,9 +9,9 @@ use plt_text::HAlign;
 
 use super::{Figure, FigureState};
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
-use crate::axes::{Axes, AxesState, AxisName, TickLabelProps, TickLevel, TickParams};
+use crate::axes::{Axes, AxesState, AxisName};
 use crate::fonts::FontProperties;
-use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotSpec};
+use crate::gridspec::{GridSpec, GridSpecError, SubplotSpec};
 use crate::numeric::Grid;
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::spines::{SpineArtist, SpineSide};
@@ -117,9 +117,39 @@ impl Figure {
         self.add_subplot_spec(&spec)
     }
 
+    /// Adds axes spanning the cells from `first` to `last` (1-based,
+    /// row-major, inclusive) of an `nrows × ncols` grid
+    /// (`fig.add_subplot(nrows, ncols, (first, last))`); the grid is the
+    /// one the figure's other subplots of that shape are on.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let fig = Figure::new();
+    /// let tall = fig.add_subplot_span(3, 2, 3, 5)?;
+    /// let beside = fig.add_subplot(3, 2, 4)?;
+    /// let (tall, beside) = (tall.subplot_spec().unwrap(), beside.subplot_spec().unwrap());
+    /// assert_eq!((tall.rows(), tall.cols()), (1..3, 0..1));
+    /// assert!(tall.gridspec().is_same(beside.gridspec()));
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the grid is empty, a cell is outside it or `last` comes before
+    /// `first`.
+    pub fn add_subplot_span(
+        &self,
+        nrows: usize,
+        ncols: usize,
+        first: usize,
+        last: usize,
+    ) -> Result<Axes, GridSpecError> {
+        let spec = self.figure_grid(nrows, ncols)?.numbered_span(first, last)?;
+        self.add_subplot_spec(&spec)
+    }
+
     /// Cell `index` (1-based, row-major) of the figure's `nrows × ncols`
-    /// grid: the grid an axes of the figure is already placed on, so that
-    /// layout engines see a single grid, or a new one (matplotlib's
+    /// grid (see [`Figure::figure_grid`]; matplotlib's
     /// `SubplotSpec._from_subplot_args`).
     pub(crate) fn numbered_cell(
         &self,
@@ -127,11 +157,21 @@ impl Figure {
         ncols: usize,
         index: usize,
     ) -> Result<SubplotSpec, GridSpecError> {
-        let grid = match self.existing_gridspec(nrows, ncols) {
-            Some(grid) => grid,
-            None => GridSpec::new(nrows, ncols)?,
-        };
-        grid.numbered(index)
+        self.figure_grid(nrows, ncols)?.numbered(index)
+    }
+
+    /// The figure's `nrows × ncols` grid: the grid an axes of the figure
+    /// is already placed on, so that layout engines see a single grid, or
+    /// a new one.
+    pub(crate) fn figure_grid(
+        &self,
+        nrows: usize,
+        ncols: usize,
+    ) -> Result<GridSpec, GridSpecError> {
+        match self.existing_gridspec(nrows, ncols) {
+            Some(grid) => Ok(grid),
+            None => GridSpec::new(nrows, ncols),
+        }
     }
 
     /// The topmost grid of shape `(nrows, ncols)` an axes of the figure is
@@ -229,51 +269,6 @@ impl Figure {
             }
         }
         Ok(Grid::from_vec(nrows, ncols, cells).expect("one axes per grid cell"))
-    }
-
-    /// Makes room for long date tick labels (matplotlib's `autofmt_xdate`):
-    /// the x tick labels are rotated by `rotation` degrees and aligned
-    /// `halign`; with several subplots only the bottom row keeps them (and
-    /// its x labels); grid-placed figures get `bottom` as their bottom
-    /// margin.
-    ///
-    /// # Errors
-    ///
-    /// When `bottom` leaves no room for the subplots.
-    pub fn autofmt_xdate(
-        &self,
-        bottom: f64,
-        rotation: f64,
-        halign: HAlign,
-    ) -> Result<&Self, GridSpecError> {
-        let axes = self.axes();
-        let rotated = TickLabelProps {
-            rotation: Some(rotation),
-            halign: Some(halign),
-            ..TickLabelProps::default()
-        };
-        let all_subplots = axes.iter().all(|ax| ax.subplot_spec().is_some());
-        for ax in &axes {
-            let bottom_row = ax.subplot_spec().is_none_or(|spec| spec.is_last_row());
-            if axes.len() == 1 || bottom_row {
-                ax.xaxis()
-                    .set_ticklabel_props(TickLevel::Major, rotated.clone());
-            } else if all_subplots {
-                ax.xaxis().set_tick_params(&TickParams {
-                    labelbottom: Some(false),
-                    labeltop: Some(false),
-                    ..TickParams::default()
-                });
-                ax.set_xlabel("");
-            }
-        }
-        if all_subplots {
-            self.subplots_adjust(&SubplotOverrides {
-                bottom: Some(bottom),
-                ..SubplotOverrides::default()
-            })?;
-        }
-        Ok(self)
     }
 
     /// A grid specification using this figure's subplot parameters.

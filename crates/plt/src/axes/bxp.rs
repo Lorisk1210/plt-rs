@@ -5,6 +5,7 @@ use std::any::Any;
 
 use plt_core::{Path, Point};
 
+use super::box_labels::BoxLabel;
 use super::children::DataUpdate;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
@@ -102,6 +103,8 @@ pub struct BxpOptions {
     pub zorder: Option<f64>,
     /// Cap widths: one for all or one per box (default half the widths).
     pub capwidths: Vec<f64>,
+    /// Legend labels (none by default: the parts stay out of legends).
+    pub label: Option<BoxLabel>,
 }
 
 impl Default for BxpOptions {
@@ -126,6 +129,7 @@ impl Default for BxpOptions {
             manage_ticks: true,
             zorder: None,
             capwidths: Vec::new(),
+            label: None,
         }
     }
 }
@@ -225,10 +229,19 @@ impl PartStyles {
             Some(BoxStyle::Line(props)) => BoxStyle::Line(Self::box_line(rc, zorder, props)),
             None => BoxStyle::Line(Self::box_line(rc, zorder, &LineProps::default())),
         };
+        // Whiskers, caps, outliers and, beside boxes, medians stay out of
+        // legends unless the caller labels them (matplotlib's
+        // `setdefault('label', '_nolegend_')`).
+        let unlisted = |props: LineProps| props.label("_nolegend_");
+        let median = if options.showbox.unwrap_or(true) {
+            unlisted(median)
+        } else {
+            median
+        };
         Self {
-            whisker: whisker.overlay(options.whiskerprops.clone()),
-            cap: cap.overlay(options.capprops.clone()),
-            flier: flier.overlay(options.flierprops.clone()),
+            whisker: unlisted(whisker).overlay(options.whiskerprops.clone()),
+            cap: unlisted(cap).overlay(options.capprops.clone()),
+            flier: unlisted(flier).overlay(options.flierprops.clone()),
             median: median.overlay(options.medianprops.clone()),
             mean: mean.overlay(options.meanprops.clone()),
             boxes,
@@ -265,7 +278,8 @@ impl Axes {
     /// # Errors
     ///
     /// When `positions`, `widths` or `capwidths` hold neither one value
-    /// (widths) nor one per box.
+    /// (widths) nor one per box, or a [`BoxLabel::Each`] not one label per
+    /// box.
     pub fn bxp(
         &self,
         stats: &[BoxStats],
@@ -303,6 +317,9 @@ impl Axes {
         } else {
             per_box("capwidths", &options.capwidths, n)?
         };
+        if let Some(label) = &options.label {
+            label.check(n)?;
+        }
         let mut artists = BoxplotArtists::default();
         for (i, box_stats) in stats.iter().enumerate() {
             self.draw_box(
@@ -316,6 +333,9 @@ impl Axes {
                 &styles,
                 &mut artists,
             )?;
+        }
+        if let Some(label) = &options.label {
+            label.apply(&artists);
         }
         if options.manage_ticks {
             let labels = stats

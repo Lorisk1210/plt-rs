@@ -29,6 +29,9 @@ pub enum SaveError {
     Draw(DrawErrors),
     /// The file format is not one plt-rs can write.
     UnsupportedFormat(String),
+    /// Metadata was given for a format that cannot hold it (the bitmap
+    /// formats other than PNG).
+    MetadataUnsupported(SaveFormat),
     /// Writing the file failed.
     Io(std::io::Error),
 }
@@ -44,6 +47,11 @@ impl fmt::Display for SaveError {
                 f,
                 "format {format:?} is not supported (supported formats: eps, gif, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff, webp)"
             ),
+            Self::MetadataUnsupported(format) => write!(
+                f,
+                "metadata not supported for format {:?}",
+                format.extension()
+            ),
             Self::Io(err) => write!(f, "cannot write the figure: {err}"),
         }
     }
@@ -57,7 +65,7 @@ impl std::error::Error for SaveError {
             Self::Bitmap(err) => Some(err),
             Self::Draw(err) => Some(err),
             Self::Io(err) => Some(err),
-            Self::UnsupportedFormat(_) => None,
+            Self::UnsupportedFormat(_) | Self::MetadataUnsupported(_) => None,
         }
     }
 }
@@ -128,6 +136,15 @@ impl SaveFormat {
             .collect();
         let base = if base.is_empty() { "image" } else { &base };
         format!("{base}.{}", self.extension())
+    }
+
+    /// Whether the format holds document metadata (matplotlib's
+    /// `savefig(metadata=...)`): the vector formats and PNG.
+    pub const fn takes_metadata(self) -> bool {
+        !matches!(
+            self,
+            Self::Jpeg | Self::Tiff | Self::Gif | Self::Webp | Self::Raw
+        )
     }
 
     /// The bitmap encoding of the raster formats, `None` for the vector
@@ -295,12 +312,16 @@ impl Figure {
     ///
     /// # Errors
     ///
-    /// When some artists cannot be drawn or the output cannot be encoded.
+    /// When some artists cannot be drawn, the output cannot be encoded or
+    /// metadata is given for a format that cannot hold it.
     pub fn to_format(
         &self,
         format: SaveFormat,
         options: SaveOptions,
     ) -> Result<Vec<u8>, SaveError> {
+        if options.metadata.is_some() && !format.takes_metadata() {
+            return Err(SaveError::MetadataUnsupported(format));
+        }
         match format {
             SaveFormat::Png => self.to_png_with(options),
             SaveFormat::Svg => self.to_svg_with(options).map(String::into_bytes),
@@ -579,5 +600,34 @@ mod tests {
             fig.savefig(dir.join("figure.avif")),
             Err(SaveError::UnsupportedFormat(_))
         ));
+    }
+
+    #[test]
+    fn only_png_and_vector_formats_take_metadata() {
+        // matplotlib's test_savefig_metadata and test_savefig_metadata_error.
+        let fig = Figure::with_size(1.0, 1.0, 20.0);
+        let options = SaveOptions {
+            metadata: Some(Metadata::default()),
+            ..SaveOptions::default()
+        };
+        for format in [
+            SaveFormat::Png,
+            SaveFormat::Svg,
+            SaveFormat::Pdf,
+            SaveFormat::Eps,
+        ] {
+            assert!(fig.to_format(format, options.clone()).is_ok(), "{format:?}");
+        }
+        for format in [
+            SaveFormat::Jpeg,
+            SaveFormat::Tiff,
+            SaveFormat::Webp,
+            SaveFormat::Raw,
+        ] {
+            assert!(matches!(
+                fig.to_format(format, options.clone()),
+                Err(SaveError::MetadataUnsupported(rejected)) if rejected == format
+            ));
+        }
     }
 }

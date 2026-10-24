@@ -123,8 +123,8 @@ impl LegendHandler for HandlerPathCollection {
     }
 }
 
-/// Draws polygon collections: a rectangle filling the handle box in their
-/// first face, edge and hatch colour (matplotlib's
+/// Draws polygon and patch collections: a rectangle filling the handle
+/// box in their first face, edge and hatch colour (matplotlib's
 /// `HandlerPolyCollection`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerPolyCollection;

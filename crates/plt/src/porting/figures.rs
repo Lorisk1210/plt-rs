@@ -57,6 +57,7 @@
 //! | `fig.axes`, `fig.gca()`, `fig.sca(ax)`          | [`Figure::axes`], [`Figure::gca`], [`Figure::sca`] |
 //! | `fig.delaxes(ax)`, `fig.clear()`                | [`Figure::delaxes`], [`Figure::clear`]        |
 //! | `fig.suptitle`, `fig.supxlabel`, `fig.supylabel` | [`Figure::suptitle`], [`Figure::supxlabel`], [`Figure::supylabel`] |
+//! | `fig.suptitle(s, y=...)`, `supxlabel(s, y=...)`, `supylabel(s, x=...)` | then [`Figure::set_suptitle_y`], [`Figure::set_supxlabel_y`], [`Figure::set_supylabel_x`] |
 //! | `fig.text(x, y, s)`                             | [`Figure::text`]                              |
 //! | `layout="constrained"`, `"compressed"`, `"tight"` | [`LayoutEngine::constrained`], [`LayoutEngine::compressed`], [`LayoutEngine::tight`] |
 //! | `fig.set_layout_engine(...)`, `fig.get_layout_engine()` | [`Figure::set_layout_engine`], [`Figure::layout_engine`] |
@@ -65,7 +66,7 @@
 //! | `fig.subplots_adjust(left=..., wspace=...)`     | [`Figure::subplots_adjust`]`(&SubplotOverrides { .. })` |
 //! | `fig.subplotpars`                               | [`Figure::subplot_params`]                    |
 //! | `fig.align_labels()`, `fig.align_titles()`      | [`Figure::align_labels`]`(None)`, [`Figure::align_titles`]`(None)` |
-//! | `fig.autofmt_xdate()`                           | [`Figure::autofmt_xdate`]`(0.2, 30.0, HAlign::Right)` |
+//! | `fig.autofmt_xdate()`                           | [`Figure::autofmt_xdate`]`(0.2, 30.0, HAlign::Right, TickLevel::Major)` |
 //! | `fig.draw_without_rendering()`                  | [`Figure::layout`]                            |
 //! | `ax.get_position()`, `ax.set_position(rect)`    | [`Axes::position`], [`Axes::set_position`]    |
 //! | `ax.label_outer()`                              | [`Axes::label_outer`]                         |
@@ -85,7 +86,7 @@
 //!
 //! let fig = Figure::with_size(8.0, 3.0, 120.0);
 //! fig.set_facecolor(Color::from("0.9").resolve()?);
-//! fig.set_size_inches(6.0, 4.0);
+//! fig.set_size_inches(6.0, 4.0)?;
 //! assert_eq!(fig.size_inches(), (6.0, 4.0));
 //! assert_eq!(fig.dpi(), 120.0);
 //! assert_eq!(fig.width_height(), (720, 480));
@@ -265,6 +266,9 @@
 //! [`Figure::suptitle`]: crate::figure::Figure::suptitle
 //! [`Figure::supxlabel`]: crate::figure::Figure::supxlabel
 //! [`Figure::supylabel`]: crate::figure::Figure::supylabel
+//! [`Figure::set_suptitle_y`]: crate::figure::Figure::set_suptitle_y
+//! [`Figure::set_supxlabel_y`]: crate::figure::Figure::set_supxlabel_y
+//! [`Figure::set_supylabel_x`]: crate::figure::Figure::set_supylabel_x
 //! [`Figure::text`]: crate::figure::Figure::text
 //! [`Figure::set_layout_engine`]: crate::figure::Figure::set_layout_engine
 //! [`Figure::layout_engine`]: crate::figure::Figure::layout_engine

@@ -1,0 +1,16 @@
+{
+ "area": "mpl_tightlayout",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Figure.get_tight_layout", "args": {"calls": [true, false, true]}, "value": [true, false, true]},
+  {
+   "op": "Figure.tight_layout",
+   "args": {"scene": "badsubplotgrid"},
+   "value": {"warned": true, "positions": [[0.125, 0.7260869565217392, 0.25862068965517243, 0.9], [0.6060344827586208, 0.09999999999999998, 0.9000000000000001, 0.9]]},
+   "tol": 1e-06
+  },
+  {"op": "Figure.tight_layout", "args": {"scene": "collapsed"}, "value": {"warned": [true, true], "widths": [0.775, 0.775, 0.775]}, "tol": 1e-06},
+  {"op": "Figure.tight_layout", "args": {"scene": "empty"}, "value": {"warned": false, "params": [0.125, 0.1, 0.9, 0.9, 0.2, 0.2]}},
+  {"op": "Text.get_window_extent", "args": {}, "value": [456.196875, 436.99687500000005], "tol": 1e-06}
+ ]
+}

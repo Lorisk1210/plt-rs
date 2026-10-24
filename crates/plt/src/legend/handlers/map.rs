@@ -86,6 +86,8 @@ pub enum HandlerKey {
     PathCollection,
     /// Polygons, as made by `fill_between` (`PolyCollection`).
     PolyCollection,
+    /// The outlines of patches drawn together (`PatchCollection`).
+    PatchCollection,
     /// The bars of a `bar` call (`BarContainer`).
     BarContainer,
     /// The artists of an `errorbar` call (`ErrorbarContainer`).
@@ -128,6 +130,7 @@ impl HandlerKey {
             Some(CollectionKind::Line) => vec![Self::LineCollection],
             Some(CollectionKind::Path) => vec![Self::PathCollection],
             Some(CollectionKind::Poly) => vec![Self::PolyCollection],
+            Some(CollectionKind::Patch) => vec![Self::PatchCollection],
             Some(CollectionKind::Generic | CollectionKind::QuadMesh) | None => Vec::new(),
         }
     }
@@ -154,7 +157,7 @@ impl HandlerMap {
     }
 
     /// matplotlib's default handler map: lines, patches, step patches,
-    /// line, path and polygon collections, bar, error bar and stem
+    /// line, path, polygon and patch collections, bar, error bar and stem
     /// containers, and tuples.
     pub fn builtin() -> Self {
         Self::new()
@@ -168,6 +171,7 @@ impl HandlerMap {
             .with(HandlerKey::Tuple, HandlerTuple::default())
             .with(HandlerKey::PathCollection, HandlerPathCollection)
             .with(HandlerKey::PolyCollection, HandlerPolyCollection)
+            .with(HandlerKey::PatchCollection, HandlerPolyCollection)
     }
 
     /// The map with `handler` drawing the handles of `key`.
@@ -399,7 +403,7 @@ mod tests {
     #[test]
     fn the_default_map_can_be_replaced_and_extended() {
         let builtin = Legend::default_handler_map();
-        assert_eq!(builtin.len(), 10);
+        assert_eq!(builtin.len(), 11);
         assert!(builtin.get(HandlerKey::of::<AnyObject>()).is_none());
         Legend::update_default_handler_map(
             &HandlerMap::new().with(HandlerKey::of::<AnyObject>(), AnyObjectHandler),
@@ -413,7 +417,7 @@ mod tests {
             )
             .expect("a legend");
         assert_eq!(legend.labels(), ["registered once"]);
-        assert_eq!(legend.handler_map().len(), 11);
+        assert_eq!(legend.handler_map().len(), 12);
         Legend::set_default_handler_map(HandlerMap::new());
         assert!(Legend::default_handler_map().is_empty());
         let line = ax.plot([0.0, 1.0], [0.0, 1.0]).expect("a line");

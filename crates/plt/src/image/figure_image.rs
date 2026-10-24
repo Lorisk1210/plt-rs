@@ -141,7 +141,9 @@ impl Figure {
         if options.resize {
             let (rows, cols) = data.shape();
             let dpi = self.dpi();
-            self.set_size_inches(cols as f64 / dpi, rows as f64 / dpi);
+            // At a degenerate resolution the size is invalid: the figure
+            // keeps its size.
+            let _ = self.set_size_inches(cols as f64 / dpi, rows as f64 / dpi);
         }
         let (interpolation, stage, rc_origin) = rc_defaults(&rc);
         let resampling = Resampling {

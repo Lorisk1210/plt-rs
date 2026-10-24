@@ -1,6 +1,6 @@
 //! The cases from `test_dates.py` and `test_units.py`.
 
-use plt::axes::{Axes, Axis};
+use plt::axes::{Axes, Axis, TickLevel};
 use plt::dates::{
     AutoDateFormatter, DateError, DateTime, Frequency, RRuleLocator, RRuleSpec, TimeDelta,
 };
@@ -43,7 +43,7 @@ fn room_on_the_left(fig: &Figure) -> CaseResult {
 
 /// `fig.autofmt_xdate()` with matplotlib's defaults.
 fn autofmt_xdate(fig: &Figure) -> CaseResult {
-    fig.autofmt_xdate(0.2, 30.0, HAlign::Right)?;
+    fig.autofmt_xdate(0.2, 30.0, HAlign::Right, TickLevel::Major)?;
     Ok(())
 }
 

@@ -31,6 +31,9 @@ pub use tight::{TightLayout, TightLayoutError};
 
 pub(crate) use align::{Aligned, LabelGroups};
 
+use std::fmt;
+use std::str::FromStr;
+
 use plt_core::Anchor;
 
 use crate::artist::{ArtistHandle, ArtistId};
@@ -78,7 +81,52 @@ impl LayoutEngine {
             Self::Tight(_) => true,
         }
     }
+
+    /// Whether the engine works with the subplot parameters, so that
+    /// changing them by hand (`subplots_adjust`) still means something
+    /// (matplotlib's `adjust_compatible`).
+    pub fn adjust_compatible(&self) -> bool {
+        matches!(self, Self::Tight(_))
+    }
 }
+
+impl FromStr for LayoutEngine {
+    type Err = UnknownLayout;
+
+    /// The engine named `name` with its defaults (matplotlib's
+    /// `layout="constrained"`, `"compressed"` or `"tight"`).
+    ///
+    /// ```
+    /// use plt::layout::LayoutEngine;
+    /// assert_eq!("compressed".parse(), Ok(LayoutEngine::compressed()));
+    /// assert!("foobar".parse::<LayoutEngine>().is_err());
+    /// ```
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        match name {
+            "constrained" => Ok(Self::constrained()),
+            "compressed" => Ok(Self::compressed()),
+            "tight" => Ok(Self::tight()),
+            _ => Err(UnknownLayout(name.to_owned())),
+        }
+    }
+}
+
+/// A layout engine name other than `"constrained"`, `"compressed"` and
+/// `"tight"`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownLayout(pub String);
+
+impl fmt::Display for UnknownLayout {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid layout {:?}: expected constrained, compressed or tight",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for UnknownLayout {}
 
 /// Where a colorbar took its space from (matplotlib's `_colorbar_info`
 /// and the parents' `_colorbars`).

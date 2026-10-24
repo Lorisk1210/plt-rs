@@ -153,6 +153,49 @@ mod tests {
     }
 
     #[test]
+    fn texts_placed_by_hand_stay_and_take_no_room() {
+        // matplotlib's test_constrained_layout22 and test_suplabels: a
+        // suptitle at y = 0.5 leaves the layout alone, and so do labels
+        // placed across their edges; placed along them, they still count.
+        let layout = |place: Option<bool>| {
+            let fig = Figure::new();
+            fig.set_layout_engine(Some(super::super::LayoutEngine::Constrained(
+                ConstrainedLayout::from_rc(&RcParams::matplotlib()),
+            )));
+            let ax = fig.subplot();
+            let texts = place.map(|across| {
+                let texts = [fig.suptitle("t"), fig.supxlabel("x"), fig.supylabel("y")];
+                if across {
+                    fig.set_suptitle_y(0.5)
+                        .set_supxlabel_y(0.3)
+                        .set_supylabel_x(0.4);
+                } else {
+                    texts[0].set_x(0.2);
+                    texts[1].set_x(0.5);
+                    texts[2].set_y(0.5);
+                }
+                texts
+            });
+            fig.layout();
+            let placed = texts.map(|texts| texts.map(|text| text.position()));
+            (ax.position(), placed)
+        };
+        let (bare, _) = layout(None);
+        let (across, placed) = layout(Some(true));
+        assert_eq!(across, bare);
+        assert_eq!(
+            placed,
+            Some([
+                plt_core::Point::new(0.5, 0.5),
+                plt_core::Point::new(0.5, 0.3),
+                plt_core::Point::new(0.4, 0.5),
+            ])
+        );
+        let (along, _) = layout(Some(false));
+        assert!(along.y0() > bare.y0() && along.y1() < bare.y1() && along.x0() > bare.x0());
+    }
+
+    #[test]
     fn empty_suptitles_take_no_room() {
         let positions = |suptitle: Option<&str>| {
             let fig = Figure::new();

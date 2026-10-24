@@ -1,5 +1,5 @@
-//! The colour of a line's marker edges (matplotlib's
-//! `Line2D.get_markeredgecolor`).
+//! The colours of a line's markers (matplotlib's
+//! `Line2D.get_markeredgecolor` and `get_markerfacecolor`).
 
 use super::line::LineArtist;
 use crate::colors::Color;
@@ -7,6 +7,15 @@ use crate::markers::{FillStyle, Marker, MarkerStyle, MarkerSymbol};
 use crate::rc::ColorOrAuto;
 
 impl LineArtist {
+    /// The marker face colour before alpha: none for markers that are not
+    /// filled, else the face colour, the line colour when automatic.
+    pub(crate) fn marker_face_color(&self) -> Color {
+        if self.fillstyle == FillStyle::None {
+            return Color::none();
+        }
+        self.markerfacecolor.or(&self.color).clone()
+    }
+
     /// The marker edge colour before alpha. Like matplotlib, an automatic
     /// edge reads `_internal.classic_mode` when asked: see
     /// [`marker_edge_color`].
@@ -53,6 +62,20 @@ fn has_classic_black_edge(marker: &Marker, fillstyle: FillStyle) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::figure::Figure;
+    use crate::lines::LineProps;
+
+    #[test]
+    fn marker_faces_follow_the_line_unless_set_or_unfilled() {
+        let ax = Figure::new().subplot();
+        let props = LineProps::fmt("o").unwrap().color("r");
+        let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], props).unwrap();
+        assert_eq!(line.effective_markerfacecolor(), Color::from("r"));
+        line.set_markerfacecolor(ColorOrAuto::Color(Color::from("b")));
+        assert_eq!(line.effective_markerfacecolor(), Color::from("b"));
+        line.set_fillstyle(FillStyle::None);
+        assert!(line.effective_markerfacecolor().is_none());
+    }
 
     fn auto_edge(symbol: MarkerSymbol, fillstyle: FillStyle, classic: bool) -> Color {
         marker_edge_color(

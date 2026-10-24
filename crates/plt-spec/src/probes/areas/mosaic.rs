@@ -9,9 +9,10 @@ use crate::probes::{Args, Op, Outcome, ProbeError};
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[Op::new("figure.subplot_mosaic", subplot_mosaic)];
 
-/// A mosaic from nested JSON lists: strings label cells, `null` leaves
-/// them empty and lists nest mosaics.
-fn nested(rows: &[Json]) -> Result<Mosaic, ProbeError> {
+/// A mosaic from nested JSON lists: strings label cells, `null` and the
+/// string `empty` (matplotlib's `empty_sentinel`, if any) leave them empty
+/// and lists nest mosaics.
+pub(crate) fn nested(rows: &[Json], empty: Option<&str>) -> Result<Mosaic, ProbeError> {
     let bad = || ProbeError::BadArgs("mosaic is malformed".into());
     let rows = rows
         .iter()
@@ -20,9 +21,10 @@ fn nested(rows: &[Json]) -> Result<Mosaic, ProbeError> {
                 .ok_or_else(bad)?
                 .iter()
                 .map(|cell| match cell {
+                    Json::String(label) if Some(label.as_str()) == empty => Ok(MosaicCell::Empty),
                     Json::String(label) => Ok(MosaicCell::Label(label.clone())),
                     Json::Null => Ok(MosaicCell::Empty),
-                    Json::Array(inner) => nested(inner).map(MosaicCell::Nested),
+                    Json::Array(inner) => nested(inner, empty).map(MosaicCell::Nested),
                     _ => Err(bad()),
                 })
                 .collect::<Result<Vec<_>, _>>()
@@ -35,7 +37,7 @@ fn nested(rows: &[Json]) -> Result<Mosaic, ProbeError> {
 fn subplot_mosaic(args: Args<'_>) -> Outcome {
     let mosaic = match args.json("mosaic")? {
         Json::String(layout) => layout.parse::<Mosaic>().map_err(ProbeError::rejected)?,
-        Json::Array(rows) => nested(rows)?,
+        Json::Array(rows) => nested(rows, None)?,
         _ => return Err(ProbeError::BadArgs("mosaic is malformed".into())),
     };
     let ratios = |key: &str| args.get(key).map(|_| args.f64_vec(key)).transpose();

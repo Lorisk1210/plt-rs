@@ -42,6 +42,7 @@ mod mappable;
 mod navigation;
 mod options;
 mod placement;
+mod remove;
 mod state;
 mod ticking;
 
@@ -50,20 +51,26 @@ pub use mappable::Mappable;
 pub use options::{
     ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks, ExtendFrac, ParentAnchor, Spacing,
 };
-pub(crate) use state::follow;
+pub(crate) use remove::release;
+pub(crate) use state::{follow, follow_view};
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::artist::{ArtistHandle, RawHandle};
+use plt_core::{Bbox, Path};
+
+use crate::artist::{ArtistHandle, ArtistId, ArtistStore, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState, Axis, AxisName, GridOptions, LabelLoc, TickLevel};
 use crate::colors::{Color, Extend};
 use crate::contour::ContourSet;
-use crate::figure::Figure;
+use crate::figure::{Figure, FigureState};
 use crate::layout::LayoutEngine;
 use crate::orientation::Orientation;
+use crate::patches::{Patch, PathShape};
+use mappable::MappableLink;
 use placement::Parent;
 pub(crate) use state::ColorbarArtist;
-use state::ColorbarState;
+use state::{ColorbarState, colorbar_id};
 
 /// A colorbar drawn in its own axes (matplotlib's `Colorbar`): a handle
 /// to what the colorbar keeps in its axes. Clones refer to the same
@@ -86,10 +93,11 @@ impl Figure {
     /// Adds a colorbar showing the colour mapping of `mappable`
     /// (matplotlib's `Figure.colorbar`): in the axes `options.axes` names
     /// with [`ColorbarAxes::Cax`], otherwise in a new axes that takes
-    /// space from the parent axes. The colorbar follows later changes of
-    /// the mappable's colour mapping, unless the mappable is a bare
-    /// [`ScalarMappable`](crate::colors::ScalarMappable) or is drawn in
-    /// another figure.
+    /// space from the parent axes, in their figure (which, as in
+    /// matplotlib, may be another one than this). The colorbar follows
+    /// later changes of the mappable's colour mapping, unless the
+    /// mappable is a bare [`ScalarMappable`](crate::colors::ScalarMappable)
+    /// or is drawn in another figure than the colorbar.
     ///
     /// # Errors
     ///
@@ -103,12 +111,11 @@ impl Figure {
     ) -> Result<Colorbar, ColorbarError> {
         let mappable = mappable.into();
         let source = mappable.source()?;
-        let link = mappable
-            .link()
-            .filter(|(figure, _)| Rc::ptr_eq(figure, self.raw().figure_state()))
-            .map(|(_, link)| link);
         let parents = match std::mem::take(&mut options.axes) {
-            ColorbarAxes::Cax(cax) => return Colorbar::new(cax, source, link, &options, None),
+            ColorbarAxes::Cax(cax) => {
+                let link = link_in(&mappable, cax.raw().figure_state());
+                return Colorbar::new(cax, source, link, &options, None);
+            }
             ColorbarAxes::FromMappable => {
                 Parents::One(Parent::of(mappable.axes().ok_or(ColorbarError::NoAxes)?))
             }
@@ -118,23 +125,30 @@ impl Figure {
                 Parents::Many(axes.into_iter().map(Parent::Axes).collect())
             }
         };
-        let engine = self.layout_engine();
+        // matplotlib makes room in the figure of the (first) parent, even
+        // when asked through another one.
+        let host = Some(parents.first().figure_state())
+            .filter(|state| !Rc::ptr_eq(state, self.raw().figure_state()))
+            .map(Self::root_of);
+        let fig = host.as_ref().unwrap_or(self);
+        let link = link_in(&mappable, fig.raw().figure_state());
+        let engine = fig.layout_engine();
         let use_gridspec = options.use_gridspec && engine.is_none_or(|e| e.colorbar_gridspec());
         let constrained = matches!(engine, Some(LayoutEngine::Constrained(_)));
         // The new colorbar axes becomes current; matplotlib restores the
         // axes that was current before.
-        let current = self.current_axes();
+        let current = fig.current_axes();
         let placement = match parents {
             Parents::One(parent) => match parent.subplot_spec() {
                 Some(spec) if use_gridspec => {
-                    placement::make_axes_gridspec(self, parent, &spec, &options)?
+                    placement::make_axes_gridspec(fig, parent, &spec, &options)?
                 }
-                _ => placement::make_axes(self, &[parent], &options, constrained)?,
+                _ => placement::make_axes(fig, &[parent], &options, constrained)?,
             },
-            Parents::Many(parents) => placement::make_axes(self, &parents, &options, constrained)?,
+            Parents::Many(parents) => placement::make_axes(fig, &parents, &options, constrained)?,
         };
         if let Some(current) = current {
-            self.sca(&current);
+            fig.sca(&current);
         }
         placement.cax.grid_with(
             false,
@@ -151,6 +165,25 @@ impl Figure {
             Some(&placement),
         )
     }
+}
+
+impl Parents {
+    /// The first parent.
+    fn first(&self) -> &Parent {
+        match self {
+            Self::One(parent) => parent,
+            Self::Many(parents) => &parents[0],
+        }
+    }
+}
+
+/// The artist a colorbar drawn in the figure owning `figure` follows:
+/// the mappable, when it is drawn in that figure.
+fn link_in(mappable: &Mappable<'_>, figure: &Rc<RefCell<FigureState>>) -> Option<MappableLink> {
+    mappable
+        .link()
+        .filter(|(state, _)| Rc::ptr_eq(state, figure))
+        .map(|(_, link)| link)
 }
 
 impl Colorbar {
@@ -213,6 +246,63 @@ impl Colorbar {
     /// The value coloured in each block.
     pub fn values(&self) -> Vec<f64> {
         self.read(|state| state.blocks.values.clone())
+    }
+
+    /// The lowest block edge inside the extensions (matplotlib's `vmin`).
+    pub fn vmin(&self) -> f64 {
+        self.read(|state| state.blocks.limits().0)
+    }
+
+    /// The highest block edge inside the extensions (matplotlib's `vmax`).
+    pub fn vmax(&self) -> f64 {
+        self.read(|state| state.blocks.limits().1)
+    }
+
+    /// The opacity of the colours: the mappable's, unless it has none or
+    /// one per item (matplotlib's `alpha`).
+    pub fn alpha(&self) -> Option<f64> {
+        self.read(|state| state.alpha)
+    }
+
+    /// The outline around the colours and the extensions (matplotlib's
+    /// `outline`); it keeps the style given to it when the colorbar is
+    /// redrawn.
+    pub fn outline(&self) -> Patch<PathShape> {
+        let id = self.read(|state| state.drawn.outline);
+        Patch::from_raw(self.handle(id.expect("a colorbar is drawn with its outline")))
+    }
+
+    /// The patches filling the extensions, the one at the lower end of the
+    /// long axis first (matplotlib's `_extend_patches`); inverting the
+    /// axis swaps their ends.
+    pub fn extend_patches(&self) -> Vec<Patch<PathShape>> {
+        self.read(|state| state.drawn.extensions.clone())
+            .into_iter()
+            .map(|id| Patch::from_raw(self.handle(id)))
+            .collect()
+    }
+
+    /// With `drawedges`, the lines between the colours as drawn for the
+    /// current view: across the colorbar at every block edge inside the
+    /// view, and at the ends of the view the colorbar extends
+    /// (matplotlib's `dividers.get_segments()`); empty without.
+    pub fn divider_segments(&self) -> Vec<Path> {
+        let view = match long_axis(self.orientation()) {
+            AxisName::X => self.ax.xlim(),
+            AxisName::Y => self.ax.ylim(),
+        };
+        self.read(|state| {
+            if state.settings.drawedges {
+                state.dividers(&self.ax).segments(view)
+            } else {
+                Vec::new()
+            }
+        })
+    }
+
+    /// A handle to the artist `id` of the colorbar's figure.
+    fn handle(&self, id: ArtistId) -> RawHandle {
+        RawHandle::new(Rc::clone(self.raw.figure_state()), id)
     }
 
     /// Labels the long axis, at `loc` along it (`None` = the rc default)
@@ -298,6 +388,26 @@ fn short_axis(ax: &Axes, orientation: Orientation) -> Axis {
 fn minorticks_on(ax: &Axes, orientation: Orientation) {
     ax.minorticks_on();
     short_axis(ax, orientation).minorticks_off();
+}
+
+/// The colorbar drawn in `axes`, if any.
+fn colorbar_in(store: &ArtistStore, axes: ArtistId) -> Option<&ColorbarArtist> {
+    store.get_as::<ColorbarArtist>(colorbar_id(store, axes)?)
+}
+
+/// Whether `ax` is the axes of a colorbar (matplotlib's axes labelled
+/// `<colorbar>`).
+pub(crate) fn is_colorbar_axes(ax: &Axes) -> bool {
+    colorbar_id(&ax.raw().figure_state().borrow().store, ax.id()).is_some()
+}
+
+/// The extent of the outline of the colorbar drawn in `axes`, if it
+/// holds one (matplotlib's `spines["outline"]`, which the title and the
+/// y offset text clear).
+pub(crate) fn outline_extent(layout: &LayoutContext<'_>, axes: ArtistId) -> Option<Bbox> {
+    let store = layout.store();
+    let outline = colorbar_in(store, axes)?.state.drawn.outline?;
+    store.get(outline)?.window_extent(layout)
 }
 
 /// Labels the long axis of a colorbar at `loc`, by default the

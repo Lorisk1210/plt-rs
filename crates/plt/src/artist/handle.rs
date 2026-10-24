@@ -85,6 +85,16 @@ impl RawHandle {
         self.figure.borrow().store.get_as::<T>(self.id).is_some()
     }
 
+    /// Whether the artist exists and is a patch of any shape
+    /// (matplotlib's `isinstance(artist, Patch)`).
+    pub(crate) fn is_patch(&self) -> bool {
+        self.figure
+            .borrow()
+            .store
+            .get(self.id)
+            .is_some_and(|artist| artist.as_patch().is_some())
+    }
+
     /// Reads the artist as concrete type `T`.
     pub(crate) fn with<T: Artist, R>(&self, f: impl FnOnce(&T) -> R) -> R {
         let state = self.figure.borrow();

@@ -286,6 +286,14 @@ impl Axis {
             .flatten()
     }
 
+    /// The display box of the offset (or scale) text in the figure's
+    /// current layout (laid out first), if it is shown (matplotlib's
+    /// `axis.offsetText.get_window_extent()`).
+    pub fn offset_text_extent(&self) -> Option<Bbox> {
+        self.with_texts(|texts, _| texts.offset.as_ref().map(PlacedText::bbox))
+            .flatten()
+    }
+
     /// Sets the font size of the axis label.
     pub fn set_label_fontsize(&self, size: FontSize) -> &Self {
         let base = crate::rc::params().font_size;

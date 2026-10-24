@@ -1,0 +1,400 @@
+{
+ "area": "mpl_legend",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "Axes.boxplot",
+   "args": {"label": "box A"},
+   "value": {"boxes": [null, null, null, null], "medians": ["box A", null, null, null], "handles": ["line"], "labels": ["box A"]}
+  },
+  {
+   "op": "Axes.boxplot",
+   "args": {"label": ["box A", "box B", "box C", "box D"], "patch_artist": true},
+   "value": {
+    "boxes": ["box A", "box B", "box C", "box D"],
+    "medians": [null, null, null, null],
+    "handles": ["patch", "patch", "patch", "patch"],
+    "labels": ["box A", "box B", "box C", "box D"]
+   }
+  },
+  {
+   "op": "Axes.boxplot",
+   "args": {"label": ["box A", "box B", "box C", "box D"], "showbox": false},
+   "value": {"boxes": [], "medians": ["box A", "box B", "box C", "box D"], "handles": ["line", "line", "line", "line"], "labels": ["box A", "box B", "box C", "box D"]}
+  },
+  {"op": "Axes.boxplot", "args": {"label": ["box A", "box B", "box C"]}, "error": "ValueError"},
+  {"op": "Axes.get_legend_handles_labels", "args": {"artist": "pcolormesh"}, "value": {"legend": null, "labels": []}},
+  {"op": "Axes.get_legend_handles_labels", "args": {"artist": "text"}, "value": {"legend": ["mock data"], "labels": ["mock data"]}},
+  {"op": "Axes.legend", "args": {"seed": 0}, "value": {"texts": ["a", "b"], "extent": [584.0, 213.6, 651.6, 266.4]}, "tol": 1e-06},
+  {"op": "Axes.plot", "args": {"x": [1, 2, 3], "y": [[1, 2], [2, 5], [4, 9]], "label": "one"}, "value": {"lines": ["one", "one"], "texts": ["one", "one"]}},
+  {"op": "Axes.plot", "args": {"x": [1, 2, 3], "y": [[1, 2], [2, 5], [4, 9]], "label": 1}, "value": {"lines": ["1", "1"], "texts": ["1", "1"]}},
+  {"op": "Axes.plot", "args": {"y": [[0], [1]], "label": ["A"]}, "value": {"lines": ["A"], "texts": ["A"]}},
+  {"op": "Axes.plot", "args": {"x": [1, 2, 3], "y": [[1, 2], [2, 5], [4, 9]], "label": ["high", "low", "medium"]}, "error": "ValueError"},
+  {"op": "Axes.plot", "args": {"x": [1, 2, 3], "y": [2, 5, 6], "label": ["low", "high"]}, "error": "ValueError"},
+  {
+   "op": "Axes.plot",
+   "args": {"x": [1, 2, 3], "y": [[1, 2], [2, 5], [4, 9]], "label": ["low", "high"]},
+   "value": {"lines": ["low", "high"], "texts": ["low", "high"]}
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "left center"},
+   "value": {"axes": [152.05655555555555, 26.389222222222227, 790.333, 589.5016197916666], "legend": [9.999999999999996, 282.0, 133.0, 318.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "left lower"},
+   "value": {"axes": [152.05655555555555, 26.389222222222227, 790.333, 589.5016197916666], "legend": [9.999999999999996, 9.999999999999996, 133.0, 45.999999999999986]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "left upper"},
+   "value": {"axes": [152.05655555555555, 26.389222222222227, 790.333, 589.5016197916666], "legend": [9.999999999999996, 554.0, 133.0, 590.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "lower center"},
+   "value": {"axes": [20.722555555555555, 70.72322222222222, 790.333, 589.5016197916666], "legend": [338.5, 9.999999999999996, 461.5, 45.999999999999986]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "lower left"},
+   "value": {"axes": [20.722555555555555, 70.72322222222222, 790.333, 589.5016197916666], "legend": [9.999999999999996, 9.999999999999996, 133.0, 45.999999999999986]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "lower right"},
+   "value": {"axes": [20.722555555555555, 70.72322222222222, 790.333, 589.5016197916666], "legend": [667.0, 9.999999999999996, 790.0, 45.999999999999986]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "right center"},
+   "value": {"axes": [20.722555555555555, 26.389222222222227, 658.999, 589.5016197916666], "legend": [667.0, 282.0, 790.0, 318.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "right lower"},
+   "value": {"axes": [20.722555555555555, 26.389222222222227, 658.999, 589.5016197916666], "legend": [667.0, 9.999999999999996, 790.0, 45.999999999999986]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "right upper"},
+   "value": {"axes": [20.722555555555555, 26.389222222222227, 658.999, 589.5016197916666], "legend": [667.0, 554.0, 790.0, 590.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "upper center"},
+   "value": {"axes": [20.722555555555555, 26.389222222222227, 790.333, 545.1676197916665], "legend": [338.5, 554.0, 461.5, 590.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "upper left"},
+   "value": {"axes": [20.722555555555555, 26.389222222222227, 790.333, 545.1676197916665], "legend": [9.999999999999996, 554.0, 133.0, 590.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Figure.legend",
+   "args": {"loc": "upper right"},
+   "value": {"axes": [20.722555555555555, 26.389222222222227, 790.333, 545.1676197916665], "legend": [667.0, 554.0, 790.0, 590.0]},
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.get_alignment",
+   "args": {"alignment": "center", "set": true},
+   "value": {
+    "alignment": "center",
+    "title": [494.81718749999993, 403.39687499999997, 553.5828124999999, 417.59999999999997],
+    "legend": [480.4, 372.996875, 568.0, 423.99999999999994]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.get_alignment",
+   "args": {"alignment": "center"},
+   "value": {
+    "alignment": "center",
+    "title": [494.81718749999993, 403.39687499999997, 553.5828124999999, 417.59999999999997],
+    "legend": [480.4, 372.996875, 568.0, 423.99999999999994]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.get_alignment",
+   "args": {"alignment": "left", "set": true},
+   "value": {
+    "alignment": "left",
+    "title": [486.79999999999995, 403.39687499999997, 545.565625, 417.59999999999997],
+    "legend": [480.4, 372.996875, 568.0, 423.99999999999994]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.get_alignment",
+   "args": {"alignment": "left"},
+   "value": {
+    "alignment": "left",
+    "title": [486.79999999999995, 403.39687499999997, 545.565625, 417.59999999999997],
+    "legend": [480.4, 372.996875, 568.0, 423.99999999999994]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.get_alignment",
+   "args": {"alignment": "right", "set": true},
+   "value": {
+    "alignment": "right",
+    "title": [502.83437499999997, 403.39687499999997, 561.5999999999999, 417.59999999999997],
+    "legend": [480.4, 372.996875, 568.0, 423.99999999999994]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.get_alignment",
+   "args": {"alignment": "right"},
+   "value": {
+    "alignment": "right",
+    "title": [502.83437499999997, 403.39687499999997, 561.5999999999999, 417.59999999999997],
+    "legend": [480.4, 372.996875, 568.0, 423.99999999999994]
+   },
+   "tol": 1e-06
+  },
+  {"op": "Legend.get_draggable", "args": {"draggable": false}, "value": false},
+  {"op": "Legend.get_draggable", "args": {"draggable": true}, "value": true},
+  {"op": "Legend.get_draggable", "args": {}, "value": [false, true, false]},
+  {"op": "Legend.get_frame", "args": {"legend": {"shadow": true, "facecolor": "w"}}, "value": {"alpha": 1, "linewidth": 1.0}},
+  {"op": "Legend.get_frame", "args": {"legend": {"linewidth": 2.5}}, "value": {"alpha": null, "linewidth": 2.5}},
+  {"op": "Legend.get_frame", "args": {"legend": {"linewidth": 4.0}, "rc": {"legend.linewidth": 1.0}}, "value": {"alpha": null, "linewidth": 4.0}},
+  {"op": "Legend.get_frame", "args": {"legend": {}, "rc": {"legend.linewidth": 3.0}}, "value": {"alpha": null, "linewidth": 3.0}},
+  {"op": "Legend.get_frame", "args": {"legend": {}, "rc": {"legend.linewidth": null, "patch.linewidth": 1.5}}, "value": {"alpha": null, "linewidth": 1.5}},
+  {"op": "Legend.get_lines", "args": {"scene": "numpoints", "numpoints": 0}, "error": "ValueError"},
+  {"op": "Legend.get_lines", "args": {"scene": "numpoints", "numpoints": 1}, "value": [0.0, 14.399999999999999, 28.799999999999997]},
+  {"op": "Legend.get_lines", "args": {"scene": "markers"}, "value": {"markers": [".", "*", "v"], "texts": ["foo", "bar", "xyzzy"]}},
+  {
+   "op": "Legend.get_patches",
+   "args": {},
+   "value": [[0.07058823529411765, 0.20392156862745098, 0.33725490196078434, 0.5], [0.07058823529411765, 0.20392156862745098, 0.33725490196078434, 0.5], [0.07058823529411765, 0.20392156862745098, 0.33725490196078434, 1.0], [0.07058823529411765, 0.20392156862745098, 0.33725490196078434, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {"kind": "scatter", "calls": [{"label": "#1", "c": ["r", "g", "b", "c", "m", "r", "g", "b", "c", "m"]}], "labelcolor": "linecolor"},
+   "value": [[0.0, 0.0, 0.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {
+    "kind": "scatter",
+    "calls": [
+     {
+      "label": "#1",
+      "c": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "edgecolor": [[0.12138, 0.629492, 0.531973, 1.0], [0.35236, 0.783011, 0.392636, 1.0], [0.926106, 0.89733, 0.104071, 1.0], [0.147607, 0.511733, 0.557049, 1.0], [0.147607, 0.511733, 0.557049, 1.0], [0.395174, 0.797475, 0.367757, 1.0], [0.678489, 0.863742, 0.189503, 1.0], [0.122606, 0.585371, 0.546557, 1.0], [0.212395, 0.359683, 0.55171, 1.0], [0.468053, 0.818921, 0.323998, 1.0]],
+      "cmap": "Reds"
+     }
+    ],
+    "labelcolor": "markeredgecolor"
+   },
+   "value": [[0.0, 0.0, 0.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {
+    "kind": "scatter",
+    "calls": [
+     {
+      "label": "#1",
+      "c": [[0.130067, 0.651384, 0.521608, 1.0], [0.360741, 0.785964, 0.387814, 1.0], [0.132268, 0.655014, 0.519661, 1.0], [0.395174, 0.797475, 0.367757, 1.0], [0.201239, 0.38367, 0.554294, 1.0], [0.185556, 0.41857, 0.556753, 1.0], [0.311925, 0.767822, 0.415586, 1.0], [0.344074, 0.780029, 0.397381, 1.0], [0.229739, 0.322361, 0.545706, 1.0], [0.319809, 0.770914, 0.411152, 1.0]]
+     }
+    ],
+    "labelcolor": "markerfacecolor"
+   },
+   "value": [[0.0, 0.0, 0.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {"kind": "scatter", "calls": [{"label": "#1", "edgecolor": ["r", "g", "b", "c", "m", "r", "g", "b", "c", "m"]}], "labelcolor": "markeredgecolor"},
+   "value": [[0.0, 0.0, 0.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {
+    "kind": "scatter",
+    "calls": [{"label": "#1", "facecolor": "r"}, {"label": "#2", "facecolor": "g"}, {"label": "#3", "facecolor": "b"}],
+    "labelcolor": "markerfacecolor"
+   },
+   "value": [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {"kind": "scatter", "calls": [{"label": "#1", "facecolor": ["r", "g", "b", "c", "m", "r", "g", "b", "c", "m"]}], "labelcolor": "markerfacecolor"},
+   "value": [[0.0, 0.0, 0.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {
+    "kind": "plot",
+    "calls": [{"label": "#1", "markeredgecolor": "r"}, {"label": "#2", "markeredgecolor": "g"}, {"label": "#3", "markeredgecolor": "b"}],
+    "rc": {"legend.labelcolor": "mec"}
+   },
+   "value": [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {
+    "kind": "plot",
+    "calls": [{"label": "#1", "markerfacecolor": "r"}, {"label": "#2", "markerfacecolor": "g"}, {"label": "#3", "markerfacecolor": "b"}],
+    "rc": {"legend.labelcolor": "mfc"}
+   },
+   "value": [[1.0, 0.0, 0.0, 1.0], [0.0, 0.5, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {"kind": "plot", "calls": [{"label": "#1"}, {"label": "#2"}, {"label": "#3"}], "rc": {"legend.labelcolor": "none"}},
+   "value": [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {"kind": "plot", "calls": [{"label": "#1"}, {"label": "#2"}, {"label": "#3"}], "rc": {"legend.labelcolor": "red"}},
+   "value": [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
+  },
+  {
+   "op": "Legend.get_texts",
+   "args": {"kind": "plot", "calls": [{"label": "#1"}, {"label": "#2"}, {"label": "#3"}], "rc_labelcolor": [0.5, 0.5, 0.5]},
+   "value": [[0.5, 0.5, 0.5, 1.0], [0.5, 0.5, 0.5, 1.0], [0.5, 0.5, 0.5, 1.0]]
+  },
+  {"op": "Legend.get_title", "args": {"title_fontproperties": {"family": "serif", "size": 22}, "as_object": true}, "value": 22.0},
+  {"op": "Legend.get_title", "args": {"rc": {"legend.title_fontsize": 20}}, "value": 20.0},
+  {"op": "Legend.get_title", "args": {"title_fontproperties": {"family": "serif"}, "rc": {"legend.title_fontsize": null}}, "value": 12.0},
+  {"op": "Legend.get_title", "args": {"rc": {"legend.title_fontsize": null}}, "value": 12.0},
+  {"op": "Legend.get_title", "args": {"title_fontsize": 22, "title_fontproperties": {"family": "serif", "size": 22}}, "error": "ValueError"},
+  {"op": "Legend.get_title", "args": {"title_fontproperties": {"family": "serif", "size": 22}}, "value": 22.0},
+  {"op": "Legend.get_title", "args": {"title_fontsize": 22}, "value": 22.0},
+  {"op": "Legend.get_window_extent", "args": {"scene": "dpi", "dpi": 100}, "value": 547.34375, "tol": 1e-06},
+  {"op": "Legend.get_window_extent", "args": {"scene": "dpi", "dpi": 200}, "value": 1095.703125, "tol": 1e-06},
+  {"op": "Legend.get_window_extent", "args": {"scene": "cached"}, "value": [[547.34375, 494.0, 710.0, 530.0], [627.34375, 554.0, 790.0, 590.0]], "tol": 1e-06},
+  {
+   "op": "Legend.get_window_extent",
+   "args": {"scene": "patches"},
+   "value": [[0.2346102150537634, 0.45312500000000006, 0.5307795698924729, 0.09374999999999994], [0.23461021505376345, 0.45312500000000006, 0.5307795698924731, 0.09374999999999994]],
+   "tol": 1e-06
+  },
+  {
+   "op": "Legend.legend_handles",
+   "args": {"scene": "patchcollection", "empty": false},
+   "value": {
+    "texts": ["patch collection"],
+    "handles": 1,
+    "proxy": [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], 3.0, [0.0, [6.0, 6.0]]],
+    "collection": [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0], 3.0, [0.0, [6.0, 6.0]]]
+   }
+  },
+  {"op": "Legend.legend_handles", "args": {"scene": "patchcollection", "empty": true}, "value": {"texts": ["empty collection"], "handles": 1}},
+  {
+   "op": "Legend.legend_handles",
+   "args": {"scene": "reverse", "reverse": true},
+   "value": {"texts": ["Third label", "Second label", "First label"], "markers": ["o", ",", "."]}
+  },
+  {"op": "Legend.legend_handles", "args": {"scene": "alpha"}, "value": [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 0.25], [0.0, 0.0, 0.0, 0.25]]},
+  {"op": "Legend.legend_handles", "args": {"scene": "handlerline2d"}, "value": ["v", "v"]},
+  {
+   "op": "Legend.legend_handles",
+   "args": {"scene": "linecollection"},
+   "value": [[[0.0, [6.0, 6.0]], [0.0, [6.0, 6.0]]], [[0.0, [3.0, 5.0, 1.0, 5.0]], [0.0, [3.0, 5.0, 1.0, 5.0]]], [[0.0, [1.0, 3.0]], [0.0, [1.0, 3.0]]]]
+  },
+  {"op": "Legend.set_loc", "args": {"loc": "best"}, "value": 0},
+  {"op": "Legend.set_loc", "args": {"loc": "center"}, "value": 10},
+  {
+   "op": "Legend.texts",
+   "args": {
+    "kind": "scatter",
+    "calls": [
+     {"c": "r", "label": "red circles with a red label"},
+     {"c": "r", "ec": "b", "label": "red circles, blue edges, red label"},
+     {"fc": "r", "ec": "b", "label": "red circles, blue edges 2"},
+     {"fc": "none", "ec": "b", "label": "blue unfilled circles, blue label"},
+     {"fc": "r", "ec": "none", "label": "red edgeless circles, red label"},
+     {"c": "none", "ec": "none", "label": "invisible circles"}
+    ]
+   },
+   "value": [
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [null, [0.0, 0.0, 1.0, 1.0]], [null, [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], null], [[1.0, 0.0, 0.0, 1.0], null]],
+    [[0.0, 0.0, 0.0, 1.0], [null, null], [null, null]]
+   ]
+  },
+  {
+   "op": "Legend.texts",
+   "args": {
+    "kind": "plot",
+    "calls": [
+     {"c": "r", "label": "red line with a red label"},
+     {"fmt": "o", "c": "r", "label": "red circles with a red label"},
+     {"fmt": "o", "c": "r", "mec": "b", "label": "red circles, blue edges, red label"},
+     {"fmt": "o", "mfc": "r", "mec": "b", "label": "red circles, blue edges 2"},
+     {"fmt": "o", "mfc": "none", "mec": "b", "label": "blue unfilled circles"},
+     {"fmt": "o", "mfc": "r", "mec": "none", "label": "red edgeless circles"},
+     {"fmt": "o", "c": "none", "mec": "none", "label": "invisible circles"}
+    ]
+   },
+   "value": [
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[0.0, 0.0, 1.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [[0.0, 0.5, 0.0, 1.0], null, [0.0, 0.0, 1.0, 1.0]], [[0.0, 0.5, 0.0, 1.0], null, [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], null], [[1.0, 0.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], null]],
+    [[0.0, 0.0, 0.0, 1.0], [null, null, null], [null, null, null]]
+   ]
+  },
+  {
+   "op": "Legend.texts",
+   "args": {
+    "kind": "hist",
+    "calls": [
+     {"histtype": "bar", "color": "r", "label": "red bar hist with a red label"},
+     {"histtype": "step", "color": "g", "label": "green step hist, green label"},
+     {"histtype": "stepfilled", "color": "b", "label": "blue stepfilled hist"},
+     {"histtype": "bar", "color": "r", "ec": "b", "label": "red bar hist, blue edges"},
+     {"histtype": "bar", "fc": "r", "ec": "b", "label": "red bar hist, blue edges 2"},
+     {"histtype": "bar", "fc": "none", "ec": "b", "label": "unfilled blue bar hist"},
+     {"histtype": "step", "color": "r", "ec": "b", "label": "blue step hist"},
+     {"histtype": "step", "ec": "b", "label": "blue step hist 2"},
+     {"histtype": "stepfilled", "color": "r", "ec": "b", "label": "red stepfilled hist"},
+     {"histtype": "stepfilled", "fc": "r", "ec": "b", "label": "red stepfilled hist 2"},
+     {"histtype": "stepfilled", "fc": "none", "ec": "b", "label": "unfilled stepfilled"},
+     {"histtype": "stepfilled", "fc": "r", "ec": "none", "label": "edgeless stepfilled"}
+    ]
+   },
+   "value": [
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]],
+    [[0.0, 0.5, 0.0, 1.0], [[0.0, 0.5, 0.0, 0.0], [0.0, 0.5, 0.0, 1.0]], [[0.0, 0.5, 0.0, 0.0], [0.0, 0.5, 0.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 1.0]], [[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 0.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [null, [0.0, 0.0, 1.0, 1.0]], [null, [0.0, 0.0, 1.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]], [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]]],
+    [[0.0, 0.0, 1.0, 1.0], [null, [0.0, 0.0, 1.0, 1.0]], [null, [0.0, 0.0, 1.0, 1.0]]],
+    [[1.0, 0.0, 0.0, 1.0], [[1.0, 0.0, 0.0, 1.0], null], [[1.0, 0.0, 0.0, 1.0], null]]
+   ]
+  },
+  {"op": "SubFigure.legend", "args": {}, "value": {"subfigure": 1, "figure": 0, "texts": ["line"]}},
+  {"op": "legend._get_legend_handles_labels", "args": {"colors": ["k", "k"]}, "value": ["test", "test"]},
+  {"op": "legend._get_legend_handles_labels", "args": {"colors": ["k", "r"]}, "value": ["test", "test"]},
+  {"op": "pyplot.legend", "args": {}, "value": ["Density", "Temperature"]}
+ ]
+}

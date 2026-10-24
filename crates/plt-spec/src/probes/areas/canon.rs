@@ -118,7 +118,9 @@ impl Canon for ColorOrEdge {
 impl Canon for LabelColor {
     fn canon(&self) -> Json {
         match self {
+            // `test_rcsetup.py` reads `none`, however spelled, as `None`.
             Self::Unset => Json::Null,
+            Self::Color(color) if color.is_none() => Json::Null,
             Self::LineColor => text("linecolor"),
             Self::MarkerFaceColor => text("markerfacecolor"),
             Self::MarkerEdgeColor => text("markeredgecolor"),

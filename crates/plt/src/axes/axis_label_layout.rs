@@ -148,8 +148,11 @@ impl AxisPainter<'_> {
                 } else {
                     (extent.x0(), HAlign::Left)
                 };
+                // Above the extensions of a colorbar.
+                let top = crate::colorbar::outline_extent(&layout, self.axes_id)
+                    .map_or(extent.ymax(), |outline| outline.ymax());
                 (
-                    Point::new(x, extent.ymax() + pad),
+                    Point::new(x, top + pad),
                     BlockStyle {
                         halign,
                         valign: VAlign::Baseline,
@@ -186,6 +189,30 @@ mod tests {
         let texts =
             AxisPainter::new(ax.id(), axes, name).texts(LayoutContext::new(&state), &axes.rc);
         texts.label.expect("a label").bbox()
+    }
+
+    #[test]
+    fn colorbar_offset_texts_clear_the_extensions() {
+        // matplotlib's test_offset_text_loc: above the triangle at the top.
+        use crate::colorbar::ColorbarOptions;
+        use crate::colors::{Extend, Normalize, ScalarMappable, colormaps};
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let mappable = ScalarMappable::with_norm(
+            colormaps::get("viridis").expect("a colormap"),
+            Box::new(Normalize::new(0.0, 2e6)),
+        );
+        let options = ColorbarOptions {
+            extend: Some(Extend::Max),
+            ..ColorbarOptions::beside(&ax)
+        };
+        let colorbar = fig.colorbar(&mappable, options).expect("a colorbar");
+        let offset = colorbar
+            .long_axis()
+            .offset_text_extent()
+            .expect("an offset text");
+        let outline = colorbar.outline().window_extent().expect("laid out");
+        assert!(offset.y0() > outline.y1(), "{offset:?} over {outline:?}");
     }
 
     /// The top of the x axis label of `ax`.

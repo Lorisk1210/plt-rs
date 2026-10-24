@@ -305,7 +305,9 @@ impl WebCanvas {
             height = (height * shrink).floor().max(1.0);
         }
         let dpi = self.figure.dpi();
-        self.figure.set_size_inches(width / dpi, height / dpi);
+        // At a degenerate resolution the size is invalid: the figure keeps
+        // its size.
+        let _ = self.figure.set_size_inches(width / dpi, height / dpi);
     }
 
     /// The client's canvas is `width × height` CSS pixels

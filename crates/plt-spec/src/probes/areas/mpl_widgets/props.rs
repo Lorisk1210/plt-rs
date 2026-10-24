@@ -7,31 +7,34 @@ use plt::markers::Marker;
 use plt::patches::PatchProps;
 use plt::rc::ColorOrAuto;
 
-use super::{bad, steps::unknown};
+use super::{malformed, steps::unknown};
 use crate::json::Json;
 use crate::probes::ProbeError;
 
 /// The entries of a keyword dictionary.
 fn entries(kw: &Json) -> Result<&[(String, Json)], ProbeError> {
-    kw.as_object().ok_or_else(|| bad("properties"))
+    kw.as_object().ok_or_else(|| malformed("properties"))
 }
 
 fn number(value: &Json, name: &str) -> Result<f64, ProbeError> {
-    value.as_f64().ok_or_else(|| bad(name))
+    value.as_f64().ok_or_else(|| malformed(name))
 }
 
 fn flag(value: &Json, name: &str) -> Result<bool, ProbeError> {
-    value.as_bool().ok_or_else(|| bad(name))
+    value.as_bool().ok_or_else(|| malformed(name))
 }
 
 fn color(value: &Json, name: &str) -> Result<Color, ProbeError> {
-    value.as_str().map(Color::from).ok_or_else(|| bad(name))
+    value
+        .as_str()
+        .map(Color::from)
+        .ok_or_else(|| malformed(name))
 }
 
 fn linestyle(value: &Json) -> Result<LineStyle, ProbeError> {
     value
         .as_str()
-        .ok_or_else(|| bad("linestyle"))?
+        .ok_or_else(|| malformed("linestyle"))?
         .parse()
         .map_err(ProbeError::rejected)
 }
@@ -68,7 +71,7 @@ pub(super) fn line(kw: &Json) -> Result<LineProps, ProbeError> {
                 "marker" => props.marker(
                     value
                         .as_str()
-                        .ok_or_else(|| bad(name))?
+                        .ok_or_else(|| malformed(name))?
                         .parse::<Marker>()
                         .map_err(ProbeError::rejected)?,
                 ),

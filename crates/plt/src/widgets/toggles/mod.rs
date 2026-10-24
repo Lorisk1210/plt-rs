@@ -17,12 +17,12 @@ pub use options::{
 use super::{CallbackId, Connections, Observers, left_click};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, ScatterColors};
-use crate::collections::{Collection, EdgeColors};
+use crate::collections::{Collection, EdgeColors, cycled};
 use crate::colors::Color;
 use crate::events::EventKind;
 use crate::markers::MarkerSymbol;
 use crate::text::Text;
-use column::{ButtonColumn, MarkerLook, cycled};
+use column::{ButtonColumn, MarkerLook};
 
 /// `colors` cycled to one per button, or `fallback` for every button when
 /// unset.

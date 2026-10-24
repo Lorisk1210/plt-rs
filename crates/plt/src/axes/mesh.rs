@@ -305,22 +305,19 @@ fn interp_columns(a: &Grid<f64>) -> Grid<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn values(rows: usize, cols: usize) -> ScalarField {
-        ScalarField::new(Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64))
-    }
+    use crate::testing::counting_field;
 
     #[test]
     fn auto_shading_follows_the_grid_size() {
         let flat = pcolor_args(
-            Mesh::from_coords([0.0, 1.0, 2.0], [0.0, 1.0], values(1, 2)),
+            Mesh::from_coords([0.0, 1.0, 2.0], [0.0, 1.0], counting_field(1, 2)),
             Shading::Auto,
             true,
         )
         .unwrap();
         assert_eq!(flat.x.shape(), (2, 3));
         let nearest = pcolor_args(
-            Mesh::from_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], values(3, 4)),
+            Mesh::from_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], counting_field(3, 4)),
             Shading::Auto,
             true,
         )
@@ -333,7 +330,7 @@ mod tests {
     #[test]
     fn mismatched_grids_are_rejected() {
         let err = pcolor_args(
-            Mesh::from_coords([0.0, 1.0], [0.0, 1.0], values(3, 3)),
+            Mesh::from_coords([0.0, 1.0], [0.0, 1.0], counting_field(3, 3)),
             Shading::Flat,
             true,
         );
@@ -351,7 +348,7 @@ mod tests {
             Some(ImageError::IncompatibleCoordinates)
         );
         let nan = pcolor_args(
-            Mesh::from_coords([0.0, f64::NAN, 2.0], [0.0, 1.0], values(1, 2)),
+            Mesh::from_coords([0.0, f64::NAN, 2.0], [0.0, 1.0], counting_field(1, 2)),
             Shading::Flat,
             true,
         );

@@ -22,6 +22,8 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use plt_core::rng::SplitMix64;
+
 use super::http::{Response, Status};
 use super::protocol::ClientMessage;
 use super::{WebError, WebOptions, connection};
@@ -186,31 +188,24 @@ impl Shared {
     }
 }
 
-/// A `SplitMix64` step, for picking ports to retry.
-fn split_mix(state: &mut u64) -> u64 {
-    *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    let mut z = *state;
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^ (z >> 31)
-}
-
 /// The ports to try (matplotlib's `random_ports`, from IPython): `port`
 /// and the next four, then random ones within `2 × tries` of `port`;
 /// `tries` ports in all, at least one.
 fn candidate_ports(port: u16, tries: u32) -> Vec<u16> {
     let tries = tries.max(1);
-    let mut state = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |since| since.as_nanos() as u64)
-        ^ u64::from(std::process::id());
+    let mut random = SplitMix64::new(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |since| since.as_nanos() as u64)
+            ^ u64::from(std::process::id()),
+    );
     let spread = i64::from(tries) * 2;
     (0..tries)
         .map(|i| {
             let offset = if i < 5 {
                 i64::from(i)
             } else {
-                (split_mix(&mut state) % (2 * spread as u64 + 1)) as i64 - spread
+                (random.next_u64() % (2 * spread as u64 + 1)) as i64 - spread
             };
             (i64::from(port) + offset).clamp(1, i64::from(u16::MAX)) as u16
         })

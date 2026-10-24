@@ -2,6 +2,7 @@ use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{GraphicsContext, Renderer, RgbaImage};
 
 use super::*;
+use crate::testing::horizontal_segment;
 
 /// Records the `draw_path` calls it receives.
 #[derive(Default)]
@@ -41,15 +42,11 @@ impl Renderer for Recorder {
     fn draw_image(&mut self, _: &GraphicsContext, _: Point, _: &RgbaImage, _: Option<&Affine2D>) {}
 }
 
-fn segment() -> Path {
-    Path::polyline(vec![Point::new(0.0, 0.0), Point::new(100.0, 0.0)])
-}
-
 fn draw(effects: Vec<PathEffect>, gc: &GraphicsContext, fill: Option<Rgba>) -> Recorder {
     let mut recorder = Recorder::default();
     PathEffectRenderer::new(effects, &mut recorder)
         .unwrap()
-        .draw_path(gc, &segment(), &Affine2D::IDENTITY, fill);
+        .draw_path(gc, &horizontal_segment(), &Affine2D::IDENTITY, fill);
     recorder
 }
 

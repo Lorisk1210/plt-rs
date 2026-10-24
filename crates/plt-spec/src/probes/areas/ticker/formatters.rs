@@ -6,7 +6,7 @@ use plt::ticker::{
     StrMethodFormatter, TickContext, TickerSettings,
 };
 
-use super::{Params, bad, format_ticks, int_pair, rejected, settings, text, usize_arg, view_axis};
+use super::{Params, format_ticks, int_pair, settings, text, usize_arg, view_axis};
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
@@ -15,7 +15,9 @@ pub(crate) fn offset_mode(value: &Json) -> Result<OffsetMode, ProbeError> {
         (Some(true), _) => Ok(OffsetMode::Auto),
         (Some(false), _) => Ok(OffsetMode::Off),
         (_, Some(offset)) => Ok(OffsetMode::Fixed(offset)),
-        _ => Err(bad("useOffset must be a bool or a number")),
+        _ => Err(ProbeError::BadArgs(
+            "useOffset must be a bool or a number".into(),
+        )),
     }
 }
 
@@ -148,7 +150,11 @@ pub(crate) fn log_formatter(
     if let Some(thresholds) = p.get("minor_thresholds") {
         match thresholds.as_f64_vec().as_deref() {
             Some(&[subset, all]) => formatter = formatter.with_minor_thresholds(subset, all),
-            _ => return Err(bad("minor_thresholds must be a pair")),
+            _ => {
+                return Err(ProbeError::BadArgs(
+                    "minor_thresholds must be a pair".into(),
+                ));
+            }
         }
     }
     Ok(formatter)
@@ -218,7 +224,7 @@ pub(crate) fn percent(args: Args<'_>) -> Result<PercentFormatter, ProbeError> {
     let p = params.args();
     let decimals = p
         .opt_i64("decimals")?
-        .map(|d| i32::try_from(d).map_err(|_| bad("decimals out of range")))
+        .map(|d| i32::try_from(d).map_err(|_| ProbeError::BadArgs("decimals out of range".into())))
         .transpose()?;
     let symbol = match params.raw("symbol") {
         None => Some("%".to_owned()),
@@ -236,13 +242,13 @@ pub(super) fn percent_format_ticks(args: Args<'_>) -> Outcome {
 
 pub(super) fn str_method_format_ticks(args: Args<'_>) -> Outcome {
     let p = Params::of(args, &["fmt"])?.args();
-    let formatter = StrMethodFormatter::new(p.str("fmt")?).map_err(rejected)?;
+    let formatter = StrMethodFormatter::new(p.str("fmt")?).map_err(ProbeError::rejected)?;
     format_ticks(&formatter, args, &settings(args)?)
 }
 
 pub(crate) fn format_str_format_ticks(args: Args<'_>) -> Outcome {
     let p = Params::of(args, &["fmt"])?.args();
-    let formatter = FormatStrFormatter::new(p.str("fmt")?).map_err(rejected)?;
+    let formatter = FormatStrFormatter::new(p.str("fmt")?).map_err(ProbeError::rejected)?;
     format_ticks(&formatter, args, &settings(args)?)
 }
 
@@ -257,7 +263,7 @@ pub(super) fn fixed_format_ticks(args: Args<'_>) -> Outcome {
                 .map(|s| s.as_str().map(str::to_owned))
                 .collect()
         })
-        .ok_or_else(|| bad("seq must be an array of strings"))?;
+        .ok_or_else(|| ProbeError::BadArgs("seq must be an array of strings".into()))?;
     format_ticks(&FixedFormatter::new(seq), args, &settings(args)?)
 }
 

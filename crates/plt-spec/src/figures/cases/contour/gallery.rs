@@ -16,6 +16,7 @@ use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
 use super::{bumps, colors, count, hatches, values};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::percent_label;
 use std::rc::Rc;
 
 /// `_wave()`: `cos(x) + sin(y)` on a 150 × 120 grid over `[-3, 5]²`.
@@ -151,17 +152,6 @@ pub(super) fn contourf_lognorm_levels_colorbar(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `_percent_fmt(x)`: one decimal unless it is a zero, then a percent sign.
-fn percent_fmt(x: f64) -> String {
-    let one = pyfmt::fixed(x, 1);
-    let number = if one.ends_with('0') {
-        pyfmt::fixed(x, 0)
-    } else {
-        one
-    };
-    format!("{number} %")
-}
-
 pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;
     let (xx, yy) = meshgrid(&arange(-3.0, 3.0, 0.025), &arange(-2.0, 2.0, 0.025));
@@ -176,7 +166,7 @@ pub(super) fn clabel_label_demo(fig: &Figure) -> CaseResult {
     let cs = axs[(0, 0)].contour(&field, ContourOptions::default())?;
     cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
-        fmt: ClabelFormat::Formatter(Rc::new(FuncFormatter::new(|x, _| percent_fmt(x)))),
+        fmt: ClabelFormat::Formatter(Rc::new(FuncFormatter::new(|x, _| percent_label(x)))),
         fontsize: Some(FontSize::Points(10.0)),
         ..ClabelOptions::default()
     })?;

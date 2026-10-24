@@ -62,4 +62,13 @@ impl FontRequest {
             None => db.find_font_with(&self.query, &self.generics)?,
         })
     }
+
+    /// `DejaVu Sans` at `size` points, the request most unit tests make.
+    #[cfg(test)]
+    pub(crate) fn dejavu_sans(size: f64) -> Self {
+        Self::new(FontQuery {
+            size,
+            ..FontQuery::families(["DejaVu Sans"])
+        })
+    }
 }

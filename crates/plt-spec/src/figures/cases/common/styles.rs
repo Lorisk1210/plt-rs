@@ -7,19 +7,25 @@ use std::f64::consts::PI;
 use plt::artist::ArtistHandle;
 use plt::axes::{Axes, BarLabelOptions};
 use plt::collections::CollectionProps;
-use plt::colors::Color;
+use plt::colors::{Color, ColorError};
 use plt::contour::{ContourOptions, ContourSet, Levels};
 use plt::figure::Figure;
 use plt::fonts::{FontProperties, FontSize};
 use plt::lines::LineProps;
 use plt::numeric::arange;
-use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchProps};
+use plt::patches::{ArrowStyle, BoxStyle, ConnectionStyle, Ellipse, PatchProps};
 use plt::patheffects::{GcUpdate, PatchEffect, PathEffect, Stroke, TickedStroke};
+use plt::rc::RcParams;
 use plt::sankey::FlowOrientation;
+use plt::style::{XkcdSketch, apply_xkcd};
 use plt::text::{
     ArrowProps, FancyArrowProps, Language, LanguageRange, LegacyArrowProps, Text, TextBoxProps,
     VAlign,
 };
+use plt::ticker::pyfmt;
+use plt_core::Rgba;
+
+use crate::figures::CaseResult;
 
 /// Character ranges of a language.
 pub(crate) fn ranges(ranges: &[(&str, usize, usize)]) -> Language {
@@ -57,6 +63,18 @@ pub(crate) fn values(levels: &[f64]) -> ContourOptions {
         levels: Levels::Values(levels.to_vec()),
         ..ContourOptions::default()
     }
+}
+
+/// The contour gallery's `_percent_fmt(x)`: one decimal unless it is a
+/// zero, then a percent sign.
+pub(crate) fn percent_label(x: f64) -> String {
+    let one = pyfmt::fixed(x, 1);
+    let number = if one.ends_with('0') {
+        pyfmt::fixed(x, 0)
+    } else {
+        one
+    };
+    format!("{number} %")
 }
 
 /// Colours by name (`colors=[...]`).
@@ -241,4 +259,38 @@ pub(crate) fn hatch_shadow_text(text: &Text) -> Result<(), Box<dyn std::error::E
             PathEffect::path_patch(outlined),
         ]);
     Ok(())
+}
+
+/// `plt.xkcd()`'s parameters on top of `rc`.
+pub(crate) fn xkcd(rc: &mut RcParams) -> CaseResult {
+    Ok(apply_xkcd(rc, XkcdSketch::default())?)
+}
+
+/// `Ellipse(center, width, height, angle=angle)`.
+pub(crate) fn ellipse(center: (f64, f64), width: f64, height: f64, angle: f64) -> Ellipse {
+    Ellipse {
+        angle,
+        ..Ellipse::new(center, width, height)
+    }
+}
+
+/// A colour by name, resolved.
+pub(crate) fn rgba(name: &str) -> Result<Rgba, ColorError> {
+    Color::from(name).resolve()
+}
+
+/// `Normalize.autoscale_None` for a custom norm: the limits not set yet
+/// become the extremes of the unmasked `data`.
+pub(crate) fn autoscale_unset(
+    vmin: &mut Option<f64>,
+    vmax: &mut Option<f64>,
+    data: &[Option<f64>],
+) {
+    let values = data.iter().flatten().copied();
+    if let Some((lo, hi)) = values.fold(None, |range: Option<(f64, f64)>, v| {
+        Some(range.map_or((v, v), |(lo, hi)| (lo.min(v), hi.max(v))))
+    }) {
+        vmin.get_or_insert(lo);
+        vmax.get_or_insert(hi);
+    }
 }

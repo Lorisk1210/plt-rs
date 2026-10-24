@@ -1,6 +1,7 @@
 //! Selecting a rectangular or elliptical region (the interaction of
 //! matplotlib's `RectangleSelector`, which `EllipseSelector` shares).
 
+use plt_core::numeric::np_sign;
 use plt_core::{Affine2D, Point};
 
 use super::driver::{Core, Tool};
@@ -141,17 +142,6 @@ pub(super) struct Region<S: RegionShape> {
     grab: Option<Grab>,
     extents_on_press: Option<Extents>,
     rotation_on_press: f64,
-}
-
-/// `numpy.sign`.
-fn sign(v: f64) -> f64 {
-    if v > 0.0 {
-        1.0
-    } else if v < 0.0 {
-        -1.0
-    } else {
-        v
-    }
 }
 
 /// Whether a drag by `(refx, refy)` is mostly horizontal (matplotlib's
@@ -398,9 +388,9 @@ impl<S: RegionShape> Region<S> {
         }
         if square {
             if along_x {
-                y1 = y0 + sign(ydata - y0) * (x1 - x0).abs() / arc;
+                y1 = y0 + np_sign(ydata - y0) * (x1 - x0).abs() / arc;
             } else {
-                x1 = x0 + sign(xdata - x0) * (y1 - y0).abs() * arc;
+                x1 = x0 + np_sign(xdata - x0) * (y1 - y0).abs() * arc;
             }
         }
         (x0, x1, y0, y1)
@@ -426,9 +416,9 @@ impl<S: RegionShape> Region<S> {
         let mut dy = (ydata - cy) / 2.0;
         if core.state.contains(&SelectorState::Square) {
             if mostly_horizontal(refx, refy) {
-                dy = sign(dy) * dx.abs() / arc;
+                dy = np_sign(dy) * dx.abs() / arc;
             } else {
-                dx = sign(dx) * dy.abs() * arc;
+                dx = np_sign(dx) * dy.abs() * arc;
             }
         }
         if core.state.contains(&SelectorState::Center) {

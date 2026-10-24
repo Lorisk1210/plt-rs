@@ -1,7 +1,9 @@
 //! `MaxNLocator` and `AutoLocator`: nice evenly spaced ticks.
 
+use plt_core::numeric::{divmod, floor_div, py_max};
+
 use super::Locator;
-use crate::ticker::pymath::{arange, divmod, floor_div, pow10, py_max};
+use crate::ticker::pymath::{arange, pow10};
 use crate::ticker::{AutolimitMode, TickContext, TickerError, TickerSettings};
 use crate::transforms::nonsingular;
 

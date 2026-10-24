@@ -54,8 +54,8 @@ pub(super) fn bar_label(args: Args<'_>) -> Outcome {
             let (xy, xyann) = (label.xy(), label.position());
             encode::object([
                 ("text", Json::from(label.text())),
-                ("xy", numbers(&[xy.x, xy.y])),
-                ("xyann", numbers(&[xyann.x, xyann.y])),
+                ("xy", numbers([xy.x, xy.y])),
+                ("xyann", numbers([xyann.x, xyann.y])),
                 ("ha", label.halign().canon()),
                 ("va", label.valign().canon()),
             ])

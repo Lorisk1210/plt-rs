@@ -297,7 +297,6 @@ pub(crate) static LATEX_TO_BAKOMA: [(&str, BakomaFile, u32); 285] = [
 ];
 
 /// Delimiters with pre-sized alternatives, smallest first.
-#[allow(clippy::type_complexity, reason = "a static lookup table")]
 pub(crate) static SIZE_ALTERNATIVES: [(&str, &[(FontName, &str)]); 29] = [
     (
         "(",

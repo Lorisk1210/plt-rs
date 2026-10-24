@@ -13,13 +13,9 @@ use plt::transforms::{Affine2D, Transform};
 
 use super::super::mpl_tests::{classic, remove_ticks_and_titles};
 use super::plot_y;
+use crate::figures::cases::common::indices;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// `range(n)` as floats.
-fn range(n: usize) -> Vec<f64> {
-    (0..n).map(|i| i as f64).collect()
-}
 
 /// `test_line_dashes`: a thick line with a custom dash pattern.
 fn line_dashes(fig: &Figure) -> CaseResult {
@@ -28,7 +24,7 @@ fn line_dashes(fig: &Figure) -> CaseResult {
         pattern: Some(vec![3.0, 3.0]),
     };
     let props = LineProps::default().linestyle(dashes).linewidth(5.0);
-    plot_y(&fig.subplot(), range(10), props)?;
+    plot_y(&fig.subplot(), indices(10), props)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -46,7 +42,7 @@ fn drawstyle_variants(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(6, 1)?;
     for (row, style) in styles.into_iter().enumerate() {
         let ax = &axs[(row, 0)];
-        plot_y(ax, range(2000), LineProps::default().drawstyle(style))?;
+        plot_y(ax, indices(2000), LineProps::default().drawstyle(style))?;
         ax.set_xlim(0.0, 2.0)?.set_ylim(0.0, 2.0)?;
     }
     remove_ticks_and_titles(fig);
@@ -56,7 +52,7 @@ fn drawstyle_variants(fig: &Figure) -> CaseResult {
 /// `test_no_subslice_with_transform`: a long line shifted by a transform.
 fn no_subslice_with_transform(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    let x = range(2000);
+    let x = indices(2000);
     let shifted =
         Transform::Affine(Affine2D::identity().translate(2000.0, 0.0)).then(ax.trans_data());
     ax.plot_with(&x, &x, LineProps::default().transform(shifted))?;

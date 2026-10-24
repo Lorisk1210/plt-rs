@@ -1,6 +1,6 @@
 //! Colour specifications and their conversion to RGBA (`matplotlib.colors.to_rgba`).
 
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::str::FromStr;
 
 use plt_core::Rgba;
@@ -246,19 +246,11 @@ pub fn is_color_like(spec: &str) -> bool {
 ///
 /// [`ColorError::NanComponent`] when an emitted channel is NaN.
 pub fn to_hex(rgba: Rgba, keep_alpha: bool) -> Result<String, ColorError> {
-    let channels: &[f64] = if keep_alpha {
-        &[rgba.r, rgba.g, rgba.b, rgba.a]
-    } else {
-        &[rgba.r, rgba.g, rgba.b]
-    };
-    if channels.iter().any(|v| v.is_nan()) {
+    let emitted = if keep_alpha { 4 } else { 3 };
+    if rgba.to_array()[..emitted].iter().any(|v| v.is_nan()) {
         return Err(ColorError::NanComponent(rgba));
     }
-    Ok(channels.iter().fold(String::from("#"), |mut hex, v| {
-        let byte = (v * 255.0).round_ties_even() as u8;
-        write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
-        hex
-    }))
+    Ok(rgba.to_hex(keep_alpha))
 }
 
 /// Whether `spec` is a property-cycle reference `"C<digits>"`.

@@ -268,7 +268,7 @@ impl<'e> Fonts<'e> {
         left: GlyphKey<'_>,
         right: GlyphKey<'_>,
     ) -> Result<f64, GlyphError> {
-        #[allow(clippy::float_cmp, reason = "matplotlib kerns only identical sizes")]
+        #[expect(clippy::float_cmp, reason = "matplotlib kerns only identical sizes")]
         if left.font != right.font || left.fontsize != right.fontsize {
             return Ok(0.0);
         }

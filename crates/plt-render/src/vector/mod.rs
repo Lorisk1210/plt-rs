@@ -24,9 +24,7 @@ use plt_text::TextError;
 pub(crate) use base64::encode as base64_encode;
 pub(crate) use digest::sha256_hex;
 pub(crate) use font::{FontCache, FontInfo};
-pub(crate) use format::{
-    fixed, general, hex, hex_color, repr, repr_bytes, repr_str, short, trimmed,
-};
+pub(crate) use format::{fixed, general, hex, repr, repr_bytes, repr_str, short, trimmed};
 pub(crate) use image::{flipped_rows, png_idat};
 pub use metadata::{Metadata, PNG_SOFTWARE, PngMetadata, SvgMetadata, Timestamp, Trapped};
 pub(crate) use text::{POINTS_DPI, glyph_chars, in_points, prev_kerns};

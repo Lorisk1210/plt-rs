@@ -11,7 +11,8 @@ use plt::units::UnitConverter;
 
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
-use crate::probes::{Args, Op, Outcome, ProbeError, encode};
+use crate::probes::encode::{numbers, pair};
+use crate::probes::{Args, Op, Outcome, ProbeError, encode, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -24,18 +25,6 @@ pub(crate) const OPS: &[Op] = &[
 
 /// Seconds in a day.
 const SECONDS_PER_DAY: i64 = 86_400;
-
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
-fn numbers(values: &[f64]) -> Json {
-    Json::Array(values.iter().map(|&v| Json::from(v)).collect())
-}
-
-fn pair((low, high): (f64, f64)) -> Json {
-    numbers(&[low, high])
-}
 
 /// The spec's name of a converter.
 fn kind(converter: Option<UnitConverter>) -> Json {
@@ -52,17 +41,16 @@ fn day_number(text: &str) -> Result<i64, ProbeError> {
         .split('-')
         .map(str::parse::<u32>)
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| bad("date"))?;
+        .map_err(|_| malformed("date"))?;
     let (year, month, day) = match *fields.as_slice() {
         [year, month] => (year, month, 1),
         [year, month, day] => (year, month, day),
-        _ => return Err(bad("date")),
+        _ => return Err(malformed("date")),
     };
-    let year = i32::try_from(year).map_err(|_| bad("date"))?;
+    let year = i32::try_from(year).map_err(|_| malformed("date"))?;
     let date = DateTime::new(year, month, day, 0, 0, 0, 0).map_err(ProbeError::rejected)?;
     // The epoch is 1970-01-01, where day numbers count whole days.
     let days = get_epoch().date2num(date);
-    #[expect(clippy::cast_possible_truncation, reason = "a whole day number")]
     Ok(days.round() as i64)
 }
 
@@ -114,16 +102,10 @@ fn errorbar(args: Args<'_>) -> Outcome {
             .f64_vec("days")?
             .into_iter()
             .map(|day| {
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    clippy::cast_sign_loss,
-                    reason = "a day of May"
-                )]
                 let day = day as u32;
                 DateTime::new(2020, 5, day, 0, 0, 0, 0).map_err(ProbeError::rejected)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        #[expect(clippy::cast_possible_truncation, reason = "whole seconds")]
         let seconds = (args.f64("yerr_days")? * SECONDS_PER_DAY as f64).round() as i64;
         let yerr = TimeDelta::new(0, seconds, 0).map_err(ProbeError::rejected)?;
         let (fig, ax) = axes();
@@ -143,7 +125,7 @@ fn errorbar(args: Args<'_>) -> Outcome {
             .paths()
             .iter()
             .map(|path| match path.vertices() {
-                [start, end, ..] => Ok(numbers(&[start.y, end.y])),
+                [start, end, ..] => Ok(numbers([start.y, end.y])),
                 _ => Err(ProbeError::rejected("an error bar without two ends")),
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -177,7 +159,8 @@ fn set_units(args: Args<'_>) -> Outcome {
             .map_err(ProbeError::rejected)?;
         ax2.plot(index, months(2021)?)
             .map_err(ProbeError::rejected)?;
-        let seconds = i32::try_from(args.i64("tz_hours")? * 3600).map_err(|_| bad("tz_hours"))?;
+        let seconds =
+            i32::try_from(args.i64("tz_hours")? * 3600).map_err(|_| malformed("tz_hours"))?;
         let offset = UtcOffset::from_seconds(seconds).map_err(ProbeError::rejected)?;
         ax1.yaxis_date(&TimeZone::Fixed(offset));
         fig.layout();
@@ -199,9 +182,14 @@ fn set_units(args: Args<'_>) -> Outcome {
 fn names(args: Args<'_>, name: &str) -> Result<Vec<String>, ProbeError> {
     args.json(name)?
         .as_array()
-        .ok_or_else(|| bad(name))?
+        .ok_or_else(|| malformed(name))?
         .iter()
-        .map(|value| value.as_str().map(str::to_owned).ok_or_else(|| bad(name)))
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| malformed(name))
+        })
         .collect()
 }
 
@@ -247,7 +235,7 @@ fn shared_categories(args: Args<'_>) -> Outcome {
             ("names", Json::Array(axs.iter().map(mapping).collect())),
             (
                 "xdata",
-                Json::Array(lines.iter().map(|line| numbers(&line.xdata())).collect()),
+                Json::Array(lines.iter().map(|line| numbers(line.xdata())).collect()),
             ),
             ("labels", Json::Array(labels)),
         ]))
@@ -261,8 +249,12 @@ fn set_converter(args: Args<'_>) -> Outcome {
         let (_fig, ax) = axes();
         let axis = ax.xaxis();
         let mut recorded = Vec::new();
-        for step in args.json("steps")?.as_array().ok_or_else(|| bad("steps"))? {
-            let parts = step.as_array().ok_or_else(|| bad("step"))?;
+        for step in args
+            .json("steps")?
+            .as_array()
+            .ok_or_else(|| malformed("steps"))?
+        {
+            let parts = step.as_array().ok_or_else(|| malformed("step"))?;
             match (
                 parts.first().and_then(Json::as_str),
                 parts.get(1).and_then(Json::as_str),
@@ -271,7 +263,7 @@ fn set_converter(args: Args<'_>) -> Outcome {
                     let converter = match name {
                         "categories" => UnitConverter::Categories,
                         "dates" => UnitConverter::Dates,
-                        _ => return Err(bad("converter")),
+                        _ => return Err(malformed("converter")),
                     };
                     recorded.push(match axis.set_converter(converter) {
                         Ok(_) => Json::Null,
@@ -284,7 +276,7 @@ fn set_converter(args: Args<'_>) -> Outcome {
                     recorded.push(Json::Null);
                 }
                 (Some("get"), None) => recorded.push(kind(axis.converter())),
-                _ => return Err(bad("step")),
+                _ => return Err(malformed("step")),
             }
         }
         Ok(Json::Array(recorded))

@@ -92,7 +92,7 @@ pub(super) fn scatter(args: Args<'_>) -> Outcome {
         Ok(encode::object([
             ("faces", rgba_list(&colors.faces)),
             ("edges", rgba_list(&colors.edges)),
-            ("linewidths", numbers(&points.linewidths())),
+            ("linewidths", numbers(points.linewidths())),
         ]))
     })
 }

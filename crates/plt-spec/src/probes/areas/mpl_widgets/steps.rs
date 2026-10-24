@@ -9,7 +9,7 @@ use plt::axes::Axes;
 use plt::events::{Event, KeyEvent, Location, MouseEvent};
 use plt::navigation::PointerButton;
 
-use super::{bad, button};
+use super::{button, malformed};
 use crate::json::Json;
 use crate::probes::ProbeError;
 
@@ -40,7 +40,7 @@ pub(super) trait Tool {
 
     /// `(x0, x1, y0, y1)`, for `drag_handle` steps.
     fn extents(&self) -> Result<[f64; 4], ProbeError> {
-        Err(bad("drag_handle on a selector without extents"))
+        Err(malformed("drag_handle on a selector without extents"))
     }
 
     /// `tool.method(args)`.
@@ -188,7 +188,7 @@ pub(super) fn key_press(ax: &Axes, key: &str) -> Result<(), ProbeError> {
 fn point(value: Option<&Json>) -> Result<(f64, f64), ProbeError> {
     match value.and_then(Json::as_f64_vec).as_deref() {
         Some(&[x, y]) => Ok((x, y)),
-        _ => Err(bad("point")),
+        _ => Err(malformed("point")),
     }
 }
 
@@ -196,7 +196,7 @@ fn point(value: Option<&Json>) -> Result<(f64, f64), ProbeError> {
 fn key_name(value: Option<&Json>) -> Result<Option<&str>, ProbeError> {
     match value {
         None | Some(Json::Null) => Ok(None),
-        Some(value) => value.as_str().map(Some).ok_or_else(|| bad("key")),
+        Some(value) => value.as_str().map(Some).ok_or_else(|| malformed("key")),
     }
 }
 
@@ -226,16 +226,20 @@ fn recorded(attempt: Attempt) -> Json {
 pub(super) fn replay(tool: &impl Tool, steps: &Json) -> Result<Json, ProbeError> {
     let mut canvas = Canvas::new(&tool.ax());
     let mut recorded_steps = Vec::new();
-    for step in steps.as_array().ok_or_else(|| bad("steps"))? {
-        let parts = step.as_array().ok_or_else(|| bad("step"))?;
-        let (kind, rest) = parts.split_first().ok_or_else(|| bad("step"))?;
+    for step in steps.as_array().ok_or_else(|| malformed("steps"))? {
+        let parts = step.as_array().ok_or_else(|| malformed("step"))?;
+        let (kind, rest) = parts.split_first().ok_or_else(|| malformed("step"))?;
         let arg = |i: usize| rest.get(i);
-        let text = |i: usize| arg(i).and_then(Json::as_str).ok_or_else(|| bad("step"));
+        let text = |i: usize| {
+            arg(i)
+                .and_then(Json::as_str)
+                .ok_or_else(|| malformed("step"))
+        };
         let mouse_button = |i: usize| match arg(i) {
             None | Some(Json::Null) => Ok(None),
             Some(value) => button(value).map(Some),
         };
-        match kind.as_str().ok_or_else(|| bad("step"))? {
+        match kind.as_str().ok_or_else(|| malformed("step"))? {
             "press" => canvas.mouse(Mouse::Press, point(arg(0))?, mouse_button(1)?)?,
             "move" => canvas.mouse(Mouse::Motion, point(arg(0))?, mouse_button(1)?)?,
             "release" => canvas.mouse(Mouse::Release, point(arg(0))?, mouse_button(1)?)?,
@@ -252,7 +256,7 @@ pub(super) fn replay(tool: &impl Tool, steps: &Json) -> Result<Json, ProbeError>
                 recorded_steps.push(recorded(attempt));
             }
             "set" => {
-                let value = arg(1).ok_or_else(|| bad("set step"))?;
+                let value = arg(1).ok_or_else(|| malformed("set step"))?;
                 recorded_steps.push(recorded(tool.set(text(0)?, value)?));
             }
             "get" => recorded_steps.push(tool.get(text(0)?)?),

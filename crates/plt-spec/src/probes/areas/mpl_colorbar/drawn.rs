@@ -14,10 +14,10 @@ use plt::numeric::{Grid, linspace};
 use plt::orientation::Orientation;
 use plt_core::Rgba;
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use super::{bump, extend, orientation, rgba};
 use crate::json::Json;
-use crate::probes::encode::object;
+use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// `test_colorbar_extension_inverted_axis`: the face colours of the

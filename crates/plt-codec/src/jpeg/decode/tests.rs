@@ -1,13 +1,11 @@
 use super::*;
-use crate::base64;
-use crate::checksum::crc32;
 use crate::jpeg::marker::{DHT, SOF0};
 use crate::jpeg::{JpegOptions, encode_rgb8};
-use crate::test_util::{Rng, mutate, pil_to_array_bytes};
+use crate::test_util::{PillowFile, Rng, assert_decodes_like_pillow, mutate, pillow_bytes};
 
 /// Small files Pillow wrote: a label, the size, the CRC-32 of the array
 /// matplotlib's `imread` returns for them, and the file in base64.
-const PILLOW: [(&str, u32, u32, u32, &str); 5] = [
+const PILLOW: [PillowFile; 5] = [
     (
         "progressive 4:2:0 restarts",
         19,
@@ -46,7 +44,7 @@ const PILLOW: [(&str, u32, u32, u32, &str); 5] = [
 ];
 
 fn pillow(index: usize) -> Vec<u8> {
-    base64::decode(PILLOW[index].4).unwrap()
+    pillow_bytes(&PILLOW[index])
 }
 
 /// The offset of the first `marker` segment of a file.
@@ -56,11 +54,7 @@ fn find(data: &[u8], marker: u8) -> usize {
 
 #[test]
 fn pillow_files_decode_exactly() {
-    for (index, &(label, width, height, checksum, _)) in PILLOW.iter().enumerate() {
-        let image = decode(&pillow(index)).unwrap();
-        assert_eq!((image.width(), image.height()), (width, height), "{label}");
-        assert_eq!(crc32(&pil_to_array_bytes(&image)), checksum, "{label}");
-    }
+    assert_decodes_like_pillow(&PILLOW, decode);
 }
 
 #[test]

@@ -18,6 +18,7 @@ use plt::text::{HAlign, TextProps};
 
 use super::{filled, gradient, of_t, sized, t, text_area};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::ellipse;
 
 /// `AnchoredText(text, loc=loc, prop=props, **options)`.
 fn anchored_text_box(
@@ -27,14 +28,6 @@ fn anchored_text_box(
     options: AnchoredOptions,
 ) -> Result<plt::offsetbox::AnchoredOffsetbox, Box<dyn std::error::Error>> {
     Ok(ax.add_anchored_box(AnchoredBox::text(text, props, options)?))
-}
-
-/// `Ellipse(center, width, height, angle=angle)`.
-fn ellipse(center: (f64, f64), width: f64, height: f64, angle: f64) -> Ellipse {
-    Ellipse {
-        angle,
-        ..Ellipse::new(center, width, height)
-    }
 }
 
 pub(super) fn anchored_text(fig: &Figure) -> CaseResult {

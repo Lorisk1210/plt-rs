@@ -9,6 +9,7 @@
 use std::ops::{Add, Mul, Sub};
 
 use super::numeric::FILTER_SHIFT;
+use crate::color::multiply;
 
 /// A pixel format accepted by [`resample`](super::resample).
 ///
@@ -199,12 +200,6 @@ pub mod ops {
     }
 }
 
-/// `rgba8T::multiply`: exact fixed-point `a·b/255`.
-fn multiply_u8(a: u8, b: u8) -> u8 {
-    let t = u32::from(a) * u32::from(b) + 128;
-    (((t >> 8) + t) >> 8) as u8
-}
-
 impl ops::Channel for u8 {
     type Acc = i32;
     const ZERO: Self = 0;
@@ -246,7 +241,7 @@ impl ops::Channel for u8 {
     }
 
     fn mult_cover(self, cover: u8) -> Self {
-        multiply_u8(self, cover)
+        multiply(self, cover)
     }
 
     fn lerp(p: Self, q: Self, a: Self) -> Self {
@@ -257,7 +252,7 @@ impl ops::Channel for u8 {
 
     /// matplotlib's `fixed_blender_rgba_plain` (non-premultiplied).
     fn blend_rgba(dst: &mut [Self; 4], src: [Self; 4], cover: u8) {
-        let alpha = u32::from(multiply_u8(src[3], cover));
+        let alpha = u32::from(multiply(src[3], cover));
         if alpha == 0 {
             return;
         }

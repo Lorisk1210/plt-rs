@@ -13,18 +13,14 @@ use plt::image::{Extent, ScalarField};
 use plt::numeric::{Grid, linspace, logspace, meshgrid};
 use plt::rc::Aspect;
 
-use super::data::{bump, grid, trimmed, zip_with};
+use super::data::{bump, grid, zip_with};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::{arange_grid, trimmed};
 use crate::rng::SpecRng;
 
 /// Options with only the colormap set.
 fn cmap(name: &str) -> Result<ColorizerOptions, Box<dyn std::error::Error>> {
     Ok(ColorizerOptions::default().cmap(colormaps::get(name)?))
-}
-
-/// `np.arange(rows * cols).reshape(rows, cols)` as floats.
-fn arange_grid(rows: usize, cols: usize) -> Grid<f64> {
-    Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64)
 }
 
 pub(super) fn pcolor_default(fig: &Figure) -> CaseResult {

@@ -10,7 +10,7 @@ use plt::widgets::{PolygonSelector, PolygonSelectorOptions};
 
 use super::region::{alpha, per_line};
 use super::steps::{Attempt, Tool, replay, unknown};
-use super::{bad, get_ax, markerfacecolor, props, rgba};
+use super::{get_ax, malformed, markerfacecolor, props, resolved_rgba};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::areas::mpl_ticker::styled;
@@ -29,11 +29,13 @@ fn vertices(verts: &[(f64, f64)]) -> Json {
 /// What `_handles_artists.<getter>` records for the marker lines `lines`.
 fn handle_query(lines: &[Line2D], getter: &str) -> Result<Json, ProbeError> {
     match getter {
-        "get_color" => per_line(lines, |line| rgba(&line.color())),
+        "get_color" => per_line(lines, |line| resolved_rgba(&line.color())),
         "get_alpha" => per_line(lines, |line| Ok(alpha(line))),
         "get_marker" => per_line(lines, |line| Ok(line.marker().canon())),
         "get_markerfacecolor" => per_line(lines, markerfacecolor),
-        "get_markeredgecolor" => per_line(lines, |line| rgba(&line.effective_markeredgecolor())),
+        "get_markeredgecolor" => per_line(lines, |line| {
+            resolved_rgba(&line.effective_markeredgecolor())
+        }),
         other => Err(unknown("handle query", other)),
     }
 }
@@ -44,7 +46,7 @@ impl Tool for PolygonSelector {
     }
 
     fn call(&self, method: &str, args: &[Json]) -> Result<Attempt, ProbeError> {
-        let props = || props::line(args.first().ok_or_else(|| bad(method))?);
+        let props = || props::line(args.first().ok_or_else(|| malformed(method))?);
         match method {
             "set_props" => self.set_props(props()?),
             "set_handle_props" => self.set_handle_props(props()?),
@@ -59,11 +61,11 @@ impl Tool for PolygonSelector {
             "verts" => {
                 let verts = value
                     .as_array()
-                    .ok_or_else(|| bad("verts"))?
+                    .ok_or_else(|| malformed("verts"))?
                     .iter()
                     .map(|xy| match xy.as_f64_vec().as_deref() {
                         Some(&[x, y]) => Ok((x, y)),
-                        _ => Err(bad("verts")),
+                        _ => Err(malformed("verts")),
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(self.set_verts(&verts).into())
@@ -83,7 +85,7 @@ impl Tool for PolygonSelector {
         Ok(match query {
             "verts" => vertices(&self.verts()),
             "_box.extents" => self.box_extents().map_or(Json::Null, |(x0, x1, y0, y1)| {
-                super::numbers(&[x0, x1, y0, y1])
+                super::numbers([x0, x1, y0, y1])
             }),
             "_selection_completed" => Json::from(self.selection_completed()),
             "get_visible" => Json::from(self.visible()),
@@ -92,12 +94,14 @@ impl Tool for PolygonSelector {
                 let points: Vec<(f64, f64)> = line.xydata().iter().map(|p| (p.x, p.y)).collect();
                 vertices(&points)
             }
-            "_selection_artist.get_color" => rgba(&line.color())?,
+            "_selection_artist.get_color" => resolved_rgba(&line.color())?,
             "_selection_artist.get_alpha" => alpha(&line),
             "_box._selection_artist.get_linestyle"
             | "_box._selection_artist.get_facecolor"
             | "_box._selection_artist.get_edgecolor" => {
-                let patch = self.box_artist().ok_or_else(|| bad("no bounding box"))?;
+                let patch = self
+                    .box_artist()
+                    .ok_or_else(|| malformed("no bounding box"))?;
                 match query.rsplit('.').next() {
                     Some("get_linestyle") => patch.style().linestyle.canon(),
                     Some("get_facecolor") => {
@@ -114,11 +118,11 @@ impl Tool for PolygonSelector {
 /// The selector options the probe gives.
 fn options(given: &Json) -> Result<PolygonSelectorOptions, ProbeError> {
     let mut options = PolygonSelectorOptions::default();
-    let entries = given.as_object().ok_or_else(|| bad("options"))?;
+    let entries = given.as_object().ok_or_else(|| malformed("options"))?;
     for (name, value) in entries {
         match name.as_str() {
             "draw_bounding_box" => {
-                options.draw_bounding_box = value.as_bool().ok_or_else(|| bad(name))?;
+                options.draw_bounding_box = value.as_bool().ok_or_else(|| malformed(name))?;
             }
             // matplotlib replaces its default line look with `props`.
             "props" => options.props = props::line(value)?,
@@ -143,7 +147,7 @@ pub(super) fn polygon(args: Args<'_>) -> Outcome {
                         .and_then(|ax| ax.set_ylim(y0, y1))
                         .map_err(ProbeError::rejected)?;
                 }
-                _ => return Err(bad("limits")),
+                _ => return Err(malformed("limits")),
             }
         }
         let tool = PolygonSelector::new(&ax, options(args.json("options")?)?);

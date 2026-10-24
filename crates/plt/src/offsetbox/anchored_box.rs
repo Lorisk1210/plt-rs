@@ -426,28 +426,11 @@ mod tests {
     use crate::image::BboxImageOptions;
     use crate::offsetbox::{AuxTransformBox, DrawingArea, OffsetImage};
     use crate::patches::{PatchShape, Rectangle};
-    use crate::testing::RecordingRenderer;
-
-    /// A 640 × 480 px figure with one axes over `(0, 10)²` at
-    /// `(80, 52.8)`, 496 × 369.6 px.
-    fn axes() -> (Figure, Axes) {
-        let fig = Figure::new();
-        let ax = fig
-            .add_axes([0.125, 0.11, 0.775, 0.77])
-            .expect("a valid rectangle");
-        ax.set_xlim(0.0, 10.0)
-            .and_then(|ax| ax.set_ylim(0.0, 10.0))
-            .expect("finite limits");
-        (fig, ax)
-    }
+    use crate::testing::{RecordingRenderer, close, data_axes};
 
     fn draw(fig: &Figure) {
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);
         fig.draw(&mut renderer).expect("drawable");
-    }
-
-    fn close(a: f64, b: f64) -> bool {
-        (a - b).abs() < 1e-9
     }
 
     /// The display extent of the first artist of the box's child.
@@ -471,7 +454,7 @@ mod tests {
 
     #[test]
     fn texts_sit_inside_their_frame_in_the_corner() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let options = AnchoredOptions::new(AnchorLoc::UpperLeft);
         let label = AnchoredBox::text("label", TextProps::default(), options).expect("valid");
         let anchored = ax.add_anchored_box(label);
@@ -504,7 +487,7 @@ mod tests {
 
     #[test]
     fn drawing_area_artists_are_placed_in_points() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let square = BoxItem::patch(
             Rectangle::new((0.0, 0.0), 10.0, 10.0),
             PatchProps::default(),
@@ -528,7 +511,7 @@ mod tests {
 
     #[test]
     fn images_fill_their_zoomed_box() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let data = crate::numeric::Grid::from_fn(3, 4, |r, c| (r * 4 + c) as f64);
         // 7.2 points are 10 pixels at 100 dpi.
         let image = OffsetImage::new(data, 7.2, BboxImageOptions::default()).expect("valid");
@@ -553,7 +536,7 @@ mod tests {
 
     #[test]
     fn aux_boxes_are_as_large_as_their_artists() {
-        let (fig, ax) = axes();
+        let (fig, ax) = data_axes();
         let bar = BoxItem::patch(Rectangle::new((3.0, 4.0), 2.0, 1.0), PatchProps::default());
         let aux = AuxTransformBox::new(ax.trans_data()).with_artist(bar);
         let anchored = ax.add_anchored_box(AnchoredBox::new(aux, tight(AnchorLoc::UpperRight)));

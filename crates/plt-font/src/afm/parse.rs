@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use super::error::{AfmError, AfmSection};
 use super::metrics::{AfmMetrics, CharMetrics, CharTable, CompositePart, Header, KernTable};
+use crate::tables::name::decode_latin1;
 
 /// Why a number could not be converted: Python's `ValueError` (which the
 /// header parser forgives) or `OverflowError` (which it does not).
@@ -62,14 +63,9 @@ fn to_float(text: &str) -> Result<f64, NumberError> {
     py_float(&text.replace(',', "."))
 }
 
-/// Raw bytes decoded as Latin-1.
-fn latin1(bytes: &[u8]) -> String {
-    bytes.iter().map(|&b| char::from(b)).collect()
-}
-
 /// `_to_float` of raw bytes, decoded as Latin-1 first.
 fn bytes_to_float(bytes: &[u8]) -> Result<f64, NumberError> {
-    to_float(&latin1(bytes))
+    to_float(&decode_latin1(bytes))
 }
 
 /// Python's `int(value)` of a float: truncated, NaN invalid, infinities
@@ -178,7 +174,7 @@ fn parse_header(lines: &mut Lines<'_>) -> Result<Header, AfmError> {
             // reads but never uses; `StartCharMetrics` ends the header once
             // its count reads as a number.
             b"FontBBox" => {
-                let words = latin1(value).replace(',', " ");
+                let words = decode_latin1(value).replace(',', " ");
                 if words
                     .split_whitespace()
                     .any(|word| to_int(word) == Err(NumberError::Overflow))
@@ -186,7 +182,7 @@ fn parse_header(lines: &mut Lines<'_>) -> Result<Header, AfmError> {
                     return Err(overflow);
                 }
             }
-            b"Characters" | b"StartCharMetrics" => match to_int(&latin1(value)) {
+            b"Characters" | b"StartCharMetrics" => match to_int(&decode_latin1(value)) {
                 Ok(_) if key == b"StartCharMetrics" => return Ok(header),
                 Err(NumberError::Overflow) => return Err(overflow),
                 Ok(_) | Err(NumberError::Invalid) => {}
@@ -290,7 +286,7 @@ fn composite(line: &[u8]) -> Option<(String, Vec<CompositePart>)> {
     let fields: Vec<&[u8]> = line.split(|&b| b == b';').collect();
     let head = split_words(fields.first()?);
     let name = String::from_utf8_lossy(head.get(1)?).into_owned();
-    let count = to_int(&latin1(head.get(2)?)).ok()?;
+    let count = to_int(&decode_latin1(head.get(2)?)).ok()?;
     if i64::try_from(fields.len()).ok()? != count.checked_add(2)? {
         return None;
     }

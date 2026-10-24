@@ -50,7 +50,6 @@ mod canvas;
 mod connection;
 mod frames;
 mod http;
-mod json;
 mod modern;
 mod net;
 mod protocol;

@@ -136,28 +136,6 @@ pub(super) fn parse_limit(name: &str, text: &str) -> Result<f64, FieldError> {
     }
 }
 
-/// matplotlib's `to_hex(c, keep_alpha=True)`: `#rrggbbaa`.
-pub(super) fn hex(color: Rgba) -> String {
-    let channel = |v: f64| {
-        // Python's `round` rounds half to even.
-        let scaled = (v.clamp(0.0, 1.0) * 255.0).round_ties_even();
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "a value in 0..=255"
-        )]
-        let byte = scaled as u8;
-        byte
-    };
-    format!(
-        "#{:02x}{:02x}{:02x}{:02x}",
-        channel(color.r),
-        channel(color.g),
-        channel(color.b),
-        channel(color.a)
-    )
-}
-
 /// The colour typed into the field called `name`.
 pub(super) fn parse_color(name: &str, text: &str) -> Result<crate::colors::Color, FieldError> {
     let color = crate::colors::Color::from(text.trim());
@@ -204,10 +182,6 @@ mod tests {
 
     #[test]
     fn conversions_follow_matplotlib() {
-        assert_eq!(
-            hex(Rgba::new(0.121_568_6, 0.466_666_7, 0.705_882_4, 1.0)),
-            "#1f77b4ff"
-        );
         assert_eq!(number_text(2.0), "2.0");
         assert_eq!(parse_number("Min", " 1e3 "), Ok(1000.0));
         assert!(parse_number("Min", "abc").is_err());

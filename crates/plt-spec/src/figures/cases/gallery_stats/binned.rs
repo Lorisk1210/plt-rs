@@ -18,18 +18,9 @@ use plt::stats::{AxisBins, Bins, HistOptions, Histogram2dOptions, histogram2d};
 use plt::ticker::PercentFormatter;
 
 use super::SEED;
-use crate::figures::cases::common::cumsum;
+use crate::figures::cases::common::{cumsum, extremes};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// The smallest and largest of `values`.
-fn extent(values: &[f64]) -> (f64, f64) {
-    values
-        .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), &v| {
-            (low.min(v), high.max(v))
-        })
-}
 
 /// `fig.colorbar(mappable, ax=ax, label=label)`.
 fn labelled_colorbar(fig: &Figure, mappable: &Collection, ax: &Axes, label: &str) -> CaseResult {
@@ -51,7 +42,7 @@ fn hexbin_demo(fig: &Figure) -> CaseResult {
         .zip(noise)
         .map(|(x, e)| 2.0 + 3.0 * x + 4.0 * e)
         .collect();
-    let (xlim, ylim) = (extent(&x), extent(&y));
+    let (xlim, ylim) = (extremes(&x), extremes(&y));
     let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
     let panels = [
         (None, "Hexagon binning"),
@@ -114,7 +105,7 @@ fn hist_2(fig: &Figure) -> CaseResult {
     let counts = &plot.tops[0];
     let highest = counts.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let fracs: Vec<f64> = counts.iter().map(|n| n / highest).collect();
-    let (low, high) = extent(&fracs);
+    let (low, high) = extremes(&fracs);
     let normalized = Normalize::new(low, high).normalize(&fracs)?;
     let viridis = colormaps::get("viridis")?;
     if let HistArtists::Bars(bars) = &plot.artists {

@@ -189,7 +189,7 @@ impl StreamArrowArtist {
 /// A straight quadratic Bézier from `a` to `b` (matplotlib's
 /// `ConnectionStyle.Arc3` with `rad = 0`).
 fn arc3(a: Point, b: Point) -> Path {
-    let middle = Point::new(f64::midpoint(a.x, b.x), f64::midpoint(a.y, b.y));
+    let middle = a.midpoint(b);
     Path::new(
         vec![a, middle, b],
         vec![PathCode::MoveTo, PathCode::Curve3, PathCode::Curve3],

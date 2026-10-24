@@ -3,30 +3,12 @@
 
 mod common;
 
-use std::path::PathBuf;
-
-use common::font_bytes;
+use common::{fixture_path, font_bytes};
+use plt_core::rng::SplitMix64;
 use plt_font::{
     AutohintTarget, Autohinter, Face, FontChain, GlyphId, Hinting, HintingInstance,
     OutlineRecorder, ShapeOptions, Size, face_count, shape, subset,
 };
-
-/// `SplitMix64`, for deterministic corruption positions.
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    fn below(&mut self, bound: usize) -> usize {
-        (self.next() % bound as u64) as usize
-    }
-}
 
 /// Runs every public entry point that reads font data.
 fn exercise(data: &[u8]) {
@@ -79,12 +61,6 @@ fn exercise(data: &[u8]) {
     }
 }
 
-fn fixture_path(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures")
-        .join(name)
-}
-
 fn corpus() -> Vec<(String, Vec<u8>)> {
     let mut fonts: Vec<(String, Vec<u8>)> = [
         "DejaVuSans.ttf",
@@ -123,13 +99,13 @@ fn truncated_fonts_do_not_panic() {
 
 #[test]
 fn corrupted_fonts_do_not_panic() {
-    let mut rng = Rng(0x5EED);
+    let mut rng = SplitMix64::new(0x5EED);
     for (_, data) in corpus() {
         for _ in 0..60 {
             let mut copy = data.clone();
             for _ in 0..=rng.below(8) {
                 let at = rng.below(copy.len());
-                copy[at] = rng.next() as u8;
+                copy[at] = rng.next_u64() as u8;
             }
             exercise(&copy);
         }
@@ -138,14 +114,14 @@ fn corrupted_fonts_do_not_panic() {
 
 #[test]
 fn table_directory_corruption_does_not_panic() {
-    let mut rng = Rng(42);
+    let mut rng = SplitMix64::new(42);
     for (_, data) in corpus() {
         // The first kilobyte holds the directory and small header tables,
         // where corruption reaches the most code.
         for _ in 0..120 {
             let mut copy = data.clone();
             let at = rng.below(copy.len().min(1024));
-            copy[at] = rng.next() as u8;
+            copy[at] = rng.next_u64() as u8;
             exercise(&copy);
         }
     }
@@ -166,7 +142,7 @@ fn table_range(data: &[u8], tag: [u8; 4]) -> Option<(usize, usize)> {
 
 #[test]
 fn layout_and_outline_table_corruption_does_not_panic() {
-    let mut rng = Rng(7);
+    let mut rng = SplitMix64::new(7);
     let fonts = [
         font_bytes("DejaVuSans.ttf"),
         font_bytes("STIXGeneral.ttf"),
@@ -190,7 +166,7 @@ fn layout_and_outline_table_corruption_does_not_panic() {
                         length
                     };
                     let at = offset + rng.below(window.max(1));
-                    copy[at] = rng.next() as u8;
+                    copy[at] = rng.next_u64() as u8;
                 }
                 exercise(&copy);
             }
@@ -219,7 +195,7 @@ fn small_corpus() -> Vec<Vec<u8>> {
 
 #[test]
 fn random_tables_do_not_panic() {
-    let mut rng = Rng(0xF017);
+    let mut rng = SplitMix64::new(0xF017);
     let mut fonts = small_corpus();
     fonts.push(font_bytes("DejaVuSans.ttf"));
     for data in &fonts {
@@ -227,7 +203,7 @@ fn random_tables_do_not_panic() {
             let mut copy = data.clone();
             let end = (offset + length).min(copy.len());
             for byte in &mut copy[offset.min(end)..end] {
-                *byte = rng.next() as u8;
+                *byte = rng.next_u64() as u8;
             }
             exercise(&copy);
         }
@@ -355,7 +331,7 @@ fn hostile_gsub(glyph: u16) -> Vec<u8> {
 
 #[test]
 fn subsetting_corrupted_fonts_does_not_panic() {
-    let mut rng = Rng(0x5B5E7);
+    let mut rng = SplitMix64::new(0x5B5E7);
     let fonts = [font_bytes("DejaVuSans.ttf"), font_bytes("cmr10.ttf")];
     for data in &fonts {
         for tag in [
@@ -368,7 +344,7 @@ fn subsetting_corrupted_fonts_does_not_panic() {
                 let mut copy = data.clone();
                 for _ in 0..=rng.below(4) {
                     let at = offset + rng.below(length.clamp(1, 512));
-                    copy[at] = rng.next() as u8;
+                    copy[at] = rng.next_u64() as u8;
                 }
                 let Ok(face) = Face::parse(&copy, 0) else {
                     continue;
@@ -413,7 +389,7 @@ fn inconsistent_loca_does_not_panic() {
     let (loca, _) = table_range(&data, *b"loca").expect("loca");
     let (_, offsets, long) = glyph_offsets(&data);
     let glyphs: Vec<u16> = (0..120).collect();
-    let mut rng = Rng(0x10CA);
+    let mut rng = SplitMix64::new(0x10CA);
     for variant in 0..4 {
         let mut copy = data.clone();
         for slot in 0..121 {

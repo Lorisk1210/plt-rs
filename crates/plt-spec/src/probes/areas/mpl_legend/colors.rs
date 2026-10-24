@@ -14,9 +14,10 @@ use plt::rc::{ColorOrAuto, LabelColor};
 use plt::stats::HistType;
 use plt_core::Rgba;
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use super::maybe_rgba;
 use crate::json::Json;
+use crate::probes::encode::numbers;
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// The keyword arguments of one plotting call.

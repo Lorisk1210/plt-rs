@@ -7,9 +7,9 @@
 //! which the non-zero fill rule turns into a ring.
 
 use plt_core::Point;
+use plt_core::path::outline::{VertexDist, VertexSequence};
 
 use super::stroke_math::StrokeMath;
-use super::vertex_seq::{VertexDist, VertexSequence};
 use super::{PathSink, SubpathAccumulator, SubpathGenerator};
 use crate::style::StrokeStyle;
 

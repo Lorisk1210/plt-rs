@@ -10,17 +10,14 @@ use plt::numeric::Grid;
 use plt_codec::base64;
 
 use crate::json::Json;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
+use crate::scratch::ScratchDir;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
     Op::new("image.imsave", imsave),
     Op::new("image.thumbnail", thumbnail_op),
 ];
-
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
 
 /// A 2-D array of `cell`s from nested lists.
 fn cells<T>(value: &Json, cell: impl Fn(&Json) -> Option<T>) -> Result<Grid<T>, ProbeError> {
@@ -31,8 +28,8 @@ fn cells<T>(value: &Json, cell: impl Fn(&Json) -> Option<T>) -> Result<Grid<T>, 
                 .map(|row| row.as_array()?.iter().map(&cell).collect())
                 .collect::<Option<Vec<Vec<T>>>>()
         })
-        .ok_or_else(|| bad("data"))?;
-    Grid::from_rows(rows).map_err(|_| bad("data"))
+        .ok_or_else(|| malformed("data"))?;
+    Grid::from_rows(rows).map_err(|_| malformed("data"))
 }
 
 /// A pixel of `N` channels.
@@ -56,7 +53,7 @@ fn image_data(args: Args<'_>) -> Result<ImageData, ProbeError> {
     let bytes = match args.opt_str("dtype")? {
         None | Some("float") => false,
         Some("uint8") => true,
-        Some(_) => return Err(bad("dtype")),
+        Some(_) => return Err(malformed("dtype")),
     };
     let channels = data
         .as_array()
@@ -68,7 +65,7 @@ fn image_data(args: Args<'_>) -> Result<ImageData, ProbeError> {
         (4, false) => ImageData::from(cells(data, |c| pixel::<4, _>(c, Json::as_f64))?),
         (3, true) => ImageData::from(cells(data, |c| pixel::<3, _>(c, byte))?),
         (4, true) => ImageData::from(cells(data, |c| pixel::<4, _>(c, byte))?),
-        _ => return Err(bad("data")),
+        _ => return Err(malformed("data")),
     })
 }
 
@@ -83,10 +80,10 @@ fn imsave(args: Args<'_>) -> Outcome {
         .opt_str("origin")?
         .map(str::parse::<Origin>)
         .transpose()
-        .map_err(|_| bad("origin"))?;
+        .map_err(|_| malformed("origin"))?;
     let jpeg_quality = args
         .opt_i64("quality")?
-        .map(|q| u8::try_from(q).map_err(|_| bad("quality")))
+        .map(|q| u8::try_from(q).map_err(|_| malformed("quality")))
         .transpose()?;
     let options = ImsaveOptions {
         colorizer: ColorizerOptions {
@@ -113,13 +110,8 @@ fn thumbnail_op(args: Args<'_>) -> Outcome {
         .str("interpolation")?
         .parse()
         .map_err(ProbeError::rejected)?;
-    let dir = std::env::temp_dir().join(format!(
-        "plt-spec-thumbnail-{}-{interpolation:?}-{}",
-        std::process::id(),
-        args.f64("scale")?
-    ));
-    std::fs::create_dir_all(&dir).map_err(ProbeError::rejected)?;
-    let (source, target) = (dir.join("image.png"), dir.join("thumb.png"));
+    let dir = ScratchDir::new("thumbnail").map_err(ProbeError::rejected)?;
+    let (source, target) = (dir.path("image.png"), dir.path("thumb.png"));
     let png = imsave_bytes(
         ImageData::from(data),
         plt::image::BitmapFormat::Png,
@@ -132,9 +124,7 @@ fn thumbnail_op(args: Args<'_>) -> Outcome {
         interpolation,
     };
     let made = thumbnail(&source, &target, options).map_err(ProbeError::rejected);
-    let read = made.and_then(|_| imread(&target).map_err(ProbeError::rejected));
-    let _ = std::fs::remove_dir_all(&dir);
-    let thumb = read?;
+    let thumb = made.and_then(|_| imread(&target).map_err(ProbeError::rejected))?;
     let (rows, cols) = thumb.shape();
     // As the Python side reads it: imread's floats, times 255, rounded.
     let bytes: Vec<u8> = match thumb {

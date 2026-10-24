@@ -8,7 +8,7 @@ mod gaps;
 mod layouts;
 mod pointers;
 
-use crate::figures::cases::common::sized;
+use crate::figures::cases::common::{sized, xkcd};
 use plt::numeric::Grid;
 use plt::offsetbox::{BoxItem, OffsetBox, TextArea};
 use plt::prelude::*;
@@ -43,7 +43,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("offsetbox/axes_arrow", gaps::axes_arrow),
     FigureCase::new("offsetbox/ecdf", gaps::ecdf).sized(9.0, 3.5, 100.0),
     FigureCase::new("offsetbox/figtext", gaps::figtext),
-    FigureCase::new("offsetbox/xkcd_bacon", gaps::xkcd_bacon).with_rc_setup(gaps::xkcd_default),
+    FigureCase::new("offsetbox/xkcd_bacon", gaps::xkcd_bacon).with_rc_setup(xkcd),
     FigureCase::new("offsetbox/xkcd_ticks", gaps::xkcd_ticks).with_rc_setup(gaps::xkcd_strong),
     FigureCase::new(
         "offsetbox/anchored_text_location_codes",

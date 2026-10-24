@@ -1,8 +1,6 @@
 //! Text (`draw_text`, `draw_mathtext`): glyphs shown by name from the
 //! Type 3 font of their subset.
 
-#![allow(clippy::float_cmp, reason = "matplotlib compares colours exactly")]
-
 use std::fmt::Write as _;
 
 use plt_core::Point;

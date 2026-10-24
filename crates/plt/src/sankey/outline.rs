@@ -64,7 +64,7 @@ pub(super) struct Outline {
 
 /// Control polygon of a cubic Bézier approximation of a quarter circle
 /// (`Path.arc(0, 90)`, as tabulated by matplotlib).
-#[allow(
+#[expect(
     clippy::approx_constant,
     reason = "matplotlib tabulates the arc to nine digits, not 1/sqrt(2) exactly"
 )]

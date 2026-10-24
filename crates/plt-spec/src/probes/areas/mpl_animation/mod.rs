@@ -7,8 +7,7 @@
 
 mod movies;
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::path::Path;
 
 use plt::animation::{AnimationOptions, Frames, FuncAnimation, HtmlOptions};
 use plt::figure::Figure;
@@ -18,6 +17,7 @@ use plt::rc;
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::scratch::ScratchDir;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -60,34 +60,6 @@ fn anim(frames: usize, repeat: bool) -> Result<FuncAnimation, ProbeError> {
     ))
 }
 
-/// A directory of its own for one probe's files, removed when dropped.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn new() -> Result<Self, ProbeError> {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let name = format!(
-            "plt-spec-mpl-animation-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        );
-        let dir = std::env::temp_dir().join(name);
-        std::fs::create_dir_all(&dir).map_err(ProbeError::rejected)?;
-        Ok(Self(dir))
-    }
-
-    fn path(&self, name: &str) -> PathBuf {
-        self.0.join(name)
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        // Leftovers in the temporary directory are harmless.
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
 /// What the probe records of the file at `path`, saved as `format`.
 fn read_movie(path: &Path, format: &str) -> Outcome {
     let data = std::fs::read(path).map_err(ProbeError::rejected)?;
@@ -114,7 +86,7 @@ fn save(args: Args<'_>) -> Outcome {
             .map_err(|_| ProbeError::BadArgs("frames is negative".into()))?;
         let animation = anim(frames, args.bool("repeat")?)?;
         let format = args.str("format")?;
-        let scratch = Scratch::new()?;
+        let scratch = ScratchDir::new("mpl-animation").map_err(ProbeError::rejected)?;
         let path = scratch.path(&movie_name(format)?);
         animation.save(&path).map_err(ProbeError::rejected)?;
         if format != "html" {
@@ -143,7 +115,7 @@ fn frame_size(args: Args<'_>) -> Outcome {
         let fig = Figure::with_size(width, height, args.f64("dpi")?);
         let animation =
             FuncAnimation::new(&fig, Frames::Count(1), AnimationOptions::default(), |_| {});
-        let scratch = Scratch::new()?;
+        let scratch = ScratchDir::new("mpl-animation").map_err(ProbeError::rejected)?;
         let path = scratch.path("movie.gif");
         animation.save(&path).map_err(ProbeError::rejected)?;
         let size = movies::gif(&std::fs::read(&path).map_err(ProbeError::rejected)?)?.size;
@@ -157,7 +129,7 @@ fn frame_size(args: Args<'_>) -> Outcome {
 /// `anim.save("missing/movie.<format>")` in an empty directory.
 fn invalid_path(args: Args<'_>) -> Outcome {
     styled(args, || {
-        let scratch = Scratch::new()?;
+        let scratch = ScratchDir::new("mpl-animation").map_err(ProbeError::rejected)?;
         let path = scratch
             .path("missing")
             .join(movie_name(args.str("format")?)?);
@@ -171,7 +143,7 @@ fn invalid_path(args: Args<'_>) -> Outcome {
 fn transparent(args: Args<'_>) -> Outcome {
     styled(args, || {
         rc::set("savefig.transparent", "True").map_err(ProbeError::rejected)?;
-        let scratch = Scratch::new()?;
+        let scratch = ScratchDir::new("mpl-animation").map_err(ProbeError::rejected)?;
         let path = scratch.path("movie.gif");
         anim(5, true)?.save(&path).map_err(ProbeError::rejected)?;
         let data = std::fs::read(&path).map_err(ProbeError::rejected)?;

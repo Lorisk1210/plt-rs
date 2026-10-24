@@ -68,23 +68,6 @@ pub fn parse_math_fontfamily(text: &str) -> Result<Fontset, FontPropertyError> {
         .map_err(|_| FontPropertyError::MathFontFamily(text.to_owned()))
 }
 
-/// matplotlib's name of a style.
-pub fn style_name(style: FontStyle) -> &'static str {
-    match style {
-        FontStyle::Normal => "normal",
-        FontStyle::Italic => "italic",
-        FontStyle::Oblique => "oblique",
-    }
-}
-
-/// matplotlib's name of a variant.
-pub fn variant_name(variant: FontVariant) -> &'static str {
-    match variant {
-        FontVariant::Normal => "normal",
-        FontVariant::SmallCaps => "small-caps",
-    }
-}
-
 impl FontProperties {
     /// The defaults from `font.*` rcParams.
     pub fn from_rc(rc: &RcParams) -> Self {
@@ -173,8 +156,8 @@ impl FontProperties {
     pub fn fontconfig_pattern(&self) -> String {
         let families: Vec<String> = self.families.iter().map(|f| escape_family(f)).collect();
         let properties = [
-            ("style", style_name(self.style).to_owned()),
-            ("variant", variant_name(self.variant).to_owned()),
+            ("style", self.style.name().to_owned()),
+            ("variant", self.variant.name().to_owned()),
             ("weight", self.weight.to_string()),
             ("stretch", self.stretch.to_string()),
             ("size", pyfmt::repr(self.size)),

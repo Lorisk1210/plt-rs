@@ -8,8 +8,9 @@
 use std::fmt;
 use std::rc::Rc;
 
+use plt_core::numeric::np_sign;
+
 use super::{NonPositive, ScaleError};
-use crate::ticker::pymath::np_sign;
 use crate::transforms::AxisMap;
 
 /// The value non-positive inputs map to when clipping (`log10` of the

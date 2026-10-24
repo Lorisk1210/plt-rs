@@ -1,7 +1,9 @@
 //! `AutoMinorLocator`: evenly subdivides the intervals between major ticks.
 
+use plt_core::numeric::remainder;
+
 use super::Locator;
-use crate::ticker::pymath::{np_isclose, pow10, py_mod, round_int, sorted_unique};
+use crate::ticker::pymath::{np_isclose, pow10, round_int, sorted_unique};
 use crate::ticker::{
     AxisName, MinorDivisions, ScaleHint, TickContext, TickerError, TickerSettings,
 };
@@ -41,7 +43,7 @@ impl AutoMinorLocator {
         match ndivs {
             MinorDivisions::Count(n) => n,
             MinorDivisions::Auto => {
-                let mantissa = pow10(py_mod(majorstep.log10(), 1.0));
+                let mantissa = pow10(remainder(majorstep.log10(), 1.0));
                 let nice = [1.0, 2.5, 5.0, 10.0]
                     .iter()
                     .any(|&b| np_isclose(mantissa, b, 1e-5, 1e-8));

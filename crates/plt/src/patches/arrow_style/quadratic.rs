@@ -35,7 +35,7 @@ fn point_along(p0: Point, p1: Point, d: f64) -> Point {
 /// coming from the direction of `control`.
 fn straight_head(control: Point, tip: Point, head_length: f64) -> [Point; 3] {
     let start = point_along(tip, control, head_length);
-    let mid = Point::new(f64::midpoint(start.x, tip.x), f64::midpoint(start.y, tip.y));
+    let mid = start.midpoint(tip);
     [start, mid, tip]
 }
 

@@ -5,7 +5,9 @@
 
 use std::fmt::Write as _;
 
-use super::{json, modern};
+use plt_core::json;
+
+use super::modern;
 use crate::figure::SaveFormat;
 use crate::look::ChromeLook;
 

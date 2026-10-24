@@ -17,7 +17,7 @@ use plt_core::{Affine2D, Bbox};
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, object, parse_points};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 use plt::colors::ColorizerOptions;
 
 /// Operations implemented for this area.
@@ -89,10 +89,6 @@ fn settings() -> Outcome {
             image.set_filterrad(0.0).is_err().into(),
         ),
     ]))
-}
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
 }
 
 /// `arange(100).reshape(10, 10)` (integers).

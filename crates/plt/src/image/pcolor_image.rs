@@ -6,9 +6,9 @@ use std::cell::RefCell;
 use plt_core::{Bbox, Point};
 use plt_render::RgbaImage;
 
-use super::artist::draw_rendered;
 use super::make::RenderedImage;
 use super::normalize::normalize_in;
+use super::shared::{axes_image_contains, draw_rendered};
 use super::{ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
@@ -240,12 +240,7 @@ impl Artist for PcolorImageArtist {
 
     /// matplotlib's `AxesImage.contains` with the grid as extent.
     fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
-        self.base
-            .parent
-            .is_some_and(|axes| ctx.axes_contains(axes, point))
-            && self
-                .window_extent(ctx)
-                .is_some_and(|bbox| bbox.contains(point))
+        axes_image_contains(&self.base, ctx, point, || self.window_extent(ctx))
     }
 
     /// matplotlib's `PcolorImage.get_cursor_data`: the value of the cell

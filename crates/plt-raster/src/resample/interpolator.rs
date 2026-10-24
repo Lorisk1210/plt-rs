@@ -12,6 +12,7 @@
 
 use super::grid::Grid;
 use super::numeric::{AggAffine, SUBPIXEL_SCALE, iround, trunc};
+use crate::dda::Dda2;
 
 /// Computes source coordinates for consecutive pixels of a span.
 pub(super) trait SpanInterpolator {
@@ -21,48 +22,6 @@ pub(super) trait SpanInterpolator {
     fn coordinates(&self) -> (i32, i32);
     /// Moves to the next pixel of the span.
     fn advance(&mut self);
-}
-
-/// Agg's forward-adjusted `dda2_line_interpolator`.
-#[derive(Clone, Copy, Debug, Default)]
-struct Dda2 {
-    cnt: i32,
-    lft: i32,
-    rem: i32,
-    modulo: i32,
-    y: i32,
-}
-
-impl Dda2 {
-    fn new(y1: i32, y2: i32, count: i32) -> Self {
-        let cnt = count.max(1);
-        let delta = y2.wrapping_sub(y1);
-        let mut lft = delta.wrapping_div(cnt);
-        let mut rem = delta.wrapping_rem(cnt);
-        let mut modulo = rem;
-        if modulo <= 0 {
-            modulo += count;
-            rem += count;
-            lft = lft.wrapping_sub(1);
-        }
-        modulo -= count;
-        Self {
-            cnt,
-            lft,
-            rem,
-            modulo,
-            y: y1,
-        }
-    }
-
-    fn step(&mut self) {
-        self.modulo += self.rem;
-        self.y = self.y.wrapping_add(self.lft);
-        if self.modulo > 0 {
-            self.modulo -= self.cnt;
-            self.y = self.y.wrapping_add(1);
-        }
-    }
 }
 
 /// `span_interpolator_linear<trans_affine, 8>`.
@@ -253,19 +212,6 @@ mod tests {
             tx,
             ty,
         }
-    }
-
-    #[test]
-    fn dda_hits_both_end_points() {
-        let mut d = Dda2::new(10, 1000, 7);
-        let mut ys = vec![d.y];
-        for _ in 0..7 {
-            d.step();
-            ys.push(d.y);
-        }
-        assert_eq!(ys.first(), Some(&10));
-        assert_eq!(ys.last(), Some(&1000));
-        assert!(ys.windows(2).all(|w| w[1] >= w[0]));
     }
 
     #[test]

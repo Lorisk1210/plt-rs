@@ -344,13 +344,6 @@ mod tests {
         assert!(engine.add_font_file(&path).is_err());
     }
 
-    fn dejavu(size: f64) -> FontRequest {
-        FontRequest::new(FontQuery {
-            size,
-            ..FontQuery::families(["DejaVu Sans"])
-        })
-    }
-
     #[test]
     fn missing_characters_fall_back_as_asked() {
         let engine = TextEngine::global();
@@ -358,7 +351,7 @@ mod tests {
         let font_of = |last_resort: bool| {
             let request = FontRequest {
                 last_resort,
-                ..dejavu(12.0)
+                ..FontRequest::dejavu_sans(12.0)
             };
             let run = engine.layout_line("\u{4e00}", &request, 72.0).unwrap();
             (Some(run.glyphs[0].font), run.glyphs[0].glyph)
@@ -375,7 +368,7 @@ mod tests {
         // 45.765625 px wide (spec text_metrics probes).
         let engine = TextEngine::new(FontDatabase::with_bundled_fonts());
         let run = engine
-            .layout_line("AVA To", &dejavu(10.0), 100.0)
+            .layout_line("AVA To", &FontRequest::dejavu_sans(10.0), 100.0)
             .expect("bundled font");
         assert_eq!(run.width, 45.765_625);
         assert!(run.height > 0.0 && run.descent >= 0.0);
@@ -389,7 +382,7 @@ mod tests {
         let engine = TextEngine::bundled();
         let request = FontRequest {
             hinting: Hinting::Default,
-            ..dejavu(10.0)
+            ..FontRequest::dejavu_sans(10.0)
         };
         let run = engine
             .layout_line("AVA To", &request, 100.0)
@@ -410,7 +403,7 @@ mod tests {
         let engine = TextEngine::bundled();
         let chars = |text: &str| -> Vec<String> {
             let run = engine
-                .layout_line(text, &dejavu(10.0), 72.0)
+                .layout_line(text, &FontRequest::dejavu_sans(10.0), 72.0)
                 .expect("bundled font");
             run.glyphs
                 .iter()

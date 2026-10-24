@@ -10,7 +10,7 @@ use plt_core::Rgba;
 
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -23,10 +23,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.savefig.png_text", png_text),
 ];
 
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 fn integers(values: &[u32]) -> Json {
     Json::Array(values.iter().map(|&v| Json::from(f64::from(v))).collect())
 }
@@ -34,7 +30,7 @@ fn integers(values: &[u32]) -> Json {
 /// The probe's `figsize` and, when given, `dpi` as a figure.
 fn figure(args: Args<'_>) -> Result<Figure, ProbeError> {
     let &[width, height] = args.f64_vec("figsize")?.as_slice() else {
-        return Err(bad("figsize"));
+        return Err(malformed("figsize"));
     };
     let dpi = args
         .opt_f64("dpi")?
@@ -49,7 +45,7 @@ fn pixel(args: Args<'_>) -> Outcome {
         let fig = figure(args)?;
         let face = match args.f64_vec("facecolor")?.as_slice() {
             &[r, g, b] => Rgba::new(r, g, b, args.f64("alpha")?),
-            _ => return Err(bad("facecolor")),
+            _ => return Err(malformed("facecolor")),
         };
         fig.set_facecolor(face);
         let save = || {
@@ -235,7 +231,7 @@ fn png_text(args: Args<'_>) -> Outcome {
         let metadata = args
             .get("metadata")
             .map(|value| {
-                let entries = value.as_object().ok_or_else(|| bad("metadata"))?;
+                let entries = value.as_object().ok_or_else(|| malformed("metadata"))?;
                 Ok::<_, ProbeError>(Metadata {
                     png: png_metadata(entries)?,
                     ..Metadata::default()

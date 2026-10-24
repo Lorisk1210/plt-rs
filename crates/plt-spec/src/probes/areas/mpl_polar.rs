@@ -29,18 +29,16 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("axis.RadialAxis.set_ticklabels", radial_ticklabels),
 ];
 
-fn rejected(err: impl std::fmt::Display) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
 /// Draws `fig`, bringing its ticks up to date.
 fn draw(fig: &Figure) -> Result<(), ProbeError> {
-    fig.render_raster().map(|_| ()).map_err(rejected)
+    fig.render_raster()
+        .map(|_| ())
+        .map_err(ProbeError::rejected)
 }
 
 /// Tick labels as recorded.
 fn labels(labels: Result<Vec<String>, TickerError>) -> Outcome {
-    Ok(Json::from(labels.map_err(rejected)?))
+    Ok(Json::from(labels.map_err(ProbeError::rejected)?))
 }
 
 /// An axes of the probe's `projection` on `fig`.
@@ -67,7 +65,8 @@ fn set_adjustable(args: Args<'_>) -> Outcome {
         "datalim" => Adjustable::Datalim,
         other => return Err(ProbeError::BadArgs(format!("unknown adjustable {other:?}"))),
     };
-    ax.set_adjustable(adjustable).map_err(rejected)?;
+    ax.set_adjustable(adjustable)
+        .map_err(ProbeError::rejected)?;
     Ok(adjustable_name(&ax))
 }
 
@@ -75,7 +74,7 @@ fn set_adjustable(args: Args<'_>) -> Outcome {
 fn axis(args: Args<'_>) -> Outcome {
     let ax = projected(&Figure::new(), args)?;
     ax.axis_mode(axis_mode(args.str("arg")?)?)
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     let aspect = match ax.aspect() {
         Aspect::Equal => Json::from(1.0),
         Aspect::Auto => Json::from("auto"),
@@ -95,7 +94,7 @@ fn grid_alpha(args: Args<'_>) -> Outcome {
     ax.grid_with(true, options);
     draw(&fig)?;
     let first_alpha = |name| -> Result<Json, ProbeError> {
-        let lines = ax.axis_of(name).gridlines().map_err(rejected)?;
+        let lines = ax.axis_of(name).gridlines().map_err(ProbeError::rejected)?;
         let first = lines
             .first()
             .ok_or_else(|| ProbeError::rejected("no gridlines"))?;
@@ -177,13 +176,13 @@ fn upper_right(fig: &Figure, how: &str, polar: bool) -> Result<Axes, ProbeError>
         "subplots" if polar => {
             let axs = fig
                 .polar_subplots(2, 2, Share::All, Share::All)
-                .map_err(rejected)?;
+                .map_err(ProbeError::rejected)?;
             Ok(Axes::clone(&axs[(0, 1)]))
         }
         "subplots" => {
             let axs = fig
                 .subplots_shared(2, 2, Share::All, Share::All)
-                .map_err(rejected)?;
+                .map_err(ProbeError::rejected)?;
             Ok(axs[(0, 1)].clone())
         }
         "mosaic" => {
@@ -193,8 +192,10 @@ fn upper_right(fig: &Figure, how: &str, polar: bool) -> Result<Axes, ProbeError>
                 polar,
                 ..MosaicOptions::default()
             };
-            let mosaic = "ab\ncd".parse::<Mosaic>().map_err(rejected)?;
-            let axs = fig.subplot_mosaic(&mosaic, options).map_err(rejected)?;
+            let mosaic = "ab\ncd".parse::<Mosaic>().map_err(ProbeError::rejected)?;
+            let axs = fig
+                .subplot_mosaic(&mosaic, options)
+                .map_err(ProbeError::rejected)?;
             axs.get("b")
                 .cloned()
                 .ok_or_else(|| ProbeError::rejected("no axes b"))
@@ -245,7 +246,7 @@ fn radial_state(ax: &PolarAxes) -> Outcome {
     let yaxis = ax.yaxis();
     Ok(Json::Array(vec![
         Json::from(yaxis.is_default_major_locator()),
-        Json::from(yaxis.ticklocs(false).map_err(rejected)?),
+        Json::from(yaxis.ticklocs(false).map_err(ProbeError::rejected)?),
     ]))
 }
 
@@ -266,7 +267,7 @@ fn radial_locators(_: Args<'_>) -> Outcome {
     states.push(radial_state(&ax)?);
     ax.clear();
     states.push(radial_state(&ax)?);
-    ax.set_yscale("log").map_err(rejected)?;
+    ax.set_yscale("log").map_err(ProbeError::rejected)?;
     states.push(radial_state(&ax)?);
     Ok(Json::Array(states))
 }
@@ -287,7 +288,9 @@ fn radial_ticklabels(args: Args<'_>) -> Outcome {
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad label {label}")))
         })
         .collect::<Result<_, _>>()?;
-    ax.yaxis().set_ticklabels(texts).map_err(rejected)?;
+    ax.yaxis()
+        .set_ticklabels(texts)
+        .map_err(ProbeError::rejected)?;
     draw(&fig)?;
     labels(ax.yaxis().ticklabels(false))
 }

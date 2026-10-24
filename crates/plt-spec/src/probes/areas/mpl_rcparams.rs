@@ -3,7 +3,6 @@
 
 use std::path::PathBuf;
 
-use plt::colors::Color;
 use plt::figure::Figure;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
@@ -13,6 +12,7 @@ use plt::rc::{self, RcParams};
 use super::rcsetup::{canonical, validate};
 use super::text_metrics::{rc_text, with_rc};
 use crate::json::Json;
+use crate::probes::encode::resolved_rgba;
 use crate::probes::{Args, Op, Outcome, ProbeError, encode};
 
 /// Operations implemented for this area.
@@ -35,10 +35,6 @@ pub(crate) const OPS: &[Op] = &[
         with_rc(args, || title_color(args))
     }),
 ];
-
-fn rejected(err: impl std::fmt::Display) -> ProbeError {
-    ProbeError::rejected(err)
-}
 
 /// The canonical value of `key` in `params`.
 fn canonical_value(params: &RcParams, key: &str) -> Outcome {
@@ -99,7 +95,7 @@ impl TempRcFile {
             "",
         );
         let path = std::env::temp_dir().join(name);
-        std::fs::write(&path, text).map_err(rejected)?;
+        std::fs::write(&path, text).map_err(ProbeError::rejected)?;
         Ok(Self(path))
     }
 }
@@ -117,7 +113,7 @@ fn from_setup(args: Args<'_>, f: impl FnOnce() -> Outcome) -> Outcome {
     rc::context(|| {
         rc::replace(RcParams::matplotlib());
         for (key, value) in settings(args, "setup")? {
-            rc::set(&key, &value).map_err(rejected)?;
+            rc::set(&key, &value).map_err(ProbeError::rejected)?;
         }
         f()
     })
@@ -134,7 +130,7 @@ fn rc_context(args: Args<'_>) -> Outcome {
             }
             None => pyplot::rc_context(&changes, || current(args)),
         }
-        .map_err(rejected)??;
+        .map_err(ProbeError::rejected)??;
         Ok(encode::object([
             ("inside", inside),
             ("after", current(args)?),
@@ -145,7 +141,7 @@ fn rc_context(args: Args<'_>) -> Outcome {
 fn rc_file(args: Args<'_>) -> Outcome {
     from_setup(args, || {
         let file = TempRcFile::new(args.str("file")?)?;
-        pyplot::rc_file(&file.0).map_err(rejected)?;
+        pyplot::rc_file(&file.0).map_err(ProbeError::rejected)?;
         current(args)
     })
 }
@@ -154,14 +150,9 @@ fn rc_aliases(args: Args<'_>) -> Outcome {
     rc::context(|| {
         rc::replace(RcParams::matplotlib());
         let kwargs = settings(args, "kwargs")?;
-        pyplot::rc(args.str("group")?, &borrowed(&kwargs)).map_err(rejected)?;
+        pyplot::rc(args.str("group")?, &borrowed(&kwargs)).map_err(ProbeError::rejected)?;
         canonical_value(&rc::params(), args.str("key")?)
     })
-}
-
-/// A colour as `[r, g, b, a]`.
-fn rgba(color: &Color) -> Outcome {
-    color.resolve().map(encode::rgba).map_err(rejected)
 }
 
 fn legend_color(args: Args<'_>) -> Outcome {
@@ -171,9 +162,11 @@ fn legend_color(args: Args<'_>) -> Outcome {
         [0.0, 1.0, 2.0],
         LineProps::default().label("test"),
     )
-    .map_err(rejected)?;
-    let legend = ax.legend(LegendOptions::default()).map_err(rejected)?;
-    let colors = legend.frame().colors().map_err(rejected)?;
+    .map_err(ProbeError::rejected)?;
+    let legend = ax
+        .legend(LegendOptions::default())
+        .map_err(ProbeError::rejected)?;
+    let colors = legend.frame().colors().map_err(ProbeError::rejected)?;
     match args.str("which")? {
         "face" => Ok(encode::rgba(colors.face)),
         "edge" => Ok(encode::rgba(colors.edge)),
@@ -185,14 +178,14 @@ fn marker_color(_: Args<'_>, face: bool) -> Outcome {
     let line = Figure::new()
         .subplot()
         .plot([1.0, 2.0], [1.0, 2.0])
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     if face {
-        rgba(line.markerfacecolor().or(&line.color()))
+        resolved_rgba(line.markerfacecolor().or(&line.color()))
     } else {
-        rgba(&line.effective_markeredgecolor())
+        resolved_rgba(&line.effective_markeredgecolor())
     }
 }
 
 fn title_color(_: Args<'_>) -> Outcome {
-    rgba(&Figure::new().subplot().set_title("Title").color())
+    resolved_rgba(&Figure::new().subplot().set_title("Title").color())
 }

@@ -160,23 +160,14 @@ impl SimpleAxisArtist {
 mod tests {
     use super::*;
     use crate::figure::Figure;
-
-    fn major_sides(ax: &Axes, name: AxisName) -> ((bool, bool), (bool, bool)) {
-        ax.raw().with::<AxesState, _>(|state| {
-            let style = &state.axis(name).major_style;
-            (
-                (style.ticks.first, style.ticks.second),
-                (style.labels.first, style.labels.second),
-            )
-        })
-    }
+    use crate::testing::major_tick_sides;
 
     #[test]
     fn hiding_a_side_keeps_the_axis_and_the_other_side() {
         let ax = Figure::new().subplot();
         SimpleAxisArtist::new(&ax, SpineSide::Bottom).set_visible(false);
         assert_eq!(
-            major_sides(&ax, AxisName::X),
+            major_tick_sides(&ax, AxisName::X),
             ((false, false), (false, false))
         );
         assert!(ax.xaxis().visible());
@@ -184,7 +175,7 @@ mod tests {
         assert!(ax.spines().top.visible());
         SimpleAxisArtist::new(&ax, SpineSide::Top).set_visible(true);
         assert_eq!(
-            major_sides(&ax, AxisName::X),
+            major_tick_sides(&ax, AxisName::X),
             ((false, true), (false, true))
         );
         assert_eq!(ax.xaxis().label_position(), SpineSide::Top);
@@ -203,13 +194,13 @@ mod tests {
         });
         assert!(label_visible(&ax), "the label is on the left");
         SimpleAxisArtist::new(&ax, SpineSide::Left).set_ticklabels_visible(false);
-        assert_eq!(major_sides(&ax, AxisName::Y).1, (false, false));
+        assert_eq!(major_tick_sides(&ax, AxisName::Y).1, (false, false));
         SimpleAxisArtist::new(&ax, SpineSide::Left).toggle(&Toggle {
             all: Some(false),
             ticks: Some(true),
             ..Toggle::default()
         });
         assert!(!label_visible(&ax));
-        assert_eq!(major_sides(&ax, AxisName::Y).0, (true, false));
+        assert_eq!(major_tick_sides(&ax, AxisName::Y).0, (true, false));
     }
 }

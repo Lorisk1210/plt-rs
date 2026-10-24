@@ -11,6 +11,7 @@ use plt::stats::{
     HistType, Histogram2dOptions,
 };
 
+use crate::figures::cases::common::{bins, laid_out};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -50,22 +51,6 @@ fn hist2d_colorbar(fig: &Figure, hist: &Hist2d) -> CaseResult {
     };
     fig.colorbar(&hist.mesh, options)?;
     Ok(())
-}
-
-/// Histogram options with `layout` and default styling.
-fn laid_out(layout: HistOptions<'_>) -> HistPlotOptions<'_> {
-    HistPlotOptions {
-        layout,
-        ..HistPlotOptions::default()
-    }
-}
-
-/// `bins=n`.
-fn bins(n: usize) -> HistOptions<'static> {
-    HistOptions {
-        bins: Some(Bins::Count(n)),
-        ..HistOptions::default()
-    }
 }
 
 pub(crate) const CASES: &[FigureCase] = &[

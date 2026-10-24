@@ -140,11 +140,6 @@ impl Parser<'_> {
         // `strtol` fails on numbers beyond a `long`.
         let value = i64::try_from(if negative { -magnitude } else { magnitude }).ok()?;
         self.pos += i + digits;
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "HarfBuzz narrows the `long` to a C `int` and reads it as unsigned"
-        )]
         let narrowed = value as i32 as u32;
         Some(narrowed)
     }

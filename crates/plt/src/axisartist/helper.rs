@@ -439,15 +439,7 @@ mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
     use crate::figure::Figure;
-
-    fn ticks(locs: &[f64]) -> Vec<Tick> {
-        locs.iter()
-            .map(|&loc| Tick {
-                loc,
-                label: format!("{loc}"),
-            })
-            .collect()
-    }
+    use crate::testing::ticks_at;
 
     #[test]
     fn floating_lines_sit_at_their_value() {
@@ -465,7 +457,7 @@ mod tests {
             axes,
             AxisName::X,
             Across::Data(1.5),
-            &ticks(&[-3.0, -2.0, 0.0, 2.0, 2.5]),
+            &ticks_at(&[-3.0, -2.0, 0.0, 2.0, 2.5]),
         );
         let locs: Vec<f64> = shown.iter().map(|t| t.loc.x).collect();
         assert_eq!(locs, vec![-2.0, 0.0, 2.0]);
@@ -487,7 +479,7 @@ mod tests {
             axes,
             AxisName::Y,
             Across::Edge(edge(SpineSide::Right)),
-            &ticks(&[0.0, 1.0 + 1e-12, 1.5]),
+            &ticks_at(&[0.0, 1.0 + 1e-12, 1.5]),
         );
         assert_eq!(shown.len(), 2, "within the tolerance of the edge");
         assert_eq!((shown[0].angle_normal, shown[0].angle_tangent), (0.0, 90.0));

@@ -1,6 +1,8 @@
 //! PostScript tokens: numbers, names, literal names, strings, procedure
 //! and array/dictionary delimiters, with raw hex reading for image data.
 
+use crate::figures::vector::postscript::is_delimiter;
+
 /// One token.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Tok {
@@ -18,10 +20,6 @@ pub(super) enum Tok {
 pub(super) struct Lexer<'a> {
     data: &'a [u8],
     pos: usize,
-}
-
-fn is_delimiter(b: u8) -> bool {
-    b.is_ascii_whitespace() || b"()<>[]{}/%".contains(&b)
 }
 
 impl<'a> Lexer<'a> {

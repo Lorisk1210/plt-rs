@@ -51,6 +51,16 @@ impl Point {
         self + (other - self) * t
     }
 
+    /// The point halfway to `other`, each coordinate computed by
+    /// [`f64::midpoint`].
+    #[must_use]
+    pub fn midpoint(self, other: Self) -> Self {
+        Self::new(
+            f64::midpoint(self.x, other.x),
+            f64::midpoint(self.y, other.y),
+        )
+    }
+
     /// Component-wise minimum.
     #[must_use]
     pub fn min(self, other: Self) -> Self {

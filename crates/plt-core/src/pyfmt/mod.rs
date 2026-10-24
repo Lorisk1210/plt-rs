@@ -17,7 +17,7 @@
 //! * [`auto_format`] — matplotlib's `%`-or-`format` choice for one value.
 //!
 //! ```
-//! use plt::ticker::pyfmt;
+//! use plt_core::pyfmt;
 //! assert_eq!(pyfmt::repr(1e-5), "1e-05");
 //! assert_eq!(pyfmt::general(1e7, 6), "1e+07");
 //! assert_eq!(pyfmt::fixed(0.125, 2), "0.12");
@@ -114,7 +114,7 @@ pub fn general_alternate(x: f64, precision: usize) -> String {
 /// and plain text all work).
 ///
 /// ```
-/// use plt::ticker::pyfmt::auto_format;
+/// use plt_core::pyfmt::auto_format;
 /// assert_eq!(auto_format("%.2f m", 0.2).unwrap(), "0.20 m");
 /// assert_eq!(auto_format("{} m", 0.2).unwrap(), "0.2 m");
 /// assert_eq!(auto_format("%d or {}", 0.2).unwrap(), "0 or {}");
@@ -132,7 +132,7 @@ pub fn auto_format(template: &str, value: f64) -> Result<String, FormatError> {
 /// `"{:d}"` accepts it and `"{}"` prints no decimal point.
 ///
 /// ```
-/// use plt::ticker::pyfmt::auto_format_value;
+/// use plt_core::pyfmt::auto_format_value;
 /// assert_eq!(auto_format_value("{:d}", 5.0, true).unwrap(), "5");
 /// assert_eq!(auto_format_value("{}", 5.0, false).unwrap(), "5.0");
 /// assert!(auto_format_value("{:d}", 5.0, false).is_err());

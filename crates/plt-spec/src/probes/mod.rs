@@ -4,7 +4,7 @@
 //! `spec/goldens/probes/<area>.json` and, once implemented, a module here
 //! exposing an [`Op`] table that evaluates the same operations on plt-rs.
 
-#[allow(
+#[expect(
     clippy::unnecessary_wraps,
     reason = "every probe operation shares the fallible `Op` signature"
 )]
@@ -66,6 +66,16 @@ impl ProbeError {
     pub fn rejected(err: impl fmt::Display) -> Self {
         Self::Rejected(err.to_string())
     }
+}
+
+/// A plt-rs result as a probe result: its error becomes a rejection.
+pub(crate) fn made<T>(result: Result<T, impl fmt::Display>) -> Result<T, ProbeError> {
+    result.map_err(ProbeError::rejected)
+}
+
+/// The probe argument `what` could not be decoded (`"{what} is malformed"`).
+pub(crate) fn malformed(what: &str) -> ProbeError {
+    ProbeError::BadArgs(format!("{what} is malformed"))
 }
 
 /// What matplotlib produced for a probe.

@@ -10,6 +10,7 @@ use plt::prelude::*;
 use plt::stats::{BandwidthMethod, ViolinOptions, percentiles};
 
 use super::{SEED, strings};
+use crate::figures::cases::common::drawn_violins;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -34,14 +35,6 @@ fn set_axis_style(ax: &Axes, labels: &[&str]) -> CaseResult {
 /// `color` at opacity `alpha` (matplotlib's `(color, alpha)` tuples).
 fn translucent(color: &str, alpha: f64) -> Result<Color, Box<dyn std::error::Error>> {
     Ok(Color::from(Color::from(color).resolve()?.with_alpha(alpha)))
-}
-
-/// Violin plot options that only change how the violins are drawn.
-fn drawn(draw: ViolinDrawOptions) -> ViolinplotOptions {
-    ViolinplotOptions {
-        draw,
-        ..ViolinplotOptions::default()
-    }
 }
 
 /// Draws the quartiles, whiskers and medians of each sorted sample over
@@ -101,14 +94,14 @@ fn customized_violin(fig: &Figure) -> CaseResult {
         .into_iter()
         .map(|color| translucent(color, 0.3))
         .collect::<Result<_, _>>()?;
-    let colored = drawn(ViolinDrawOptions {
+    let colored = drawn_violins(ViolinDrawOptions {
         facecolors,
         linecolors: vec!["black".into()],
         ..ViolinDrawOptions::default()
     });
     ax2.violinplot(&data, colored)?;
     ax3.set_title("Customized violin plot");
-    let bare = drawn(ViolinDrawOptions {
+    let bare = drawn_violins(ViolinDrawOptions {
         showmeans: false,
         showmedians: false,
         showextrema: false,

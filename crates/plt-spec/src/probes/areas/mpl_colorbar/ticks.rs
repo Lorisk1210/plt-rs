@@ -9,14 +9,14 @@ use plt::axes::{AxisName, Mesh, PcolorOptions};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
 use plt::colors::{BoundaryNorm, ColorizerOptions, Extend, ScalarMappable, colormaps};
 use plt::figure::Figure;
-use plt::numeric::Grid;
+use plt::numeric::{Grid, arange};
 use plt::orientation::Orientation;
 use plt::ticker::{FixedLocator, Formatter, Locator, LogFormatter, LogLabelStyle};
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use super::{formatter_name, image, locator_name};
 use crate::json::Json;
-use crate::probes::encode::object;
+use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};
 use crate::rng::SpecRng;
 
@@ -149,8 +149,8 @@ pub(super) fn tickers(args: Args<'_>) -> Outcome {
             .map_err(ProbeError::rejected)?;
         let axis = colorbar.long_axis();
         let log = || LogFormatter::new(LogLabelStyle::Plain, 10.0);
-        axis.set_major_locator(FixedLocator::new(arange(10.0, 1.0)))
-            .set_minor_locator(FixedLocator::new(arange(10.0, 0.2)))
+        axis.set_major_locator(FixedLocator::new(arange(0.0, 10.0, 1.0)))
+            .set_minor_locator(FixedLocator::new(arange(0.0, 10.0, 0.2)))
             .set_major_formatter(log())
             .set_minor_formatter(log());
         let same = object([
@@ -178,8 +178,8 @@ pub(super) fn tickers(args: Args<'_>) -> Outcome {
             ("minorformatter", formatter(&colorbar.minor_formatter())?),
         ]);
         colorbar
-            .set_locator(FixedLocator::new(arange(7.0, 1.0)))
-            .set_minor_locator(FixedLocator::new(arange(7.0, 0.1)))
+            .set_locator(FixedLocator::new(arange(0.0, 7.0, 1.0)))
+            .set_minor_locator(FixedLocator::new(arange(0.0, 7.0, 0.1)))
             .set_formatter(log())
             .set_minor_formatter(log());
         let through_colorbar = object([
@@ -199,12 +199,6 @@ pub(super) fn tickers(args: Args<'_>) -> Outcome {
             ("long_axis", Json::from(long)),
         ]))
     })
-}
-
-/// numpy's `arange(0, stop, step)`.
-fn arange(stop: f64, step: f64) -> Vec<f64> {
-    let count = (stop / step).ceil() as usize;
-    (0..count).map(|i| i as f64 * step).collect()
 }
 
 /// `[type name, ticks]` of a fixed locator.

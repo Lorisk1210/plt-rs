@@ -6,16 +6,12 @@
 //! The arguments are documented in
 //! `spec/reference/probes/test_text_shaping.py`.
 
-use std::sync::OnceLock;
-
 use plt::artist::ArtistHandle;
 use plt::figure::Figure;
 use plt::text::{Feature, HAlign, Language, LanguageRange, Text};
-use plt_font::{
-    Face, FontChain, FontDatabase, FontId, FontSource, Hinting, ShapeOptions, TextLayout,
-};
+use plt_font::{Face, FontChain, Hinting, ShapeOptions, TextLayout};
 
-use super::text_metrics::with_rc;
+use super::text_metrics::{bundled_font, database, with_rc};
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError, encode};
 
@@ -26,22 +22,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("text.Text.get_window_extent", window_extent),
     Op::new("text.Text.get_language", get_language),
 ];
-
-/// The bundled fonts, loaded once.
-pub(crate) fn database() -> &'static FontDatabase {
-    static DATABASE: OnceLock<FontDatabase> = OnceLock::new();
-    DATABASE.get_or_init(FontDatabase::with_bundled_fonts)
-}
-
-/// The bundled font stored in the file named `file`.
-pub(crate) fn bundled_font(file: &str) -> Result<FontId, ProbeError> {
-    let db = database();
-    db.entries()
-        .iter()
-        .map(|entry| entry.font)
-        .find(|&font| db.source(font).and_then(FontSource::file_name) == Some(file))
-        .ok_or_else(|| ProbeError::BadArgs(format!("unknown font file {file:?}")))
-}
 
 /// The `features` argument: `HarfBuzz` feature strings (absent or null:
 /// none); a string `HarfBuzz` rejects is a rejection.

@@ -3,7 +3,7 @@
 //! properties, mathtext as one `<tspan>` per glyph with the properties of
 //! the glyph's face, plus its rules as rectangles.
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's SVG writer leaves out exactly-default values"
 )]
@@ -15,7 +15,7 @@ use plt_text::{FontRequest, HAlign, RotationMode, TextRun, TextSource};
 use super::SvgRenderer;
 use super::style::{Style, TransformOp, css, transform_attr};
 use crate::gc::GraphicsContext;
-use crate::vector::{hex_color, repr_str, short};
+use crate::vector::{repr_str, short};
 
 /// The family names matplotlib treats as generic (`font_family_aliases`).
 const ALIASES: [&str; 7] = [
@@ -30,23 +30,6 @@ const ALIASES: [&str; 7] = [
 
 /// A mathtext glyph as a `<tspan>`: its position and the character shown.
 type Tspan = (f64, f64, char);
-
-/// The CSS name of a slant.
-const fn style_name(style: FontStyle) -> &'static str {
-    match style {
-        FontStyle::Normal => "normal",
-        FontStyle::Italic => "italic",
-        FontStyle::Oblique => "oblique",
-    }
-}
-
-/// The CSS name of a variant.
-const fn variant_name(variant: FontVariant) -> &'static str {
-    match variant {
-        FontVariant::Normal => "normal",
-        FontVariant::SmallCaps => "small-caps",
-    }
-}
 
 /// matplotlib's name of a stretch (the number when it has none).
 fn stretch_name(stretch: Stretch) -> String {
@@ -70,10 +53,10 @@ fn stretch_name(stretch: Stretch) -> String {
 fn face_style(style: FontStyle, variant: FontVariant, weight: Weight) -> Style {
     let mut css = Style::new();
     if style != FontStyle::Normal {
-        css.push(("font-style", style_name(style).to_owned()));
+        css.push(("font-style", style.name().to_owned()));
     }
     if variant != FontVariant::Normal {
-        css.push(("font-variant", variant_name(variant).to_owned()));
+        css.push(("font-variant", variant.name().to_owned()));
     }
     if weight != Weight::NORMAL {
         css.push(("font-weight", weight.0.to_string()));
@@ -121,8 +104,8 @@ impl SvgRenderer {
     fn color_style(gc: &GraphicsContext) -> Style {
         let color = gc.stroke_color();
         let mut style = Style::new();
-        if hex_color(color) != "#000000" {
-            style.push(("fill", hex_color(color)));
+        if color.to_hex(false) != "#000000" {
+            style.push(("fill", color.to_hex(false)));
         }
         let alpha = gc.alpha.unwrap_or(color.a);
         if alpha != 1.0 {

@@ -4,6 +4,7 @@
 
 mod common;
 
+use common::json::Fixture;
 use common::{fixture, font_bytes, path_codes};
 use plt_font::{Face, GlyphId, OutlineRecorder, Size};
 
@@ -27,13 +28,13 @@ fn assert_paths(actual: &[i64], expected: &[i64], tolerance: i64, label: &str) {
 fn outlines_and_boxes_match_freetype() {
     let fixtures = fixture("outlines.json");
     let mut checked = 0;
-    for (name, glyphs) in fixtures.as_object() {
+    for (name, glyphs) in fixtures.object() {
         let data = font_bytes(name);
         let face = Face::parse(&data, 0).unwrap();
         let size_12 = Size::new(&face, 12.0, 72.0);
         let size_10 = Size::new(&face, 10.0, 100.0);
-        for entry in glyphs.as_array() {
-            let glyph = GlyphId(entry.get("gid").as_i64() as u16);
+        for entry in glyphs.array() {
+            let glyph = GlyphId(entry.field("gid").i64() as u16);
             let label = format!("{name} glyph {}", glyph.0);
             let mut units = OutlineRecorder::default();
             face.outline(glyph, &mut units).unwrap();
@@ -41,7 +42,7 @@ fn outlines_and_boxes_match_freetype() {
             // units (implied midpoints are half units).
             assert_paths(
                 &path_codes(&units.commands, 2.0),
-                &entry.get("units_x2").i64s(),
+                &entry.field("units_x2").i64s(),
                 0,
                 &label,
             );
@@ -60,17 +61,17 @@ fn outlines_and_boxes_match_freetype() {
             };
             assert_eq!(
                 cbox(&size_12),
-                entry.get("bbox_12").i64s(),
+                entry.field("bbox_12").i64s(),
                 "{label}: bbox at 12/72"
             );
             assert_eq!(
                 cbox(&size_10),
-                entry.get("bbox_10_100").i64s(),
+                entry.field("bbox_10_100").i64s(),
                 "{label}: bbox at 10/100"
             );
             assert_eq!(
                 size_12.linear_advance(&face, glyph),
-                entry.get("linear_advance_12").as_i64(),
+                entry.field("linear_advance_12").i64(),
                 "{label}: advance"
             );
             if let Some(expected) = entry.opt("pixels_12_x64") {

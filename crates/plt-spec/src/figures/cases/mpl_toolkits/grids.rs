@@ -22,6 +22,7 @@ use plt::spines::SpineSide;
 use plt::text::{HAlign, VAlign};
 
 use super::remove_ticks_and_titles;
+use crate::figures::cases::common::arange_grid;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -181,11 +182,6 @@ fn anchored_direction_arrows_many_args(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `np.arange(100).reshape((10, 10))`.
-fn arange_10x10() -> Grid<f64> {
-    Grid::from_fn(10, 10, |r, c| (r * 10 + c) as f64)
-}
-
 /// The one cell of a 1 × 1 subplot grid (`111` or `(1, 1, 1)`).
 fn whole_subplot() -> Result<GridRect, GridSpecError> {
     Ok(GridRect::Subplot(GridSpec::new(1, 1)?.cell(0, 0)?))
@@ -203,7 +199,7 @@ fn image_grid_each_left_label_mode_all(fig: &Figure) -> CaseResult {
     let grid = ImageGrid::new(fig, &whole_subplot()?, (3, 2), options)?;
     for (ax, cax) in grid.axes().iter().zip(grid.cbar_axes()) {
         let image = ax.imshow(
-            arange_10x10(),
+            arange_grid(10, 10),
             ImshowOptions {
                 interpolation: Some(Interpolation::None),
                 ..ImshowOptions::default()
@@ -228,7 +224,7 @@ fn image_grid_single_bottom(fig: &Figure) -> CaseResult {
     let mut last = None;
     for ax in grid.axes() {
         last = Some(ax.imshow(
-            arange_10x10(),
+            arange_grid(10, 10),
             ImshowOptions {
                 interpolation: Some(Interpolation::None),
                 ..ImshowOptions::default()
@@ -247,7 +243,7 @@ fn image_grid(fig: &Figure) -> CaseResult {
     };
     let grid = ImageGrid::new(fig, &whole_subplot()?, (2, 2), options)?;
     for ax in grid.axes() {
-        show(ax, arange_10x10(), Some(Interpolation::Nearest))?;
+        show(ax, arange_grid(10, 10), Some(Interpolation::Nearest))?;
     }
     remove_ticks_and_titles(fig);
     Ok(())

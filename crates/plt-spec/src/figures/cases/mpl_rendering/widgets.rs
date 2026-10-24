@@ -2,7 +2,6 @@
 //! layout, styled on creation and through their setters, an invisible
 //! rectangle selector and polygon selectors given their vertices.
 
-use plt::colors::Color;
 use plt::fonts::{FontProperties, FontSize};
 use plt::prelude::*;
 use plt::text::TextProps;
@@ -13,6 +12,7 @@ use plt::widgets::{
 };
 
 use super::super::mpl_tests::{classic, remove_ticks_and_titles};
+use crate::figures::cases::common::colors;
 use crate::figures::{CaseResult, FigureCase};
 
 /// The labels of the styled buttons.
@@ -21,11 +21,6 @@ const CHECK_LABELS: [&str; 3] = ["Check 1", "Check 2", "Check 3"];
 
 /// The colours of the styled buttons.
 const STYLED_COLORS: [&str; 3] = ["red", "green", "blue"];
-
-/// Colours by name.
-fn colors(names: &[&str]) -> Vec<Color> {
-    names.iter().copied().map(Color::from).collect()
-}
 
 /// Text properties of labels in `color` at `points`.
 fn label(color: &str, points: f64) -> TextProps {

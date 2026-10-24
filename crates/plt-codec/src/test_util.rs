@@ -1,5 +1,7 @@
 //! Deterministic test data shared by the unit tests.
 
+use plt_core::rng::SplitMix64;
+
 use crate::raster::{Pixels, Raster};
 
 /// The bytes of the array matplotlib's `pil_to_array` returns for an image
@@ -12,6 +14,32 @@ pub(crate) fn pil_to_array_bytes(raster: &Raster) -> Vec<u8> {
         Pixels::Rgb(pixels) => pixels.as_flattened().to_vec(),
         Pixels::Rgba(pixels) => pixels.as_flattened().to_vec(),
         _ => raster.to_rgba8().as_flattened().to_vec(),
+    }
+}
+
+/// A file Pillow decoded: its label, width, height, the CRC-32 of the
+/// bytes `pil_to_array` returns for it, and the file in base64.
+pub(crate) type PillowFile = (&'static str, u32, u32, u32, &'static str);
+
+/// The bytes of `file`.
+pub(crate) fn pillow_bytes(file: &PillowFile) -> Vec<u8> {
+    crate::base64::decode(file.4).expect("valid base64 fixture")
+}
+
+/// Asserts that `decode` reads every one of `files` with Pillow's size
+/// and pixels.
+pub(crate) fn assert_decodes_like_pillow<E: std::fmt::Debug>(
+    files: &[PillowFile],
+    decode: impl Fn(&[u8]) -> Result<Raster, E>,
+) {
+    for file @ &(label, width, height, checksum, _) in files {
+        let image = decode(&pillow_bytes(file)).expect("Pillow decodes it");
+        assert_eq!((image.width(), image.height()), (width, height), "{label}");
+        assert_eq!(
+            crate::checksum::crc32(&pil_to_array_bytes(&image)),
+            checksum,
+            "{label}"
+        );
     }
 }
 
@@ -34,20 +62,16 @@ pub(crate) fn mutate(data: &[u8], rng: &mut Rng) -> Vec<u8> {
     out
 }
 
-/// `SplitMix64`: a tiny, high-quality deterministic generator.
-pub(crate) struct Rng(u64);
+/// Deterministic test data from a `SplitMix64` stream.
+pub(crate) struct Rng(SplitMix64);
 
 impl Rng {
     pub(crate) fn new(seed: u64) -> Self {
-        Self(seed)
+        Self(SplitMix64::new(seed))
     }
 
     pub(crate) fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
+        self.0.next_u64()
     }
 
     /// Uniform in `0..bound` (`bound > 0`).

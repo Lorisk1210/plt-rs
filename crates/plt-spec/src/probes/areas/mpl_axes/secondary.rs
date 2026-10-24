@@ -12,9 +12,10 @@ use plt::ticker::{
     ScalarFormatter,
 };
 
-use super::{made, numbers, on_axes, rgba};
+use super::{made, numbers, on_axes};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
+use crate::probes::encode::resolved_rgba;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// `ax.plot(np.arange(2, 11), np.arange(2, 11))`.
@@ -64,7 +65,7 @@ pub(super) fn secondary_resize(args: Args<'_>) -> Outcome {
         fig.set_size_inches(7.0, 4.0)
             .map_err(ProbeError::rejected)?;
         let position = ax.position();
-        Ok(numbers(&[
+        Ok(numbers([
             position.x0(),
             position.y0(),
             position.x1(),
@@ -174,15 +175,20 @@ pub(super) fn secondary_color(args: Args<'_>) -> Outcome {
         let spines = secax
             .spines()
             .iter()
-            .map(|spine| Ok((spine.side().name().to_owned(), rgba(&spine.edgecolor())?)))
+            .map(|spine| {
+                Ok((
+                    spine.side().name().to_owned(),
+                    resolved_rgba(&spine.edgecolor())?,
+                ))
+            })
             .collect::<Result<Vec<_>, ProbeError>>()?;
         let major = axis.tick_style(false);
         Ok(encode::object([
             ("spines", Json::Object(spines)),
-            ("color", rgba(&major.color)?),
-            ("labelcolor", rgba(&major.label_color)?),
-            ("label", rgba(&axis.label_color())?),
-            ("minor", rgba(&axis.tick_style(true).color)?),
+            ("color", resolved_rgba(&major.color)?),
+            ("labelcolor", resolved_rgba(&major.label_color)?),
+            ("label", resolved_rgba(&axis.label_color())?),
+            ("minor", resolved_rgba(&axis.tick_style(true).color)?),
         ]))
     })
 }

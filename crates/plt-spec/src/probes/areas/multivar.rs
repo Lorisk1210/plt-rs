@@ -8,7 +8,7 @@ use plt::colors::{Color, Colormap, Normalized};
 use plt_core::Rgba;
 
 use crate::json::Json;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -18,14 +18,10 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("bivar.component", bivar_component),
 ];
 
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 /// One variate's values: indices when every value is an integer, else
 /// fractions with `null` as NaN (numpy's array dtype rule).
 pub(super) fn values(json: &Json) -> Result<Vec<Normalized>, ProbeError> {
-    let items = json.as_array().ok_or_else(|| bad("values"))?;
+    let items = json.as_array().ok_or_else(|| malformed("values"))?;
     if items.iter().all(|item| matches!(item, Json::Integer(_))) {
         return Ok(items
             .iter()
@@ -42,7 +38,7 @@ pub(super) fn values(json: &Json) -> Result<Vec<Normalized>, ProbeError> {
             other => other
                 .as_f64()
                 .map(Normalized::Fraction)
-                .ok_or_else(|| bad("values")),
+                .ok_or_else(|| malformed("values")),
         })
         .collect()
 }
@@ -65,7 +61,7 @@ fn opt_colors(args: Args<'_>, key: &str) -> Result<Option<Vec<Color>>, ProbeErro
         .map(|json| {
             json.as_array()
                 .and_then(|items| items.iter().map(|c| c.as_str().map(Color::from)).collect())
-                .ok_or_else(|| bad(key))
+                .ok_or_else(|| malformed(key))
         })
         .transpose()
 }
@@ -85,7 +81,7 @@ fn multivar_call(args: Args<'_>) -> Outcome {
     let variates = args
         .json("X")?
         .as_array()
-        .ok_or_else(|| bad("X"))?
+        .ok_or_else(|| malformed("X"))?
         .iter()
         .map(values)
         .collect::<Result<Vec<_>, _>>()?;
@@ -114,12 +110,12 @@ fn bivar(args: Args<'_>) -> Result<BivarColormap, ProbeError> {
         .opt_str("shape")?
         .map(str::parse::<BivarShape>)
         .transpose()
-        .map_err(|_| bad("shape"))?;
+        .map_err(|_| malformed("shape"))?;
     let origin = match args.get("origin") {
         None | Some(Json::Null) => None,
         Some(_) => match args.f64_vec("origin")?.as_slice() {
             &[a, b] => Some((a, b)),
-            _ => return Err(bad("origin")),
+            _ => return Err(malformed("origin")),
         },
     };
     cmap.with_extremes(
@@ -148,8 +144,10 @@ fn bivar_call(args: Args<'_>) -> Outcome {
 pub(super) fn size(json: &Json) -> Result<Option<isize>, ProbeError> {
     match json {
         Json::Null => Ok(None),
-        Json::Integer(n) => isize::try_from(*n).map(Some).map_err(|_| bad("resampled")),
-        _ => Err(bad("resampled")),
+        Json::Integer(n) => isize::try_from(*n)
+            .map(Some)
+            .map_err(|_| malformed("resampled")),
+        _ => Err(malformed("resampled")),
     }
 }
 
@@ -157,7 +155,7 @@ pub(super) fn size(json: &Json) -> Result<Option<isize>, ProbeError> {
 fn sizes(json: &Json) -> Result<(Option<isize>, Option<isize>), ProbeError> {
     match json.as_array() {
         Some([a, b]) => Ok((size(a)?, size(b)?)),
-        _ => Err(bad("resampled")),
+        _ => Err(malformed("resampled")),
     }
 }
 
@@ -173,7 +171,7 @@ fn bivar_lut(args: Args<'_>) -> Outcome {
             reversed
                 .get(i)
                 .and_then(Json::as_bool)
-                .ok_or_else(|| bad("reversed"))
+                .ok_or_else(|| malformed("reversed"))
         };
         cmap = cmap
             .reversed(flag(0)?, flag(1)?)
@@ -208,7 +206,7 @@ fn bivar_component(args: Args<'_>) -> Outcome {
     let axis = match args.json("axis")? {
         Json::Integer(0) => BivarAxis::First,
         Json::Integer(1) => BivarAxis::Second,
-        _ => return Err(bad("axis")),
+        _ => return Err(malformed("axis")),
     };
     let part = cmap.component(axis).map_err(ProbeError::rejected)?;
     Ok(component_json(&part))

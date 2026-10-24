@@ -1,10 +1,10 @@
 //! Cutting a contour line around a label and finding the label's rotation
 //! (matplotlib's `_split_path_and_get_label_rotation`).
 
+use plt_core::numeric::remainder;
 use plt_core::{Path, PathCode, Point};
 
 use crate::numeric::interp;
-use crate::ticker::pymath::py_mod;
 use crate::transforms::ResolvedTransform;
 
 /// The display geometry shared by all labels of a `clabel` call.
@@ -90,16 +90,12 @@ pub(super) fn split_path(
     let mut angle = (sy1 - sy0).atan2(sx1 - sx0).to_degrees();
     if geometry.rightside_up {
         // Never upside down.
-        angle = py_mod(angle + 90.0, 180.0) - 90.0;
+        angle = remainder(angle + 90.0, 180.0) - 90.0;
     }
 
     // Expand by the spacing and cut there; -1 marks out of range.
     targets[0] -= spacing;
     targets[1] += spacing;
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "vertex counts are far below 2^52"
-    )]
     let positions: Vec<f64> = (0..cpls.len()).map(|i| i as f64).collect();
     let bounds = Some((-1.0, -1.0));
     let i0 = interp(targets[0], &cpls, &positions, bounds).floor();
@@ -126,11 +122,6 @@ pub(super) fn split_path(
 }
 
 /// A vertex index from numpy's interpolation, `None` for the -1 marker.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "floored indices of short paths"
-)]
 fn index_of(value: f64) -> Option<usize> {
     (value >= 0.0).then_some(value as usize)
 }

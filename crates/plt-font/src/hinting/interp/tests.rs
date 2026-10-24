@@ -1,6 +1,8 @@
 //! Interpreter tests: opcode semantics, version 40 restrictions, limits,
 //! and random bytecode that must neither panic nor run away.
 
+use plt_core::rng::SplitMix64;
+
 use super::*;
 use crate::fixed::mul_fix;
 use crate::hinting::state::UnitVector;
@@ -407,39 +409,30 @@ fn vectors_and_measurements() {
     assert_eq!((stack[4], stack[5]), (stack[0], stack[1]));
 }
 
-/// `SplitMix64`, for reproducible random bytecode.
-struct Random(u64);
-
-impl Random {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-
-    /// Random bytecode biased towards small pushes so that arguments are
-    /// often valid point and function numbers.
-    fn program(&mut self, len: usize) -> Vec<u8> {
-        (0..len)
-            .map(|_| match self.next() % 4 {
-                0 => 0xB0 + (self.next() % 2) as u8,
-                1 => (self.next() % 8) as u8,
-                _ => self.next() as u8,
-            })
-            .collect()
-    }
+/// Random bytecode biased towards small pushes so that arguments are
+/// often valid point and function numbers.
+fn random_program(random: &mut SplitMix64, len: usize) -> Vec<u8> {
+    (0..len)
+        .map(|_| match random.next_u64() % 4 {
+            0 => 0xB0 + (random.next_u64() % 2) as u8,
+            1 => (random.next_u64() % 8) as u8,
+            _ => random.next_u64() as u8,
+        })
+        .collect()
 }
 
 #[test]
 fn random_bytecode_never_panics_or_runs_away() {
-    let mut random = Random(0x5EED);
+    let mut random = SplitMix64::new(0x5EED);
     for round in 0..3000 {
         let mut machine = Machine::new();
         machine.resources.work = 2_000_000;
-        let lengths = [random.next() % 64, random.next() % 64, random.next() % 96];
-        let [fpgm, prep, glyph] = lengths.map(|len| random.program(len as usize + 1));
+        let lengths = [
+            random.next_u64() % 64,
+            random.next_u64() % 64,
+            random.next_u64() % 96,
+        ];
+        let [fpgm, prep, glyph] = lengths.map(|len| random_program(&mut random, len as usize + 1));
         let _ = machine.run(BytecodeProgram::Font, &fpgm);
         let _ = machine.run_with(
             BytecodeProgram::ControlValue,

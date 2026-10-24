@@ -1,10 +1,33 @@
 //! JSON encodings shared by several probe areas (paths, matrices,
 //! transform operation lists), as documented in the spec's Python modules.
 
+use std::borrow::Borrow;
+
+use plt::colors::Color;
 use plt_core::{Affine2D, Bbox, Path, PathCode, Point, Rgba};
 
-use super::ProbeError;
+use super::{Outcome, ProbeError};
 use crate::json::Json;
+
+/// `[x, ...]`: a list of numbers, given as values or references.
+pub(crate) fn numbers<T: Borrow<f64>>(values: impl IntoIterator<Item = T>) -> Json {
+    Json::Array(
+        values
+            .into_iter()
+            .map(|v| Json::from(*v.borrow()))
+            .collect(),
+    )
+}
+
+/// `[a, b]`.
+pub(crate) fn pair((a, b): (f64, f64)) -> Json {
+    Json::from(vec![a, b])
+}
+
+/// A count, as Python's `len` and friends report it (a JSON number).
+pub(crate) fn count(n: usize) -> Json {
+    Json::from(n as f64)
+}
 
 /// `{"vertices": [[x, y], ...], "codes": [int, ...] | null}`.
 pub(crate) fn path(path: &Path) -> Json {
@@ -35,6 +58,12 @@ pub(crate) fn point(p: Point) -> Json {
 /// `[r, g, b, a]`.
 pub(crate) fn rgba(color: Rgba) -> Json {
     Json::from(color.to_array().to_vec())
+}
+
+/// `[r, g, b, a]` of `color` resolved, or the rejection of a colour that
+/// does not resolve.
+pub(crate) fn resolved_rgba(color: &Color) -> Outcome {
+    color.resolve().map(rgba).map_err(ProbeError::rejected)
 }
 
 /// `[[x, y], ...]`.

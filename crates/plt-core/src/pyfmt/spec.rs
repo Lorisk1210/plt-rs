@@ -43,7 +43,7 @@ enum SignMode {
 /// A parsed format specification such as `>8.3f`, `+.1e` or `,.0f`.
 ///
 /// ```
-/// use plt::ticker::pyfmt::FormatSpec;
+/// use plt_core::pyfmt::FormatSpec;
 /// let spec = FormatSpec::parse(",.0f").unwrap();
 /// assert_eq!(spec.format_float(-1500.25).unwrap(), "-1,500");
 /// ```

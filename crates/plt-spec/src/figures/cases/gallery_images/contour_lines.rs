@@ -15,10 +15,9 @@ use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::orientation::Orientation;
 use plt::patheffects::{PathEffect, TickedStroke};
 use plt::prelude::ArtistHandle;
-use plt::ticker::pyfmt;
 use plt::ticker::{FuncFormatter, LogFormatter, LogLabelStyle, LogLocator};
 
-use crate::figures::cases::common::{colors, contour_field, count, values};
+use crate::figures::cases::common::{colors, contour_field, count, percent_label, values};
 use crate::figures::{CaseResult, FigureCase};
 use std::rc::Rc;
 
@@ -207,17 +206,6 @@ fn contour_demo_6(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// `_percent(x)`: one decimal unless it is a zero, then a percent sign.
-fn percent(x: f64) -> String {
-    let one = pyfmt::fixed(x, 1);
-    let number = if one.ends_with('0') {
-        pyfmt::fixed(x, 0)
-    } else {
-        one
-    };
-    format!("{number} %")
-}
-
 /// The default line contours of `contour_demo`'s field.
 fn default_lines(fig: &Figure) -> Result<ContourSet, Box<dyn std::error::Error>> {
     Ok(fig
@@ -229,7 +217,7 @@ fn contour_label_demo_1(fig: &Figure) -> CaseResult {
     let cs = default_lines(fig)?;
     cs.clabel(ClabelOptions {
         levels: Some(cs.levels()),
-        fmt: ClabelFormat::Formatter(Rc::new(FuncFormatter::new(|x, _| percent(x)))),
+        fmt: ClabelFormat::Formatter(Rc::new(FuncFormatter::new(|x, _| percent_label(x)))),
         ..sized_labels(10.0)
     })?;
     Ok(())

@@ -4,12 +4,11 @@ use plt::figure::Figure;
 use plt::lines::LineProps;
 use plt::numeric::{arange, linspace};
 use plt::patches::Polygon;
-use plt::rc::RcParams;
-use plt::style::{XkcdSketch, apply_xkcd};
 use plt::transforms::Point;
 
 use super::super::mpl_tests::{CLASSIC_TEST_PATCH, classic, remove_ticks_and_titles};
 use super::plot_y;
+use crate::figures::cases::common::xkcd;
 use crate::figures::{CaseResult, FigureCase};
 
 /// `test_path_clipping`: polygons crossing the axes edges in every way.
@@ -85,11 +84,6 @@ fn semi_log_with_zero(fig: &Figure) -> CaseResult {
     ax.set_ylim(1e-7, 1.0)?;
     ax.grid(true);
     Ok(())
-}
-
-/// `plt.xkcd()` on top of the classic test style.
-fn xkcd(rc: &mut RcParams) -> CaseResult {
-    Ok(apply_xkcd(rc, XkcdSketch::default())?)
 }
 
 /// `test_xkcd_marker`: markers drawn in the xkcd style.

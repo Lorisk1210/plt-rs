@@ -362,7 +362,7 @@ impl Locator for AutoDateLocator {
 
     /// Without finite data, 1970-01-01 to 1970-01-02; a single date is
     /// widened by two years on each side.
-    #[allow(
+    #[expect(
         clippy::float_cmp,
         reason = "matplotlib widens only exactly equal limits"
     )]

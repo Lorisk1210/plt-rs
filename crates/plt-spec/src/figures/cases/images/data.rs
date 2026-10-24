@@ -64,8 +64,3 @@ pub(super) fn grid(nx: usize, ny: usize) -> (Grid<f64>, Grid<f64>) {
 pub(super) fn zip_with(a: &Grid<f64>, b: &Grid<f64>, f: impl Fn(f64, f64) -> f64) -> Grid<f64> {
     Grid::from_fn(a.rows(), a.cols(), |r, c| f(a[(r, c)], b[(r, c)]))
 }
-
-/// `a[:-1, :-1]`.
-pub(super) fn trimmed(a: &Grid<f64>) -> Grid<f64> {
-    Grid::from_fn(a.rows() - 1, a.cols() - 1, |r, c| a[(r, c)])
-}

@@ -176,17 +176,13 @@ mod tests {
         Point::new(x, y)
     }
 
-    fn square() -> Path {
-        Path::polygon([p(0.0, 0.0), p(1.0, 0.0), p(1.0, 1.0), p(0.0, 1.0)])
-    }
-
     fn clockwise_square() -> Path {
         Path::polygon([p(0.0, 0.0), p(0.0, 1.0), p(1.0, 1.0), p(1.0, 0.0)])
     }
 
     #[test]
     fn crossing_rule() {
-        let sq = square();
+        let sq = Path::unit_rectangle();
         assert_eq!(
             sq.contains_points(&[p(0.5, 0.5), p(1.5, 0.5), p(f64::NAN, 0.5)], None, 0.0),
             vec![true, false, false]
@@ -200,8 +196,8 @@ mod tests {
     fn radius_sign_follows_orientation() {
         let outside = p(1.1, 0.5);
         let inside = p(0.9, 0.5);
-        assert!(square().contains_point(outside, None, 0.5));
-        assert!(!square().contains_point(inside, None, -0.5));
+        assert!(Path::unit_rectangle().contains_point(outside, None, 0.5));
+        assert!(!Path::unit_rectangle().contains_point(inside, None, -0.5));
         assert!(!clockwise_square().contains_point(inside, None, 0.5));
         assert!(clockwise_square().contains_point(outside, None, -0.5));
     }
@@ -243,11 +239,11 @@ mod tests {
     #[test]
     fn containment_of_paths() {
         let small = Path::polygon([p(0.25, 0.25), p(0.75, 0.25), p(0.75, 0.75), p(0.25, 0.75)]);
-        assert!(square().contains_path(&small, None));
-        assert!(!small.contains_path(&square(), None));
+        assert!(Path::unit_rectangle().contains_path(&small, None));
+        assert!(!small.contains_path(&Path::unit_rectangle(), None));
         let shifted = Affine2D::translation(2.0, 0.0);
-        assert!(!square().contains_path(&small, Some(&shifted)));
-        assert!(square().contains_path(&Path::default(), None));
+        assert!(!Path::unit_rectangle().contains_path(&small, Some(&shifted)));
+        assert!(Path::unit_rectangle().contains_path(&Path::default(), None));
     }
 
     #[test]

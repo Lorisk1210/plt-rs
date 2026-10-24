@@ -19,11 +19,7 @@ use plt_render::{CapStyle, JoinStyle};
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
-
-/// Points from coordinate pairs.
-fn points(coords: &[(f64, f64)]) -> Vec<Point> {
-    coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
-}
+use crate::figures::cases::common::points;
 
 pub(super) fn collection_log_datalim(fig: &Figure) -> CaseResult {
     let x_vals = [

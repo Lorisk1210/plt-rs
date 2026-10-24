@@ -241,7 +241,7 @@ fn annotate_heatmap(
     let threshold = if let Some(threshold) = annotation.threshold {
         normalized(norm, threshold)?
     } else {
-        normalized(norm, extremes(data).1)? / 2.0
+        normalized(norm, extremes(data.as_slice()).1)? / 2.0
     };
     for i in 0..data.rows() {
         for j in 0..data.cols() {
@@ -272,7 +272,7 @@ fn str_method(fmt: &str) -> Result<impl Fn(f64) -> Formatted, Box<dyn Error>> {
 
 /// The normalisation of an image of `data` whose limits come from it.
 fn autoscaled(data: &Grid<f64>) -> Normalize {
-    let (lo, hi) = extremes(data);
+    let (lo, hi) = extremes(data.as_slice());
     Normalize::new(lo, hi)
 }
 
@@ -369,7 +369,7 @@ fn sales_panel(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
     annotate_heatmap(
         ax,
         &sold,
-        &mut Normalize::new(0.0, extremes(&sold).1),
+        &mut Normalize::new(0.0, extremes(sold.as_slice()).1),
         &annotation,
     )
 }

@@ -11,9 +11,9 @@ use plt::numeric::Grid;
 use plt::text::HAlign;
 use plt::ticker::{AutoMinorLocator, FixedFormatter, MinorDivisions};
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use crate::json::Json;
-use crate::probes::encode::object;
+use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};
 use crate::rng::SpecRng;
 

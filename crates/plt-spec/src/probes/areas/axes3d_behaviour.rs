@@ -20,7 +20,7 @@ use plt::ticker::{MultipleLocator, NullFormatter};
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::object;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -45,10 +45,6 @@ pub(crate) const OPS: &[Op] = &[
 ];
 
 const AXES: [Axis3; 3] = [Axis3::X, Axis3::Y, Axis3::Z];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 /// An axis named `"x"`, `"y"` or `"z"`.
 fn axis_arg(args: Args<'_>, key: &str) -> Result<Axis3, ProbeError> {

@@ -194,23 +194,16 @@ impl OutlineSink for PathSink {
 
 #[cfg(test)]
 mod tests {
-    use plt_font::{FontDatabase, FontQuery};
+    use plt_font::FontDatabase;
 
     use super::*;
     use crate::engine::FontRequest;
-
-    fn dejavu(size: f64) -> FontRequest {
-        FontRequest::new(FontQuery {
-            size,
-            ..FontQuery::families(["DejaVu Sans"])
-        })
-    }
 
     #[test]
     fn raster_outlines_follow_the_hinting() {
         let engine = TextEngine::bundled();
         let run = engine
-            .layout_line("o", &dejavu(10.0), 100.0)
+            .layout_line("o", &FontRequest::dejavu_sans(10.0), 100.0)
             .expect("bundled font");
         let glyph = run.glyphs[0];
         let outline = |hinting, axis_aligned| {
@@ -238,7 +231,7 @@ mod tests {
     fn outlines_are_cached_paths() {
         let engine = TextEngine::new(FontDatabase::with_bundled_fonts());
         let run = engine
-            .layout_line("o", &dejavu(12.0), 72.0)
+            .layout_line("o", &FontRequest::dejavu_sans(12.0), 72.0)
             .expect("bundled font");
         let glyph = run.glyphs[0];
         let outline = engine

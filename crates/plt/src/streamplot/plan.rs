@@ -147,7 +147,7 @@ impl StreamPlan {
                 let next = points.get(idx + 1).copied().unwrap_or(tail);
                 self.arrows.push(PlannedArrow {
                     tail,
-                    head: Point::new(f64::midpoint(tail.x, next.x), f64::midpoint(tail.y, next.y)),
+                    head: tail.midpoint(next),
                     width: widths.as_ref().and_then(|w| w.get(idx).copied()),
                     value: values.as_ref().and_then(|v| v.get(idx).copied().flatten()),
                 });

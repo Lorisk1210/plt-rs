@@ -10,14 +10,15 @@ use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::patches::{Circle, PathShape};
 use plt::prelude::*;
-use plt::rc::{Aspect, Cycler, RcParams};
+use plt::rc::{Aspect, Cycler};
 use plt::spines::SpineSide;
-use plt::style::{XkcdSketch, apply_xkcd};
 use plt::text::{HAlign, VAlign};
 use plt::ticker::{AutoMinorLocator, MinorDivisions, MultipleLocator, StrMethodFormatter};
 use plt_core::{Path, PathCode, Point};
 
-use crate::figures::cases::common::{GALLERY_SEED, hide_top_right, map, tickless, with_stroke};
+use crate::figures::cases::common::{
+    GALLERY_SEED, datetime64, hide_top_right, map, tickless, with_stroke, xkcd,
+};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -354,11 +355,6 @@ const STOCKS: [(&str, f64, usize, f64, f64); 10] = [
     ("NASDAQ", 0.0, 0, 416.0, 0.0087),
 ];
 
-/// `np.datetime64(text)`.
-fn datetime64(text: &str) -> Result<Datetime64, Box<dyn std::error::Error>> {
-    Ok(Datetime64::parse(text)?.ok_or("not a time")?)
-}
-
 /// The first days of the months from January 1990 to June 2022.
 fn months() -> Result<Vec<Datetime64>, Box<dyn std::error::Error>> {
     (1990..=2022)
@@ -448,11 +444,6 @@ fn stock_prices(fig: &Figure) -> CaseResult {
         ..TickParams::default()
     });
     Ok(())
-}
-
-/// `plt.xkcd()`.
-fn xkcd(rc: &mut RcParams) -> CaseResult {
-    Ok(apply_xkcd(rc, XkcdSketch::default())?)
 }
 
 fn xkcd_2(fig: &Figure) -> CaseResult {

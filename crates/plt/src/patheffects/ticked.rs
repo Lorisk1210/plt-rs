@@ -5,6 +5,7 @@ use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_render::{GraphicsContext, Renderer};
 
 use super::{GcUpdate, offset_affine};
+use crate::numeric::interp;
 
 /// Short ticks at regular intervals along a path, for example to mark the
 /// forbidden side of a constraint.
@@ -35,21 +36,6 @@ impl Default for TickedStroke {
     }
 }
 
-/// numpy's `interp` for increasing `xp`: linear interpolation, clamped to
-/// the end values outside the range.
-fn interp(x: f64, xp: &[f64], fp: &[f64]) -> f64 {
-    let last = xp.len() - 1;
-    if x <= xp[0] {
-        return fp[0];
-    }
-    if x >= xp[last] {
-        return fp[last];
-    }
-    let j = xp.partition_point(|&v| v <= x) - 1;
-    let slope = (fp[j + 1] - fp[j]) / (xp[j + 1] - xp[j]);
-    slope * (x - xp[j]) + fp[j]
-}
-
 impl TickedStroke {
     /// The tick segments along one polyline (display pixels), or `None`
     /// when it is a single point.
@@ -72,9 +58,9 @@ impl TickedStroke {
         let scale = self.length * spacing_px;
         let mut vertices = Vec::with_capacity(2 * num);
         for s_tick in crate::numeric::linspace(spacing_px / 2.0, total - spacing_px / 2.0, num) {
-            let tick = Point::new(interp(s_tick, &s, &x), interp(s_tick, &s, &y));
-            let u = (interp(s_tick + delta, &s, &x) - tick.x) / delta;
-            let v = (interp(s_tick + delta, &s, &y) - tick.y) / delta;
+            let tick = Point::new(interp(s_tick, &s, &x, None), interp(s_tick, &s, &y, None));
+            let u = (interp(s_tick + delta, &s, &x, None) - tick.x) / delta;
+            let v = (interp(s_tick + delta, &s, &y, None) - tick.y) / delta;
             let n = u.hypot(v);
             let (ux, uy) = if n == 0.0 { (0.0, 0.0) } else { (u / n, v / n) };
             // The row vector (ux, uy) times [[cos, -sin], [sin, cos]].

@@ -21,7 +21,7 @@ use plt_render::CapStyle;
 
 /// How boxes are drawn (matplotlib's `patch_artist` with `boxprops`).
 #[derive(Clone, Debug)]
-#[allow(
+#[expect(
     clippy::large_enum_variant,
     reason = "built once per box plot: boxing the props would only burden the callers"
 )]

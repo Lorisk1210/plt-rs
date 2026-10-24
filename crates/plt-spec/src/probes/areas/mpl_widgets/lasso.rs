@@ -9,7 +9,7 @@ use plt::widgets::{Lasso, LassoSelector};
 
 use super::region::alpha;
 use super::steps::{Attempt, Tool, replay, unknown};
-use super::{bad, button, get_ax, props, rgba};
+use super::{button, get_ax, malformed, props, resolved_rgba};
 use crate::json::Json;
 use crate::probes::areas::canon::Canon;
 use crate::probes::areas::mpl_ticker::styled;
@@ -22,7 +22,9 @@ impl Tool for LassoSelector {
 
     fn call(&self, method: &str, args: &[Json]) -> Result<Attempt, ProbeError> {
         match method {
-            "set_props" => self.set_props(props::line(args.first().ok_or_else(|| bad(method))?)?),
+            "set_props" => {
+                self.set_props(props::line(args.first().ok_or_else(|| malformed(method))?)?);
+            }
             other => return Err(unknown("method", other)),
         }
         Ok(Attempt::Done)
@@ -35,7 +37,7 @@ impl Tool for LassoSelector {
     fn get(&self, query: &str) -> Result<Json, ProbeError> {
         let line = self.artist();
         match query {
-            "_selection_artist.get_color" => rgba(&line.color()),
+            "_selection_artist.get_color" => resolved_rgba(&line.color()),
             "_selection_artist.get_alpha" => Ok(alpha(&line)),
             other => Err(unknown("query", other)),
         }
@@ -50,7 +52,7 @@ pub(super) fn lasso_selector(args: Args<'_>) -> Outcome {
         for (name, value) in args
             .json("options")?
             .as_object()
-            .ok_or_else(|| bad("options"))?
+            .ok_or_else(|| malformed("options"))?
         {
             match name.as_str() {
                 // Blitting only speeds drawing up; selections are the same.
@@ -90,7 +92,7 @@ pub(super) fn lasso(args: Args<'_>) -> Outcome {
             plt::artist::ArtistHandle::set_alpha(&line, Some(value));
         }
         Ok(encode::object([
-            ("color", rgba(&line.color())?),
+            ("color", resolved_rgba(&line.color())?),
             ("linestyle", line.linestyle().canon()),
             ("lw", Json::from(line.linewidth())),
             ("alpha", alpha(&line)),

@@ -1,8 +1,10 @@
 //! Commands with arguments: phantoms and laps, accents, over/under sets,
 //! radicals, over/underlines and stacks.
 
+use plt_core::numeric::py_max;
+
 use super::error::{ErrorKind, Fail, NO_MATCH};
-use super::{Parsed, Parser, py_max};
+use super::{Parsed, Parser};
 use crate::error::TextError;
 use crate::mathtext::boxes::{
     Char, Dims, GlueSpec, List, Node, Packing, auto_height_char, auto_width_char,

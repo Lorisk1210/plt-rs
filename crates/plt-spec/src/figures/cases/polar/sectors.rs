@@ -14,6 +14,7 @@ use plt::patches::PatchProps;
 use plt::polar::{Compass, ThetaDirection};
 use plt_render::CapStyle;
 
+use crate::figures::cases::common::radians;
 use crate::figures::{CaseResult, FigureCase};
 
 pub(crate) const CASES: &[FigureCase] = &[
@@ -25,11 +26,6 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("polar/rlim_negative_rorigin", rlim_negative).sized(4.0, 4.0, 100.0),
     FigureCase::new("polar/radial_data_offset", radial_offset).sized(4.0, 4.0, 100.0),
 ];
-
-/// `np.radians(values)`.
-fn radians(degrees: &[f64]) -> Vec<f64> {
-    degrees.iter().map(|d| d.to_radians()).collect()
-}
 
 fn zero_locations(fig: &Figure) -> CaseResult {
     let settings = [

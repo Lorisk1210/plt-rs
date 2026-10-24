@@ -6,6 +6,7 @@ use plt_text::{FontQuery, FontRequest, TextEngine};
 
 use super::*;
 use crate::gc::Hatch;
+use crate::testing::square;
 
 fn renderer(eps: bool) -> PsRenderer {
     PsRenderer::new(
@@ -19,15 +20,6 @@ fn renderer(eps: bool) -> PsRenderer {
         },
     )
     .expect("valid figure")
-}
-
-fn square() -> Path {
-    Path::polygon([
-        Point::new(0.0, 0.0),
-        Point::new(10.0, 0.0),
-        Point::new(10.0, 10.0),
-        Point::new(0.0, 10.0),
-    ])
 }
 
 #[test]

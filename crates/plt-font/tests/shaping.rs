@@ -5,7 +5,8 @@
 
 mod common;
 
-use common::{Json, fixture, font_bytes};
+use common::json::{Fixture, Json};
+use common::{fixture, font_bytes};
 use plt_font::{
     Direction, Face, Feature, FontChain, Hinting, ShapeOptions, Size, shape_at_size, shape_with,
 };
@@ -18,25 +19,25 @@ struct Summary {
 }
 
 fn check_case(chain: &FontChain<'_>, names: &[&str], case: &Json, summary: &mut Summary) {
-    let text = case.get("text").as_str();
+    let text = case.field("text").str();
     let features: Vec<Feature> = case
-        .get("features")
-        .as_array()
+        .field("features")
+        .array()
         .iter()
-        .map(|f| f.as_str().parse().expect("feature string"))
+        .map(|f| f.str().parse().expect("feature string"))
         .collect();
     let options = ShapeOptions {
         features,
         ..ShapeOptions::default()
     };
-    let (size, dpi) = (case.get("size").as_f64(), case.get("dpi").as_f64());
+    let (size, dpi) = (case.field("size").f64(), case.field("dpi").f64());
     let layout = chain
         .layout(text, size, dpi, &options, Hinting::None)
         .expect("layout");
     let label = format!(
         "{} {size}/{dpi} {text:?} {:?}",
         names[0],
-        case.get("features")
+        case.field("features")
     );
     summary.cases += 1;
     let extents = vec![
@@ -44,10 +45,10 @@ fn check_case(chain: &FontChain<'_>, names: &[&str], case: &Json, summary: &mut 
         i64::from(layout.height),
         i64::from(layout.descent),
     ];
-    if extents != case.get("extents").i64s() {
+    if extents != case.field("extents").i64s() {
         summary.failures.push(format!(
             "{label}: extents {extents:?} != {:?}",
-            case.get("extents").i64s()
+            case.field("extents").i64s()
         ));
     }
     if let Some(glyphs) = case.opt("glyphs") {
@@ -64,16 +65,11 @@ fn check_case(chain: &FontChain<'_>, names: &[&str], case: &Json, summary: &mut 
             })
             .collect();
         let expected: Vec<(String, i64, i64, i64)> = glyphs
-            .as_array()
+            .array()
             .iter()
             .map(|g| {
-                let g = g.as_array();
-                (
-                    g[0].as_str().to_owned(),
-                    g[1].as_i64(),
-                    g[2].as_i64(),
-                    g[3].as_i64(),
-                )
+                let g = g.array();
+                (g[0].str().to_owned(), g[1].i64(), g[2].i64(), g[3].i64())
             })
             .collect();
         if actual != expected {
@@ -104,17 +100,17 @@ fn check_fixture(name: &str) {
         cases: 0,
         failures: Vec::new(),
     };
-    let cases = fixtures.as_array();
+    let cases = fixtures.array();
     let mut index = 0;
     while index < cases.len() {
-        let name = cases[index].get("font").as_str().to_owned();
+        let name = cases[index].field("font").str().to_owned();
         let data = font_bytes(&name);
         let mut resort = Face::parse(&resort_data, 0).expect("Last Resort parses");
         resort.select_charmap(0).expect("Last Resort has a charmap");
         let face = Face::parse(&data, 0).expect("font parses");
         let chain = FontChain::new(vec![face, resort]);
         let names = [name.as_str(), LAST_RESORT];
-        while index < cases.len() && cases[index].get("font").as_str() == name {
+        while index < cases.len() && cases[index].field("font").str() == name {
             check_case(&chain, &names, &cases[index], &mut summary);
             index += 1;
         }
@@ -135,15 +131,15 @@ fn check_fixture(name: &str) {
 fn synthetic_arabic_fonts_match_matplotlib() {
     let fixtures = fixture("arabic.json");
     let mut failures = Vec::new();
-    for (kind, cases) in fixtures.as_object() {
+    for (kind, cases) in fixtures.object() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures")
             .join(format!("arabic-{kind}.ttf"));
         let data = std::fs::read(&path).unwrap();
         let chain = FontChain::new(vec![Face::parse(&data, 0).unwrap()]);
-        for case in cases.as_array() {
-            let text = case.get("text").as_str();
-            let (size, dpi) = (case.get("size").as_f64(), case.get("dpi").as_f64());
+        for case in cases.array() {
+            let text = case.field("text").str();
+            let (size, dpi) = (case.field("size").f64(), case.field("dpi").f64());
             let layout = chain
                 .layout(text, size, dpi, &ShapeOptions::default(), Hinting::None)
                 .expect("layout");
@@ -153,8 +149,8 @@ fn synthetic_arabic_fonts_match_matplotlib() {
                 .map(|g| vec![i64::from(g.glyph_id.0), i64::from(g.x), i64::from(g.y)])
                 .collect();
             let expected: Vec<Vec<i64>> = case
-                .get("glyphs")
-                .as_array()
+                .field("glyphs")
+                .array()
                 .iter()
                 .map(Json::i64s)
                 .collect();
@@ -163,10 +159,10 @@ fn synthetic_arabic_fonts_match_matplotlib() {
                 i64::from(layout.height),
                 i64::from(layout.descent),
             ];
-            if glyphs != expected || extents != case.get("extents").i64s() {
+            if glyphs != expected || extents != case.field("extents").i64s() {
                 failures.push(format!(
                     "{kind} {size}/{dpi} {text:?}:\n  actual   {extents:?} {glyphs:?}\n  expected {:?} {expected:?}",
-                    case.get("extents").i64s()
+                    case.field("extents").i64s()
                 ));
             }
         }
@@ -248,8 +244,8 @@ fn paragraph_direction_can_be_forced() {
 #[test]
 fn ascii_bigram_widths_match_matplotlib() {
     let fixtures = fixture("bigrams.json");
-    let alphabet: Vec<char> = fixtures.get("alphabet").as_str().chars().collect();
-    for (name, widths) in fixtures.as_object() {
+    let alphabet: Vec<char> = fixtures.field("alphabet").str().chars().collect();
+    for (name, widths) in fixtures.object() {
         if name == "alphabet" {
             continue;
         }

@@ -375,6 +375,7 @@ impl FromStr for Coords {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testing::close_points;
 
     #[test]
     fn parses_matplotlib_names() {
@@ -435,35 +436,37 @@ mod tests {
             .transform_point(point)
     }
 
-    fn close(a: Point, b: Point) -> bool {
-        (a - b).length() < 1e-9
-    }
-
     #[test]
     fn named_systems_resolve_against_the_figure() {
         let p = Point::new;
-        assert!(close(resolve("data", p(5.0, 5.0)), p(328.0, 237.6)));
-        assert!(close(
+        assert!(close_points(resolve("data", p(5.0, 5.0)), p(328.0, 237.6)));
+        assert!(close_points(
             resolve("axes fraction", p(0.5, 0.5)),
             p(328.0, 237.6)
         ));
-        assert!(close(resolve("axes pixels", p(1.0, 2.0)), p(81.0, 54.8)));
-        assert!(close(
+        assert!(close_points(
+            resolve("axes pixels", p(1.0, 2.0)),
+            p(81.0, 54.8)
+        ));
+        assert!(close_points(
             resolve("figure points", p(72.0, 36.0)),
             p(100.0, 50.0)
         ));
-        assert!(close(
+        assert!(close_points(
             resolve("figure fraction", p(1.0, 1.0)),
             p(640.0, 480.0)
         ));
-        assert!(close(resolve("offset pixels", p(-5.0, 5.0)), p(5.0, 15.0)));
+        assert!(close_points(
+            resolve("offset pixels", p(-5.0, 5.0)),
+            p(5.0, 15.0)
+        ));
         let fontsize = 10.0 * 100.0 / 72.0;
-        assert!(close(
+        assert!(close_points(
             resolve("offset fontsize", p(1.0, 0.0)),
             p(10.0 + fontsize, 10.0)
         ));
         let polar = resolve("polar", p(std::f64::consts::FRAC_PI_2, 5.0));
-        assert!(close(polar, resolve("data", p(0.0, 5.0))));
+        assert!(close_points(polar, resolve("data", p(0.0, 5.0))));
     }
 
     #[test]

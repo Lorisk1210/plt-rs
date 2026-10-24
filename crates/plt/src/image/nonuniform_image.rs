@@ -11,9 +11,9 @@ use std::cell::RefCell;
 use plt_core::{Bbox, Point};
 use plt_render::RgbaImage;
 
-use super::artist::draw_rendered;
 use super::make::RenderedImage;
 use super::pcolor_image::{cell_colors, cell_of};
+use super::shared::{axes_image_contains, draw_rendered};
 use super::{Extent, ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
@@ -279,12 +279,7 @@ impl Artist for NonUniformImageArtist {
 
     /// matplotlib's `AxesImage.contains`: inside the axes and the extent.
     fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
-        self.base
-            .parent
-            .is_some_and(|axes| ctx.axes_contains(axes, point))
-            && self
-                .window_extent(ctx)
-                .is_some_and(|bbox| bbox.contains(point))
+        axes_image_contains(&self.base, ctx, point, || self.window_extent(ctx))
     }
 
     /// matplotlib's `NonUniformImage.get_cursor_data`: the value whose

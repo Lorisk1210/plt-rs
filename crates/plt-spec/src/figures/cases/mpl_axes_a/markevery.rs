@@ -11,7 +11,7 @@ use plt::prelude::*;
 
 use super::remove_ticks_and_titles;
 use crate::figures::CaseResult;
-use crate::figures::cases::common::markevery_sine;
+use crate::figures::cases::common::{MarkeveryAxes, markevery_panel, markevery_sine};
 
 /// `_markevery_styles`: four marker styles (after `line`, `""` or `"-"`)
 /// with no, default, every-10th and every-20th-from-5 markers, and a
@@ -81,42 +81,21 @@ fn markevery_cases() -> [Option<MarkEvery>; 11] {
     ]
 }
 
-/// How the grid tests set up each axes.
-#[derive(Clone, Copy)]
-enum GridAxes {
-    /// Plain rectilinear axes.
-    Linear,
-    /// Rectilinear axes zoomed to `x` 6–6.7, `y` 1.1–1.7 after plotting.
-    Zoomed,
-    /// Log scales on both axes before plotting.
-    Log,
-    /// Polar axes.
-    Polar,
-}
-
 /// `_markevery_grid`: one subplot per `markevery` value on a 4×3 grid,
 /// each plotting `y` against `x` as `o-` with 4 pt markers (the titles
 /// naming the values are removed with the tick labels).
-fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: GridAxes) -> CaseResult {
+fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: MarkeveryAxes) -> CaseResult {
     let cases = markevery_cases();
     let grid = GridSpec::new(cases.len() / 3 + 1, 3)?;
     for (i, markevery) in cases.into_iter().enumerate() {
-        let spec = grid.cell(i / 3, i % 3)?;
-        let ax = match kind {
-            GridAxes::Polar => (*fig.add_polar_subplot_spec(&spec)?).clone(),
-            _ => fig.add_subplot_spec(&spec)?,
-        };
-        if matches!(kind, GridAxes::Log) {
-            ax.set_xscale("log")?.set_yscale("log")?;
-        }
-        let style = LineProps::fmt("o")?
-            .linestyle(LineStyle::Solid)
-            .markersize(4.0)
-            .markevery(markevery);
-        ax.plot_with(x, y, style)?;
-        if matches!(kind, GridAxes::Zoomed) {
-            ax.set_xlim(6.0, 6.7)?.set_ylim(1.1, 1.7)?;
-        }
+        markevery_panel(
+            fig,
+            &grid.cell(i / 3, i % 3)?,
+            kind,
+            None,
+            (x, y),
+            markevery,
+        )?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -124,23 +103,23 @@ fn markevery_grid(fig: &Figure, x: &[f64], y: &[f64], kind: GridAxes) -> CaseRes
 
 pub(super) fn markevery_linear_scales(fig: &Figure) -> CaseResult {
     let (x, y) = markevery_sine();
-    markevery_grid(fig, &x, &y, GridAxes::Linear)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Linear)
 }
 
 pub(super) fn markevery_linear_scales_zoomed(fig: &Figure) -> CaseResult {
     let (x, y) = markevery_sine();
-    markevery_grid(fig, &x, &y, GridAxes::Zoomed)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Zoomed)
 }
 
 pub(super) fn markevery_log_scales(fig: &Figure) -> CaseResult {
     let (x, y) = markevery_sine();
-    markevery_grid(fig, &x, &y, GridAxes::Log)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Log)
 }
 
 pub(super) fn markevery_polar(fig: &Figure) -> CaseResult {
     let r = linspace(0.0, 3.0, 200);
     let theta: Vec<f64> = r.iter().map(|r| 2.0 * PI * r).collect();
-    markevery_grid(fig, &theta, &r, GridAxes::Polar)
+    markevery_grid(fig, &theta, &r, MarkeveryAxes::Polar)
 }
 
 pub(super) fn markevery_linear_scales_nans(fig: &Figure) -> CaseResult {
@@ -149,7 +128,7 @@ pub(super) fn markevery_linear_scales_nans(fig: &Figure) -> CaseResult {
     for gap in [0..10, n - 20..n, 50..70] {
         y[gap].fill(f64::NAN);
     }
-    markevery_grid(fig, &x, &y, GridAxes::Linear)
+    markevery_grid(fig, &x, &y, MarkeveryAxes::Linear)
 }
 
 pub(super) fn marker_edges(fig: &Figure) -> CaseResult {

@@ -1,11 +1,11 @@
 //! `ScalarFormatter`: plain numbers with automatic offset and scientific
 //! notation.
 
+use plt_core::numeric::{floor_div, remainder};
+
 use super::{Formatter, TickLabels};
 use crate::ticker::pyfmt::{fixed, general, general_alternate, integer};
-use crate::ticker::pymath::{
-    floor_div, floor_int, np_round, pow10, pow10_int, py_mod, py_round, spacing,
-};
+use crate::ticker::pymath::{floor_int, np_round, pow10, pow10_int, py_round, spacing};
 use crate::ticker::{TickContext, TickerError, TickerSettings};
 
 /// Whether a [`ScalarFormatter`] subtracts an offset from tick values.
@@ -386,7 +386,7 @@ impl ScalarFormatter {
         let e = floor_int(value.abs().log10(), "value")?;
         let e = i32::try_from(e).map_err(|_| TickerError::NonFinite("exponent"))?;
         let s = py_round(value / pow10_int(e), 10);
-        let significand = settings.fix_minus(&if py_mod(s, 1.0) == 0.0 {
+        let significand = settings.fix_minus(&if remainder(s, 1.0) == 0.0 {
             integer(s)
         } else {
             general(s, 10)

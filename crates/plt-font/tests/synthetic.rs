@@ -3,32 +3,25 @@
 
 mod common;
 
-use std::path::PathBuf;
-
-use common::{Json, fixture, path_codes};
+use common::json::{Fixture, Json};
+use common::{fixture, fixture_path, path_codes};
 use plt_font::{
     Face, FontDatabase, FontQuery, FontStyle, GlyphId, OutlineRecorder, SfntFlavor, Size, Weight,
     face_count,
 };
 
-fn fixture_path(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures")
-        .join(name)
-}
-
 fn check_face(face: &Face<'_>, expected: &Json, label: &str) {
     assert_eq!(
         face.family_name().as_deref(),
-        Some(expected.get("family_name").as_str()),
+        Some(expected.field("family_name").str()),
         "{label}"
     );
     assert_eq!(
         face.style_name().as_deref(),
-        Some(expected.get("style_name").as_str()),
+        Some(expected.field("style_name").str()),
         "{label}"
     );
-    let ps = expected.get("postscript_name").as_str();
+    let ps = expected.field("postscript_name").str();
     assert_eq!(
         face.postscript_name().as_deref(),
         (ps != "UNAVAILABLE").then_some(ps),
@@ -36,23 +29,23 @@ fn check_face(face: &Face<'_>, expected: &Json, label: &str) {
     );
     assert_eq!(
         i64::from(face.num_glyphs()),
-        expected.get("num_glyphs").as_i64(),
+        expected.field("num_glyphs").i64(),
         "{label}"
     );
     let size = Size::new(face, 12.0, 72.0);
-    for glyph in expected.get("glyphs").as_array() {
-        let id = GlyphId(glyph.get("gid").as_i64() as u16);
-        let what = format!("{label} glyph {} ({})", id.0, glyph.get("name").as_str());
+    for glyph in expected.field("glyphs").array() {
+        let id = GlyphId(glyph.field("gid").i64() as u16);
+        let what = format!("{label} glyph {} ({})", id.0, glyph.field("name").str());
         assert_eq!(
             face.glyph_name(id),
-            Some(glyph.get("name").as_str()),
+            Some(glyph.field("name").str()),
             "{what}"
         );
         let mut recorder = OutlineRecorder::default();
         face.outline(id, &mut recorder).expect("outline");
         assert_eq!(
             path_codes(&recorder.commands, 64.0),
-            glyph.get("units_x64").i64s(),
+            glyph.field("units_x64").i64s(),
             "{what}"
         );
         let cbox = size
@@ -66,7 +59,7 @@ fn check_face(face: &Face<'_>, expected: &Json, label: &str) {
                     i64::from(r.y_max),
                 ]
             });
-        assert_eq!(cbox, glyph.get("bbox_12").i64s(), "{what}: bbox");
+        assert_eq!(cbox, glyph.field("bbox_12").i64s(), "{what}: bbox");
     }
 }
 
@@ -78,7 +71,7 @@ fn cff_outlines_and_names_match_freetype() {
     assert_eq!(face.flavor(), SfntFlavor::Cff);
     assert!(face.has_glyph_names());
     assert_eq!(face.glyph_index_by_name("Aacute"), face.glyph_index('Á'));
-    check_face(&face, expected.get("cff"), "cff");
+    check_face(&face, expected.field("cff"), "cff");
 }
 
 #[test]
@@ -87,7 +80,7 @@ fn collections_expose_every_face() {
     let path = fixture_path("synthetic.ttc");
     let data = std::fs::read(&path).unwrap();
     assert_eq!(face_count(&data), Ok(2));
-    for (index, face_expected) in expected.get("ttc").as_array().iter().enumerate() {
+    for (index, face_expected) in expected.field("ttc").array().iter().enumerate() {
         let face = Face::parse(&data, index as u32).unwrap();
         assert_eq!(face.index(), index as u32);
         check_face(&face, face_expected, &format!("ttc face {index}"));
@@ -97,20 +90,20 @@ fn collections_expose_every_face() {
     let db = FontDatabase::new();
     let ids = db.add_file(&path).unwrap();
     assert_eq!(ids.len(), 2);
-    for (entry, face_expected) in db.entries().iter().zip(expected.get("ttc").as_array()) {
-        let wanted = face_expected.get("entry");
-        assert_eq!(entry.name, wanted.get("name").as_str());
+    for (entry, face_expected) in db.entries().iter().zip(expected.field("ttc").array()) {
+        let wanted = face_expected.field("entry");
+        assert_eq!(entry.name, wanted.field("name").str());
         assert_eq!(
             entry.style,
-            wanted.get("style").as_str().parse::<FontStyle>().unwrap()
+            wanted.field("style").str().parse::<FontStyle>().unwrap()
         );
-        assert_eq!(i64::from(entry.weight), wanted.get("weight").as_i64());
+        assert_eq!(i64::from(entry.weight), wanted.field("weight").i64());
     }
     let bold = FontQuery::families(["Plt Collection"]).with_weight(Weight::BOLD);
     let found = db.find_font_exact(&bold).unwrap();
     assert_eq!(
         i64::from(db.face_index(found).unwrap()),
-        expected.get("ttc_bold_face_index").as_i64()
+        expected.field("ttc_bold_face_index").i64()
     );
     assert_eq!(
         db.face(found).unwrap().style_name().as_deref(),

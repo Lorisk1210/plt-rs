@@ -41,11 +41,6 @@ fn noise(n: usize) -> [Vec<f64>; 2] {
 }
 
 /// Python's `int(value)` for the tests' positive segment lengths.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "the tests truncate positive lengths with `int()`"
-)]
 fn int(value: f64) -> usize {
     value as usize
 }

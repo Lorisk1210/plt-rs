@@ -291,10 +291,6 @@ impl FuncAnimation {
 }
 
 /// The length of `data` in bytes, as a number to compare with the limit.
-#[expect(
-    clippy::cast_precision_loss,
-    reason = "video data stays far below 2^52 bytes"
-)]
 fn byte_count(data: &str) -> f64 {
     data.len() as f64
 }

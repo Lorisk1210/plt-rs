@@ -18,6 +18,9 @@ dependencies = [
 [[package]]
 name = "plt-codec"
 version = "0.1.0"
+dependencies = [
+ "plt-core",
+]
 
 [[package]]
 name = "plt-core"
@@ -26,6 +29,9 @@ version = "0.1.0"
 [[package]]
 name = "plt-font"
 version = "0.1.0"
+dependencies = [
+ "plt-core",
+]
 
 [[package]]
 name = "plt-platform"

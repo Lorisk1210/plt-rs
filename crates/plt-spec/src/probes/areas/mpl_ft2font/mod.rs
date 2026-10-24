@@ -8,11 +8,11 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use plt_font::{
-    AutohintTarget, Autohinter, Face, FontId, FontSource, GlyphId, Hinting, KerningMode,
-    ShapeOptions, Size, TextLayout, bundled_font_data, face_count,
+    AutohintTarget, Autohinter, Face, FontSource, GlyphId, Hinting, KerningMode, ShapeOptions,
+    Size, TextLayout, bundled_font_data, face_count,
 };
 
-use super::text_metrics::{database, load_glyph};
+use super::text_metrics::{bundled_font, database, load_glyph};
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError, encode};
 
@@ -38,10 +38,6 @@ const SAMPLE_CODES: [u32; 12] = [
     0x2020, 0xB0, 0xA3, 0xA7, 0xB6, 0x221E, 0xA0, 0xA1, 0xA4, 0xA6, 0x1D305, 0x1F0A1,
 ];
 
-fn rejected(err: impl std::fmt::Display) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
 fn number(value: impl Into<f64>) -> Json {
     Json::from(value.into())
 }
@@ -54,7 +50,7 @@ fn font_data(args: Args<'_>) -> Result<&'static [u8], ProbeError> {
 
 /// Face 0 of the bundled font named by `file`.
 fn face(args: Args<'_>) -> Result<Face<'static>, ProbeError> {
-    Face::parse(font_data(args)?, 0).map_err(rejected)
+    Face::parse(font_data(args)?, 0).map_err(ProbeError::rejected)
 }
 
 /// The face's size for `set_size(size, dpi)`.
@@ -74,7 +70,7 @@ fn glyph_of(face: &Face<'_>, args: Args<'_>, key: &str) -> Result<Option<GlyphId
 
 fn attrs(args: Args<'_>) -> Outcome {
     let data = font_data(args)?;
-    let face = Face::parse(data, 0).map_err(rejected)?;
+    let face = Face::parse(data, 0).map_err(ProbeError::rejected)?;
     let flags = face.face_flags();
     let style = face.style_flags();
     let (position, thickness) = face.underline_metrics().unwrap_or_default();
@@ -84,7 +80,10 @@ fn attrs(args: Args<'_>) -> Outcome {
         ("postscript_name", text(face.postscript_name())),
         ("family_name", text(face.family_name())),
         ("style_name", text(face.style_name())),
-        ("num_faces", number(face_count(data).map_err(rejected)?)),
+        (
+            "num_faces",
+            number(face_count(data).map_err(ProbeError::rejected)?),
+        ),
         ("num_glyphs", number(face.num_glyphs())),
         ("num_charmaps", number(face.charmaps().len() as f64)),
         (
@@ -125,11 +124,14 @@ fn attrs(args: Args<'_>) -> Outcome {
 
 fn open_face(args: Args<'_>) -> Outcome {
     let data = font_data(args)?;
-    let index = u32::try_from(args.i64("face_index")?).map_err(rejected)?;
-    let face = Face::parse(data, index).map_err(rejected)?;
+    let index = u32::try_from(args.i64("face_index")?).map_err(ProbeError::rejected)?;
+    let face = Face::parse(data, index).map_err(ProbeError::rejected)?;
     Ok(encode::object([
         ("face_index", number(face.index())),
-        ("num_faces", number(face_count(data).map_err(rejected)?)),
+        (
+            "num_faces",
+            number(face_count(data).map_err(ProbeError::rejected)?),
+        ),
     ]))
 }
 
@@ -146,14 +148,14 @@ fn select_charmap(face: &mut Face<'_>, charmap: &Json) -> Result<(), ProbeError>
                 .iter()
                 .position(|info| (info.platform_id, info.encoding_id) == (1, 0))
                 .ok_or_else(|| ProbeError::rejected("no Apple Roman character map"))?;
-            face.select_charmap(index).map_err(rejected)
+            face.select_charmap(index).map_err(ProbeError::rejected)
         }
         other => {
             let index = other
                 .as_i64()
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad charmap {other}")))?;
-            let index = usize::try_from(index).map_err(rejected)?;
-            face.select_charmap(index).map_err(rejected)
+            let index = usize::try_from(index).map_err(ProbeError::rejected)?;
+            face.select_charmap(index).map_err(ProbeError::rejected)
         }
     }
 }
@@ -192,7 +194,7 @@ fn get_name_index(args: Args<'_>) -> Outcome {
 
 fn get_glyph_name(args: Args<'_>) -> Outcome {
     let face = face(args)?;
-    let index = u16::try_from(args.i64("index")?).map_err(rejected)?;
+    let index = u16::try_from(args.i64("index")?).map_err(ProbeError::rejected)?;
     face.glyph_name(GlyphId(index))
         .map(Json::from)
         .ok_or_else(|| ProbeError::rejected("the glyph has no name"))
@@ -271,7 +273,7 @@ fn laid_out(args: Args<'_>) -> Result<TextLayout, ProbeError> {
             &ShapeOptions::default(),
             Hinting::Auto,
         )
-        .map_err(rejected)
+        .map_err(ProbeError::rejected)
 }
 
 fn set_text(args: Args<'_>) -> Outcome {
@@ -304,7 +306,7 @@ fn load_char(args: Args<'_>) -> Outcome {
     let size = size(args, &face)?;
     let hinted = Autohinter::new(&face)
         .load_glyph(&face, &size, glyph, AutohintTarget::Normal)
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     let metrics = hinted.metrics();
     let bbox = hinted.control_box().unwrap_or_default();
     Ok(encode::object([
@@ -329,16 +331,6 @@ fn load_char(args: Args<'_>) -> Outcome {
     ]))
 }
 
-/// The bundled font named `file`.
-fn font_id(file: &str) -> Result<FontId, ProbeError> {
-    let db = database();
-    db.entries()
-        .iter()
-        .map(|entry| entry.font)
-        .find(|&font| db.source(font).and_then(FontSource::file_name) == Some(file))
-        .ok_or_else(|| ProbeError::BadArgs(format!("unknown font file {file:?}")))
-}
-
 fn layout_fonts(args: Args<'_>) -> Outcome {
     let db = database();
     let fonts = args
@@ -349,15 +341,15 @@ fn layout_fonts(args: Args<'_>) -> Outcome {
         .map(|file| {
             file.as_str()
                 .ok_or_else(|| ProbeError::BadArgs(format!("bad file {file}")))
-                .and_then(font_id)
+                .and_then(bundled_font)
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let chain = db.font_chain(&fonts, true).map_err(rejected)?;
+    let chain = db.font_chain(&fonts, true).map_err(ProbeError::rejected)?;
     let mut items = Vec::new();
     for line in args.str("text")?.split('\n') {
         let layout = chain
             .layout(line, 12.0, 72.0, &ShapeOptions::default(), Hinting::None)
-            .map_err(rejected)?;
+            .map_err(ProbeError::rejected)?;
         for glyph in &layout.glyphs {
             let c = line[glyph.cluster..].chars().next().unwrap_or_default();
             let file = chain

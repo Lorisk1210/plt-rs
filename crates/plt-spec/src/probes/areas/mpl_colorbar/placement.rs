@@ -15,10 +15,10 @@ use plt::numeric::Grid;
 use plt::orientation::Orientation;
 use plt_core::Anchor;
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use super::{extents, image, side};
 use crate::json::Json;
-use crate::probes::encode::object;
+use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};
 use crate::rng::SpecRng;
 

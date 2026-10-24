@@ -166,10 +166,7 @@ impl Hull {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn pts(coords: &[(f64, f64)]) -> Vec<Point> {
-        coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
-    }
+    use crate::testing::points;
 
     fn orient(points: &[Point], t: [usize; 3]) -> f64 {
         let [a, b, c] = t.map(|i| points[i]);
@@ -184,7 +181,7 @@ mod tests {
                 coords.push((f64::from(i), f64::from(j)));
             }
         }
-        let points = pts(&coords);
+        let points = points(&coords);
         let tri = triangulate(&points).unwrap();
         assert_eq!(tri.triangles.len(), 2 * 20 - 2 - 14);
         assert!(tri.triangles.iter().all(|&t| orient(&points, t) > 0.0));
@@ -192,7 +189,7 @@ mod tests {
 
     #[test]
     fn neighbours_are_mutual() {
-        let points = pts(&[(0.0, 0.0), (1.0, 0.1), (0.2, 1.0), (1.3, 1.1), (0.6, 0.4)]);
+        let points = points(&[(0.0, 0.0), (1.0, 0.1), (0.2, 1.0), (1.3, 1.1), (0.6, 0.4)]);
         let tri = triangulate(&points).unwrap();
         for (t, nb) in tri.neighbors.iter().enumerate() {
             for (e, n) in nb.iter().enumerate() {
@@ -208,7 +205,7 @@ mod tests {
 
     #[test]
     fn duplicates_are_left_out() {
-        let points = pts(&[(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.2)]);
+        let points = points(&[(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.2)]);
         let tri = triangulate(&points).unwrap();
         assert_eq!(tri.triangles.len(), 2);
         assert!(tri.triangles.iter().all(|t| !t.contains(&3)));
@@ -217,19 +214,19 @@ mod tests {
     #[test]
     fn degenerate_inputs_are_rejected() {
         assert_eq!(
-            triangulate(&pts(&[(0.0, 0.0), (1.0, 1.0)])),
+            triangulate(&points(&[(0.0, 0.0), (1.0, 1.0)])),
             Err(TriError::TooFewPoints)
         );
         assert_eq!(
-            triangulate(&pts(&[(0.0, 0.0), (0.0, 0.0), (1.0, 0.0)])),
+            triangulate(&points(&[(0.0, 0.0), (0.0, 0.0), (1.0, 0.0)])),
             Err(TriError::TooFewUniquePoints)
         );
         assert_eq!(
-            triangulate(&pts(&[(0.0, 0.0), (1.0, 1.0), (2.0, 2.0), (3.0, 3.0)])),
+            triangulate(&points(&[(0.0, 0.0), (1.0, 1.0), (2.0, 2.0), (3.0, 3.0)])),
             Err(TriError::Collinear)
         );
         assert_eq!(
-            triangulate(&pts(&[(0.0, 0.0), (1.0, 0.0), (0.0, f64::NAN)])),
+            triangulate(&points(&[(0.0, 0.0), (1.0, 0.0), (0.0, f64::NAN)])),
             Err(TriError::NonFinite)
         );
     }

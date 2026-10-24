@@ -15,6 +15,7 @@ use plt::rc::ColorOrAuto;
 use plt::stats::{BoxStats, BoxplotOptions as StatsOptions, Whis, boxplot_stats};
 
 use super::{SEED, columns, strings};
+use crate::figures::cases::common::{drawn_boxes, with_sym};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -30,22 +31,6 @@ fn filled(patch: PatchProps) -> BxpOptions {
     }
 }
 
-/// Box plot options that only change how the boxes are drawn.
-fn drawn(draw: BxpOptions) -> BoxplotOptions {
-    BoxplotOptions {
-        draw,
-        ..BoxplotOptions::default()
-    }
-}
-
-/// Box plot options with outliers styled by the format string `sym`.
-pub(super) fn with_sym(sym: &str) -> BoxplotOptions {
-    BoxplotOptions {
-        sym: Some(sym.into()),
-        ..BoxplotOptions::default()
-    }
-}
-
 fn boxplot_color(fig: &Figure) -> CaseResult {
     let mut g = SpecRng::new(SEED);
     let fruit_weights = [
@@ -57,7 +42,7 @@ fn boxplot_color(fig: &Figure) -> CaseResult {
     ax.set_ylabel("fruit weight (g)");
     let options = BoxplotOptions {
         tick_labels: Some(strings(&["peaches", "oranges", "tomatoes"])),
-        ..drawn(filled(PatchProps::default()))
+        ..drawn_boxes(filled(PatchProps::default()))
     };
     let bplot = ax.boxplot(&fruit_weights, options)?;
     for (patch, color) in bplot.boxes.iter().zip(["peachpuff", "orange", "tomato"]) {
@@ -89,7 +74,7 @@ fn boxplot_demo_1(fig: &Figure) -> CaseResult {
         },
         ..with_sym("rs")
     };
-    let notched = drawn(BxpOptions {
+    let notched = drawn_boxes(BxpOptions {
         shownotches: Some(true),
         ..BxpOptions::default()
     });
@@ -172,7 +157,7 @@ fn boxplot_demo_5(fig: &Figure) -> CaseResult {
     let mut x = vec![-25.0];
     x.extend(linspace(-7.0, 7.0, 140));
     x.push(25.0);
-    let options = drawn(BxpOptions {
+    let options = drawn_boxes(BxpOptions {
         shownotches: Some(true),
         capwidths: vec![0.01, 0.2],
         ..BxpOptions::default()
@@ -218,7 +203,7 @@ fn panels(axs: &Grid<Axes>, data: &[Vec<f64>], panels: Vec<(BoxplotOptions, &str
 fn boxplot_1(fig: &Figure) -> CaseResult {
     let labelled = |draw: BxpOptions| BoxplotOptions {
         tick_labels: Some(strings(&["A", "B", "C", "D"])),
-        ..drawn(draw)
+        ..drawn_boxes(draw)
     };
     let defaults = BxpOptions::default;
     let axs = log_grid(fig)?;
@@ -295,7 +280,7 @@ fn boxplot_2(fig: &Figure) -> CaseResult {
         ..BoxplotOptions::default()
     };
     let mean = |meanprops: LineProps, meanline: bool| {
-        drawn(BxpOptions {
+        drawn_boxes(BxpOptions {
             meanprops,
             meanline: Some(meanline),
             showmeans: Some(true),
@@ -308,14 +293,14 @@ fn boxplot_2(fig: &Figure) -> CaseResult {
         &lognormal_columns(),
         vec![
             (
-                drawn(BxpOptions {
+                drawn_boxes(BxpOptions {
                     boxes: Some(BoxStyle::Line(boxprops)),
                     ..BxpOptions::default()
                 }),
                 "Custom boxprops",
             ),
             (
-                drawn(BxpOptions {
+                drawn_boxes(BxpOptions {
                     flierprops,
                     medianprops,
                     ..BxpOptions::default()
@@ -374,7 +359,7 @@ fn bxp_1(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let options = BoxplotOptions {
         tick_labels: Some(labels.clone()),
-        ..drawn(bisque())
+        ..drawn_boxes(bisque())
     };
     axs[(0, 0)].boxplot(&data, options)?;
     let stats = boxplot_stats(

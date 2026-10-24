@@ -5,6 +5,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_text::{FontQuery, FontRequest, TextEngine};
 
 use super::*;
+use crate::testing::square;
 
 fn renderer() -> PdfRenderer {
     PdfRenderer::new(
@@ -22,15 +23,6 @@ fn renderer() -> PdfRenderer {
 
 fn text(document: &[u8]) -> String {
     String::from_utf8_lossy(document).into_owned()
-}
-
-fn square() -> Path {
-    Path::polygon([
-        Point::new(0.0, 0.0),
-        Point::new(10.0, 0.0),
-        Point::new(10.0, 10.0),
-        Point::new(0.0, 10.0),
-    ])
 }
 
 #[test]

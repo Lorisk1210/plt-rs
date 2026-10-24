@@ -22,6 +22,7 @@ use plt::mlab::Complex;
 use plt::numeric::Grid;
 
 use crate::json::Json;
+use crate::probes::encode::object;
 use crate::probes::{Op, ProbeError};
 
 /// Operations implemented for this area.
@@ -164,14 +165,4 @@ impl SignalArg {
             floats(value).map(Self::Real)
         }
     }
-}
-
-/// An object from `(key, value)` pairs.
-fn object<const N: usize>(entries: [(&str, Json); N]) -> Json {
-    Json::Object(
-        entries
-            .into_iter()
-            .map(|(k, v)| (k.to_owned(), v))
-            .collect(),
-    )
 }

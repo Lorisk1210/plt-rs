@@ -192,13 +192,7 @@ fn rational(value: f64) -> (u32, u32) {
     }
     let term = |x: f64| {
         // Convergents are whole numbers within u32 by construction.
-        #[expect(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "a whole number in 1..=u32::MAX"
-        )]
-        let n = x as u32;
-        n
+        x as u32
     };
     (term(best.0), term(best.1))
 }

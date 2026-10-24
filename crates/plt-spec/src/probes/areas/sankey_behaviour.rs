@@ -14,17 +14,13 @@ use plt::sankey::{FlowOrientation, PathLengths, Sankey, SankeyOptions, Subdiagra
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{object, points};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 use plt::ticker::LabelFormat;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[Op::new("sankey.diagram", |args| {
     with_rc(args, || diagram(args))
 })];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 fn number(value: &Json, key: &str) -> Result<f64, ProbeError> {
     value

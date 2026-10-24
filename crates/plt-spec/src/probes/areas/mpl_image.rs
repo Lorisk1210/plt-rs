@@ -18,6 +18,7 @@ use plt::transforms::{Affine2D, Point, PointMap, ResolvedTransform, Step};
 use super::rcsetup::validate;
 use super::text_metrics::with_rc;
 use crate::json::Json;
+use crate::probes::encode::count;
 use crate::probes::{Args, Op, Outcome, ProbeError, encode};
 use crate::rng::SpecRng;
 
@@ -36,15 +37,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("pyplot.savefig.jpg", |args| with_rc(args, jpeg_alpha)),
     Op::new("image.resample", resample_row),
 ];
-
-fn rejected(err: impl std::fmt::Display) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
-/// A count as recorded.
-fn count(n: usize) -> Json {
-    Json::from(n as f64)
-}
 
 /// A pair of numbers.
 fn pair(args: Args<'_>, key: &str) -> Result<(f64, f64), ProbeError> {
@@ -65,7 +57,7 @@ fn format_cursor_data(args: Args<'_>) -> Outcome {
             .into_iter()
             .map(|row| row.into_iter().map(|v| v as i64).collect::<Vec<_>>()),
     )
-    .map_err(rejected)?;
+    .map_err(ProbeError::rejected)?;
     let colors = match args.opt_str("norm")? {
         None => ColorizerOptions::default(),
         Some("NoNorm") => ColorizerOptions::default().norm(NoNorm::default()),
@@ -77,9 +69,11 @@ fn format_cursor_data(args: Args<'_>) -> Outcome {
         ScalarField::integers(&values),
         ImshowOptions::default().colorizer(colors),
     )
-    .map_err(rejected)?;
+    .map_err(ProbeError::rejected)?;
     let (x, y) = pair(args, "point")?;
-    let data = fig.resolve_transform(&ax.trans_data()).map_err(rejected)?;
+    let data = fig
+        .resolve_transform(&ax.trans_data())
+        .map_err(ProbeError::rejected)?;
     let message = Navigation::new().readout(&fig, data.transform_point(Point::new(x, y)));
     // The second line of the message is the image's cursor data.
     Ok(Json::from(message.lines().last().unwrap_or_default()))
@@ -87,14 +81,14 @@ fn format_cursor_data(args: Args<'_>) -> Outcome {
 
 fn interpolation_stage(args: Args<'_>) -> Outcome {
     plt::rc::context(|| {
-        plt::rc::set("image.interpolation_stage", args.str("rc")?).map_err(rejected)?;
+        plt::rc::set("image.interpolation_stage", args.str("rc")?).map_err(ProbeError::rejected)?;
         let image = Figure::new()
             .subplot()
             .imshow(
-                Grid::from_vec(1, 2, vec![1.0, 2.0]).map_err(rejected)?,
+                Grid::from_vec(1, 2, vec![1.0, 2.0]).map_err(ProbeError::rejected)?,
                 ImshowOptions::default(),
             )
-            .map_err(rejected)?;
+            .map_err(ProbeError::rejected)?;
         Ok(Json::from(image.interpolation_stage().to_string()))
     })
 }
@@ -138,7 +132,7 @@ fn get_array(args: Args<'_>) -> Outcome {
     let image = Figure::new()
         .subplot()
         .imshow(data, ImshowOptions::default())
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     match image.array() {
         ImageData::Rgb(grid) => Ok(colors(&grid)),
         ImageData::RgbF32(grid) => Ok(colors(&grid)),
@@ -162,14 +156,18 @@ fn spec_data(spec: &Json) -> Result<ImageData, ProbeError> {
         };
         return Ok(Grid::filled(rows, cols, 0.0).into());
     }
-    let seed = u64::try_from(spec.i64("uniform")?).map_err(rejected)?;
+    let seed = u64::try_from(spec.i64("uniform")?).map_err(ProbeError::rejected)?;
     let shape = dims("shape")?;
     let values = SpecRng::new(seed).uniform(shape.iter().product(), 0.0, 1.0);
     match shape[..] {
-        [rows, cols] => Ok(Grid::from_vec(rows, cols, values).map_err(rejected)?.into()),
+        [rows, cols] => Ok(Grid::from_vec(rows, cols, values)
+            .map_err(ProbeError::rejected)?
+            .into()),
         [rows, cols, 4] => {
             let pixels = values.as_chunks::<4>().0.to_vec();
-            Ok(Grid::from_vec(rows, cols, pixels).map_err(rejected)?.into())
+            Ok(Grid::from_vec(rows, cols, pixels)
+                .map_err(ProbeError::rejected)?
+                .into())
         }
         _ => Err(ProbeError::BadArgs(format!("unprobed shape {shape:?}"))),
     }
@@ -209,13 +207,13 @@ fn round_trip(args: Args<'_>) -> Outcome {
             .opt_str("origin")?
             .map(str::parse)
             .transpose()
-            .map_err(rejected)?,
+            .map_err(ProbeError::rejected)?,
         ..defaults
     };
-    let format = imsave_format(args.str("format")?).map_err(rejected)?;
-    let written =
-        imsave_bytes(spec_data(args.json("data")?)?, format, options).map_err(rejected)?;
-    let read = imread_bytes(&written).map_err(rejected)?;
+    let format = imsave_format(args.str("format")?).map_err(ProbeError::rejected)?;
+    let written = imsave_bytes(spec_data(args.json("data")?)?, format, options)
+        .map_err(ProbeError::rejected)?;
+    let read = imread_bytes(&written).map_err(ProbeError::rejected)?;
     let (rows, cols) = read.shape();
     let (values, channels) = image_bytes(&read)?;
     let sum: i64 = values.iter().sum();
@@ -237,14 +235,16 @@ fn jpeg_alpha() -> Outcome {
     let alphas = linspace(0.0, 1.0, 300);
     let ramp = Grid::from_fn(300, 300, |_, c| [0.0, 0.0, 0.0, alphas[c]]);
     fig.figimage(ramp, FigimageOptions::default())
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     let options = SaveOptions {
         facecolor: Some("red".into()),
         dpi: Some(300.0),
         ..SaveOptions::default()
     };
-    let jpeg = fig.to_format(SaveFormat::Jpeg, options).map_err(rejected)?;
-    let ImageData::RgbBytes(pixels) = imread_bytes(&jpeg).map_err(rejected)? else {
+    let jpeg = fig
+        .to_format(SaveFormat::Jpeg, options)
+        .map_err(ProbeError::rejected)?;
+    let ImageData::RgbBytes(pixels) = imread_bytes(&jpeg).map_err(ProbeError::rejected)? else {
         return Err(ProbeError::rejected("the JPEG is not RGB"));
     };
     let colors: BTreeSet<[u8; 3]> = pixels.as_slice().iter().copied().collect();
@@ -271,20 +271,23 @@ impl PointMap for NonAffineIdentity {
 
 fn resample_row(args: Args<'_>) -> Outcome {
     let row = args.f64_vec("data")?;
-    let width = usize::try_from(args.i64("width")?).map_err(rejected)?;
+    let width = usize::try_from(args.i64("width")?).map_err(ProbeError::rejected)?;
     let stretch = Affine2D::scaling(width as f64 / row.len() as f64, 1.0);
     let transform = if args.bool("nonaffine")? {
         ResolvedTransform::with_step(Step::Plane(Rc::new(NonAffineIdentity)), stretch)
     } else {
         ResolvedTransform::affine(stretch)
     };
-    let interpolation: Interpolation = args.str("interpolation")?.parse().map_err(rejected)?;
-    let data = Grid::from_vec(1, row.len(), row).map_err(rejected)?;
+    let interpolation: Interpolation = args
+        .str("interpolation")?
+        .parse()
+        .map_err(ProbeError::rejected)?;
+    let data = Grid::from_vec(1, row.len(), row).map_err(ProbeError::rejected)?;
     let mut out = Grid::filled(1, width, 0.0);
     let options = ResampleOptions {
         interpolation,
         ..ResampleOptions::default()
     };
-    resample(&data, &mut out, &transform, &options).map_err(rejected)?;
+    resample(&data, &mut out, &transform, &options).map_err(ProbeError::rejected)?;
     Ok(Json::from(out.row(0).to_vec()))
 }

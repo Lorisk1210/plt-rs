@@ -154,14 +154,6 @@ pub(crate) const OPS: &[Op] = &[
 
 static EMPTY: Json = Json::Object(Vec::new());
 
-fn bad(why: impl Into<String>) -> ProbeError {
-    ProbeError::BadArgs(why.into())
-}
-
-fn rejected(err: TickerError) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
 /// The constructor keywords of a probe, restricted to `allowed` (other
 /// keywords make matplotlib raise `TypeError`).
 #[derive(Clone, Copy)]
@@ -174,7 +166,7 @@ impl<'a> Params<'a> {
         let raw = args.get("params").unwrap_or(&EMPTY);
         let entries = raw
             .as_object()
-            .ok_or_else(|| bad("params is not an object"))?;
+            .ok_or_else(|| ProbeError::BadArgs("params is not an object".into()))?;
         if let Some((key, _)) = entries.iter().find(|(k, _)| !allowed.contains(&k.as_str())) {
             return Err(ProbeError::Rejected(format!(
                 "unexpected keyword argument {key:?}"
@@ -200,25 +192,27 @@ pub(crate) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
     let Some(rc) = args.get("rc") else {
         return Ok(s);
     };
-    let entries = rc.as_object().ok_or_else(|| bad("rc is not an object"))?;
+    let entries = rc
+        .as_object()
+        .ok_or_else(|| ProbeError::BadArgs("rc is not an object".into()))?;
     for (key, value) in entries {
         let flag = || {
             value
                 .as_bool()
-                .ok_or_else(|| bad(format!("{key} is not a bool")))
+                .ok_or_else(|| ProbeError::BadArgs(format!("{key} is not a bool")))
         };
         let int = || {
             value
                 .as_i64()
                 .and_then(|v| i32::try_from(v).ok())
-                .ok_or_else(|| bad(format!("{key} is not an integer")))
+                .ok_or_else(|| ProbeError::BadArgs(format!("{key} is not an integer")))
         };
         match key.as_str() {
             "axes.autolimit_mode" => {
                 s.axes_autolimit_mode = match value.as_str() {
                     Some("data") => AutolimitMode::Data,
                     Some("round_numbers") => AutolimitMode::RoundNumbers,
-                    _ => return Err(bad("unknown autolimit mode")),
+                    _ => return Err(ProbeError::BadArgs("unknown autolimit mode".into())),
                 }
             }
             "axes.unicode_minus" => s.axes_unicode_minus = flag()?,
@@ -233,7 +227,7 @@ pub(crate) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
             "ytick.minor.ndivs" => s.ytick_minor_ndivs = minor_divisions(value)?,
             "xtick.minor.visible" => s.xtick_minor_visible = flag()?,
             "ytick.minor.visible" => s.ytick_minor_visible = flag()?,
-            other => return Err(bad(format!("unsupported rcParam {other}"))),
+            other => return Err(ProbeError::BadArgs(format!("unsupported rcParam {other}"))),
         }
     }
     Ok(s)
@@ -243,7 +237,7 @@ pub(crate) fn int_pair(value: &Json) -> Result<(i32, i32), ProbeError> {
     match value.as_f64_vec().as_deref() {
         Some(&[a, b]) if a.fract() == 0.0 && b.fract() == 0.0 => Ok((a as i32, b as i32)),
         Some(_) => Err(ProbeError::Rejected("expected a pair of integers".into())),
-        None => Err(bad("expected an array of numbers")),
+        None => Err(ProbeError::BadArgs("expected an array of numbers".into())),
     }
 }
 
@@ -253,7 +247,9 @@ pub(crate) fn minor_divisions(value: &Json) -> Result<MinorDivisions, ProbeError
         (_, Some(n)) => u32::try_from(n)
             .map(MinorDivisions::Count)
             .map_err(|_| ProbeError::Rejected("negative ndivs".into())),
-        _ => Err(bad("ndivs must be an integer or 'auto'")),
+        _ => Err(ProbeError::BadArgs(
+            "ndivs must be an integer or 'auto'".into(),
+        )),
     }
 }
 
@@ -266,7 +262,7 @@ pub(crate) fn usize_arg(value: Option<i64>, name: &str) -> Result<Option<usize>,
 fn pair_arg(args: Args<'_>, key: &str) -> Result<(f64, f64), ProbeError> {
     match args.f64_vec(key)?.as_slice() {
         &[a, b] => Ok((a, b)),
-        _ => Err(bad(format!("{key} is not a pair"))),
+        _ => Err(ProbeError::BadArgs(format!("{key} is not a pair"))),
     }
 }
 
@@ -277,17 +273,17 @@ pub(crate) fn view_axis(args: Args<'_>) -> Result<AxisInfo, ProbeError> {
 }
 
 pub(crate) fn floats(values: Result<Vec<f64>, TickerError>) -> Outcome {
-    values.map(Json::from).map_err(rejected)
+    values.map(Json::from).map_err(ProbeError::rejected)
 }
 
 pub(crate) fn pair(values: Result<(f64, f64), TickerError>) -> Outcome {
     values
         .map(|(a, b)| Json::from(vec![a, b]))
-        .map_err(rejected)
+        .map_err(ProbeError::rejected)
 }
 
 pub(crate) fn labels(result: Result<TickLabels, TickerError>) -> Outcome {
-    let labels = result.map_err(rejected)?;
+    let labels = result.map_err(ProbeError::rejected)?;
     Ok(Json::Object(vec![
         ("labels".to_owned(), Json::from(labels.labels)),
         ("offset".to_owned(), Json::from(labels.offset)),
@@ -316,5 +312,5 @@ fn format_ticks(formatter: &dyn Formatter, args: Args<'_>, settings: &TickerSett
 }
 
 pub(crate) fn text(result: Result<String, TickerError>) -> Outcome {
-    result.map(Json::from).map_err(rejected)
+    result.map(Json::from).map_err(ProbeError::rejected)
 }

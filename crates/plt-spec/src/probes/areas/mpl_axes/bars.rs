@@ -82,7 +82,7 @@ fn rects(bars: &BarContainer) -> Json {
             .iter()
             .map(|patch| {
                 let rect = patch.shape();
-                numbers(&[rect.xy.x, rect.xy.y, rect.width, rect.height])
+                numbers([rect.xy.x, rect.xy.y, rect.width, rect.height])
             })
             .collect(),
     )

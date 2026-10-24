@@ -73,7 +73,7 @@ impl TimeDelta {
         let leftover = scaled - scaled_whole;
         if leftover != 0.0 {
             let mut rounded = leftover.round();
-            #[allow(clippy::float_cmp, reason = "CPython detects exact halves this way")]
+            #[expect(clippy::float_cmp, reason = "CPython detects exact halves this way")]
             let halfway = (rounded - leftover).abs() == 0.5;
             if halfway {
                 let odd = f64::from(u8::from(total & 1 == 1));

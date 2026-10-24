@@ -8,7 +8,7 @@ use plt_text::{HAlign, VAlign};
 use super::options::{ButtonLayout, ButtonsError};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, ScatterColors, ScatterOptions};
-use crate::collections::{Collection, EdgeColors};
+use crate::collections::{Collection, EdgeColors, cycled};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
 use crate::numeric::linspace;
 use crate::text::{Text, TextProps};
@@ -162,11 +162,6 @@ impl ButtonColumn {
             })
             .map(|(i, _)| i)
     }
-}
-
-/// Item `i` of `items` cycled, if there are any.
-pub(super) fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
-    (!items.is_empty()).then(|| &items[i % items.len()])
 }
 
 /// The legacy column: labels at x = 0.25 and buttons at 0.15, spread

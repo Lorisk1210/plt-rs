@@ -4,7 +4,7 @@ use super::FormatError;
 use super::dtoa::{FloatStyle, Presentation, format_float};
 
 /// The `%` conversion flags.
-#[allow(
+#[expect(
     clippy::struct_excessive_bools,
     reason = "the five independent printf flags"
 )]
@@ -46,7 +46,7 @@ struct Conversion {
 /// a float like Python's `template % value`.
 ///
 /// ```
-/// use plt::ticker::pyfmt::PrintfFormat;
+/// use plt_core::pyfmt::PrintfFormat;
 /// let fmt = PrintfFormat::parse("%5.1f%%").unwrap();
 /// assert_eq!(fmt.format(-1.0).unwrap(), " -1.0%");
 /// ```

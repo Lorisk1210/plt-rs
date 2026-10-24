@@ -12,6 +12,7 @@ use plt::spines::SpineSide;
 
 use super::{field, field_mesh, map, t};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::rgba;
 use plt::colors::ColorizerOptions;
 
 /// `_example_plot(ax, seed, hide_labels)`: the field and, unless hidden,
@@ -30,11 +31,6 @@ fn example_plot(
         ax.set_title("Title").set_fontsize(12.0);
     }
     Ok(mesh)
-}
-
-/// A colour by name, resolved.
-fn rgba(name: &str) -> Result<plt_core::Rgba, plt::colors::ColorError> {
-    Color::from(name).resolve()
 }
 
 pub(super) fn gallery_subfigures(fig: &Figure) -> CaseResult {

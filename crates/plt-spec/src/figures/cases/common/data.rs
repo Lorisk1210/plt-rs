@@ -1,8 +1,10 @@
 //! The numbers several case groups draw: formulas, synthetic fields and
 //! sample-data stand-ins, smoothing, and grids.
 
+use std::borrow::Borrow;
 use std::f64::consts::PI;
 
+use plt::dates::Datetime64;
 use plt::numeric::{Grid, arange, linspace, linspace_with, meshgrid};
 use plt::transforms::Point;
 use plt::tri::{TriError, Triangulation};
@@ -204,14 +206,55 @@ pub(crate) fn on_mesh(xx: &Grid<f64>, yy: &Grid<f64>, f: impl Fn(f64, f64) -> f6
     Grid::from_fn(xx.rows(), xx.cols(), |r, c| f(xx[(r, c)], yy[(r, c)]))
 }
 
-/// The smallest and largest values of `values`.
-pub(crate) fn extremes(values: &Grid<f64>) -> (f64, f64) {
+/// The smallest and largest of `values` (infinities of the wrong sign
+/// when there are none).
+pub(crate) fn extremes<T: Borrow<f64>>(values: impl IntoIterator<Item = T>) -> (f64, f64) {
     values
-        .as_slice()
-        .iter()
-        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
-            (lo.min(v), hi.max(v))
+        .into_iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| {
+            (lo.min(*v.borrow()), hi.max(*v.borrow()))
         })
+}
+
+/// `range(n)` as floats.
+pub(crate) fn indices(n: usize) -> Vec<f64> {
+    (0..n).map(|i| i as f64).collect()
+}
+
+/// `np.arange(rows * cols).reshape(rows, cols)` as floats.
+pub(crate) fn arange_grid(rows: usize, cols: usize) -> Grid<f64> {
+    Grid::from_fn(rows, cols, |r, c| (r * cols + c) as f64)
+}
+
+/// `a[:-1, :-1]`.
+pub(crate) fn trimmed(a: &Grid<f64>) -> Grid<f64> {
+    Grid::from_fn(a.rows() - 1, a.cols() - 1, |r, c| a[(r, c)])
+}
+
+/// `np.radians(degrees)`.
+pub(crate) fn radians(degrees: &[f64]) -> Vec<f64> {
+    degrees.iter().map(|d| d.to_radians()).collect()
+}
+
+/// Points from coordinate pairs.
+pub(crate) fn points(coords: &[(f64, f64)]) -> Vec<Point> {
+    coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
+}
+
+/// One open polyline through the coordinate pairs, without path codes
+/// (a segment of a `ContourSet`).
+pub(crate) fn segment(coords: &[(f64, f64)]) -> Path {
+    Path::polyline(points(coords))
+}
+
+/// Owned copies of `items`.
+pub(crate) fn strings(items: &[&str]) -> Vec<String> {
+    items.iter().map(|&item| item.to_owned()).collect()
+}
+
+/// `np.datetime64(text)`.
+pub(crate) fn datetime64(text: &str) -> Result<Datetime64, Box<dyn std::error::Error>> {
+    Ok(Datetime64::parse(text)?.ok_or("not a time")?)
 }
 
 /// `np.meshgrid(x, y)` and `f` evaluated on it.

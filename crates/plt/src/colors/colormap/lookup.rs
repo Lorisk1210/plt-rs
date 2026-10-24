@@ -1,10 +1,10 @@
 //! Evaluating a colormap (matplotlib's `Colormap.__call__`).
 
 use plt_core::Rgba;
+use plt_core::numeric::np_clip;
 
 use super::{Colormap, ColormapError};
 use crate::colors::Alpha;
-use crate::colors::npmath::np_clip;
 
 /// A value ready for colormap lookup: the output of a norm.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -166,14 +166,11 @@ pub(crate) fn truncate_byte(value: f64) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn rgb() -> Colormap {
-        Colormap::listed("rgb", vec!["red", "green", "blue"]).unwrap()
-    }
+    use crate::testing::rgb_colormap;
 
     #[test]
     fn float_and_index_rules() {
-        let cmap = rgb();
+        let cmap = rgb_colormap();
         let lut = cmap.lut().to_vec();
         assert_eq!(cmap.sample(0.0), lut[0]);
         assert_eq!(cmap.sample(0.34), lut[1]);
@@ -190,7 +187,7 @@ mod tests {
 
     #[test]
     fn alpha_overrides_and_bytes() {
-        let cmap = rgb();
+        let cmap = rgb_colormap();
         assert_eq!(cmap.lookup(0.0.into(), Some(1.5)).a, 1.0);
         assert_eq!(cmap.lookup(f64::NAN.into(), Some(0.5)), Rgba::TRANSPARENT);
         assert_eq!(cmap.lookup_bytes(0.5.into(), Some(0.5)), [0, 128, 0, 127]);

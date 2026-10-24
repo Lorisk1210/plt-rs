@@ -4,22 +4,14 @@ use plt::artist::ArtistHandle;
 use plt::axes::{Axes, Axis, AxisName};
 use plt::patches::{FancyArrow, PatchShape};
 use plt::text::{AnnotateOptions, ArrowProps, LegacyArrowProps};
-use plt::ticker::{Formatter, FuncFormatter, StrMethodFormatter, TickContext};
+use plt::ticker::{FuncFormatter, StrMethodFormatter, TickContext};
 use plt_core::Point;
 
-use super::{made, numbers, on_axes, pair};
+use super::{axis_arg, made, numbers, on_axes, pair};
 use crate::json::Json;
+use crate::probes::areas::mpl_ticker::install_formatter;
 use crate::probes::encode::points;
 use crate::probes::{Args, Outcome, ProbeError, encode};
-
-/// The axis named by argument `axis`.
-fn axis_arg(ax: &Axes, args: Args<'_>) -> Result<Axis, ProbeError> {
-    match args.str("axis")? {
-        "x" => Ok(ax.xaxis()),
-        "y" => Ok(ax.yaxis()),
-        other => Err(ProbeError::BadArgs(format!("unknown axis {other}"))),
-    }
-}
 
 /// `[x major, x minor, y major, y minor]`: whether each formatter is
 /// still the default one.
@@ -35,22 +27,13 @@ fn formatter_flags(ax: &Axes) -> Json {
 
 /// Gives `axis` the major (or minor) formatter argument `formatter`
 /// names: a function returning `""` or the template `"{x}_{pos}"`.
-fn install_formatter(args: Args<'_>, axis: &Axis, minor: bool) -> Result<(), ProbeError> {
+fn install_named_formatter(args: Args<'_>, axis: &Axis, minor: bool) -> Result<(), ProbeError> {
     match args.str("formatter")? {
-        "func" => install(axis, minor, FuncFormatter::new(|_, _| String::new())),
-        "str" => install(axis, minor, made(StrMethodFormatter::new("{x}_{pos}"))?),
+        "func" => install_formatter(axis, minor, FuncFormatter::new(|_, _| String::new())),
+        "str" => install_formatter(axis, minor, made(StrMethodFormatter::new("{x}_{pos}"))?),
         other => return Err(ProbeError::BadArgs(format!("unknown formatter {other}"))),
     }
     Ok(())
-}
-
-/// Gives `axis` the major (or minor) formatter `formatter`.
-fn install(axis: &Axis, minor: bool, formatter: impl Formatter) {
-    if minor {
-        axis.set_minor_formatter(formatter);
-    } else {
-        axis.set_major_formatter(formatter);
-    }
 }
 
 /// The default-formatter flags before and after setting a formatter, and
@@ -59,7 +42,7 @@ fn set_formatter(args: Args<'_>, minor: bool) -> Outcome {
     on_axes(args, |ax| {
         let before = formatter_flags(ax);
         let axis = axis_arg(ax, args)?;
-        install_formatter(args, &axis, minor)?;
+        install_named_formatter(args, &axis, minor)?;
         let installed = if minor {
             axis.minor_formatter()
         } else {
@@ -103,7 +86,7 @@ pub(super) fn twin_units(args: Args<'_>) -> Outcome {
         Ok(Json::Array(vec![
             Json::from(ax.axis_of(name).have_units()),
             Json::from(shared.have_units()),
-            numbers(&shared.convert_units(categories)),
+            numbers(shared.convert_units(categories)),
         ]))
     })
 }

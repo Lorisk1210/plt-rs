@@ -12,11 +12,11 @@ use plt::lines::{Line2D, LineProps};
 use plt::patches::{Patch, PatchProps, Polygon};
 use plt::rc::Cycler;
 use plt::ticker::pyfmt;
-use plt_core::Rgba;
 
 use super::canon::Canon;
 use super::text_metrics::with_rc;
 use crate::json::Json;
+use crate::probes::encode::rgba;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 
 /// Operations implemented for this area.
@@ -102,11 +102,6 @@ fn fill(ax: &Axes, call: &Json, x: &[f64]) -> Result<Patch<Polygon>, ProbeError>
         props = props.hatch(hatch);
     }
     ax.fill(x, x, props).map_err(ProbeError::rejected)
-}
-
-/// An RGBA colour as a list.
-fn rgba(color: Rgba) -> Json {
-    Json::from(vec![color.r, color.g, color.b, color.a])
 }
 
 /// A getter's values over `lines`.

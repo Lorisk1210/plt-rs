@@ -3,8 +3,8 @@
 //! (`backend_webagg_core.py`).
 
 use plt_core::Bbox;
+use plt_core::json::{self, Json, ParseError};
 
-use super::json::{self, Json, JsonError};
 use crate::events::CursorShape;
 use crate::navigation::{NavMode, PointerButton};
 
@@ -108,7 +108,7 @@ pub(crate) enum ClientMessage {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum MessageError {
     /// The text is not JSON.
-    Json(JsonError),
+    Json(ParseError),
     /// The JSON is not an object with a string `type`.
     NoType,
     /// A field is missing or of the wrong type.
@@ -254,7 +254,7 @@ fn mouse(message: &Json, kind: MouseKind) -> Result<MouseInput, MessageError> {
 impl ClientMessage {
     /// Parses a message of the client.
     pub(crate) fn parse(text: &str) -> Result<Self, MessageError> {
-        let message = Json::parse(text).map_err(MessageError::Json)?;
+        let message = Json::parse_strict(text).map_err(MessageError::Json)?;
         let kind = message
             .get("type")
             .and_then(Json::as_str)
@@ -585,7 +585,7 @@ mod tests {
             ServerEvent::Draw,
             ServerEvent::Save,
         ] {
-            let parsed = Json::parse(&event.to_json()).expect("valid JSON");
+            let parsed = Json::parse_strict(&event.to_json()).expect("valid JSON");
             assert!(parsed.get("type").and_then(Json::as_str).is_some());
         }
     }

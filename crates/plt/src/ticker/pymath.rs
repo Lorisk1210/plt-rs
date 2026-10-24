@@ -1,43 +1,12 @@
-//! Python and numpy numeric semantics that matplotlib's results depend on.
+//! Python and numpy numeric semantics that tick placement depends on.
 //!
 //! Tick placement is full of `divmod`, `//`, `round` and `np.arange` calls
 //! whose exact floating-point behaviour decides which ticks appear. These
-//! helpers reproduce `CPython`'s and numpy's algorithms bit for bit.
+//! helpers reproduce `CPython`'s and numpy's algorithms bit for bit; the
+//! float arithmetic shared beyond ticking (`divmod`, `//`, `%`, `min`,
+//! `max`, `sign`) is in [`plt_core::numeric`].
 
 use super::TickerError;
-
-/// Python's float `divmod(x, y)`: the floor quotient and a remainder with
-/// the sign of `y` (`CPython` `float_divmod`, numpy `npy_divmod`).
-pub(crate) fn divmod(x: f64, y: f64) -> (f64, f64) {
-    let mut rem = x % y;
-    let mut div = (x - rem) / y;
-    if rem == 0.0 {
-        rem = 0.0_f64.copysign(y);
-    } else if (y < 0.0) != (rem < 0.0) {
-        rem += y;
-        div -= 1.0;
-    }
-    let floor = if div == 0.0 {
-        0.0_f64.copysign(x / y)
-    } else {
-        let mut floor = div.floor();
-        if div - floor > 0.5 {
-            floor += 1.0;
-        }
-        floor
-    };
-    (floor, rem)
-}
-
-/// Python's float `x // y`.
-pub(crate) fn floor_div(x: f64, y: f64) -> f64 {
-    divmod(x, y).0
-}
-
-/// Python's float `x % y`.
-pub(crate) fn py_mod(x: f64, y: f64) -> f64 {
-    divmod(x, y).1
-}
 
 /// Python's `math.isclose(a, b)` with the default `rel_tol=1e-9`.
 pub(crate) fn isclose(a: f64, b: f64) -> bool {
@@ -64,25 +33,6 @@ pub(crate) fn np_isclose(a: f64, b: f64, rtol: f64, atol: f64) -> bool {
 /// Python raises for non-finite `x`; callers check finiteness first.
 pub(crate) fn is_close_to_int(x: f64) -> bool {
     isclose(x, x.round_ties_even())
-}
-
-/// numpy's `np.sign`: -1, 0 or 1, and NaN for NaN.
-pub(crate) fn np_sign(x: f64) -> f64 {
-    if x == 0.0 || x.is_nan() {
-        x * 0.0
-    } else {
-        x.signum()
-    }
-}
-
-/// Python's `max(a, b)`: `a` unless `b > a` (so a NaN `a` wins).
-pub(crate) fn py_max(a: f64, b: f64) -> f64 {
-    if b > a { b } else { a }
-}
-
-/// Python's `min(a, b)`: `a` unless `b < a`.
-pub(crate) fn py_min(a: f64, b: f64) -> f64 {
-    if b < a { b } else { a }
 }
 
 /// numpy's `power_of_ten`, used by `np.round`.
@@ -203,20 +153,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn divmod_matches_python() {
-        assert_eq!(divmod(7.0, 2.0), (3.0, 1.0));
-        assert_eq!(divmod(-7.0, 2.0), (-4.0, 1.0));
-        assert_eq!(divmod(7.0, -2.0), (-4.0, -1.0));
-        let (d, m) = divmod(-0.0, 1.0);
-        assert!(d == 0.0 && d.is_sign_negative());
-        assert!(m == 0.0 && m.is_sign_positive());
-        // Python: divmod(1.0, 0.1) == (9.0, 0.09999999999999995)
-        assert_eq!(divmod(1.0, 0.1), (9.0, 0.099_999_999_999_999_95));
-        assert_eq!(floor_div(0.7, 0.1), 6.0);
-        assert_eq!(py_mod(-0.5, 1.0), 0.5);
-    }
-
-    #[test]
     fn rounding_helpers() {
         assert_eq!(np_round(2.675, 2), 2.68);
         assert_eq!(np_round(0.5, 0), 0.0);
@@ -256,9 +192,6 @@ mod tests {
     fn spacing_and_unique() {
         assert_eq!(spacing(1.0), f64::EPSILON);
         assert_eq!(spacing(-1.0), f64::EPSILON);
-        assert_eq!(np_sign(-3.0), -1.0);
-        assert_eq!(np_sign(0.0), 0.0);
-        assert!(np_sign(f64::NAN).is_nan());
         assert_eq!(sorted_unique(&[3.0, 1.0, 3.0, 2.0]), vec![1.0, 2.0, 3.0]);
     }
 }

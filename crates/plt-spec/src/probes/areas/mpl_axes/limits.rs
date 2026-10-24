@@ -21,6 +21,6 @@ pub(super) fn add_axes(args: Args<'_>) -> Outcome {
             .try_into()
             .map_err(|rect| ProbeError::BadArgs(format!("not a rectangle: {rect:?}")))?;
         let (left, bottom, width, height) = made(Figure::new().add_axes(rect))?.position().bounds();
-        Ok(numbers(&[left, bottom, width, height]))
+        Ok(numbers([left, bottom, width, height]))
     })
 }

@@ -7,8 +7,8 @@ use plt::ticker::{
 };
 
 use super::{
-    Params, bad, floats, minor_divisions, pair, pair_arg, rejected, settings, tick_values,
-    usize_arg, view_axis, view_limits,
+    Params, floats, minor_divisions, pair, pair_arg, settings, tick_values, usize_arg, view_axis,
+    view_limits,
 };
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
@@ -50,7 +50,7 @@ fn max_n(args: Args<'_>) -> Result<MaxNLocator, ProbeError> {
         let steps = steps
             .as_f64_vec()
             .ok_or_else(|| ProbeError::Rejected("steps must be a sequence".into()))?;
-        locator = locator.with_steps(&steps).map_err(rejected)?;
+        locator = locator.with_steps(&steps).map_err(ProbeError::rejected)?;
     }
     let prune = match p.opt_str("prune")? {
         None => None,
@@ -93,7 +93,7 @@ pub(super) fn auto_view_limits(args: Args<'_>) -> Outcome {
 fn multiple(args: Args<'_>) -> Result<MultipleLocator, ProbeError> {
     let p = Params::of(args, &["base", "offset"])?.args();
     Ok(MultipleLocator::new(p.opt_f64("base")?.unwrap_or(1.0))
-        .map_err(rejected)?
+        .map_err(ProbeError::rejected)?
         .with_offset(p.opt_f64("offset")?.unwrap_or(0.0)))
 }
 
@@ -146,7 +146,8 @@ pub(super) fn null_tick_values(args: Args<'_>) -> Outcome {
 pub(crate) fn log_locator(args: Args<'_>) -> Result<LogLocator, ProbeError> {
     let params = Params::of(args, &["base", "subs", "numticks"])?;
     let p = params.args();
-    let mut locator = LogLocator::new(p.opt_f64("base")?.unwrap_or(10.0)).map_err(rejected)?;
+    let mut locator =
+        LogLocator::new(p.opt_f64("base")?.unwrap_or(10.0)).map_err(ProbeError::rejected)?;
     if let Some(subs) = params.raw("subs") {
         let subs = match (subs, subs.as_str()) {
             (Json::Null, _) | (_, Some("auto")) => LogSubs::Auto,
@@ -213,7 +214,10 @@ pub(crate) fn symlog(args: Args<'_>) -> Result<SymmetricalLogLocator, ProbeError
     };
     let mut locator = SymmetricalLogLocator::new(base, linthresh);
     if let Some(subs) = p.get("subs") {
-        locator = locator.with_subs(subs.as_f64_vec().ok_or_else(|| bad("subs"))?);
+        locator = locator.with_subs(
+            subs.as_f64_vec()
+                .ok_or_else(|| ProbeError::BadArgs("subs".into()))?,
+        );
     }
     if let Some(n) = usize_arg(p.opt_i64("numticks")?, "numticks")? {
         locator = locator.with_numticks(n);
@@ -247,7 +251,10 @@ fn asinh(args: Args<'_>) -> Result<AsinhLocator, ProbeError> {
     }
     let subs = p
         .get("subs")
-        .map(|s| s.as_f64_vec().ok_or_else(|| bad("subs")))
+        .map(|s| {
+            s.as_f64_vec()
+                .ok_or_else(|| ProbeError::BadArgs("subs".into()))
+        })
         .transpose()?;
     Ok(locator.with_subs(subs))
 }

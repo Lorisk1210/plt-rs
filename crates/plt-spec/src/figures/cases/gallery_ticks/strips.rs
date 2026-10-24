@@ -5,8 +5,8 @@
 use plt::axes::{TickLevel, TickParams};
 use plt::dates::rrule::{Frequency, RRuleSpec};
 use plt::dates::{
-    AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateFormatter, Datetime64,
-    MicrosecondLocator, RRuleLocator, Weekday, YearLocator,
+    AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateFormatter, MicrosecondLocator,
+    RRuleLocator, Weekday, YearLocator,
 };
 use plt::figure::SubfigureOptions;
 use plt::fonts::FontSize;
@@ -18,7 +18,9 @@ use plt::ticker::{
     NullFormatter, PercentFormatter, ScalarFormatter, StrMethodFormatter, pyfmt,
 };
 
-use crate::figures::cases::common::{locator_strips, named_tick_strip, strip_title, tick_strip};
+use crate::figures::cases::common::{
+    datetime64, locator_strips, named_tick_strip, strip_title, tick_strip,
+};
 use crate::figures::{CaseResult, FigureCase};
 
 fn tick_locators(fig: &Figure) -> CaseResult {
@@ -110,11 +112,6 @@ fn tick_formatters(fig: &Figure) -> CaseResult {
     Ok(())
 }
 
-/// A `datetime64` string of the example.
-fn instant(text: &str) -> Result<Datetime64, Box<dyn std::error::Error>> {
-    Ok(Datetime64::parse(text)?.ok_or("not-a-time")?)
-}
-
 /// `plot_axis` of `date_formatters_locators` before its locator or
 /// formatter is set: the bare strip from 2000-02-01 to `xmax`, named
 /// `title`.
@@ -122,7 +119,7 @@ fn date_strip(ax: &Axes, title: &str, xmax: &str) -> CaseResult {
     tick_strip(ax);
     let limits = ax
         .xaxis()
-        .convert_units(vec![instant("2000-02-01")?, instant(xmax)?]);
+        .convert_units(vec![datetime64("2000-02-01")?, datetime64(xmax)?]);
     ax.set_xlim(limits[0], limits[1])?;
     strip_title(ax, title);
     Ok(())

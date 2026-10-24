@@ -1,4 +1,4 @@
-//! The help window of figure windows (matplotlib's `ToolHelp`): every
+//! The help window of figure windows (matplotlib's `ToolHelpBase`): every
 //! keyboard shortcut, from the `keymap.*` rcParams and the figure's own
 //! tools.
 

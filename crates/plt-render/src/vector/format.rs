@@ -1,9 +1,11 @@
 //! Number and string formatting exactly as matplotlib's vector backends
-//! write them with Python's formatting mini-language.
+//! write them with Python's formatting mini-language; the float layouts
+//! come from [`plt_core::pyfmt`].
 
 use std::fmt::Write as _;
 
-use plt_core::Rgba;
+use plt_core::pyfmt;
+pub(crate) use plt_core::pyfmt::{fixed, repr};
 
 /// `f"{value:.{digits}f}"` with trailing zeros and a trailing point
 /// removed (`_short_float_fmt` for 6 digits, `pdfRepr` for 10, the
@@ -22,123 +24,10 @@ pub(crate) fn short(value: f64) -> String {
     trimmed(value, 6)
 }
 
-/// `f"{value:.{digits}f}"`: correctly rounded, ties to even, Python's
-/// spelling of non-finite values.
-pub(crate) fn fixed(value: f64, digits: usize) -> String {
-    if value.is_nan() {
-        return "nan".to_owned();
-    }
-    if value.is_infinite() {
-        return if value > 0.0 { "inf" } else { "-inf" }.to_owned();
-    }
-    format!("{value:.digits$}")
-}
-
-/// The decimal digits and exponent of the shortest representation that
-/// round-trips (`d.ddd × 10^exp`), as Rust's `{:e}` writes them.
-fn shortest_digits(value: f64) -> (String, i32) {
-    let text = format!("{:e}", value.abs());
-    let (mantissa, exponent) = text.split_once('e').expect("`{:e}` writes an exponent");
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    (
-        digits,
-        exponent.parse().expect("`{:e}` writes an integer exponent"),
-    )
-}
-
-/// Python's `repr(float)` (also `str(float)`): the shortest round-trip
-/// digits, positional for exponents in `-4..16`, scientific otherwise.
-pub(crate) fn repr(value: f64) -> String {
-    if !value.is_finite() {
-        return fixed(value, 0);
-    }
-    let sign = if value.is_sign_negative() { "-" } else { "" };
-    if value == 0.0 {
-        return format!("{sign}0.0");
-    }
-    let (digits, exponent) = shortest_digits(value);
-    if (-4..16).contains(&exponent) {
-        format!("{sign}{}", positional(&digits, exponent, true))
-    } else {
-        format!("{sign}{}", scientific(&digits, exponent))
-    }
-}
-
 /// Python's `%g` (`f"{value:g}"`): six significant digits, trailing zeros
 /// removed, scientific notation for exponents outside `-4..6`.
 pub(crate) fn general(value: f64) -> String {
-    if !value.is_finite() {
-        return fixed(value, 0);
-    }
-    if value == 0.0 {
-        return if value.is_sign_negative() { "-0" } else { "0" }.to_owned();
-    }
-    let sign = if value.is_sign_negative() { "-" } else { "" };
-    // Round to six significant digits first; the exponent of the rounded
-    // value decides the notation.
-    let rounded = format!("{:.5e}", value.abs());
-    let (mantissa, exponent) = rounded.split_once('e').expect("`{:e}` writes an exponent");
-    let exponent: i32 = exponent.parse().expect("`{:e}` writes an integer exponent");
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let digits = digits.trim_end_matches('0');
-    let digits = if digits.is_empty() { "0" } else { digits };
-    if (-4..6).contains(&exponent) {
-        format!("{sign}{}", positional(digits, exponent, false))
-    } else {
-        format!("{sign}{}", scientific(digits, exponent))
-    }
-}
-
-/// `digits × 10^(exponent - len + 1)` written positionally; with
-/// `point_zero`, integral values keep a `.0` (Python's `repr`).
-fn positional(digits: &str, exponent: i32, point_zero: bool) -> String {
-    let len = digits.len() as i32;
-    let mut out = String::new();
-    if exponent < 0 {
-        out.push_str("0.");
-        out.extend(std::iter::repeat_n('0', (-exponent - 1) as usize));
-        out.push_str(digits);
-    } else if exponent + 1 >= len {
-        out.push_str(digits);
-        out.extend(std::iter::repeat_n('0', (exponent + 1 - len) as usize));
-        if point_zero {
-            out.push_str(".0");
-        }
-    } else {
-        let (int, frac) = digits.split_at((exponent + 1) as usize);
-        out.push_str(int);
-        out.push('.');
-        out.push_str(frac);
-    }
-    out
-}
-
-/// `d.ddde±XX` as Python writes exponents (sign and at least two digits).
-fn scientific(digits: &str, exponent: i32) -> String {
-    let (first, rest) = digits.split_at(1);
-    let mut out = first.to_owned();
-    if !rest.is_empty() {
-        out.push('.');
-        out.push_str(rest);
-    }
-    let sign = if exponent < 0 { '-' } else { '+' };
-    let _ = write!(out, "e{sign}{:02}", exponent.abs());
-    out
-}
-
-/// Python's `round(value * 255)` for one colour channel (ties to even).
-fn channel(value: f64) -> u8 {
-    (value * 255.0).round_ties_even().clamp(0.0, 255.0) as u8
-}
-
-/// matplotlib's `rgb2hex`: `#rrggbb`, alpha ignored.
-pub(crate) fn hex_color(color: Rgba) -> String {
-    format!(
-        "#{:02x}{:02x}{:02x}",
-        channel(color.r),
-        channel(color.g),
-        channel(color.b)
-    )
+    pyfmt::general(value, 6)
 }
 
 /// Python's `repr(str)` for the printable ASCII strings used as SVG id
@@ -263,12 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn colors_and_strings() {
-        assert_eq!(hex_color(Rgba::opaque(0.5, 1.0, 0.0)), "#80ff00");
-        assert_eq!(
-            hex_color(Rgba::opaque(0.121_568_63, 0.466_666_67, 0.705_882_35)),
-            "#1f77b4"
-        );
+    fn strings() {
         assert_eq!(repr_str("M 0 0 \nL 1 1"), "'M 0 0 \\nL 1 1'");
         assert_eq!(repr_str("it's"), "\"it's\"");
     }

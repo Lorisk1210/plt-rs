@@ -14,7 +14,7 @@
 //! # Ok::<(), plt::colors::NormError>(())
 //! ```
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's norms branch on exact limit comparisons (vmin == vmax)"
 )]
@@ -38,8 +38,9 @@ pub use multi::{MultiNorm, NormName, NormSpec};
 pub use power::PowerNorm;
 pub use scaled::{AsinhNorm, FuncNorm, LogNorm, NormTransform, ScaleNorm, SymLogNorm};
 
+use plt_core::numeric::np_clip;
+
 use super::Normalized;
-use super::npmath::np_clip;
 use crate::scale::{Scale, ScaleError};
 
 /// The family a norm belongs to, for code that treats norm classes
@@ -314,7 +315,7 @@ impl Limits {
 /// numpy's `(min(), max())` over the unmasked entries (NaN propagates),
 /// or `None` when nothing is unmasked. Any NaN makes both NaN, so the
 /// running extremes skip the NaN checks numpy's reduction makes at every
-/// step (`nan_min` and `nan_max` otherwise reduce to `min` and `max`).
+/// step (`np_minimum` and `np_maximum` otherwise reduce to `min` and `max`).
 fn data_range<'a>(mut values: impl Iterator<Item = &'a f64>) -> Option<(f64, f64)> {
     let first = *values.next()?;
     let (mut lo, mut hi, mut nan) = (first, first, first.is_nan());

@@ -1,8 +1,10 @@
 //! Norms with a fixed centre (`TwoSlopeNorm`, `CenteredNorm`).
 
+use plt_core::numeric::py_max;
+
 use super::{Limits, Norm, NormError, data_range, linear, linear_inverse, map_unmasked};
 use crate::colors::Normalized;
-use crate::ticker::pymath::py_max;
+use crate::numeric::interp;
 
 /// Maps `vmin → 0`, `vcenter → 0.5` and `vmax → 1` with a different slope
 /// on each side (matplotlib's `TwoSlopeNorm`); values beyond the limits
@@ -105,7 +107,7 @@ impl Norm for TwoSlopeNorm {
         }
         let xp = [lo, self.vcenter, hi];
         Ok(map_unmasked(data, |v| {
-            Normalized::Fraction(np_interp(v, xp, [0.0, 0.5, 1.0]))
+            Normalized::Fraction(interp_unbounded(v, xp, [0.0, 0.5, 1.0]))
         }))
     }
 
@@ -114,38 +116,14 @@ impl Norm for TwoSlopeNorm {
         let fp = [lo, self.vcenter, hi];
         Ok(values
             .iter()
-            .map(|&v| Some(np_interp(v, [0.0, 0.5, 1.0], fp)))
+            .map(|&v| Some(interp_unbounded(v, [0.0, 0.5, 1.0], fp)))
             .collect())
     }
 }
 
 /// `np.interp(x, xp, fp, left=-inf, right=inf)` for three points.
-fn np_interp(x: f64, xp: [f64; 3], fp: [f64; 3]) -> f64 {
-    if x.is_nan() {
-        return x;
-    }
-    if x < xp[0] {
-        return f64::NEG_INFINITY;
-    }
-    if x > xp[2] {
-        return f64::INFINITY;
-    }
-    // numpy's linear search for short tables: the last j with xp[j] <= x.
-    let j = (1..3).take_while(|&i| x >= xp[i]).last().unwrap_or(0);
-    if j == 2 || xp[j] == x {
-        return fp[j];
-    }
-    let slope = (fp[j + 1] - fp[j]) / (xp[j + 1] - xp[j]);
-    let y = slope * (x - xp[j]) + fp[j];
-    if !y.is_nan() {
-        return y;
-    }
-    let y = slope * (x - xp[j + 1]) + fp[j + 1];
-    if y.is_nan() && fp[j] == fp[j + 1] {
-        fp[j]
-    } else {
-        y
-    }
+fn interp_unbounded(x: f64, xp: [f64; 3], fp: [f64; 3]) -> f64 {
+    interp(x, &xp, &fp, Some((f64::NEG_INFINITY, f64::INFINITY)))
 }
 
 /// Maps `[vcenter - halfrange, vcenter + halfrange]` linearly onto
@@ -355,10 +333,10 @@ mod tests {
     fn interpolation_edges() {
         let xp = [0.0, 1.0, 2.0];
         let fp = [0.0, 0.5, 1.0];
-        assert_eq!(np_interp(0.5, xp, fp), 0.25);
-        assert_eq!(np_interp(2.0, xp, fp), 1.0);
-        assert_eq!(np_interp(1.0, xp, fp), 0.5);
-        assert!(np_interp(f64::NAN, xp, fp).is_nan());
-        assert_eq!(np_interp(-1.0, xp, fp), f64::NEG_INFINITY);
+        assert_eq!(interp_unbounded(0.5, xp, fp), 0.25);
+        assert_eq!(interp_unbounded(2.0, xp, fp), 1.0);
+        assert_eq!(interp_unbounded(1.0, xp, fp), 0.5);
+        assert!(interp_unbounded(f64::NAN, xp, fp).is_nan());
+        assert_eq!(interp_unbounded(-1.0, xp, fp), f64::NEG_INFINITY);
     }
 }

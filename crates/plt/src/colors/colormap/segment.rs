@@ -5,8 +5,10 @@ use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
+use plt_core::numeric::np_clip;
+
 use super::{Channel, ColormapError, SegmentProblem};
-use crate::colors::npmath::{np_clip, np_less, np_power};
+use crate::colors::npmath::{np_less, np_power};
 use crate::numeric::linspace;
 
 /// A scalar function of `x ∈ [0, 1]` defining one colour channel, with a

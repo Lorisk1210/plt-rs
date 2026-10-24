@@ -10,6 +10,9 @@ mod ticks;
 use std::any::Any;
 use std::rc::Rc;
 
+use crate::json::Json;
+use crate::probes::encode::{numbers, rgba};
+use crate::probes::{Args, Op, ProbeError};
 use plt::axes::{Axes, ImshowOptions};
 use plt::colors::Extend;
 use plt::image::AxesImage;
@@ -19,11 +22,7 @@ use plt::spines::SpineSide;
 use plt::ticker::{
     FixedLocator, Formatter, Locator, LogFormatter, LogLabelStyle, LogLocator, StrMethodFormatter,
 };
-use plt_core::{Bbox, Rgba};
-
-use super::mpl_tests::numbers;
-use crate::json::Json;
-use crate::probes::{Args, Op, ProbeError};
+use plt_core::Bbox;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -78,11 +77,6 @@ fn formatter_name(formatter: &Rc<dyn Formatter>) -> Result<&'static str, ProbeEr
 fn extents(bbox: Bbox) -> Json {
     let (x0, y0, x1, y1) = bbox.extents();
     numbers([x0, y0, x1, y1])
-}
-
-/// `[r, g, b, a]`.
-fn rgba(color: Rgba) -> Json {
-    numbers(color.to_array())
 }
 
 /// An image of `rows` in `ax`, in the default colours.

@@ -25,6 +25,7 @@ use plt_core::{Affine2D, Path, PathCode, Point};
 
 use super::{colors, remove_ticks_and_titles};
 use crate::figures::CaseResult;
+use crate::figures::cases::common::segment;
 use crate::rng::SpecRng;
 
 /// A grid from nested rows of numbers.
@@ -396,11 +397,6 @@ pub(super) fn contour_closed_line_loop(fig: &Figure) -> CaseResult {
     ax.set_xlim(-0.1, 2.1)?.set_ylim(-0.1, 3.1)?;
     remove_ticks_and_titles(fig);
     Ok(())
-}
-
-/// A segment through `points`, without path codes.
-fn segment(points: &[(f64, f64)]) -> Path {
-    Path::polyline(points.iter().map(|&(x, y)| Point::new(x, y)).collect())
 }
 
 pub(super) fn contour_manual(fig: &Figure) -> CaseResult {

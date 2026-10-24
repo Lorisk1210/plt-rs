@@ -14,10 +14,11 @@ use plt_font::{FontChain, Hinting, ShapeOptions};
 use plt_render::{Timestamp, Trapped};
 
 use super::mpl_tests::in_test_style;
-use super::text_shaping::{bundled_font, database};
+use super::text_metrics::{bundled_font, database};
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
 use crate::rng::SpecRng;
+use crate::scratch::ScratchDir;
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -90,22 +91,16 @@ fn finalized(args: Args<'_>) -> Outcome {
 fn kept(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let pages_wanted = args.i64("pages")?;
-        let dir = std::env::temp_dir().join(format!(
-            "plt-spec-mpl-backend-pdf-{}-{pages_wanted}",
-            std::process::id()
-        ));
-        std::fs::create_dir_all(&dir).map_err(ProbeError::rejected)?;
-        let path = dir.join("a.pdf");
+        let dir = ScratchDir::new("mpl-backend-pdf").map_err(ProbeError::rejected)?;
+        let path = dir.path("a.pdf");
         let mut pages = PdfPages::new().map_err(ProbeError::rejected)?;
         for _ in 0..pages_wanted {
             pages
                 .savefig(&plt::pyplot::figure())
                 .map_err(ProbeError::rejected)?;
         }
-        let saved = pages.save(&path).map_err(ProbeError::rejected);
-        let exists = path.exists();
-        std::fs::remove_dir_all(&dir).map_err(ProbeError::rejected)?;
-        saved.map(|()| Json::Bool(exists))
+        pages.save(&path).map_err(ProbeError::rejected)?;
+        Ok(Json::Bool(path.exists()))
     })
 }
 

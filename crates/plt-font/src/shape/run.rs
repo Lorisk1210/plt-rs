@@ -244,15 +244,9 @@ pub(crate) fn shape_run(
 mod tests {
     use super::*;
 
-    fn items(text: &str) -> Vec<ClusterChar> {
-        text.char_indices()
-            .map(|(cluster, c)| ClusterChar::new(c, cluster, 1))
-            .collect()
-    }
-
     #[test]
     fn graphemes_reverse_as_units() {
-        let mut text = items("ab\u{301}c");
+        let mut text = ClusterChar::from_text("ab\u{301}c");
         let continues = [false, false, true, false];
         reverse_graphemes(&mut text, &continues);
         let order: String = text.iter().map(|item| item.c).collect();

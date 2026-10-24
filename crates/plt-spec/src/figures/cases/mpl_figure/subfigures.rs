@@ -13,6 +13,7 @@ use plt::spines::SpineSide;
 use plt_core::Rgba;
 
 use super::{Fallible, TEAL, decorate, randn, remove_ticks_and_titles};
+use crate::figures::cases::common::rgba;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 use plt::colors::ColorizerOptions;
@@ -28,11 +29,6 @@ pub(super) const CASES: &[FigureCase] = &[
         .with_rc(&[TEAL]),
     FigureCase::new("mpl_figure/subfigure_scatter_size", subfigure_scatter_size),
 ];
-
-/// A colour by name, resolved.
-fn rgba(name: &str) -> Fallible<Rgba> {
-    Ok(Color::from(name).resolve()?)
-}
 
 /// `ax.pcolormesh(np.random.randn(30, 30), vmin=-limit, vmax=limit)`.
 fn random_mesh(ax: &Axes, stream: &mut SpecRng, limit: f64) -> Fallible<Collection> {

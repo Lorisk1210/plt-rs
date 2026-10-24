@@ -2,24 +2,21 @@
 //! `print_label`, `locate_label` and `too_close`).
 
 use plt_core::Point;
+use plt_core::numeric::{np_maximum, np_minimum};
 
 use crate::numeric::argsort;
 use crate::stats::pairwise_sum;
 
 /// Whether a line of `line.len()` vertices is long enough to hold a label
 /// `width` pixels wide: many vertices, or a wide enough extent.
-#[expect(
-    clippy::cast_precision_loss,
-    reason = "vertex counts are far below 2^52"
-)]
 pub(super) fn long_enough(line: &[Point], width: f64) -> bool {
     if line.len() as f64 > 10.0 * width {
         return true;
     }
     let ptp = |coord: fn(&Point) -> f64| {
         let values = line.iter().map(coord);
-        let max = values.clone().fold(f64::NEG_INFINITY, np_max);
-        let min = values.fold(f64::INFINITY, np_min);
+        let max = values.clone().fold(f64::NEG_INFINITY, np_maximum);
+        let min = values.fold(f64::INFINITY, np_minimum);
         max - min
     };
     !line.is_empty() && (ptp(|p| p.x) > 1.2 * width || ptp(|p| p.y) > 1.2 * width)
@@ -39,12 +36,6 @@ pub(super) fn too_close(p: Point, width: f64, labels: &[Point]) -> bool {
 /// each scored by the summed distance of its points from its chord. If
 /// every block is too close, the straightest one is used anyway. Returns
 /// the block's middle vertex and its index.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_precision_loss,
-    reason = "numpy's ceil/int of non-negative pixel widths and vertex counts"
-)]
 pub(super) fn locate(line: &[Point], width: f64, labels: &[Point]) -> (Point, usize) {
     let size = line.len();
     let n_blocks = if width > 1.0 {
@@ -82,35 +73,14 @@ pub(super) fn locate(line: &[Point], width: f64, labels: &[Point]) -> (Point, us
     (chosen.0, (chosen.1 * block_size + half) % size)
 }
 
-/// numpy's `max` reduction step: NaN wins.
-fn np_max(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.max(b)
-    }
-}
-
-/// numpy's `min` reduction step: NaN wins.
-fn np_min(a: f64, b: f64) -> f64 {
-    if a.is_nan() || b.is_nan() {
-        f64::NAN
-    } else {
-        a.min(b)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn line(coords: &[(f64, f64)]) -> Vec<Point> {
-        coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
-    }
+    use crate::testing::points;
 
     #[test]
     fn long_enough_by_extent_or_vertex_count() {
-        let short = line(&[(0.0, 0.0), (5.0, 0.0)]);
+        let short = points(&[(0.0, 0.0), (5.0, 0.0)]);
         assert!(!long_enough(&short, 10.0));
         assert!(long_enough(&short, 4.0));
         assert!(!long_enough(&[], 1.0));
@@ -120,11 +90,11 @@ mod tests {
     #[test]
     fn locate_prefers_straight_blocks() {
         // A straight run followed by a zig-zag.
-        let mut points = line(&[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)]);
-        points.extend(line(&[(4.0, 3.0), (5.0, -3.0), (6.0, 3.0), (7.0, -3.0)]));
-        let (p, index) = locate(&points, 4.0, &[]);
+        let mut path = points(&[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)]);
+        path.extend(points(&[(4.0, 3.0), (5.0, -3.0), (6.0, 3.0), (7.0, -3.0)]));
+        let (p, index) = locate(&path, 4.0, &[]);
         assert_eq!((p, index), (Point::new(2.0, 0.0), 2));
-        let (_, index) = locate(&points, 4.0, &[Point::new(2.0, 0.0)]);
+        let (_, index) = locate(&path, 4.0, &[Point::new(2.0, 0.0)]);
         assert_eq!(index, 6, "the straight block is too close to a label");
     }
 

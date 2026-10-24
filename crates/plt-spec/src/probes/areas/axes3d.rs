@@ -8,7 +8,7 @@ use plt::navigation::{DragKey, NavMode, Navigation, PointerButton};
 use plt_core::Point;
 
 use crate::json::Json;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -22,15 +22,11 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("axes3d.project", project),
 ];
 
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
 /// A point given as `[x, y]`.
 fn point(args: Args<'_>, key: &str) -> Result<Point, ProbeError> {
     match args.f64_vec(key)?.as_slice() {
         &[x, y] => Ok(Point::new(x, y)),
-        _ => Err(bad(key)),
+        _ => Err(malformed(key)),
     }
 }
 
@@ -40,7 +36,7 @@ fn axis_named(name: &str) -> Result<Axis3, ProbeError> {
         "x" => Ok(Axis3::X),
         "y" => Ok(Axis3::Y),
         "z" => Ok(Axis3::Z),
-        _ => Err(bad("scales")),
+        _ => Err(malformed("scales")),
     }
 }
 
@@ -54,39 +50,45 @@ fn scene(args: Args<'_>) -> Result<(Figure, Axes3D), ProbeError> {
             Some(&[elev, azim, roll]) => {
                 ax.view_init(elev, azim, roll);
             }
-            _ => return Err(bad("view")),
+            _ => return Err(malformed("view")),
         }
     }
     if let Some(name) = args.get("vertical_axis") {
         ax.set_vertical_axis(axis_named(
-            name.as_str().ok_or_else(|| bad("vertical_axis"))?,
+            name.as_str().ok_or_else(|| malformed("vertical_axis"))?,
         )?);
     }
     if let Some(focal_length) = args.get("focal_length") {
-        let focal_length = focal_length.as_f64().ok_or_else(|| bad("focal_length"))?;
+        let focal_length = focal_length
+            .as_f64()
+            .ok_or_else(|| malformed("focal_length"))?;
         ax.set_proj_type(ProjType::Persp { focal_length })
             .map_err(ProbeError::rejected)?;
     }
     if args.get("box_aspect").is_some() {
         let &[x, y, z] = args.f64_vec("box_aspect")?.as_slice() else {
-            return Err(bad("box_aspect"));
+            return Err(malformed("box_aspect"));
         };
         ax.set_box_aspect(Some([x, y, z]), 1.0)
             .map_err(ProbeError::rejected)?;
     }
     if let Some(scales) = args.get("scales") {
-        for (name, scale) in scales.as_object().ok_or_else(|| bad("scales"))? {
-            let scale = scale.as_str().ok_or_else(|| bad("scales"))?;
+        for (name, scale) in scales.as_object().ok_or_else(|| malformed("scales"))? {
+            let scale = scale.as_str().ok_or_else(|| malformed("scales"))?;
             let options = plt::scale::ScaleOptions::default();
             ax.set_scale_with(axis_named(name)?, scale, options)
                 .map_err(ProbeError::rejected)?;
         }
     }
     if let Some(limits) = args.get("limits").filter(|v| !v.is_null()) {
-        let pairs = limits.as_array().ok_or_else(|| bad("limits"))?;
+        let pairs = limits.as_array().ok_or_else(|| malformed("limits"))?;
         for (axis, pair) in Axis3::ALL.into_iter().zip(pairs) {
-            let &[lo, hi] = pair.as_f64_vec().as_deref().ok_or_else(|| bad("limits"))? else {
-                return Err(bad("limits"));
+            let &[lo, hi] = pair
+                .as_f64_vec()
+                .as_deref()
+                .ok_or_else(|| malformed("limits"))?
+            else {
+                return Err(malformed("limits"));
             };
             ax.set_limits(axis, lo, hi).map_err(ProbeError::rejected)?;
         }
@@ -137,18 +139,18 @@ fn pan(args: Args<'_>) -> Outcome {
 fn zoom_box(args: Args<'_>) -> Outcome {
     let (fig, ax) = scene(args)?;
     let &[x0, y0, x1, y1] = args.f64_vec("box")?.as_slice() else {
-        return Err(bad("box"));
+        return Err(malformed("box"));
     };
     let button = match args.str("direction")? {
         "in" => PointerButton::Left,
         "out" => PointerButton::Right,
-        _ => return Err(bad("direction")),
+        _ => return Err(malformed("direction")),
     };
     let key = match args.opt_str("key")? {
         None => DragKey::None,
         Some("x") => DragKey::X,
         Some("y") => DragKey::Y,
-        Some(_) => return Err(bad("key")),
+        Some(_) => return Err(malformed("key")),
     };
     let mut navigation = Navigation::new();
     navigation
@@ -183,7 +185,7 @@ fn set_aspect(args: Args<'_>) -> Outcome {
     let adjustable = match args.str("adjustable")? {
         "box" => Adjustable::Box,
         "datalim" => Adjustable::Datalim,
-        _ => return Err(bad("adjustable")),
+        _ => return Err(malformed("adjustable")),
     };
     ax.set_aspect(aspect(args.str("aspect")?)?, adjustable)
         .map_err(ProbeError::rejected)?;
@@ -204,7 +206,7 @@ fn zoom_data(args: Args<'_>) -> Outcome {
             .map_err(ProbeError::rejected)?;
     }
     let &[u, v, w] = args.f64_vec("scale")?.as_slice() else {
-        return Err(bad("scale"));
+        return Err(malformed("scale"));
     };
     ax.zoom_data_limits(u, v, w).map_err(ProbeError::rejected)?;
     limits(&ax)
@@ -217,11 +219,11 @@ fn project(args: Args<'_>) -> Outcome {
     let points = (args
         .json("points")?
         .as_array()
-        .ok_or_else(|| bad("points"))?
+        .ok_or_else(|| malformed("points"))?
         .iter())
     .map(|p| match p.as_f64_vec().as_deref() {
         Some(&[x, y, z]) => Ok([x, y, z]),
-        _ => Err(bad("points")),
+        _ => Err(malformed("points")),
     })
     .collect::<Result<Vec<_>, _>>()?;
     let matrix = ax.proj();

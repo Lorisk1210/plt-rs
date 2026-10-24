@@ -1,10 +1,12 @@
 //! Evenly spaced ticks: a fixed count (`LinearLocator`) or a fixed step
 //! (`MultipleLocator`).
 
+use plt_core::numeric::{divmod, floor_div};
+
 use super::Locator;
 use super::maxn::EdgeInteger;
 use crate::numeric::linspace;
-use crate::ticker::pymath::{arange, ceil_int, divmod, floor_div, floor_int};
+use crate::ticker::pymath::{arange, ceil_int, floor_int};
 use crate::ticker::{AutolimitMode, TickContext, TickerError};
 use crate::transforms::nonsingular;
 

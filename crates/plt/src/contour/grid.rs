@@ -227,7 +227,6 @@ impl QuadField {
 }
 
 /// matplotlib's `_initialize_x_y`.
-#[expect(clippy::cast_precision_loss, reason = "grid sizes are far below 2^52")]
 fn implicit_coordinates(
     rows: usize,
     cols: usize,

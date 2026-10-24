@@ -12,7 +12,9 @@
 //!   [`Path::cleaned`], [`Path::iter_segments`] and
 //!   [`Path::convert_to_string`];
 //! * containment ([`Path::contains_points`] with Agg's contour offset for a
-//!   radius, [`Path::contains_path`], [`Path::stroke_contains_point`]);
+//!   radius, [`Path::contains_path`], [`Path::stroke_contains_point`]),
+//!   whose offset outlines are built from the Agg primitives in
+//!   [`outline`];
 //! * intersections ([`Path::intersects_path`], [`Path::intersects_bbox`]);
 //! * polygons ([`Path::to_polygons`], [`Path::clip_to_bbox`]);
 //! * data limits with `minpos` ([`DataLimits`]), path collections
@@ -24,7 +26,7 @@ mod contains;
 pub mod convert;
 mod extents;
 mod intersect;
-mod outline;
+pub mod outline;
 mod polygons;
 mod shapes;
 

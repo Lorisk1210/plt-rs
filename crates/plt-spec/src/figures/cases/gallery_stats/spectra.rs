@@ -12,7 +12,7 @@ use plt::mlab::{Complex, SignalValue, SpectralOptions, Window, XcorrOptions};
 use plt::prelude::*;
 
 use super::SEED;
-use crate::figures::cases::common::{map, mosaic};
+use crate::figures::cases::common::{map, mosaic, stacked_pair};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -76,13 +76,6 @@ fn signals_panel(ax: &Axes, t: &[f64], (s1, s2): (&[f64], &[f64]), xmax: f64) ->
     ax.set_ylabel("s1 and s2");
     ax.grid(true);
     Ok(())
-}
-
-/// Two constrained axes, one above the other.
-fn stacked_pair(fig: &Figure) -> Result<(Axes, Axes), Box<dyn std::error::Error>> {
-    fig.set_layout_engine(LayoutEngine::constrained())?;
-    let axs = fig.subplots(2, 1)?;
-    Ok((axs[(0, 0)].clone(), axs[(1, 0)].clone()))
 }
 
 fn cohere(fig: &Figure) -> CaseResult {

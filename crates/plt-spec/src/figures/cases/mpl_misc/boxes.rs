@@ -15,6 +15,7 @@ use plt::text::{HAlign, TextProps};
 use plt_core::Bbox;
 
 use super::{classic, remove_text};
+use crate::figures::cases::common::strings;
 use crate::figures::{CaseResult, FigureCase};
 
 /// Rows of owned strings.
@@ -23,11 +24,6 @@ fn rows<const R: usize, const C: usize>(cells: [[&str; C]; R]) -> Vec<Vec<String
         .iter()
         .map(|row| row.iter().map(|&cell| cell.to_owned()).collect())
         .collect()
-}
-
-/// Owned strings.
-fn strings<const N: usize>(items: [&str; N]) -> Vec<String> {
-    items.map(str::to_owned).to_vec()
 }
 
 // --- test_offsetbox.py ---------------------------------------------------
@@ -158,8 +154,8 @@ fn zorder(fig: &Figure) -> CaseResult {
         .collect();
     for (loc, zorder) in [(TableLoc::Center, -2.0), (TableLoc::UpperCenter, 4.0)] {
         ax.table(TableOptions {
-            row_labels: Some(strings(["100 year", "50 year"])),
-            col_labels: Some(strings(["Freeze", "Wind"])),
+            row_labels: Some(strings(&["100 year", "50 year"])),
+            col_labels: Some(strings(&["Freeze", "Wind"])),
             loc,
             ..TableOptions::with_text(cell_text.clone())
         })?
@@ -178,7 +174,7 @@ fn label_colours(fig: &Figure) -> CaseResult {
         .into_iter()
         .map(|x| cmap.sample(x).into())
         .collect();
-    let headers = || Some(strings(["Header"; 3]));
+    let headers = || Some(strings(&["Header"; 3]));
     let tables = [
         TableOptions {
             row_colours: Some(colours.clone()),
@@ -246,8 +242,8 @@ fn auto_column(fig: &Figure) -> CaseResult {
     for (ax, columns) in axes.as_slice().iter().zip(fitted) {
         ax.set_axis_off();
         let table = ax.table(TableOptions {
-            row_labels: Some(strings(["A", "B"])),
-            col_labels: Some(strings(["Col1", "Col2"])),
+            row_labels: Some(strings(&["A", "B"])),
+            col_labels: Some(strings(&["Col1", "Col2"])),
             loc: TableLoc::Center,
             ..TableOptions::with_text(rows([
                 ["Fit Text", "2"],
@@ -265,8 +261,8 @@ fn auto_column(fig: &Figure) -> CaseResult {
 /// `test_table_bbox`: a table stretched into a box of the axes.
 fn table_bbox(fig: &Figure) -> CaseResult {
     fig.subplot().table(TableOptions {
-        row_labels: Some(strings(["Ada", "Bob"])),
-        col_labels: Some(strings(["Foo", "Bar"])),
+        row_labels: Some(strings(&["Ada", "Bob"])),
+        col_labels: Some(strings(&["Foo", "Bar"])),
         loc: TableLoc::Center,
         bbox: Some(Bbox::from_bounds(0.1, 0.2, 0.8, 0.6)),
         ..TableOptions::with_text(rows([["2", "3"], ["4", "5"]]))

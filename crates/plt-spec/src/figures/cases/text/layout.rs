@@ -105,7 +105,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ("DejaVu Serif", FontStyle::Normal),
         ];
         for (i, (family, style)) in rows.into_iter().enumerate() {
-            let name = plt::fonts::style_name(style);
+            let name = style.name();
             ax.text(
                 0.5,
                 9.2 - 1.3 * i as f64,

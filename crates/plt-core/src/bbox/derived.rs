@@ -2,6 +2,7 @@
 //! transforming (matplotlib's `BboxBase` methods returning a new `Bbox`).
 
 use super::{Anchor, Bbox};
+use crate::numeric::{py_max, py_min};
 use crate::{Affine2D, Point};
 
 impl Bbox {
@@ -131,9 +132,12 @@ impl Bbox {
             self.p1,
         ]
         .map(|p| t.transform_point(p));
+        // Python's builtin `min` and `max` of the corners, so a NaN
+        // behaves according to its position.
         let span = |coord: fn(&Point) -> f64, flip: bool| {
-            let values = corners.iter().map(coord);
-            let (lo, hi) = (py_min(values.clone()), py_max(values));
+            let [first, rest @ ..] = corners.map(|p| coord(&p));
+            let lo = rest.iter().fold(first, |current, &v| py_min(current, v));
+            let hi = rest.iter().fold(first, |current, &v| py_max(current, v));
             if flip { (hi, lo) } else { (lo, hi) }
         };
         let (x0, x1) = span(|p| p.x, self.p0.x > self.p1.x);
@@ -150,19 +154,6 @@ impl Bbox {
         let corners = self.corners().map(|p| rotation.transform_point(p));
         Self::from_points(corners.into_iter().filter(|p| p.is_finite()))
     }
-}
-
-/// Python's builtin `min`: keep the current value unless a candidate is
-/// smaller (so NaN behaves according to its position).
-fn py_min(mut values: impl Iterator<Item = f64>) -> f64 {
-    let first = values.next().unwrap_or(f64::NAN);
-    values.fold(first, |current, v| if v < current { v } else { current })
-}
-
-/// Python's builtin `max` (see [`py_min`]).
-fn py_max(mut values: impl Iterator<Item = f64>) -> f64 {
-    let first = values.next().unwrap_or(f64::NAN);
-    values.fold(first, |current, v| if v > current { v } else { current })
 }
 
 #[cfg(test)]

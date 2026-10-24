@@ -1,8 +1,10 @@
 //! `SymmetricalLogLocator`: log ticks on both sides of a linear region.
 
+use plt_core::numeric::{floor_div, py_max, py_min};
+
 use super::Locator;
 use super::log::{decade_greater, decade_greater_equal, decade_less, decade_less_equal};
-use crate::ticker::pymath::{arange, floor_div, py_max, py_min};
+use crate::ticker::pymath::arange;
 use crate::ticker::{AutolimitMode, TickContext, TickerError};
 use crate::transforms::nonsingular;
 

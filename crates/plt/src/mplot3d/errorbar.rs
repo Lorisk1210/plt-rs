@@ -11,7 +11,7 @@ use super::plot::{broadcast, columns};
 use super::quiver::Quiver3DOptions;
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistHandle};
-use crate::axes::{ErrorSize, ErrorbarContainer, ErrorbarFormat, PlotError};
+use crate::axes::{ErrorSize, ErrorbarContainer, ErrorbarFormat, PlotError, without_marker_style};
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
@@ -146,7 +146,7 @@ impl Axes3D {
             .capsize
             .unwrap_or_else(|| crate::rc::params().errorbar_capsize);
         let mut style = CapStyle {
-            base: base_style(kwargs.clone()),
+            base: without_marker_style(kwargs.clone()),
             ecolor,
             capsize,
             capthick: options.capthick,
@@ -362,28 +362,6 @@ impl CapStyle {
         props.linewidths = self.base.linewidth.map(|w| vec![w]);
         props.antialiased = self.base.antialiased.map(|a| vec![a]);
         props
-    }
-}
-
-/// `props` without the marker and line-style parts, which do not apply to
-/// error bars and caps.
-fn base_style(props: LineProps) -> LineProps {
-    LineProps {
-        marker: None,
-        markersize: None,
-        markerfacecolor: None,
-        markerfacecoloralt: None,
-        markeredgewidth: None,
-        markeredgecolor: None,
-        markevery: None,
-        linestyle: None,
-        fillstyle: None,
-        drawstyle: None,
-        dash_capstyle: None,
-        dash_joinstyle: None,
-        solid_capstyle: None,
-        solid_joinstyle: None,
-        ..props
     }
 }
 

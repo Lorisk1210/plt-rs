@@ -22,16 +22,12 @@ enum Shape {
     FancyArrow(FancyArrow),
 }
 
-fn bad(what: impl std::fmt::Display) -> ProbeError {
-    ProbeError::BadArgs(what.to_string())
-}
-
 /// A required number of an argument object.
 fn number(object: &Json, key: &str) -> Result<f64, ProbeError> {
     object
         .get(key)
         .and_then(Json::as_f64)
-        .ok_or_else(|| bad(format!("{key} is not a number in {object}")))
+        .ok_or_else(|| ProbeError::BadArgs(format!("{key} is not a number in {object}")))
 }
 
 fn optional(object: &Json, key: &str) -> Result<Option<f64>, ProbeError> {
@@ -40,14 +36,16 @@ fn optional(object: &Json, key: &str) -> Result<Option<f64>, ProbeError> {
         Some(value) => value
             .as_f64()
             .map(Some)
-            .ok_or_else(|| bad(format!("{key} is not a number in {object}"))),
+            .ok_or_else(|| ProbeError::BadArgs(format!("{key} is not a number in {object}"))),
     }
 }
 
 fn xy(object: &Json, key: &str) -> Result<Point, ProbeError> {
     match object.get(key).and_then(Json::as_f64_vec).as_deref() {
         Some(&[x, y]) => Ok(Point::new(x, y)),
-        _ => Err(bad(format!("{key} is not a point in {object}"))),
+        _ => Err(ProbeError::BadArgs(format!(
+            "{key} is not a point in {object}"
+        ))),
     }
 }
 
@@ -68,7 +66,7 @@ fn rotation_point(value: Option<&Json>) -> Result<RotationPoint, ProbeError> {
         Some(Json::String(name)) if name == "center" => Ok(RotationPoint::Center),
         Some(other) => match other.as_f64_vec().as_deref() {
             Some(&[x, y]) => Ok(RotationPoint::At(Point::new(x, y))),
-            _ => Err(bad(format!("bad rotation point {other}"))),
+            _ => Err(ProbeError::BadArgs(format!("bad rotation point {other}"))),
         },
     }
 }
@@ -123,7 +121,7 @@ impl Shape {
                 .with_width(optional(spec, "width")?.unwrap_or(1.0)),
             ),
             "fancy_arrow" => Self::FancyArrow(fancy_arrow(spec)?),
-            other => return Err(bad(format!("unknown shape {other:?}"))),
+            other => return Err(ProbeError::BadArgs(format!("unknown shape {other:?}"))),
         })
     }
 
@@ -142,11 +140,11 @@ impl Shape {
     }
 
     fn apply(&mut self, name: &str, value: &Json) -> Result<(), ProbeError> {
-        let wrong = || bad(format!("{name} does not apply"));
+        let wrong = || ProbeError::BadArgs(format!("{name} does not apply"));
         let amount = || {
             value
                 .as_f64()
-                .ok_or_else(|| bad(format!("bad {name} {value}")))
+                .ok_or_else(|| ProbeError::BadArgs(format!("bad {name} {value}")))
         };
         match (self, name) {
             (Self::Rectangle(rect), "set_angle") => rect.angle = amount()?,
@@ -189,7 +187,7 @@ impl Shape {
         }
         let name = query
             .as_str()
-            .ok_or_else(|| bad(format!("bad query {query}")))?;
+            .ok_or_else(|| ProbeError::BadArgs(format!("bad query {query}")))?;
         let value = match (self, name) {
             (Self::Rectangle(rect), "corners") => points(&rect.corners()),
             (Self::Ellipse(ellipse), "corners") => points(&ellipse.corners()),
@@ -204,7 +202,11 @@ impl Shape {
             }
             (_, "extents") => bbox(&self.placed_path().extents()),
             (_, "path") => path(&self.placed_path()),
-            _ => return Err(bad(format!("query {name:?} does not apply"))),
+            _ => {
+                return Err(ProbeError::BadArgs(format!(
+                    "query {name:?} does not apply"
+                )));
+            }
         };
         Ok((name.to_owned(), value))
     }
@@ -215,7 +217,11 @@ fn fancy_arrow(spec: &Json) -> Result<FancyArrow, ProbeError> {
         "full" => plt::patches::ArrowShape::Full,
         "left" => plt::patches::ArrowShape::Left,
         "right" => plt::patches::ArrowShape::Right,
-        other => return Err(bad(format!("unknown arrow shape {other:?}"))),
+        other => {
+            return Err(ProbeError::BadArgs(format!(
+                "unknown arrow shape {other:?}"
+            )));
+        }
     };
     Ok(FancyArrow {
         width: number(spec, "width")?,
@@ -268,7 +274,7 @@ pub(super) fn geometry(args: Args<'_>) -> Outcome {
     for step in args.json("steps")?.as_array().unwrap_or(&[]) {
         match step.as_array().map(<[Json]>::as_ref) {
             Some([Json::String(name), value]) => shape.apply(name, value)?,
-            _ => return Err(bad(format!("bad step {step}"))),
+            _ => return Err(ProbeError::BadArgs(format!("bad step {step}"))),
         }
     }
     let answers = args

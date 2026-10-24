@@ -70,7 +70,7 @@ impl FigureWindow {
     }
 
     /// Shows the keyboard shortcuts, or raises them when they are shown
-    /// (matplotlib's `ToolHelp`).
+    /// (matplotlib's `ToolHelpBase`).
     pub(super) fn show_help(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         match &self.help_dialog {
             Some(dialog) => cx.raise_window(dialog.id())?,

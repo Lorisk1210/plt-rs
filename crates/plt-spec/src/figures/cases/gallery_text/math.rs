@@ -188,7 +188,6 @@ fn mathtext_examples(fig: &Figure) -> CaseResult {
         .set_weight(FontWeight::BOLD);
     ax.set_xticks(Vec::<f64>::new())
         .set_yticks(Vec::<f64>::new());
-    #[expect(clippy::cast_precision_loss, reason = "eight lines")]
     let line_axesfrac = 1.0 / MATHTEXT_DEMOS.len() as f64;
     let (_, header) = MATHTEXT_DEMOS[0];
     ax.annotate(
@@ -200,7 +199,6 @@ fn mathtext_examples(fig: &Figure) -> CaseResult {
     .set_halign(HAlign::Center)
     .set_fontsize(20.0);
     for (i_line, (title, demo)) in MATHTEXT_DEMOS.iter().enumerate().skip(1) {
-        #[expect(clippy::cast_precision_loss, reason = "eight lines")]
         let baseline = 1.0 - i_line as f64 * line_axesfrac;
         let baseline_next = baseline - line_axesfrac;
         let fill_color = ["white", "tab:blue"][i_line % 2];
@@ -265,10 +263,8 @@ fn stix_fonts_demo(fig: &Figure) -> CaseResult {
         r"$\mathfrak{Fraktur}\;\mathbf{\mathfrak{Fraktur}}$",
         r"$\mathscr{Script}$",
     ];
-    #[expect(clippy::cast_precision_loss, reason = "nine lines")]
     let rows = tests.len() as f64;
     for (i, text) in tests.iter().rev().enumerate() {
-        #[expect(clippy::cast_precision_loss, reason = "nine lines")]
         let y = (i as f64 + 0.5) / rows;
         fig.text(0.0, y, *text).set_fontsize(32.0);
     }

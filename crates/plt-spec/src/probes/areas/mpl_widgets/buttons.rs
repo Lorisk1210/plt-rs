@@ -12,7 +12,7 @@ use plt::widgets::{
 };
 
 use super::steps::{key_press, press};
-use super::{bad, count, get_ax};
+use super::{count, get_ax, malformed};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::{Args, Outcome, ProbeError, encode};
@@ -21,13 +21,13 @@ use crate::probes::{Args, Outcome, ProbeError, encode};
 fn labels(args: Args<'_>) -> Result<Vec<String>, ProbeError> {
     args.json("labels")?
         .as_array()
-        .ok_or_else(|| bad("labels"))?
+        .ok_or_else(|| malformed("labels"))?
         .iter()
         .map(|label| {
             label
                 .as_str()
                 .map(str::to_owned)
-                .ok_or_else(|| bad("labels"))
+                .ok_or_else(|| malformed("labels"))
         })
         .collect()
 }
@@ -36,9 +36,9 @@ fn labels(args: Args<'_>) -> Result<Vec<String>, ProbeError> {
 fn actives(args: Args<'_>) -> Result<Vec<bool>, ProbeError> {
     args.json("actives")?
         .as_array()
-        .ok_or_else(|| bad("actives"))?
+        .ok_or_else(|| malformed("actives"))?
         .iter()
-        .map(|active| active.as_bool().ok_or_else(|| bad("actives")))
+        .map(|active| active.as_bool().ok_or_else(|| malformed("actives")))
         .collect()
 }
 
@@ -64,7 +64,7 @@ pub(super) fn check_buttons(args: Args<'_>) -> Outcome {
         let status = check.status();
         check
             .set_active(0, None)
-            .ok_or_else(|| bad("no first button"))?;
+            .ok_or_else(|| malformed("no first button"))?;
         let (after, checked) = (check.status(), check.checked_labels());
         check.clear();
         let cid = check.on_clicked(|_| {});
@@ -106,7 +106,9 @@ pub(super) fn radio_buttons(args: Args<'_>) -> Outcome {
                 count(radio.index_selected()),
             ])
         };
-        radio.set_active(1).ok_or_else(|| bad("no second button"))?;
+        radio
+            .set_active(1)
+            .ok_or_else(|| malformed("no second button"))?;
         let selected = selection(&radio);
         radio.clear();
         Ok(Json::Array(vec![selected, selection(&radio)]))

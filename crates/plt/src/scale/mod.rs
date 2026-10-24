@@ -21,7 +21,7 @@
 //!     .unwrap();
 //! assert_eq!(scale.name(), "log");
 //! ```
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib's scale transforms select code paths by exact float comparisons"
 )]

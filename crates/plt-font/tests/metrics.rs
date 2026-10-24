@@ -4,30 +4,22 @@
 
 mod common;
 
-use common::{Json, fixture, font_bytes};
+use common::json::{Fixture, Json};
+use common::{fixture, font_bytes};
 use plt_font::{Face, GlyphId, KerningMode, Size};
-
-#[test]
-fn json_reader_handles_escapes() {
-    let value =
-        Json::parse("{\"a\": [1, -2.5e1, true, null], \"b\": \"x\\u00e9\\ud83d\\ude00\\\"y\"}");
-    assert_eq!(value.get("a").as_array()[1].as_f64(), -25.0);
-    assert_eq!(value.get("b").as_str(), "x\u{e9}\u{1F600}\"y");
-    assert!(value.opt("c").is_none());
-}
 
 fn check_names(name: &str, face: &Face<'_>, expected: &Json) {
     assert_eq!(
         face.family_name().as_deref(),
-        Some(expected.get("family_name").as_str()),
+        Some(expected.field("family_name").str()),
         "{name}"
     );
     assert_eq!(
         face.style_name().as_deref(),
-        Some(expected.get("style_name").as_str()),
+        Some(expected.field("style_name").str()),
         "{name}"
     );
-    let postscript = expected.get("postscript_name").as_str();
+    let postscript = expected.field("postscript_name").str();
     assert_eq!(
         face.postscript_name().as_deref(),
         Some(postscript),
@@ -53,22 +45,22 @@ fn check_metrics(name: &str, face: &Face<'_>, expected: &Json) {
         ("num_charmaps", face.charmaps().len() as i64),
     ];
     for (key, actual) in integers {
-        assert_eq!(actual, expected.get(key).as_i64(), "{name}: {key}");
+        assert_eq!(actual, expected.field(key).i64(), "{name}: {key}");
     }
     let corners = [bbox.x_min, bbox.y_min, bbox.x_max, bbox.y_max].map(i64::from);
     assert_eq!(
         corners.to_vec(),
-        expected.get("bbox").i64s(),
+        expected.field("bbox").i64s(),
         "{name}: bbox"
     );
     let flags = face.style_flags();
     assert_eq!(
         flags.italic,
-        expected.get("italic").as_bool(),
+        expected.field("italic").bool(),
         "{name}: italic"
     );
-    assert_eq!(flags.bold, expected.get("bold").as_bool(), "{name}: bold");
-    let angle = expected.get("italic_angle").as_f64();
+    assert_eq!(flags.bold, expected.field("bold").bool(), "{name}: bold");
+    let angle = expected.field("italic_angle").f64();
     assert!(
         (face.italic_angle() - angle).abs() < 1e-6,
         "{name}: italic angle"
@@ -78,12 +70,12 @@ fn check_metrics(name: &str, face: &Face<'_>, expected: &Json) {
 fn check_glyph_names_and_cmap(name: &str, face: &Face<'_>, expected: &Json) {
     assert_eq!(
         face.has_glyph_names(),
-        expected.get("has_glyph_names").as_bool(),
+        expected.field("has_glyph_names").bool(),
         "{name}"
     );
-    for (gid, glyph_name) in expected.get("glyph_names").as_object() {
+    for (gid, glyph_name) in expected.field("glyph_names").object() {
         let gid = GlyphId(gid.parse().expect("glyph id"));
-        let glyph_name = glyph_name.as_str();
+        let glyph_name = glyph_name.str();
         assert_eq!(
             face.glyph_name(gid),
             Some(glyph_name),
@@ -95,12 +87,12 @@ fn check_glyph_names_and_cmap(name: &str, face: &Face<'_>, expected: &Json) {
             .and_then(|g| face.glyph_name(g));
         assert_eq!(found, Some(glyph_name), "{name}: lookup of {glyph_name}");
     }
-    for (code, gid) in expected.get("chars").as_object() {
+    for (code, gid) in expected.field("chars").object() {
         let code: u32 = code.parse().expect("character code");
         let found = face
             .glyph_index_for_code(code)
             .map_or(0, |g| i64::from(g.0));
-        assert_eq!(found, gid.as_i64(), "{name}: cmap U+{code:04X}");
+        assert_eq!(found, gid.i64(), "{name}: cmap U+{code:04X}");
     }
 }
 
@@ -119,21 +111,17 @@ fn check_os2(name: &str, face: &Face<'_>, expected: &Json) {
         ("usWinAscent", i64::from(os2.win_ascent)),
     ];
     for (key, actual) in fields {
-        assert_eq!(actual, wanted.get(key).as_i64(), "{name}: OS/2 {key}");
+        assert_eq!(actual, wanted.field(key).i64(), "{name}: OS/2 {key}");
     }
     if let Some(x_height) = wanted.opt("sxHeight") {
-        assert_eq!(
-            os2.x_height.map(i64::from),
-            Some(x_height.as_i64()),
-            "{name}"
-        );
+        assert_eq!(os2.x_height.map(i64::from), Some(x_height.i64()), "{name}");
     }
 }
 
 #[test]
 fn face_metrics_match_freetype() {
     let fixtures = fixture("metrics.json");
-    for (name, expected) in fixtures.as_object() {
+    for (name, expected) in fixtures.object() {
         let data = font_bytes(name);
         let face = Face::parse(&data, 0).unwrap();
         check_names(name, &face, expected);
@@ -146,23 +134,23 @@ fn face_metrics_match_freetype() {
 #[test]
 fn kerning_matches_freetype() {
     let fixtures = fixture("kerning.json");
-    for (name, pairs) in fixtures.as_object() {
+    for (name, pairs) in fixtures.object() {
         let data = font_bytes(name);
         let face = Face::parse(&data, 0).unwrap();
-        for row in pairs.as_array() {
-            let pair: Vec<char> = row.get("pair").as_str().chars().collect();
+        for row in pairs.array() {
+            let pair: Vec<char> = row.field("pair").str().chars().collect();
             let left = face.glyph_index(pair[0]).unwrap_or_default();
             let right = face.glyph_index(pair[1]).unwrap_or_default();
             let label = format!("{name} {pair:?}");
             let unscaled = i64::from(face.legacy_kerning(left, right));
-            assert_eq!(unscaled, row.get("unscaled").as_i64(), "{label}");
+            assert_eq!(unscaled, row.field("unscaled").i64(), "{label}");
             for (points, dpi) in [(12.0, 72.0), (10.0, 100.0), (48.0, 72.0)] {
                 let size = Size::new(&face, points, dpi);
                 for (mode, key) in [
                     (KerningMode::Default, "default"),
                     (KerningMode::Unfitted, "unfitted"),
                 ] {
-                    let wanted = row.get(&format!("{key}_{points:?}_{dpi:?}")).as_i64();
+                    let wanted = row.field(&format!("{key}_{points:?}_{dpi:?}")).i64();
                     assert_eq!(
                         size.kerning(&face, left, right, mode),
                         wanted,

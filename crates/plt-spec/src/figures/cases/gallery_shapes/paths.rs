@@ -17,16 +17,11 @@ use plt::transforms::Point;
 use plt_core::{Affine2D, Path, PathCode};
 
 use super::SEED;
-use crate::figures::cases::common::path_patch_curve;
+use crate::figures::cases::common::{path_patch_curve, points};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 use PathCode::{ClosePoly, Curve3, Curve4, LineTo, MoveTo};
-
-/// Points from coordinate pairs.
-fn points(coords: &[(f64, f64)]) -> Vec<Point> {
-    coords.iter().copied().map(Point::from).collect()
-}
 
 fn compound_path(fig: &Figure) -> CaseResult {
     let vertices = points(&[

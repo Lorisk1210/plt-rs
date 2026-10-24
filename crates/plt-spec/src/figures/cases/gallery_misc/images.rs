@@ -24,14 +24,9 @@ use plt::transforms::Point;
 use plt_core::{Path, PathCode};
 
 use super::{named_mosaic, panel};
-use crate::figures::cases::common::{GALLERY_SEED, mgrid_count, scan, terrain, tickless};
+use crate::figures::cases::common::{GALLERY_SEED, mgrid_count, scan, segment, terrain, tickless};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// One open polyline through `points` (a segment of `ContourSet`).
-fn segment(points: &[(f64, f64)]) -> Path {
-    Path::polyline(points.iter().map(|&(x, y)| Point::new(x, y)).collect())
-}
 
 fn contour_manual_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();

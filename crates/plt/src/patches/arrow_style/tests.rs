@@ -1,13 +1,10 @@
 use plt_core::{Path, PathCode, Point};
 
 use super::*;
+use crate::testing::horizontal_segment;
 
 fn style(text: &str) -> ArrowStyle {
     text.parse().expect("valid arrow style")
-}
-
-fn line() -> Path {
-    Path::polyline(vec![Point::new(0.0, 0.0), Point::new(100.0, 0.0)])
 }
 
 fn arc() -> Path {
@@ -41,7 +38,9 @@ fn parses_every_name() {
 
 #[test]
 fn open_heads_are_stroked_and_filled_heads_filled() {
-    let open = style("->").paths(&line(), 10.0, 1.0, 1.0).unwrap();
+    let open = style("->")
+        .paths(&horizontal_segment(), 10.0, 1.0, 1.0)
+        .unwrap();
     assert_eq!(open.len(), 2);
     assert_eq!((open[0].1, open[1].1), (false, false));
     // The head's tip is pulled back by half the line width over sin(t).
@@ -50,7 +49,9 @@ fn open_heads_are_stroked_and_filled_heads_filled() {
     assert!((tip.x - (100.0 - 0.5 / sin)).abs() < 1e-9);
     assert_eq!(open[0].0.vertices()[1], tip);
 
-    let filled = style("<|-|>").paths(&line(), 10.0, 1.0, 1.0).unwrap();
+    let filled = style("<|-|>")
+        .paths(&horizontal_segment(), 10.0, 1.0, 1.0)
+        .unwrap();
     assert_eq!(filled.len(), 3);
     assert!(filled[1].1 && filled[2].1);
     assert_eq!(filled[1].0.code_at(3), PathCode::ClosePoly);
@@ -58,20 +59,24 @@ fn open_heads_are_stroked_and_filled_heads_filled() {
 
 #[test]
 fn brackets_stand_across_the_ends() {
-    let paths = style("]-[").paths(&line(), 10.0, 1.0, 1.0).unwrap();
+    let paths = style("]-[")
+        .paths(&horizontal_segment(), 10.0, 1.0, 1.0)
+        .unwrap();
     assert_eq!(paths.len(), 3);
     let end = paths[2].0.vertices();
     // Width 1 × 10 on either side of the end, arms 0.2 × 10 long outwards.
     assert_eq!(end[1], Point::new(100.0, -10.0));
     assert_eq!(end[0], Point::new(102.0, -10.0));
-    let plain = style("-").paths(&line(), 10.0, 1.0, 1.0).unwrap();
-    assert_eq!(plain, vec![(line(), false)]);
+    let plain = style("-")
+        .paths(&horizontal_segment(), 10.0, 1.0, 1.0)
+        .unwrap();
+    assert_eq!(plain, vec![(horizontal_segment(), false)]);
 }
 
 #[test]
 fn quadratic_styles_need_a_quadratic_curve() {
     assert_eq!(
-        style("simple").paths(&line(), 10.0, 1.0, 1.0),
+        style("simple").paths(&horizontal_segment(), 10.0, 1.0, 1.0),
         Err(PatchError::NotQuadratic)
     );
     for name in ["simple", "fancy", "wedge"] {

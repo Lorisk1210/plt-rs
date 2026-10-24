@@ -152,6 +152,7 @@ mod tests {
 
     use super::site::KIND_ZONE;
     use super::*;
+    use crate::testing::vertex_pairs;
 
     /// A generator for `rows` at index coordinates.
     fn generator(rows: &[&[f64]], mask: Option<&[bool]>, chunk: usize) -> Mpl2005 {
@@ -172,17 +173,13 @@ mod tests {
         Mpl2005::new(&grid, Chunks::new(nx, ny, (chunk, chunk)))
     }
 
-    fn points(path: &Path) -> Vec<(f64, f64)> {
-        path.vertices().iter().map(|p| (p.x, p.y)).collect()
-    }
-
     #[test]
     fn a_loop_around_a_pit_closes() {
         let pit: [&[f64]; 3] = [&[1.0, 1.0, 1.0], &[1.0, 0.0, 1.0], &[1.0, 1.0, 1.0]];
         let path = generator(&pit, None, 0).lines(0.5);
         assert_eq!(path.codes().unwrap(), [M, L, L, L, C]);
         assert_eq!(
-            points(&path),
+            vertex_pairs(&path),
             [(1.0, 0.5), (0.5, 1.0), (1.0, 1.5), (1.5, 1.0), (1.0, 0.5)]
         );
     }

@@ -14,10 +14,7 @@ use plt_render::{CapStyle, JoinStyle};
 
 use super::square_canvas;
 use crate::figures::FigureCase;
-
-fn points(coords: &[(f64, f64)]) -> Vec<Point> {
-    coords.iter().map(|&(x, y)| Point::new(x, y)).collect()
-}
+use crate::figures::cases::common::points;
 
 /// The ten-pointed star of `polygon_closed_open`.
 fn star() -> Vec<Point> {

@@ -5,6 +5,7 @@ use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 
 use super::*;
 use crate::gc::{ClipPath, Hatch};
+use crate::testing::square;
 use crate::vector::SvgMetadata;
 
 fn renderer() -> SvgRenderer {
@@ -19,15 +20,6 @@ fn renderer() -> SvgRenderer {
         },
     )
     .expect("valid canvas")
-}
-
-fn square() -> Path {
-    Path::polygon([
-        Point::new(0.0, 0.0),
-        Point::new(10.0, 0.0),
-        Point::new(10.0, 10.0),
-        Point::new(0.0, 10.0),
-    ])
 }
 
 #[test]

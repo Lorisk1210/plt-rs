@@ -11,6 +11,7 @@ use super::call::{Call, KEYWORD_ONLY};
 use super::scene::{Handled, Object, Produced, Scene};
 use crate::json::Json;
 use crate::probes::ProbeError;
+use crate::probes::encode::resolved_rgba;
 
 /// Runs a legend method of `ax`.
 pub(super) fn axes_call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
@@ -65,7 +66,7 @@ pub(super) fn legend_call(legend: &Legend, call: &Call<'_>) -> Handled {
         "get_texts.get_color" => legend
             .texts()
             .iter()
-            .map(|text| rgba(&text.color()))
+            .map(|text| resolved_rgba(&text.color()))
             .collect::<Result<_, _>>()
             .map(|colors| Produced::Value(Json::Array(colors))),
         "get_title" => Ok(Produced::Value(legend.title().text().into())),
@@ -84,12 +85,6 @@ pub(super) fn legend_call(legend: &Legend, call: &Call<'_>) -> Handled {
         }
         _ => return None,
     })
-}
-
-/// `[r, g, b, a]`.
-fn rgba(color: &Color) -> Result<Json, ProbeError> {
-    let c = color.resolve().map_err(ProbeError::rejected)?;
-    Ok(Json::from(vec![c.r, c.g, c.b, c.a]))
 }
 
 /// The handles as the references of the steps that made them.

@@ -10,6 +10,7 @@ use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, TextBoxProps};
 use plt::transforms::Point;
 
 use super::super::mpl_tests::classic;
+use crate::figures::cases::common::strings;
 use crate::figures::{CaseResult, FigureCase};
 use plt::ticker::LabelFormat;
 
@@ -22,11 +23,6 @@ fn colors() -> Vec<Color> {
     ["yellowgreen", "gold", "lightskyblue", "lightcoral"]
         .map(Color::from)
         .to_vec()
-}
-
-/// The tests' slice labels.
-fn labels(names: [&str; 4]) -> Vec<String> {
-    names.map(String::from).to_vec()
 }
 
 /// The exploded, coloured pie starting at 90° without labels.
@@ -42,7 +38,7 @@ fn plain() -> PieOptions {
 /// The tests' pie: labelled, with percentages and a shadow.
 fn frogs() -> PieOptions {
     PieOptions {
-        labels: labels(["Frogs", "Hogs", "Dogs", "Logs"]),
+        labels: strings(&["Frogs", "Hogs", "Dogs", "Logs"]),
         autopct: Some(LabelFormat::Template("%1.1f%%".into())),
         shadow: Some(PieShadow::default()),
         ..plain()
@@ -181,7 +177,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_d/pie_frame_grid", pie_frame_grid),
     FigureCase::new("mpl_axes_d/pie_rotatelabels_true", |fig| {
         let options = PieOptions {
-            labels: labels(["Hogwarts", "Frogs", "Dogs", "Logs"]),
+            labels: strings(&["Hogwarts", "Frogs", "Dogs", "Logs"]),
             rotatelabels: true,
             ..frogs()
         };

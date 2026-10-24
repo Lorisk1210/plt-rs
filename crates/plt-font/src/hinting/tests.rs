@@ -2,6 +2,8 @@
 //! FreeType's results for bundled fonts, which glyphs get bytecode, and
 //! corrupted fonts.
 
+use plt_core::rng::SplitMix64;
+
 use super::*;
 use crate::outline::OutlineRecorder;
 use crate::scale::Size;
@@ -321,19 +323,6 @@ fn which_hinter_glyphs_get() {
     assert_eq!(Hinting::Auto.hinter(&cff, false), Hinter::Unhinted);
 }
 
-/// `SplitMix64`, for reproducible corruption.
-struct Random(u64);
-
-impl Random {
-    fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
-    }
-}
-
 /// The byte range of table `tag` in `font`.
 fn table_range(font: &[u8], tag: &[u8; 4]) -> std::ops::Range<usize> {
     let face = Face::parse(font, 0).expect("bundled font");
@@ -344,14 +333,14 @@ fn table_range(font: &[u8], tag: &[u8; 4]) -> std::ops::Range<usize> {
 
 #[test]
 fn corrupted_bytecode_never_panics_or_runs_away() {
-    let mut random = Random(0xF0_57);
+    let mut random = SplitMix64::new(0xF0_57);
     let targets = [b"fpgm", b"prep", b"glyf", b"cvt ", b"maxp"].map(|tag| table_range(DEJAVU, tag));
     for round in 0..200 {
         let mut font = DEJAVU.to_vec();
         for _ in 0..=round % 8 {
-            let range = &targets[(random.next() % targets.len() as u64) as usize];
-            let at = range.start + (random.next() % range.len() as u64) as usize;
-            font[at] = random.next() as u8;
+            let range = &targets[(random.next_u64() % targets.len() as u64) as usize];
+            let at = range.start + (random.next_u64() % range.len() as u64) as usize;
+            font[at] = random.next_u64() as u8;
         }
         let Ok(face) = Face::parse(&font, 0) else {
             continue;

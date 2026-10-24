@@ -4,6 +4,7 @@
 //! the canvas, degenerate resampling transforms) must never panic, hang or
 //! allocate without bound.
 
+use plt_core::rng::SplitMix64;
 use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_raster::resample::{Grid, Interpolation, PixelTransform, ResampleParams, resample};
 use plt_raster::{
@@ -12,19 +13,15 @@ use plt_raster::{
 };
 
 /// `SplitMix64`, for deterministic hostile inputs.
-struct Rng(u64);
+struct Rng(SplitMix64);
 
 impl Rng {
     fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^ (z >> 31)
+        self.0.next_u64()
     }
 
     fn below(&mut self, bound: usize) -> usize {
-        (self.next() % bound as u64) as usize
+        self.0.below(bound)
     }
 
     fn pick<T: Copy>(&mut self, items: &[T]) -> T {
@@ -225,7 +222,7 @@ fn exercise(rng: &mut Rng, painter: &mut Painter) {
 
 #[test]
 fn hostile_drawing_does_not_panic() {
-    let mut rng = Rng(0x0BAD_5EED);
+    let mut rng = Rng(SplitMix64::new(0x0BAD_5EED));
     // A small cell limit makes runaway geometry fail fast instead of
     // allocating matplotlib's two-gigabyte budget.
     let mut painter = Painter::with_cell_limit(1 << 12);
@@ -236,7 +233,7 @@ fn hostile_drawing_does_not_panic() {
 
 #[test]
 fn hostile_rasterizer_input_does_not_panic() {
-    let mut rng = Rng(5);
+    let mut rng = Rng(SplitMix64::new(5));
     let mut rasterizer = Rasterizer::with_cell_limit(1 << 12);
     let mut scanline = Scanline::new();
     for _ in 0..400 {
@@ -266,7 +263,7 @@ fn hostile_rasterizer_input_does_not_panic() {
 
 #[test]
 fn hostile_clip_rectangles_do_not_panic() {
-    let mut rng = Rng(11);
+    let mut rng = Rng(SplitMix64::new(11));
     for _ in 0..400 {
         let b = ClipBox::from_matplotlib_cliprect(
             rng.coordinate(),
@@ -284,7 +281,7 @@ fn hostile_clip_rectangles_do_not_panic() {
 
 #[test]
 fn hostile_resampling_does_not_panic() {
-    let mut rng = Rng(23);
+    let mut rng = Rng(SplitMix64::new(23));
     for _ in 0..300 {
         let (sw, sh) = (rng.below(4), rng.below(4));
         let values: Vec<f64> = (0..sw * sh).map(|_| rng.coordinate()).collect();

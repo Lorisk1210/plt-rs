@@ -7,9 +7,15 @@
 //! The offset side follows the path direction: a positive width grows
 //! counter-clockwise polygons and shrinks clockwise ones, exactly as in
 //! matplotlib.
+//!
+//! The building blocks of those generators — Agg's vertex sequence
+//! ([`VertexSequence`]) and its `agg_math.h` helpers ([`cross_product`],
+//! [`calc_intersection`], [`calc_distance`]) — are public: plt-raster's
+//! stroker and dasher are made of them too.
 
 mod contour;
 mod join;
+mod math;
 mod stroke;
 mod vertex_seq;
 
@@ -18,7 +24,9 @@ use crate::path::PathCode;
 use crate::path::convert::{Vertex, VertexSource};
 
 pub(crate) use contour::Contour;
+pub use math::{INTERSECTION_EPSILON, calc_distance, calc_intersection, cross_product};
 pub(crate) use stroke::Stroke;
+pub use vertex_seq::{VERTEX_DIST_EPSILON, VertexDist, VertexSequence};
 
 /// A per-sub-path outline generator (Agg's `vcgen_*` interface).
 pub(crate) trait Generator {

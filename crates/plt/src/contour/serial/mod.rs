@@ -201,6 +201,7 @@ mod tests {
     use plt_core::PathCode::{ClosePoly as C, LineTo as L, MoveTo as M};
 
     use super::*;
+    use crate::testing::vertex_pairs;
 
     /// A generator for `rows` at index coordinates.
     fn generator(
@@ -226,10 +227,6 @@ mod tests {
         Serial::new(&grid, corner_mask, Chunks::new(nx, ny, (chunk, chunk)))
     }
 
-    fn points(path: &Path) -> Vec<(f64, f64)> {
-        path.vertices().iter().map(|p| (p.x, p.y)).collect()
-    }
-
     const PIT: [&[f64]; 3] = [&[1.0, 1.0, 1.0], &[1.0, 0.0, 1.0], &[1.0, 1.0, 1.0]];
 
     #[test]
@@ -237,7 +234,7 @@ mod tests {
         let path = generator(&PIT, None, true, 0).lines(0.5);
         assert_eq!(path.codes().unwrap(), [M, L, L, L, C]);
         assert_eq!(
-            points(&path),
+            vertex_pairs(&path),
             [(1.0, 0.5), (0.5, 1.0), (1.0, 1.5), (1.5, 1.0), (1.0, 0.5)]
         );
         assert_eq!(generator(&PIT, None, true, 0).lines(1.5).codes(), None);
@@ -248,7 +245,7 @@ mod tests {
         let ramp: [&[f64]; 2] = [&[0.0, 1.0, 2.0], &[0.0, 1.0, 2.0]];
         let path = generator(&ramp, None, true, 0).lines(1.5);
         assert_eq!(path.codes().unwrap(), [M, L]);
-        assert_eq!(points(&path), [(1.5, 1.0), (1.5, 0.0)]);
+        assert_eq!(vertex_pairs(&path), [(1.5, 1.0), (1.5, 0.0)]);
     }
 
     #[test]

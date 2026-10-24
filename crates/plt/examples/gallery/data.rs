@@ -1,23 +1,20 @@
 //! Reproducible sample data for the gallery: a `SplitMix64` generator with
 //! normally distributed draws, so every run draws the same figures.
 
-/// A small deterministic random number generator (`SplitMix64`).
-pub(crate) struct Samples(u64);
+use plt_core::rng::SplitMix64;
+
+/// Normally distributed draws from a `SplitMix64` stream.
+pub(crate) struct Samples(SplitMix64);
 
 impl Samples {
     /// A generator starting from `seed`.
     pub(crate) fn new(seed: u64) -> Self {
-        Self(seed)
+        Self(SplitMix64::new(seed))
     }
 
-    /// A uniform draw in `[0, 1)`.
+    /// A uniform draw in `[0, 1)` from the top 32 bits of the next output.
     pub(crate) fn uniform(&mut self) -> f64 {
-        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.0;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        // The top 53 bits, exactly representable.
-        let bits = u32::try_from((z ^ (z >> 31)) >> 32).unwrap_or(u32::MAX);
+        let bits = u32::try_from(self.0.next_u64() >> 32).unwrap_or(u32::MAX);
         f64::from(bits) / 4_294_967_296.0
     }
 

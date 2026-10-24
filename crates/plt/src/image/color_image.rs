@@ -45,11 +45,6 @@ fn checked_pixels<P, T: Channel>(
 /// precision, then truncated as numpy's `astype(np.uint8)`.
 fn float_bytes<T: Channel>(pixels: Vec<[T; 4]>) -> Vec<[u8; 4]> {
     let scale = T::from(255);
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "checked channels times 255 are in [0, 255]"
-    )]
     let byte = |v: T| (v * scale).into() as u8;
     pixels.into_iter().map(|pixel| pixel.map(byte)).collect()
 }

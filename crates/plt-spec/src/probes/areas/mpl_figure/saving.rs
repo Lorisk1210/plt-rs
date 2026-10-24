@@ -9,10 +9,12 @@ use plt::figure::{BboxInches, Figure, Metadata, SaveFormat, SaveOptions};
 use plt::numeric::Grid;
 use plt_core::Bbox;
 
-use super::super::mpl_tests::{in_test_style, numbers};
+use super::super::mpl_tests::in_test_style;
 use crate::json::Json;
+use crate::probes::encode::numbers;
 use crate::probes::{Args, Outcome, ProbeError};
 use crate::rng::SpecRng;
+use crate::scratch::ScratchDir;
 
 /// The size after each call `[method, *args]` on a new figure.
 pub(super) fn set_size_inches(args: Args<'_>) -> Outcome {
@@ -79,15 +81,11 @@ pub(super) fn savefig(args: Args<'_>) -> Outcome {
                 .map_err(ProbeError::rejected)?;
             return Ok(Json::Bool(true));
         }
-        let dir =
-            std::env::temp_dir().join(format!("plt-spec-mpl-figure-{}-{name}", std::process::id()));
-        std::fs::create_dir_all(&dir).map_err(ProbeError::rejected)?;
-        let path = dir.join(format!("test.{name}"));
-        let saved = plt::pyplot::savefig(&path)
-            .map_err(ProbeError::rejected)
-            .and_then(|()| std::fs::read(&path).map_err(ProbeError::rejected));
-        std::fs::remove_dir_all(&dir).map_err(ProbeError::rejected)?;
-        let head: Vec<u8> = saved?.into_iter().take(100).collect();
+        let dir = ScratchDir::new("mpl-figure").map_err(ProbeError::rejected)?;
+        let path = dir.path(&format!("test.{name}"));
+        plt::pyplot::savefig(&path).map_err(ProbeError::rejected)?;
+        let saved = std::fs::read(&path).map_err(ProbeError::rejected)?;
+        let head: Vec<u8> = saved.into_iter().take(100).collect();
         let head = String::from_utf8_lossy(&head).to_lowercase();
         Ok(Json::Bool(head.contains(name)))
     })

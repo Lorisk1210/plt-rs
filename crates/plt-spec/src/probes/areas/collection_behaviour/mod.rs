@@ -18,7 +18,7 @@ use plt_core::Point;
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::{bbox, object, parse_points};
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -37,11 +37,6 @@ pub(crate) const OPS: &[Op] = &[
         with_rc(args, || colors::hatchcolors(args))
     }),
 ];
-
-/// Wraps a plt-rs error as a rejection.
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 /// A grid of `cell(row, column)`.
 fn grid(rows: usize, columns: usize, cell: impl Fn(f64, f64) -> f64) -> Grid<f64> {

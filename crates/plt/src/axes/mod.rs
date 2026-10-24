@@ -48,6 +48,7 @@ mod pcolor_rgba;
 mod pcolorfast;
 mod pie;
 mod pie_label;
+mod position;
 pub(crate) mod projection;
 mod quiver;
 mod reference;
@@ -75,6 +76,7 @@ mod tick_tests;
 mod ticks;
 mod tight_bbox;
 mod title_position;
+mod titles;
 mod tripcolor;
 mod triplot;
 mod twins;
@@ -99,6 +101,7 @@ pub(crate) use children::DataUpdate;
 pub use current_image::ColorizingArtist;
 pub use ecdf::{EcdfError, EcdfOptions};
 pub use error::PlotError;
+pub(crate) use errorbar::without_marker_style;
 pub use errorbar::{ErrorSize, ErrorbarContainer, ErrorbarFormat, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
@@ -115,6 +118,7 @@ pub use pcolorfast::{FastValues, PcolorFast, PcolorfastOptions};
 pub use pie::{PieContainer, PieDirection, PieError, PieOptions, PieShadow};
 pub use pie_label::{PieLabelAlignment, PieLabelOptions, PieLabels};
 pub use plt_core::path::DataLimits;
+pub use position::WhichPosition;
 pub use projection::ProjectionKind;
 pub use scatter::{MappedColors, ScatterColors, ScatterOptions};
 pub use secondary::SecondaryLocation;
@@ -134,6 +138,7 @@ pub(crate) use ticks::grid_level_on;
 pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
 pub(crate) use tight_bbox::spine_extent_with_ticks;
 pub(crate) use tight_bbox::{clipped_extent, collapse_x};
+pub use titles::TitleLocation;
 pub use tripcolor::{TriShading, TriValues, Tripcolor, TripcolorError, TripcolorOptions};
 pub use triplot::TriplotLines;
 pub use view_limits::Limits;
@@ -145,62 +150,12 @@ use std::rc::Rc;
 
 use crate::artist::Artist;
 use crate::artist::{ArtistHandle, RawHandle};
-use crate::rc::ColorOrAuto;
 use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::ticker::TickerError;
 use crate::transforms::Transform;
 use crate::units::{AxisValue, DataPoint};
-use plt_text::{HAlign, VAlign};
-
-/// Where an axes title sits.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum TitleLocation {
-    /// Flush left.
-    Left,
-    /// Centred.
-    #[default]
-    Center,
-    /// Flush right.
-    Right,
-}
-
-impl TitleLocation {
-    /// The location [`Axes::set_title`] uses: `axes.titlelocation`.
-    pub fn from_rc(rc: &crate::rc::RcParams) -> Self {
-        match rc.axes_titlelocation.as_str() {
-            "left" => Self::Left,
-            "right" => Self::Right,
-            _ => Self::Center,
-        }
-    }
-}
-
-impl TitleLocation {
-    /// The horizontal alignment of a title here (matplotlib aligns titles
-    /// by their location name).
-    fn halign(self) -> HAlign {
-        match self {
-            Self::Left => HAlign::Left,
-            Self::Center => HAlign::Center,
-            Self::Right => HAlign::Right,
-        }
-    }
-}
-
-/// Which position of an axes [`Axes::set_position_which`] sets
-/// (matplotlib's `which`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum WhichPosition {
-    /// The original and the active position.
-    #[default]
-    Both,
-    /// The position before any aspect adjustment.
-    Original,
-    /// The position drawn, until the aspect is next applied.
-    Active,
-}
 
 /// A handle to one axes of a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -257,144 +212,6 @@ impl Axes {
     /// (`ax.get_yaxis_transform()`).
     pub fn trans_yaxis(&self) -> Transform {
         Transform::blended(self.trans_axes(), self.trans_data())
-    }
-
-    /// The grid cell the axes occupies, if it was placed on a grid.
-    pub fn subplot_spec(&self) -> Option<crate::gridspec::SubplotSpec> {
-        self.raw.with::<AxesState, _>(|a| a.subplot_spec.clone())
-    }
-
-    /// Placement as a fraction of the figure (or subfigure), after the
-    /// aspect adjustment (matplotlib's `get_position`). Insets and
-    /// secondary axes, which are placed in their host axes, are reported
-    /// in the host's figure fractions too.
-    pub fn position(&self) -> Bbox {
-        let host = self.host().map(|host| host.position());
-        self.apply_aspect();
-        let active = self
-            .raw
-            .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
-        host.map_or(active, |host| {
-            active.transformed(&crate::transforms::unit_to_bbox(&host))
-        })
-    }
-
-    /// The axes this one is placed in (insets, secondary axes).
-    fn host(&self) -> Option<Self> {
-        let figure = self.raw.figure_state();
-        let parent = self.raw.with::<AxesState, _>(|a| a.base().parent)?;
-        let is_axes = figure.borrow().store.get_as::<AxesState>(parent).is_some();
-        is_axes.then(|| Self::from_raw(RawHandle::new(Rc::clone(figure), parent)))
-    }
-
-    /// Moves the axes and its twins to `[left, bottom, width, height]` in
-    /// figure fractions, out of the layout engine's control (matplotlib's
-    /// `set_position`).
-    pub fn set_position(&self, rect: [f64; 4]) -> &Self {
-        self.set_position_which(rect, WhichPosition::Both)
-    }
-
-    /// Moves the axes and its twins to `[left, bottom, width, height]` in
-    /// figure fractions: the position before any aspect adjustment, the
-    /// one drawn until the aspect is next applied, or both (matplotlib's
-    /// `set_position(pos, which=...)`). The layout engine leaves this axes
-    /// alone from now on.
-    pub fn set_position_which(&self, rect: [f64; 4], which: WhichPosition) -> &Self {
-        self.set_in_layout(false);
-        let [left, bottom, width, height] = rect;
-        let position = Bbox::from_bounds(left, bottom, width, height);
-        for twin in self.twins() {
-            twin.raw.with_mut::<AxesState, _>(|a| {
-                if which != WhichPosition::Active {
-                    a.position = position;
-                }
-                if which != WhichPosition::Original {
-                    a.aspect.set_active(a.position, position);
-                }
-            });
-        }
-        self
-    }
-
-    /// Sets the title at the `axes.titlelocation` position (centre by
-    /// default; matplotlib's `set_title`) and returns it.
-    pub fn set_title(&self, text: impl Into<String>) -> Text {
-        self.set_title_at(TitleLocation::from_rc(&crate::rc::params()), text)
-    }
-
-    /// The title shown, and where: the one at `axes.titlelocation` if
-    /// set, else the first set at the centre, left or right (empty at
-    /// `axes.titlelocation` when none is).
-    pub fn shown_title(&self) -> (TitleLocation, String) {
-        let usual = TitleLocation::from_rc(&crate::rc::params());
-        [
-            usual,
-            TitleLocation::Center,
-            TitleLocation::Left,
-            TitleLocation::Right,
-        ]
-        .into_iter()
-        .map(|location| (location, self.title(location)))
-        .find(|(_, title)| !title.is_empty())
-        .unwrap_or((usual, String::new()))
-    }
-
-    /// Sets the title at `location` and returns it. Like matplotlib's
-    /// `set_title`, this resets the gap of all titles to `axes.titlepad`,
-    /// the title's height to `axes.titley` (which, when set, also stops
-    /// lifting the titles above decorations on top) and its size, weight,
-    /// colour and alignment to the `axes.title*` defaults; change them on
-    /// the returned title, or with [`Axes::set_title_pad`] and
-    /// [`Axes::set_title_y`], afterwards.
-    pub fn set_title_at(&self, location: TitleLocation, text: impl Into<String>) -> Text {
-        let rc = crate::rc::params();
-        self.set_title_pad(rc.axes_titlepad);
-        let title = self.title_text(location);
-        match rc.axes_titley {
-            Some(y) => {
-                self.set_title_y(location, y);
-            }
-            None => {
-                title.set_y(1.0);
-            }
-        }
-        title
-            .set_text(text)
-            .set_fontsize(rc.axes_titlesize)
-            .set_weight(rc.axes_titleweight)
-            .set_valign(VAlign::Baseline)
-            .set_halign(location.halign());
-        if let ColorOrAuto::Color(color) = &rc.axes_titlecolor {
-            title.set_color(color.clone());
-        }
-        title
-    }
-
-    /// Places the title at `location` at height `y` in axes fractions and
-    /// stops lifting this axes' titles above decorations on top
-    /// (matplotlib's `set_title(..., y=...)`).
-    pub fn set_title_y(&self, location: TitleLocation, y: f64) -> &Self {
-        self.title_text(location).set_y(y);
-        self.raw
-            .with_mut::<AxesState, _>(|axes| axes.title_placement = state::TitlePlacement::Fixed);
-        self
-    }
-
-    /// The title at `location` (empty when unset).
-    pub fn title(&self, location: TitleLocation) -> String {
-        self.title_text(location).text()
-    }
-
-    /// The title text at `location`, to style or hide it (matplotlib's
-    /// `ax.title`, `ax._left_title` and `ax._right_title`).
-    pub fn title_text(&self, location: TitleLocation) -> Text {
-        let index = match location {
-            TitleLocation::Left => 0,
-            TitleLocation::Center => 1,
-            TitleLocation::Right => 2,
-        };
-        let id = self.raw.with::<AxesState, _>(|a| a.titles[index]);
-        Text::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), id))
     }
 
     /// Adds text at `(x, y)` in data coordinates, numbers, dates or
@@ -539,20 +356,6 @@ impl Axes {
     /// `get_frame_on`).
     pub fn frame_on(&self) -> bool {
         self.raw.with::<AxesState, _>(|a| a.decorations.frame_on)
-    }
-
-    /// Sets the gap between the axes top and its titles in points
-    /// (matplotlib's `set_title(..., pad=...)`).
-    pub fn set_title_pad(&self, pad: f64) -> &Self {
-        for location in [
-            TitleLocation::Left,
-            TitleLocation::Center,
-            TitleLocation::Right,
-        ] {
-            self.title_text(location)
-                .set_transform(Transform::Axes(self.id()).offset_points(0.0, pad));
-        }
-        self
     }
 
     fn view_lim(&self) -> Bbox {

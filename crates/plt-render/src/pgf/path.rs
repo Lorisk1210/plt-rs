@@ -2,7 +2,7 @@
 //! `draw_path`, `draw_markers`, `draw_image`, `_print_pgf_clip`,
 //! `_print_pgf_path_styles` and `_print_pgf_path`).
 
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "matplotlib compares opacities and line widths exactly"
 )]
@@ -240,7 +240,6 @@ impl PgfRenderer {
     }
 
     /// A pixel count in inches.
-    #[expect(clippy::cast_precision_loss, reason = "image sizes are far below 2^52")]
     fn pixels_inches(&self, pixels: usize) -> f64 {
         self.inches(pixels as f64)
     }
@@ -431,11 +430,6 @@ fn numpy_extents(path: &Path) -> (Point, Point) {
 }
 
 /// A whole, non-negative count as an integer.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "callers pass whole, non-negative, finite counts"
-)]
 fn whole(count: f64) -> u64 {
     count as u64
 }

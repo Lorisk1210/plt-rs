@@ -17,10 +17,11 @@ use plt::spines::SpineSide;
 use plt::ticker::{Nbins, Prune};
 use plt::transforms::Affine2D;
 use plt_core::Bbox;
+use plt_core::numeric::np_sign;
 
 use crate::json::Json;
 use crate::probes::encode::object;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, malformed};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -41,17 +42,9 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("grid_finder.get_grid_info", grid_info),
 ];
 
-fn bad(what: &str) -> ProbeError {
-    ProbeError::BadArgs(format!("{what} is malformed"))
-}
-
-fn rejected(err: GridError) -> ProbeError {
-    ProbeError::rejected(err)
-}
-
 /// `[levels, n, factor]`.
 fn levels(levels: Result<GridLevels, GridError>) -> Outcome {
-    let GridLevels { levels, n, factor } = levels.map_err(rejected)?;
+    let GridLevels { levels, n, factor } = levels.map_err(ProbeError::rejected)?;
     Ok(Json::Array(vec![
         Json::from(levels),
         Json::from(n as f64),
@@ -61,7 +54,7 @@ fn levels(levels: Result<GridLevels, GridError>) -> Outcome {
 
 /// A non-negative integer argument.
 fn count(args: Args<'_>, key: &str) -> Result<usize, ProbeError> {
-    usize::try_from(args.i64(key)?).map_err(|_| bad(key))
+    usize::try_from(args.i64(key)?).map_err(|_| malformed(key))
 }
 
 /// `(v1, v2, nv, include_last, threshold_factor)` of the `select_step`
@@ -123,13 +116,13 @@ fn step_factor((step, factor): (f64, f64)) -> Json {
 fn select_step_degree(args: Args<'_>) -> Outcome {
     angle_helper::select_step_degree(args.f64("dv")?)
         .map(step_factor)
-        .map_err(rejected)
+        .map_err(ProbeError::rejected)
 }
 
 fn select_step_hour(args: Args<'_>) -> Outcome {
     angle_helper::select_step_hour(args.f64("dv")?)
         .map(step_factor)
-        .map_err(rejected)
+        .map_err(ProbeError::rejected)
 }
 
 fn select_step_sub(args: Args<'_>) -> Outcome {
@@ -146,7 +139,7 @@ fn locator(args: Args<'_>) -> Outcome {
         "HMS" => Box::new(LocatorHms::new(nbins).with_include_last(include_last)),
         "HM" => Box::new(LocatorHm::new(nbins).with_include_last(include_last)),
         "H" => Box::new(LocatorH::new(nbins).with_include_last(include_last)),
-        _ => return Err(bad("kind")),
+        _ => return Err(malformed("kind")),
     };
     levels(locator.levels(args.f64("v1")?, args.f64("v2")?))
 }
@@ -155,7 +148,7 @@ fn side(name: &str) -> Result<SpineSide, ProbeError> {
     SpineSide::ALL
         .into_iter()
         .find(|side| side.name() == name)
-        .ok_or_else(|| bad("direction"))
+        .ok_or_else(|| malformed("direction"))
 }
 
 /// The labels of `formatter`.
@@ -168,14 +161,14 @@ fn labels(
     formatter
         .labels(direction, factor, values)
         .map(Json::from)
-        .map_err(rejected)
+        .map_err(ProbeError::rejected)
 }
 
 fn formatter(args: Args<'_>) -> Outcome {
     let formatter: &dyn GridFormatter = match args.str("kind")? {
         "DMS" => &FormatterDms,
         "HMS" => &FormatterHms,
-        _ => return Err(bad("kind")),
+        _ => return Err(malformed("kind")),
     };
     labels(
         formatter,
@@ -194,27 +187,18 @@ fn transform(name: &str) -> Result<AuxTransform, ProbeError> {
         "polar" => AuxTransform::polar(),
         "shear" => AuxTransform::from_fns(|x, y| (x, y - x), |x, y| (x, y + x)),
         "sqrt" => AuxTransform::from_fns(
-            |x, y| (sign(x) * x.abs().sqrt(), y),
-            |x, y| (sign(x) * (x * x), y),
+            |x, y| (np_sign(x) * x.abs().sqrt(), y),
+            |x, y| (np_sign(x) * (x * x), y),
         ),
         "rotated" => AuxTransform::affine(Affine2D::scaling(2.0, 1.0).rotate_deg(30.0)),
-        _ => return Err(bad("transform")),
+        _ => return Err(malformed("transform")),
     })
-}
-
-/// numpy's `sign`.
-fn sign(x: f64) -> f64 {
-    if x == 0.0 || x.is_nan() {
-        x
-    } else {
-        x.signum()
-    }
 }
 
 fn bbox(args: Args<'_>) -> Result<Bbox, ProbeError> {
     match args.f64_vec("bbox")?.as_slice() {
         &[x0, y0, x1, y1] => Ok(Bbox::from_extents(x0, y0, x1, y1)),
-        _ => Err(bad("bbox")),
+        _ => Err(malformed("bbox")),
     }
 }
 
@@ -238,7 +222,7 @@ fn range(args: Args<'_>, key: &str) -> Result<Option<(f64, f64)>, ProbeError> {
     args.get(key)
         .map(|_| match args.f64_vec(key)?.as_slice() {
             &[low, high] => Ok((low, high)),
-            _ => Err(bad(key)),
+            _ => Err(malformed(key)),
         })
         .transpose()
 }
@@ -270,7 +254,7 @@ fn max_n_locator(args: Args<'_>) -> Outcome {
             Some("lower") => Some(Prune::Lower),
             Some("upper") => Some(Prune::Upper),
             Some("both") => Some(Prune::Both),
-            Some(_) => return Err(bad("prune")),
+            Some(_) => return Err(malformed("prune")),
         });
     if args.get("steps").is_some() {
         locator = locator
@@ -302,7 +286,7 @@ fn dict_formatter(args: Args<'_>) -> Outcome {
                 })
                 .collect::<Option<Vec<_>>>()
         })
-        .ok_or_else(|| bad("format_dict"))?;
+        .ok_or_else(|| malformed("format_dict"))?;
     let fallback: Option<Box<dyn GridFormatter>> = args
         .bool("fallback")?
         .then(|| Box::new(FormatterPrettyPrint::default()) as Box<dyn GridFormatter>);
@@ -349,7 +333,7 @@ fn grid(name: &str) -> Result<GridFinder, ProbeError> {
                 ..GridFinderOptions::default()
             },
         )),
-        _ => Err(bad("grid")),
+        _ => Err(malformed("grid")),
     }
 }
 
@@ -394,7 +378,7 @@ fn coordinate(grid: &CoordinateGrid) -> Json {
 fn grid_info(args: Args<'_>) -> Outcome {
     let info = grid(args.str("grid")?)?
         .grid_info(bbox(args)?)
-        .map_err(rejected)?;
+        .map_err(ProbeError::rejected)?;
     Ok(object([
         ("extremes", extents(info.extremes)),
         ("lon", coordinate(&info.lon)),

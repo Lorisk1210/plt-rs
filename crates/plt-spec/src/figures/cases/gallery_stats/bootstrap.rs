@@ -14,7 +14,7 @@ use plt::stats::{Whis, mean};
 use plt::text::HAlign;
 
 use super::SEED;
-use super::boxplots::with_sym;
+use crate::figures::cases::common::with_sym;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 

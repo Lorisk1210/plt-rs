@@ -19,7 +19,7 @@ use plt_core::{Bbox, Point};
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::encode::bbox;
-use crate::probes::{Args, Op, Outcome, ProbeError};
+use crate::probes::{Args, Op, Outcome, ProbeError, made};
 
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
@@ -31,10 +31,6 @@ pub(crate) const OPS: &[Op] = &[
     }),
     Op::new("offsetbox.extents", |args| with_rc(args, || extents(args))),
 ];
-
-fn made<T>(result: Result<T, impl std::fmt::Display>) -> Result<T, ProbeError> {
-    result.map_err(ProbeError::rejected)
-}
 
 /// `_get_packed_offsets`; `equal` packing needs a total or a separation.
 fn packed(args: Args<'_>) -> Outcome {

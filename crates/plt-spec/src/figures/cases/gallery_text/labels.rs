@@ -19,14 +19,9 @@ use plt::text::{AnnotateOptions, HAlign, Text, TextBoxProps, VAlign};
 use plt::transforms::{Point, Transform};
 use plt_core::Affine2D;
 
-use crate::figures::cases::common::{black_arrow, styled_box, tickless};
+use crate::figures::cases::common::{black_arrow, indices, styled_box, tickless};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
-
-/// The y values `0, 1, ..., 9` of `plot(range(10))`.
-fn ramp() -> Vec<f64> {
-    (0..10).map(f64::from).collect()
-}
 
 #[expect(
     clippy::unnecessary_wraps,
@@ -34,7 +29,7 @@ fn ramp() -> Vec<f64> {
 )]
 fn titles_demo_1(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    ax.plot_y(ramp());
+    ax.plot_y(indices(10));
     ax.set_title("Center Title");
     ax.set_title_at(TitleLocation::Left, "Left Title");
     ax.set_title_at(TitleLocation::Right, "Right Title");
@@ -46,7 +41,7 @@ fn constrained_pair(fig: &Figure) -> Result<Vec<Axes>, Box<dyn std::error::Error
     fig.set_layout_engine(LayoutEngine::constrained())?;
     let axs = fig.subplots(1, 2)?;
     for ax in axs.as_slice() {
-        ax.plot_y(ramp());
+        ax.plot_y(indices(10));
     }
     Ok(axs.as_slice().to_vec())
 }
@@ -308,10 +303,6 @@ fn watermark_text(fig: &Figure) -> CaseResult {
 
 /// The mean, median and (population) standard deviation of `x`.
 fn summary(x: &[f64]) -> (f64, f64, f64) {
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "sample counts are far below 2^52"
-    )]
     let n = x.len() as f64;
     let mean = x.iter().sum::<f64>() / n;
     let mut sorted = x.to_vec();

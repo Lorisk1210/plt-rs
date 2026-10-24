@@ -7,7 +7,7 @@ use plt::transforms::{Bbox, Point};
 use plt::widgets::{Orientation, RangeSlider, Slider, SliderOptions, ValStep};
 
 use super::steps::unknown;
-use super::{bad, numbers};
+use super::{malformed, numbers};
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
 use crate::probes::{Args, Outcome, ProbeError, encode};
@@ -69,7 +69,7 @@ pub(super) fn slider(args: Args<'_>) -> Outcome {
             ("val", Json::from(slider.val())),
             (
                 "poly",
-                numbers(&[poly.x0(), poly.y0(), poly.width(), poly.height()]),
+                numbers([poly.x0(), poly.y0(), poly.width(), poly.height()]),
             ),
         ]))
     })
@@ -115,7 +115,7 @@ pub(super) fn range_slider(args: Args<'_>) -> Outcome {
         let direction = orientation(args)?;
         let valinit = match args.f64_vec("valinit")?.as_slice() {
             &[low, high] => (low, high),
-            _ => return Err(bad("valinit")),
+            _ => return Err(malformed("valinit")),
         };
         let options = SliderOptions {
             orientation: direction,
@@ -135,21 +135,25 @@ pub(super) fn range_slider(args: Args<'_>) -> Outcome {
                 .collect();
             let poly = axes_extent(&ax, slider.poly())?;
             Ok(encode::object([
-                ("val", numbers(&[low, high])),
+                ("val", numbers([low, high])),
                 ("handles", numbers(&handles)),
                 (
                     "poly",
-                    numbers(&[poly.x0(), poly.y0(), poly.x1(), poly.y1()]),
+                    numbers([poly.x0(), poly.y0(), poly.x1(), poly.y1()]),
                 ),
             ]))
         };
         let mut states = vec![state()?];
-        for step in args.json("steps")?.as_array().ok_or_else(|| bad("steps"))? {
-            let parts = step.as_array().ok_or_else(|| bad("step"))?;
+        for step in args
+            .json("steps")?
+            .as_array()
+            .ok_or_else(|| malformed("steps"))?
+        {
+            let parts = step.as_array().ok_or_else(|| malformed("step"))?;
             match (parts.first().and_then(Json::as_str), parts.get(1)) {
                 (Some("set_val"), Some(value)) => match value.as_f64_vec().as_deref() {
                     Some(&[a, b]) => slider.set_val((a, b)),
-                    _ => return Err(bad("set_val")),
+                    _ => return Err(malformed("set_val")),
                 },
                 (Some("reset"), None) => slider.reset(),
                 (name, _) => return Err(unknown("step", name.unwrap_or_default())),

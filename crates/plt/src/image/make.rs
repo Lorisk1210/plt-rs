@@ -6,8 +6,8 @@ use std::cell::RefCell;
 use plt_core::{Affine2D, Bbox, Point};
 use plt_render::RgbaImage;
 
-use super::artist::split_alpha;
 use super::resample::{PixelMap, Resampling};
+use super::shared::split_alpha;
 use super::stages::{data_stage, rgba_stage};
 use super::{
     Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin,

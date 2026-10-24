@@ -24,7 +24,7 @@
 //! let peak = (0..p.values.len()).max_by(|&a, &b| p.values[a].total_cmp(&p.values[b])).unwrap();
 //! assert!((p.freqs[peak] - 0.3 / std::f64::consts::PI).abs() < 2.0 / 64.0);
 //! ```
-#![allow(
+#![expect(
     clippy::float_cmp,
     reason = "numpy's unwrap and binning compare floats exactly; the ports keep them"
 )]

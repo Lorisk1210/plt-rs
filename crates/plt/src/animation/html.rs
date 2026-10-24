@@ -10,12 +10,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use plt_codec::base64;
+use plt_core::numeric::floor_div;
 
 use super::html_template::{DISPLAY_TEMPLATE, INCLUDED_FRAMES, JS_INCLUDE, STYLE_INCLUDE};
 use super::{AnimationError, FuncAnimation, interval_millis};
 use crate::figure::{SaveError, SaveFormat, SaveOptions};
 use crate::ticker::pyfmt;
-use crate::ticker::pymath::floor_div;
 
 /// What the player does after the last frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -179,10 +179,6 @@ fn io_error(err: std::io::Error) -> AnimationError {
 }
 
 /// The length of `data` in bytes, as a number to compare with the limit.
-#[expect(
-    clippy::cast_precision_loss,
-    reason = "frame data stays far below 2^52 bytes"
-)]
 fn byte_count(data: &str) -> f64 {
     data.len() as f64
 }

@@ -15,7 +15,6 @@ mod input;
 use plt::contour::{ContourError, ContourSet};
 use plt::figure::Figure;
 use plt::prelude::Axes;
-use plt_core::Rgba;
 
 use crate::json::Json;
 use crate::probes::encode;
@@ -65,17 +64,13 @@ fn contour_set(args: Args<'_>, grid: Grid, filled: bool) -> Result<(Axes, Contou
     })
 }
 
-fn rgba(color: Rgba) -> Json {
-    Json::from(color.to_array().to_vec())
-}
-
 /// The summary dict of a contour set (`_summary` in the spec).
 fn summary(args: Args<'_>, grid: Grid, filled: bool) -> Outcome {
     let (ax, cs) = contour_set(args, grid, filled)?;
     let (vmin, vmax) = cs.norm_limits();
     let (x0, x1) = ax.xlim();
     let (y0, y1) = ax.ylim();
-    let colors = Json::Array(cs.colors().into_iter().map(rgba).collect());
+    let colors = Json::Array(cs.colors().into_iter().map(encode::rgba).collect());
     let mut entries = vec![
         ("levels", Json::from(cs.levels())),
         ("layers", Json::from(cs.layers())),

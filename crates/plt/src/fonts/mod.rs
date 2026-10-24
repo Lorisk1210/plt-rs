@@ -12,9 +12,7 @@ pub use manager::{FontExt, FontListEntry, FontManager};
 pub use plt_text::fontconfig::FontconfigPattern;
 pub use plt_text::mathtext::Fontset;
 pub use plt_text::{FontStyle, FontVariant};
-pub use properties::{
-    FontProperties, parse_math_fontfamily, parse_style, parse_variant, style_name, variant_name,
-};
+pub use properties::{FontProperties, parse_math_fontfamily, parse_style, parse_variant};
 
 use crate::rc::RcValue;
 

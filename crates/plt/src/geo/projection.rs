@@ -6,6 +6,7 @@
 
 use std::f64::consts::{FRAC_PI_2, PI, SQRT_2};
 
+use plt_core::numeric::np_sign;
 use plt_core::{Affine2D, Point};
 
 use crate::axes::ProjectionKind;
@@ -172,7 +173,7 @@ fn mollweide_auxiliary(lat: f64) -> f64 {
     let clat = FRAC_PI_2 - lat.abs();
     if clat < MOLLWEIDE_POLAR_ZONE {
         let d = 0.5 * (3.0 * PI * clat.powi(2)).powf(1.0 / 3.0);
-        return (FRAC_PI_2 - d) * numpy_sign(lat);
+        return (FRAC_PI_2 - d) * np_sign(lat);
     }
     let pi_sin_l = PI * lat.sin();
     let step = |theta: f64| -(theta + theta.sin() - pi_sin_l) / (1.0 + theta.cos());
@@ -186,15 +187,6 @@ fn mollweide_auxiliary(lat: f64) -> f64 {
         delta = step(theta);
     }
     theta / 2.0
-}
-
-/// numpy's `sign`: `-1`, `0` or `1`, NaN for NaN.
-fn numpy_sign(value: f64) -> f64 {
-    if value == 0.0 || value.is_nan() {
-        value
-    } else {
-        value.signum()
-    }
 }
 
 fn mollweide(lon: f64, lat: f64) -> Point {

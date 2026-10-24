@@ -51,7 +51,7 @@ fn set_position() -> Outcome {
     title.set_position(Point::new(0.5, 1.11));
     fig.layout();
     let at = title.position();
-    Ok(numbers(&[at.x, at.y]))
+    Ok(numbers([at.x, at.y]))
 }
 
 /// A title over x tick labels on top: `ticks_top_only` moves the ticks

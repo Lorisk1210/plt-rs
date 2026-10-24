@@ -1,13 +1,10 @@
 use plt_core::{Path, PathCode, Point};
 
 use super::*;
+use crate::testing::close_points;
 
 fn style(text: &str) -> ConnectionStyle {
     text.parse().expect("valid connection style")
-}
-
-fn close(a: Point, b: Point) -> bool {
-    (a - b).length() < 1e-9
 }
 
 const A: Point = Point::new(0.0, 0.0);
@@ -46,18 +43,18 @@ fn arc3_bends_to_the_right_of_travel() {
 #[test]
 fn angles_meet_at_a_corner() {
     let path = style("angle3,angleA=90,angleB=0").connect(A, B).unwrap();
-    assert!(close(path.vertices()[1], Point::new(0.0, 100.0)));
+    assert!(close_points(path.vertices()[1], Point::new(0.0, 100.0)));
     let sharp = style("angle,angleA=-90,angleB=180,rad=0")
         .connect(A, B)
         .unwrap();
     assert_eq!(sharp.len(), 3);
-    assert!(close(sharp.vertices()[1], Point::new(0.0, 100.0)));
+    assert!(close_points(sharp.vertices()[1], Point::new(0.0, 100.0)));
     let round = style("angle,angleA=-90,angleB=180,rad=5")
         .connect(A, B)
         .unwrap();
     assert_eq!(round.len(), 5);
-    assert!(close(round.vertices()[1], Point::new(0.0, 95.0)));
-    assert!(close(round.vertices()[3], Point::new(5.0, 100.0)));
+    assert!(close_points(round.vertices()[1], Point::new(0.0, 95.0)));
+    assert!(close_points(round.vertices()[3], Point::new(5.0, 100.0)));
     assert_eq!(
         style("angle3,angleA=0,angleB=180").connect(A, B),
         Err(PatchError::ParallelAngles)
@@ -71,8 +68,8 @@ fn arcs_leave_along_their_arms() {
         .unwrap();
     let v = path.vertices();
     assert_eq!(path.len(), 8);
-    assert!(close(v[2], Point::new(0.0, -30.0)));
-    assert!(close(v[5], Point::new(130.0, 100.0)));
+    assert!(close_points(v[2], Point::new(0.0, -30.0)));
+    assert!(close_points(v[5], Point::new(130.0, 100.0)));
     assert_eq!(*v.last().unwrap(), B);
     let plain = style("arc").connect(A, B).unwrap();
     assert_eq!(plain.len(), 2);
@@ -83,8 +80,11 @@ fn bars_stand_off_the_line() {
     let path = style("bar,fraction=0.1").connect(A, B).unwrap();
     let f = 0.1 * 100.0 * 2f64.sqrt();
     let s = f / 2f64.sqrt();
-    assert!(close(path.vertices()[1], Point::new(s, -s)));
-    assert!(close(path.vertices()[2], Point::new(100.0 + s, 100.0 - s)));
+    assert!(close_points(path.vertices()[1], Point::new(s, -s)));
+    assert!(close_points(
+        path.vertices()[2],
+        Point::new(100.0 + s, 100.0 - s)
+    ));
 }
 
 #[test]

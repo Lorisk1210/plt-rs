@@ -18,8 +18,12 @@ use crate::geo::{self, GeoState};
 use crate::gridspec::SubplotSpec;
 use crate::polar::{PolarState, PolarView};
 use crate::rc::{AxisBelow, Cycler, RcParams};
-use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
+use crate::ticker::{AxisInfo, AxisName, Formatter, TickContext, TickerError};
 use crate::transforms::{ResolvedTransform, Step, Transform, bbox_to_unit, unit_to_bbox};
+
+/// The formatters of the x and y coordinates a status bar shows, unset
+/// where the major formatters do (see [`AxesState::fmt_data`]).
+pub(crate) type DataFormatters = (Option<Rc<dyn Formatter>>, Option<Rc<dyn Formatter>>);
 
 /// State of one axes (matplotlib's `_AxesBase`).
 #[derive(Debug)]
@@ -90,6 +94,10 @@ pub(crate) struct AxesState {
     /// Whether pan and zoom also reach the axes below (matplotlib's
     /// `forward_navigation_events`; `None` is `"auto"`).
     pub(crate) forward_navigation: Option<bool>,
+    /// The formatters of the x and y coordinates a status bar shows, in
+    /// place of the major formatters (matplotlib's `fmt_xdata` and
+    /// `fmt_ydata`).
+    pub(crate) fmt_data: DataFormatters,
     /// How the titles' height is chosen (matplotlib's `_autotitlepos`).
     pub(crate) title_placement: TitlePlacement,
     /// Where the axis artists sit in the z-order (`axes.axisbelow`).
@@ -215,6 +223,7 @@ impl AxesState {
             titles: Vec::new(),
             navigate: true,
             forward_navigation: None,
+            fmt_data: (None, None),
             title_placement: if rc.axes_titley.is_some() {
                 TitlePlacement::Fixed
             } else {

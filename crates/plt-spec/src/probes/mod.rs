@@ -346,6 +346,10 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_bezier", areas::mpl_bezier::OPS),
     ("mpl_textpath", areas::mpl_textpath::OPS),
     ("mpl_determinism", areas::mpl_determinism::OPS),
+    ("mpl_backend_bases", areas::mpl_backend_bases::OPS),
+    ("mpl_container", areas::mpl_container::OPS),
+    ("mpl_gridspec", areas::mpl_gridspec::OPS),
+    ("mpl_pyplot", areas::mpl_pyplot::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

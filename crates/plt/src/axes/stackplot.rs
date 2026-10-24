@@ -5,6 +5,7 @@ use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
+use crate::units::AxisValues;
 
 /// Where the bottom of the stack lies (matplotlib's `baseline`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -39,9 +40,9 @@ pub struct StackplotOptions {
 }
 
 impl Axes {
-    /// Stacks the layers `ys` on top of each other along `x` and fills
-    /// each one (matplotlib's `stackplot`); returns one collection per
-    /// layer, bottom first.
+    /// Stacks the layers `ys` on top of each other along `x` (numbers,
+    /// dates or categories) and fills each one (matplotlib's
+    /// `stackplot`); returns one collection per layer, bottom first.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -57,11 +58,11 @@ impl Axes {
     /// When a layer's length differs from that of `x`.
     pub fn stackplot(
         &self,
-        x: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
         ys: &[Vec<f64>],
         options: &StackplotOptions,
     ) -> Result<Vec<Collection>, PlotError> {
-        let x = x.as_ref();
+        let x = self.xaxis().convert_units(x);
         if let Some(bad) = ys.iter().find(|y| y.len() != x.len()) {
             return Err(PlotError::LengthMismatch {
                 x: x.len(),
@@ -74,6 +75,7 @@ impl Axes {
             options.colors.clone()
         };
         let (first_line, stack) = stack_layers(ys, x.len(), options.baseline);
+        let x = x.as_slice();
         let mut layers = Vec::with_capacity(ys.len());
         for (i, top) in stack.iter().enumerate() {
             let bottom = if i == 0 { &first_line } else { &stack[i - 1] };

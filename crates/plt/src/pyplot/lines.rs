@@ -14,7 +14,7 @@ use crate::axes::{
 use crate::collections::Collection;
 use crate::lines::{AxLineThrough, Line2D, LineProps, StepWhere};
 use crate::patches::{FancyArrow, Patch, PatchProps, Polygon, Rectangle, StepPatch};
-use crate::units::AxisValues;
+use crate::units::{AxisValue, AxisValues};
 
 /// Plots `y` against `x` on the current axes (matplotlib's `plot`).
 ///
@@ -153,8 +153,8 @@ pub fn stairs(
 ///
 /// As [`Axes::stem`](crate::axes::Axes::stem).
 pub fn stem(
-    locs: impl AsRef<[f64]>,
-    heads: impl AsRef<[f64]>,
+    locs: impl Into<AxisValues>,
+    heads: impl Into<AxisValues>,
     options: &StemOptions,
 ) -> Result<StemContainer, PlotError> {
     gca().stem(locs, heads, options)
@@ -167,8 +167,8 @@ pub fn stem(
 ///
 /// As [`Axes::errorbar`](crate::axes::Axes::errorbar).
 pub fn errorbar(
-    x: impl AsRef<[f64]>,
-    y: impl AsRef<[f64]>,
+    x: impl Into<AxisValues>,
+    y: impl Into<AxisValues>,
     options: ErrorbarOptions,
 ) -> Result<ErrorbarContainer, PlotError> {
     gca().errorbar(x, y, options)
@@ -180,8 +180,8 @@ pub fn errorbar(
 /// # Errors
 ///
 /// As [`Axes::eventplot`](crate::axes::Axes::eventplot).
-pub fn eventplot(
-    positions: &[Vec<f64>],
+pub fn eventplot<P: Clone + Into<AxisValues>>(
+    positions: &[P],
     options: &EventplotOptions,
 ) -> Result<Vec<Collection>, PlotError> {
     gca().eventplot(positions, options)
@@ -194,9 +194,9 @@ pub fn eventplot(
 ///
 /// As [`Axes::hlines`](crate::axes::Axes::hlines).
 pub fn hlines(
-    y: impl AsRef<[f64]>,
-    xmin: impl AsRef<[f64]>,
-    xmax: impl AsRef<[f64]>,
+    y: impl Into<AxisValues>,
+    xmin: impl Into<AxisValues>,
+    xmax: impl Into<AxisValues>,
 ) -> Result<Collection, PlotError> {
     gca().hlines(y, xmin, xmax)
 }
@@ -208,34 +208,34 @@ pub fn hlines(
 ///
 /// As [`Axes::vlines`](crate::axes::Axes::vlines).
 pub fn vlines(
-    x: impl AsRef<[f64]>,
-    ymin: impl AsRef<[f64]>,
-    ymax: impl AsRef<[f64]>,
+    x: impl Into<AxisValues>,
+    ymin: impl Into<AxisValues>,
+    ymax: impl Into<AxisValues>,
 ) -> Result<Collection, PlotError> {
     gca().vlines(x, ymin, ymax)
 }
 
 /// A horizontal line across the current axes at `y` (matplotlib's
 /// `axhline`).
-pub fn axhline(y: f64, props: LineProps) -> Line2D {
+pub fn axhline(y: impl Into<AxisValue>, props: LineProps) -> Line2D {
     gca().axhline(y, props)
 }
 
 /// A horizontal line at `y` from `xmin` to `xmax` in axes fractions on the
 /// current axes (matplotlib's `axhline(y, xmin, xmax)`).
-pub fn axhline_between(y: f64, xmin: f64, xmax: f64, props: LineProps) -> Line2D {
+pub fn axhline_between(y: impl Into<AxisValue>, xmin: f64, xmax: f64, props: LineProps) -> Line2D {
     gca().axhline_between(y, xmin, xmax, props)
 }
 
 /// A vertical line across the current axes at `x` (matplotlib's
 /// `axvline`).
-pub fn axvline(x: f64, props: LineProps) -> Line2D {
+pub fn axvline(x: impl Into<AxisValue>, props: LineProps) -> Line2D {
     gca().axvline(x, props)
 }
 
 /// A vertical line at `x` from `ymin` to `ymax` in axes fractions on the
 /// current axes (matplotlib's `axvline(x, ymin, ymax)`).
-pub fn axvline_between(x: f64, ymin: f64, ymax: f64, props: LineProps) -> Line2D {
+pub fn axvline_between(x: impl Into<AxisValue>, ymin: f64, ymax: f64, props: LineProps) -> Line2D {
     gca().axvline_between(x, ymin, ymax, props)
 }
 
@@ -247,27 +247,37 @@ pub fn axline(xy1: Point, through: AxLineThrough, props: LineProps) -> Line2D {
 
 /// A horizontal band from `ymin` to `ymax` across the current axes
 /// (matplotlib's `axhspan`).
-pub fn axhspan(ymin: f64, ymax: f64) -> Patch<Rectangle> {
+pub fn axhspan(ymin: impl Into<AxisValue>, ymax: impl Into<AxisValue>) -> Patch<Rectangle> {
     gca().axhspan(ymin, ymax)
 }
 
 /// A horizontal band from `ymin` to `ymax`, `xmin` to `xmax` in axes
 /// fractions, on the current axes (matplotlib's
 /// `axhspan(ymin, ymax, xmin, xmax)`).
-pub fn axhspan_between(ymin: f64, ymax: f64, xmin: f64, xmax: f64) -> Patch<Rectangle> {
+pub fn axhspan_between(
+    ymin: impl Into<AxisValue>,
+    ymax: impl Into<AxisValue>,
+    xmin: f64,
+    xmax: f64,
+) -> Patch<Rectangle> {
     gca().axhspan_between(ymin, ymax, xmin, xmax)
 }
 
 /// A vertical band from `xmin` to `xmax` across the current axes
 /// (matplotlib's `axvspan`).
-pub fn axvspan(xmin: f64, xmax: f64) -> Patch<Rectangle> {
+pub fn axvspan(xmin: impl Into<AxisValue>, xmax: impl Into<AxisValue>) -> Patch<Rectangle> {
     gca().axvspan(xmin, xmax)
 }
 
 /// A vertical band from `xmin` to `xmax`, `ymin` to `ymax` in axes
 /// fractions, on the current axes (matplotlib's
 /// `axvspan(xmin, xmax, ymin, ymax)`).
-pub fn axvspan_between(xmin: f64, xmax: f64, ymin: f64, ymax: f64) -> Patch<Rectangle> {
+pub fn axvspan_between(
+    xmin: impl Into<AxisValue>,
+    xmax: impl Into<AxisValue>,
+    ymin: f64,
+    ymax: f64,
+) -> Patch<Rectangle> {
     gca().axvspan_between(xmin, xmax, ymin, ymax)
 }
 
@@ -278,8 +288,8 @@ pub fn axvspan_between(xmin: f64, xmax: f64, ymin: f64, ymax: f64) -> Patch<Rect
 ///
 /// As [`Axes::fill`](crate::axes::Axes::fill).
 pub fn fill(
-    x: impl AsRef<[f64]>,
-    y: impl AsRef<[f64]>,
+    x: impl Into<AxisValues>,
+    y: impl Into<AxisValues>,
     props: PatchProps,
 ) -> Result<Patch<Polygon>, PlotError> {
     gca().fill(x, y, props)
@@ -292,9 +302,9 @@ pub fn fill(
 ///
 /// As [`Axes::fill_between`](crate::axes::Axes::fill_between).
 pub fn fill_between(
-    x: impl AsRef<[f64]>,
-    y1: impl AsRef<[f64]>,
-    y2: impl AsRef<[f64]>,
+    x: impl Into<AxisValues>,
+    y1: impl Into<AxisValues>,
+    y2: impl Into<AxisValues>,
     options: FillBetweenOptions,
 ) -> Result<Collection, PlotError> {
     gca().fill_between(x, y1, y2, options)
@@ -307,9 +317,9 @@ pub fn fill_between(
 ///
 /// As [`Axes::fill_betweenx`](crate::axes::Axes::fill_betweenx).
 pub fn fill_betweenx(
-    y: impl AsRef<[f64]>,
-    x1: impl AsRef<[f64]>,
-    x2: impl AsRef<[f64]>,
+    y: impl Into<AxisValues>,
+    x1: impl Into<AxisValues>,
+    x2: impl Into<AxisValues>,
     options: FillBetweenOptions,
 ) -> Result<Collection, PlotError> {
     gca().fill_betweenx(y, x1, x2, options)
@@ -322,7 +332,7 @@ pub fn fill_betweenx(
 ///
 /// As [`Axes::stackplot`](crate::axes::Axes::stackplot).
 pub fn stackplot(
-    x: impl AsRef<[f64]>,
+    x: impl Into<AxisValues>,
     ys: &[Vec<f64>],
     options: &StackplotOptions,
 ) -> Result<Vec<Collection>, PlotError> {

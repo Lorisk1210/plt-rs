@@ -6,6 +6,7 @@ use plt_core::{Bbox, Point};
 use super::{DragKey, PointerButton};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
+use crate::colorbar::Colorbar;
 use crate::figure::FigureState;
 use crate::polar::PolarAxes;
 use crate::rc::Aspect;
@@ -127,12 +128,25 @@ impl PanStart {
     }
 
     /// The pointer moved to `at` with `key` held while `button` is down.
+    /// A colorbar takes the limits along its colour scale as its norm's
+    /// (matplotlib's `Colorbar.drag_pan`).
     pub(super) fn drag(&self, ax: &Axes, button: PointerButton, key: DragKey, at: Point) {
         match self {
             Self::Cartesian { .. } => {
-                if let Some(points) = self.cartesian_points(ax, button, key, at) {
-                    set_limits(ax, AxisName::X, points.0);
-                    set_limits(ax, AxisName::Y, points.1);
+                let Some((x, y)) = self.cartesian_points(ax, button, key, at) else {
+                    return;
+                };
+                if let Some(colorbar) = Colorbar::in_axes(ax) {
+                    let along = match colorbar.long_axis().name() {
+                        AxisName::X => x,
+                        AxisName::Y => y,
+                    };
+                    if let (Some(low), Some(high)) = along {
+                        colorbar.set_view((low, high));
+                    }
+                } else {
+                    set_limits(ax, AxisName::X, x);
+                    set_limits(ax, AxisName::Y, y);
                 }
             }
             Self::Polar {

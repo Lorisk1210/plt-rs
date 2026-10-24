@@ -52,7 +52,8 @@
 //! * configuration — [`rc`], [`rc_context`], [`rcdefaults`], [`xkcd`].
 //!
 //! [`show`] opens a window per figure and waits until they are closed. In
-//! interactive mode ([`ion`]) new figures open their windows at once and
+//! interactive mode ([`ion`], or for a while [`interactive_context`]) new
+//! figures open their windows at once and
 //! [`show`] returns immediately; [`pause`] keeps the windows responsive
 //! for a while, and [`ginput`] and [`waitforbuttonpress`] wait for clicks
 //! and keys in them; [`subplot_tool`] opens the sliders adjusting the

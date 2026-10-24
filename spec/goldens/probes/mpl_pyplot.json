@@ -1,0 +1,67 @@
+{
+ "area": "mpl_pyplot",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "pyplot.axes", "args": {}, "value": [true, "rectilinear", true, "polar", true, "rectilinear"]},
+  {"op": "pyplot.box", "args": {}, "value": [false, true, false, true]},
+  {"op": "pyplot.figure", "args": {"case": "numbering"}, "value": [3, [2, 3], 6, 8, ["a", "", "b"]]},
+  {"op": "pyplot.figure", "args": {"case": "register_existing"}, "value": [1, "my title", 2, true, true]},
+  {"op": "pyplot.figure", "args": {"case": "subfigure"}, "value": [true, true, true]},
+  {"op": "pyplot.gca", "args": {}, "value": [true, 1]},
+  {
+   "op": "pyplot.isinteractive",
+   "args": {"steps": ["ioff", "check", ["with_ion", ["check"]], "check", "ion", "check", ["with_ion", ["check"]], "check"]},
+   "value": [false, true, false, true, true, true]
+  },
+  {
+   "op": "pyplot.isinteractive",
+   "args": {"steps": ["ion", "check", ["with_ioff", ["check"]], "check", "ioff", "check", ["with_ioff", ["check"]], "check"]},
+   "value": [true, false, true, false, false, false]
+  },
+  {
+   "op": "pyplot.isinteractive",
+   "args": {
+    "steps": [
+     "ion",
+     ["with_ioff", ["check", ["with_ion", ["check"]], "check"]],
+     "check",
+     ["with_ioff", [["with_ioff", ["check"]]]],
+     "check",
+     ["with_ion", ["ioff"]],
+     "check",
+     "ioff",
+     ["with_ion", ["check", ["with_ioff", ["check"]], "check"]],
+     "check",
+     ["with_ion", [["with_ion", ["check"]]]],
+     "check",
+     ["with_ioff", ["ion"]],
+     "check"
+    ]
+   },
+   "value": [false, true, false, true, false, true, true, true, false, true, false, true, false, false]
+  },
+  {"op": "pyplot.matshow", "args": {"existing": false}, "value": [[4.8, 4.8], 1, [1]]},
+  {"op": "pyplot.matshow", "args": {"existing": true}, "value": [[6.4, 4.8], 1, [1]]},
+  {"op": "pyplot.polar", "args": {}, "value": [true, "polar"]},
+  {"op": "pyplot.sca", "args": {}, "value": [true, true]},
+  {"op": "pyplot.stackplot", "args": {"x": [1, 2, 3], "y": [1, 2, 3]}, "value": [1, [0.9, 3.1], [0.0, 3.15]]},
+  {
+   "op": "pyplot.subplot",
+   "args": {"case": "change_projection"},
+   "value": [[[true, "aitoff"], [true, "hammer"], [true, "lambert"], [true, "mollweide"], [true, "polar"], [true, "rectilinear"]], 7]
+  },
+  {"op": "pyplot.subplot", "args": {"case": "polar_normalization"}, "value": [true, true]},
+  {"op": "pyplot.subplot", "args": {"case": "projection_reuse"}, "value": [true, true, true, true, true, true, true, true]},
+  {"op": "pyplot.subplot", "args": {"case": "replace_projection"}, "value": [true, true, true, true, true, true, true, "rectilinear", "rectilinear", "polar"]},
+  {"op": "pyplot.subplot", "args": {"case": "reuse"}, "value": [true, true, true, true]},
+  {"op": "pyplot.subplot_mosaic", "args": {"existing": false, "clear": false}, "value": [false, 2]},
+  {"op": "pyplot.subplot_mosaic", "args": {"existing": true, "clear": false}, "error": "ValueError"},
+  {"op": "pyplot.subplot_mosaic", "args": {"existing": true, "clear": true}, "value": [true, 2]},
+  {"op": "pyplot.subplots", "args": {"existing": false, "clear": false}, "value": [false, 1]},
+  {"op": "pyplot.subplots", "args": {"existing": true, "clear": false}, "error": "ValueError"},
+  {"op": "pyplot.subplots", "args": {"existing": true, "clear": true}, "value": [true, 1]},
+  {"op": "pyplot.switch_backend", "args": {"backends": ["agg", "agg", "svg"]}, "value": [2, 2, 2, 2]},
+  {"op": "pyplot.xticks", "args": {}, "value": [[], []]},
+  {"op": "pyplot.yticks", "args": {"ticks": [3.5, 6.5], "labels": ["a", "b"]}, "value": [[3.5, 6.5], ["a", "b"]]}
+ ]
+}

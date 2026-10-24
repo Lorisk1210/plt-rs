@@ -10,6 +10,7 @@ use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColor
 use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::orientation::Orientation;
+use crate::units::AxisValues;
 
 /// Options of [`Axes::eventplot`]. Every per-dataset list holds one value
 /// for all datasets or one per dataset.
@@ -50,6 +51,9 @@ impl Default for EventplotOptions {
 impl Axes {
     /// Draws each dataset of `positions` as a row of lines, one at each
     /// event (matplotlib's `eventplot`); returns one collection per row.
+    /// The events are numbers, dates or categories of the axis they lie
+    /// along; `options.lineoffsets` are numbers of the other axis (see
+    /// [`Axis::convert_value`](crate::axes::Axis::convert_value)).
     ///
     /// ```
     /// use plt::prelude::*;
@@ -64,11 +68,19 @@ impl Axes {
     ///
     /// When a per-dataset option is empty (colours excepted) or holds
     /// neither one value nor one per dataset.
-    pub fn eventplot(
+    pub fn eventplot<P: Clone + Into<AxisValues>>(
         &self,
-        positions: &[Vec<f64>],
+        positions: &[P],
         options: &EventplotOptions,
     ) -> Result<Vec<Collection>, PlotError> {
+        let along = match options.orientation {
+            Orientation::Horizontal => self.xaxis(),
+            Orientation::Vertical => self.yaxis(),
+        };
+        let positions: Vec<Vec<f64>> = positions
+            .iter()
+            .map(|events| along.convert_units(events.clone()))
+            .collect();
         let n = positions.len();
         let offsets = row_offsets(&options.lineoffsets, n)?;
         let lengths = per_dataset("linelengths", &options.linelengths, n)?;
@@ -215,7 +227,10 @@ mod tests {
     fn empty_datasets_leave_the_limits_alone() {
         let ax = Figure::new().subplot();
         let rows = ax
-            .eventplot(&[vec![], vec![]], &EventplotOptions::default())
+            .eventplot(
+                &[Vec::<f64>::new(), Vec::new()],
+                &EventplotOptions::default(),
+            )
             .unwrap();
         assert_eq!(rows.len(), 2);
         assert_eq!(ax.xlim(), (0.0, 1.0));

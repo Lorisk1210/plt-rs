@@ -1,14 +1,17 @@
 //! Unit conversion on an axis: turning plotted dates and category names
 //! into numbers, and the converter that remembers which kind of values
 //! the axis shows (matplotlib's `Axis.convert_units`, `update_units`,
-//! `get_converter`, `set_converter`, `have_units` and `axis_date`).
+//! `get_converter`, `set_converter`, `have_units` and `axis_date`, and
+//! `Axes.convert_xunits` and `convert_yunits`).
+
+use plt_core::Point;
 
 use super::axis_handle::Axis;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::dates::{Datetime64, TimeZone, get_epoch};
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, UnitConverter};
+use crate::units::{AxisValue, AxisValues, DataPoint, UnitConverter};
 
 /// Seconds in a day: the length of the default view of a date axis.
 const SECONDS_PER_DAY: i64 = 86_400;
@@ -38,8 +41,31 @@ impl Axis {
     /// Converts plotting values to axis numbers, registering new category
     /// names (matplotlib's `update_units` + `convert_units`).
     pub fn convert_units(&self, values: impl Into<AxisValues>) -> Vec<f64> {
-        let values = values.into();
-        self.update(|axis| axis.convert_units(values))
+        match values.into() {
+            // Numbers need no converter, so the axis is left untouched.
+            AxisValues::Numbers(numbers) => numbers,
+            values => self.update(|axis| axis.convert_units(values)),
+        }
+    }
+
+    /// Converts one plotting value to an axis number, as
+    /// [`convert_units`](Self::convert_units) converts a list: how option
+    /// fields, which hold axis numbers, take dates.
+    ///
+    /// ```
+    /// use plt::dates::DateTime;
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let day = DateTime::new(1970, 1, 3, 0, 0, 0, 0)?;
+    /// assert_eq!(ax.yaxis().convert_value(day), 2.0);
+    /// assert!(ax.yaxis().have_units());
+    /// # Ok::<(), plt::dates::DateError>(())
+    /// ```
+    pub fn convert_value(&self, value: impl Into<AxisValue>) -> f64 {
+        self.convert_units(AxisValues::from(value.into()))
+            .into_iter()
+            .next()
+            .expect("one value converts to one number")
     }
 
     /// The unit converter: the one set with
@@ -152,6 +178,23 @@ impl Axes {
     pub fn yaxis_date(&self, tz: &TimeZone) -> &Self {
         self.yaxis().axis_date(tz);
         self
+    }
+
+    /// Converts a data point to axis numbers, its x on the x axis and its
+    /// y on the y axis (matplotlib's `convert_xunits` and
+    /// `convert_yunits`).
+    ///
+    /// ```
+    /// use plt::dates::DateTime;
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let p = ax.convert_point((DateTime::new(1970, 1, 2, 0, 0, 0, 0)?, 3.0));
+    /// assert_eq!((p.x, p.y), (1.0, 3.0));
+    /// # Ok::<(), plt::dates::DateError>(())
+    /// ```
+    pub fn convert_point(&self, point: impl Into<DataPoint>) -> Point {
+        let DataPoint { x, y } = point.into();
+        Point::new(self.xaxis().convert_value(x), self.yaxis().convert_value(y))
     }
 }
 

@@ -9,26 +9,29 @@ use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
 use crate::orientation::Orientation;
 use crate::transforms::Transform;
+use crate::units::AxisValues;
 
 impl Axes {
     /// Vertical segments at `x` from `ymin` to `ymax` (matplotlib's
-    /// `vlines`). `ymin` and `ymax` hold one value or one per segment.
+    /// `vlines`). `ymin` and `ymax` hold one value or one per segment;
+    /// every argument may hold numbers, dates or categories.
     pub fn vlines(
         &self,
-        x: impl AsRef<[f64]>,
-        ymin: impl AsRef<[f64]>,
-        ymax: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        ymin: impl Into<AxisValues>,
+        ymax: impl Into<AxisValues>,
     ) -> Result<Collection, PlotError> {
         self.vlines_in(x, ymin, ymax, self.trans_data())
     }
 
     /// Horizontal segments at `y` from `xmin` to `xmax` (matplotlib's
-    /// `hlines`). `xmin` and `xmax` hold one value or one per segment.
+    /// `hlines`). `xmin` and `xmax` hold one value or one per segment;
+    /// every argument may hold numbers, dates or categories.
     pub fn hlines(
         &self,
-        y: impl AsRef<[f64]>,
-        xmin: impl AsRef<[f64]>,
-        xmax: impl AsRef<[f64]>,
+        y: impl Into<AxisValues>,
+        xmin: impl Into<AxisValues>,
+        xmax: impl Into<AxisValues>,
     ) -> Result<Collection, PlotError> {
         self.hlines_in(y, xmin, xmax, self.trans_data())
     }
@@ -48,16 +51,17 @@ impl Axes {
     /// ```
     pub fn vlines_in(
         &self,
-        x: impl AsRef<[f64]>,
-        ymin: impl AsRef<[f64]>,
-        ymax: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        ymin: impl Into<AxisValues>,
+        ymax: impl Into<AxisValues>,
         transform: Transform,
     ) -> Result<Collection, PlotError> {
+        let (xaxis, yaxis) = (self.xaxis(), self.yaxis());
         self.segments_in(
             Orientation::Vertical,
-            x.as_ref(),
-            ymin.as_ref(),
-            ymax.as_ref(),
+            &xaxis.convert_units(x),
+            &yaxis.convert_units(ymin),
+            &yaxis.convert_units(ymax),
             transform,
         )
     }
@@ -66,16 +70,17 @@ impl Axes {
     /// [`Axes::vlines_in`].
     pub fn hlines_in(
         &self,
-        y: impl AsRef<[f64]>,
-        xmin: impl AsRef<[f64]>,
-        xmax: impl AsRef<[f64]>,
+        y: impl Into<AxisValues>,
+        xmin: impl Into<AxisValues>,
+        xmax: impl Into<AxisValues>,
         transform: Transform,
     ) -> Result<Collection, PlotError> {
+        let (xaxis, yaxis) = (self.xaxis(), self.yaxis());
         self.segments_in(
             Orientation::Horizontal,
-            y.as_ref(),
-            xmin.as_ref(),
-            xmax.as_ref(),
+            &yaxis.convert_units(y),
+            &xaxis.convert_units(xmin),
+            &xaxis.convert_units(xmax),
             transform,
         )
     }

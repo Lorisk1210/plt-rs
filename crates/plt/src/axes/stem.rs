@@ -7,6 +7,7 @@ use crate::collections::Collection;
 use crate::lines::{FormatString, Line2D, LineProps};
 use crate::orientation::Orientation;
 use crate::rc::RcParams;
+use crate::units::AxisValues;
 
 /// Options of [`Axes::stem`].
 #[derive(Clone, Debug, PartialEq)]
@@ -56,7 +57,10 @@ pub struct StemContainer {
 
 impl Axes {
     /// Draws a stem from `options.bottom` to each of `heads` at `locs`
-    /// (matplotlib's `stem`).
+    /// (matplotlib's `stem`). `locs` go along x (along y for horizontal
+    /// stems) and `heads` along the other axis, numbers, dates or
+    /// categories; `options.bottom` is a number of the heads' axis (see
+    /// [`Axis::convert_value`](crate::axes::Axis::convert_value)).
     ///
     /// ```
     /// use plt::prelude::*;
@@ -73,11 +77,16 @@ impl Axes {
     /// invalid.
     pub fn stem(
         &self,
-        locs: impl AsRef<[f64]>,
-        heads: impl AsRef<[f64]>,
+        locs: impl Into<AxisValues>,
+        heads: impl Into<AxisValues>,
         options: &StemOptions,
     ) -> Result<StemContainer, PlotError> {
-        let (locs, heads) = (locs.as_ref(), heads.as_ref());
+        let (loc_axis, head_axis) = match options.orientation {
+            Orientation::Vertical => (self.xaxis(), self.yaxis()),
+            Orientation::Horizontal => (self.yaxis(), self.xaxis()),
+        };
+        let (locs, heads) = (loc_axis.convert_units(locs), head_axis.convert_units(heads));
+        let (locs, heads) = (locs.as_slice(), heads.as_slice());
         if locs.len() != heads.len() {
             return Err(PlotError::LengthMismatch {
                 x: locs.len(),

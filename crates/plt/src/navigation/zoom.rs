@@ -7,7 +7,9 @@ use super::pan::bbox_through;
 use super::{DragKey, PointerButton, Rubberband};
 use crate::artist::ArtistHandle;
 use crate::axes::{Axes, AxesState, AxisName};
+use crate::colorbar::Colorbar;
 use crate::figure::{Figure, FigureState};
+use crate::orientation::Orientation;
 use crate::transforms::{ResolvedTransform, TransformContext};
 
 /// Drags shorter than this many pixels cancel a zoom.
@@ -78,6 +80,7 @@ fn geometry(ax: &Axes) -> Option<(Bbox, ResolvedTransform)> {
 /// (matplotlib's `drag_zoom`): clipped to the axes, spanning its height
 /// with `x` held or its width with `y`.
 pub(super) fn rubberband(ax: &Axes, start: Point, at: Point, key: DragKey) -> Option<Rubberband> {
+    let key = colorbar_key(ax).unwrap_or(key);
     let (bbox, _) = geometry(ax)?;
     let clip = |p: Point| {
         Point::new(
@@ -93,6 +96,16 @@ pub(super) fn rubberband(ax: &Axes, start: Point, at: Point, key: DragKey) -> Op
     }
     Some(Rubberband {
         bbox: Bbox::from_extents(a.x, a.y, b.x, b.y),
+    })
+}
+
+/// The key a zoom starting on `ax` acts as if held: one on a colorbar
+/// spans its whole width and acts along the colour scale only
+/// (matplotlib's `_zoom_info.cbar`).
+fn colorbar_key(ax: &Axes) -> Option<DragKey> {
+    Colorbar::in_axes(ax).map(|colorbar| match colorbar.orientation() {
+        Orientation::Horizontal => DragKey::X,
+        Orientation::Vertical => DragKey::Y,
     })
 }
 
@@ -151,6 +164,7 @@ pub(super) fn zoom_to_rect(
     button: PointerButton,
     key: DragKey,
 ) -> bool {
+    let key = axes.first().and_then(colorbar_key).unwrap_or(key);
     if is_click(start, at, key) {
         return false;
     }
@@ -196,7 +210,8 @@ pub(super) fn zoom_around(figure: &Figure, axes: &[Axes], at: Point, scale: f64)
 }
 
 /// matplotlib's `_prepare_view_from_bbox` + `_set_view_from_bbox` for a
-/// box given by two display corners.
+/// box given by two display corners; on a colorbar, the bound along the
+/// colour scale becomes the norm's limits (`Colorbar._set_view_from_bbox`).
 fn set_view_from_bbox(ax: &Axes, corners: &Bbox, direction: Direction, change: Changes) {
     let Some((_, trans)) = geometry(ax) else {
         return;
@@ -204,6 +219,7 @@ fn set_view_from_bbox(ax: &Axes, corners: &Bbox, direction: Direction, change: C
     let Some(inverse) = trans.inverted() else {
         return;
     };
+    let colorbar = Colorbar::in_axes(ax);
     let start = inverse.transform_point(Point::new(corners.x0(), corners.y0()));
     let stop = inverse.transform_point(Point::new(corners.x1(), corners.y1()));
     for (name, changes, (a, b)) in [
@@ -219,7 +235,11 @@ fn set_view_from_bbox(ax: &Axes, corners: &Bbox, direction: Direction, change: C
             Direction::In => (low, high),
             Direction::Out => unzoom(ax, name, (low0, high0), (low, high)),
         };
-        set_bound(ax, name, bounds);
+        match &colorbar {
+            Some(colorbar) if colorbar.long_axis().name() == name => colorbar.set_view(bounds),
+            Some(_) => {}
+            None => set_bound(ax, name, bounds),
+        }
     }
 }
 

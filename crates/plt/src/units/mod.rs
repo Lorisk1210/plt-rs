@@ -10,8 +10,31 @@
 //! assert_eq!(bars.patches[1].shape().xy.x, 0.6);
 //! # Ok::<(), plt::axes::PlotError>(())
 //! ```
+//!
+//! The plotting methods take the values they place as [`AxisValues`] (or
+//! one [`AxisValue`], or a [`DataPoint`] of two) and convert them on the
+//! axis they go along, as matplotlib converts its `x` and `y` arguments.
+//! Option fields hold axis numbers: convert dates for them with
+//! [`Axis::convert_value`](crate::axes::Axis::convert_value) or
+//! [`Axis::convert_units`](crate::axes::Axis::convert_units), which give
+//! the axis its date ticks too, and durations with [`AxisDelta`].
+//!
+//! ```
+//! use plt::dates::DateTime;
+//! use plt::prelude::*;
+//! use plt::units::UnitConverter;
+//! let ax = Figure::new().subplot();
+//! let day = |d| DateTime::new(2020, 6, d, 0, 0, 0, 0);
+//! ax.plot(vec![day(1)?, day(9)?], [1.0, 2.0])?;
+//! ax.axvline(day(5)?, LineProps::default());
+//! let note = ax.text(day(2)?, 1.5, "a note");
+//! assert_eq!(note.position().x, ax.xaxis().convert_value(day(2)?));
+//! assert_eq!(ax.xaxis().converter(), Some(UnitConverter::Dates));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
 
 mod category;
+mod scalar;
 
 use std::rc::Rc;
 
@@ -22,6 +45,7 @@ use crate::dates::{
 use crate::ticker::{Formatter, Locator};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
+pub use scalar::{AxisDelta, AxisValue, DataPoint};
 
 /// The tick helpers of an axis of dates in `tz` (matplotlib's
 /// `DateConverter.axisinfo`, or `ConciseDateConverter`'s when
@@ -223,5 +247,62 @@ mod tests {
         // matplotlib 3.11 labels this span the same way.
         assert_eq!(labels[..3], ["01-02 00", "01-02 04", "01-02 08"]);
         assert_eq!(labels.last(), Some(&"01-03 12"));
+    }
+
+    #[test]
+    fn plotting_methods_place_dates_and_durations() {
+        use crate::artist::ArtistHandle;
+        use crate::axes::{BandAlign, ErrorbarOptions, FillBetweenOptions};
+        use crate::dates::TimeDelta;
+        use crate::lines::LineProps;
+        use crate::text::AnnotateOptions;
+
+        let day = |d| DateTime::new(1970, 1, d, 0, 0, 0, 0).unwrap();
+        let ax = Figure::new().subplot();
+        ax.set_xlim(day(1), day(11));
+        assert_eq!(ax.xlim(), (0.0, 10.0));
+        assert_eq!(ax.xaxis().converter(), Some(UnitConverter::Dates));
+        assert!(!ax.yaxis().have_units(), "numbers leave an axis alone");
+
+        let line = ax.axvline(day(5), LineProps::default());
+        assert_eq!(line.xdata(), [4.0, 4.0]);
+        let note = ax.text(day(2), 0.5, "note");
+        assert_eq!(note.position().x, 1.0);
+        let arrow = ax
+            .annotate("a", (day(3), 0.5), AnnotateOptions::default())
+            .unwrap();
+        assert_eq!(arrow.xy().x, 2.0);
+
+        let span = ax.axvspan(day(6), day(8));
+        assert_eq!((span.shape().xy.x, span.shape().width), (5.0, 2.0));
+        let two_days = TimeDelta::new(2, 0, 0).unwrap();
+        let band = ax.broken_barh(&[(day(4), two_days)], (0.0, 1.0), BandAlign::Bottom);
+        let corners = band.paths()[0].vertices().to_vec();
+        assert_eq!((corners[0].x, corners[2].x), (3.0, 5.0));
+
+        let fill = ax
+            .fill_between(
+                vec![day(1), day(3)],
+                [0.0],
+                [1.0],
+                FillBetweenOptions::default(),
+            )
+            .unwrap();
+        assert!(
+            fill.paths()[0]
+                .vertices()
+                .iter()
+                .all(|p| (0.0..=2.0).contains(&p.x))
+        );
+        let segments = ax.hlines([0.5], vec![day(9)], vec![day(10)]).unwrap();
+        assert_eq!(segments.paths()[0].vertices()[1].x, 9.0);
+        let one_day = ErrorbarOptions {
+            xerr: Some(TimeDelta::new(1, 0, 0).unwrap().into()),
+            ..ErrorbarOptions::default()
+        };
+        let errors = ax.errorbar(vec![day(2)], [0.25], one_day).unwrap();
+        let bar = &errors.barlinecols[0].paths()[0];
+        assert_eq!((bar.vertices()[0].x, bar.vertices()[1].x), (0.0, 2.0));
+        assert!(ax.texts().iter().any(|text| text.id() == note.id()));
     }
 }

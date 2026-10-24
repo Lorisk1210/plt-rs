@@ -120,21 +120,6 @@ fn with_extension(name: &str, format: SaveFormat) -> String {
     format!("{stem}.{}", format.extension())
 }
 
-/// matplotlib's `get_default_filename`: the window title with unsafe
-/// characters replaced, and the default format's extension.
-fn default_name(title: &str, format: SaveFormat) -> String {
-    let base: String = title
-        .chars()
-        .map(|c| if "<>:\"/\\|?*\0 ".contains(c) { '_' } else { c })
-        .collect();
-    let base = if base.is_empty() {
-        "image".to_owned()
-    } else {
-        base
-    };
-    format!("{base}.{}", format.extension())
-}
-
 /// The directory the dialog starts in: `savefig.directory` (`~` is the
 /// home directory) when it exists, else the working directory.
 fn start_directory() -> PathBuf {
@@ -187,7 +172,7 @@ impl SaveDialog {
     ) -> Result<Self, GuiError> {
         let rc_format = crate::rc::params().savefig_format.clone();
         let format = format_of(&format!("x.{rc_format}")).unwrap_or(0);
-        let name = default_name(title, FORMATS[format]);
+        let name = FORMATS[format].file_name_for(title);
         let directory = start_directory();
         let entries = list_directory(&directory);
         let mut content = Flex::column().with_spacing(dialog::GAP);
@@ -456,8 +441,6 @@ mod tests {
 
     #[test]
     fn names_and_formats() {
-        assert_eq!(default_name("Figure 1", SaveFormat::Png), "Figure_1.png");
-        assert_eq!(default_name("", SaveFormat::Pdf), "image.pdf");
         assert_eq!(format_of("plot.SVG"), Some(5));
         assert_eq!(format_of("frame.webp"), Some(4));
         assert_eq!(format_of("photo.jpeg"), Some(1));

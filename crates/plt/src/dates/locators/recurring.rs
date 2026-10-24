@@ -171,6 +171,10 @@ impl Locator for RRuleLocator {
     fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
         date_nonsingular(v0, v1, self.unit(ctx), self.interval())
     }
+
+    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
+        Some(self.unit(ctx))
+    }
 }
 
 impl DateLocator for RRuleLocator {
@@ -277,6 +281,10 @@ impl Locator for YearLocator {
 
     fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
         date_nonsingular(v0, v1, self.unit(ctx), self.interval())
+    }
+
+    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
+        Some(self.unit(ctx))
     }
 }
 

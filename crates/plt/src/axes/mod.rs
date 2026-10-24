@@ -145,7 +145,7 @@ use crate::scale::{Scale, ScaleError, ScaleOptions, scale_factory};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
-use plt_core::Point;
+use crate::units::{AxisValue, DataPoint};
 use plt_text::{HAlign, VAlign};
 
 /// Where an axes title sits.
@@ -387,9 +387,19 @@ impl Axes {
         Text::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), id))
     }
 
-    /// Adds text at `(x, y)` in data coordinates (matplotlib's `ax.text`).
-    pub fn text(&self, x: f64, y: f64, text: impl Into<String>) -> Text {
-        let mut artist = TextArtist::new(Point::new(x, y), text, crate::rc::params());
+    /// Adds text at `(x, y)` in data coordinates, numbers, dates or
+    /// categories (matplotlib's `ax.text`).
+    pub fn text(
+        &self,
+        x: impl Into<AxisValue>,
+        y: impl Into<AxisValue>,
+        text: impl Into<String>,
+    ) -> Text {
+        let at = self.convert_point(DataPoint {
+            x: x.into(),
+            y: y.into(),
+        });
+        let mut artist = TextArtist::new(at, text, crate::rc::params());
         let base = artist.base_mut();
         base.transform = Some(Transform::Data(self.id()));
         base.clip_box = Some(self.id());
@@ -452,15 +462,19 @@ impl Axes {
         self.view_lim().interval_y()
     }
 
-    /// Sets the x view limits and turns x autoscaling off;
-    /// `left > right` inverts the axis.
-    pub fn set_xlim(&self, left: f64, right: f64) -> &Self {
+    /// Sets the x view limits, numbers, dates or categories, and turns x
+    /// autoscaling off; `left > right` inverts the axis.
+    pub fn set_xlim(&self, left: impl Into<AxisValue>, right: impl Into<AxisValue>) -> &Self {
+        let xaxis = self.xaxis();
+        let (left, right) = (xaxis.convert_value(left), xaxis.convert_value(right));
         self.set_limits(AxisName::X, left, right)
     }
 
-    /// Sets the y view limits and turns y autoscaling off;
-    /// `bottom > top` inverts the axis.
-    pub fn set_ylim(&self, bottom: f64, top: f64) -> &Self {
+    /// Sets the y view limits, numbers, dates or categories, and turns y
+    /// autoscaling off; `bottom > top` inverts the axis.
+    pub fn set_ylim(&self, bottom: impl Into<AxisValue>, top: impl Into<AxisValue>) -> &Self {
+        let yaxis = self.yaxis();
+        let (bottom, top) = (yaxis.convert_value(bottom), yaxis.convert_value(top));
         self.set_limits(AxisName::Y, bottom, top)
     }
 

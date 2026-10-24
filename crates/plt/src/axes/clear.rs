@@ -14,8 +14,8 @@ use crate::text::TextArtist;
 impl AxesState {
     /// The state a cleared axes restarts from (matplotlib's `__clear`): a
     /// fresh axes under `rc` that keeps the identity, placement, aspect,
-    /// sharing, background colour, frame and navigation of `self`, and
-    /// the visibility of shared axes.
+    /// sharing, background colour, frame, navigation and status-bar
+    /// formatters of `self`, and the visibility of shared axes.
     fn cleared(&self, rc: Rc<RcParams>) -> Self {
         let mut fresh = Self::new(self.position, rc);
         *fresh.base_mut() = self.base().clone();
@@ -29,6 +29,7 @@ impl AxesState {
         fresh.children = self.spines.iter().chain(&self.titles).copied().collect();
         fresh.navigate = self.navigate;
         fresh.forward_navigation = self.forward_navigation;
+        fresh.fmt_data.clone_from(&self.fmt_data);
         fresh.patch.facecolor = self.patch.facecolor.clone();
         fresh.decorations.frame_on = self.decorations.frame_on;
         fresh.axisbelow = self.axisbelow;

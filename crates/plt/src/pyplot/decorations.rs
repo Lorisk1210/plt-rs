@@ -4,12 +4,10 @@
 //! `tick_params`, `margins`, `box`, `legend`, `text`, `annotate`,
 //! `table`, `rgrids`, `thetagrids`, ...).
 
-use plt_core::Point;
-
 use super::error::PyplotError;
 use super::registry::gca;
 use crate::axes::{
-    AxisMode, AxisName, GridOptions, LocatorParams, PlotError, TickParams, TickSet,
+    Axis, AxisMode, AxisName, GridOptions, LocatorParams, PlotError, TickParams, TickSet,
     TicklabelFormat, TitleLocation,
 };
 use crate::coords::CoordError;
@@ -18,7 +16,7 @@ use crate::polar::PolarAxes;
 use crate::scale::ScaleError;
 use crate::table::{Table, TableError, TableOptions};
 use crate::text::{AnnotateOptions, Annotation, Text};
-use crate::units::AxisValues;
+use crate::units::{AxisValue, AxisValues, DataPoint};
 
 /// Sets the centre title of the current axes (matplotlib's `title`).
 pub fn title(text: impl Into<String>) -> Text {
@@ -43,13 +41,13 @@ pub fn ylabel(text: impl Into<String>) {
 
 /// Sets the x limits of the current axes (matplotlib's
 /// `xlim(left, right)`).
-pub fn xlim(left: f64, right: f64) {
+pub fn xlim(left: impl Into<AxisValue>, right: impl Into<AxisValue>) {
     gca().set_xlim(left, right);
 }
 
 /// Sets the y limits of the current axes (matplotlib's
 /// `ylim(bottom, top)`).
-pub fn ylim(bottom: f64, top: f64) {
+pub fn ylim(bottom: impl Into<AxisValue>, top: impl Into<AxisValue>) {
     gca().set_ylim(bottom, top);
 }
 
@@ -81,6 +79,28 @@ pub fn yscale(name: &str) -> Result<(), ScaleError> {
     gca().set_yscale(name).map(|_| ())
 }
 
+/// Puts the major ticks of `axis` (the minor ones when `minor`) at
+/// `ticks`, labelled with `labels` unless that is empty.
+fn place_ticks(
+    axis: &Axis,
+    ticks: AxisValues,
+    labels: &[&str],
+    minor: bool,
+) -> Result<(), PlotError> {
+    if minor {
+        axis.set_minor_ticks(ticks);
+        if !labels.is_empty() {
+            axis.set_minor_ticklabels(labels.iter().copied())?;
+        }
+    } else {
+        axis.set_ticks(ticks);
+        if !labels.is_empty() {
+            axis.set_ticklabels(labels.iter().copied())?;
+        }
+    }
+    Ok(())
+}
+
 /// Puts the x ticks of the current axes at `ticks`, labelled with `labels`
 /// unless that is empty (matplotlib's `xticks(ticks, labels)`;
 /// `xticks([], &[])` removes the ticks).
@@ -89,12 +109,7 @@ pub fn yscale(name: &str) -> Result<(), ScaleError> {
 ///
 /// When there are labels but not one per tick.
 pub fn xticks(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
-    let ax = gca();
-    ax.set_xticks(ticks);
-    if !labels.is_empty() {
-        ax.set_xticklabels(labels.iter().copied())?;
-    }
-    Ok(())
+    place_ticks(&gca().xaxis(), ticks.into(), labels, false)
 }
 
 /// Puts the y ticks of the current axes at `ticks`, labelled with `labels`
@@ -105,12 +120,39 @@ pub fn xticks(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotE
 ///
 /// When there are labels but not one per tick.
 pub fn yticks(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
-    let ax = gca();
-    ax.set_yticks(ticks);
-    if !labels.is_empty() {
-        ax.set_yticklabels(labels.iter().copied())?;
-    }
-    Ok(())
+    place_ticks(&gca().yaxis(), ticks.into(), labels, false)
+}
+
+/// Puts the minor x ticks of the current axes at `ticks`, labelled with
+/// `labels` unless that is empty (matplotlib's
+/// `xticks(ticks, labels, minor=True)`).
+///
+/// ```
+/// use plt::pyplot as plt;
+/// plt::plot(vec![1.0, 2.0, 3.0], vec![1.0, 4.0, 9.0])?;
+/// plt::xticks_minor(vec![1.1, 2.9], &["a", "b"])?;
+/// assert_eq!(plt::gca().xaxis().ticklocs(true)?, [1.1, 2.9]);
+/// assert_eq!(plt::gca().xaxis().ticklabels(true)?, ["a", "b"]);
+/// plt::close_all();
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When there are labels but not one per tick.
+pub fn xticks_minor(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
+    place_ticks(&gca().xaxis(), ticks.into(), labels, true)
+}
+
+/// Puts the minor y ticks of the current axes at `ticks`, labelled with
+/// `labels` unless that is empty (matplotlib's
+/// `yticks(ticks, labels, minor=True)`).
+///
+/// # Errors
+///
+/// When there are labels but not one per tick.
+pub fn yticks_minor(ticks: impl Into<AxisValues>, labels: &[&str]) -> Result<(), PlotError> {
+    place_ticks(&gca().yaxis(), ticks.into(), labels, true)
 }
 
 /// The x ticks the current axes draws, with their labels (matplotlib's
@@ -229,7 +271,7 @@ pub fn legend(options: LegendOptions) -> Result<Legend, LegendError> {
 
 /// Adds a text at `(x, y)` in data coordinates of the current axes
 /// (matplotlib's `text`).
-pub fn text(x: f64, y: f64, text: impl Into<String>) -> Text {
+pub fn text(x: impl Into<AxisValue>, y: impl Into<AxisValue>, text: impl Into<String>) -> Text {
     gca().text(x, y, text)
 }
 
@@ -241,7 +283,7 @@ pub fn text(x: f64, y: f64, text: impl Into<String>) -> Text {
 /// As [`Axes::annotate`](crate::axes::Axes::annotate).
 pub fn annotate(
     text: impl Into<String>,
-    xy: impl Into<Point>,
+    xy: impl Into<DataPoint>,
     options: AnnotateOptions,
 ) -> Result<Annotation, CoordError> {
     gca().annotate(text, xy, options)

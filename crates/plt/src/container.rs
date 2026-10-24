@@ -36,6 +36,89 @@ impl Container {
             Self::Stem(stems) => stems.label.as_deref(),
         }
     }
+
+    /// The handles of the container's artists.
+    fn artists(&self) -> Vec<RawHandle> {
+        match self {
+            Self::Bar(bars) => bars
+                .patches
+                .iter()
+                .map(|patch| patch.raw().clone())
+                .chain(bars.errorbar.iter().flat_map(errorbar_artists))
+                .collect(),
+            Self::Errorbar(errors) => errorbar_artists(errors),
+            Self::Stem(stems) => vec![
+                stems.markerline.raw().clone(),
+                stems.stemlines.raw().clone(),
+                stems.baseline.raw().clone(),
+            ],
+        }
+    }
+
+    /// Removes the container's artists from their figure and the container
+    /// from the [`Axes::containers`] of its axes (matplotlib's
+    /// `Container.remove`). A container without any artist (the bars of
+    /// no data, error bars with neither bars nor a data line) is found
+    /// through none, so it stays recorded.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let stems = ax.stem([1.0, 2.0], [1.0, 2.0], &Default::default())?;
+    /// stems.remove();
+    /// assert!(ax.lines().is_empty() && ax.collections().is_empty());
+    /// assert!(ax.containers().is_empty());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn remove(&self) {
+        let artists = self.artists();
+        let Some(first) = artists.first() else {
+            return;
+        };
+        let recorded = ContainerIds::from(self);
+        let mut state = first.figure_state().borrow_mut();
+        let ids: Vec<ArtistId> = state.store.ids().collect();
+        for id in ids {
+            if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+                axes.containers.retain(|ids| *ids != recorded);
+            }
+        }
+        for artist in &artists {
+            state.remove_artist(artist.id());
+        }
+    }
+}
+
+/// The handles of an error bar plot's artists.
+fn errorbar_artists(errors: &ErrorbarContainer) -> Vec<RawHandle> {
+    errors
+        .data_line
+        .iter()
+        .map(|line| line.raw().clone())
+        .chain(errors.caplines.iter().map(|line| line.raw().clone()))
+        .chain(errors.barlinecols.iter().map(|bars| bars.raw().clone()))
+        .collect()
+}
+
+impl BarContainer {
+    /// Removes the bars and their error bars (see [`Container::remove`]).
+    pub fn remove(&self) {
+        Container::Bar(self.clone()).remove();
+    }
+}
+
+impl ErrorbarContainer {
+    /// Removes the data line, caps and bars (see [`Container::remove`]).
+    pub fn remove(&self) {
+        Container::Errorbar(self.clone()).remove();
+    }
+}
+
+impl StemContainer {
+    /// Removes the heads, stems and baseline (see [`Container::remove`]).
+    pub fn remove(&self) {
+        Container::Stem(self.clone()).remove();
+    }
 }
 
 impl From<BarContainer> for Container {
@@ -248,5 +331,56 @@ mod tests {
         assert_eq!(recorded.patches.len(), 2);
         assert_eq!(recorded.datavalues, [3.0, 4.0]);
         assert!(recorded.errorbar.is_some());
+    }
+
+    /// `[lines, collections, patches, containers]` of `ax`.
+    fn counts(ax: &Axes) -> [usize; 4] {
+        [
+            ax.lines().len(),
+            ax.collections().len(),
+            ax.patches().len(),
+            ax.containers().len(),
+        ]
+    }
+
+    #[test]
+    fn removing_a_container_removes_its_artists_and_entry() {
+        let ax = Figure::new().subplot();
+        let kept = ax
+            .stem([1.0], [2.0], &StemOptions::default())
+            .expect("stems");
+        let errors = ErrorbarOptions {
+            xerr: Some(1.0.into()),
+            fmt: "none".into(),
+            ..ErrorbarOptions::default()
+        };
+        let bars = ax.errorbar([1.0], [1.0], errors).expect("error bars");
+        assert_eq!(counts(&ax), [2, 2, 0, 2]);
+        bars.remove();
+        assert_eq!(counts(&ax), [2, 1, 0, 1], "the stems stay");
+        let Container::Stem(left) = &ax.containers()[0] else {
+            panic!("the stems remain recorded");
+        };
+        assert_eq!(left, &kept);
+        kept.remove();
+        assert_eq!(counts(&ax), [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn removing_bars_leaves_their_error_bar_entry() {
+        let ax = Figure::new().subplot();
+        let options = BarOptions {
+            errors: ErrorbarOptions {
+                yerr: Some(0.5.into()),
+                ..ErrorbarOptions::default()
+            },
+            ..BarOptions::default()
+        };
+        let bars = ax.bar([1.0, 2.0], [3.0, 4.0], options).expect("bars");
+        assert_eq!(counts(&ax), [0, 1, 2, 2]);
+        bars.remove();
+        // matplotlib removes the error bars' artists with the bars but
+        // keeps their container in `ax.containers`.
+        assert_eq!(counts(&ax), [0, 0, 0, 1]);
     }
 }

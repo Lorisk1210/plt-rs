@@ -7,11 +7,12 @@ use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist};
 use crate::colors::Color;
+use crate::dates::TimeDelta;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery, PolarMarkerRotation};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
-use crate::units::convert_dx;
+use crate::units::{AxisDelta, AxisValues, convert_dx};
 
 /// Error sizes along one axis (matplotlib's `xerr`/`yerr`); every list
 /// holds one value or one per point.
@@ -37,6 +38,14 @@ impl From<f64> for ErrorSize {
 impl From<Vec<f64>> for ErrorSize {
     fn from(errors: Vec<f64>) -> Self {
         Self::Symmetric(errors)
+    }
+}
+
+impl From<TimeDelta> for ErrorSize {
+    /// The same duration below and above, on a date axis (matplotlib's
+    /// `timedelta` errors).
+    fn from(error: TimeDelta) -> Self {
+        Self::Symmetric(vec![AxisDelta::from(error).to_number()])
     }
 }
 
@@ -231,11 +240,12 @@ impl Axes {
     /// broadcast, errors are negative, or the format string is invalid.
     pub fn errorbar(
         &self,
-        x: impl AsRef<[f64]>,
-        y: impl AsRef<[f64]>,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
         mut options: ErrorbarOptions,
     ) -> Result<ErrorbarContainer, PlotError> {
-        let (x, y) = (x.as_ref(), y.as_ref());
+        let (x, y) = (self.xaxis().convert_units(x), self.yaxis().convert_units(y));
+        let (x, y) = (x.as_slice(), y.as_slice());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
                 x: x.len(),

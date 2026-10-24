@@ -105,6 +105,33 @@ pub fn isinteractive() -> bool {
     with_registry(|registry| registry.interactive)
 }
 
+/// Brings back the interactive mode it holds when dropped.
+struct RestoreInteractive(bool);
+
+impl Drop for RestoreInteractive {
+    fn drop(&mut self) {
+        let mode = self.0;
+        with_registry(|registry| registry.interactive = mode);
+    }
+}
+
+/// Runs `f` with interactive mode on (`on`) or off, then brings back the
+/// mode it found, whatever `f` did to it (matplotlib's `with plt.ion():`
+/// and `with plt.ioff():` blocks).
+///
+/// ```
+/// use plt::pyplot as plt;
+/// plt::ion();
+/// plt::interactive_context(false, || assert!(!plt::isinteractive()));
+/// assert!(plt::isinteractive(), "the mode found is back");
+/// plt::ioff();
+/// ```
+pub fn interactive_context<R>(on: bool, f: impl FnOnce() -> R) -> R {
+    let _restore = RestoreInteractive(isinteractive());
+    with_registry(|registry| registry.interactive = on);
+    f()
+}
+
 /// Redraws the shown figures that changed (matplotlib's `draw`); web
 /// pages update while the server runs.
 ///
@@ -214,6 +241,19 @@ mod tests {
         ioff();
         assert!(!isinteractive());
         assert!(draw().is_ok(), "nothing shown, nothing to redraw");
+    }
+
+    #[test]
+    fn interactive_contexts_nest_and_undo_changes_made_inside() {
+        ioff();
+        let seen = interactive_context(true, || {
+            let inner = interactive_context(false, isinteractive);
+            (isinteractive(), inner)
+        });
+        assert_eq!(seen, (true, false));
+        assert!(!isinteractive());
+        interactive_context(false, ion);
+        assert!(!isinteractive(), "the mode found comes back");
     }
 
     #[test]

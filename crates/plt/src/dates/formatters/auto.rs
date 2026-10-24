@@ -1,11 +1,13 @@
 //! Formats chosen from the locator's tick unit (matplotlib's
 //! `AutoDateFormatter`).
 
+use std::rc::Rc;
+
 use super::{format_date, resolve_usetex};
 use crate::dates::convert::MICROSECONDS_PER_DAY;
 use crate::dates::locators::DateLocator;
 use crate::dates::tz::TimeZone;
-use crate::ticker::{Formatter, TickContext, TickLabels, TickerError};
+use crate::ticker::{Formatter, Locator, TickContext, TickLabels, TickerError};
 
 /// Labels ticks with the format registered for the smallest scale at least
 /// as large as the locator's unit (days per tick unit).
@@ -22,10 +24,13 @@ use crate::ticker::{Formatter, TickContext, TickLabels, TickerError};
 /// | 1/86400       | `%H:%M:%S`          |
 /// | 1/86400e6     | `%M:%S.%f`          |
 ///
-/// Units beyond the largest scale use `defaultfmt`.
-#[derive(Debug)]
+/// Units beyond the largest scale use `defaultfmt`. An axis given a new
+/// major locator hands it to the formatter, as matplotlib's does; a
+/// locator that is not a date locator counts as a unit of one day, so
+/// explicit ticks on a date axis are labelled with dates.
+#[derive(Clone, Debug)]
 pub struct AutoDateFormatter {
-    locator: Box<dyn DateLocator>,
+    locator: Rc<dyn Locator>,
     tz: TimeZone,
     defaultfmt: String,
     scaled: Vec<(f64, String)>,
@@ -50,7 +55,7 @@ impl AutoDateFormatter {
             ),
         ];
         let mut formatter = Self {
-            locator: Box::new(locator),
+            locator: Rc::new(locator),
             tz: TimeZone::Utc,
             defaultfmt: "%Y-%m-%d".to_owned(),
             scaled: Vec::new(),
@@ -99,9 +104,11 @@ impl AutoDateFormatter {
         }
     }
 
-    /// The format used for the context's view.
+    /// The format used for the context's view: that of the locator's
+    /// tick unit, or of a day when the locator is no date locator
+    /// (matplotlib's fallback when it has no `_get_unit`).
     pub fn format_for(&self, ctx: &TickContext<'_>) -> &str {
-        let unit = self.locator.unit(ctx);
+        let unit = self.locator.date_unit(ctx).unwrap_or(1.0);
         self.scaled
             .iter()
             .find(|(scale, _)| *scale >= unit)
@@ -129,6 +136,15 @@ impl Formatter for AutoDateFormatter {
             &self.tz,
             resolve_usetex(self.usetex, ctx),
         )
+    }
+
+    /// The formatter choosing its formats from `locator`'s unit
+    /// (matplotlib's `AutoDateFormatter._set_locator`).
+    fn following(&self, locator: &Rc<dyn Locator>) -> Option<Rc<dyn Formatter>> {
+        Some(Rc::new(Self {
+            locator: Rc::clone(locator),
+            ..self.clone()
+        }))
     }
 }
 
@@ -168,5 +184,26 @@ mod tests {
                 .to_owned()
         });
         assert_eq!(format, "%H h");
+    }
+
+    #[test]
+    fn a_locator_handed_over_chooses_the_format() {
+        let settings = TickerSettings::default();
+        let axis = AxisInfo::with_view(3_757.0, 18_577.0);
+        let ctx = TickContext::new(&axis, &settings);
+        let formatter = AutoDateFormatter::new(AutoDateLocator::new());
+        assert_eq!(formatter.format_for(&ctx), "%Y");
+        let fixed: Rc<dyn Locator> = Rc::new(crate::ticker::FixedLocator::new(vec![4000.0]));
+        let follower = formatter
+            .following(&fixed)
+            .expect("date formatters follow their locator");
+        let labels = follower.format_ticks(&[4000.0], &ctx).unwrap().labels;
+        assert_eq!(labels, ["1980-12-14"], "no date unit counts as a day");
+        let weekdays: Rc<dyn Locator> = Rc::new(RRuleLocator::weekdays(&[], 1));
+        let daily = formatter.following(&weekdays).unwrap();
+        assert_eq!(
+            daily.format_ticks(&[4000.0], &ctx).unwrap().labels,
+            ["1980-12-14"]
+        );
     }
 }

@@ -305,10 +305,23 @@ impl AxisState {
         }
     }
 
-    /// Replaces the major locator.
+    /// Replaces the major locator and hands it to the major formatter
+    /// (matplotlib's `Axis.set_major_locator`).
     pub(crate) fn set_major_locator(&mut self, locator: Rc<dyn Locator>) {
         self.major_locator = self.for_role(locator);
         self.default_major.0 = false;
+        if let Some(formatter) = self.major_formatter.following(&self.major_locator) {
+            self.major_formatter = formatter;
+        }
+    }
+
+    /// Replaces the minor locator and hands it to the minor formatter
+    /// (matplotlib's `Axis.set_minor_locator`).
+    pub(crate) fn set_minor_locator(&mut self, locator: Rc<dyn Locator>) {
+        if let Some(formatter) = self.minor_formatter.following(&locator) {
+            self.minor_formatter = formatter;
+        }
+        self.minor_locator = locator;
     }
 
     /// Replaces the major formatter.

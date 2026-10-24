@@ -124,8 +124,10 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
   lasso and polygon selectors.
 * **Extending**: artists of your own (the `Artist` trait,
-  `Axes::add_custom_artist`), legend handlers (`LegendHandler`), scales,
-  colormaps and colour sequences registered by name, and toolbar tools.
+  `Axes::add_custom_artist`), projections (the `Projection` trait,
+  registered by name like matplotlib's `register_projection`), legend
+  handlers (`LegendHandler`), scales, colormaps and colour sequences
+  registered by name, and toolbar tools.
   Removed artists stay usable and can be attached again, as in
   matplotlib.
 

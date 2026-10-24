@@ -141,16 +141,23 @@ tables and side-by-side examples whose Rust half runs as a doctest.
 
 ## Gallery
 
-`crates/plt/examples/gallery/` holds short, commented examples grouped
-like matplotlib's gallery: lines and areas, bars, statistics, images and
-fields, text and annotations, layout, projections (polar, geographic,
-3-D) and style sheets.
+`crates/plt/examples/gallery/` holds over ninety short, commented
+examples grouped like matplotlib's gallery: lines, bars and areas;
+statistics; images and meshes; contours and vector fields; colour; text
+and annotations; layout; dates, categories and units; 3-D; polar,
+geographic and custom projections; the `axes_grid1` and `axisartist`
+toolkits; diagrams, widgets and animation; reference sheets of markers,
+line styles and hatches; and style sheets.
 
 ```sh
-cargo run -p plt --example gallery -- target/gallery
+cargo run -p plt --release --example gallery -- target/gallery
 ```
 
-writes every figure as a PNG with an `index.html` showing them all.
+writes every figure as a PNG (the animation as an animated PNG), an
+`index.html` showing them section by section, and a contact sheet of
+each section (`sheet-<section>.png`). The figures take the look in
+force: `PLT_FIGURE_LOOK=modern-dark` draws the gallery on a dark
+background, `PLT_LOOK=matplotlib` in matplotlib's look.
 
 ## Crates
 

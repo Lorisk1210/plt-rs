@@ -6,6 +6,9 @@ use plt_core::{Affine2D, Path, PathCode, Point};
 use super::ArrowHead;
 use crate::numeric::linspace;
 
+/// The most teeth along one side of a sawtooth or roundtooth box.
+const MAX_TEETH: f64 = 10_000.0;
+
 /// The padded rectangle every outline is built from.
 pub(super) struct Padded {
     pub(super) x0: f64,
@@ -183,7 +186,9 @@ impl Padded {
 
     /// The sawtooth vertices, ending with a copy of the first
     /// (`Sawtooth._get_sawtooth_vertices`). Degenerate teeth (a zero or
-    /// negative count) leave plain edges.
+    /// negative count) leave plain edges; teeth so small that a side would
+    /// take more than [`MAX_TEETH`] are widened to that many (matplotlib
+    /// allocates them all, until memory runs out).
     pub(super) fn sawtooth(&self, tooth_size: f64) -> Vec<Point> {
         let hsz = tooth_size / 2.0;
         let width = self.dx - tooth_size;
@@ -191,7 +196,7 @@ impl Padded {
         let count = |extent: f64| {
             let n = ((extent - tooth_size) / (tooth_size * 2.0)).round_ties_even();
             if n.is_finite() && n > 0.0 {
-                n as usize * 2
+                n.min(MAX_TEETH) as usize * 2
             } else {
                 0
             }

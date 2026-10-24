@@ -14,6 +14,12 @@ use crate::stats::{
 };
 use crate::ticker::AxisName;
 
+/// The most bars a bar histogram draws, its datasets together: each is a
+/// patch, and matplotlib makes as many as the bins ask for (a million bins
+/// take it minutes). Step histograms draw one outline per dataset and have
+/// no such bound.
+pub const MAX_HIST_BARS: usize = 1 << 16;
+
 /// Options of [`Axes::hist`]: binning and layout plus styling.
 #[derive(Clone, Debug, Default)]
 pub struct HistPlotOptions<'a> {
@@ -125,6 +131,10 @@ impl Axes {
         let computed = hist(datasets, layout).map_err(PlotError::Stats)?;
         let artists = match computed.patches {
             HistPatches::Bars(groups) => {
+                let bars = groups.iter().map(|group| group.positions.len()).sum();
+                if bars > MAX_HIST_BARS {
+                    return Err(PlotError::TooManyBars(bars));
+                }
                 HistArtists::Bars(self.hist_bars(groups, &colors, &options)?)
             }
             HistPatches::Steps(outlines) => {
@@ -301,6 +311,26 @@ mod tests {
             dashes,
             [LineStyle::Dashed, LineStyle::Dotted, LineStyle::Dashed]
         );
+    }
+
+    #[test]
+    fn bar_counts_are_bounded_but_step_outlines_are_not() {
+        // Found by fuzzing: a million bins of three stacked datasets made
+        // three million patches.
+        let ax = Figure::new().subplot();
+        let with = |histtype| HistPlotOptions {
+            layout: HistOptions {
+                bins: Some(crate::stats::Bins::Count(1 << 20)),
+                histtype,
+                ..HistOptions::default()
+            },
+            ..HistPlotOptions::default()
+        };
+        assert_eq!(
+            ax.hist(&three_datasets(), with(HistType::BarStacked)).err(),
+            Some(PlotError::TooManyBars(3 << 20))
+        );
+        assert!(ax.hist(&three_datasets(), with(HistType::Step)).is_ok());
     }
 
     #[test]

@@ -85,6 +85,9 @@ pub enum PlotError {
     Mlab(MlabError),
     /// An invalid pie chart.
     Pie(PieError),
+    /// A bar histogram of this many bars, more than
+    /// [`MAX_HIST_BARS`](super::MAX_HIST_BARS).
+    TooManyBars(usize),
     /// A per-dataset argument with neither one value nor one per dataset.
     DatasetCount {
         /// The argument.
@@ -159,19 +162,20 @@ impl fmt::Display for PlotError {
             Self::NotFillBetween => {
                 f.write_str("the collection was not made by fill_between or fill_betweenx")
             }
-            Self::NotMaxNLocator(axis) => write!(
-                f,
-                "the {}-axis ticks are not placed by a MaxNLocator",
-                axis.name()
-            ),
+            Self::NotMaxNLocator(axis) => {
+                axis_problem(f, *axis, "ticks are not placed by a MaxNLocator")
+            }
             Self::Ticker(err) => err.fmt(f),
             Self::Mlab(err) => err.fmt(f),
             Self::Pie(err) => err.fmt(f),
-            Self::NotScalarFormatter(axis) => write!(
+            Self::TooManyBars(count) => write!(
                 f,
-                "the {}-axis tick labels do not use a ScalarFormatter",
-                axis.name()
+                "a histogram of {count} bars is more than {}",
+                super::MAX_HIST_BARS
             ),
+            Self::NotScalarFormatter(axis) => {
+                axis_problem(f, *axis, "tick labels do not use a ScalarFormatter")
+            }
             Self::DatasetCount {
                 argument, len: 0, ..
             } => {
@@ -185,32 +189,26 @@ impl fmt::Display for PlotError {
                 f,
                 "{argument} has {len} values for {datasets} datasets; give one or one per dataset"
             ),
-            Self::WrongSide { axis, side } => {
-                write!(
-                    f,
-                    "{:?} is not a side of the {}-axis",
-                    side.name(),
-                    axis.name()
-                )
-            }
+            Self::WrongSide { axis, side } => write!(
+                f,
+                "{:?} is not a side of the {}-axis",
+                side.name(),
+                axis.name()
+            ),
             Self::NonFiniteLimit(axis) => {
                 write!(f, "{}-axis limits cannot be NaN or Inf", axis.name())
             }
-            Self::InvalidMargin(margin) => {
-                write!(
-                    f,
-                    "margin must be finite and greater than -0.5, got {margin}"
-                )
-            }
-            Self::ExplicitConverter(axis) => write!(
+            Self::InvalidMargin(margin) => write!(
                 f,
-                "the {}-axis already has an explicit converter set",
-                axis.name()
+                "margin must be finite and greater than -0.5, got {margin}"
             ),
-            Self::FixedLimits(axis) => write!(
+            Self::ExplicitConverter(axis) => {
+                axis_problem(f, *axis, "already has an explicit converter set")
+            }
+            Self::FixedLimits(axis) => axis_problem(
                 f,
-                "the {}-axis cannot be shared: the projection of its axes fixes their limits",
-                axis.name()
+                *axis,
+                "cannot be shared: the projection of its axes fixes their limits",
             ),
             Self::NormWithLimits => f.write_str(NORM_WITH_LIMITS),
             Self::SlopeOnNonlinearScale => {
@@ -221,6 +219,11 @@ impl fmt::Display for PlotError {
 }
 
 impl std::error::Error for PlotError {}
+
+/// Writes "the x-axis `problem`" for an error about one axis.
+fn axis_problem(f: &mut fmt::Formatter<'_>, axis: AxisName, problem: &str) -> fmt::Result {
+    write!(f, "the {}-axis {problem}", axis.name())
+}
 
 impl From<MarkerError> for PlotError {
     fn from(err: MarkerError) -> Self {

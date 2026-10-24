@@ -14,6 +14,11 @@ use crate::image::{Extent, ImageError};
 use crate::scale::LogScale;
 use crate::transforms::{Transform, nonsingular};
 
+/// The most hexagons (of both interleaved lattices) a hexbin grid holds,
+/// about a grid size of 4000: matplotlib allocates whatever grid is asked
+/// for, until memory runs out.
+pub const MAX_HEXAGONS: usize = 1 << 24;
+
 /// The number of hexagons along x (and y) of a hexbin grid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum HexGridSize {
@@ -234,6 +239,12 @@ impl Axes {
         };
         if nx == 0 || ny == 0 {
             return Err(ImageError::GridSize);
+        }
+        let hexagons = (nx.checked_add(1).zip(ny.checked_add(1)))
+            .and_then(|(nx1, ny1)| nx1.checked_mul(ny1))
+            .and_then(|outer| outer.checked_add(nx.checked_mul(ny)?));
+        if hexagons.is_none_or(|count| count > MAX_HEXAGONS) {
+            return Err(ImageError::GridTooLarge(nx, ny));
         }
         let tx = scaled(&x, options.xscale)?;
         let ty = scaled(&y, options.yscale)?;
@@ -559,6 +570,20 @@ mod tests {
             ax.hexbin(&[1.0], &[1.0], zero).err(),
             Some(ImageError::GridSize)
         );
+        // Found by fuzzing: a grid size of 2^20 asked for 30 TB.
+        let huge = HexbinOptions {
+            gridsize: HexGridSize::Count(1 << 20),
+            ..HexbinOptions::default()
+        };
+        assert_eq!(
+            ax.hexbin(&[1.0], &[1.0], huge).err(),
+            Some(ImageError::GridTooLarge(1 << 20, 605_395))
+        );
+        let overflowing = HexbinOptions {
+            gridsize: HexGridSize::Shape(usize::MAX, 2),
+            ..HexbinOptions::default()
+        };
+        assert!(ax.hexbin(&[1.0], &[1.0], overflowing).is_err());
         assert!(matches!(
             ax.hexbin(&[1.0, 2.0], &[1.0], HexbinOptions::default()),
             Err(ImageError::ValueCount { .. })

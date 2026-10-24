@@ -29,7 +29,17 @@ impl DateTime {
 }
 
 /// Formats `dt` with `format`; `zone` supplies `%z`/`%Z` for aware values.
+///
+/// Like Python, whose `time.strftime` gives up on outputs too long for its
+/// largest buffer ([`python_output_limit`] of the format the C library is
+/// handed), an output that long is empty; field widths beyond any such
+/// limit are cut short, so that no width allocates without bound.
 pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str)>) -> String {
+    // Python's own substitutions lengthen a two- or three-byte sequence to
+    // at most 16 bytes or the zone's name, bounding the C format's length.
+    let name_len = zone.map_or(0, |(_, name)| name.len());
+    let cap = python_output_limit(format.len().saturating_mul(name_len.max(8)));
+    let mut c_format_len = format.len();
     let mut out = String::with_capacity(format.len() + 16);
     let mut rest = format;
     while let Some(start) = rest.find('%') {
@@ -40,6 +50,8 @@ pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str
             out.push('%');
             break;
         };
+        let before = out.len();
+        let mut python_layer = true;
         let consumed = match code {
             'f' => {
                 let _ = write!(out, "{:06}", dt.microsecond());
@@ -78,7 +90,9 @@ pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str
                 1
             }
             _ => {
-                if let Some(conversion) = Conversion::parse(rest) {
+                python_layer = false;
+                if let Some(mut conversion) = Conversion::parse(rest) {
+                    conversion.width = conversion.width.map(|width| width.min(cap + 1));
                     conversion.write(&mut out, dt, zone);
                     conversion.len
                 } else {
@@ -90,10 +104,33 @@ pub(crate) fn strftime(format: &str, dt: DateTime, zone: Option<(UtcOffset, &str
                 }
             }
         };
+        if python_layer {
+            c_format_len = (c_format_len + out.len() - before).saturating_sub(consumed + 1);
+        }
+        if out.len() > cap {
+            return String::new();
+        }
         rest = &rest[rest.ceil_char_boundary(consumed)..];
     }
     out.push_str(rest);
+    if out.len() > python_output_limit(c_format_len) {
+        return String::new();
+    }
     out
+}
+
+/// The longest output `CPython`'s `time.strftime` returns for a C format
+/// of `format_len` bytes: it retries with buffers of 1024, 2048, ...
+/// bytes until one is at least 256 times as long as the format, and an
+/// output that does not fit the last with its terminating NUL becomes
+/// `""`.
+fn python_output_limit(format_len: usize) -> usize {
+    let wanted = format_len.saturating_mul(256);
+    let mut buffer = 1024_usize;
+    while buffer < wanted {
+        buffer = buffer.saturating_mul(2);
+    }
+    buffer - 1
 }
 
 /// Python's zero-padded `%Y`, `%G`, `%F` and `%C` for years before 1000.
@@ -152,7 +189,8 @@ impl Conversion {
         }
         let mut width = None::<usize>;
         while let Some(&(_, c @ '0'..='9')) = chars.peek() {
-            width = Some(width.unwrap_or(0).saturating_mul(10) + c as usize - '0' as usize);
+            let digit = c as usize - '0' as usize;
+            width = Some(width.unwrap_or(0).saturating_mul(10).saturating_add(digit));
             chars.next();
         }
         conversion.width = width;
@@ -357,6 +395,21 @@ mod tests {
         assert_eq!(d.strftime("%U %W %V %G"), "01 00 53 2020");
         let d = datetime(2024, 12, 30, 0, 0, 0, 0);
         assert_eq!(d.strftime("%U %W %V %G %g"), "52 53 01 2025 25");
+    }
+
+    #[test]
+    fn outputs_longer_than_python_buffers_are_empty() {
+        let d = datetime(2020, 1, 1, 0, 0, 0, 0);
+        assert_eq!(d.strftime("%2047d").len(), 2047);
+        assert_eq!(d.strftime("x%2040d").len(), 2041);
+        assert_eq!(d.strftime("abc%1023dxyz").len(), 1029);
+        assert_eq!(d.strftime("%2048d"), "");
+        assert_eq!(d.strftime("%99999999999d"), "");
+        // Found by fuzzing: the width used to be allocated in full, and
+        // widths beyond `usize::MAX` overflowed while parsed.
+        assert_eq!(d.strftime("f%%1.58713%128656405640377e0"), "");
+        assert_eq!(d.strftime("%99999999999999999999999d"), "");
+        assert_eq!(d.strftime(&"%9999A".repeat(1000)), "");
     }
 
     #[test]

@@ -157,10 +157,11 @@ pub(super) fn explain(kind: ErrorKind, msg: &str, text: &[char], loc: usize) -> 
     } else {
         loc - line_start + 1
     };
+    // Padded by hand: `format!` refuses widths beyond `u16::MAX`.
+    let marker = format!("{}^", " ".repeat(column - 1));
     TextError::Math(format!(
-        "\n{line}\n{marker:>column$}\n{kind}: {msg}, found {found}  (at char {loc}), \
+        "\n{line}\n{marker}\n{kind}: {msg}, found {found}  (at char {loc}), \
          (line:{lineno}, col:{column})",
-        marker = "^",
         kind = kind.name(),
         found = found(text, loc),
     ))
@@ -201,6 +202,19 @@ mod tests {
         );
         let err = explain(ErrorKind::Parse, "Expected end of text", &chars("x"), 1);
         assert!(matches!(&err, TextError::Math(m) if m.contains("found end of text")));
+    }
+
+    #[test]
+    fn errors_far_along_a_line_are_marked() {
+        // Found by fuzzing: `format!` panicked on columns beyond 65535.
+        let text = chars(&"x".repeat(70_000));
+        let err = explain(ErrorKind::Parse, "Expected end of text", &text, 69_999);
+        let TextError::Math(message) = err else {
+            panic!("a math error");
+        };
+        let marker = message.lines().nth(2).expect("the marker line");
+        assert_eq!(marker.len(), 70_000);
+        assert!(marker.ends_with(" ^"));
     }
 
     #[test]

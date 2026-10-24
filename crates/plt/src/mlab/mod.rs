@@ -52,6 +52,11 @@ pub use spectral::{
 pub use stride::stride_windows;
 pub use window::{Window, blackman, hanning, window_hanning, window_none};
 
+/// The longest segment (`nfft`) or FFT (`pad_to`) of the spectral
+/// routines: matplotlib allocates windows and padded signals of whatever
+/// length is asked, until memory runs out.
+pub const MAX_FFT_LENGTH: usize = 1 << 24;
+
 /// Why a signal-processing routine rejected its input.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MlabError {
@@ -65,6 +70,8 @@ pub enum MlabError {
     },
     /// A zero FFT length (`pad_to = 0`).
     ZeroLengthFft,
+    /// A segment or FFT length (this one) above [`MAX_FFT_LENGTH`].
+    FftTooLong(usize),
     /// An explicit window whose length is not the segment length.
     WindowLength {
         /// Segment length.
@@ -125,6 +132,9 @@ impl fmt::Display for MlabError {
                 write!(f, "noverlap ({noverlap}) must be less than NFFT ({nfft})")
             }
             Self::ZeroLengthFft => f.write_str("the FFT length must be positive"),
+            Self::FftTooLong(len) => {
+                write!(f, "an FFT of {len} points is longer than {MAX_FFT_LENGTH}")
+            }
             Self::WindowLength { expected, actual } => write!(
                 f,
                 "the window length ({actual}) must match the segment length ({expected})"

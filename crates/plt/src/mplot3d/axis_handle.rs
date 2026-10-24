@@ -442,7 +442,7 @@ mod tests {
     use super::*;
     use crate::axes::TickLevel;
     use crate::figure::Figure;
-    use crate::ticker::MultipleLocator;
+    use crate::ticker::{MaxNLocator, MultipleLocator, Nbins};
 
     #[test]
     fn fixed_ticks_widen_the_view_and_take_labels() {
@@ -492,6 +492,20 @@ mod tests {
         assert_ne!(b.yaxis().ticks().unwrap().minor.len(), 0);
         b.yaxis().minorticks_off();
         assert_eq!(a.yaxis().ticks().unwrap().minor.len(), 0);
+    }
+
+    #[test]
+    fn absurd_tick_counts_are_refused() {
+        // Found by fuzzing: a million tick labels took minutes to draw.
+        let ax = Figure::new().subplot_3d();
+        let locator = |nbins| MaxNLocator::new(Nbins::Fixed(nbins));
+        ax.zaxis().set_major_locator(locator(1 << 20));
+        assert!(matches!(
+            ax.zaxis().ticks(),
+            Err(TickerError::TooManyTicks(_))
+        ));
+        ax.zaxis().set_major_locator(locator(5));
+        assert!(ax.zaxis().ticks().is_ok());
     }
 
     #[test]

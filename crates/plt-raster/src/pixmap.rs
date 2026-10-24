@@ -7,6 +7,12 @@ use crate::error::RasterError;
 /// `RendererAgg` rejects images of 2²³ pixels or more per side.
 pub const MAX_DIMENSION: u32 = 1 << 23;
 
+/// Upper bound on the pixels of a buffer (4 GiB of RGBA). The allocator
+/// of an overcommitting system grants far larger buffers, and the system
+/// then kills the process as they are filled; matplotlib, with no bound
+/// but [`MAX_DIMENSION`], goes the same way.
+pub const MAX_PIXELS: usize = 1 << 30;
+
 /// Checks dimensions and returns the number of pixels.
 pub(crate) fn pixel_count(width: u32, height: u32) -> Result<usize, RasterError> {
     if width >= MAX_DIMENSION || height >= MAX_DIMENSION {
@@ -14,6 +20,7 @@ pub(crate) fn pixel_count(width: u32, height: u32) -> Result<usize, RasterError>
     }
     (width as usize)
         .checked_mul(height as usize)
+        .filter(|&pixels| pixels <= MAX_PIXELS)
         .ok_or(RasterError::InvalidDimensions { width, height })
 }
 
@@ -281,6 +288,10 @@ mod tests {
                 height: side
             })
         );
+        // Found by fuzzing: a tight box around a long, large text asked
+        // for 60 GB, which the allocator granted and the system killed.
+        assert!(Pixmap::filled(187_000, 80_000, Rgba8::default()).is_err());
+        assert!(Pixmap::new(1 << 15, (1 << 15) + 1).is_err());
         let odd = Pixmap::filled(3, 5, Rgba8::new(1, 2, 3, 4)).unwrap();
         assert!(odd.data().chunks(4).all(|px| px == [1, 2, 3, 4]));
         assert_eq!(odd.data().len(), 60);

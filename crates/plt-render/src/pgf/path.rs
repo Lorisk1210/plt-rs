@@ -100,8 +100,32 @@ impl PgfRenderer {
         self.line(r"\end{pgfscope}");
         self.line("}");
         let extents = path.transformed(transform).extents();
-        let (x0, y0) = (self.inches(extents.x0()), self.inches(extents.y0()));
-        let (x1, y1) = (self.inches(extents.x1()), self.inches(extents.y1()));
+        // Tiles beyond TeX's largest dimension cannot be placed (and would
+        // never end for paths reaching far away): the tiling starts at the
+        // first whole tile within it and stops at its edge.
+        let max = self.inches(self.max_coordinate());
+        let start = |low: f64| {
+            if low >= -max || low.is_nan() {
+                return low;
+            }
+            // Whole tiles are skipped; where the start is too far away for
+            // them to be told apart, any start inside will do.
+            let skipped = low + (-max - low).ceil();
+            if (-max..1.0 - max).contains(&skipped) {
+                skipped
+            } else {
+                -max
+            }
+        };
+        let end = |high: f64| if high > max { max } else { high };
+        let (x0, y0) = (
+            start(self.inches(extents.x0())),
+            start(self.inches(extents.y0())),
+        );
+        let (x1, y1) = (
+            end(self.inches(extents.x1())),
+            end(self.inches(extents.y1())),
+        );
         self.line(&format!(
             r"\pgfsys@transformshift{{{}in}}{{{}in}}",
             num(x0),
@@ -437,6 +461,39 @@ fn whole(count: f64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pgf::PgfOptions;
+    use crate::renderer::Renderer;
+
+    /// The hatch tiles of `path` in a one-inch picture at 72 dpi.
+    fn hatch_tiles(path: &Path) -> usize {
+        let mut renderer = PgfRenderer::new(1.0, 1.0, 72.0, PgfOptions::default()).unwrap();
+        let gc = GraphicsContext {
+            hatch: Some(Hatch {
+                pattern: "|".to_owned(),
+                color: Rgba::BLACK,
+                linewidth: 1.0,
+            }),
+            ..GraphicsContext::default()
+        };
+        renderer.draw_path(&gc, path, &Affine2D::IDENTITY, None);
+        let text = renderer.finish().unwrap().text;
+        text.matches(r"\pgfsys@useobject{currentpattern}{}").count()
+    }
+
+    #[test]
+    fn hatches_tile_the_path_extents_within_tex_dimensions() {
+        let square = |low: f64, high: f64| {
+            Path::polygon([(low, low), (high, low), (high, high), (low, high)].map(Point::from))
+        };
+        assert_eq!(hatch_tiles(&square(0.0, 144.0)), 4);
+        assert_eq!(hatch_tiles(&square(-36.0, 108.0)), 4);
+        // Found by fuzzing: a path reaching 1e47 pixels away was tiled
+        // without end.
+        let far = Path::polyline(vec![Point::new(0.0, 0.0), Point::new(36.0, -1.16e47)]);
+        assert_eq!(hatch_tiles(&far), 227);
+        let huge = hatch_tiles(&square(-1e300, 1e300));
+        assert_eq!(huge, 454 * 454);
+    }
 
     #[test]
     fn extents_propagate_nan_like_numpy() {

@@ -118,6 +118,9 @@ impl Default for BarbsOptions {
     }
 }
 
+/// The most flags or full barbs drawn on one staff.
+const MAX_FEATURES: f64 = 10_000.0;
+
 /// How many features one magnitude gets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Tail {
@@ -150,13 +153,13 @@ impl Tail {
 
 /// How many features `range(count.astype(int))` draws: numpy's cast to
 /// `int64` truncates, and turns NaN and counts out of its range into
-/// `i64::MIN` (as x86-64 does), for which there are none.
+/// `i64::MIN` (as x86-64 does), for which there are none. Counts above
+/// [`MAX_FEATURES`] get none either: matplotlib would draw them until
+/// memory runs out.
 fn feature_count(count: f64) -> usize {
-    // 2^63, the first float above the range of `i64`.
-    const LIMIT: f64 = 9_223_372_036_854_775_808.0;
-    if (-LIMIT..LIMIT).contains(&count) {
+    if (0.0..=MAX_FEATURES).contains(&count) {
         // Truncation, exact within the range.
-        usize::try_from(count as i64).unwrap_or(0)
+        count as usize
     } else {
         0
     }
@@ -356,6 +359,10 @@ mod tests {
         assert_eq!(feature_count(f64::NAN), 0);
         assert_eq!(feature_count(-3.0), 0);
         assert_eq!(feature_count(3.9), 3);
+        // Found by fuzzing: 1e17 flags exhausted memory.
+        assert_eq!(tail(5e18, false).expect("not empty").flags, 0);
+        assert_eq!(feature_count(10_000.0), 10_000);
+        assert_eq!(feature_count(10_001.0), 0);
     }
 
     #[test]

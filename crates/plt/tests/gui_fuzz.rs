@@ -1,15 +1,20 @@
 //! The figure windows survive any input: thousands of pseudo-random mouse
 //! moves, clicks, drags, wheel turns, key presses, resizes and scale
 //! changes reach headless windows showing rectilinear, logarithmic,
-//! image, polar and 3-D axes, and whatever dialogs those events open.
-//! Nothing may panic.
+//! image, polar and 3-D axes, widgets, selectors and pickable artists,
+//! and whatever dialogs those events open. Nothing may panic.
 
 use std::time::Duration;
 
+use plt::artist::{ArtistHandle, Picker};
 use plt::axes::ImshowOptions;
 use plt::gui::Session;
 use plt::numeric::Grid;
 use plt::prelude::*;
+use plt::widgets::{
+    Button, ButtonOptions, CheckButtons, Orientation, RectangleSelector, RectangleSelectorOptions,
+    Slider, SliderOptions, SpanSelector, SpanSelectorOptions, TextBox, TextBoxOptions,
+};
 use plt_core::rng::SplitMix64;
 use plt_platform::{
     ButtonState, Key, KeyEvent, Modifiers, MouseButton, PhysicalPosition, PhysicalSize,
@@ -60,6 +65,65 @@ fn figures() -> Result<Vec<(Figure, String)>, Box<dyn std::error::Error>> {
         (round, "Polar".to_owned()),
         (deep, "3D".to_owned()),
     ])
+}
+
+/// The widgets of [`widget_figure`], kept alive while it is shown.
+type Widgets = Vec<Box<dyn std::any::Any>>;
+
+/// A figure of widgets and selectors over a plot whose artists can be
+/// picked, with callbacks that change the plot.
+fn widget_figure() -> Result<(Figure, Widgets), Box<dyn std::error::Error>> {
+    let fig = Figure::with_size(4.0, 3.0, 50.0);
+    let plot = fig.add_axes([0.1, 0.45, 0.85, 0.5])?;
+    plot.plot(vec![0.0, 1.0, 2.0], vec![1.0, 3.0, 2.0])?
+        .set_picker(Some(Picker::Radius(5.0)));
+    let mut widgets: Widgets = Vec::new();
+    let slider = Slider::new(
+        &fig.add_axes([0.1, 0.3, 0.35, 0.05])?,
+        "s",
+        -1.0,
+        1.0,
+        SliderOptions::default(),
+    )?;
+    let target = plot.clone();
+    slider.on_changed(move |value| drop(target.set_ylim(value, value + 3.0)));
+    widgets.push(Box::new(slider));
+    let text = TextBox::new(
+        &fig.add_axes([0.6, 0.3, 0.35, 0.05])?,
+        "t",
+        "x",
+        TextBoxOptions::default(),
+    );
+    let target = plot.clone();
+    text.on_submit(move |value| {
+        target.set_title(value);
+    });
+    widgets.push(Box::new(text));
+    let check = CheckButtons::new(
+        &fig.add_axes([0.1, 0.05, 0.3, 0.2])?,
+        &["a", "b"],
+        &[true, false],
+    );
+    widgets.push(Box::new(check));
+    widgets.push(Box::new(Button::new(
+        &fig.add_axes([0.5, 0.05, 0.2, 0.1])?,
+        "Go",
+        ButtonOptions::default(),
+    )));
+    let span = SpanSelector::new(
+        &plot,
+        Orientation::Horizontal,
+        SpanSelectorOptions::default(),
+    );
+    let target = plot.clone();
+    span.on_select(move |low, high| drop(target.set_xlim(low, high)));
+    widgets.push(Box::new(span));
+    let rectangle = RectangleSelectorOptions {
+        interactive: true,
+        ..RectangleSelectorOptions::default()
+    };
+    widgets.push(Box::new(RectangleSelector::new(&plot, rectangle)));
+    Ok((fig, widgets))
 }
 
 /// The keys tried: matplotlib's default key bindings and their
@@ -163,7 +227,9 @@ fn event(stream: &mut Stream, size: PhysicalSize) -> WindowEvent {
 
 #[test]
 fn windows_survive_random_input() -> Result<(), Box<dyn std::error::Error>> {
-    let figures = figures()?;
+    let mut figures = figures()?;
+    let (widgets, _kept) = widget_figure()?;
+    figures.push((widgets, "Widgets".to_owned()));
     let (mut session, handle) = Session::headless();
     session.show(&figures)?;
     let mut stream = Stream(SplitMix64::new(20_261_019));

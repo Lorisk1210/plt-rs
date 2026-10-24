@@ -1,7 +1,7 @@
 //! printf-style formatting: Python's `fmt % value` with one number.
 
-use super::FormatError;
 use super::dtoa::{FloatStyle, Presentation, format_float};
+use super::{FormatError, bounded_field};
 
 /// The `%` conversion flags.
 #[expect(
@@ -150,8 +150,8 @@ fn integer_body(value: f64, precision: Option<usize>) -> Result<String, FormatEr
         Some(digits) => ("-", digits),
         None => ("", text.as_str()),
     };
-    let width = precision.unwrap_or(0);
-    Ok(format!("{sign}{digits:0>width$}"))
+    let zeros = "0".repeat(precision.unwrap_or(0).saturating_sub(digits.len()));
+    Ok(format!("{sign}{zeros}{digits}"))
 }
 
 /// `CPython`'s `unicode_format_arg_output`: sign, width and fill.
@@ -255,10 +255,16 @@ impl Parser<'_> {
                 )));
             }
         };
+        if width > Some(isize::MAX as usize) {
+            return Err(FormatError::Value("width too big".into()));
+        }
+        if precision > Some(i32::MAX as usize) {
+            return Err(FormatError::Value("precision too big".into()));
+        }
         Ok(Conversion {
             flags,
-            width,
-            precision,
+            width: bounded_field(width, "width")?,
+            precision: bounded_field(precision, "precision")?,
             kind,
         })
     }
@@ -273,6 +279,23 @@ mod tests {
             .unwrap()
             .format(value)
             .unwrap()
+    }
+
+    #[test]
+    fn huge_widths_and_precisions_are_refused() {
+        let error = |template: &str| PrintfFormat::parse(template).unwrap_err();
+        assert_eq!(
+            error("%99999999999999999999d"),
+            FormatError::Value("width too big".into())
+        );
+        assert_eq!(
+            error("%.2147483648f"),
+            FormatError::Value("precision too big".into())
+        );
+        assert!(matches!(error("%2000000d"), FormatError::Unsupported(_)));
+        assert!(matches!(error("%.2000000f"), FormatError::Unsupported(_)));
+        assert_eq!(printf("%1048576d", 1.0).len(), 1 << 20);
+        assert_eq!(printf("%.70000d", -1.0).len(), 70_001);
     }
 
     #[test]

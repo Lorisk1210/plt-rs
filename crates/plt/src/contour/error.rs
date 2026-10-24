@@ -90,6 +90,9 @@ pub enum ContourError {
     /// There is no label to remove: none at the index given, or none at
     /// all (`None`).
     NoLabel(Option<usize>),
+    /// More levels (this many) to label than
+    /// [`MAX_LABELLED_LEVELS`](super::MAX_LABELLED_LEVELS).
+    TooManyLabels(usize),
     /// Given segments are not one list per level (lines) or band (fills).
     SegmentCount {
         /// Levels (lines) or bands (fills).
@@ -186,6 +189,11 @@ impl fmt::Display for ContourError {
             }
             Self::NoLabel(Some(index)) => write!(f, "the contour set has no label {index}"),
             Self::NoLabel(None) => f.write_str("the contour set has no labels"),
+            Self::TooManyLabels(count) => write!(
+                f,
+                "{count} levels to label are more than {}",
+                super::MAX_LABELLED_LEVELS
+            ),
             Self::SegmentCount { expected, actual } => write!(
                 f,
                 "{actual} lists of segments given for {expected} levels or bands"

@@ -131,8 +131,13 @@ impl LogLocator {
                 stride,
             ));
         }
+        if n_avail < 0 {
+            // A base below 1 turns the decades around; matplotlib divides
+            // by zero or fails an assertion.
+            return Err(TickerError::invalid("base", "below 1 for a log axis"));
+        }
         let mut n_request = n_request;
-        let stride = n_avail.div_euclid(n_request + 1) + 1;
+        let stride = n_avail.div_euclid(n_request.saturating_add(1)) + 1;
         let nr = (n_avail as f64 / stride as f64).ceil() as i64;
         if nr <= n_request {
             n_request = nr;
@@ -185,7 +190,8 @@ impl Locator for LogLocator {
             (NumTicks::Fixed(n), _) => n,
             (NumTicks::Auto, Some(axis)) => axis.tick_space.clamp(2, 9),
             (NumTicks::Auto, None) => 9,
-        } as i64;
+        };
+        let n_request = i64::try_from(n_request).unwrap_or(i64::MAX);
         let b = self.base;
         let mut vmin = vmin;
         let mut vmax = vmax;
@@ -403,5 +409,17 @@ mod tests {
         assert!(LogLocator::new(1.0).is_err());
         assert!(LogLocator::new(0.0).is_err());
         assert!(LogLocator::new(f64::NAN).is_err());
+    }
+
+    #[test]
+    fn bases_below_one_and_huge_tick_counts_do_not_overflow() {
+        // Found by fuzzing: base 0.76 overflowed the decade arithmetic.
+        let ctx = TickContext::default();
+        let below_one = LogLocator::new(0.76).unwrap();
+        assert!(below_one.tick_values(1e-5, 1e5, &ctx).is_err());
+        let many = LogLocator::new(10.0)
+            .unwrap()
+            .with_numticks(NumTicks::Fixed(usize::MAX));
+        assert!(many.tick_values(1.0, 1e5, &ctx).is_ok());
     }
 }

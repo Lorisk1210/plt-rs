@@ -113,6 +113,11 @@ impl PolarMap {
     }
 }
 
+/// The most whole turns an arc retraces. matplotlib retraces every one
+/// (each darkens the antialiased edges of the circle a little more), but
+/// loops without end on astronomical spans.
+const MAX_TURNS: f64 = 1000.0;
+
 /// Vertices and codes of a path under construction.
 #[derive(Default)]
 struct CurvedPath {
@@ -127,8 +132,15 @@ impl CurvedPath {
     }
 
     /// The arc of radius `r` from `from` to `to` degrees, whole turns
-    /// first, without its first vertex.
+    /// first, without its first vertex. Like matplotlib, which retraces
+    /// the circle once per whole turn (without end for astronomical
+    /// spans), but at most [`MAX_TURNS`] times.
     fn push_arc(&mut self, mut from: f64, to: f64, r: f64) {
+        let span = (to - from).abs();
+        if span > 360.0 * (MAX_TURNS + 1.0) {
+            let kept = 360.0 * MAX_TURNS + span.rem_euclid(360.0);
+            from = if from <= to { to - kept } else { to + kept };
+        }
         let mut push = |theta1: f64, theta2: f64, reversed: bool| {
             let arc = Path::arc(theta1, theta2, None);
             let mut points = arc.vertices().to_vec();
@@ -487,6 +499,28 @@ mod tests {
         assert!((east.x - 100.0).abs() < 1e-9 && (east.y - 50.0).abs() < 1e-9);
         let north = data.transform_point(Point::new(FRAC_PI_2, 1.0));
         assert!((north.x - 50.0).abs() < 1e-9 && (north.y - 75.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn arcs_retrace_at_most_a_few_whole_turns() {
+        let arc = |from: f64, to: f64| {
+            let mut out = CurvedPath::default();
+            out.push_arc(from, to, 1.0);
+            out.vertices.len()
+        };
+        // Every turn is drawn, as matplotlib draws them (the
+        // `mixed_errorbar_polar_caps` case has a 1146° error bar).
+        assert_eq!(arc(0.0, 1000.0), 2 * arc(0.0, 360.0) + arc(0.0, 280.0));
+        assert_eq!(arc(0.0, 1146.0), 3 * arc(0.0, 360.0) + arc(0.0, 66.0));
+        // Found by fuzzing: astronomical spans looped without end.
+        for (from, to) in [
+            (0.0, 3.6e8),
+            (0.0, 1e300),
+            (-1e300, 1e300),
+            (0.0, f64::INFINITY),
+        ] {
+            assert!(arc(from, to) < 100_000, "{from} to {to}");
+        }
     }
 
     #[test]

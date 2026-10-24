@@ -32,8 +32,11 @@ pub fn interp(x: f64, xp: &[f64], fp: &[f64], bounds: Option<(f64, f64)>) -> f64
     if x < xp[0] {
         return left;
     }
-    // The last index whose sample does not exceed x.
-    let j = xp.partition_point(|&v| v <= x) - 1;
+    // The last index whose sample does not exceed x; none (numpy's -1)
+    // only when NaN samples break the order.
+    let Some(j) = xp.partition_point(|&v| v <= x).checked_sub(1) else {
+        return left;
+    };
     #[expect(
         clippy::float_cmp,
         reason = "numpy returns the sample itself on an exact hit"
@@ -72,5 +75,8 @@ mod tests {
         assert!(interp(f64::NAN, &xp, &fp, None).is_nan());
         assert_eq!(interp(2.0, &[1.0], &[7.0], Some((0.0, 9.0))), 9.0);
         assert!(interp(1.0, &[], &[], None).is_nan());
+        // Found by fuzzing: a NaN first sample underflowed the search.
+        let unordered = [f64::NAN, f64::NAN, 2.0];
+        assert_eq!(interp(1.0, &unordered, &fp[..3], Some((-1.0, 9.0))), -1.0);
     }
 }

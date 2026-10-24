@@ -15,5 +15,9 @@ plt-render.workspace = true
 plt-text.workspace = true
 plt-ui.workspace = true
 
+[dev-dependencies]
+# The fuzz tests feed corrupted fonts to the font parser directly.
+plt-font.workspace = true
+
 [lints]
 workspace = true

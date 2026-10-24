@@ -235,7 +235,7 @@ pub fn cohere<S: SignalValue, U: SignalValue>(
     y: &[U],
     opts: SpectralOptions,
 ) -> Result<Spectrum, MlabError> {
-    if x.len() < 2 * opts.nfft {
+    if x.len() < opts.nfft.saturating_mul(2) {
         return Err(MlabError::SignalTooShort {
             len: x.len(),
             nfft: opts.nfft,
@@ -370,6 +370,30 @@ mod tests {
         assert!((power - mean_square).abs() < 1e-12);
         assert_eq!(p.freqs[0], -0.5);
         assert!(p.freqs.windows(2).all(|w| w[0] < w[1]));
+    }
+
+    #[test]
+    fn huge_segment_and_fft_lengths_are_refused() {
+        // Found by fuzzing: `cohere` overflowed computing `2 * nfft`, and
+        // the spectra allocated windows of any length.
+        let x = signal(32);
+        let with = |nfft, pad_to| SpectralOptions {
+            nfft,
+            pad_to,
+            ..SpectralOptions::default()
+        };
+        assert!(matches!(
+            cohere(&x, &x, with(usize::MAX, None)),
+            Err(MlabError::SignalTooShort { .. })
+        ));
+        assert_eq!(
+            psd(&x, with(1 << 31, None)).unwrap_err(),
+            MlabError::FftTooLong(1 << 31)
+        );
+        assert_eq!(
+            psd(&x, with(16, Some(1 << 40))).unwrap_err(),
+            MlabError::FftTooLong(1 << 40)
+        );
     }
 
     #[test]

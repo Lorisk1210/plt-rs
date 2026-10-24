@@ -34,6 +34,9 @@ pub use arrow::{StreamArrow, StreamArrowHead, StreamArrowStyle, UnknownArrowStyl
 pub use domain::GridAxis;
 pub use error::StreamplotError;
 pub use integrate::IntegrationDirection;
+pub use integrate::MAX_STEPS;
+pub use mask::MAX_CELLS;
+pub use plan::MAX_ARROWS;
 
 pub(crate) use arrow::{ArrowLook, StreamArrowArtist};
 pub(crate) use plan::StreamPlan;

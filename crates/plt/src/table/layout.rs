@@ -13,6 +13,11 @@ use crate::text::TextDrawError;
 /// fractions.
 const AXES_PAD: f64 = 0.02;
 
+/// The largest font size the automatic sizing starts from. matplotlib
+/// steps down a point at a time from the cells' size: without end from
+/// sizes so large that a point less is the same size, or infinite ones.
+const MAX_AUTO_FONTSIZE: f64 = 1000.0;
+
 /// The size of every cell while the table is laid out.
 struct Sizes {
     width: Vec<f64>,
@@ -56,6 +61,9 @@ impl TableArtist {
                     continue;
                 }
                 let mut size = sizes.fontsize[i];
+                if size > MAX_AUTO_FONTSIZE {
+                    size = MAX_AUTO_FONTSIZE;
+                }
                 let mut needed = required(cell, size)?;
                 while size > 1.0 && needed > sizes.width[i] {
                     size -= 1.0;
@@ -238,6 +246,19 @@ mod tests {
             table.auto_set_font_size(false);
         });
         assert_eq!(fixed[0].fontsize, 10.0);
+    }
+
+    #[test]
+    fn huge_fonts_shrink_in_bounded_steps() {
+        // Found by fuzzing: stepping down a point at a time from an
+        // infinite size never ended.
+        let options = TableOptions {
+            col_widths: Some(vec![0.05]),
+            fontsize: Some(f64::INFINITY),
+            ..TableOptions::with_text(texts(&[&["a rather long cell text"]]))
+        };
+        let shrunk = placed(&options, |_| {});
+        assert!(shrunk[0].fontsize < 10.0);
     }
 
     #[test]

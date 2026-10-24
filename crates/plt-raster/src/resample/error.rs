@@ -18,7 +18,9 @@ pub enum ResampleError {
         /// Number of pixels supplied.
         len: usize,
     },
-    /// A grid side exceeds [`MAX_DIMENSION`](super::MAX_DIMENSION).
+    /// A grid side exceeds [`MAX_DIMENSION`](super::MAX_DIMENSION), or the
+    /// grid exceeds [`MAX_PIXELS`](crate::MAX_PIXELS) or the memory there
+    /// is.
     TooLarge {
         /// Grid width.
         width: usize,
@@ -56,8 +58,9 @@ impl fmt::Display for ResampleError {
             }
             Self::TooLarge { width, height } => write!(
                 f,
-                "a {width}x{height} grid exceeds the maximum side of {}",
-                super::MAX_DIMENSION
+                "a {width}x{height} grid exceeds the maximum side of {} or {} pixels",
+                super::MAX_DIMENSION,
+                crate::MAX_PIXELS
             ),
             Self::EmptySource => f.write_str("the source image is empty"),
             Self::SingularTransform => {

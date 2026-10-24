@@ -163,10 +163,11 @@ pub struct Datetime64 {
 }
 
 impl Datetime64 {
-    /// The instant `seconds + nanos` after 1970-01-01T00:00:00.
+    /// The instant `seconds + nanos` after 1970-01-01T00:00:00 (the whole
+    /// seconds saturating at the ends of `i64`).
     pub const fn new(seconds: i64, nanos: u32) -> Self {
         Self {
-            seconds: seconds + (nanos / 1_000_000_000) as i64,
+            seconds: seconds.saturating_add((nanos / 1_000_000_000) as i64),
             nanos: nanos % 1_000_000_000,
         }
     }
@@ -181,9 +182,12 @@ impl Datetime64 {
         self.nanos
     }
 
-    /// Microseconds since the Unix epoch, rounded down.
+    /// Microseconds since the Unix epoch, rounded down and saturating at
+    /// the ends of `i64` (beyond about 292,000 years from 1970).
     pub const fn timestamp_micros(self) -> i64 {
-        self.seconds * MICROS_PER_SECOND + (self.nanos / 1000) as i64
+        self.seconds
+            .saturating_mul(MICROS_PER_SECOND)
+            .saturating_add((self.nanos / 1000) as i64)
     }
 
     /// Parses numpy's `datetime64` string syntax: `YYYY[-MM[-DD[THH[:MM[:SS[.f]]]]]]`
@@ -239,6 +243,11 @@ impl Datetime64 {
         };
         if !cursor.at_end() {
             return Err(invalid());
+        }
+        // The year `i64::MAX` seconds reach: beyond it, no instant exists
+        // (and the calendar arithmetic would overflow).
+        if year.unsigned_abs() > 292_277_026_596 {
+            return Err(DateError::field("year", year));
         }
         let [month, day, hour, minute, second] = fields;
         let valid_day = (1..=12).contains(&month)
@@ -402,5 +411,16 @@ mod tests {
         assert_eq!(Datetime64::parse(" nat "), Ok(None));
         assert!(Datetime64::parse("2020-13-01").is_err());
         assert!(Datetime64::parse("2020-01-01T").is_err());
+    }
+
+    #[test]
+    fn extreme_datetime64_years_are_rejected_or_saturate() {
+        assert!(Datetime64::parse("292277026596-01-01").is_ok());
+        assert!(Datetime64::parse("9223372036854775807").is_err());
+        assert!(Datetime64::parse("-9223372036854775807-12-31").is_err());
+        // Found by fuzzing: microseconds of far instants overflowed.
+        let far = Datetime64::parse("99202099").unwrap().unwrap();
+        assert_eq!(far.timestamp_micros(), i64::MAX);
+        assert_eq!(Datetime64::new(i64::MAX, 2_000_000_000).seconds(), i64::MAX);
     }
 }

@@ -5,8 +5,7 @@ use plt_core::numeric::{divmod, floor_div};
 
 use super::Locator;
 use super::maxn::EdgeInteger;
-use crate::numeric::linspace;
-use crate::ticker::pymath::{arange, ceil_int, floor_int};
+use crate::ticker::pymath::{arange, ceil_int, floor_int, linspace};
 use crate::ticker::{AutolimitMode, TickContext, TickerError};
 use crate::transforms::nonsingular;
 
@@ -52,7 +51,7 @@ impl Locator for LinearLocator {
         if let Some((_, locs)) = self.presets.iter().find(|(key, _)| *key == view) {
             return Ok(locs.clone());
         }
-        Ok(linspace(view.0, view.1, self.numticks()))
+        linspace(view.0, view.1, self.numticks())
     }
 
     fn view_limits(
@@ -172,6 +171,16 @@ impl Locator for MultipleLocator {
 mod tests {
     use super::*;
     use crate::ticker::TickerSettings;
+
+    #[test]
+    fn huge_tick_counts_are_refused() {
+        // Found by fuzzing: 2^31 ticks asked for 16 GB.
+        let ctx = TickContext::default();
+        assert_eq!(
+            LinearLocator::new(Some(1 << 31)).tick_values(0.0, 1.0, &ctx),
+            Err(TickerError::TooManyTicks(1 << 31))
+        );
+    }
 
     #[test]
     fn linear_locator() {

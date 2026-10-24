@@ -163,6 +163,25 @@ fn degenerate_paths_get_no_ticks() {
 }
 
 #[test]
+fn paths_reaching_far_away_get_no_ticks() {
+    // Found by fuzzing: a vertex at 1e14 pixels asked for 6e12 ticks.
+    let gc = GraphicsContext::default();
+    let mut recorder = Recorder::default();
+    let far = Path::polyline(vec![
+        Point::ORIGIN,
+        Point::new(10.0, 1e14),
+        Point::new(20.0, 0.0),
+    ]);
+    PathEffectRenderer::new(
+        vec![PathEffect::ticked_stroke(TickedStroke::default())],
+        &mut recorder,
+    )
+    .unwrap()
+    .draw_path(&gc, &far, &Affine2D::IDENTITY, None);
+    assert_eq!(recorder.calls.len(), 0);
+}
+
+#[test]
 fn markers_are_drawn_once_per_effect() {
     let gc = GraphicsContext::default();
     let mut recorder = Recorder::default();

@@ -62,6 +62,9 @@ pub enum StatsError {
     },
     /// A kernel density estimate needs more than one sample value.
     TooFewSamples,
+    /// More evaluation points (this many) than
+    /// [`MAX_VIOLIN_POINTS`](super::MAX_VIOLIN_POINTS).
+    TooManyPoints(usize),
     /// The sample covariance matrix cannot be inverted.
     SingularCovariance,
     /// Evaluation points whose dimension differs from the dataset's.
@@ -124,6 +127,11 @@ impl fmt::Display for StatsError {
             } => write!(f, "{actual} {what} given for {datasets} datasets"),
             Self::TooFewSamples => f.write_str("a kernel density estimate needs multiple samples"),
             Self::SingularCovariance => f.write_str("the data covariance matrix is singular"),
+            Self::TooManyPoints(points) => write!(
+                f,
+                "{points} evaluation points are more than {}",
+                super::MAX_VIOLIN_POINTS
+            ),
             Self::DimensionMismatch { expected, actual } => write!(
                 f,
                 "points have dimension {actual}, dataset has dimension {expected}"

@@ -46,10 +46,12 @@ pub use formatter::{
     ScalarFormatter, StrMethodFormatter, strip_math,
 };
 pub use label_format::LabelFormat;
+pub(crate) use locator::drawable_ticks;
 pub use locator::{
     AsinhLocator, AutoLocator, AutoMinorLocator, FixedLocator, IndexLocator, LinearLocator,
-    Locator, LogLocator, LogSubs, LogitLocator, MAXTICKS, MaxNLocator, MultipleLocator, Nbins,
-    NullLocator, NumTicks, Prune, SymmetricalLogLocator, exceeds_max_ticks, scale_range,
+    Locator, LogLocator, LogSubs, LogitLocator, MAX_DRAWN_TICKS, MAXTICKS, MaxNLocator,
+    MultipleLocator, Nbins, NullLocator, NumTicks, Prune, SymmetricalLogLocator, exceeds_max_ticks,
+    scale_range,
 };
 pub use plt_core::pyfmt;
 pub use settings::{AutolimitMode, MinorDivisions, TickerSettings};

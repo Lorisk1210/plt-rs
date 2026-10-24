@@ -80,6 +80,10 @@ pub fn violin_stats<D: AsRef<[f64]>>(
     )
 }
 
+/// The most points a violin's density is evaluated at: matplotlib
+/// allocates whatever count is asked, until memory runs out.
+pub const MAX_VIOLIN_POINTS: usize = 1 << 20;
+
 /// Violin statistics with a custom density estimator `method(samples,
 /// coords)`, which receives the finite samples of one dataset.
 pub fn violin_stats_with<D, F>(
@@ -92,6 +96,9 @@ where
     D: AsRef<[f64]>,
     F: FnMut(&[f64], &[f64]) -> Result<Vec<f64>, StatsError>,
 {
+    if points > MAX_VIOLIN_POINTS {
+        return Err(StatsError::TooManyPoints(points));
+    }
     let quantiles: Vec<&[f64]> = match quantiles {
         Some(q) if !q.is_empty() => q.iter().map(Vec::as_slice).collect(),
         _ => vec![&[]; datasets.len()],
@@ -153,6 +160,19 @@ mod tests {
         assert_eq!(stats[0].vals, vec![1.0, 1.0, 1.0]);
         assert!(stats[1].coords.is_empty() && stats[1].mean.is_nan());
         assert_eq!((stats[2].min, stats[2].max), (3.0, 3.0));
+    }
+
+    #[test]
+    fn evaluation_point_counts_are_bounded() {
+        // Found by fuzzing: `usize::MAX` points overflowed the capacity.
+        let opts = ViolinOptions {
+            points: usize::MAX,
+            ..ViolinOptions::default()
+        };
+        assert_eq!(
+            violin_stats(&[[1.0, 2.0]], opts),
+            Err(StatsError::TooManyPoints(usize::MAX))
+        );
     }
 
     #[test]

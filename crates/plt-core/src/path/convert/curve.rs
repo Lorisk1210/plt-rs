@@ -10,9 +10,10 @@ use crate::path::PathCode;
 const COLLINEARITY_EPSILON: f64 = 1e-30;
 const RECURSION_LIMIT: u32 = 32;
 /// Subdivision steps allowed per curve. Agg terminates far earlier for
-/// every finite curve of realistic size; only NaN-poisoned curves (which
-/// make Agg recurse ~2^33 times) exhaust it.
-const NODE_BUDGET: usize = 1 << 20;
+/// every curve within a billion pixels of the canvas; only curves reaching
+/// farther and NaN-poisoned ones (which make Agg recurse ~2^33 times)
+/// exhaust it, and each that does costs the whole budget.
+const NODE_BUDGET: usize = 1 << 16;
 /// `(0.5 / approximation_scale)²`: the squared flatness tolerance in pixels.
 const DISTANCE_TOLERANCE_SQ: f64 = 0.25;
 

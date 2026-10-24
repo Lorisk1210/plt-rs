@@ -1,175 +1,174 @@
 //! Arena owning every artist of a figure.
 
 use std::any::Any;
-use std::collections::BTreeMap;
 use std::fmt;
 
 use super::Artist;
 
 /// Identifies an artist within its figure's [`ArtistStore`].
 ///
-/// Every insertion gets a new serial number, so once an artist is removed,
-/// stale ids never alias a newer artist that reuses the slot; ids compare
-/// in the order their artists were created.
+/// Ids are handed out in the order the artists are created, and compare
+/// in that order. An id is never given to another artist, not even once
+/// its artist was removed from the figure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ArtistId {
-    /// When the artist was inserted, counting from 0.
-    serial: u64,
-    /// Its slot in the store.
+    /// The artist's slot in the store, which is also how many artists
+    /// were created before it.
     index: u32,
 }
 
 impl fmt::Display for ArtistId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "#{}v{}", self.index, self.serial)
+        write!(f, "#{}", self.index)
     }
 }
 
-#[derive(Debug)]
-struct Slot {
-    /// The serial of the artist in the slot, or of the last one.
-    serial: u64,
-    artist: Option<Box<dyn Artist>>,
-}
-
-/// Owner of all artists in a figure, addressed by [`ArtistId`].
+/// Owner of the artists in a figure, addressed by [`ArtistId`].
+///
+/// Each artist has a slot of its own. An artist can be taken out of its
+/// slot and put back; meanwhile the store behaves as if it were absent.
 #[derive(Debug, Default)]
 pub struct ArtistStore {
-    slots: Vec<Slot>,
-    free: Vec<u32>,
-    /// The slots of the live artists by serial: the order the artists were
-    /// created in, which slot order stops being once the slots of removed
-    /// artists are reused.
-    order: BTreeMap<u64, u32>,
-    next_serial: u64,
+    slots: Vec<Option<Box<dyn Artist>>>,
 }
 
 impl ArtistStore {
     /// Takes ownership of `artist` and returns its id.
     pub fn insert(&mut self, mut artist: Box<dyn Artist>) -> ArtistId {
-        let index = self.free.pop().unwrap_or_else(|| {
-            let index = u32::try_from(self.slots.len()).expect("fewer than 2^32 artists");
-            self.slots.push(Slot {
-                serial: 0,
-                artist: None,
-            });
-            index
-        });
-        let id = ArtistId {
-            serial: self.next_serial,
-            index,
-        };
-        self.next_serial += 1;
+        let index = u32::try_from(self.slots.len()).expect("fewer than 2^32 artists");
+        let id = ArtistId { index };
         artist.base_mut().assign_id(id);
-        self.order.insert(id.serial, index);
-        self.slots[index as usize] = Slot {
-            serial: id.serial,
-            artist: Some(artist),
-        };
+        self.slots.push(Some(artist));
         id
     }
 
-    /// Whether `id` refers to a live artist.
+    /// Whether `id` refers to an artist in the store.
     pub fn contains(&self, id: ArtistId) -> bool {
-        self.slot(id).is_some_and(|s| s.artist.is_some())
+        self.get(id).is_some()
     }
 
-    /// The artist with `id`, if it is alive.
+    /// The artist with `id`, if it is in the store.
     pub fn get(&self, id: ArtistId) -> Option<&dyn Artist> {
-        self.slot(id)?.artist.as_deref()
+        self.slots.get(id.index as usize)?.as_deref()
     }
 
-    /// Mutable access to the artist with `id`, if it is alive.
+    /// Mutable access to the artist with `id`, if it is in the store.
     pub fn get_mut(&mut self, id: ArtistId) -> Option<&mut (dyn Artist + 'static)> {
-        self.slot_mut(id)?.artist.as_deref_mut()
+        self.slots.get_mut(id.index as usize)?.as_deref_mut()
     }
 
     /// The artist with `id` as concrete type `T`.
     pub fn get_as<T: Artist>(&self, id: ArtistId) -> Option<&T> {
-        let artist: &dyn Any = self.get(id)?;
-        artist.downcast_ref()
+        downcast_ref(self.get(id)?)
     }
 
     /// Mutable access to the artist with `id` as concrete type `T`.
     pub fn get_as_mut<T: Artist>(&mut self, id: ArtistId) -> Option<&mut T> {
-        let artist: &mut dyn Any = self.get_mut(id)?;
-        artist.downcast_mut()
+        downcast_mut(self.get_mut(id)?)
     }
 
-    /// Removes the artist and, recursively, every artist it owns.
-    pub fn remove(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
-        let artist = self.slot_mut(id)?.artist.take()?;
-        self.order.remove(&id.serial);
-        self.free.push(id.index);
-        for child in artist.children() {
-            self.remove(child);
-        }
-        Some(artist)
+    /// Takes the artist out of the store: until it is
+    /// [put back](Self::put_back), `id` behaves as if the artist were
+    /// absent.
+    pub fn take(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
+        self.slots.get_mut(id.index as usize)?.take()
     }
 
-    /// Temporarily takes the artist out of the store so it can be mutated
-    /// while the rest of the store is read or written.
-    ///
-    /// The artist must be returned with [`restore`](Self::restore); until
-    /// then `id` behaves as if the artist were absent.
-    pub fn detach(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
-        self.slot_mut(id)?.artist.take()
-    }
-
-    /// Puts back an artist taken out with [`detach`](Self::detach).
-    pub fn restore(&mut self, id: ArtistId, artist: Box<dyn Artist>) {
+    /// Puts back an artist taken out with [`take`](Self::take) or
+    /// [`take_tree`](Self::take_tree).
+    pub fn put_back(&mut self, id: ArtistId, artist: Box<dyn Artist>) {
         let slot = self
-            .slot_mut(id)
-            .expect("restore is only called with the id used to detach");
-        debug_assert!(slot.artist.is_none(), "slot reoccupied while detached");
-        slot.artist = Some(artist);
+            .slots
+            .get_mut(id.index as usize)
+            .expect("artists are only put back under an id the store handed out");
+        debug_assert!(slot.is_none(), "slot reoccupied while taken out");
+        *slot = Some(artist);
+    }
+
+    /// Takes the artist and, recursively, every artist it owns out of the
+    /// store (see [`take`](Self::take)), the artist first.
+    pub fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, Box<dyn Artist>)> {
+        take_tree(id, |id| self.take(id))
     }
 
     /// Runs `f` with mutable access to artist `id` (as `T`) and to the rest
     /// of the store. Returns `None` if the artist is missing or not a `T`.
-    pub fn with_detached<T: Artist, R>(
+    pub fn with_others<T: Artist, R>(
         &mut self,
         id: ArtistId,
         f: impl FnOnce(&mut T, &mut Self) -> R,
     ) -> Option<R> {
-        let mut artist = self.detach(id)?;
-        let any: &mut dyn Any = artist.as_mut();
-        let result = any.downcast_mut::<T>().map(|concrete| f(concrete, self));
-        self.restore(id, artist);
+        let mut artist = self.take(id)?;
+        let result = downcast_mut::<T>(artist.as_mut()).map(|concrete| f(concrete, self));
+        self.put_back(id, artist);
         result
     }
 
-    /// The ids of every live artist, in the order they were inserted.
+    /// The ids of every artist in the store, in the order they were
+    /// inserted.
     pub fn ids(&self) -> impl Iterator<Item = ArtistId> + '_ {
-        self.order.iter().filter_map(|(&serial, &index)| {
-            self.slots[index as usize]
-                .artist
-                .as_ref()
-                .map(|_| ArtistId { serial, index })
-        })
+        (0..)
+            .zip(&self.slots)
+            .filter(|(_, slot)| slot.is_some())
+            .map(|(index, _)| ArtistId { index })
     }
 
-    /// Number of live artists.
+    /// Number of artists in the store.
     pub fn len(&self) -> usize {
-        self.slots.iter().filter(|s| s.artist.is_some()).count()
+        self.slots.iter().flatten().count()
     }
 
     /// Returns `true` when the store holds no artists.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+}
 
-    fn slot(&self, id: ArtistId) -> Option<&Slot> {
-        self.slots
-            .get(id.index as usize)
-            .filter(|s| s.serial == id.serial)
-    }
+/// Artists looked up by id: those in a figure (its [`ArtistStore`]), or
+/// those of a figure, removed ones included (what handles see).
+pub(crate) trait ArtistLookup {
+    /// The artist with `id`, if there is one here.
+    fn artist(&self, id: ArtistId) -> Option<&dyn Artist>;
 
-    fn slot_mut(&mut self, id: ArtistId) -> Option<&mut Slot> {
-        self.slots
-            .get_mut(id.index as usize)
-            .filter(|s| s.serial == id.serial)
+    /// The artist with `id` as concrete type `T`, if there is one here.
+    fn artist_as<T: Artist>(&self, id: ArtistId) -> Option<&T> {
+        downcast_ref(self.artist(id)?)
     }
+}
+
+impl ArtistLookup for ArtistStore {
+    fn artist(&self, id: ArtistId) -> Option<&dyn Artist> {
+        self.get(id)
+    }
+}
+
+/// Takes artist `root` and, recursively, every artist it owns out of a
+/// collection of artists with `take`, the root first.
+pub(crate) fn take_tree(
+    root: ArtistId,
+    mut take: impl FnMut(ArtistId) -> Option<Box<dyn Artist>>,
+) -> Vec<(ArtistId, Box<dyn Artist>)> {
+    let mut taken = Vec::new();
+    let mut pending = vec![root];
+    while let Some(id) = pending.pop() {
+        if let Some(artist) = take(id) {
+            pending.extend(artist.children());
+            taken.push((id, artist));
+        }
+    }
+    taken
+}
+
+/// `artist` as concrete type `T`, if it is one.
+pub(crate) fn downcast_ref<T: Artist>(artist: &dyn Artist) -> Option<&T> {
+    let artist: &dyn Any = artist;
+    artist.downcast_ref()
+}
+
+/// `artist` as concrete type `T`, mutably, if it is one.
+pub(crate) fn downcast_mut<T: Artist>(artist: &mut dyn Artist) -> Option<&mut T> {
+    let artist: &mut dyn Any = artist;
+    artist.downcast_mut()
 }
 
 #[cfg(test)]
@@ -206,48 +205,61 @@ mod tests {
     }
 
     #[test]
-    fn stale_ids_do_not_alias_reused_slots() {
+    fn ids_are_never_reused() {
         let mut store = ArtistStore::default();
         let first = store.insert(Node::boxed(Vec::new()));
         assert_eq!(store.get(first).map(|a| a.base().id()), Some(first));
-        store.remove(first);
+        let taken = store.take(first);
         let second = store.insert(Node::boxed(Vec::new()));
-        assert_ne!(first, second, "the reused slot gets a new serial");
-        assert!(!store.contains(first));
-        assert!(store.contains(second));
+        assert_ne!(first, second, "a taken-out artist keeps its slot");
+        assert!(!store.contains(first) && store.contains(second));
+        store.put_back(first, taken.expect("first was in the store"));
+        assert!(store.contains(first));
     }
 
     #[test]
-    fn ids_follow_insertion_order_when_slots_are_reused() {
+    fn ids_follow_insertion_order() {
         let mut store = ArtistStore::default();
         let first = store.insert(Node::boxed(Vec::new()));
         let second = store.insert(Node::boxed(Vec::new()));
-        store.remove(first);
         let third = store.insert(Node::boxed(Vec::new()));
-        assert_eq!(store.ids().collect::<Vec<_>>(), [second, third]);
-        assert!(second < third, "ids compare in creation order");
+        store.take(second);
+        assert_eq!(store.ids().collect::<Vec<_>>(), [first, third]);
+        assert_eq!(store.len(), 2);
+        assert!(
+            first < second && second < third,
+            "ids compare in creation order"
+        );
     }
 
     #[test]
-    fn removal_is_recursive() {
+    fn trees_are_taken_out_whole() {
         let mut store = ArtistStore::default();
         let leaf = store.insert(Node::boxed(Vec::new()));
         let middle = store.insert(Node::boxed(vec![leaf]));
         let root = store.insert(Node::boxed(vec![middle]));
-        store.remove(middle);
-        assert!(!store.contains(leaf));
+        let taken: Vec<ArtistId> = store
+            .take_tree(middle)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(taken, [middle, leaf], "the artist first");
+        assert!(!store.contains(leaf) && !store.contains(middle));
         assert_eq!(store.len(), 1);
         assert!(store.contains(root));
     }
 
     #[test]
-    fn detached_artists_can_mutate_the_rest_of_the_store() {
+    fn an_artist_can_mutate_the_rest_of_the_store() {
         let mut store = ArtistStore::default();
         let a = store.insert(Node::boxed(Vec::new()));
         let b = store.insert(Node::boxed(Vec::new()));
-        let result = store.with_detached::<Node, _>(a, |node, rest| {
-            assert!(!rest.contains(a), "the detached artist is absent meanwhile");
-            rest.get_mut(b).expect("b is alive").base_mut().zorder = 7.0;
+        let result = store.with_others::<Node, _>(a, |node, rest| {
+            assert!(!rest.contains(a), "the artist is absent meanwhile");
+            rest.get_mut(b)
+                .expect("b is in the store")
+                .base_mut()
+                .zorder = 7.0;
             node.base.zorder = 3.0;
         });
         assert!(result.is_some());

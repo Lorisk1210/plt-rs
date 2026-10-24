@@ -83,7 +83,7 @@ fn a_new_axes_legend_replaces_the_previous_one_and_takes_its_parts_along() {
     let with_one = artists();
     assert!(with_one > before);
     let second = ax.legend(LegendOptions::default().title("Again")).unwrap();
-    assert!(!first.raw().is_alive());
+    assert!(!first.raw().is_attached());
     assert_eq!(artists(), with_one, "the old legend's parts are gone");
     assert_eq!(ax.current_legend(), Some(second.clone()));
     second.remove();
@@ -286,10 +286,10 @@ fn kept_legends_stay_beside_the_next_one() {
     let second = ax
         .legend(LegendOptions::default().loc("upper right"))
         .unwrap();
-    assert!(first.raw().is_alive(), "a kept legend is not replaced");
+    assert!(first.raw().is_attached(), "a kept legend is not replaced");
     assert_eq!(ax.current_legend(), Some(second.clone()));
     let third = ax.legend(LegendOptions::default()).unwrap();
-    assert!(!second.raw().is_alive(), "the axes legend still is");
+    assert!(!second.raw().is_attached(), "the axes legend still is");
     assert_eq!(ax.current_legend(), Some(third));
 }
 

@@ -12,7 +12,7 @@ use super::error::Axes3DError;
 use super::math::{Matrix4, Vec3};
 use super::share::replay;
 use super::state::Axes3DState;
-use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxisName};
 use crate::colors::Color;
 use crate::figure::{Figure, axes_bounds, insert_axes};
@@ -188,10 +188,10 @@ fn insert_axes3d(
     let mut figure_state = state.borrow_mut();
     let id = figure_state.adopt(frame, Box::new(axes));
     // The plane is drawn by the 3-D axes, not by the frame.
-    if let Some(owner) = figure_state.store.get_mut(frame) {
+    if let Some(owner) = figure_state.artist_mut(frame) {
         owner.remove_child(plane.id());
     }
-    if let Some(plane) = figure_state.store.get_mut(plane.id()) {
+    if let Some(plane) = figure_state.artist_mut(plane.id()) {
         plane.base_mut().parent = Some(id);
     }
     drop(figure_state);
@@ -322,14 +322,12 @@ impl Axes3D {
     /// layout engine has placed the axes: matplotlib's `get_position`
     /// once the figure was drawn).
     pub fn position(&self) -> Bbox {
-        let mut state = self.raw.figure_state().borrow_mut();
-        state.prepare();
-        let axes = state
-            .store
-            .get_as::<Axes3DState>(self.id())
-            .expect("a live 3-D axes handle refers to a 3-D axes");
-        let frame = axes.base().parent.and_then(|f| state.frame_bbox(f));
-        frame.map_or(axes.position, |frame| axes.active_position(&frame))
+        self.raw.figure_state().borrow_mut().prepare();
+        let state = self.raw.figure_state().borrow();
+        self.with(|axes| {
+            let frame = axes.base().parent.and_then(|f| state.frame_bbox(f));
+            frame.map_or(axes.position, |frame| axes.active_position(&frame))
+        })
     }
 
     /// The grid cell the axes occupies, if it was placed on a grid.
@@ -374,8 +372,8 @@ impl Axes3D {
         let figure = ax.raw().figure_state();
         let parent = {
             let state = figure.borrow();
-            let parent = state.store.get(ax.id())?.base().parent?;
-            state.store.get_as::<Axes3DState>(parent).map(|_| parent)
+            let parent = state.artist(ax.id())?.base().parent?;
+            state.artist_as::<Axes3DState>(parent).map(|_| parent)
         }?;
         Some(Self::from_raw(RawHandle::new(Rc::clone(figure), parent)))
     }

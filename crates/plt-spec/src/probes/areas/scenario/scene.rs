@@ -97,7 +97,6 @@ pub(crate) struct Scene {
     /// The figure.
     pub(crate) fig: Figure,
     axes: Vec<Axes>,
-    removed: Vec<Object>,
     objects: Vec<Object>,
 }
 
@@ -131,7 +130,6 @@ impl Scene {
         Ok(Self {
             fig,
             axes: Vec::new(),
-            removed: Vec::new(),
             objects: Vec::new(),
         })
     }
@@ -155,10 +153,6 @@ impl Scene {
             let produced = figure_steps::call(self, &call)
                 .or_else(|| legend_steps::figure_call(self, &call))
                 .or_else(|| colorbar_steps::figure_call(self, &call));
-            if matches!(method, "clear" | "clf") {
-                self.removed
-                    .extend(self.axes.iter().cloned().map(Object::Axes));
-            }
             finished(&call, produced)?
         } else {
             // `cbar.ax.<method>` is a method of the colorbar's axes.
@@ -168,11 +162,6 @@ impl Scene {
                 }
                 (object, _) => (object, method),
             };
-            if self.removed.iter().any(|gone| gone.same(&object)) {
-                return Err(ProbeError::rejected(
-                    "the artist was removed; plt-rs handles of removed artists are invalid",
-                ));
-            }
             let call = Call::new(method, args)?;
             let produced = match &object {
                 Object::Legend(legend) => legend_steps::legend_call(legend, &call),
@@ -180,11 +169,7 @@ impl Scene {
                 Object::Axes(ax) => axes_steps::call(self, ax, &call),
                 object => object_steps::call(object, &call),
             };
-            let produced = finished(&call, produced)?;
-            if method == "remove" {
-                self.removed.push(object);
-            }
-            produced
+            finished(&call, produced)?
         };
         self.track_axes();
         Ok(match produced {

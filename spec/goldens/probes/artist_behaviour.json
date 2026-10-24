@@ -2,6 +2,36 @@
  "area": "artist_behaviour",
  "matplotlib": "3.11.2",
  "probes": [
+  {
+   "op": "artist.after_remove",
+   "args": {"kind": "image"},
+   "value": {"axes_is_none": true, "zorder": 5.0, "label": "gone", "value": [1.0, 5.0], "lines": 0, "patches": 0, "texts": 0, "collections": 0, "images": 0, "legend": true}
+  },
+  {
+   "op": "artist.after_remove",
+   "args": {"kind": "legend"},
+   "value": {"axes_is_none": true, "zorder": 5.0, "label": "gone", "value": "after", "lines": 1, "patches": 0, "texts": 0, "collections": 0, "images": 0, "legend": true}
+  },
+  {
+   "op": "artist.after_remove",
+   "args": {"kind": "line"},
+   "value": {"axes_is_none": true, "zorder": 5.0, "label": "gone", "value": 3.5, "lines": 0, "patches": 0, "texts": 0, "collections": 0, "images": 0, "legend": true}
+  },
+  {
+   "op": "artist.after_remove",
+   "args": {"kind": "patch"},
+   "value": {"axes_is_none": true, "zorder": 5.0, "label": "gone", "value": 2.5, "lines": 0, "patches": 0, "texts": 0, "collections": 0, "images": 0, "legend": true}
+  },
+  {
+   "op": "artist.after_remove",
+   "args": {"kind": "scatter"},
+   "value": {"axes_is_none": true, "zorder": 5.0, "label": "gone", "value": [10, 20], "lines": 0, "patches": 0, "texts": 0, "collections": 0, "images": 0, "legend": true}
+  },
+  {
+   "op": "artist.after_remove",
+   "args": {"kind": "text"},
+   "value": {"axes_is_none": true, "zorder": 5.0, "label": "gone", "value": "after", "lines": 0, "patches": 0, "texts": 0, "collections": 0, "images": 0, "legend": true}
+  },
   {"op": "artist.alpha", "args": {"kind": "line", "alpha": -0.1}, "error": "ValueError"},
   {"op": "artist.alpha", "args": {"kind": "patch", "alpha": -0.1}, "error": "ValueError"},
   {"op": "artist.alpha", "args": {"kind": "scatter", "alpha": -0.1}, "error": "ValueError"},
@@ -177,7 +207,13 @@
     "line_set": 123456.0
    }
   },
+  {"op": "artist.readd", "args": {}, "value": {"lines": 1, "axes_is_ax": true, "texts": [0, 1]}},
   {"op": "artist.remove", "args": {}, "value": {"image_mouseover": true, "line_mouseover": false, "images": 0, "lines": 0}},
+  {
+   "op": "artist.remove_axes",
+   "args": {},
+   "value": {"axes_is_none": true, "line_axes_is_ax": true, "text_axes_is_ax": true, "lines": 1, "texts": 1, "figure_axes": 0, "xlabel": "after"}
+  },
   {
    "op": "artist.transform_of_none",
    "args": {},

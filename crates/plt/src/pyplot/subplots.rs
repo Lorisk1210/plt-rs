@@ -505,7 +505,7 @@ mod tests {
         close_all();
         let ax = axes(None).expect("the default subplot area");
         delaxes(Some(&ax));
-        assert!(!ax.raw().is_alive());
+        assert!(!ax.raw().is_attached());
         close_all();
     }
 }

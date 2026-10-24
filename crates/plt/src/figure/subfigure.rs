@@ -7,7 +7,7 @@ use std::rc::Rc;
 use plt_core::{Bbox, Rgba};
 
 use super::{Figure, FigureFrame};
-use crate::artist::{ArtistId, RawHandle};
+use crate::artist::{ArtistId, ArtistLookup, RawHandle};
 use crate::colors::Color;
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides, SubplotSpec};
 use crate::numeric::Grid;
@@ -116,7 +116,7 @@ impl Figure {
         let state = self.state.borrow();
         children
             .into_iter()
-            .filter(|&id| state.store.get_as::<FigureFrame>(id).is_some())
+            .filter(|&id| state.artist_as::<FigureFrame>(id).is_some())
             .map(|id| Self {
                 state: Rc::clone(&self.state),
                 root: RawHandle::new(Rc::clone(&self.state), id),

@@ -61,13 +61,9 @@ impl MappingChange {
 /// recolours it and lets its colorbars follow; artists without a colour
 /// mapping are left alone. A norm that cannot map the artist's values is
 /// reported with the next draw.
-///
-/// # Panics
-///
-/// When the artist was removed or is not a `T`, like every handle.
 pub(crate) fn change_mapping<T: ColorMapped>(raw: &RawHandle, change: MappingChange) {
     let reset = change.replaces_norm();
-    let remapped = raw.with_detached::<T, _>(|artist, others| {
+    let remapped = raw.with_others::<T, _>(|artist, others| {
         let mapping = artist.mapping_mut()?;
         change.apply(mapping);
         Some(artist.remap(others))

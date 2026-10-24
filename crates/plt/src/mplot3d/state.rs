@@ -381,7 +381,7 @@ fn prepare_one(figure: &mut FigureState, id: ArtistId) {
     let dpi = figure.dpi();
     figure
         .store
-        .with_detached::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
+        .with_others::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
 }
 
 #[cfg(test)]

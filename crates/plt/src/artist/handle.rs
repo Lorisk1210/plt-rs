@@ -1,190 +1,13 @@
 //! Handles: the user-facing references to artists inside a figure.
 
-use std::cell::RefCell;
-use std::fmt;
-use std::rc::Rc;
-
 use plt_core::{Bbox, Point};
 use plt_render::Sketch;
 
-use super::{
-    AggFilter, Artist, ArtistBase, ArtistId, ArtistStore, ClipPathSpec, LayoutContext, Picker,
-};
+use super::{AggFilter, ArtistId, ClipPathSpec, LayoutContext, Picker, RawHandle};
 use crate::axes::Axes;
-use crate::figure::{Figure, FigureState};
+use crate::figure::Figure;
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
-
-/// An untyped reference to one artist of a figure.
-///
-/// Typed handles (`Line2D`, `Axes`, ...) wrap a `RawHandle` and implement
-/// [`ArtistHandle`]. Using a handle after its artist was removed from the
-/// figure panics: like a closed file, it no longer refers to anything.
-#[derive(Clone)]
-pub struct RawHandle {
-    figure: Rc<RefCell<FigureState>>,
-    id: ArtistId,
-}
-
-impl fmt::Debug for RawHandle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RawHandle")
-            .field("id", &self.id)
-            .finish_non_exhaustive()
-    }
-}
-
-impl PartialEq for RawHandle {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.figure, &other.figure) && self.id == other.id
-    }
-}
-
-impl Eq for RawHandle {}
-
-impl RawHandle {
-    pub(crate) fn new(figure: Rc<RefCell<FigureState>>, id: ArtistId) -> Self {
-        Self { figure, id }
-    }
-
-    /// The artist's id within its figure.
-    pub fn id(&self) -> ArtistId {
-        self.id
-    }
-
-    pub(crate) fn figure_state(&self) -> &Rc<RefCell<FigureState>> {
-        &self.figure
-    }
-
-    /// Whether the artist still exists.
-    pub fn is_alive(&self) -> bool {
-        self.figure.borrow().store.contains(self.id)
-    }
-
-    /// The typed handle of the artist, if it is of type `H` (matplotlib
-    /// code tests `isinstance`, as in `fig.findobj(Line2D)`).
-    ///
-    /// ```
-    /// use plt::lines::Line2D;
-    /// use plt::prelude::*;
-    /// use plt::text::Text;
-    /// let fig = Figure::new();
-    /// let ax = fig.subplot();
-    /// ax.plot([0.0, 1.0], [1.0, 0.0])?;
-    /// let lines: Vec<Line2D> = fig.findobj(|_| true).iter().filter_map(|a| a.downcast()).collect();
-    /// assert_eq!(lines.len(), 1);
-    /// assert!(lines[0].raw().downcast::<Text>().is_none());
-    /// # Ok::<(), plt::axes::PlotError>(())
-    /// ```
-    pub fn downcast<H: TypedHandle>(&self) -> Option<H> {
-        H::from_raw_handle(self)
-    }
-
-    /// Whether the artist exists and is a `T`.
-    pub(crate) fn is<T: Artist>(&self) -> bool {
-        self.figure.borrow().store.get_as::<T>(self.id).is_some()
-    }
-
-    /// Whether the artist exists and is a patch of any shape
-    /// (matplotlib's `isinstance(artist, Patch)`).
-    pub(crate) fn is_patch(&self) -> bool {
-        self.figure
-            .borrow()
-            .store
-            .get(self.id)
-            .is_some_and(|artist| artist.as_patch().is_some())
-    }
-
-    /// Reads the artist as concrete type `T`.
-    pub(crate) fn with<T: Artist, R>(&self, f: impl FnOnce(&T) -> R) -> R {
-        let state = self.figure.borrow();
-        f(state
-            .store
-            .get_as::<T>(self.id)
-            .unwrap_or_else(|| self.gone()))
-    }
-
-    /// Mutates the artist as concrete type `T` and marks the figure stale
-    /// (see [`RawHandle::mark_changed`]).
-    pub(crate) fn with_mut<T: Artist, R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut state = self.figure.borrow_mut();
-        let artist = state
-            .store
-            .get_as_mut::<T>(self.id)
-            .unwrap_or_else(|| self.gone());
-        let result = f(artist);
-        self.mark_changed(&mut state);
-        result
-    }
-
-    /// Mutates the artist as concrete type `T` together with the rest of
-    /// the figure's artists (see [`ArtistStore::with_detached`]) and
-    /// marks the figure stale (see [`RawHandle::mark_changed`]).
-    pub(crate) fn with_detached<T: Artist, R>(
-        &self,
-        f: impl FnOnce(&mut T, &mut ArtistStore) -> R,
-    ) -> R {
-        let mut state = self.figure.borrow_mut();
-        let result = state
-            .store
-            .with_detached(self.id, f)
-            .unwrap_or_else(|| self.gone());
-        self.mark_changed(&mut state);
-        result
-    }
-
-    /// Marks the figure stale after a change to the artist, unless the
-    /// artist is animated: figures leave animated artists out of their
-    /// draws, so a change to one only shows once the program draws it
-    /// (matplotlib's `Artist.stale` does not reach the figure from an
-    /// animated artist).
-    fn mark_changed(&self, state: &mut FigureState) {
-        let animated = state.store.get(self.id).is_some_and(|a| a.base().animated);
-        if !animated {
-            state.stale = true;
-        }
-    }
-
-    /// Reads the common artist properties.
-    pub(crate) fn with_base<R>(&self, f: impl FnOnce(&ArtistBase) -> R) -> R {
-        let state = self.figure.borrow();
-        f(state
-            .store
-            .get(self.id)
-            .unwrap_or_else(|| self.gone())
-            .base())
-    }
-
-    /// Mutates the common artist properties and marks the figure stale
-    /// (see [`RawHandle::mark_changed`]).
-    pub(crate) fn with_base_mut<R>(&self, f: impl FnOnce(&mut ArtistBase) -> R) -> R {
-        let mut state = self.figure.borrow_mut();
-        let result = f(state
-            .store
-            .get_mut(self.id)
-            .unwrap_or_else(|| self.gone())
-            .base_mut());
-        self.mark_changed(&mut state);
-        result
-    }
-
-    /// Whether display point `at` hits the artist in the figure's current
-    /// layout, and which of its items (matplotlib's `contains`); `None`
-    /// when it misses.
-    pub(crate) fn hit_test(&self, at: Point) -> Option<Vec<usize>> {
-        let mut state = self.figure.borrow_mut();
-        state.prepare();
-        let layout = LayoutContext::new(&state);
-        layout.store().get(self.id)?.pick_hit(&layout, at, None)
-    }
-
-    fn gone(&self) -> ! {
-        panic!(
-            "artist {} was removed from its figure or has a different type",
-            self.id
-        )
-    }
-}
 
 /// The handles of one type of artist, which [`RawHandle::downcast`] turns
 /// untyped handles into.
@@ -218,7 +41,8 @@ pub trait ArtistHandle {
 
     /// The figure the artist is in (matplotlib's `artist.figure`, as
     /// `get_figure(root=True)`: the artists of a subfigure give the figure
-    /// holding it).
+    /// holding it). A removed artist gives the figure it was removed from,
+    /// which keeps it, where matplotlib gives `None`.
     fn figure(&self) -> Figure {
         Figure::root_of(self.raw().figure_state())
     }
@@ -251,7 +75,8 @@ pub trait ArtistHandle {
     /// axes is its own, the artists it owns (lines, texts, its legend, ...)
     /// give it, and artists placed on the figure give `None`. So do the
     /// artists of a 3-D axes, whose handle is the
-    /// [`Axes3D`](crate::mplot3d::Axes3D) they were made with.
+    /// [`Axes3D`](crate::mplot3d::Axes3D) they were made with, and a
+    /// removed artist; the artists of a removed axes still give it.
     fn axes(&self) -> Option<Axes> {
         self.raw().owning_axes()
     }
@@ -595,7 +420,7 @@ pub trait ArtistHandle {
 
     /// The artist's extent in display coordinates in the figure's current
     /// layout (laid out first), if it occupies space (matplotlib's
-    /// `get_window_extent`).
+    /// `get_window_extent`); `None` once it was removed.
     fn window_extent(&self) -> Option<Bbox> {
         let mut state = self.raw().figure_state().borrow_mut();
         state.prepare();
@@ -606,12 +431,34 @@ pub trait ArtistHandle {
     /// Whether display point `at` hits the artist in the figure's current
     /// layout (laid out first), as a mouse event there would (matplotlib's
     /// `contains`): the indices of the items hit (empty for artists hit as
-    /// a whole), or `None` when the point misses.
+    /// a whole), or `None` when the point misses or the artist was removed.
     fn contains(&self, at: Point) -> Option<Vec<usize>> {
         self.raw().hit_test(at)
     }
 
-    /// Removes the artist (and everything it owns) from the figure.
+    /// Removes the artist, with everything it owns, from the figure
+    /// (matplotlib's `remove`). Its handles stay usable: properties read
+    /// and change as before, but the figure no longer draws, lays out,
+    /// searches or autoscales over it, and its [`axes`](Self::axes) are
+    /// `None`. The artist lives on, apart, as long as the figure, and an
+    /// axes or a figure can [`attach`](crate::axes::Axes::attach) it
+    /// again. Removing it twice, or removing the figure itself, does
+    /// nothing.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// line.remove();
+    /// assert!(ax.lines().is_empty() && line.axes().is_none());
+    /// line.set_linewidth(3.0);
+    /// assert_eq!(line.linewidth(), 3.0);
+    /// fig.to_png()?;
+    /// ax.attach(&line)?;
+    /// assert_eq!(ax.lines(), [line]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     fn remove(&self) {
         self.raw()
             .figure_state()

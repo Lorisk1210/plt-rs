@@ -4,7 +4,7 @@
 use std::rc::Rc;
 
 use super::{Axes, AxesState, AxisName, ProjectionKind, TickStyle};
-use crate::artist::{Artist, ArtistHandle, ArtistId};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
 use crate::scale::LinearScale;
@@ -67,7 +67,7 @@ impl FigureState {
     /// partners' limits again.
     pub(crate) fn clear_axes(&mut self, id: ArtistId) {
         let rc = crate::rc::params();
-        let Some(old) = self.store.get_as::<AxesState>(id) else {
+        let Some(old) = self.artist_as::<AxesState>(id) else {
             return;
         };
         let fresh = old.cleared(Rc::clone(&rc));
@@ -83,25 +83,25 @@ impl FigureState {
         }
         for name in [AxisName::X, AxisName::Y] {
             for sibling in self.shared.siblings(name, id) {
-                if let Some(state) = self.store.get_as_mut::<AxesState>(sibling)
+                if let Some(state) = self.artist_as_mut::<AxesState>(sibling)
                     && sibling != id
                 {
                     state.axis_mut(name).set_scale(Rc::new(LinearScale));
                 }
             }
         }
-        if let Some(state) = self.store.get_as_mut::<AxesState>(id) {
+        if let Some(state) = self.artist_as_mut::<AxesState>(id) {
             *state = fresh;
         }
         for (title, (x, halign)) in titles.into_iter().zip(TITLE_PLACES) {
-            if let Some(text) = self.store.get_as_mut::<TextArtist>(title) {
+            if let Some(text) = self.artist_as_mut::<TextArtist>(title) {
                 let parent = text.base().parent;
                 *text = axes_title(id, x, halign, &rc);
                 text.base_mut().parent = parent;
             }
         }
         for spine in spines {
-            if let Some(spine) = self.store.get_as_mut::<SpineArtist>(spine) {
+            if let Some(spine) = self.artist_as_mut::<SpineArtist>(spine) {
                 spine.position = SpinePosition::default();
             }
         }

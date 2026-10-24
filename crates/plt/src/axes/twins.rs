@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use super::{Adjustable, Axes, AxesState, AxisName, PlotError};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
-use crate::figure::insert_axes;
+use crate::figure::make_axes;
 use crate::spines::SpineSide;
 
 impl Axes {
@@ -103,6 +103,8 @@ impl Axes {
     /// axis on the far side, drawn `delta_zorder` above this one; of the
     /// twins only the bottom-most draws the background (matplotlib's
     /// `_make_twin_axes` and the `twinx`/`twiny(delta_zorder=...)` set-up).
+    /// The twin of a removed axes is removed too, having no figure to go
+    /// in.
     #[must_use]
     pub fn twin_with(&self, shared: AxisName, delta_zorder: f64) -> Self {
         let own = match shared {
@@ -121,8 +123,7 @@ impl Axes {
                 )
             });
         let figure = self.raw().figure_state();
-        let frame = frame.expect("an axes always lives in a figure frame");
-        let twin = insert_axes(figure, frame, position, spec);
+        let twin = make_axes(figure, frame, position, spec);
         twin.share(shared, self)
             .expect("a new axes in this figure shares nothing yet");
         figure.borrow_mut().shared.join_twins(self.id(), twin.id());

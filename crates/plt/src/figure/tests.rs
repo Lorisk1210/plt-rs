@@ -111,7 +111,7 @@ fn removed_axes_disappear_from_figure() {
     assert_eq!(fig.axes(), vec![first.clone(), second.clone()]);
     first.remove();
     assert_eq!(fig.axes(), vec![second]);
-    assert!(!first.raw().is_alive());
+    assert!(!first.raw().is_attached());
 }
 
 #[test]

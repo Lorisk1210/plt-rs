@@ -163,8 +163,21 @@ impl ContourSet {
     }
 
     /// Whether the contour set is still in its figure.
-    pub(crate) fn is_alive(&self) -> bool {
-        self.raw.is_alive()
+    pub(crate) fn is_attached(&self) -> bool {
+        self.raw.is_attached()
+    }
+
+    /// Removes the contours from the figure: the set, its collections and
+    /// its labels (matplotlib's `ContourSet.remove`). Like the handles of
+    /// every removed artist, the set stays usable.
+    pub fn remove(&self) {
+        let labels: Vec<ArtistId> =
+            self.read(|state| state.labels.iter().map(|label| label.artist).collect());
+        let mut figure = self.raw.figure_state().borrow_mut();
+        let collections = self.collections.iter().map(ArtistHandle::id);
+        for id in collections.chain(labels).chain([self.id()]) {
+            figure.remove_artist(id);
+        }
     }
 
     /// Reads the levels, colours and labels.

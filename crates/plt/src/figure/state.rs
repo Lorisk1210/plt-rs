@@ -7,7 +7,7 @@ use plt_render::{ClipPath, Renderer};
 
 use super::CanvasState;
 use super::frame::FigureFrame;
-use crate::artist::{Artist, ArtistId, ArtistStore, DrawContext, DrawError};
+use crate::artist::{Artist, ArtistId, ArtistStore, DetachedArtists, DrawContext, DrawError};
 use crate::axes::{AxesState, ShareGroups};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
@@ -20,8 +20,11 @@ use crate::transforms::{ResolvedTransform, TransformContext, unit_to_bbox};
 /// Everything a figure owns: its artists and its canvas geometry.
 #[derive(Debug)]
 pub(crate) struct FigureState {
-    /// Every artist of the figure, including frames and axes.
+    /// Every artist in the figure, including frames and axes.
     pub(crate) store: ArtistStore,
+    /// The artists removed from the figure, kept for their handles (see
+    /// [`FigureState::remove_artist`]).
+    pub(crate) detached: DetachedArtists,
     /// The root frame (the figure itself).
     pub(crate) root: ArtistId,
     /// Canvas resolution in dots per inch (see [`FigureState::set_dpi`]).
@@ -139,6 +142,7 @@ impl FigureState {
         )));
         Self {
             store,
+            detached: DetachedArtists::default(),
             root,
             dpi: Cell::new(dpi),
             size_inches,
@@ -179,36 +183,6 @@ impl FigureState {
     pub(crate) fn size_pixels(&self) -> (f64, f64) {
         let dpi = self.dpi();
         (self.size_inches.0 * dpi, self.size_inches.1 * dpi)
-    }
-
-    /// Inserts `artist` as a child of the container `parent`.
-    pub(crate) fn adopt(
-        &mut self,
-        parent: ArtistId,
-        mut artist: Box<dyn crate::artist::Artist>,
-    ) -> ArtistId {
-        artist.base_mut().parent = Some(parent);
-        let id = self.store.insert(artist);
-        if let Some(frame) = self.store.get_as_mut::<FigureFrame>(parent) {
-            frame.children.push(id);
-        } else if let Some(axes) = self.store.get_as_mut::<AxesState>(parent) {
-            axes.children.push(id);
-        }
-        self.stale = true;
-        self.layout.pending = true;
-        id
-    }
-
-    /// Detaches an artist from its parent and deletes it (with its children).
-    pub(crate) fn remove_artist(&mut self, id: ArtistId) {
-        let parent = self.store.get(id).and_then(|a| a.base().parent);
-        if let Some(parent) = parent.and_then(|p| self.store.get_mut(p)) {
-            parent.remove_child(id);
-        }
-        self.store.remove(id);
-        self.shared.remove(id);
-        self.stale = true;
-        self.layout.pending = true;
     }
 
     /// The mutable pass before drawing: a due layout-engine pass, then

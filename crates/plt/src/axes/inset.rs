@@ -6,7 +6,7 @@ use std::rc::Rc;
 use plt_core::Bbox;
 
 use super::{Axes, AxesState};
-use crate::artist::{Artist, ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, ArtistLookup, RawHandle};
 use crate::axes_grid1::locate_on_bounds;
 use crate::figure::insert_axes;
 use crate::transforms::Transform;
@@ -85,15 +85,12 @@ impl Axes {
     pub fn child_axes(&self) -> Vec<Self> {
         let figure = self.raw().figure_state();
         let state = figure.borrow();
-        state
-            .store
-            .ids()
-            .filter(|&id| {
-                state
-                    .store
-                    .get_as::<AxesState>(id)
-                    .is_some_and(|axes| axes.base().parent == Some(self.id()))
-            })
+        let children = self
+            .raw()
+            .with::<AxesState, _>(|axes| axes.children.clone());
+        children
+            .into_iter()
+            .filter(|&id| state.artist_as::<AxesState>(id).is_some())
             .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
             .collect()
     }

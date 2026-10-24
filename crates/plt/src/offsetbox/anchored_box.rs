@@ -11,7 +11,7 @@ use super::{
     anchored_bbox, transformed_bbox,
 };
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext, RawHandle,
 };
 use crate::axes::Axes;
 use crate::events::Dragger;
@@ -320,7 +320,7 @@ pub(super) fn texts_of(raw: &RawHandle, artists: Vec<ArtistId>) -> Vec<Text> {
         let state = raw.figure_state().borrow();
         artists
             .into_iter()
-            .filter(|&id| state.store.get_as::<TextArtist>(id).is_some())
+            .filter(|&id| state.artist_as::<TextArtist>(id).is_some())
             .collect()
     };
     texts

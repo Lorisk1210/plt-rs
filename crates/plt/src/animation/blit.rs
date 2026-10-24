@@ -154,7 +154,7 @@ impl Blitter {
             }
         }
         let mut problems = Vec::new();
-        for artist in self.drawn.iter().filter(|artist| artist.is_alive()) {
+        for artist in self.drawn.iter().filter(|artist| artist.is_attached()) {
             match figure.draw_artist(artist) {
                 Ok(()) => {}
                 Err(CanvasError::Draw(DrawErrors(errors))) => problems.extend(errors),

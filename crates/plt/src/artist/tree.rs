@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use super::{Artist, ArtistId, RawHandle};
+use super::{Artist, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::mplot3d::Axes3DState;
 
@@ -27,8 +27,7 @@ impl RawHandle {
         let children = self
             .figure_state()
             .borrow()
-            .store
-            .get(id)
+            .artist(id)
             .map(Artist::children)
             .unwrap_or_default();
         for child in children {
@@ -44,27 +43,30 @@ impl RawHandle {
     /// matplotlib does not have: its artists are the 3-D axes' own.
     fn is_projection_plane(&self) -> bool {
         let state = self.figure_state().borrow();
-        state.store.get_as::<AxesState>(self.id()).is_some()
-            && state
-                .store
-                .get(self.id())
-                .and_then(|artist| artist.base().parent)
-                .is_some_and(|parent| state.store.get_as::<Axes3DState>(parent).is_some())
+        state.artist_as::<AxesState>(self.id()).is_some_and(|axes| {
+            axes.base()
+                .parent
+                .is_some_and(|parent| state.artist_as::<Axes3DState>(parent).is_some())
+        })
     }
 
     /// The nearest 2-D axes among the artist and its owners; `None` when
-    /// it is on the figure or in a 3-D axes (whose 2-D plane is not an
-    /// axes of its own).
+    /// it is on the figure, in a 3-D axes (whose 2-D plane is not an axes
+    /// of its own) or was removed (matplotlib's `remove` sets `axes` to
+    /// `None`; the artists it owns keep theirs).
     pub(crate) fn owning_axes(&self) -> Option<Axes> {
         let state = self.figure_state().borrow();
-        let is_3d = |id: ArtistId| state.store.get_as::<Axes3DState>(id).is_some();
+        if state.is_removed(self.id()) {
+            return None;
+        }
+        let is_3d = |id: ArtistId| state.artist_as::<Axes3DState>(id).is_some();
         let mut id = self.id();
         loop {
             if is_3d(id) {
                 return None;
             }
-            let parent = state.store.get(id)?.base().parent;
-            if state.store.get_as::<AxesState>(id).is_some() {
+            let parent = state.artist(id)?.base().parent;
+            if state.artist_as::<AxesState>(id).is_some() {
                 let plane = parent.is_some_and(is_3d);
                 let axes = RawHandle::new(Rc::clone(self.figure_state()), id);
                 return (!plane).then(|| Axes::from_raw(axes));

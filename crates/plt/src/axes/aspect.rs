@@ -12,7 +12,7 @@ use std::rc::Rc;
 use plt_core::{Anchor, Bbox};
 
 use super::{Axes, AxesState, ProjectionKind};
-use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError};
 use crate::axes_grid1::{DividerCell, InsetLocatorId};
 use crate::figure::FigureState;
 use crate::rc::Aspect;
@@ -250,12 +250,12 @@ impl Axes {
         let mut group = state.siblings(AxisName::X, self.id());
         group.extend(state.siblings(AxisName::Y, self.id()));
         for &id in &group {
-            if let Some(axes) = state.store.get_as::<AxesState>(id) {
+            if let Some(axes) = state.artist_as::<AxesState>(id) {
                 check_adjustable(axes, adjustable)?;
             }
         }
         for id in group {
-            if let Some(axes) = state.store.get_as_mut::<AxesState>(id) {
+            if let Some(axes) = state.artist_as_mut::<AxesState>(id) {
                 axes.aspect.ratio = ratio;
                 axes.aspect.adjustable = adjustable;
             }

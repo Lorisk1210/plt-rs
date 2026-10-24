@@ -4,6 +4,7 @@ mod artists;
 mod autofmt;
 mod canvas;
 mod clear;
+mod detach;
 mod draw_order;
 mod frame;
 mod mosaic;
@@ -31,6 +32,7 @@ use plt_render::Renderer;
 
 pub use canvas::{BufferRegion, CanvasError, FigureCanvas, PixelBox};
 pub(crate) use canvas::{CanvasState, Presentation, Presenting};
+pub(crate) use detach::attach;
 pub(crate) use draw_order::draws_before;
 pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
@@ -45,9 +47,9 @@ pub use size::{FigSize, SizeError, SizeUnit};
 pub(crate) use state::FigureState;
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
-pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes};
+pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes, make_axes};
 
-use crate::artist::{Artist, ArtistHandle, ArtistId, DrawError, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, RawHandle};
 use crate::axes::{Axes, AxesState, PlotError};
 use crate::colors::Color;
 use crate::events::Event;
@@ -308,6 +310,16 @@ impl Figure {
     pub(crate) fn scoped<T: Artist>(&self) -> Vec<ArtistId> {
         let state = self.state.borrow();
         let frame_id = self.root.id();
+        if !state.is_attached(frame_id) {
+            // A removed subfigure still holds its artists.
+            let children = self
+                .root
+                .with::<FigureFrame, _>(|frame| frame.children.clone());
+            return children
+                .into_iter()
+                .filter(|&id| state.artist_as::<T>(id).is_some())
+                .collect();
+        }
         let in_scope = |parent: Option<ArtistId>| match parent {
             Some(parent) if frame_id == state.root => {
                 state.store.get_as::<FigureFrame>(parent).is_some()

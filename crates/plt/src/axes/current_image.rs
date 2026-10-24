@@ -153,14 +153,14 @@ impl ColorizingArtist {
     fn is_in(&self, axes: &Axes) -> bool {
         let child_of = |raw: &RawHandle| {
             Rc::ptr_eq(raw.figure_state(), axes.raw().figure_state())
-                && raw.is_alive()
+                && raw.is_attached()
                 && raw.with_base(|base| base.parent) == Some(axes.id())
         };
         match self {
             Self::Image(image) => child_of(image.raw()),
             Self::Collection(collection) => child_of(collection.raw()),
             Self::TriMesh(mesh) => child_of(mesh.raw()),
-            Self::Contour(contours) => contours.axes() == axes && contours.is_alive(),
+            Self::Contour(contours) => contours.axes() == axes && contours.is_attached(),
         }
     }
 
@@ -204,7 +204,7 @@ impl Axes {
         let figure = self.raw().figure_state();
         let handle = |id: ArtistId| {
             let raw = RawHandle::new(Rc::clone(figure), id);
-            raw.is_alive().then_some(raw)
+            raw.is_attached().then_some(raw)
         };
         Some(match record {
             CurrentImage::Image(id) => ColorizingArtist::Image(AxesImage::from_raw(handle(id)?)),

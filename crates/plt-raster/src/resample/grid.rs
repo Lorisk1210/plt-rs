@@ -1,6 +1,7 @@
 //! A dense, row-major image grid.
 
 use super::error::ResampleError;
+use crate::pixmap::MAX_PIXELS;
 
 /// A `width × height` grid of pixels stored row by row.
 ///
@@ -95,16 +96,29 @@ impl<P> Grid<P> {
 
 impl<P: Clone> Grid<P> {
     /// A grid with every pixel set to `value`.
+    ///
+    /// # Errors
+    ///
+    /// [`ResampleError::GridSize`] when `width × height` overflows, and
+    /// [`ResampleError::TooLarge`] when it exceeds the pixels of the largest
+    /// canvas ([`MAX_PIXELS`]) or cannot be allocated.
     pub fn filled(width: usize, height: usize, value: P) -> Result<Self, ResampleError> {
         let len = width.checked_mul(height).ok_or(ResampleError::GridSize {
             width,
             height,
             len: 0,
         })?;
+        let too_large = ResampleError::TooLarge { width, height };
+        if len > MAX_PIXELS {
+            return Err(too_large);
+        }
+        let mut data = Vec::new();
+        data.try_reserve_exact(len).map_err(|_| too_large)?;
+        data.resize(len, value);
         Ok(Self {
             width,
             height,
-            data: vec![value; len],
+            data,
         })
     }
 }
@@ -198,6 +212,15 @@ mod tests {
         );
         assert!(Grid::<u8>::from_vec(usize::MAX, 2, Vec::new()).is_err());
         assert!(Grid::filled(usize::MAX, 2, 0_u8).is_err());
+        // Found by fuzzing: an image displayed over an astronomical area
+        // asked for a grid whose bytes overflowed the capacity.
+        assert_eq!(
+            Grid::filled(1 << 22, 1 << 22, [0.0_f64; 4]),
+            Err(ResampleError::TooLarge {
+                width: 1 << 22,
+                height: 1 << 22
+            })
+        );
     }
 
     #[test]

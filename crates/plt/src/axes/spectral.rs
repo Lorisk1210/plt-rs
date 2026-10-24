@@ -9,7 +9,7 @@ use crate::mlab::{
     self, Complex, Correlation, SignalValue, SpectralOptions, Spectrum, SpectrumOptions,
     XcorrOptions,
 };
-use crate::numeric::arange;
+use crate::ticker::pymath::arange;
 
 /// Options of [`Axes::psd`], [`Axes::csd`] and [`Axes::cohere`].
 #[derive(Clone, Debug, Default)]
@@ -78,7 +78,7 @@ impl Axes {
         self.set_xlabel("Frequency")
             .set_ylabel(format!("Power Spectral Density ({units})"));
         self.grid(true);
-        self.decade_yticks();
+        self.decade_yticks()?;
         Ok(spectrum)
     }
 
@@ -104,7 +104,7 @@ impl Axes {
         self.set_xlabel("Frequency")
             .set_ylabel("Cross Spectrum Magnitude (dB)");
         self.grid(true);
-        self.decade_yticks();
+        self.decade_yticks()?;
         Ok(spectrum)
     }
 
@@ -251,12 +251,15 @@ impl Axes {
     }
 
     /// matplotlib's decibel tick placement after `psd`/`csd`: ticks every
-    /// `10 · ⌊log10(span)⌋` (at least 1) units over the y bounds.
-    fn decade_yticks(&self) {
+    /// `10 · ⌊log10(span)⌋` (at least 1) units over the y bounds. Bounds
+    /// too far apart for numpy's `arange` fail, as there.
+    fn decade_yticks(&self) -> Result<(), PlotError> {
         let (low, high) = self.ylim();
         let (vmin, vmax) = (low.min(high), low.max(high));
         let step = (10.0 * (vmax - vmin).log10().trunc()).max(1.0);
-        self.set_yticks(arange(vmin.floor(), vmax.ceil() + 1.0, step));
+        let ticks = arange(vmin.floor(), vmax.ceil() + 1.0, step).map_err(PlotError::Ticker)?;
+        self.set_yticks(ticks);
+        Ok(())
     }
 }
 
@@ -302,6 +305,20 @@ mod tests {
             .map(|w| w[1].loc - w[0].loc)
             .collect();
         assert!(steps.iter().all(|&s| s >= 1.0 && s.fract() == 0.0));
+    }
+
+    #[test]
+    fn decibel_ticks_over_astronomical_bounds_fail_like_numpy() {
+        // Found by fuzzing: `arange` over these bounds overflowed the
+        // capacity of the tick vector.
+        let ax = Figure::new().subplot();
+        ax.set_ylim(-1e300, 1e300).unwrap();
+        assert!(matches!(
+            ax.psd(&tone(512), SpectralPlotOptions::default()),
+            Err(PlotError::Ticker(crate::ticker::TickerError::TooManyTicks(
+                _
+            )))
+        ));
     }
 
     #[test]

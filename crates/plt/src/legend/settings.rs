@@ -61,6 +61,20 @@ impl Placement {
     }
 }
 
+/// The most markers a legend handle shows (`numpoints`, `scatterpoints`
+/// or a handle's own count): a handle is a couple of font sizes long, and
+/// matplotlib would try to allocate whatever count is asked.
+pub const MAX_HANDLE_POINTS: usize = 10_000;
+
+/// `count` markers per handle, unless that exceeds [`MAX_HANDLE_POINTS`].
+pub(crate) fn handle_points(count: usize) -> Result<usize, LegendError> {
+    if count > MAX_HANDLE_POINTS {
+        Err(LegendError::TooManyPoints(count))
+    } else {
+        Ok(count)
+    }
+}
+
 /// The sizes and counts a legend's entries are built with, from the
 /// options or the `legend.*` rcParams.
 #[derive(Clone, Debug, PartialEq)]
@@ -96,11 +110,11 @@ impl Settings {
         let count = |value: Option<usize>, rc_value: i64| {
             value.unwrap_or_else(|| usize::try_from(rc_value).unwrap_or(0))
         };
-        let numpoints = count(options.numpoints, rc.legend_numpoints);
+        let numpoints = handle_points(count(options.numpoints, rc.legend_numpoints))?;
         if numpoints == 0 {
             return Err(LegendError::NoPoints);
         }
-        let scatterpoints = count(options.scatterpoints, rc.legend_scatterpoints);
+        let scatterpoints = handle_points(count(options.scatterpoints, rc.legend_scatterpoints))?;
         let offsets = options
             .scatteryoffsets
             .clone()
@@ -199,5 +213,20 @@ mod tests {
             Settings::resolve(&LegendOptions::default().numpoints(0_usize), &rc),
             Err(LegendError::NoPoints)
         );
+    }
+
+    #[test]
+    fn marker_counts_are_bounded() {
+        // Found by fuzzing: `legend.numpoints: 4294967296` exhausted memory.
+        let mut rc = RcParams::matplotlib();
+        rc.set("legend.numpoints", "4294967296").unwrap();
+        let options = LegendOptions::default();
+        assert_eq!(
+            Settings::resolve(&options, &rc),
+            Err(LegendError::TooManyPoints(4_294_967_296))
+        );
+        let rc = RcParams::matplotlib();
+        let options = LegendOptions::default().scatterpoints(MAX_HANDLE_POINTS + 1);
+        assert!(Settings::resolve(&options, &rc).is_err());
     }
 }

@@ -49,6 +49,6 @@ pub use histogram::{
 pub use histogram2d::{AxisBins, Histogram2d, Histogram2dOptions, histogram2d};
 pub use kde::{BandwidthMethod, GaussianKde};
 pub use summary::{mean, median, pairwise_sum, percentile, percentiles, quantile, std, var};
-pub use violin::{ViolinOptions, ViolinStats, violin_stats, violin_stats_with};
+pub use violin::{MAX_VIOLIN_POINTS, ViolinOptions, ViolinStats, violin_stats, violin_stats_with};
 
 pub(crate) use summary::pairwise;

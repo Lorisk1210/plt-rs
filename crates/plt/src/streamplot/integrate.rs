@@ -1,10 +1,18 @@
 //! Tracing streamlines through a vector field on a grid (matplotlib's
 //! `_get_integrator`, `_integrate_rk12`, `_euler_step` and `interpgrid`).
 
+use std::cell::Cell;
+
 use plt_core::Point;
 
 use super::domain::DomainMap;
 use crate::numeric::Grid;
+
+/// The most integration steps all the streamlines of a plot take. Steps
+/// are rarely more than a few per cell of the occupancy mask, but a field
+/// whose direction flips within a cell makes a streamline dither there
+/// until its maximum length, for each cell (matplotlib takes hours).
+pub const MAX_STEPS: usize = 1 << 23;
 
 /// Which way streamlines are traced from their start points (matplotlib's
 /// `integration_direction`).
@@ -51,6 +59,9 @@ pub(crate) struct Integrator {
     v: Grid<f64>,
     speed: Grid<f64>,
     limits: TraceLimits,
+    /// The integration steps left of [`MAX_STEPS`]; `None` once a step
+    /// was refused.
+    steps_left: Cell<Option<usize>>,
 }
 
 impl Integrator {
@@ -73,7 +84,22 @@ impl Integrator {
             v: grid_v,
             speed,
             limits,
+            steps_left: Cell::new(Some(MAX_STEPS)),
         }
+    }
+
+    /// Whether the streamlines needed more than [`MAX_STEPS`] (the last
+    /// ones were cut short).
+    pub(crate) fn exhausted(&self) -> bool {
+        self.steps_left.get().is_none()
+    }
+
+    /// Takes one integration step from the budget; `false` when none is
+    /// left.
+    fn take_step(&self) -> bool {
+        let left = self.steps_left.get().and_then(|left| left.checked_sub(1));
+        self.steps_left.set(left);
+        left.is_some()
     }
 
     /// The direction of travel per unit of axes-fraction length at grid
@@ -149,7 +175,7 @@ impl Integrator {
         let (mut xi, mut yi) = start;
         let mut points = Vec::new();
         loop {
-            if !dmap.grid.contains(xi, yi) {
+            if !dmap.grid.contains(xi, yi) || !self.take_step() {
                 break;
             }
             points.push((xi, yi));

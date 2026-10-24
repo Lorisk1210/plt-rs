@@ -1,7 +1,7 @@
 //! Python's format-specification mini-language (`format(value, spec)`).
 
-use super::FormatError;
 use super::dtoa::{FloatStyle, Presentation, format_float};
+use super::{FormatError, bounded_field};
 
 /// Field alignment.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -131,6 +131,13 @@ impl FormatSpec {
                 )));
             }
         };
+        if width.max(precision) > Some(isize::MAX as usize) {
+            return Err(FormatError::Value(
+                "Too many decimal digits in format string".into(),
+            ));
+        }
+        let width = bounded_field(width, "width")?;
+        let precision = bounded_field(precision, "precision")?;
         if let Some(sep) = grouping {
             let allowed = match ty {
                 None | Some('d' | 'e' | 'f' | 'g' | 'E' | 'G' | '%' | 'F') => true,
@@ -455,6 +462,24 @@ mod tests {
         assert_eq!(float("_", 1e7), "10_000_000.0");
         assert_eq!(float("z.1f", -0.01), "0.0");
         assert_eq!(float("", f64::NAN), "nan");
+    }
+
+    #[test]
+    fn huge_widths_and_precisions_are_refused() {
+        assert_eq!(
+            FormatSpec::parse(">99999999999999999999"),
+            Err(FormatError::Value(
+                "Too many decimal digits in format string".into()
+            ))
+        );
+        // Found by fuzzing: the width used to be allocated in full.
+        for spec in [">429496729616", ".3000000000f", "2000000"] {
+            assert!(matches!(
+                FormatSpec::parse(spec),
+                Err(FormatError::Unsupported(_))
+            ));
+        }
+        assert_eq!(float(">1048576", 1.0).len(), 1 << 20);
     }
 
     #[test]

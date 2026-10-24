@@ -291,7 +291,8 @@ impl BufferRegion {
 }
 
 /// Copies the `width × height` pixels at `from` in `source` to `to` in
-/// `target`; both rectangles lie inside their pixmaps.
+/// `target`; both rectangles lie inside their pixmaps unless they are
+/// empty (an empty one may start anywhere).
 fn copy_pixels(
     source: &Pixmap,
     from: (i64, i64),
@@ -299,6 +300,9 @@ fn copy_pixels(
     to: (i64, i64),
     (width, height): (u32, u32),
 ) {
+    if width == 0 || height == 0 {
+        return;
+    }
     let column = |x: i64| usize::try_from(x).unwrap_or(0) * 4;
     let line = |y: i64, row: u32| u32::try_from(y + i64::from(row)).unwrap_or(u32::MAX);
     let bytes = width as usize * 4;

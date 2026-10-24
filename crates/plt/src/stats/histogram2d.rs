@@ -6,6 +6,7 @@
 //! samples on the last edge in the last bin and drops everything else
 //! outside the edges.
 
+use super::histogram::MAX_EQUAL_BINS;
 use super::{StatsError, outer_edges, pairwise_sum};
 use crate::numeric::{Grid, linspace};
 
@@ -101,6 +102,10 @@ pub fn histogram2d(
     let xedges = axis_edges(x, &opts.bins[0], opts.range[0])?;
     let yedges = axis_edges(y, &opts.bins[1], opts.range[1])?;
     let (nx, ny) = (xedges.len() - 1, yedges.len() - 1);
+    let bins = nx.saturating_mul(ny);
+    if bins > MAX_EQUAL_BINS {
+        return Err(StatsError::TooManyBins(bins));
+    }
     let mut counts = Grid::filled(nx, ny, 0.0);
     for (i, (&xi, &yi)) in x.iter().zip(y).enumerate() {
         if let (Some(bx), Some(by)) = (bin_index(&xedges, xi), bin_index(&yedges, yi)) {
@@ -128,6 +133,7 @@ fn axis_edges(
 ) -> Result<Vec<f64>, StatsError> {
     match bins {
         AxisBins::Count(0) => Err(StatsError::ZeroBins),
+        AxisBins::Count(n) if *n > MAX_EQUAL_BINS => Err(StatsError::TooManyBins(*n)),
         AxisBins::Count(n) => {
             let (first, last) = outer_edges(sample, range)?;
             Ok(linspace(first, last, n + 1))
@@ -149,8 +155,10 @@ fn bin_index(edges: &[f64], value: f64) -> Option<usize> {
     } else {
         edges.partition_point(|&edge| edge <= value)
     };
+    // Edges out of order (NaN ones from an overflowing range) can find
+    // nothing below the last edge: numpy's index -1, outside every bin.
     let found = if value == edges[last] {
-        found - 1
+        found.checked_sub(1)?
     } else {
         found
     };
@@ -179,6 +187,14 @@ mod tests {
         let h = histogram2d(&x, &y, opts).unwrap();
         // Edges are left-closed except the last, which also takes its edge.
         assert_eq!(h.counts.as_slice(), &[2.0, 0.0, 0.0, 3.0]);
+    }
+
+    #[test]
+    fn values_on_the_last_of_unordered_edges_are_outside() {
+        // Found by fuzzing: NaN edges from an overflowing range underflowed
+        // the bin index.
+        assert_eq!(bin_index(&[f64::NAN, f64::NAN, 1.0], 1.0), None);
+        assert_eq!(bin_index(&[0.0, 1.0], 1.0), Some(0));
     }
 
     #[test]
@@ -228,6 +244,19 @@ mod tests {
         assert_eq!(
             histogram2d(&[1.0], &[1.0], decreasing),
             Err(StatsError::NonMonotonicEdges)
+        );
+        // Found by fuzzing: 2^31 bins along x asked for 16 GB of edges.
+        assert_eq!(
+            histogram2d(&[1.0], &[1.0], options([(1 << 31).into(), 1.into()])),
+            Err(StatsError::TooManyBins(1 << 31))
+        );
+        assert_eq!(
+            histogram2d(
+                &[1.0],
+                &[1.0],
+                options([(1 << 13).into(), (1 << 12).into()])
+            ),
+            Err(StatsError::TooManyBins(1 << 25))
         );
         assert!(matches!(
             histogram2d(&[f64::NAN], &[1.0], default),

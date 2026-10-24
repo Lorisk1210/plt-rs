@@ -13,6 +13,7 @@ use crate::rc::RcParams;
 use crate::scale::{AxisTickers, Scale};
 use crate::ticker::{
     AxisInfo, AxisName, Formatter, Locator, NullLocator, TickContext, TickerError, TickerSettings,
+    drawable_ticks,
 };
 use crate::transforms::interval_contains_close;
 
@@ -360,7 +361,7 @@ impl Axis3DState {
         let mut info = self.info(span, length_points);
         let major_locs = {
             let ctx = TickContext::new(&info, &self.settings);
-            self.tickers.major_locator.locate(&ctx)?
+            drawable_ticks(self.tickers.major_locator.locate(&ctx)?)?
         };
         info.major_ticks.clone_from(&major_locs);
         let ctx = TickContext::new(&info, &self.settings);
@@ -395,7 +396,7 @@ impl Axis3DState {
             slots = (major_locs.len(), kept);
         }
         if Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()) {
-            let minor = self.tickers.minor_locator.locate(&ctx)?;
+            let minor = drawable_ticks(self.tickers.minor_locator.locate(&ctx)?)?;
             let minor_locs = self.without_overlaps(minor, &major_locs, span.view);
             let labels = self
                 .tickers

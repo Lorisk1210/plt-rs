@@ -2,14 +2,17 @@
 //! the 4×4 DCT that adds residuals to a predicted block, and the
 //! Walsh–Hadamard transform of the luma DC coefficients.
 
-/// `a · (1 + 20091 / 65536)`: `a · √2 · cos(π/8)` in fixed point.
+/// `a · (1 + 20091 / 65536)`: `a · √2 · cos(π/8)` in fixed point. The
+/// product wraps like libwebp's `int` arithmetic, which only the
+/// coefficients of corrupt streams make overflow.
 fn mul1(a: i32) -> i32 {
-    ((a * 20091) >> 16) + a
+    (a.wrapping_mul(20091) >> 16) + a
 }
 
-/// `a · 35468 / 65536`: `a · √2 · sin(π/8)` in fixed point.
+/// `a · 35468 / 65536`: `a · √2 · sin(π/8)` in fixed point, wrapping as
+/// [`mul1`] does.
 fn mul2(a: i32) -> i32 {
-    (a * 35468) >> 16
+    a.wrapping_mul(35468) >> 16
 }
 
 /// Inverts the DCT of the 16 coefficients `input` (raster order) and adds
@@ -86,6 +89,18 @@ mod tests {
         coeffs[0] = -80;
         add_inverse_dct(&coeffs, &mut dark, 0, 4);
         assert_eq!(dark, [0; 16], "clamped at zero");
+    }
+
+    #[test]
+    fn extreme_coefficients_wrap_instead_of_overflowing() {
+        // Found by fuzzing: corrupt streams decode to coefficients whose
+        // fixed-point products overflow `i32`.
+        for value in [i16::MAX, i16::MIN] {
+            let mut block = [128u8; 16];
+            add_inverse_dct(&[value; 16], &mut block, 0, 4);
+            let mut out = [0i16; 256];
+            inverse_wht(&[value; 16], &mut out);
+        }
     }
 
     #[test]

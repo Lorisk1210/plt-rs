@@ -30,7 +30,7 @@ mod template;
 
 use std::fmt;
 
-use dtoa::{FloatStyle, Presentation, format_float};
+use dtoa::{EXACT_DECIMAL_PLACES, FloatStyle, Presentation, format_float};
 pub use printf::PrintfFormat;
 pub use spec::FormatSpec;
 pub use template::{StrTemplate, TemplateValue};
@@ -63,6 +63,23 @@ impl fmt::Display for FormatError {
 
 impl std::error::Error for FormatError {}
 
+/// The widest field and the longest precision plt-rs formats. Python
+/// accepts any width up to `sys.maxsize` and allocates whatever is asked
+/// (or raises `MemoryError`); plt-rs refuses more than this with
+/// [`FormatError::Unsupported`], so that no template exhausts memory.
+pub const MAX_FIELD_SIZE: usize = 1 << 20;
+
+/// `size` (a parsed width or precision) unless it exceeds
+/// [`MAX_FIELD_SIZE`].
+fn bounded_field(size: Option<usize>, what: &str) -> Result<Option<usize>, FormatError> {
+    match size {
+        Some(size) if size > MAX_FIELD_SIZE => Err(FormatError::Unsupported(format!(
+            "a {what} of {size} (more than {MAX_FIELD_SIZE})"
+        ))),
+        _ => Ok(size),
+    }
+}
+
 /// Python's `repr(x)` (and `str(x)`) for a float.
 pub fn repr(x: f64) -> String {
     format_float(x, FloatStyle::REPR)
@@ -84,7 +101,7 @@ pub fn integer(x: f64) -> String {
 
 /// Python's `'%.{precision}f' % x`.
 pub fn fixed(x: f64, precision: usize) -> String {
-    if x.is_finite() {
+    if x.is_finite() && precision <= EXACT_DECIMAL_PLACES {
         // Rust's `{:.N}` rounds the exact binary value half to even, as
         // Python's `%f` does, and keeps the sign of negative zero; it is
         // the vector backends' hot path, so skip the general layout.
@@ -181,6 +198,7 @@ mod tests {
         assert_eq!(integer(-0.5), "0");
         assert_eq!(integer(1e20), "100000000000000000000");
         assert_eq!(fixed(-0.0, 1), "-0.0");
+        assert_eq!(fixed(0.25, 70_000).len(), 70_002);
         assert_eq!(exponential(1500.25, 1), "1.5e+03");
         assert_eq!(general(1234.5678, 6), "1234.57");
         assert_eq!(general_alternate(1.234_567_89, 8), "1.2345679");

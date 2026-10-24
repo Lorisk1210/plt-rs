@@ -4,6 +4,10 @@
 use super::StreamplotError;
 use crate::numeric::Grid;
 
+/// The most cells of the occupancy mask (a density of about 136 each
+/// way): matplotlib allocates whatever mask the density asks for.
+pub const MAX_CELLS: usize = 1 << 24;
+
 /// Cells crossed by streamlines so far: a streamline may only enter free
 /// cells, and marks each cell it enters.
 #[derive(Debug)]
@@ -29,6 +33,9 @@ impl StreamMask {
             }
         };
         let (nx, ny) = (cells(density_x)?, cells(density_y)?);
+        if nx.checked_mul(ny).is_none_or(|count| count > MAX_CELLS) {
+            return Err(StreamplotError::DensityTooHigh(density_x, density_y));
+        }
         Ok(Self {
             cells: Grid::filled(ny, nx, false),
             trajectory: Vec::new(),
@@ -152,6 +159,12 @@ mod tests {
         assert_eq!(StreamMask::new((-0.01, 1.0)).unwrap().shape(), (30, 0));
         assert!(StreamMask::new((-1.0, 1.0)).is_err());
         assert!(StreamMask::new((f64::NAN, 1.0)).is_err());
+        // Found by fuzzing: huge densities asked for unbounded masks.
+        assert_eq!(
+            StreamMask::new((1e300, 1.0)).err(),
+            Some(StreamplotError::DensityTooHigh(1e300, 1.0))
+        );
+        assert!(StreamMask::new((136.0, 136.0)).is_ok());
     }
 
     #[test]

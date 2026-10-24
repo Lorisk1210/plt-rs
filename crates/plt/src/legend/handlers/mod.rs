@@ -36,7 +36,7 @@ pub(crate) use map::{
 
 use super::LegendError;
 use super::handle::{LegendHandle, Source};
-use super::settings::Settings;
+use super::settings::{Settings, handle_points};
 use crate::artist::{Artist, ArtistBase, ArtistStore};
 use crate::collections::{CollectionArtist, EdgeColors};
 use crate::colors::Color;
@@ -269,7 +269,7 @@ fn draw(
         Source::Handled(inner, _) => draw(ctx, handler, inner, area),
         Source::Npoints(inner, numpoints) => {
             let settings = Settings {
-                numpoints: *numpoints,
+                numpoints: handle_points(*numpoints)?,
                 ..ctx.settings.clone()
             };
             let ctx = HandlerContext {

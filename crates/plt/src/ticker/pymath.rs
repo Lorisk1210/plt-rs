@@ -140,6 +140,17 @@ pub(crate) fn arange(start: f64, stop: f64, step: f64) -> Result<Vec<f64>, Ticke
     Ok(crate::numeric::arange(start, stop, step))
 }
 
+/// numpy's `np.linspace(start, stop, num)` ([`numeric::linspace`]), with
+/// [`TickerError::TooManyTicks`] for more than [`arange`] builds.
+///
+/// [`numeric::linspace`]: crate::numeric::linspace
+pub(crate) fn linspace(start: f64, stop: f64, num: usize) -> Result<Vec<f64>, TickerError> {
+    if num as f64 > MAX_ARANGE {
+        return Err(TickerError::TooManyTicks(num));
+    }
+    Ok(crate::numeric::linspace(start, stop, num))
+}
+
 /// `np.unique`: sorted values without duplicates (NaN sorted last).
 pub(crate) fn sorted_unique(values: &[f64]) -> Vec<f64> {
     let mut sorted = values.to_vec();

@@ -34,6 +34,21 @@ pub fn exceeds_max_ticks(locs: &[f64]) -> bool {
     locs.len() >= MAXTICKS
 }
 
+/// The most ticks of one level an axis draws: ten times [`MAXTICKS`].
+/// matplotlib only warns and goes on to lay out and draw every label (for
+/// minutes, or until memory runs out); plt-rs reports
+/// [`TickerError::TooManyTicks`] instead.
+pub const MAX_DRAWN_TICKS: usize = 10 * MAXTICKS;
+
+/// `locs` unless they are more than [`MAX_DRAWN_TICKS`].
+pub(crate) fn drawable_ticks(locs: Vec<f64>) -> Result<Vec<f64>, TickerError> {
+    if locs.len() > MAX_DRAWN_TICKS {
+        Err(TickerError::TooManyTicks(locs.len()))
+    } else {
+        Ok(locs)
+    }
+}
+
 /// Decides where ticks go (matplotlib's `Locator`).
 ///
 /// Locators are pure: everything besides their own parameters comes from

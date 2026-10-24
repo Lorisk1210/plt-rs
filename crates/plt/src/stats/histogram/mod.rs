@@ -17,9 +17,11 @@ pub use sample::BinSample;
 use super::StatsError;
 use crate::numeric::linspace;
 
-/// Largest number of equal-width bins accepted; a narrower estimate would
-/// exhaust memory long before producing a useful plot.
-const MAX_EQUAL_BINS: usize = 1 << 30;
+/// Largest number of equal-width bins accepted (of a 2-D histogram: of
+/// bins in all); numpy allocates whatever is asked, which for a narrower
+/// estimate or a larger count exhausts memory long before producing a
+/// useful plot.
+pub(crate) const MAX_EQUAL_BINS: usize = 1 << 24;
 
 /// numpy's automatic bin-width estimators (`bins="auto"`, `"fd"`, ...).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

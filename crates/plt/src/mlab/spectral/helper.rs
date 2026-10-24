@@ -4,7 +4,7 @@ use plt_core::numeric::remainder;
 
 use super::{SignalValue, SpectralOptions, SpectrumSides};
 use crate::mlab::fft::{FftPlan, fftfreq};
-use crate::mlab::{Complex, MlabError};
+use crate::mlab::{Complex, MAX_FFT_LENGTH, MlabError};
 use crate::numeric::{Grid, arange};
 use crate::stats::pairwise;
 
@@ -67,6 +67,9 @@ pub(super) fn spectral_helper(
     let pad_to = opts.pad_to.unwrap_or(nfft);
     if pad_to == 0 {
         return Err(MlabError::ZeroLengthFft);
+    }
+    if let Some(&len) = [nfft, pad_to].iter().find(|&&len| len > MAX_FFT_LENGTH) {
+        return Err(MlabError::FftTooLong(len));
     }
     let num_freqs = match (twosided, !pad_to.is_multiple_of(2)) {
         (true, _) => pad_to,

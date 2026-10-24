@@ -16,6 +16,9 @@ pub enum LegendError {
     OutsideForAxes(String),
     /// `numpoints` is zero.
     NoPoints,
+    /// `numpoints` or `scatterpoints` (this many) exceeds
+    /// [`MAX_HANDLE_POINTS`](super::MAX_HANDLE_POINTS).
+    TooManyPoints(usize),
     /// `scatteryoffsets` is empty.
     NoScatterOffsets,
     /// `ncols` is zero while there are entries to split.
@@ -48,6 +51,11 @@ impl fmt::Display for LegendError {
                 "the 'outside' option of loc={loc:?} only works for figure legends"
             ),
             Self::NoPoints => f.write_str("numpoints must be > 0"),
+            Self::TooManyPoints(count) => write!(
+                f,
+                "{count} legend markers per handle is more than {}",
+                super::MAX_HANDLE_POINTS
+            ),
             Self::NoScatterOffsets => f.write_str("scatteryoffsets must not be empty"),
             Self::NoColumns => f.write_str("ncols must be > 0"),
             Self::TitleFontConflict => f.write_str(

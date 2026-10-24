@@ -29,6 +29,38 @@ fn quantize(v: f64) -> f64 {
     (v * 64.0).round_ties_even() / 64.0
 }
 
+/// The farthest from the canvas origin, in pixels, that glyphs are drawn
+/// (2^31, where matplotlib's integer text position overflows). A glyph
+/// placed beyond cannot reach any canvas, and its fixed-point coordinates
+/// would overflow.
+const MAX_GLYPH_REACH: f64 = 2_147_483_648.0;
+
+/// Whether `p` lies within [`MAX_GLYPH_REACH`] of the origin (NaN does
+/// not).
+fn within_reach(p: Point) -> bool {
+    p.x.abs() <= MAX_GLYPH_REACH && p.y.abs() <= MAX_GLYPH_REACH
+}
+
+/// The farthest any vertex of `outline` lies from the glyph origin along
+/// either axis, or `None` when a vertex is not finite.
+fn outline_reach(outline: &Path) -> Option<f64> {
+    outline.vertices().iter().try_fold(0.0_f64, |reach, p| {
+        p.is_finite().then(|| reach.max(p.x.abs()).max(p.y.abs()))
+    })
+}
+
+/// Whether a glyph reaching `reach` pixels from its pen at `pen`, at any
+/// rotation, can paint on a canvas of `width × height` pixels. Glyphs that
+/// cannot are skipped: text at sizes `FreeType` clamps to 65 535 pixels per
+/// em would otherwise flatten and rasterize every glyph of a long line.
+fn touches_canvas(pen: Point, reach: f64, (width, height): (f64, f64)) -> bool {
+    let reach = reach * std::f64::consts::SQRT_2 + 1.0;
+    pen.x + reach >= 0.0
+        && pen.x - reach <= width
+        && pen.y + reach >= 0.0
+        && pen.y - reach <= height
+}
+
 impl RasterRenderer {
     pub(super) fn draw_text_run(
         &mut self,
@@ -70,6 +102,9 @@ impl RasterRenderer {
         for glyph in &run.glyphs {
             let pen = placement.transform_point(Point::new(glyph.x, glyph.y));
             let pen = Point::new(quantize(pen.x), quantize(pen.y));
+            if !within_reach(pen) {
+                continue;
+            }
             let polygon = if gc.antialiased {
                 let Ok(outline) = engine.raster_glyph_outline(
                     glyph.font,
@@ -81,6 +116,11 @@ impl RasterRenderer {
                 ) else {
                     continue;
                 };
+                match outline_reach(&outline) {
+                    Some(reach)
+                        if reach <= MAX_GLYPH_REACH && touches_canvas(pen, reach, self.size) => {}
+                    _ => continue,
+                }
                 freetype_polygon(&outline, angle, pen)
             } else {
                 let Ok(outline) = engine.scan_glyph_outline(
@@ -160,6 +200,27 @@ mod tests {
             ..GraphicsContext::default()
         };
         assert!(!paints_glyph(&rect_clipped));
+    }
+
+    #[test]
+    fn glyphs_far_off_the_canvas_are_skipped() {
+        // Found by fuzzing: pens this far overflowed FreeType's fixed point.
+        let run = TextEngine::global()
+            .layout_line(
+                "W",
+                &plt_text::FontRequest::new(plt_text::FontQuery::families(["DejaVu Sans"])),
+                72.0,
+            )
+            .expect("bundled font");
+        for origin in [1e308, 8.4e16, -3e9, f64::NAN] {
+            let mut r = RasterRenderer::new(10.0, 10.0, 72.0).expect("valid canvas");
+            r.draw_text(
+                &GraphicsContext::default(),
+                &run,
+                Point::new(origin, 5.0),
+                30.0,
+            );
+        }
     }
 
     #[test]

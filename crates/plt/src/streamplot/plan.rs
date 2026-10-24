@@ -40,6 +40,11 @@ pub(crate) struct StreamPlan {
     pub(crate) arrows: Vec<PlannedArrow>,
 }
 
+/// The most arrows a streamplot draws, its streamlines together:
+/// matplotlib draws whatever count is asked, on top of each other once
+/// they outnumber the steps of a streamline.
+pub const MAX_ARROWS: usize = 1 << 20;
+
 impl StreamPlan {
     /// Validates the input and traces the streamlines.
     pub(crate) fn new(
@@ -49,6 +54,9 @@ impl StreamPlan {
         let grid = UniformGrid::new(&field.x, &field.y)?;
         let mask = StreamMask::new(options.density)?;
         check_scales(options)?;
+        if options.num_arrows > MAX_ARROWS {
+            return Err(StreamplotError::TooManyArrows(options.num_arrows));
+        }
         let color_values = match &options.color {
             Some(StreamColors::Mapped(map)) => Some(&map.values),
             _ => None,
@@ -84,6 +92,13 @@ impl StreamPlan {
             None => seeded(&integrator, &mut dmap),
             Some(points) => from_points(&integrator, &mut dmap, points)?,
         };
+        if integrator.exhausted() {
+            return Err(StreamplotError::TooManySteps);
+        }
+        let arrows = trajectories.len().saturating_mul(options.num_arrows);
+        if arrows > MAX_ARROWS {
+            return Err(StreamplotError::TooManyArrows(arrows));
+        }
         let mut plan = Self {
             grid,
             paths: Vec::new(),
@@ -208,6 +223,9 @@ struct Samplers<'a> {
 fn seeded(integrator: &Integrator, dmap: &mut DomainMap) -> Vec<Vec<(f64, f64)>> {
     let mut trajectories = Vec::new();
     for (xm, ym) in starting_points(dmap.mask.shape()) {
+        if integrator.exhausted() {
+            break;
+        }
         if dmap.mask.is_free(xm, ym) {
             let start = dmap.mask2grid(xm, ym);
             trajectories.extend(integrator.trace(dmap, start));
@@ -247,7 +265,7 @@ fn from_points(
 mod tests {
     use super::*;
     use crate::numeric::linspace;
-    use crate::streamplot::StreamColorMap;
+    use crate::streamplot::{MAX_STEPS, StreamColorMap};
 
     fn rotation(n: usize) -> StreamField {
         let x = linspace(-1.0, 1.0, n);
@@ -279,6 +297,51 @@ mod tests {
         assert_eq!(values.len(), plan.paths.len());
         assert!(plan.paths.iter().all(|p| p.vertices().len() == 2));
         assert!(plan.arrows.iter().all(|a| a.value.is_some()));
+    }
+
+    #[test]
+    fn dithering_streamlines_stop_at_the_step_budget() {
+        // Found by fuzzing: a field whose direction flips between grid
+        // points makes every streamline dither in its cell up to its
+        // maximum length; at density 16 that exhausted memory.
+        let u = [
+            3.0, -8.1e48, 4.9, 1e12, 12.0, 5.6e-65, 2.2e-16, -1.4e208, -0.9, -4.7, 8.0,
+        ];
+        let field = StreamField::new(
+            vec![0.0, 1.0, 2.0],
+            (0..7).map(f64::from).collect(),
+            Grid::from_fn(7, 3, |i, j| u[(3 * i + j) % u.len()]),
+            Grid::from_fn(7, 3, |i, j| (3 * i + j) as f64 - 3.3),
+        );
+        let options = StreamplotOptions {
+            density: (16.0, 16.0),
+            maxlength: 7.9,
+            ..StreamplotOptions::default()
+        };
+        match StreamPlan::new(&field, &options) {
+            Ok(plan) => assert!(plan.paths.iter().map(Path::len).sum::<usize>() <= MAX_STEPS),
+            Err(err) => assert_eq!(err, StreamplotError::TooManySteps),
+        }
+    }
+
+    #[test]
+    fn arrow_counts_are_bounded() {
+        // Found by fuzzing: 2^31 arrows per streamline exhausted memory.
+        let arrows = |num_arrows| {
+            let options = StreamplotOptions {
+                num_arrows,
+                ..StreamplotOptions::default()
+            };
+            StreamPlan::new(&rotation(10), &options).map(|plan| plan.arrows.len())
+        };
+        assert_eq!(
+            arrows(1 << 31),
+            Err(StreamplotError::TooManyArrows(1 << 31))
+        );
+        let streamlines = arrows(1).expect("one arrow each");
+        assert!(
+            matches!(arrows(MAX_ARROWS), Err(StreamplotError::TooManyArrows(n)) if n == streamlines * MAX_ARROWS)
+        );
     }
 
     #[test]

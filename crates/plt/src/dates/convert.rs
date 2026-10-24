@@ -73,7 +73,7 @@ impl Epoch {
     /// the (second-truncated) epoch plus the nanosecond remainder, as
     /// matplotlib's `_dt64_to_ordinalf` computes it.
     pub fn datetime64_to_num(&self, value: Datetime64) -> f64 {
-        let seconds = (value.seconds() - self.instant.seconds()) as f64;
+        let seconds = (i128::from(value.seconds()) - i128::from(self.instant.seconds())) as f64;
         (seconds + f64::from(value.subsec_nanos()) / 1e9) / SECONDS_PER_DAY
     }
 
@@ -341,6 +341,10 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(epoch.datetime64_to_num(ns), 18_262.000_001_428_896);
+        // Found by fuzzing: the seconds between a far instant and an epoch
+        // before 1970 overflowed.
+        let far = old.datetime64_to_num(Datetime64::new(i64::MAX, 0));
+        assert!(far.is_finite() && far > i64::MAX as f64 / SECONDS_PER_DAY);
     }
 
     #[test]

@@ -208,13 +208,19 @@ impl<'a> FontChain<'a> {
                 if glyph.glyph_id != GlyphId::NOTDEF || face == last {
                     continue;
                 }
+                // The cluster's characters, found by bisection: scanning
+                // the whole text for each missing glyph made long lines of
+                // fallback characters quadratic.
                 let next = clusters
-                    .iter()
+                    .get(clusters.partition_point(|&c| c <= glyph.cluster))
                     .copied()
-                    .find(|&c| c > glyph.cluster)
                     .unwrap_or(usize::MAX);
-                for (index, &(offset, _)) in text.iter().enumerate() {
-                    if (glyph.cluster..next).contains(&offset) && assignment[index] == face {
+                let first = text.partition_point(|&(offset, _)| offset < glyph.cluster);
+                for (index, &(offset, _)) in text.iter().enumerate().skip(first) {
+                    if offset >= next {
+                        break;
+                    }
+                    if assignment[index] == face {
                         assignment[index] = face + 1;
                         changed = true;
                     }

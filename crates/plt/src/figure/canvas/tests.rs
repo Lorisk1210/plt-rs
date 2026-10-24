@@ -131,6 +131,12 @@ fn boxes_outside_the_canvas_save_what_lies_inside() {
     let outside = canvas
         .copy_from_bbox(&Bbox::from_extents(1e6, 1e6, 2e6, 2e6))
         .unwrap();
+    // Found by fuzzing: a box right of the canvas, level with it, sliced
+    // its rows past their end.
+    let beside = canvas
+        .copy_from_bbox(&Bbox::from_extents(60.0, 10.0, 70.0, 20.0))
+        .unwrap();
+    canvas.restore_region(&beside).unwrap();
     let (min, max) = (f64::from(i32::MIN), f64::from(i32::MAX));
     let everywhere = canvas
         .copy_from_bbox(&Bbox::from_extents(min, min, max, max))

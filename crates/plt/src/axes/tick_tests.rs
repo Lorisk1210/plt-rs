@@ -469,3 +469,19 @@ fn axisbelow_reads_back_and_survives_clearing() {
     ax.cla();
     assert_eq!(ax.axisbelow(), AxisBelow::Above);
 }
+
+#[test]
+fn absurd_tick_counts_are_reported_not_drawn() {
+    // Found by fuzzing: a million tick labels took minutes to draw.
+    let fig = Figure::with_size(2.0, 2.0, 50.0);
+    let ax = fig.subplot();
+    let locator = |nbins| crate::ticker::MaxNLocator::new(crate::ticker::Nbins::Fixed(nbins));
+    ax.xaxis().set_major_locator(locator(1 << 20));
+    let error = fig.to_png().expect_err("the x axis cannot be drawn");
+    assert!(
+        error.to_string().contains("refusing to generate"),
+        "{error}"
+    );
+    ax.xaxis().set_major_locator(locator(10));
+    assert!(fig.to_png().is_ok());
+}

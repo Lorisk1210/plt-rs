@@ -62,6 +62,7 @@ pub use options::{
     BboxToAnchor, LegendAlignment, LegendLabelColor, LegendMode, LegendOptions, LegendShadow,
     LegendShadowStyle,
 };
+pub use settings::MAX_HANDLE_POINTS;
 
 use artist::LegendParent;
 use settings::Placement;

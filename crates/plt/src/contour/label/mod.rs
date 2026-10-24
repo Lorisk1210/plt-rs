@@ -162,6 +162,11 @@ struct LevelLabel {
     follows: bool,
 }
 
+/// The most levels labelled at once (matplotlib's `MAXTICKS`): like
+/// matplotlib, which formats each label with all labelled levels, the
+/// work grows with the square of their count.
+pub const MAX_LABELLED_LEVELS: usize = 1000;
+
 impl ContourSet {
     /// Labels the line contours (matplotlib's `clabel`) and returns the
     /// new text artists.
@@ -174,6 +179,18 @@ impl ContourSet {
     pub fn clabel(&self, options: ClabelOptions) -> Result<Vec<Text>, ContourError> {
         let rc = crate::rc::params();
         let indices = self.label_indices(options.levels.as_deref())?;
+        // A filled set has a path per band, one fewer than its levels:
+        // matplotlib raises an `IndexError` for its last level.
+        if indices.len() > MAX_LABELLED_LEVELS {
+            return Err(ContourError::TooManyLabels(indices.len()));
+        }
+        let paths = self.paths().len();
+        if let Some(&index) = indices.iter().find(|&&index| index >= paths) {
+            return Err(ContourError::LevelIndex {
+                index,
+                levels: paths,
+            });
+        }
         let font = match options.fontsize {
             Some(size) => FontProperties::from_rc(&rc).with_size(size, rc.font_size),
             None => FontProperties::from_rc(&rc),
@@ -385,6 +402,49 @@ mod tests {
                 .unwrap()
                 .iter()
                 .all(|&c| c != plt_core::PathCode::ClosePoly)
+        );
+    }
+
+    #[test]
+    fn the_last_level_of_a_filled_set_has_no_line_to_label() {
+        // Found by fuzzing: labelling a filled set indexed past its bands.
+        let fig = Figure::with_size(2.0, 2.0, 50.0);
+        let ax = fig.subplot();
+        let z = Grid::from_fn(4, 4, |i, j| (i + j) as f64);
+        let options = ContourOptions {
+            levels: Levels::Values(vec![1.0, 4.0]),
+            ..ContourOptions::default()
+        };
+        let cs = ax.contourf(&QuadField::new(z), options).unwrap();
+        assert_eq!(
+            cs.clabel(ClabelOptions::default()).unwrap_err(),
+            ContourError::LevelIndex {
+                index: 1,
+                levels: 1
+            }
+        );
+        let lowest = ClabelOptions {
+            levels: Some(vec![1.0]),
+            ..ClabelOptions::default()
+        };
+        assert!(cs.clabel(lowest).is_ok());
+    }
+
+    #[test]
+    fn label_counts_are_bounded() {
+        // Found by fuzzing: labelling a million levels, each formatted
+        // with all of them, never ended.
+        let fig = Figure::with_size(2.0, 2.0, 50.0);
+        let ax = fig.subplot();
+        let z = Grid::from_fn(4, 4, |i, j| (i * 4 + j) as f64);
+        let options = ContourOptions {
+            levels: Levels::Values(linspace(0.0, 15.0, 2000)),
+            ..ContourOptions::default()
+        };
+        let cs = ax.contour(&QuadField::new(z), options).unwrap();
+        assert_eq!(
+            cs.clabel(ClabelOptions::default()).unwrap_err(),
+            ContourError::TooManyLabels(2000)
         );
     }
 

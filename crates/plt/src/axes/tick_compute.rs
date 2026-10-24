@@ -5,7 +5,7 @@
 
 use super::axis::{AxisGeometry, AxisState};
 use super::tick_set::{Tick, TickSet};
-use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError};
+use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError, drawable_ticks};
 use crate::transforms::interval_contains_close;
 
 impl AxisState {
@@ -61,7 +61,7 @@ impl AxisState {
         let mut info = self.info(geometry);
         let mut major_locs = {
             let ctx = TickContext::new(&info, &self.settings);
-            self.major_locator.locate(&ctx)?
+            drawable_ticks(self.major_locator.locate(&ctx)?)?
         };
         if let Some(floor) = geometry.tick_floor {
             major_locs.retain(|&loc| loc > floor);
@@ -100,7 +100,7 @@ impl AxisState {
             ticks.major_locs.clone_from(&major_locs);
         }
         if self.minor_style.is_drawn() {
-            let all_locs = self.minor_locator.locate(&ctx)?;
+            let all_locs = drawable_ticks(self.minor_locator.locate(&ctx)?)?;
             let minor_locs = if self.remove_overlapping_locs {
                 self.without_overlaps(all_locs.clone(), &major_locs, geometry.view)
             } else {

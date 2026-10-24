@@ -40,7 +40,7 @@ pub use error::RasterError;
 pub use geometry::PathSink;
 pub use mask::Mask;
 pub use painter::Painter;
-pub use pixmap::{MAX_DIMENSION, Pixmap};
+pub use pixmap::{MAX_DIMENSION, MAX_PIXELS, Pixmap};
 pub use raster::{CoverageRounding, Covers, DEFAULT_CELL_LIMIT, Gamma, Rasterizer, Scanline, Span};
 pub use render::image::{draw_coverage, draw_image};
 pub use render::marker::MarkerStamp;

@@ -3,8 +3,7 @@
 use plt_core::numeric::{np_sign, py_max};
 
 use super::Locator;
-use crate::numeric::linspace;
-use crate::ticker::pymath::pow10;
+use crate::ticker::pymath::{linspace, pow10};
 use crate::ticker::{TickContext, TickerError};
 
 /// Ticks spaced evenly in `asinh` space and rounded to "nice" multiples of
@@ -124,7 +123,7 @@ impl Locator for AsinhLocator {
         let width = self.linear_width;
         let ymin = width * (vmin / width).asinh();
         let ymax = width * (vmax / width).asinh();
-        let mut ys = linspace(ymin, ymax, self.numticks);
+        let mut ys = linspace(ymin, ymax, self.numticks)?;
         if ymin * ymax < 0.0 {
             // Make sure zero is a tick when the axis straddles it.
             let threshold = 0.5 / self.numticks as f64;
@@ -138,7 +137,7 @@ impl Locator for AsinhLocator {
         if ticks.len() >= 2 {
             Ok(ticks)
         } else {
-            Ok(linspace(vmin, vmax, self.numticks))
+            linspace(vmin, vmax, self.numticks)
         }
     }
 
@@ -167,5 +166,16 @@ mod tests {
         assert!(ticks.windows(2).all(|w| w[0] < w[1]));
         let flat = loc.tick_values(0.0, 0.0, &ctx).unwrap();
         assert_eq!(flat.len(), 11);
+    }
+
+    #[test]
+    fn huge_tick_counts_are_refused() {
+        // Found by fuzzing: 2^31 ticks asked for 16 GB.
+        let ctx = TickContext::default();
+        let loc = AsinhLocator::new(1.0).with_numticks(1 << 31);
+        assert_eq!(
+            loc.tick_values(-100.0, 100.0, &ctx),
+            Err(TickerError::TooManyTicks(1 << 31))
+        );
     }
 }

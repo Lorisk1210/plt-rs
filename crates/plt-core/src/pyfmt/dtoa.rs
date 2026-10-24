@@ -64,6 +64,22 @@ impl FloatStyle {
         add_dot_0: true,
         ..Self::new(Presentation::Repr, 0)
     };
+
+    /// The precision the layout pads to and the digits `dtoa` produces.
+    fn digit_mode(&self) -> (usize, Mode) {
+        match self.presentation {
+            Presentation::Exponent => {
+                let significant = self.precision.saturating_add(1);
+                (significant, Mode::Significant(significant))
+            }
+            Presentation::Fixed => (self.precision, Mode::Fixed(self.precision)),
+            Presentation::General => {
+                let p = self.precision.max(1);
+                (p, Mode::Significant(p))
+            }
+            Presentation::Repr => (0, Mode::Shortest),
+        }
+    }
 }
 
 /// How many digits `dtoa` should produce.
@@ -85,6 +101,12 @@ struct Digits {
     decpt: i64,
 }
 
+/// The most significant digits the exact decimal value of a double has.
+const EXACT_SIGNIFICANT_DIGITS: usize = 767;
+
+/// The most decimal places the exact decimal value of a double has.
+pub(super) const EXACT_DECIMAL_PLACES: usize = 1074;
+
 fn dtoa(abs: f64, mode: Mode) -> Digits {
     if abs == 0.0 {
         return Digits {
@@ -92,10 +114,16 @@ fn dtoa(abs: f64, mode: Mode) -> Digits {
             decpt: 1,
         };
     }
+    // Digits beyond the exact value are zeros, which `Digits` drops, so
+    // asking for no more than the exact digits changes nothing (and keeps
+    // within the precision `format!` accepts).
     match mode {
         Mode::Shortest => scientific(&format!("{abs:e}")),
-        Mode::Significant(n) => scientific(&format!("{abs:.*e}", n.max(1) - 1)),
-        Mode::Fixed(n) => positional(&format!("{abs:.n$}"), n),
+        Mode::Significant(n) => scientific(&format!(
+            "{abs:.*e}",
+            n.clamp(1, EXACT_SIGNIFICANT_DIGITS) - 1
+        )),
+        Mode::Fixed(n) => positional(&format!("{abs:.*}", n.min(EXACT_DECIMAL_PLACES)), n),
     }
 }
 
@@ -165,15 +193,7 @@ pub(super) fn format_float(x: f64, style: FloatStyle) -> String {
         return out;
     }
 
-    let (precision, mode) = match style.presentation {
-        Presentation::Exponent => (style.precision + 1, Mode::Significant(style.precision + 1)),
-        Presentation::Fixed => (style.precision, Mode::Fixed(style.precision)),
-        Presentation::General => {
-            let p = style.precision.max(1);
-            (p, Mode::Significant(p))
-        }
-        Presentation::Repr => (0, Mode::Shortest),
-    };
+    let (precision, mode) = style.digit_mode();
     let Digits { digits, mut decpt } = dtoa(x.abs(), mode);
     let precision = precision as i64;
     let digits_len = digits.len() as i64;
@@ -287,6 +307,19 @@ mod tests {
                 decpt: 4
             }
         );
+    }
+
+    #[test]
+    fn precisions_beyond_the_exact_digits_pad_with_zeros() {
+        // Found by fuzzing: `format!` panicked on precisions above 65535.
+        let long = fmt(5.990_139_303_742_726, Presentation::General, 326_666);
+        assert_eq!(long, "5.990139303742726184509592712856829166412353515625");
+        let fixed = fmt(0.5, Presentation::Fixed, 70_000);
+        assert_eq!(fixed.len(), 70_002);
+        assert!(fixed.starts_with("0.5000"));
+        let exact = fmt(5e-324, Presentation::Exponent, 800);
+        assert!(exact.starts_with("4.9406564584124654417656879286822137236505"));
+        assert!(exact.ends_with("000e-324"));
     }
 
     #[test]

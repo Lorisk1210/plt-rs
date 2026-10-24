@@ -331,6 +331,15 @@ mod tests {
         assert!(teeth.len() > 20);
     }
 
+    #[test]
+    fn tiny_teeth_are_bounded() {
+        // Found by fuzzing: `sawtooth,pad=1e-9` asked for billions of teeth.
+        for name in ["sawtooth,pad=1e-9", "roundtooth,tooth_size=1e-300"] {
+            let path = style(name).path(0.0, 0.0, 40.0, 20.0, 10.0);
+            assert!(path.len() < 200_000, "{name}: {}", path.len());
+        }
+    }
+
     /// A box with a point on its left, as in matplotlib's annotation guide.
     fn angled(x0: f64, y0: f64, width: f64, height: f64, pad: f64) -> Path {
         let (x0, y0) = (x0 - pad, y0 - pad);

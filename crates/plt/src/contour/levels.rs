@@ -8,6 +8,7 @@ use super::ContourError;
 use crate::colors::Extend;
 use crate::ticker::{
     Locator, LogLocator, MaxNLocator, Nbins, NumTicks, TickContext, TickerError, TickerSettings,
+    drawable_ticks,
 };
 
 /// Which contour levels to draw.
@@ -90,7 +91,10 @@ impl LevelRequest<'_> {
         };
         let ctx = TickContext::detached(settings);
         // Fully masked data compares like 0 in the locator and never trims.
-        let lev = locator.tick_values(zmin.unwrap_or(0.0), zmax.unwrap_or(0.0), &ctx)?;
+        // Like the ticks of an axis, no more levels than are drawable: each
+        // is contoured and drawn (matplotlib takes minutes over a million).
+        let lev =
+            drawable_ticks(locator.tick_values(zmin.unwrap_or(0.0), zmax.unwrap_or(0.0), &ctx)?)?;
         let symmetric = (locator as &dyn Any)
             .downcast_ref::<MaxNLocator>()
             .is_some_and(MaxNLocator::symmetric);
@@ -270,6 +274,11 @@ mod tests {
         let none = choose(&Levels::Values(vec![]), false, Extend::Neither, (0.0, 1.0));
         assert_eq!(none, Ok(Vec::new()));
         assert!(choose(&Levels::Count(-1), false, Extend::Neither, (0.0, 1.0)).is_err());
+        // Found by fuzzing: a million levels took minutes to fill.
+        assert_eq!(
+            choose(&Levels::Count(1 << 20), true, Extend::Neither, (0.0, 1.0)),
+            Err(ContourError::Ticker(TickerError::TooManyTicks(1_000_001)))
+        );
         let nan = Levels::Values(vec![1.0, f64::NAN, 0.5]);
         assert!(
             choose(&nan, false, Extend::Neither, (0.0, 1.0)).is_ok(),

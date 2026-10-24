@@ -2,7 +2,9 @@
 //! `configure_subplots`): a slider and a field for each margin and
 //! spacing of the figure's subplot grid, grouped into borders and
 //! spacings as in matplotlib's Qt tool, and a button putting back the
-//! parameters the tool opened with.
+//! parameters the tool opened with. Under constrained layout (plt-rs'
+//! modern look), which sets the margins itself, a note says that it
+//! overrides them.
 
 use plt_platform::{Context, WindowEvent, WindowId};
 use plt_ui::{Flex, Form, Slider, Spacing, TextInput, UiWindow, WidgetId};
@@ -11,6 +13,7 @@ use super::GuiError;
 use super::dialog::{self, Dialog};
 use crate::figure::Figure;
 use crate::gridspec::{SubplotOverrides, SubplotParams};
+use crate::layout::LayoutEngine;
 
 /// How a slider's share of a row compares with its field's.
 const SLIDER_FLEX: f64 = 3.0;
@@ -167,7 +170,12 @@ impl SubplotDialog {
                 });
             }
         }
-        let mut chrome = Dialog::without_status();
+        let constrained = matches!(figure.layout_engine(), Some(LayoutEngine::Constrained(_)));
+        let mut chrome = if constrained {
+            Dialog::with_note("Constrained layout overrides these settings")
+        } else {
+            Dialog::without_status()
+        };
         chrome.button("Reset", SubplotMessage::Reset);
         chrome.primary("Close", SubplotMessage::Close);
         let options = dialog::window_options("Subplot configuration tool")?;

@@ -72,9 +72,11 @@ impl Default for HandleStyle {
 }
 
 impl Default for SliderOptions {
-    /// matplotlib's defaults: from 0.5, a red initial-value line on a
-    /// light grey track.
+    /// matplotlib's defaults: from 0.5, an initial-value line in
+    /// `plt.widgets.slider.initcolor` (red) on a track in
+    /// `plt.widgets.slider.track_color` (light grey).
     fn default() -> Self {
+        let rc = crate::rc::params();
         Self {
             valinit: 0.5,
             valfmt: None,
@@ -83,8 +85,8 @@ impl Default for SliderOptions {
             dragging: true,
             valstep: None,
             orientation: Orientation::Horizontal,
-            initcolor: Color::from("r"),
-            track_color: Color::from("lightgrey"),
+            initcolor: rc.plt_widgets_slider_initcolor.clone(),
+            track_color: rc.plt_widgets_slider_track_color.clone(),
             handle_style: HandleStyle::default(),
             poly: PatchProps::default(),
         }

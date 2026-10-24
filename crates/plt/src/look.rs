@@ -4,9 +4,19 @@
 //! Figures take plt-rs' modern look by default: the `plt-modern` style
 //! sheet, with Inter type, hairline grids behind the data, no top or
 //! right spines, left-aligned titles, constrained layout and a palette
-//! checked for colour-vision deficiencies. Windows take plt-rs' modern
-//! chrome. matplotlib's look of either is one choice away, and the two
-//! are independent: matplotlib's figures in modern windows, say.
+//! checked for colour-vision deficiencies, with math in Inter too and 3-D
+//! panes in the greys of the chrome. Windows take plt-rs' modern chrome.
+//! matplotlib's look of either is one choice away, and the two are
+//! independent: matplotlib's figures in modern windows, say.
+//!
+//! What matplotlib fixes in code rather than in rcParams, the looks set
+//! through plt-rs' own `plt.*` parameters, whose defaults are matplotlib's:
+//! the ink of marks matplotlib draws black (`plt.ink`: quiver arrows,
+//! barbs, error bars of bar charts, size bars), the faces and edges of
+//! table cells and annotation boxes (`plt.table.*`, `plt.offsetbox.*`),
+//! the colours and frames of widgets (`plt.widgets.*`), and whether
+//! `tight_layout` leaves constrained layout in place
+//! (`plt.tight_layout.keeps_constrained`).
 //!
 //! The choice comes from code ([`set_appearance`], [`set_figure_look`],
 //! [`set_chrome_look`]) or, until code makes one, from the environment:
@@ -402,6 +412,48 @@ mod tests {
         for look in FigureLook::ALL {
             assert_eq!(look.name().parse::<FigureLook>(), Ok(look));
         }
+    }
+
+    #[test]
+    fn the_dark_look_suits_its_background() {
+        let dark = FigureLook::ModernDark.params();
+        let lum = |color: &crate::colors::Color| luminance(color.resolve().expect("a colour"));
+        let background = lum(&dark.figure_facecolor);
+        assert!(lum(&dark.plt_ink) > 0.5, "marks matplotlib draws black");
+        for surface in [
+            &dark.axes3d_xaxis_panecolor,
+            &dark.axes3d_yaxis_panecolor,
+            &dark.axes3d_zaxis_panecolor,
+            &dark.plt_table_facecolor,
+            &dark.plt_offsetbox_facecolor,
+            &dark.plt_widgets_button_color,
+            &dark.plt_widgets_textbox_color,
+        ] {
+            assert!((lum(surface) - background).abs() < 0.05, "{surface:?}");
+        }
+    }
+
+    #[test]
+    fn what_matplotlib_fixes_in_code_follows_the_look() {
+        use crate::colors::Color;
+        use crate::quiver::QuiverOptions;
+        use crate::widgets::{ButtonOptions, SliderOptions};
+
+        crate::rc::context(|| {
+            crate::rc::replace(FigureLook::ModernDark.params());
+            let rc = crate::rc::params();
+            assert_eq!(QuiverOptions::default().color, rc.plt_ink);
+            assert_eq!(ButtonOptions::default().color, rc.plt_widgets_button_color);
+            let slider = SliderOptions::default();
+            assert_eq!(slider.track_color, rc.plt_widgets_slider_track_color);
+        });
+        // matplotlib's look keeps matplotlib's colours.
+        assert_eq!(QuiverOptions::default().color, Color::from("black"));
+        assert_eq!(ButtonOptions::default().color, Color::from("0.85"));
+        assert_eq!(
+            SliderOptions::default().track_color,
+            Color::from("lightgrey")
+        );
     }
 
     #[test]

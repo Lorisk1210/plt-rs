@@ -185,6 +185,11 @@ fn placement(fig: &FigureState, id: ArtistId) -> Option<(Option<SubplotSpec>, bo
     }
 }
 
+/// The grid cell of the 2-D or 3-D axes `id`, if it has one.
+pub(super) fn subplot_spec(fig: &FigureState, id: ArtistId) -> Option<SubplotSpec> {
+    placement(fig, id)?.0
+}
+
 /// The extent of the frame `id` in figure fractions (the unit box for the
 /// figure itself).
 pub(super) fn frame_extent(fig: &FigureState, id: ArtistId) -> Option<Bbox> {

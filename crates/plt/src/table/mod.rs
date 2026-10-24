@@ -146,7 +146,8 @@ impl std::error::Error for TableError {}
 pub struct TableOptions {
     /// The texts, row by row; empty with `cell_colours` only.
     pub cell_text: Vec<Vec<String>>,
-    /// The cell backgrounds, row by row (white when unset).
+    /// The cell backgrounds, row by row (`plt.table.facecolor`, white,
+    /// when unset).
     pub cell_colours: Option<Vec<Vec<Color>>>,
     /// Text alignment in the cells (`Right` by default).
     pub cell_loc: Option<HAlign>,
@@ -324,8 +325,8 @@ impl TableBuilder {
     /// Adds the cells, the column headers (row 0) and the row headers
     /// (column -1).
     fn fill(&self, table: &mut TableArtist, options: &TableOptions, height: f64) {
-        let white = || Color::from("w");
         let rc = Rc::clone(&table.rc);
+        let white = || rc.plt_table_facecolor.clone();
         let make = |width: f64, text: &str, facecolor: Color, loc: HAlign| Cell {
             text: text.to_owned(),
             facecolor,

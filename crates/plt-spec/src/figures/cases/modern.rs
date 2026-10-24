@@ -10,17 +10,22 @@ use plt::axes::{
 };
 use plt::collections::CollectionProps;
 use plt::colorbar::ColorbarOptions;
+use plt::contour::{ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
 use plt::figure::Share;
+use plt::fonts::FontSize;
 use plt::image::{Extent, Origin};
 use plt::legend::LegendOptions;
 use plt::lines::StepWhere;
-use plt::numeric::Grid;
+use plt::mplot3d::SurfaceOptions;
+use plt::numeric::{Grid, meshgrid};
+use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions};
+use plt::table::{TableLoc, TableOptions};
 use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
 use plt_core::Point;
 
-use super::common::{map, padded};
+use super::common::{face_cmap, map, padded, strings};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -47,6 +52,12 @@ pub(crate) const CASES: &[FigureCase] = &[
     case("modern/polar", "plt-modern", polar),
     case("modern/annotations", "plt-modern", annotations),
     case("modern/log_math", "plt-modern", log_math),
+    case("modern/surface3d", "plt-modern", surface3d),
+    case("modern/dark_surface3d", "plt-modern-dark", surface3d),
+    case("modern/dark_polar", "plt-modern-dark", dark_polar),
+    case("modern/dark_contour", "plt-modern-dark", dark_contour),
+    case("modern/dark_bars", "plt-modern-dark", dark_bars),
+    case("modern/table", "plt-modern", table),
 ];
 
 /// `X = np.linspace(0, 10, 200)`.
@@ -250,6 +261,147 @@ fn log_math(fig: &Figure) -> CaseResult {
     )?;
     ax.set_title(r"Two decays as $x \to \infty$");
     ax.set_xlabel(r"$x$");
+    ax.legend(LegendOptions::default())?;
+    Ok(())
+}
+
+/// `_saddle`: `x y / (1 + x² + y²)` on an `n` × `n` grid over [-3, 3]²
+/// (`np.meshgrid` of two `np.linspace(-3, 3, n)`).
+fn saddle(n: usize) -> (Grid<f64>, Grid<f64>, Grid<f64>) {
+    let (xx, yy) = meshgrid(&linspace(-3.0, 3.0, n), &linspace(-3.0, 3.0, n));
+    let zz = Grid::from_fn(n, n, |i, j| {
+        let (x, y) = (xx[(i, j)], yy[(i, j)]);
+        x * y / (1.0 + x * x + y * y)
+    });
+    (xx, yy, zz)
+}
+
+/// `_surface`: the saddle as a surface in 3-D, with a colorbar.
+fn surface3d(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot_3d();
+    let (x, y, z) = saddle(25);
+    let options = SurfaceOptions {
+        colors: face_cmap("viridis")?,
+        ..SurfaceOptions::default()
+    };
+    let surface = ax.plot_surface(&x, &y, &z, options)?;
+    let colorbar = ColorbarOptions {
+        shrink: 0.6,
+        label: "height".to_owned(),
+        ..ColorbarOptions::default()
+    };
+    fig.colorbar(&surface, colorbar)?;
+    ax.set_title("A saddle");
+    ax.set_xlabel("x").set_ylabel("y").set_zlabel("z");
+    Ok(())
+}
+
+fn dark_polar(fig: &Figure) -> CaseResult {
+    let ax = fig.polar_subplot();
+    let theta = linspace(0.0, 2.0 * PI, 400);
+    let roses = [
+        (map(&theta, |t| (3.0 * t).cos().abs()), "|cos 3θ|"),
+        (map(&theta, |t| (2.0 * t).sin().abs()), "|sin 2θ|"),
+    ];
+    for (r, label) in roses {
+        ax.plot_with(&theta, r, LineProps::default().label(label))?;
+    }
+    ax.set_title("Two roses");
+    ax.legend(
+        LegendOptions::default()
+            .loc(AnchorLoc::UpperLeft)
+            .bbox_to_anchor((1.05, 1.0)),
+    )?;
+    Ok(())
+}
+
+fn dark_contour(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let (x, y, z) = saddle(80);
+    let field = QuadField::new(z).with_coords(QuadCoords::Mesh { x, y });
+    let filled = ax.contourf(
+        &field,
+        ContourOptions {
+            levels: Levels::Count(10),
+            ..ContourOptions::default()
+        },
+    )?;
+    // Every other level as a line, in the sheet's ink.
+    let lines = ax.contour(
+        &field,
+        ContourOptions {
+            levels: Levels::Values(filled.levels().into_iter().step_by(2).collect()),
+            colors: Some(vec![plt::rc::params().plt_ink.clone()]),
+            linewidths: Some(vec![0.8]),
+            ..ContourOptions::default()
+        },
+    )?;
+    lines.clabel(ClabelOptions {
+        fontsize: Some(FontSize::Points(8.0)),
+        ..ClabelOptions::default()
+    })?;
+    let colorbar = ColorbarOptions {
+        label: "height".to_owned(),
+        ..ColorbarOptions::beside(&ax)
+    };
+    fig.colorbar(&filled, colorbar)?;
+    ax.set_title("Contours of a saddle");
+    ax.set_xlabel("x").set_ylabel("y");
+    Ok(())
+}
+
+/// Bars with error bars, which `plt.ink` draws in ink.
+fn dark_bars(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let x = [0.0, 1.0, 2.0, 3.0];
+    let options = BarOptions {
+        thickness: 0.6.into(),
+        errors: ErrorbarOptions {
+            yerr: Some(vec![2.0, 3.0, 4.0, 2.0].into()),
+            capsize: Some(4.0),
+            ..ErrorbarOptions::default()
+        },
+        ..BarOptions::default()
+    };
+    ax.bar(x, [18.0, 24.0, 31.0, 12.0], options)?;
+    ax.set_xticks(x.to_vec());
+    ax.set_xticklabels(["north", "south", "east", "west"])?;
+    ax.set_ylabel("units (thousands)");
+    ax.set_title("Sales with their spread");
+    Ok(())
+}
+
+/// Bars over a table, whose cells `plt.table.*` draw in hairlines.
+fn table(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let x = [0.0, 1.0, 2.0, 3.0];
+    let years = [
+        ("2023", [18, 24, 31, 12]),
+        ("2024", [21, 22, 35, 17]),
+        ("2025", [26, 25, 33, 23]),
+    ];
+    for (i, (year, values)) in years.into_iter().enumerate() {
+        let offset = (i as f64 - 1.0) * 0.25;
+        let options = BarOptions {
+            thickness: 0.25.into(),
+            label: Some(year.to_owned()),
+            ..BarOptions::default()
+        };
+        ax.bar(map(&x, |x| x + offset), values.map(f64::from), options)?;
+    }
+    let cells = years
+        .iter()
+        .map(|(_, values)| values.iter().map(ToString::to_string).collect())
+        .collect();
+    ax.table(TableOptions {
+        row_labels: Some(years.iter().map(|&(year, _)| year.to_owned()).collect()),
+        col_labels: Some(strings(&["north", "south", "east", "west"])),
+        loc: TableLoc::Bottom,
+        ..TableOptions::with_text(cells)
+    })?;
+    ax.set_xticks(Vec::<f64>::new());
+    ax.set_ylabel("units (thousands)");
+    ax.set_title("Sales by region");
     ax.legend(LegendOptions::default())?;
     Ok(())
 }

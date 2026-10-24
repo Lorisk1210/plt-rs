@@ -7,7 +7,6 @@ use super::data_coords::data_offsets;
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
-use crate::colors::Color;
 use crate::quiver::{BarbFlip, BarbsOptions, VectorField, barb_outlines, retained};
 use crate::transforms::Transform;
 
@@ -63,7 +62,8 @@ impl Axes {
         let (faces, edges) = match (options.barbcolor, options.flagcolor) {
             (Some(barb), Some(flag)) => (flag, EdgeColors::Colors(vec![barb])),
             (barb, flag) => (
-                flag.or(barb).unwrap_or_else(|| Color::from("k")),
+                flag.or(barb)
+                    .unwrap_or_else(|| collection.rc().plt_ink.clone()),
                 EdgeColors::Face,
             ),
         };

@@ -89,6 +89,20 @@ impl Drop for Connections {
     }
 }
 
+/// Readies `ax` to hold a button, a text box or check or radio buttons
+/// (matplotlib's set-up in their constructors): no ticks and no
+/// navigation, framed by all four spines when `plt.widgets.frame` says so.
+fn take_over_axes(ax: &Axes) {
+    ax.set_navigate(false);
+    ax.set_xticks(Vec::<f64>::new());
+    ax.set_yticks(Vec::<f64>::new());
+    if crate::rc::params().plt_widgets_frame {
+        for spine in ax.spines().iter() {
+            spine.set_visible(true);
+        }
+    }
+}
+
 /// The data coordinates of `location` in `ax`: those of the event when it
 /// happened over `ax`, else the pointer mapped through the data transform
 /// of `ax` (matplotlib's `_call_with_reparented_event`).

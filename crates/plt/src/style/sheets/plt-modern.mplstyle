@@ -13,12 +13,24 @@ figure.labelsize: 11
 figure.constrained_layout.use: True
 figure.constrained_layout.h_pad: 0.0833
 figure.constrained_layout.w_pad: 0.0833
+# `tight_layout()` leaves these figures to constrained layout.
+plt.tight_layout.keeps_constrained: True
 
 ## Type
 font.family: sans-serif
 font.sans-serif: Inter, DejaVu Sans, Bitstream Vera Sans, Arial, Helvetica, sans-serif
 font.size: 10
 text.color: 1f2328
+# Math in Inter too (calligraphy in Computer Modern), with STIX Sans for
+# the symbols Inter lacks.
+mathtext.fontset: custom
+mathtext.rm: Inter
+mathtext.it: Inter:italic
+mathtext.bf: Inter:bold
+mathtext.bfit: Inter:italic:bold
+mathtext.sf: Inter
+mathtext.cal: cmsy10
+mathtext.fallback: stixsans
 
 ## Axes: no frame, a light baseline, the grid below the data
 axes.facecolor: white
@@ -55,13 +67,37 @@ ytick.major.size: 0
 ytick.minor.size: 0
 ytick.major.pad: 6
 
-## Marks
+## 3-D axes: panes in the greys of the chrome
+axes3d.xaxis.panecolor: f9fafb
+axes3d.yaxis.panecolor: f3f4f6
+axes3d.zaxis.panecolor: f6f7f9
+
+## Marks: the edges of patches (annotation arrows, text boxes) in ink
+patch.edgecolor: 1f2328
 lines.linewidth: 1.75
 lines.solid_capstyle: round
 boxplot.boxprops.color: 4b5563
 boxplot.whiskerprops.color: 4b5563
 boxplot.capprops.color: 4b5563
 boxplot.flierprops.markeredgecolor: 4b5563
+
+## What matplotlib draws in black (arrows, barbs, size bars, ...) in ink;
+## tables and boxes in hairlines
+plt.ink: 1f2328
+plt.table.facecolor: white
+plt.table.edgecolor: d0d5dd
+plt.offsetbox.facecolor: white
+plt.offsetbox.edgecolor: d0d5dd
+
+## Widgets: framed like the controls of the window around the figure
+plt.widgets.frame: True
+plt.widgets.button.color: white
+plt.widgets.button.hovercolor: f3f4f6
+plt.widgets.textbox.color: white
+plt.widgets.textbox.hovercolor: f6f7f9
+plt.widgets.activecolor: 2a78d6
+plt.widgets.slider.track_color: e5e7eb
+plt.widgets.slider.initcolor: 9ca3af
 
 ## Legend: no box, the swatches carry identity
 legend.frameon: False

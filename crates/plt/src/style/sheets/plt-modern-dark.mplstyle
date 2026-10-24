@@ -12,12 +12,24 @@ figure.labelsize: 11
 figure.constrained_layout.use: True
 figure.constrained_layout.h_pad: 0.0833
 figure.constrained_layout.w_pad: 0.0833
+# `tight_layout()` leaves these figures to constrained layout.
+plt.tight_layout.keeps_constrained: True
 
 ## Type
 font.family: sans-serif
 font.sans-serif: Inter, DejaVu Sans, Bitstream Vera Sans, Arial, Helvetica, sans-serif
 font.size: 10
 text.color: e6e9ed
+# Math in Inter too (calligraphy in Computer Modern), with STIX Sans for
+# the symbols Inter lacks.
+mathtext.fontset: custom
+mathtext.rm: Inter
+mathtext.it: Inter:italic
+mathtext.bf: Inter:bold
+mathtext.bfit: Inter:italic:bold
+mathtext.sf: Inter
+mathtext.cal: cmsy10
+mathtext.fallback: stixsans
 
 ## Axes: no frame, a light baseline, the grid below the data
 axes.facecolor: 1e2024
@@ -54,8 +66,12 @@ ytick.major.size: 0
 ytick.minor.size: 0
 ytick.major.pad: 6
 
+## 3-D axes: panes a step above the background
+axes3d.xaxis.panecolor: 25282d
+axes3d.yaxis.panecolor: 2b2e34
+axes3d.zaxis.panecolor: 282b30
+
 ## Marks: the edges of patches (annotation arrows, text boxes) in ink
-lines.color: e6e9ed
 patch.edgecolor: e6e9ed
 lines.linewidth: 1.75
 lines.solid_capstyle: round
@@ -63,6 +79,24 @@ boxplot.boxprops.color: 9ea6b0
 boxplot.whiskerprops.color: 9ea6b0
 boxplot.capprops.color: 9ea6b0
 boxplot.flierprops.markeredgecolor: 9ea6b0
+
+## What matplotlib draws in black (arrows, barbs, size bars, ...) in ink;
+## tables and boxes in hairlines
+plt.ink: e6e9ed
+plt.table.facecolor: 1e2024
+plt.table.edgecolor: 464b53
+plt.offsetbox.facecolor: 1e2024
+plt.offsetbox.edgecolor: 464b53
+
+## Widgets: framed like the controls of the window around the figure
+plt.widgets.frame: True
+plt.widgets.button.color: 30343a
+plt.widgets.button.hovercolor: 393d44
+plt.widgets.textbox.color: 282b30
+plt.widgets.textbox.hovercolor: 30343a
+plt.widgets.activecolor: 3987e5
+plt.widgets.slider.track_color: 33373d
+plt.widgets.slider.initcolor: 6b7280
 
 ## Legend: no box, the swatches carry identity
 legend.frameon: False

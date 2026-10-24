@@ -3,6 +3,8 @@
 //! (matplotlib creates them with the box and attaches them on
 //! `add_artist`).
 
+use std::rc::Rc;
+
 use plt_core::Point;
 
 use super::{OffsetBox, OffsetImage, PaddedBox, TextArea};
@@ -176,18 +178,20 @@ pub(crate) fn adopt_box(
     id
 }
 
-/// The frame of a box: a snapped `FancyBboxPatch` of `boxstyle`, white with
-/// a black edge unless `props` say otherwise, shown when `visible`.
+/// The frame of a box: a snapped `FancyBboxPatch` of `boxstyle` in the
+/// `plt.offsetbox.*` colours (white with a black edge) unless `props` say
+/// otherwise, shown when `visible`.
 pub(crate) fn frame_patch(boxstyle: BoxStyle, visible: bool, props: PatchProps) -> BoxItem {
+    let rc = crate::rc::params();
     let mut frame = PatchArtist::new(
         FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, boxstyle),
-        crate::rc::params(),
+        Rc::clone(&rc),
     );
     // Like matplotlib's `patch.update(props)` after construction, a colour
     // in `props` replaces both defaults.
     PatchProps::default()
-        .facecolor("w")
-        .edgecolor("k")
+        .facecolor(rc.plt_offsetbox_facecolor.clone())
+        .edgecolor(rc.plt_offsetbox_edgecolor.clone())
         .apply(&mut frame);
     props.apply(&mut frame);
     let base = frame.base_mut();

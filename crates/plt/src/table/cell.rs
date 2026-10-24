@@ -186,15 +186,16 @@ pub(crate) struct Cell {
 
 impl Cell {
     /// A `width` × `height` cell with matplotlib's defaults: no text
-    /// (aligned right), a white face, all four edges drawn in black and
-    /// the font and text colour of `rc` (`Cell(xy, width, height)`).
+    /// (aligned right), all four edges drawn, and the face and edge
+    /// colours (`plt.table.*`: white and black), font and text colour of
+    /// `rc` (`Cell(xy, width, height)`).
     pub(crate) fn new(width: f64, height: f64, rc: &RcParams) -> Self {
         Self {
             width,
             height,
             text: String::new(),
-            facecolor: Color::from("w"),
-            edgecolor: Color::from("k"),
+            facecolor: rc.plt_table_facecolor.clone(),
+            edgecolor: rc.plt_table_edgecolor.clone(),
             linewidth: None,
             alpha: None,
             loc: HAlign::Right,

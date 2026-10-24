@@ -12,6 +12,7 @@ use crate::collections::{Collection, EdgeColors, cycled};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
 use crate::numeric::linspace;
 use crate::text::{Text, TextProps};
+use crate::widgets::take_over_axes;
 
 /// Extra distance in points within which a click hits a button marker
 /// (matplotlib's default collection `pickradius`).
@@ -59,9 +60,7 @@ impl ButtonColumn {
         layout: ButtonLayout,
         label_props: &[TextProps],
     ) -> Result<Self, ButtonsError> {
-        ax.set_xticks(Vec::<f64>::new());
-        ax.set_yticks(Vec::<f64>::new());
-        ax.set_navigate(false);
+        take_over_axes(ax);
         let shape = match layout {
             ButtonLayout::Legacy => None,
             ButtonLayout::Vertical => Some((labels.len(), 1)),

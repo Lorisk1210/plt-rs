@@ -79,8 +79,9 @@ impl Table {
 
     /// Adds a cell `width` × `height` axes fractions large at `(row,
     /// column)` and returns it for styling (matplotlib's `add_cell`). It
-    /// starts with matplotlib's defaults: no text (aligned right), a
-    /// white face and all four edges drawn in black. A cell already at
+    /// starts with matplotlib's defaults: no text (aligned right) and all
+    /// four edges drawn, in the `plt.table.*` colours (a white face and
+    /// black edges). A cell already at
     /// that key is replaced and keeps its place among the
     /// [`cell_keys`](Self::cell_keys); the table lays its rows and columns
     /// out again at the next draw, so the new cell can grow or extend the

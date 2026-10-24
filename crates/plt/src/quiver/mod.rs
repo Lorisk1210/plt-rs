@@ -72,7 +72,8 @@ pub struct QuiverOptions {
     pub shape: QuiverArrowShape,
     /// Which part of the arrow sits on its position.
     pub pivot: Pivot,
-    /// Face colour of the arrows unless colours are mapped.
+    /// Face colour of the arrows unless colours are mapped (`plt.ink`,
+    /// black, by default).
     pub color: Color,
     /// Further collection properties (edges, alpha, z-order, ...).
     pub props: CollectionProps,
@@ -94,7 +95,7 @@ impl Default for QuiverOptions {
             width: None,
             shape: QuiverArrowShape::default(),
             pivot: Pivot::Tail,
-            color: Color::from("k"),
+            color: crate::rc::params().plt_ink.clone(),
             props: CollectionProps::default(),
             transform: None,
         }

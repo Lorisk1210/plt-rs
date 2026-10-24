@@ -4,6 +4,7 @@
 //! cargo xtask spec [AREA...] [--failures]        probe conformance vs matplotlib goldens
 //! cargo xtask figures [PREFIX...] [--failures]   figure-case conformance
 //! cargo xtask render PREFIX... [--vectors]       render cases to spec/out
+//! cargo xtask render --look LOOK PREFIX...       render cases in a plt-rs look to spec/out/look-LOOK
 //! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
 //! cargo xtask bench [PREFIX...] [--reference]     timings of large workloads (vs matplotlib)
 //! ```
@@ -17,10 +18,12 @@
 mod bench;
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::process::ExitCode;
 
+use plt::look::FigureLook;
 use plt_spec::figures::vector::{VectorFormat, render_vector};
-use plt_spec::figures::{self, CaseVerdict};
+use plt_spec::figures::{self, CaseVerdict, FigureCase};
 use plt_spec::probes::{self, AreaReport, ProbeFile};
 
 fn main() -> ExitCode {
@@ -39,6 +42,7 @@ fn main() -> ExitCode {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
             eprintln!("       cargo xtask render PREFIX... [--vectors]");
+            eprintln!("       cargo xtask render --look modern|modern-dark PREFIX...");
             eprintln!("       cargo xtask vectors [PREFIX...] [--formats svg,pdf,ps,pgf]");
             eprintln!("       cargo xtask bench [PREFIX...] [--reference] [--runs N]");
             ExitCode::FAILURE
@@ -91,23 +95,74 @@ fn vectors(args: &[String]) -> ExitCode {
 /// Renders the translated cases whose names start with a prefix into
 /// `spec/out/<case>.png`, with `<case>.diff.png` marking the pixels that
 /// differ from the golden image; `--vectors` also writes the case as SVG,
-/// PDF and PostScript the way the vector goldens are saved.
+/// PDF and PostScript the way the vector goldens are saved. `--look LOOK`
+/// renders in one of plt-rs' figure looks instead (`modern`,
+/// `modern-dark`) into `spec/out/look-LOOK/<case>.png` (PNG only, no diff:
+/// the goldens show matplotlib's look).
 fn render(args: &[String]) -> ExitCode {
-    let vectors = args.iter().any(|a| a == "--vectors");
-    let prefixes: Vec<&str> = args
-        .iter()
-        .filter(|a| !a.starts_with("--"))
-        .map(String::as_str)
-        .collect();
-    let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/out");
-    let mut status = ExitCode::SUCCESS;
-    for case in figures::translated_cases()
-        .iter()
+    let mut vectors = false;
+    let mut look = None;
+    let mut prefixes = Vec::new();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        match arg.as_str() {
+            "--vectors" => vectors = true,
+            "--look" => match rest.next().map(|name| name.parse::<FigureLook>()) {
+                Some(Ok(chosen)) => look = Some(chosen),
+                Some(Err(err)) => {
+                    eprintln!("--look: {err}");
+                    return ExitCode::FAILURE;
+                }
+                None => {
+                    eprintln!("--look needs a look: modern or modern-dark");
+                    return ExitCode::FAILURE;
+                }
+            },
+            prefix => prefixes.push(prefix),
+        }
+    }
+    let cases: Vec<_> = figures::translated_cases()
+        .into_iter()
         .filter(|case| prefixes.iter().any(|p| case.name.starts_with(p)))
-    {
+        .collect();
+    let out = Path::new(env!("CARGO_MANIFEST_DIR")).join("../spec/out");
+    match look {
+        Some(look) if look != FigureLook::Matplotlib => {
+            render_in_look(&cases, look, &out.join(format!("look-{look}")))
+        }
+        _ => render_against_goldens(&cases, vectors, &out),
+    }
+}
+
+/// Writes each case rendered in `look` to `out/<case>.png`.
+fn render_in_look(cases: &[FigureCase], look: FigureLook, out: &Path) -> ExitCode {
+    let mut status = ExitCode::SUCCESS;
+    for case in cases {
+        let path = out.join(format!("{}.png", case.name));
+        let written = figures::look_png(case, look).and_then(|png| {
+            std::fs::create_dir_all(path.parent().unwrap_or(out))
+                .and_then(|()| std::fs::write(&path, png))
+                .map_err(|e| e.to_string())
+        });
+        match written {
+            Ok(()) => println!("{:<44} {}", case.name, path.display()),
+            Err(err) => {
+                eprintln!("{}: {err}", case.name);
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
+    status
+}
+
+/// Writes each case's rendering and its diff against the golden image to
+/// `out`, and its vector documents with `vectors`.
+fn render_against_goldens(cases: &[FigureCase], vectors: bool, out: &Path) -> ExitCode {
+    let mut status = ExitCode::SUCCESS;
+    for case in cases {
         let written = figures::pixel_artifacts(case).and_then(|artifacts| {
             let base = out.join(case.name);
-            let dir = base.parent().unwrap_or(&out);
+            let dir = base.parent().unwrap_or(out);
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
             std::fs::write(base.with_extension("png"), &artifacts.rendered)
                 .and_then(|()| std::fs::write(base.with_extension("diff.png"), &artifacts.diff))

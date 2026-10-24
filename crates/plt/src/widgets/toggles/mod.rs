@@ -73,6 +73,7 @@ impl CheckButtons {
             options.layout,
             &options.label_props,
         )?);
+        let edgecolor = || crate::rc::params().plt_ink.clone();
         let frame = &options.frame_props;
         let frames = column.markers(
             MarkerSymbol::Square,
@@ -85,7 +86,7 @@ impl CheckButtons {
                 )),
                 edgecolors: Some(EdgeColors::Colors(per_button(
                     frame.edgecolors.as_ref(),
-                    frame.color.clone().unwrap_or_else(|| Color::from("black")),
+                    frame.color.clone().unwrap_or_else(edgecolor),
                     labels.len(),
                 ))),
                 linewidths: Some(frame.linewidths.clone().unwrap_or_else(|| vec![1.0])),
@@ -94,7 +95,7 @@ impl CheckButtons {
         let check = &options.check_props;
         let active_colors = Rc::new(RefCell::new(per_button(
             check.facecolors.as_ref(),
-            check.color.clone().unwrap_or_else(|| Color::from("black")),
+            check.color.clone().unwrap_or_else(edgecolor),
             labels.len(),
         )));
         let checks = column.markers(
@@ -247,7 +248,8 @@ pub struct RadioButtons {
 
 impl RadioButtons {
     /// Turns `ax` into radio buttons labelled `labels` with button
-    /// `active` selected, in matplotlib's default style (filled blue).
+    /// `active` selected, in matplotlib's default style (filled in
+    /// `plt.widgets.activecolor`, blue).
     pub fn new(ax: &Axes, labels: &[&str], active: usize) -> Self {
         Self::with_options(ax, labels, active, RadioButtonsOptions::default())
             .expect("the legacy layout measures no label")
@@ -271,11 +273,12 @@ impl RadioButtons {
             options.layout,
             &options.label_props,
         )?);
+        let rc = crate::rc::params();
         let radio = &options.radio_props;
         let activecolor = options
             .activecolor
             .clone()
-            .unwrap_or_else(|| Color::from("blue"));
+            .unwrap_or_else(|| rc.plt_widgets_activecolor.clone());
         let active_colors = Rc::new(RefCell::new(per_button(
             radio.facecolors.as_ref(),
             radio.color.clone().unwrap_or(activecolor),
@@ -288,7 +291,7 @@ impl RadioButtons {
                 colors: ScatterColors::PerPoint(active_colors.borrow().clone()),
                 edgecolors: Some(EdgeColors::Colors(per_button(
                     radio.edgecolors.as_ref(),
-                    radio.color.clone().unwrap_or_else(|| Color::from("black")),
+                    radio.color.clone().unwrap_or_else(|| rc.plt_ink.clone()),
                     labels.len(),
                 ))),
                 linewidths: radio.linewidths.clone(),

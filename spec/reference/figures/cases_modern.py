@@ -5,8 +5,9 @@ plt-rs bundles) added to matplotlib's font manager.
 
 The sheets' ``plt.*`` parameters have no matplotlib counterpart and are
 left out: the cases do by hand what they ask for (an image turns the grid
-of its axes off). The data use exactly rounded arithmetic (no ``exp`` or
-``pow``), so that numpy and Rust agree to the last bit.
+of its axes off, error bars of bars take ``plt.ink``, table cells
+``plt.table.edgecolor``). The data use exactly rounded arithmetic (no
+``exp`` or ``pow``), so that numpy and Rust agree to the last bit.
 """
 
 import pathlib
@@ -22,21 +23,29 @@ for _font in sorted((REPO / "crates" / "plt-font" / "fonts").glob("Inter-*.ttf")
     font_manager.fontManager.addfont(str(_font))
 
 
-def _sheet(name):
-    """The parameters of a plt-rs style sheet, without its ``plt.*`` ones."""
+def _sheet_entries(name):
+    """Every parameter of a plt-rs style sheet."""
     path = REPO / "crates" / "plt" / "src" / "style" / "sheets" / f"{name}.mplstyle"
     params = {}
     for line in path.read_text().splitlines():
         line = line.split("#", 1)[0].strip()
         if line:
             key, value = (part.strip() for part in line.split(":", 1))
-            if not key.startswith("plt."):
-                params[key] = value
+            params[key] = value
     return params
+
+
+def _sheet(name):
+    """The parameters of a plt-rs style sheet, without its ``plt.*`` ones."""
+    return {k: v for k, v in _sheet_entries(name).items() if not k.startswith("plt.")}
 
 
 MODERN = _sheet("plt-modern")
 DARK = _sheet("plt-modern-dark")
+#: The colours the sheets' `plt.ink` (dark) and `plt.table.edgecolor`
+#: (light) ask for.
+INK_DARK = "#" + _sheet_entries("plt-modern-dark")["plt.ink"]
+HAIRLINE = "#" + _sheet_entries("plt-modern")["plt.table.edgecolor"]
 SIZE = (7.2, 4.5)
 X = np.linspace(0, 10, 200)
 
@@ -152,4 +161,84 @@ def _(fig):
     ax.semilogy(x, 1 / (1 + x ** 2), label=r"$\frac{1}{1 + x^2}$")
     ax.set_title(r"Two decays as $x \to \infty$")
     ax.set_xlabel(r"$x$")
+    ax.legend()
+
+
+def _saddle(n=25):
+    """``x y / (1 + x² + y²)`` on an ``n`` × ``n`` grid over [-3, 3]²."""
+    xx, yy = np.meshgrid(np.linspace(-3, 3, n), np.linspace(-3, 3, n))
+    return xx, yy, xx * yy / (1 + xx ** 2 + yy ** 2)
+
+
+def _surface(fig):
+    ax = fig.add_subplot(projection="3d")
+    surface = ax.plot_surface(*_saddle(), cmap="viridis")
+    fig.colorbar(surface, ax=ax, shrink=0.6, label="height")
+    ax.set_title("A saddle")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+
+
+@case("modern/surface3d", figsize=SIZE, rc=MODERN)
+def _(fig):
+    _surface(fig)
+
+
+@case("modern/dark_surface3d", figsize=SIZE, rc=DARK)
+def _(fig):
+    _surface(fig)
+
+
+@case("modern/dark_polar", figsize=SIZE, rc=DARK)
+def _(fig):
+    ax = fig.add_subplot(projection="polar")
+    theta = np.linspace(0, 2 * np.pi, 400)
+    ax.plot(theta, np.abs(np.cos(3 * theta)), label="|cos 3θ|")
+    ax.plot(theta, np.abs(np.sin(2 * theta)), label="|sin 2θ|")
+    ax.set_title("Two roses")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.05, 1))
+
+
+@case("modern/dark_contour", figsize=SIZE, rc=DARK)
+def _(fig):
+    ax = fig.subplots()
+    xx, yy, zz = _saddle(80)
+    filled = ax.contourf(xx, yy, zz, levels=10)
+    lines = ax.contour(xx, yy, zz, levels=filled.levels[::2], colors=INK_DARK, linewidths=0.8)
+    ax.clabel(lines, fontsize=8)
+    fig.colorbar(filled, ax=ax, label="height")
+    ax.set_title("Contours of a saddle")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+
+
+@case("modern/dark_bars", figsize=SIZE, rc=DARK)
+def _(fig):
+    ax = fig.subplots()
+    x = np.arange(4)
+    # `plt.ink` draws the error bars in ink; matplotlib draws them black.
+    ax.bar(x, [18, 24, 31, 12], 0.6, yerr=[2, 3, 4, 2], capsize=4,
+           error_kw={"ecolor": INK_DARK})
+    ax.set_xticks(x, ["north", "south", "east", "west"])
+    ax.set_ylabel("units (thousands)")
+    ax.set_title("Sales with their spread")
+
+
+@case("modern/table", figsize=SIZE, rc=MODERN)
+def _(fig):
+    ax = fig.subplots()
+    years = {"2023": [18, 24, 31, 12], "2024": [21, 22, 35, 17], "2025": [26, 25, 33, 23]}
+    x = np.arange(4)
+    for i, (year, values) in enumerate(years.items()):
+        ax.bar(x + (i - 1) * 0.25, values, 0.25, label=year)
+    table = ax.table(cellText=[[str(v) for v in values] for values in years.values()],
+                     rowLabels=list(years), colLabels=["north", "south", "east", "west"],
+                     loc="bottom")
+    # `plt.table.edgecolor` draws the cells in hairlines; matplotlib in black.
+    for cell in table.get_celld().values():
+        cell.set_edgecolor(HAIRLINE)
+    ax.set_xticks([])
+    ax.set_ylabel("units (thousands)")
+    ax.set_title("Sales by region")
     ax.legend()

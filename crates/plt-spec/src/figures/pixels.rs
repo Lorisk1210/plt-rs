@@ -6,11 +6,12 @@ use std::error::Error;
 use std::fmt;
 
 use plt::figure::SaveOptions;
+use plt::look::FigureLook;
 use plt::numeric::Grid;
 use plt::testing::calculate_rms;
 use plt_render::RgbaImage;
 
-use super::{Capture, FigureCase};
+use super::{Baseline, Capture, FigureCase};
 
 /// How a rendered case compares with its golden image.
 #[derive(Clone, Debug, PartialEq)]
@@ -50,7 +51,15 @@ impl fmt::Display for PixelReport {
 /// [`Capture::Canvas`] cases. Artists that fail to draw are skipped; their
 /// count is returned.
 pub fn render_pixels(case: &FigureCase) -> Result<(RgbaImage, usize), Box<dyn Error>> {
-    case.with_figure(|fig| match case.capture {
+    render_pixels_from(case, Baseline::Reference)
+}
+
+/// Renders a case as [`render_pixels`] does, under `baseline`.
+fn render_pixels_from(
+    case: &FigureCase,
+    baseline: Baseline,
+) -> Result<(RgbaImage, usize), Box<dyn Error>> {
+    case.with_figure_from(baseline, |fig| match case.capture {
         Capture::Savefig => {
             let options = SaveOptions {
                 dpi: Some(case.dpi),
@@ -112,10 +121,24 @@ impl Rendered {
     }
 
     fn png(&self, data: &[u8]) -> Result<Vec<u8>, String> {
-        plt_codec::png::ImageRef::rgba8(self.width, self.height, data)
-            .and_then(plt_codec::png::encode)
-            .map_err(|e| format!("cannot encode PNG: {e}"))
+        encode_png(self.width, self.height, data)
     }
+}
+
+/// RGBA pixels of a `width` × `height` image as PNG.
+fn encode_png(width: u32, height: u32, data: &[u8]) -> Result<Vec<u8>, String> {
+    plt_codec::png::ImageRef::rgba8(width, height, data)
+        .and_then(plt_codec::png::encode)
+        .map_err(|e| format!("cannot encode PNG: {e}"))
+}
+
+/// Renders a case in a plt-rs figure look, to see how it looks there (no
+/// golden exists to compare with), as PNG.
+pub fn look_png(case: &FigureCase, look: FigureLook) -> Result<Vec<u8>, String> {
+    let (image, _) = render_pixels_from(case, Baseline::Look(look))
+        .map_err(|e| format!("render failed: {e}"))?;
+    let side = |n: usize| u32::try_from(n).map_err(|_| format!("{n} pixels is too large"));
+    encode_png(side(image.width())?, side(image.height())?, image.data())
 }
 
 /// Renders a case and compares it with its golden PNG.
@@ -247,5 +270,22 @@ mod tests {
         let report = compare_rgba(&[0, 0, 0, 0], &[0, 0, 0, 4]);
         assert!((report.rms - 2.0).abs() < 1e-12);
         assert!(report.to_string().starts_with("rms   2.000"));
+    }
+
+    #[test]
+    fn cases_render_in_the_looks_asked_for() {
+        let case = FigureCase::new("look/blank", |fig| {
+            fig.subplot();
+            Ok(())
+        })
+        .sized(2.0, 1.5, 100.0);
+        let corner = |look| {
+            let png = look_png(&case, look).expect("the case renders");
+            let image = plt_codec::png::decode(&png).expect("a PNG");
+            assert_eq!((image.width(), image.height()), (200, 150));
+            image.to_rgba8()[..3].to_vec()
+        };
+        assert_eq!(corner(FigureLook::Modern), [255, 255, 255]);
+        assert_eq!(corner(FigureLook::ModernDark), [0x1e, 0x20, 0x24]);
     }
 }

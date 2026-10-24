@@ -83,8 +83,8 @@ pub struct AnchoredSizeBar {
 }
 
 impl AnchoredSizeBar {
-    /// A black bar `size` long in `transform` coordinates, labelled
-    /// `label`, with matplotlib's defaults.
+    /// A bar `size` long in `transform` coordinates, labelled `label`,
+    /// with matplotlib's defaults: in `plt.ink` (black).
     pub fn new(transform: Transform, size: f64, label: impl Into<String>, loc: AnchorLoc) -> Self {
         Self {
             transform,
@@ -96,7 +96,7 @@ impl AnchoredSizeBar {
             sep: 2.0,
             frameon: true,
             size_vertical: 0.0,
-            color: Color::from("black"),
+            color: crate::rc::params().plt_ink.clone(),
             label_top: false,
             fontproperties: None,
             fill_bar: None,

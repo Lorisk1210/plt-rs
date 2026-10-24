@@ -100,7 +100,7 @@ fn colored_circles(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
         .set_fontsize(RelativeSize::Small);
     ax.set_xlim(-4.0, 8.0).set_ylim(-5.0, 6.0);
     ax.set_aspect(Aspect::Equal)?
-        .set_adjustable(Adjustable::Box);
+        .set_adjustable(Adjustable::Box)?;
     Ok(())
 }
 

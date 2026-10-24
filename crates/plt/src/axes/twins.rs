@@ -126,8 +126,8 @@ impl Axes {
         twin.share(shared, self)
             .expect("a new axes in this figure shares nothing yet");
         figure.borrow_mut().shared.join_twins(self.id(), twin.id());
-        self.set_adjustable(Adjustable::Datalim);
-        twin.set_adjustable(Adjustable::Datalim);
+        self.store_adjustable(Adjustable::Datalim);
+        twin.store_adjustable(Adjustable::Datalim);
         twin.set_zorder(zorder + delta_zorder);
         twin.update_twinned_patch_visibility();
         twin.raw.with_mut::<AxesState, _>(|axes| {
@@ -160,9 +160,22 @@ impl Axes {
         self
     }
 
+    /// What grids sharing axis `name` do to their axes (matplotlib's
+    /// `_label_outer_xaxis(skip_non_rectangular_axes=True)`): the inner
+    /// labels go, except on axes of curved projections, which have no
+    /// inner sides.
+    pub(crate) fn label_outer_shared(&self, name: AxisName) {
+        let rectilinear = self
+            .raw
+            .with::<AxesState, _>(|axes| axes.projection.is_rectilinear());
+        if rectilinear {
+            self.label_outer_axis(name, false);
+        }
+    }
+
     /// matplotlib's `_label_outer_xaxis` / `_label_outer_yaxis`; with
     /// `remove_inner_ticks` the inner tick marks go too.
-    pub(crate) fn label_outer_axis(&self, name: AxisName, remove_inner_ticks: bool) {
+    fn label_outer_axis(&self, name: AxisName, remove_inner_ticks: bool) {
         self.raw.with_mut::<AxesState, _>(|axes| {
             let Some(spec) = axes.subplot_spec.clone() else {
                 return;

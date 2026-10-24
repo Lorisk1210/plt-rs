@@ -43,7 +43,8 @@ pub(crate) struct AxesState {
     pub(crate) projection: Projection,
     /// Visible data range; `x0 > x1` means an inverted axis.
     pub(crate) view_lim: Bbox,
-    /// Whether the view limits were ever changed from the initial unit box.
+    /// Whether the view limits differ from the initial unit box
+    /// (matplotlib's `viewLim.mutatedx()` and `mutatedy()`).
     pub(crate) view_mutated: (bool, bool),
     /// Extent of all data added so far.
     pub(crate) data_lim: DataLimits,
@@ -377,17 +378,19 @@ impl AxesState {
         self.set_view_interval(name, widened);
     }
 
-    /// Replaces the view interval of one axis.
+    /// Replaces the view interval of one axis; it counts as mutated unless
+    /// it is the initial unit interval again (matplotlib compares exactly).
     pub(crate) fn set_view_interval(&mut self, name: AxisName, (lower, upper): (f64, f64)) {
         let v = self.view_lim;
+        let mutated = (lower, upper) != (0.0, 1.0);
         match name {
             AxisName::X => {
                 self.view_lim = Bbox::from_extents(lower, v.y0(), upper, v.y1());
-                self.view_mutated.0 = true;
+                self.view_mutated.0 = mutated;
             }
             AxisName::Y => {
                 self.view_lim = Bbox::from_extents(v.x0(), lower, v.x1(), upper);
-                self.view_mutated.1 = true;
+                self.view_mutated.1 = mutated;
             }
         }
     }

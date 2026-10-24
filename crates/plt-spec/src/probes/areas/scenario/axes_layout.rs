@@ -21,9 +21,10 @@ pub(super) fn call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
             Aspect::Equal => Json::from(1.0),
             Aspect::Ratio(ratio) => Json::from(ratio),
         })),
-        "set_adjustable" => adjustable(call.str(0, "adjustable")).map(|adjustable| {
-            ax.set_adjustable(adjustable);
-            Produced::Nothing
+        "set_adjustable" => adjustable(call.str(0, "adjustable")).and_then(|adjustable| {
+            ax.set_adjustable(adjustable)
+                .map_err(ProbeError::rejected)?;
+            Ok(Produced::Nothing)
         }),
         "get_adjustable" => Ok(Produced::Value(Json::from(match ax.adjustable() {
             Adjustable::Box => "box",
@@ -150,7 +151,8 @@ fn set_aspect(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
             .map_err(ProbeError::rejected)?;
     } else {
         ax.set_aspect(aspect).map_err(ProbeError::rejected)?;
-        ax.set_adjustable(adjustable);
+        ax.set_adjustable(adjustable)
+            .map_err(ProbeError::rejected)?;
     }
     Ok(Produced::Nothing)
 }

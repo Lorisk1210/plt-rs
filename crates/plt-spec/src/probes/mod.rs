@@ -355,6 +355,13 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_ticker", areas::mpl_ticker::OPS),
     ("mpl_transforms", areas::mpl_transforms::OPS),
     ("mpl_axes", areas::mpl_axes::OPS),
+    ("mpl_path", areas::mpl_path::OPS),
+    ("mpl_scale", areas::mpl_scale::OPS),
+    ("mpl_polar", areas::mpl_polar::OPS),
+    ("mpl_category", areas::mpl_category::OPS),
+    ("mpl_rcparams", areas::mpl_rcparams::OPS),
+    ("mpl_ft2font", areas::mpl_ft2font::OPS),
+    ("mpl_image", areas::mpl_image::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

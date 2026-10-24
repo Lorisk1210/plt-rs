@@ -12,7 +12,7 @@ use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// The bundled fonts, loaded once.
-fn database() -> &'static FontDatabase {
+pub(crate) fn database() -> &'static FontDatabase {
     static DATABASE: OnceLock<FontDatabase> = OnceLock::new();
     DATABASE.get_or_init(FontDatabase::with_bundled_fonts)
 }
@@ -91,7 +91,7 @@ fn load_flags(flags: &str) -> Result<(Hinting, AutohintTarget), ProbeError> {
 /// `ft2font.FT2Font.load_glyph`: a glyph of a bundled font hinted with
 /// `LoadFlags.DEFAULT`, `NO_AUTOHINT` or `FORCE_AUTOHINT` (with a target),
 /// by the font's bytecode or the autohinter as `FreeType` picks.
-pub(super) fn load_glyph(args: Args<'_>) -> Outcome {
+pub(crate) fn load_glyph(args: Args<'_>) -> Outcome {
     let (hinting, target) = load_flags(args.str("flags")?)?;
     let file = args.str("file")?;
     let db = database();

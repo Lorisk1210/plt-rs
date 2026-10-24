@@ -133,7 +133,7 @@ fn atleast_2d(value: &Json) -> Result<Grid<f64>, ProbeError> {
     }
 }
 
-pub(super) fn gaussian_kde(args: Args<'_>) -> Outcome {
+pub(crate) fn gaussian_kde(args: Args<'_>) -> Outcome {
     let dataset = atleast_2d(args.json("dataset")?)?;
     let kde = GaussianKde::from_grid(dataset, parse_bandwidth(args.get("bw_method"))?)
         .map_err(ProbeError::rejected)?;

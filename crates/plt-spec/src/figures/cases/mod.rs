@@ -56,6 +56,8 @@ mod mpl_small;
 mod mpl_tests;
 mod mpl_tests_axes;
 mod mpl_tests_datetime;
+mod mpl_tests_ft2font;
+mod mpl_tests_image;
 mod mpl_text;
 mod mpl_toolkits;
 mod mplot3d;
@@ -202,6 +204,8 @@ fn matplotlib_tests() -> Vec<FigureCase> {
         &mpl_small::cases(),
         &mpl_tests_axes::cases(),
         &mpl_tests_datetime::cases(),
+        &mpl_tests_ft2font::cases(),
+        &mpl_tests_image::cases(),
         &mpl_text::cases(),
         &mpl_toolkits::cases(),
     ]

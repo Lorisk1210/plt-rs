@@ -49,7 +49,8 @@
 //!   the plotting functions that colour-map make their artist current;
 //! * decorations — [`title`], [`xlabel`], [`xlim`], [`xticks`],
 //!   [`legend`], [`annotate`], [`suptitle`], [`tight_layout`], ...;
-//! * configuration — [`rc`], [`rc_context`], [`rcdefaults`], [`xkcd`].
+//! * configuration — [`rc`], [`rc_context`], [`rc_file`], [`rc_file_context`],
+//!   [`rcdefaults`], [`xkcd`].
 //!
 //! [`show`] opens a window per figure and waits until they are closed. In
 //! interactive mode ([`ion`], or for a while [`interactive_context`]) new

@@ -25,6 +25,22 @@ use crate::types::{GlyphId, Rect};
 /// The most contours a simple glyph may have (`TT_Load_Simple_Glyph`).
 const MAX_CONTOURS: usize = 0xFFF;
 
+/// The horizontal metrics FreeType gives a hinted glyph
+/// (`FT_Glyph_Metrics`), in 26.6 pixels.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct GlyphMetrics {
+    /// Width of the control box, rounded out to whole pixels.
+    pub width: i32,
+    /// Height of the control box, rounded out to whole pixels.
+    pub height: i32,
+    /// Left edge of the rounded control box.
+    pub hori_bearing_x: i32,
+    /// Top edge of the rounded control box.
+    pub hori_bearing_y: i32,
+    /// The rounded advance width.
+    pub hori_advance: i32,
+}
+
 /// A glyph loaded with hinting: its grid-fitted outline in 26.6 pixels,
 /// with the origin at the first phantom point, its advance, and how it is
 /// scan-converted without anti-aliasing.
@@ -61,6 +77,25 @@ impl HintedGlyph {
             x_max: x1 as i32,
             y_max: y1 as i32,
         })
+    }
+
+    /// The glyph's metrics as FreeType reports them after hinting: its
+    /// control box rounded out to whole pixels
+    /// (`ft_glyphslot_grid_fit_metrics`), and its advance; zero extents for
+    /// glyphs without points.
+    pub fn metrics(&self) -> GlyphMetrics {
+        let floor = |v: i32| v & !63;
+        let ceil = |v: i32| (v + 63) & !63;
+        let cbox = self.control_box().unwrap_or_default();
+        let (left, right) = (floor(cbox.x_min), ceil(cbox.x_max));
+        let (bottom, top) = (floor(cbox.y_min), ceil(cbox.y_max));
+        GlyphMetrics {
+            width: right - left,
+            height: top - bottom,
+            hori_bearing_x: left,
+            hori_bearing_y: top,
+            hori_advance: self.advance,
+        }
     }
 
     /// Emits the outline in pixels (26.6 values divided by 64), as

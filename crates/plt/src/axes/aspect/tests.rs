@@ -51,6 +51,7 @@ fn datalim_widens_the_view() {
     ax.set_aspect(Aspect::Equal)
         .unwrap()
         .set_adjustable(Adjustable::Datalim)
+        .unwrap()
         .apply_aspect();
     // Values from matplotlib: without data, y shrinks about its centre.
     assert_eq!(ax.xlim(), (0.0, 1.0));
@@ -64,7 +65,8 @@ fn datalim_widens_the_view() {
     ax.set_autoscale_on(true);
     ax.set_aspect(Aspect::Equal)
         .unwrap()
-        .set_adjustable(Adjustable::Datalim);
+        .set_adjustable(Adjustable::Datalim)
+        .unwrap();
     let (x0, x1) = ax.apply_aspect().xlim();
     assert!((x0 + 0.238_095_238_095_238_25).abs() < 1e-12);
     assert!((x1 - 1.238_095_238_095_238_1).abs() < 1e-12);

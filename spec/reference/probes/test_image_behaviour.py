@@ -74,9 +74,12 @@ dtype tests (``float16``, ``float128``, ``bool``, ``uint16``,
 helpers (``test__resample_*``, ``test_resample_dtypes``,
 ``test_rgba_stage_demultiplies_resampled_alpha``: ``make_image`` output
 before compositing is not observable), ``test_format_cursor_data_multinorm``
-(multivariate colormaps through private attributes) and pixel checks
-covered by the figure goldens (``test_image_edges``, ``test_unclipped``,
-``test_respects_bbox``, ``test_minimized_rasterized``).
+(multivariate colormaps through private attributes) and pixel checks,
+which the ``mpl_tests_image`` figure group draws (``test_image_edges``,
+``test_unclipped``, ``test_respects_bbox``, ``test_minimized_rasterized``).
+``test_rc_interpolation_stage``, ``test_rgba_stage_demultiplies_resampled_alpha``
+and ``test_resample_nonaffine`` are probed by the ``mpl_image`` area or
+drawn by that group.
 """
 
 import io

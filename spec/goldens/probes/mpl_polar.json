@@ -1,0 +1,87 @@
+{
+ "area": "mpl_polar",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "axes.Axes.axvspan._interpolation_steps", "args": {"xmin": 0, "xmax": 0.7853981633974483}, "value": 180},
+  {
+   "op": "axes.Axes.format_coord",
+   "args": {"theta": 3938980639167, "r": 1107935232, "fmt_xdata": "millions", "fmt_ydata": "millions"},
+   "value": "θ=$3938980.6M, r=$1107.9M"
+  },
+  {
+   "op": "axes.Axes.format_coord",
+   "args": {"theta": 1e+18, "r": 12891328123, "fmt_xdata": "millions", "fmt_ydata": "millions"},
+   "value": "θ=$1000000000000.0M, r=$12891.3M"
+  },
+  {
+   "op": "axes.Axes.format_coord",
+   "args": {"theta": 2000000.0, "r": 6000000000.0, "fmt_xdata": "millions", "fmt_ydata": "millions"},
+   "value": "θ=$2.0M, r=$6000.0M"
+  },
+  {"op": "axes.Axes.format_coord", "args": {"theta": 1000000.0, "r": 0.005, "fmt_xdata": "millions", "fmt_ydata": null}, "value": "θ=$1.0M, r=0.005"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 1, "r": 0.1, "fmt_xdata": "millions", "fmt_ydata": null}, "value": "θ=$0.0M, r=0.100"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 200000.0, "r": 1, "fmt_xdata": "millions", "fmt_ydata": null}, "value": "θ=$0.2M, r=1.000"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 3, "r": 100, "fmt_xdata": null, "fmt_ydata": "millions"}, "value": "θ=0.95493π (171.887°), r=$0.0M"},
+  {
+   "op": "axes.Axes.format_coord",
+   "args": {"theta": 1234, "r": 2000000.0, "fmt_xdata": null, "fmt_ydata": "millions"},
+   "value": "θ=392.794399551π (70702.9919191°), r=$2.0M"
+  },
+  {
+   "op": "axes.Axes.format_coord",
+   "args": {"theta": 12, "r": 20000000.0, "fmt_xdata": null, "fmt_ydata": "millions"},
+   "value": "θ=3.8197186342π (687.54935416°), r=$20.0M"
+  },
+  {"op": "axes.Axes.format_coord", "args": {"theta": 1, "r": 0.005, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.3π (57°), r=0.005"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 2, "r": 0.005, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.6π (115°), r=0.005"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 0, "r": 0.1, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.00π (0°), r=0.100"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 1, "r": 0.1, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.32π (57°), r=0.100"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 2, "r": 0.1, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.64π (115°), r=0.100"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 0, "r": 1, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.000π (0.0°), r=1.000"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 1, "r": 1, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.318π (57.3°), r=1.000"},
+  {"op": "axes.Axes.format_coord", "args": {"theta": 2, "r": 1, "fmt_xdata": null, "fmt_ydata": null}, "value": "θ=0.637π (114.6°), r=1.000"},
+  {"op": "axes.Axes.grid", "args": {"alpha": 0.2}, "value": [0.2, 0.2]},
+  {"op": "axes.Axes.set_adjustable", "args": {"projection": "polar", "adjustable": "box"}, "value": "box"},
+  {"op": "axes.Axes.set_adjustable", "args": {"projection": "polar", "adjustable": "datalim"}, "error": "ValueError"},
+  {"op": "axes.Axes.set_adjustable", "args": {"projection": null, "adjustable": "datalim"}, "value": "datalim"},
+  {
+   "op": "axis.RadialAxis.get_majorticklocs",
+   "args": {},
+   "value": [
+    [true, [0.2, 0.4, 0.6000000000000001, 0.8, 1.0]],
+    [false, [0.4, 0.8, 1.2000000000000002]],
+    [true, [0.2, 0.4, 0.6000000000000001, 0.8, 1.0]],
+    [false, [1, 2, 3]],
+    [true, [0.2, 0.4, 0.6000000000000001, 0.8, 1.0]],
+    [false, [1, 2, 3]],
+    [true, [0.2, 0.4, 0.6000000000000001, 0.8, 1.0]],
+    [true, [1.0, 10.0, 100.0]]
+   ]
+  },
+  {"op": "axis.RadialAxis.set_ticklabels", "args": {"ticks": [0, 1, 2, 3], "labels": ["zero", "one", "two", "three"]}, "value": ["one", "two", "three"]},
+  {"op": "axis.RadialAxis.set_ticklabels", "args": {"ticks": [0, 1, 2, 3], "labels": ["zero", "one", "two"]}, "error": "ValueError"},
+  {
+   "op": "figure.Figure.subplots.get_ticklabels",
+   "args": {"how": "mosaic", "projection": "polar"},
+   "value": [["0°", "45°", "90°", "135°", "180°", "225°", "270°", "315°"], ["0.2", "0.4", "0.6", "0.8", "1.0"]]
+  },
+  {"op": "figure.Figure.subplots.get_ticklabels", "args": {"how": "mosaic", "projection": null}, "value": [[], []]},
+  {
+   "op": "figure.Figure.subplots.get_ticklabels",
+   "args": {"how": "subplots", "projection": "polar"},
+   "value": [["0°", "45°", "90°", "135°", "180°", "225°", "270°", "315°"], ["0.2", "0.4", "0.6", "0.8", "1.0"]]
+  },
+  {"op": "figure.Figure.subplots.get_ticklabels", "args": {"how": "subplots", "projection": null}, "value": [[], []]},
+  {
+   "op": "spines.Spine.get_tightbbox",
+   "args": {"theta_direction": -1, "theta_zero_location": ["N", 20]},
+   "value": [143.20000509579, 52.80000509578995, 512.79999490421, 422.39999490421]
+  },
+  {
+   "op": "spines.Spine.get_tightbbox",
+   "args": {"theta_direction": -1, "theta_zero_location": ["N", 30]},
+   "value": [143.20005832087483, 52.80005832087479, 512.7999416791251, 422.39994167912516]
+  },
+  {"op": "spines.Spine.get_tightbbox", "args": {"theta_offset": 1.570796327}, "value": [143.20000000000002, 52.79999999999998, 512.8, 422.4]}
+ ]
+}

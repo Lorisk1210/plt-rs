@@ -11,6 +11,7 @@
 //!   the circular grid live in private submodules.
 
 mod api;
+mod create;
 mod paint;
 mod ticker;
 mod transform;

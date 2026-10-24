@@ -126,7 +126,7 @@ impl GeoAxes {
         };
         geo.set_aspect(aspect)
             .expect("the aspects of geographic axes are valid");
-        geo.set_adjustable(Adjustable::Box).set_anchor(Anchor::C);
+        geo.store_adjustable(Adjustable::Box).set_anchor(Anchor::C);
         geo
     }
 

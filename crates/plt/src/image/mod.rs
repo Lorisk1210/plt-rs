@@ -74,6 +74,7 @@ pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;
 pub use plt_render::RgbaImage;
 pub(crate) use resample::Resampling;
+pub use resample::{ResampleOptions, resample};
 pub use thumbnail::{ThumbnailError, ThumbnailOptions, thumbnail};
 pub use variates::MultiField;
 

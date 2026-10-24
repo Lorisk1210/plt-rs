@@ -14,9 +14,9 @@ mod histogram;
 mod signal;
 mod spectral;
 
-pub(crate) use distributions::boxplot_stats;
-pub(crate) use signal::{window_hanning, window_none};
-pub(crate) use spectral::{cohere, psd};
+pub(crate) use distributions::{boxplot_stats, gaussian_kde};
+pub(crate) use signal::{detrend, detrend_mean, window_hanning, window_none};
+pub(crate) use spectral::{cohere, psd, spectral_options, spectrum_options};
 
 use plt::mlab::Complex;
 use plt::numeric::Grid;

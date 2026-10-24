@@ -113,7 +113,7 @@ fn aspect_loglog(fig: &Figure) -> CaseResult {
     ax1.set_title("adjustable = box");
     ax2.set_xscale("log")?;
     ax2.set_yscale("log")?;
-    ax2.set_adjustable(Adjustable::Datalim);
+    ax2.set_adjustable(Adjustable::Datalim)?;
     ax2.plot_fmt([1.0, 3.0, 10.0], [1.0, 9.0, 100.0], "o-")?;
     ax2.set_xlim(1e-1, 1e2).set_ylim(1e-1, 1e3);
     ax2.set_aspect(Aspect::Ratio(1.0))?;

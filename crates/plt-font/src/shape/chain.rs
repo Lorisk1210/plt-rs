@@ -50,6 +50,8 @@ pub struct TextLayout {
     pub height: i32,
     /// Depth of that union below the baseline.
     pub descent: i32,
+    /// Left edge of that union (matplotlib's `get_bitmap_offset`).
+    pub x_min: i32,
 }
 
 impl<'a> FontChain<'a> {
@@ -82,6 +84,13 @@ impl<'a> FontChain<'a> {
     /// The faces in fallback order.
     pub fn faces(&self) -> &[Face<'a>] {
         &self.faces
+    }
+
+    /// The database font of face `face`, for chains made by
+    /// [`FontDatabase::font_chain`] (matplotlib's `ft_object` of a laid-out
+    /// glyph).
+    pub fn font_id(&self, face: usize) -> Option<FontId> {
+        self.database.as_ref()?.1.get(face).copied()
     }
 
     /// Lays out one line of `text` at `points` / `dpi` like matplotlib's
@@ -179,6 +188,7 @@ impl<'a> FontChain<'a> {
         layout.width = pen;
         layout.height = bbox.height();
         layout.descent = -bbox.y_min;
+        layout.x_min = bbox.x_min;
         Ok(layout)
     }
 

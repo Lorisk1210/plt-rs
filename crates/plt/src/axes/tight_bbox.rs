@@ -3,9 +3,9 @@
 
 use plt_core::Bbox;
 
-use super::AxesState;
 use super::aspect::Placement;
 use super::axis_layout::{AxisPainter, PlacedText};
+use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, LayoutContext};
 use crate::axes_grid1::parasites_of;
 use crate::figure::FigureState;
@@ -13,6 +13,27 @@ use crate::spines::SpineArtist;
 use crate::text::TextArtist;
 use crate::ticker::AxisName;
 use crate::transforms::{Transform, TransformContext};
+
+impl Axes {
+    /// The extent of the axes with its decorations, in display pixels
+    /// (matplotlib's `Axes.get_tightbbox`), or `None` for an invisible
+    /// axes: its box united with the tick labels, axis labels, offset
+    /// texts, titles, and the children not clipped to it.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let bare = ax.tight_bbox().expect("a visible axes");
+    /// ax.set_xlabel("time");
+    /// let labelled = ax.tight_bbox().expect("a visible axes");
+    /// assert!(labelled.y0() < bare.y0());
+    /// ```
+    pub fn tight_bbox(&self) -> Option<Bbox> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        state.axes_tight_bbox(self.raw.id(), false)
+    }
+}
 
 impl FigureState {
     /// matplotlib's `ax.get_tightbbox(for_layout_only=...)` in display

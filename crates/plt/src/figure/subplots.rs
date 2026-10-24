@@ -192,11 +192,22 @@ impl Figure {
         sharex: Share,
         sharey: Share,
     ) -> Result<Grid<Axes>, GridSpecError> {
+        Self::subplots_made(grid, sharex, sharey, |spec| self.add_subplot_spec(spec))
+    }
+
+    /// One axes made by `make` per cell of `grid`, sharing axes as
+    /// requested; see [`subplots_on`](Self::subplots_on).
+    pub(crate) fn subplots_made(
+        grid: &GridSpec,
+        sharex: Share,
+        sharey: Share,
+        make: impl Fn(&SubplotSpec) -> Result<Axes, GridSpecError>,
+    ) -> Result<Grid<Axes>, GridSpecError> {
         let (nrows, ncols) = grid.shape();
         let mut cells: Vec<Axes> = Vec::with_capacity(nrows * ncols);
         for row in 0..nrows {
             for col in 0..ncols {
-                let axes = self.add_subplot_spec(&grid.cell(row, col)?)?;
+                let axes = make(&grid.cell(row, col)?)?;
                 for (share, name) in [(sharex, AxisName::X), (sharey, AxisName::Y)] {
                     if let Some(target) = share.target(row, col, ncols) {
                         axes.share(name, &cells[target])
@@ -213,7 +224,7 @@ impl Figure {
             };
             if outer {
                 for axes in &cells {
-                    axes.label_outer_axis(name, false);
+                    axes.label_outer_shared(name);
                 }
             }
         }

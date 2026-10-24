@@ -52,7 +52,7 @@ mod zone;
 
 pub use error::{BytecodeError, BytecodeProgram};
 pub(crate) use layout::HintedFace;
-pub use loader::HintedGlyph;
+pub use loader::{GlyphMetrics, HintedGlyph};
 pub use program::HintingInstance;
 
 use crate::face::Face;

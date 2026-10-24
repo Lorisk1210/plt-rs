@@ -336,7 +336,7 @@ impl Figure {
                 for (_, ax) in &entries {
                     ax.share(name, &first)
                         .expect("a new mosaic axes shares nothing yet");
-                    ax.label_outer_axis(name, false);
+                    ax.label_outer_shared(name);
                 }
             }
         }

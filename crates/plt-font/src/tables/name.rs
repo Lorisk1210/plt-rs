@@ -49,6 +49,18 @@ impl NameKey {
     }
 }
 
+/// One record of the `name` table: its key, name id and raw string
+/// bytes (FreeType's `FT_SfntName`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct NameEntry<'a> {
+    /// Platform, encoding and language.
+    pub key: NameKey,
+    /// What the string names (1 family, 2 subfamily, ...).
+    pub name_id: u16,
+    /// The string as stored: Macintosh text or UTF-16BE.
+    pub bytes: &'a [u8],
+}
+
 #[derive(Clone, Copy, Debug)]
 struct NameRecord {
     key: NameKey,
@@ -99,6 +111,21 @@ impl<'a> Name<'a> {
             NAME,
         )
         .ok()
+    }
+
+    /// The non-empty records whose strings lie inside the table, in file
+    /// order: the names FreeType lists (`FT_Get_Sfnt_Name`).
+    pub(crate) fn entries(&self) -> impl Iterator<Item = NameEntry<'a>> + '_ {
+        self.records
+            .iter()
+            .filter(|record| record.length > 0)
+            .filter_map(|record| {
+                Some(NameEntry {
+                    key: record.key,
+                    name_id: record.name_id,
+                    bytes: self.bytes(&record)?,
+                })
+            })
     }
 
     /// Raw bytes of the record with exactly this key and name id.

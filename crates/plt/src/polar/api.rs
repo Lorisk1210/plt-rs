@@ -1,5 +1,5 @@
-//! The [`PolarAxes`] handle: creating polar axes and their settings
-//! (matplotlib's `PolarAxes` methods).
+//! The [`PolarAxes`] handle and its settings (matplotlib's `PolarAxes`
+//! methods).
 
 use std::f64::consts::TAU;
 use std::fmt;
@@ -13,8 +13,6 @@ use crate::artist::ArtistHandle;
 use crate::axes::axis::AxisRole;
 use crate::axes::projection::Projection;
 use crate::axes::{Adjustable, Axes, AxesState, AxisName, PlotError, ProjectionKind, Sides};
-use crate::figure::Figure;
-use crate::gridspec::{GridSpecError, SubplotSpec};
 use crate::rc::Aspect;
 use crate::scale::{LinearScale, ScaleError};
 use crate::transforms::Anchor;
@@ -100,7 +98,7 @@ impl PolarAxes {
         axes.grid(crate::rc::params().polaraxes_grid);
         axes.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
-        axes.set_adjustable(Adjustable::Box).set_anchor(Anchor::C);
+        axes.store_adjustable(Adjustable::Box).set_anchor(Anchor::C);
         Self { axes }
     }
 
@@ -362,58 +360,10 @@ impl PolarAxes {
     }
 }
 
-impl Figure {
-    /// Adds polar axes filling the default subplot area
-    /// (`fig.add_subplot(projection="polar")`).
-    pub fn polar_subplot(&self) -> PolarAxes {
-        PolarAxes::convert(self.subplot())
-    }
-
-    /// Adds polar axes in cell `index` (1-based, row-major) of an
-    /// `nrows × ncols` grid.
-    ///
-    /// # Errors
-    ///
-    /// When the grid is empty or `index` is outside it.
-    pub fn add_polar_subplot(
-        &self,
-        nrows: usize,
-        ncols: usize,
-        index: usize,
-    ) -> Result<PolarAxes, GridSpecError> {
-        self.add_subplot(nrows, ncols, index)
-            .map(PolarAxes::convert)
-    }
-
-    /// Adds polar axes covering a grid cell or block.
-    ///
-    /// # Errors
-    ///
-    /// When the subplot parameters leave no room for the cell.
-    pub fn add_polar_subplot_spec(&self, spec: &SubplotSpec) -> Result<PolarAxes, GridSpecError> {
-        self.add_subplot_spec(spec).map(PolarAxes::convert)
-    }
-
-    /// Adds polar axes occupying `[left, bottom, width, height]` in figure
-    /// fractions.
-    pub fn add_polar_axes(&self, rect: [f64; 4]) -> PolarAxes {
-        PolarAxes::convert(self.add_axes(rect))
-    }
-}
-
-impl Axes {
-    /// Adds polar inset axes at `[left, bottom, width, height]` in this
-    /// axes' fractions (matplotlib's `inset_axes(..., polar=True)`; see
-    /// [`Axes::inset_axes`]).
-    #[must_use]
-    pub fn polar_inset_axes(&self, bounds: [f64; 4]) -> PolarAxes {
-        PolarAxes::convert(self.inset_axes(bounds))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::figure::Figure;
 
     #[test]
     fn new_polar_axes_follow_matplotlib_defaults() {
@@ -458,14 +408,31 @@ mod tests {
     }
 
     #[test]
-    fn polar_insets_are_child_axes() {
-        let fig = Figure::new();
-        let host = fig.subplot();
-        let inset = host.polar_inset_axes([0.5, 0.1, 0.45, 0.45]);
-        assert_eq!(inset.projection(), ProjectionKind::Polar);
-        assert_eq!(inset.zorder(), 5.0);
-        assert_eq!(host.child_axes(), [inset.axes]);
-        assert_eq!(fig.axes(), [host]);
+    fn radial_tick_labels_follow_fixed_ticks() {
+        // matplotlib's test_set_rticks_ticklabels_no_warning: the labels
+        // belong to the fixed radii the radial locator wraps.
+        let ax = Figure::new().polar_subplot();
+        ax.set_rticks(&[0.0, 1.0, 2.0, 3.0]);
+        ax.yaxis()
+            .set_ticklabels(["zero", "one", "two", "three"])
+            .unwrap();
+        assert_eq!(
+            ax.yaxis().ticklabels(false).unwrap(),
+            ["one", "two", "three"]
+        );
+        assert!(ax.yaxis().set_ticklabels(["zero", "one"]).is_err());
+    }
+
+    #[test]
+    fn polar_axes_refuse_to_adjust_their_data_limits() {
+        let ax = Figure::new().polar_subplot();
+        assert_eq!(
+            ax.set_adjustable(Adjustable::Datalim).err(),
+            Some(crate::axes::AspectError::FixedDataRatio(
+                ProjectionKind::Polar
+            ))
+        );
+        assert_eq!(ax.adjustable(), Adjustable::Box);
     }
 
     #[test]

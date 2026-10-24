@@ -22,7 +22,7 @@ pub(crate) fn canonical(rc: &RcParams, key: &str) -> Option<Json> {
 
 /// Sets `key` to the text `value` on matplotlib's defaults and returns
 /// the parameter's canonical value.
-fn validate(args: Args<'_>) -> Outcome {
+pub(crate) fn validate(args: Args<'_>) -> Outcome {
     let key = args.str("key")?;
     let mut rc = RcParams::matplotlib();
     rc.set(key, args.str("value")?)

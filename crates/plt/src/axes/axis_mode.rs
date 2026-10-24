@@ -85,9 +85,11 @@ impl Axes {
         self
     }
 
+    /// An equal aspect honoured by `adjustable`; axes of a curved
+    /// projection keep their box, as they cannot adjust their data limits.
     fn set_equal_aspect(&self, adjustable: Adjustable) {
         self.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
-        self.set_adjustable(adjustable);
+        self.set_adjustable(adjustable).ok();
     }
 }

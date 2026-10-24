@@ -77,6 +77,37 @@ pub(crate) struct Tickers {
     minor_formatter: Rc<dyn Formatter>,
 }
 
+/// Which tick helpers of an axis are still the ones its scale installed
+/// (matplotlib's `isDefault_majloc`, `isDefault_majfmt`, `isDefault_minloc`
+/// and `isDefault_minfmt`): setting a helper clears its flag, setting a
+/// scale sets them all again.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct TickerDefaults {
+    /// The major ticks' helpers.
+    pub(crate) major: LevelDefaults,
+    /// The minor ticks' helpers.
+    pub(crate) minor: LevelDefaults,
+}
+
+/// Whether the locator and the formatter of one tick level are still the
+/// scale's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LevelDefaults {
+    /// The locator.
+    pub(crate) locator: bool,
+    /// The formatter.
+    pub(crate) formatter: bool,
+}
+
+impl Default for LevelDefaults {
+    fn default() -> Self {
+        Self {
+            locator: true,
+            formatter: true,
+        }
+    }
+}
+
 /// State of one axis.
 ///
 /// The scale and tick helpers are reference counted because axes sharing
@@ -96,9 +127,9 @@ pub(crate) struct AxisState {
     /// matplotlib binds a locator to the axis that set it, and axes
     /// sharing an axis share their locators (`locator.axis`).
     pub(crate) ticker_owner: Option<ArtistId>,
-    /// Whether the major locator and formatter are still the defaults,
-    /// which units may replace (matplotlib's `isDefault_majloc`/`_majfmt`).
-    default_major: (bool, bool),
+    /// Which tick helpers are still the defaults; units replace only
+    /// those.
+    pub(crate) defaults: TickerDefaults,
     /// Category names, once categorical values were plotted.
     categories: Option<Categories>,
     /// The unit converter and how it was chosen.
@@ -155,7 +186,7 @@ impl AxisState {
             minor_locator: Rc::from(tickers.minor_locator),
             minor_formatter: Rc::from(tickers.minor_formatter),
             ticker_owner: None,
-            default_major: (true, true),
+            defaults: TickerDefaults::default(),
             categories: None,
             units: AxisUnits::default(),
             autoscale: AutoscaleState {
@@ -212,7 +243,7 @@ impl AxisState {
         self.major_formatter = Rc::from(major_formatter);
         self.minor_locator = Rc::from(minor_locator);
         self.minor_formatter = Rc::from(minor_formatter);
-        self.default_major = (true, true);
+        self.defaults = TickerDefaults::default();
         self.adopt_scale(scale);
         match self.role {
             AxisRole::Cartesian => {}
@@ -311,7 +342,7 @@ impl AxisState {
     /// (matplotlib's `Axis.set_major_locator`).
     pub(crate) fn set_major_locator(&mut self, locator: Rc<dyn Locator>) {
         self.major_locator = self.for_role(locator);
-        self.default_major.0 = false;
+        self.defaults.major.locator = false;
         if let Some(formatter) = self.major_formatter.following(&self.major_locator) {
             self.major_formatter = formatter;
         }
@@ -324,12 +355,19 @@ impl AxisState {
             self.minor_formatter = formatter;
         }
         self.minor_locator = locator;
+        self.defaults.minor.locator = false;
     }
 
     /// Replaces the major formatter.
     pub(crate) fn set_major_formatter(&mut self, formatter: Rc<dyn Formatter>) {
         self.major_formatter = formatter;
-        self.default_major.1 = false;
+        self.defaults.major.formatter = false;
+    }
+
+    /// Replaces the minor formatter.
+    pub(crate) fn set_minor_formatter(&mut self, formatter: Rc<dyn Formatter>) {
+        self.minor_formatter = formatter;
+        self.defaults.minor.formatter = false;
     }
 
     /// Converts plotting values to numbers, registering new category names
@@ -352,13 +390,25 @@ impl AxisState {
             CategoryLocator::new(categories),
             CategoryFormatter::new(categories),
         );
-        if self.default_major.0 {
+        if self.defaults.major.locator {
             self.major_locator = self.for_role(Rc::new(locator));
         }
-        if self.default_major.1 {
+        if self.defaults.major.formatter {
             self.major_formatter = Rc::new(formatter);
         }
         positions
+    }
+
+    /// The unit converter and category names, which a twin takes over
+    /// (matplotlib's `twinx` assigning `ax2.xaxis.units = self.xaxis.units`).
+    pub(crate) fn unit_data(&self) -> (AxisUnits, Option<Categories>) {
+        (self.units, self.categories.clone())
+    }
+
+    /// Takes over the [`unit_data`](Self::unit_data) of another axis.
+    pub(crate) fn set_unit_data(&mut self, (units, categories): (AxisUnits, Option<Categories>)) {
+        self.units = units;
+        self.categories = categories;
     }
 
     /// Installs the tick helpers of dates in `tz` where the defaults are
@@ -366,10 +416,10 @@ impl AxisState {
     /// converter's `axisinfo`).
     pub(crate) fn use_date_tickers(&mut self, tz: &TimeZone) {
         let (locator, formatter) = date_tickers(tz);
-        if self.default_major.0 {
+        if self.defaults.major.locator {
             self.major_locator = self.for_role(locator);
         }
-        if self.default_major.1 {
+        if self.defaults.major.formatter {
             self.major_formatter = formatter;
         }
     }

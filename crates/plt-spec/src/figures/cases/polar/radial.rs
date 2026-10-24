@@ -134,7 +134,7 @@ fn stems(fig: &Figure) -> CaseResult {
     let theta: Vec<f64> = (0..12).map(|i| f64::from(i) * TAU / 12.0).collect();
     let r: Vec<f64> = theta.iter().map(|t| 1.0 + t / PI).collect();
     let options = StemOptions {
-        basefmt: " ".parse()?,
+        basefmt: Some(" ".parse()?),
         ..StemOptions::default()
     };
     ax.stem(&theta, &r, options)?;

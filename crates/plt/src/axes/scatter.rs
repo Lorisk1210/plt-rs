@@ -23,7 +23,8 @@ pub enum ScatterColors {
     Cycle,
     /// One colour for every marker.
     Single(Color),
-    /// One colour per marker (cycled).
+    /// One colour per marker, or one for all of them; other lengths are
+    /// rejected, as matplotlib's `c` and `color` sequences are.
     PerPoint(Vec<Color>),
     /// Values mapped through a colormap and norm.
     Mapped(Box<MappedColors>),
@@ -192,12 +193,8 @@ impl Axes {
                 rc.lines_markersize.powi(2)
             }]
         });
-        if sizes.len() != 1 && sizes.len() != x.len() {
-            return Err(PlotError::Broadcast {
-                argument: "s",
-                len: sizes.len(),
-                points: x.len(),
-            });
+        if sizes.len() != 1 {
+            matching("s", sizes.len(), x.len())?;
         }
 
         let mut collection =
@@ -209,22 +206,7 @@ impl Axes {
                 scatter_edges(&rc.scatter_edgecolors)
             }
         });
-        let (faces, mapping) = match options.colors {
-            ScatterColors::Cycle if classic => (Some(vec![Color::from("b")]), None),
-            ScatterColors::Cycle => (Some(vec![self.next_patch_color()]), None),
-            ScatterColors::Single(color) => (Some(vec![color]), None),
-            ScatterColors::PerPoint(colors) => (Some(colors), None),
-            ScatterColors::Mapped(mapped) => {
-                if mapped.values.len() != x.len() {
-                    return Err(PlotError::Broadcast {
-                        argument: "c",
-                        len: mapped.values.len(),
-                        points: x.len(),
-                    });
-                }
-                (None, Some(mapped.into_mapping(&rc)?))
-            }
-        };
+        let (faces, mapping) = self.scatter_faces(options.colors, x.len(), &rc)?;
         let mut faces = faces;
         let mut linewidths = options.linewidths;
         if !style.is_filled() {
@@ -272,6 +254,49 @@ impl Axes {
             handle.set_mapping(mapping);
         }
         Ok(handle)
+    }
+}
+
+impl Axes {
+    /// The face colours or the colour mapping of `colors` for `n` points
+    /// (matplotlib's `_parse_scatter_color_args`); unset colours are blue
+    /// in classic mode.
+    fn scatter_faces(
+        &self,
+        colors: ScatterColors,
+        n: usize,
+        rc: &RcParams,
+    ) -> Result<(Option<Vec<Color>>, Option<ColorMapping>), PlotError> {
+        Ok(match colors {
+            ScatterColors::Cycle if rc.internal_classic_mode => {
+                (Some(vec![Color::from("b")]), None)
+            }
+            ScatterColors::Cycle => (Some(vec![self.next_patch_color()]), None),
+            ScatterColors::Single(color) => (Some(vec![color]), None),
+            ScatterColors::PerPoint(colors) => {
+                if colors.len() > 1 {
+                    matching("c", colors.len(), n)?;
+                }
+                (Some(colors), None)
+            }
+            ScatterColors::Mapped(mapped) => {
+                matching("c", mapped.values.len(), n)?;
+                (None, Some(mapped.into_mapping(rc)?))
+            }
+        })
+    }
+}
+
+/// Fails unless argument `argument` holds one value per point.
+fn matching(argument: &'static str, len: usize, points: usize) -> Result<(), PlotError> {
+    if len == points {
+        Ok(())
+    } else {
+        Err(PlotError::Broadcast {
+            argument,
+            len,
+            points,
+        })
     }
 }
 
@@ -340,6 +365,24 @@ mod tests {
 
     use super::*;
     use crate::figure::Figure;
+
+    #[test]
+    fn per_point_colours_match_the_points_or_are_one() {
+        let ax = Figure::new().subplot();
+        let colored = |n: usize| ScatterOptions {
+            colors: ScatterColors::PerPoint(vec![Color::from("r"); n]),
+            ..ScatterOptions::default()
+        };
+        let x = [0.0, 1.0, 2.0, 3.0];
+        assert!(ax.scatter_with(x, x, colored(1)).is_ok());
+        assert!(ax.scatter_with(x, x, colored(4)).is_ok());
+        for n in [3, 5] {
+            assert!(matches!(
+                ax.scatter_with(x, x, colored(n)),
+                Err(PlotError::Broadcast { argument: "c", .. })
+            ));
+        }
+    }
 
     #[test]
     fn offsets_in_data_coordinates_count_for_autoscaling() {

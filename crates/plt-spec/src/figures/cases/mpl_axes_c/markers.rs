@@ -168,7 +168,7 @@ fn dash_dotted_stems(markerfmt: &str) -> Result<StemOptions, FormatError> {
     Ok(StemOptions {
         linefmt: "C2-.".parse()?,
         markerfmt: markerfmt.parse()?,
-        basefmt: "C1-.".parse()?,
+        basefmt: Some("C1-.".parse()?),
         ..StemOptions::default()
     })
 }

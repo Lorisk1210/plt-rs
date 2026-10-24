@@ -32,6 +32,7 @@ pub(crate) mod line_behaviour;
 pub(crate) mod markers;
 pub(crate) mod mathtext;
 pub(crate) mod mosaic;
+pub(crate) mod mpl_axes;
 pub(crate) mod mpl_backend_bases;
 pub(crate) mod mpl_bezier;
 pub(crate) mod mpl_cbook;

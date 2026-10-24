@@ -109,15 +109,17 @@ impl Axes {
             AxisName::X => AxisName::Y,
             AxisName::Y => AxisName::X,
         };
-        let (frame, position, spec, zorder, autoscale) = self.raw.with::<AxesState, _>(|axes| {
-            (
-                axes.base().parent,
-                axes.position,
-                axes.subplot_spec.clone(),
-                axes.base().zorder,
-                axes.axis(shared).autoscale.enabled,
-            )
-        });
+        let (frame, position, spec, zorder, autoscale, units) =
+            self.raw.with::<AxesState, _>(|axes| {
+                (
+                    axes.base().parent,
+                    axes.position,
+                    axes.subplot_spec.clone(),
+                    axes.base().zorder,
+                    axes.axis(shared).autoscale.enabled,
+                    axes.axis(shared).unit_data(),
+                )
+            });
         let figure = self.raw().figure_state();
         let frame = frame.expect("an axes always lives in a figure frame");
         let twin = insert_axes(figure, frame, position, spec);
@@ -131,6 +133,7 @@ impl Axes {
         twin.raw.with_mut::<AxesState, _>(|axes| {
             axes.axis_mut(shared).autoscale.enabled = autoscale;
             axes.axis_mut(shared).visible = false;
+            axes.axis_mut(shared).set_unit_data(units);
             let axis = axes.axis_mut(own);
             axis.tick_to(true);
             axis.label.move_to(SpineSide::of(own, true));
@@ -246,6 +249,18 @@ mod tests {
     use crate::figure::{Figure, Share};
     use crate::prelude::*;
     use crate::spines::SpineSide;
+    use crate::units::UnitConverter;
+
+    #[test]
+    fn twins_take_over_the_units_of_the_shared_axis() {
+        let ax = Figure::new().subplot();
+        ax.plot(["0", "1"], ["a", "b"]).unwrap();
+        let (twin_x, twin_y) = (ax.twinx(), ax.twiny());
+        assert_eq!(twin_x.xaxis().converter(), Some(UnitConverter::Categories));
+        assert_eq!(twin_x.xaxis().convert_units(["1", "0"]), [1.0, 0.0]);
+        assert_eq!(twin_y.yaxis().convert_units(["b", "a"]), [1.0, 0.0]);
+        assert!(!twin_x.yaxis().have_units());
+    }
 
     #[test]
     fn twinx_puts_its_y_axis_on_the_right() {

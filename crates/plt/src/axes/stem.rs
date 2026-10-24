@@ -8,6 +8,7 @@ use crate::colors::Color;
 use crate::lines::{FormatString, Line2D, LineProps, LineStyle};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
+use crate::polar::GRIDLINE_INTERPOLATION_STEPS;
 use crate::units::AxisValues;
 
 /// Options of [`Axes::stem`]; matplotlib's format strings parse with
@@ -18,11 +19,13 @@ pub struct StemOptions {
     /// style are used.
     pub linefmt: FormatString,
     /// Format of the heads (`markerfmt`, `"o"`); its colour defaults to the
-    /// stems' colour, and `" "` hides the heads (matplotlib's
-    /// `markerfmt=""`).
+    /// stems' colour, its marker to a circle and its line style to none
+    /// (so a colour alone, `"g"`, draws green circles), and `" "` hides the
+    /// heads (matplotlib's `markerfmt=""`).
     pub markerfmt: FormatString,
-    /// Format of the baseline (`basefmt`, `"C3-"`).
-    pub basefmt: FormatString,
+    /// Format of the baseline (`basefmt`); `None` is `"C3-"`, or `"C2-"` in
+    /// classic mode (`_internal.classic_mode`).
+    pub basefmt: Option<FormatString>,
     /// Where the stems start.
     pub bottom: f64,
     /// Vertical stems rise from a horizontal baseline; horizontal ones
@@ -41,7 +44,7 @@ impl Default for StemOptions {
                 marker: Some(Marker::Symbol(MarkerSymbol::Circle)),
                 color: None,
             },
-            basefmt: solid_format("C3"),
+            basefmt: None,
             bottom: 0.0,
             orientation: Orientation::Vertical,
             label: None,
@@ -108,7 +111,14 @@ impl Axes {
                 y: heads.len(),
             });
         }
-        let (line, marker, base) = (options.linefmt, options.markerfmt, options.basefmt);
+        let (line, marker) = (options.linefmt, options.markerfmt);
+        let base = options.basefmt.unwrap_or_else(|| {
+            solid_format(if crate::rc::params().internal_classic_mode {
+                "C2"
+            } else {
+                "C3"
+            })
+        });
         let bottom = [options.bottom];
         let stemlines = match options.orientation {
             Orientation::Vertical => self.vlines(locs, bottom, heads)?,
@@ -137,13 +147,20 @@ impl Axes {
             LineProps {
                 color: marker.color.or(line.color),
                 ..LineProps::from(FormatString {
+                    linestyle: Some(marker.linestyle.unwrap_or(LineStyle::None)),
+                    marker: Some(
+                        marker
+                            .marker
+                            .unwrap_or(Marker::Symbol(MarkerSymbol::Circle)),
+                    ),
                     color: None,
-                    ..marker
                 })
             }
             .label("_nolegend_"),
         )?;
         let baseline = self.plot_with(base_x, base_y, LineProps::from(base).label("_nolegend_"))?;
+        // matplotlib bends the baseline like a gridline on projections.
+        baseline.set_interpolation_steps(GRIDLINE_INTERPOLATION_STEPS);
         let container = StemContainer {
             markerline,
             stemlines,
@@ -166,7 +183,57 @@ mod tests {
         let parse = |format: &str| format.parse::<FormatString>().unwrap();
         assert_eq!(defaults.linefmt, parse("C0-"));
         assert_eq!(defaults.markerfmt, parse("o"));
-        assert_eq!(defaults.basefmt, parse("C3-"));
+        assert_eq!(defaults.basefmt, None);
+    }
+
+    #[test]
+    fn the_baseline_is_red_in_classic_mode() {
+        let ax = Figure::new().subplot();
+        let stems = ax
+            .stem([0.0, 1.0], [1.0, 2.0], StemOptions::default())
+            .unwrap();
+        assert_eq!(stems.baseline.color(), Color::from("C3"));
+        crate::rc::context(|| {
+            crate::style::use_styles(&[crate::style::Style::from("classic")]).unwrap();
+            let ax = Figure::new().subplot();
+            let stems = ax
+                .stem([0.0, 1.0], [1.0, 2.0], StemOptions::default())
+                .unwrap();
+            assert_eq!(stems.baseline.color(), Color::from("C2"));
+            assert_eq!(
+                stems.baseline.rgba().unwrap(),
+                Color::from("r").resolve().unwrap()
+            );
+        });
+    }
+
+    #[test]
+    fn a_colour_alone_keeps_the_circle_heads() {
+        let ax = Figure::new().subplot();
+        let options = StemOptions {
+            linefmt: "r".parse().unwrap(),
+            markerfmt: "g".parse().unwrap(),
+            ..StemOptions::default()
+        };
+        let stems = ax.stem([1.0, 3.0], [9.0, 8.0], options).unwrap();
+        assert_eq!(
+            stems.markerline.marker(),
+            Marker::Symbol(MarkerSymbol::Circle)
+        );
+        assert_eq!(stems.markerline.linestyle(), LineStyle::None);
+        assert_eq!(stems.markerline.color(), Color::from("g"));
+    }
+
+    #[test]
+    fn the_baseline_bends_like_a_gridline() {
+        let ax = Figure::new().subplot();
+        let stems = ax
+            .stem([0.0, 1.0], [1.0, 2.0], StemOptions::default())
+            .unwrap();
+        assert_eq!(
+            stems.baseline.interpolation_steps(),
+            GRIDLINE_INTERPOLATION_STEPS
+        );
     }
 
     #[test]

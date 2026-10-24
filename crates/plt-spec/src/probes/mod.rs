@@ -354,6 +354,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_dates", areas::mpl_dates::OPS),
     ("mpl_ticker", areas::mpl_ticker::OPS),
     ("mpl_transforms", areas::mpl_transforms::OPS),
+    ("mpl_axes", areas::mpl_axes::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

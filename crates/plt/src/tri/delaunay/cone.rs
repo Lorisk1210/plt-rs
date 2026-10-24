@@ -4,6 +4,7 @@
 //! `qh_resetlists`, ...).
 
 use super::hull::{FacetId, Hull, HullError, HullResult, VertexId};
+use super::inline::InlineVec;
 use super::precision::QhullMinMax;
 use super::sets;
 
@@ -149,7 +150,7 @@ impl Hull {
     /// `qh_makenewfacet`).
     pub(super) fn make_new_facet(
         &mut self,
-        vertices: Vec<VertexId>,
+        vertices: InlineVec<VertexId>,
         toporient: bool,
         horizon: FacetId,
     ) -> FacetId {
@@ -187,10 +188,10 @@ impl Hull {
                 .iter()
                 .position(|&f| f == visible)
                 .ok_or(HullError::Topology)?;
-            let mut vertices = Vec::with_capacity(n.vertices.len());
+            let mut vertices = InlineVec::new();
             vertices.push(apex);
-            vertices.extend_from_slice(&n.vertices[..horizon_skip]);
-            vertices.extend_from_slice(&n.vertices[horizon_skip + 1..]);
+            vertices.extend(n.vertices[..horizon_skip].iter().copied());
+            vertices.extend(n.vertices[horizon_skip + 1..].iter().copied());
             let odd = horizon_skip & 1 == 1;
             let toporient = if n.toporient { odd } else { !odd };
             let coplanar = n.coplanarhorizon;
@@ -219,9 +220,9 @@ impl Hull {
             let neighbor = self.ridge(ridge).other(visible);
             if !self.facet(neighbor).visible {
                 let toporient = self.ridge(ridge).top == visible;
-                let mut vertices = Vec::with_capacity(3);
+                let mut vertices = InlineVec::new();
                 vertices.push(apex);
-                vertices.extend_from_slice(&self.ridge(ridge).vertices);
+                vertices.extend(self.ridge(ridge).vertices.iter().copied());
                 let f = self.make_new_facet(vertices, toporient, neighbor);
                 newfacet = Some(f);
                 if self.facet(neighbor).coplanarhorizon {

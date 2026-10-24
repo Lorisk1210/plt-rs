@@ -95,16 +95,12 @@ impl<'a> Surface<'a> {
         (lo < hi).then(|| ((lo - x) as usize, (hi - x) as usize))
     }
 
-    /// Byte offset of pixel `(x, y)` (both known to be visible).
-    fn index(&self, x: i32, y: i32) -> usize {
-        y as usize * self.width + x as usize
-    }
-
-    fn masked(&self, pixel: usize, cover: u8) -> u8 {
-        match self.mask {
-            Some(m) => combine_mask(cover, m[pixel]),
-            None => cover,
-        }
+    /// The visible pixels `[start, end)` of the span at column `x` of row
+    /// `y`, with the clip mask's values for them (if masked).
+    fn run(&mut self, y: i32, x: i32, start: usize, end: usize) -> (&mut [[u8; 4]], Option<&[u8]>) {
+        let first = y as usize * self.width + (x + start as i32) as usize;
+        let pixels = &mut self.pixels.as_chunks_mut::<4>().0[first..first + end - start];
+        (pixels, self.mask.map(|m| &m[first..first + end - start]))
     }
 
     /// Blends a solid colour through the span's covers (Agg's
@@ -118,24 +114,24 @@ impl<'a> Surface<'a> {
         let Some((start, end)) = self.visible(y, span.x, span.len()) else {
             return;
         };
-        let first = self.index(span.x + start as i32, y);
-        let uniform = match (aa, span.covers) {
-            (Antialias::Off, _) => Some(255),
-            (Antialias::On, Covers::Solid { cover, .. }) => Some(cover),
-            (Antialias::On, Covers::Varying(_)) => None,
-        };
-        if let (Some(cover), None) = (uniform, self.mask) {
-            blend_run(
-                &mut self.pixels[first * 4..(first + end - start) * 4],
-                color,
-                cover,
-            );
-            return;
-        }
-        for i in start..end {
-            let pixel = first + i - start;
-            let cover = self.masked(pixel, uniform.unwrap_or_else(|| span.cover_at(i)));
-            blend_pixel(&mut self.pixels[pixel * 4..pixel * 4 + 4], color, cover);
+        let (pixels, mask) = self.run(y, span.x, start, end);
+        match (aa, span.covers) {
+            (Antialias::Off, _) => blend_uniform(pixels, mask, color, 255),
+            (Antialias::On, Covers::Solid { cover, .. }) => {
+                blend_uniform(pixels, mask, color, cover);
+            }
+            (Antialias::On, Covers::Varying(covers)) => match mask {
+                None => {
+                    for (px, &cover) in pixels.iter_mut().zip(&covers[start..end]) {
+                        blend_pixel(px, color, cover);
+                    }
+                }
+                Some(mask) => {
+                    for ((px, &cover), &m) in pixels.iter_mut().zip(&covers[start..end]).zip(mask) {
+                        blend_pixel(px, color, combine_mask(cover, m));
+                    }
+                }
+            },
         }
     }
 
@@ -147,11 +143,25 @@ impl<'a> Surface<'a> {
         let Some((start, end)) = self.visible(y, span.x, span.len()) else {
             return;
         };
-        let first = self.index(span.x + start as i32, y);
-        for (i, &color) in colors.iter().enumerate().take(end).skip(start) {
-            let pixel = first + i - start;
-            let cover = self.masked(pixel, span.cover_at(i));
-            blend_pixel(&mut self.pixels[pixel * 4..pixel * 4 + 4], color, cover);
+        let (pixels, mask) = self.run(y, span.x, start, end);
+        let colors = colors.get(start..).unwrap_or_default();
+        for (offset, (px, &color)) in pixels.iter_mut().zip(colors).enumerate() {
+            let cover = span.cover_at(start + offset);
+            let cover = mask.map_or(cover, |m| combine_mask(cover, m[offset]));
+            blend_pixel(px, color, cover);
+        }
+    }
+}
+
+/// Blends `color` with one cover onto a run of pixels, scaled by the clip
+/// mask's values when masked.
+fn blend_uniform(pixels: &mut [[u8; 4]], mask: Option<&[u8]>, color: Rgba8, cover: u8) {
+    match mask {
+        None => blend_run(pixels, color, cover),
+        Some(mask) => {
+            for (px, &m) in pixels.iter_mut().zip(mask) {
+                blend_pixel(px, color, combine_mask(cover, m));
+            }
         }
     }
 }

@@ -74,10 +74,3 @@ pub(super) struct ChunkLimits {
     pub(super) jstart: usize,
     pub(super) jend: usize,
 }
-
-impl ChunkLimits {
-    /// The quads of the chunk, row by row.
-    pub(super) fn quads(self, nx: usize) -> impl Iterator<Item = usize> {
-        (self.jstart..self.jend).flat_map(move |j| (self.istart + j * nx)..(self.iend + j * nx))
-    }
-}

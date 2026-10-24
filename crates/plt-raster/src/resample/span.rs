@@ -28,9 +28,31 @@ fn begin(interpolator: &mut impl SpanInterpolator, x: i32, y: i32, len: usize) {
     interpolator.begin(f64::from(x) + CENTRE, f64::from(y) + CENTRE, len as u32);
 }
 
-/// The fixed-point product of two tabulated weights.
-fn product(lut: &WeightLut, index_y: i32, index_x: i32) -> i32 {
-    (lut.weight(index_y) * lut.weight(index_x) + FILTER_SCALE / 2) >> FILTER_SHIFT
+/// The source pixels one destination pixel reads: row offsets and column
+/// indices, each with its tabulated weight. Every row reads the same
+/// columns, so they are reflected and weighed once per pixel.
+#[derive(Debug, Default)]
+struct Taps {
+    rows: Vec<(usize, i32)>,
+    columns: Vec<(usize, i32)>,
+}
+
+impl Taps {
+    /// The weighted sum of the pixels, row by row as Agg reads them, and
+    /// the sum of the weights. Each weight is the fixed-point product of
+    /// the row's and the column's.
+    fn accumulate<P: PixelOps>(&self, pixels: &[P]) -> (P::Accum, i32) {
+        let mut acc = P::ACCUM_ZERO;
+        let mut total_weight = 0_i32;
+        for &(row, weight_y) in &self.rows {
+            for &(column, weight_x) in &self.columns {
+                let weight = (weight_y * weight_x + FILTER_SCALE / 2) >> FILTER_SHIFT;
+                pixels[row + column].accumulate(&mut acc, weight);
+                total_weight = total_weight.wrapping_add(weight);
+            }
+        }
+        (acc, total_weight)
+    }
 }
 
 /// Nearest-neighbour samples with a zero background outside the source.
@@ -60,34 +82,28 @@ pub(super) fn filter<P: PixelOps>(
 ) {
     begin(interpolator, x, y, out.len());
     let mut pixels = ReflectAccessor::new(src);
+    let mut taps = Taps::default();
     let diameter = lut.diameter();
     let start = lut.start();
     for color in out {
         let (sx, sy) = interpolator.coordinates();
         let sx = sx.wrapping_sub(CENTRE_SUBPIXEL);
         let sy = sy.wrapping_sub(CENTRE_SUBPIXEL);
-        let x_fract = sx & SUBPIXEL_MASK;
-        let mut index_y = SUBPIXEL_MASK - (sy & SUBPIXEL_MASK);
-        let mut acc = P::ACCUM_ZERO;
-        let mut px = pixels.span(
-            (sx >> SUBPIXEL_SHIFT).wrapping_add(start),
-            (sy >> SUBPIXEL_SHIFT).wrapping_add(start),
-        );
-        for row in 0..diameter {
-            if row > 0 {
-                index_y += 1 << SUBPIXEL_SHIFT;
-                px = pixels.next_y();
-            }
-            let mut index_x = SUBPIXEL_MASK - x_fract;
-            for column in 0..diameter {
-                if column > 0 {
-                    index_x += 1 << SUBPIXEL_SHIFT;
-                    px = pixels.next_x();
-                }
-                px.accumulate(&mut acc, product(lut, index_y, index_x));
-            }
-        }
-        *color = P::filtered(acc);
+        let first_x = SUBPIXEL_MASK - (sx & SUBPIXEL_MASK);
+        let first_y = SUBPIXEL_MASK - (sy & SUBPIXEL_MASK);
+        let column = pixels.first_column((sx >> SUBPIXEL_SHIFT).wrapping_add(start));
+        taps.columns.clear();
+        taps.columns.extend((0..diameter).map(|k| {
+            let column = if k == 0 { column } else { pixels.next_column() };
+            (column, lut.weight(first_x + (k << SUBPIXEL_SHIFT)))
+        }));
+        let row = pixels.first_row((sy >> SUBPIXEL_SHIFT).wrapping_add(start));
+        taps.rows.clear();
+        taps.rows.extend((0..diameter).map(|k| {
+            let row = if k == 0 { row } else { pixels.next_row() };
+            (row, lut.weight(first_y + (k << SUBPIXEL_SHIFT)))
+        }));
+        *color = P::filtered(taps.accumulate(pixels.pixels()).0);
         interpolator.advance();
     }
 }
@@ -138,39 +154,46 @@ pub(super) fn resample_affine<P: PixelOps>(
 ) {
     begin(interpolator, x, y, out.len());
     let mut pixels = ReflectAccessor::new(src);
+    let mut taps = Taps::default();
     let diameter = lut.diameter();
     let filter_scale = diameter << SUBPIXEL_SHIFT;
     let radius_x = (diameter * footprint.rx) >> 1;
     let radius_y = (diameter * footprint.ry) >> 1;
+    // The weight indices of a footprint's taps along one axis: from
+    // `first`, one step of `inverse` per tap while within the kernel (at
+    // least one tap).
+    let indices = |first: i32, inverse: i32| {
+        std::iter::successors(Some(first), move |index| {
+            Some(index + inverse).filter(|&next| next < filter_scale)
+        })
+    };
     for color in out {
         let (sx, sy) = interpolator.coordinates();
         let sx = sx.wrapping_add(CENTRE_SUBPIXEL - radius_x);
         let sy = sy.wrapping_add(CENTRE_SUBPIXEL - radius_y);
-        let mut index_y =
-            ((SUBPIXEL_MASK - (sy & SUBPIXEL_MASK)) * footprint.ry_inv) >> SUBPIXEL_SHIFT;
         let first_x = ((SUBPIXEL_MASK - (sx & SUBPIXEL_MASK)) * footprint.rx_inv) >> SUBPIXEL_SHIFT;
-        let mut acc = P::ACCUM_ZERO;
-        let mut total_weight = 0_i32;
-        let mut px = pixels.span(sx >> SUBPIXEL_SHIFT, sy >> SUBPIXEL_SHIFT);
-        loop {
-            let weight_y = lut.weight(index_y);
-            let mut index_x = first_x;
-            loop {
-                let weight = (weight_y * lut.weight(index_x) + FILTER_SCALE / 2) >> FILTER_SHIFT;
-                px.accumulate(&mut acc, weight);
-                total_weight = total_weight.wrapping_add(weight);
-                index_x += footprint.rx_inv;
-                if index_x >= filter_scale {
-                    break;
-                }
-                px = pixels.next_x();
-            }
-            index_y += footprint.ry_inv;
-            if index_y >= filter_scale {
-                break;
-            }
-            px = pixels.next_y();
-        }
+        let first_y = ((SUBPIXEL_MASK - (sy & SUBPIXEL_MASK)) * footprint.ry_inv) >> SUBPIXEL_SHIFT;
+        let column = pixels.first_column(sx >> SUBPIXEL_SHIFT);
+        taps.columns.clear();
+        taps.columns.extend(
+            indices(first_x, footprint.rx_inv)
+                .enumerate()
+                .map(|(k, index)| {
+                    let column = if k == 0 { column } else { pixels.next_column() };
+                    (column, lut.weight(index))
+                }),
+        );
+        let row = pixels.first_row(sy >> SUBPIXEL_SHIFT);
+        taps.rows.clear();
+        taps.rows.extend(
+            indices(first_y, footprint.ry_inv)
+                .enumerate()
+                .map(|(k, index)| {
+                    let row = if k == 0 { row } else { pixels.next_row() };
+                    (row, lut.weight(index))
+                }),
+        );
+        let (acc, total_weight) = taps.accumulate(pixels.pixels());
         *color = P::resampled(acc, total_weight);
         interpolator.advance();
     }

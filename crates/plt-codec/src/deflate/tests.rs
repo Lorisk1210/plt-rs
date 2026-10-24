@@ -39,6 +39,63 @@ fn round_trips_many_small_random_inputs() {
     }
 }
 
+/// The window's span, the longest distance a match may reach.
+const WINDOW: usize = 32_768;
+
+/// Inputs whose compressed bytes are pinned: numbers as vector documents
+/// write them, data repeating at the window's full distance, and runs
+/// between random bursts.
+fn pinned_inputs() -> [Vec<u8>; 3] {
+    let mut state = 0x2545_F491_4F6C_DD1D_u64;
+    let mut next = move || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+    let mut numbers = Vec::new();
+    for _ in 0..12_000 {
+        let (x, y) = (next() % 64_000, next() % 48_000);
+        let line = format!("{}.{:02} {}.{:02} l\n", x / 100, x % 100, y / 100, y % 100);
+        numbers.extend_from_slice(line.as_bytes());
+    }
+    let mut period: Vec<u8> = (0..WINDOW).map(|_| (next() % 7) as u8).collect();
+    for i in WINDOW..2 * WINDOW + 5_000 {
+        let byte = if next() % 50 == 0 {
+            (next() % 7) as u8
+        } else {
+            period[i - WINDOW]
+        };
+        period.push(byte);
+    }
+    let mut runs = Vec::new();
+    while runs.len() < 100_000 {
+        let byte = (next() % 4) as u8;
+        runs.extend(std::iter::repeat_n(byte, (next() % 600) as usize));
+        runs.extend((0..next() % 40).map(|_| next() as u8));
+    }
+    [numbers, period, runs]
+}
+
+#[test]
+fn compressed_bytes_stay_the_same() {
+    // FNV-1a over the streams of levels 1 to 9, as the encoder wrote them
+    // before its match finder was sped up: speed-ups must not change them.
+    let expected = [
+        0x1998_26cf_8757_b6be_u64,
+        0x30a8_986e_d645_1108,
+        0xe0e5_7025_f532_dfd0,
+    ];
+    for (input, expected) in pinned_inputs().iter().zip(expected) {
+        let fingerprint = (1..=9)
+            .flat_map(|level| compress(input, CompressionLevel::new(level).unwrap()))
+            .fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+                (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+            });
+        assert_eq!(fingerprint, expected, "input of {} bytes", input.len());
+    }
+}
+
 #[test]
 fn matches_reference_encodings_of_tiny_inputs() {
     assert_eq!(compress(b"", CompressionLevel::DEFAULT), [0x03, 0x00]);

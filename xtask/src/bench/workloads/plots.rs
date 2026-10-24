@@ -1,13 +1,14 @@
 //! Lines, markers, meshes and images, and statistics.
 
 use plt::axes::{
-    BoxplotOptions, HexbinOptions, Hist2dOptions, HistPlotOptions, ImshowOptions, Mesh,
-    PcolorOptions, ViolinplotOptions,
+    BoxplotOptions, FillBetweenOptions, HexbinOptions, Hist2dOptions, HistPlotOptions,
+    ImshowOptions, Mesh, PcolorOptions, StackplotOptions, ViolinplotOptions,
 };
+use plt::colorbar::ColorbarOptions;
 use plt::figure::SaveFormat;
 use plt::image::Interpolation;
 use plt::prelude::*;
-use plt::stats::{AxisBins, Bins, HistOptions, Histogram2dOptions};
+use plt::stats::{AxisBins, BinEstimator, Bins, HistOptions, Histogram2dOptions};
 use plt_spec::rng::SpecRng;
 
 use super::{Build, Workload, random_walk, smooth_field};
@@ -20,6 +21,8 @@ pub(super) const WORKLOADS: &[Workload] = &[
     Workload::new("lines/1000_lines_of_1000", many_lines),
     Workload::new("lines/dashed_1e5", dashed),
     Workload::new("lines/markevery_1e5", markevery),
+    Workload::new("lines/fill_between_1e5", fill_between),
+    Workload::new("lines/stackplot_5x1e5", stackplot),
     Workload::new("markers/scatter_1e5", scatter),
     Workload::new("markers/plot_o_1e5", plot_markers),
     Workload::new("meshes/pcolormesh_1000", pcolormesh),
@@ -29,9 +32,11 @@ pub(super) const WORKLOADS: &[Workload] = &[
     Workload::new("meshes/imshow_4000_nearest", || {
         imshow(Interpolation::Nearest)
     }),
+    Workload::new("meshes/imshow_2000_bicubic_colorbar", imshow_colorbar),
     Workload::new("meshes/hexbin_1e6", hexbin),
     Workload::new("meshes/hist2d_1e6", hist2d),
     Workload::new("stats/hist_1e7", hist),
+    Workload::new("stats/hist_1e6_auto", hist_auto),
     Workload::new("stats/boxplot_100", boxplot),
     Workload::new("stats/violinplot_50", violinplot),
 ];
@@ -83,6 +88,34 @@ fn markevery() -> Build {
             step: 100,
         }));
         fig.subplot().plot_with(&x, &y, props)?;
+        Ok(())
+    })
+}
+
+/// A 10⁵-point random walk filled down to zero.
+fn fill_between() -> Build {
+    let (x, y) = random_walk(100_000, 14);
+    Box::new(move |fig| {
+        fig.subplot()
+            .fill_between(&x, &y, [0.0], FillBetweenOptions::default())?;
+        Ok(())
+    })
+}
+
+/// Five stacked sine layers of 10⁵ points each.
+fn stackplot() -> Build {
+    let x = linspace(0.0, 100.0, 100_000);
+    let layers: Vec<Vec<f64>> = (0..5)
+        .map(|k| {
+            let k = f64::from(k);
+            x.iter()
+                .map(|x| 1.5 + (x * (k + 1.0) / 7.0 + k).sin())
+                .collect()
+        })
+        .collect();
+    Box::new(move |fig| {
+        fig.subplot()
+            .stackplot(&x, &layers, StackplotOptions::default())?;
         Ok(())
     })
 }
@@ -139,6 +172,20 @@ fn imshow(interpolation: Interpolation) -> Build {
     })
 }
 
+/// `imshow` of a smooth 2000 × 2000 field, bicubic, with a colorbar.
+fn imshow_colorbar() -> Build {
+    let z = smooth_field(2000);
+    Box::new(move |fig| {
+        let options = ImshowOptions {
+            interpolation: Some(Interpolation::Bicubic),
+            ..ImshowOptions::default()
+        };
+        let shown = fig.subplot().imshow(z.clone(), options)?;
+        fig.colorbar(&shown, ColorbarOptions::default())?;
+        Ok(())
+    })
+}
+
 /// 10⁶ correlated normal points, independent and correlated halves.
 fn correlated_normals(seed: u64) -> (Vec<f64>, Vec<f64>) {
     let mut rng = SpecRng::new(seed);
@@ -180,6 +227,22 @@ fn hist() -> Build {
         let options = HistPlotOptions {
             layout: HistOptions {
                 bins: Some(Bins::Count(1000)),
+                ..HistOptions::default()
+            },
+            ..HistPlotOptions::default()
+        };
+        fig.subplot().hist(&[values.as_slice()], options)?;
+        Ok(())
+    })
+}
+
+/// `hist` of 10⁶ normal values, binned by numpy's `"auto"` rule.
+fn hist_auto() -> Build {
+    let values = SpecRng::new(15).normal(1_000_000, 0.0, 1.0);
+    Box::new(move |fig| {
+        let options = HistPlotOptions {
+            layout: HistOptions {
+                bins: Some(Bins::Estimator(BinEstimator::Auto)),
                 ..HistOptions::default()
             },
             ..HistPlotOptions::default()

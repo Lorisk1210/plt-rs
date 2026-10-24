@@ -205,11 +205,11 @@ cargo xtask vectors [PREFIX...]                 # every case's SVG/PDF/PS/PGF ag
                                                 # documents matplotlib writes then and there
 ```
 
-`cargo xtask bench [PREFIX...] --reference` times 33 large workloads
-(a million-point line, 10⁵-marker scatters, 1000² meshes and contours,
-4000² images, text-heavy layouts, every output format) in plt-rs and in
-matplotlib with its Agg backend; plt-rs is as fast or faster on all of
-them.
+`cargo xtask bench [PREFIX...] --reference` times 45 large workloads
+(a million-point line, 10⁵-marker scatters, 1000² meshes and labelled
+contours, 4000² images, 3-D surfaces, text-heavy layouts, constrained
+layout, every output format) in plt-rs and in matplotlib with its Agg
+backend; plt-rs is faster on all of them.
 
 See `CLAUDE.md` for the coding conventions.
 

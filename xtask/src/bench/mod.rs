@@ -3,8 +3,10 @@
 //! vector backends) through the reference venv.
 //!
 //! Every workload builds a figure under the spec's reference configuration
-//! (matplotlib's look) and saves it to memory; its data is made before the
-//! clock starts. The best of `--runs` runs (default 3) is reported.
+//! (matplotlib's look) and saves it to memory, or only lays it out; its
+//! data is made before the clock starts. The median of `--runs` runs
+//! (default 3) is reported, as other work on the machine makes single runs
+//! noisy.
 //! `--out DIR` also writes each document to `DIR`, so that the output of
 //! two builds can be compared byte for byte: documents carry no metadata
 //! and SVG ids a fixed salt.
@@ -17,11 +19,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::time::{Duration, Instant};
 
-use plt::figure::SaveOptions;
+use plt::figure::{BboxInches, Figure, SaveOptions};
 use plt_render::Metadata;
 use plt_spec::figures::FigureCase;
 
-use workloads::Workload;
+use workloads::{Output, Workload};
 
 /// What `cargo xtask bench` was asked to do.
 struct Request<'a> {
@@ -29,7 +31,7 @@ struct Request<'a> {
     prefixes: Vec<&'a str>,
     /// Also time matplotlib.
     reference: bool,
-    /// Runs per workload; the fastest counts.
+    /// Runs per workload; the median counts.
     runs: usize,
     /// Where to write the documents, if anywhere.
     out: Option<PathBuf>,
@@ -100,15 +102,15 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
     );
     let mut status = ExitCode::SUCCESS;
     for workload in selected {
-        let timed = time_workload(workload, request.runs).and_then(|(best, document)| {
+        let timed = time_workload(workload, request.runs).and_then(|(median, document)| {
             if let Some(out) = &request.out {
                 write_document(out, workload, &document)?;
             }
-            Ok(best)
+            Ok(median)
         });
         match timed {
-            Ok(best) => {
-                let ms = best.as_secs_f64() * 1e3;
+            Ok(median) => {
+                let ms = median.as_secs_f64() * 1e3;
                 let row = match reference.get(workload.name) {
                     Some(&mpl) => format!("{mpl:>14.1} {:>7.2}", ms / mpl),
                     None => format!("{:>14} {:>7}", "-", "-"),
@@ -124,43 +126,76 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
     status
 }
 
-/// The fastest of `runs` builds and saves of `workload`, and the document
-/// saved.
+/// The median time of `runs` builds and saves of `workload`, and the
+/// document saved (empty for a workload only laid out).
 fn time_workload(workload: &Workload, runs: usize) -> Result<(Duration, Vec<u8>), Box<dyn Error>> {
     let build = (workload.setup)();
     let (width, height) = workload.figsize;
     let case = FigureCase::new(workload.name, |_| Ok(())).sized(width, height, workloads::DPI);
-    let options = SaveOptions {
-        dpi: Some(workloads::DPI),
-        metadata: Some(Metadata::none()),
-        ..SaveOptions::default()
-    };
-    let mut best = Duration::MAX;
+    let mut times = Vec::with_capacity(runs);
     let mut document = Vec::new();
     for _ in 0..runs {
         let start = Instant::now();
         document = case.with_figure(|fig| {
             plt::rc::set("svg.hashsalt", "plt-rs")?;
+            for (key, value) in workload.rc {
+                plt::rc::set(key, value)?;
+            }
             build(fig)?;
-            Ok(fig.to_format(workload.format, options.clone())?)
+            finish(fig, workload.output)
         })?;
-        best = best.min(start.elapsed());
+        times.push(start.elapsed());
     }
-    Ok((best, document))
+    Ok((median(&mut times), document))
 }
 
-/// Writes `document` to `out/<group>__<name>.<extension>`.
+/// Saves `fig` to memory as `output` asks, or only lays it out and
+/// returns no document.
+fn finish(fig: &Figure, output: Output) -> Result<Vec<u8>, Box<dyn Error>> {
+    match output {
+        Output::Save { format, tight } => {
+            let options = SaveOptions {
+                dpi: Some(workloads::DPI),
+                bbox_inches: tight.then_some(BboxInches::Tight),
+                metadata: Some(Metadata::none()),
+                ..SaveOptions::default()
+            };
+            Ok(fig.to_format(format, options)?)
+        }
+        Output::LayoutOnly => {
+            fig.layout();
+            Ok(Vec::new())
+        }
+    }
+}
+
+/// The median of `times` (the mean of the middle two for an even count).
+fn median(times: &mut [Duration]) -> Duration {
+    times.sort_unstable();
+    let middle = times.len() / 2;
+    if times.len().is_multiple_of(2) {
+        (times[middle - 1] + times[middle]) / 2
+    } else {
+        times[middle]
+    }
+}
+
+/// Writes `document` to `out/<group>__<name>.<extension>`, unless the
+/// workload saves nothing.
 fn write_document(out: &Path, workload: &Workload, document: &[u8]) -> Result<(), Box<dyn Error>> {
+    let Output::Save { format, .. } = workload.output else {
+        return Ok(());
+    };
     std::fs::create_dir_all(out)?;
     let name = format!(
         "{}.{}",
         workload.name.replace('/', "__"),
-        workload.format.extension()
+        format.extension()
     );
     Ok(std::fs::write(out.join(name), document)?)
 }
 
-/// matplotlib's best time in milliseconds for each workload, from
+/// matplotlib's median time in milliseconds for each workload, from
 /// `spec/reference/bench/bench.py` run through the reference venv.
 fn reference_times(
     workloads: &[&Workload],

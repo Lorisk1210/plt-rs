@@ -4,6 +4,7 @@
 
 use super::{MAX_NEW_CENTRUM_VERTICES, MAX_NUMMERGE, MergeKind, Span};
 use crate::tri::delaunay::hull::{FacetId, Hull, HullError, HullResult, RidgeId, VertexId};
+use crate::tri::delaunay::inline::InlineVec;
 use crate::tri::delaunay::precision::QhullMinMax;
 use crate::tri::delaunay::sets;
 
@@ -276,7 +277,7 @@ impl Hull {
     fn merge_vertices(&mut self, facet1: FacetId, facet2: FacetId) {
         let first = &self.facet(facet1).vertices;
         let second = &self.facet(facet2).vertices;
-        let mut merged = Vec::with_capacity(first.len() + second.len());
+        let mut merged = InlineVec::new();
         let mut j = 0;
         for &v in first {
             let id = v.index();
@@ -289,7 +290,7 @@ impl Hull {
             }
             merged.push(v);
         }
-        merged.extend_from_slice(&second[j..]);
+        merged.extend(second[j..].iter().copied());
         self.facet_mut(facet2).vertices = merged;
     }
 

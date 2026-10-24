@@ -158,7 +158,7 @@ impl<'a> PathCollection<'a> {
                 .filter(|c| !c.is_transparent());
             // Items cycle through the raw paths, as matplotlib's
             // `_iter_collection` cycles through the path ids.
-            let path_index = i % raw_count;
+            let path_index = wrap(i, raw_count);
             let own = cycled(self.path_transforms, path_index)
                 .copied()
                 .unwrap_or_default();
@@ -166,7 +166,7 @@ impl<'a> PathCollection<'a> {
                 .then(self.master_transform)
                 .translate(offset.x, offset.y);
             Some(CollectionItem {
-                path: &self.paths[path_index % self.paths.len()],
+                path: &self.paths[wrap(path_index, self.paths.len())],
                 path_index,
                 offset,
                 transform,
@@ -177,8 +177,15 @@ impl<'a> PathCollection<'a> {
     }
 }
 
+/// Item `i` of `items` repeated cyclically, or `None` when there are none.
 fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
-    (!items.is_empty()).then(|| &items[i % items.len()])
+    (!items.is_empty()).then(|| &items[wrap(i, items.len())])
+}
+
+/// `i % len`, without the division in the usual case of an index in range
+/// (collections draw thousands of items per call).
+fn wrap(i: usize, len: usize) -> usize {
+    if i < len { i } else { i % len }
 }
 
 #[cfg(test)]

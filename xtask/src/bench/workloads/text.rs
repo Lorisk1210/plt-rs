@@ -8,6 +8,7 @@ use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::stats::{Bins, HistOptions};
+use plt::text::{HAlign, VAlign};
 use plt_spec::figures::CaseResult;
 use plt_spec::rng::SpecRng;
 
@@ -18,14 +19,31 @@ pub(super) const WORKLOADS: &[Workload] = &[
     Workload::new("text/subplots_10x10", subplots).sized(12.8, 9.6),
     Workload::new("text/text_2000", texts),
     Workload::new("text/mathtext_50", mathtext),
+    Workload::new("text/mixed_text_math_300", mixed_text),
     Workload::new("text/constrained_6x6_colorbars", constrained).sized(14.0, 12.0),
+    Workload::new("layout/constrained_8x8_no_draw", constrained_layout)
+        .sized(16.0, 12.0)
+        .layout_only(),
     Workload::new("output/mid_png", mid_size),
     Workload::new("output/mid_svg", mid_size).saved_as(SaveFormat::Svg),
     Workload::new("output/mid_pdf", mid_size).saved_as(SaveFormat::Pdf),
     Workload::new("output/mid_ps", mid_size).saved_as(SaveFormat::Ps),
     Workload::new("output/mid_pgf", mid_size).saved_as(SaveFormat::Pgf),
     Workload::new("output/mid_eps", mid_size).saved_as(SaveFormat::Eps),
+    Workload::new("output/mid_png_tight", mid_size).tight(),
+    Workload::new("output/lissajous_1e5_svg", lissajous)
+        .saved_as(SaveFormat::Svg)
+        .with_rc(UNSIMPLIFIED),
+    Workload::new("output/lissajous_1e5_pdf", lissajous)
+        .saved_as(SaveFormat::Pdf)
+        .with_rc(UNSIMPLIFIED),
+    Workload::new("output/lissajous_1e5_ps", lissajous)
+        .saved_as(SaveFormat::Ps)
+        .with_rc(UNSIMPLIFIED),
 ];
+
+/// Every segment of a line reaches the document.
+const UNSIMPLIFIED: &[(&str, &str)] = &[("path.simplify", "False")];
 
 /// 100 subplots, each a titled and labelled sine wave.
 fn subplots() -> Build {
@@ -70,6 +88,38 @@ fn mathtext() -> Build {
     })
 }
 
+/// 300 labels: rotated two-line texts, formulas, and texts with inline
+/// math, under a title and axis labels that hold math too.
+fn mixed_text() -> Build {
+    Box::new(|fig| {
+        let ax = fig.subplot();
+        ax.set_title(r"Mixed text: $\alpha_i + \beta^2 = \gamma$");
+        ax.set_xlabel(r"time $t$ (s)")
+            .set_ylabel(r"response $\sigma(t)$");
+        for k in 0..300_u32 {
+            let (x, y) = (f64::from(k % 15) / 15.0, f64::from(k / 15) / 20.0);
+            match k % 3 {
+                0 => {
+                    ax.text(x, y, format!("label {k}\nsecond line"))
+                        .set_fontsize(7.0)
+                        .set_rotation(f64::from(k % 90));
+                }
+                1 => {
+                    let formula = format!(r"$x_{{{k}}}^{{2}} + \frac{{\pi}}{{{}}}$", k + 1);
+                    ax.text(x, y, formula).set_fontsize(8.0);
+                }
+                _ => {
+                    ax.text(x, y, format!(r"value {k}: $\sqrt{{{k}}} \leq \Omega$"))
+                        .set_fontsize(7.0)
+                        .set_halign(HAlign::Center)
+                        .set_valign(VAlign::Center);
+                }
+            }
+        }
+        Ok(())
+    })
+}
+
 /// A 6 × 6 grid of images, each with a colorbar, in constrained layout.
 fn constrained() -> Build {
     let image = Grid::from_fn(20, 20, |i, j| ((i * j) as f64 / 40.0).sin());
@@ -81,6 +131,36 @@ fn constrained() -> Build {
             fig.colorbar(&shown, ColorbarOptions::default())?;
             ax.set_title(format!("image {k}"));
         }
+        Ok(())
+    })
+}
+
+/// 64 titled and labelled cosine panels under a suptitle, in
+/// constrained layout.
+fn constrained_layout() -> Build {
+    let x = linspace(0.0, 10.0, 50);
+    Box::new(move |fig| {
+        fig.set_layout_engine(LayoutEngine::constrained())?;
+        let grid = fig.subplots(8, 8)?;
+        for (k, ax) in grid.as_slice().iter().enumerate() {
+            let shift = k as f64 / 10.0;
+            ax.plot(&x, x.iter().map(|x| (x + shift).cos()).collect::<Vec<_>>())?;
+            ax.set_title(format!("panel {k}"));
+            ax.set_xlabel("x").set_ylabel("y");
+        }
+        fig.suptitle("64 panels in constrained layout");
+        Ok(())
+    })
+}
+
+/// A thin Lissajous curve of 10⁵ points (frequencies 37 and 41).
+fn lissajous() -> Build {
+    let t = linspace(0.0, 2.0 * std::f64::consts::PI, 100_000);
+    let x: Vec<f64> = t.iter().map(|t| (37.0 * t).sin()).collect();
+    let y: Vec<f64> = t.iter().map(|t| (41.0 * t + 0.5).sin()).collect();
+    Box::new(move |fig| {
+        fig.subplot()
+            .plot_with(&x, &y, LineProps::default().linewidth(0.5))?;
         Ok(())
     })
 }

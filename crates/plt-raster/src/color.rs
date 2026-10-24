@@ -74,39 +74,80 @@ pub(crate) fn combine_mask(cover: u8, mask: u8) -> u8 {
 /// This is Agg's `copy_or_blend_pix` with matplotlib's
 /// `fixed_blender_rgba_plain`: an opaque colour at full cover is copied;
 /// otherwise the effective alpha `multiply(color.a, cover)` is blended in
-/// straight-alpha space with integer arithmetic.
-pub(crate) fn blend_pixel(dst: &mut [u8], color: Rgba8, cover: u8) {
-    let alpha = multiply(color.a, cover);
-    if alpha == 0 {
-        return;
+/// straight-alpha space with integer arithmetic (see [`blend_translucent`]).
+#[inline]
+pub(crate) fn blend_pixel(dst: &mut [u8; 4], color: Rgba8, cover: u8) {
+    match multiply(color.a, cover) {
+        0 => {}
+        255 => *dst = color.to_array(),
+        alpha => blend_translucent(dst, color, alpha),
     }
-    if alpha == 255 {
-        dst[..4].copy_from_slice(&color.to_array());
-        return;
-    }
-    let alpha = i32::from(alpha);
-    let a = i32::from(dst[3]);
-    let r = i32::from(dst[0]) * a;
-    let g = i32::from(dst[1]) * a;
-    let b = i32::from(dst[2]) * a;
-    let a = ((alpha + a) << 8) - alpha * a;
-    let channel = |src: u8, premul: i32| {
-        ((((i32::from(src) << 8) - premul) * alpha + (premul << 8)) / a) as u8
+}
+
+/// Blends `color` at the effective alpha `alpha` (neither 0 nor 255) onto
+/// one RGBA pixel.
+///
+/// Each channel is `(((src << 8) - premul) · alpha + (premul << 8)) / a`
+/// with `premul` the destination channel times its alpha and `a` the new
+/// alpha in 8.8 fixed point. Over an opaque pixel, the usual case, the
+/// quotient comes from [`divide_over_opaque`] instead of a division.
+#[inline]
+fn blend_translucent(dst: &mut [u8; 4], color: Rgba8, alpha: u8) {
+    let dst_alpha = u32::from(dst[3]);
+    let alpha_u32 = u32::from(alpha);
+    let new_alpha = ((alpha_u32 + dst_alpha) << 8) - alpha_u32 * dst_alpha;
+    // The numerator rearranged to `src·256·alpha + premul·(256 - alpha)`:
+    // the same value, with no negative intermediate.
+    let numerator = |src: u8, dst: u8| {
+        (u32::from(src) << 8) * alpha_u32 + u32::from(dst) * dst_alpha * (256 - alpha_u32)
     };
-    dst[0] = channel(color.r, r);
-    dst[1] = channel(color.g, g);
-    dst[2] = channel(color.b, b);
-    dst[3] = (a >> 8) as u8;
+    let numerators = [(color.r, dst[0]), (color.g, dst[1]), (color.b, dst[2])]
+        .map(|(src, dst)| numerator(src, dst));
+    let [r, g, b] = if dst_alpha == 255 {
+        numerators.map(|n| divide_over_opaque(n, alpha))
+    } else {
+        numerators.map(|n| n / new_alpha)
+    };
+    // Quotients never exceed 255: the numerator is at most 255 times the
+    // new alpha.
+    *dst = [r as u8, g as u8, b as u8, (new_alpha >> 8) as u8];
+}
+
+/// The shift of the fixed-point reciprocals in [`OPAQUE_RECIPROCALS`].
+const RECIPROCAL_SHIFT: u32 = 40;
+
+/// `ceil(2^40 / (65280 + alpha))`, the reciprocal of the new 8.8 alpha
+/// when blending with `alpha` over an opaque pixel.
+const OPAQUE_RECIPROCALS: [u64; 256] = {
+    let mut table = [0; 256];
+    let mut alpha = 0;
+    while alpha < 256 {
+        table[alpha] = (1_u64 << RECIPROCAL_SHIFT).div_ceil(65_280 + alpha as u64);
+        alpha += 1;
+    }
+    table
+};
+
+/// `numerator / (65280 + alpha)`, rounded down, for the numerators of
+/// [`blend_pixel`] (below `2^24`), as a multiplication by a rounded-up
+/// reciprocal. With a divisor `d` of 16 bits and the reciprocal
+/// `m = ⌈2^40 / d⌉ = (2^40 + e) / d` (`0 ≤ e < d`), `n·m / 2^40` exceeds
+/// `n / d` by less than `n / 2^40 < 2^-16 < 1/d`, which never reaches the
+/// next integer.
+fn divide_over_opaque(numerator: u32, alpha: u8) -> u32 {
+    ((u64::from(numerator) * OPAQUE_RECIPROCALS[usize::from(alpha)]) >> RECIPROCAL_SHIFT) as u32
 }
 
 /// Blends one colour over a run of pixels with a constant cover, using a
 /// straight copy when the result is fully opaque.
-pub(crate) fn blend_run(dst: &mut [u8], color: Rgba8, cover: u8) {
-    if multiply(color.a, cover) == 255 {
-        dst.as_chunks_mut::<4>().0.fill(color.to_array());
-    } else {
-        for px in dst.as_chunks_mut::<4>().0 {
-            blend_pixel(px, color, cover);
+pub(crate) fn blend_run(dst: &mut [[u8; 4]], color: Rgba8, cover: u8) {
+    match multiply(color.a, cover) {
+        0 => {}
+        255 => dst.fill(color.to_array()),
+        alpha => {
+            for px in dst {
+                blend_translucent(px, color, alpha);
+            }
         }
     }
 }
@@ -159,6 +200,78 @@ mod tests {
         let mut px = [1, 2, 3, 4];
         blend_pixel(&mut px, Rgba8::new(9, 9, 9, 1), 100);
         assert_eq!(px, [1, 2, 3, 4]);
+    }
+
+    /// `fixed_blender_rgba_plain` as written in matplotlib, with its
+    /// signed intermediates and divisions.
+    fn agg_blend(dst: [u8; 4], color: Rgba8, alpha: u8) -> [u8; 4] {
+        let alpha = i32::from(alpha);
+        let a = i32::from(dst[3]);
+        let premul = |channel: u8| i32::from(channel) * a;
+        let a = ((alpha + a) << 8) - alpha * a;
+        let channel = |src: u8, premul: i32| {
+            ((((i32::from(src) << 8) - premul) * alpha + (premul << 8)) / a) as u8
+        };
+        [
+            channel(color.r, premul(dst[0])),
+            channel(color.g, premul(dst[1])),
+            channel(color.b, premul(dst[2])),
+            (a >> 8) as u8,
+        ]
+    }
+
+    #[test]
+    fn blending_over_opaque_pixels_matches_agg_exactly() {
+        for alpha in 1..=254_u8 {
+            for src in 0..=255_u8 {
+                for dst in 0..=255_u8 {
+                    let color = Rgba8::new(src, dst, 255 - src, alpha);
+                    let pixel = [dst, src, dst / 2, 255];
+                    let mut blended = pixel;
+                    blend_pixel(&mut blended, color, 255);
+                    assert_eq!(
+                        blended,
+                        agg_blend(pixel, color, alpha),
+                        "{color:?} {pixel:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn blending_over_translucent_pixels_matches_agg_exactly() {
+        for alpha in (1..=254_u8).step_by(3) {
+            for dst_alpha in 0..=254_u8 {
+                for value in (0..=255_u8).step_by(5) {
+                    let color = Rgba8::new(value, 255 - value, value / 3, alpha);
+                    let pixel = [255 - value, value, 128, dst_alpha];
+                    let mut blended = pixel;
+                    blend_pixel(&mut blended, color, 255);
+                    assert_eq!(
+                        blended,
+                        agg_blend(pixel, color, alpha),
+                        "{color:?} {pixel:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn opaque_reciprocals_divide_exactly_around_every_multiple() {
+        // The quotient changes only at multiples of the divisor: check
+        // both sides of each one in the numerators' range.
+        for alpha in 1..=254_u8 {
+            let divisor = 65_280 + u32::from(alpha);
+            for quotient in 0..=256 {
+                for numerator in [quotient * divisor, (quotient * divisor).saturating_sub(1)] {
+                    assert_eq!(divide_over_opaque(numerator, alpha), numerator / divisor);
+                }
+            }
+            let largest = (1 << 24) - 1;
+            assert_eq!(divide_over_opaque(largest, alpha), largest / divisor);
+        }
     }
 
     #[test]

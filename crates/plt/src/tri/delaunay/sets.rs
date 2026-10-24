@@ -4,9 +4,52 @@
 //! deletions here reproduce qhull's exactly: unsorted deletes move the last
 //! element into the hole, sorted deletes shift the tail down.
 
+use std::ops::DerefMut;
+
+use super::inline::InlineVec;
+
+/// The vectors qhull's sets are kept in: `Vec`, and [`InlineVec`] for the
+/// short sets of facets and ridges.
+pub(super) trait SetVec<T>: DerefMut<Target = [T]> {
+    /// Appends `elem`.
+    fn push(&mut self, elem: T);
+    /// Removes element `index`, moving the last element into its place.
+    fn swap_remove(&mut self, index: usize) -> T;
+    /// Removes element `index`, shifting the later ones down.
+    fn remove(&mut self, index: usize) -> T;
+}
+
+impl<T> SetVec<T> for Vec<T> {
+    fn push(&mut self, elem: T) {
+        Vec::push(self, elem);
+    }
+
+    fn swap_remove(&mut self, index: usize) -> T {
+        Vec::swap_remove(self, index)
+    }
+
+    fn remove(&mut self, index: usize) -> T {
+        Vec::remove(self, index)
+    }
+}
+
+impl<T: Copy + Default> SetVec<T> for InlineVec<T> {
+    fn push(&mut self, elem: T) {
+        InlineVec::push(self, elem);
+    }
+
+    fn swap_remove(&mut self, index: usize) -> T {
+        InlineVec::swap_remove(self, index)
+    }
+
+    fn remove(&mut self, index: usize) -> T {
+        InlineVec::remove(self, index)
+    }
+}
+
 /// Removes the first `elem` by moving the last element into its place
 /// (qhull's `qh_setdel`). Returns whether it was found.
-pub(super) fn delete<T: PartialEq + Copy>(set: &mut Vec<T>, elem: T) -> bool {
+pub(super) fn delete<T: PartialEq + Copy>(set: &mut impl SetVec<T>, elem: T) -> bool {
     match set.iter().position(|&e| e == elem) {
         Some(i) => {
             set.swap_remove(i);
@@ -18,7 +61,7 @@ pub(super) fn delete<T: PartialEq + Copy>(set: &mut Vec<T>, elem: T) -> bool {
 
 /// Removes the first `elem`, keeping the order of the others
 /// (qhull's `qh_setdelsorted`).
-pub(super) fn delete_sorted<T: PartialEq + Copy>(set: &mut Vec<T>, elem: T) {
+pub(super) fn delete_sorted<T: PartialEq + Copy>(set: &mut impl SetVec<T>, elem: T) {
     if let Some(i) = set.iter().position(|&e| e == elem) {
         set.remove(i);
     }
@@ -32,18 +75,15 @@ pub(super) fn replace<T: PartialEq + Copy>(set: &mut [T], old: T, new: T) {
 }
 
 /// Appends `elem` unless present (qhull's `qh_setunique`).
-pub(super) fn append_unique<T: PartialEq + Copy>(set: &mut Vec<T>, elem: T) {
+pub(super) fn append_unique<T: PartialEq + Copy>(set: &mut impl SetVec<T>, elem: T) {
     if !set.contains(&elem) {
         set.push(elem);
     }
 }
 
 /// A copy of `set` without element `nth` (qhull's `qh_setnew_delnthsorted`).
-pub(super) fn without_nth<T: Copy>(set: &[T], nth: usize) -> Vec<T> {
-    let mut out = Vec::with_capacity(set.len().saturating_sub(1));
-    out.extend_from_slice(&set[..nth]);
-    out.extend_from_slice(&set[nth + 1..]);
-    out
+pub(super) fn without_nth<T: Copy, S: FromIterator<T>>(set: &[T], nth: usize) -> S {
+    set[..nth].iter().chain(&set[nth + 1..]).copied().collect()
 }
 
 /// Whether sorted sets `a` and `b` are equal except for `skip_a` in `a` and
@@ -75,7 +115,10 @@ mod tests {
     fn skips_and_replacements() {
         assert!(equal_except(&[5, 4, 2], 5, &[6, 4, 2], 6));
         assert!(!equal_except(&[5, 4, 2], 5, &[6, 4, 2], 4));
-        assert_eq!(without_nth(&[5, 4, 3], 1), [5, 3]);
+        assert_eq!(without_nth::<_, Vec<_>>(&[5, 4, 3], 1), [5, 3]);
+        let mut inline: InlineVec<i32> = without_nth(&[5, 4, 3, 2], 0);
+        assert!(delete(&mut inline, 4));
+        assert_eq!(*inline, [2, 3]);
         let mut set = vec![1, 2, 2];
         replace(&mut set, 2, 7);
         assert_eq!(set, [1, 7, 2]);

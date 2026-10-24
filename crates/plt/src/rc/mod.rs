@@ -205,8 +205,9 @@ mod tests {
     #[test]
     fn defaults_match_matplotlib() {
         let rc = RcParams::matplotlib();
-        // matplotlib's 338 and plt-rs' own `plt.images_hide_grid`.
-        assert_eq!(RcParams::KEYS.len(), 339);
+        // matplotlib's 338, then plt-rs' own `plt.*` parameters.
+        let matplotlib_keys = RcParams::KEYS.iter().filter(|key| !key.starts_with("plt."));
+        assert_eq!(matplotlib_keys.count(), 338);
         assert_eq!(rc.lines_linewidth, 1.5);
         assert_eq!(rc.figure_figsize, [6.4, 4.8]);
         assert_eq!(rc.font_size, 10.0);

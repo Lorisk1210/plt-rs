@@ -11,12 +11,16 @@ use std::fmt;
 use std::path::PathBuf;
 
 use plt::figure::Figure;
+use plt::look::FigureLook;
+use plt::rc::RcParams;
 
 use crate::json::Json;
 
 pub(crate) use cases::projections::{RangeFrame, RangeFrameOptions, register_range_frame};
 pub use facts::figure_facts;
-pub use pixels::{PixelArtifacts, PixelReport, pixel_artifacts, pixel_report, render_pixels};
+pub use pixels::{
+    PixelArtifacts, PixelReport, look_png, pixel_artifacts, pixel_report, render_pixels,
+};
 
 /// What a case's build function may fail with.
 pub type CaseResult = Result<(), Box<dyn Error>>;
@@ -158,9 +162,21 @@ impl FigureCase {
         &self,
         f: impl FnOnce(&Figure) -> Result<T, Box<dyn Error>>,
     ) -> Result<T, Box<dyn Error>> {
+        self.with_figure_from(Baseline::Reference, f)
+    }
+
+    /// Builds the figure and runs `f` on it, both under `baseline` with
+    /// the case's style sheet and rcParams on top. The thread keeps the
+    /// reference configuration afterwards, as [`with_figure`](Self::with_figure)
+    /// leaves it.
+    pub fn with_figure_from<T>(
+        &self,
+        baseline: Baseline,
+        f: impl FnOnce(&Figure) -> Result<T, Box<dyn Error>>,
+    ) -> Result<T, Box<dyn Error>> {
         crate::reference_rc();
         plt::rc::context(|| {
-            let mut rc = (*plt::rc::params()).clone();
+            let mut rc = baseline.params();
             if let Some(style) = self.style {
                 plt::style::sheet(style)
                     .ok_or_else(|| plt::rc::RcError::UnknownStyle(style.to_owned()))?
@@ -177,6 +193,30 @@ impl FigureCase {
             (self.build)(&fig)?;
             f(&fig)
         })
+    }
+}
+
+/// The rcParams a case starts from, under its style sheet and rcParams.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Baseline {
+    /// The spec's reference configuration, which the goldens show:
+    /// matplotlib's defaults as `matplotlib.testing.setup` leaves them,
+    /// with hinting off.
+    #[default]
+    Reference,
+    /// A plt-rs figure look as users get it, to see how cases render in
+    /// it (no goldens exist for it).
+    Look(FigureLook),
+}
+
+impl Baseline {
+    /// The parameters of the baseline, once the thread is in the
+    /// reference configuration ([`reference_rc`](crate::reference_rc)).
+    fn params(self) -> RcParams {
+        match self {
+            Self::Reference => (*plt::rc::params()).clone(),
+            Self::Look(look) => look.params(),
+        }
     }
 }
 

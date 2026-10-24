@@ -77,7 +77,8 @@ pub struct BarbsOptions {
     pub length: f64,
     /// Colour of the staff and barbs (the polygon edges).
     pub barbcolor: Option<Color>,
-    /// Colour of the flags (the polygon faces).
+    /// Colour of the flags (the polygon faces). Without either colour,
+    /// barbs take `plt.ink` (black).
     pub flagcolor: Option<Color>,
     /// Feature proportions.
     pub sizes: BarbSizes,

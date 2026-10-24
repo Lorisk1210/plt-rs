@@ -9,7 +9,7 @@ use plt_core::Bbox;
 
 use super::compress::actual_parent_position;
 use super::reposition::{place, pos_and_bbox};
-use super::tree::LayoutTree;
+use super::tree::{LayoutTree, subplot_spec};
 use crate::axes::AxesState;
 use crate::figure::FigureState;
 use crate::gridspec::SubplotSpec;
@@ -103,8 +103,8 @@ impl LayoutTree {
 
     /// The grid of a colorbar's first parent.
     fn parents_grid(&self, fig: &FigureState, colorbar: &ColorbarLayout) -> Option<usize> {
-        let first = fig.store.get_as::<AxesState>(*colorbar.parents.first()?)?;
-        self.grid_of(first.subplot_spec.as_ref()?.gridspec())
+        let first = subplot_spec(fig, *colorbar.parents.first()?)?;
+        self.grid_of(first.gridspec())
     }
 
     /// matplotlib's `colorbar_get_pad`: the colorbar's pad as a fraction
@@ -124,7 +124,7 @@ impl LayoutTree {
 }
 
 /// matplotlib's `get_cb_parent_spans`: the rows and columns covered by a
-/// colorbar's parents.
+/// colorbar's parents (2-D or 3-D axes).
 pub(super) fn parent_spans(
     fig: &FigureState,
     colorbar: &ColorbarLayout,
@@ -132,7 +132,7 @@ pub(super) fn parent_spans(
     let specs: Vec<SubplotSpec> = colorbar
         .parents
         .iter()
-        .map(|&id| fig.store.get_as::<AxesState>(id)?.subplot_spec.clone())
+        .map(|&id| subplot_spec(fig, id))
         .collect::<Option<_>>()?;
     let rows =
         specs.iter().map(|s| s.rows().start).min()?..specs.iter().map(|s| s.rows().end).max()?;

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
-use super::{CallbackId, Connections, Observers, left_click};
+use super::{CallbackId, Connections, Observers, left_click, take_over_axes};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::colors::Color;
@@ -23,11 +23,13 @@ pub struct ButtonOptions {
 }
 
 impl Default for ButtonOptions {
-    /// matplotlib's light grey button, lighter when hovered.
+    /// The `plt.widgets.button.*` colours: matplotlib's light grey button,
+    /// lighter when hovered, unless a look chooses others.
     fn default() -> Self {
+        let rc = crate::rc::params();
         Self {
-            color: Color::from("0.85"),
-            hovercolor: Color::from("0.95"),
+            color: rc.plt_widgets_button_color.clone(),
+            hovercolor: rc.plt_widgets_button_hovercolor.clone(),
         }
     }
 }
@@ -48,10 +50,8 @@ impl Button {
         let text = ax.text(0.5, 0.5, label);
         text.set_transform(ax.trans_axes());
         text.set_valign(VAlign::Center).set_halign(HAlign::Center);
-        ax.set_navigate(false);
+        take_over_axes(ax);
         ax.set_facecolor(options.color.clone());
-        ax.set_xticks(Vec::<f64>::new());
-        ax.set_yticks(Vec::<f64>::new());
         let clicked = Observers::default();
         let pressed = Rc::new(Cell::new(false));
         let mut connections = Connections::new(ax.figure());
@@ -175,5 +175,25 @@ mod tests {
         source.button_release(&fig, 280.0, 180.0, PointerButton::Left);
         assert_eq!(clicks.get(), 1);
         assert!(button.disconnect(kept));
+    }
+
+    #[test]
+    fn looks_choose_the_face_and_the_frame() {
+        crate::rc::context(|| {
+            for (key, value) in [
+                ("axes.spines.top", "False"),
+                ("plt.widgets.frame", "True"),
+                ("plt.widgets.button.color", "white"),
+            ] {
+                crate::rc::set(key, value).unwrap();
+            }
+            let fig = Figure::with_size(4.0, 3.0, 100.0);
+            let ax = fig
+                .add_axes([0.5, 0.5, 0.4, 0.2])
+                .expect("a valid rectangle");
+            let _button = Button::new(&ax, "Reset", ButtonOptions::default());
+            assert_eq!(ax.facecolor(), Color::from("white"));
+            assert!(ax.spines().iter().all(ArtistHandle::visible), "framed");
+        });
     }
 }

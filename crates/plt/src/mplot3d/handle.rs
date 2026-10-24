@@ -413,9 +413,11 @@ impl Axes3D {
         self
     }
 
-    /// Sets the centred title and returns it.
+    /// Sets the centred title and returns it: like matplotlib's
+    /// `Axes3D.set_title`, centred whatever `axes.titlelocation` says.
     pub fn set_title(&self, text: impl Into<String>) -> Text {
-        self.plane().set_title(text)
+        self.plane()
+            .set_title_at(crate::axes::TitleLocation::Center, text)
     }
 
     /// The centred title (empty when unset).
@@ -521,5 +523,22 @@ impl Axes3D {
     pub fn set_computed_zorder(&self, computed: bool) -> &Self {
         self.with_mut(|axes| axes.computed_zorder = computed);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::axes::TitleLocation;
+    use crate::figure::Figure;
+
+    #[test]
+    fn titles_are_centred_whatever_the_title_location() {
+        crate::rc::context(|| {
+            crate::rc::set("axes.titlelocation", "left").unwrap();
+            let ax = Figure::new().subplot_3d();
+            ax.set_title("view");
+            assert_eq!(ax.title(), "view");
+            assert_eq!(ax.plane().title(TitleLocation::Left), "");
+        });
     }
 }

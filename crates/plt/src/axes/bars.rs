@@ -98,7 +98,7 @@ pub struct BarOptions {
     /// Use a log scale (non-positive values clipped) on the value axis.
     pub log: bool,
     /// Error bars: drawn when `xerr` or `yerr` is set; `ecolor` defaults
-    /// to black and `capsize` to `errorbar.capsize`.
+    /// to `plt.ink` (black) and `capsize` to `errorbar.capsize`.
     pub errors: ErrorbarOptions,
 }
 
@@ -471,7 +471,8 @@ impl Axes {
         Patch::from_raw(self.adopt(patch, &update))
     }
 
-    /// Error bars at the bar tips (matplotlib's `error_kw` handling).
+    /// Error bars at the bar tips (matplotlib's `error_kw` handling), in
+    /// `plt.ink` (black) unless they have a colour.
     fn bar_errors(
         &self,
         orientation: Orientation,
@@ -487,7 +488,9 @@ impl Axes {
             })
             .unzip();
         errors.fmt = ErrorbarFormat::None;
-        errors.ecolor.get_or_insert_with(|| Color::from("k"));
+        errors
+            .ecolor
+            .get_or_insert_with(|| crate::rc::params().plt_ink.clone());
         let base = &mut errors.line.base;
         if base.zorder.is_none() {
             base.zorder = props.base.zorder.map(|z| z + 0.01);

@@ -116,4 +116,38 @@ mod tests {
             assert_positions(&[&axs[0], &axs[1]], &expected);
         });
     }
+
+    #[test]
+    fn constrained_layout_puts_colorbars_of_3d_axes_beside_them() {
+        use crate::colorbar::ColorbarOptions;
+        use crate::colors::{Colorize, ColorizerOptions, colormaps};
+        use crate::mplot3d::SurfaceOptions;
+        use crate::numeric::{Grid, linspace, meshgrid};
+
+        crate::rc::context(|| {
+            let (fig, axs) = constrained_grid(6.4, 4.8, 1, 1);
+            let (x, y) = meshgrid(&linspace(-1.0, 1.0, 5), &linspace(-1.0, 1.0, 5));
+            let z = Grid::from_fn(5, 5, |i, j| x[(i, j)] * y[(i, j)]);
+            let options = SurfaceOptions {
+                colors: ColorizerOptions::default()
+                    .cmap(colormaps::get("viridis").unwrap())
+                    .into(),
+                ..SurfaceOptions::default()
+            };
+            let surface = axs[0].plot_surface(&x, &y, &z, options).unwrap();
+            let colorbar = ColorbarOptions {
+                shrink: 0.6,
+                ..ColorbarOptions::default()
+            };
+            let colorbar = fig.colorbar(&surface, colorbar).unwrap();
+            // matplotlib 3.11 under the spec's reference configuration.
+            assert_positions(&[&axs[0]], &[[0.094_723, 0.013_034, 0.828_436, 0.991_319]]);
+            let cax = colorbar.ax().position();
+            let expected = [0.901_911, 0.208_691, 0.923_922, 0.795_662];
+            let actual = [cax.x0(), cax.y0(), cax.x1(), cax.y1()];
+            for (a, e) in actual.into_iter().zip(expected) {
+                assert!((a - e).abs() < 2e-5, "{actual:?} vs {expected:?}");
+            }
+        });
+    }
 }

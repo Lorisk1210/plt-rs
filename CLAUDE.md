@@ -88,6 +88,12 @@ must reproduce them.
   against documents matplotlib writes for it then and there), and
   `cargo xtask render PREFIX...` to write a case's rendering plus a diff
   against its golden PNG to `spec/out/` for inspection.
+* `cargo xtask render --look modern|modern-dark PREFIX...` renders cases
+  in plt-rs' own looks instead, to `spec/out/look-<look>/` (no goldens, so
+  no diff): the way to review how the modern looks treat a feature.
+  Modern-look settings matplotlib has no rcParam for are plt-only `plt.*`
+  rcParams (`EXTENSIONS` in `crates/plt/tools/gen_rcparams.py`), whose
+  defaults keep matplotlib's look unchanged.
 * Performance: `cargo xtask bench [PREFIX...] --reference` times large
   workloads in plt-rs and matplotlib. An optimisation must leave every
   output byte unchanged: compare the PNG/SVG/PDF/PS of all spec cases

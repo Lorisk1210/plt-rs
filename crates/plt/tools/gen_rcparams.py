@@ -146,6 +146,52 @@ EXTENSIONS = [
     ("plt.images_hide_grid", "bool", "False",
      "`plt.images_hide_grid`: Whether adding an image to an axes turns its grid off, "
      "as matplotlib's `pcolor` did until 3.5 (plt-rs only; its modern looks set it)."),
+    ("plt.tight_layout.keeps_constrained", "bool", "False",
+     "`plt.tight_layout.keeps_constrained`: Whether `tight_layout` leaves a figure laid out "
+     "by constrained layout to it, rather than replacing it or failing once a colorbar exists "
+     "(plt-rs only; its modern looks, whose figures use constrained layout, set it)."),
+    # Colours matplotlib fixes in code rather than in rcParams, so that the
+    # modern looks can choose them (plt-rs only; the defaults are matplotlib's).
+    ("plt.ink", "Color", "black",
+     "`plt.ink`: The colour of marks matplotlib draws in black unless told otherwise: quiver "
+     "arrows, wind barbs, the error bars of bar charts, size bars, the markers of size legends "
+     "and the frames, checks and edges of check and radio buttons (plt-rs only)."),
+    ("plt.table.facecolor", "Color", "w",
+     "`plt.table.facecolor`: The face colour of table cells given none (matplotlib's "
+     "fixed white; plt-rs only)."),
+    ("plt.table.edgecolor", "Color", "k",
+     "`plt.table.edgecolor`: The edge colour of table cells given none (matplotlib's "
+     "fixed black; plt-rs only)."),
+    ("plt.offsetbox.facecolor", "Color", "w",
+     "`plt.offsetbox.facecolor`: The face colour of the frames of anchored and annotation "
+     "boxes (matplotlib's fixed white; plt-rs only)."),
+    ("plt.offsetbox.edgecolor", "Color", "k",
+     "`plt.offsetbox.edgecolor`: The edge colour of the frames of anchored and annotation "
+     "boxes (matplotlib's fixed black; plt-rs only)."),
+    ("plt.widgets.frame", "bool", "False",
+     "`plt.widgets.frame`: Whether buttons, text boxes and check and radio buttons show "
+     "all four spines of their axes, whatever `axes.spines.*` say (plt-rs only)."),
+    ("plt.widgets.button.color", "Color", "0.85",
+     "`plt.widgets.button.color`: The face colour of buttons (matplotlib's fixed "
+     "`color='0.85'`; plt-rs only)."),
+    ("plt.widgets.button.hovercolor", "Color", "0.95",
+     "`plt.widgets.button.hovercolor`: The face colour of buttons under the pointer "
+     "(matplotlib's fixed `hovercolor='0.95'`; plt-rs only)."),
+    ("plt.widgets.textbox.color", "Color", ".95",
+     "`plt.widgets.textbox.color`: The face colour of text boxes (matplotlib's fixed "
+     "`color='.95'`; plt-rs only)."),
+    ("plt.widgets.textbox.hovercolor", "Color", "1",
+     "`plt.widgets.textbox.hovercolor`: The face colour of text boxes under the pointer "
+     "(matplotlib's fixed `hovercolor='1'`; plt-rs only)."),
+    ("plt.widgets.activecolor", "Color", "blue",
+     "`plt.widgets.activecolor`: The colour of the chosen radio button given none "
+     "(matplotlib's fixed `activecolor='blue'`; plt-rs only)."),
+    ("plt.widgets.slider.track_color", "Color", "lightgrey",
+     "`plt.widgets.slider.track_color`: The colour of the tracks of sliders "
+     "(matplotlib's fixed `track_color='lightgrey'`; plt-rs only)."),
+    ("plt.widgets.slider.initcolor", "Color", "r",
+     "`plt.widgets.slider.initcolor`: The colour of the line marking a slider's initial "
+     "value (matplotlib's fixed `initcolor='r'`; plt-rs only)."),
 ]
 
 

@@ -55,9 +55,11 @@ pub struct CheckButtonsOptions {
     /// Text properties of the labels, cycled: label `i` gets entry
     /// `i % len` (matplotlib's `label_props`).
     pub label_props: Vec<TextProps>,
-    /// The square frames: no face, black edges 1 pt wide by default.
+    /// The square frames: no face and edges 1 pt wide in `plt.ink`
+    /// (black) by default.
     pub frame_props: ButtonMarkerProps,
-    /// The crosses of checked boxes: black, 1 pt wide by default.
+    /// The crosses of checked boxes: 1 pt wide in `plt.ink` (black) by
+    /// default.
     pub check_props: ButtonMarkerProps,
 }
 
@@ -70,11 +72,12 @@ pub struct RadioButtonsOptions {
     /// Text properties of the labels, cycled: label `i` gets entry
     /// `i % len` (matplotlib's `label_props`).
     pub label_props: Vec<TextProps>,
-    /// The fill of the selected button, blue by default; face colours in
-    /// `radio_props` take precedence (matplotlib's `activecolor`).
+    /// The fill of the selected button, `plt.widgets.activecolor` (blue)
+    /// by default; face colours in `radio_props` take precedence
+    /// (matplotlib's `activecolor`).
     pub activecolor: Option<Color>,
-    /// The round buttons: black edges and the active colour by default
-    /// (matplotlib's `radio_props`).
+    /// The round buttons: edges in `plt.ink` (black) and the active colour
+    /// by default (matplotlib's `radio_props`).
     pub radio_props: ButtonMarkerProps,
 }
 

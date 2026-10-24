@@ -6,7 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_text::{HAlign, VAlign};
 
-use super::{CallbackId, Connections, Observers, left_click};
+use super::{CallbackId, Connections, Observers, left_click, take_over_axes};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::collections::Collection;
@@ -29,11 +29,14 @@ pub struct TextBoxOptions {
 }
 
 impl Default for TextBoxOptions {
-    /// matplotlib's near-white box, white when hovered, left-aligned text.
+    /// Left-aligned text in a box of the `plt.widgets.textbox.*` colours:
+    /// matplotlib's near-white box, white when hovered, unless a look
+    /// chooses others.
     fn default() -> Self {
+        let rc = crate::rc::params();
         Self {
-            color: Color::from(".95"),
-            hovercolor: Color::from("1"),
+            color: rc.plt_widgets_textbox_color.clone(),
+            hovercolor: rc.plt_widgets_textbox_hovercolor.clone(),
             label_pad: 0.01,
             textalignment: HAlign::Left,
         }
@@ -180,10 +183,8 @@ impl TextBox {
         ax.set_xlim(0.0, 1.0)
             .and_then(|ax| ax.set_ylim(0.0, 1.0))
             .expect("the unit square has finite limits");
-        ax.set_navigate(false);
+        take_over_axes(ax);
         ax.set_facecolor(options.color.clone());
-        ax.set_xticks(Vec::<f64>::new());
-        ax.set_yticks(Vec::<f64>::new());
         let cursor = ax
             .vlines_in([0.0], [0.0], [0.0], Transform::Display)
             .expect("one segment from one position and one span");

@@ -67,7 +67,7 @@ pub struct LegendElementsOptions {
     /// as the inverse of a transform applied to the sizes (matplotlib's
     /// `func`); the identity by default.
     pub func: Option<Box<dyn Fn(f64) -> f64>>,
-    /// The marker colour of size entries; black by default.
+    /// The marker colour of size entries; `plt.ink` (black) by default.
     pub color: Option<Color>,
     /// The marker size of colour entries in points; `lines.markersize` by
     /// default.
@@ -186,7 +186,7 @@ fn elements(
                 if is_close_to_zero(size) {
                     continue;
                 }
-                let color = options.color.clone().unwrap_or_else(|| Color::from("k"));
+                let color = options.color.clone().unwrap_or_else(|| rc.plt_ink.clone());
                 (color, size)
             }
         };

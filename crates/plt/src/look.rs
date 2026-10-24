@@ -23,8 +23,12 @@
 //! reports them.
 //!
 //! The figure look decides the parameters threads start from
-//! ([`RcParams::startup`]). [`rc::reset`](crate::rc::reset) still restores
-//! matplotlib's defaults, and style sheets apply on top of either look:
+//! ([`RcParams::startup`]), and the user's rc file (`pltrc`, found in the
+//! working directory, through `PLTRC` or in the configuration directory
+//! `PLTCONFIGDIR` or `~/.config/plt-rs`; see [`config`](crate::config))
+//! applies on top of it, as matplotlib's `matplotlibrc` applies over its
+//! defaults. [`rc::reset`](crate::rc::reset) still restores matplotlib's
+//! defaults, and style sheets apply on top of either look:
 //!
 //! ```
 //! use plt::look::FigureLook;
@@ -75,14 +79,16 @@ impl FigureLook {
         }
     }
 
-    /// The style sheet the look applies over matplotlib's defaults, if any.
+    /// The style sheet the look applies over matplotlib's defaults, if any:
+    /// the bundled one, which sheets of the same name in the user style
+    /// library do not change (the user's `pltrc` applies over the look).
     pub fn style_sheet(self) -> Option<StyleSheet> {
         let name = match self {
             Self::Modern => "plt-modern",
             Self::ModernDark => "plt-modern-dark",
             Self::Matplotlib => return None,
         };
-        Some(style::sheet(name).expect("the look sheets are bundled"))
+        Some(style::bundled_sheet(name).expect("the look sheets are bundled"))
     }
 
     /// matplotlib's defaults with the look's style sheet applied.

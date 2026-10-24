@@ -78,6 +78,9 @@
 //! * [`artists`]: artist handles and their properties, for lines,
 //!   patches and collections; z-order, clipping and picking.
 //! * [`colors`]: colours, colormaps, norms, style sheets and rcParams.
+//! * [`configuration`]: the configuration directory, `matplotlibrc` and
+//!   the user style library, and `matplotlib.testing` for testing your
+//!   own figures.
 //! * [`axes`]: limits, scales, ticks, locators, formatters, spines, twin
 //!   and secondary axes, units and dates.
 //! * [`text`]: text, fonts, mathtext and annotations.
@@ -130,7 +133,9 @@
 //! | `matplotlib.projections.polar`               | [`crate::polar`]                |
 //! | `matplotlib.projections.geo`                 | [`crate::geo`]                  |
 //! | `matplotlib.rcParams`, `matplotlib.rcsetup`  | [`crate::rc`]                   |
+//! | `get_configdir`, `matplotlib_fname`          | [`crate::config`]               |
 //! | `matplotlib.style`                           | [`crate::style`]                |
+//! | `matplotlib.testing`                         | [`crate::testing`]              |
 //! | `matplotlib.backend_bases` (events)          | [`crate::events`]               |
 //! | `NavigationToolbar2`                         | [`crate::navigation`]           |
 //! | GUI backends, `webagg`                       | [`crate::gui`], [`crate::web`]  |
@@ -165,6 +170,7 @@
 pub mod artists;
 pub mod axes;
 pub mod colors;
+pub mod configuration;
 pub mod conventions;
 pub mod figures;
 pub mod images;

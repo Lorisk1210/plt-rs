@@ -94,6 +94,13 @@
 //! * [`rc`] / [`style`] / [`look`] — runtime configuration, the bundled
 //!   style sheets and the xkcd sketch style; the modern and matplotlib
 //!   looks of figures and windows.
+//! * [`config`] — the user's configuration: the configuration directory
+//!   (`PLTCONFIGDIR`, else `~/.config/plt-rs`), the rc file `pltrc` that
+//!   threads start from (found through `PLTRC`, in the working directory
+//!   or in the configuration directory) and the user style library in its
+//!   `stylelib`.
+//! * [`testing`] — testing your own figures as matplotlib's tests do:
+//!   their configuration, image comparison by RMS and figure comparison.
 #![forbid(unsafe_code)]
 #![expect(
     clippy::needless_pass_by_value,
@@ -111,6 +118,7 @@ pub mod collections;
 pub mod colorbar;
 mod colorizer;
 pub mod colors;
+pub mod config;
 pub mod container;
 pub mod contour;
 pub mod coords;
@@ -151,8 +159,7 @@ pub mod stats;
 pub mod streamplot;
 pub mod style;
 pub mod table;
-#[cfg(test)]
-mod testing;
+pub mod testing;
 pub mod text;
 pub mod ticker;
 pub mod transforms;

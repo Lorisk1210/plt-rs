@@ -3,8 +3,9 @@
 //!
 //! The [`library`] bundles matplotlib's built-in sheets and plt-rs' own
 //! `plt-modern` and `plt-modern-dark` (the [looks](crate::look) of
-//! figures), plus the sheets of the user library directories
-//! ([`set_user_library_paths`], [`reload_library`]). A [`Style`] names a
+//! figures), plus the sheets of the user library directories: `stylelib`
+//! in the [configuration directory](crate::config) unless
+//! [`set_user_library_paths`] names others ([`reload_library`]). A [`Style`] names a
 //! library sheet, a style file or a set of parameters; [`use_style`] and
 //! [`use_styles`] apply styles (matplotlib's `style.use`), [`context`] and
 //! [`context_with`] for a scope (`style.context`):
@@ -38,6 +39,7 @@ mod xkcd;
 
 use std::path::{Path, PathBuf};
 
+pub(crate) use library::bundled_sheet;
 pub use library::{
     StyleSheet, available, library, reload_library, set_user_library_paths, sheet,
     user_library_paths,

@@ -11,7 +11,7 @@ use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::icon::Icon;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
-use crate::widgets::{Button, Flex, TextInput, ToolButton};
+use crate::widgets::{Button, Flex, Label, TextInput, ToolButton};
 
 const RED: Rgba = Rgba::new(1.0, 0.0, 0.0, 1.0);
 
@@ -133,7 +133,7 @@ fn red_at(ui: &mut Ui<&'static str>, x: u32, y: u32) -> u8 {
 fn tab_moves_the_focus_in_tree_order() {
     let mut row = Flex::row();
     let first = row.push(TextInput::new("figure.png", |_| "edited"), 0.0);
-    row.push(Button::new("Not focusable", "clicked"), 0.0);
+    row.push(Label::new("Not focusable"), 0.0);
     let second = row.push(
         Field {
             name: "second",

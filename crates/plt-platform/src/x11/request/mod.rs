@@ -9,7 +9,7 @@ mod selection;
 pub(crate) mod testing;
 mod window;
 
-pub(crate) use selection::{selection_notify, set_selection_owner};
+pub(crate) use selection::{convert_selection, selection_notify, set_selection_owner};
 pub(crate) use window::{
     NewWindow, WindowAttribute, WindowClass, change_window_attributes, create_colormap,
     create_window, destroy_window, event_mask, map_window, raise_window, resize_window,
@@ -158,7 +158,18 @@ fn change_property(
 
 /// `GetProperty` reading up to `max_words` 32-bit units of any type.
 pub(crate) fn get_property(window: u32, property: u32, max_words: u32) -> Query {
-    query(GET_PROPERTY, 0, |b| {
+    property_query(false, window, property, max_words)
+}
+
+/// `GetProperty` reading up to `max_words` 32-bit units of any type and
+/// deleting the property once all of it is read: how the requestor of a
+/// selection takes the value the owner stored (ICCCM section 2.4).
+pub(crate) fn take_property(window: u32, property: u32, max_words: u32) -> Query {
+    property_query(true, window, property, max_words)
+}
+
+fn property_query(delete: bool, window: u32, property: u32, max_words: u32) -> Query {
+    query(GET_PROPERTY, u8::from(delete), |b| {
         b.put_u32(window);
         b.put_u32(property);
         b.put_u32(0);

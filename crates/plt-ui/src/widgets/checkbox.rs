@@ -4,8 +4,9 @@ use std::fmt;
 use std::rc::Rc;
 
 use plt_core::{Path, Point};
-use plt_platform::MouseButton;
+use plt_platform::{ButtonState, Key, MouseButton};
 
+use super::frame::paint_focus_ring;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -29,8 +30,8 @@ fn tick() -> Icon {
 }
 
 /// A box with a label that a click checks or unchecks, sending a message
-/// with the new state. Clicks count on the box and the label, not on the
-/// rest of the widget's rectangle.
+/// with the new state; so does Space while it has the focus. Clicks count
+/// on the box and the label, not on the rest of the widget's rectangle.
 pub struct Checkbox<M> {
     label: String,
     checked: bool,
@@ -71,6 +72,14 @@ impl<M> Checkbox<M> {
     pub fn set_checked(&mut self, checked: bool) {
         self.checked = checked;
     }
+
+    /// Checks an unchecked box and unchecks a checked one, sending the
+    /// new state.
+    fn toggle(&mut self, cx: &mut EventCx<'_, M>) {
+        self.checked = !self.checked;
+        cx.emit((self.on_toggle)(self.checked));
+        cx.request_paint();
+    }
 }
 
 impl<M: 'static> Widget<M> for Checkbox<M> {
@@ -95,7 +104,8 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
         };
         let theme = cx.theme();
         let scale = cx.scale_factor();
-        let hot = cx.status().hot;
+        let status = cx.status();
+        let hot = status.hot;
         let side = theme.checkbox_size * scale;
         let square = Rect::new(rect.x, rect.center().y - side / 2.0, side, side).snapped();
         // Slightly tighter corners than full-size controls.
@@ -111,6 +121,9 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
             cx.canvas()
                 .stroke_rounded_rect(square, radius, scale, outline)?;
         }
+        if status.focus_visible() {
+            paint_focus_ring(cx, square, radius)?;
+        }
         let origin = Point::new(
             square.max_x() + theme.space(GAP) * scale,
             rect.center().y - layout.size().height / 2.0,
@@ -119,18 +132,31 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
-        if let UiEvent::PointerUp {
-            button: MouseButton::Left,
-            position,
-            ..
-        } = event
-            && rect.contains(*position)
-            && position.x < rect.x + self.content_width
-        {
-            self.checked = !self.checked;
-            cx.emit((self.on_toggle)(self.checked));
-            cx.request_paint();
+        match event {
+            UiEvent::PointerUp {
+                button: MouseButton::Left,
+                position,
+                ..
+            } if rect.contains(*position) && position.x < rect.x + self.content_width => {
+                self.toggle(cx);
+            }
+            UiEvent::Key(key)
+                if key.state == ButtonState::Pressed
+                    && key.key == Key::Character(' ')
+                    && !key.modifiers.control()
+                    && !key.modifiers.alt() =>
+            {
+                if !key.repeat {
+                    self.toggle(cx);
+                }
+                cx.set_handled();
+            }
+            _ => {}
         }
+    }
+
+    fn accepts_focus(&self) -> bool {
+        true
     }
 }
 
@@ -144,5 +170,32 @@ mod tests {
         assert!(!checkbox.checked());
         checkbox.set_checked(true);
         assert!(checkbox.checked());
+    }
+
+    #[test]
+    fn space_toggles_a_focused_box() {
+        use plt_platform::{KeyEvent, Modifiers};
+
+        let mut checkbox = Checkbox::new("legend", |on| on);
+        let space = |key| {
+            UiEvent::Key(KeyEvent {
+                key,
+                state: ButtonState::Pressed,
+                repeat: false,
+                text: Some(" ".into()),
+                modifiers: Modifiers::NONE,
+                scancode: 65,
+            })
+        };
+        let rect = Rect::new(0.0, 0.0, 100.0, 28.0);
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        checkbox.event(&mut cx, &space(Key::Character(' ')), rect);
+        checkbox.event(&mut cx, &space(Key::Character(' ')), rect);
+        assert!(cx.handled);
+        let mut enter = EventCx::new(cx.messages);
+        checkbox.event(&mut enter, &space(Key::Enter), rect);
+        assert!(!enter.handled, "Enter goes on to the default button");
+        assert_eq!(messages, [true, false]);
     }
 }

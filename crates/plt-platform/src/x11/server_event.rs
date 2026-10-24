@@ -18,6 +18,7 @@ const CONFIGURE_NOTIFY: u8 = 22;
 const PROPERTY_NOTIFY: u8 = 28;
 const SELECTION_CLEAR: u8 = 29;
 const SELECTION_REQUEST: u8 = 30;
+const SELECTION_NOTIFY: u8 = 31;
 const CLIENT_MESSAGE: u8 = 33;
 const MAPPING_NOTIFY: u8 = 34;
 
@@ -42,6 +43,21 @@ pub(crate) struct SelectionRequest {
     /// The form asked for (an atom such as `image/png`).
     pub(crate) target: u32,
     /// Where to put it on the requestor (0 from obsolete clients).
+    pub(crate) property: u32,
+}
+
+/// The answer to a request for a selection, from a `SelectionNotify`
+/// event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SelectionNotify {
+    /// The window that asked.
+    pub(crate) requestor: u32,
+    /// The selection asked for.
+    pub(crate) selection: u32,
+    /// The form asked for.
+    pub(crate) target: u32,
+    /// The property of the requestor holding the selection, 0 when the
+    /// owner refused (or there is no owner).
     pub(crate) property: u32,
 }
 
@@ -142,6 +158,8 @@ pub(crate) enum ServerEvent {
     },
     /// `SelectionRequest`: a client asks for a selection we own.
     SelectionRequest(SelectionRequest),
+    /// `SelectionNotify`: the answer to a request for a selection.
+    SelectionNotify(SelectionNotify),
     /// `SelectionClear`: another client took a selection we owned.
     SelectionClear {
         /// The selection.
@@ -207,6 +225,12 @@ impl ServerEvent {
                 selection: u32_at(raw, 16),
                 target: u32_at(raw, 20),
                 property: u32_at(raw, 24),
+            }),
+            SELECTION_NOTIFY => Self::SelectionNotify(SelectionNotify {
+                requestor: u32_at(raw, 8),
+                selection: u32_at(raw, 12),
+                target: u32_at(raw, 16),
+                property: u32_at(raw, 20),
             }),
             SELECTION_CLEAR => Self::SelectionClear {
                 selection: u32_at(raw, 12),
@@ -345,6 +369,26 @@ mod tests {
                 window: 0x201,
                 atom: 23
             }
+        );
+    }
+
+    #[test]
+    fn selection_answers_including_sent_ones() {
+        let notify = raw(&[
+            (0, &[SELECTION_NOTIFY | 0x80]),
+            (8, &[1, 0, 0, 0]),
+            (12, &[2, 0, 0, 0]),
+            (16, &[3, 0, 0, 0]),
+            (20, &[4, 0, 0, 0]),
+        ]);
+        assert_eq!(
+            ServerEvent::parse(&notify),
+            ServerEvent::SelectionNotify(SelectionNotify {
+                requestor: 1,
+                selection: 2,
+                target: 3,
+                property: 4,
+            })
         );
     }
 }

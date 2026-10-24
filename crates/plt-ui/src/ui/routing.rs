@@ -1,11 +1,11 @@
 //! Input routing: which widget receives each pointer and key event.
 
 use plt_core::Point;
-use plt_platform::{Modifiers, MouseButton};
+use plt_platform::{Key, KeyEvent, Modifiers, MouseButton};
 
 use super::Ui;
 use crate::event::UiEvent;
-use crate::widget::{EventCx, Status, WidgetId, WidgetPod};
+use crate::widget::{ClipboardRequest, EventCx, Focus, Status, WidgetId, WidgetPod};
 
 /// Who receives pointer and key events.
 #[derive(Debug, Default)]
@@ -18,8 +18,14 @@ pub(super) struct Routing {
     buttons_held: u32,
     /// The widget receiving key events.
     pub(super) focus: Option<WidgetId>,
+    /// Whether the keyboard moved the focus since the last click, so that
+    /// the focused widget shows its focus ring.
+    pub(super) focus_visible: bool,
     /// The widget whose popup is open: it receives every event.
     pub(super) popup: Option<WidgetId>,
+    /// The keys held down, by scan code and key, with the widgets their
+    /// presses went to, which receive their releases.
+    held_keys: Vec<(u32, Key, WidgetId)>,
     /// The last pointer position in the window.
     pointer: Option<Point>,
 }
@@ -30,7 +36,11 @@ impl Routing {
         Status {
             hot: self.hot.contains(&id) && self.active.is_none_or(|active| active == id),
             active: self.active == Some(id),
-            focused: self.focus == Some(id),
+            focus: match (self.focus == Some(id), self.focus_visible) {
+                (false, _) => Focus::None,
+                (true, false) => Focus::Focused,
+                (true, true) => Focus::Visible,
+            },
         }
     }
 
@@ -53,6 +63,27 @@ impl Routing {
     /// The widgets under the pointer, outermost first.
     pub(super) fn hot(&self) -> &[WidgetId] {
         &self.hot
+    }
+
+    /// Remembers that the press of `key` went to `owner`.
+    pub(super) fn press(&mut self, key: &KeyEvent, owner: Option<WidgetId>) {
+        self.release(key);
+        if let Some(owner) = owner {
+            self.held_keys.push((key.scancode, key.key, owner));
+        }
+    }
+
+    /// The widget the press of the released `key` went to, if known.
+    pub(super) fn release(&mut self, key: &KeyEvent) -> Option<WidgetId> {
+        let same = |&(scancode, held, _): &(u32, Key, WidgetId)| {
+            if scancode != 0 && key.scancode != 0 {
+                scancode == key.scancode
+            } else {
+                held == key.key
+            }
+        };
+        let index = self.held_keys.iter().position(same)?;
+        Some(self.held_keys.remove(index).2)
     }
 }
 
@@ -83,11 +114,12 @@ impl<M: 'static> Ui<M> {
         let focusable = self.routing.hot.iter().rev().copied().find(|&id| {
             self.root
                 .find(id)
-                .is_some_and(|pod| pod.widget().accepts_focus())
+                .is_some_and(|pod| pod.widget().focus_on_click())
         });
         if focusable.is_some() && self.routing.popup.is_none() {
             self.routing.focus = focusable;
         }
+        self.routing.focus_visible = false;
         self.needs_paint = true;
         let event = UiEvent::PointerDown {
             button,
@@ -156,30 +188,47 @@ impl<M: 'static> Ui<M> {
         }
     }
 
-    /// Hands `event` to the widget `target`, if it still exists.
-    pub(super) fn deliver(&mut self, target: Option<WidgetId>, event: &UiEvent) {
+    /// Hands `event` to the widget `target`, if it still exists; returns
+    /// whether the widget acted on it (see
+    /// [`EventCx::set_handled`](crate::EventCx::set_handled)).
+    pub(super) fn deliver(&mut self, target: Option<WidgetId>, event: &UiEvent) -> bool {
         let Some(pod) = target.and_then(|id| self.root.find_mut(id)) else {
-            return;
+            return false;
         };
         let id = pod.id();
         let rect = pod.rect();
         let mut cx = EventCx::new(&mut self.messages);
         pod.widget_mut().event(&mut cx, event, rect);
-        if cx.layout_requested {
+        let EventCx {
+            paint_requested,
+            layout_requested,
+            popup,
+            handled,
+            clipboard,
+            ..
+        } = cx;
+        if layout_requested {
             self.needs_layout = true;
         }
-        if cx.paint_requested || cx.layout_requested {
+        if paint_requested || layout_requested {
             self.needs_paint = true;
         }
-        let popup = match cx.popup {
+        if let Some(request) = clipboard {
+            if request == ClipboardRequest::Paste {
+                self.paste_target = Some(id);
+            }
+            self.clipboard_requests.push(request);
+        }
+        let popup = match popup {
             Some(true) => Some(id),
             Some(false) if self.routing.popup == Some(id) => None,
-            _ => return,
+            _ => return handled,
         };
         if popup != self.routing.popup {
             self.routing.popup = popup;
             self.update_hot(self.routing.pointer);
         }
+        handled
     }
 }
 

@@ -18,12 +18,19 @@
 //! * [`Ui`] owns the tree and a window-sized framebuffer. It lays the tree
 //!   out (measure, then arrange), paints it with `plt-raster` (text comes
 //!   from `plt-text` and the bundled fonts), and routes input: hover
-//!   tracking, pointer capture while a button is held, keyboard focus
-//!   (moved with Tab), popups and tooltips.
+//!   tracking, pointer capture while a button is held, popups, tooltips
+//!   and the keyboard.
+//! * Every control works from the keyboard, following Qt and GTK: Tab
+//!   and Shift+Tab move the focus in tree order (a focus ring shows where
+//!   it is), Space and Enter press buttons, arrows move through choices,
+//!   lists, sliders and tabs, Enter presses the default button
+//!   ([`Button::primary`]) when the focused widget leaves it unused, and
+//!   Ctrl+Tab switches tabs. Text fields edit as usual, with the
+//!   clipboard and undo.
 //! * Widgets talk to the application with messages of a type `M` of its
 //!   choosing, returned by [`Ui::handle`].
 //! * [`UiWindow`] connects a [`Ui`] to a `plt-platform` window, which it
-//!   can size to fit its content.
+//!   can size to fit its content, and to the platform's clipboard.
 //!
 //! All lengths are window pixels (physical pixels); widgets scale the
 //! [`Theme`]'s logical lengths by the window's scale factor. The theme
@@ -80,7 +87,9 @@ pub use icon::Icon;
 pub use text::{FontFamily, TextLayout, TextStyle};
 pub use theme::{Spacing, Theme};
 pub use ui::Ui;
-pub use widget::{EventCx, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod};
+pub use widget::{
+    ClipboardRequest, EventCx, Focus, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod,
+};
 pub use widgets::{
     Align, Axis, Button, Checkbox, Choice, Dropdown, Flex, Form, Keycaps, Label, List, ListItem,
     Overflow, Separator, Slider, Stack, Surface, SurfaceEvent, Swatch, Tabs, TextInput, Tone,

@@ -23,7 +23,7 @@ const WHITE: [u8; 4] = [255; 4];
 
 /// Runs one loop iteration, feeding the events of `window` and its
 /// tool windows to it.
-fn pump(event_loop: &mut EventLoop, window: &mut FigureWindow) -> bool {
+pub(super) fn pump(event_loop: &mut EventLoop, window: &mut FigureWindow) -> bool {
     let mut open = true;
     event_loop
         .pump_events(Some(Duration::ZERO), |cx, event| {
@@ -39,7 +39,7 @@ fn pump(event_loop: &mut EventLoop, window: &mut FigureWindow) -> bool {
     open
 }
 
-fn mouse(handle: &HeadlessHandle, id: WindowId, state: ButtonState, (x, y): (f64, f64)) {
+pub(super) fn mouse(handle: &HeadlessHandle, id: WindowId, state: ButtonState, (x, y): (f64, f64)) {
     let position = PhysicalPosition::new(x, y);
     handle
         .inject(

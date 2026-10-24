@@ -58,6 +58,15 @@ macro_rules! atoms {
                     $($field: values.next().expect("one cookie per atom name")?,)*
                 })
             }
+
+            /// Distinct made-up atoms, for tests without a server.
+            #[cfg(test)]
+            pub(crate) fn numbered() -> Self {
+                let mut next = 1000..;
+                Self {
+                    $($field: next.next().expect("an endless range"),)*
+                }
+            }
         }
     };
 }
@@ -73,8 +82,12 @@ atoms! {
     net_wm_state = "_NET_WM_STATE",
     net_wm_state_fullscreen = "_NET_WM_STATE_FULLSCREEN",
     utf8_string = "UTF8_STRING",
+    text = "TEXT",
+    text_plain_utf8 = "text/plain;charset=utf-8",
     clipboard = "CLIPBOARD",
     targets = "TARGETS",
+    incr = "INCR",
     image_png = "image/png",
+    paste = "_PLT_PLATFORM_PASTE",
     wake = "_PLT_PLATFORM_WAKE",
 }

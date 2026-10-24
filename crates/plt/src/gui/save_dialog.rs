@@ -39,7 +39,7 @@ pub(super) enum DialogMessage {
     NameChanged(String),
     /// A format was chosen.
     Format(usize),
-    /// Save (the button, or Enter in the name).
+    /// Save (the button, or Enter outside the listing).
     Save,
     /// Close without saving.
     Cancel,
@@ -189,8 +189,7 @@ impl SaveDialog {
         let mut naming = Form::new();
         let name_field = naming.row(
             "File name",
-            TextInput::new(name.clone(), DialogMessage::NameChanged)
-                .on_submit(|_| DialogMessage::Save),
+            TextInput::new(name.clone(), DialogMessage::NameChanged),
         );
         let labels = FORMATS
             .iter()

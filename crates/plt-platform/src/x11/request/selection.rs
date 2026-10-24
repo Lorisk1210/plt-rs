@@ -5,6 +5,7 @@ use super::{Request, request};
 use crate::x11::wire::WireWrite;
 
 const SET_SELECTION_OWNER: u8 = 22;
+const CONVERT_SELECTION: u8 = 24;
 /// Event code of `SelectionNotify`.
 const SELECTION_NOTIFY: u8 = 31;
 
@@ -13,6 +14,25 @@ pub(crate) fn set_selection_owner(owner: u32, selection: u32, time: u32) -> Requ
     request(SET_SELECTION_OWNER, 0, |b| {
         b.put_u32(owner);
         b.put_u32(selection);
+        b.put_u32(time);
+    })
+}
+
+/// `ConvertSelection`: asks the owner of `selection` to put it, converted
+/// to `target`, into `property` of `requestor`, for the user action at
+/// `time` (0: `CurrentTime`).
+pub(crate) fn convert_selection(
+    requestor: u32,
+    selection: u32,
+    target: u32,
+    property: u32,
+    time: u32,
+) -> Request {
+    request(CONVERT_SELECTION, 0, |b| {
+        b.put_u32(requestor);
+        b.put_u32(selection);
+        b.put_u32(target);
+        b.put_u32(property);
         b.put_u32(time);
     })
 }
@@ -49,5 +69,7 @@ mod tests {
         assert_eq!(&event[20..24], &0x40u32.to_le_bytes());
         assert!(event[24..].iter().all(|&b| b == 0));
         assert_eq!(set_selection_owner(1, 2, 3).encoded().body().len(), 12);
+        let convert = convert_selection(1, 2, 3, 4, 5);
+        assert_eq!(convert.encoded().body()[16..], 5u32.to_le_bytes());
     }
 }

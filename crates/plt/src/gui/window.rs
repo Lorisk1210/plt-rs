@@ -80,7 +80,9 @@ impl FigureWindow {
     /// When the window cannot be created.
     pub fn open(cx: &mut Context<'_>, figure: &Figure, title: &str) -> Result<Self, GuiError> {
         let mut root = Flex::column();
-        let canvas = root.push(Surface::new(|event| Some(Message::Canvas(event))), 1.0);
+        // The canvas keeps its keys while a toolbar button has the focus.
+        let canvas = Surface::new(|event| Some(Message::Canvas(event))).with_unused_keys();
+        let canvas = root.push(canvas, 1.0);
         let toolbar = Toolbar::build(&mut root, figure.tool_specs());
         let (width, height) = figure.size_inches();
         // The window is sized in logical pixels.
@@ -555,5 +557,7 @@ fn cursor_icon(shape: CursorShape) -> CursorIcon {
     }
 }
 
+#[cfg(test)]
+mod keyboard_tests;
 #[cfg(test)]
 mod tests;

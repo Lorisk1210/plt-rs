@@ -3,11 +3,13 @@
 
 use std::fmt;
 use std::rc::Rc;
+use std::time::Instant;
 
 use plt_core::{Path, Point};
-use plt_platform::{ButtonState, Key, MouseButton};
+use plt_platform::{ButtonState, Key, KeyEvent, MouseButton};
 
 use super::frame::paint_frame;
+use super::type_ahead::TypeAhead;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -39,6 +41,12 @@ fn chevron() -> Icon {
 /// room). Clicking an option, or Enter on the one highlighted with the
 /// arrow keys, chooses it and sends a message with its index; a click
 /// elsewhere or Escape closes the list.
+///
+/// From the keyboard, as in Qt and GTK: while the drop-down has the
+/// focus, Space, Enter, Alt+Down and F4 open the list, and the arrow
+/// keys, Home, End and typing the start of an option choose another
+/// without opening it; in the open list they highlight an option, which
+/// Enter (or Space) chooses, while Escape, Alt+Up and F4 close it.
 pub struct Dropdown<M> {
     options: Vec<String>,
     chosen: usize,
@@ -49,6 +57,8 @@ pub struct Dropdown<M> {
     open: bool,
     /// The option under the pointer or picked with the arrow keys.
     hot: Option<usize>,
+    /// The start of an option being typed.
+    type_ahead: TypeAhead,
     /// The list's rectangle in the window, from the last arrangement.
     popup: Rect,
     /// Lengths in pixels from the last measure.
@@ -79,6 +89,7 @@ impl<M> Dropdown<M> {
             layouts: Vec::new(),
             open: false,
             hot: None,
+            type_ahead: TypeAhead::default(),
             popup: Rect::default(),
             row_height: 0.0,
             inset: 0.0,
@@ -139,12 +150,81 @@ impl<M> Dropdown<M> {
         }
     }
 
-    fn choose(&mut self, cx: &mut EventCx<'_, M>, index: usize) {
+    /// Chooses option `index`, sending a message if it is another.
+    fn pick(&mut self, cx: &mut EventCx<'_, M>, index: usize) {
         if index != self.chosen {
             self.chosen = index;
             cx.emit((self.on_choose)(index));
         }
+        cx.request_paint();
+    }
+
+    /// Chooses option `index` and closes the list.
+    fn choose(&mut self, cx: &mut EventCx<'_, M>, index: usize) {
+        self.pick(cx, index);
         self.set_open(cx, false);
+    }
+
+    /// The option a navigation key leads to from `from`: Up and Down step,
+    /// Home and Page Up go to the first and End and Page Down to the last
+    /// (the open list shows every option, so a page is all of them).
+    fn navigated(&self, key: &KeyEvent, from: usize) -> Option<usize> {
+        let last = self.options.len().checked_sub(1)?;
+        if key.modifiers.control() || key.modifiers.alt() {
+            return None;
+        }
+        match key.key {
+            Key::Up => Some(from.saturating_sub(1)),
+            Key::Down => Some((from + 1).min(last)),
+            Key::Home | Key::PageUp => Some(0),
+            Key::End | Key::PageDown => Some(last),
+            _ => None,
+        }
+    }
+
+    /// The option the key press `key` leads to from `from` by navigation
+    /// or type-ahead.
+    fn reached(&mut self, key: &KeyEvent, now: Instant, from: usize) -> Option<usize> {
+        self.navigated(key, from).or_else(|| {
+            let labels = self.options.iter().map(String::as_str);
+            self.type_ahead.search(key, now, labels, Some(from))
+        })
+    }
+
+    /// Whether `key` toggles the list: Alt+Down or Alt+Up, or F4.
+    fn toggles(key: &KeyEvent) -> bool {
+        let alt_arrow = key.modifiers.alt() && matches!(key.key, Key::Up | Key::Down);
+        alt_arrow || key.key == Key::F(4)
+    }
+
+    /// Handles a key press while the list is closed.
+    fn key_closed(&mut self, cx: &mut EventCx<'_, M>, key: &KeyEvent) {
+        let plain = !key.modifiers.control() && !key.modifiers.alt();
+        let opens = plain && matches!(key.key, Key::Character(' ') | Key::Enter);
+        if opens || Self::toggles(key) {
+            self.set_open(cx, true);
+            cx.set_handled();
+        } else if let Some(index) = self.reached(key, Instant::now(), self.chosen) {
+            self.pick(cx, index);
+            cx.set_handled();
+        }
+    }
+
+    /// Handles a key press while the list is open: every key is the
+    /// list's.
+    fn key_open(&mut self, cx: &mut EventCx<'_, M>, key: &KeyEvent) {
+        let hot = self.hot.unwrap_or(self.chosen);
+        let now = Instant::now();
+        let space = key.key == Key::Character(' ') && !self.type_ahead.is_typing(now);
+        if key.key == Key::Escape || Self::toggles(key) {
+            self.set_open(cx, false);
+        } else if key.key == Key::Enter || space {
+            self.choose(cx, hot);
+        } else if let Some(index) = self.reached(key, now, hot) {
+            self.hot = Some(index);
+        }
+        cx.set_handled();
+        cx.request_paint();
     }
 
     /// The width of the widest option, in pixels.
@@ -210,7 +290,8 @@ impl<M: 'static> Widget<M> for Dropdown<M> {
         } else {
             theme.button
         };
-        paint_frame(cx, rect, theme.corner_radius * scale, face)?;
+        let radius = theme.corner_radius * scale;
+        paint_frame(cx, rect, radius, face, status.focus_visible())?;
         let side = theme.small_icon_size * scale;
         let icon = Rect::new(
             rect.max_x() - self.padding - side,
@@ -309,26 +390,25 @@ impl<M: 'static> Widget<M> for Dropdown<M> {
                     cx.request_paint();
                 }
             }
-            UiEvent::Key(key) if self.open && key.state == ButtonState::Pressed => {
-                let last = self.options.len().saturating_sub(1);
-                let hot = self.hot.unwrap_or(self.chosen);
-                match key.key {
-                    Key::Up => self.hot = Some(hot.saturating_sub(1)),
-                    Key::Down => self.hot = Some((hot + 1).min(last)),
-                    Key::Enter => self.choose(cx, hot),
-                    Key::Escape => self.set_open(cx, false),
-                    _ => {}
+            UiEvent::Key(key) if key.state == ButtonState::Pressed => {
+                if self.open {
+                    self.key_open(cx, key);
+                } else {
+                    self.key_closed(cx, key);
                 }
-                cx.request_paint();
             }
             _ => {}
         }
+    }
+
+    fn accepts_focus(&self) -> bool {
+        true
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use plt_platform::{KeyEvent, Modifiers};
+    use plt_platform::Modifiers;
 
     use super::*;
 
@@ -406,5 +486,85 @@ mod tests {
         dropdown.event(&mut cx, &key(Key::Down), button);
         dropdown.event(&mut cx, &key(Key::Enter), button);
         assert_eq!(*cx.messages, [1]);
+    }
+
+    fn press(key: Key, text: Option<&str>, modifiers: Modifiers) -> UiEvent {
+        UiEvent::Key(KeyEvent {
+            key,
+            state: ButtonState::Pressed,
+            repeat: false,
+            text: text.map(str::to_owned),
+            modifiers,
+            scancode: 0,
+        })
+    }
+
+    #[test]
+    fn keys_open_the_list_and_choose_without_it() {
+        let mut dropdown = dropdown();
+        let button = Rect::new(0.0, 0.0, 100.0, 28.0);
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        dropdown.event(&mut cx, &press(Key::Down, None, Modifiers::NONE), button);
+        dropdown.event(&mut cx, &press(Key::End, None, Modifiers::NONE), button);
+        dropdown.event(
+            &mut cx,
+            &press(Key::Character('a'), Some("a"), Modifiers::NONE),
+            button,
+        );
+        assert!(!dropdown.is_open(), "arrows and typing choose in place");
+        assert!(cx.handled);
+        for opening in [
+            press(Key::Character(' '), Some(" "), Modifiers::NONE),
+            press(Key::Enter, None, Modifiers::NONE),
+            press(Key::Down, None, Modifiers::ALT),
+            press(Key::F(4), None, Modifiers::NONE),
+        ] {
+            dropdown.event(&mut cx, &opening, button);
+            assert!(dropdown.is_open());
+            dropdown.event(&mut cx, &press(Key::Up, None, Modifiers::ALT), button);
+            assert!(!dropdown.is_open());
+        }
+        let mut other = EventCx::new(cx.messages);
+        dropdown.event(&mut other, &press(Key::Tab, None, Modifiers::NONE), button);
+        assert!(!other.handled, "Tab is not the drop-down's");
+        assert_eq!(messages, [1, 2, 0], "Down, End, then 'a' for Axes 1");
+    }
+
+    #[test]
+    fn the_open_list_follows_the_keys() {
+        let mut dropdown = dropdown();
+        let button = Rect::new(0.0, 0.0, 100.0, 28.0);
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        dropdown.event(&mut cx, &press(Key::Enter, None, Modifiers::NONE), button);
+        dropdown.event(
+            &mut cx,
+            &press(Key::PageDown, None, Modifiers::NONE),
+            button,
+        );
+        assert_eq!(dropdown.hot, Some(2));
+        dropdown.event(&mut cx, &press(Key::Home, None, Modifiers::NONE), button);
+        for c in "axes 3".chars() {
+            let text = c.to_string();
+            dropdown.event(
+                &mut cx,
+                &press(Key::Character(c), Some(&text), Modifiers::NONE),
+                button,
+            );
+        }
+        assert_eq!(dropdown.hot, Some(2), "the space is part of what was typed");
+        assert!(dropdown.is_open());
+        dropdown.event(&mut cx, &press(Key::Enter, None, Modifiers::NONE), button);
+        assert!(!dropdown.is_open());
+        dropdown.event(
+            &mut cx,
+            &press(Key::Character(' '), Some(" "), Modifiers::NONE),
+            button,
+        );
+        dropdown.event(&mut cx, &press(Key::Up, None, Modifiers::NONE), button);
+        dropdown.event(&mut cx, &press(Key::Escape, None, Modifiers::NONE), button);
+        assert!(!dropdown.is_open(), "Escape closes without choosing");
+        assert_eq!(messages, [2]);
     }
 }

@@ -96,6 +96,15 @@ pub(crate) trait Backend {
     /// another client takes the clipboard.
     fn set_clipboard_image(&mut self, window: WindowId, png: Vec<u8>) -> Result<(), Error>;
 
+    /// Puts `text` on the clipboard, owned by `window`, until another
+    /// client takes the clipboard.
+    fn set_clipboard_text(&mut self, window: WindowId, text: String) -> Result<(), Error>;
+
+    /// Asks for the clipboard's text, which arrives later as
+    /// [`WindowEvent::ClipboardText`](crate::WindowEvent::ClipboardText)
+    /// for `window`.
+    fn request_clipboard_text(&mut self, window: WindowId) -> Result<(), Error>;
+
     /// Makes the window cover the screen without decorations, or restores
     /// it.
     fn set_fullscreen(&mut self, window: WindowId, fullscreen: bool) -> Result<(), Error>;

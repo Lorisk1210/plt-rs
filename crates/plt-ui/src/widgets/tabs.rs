@@ -5,8 +5,9 @@ use std::fmt;
 use std::rc::Rc;
 
 use plt_core::Point;
-use plt_platform::MouseButton;
+use plt_platform::{ButtonState, Key, KeyEvent, MouseButton};
 
+use super::frame::paint_focus_ring;
 use super::segments::Segments;
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -27,6 +28,12 @@ type TabMessage<M> = Rc<dyn Fn(usize) -> M>;
 /// A row of tabs over a hairline spanning the bar; the selected tab's
 /// name is in the accent colour and underlined. Pressing a tab selects it
 /// and sends a message with its index.
+///
+/// From the keyboard, as in Qt and GTK: Ctrl+Tab and Ctrl+PageDown select
+/// the next tab and Ctrl+Shift+Tab and Ctrl+PageUp the previous one
+/// (wrapping around) wherever the focus is, unless the focused widget
+/// uses those keys; and when Tab gives the bar the focus (clicks do not),
+/// the arrow keys, Home and End select tabs.
 pub struct Tabs<M> {
     labels: Vec<String>,
     selected: usize,
@@ -72,6 +79,32 @@ impl<M> Tabs<M> {
             self.selected = index;
         }
     }
+
+    /// Selects tab `index` for the user, sending a message if it is
+    /// another.
+    fn select(&mut self, cx: &mut EventCx<'_, M>, index: usize) {
+        if index != self.selected {
+            self.selected = index;
+            cx.emit((self.on_select)(index));
+            cx.request_paint();
+        }
+    }
+
+    /// The tab a Ctrl+Tab-like key press selects, wrapping around.
+    fn cycled(&self, key: &KeyEvent) -> Option<usize> {
+        let count = self.labels.len();
+        if count == 0 || key.state != ButtonState::Pressed || !key.modifiers.control() {
+            return None;
+        }
+        let forward = match key.key {
+            Key::Tab => !key.modifiers.shift(),
+            Key::PageDown => true,
+            Key::PageUp => false,
+            _ => return None,
+        };
+        let step = if forward { 1 } else { count - 1 };
+        Some((self.selected + step) % count)
+    }
 }
 
 impl<M: 'static> Widget<M> for Tabs<M> {
@@ -105,12 +138,15 @@ impl<M: 'static> Widget<M> for Tabs<M> {
         for (index, x, width) in self.segments.placed(rect.x) {
             let tab = Rect::new(x, rect.y, width, rect.height - indicator).snapped();
             let selected = index == self.selected;
+            let wash = Rect::new(tab.x, tab.y + inset, tab.width, tab.height - 2.0 * inset);
             if selected {
                 let line = Rect::new(tab.x, rect.max_y() - indicator, tab.width, indicator);
                 cx.canvas()
                     .fill_rounded_rect(line.snapped(), indicator / 2.0, theme.accent)?;
+                if cx.status().focus_visible() {
+                    paint_focus_ring(cx, wash, radius)?;
+                }
             } else if hot == Some(index) {
-                let wash = Rect::new(tab.x, tab.y + inset, tab.width, tab.height - 2.0 * inset);
                 cx.canvas().fill_rounded_rect(wash, radius, theme.hover)?;
             }
             let color = if selected {
@@ -132,21 +168,42 @@ impl<M: 'static> Widget<M> for Tabs<M> {
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
-        if let UiEvent::PointerDown {
-            button: MouseButton::Left,
-            position,
-            ..
-        } = event
-            && let Some(index) = self.segments.at(position.x - rect.x)
-            && index != self.selected
-        {
-            self.selected = index;
-            cx.emit((self.on_select)(index));
-            cx.request_paint();
+        match event {
+            UiEvent::PointerDown {
+                button: MouseButton::Left,
+                position,
+                ..
+            } => {
+                if let Some(index) = self.segments.at(position.x - rect.x) {
+                    self.select(cx, index);
+                }
+            }
+            UiEvent::Key(key) => {
+                let target = self
+                    .cycled(key)
+                    .or_else(|| self.segments.key_target(key, self.selected, false));
+                if let Some(index) = target {
+                    self.select(cx, index);
+                    cx.set_handled();
+                }
+            }
+            _ => {}
         }
         if self.segments.track_hover(event, rect) {
             cx.request_paint();
         }
+    }
+
+    fn accepts_focus(&self) -> bool {
+        true
+    }
+
+    fn focus_on_click(&self) -> bool {
+        false
+    }
+
+    fn handles_shortcut(&self, key: &KeyEvent) -> bool {
+        self.cycled(key).is_some()
     }
 }
 
@@ -176,5 +233,40 @@ mod tests {
         assert_eq!(tabs.selected(), 1);
         tabs.set_selected(9);
         assert_eq!(tabs.selected(), 1);
+    }
+
+    #[test]
+    fn keys_select_tabs() {
+        let mut tabs = Tabs::new(vec!["Axes".into(), "Curves".into(), "Images".into()], |i| i);
+        tabs.segments.widths = vec![50.0, 70.0, 70.0];
+        let key = |key, modifiers| KeyEvent {
+            key,
+            state: ButtonState::Pressed,
+            repeat: false,
+            text: None,
+            modifiers,
+            scancode: 0,
+        };
+        let next = key(Key::Tab, Modifiers::CONTROL);
+        let previous = key(Key::Tab, Modifiers::CONTROL | Modifiers::SHIFT);
+        assert!(tabs.handles_shortcut(&next));
+        assert!(tabs.handles_shortcut(&key(Key::PageUp, Modifiers::CONTROL)));
+        assert!(!tabs.handles_shortcut(&key(Key::Tab, Modifiers::NONE)));
+        assert!(!tabs.handles_shortcut(&key(Key::Right, Modifiers::NONE)));
+        let rect = Rect::new(0.0, 0.0, 300.0, 36.0);
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        let presses = [
+            previous,
+            next.clone(),
+            key(Key::PageDown, Modifiers::CONTROL),
+            key(Key::Left, Modifiers::NONE),
+            key(Key::End, Modifiers::NONE),
+        ];
+        for press in presses {
+            tabs.event(&mut cx, &UiEvent::Key(press), rect);
+        }
+        assert_eq!(messages, [2, 0, 1, 0, 2], "Ctrl+Tab wraps around");
+        assert!(!Tabs::new(Vec::new(), |i: usize| i).handles_shortcut(&next));
     }
 }

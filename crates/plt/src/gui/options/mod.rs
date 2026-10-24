@@ -121,7 +121,7 @@ impl OptionsDialog {
             content.push(chooser, 0.0);
         }
         let mut stack = Stack::new();
-        let pages = axes
+        let pages: Vec<AxesPage> = axes
             .iter()
             .enumerate()
             .map(|(index, ax)| {
@@ -136,7 +136,10 @@ impl OptionsDialog {
         chrome.button("Apply", OptionsMessage::Apply);
         chrome.primary("OK", OptionsMessage::Ok);
         let options = dialog::window_options("Figure options")?;
-        let window = dialog::open_fitted(cx, figure, &options, chrome.finish(content))?;
+        let mut window = dialog::open_fitted(cx, figure, &options, chrome.finish(content))?;
+        // The first field is the title of the first axes, past its tabs.
+        let title = pages.first().map(AxesPage::title_field);
+        window.ui_mut().set_focus(title);
         Ok(Some(Self {
             window,
             pages,

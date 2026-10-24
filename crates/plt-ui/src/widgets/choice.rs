@@ -6,6 +6,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_platform::MouseButton;
 
+use super::frame::paint_focus_ring;
 use super::segments::Segments;
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -24,7 +25,9 @@ const THUMB_INSET: Spacing = Spacing::Xxs;
 const DIVIDER_MARGIN: Spacing = Spacing::Sm;
 
 /// A row of labelled segments of which exactly one is chosen; clicking a
-/// segment chooses it and sends a message with its index.
+/// segment chooses it and sends a message with its index, and so do the
+/// arrow keys (Home and End choose the first and last) while it has the
+/// focus.
 ///
 /// The segments sit on a recessed track at their natural widths (at
 /// least [`Theme::segment_min_width`](crate::Theme)), from the left edge;
@@ -74,6 +77,16 @@ impl<M> Choice<M> {
             self.chosen = index;
         }
     }
+
+    /// Chooses option `index` for the user, sending a message if it is
+    /// another.
+    fn choose(&mut self, cx: &mut EventCx<'_, M>, index: usize) {
+        if index != self.chosen {
+            self.chosen = index;
+            cx.emit((self.on_choose)(index));
+            cx.request_paint();
+        }
+    }
 }
 
 impl<M: 'static> Widget<M> for Choice<M> {
@@ -103,6 +116,9 @@ impl<M: 'static> Widget<M> for Choice<M> {
         let width = self.segments.total_width().min(rect.width);
         let track = Rect::new(rect.x, rect.center().y - height / 2.0, width, height).snapped();
         cx.canvas().fill_rounded_rect(track, radius, theme.track)?;
+        if cx.status().focus_visible() {
+            paint_focus_ring(cx, track, radius)?;
+        }
         let inset = theme.space(THUMB_INSET) * scale;
         let margin = theme.space(DIVIDER_MARGIN) * scale;
         let hot = self.segments.hot;
@@ -145,21 +161,31 @@ impl<M: 'static> Widget<M> for Choice<M> {
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
-        if let UiEvent::PointerDown {
-            button: MouseButton::Left,
-            position,
-            ..
-        } = event
-            && let Some(index) = self.segments.at(position.x - rect.x)
-            && index != self.chosen
-        {
-            self.chosen = index;
-            cx.emit((self.on_choose)(index));
-            cx.request_paint();
+        match event {
+            UiEvent::PointerDown {
+                button: MouseButton::Left,
+                position,
+                ..
+            } => {
+                if let Some(index) = self.segments.at(position.x - rect.x) {
+                    self.choose(cx, index);
+                }
+            }
+            UiEvent::Key(key) => {
+                if let Some(index) = self.segments.key_target(key, self.chosen, true) {
+                    self.choose(cx, index);
+                    cx.set_handled();
+                }
+            }
+            _ => {}
         }
         if self.segments.track_hover(event, rect) {
             cx.request_paint();
         }
+    }
+
+    fn accepts_focus(&self) -> bool {
+        true
     }
 }
 
@@ -188,5 +214,31 @@ mod tests {
         assert_eq!(choice.chosen(), 2);
         choice.set_chosen(7);
         assert_eq!(choice.chosen(), 2);
+    }
+
+    #[test]
+    fn arrow_keys_move_the_choice() {
+        use plt_platform::{ButtonState, Key, KeyEvent};
+
+        let mut choice = Choice::new(vec!["PNG".into(), "SVG".into(), "PDF".into()], |i| i);
+        choice.segments.widths = vec![30.0, 30.0, 40.0];
+        let key = |key| {
+            UiEvent::Key(KeyEvent {
+                key,
+                state: ButtonState::Pressed,
+                repeat: false,
+                text: None,
+                modifiers: Modifiers::NONE,
+                scancode: 0,
+            })
+        };
+        let rect = Rect::new(0.0, 0.0, 200.0, 28.0);
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        for pressed in [Key::Right, Key::Down, Key::Right, Key::Home, Key::Left] {
+            choice.event(&mut cx, &key(pressed), rect);
+        }
+        assert!(cx.handled);
+        assert_eq!(messages, [1, 2, 0], "only changes are reported");
     }
 }

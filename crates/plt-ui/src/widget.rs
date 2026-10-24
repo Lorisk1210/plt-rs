@@ -5,6 +5,8 @@ use std::any::Any;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use plt_platform::KeyEvent;
+
 use crate::canvas::Canvas;
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -65,9 +67,26 @@ pub trait Widget<M>: Any {
     /// Reacts to an input event; `rect` is the widget's rectangle.
     fn event(&mut self, _cx: &mut EventCx<'_, M>, _event: &UiEvent, _rect: Rect) {}
 
-    /// Whether clicking the widget gives it keyboard focus. Tab and
-    /// Shift+Tab also move the focus between such widgets.
+    /// Whether the widget takes keyboard focus: Tab and Shift+Tab move
+    /// the focus between such widgets, in tree order.
     fn accepts_focus(&self) -> bool {
+        false
+    }
+
+    /// Whether clicking the widget gives it keyboard focus; by default,
+    /// when it accepts focus. Tool buttons and tab bars take it only from
+    /// the keyboard, as in Qt, so that clicking them leaves the focus
+    /// where the user types.
+    fn focus_on_click(&self) -> bool {
+        self.accepts_focus()
+    }
+
+    /// Whether the widget acts on the key press `key` although it does
+    /// not have the focus, when the focused widget leaves the key unused
+    /// (see [`EventCx::set_handled`]): the default button takes Enter, a
+    /// tab bar Ctrl+Tab. The engine then delivers the key to the first
+    /// such widget shown, in tree order.
+    fn handles_shortcut(&self, _key: &KeyEvent) -> bool {
         false
     }
 
@@ -82,7 +101,7 @@ pub trait Widget<M>: Any {
     fn focused_by_keyboard(&mut self) {}
 
     /// The text of the tooltip shown when the pointer rests on the
-    /// widget, if it has one.
+    /// widget, or when the keyboard moves the focus to it, if it has one.
     fn tooltip(&self) -> Option<&str> {
         None
     }
@@ -259,8 +278,36 @@ pub struct Status {
     /// The widget captured the pointer: a button was pressed on it and
     /// is still held.
     pub active: bool,
-    /// The widget has keyboard focus.
-    pub focused: bool,
+    /// Whether the widget has keyboard focus.
+    pub focus: Focus,
+}
+
+impl Status {
+    /// Whether the widget has keyboard focus.
+    pub fn focused(self) -> bool {
+        self.focus != Focus::None
+    }
+
+    /// Whether the widget has keyboard focus and should show its focus
+    /// ring (see [`Focus::Visible`]).
+    pub fn focus_visible(self) -> bool {
+        self.focus == Focus::Visible
+    }
+}
+
+/// Whether a widget has keyboard focus, and how it shows it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Focus {
+    /// The widget does not have the focus.
+    #[default]
+    None,
+    /// The widget has the focus, but a click came after the keyboard last
+    /// moved it: controls show no focus ring (text fields still do, as
+    /// they wait for typing).
+    Focused,
+    /// The widget has the focus and the user moves the focus with the
+    /// keyboard: controls show their focus ring.
+    Visible,
 }
 
 /// What widgets may use while painting.
@@ -293,6 +340,17 @@ impl<'a> PaintCx<'a> {
     }
 }
 
+/// What a widget asked of the clipboard (see
+/// [`Ui::take_clipboard_requests`](crate::Ui::take_clipboard_requests)).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClipboardRequest {
+    /// Put this text on the clipboard.
+    Copy(String),
+    /// Read the clipboard's text, for the widget to paste (it receives
+    /// [`UiEvent::Paste`]).
+    Paste,
+}
+
 /// What widgets may do while handling an event.
 pub struct EventCx<'a, M> {
     pub(crate) messages: &'a mut Vec<M>,
@@ -300,6 +358,10 @@ pub struct EventCx<'a, M> {
     pub(crate) layout_requested: bool,
     /// Whether the widget opened (`Some(true)`) or closed its popup.
     pub(crate) popup: Option<bool>,
+    /// Whether the widget acted on the key it received.
+    pub(crate) handled: bool,
+    /// What the widget asked of the clipboard.
+    pub(crate) clipboard: Option<ClipboardRequest>,
 }
 
 impl<'a, M> EventCx<'a, M> {
@@ -309,7 +371,28 @@ impl<'a, M> EventCx<'a, M> {
             paint_requested: false,
             layout_requested: false,
             popup: None,
+            handled: false,
+            clipboard: None,
         }
+    }
+
+    /// Tells the engine that the widget acted on the key it received, so
+    /// that the key goes no further: keys left unused may be shortcuts of
+    /// other widgets (see [`Widget::handles_shortcut`]), such as Enter
+    /// pressing the default button.
+    pub fn set_handled(&mut self) {
+        self.handled = true;
+    }
+
+    /// Puts `text` on the clipboard.
+    pub fn copy_text(&mut self, text: String) {
+        self.clipboard = Some(ClipboardRequest::Copy(text));
+    }
+
+    /// Asks for the clipboard's text, which the widget receives later as
+    /// [`UiEvent::Paste`].
+    pub fn request_paste(&mut self) {
+        self.clipboard = Some(ClipboardRequest::Paste);
     }
 
     /// Opens the widget's popup: until [closed](Self::close_popup), the
@@ -350,6 +433,8 @@ impl<M> fmt::Debug for EventCx<'_, M> {
             .field("paint_requested", &self.paint_requested)
             .field("layout_requested", &self.layout_requested)
             .field("popup", &self.popup)
+            .field("handled", &self.handled)
+            .field("clipboard", &self.clipboard)
             .finish_non_exhaustive()
     }
 }

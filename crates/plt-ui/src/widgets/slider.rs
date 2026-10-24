@@ -4,8 +4,9 @@ use std::fmt;
 use std::rc::Rc;
 
 use plt_core::{Path, Point};
-use plt_platform::MouseButton;
+use plt_platform::{ButtonState, Key, KeyEvent, MouseButton};
 
+use super::frame::paint_focus_ring;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -18,10 +19,67 @@ const TRACK: Spacing = Spacing::Xs;
 /// Makes the message sent with the value.
 type ValueMessage<M> = Rc<dyn Fn(f64) -> M>;
 
+/// How many small steps of the arrow keys span a slider's range, roughly.
+const STEPS_PER_RANGE: f64 = 100.0;
+/// Values closer than this many steps to a multiple of the step count as
+/// on it.
+const STEP_TOLERANCE: f64 = 1e-9;
+
+/// A step of the keys moving a slider: `units` (1, 2 or 5) times ten to
+/// the `exponent`, a round number.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Step {
+    units: f64,
+    exponent: i32,
+}
+
+impl Step {
+    /// The round step closest to `length`, if it is positive and finite.
+    fn near(length: f64) -> Option<Self> {
+        if !(length.is_finite() && length > 0.0) {
+            return None;
+        }
+        // Finite positive lengths have decimal exponents within ±400.
+        let exponent = length.log10().floor() as i32;
+        let mantissa = length / 10f64.powi(exponent);
+        let (units, exponent) = match mantissa {
+            m if m < 1.5 => (1.0, exponent),
+            m if m < 3.5 => (2.0, exponent),
+            m if m < 7.5 => (5.0, exponent),
+            _ => (1.0, exponent + 1),
+        };
+        Some(Self { units, exponent })
+    }
+
+    /// Ten times the step.
+    fn tenfold(self) -> Self {
+        Self {
+            exponent: self.exponent + 1,
+            ..self
+        }
+    }
+
+    /// `count` steps, computed so that round steps add up to round
+    /// numbers (13 steps of 0.01 are 0.13).
+    fn times(self, count: f64) -> f64 {
+        let units = count * self.units;
+        if self.exponent < 0 {
+            units / 10f64.powi(-self.exponent)
+        } else {
+            units * 10f64.powi(self.exponent)
+        }
+    }
+}
+
 /// A horizontal track with a round thumb marking a value between a
 /// minimum and a maximum; the track is filled with the accent colour up
 /// to the thumb. Pressing the track moves the thumb there and dragging
 /// moves it along, sending a message with each new value.
+///
+/// While it has the focus, the arrow keys move the value to the next
+/// multiple of a round step of about a hundredth of the range (0.01 for
+/// a range of 1), Page Up and Page Down by ten steps, and Home and End to
+/// the ends.
 pub struct Slider<M> {
     min: f64,
     max: f64,
@@ -109,11 +167,49 @@ impl<M> Slider<M> {
 
     fn drag_to(&mut self, cx: &mut EventCx<'_, M>, rect: Rect, x: f64) {
         let value = self.value_at(rect, x);
+        self.change(cx, value);
+    }
+
+    /// Shows `value` for the user, sending it if it changed.
+    fn change(&mut self, cx: &mut EventCx<'_, M>, value: f64) {
         if value.total_cmp(&self.value).is_ne() {
             self.value = value;
             cx.emit((self.on_change)(value));
             cx.request_paint();
         }
+    }
+
+    /// The value a key press moves to, or `None` for keys that do not
+    /// move the slider.
+    fn key_target(&self, key: &KeyEvent) -> Option<f64> {
+        if key.state != ButtonState::Pressed || key.modifiers.control() || key.modifiers.alt() {
+            return None;
+        }
+        let step = Step::near((self.max - self.min) / STEPS_PER_RANGE);
+        let stepped = |step: Option<Step>, forward: bool| {
+            Some(step.map_or(self.value, |step| self.stepped(step, forward)))
+        };
+        match key.key {
+            Key::Right | Key::Up => stepped(step, true),
+            Key::Left | Key::Down => stepped(step, false),
+            Key::PageUp => stepped(step.map(Step::tenfold), true),
+            Key::PageDown => stepped(step.map(Step::tenfold), false),
+            Key::Home => Some(self.min),
+            Key::End => Some(self.max),
+            _ => None,
+        }
+    }
+
+    /// The next multiple of `step` from the minimum after (`forward`) or
+    /// before the value, within the range.
+    fn stepped(&self, step: Step, forward: bool) -> f64 {
+        let steps = (self.value - self.min) / step.times(1.0);
+        let count = if forward {
+            (steps + STEP_TOLERANCE).floor() + 1.0
+        } else {
+            (steps - STEP_TOLERANCE).ceil() - 1.0
+        };
+        (self.min + step.times(count)).clamp(self.min, self.max)
     }
 }
 
@@ -155,7 +251,12 @@ impl<M: 'static> Widget<M> for Slider<M> {
             theme.border
         };
         let ring = Path::circle(Point::new(x, y), radius - scale / 2.0);
-        cx.canvas().stroke_path(&ring, scale, outline)
+        cx.canvas().stroke_path(&ring, scale, outline)?;
+        if status.focus_visible() {
+            let thumb = Rect::new(x - radius, y - radius, self.thumb, self.thumb);
+            paint_focus_ring(cx, thumb, radius)?;
+        }
+        Ok(())
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
@@ -176,8 +277,18 @@ impl<M: 'static> Widget<M> for Slider<M> {
                 ..
             } => self.dragging = false,
             UiEvent::PointerEnter(_) | UiEvent::PointerLeave => cx.request_paint(),
+            UiEvent::Key(key) => {
+                if let Some(value) = self.key_target(key) {
+                    self.change(cx, value);
+                    cx.set_handled();
+                }
+            }
             _ => {}
         }
+    }
+
+    fn accepts_focus(&self) -> bool {
+        true
     }
 }
 
@@ -217,5 +328,59 @@ mod tests {
             [0.3, 0.0],
             "pressed at 30%, dragged off the end"
         );
+    }
+
+    #[test]
+    fn steps_are_round_numbers_near_a_hundredth_of_the_range() {
+        let step = |length| Step::near(length).map(|step| step.times(1.0));
+        assert_eq!(step(0.01), Some(0.01));
+        assert_eq!(step(2.55), Some(2.0));
+        assert_eq!(step(0.4), Some(0.5));
+        assert_eq!(step(80.0), Some(100.0));
+        assert_eq!(step(0.0), None);
+        assert_eq!(step(f64::NAN), None);
+        assert_eq!(Step::near(0.01).map(|s| s.times(13.0)), Some(0.13));
+        assert_eq!(Step::near(0.01).map(|s| s.tenfold().times(1.0)), Some(0.1));
+    }
+
+    #[test]
+    fn keys_move_the_value_by_round_steps() {
+        let key = |key| KeyEvent {
+            key,
+            state: ButtonState::Pressed,
+            repeat: false,
+            text: None,
+            modifiers: Modifiers::NONE,
+            scancode: 0,
+        };
+        let mut slider = Slider::new(0.0, 1.0, 0.125, |value| value);
+        assert_eq!(slider.key_target(&key(Key::Right)), Some(0.13));
+        assert_eq!(slider.key_target(&key(Key::Left)), Some(0.12));
+        assert_eq!(slider.key_target(&key(Key::PageUp)), Some(0.2));
+        assert_eq!(slider.key_target(&key(Key::PageDown)), Some(0.1));
+        assert_eq!(slider.key_target(&key(Key::End)), Some(1.0));
+        assert_eq!(slider.key_target(&key(Key::Enter)), None);
+        slider.set_value(0.13);
+        assert_eq!(
+            slider.key_target(&key(Key::Up)),
+            Some(0.14),
+            "from a multiple"
+        );
+        slider.set_value(0.995);
+        assert_eq!(
+            slider.key_target(&key(Key::PageUp)),
+            Some(1.0),
+            "within range"
+        );
+        let mut messages = Vec::new();
+        let mut cx = EventCx::new(&mut messages);
+        let rect = Rect::new(0.0, 0.0, 110.0, 28.0);
+        slider.event(&mut cx, &UiEvent::Key(key(Key::End)), rect);
+        slider.event(&mut cx, &UiEvent::Key(key(Key::Right)), rect);
+        slider.event(&mut cx, &UiEvent::Key(key(Key::Home)), rect);
+        assert!(cx.handled, "keys at an end are used too");
+        assert_eq!(messages, [1.0, 0.0]);
+        let flat = Slider::new(2.0, 2.0, 2.0, |value| value);
+        assert_eq!(flat.key_target(&key(Key::Right)), Some(2.0));
     }
 }

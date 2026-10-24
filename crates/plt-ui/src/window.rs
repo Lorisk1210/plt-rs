@@ -7,11 +7,12 @@ use plt_platform::{
 use crate::error::UiError;
 use crate::geometry::Rect;
 use crate::ui::Ui;
-use crate::widget::{Widget, WidgetId};
+use crate::widget::{ClipboardRequest, Widget, WidgetId};
 
 /// A window displaying a widget tree: forwards the window's events to the
 /// [`Ui`], presents frames when asked to redraw, requests redraws when
-/// the UI changes, and times tooltips.
+/// the UI changes, times tooltips, and connects widgets to the
+/// platform's clipboard.
 ///
 /// Tooltips need the window's timer events: route
 /// [`Event::Timer`](plt_platform::Event::Timer) to
@@ -146,6 +147,12 @@ impl<M: 'static> UiWindow<M> {
     /// emitted.
     pub fn handle(&mut self, cx: &mut Context<'_>, event: &WindowEvent) -> Result<Vec<M>, UiError> {
         let mut messages = self.ui.handle(event)?;
+        for request in self.ui.take_clipboard_requests() {
+            match request {
+                ClipboardRequest::Copy(text) => cx.set_clipboard_text(self.id, text)?,
+                ClipboardRequest::Paste => cx.request_clipboard_text(self.id)?,
+            }
+        }
         if *event == WindowEvent::RedrawRequested {
             let frame = self.ui.paint()?;
             cx.present(self.id, &frame)?;
@@ -201,7 +208,7 @@ mod tests {
     use super::*;
     use crate::icon::Icon;
     use crate::theme::Spacing;
-    use crate::widgets::{Button, Flex, Label, Surface, ToolButton};
+    use crate::widgets::{Button, Flex, Label, Surface, TextInput, ToolButton};
 
     /// Runs one loop iteration, feeding the window's events to `window`.
     fn pump(event_loop: &mut EventLoop, window: &mut UiWindow<&'static str>) -> Vec<&'static str> {
@@ -327,6 +334,40 @@ mod tests {
             "updates and resizes are coalesced into one frame"
         );
         assert_eq!(frames[0].image.size(), PhysicalSize::new(300, 50));
+    }
+
+    #[test]
+    fn text_fields_copy_and_paste_through_the_platform_clipboard() {
+        let (mut event_loop, handle) = EventLoop::headless();
+        let field = TextInput::new("0.125", |_| "edited");
+        let options = WindowOptions::new("field").with_inner_size(PhysicalSize::new(200, 40));
+        let mut window = UiWindow::open(&mut event_loop.context(), &options, field).unwrap();
+        let root = window.ui().root_id();
+        window.ui_mut().set_focus(Some(root));
+        let ctrl = |c| {
+            WindowEvent::Key(plt_platform::KeyEvent {
+                key: plt_platform::Key::Character(c),
+                state: ButtonState::Pressed,
+                repeat: false,
+                text: None,
+                modifiers: Modifiers::CONTROL,
+                scancode: 0,
+            })
+        };
+        for c in ['a', 'c'] {
+            handle.inject(window.id(), ctrl(c)).unwrap();
+        }
+        pump(&mut event_loop, &mut window);
+        assert_eq!(handle.clipboard_text().as_deref(), Some("0.125"));
+        handle.set_clipboard_text("0.3");
+        handle.inject(window.id(), ctrl('v')).unwrap();
+        assert_eq!(pump(&mut event_loop, &mut window), [] as [&str; 0]);
+        assert_eq!(pump(&mut event_loop, &mut window), ["edited"]);
+        let text = window
+            .ui_mut()
+            .widget_mut::<TextInput<&'static str>>(root)
+            .map(|field| field.text().to_owned());
+        assert_eq!(text.as_deref(), Some("0.3"), "the paste replaced the text");
     }
 
     #[test]

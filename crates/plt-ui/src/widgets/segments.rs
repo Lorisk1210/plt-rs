@@ -1,5 +1,8 @@
 //! Labelled segments side by side, the shared part of segmented controls
-//! and tab bars: their layout, hit testing and hover tracking.
+//! and tab bars: their layout, hit testing, hover tracking and arrow
+//! keys.
+
+use plt_platform::{ButtonState, Key, KeyEvent};
 
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -70,6 +73,30 @@ impl Segments {
             })
     }
 
+    /// The segment a key press moves to from `current`: Left and Right
+    /// (also Up and Down when `up_down`) step without wrapping, Home and
+    /// End jump to the ends. `None` for other keys and releases.
+    pub(crate) fn key_target(
+        &self,
+        key: &KeyEvent,
+        current: usize,
+        up_down: bool,
+    ) -> Option<usize> {
+        let last = self.widths.len().checked_sub(1)?;
+        if key.state != ButtonState::Pressed || key.modifiers.control() || key.modifiers.alt() {
+            return None;
+        }
+        match key.key {
+            Key::Left => Some(current.saturating_sub(1)),
+            Key::Up if up_down => Some(current.saturating_sub(1)),
+            Key::Right => Some((current + 1).min(last)),
+            Key::Down if up_down => Some((current + 1).min(last)),
+            Key::Home => Some(0),
+            Key::End => Some(last),
+            _ => None,
+        }
+    }
+
     /// Follows the pointer over a row of segments at `rect`; returns
     /// whether the segment under it changed.
     pub(crate) fn track_hover(&mut self, event: &UiEvent, rect: Rect) -> bool {
@@ -111,5 +138,40 @@ mod tests {
         assert!(!segments.track_hover(&UiEvent::PointerEnter(Point::new(16.0, 5.0)), rect));
         assert!(segments.track_hover(&UiEvent::PointerLeave, rect));
         assert_eq!(segments.hot, None);
+    }
+
+    #[test]
+    fn arrows_step_and_home_and_end_jump() {
+        use plt_platform::Modifiers;
+
+        let segments = Segments {
+            widths: vec![30.0, 30.0, 40.0],
+            ..Segments::default()
+        };
+        let press = |key, modifiers| KeyEvent {
+            key,
+            state: ButtonState::Pressed,
+            repeat: false,
+            text: None,
+            modifiers,
+            scancode: 0,
+        };
+        let to = |key, current, up_down| {
+            segments.key_target(&press(key, Modifiers::NONE), current, up_down)
+        };
+        assert_eq!(to(Key::Right, 0, false), Some(1));
+        assert_eq!(to(Key::Right, 2, false), Some(2), "no wrapping");
+        assert_eq!(to(Key::Left, 0, false), Some(0));
+        assert_eq!(to(Key::Down, 0, true), Some(1));
+        assert_eq!(to(Key::Down, 0, false), None);
+        assert_eq!(to(Key::End, 0, false), Some(2));
+        assert_eq!(to(Key::Home, 2, false), Some(0));
+        assert_eq!(to(Key::Enter, 0, true), None);
+        let ctrl = press(Key::Right, Modifiers::CONTROL);
+        assert_eq!(segments.key_target(&ctrl, 0, true), None);
+        assert_eq!(
+            Segments::default().key_target(&press(Key::Home, Modifiers::NONE), 0, true),
+            None
+        );
     }
 }

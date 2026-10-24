@@ -143,6 +143,11 @@ impl AxesPage {
         (page, root)
     }
 
+    /// The field of the title, the page's first field.
+    pub(super) fn title_field(&self) -> WidgetId {
+        self.title
+    }
+
     /// Shows tab `tab`.
     pub(super) fn show_tab(&self, window: &mut UiWindow<OptionsMessage>, tab: usize) {
         show(window, self.panels, tab);

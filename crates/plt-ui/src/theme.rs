@@ -94,7 +94,8 @@ pub struct Theme {
     pub selection: Rgba,
     /// Behind the selection of widgets without focus.
     pub selection_inactive: Rgba,
-    /// The ring around the focused control.
+    /// The translucent halo of the focus ring around the focused control
+    /// (the ring's edge is in the accent colour).
     pub focus_ring: Rgba,
     /// Errors.
     pub danger: Rgba,
@@ -378,6 +379,19 @@ mod tests {
             }
             assert!(contrast(theme.text_on_accent, theme.accent) > 3.0);
             assert!(contrast(theme.tooltip_text, theme.tooltip) > 7.0);
+        }
+    }
+
+    #[test]
+    fn focus_rings_stand_out() {
+        // WCAG asks focus indicators for a 3:1 contrast with what is
+        // around them: the ring's accent edge against the window and the
+        // fields.
+        for theme in [Theme::modern(), Theme::dark(), Theme::classic()] {
+            for back in [theme.background, theme.surface] {
+                assert!(contrast(theme.accent, back) >= 3.0);
+            }
+            assert!(theme.focus_ring.a > 0.0 && theme.focus_ring_width > 0.0);
         }
     }
 

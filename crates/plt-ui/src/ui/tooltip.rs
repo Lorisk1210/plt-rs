@@ -17,18 +17,20 @@ const PADDING_Y: Spacing = Spacing::Xs;
 /// Space between a tooltip and its widget, and the window's edges.
 const MARGIN: Spacing = Spacing::Xs;
 
-/// Where the tooltip of the widget under the pointer is in its life.
+/// Where the tooltip of the widget under the pointer (or given the focus
+/// with the keyboard) is in its life.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(super) enum Tooltip {
-    /// No widget with a tooltip is under the pointer.
+    /// No widget with a tooltip is under the pointer or was focused.
     #[default]
     Hidden,
-    /// The pointer rests on the widget; its tooltip shows once the
-    /// theme's delay has passed.
+    /// The pointer rests on the widget, or the keyboard focused it; its
+    /// tooltip shows once the theme's delay has passed.
     Pending(WidgetId),
     /// The widget's tooltip is shown.
     Shown(WidgetId),
-    /// A click on the widget hid its tooltip until the pointer leaves.
+    /// A click on the widget (or a key it used) hid its tooltip until the
+    /// pointer leaves.
     Dismissed(WidgetId),
 }
 
@@ -100,15 +102,15 @@ impl<M: 'static> Ui<M> {
         self.set_tooltip(next);
     }
 
-    /// Hides the tooltip after a click until the pointer leaves its
-    /// widget.
+    /// Hides the tooltip after a click or a key until the pointer leaves
+    /// its widget.
     pub(super) fn dismiss_tooltip(&mut self) {
         if let Some(id) = self.tooltip.widget() {
             self.set_tooltip(Tooltip::Dismissed(id));
         }
     }
 
-    fn set_tooltip(&mut self, tooltip: Tooltip) {
+    pub(super) fn set_tooltip(&mut self, tooltip: Tooltip) {
         let shown = |t: Tooltip| matches!(t, Tooltip::Shown(_));
         if shown(self.tooltip) || shown(tooltip) {
             self.needs_paint = true;

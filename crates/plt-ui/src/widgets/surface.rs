@@ -3,7 +3,7 @@
 use std::fmt;
 
 use plt_core::Rgba;
-use plt_platform::{PhysicalRect, PhysicalSize};
+use plt_platform::{Key, KeyEvent, PhysicalRect, PhysicalSize};
 use plt_raster::Pixmap;
 
 use crate::error::UiError;
@@ -27,12 +27,17 @@ type EventMap<M> = Box<dyn Fn(SurfaceEvent) -> Option<M>>;
 
 /// Shows an image supplied by the application, filling all the space it
 /// is given, and reports its size and the input over it. It takes
-/// keyboard focus when clicked, so key presses (Tab included) reach it.
+/// keyboard focus when clicked, so key presses (Tab included) reach it;
+/// Ctrl+Tab moves the focus on from it. While the keyboard moves the
+/// focus, a focused surface shows a focus ring just inside its edges.
 pub struct Surface<M> {
     image: Option<Pixmap>,
     selection: Option<Rect>,
     size: PhysicalSize,
     map: EventMap<M>,
+    /// Whether the surface also takes the keys focused widgets leave
+    /// unused.
+    unused_keys: bool,
 }
 
 impl<M> Surface<M> {
@@ -44,7 +49,18 @@ impl<M> Surface<M> {
             selection: None,
             size: PhysicalSize::default(),
             map: Box::new(map),
+            unused_keys: false,
         }
+    }
+
+    /// The surface also receiving the key presses the focused widget
+    /// leaves unused (see [`EventCx::set_handled`]), as shortcuts, Tab
+    /// aside: a figure canvas keeps its keys while a toolbar button has
+    /// the focus.
+    #[must_use]
+    pub fn with_unused_keys(mut self) -> Self {
+        self.unused_keys = true;
+        self
     }
 
     /// Shows (or with `None` hides) a selection rectangle over the image,
@@ -138,13 +154,23 @@ impl<M: 'static> Widget<M> for Surface<M> {
             let width = cx.scale_factor();
             cx.canvas().stroke_rect(placed, width, theme.accent)?;
         }
+        if cx.status().focus_visible() {
+            let ring = theme.focus_ring_width * cx.scale_factor();
+            cx.canvas()
+                .stroke_rounded_rect(rect, 0.0, ring, theme.focus_ring)?;
+        }
         Ok(())
     }
 
+    /// Reports input over the surface; the keys it turns into messages
+    /// are its own.
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
         let local = event.relative_to(rect.origin());
         if let Some(message) = (self.map)(SurfaceEvent::Input(local)) {
             cx.emit(message);
+            if matches!(event, UiEvent::Key(_)) {
+                cx.set_handled();
+            }
         }
     }
 
@@ -154,6 +180,10 @@ impl<M: 'static> Widget<M> for Surface<M> {
 
     fn wants_tab(&self) -> bool {
         true
+    }
+
+    fn handles_shortcut(&self, key: &KeyEvent) -> bool {
+        self.unused_keys && key.key != Key::Tab
     }
 }
 

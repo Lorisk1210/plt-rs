@@ -22,6 +22,7 @@ mod shape;
 mod span;
 
 use std::fmt;
+use std::str::FromStr;
 
 pub use lasso::{Lasso, LassoSelector};
 pub use polygon::{PolygonSelector, PolygonSelectorOptions};
@@ -47,6 +48,60 @@ pub enum SelectorState {
     MoveVertex,
     /// Move every vertex of a polygon (`"move_all"`).
     MoveAll,
+}
+
+impl SelectorState {
+    /// Every state, in declaration order.
+    pub const ALL: [Self; 6] = [
+        Self::Move,
+        Self::Square,
+        Self::Center,
+        Self::Rotate,
+        Self::MoveVertex,
+        Self::MoveAll,
+    ];
+
+    /// matplotlib's name of the state (`"move"`, `"square"`, ...).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Move => "move",
+            Self::Square => "square",
+            Self::Center => "center",
+            Self::Rotate => "rotate",
+            Self::MoveVertex => "move_vertex",
+            Self::MoveAll => "move_all",
+        }
+    }
+}
+
+/// A name that is not one of matplotlib's selector states.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownState(pub String);
+
+impl fmt::Display for UnknownState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?} is not a selector state", self.0)
+    }
+}
+
+impl std::error::Error for UnknownState {}
+
+impl FromStr for SelectorState {
+    type Err = UnknownState;
+
+    /// Parses matplotlib's state names, as `add_state` takes them.
+    ///
+    /// ```
+    /// use plt::widgets::SelectorState;
+    /// assert_eq!("square".parse(), Ok(SelectorState::Square));
+    /// assert!("clear".parse::<SelectorState>().is_err());
+    /// ```
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|state| state.name() == name)
+            .ok_or_else(|| UnknownState(name.to_owned()))
+    }
 }
 
 /// The keys a selector reacts to (matplotlib's `state_modifier_keys`):
@@ -193,6 +248,22 @@ macro_rules! selector_methods {
             /// `set_visible`).
             pub fn set_visible(&self, visible: bool) {
                 self.driver.shared.borrow_mut().set_visible(visible);
+            }
+
+            /// Whether a selection was completed and is kept (matplotlib's
+            /// `_selection_completed`).
+            pub fn selection_completed(&self) -> bool {
+                self.driver.shared.borrow().core.selection_completed
+            }
+
+            /// The states switched on, by keys held or `add_state`, in the
+            /// order of [`SelectorState::ALL`](crate::widgets::SelectorState::ALL) (matplotlib's `_state`).
+            pub fn states(&self) -> Vec<$crate::widgets::SelectorState> {
+                let shared = self.driver.shared.borrow();
+                $crate::widgets::SelectorState::ALL
+                    .into_iter()
+                    .filter(|state| shared.core.state.contains(state))
+                    .collect()
             }
 
             /// Removes the selection, ready for a new one (matplotlib's

@@ -6,6 +6,7 @@
 
 use plt_core::Point;
 
+use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::ArtistHandle;
@@ -39,12 +40,32 @@ impl AxisUnits {
 
 impl Axis {
     /// Converts plotting values to axis numbers, registering new category
-    /// names (matplotlib's `update_units` + `convert_units`).
+    /// names (matplotlib's `update_units` + `convert_units`). The axes
+    /// sharing this axis take over its converter, category names and the
+    /// tick helpers they bring, as matplotlib's shared axes share their
+    /// units and tickers.
+    ///
+    /// ```
+    /// use plt::figure::{Figure, Share};
+    /// let fig = Figure::new();
+    /// let axs = fig.subplots_shared(1, 2, Share::All, Share::None)?;
+    /// axs[(0, 0)].plot(vec!["a", "b"], [1.0, 2.0])?;
+    /// let line = axs[(0, 1)].plot(vec!["c", "a"], [3.0, 4.0])?;
+    /// assert_eq!(line.xdata(), [2.0, 0.0]);
+    /// let names = axs[(0, 0)].xaxis().categories().expect("categories");
+    /// assert_eq!(names.names(), ["a", "b", "c"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn convert_units(&self, values: impl Into<AxisValues>) -> Vec<f64> {
         match values.into() {
             // Numbers need no converter, so the axis is left untouched.
             AxisValues::Numbers(numbers) => numbers,
-            values => self.update(|axis| axis.convert_units(values)),
+            values => {
+                let positions = self.update(|axis| axis.convert_units(values));
+                let units = self.read(AxisState::unit_data);
+                self.update_shared(|axis| axis.share_units(&units));
+                positions
+            }
         }
     }
 
@@ -285,5 +306,19 @@ mod tests {
         let dates = xaxis.convert_units(AxisValues::Dates(vec![10.0]));
         assert_eq!(dates, [10.0], "values convert as their own kind");
         assert_eq!(xaxis.converter(), Some(UnitConverter::Categories));
+    }
+
+    #[test]
+    fn shared_axes_take_over_converted_units() {
+        let fig = Figure::new();
+        let axs = fig.subplots_shared(2, 1, Share::All, Share::None).unwrap();
+        let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
+        top.xaxis()
+            .convert_units(AxisValues::Dates(vec![0.0, 30.0]));
+        top.set_xlim(0.0, 30.0);
+        assert_eq!(bottom.xaxis().converter(), Some(UnitConverter::Dates));
+        let ticks = bottom.ticks(AxisName::X).unwrap();
+        assert!(ticks.major[0].label.starts_with("1970-"), "date ticks");
+        assert!(!bottom.yaxis().have_units(), "only the shared axis");
     }
 }

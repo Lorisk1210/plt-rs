@@ -1,0 +1,46 @@
+{
+ "area": "mpl_animation",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Animation._repr_html_", "args": {"style": ["classic", "_classic_test_patch"], "html": "jshtml"}, "value": true},
+  {"op": "Animation._repr_html_", "args": {"style": ["classic", "_classic_test_patch"], "html": "none"}, "value": null},
+  {"op": "Animation.save", "args": {"style": ["classic", "_classic_test_patch"], "format": "gif", "frames": 0, "repeat": true}, "error": "IndexError"},
+  {
+   "op": "Animation.save",
+   "args": {"style": ["classic", "_classic_test_patch"], "format": "gif", "frames": 3, "repeat": false},
+   "value": {"frames": 3, "size": [800, 600], "durations": [200, 200, 200], "loop": 0}
+  },
+  {
+   "op": "Animation.save",
+   "args": {"style": ["classic", "_classic_test_patch"], "format": "gif", "frames": 5, "repeat": true},
+   "value": {"frames": 5, "size": [800, 600], "durations": [200, 200, 200, 200, 200], "loop": 0}
+  },
+  {
+   "op": "Animation.save",
+   "args": {"style": ["classic", "_classic_test_patch"], "format": "html", "frames": 3, "repeat": false},
+   "value": ["frame0000000.png", "frame0000001.png", "frame0000002.png"]
+  },
+  {
+   "op": "Animation.save",
+   "args": {"style": ["classic", "_classic_test_patch"], "format": "html", "frames": 5, "repeat": true},
+   "value": ["frame0000000.png", "frame0000001.png", "frame0000002.png", "frame0000003.png", "frame0000004.png"]
+  },
+  {"op": "Animation.save", "args": {"style": ["classic", "_classic_test_patch"], "format": "png", "frames": 0, "repeat": true}, "error": "IndexError"},
+  {
+   "op": "Animation.save",
+   "args": {"style": ["classic", "_classic_test_patch"], "format": "png", "frames": 3, "repeat": false},
+   "value": {"frames": 3, "size": [800, 600], "durations": [200.0, 200.0, 200.0], "loop": 0}
+  },
+  {
+   "op": "Animation.save",
+   "args": {"style": ["classic", "_classic_test_patch"], "format": "png", "frames": 5, "repeat": true},
+   "value": {"frames": 5, "size": [800, 600], "durations": [200.0, 200.0, 200.0, 200.0, 200.0], "loop": 0}
+  },
+  {"op": "Animation.save.frame_size", "args": {"style": ["classic", "_classic_test_patch"], "figsize": [1, 2.03], "dpi": 100}, "value": [100, 203]},
+  {"op": "Animation.save.invalid_path", "args": {"style": ["classic", "_classic_test_patch"], "format": "gif"}, "error": "FileNotFoundError"},
+  {"op": "Animation.save.invalid_path", "args": {"style": ["classic", "_classic_test_patch"], "format": "html"}, "value": null},
+  {"op": "Animation.save.transparent", "args": {"style": ["classic", "_classic_test_patch"]}, "value": 0},
+  {"op": "Animation.to_jshtml.embed_limit", "args": {"style": ["classic", "_classic_test_patch"], "frames": 1, "embed_limit": 1e-06}, "value": 0},
+  {"op": "Animation.to_jshtml.embed_limit", "args": {"style": ["classic", "_classic_test_patch"], "frames": 1, "embed_limit": 20.0}, "value": 1}
+ ]
+}

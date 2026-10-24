@@ -41,7 +41,7 @@ pub use range_slider::RangeSlider;
 pub use selectors::{
     EllipseSelector, Lasso, LassoSelector, ModifierKeys, PolygonSelector, PolygonSelectorOptions,
     RectangleSelector, RectangleSelectorOptions, SelectorError, SelectorEvent, SelectorState,
-    SelectorUnits, SpanSelector, SpanSelectorOptions,
+    SelectorUnits, SpanSelector, SpanSelectorOptions, UnknownState,
 };
 pub use slider::{HandleStyle, Orientation, Slider, SliderOptions, ValStep};
 pub use subplot_tool::SubplotTool;

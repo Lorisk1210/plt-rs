@@ -1,0 +1,18 @@
+{
+ "area": "mpl_agg",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Figure.savefig.gif", "args": {"style": ["classic", "_classic_test_patch"], "transparent": false}, "value": {"mode": "P", "min_alpha": 255}},
+  {"op": "Figure.savefig.gif", "args": {"style": ["classic", "_classic_test_patch"], "transparent": true}, "value": {"mode": "P", "min_alpha": 0}},
+  {"op": "Figure.savefig.jpeg", "args": {"style": ["classic", "_classic_test_patch"], "dpi": 200}, "value": [200, 200]},
+  {
+   "op": "Figure.savefig.pixel",
+   "args": {"style": ["classic", "_classic_test_patch"], "figsize": [1, 0.4], "facecolor": [0, 1, 0.4], "alpha": 0.25},
+   "value": [0, 255, 102, 64]
+  },
+  {"op": "Figure.savefig.too_large", "args": {"style": ["classic", "_classic_test_patch"], "figsize": [300, 33554432]}, "error": "ValueError"},
+  {"op": "Figure.savefig.webp", "args": {"style": ["classic", "_classic_test_patch"], "transparent": false}, "value": "RGB"},
+  {"op": "Figure.savefig.webp", "args": {"style": ["classic", "_classic_test_patch"], "transparent": true}, "value": "RGBA"},
+  {"op": "FigureCanvasAgg.buffer_rgba", "args": {"style": ["classic", "_classic_test_patch"], "figsize": [1, 2.03], "dpi": 100}, "value": [203, 100, 4]}
+ ]
+}

@@ -422,6 +422,18 @@ impl SpanSelector {
         shared.core.selection_completed = true;
     }
 
+    /// The values the edges snap to, if any (matplotlib's
+    /// `snap_values`).
+    pub fn snap_values(&self) -> Option<Vec<f64>> {
+        self.driver.shared.borrow().tool.snap_values.clone()
+    }
+
+    /// Snaps the edges to `values` from now on, or not at all with `None`
+    /// (matplotlib's `snap_values` attribute).
+    pub fn set_snap_values(&self, values: Option<Vec<f64>>) {
+        self.driver.shared.borrow_mut().tool.snap_values = values;
+    }
+
     /// The direction spans are selected along.
     pub fn direction(&self) -> Orientation {
         self.driver.shared.borrow().tool.direction
@@ -558,5 +570,27 @@ mod tests {
             span.add_state(SelectorState::Square),
             Err(SelectorError::UnsupportedState(SelectorState::Square))
         );
+    }
+
+    #[test]
+    fn snap_values_and_states_can_change() {
+        let (_fig, ax) = axes();
+        let options = SpanSelectorOptions {
+            snap_values: Some(vec![0.0, 4.0, 8.0]),
+            ..SpanSelectorOptions::default()
+        };
+        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
+        assert!(!span.selection_completed());
+        span.set_extents((1.0, 7.0));
+        assert_eq!(span.extents(), (0.0, 8.0));
+        assert!(span.selection_completed());
+        span.set_snap_values(None);
+        assert_eq!(span.snap_values(), None);
+        span.set_extents((1.0, 7.0));
+        assert_eq!(span.extents(), (1.0, 7.0));
+        span.add_state(SelectorState::Move).unwrap();
+        assert_eq!(span.states(), [SelectorState::Move]);
+        span.clear();
+        assert!(!span.selection_completed());
     }
 }

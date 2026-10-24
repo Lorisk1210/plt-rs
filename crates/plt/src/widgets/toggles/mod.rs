@@ -160,6 +160,28 @@ impl CheckButtons {
         Some(())
     }
 
+    /// The labels of the checked boxes (matplotlib's
+    /// `get_checked_labels`).
+    pub fn checked_labels(&self) -> Vec<String> {
+        self.column
+            .labels
+            .iter()
+            .zip(self.states.iter())
+            .filter(|(_, state)| state.get())
+            .map(|(label, _)| label.text())
+            .collect()
+    }
+
+    /// Unchecks every box and runs the callbacks without a label
+    /// (matplotlib's `clear`).
+    pub fn clear(&self) {
+        for state in self.states.iter() {
+            state.set(false);
+        }
+        show_checks(&self.checks, &self.states, &self.active_colors.borrow());
+        self.clicked.process(&None);
+    }
+
     /// The labels.
     pub fn labels(&self) -> &[Text] {
         &self.column.labels
@@ -214,6 +236,8 @@ pub struct RadioButtons {
     column: Rc<ButtonColumn>,
     buttons: Collection,
     selected: Rc<Cell<usize>>,
+    /// The button selected at first (matplotlib's `_initial_active`).
+    initial: usize,
     /// The fill of each button when selected (matplotlib's
     /// `_active_colors`).
     active_colors: Rc<RefCell<Vec<Color>>>,
@@ -294,6 +318,7 @@ impl RadioButtons {
             column,
             buttons,
             selected,
+            initial: active,
             active_colors,
             clicked,
             _connections: connections,
@@ -318,6 +343,18 @@ impl RadioButtons {
         show_selection(&self.buttons, &self.active_colors.borrow(), index);
         self.clicked.process(&label);
         Some(())
+    }
+
+    /// Selects the button selected at first again and runs the callbacks
+    /// with its label (matplotlib's `clear`).
+    pub fn clear(&self) {
+        // The initial button exists: the widget was built with it.
+        self.set_active(self.initial);
+    }
+
+    /// The round button markers (matplotlib's `_buttons`).
+    pub fn buttons(&self) -> &Collection {
+        &self.buttons
     }
 
     /// The labels.
@@ -454,5 +491,26 @@ mod tests {
                 labels: 3
             })
         );
+    }
+
+    #[test]
+    fn clearing_unchecks_and_reselects() {
+        let fig = Figure::new();
+        let check = CheckButtons::new(&fig.subplot(), &["a", "b", "c"], &[true, false, true]);
+        let clicks = Rc::new(RefCell::new(Vec::new()));
+        let seen = Rc::clone(&clicks);
+        check.on_clicked(move |label| seen.borrow_mut().push(label.map(str::to_owned)));
+        assert_eq!(check.checked_labels(), ["a", "c"]);
+        check.clear();
+        assert_eq!(check.status(), [false, false, false]);
+        assert_eq!(check.checked_labels(), Vec::<String>::new());
+        assert_eq!(*clicks.borrow(), [None], "cleared without a label");
+
+        let radio = RadioButtons::new(&fig.subplot(), &["x", "y"], 0);
+        radio.set_active(1).unwrap();
+        radio.clear();
+        assert_eq!(radio.value_selected(), "x");
+        let faces = radio.buttons().colors().unwrap().faces;
+        assert_eq!(faces[1], plt_core::Rgba::TRANSPARENT);
     }
 }

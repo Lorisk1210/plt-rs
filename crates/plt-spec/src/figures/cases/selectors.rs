@@ -6,7 +6,6 @@ use plt::markers::MarkerSymbol;
 use plt::navigation::PointerButton;
 use plt::patches::PatchProps;
 use plt::prelude::*;
-use plt::transforms::Point;
 use plt::widgets::{
     Cursor, CursorOptions, EllipseSelector, Lasso, LassoSelector, MultiCursor, Orientation,
     PolygonSelector, PolygonSelectorOptions, RectangleSelector, RectangleSelectorOptions,
@@ -29,21 +28,6 @@ fn plot(ax: &Axes) -> CaseResult {
     Ok(())
 }
 
-/// Where data point `(x, y)` of `ax` is, as matplotlib's synthetic events
-/// say (`_from_ax_coords`): over `ax`, at exactly those data coordinates,
-/// and at whole pixels (`LocationEvent` truncates them).
-fn location(ax: &Axes, (x, y): (f64, f64)) -> Result<Location, Box<dyn std::error::Error>> {
-    let trans = ax.figure().resolve_transform(&ax.trans_data())?;
-    let at = trans.transform_point(Point::new(x, y));
-    Ok(Location {
-        x: at.x.trunc(),
-        y: at.y.trunc(),
-        inaxes: Some(ax.clone()),
-        xdata: Some(x),
-        ydata: Some(y),
-    })
-}
-
 /// A mouse event at data point `xy` of `ax` with `button` involved.
 fn mouse(
     ax: &Axes,
@@ -51,7 +35,7 @@ fn mouse(
     button: Option<PointerButton>,
 ) -> Result<MouseEvent, Box<dyn std::error::Error>> {
     Ok(MouseEvent {
-        location: location(ax, xy)?,
+        location: Location::from_ax_coords(ax, xy)?,
         button,
         key: None,
         step: 0.0,
@@ -88,7 +72,7 @@ fn release(ax: &Axes, xy: (f64, f64), button: PointerButton) -> CaseResult {
 /// A key event for `key` at data point `xy` of `ax`.
 fn key_event(ax: &Axes, xy: (f64, f64), key: &str) -> Result<KeyEvent, Box<dyn std::error::Error>> {
     Ok(KeyEvent {
-        location: location(ax, xy)?,
+        location: Location::from_ax_coords(ax, xy)?,
         key: key.to_owned(),
     })
 }

@@ -192,6 +192,17 @@ impl RangeSlider {
         }
     }
 
+    /// The patch between the ends (matplotlib's `poly`).
+    pub fn poly(&self) -> &Patch<Polygon> {
+        &self.parts.poly
+    }
+
+    /// The handles at the lower and the upper end (matplotlib's
+    /// `_handles`).
+    pub fn handles(&self) -> &[Line2D; 2] {
+        &self.parts.handles
+    }
+
     /// The label.
     pub fn label(&self) -> &Text {
         &self.label
@@ -239,6 +250,10 @@ mod tests {
         );
         slider.set_val((1.5, -1.0));
         assert_eq!(slider.val(), (0.0, 1.0));
+        let ends: Vec<f64> = slider.handles().iter().map(|h| h.xdata()[0]).collect();
+        assert_eq!(ends, [0.0, 1.0]);
+        let corners = slider.poly().shape().vertices().to_vec();
+        assert_eq!((corners[0].x, corners[2].x), (0.0, 1.0));
         slider.reset();
         assert_eq!(slider.val(), (0.2, 0.7));
     }

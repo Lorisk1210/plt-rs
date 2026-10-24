@@ -410,4 +410,34 @@ mod tests {
             "beyond 45° is ignored"
         );
     }
+
+    #[test]
+    fn states_follow_keys_and_names() {
+        let (fig, ax) = axes();
+        let options = RectangleSelectorOptions {
+            interactive: true,
+            ..RectangleSelectorOptions::default()
+        };
+        let selector = RectangleSelector::new(&ax, options);
+        drag(&fig, (2.0, 2.0), (6.0, 5.0), None);
+        assert!(selector.selection_completed());
+        let mut source = EventSource::new();
+        source.key_press(&fig, "r", 0.0, 0.0);
+        assert_eq!(selector.states(), [SelectorState::Rotate]);
+        source.key_press(&fig, "r", 0.0, 0.0);
+        assert!(selector.states().is_empty(), "the rotate key toggles");
+        for name in ["center", "square"] {
+            selector.add_state(name.parse().unwrap()).unwrap();
+        }
+        assert_eq!(
+            selector.states(),
+            [SelectorState::Square, SelectorState::Center]
+        );
+        assert_eq!(
+            "clear".parse::<SelectorState>(),
+            Err(crate::widgets::UnknownState("clear".into()))
+        );
+        selector.clear();
+        assert!(!selector.selection_completed() && !selector.visible());
+    }
 }

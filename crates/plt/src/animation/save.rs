@@ -14,6 +14,9 @@ use super::{
 };
 use crate::figure::SaveError;
 
+/// The loop count of an animation file that plays forever.
+const LOOP_FOREVER: u16 = 0;
+
 impl FuncAnimation {
     /// Writes the animation to `path` in the format its extension names
     /// (matplotlib's `Animation.save`): `.png` or `.apng` for an animated
@@ -45,8 +48,9 @@ impl FuncAnimation {
     }
 
     /// Renders every saved frame and encodes them as an animated PNG
-    /// showing each frame for one interval, looping if the animation
-    /// repeats.
+    /// showing each frame for one interval and looping forever (as
+    /// matplotlib's `PillowWriter` saves them, whether the animation
+    /// repeats or not).
     ///
     /// # Errors
     ///
@@ -67,7 +71,6 @@ impl FuncAnimation {
             .collect::<Result<Vec<_>, EncodeError>>()
             .map_err(AnimationError::Encode)?;
         AnimatedEncoder::new()
-            .plays(u32::from(self.plays_once()))
             .encode(&frames)
             .map_err(AnimationError::Encode)
     }
@@ -84,7 +87,8 @@ impl FuncAnimation {
     /// Renders every saved frame and encodes them as an animated GIF
     /// (matplotlib's `PillowWriter`): one palette of at most 256 colours,
     /// each frame shown for `int(1000 / fps)` milliseconds rounded down to
-    /// hundredths of a second, looping if the animation repeats.
+    /// hundredths of a second, looping forever (Pillow's `loop=0`, whether
+    /// the animation repeats or not).
     ///
     /// # Errors
     ///
@@ -105,7 +109,6 @@ impl FuncAnimation {
         };
         let (width, height) = image_size(first);
         GifEncoder::new()
-            .plays(u16::from(self.plays_once()))
             .encode(width, height, &frames)
             .map_err(AnimationError::Gif)
     }
@@ -120,8 +123,9 @@ impl FuncAnimation {
     }
 
     /// Renders every saved frame and encodes them as a lossless animated
-    /// WebP showing each frame for one interval, looping if the animation
-    /// repeats.
+    /// WebP showing each frame for one interval and looping forever (as
+    /// matplotlib's `PillowWriter` saves them, whether the animation
+    /// repeats or not).
     ///
     /// # Errors
     ///
@@ -144,7 +148,7 @@ impl FuncAnimation {
             })
             .collect();
         let (width, height) = images.first().map_or((0, 0), image_size);
-        webp::encode_animation_rgba8(width, height, &frames, u16::from(self.plays_once()))
+        webp::encode_animation_rgba8(width, height, &frames, LOOP_FOREVER)
             .map_err(AnimationError::Webp)
     }
 
@@ -165,11 +169,6 @@ impl FuncAnimation {
             Ok(())
         })?;
         Ok(images)
-    }
-
-    /// Whether the saved animation plays once rather than looping.
-    fn plays_once(&self) -> bool {
-        !self.player.borrow().options.repeat
     }
 }
 
@@ -249,13 +248,22 @@ mod tests {
     }
 
     #[test]
-    fn single_runs_do_not_loop() {
+    fn files_loop_forever_even_without_repetition() {
         let once = AnimationOptions {
             repeat: false,
             ..AnimationOptions::default()
         };
-        let gif = animation(once).to_gif().unwrap();
-        assert!(!gif.windows(11).any(|w| w == b"NETSCAPE2.0"));
+        let anim = animation(once);
+        let gif = anim.to_gif().unwrap();
+        let netscape = gif.windows(11).position(|w| w == b"NETSCAPE2.0").unwrap();
+        assert_eq!(
+            &gif[netscape + 11..netscape + 15],
+            [3, 1, 0, 0],
+            "loop count 0"
+        );
+        let apng = anim.to_apng().unwrap();
+        let actl = apng.windows(4).position(|w| w == b"acTL").unwrap();
+        assert_eq!(&apng[actl + 8..actl + 12], [0, 0, 0, 0], "num_plays 0");
     }
 
     #[test]

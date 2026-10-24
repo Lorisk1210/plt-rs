@@ -3,7 +3,7 @@
 //! picking.
 
 use plt::artist::{ArtistHandle, Picker};
-use plt::axes::{Axes, ScatterOptions};
+use plt::axes::{Axes, ProjectionKind, ScatterOptions};
 use plt::events::{Location, MouseEvent};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
 
@@ -143,20 +143,22 @@ pub(super) fn subplot_mosaic(args: Args<'_>) -> Outcome {
             other => return Err(ProbeError::BadArgs(format!("bad mosaic {other}"))),
         };
         let ratios = |key: &str| args.get(key).map(|_| args.f64_vec(key)).transpose();
-        let polar_labels = args
+        let per_subplot = args
             .get("per_subplot_kw")
             .and_then(Json::as_object)
             .unwrap_or(&[])
             .iter()
-            .filter(|(_, kw)| kw.get("projection").and_then(Json::as_str) == Some("polar"))
-            .map(|(label, _)| label.clone())
+            .filter_map(|(label, kw)| {
+                let kind = ProjectionKind::from_name(kw.get("projection")?.as_str()?)?;
+                Some((label.clone(), kind.into()))
+            })
             .collect();
         let options = MosaicOptions {
             width_ratios: ratios("width_ratios")?,
             height_ratios: ratios("height_ratios")?,
             sharex: args.opt_bool("sharex")?.unwrap_or(false),
             sharey: args.opt_bool("sharey")?.unwrap_or(false),
-            polar_labels,
+            per_subplot,
             ..MosaicOptions::default()
         };
         let fig = Figure::new();

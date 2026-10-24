@@ -7,9 +7,11 @@
 //!
 //! * in [`NavMode::Pan`], the left button drags the view and the right
 //!   button zooms around the pointer (polar axes rotate their radial
-//!   labels or scale the radius instead);
+//!   labels or scale the radius instead, and a
+//!   [`Projection`](crate::projections::Projection) may pan its axes
+//!   itself);
 //! * in [`NavMode::Zoom`], dragging a rectangle zooms into it (left
-//!   button) or out of it (right button);
+//!   button) or out of it (right button), as a projection may decide;
 //! * on 3-D axes, outside the toolbar modes, the left button rotates the
 //!   view, the middle one pans and the right one zooms (matplotlib's
 //!   `Axes3D.mouse_init`); the pan mode pans them and the zoom mode zooms
@@ -31,7 +33,7 @@ use plt_core::{Bbox, Point};
 
 use self::history::ViewStack;
 use self::orbit::Orbit;
-use self::pan::PanStart;
+use self::pan::PanState;
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::events::{LockError, LockOwner};
@@ -80,6 +82,18 @@ pub enum DragKey {
     Shift,
 }
 
+/// Which way a zoom acts (matplotlib's `direction` of
+/// `_set_view_from_bbox`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ZoomDirection {
+    /// The box becomes the view (the left button, or the wheel turned
+    /// forward).
+    In,
+    /// The view shrinks into the box (the right button, or the wheel
+    /// turned back).
+    Out,
+}
+
 /// The zoom rectangle to show while dragging, in display coordinates.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rubberband {
@@ -93,7 +107,7 @@ enum Drag {
     /// Panning the axes, each with its starting state.
     Pan {
         button: PointerButton,
-        axes: Vec<(Axes, PanStart)>,
+        axes: Vec<(Axes, PanState)>,
     },
     /// Zooming to a rectangle started at `start`.
     Zoom {
@@ -226,7 +240,7 @@ impl Navigation {
         } else {
             let axes = axes
                 .into_iter()
-                .filter_map(|ax| PanStart::new(&ax, at, button).map(|start| (ax, start)))
+                .filter_map(|ax| PanState::new(&ax, at, button).map(|start| (ax, start)))
                 .collect();
             Drag::Pan { button, axes }
         });
@@ -285,7 +299,13 @@ impl Navigation {
     /// interaction and records the new view.
     pub fn release(&mut self, figure: &Figure, at: Point, key: DragKey) {
         match self.drag.take() {
-            Some(Drag::Pan { .. } | Drag::Orbit(_)) => self.history.push(figure),
+            Some(Drag::Pan { axes, .. }) => {
+                for (ax, pan) in &axes {
+                    pan.end(ax);
+                }
+                self.history.push(figure);
+            }
+            Some(Drag::Orbit(_)) => self.history.push(figure),
             Some(Drag::Zoom3D {
                 button,
                 start,

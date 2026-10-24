@@ -6,6 +6,7 @@ use std::str::FromStr;
 use super::Figure;
 use crate::axes::{Axes, AxisName};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides};
+use crate::projections::{ProjectionError, ProjectionSpec};
 
 /// One cell of a [`Mosaic`].
 #[derive(Clone, Debug, PartialEq)]
@@ -70,16 +71,29 @@ pub struct MosaicOptions {
     pub sharex: bool,
     /// Share the y axis of every axes with the first one.
     pub sharey: bool,
-    /// Make every axes polar (matplotlib's
-    /// `subplot_kw={"projection": "polar"}`).
-    pub polar: bool,
-    /// Labels of axes made polar, the others staying rectilinear
-    /// (matplotlib's `per_subplot_kw={label: {"projection": "polar"}}`).
-    pub polar_labels: Vec<String>,
+    /// The projection of every axes, with its options (matplotlib's
+    /// `subplot_kw={"projection": ..., **options}`); rectilinear by
+    /// default.
+    pub projection: ProjectionSpec,
+    /// The projections of the axes with these labels, in place of
+    /// [`projection`](Self::projection) (matplotlib's
+    /// `per_subplot_kw={label: {"projection": ..., **options}}`).
+    pub per_subplot: Vec<(String, ProjectionSpec)>,
     /// The margins and spacing of the outer grid (matplotlib's
     /// `gridspec_kw` `left`, `right`, `bottom`, `top`, `wspace` and
     /// `hspace`).
     pub gridspec: SubplotOverrides,
+}
+
+impl MosaicOptions {
+    /// The projection of the axes labelled `label`.
+    fn projection_of(&self, label: &str) -> ProjectionSpec {
+        self.per_subplot
+            .iter()
+            .find(|(name, _)| name == label)
+            .map_or(&self.projection, |(_, projection)| projection)
+            .clone()
+    }
 }
 
 /// The axes of a mosaic, by label, in creation order.
@@ -114,7 +128,7 @@ impl MosaicAxes {
 }
 
 /// Why a mosaic cannot be laid out.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MosaicError {
     /// The mosaic has no rows or no columns.
     Empty,
@@ -135,6 +149,8 @@ pub enum MosaicError {
     UnknownLabel(String),
     /// The grid itself is invalid (for example mismatched ratios).
     Grid(GridSpecError),
+    /// Axes cannot be made with a projection the options ask for.
+    Projection(ProjectionError),
 }
 
 impl fmt::Display for MosaicError {
@@ -152,6 +168,7 @@ impl fmt::Display for MosaicError {
             Self::Duplicate(label) => write!(f, "the label {label:?} appears more than once"),
             Self::UnknownLabel(label) => write!(f, "the label {label:?} is not in the mosaic"),
             Self::Grid(err) => err.fmt(f),
+            Self::Projection(err) => err.fmt(f),
         }
     }
 }
@@ -161,6 +178,15 @@ impl std::error::Error for MosaicError {}
 impl From<GridSpecError> for MosaicError {
     fn from(err: GridSpecError) -> Self {
         Self::Grid(err)
+    }
+}
+
+impl From<ProjectionError> for MosaicError {
+    fn from(err: ProjectionError) -> Self {
+        match err {
+            ProjectionError::Grid(err) => Self::Grid(err),
+            err => Self::Projection(err),
+        }
     }
 }
 
@@ -322,21 +348,45 @@ impl Figure {
     /// # Ok::<(), plt::figure::MosaicError>(())
     /// ```
     ///
+    /// Axes of registered projections, with options, go per label:
+    ///
+    /// ```
+    /// use plt::axes::ProjectionKind;
+    /// use plt::figure::{Figure, Mosaic, MosaicOptions};
+    /// let options = MosaicOptions {
+    ///     projection: ProjectionKind::Polar.into(),
+    ///     per_subplot: vec![("C".into(), ProjectionKind::Mollweide.into())],
+    ///     ..MosaicOptions::default()
+    /// };
+    /// let axes = Figure::new().subplot_mosaic(&"AB;CC".parse::<Mosaic>()?, options)?;
+    /// let kinds: Vec<&str> = axes.iter().map(|(_, ax)| ax.projection().name()).collect();
+    /// assert_eq!(kinds, ["polar", "polar", "mollweide"]);
+    /// # Ok::<(), plt::figure::MosaicError>(())
+    /// ```
+    ///
     /// # Errors
     ///
     /// When a label covers a non-rectangular area or appears twice, the
-    /// ratios do not match the grid, or a polar label is not in the mosaic.
+    /// ratios do not match the grid, a label of
+    /// [`per_subplot`](MosaicOptions::per_subplot) is not in the mosaic, or
+    /// axes cannot be made with a projection the options ask for
+    /// (as [`Figure::subplots_on_with_projection`]: unknown projections and
+    /// options add no axes).
     pub fn subplot_mosaic(
         &self,
         mosaic: &Mosaic,
         options: MosaicOptions,
     ) -> Result<MosaicAxes, MosaicError> {
-        if let Some(label) = options
-            .polar_labels
+        if let Some((label, _)) = options
+            .per_subplot
             .iter()
-            .find(|label| !mosaic.contains(label))
+            .find(|(label, _)| !mosaic.contains(label))
         {
             return Err(MosaicError::UnknownLabel(label.clone()));
+        }
+        options.projection.check()?;
+        for (_, projection) in &options.per_subplot {
+            projection.check()?;
         }
         let (rows, cols) = mosaic.shape();
         let grid = GridSpec::with_ratios(
@@ -377,14 +427,8 @@ impl Figure {
                         return Err(MosaicError::Duplicate(label.to_owned()));
                     }
                     let spec = grid.span(rows, cols)?;
-                    let polar =
-                        options.polar || options.polar_labels.iter().any(|polar| polar == label);
-                    let ax = if polar {
-                        let polar_axes = self.add_polar_subplot_spec(&spec)?;
-                        Axes::clone(&polar_axes)
-                    } else {
-                        self.add_subplot_spec(&spec)?
-                    };
+                    let ax =
+                        self.add_subplot_spec_with_projection(&spec, options.projection_of(label))?;
                     entries.push((label.to_owned(), ax));
                 }
                 Region::Nested { row, col, inner } => {
@@ -482,7 +526,7 @@ mod tests {
     fn labelled_axes_turn_polar_and_the_grid_takes_its_margins() {
         let fig = Figure::new();
         let options = MosaicOptions {
-            polar_labels: vec!["B".into()],
+            per_subplot: vec![("B".into(), ProjectionKind::Polar.into())],
             gridspec: SubplotOverrides {
                 left: Some(0.6),
                 right: Some(0.95),
@@ -503,11 +547,11 @@ mod tests {
     }
 
     #[test]
-    fn polar_labels_must_be_in_the_mosaic() {
+    fn per_subplot_labels_must_be_in_the_mosaic() {
         // matplotlib's test_extra_per_subplot_kw.
         let fig = Figure::new();
         let options = MosaicOptions {
-            polar_labels: vec!["B".into()],
+            per_subplot: vec![("B".into(), ProjectionKind::Polar.into())],
             ..MosaicOptions::default()
         };
         assert_eq!(
@@ -517,5 +561,34 @@ mod tests {
         assert!(fig.axes().is_empty(), "no axes is made");
         let nested = "AB".parse::<Mosaic>().unwrap();
         assert!(nested.contains("B") && !nested.contains("C"));
+    }
+
+    #[test]
+    fn projections_the_mosaic_cannot_make_add_no_axes() {
+        let fig = Figure::new();
+        let mosaic = "AB".parse::<Mosaic>().unwrap();
+        let unknown = MosaicOptions {
+            per_subplot: vec![("B".into(), ProjectionKind::Registered("nowhere").into())],
+            ..MosaicOptions::default()
+        };
+        assert_eq!(
+            fig.subplot_mosaic(&mosaic, unknown),
+            Err(MosaicError::Projection(ProjectionError::Unknown(
+                "nowhere".into()
+            )))
+        );
+        let with_options = MosaicOptions {
+            projection: ProjectionKind::Hammer.with_options(1.0),
+            ..MosaicOptions::default()
+        };
+        assert!(matches!(
+            fig.subplot_mosaic(&mosaic, with_options),
+            Err(MosaicError::Projection(ProjectionError::Options { .. }))
+        ));
+        assert_eq!(fig.axes(), []);
+        assert_eq!(
+            MosaicError::from(ProjectionError::Grid(GridSpecError::EmptyGrid)),
+            MosaicError::Grid(GridSpecError::EmptyGrid)
+        );
     }
 }

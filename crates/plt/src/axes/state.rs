@@ -18,6 +18,7 @@ use crate::colors::Color;
 use crate::geo::GeoState;
 use crate::gridspec::SubplotSpec;
 use crate::polar::{PolarState, PolarView};
+use crate::projections::SharedOptions;
 use crate::rc::{AxisBelow, Cycler, RcParams};
 use crate::scale::ScaleName;
 use crate::spines::SpineSide;
@@ -44,6 +45,9 @@ pub(crate) struct AxesState {
     pub(crate) subplot_spec: Option<SubplotSpec>,
     /// The coordinate system.
     pub(crate) projection: ProjectionState,
+    /// The options a registered projection was made with, if any
+    /// (matplotlib's `_projection_init`).
+    pub(crate) projection_options: Option<SharedOptions>,
     /// Visible data range; `x0 > x1` means an inverted axis.
     pub(crate) view_lim: Bbox,
     /// Whether the view limits differ from the initial unit box
@@ -194,6 +198,7 @@ impl AxesState {
             axes_locator: None,
             subplot_spec: None,
             projection: ProjectionState::Rectilinear,
+            projection_options: None,
             view_lim: Bbox::UNIT,
             view_mutated: (false, false),
             data_lim: DataLimits::default(),

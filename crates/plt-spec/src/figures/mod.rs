@@ -14,6 +14,7 @@ use plt::figure::Figure;
 
 use crate::json::Json;
 
+pub(crate) use cases::projections::{RangeFrame, RangeFrameOptions, register_range_frame};
 pub use facts::figure_facts;
 pub use pixels::{PixelArtifacts, PixelReport, pixel_artifacts, pixel_report, render_pixels};
 

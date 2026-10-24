@@ -15,7 +15,7 @@ use crate::figure::{
 use crate::gridspec::{GridSpecError, SubplotSpec};
 use crate::lines::Line2D;
 use crate::numeric::Grid;
-use crate::projections::ProjectionError;
+use crate::projections::{ProjectionError, ProjectionSpec};
 use crate::units::AxisValues;
 
 /// A new current figure with a grid of axes (matplotlib's `subplots`).
@@ -41,6 +41,35 @@ pub fn subplots_shared(
 ) -> Result<(Figure, Grid<Axes>), GridSpecError> {
     let fig = figure();
     let axes = fig.subplots_shared(nrows, ncols, sharex, sharey)?;
+    Ok((fig, axes))
+}
+
+/// A new current figure with a grid of axes with `projection`, sharing
+/// their x and y axes as requested (matplotlib's `subplots(sharex=...,
+/// sharey=..., subplot_kw={"projection": ..., **options})`).
+///
+/// ```
+/// use ::plt::axes::ProjectionKind;
+/// use ::plt::figure::Share;
+/// use plt::pyplot as plt;
+/// let (fig, axs) = plt::subplots_with_projection(2, 1, Share::None, Share::None, ProjectionKind::Polar)?;
+/// assert_eq!((plt::gcf(), axs[(1, 0)].projection()), (fig, ProjectionKind::Polar));
+/// plt::close_all();
+/// # Ok::<(), ::plt::projections::ProjectionError>(())
+/// ```
+///
+/// # Errors
+///
+/// As [`Figure::subplots_with_projection`].
+pub fn subplots_with_projection(
+    nrows: usize,
+    ncols: usize,
+    sharex: Share,
+    sharey: Share,
+    projection: impl Into<ProjectionSpec>,
+) -> Result<(Figure, Grid<Axes>), ProjectionError> {
+    let fig = figure();
+    let axes = fig.subplots_with_projection(nrows, ncols, sharex, sharey, projection)?;
     Ok((fig, axes))
 }
 
@@ -105,10 +134,11 @@ pub fn subplot(nrows: usize, ncols: usize, index: usize) -> Result<Axes, GridSpe
 }
 
 /// The axes with `projection` in cell `index` (1-based, row-major) of an
-/// `nrows × ncols` grid of the current figure: one already there if it has
-/// that projection, else a new one, leaving any other in place
-/// (matplotlib's `subplot(nrows, ncols, index, projection=...)` and
-/// `polar=True`); it becomes the current axes.
+/// `nrows × ncols` grid of the current figure: one already there if it was
+/// made with that projection and the same options, else a new one,
+/// leaving any other in place (matplotlib's `subplot(nrows, ncols, index,
+/// projection=..., **options)` and `polar=True`); it becomes the current
+/// axes.
 ///
 /// ```
 /// use ::plt::axes::ProjectionKind;
@@ -130,11 +160,12 @@ pub fn subplot_with_projection(
     nrows: usize,
     ncols: usize,
     index: usize,
-    projection: ProjectionKind,
+    projection: impl Into<ProjectionSpec>,
 ) -> Result<Axes, ProjectionError> {
+    let projection = projection.into();
     let fig = gcf();
     let spec = fig.numbered_cell(nrows, ncols, index)?;
-    let ax = match cell_axes(&fig, &spec, Some(projection)) {
+    let ax = match cell_axes(&fig, &spec, Some(&projection)) {
         Some(ax) => ax,
         None => fig.add_subplot_spec_with_projection(&spec, projection)?,
     };
@@ -142,12 +173,16 @@ pub fn subplot_with_projection(
     Ok(ax)
 }
 
-/// The first axes of `fig` in the cell `spec` with `projection` (any
+/// The first axes of `fig` in the cell `spec` made with `projection` (any
 /// projection for `None`).
-fn cell_axes(fig: &Figure, spec: &SubplotSpec, projection: Option<ProjectionKind>) -> Option<Axes> {
+fn cell_axes(
+    fig: &Figure,
+    spec: &SubplotSpec,
+    projection: Option<&ProjectionSpec>,
+) -> Option<Axes> {
     fig.axes().into_iter().find(|ax| {
         ax.subplot_spec().as_ref() == Some(spec)
-            && projection.is_none_or(|projection| ax.projection() == projection)
+            && projection.is_none_or(|projection| ax.made_with() == *projection)
     })
 }
 
@@ -255,7 +290,7 @@ pub fn axes(rect: Option<[f64; 4]>) -> Result<Axes, AxesRectError> {
 /// [`Figure::subplot_with_projection`].
 pub fn axes_with_projection(
     rect: Option<[f64; 4]>,
-    projection: ProjectionKind,
+    projection: impl Into<ProjectionSpec>,
 ) -> Result<Axes, ProjectionError> {
     let fig = gcf();
     match rect {

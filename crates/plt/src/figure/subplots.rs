@@ -13,6 +13,7 @@ use crate::axes::{Axes, AxesState, AxisName};
 use crate::fonts::FontProperties;
 use crate::gridspec::{GridSpec, GridSpecError, SubplotSpec};
 use crate::numeric::Grid;
+use crate::projections::{ProjectionError, ProjectionSpec};
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::spines::{SpineArtist, SpineSide};
 use crate::text::TextArtist;
@@ -246,14 +247,75 @@ impl Figure {
         Self::subplots_made(grid, sharex, sharey, |spec| self.add_subplot_spec(spec))
     }
 
-    /// One axes made by `make` per cell of `grid`, sharing axes as
-    /// requested; see [`subplots_on`](Self::subplots_on).
-    pub(crate) fn subplots_made(
+    /// A grid of axes with `projection`, sharing their x and y axes as
+    /// requested (matplotlib's `fig.subplots(nrows, ncols, sharex=...,
+    /// sharey=..., subplot_kw={"projection": ..., **options})`); see
+    /// [`subplots_on_with_projection`](Self::subplots_on_with_projection).
+    ///
+    /// ```
+    /// use plt::axes::ProjectionKind;
+    /// use plt::figure::{Figure, Share};
+    /// let fig = Figure::new();
+    /// let maps = fig.subplots_with_projection(1, 2, Share::None, Share::None, ProjectionKind::Hammer)?;
+    /// assert!(maps.as_slice().iter().all(|ax| ax.projection() == ProjectionKind::Hammer));
+    /// let nowhere = ProjectionKind::Registered("nowhere");
+    /// assert!(fig.subplots_with_projection(2, 2, Share::All, Share::All, nowhere).is_err());
+    /// assert_eq!(fig.axes().len(), 2);
+    /// # Ok::<(), plt::projections::ProjectionError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`subplots_on_with_projection`](Self::subplots_on_with_projection),
+    /// and [`ProjectionError::Grid`] when the grid has no cells.
+    pub fn subplots_with_projection(
+        &self,
+        nrows: usize,
+        ncols: usize,
+        sharex: Share,
+        sharey: Share,
+        projection: impl Into<ProjectionSpec>,
+    ) -> Result<Grid<Axes>, ProjectionError> {
+        let grid = GridSpec::new(nrows, ncols)?;
+        self.subplots_on_with_projection(&grid, sharex, sharey, projection)
+    }
+
+    /// One axes with `projection` per cell of `grid`, sharing axes as
+    /// requested (matplotlib's `GridSpec.subplots(subplot_kw=...)`). As in
+    /// [`subplots_on`](Self::subplots_on), the outer axes alone keep their
+    /// tick labels where axes share, unless their projection draws them
+    /// in a shape other than a rectangle.
+    ///
+    /// # Errors
+    ///
+    /// [`ProjectionError::Unknown`] for a projection not registered on this
+    /// thread and [`ProjectionError::Options`] for options it does not
+    /// take, before any axes is added; [`ProjectionError::SetUp`] when it
+    /// fails to set an axes up, which leaves the axes made before;
+    /// [`ProjectionError::Grid`] when the subplot parameters leave no room
+    /// for a cell.
+    pub fn subplots_on_with_projection(
+        &self,
         grid: &GridSpec,
         sharex: Share,
         sharey: Share,
-        make: impl Fn(&SubplotSpec) -> Result<Axes, GridSpecError>,
-    ) -> Result<Grid<Axes>, GridSpecError> {
+        projection: impl Into<ProjectionSpec>,
+    ) -> Result<Grid<Axes>, ProjectionError> {
+        let projection = projection.into();
+        projection.check()?;
+        Self::subplots_made(grid, sharex, sharey, |spec| {
+            self.add_subplot_spec_with_projection(spec, projection.clone())
+        })
+    }
+
+    /// One axes made by `make` per cell of `grid`, sharing axes as
+    /// requested; see [`subplots_on`](Self::subplots_on).
+    pub(crate) fn subplots_made<E: From<GridSpecError>>(
+        grid: &GridSpec,
+        sharex: Share,
+        sharey: Share,
+        make: impl Fn(&SubplotSpec) -> Result<Axes, E>,
+    ) -> Result<Grid<Axes>, E> {
         let (nrows, ncols) = grid.shape();
         let mut cells: Vec<Axes> = Vec::with_capacity(nrows * ncols);
         for row in 0..nrows {

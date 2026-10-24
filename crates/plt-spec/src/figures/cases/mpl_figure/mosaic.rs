@@ -2,6 +2,7 @@
 //! lists and strings, with nested mosaics, empty cells, polar axes and
 //! per-axes face colours.
 
+use plt::axes::ProjectionKind;
 use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicOptions};
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
@@ -44,7 +45,7 @@ pub(super) const CASES: &[FigureCase] = &[
     }),
     classic("mpl_figure/subplot_mosaic_subplot_kw_polar", |fig| {
         let options = MosaicOptions {
-            polar: true,
+            projection: ProjectionKind::Polar.into(),
             ..MosaicOptions::default()
         };
         fig.subplot_mosaic(&grid(&[&["1", "2"]])?, options)?;

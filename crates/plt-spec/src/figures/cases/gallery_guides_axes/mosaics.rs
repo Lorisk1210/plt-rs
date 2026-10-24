@@ -2,7 +2,7 @@
 //! ratios, grid margins, subfigures, polar and styled axes, nesting and
 //! sharing.
 
-use plt::axes::{HistPlotOptions, ImshowOptions, TickParams};
+use plt::axes::{HistPlotOptions, ImshowOptions, ProjectionKind, TickParams};
 use plt::figure::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 use plt::gridspec::SubplotOverrides;
 use plt::layout::LayoutEngine;
@@ -162,7 +162,7 @@ fn mosaic_11(fig: &Figure) -> CaseResult {
 
 fn mosaic_12(fig: &Figure) -> CaseResult {
     let options = MosaicOptions {
-        polar: true,
+        projection: ProjectionKind::Polar.into(),
         ..MosaicOptions::default()
     };
     identified(fig, &"AB".parse::<Mosaic>()?, &options)?;
@@ -173,7 +173,10 @@ fn mosaic_12(fig: &Figure) -> CaseResult {
 /// figure without layout.
 fn polar_mosaic(fig: &Figure, polar: &[&str]) -> Result<MosaicAxes, Box<dyn std::error::Error>> {
     let options = MosaicOptions {
-        polar_labels: polar.iter().map(|&label| label.to_owned()).collect(),
+        per_subplot: polar
+            .iter()
+            .map(|&label| (label.to_owned(), ProjectionKind::Polar.into()))
+            .collect(),
         ..MosaicOptions::default()
     };
     let axd = fig.subplot_mosaic(&"AB;CD".parse::<Mosaic>()?, options)?;
@@ -199,7 +202,7 @@ fn mosaic_14(fig: &Figure) -> CaseResult {
 
 fn mosaic_15(fig: &Figure) -> CaseResult {
     let options = MosaicOptions {
-        polar_labels: vec!["D".to_owned()],
+        per_subplot: vec![("D".to_owned(), ProjectionKind::Polar.into())],
         ..MosaicOptions::default()
     };
     fig.set_layout_engine(LayoutEngine::constrained())?;

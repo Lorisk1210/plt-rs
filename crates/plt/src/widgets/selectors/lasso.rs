@@ -104,6 +104,11 @@ impl LassoSelector {
     pub fn artist(&self) -> Line2D {
         self.driver.shared.borrow().tool.line.clone()
     }
+
+    /// Changes the curve's look (matplotlib's `set_props`).
+    pub fn set_props(&self, props: LineProps) {
+        self.driver.shared.borrow().tool.line.update_props(props);
+    }
 }
 
 /// The state of a [`Lasso`] while it is drawn.
@@ -255,5 +260,15 @@ mod tests {
         assert_eq!(*seen.borrow(), [5, 5]);
         assert!(!selector.artist().visible());
         assert!(!lasso.line().raw().is_alive(), "the lasso removed itself");
+    }
+
+    #[test]
+    fn lasso_selectors_restyle_their_curve() {
+        let ax = Figure::new().subplot();
+        let selector = LassoSelector::new(&ax, LineProps::default().color("b"), None);
+        selector.set_props(LineProps::default().color("r").alpha(0.3));
+        let line = selector.artist();
+        assert_eq!(line.color(), "r".into());
+        assert_eq!(line.alpha(), Some(0.3));
     }
 }

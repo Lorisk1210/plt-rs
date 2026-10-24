@@ -265,6 +265,18 @@ impl TextBox {
         self.entry.submitted.process(&value.to_owned());
     }
 
+    /// Starts editing: key presses go to the box (matplotlib's
+    /// `begin_typing`).
+    pub fn begin_typing(&self) {
+        self.entry.begin_typing();
+    }
+
+    /// Stops editing; when it was editing, hides the cursor and runs the
+    /// submit callbacks (matplotlib's `stop_typing`).
+    pub fn stop_typing(&self) {
+        self.entry.stop_typing();
+    }
+
     /// The label.
     pub fn label(&self) -> &Text {
         &self.label
@@ -361,5 +373,20 @@ mod tests {
             (x - text.x0()).abs() < 1e-9,
             "the cursor stays at the start"
         );
+    }
+
+    #[test]
+    fn stopping_to_type_submits_once() {
+        let fig = Figure::new();
+        let tool = TextBox::new(&fig.subplot(), "", "x", TextBoxOptions::default());
+        let submits = Rc::new(RefCell::new(Vec::new()));
+        let seen = Rc::clone(&submits);
+        tool.on_submit(move |text| seen.borrow_mut().push(text.to_owned()));
+        tool.stop_typing();
+        assert!(submits.borrow().is_empty(), "not typing: nothing to submit");
+        tool.begin_typing();
+        tool.stop_typing();
+        tool.stop_typing();
+        assert_eq!(*submits.borrow(), ["x"]);
     }
 }

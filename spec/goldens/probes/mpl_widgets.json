@@ -1,0 +1,2371 @@
+{
+ "area": "mpl_widgets",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "CheckButtons",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["a", "b", "c"], "actives": [true, false, true]},
+   "value": {
+    "status": [true, false, true],
+    "after_set_active": [false, false, true],
+    "checked": ["c"],
+    "after_clear": [false, false, false],
+    "checked_after_clear": [],
+    "disconnected": true
+   }
+  },
+  {
+   "op": "CheckButtons.set_active",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["a", "b", "c"], "actives": [true, false, true], "index": -1},
+   "error": "ValueError"
+  },
+  {
+   "op": "CheckButtons.set_active",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["a", "b", "c"], "actives": [true, false, true], "index": 1},
+   "value": [true, true, true]
+  },
+  {
+   "op": "CheckButtons.set_active",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["a", "b", "c"], "actives": [true, false, true], "index": 3},
+   "error": "ValueError"
+  },
+  {
+   "op": "CheckButtons.set_active",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["a", "b", "c"], "actives": [true, false, true], "index": 8},
+   "error": "ValueError"
+  },
+  {
+   "op": "EllipseSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"grab_range": 10, "interactive": true},
+    "steps": [
+     ["set", "extents", [100, 150, 100, 150]],
+     ["drag", [125, 125], [145, 145], null],
+     ["get", "extents"],
+     ["drag", [100, 100], [125, 125], "control"],
+     ["get", "extents"],
+     ["drag", [10, 10], [35, 30], "shift"],
+     ["get", "extents"],
+     ["drag", [100, 100], [125, 130], "ctrl+shift"],
+     ["get", "extents"],
+     ["get", "geometry.shape"],
+     ["get", "geometry[:, 0]"]
+    ]
+   },
+   "value": {
+    "steps": [null, [120.0, 170.0, 120.0, 170.0], [75.0, 125.0, 75.0, 125.0], [10.0, 35.0, 10.0, 35.0], [70.0, 130.0, 70.0, 130.0], [2, 73], [70.0, 100.0]],
+    "selects": [[120.0, 120.0, 170.0, 170.0], [75.0, 75.0, 125.0, 125.0], [10.0, 10.0, 35.0, 35.0], [70.0, 70.0, 130.0, 130.0]]
+   }
+  },
+  {
+   "op": "EllipseSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [100, 100], [130, 140], null],
+     ["get", "extents"],
+     ["get", "_state"],
+     ["key", "r"],
+     ["get", "_state"],
+     ["drag", [130, 140], [120, 145], null],
+     ["key", "r"],
+     ["get", "_state"],
+     ["get", "extents"],
+     ["get", "rotation"],
+     ["set", "rotation", 45],
+     ["get", "rotation"],
+     ["get", "corners"],
+     ["drag", [110, 145], [110, 160], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [
+     [100.0, 130.0, 100.0, 140.0],
+     [],
+     ["rotate"],
+     [],
+     [100.0, 130.0, 100.0, 140.0],
+     25.559965171823812,
+     null,
+     45.0,
+     [[118.53553390593274, 139.74873734152916, 111.46446609406726, 90.25126265847084], [95.25126265847086, 116.46446609406729, 144.7487373415292, 123.53553390593277]],
+     [100.0, 139.74873734152916, 100.0, 151.8198051533946]
+    ],
+    "selects": [[100.0, 100.0, 130.0, 140.0], [100.0, 100.0, 130.0, 140.0], [100.0, 100.0, 139.74873734152916, 151.8198051533946]]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "Lasso",
+   "args": {"style": ["classic", "_classic_test_patch"], "props": {"linestyle": "-", "color": "darkblue", "alpha": 0.2, "lw": 1}, "set_color": "r", "set_alpha": 0.3},
+   "value": {"color": [1.0, 0.0, 0.0, 1], "linestyle": "solid", "lw": 1.0, "alpha": 0.3}
+  },
+  {"op": "Lasso", "args": {"style": ["classic", "_classic_test_patch"]}, "value": {"color": [0.0, 0.0, 0.0, 1.0], "linestyle": "solid", "lw": 2.0, "alpha": null}},
+  {
+   "op": "LassoSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"useblit": true, "button": 1},
+    "steps": [["press", [100, 100], 1], ["move", [125, 125], 1], ["release", [150, 150], 1]]
+   },
+   "value": {"steps": [], "selects": [[[100.0, 100.0], [125.0, 125.0], [150.0, 150.0]]]}
+  },
+  {
+   "op": "LassoSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"props": {"color": "b", "alpha": 0.2}},
+    "steps": [
+     ["get", "_selection_artist.get_color"],
+     ["get", "_selection_artist.get_alpha"],
+     ["call", "set_props", {"color": "r", "alpha": 0.3}],
+     ["get", "_selection_artist.get_color"],
+     ["get", "_selection_artist.get_alpha"]
+    ]
+   },
+   "value": {"steps": [[0.0, 0.0, 1.0, 1], 0.2, null, [1.0, 0.0, 0.0, 1], 0.3], "selects": []}
+  },
+  {
+   "op": "LassoSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"useblit": false, "props": {"color": "red"}},
+    "steps": [["press", [100, 100], 1], ["move", [125, 125], 1], ["release", [150, 150], 1]]
+   },
+   "value": {"steps": [], "selects": [[[100.0, 100.0], [125.0, 125.0], [150.0, 150.0]]]}
+  },
+  {
+   "op": "LassoSelector",
+   "args": {"style": ["classic", "_classic_test_patch"], "options": {}, "steps": [["press", [100, 100], 1], ["move", [125, 125], 1], ["release", [150, 150], 1]]},
+   "value": {"steps": [], "selects": [[[100.0, 100.0], [125.0, 125.0], [150.0, 150.0]]]}
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": false},
+   "value": {
+    "counts": [2, 2],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": false, "vertOn": true},
+   "value": {
+    "counts": [2, 2],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": false},
+   "value": {
+    "counts": [2, 2],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 2},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 0}
+   }
+  },
+  {
+   "op": "MultiCursor",
+   "args": {"style": ["classic", "_classic_test_patch"], "horizOn": true, "vertOn": true},
+   "value": {
+    "counts": [2, 2],
+    "moved": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 2, "hvisible": 2},
+    "toggled": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0},
+    "elsewhere": {"vx": [[0.5, 0.5], [0.5, 0.5]], "hy": [[0.25, 0.25], [0.25, 0.25]], "vvisible": 0, "hvisible": 0}
+   }
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {
+     "draw_bounding_box": true,
+     "props": {"color": "r"},
+     "handle_props": {"marker": "o", "markerfacecolor": "w", "markeredgecolor": "r"},
+     "box_props": {"linestyle": ":", "facecolor": "c", "edgecolor": "b"},
+     "box_handle_props": {"markeredgecolor": "y"}
+    },
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["get", "_selection_artist.get_color"],
+     ["get", "_handles_artists.get_marker"],
+     ["get", "_handles_artists.get_markerfacecolor"],
+     ["get", "_handles_artists.get_markeredgecolor"],
+     ["get", "_box._selection_artist.get_linestyle"],
+     ["get", "_box._selection_artist.get_facecolor"],
+     ["get", "_box._selection_artist.get_edgecolor"],
+     ["get", "_box._handles_artists.get_marker"],
+     ["get", "_box._handles_artists.get_markerfacecolor"],
+     ["get", "_box._handles_artists.get_markeredgecolor"]
+    ]
+   },
+   "value": {
+    "steps": [
+     [1.0, 0.0, 0.0, 1],
+     ["o"],
+     [[1.0, 1.0, 1.0, 1]],
+     [[1.0, 0.0, 0.0, 1]],
+     "dotted",
+     [0.0, 0.75, 0.75, 1.0],
+     [0.0, 0.0, 1.0, 1.0],
+     ["o", "o", "o"],
+     [[1.0, 1.0, 1.0, 1], [1.0, 1.0, 1.0, 1], [1.0, 1.0, 1.0, 1]],
+     [[0.75, 0.75, 0.0, 1], [0.75, 0.75, 0.0, 1], [0.75, 0.75, 0.0, 1]]
+    ],
+    "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]
+   }
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"props": {"color": "b", "alpha": 0.2}, "handle_props": {"alpha": 0.5}, "draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["get", "_selection_artist.get_color"],
+     ["get", "_selection_artist.get_alpha"],
+     ["call", "set_props", {"color": "r", "alpha": 0.3}],
+     ["get", "_selection_artist.get_color"],
+     ["get", "_selection_artist.get_alpha"],
+     ["get", "_handles_artists.get_color"],
+     ["get", "_handles_artists.get_alpha"],
+     ["call", "set_handle_props", {"color": "r", "alpha": 0.3}],
+     ["get", "_handles_artists.get_color"],
+     ["get", "_handles_artists.get_alpha"]
+    ]
+   },
+   "value": {
+    "steps": [[0.0, 0.0, 1.0, 1], 0.2, null, [1.0, 0.0, 0.0, 1], 0.3, [[0.0, 0.0, 1.0, 1]], [0.5], null, [[1.0, 0.0, 0.0, 1]], [0.3]],
+    "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]
+   }
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["key", "control"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [125, 125], null],
+     ["release", [125, 125], 1],
+     ["keyup", "control"],
+     ["key", "shift"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [125, 125], null],
+     ["release", [125, 125], 1],
+     ["keyup", "shift"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["key", "control"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["move", [75, 50], null],
+     ["release", [75, 50], 1],
+     ["keyup", "control"],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [75, 50], null],
+     ["press", [75, 50], 1],
+     ["release", [75, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[75.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["key", "shift"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [100, 125], null],
+     ["release", [100, 125], 1],
+     ["keyup", "shift"],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 75], null],
+     ["press", [50, 75], 1],
+     ["release", [50, 75], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 75.0], [150.0, 75.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 1],
+     ["release", [200, 200], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 3],
+     ["release", [200, 200], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [200.0, 200.0], [50.0, 150.0]], [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 1],
+     ["release", [200, 200], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 3],
+     ["release", [200, 200], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0], [200.0, 200.0]], [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["key", "shift"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [125, 125], null],
+     ["release", [125, 125], 1],
+     ["keyup", "shift"]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[75.0, 75.0], [175.0, 75.0], [75.0, 175.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 3],
+     ["release", [150, 50], 3],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 3],
+     ["release", [50, 150], 3],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["get", "verts"]
+    ]
+   },
+   "value": {"steps": [[[50.0, 50.0], [150.0, 50.0]]], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[50.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 3],
+     ["release", [50, 50], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 1],
+     ["release", [200, 200], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 3],
+     ["release", [200, 200], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [200.0, 200.0], [150.0, 50.0], [50.0, 150.0]], [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [250, 50], null],
+     ["press", [250, 50], 1],
+     ["release", [250, 50], 1],
+     ["key", "escape"],
+     ["keyup", "escape"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [
+     ["move", [60, 50], null],
+     ["press", [60, 50], 1],
+     ["release", [60, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [60, 50], null],
+     ["press", [60, 50], 1],
+     ["release", [60, 50], 1],
+     ["move", [60, 50], null],
+     ["press", [60, 50], 1],
+     ["move", [85, 50], null],
+     ["release", [85, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[60.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[85.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": false},
+    "steps": [["set", "verts", [[0.1, 0.4], [0.5, 0.9], [0.3, 0.2]]], ["get", "verts"]]
+   },
+   "value": {"steps": [null, [[0.1, 0.4], [0.5, 0.9], [0.3, 0.2]]], "selects": []}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"props": {"color": "b", "alpha": 0.2}, "handle_props": {"alpha": 0.5}, "draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["get", "_selection_artist.get_color"],
+     ["get", "_selection_artist.get_alpha"],
+     ["call", "set_props", {"color": "r", "alpha": 0.3}],
+     ["get", "_selection_artist.get_color"],
+     ["get", "_selection_artist.get_alpha"],
+     ["get", "_handles_artists.get_color"],
+     ["get", "_handles_artists.get_alpha"],
+     ["call", "set_handle_props", {"color": "r", "alpha": 0.3}],
+     ["get", "_handles_artists.get_color"],
+     ["get", "_handles_artists.get_alpha"]
+    ]
+   },
+   "value": {
+    "steps": [[0.0, 0.0, 1.0, 1], 0.2, null, [1.0, 0.0, 0.0, 1], 0.3, [[0.0, 0.0, 1.0, 1]], [0.5], null, [[1.0, 0.0, 0.0, 1]], [0.3]],
+    "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]
+   }
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["key", "control"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [125, 125], null],
+     ["release", [125, 125], 1],
+     ["keyup", "control"],
+     ["key", "shift"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [125, 125], null],
+     ["release", [125, 125], 1],
+     ["keyup", "shift"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "xlim": [-10, 50],
+    "ylim": [-10, 50],
+    "steps": [
+     ["move", [20, 0], null],
+     ["press", [20, 0], 1],
+     ["release", [20, 0], 1],
+     ["move", [0, 20], null],
+     ["press", [0, 20], 1],
+     ["release", [0, 20], 1],
+     ["move", [20, 40], null],
+     ["press", [20, 40], 1],
+     ["release", [20, 40], 1],
+     ["move", [40, 20], null],
+     ["press", [40, 20], 1],
+     ["release", [40, 20], 1],
+     ["move", [20, 0], null],
+     ["press", [20, 0], 1],
+     ["release", [20, 0], 1],
+     ["press", [40, 40], 1],
+     ["move", [20, 20], null],
+     ["release", [20, 20], 1],
+     ["get", "verts"],
+     ["press", [10, 10], 1],
+     ["move", [30, 30], null],
+     ["release", [30, 30], 1],
+     ["get", "verts"],
+     ["get", "_box.extents"],
+     ["press", [30, 20], 3],
+     ["release", [30, 20], 3],
+     ["get", "verts"],
+     ["get", "_box.extents"]
+    ]
+   },
+   "value": {
+    "steps": [
+     [[10.0, 0.0], [0.0, 10.0], [10.0, 20.0], [20.0, 10.0]],
+     [[30.0, 20.0], [20.0, 30.0], [30.0, 40.0], [40.0, 30.0]],
+     [20.0, 40.0, 20.0, 40.0],
+     [[20.0, 30.0], [30.0, 40.0], [40.0, 30.0]],
+     [20.0, 40.0, 30.0, 40.0]
+    ],
+    "selects": [
+     [[20.0, 0.0], [0.0, 20.0], [20.0, 40.0], [40.0, 20.0]],
+     [[10.0, 0.0], [0.0, 10.0], [10.0, 20.0], [20.0, 10.0]],
+     [[30.0, 20.0], [20.0, 30.0], [30.0, 40.0], [40.0, 30.0]],
+     [[20.0, 30.0], [30.0, 40.0], [40.0, 30.0]]
+    ]
+   },
+   "tol": 1e-09
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["key", "control"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["move", [75, 50], null],
+     ["release", [75, 50], 1],
+     ["keyup", "control"],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [75, 50], null],
+     ["press", [75, 50], 1],
+     ["release", [75, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[75.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["key", "shift"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [100, 125], null],
+     ["release", [100, 125], 1],
+     ["keyup", "shift"],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 75], null],
+     ["press", [50, 75], 1],
+     ["release", [50, 75], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 75.0], [150.0, 75.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 1],
+     ["release", [200, 200], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 3],
+     ["release", [200, 200], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [200.0, 200.0], [50.0, 150.0]], [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 1],
+     ["release", [200, 200], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 3],
+     ["release", [200, 200], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0], [200.0, 200.0]], [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["key", "shift"],
+     ["move", [100, 100], null],
+     ["press", [100, 100], 1],
+     ["move", [125, 125], null],
+     ["release", [125, 125], 1],
+     ["keyup", "shift"]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[75.0, 75.0], [175.0, 75.0], [75.0, 175.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 3],
+     ["release", [150, 50], 3],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 3],
+     ["release", [50, 150], 3],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["get", "verts"]
+    ]
+   },
+   "value": {"steps": [[[50.0, 50.0], [150.0, 50.0]]], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[50.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 3],
+     ["release", [50, 50], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 1],
+     ["release", [200, 200], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [200, 200], null],
+     ["press", [200, 200], 3],
+     ["release", [200, 200], 3]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [200.0, 200.0], [150.0, 50.0], [50.0, 150.0]], [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [250, 50], null],
+     ["press", [250, 50], 1],
+     ["release", [250, 50], 1],
+     ["key", "escape"],
+     ["keyup", "escape"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [
+     ["move", [60, 50], null],
+     ["press", [60, 50], 1],
+     ["release", [60, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [60, 50], null],
+     ["press", [60, 50], 1],
+     ["release", [60, 50], 1],
+     ["move", [60, 50], null],
+     ["press", [60, 50], 1],
+     ["move", [85, 50], null],
+     ["release", [85, 50], 1]
+    ]
+   },
+   "value": {"steps": [], "selects": [[[60.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[85.0, 50.0], [150.0, 50.0], [50.0, 150.0]]]}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"draw_bounding_box": true},
+    "steps": [["set", "verts", [[0.1, 0.4], [0.5, 0.9], [0.3, 0.2]]], ["get", "verts"]]
+   },
+   "value": {"steps": [null, [[0.1, 0.4], [0.5, 0.9], [0.3, 0.2]]], "selects": []}
+  },
+  {
+   "op": "PolygonSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {},
+    "steps": [
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [150, 50], null],
+     ["press", [150, 50], 1],
+     ["release", [150, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["get", "_selection_artist.get_visible"],
+     ["get", "_selection_artist.get_xydata"],
+     ["call", "clear"],
+     ["get", "_selection_completed"],
+     ["get", "_selection_artist.get_xydata"],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["move", [100, 50], null],
+     ["press", [100, 50], 1],
+     ["release", [100, 50], 1],
+     ["move", [50, 150], null],
+     ["press", [50, 150], 1],
+     ["release", [50, 150], 1],
+     ["move", [50, 50], null],
+     ["press", [50, 50], 1],
+     ["release", [50, 50], 1],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["get", "_selection_artist.get_visible"],
+     ["get", "_selection_artist.get_xydata"],
+     ["call", "clear"],
+     ["get", "_selection_completed"],
+     ["get", "_selection_artist.get_xydata"]
+    ]
+   },
+   "value": {
+    "steps": [
+     true,
+     true,
+     true,
+     [[50.0, 50.0], [150.0, 50.0], [50.0, 150.0], [50.0, 50.0]],
+     null,
+     false,
+     [[0.0, 0.0]],
+     true,
+     true,
+     true,
+     [[50.0, 50.0], [100.0, 50.0], [50.0, 150.0], [50.0, 50.0]],
+     null,
+     false,
+     [[0.0, 0.0]]
+    ],
+    "selects": [[[50.0, 50.0], [150.0, 50.0], [50.0, 150.0]], [[50.0, 50.0], [100.0, 50.0], [50.0, 150.0]]]
+   }
+  },
+  {
+   "op": "RadioButtons",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["Radio 1", "Radio 2", "Radio 3"]},
+   "value": [["Radio 2", 1], ["Radio 1", 0]]
+  },
+  {
+   "op": "RadioButtons.activecolor",
+   "args": {"style": ["classic", "_classic_test_patch"], "labels": ["tea", "coffee"], "activecolor": "red", "facecolor": "green"},
+   "value": [[0.0, 0.5019607843137255, 0.0, 1.0], [0.0, 0.0, 0.0, 0.0]]
+  },
+  {
+   "op": "RangeSlider",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "orientation": "horizontal",
+    "valinit": [0.1, 0.34],
+    "steps": [["set_val", [0.4, 0.6]], ["set_val", [0.2, 0.1]], ["set_val", [-1, 10]], ["reset"]]
+   },
+   "value": [
+    {"val": [0.1, 0.34], "handles": [0.1, 0.34], "poly": [0.1, 0.25000000000000006, 0.3400000000000001, 0.75]},
+    {"val": [0.4, 0.6], "handles": [0.4, 0.6], "poly": [0.4, 0.25000000000000006, 0.6, 0.75]},
+    {"val": [0.1, 0.2], "handles": [0.1, 0.2], "poly": [0.1, 0.25000000000000006, 0.19999999999999998, 0.75]},
+    {"val": [0.0, 1.0], "handles": [0.0, 1.0], "poly": [0.0, 0.25000000000000006, 0.9999999999999999, 0.75]},
+    {"val": [0.1, 0.34], "handles": [0.1, 0.34], "poly": [0.1, 0.25000000000000006, 0.3400000000000001, 0.75]}
+   ],
+   "tol": 1e-09
+  },
+  {
+   "op": "RangeSlider",
+   "args": {"style": ["classic", "_classic_test_patch"], "orientation": "horizontal", "valinit": [0, 0], "steps": []},
+   "value": [{"val": [0.0, 0.0], "handles": [0.0, 0.0], "poly": [0.0, 0.25000000000000006, 0.0, 0.75]}],
+   "tol": 1e-09
+  },
+  {
+   "op": "RangeSlider",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "orientation": "vertical",
+    "valinit": [0.1, 0.34],
+    "steps": [["set_val", [0.4, 0.6]], ["set_val", [0.2, 0.1]], ["set_val", [-1, 10]], ["reset"]]
+   },
+   "value": [
+    {"val": [0.1, 0.34], "handles": [0.1, 0.34], "poly": [0.24999999999999997, 0.10000000000000002, 0.75, 0.34]},
+    {"val": [0.4, 0.6], "handles": [0.4, 0.6], "poly": [0.24999999999999997, 0.4000000000000001, 0.75, 0.5999999999999999]},
+    {"val": [0.1, 0.2], "handles": [0.1, 0.2], "poly": [0.24999999999999997, 0.10000000000000002, 0.75, 0.2]},
+    {"val": [0.0, 1.0], "handles": [0.0, 1.0], "poly": [0.24999999999999997, 0.0, 0.75, 1.0]},
+    {"val": [0.1, 0.34], "handles": [0.1, 0.34], "poly": [0.24999999999999997, 0.10000000000000002, 0.75, 0.34]}
+   ],
+   "tol": 1e-09
+  },
+  {
+   "op": "RangeSlider",
+   "args": {"style": ["classic", "_classic_test_patch"], "orientation": "vertical", "valinit": [0, 0], "steps": []},
+   "value": [{"val": [0.0, 0.0], "handles": [0.0, 0.0], "poly": [0.24999999999999997, 0.0, 0.75, 0.0]}],
+   "tol": 1e-09
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "aspect": 0.8,
+    "options": {"interactive": true, "use_data_coordinates": false},
+    "steps": [
+     ["drag", [70, 65], [120, 115], null],
+     ["get", "extents"],
+     ["call", "add_state", "square"],
+     ["call", "add_state", "center"],
+     ["drag_handle", "NE", [10, 0], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {"steps": [[70.0, 120.0, 65.0, 115.0], null, null, [60.0, 130.0, 46.25, 133.75]], "selects": [[70.0, 65.0, 120.0, 115.0], [60.0, 46.25, 130.0, 133.75]]},
+   "tol": 1e-09
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "aspect": 0.8,
+    "options": {"interactive": true, "use_data_coordinates": true},
+    "steps": [
+     ["drag", [70, 65], [120, 115], null],
+     ["get", "extents"],
+     ["call", "add_state", "square"],
+     ["call", "add_state", "center"],
+     ["drag_handle", "NE", [10, 0], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {"steps": [[70.0, 120.0, 65.0, 115.0], null, null, [60.0, 130.0, 55.0, 125.0]], "selects": [[70.0, 65.0, 120.0, 115.0], [60.0, 55.0, 130.0, 125.0]]},
+   "tol": 1e-09
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"useblit": true, "button": 1},
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1], ["get", "geometry"]]
+   },
+   "value": {
+    "steps": [[[100.0, 100.0, 198.99999999999997, 198.99999999999997, 100.0], [100.0, 198.99999999999994, 198.99999999999994, 100.0, 100.0]]],
+    "selects": [[100.0, 100.0, 199.0, 199.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "drag_from_anywhere": false},
+    "steps": [
+     ["drag", [10, 10], [90, 120], null],
+     ["get", "center"],
+     ["drag", [25, 15], [35, 25], null],
+     ["get", "center"],
+     ["drag", [175, 185], [185, 195], null],
+     ["get", "center"]
+    ]
+   },
+   "value": {"steps": [[50.0, 65.0], [30.0, 20.0], [180.0, 190.0]], "selects": [[10.0, 10.0, 90.0, 120.0], [25.0, 15.0, 35.0, 25.0], [175.0, 185.0, 185.0, 195.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "steps": [
+     ["drag", [10, 10], [90, 120], null],
+     ["get", "center"],
+     ["drag", [25, 15], [35, 25], null],
+     ["get", "center"],
+     ["drag", [175, 185], [185, 195], null],
+     ["get", "center"]
+    ]
+   },
+   "value": {"steps": [[50.0, 65.0], [60.0, 75.0], [180.0, 190.0]], "selects": [[10.0, 10.0, 90.0, 120.0], [20.0, 20.0, 100.0, 130.0], [175.0, 185.0, 185.0, 195.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"grab_range": 10, "interactive": true, "handle_props": {"markerfacecolor": "r", "markeredgecolor": "b"}},
+    "steps": [
+     ["set", "extents", [100, 150, 100, 150]],
+     ["get", "corners"],
+     ["get", "extents"],
+     ["get", "edge_centers"],
+     ["get", "extents"],
+     ["drag", [100, 100], [120, 120], null],
+     ["get", "extents"],
+     ["drag", [132, 132], [120, 120], null],
+     ["get", "extents"],
+     ["drag", [10, 10], [100, 100], null],
+     ["get", "extents"],
+     ["get", "_corner_handles.artists.get_markerfacecolor"],
+     ["get", "_corner_handles.artists.get_markeredgecolor"]
+    ]
+   },
+   "value": {
+    "steps": [
+     null,
+     [[100.0, 150.0, 150.0, 100.0], [100.0, 100.0, 150.0, 150.0]],
+     [100.0, 150.0, 100.0, 150.0],
+     [[100.0, 125.0, 150.0, 125.0], [125.0, 100.0, 125.0, 150.0]],
+     [100.0, 150.0, 100.0, 150.0],
+     [120.0, 150.0, 120.0, 150.0],
+     [108.0, 138.0, 108.0, 138.0],
+     [10.0, 100.0, 10.0, 100.0],
+     [[1.0, 0.0, 0.0, 1]],
+     [[0.0, 0.0, 1.0, 1]]
+    ],
+    "selects": [[120.0, 120.0, 150.0, 150.0], [108.0, 108.0, 138.0, 138.0], [10.0, 10.0, 100.0, 100.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "props": {"facecolor": "b", "alpha": 0.2}, "handle_props": {"alpha": 0.5}},
+    "steps": [
+     ["drag", [0, 10], [100, 120], null],
+     ["get", "_selection_artist.get_facecolor"],
+     ["call", "set_props", {"facecolor": "r", "alpha": 0.3}],
+     ["get", "_selection_artist.get_facecolor"],
+     ["get", "_handles_artists.get_markeredgecolor"],
+     ["get", "_handles_artists.get_alpha"],
+     ["call", "set_handle_props", {"markeredgecolor": "r", "alpha": 0.3}],
+     ["get", "_handles_artists.get_markeredgecolor"],
+     ["get", "_handles_artists.get_alpha"]
+    ]
+   },
+   "value": {
+    "steps": [
+     [0.0, 0.0, 1.0, 0.2],
+     null,
+     [1.0, 0.0, 0.0, 0.3],
+     [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]],
+     [0.5, 0.5, 0.5],
+     null,
+     [[1.0, 0.0, 0.0, 1], [1.0, 0.0, 0.0, 1], [1.0, 0.0, 0.0, 1]],
+     [0.3, 0.3, 0.3]
+    ],
+    "selects": []
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "ignore_event_outside": false},
+    "steps": [["drag", [10, 10], [100, 120], null], ["drag", [130, 130], [130, 130], null], ["get", "_selection_completed"]]
+   },
+   "value": {"steps": [false], "selects": [[10.0, 10.0, 100.0, 120.0], [130.0, 130.0, 130.0, 130.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"ignore_event_outside": false},
+    "steps": [["drag", [100, 110], [150, 120], null], ["get", "extents"], ["drag", [150, 150], [160, 160], null], ["get", "extents"]]
+   },
+   "value": {"steps": [[100.0, 150.0, 110.0, 120.0], [150.0, 160.0, 150.0, 160.0]], "selects": [[100.0, 110.0, 150.0, 120.0], [150.0, 150.0, 160.0, 160.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["drag", [130, 130], [130, 130], null],
+     ["get", "_selection_completed"],
+     ["key", "escape"],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [true, false], "selects": [[10.0, 10.0, 100.0, 120.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"ignore_event_outside": true},
+    "steps": [["drag", [100, 110], [150, 120], null], ["get", "extents"], ["drag", [150, 150], [160, 160], null], ["get", "extents"]]
+   },
+   "value": {"steps": [[100.0, 150.0, 110.0, 120.0], [100.0, 150.0, 110.0, 120.0]], "selects": [[100.0, 110.0, 150.0, 120.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": false},
+    "steps": [["drag", [100, 110], [150, 120], null], ["get", "extents"], ["drag", [10, 100], [10, 100], null]]
+   },
+   "value": {"steps": [[100.0, 150.0, 110.0, 120.0]], "selects": [[100.0, 110.0, 150.0, 120.0], [10.0, 100.0, 10.0, 100.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [10, 10.5]]},
+    "steps": [
+     ["drag", [10, 10], [10, 10.5], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10, 10.5], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.0, 10.5]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [10, 10]]},
+    "steps": [
+     ["drag", [10, 10], [10, 10], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10, 10], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.0, 10.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [10, 11]]},
+    "steps": [
+     ["drag", [10, 10], [10, 11], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10, 11], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.0, 11.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [10.5, 10.5]]},
+    "steps": [
+     ["drag", [10, 10.5], [10, 10.5], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10.5, 10.5], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.5, 10.5]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [10.5, 10]]},
+    "steps": [
+     ["drag", [10, 10.5], [10, 10], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10.5, 10], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.5, 10.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [10.5, 11]]},
+    "steps": [
+     ["drag", [10, 10.5], [10, 11], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10.5, 11], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.5, 11.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [11, 10.5]]},
+    "steps": [
+     ["drag", [10, 11], [10, 10.5], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [11, 10.5], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 11.0, 10.5]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [11, 10]]},
+    "steps": [
+     ["drag", [10, 11], [10, 10], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [11, 10], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 11.0, 10.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "pixels", "minspan_between": [[10, 10], [11, 11]]},
+    "steps": [
+     ["drag", [10, 11], [10, 11], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [11, 11], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 11.0, 11.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 0, "minspany": 0},
+    "steps": [
+     ["drag", [10, 10], [10, 10], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10, 10], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.0, 10.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 0, "minspany": 1},
+    "steps": [
+     ["drag", [10, 10], [10, 10.5], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10, 10.5], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.0, 10.5]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 0, "minspany": 1},
+    "steps": [
+     ["drag", [10, 10], [10, 11], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10, 11], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.0, 11.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 1, "minspany": 0},
+    "steps": [
+     ["drag", [10, 10.5], [10, 10], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10.5, 10], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.5, 10.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 1, "minspany": 0},
+    "steps": [
+     ["drag", [10, 11], [10, 10], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [11, 10], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 11.0, 10.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 1, "minspany": 1},
+    "steps": [
+     ["drag", [10, 10.5], [10, 10.5], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10.5, 10.5], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.5, 10.5]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 1, "minspany": 1},
+    "steps": [
+     ["drag", [10, 10.5], [10, 11], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [10.5, 11], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 10.5, 11.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 1, "minspany": 1},
+    "steps": [
+     ["drag", [10, 11], [10, 10.5], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [11, 10.5], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 11.0, 10.5]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true, "spancoords": "data", "minspanx": 1, "minspany": 1},
+    "steps": [
+     ["drag", [10, 11], [10, 11], null],
+     ["get", "_selection_completed"],
+     ["drag", [20, 20], [30, 30], null],
+     ["get", "_selection_completed"],
+     ["drag", [10, 10], [11, 11], null],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [false, true, false], "selects": [[20.0, 20.0, 30.0, 30.0], [10.0, 10.0, 11.0, 11.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["get", "extents"],
+     ["call", "clear"],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["drag", [10, 10], [50, 120], null],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [true, true, [10.0, 100.0, 10.0, 120.0], null, false, false, true, true, [10.0, 50.0, 10.0, 120.0]],
+    "selects": [[10.0, 10.0, 100.0, 120.0], [10.0, 10.0, 50.0, 120.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["get", "extents"],
+     ["drag_handle", "NE", [10, 5], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [10, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [15, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "SW", [20, 25], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [[10.0, 100.0, 10.0, 120.0], [10.0, 110.0, 10.0, 125.0], [10.0, 120.0, 10.0, 125.0], [25.0, 120.0, 10.0, 125.0], [45.0, 120.0, 35.0, 125.0]],
+    "selects": [[10.0, 10.0, 100.0, 120.0], [10.0, 10.0, 110.0, 125.0], [10.0, 10.0, 120.0, 125.0], [25.0, 10.0, 120.0, 125.0], [45.0, 35.0, 120.0, 125.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [100, 100], [130, 140], null],
+     ["get", "extents"],
+     ["get", "_state"],
+     ["call", "add_state", "rotate"],
+     ["get", "_state"],
+     ["call", "remove_state", "rotate"],
+     ["get", "_state"],
+     ["call", "add_state", "square"],
+     ["get", "_state"],
+     ["call", "remove_state", "square"],
+     ["get", "_state"],
+     ["call", "add_state", "center"],
+     ["get", "_state"],
+     ["call", "remove_state", "center"],
+     ["get", "_state"]
+    ]
+   },
+   "value": {
+    "steps": [[100.0, 130.0, 100.0, 140.0], [], null, ["rotate"], null, [], null, ["square"], null, [], null, ["center"], null, []],
+    "selects": [[100.0, 100.0, 130.0, 140.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [100, 100], [130, 140], null],
+     ["get", "extents"],
+     ["get", "_state"],
+     ["key", "r"],
+     ["get", "_state"],
+     ["drag", [130, 140], [120, 145], null],
+     ["key", "r"],
+     ["get", "_state"],
+     ["get", "extents"],
+     ["get", "rotation"],
+     ["set", "rotation", 45],
+     ["get", "rotation"],
+     ["get", "corners"],
+     ["drag", [110, 145], [110, 160], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [
+     [100.0, 130.0, 100.0, 140.0],
+     [],
+     ["rotate"],
+     [],
+     [100.0, 130.0, 100.0, 140.0],
+     25.559965171823812,
+     null,
+     45.0,
+     [[118.53553390593274, 139.74873734152916, 111.46446609406726, 90.25126265847084], [95.25126265847086, 116.46446609406729, 144.7487373415292, 123.53553390593277]],
+     [100.0, 139.74873734152916, 100.0, 151.8198051533946]
+    ],
+    "selects": [[100.0, 100.0, 130.0, 140.0], [100.0, 100.0, 130.0, 140.0], [100.0, 100.0, 139.74873734152916, 151.8198051533946]]
+   },
+   "tol": 1e-06
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [["drag", [100, 110], [150, 120], null], ["get", "extents"], ["drag", [10, 100], [10, 100], null]]
+   },
+   "value": {"steps": [[100.0, 150.0, 110.0, 120.0]], "selects": [[100.0, 110.0, 150.0, 120.0], [10.0, 100.0, 10.0, 100.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [70, 65], [120, 115], null],
+     ["call", "add_state", "square"],
+     ["call", "add_state", "center"],
+     ["get", "extents"],
+     ["drag_handle", "NE", [10, 5], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [10, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [-20, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [5, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [-25, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "SW", [20, 25], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [null, null, [70.0, 120.0, 65.0, 115.0], [60.0, 130.0, 55.0, 125.0], [50.0, 140.0, 45.0, 135.0], [70.0, 120.0, 65.0, 115.0], [75.0, 115.0, 70.0, 110.0], [50.0, 140.0, 45.0, 135.0], [75.0, 115.0, 70.0, 110.0]],
+    "selects": [[70.0, 65.0, 120.0, 115.0], [60.0, 55.0, 130.0, 125.0], [50.0, 45.0, 140.0, 135.0], [70.0, 65.0, 120.0, 115.0], [75.0, 70.0, 115.0, 110.0], [50.0, 45.0, 140.0, 135.0], [75.0, 70.0, 115.0, 110.0]]
+   },
+   "tol": 1e-09
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [70, 65], [120, 115], null],
+     ["get", "extents"],
+     ["call", "add_state", "square"],
+     ["drag_handle", "NE", [10, 5], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [10, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [-20, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [15, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [-25, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "SW", [20, 25], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [[70.0, 120.0, 65.0, 115.0], null, [70.0, 130.0, 65.0, 125.0], [70.0, 140.0, 65.0, 135.0], [70.0, 120.0, 65.0, 115.0], [85.0, 120.0, 65.0, 100.0], [60.0, 120.0, 65.0, 125.0], [85.0, 120.0, 90.0, 125.0]],
+    "selects": [[70.0, 65.0, 120.0, 115.0], [70.0, 65.0, 130.0, 125.0], [70.0, 65.0, 140.0, 135.0], [70.0, 65.0, 120.0, 115.0], [85.0, 65.0, 120.0, 100.0], [60.0, 65.0, 120.0, 125.0], [85.0, 90.0, 120.0, 125.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [70, 65], [120, 115], null],
+     ["get", "extents"],
+     ["drag_handle", "NE", [10, 5], "shift"],
+     ["get", "extents"],
+     ["drag_handle", "E", [10, 0], "shift"],
+     ["get", "extents"],
+     ["drag_handle", "E", [-20, 0], "shift"],
+     ["get", "extents"],
+     ["drag_handle", "W", [15, 0], "shift"],
+     ["get", "extents"],
+     ["drag_handle", "W", [-25, 0], "shift"],
+     ["get", "extents"],
+     ["drag_handle", "SW", [20, 25], "shift"],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [[70.0, 120.0, 65.0, 115.0], [70.0, 130.0, 65.0, 125.0], [70.0, 140.0, 65.0, 135.0], [70.0, 120.0, 65.0, 115.0], [85.0, 120.0, 65.0, 100.0], [60.0, 120.0, 65.0, 125.0], [85.0, 120.0, 90.0, 125.0]],
+    "selects": [[70.0, 65.0, 120.0, 115.0], [70.0, 65.0, 130.0, 125.0], [70.0, 65.0, 140.0, 135.0], [70.0, 65.0, 120.0, 115.0], [85.0, 65.0, 120.0, 100.0], [60.0, 65.0, 120.0, 125.0], [85.0, 90.0, 120.0, 125.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [70, 65], [125, 130], null],
+     ["call", "add_state", "unsupported_state"],
+     ["call", "add_state", "clear"],
+     ["call", "add_state", "move"],
+     ["call", "add_state", "square"],
+     ["call", "add_state", "center"],
+     ["get", "_state"]
+    ]
+   },
+   "value": {"steps": ["error", "error", null, null, null, ["center", "move", "square"]], "selects": [[70.0, 65.0, 125.0, 130.0]]}
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [70, 65], [125, 130], null],
+     ["get", "extents"],
+     ["call", "add_state", "center"],
+     ["drag_handle", "NE", [10, 5], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [10, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "E", [-20, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [15, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "W", [-25, 0], null],
+     ["get", "extents"],
+     ["drag_handle", "SW", [20, 25], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [[70.0, 125.0, 65.0, 130.0], null, [60.0, 135.0, 60.0, 135.0], [50.0, 145.0, 60.0, 135.0], [70.0, 125.0, 60.0, 135.0], [85.0, 110.0, 60.0, 135.0], [60.0, 135.0, 60.0, 135.0], [80.0, 115.0, 85.0, 110.0]],
+    "selects": [[70.0, 65.0, 125.0, 130.0], [60.0, 60.0, 135.0, 135.0], [50.0, 60.0, 145.0, 135.0], [70.0, 60.0, 125.0, 135.0], [85.0, 60.0, 110.0, 135.0], [60.0, 60.0, 135.0, 135.0], [80.0, 85.0, 115.0, 110.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"interactive": true},
+    "steps": [
+     ["drag", [70, 65], [125, 130], null],
+     ["get", "extents"],
+     ["drag_handle", "NE", [10, 5], "control"],
+     ["get", "extents"],
+     ["drag_handle", "E", [10, 0], "control"],
+     ["get", "extents"],
+     ["drag_handle", "E", [-20, 0], "control"],
+     ["get", "extents"],
+     ["drag_handle", "W", [15, 0], "control"],
+     ["get", "extents"],
+     ["drag_handle", "W", [-25, 0], "control"],
+     ["get", "extents"],
+     ["drag_handle", "SW", [20, 25], "control"],
+     ["get", "extents"]
+    ]
+   },
+   "value": {
+    "steps": [[70.0, 125.0, 65.0, 130.0], [60.0, 135.0, 60.0, 135.0], [50.0, 145.0, 60.0, 135.0], [70.0, 125.0, 60.0, 135.0], [85.0, 110.0, 60.0, 135.0], [60.0, 135.0, 60.0, 135.0], [80.0, 115.0, 85.0, 110.0]],
+    "selects": [[70.0, 65.0, 125.0, 130.0], [60.0, 60.0, 135.0, 135.0], [50.0, 60.0, 145.0, 135.0], [70.0, 60.0, 125.0, 135.0], [85.0, 60.0, 110.0, 135.0], [60.0, 60.0, 135.0, 135.0], [80.0, 85.0, 115.0, 110.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"minspanx": 10, "minspany": 10, "spancoords": "pixels"},
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1], ["get", "geometry"]]
+   },
+   "value": {
+    "steps": [[[100.0, 100.0, 198.99999999999997, 198.99999999999997, 100.0], [100.0, 198.99999999999994, 198.99999999999994, 100.0, 100.0]]],
+    "selects": [[100.0, 100.0, 199.0, 199.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {"props": {"fill": true}},
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1], ["get", "geometry"]]
+   },
+   "value": {
+    "steps": [[[100.0, 100.0, 198.99999999999997, 198.99999999999997, 100.0], [100.0, 198.99999999999994, 198.99999999999994, 100.0, 100.0]]],
+    "selects": [[100.0, 100.0, 199.0, 199.0]]
+   }
+  },
+  {
+   "op": "RectangleSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "options": {},
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1], ["get", "geometry"]]
+   },
+   "value": {
+    "steps": [[[100.0, 100.0, 198.99999999999997, 198.99999999999997, 100.0], [100.0, 198.99999999999994, 198.99999999999994, 100.0, 100.0]]],
+    "selects": [[100.0, 100.0, 199.0, 199.0]]
+   }
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0, "valmax": 24, "valinit": 12, "orientation": "horizontal", "set_val": 10},
+   "value": {"val": 10, "poly": [0.0, 0.25000000000000006, 0.41666666666666663, 0.49999999999999994]},
+   "tol": 1e-09
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0, "valmax": 24, "valinit": 12, "orientation": "vertical", "set_val": 10},
+   "value": {"val": 10, "poly": [0.24999999999999997, 0.0, 0.5, 0.4166666666666667]},
+   "tol": 1e-09
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0, "valmax": 1, "valinit": 0.5, "set_val": 0.75, "reset": true},
+   "value": {"val": 0.5, "poly": [0.0, 0.25000000000000006, 0.5, 0.49999999999999994]}
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0.0, "valmax": 24.0, "valinit": -10.0},
+   "value": {"val": 0.0, "poly": [0.0, 0.25000000000000006, 0.0, 0.49999999999999994]}
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0.0, "valmax": 24.0, "valinit": 11.4, "valstep": 1},
+   "value": {"val": 11.0, "poly": [0.0, 0.25000000000000006, 0.45833333333333326, 0.49999999999999994]}
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0.0, "valmax": 24.0, "valinit": 11.4, "valstep": [0, 1, 5.5, 19.7]},
+   "value": {"val": 5.5, "poly": [0.0, 0.25000000000000006, 0.22916666666666666, 0.49999999999999994]}
+  },
+  {
+   "op": "Slider",
+   "args": {"style": ["classic", "_classic_test_patch"], "valmin": 0.0, "valmax": 24.0, "valinit": 25.0},
+   "value": {"val": 24.0, "poly": [0.0, 0.25000000000000006, 0.9999999999999999, 0.49999999999999994]}
+  },
+  {"op": "Slider.slidermax", "args": {"style": ["classic", "_classic_test_patch"], "which": "slidermax", "other": 5.0, "valinit": 10.0}, "value": 5.0},
+  {"op": "Slider.slidermin", "args": {"style": ["classic", "_classic_test_patch"], "which": "slidermin", "other": 5.0, "valinit": 1.0}, "value": 5.0},
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "axes": "bound",
+    "steps": [
+     ["get", "ax.get_xbound"],
+     ["get", "ax.get_ybound"],
+     ["get", "_edge_handles.positions"],
+     ["drag", [10.5, 11.5], [11, 13], null],
+     ["get", "ax.get_xbound"],
+     ["get", "ax.get_ybound"],
+     ["get", "_edge_handles.positions"]
+    ]
+   },
+   "value": {"steps": [[10.0, 20.0], [10.0, 30.0], [10.0, 20.0], [10.0, 20.0], [10.0, 30.0], [10.5, 11.0]], "selects": [[10.5, 11.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "vertical",
+    "options": {"interactive": true},
+    "axes": "bound",
+    "steps": [
+     ["get", "ax.get_xbound"],
+     ["get", "ax.get_ybound"],
+     ["get", "_edge_handles.positions"],
+     ["drag", [10.5, 11.5], [11, 13], null],
+     ["get", "ax.get_xbound"],
+     ["get", "ax.get_ybound"],
+     ["get", "_edge_handles.positions"]
+    ]
+   },
+   "value": {"steps": [[10.0, 20.0], [10.0, 30.0], [10.0, 30.0], [10.0, 20.0], [10.0, 30.0], [11.5, 13.0]], "selects": [[11.5, 13.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "axes": "inset",
+    "onmove": false,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"minspan": 10, "useblit": true},
+    "axes": "inset",
+    "onmove": false,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"props": {"fill": true}},
+    "axes": "inset",
+    "onmove": false,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "vertical",
+    "options": {"button": 1},
+    "axes": "inset",
+    "onmove": true,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]], "moves": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "axes": "twin",
+    "onmove": false,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"minspan": 10, "useblit": true},
+    "axes": "twin",
+    "onmove": false,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"props": {"fill": true}},
+    "axes": "twin",
+    "onmove": false,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "vertical",
+    "options": {"button": 1},
+    "axes": "twin",
+    "onmove": true,
+    "steps": [["press", [100, 100], 1], ["move", [199, 199], 1], ["release", [250, 250], 1]]
+   },
+   "value": {"steps": [], "selects": [[100.0, 199.0]], "moves": [[100.0, 199.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "onmove": true,
+    "options": {"ignore_event_outside": false},
+    "steps": [["drag", [100, 100], [125, 125], null], ["get", "extents"], ["drag", [150, 150], [160, 160], null], ["get", "extents"]]
+   },
+   "value": {"steps": [[100.0, 125.0], [150.0, 160.0]], "selects": [[100.0, 125.0], [150.0, 160.0]], "moves": [[100.0, 125.0], [150.0, 160.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "onmove": true,
+    "options": {"ignore_event_outside": true},
+    "steps": [["drag", [100, 100], [125, 125], null], ["get", "extents"], ["drag", [150, 150], [160, 160], null], ["get", "extents"]]
+   },
+   "value": {"steps": [[100.0, 125.0], [100.0, 125.0]], "selects": [[100.0, 125.0]], "moves": [[100.0, 125.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": false},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["get", "extents"],
+     ["drag", [25, 15], [35, 25], null],
+     ["get", "extents"],
+     ["drag", [175, 185], [185, 195], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {"steps": [[10.0, 100.0], [25.0, 35.0], [175.0, 185.0]], "selects": [[10.0, 100.0], [25.0, 35.0], [175.0, 185.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true, "drag_from_anywhere": true},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["get", "extents"],
+     ["drag", [25, 15], [35, 25], null],
+     ["get", "extents"],
+     ["drag", [175, 185], [185, 195], null],
+     ["get", "extents"]
+    ]
+   },
+   "value": {"steps": [[10.0, 100.0], [20.0, 110.0], [175.0, 185.0]], "selects": [[10.0, 100.0], [20.0, 110.0], [175.0, 185.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true, "props": {"facecolor": "b", "alpha": 0.2}, "handle_props": {"alpha": 0.5}},
+    "steps": [
+     ["drag", [0, 10], [100, 120], null],
+     ["get", "_selection_artist.get_facecolor"],
+     ["call", "set_props", {"facecolor": "r", "alpha": 0.3}],
+     ["get", "_selection_artist.get_facecolor"],
+     ["get", "_handles_artists.get_color"],
+     ["get", "_handles_artists.get_alpha"],
+     ["call", "set_handle_props", {"color": "r", "alpha": 0.3}],
+     ["get", "_handles_artists.get_color"],
+     ["get", "_handles_artists.get_alpha"]
+    ]
+   },
+   "value": {
+    "steps": [
+     [0.0, 0.0, 1.0, 0.2],
+     null,
+     [1.0, 0.0, 0.0, 0.3],
+     [[0.0, 0.0, 1.0, 1], [0.0, 0.0, 1.0, 1]],
+     [0.5, 0.5],
+     null,
+     [[1.0, 0.0, 0.0, 1], [1.0, 0.0, 0.0, 1]],
+     [0.3, 0.3]
+    ],
+    "selects": []
+   }
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": false},
+    "steps": [["drag", [10, 10], [100, 120], null], ["drag", [130, 130], [130, 130], null], ["get", "_selection_completed"]]
+   },
+   "value": {"steps": [false], "selects": [[10.0, 100.0], [130.0, 130.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["drag", [130, 130], [130, 130], null],
+     ["get", "_selection_completed"],
+     ["key", "escape"],
+     ["get", "_selection_completed"]
+    ]
+   },
+   "value": {"steps": [true, false], "selects": [[10.0, 100.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true, "ignore_event_outside": true},
+    "steps": [
+     ["drag", [10, 10], [100, 120], null],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["get", "extents"],
+     ["call", "clear"],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["drag", [10, 10], [50, 120], null],
+     ["get", "_selection_completed"],
+     ["get", "get_visible"],
+     ["get", "extents"]
+    ]
+   },
+   "value": {"steps": [true, true, [10.0, 100.0], null, false, false, true, true, [10.0, 50.0]], "selects": [[10.0, 100.0], [10.0, 50.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"ignore_event_outside": true},
+    "steps": [["set", "extents", [5, 10]], ["get", "extents"], ["get", "_selection_completed"], ["drag", [12, 14], [20, 14], null], ["get", "extents"]]
+   },
+   "value": {"steps": [null, [5, 10], true, [5, 10]], "selects": []}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": false},
+    "steps": [["drag", [100, 100], [150, 100], null], ["get", "extents"], ["drag", [10, 100], [10, 100], null]]
+   },
+   "value": {"steps": [[100.0, 150.0]], "selects": [[100.0, 150.0], [10.0, 10.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "steps": [["call", "add_state", "unsupported_state"], ["call", "add_state", "center"], ["call", "add_state", "square"], ["call", "add_state", "move"]]
+   },
+   "value": {"steps": ["error", "error", "error", null], "selects": []}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "steps": [["drag", [100, 100], [150, 100], null], ["get", "extents"], ["drag", [10, 100], [10, 100], null]]
+   },
+   "value": {"steps": [[100.0, 150.0]], "selects": [[100.0, 150.0], [10.0, 10.0]]}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {"interactive": true},
+    "steps": [["get", "direction"], ["get", "_edge_handles.direction"], ["set", "direction", "vertical"], ["get", "direction"], ["get", "_edge_handles.direction"], ["set", "direction", "invalid_string"]]
+   },
+   "value": {"steps": ["horizontal", "horizontal", null, "vertical", "vertical", "error"], "selects": []}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "direction": "horizontal",
+    "options": {
+     "snap_values": [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 148, 152, 156, 160, 164, 168, 172, 176, 180, 184, 188, 192, 196]
+    },
+    "steps": [["set", "extents", [17, 35]], ["get", "extents"], ["set", "snap_values", null], ["get", "snap_values"], ["set", "extents", [17, 35]], ["get", "extents"]]
+   },
+   "value": {"steps": [null, [16, 36], null, null, null, [17, 35]], "selects": []}
+  },
+  {
+   "op": "SpanSelector",
+   "args": {"style": ["classic", "_classic_test_patch"], "direction": "invalid_direction", "options": {}, "steps": []},
+   "error": "ValueError"
+  },
+  {
+   "op": "SpanSelector._snap",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "values": [-0.1, 0.1, 0.2, 0.5, 0.6, 0.7, 0.9, 4.76, 5.0, 5.5],
+    "snap_values": [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+   },
+   "value": [0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 1.0, 5.0, 5.0, 5.0]
+  },
+  {"op": "TextBox", "args": {"style": ["classic", "_classic_test_patch"], "toolbar": "None"}, "value": ["", "x**2", 1, 2, 3]},
+  {"op": "TextBox", "args": {"style": ["classic", "_classic_test_patch"], "toolbar": "toolbar2"}, "value": ["", "x**2", 1, 2, 3]},
+  {"op": "TextBox", "args": {"style": ["classic", "_classic_test_patch"], "toolbar": "toolmanager"}, "value": ["", "x**2", 1, 2, 3]},
+  {"op": "_Buttons.on_clicked", "args": {"style": ["classic", "_classic_test_patch"], "widget": "CheckButtons"}, "value": 1},
+  {"op": "_Buttons.on_clicked", "args": {"style": ["classic", "_classic_test_patch"], "widget": "RadioButtons"}, "value": 1}
+ ]
+}

@@ -367,6 +367,10 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_colorbar", areas::mpl_colorbar::OPS),
     ("mpl_constrainedlayout", areas::mpl_constrainedlayout::OPS),
     ("mpl_tightlayout", areas::mpl_tightlayout::OPS),
+    ("mpl_widgets", areas::mpl_widgets::OPS),
+    ("mpl_animation", areas::mpl_animation::OPS),
+    ("mpl_units", areas::mpl_units::OPS),
+    ("mpl_agg", areas::mpl_agg::OPS),
 ];
 
 /// The operation table for an area, or an empty slice if none exists yet.

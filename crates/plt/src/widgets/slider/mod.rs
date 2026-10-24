@@ -24,17 +24,7 @@ use crate::ticker::{
     AxisInfo, Formatter, OffsetMode, ScalarFormatter, TickContext, TickerSettings,
 };
 
-pub use options::{HandleStyle, SliderOptions, ValStep};
-
-/// The direction a slider moves in, or a span selector selects along.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum Orientation {
-    /// Left to right.
-    #[default]
-    Horizontal,
-    /// Bottom to top.
-    Vertical,
-}
+pub use options::{HandleStyle, Orientation, SliderOptions, ValStep};
 
 /// What every slider shares: its range, snapping and formatting
 /// (matplotlib's `SliderBase`).
@@ -430,6 +420,48 @@ impl Slider {
         self.parts.links.borrow_mut().1 = Rc::downgrade(&other.parts);
     }
 
+    /// The slider made with `other` as its `slidermin` (matplotlib's
+    /// keyword argument): the initial value is held above `other`'s too.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::widgets::{Slider, SliderOptions};
+    /// let ax = Figure::new().subplot();
+    /// let at = |valinit| SliderOptions { valinit, ..SliderOptions::default() };
+    /// let low = Slider::new(&ax, "low", 0.0, 10.0, at(5.0));
+    /// let high = Slider::new(&ax, "high", 0.0, 10.0, at(2.0)).with_slidermin(&low);
+    /// assert_eq!(high.val(), 5.0);
+    /// ```
+    #[must_use]
+    pub fn with_slidermin(self, other: &Self) -> Self {
+        self.set_slidermin(other);
+        self.rebound_valinit()
+    }
+
+    /// The slider made with `other` as its `slidermax` (matplotlib's
+    /// keyword argument): the initial value is held below `other`'s too.
+    #[must_use]
+    pub fn with_slidermax(self, other: &Self) -> Self {
+        self.set_slidermax(other);
+        self.rebound_valinit()
+    }
+
+    /// The initial value bounded again after a link was added, as
+    /// matplotlib bounds `valinit` (the minimum where an open end would be
+    /// reached), and shown.
+    fn rebound_valinit(mut self) -> Self {
+        let base = &self.parts.base;
+        self.valinit = self.parts.in_bounds(self.valinit).unwrap_or(base.valmin);
+        self.parts.show(self.valinit);
+        self
+    }
+
+    /// The patch filling the slider up to the value (matplotlib's
+    /// `poly`).
+    pub fn poly(&self) -> &Patch<Rectangle> {
+        &self.parts.poly
+    }
+
     /// The label.
     pub fn label(&self) -> &Text {
         &self.label
@@ -531,5 +563,21 @@ mod tests {
         let slider = Slider::new(&ax, "s", 0.0, 1.0, options);
         assert_eq!(slider.parts.handle.markersize(), 14.0);
         assert_eq!(slider.parts.poly.alpha(), Some(0.6));
+    }
+
+    #[test]
+    fn bounding_sliders_hold_the_initial_value() {
+        let ax = Figure::new().subplot();
+        let at = |valinit| SliderOptions {
+            valinit,
+            ..SliderOptions::default()
+        };
+        let high = Slider::new(&ax, "high", 0.0, 24.0, at(5.0));
+        let low = Slider::new(&ax, "low", 0.0, 24.0, at(10.0)).with_slidermax(&high);
+        assert_eq!(low.val(), 5.0);
+        low.set_val(1.0);
+        low.reset();
+        assert_eq!(low.val(), 5.0, "the bounded value is the initial one");
+        assert_eq!(low.poly().shape().width, 5.0);
     }
 }

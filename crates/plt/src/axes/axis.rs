@@ -389,8 +389,21 @@ impl AxisState {
             AxisValues::Categories(names) => names,
         };
         self.units.adopt(UnitConverter::Categories);
-        let categories = self.categories.get_or_insert_with(Categories::default);
-        let positions = categories.convert(&names);
+        let positions = self
+            .categories
+            .get_or_insert_with(Categories::default)
+            .convert(&names);
+        self.use_category_tickers();
+        positions
+    }
+
+    /// Installs the tick helpers of the category names where the defaults
+    /// are still in place (matplotlib's `_update_axisinfo` with the
+    /// category converter's `axisinfo`).
+    fn use_category_tickers(&mut self) {
+        let Some(categories) = &self.categories else {
+            return;
+        };
         let (locator, formatter) = (
             CategoryLocator::new(categories),
             CategoryFormatter::new(categories),
@@ -401,7 +414,25 @@ impl AxisState {
         if self.defaults.major.formatter {
             self.major_formatter = Rc::new(formatter);
         }
-        positions
+    }
+
+    /// Takes over the [`unit_data`](Self::unit_data) of an axis it is
+    /// shared with, after values were converted there, with the tick
+    /// helpers they bring where the defaults are in place: matplotlib's
+    /// shared axes hold one `units` object (category names placed on one
+    /// are placed on all) and share their tickers.
+    pub(crate) fn share_units(&mut self, (units, categories): &(AxisUnits, Option<Categories>)) {
+        let Some(converter) = units.converter else {
+            return;
+        };
+        self.units.adopt(converter);
+        match converter {
+            UnitConverter::Dates => self.use_date_tickers(&TimeZone::Utc),
+            UnitConverter::Categories => {
+                self.categories.clone_from(categories);
+                self.use_category_tickers();
+            }
+        }
     }
 
     /// The unit converter and category names, which a twin takes over

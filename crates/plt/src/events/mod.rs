@@ -51,8 +51,10 @@ mod source;
 mod timers;
 pub(crate) mod wait;
 
+use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::navigation::PointerButton;
+use crate::transforms::TransformError;
 
 pub(crate) use drag::{DragTarget, Dragger};
 pub use lock::{CursorShape, LockError, LockOwner};
@@ -111,6 +113,44 @@ pub struct Location {
     pub xdata: Option<f64>,
     /// The data y coordinate in [`Location::inaxes`].
     pub ydata: Option<f64>,
+}
+
+impl Location {
+    /// The location of data point `(x, y)` of `ax` as matplotlib's
+    /// synthetic events place it (`LocationEvent._from_ax_coords`, which
+    /// widget tests use): over `ax`, at exactly those data coordinates, and
+    /// at the whole display pixels the point maps to (matplotlib's events
+    /// truncate them).
+    ///
+    /// ```
+    /// use plt::events::Location;
+    /// use plt::figure::Figure;
+    /// let fig = Figure::with_size(4.0, 4.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0]);
+    /// ax.set_xlim(0.0, 3.0).set_ylim(0.0, 3.0);
+    /// let at = Location::from_ax_coords(&ax, (1.0, 2.0))?;
+    /// assert_eq!((at.x, at.y), (133.0, 266.0));
+    /// assert_eq!((at.xdata, at.ydata), (Some(1.0), Some(2.0)));
+    /// assert_eq!(at.inaxes, Some(ax));
+    /// # Ok::<(), plt::transforms::TransformError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the data transform of `ax` cannot be resolved.
+    pub fn from_ax_coords(ax: &Axes, (x, y): (f64, f64)) -> Result<Self, TransformError> {
+        let display = ax
+            .figure()
+            .resolve_transform(&ax.trans_data())?
+            .transform_point(plt_core::Point::new(x, y));
+        Ok(Self {
+            x: display.x.trunc(),
+            y: display.y.trunc(),
+            inaxes: Some(ax.clone()),
+            xdata: Some(x),
+            ydata: Some(y),
+        })
+    }
 }
 
 /// A mouse event (matplotlib's `MouseEvent`).

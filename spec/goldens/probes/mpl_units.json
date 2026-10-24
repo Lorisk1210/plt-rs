@@ -1,0 +1,69 @@
+{
+ "area": "mpl_units",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "Axes.errorbar",
+   "args": {"style": ["classic", "_classic_test_patch"], "days": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19], "yerr_days": 0.5},
+   "value": {
+    "converter": "dates",
+    "xlim": [0.0, 9.0],
+    "ylim": [18382.5, 18401.5],
+    "segments": [[18382.5, 18383.5], [18384.5, 18385.5], [18386.5, 18387.5], [18388.5, 18389.5], [18390.5, 18391.5], [18392.5, 18393.5], [18394.5, 18395.5], [18396.5, 18397.5], [18398.5, 18399.5], [18400.5, 18401.5]]
+   }
+  },
+  {
+   "op": "Axes.plot.shared_categories",
+   "args": {"style": ["classic", "_classic_test_patch"], "first": ["a", "b"], "second": ["a", "b"]},
+   "value": {"names": [["a", "b"], ["a", "b"]], "xdata": [[0.0, 1.0], [0.0, 1.0]], "labels": [["a", "b"], ["a", "b"]]}
+  },
+  {
+   "op": "Axes.plot.shared_categories",
+   "args": {"style": ["classic", "_classic_test_patch"], "first": ["a", "b"], "second": ["c", "a"]},
+   "value": {"names": [["a", "b", "c"], ["a", "b", "c"]], "xdata": [[0.0, 1.0], [2.0, 0.0]], "labels": [["a", "b", "c"], ["a", "b", "c"]]}
+  },
+  {
+   "op": "Axes.plot.shared_categories",
+   "args": {"style": ["classic", "_classic_test_patch"], "first": ["a", "b"], "second": []},
+   "value": {"names": [["a", "b"], ["a", "b"]], "xdata": [[0.0, 1.0]], "labels": [["a", "b"], ["a", "b"]]}
+  },
+  {
+   "op": "Axes.scatter",
+   "args": {"style": ["classic", "_classic_test_patch"], "start": "2005-02-01", "stop": "2005-02-01", "unit": "ns", "nan_first": false},
+   "value": {"converter": "dates", "xlim": [0.0, 1.0], "ylim": [-0.06, 0.06], "offsets": []}
+  },
+  {
+   "op": "Axes.scatter",
+   "args": {"style": ["classic", "_classic_test_patch"], "start": "2005-02", "stop": "2005-03", "unit": "D", "nan_first": true},
+   "value": {
+    "converter": "dates",
+    "xlim": [12814.7, 12843.3],
+    "ylim": [-5.0, 30.0],
+    "offsets": [[12816.0, 1.0], [12817.0, 2.0], [12818.0, 3.0], [12819.0, 4.0], [12820.0, 5.0], [12821.0, 6.0], [12822.0, 7.0], [12823.0, 8.0], [12824.0, 9.0], [12825.0, 10.0], [12826.0, 11.0], [12827.0, 12.0], [12828.0, 13.0], [12829.0, 14.0], [12830.0, 15.0], [12831.0, 16.0], [12832.0, 17.0], [12833.0, 18.0], [12834.0, 19.0], [12835.0, 20.0], [12836.0, 21.0], [12837.0, 22.0], [12838.0, 23.0], [12839.0, 24.0], [12840.0, 25.0], [12841.0, 26.0], [12842.0, 27.0]]
+   }
+  },
+  {
+   "op": "Axis.set_converter",
+   "args": {"style": ["classic", "_classic_test_patch"], "steps": [["plot"], ["get"], ["set", "categories"], ["get"]]},
+   "value": [null, "categories", null, "categories"]
+  },
+  {
+   "op": "Axis.set_converter",
+   "args": {"style": ["classic", "_classic_test_patch"], "steps": [["plot"], ["set", "dates"], ["get"]]},
+   "value": [null, null, "dates"]
+  },
+  {
+   "op": "Axis.set_converter",
+   "args": {"style": ["classic", "_classic_test_patch"], "steps": [["set", "categories"], ["get"], ["plot"], ["get"], ["set", "categories"], ["set", "dates"], ["get"]]},
+   "value": [null, "categories", null, "categories", null, "error", "categories"]
+  },
+  {
+   "op": "Axis.set_units",
+   "args": {"style": ["classic", "_classic_test_patch"], "tz_hours": 5},
+   "value": {
+    "ticks": [18352.791666666668, 18443.791666666668, 18535.791666666668, 18627.791666666668, 18717.791666666668, 18808.791666666668, 18900.791666666668],
+    "labels": ["Apr 2020", "Jul 2020", "Oct 2020", "Jan 2021", "Apr 2021", "Jul 2021", "Oct 2021"]
+   }
+  }
+ ]
+}

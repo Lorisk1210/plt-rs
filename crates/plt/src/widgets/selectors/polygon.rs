@@ -15,7 +15,7 @@ use crate::events::EventKind;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle};
 use crate::markers::MarkerSymbol;
 use crate::navigation::PointerButton;
-use crate::patches::PatchProps;
+use crate::patches::{Patch, PatchProps, Rectangle};
 use crate::rc::ColorOrAuto;
 use crate::widgets::{CallbackId, Connections};
 
@@ -496,6 +496,36 @@ impl PolygonSelector {
         self.driver.shared.borrow().tool.handles.line().clone()
     }
 
+    /// `(xmin, xmax, ymin, ymax)` of the box around the completed
+    /// polygon, while it is drawn (matplotlib's `_box.extents`).
+    pub fn box_extents(&self) -> Option<(f64, f64, f64, f64)> {
+        self.with_box(RectangleSelector::extents)
+    }
+
+    /// The patch of the box around the completed polygon, while it is
+    /// drawn.
+    pub fn box_artist(&self) -> Option<Patch<Rectangle>> {
+        self.with_box(RectangleSelector::artist)
+    }
+
+    /// The handle markers of the box around the completed polygon; none
+    /// without a box.
+    pub fn box_handles(&self) -> Vec<Line2D> {
+        self.with_box(RectangleSelector::handles)
+            .unwrap_or_default()
+    }
+
+    /// `f` of the box selector around the completed polygon, while it is
+    /// drawn.
+    fn with_box<R>(&self, f: impl FnOnce(&RectangleSelector) -> R) -> Option<R> {
+        let shared = self.driver.shared.borrow();
+        shared
+            .tool
+            .bounding
+            .as_ref()
+            .map(|bounding| f(&bounding.selector))
+    }
+
     /// Changes the line's look (matplotlib's `set_props`).
     pub fn set_props(&self, props: LineProps) {
         self.driver.shared.borrow().tool.line.update_props(props);
@@ -552,5 +582,30 @@ mod tests {
             .unwrap();
         assert_eq!(selector.verts().len(), 3);
         assert_eq!(selector.set_verts(&[]), Err(SelectorError::NoVertices));
+    }
+
+    #[test]
+    fn completed_polygons_show_their_bounding_box() {
+        let ax = Figure::new().subplot();
+        let boxed = |draw_bounding_box| {
+            let options = PolygonSelectorOptions {
+                draw_bounding_box,
+                ..PolygonSelectorOptions::default()
+            };
+            let selector = PolygonSelector::new(&ax, options);
+            assert_eq!(selector.box_extents(), None, "no box before completion");
+            selector
+                .set_verts(&[(0.25, 0.25), (0.75, 0.25), (0.5, 0.75)])
+                .unwrap();
+            selector
+        };
+        let selector = boxed(true);
+        assert_eq!(selector.box_extents(), Some((0.25, 0.75, 0.25, 0.75)));
+        assert!(selector.box_artist().is_some());
+        assert_eq!(selector.box_handles().len(), 3, "centre, corners, edges");
+        assert!(selector.selection_completed());
+        let plain = boxed(false);
+        assert_eq!(plain.box_extents(), None);
+        assert!(plain.box_artist().is_none() && plain.box_handles().is_empty());
     }
 }

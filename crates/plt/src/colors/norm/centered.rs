@@ -194,6 +194,23 @@ impl CenteredNorm {
         Some((hi - lo) / 2.0)
     }
 
+    /// Moves the centre to `vcenter`, keeping the half-range (matplotlib's
+    /// `vcenter` setter): known limits shift with the centre.
+    ///
+    /// ```
+    /// use plt::colors::{CenteredNorm, Norm};
+    /// let mut norm = CenteredNorm::new(0.0, Some(1.0));
+    /// norm.set_vcenter(1.0);
+    /// assert_eq!((norm.vmin(), norm.vmax()), (Some(0.0), Some(2.0)));
+    /// ```
+    pub fn set_vcenter(&mut self, vcenter: f64) {
+        if vcenter != self.vcenter {
+            let halfrange = self.halfrange();
+            self.vcenter = vcenter;
+            self.set_halfrange(halfrange);
+        }
+    }
+
     /// Sets the limits to `vcenter ∓ |halfrange|`, or clears them.
     pub fn set_halfrange(&mut self, halfrange: Option<f64>) {
         match halfrange {

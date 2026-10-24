@@ -101,7 +101,7 @@ fn rows_json<T>(grid: &Grid<T>, cell: impl Fn(&T) -> Json) -> Json {
     )
 }
 
-fn hillshade(args: Args<'_>) -> Outcome {
+pub(crate) fn hillshade(args: Args<'_>) -> Outcome {
     let elevation = grid(args.json("elevation")?, "elevation")?;
     let shade = light(args)?
         .hillshade(&elevation, &relief(args)?)
@@ -149,7 +149,7 @@ fn shade_rgb(args: Args<'_>) -> Outcome {
     Ok(rows_json(&shaded, |c| Json::from(c.to_vec())))
 }
 
-fn shade(args: Args<'_>) -> Outcome {
+pub(crate) fn shade(args: Args<'_>) -> Outcome {
     let data = grid(args.json("data")?, "data")?;
     let cmap = colormaps::get(args.str("cmap")?).map_err(ProbeError::rejected)?;
     let options = ShadeOptions {

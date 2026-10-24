@@ -27,6 +27,7 @@ mod interval;
 mod nonsingular;
 mod offset;
 mod resolved;
+mod to_data;
 mod tracked_bbox;
 
 use std::fmt;
@@ -145,24 +146,6 @@ impl Transform {
     #[must_use]
     pub fn offset_inches(self, dx: f64, dy: f64) -> Self {
         self.offset_copy(dx, dy, OffsetUnits::Inches)
-    }
-
-    /// The fixed affine map applied before the data transform of `axes`
-    /// that the transform ends with (matplotlib's `transform -
-    /// ax.transData` when it is affine), or `None` when the transform ends
-    /// elsewhere or is not such a chain.
-    pub(crate) fn affine_before_data(&self, axes: ArtistId) -> Option<Affine2D> {
-        match self {
-            Self::Data(id) => (*id == axes).then_some(Affine2D::IDENTITY),
-            Self::Composite(first, last) => {
-                let rest = last.affine_before_data(axes)?;
-                match first.as_ref() {
-                    Self::Affine(affine) => Some(affine.then(rest)),
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
     }
 
     /// The inverse transform.

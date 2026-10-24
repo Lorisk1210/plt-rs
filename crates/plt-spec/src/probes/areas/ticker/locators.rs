@@ -69,11 +69,11 @@ fn max_n(args: Args<'_>) -> Result<MaxNLocator, ProbeError> {
     Ok(locator)
 }
 
-pub(super) fn maxn_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn maxn_tick_values(args: Args<'_>) -> Outcome {
     tick_values(&max_n(args)?, args)
 }
 
-pub(super) fn maxn_view_limits(args: Args<'_>) -> Outcome {
+pub(crate) fn maxn_view_limits(args: Args<'_>) -> Outcome {
     view_limits(&max_n(args)?, args, "dmin", "dmax")
 }
 
@@ -97,11 +97,11 @@ fn multiple(args: Args<'_>) -> Result<MultipleLocator, ProbeError> {
         .with_offset(p.opt_f64("offset")?.unwrap_or(0.0)))
 }
 
-pub(super) fn multiple_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn multiple_tick_values(args: Args<'_>) -> Outcome {
     tick_values(&multiple(args)?, args)
 }
 
-pub(super) fn multiple_view_limits(args: Args<'_>) -> Outcome {
+pub(crate) fn multiple_view_limits(args: Args<'_>) -> Outcome {
     view_limits(&multiple(args)?, args, "dmin", "dmax")
 }
 
@@ -134,7 +134,7 @@ pub(super) fn linear_view_limits(args: Args<'_>) -> Outcome {
     view_limits(&linear(args)?, args, "vmin", "vmax")
 }
 
-pub(super) fn index_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn index_tick_values(args: Args<'_>) -> Outcome {
     let p = Params::of(args, &["base", "offset"])?.args();
     tick_values(&IndexLocator::new(p.f64("base")?, p.f64("offset")?), args)
 }
@@ -143,7 +143,7 @@ pub(super) fn null_tick_values(args: Args<'_>) -> Outcome {
     tick_values(&NullLocator, args)
 }
 
-fn log_locator(args: Args<'_>) -> Result<LogLocator, ProbeError> {
+pub(crate) fn log_locator(args: Args<'_>) -> Result<LogLocator, ProbeError> {
     let params = Params::of(args, &["base", "subs", "numticks"])?;
     let p = params.args();
     let mut locator = LogLocator::new(p.opt_f64("base")?.unwrap_or(10.0)).map_err(rejected)?;
@@ -173,7 +173,7 @@ fn minpos_axis(args: Args<'_>) -> Result<AxisInfo, ProbeError> {
     })
 }
 
-pub(super) fn log_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn log_tick_values(args: Args<'_>) -> Outcome {
     let locator = log_locator(args)?;
     if args.get("minpos").is_none() {
         return tick_values(&locator, args);
@@ -204,7 +204,7 @@ pub(super) fn log_nonsingular(args: Args<'_>) -> Outcome {
     )))
 }
 
-fn symlog(args: Args<'_>) -> Result<SymmetricalLogLocator, ProbeError> {
+pub(crate) fn symlog(args: Args<'_>) -> Result<SymmetricalLogLocator, ProbeError> {
     let p = Params::of(args, &["base", "linthresh", "subs", "numticks"])?.args();
     let (Some(base), Some(linthresh)) = (p.opt_f64("base")?, p.opt_f64("linthresh")?) else {
         return Err(ProbeError::Rejected(
@@ -221,11 +221,11 @@ fn symlog(args: Args<'_>) -> Result<SymmetricalLogLocator, ProbeError> {
     Ok(locator)
 }
 
-pub(super) fn symlog_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn symlog_tick_values(args: Args<'_>) -> Outcome {
     tick_values(&symlog(args)?, args)
 }
 
-pub(super) fn symlog_view_limits(args: Args<'_>) -> Outcome {
+pub(crate) fn symlog_view_limits(args: Args<'_>) -> Outcome {
     view_limits(&symlog(args)?, args, "vmin", "vmax")
 }
 
@@ -252,11 +252,11 @@ fn asinh(args: Args<'_>) -> Result<AsinhLocator, ProbeError> {
     Ok(locator.with_subs(subs))
 }
 
-pub(super) fn asinh_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn asinh_tick_values(args: Args<'_>) -> Outcome {
     tick_values(&asinh(args)?, args)
 }
 
-pub(super) fn asinh_call(args: Args<'_>) -> Outcome {
+pub(crate) fn asinh_call(args: Args<'_>) -> Outcome {
     let axis = view_axis(args)?;
     let settings = TickerSettings::default();
     floats(asinh(args)?.locate(&TickContext::new(&axis, &settings)))
@@ -271,11 +271,11 @@ fn logit_locator(args: Args<'_>) -> Result<LogitLocator, ProbeError> {
     Ok(locator)
 }
 
-pub(super) fn logit_tick_values(args: Args<'_>) -> Outcome {
+pub(crate) fn logit_tick_values(args: Args<'_>) -> Outcome {
     tick_values(&logit_locator(args)?, args)
 }
 
-pub(super) fn logit_nonsingular(args: Args<'_>) -> Outcome {
+pub(crate) fn logit_nonsingular(args: Args<'_>) -> Outcome {
     let locator = logit_locator(args)?;
     let ctx = TickContext::default();
     pair(Ok(locator.nonsingular(

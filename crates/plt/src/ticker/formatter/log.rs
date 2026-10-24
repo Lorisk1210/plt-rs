@@ -111,6 +111,20 @@ impl LogFormatter {
         self.linthresh
     }
 
+    /// The short form a plain log label gives `value` on an axis spanning
+    /// `domain` (matplotlib's `LogFormatter._pprint_val`): integers below
+    /// 10⁴ as they are, otherwise fixed or exponential notation with fewer
+    /// digits the wider the domain, trailing zeros removed.
+    ///
+    /// ```
+    /// use plt::ticker::LogFormatter;
+    /// assert_eq!(LogFormatter::pprint_val(31.41592654, 0.001), "3.142e1");
+    /// assert_eq!(LogFormatter::pprint_val(31.41592654, 5.0), "31.42");
+    /// ```
+    pub fn pprint_val(value: f64, domain: f64) -> String {
+        pprint_val(value, domain)
+    }
+
     /// matplotlib's `set_locs`: which coefficients get labels in `view`.
     fn sublabels(&self, ctx: &TickContext<'_>) -> Result<Sublabels, TickerError> {
         let (subset, all) = self.minor_thresholds;

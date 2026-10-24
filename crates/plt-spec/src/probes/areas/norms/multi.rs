@@ -6,7 +6,7 @@
 use plt::colors::multivar::{MultiColormap, MultiMappable};
 use plt::colors::{MultiNorm, NormName, NormSpec};
 
-use super::super::colors::rgba_rows;
+use super::super::colors::{rgba_json, rgba_rows};
 use super::{make_norm, normalized_json};
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
@@ -105,8 +105,9 @@ pub(crate) fn variates(args: Args<'_>, key: &str) -> Result<(Variates, bool), Pr
 /// The `MultiNorm` of `norms`, `vmin`, `vmax` and `clip`, set in
 /// matplotlib's order.
 fn multi_norm(args: Args<'_>) -> Result<MultiNorm, ProbeError> {
-    let mut norm =
-        MultiNorm::new(norm_specs(args.json("norms")?)?).map_err(ProbeError::rejected)?;
+    // `norms: null` is Python's `None`, which is not a sequence either.
+    let norms = args.get("norms").unwrap_or(&Json::Null);
+    let mut norm = MultiNorm::new(norm_specs(norms)?).map_err(ProbeError::rejected)?;
     if let Some(vmin) = limits(args, "vmin")? {
         norm.set_vmin(&vmin).map_err(ProbeError::rejected)?;
     }
@@ -141,7 +142,7 @@ fn limits_json(norm: &MultiNorm) -> Vec<(String, Json)> {
 }
 
 /// `colors.MultiNorm`: the attributes of a new `MultiNorm`.
-pub(super) fn construct(args: Args<'_>) -> Outcome {
+pub(crate) fn construct(args: Args<'_>) -> Outcome {
     let norm = multi_norm(args)?;
     let mut entries = vec![(
         "n_components".to_owned(),
@@ -157,7 +158,7 @@ pub(super) fn construct(args: Args<'_>) -> Outcome {
 }
 
 /// `colors.MultiNorm.__call__`.
-pub(super) fn call(args: Args<'_>) -> Outcome {
+pub(crate) fn call(args: Args<'_>) -> Outcome {
     let mut norm = multi_norm(args)?;
     let (data, scalar) = variates(args, "values")?;
     let clip = clips(args, "call_clip")?;
@@ -174,7 +175,7 @@ pub(super) fn call(args: Args<'_>) -> Outcome {
 }
 
 /// `colors.MultiNorm.inverse`.
-pub(super) fn inverse(args: Args<'_>) -> Outcome {
+pub(crate) fn inverse(args: Args<'_>) -> Outcome {
     let norm = multi_norm(args)?;
     let (data, scalar) = variates(args, "values")?;
     let values: Vec<Vec<f64>> = data
@@ -190,7 +191,7 @@ pub(super) fn inverse(args: Args<'_>) -> Outcome {
 }
 
 /// `colors.MultiNorm.autoscale` and `autoscale_None`.
-pub(super) fn autoscale(args: Args<'_>, only_unset: bool) -> Outcome {
+pub(crate) fn autoscale(args: Args<'_>, only_unset: bool) -> Outcome {
     let mut norm = multi_norm(args)?;
     let (data, _) = variates(args, "data")?;
     let scaled = if only_unset {
@@ -227,8 +228,8 @@ pub(crate) fn mappable(
 
 /// `colorizer.Colorizer.to_rgba` with a bivariate or multivariate
 /// colormap; non-finite values are masked, as `safe_masked_invalid` does.
-pub(super) fn colorizer_to_rgba(args: Args<'_>) -> Outcome {
-    let (data, _) = variates(args, "values")?;
+pub(crate) fn colorizer_to_rgba(args: Args<'_>) -> Outcome {
+    let (data, scalar) = variates(args, "values")?;
     let data: Vec<Vec<Option<f64>>> = data
         .into_iter()
         .map(|variate| {
@@ -242,5 +243,9 @@ pub(super) fn colorizer_to_rgba(args: Args<'_>) -> Outcome {
     let colors = mappable
         .to_rgba(&data, args.opt_f64("alpha")?)
         .map_err(ProbeError::rejected)?;
-    Ok(rgba_rows(&colors))
+    // One number per variate is one colour, as in matplotlib.
+    Ok(match colors.as_slice() {
+        [color] if scalar => rgba_json(*color),
+        _ => rgba_rows(&colors),
+    })
 }

@@ -10,7 +10,7 @@ use super::{Params, bad, format_ticks, int_pair, rejected, settings, text, usize
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
-fn offset_mode(value: &Json) -> Result<OffsetMode, ProbeError> {
+pub(crate) fn offset_mode(value: &Json) -> Result<OffsetMode, ProbeError> {
     match (value.as_bool(), value.as_f64()) {
         (Some(true), _) => Ok(OffsetMode::Auto),
         (Some(false), _) => Ok(OffsetMode::Off),
@@ -19,7 +19,10 @@ fn offset_mode(value: &Json) -> Result<OffsetMode, ProbeError> {
     }
 }
 
-fn scalar(args: Args<'_>, settings: &TickerSettings) -> Result<ScalarFormatter, ProbeError> {
+pub(crate) fn scalar(
+    args: Args<'_>,
+    settings: &TickerSettings,
+) -> Result<ScalarFormatter, ProbeError> {
     let p = Params::of(
         args,
         &[
@@ -57,31 +60,45 @@ pub(super) fn scalar_format_ticks(args: Args<'_>) -> Outcome {
     format_ticks(&scalar(args, &settings)?, args, &settings)
 }
 
-pub(super) fn scalar_format_data(args: Args<'_>) -> Outcome {
+pub(crate) fn scalar_format_data(args: Args<'_>) -> Outcome {
     let settings = settings(args)?;
     let formatter = scalar(args, &settings)?;
     text(formatter.format_data(args.f64("value")?, &TickContext::detached(&settings)))
 }
 
-pub(super) fn scalar_format_data_short(args: Args<'_>) -> Outcome {
+pub(crate) fn scalar_format_data_short(args: Args<'_>) -> Outcome {
     let settings = settings(args)?;
     let formatter = scalar(args, &settings)?;
     let axis = view_axis(args)?;
     let ctx = TickContext::new(&axis, &settings);
-    // matplotlib formats Python ints with "%d"; Rust data is always f64,
-    // so the integer branch only exists in this adapter.
-    if let Some(integer) = args
-        .get("value")
-        .filter(|v| v.is_integer())
-        .and_then(Json::as_i64)
-    {
-        return Ok(Json::from(settings.fix_minus(&integer.to_string())));
+    if let Some(label) = integer_label(args.json("value")?, &settings) {
+        return Ok(Json::from(label));
     }
     text(formatter.format_data_short(args.f64("value")?, &ctx))
 }
 
-fn eng(args: Args<'_>, settings: &TickerSettings) -> Result<EngFormatter, ProbeError> {
-    let p = Params::of(args, &["unit", "places", "sep", "useMathText", "useOffset"])?.args();
+/// `ScalarFormatter.format_data_short` of a Python `int`, which matplotlib
+/// formats with `"%d"`: Rust data is always `f64`, so the integer branch
+/// only exists in the adapters. `None` for a float.
+pub(crate) fn integer_label(value: &Json, settings: &TickerSettings) -> Option<String> {
+    let integer = value.as_i64().filter(|_| value.is_integer())?;
+    Some(settings.fix_minus(&integer.to_string()))
+}
+
+/// The engineering formatter that `params` describe.
+pub(crate) fn eng(args: Args<'_>, settings: &TickerSettings) -> Result<EngFormatter, ProbeError> {
+    let p = Params::of(
+        args,
+        &[
+            "unit",
+            "places",
+            "sep",
+            "useMathText",
+            "usetex",
+            "useOffset",
+        ],
+    )?
+    .args();
     let mut formatter = EngFormatter::from_settings(settings)
         .with_places(usize_arg(p.opt_i64("places")?, "places")?);
     if let Some(unit) = p.opt_str("unit")? {
@@ -92,6 +109,9 @@ fn eng(args: Args<'_>, settings: &TickerSettings) -> Result<EngFormatter, ProbeE
     }
     if let Some(mathtext) = p.opt_bool("useMathText")? {
         formatter = formatter.with_use_mathtext(mathtext);
+    }
+    if let Some(usetex) = p.opt_bool("usetex")? {
+        formatter = formatter.with_usetex(usetex);
     }
     if let Some(use_offset) = p.get("useOffset") {
         formatter = formatter.with_use_offset(offset_mode(use_offset)?);
@@ -110,15 +130,19 @@ pub(super) fn eng_format_data(args: Args<'_>) -> Outcome {
     text(formatter.format_data(args.f64("value")?, &TickContext::detached(&settings)))
 }
 
-fn log_format_ticks(style: LogLabelStyle, args: Args<'_>) -> Outcome {
-    let settings = settings(args)?;
+/// The log formatter of the given style that `params` describe.
+pub(crate) fn log_formatter(
+    style: LogLabelStyle,
+    args: Args<'_>,
+    settings: &TickerSettings,
+) -> Result<LogFormatter, ProbeError> {
     let p = Params::of(
         args,
         &["base", "labelOnlyBase", "minor_thresholds", "linthresh"],
     )?
     .args();
     let mut formatter =
-        LogFormatter::from_settings(style, p.opt_f64("base")?.unwrap_or(10.0), &settings)
+        LogFormatter::from_settings(style, p.opt_f64("base")?.unwrap_or(10.0), settings)
             .with_label_only_base(p.opt_bool("labelOnlyBase")?.unwrap_or(false))
             .with_linthresh(p.opt_f64("linthresh")?);
     if let Some(thresholds) = p.get("minor_thresholds") {
@@ -127,7 +151,12 @@ fn log_format_ticks(style: LogLabelStyle, args: Args<'_>) -> Outcome {
             _ => return Err(bad("minor_thresholds must be a pair")),
         }
     }
-    format_ticks(&formatter, args, &settings)
+    Ok(formatter)
+}
+
+fn log_format_ticks(style: LogLabelStyle, args: Args<'_>) -> Outcome {
+    let settings = settings(args)?;
+    format_ticks(&log_formatter(style, args, &settings)?, args, &settings)
 }
 
 pub(super) fn log_plain_format_ticks(args: Args<'_>) -> Outcome {
@@ -151,7 +180,8 @@ pub(super) fn log_format_data_short(args: Args<'_>) -> Outcome {
     text(formatter.format_data_short(args.f64("value")?, &TickContext::default()))
 }
 
-pub(super) fn logit_format_ticks(args: Args<'_>) -> Outcome {
+/// The logit formatter that `params` describe.
+pub(crate) fn logit(args: Args<'_>) -> Result<LogitFormatter, ProbeError> {
     let p = Params::of(
         args,
         &[
@@ -175,10 +205,15 @@ pub(super) fn logit_format_ticks(args: Args<'_>) -> Outcome {
     if let Some(n) = usize_arg(p.opt_i64("minor_number")?, "minor_number")? {
         formatter = formatter.with_minor_number(n);
     }
-    format_ticks(&formatter, args, &settings(args)?)
+    Ok(formatter)
 }
 
-pub(super) fn percent_format_ticks(args: Args<'_>) -> Outcome {
+pub(crate) fn logit_format_ticks(args: Args<'_>) -> Outcome {
+    format_ticks(&logit(args)?, args, &settings(args)?)
+}
+
+/// The percent formatter that `params` describe.
+pub(crate) fn percent(args: Args<'_>) -> Result<PercentFormatter, ProbeError> {
     let params = Params::of(args, &["xmax", "decimals", "symbol", "is_latex"])?;
     let p = params.args();
     let decimals = p
@@ -189,11 +224,14 @@ pub(super) fn percent_format_ticks(args: Args<'_>) -> Outcome {
         None => Some("%".to_owned()),
         Some(symbol) => symbol.as_str().map(str::to_owned),
     };
-    let formatter = PercentFormatter::new(p.opt_f64("xmax")?.unwrap_or(100.0))
+    Ok(PercentFormatter::new(p.opt_f64("xmax")?.unwrap_or(100.0))
         .with_decimals(decimals)
         .with_symbol(symbol)
-        .with_is_latex(p.opt_bool("is_latex")?.unwrap_or(false));
-    format_ticks(&formatter, args, &settings(args)?)
+        .with_is_latex(p.opt_bool("is_latex")?.unwrap_or(false)))
+}
+
+pub(super) fn percent_format_ticks(args: Args<'_>) -> Outcome {
+    format_ticks(&percent(args)?, args, &settings(args)?)
 }
 
 pub(super) fn str_method_format_ticks(args: Args<'_>) -> Outcome {
@@ -202,7 +240,7 @@ pub(super) fn str_method_format_ticks(args: Args<'_>) -> Outcome {
     format_ticks(&formatter, args, &settings(args)?)
 }
 
-pub(super) fn format_str_format_ticks(args: Args<'_>) -> Outcome {
+pub(crate) fn format_str_format_ticks(args: Args<'_>) -> Outcome {
     let p = Params::of(args, &["fmt"])?.args();
     let formatter = FormatStrFormatter::new(p.str("fmt")?).map_err(rejected)?;
     format_ticks(&formatter, args, &settings(args)?)

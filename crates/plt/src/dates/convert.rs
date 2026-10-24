@@ -228,6 +228,43 @@ pub fn datestr2num(text: &str) -> Result<f64, DateError> {
     date2num(&ZonedDateTime::parse_iso(text)?)
 }
 
+/// [`datestr2num`] for strings that may leave out the day or the month:
+/// the fields a reduced-precision date (`YYYY` or `YYYY-MM`) omits come
+/// from `default` (matplotlib's `datestr2num(d, default=default)`, where
+/// `dateutil.parser` fills them in); complete dates and date-times parse
+/// as [`datestr2num`] does.
+///
+/// ```
+/// use plt::dates::{Date, datestr2num_with_default};
+/// let default = Date::new(2022, 1, 10)?;
+/// assert_eq!(datestr2num_with_default("2022-02", default)?, 19033.0);
+/// assert_eq!(datestr2num_with_default("2022-01-10", default)?, 19002.0);
+/// # Ok::<(), plt::dates::DateError>(())
+/// ```
+///
+/// # Errors
+///
+/// When the string is not ISO 8601, or the completed date does not exist
+/// (day 31 of a 30-day month).
+pub fn datestr2num_with_default(text: &str, default: Date) -> Result<f64, DateError> {
+    let number = |field: &str, digits: usize| {
+        (field.len() == digits && field.bytes().all(|b| b.is_ascii_digit()))
+            .then(|| field.parse::<u32>().ok())
+            .flatten()
+    };
+    let reduced = match text.split_once('-') {
+        None => number(text, 4).map(|year| (year, default.month())),
+        Some((year, month)) => number(year, 4).zip(number(month, 2)),
+    };
+    match reduced {
+        Some((year, month)) => {
+            let year = i32::try_from(year).map_err(|_| DateError::field("year", year))?;
+            Ok(date_to_num(Date::new(year, month, default.day())?))
+        }
+        None => datestr2num(text),
+    }
+}
+
 /// Midnight of `date` in UTC as a date number.
 pub(crate) fn date_to_num(date: Date) -> f64 {
     get_epoch().date2num(DateTime::midnight(date))
@@ -343,5 +380,15 @@ mod tests {
         assert!(drange(&start, &before, day).is_err());
         assert!(drange(&start, &before, TimeDelta::ZERO).is_err());
         assert_eq!(datestr2num("1970-01-02T00:00:00Z"), Ok(1.0));
+    }
+
+    #[test]
+    fn reduced_dates_take_the_missing_fields_from_the_default() {
+        let default = Date::new(1970, 3, 31).unwrap();
+        assert_eq!(datestr2num_with_default("1971", default), Ok(454.0));
+        assert_eq!(datestr2num_with_default("1970-01", default), Ok(30.0));
+        assert!(datestr2num_with_default("1970-04", default).is_err());
+        assert_eq!(datestr2num_with_default("1970-01-02", default), Ok(1.0));
+        assert!(datestr2num_with_default("1970-1", default).is_err());
     }
 }

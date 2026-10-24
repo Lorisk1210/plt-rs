@@ -8,10 +8,10 @@ use plt_codec::png::DecodeError;
 use plt_codec::{gif, jpeg, tiff, webp};
 use plt_core::Rgba;
 
+use super::color_image::color_image_bytes;
 use super::normalize::normalize_in;
 use super::{BitmapError, BitmapFormat, BitmapSettings, ImageData, Origin};
 use crate::colors::{Colormap, ColormapError, NormError, ScalarMappable, colormaps};
-use crate::numeric::Grid;
 use crate::rc::ColorOrAuto;
 
 /// Why an image cannot be read or written.
@@ -43,6 +43,8 @@ pub enum ImageIoError {
     Norm(NormError),
     /// Float colours outside `[0, 1]`.
     ColorRange,
+    /// Scalars where colours were expected (they need a colormap).
+    ScalarImage,
 }
 
 impl fmt::Display for ImageIoError {
@@ -65,6 +67,7 @@ impl fmt::Display for ImageIoError {
             Self::ColorRange => {
                 f.write_str("Floating point image RGB values must be in the 0..1 range.")
             }
+            Self::ScalarImage => f.write_str("the image holds scalars, not colours"),
         }
     }
 }
@@ -81,7 +84,10 @@ impl std::error::Error for ImageIoError {
             Self::Bitmap(err) => Some(err),
             Self::Colormap(err) => Some(err),
             Self::Norm(err) => Some(err),
-            Self::UnidentifiedImage | Self::UnsupportedFormat(_) | Self::ColorRange => None,
+            Self::UnidentifiedImage
+            | Self::UnsupportedFormat(_)
+            | Self::ColorRange
+            | Self::ScalarImage => None,
         }
     }
 }
@@ -301,49 +307,16 @@ fn rgba_bytes(data: &ImageData, options: &ImsaveOptions) -> Result<Vec<[u8; 4]>,
                 .map(|value| cmap.lookup_bytes(value, None))
                 .collect()
         }
-        ImageData::Rgb(grid) => float_bytes(grid, |&[r, g, b]| [r, g, b, 1.0], |v| v * 255.0)?,
-        ImageData::Rgba(grid) => float_bytes(grid, |&pixel| pixel, |v| v * 255.0)?,
-        ImageData::RgbF32(grid) => float_bytes(grid, |&[r, g, b]| [r, g, b, 1.0], |v| v * 255.0)?,
-        ImageData::RgbaF32(grid) => float_bytes(grid, |&pixel| pixel, |v| v * 255.0)?,
-        ImageData::RgbBytes(grid) => grid
-            .as_slice()
-            .iter()
-            .map(|&[r, g, b]| [r, g, b, 255])
-            .collect(),
-        ImageData::RgbaBytes(grid) => grid.as_slice().to_vec(),
+        colors => color_image_bytes(colors)?,
     })
-}
-
-/// Float colours as bytes: every channel must lie in `[0, 1]`; `rgba`
-/// gives a pixel its alpha and `scale` multiplies by 255 in the colours'
-/// precision before numpy's truncating `astype(np.uint8)`.
-fn float_bytes<P, T>(
-    grid: &Grid<P>,
-    rgba: impl Fn(&P) -> [T; 4],
-    scale: impl Fn(T) -> T,
-) -> Result<Vec<[u8; 4]>, ImageIoError>
-where
-    T: Copy + PartialOrd + From<u8> + Into<f64>,
-{
-    let pixels: Vec<[T; 4]> = grid.as_slice().iter().map(rgba).collect();
-    let (zero, one) = (T::from(0), T::from(1));
-    if pixels.iter().flatten().any(|&v| v < zero || v > one) {
-        return Err(ImageIoError::ColorRange);
-    }
-    // Truncation, as numpy's `astype(np.uint8)`; NaN becomes 0.
-    #[expect(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "values are in [0, 255]"
-    )]
-    let byte = |v: T| scale(v).into() as u8;
-    Ok(pixels.into_iter().map(|pixel| pixel.map(byte)).collect())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use plt_codec::png;
+
+    use crate::numeric::Grid;
 
     fn decode(png: &[u8]) -> Vec<u8> {
         png::Decoder::new().decode(png).unwrap().to_rgba8()

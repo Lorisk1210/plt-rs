@@ -89,14 +89,14 @@ fn extreme_entries(cmap: &Colormap) -> Vec<(String, Json)> {
 }
 
 /// `{"sample": cmap(x), under, over, bad}`.
-fn sampled_state(cmap: &Colormap, x: &Json) -> Outcome {
+pub(crate) fn sampled_state(cmap: &Colormap, x: &Json) -> Outcome {
     let mut entries = vec![("sample".to_owned(), sample_floats(cmap, x)?)];
     entries.extend(extreme_entries(cmap));
     Ok(Json::Object(entries))
 }
 
 /// `{N, lut, under, over, bad}`.
-fn table(cmap: &Colormap) -> Vec<(String, Json)> {
+pub(crate) fn table(cmap: &Colormap) -> Vec<(String, Json)> {
     let mut entries = vec![
         ("N".to_owned(), Json::Integer(cmap.n() as i64)),
         ("lut".to_owned(), lut_rows(cmap)),
@@ -106,7 +106,7 @@ fn table(cmap: &Colormap) -> Vec<(String, Json)> {
 }
 
 /// Applies the optional `bad`/`under`/`over` colour arguments.
-fn apply_extremes(mut cmap: Colormap, args: Args<'_>) -> Result<Colormap, ProbeError> {
+pub(crate) fn apply_extremes(mut cmap: Colormap, args: Args<'_>) -> Result<Colormap, ProbeError> {
     if let Some(bad) = args.get("bad") {
         cmap = cmap
             .with_bad(rgba_arg(bad)?)
@@ -134,7 +134,7 @@ fn names(_: Args<'_>) -> Outcome {
     ))
 }
 
-fn info(args: Args<'_>) -> Outcome {
+pub(crate) fn info(args: Args<'_>) -> Outcome {
     let cmap = registered(args, "name")?;
     let class = match cmap.kind() {
         ColormapKind::Listed => "ListedColormap",
@@ -177,7 +177,7 @@ fn segmentdata(args: Args<'_>) -> Outcome {
     ))
 }
 
-fn sample(args: Args<'_>) -> Outcome {
+pub(crate) fn sample(args: Args<'_>) -> Outcome {
     sample_floats(&registered(args, "name")?, args.json("x")?)
 }
 
@@ -202,7 +202,7 @@ fn sample_bytes(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)
 }
 
-fn sample_alpha(args: Args<'_>) -> Outcome {
+pub(crate) fn sample_alpha(args: Args<'_>) -> Outcome {
     let cmap = registered(args, "name")?;
     let values = fractions(args)?;
     let alpha = alpha_arg(args.get("alpha"))?;
@@ -261,7 +261,7 @@ fn equal(args: Args<'_>) -> Outcome {
     Ok(Json::from(registered(args, "a")? == registered(args, "b")?))
 }
 
-fn get_cmap(args: Args<'_>) -> Outcome {
+pub(crate) fn get_cmap(args: Args<'_>) -> Outcome {
     let cmap = colormaps::get_cmap(args.opt_str("cmap")?).map_err(ProbeError::rejected)?;
     Ok(Json::Object(vec![
         ("name".into(), Json::from(cmap.name())),
@@ -290,7 +290,7 @@ fn lut_size(args: Args<'_>, key: &str) -> Result<Option<usize>, ProbeError> {
         .transpose()
 }
 
-fn listed(args: Args<'_>) -> Outcome {
+pub(crate) fn listed(args: Args<'_>) -> Outcome {
     let value = args.json("colors")?;
     let items: Vec<Json> = match (value, lut_size(args, "N")?) {
         (Json::Array(items), None) => items.clone(),
@@ -339,12 +339,12 @@ fn segment_data(value: &Json) -> Result<SegmentData, ProbeError> {
     })
 }
 
-fn segmented(args: Args<'_>) -> Outcome {
+pub(crate) fn segmented(args: Args<'_>) -> Outcome {
     let data = segment_data(args.json("segmentdata")?)?;
     let n = lut_size(args, "N")?.unwrap_or(256);
     let gamma = args.opt_f64("gamma")?.unwrap_or(1.0);
     let cmap = Colormap::segmented("probe", data, n, gamma).map_err(ProbeError::rejected)?;
-    Ok(Json::Object(table(&cmap)))
+    Ok(Json::Object(table(&apply_extremes(cmap, args)?)))
 }
 
 /// A `(value, colour)` pair of `from_list`.
@@ -359,7 +359,7 @@ fn stop(item: &Json) -> Result<(f64, plt_core::Rgba), ProbeError> {
 
 /// `LinearSegmentedColormap.from_list("probe", colors, N, gamma)`: the
 /// entries are colours if they all resolve, else `(value, colour)` pairs.
-fn build_from_list(args: Args<'_>) -> Result<Colormap, ProbeError> {
+pub(crate) fn build_from_list(args: Args<'_>) -> Result<Colormap, ProbeError> {
     let items = args
         .json("colors")?
         .as_array()
@@ -377,7 +377,7 @@ fn build_from_list(args: Args<'_>) -> Result<Colormap, ProbeError> {
     cmap.map_err(ProbeError::rejected)
 }
 
-fn from_list(args: Args<'_>) -> Outcome {
+pub(crate) fn from_list(args: Args<'_>) -> Outcome {
     let cmap = apply_extremes(build_from_list(args)?, args)?;
     Ok(Json::Object(table(&cmap)))
 }

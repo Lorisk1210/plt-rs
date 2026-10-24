@@ -21,7 +21,7 @@ use crate::probes::{Args, Op, Outcome, ProbeError};
 macro_rules! fixed_locator_ops {
     ($($class:literal => $call:ident, $nonsingular:ident;)*) => {
         $(
-            fn $call(args: Args<'_>) -> Outcome {
+            pub(crate) fn $call(args: Args<'_>) -> Outcome {
                 let locator = fixed_locator($class, args)?;
                 ticks(located(locator.as_ref(), args)?)
             }
@@ -92,16 +92,16 @@ fn bad(why: impl Into<String>) -> ProbeError {
 }
 
 /// `_dt(iso)`: naive strings are UTC.
-fn zoned(text: &str) -> Result<ZonedDateTime, ProbeError> {
+pub(crate) fn zoned(text: &str) -> Result<ZonedDateTime, ProbeError> {
     ZonedDateTime::parse_iso(text).map_err(ProbeError::rejected)
 }
 
-fn date_num(text: &str) -> Result<f64, ProbeError> {
+pub(crate) fn date_num(text: &str) -> Result<f64, ProbeError> {
     date2num(&zoned(text)?).map_err(ProbeError::rejected)
 }
 
 /// `num2date(x).isoformat()`.
-fn iso(x: f64) -> Result<Json, ProbeError> {
+pub(crate) fn iso(x: f64) -> Result<Json, ProbeError> {
     num2date(x, &TimeZone::Utc)
         .map(|d| Json::from(d.isoformat()))
         .map_err(ProbeError::rejected)
@@ -171,7 +171,7 @@ fn located(locator: &dyn Locator, args: Args<'_>) -> Result<Vec<f64>, ProbeError
 }
 
 /// `{ticks, iso}`.
-fn ticks(ticks: Vec<f64>) -> Outcome {
+pub(crate) fn ticks(ticks: Vec<f64>) -> Outcome {
     Ok(tick_fields(ticks)?.into())
 }
 
@@ -220,7 +220,7 @@ fn epoch(_: Args<'_>) -> Outcome {
     Ok(Json::from(get_epoch().to_string()))
 }
 
-fn date2num_op(args: Args<'_>) -> Outcome {
+pub(crate) fn date2num_op(args: Args<'_>) -> Outcome {
     let d = args.json("d")?;
     match (d.as_str(), d.as_array()) {
         (Some(text), _) => Ok(Json::from(date_num(text)?)),
@@ -266,7 +266,7 @@ fn num2date_op(args: Args<'_>) -> Outcome {
     }
 }
 
-fn num2timedelta_op(args: Args<'_>) -> Outcome {
+pub(crate) fn num2timedelta_op(args: Args<'_>) -> Outcome {
     let parts = |x: f64| -> Result<Json, ProbeError> {
         let delta = num2timedelta(x).map_err(ProbeError::rejected)?;
         Ok(Json::from(vec![
@@ -287,7 +287,7 @@ fn num2timedelta_op(args: Args<'_>) -> Outcome {
     }
 }
 
-fn drange_op(args: Args<'_>) -> Outcome {
+pub(crate) fn drange_op(args: Args<'_>) -> Outcome {
     let delta = Args::new(args.json("delta")?);
     let part = |key: &str| delta.opt_i64(key).map(Option::unwrap_or_default);
     let seconds = part("hours")? * 3600 + part("minutes")? * 60 + part("seconds")?;
@@ -306,11 +306,15 @@ fn drange_op(args: Args<'_>) -> Outcome {
 // AutoDateLocator and the automatic formatters
 // ---------------------------------------------------------------------------
 
-/// `AutoDateLocator(**params)`; `maxticks` is an int or `{freq name: int}`.
-fn auto_locator(params: Option<&Json>) -> Result<AutoDateLocator, ProbeError> {
+/// `AutoDateLocator(**params)`; `maxticks` is an int or `{freq name: int}`
+/// and `tz` a zone name.
+pub(crate) fn auto_locator(params: Option<&Json>) -> Result<AutoDateLocator, ProbeError> {
     static EMPTY: Json = Json::Object(Vec::new());
     let params = Args::new(params.unwrap_or(&EMPTY));
     let mut locator = AutoDateLocator::new();
+    if let Some(tz) = params.opt_str("tz")? {
+        locator = locator.with_tz(TimeZone::named(tz).map_err(ProbeError::rejected)?);
+    }
     if let Some(multiples) = params.opt_bool("interval_multiples")? {
         locator = locator.with_interval_multiples(multiples);
     }
@@ -379,7 +383,7 @@ fn describe(locator: &ChosenLocator) -> Json {
     }
 }
 
-fn auto_call(args: Args<'_>) -> Outcome {
+pub(crate) fn auto_call(args: Args<'_>) -> Outcome {
     let locator = auto_locator(args.get("params"))?;
     let axis = view_axis(args)?;
     let settings = TickerSettings::default();
@@ -418,11 +422,14 @@ fn locate_and_format(
     Ok((labels.labels, labels.offset))
 }
 
-fn auto_format_ticks(args: Args<'_>) -> Outcome {
-    let params = Params::of(args, &["defaultfmt"])?.args();
+pub(crate) fn auto_format_ticks(args: Args<'_>) -> Outcome {
+    let params = Params::of(args, &["defaultfmt", "usetex"])?.args();
     let mut formatter = AutoDateFormatter::new(auto_locator(args.get("locator"))?);
     if let Some(format) = params.opt_str("defaultfmt")? {
         formatter = formatter.with_defaultfmt(format);
+    }
+    if let Some(usetex) = params.opt_bool("usetex")? {
+        formatter = formatter.with_usetex(usetex);
     }
     let (labels, _) = locate_and_format(args, &formatter)?;
     Ok(Json::from(labels))
@@ -448,7 +455,7 @@ fn as_strs(list: &[String]) -> Vec<&str> {
     list.iter().map(String::as_str).collect()
 }
 
-fn concise_format_ticks(args: Args<'_>) -> Outcome {
+pub(crate) fn concise_format_ticks(args: Args<'_>) -> Outcome {
     let keys = [
         "formats",
         "zero_formats",
@@ -456,7 +463,17 @@ fn concise_format_ticks(args: Args<'_>) -> Outcome {
         "show_offset",
         "usetex",
     ];
-    let params = Params::of(args, &keys)?.args();
+    let formatter = concise_formatter(Params::of(args, &keys)?.args())?;
+    let (labels, offset) = locate_and_format(args, &formatter)?;
+    Ok(ObjectBuilder::default()
+        .field("labels", labels)
+        .field("offset", offset)
+        .into())
+}
+
+/// `ConciseDateFormatter(locator, **params)` for the keyword arguments
+/// `formats`, `zero_formats`, `offset_formats`, `show_offset` and `usetex`.
+pub(crate) fn concise_formatter(params: Args<'_>) -> Result<ConciseDateFormatter, ProbeError> {
     let mut formatter = ConciseDateFormatter::new();
     if let Some(list) = formats(params, "formats")? {
         formatter = formatter
@@ -479,11 +496,7 @@ fn concise_format_ticks(args: Args<'_>) -> Outcome {
     if let Some(usetex) = params.opt_bool("usetex")? {
         formatter = formatter.with_usetex(usetex);
     }
-    let (labels, offset) = locate_and_format(args, &formatter)?;
-    Ok(ObjectBuilder::default()
-        .field("labels", labels)
-        .field("offset", offset)
-        .into())
+    Ok(formatter)
 }
 
 // ---------------------------------------------------------------------------
@@ -553,9 +566,14 @@ fn fixed_locator(class: &str, args: Args<'_>) -> Result<Box<dyn DateLocator>, Pr
 }
 
 fn rrule_call(args: Args<'_>) -> Outcome {
-    let rule = Args::new(args.json("rule")?);
+    let spec = rrule_spec(Args::new(args.json("rule")?))?;
+    ticks(located(&RRuleLocator::new(spec), args)?)
+}
+
+/// The rule `rrulewrapper(freq, **rule)` describes.
+pub(crate) fn rrule_spec(rule: Args<'_>) -> Result<RRuleSpec, ProbeError> {
     let freq = Frequency::from_name(rule.str("freq")?).ok_or_else(|| bad("unknown frequency"))?;
-    let spec = RRuleSpec {
+    Ok(RRuleSpec {
         interval: positive_int(rule, "interval", 1)?,
         bysetpos: by_list(rule, "bysetpos")?,
         bymonth: by_list(rule, "bymonth")?,
@@ -569,8 +587,7 @@ fn rrule_call(args: Args<'_>) -> Outcome {
         byminute: by_list(rule, "byminute")?,
         bysecond: by_list(rule, "bysecond")?,
         ..RRuleSpec::new(freq)
-    };
-    ticks(located(&RRuleLocator::new(spec), args)?)
+    })
 }
 
 // ---------------------------------------------------------------------------

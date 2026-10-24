@@ -410,7 +410,7 @@ fn cleaned(args: Args<'_>) -> Outcome {
 
 /// The cleaned path's commands as `[flat_vertices, code]` (closures keep
 /// their stored point, as in matplotlib).
-fn iter_segments(args: Args<'_>) -> Outcome {
+pub(crate) fn iter_segments(args: Args<'_>) -> Outcome {
     let path = path_arg(args, "path")?;
     let options = cleanup_options(args, &path, args.opt_bool("simplify")?)?;
     let cleaned = path.cleaned(&options);

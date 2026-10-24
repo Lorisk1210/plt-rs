@@ -142,17 +142,17 @@ pub(crate) fn color_list(items: &[Json]) -> Result<Colors, ProbeError> {
         .map(Colors::Many)
 }
 
-fn to_rgba(args: Args<'_>) -> Outcome {
+pub(crate) fn to_rgba(args: Args<'_>) -> Outcome {
     let spec = Spec::parse(color_value(args, "c"))?;
     spec.resolve(args.opt_f64("alpha")?).map(rgba_json)
 }
 
-fn to_rgb(args: Args<'_>) -> Outcome {
+pub(crate) fn to_rgb(args: Args<'_>) -> Outcome {
     let c = rgba_arg(color_value(args, "c"))?;
     Ok(Json::from(vec![c.r, c.g, c.b]))
 }
 
-fn to_hex_op(args: Args<'_>) -> Outcome {
+pub(crate) fn to_hex_op(args: Args<'_>) -> Outcome {
     let rgba = rgba_arg(color_value(args, "c"))?;
     let keep_alpha = args.opt_bool("keep_alpha")?.unwrap_or(false);
     to_hex(rgba, keep_alpha)
@@ -160,7 +160,7 @@ fn to_hex_op(args: Args<'_>) -> Outcome {
         .map_err(ProbeError::rejected)
 }
 
-fn is_color_like(args: Args<'_>) -> Outcome {
+pub(crate) fn is_color_like(args: Args<'_>) -> Outcome {
     let value = color_value(args, "c");
     let cycle = value.as_str().is_some_and(is_cycle_reference);
     let resolves = Spec::parse(value)
@@ -208,7 +208,7 @@ fn colors_arg(value: &Json, tuple: bool, alpha: &Alpha) -> Result<(Colors, Alpha
     }
 }
 
-fn to_rgba_array_op(args: Args<'_>) -> Outcome {
+pub(crate) fn to_rgba_array_op(args: Args<'_>) -> Outcome {
     let alpha = alpha_arg(args.get("alpha"))?;
     let value = args.json("c")?;
     let (colors, alpha) = if args.opt_bool("ndarray")?.unwrap_or(false) {
@@ -235,7 +235,7 @@ fn ndarray_rows(value: &Json) -> Result<Colors, ProbeError> {
         .map(Colors::Many)
 }
 
-fn same_color_op(args: Args<'_>) -> Outcome {
+pub(crate) fn same_color_op(args: Args<'_>) -> Outcome {
     let side = |key| colors_arg(args.json(key)?, false, &Alpha::Keep).map(|(colors, _)| colors);
     same_color(side("c1")?, side("c2")?)
         .map(Json::from)
@@ -260,13 +260,13 @@ fn map_triples(
     }
 }
 
-fn rgb_to_hsv_op(args: Args<'_>) -> Outcome {
+pub(crate) fn rgb_to_hsv_op(args: Args<'_>) -> Outcome {
     map_triples(args.json("arr")?, &|rgb| {
         rgb_to_hsv(rgb).map_err(ProbeError::rejected)
     })
 }
 
-fn hsv_to_rgb_op(args: Args<'_>) -> Outcome {
+pub(crate) fn hsv_to_rgb_op(args: Args<'_>) -> Outcome {
     map_triples(args.json("hsv")?, &|hsv| Ok(hsv_to_rgb(hsv)))
 }
 
@@ -304,11 +304,11 @@ fn named_colors_mapping(_: Args<'_>) -> Outcome {
     ))
 }
 
-fn color_sequences(_: Args<'_>) -> Outcome {
-    Ok(Json::from(color_sequence_names().collect::<Vec<_>>()))
+pub(crate) fn color_sequences(_: Args<'_>) -> Outcome {
+    Ok(Json::from(color_sequence_names()))
 }
 
-fn color_sequence_op(args: Args<'_>) -> Outcome {
+pub(crate) fn color_sequence_op(args: Args<'_>) -> Outcome {
     let name = args.str("name")?;
     color_sequence(name)
         .map(|colors| rgba_rows(&colors))
@@ -317,7 +317,7 @@ fn color_sequence_op(args: Args<'_>) -> Outcome {
 
 /// `cmap(norm(values))` for the colormap and norm of
 /// `from_levels_and_colors`, with the colormap's size, ends and extension.
-fn from_levels_and_colors_op(args: Args<'_>) -> Outcome {
+pub(crate) fn from_levels_and_colors_op(args: Args<'_>) -> Outcome {
     let colors = args
         .json("colors")?
         .as_array()

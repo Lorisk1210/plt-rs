@@ -62,5 +62,8 @@ pub use norm::{
     SymLogNorm, TwoSlopeNorm,
 };
 pub use plt_core::Rgba;
-pub use sequences::{color_sequence, color_sequence_names};
+pub use sequences::{
+    ColorSequenceError, color_sequence, color_sequence_names, register_color_sequence,
+    unregister_color_sequence,
+};
 pub use spec::{Color, ColorError, is_color_like, is_cycle_reference, to_hex, to_rgba};

@@ -6,7 +6,7 @@ use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
 /// `_nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True)`.
-pub(super) fn nonsingular(args: Args<'_>) -> Outcome {
+pub(crate) fn nonsingular(args: Args<'_>) -> Outcome {
     let (lo, hi) = transforms::nonsingular(
         args.f64("vmin")?,
         args.f64("vmax")?,
@@ -18,7 +18,7 @@ pub(super) fn nonsingular(args: Args<'_>) -> Outcome {
 }
 
 /// `_interval_contains(interval, val)`.
-pub(super) fn interval_contains(args: Args<'_>) -> Outcome {
+pub(crate) fn interval_contains(args: Args<'_>) -> Outcome {
     Ok(Json::from(transforms::interval_contains(
         interval_arg(args)?,
         args.f64("val")?,
@@ -26,7 +26,7 @@ pub(super) fn interval_contains(args: Args<'_>) -> Outcome {
 }
 
 /// `_interval_contains_open(interval, val)`.
-pub(super) fn interval_contains_open(args: Args<'_>) -> Outcome {
+pub(crate) fn interval_contains_open(args: Args<'_>) -> Outcome {
     Ok(Json::from(transforms::interval_contains_open(
         interval_arg(args)?,
         args.f64("val")?,

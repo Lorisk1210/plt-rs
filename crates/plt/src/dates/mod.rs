@@ -49,8 +49,8 @@ mod tz;
 
 pub use calendar::Weekday;
 pub use convert::{
-    Epoch, date2num, datestr2num, datetime64_to_num, drange, get_epoch, num2date, num2timedelta,
-    reset_epoch, set_epoch,
+    Epoch, date2num, datestr2num, datestr2num_with_default, datetime64_to_num, drange, get_epoch,
+    num2date, num2timedelta, reset_epoch, set_epoch,
 };
 pub use datetime::{Date, DateTime, MAX_YEAR, MIN_YEAR, Time};
 pub use error::DateError;

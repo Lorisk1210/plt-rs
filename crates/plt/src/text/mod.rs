@@ -21,6 +21,7 @@ mod error;
 mod handle;
 mod layout;
 mod math;
+mod math_image;
 mod metrics;
 mod text_box;
 mod wrap;
@@ -48,6 +49,7 @@ use layout::rc_language;
 pub use layout::{LaidOutText, measure_text, text_path};
 pub(crate) use layout::{lay_out, lay_out_with_math};
 pub use math::math_style;
+pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
 pub use plt_text::{
     BlockLayout, Feature, HAlign, Language, LanguageRange, LanguageTag, LineMetrics, LinePlacement,
@@ -385,6 +387,16 @@ impl Artist for TextArtist {
         match &self.annotation {
             Some(annotation) => annotation.extent(self, *ctx).ok(),
             None => self.extent_at(*ctx, self.anchor(*ctx)?).ok(),
+        }
+    }
+
+    /// An annotation whose point is not shown takes no space
+    /// (`Annotation.get_tightbbox` gives a null box where
+    /// `get_window_extent` gives the unit one).
+    fn tight_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        match &self.annotation {
+            Some(annotation) if !annotation.is_shown(self, *ctx) => None,
+            _ => self.window_extent(ctx),
         }
     }
 

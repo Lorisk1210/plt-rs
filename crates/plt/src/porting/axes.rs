@@ -65,6 +65,7 @@
 //! | `ax.spines["left"].set_position(("outward", 10))` | [`Spine::set_position`]`(SpinePosition::Outward(10.0))` |
 //! | `ax.spines["bottom"].set_position("zero")`     | [`Spine::set_position`]`(SpinePosition::Data(0.0))` |
 //! | `ax.spines["left"].set_bounds(lo, hi)`         | [`Spine::set_bounds`]                            |
+//! | `spine.set_bounds(lo, None)`, `spine.get_bounds()` | [`Spine::set_bound_ends`], [`Spine::bounds`]   |
 //! | `ax.twinx()`, `ax.twiny()`                     | [`Axes::twinx`], [`Axes::twiny`]                 |
 //! | `ax.secondary_xaxis("top", functions=(f, g))`  | [`Axes::secondary_xaxis`]`(SecondaryLocation::Side(SpineSide::Top), Some(..))` |
 //! | `ax.sharex(other)`, `ax.get_shared_x_axes()`   | [`Axes::share_x`], [`Axes::shared_axes`]         |
@@ -319,6 +320,8 @@
 //! [`Spines`]: crate::spines::Spines
 //! [`Spine::set_position`]: crate::spines::Spine::set_position
 //! [`Spine::set_bounds`]: crate::spines::Spine::set_bounds
+//! [`Spine::set_bound_ends`]: crate::spines::Spine::set_bound_ends
+//! [`Spine::bounds`]: crate::spines::Spine::bounds
 //! [`SpinePosition`]: crate::spines::SpinePosition
 //! [`RRuleLocator::months`]: crate::dates::RRuleLocator::months
 //! [`RRuleLocator::days`]: crate::dates::RRuleLocator::days

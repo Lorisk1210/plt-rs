@@ -130,6 +130,26 @@ impl QuiverGeometry {
         self
     }
 
+    /// The same arrows for the components `u` and `v`, one pair per
+    /// position, the non-finite ones masked (matplotlib's `set_UVC`, whose
+    /// mask comes from the new components alone); `scalar` tells whether
+    /// both were given as one value for every position.
+    pub(crate) fn with_components(&self, (u, v): (Vec<f64>, Vec<f64>), scalar: bool) -> Self {
+        let mask = u
+            .iter()
+            .zip(&v)
+            .map(|(u, v)| !(u.is_finite() && v.is_finite()))
+            .collect();
+        Self::new(
+            self.axes,
+            self.xy.clone(),
+            (u, v),
+            mask,
+            self.sizing.clone(),
+        )
+        .with_scalar_components(scalar)
+    }
+
     /// The axes the arrows belong to.
     pub(crate) fn axes(&self) -> ArtistId {
         self.axes
@@ -500,6 +520,24 @@ mod tests {
         let per_arrow =
             geometry(Angles::Degrees(vec![0.0, 90.0, 180.0])).with_scalar_components(true);
         assert_eq!(per_arrow.arrow_vectors().xy.len(), 3);
+    }
+
+    #[test]
+    fn new_components_take_their_own_mask() {
+        // matplotlib's set_UVC: the mask of the new components replaces
+        // the old one, and single values serve every position.
+        let geometry = QuiverGeometry::new(
+            axes(),
+            vec![Point::ORIGIN, Point::new(1.0, 0.0)],
+            (vec![f64::NAN, 1.0], vec![1.0, 1.0]),
+            vec![true, false],
+            sizing(),
+        );
+        let replaced = geometry.with_components((vec![0.0, 0.0], vec![1.0, f64::NAN]), false);
+        assert_eq!(replaced.mask, [false, true]);
+        assert_eq!(replaced.u[0], 0.0);
+        let scalar = geometry.with_components((vec![0.0; 2], vec![1.0; 2]), true);
+        assert_eq!(scalar.arrow_vectors().xy.len(), 1);
     }
 
     #[test]

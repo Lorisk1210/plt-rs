@@ -347,6 +347,7 @@ impl<'e> Fonts<'e> {
 mod tests {
     use super::*;
     use crate::mathtext::style::MathFont;
+    use plt_font::FontQuery;
 
     fn fonts(db: &FontDatabase, fontset: Fontset) -> Fonts<'_> {
         let style = MathStyle::default().with_fontset(fontset).with_dpi(100.0);
@@ -389,6 +390,28 @@ mod tests {
             .sized_alternatives(FontName::Normal, "(")
             .expect("parens");
         assert_eq!(alts.len(), 5);
+    }
+
+    #[test]
+    fn cmr10_text_takes_its_minus_from_cmsy10() {
+        // matplotlib's test_mathtext_cmr10_minus_sign: cmr10 has no minus
+        // sign, so the STIX fallback of Computer Modern takes it from
+        // cmsy10, as every Unicode fontset does.
+        let db = FontDatabase::with_bundled_fonts();
+        let cmsy10 = db
+            .find_font(&FontQuery::families(["cmsy10"]))
+            .expect("cmsy10");
+        for fontset in [Fontset::Cm, Fontset::Stix, Fontset::DejaVuSans] {
+            let style = MathStyle::default().with_fontset(fontset).with_dpi(100.0);
+            let cmr10 = db
+                .find_font(&FontQuery::families(["cmr10"]))
+                .expect("cmr10");
+            let mut fonts = Fonts::new(&db, &style, cmr10).expect("fonts");
+            let minus = fonts
+                .info(key(FontName::Default, "\u{2212}"))
+                .expect("minus");
+            assert_eq!((minus.font, minus.code), (cmsy10, 0xa1), "{fontset:?}");
+        }
     }
 
     #[test]

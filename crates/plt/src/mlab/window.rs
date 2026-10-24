@@ -54,6 +54,30 @@ pub fn hanning(m: usize) -> Vec<f64> {
     }
 }
 
+/// The `m`-point Blackman window (numpy `blackman`):
+/// `0.42 + 0.5·cos(π·k/(m-1)) + 0.08·cos(2π·k/(m-1))` for
+/// `k = 1-m, 3-m, ..., m-1`.
+///
+/// ```
+/// let w = plt::mlab::blackman(3);
+/// assert!(w[0].abs() < 1e-15 && (w[1] - 1.0).abs() < 1e-15);
+/// ```
+pub fn blackman(m: usize) -> Vec<f64> {
+    match m {
+        0 => Vec::new(),
+        1 => vec![1.0],
+        _ => {
+            let denom = (m - 1) as f64;
+            (0..m)
+                .map(|i| {
+                    let k = 2.0 * i as f64 + 1.0 - m as f64;
+                    0.42 + 0.5 * (PI * k / denom).cos() + 0.08 * (2.0 * PI * k / denom).cos()
+                })
+                .collect()
+        }
+    }
+}
+
 /// `x` multiplied by a Hann window of its length (matplotlib
 /// `window_hanning`).
 pub fn window_hanning(x: &[f64]) -> Vec<f64> {
@@ -80,6 +104,15 @@ mod tests {
         }
         assert_eq!(window_hanning(&[2.0, 2.0, 2.0]), vec![0.0, 2.0, 0.0]);
         assert_eq!(window_none(&[2.0, -1.0]), vec![2.0, -1.0]);
+    }
+
+    #[test]
+    fn blackman_window_shape() {
+        assert_eq!(blackman(0), Vec::<f64>::new());
+        assert_eq!(blackman(1), vec![1.0]);
+        let w = blackman(5);
+        assert!(w[0].abs() < 1e-16 && (w[2] - 1.0).abs() < 1e-15);
+        assert!((w[1] - 0.34).abs() < 1e-15 && (w[1] - w[3]).abs() < 1e-16);
     }
 
     #[test]

@@ -1,0 +1,14 @@
+{
+ "area": "mpl_offsetbox",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Annotation.draggable", "args": {"scene": "remove"}, "value": 0},
+  {
+   "op": "Annotation.draggable",
+   "args": {"scene": "subfigure"},
+   "value": [[0, 0], [0.015625, 0.010416666666666666], [0.015625, 0.010416666666666666], [0.015625, 0.010416666666666666]]
+  },
+  {"op": "AnnotationBbox.xyann", "args": {"xybox": [-0.2, 0.4], "boxcoords": "axes fraction"}, "value": [[-0.2, 0.4], "axes fraction"]},
+  {"op": "AnnotationBbox.xyann", "args": {}, "value": [[0.5, 0.5], "data"]}
+ ]
+}

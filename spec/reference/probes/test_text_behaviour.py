@@ -95,7 +95,8 @@ Left out: ``test_char_index_at`` (a private helper of ``TextBox``, whose
 behaviour the ``widgets`` area covers), ``test_ha_for_angle`` /
 ``test_va_for_angle`` (private; the ``xtick``/``ytick`` rotation modes are
 covered by ``text_metrics`` extents), ``test_two_2line_texts`` (line
-spacing is covered by ``text_metrics``), ``test_text_stale``,
+spacing is covered by ``text_metrics``), ``test_text_stale`` and
+``test_text_size_binding`` (the ``mpl_text`` area),
 ``test_update_mutate_input``, ``test_fontproperties_kwarg_precedence``,
 ``test_validate_linespacing``, ``test_text_language_invalid``,
 ``test_text_repr`` and the metrics-cache tests (Python object model and

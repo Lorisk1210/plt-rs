@@ -47,7 +47,8 @@ pub(crate) use geometry::{ArrowSizing, QuiverGeometry};
 pub(crate) use key::{KeyVector, QuiverKeyArtist};
 
 use crate::artist::{ArtistHandle, RawHandle};
-use crate::collections::{Collection, CollectionProps};
+use crate::axes::PlotError;
+use crate::collections::{Collection, CollectionArtist, CollectionProps};
 use crate::colors::Color;
 use crate::transforms::Transform;
 
@@ -131,5 +132,46 @@ impl Quiver {
     /// Whether the plot has no arrows.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Replaces the vector components, one pair per arrow or one value for
+    /// all (matplotlib's `set_UVC`); arrows with a non-finite component are
+    /// hidden. An automatic scale is worked out from the components the
+    /// arrows are drawn with.
+    ///
+    /// ```
+    /// use plt::numeric::{Grid, linspace, meshgrid};
+    /// use plt::prelude::*;
+    /// use plt::quiver::{QuiverOptions, VectorField};
+    /// let (x, y) = meshgrid(&linspace(0.0, 1.0, 2), &linspace(0.0, 1.0, 2));
+    /// let ones = Grid::from_fn(2, 2, |_, _| 1.0);
+    /// let ax = Figure::new().subplot();
+    /// let q = ax.quiver(VectorField::on_mesh(&x, &y, &ones, &ones), QuiverOptions::default())?;
+    /// q.set_uvc(&[0.0], &[1.0])?;
+    /// assert!(q.set_uvc(&[0.0, 1.0], &[1.0]).is_err());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `u` or `v` has neither one value nor one per arrow.
+    pub fn set_uvc(&self, u: &[f64], v: &[f64]) -> Result<&Self, PlotError> {
+        let n = self.len();
+        let scalar = u.len() == 1 && v.len() == 1;
+        let components = (
+            field::broadcast("U", u.to_vec(), n)?,
+            field::broadcast("V", v.to_vec(), n)?,
+        );
+        self.collection
+            .raw()
+            .with_mut::<CollectionArtist, _>(|artist| {
+                let replaced = artist
+                    .draw_time_state::<QuiverGeometry>()
+                    .map(|geometry| geometry.with_components(components, scalar));
+                if let Some(geometry) = replaced {
+                    artist.draw_time = Some(Box::new(geometry));
+                }
+            });
+        Ok(self)
     }
 }

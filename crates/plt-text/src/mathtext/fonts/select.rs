@@ -144,6 +144,22 @@ impl GlyphSet {
         }
     }
 
+    /// A set picking glyphs by their Unicode index (matplotlib's
+    /// `UnicodeFonts`, which the STIX, `DejaVu` and custom fontsets
+    /// extend): it takes `×` and `−` from `cmsy10` where the font in use is
+    /// `cmr10`.
+    fn unicode(
+        kind: Kind,
+        db: Finder<'_>,
+        text_font: FontId,
+        default: FontName,
+    ) -> Result<Self, TextError> {
+        Ok(Self {
+            cmsy10: Some(db.find("cmsy10")?),
+            ..Self::new(kind, text_font, default)
+        })
+    }
+
     /// The glyph set of `style.fontset`.
     pub(crate) fn for_style(
         db: &FontDatabase,
@@ -196,7 +212,7 @@ impl GlyphSet {
         default: FontName,
         sans: bool,
     ) -> Result<Self, TextError> {
-        let mut set = Self::new(Kind::Stix { sans }, text_font, default);
+        let mut set = Self::unicode(Kind::Stix { sans }, db, text_font, default)?;
         set.fontmap = db.find_all(&[
             (FontName::Rm, "STIXGeneral"),
             (FontName::It, "STIXGeneral:italic"),
@@ -216,7 +232,7 @@ impl GlyphSet {
         default: FontName,
         serif: bool,
     ) -> Result<Self, TextError> {
-        let mut set = Self::new(Kind::DejaVu, text_font, default);
+        let mut set = Self::unicode(Kind::DejaVu, db, text_font, default)?;
         let family = if serif { "DejaVu Serif" } else { "DejaVu Sans" };
         let patterns = [
             (FontName::Rm, family.to_owned()),
@@ -245,7 +261,7 @@ impl GlyphSet {
         text_font: FontId,
         default: FontName,
     ) -> Result<Self, TextError> {
-        let mut set = Self::new(Kind::Custom, text_font, default);
+        let mut set = Self::unicode(Kind::Custom, db, text_font, default)?;
         let fonts = &style.custom;
         set.fallback = match style.fallback {
             Some(MathFallback::Cm) => Some(Box::new(Self::bakoma(db, text_font, default)?)),
@@ -273,7 +289,6 @@ impl GlyphSet {
         {
             set.fontmap.extend(db.stix_sizes()?);
         }
-        set.cmsy10 = Some(db.find("cmsy10")?);
         Ok(set)
     }
 

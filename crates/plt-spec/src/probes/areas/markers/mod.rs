@@ -189,7 +189,7 @@ fn class_attributes(_args: Args<'_>) -> Outcome {
 /// Builds the marker described by `marker`, `fillstyle` (default: the
 /// `markers.fillstyle` rc override, else `"full"`), `transform`,
 /// `capstyle` and `joinstyle`.
-fn build(args: Args<'_>, fillstyle: Option<&str>) -> Result<MarkerStyle, ProbeError> {
+pub(crate) fn build(args: Args<'_>, fillstyle: Option<&str>) -> Result<MarkerStyle, ProbeError> {
     let rc_fill = args
         .get("rc")
         .and_then(|rc| rc.get("markers.fillstyle"))
@@ -254,7 +254,9 @@ fn decode_tuple(items: &[Json]) -> Result<Marker, ProbeError> {
     Ok(Marker::polygon(sides as usize, style, angle))
 }
 
-fn apply_step(marker: &MarkerStyle, step: &Json) -> Result<MarkerStyle, ProbeError> {
+/// `marker` after one `["rotated", {deg | rad}]`, `["scaled", sx, sy?]`
+/// or `["transformed", ops]` step.
+pub(crate) fn apply_step(marker: &MarkerStyle, step: &Json) -> Result<MarkerStyle, ProbeError> {
     let parts = step.as_array().unwrap_or(&[]);
     let kind = parts.first().and_then(Json::as_str).unwrap_or_default();
     match kind {

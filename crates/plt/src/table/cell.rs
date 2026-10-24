@@ -58,6 +58,47 @@ impl CellEdges {
     fn in_order(self) -> [bool; 4] {
         [self.bottom, self.right, self.top, self.left]
     }
+
+    /// The outline of a cell: the unit square from its lower left corner,
+    /// counter-clockwise, drawing only these edges and closed when it
+    /// draws all four (matplotlib's `Cell.get_path`).
+    ///
+    /// ```
+    /// use plt::table::CellEdges;
+    /// use plt_core::PathCode::{ClosePoly, LineTo, MoveTo};
+    /// assert_eq!(
+    ///     CellEdges::CLOSED.outline().resolved_codes(),
+    ///     [MoveTo, LineTo, LineTo, LineTo, ClosePoly]
+    /// );
+    /// let top_only: CellEdges = "T".parse()?;
+    /// assert_eq!(
+    ///     top_only.outline().resolved_codes(),
+    ///     [MoveTo, MoveTo, MoveTo, LineTo, MoveTo]
+    /// );
+    /// # Ok::<(), plt::table::TableError>(())
+    /// ```
+    pub fn outline(self) -> Path {
+        let mut codes = vec![PathCode::MoveTo];
+        codes.extend(self.in_order().map(|visible| {
+            if visible {
+                PathCode::LineTo
+            } else {
+                PathCode::MoveTo
+            }
+        }));
+        if !codes[1..].contains(&PathCode::MoveTo) {
+            codes[4] = PathCode::ClosePoly;
+        }
+        let p = Point::new;
+        let square = vec![
+            p(0.0, 0.0),
+            p(1.0, 0.0),
+            p(1.0, 1.0),
+            p(0.0, 1.0),
+            p(0.0, 0.0),
+        ];
+        Path::new(square, codes).expect("the cell outline has five vertices")
+    }
 }
 
 impl Default for CellEdges {
@@ -114,26 +155,7 @@ pub(crate) struct CellShape {
 
 impl PatchShape for CellShape {
     fn path(&self) -> Path {
-        let mut codes = vec![PathCode::MoveTo];
-        codes.extend(self.edges.in_order().map(|visible| {
-            if visible {
-                PathCode::LineTo
-            } else {
-                PathCode::MoveTo
-            }
-        }));
-        if !codes[1..].contains(&PathCode::MoveTo) {
-            codes[4] = PathCode::ClosePoly;
-        }
-        let p = Point::new;
-        let square = vec![
-            p(0.0, 0.0),
-            p(1.0, 0.0),
-            p(1.0, 1.0),
-            p(0.0, 1.0),
-            p(0.0, 0.0),
-        ];
-        Path::new(square, codes).expect("the cell outline has five vertices")
+        self.edges.outline()
     }
 
     fn patch_transform(&self) -> Affine2D {

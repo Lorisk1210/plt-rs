@@ -23,7 +23,8 @@
 //! |----------------------------------------------------|------------------------------------------------|
 //! | `fig.savefig("plot.png")`, `plt.savefig(...)`      | [`Figure::savefig`], [`crate::pyplot::savefig`] |
 //! | `fig.savefig(path, dpi=200)`                       | [`Figure::savefig_with`] and [`SaveOptions::dpi`] |
-//! | `bbox_inches="tight"`, `pad_inches=0.05`           | [`SaveOptions::bbox_inches`]`: Some(BboxInches::Tight)`, [`SaveOptions::pad_inches`] |
+//! | `bbox_inches="tight"`, `pad_inches=0.05`           | [`SaveOptions::bbox_inches`]`: Some(BboxInches::Tight)`, [`SaveOptions::pad_inches`]`: Some(0.05.into())` |
+//! | `pad_inches="layout"`                              | [`PadInches::Layout`]                          |
 //! | `bbox_inches=Bbox([[x0, y0], [x1, y1]])`           | [`BboxInches::Inches`]                         |
 //! | `transparent=True`, `facecolor=`, `edgecolor=`     | [`SaveOptions::transparent`], [`SaveOptions::facecolor`], [`SaveOptions::edgecolor`] |
 //! | `format="pdf"`                                     | [`SaveOptions::format`]`: Some(SaveFormat::Pdf)`, or `"pdf".parse::<SaveFormat>()?` |
@@ -157,6 +158,7 @@
 //! [`SaveOptions::metadata`]: crate::figure::SaveOptions::metadata
 //! [`SaveOptions::jpeg_quality`]: crate::figure::SaveOptions::jpeg_quality
 //! [`BboxInches::Inches`]: crate::figure::BboxInches::Inches
+//! [`PadInches::Layout`]: crate::figure::PadInches::Layout
 //! [`SaveFormat`]: crate::figure::SaveFormat
 //! [`PdfPages::new`]: crate::figure::PdfPages::new
 //! [`PdfPages::savefig`]: crate::figure::PdfPages::savefig

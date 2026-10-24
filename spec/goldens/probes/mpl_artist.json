@@ -1,0 +1,22 @@
+{
+ "area": "mpl_artist",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "Artist.get_figure",
+   "args": {},
+   "value": {
+    "figure_root": true,
+    "figure_parent": true,
+    "axes_root": true,
+    "axes_parent": true,
+    "line_root": true,
+    "line_parent": true,
+    "sfig2_root": true,
+    "sfig2_parent": true,
+    "sfig1_root": true,
+    "sfig1_parent": true
+   }
+  }
+ ]
+}

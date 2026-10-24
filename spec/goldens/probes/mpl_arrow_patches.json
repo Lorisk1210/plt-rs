@@ -1,0 +1,8 @@
+{
+ "area": "mpl_arrow_patches",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "FancyArrowPatch", "args": {"angleA": 20, "angleB": 199.9}, "value": true},
+  {"op": "FancyArrowPatch", "args": {"angleA": 20, "angleB": 200}, "error": "ValueError"}
+ ]
+}

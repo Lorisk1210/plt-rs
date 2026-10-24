@@ -223,6 +223,30 @@ pub trait ArtistHandle {
         Figure::root_of(self.raw().figure_state())
     }
 
+    /// The figure or subfigure the artist is directly in (matplotlib's
+    /// `get_figure(root=False)`): the subfigure holding an axes and the
+    /// artists it owns, the (sub)figure holding a subfigure, and the
+    /// figure itself for a figure. Compare figures by
+    /// [`id`](Self::id): every handle of a figure tree is equal to the
+    /// others.
+    ///
+    /// ```
+    /// use plt::artist::ArtistHandle;
+    /// use plt::figure::{Figure, SubfigureOptions};
+    /// let fig = Figure::new();
+    /// let outer = fig.subfigures(1, 1, SubfigureOptions::default())?.as_slice()[0].clone();
+    /// let inner = outer.subfigures(1, 1, SubfigureOptions::default())?.as_slice()[0].clone();
+    /// let ax = inner.subplot();
+    /// assert_eq!(ax.parent_figure().id(), inner.id());
+    /// assert_eq!(ax.figure().id(), fig.id());
+    /// assert_eq!(inner.parent_figure().id(), outer.id());
+    /// assert_eq!(fig.parent_figure().id(), fig.id());
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    fn parent_figure(&self) -> Figure {
+        Figure::parent_of(self.raw())
+    }
+
     /// The axes the artist is drawn in (matplotlib's `artist.axes`): an
     /// axes is its own, the artists it owns (lines, texts, its legend, ...)
     /// give it, and artists placed on the figure give `None`. So do the

@@ -52,7 +52,8 @@
 //! | `font_manager.fontManager.addfont(path)`      | [`FontManager::add_font`]                         |
 //! | `rcParams["font.family"] = "serif"`           | `rc::set("font.family", "serif")` ([`crate::rc::set`]) |
 //! | `rcParams["mathtext.fontset"] = "stix"`       | `rc::set("mathtext.fontset", "stix")`             |
-//! | `TextPath`, `mathtext.math_to_image`          | [`text_path`], [`measure_text`]                   |
+//! | `TextPath`                                    | [`text_path`], [`measure_text`]                   |
+//! | `mathtext.math_to_image(s, file, prop=, dpi=)` | [`math_to_image`] with [`MathImageOptions`]       |
 //! | `ax.annotate(s, xy, xytext=, arrowprops=)`    | [`Axes::annotate`] with [`AnnotateOptions`]       |
 //! | `xycoords="axes fraction"`, `textcoords="offset points"` | `"axes fraction".parse::<Coords>()?` ([`Coords`]) |
 //! | `xycoords=artist`, `xycoords=(x_coords, y_coords)` | [`Coords::Artist`], [`Coords::blended`]      |
@@ -245,6 +246,8 @@
 //! [`Annotation::set_draggable`]: crate::text::Annotation::set_draggable
 //! [`text_path`]: crate::text::text_path
 //! [`measure_text`]: crate::text::measure_text
+//! [`math_to_image`]: crate::text::math_to_image
+//! [`MathImageOptions`]: crate::text::MathImageOptions
 //! [`BoxStyle`]: crate::patches::BoxStyle
 //! [`ConnectionStyle`]: crate::patches::ConnectionStyle
 //! [`Coords`]: crate::coords::Coords

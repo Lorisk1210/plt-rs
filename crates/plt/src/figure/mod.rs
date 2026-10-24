@@ -36,7 +36,7 @@ pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicAxes, MosaicCell, MosaicError, MosaicOptions};
 pub use pdf_pages::PdfPages;
 pub use plt_render::{Metadata, PageOrientation, PageSetupError, Paper, SvgMetadata};
-pub use print::{BboxInches, SaveOptions};
+pub use print::{BboxInches, PadInches, SaveOptions};
 pub use rect::AxesRectError;
 pub(crate) use rect::axes_bounds;
 use save::whole_pixels;
@@ -377,6 +377,28 @@ impl Figure {
         Self {
             state: Rc::clone(state),
             root: RawHandle::new(Rc::clone(state), root),
+        }
+    }
+
+    /// The figure or subfigure holding `artist` most closely: the first
+    /// figure frame among its ancestors, the figure itself for the root.
+    pub(crate) fn parent_of(artist: &RawHandle) -> Self {
+        let state = artist.figure_state();
+        let frame = {
+            let figure = state.borrow();
+            let parent_of = |id| figure.store.get(id).and_then(|a| a.base().parent);
+            let mut ancestor = parent_of(artist.id());
+            loop {
+                match ancestor {
+                    Some(id) if figure.store.get_as::<FigureFrame>(id).is_some() => break id,
+                    Some(id) => ancestor = parent_of(id),
+                    None => break figure.root,
+                }
+            }
+        };
+        Self {
+            state: Rc::clone(state),
+            root: RawHandle::new(Rc::clone(state), frame),
         }
     }
 

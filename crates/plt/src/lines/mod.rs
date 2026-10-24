@@ -12,8 +12,8 @@ mod markevery;
 mod steps;
 mod subslice;
 
-pub use axline::AxLineThrough;
 pub(crate) use axline::InfiniteLine;
+pub use axline::{AxLineError, AxLineThrough};
 pub use format::{FormatError, FormatString};
 pub use line::{Line2D, LineProps};
 pub(crate) use line::{LineArtist, PolarMarkerRotation};

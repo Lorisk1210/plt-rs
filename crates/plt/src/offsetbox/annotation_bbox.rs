@@ -366,6 +366,13 @@ impl AnnotationBbox {
         self.raw.with::<AnnotationBboxArtist, _>(|ab| ab.xybox)
     }
 
+    /// The coordinates of [`xybox`](Self::xybox): those given, else those
+    /// of the annotated point (matplotlib's `anncoords`).
+    pub fn boxcoords(&self) -> Coords {
+        self.raw
+            .with::<AnnotationBboxArtist, _>(|ab| ab.boxcoords.clone())
+    }
+
     /// Moves the box.
     pub fn set_xybox(&self, xybox: impl Into<Point>) -> &Self {
         let xybox = xybox.into();

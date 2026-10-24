@@ -59,6 +59,32 @@ fn boxes_are_aligned_on_their_offset_position() {
 }
 
 #[test]
+fn boxes_default_to_the_point_and_its_coordinates() {
+    // matplotlib's test_annotationbbox_properties.
+    let (_, ax) = axes();
+    let area = || DrawingArea::<BoxItem>::new(20.0, 20.0, 0.0, 0.0);
+    let plain = ax
+        .add_annotation_bbox(area(), (0.5, 0.5), AnnotationBboxOptions::default())
+        .expect("valid annotation");
+    assert_eq!(plain.xybox(), Point::new(0.5, 0.5));
+    assert_eq!(plain.boxcoords(), Coords::Data);
+    let fraction: Coords = "axes fraction".parse().expect("valid coords");
+    let placed = ax
+        .add_annotation_bbox(
+            area(),
+            (0.5, 0.5),
+            AnnotationBboxOptions {
+                xybox: Some(Point::new(-0.2, 0.4)),
+                boxcoords: Some(fraction.clone()),
+                ..AnnotationBboxOptions::default()
+            },
+        )
+        .expect("valid annotation");
+    assert_eq!(placed.xybox(), Point::new(-0.2, 0.4));
+    assert_eq!(placed.boxcoords(), fraction);
+}
+
+#[test]
 fn arrows_reach_the_point_and_hidden_points_hide_the_box() {
     let (fig, ax) = axes();
     let area = || {

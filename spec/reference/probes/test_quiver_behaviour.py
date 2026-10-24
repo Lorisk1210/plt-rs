@@ -35,9 +35,9 @@ array copies), ``test_quiver_number_of_args`` (positional argument
 counts), positions given in coordinates that do not end in the data
 ones (matplotlib maps them back through the view of the moment the
 quiver is made; plt-rs leaves them out of the data limits, as for other
-collections), ``test_quiver_setuvc_numbers`` (plt-rs plots take their vectors
-once), and the quiver key tests (``test_quiverkey_angles*``: the number of
-paths of the key arrow is not observable from outside plt-rs).
+collections). ``test_quiver_setuvc_numbers`` and the quiver key tests
+(``test_quiverkey_angles*``, whose key draws a single arrow) are cases of
+the ``mpl_tests_quiver`` figure group.
 """
 
 import numpy as np

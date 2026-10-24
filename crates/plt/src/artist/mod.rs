@@ -117,6 +117,13 @@ pub trait Artist: Any + Debug {
         None
     }
 
+    /// The box the artist adds to a tight bounding box before clipping
+    /// (matplotlib's `get_tightbbox`): its window extent, unless the artist
+    /// leaves itself out (a hidden annotation).
+    fn tight_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        self.window_extent(ctx)
+    }
+
     /// The artist's outline in display space, used when another artist is
     /// clipped to it (`set_clip_path(patch)`).
     fn outline(&self, _ctx: &LayoutContext<'_>) -> Option<ClipPath> {

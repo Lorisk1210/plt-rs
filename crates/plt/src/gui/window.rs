@@ -48,8 +48,6 @@ pub struct FigureWindow {
     events: EventSource,
     /// The platform timers running the figure's timers.
     timers: Vec<(TimerId, TimerKey)>,
-    /// The figure's resolution at scale factor 1.
-    base_dpi: f64,
     canvas_size: PhysicalSize,
     /// The `x` or `y` key held to constrain dragging.
     held: Option<char>,
@@ -85,7 +83,8 @@ impl FigureWindow {
         let canvas = root.push(Surface::new(|event| Some(Message::Canvas(event))), 1.0);
         let toolbar = Toolbar::build(&mut root, figure.tool_specs());
         let (width, height) = figure.size_inches();
-        let dpi = figure.dpi();
+        // The window is sized in logical pixels.
+        let dpi = figure.dpi() / figure.canvas().device_pixel_ratio();
         let options = dialog::window_options(title)?
             .with_inner_size(LogicalSize::new(
                 width * dpi,
@@ -105,7 +104,6 @@ impl FigureWindow {
             navigation: Navigation::new(),
             events: EventSource::new(),
             timers: Vec::new(),
-            base_dpi: dpi,
             canvas_size: PhysicalSize::default(),
             held: None,
             pointer: None,
@@ -441,21 +439,25 @@ impl FigureWindow {
         self.set_status(cx, status)
     }
 
-    /// Gives the figure the size of the canvas area at the window's
-    /// resolution (the figure's own at scale factor 1); returns whether its
-    /// size in pixels or its resolution changed.
+    /// Gives the figure the size of the canvas area at the window's scale
+    /// factor, its device pixel ratio (which scales the resolution the
+    /// figure was made at); returns whether its size in pixels or its
+    /// resolution changed.
     fn fit_figure(&mut self) -> bool {
         let size = self.canvas_size;
         if size.width == 0 || size.height == 0 {
             return false;
         }
         let before = (self.figure.width_height(), self.figure.dpi());
-        let dpi = self.base_dpi * self.window.ui().scale_factor();
-        // At a degenerate scale factor the size is invalid: the figure
-        // keeps its size.
+        // A degenerate scale factor leaves the resolution alone, and at a
+        // degenerate resolution the figure keeps its size.
         let _ = self
             .figure
-            .set_dpi(dpi)
+            .canvas()
+            .set_device_pixel_ratio(self.window.ui().scale_factor());
+        let dpi = self.figure.dpi();
+        let _ = self
+            .figure
             .set_size_inches(f64::from(size.width) / dpi, f64::from(size.height) / dpi);
         before.0 != self.figure.width_height() || before.1.total_cmp(&dpi).is_ne()
     }

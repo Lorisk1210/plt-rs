@@ -153,7 +153,19 @@ impl Figure {
         self.state.borrow().dpi()
     }
 
-    /// Changes the canvas resolution.
+    /// Changes the canvas resolution. As in matplotlib, saving with
+    /// `savefig.dpi: figure` keeps the resolution the figure was made at:
+    /// give [`SaveOptions::dpi`] to save at another.
+    ///
+    /// ```
+    /// use plt::figure::{Figure, SaveOptions};
+    /// let fig = Figure::with_size(2.0, 1.0, 100.0);
+    /// fig.set_dpi(50.0);
+    /// assert_eq!(fig.width_height(), (100, 50));
+    /// let saved = fig.render_raster_with(SaveOptions::default())?.to_image();
+    /// assert_eq!((saved.width(), saved.height()), (200, 100));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn set_dpi(&self, dpi: f64) -> &Self {
         let mut state = self.state.borrow_mut();
         state.set_dpi(dpi);

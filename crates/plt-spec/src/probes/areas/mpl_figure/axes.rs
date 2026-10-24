@@ -2,10 +2,14 @@
 //! shared log grids, removing shared axes, mosaics, reused grids and
 //! picking.
 
+use std::any::Any;
+
 use plt::artist::{ArtistHandle, Picker};
 use plt::axes::{Axes, ProjectionKind, ScatterOptions};
+use plt::dates::{AutoDateFormatter, DateTime};
 use plt::events::{Location, MouseEvent};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
+use plt::ticker::ScalarFormatter;
 
 use super::super::mosaic::nested;
 use super::super::mpl_tests::in_test_style;
@@ -130,6 +134,40 @@ pub(super) fn remove_shared(args: Args<'_>) -> Outcome {
         axs.as_slice()[0].remove();
         fig.canvas().draw().map_err(ProbeError::rejected)?;
         Ok(Json::from(fig.axes().len() as f64))
+    })
+}
+
+/// The class of the x major formatter of the first of two axes sharing x
+/// once the second is removed (after giving it a `ScalarFormatter` with
+/// `set_scalar`) and dates are plotted on the first.
+pub(super) fn formatter_after_removal(args: Args<'_>) -> Outcome {
+    in_test_style(args, || {
+        let fig = Figure::new();
+        let axs = fig
+            .subplots_shared(1, 2, Share::All, Share::None)
+            .map_err(ProbeError::rejected)?;
+        let [first, second] = axs.as_slice() else {
+            return Err(ProbeError::rejected("not two axes"));
+        };
+        if args.bool("set_scalar")? {
+            second
+                .xaxis()
+                .set_major_formatter(ScalarFormatter::default());
+        }
+        second.remove();
+        let day = |month| DateTime::new(2000, month, 1, 0, 0, 0, 0).map_err(ProbeError::rejected);
+        first
+            .plot(vec![day(1)?, day(2)?], vec![0.0, 1.0])
+            .map_err(ProbeError::rejected)?;
+        let formatter = first.xaxis().major_formatter();
+        let any = formatter.as_ref() as &dyn Any;
+        Ok(Json::from(if any.is::<AutoDateFormatter>() {
+            "AutoDateFormatter"
+        } else if any.is::<ScalarFormatter>() {
+            "ScalarFormatter"
+        } else {
+            "other"
+        }))
     })
 }
 

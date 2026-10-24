@@ -29,6 +29,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.add_axes", axes::add_axes),
     Op::new("Figure.subplots", axes::shared_log_labels),
     Op::new("Axes.remove", axes::remove_shared),
+    Op::new("Axis.get_major_formatter", axes::formatter_after_removal),
     Op::new("Figure.subplot_mosaic", axes::subplot_mosaic),
     Op::new("SubplotSpec.get_gridspec", axes::reused_gridspec),
     Op::new("Figure.pick", axes::pick),
@@ -46,6 +47,10 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.set_size_inches", saving::set_size_inches),
     Op::new("Figure.set_dpi", saving::set_dpi),
     Op::new("Figure.savefig", saving::savefig),
+    Op::new(
+        "FigureCanvasBase._set_device_pixel_ratio",
+        saving::device_pixel_ratio,
+    ),
     Op::new("Figure.set_visible", saving::set_visible),
     Op::new("Figure.colorbar", saving::locate_colorbar),
 ];

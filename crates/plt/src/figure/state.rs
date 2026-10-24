@@ -29,6 +29,11 @@ pub(crate) struct FigureState {
     pub(crate) root: ArtistId,
     /// Canvas resolution in dots per inch (see [`FigureState::set_dpi`]).
     dpi: Cell<f64>,
+    /// The resolution the figure was made at (matplotlib's
+    /// `_original_dpi`): saving with `savefig.dpi: figure` uses it, and a
+    /// canvas on a high-density display scales it, whatever the
+    /// resolution became since.
+    pub(crate) original_dpi: f64,
     /// Canvas size in inches.
     pub(crate) size_inches: (f64, f64),
     /// Set whenever something changed since the last draw.
@@ -145,6 +150,7 @@ impl FigureState {
             detached: DetachedArtists::default(),
             root,
             dpi: Cell::new(dpi),
+            original_dpi: dpi,
             size_inches,
             stale: true,
             pending_errors: Vec::new(),

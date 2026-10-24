@@ -121,7 +121,7 @@ impl Presentation {
 }
 
 /// The canvas state of a figure.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct CanvasState {
     /// The canvas, once made; taken out while it is drawn into.
     pub(super) kept: Option<KeptCanvas>,
@@ -132,6 +132,21 @@ pub(crate) struct CanvasState {
     /// Whether a draw asked for by `draw_idle` is running (matplotlib's
     /// `_is_idle_drawing`).
     pub(super) idle_drawing: bool,
+    /// Physical pixels per logical pixel of the display showing the
+    /// canvas (matplotlib's `device_pixel_ratio`).
+    pub(super) device_pixel_ratio: f64,
+}
+
+impl Default for CanvasState {
+    fn default() -> Self {
+        Self {
+            kept: None,
+            presentation: Presentation::Nothing,
+            presenters: 0,
+            idle_drawing: false,
+            device_pixel_ratio: 1.0,
+        }
+    }
 }
 
 impl CanvasState {

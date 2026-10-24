@@ -1,6 +1,7 @@
 //! Sizes, resolution and saving: `set_size_inches` and its siblings, the
 //! renderer's size after a change of resolution, files saved to paths,
-//! metadata, hidden figures and colorbars placed while saving a region.
+//! metadata, the resolution saved at under a device pixel ratio, hidden
+//! figures and colorbars placed while saving a region.
 
 use plt::artist::ArtistHandle;
 use plt::axes::{Mesh, PcolorOptions};
@@ -11,7 +12,7 @@ use plt_core::Bbox;
 
 use super::super::mpl_tests::in_test_style;
 use crate::json::Json;
-use crate::probes::encode::numbers;
+use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};
 use crate::rng::SpecRng;
 use crate::scratch::ScratchDir;
@@ -88,6 +89,36 @@ pub(super) fn savefig(args: Args<'_>) -> Outcome {
         let head: Vec<u8> = saved.into_iter().take(100).collect();
         let head = String::from_utf8_lossy(&head).to_lowercase();
         Ok(Json::Bool(head.contains(name)))
+    })
+}
+
+/// For a figure with a line, after `set_dpi(dpi)` when given and then a
+/// device pixel ratio of `ratio`: whether the ratio changed, the canvas's
+/// ratio, the figure's resolution and the size of the PNG it saves.
+pub(super) fn device_pixel_ratio(args: Args<'_>) -> Outcome {
+    in_test_style(args, || {
+        let fig = Figure::new();
+        fig.subplot()
+            .plot(vec![0.0, 1.0, 2.0], vec![1.0, 2.0, 3.0])
+            .map_err(ProbeError::rejected)?;
+        if let Some(dpi) = args.opt_f64("dpi")? {
+            fig.set_dpi(dpi);
+        }
+        let canvas = fig.canvas();
+        let changed = canvas
+            .set_device_pixel_ratio(args.f64("ratio")?)
+            .map_err(ProbeError::rejected)?;
+        let png = fig.to_png().map_err(ProbeError::rejected)?;
+        let saved = plt_codec::png::decode(&png).map_err(ProbeError::rejected)?;
+        Ok(object([
+            ("changed", Json::Bool(changed)),
+            ("device_pixel_ratio", canvas.device_pixel_ratio().into()),
+            ("dpi", fig.dpi().into()),
+            (
+                "saved",
+                numbers([f64::from(saved.width()), f64::from(saved.height())]),
+            ),
+        ]))
     })
 }
 

@@ -38,6 +38,7 @@
 //! | `PdfPages("doc.pdf")`, `pdf.savefig(fig)`          | [`PdfPages::new`], [`PdfPages::savefig`], then [`PdfPages::save`] or [`PdfPages::finish`] |
 //! | `pdf.attach_note(text)`, `pdf.infodict()`          | [`PdfPages::attach_note`], [`PdfPages::metadata_mut`] |
 //! | `fig.canvas.draw()`, `fig.canvas.buffer_rgba()`    | [`FigureCanvas::draw`], [`FigureCanvas::buffer_rgba`] via [`Figure::canvas`] |
+//! | `fig.canvas.device_pixel_ratio`, `_set_device_pixel_ratio(2)` | [`FigureCanvas::device_pixel_ratio`], [`FigureCanvas::set_device_pixel_ratio`]; saving keeps the resolution the figure was made at |
 //! | `fig.get_tightbbox()`                              | [`Figure::tight_bbox`]                         |
 //! | `mpl.use("pgf")` and `savefig("fig.pgf")`          | [`Figure::to_pgf`], or a `.pgf` file name      |
 //! | `rcParams["savefig.dpi"]`, `["pdf.fonttype"]`, ... | [`crate::rc::set`] with the same keys          |
@@ -171,3 +172,5 @@
 //! [`PdfPages::metadata_mut`]: crate::figure::PdfPages::metadata_mut
 //! [`FigureCanvas::draw`]: crate::figure::FigureCanvas::draw
 //! [`FigureCanvas::buffer_rgba`]: crate::figure::FigureCanvas::buffer_rgba
+//! [`FigureCanvas::device_pixel_ratio`]: crate::figure::FigureCanvas::device_pixel_ratio
+//! [`FigureCanvas::set_device_pixel_ratio`]: crate::figure::FigureCanvas::set_device_pixel_ratio

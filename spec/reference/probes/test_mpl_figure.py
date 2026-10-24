@@ -52,6 +52,12 @@ Ops
 ``Figure.savefig``  {format, metadata?} -> whether the first 100 bytes of
     the file saved to a path name the format (``test_fspath``), or
     ``true`` once saved with empty metadata.
+``FigureCanvasBase._set_device_pixel_ratio``  {ratio, dpi?} -> {"changed",
+    "device_pixel_ratio", "dpi", "saved"}: for ``plt.subplots()`` with a
+    line, after ``set_dpi(dpi)`` when given and then
+    ``canvas._set_device_pixel_ratio(ratio)``: whether the ratio changed,
+    the canvas's ratio, the figure's dpi and the ``[width, height]`` of the
+    PNG ``savefig`` writes.
 ``Figure.get_layout_engine``  {layout?, calls?} -> the engine's name
     (``"none"``, ``"tight"``, ``"constrained"``, ``"compressed"``; a
     placeholder engine is ``"none"``) of ``Figure(layout=layout)`` after
@@ -69,6 +75,10 @@ Ops
     constrained figure of two empty subfigures.
 ``Axes.remove``  {} -> the number of axes left after removing the first
     of two axes sharing x, once drawn.
+``Axis.get_major_formatter``  {set_scalar} -> the class name of the x
+    major formatter of the first of two axes sharing x once the second is
+    removed (after giving it a ``ScalarFormatter`` with ``set_scalar``)
+    and dates are plotted on the first.
 ``Figure.clear``  {method} -> ``test_figure_clear``'s subfigure scenarios:
     after each step, the number of axes of the figure, of its subfigures
     and whether the axes made are still listed.
@@ -114,18 +124,20 @@ positions; ``test_autofmt_xdate`` gives its times of day a date
 looks for the background's path instead of a group (plt-rs's SVG has no
 group for the figure itself); ``test_extra_per_subplot_kw`` asks for a
 polar projection of the missing key, the per-subplot setting plt-rs
-takes; random data comes from ``spec_support.rng``.
+takes; ``test_savefig_pixel_ratio`` also runs in ``mpl20`` (the test style
+saves at 100 dpi whatever the figure's resolution) and after ``set_dpi``;
+random data comes from ``spec_support.rng``.
 
 Not ported: Python calling conventions (``TypeError`` for argument counts,
 ``savefig`` keywords, ``axes_class``, ``projection=42``), deprecations
 (setting ``Figure.number``, ``set_figure``), ``_as_mpl_axes``, the
 ``clf`` override check, ``repr``, ``deepcopy``, pickling, the
 ``max_open_warning`` warning, ``ginput`` and ``waitforbuttonpress``
-(blocking GUI input), backends given to ``savefig``, the device pixel
-ratio of GUI canvases, warnings for colorbars of another figure, and
-``gridspec_kw`` dicts left unchanged.
+(blocking GUI input), backends given to ``savefig``, warnings for
+colorbars of another figure, and ``gridspec_kw`` dicts left unchanged.
 """
 
+import datetime
 import io
 import pathlib
 import tempfile
@@ -142,7 +154,7 @@ from matplotlib.layout_engine import (
     PlaceHolderLayoutEngine,
     TightLayoutEngine,
 )
-from matplotlib.ticker import AutoMinorLocator, FixedFormatter
+from matplotlib.ticker import AutoMinorLocator, FixedFormatter, ScalarFormatter
 
 from probes._mpl_tests import prober
 from spec_support import ProbeSet, rng
@@ -453,6 +465,32 @@ def test_savefig_metadata_error():
         probe("Figure.savefig", _savefig, format=fmt, metadata={})
 
 
+def _png_size(fig):
+    with io.BytesIO() as buf:
+        fig.savefig(buf, format="png")
+        header = buf.getvalue()[16:24]
+    return [int.from_bytes(header[:4], "big"), int.from_bytes(header[4:], "big")]
+
+
+def _pixel_ratio(ratio, dpi=None):
+    fig, ax = plt.subplots()
+    ax.plot([1, 2, 3])
+    if dpi is not None:
+        fig.set_dpi(dpi)
+    changed = fig.canvas._set_device_pixel_ratio(ratio)
+    return {"changed": changed, "device_pixel_ratio": fig.canvas.device_pixel_ratio,
+            "dpi": fig.dpi, "saved": _png_size(fig)}
+
+
+def test_savefig_pixel_ratio():
+    # The test style saves at ``savefig.dpi: 100``; ``mpl20`` saves at the
+    # figure's resolution, which the ratio must leave alone.
+    for style in [{}, {"style": "mpl20"}]:
+        for ratio, dpi in [(1, {}), (2, {}), (1.234, {}), (1, {"dpi": 50}), (2, {"dpi": 50})]:
+            probe("FigureCanvasBase._set_device_pixel_ratio", _pixel_ratio, ratio=ratio,
+                  **dpi, **style)
+
+
 def _engine_name(engine):
     if engine is None or isinstance(engine, PlaceHolderLayoutEngine):
         return "none"
@@ -580,6 +618,20 @@ def _removed_axis():
 
 def test_removed_axis():
     probe("Axes.remove", _removed_axis)
+
+
+def _formatter_after_removal(set_scalar):
+    fig, axs = plt.subplots(1, 2, sharex=True)
+    if set_scalar:
+        axs[1].xaxis.set_major_formatter(ScalarFormatter())
+    axs[1].remove()
+    axs[0].plot([datetime.datetime(2000, 1, 1), datetime.datetime(2000, 2, 1)], [0, 1])
+    return type(axs[0].xaxis.get_major_formatter()).__name__
+
+
+def test_axes_removal():
+    for set_scalar in [False, True]:
+        probe("Axis.get_major_formatter", _formatter_after_removal, set_scalar=set_scalar)
 
 
 def _figure_clear(method):

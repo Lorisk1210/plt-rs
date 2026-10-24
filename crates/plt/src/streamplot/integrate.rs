@@ -12,7 +12,7 @@ use crate::numeric::Grid;
 /// are rarely more than a few per cell of the occupancy mask, but a field
 /// whose direction flips within a cell makes a streamline dither there
 /// until its maximum length, for each cell (matplotlib takes hours).
-pub const MAX_STEPS: usize = 1 << 23;
+pub const MAX_STREAMLINE_STEPS: usize = 1 << 23;
 
 /// Which way streamlines are traced from their start points (matplotlib's
 /// `integration_direction`).
@@ -59,8 +59,8 @@ pub(crate) struct Integrator {
     v: Grid<f64>,
     speed: Grid<f64>,
     limits: TraceLimits,
-    /// The integration steps left of [`MAX_STEPS`]; `None` once a step
-    /// was refused.
+    /// The integration steps left of [`MAX_STREAMLINE_STEPS`]; `None` once
+    /// a step was refused.
     steps_left: Cell<Option<usize>>,
 }
 
@@ -84,12 +84,12 @@ impl Integrator {
             v: grid_v,
             speed,
             limits,
-            steps_left: Cell::new(Some(MAX_STEPS)),
+            steps_left: Cell::new(Some(MAX_STREAMLINE_STEPS)),
         }
     }
 
-    /// Whether the streamlines needed more than [`MAX_STEPS`] (the last
-    /// ones were cut short).
+    /// Whether the streamlines needed more than [`MAX_STREAMLINE_STEPS`]
+    /// (the last ones were cut short).
     pub(crate) fn exhausted(&self) -> bool {
         self.steps_left.get().is_none()
     }

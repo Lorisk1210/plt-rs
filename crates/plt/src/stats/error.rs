@@ -13,7 +13,8 @@ pub enum StatsError {
     ZeroBins,
     /// Explicit bin edges that decrease somewhere.
     NonMonotonicEdges,
-    /// So many equal-width bins that consecutive edges coincide.
+    /// So many equal-width bins (this many) that consecutive edges
+    /// coincide, or more than [`MAX_EQUAL_BINS`](super::MAX_EQUAL_BINS).
     TooManyBins(usize),
     /// A histogram range whose lower bound exceeds the upper one.
     InvertedRange {

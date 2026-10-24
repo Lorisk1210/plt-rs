@@ -249,7 +249,7 @@ pub struct RadioButtons {
 impl RadioButtons {
     /// Turns `ax` into radio buttons labelled `labels` with button
     /// `active` selected, in matplotlib's default style (filled in
-    /// `plt.widgets.activecolor`, blue).
+    /// `plt.widgets.radiobuttons.activecolor`, blue).
     pub fn new(ax: &Axes, labels: &[&str], active: usize) -> Self {
         Self::with_options(ax, labels, active, RadioButtonsOptions::default())
             .expect("the legacy layout measures no label")
@@ -278,7 +278,7 @@ impl RadioButtons {
         let activecolor = options
             .activecolor
             .clone()
-            .unwrap_or_else(|| rc.plt_widgets_activecolor.clone());
+            .unwrap_or_else(|| rc.plt_widgets_radiobuttons_activecolor.clone());
         let active_colors = Rc::new(RefCell::new(per_button(
             radio.facecolors.as_ref(),
             radio.color.clone().unwrap_or(activecolor),

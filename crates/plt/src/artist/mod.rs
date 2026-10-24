@@ -37,7 +37,7 @@ use plt_render::ClipPath;
 use crate::patches::{ClipRegion, PatchView};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
-use crate::units::UnitValues;
+use crate::units::CustomValues;
 
 pub use attach::AttachError;
 pub(crate) use base::rc_sketch;
@@ -198,7 +198,7 @@ pub trait Artist: Any + Debug {
     /// [`reconvert_units`](Self::reconvert_units) (matplotlib's artists
     /// converting their values with `convert_xunits` when drawn, and its
     /// lines on the axis' `units` callback). None by default.
-    fn unit_sources(&self, _name: AxisName) -> Vec<UnitValues> {
+    fn unit_sources(&self, _name: AxisName) -> Vec<CustomValues> {
         Vec::new()
     }
 

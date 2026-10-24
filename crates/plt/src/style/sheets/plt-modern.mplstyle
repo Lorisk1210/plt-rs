@@ -14,7 +14,7 @@ figure.constrained_layout.use: True
 figure.constrained_layout.h_pad: 0.0833
 figure.constrained_layout.w_pad: 0.0833
 # `tight_layout()` leaves these figures to constrained layout.
-plt.tight_layout.keeps_constrained: True
+plt.tight_layout.keep_constrained: True
 
 ## Type
 font.family: sans-serif
@@ -55,7 +55,7 @@ grid.color: e5e7eb
 grid.linestyle: -
 grid.linewidth: 0.8
 # Images lie below even lowered gridlines: they turn the grid off.
-plt.images_hide_grid: True
+plt.image.hide_grid: True
 
 ## Ticks: labels only, the grid marks the positions
 xtick.color: 606873
@@ -95,7 +95,7 @@ plt.widgets.button.color: white
 plt.widgets.button.hovercolor: f3f4f6
 plt.widgets.textbox.color: white
 plt.widgets.textbox.hovercolor: f6f7f9
-plt.widgets.activecolor: 2a78d6
+plt.widgets.radiobuttons.activecolor: 2a78d6
 plt.widgets.slider.track_color: e5e7eb
 plt.widgets.slider.initcolor: 9ca3af
 

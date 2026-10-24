@@ -14,6 +14,7 @@
 
 mod api;
 mod create;
+mod map;
 mod paint;
 mod ticker;
 mod transform;
@@ -21,10 +22,11 @@ mod transform;
 use std::f64::consts::PI;
 
 pub use api::{PolarAxes, PolarError};
+pub(crate) use map::PolarMap;
 pub(crate) use paint::{GRIDLINE_INTERPOLATION_STEPS, draw_tick_lines, tick_label_anchor};
 pub use ticker::ThetaFormatter;
 pub(crate) use ticker::{RadialLocator, ThetaLocator, theta_tickers};
-pub(crate) use transform::{PolarMap, PolarView};
+pub(crate) use transform::PolarView;
 
 use crate::artist::ArtistId;
 use crate::axes::{Axes, AxesState};

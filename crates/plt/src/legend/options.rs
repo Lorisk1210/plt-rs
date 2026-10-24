@@ -189,9 +189,11 @@ pub struct LegendOptions {
     pub fontsize: Option<FontSize>,
     /// Colour of the labels (`legend.labelcolor`, then `text.color`).
     pub labelcolor: Option<LegendLabelColor>,
-    /// Markers on a line entry (`legend.numpoints`).
+    /// Markers on a line entry (`legend.numpoints`), at most
+    /// [`MAX_HANDLE_POINTS`](super::MAX_HANDLE_POINTS).
     pub numpoints: Option<usize>,
-    /// Markers on a scatter entry (`legend.scatterpoints`).
+    /// Markers on a scatter entry (`legend.scatterpoints`), at most
+    /// [`MAX_HANDLE_POINTS`](super::MAX_HANDLE_POINTS).
     pub scatterpoints: Option<usize>,
     /// Heights of the scatter markers as fractions of the entry height,
     /// cycled (default `[0.375, 0.5, 0.3125]`).

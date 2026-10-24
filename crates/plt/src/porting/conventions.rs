@@ -43,6 +43,38 @@
 //!   [`LegendError`], [`AxesRectError`], ...), wherever matplotlib
 //!   raises. All of them implement [`std::error::Error`], so `?` into
 //!   `Box<dyn Error>` works everywhere.
+//! * **Limits are public.** Where matplotlib allocates whatever an input
+//!   asks for until memory runs out, plt-rs refuses inputs beyond a
+//!   `MAX_*` constant of the module ([`MAX_HIST_BARS`],
+//!   [`MAX_EQUAL_BINS`], [`MAX_DRAWN_TICKS`], ...), named after what it
+//!   counts and documented on the functions and options it bounds. The
+//!   error variant is named `TooMany*` after the same things
+//!   (`FftTooLong` for a length) and carries what was asked for.
+//! * **Values with units take every form.** Plotting values that may be
+//!   numbers, category names, dates or values of user types are
+//!   [`AxisValues`] (one is an [`AxisValue`], two make a [`DataPoint`]);
+//!   extents from them, numbers, durations or user values, are
+//!   [`AxisDeltas`] (one is an [`AxisDelta`]). They, and the types made
+//!   of them such as [`ErrorSize`], convert from one value, a `Vec`, a
+//!   slice, an array or a reference to a `Vec` or an array of any of
+//!   these kinds: methods take them as they are, option fields through
+//!   `.into()`.
+//! * **Type names are unique.** Where matplotlib gives two classes one
+//!   name in modules a program may use together, plt-rs prefixes one with
+//!   its module: `units.AxisInfo` is [`UnitAxisInfo`], beside the
+//!   [`ticker::AxisInfo`] tick helpers read, and `GeoAxes.ThetaFormatter`
+//!   is [`GeoThetaFormatter`], beside the polar [`ThetaFormatter`].
+//! * **plt-rs' own rcParams start with `plt.`**, then the matplotlib rc
+//!   group, module or class they belong to in lower case, then the
+//!   keyword whose value matplotlib fixes in code, spelled as that keyword:
+//!   `plt.widgets.button.color` for `Button(color=...)`,
+//!   `plt.table.facecolor` for a table cell's `facecolor`,
+//!   `plt.widgets.radiobuttons.activecolor`. A behaviour of plt-rs' own
+//!   is named in lower-case words joined by underscores
+//!   (`plt.image.hide_grid`, `plt.tight_layout.keep_constrained`), and a
+//!   setting shared by a whole group sits at its level
+//!   (`plt.widgets.frame`; `plt.ink` for every mark matplotlib draws
+//!   black).
 //! * **Handles, not objects.** `Figure`, `Axes`, `Line2D` and every other
 //!   artist type are cheap handles into a figure. Cloning a handle gives a
 //!   second reference to the same artist, never a copy. Every handle knows
@@ -359,6 +391,19 @@
 //! [`ImageError`]: crate::image::ImageError
 //! [`LegendError`]: crate::legend::LegendError
 //! [`AxesRectError`]: crate::figure::AxesRectError
+//! [`MAX_HIST_BARS`]: crate::axes::MAX_HIST_BARS
+//! [`MAX_EQUAL_BINS`]: crate::stats::MAX_EQUAL_BINS
+//! [`MAX_DRAWN_TICKS`]: crate::ticker::MAX_DRAWN_TICKS
+//! [`AxisValues`]: crate::units::AxisValues
+//! [`AxisValue`]: crate::units::AxisValue
+//! [`DataPoint`]: crate::units::DataPoint
+//! [`AxisDeltas`]: crate::units::AxisDeltas
+//! [`AxisDelta`]: crate::units::AxisDelta
+//! [`ErrorSize`]: crate::axes::ErrorSize
+//! [`UnitAxisInfo`]: crate::units::UnitAxisInfo
+//! [`ticker::AxisInfo`]: crate::ticker::AxisInfo
+//! [`GeoThetaFormatter`]: crate::geo::GeoThetaFormatter
+//! [`ThetaFormatter`]: crate::polar::ThetaFormatter
 //! [`Axes::xlim`]: crate::axes::Axes::xlim
 //! [`Axes::title`]: crate::axes::Axes::title
 //! [`Axes::shown_title`]: crate::axes::Axes::shown_title

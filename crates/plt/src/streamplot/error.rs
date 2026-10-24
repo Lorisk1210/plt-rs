@@ -31,14 +31,15 @@ pub enum StreamplotError {
     },
     /// A negative density.
     InvalidDensity(f64),
-    /// Densities whose grid of streamline cells would have more than
-    /// [`MAX_CELLS`](super::MAX_CELLS) cells.
-    DensityTooHigh(f64, f64),
+    /// Densities (x, y) whose occupancy mask would have more than
+    /// [`MAX_STREAMLINE_CELLS`](super::MAX_STREAMLINE_CELLS) cells.
+    TooManyCells(f64, f64),
     /// Tracing the streamlines took more than
-    /// [`MAX_STEPS`](super::MAX_STEPS) integration steps.
+    /// [`MAX_STREAMLINE_STEPS`](super::MAX_STREAMLINE_STEPS) integration
+    /// steps.
     TooManySteps,
     /// More arrows (this many, or per streamline) than
-    /// [`MAX_ARROWS`](super::MAX_ARROWS).
+    /// [`MAX_STREAMLINE_ARROWS`](super::MAX_STREAMLINE_ARROWS).
     TooManyArrows(usize),
     /// An integration scale that is not positive.
     InvalidScale {
@@ -74,20 +75,20 @@ impl fmt::Display for StreamplotError {
             Self::InvalidDensity(density) => {
                 write!(f, "'density' must be positive, got {density}")
             }
-            Self::DensityTooHigh(x, y) => write!(
+            Self::TooManyCells(x, y) => write!(
                 f,
                 "a density of ({x}, {y}) needs more than {} streamline cells",
-                super::MAX_CELLS
+                super::MAX_STREAMLINE_CELLS
             ),
             Self::TooManyArrows(count) => write!(
                 f,
                 "{count} streamline arrows are more than {}",
-                super::MAX_ARROWS
+                super::MAX_STREAMLINE_ARROWS
             ),
             Self::TooManySteps => write!(
                 f,
                 "the streamlines need more than {} integration steps",
-                super::MAX_STEPS
+                super::MAX_STREAMLINE_STEPS
             ),
             Self::InvalidScale { name, value } => {
                 write!(f, "The value of {name} must be > 0, got {value}")

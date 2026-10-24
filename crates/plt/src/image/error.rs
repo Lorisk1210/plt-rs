@@ -55,7 +55,7 @@ pub enum ImageError {
     GridSize,
     /// A hexbin grid of this many hexagons along x and y would hold more
     /// than [`MAX_HEXAGONS`](crate::axes::MAX_HEXAGONS).
-    GridTooLarge(usize, usize),
+    TooManyHexagons(usize, usize),
     /// A hexbin extent with `xmin > xmax` or `ymin > ymax`.
     InvertedExtent,
     /// Hexbin values whose number differs from the number of points.
@@ -136,7 +136,7 @@ impl fmt::Display for ImageError {
                 )
             }
             Self::GridSize => f.write_str("the hexbin grid size must be at least 1"),
-            Self::GridTooLarge(nx, ny) => write!(
+            Self::TooManyHexagons(nx, ny) => write!(
                 f,
                 "a hexbin grid of {nx} × {ny} hexagons is larger than {}",
                 crate::axes::MAX_HEXAGONS

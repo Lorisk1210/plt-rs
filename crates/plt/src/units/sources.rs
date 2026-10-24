@@ -6,7 +6,7 @@
 
 use plt_core::Point;
 
-use super::{AxisValue, AxisValues, DataPoint, UnitValues};
+use super::{AxisValue, AxisValues, CustomValues, DataPoint};
 use crate::ticker::AxisName;
 
 /// The user values along x and along y that an artist's numbers came
@@ -15,9 +15,9 @@ use crate::ticker::AxisName;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct UnitSources {
     /// The x values.
-    pub(crate) x: Option<UnitValues>,
+    pub(crate) x: Option<CustomValues>,
     /// The y values.
-    pub(crate) y: Option<UnitValues>,
+    pub(crate) y: Option<CustomValues>,
 }
 
 impl UnitSources {
@@ -46,7 +46,7 @@ impl UnitSources {
     }
 
     /// The user values along axis `name`, if any.
-    pub(crate) fn along(&self, name: AxisName) -> Option<&UnitValues> {
+    pub(crate) fn along(&self, name: AxisName) -> Option<&CustomValues> {
         match name {
             AxisName::X => self.x.as_ref(),
             AxisName::Y => self.y.as_ref(),
@@ -89,7 +89,7 @@ impl UnitSources {
     }
 
     /// The values along axis `name`, to be set.
-    fn along_mut(&mut self, name: AxisName) -> &mut Option<UnitValues> {
+    fn along_mut(&mut self, name: AxisName) -> &mut Option<CustomValues> {
         match name {
             AxisName::X => &mut self.x,
             AxisName::Y => &mut self.y,
@@ -98,7 +98,7 @@ impl UnitSources {
 }
 
 /// `value` as the source of a coordinate, if it is a user value.
-fn value_source(value: &AxisValue) -> Option<UnitValues> {
+fn value_source(value: &AxisValue) -> Option<CustomValues> {
     match value {
         AxisValue::Custom(value) => Some(value.clone()),
         AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date(_) => None,
@@ -144,7 +144,7 @@ mod tests {
         let sources = UnitSources::of_point(&point);
         assert_eq!(
             sources.along(AxisName::X),
-            Some(&UnitValues::new(vec![Steps(1.0)]))
+            Some(&CustomValues::new(vec![Steps(1.0)]))
         );
         assert_eq!(sources.along(AxisName::Y), None);
         let line = UnitSources::of(&vec![Steps(1.0)].into(), &AxisValues::from(["a"]));

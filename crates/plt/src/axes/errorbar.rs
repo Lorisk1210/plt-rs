@@ -15,7 +15,7 @@ use crate::lines::{
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
-use crate::units::{AxisValue, AxisValues, UnitSources, UnitValues};
+use crate::units::{AxisValue, AxisValues, CustomValues, UnitSources};
 
 /// How [`Axes::errorbar`] draws the data line (matplotlib's `fmt`);
 /// matplotlib's strings parse with [`str::parse`].
@@ -159,13 +159,13 @@ struct Series<'a> {
 
 impl Series<'_> {
     /// The numbers and the user values where `mask` is set.
-    fn masked(self, mask: &[bool]) -> (Vec<f64>, Option<UnitValues>) {
+    fn masked(self, mask: &[bool]) -> (Vec<f64>, Option<CustomValues>) {
         let values = self
             .values
             .iter()
             .zip(mask)
             .filter_map(|(value, &keep)| keep.then_some(value));
-        (masked(self.numbers, mask), UnitValues::join(values))
+        (masked(self.numbers, mask), CustomValues::join(values))
     }
 }
 
@@ -469,7 +469,23 @@ impl Axes {
                 }
             });
         }
+        let caps = self.error_caps(direction, (x, y), (low, high), every, style);
+        Ok((bars, caps))
+    }
 
+    /// The caps at the ends `low` and `high` of the bars of the points
+    /// `(x, y)` along one axis, and the markers of the points that are
+    /// limits.
+    fn error_caps(
+        &self,
+        direction: &Direction,
+        (x, y): (Series<'_>, Series<'_>),
+        (low, high): (Series<'_>, Series<'_>),
+        every: &[bool],
+        style: &BarStyle,
+    ) -> Vec<LineArtist> {
+        let along_x = direction.axis == AxisName::X;
+        let indep = if along_x { y } else { x };
         // Lines take `(x, y)`; the error values belong on the error axis.
         let place = |positions: Series<'_>, ends: Series<'_>, mask: &[bool]| {
             if along_x {
@@ -523,7 +539,7 @@ impl Axes {
                 caps.extend(style.caps(self, points, cap_marker, direction.axis));
             }
         }
-        Ok((bars, caps))
+        caps
     }
 }
 

@@ -2,7 +2,7 @@
 //! in units of time and length, converted by a fixed table of factors.
 
 use plt::axes::Axis;
-use plt::units::{AxisInfo, ConversionError, ConversionInterface, Convertible};
+use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
 
 /// A unit of a [`Quantity`] (the test's unit strings).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,11 +126,11 @@ impl ConversionInterface for QuantityConverter {
             .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&QuantityUnit>, _: &Axis) -> Option<AxisInfo> {
-        Some(AxisInfo {
+    fn axisinfo(&self, unit: Option<&QuantityUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+        Some(UnitAxisInfo {
             label: unit.map(|unit| unit.name().to_owned()),
             default_limits: Some((0.0, 100.0)),
-            ..AxisInfo::default()
+            ..UnitAxisInfo::default()
         })
     }
 

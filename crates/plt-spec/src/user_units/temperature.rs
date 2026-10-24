@@ -5,7 +5,7 @@
 
 use plt::axes::Axis;
 use plt::units::{
-    AxisDelta, AxisInfo, AxisValue, ConversionError, ConversionInterface, Convertible,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
 };
 
 /// The unit of an axis of temperatures (`"C"`, `"F"` or `"K"`).
@@ -60,11 +60,11 @@ impl ConversionInterface for TemperatureConverter {
         Ok(values.iter().map(|value| value.to(unit)).collect())
     }
 
-    fn axisinfo(&self, unit: Option<&TemperatureUnit>, _: &Axis) -> Option<AxisInfo> {
+    fn axisinfo(&self, unit: Option<&TemperatureUnit>, _: &Axis) -> Option<UnitAxisInfo> {
         let name = unit.map_or("None", |unit| unit.name());
-        Some(AxisInfo {
+        Some(UnitAxisInfo {
             label: Some(format!("temperature ({name})")),
-            ..AxisInfo::default()
+            ..UnitAxisInfo::default()
         })
     }
 

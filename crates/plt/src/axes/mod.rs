@@ -35,6 +35,7 @@ mod fill;
 mod fill_between;
 mod grouped_bar;
 mod hexbin;
+mod hexbin_lattice;
 mod hexbin_marginals;
 mod hist;
 mod hist2d;
@@ -457,7 +458,9 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When the locator or the formatter of the axis fails.
+    /// When the locator or the formatter of the axis fails, or the locator
+    /// places more than [`MAX_DRAWN_TICKS`](crate::ticker::MAX_DRAWN_TICKS)
+    /// ticks.
     pub fn ticks(&self, axis: AxisName) -> Result<TickSet, TickerError> {
         self.raw.figure_state().borrow_mut().prepare();
         self.raw

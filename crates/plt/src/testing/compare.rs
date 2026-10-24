@@ -27,14 +27,14 @@ pub(super) fn is_comparable(path: &Path) -> bool {
 /// Two images of different shapes, each given as (rows, columns,
 /// channels).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ShapeMismatch {
+pub struct ImageShapeError {
     /// The shape of the expected image.
     pub expected: (usize, usize, usize),
     /// The shape of the actual image.
     pub actual: (usize, usize, usize),
 }
 
-impl fmt::Display for ShapeMismatch {
+impl fmt::Display for ImageShapeError {
     /// matplotlib's message.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -45,7 +45,7 @@ impl fmt::Display for ShapeMismatch {
     }
 }
 
-impl Error for ShapeMismatch {}
+impl Error for ImageShapeError {}
 
 /// The root mean square of the differences between the channel values of
 /// two images of the same shape (matplotlib's `calculate_rms`): 0 for
@@ -71,17 +71,17 @@ impl Error for ShapeMismatch {}
 ///
 /// # Errors
 ///
-/// [`ShapeMismatch`] when the images differ in size.
+/// [`ImageShapeError`] when the images differ in size.
 pub fn calculate_rms<T, const N: usize>(
     expected: &Grid<[T; N]>,
     actual: &Grid<[T; N]>,
-) -> Result<f64, ShapeMismatch>
+) -> Result<f64, ImageShapeError>
 where
     T: Copy + Into<f64>,
 {
     if expected.shape() != actual.shape() {
         let shape = |grid: &Grid<[T; N]>| (grid.rows(), grid.cols(), N);
-        return Err(ShapeMismatch {
+        return Err(ImageShapeError {
             expected: shape(expected),
             actual: shape(actual),
         });
@@ -145,11 +145,14 @@ fn filled_grid<T>(rows: usize, cols: usize, pixels: Vec<T>) -> Grid<T> {
 
 /// The RMS of two loaded images and their difference image (matplotlib's
 /// `calculate_rms_and_diff`).
-fn rms_and_diff(expected: &Loaded, actual: &Loaded) -> Result<(f64, Grid<[u8; 3]>), ShapeMismatch> {
+fn rms_and_diff(
+    expected: &Loaded,
+    actual: &Loaded,
+) -> Result<(f64, Grid<[u8; 3]>), ImageShapeError> {
     match (expected, actual) {
         (Loaded::Rgb(expected), Loaded::Rgb(actual)) => rms_and_diff_of(expected, actual),
         (Loaded::Rgba(expected), Loaded::Rgba(actual)) => rms_and_diff_of(expected, actual),
-        _ => Err(ShapeMismatch {
+        _ => Err(ImageShapeError {
             expected: expected.shape(),
             actual: actual.shape(),
         }),
@@ -162,7 +165,7 @@ fn rms_and_diff(expected: &Loaded, actual: &Loaded) -> Result<(f64, Grid<[u8; 3]
 fn rms_and_diff_of<const N: usize>(
     expected: &Grid<[u8; N]>,
     actual: &Grid<[u8; N]>,
-) -> Result<(f64, Grid<[u8; 3]>), ShapeMismatch> {
+) -> Result<(f64, Grid<[u8; 3]>), ImageShapeError> {
     let rms = calculate_rms(expected, actual)?;
     let pixels = expected
         .as_slice()
@@ -283,7 +286,7 @@ pub enum ComparisonError {
         reason: String,
     },
     /// The images differ in size.
-    Shape(ShapeMismatch),
+    Shape(ImageShapeError),
     /// A figure of [`check_figures_equal`](super::check_figures_equal)
     /// could not be built.
     Build(Box<dyn Error>),
@@ -330,8 +333,8 @@ impl Error for ComparisonError {
     }
 }
 
-impl From<ShapeMismatch> for ComparisonError {
-    fn from(err: ShapeMismatch) -> Self {
+impl From<ImageShapeError> for ComparisonError {
+    fn from(err: ImageShapeError) -> Self {
         Self::Shape(err)
     }
 }

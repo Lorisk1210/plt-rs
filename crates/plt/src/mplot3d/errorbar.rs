@@ -108,7 +108,7 @@ impl Axes3D {
     /// When the coordinates differ in length, an error or limit list does
     /// not broadcast, `errorevery` is invalid, or errors are durations or
     /// user values, which do not add to the coordinates
-    /// ([`Axes3DError::UnitErrors`]; matplotlib fails on them too).
+    /// ([`Axes3DError::UnaddableErrors`]; matplotlib fails on them too).
     pub fn errorbar(
         &self,
         x: &[f64],
@@ -383,7 +383,7 @@ fn bar_ends(
     // coordinates, which are numbers here: only numbers add to them.
     let (lower, upper) = err.sides(|errors| match errors {
         AxisDeltas::Numbers(numbers) => Ok(numbers.clone()),
-        AxisDeltas::Durations(_) | AxisDeltas::Custom(_) => Err(Axes3DError::UnitErrors(axis)),
+        AxisDeltas::Durations(_) | AxisDeltas::Custom(_) => Err(Axes3DError::UnaddableErrors(axis)),
     })?;
     let (lower, upper) = (
         broadcast("errors", &lower, n)?,
@@ -518,13 +518,13 @@ mod tests {
         let half_day = TimeDelta::new(0, 43_200, 0).unwrap();
         assert_eq!(
             bar_ends(&points, Axis3::X, &half_day.into(), flags, &[true]).err(),
-            Some(Axes3DError::UnitErrors(Axis3::X)),
+            Some(Axes3DError::UnaddableErrors(Axis3::X)),
             "a number plus a duration fails in Python"
         );
         let lengths = ErrorSize::from(AxisDeltas::from(vec![Length(1.0)]));
         assert_eq!(
             bar_ends(&points, Axis3::Y, &lengths, flags, &[true]).err(),
-            Some(Axes3DError::UnitErrors(Axis3::Y))
+            Some(Axes3DError::UnaddableErrors(Axis3::Y))
         );
     }
 

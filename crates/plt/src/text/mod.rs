@@ -39,7 +39,7 @@ use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
-use crate::units::{UnitSources, UnitValues};
+use crate::units::{CustomValues, UnitSources};
 
 pub use annotation::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps,
@@ -385,7 +385,7 @@ impl Artist for TextArtist {
 
     /// The user values of the position, then those of the annotated
     /// point of an annotation.
-    fn unit_sources(&self, name: AxisName) -> Vec<UnitValues> {
+    fn unit_sources(&self, name: AxisName) -> Vec<CustomValues> {
         let point = self.annotation.as_ref().map(|a| &a.unit_sources);
         std::iter::once(&self.unit_sources)
             .chain(point)

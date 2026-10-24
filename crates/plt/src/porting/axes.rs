@@ -74,6 +74,12 @@
 //! | `ax.label_outer()`                             | [`Axes::label_outer`]                            |
 //! | `ax.xaxis_date()`, `ax.xaxis.axis_date(tz)`    | [`Axes::xaxis_date`], [`Axis::axis_date`]        |
 //! | `ax.xaxis.convert_units(values)`               | [`Axis::convert_units`]                          |
+//! | `ax.xaxis.set_units(u)`, `ax.xaxis.get_units()` | [`Axis::set_units`], [`Axis::units`] ([`Unit`])  |
+//! | `ax.xaxis.update_units(data)`                  | [`Axis::update_units`]                           |
+//! | `ax.xaxis.set_converter(c)`, `get_converter()` | [`Axis::set_converter`], [`Axis::converter`]     |
+//! | `class C(units.ConversionInterface)`, `units.registry[T] = C()` | `impl` [`ConversionInterface`] `for C`, `impl` [`Convertible`] `for T` |
+//! | `units.AxisInfo(majloc=, label=, default_limits=)` | [`UnitAxisInfo`] `{ majloc, label, default_limits, .. }` |
+//! | `units.ConversionError`                        | [`ConversionError`]                              |
 //! | `mdates.MonthLocator()`, `DayLocator`, `WeekdayLocator` | [`RRuleLocator::months`], [`RRuleLocator::days`], [`RRuleLocator::weekdays`] |
 //! | `mdates.YearLocator`, `AutoDateLocator`        | [`YearLocator`], [`AutoDateLocator`]             |
 //! | `mdates.DateFormatter("%b %Y")`, `ConciseDateFormatter` | [`DateFormatter::new`], [`ConciseDateFormatter`] |
@@ -400,3 +406,13 @@
 //! [`Axis::set_color`]: crate::axes::Axis::set_color
 //! [`Axis::axis_date`]: crate::axes::Axis::axis_date
 //! [`Axis::convert_units`]: crate::axes::Axis::convert_units
+//! [`Axis::set_units`]: crate::axes::Axis::set_units
+//! [`Axis::units`]: crate::axes::Axis::units
+//! [`Axis::update_units`]: crate::axes::Axis::update_units
+//! [`Axis::set_converter`]: crate::axes::Axis::set_converter
+//! [`Axis::converter`]: crate::axes::Axis::converter
+//! [`Unit`]: crate::units::Unit
+//! [`ConversionInterface`]: crate::units::ConversionInterface
+//! [`Convertible`]: crate::units::Convertible
+//! [`UnitAxisInfo`]: crate::units::UnitAxisInfo
+//! [`ConversionError`]: crate::units::ConversionError

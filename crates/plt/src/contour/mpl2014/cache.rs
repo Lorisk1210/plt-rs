@@ -4,6 +4,11 @@
 //!
 //! Each quad's entry also describes the point at its SW corner and its W
 //! and S edges, so every point and edge is stored exactly once.
+//!
+//! The z-levels are also kept as bit planes, one bit per point, from which
+//! a sweep finds the quads that can start a contour (see `sweep`).
+
+use super::sweep::{self, Bits};
 
 /// z above the lower level (filled) or above the level (lines).
 const Z_LEVEL_1: u32 = 0x0001;
@@ -116,6 +121,10 @@ pub(super) enum Exists {
 pub(super) struct Cache {
     items: Vec<u32>,
     nx: usize,
+    /// The points between the levels (above the level of lines).
+    between: Bits,
+    /// The points above the upper level.
+    above: Bits,
 }
 
 impl Cache {
@@ -131,6 +140,8 @@ impl Cache {
         let mut cache = Self {
             items: vec![0; nx * ny],
             nx,
+            between: Bits::new(nx, ny),
+            above: Bits::new(nx, ny),
         };
         match mask {
             None => cache.init_unmasked(ny, chunk),
@@ -144,19 +155,25 @@ impl Cache {
 
     fn init_unmasked(&mut self, ny: usize, (x_chunk, y_chunk): (usize, usize)) {
         let nx = self.nx;
-        for j in 0..ny {
-            for i in 0..nx {
-                let mut item = 0;
-                if i < nx - 1 && j < ny - 1 {
-                    item |= EXISTS_QUAD;
+        for (j, row) in self.items.chunks_mut(nx).enumerate() {
+            let quad_row = j < ny - 1;
+            let chunk_row = j % y_chunk == 0 || j == ny - 1;
+            // `i % x_chunk`, counted rather than divided per point.
+            let mut offset = 0;
+            for (i, item) in row.iter_mut().enumerate() {
+                let quad_column = i < nx - 1;
+                let chunk_column = offset == 0 || i == nx - 1;
+                offset = if offset + 1 == x_chunk { 0 } else { offset + 1 };
+                *item = 0;
+                if quad_column && quad_row {
+                    *item |= EXISTS_QUAD;
                 }
-                if (i % x_chunk == 0 || i == nx - 1) && j < ny - 1 {
-                    item |= BOUNDARY_W;
+                if chunk_column && quad_row {
+                    *item |= BOUNDARY_W;
                 }
-                if (j % y_chunk == 0 || j == ny - 1) && i < nx - 1 {
-                    item |= BOUNDARY_S;
+                if chunk_row && quad_column {
+                    *item |= BOUNDARY_S;
                 }
-                self.items[i + j * nx] = item;
             }
         }
     }
@@ -240,14 +257,58 @@ impl Cache {
     pub(super) fn init_levels(&mut self, z: &[f64], lower: f64, upper: f64) {
         let keep = EXISTS | BOUNDARY_S | BOUNDARY_W;
         let two_levels = lower != upper;
-        for (item, &z) in self.items.iter_mut().zip(z) {
-            *item &= keep;
-            if two_levels && z > upper {
-                *item |= Z_LEVEL_2;
-            } else if z > lower {
-                *item |= Z_LEVEL_1;
+        let rows = self.items.chunks_mut(self.nx).zip(z.chunks(self.nx));
+        for (j, (items, z)) in rows.enumerate() {
+            let blocks = items.chunks_mut(64).zip(z.chunks(64));
+            let planes = self
+                .between
+                .row_mut(j)
+                .iter_mut()
+                .zip(self.above.row_mut(j));
+            for ((items, z), (between, above)) in blocks.zip(planes) {
+                (*between, *above) = (0, 0);
+                for (bit, (item, &z)) in items.iter_mut().zip(z).enumerate() {
+                    *item &= keep;
+                    if two_levels && z > upper {
+                        *item |= Z_LEVEL_2;
+                        *above |= 1 << bit;
+                    } else if z > lower {
+                        *item |= Z_LEVEL_1;
+                        *between |= 1 << bit;
+                    }
+                }
             }
         }
+    }
+
+    /// The quads a line contour can start in at the current level: every
+    /// quad whose corners are not all on one side of it.
+    pub(super) fn crossed_quads(&self) -> Bits {
+        sweep::crossed_quads([&self.between, &self.above])
+    }
+
+    /// The quads a filled contour can start in at the current levels:
+    /// every one [`starts_no_fill`](Self::starts_no_fill) does not rule
+    /// out, given the quads in `complex` (see
+    /// [`complex_quads`](Self::complex_quads)).
+    pub(super) fn fill_start_quads(&self, complex: &Bits) -> Bits {
+        sweep::fill_start_quads([&self.between, &self.above], complex)
+    }
+
+    /// The existing quads that are not simple interior quads (see
+    /// [`simple_interior`](Self::simple_interior)).
+    pub(super) fn complex_quads(&self) -> Bits {
+        let ny = self.items.len() / self.nx;
+        Bits::from_fn(self.nx, ny, |quad| {
+            self.exists(quad) != Exists::None && !self.simple_interior(quad)
+        })
+    }
+
+    /// The quads with a boundary edge (see
+    /// [`touches_boundary`](Self::touches_boundary)).
+    pub(super) fn boundary_quads(&self) -> Bits {
+        let ny = self.items.len() / self.nx;
+        Bits::from_fn(self.nx, ny, |quad| self.touches_boundary(quad))
     }
 
     /// Whether any of `flags` is set for `quad`.
@@ -350,13 +411,19 @@ impl Cache {
     /// one level.
     pub(super) fn starts_no_fill(&self, quad: usize) -> bool {
         let north = quad + self.nx;
-        let item = self.items[quad];
         let level = |point: usize| self.items[point] & Z_LEVEL;
-        item & EXISTS == EXISTS_QUAD
-            && item & (BOUNDARY_S | BOUNDARY_W) == 0
-            && self.items[north] & BOUNDARY_S == 0
+        self.simple_interior(quad)
             && level(north) == level(north + 1)
             && level(quad + 1) == level(north + 1)
+    }
+
+    /// Whether `quad` is a full quad without a boundary on its S, W or N
+    /// side.
+    fn simple_interior(&self, quad: usize) -> bool {
+        let item = self.items[quad];
+        item & EXISTS == EXISTS_QUAD
+            && item & (BOUNDARY_S | BOUNDARY_W) == 0
+            && self.items[quad + self.nx] & BOUNDARY_S == 0
     }
 
     /// Whether any edge of `quad` is a boundary: one of its sides, or the

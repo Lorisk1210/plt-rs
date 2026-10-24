@@ -1,7 +1,8 @@
 //! Pixel snapping (matplotlib's `PathSnapper`).
 
 use super::{Vertex, VertexSource};
-use crate::path::PathCode;
+use crate::Affine2D;
+use crate::path::{Path, PathCode};
 
 /// When to snap vertices to pixel centres (matplotlib's `e_snap_mode`;
 /// `gc.get_snap()` of `None`/`True`/`False`).
@@ -69,6 +70,28 @@ fn snap_offset(stroke_width: f64) -> f64 {
     if rounded % 2 == 0 { 0.0 } else { 0.5 }
 }
 
+/// `floor(v + 0.5) + offset`: `v` rounded to a pixel edge, plus the
+/// offset. The floor goes through a truncating integer conversion, exact
+/// below 2^52 (larger magnitudes are whole already, or not finite), and
+/// matches `f64::floor` bit for bit: the only floor it could get wrong is
+/// that of -0.0, which `v + 0.5` never is. It spares the libm call that
+/// `f64::floor` costs without SSE4.1.
+fn snap_coordinate(v: f64, offset: f64) -> f64 {
+    const WHOLE: f64 = 4_503_599_627_370_496.0;
+    let shifted = v + 0.5;
+    let floor = if shifted.abs() < WHOLE {
+        let truncated = shifted as i64 as f64;
+        if truncated > shifted {
+            truncated - 1.0
+        } else {
+            truncated
+        }
+    } else {
+        shifted
+    };
+    floor + offset
+}
+
 /// matplotlib's `should_snap`, scanning the (already clipped) stream.
 fn should_snap<I: Iterator<Item = Vertex>>(
     source: &mut I,
@@ -112,8 +135,8 @@ impl<I: VertexSource> Iterator for Snapper<I> {
         if let Some(offset) = self.offset
             && vertex.is_vertex()
         {
-            vertex.point.x = (vertex.point.x + 0.5).floor() + offset;
-            vertex.point.y = (vertex.point.y + 0.5).floor() + offset;
+            vertex.point.x = snap_coordinate(vertex.point.x, offset);
+            vertex.point.y = snap_coordinate(vertex.point.y, offset);
         }
         Some(vertex)
     }
@@ -122,6 +145,67 @@ impl<I: VertexSource> Iterator for Snapper<I> {
 impl<I: VertexSource> VertexSource for Snapper<I> {
     fn rewind(&mut self) {
         self.source.rewind();
+    }
+}
+
+impl Path {
+    /// Transforms and snaps a path of straight segments in one pass,
+    /// storing in `out` what
+    /// `self.iter_vertices().transform(transform).remove_nans(true, has_codes)`
+    /// `.snap(mode, self.len(), stroke_width).collect_path_into(out)` stores
+    /// (for either `has_codes`).
+    ///
+    /// Returns `false`, leaving `out` unspecified, when the path has curves
+    /// or a vertex is not finite once transformed: those need the stages
+    /// themselves.
+    ///
+    /// ```
+    /// use plt_core::path::convert::SnapMode;
+    /// use plt_core::{Affine2D, Path, Point};
+    ///
+    /// let line = Path::polyline(vec![Point::new(0.2, 0.2), Point::new(3.6, 0.2)]);
+    /// let mut out = Path::default();
+    /// assert!(line.transform_and_snap_into(Affine2D::identity(), SnapMode::Auto, 1.0, &mut out));
+    /// assert_eq!(out.vertices(), &[Point::new(0.5, 0.5), Point::new(4.5, 0.5)]);
+    /// ```
+    pub fn transform_and_snap_into(
+        &self,
+        transform: Affine2D,
+        mode: SnapMode,
+        stroke_width: f64,
+        out: &mut Path,
+    ) -> bool {
+        let codes = out.codes.get_or_insert_with(Vec::new);
+        out.vertices.clear();
+        codes.clear();
+        for (i, &point) in self.vertices.iter().enumerate() {
+            let code = self.code_at(i);
+            let point = match code {
+                PathCode::Curve3 | PathCode::Curve4 => return false,
+                // Closures keep their stored point, as `Transformed` leaves it.
+                PathCode::ClosePoly => point,
+                PathCode::MoveTo | PathCode::LineTo => transform.transform_point(point),
+            };
+            if !point.is_finite() {
+                return false;
+            }
+            out.vertices.push(point);
+            codes.push(code);
+        }
+        out.interpolation_steps = 1;
+        // With every point finite, the NaN filter passes the stream through
+        // unchanged on both of the snapper's passes.
+        if should_snap(&mut out.iter_vertices(), mode, self.len()) {
+            let offset = snap_offset(stroke_width);
+            let codes = out.codes.as_deref().unwrap_or_default();
+            for (point, &code) in out.vertices.iter_mut().zip(codes) {
+                if code != PathCode::ClosePoly {
+                    point.x = snap_coordinate(point.x, offset);
+                    point.y = snap_coordinate(point.y, offset);
+                }
+            }
+        }
+        true
     }
 }
 
@@ -170,6 +254,101 @@ mod tests {
             .build();
         let stream = curve.iter_vertices().snap(SnapMode::Auto, 3, 1.0);
         assert!(!stream.is_snapping());
+    }
+
+    /// The stages `transform_and_snap_into` stands for.
+    fn staged(path: &Path, transform: Affine2D, mode: SnapMode, has_codes: bool) -> Path {
+        path.iter_vertices()
+            .transform(transform)
+            .remove_nans(true, has_codes)
+            .snap(mode, path.len(), 1.0)
+            .collect_path()
+    }
+
+    #[test]
+    fn one_pass_snapping_matches_the_stages() {
+        let transform = Affine2D::scaling(3.3, -2.1).then(Affine2D::translation(0.4, 50.2));
+        let paths = [
+            Path::polyline(vec![p(0.3, 0.3), p(10.6, 0.3), p(10.6, 5.2), p(0.3, 5.2)]),
+            Path::polyline(vec![p(0.3, 0.3), p(10.6, 7.7)]),
+            Path::closed(vec![p(1.0, 1.0), p(4.0, 1.0), p(4.0, 3.0), p(9.0, 9.0)]),
+            Path::builder()
+                .move_to(p(0.0, 0.0))
+                .line_to(p(2.0, 0.0))
+                .close()
+                .move_to(p(5.0, 5.0))
+                .line_to(p(5.0, 8.0))
+                .build(),
+            Path::default(),
+        ];
+        for path in &paths {
+            for mode in [SnapMode::Auto, SnapMode::Always, SnapMode::Never] {
+                let mut out = Path::polyline(vec![p(9.0, 9.0)]);
+                assert!(path.transform_and_snap_into(transform, mode, 1.0, &mut out));
+                for has_codes in [false, true] {
+                    assert_eq!(out, staged(path, transform, mode, has_codes), "{path:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn one_pass_snapping_declines_curves_and_non_finite_points() {
+        let mut out = Path::default();
+        let curve = Path::builder()
+            .move_to(p(0.3, 0.3))
+            .quad_to(p(1.0, 0.3), p(2.0, 0.3))
+            .build();
+        let gap = Path::polyline(vec![p(0.0, 0.0), p(f64::NAN, 1.0), p(2.0, 2.0)]);
+        let huge = Path::polyline(vec![p(0.0, 0.0), p(f64::MAX, 1.0)]);
+        let scale = Affine2D::scaling(10.0, 10.0);
+        for path in [curve, gap, huge] {
+            assert!(!path.transform_and_snap_into(scale, SnapMode::Auto, 1.0, &mut out));
+        }
+    }
+
+    #[test]
+    fn snapped_coordinates_floor_like_libm() {
+        let samples = [
+            0.0,
+            -0.0,
+            0.3,
+            -0.3,
+            0.5,
+            -0.5,
+            -0.7,
+            1.5,
+            -1.5,
+            2.499_999,
+            -2.5,
+            1e15 + 0.25,
+            -1e15 - 0.75,
+            4.5e15,
+            -4.6e15,
+            1e300,
+            -1e300,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::MIN_POSITIVE,
+            -f64::MIN_POSITIVE,
+        ];
+        let mut rng = 0x9E37_79B9_7F4A_7C15_u64;
+        let random = (0..10_000).map(|_| {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            f64::from_bits(rng)
+        });
+        for v in samples.into_iter().chain(random) {
+            for offset in [0.0, 0.5] {
+                let expected = (v + 0.5).floor() + offset;
+                let got = snap_coordinate(v, offset);
+                assert!(
+                    got.to_bits() == expected.to_bits() || (got.is_nan() && expected.is_nan()),
+                    "{v:e}"
+                );
+            }
+        }
     }
 
     #[test]

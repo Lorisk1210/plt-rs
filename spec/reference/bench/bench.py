@@ -6,8 +6,9 @@ Each workload mirrors the plt-rs one of the same name in
 ``xtask/src/bench/workloads``: the same data (``spec_support``'s SplitMix64
 stream, vectorised here so that making ten million samples stays quick),
 the same figure, saved to memory at 100 dpi under the reference
-configuration. The data is made before the clock starts. One line per
-workload is printed: its name, a tab, and its best time in milliseconds.
+configuration (or only laid out, for workloads without a format). The
+data is made before the clock starts. One line per workload is printed:
+its name, a tab, and its median time in milliseconds.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import gc
 import io
 import math
 import pathlib
+import statistics
 import sys
 import time
 from typing import Callable, NamedTuple
@@ -110,6 +112,17 @@ def markevery() -> Build:
     return lambda fig: fig.subplots().plot(x, y, "-o", markevery=100)
 
 
+def fill_between() -> Build:
+    x, y = random_walk(100_000, 14)
+    return lambda fig: fig.subplots().fill_between(x, y, 0.0)
+
+
+def stackplot() -> Build:
+    x = np.linspace(0.0, 100.0, 100_000)
+    layers = [1.5 + np.sin(x * (k + 1) / 7.0 + k) for k in range(5)]
+    return lambda fig: fig.subplots().stackplot(x, layers)
+
+
 def scatter() -> Build:
     rng = FastRng(4)
     x, y = rng.uniform(100_000, 0.0, 1.0), rng.uniform(100_000, 0.0, 1.0)
@@ -136,6 +149,11 @@ def imshow(interpolation: str) -> Callable[[], Build]:
     return setup
 
 
+def imshow_colorbar() -> Build:
+    z = smooth_field(2000)
+    return lambda fig: fig.colorbar(fig.subplots().imshow(z, interpolation="bicubic"))
+
+
 def hexbin() -> Build:
     x, y = correlated_normals(6)
     return lambda fig: fig.subplots().hexbin(x, y)
@@ -149,6 +167,11 @@ def hist2d() -> Build:
 def hist() -> Build:
     values = FastRng(8).normal(10_000_000, 0.0, 1.0)
     return lambda fig: fig.subplots().hist(values, bins=1000)
+
+
+def hist_auto() -> Build:
+    values = FastRng(15).normal(1_000_000, 0.0, 1.0)
+    return lambda fig: fig.subplots().hist(values, bins="auto")
 
 
 def boxplot() -> Build:
@@ -169,6 +192,19 @@ def contours(filled: bool) -> Callable[[], Build]:
         return lambda fig: fig.subplots().contour(z, levels=20)
 
     return setup
+
+
+def contourf_labels() -> Build:
+    z = smooth_field(1000)
+
+    def build(fig):
+        ax = fig.subplots()
+        filled = ax.contourf(z, levels=20)
+        lines = ax.contour(z, levels=filled.levels, colors="k", linewidths=0.5)
+        ax.clabel(lines, fontsize=8)
+        fig.colorbar(filled)
+
+    return build
 
 
 def streamplot() -> Build:
@@ -194,6 +230,14 @@ def plot_surface() -> Build:
     x, y = np.meshgrid(t, t)
     z = np.sin(np.hypot(x, y))
     return lambda fig: fig.add_subplot(projection="3d").plot_surface(x, y, z, cmap="viridis")
+
+
+def plot_surface_full() -> Build:
+    t = np.linspace(-5.0, 5.0, 200)
+    x, y = np.meshgrid(t, t)
+    z = np.sin(np.hypot(x, y))
+    return lambda fig: fig.add_subplot(projection="3d").plot_surface(
+        x, y, z, rstride=1, cstride=1, cmap="coolwarm", linewidth=0, antialiased=False)
 
 
 def scatter_3d() -> Build:
@@ -235,6 +279,25 @@ def mathtext() -> Build:
     return build
 
 
+def mixed_text() -> Build:
+    def build(fig):
+        ax = fig.subplots()
+        ax.set_title(r"Mixed text: $\alpha_i + \beta^2 = \gamma$")
+        ax.set_xlabel(r"time $t$ (s)")
+        ax.set_ylabel(r"response $\sigma(t)$")
+        for k in range(300):
+            x, y = (k % 15) / 15.0, (k // 15) / 20.0
+            if k % 3 == 0:
+                ax.text(x, y, f"label {k}\nsecond line", fontsize=7, rotation=k % 90)
+            elif k % 3 == 1:
+                ax.text(x, y, rf"$x_{{{k}}}^{{2}} + \frac{{\pi}}{{{k + 1}}}$", fontsize=8)
+            else:
+                ax.text(x, y, rf"value {k}: $\sqrt{{{k}}} \leq \Omega$", fontsize=7,
+                        ha="center", va="center")
+
+    return build
+
+
 def constrained() -> Build:
     image = np.fromfunction(lambda i, j: np.sin(i * j / 40.0), (20, 20))
 
@@ -245,6 +308,27 @@ def constrained() -> Build:
             ax.set_title(f"image {k}")
 
     return build
+
+
+def constrained_layout() -> Build:
+    x = np.linspace(0.0, 10.0, 50)
+
+    def build(fig):
+        fig.set_layout_engine("constrained")
+        for k, ax in enumerate(fig.subplots(8, 8).flat):
+            ax.plot(x, np.cos(x + k / 10.0))
+            ax.set_title(f"panel {k}")
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+        fig.suptitle("64 panels in constrained layout")
+
+    return build
+
+
+def lissajous() -> Build:
+    t = np.linspace(0.0, 2.0 * math.pi, 100_000)
+    x, y = np.sin(37.0 * t), np.sin(41.0 * t + 0.5)
+    return lambda fig: fig.subplots().plot(x, y, linewidth=0.5)
 
 
 def mid_size() -> Build:
@@ -273,9 +357,14 @@ def mid_size() -> Build:
 
 class Workload(NamedTuple):
     setup: Callable[[], Build]
-    format: str = "png"
+    format: str | None = "png"  # None: laid out without drawing
     figsize: tuple[float, float] = (6.4, 4.8)
+    bbox_inches: str | None = None
+    rc: tuple[tuple[str, object], ...] = ()  # set while building and saving
 
+
+# Every segment of a line reaches the document.
+UNSIMPLIFIED = (("path.simplify", False),)
 
 WORKLOADS = {
     "lines/plot_1e6_png": Workload(walk_1e6),
@@ -284,50 +373,68 @@ WORKLOADS = {
     "lines/1000_lines_of_1000": Workload(many_lines),
     "lines/dashed_1e5": Workload(dashed),
     "lines/markevery_1e5": Workload(markevery),
+    "lines/fill_between_1e5": Workload(fill_between),
+    "lines/stackplot_5x1e5": Workload(stackplot),
     "markers/scatter_1e5": Workload(scatter),
     "markers/plot_o_1e5": Workload(plot_markers),
     "meshes/pcolormesh_1000": Workload(pcolormesh),
     "meshes/imshow_4000_antialiased": Workload(imshow("antialiased")),
     "meshes/imshow_4000_nearest": Workload(imshow("nearest")),
+    "meshes/imshow_2000_bicubic_colorbar": Workload(imshow_colorbar),
     "meshes/hexbin_1e6": Workload(hexbin),
     "meshes/hist2d_1e6": Workload(hist2d),
     "stats/hist_1e7": Workload(hist),
+    "stats/hist_1e6_auto": Workload(hist_auto),
     "stats/boxplot_100": Workload(boxplot),
     "stats/violinplot_50": Workload(violinplot),
     "fields/contour_1000": Workload(contours(False)),
     "fields/contourf_1000": Workload(contours(True)),
+    "fields/contourf_labels_1000": Workload(contourf_labels),
     "fields/streamplot_100": Workload(streamplot),
     "fields/quiver_100": Workload(quiver),
     "fields/tricontourf_1e5": Workload(tricontourf),
     "3d/plot_surface_200": Workload(plot_surface),
+    "3d/plot_surface_200_full": Workload(plot_surface_full),
     "3d/scatter_1e4": Workload(scatter_3d),
     "text/subplots_10x10": Workload(subplots, figsize=(12.8, 9.6)),
     "text/text_2000": Workload(texts),
     "text/mathtext_50": Workload(mathtext),
+    "text/mixed_text_math_300": Workload(mixed_text),
     "text/constrained_6x6_colorbars": Workload(constrained, figsize=(14.0, 12.0)),
+    "layout/constrained_8x8_no_draw": Workload(constrained_layout, None, (16.0, 12.0)),
     "output/mid_png": Workload(mid_size),
     "output/mid_svg": Workload(mid_size, "svg"),
     "output/mid_pdf": Workload(mid_size, "pdf"),
     "output/mid_ps": Workload(mid_size, "ps"),
     "output/mid_pgf": Workload(mid_size, "pgf"),
     "output/mid_eps": Workload(mid_size, "eps"),
+    "output/mid_png_tight": Workload(mid_size, bbox_inches="tight"),
+    "output/lissajous_1e5_svg": Workload(lissajous, "svg", rc=UNSIMPLIFIED),
+    "output/lissajous_1e5_pdf": Workload(lissajous, "pdf", rc=UNSIMPLIFIED),
+    "output/lissajous_1e5_ps": Workload(lissajous, "ps", rc=UNSIMPLIFIED),
 }
 
 
-def best_ms(workload: Workload, runs: int) -> float:
-    """The fastest of ``runs`` builds and saves, in milliseconds."""
+def median_ms(workload: Workload, runs: int) -> float:
+    """The median time of ``runs`` builds and saves, in milliseconds."""
+    import matplotlib
     from matplotlib.figure import Figure
 
     build = workload.setup()
-    best = math.inf
+    times = []
     for _ in range(runs):
         gc.collect()
         start = time.perf_counter()
-        fig = Figure(figsize=workload.figsize, dpi=DPI)
-        build(fig)
-        fig.savefig(io.BytesIO(), format=workload.format, dpi=DPI)
-        best = min(best, time.perf_counter() - start)
-    return best * 1e3
+        with matplotlib.rc_context(dict(workload.rc)):
+            fig = Figure(figsize=workload.figsize, dpi=DPI)
+            build(fig)
+            if workload.format is None:
+                fig.draw_without_rendering()
+            else:
+                fig.savefig(io.BytesIO(), format=workload.format, dpi=DPI,
+                            bbox_inches=workload.bbox_inches)
+        times.append(time.perf_counter() - start)
+    return statistics.median(times) * 1e3
 
 
 def main() -> None:
@@ -348,7 +455,7 @@ def main() -> None:
     reference_rc()
     _measure_pgf_text_like_agg()
     for name in args.names or WORKLOADS:
-        print(f"{name}\t{best_ms(WORKLOADS[name], args.runs):.3f}", flush=True)
+        print(f"{name}\t{median_ms(WORKLOADS[name], args.runs):.3f}", flush=True)
 
 
 if __name__ == "__main__":

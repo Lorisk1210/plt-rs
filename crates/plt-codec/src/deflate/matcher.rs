@@ -5,10 +5,13 @@
 //! to the previous one with the same hash, forming chains that are walked
 //! newest-first when looking for matches.
 //!
-//! Positions are stored as `u32` tags (`position + 1`, wrapping, 0 = empty).
-//! Wrapping on inputs beyond 4 GiB can only make a chain point at an
-//! unrelated position, which is harmless: candidates are always verified
-//! byte by byte and must lie within the window.
+//! `head` stores positions as `u32` tags (`position + 1`, wrapping,
+//! 0 = empty). Wrapping on inputs beyond 4 GiB can only make a chain point
+//! at an unrelated position, which is harmless: candidates are always
+//! verified byte by byte and must lie within the window. `prev` stores the
+//! distance back to the previous position, which fits in 16 bits within
+//! the window: the half-size table keeps more of the chains in the
+//! fastest cache, and walking a chain is a sequence of dependent loads.
 
 use super::level::LevelParams;
 use super::tables::{MAX_MATCH, MIN_MATCH, WINDOW_SIZE};
@@ -24,7 +27,9 @@ pub(crate) struct Match {
 pub(crate) struct Matcher<'a> {
     data: &'a [u8],
     head: Vec<u32>,
-    prev: Vec<u32>,
+    /// The distance from each position (modulo the table size) back to the
+    /// previous one with the same hash; 0 when none lies within the window.
+    prev: Vec<u16>,
     hash_shift: u32,
     window_mask: usize,
 }
@@ -51,7 +56,11 @@ impl<'a> Matcher<'a> {
         let key = u32::from(bytes[0]) | u32::from(bytes[1]) << 8 | u32::from(bytes[2]) << 16;
         let slot = &mut self.head[(key.wrapping_mul(0x9E37_79B1) >> self.hash_shift) as usize];
         let previous = std::mem::replace(slot, tag(position));
-        self.prev[position & self.window_mask] = previous;
+        // Distances beyond 16 bits, and those to the empty tag 0, lead out
+        // of the window too.
+        self.prev[position & self.window_mask] = tag(position)
+            .wrapping_sub(previous)
+            .min(u32::from(u16::MAX)) as u16;
         resolve(previous, position)
     }
 
@@ -77,11 +86,18 @@ impl<'a> Matcher<'a> {
         }
         .max(1);
         let current = &self.data[position..position + max_length];
+        // The earliest position within the window.
+        let limit = position - WINDOW_SIZE.min(position);
         let mut best = None;
         let mut candidate = candidate;
+        // A longer match agrees on its first two bytes and on the two that
+        // end the best match so far (zlib's `scan_start` and `scan_end`).
+        let pair = |bytes: &[u8], at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
+        let start = pair(current, 0);
+        let mut end = pair(current, best_length - 1);
         loop {
             let earlier = &self.data[candidate..candidate + max_length];
-            if earlier[best_length] == current[best_length] && earlier[0] == current[0] {
+            if pair(earlier, best_length - 1) == end && pair(earlier, 0) == start {
                 let length = common_prefix(earlier, current);
                 if length > best_length {
                     best_length = length;
@@ -92,14 +108,18 @@ impl<'a> Matcher<'a> {
                     if length >= nice_length {
                         break;
                     }
+                    end = pair(current, best_length - 1);
                 }
             }
             chain -= 1;
             if chain == 0 {
                 break;
             }
-            match resolve(self.prev[candidate & self.window_mask], position) {
-                Some(next) if next < candidate => candidate = next,
+            // A link recorded for a later position sharing the table slot
+            // (the candidate a whole window back) leads out of the window.
+            let distance = usize::from(self.prev[candidate & self.window_mask]);
+            match candidate.checked_sub(distance) {
+                Some(next) if distance != 0 && next >= limit => candidate = next,
                 _ => break,
             }
         }

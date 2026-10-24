@@ -28,6 +28,7 @@ mod findbest;
 mod geom;
 mod hull;
 mod init;
+mod inline;
 mod lists;
 mod matching;
 mod merge;

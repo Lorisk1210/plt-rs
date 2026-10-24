@@ -158,15 +158,14 @@ impl QuadField {
                 .zip(user.as_slice())
                 .for_each(|(m, &u)| *m |= u);
         }
-        let zmax = extreme(self.z.as_slice(), &mask, f64::max);
-        let mut zmin = extreme(self.z.as_slice(), &mask, f64::min);
+        let (mut zmin, zmax) = extremes(self.z.as_slice(), &mask).unzip();
         let mut warnings = Vec::new();
         if logscale && zmin.is_some_and(|z| z <= 0.0) {
             mask.iter_mut()
                 .zip(self.z.as_slice())
                 .for_each(|(m, &z)| *m |= z <= 0.0);
             warnings.push(ContourWarning::NonPositiveMasked);
-            zmin = extreme(self.z.as_slice(), &mask, f64::min);
+            zmin = extremes(self.z.as_slice(), &mask).map(|(min, _)| min);
         }
         let mask = Grid::from_vec(rows, cols, mask).expect("the mask has the shape of z");
         let chunk = (self.nchunk, self.nchunk);
@@ -254,53 +253,55 @@ fn implicit_coordinates(
     meshgrid(&x, &y)
 }
 
-/// The extreme unmasked value, or `None` when all are masked.
-fn extreme(values: &[f64], mask: &[bool], pick: fn(f64, f64) -> f64) -> Option<f64> {
-    values
+/// The smallest and largest unmasked values (`f64::min` and `f64::max`
+/// folded from the first), or `None` when all are masked; one pass.
+fn extremes(values: &[f64], mask: &[bool]) -> Option<(f64, f64)> {
+    let mut unmasked = values
         .iter()
         .zip(mask)
         .filter(|(_, masked)| !**masked)
-        .map(|(&v, _)| v)
-        .reduce(pick)
+        .map(|(&v, _)| v);
+    let first = unmasked.next()?;
+    Some(unmasked.fold((first, first), |(min, max), v| (min.min(v), max.max(v))))
 }
 
-/// numpy's `min` (NaN propagates).
-fn np_min(values: &[f64]) -> f64 {
-    values
-        .iter()
-        .copied()
-        .reduce(|a, b| if a.is_nan() || a < b { a } else { b })
-        .unwrap_or(f64::NAN)
+/// numpy's `min` of two values in reduction order (NaN propagates).
+fn np_min(a: f64, b: f64) -> f64 {
+    if a.is_nan() || a < b { a } else { b }
 }
 
-/// numpy's `max` (NaN propagates).
-fn np_max(values: &[f64]) -> f64 {
-    values
-        .iter()
-        .copied()
-        .reduce(|a, b| if a.is_nan() || a > b { a } else { b })
-        .unwrap_or(f64::NAN)
+/// numpy's `max` of two values in reduction order (NaN propagates).
+fn np_max(a: f64, b: f64) -> f64 {
+    if a.is_nan() || a > b { a } else { b }
 }
 
 /// The corners of the bounding box of the grid points, mapped by
-/// `to_data` first (matplotlib's `_mins` and `_maxs`).
+/// `to_data` first (matplotlib's `_mins` and `_maxs`): numpy's `min` and
+/// `max` of each coordinate, reduced in one pass.
 fn data_lim(x: &Grid<f64>, y: &Grid<f64>, to_data: Option<&Affine2D>) -> (Point, Point) {
-    let (xs, ys): (Vec<f64>, Vec<f64>) = match to_data {
-        Some(to_data) => x
-            .as_slice()
-            .iter()
-            .zip(y.as_slice())
-            .map(|(&x, &y)| {
-                let p = to_data.transform_point(Point::new(x, y));
-                (p.x, p.y)
-            })
-            .unzip(),
-        None => (x.as_slice().to_vec(), y.as_slice().to_vec()),
+    let points = x
+        .as_slice()
+        .iter()
+        .zip(y.as_slice())
+        .map(|(&x, &y)| Point::new(x, y));
+    match to_data {
+        Some(to_data) => extent(points.map(|p| to_data.transform_point(p))),
+        None => extent(points),
+    }
+}
+
+/// The coordinate-wise numpy `min` and `max` of `points` (NaN when empty).
+fn extent(mut points: impl Iterator<Item = Point>) -> (Point, Point) {
+    let Some(first) = points.next() else {
+        let nan = Point::new(f64::NAN, f64::NAN);
+        return (nan, nan);
     };
-    (
-        Point::new(np_min(&xs), np_min(&ys)),
-        Point::new(np_max(&xs), np_max(&ys)),
-    )
+    points.fold((first, first), |(min, max), p| {
+        (
+            Point::new(np_min(min.x, p.x), np_min(min.y, p.y)),
+            Point::new(np_max(max.x, p.x), np_max(max.y, p.y)),
+        )
+    })
 }
 
 #[cfg(test)]

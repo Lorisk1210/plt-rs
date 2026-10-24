@@ -14,11 +14,13 @@
 //!
 //! The arithmetic and traversal order are reproduced exactly, including
 //! the asymmetric interpolation that leaves some closed loops a rounding
-//! error short of their start point (they are then emitted open).
+//! error short of their start point (they are then emitted open). The
+//! sweeps skip the quads that cannot start a contour (see `sweep`).
 
 mod cache;
 mod edge;
 mod filled;
+mod sweep;
 mod trace;
 
 use plt_core::{Path, Point};
@@ -26,6 +28,7 @@ use plt_core::{Path, Point};
 use self::cache::{Cache, Exists, LevelIndex, VISITED_S, VISITED_W};
 use self::edge::{Edge, QuadEdge, edge_point, is_boundary};
 use self::filled::{ChunkFill, ParentCache};
+use self::sweep::Bits;
 use self::trace::{Field, Tracer};
 use super::assemble::LevelPath;
 use super::chunks::{ChunkLimits, Chunks};
@@ -39,12 +42,23 @@ pub(super) struct Mpl2014 {
     corner_mask: bool,
     chunks: Chunks,
     cache: Cache,
+    /// The quads where boundary lines can start, at every level.
+    boundary: Bits,
+    /// The quads that may start filled contours whatever the levels.
+    complex: Bits,
 }
 
 impl Mpl2014 {
     /// A generator for `grid`, in `chunks`.
     pub(super) fn new(grid: &QuadGrid<'_>, corner_mask: bool, chunks: Chunks) -> Self {
         let (nx, ny) = (grid.nx, grid.ny);
+        let cache = Cache::new(
+            nx,
+            ny,
+            grid.mask,
+            corner_mask,
+            (chunks.x_size, chunks.y_size),
+        );
         Self {
             field: Field {
                 x: grid.x.to_vec(),
@@ -54,13 +68,9 @@ impl Mpl2014 {
             },
             corner_mask,
             chunks,
-            cache: Cache::new(
-                nx,
-                ny,
-                grid.mask,
-                corner_mask,
-                (chunks.x_size, chunks.y_size),
-            ),
+            boundary: cache.boundary_quads(),
+            complex: cache.complex_quads(),
+            cache,
         }
     }
 
@@ -68,16 +78,19 @@ impl Mpl2014 {
     pub(super) fn lines(&mut self, level: f64) -> Path {
         let (chunks, nx) = (self.chunks, self.field.nx);
         let mut path = LevelPath::default();
-        let mut tracer = self.tracer(level, level, None);
+        self.cache.init_levels(&self.field.z, level, level);
+        let crossed = self.cache.crossed_quads();
+        let levels = (level, level);
+        let mut tracer = tracer(&self.field, &mut self.cache, self.corner_mask, levels, None);
         // Lines that start and end on boundaries.
         for chunk in chunks.limits() {
-            for quad in chunk.quads(nx) {
+            for quad in self.boundary.quads(&chunk, nx) {
                 start_boundary_lines(&mut tracer, quad, &mut path);
             }
         }
         // Closed loops in the interior.
         for chunk in chunks.limits() {
-            for quad in chunk.quads(nx) {
+            for quad in crossed.quads(&chunk, nx) {
                 // A saddle holds two loops: visit it again until done.
                 while start_interior_loop(&mut tracer, quad, &mut path) {}
             }
@@ -89,14 +102,24 @@ impl Mpl2014 {
     pub(super) fn filled(&mut self, lower: f64, upper: f64) -> Path {
         let (chunks, nx) = (self.chunks, self.field.nx);
         let parents = ParentCache::new(nx, chunks.x_size + 1, chunks.y_size + 1);
-        let mut tracer = self.tracer(lower, upper, Some(parents));
+        self.cache.init_levels(&self.field.z, lower, upper);
+        let starts = self.cache.fill_start_quads(&self.complex);
+        let levels = (lower, upper);
+        let parents = Some(parents);
+        let mut tracer = tracer(
+            &self.field,
+            &mut self.cache,
+            self.corner_mask,
+            levels,
+            parents,
+        );
         let mut path = LevelPath::default();
         for chunk in chunks.limits() {
             if let Some(parents) = &mut tracer.parents {
                 parents.start_chunk(chunk.istart, chunk.jstart);
             }
             let mut fill = ChunkFill::new(&mut tracer);
-            for quad in chunk.quads(nx) {
+            for quad in starts.quads(&chunk, nx) {
                 fill.single_quad(quad);
             }
             let polygons = fill.into_polygons();
@@ -107,18 +130,24 @@ impl Mpl2014 {
         }
         path.finish()
     }
+}
 
-    fn tracer(&mut self, lower: f64, upper: f64, parents: Option<ParentCache>) -> Tracer<'_> {
-        self.cache.init_levels(&self.field.z, lower, upper);
-        Tracer {
-            field: &self.field,
-            cache: &mut self.cache,
-            corner_mask: self.corner_mask,
-            lower,
-            upper,
-            parents,
-            owner: 0,
-        }
+/// A pass between `lower` and `upper`, whose levels `cache` holds.
+fn tracer<'a>(
+    field: &'a Field,
+    cache: &'a mut Cache,
+    corner_mask: bool,
+    (lower, upper): (f64, f64),
+    parents: Option<ParentCache>,
+) -> Tracer<'a> {
+    Tracer {
+        field,
+        cache,
+        corner_mask,
+        lower,
+        upper,
+        parents,
+        owner: 0,
     }
 }
 

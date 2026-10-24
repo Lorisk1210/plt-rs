@@ -9,6 +9,7 @@
 //! order of the output triangles.
 
 use super::hull::{FacetId, Hull, RidgeId, VertexId};
+use super::inline::InlineVec;
 use super::sets;
 
 /// Which list head [`Hull::prepend_facet`] inserts before.
@@ -209,9 +210,9 @@ impl Hull {
     pub(super) fn delete_facet(&mut self, facet: FacetId) {
         self.remove_facet(facet);
         let f = self.facet_mut(facet);
-        f.neighbors = Vec::new();
+        f.neighbors = InlineVec::new();
         f.ridges = Vec::new();
-        f.vertices = Vec::new();
+        f.vertices = InlineVec::new();
         f.outside = Vec::new();
         f.coplanar = Vec::new();
     }

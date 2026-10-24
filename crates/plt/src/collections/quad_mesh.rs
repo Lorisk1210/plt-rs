@@ -88,13 +88,12 @@ pub(super) fn draw_quad_mesh(
     let resolved = ctx
         .resolve(&c.transform())
         .ok_or("its coordinate system no longer exists")?;
+    let transformed;
     let (coordinates, master) = if resolved.is_affine() {
-        (mesh.coordinates.clone(), resolved.affine_part())
+        (&mesh.coordinates, resolved.affine_part())
     } else {
-        (
-            mesh.coordinates.map(|&p| resolved.transform_point(p)),
-            Affine2D::IDENTITY,
-        )
+        transformed = mesh.coordinates.map(|&p| resolved.transform_point(p));
+        (&transformed, Affine2D::IDENTITY)
     };
     let (faces, edges) = resolve_colors(c)?;
     let mut gc = ctx.base_gc(c.base());
@@ -131,7 +130,7 @@ pub(super) fn draw_quad_mesh(
                     .map(Option::is_none)
                     .collect::<Vec<_>>()
             });
-            let (triangles, colors) = triangles(&coordinates, &faces, masked.as_deref());
+            let (triangles, colors) = triangles(coordinates, &faces, masked.as_deref());
             ctx.renderer()
                 .draw_gouraud_triangles(&gc, &triangles, &colors, &master);
         }

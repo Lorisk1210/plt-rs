@@ -8,10 +8,12 @@
 //! doubly linked through the arena, exactly like qhull's, because the order
 //! in which facets are visited decides the order of the output triangles.
 
+use super::inline::InlineVec;
 use super::precision::{Precision, QhullMinMax};
 
 /// A facet, identified by its qhull id (its index in [`Hull::facets`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// The default is the sentinel [`FacetId::TAIL`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(super) struct FacetId(u32);
 
 impl FacetId {
@@ -38,7 +40,8 @@ impl FacetId {
 }
 
 /// A vertex, identified by its qhull id (its index in [`Hull::vertices`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// The default is the sentinel [`VertexId::TAIL`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(super) struct VertexId(u32);
 
 impl VertexId {
@@ -84,9 +87,9 @@ pub(super) type HullResult<T> = Result<T, HullError>;
 )]
 pub(super) struct Facet {
     /// Vertices, sorted by decreasing id.
-    pub(super) vertices: Vec<VertexId>,
+    pub(super) vertices: InlineVec<VertexId>,
     /// Neighbours; for simplicial facets neighbour `i` is opposite vertex `i`.
-    pub(super) neighbors: Vec<FacetId>,
+    pub(super) neighbors: InlineVec<FacetId>,
     /// Explicit ridges (non-simplicial facets and their neighbours).
     pub(super) ridges: Vec<RidgeId>,
     /// qhull has allocated the ridge set (it may have become empty since);
@@ -192,7 +195,7 @@ pub(super) struct Vertex {
 #[derive(Clone, Debug)]
 pub(super) struct Ridge {
     /// The two vertices, sorted by decreasing id.
-    pub(super) vertices: Vec<VertexId>,
+    pub(super) vertices: InlineVec<VertexId>,
     /// The facet that sees the ridge with top orientation.
     pub(super) top: FacetId,
     /// The other facet.
@@ -388,7 +391,7 @@ impl Hull {
     /// Allocates a ridge (qhull's `qh_newridge`).
     pub(super) fn new_ridge(
         &mut self,
-        vertices: Vec<VertexId>,
+        vertices: InlineVec<VertexId>,
         top: FacetId,
         bottom: FacetId,
     ) -> RidgeId {

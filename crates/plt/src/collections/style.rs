@@ -49,12 +49,15 @@ pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Ve
             matches!(c.edgecolors, EdgeColors::Face)
         };
 
-    let faces = match (&mapped, face_mapped) {
-        (Some(colors), true) => colors.clone(),
-        _ => resolve(&face_spec)?,
+    // The mapped colours move to the faces, or the edges, or both (one
+    // copy): meshes map a million of them.
+    let (faces, mapped) = match mapped {
+        Some(colors) if face_mapped && edge_mapped => (colors.clone(), Some(colors)),
+        Some(colors) if face_mapped => (colors, None),
+        mapped => (resolve(&face_spec)?, mapped),
     };
-    let edges = match (&mapped, edge_mapped, &c.edgecolors) {
-        (Some(colors), true, _) => colors.clone(),
+    let edges = match (mapped, edge_mapped, &c.edgecolors) {
+        (Some(colors), true, _) => colors,
         (_, _, EdgeColors::Face) => faces.clone(),
         (_, _, EdgeColors::Colors(colors)) => resolve(colors)?,
         (_, _, EdgeColors::Default) => {

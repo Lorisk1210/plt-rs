@@ -17,6 +17,22 @@ pub(super) const DPI: f64 = 100.0;
 /// Populates a figure from data made before the clock started.
 pub(super) type Build = Box<dyn Fn(&Figure) -> CaseResult>;
 
+/// What a workload does with the figure it built.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Output {
+    /// Saves the figure in `format`, cropped to the tight bounding box of
+    /// what it draws when `tight` (`bbox_inches="tight"`).
+    Save {
+        /// The format the figure is saved in.
+        format: SaveFormat,
+        /// Whether the saved area is the tight bounding box.
+        tight: bool,
+    },
+    /// Lays the figure out without drawing it (matplotlib's
+    /// `draw_without_rendering`).
+    LayoutOnly,
+}
+
 /// A named figure to build and save.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Workload {
@@ -24,8 +40,10 @@ pub(super) struct Workload {
     pub(super) name: &'static str,
     /// Figure size in inches.
     pub(super) figsize: (f64, f64),
-    /// The format the figure is saved in.
-    pub(super) format: SaveFormat,
+    /// What becomes of the figure once built.
+    pub(super) output: Output,
+    /// rcParams set while the figure is built and saved.
+    pub(super) rc: &'static [(&'static str, &'static str)],
     /// Makes the data (untimed) and returns what builds the figure.
     pub(super) setup: fn() -> Build,
 }
@@ -36,14 +54,51 @@ impl Workload {
         Self {
             name,
             figsize: (6.4, 4.8),
-            format: SaveFormat::Png,
+            output: Output::Save {
+                format: SaveFormat::Png,
+                tight: false,
+            },
+            rc: &[],
             setup,
         }
     }
 
     /// The same workload saved in another format.
     const fn saved_as(self, format: SaveFormat) -> Self {
-        Self { format, ..self }
+        Self {
+            output: Output::Save {
+                format,
+                tight: false,
+            },
+            ..self
+        }
+    }
+
+    /// The same workload saved cropped to its tight bounding box.
+    const fn tight(self) -> Self {
+        let Output::Save { format, .. } = self.output else {
+            return self;
+        };
+        Self {
+            output: Output::Save {
+                format,
+                tight: true,
+            },
+            ..self
+        }
+    }
+
+    /// The same workload laid out but neither drawn nor saved.
+    const fn layout_only(self) -> Self {
+        Self {
+            output: Output::LayoutOnly,
+            ..self
+        }
+    }
+
+    /// The same workload under further rcParams.
+    const fn with_rc(self, rc: &'static [(&'static str, &'static str)]) -> Self {
+        Self { rc, ..self }
     }
 
     /// The same workload on another canvas.

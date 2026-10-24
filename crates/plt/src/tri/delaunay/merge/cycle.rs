@@ -5,6 +5,7 @@
 
 use super::{MAX_NEW_CENTRUM_VERTICES, MAX_NUMMERGE, MergeKind};
 use crate::tri::delaunay::hull::{FacetId, Hull, HullError, HullResult, VertexId};
+use crate::tri::delaunay::inline::InlineVec;
 use crate::tri::delaunay::sets;
 
 impl Hull {
@@ -137,7 +138,7 @@ impl Hull {
         }
         let visit = self.next_visit();
         self.facet_mut(newfacet).visit_id = visit;
-        let mut kept = Vec::with_capacity(self.facet(newfacet).neighbors.len());
+        let mut kept = InlineVec::new();
         for n in self.facet(newfacet).neighbors.clone() {
             if self.facet(n).visit_id != same_visit {
                 self.facet_mut(n).visit_id = visit;

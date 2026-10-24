@@ -53,13 +53,14 @@ impl Reflect {
     }
 }
 
-/// `image_accessor_wrap<pixfmt, wrap_mode_reflect, wrap_mode_reflect>`.
+/// `image_accessor_wrap<pixfmt, wrap_mode_reflect, wrap_mode_reflect>`,
+/// handing out reflected column indices and row offsets: a run of
+/// columns (or rows) starts at a coordinate and continues one at a time,
+/// as Agg's `span`, `next_x` and `next_y` walk them.
 #[derive(Debug)]
 pub(super) struct ReflectAccessor<'a, P> {
     pixels: &'a [P],
     width: usize,
-    row: usize,
-    x: i32,
     wrap_x: Reflect,
     wrap_y: Reflect,
 }
@@ -70,29 +71,34 @@ impl<'a, P: Copy> ReflectAccessor<'a, P> {
         Self {
             pixels: grid.as_slice(),
             width: grid.width(),
-            row: 0,
-            x: 0,
             wrap_x: Reflect::new(grid.width() as u32),
             wrap_y: Reflect::new(grid.height() as u32),
         }
     }
 
-    /// Starts reading at `(x, y)`.
-    pub(super) fn span(&mut self, x: i32, y: i32) -> P {
-        self.x = x;
-        self.row = self.wrap_y.at(y) * self.width;
-        self.pixels[self.row + self.wrap_x.at(x)]
+    /// The pixels, row by row.
+    pub(super) const fn pixels(&self) -> &'a [P] {
+        self.pixels
     }
 
-    /// The pixel to the right of the previous one.
-    pub(super) fn next_x(&mut self) -> P {
-        self.pixels[self.row + self.wrap_x.next()]
+    /// The column of coordinate `x`, starting a run of columns.
+    pub(super) fn first_column(&mut self, x: i32) -> usize {
+        self.wrap_x.at(x)
     }
 
-    /// The first pixel of the span in the next row.
-    pub(super) fn next_y(&mut self) -> P {
-        self.row = self.wrap_y.next() * self.width;
-        self.pixels[self.row + self.wrap_x.at(self.x)]
+    /// The column after the previous one.
+    pub(super) fn next_column(&mut self) -> usize {
+        self.wrap_x.next()
+    }
+
+    /// The offset of the row of coordinate `y`, starting a run of rows.
+    pub(super) fn first_row(&mut self, y: i32) -> usize {
+        self.wrap_y.at(y) * self.width
+    }
+
+    /// The offset of the row after the previous one.
+    pub(super) fn next_row(&mut self) -> usize {
+        self.wrap_y.next() * self.width
     }
 }
 
@@ -121,15 +127,14 @@ mod tests {
     }
 
     #[test]
-    fn reflect_accessor_walks_rows() {
+    fn reflect_accessor_walks_rows_and_columns() {
         let g = Grid::from_vec(2, 2, vec![1, 2, 3, 4]).expect("grid");
         let mut a = ReflectAccessor::new(g.view());
-        assert_eq!(a.span(-1, -1), 1);
-        assert_eq!(a.next_x(), 1);
-        assert_eq!(a.next_x(), 2);
-        assert_eq!(a.next_y(), 1);
-        assert_eq!(a.next_y(), 3);
-        assert_eq!(a.next_x(), 3);
+        let columns = [a.first_column(-1), a.next_column(), a.next_column()];
+        assert_eq!(columns, [0, 0, 1]);
+        let rows = [a.first_row(-1), a.next_row(), a.next_row()];
+        assert_eq!(rows, [0, 0, 2]);
+        assert_eq!(a.pixels()[rows[2] + columns[2]], 4);
     }
 
     #[test]

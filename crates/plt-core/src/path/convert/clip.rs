@@ -210,6 +210,14 @@ impl<I: VertexSource> Clipper<I> {
                         break;
                     }
                 }
+                // A segment wholly inside continues the line as it is: what
+                // queueing it would return, without the queue.
+                PathCode::LineTo
+                    if !self.moveto && rect.flags(self.last) | rect.flags(vertex.point) == 0 =>
+                {
+                    self.last = vertex.point;
+                    return Some(vertex);
+                }
                 PathCode::LineTo => {
                     let drawn = self.draw_clipped_line(rect, self.last, vertex.point, false);
                     self.last = vertex.point;

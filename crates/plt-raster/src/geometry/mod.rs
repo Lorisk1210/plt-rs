@@ -76,9 +76,14 @@ pub(crate) fn is_flat(path: &Path) -> bool {
 }
 
 /// Sends `path` to `sink`, flattening its curves exactly like Agg's
-/// `conv_curve` (plt-core's [`flatten_curves`](VertexSource::flatten_curves)).
+/// `conv_curve` (plt-core's [`flatten_curves`](VertexSource::flatten_curves)),
+/// which passes the vertices of a path without curves through as they are.
 pub(crate) fn feed_path<S: PathSink + ?Sized>(path: &Path, sink: &mut S) {
-    feed_vertices(path.iter_vertices().flatten_curves(true), sink);
+    if path.has_curves() {
+        feed_vertices(path.iter_vertices().flatten_curves(true), sink);
+    } else {
+        feed_vertices(path.iter_vertices(), sink);
+    }
 }
 
 /// Wraps a sub-path generator (stroker or dasher) the way Agg's

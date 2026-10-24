@@ -95,7 +95,9 @@ impl RasterRenderer {
     /// Runs `path` through the path converters into device pixels, stored
     /// in `out`. Stages that would pass every vertex through are left out
     /// of the chain: most paths, and the many small ones of collections,
-    /// need no clipping, simplification, curve flattening or sketching.
+    /// need no clipping, simplification, curve flattening or sketching,
+    /// and those with finite points are transformed and snapped in one
+    /// pass.
     pub(super) fn condition_into(
         &self,
         path: &Path,
@@ -103,6 +105,13 @@ impl RasterRenderer {
         c: &Conditioning,
         out: &mut Path,
     ) {
+        if !c.clip
+            && c.simplify.is_none()
+            && c.sketch.is_none()
+            && path.transform_and_snap_into(transform, c.snap, c.snap_width, out)
+        {
+            return;
+        }
         let source = path
             .iter_vertices()
             .transform(transform)

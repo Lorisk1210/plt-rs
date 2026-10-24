@@ -1,8 +1,10 @@
 //! Contours, vector fields and triangulations, and 3-D axes.
 
-use plt::colors::{Colorize, ColorizerOptions, colormaps};
-use plt::contour::{ContourOptions, Levels, QuadField};
-use plt::mplot3d::{FaceColors, SurfaceOptions};
+use plt::collections::CollectionProps;
+use plt::colorbar::ColorbarOptions;
+use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
+use plt::contour::{ClabelOptions, ContourOptions, Levels, QuadField};
+use plt::mplot3d::{FaceColors, Sampling, SurfaceOptions};
 use plt::numeric::{Grid, linspace, meshgrid};
 use plt::quiver::{QuiverOptions, VectorField};
 use plt::streamplot::{StreamField, StreamplotOptions};
@@ -15,10 +17,12 @@ use super::{Build, Workload, smooth_field};
 pub(super) const WORKLOADS: &[Workload] = &[
     Workload::new("fields/contour_1000", || contours(false)),
     Workload::new("fields/contourf_1000", || contours(true)),
+    Workload::new("fields/contourf_labels_1000", contourf_labels),
     Workload::new("fields/streamplot_100", streamplot),
     Workload::new("fields/quiver_100", quiver),
     Workload::new("fields/tricontourf_1e5", tricontourf),
     Workload::new("3d/plot_surface_200", plot_surface),
+    Workload::new("3d/plot_surface_200_full", plot_surface_full),
     Workload::new("3d/scatter_1e4", scatter_3d),
 ];
 
@@ -36,6 +40,37 @@ fn contours(filled: bool) -> Build {
         } else {
             ax.contour(&field, options)?;
         }
+        Ok(())
+    })
+}
+
+/// `contourf` of a smooth 1000 × 1000 field at 20 levels, black contour
+/// lines at the same levels, labelled inline, and a colorbar.
+fn contourf_labels() -> Build {
+    let field = QuadField::new(smooth_field(1000));
+    Box::new(move |fig| {
+        let ax = fig.subplot();
+        let filled = ax.contourf(
+            &field,
+            ContourOptions {
+                levels: Levels::Count(20),
+                ..ContourOptions::default()
+            },
+        )?;
+        let lines = ax.contour(
+            &field,
+            ContourOptions {
+                levels: Levels::Values(filled.levels()),
+                colors: Some(vec![Color::from("k")]),
+                linewidths: Some(vec![0.5]),
+                ..ContourOptions::default()
+            },
+        )?;
+        lines.clabel(ClabelOptions {
+            fontsize: Some(8.0.into()),
+            ..ClabelOptions::default()
+        })?;
+        fig.colorbar(&filled, ColorbarOptions::default())?;
         Ok(())
     })
 }
@@ -90,14 +125,39 @@ fn tricontourf() -> Build {
     })
 }
 
-/// `plot_surface` of `sin(r)` on a 200 × 200 grid in viridis.
-fn plot_surface() -> Build {
+/// `sin(r)` on a 200 × 200 grid over `[-5, 5]²`: the x, y and z grids.
+fn ripple() -> (Grid<f64>, Grid<f64>, Grid<f64>) {
     let t = linspace(-5.0, 5.0, 200);
     let (x, y) = meshgrid(&t, &t);
     let z = Grid::from_fn(200, 200, |i, j| t[j].hypot(t[i]).sin());
+    (x, y, z)
+}
+
+/// `plot_surface` of `sin(r)` on a 200 × 200 grid in viridis.
+fn plot_surface() -> Build {
+    let (x, y, z) = ripple();
     Box::new(move |fig| {
         let options = SurfaceOptions {
             colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("viridis")?)),
+            ..SurfaceOptions::default()
+        };
+        fig.subplot_3d().plot_surface(&x, &y, &z, options)?;
+        Ok(())
+    })
+}
+
+/// `plot_surface` of `sin(r)` with every grid cell a face (strides of 1),
+/// in coolwarm without edges or antialiasing.
+fn plot_surface_full() -> Build {
+    let (x, y, z) = ripple();
+    Box::new(move |fig| {
+        let options = SurfaceOptions {
+            sampling: Sampling::Strides { rows: 1, cols: 1 },
+            colors: FaceColors::from(ColorizerOptions::default().cmap(colormaps::get("coolwarm")?)),
+            props: CollectionProps {
+                antialiased: Some(vec![false]),
+                ..CollectionProps::default().linewidth(0.0)
+            },
             ..SurfaceOptions::default()
         };
         fig.subplot_3d().plot_surface(&x, &y, &z, options)?;

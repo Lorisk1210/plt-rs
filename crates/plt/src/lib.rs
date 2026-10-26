@@ -33,6 +33,11 @@
 //! figures shown in windows ([`gui`]). The gallery example
 //! (`cargo run -p plt --example gallery`) shows many more figures.
 //!
+//! New to matplotlib? The [`tutorial`] teaches plt-rs from the ground up,
+//! in Rust terms, chapter by chapter: figures and axes, plot types, data
+//! and options, styling, layout, text, scales, saving, interaction,
+//! extending and testing.
+//!
 //! Coming from matplotlib? The [`porting`] guide maps its calls to plt-rs
 //! topic by topic, with tested side-by-side examples.
 //!
@@ -164,6 +169,7 @@ pub mod text;
 pub mod ticker;
 pub mod transforms;
 pub mod tri;
+pub mod tutorial;
 pub mod units;
 pub mod web;
 pub mod widgets;

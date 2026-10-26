@@ -26,7 +26,7 @@ const WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 const LINGER: (Duration, u64) = (Duration::from_secs(1), 1 << 20);
 
 /// The largest WebSocket message a client may send.
-const MAX_MESSAGE: usize = 64 * 1024;
+pub(super) const MAX_MESSAGE: usize = 64 * 1024;
 
 /// How many frames may wait for a WebSocket's writer; a client that falls
 /// further behind is disconnected.

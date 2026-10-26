@@ -173,3 +173,14 @@ pub mod tutorial;
 pub mod units;
 pub mod web;
 pub mod widgets;
+
+/// The harness of the fuzz tests (`tests/fuzz`), also driving the unit
+/// tests that fuzz what the crate keeps private: the web server's
+/// parsers, the configuration lookup and the dialogs of figure windows.
+#[cfg(test)]
+#[allow(
+    dead_code,
+    reason = "the fuzz tests use every generator, these unit tests only some"
+)]
+#[path = "../tests/fuzz/harness.rs"]
+mod fuzz;

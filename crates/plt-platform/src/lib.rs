@@ -61,6 +61,16 @@ mod window;
 #[cfg(unix)]
 mod x11;
 
+/// The harness of plt's fuzz tests (`crates/plt/tests/fuzz`), driving the
+/// unit tests that fuzz what an X server sends.
+#[cfg(test)]
+#[allow(
+    dead_code,
+    reason = "plt's fuzz tests use every generator, these unit tests only some"
+)]
+#[path = "../../plt/tests/fuzz/harness.rs"]
+mod fuzz;
+
 pub use backend::BackendKind;
 pub use error::{Error, X11Error};
 pub use event::{ButtonState, Event, KeyEvent, MouseButton, ScrollDelta, WindowEvent};

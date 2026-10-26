@@ -71,7 +71,7 @@ impl X11Backend {
 /// The text in `property`: Latin-1 for `STRING`, else UTF-8 (invalid
 /// sequences replaced). Incremental transfers (type `incr`) of very large
 /// text are not supported.
-fn decode_text(property: &reply::Property<'_>, incr: u32) -> Option<String> {
+pub(super) fn decode_text(property: &reply::Property<'_>, incr: u32) -> Option<String> {
     if property.format != 8 || property.kind == incr {
         None
     } else if property.kind == predefined::STRING {

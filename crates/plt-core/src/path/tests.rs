@@ -122,6 +122,23 @@ fn interpolated_matches_matplotlib() {
 }
 
 #[test]
+fn interpolating_long_paths_keeps_them_within_the_limit() {
+    // A million vertices cut 75-fold, as on a map, would be 75 million.
+    let long = Path::polyline((0..1_000_000).map(|i| p(f64::from(i), 0.0)).collect());
+    let mapped = long.interpolated(75);
+    assert!(mapped.len() <= MAX_INTERPOLATED_VERTICES);
+    assert_eq!(mapped.len(), 999_999 * 4 + 1, "four pieces a segment");
+    let compound = Path::compound(&[long.clone(), long]);
+    assert!(compound.interpolated(75).len() <= MAX_INTERPOLATED_VERTICES);
+    let short = Path::polyline(vec![p(0.0, 0.0), p(1.0, 0.0)]);
+    assert_eq!(
+        short.interpolated(usize::MAX).len(),
+        MAX_INTERPOLATED_VERTICES / 2 + 1
+    );
+    assert_eq!(short.interpolated(0), short);
+}
+
+#[test]
 fn compound_edge_cases_match_matplotlib() {
     assert!(Path::compound([]).codes().is_none());
     assert_eq!(Path::compound([&Path::default()]).codes(), Some(&[][..]));

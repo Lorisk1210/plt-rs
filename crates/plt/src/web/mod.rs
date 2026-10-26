@@ -49,6 +49,8 @@ mod browser;
 mod canvas;
 mod connection;
 mod frames;
+#[cfg(test)]
+mod fuzz_tests;
 mod http;
 mod modern;
 mod net;

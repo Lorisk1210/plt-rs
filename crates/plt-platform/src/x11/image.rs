@@ -25,7 +25,7 @@ impl Channel {
         }
         let shift = mask.trailing_zeros();
         let bits = (mask >> shift).trailing_ones();
-        if mask >> shift != (1 << bits) - 1 || bits > 16 {
+        if bits > 16 || mask >> shift != (1 << bits) - 1 {
             return None;
         }
         let max = (1 << bits) - 1;
@@ -290,6 +290,14 @@ mod tests {
             }
         }
         assert!(bgrx().decode(&[0; 15], PhysicalSize::new(2, 2)).is_err());
+    }
+
+    #[test]
+    fn channels_of_more_than_16_bits_are_refused() {
+        assert_eq!(Channel::new(0xffff).map(|c| c.max), Some(0xffff));
+        for mask in [u32::MAX, 0x1_ffff, 0xffff_ff00, 0x8000_0001] {
+            assert_eq!(Channel::new(mask), None, "{mask:#x}");
+        }
     }
 
     #[test]

@@ -558,6 +558,8 @@ fn cursor_icon(shape: CursorShape) -> CursorIcon {
 }
 
 #[cfg(test)]
+mod fuzz_tests;
+#[cfg(test)]
 mod keyboard_tests;
 #[cfg(test)]
 mod tests;

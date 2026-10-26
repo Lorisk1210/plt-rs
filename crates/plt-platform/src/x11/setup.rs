@@ -127,6 +127,12 @@ impl Setup {
     }
 }
 
+/// The smallest maximum request length a server may announce, in 4-byte
+/// units: every server accepts requests of 16 KiB (X11 protocol, section
+/// 8 "Connection Setup"). Images are sent in pieces of that size at
+/// worst.
+pub(crate) const MIN_MAXIMUM_REQUEST_LENGTH: u16 = 4096;
+
 /// Number of bytes in the fixed part of the setup reply header.
 pub(crate) const REPLY_HEADER_LEN: usize = 8;
 
@@ -195,6 +201,9 @@ fn parse_success(reply: &[u8]) -> Result<Setup, Error> {
         .collect::<Result<Vec<_>, Error>>()?;
     if resource_id_mask == 0 {
         return Err(Error::Malformed("empty resource id mask"));
+    }
+    if maximum_request_length < MIN_MAXIMUM_REQUEST_LENGTH {
+        return Err(Error::Malformed("maximum request length below 16 KiB"));
     }
     Ok(Setup {
         resource_id_base,
@@ -315,6 +324,20 @@ mod tests {
         for len in [1, 8, 40, XWAYLAND.len() - 1] {
             assert!(parse_reply(&XWAYLAND[..len]).is_err(), "length {len}");
         }
+    }
+
+    #[test]
+    fn request_lengths_below_the_protocol_minimum_are_malformed() {
+        // At offset 26: the maximum request length. Requests of a few
+        // bytes would split a window's image into a request per pixel.
+        let mut reply = XWAYLAND.to_vec();
+        reply[26..28].copy_from_slice(&(MIN_MAXIMUM_REQUEST_LENGTH - 1).to_le_bytes());
+        assert!(matches!(parse_reply(&reply), Err(Error::Malformed(_))));
+        reply[26..28].copy_from_slice(&MIN_MAXIMUM_REQUEST_LENGTH.to_le_bytes());
+        assert_eq!(
+            parse_reply(&reply).unwrap().maximum_request_length,
+            MIN_MAXIMUM_REQUEST_LENGTH
+        );
     }
 
     #[test]

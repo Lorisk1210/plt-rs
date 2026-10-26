@@ -8,6 +8,7 @@
 //! `cargo test` stays quick; `PLT_FUZZ_SCALE=100` makes a long run, and a
 //! failure names the seed that reproduces it.
 
+mod config;
 mod fonts;
 mod harness;
 mod images;
@@ -18,3 +19,4 @@ mod rc;
 mod rendering;
 mod support;
 mod text_parsers;
+mod units;

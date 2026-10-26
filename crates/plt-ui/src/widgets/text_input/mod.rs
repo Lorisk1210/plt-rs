@@ -134,17 +134,29 @@ impl<M: 'static> TextInput<M> {
         })
     }
 
-    /// The character boundary closest to `x` pixels into the text.
+    /// The character boundary closest to `x` pixels into the text, the
+    /// earliest of equally close ones. The text before a boundary only
+    /// grows with it, so binary searches find the boundaries either side
+    /// of `x` with a few layouts, where trying every boundary would lay
+    /// out the text as many times as it has characters.
     fn index_at(&self, x: f64) -> usize {
         let text = self.text();
-        let boundaries = text
+        let boundaries: Vec<usize> = text
             .char_indices()
             .map(|(i, _)| i)
-            .chain(std::iter::once(text.len()));
-        boundaries
-            .map(|i| (i, (self.x_of(i) - x).abs()))
-            .reduce(|best, next| if next.1 < best.1 { next } else { best })
-            .map_or(0, |(i, _)| i)
+            .chain(std::iter::once(text.len()))
+            .collect();
+        // The first boundary at `width` or beyond.
+        let first_at = |width: f64| boundaries.partition_point(|&i| self.x_of(i) < width);
+        let after = boundaries.partition_point(|&i| self.x_of(i) <= x);
+        let Some(before) = after.checked_sub(1) else {
+            return boundaries[0];
+        };
+        let before_x = self.x_of(boundaries[before]);
+        match boundaries.get(after) {
+            Some(&next) if self.x_of(next) - x < x - before_x => next,
+            _ => boundaries[first_at(before_x)],
+        }
     }
 
     /// Scrolls so that the caret stays within `width` pixels of text.

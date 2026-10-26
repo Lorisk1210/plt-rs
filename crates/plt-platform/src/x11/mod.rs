@@ -22,6 +22,8 @@ mod dispatch;
 mod display;
 #[cfg(test)]
 mod fixtures;
+#[cfg(test)]
+mod fuzz_tests;
 mod image;
 mod input;
 mod keymap;
@@ -127,8 +129,13 @@ impl X11Backend {
 
     /// Connects to the display `name` and prepares everything windows need.
     fn open(name: &DisplayName) -> Result<Self, Error> {
-        let mut conn = Connection::connect(name)?;
-        let (root, visual) = WindowVisual::choose(&mut conn, name.screen)?;
+        Self::with_connection(Connection::connect(name)?, name.screen)
+    }
+
+    /// Prepares everything windows need on screen number `screen` of an
+    /// open connection.
+    fn with_connection(mut conn: Connection, screen: u16) -> Result<Self, Error> {
+        let (root, visual) = WindowVisual::choose(&mut conn, screen)?;
         let atoms = Atoms::intern(&mut conn)?;
         let keymap = Keymap::query(&mut conn)?;
         let scale_factor = resources::query_scale_factor(&mut conn, root)?;

@@ -11,6 +11,8 @@ publish.workspace = true
 [dev-dependencies]
 # The window example saves screenshots as PNG.
 plt-codec.workspace = true
+# The fuzz tests share plt's fuzz harness, which draws from its generator.
+plt-core.workspace = true
 
 [lints]
 workspace = true

@@ -56,6 +56,9 @@ pub enum ImageError {
     /// A hexbin grid of this many hexagons along x and y would hold more
     /// than [`MAX_HEXAGONS`](crate::axes::MAX_HEXAGONS).
     TooManyHexagons(usize, usize),
+    /// A two-dimensional histogram of this many cells, more than
+    /// [`MAX_HIST2D_CELLS`](crate::axes::MAX_HIST2D_CELLS).
+    TooManyCells(usize),
     /// A hexbin extent with `xmin > xmax` or `ymin > ymax`.
     InvertedExtent,
     /// Hexbin values whose number differs from the number of points.
@@ -140,6 +143,11 @@ impl fmt::Display for ImageError {
                 f,
                 "a hexbin grid of {nx} × {ny} hexagons is larger than {}",
                 crate::axes::MAX_HEXAGONS
+            ),
+            Self::TooManyCells(cells) => write!(
+                f,
+                "a 2-D histogram of {cells} cells is larger than {}",
+                crate::axes::MAX_HIST2D_CELLS
             ),
             Self::InvertedExtent => {
                 f.write_str("in extent, xmax must be greater than xmin and ymax than ymin")

@@ -105,7 +105,10 @@ impl Connection {
     }
 
     /// Performs the connection setup over an open stream.
-    fn handshake(stream: Stream, credentials: Option<&Credentials>) -> Result<Self, Error> {
+    pub(super) fn handshake(
+        stream: Stream,
+        credentials: Option<&Credentials>,
+    ) -> Result<Self, Error> {
         stream.write_all(&setup::encode_request(credentials))?;
         let mut header = [0; setup::REPLY_HEADER_LEN];
         stream.read_exact(&mut header)?;
@@ -139,7 +142,9 @@ impl Connection {
         };
         let reply = self.round_trip(&request::big_requests_enable(major))?;
         let words = reply::big_requests_enable(&reply)?;
-        self.max_request_bytes = usize::try_from(words).map_or(usize::MAX, |w| w.saturating_mul(4));
+        // The extension only ever raises the limit.
+        let bytes = usize::try_from(words).map_or(usize::MAX, |w| w.saturating_mul(4));
+        self.max_request_bytes = self.max_request_bytes.max(bytes);
         self.output
             .lock()
             .set_max_request_bytes(self.max_request_bytes);
@@ -404,6 +409,12 @@ mod tests {
 
     /// A connection to a fake `XWayland` server without BIG-REQUESTS.
     fn connect() -> (Connection, FakeServer) {
+        connect_with(None)
+    }
+
+    /// A connection to a fake `XWayland` server, with BIG-REQUESTS raising
+    /// the request length to `big_requests` words if given.
+    fn connect_with(big_requests: Option<u32>) -> (Connection, FakeServer) {
         let (client, server) = UnixStream::pair().unwrap();
         let handle = thread::spawn(move || {
             let mut server = FakeServer(server);
@@ -417,7 +428,13 @@ mod tests {
             server.0.read_exact(&mut auth).unwrap();
             server.write(fixtures::SETUP);
             assert_eq!(server.read_request(), 98, "QueryExtension");
-            server.write(&message(REPLY, 0, 1, &[0, 0]));
+            let major = 0x85;
+            let present = big_requests.map_or(0, |_| 1 | major << 8);
+            server.write(&message(REPLY, 0, 1, &[0, present]));
+            if let Some(words) = big_requests {
+                assert_eq!(u32::from(server.read_request()), major, "BigReqEnable");
+                server.write(&message(REPLY, 0, 2, &[0, words]));
+            }
             server
         });
         let connection = Connection::handshake(Stream::Unix(client), None).unwrap();
@@ -429,6 +446,16 @@ mod tests {
         let (connection, _server) = connect();
         assert_eq!(connection.setup().screens.len(), 1);
         assert_eq!(connection.max_request_bytes(), 0xffff * 4);
+    }
+
+    #[test]
+    fn big_requests_only_raise_the_limit() {
+        let (connection, _server) = connect_with(Some(0x0040_0000));
+        assert_eq!(connection.max_request_bytes(), 0x0040_0000 * 4);
+        for words in [0, 1, 0xffff] {
+            let (connection, _server) = connect_with(Some(words));
+            assert_eq!(connection.max_request_bytes(), 0xffff * 4, "{words} words");
+        }
     }
 
     #[test]

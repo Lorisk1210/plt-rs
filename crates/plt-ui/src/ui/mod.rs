@@ -4,6 +4,8 @@
 
 mod focus;
 #[cfg(test)]
+mod fuzz_tests;
+#[cfg(test)]
 mod keyboard_tests;
 mod keys;
 #[cfg(test)]

@@ -188,3 +188,41 @@ fn clicks_place_the_caret_and_select_words_and_lines() {
     click(&mut ui, end, 1, Modifiers::SHIFT);
     assert_eq!(input(&mut ui).selection(), Some((2, 9)), "Shift extends");
 }
+
+#[test]
+fn clicks_find_the_nearest_boundary() {
+    // Kerned pairs, a combining mark, a zero-width joiner and wide signs.
+    let mut ui = field("AVAToé\u{301}x\u{200D}y 😀W.", false);
+    ui.paint().unwrap();
+    let input = input(&mut ui);
+    let text = input.text().to_owned();
+    let boundaries: Vec<usize> = text
+        .char_indices()
+        .map(|(i, _)| i)
+        .chain([text.len()])
+        .collect();
+    let nearest = |x: f64| {
+        boundaries
+            .iter()
+            .copied()
+            .map(|i| (i, (input.x_of(i) - x).abs()))
+            .reduce(|best, next| if next.1 < best.1 { next } else { best })
+            .map(|(i, _)| i)
+    };
+    let width = input.x_of(text.len());
+    for step in -10..=220 {
+        let x = f64::from(step) * (width + 20.0) / 200.0 - 10.0;
+        assert_eq!(Some(input.index_at(x)), nearest(x), "at {x}");
+    }
+}
+
+#[test]
+fn clicks_in_long_text_take_few_layouts() {
+    // Found by fuzzing the figure options: a click into a long pasted
+    // text laid out the text before every boundary, for minutes.
+    let mut ui = field(&"9".repeat(50_000), false);
+    ui.paint().unwrap();
+    click(&mut ui, 150.0, 1, Modifiers::NONE);
+    let caret = input(&mut ui).editor.caret();
+    assert!(caret > 0 && caret < 50_000, "caret at {caret}");
+}

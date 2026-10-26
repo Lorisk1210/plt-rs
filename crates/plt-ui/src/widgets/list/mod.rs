@@ -280,7 +280,8 @@ impl<M> List<M> {
             Key::Up => Some(row.saturating_sub(1)),
             Key::Down => Some((row + 1).min(last)),
             Key::PageUp => Some(row.saturating_sub(self.page())),
-            Key::PageDown => Some((row + self.page()).min(last)),
+            // Pages of rows a hair high saturate the count.
+            Key::PageDown => Some(row.saturating_add(self.page()).min(last)),
             Key::Home => Some(0),
             Key::End => Some(last),
             _ => None,
@@ -413,7 +414,9 @@ impl<M: 'static> Widget<M> for List<M> {
         let row_height = self.metrics.row_height;
         if row_height > 0.0 {
             let first = (self.scroll / row_height).floor() as usize;
-            let shown = (area.height / row_height).ceil() as usize + 1;
+            // Rows a hair high (at a vanishing scale factor) count beyond
+            // `usize`: the cast saturates and every row is a candidate.
+            let shown = ((area.height / row_height).ceil() as usize).saturating_add(1);
             for row in (first..self.items.len()).take(shown) {
                 self.paint_row(cx, area, row, status.focused())?;
             }

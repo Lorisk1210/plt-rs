@@ -8,10 +8,11 @@ use crate::Point;
 use crate::path::PathCode;
 
 /// The total length (in units, hence pieces) a [`Segmenter`] cuts per pass:
-/// thousands of canvas-high strokes, yet a bound for hostile coordinates
-/// (Agg would cut a `1e300`-long line into `1e300` pieces). Lines beyond the
-/// budget are passed through whole.
-const PIECE_BUDGET: f64 = 16_777_216.0;
+/// a thousand canvas-high strokes, yet a bound for hostile coordinates
+/// (Agg would cut a `1e300`-long line into `1e300` pieces) and for paths
+/// drawn again by every path effect into vector documents. Lines beyond
+/// the budget are passed through whole.
+const PIECE_BUDGET: f64 = 1_048_576.0;
 
 /// Parameters of matplotlib's sketch filter (`set_sketch_params`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -333,5 +334,17 @@ mod tests {
         let path = Path::polyline(vec![p(0.0, 0.0), p(1e300, 0.0), p(1e300, 10.0)]);
         let params = SketchParams::new(1.0, None, None);
         assert_eq!(path.iter_vertices().sketch(Some(params)).count(), 12);
+    }
+
+    #[test]
+    fn long_paths_are_cut_within_the_budget() {
+        // Found by fuzzing: a path crossing the canvas back and forth,
+        // sketched for a path effect or two into SVG, took minutes.
+        let zigzag = (0..100).map(|i| p(f64::from(i % 2) * 50_000.0, f64::from(i)));
+        let path = Path::polyline(zigzag.collect());
+        let params = SketchParams::new(1.0, None, None);
+        let pieces = path.iter_vertices().sketch(Some(params)).count();
+        assert!(pieces <= PIECE_BUDGET as usize + 100, "{pieces} pieces");
+        assert!(pieces > PIECE_BUDGET as usize / 2, "{pieces} pieces");
     }
 }

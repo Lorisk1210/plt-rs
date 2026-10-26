@@ -165,6 +165,9 @@ impl Tool for Polygon {
     fn drag(&mut self, core: &mut Core, event: &SelectorEvent) -> Option<Self::Selection> {
         let point = (event.xdata, event.ydata);
         let move_all = core.state.contains(&SelectorState::MoveAll);
+        // A key that lifts the free vertex or clears the polygon can take
+        // the held vertex away: it is let go.
+        self.grabbed = self.grabbed.filter(|&index| index < self.xys.len());
         if let Some(index) = self.grabbed {
             self.xys[index] = point;
             if index == 0
@@ -477,6 +480,32 @@ mod tests {
             .unwrap();
         assert_eq!(selector.verts().len(), 3);
         assert_eq!(selector.set_verts(&[]), Err(SelectorError::NoVertices));
+    }
+
+    #[test]
+    fn a_vertex_cleared_while_held_is_let_go() {
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
+        let selector = PolygonSelector::new(&ax, PolygonSelectorOptions::default());
+        let mut source = EventSource::new();
+        click(&fig, &mut source, (2.0, 2.0), PointerButton::Left);
+        click(&fig, &mut source, (8.0, 2.0), PointerButton::Left);
+        // Found by fuzzing: control lifts the free vertex, the press then
+        // holds vertex 1, which escape clears before the pointer drags it.
+        source.key_press(&fig, "control", 320.0, 80.0);
+        source.motion(&fig, 320.0, 80.0);
+        source.button_press(&fig, 320.0, 80.0, PointerButton::Left, false);
+        source.key_release(&fig, "control", 320.0, 80.0);
+        source.key_press(&fig, "escape", 320.0, 80.0);
+        source.key_release(&fig, "escape", 320.0, 80.0);
+        source.motion(&fig, 200.0, 200.0);
+        source.button_release(&fig, 200.0, 200.0, PointerButton::Left);
+        assert!(!selector.selection_completed());
     }
 
     #[test]

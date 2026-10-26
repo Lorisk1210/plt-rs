@@ -110,5 +110,6 @@ pub(crate) mod ticker;
 pub(crate) mod transforms;
 pub(crate) mod tri;
 pub(crate) mod tri_behaviour;
+pub(crate) mod type1font;
 pub(crate) mod units;
 pub(crate) mod widgets;

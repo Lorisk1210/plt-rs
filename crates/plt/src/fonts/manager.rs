@@ -1,6 +1,10 @@
 //! matplotlib's `FontManager`: the font lists and `findfont`.
 
-use plt_text::{AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, TextEngine};
+use std::sync::Arc;
+
+use plt_text::{
+    AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, TextEngine, Type1Face,
+};
 
 use super::{FontProperties, FontStretch, FontWeight};
 use crate::rc::RcParams;
@@ -156,6 +160,20 @@ impl FontManager {
         self.engine.add_font_file(path).map(drop)
     }
 
+    /// The Type 1 font (`.pfa` or `.pfb`) at `path`, as matplotlib's
+    /// `get_font` opens the TeX fonts of `text.usetex` through `FreeType`:
+    /// read once and shared.
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or is not a Type 1 font.
+    pub fn type1_face(
+        &self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Arc<Type1Face>, TextError> {
+        Ok(self.engine.database().type1_face(path)?)
+    }
+
     /// matplotlib's `findfont`: the file `props` names, else the file name
     /// of the best match for `props` (generic families resolved through
     /// `rc`). Without a family match, the default family (`DejaVu Sans`,
@@ -235,6 +253,19 @@ mod tests {
         // Five faces; SemiBold is also listed under its legacy family name.
         assert_eq!((inter.len(), names), (6, vec!["Inter", "Inter SemiBold"]));
         assert_eq!(manager.font_list(FontExt::Afm).len(), 61);
+    }
+
+    #[test]
+    fn type1_fonts_by_path() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../plt-font/tests/fixtures/type1/cmr10.pfb");
+        let face = FontManager::bundled().type1_face(&path).unwrap();
+        assert_eq!(face.family_name(), Some("Computer Modern"));
+        assert!(
+            FontManager::bundled()
+                .type1_face("/nonexistent.pfb")
+                .is_err()
+        );
     }
 
     #[test]

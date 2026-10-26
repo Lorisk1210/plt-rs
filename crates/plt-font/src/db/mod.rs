@@ -1,5 +1,5 @@
-//! Font management: the bundled fonts, optional system fonts and
-//! matplotlib's `findfont` matching.
+//! Font management: the bundled fonts, optional system fonts,
+//! matplotlib's `findfont` matching, and Type 1 fonts opened by path.
 
 mod afm;
 mod afm_catalogue;
@@ -9,6 +9,7 @@ mod entry;
 mod query;
 mod score;
 mod system;
+mod type1;
 
 pub use afm::{AfmDirectory, AfmFont};
 pub use entry::{FontEntry, FontId, alternative_family_names};
@@ -100,6 +101,7 @@ pub struct FontDatabase {
     entries: RwLock<Vec<FontEntry>>,
     generics: GenericFamilies,
     default_family: String,
+    type1: type1::Type1Faces,
 }
 
 impl Default for FontDatabase {
@@ -117,6 +119,7 @@ impl FontDatabase {
             entries: RwLock::new(Vec::new()),
             generics: GenericFamilies::default(),
             default_family: "DejaVu Sans".to_owned(),
+            type1: type1::Type1Faces::default(),
         }
     }
 

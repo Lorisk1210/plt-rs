@@ -52,6 +52,12 @@ impl Size {
     /// requests are clamped to 65 535 pixels per em, which keeps every
     /// later fixed-point product within 64 bits.
     pub fn from_char_size(face: &Face<'_>, char_size: i64, dpi: u32) -> Self {
+        Self::for_units_per_em(face.units_per_em(), char_size, dpi)
+    }
+
+    /// [`from_char_size`](Self::from_char_size) for a face of
+    /// `units_per_em` design units per em.
+    pub(crate) fn for_units_per_em(units_per_em: u16, char_size: i64, dpi: u32) -> Self {
         const MAX_SCALED: i64 = (u16::MAX as i64) << 6;
         let char_size = char_size.max(64);
         let resolution = if dpi == 0 { 72 } else { dpi };
@@ -60,7 +66,6 @@ impl Size {
             .saturating_add(36)
             / 72)
             .min(MAX_SCALED);
-        let units_per_em = face.units_per_em();
         let scale = div_fix(scaled, i64::from(units_per_em));
         let ppem = u16::try_from((scaled + 32) >> 6).map_or(u16::MAX, |ppem| ppem.max(1));
         Self {

@@ -320,6 +320,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("text_metrics", areas::text_metrics::OPS),
     ("text_shaping", areas::text_shaping::OPS),
     ("afm", areas::afm::OPS),
+    ("type1font", areas::type1font::OPS),
     ("mathtext", areas::mathtext::OPS),
     ("stats", areas::stats::OPS),
     ("argsort", areas::argsort::OPS),

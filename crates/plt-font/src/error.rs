@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use crate::afm::AfmError;
 use crate::hinting::{BytecodeError, BytecodeProgram};
+use crate::type1::Type1Error;
 use crate::types::Tag;
 
 /// Pseudo-tag used for errors in the font file header / table directory.
@@ -70,6 +71,8 @@ pub enum FontError {
     },
     /// Adobe Font Metrics could not be read or lack what was asked for.
     Afm(AfmError),
+    /// A Type 1 font could not be read, changed or drawn.
+    Type1(Type1Error),
     /// A name that a font property does not have, such as a font style
     /// of `"slanted"`.
     UnknownName {
@@ -110,6 +113,7 @@ impl fmt::Display for FontError {
             Self::UnknownFont(id) => write!(f, "unknown font id {id}"),
             Self::Bytecode { program, error } => write!(f, "the {program} failed: {error}"),
             Self::Afm(err) => write!(f, "{err}"),
+            Self::Type1(err) => write!(f, "{err}"),
             Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
         }
     }
@@ -119,6 +123,7 @@ impl std::error::Error for FontError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Afm(err) => Some(err),
+            Self::Type1(err) => Some(err),
             _ => None,
         }
     }
@@ -127,6 +132,12 @@ impl std::error::Error for FontError {
 impl From<AfmError> for FontError {
     fn from(err: AfmError) -> Self {
         Self::Afm(err)
+    }
+}
+
+impl From<Type1Error> for FontError {
+    fn from(err: Type1Error) -> Self {
+        Self::Type1(err)
     }
 }
 

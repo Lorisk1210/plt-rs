@@ -1,9 +1,11 @@
 //! Keyboard shortcuts of figure windows: key presses named the way
 //! matplotlib names them (`"ctrl+s"`, `"left"`, `"L"`) and matched against
-//! the `keymap.*` rcParams.
+//! the `keymap.*` rcParams, and the mouse buttons stepping through the
+//! view history.
 
 use plt_platform::{Key, KeyEvent, Modifiers};
 
+use crate::navigation::PointerButton;
 use crate::rc::RcParams;
 
 /// What a key press asks a figure window to do (matplotlib's
@@ -42,6 +44,30 @@ pub(crate) enum KeyAction {
     LogX,
     /// Show the keyboard shortcuts (`keymap.help`).
     Help,
+}
+
+/// A step through the view history.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum HistoryStep {
+    /// The previous view.
+    Back,
+    /// The next view.
+    Forward,
+}
+
+/// The step through the view history a press of `button` asks for: back
+/// when `keymap.back` names it, forward when `keymap.forward` does, as the
+/// side buttons are by default (matplotlib's `button_press_handler`).
+pub(crate) fn history_step(button: PointerButton, rc: &RcParams) -> Option<HistoryStep> {
+    let name = button.keymap_name();
+    let bound = |keys: &[String]| keys.iter().any(|key| key == name);
+    if bound(&rc.keymap_back) {
+        Some(HistoryStep::Back)
+    } else if bound(&rc.keymap_forward) {
+        Some(HistoryStep::Forward)
+    } else {
+        None
+    }
 }
 
 /// matplotlib's name of a key press, or `None` for keys it ignores.
@@ -126,6 +152,27 @@ mod tests {
             modifiers,
             scancode: 0,
         }
+    }
+
+    #[test]
+    fn side_buttons_step_through_the_history() {
+        let mut rc = RcParams::default();
+        assert_eq!(
+            history_step(PointerButton::Back, &rc),
+            Some(HistoryStep::Back)
+        );
+        assert_eq!(
+            history_step(PointerButton::Forward, &rc),
+            Some(HistoryStep::Forward)
+        );
+        assert_eq!(history_step(PointerButton::Left, &rc), None);
+        rc.keymap_back.clear();
+        rc.keymap_forward.push("MouseButton.MIDDLE".into());
+        assert_eq!(history_step(PointerButton::Back, &rc), None);
+        assert_eq!(
+            history_step(PointerButton::Middle, &rc),
+            Some(HistoryStep::Forward)
+        );
     }
 
     #[test]

@@ -261,6 +261,36 @@ fn dragging_in_pan_mode_moves_the_view() {
 }
 
 #[test]
+fn side_buttons_step_through_the_view_history() {
+    let (mut canvas, figure) = served();
+    canvas.handle(ClientMessage::Toolbar(Some(ToolbarButton::Pan)));
+    canvas.handle(mouse(MouseKind::Press, 200.0, 150.0));
+    canvas.handle(mouse(MouseKind::Motion, 240.0, 150.0));
+    canvas.handle(mouse(MouseKind::Release, 240.0, 150.0));
+    let panned = xlim(&figure);
+    let side = |button| {
+        ClientMessage::Mouse(MouseInput {
+            kind: MouseKind::Press,
+            x: 100.0,
+            y: 100.0,
+            button: Some(button),
+            step: 0.0,
+            wheel: 0.0,
+            ctrl: false,
+            shift: false,
+        })
+    };
+    canvas.handle(side(PointerButton::Back));
+    assert_eq!(xlim(&figure), (0.0, 10.0), "back");
+    assert!(events(&mut canvas).contains(&ServerEvent::HistoryButtons {
+        back: false,
+        forward: true
+    }));
+    canvas.handle(side(PointerButton::Forward));
+    assert_eq!(xlim(&figure), panned, "forward");
+}
+
+#[test]
 fn zooming_shows_and_removes_the_rubberband() {
     let (mut canvas, figure) = served();
     canvas.handle(ClientMessage::Toolbar(Some(ToolbarButton::Zoom)));
@@ -280,6 +310,29 @@ fn zooming_shows_and_removes_the_rubberband() {
     canvas.handle(mouse(MouseKind::Release, 300.0, 225.0));
     assert!(events(&mut canvas).contains(&ServerEvent::Rubberband(None)));
     assert_eq!(xlim(&figure), (2.5, 7.5));
+}
+
+#[test]
+fn a_tool_of_the_navigation_group_takes_turns_with_pan() {
+    use crate::gui::{NAVIGATION_GROUP, ToolKind, ToolSpec};
+
+    let (mut canvas, figure) = served();
+    let spec = ToolSpec {
+        name: "lasso".into(),
+        keys: vec!["m".into()],
+        kind: ToolKind::Toggle,
+        radio_group: Some(NAVIGATION_GROUP.into()),
+        cursor: Some(CursorShape::Hand),
+        ..ToolSpec::default()
+    };
+    figure.add_tool(spec, |_| {}).expect("the tool is new");
+    canvas.handle(ClientMessage::Toolbar(Some(ToolbarButton::Pan)));
+    canvas.handle(key("m"));
+    assert!(events(&mut canvas).contains(&ServerEvent::NavigateMode(NavMode::None)));
+    canvas.handle(mouse(MouseKind::Motion, 200.0, 150.0));
+    assert!(events(&mut canvas).contains(&ServerEvent::Cursor(CursorShape::Hand)));
+    canvas.handle(ClientMessage::Toolbar(Some(ToolbarButton::Pan)));
+    assert_eq!(figure.tool_toggled("lasso"), Some(false), "pan took over");
 }
 
 #[test]

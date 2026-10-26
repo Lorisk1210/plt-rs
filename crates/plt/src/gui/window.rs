@@ -17,7 +17,7 @@ use super::help_dialog::HelpDialog;
 use super::options::{self, OptionsDialog};
 use super::save_dialog::{Outcome, SaveDialog};
 use super::subplot_dialog::SubplotDialog;
-use super::{GuiError, dialog};
+use super::{GuiError, dialog, tools};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
 use crate::figure::{CanvasError, Figure, PixelBox, Presentation, Presenting};
 use crate::navigation::{NavMode, Navigation};
@@ -143,6 +143,30 @@ impl FigureWindow {
             cx.set_title(self.id(), title)?;
             title.clone_into(&mut self.title);
         }
+        Ok(())
+    }
+
+    /// Asks the window system for a canvas of `width × height` physical
+    /// pixels, the window growing by its toolbar (matplotlib's
+    /// `FigureManagerBase.resize`). The figure takes the new size, and
+    /// resize callbacks run, once the window system has resized the
+    /// window; it may refuse or adjust the size, as window managers do.
+    ///
+    /// # Errors
+    ///
+    /// When a side is zero or the window system fails.
+    pub fn resize(
+        &mut self,
+        cx: &mut Context<'_>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), GuiError> {
+        let scale = cx.scale_factor(self.id())?;
+        let size = LogicalSize::new(
+            f64::from(width) / scale,
+            f64::from(height) / scale + toolbar::height(),
+        );
+        cx.set_inner_size(self.id(), size)?;
         Ok(())
     }
 
@@ -317,7 +341,13 @@ impl FigureWindow {
         }
         // Drawing may start animations.
         self.sync_timers(cx);
-        self.sync_cursor(cx)
+        // The program may have switched on a tool taking turns with pan
+        // and zoom.
+        if tools::yield_navigation(&self.figure, &mut self.navigation) {
+            self.refresh_tools(cx)
+        } else {
+            self.sync_cursor(cx)
+        }
     }
 
     /// Whether platform timer `timer` belongs to this window: its
@@ -392,11 +422,14 @@ impl FigureWindow {
         if self.navigation.toggle(&self.figure, mode).is_err() {
             return self.set_status(cx, format!("{name} unavailable"));
         }
+        tools::navigation_switched(&self.figure, &self.navigation);
         self.refresh_tools(cx)
     }
 
-    /// Updates the toolbar buttons and the cursor.
+    /// Updates the toolbar buttons and the cursor, after pan or zoom gave
+    /// way to a tool of their radio group switched on since.
     fn refresh_tools(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
+        tools::yield_navigation(&self.figure, &mut self.navigation);
         let toggled: Vec<String> = self
             .figure
             .tool_names()
@@ -412,7 +445,7 @@ impl FigureWindow {
     /// widgets ask for.
     fn sync_cursor(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         let cursor = match self.navigation.mode() {
-            NavMode::None => cursor_icon(self.figure.cursor()),
+            NavMode::None => cursor_icon(tools::idle_cursor(&self.figure, self.pointer)),
             NavMode::Pan => CursorIcon::Move,
             NavMode::Zoom => CursorIcon::Crosshair,
         };
@@ -563,3 +596,5 @@ mod fuzz_tests;
 mod keyboard_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tool_tests;

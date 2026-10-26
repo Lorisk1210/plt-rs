@@ -158,8 +158,8 @@ impl Action {
         };
         let (x, y) = at();
         match g.below(20) {
-            0..5 => Self::Press(x, y, g.below(3)),
-            5..10 => Self::Release(x, y, g.below(3)),
+            0..5 => Self::Press(x, y, g.below(PointerButton::ALL.len())),
+            5..10 => Self::Release(x, y, g.below(PointerButton::ALL.len())),
             10 => Self::DoubleClick(x, y),
             11..15 => Self::Motion(x, y),
             15 => Self::Scroll(x, y, g.pick(&[-3.0, -1.0, 1.0, 2.0, 1e9, f64::NAN])),
@@ -175,13 +175,9 @@ impl Action {
     }
 }
 
-/// A pointer button by number.
+/// A pointer button by number, the side buttons included.
 fn button(index: usize) -> PointerButton {
-    [
-        PointerButton::Left,
-        PointerButton::Middle,
-        PointerButton::Right,
-    ][index % 3]
+    PointerButton::ALL[index % PointerButton::ALL.len()]
 }
 
 /// The widgets kept alive while the session runs (they disconnect when

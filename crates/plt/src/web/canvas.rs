@@ -18,7 +18,8 @@ use crate::figure::{
     CanvasError, Figure, Presentation, Presenting, SaveError, SaveFormat, SaveOptions,
 };
 use crate::gui::actions;
-use crate::gui::keys::{self, KeyAction};
+use crate::gui::keys::{self, HistoryStep, KeyAction};
+use crate::gui::tools;
 use crate::navigation::{DragKey, NavMode, Navigation, Rubberband, axes_at};
 
 /// The longest canvas side in physical pixels a client may ask for.
@@ -175,16 +176,16 @@ impl WebCanvas {
             ClientMessage::SetDevicePixelRatio(ratio) => self.set_device_pixel_ratio(ratio),
             ClientMessage::Mouse(input) => {
                 self.mouse(&input);
-                self.sync_cursor();
+                self.sync_tools();
             }
             ClientMessage::Key { pressed, key } => {
                 let next = self.key(pressed, key);
-                self.sync_cursor();
+                self.sync_tools();
                 return next;
             }
             ClientMessage::Toolbar(Some(button)) => {
                 self.toolbar(button);
-                self.sync_cursor();
+                self.sync_tools();
             }
             ClientMessage::Toolbar(None)
             | ClientMessage::SupportsBinary(_)
@@ -364,6 +365,11 @@ impl WebCanvas {
                 if let Some(button) = input.button {
                     self.events.button_press(&figure, at.x, at.y, button, false);
                     self.navigation.press(&figure, at, button);
+                    match keys::history_step(button, &crate::rc::params()) {
+                        Some(HistoryStep::Back) => self.toolbar(ToolbarButton::Back),
+                        Some(HistoryStep::Forward) => self.toolbar(ToolbarButton::Forward),
+                        None => {}
+                    }
                 }
             }
             MouseKind::DoubleClick => {
@@ -480,7 +486,17 @@ impl WebCanvas {
         if self.navigation.toggle(&self.figure, mode).is_err() {
             self.set_message(format!("{name} unavailable"));
         }
+        tools::navigation_switched(&self.figure, &self.navigation);
         self.push(ServerEvent::NavigateMode(self.navigation.mode()));
+    }
+
+    /// Lets pan or zoom give way to a tool of their radio group switched
+    /// on since, then updates the cursor.
+    fn sync_tools(&mut self) {
+        if tools::yield_navigation(&self.figure, &mut self.navigation) {
+            self.push(ServerEvent::NavigateMode(self.navigation.mode()));
+        }
+        self.sync_cursor();
     }
 
     /// Updates the back and forward buttons if they changed.
@@ -508,7 +524,7 @@ impl WebCanvas {
         let cursor = match (self.navigation.mode(), over_axes) {
             (NavMode::Pan, true) => CursorShape::Move,
             (NavMode::Zoom, true) => CursorShape::SelectRegion,
-            _ => self.figure.cursor(),
+            _ => tools::idle_cursor(&self.figure, self.pointer),
         };
         if self.told.cursor != Some(cursor) {
             self.told.cursor = Some(cursor);

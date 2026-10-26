@@ -240,7 +240,7 @@ impl PanState {
                 );
                 bbox_through(&scaled, inverse)
             }
-            PointerButton::Middle => return None,
+            PointerButton::Middle | PointerButton::Back | PointerButton::Forward => return None,
         };
         let check = bbox_through(&result, trans);
         let keep = |value: f64, mapped: f64| mapped.is_finite().then_some(value);

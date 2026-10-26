@@ -8,7 +8,8 @@
 //! or zooms as in matplotlib (see [`crate::navigation`]), the wheel zooms
 //! around the pointer, and the `keymap.*` rcParams bind the usual
 //! shortcuts (`h` home, `p` pan, `o` zoom, `g` grids, `l`/`k` log scales,
-//! `s` save, `f` full screen, `q` close, ...). The window resizes the
+//! `s` save, `f` full screen, `q` close, ...), and the mouse's back and
+//! forward buttons step through the views. The window resizes the
 //! figure with it and renders at the screen's scale factor. Saving opens a
 //! dialog to pick the directory, the file name and the format (PNG, JPEG,
 //! TIFF, GIF, WebP, SVG, PDF, PS or EPS); the figure options dialog edits
@@ -50,7 +51,7 @@ use std::fmt;
 pub use crate::events::GinputOptions;
 pub use plt_ui::Icon;
 pub use session::Session;
-pub use tools::{ToolError, ToolEvent, ToolKind, ToolSpec};
+pub use tools::{NAVIGATION_GROUP, ToolError, ToolEvent, ToolKind, ToolSpec};
 pub use window::FigureWindow;
 
 use crate::figure::{CanvasError, Figure, SaveError};

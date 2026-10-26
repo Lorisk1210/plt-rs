@@ -6,7 +6,7 @@ use crate::colors::Color;
 use crate::lines::{FormatString, LineStyle};
 use crate::markers::Marker;
 use crate::rc::{ColorOrAuto, RcParams};
-use crate::stats::{BoxStats, Whis, boxplot_stats};
+use crate::stats::{Bootstrap, BoxStats, Whis, boxplot_stats};
 
 /// Options of [`Axes::boxplot`]: the statistics, plus how [`Axes::bxp`]
 /// draws them. Unset switches and whiskers come from the `boxplot.*` rc
@@ -17,6 +17,11 @@ pub struct BoxplotOptions {
     pub whis: Option<Whis>,
     /// Extend zero-IQR whiskers to the data range.
     pub autorange: bool,
+    /// Notches from a bootstrap of the median, drawn from a seeded
+    /// generator rather than numpy's (see [`Bootstrap`]); by default
+    /// `boxplot.bootstrap` resamples drawn with seed 0, or the Gaussian
+    /// approximation when that is `None`.
+    pub bootstrap: Option<Bootstrap>,
     /// One tick label per dataset (default: the positions).
     pub tick_labels: Option<Vec<String>>,
     /// Outlier format string (matplotlib's `sym`): its marker and colour
@@ -45,8 +50,9 @@ impl Axes {
     ///
     /// # Errors
     ///
-    /// When per-dataset options do not match the number of datasets, or
-    /// `sym` is not a valid format string.
+    /// When per-dataset options do not match the number of datasets,
+    /// `sym` is not a valid format string, or a bootstrap has no resamples
+    /// or too many ([`MAX_BOOTSTRAP_DRAWS`](crate::stats::MAX_BOOTSTRAP_DRAWS)).
     pub fn boxplot<D: AsRef<[f64]>>(
         &self,
         datasets: &[D],
@@ -57,6 +63,13 @@ impl Axes {
             whis: options.whis.unwrap_or_else(|| rc.boxplot_whiskers.into()),
             labels: options.tick_labels.clone(),
             autorange: options.autorange,
+            bootstrap: options.bootstrap.or_else(|| {
+                rc.boxplot_bootstrap.map(|resamples| Bootstrap {
+                    // A negative count has no resamples.
+                    resamples: usize::try_from(resamples).unwrap_or(0),
+                    seed: 0,
+                })
+            }),
         };
         let mut stats = boxplot_stats(datasets, stats_options).map_err(PlotError::Stats)?;
         override_stats(&mut stats, &options)?;
@@ -246,6 +259,54 @@ mod tests {
             ..BoxplotOptions::default()
         };
         assert_eq!(ax.boxplot(&data(), hidden).unwrap().fliers.len(), 0);
+    }
+
+    #[test]
+    fn bootstrapped_notches_come_from_the_option_or_rc() {
+        let notches = |bootstrap| {
+            let ax = Figure::new().subplot();
+            let options = BoxplotOptions {
+                bootstrap,
+                draw: BxpOptions {
+                    shownotches: Some(true),
+                    ..BxpOptions::default()
+                },
+                ..BoxplotOptions::default()
+            };
+            let parts = ax.boxplot(&data(), options)?;
+            let BoxArtist::Line(outline) = &parts.boxes[0] else {
+                panic!("line boxes");
+            };
+            // The notch ends are the third and fifth y of the outline.
+            let y = outline.ydata();
+            Ok::<_, PlotError>((y[2], y[4]))
+        };
+        let gaussian = notches(None).unwrap();
+        let seeded = Some(Bootstrap {
+            resamples: 300,
+            seed: 5,
+        });
+        let bootstrapped = notches(seeded).unwrap();
+        assert_ne!(bootstrapped, gaussian);
+        assert!(bootstrapped.0 >= 1.0 && bootstrapped.1 <= 20.0);
+        assert_eq!(notches(seeded).unwrap(), bootstrapped, "seeded");
+        let from_rc = crate::rc::context(|| {
+            crate::rc::update(|rc| rc.boxplot_bootstrap = Some(300));
+            notches(None).unwrap()
+        });
+        let seed_zero = Some(Bootstrap {
+            resamples: 300,
+            seed: 0,
+        });
+        assert_eq!(from_rc, notches(seed_zero).unwrap());
+        let negative = crate::rc::context(|| {
+            crate::rc::update(|rc| rc.boxplot_bootstrap = Some(-1));
+            notches(None)
+        });
+        assert!(matches!(
+            negative,
+            Err(PlotError::Stats(crate::stats::StatsError::NoResamples))
+        ));
     }
 
     #[test]

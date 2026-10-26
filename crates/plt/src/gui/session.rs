@@ -114,6 +114,24 @@ impl Session {
             .configure_subplots(&mut cx)
     }
 
+    /// Asks for the canvas of the window showing `figure` to be
+    /// `width × height` physical pixels (matplotlib's
+    /// `manager.resize(width, height)`); the figure follows once the
+    /// window system has resized the window (see [`FigureWindow::resize`]).
+    ///
+    /// # Errors
+    ///
+    /// [`GuiError::NotShown`] when no window shows the figure, or when the
+    /// window system refuses the size.
+    pub fn resize(&mut self, figure: &Figure, width: u32, height: u32) -> Result<(), GuiError> {
+        let mut cx = self.event_loop.context();
+        self.windows
+            .iter_mut()
+            .find(|window| window.figure() == figure)
+            .ok_or(GuiError::NotShown)?
+            .resize(&mut cx, width, height)
+    }
+
     /// Whether `figure` is shown in a window.
     pub fn shows(&self, figure: &Figure) -> bool {
         self.windows.iter().any(|window| window.figure() == figure)

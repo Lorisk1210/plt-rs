@@ -38,10 +38,12 @@
 //! | `"motion_notify_event"`, `"scroll_event"`, `"key_press_event"` | [`EventKind::Motion`], [`EventKind::Scroll`], [`EventKind::KeyPress`] |
 //! | `"pick_event"`, `"draw_event"`, `"resize_event"`, `"close_event"` | [`EventKind::Pick`], [`EventKind::Draw`], [`EventKind::Resize`], [`EventKind::Close`] |
 //! | `fig.canvas.mpl_disconnect(cid)`                | [`Figure::disconnect`]                         |
+//! | `with fig.canvas.callbacks.blocked(signal=...):` | [`Figure::with_callbacks_blocked`]`(Some(kind), f)`, or the guard of [`Figure::block_callbacks`] |
 //! | `ax.callbacks.connect("xlim_changed", f)`      | [`Axes::on_limits_changed`]`(AxisName::X, f)`  |
 //! | `ax.callbacks.disconnect(cid)`                  | [`Axes::disconnect_limits_changed`]            |
 //! | `event.x`, `event.xdata`, `event.inaxes`        | [`Location::x`], [`Location::xdata`], [`Location::inaxes`] |
 //! | `event.button`, `event.key`, `event.dblclick`   | [`MouseEvent::button`], [`MouseEvent::key`], [`MouseEvent::dblclick`] |
+//! | `MouseButton.BACK`, `MouseButton.FORWARD`, `.value` | [`PointerButton::Back`], [`PointerButton::Forward`], [`PointerButton::number`] |
 //! | `event.artist`, `event.ind` (pick)              | [`PickEvent::artist`], [`PickEvent::ind`]      |
 //! | `artist.set_picker(5)`                          | [`ArtistHandle::set_picker`]`(Some(Picker::Radius(5.0)))` |
 //! | `fig.canvas.button_press_event(...)` in tests   | [`EventSource::button_press`] and friends      |
@@ -56,6 +58,7 @@
 //! | `RangeSlider`, `Button`, `CheckButtons`, `RadioButtons`, `TextBox` | [`RangeSlider`], [`Button`], [`CheckButtons`], [`RadioButtons`], [`TextBox`] |
 //! | `Cursor(ax, useblit=True)`, `MultiCursor(axes)` | [`Cursor`], [`MultiCursor`] with [`CursorOptions::useblit`] |
 //! | `SpanSelector`, `RectangleSelector`, `EllipseSelector` | [`SpanSelector`], [`RectangleSelector`], [`EllipseSelector`] |
+//! | `span.new_axes(ax)`                             | [`SpanSelector::new_axes`]                     |
 //! | `LassoSelector`, `PolygonSelector`, `Lasso`     | [`LassoSelector`], [`PolygonSelector`], [`Lasso`] |
 //! | `plt.subplot_tool()`, `SubplotTool`             | [`crate::pyplot::subplot_tool`], [`SubplotTool`] |
 //! | `toolbar.pan()`, `toolbar.zoom()`               | [`Navigation::toggle`]`(&fig, NavMode::Pan)`, `NavMode::Zoom` |
@@ -64,9 +67,11 @@
 //! | `ax.set_navigate(False)`                        | [`Axes::set_navigate`]                         |
 //! | `toolmanager.add_tool(name, ToolBase)`          | [`Figure::add_tool`] with a [`ToolSpec`]       |
 //! | `toolmanager.trigger_tool(name)`                | [`Figure::trigger_tool`]                       |
+//! | `ToolToggleBase.radio_group`, `cursor`, `default_toggled` | [`ToolSpec::radio_group`], [`ToolSpec::cursor`], [`ToolSpec::default_toggled`]; pan and zoom are in [`NAVIGATION_GROUP`] |
 //! | `FuncAnimation(fig, update, frames=n, interval=, blit=)` | [`FuncAnimation::new`] with [`Frames`] and [`AnimationOptions`] |
 //! | `FuncAnimation(..., init_func=init)`            | [`FuncAnimation::with_init`]                   |
 //! | `ArtistAnimation(fig, frames)`                  | [`FuncAnimation::from_artists`]                |
+//! | `anim.pause()`, `anim.resume()`                 | [`FuncAnimation::pause`], [`FuncAnimation::resume`] |
 //! | `anim.save("a.gif")`, `"a.png"`, `"a.mp4"`      | [`FuncAnimation::save`] (by extension)         |
 //! | `anim.to_jshtml()`, `anim.to_html5_video()`     | [`FuncAnimation::to_jshtml`], [`FuncAnimation::to_html5_video`] |
 //! | `PillowWriter`, `FFMpegWriter(fps=, codec=)`    | [`FuncAnimation::to_gif`], [`FuncAnimation::save_movie`] with [`MovieOptions`] |
@@ -242,6 +247,7 @@
 //!     icon: Icon::new(24.0),
 //!     keys: vec!["ctrl+g".into()],
 //!     kind: ToolKind::Toggle,
+//!     ..ToolSpec::default()
 //! };
 //! fig.add_tool(spec, |event| {
 //!     for ax in event.figure.axes() {
@@ -396,6 +402,18 @@
 //! [`Navigation::push_current`]: crate::navigation::Navigation::push_current
 //! [`Navigation::readout`]: crate::navigation::Navigation::readout
 //! [`ToolSpec`]: crate::gui::ToolSpec
+//! [`ToolSpec::radio_group`]: crate::gui::ToolSpec::radio_group
+//! [`ToolSpec::cursor`]: crate::gui::ToolSpec::cursor
+//! [`ToolSpec::default_toggled`]: crate::gui::ToolSpec::default_toggled
+//! [`NAVIGATION_GROUP`]: crate::gui::NAVIGATION_GROUP
+//! [`SpanSelector::new_axes`]: crate::widgets::SpanSelector::new_axes
+//! [`FuncAnimation::pause`]: crate::animation::FuncAnimation::pause
+//! [`FuncAnimation::resume`]: crate::animation::FuncAnimation::resume
+//! [`Figure::with_callbacks_blocked`]: crate::figure::Figure::with_callbacks_blocked
+//! [`Figure::block_callbacks`]: crate::figure::Figure::block_callbacks
+//! [`PointerButton::Back`]: crate::navigation::PointerButton::Back
+//! [`PointerButton::Forward`]: crate::navigation::PointerButton::Forward
+//! [`PointerButton::number`]: crate::navigation::PointerButton::number
 //! [`FuncAnimation`]: crate::animation::FuncAnimation
 //! [`FuncAnimation::new`]: crate::animation::FuncAnimation::new
 //! [`FuncAnimation::with_init`]: crate::animation::FuncAnimation::with_init

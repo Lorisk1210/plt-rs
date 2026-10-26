@@ -54,7 +54,10 @@ pub enum NavMode {
     Zoom,
 }
 
-/// A pointer button, as far as navigation cares.
+/// A mouse button (matplotlib's `MouseButton`). Panning and zooming take
+/// the left and right buttons; a figure window steps back and forth
+/// through the view history with the back and forward buttons, as
+/// `keymap.back` and `keymap.forward` bind them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PointerButton {
     /// The primary (left) button.
@@ -63,6 +66,57 @@ pub enum PointerButton {
     Middle,
     /// The secondary (right) button.
     Right,
+    /// The back side button (`MouseButton.BACK`, X11 button 8).
+    Back,
+    /// The forward side button (`MouseButton.FORWARD`, X11 button 9).
+    Forward,
+}
+
+impl PointerButton {
+    /// Every button, in the order of matplotlib's `MouseButton`.
+    pub const ALL: [Self; 5] = [
+        Self::Left,
+        Self::Middle,
+        Self::Right,
+        Self::Back,
+        Self::Forward,
+    ];
+
+    /// matplotlib's number of the button (`MouseButton.BACK` is 8).
+    ///
+    /// ```
+    /// use plt::navigation::PointerButton;
+    /// assert_eq!(PointerButton::Right.number(), 3);
+    /// assert_eq!(PointerButton::Forward.number(), 9);
+    /// ```
+    pub const fn number(self) -> u8 {
+        match self {
+            Self::Left => 1,
+            Self::Middle => 2,
+            Self::Right => 3,
+            Self::Back => 8,
+            Self::Forward => 9,
+        }
+    }
+
+    /// The button with matplotlib's number `number`, if any.
+    pub fn from_number(number: u8) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|button| button.number() == number)
+    }
+
+    /// How `keymap.*` rcParams name the button (`str(MouseButton.BACK)`
+    /// is `"MouseButton.BACK"`).
+    pub const fn keymap_name(self) -> &'static str {
+        match self {
+            Self::Left => "MouseButton.LEFT",
+            Self::Middle => "MouseButton.MIDDLE",
+            Self::Right => "MouseButton.RIGHT",
+            Self::Back => "MouseButton.BACK",
+            Self::Forward => "MouseButton.FORWARD",
+        }
+    }
 }
 
 /// A key held while dragging that constrains the motion (matplotlib's
@@ -223,7 +277,8 @@ impl Navigation {
             self.drag = Some(Drag::Orbit(orbit));
             return true;
         }
-        if button == PointerButton::Middle {
+        // Panning and zooming take the left and right buttons only.
+        if !matches!(button, PointerButton::Left | PointerButton::Right) {
             return false;
         }
         let zoom = self.mode == NavMode::Zoom;

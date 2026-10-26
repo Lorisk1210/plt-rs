@@ -1,5 +1,6 @@
 //! Pick events (matplotlib's `Figure.pick` and `PickEvent`): mouse presses
-//! and scrolls over artists that have a [`Picker`] fire [`Event::Pick`].
+//! and scrolls over artists that have a [`Picker`] fire [`Event::Pick`], as
+//! do those near an axis given one ([`Axis::set_picker`]).
 
 use std::rc::Rc;
 
@@ -7,25 +8,63 @@ use plt_core::Point;
 
 use super::{Event, MouseEvent};
 use crate::artist::{ArtistHandle, ArtistId, LayoutContext, PickFn, Picker, RawHandle};
+use crate::axes::{Axes, AxesState, Axis};
 use crate::figure::{Figure, FigureState};
+use crate::ticker::AxisName;
 
 /// An artist picked by a mouse press or scroll (matplotlib's `PickEvent`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PickEvent {
     /// The press or scroll that picked the artist.
     pub mouse: MouseEvent,
-    /// The artist picked.
+    /// The artist picked, or the axes whose [`axis`](Self::axis) was.
     pub artist: RawHandle,
     /// The items of the artist under the pointer: point or segment indices
     /// of a line, item indices of a collection; empty for artists picked
     /// as a whole.
     pub ind: Vec<usize>,
+    /// The axis of the axes `artist` picked, when an axis was
+    /// ([`Axis::set_picker`]; matplotlib's `event.artist` is the axis).
+    pub axis: Option<AxisName>,
 }
 
 impl PickEvent {
-    /// Whether `artist` is the artist picked.
+    /// Whether `artist` is the artist picked; an axes is not when one of
+    /// its axes was.
     pub fn is(&self, artist: &impl ArtistHandle) -> bool {
-        self.artist == *artist.raw()
+        self.axis.is_none() && self.artist == *artist.raw()
+    }
+
+    /// The axis picked, if an axis was rather than an artist.
+    pub fn picked_axis(&self) -> Option<Axis> {
+        self.axis
+            .map(|name| Axes::from_raw(self.artist.clone()).axis_of(name))
+    }
+}
+
+/// What a press may pick: an artist, or an axis of an axes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Candidate {
+    /// An artist with a picker.
+    Artist(ArtistId),
+    /// An axis with a picker, of the axes with this id.
+    Axis(ArtistId, AxisName),
+}
+
+impl Candidate {
+    /// The artist a pick reports: the artist, or the axes of the axis.
+    const fn artist(self) -> ArtistId {
+        match self {
+            Self::Artist(id) | Self::Axis(id, _) => id,
+        }
+    }
+
+    /// The axis a pick reports, if any.
+    const fn axis(self) -> Option<AxisName> {
+        match self {
+            Self::Artist(_) => None,
+            Self::Axis(_, name) => Some(name),
+        }
     }
 }
 
@@ -39,9 +78,10 @@ enum Answer {
 
 impl Figure {
     /// Fires a pick event for every pickable artist under the pointer of
-    /// `mouse`, parents before children (matplotlib's `Figure.pick`, which
-    /// figures run on every button press and scroll before other
-    /// callbacks). Nothing is picked while the widget lock is held.
+    /// `mouse`, parents before children, and for the pickable axes of an
+    /// axes after its children (matplotlib's `Figure.pick`, which figures
+    /// run on every button press and scroll before other callbacks).
+    /// Nothing is picked while the widget lock is held.
     ///
     /// ```
     /// use std::cell::RefCell;
@@ -81,12 +121,13 @@ impl Figure {
             pickable_artists(&state, self.raw().id(), inaxes)
         };
         let at = Point::new(mouse.location.x, mouse.location.y);
-        for id in candidates {
+        for candidate in candidates {
             // Each answer is asked for afresh: callbacks of earlier picks
             // may have changed the figure.
-            let ind = match self.answer(id, at) {
+            let artist = self.handle(candidate.artist());
+            let ind = match self.answer(candidate, at) {
                 Some(Answer::Hit(ind)) => ind,
-                Some(Answer::Ask(test)) => match test(&self.handle(id), mouse) {
+                Some(Answer::Ask(test)) => match test(&artist, mouse) {
                     Some(ind) => ind,
                     None => continue,
                 },
@@ -94,24 +135,38 @@ impl Figure {
             };
             self.process_event(&Event::Pick(PickEvent {
                 mouse: mouse.clone(),
-                artist: self.handle(id),
+                artist,
                 ind,
+                axis: candidate.axis(),
             }));
         }
     }
 
-    /// How artist `id` answers a pick at display point `at`, if it is
+    /// How `candidate` answers a pick at display point `at`, if it is
     /// still pickable and not missed by its own hit test.
-    fn answer(&self, id: ArtistId, at: Point) -> Option<Answer> {
+    fn answer(&self, candidate: Candidate, at: Point) -> Option<Answer> {
         let mut state = self.state_mut();
         state.prepare();
         let layout = LayoutContext::new(&state);
-        let artist = layout.store().get(id)?;
-        match artist.base().picker.as_ref()? {
-            Picker::Custom(test) => Some(Answer::Ask(Rc::clone(test))),
-            picker => artist
-                .pick_hit(&layout, at, picker.radius())
-                .map(Answer::Hit),
+        match candidate {
+            Candidate::Artist(id) => {
+                let artist = layout.store().get(id)?;
+                match artist.base().picker.as_ref()? {
+                    Picker::Custom(test) => Some(Answer::Ask(Rc::clone(test))),
+                    picker => artist
+                        .pick_hit(&layout, at, picker.radius())
+                        .map(Answer::Hit),
+                }
+            }
+            Candidate::Axis(axes, name) => {
+                let picking = &layout.store().get_as::<AxesState>(axes)?.axis(name).picking;
+                match picking.picker.as_ref()? {
+                    Picker::Custom(test) => Some(Answer::Ask(Rc::clone(test))),
+                    Picker::Default | Picker::Radius(_) => picking
+                        .hits(&layout.axes_extent(axes)?, name, at)
+                        .then(|| Answer::Hit(Vec::new())),
+                }
+            }
         }
     }
 
@@ -120,29 +175,51 @@ impl Figure {
     }
 }
 
-/// The pickable artists under `root`, parents before children
-/// (matplotlib's `Artist.pick` recursion): children belonging to another
-/// axes than `inaxes`, the axes under the pointer, are skipped with their
-/// own children.
+/// The pickable artists under `root`, parents before children, and the
+/// pickable axes of each axes after its children (matplotlib's
+/// `Artist.pick` recursion): children belonging to another axes than
+/// `inaxes`, the axes under the pointer, are skipped with their own
+/// children.
 fn pickable_artists(
     state: &FigureState,
     root: ArtistId,
     inaxes: Option<ArtistId>,
-) -> Vec<ArtistId> {
+) -> Vec<Candidate> {
     let layout = LayoutContext::new(state);
     let mut found = Vec::new();
-    let mut pending = vec![root];
-    while let Some(id) = pending.pop() {
+    let mut pending = vec![Candidate::Artist(root)];
+    while let Some(candidate) = pending.pop() {
+        let Candidate::Artist(id) = candidate else {
+            found.push(candidate);
+            continue;
+        };
         let Some(artist) = layout.store().get(id) else {
             continue;
         };
         if artist.base().picker.is_some() {
-            found.push(id);
+            found.push(candidate);
+        }
+        // Pushed before the children, the axes' axes are asked after them.
+        if let Some(axes) = layout.store().get_as::<AxesState>(id) {
+            pending.extend(
+                [AxisName::Y, AxisName::X]
+                    .into_iter()
+                    .filter(|&name| axes.axis(name).picking.picker.is_some())
+                    .map(|name| Candidate::Axis(id, name)),
+            );
         }
         let children = artist.children();
-        pending.extend(children.into_iter().rev().filter(|&child| {
-            inaxes.is_none_or(|inaxes| axes_of(layout, child).is_none_or(|axes| axes == inaxes))
-        }));
+        pending.extend(
+            children
+                .into_iter()
+                .rev()
+                .filter(|&child| {
+                    inaxes.is_none_or(|inaxes| {
+                        axes_of(layout, child).is_none_or(|axes| axes == inaxes)
+                    })
+                })
+                .map(Candidate::Artist),
+        );
     }
     found
 }

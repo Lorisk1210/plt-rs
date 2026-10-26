@@ -75,6 +75,7 @@
 //! | `matplotlib.use("agg")`, `plt.switch_backend` | [`pyplot::switch_backend`]`(Backend::Agg)` ([`Backend`]) |
 //! | `matplotlib.get_backend()`, `MPLBACKEND`     | [`pyplot::get_backend`]; `MPLBACKEND` works too |
 //! | `plt.get_current_fig_manager()`              | [`pyplot::get_current_fig_manager`] → [`FigureManager`] |
+//! | `fig.canvas.manager.resize(w, h)`            | [`FigureManager::resize`]`(w, h)?`; [`FigureWindow::resize`], [`Session::resize`] for windows of your own |
 //! | `plt.rc("lines", lw=2)`                      | [`pyplot::rc`]`("lines", &[("lw", "2")])`     |
 //! | `plt.rc_context({...})`, `plt.rcdefaults()`  | [`pyplot::rc_context`], [`pyplot::rcdefaults`] |
 //! | `with plt.xkcd():`                           | [`pyplot::xkcd`]`(XkcdSketch::default(), \|\| ..)` |
@@ -255,6 +256,9 @@
 //! [`Backend::WebAgg`]: crate::pyplot::Backend::WebAgg
 //! [`Backend::Agg`]: crate::pyplot::Backend::Agg
 //! [`FigureManager`]: crate::pyplot::FigureManager
+//! [`FigureManager::resize`]: crate::pyplot::FigureManager::resize
+//! [`FigureWindow::resize`]: crate::gui::FigureWindow::resize
+//! [`Session::resize`]: crate::gui::Session::resize
 //! [`pyplot::figure`]: crate::pyplot::figure
 //! [`pyplot::figure_with_size`]: crate::pyplot::figure_with_size
 //! [`pyplot::figure_num`]: crate::pyplot::figure_num

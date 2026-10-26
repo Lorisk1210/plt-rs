@@ -2,6 +2,8 @@
  "area": "api_audit",
  "matplotlib": "3.11.2",
  "probes": [
+  {"op": "Animation.pause", "args": {"blit": false}, "value": [[0, 0], [false, false, false]]},
+  {"op": "Animation.pause", "args": {"blit": true}, "value": [[0, 0, 0], [true, false, true]]},
   {"op": "Axes.callbacks", "args": {"scenario": "chain"}, "value": [[0, 1], [[1.0, 2.0]]]},
   {"op": "Axes.callbacks", "args": {"scenario": "clear"}, "value": [[0, 0], [], []]},
   {"op": "Axes.callbacks", "args": {"scenario": "disconnect"}, "value": [[0, 1], [], [[0.0, 2.0]]]},
@@ -32,22 +34,93 @@
   {"op": "Axes3D.set_title", "args": {"loc": "center"}, "value": ["", "t", ""]},
   {"op": "Axes3D.set_title", "args": {"loc": "left"}, "value": ["t", "", ""]},
   {"op": "Axes3D.set_title", "args": {"loc": "right"}, "value": ["", "", "t"]},
+  {
+   "op": "Axis.contains",
+   "args": {
+    "axis": "x",
+    "radius": 15,
+    "points": [[200, 70], [200, 60.5], [200, 59], [200, 75], [200, 230], [200, 239], [200, 241], [100, 70], [300, 70], [99, 70], [301, 70], [200, 150]]
+   },
+   "value": [true, false, false, false, true, true, false, true, true, false, false, false]
+  },
+  {
+   "op": "Axis.contains",
+   "args": {
+    "axis": "y",
+    "radius": 4,
+    "points": [[97, 150], [96.5, 150], [95, 150], [100, 150], [303, 150], [305, 150], [97, 75], [97, 225], [97, 74], [97, 226], [200, 150]]
+   },
+   "value": [true, false, false, false, true, false, true, true, false, false, false]
+  },
+  {"op": "Axis.pick", "args": {"pickers": ["x"], "line": false, "at": [200, 70]}, "value": ["xaxis"]},
+  {"op": "Axis.pick", "args": {"pickers": ["y"], "line": false, "at": [200, 70]}, "value": []},
+  {"op": "Axis.pick", "args": {"pickers": ["x", "y"], "line": true, "at": [200, 70]}, "value": ["line", "xaxis"]},
+  {"op": "Axis.pick", "args": {"pickers": ["x", "y"], "line": false, "at": [90, 150]}, "value": ["yaxis"]},
+  {"op": "Axis.pick", "args": {"pickers": ["x", "y"], "line": false, "at": [90, 70]}, "value": []},
+  {"op": "Axis.pickradius", "args": {"axis": "x", "radius": -1}, "error": "ValueError"},
+  {"op": "Axis.pickradius", "args": {"axis": "x", "radius": 0}, "value": [15, 0, 0]},
+  {"op": "Axis.pickradius", "args": {"axis": "x", "radius": 5}, "value": [15, 5, 5]},
+  {"op": "Axis.pickradius", "args": {"axis": "y", "radius": -1}, "error": "ValueError"},
+  {"op": "Axis.pickradius", "args": {"axis": "y", "radius": 0}, "value": [15, 0, 0]},
+  {"op": "Axis.pickradius", "args": {"axis": "y", "radius": 5}, "value": [15, 5, 5]},
   {"op": "Axis3D.get_rotate_label", "args": {"label": "label", "rotate": false}, "value": false},
   {"op": "Axis3D.get_rotate_label", "args": {"label": "label", "rotate": null}, "value": true},
   {"op": "Axis3D.get_rotate_label", "args": {"label": "label", "rotate": true}, "value": true},
   {"op": "Axis3D.get_rotate_label", "args": {"label": "z", "rotate": false}, "value": false},
   {"op": "Axis3D.get_rotate_label", "args": {"label": "z", "rotate": null}, "value": false},
   {"op": "Axis3D.get_rotate_label", "args": {"label": "z", "rotate": true}, "value": true},
+  {
+   "op": "CallbackRegistry.blocked",
+   "args": {"signal": "button_press_event"},
+   "value": [["key_press_event"], ["pick_event", "button_press_event", "key_press_event"]]
+  },
+  {
+   "op": "CallbackRegistry.blocked",
+   "args": {"signal": "key_press_event"},
+   "value": [["pick_event", "button_press_event"], ["pick_event", "button_press_event", "key_press_event"]]
+  },
+  {
+   "op": "CallbackRegistry.blocked",
+   "args": {"signal": "pick_event"},
+   "value": [["button_press_event", "key_press_event"], ["pick_event", "button_press_event", "key_press_event"]]
+  },
+  {"op": "CallbackRegistry.blocked", "args": {"signal": null}, "value": [[], ["pick_event", "button_press_event", "key_press_event"]]},
   {"op": "Collection.set_paths", "args": {"verts": [[[1, 1], [2, 2], [3, 1]]]}, "value": [[[1.0, 1.0], [2.0, 2.0], [3.0, 1.0]]]},
   {"op": "Colorbar.solids", "args": {"hatched": false}, "value": [true, 0]},
   {"op": "Colorbar.solids", "args": {"hatched": true}, "value": [false, 2]},
   {"op": "Divider", "args": {}, "value": [2, 2, false, false, true]},
   {"op": "Figure.artists", "args": {}, "value": [2, 1, 1, 1]},
   {"op": "FigureImage.get_extent", "args": {"xo": 10, "yo": 20, "rows": 2, "cols": 3}, "value": [[9.5, 12.5, 19.5, 21.5], [3, 4]]},
+  {"op": "FigureManagerBase.resize", "args": {}, "value": [6.4, 4.8]},
   {
    "op": "Line3D.set_data_3d",
    "args": {"x": [1, 2, 3], "y": [0, 0, 0], "z": [3, 2, 1]},
    "value": [[[1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [3.0, 2.0, 1.0]], [-0.07291666666666667, 1.0729166666666667], [-0.07291666666666667, 1.0729166666666667]]
+  },
+  {
+   "op": "LockableBbox",
+   "args": {"lock": "x0"},
+   "value": [[[2.0, 0.0], [1.0, 1.0]], 2.0, [[2.0, 10.0], [11.0, 11.0]], [[10.0, 10.0], [11.0, 11.0]], null, [[3.0, 10.0], [11.0, 11.0]], [3.0, null, null, null]]
+  },
+  {
+   "op": "LockableBbox",
+   "args": {"lock": "x1"},
+   "value": [[[0.0, 0.0], [2.0, 1.0]], 2.0, [[10.0, 10.0], [2.0, 11.0]], [[10.0, 10.0], [11.0, 11.0]], null, [[10.0, 10.0], [3.0, 11.0]], [null, null, 3.0, null]]
+  },
+  {
+   "op": "LockableBbox",
+   "args": {"lock": "y0"},
+   "value": [[[0.0, 2.0], [1.0, 1.0]], 2.0, [[10.0, 2.0], [11.0, 11.0]], [[10.0, 10.0], [11.0, 11.0]], null, [[10.0, 3.0], [11.0, 11.0]], [null, 3.0, null, null]]
+  },
+  {
+   "op": "LockableBbox",
+   "args": {"lock": "y1"},
+   "value": [[[0.0, 0.0], [1.0, 2.0]], 2.0, [[10.0, 10.0], [11.0, 2.0]], [[10.0, 10.0], [11.0, 11.0]], null, [[10.0, 10.0], [11.0, 3.0]], [null, null, null, 3.0]]
+  },
+  {
+   "op": "MouseButton",
+   "args": {},
+   "value": [["MouseButton.LEFT", 1], ["MouseButton.MIDDLE", 2], ["MouseButton.RIGHT", 3], ["MouseButton.BACK", 8], ["MouseButton.FORWARD", 9]]
   },
   {"op": "NonUniformImage.set_data", "args": {"x": [0.1, 1, 4], "y": [0, 2.3]}, "value": [0.10000000149011612, 4.0, 0.0, 2.299999952316284]},
   {
@@ -56,8 +129,16 @@
    "value": [[[[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 0.0]], [1, 2, 2, 79]], [[[1.0, 1.0], [3.0, 1.0], [3.0, 3.0], [1.0, 3.0], [1.0, 1.0]], [1, 2, 2, 2, 79]]]
   },
   {"op": "ScalarMappable.colorbar", "args": {}, "value": [true, true, true]},
+  {"op": "SpanSelector.new_axes", "args": {"target": "other"}, "value": [[[20.0, 40.0]], true, 1, [20.0, 40.0]]},
+  {"op": "SpanSelector.new_axes", "args": {"target": "same"}, "value": [[[120.0, 150.0]], true, 1, [120.0, 150.0]]},
   {"op": "Text3D.get_position_3d", "args": {"x": 1, "y": 2, "z": 3}, "value": [1.0, 2.0, 3.0]},
+  {"op": "ToolToggleBase", "args": {"scenario": "default_toggled"}, "value": [[["a", true], ["a", false], ["d", true]], [false, true]]},
+  {"op": "ToolToggleBase", "args": {"scenario": "radio"}, "value": [[["a", true], ["c", true], ["a", false], ["b", true], ["b", false]], [false, false, true]]},
   {"op": "YAxis.set_offset_position", "args": {"side": "left"}, "value": [0.0, 37.875]},
-  {"op": "YAxis.set_offset_position", "args": {"side": "right"}, "value": [272.125, 310.0]}
+  {"op": "YAxis.set_offset_position", "args": {"side": "right"}, "value": [272.125, 310.0]},
+  {"op": "boxplot.bootstrap", "args": {"data": [1, 2, 4, 8, 9, 12, 20, 3, 5], "bootstrap": 0}, "error": "IndexError"},
+  {"op": "boxplot.bootstrap", "args": {"data": [1, 2, 4, 8, 9, 12, 20, 3, 5], "bootstrap": 1}, "value": [true, [true, true, true, true, true], true, 11]},
+  {"op": "boxplot.bootstrap", "args": {"data": [3, 3, 3], "bootstrap": 20}, "value": [true, [true, true, true, true, true], true, 11]},
+  {"op": "boxplot.bootstrap", "args": {"data": [1, 2, 4, 8, 9, 12, 20, 3, 5], "bootstrap": 500}, "value": [true, [true, true, true, true, true], true, 11]}
  ]
 }

@@ -217,6 +217,7 @@
 //!     icon: Icon::new(24.0),
 //!     keys: vec!["ctrl+g".into()],
 //!     kind: ToolKind::Toggle,
+//!     ..ToolSpec::default()
 //! };
 //! fig.add_tool(spec, |event| {
 //!     for ax in event.figure.axes() {

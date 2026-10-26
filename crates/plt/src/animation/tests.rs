@@ -215,3 +215,83 @@ fn a_full_draw_makes_the_background_be_saved_again() {
     assert!(animated(&line));
     drop(animation);
 }
+
+#[test]
+fn paused_playback_resumes_where_it_stopped() {
+    let fig = Figure::with_size(1.0, 1.0, 20.0);
+    let (seen, update) = frame_log();
+    let animation = FuncAnimation::new(&fig, Frames::Endless, AnimationOptions::default(), update);
+    fig.canvas().draw().unwrap();
+    let (timer, _) = fig.timers()[0];
+    assert!(fig.fire_timer(timer));
+    animation.pause();
+    animation.pause();
+    assert_eq!(fig.timers(), []);
+    animation.resume();
+    let (timer, _) = fig.timers()[0];
+    assert!(fig.fire_timer(timer));
+    animation.resume();
+    assert_eq!(fig.timers().len(), 1, "resuming twice runs one timer");
+    assert_eq!(*seen.borrow(), [0, 0, 1], "frame 1 follows frame 0");
+}
+
+#[test]
+fn pausing_blitted_frames_makes_their_artists_ordinary() {
+    let (fig, line, animation) = blitted(10, true);
+    let (timer, _) = fig.timers()[0];
+    assert!(fig.fire_timer(timer));
+    animation.pause();
+    assert!(!animated(&line), "drawn with the figure while paused");
+    fig.canvas().draw().unwrap();
+    assert!(line_at(&fig, 45), "a full draw shows frame 0");
+    animation.resume();
+    assert!(animated(&line));
+    let (timer, _) = fig.timers()[0];
+    assert!(fig.fire_timer(timer));
+    assert!(line_at(&fig, 35), "frame 1 at y = 0.3");
+}
+
+#[test]
+fn a_pause_holds_through_the_first_draw_and_a_resize() {
+    let fig = Figure::with_size(1.0, 1.0, 20.0);
+    let (seen, update) = frame_log();
+    let animation = FuncAnimation::new(&fig, Frames::Count(4), AnimationOptions::default(), update);
+    animation.pause();
+    fig.canvas().draw().unwrap();
+    assert_eq!(fig.timers(), [], "held at the initial frame");
+    assert_eq!(*seen.borrow(), [0]);
+    animation.resume();
+    assert_eq!(fig.timers().len(), 1);
+
+    let (fig, _line, blitting) = blitted(10, true);
+    blitting.pause();
+    fig.process_event(&Event::Resize {
+        width: 50.0,
+        height: 50.0,
+    });
+    fig.canvas().draw().unwrap();
+    assert_eq!(fig.timers(), [], "a redraw after a resize keeps it paused");
+    blitting.resume();
+    assert_eq!(fig.timers().len(), 1);
+}
+
+#[test]
+fn nothing_resumes_once_playback_is_over() {
+    let (fig, line, animation) = blitted(1, false);
+    let (timer, _) = fig.timers()[0];
+    assert!(fig.fire_timer(timer));
+    animation.pause();
+    assert!(!fig.fire_timer(timer), "the timer is gone");
+    animation.resume();
+    let (timer, _) = fig.timers()[0];
+    assert!(!fig.fire_timer(timer), "the end");
+    animation.pause();
+    animation.resume();
+    assert_eq!(fig.timers(), []);
+    assert!(!animated(&line));
+
+    let (fig, _line, stopped) = blitted(10, true);
+    stopped.stop();
+    stopped.resume();
+    assert_eq!(fig.timers(), []);
+}

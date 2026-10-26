@@ -237,11 +237,15 @@ fn mouse(message: &Json, kind: MouseKind) -> Result<MouseInput, MessageError> {
         kind,
         x: number(message, "x")?,
         y: number(message, "y")?,
-        // The browser numbers buttons from 0: left, middle, right.
+        // The browser numbers buttons from 0: left, middle, right, back
+        // and forward (matplotlib adds 1, which makes the side buttons 4
+        // and 5 rather than its BACK and FORWARD).
         button: match button {
             0.0 => Some(PointerButton::Left),
             1.0 => Some(PointerButton::Middle),
             2.0 => Some(PointerButton::Right),
+            3.0 => Some(PointerButton::Back),
+            4.0 => Some(PointerButton::Forward),
             _ => None,
         },
         step,
@@ -511,12 +515,19 @@ mod tests {
             (MouseKind::Scroll, -1.0, -0.5)
         );
         assert!(scroll.ctrl && !scroll.shift);
-        let ClientMessage::Mouse(press) =
-            parse(r#"{"type": "button_press", "x": 1, "y": 2, "button": 2}"#)
-        else {
-            panic!("a mouse message");
-        };
-        assert_eq!(press.button, Some(PointerButton::Right));
+        let buttons = [
+            (2, Some(PointerButton::Right)),
+            (3, Some(PointerButton::Back)),
+            (4, Some(PointerButton::Forward)),
+            (5, None),
+        ];
+        for (number, button) in buttons {
+            let text = format!(r#"{{"type": "button_press", "x": 1, "y": 2, "button": {number}}}"#);
+            let ClientMessage::Mouse(press) = parse(&text) else {
+                panic!("a mouse message");
+            };
+            assert_eq!(press.button, button);
+        }
     }
 
     #[test]

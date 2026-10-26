@@ -73,6 +73,7 @@ impl Dragger {
             figure.connect(EventKind::Pick, move |event| {
                 let mut drag = on_pick.borrow_mut();
                 if let (Event::Pick(pick), Some(artist)) = (event, drag.artist())
+                    && pick.axis.is_none()
                     && pick.artist == artist
                 {
                     let mouse = &pick.mouse.location;

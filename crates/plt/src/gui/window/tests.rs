@@ -60,7 +60,7 @@ pub(super) fn mouse(handle: &HeadlessHandle, id: WindowId, state: ButtonState, (
     handle.inject(id, click).expect("the window exists");
 }
 
-fn key(handle: &HeadlessHandle, id: WindowId, c: char) {
+pub(super) fn key(handle: &HeadlessHandle, id: WindowId, c: char) {
     chord(handle, id, c, Modifiers::NONE);
 }
 
@@ -162,6 +162,7 @@ fn user_tools_and_help_are_on_the_toolbar() {
         icon: Icon::new(24.0),
         keys: vec!["m".into()],
         kind: ToolKind::Toggle,
+        ..ToolSpec::default()
     };
     figure
         .add_tool(spec, move |_| count.set(count.get() + 1))
@@ -430,6 +431,72 @@ fn resizes_reach_callbacks_before_the_figure_is_drawn_again() {
     assert!(seen.borrow().contains(&EventKind::Draw));
     let image = window.figure().canvas().buffer_rgba().expect("drawn");
     assert_eq!(image.width(), 500);
+}
+
+#[test]
+fn the_program_resizes_the_canvas_and_the_figure_follows() {
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    figure.subplot();
+    let resizes = Rc::new(RefCell::new(0));
+    let count = Rc::clone(&resizes);
+    figure.connect(EventKind::Resize, move |_| *count.borrow_mut() += 1);
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    pump(&mut event_loop, &mut window);
+    let before = handle.window(window.id()).expect("open").size;
+    window
+        .resize(&mut event_loop.context(), 300, 200)
+        .expect("a valid size");
+    pump(&mut event_loop, &mut window);
+    assert_eq!(window.canvas_size, PhysicalSize::new(300, 200));
+    assert_eq!(figure.size_inches(), (3.0, 2.0));
+    assert!(*resizes.borrow() >= 1, "resize callbacks ran");
+    let after = handle.window(window.id()).expect("open").size;
+    assert_eq!(
+        before.height - after.height,
+        100,
+        "the toolbar stays below the canvas"
+    );
+    assert!(window.resize(&mut event_loop.context(), 0, 200).is_err());
+}
+
+#[test]
+fn side_buttons_step_through_the_view_history() {
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    let ax = figure.subplot();
+    ax.set_xlim(0.0, 10.0)
+        .and_then(|ax| ax.set_ylim(0.0, 10.0))
+        .expect("finite limits");
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    pump(&mut event_loop, &mut window);
+    let id = window.id();
+    key(&handle, id, 'p');
+    mouse(&handle, id, ButtonState::Pressed, (200.0, 150.0));
+    mouse(&handle, id, ButtonState::Released, (231.0, 150.0));
+    pump(&mut event_loop, &mut window);
+    let panned = ax.xlim();
+    assert_ne!(panned, (0.0, 10.0));
+    let side = |button| {
+        for state in [ButtonState::Pressed, ButtonState::Released] {
+            let click = WindowEvent::MouseInput {
+                button,
+                state,
+                position: PhysicalPosition::new(200.0, 150.0),
+                modifiers: Modifiers::NONE,
+                click_count: 1,
+            };
+            handle.inject(id, click).expect("the window exists");
+        }
+    };
+    side(MouseButton::Back);
+    pump(&mut event_loop, &mut window);
+    assert_eq!(ax.xlim(), (0.0, 10.0), "back");
+    side(MouseButton::Forward);
+    pump(&mut event_loop, &mut window);
+    assert_eq!(ax.xlim(), panned, "forward");
 }
 
 #[test]

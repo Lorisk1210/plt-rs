@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::artist::ArtistId;
 
 use super::axis_label::{AxisLabel, LabelLoc, label_font};
+use super::axis_pick::AxisPicking;
 use super::axis_units::AxisUnits;
 use super::tick_set::TickSet;
 use super::ticks::{Sides, TickStyle};
@@ -160,6 +161,8 @@ pub(crate) struct AxisState {
     pub(crate) offset_visible: bool,
     /// Whether minor ticks on major ticks are dropped.
     pub(crate) remove_overlapping_locs: bool,
+    /// Whether, and how, presses pick the axis.
+    pub(crate) picking: AxisPicking,
 }
 
 impl AxisState {
@@ -220,6 +223,7 @@ impl AxisState {
             offset_side: SpineSide::of(name, false),
             offset_visible: true,
             remove_overlapping_locs: true,
+            picking: AxisPicking::default(),
         }
     }
 

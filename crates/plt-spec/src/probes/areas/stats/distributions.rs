@@ -41,6 +41,7 @@ pub(crate) fn boxplot_stats(args: Args<'_>) -> Outcome {
         whis,
         labels,
         autorange: args.opt_bool("autorange")?.unwrap_or(false),
+        bootstrap: None,
     };
     let all = stats::boxplot_stats(&sets, opts).map_err(ProbeError::rejected)?;
     Ok(Json::Array(

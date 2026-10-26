@@ -75,6 +75,11 @@ pub enum StatsError {
         /// Points dimension.
         actual: usize,
     },
+    /// A bootstrap without resamples.
+    NoResamples,
+    /// A bootstrap drawing more values (this many) than
+    /// [`MAX_BOOTSTRAP_DRAWS`](super::MAX_BOOTSTRAP_DRAWS).
+    TooManyBootstrapDraws(usize),
 }
 
 impl fmt::Display for StatsError {
@@ -136,6 +141,12 @@ impl fmt::Display for StatsError {
             Self::DimensionMismatch { expected, actual } => write!(
                 f,
                 "points have dimension {actual}, dataset has dimension {expected}"
+            ),
+            Self::NoResamples => f.write_str("a bootstrap needs at least one resample"),
+            Self::TooManyBootstrapDraws(draws) => write!(
+                f,
+                "a bootstrap drawing {draws} values draws more than {}",
+                super::MAX_BOOTSTRAP_DRAWS
             ),
         }
     }

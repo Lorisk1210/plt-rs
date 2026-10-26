@@ -172,6 +172,20 @@ impl Span {
         self.show(core.visible);
     }
 
+    /// Replaces the span's rectangle and handles by hidden ones of the same
+    /// look on `ax`, along the current direction (matplotlib's `new_axes`
+    /// and `_setup_edge_handles`).
+    fn rebuild(&mut self, ax: &Axes) {
+        self.rect.remove();
+        if let Some(handles) = &self.handles {
+            handles.remove();
+        }
+        self.rect = span_rect(ax, self.direction, &self.props);
+        if self.interactive {
+            self.handles = Some(Self::edge_handles(ax, self.direction, &self.handle_props));
+        }
+    }
+
     /// Hidden handles at the current view edges (matplotlib's
     /// `_setup_edge_handles`).
     fn edge_handles(ax: &Axes, direction: Orientation, props: &LineProps) -> LineHandles {
@@ -449,19 +463,41 @@ impl SpanSelector {
         if span.direction == direction {
             return;
         }
-        let ax = shared.core.ax.clone();
         let visible = span.rect.visible();
-        span.rect.remove();
-        if let Some(handles) = &span.handles {
-            handles.remove();
-        }
         span.direction = direction;
         shared.core.selection_completed = false;
-        span.rect = span_rect(&ax, direction, &span.props);
+        span.rebuild(&shared.core.ax);
         span.rect.set_visible(visible);
-        if span.interactive {
-            span.handles = Some(Span::edge_handles(&ax, direction, &span.handle_props));
+    }
+
+    /// Makes the selector work in `ax` from now on, which may belong to
+    /// another figure (matplotlib's `new_axes`): the span starts over,
+    /// hidden, with its rectangle and handles moved to `ax` in their look,
+    /// and presses in `ax` select. matplotlib leaves the old rectangle
+    /// and handles on the old axes, and gives the new rectangle the
+    /// coordinates of the old axes; plt-rs removes them and places the
+    /// span in the data of `ax`.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::widgets::{Orientation, SpanSelector, SpanSelectorOptions};
+    /// let fig = Figure::new();
+    /// let (left, right) = (fig.add_subplot(1, 2, 1)?, fig.add_subplot(1, 2, 2)?);
+    /// let span = SpanSelector::new(&left, Orientation::Horizontal, SpanSelectorOptions::default());
+    /// span.new_axes(&right);
+    /// assert_eq!(span.ax(), right);
+    /// assert!(left.patches().is_empty());
+    /// assert_eq!(right.patches().len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn new_axes(&self, ax: &Axes) {
+        {
+            let mut shared = self.driver.shared.borrow_mut();
+            let shared = &mut *shared;
+            shared.core.selection_completed = false;
+            shared.tool.rebuild(ax);
         }
+        self.driver.move_to(ax);
     }
 
     /// The rectangle showing the span.
@@ -504,98 +540,4 @@ impl SpanSelector {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    use super::*;
-    use crate::events::EventSource;
-    use crate::figure::Figure;
-
-    /// A 400 × 300 figure with one axes over the data square [0, 10]².
-    fn axes() -> (Figure, Axes) {
-        let fig = Figure::with_size(4.0, 3.0, 100.0);
-        let ax = fig
-            .add_axes([0.0, 0.0, 1.0, 1.0])
-            .expect("a valid rectangle");
-        ax.set_xlim(0.0, 10.0)
-            .and_then(|ax| ax.set_ylim(0.0, 10.0))
-            .expect("finite limits");
-        (fig, ax)
-    }
-
-    fn drag(fig: &Figure, from: f64, to: f64) {
-        let mut source = EventSource::new();
-        source.button_press(fig, from * 40.0, 150.0, PointerButton::Left, false);
-        source.motion(fig, to * 40.0, 150.0);
-        source.button_release(fig, to * 40.0, 150.0, PointerButton::Left);
-    }
-
-    #[test]
-    fn dragging_selects_a_range() {
-        let (fig, ax) = axes();
-        let options = SpanSelectorOptions {
-            interactive: true,
-            ..SpanSelectorOptions::default()
-        };
-        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
-        let log = Rc::new(RefCell::new(Vec::new()));
-        let seen = Rc::clone(&log);
-        span.on_select(move |a, b| seen.borrow_mut().push((a, b)));
-        drag(&fig, 6.0, 2.0);
-        assert_eq!(span.extents(), (2.0, 6.0));
-        assert_eq!(*log.borrow(), [(2.0, 6.0)]);
-        assert!(span.artist().visible() && span.handles()[1].visible());
-        // Dragging the upper handle resizes the span.
-        drag(&fig, 6.0, 8.0);
-        assert_eq!(span.extents(), (2.0, 8.0));
-        // A click outside removes it.
-        drag(&fig, 9.5, 9.5);
-        assert!(!span.artist().visible());
-        assert_eq!(log.borrow().last(), Some(&(9.5, 9.5)));
-    }
-
-    #[test]
-    fn snapping_and_locks() {
-        let (fig, ax) = axes();
-        let options = SpanSelectorOptions {
-            snap_values: Some(vec![0.0, 2.5, 5.0, 7.5, 10.0]),
-            ..SpanSelectorOptions::default()
-        };
-        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
-        drag(&fig, 1.0, 6.0);
-        assert_eq!(span.extents(), (0.0, 5.0));
-        // Spans are not interactive by default: the rectangle hides.
-        assert!(!span.artist().visible());
-        let tool = crate::events::LockOwner::new();
-        fig.lock_widgets(tool).unwrap();
-        drag(&fig, 2.0, 9.0);
-        assert_eq!(span.extents(), (0.0, 5.0), "a locked figure is ignored");
-        assert_eq!(
-            span.add_state(SelectorState::Square),
-            Err(SelectorError::UnsupportedState(SelectorState::Square))
-        );
-    }
-
-    #[test]
-    fn snap_values_and_states_can_change() {
-        let (_fig, ax) = axes();
-        let options = SpanSelectorOptions {
-            snap_values: Some(vec![0.0, 4.0, 8.0]),
-            ..SpanSelectorOptions::default()
-        };
-        let span = SpanSelector::new(&ax, Orientation::Horizontal, options);
-        assert!(!span.selection_completed());
-        span.set_extents((1.0, 7.0));
-        assert_eq!(span.extents(), (0.0, 8.0));
-        assert!(span.selection_completed());
-        span.set_snap_values(None);
-        assert_eq!(span.snap_values(), None);
-        span.set_extents((1.0, 7.0));
-        assert_eq!(span.extents(), (1.0, 7.0));
-        span.add_state(SelectorState::Move).unwrap();
-        assert_eq!(span.states(), [SelectorState::Move]);
-        span.clear();
-        assert!(!span.selection_completed());
-    }
-}
+mod tests;

@@ -167,6 +167,7 @@ mod tests {
             icon: Icon::new(24.0),
             keys: vec!["m".into()],
             kind: ToolKind::Trigger,
+            ..ToolSpec::default()
         };
         let groups = shortcuts(&RcParams::matplotlib(), &[tool]);
         let rows: Vec<&Shortcut> = groups.iter().flat_map(|(_, rows)| rows).collect();

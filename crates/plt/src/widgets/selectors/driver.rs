@@ -12,6 +12,7 @@ use super::{ModifierKeys, SelectorError, SelectorEvent, SelectorState};
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::events::{Event, EventKind, KeyEvent, Location, LockOwner, MouseEvent};
+use crate::figure::Figure;
 use crate::navigation::PointerButton;
 use crate::widgets::{CallbackId, Connections, Observers, data_in, ordered};
 
@@ -350,7 +351,8 @@ pub(super) struct Driver<T: Tool> {
     pub(super) selected: Observers<T::Selection>,
     /// Called while a selection changes (matplotlib's `onmove_callback`).
     pub(super) moved: Observers<T::Selection>,
-    _connections: Connections,
+    /// The connections to the events of the selector's figure.
+    connections: RefCell<Connections>,
 }
 
 impl<T: Tool + std::fmt::Debug> std::fmt::Debug for Driver<T> {
@@ -375,73 +377,98 @@ impl<T: Tool> Driver<T> {
         let shared = Rc::new(RefCell::new(Shared { core, tool }));
         let selected = Observers::default();
         let moved = Observers::default();
-        let mut connections = Connections::new(figure);
-        let weak = || Rc::downgrade(&shared);
-        connect(
-            &mut connections,
-            EventKind::ButtonPress,
-            weak(),
-            |shared, event| {
-                if let Event::ButtonPress(mouse) = event {
-                    shared.borrow_mut().press(mouse);
-                }
-            },
-        );
-        let observers = selected.clone();
-        connect(
-            &mut connections,
-            EventKind::ButtonRelease,
-            weak(),
-            move |shared, event| {
-                if let Event::ButtonRelease(mouse) = event {
-                    let selection = shared.borrow_mut().release(mouse);
-                    if let Some(selection) = selection {
-                        observers.process(&selection);
-                    }
-                }
-            },
-        );
-        let observers = moved.clone();
-        connect(
-            &mut connections,
-            EventKind::Motion,
-            weak(),
-            move |shared, event| {
-                if let Event::Motion(mouse) = event {
-                    let selection = shared.borrow_mut().motion(mouse);
-                    if let Some(selection) = selection {
-                        observers.process(&selection);
-                    }
-                }
-            },
-        );
-        connect(
-            &mut connections,
-            EventKind::KeyPress,
-            weak(),
-            |shared, event| {
-                if let Event::KeyPress(key) = event {
-                    shared.borrow_mut().key_press(key);
-                }
-            },
-        );
-        connect(
-            &mut connections,
-            EventKind::KeyRelease,
-            weak(),
-            |shared, event| {
-                if let Event::KeyRelease(key) = event {
-                    shared.borrow_mut().key_release(key);
-                }
-            },
-        );
+        let connections = RefCell::new(connect_events(figure, &shared, &selected, &moved));
         Self {
             shared,
             selected,
             moved,
-            _connections: connections,
+            connections,
         }
     }
+
+    /// Makes the selector work in `ax` from now on, taking the events of
+    /// its figure (the event routing of matplotlib's `new_axes`, which
+    /// connects to the canvas of the new axes when it is another).
+    pub(super) fn move_to(&self, ax: &Axes) {
+        self.shared.borrow_mut().core.ax = ax.clone();
+        let figure = ax.figure();
+        if self.connections.borrow().figure != figure {
+            let connections = connect_events(figure, &self.shared, &self.selected, &self.moved);
+            // The old connections end as they are dropped.
+            drop(self.connections.replace(connections));
+        }
+    }
+}
+
+/// Connects the selector behind `shared` to the mouse and key events of
+/// `figure`, its selections reported to `selected` and `moved`.
+fn connect_events<T: Tool>(
+    figure: Figure,
+    shared: &Rc<RefCell<Shared<T>>>,
+    selected: &Observers<T::Selection>,
+    moved: &Observers<T::Selection>,
+) -> Connections {
+    let mut connections = Connections::new(figure);
+    let weak = || Rc::downgrade(shared);
+    connect(
+        &mut connections,
+        EventKind::ButtonPress,
+        weak(),
+        |shared, event| {
+            if let Event::ButtonPress(mouse) = event {
+                shared.borrow_mut().press(mouse);
+            }
+        },
+    );
+    let observers = selected.clone();
+    connect(
+        &mut connections,
+        EventKind::ButtonRelease,
+        weak(),
+        move |shared, event| {
+            if let Event::ButtonRelease(mouse) = event {
+                let selection = shared.borrow_mut().release(mouse);
+                if let Some(selection) = selection {
+                    observers.process(&selection);
+                }
+            }
+        },
+    );
+    let observers = moved.clone();
+    connect(
+        &mut connections,
+        EventKind::Motion,
+        weak(),
+        move |shared, event| {
+            if let Event::Motion(mouse) = event {
+                let selection = shared.borrow_mut().motion(mouse);
+                if let Some(selection) = selection {
+                    observers.process(&selection);
+                }
+            }
+        },
+    );
+    connect(
+        &mut connections,
+        EventKind::KeyPress,
+        weak(),
+        |shared, event| {
+            if let Event::KeyPress(key) = event {
+                shared.borrow_mut().key_press(key);
+            }
+        },
+    );
+    connect(
+        &mut connections,
+        EventKind::KeyRelease,
+        weak(),
+        |shared, event| {
+            if let Event::KeyRelease(key) = event {
+                shared.borrow_mut().key_release(key);
+            }
+        },
+    );
+    connections
 }
 
 /// Connects `handler` for events of `kind`, for as long as the selector

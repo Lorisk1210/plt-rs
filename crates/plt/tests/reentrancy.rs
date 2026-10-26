@@ -10,13 +10,13 @@
 //! that is checked at compile time, not here.
 
 use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::time::Duration;
 
 use plt::animation::{AnimationOptions, Frames, FuncAnimation};
 use plt::artist::{Artist, ArtistBase, DrawContext, Picker};
 use plt::axes::{Axis, AxisName, ProjectionKind};
-use plt::events::{EventKind, EventSource};
+use plt::events::{Event, EventKind, EventSource};
 use plt::gui::{Icon, ToolKind, ToolSpec};
 use plt::navigation::PointerButton;
 use plt::patches::Rectangle;
@@ -24,7 +24,7 @@ use plt::prelude::*;
 use plt::projections::{self, Projection, ProjectionView};
 use plt::transforms::ResolvedTransform;
 use plt::units::{ConversionError, ConversionInterface, Convertible};
-use plt::widgets::{Slider, SliderOptions};
+use plt::widgets::{Orientation, Slider, SliderOptions, SpanSelector, SpanSelectorOptions};
 
 /// A small figure with one line.
 fn figure_with_line() -> (Figure, Axes, Line2D) {
@@ -194,6 +194,7 @@ fn timers_tools_and_widgets_may_use_the_figure() {
         icon: Icon::new(24.0),
         keys: Vec::new(),
         kind: ToolKind::Trigger,
+        ..ToolSpec::default()
     };
     let tool_line = line.clone();
     fig.add_tool(spec, move |event| {
@@ -226,6 +227,95 @@ fn animation_frames_may_use_the_figure() {
     });
     animation.to_gif().expect("encoded");
     assert!(frames.get() >= 2);
+}
+
+#[test]
+fn blocked_callbacks_may_use_the_figure_and_block_from_callbacks() {
+    let (fig, ax, line) = figure_with_line();
+    let initial = line.linewidth();
+    let closes = Rc::new(Cell::new(0));
+    let seen = Rc::clone(&closes);
+    fig.connect(EventKind::Close, move |_| seen.set(seen.get() + 1));
+    let (inner, inner_ax, inner_line) = (fig.clone(), ax.clone(), line.clone());
+    // A press blocks the close callbacks while it sends a close event.
+    fig.connect(EventKind::ButtonPress, move |_| {
+        inner.with_callbacks_blocked(Some(EventKind::Close), || {
+            touch(&inner_ax, &inner_line);
+            inner.process_event(&Event::Close);
+        });
+    });
+    let at = ax.data_to_display((0.5, 0.5)).expect("laid out");
+    EventSource::new().button_press(&fig, at.x, at.y, PointerButton::Left, false);
+    let drawn = fig.with_callbacks_blocked(None, || {
+        touch(&ax, &line);
+        fig.to_png().is_ok()
+    });
+    assert!(drawn);
+    fig.process_event(&Event::Close);
+    assert_eq!(closes.get(), 1, "only the unblocked close");
+    assert_eq!(line.linewidth(), initial + 2.0);
+}
+
+#[test]
+fn animations_are_paused_from_their_own_frames() {
+    let (fig, ax, line) = figure_with_line();
+    let slot: Rc<RefCell<Option<FuncAnimation>>> = Rc::default();
+    let animation: Weak<RefCell<Option<FuncAnimation>>> = Rc::downgrade(&slot);
+    let frames = Rc::new(Cell::new(0));
+    let seen = Rc::clone(&frames);
+    let playing = FuncAnimation::new(
+        &fig,
+        Frames::Endless,
+        AnimationOptions::default(),
+        move |i| {
+            touch(&ax, &line);
+            seen.set(seen.get() + 1);
+            if i == 2
+                && let Some(slot) = animation.upgrade()
+                && let Some(animation) = slot.borrow().as_ref()
+            {
+                animation.pause();
+            }
+        },
+    );
+    *slot.borrow_mut() = Some(playing);
+    fig.canvas().draw().expect("drawable");
+    let (timer, _) = fig.timers()[0];
+    assert!(fig.fire_timer(timer) && fig.fire_timer(timer));
+    assert!(!fig.fire_timer(timer), "frame 2 paused the animation");
+    assert_eq!(fig.timers(), []);
+    assert_eq!(frames.get(), 4, "the initial frame, then frames 0 to 2");
+    if let Some(animation) = slot.borrow().as_ref() {
+        animation.resume();
+    }
+    assert_eq!(fig.timers().len(), 1);
+}
+
+#[test]
+fn selectors_move_to_other_axes_from_their_callbacks() {
+    let (fig, ax, line) = figure_with_line();
+    ax.set_xlim(0.0, 1.0).expect("valid limits");
+    let other = fig.add_subplot(1, 2, 2).expect("a valid cell");
+    let span = Rc::new(SpanSelector::new(
+        &ax,
+        Orientation::Horizontal,
+        SpanSelectorOptions::default(),
+    ));
+    let (mover, target, touched) = (Rc::downgrade(&span), other.clone(), line.clone());
+    let selector_ax = ax.clone();
+    span.on_select(move |_, _| {
+        touch(&selector_ax, &touched);
+        if let Some(span) = mover.upgrade() {
+            span.new_axes(&target);
+        }
+    });
+    let from = ax.data_to_display((0.2, 0.5)).expect("laid out");
+    let to = ax.data_to_display((0.6, 0.5)).expect("laid out");
+    let mut source = EventSource::new();
+    source.button_press(&fig, from.x, from.y, PointerButton::Left, false);
+    source.motion(&fig, to.x, to.y);
+    source.button_release(&fig, to.x, to.y, PointerButton::Left);
+    assert_eq!(span.ax(), other);
 }
 
 #[test]

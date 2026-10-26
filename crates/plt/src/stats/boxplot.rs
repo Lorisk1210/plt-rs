@@ -1,7 +1,7 @@
 //! Box-and-whisker statistics (`matplotlib.cbook.boxplot_stats`).
 
-use super::StatsError;
 use super::summary::{mean, percentile_array};
+use super::{Bootstrap, StatsError};
 
 /// How far the whiskers reach.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,12 +30,16 @@ pub struct BoxplotStatsOptions {
     /// When the interquartile range is zero, extend the whiskers to the
     /// data's minimum and maximum instead.
     pub autorange: bool,
+    /// Notches from a bootstrap of the median instead of the Gaussian
+    /// approximation (`bootstrap`).
+    pub bootstrap: Option<Bootstrap>,
 }
 
 /// The statistics `Axes.bxp` draws for one dataset.
 ///
 /// The confidence interval around the median (`cilo`, `cihi`) uses the
-/// Gaussian approximation `med ∓ 1.57·IQR/√n`.
+/// Gaussian approximation `med ∓ 1.57·IQR/√n`, unless it is bootstrapped
+/// ([`BoxplotStatsOptions::bootstrap`]).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BoxStats {
     /// The dataset's label, when labels were supplied.
@@ -85,18 +89,28 @@ pub fn boxplot_stats<D: AsRef<[f64]>>(
             actual: labels.len(),
         });
     }
+    // One generator for all the datasets, as matplotlib draws every
+    // resample from numpy's global one.
+    let mut rng = opts.bootstrap.as_ref().map(Bootstrap::generator);
     datasets
         .iter()
         .enumerate()
         .map(|(i, data)| {
-            let mut stats = box_stats(data.as_ref(), opts.whis, opts.autorange)?;
+            let data = data.as_ref();
+            let mut stats = box_stats(data, opts.whis, opts.autorange)?;
             stats.label = opts.labels.as_ref().map(|labels| labels[i].clone());
+            if let (Some(bootstrap), Some(rng)) = (&opts.bootstrap, &mut rng)
+                && !data.is_empty()
+            {
+                (stats.cilo, stats.cihi) = bootstrap.median_interval(data, rng)?;
+            }
             Ok(stats)
         })
         .collect()
 }
 
-/// Box-plot statistics of one dataset (without label).
+/// Box-plot statistics of one dataset (without label), its notches from
+/// the Gaussian approximation.
 pub fn box_stats(x: &[f64], whis: Whis, autorange: bool) -> Result<BoxStats, StatsError> {
     if x.is_empty() {
         return Ok(BoxStats {
@@ -208,5 +222,42 @@ mod tests {
         let one = boxplot_stats(&[[1.0]], opts).unwrap();
         assert_eq!(one[0].label.as_deref(), Some("a"));
         assert_eq!(one[0].cilo, 1.0);
+    }
+
+    #[test]
+    fn bootstraps_replace_the_notches_dataset_after_dataset() {
+        let data = [1.0, 2.0, 4.0, 8.0, 9.0, 12.0, 20.0];
+        let bootstrap = Bootstrap {
+            resamples: 400,
+            seed: 11,
+        };
+        let opts = BoxplotStatsOptions {
+            bootstrap: Some(bootstrap),
+            ..BoxplotStatsOptions::default()
+        };
+        let both = boxplot_stats(&[&data[..], &[], &data[..]], opts.clone()).unwrap();
+        let plain = box_stats(&data, Whis::default(), false).unwrap();
+        for stats in [&both[0], &both[2]] {
+            assert_eq!(
+                (stats.q1, stats.med, stats.q3),
+                (plain.q1, plain.med, plain.q3)
+            );
+            assert!(stats.cilo <= stats.cihi);
+            assert!(stats.cilo >= 1.0 && stats.cihi <= 20.0);
+        }
+        assert!(both[1].cilo.is_nan(), "an empty dataset draws nothing");
+        let first = bootstrap.median_interval(&data, &mut bootstrap.generator());
+        assert_eq!(first, Ok((both[0].cilo, both[0].cihi)));
+        let no_resamples = BoxplotStatsOptions {
+            bootstrap: Some(Bootstrap {
+                resamples: 0,
+                seed: 0,
+            }),
+            ..opts
+        };
+        assert_eq!(
+            boxplot_stats(&[&data], no_resamples),
+            Err(StatsError::NoResamples)
+        );
     }
 }

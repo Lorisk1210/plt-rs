@@ -9,7 +9,7 @@ use super::toolbar::Tool;
 use super::{FigureWindow, Message};
 use crate::gui::GuiError;
 use crate::gui::actions;
-use crate::gui::keys::{self, KeyAction};
+use crate::gui::keys::{self, HistoryStep, KeyAction};
 use crate::navigation::{DragKey, PointerButton, Rubberband};
 
 impl FigureWindow {
@@ -71,6 +71,11 @@ impl FigureWindow {
                     self.events
                         .button_press(&self.figure, at.x, at.y, button, *click_count == 2);
                     self.navigation.press(&self.figure, at, button);
+                    match keys::history_step(button, &crate::rc::params()) {
+                        Some(HistoryStep::Back) => self.use_tool(cx, Tool::Back)?,
+                        Some(HistoryStep::Forward) => self.use_tool(cx, Tool::Forward)?,
+                        None => {}
+                    }
                 }
             }
             UiEvent::PointerUp {
@@ -194,6 +199,8 @@ fn pointer_button(button: MouseButton) -> Option<PointerButton> {
         MouseButton::Left => Some(PointerButton::Left),
         MouseButton::Middle => Some(PointerButton::Middle),
         MouseButton::Right => Some(PointerButton::Right),
-        _ => None,
+        MouseButton::Back => Some(PointerButton::Back),
+        MouseButton::Forward => Some(PointerButton::Forward),
+        MouseButton::Other(_) => None,
     }
 }

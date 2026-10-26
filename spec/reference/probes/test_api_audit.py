@@ -53,15 +53,73 @@ Ops
     keeps the default, which rotates labels longer than four characters).
 ``Axes3D.set_title``  {loc} -> the left, centre and right titles after
     ``set_title("t", loc=loc)``.
+
+The 2-D and interaction API the audit left missing; the figures are 4 × 3
+inches at 100 dpi with an Agg canvas, their axes at ``[0.25, 0.25, 0.5,
+0.5]`` (pixels 100 to 300 across, 75 to 225 up) unless noted:
+
+``Axis.pickradius``  {axis, radius} -> the default ``pickradius`` of the x
+    or y axis, then ``get_pickradius()`` and the property after
+    ``set_pickradius(radius)``.
+``Axis.contains``  {axis, radius, points} -> per display point, whether
+    ``axis.contains`` holds for a motion event there (on the whole pixel
+    below, as events are), at that pick radius.
+``Axis.pick``  {pickers, line, at} -> the picks a press at display point
+    ``at`` fires (``"xaxis"``, ``"yaxis"``, ``"line"``), the axes over
+    ``[0, 1]²`` with ``set_picker(True)`` on the axes named in ``pickers``
+    and, when ``line``, an unclipped line from ``(0.5, -0.2)`` to
+    ``(0.5, 0.5)`` with ``picker=5``.
+``LockableBbox``  {lock} -> the points of ``LockableBbox(Bbox.unit(),
+    **{lock: 2})`` and its lock, after the child moved by 10, after
+    unlocking (points and lock), after locking at 3 (points and the four
+    locks): the steps of matplotlib's ``test_lockable_bbox``.
+``SpanSelector.new_axes``  {target} -> the selections reported, whether
+    the selector's axes is the target, how many patches the target has
+    and the extents, for a horizontal selector made on the left half of
+    the figure (x from 0 to 10), moved to the right half (``"same"``, x
+    from 100 to 200) or to the whole of another figure (``"other"``, x
+    from 0 to 100), after a drag from 50 to 150 pixels in the first
+    figure, then one in the target (240 to 300 pixels, or 80 to 160).
+``Animation.pause``  {blit} -> the frames the frame function saw when the
+    animation started and stepped once, and whether its line was animated
+    then, after ``pause()`` and after ``resume()``.
+``FigureManagerBase.resize``  {} -> the size in inches of a pyplot figure
+    of the agg backend after ``manager.resize(300, 200)``.
+``MouseButton``  {} -> the name of every ``MouseButton`` as the ``keymap.*``
+    rcParams spell it (``"MouseButton.BACK"``; ``str(button)`` is the
+    number since Python 3.11), and its value.
+``ToolToggleBase``  {scenario} -> the enables and disables of toggles
+    added to a ``ToolManager``, ``[name, enabled]`` in order, and then
+    whether each is toggled: ``"radio"`` (``a`` and ``b`` in group ``g``,
+    ``c`` in none; triggering ``a``, ``c``, ``b``, ``b``) or
+    ``"default_toggled"`` (``a`` in ``g`` triggered on, then ``d`` added
+    in ``g`` with ``default_toggled``).
+``CallbackRegistry.blocked``  {signal} -> the callbacks of
+    ``button_press_event``, ``key_press_event`` and ``pick_event`` (the
+    axes has ``picker=True``) that ran for a press and a key in the axes
+    inside ``canvas.callbacks.blocked(signal=signal)``, then after it.
+``boxplot.bootstrap``  {data, bootstrap} -> for notches bootstrapped from
+    numpy's global generator, whose values no golden can hold: whether
+    ``min <= cilo <= cihi <= max``, whether the other statistics equal
+    the unbootstrapped ones, whether the notches ``boxplot(notch=True)``
+    draws lie in the data range, and how many points the box outline has.
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import cbook
+from matplotlib.animation import FuncAnimation
+from matplotlib.backend_bases import KeyEvent, MouseButton, MouseEvent
+from matplotlib.backend_managers import ToolManager
+from matplotlib.backend_tools import ToolToggleBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.collections import PathCollection, PolyCollection
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle
 from matplotlib.path import Path
+from matplotlib.transforms import Bbox, LockableBbox
+from matplotlib.widgets import SpanSelector
 from mpl_toolkits.axes_grid1 import Divider, Size, make_axes_locatable
 
 from spec_support import ProbeSet
@@ -334,3 +392,239 @@ def test_axes3d_updates():
             probes.probe("Axis3D.get_rotate_label", _rotate_label, label=label, rotate=rotate)
     for loc in ["left", "center", "right"]:
         probes.probe("Axes3D.set_title", _title_3d, loc=loc)
+
+
+def _framed():
+    """A 4 × 3 inch figure on an Agg canvas and its axes, 100 to 300 pixels
+    across and 75 to 225 up."""
+    fig = Figure(figsize=(4, 3), dpi=100)
+    canvas = FigureCanvasAgg(fig)
+    return fig, canvas, fig.add_axes([0.25, 0.25, 0.5, 0.5])
+
+
+def _pickradius(axis, radius):
+    ax = Figure().add_subplot()
+    target = getattr(ax, axis + "axis")
+    default = target.get_pickradius()
+    target.set_pickradius(radius)
+    return [default, target.get_pickradius(), target.pickradius]
+
+
+def _axis_contains(axis, radius, points):
+    fig, canvas, ax = _framed()
+    target = getattr(ax, axis + "axis")
+    target.set_pickradius(radius)
+    return [bool(target.contains(MouseEvent("motion_notify_event", canvas, x, y))[0])
+            for x, y in points]
+
+
+def _axis_pick(pickers, line, at):
+    fig, canvas, ax = _framed()
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    for name in pickers:
+        getattr(ax, name + "axis").set_picker(True)
+    names = {id(ax.xaxis): "xaxis", id(ax.yaxis): "yaxis"}
+    if line:
+        (drawn,) = ax.plot([0.5, 0.5], [-0.2, 0.5], clip_on=False, picker=5)
+        names[id(drawn)] = "line"
+    canvas.draw()
+    picks = []
+    canvas.mpl_connect("pick_event", lambda event: picks.append(names[id(event.artist)]))
+    MouseEvent("button_press_event", canvas, *at, button=1)._process()
+    return picks
+
+
+def _lockable_bbox(lock):
+    child = Bbox.unit()
+    locked = LockableBbox(child, **{lock: 2})
+    steps = [locked.get_points().tolist(), getattr(locked, "locked_" + lock)]
+    child.set_points(child.get_points() + 10)
+    steps.append(locked.get_points().tolist())
+    setattr(locked, "locked_" + lock, None)
+    steps += [locked.get_points().tolist(), getattr(locked, "locked_" + lock)]
+    setattr(locked, "locked_" + lock, 3)
+    steps += [locked.get_points().tolist(),
+              [locked.locked_x0, locked.locked_y0, locked.locked_x1, locked.locked_y1]]
+    return steps
+
+
+def _drag(canvas, x0, x1, y):
+    MouseEvent("button_press_event", canvas, x0, y, button=1)._process()
+    MouseEvent("motion_notify_event", canvas, x1, y, buttons={MouseButton.LEFT})._process()
+    MouseEvent("button_release_event", canvas, x1, y, button=1)._process()
+
+
+def _span_new_axes(target):
+    fig = Figure(figsize=(4, 3), dpi=100)
+    canvas = FigureCanvasAgg(fig)
+    left = fig.add_axes([0, 0, 0.5, 1], xlim=(0, 10))
+    selections = []
+    span = SpanSelector(left, lambda vmin, vmax: selections.append([vmin, vmax]), "horizontal")
+    if target == "same":
+        target_canvas = canvas
+        target_ax = fig.add_axes([0.5, 0, 0.5, 1], xlim=(100, 200))
+        drag = (240, 300)
+    else:
+        other = Figure(figsize=(4, 3), dpi=100)
+        target_canvas = FigureCanvasAgg(other)
+        target_ax = other.add_axes([0, 0, 1, 1], xlim=(0, 100))
+        drag = (80, 160)
+    span.new_axes(target_ax)
+    _drag(canvas, 50, 150, 150)
+    _drag(target_canvas, *drag, 150)
+    return [selections, span.ax is target_ax, len(target_ax.patches), list(span.extents)]
+
+
+def _animation_pause(blit):
+    fig = Figure(figsize=(2, 2), dpi=50)
+    canvas = FigureCanvasAgg(fig)
+    (line,) = fig.add_subplot().plot([0, 1], [0, 0])
+    frames = []
+
+    def update(i):
+        frames.append(i)
+        line.set_ydata([0, i])
+        return (line,)
+
+    animation = FuncAnimation(fig, update, frames=5, blit=blit, interval=10)
+    canvas.draw()
+    animation._step()
+    states = [line.get_animated()]
+    animation.pause()
+    states.append(line.get_animated())
+    animation.resume()
+    states.append(line.get_animated())
+    return [frames, states]
+
+
+def _manager_resize():
+    fig = plt.figure()
+    fig.canvas.manager.resize(300, 200)
+    size = fig.get_size_inches().tolist()
+    plt.close(fig)
+    return size
+
+
+def _mouse_buttons():
+    return [[f"MouseButton.{button.name}", button.value] for button in MouseButton]
+
+
+def _toggle_tools(scenario):
+    fig = Figure()
+    FigureCanvasAgg(fig)
+    manager = ToolManager(fig)
+    log = []
+
+    def toggle(name, group=None, start=False):
+        class Tool(ToolToggleBase):
+            radio_group = group
+            default_toggled = start
+
+            def enable(self, event=None):
+                log.append([self.name, True])
+
+            def disable(self, event=None):
+                log.append([self.name, False])
+
+        manager.add_tool(name, Tool)
+
+    if scenario == "radio":
+        names = ["a", "b", "c"]
+        toggle("a", "g")
+        toggle("b", "g")
+        toggle("c")
+        for name in ["a", "c", "b", "b"]:
+            manager.trigger_tool(name)
+    else:
+        names = ["a", "d"]
+        toggle("a", "g")
+        manager.trigger_tool("a")
+        toggle("d", "g", start=True)
+    return [log, [manager.get_tool(name).toggled for name in names]]
+
+
+def _callbacks_blocked(signal):
+    fig, canvas, ax = _framed()
+    ax.set_picker(True)
+    log = []
+    for name in ["button_press_event", "key_press_event", "pick_event"]:
+        canvas.mpl_connect(name, lambda event, name=name: log.append(name))
+
+    def send():
+        MouseEvent("button_press_event", canvas, 200, 150, button=1)._process()
+        KeyEvent("key_press_event", canvas, "a", 200, 150)._process()
+
+    with canvas.callbacks.blocked(signal=signal):
+        send()
+    blocked = list(log)
+    log.clear()
+    send()
+    return [blocked, log]
+
+
+def _boxplot_bootstrap(data, bootstrap):
+    stats = cbook.boxplot_stats([data], bootstrap=bootstrap)[0]
+    plain = cbook.boxplot_stats([data])[0]
+    low, high = min(data), max(data)
+    parts = Figure().add_subplot().boxplot([data], notch=True, bootstrap=bootstrap)
+    outline = parts["boxes"][0].get_ydata()
+    return [bool(low <= stats["cilo"] <= stats["cihi"] <= high),
+            [bool(stats[key] == plain[key]) for key in ("q1", "med", "q3", "whislo", "whishi")],
+            bool(low <= outline[2] <= outline[4] <= high),
+            len(outline)]
+
+
+def test_axis_pickradius():
+    for axis in ["x", "y"]:
+        for radius in [5, 0, -1]:
+            probes.probe("Axis.pickradius", _pickradius, axis=axis, radius=radius)
+    probes.probe("Axis.contains", _axis_contains, axis="x", radius=15,
+                 points=[[200, 70], [200, 60.5], [200, 59], [200, 75], [200, 230], [200, 239],
+                         [200, 241], [100, 70], [300, 70], [99, 70], [301, 70], [200, 150]])
+    probes.probe("Axis.contains", _axis_contains, axis="y", radius=4,
+                 points=[[97, 150], [96.5, 150], [95, 150], [100, 150], [303, 150], [305, 150],
+                         [97, 75], [97, 225], [97, 74], [97, 226], [200, 150]])
+    for pickers, line, at in [(["x"], False, [200, 70]), (["x", "y"], False, [90, 150]),
+                              (["x", "y"], True, [200, 70]), (["y"], False, [200, 70]),
+                              (["x", "y"], False, [90, 70])]:
+        probes.probe("Axis.pick", _axis_pick, pickers=pickers, line=line, at=at)
+
+
+def test_lockable_bbox():
+    for lock in ["x0", "y0", "x1", "y1"]:
+        probes.probe("LockableBbox", _lockable_bbox, lock=lock)
+
+
+def test_span_selector_new_axes():
+    for target in ["same", "other"]:
+        probes.probe("SpanSelector.new_axes", _span_new_axes, target=target)
+
+
+def test_animation_pause():
+    for blit in [False, True]:
+        probes.probe("Animation.pause", _animation_pause, blit=blit)
+
+
+def test_manager_resize():
+    probes.probe("FigureManagerBase.resize", _manager_resize)
+
+
+def test_mouse_buttons():
+    probes.probe("MouseButton", _mouse_buttons)
+
+
+def test_toggle_tools():
+    for scenario in ["radio", "default_toggled"]:
+        probes.probe("ToolToggleBase", _toggle_tools, scenario=scenario)
+
+
+def test_callbacks_blocked():
+    for signal in [None, "button_press_event", "key_press_event", "pick_event"]:
+        probes.probe("CallbackRegistry.blocked", _callbacks_blocked, signal=signal)
+
+
+def test_boxplot_bootstrap():
+    data = [1, 2, 4, 8, 9, 12, 20, 3, 5]
+    for bootstrap in [500, 1, 0]:
+        probes.probe("boxplot.bootstrap", _boxplot_bootstrap, data=data, bootstrap=bootstrap)
+    probes.probe("boxplot.bootstrap", _boxplot_bootstrap, data=[3, 3, 3], bootstrap=20)

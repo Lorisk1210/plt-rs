@@ -20,6 +20,9 @@ pub(super) struct Entry {
     pub(super) figure: Figure,
     /// The title its manager gave its window, if any.
     pub(super) window_title: Option<String>,
+    /// The canvas size in physical pixels its manager asked for, until
+    /// the figure is next shown.
+    pub(super) requested_size: Option<(u32, u32)>,
 }
 
 impl Entry {
@@ -30,6 +33,7 @@ impl Entry {
             label,
             figure,
             window_title: None,
+            requested_size: None,
         }
     }
 

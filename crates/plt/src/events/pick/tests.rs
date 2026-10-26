@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use super::*;
 use crate::artist::Picker;
-use crate::axes::Axes;
+use crate::axes::{Axes, AxisName};
 use crate::events::{EventKind, EventSource, LockOwner};
 use crate::lines::{DrawStyle, LineStyle};
 use crate::navigation::PointerButton;
@@ -147,4 +147,93 @@ fn other_axes_are_skipped_and_picks_come_before_presses() {
     fig.lock_widgets(LockOwner::new()).unwrap();
     EventSource::new().button_press(&fig, 160.0, 240.0, PointerButton::Left, false);
     assert_eq!(*order.borrow(), ["pick", "press", "press"]);
+}
+
+/// The picks a press at `(x, y)` fires, as (artist id, axis).
+fn axis_picks_at(fig: &Figure, x: f64, y: f64) -> Vec<(ArtistId, Option<AxisName>)> {
+    let picked = Rc::new(RefCell::new(Vec::new()));
+    let log = Rc::clone(&picked);
+    let id = fig.connect(EventKind::Pick, move |event| {
+        if let Event::Pick(pick) = event {
+            assert_eq!(pick.picked_axis().map(|axis| axis.name()), pick.axis);
+            log.borrow_mut().push((pick.artist.id(), pick.axis));
+        }
+    });
+    EventSource::new().button_press(fig, x, y, PointerButton::Left, false);
+    fig.disconnect(id);
+    picked.take()
+}
+
+#[test]
+fn axes_are_picked_in_bands_outside_the_axes_after_its_children() {
+    let fig = Figure::new();
+    // 64 to 576 pixels across, 48 to 432 up.
+    let ax = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
+    assert_eq!(axis_picks_at(&fig, 320.0, 40.0), [], "not pickable yet");
+    ax.xaxis().set_picker(Some(Picker::Default));
+    ax.yaxis().set_picker(Some(Picker::Radius(1.0)));
+    let x = (ax.id(), Some(AxisName::X));
+    let y = (ax.id(), Some(AxisName::Y));
+    assert_eq!(axis_picks_at(&fig, 320.0, 40.0), [x], "below");
+    assert_eq!(axis_picks_at(&fig, 320.0, 440.0), [x], "above");
+    assert_eq!(axis_picks_at(&fig, 320.0, 30.0), [], "beyond 15 pixels");
+    assert_eq!(
+        axis_picks_at(&fig, 55.0, 240.0),
+        [y],
+        "the pick radius applies"
+    );
+    assert_eq!(axis_picks_at(&fig, 320.0, 240.0), [], "inside");
+    assert_eq!(
+        axis_picks_at(&fig, 60.0, 40.0),
+        [],
+        "the corner: off both spans"
+    );
+
+    // An unclipped line reaching below the axes is picked first.
+    let line = ax.plot([0.5, 0.5], [-0.05, 0.5]).unwrap();
+    ax.set_xlim(0.0, 1.0)
+        .and_then(|ax| ax.set_ylim(0.0, 1.0))
+        .expect("finite limits");
+    line.set_clip_on(false);
+    line.set_picker(Some(Picker::Default));
+    assert_eq!(axis_picks_at(&fig, 320.0, 40.0), [(line.id(), None), x]);
+    line.set_picker(None);
+
+    ax.xaxis().set_pickradius(30.0).unwrap();
+    assert_eq!(axis_picks_at(&fig, 320.0, 30.0), [x]);
+    ax.xaxis().set_picker(Some(Picker::custom(|axes, _| {
+        assert!(
+            Axes::from_raw(axes.clone()).xaxis().pickable(),
+            "given the axes"
+        );
+        Some(vec![4])
+    })));
+    assert_eq!(
+        axis_picks_at(&fig, 320.0, 240.0),
+        [x],
+        "the custom test decides"
+    );
+    ax.xaxis().set_picker(None);
+    assert_eq!(axis_picks_at(&fig, 320.0, 40.0), []);
+}
+
+#[test]
+fn axis_picks_are_not_picks_of_their_axes() {
+    let fig = Figure::new();
+    let ax = fig
+        .add_axes([0.1, 0.1, 0.8, 0.8])
+        .expect("a valid rectangle");
+    ax.xaxis().set_picker(Some(Picker::Default));
+    let seen = Rc::new(RefCell::new(Vec::new()));
+    let log = Rc::clone(&seen);
+    let picked = ax.clone();
+    fig.connect(EventKind::Pick, move |event| {
+        if let Event::Pick(pick) = event {
+            log.borrow_mut().push((pick.is(&picked), pick.ind.clone()));
+        }
+    });
+    EventSource::new().button_press(&fig, 320.0, 40.0, PointerButton::Left, false);
+    assert_eq!(*seen.borrow(), [(false, vec![])]);
 }

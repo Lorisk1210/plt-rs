@@ -2,7 +2,9 @@
 //! flipped, spans repeated or deleted, tables lying about their contents
 //! and tails cut, through `plt_font` directly (parsing, outlines,
 //! hinting, shaping, subsetting) and through figures drawing text in
-//! them to every format; and corrupted AFM files.
+//! them to every format; corrupted AFM files; and corrupted Type 1 fonts
+//! and private dictionaries (parsing, slanting, re-encoding, subsetting
+//! and glyph outlines).
 
 use std::path::{Path, PathBuf};
 
@@ -11,7 +13,8 @@ use plt::fonts::{FontManager, FontProperties};
 use plt::rc::RcParams;
 use plt_font::{
     AfmMetrics, AutohintTarget, Autohinter, Face, FontChain, GlyphId, Hinting, HintingInstance,
-    OutlineRecorder, ShapeOptions, Size, face_count, shape, subset,
+    OutlineRecorder, ShapeOptions, Size, Type1Cipher, Type1Effects, Type1Encoding, Type1Face,
+    Type1Font, Type1Parts, face_count, shape, subset,
 };
 use plt_text::{FontDatabase, FontQuery, FontRequest, TextEngine, bundled_font_data};
 
@@ -305,6 +308,100 @@ fn corrupted_afm_files() {
                     metrics.kern_dist_from_name("A", "V"),
                 );
                 let _ = (metrics.char_by_code(65), metrics.composite("Aacute"));
+            }
+        },
+    );
+}
+
+/// The Type 1 fixtures of `plt-font`'s tests.
+fn type1_corpus() -> Vec<Font> {
+    ["cmr10.pfb", "Courier10PitchBT-Bold.pfb"]
+        .map(|name| {
+            let path = font_fixture(&format!("type1/{name}"));
+            (
+                name,
+                std::fs::read(path).expect("a plt-font Type 1 fixture"),
+            )
+        })
+        .into()
+}
+
+/// Every reading and rewriting of a Type 1 font: matplotlib's edits for
+/// the PDF backend, and `FreeType`'s face with some of its glyphs.
+fn exercise_type1(font: &Type1Font) {
+    let _ = font.transform(Type1Effects {
+        slant: Some(0.167),
+        extend: Some(1.2),
+    });
+    let _ = font.with_encoding(&Type1Encoding::from_codes([(65, "Gamma".to_owned())]));
+    let _ = font.subset(SAMPLE.chars().map(u32::from), "ABCDEF+");
+    let Ok(face) = Type1Face::new(font) else {
+        return;
+    };
+    let _ = (
+        face.encoding_vector(),
+        face.max_advance_width(),
+        face.glyph_index("A"),
+    );
+    let glyphs = face.num_glyphs();
+    let size = face.size(100.0, 72.0);
+    for glyph in (0..glyphs.min(24)).chain((0..glyphs).step_by(53)) {
+        if let Ok(loaded) = face.load_glyph(GlyphId(glyph)) {
+            let mut sink = OutlineRecorder::default();
+            loaded.scaled(0x1_8000, 0x1_8000).outline(&mut sink);
+        }
+        if let Ok(hinted) = face.load_glyph_hinted(GlyphId(glyph), &size) {
+            hinted.outline(&mut OutlineRecorder::default());
+        }
+    }
+}
+
+#[test]
+fn corrupted_type1_fonts() {
+    let corpus = type1_corpus();
+    fuzz(
+        "type1 fonts",
+        300,
+        |g| {
+            let font = g.below(corpus.len());
+            (corpus[font].0, font, g.corrupt(&corpus[font].1))
+        },
+        |(_, font, corruption)| {
+            if let Ok(font) = Type1Font::from_bytes(&corruption.apply(&corpus[*font].1)) {
+                exercise_type1(&font);
+            }
+        },
+    );
+}
+
+/// Corruption of the decrypted private part, which reaches the
+/// dictionaries and charstrings in the clear (a corrupted file only
+/// reaches them through the cipher).
+#[test]
+fn corrupted_type1_private_dictionaries() {
+    let fonts: Vec<(&str, Type1Font)> = type1_corpus()
+        .into_iter()
+        .map(|(name, data)| (name, Type1Font::from_bytes(&data).expect("a fixture")))
+        .collect();
+    fuzz(
+        "type1 private dictionaries",
+        300,
+        |g| {
+            let font = g.below(fonts.len());
+            (fonts[font].0, font, g.corrupt(fonts[font].1.decrypted()))
+        },
+        |(_, font, corruption)| {
+            let source = &fonts[*font].1;
+            let parts = Type1Parts {
+                cleartext: source.parts().cleartext.clone(),
+                encrypted: Type1Font::encrypt(
+                    &corruption.apply(source.decrypted()),
+                    Type1Cipher::Eexec,
+                ),
+                finale: source.parts().finale.clone(),
+            };
+            if let Ok(font) = Type1Font::from_parts(parts) {
+                exercise_type1(&font);
             }
         },
     );

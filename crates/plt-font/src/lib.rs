@@ -29,6 +29,12 @@
 //! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
 //!   Metrics and its AFM parser, with the bundled metrics of the 14 PDF
 //!   core fonts, for text measured and drawn in standard PostScript fonts.
+//! * [`Type1Font`] / [`Type1Face`] — PostScript Type 1 fonts
+//!   (`.pfa`/`.pfb`), the fonts of TeX and `text.usetex`: matplotlib's
+//!   `_type1font` (parsing, slanting, extending, re-encoding and subsetting
+//!   for embedding) and FreeType's Type 1 driver (glyph names and indices,
+//!   metrics, and outlines from its Adobe charstring engine, hinted or
+//!   not).
 #![forbid(unsafe_code)]
 
 mod afm;
@@ -48,6 +54,7 @@ mod sfnt;
 mod shape;
 mod subset;
 mod tables;
+mod type1;
 mod types;
 
 pub use afm::{
@@ -82,4 +89,9 @@ pub use tables::name::{NameEntry, NameKey};
 pub use tables::os2::{Os2, ScriptMetrics};
 pub use tables::pclt::Pclt;
 pub use tables::post::Post;
+pub use type1::{
+    Abbreviations, CharStrings, Program, PsNumber, PsToken, PsTokenKind, PsValue, Type1Cipher,
+    Type1Effects, Type1Encoding, Type1Error, Type1Face, Type1Font, Type1Glyph, Type1Parts,
+    Type1Properties, Type1Section, ps_tokenize,
+};
 pub use types::{Direction, GlyphId, Rect, Tag};

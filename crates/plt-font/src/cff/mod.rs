@@ -15,7 +15,7 @@ use crate::types::GlyphId;
 
 use charstring::{Subrs, interpret};
 use index::{CFF, Index, Operator, dict_get, dict_usize, parse_dict};
-use strings::{STANDARD_ENCODING, STANDARD_STRINGS};
+pub(crate) use strings::{STANDARD_ENCODING, STANDARD_STRINGS};
 
 const OP_CHARSET: Operator = 15;
 const OP_CHARSTRINGS: Operator = 17;

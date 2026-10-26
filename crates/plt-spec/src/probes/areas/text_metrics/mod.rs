@@ -17,7 +17,7 @@ pub(crate) use args::{
     apply_text_kw, font_dict, font_properties, rc_text, rotation, weight, with_rc,
 };
 pub(crate) use fonts::{findfont, font_properties_op, parse_fontconfig_pattern, properties_json};
-pub(crate) use glyphs::{bundled_font, database, load_glyph};
+pub(crate) use glyphs::{PathCodes, bundled_font, database, load_glyph};
 
 use crate::probes::Op;
 

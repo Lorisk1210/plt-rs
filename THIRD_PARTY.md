@@ -13,9 +13,9 @@ The full texts are in [`LICENSES/`](LICENSES):
 
 | Project | Licence (text) | Ported into |
 |---|---|---|
-| matplotlib 3.11 | Matplotlib License, PSF-based (`matplotlib.txt`) | the figure model, artists, layout engines, ticker, scales, styles, colormaps, mathtext and backends (`plt`, `plt-text`, `plt-render`) |
+| matplotlib 3.11 | Matplotlib License, PSF-based (`matplotlib.txt`) | the figure model, artists, layout engines, ticker, scales, styles, colormaps, mathtext and backends (`plt`, `plt-text`, `plt-render`), and the Type 1 font reader and editor of `_type1font` (`crates/plt-font/src/type1`) |
 | Anti-Grain Geometry 2.4 | Agg 2.4 notice (`agg.txt`) | the rasterizer, stroker, dashes, compositing and image resampling (`plt-raster`, `crates/plt/src/image`) |
-| FreeType 2.14 | FTL or GPL-2.0-or-later; plt-rs uses the FTL (`matplotlib.txt`, "FreeType") | the TrueType bytecode interpreter (`crates/plt-font/src/hinting`), the autohinter (`crates/plt-font/src/autofit`), glyph loading, and the monochrome rasterizer (`crates/plt-render/src/raster/mono`) |
+| FreeType 2.14 | FTL or GPL-2.0-or-later; plt-rs uses the FTL (`matplotlib.txt`, "FreeType") | the TrueType bytecode interpreter (`crates/plt-font/src/hinting`), the autohinter (`crates/plt-font/src/autofit`), glyph loading, the Type 1 driver and the Adobe charstring engine (`crates/plt-font/src/type1/face`, `crates/plt-font/src/type1/cf2`), and the monochrome rasterizer (`crates/plt-render/src/raster/mono`) |
 | HarfBuzz 14 | MIT-Modern-Variant (`matplotlib.txt`, "HarfBuzz") | OpenType shaping and layout tables (`crates/plt-font/src/shape`, `crates/plt-font/src/layout`); the BCP 47 to OpenType language tag table `crates/plt-font/src/layout/ot_tags/tables.rs`, generated from HarfBuzz's `hb-ot-tag-table.hh` (itself built from the IANA Language Subtag Registry and Microsoft's OpenType language tag list) |
 | libraqm | MIT (`matplotlib.txt`, "libraqm") | text run layout (`crates/plt-font/src/shape`, `plt-text`) |
 | Qhull | Qhull licence (`matplotlib.txt`, "QHull") | Delaunay triangulation (`crates/plt/src/tri/delaunay`) |
@@ -55,6 +55,8 @@ engine, windowing layer and conformance suite.
 | Adobe Core 14 font metrics (`*.afm`) | Adobe's notice in `readme.txt`: copy and distribute with the notices kept and the readme alongside | `crates/plt-font/fonts/pdfcorefonts` |
 | Last Resort HE font | SIL OFL 1.1 (`matplotlib.txt`, "Last Resort fonts") | `crates/plt-font/fonts` |
 | Inter font (Regular, Italic, SemiBold, Bold, Bold Italic), the typeface of plt-rs' modern look | SIL OFL 1.1 | `crates/plt-font/fonts/LICENSE_INTER` |
+| Computer Modern Type 1 font `cmr10.pfb` by the American Mathematical Society, a test fixture (from matplotlib's test data) | SIL OFL 1.1 (`amsfonts.txt`) | `crates/plt-font/tests/fixtures/type1` (with `LICENSE_AMSFONTS`) |
+| Courier 10 Pitch BT Bold Type 1 font `Courier10PitchBT-Bold.pfb` by Bitstream, a test fixture (from matplotlib's test data) | Bitstream's licence for its donated Charter and Courier Type 1 fonts: use, copy, modify and redistribute with the notice kept (`courierten.txt`) | `crates/plt-font/tests/fixtures/type1` (with `LICENSE_COURIERTEN`) |
 | ColorBrewer colour schemes | Apache-2.0 (`matplotlib.txt`, "ColorBrewer Color Schemes") | `crates/plt/src/colors/colormaps` |
 | Yorick colormaps (`gist_*`) | Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | `crates/plt/src/colors/colormaps` |
 | Solarized palette (`Solarize_Light2`) | MIT (`matplotlib.txt`, "Solarized") | `crates/plt/src/style` |

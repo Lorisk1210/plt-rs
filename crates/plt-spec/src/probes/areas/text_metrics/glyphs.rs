@@ -31,7 +31,7 @@ pub(crate) fn bundled_font(file: &str) -> Result<FontId, ProbeError> {
 /// in 1/64 pixel, with a `CLOSEPOLY` before every contour but the first
 /// and after the last.
 #[derive(Default)]
-struct PathCodes(Vec<Json>);
+pub(crate) struct PathCodes(Vec<Json>);
 
 impl PathCodes {
     fn push(&mut self, code: f64, x: f32, y: f32) {
@@ -43,7 +43,7 @@ impl PathCodes {
         ]));
     }
 
-    fn finish(mut self) -> Json {
+    pub(crate) fn finish(mut self) -> Json {
         if !self.0.is_empty() {
             self.push(79.0, 0.0, 0.0);
         }

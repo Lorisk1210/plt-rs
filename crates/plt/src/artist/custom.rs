@@ -80,11 +80,21 @@ impl<A: Artist> Custom<A> {
     }
 
     /// Reads the artist.
+    ///
+    /// # Panics
+    ///
+    /// When `f` changes the figure through another handle: the figure is
+    /// borrowed while `f` runs. Reading other artists is fine.
     pub fn with<R>(&self, f: impl FnOnce(&A) -> R) -> R {
         self.raw.with(f)
     }
 
     /// Changes the artist; the figure is drawn again with it.
+    ///
+    /// # Panics
+    ///
+    /// When `f` uses any handle of the same figure, even to read: the
+    /// figure is mutably borrowed while `f` runs.
     pub fn with_mut<R>(&self, f: impl FnOnce(&mut A) -> R) -> R {
         self.raw.with_mut(f)
     }

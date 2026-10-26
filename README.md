@@ -53,8 +53,17 @@ web browser instead, like matplotlib's WebAgg backend, and prints their
 address; on an X11 system without a display it shows nothing, as
 matplotlib falls back to `agg`. `MPLBACKEND=webagg` (or
 `plt::switch_backend(Backend::WebAgg)`) picks the browser everywhere (a
-remote machine, WSL), and `plt::web::serve(&[fig], &WebOptions::from_rc()?)`
+remote machine, WSL), and `plt::web::serve(&[fig], WebOptions::from_rc()?)`
 does it without pyplot.
+
+## New to matplotlib
+
+The `plt::tutorial` module of the API documentation (`cargo doc -p plt
+--open`) teaches plotting with plt-rs from the ground up, in Rust terms:
+a first plot, the parts of a figure and the handles that reach them,
+plot types, data and option structs, styling, layout, text, scales and
+dates, output formats, interactive figures, extending plt-rs and testing
+your figures. Every example in it runs as a doctest.
 
 ## Coming from matplotlib
 

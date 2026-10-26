@@ -48,6 +48,8 @@
 //! set already, so doctests and examples see no configuration from the
 //! home directory either.
 
+#[cfg(test)]
+mod fuzz_tests;
 mod lookup;
 
 use std::fmt;

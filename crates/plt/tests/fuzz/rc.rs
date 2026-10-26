@@ -63,7 +63,7 @@ fn rc_values() {
 
 /// Draws a small figure with lines, markers, bars, text, mathtext, an
 /// image, a colorbar and a legend.
-fn draw_standard_figure(format: SaveFormat) {
+pub(crate) fn draw_standard_figure(format: SaveFormat) {
     let fig = Figure::with_size(2.0, 1.5, 40.0);
     let ax = fig.subplot();
     let line = LineProps::default().label("a");
@@ -152,32 +152,31 @@ fn style_sheets() {
     );
 }
 
+/// The text of an rc file: assignments to random rcParams (some without a
+/// colon, some soups of punctuation), one per line.
+pub(crate) fn rc_text(g: &mut Gen) -> String {
+    let defaults = RcParams::matplotlib();
+    let lines = g.len(8);
+    let mut text = String::new();
+    for _ in 0..lines {
+        let key = g.pick(RcParams::KEYS);
+        let value = value_for(g, &defaults, key);
+        let line = match g.below(6) {
+            0 => g.soup(&[":", "#", "\"", " ", "\t", "key", "\\"], 8),
+            1 => format!("{key} {value}"),
+            _ => format!("{key}: {value}"),
+        };
+        text.push_str(&line);
+        text.push(g.pick(&['\n', '\n', '\r']));
+    }
+    text
+}
+
 #[test]
 fn rc_files() {
-    fuzz(
-        "rc files",
-        5_000,
-        |g| {
-            let defaults = RcParams::matplotlib();
-            let lines = g.len(8);
-            let mut text = String::new();
-            for _ in 0..lines {
-                let key = g.pick(RcParams::KEYS);
-                let value = value_for(g, &defaults, key);
-                let line = match g.below(6) {
-                    0 => g.soup(&[":", "#", "\"", " ", "\t", "key", "\\"], 8),
-                    1 => format!("{key} {value}"),
-                    _ => format!("{key}: {value}"),
-                };
-                text.push_str(&line);
-                text.push(g.pick(&['\n', '\n', '\r']));
-            }
-            text
-        },
-        |text| {
-            let _ = parse_rc_text(text);
-            let _ = RcFile::parse(text);
-            let _ = RcParams::matplotlib().apply_rc_text(text);
-        },
-    );
+    fuzz("rc files", 5_000, rc_text, |text| {
+        let _ = parse_rc_text(text);
+        let _ = RcFile::parse(text);
+        let _ = RcParams::matplotlib().apply_rc_text(text);
+    });
 }

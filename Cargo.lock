@@ -39,6 +39,7 @@ name = "plt-platform"
 version = "0.1.0"
 dependencies = [
  "plt-codec",
+ "plt-core",
 ]
 
 [[package]]

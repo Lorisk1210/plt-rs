@@ -10,7 +10,7 @@ use std::io::{self, BufRead, Read, Write};
 pub(crate) const MAX_HEAD: usize = 16 * 1024;
 
 /// The most header fields a request may have.
-const MAX_HEADERS: usize = 64;
+pub(crate) const MAX_HEADERS: usize = 64;
 
 /// A request method the server distinguishes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

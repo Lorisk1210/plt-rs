@@ -466,7 +466,7 @@ type Running = Arc<Mutex<Option<(u64, String, Instant)>>>;
 /// Runs a watchdog over `running` until `done` hangs up: an input running
 /// longer than `limit` is reported as a hang and the process ends, since
 /// a thread stuck in a loop cannot be stopped.
-#[expect(
+#[allow(
     clippy::print_stderr,
     reason = "the watchdog's report is the only output of a hanging test"
 )]
@@ -488,7 +488,7 @@ fn watch(name: &str, running: &Running, done: &Receiver<()>, limit: Duration) {
 }
 
 /// Prints the seed and input about to run.
-#[expect(
+#[allow(
     clippy::print_stderr,
     reason = "tracing names the input that kills the process"
 )]
@@ -497,7 +497,7 @@ fn trace(name: &str, seed: u64, input: &str) {
 }
 
 /// Prints how long target `name` took and its slowest input.
-#[expect(
+#[allow(
     clippy::print_stderr,
     reason = "the statistics are asked for to tune the budgets"
 )]

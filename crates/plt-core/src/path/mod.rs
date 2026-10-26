@@ -40,6 +40,13 @@ pub use polygons::PolygonOptions;
 use crate::bezier::Bezier;
 use crate::{Affine2D, Bbox, Point};
 
+/// The most vertices [`Path::interpolated`] makes: a path of more
+/// segments is cut into fewer pieces each, down to none, so that the
+/// subdivision curved projections apply to every path (75 pieces a
+/// segment on maps) cannot grow a long path beyond memory. matplotlib
+/// subdivides whatever the length.
+pub const MAX_INTERPOLATED_VERTICES: usize = 1 << 22;
+
 /// The instruction attached to each vertex, with matplotlib's numeric values.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
@@ -402,9 +409,16 @@ impl Path {
 
     /// Subdivides every segment into `steps` straight pieces by linear
     /// interpolation of the vertices (matplotlib's `Path.interpolated`, with
-    /// `numpy.interp`'s arithmetic).
+    /// `numpy.interp`'s arithmetic), or into fewer when that would make
+    /// more than [`MAX_INTERPOLATED_VERTICES`] vertices.
     #[must_use]
     pub fn interpolated(&self, steps: usize) -> Self {
+        let steps = steps.min(MAX_INTERPOLATED_VERTICES / self.len().max(1));
+        self.subdivided(steps)
+    }
+
+    /// [`Path::interpolated`] without the limit.
+    fn subdivided(&self, steps: usize) -> Self {
         if steps <= 1 || self.is_empty() {
             return self.clone();
         }
@@ -413,7 +427,7 @@ impl Path {
             let parts: Vec<Self> = self
                 .subpaths()
                 .iter()
-                .map(|p| p.interpolated(steps))
+                .map(|p| p.subdivided(steps))
                 .collect();
             return Self::compound(&parts);
         }

@@ -131,3 +131,30 @@ fn dragging_the_thumb_scrolls() {
     assert!(long.scroll < 50.0, "a press above the thumb pages up");
     assert!(messages.is_empty(), "the scroll bar selects nothing");
 }
+
+#[test]
+fn pages_of_rows_a_hair_high_end_at_the_last_row() {
+    // Found by fuzzing: at a vanishing scale factor, a page held more
+    // rows than a `usize` counts.
+    let mut long = list(20);
+    long.metrics.row_height = 1e-300;
+    long.set_selected(Some(3));
+    let rect = Rect::new(0.0, 0.0, 100.0, 50.0);
+    let mut messages = Vec::new();
+    let mut cx = EventCx::new(&mut messages);
+    long.event(&mut cx, &press(Key::PageDown, None), rect);
+    assert_eq!(long.selected(), Some(19));
+    long.event(&mut cx, &press(Key::PageUp, None), rect);
+    assert_eq!(long.selected(), Some(0));
+}
+
+#[test]
+fn lists_paint_at_a_vanishing_scale_factor() {
+    // Found by fuzzing the figure windows: rows of 1e-300 pixels, more
+    // of them fitting than a `usize` counts.
+    let items = (0..3).map(|i| ListItem::new(format!("row {i}"))).collect();
+    let list = List::new(items, |row: usize| row);
+    let size = plt_platform::PhysicalSize::new(200, 100);
+    let mut ui = crate::Ui::new(list, size, 1e-300).unwrap();
+    assert!(ui.paint().is_ok());
+}

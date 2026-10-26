@@ -5,6 +5,7 @@
 
 use std::f64::consts::TAU;
 
+use plt_core::path::MAX_INTERPOLATED_VERTICES;
 use plt_core::{Path, PathCode, Point};
 
 use crate::transforms::PointMap;
@@ -168,10 +169,15 @@ impl PointMap for PolarMap {
     /// matplotlib's `transform_path_non_affine`: paths with more than one
     /// interpolation step follow the circle, or, inside a polygon frame,
     /// are cut into as many straight pieces per segment as the polygon
-    /// has vertices (the radar example's `RadarTransform`).
+    /// has vertices (the radar example's `RadarTransform`). Spirals are
+    /// cut into fewer pieces where the path's steps would make more than
+    /// [`MAX_INTERPOLATED_VERTICES`] vertices, as [`Path::interpolated`]
+    /// cuts the segments of a polygon frame.
     fn transform_path(&self, path: &Path) -> Path {
-        let steps = path.interpolation_steps();
-        if path.is_empty() || steps == 1 {
+        let steps = path
+            .interpolation_steps()
+            .min(MAX_INTERPOLATED_VERTICES / path.len().max(1));
+        if path.is_empty() || steps <= 1 {
             return self.straight_path(path);
         }
         match self.polygon {
@@ -205,5 +211,22 @@ mod tests {
         ] {
             assert!(arc(from, to) < 100_000, "{from} to {to}");
         }
+    }
+
+    #[test]
+    fn spirals_stay_within_the_vertex_limit() {
+        // The steps a path asks for (`set_interpolation_steps`) cut every
+        // spiral segment into that many pieces, past the memory or the
+        // capacity of a vector.
+        let spiral: Vec<Point> = (0..1000)
+            .map(|i| Point::new(f64::from(i) * 0.1, 1.0 + f64::from(i)))
+            .collect();
+        for steps in [1_000_000, usize::MAX] {
+            let path = Path::polyline(spiral.clone()).with_interpolation_steps(steps);
+            let mapped = PolarMap::PLAIN.transform_path(&path);
+            assert!(mapped.len() <= MAX_INTERPOLATED_VERTICES, "{steps} steps");
+        }
+        let one = Path::polyline(spiral[..2].to_vec()).with_interpolation_steps(5);
+        assert_eq!(PolarMap::PLAIN.transform_path(&one).len(), 6);
     }
 }

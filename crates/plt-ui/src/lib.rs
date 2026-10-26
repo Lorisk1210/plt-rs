@@ -79,6 +79,16 @@ mod widget;
 mod widgets;
 mod window;
 
+/// The harness of plt's fuzz tests (`crates/plt/tests/fuzz`), driving the
+/// unit tests that fuzz the widgets with random input.
+#[cfg(test)]
+#[allow(
+    dead_code,
+    reason = "plt's fuzz tests use every generator, these unit tests only some"
+)]
+#[path = "../../plt/tests/fuzz/harness.rs"]
+mod fuzz;
+
 pub use canvas::Canvas;
 pub use error::UiError;
 pub use event::UiEvent;

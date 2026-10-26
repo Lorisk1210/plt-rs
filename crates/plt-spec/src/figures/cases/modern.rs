@@ -20,9 +20,9 @@ use plt::mplot3d::SurfaceOptions;
 use plt::numeric::{Grid, meshgrid};
 use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::table::{TableLoc, TableOptions};
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
+use plt::text::AnnotateOptions;
 use plt_core::Point;
 
 use super::common::{face_cmap, map, padded, strings};
@@ -141,10 +141,7 @@ fn histogram(fig: &Figure) -> CaseResult {
     ];
     for (sample, label) in samples {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(30)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(30)),
             props: PatchProps::default().alpha(0.7).label(label),
             ..HistPlotOptions::default()
         };
@@ -237,7 +234,7 @@ fn annotations(fig: &Figure) -> CaseResult {
     ax.errorbar(&x, &y, errors)?;
     let arrow = AnnotateOptions {
         xytext: Some(Point::new(2.5, -0.8).into()),
-        arrowprops: Some(ArrowProps::Fancy("->".parse::<FancyArrowProps>()?)),
+        arrowprops: Some("->".parse()?),
         ..AnnotateOptions::default()
     };
     ax.annotate("first trough", Point::new(x[3], y[3]), arrow)?;

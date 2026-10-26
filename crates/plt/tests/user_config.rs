@@ -14,7 +14,7 @@ use std::thread;
 
 use plt::lines::LineProps;
 use plt::prelude::*;
-use plt::rc::RcWarningKind;
+use plt::rc::{RcError, RcWarningKind};
 use plt::{config, rc, style, testing};
 
 /// What a part of the child test returns.
@@ -106,7 +106,8 @@ fn threads_start_from_the_rc_file(config: &Path) -> Outcome {
 fn the_style_library_holds_the_user_sheets(config: &Path) -> Outcome {
     assert_eq!(style::user_library_paths(), [config.join("stylelib")]);
     assert!(style::available().contains(&"mine".to_owned()));
-    let classic_width = style::context("classic", || rc::params().lines_linewidth)?;
+    let classic_width =
+        style::context("classic", || Ok::<_, RcError>(rc::params().lines_linewidth))?;
     assert_eq!(classic_width, 7.0, "the user sheet adds to the bundled one");
     let in_new_thread = thread::spawn(|| style::sheet("mine").is_some()).join();
     assert_eq!(in_new_thread.ok(), Some(true));
@@ -132,7 +133,8 @@ fn testing_ignores_the_configuration() -> Outcome {
     assert_ne!(line_png()?, configured, "the rc file's line was wider");
     assert_eq!(style::user_library_paths(), Vec::<PathBuf>::new());
     assert!(!style::available().contains(&"mine".to_owned()));
-    let classic_width = style::context("classic", || rc::params().lines_linewidth)?;
+    let classic_width =
+        style::context("classic", || Ok::<_, RcError>(rc::params().lines_linewidth))?;
     assert_eq!(classic_width, 1.0);
     let in_new_thread = thread::spawn(|| {
         let user_sheet = style::sheet("mine").is_some();

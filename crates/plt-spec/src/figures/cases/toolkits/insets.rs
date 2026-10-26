@@ -15,7 +15,7 @@ use plt::numeric::{Grid, linspace};
 use plt::offsetbox::{AnchorLoc, BboxToAnchor};
 use plt::patches::PatchProps;
 use plt::prelude::ArtistHandle;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use super::field;
 use crate::figures::CaseResult;
@@ -59,10 +59,7 @@ pub(super) fn inset_locator(fig: &Figure) -> CaseResult {
         },
     );
     let histogram = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(20)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(20)),
         color: vec![Color::from("0.4")],
         ..HistPlotOptions::default()
     };

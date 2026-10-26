@@ -1,13 +1,10 @@
 //! Colour: colormap families, normalisations, colorbar extensions and
 //! the ink of the dark look.
 
-use plt::axes::{ErrorbarOptions, ImshowOptions, Mesh, PcolorOptions};
-use plt::colorbar::{ColorbarOptions, ExtendFrac};
-use plt::colors::{
-    BoundaryNorm, ColorizerOptions, Extend, LogNorm, SymLogNorm, TwoSlopeNorm, colormaps,
-};
+use plt::axes::{Mesh, PcolorOptions};
+use plt::colorbar::ExtendFrac;
+use plt::colors::{BoundaryNorm, ColorizerOptions, Extend, LogNorm, SymLogNorm, TwoSlopeNorm};
 use plt::figure::SubfigureOptions;
-use plt::numeric::{Grid, linspace, meshgrid};
 use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::quiver::{QuiverOptions, VectorField};
@@ -193,7 +190,7 @@ fn colorbar_extensions() -> Built {
 /// key, which matplotlib draws in black, follow `plt.ink` and stay
 /// visible on the charcoal background.
 fn ink_dark() -> Built {
-    style::context("plt-modern-dark", || -> Built {
+    style::context("plt-modern-dark", || {
         let fig = Figure::with_size(8.0, 3.8, 100.0);
         let axs = fig.subplots(1, 2)?;
         let bars = BarOptions {
@@ -221,5 +218,5 @@ fn ink_dark() -> Built {
         axs[(0, 1)].set_aspect(Aspect::Equal)?;
         axs[(0, 1)].set_title("quiver");
         Ok(fig)
-    })?
+    })
 }

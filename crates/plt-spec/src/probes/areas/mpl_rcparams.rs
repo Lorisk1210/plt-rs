@@ -7,7 +7,7 @@ use plt::figure::Figure;
 use plt::legend::LegendOptions;
 use plt::lines::LineProps;
 use plt::pyplot;
-use plt::rc::{self, RcParams};
+use plt::rc::{self, RcError, RcParams};
 
 use super::rcsetup::{canonical, validate};
 use super::text_metrics::{rc_text, with_rc};
@@ -126,9 +126,9 @@ fn rc_context(args: Args<'_>) -> Outcome {
         let inside = match args.opt_str("file")? {
             Some(text) => {
                 let file = TempRcFile::new(text)?;
-                pyplot::rc_file_context(&file.0, &changes, || current(args))
+                pyplot::rc_file_context(&file.0, &changes, || Ok::<_, RcError>(current(args)))
             }
-            None => pyplot::rc_context(&changes, || current(args)),
+            None => pyplot::rc_context(&changes, || Ok::<_, RcError>(current(args))),
         }
         .map_err(ProbeError::rejected)??;
         Ok(encode::object([

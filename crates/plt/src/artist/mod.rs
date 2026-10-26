@@ -106,6 +106,15 @@ impl LimitPoints {
 }
 
 /// Behaviour shared by every drawable object.
+///
+/// An artist's methods run while its figure is laid out, drawn or
+/// hit-tested, with the figure borrowed: they get what they need as
+/// arguments ([`DrawContext`], [`LayoutContext`]). An artist of your own
+/// that keeps handles to its figure may read them from
+/// [`draw`](Self::draw), but changing the figure from any of these
+/// methods, or reading it while the figure is laid out, conflicts with
+/// that borrow and panics. Change other artists from event callbacks,
+/// timers or animation functions instead, which run between draws.
 pub trait Artist: Any + Debug {
     /// Properties common to all artists.
     fn base(&self) -> &ArtistBase;

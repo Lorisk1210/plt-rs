@@ -383,13 +383,14 @@ impl<S: PatchShape> Patch<S> {
         })
     }
 
-    /// Modifies the geometry in place; a rectangle made from a
-    /// [`DataRectangle`] no longer follows changes of axis unit.
+    /// Changes the geometry with `f`, which works on a copy put back once
+    /// it returns, so `f` may use any handle of the figure; a rectangle
+    /// made from a [`DataRectangle`] no longer follows changes of axis
+    /// unit.
     pub fn update_shape(&self, f: impl FnOnce(&mut S)) -> &Self {
-        self.update(|p| {
-            f(&mut p.shape);
-            p.unit_source = None;
-        })
+        let mut shape = self.shape();
+        f(&mut shape);
+        self.set_shape(shape)
     }
 
     /// How many straight pieces each segment of the outline is split into

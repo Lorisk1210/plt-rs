@@ -3,17 +3,15 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{Adjustable, ScatterOptions};
+use plt::axes::Adjustable;
 use plt::collections::CollectionProps;
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, ColorizerOptions, colormaps};
+use plt::colors::ColorizerOptions;
 use plt::contour::ContourOptions;
 use plt::mplot3d::{
     Array3, Aspect3D, Axes3D, Axis3, Bar3DOptions, Boxes, Contour3DOptions, FaceColors, Sampling,
     Scatter3DOptions, SurfaceOptions, TrisurfOptions, VoxelColors, VoxelOptions, WireframeOptions,
     test_data,
 };
-use plt::numeric::{Grid, linspace, meshgrid};
 use plt::prelude::*;
 use plt::tri::Triangulation;
 
@@ -108,9 +106,7 @@ fn scatter_3d() -> Built {
     let z: Vec<f64> = t.iter().map(|t| t / PI).collect();
     let options = Scatter3DOptions {
         scatter: ScatterOptions {
-            colors: MappedColors::new(z.clone())
-                .cmap(colormaps::get("plasma")?)
-                .into(),
+            colors: MappedColors::new(&z).cmap(colormaps::get("plasma")?).into(),
             ..ScatterOptions::default()
         },
         ..Scatter3DOptions::default()

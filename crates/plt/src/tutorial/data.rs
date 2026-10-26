@@ -7,14 +7,14 @@
 //!
 //! # Numbers
 //!
-//! Plotting methods take their values as `impl Into<...>` parameters, so
-//! you pass the container you have, by value or by reference: an array
-//! `[f64; N]`, a slice `&[f64]`, a `Vec<f64>` or a `&Vec<f64>`. Passing
-//! a reference keeps the data for later; plotting copies what it needs.
+//! Plotting methods take their data as `impl Into<...>` or
+//! `impl IntoIterator<...>` parameters, so you pass the data you have, by
+//! value or by reference: an array, a slice, a `Vec`, a range, or an
+//! iterator computing the values as they are plotted. Any number type
+//! goes: `f64`, `f32` and the integers (`i32`, `u8`, `usize`, ...).
+//! Passing a reference keeps the data for later; plotting copies what it
+//! needs, as `f64`.
 //!
-//! Values are `f64`. Convert other numbers first (`f64::from` for `f32`
-//! and the integers that fit exactly, `as f64` for the others), and
-//! collect iterators into a `Vec`.
 //! [`numeric`](crate::numeric) makes the usual sequences: [`linspace`]
 //! (`n` points from `start` to `stop`), [`arange`] (from `start` in steps
 //! of `step`, before `stop`), [`logspace`] (evenly spaced powers).
@@ -28,13 +28,18 @@
 //! ax.plot(x.as_slice(), vec![1.0, 1.5, 2.0])?; // a slice and an owned Vec
 //!
 //! let counts: [u32; 3] = [3, 8, 5];
-//! let heights: Vec<f64> = counts.into_iter().map(f64::from).collect();
-//! ax.plot(x, heights)?;
+//! ax.plot(1..4, counts)?; // integers, in a range and an array
+//! let squares = ax.plot(&x, x.iter().map(|x| x * x))?; // an iterator
+//! assert_eq!(squares.ydata(), [1.0, 4.0, 9.0]);
 //!
 //! assert_eq!(arange(0.0, 1.0, 0.25), [0.0, 0.25, 0.5, 0.75]);
 //! assert_eq!(linspace(0.0, 1.0, 5), [0.0, 0.25, 0.5, 0.75, 1.0]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! One value is a list of one, `[2.5]`. An empty list needs its type
+//! spelled out, as in `Vec::<f64>::new()`, since nothing in it tells Rust
+//! what it holds.
 //!
 //! A NaN leaves a gap: lines break around it and markers skip it. Use it
 //! for missing measurements.
@@ -49,7 +54,6 @@
 //! every point, from which a function of both is one `from_fn` away.
 //!
 //! ```
-//! use plt::numeric::Grid;
 //! use plt::prelude::*;
 //!
 //! let a = Grid::from_rows([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])?;
@@ -90,7 +94,7 @@
 //! let days = (0..30)
 //!     .map(|day| start.checked_add(TimeDelta::new(day, 0, 0)?))
 //!     .collect::<Result<Vec<_>, _>>()?;
-//! let temperatures: Vec<f64> = (0..30).map(|day| 8.0 + 0.2 * f64::from(day)).collect();
+//! let temperatures = (0..30).map(|day| 8.0 + 0.2 * f64::from(day));
 //! let series = axs[(0, 1)].plot(days, temperatures)?;
 //! assert_eq!(series.xdata()[0], 19783.0, "2024-03-01 is day 19783");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -99,10 +103,13 @@
 //! Behind these parameters is one type, [`AxisValues`]: numbers,
 //! category names, dates, or values of your own types converted by a
 //! unit converter (chapter [`extending`](super::extending)). Every
-//! container shown above converts into it, which is why the same method
-//! takes all of them. Extents measured from such values, such as bar
-//! heights or error sizes, are [`AxisDeltas`]: numbers, durations or
-//! user values. You rarely name either type; it shows up in signatures.
+//! collection and iterator shown above converts into it, which is why the
+//! same method takes all of them. Extents measured from such values, such
+//! as bar heights or error sizes, are [`AxisDeltas`]: numbers, durations
+//! or user values, one for all the items or a list (an array, a slice or
+//! a `Vec`). You rarely name either type; it shows up in signatures.
+//! Data that can only be numbers, such as the values of a pie chart,
+//! takes any collection or iterator of [`Number`]s.
 //!
 //! # Options
 //!
@@ -225,6 +232,7 @@
 //! [`DateTime`]: crate::dates::DateTime
 //! [`AxisValues`]: crate::units::AxisValues
 //! [`AxisDeltas`]: crate::units::AxisDeltas
+//! [`Number`]: crate::numeric::Number
 //! [`LineProps`]: crate::lines::LineProps
 //! [`PatchProps`]: crate::patches::PatchProps
 //! [`LineStyle::Dashed`]: crate::lines::LineStyle::Dashed

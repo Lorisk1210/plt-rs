@@ -32,8 +32,8 @@ fn func_animation(fig: &Figure) -> CaseResult {
         ..AnimationOptions::default()
     };
     let animation = FuncAnimation::new(fig, Frames::Endless, options, move |i| {
-        line.set_data(&x, &shifted(&x, i as f64 / 50.0, f64::sin));
-        vec![line.raw().clone()]
+        line.set_data(&x, shifted(&x, i as f64 / 50.0, f64::sin));
+        line.clone()
     });
     tick(fig, 5)?;
     drop(animation);
@@ -56,13 +56,13 @@ fn func_animation_init(fig: &Figure) -> CaseResult {
     let changed = vec![line.raw().clone(), counter.raw().clone()];
     let (init_line, init_counter, init_changed) = (line.clone(), counter.clone(), changed.clone());
     let init = move || {
-        init_line.set_data(&[], &[]);
+        init_line.set_data(Vec::<f64>::new(), Vec::<f64>::new());
         init_counter.set_text("");
         init_changed.clone()
     };
     let x = wave_x();
     let animate = move |i: usize| {
-        line.set_data(&x, &shifted(&x, i as f64 / 10.0, f64::sin));
+        line.set_data(&x, shifted(&x, i as f64 / 10.0, f64::sin));
         counter.set_text(format!("frame {i}"));
         changed.clone()
     };

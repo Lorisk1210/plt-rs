@@ -10,7 +10,7 @@ use plt::axes::{
 use plt::colors::colormaps;
 use plt::orientation::Orientation;
 use plt::prelude::*;
-use plt::stats::{AxisBins, Bins, HistOptions, Histogram2dOptions};
+use plt::stats::{AxisBins, Bins, Histogram2dOptions};
 
 use super::{gridded, normal_columns, plain, unit_square};
 use crate::figures::cases::common::map;
@@ -84,7 +84,7 @@ fn boxplot_plot(fig: &Figure) -> CaseResult {
 
 fn ecdf(fig: &Figure) -> CaseResult {
     fig.subplot()
-        .ecdf(&spread_sample(), EcdfOptions::default())?;
+        .ecdf(spread_sample(), EcdfOptions::default())?;
     Ok(())
 }
 
@@ -148,10 +148,7 @@ fn hist2d(fig: &Figure) -> CaseResult {
 fn hist_plot(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(8)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(8)),
         props: PatchProps::default().linewidth(0.5).edgecolor("white"),
         ..HistPlotOptions::default()
     };
@@ -176,7 +173,7 @@ fn pie(fig: &Figure) -> CaseResult {
         frame: true,
         ..PieOptions::default()
     };
-    ax.pie(&x, options)?;
+    ax.pie(x, options)?;
     unit_square(&ax)?;
     Ok(())
 }

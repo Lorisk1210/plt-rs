@@ -145,7 +145,7 @@ fn svg_filter_line(fig: &Figure) -> CaseResult {
 fn svg_filter_pie(fig: &Figure) -> CaseResult {
     let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
     let pie = ax.pie(
-        &[15.0, 30.0, 45.0, 10.0],
+        [15.0, 30.0, 45.0, 10.0],
         PieOptions {
             explode: vec![0.0, 0.05, 0.0, 0.0],
             labels: ["Frogs", "Hogs", "Dogs", "Logs"].map(String::from).to_vec(),

@@ -139,7 +139,7 @@ fn redraw_in_frame(fig: &Figure) -> CaseResult {
     ax.set_xlabel("x");
     fig.canvas().draw()?;
     ax.set_facecolor("lightyellow");
-    line.set_data(&x, &shifted(&x, 0.0, f64::cos));
+    line.set_data(&x, shifted(&x, 0.0, f64::cos));
     ax.set_title("after");
     ax.redraw_in_frame()?;
     Ok(())

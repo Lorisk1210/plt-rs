@@ -60,8 +60,6 @@
 //! axes shows the mapping.
 //!
 //! ```
-//! use plt::colorbar::ColorbarOptions;
-//! use plt::colors::colormaps;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();
@@ -70,7 +68,7 @@
 //! let y: Vec<f64> = x.iter().map(|x| x.sin() + 0.1 * x).collect();
 //! let options = ScatterOptions {
 //!     sizes: Some(x.iter().map(|x| 10.0 + 8.0 * x).collect()),
-//!     colors: MappedColors::new(y.clone()).cmap(colormaps::get("viridis")?).into(),
+//!     colors: MappedColors::new(&y).cmap(colormaps::get("viridis")?).into(),
 //!     ..ScatterOptions::default()
 //! };
 //! let points = ax.scatter_with(&x, &y, options)?;
@@ -113,14 +111,13 @@
 //!
 //! A histogram shows how many samples of one quantity fall in each
 //! interval (bin) of its range. [`Axes::hist`] counts and draws the bars;
-//! it takes a list of datasets and draws them side by side, stacked or
+//! it takes one dataset, or several to draw side by side, stacked or
 //! overlapping. The number of bins changes what the plot shows: too few
 //! hide the shape, too many turn it into noise.
 //!
 //! ```
-//! use plt::axes::HistPlotOptions;
 //! use plt::prelude::*;
-//! use plt::stats::{Bins, HistOptions};
+//! use plt::stats::Bins;
 //!
 //! // 1000 samples shaped like a bell curve, without a random-number
 //! // generator: each is the sum of three evenly spread sequences.
@@ -129,11 +126,8 @@
 //!     .collect();
 //!
 //! let ax = Figure::new().subplot();
-//! let options = HistPlotOptions {
-//!     layout: HistOptions { bins: Some(Bins::Count(30)), ..HistOptions::default() },
-//!     ..HistPlotOptions::default()
-//! };
-//! let hist = ax.hist(&[&samples], options)?;
+//! let options = HistPlotOptions { bins: Some(Bins::Count(30)), ..HistPlotOptions::default() };
+//! let hist = ax.hist(&samples, options)?;
 //!
 //! assert_eq!(hist.edges.len(), 31, "30 bins have 31 edges");
 //! assert_eq!(hist.tops[0].iter().sum::<f64>(), 1000.0);
@@ -154,20 +148,18 @@
 //! show through.
 //!
 //! ```
-//! use plt::axes::FillBetweenOptions;
 //! use plt::collections::CollectionProps;
 //! use plt::prelude::*;
 //!
 //! let ax = Figure::new().subplot();
 //! let x = linspace(0.0, 10.0, 100);
 //! let mean: Vec<f64> = x.iter().map(|x| x.sin()).collect();
-//! let low: Vec<f64> = mean.iter().map(|m| m - 0.3).collect();
-//! let high: Vec<f64> = mean.iter().map(|m| m + 0.3).collect();
 //! let band = FillBetweenOptions {
 //!     props: CollectionProps::default().alpha(0.3).label("± 0.3"),
 //!     ..FillBetweenOptions::default()
 //! };
-//! ax.fill_between(&x, &low, &high, band)?;
+//! let (low, high) = (mean.iter().map(|m| m - 0.3), mean.iter().map(|m| m + 0.3));
+//! ax.fill_between(&x, low, high, band)?;
 //! ax.plot_with(&x, &mean, LineProps::default().label("mean"))?;
 //! assert_eq!(ax.collections().len(), 1);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -188,10 +180,6 @@
 //! the picture it is.
 //!
 //! ```
-//! use plt::axes::ImshowOptions;
-//! use plt::colorbar::ColorbarOptions;
-//! use plt::colors::colormaps;
-//! use plt::numeric::Grid;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();
@@ -223,7 +211,6 @@
 //!
 //! ```
 //! use plt::contour::{ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
-//! use plt::numeric::Grid;
 //! use plt::prelude::*;
 //!
 //! let ax = Figure::new().subplot();

@@ -229,14 +229,14 @@ fn ecdf(fig: &Figure) -> CaseResult {
         .zip([Orientation::Vertical, Orientation::Horizontal])
     {
         ax.ecdf(
-            &data,
+            data,
             EcdfOptions {
                 orientation,
                 ..EcdfOptions::default()
             },
         )?;
         ax.ecdf(
-            &data,
+            data,
             EcdfOptions {
                 weights: Some(weights.clone()),
                 complementary: true,

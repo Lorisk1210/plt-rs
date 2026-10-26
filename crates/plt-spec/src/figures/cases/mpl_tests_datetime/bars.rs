@@ -9,7 +9,7 @@ use plt::axes::{
 use plt::dates::{DateError, DateTime, TimeDelta};
 use plt::patches::StepBaseline;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use super::{axes, concise, constrained, daily, datetime_case, day, days, numbers};
 use crate::figures::{CaseResult, FigureCase};
@@ -135,11 +135,8 @@ fn hist(fig: &Figure, bins: impl Fn(&plt::axes::Axes) -> Result<Bins, DateError>
         let x = ax.xaxis().convert_units(days_of_month.clone());
         let weights = [weights];
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(bins(ax)?),
-                weights: Some(&weights),
-                ..HistOptions::default()
-            },
+            bins: Some(bins(ax)?),
+            weights: Some(&weights),
             ..HistPlotOptions::default()
         };
         ax.hist(&[x], options)?;

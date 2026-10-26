@@ -16,7 +16,7 @@ use plt::legend::LegendOptions;
 use plt::lines::{LineProps, StepWhere};
 use plt::numeric::linspace;
 use plt::pyplot;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use super::colorbar::data::{field, xyz};
 use crate::figures::cases::common::map;
@@ -78,10 +78,7 @@ fn subplot_grid(fig: &Figure) -> CaseResult {
             .map(|(t, scale)| t.sin() * scale)
             .collect();
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(12)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(12)),
             ..HistPlotOptions::default()
         };
         pyplot::hist(&[data], options)?;

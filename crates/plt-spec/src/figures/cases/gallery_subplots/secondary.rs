@@ -2,7 +2,7 @@
 //! its sides, at a data value and at a fraction beyond it.
 
 use std::f64::consts::PI;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use plt::axes::{AxisName, SecondaryLocation, TickParams};
 use plt::dates::{DateTime, get_epoch};
@@ -85,8 +85,8 @@ fn secondary_axis_4(fig: &Figure) -> CaseResult {
     )?;
     ax.set_xlabel(r"$x_1$");
     ax.legend(LegendOptions::default())?;
-    let x1n = Rc::new(linspace(0.0, 20.0, 201));
-    let x2n = Rc::new(map(&x1n, |x| x.powi(2)));
+    let x1n = Arc::new(linspace(0.0, 20.0, 201));
+    let x2n = Arc::new(map(&x1n, |x| x.powi(2)));
     let guide = || {
         LineProps::default()
             .color("grey")
@@ -94,7 +94,7 @@ fn secondary_axis_4(fig: &Figure) -> CaseResult {
     };
     ax.axvline(40.0_f64.sqrt(), guide());
     ax.axvline(10.0, guide());
-    let (forward_x, forward_y) = (Rc::clone(&x1n), Rc::clone(&x2n));
+    let (forward_x, forward_y) = (Arc::clone(&x1n), Arc::clone(&x2n));
     let squares = FuncTransform::new(
         move |x| interp(x, &forward_x, &forward_y, None),
         move |x| interp(x, &x2n, &x1n, None),

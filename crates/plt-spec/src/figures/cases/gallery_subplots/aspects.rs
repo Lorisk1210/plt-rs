@@ -12,7 +12,7 @@ use plt::numeric::Grid;
 use plt::patches::{Circle, Polygon};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::stats::{HistOptions, HistOrientation};
+use plt::stats::HistOrientation;
 use plt::transforms::Point;
 
 use super::SEED;
@@ -127,10 +127,7 @@ fn axes_box_aspect_5(fig: &Figure) -> CaseResult {
     axs[(1, 0)].scatter(&x, &y)?;
     axs[(0, 0)].hist(&[&x], HistPlotOptions::default())?;
     let sideways = HistPlotOptions {
-        layout: HistOptions {
-            orientation: HistOrientation::Horizontal,
-            ..HistOptions::default()
-        },
+        orientation: HistOrientation::Horizontal,
         ..HistPlotOptions::default()
     };
     axs[(1, 1)].hist(&[&y], sideways)?;

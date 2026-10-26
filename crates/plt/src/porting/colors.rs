@@ -181,7 +181,7 @@
 //! use plt::{rc, style};
 //!
 //! rc::context(|| {
-//!     style::context("ggplot", || assert!(rc::params().axes_grid))?;
+//!     style::context("ggplot", || Ok::<_, rc::RcError>(assert!(rc::params().axes_grid)))?;
 //!     style::use_style("dark_background")?;
 //!     assert!(style::use_style("no such style").is_err());
 //!     Ok::<(), rc::RcError>(())

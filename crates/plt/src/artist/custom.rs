@@ -2,6 +2,10 @@
 //! implements [`Artist`], added to an axes or a figure, and reached
 //! through a typed handle.
 //!
+//! The handle reads and changes the artist through copies
+//! ([`Custom::get`], [`Custom::update`]), so the figure is never borrowed
+//! while your code runs: it may use any handle of the figure meanwhile.
+//!
 //! ```
 //! use plt::artist::{Artist, ArtistBase, ArtistHandle, DrawContext};
 //! use plt::prelude::*;
@@ -9,7 +13,7 @@
 //! use plt::path::Path;
 //!
 //! /// A cross at a point, in the coordinates of its transform.
-//! #[derive(Debug)]
+//! #[derive(Clone, Debug)]
 //! struct Cross {
 //!     base: ArtistBase,
 //!     at: Point,
@@ -41,8 +45,8 @@
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
 //! let cross = ax.add_custom_artist(Cross { base: ArtistBase::default(), at: Point::new(0.5, 0.5) });
-//! cross.with_mut(|cross| cross.at = Point::new(0.25, 0.75));
-//! assert_eq!(cross.with(|cross| cross.at.x), 0.25);
+//! cross.update(|cross| cross.at = Point::new(0.25, 0.75));
+//! assert_eq!(cross.get().at.x, 0.25);
 //! cross.set_zorder(5.0);
 //! fig.to_png()?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -78,25 +82,26 @@ impl<A: Artist> Custom<A> {
             kind: PhantomData,
         }
     }
+}
 
-    /// Reads the artist.
-    ///
-    /// # Panics
-    ///
-    /// When `f` changes the figure through another handle: the figure is
-    /// borrowed while `f` runs. Reading other artists is fine.
-    pub fn with<R>(&self, f: impl FnOnce(&A) -> R) -> R {
-        self.raw.with(f)
+impl<A: Artist + Clone> Custom<A> {
+    /// A copy of the artist. The figure is borrowed only while it is
+    /// copied.
+    pub fn get(&self) -> A {
+        self.raw.with(A::clone)
     }
 
-    /// Changes the artist; the figure is drawn again with it.
+    /// Changes the artist with `f`; the figure is drawn again with it.
     ///
-    /// # Panics
-    ///
-    /// When `f` uses any handle of the same figure, even to read: the
-    /// figure is mutably borrowed while `f` runs.
-    pub fn with_mut<R>(&self, f: impl FnOnce(&mut A) -> R) -> R {
-        self.raw.with_mut(f)
+    /// `f` changes a copy, which replaces the artist once `f` returns, so
+    /// the figure is not borrowed while `f` runs and `f` may use any of
+    /// its handles. Changes made to this same artist through its handle
+    /// while `f` runs are replaced by the copy.
+    pub fn update<R>(&self, f: impl FnOnce(&mut A) -> R) -> R {
+        let mut artist = self.get();
+        let result = f(&mut artist);
+        self.raw.with_mut(|stored: &mut A| *stored = artist);
+        result
     }
 }
 
@@ -120,7 +125,7 @@ mod tests {
     use crate::transforms::Transform;
 
     /// Counts how often it is drawn.
-    #[derive(Debug, Default)]
+    #[derive(Clone, Debug, Default)]
     struct Probe {
         base: ArtistBase,
         draws: std::cell::Cell<usize>,
@@ -145,19 +150,38 @@ mod tests {
         let fig = Figure::new();
         let probe = fig.add_custom_artist(Probe::default());
         assert_eq!(
-            probe.with(|p| p.base.transform.clone()),
+            probe.get().base.transform,
             Some(Transform::Figure(fig.id())),
             "in figure fractions"
         );
         fig.to_png().unwrap();
-        assert_eq!(probe.with(|p| p.draws.get()), 1);
+        assert_eq!(probe.get().draws.get(), 1);
         probe.set_visible(false);
         fig.to_png().unwrap();
-        assert_eq!(probe.with(|p| p.draws.get()), 1, "hidden");
+        assert_eq!(probe.get().draws.get(), 1, "hidden");
         let found = fig.findobj(|handle| handle.downcast::<Custom<Probe>>().is_some());
         assert_eq!(
             found.iter().map(RawHandle::id).collect::<Vec<_>>(),
             [probe.id()]
         );
+    }
+
+    #[test]
+    fn updates_may_use_every_handle_of_the_figure() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
+        let probe = ax.add_custom_artist(Probe::default());
+        let width = probe.update(|p| {
+            line.set_linewidth(3.0);
+            p.base.zorder = 4.0;
+            line.linewidth()
+        });
+        assert_eq!(width, 3.0);
+        assert_eq!(probe.zorder(), 4.0);
+        let copy = probe.get();
+        probe.set_alpha(Some(0.5));
+        assert_eq!(copy.base.alpha, None, "a copy, not a borrow");
+        assert_eq!(probe.alpha(), Some(0.5));
     }
 }

@@ -13,6 +13,7 @@ use crate::axes::{
 };
 use crate::collections::{Collection, EventCollection};
 use crate::lines::{AxLineThrough, Line2D, LineProps, StepWhere};
+use crate::numeric::Number;
 use crate::patches::{FancyArrow, Patch, PatchProps, Polygon, Rectangle, StepPatch};
 use crate::units::{AxisValue, AxisValues};
 
@@ -55,7 +56,7 @@ pub fn plot_with(
 
 /// Plots `y` against its indices on the current axes (matplotlib's
 /// `plot(y)`).
-pub fn plot_y(y: impl AsRef<[f64]>) -> Line2D {
+pub fn plot_y(y: impl IntoIterator<Item: Number>) -> Line2D {
     gca().plot_y(y)
 }
 
@@ -141,7 +142,7 @@ pub fn step(
 ///
 /// As [`Axes::stairs`](crate::axes::Axes::stairs).
 pub fn stairs(
-    values: impl Into<Vec<f64>>,
+    values: impl IntoIterator<Item: Number>,
     options: StairsOptions,
 ) -> Result<Patch<StepPatch>, PlotError> {
     gca().stairs(values, options)
@@ -354,7 +355,7 @@ pub fn arrow(arrow: FancyArrow) -> Patch<FancyArrow> {
 /// # Errors
 ///
 /// As [`Axes::ecdf`](crate::axes::Axes::ecdf).
-pub fn ecdf(x: &[f64], options: EcdfOptions) -> Result<Line2D, EcdfError> {
+pub fn ecdf(x: impl IntoIterator<Item: Number>, options: EcdfOptions) -> Result<Line2D, EcdfError> {
     gca().ecdf(x, options)
 }
 
@@ -445,7 +446,7 @@ mod tests {
         stairs(vec![1.0, 2.0], StairsOptions::default()).unwrap();
         stem(x, [1.0, 2.0, 1.0], StemOptions::default()).unwrap();
         errorbar(x, [1.0, 2.0, 1.0], ErrorbarOptions::default()).unwrap();
-        ecdf(&[3.0, 1.0, 2.0], EcdfOptions::default()).unwrap();
+        ecdf([3.0, 1.0, 2.0], EcdfOptions::default()).unwrap();
         arrow(FancyArrow::new(0.0, 0.0, 1.0, 1.0));
         assert!(gcf().to_png().is_ok());
         close_all();

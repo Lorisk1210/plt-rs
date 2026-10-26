@@ -11,7 +11,7 @@ use plt::dates::{DateTime, TimeDelta};
 use plt::figure::{Figure, Share};
 use plt::patches::DataRectangle;
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
+use plt::text::{AnnotateOptions, ArrowProps};
 use plt::units::AxisDeltas;
 
 use crate::figures::{CaseResult, FigureCase};
@@ -36,7 +36,7 @@ fn km() -> UnitDbl {
 
 /// The arrow `{"arrowstyle": "->"}`.
 fn arrow() -> Result<Option<ArrowProps>, Box<dyn std::error::Error>> {
-    Ok(Some(ArrowProps::Fancy("->".parse::<FancyArrowProps>()?)))
+    Ok(Some("->".parse()?))
 }
 
 /// A line, a rectangle, a span, a bar and a fill in kilometres, then the

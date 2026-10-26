@@ -151,15 +151,19 @@ impl LineArtist {
             .map(|vertices| Path::polyline(vertices).with_interpolation_steps(steps));
     }
 
-    /// Replaces the x data, which no longer comes from user values.
-    pub(super) fn xdata_replaced(&mut self) {
-        self.unit_sources.x = None;
-        self.recache();
-    }
-
-    /// Replaces the y data, which no longer comes from user values.
-    pub(super) fn ydata_replaced(&mut self) {
-        self.unit_sources.y = None;
+    /// Replaces the data along axis `name` with `numbers`, converted from
+    /// `source` when they come from user values.
+    pub(super) fn replace_data(
+        &mut self,
+        name: AxisName,
+        numbers: Vec<f64>,
+        source: Option<CustomValues>,
+    ) {
+        match name {
+            AxisName::X => self.xdata = numbers,
+            AxisName::Y => self.ydata = numbers,
+        }
+        self.unit_sources.replace(name, source);
         self.recache();
     }
 

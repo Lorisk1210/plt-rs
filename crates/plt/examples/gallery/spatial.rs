@@ -10,7 +10,6 @@ use plt::axisartist::floating_axes::{FloatingAxes, FloatingGridHelper};
 use plt::axisartist::grid_finder::{GridFinderOptions, GridFixedLocator, GridMaxNLocator};
 use plt::axisartist::grid_helper_curvelinear::GridHelperCurveLinear;
 use plt::axisartist::{AuxTransform, AxisArtist, AxisArtistAxes, Toggle};
-use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;

@@ -30,11 +30,11 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`pyplot::show`] shows pyplot's figures with the current *backend*:
-//! windows where there is X11, a web page each where there is none
-//! (macOS, Windows), nothing on a machine without a display. The
-//! `MPLBACKEND` environment variable or [`pyplot::switch_backend`]
-//! choose explicitly. [`pyplot::ion`] turns on interactive mode, where
+//! `gui::show` and [`pyplot::show`], which shows pyplot's figures, use
+//! the current *backend*: windows where there is X11, a web page each
+//! where there is none (macOS, Windows), nothing on a machine without a
+//! display. The `MPLBACKEND` environment variable or
+//! [`pyplot::switch_backend`] choose explicitly. [`pyplot::ion`] turns on interactive mode, where
 //! `show` returns at once and [`pyplot::pause`] lets the windows update
 //! while a script computes.
 //!
@@ -46,11 +46,13 @@
 //! [`Figure::disconnect`]. Mouse events carry the position in pixels and,
 //! over an axes, in data coordinates. The closure must be `'static`, so
 //! it owns what it uses: clones of handles, and shared state in an
-//! `Rc<RefCell<_>>` or `Rc<Cell<_>>`.
+//! `Rc<RefCell<_>>` or `Rc<Cell<_>>`. It may use any handle of the
+//! figure, as every closure plt-rs runs between draws may.
 //!
 //! Windows and the browser backend deliver real input. An
 //! [`EventSource`](crate::events::EventSource) delivers synthetic input
-//! in the same way, here a click at the data point (5, 5):
+//! in the same way, here a click at the data point (5, 5), which
+//! [`Axes::data_to_display`] places in pixels:
 //!
 //! ```
 //! use std::cell::RefCell;
@@ -59,7 +61,6 @@
 //! use plt::events::{Event, EventKind, EventSource};
 //! use plt::navigation::PointerButton;
 //! use plt::prelude::*;
-//! use plt::transforms::Point;
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
@@ -75,8 +76,7 @@
 //!     }
 //! });
 //!
-//! // Where a window would report a click at data (5, 5), in pixels.
-//! let at = fig.resolve_transform(&ax.trans_data())?.transform_point(Point::new(5.0, 5.0));
+//! let at = ax.data_to_display((5.0, 5.0))?;
 //! EventSource::new().button_press(&fig, at.x, at.y, PointerButton::Left, false);
 //! let (x, y) = clicks.borrow()[0];
 //! assert!((x - 5.0).abs() < 0.1 && (y - 5.0).abs() < 0.1, "whole pixels, like a window");
@@ -107,7 +107,7 @@
 //! let fig = Figure::new();
 //! let ax = fig.add_axes([0.1, 0.3, 0.8, 0.6])?;
 //! let x = linspace(0.0, 1.0, 200);
-//! let wave = ax.plot(&x, x.iter().map(|x| (5.0 * x).sin()).collect::<Vec<_>>())?;
+//! let wave = ax.plot(&x, x.iter().map(|x| (5.0 * x).sin()))?;
 //!
 //! let frequency = Slider::new(
 //!     &fig.add_axes([0.2, 0.1, 0.6, 0.05])?,
@@ -118,8 +118,7 @@
 //! )?;
 //! let line = wave.clone();
 //! frequency.on_changed(move |k| {
-//!     let y: Vec<f64> = line.xdata().iter().map(|x| (k * x).sin()).collect();
-//!     line.set_ydata(y);
+//!     line.set_ydata(line.xdata().iter().map(|x| (k * x).sin()));
 //! });
 //!
 //! frequency.set_val(12.0); // what dragging the slider does
@@ -134,8 +133,9 @@
 //!
 //! [`FuncAnimation`](crate::animation::FuncAnimation) calls a closure for
 //! each frame. The closure updates artists and returns the ones it
-//! changed (as untyped handles, [`ArtistHandle::raw`](crate::artist::ArtistHandle::raw)),
-//! so that with blitting only those are redrawn. Shown in a window, the
+//! changed (a handle, an array or a `Vec` of handles, or a tuple of
+//! handles of different kinds), so that with blitting only those are
+//! redrawn. Shown in a window, the
 //! animation plays; saved, it becomes an animated PNG, GIF or WebP file,
 //! an HTML page with a player, or a video through an installed ffmpeg.
 //!
@@ -149,7 +149,7 @@
 //! let ax = fig.subplot();
 //! ax.set_xlim(0.0, 6.3)?.set_ylim(-1.1, 1.1)?;
 //! let x = linspace(0.0, 6.3, 100);
-//! let wave = ax.plot(&x, x.iter().map(|x| x.sin()).collect::<Vec<_>>())?;
+//! let wave = ax.plot(&x, x.iter().map(|x| x.sin()))?;
 //!
 //! let options = AnimationOptions {
 //!     interval: Duration::from_millis(40),
@@ -157,8 +157,8 @@
 //! };
 //! let animation = FuncAnimation::new(&fig, Frames::Count(10), options, move |frame| {
 //!     let phase = frame as f64 * 0.6;
-//!     wave.set_ydata(x.iter().map(|x| (x + phase).sin()).collect::<Vec<_>>());
-//!     vec![wave.raw().clone()]
+//!     wave.set_ydata(x.iter().map(|x| (x + phase).sin()));
+//!     wave.clone()
 //! });
 //! let gif = animation.to_gif()?; // `animation.save("wave.gif")?` writes the file
 //! assert!(gif.starts_with(b"GIF89a"));
@@ -197,3 +197,4 @@
 //! [`Figure::connect`]: crate::figure::Figure::connect
 //! [`Figure::disconnect`]: crate::figure::Figure::disconnect
 //! [`Figure::add_timer`]: crate::figure::Figure::add_timer
+//! [`Axes::data_to_display`]: crate::axes::Axes::data_to_display

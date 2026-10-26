@@ -8,7 +8,7 @@ use plt::figure::Figure;
 use plt::lines::LineProps;
 use plt::numeric::{Grid, linspace};
 use plt::patches::PatchProps;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::HAlign;
 
 use super::mpl_tests::classic;
@@ -126,11 +126,8 @@ fn pathclip(fig: &Figure) -> CaseResult {
     left.set_ylim(0.0, 1.0)?;
     right.scatter(vec![0.0, 1.0], vec![1.0, 1.0])?;
     let options = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(20)),
-            range: Some((-10.0, 10.0)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(20)),
+        range: Some((-10.0, 10.0)),
         ..HistPlotOptions::default()
     };
     right.hist(&[SpecRng::new(19_680_801).normal(1000, 0.0, 1.0)], options)?;

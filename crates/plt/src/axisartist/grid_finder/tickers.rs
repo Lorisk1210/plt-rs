@@ -6,7 +6,7 @@ use plt_core::{Bbox, Point};
 
 use super::{ExtremeFinder, GridError, GridFormatter, GridLevels, GridLocator};
 use crate::axisartist::aux_transform::AuxTransform;
-use crate::numeric::linspace;
+use crate::numeric::{Number, linspace, to_f64s};
 use crate::spines::SpineSide;
 use crate::ticker::{
     Formatter, Locator, Nbins, OffsetMode, ScalarFormatter, TickContext, TickerSettings,
@@ -112,8 +112,10 @@ pub struct GridFixedLocator {
 
 impl GridFixedLocator {
     /// Levels at `locs`.
-    pub fn new(locs: impl Into<Vec<f64>>) -> Self {
-        Self { locs: locs.into() }
+    pub fn new(locs: impl IntoIterator<Item: Number>) -> Self {
+        Self {
+            locs: to_f64s(locs),
+        }
     }
 }
 

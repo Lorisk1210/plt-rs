@@ -319,8 +319,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(4.0, 3.0, 100.0),
     FigureCase::new("contour/tricontour", |fig| {
         let tri = random_triangulation(60, 21)?;
-        fig.subplot()
-            .tricontour(&tri, &tri_bumps(&tri), count(10))?;
+        fig.subplot().tricontour(&tri, tri_bumps(&tri), count(10))?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),
@@ -333,7 +332,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
             ..values(&[-2.0, -1.0, -0.3, 0.3, 1.0, 2.0])
         };
-        fig.subplot().tricontourf(&tri, &tri_bumps(&tri), options)?;
+        fig.subplot().tricontourf(&tri, tri_bumps(&tri), options)?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),

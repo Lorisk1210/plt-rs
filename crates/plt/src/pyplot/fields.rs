@@ -11,6 +11,7 @@ use crate::axes::{
 use crate::collections::Collection;
 use crate::contour::{ClabelOptions, ContourError, ContourOptions, ContourSet, QuadField};
 use crate::lines::LineProps;
+use crate::numeric::Number;
 use crate::quiver::{
     BarbsOptions, Quiver, QuiverKey, QuiverKeyOptions, QuiverOptions, VectorField,
 };
@@ -63,7 +64,7 @@ pub fn clabel(contours: &ContourSet, options: ClabelOptions) -> Result<Vec<Text>
 /// As [`Axes::tricontour`](crate::axes::Axes::tricontour).
 pub fn tricontour(
     tri: &Triangulation,
-    z: &[f64],
+    z: impl IntoIterator<Item: Number>,
     options: ContourOptions,
 ) -> Result<ContourSet, ContourError> {
     let ax = gca();
@@ -80,7 +81,7 @@ pub fn tricontour(
 /// As [`Axes::tricontourf`](crate::axes::Axes::tricontourf).
 pub fn tricontourf(
     tri: &Triangulation,
-    z: &[f64],
+    z: impl IntoIterator<Item: Number>,
     options: ContourOptions,
 ) -> Result<ContourSet, ContourError> {
     let ax = gca();
@@ -210,8 +211,8 @@ mod tests {
         close_all();
         let tri = triangulation();
         let z = [0.0, 1.0, 1.0, 2.0];
-        tricontour(&tri, &z, ContourOptions::default()).unwrap();
-        tricontourf(&tri, &z, ContourOptions::default()).unwrap();
+        tricontour(&tri, z, ContourOptions::default()).unwrap();
+        tricontourf(&tri, z, ContourOptions::default()).unwrap();
         let Tripcolor::Flat(cells) = tripcolor(
             &tri,
             TriValues::Auto(z.to_vec()),

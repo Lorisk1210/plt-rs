@@ -43,10 +43,11 @@ pub struct FuncScale {
 }
 
 impl FuncScale {
-    /// `forward` must be monotonic and `inverse` its inverse.
+    /// `forward` must be monotonic and `inverse` its inverse (see
+    /// [`FuncTransform::new`]).
     pub fn new(
-        forward: impl Fn(f64) -> f64 + 'static,
-        inverse: impl Fn(f64) -> f64 + 'static,
+        forward: impl Fn(f64) -> f64 + Send + 'static,
+        inverse: impl Fn(f64) -> f64 + Send + 'static,
     ) -> Self {
         Self::from_transform(FuncTransform::new(forward, inverse))
     }

@@ -90,8 +90,36 @@ pub struct FuncFormatter {
 }
 
 impl FuncFormatter {
-    /// Formats each tick with `func(value, Some(index))`.
-    pub fn new(func: impl Fn(f64, Option<usize>) -> String + 'static) -> Self {
+    /// Formats each tick with `func(value, Some(index))`. `func` runs
+    /// while the figure is laid out and drawn and gets what it needs as
+    /// arguments: it is `Send`, so it cannot use the figure's handles.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::ticker::FuncFormatter;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xticks([0.0, 0.5]);
+    /// ax.xaxis().set_major_formatter(FuncFormatter::new(|x, _| format!("{:.0}%", 100.0 * x)));
+    /// assert_eq!(ax.xaxis().ticklabels(false)?, ["0%", "50%"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// A handle of the figure does not go into `func`:
+    ///
+    /// ```compile_fail
+    /// use plt::prelude::*;
+    /// use plt::ticker::FuncFormatter;
+    /// let ax = Figure::new().subplot();
+    /// let other = ax.clone();
+    /// let labels = FuncFormatter::new(move |x, _| format!("{x} of {:?}", other.xlim()));
+    /// ```
+    pub fn new(func: impl Fn(f64, Option<usize>) -> String + Send + 'static) -> Self {
+        Self::from_fn(func)
+    }
+
+    /// A formatter running plt-rs' own function, which never uses a
+    /// figure's handles, or a function a public constructor already took.
+    pub(crate) fn from_fn(func: impl Fn(f64, Option<usize>) -> String + 'static) -> Self {
         Self {
             func: Box::new(func),
             offset: String::new(),

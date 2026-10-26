@@ -28,7 +28,7 @@ fn count(value: &Json) -> Result<ElementCount, ProbeError> {
 }
 
 /// The functions `func` names.
-fn func(name: &str) -> Result<Box<dyn Fn(f64) -> f64>, ProbeError> {
+fn func(name: &str) -> Result<Box<dyn Fn(f64) -> f64 + Send>, ProbeError> {
     match name {
         "double" => Ok(Box::new(|x| 2.0 * x)),
         "inverse5" => Ok(Box::new(|x| 5.0 / x)),

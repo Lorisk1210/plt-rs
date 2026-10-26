@@ -76,7 +76,17 @@ struct GeoAxes<C> {
     /// The latitude, in radians, where longitude gridlines stop
     /// (`_longitude_cap`).
     longitude_cap: f64,
-    core: PhantomData<C>,
+    /// The core transform, made when needed.
+    core: PhantomData<fn() -> C>,
+}
+
+impl<C> Clone for GeoAxes<C> {
+    fn clone(&self) -> Self {
+        Self {
+            longitude_cap: self.longitude_cap,
+            core: PhantomData,
+        }
+    }
 }
 
 impl<C: GeoCore> GeoAxes<C> {

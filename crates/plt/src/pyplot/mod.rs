@@ -101,6 +101,7 @@ pub use decorations::*;
 pub use error::PyplotError;
 pub use fields::*;
 pub use figsize::*;
+pub(crate) use host::show_until_closed;
 pub use images::*;
 pub use interactive::*;
 pub use layout::*;

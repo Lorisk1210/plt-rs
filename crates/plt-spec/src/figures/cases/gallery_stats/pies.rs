@@ -41,7 +41,7 @@ fn bar_of_pie(fig: &Figure) -> CaseResult {
         explode: vec![0.1, 0.0, 0.0],
         ..PieOptions::default()
     };
-    let pie = ax1.pie(&overall_ratios, options)?;
+    let pie = ax1.pie(overall_ratios, options)?;
     let age_ratios = [0.33, 0.54, 0.07, 0.06];
     let age_labels = ["Under 35", "35-49", "50-65", "Over 65"];
     let mut bottom = 1.0;
@@ -107,7 +107,7 @@ fn nested_pie_1(fig: &Figure) -> CaseResult {
         ..PieOptions::default()
     };
     let sums = NESTED_VALS.map(|[a, b]| a + b);
-    ax.pie(&sums, ring(1.0, pick(&[0, 4, 8])))?;
+    ax.pie(sums, ring(1.0, pick(&[0, 4, 8])))?;
     ax.pie(
         NESTED_VALS.as_flattened(),
         ring(1.0 - RING, pick(&[1, 2, 5, 6, 9, 10])),
@@ -172,7 +172,7 @@ fn pie_and_donut_labels_2(fig: &Figure) -> CaseResult {
         startangle: -40.0,
         ..PieOptions::default()
     };
-    let pie = ax.pie(&[225.0, 90.0, 50.0, 60.0, 100.0, 5.0], donut)?;
+    let pie = ax.pie([225.0, 90.0, 50.0, 60.0, 100.0, 5.0], donut)?;
     let bbox = || {
         styled_box(
             "square,pad=0.3",
@@ -224,7 +224,7 @@ fn feature_pie(fig: &Figure, options: PieOptions) -> CaseResult {
         labels: strings(&PIE_LABELS),
         ..options
     };
-    fig.subplot().pie(&PIE_SIZES, options)?;
+    fig.subplot().pie(PIE_SIZES, options)?;
     Ok(())
 }
 
@@ -336,7 +336,7 @@ fn at(distance: f64) -> PieLabelOptions {
 /// A pie of [`PIE_DATA`] labelled once per labelling (`labelled_pie`).
 fn labelled_pie(fig: &Figure, labellings: Vec<Labelling>) -> CaseResult {
     let ax = fig.subplot();
-    let mut pie: PieContainer = ax.pie(&PIE_DATA, PieOptions::default())?;
+    let mut pie: PieContainer = ax.pie(PIE_DATA, PieOptions::default())?;
     for labelling in labellings {
         match labelling {
             Labelling::Names(options) => ax.pie_label(&mut pie, BREAKFAST, options)?,

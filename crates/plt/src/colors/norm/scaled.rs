@@ -187,10 +187,12 @@ impl AsinhNorm {
 }
 
 impl FuncNorm {
-    /// A norm through `forward` (monotonic) and its `inverse`.
+    /// A norm through `forward` (monotonic) and its `inverse`, which run
+    /// while figures are drawn: they are `Send`, so they cannot use a
+    /// figure's handles.
     pub fn new(
-        forward: impl Fn(f64) -> f64 + 'static,
-        inverse: impl Fn(f64) -> f64 + 'static,
+        forward: impl Fn(f64) -> f64 + Send + 'static,
+        inverse: impl Fn(f64) -> f64 + Send + 'static,
     ) -> Self {
         Self::from_transform(FuncTransform::new(forward, inverse))
     }

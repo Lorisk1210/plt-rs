@@ -7,11 +7,11 @@ use plt::figure::Figure;
 use plt::numeric::{arange, linspace};
 use plt::patches::PatchProps;
 use plt::stats::{
-    AxisBins, BinEstimator, Bins, Cumulative, HistAlign, HistBottom, HistOptions, HistOrientation,
-    HistType, Histogram2dOptions,
+    AxisBins, BinEstimator, Bins, Cumulative, HistAlign, HistBottom, HistOrientation, HistType,
+    Histogram2dOptions,
 };
 
-use crate::figures::cases::common::{bins, laid_out};
+use crate::figures::cases::common::bins;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -62,10 +62,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("hist/bins_explicit_edges", |fig| {
         let edges = vec![-4.0, -2.0, -1.0, -0.5, 0.0, 0.25, 0.5, 1.0, 2.0, 4.0];
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Edges(edges)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Edges(edges)),
             props: PatchProps::default().edgecolor("k"),
             ..HistPlotOptions::default()
         };
@@ -80,33 +77,30 @@ pub(crate) const CASES: &[FigureCase] = &[
             .iter()
             .zip([BinEstimator::Auto, BinEstimator::Sqrt])
         {
-            let layout = HistOptions {
+            let options = HistPlotOptions {
                 bins: Some(Bins::Estimator(estimator)),
-                ..HistOptions::default()
+                ..HistPlotOptions::default()
             };
-            ax.hist(&[skewed()], laid_out(layout))?;
+            ax.hist(&[skewed()], options)?;
         }
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("hist/range_clips_data", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             range: Some((-1.0, 2.0)),
             ..bins(20)
         };
-        fig.subplot().hist(&[normal()], laid_out(layout))?;
+        fig.subplot().hist(&[normal()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/density_with_pdf", |fig| {
         let ax = fig.subplot();
         let options = HistPlotOptions {
-            layout: HistOptions {
-                density: true,
-                ..bins(30)
-            },
             props: PatchProps::default().alpha(0.6),
-            ..HistPlotOptions::default()
+            density: true,
+            ..bins(30)
         };
         ax.hist(&[normal()], options)?;
         let t = linspace(-4.0, 4.0, 200);
@@ -123,29 +117,26 @@ pub(crate) const CASES: &[FigureCase] = &[
         let [ax1, ax2] = axes.as_slice() else {
             unreachable!("one row of two axes")
         };
-        let forward = HistOptions {
+        let forward = HistPlotOptions {
             cumulative: Cumulative::Forward,
             ..bins(25)
         };
-        ax1.hist(&[normal()], laid_out(forward))?;
-        let reverse = HistOptions {
+        ax1.hist(&[normal()], forward)?;
+        let reverse = HistPlotOptions {
             cumulative: Cumulative::Reverse,
             density: true,
             histtype: HistType::Step,
             ..bins(25)
         };
-        ax2.hist(&[normal()], laid_out(reverse))?;
+        ax2.hist(&[normal()], reverse)?;
         Ok(())
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("hist/histtype_step", |fig| {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                histtype: HistType::Step,
-                ..bins(20)
-            },
             props: PatchProps::default().linewidth(1.5),
-            ..HistPlotOptions::default()
+            histtype: HistType::Step,
+            ..bins(20)
         };
         fig.subplot().hist(&three(), options)?;
         Ok(())
@@ -155,12 +146,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         for data in three() {
             let options = HistPlotOptions {
-                layout: HistOptions {
-                    histtype: HistType::StepFilled,
-                    ..bins(20)
-                },
                 props: PatchProps::default().alpha(0.5),
-                ..HistPlotOptions::default()
+                histtype: HistType::StepFilled,
+                ..bins(20)
             };
             ax.hist(&[data], options)?;
         }
@@ -168,49 +156,46 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/multiple_side_by_side", |fig| {
-        fig.subplot().hist(&three(), laid_out(bins(10)))?;
+        fig.subplot().hist(&three(), bins(10))?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/barstacked", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             histtype: HistType::BarStacked,
             ..bins(15)
         };
-        fig.subplot().hist(&three(), laid_out(layout))?;
+        fig.subplot().hist(&three(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/stacked_step", |fig| {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                histtype: HistType::Step,
-                stacked: true,
-                ..bins(15)
-            },
             props: PatchProps::default().fill(false),
-            ..HistPlotOptions::default()
+            histtype: HistType::Step,
+            stacked: true,
+            ..bins(15)
         };
         fig.subplot().hist(&three(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/horizontal", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             orientation: HistOrientation::Horizontal,
             ..bins(20)
         };
-        fig.subplot().hist(&[normal()], laid_out(layout))?;
+        fig.subplot().hist(&[normal()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/horizontal_step_multi", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             orientation: HistOrientation::Horizontal,
             histtype: HistType::Step,
             ..bins(15)
         };
-        fig.subplot().hist(&three(), laid_out(layout))?;
+        fig.subplot().hist(&three(), options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
@@ -218,13 +203,10 @@ pub(crate) const CASES: &[FigureCase] = &[
         let values: Vec<i64> = (0..10).collect();
         let weights = [values.iter().map(|&v| (v * v) as f64).collect::<Vec<f64>>()];
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Edges(
-                    arange(0.0, 11.0, 1.0).iter().map(|e| e - 0.5).collect(),
-                )),
-                weights: Some(&weights),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Edges(
+                arange(0.0, 11.0, 1.0).iter().map(|e| e - 0.5).collect(),
+            )),
+            weights: Some(&weights),
             props: PatchProps::default().edgecolor("w"),
             ..HistPlotOptions::default()
         };
@@ -234,9 +216,8 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/log", |fig| {
         let options = HistPlotOptions {
-            layout: bins(30),
             log: true,
-            ..HistPlotOptions::default()
+            ..bins(30)
         };
         fig.subplot().hist(&[skewed()], options)?;
         Ok(())
@@ -248,12 +229,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         let sides = [(HistAlign::Left, None), (HistAlign::Right, Some("C1"))];
         for (ax, (align, color)) in axes.as_slice().iter().zip(sides) {
             let options = HistPlotOptions {
-                layout: HistOptions {
-                    bins: Some(Bins::Edges(arange(0.0, 7.0, 1.0))),
-                    rwidth: Some(0.6),
-                    align,
-                    ..HistOptions::default()
-                },
+                bins: Some(Bins::Edges(arange(0.0, 7.0, 1.0))),
+                rwidth: Some(0.6),
+                align,
                 color: color.into_iter().map(Color::from).collect(),
                 ..HistPlotOptions::default()
             };
@@ -264,24 +242,23 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("hist/colors_edgecolor_linewidth", |fig| {
         let options = HistPlotOptions {
-            layout: bins(15),
             color: vec![Color::from("lightgreen")],
             props: PatchProps::default()
                 .edgecolor("darkgreen")
                 .linewidth(1.5)
                 .hatch("/"),
-            ..HistPlotOptions::default()
+            ..bins(15)
         };
         fig.subplot().hist(&[normal()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("hist/bottom_offset", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             bottom: HistBottom::Uniform(50.0),
             ..bins(12)
         };
-        fig.subplot().hist(&[normal()], laid_out(layout))?;
+        fig.subplot().hist(&[normal()], options)?;
         Ok(())
     })
     .sized(5.0, 4.0, 100.0),

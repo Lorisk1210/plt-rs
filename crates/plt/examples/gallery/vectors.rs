@@ -1,8 +1,6 @@
 //! Vector fields: streamlines, arrows with a key, and wind barbs.
 
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{ColorizerOptions, colormaps};
-use plt::numeric::{Grid, linspace, meshgrid};
+use plt::colors::ColorizerOptions;
 use plt::prelude::*;
 use plt::quiver::{
     BarbsOptions, KeyCoordinates, LabelPosition, Pivot, QuiverKeyOptions, QuiverOptions,

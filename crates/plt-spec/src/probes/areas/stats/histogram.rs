@@ -164,9 +164,8 @@ pub(super) fn axes_hist(args: Args<'_>) -> Outcome {
     };
     let ax = Figure::new().subplot();
     let options = HistPlotOptions {
-        layout: opts,
         log: args.opt_bool("log")?.unwrap_or(false),
-        ..HistPlotOptions::default()
+        ..HistPlotOptions::from(opts)
     };
     let plot = if integer {
         let ints: Vec<Vec<i64>> = sets

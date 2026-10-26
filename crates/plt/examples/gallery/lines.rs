@@ -2,9 +2,8 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::{Baseline, ErrorbarOptions, FillBetweenOptions, StackplotOptions, StemOptions};
+use plt::axes::{Baseline, StackplotOptions, StemOptions};
 use plt::collections::CollectionProps;
-use plt::legend::LegendOptions;
 use plt::lines::{AxLineThrough, StepWhere};
 use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;

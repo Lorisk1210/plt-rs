@@ -2,7 +2,6 @@
 //! as they are written in code.
 
 use plt::fonts::FontWeight;
-use plt::markers::Marker;
 use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::rc::Aspect;

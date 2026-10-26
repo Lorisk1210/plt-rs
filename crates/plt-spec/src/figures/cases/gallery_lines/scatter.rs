@@ -16,7 +16,7 @@ use plt::legend::{LegendLoc, LegendOptions};
 use plt::markers::{MarkerStyle, PolygonStyle};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::stats::{Bins, HistOptions, HistOrientation};
+use plt::stats::{Bins, HistOrientation};
 use plt::ticker::{AxisName, StrMethodFormatter};
 use plt::transforms::Point;
 
@@ -89,11 +89,8 @@ fn scatter_hist(x: &[f64], y: &[f64], ax: &Axes, ax_histx: &Axes, ax_histy: &Axe
     let lim = ((xymax / binwidth).trunc() + 1.0) * binwidth;
     let bins = arange(-lim, lim + binwidth, binwidth);
     let histogram = |orientation| HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges(bins.clone())),
-            orientation,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges(bins.clone())),
+        orientation,
         ..HistPlotOptions::default()
     };
     ax_histx.hist(&[x], histogram(HistOrientation::Vertical))?;

@@ -82,7 +82,7 @@ fn lines(fig: &Figure) -> Outcome {
     let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
     line.remove();
     exercise(&line);
-    line.set_data(&[0.0, 2.0], &[0.0, 2.0])
+    line.set_data([0.0, 2.0], [0.0, 2.0])
         .set_linewidth(4.0)
         .set_color("tab:red");
     assert_eq!(line.data(), (vec![0.0, 2.0], vec![0.0, 2.0]));
@@ -215,7 +215,7 @@ fn containers(fig: &Figure) -> Outcome {
     let bars = ax.bar(vec![0.0, 1.0], [1.0, 2.0], BarOptions::default())?;
     let errors = ax.errorbar([0.0, 1.0], [1.0, 2.0], ErrorbarOptions::default())?;
     let stems = ax.stem([0.0, 1.0], [1.0, 2.0], StemOptions::default())?;
-    let pie = ax.pie(&[1.0, 2.0], PieOptions::default())?;
+    let pie = ax.pie([1.0, 2.0], PieOptions::default())?;
     bars.remove();
     errors.remove();
     stems.remove();

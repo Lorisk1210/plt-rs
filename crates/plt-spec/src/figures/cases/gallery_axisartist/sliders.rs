@@ -9,7 +9,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::numeric::Grid;
 use plt::patches::PatchProps;
 use plt::prelude::*;
-use plt::stats::{BinEstimator, Bins, HistOptions};
+use plt::stats::{BinEstimator, Bins};
 use plt::text::HAlign;
 use plt::widgets::{
     Button, ButtonOptions, Orientation, RangeSlider, Slider, SliderOptions, TextBox,
@@ -58,10 +58,7 @@ fn range_slider(fig: &Figure) -> CaseResult {
     fig.subplots_adjust(&bottom(0.25))?;
     axs[(0, 0)].imshow(img, ImshowOptions::default())?;
     let auto = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Estimator(BinEstimator::Auto)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Estimator(BinEstimator::Auto)),
         ..HistPlotOptions::default()
     };
     axs[(0, 1)].hist(&[&pixels], auto)?;

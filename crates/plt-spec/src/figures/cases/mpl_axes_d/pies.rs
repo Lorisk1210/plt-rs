@@ -56,7 +56,7 @@ fn edgeless(options: PieOptions) -> PieOptions {
 /// The pie on `gca` with equal aspect (`plt.pie`, `plt.axis("equal")`).
 fn equal_pie(fig: &Figure, options: &PieOptions) -> Result<Axes, Box<dyn std::error::Error>> {
     let ax = fig.gca();
-    ax.pie(&SIZES, options.clone())?;
+    ax.pie(SIZES, options.clone())?;
     ax.axis_mode(AxisMode::Equal)?;
     Ok(ax)
 }
@@ -70,7 +70,7 @@ fn pie_center_radius(fig: &Figure) -> CaseResult {
         radius: 1.5,
         ..edgeless(frogs())
     };
-    ax.pie(&SIZES, options)?;
+    ax.pie(SIZES, options)?;
     let arrow = FancyArrowProps {
         connectionstyle: "arc3".parse::<ConnectionStyle>()?,
         ..FancyArrowProps::new("->".parse::<ArrowStyle>()?)
@@ -100,17 +100,17 @@ fn pie_frame_grid(fig: &Figure) -> CaseResult {
         center,
         ..edgeless(frogs())
     };
-    ax.pie(&SIZES, framed((2.0, 2.0)))?;
+    ax.pie(SIZES, framed((2.0, 2.0)))?;
     let mut reversed = SIZES;
     reversed.reverse();
-    ax.pie(&reversed, framed((5.0, 2.0)))?;
+    ax.pie(reversed, framed((5.0, 2.0)))?;
     let mut explode = EXPLODE;
     explode.reverse();
     let options = PieOptions {
         explode: explode.to_vec(),
         ..framed((3.0, 5.0))
     };
-    ax.pie(&SIZES, options)?;
+    ax.pie(SIZES, options)?;
     ax.axis_mode(AxisMode::Equal)?;
     Ok(())
 }
@@ -122,22 +122,22 @@ fn pie_shadow(fig: &Figure) -> CaseResult {
         shadow,
         ..edgeless(plain())
     };
-    axes[(0, 0)].pie(&SIZES, with_shadow(Some(PieShadow::default())))?;
-    axes[(0, 1)].pie(&SIZES, with_shadow(None))?;
+    axes[(0, 0)].pie(SIZES, with_shadow(Some(PieShadow::default())))?;
+    axes[(0, 1)].pie(SIZES, with_shadow(None))?;
     let dark = PieShadow {
         ox: -0.05,
         oy: -0.05,
         shade: 0.9,
         props: PatchProps::default().edgecolor("none"),
     };
-    axes[(1, 0)].pie(&SIZES, with_shadow(Some(dark)))?;
+    axes[(1, 0)].pie(SIZES, with_shadow(Some(dark)))?;
     let light = PieShadow {
         ox: 0.05,
         shade: 0.2,
         props: PatchProps::default().linewidth(2.0),
         ..PieShadow::default()
     };
-    axes[(1, 1)].pie(&SIZES, with_shadow(Some(light)))?;
+    axes[(1, 1)].pie(SIZES, with_shadow(Some(light)))?;
     Ok(())
 }
 
@@ -147,13 +147,13 @@ fn hatched(fig: &Figure, hatches: &[&str]) -> CaseResult {
         hatches: hatches.iter().map(|h| (*h).to_owned()).collect(),
         ..PieOptions::default()
     };
-    fig.subplot().pie(&[0.3, 0.3, 0.1], options)?;
+    fig.subplot().pie([0.3, 0.3, 0.1], options)?;
     Ok(())
 }
 
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_d/pie_default", |fig| {
-        fig.subplot().pie(&SIZES, frogs())?;
+        fig.subplot().pie(SIZES, frogs())?;
         Ok(())
     })
     .sized(8.0, 6.0, 100.0),

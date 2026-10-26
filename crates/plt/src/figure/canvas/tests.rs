@@ -83,7 +83,7 @@ fn artists_drawn_over_a_restored_background() {
 fn animated_artists_change_without_making_the_figure_stale() {
     let (fig, _, line) = figure_with_line(0.5);
     fig.canvas().draw().unwrap();
-    line.set_data(&[0.0, 1.0], &[0.2, 0.2]).set_animated(true);
+    line.set_data([0.0, 1.0], [0.2, 0.2]).set_animated(true);
     assert!(!fig.is_stale());
     line.set_animated(false);
     assert!(fig.is_stale(), "an ordinary artist again");

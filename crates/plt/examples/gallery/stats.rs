@@ -2,15 +2,13 @@
 //! distributions, asymmetric error bars and a bootstrapped band.
 
 use plt::axes::{
-    BoxplotOptions, EcdfOptions, ErrorSize, FillBetweenOptions, HistPlotOptions, PieOptions,
-    ViolinDrawOptions, ViolinplotOptions,
+    BoxplotOptions, EcdfOptions, ErrorSize, PieOptions, ViolinDrawOptions, ViolinplotOptions,
 };
 use plt::collections::CollectionProps;
 use plt::figure::Share;
-use plt::legend::LegendOptions;
 use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions, HistType};
+use plt::stats::{Bins, HistType};
 use plt::ticker::LabelFormat;
 
 use super::data::Samples;
@@ -50,30 +48,22 @@ fn histograms() -> Built {
     let mut samples = Samples::new(7);
     let a = samples.normals(2000, 0.0, 1.0);
     let b = samples.normals(2000, 1.5, 0.7);
-    let layout = HistOptions {
+    let binned = HistPlotOptions {
         bins: Some(Bins::Count(40)),
         density: true,
-        ..HistOptions::default()
+        ..HistPlotOptions::default()
     };
-    ax.hist(
-        &[a],
-        HistPlotOptions {
-            layout: layout.clone(),
-            props: PatchProps::default().alpha(0.6).label("N(0, 1)"),
-            ..HistPlotOptions::default()
-        },
-    )?;
-    ax.hist(
-        &[b],
-        HistPlotOptions {
-            layout: HistOptions {
-                histtype: HistType::Step,
-                ..layout
-            },
-            props: PatchProps::default().linewidth(2.0).label("N(1.5, 0.7)"),
-            ..HistPlotOptions::default()
-        },
-    )?;
+    let filled = HistPlotOptions {
+        props: PatchProps::default().alpha(0.6).label("N(0, 1)"),
+        ..binned.clone()
+    };
+    ax.hist(&a, filled)?;
+    let outline = HistPlotOptions {
+        histtype: HistType::Step,
+        props: PatchProps::default().linewidth(2.0).label("N(1.5, 0.7)"),
+        ..binned
+    };
+    ax.hist(&b, outline)?;
     ax.set_title("Two samples");
     ax.legend(LegendOptions::default())?;
     Ok(fig)
@@ -114,14 +104,14 @@ fn ecdf() -> Built {
             line: LineProps::default().label(format!("σ = {sd}")),
             ..EcdfOptions::default()
         };
-        ax.ecdf(&samples.normals(300, 0.0, sd), options)?;
+        ax.ecdf(samples.normals(300, 0.0, sd), options)?;
     }
     let options = EcdfOptions {
         complementary: true,
         line: LineProps::fmt("--")?.color("0.5").label("1 − F, σ = 2"),
         ..EcdfOptions::default()
     };
-    ax.ecdf(&samples.normals(300, 0.0, 2.0), options)?;
+    ax.ecdf(samples.normals(300, 0.0, 2.0), options)?;
     ax.set_title("Empirical CDFs");
     ax.set_ylabel("fraction of the sample");
     ax.legend(LegendOptions::default().loc(AnchorLoc::CenterRight))?;
@@ -230,7 +220,7 @@ fn pie() -> Built {
         startangle: 90.0,
         ..PieOptions::default()
     };
-    ax.pie(&[15.0, 30.0, 45.0, 10.0], options)?;
+    ax.pie([15.0, 30.0, 45.0, 10.0], options)?;
     ax.set_title("Pets");
     Ok(fig)
 }

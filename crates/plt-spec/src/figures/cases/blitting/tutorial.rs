@@ -34,7 +34,7 @@ fn minimal(fig: &Figure) -> CaseResult {
     canvas.blit(Some(&fig.bbox()))?;
     for j in 0..100 {
         canvas.restore_region(&bg)?;
-        ln.set_data(&x, &shifted(&x, phase(j), f64::sin));
+        ln.set_data(&x, shifted(&x, phase(j), f64::sin));
         ax.draw_artist(&ln)?;
         canvas.blit(Some(&fig.bbox()))?;
     }
@@ -123,7 +123,7 @@ fn blit_manager(fig: &Figure) -> CaseResult {
     let bm = BlitManager::new(fig.canvas(), artists);
     fig.canvas().draw()?;
     for j in 0..100 {
-        ln.set_data(&x, &shifted(&x, phase(j), f64::sin));
+        ln.set_data(&x, shifted(&x, phase(j), f64::sin));
         fr_number.set_text(format!("frame: {j}"));
         bm.borrow_mut().update()?;
     }

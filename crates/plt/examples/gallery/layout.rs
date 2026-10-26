@@ -1,14 +1,12 @@
 //! Arranging axes: mosaics, nested grids, subfigures, shared axes with
 //! one colorbar, twin and secondary axes, insets and broken axes.
 
-use plt::axes::{BoxplotOptions, ImshowOptions, SecondaryLocation, TickParams};
-use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::colors::{ColorizerOptions, colormaps};
-use plt::figure::{Mosaic, MosaicOptions, Share, SubfigureOptions};
+use plt::axes::{BoxplotOptions, SecondaryLocation, TickParams};
+use plt::colorbar::ColorbarAxes;
+use plt::colors::ColorizerOptions;
+use plt::figure::{MosaicOptions, Share, SubfigureOptions};
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::layout::{ConstrainedLayout, LayoutEngine};
-use plt::legend::LegendOptions;
-use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::rc;
 use plt::scale::FuncTransform;
@@ -63,11 +61,10 @@ pub(crate) const ENTRIES: &[Entry] = &[
 fn mosaic() -> Built {
     let fig = Figure::with_size(7.0, 5.0, 100.0);
     fig.set_layout_engine(LayoutEngine::constrained())?;
-    let axes = fig.subplot_mosaic(&"AAB;CDB".parse::<Mosaic>()?, MosaicOptions::default())?;
+    let axes = fig.subplot_mosaic("AAB;CDB", MosaicOptions::default())?;
     let mut samples = Samples::new(3);
     for (name, ax) in axes.iter() {
         let n = 20 + name.len() * 10;
-        let x: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let mut level = 0.0;
         let walk: Vec<f64> = (0..n)
             .map(|_| {
@@ -75,7 +72,7 @@ fn mosaic() -> Built {
                 level
             })
             .collect();
-        ax.plot(x, walk)?;
+        ax.plot(0..n, walk)?;
         ax.set_title(format!("panel {name}"));
     }
     Ok(fig)
@@ -282,7 +279,7 @@ fn broken_axes() -> Built {
     points[3] += 0.8;
     points[14] += 0.8;
     for ax in [high, low] {
-        ax.plot_fmt((0..30).map(f64::from).collect::<Vec<_>>(), &points, "o-")?;
+        ax.plot_fmt(0..30, &points, "o-")?;
     }
     high.set_ylim(0.78, 1.0)?;
     low.set_ylim(0.0, 0.22)?;

@@ -17,7 +17,7 @@ use plt::orientation::Orientation;
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
-use plt::stats::{Bins, HistOptions, HistOrientation};
+use plt::stats::{Bins, HistOrientation};
 use plt::text::{HAlign, VAlign};
 
 use super::{EXTENT, SEED};
@@ -346,11 +346,8 @@ fn scatter_hist_locatable_axes(fig: &Figure) -> CaseResult {
     let lim = (f64::from((xymax / binwidth) as i32) + 1.0) * binwidth;
     let bins = arange(-lim, lim + binwidth, binwidth);
     let hist = |orientation| HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges(bins.clone())),
-            orientation,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges(bins.clone())),
+        orientation,
         ..HistPlotOptions::default()
     };
     ax_histx.hist(&[&x], hist(HistOrientation::Vertical))?;

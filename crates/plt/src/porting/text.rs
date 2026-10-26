@@ -171,9 +171,7 @@
 //!
 //! ```
 //! use plt::prelude::*;
-//! use plt::text::{
-//!     AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, VAlign,
-//! };
+//! use plt::text::{AnnotateOptions, FancyArrowProps, HAlign, VAlign};
 //! use plt::transforms::Point;
 //!
 //! let ax = Figure::new().subplot();
@@ -181,7 +179,7 @@
 //! arrow.connectionstyle = "arc3,rad=0.2".parse()?;
 //! let options = AnnotateOptions {
 //!     xytext: Some((3.0, 5.0).into()),
-//!     arrowprops: Some(ArrowProps::Fancy(arrow)),
+//!     arrowprops: Some(arrow.into()),
 //!     ..AnnotateOptions::default()
 //! };
 //! let peak = ax.annotate("max", (2.0, 4.0), options)?;

@@ -174,7 +174,7 @@ mod tests {
     fn empty_fields_draw_nothing() {
         let fig = Figure::new();
         let ax = fig.subplot();
-        let empty = VectorField::new(Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let empty = VectorField::new([0.0; 0], [0.0; 0], [0.0; 0], [0.0; 0]);
         let q = ax.quiver(empty, QuiverOptions::default()).unwrap();
         assert!(q.is_empty());
         let mut renderer = RecordingRenderer::new(640.0, 480.0, 100.0);

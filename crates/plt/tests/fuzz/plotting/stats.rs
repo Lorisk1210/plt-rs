@@ -122,24 +122,23 @@ impl StatCall {
                 log,
                 range,
             } => {
-                let mut options = HistPlotOptions {
+                let options = HistPlotOptions {
+                    bins: Some(Bins::Count(*bins)),
+                    histtype: HIST_TYPES[*kind],
+                    density: *density,
+                    range: *range,
+                    cumulative: if *density {
+                        Cumulative::Forward
+                    } else {
+                        Cumulative::Off
+                    },
+                    orientation: if *kind == 3 {
+                        HistOrientation::Horizontal
+                    } else {
+                        HistOrientation::Vertical
+                    },
                     log: *log,
                     ..HistPlotOptions::default()
-                };
-                let layout = &mut options.layout;
-                layout.bins = Some(Bins::Count(*bins));
-                layout.histtype = HIST_TYPES[*kind];
-                layout.density = *density;
-                layout.range = *range;
-                layout.cumulative = if *density {
-                    Cumulative::Forward
-                } else {
-                    Cumulative::Off
-                };
-                layout.orientation = if *kind == 3 {
-                    HistOrientation::Horizontal
-                } else {
-                    HistOrientation::Vertical
                 };
                 drop(ax.hist(data, options));
             }

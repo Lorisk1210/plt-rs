@@ -9,6 +9,7 @@ use crate::mlab::{
     self, Complex, Correlation, SignalValue, SpectralOptions, Spectrum, SpectrumOptions,
     XcorrOptions,
 };
+use crate::numeric::{Number, to_f64s};
 use crate::ticker::pymath::arange;
 
 /// Options of [`Axes::psd`], [`Axes::csd`] and [`Axes::cohere`].
@@ -90,11 +91,12 @@ impl Axes {
     /// When the estimate's options are invalid for the signals.
     pub fn csd(
         &self,
-        x: &[f64],
-        y: &[f64],
+        x: impl IntoIterator<Item: Number>,
+        y: impl IntoIterator<Item: Number>,
         options: SpectralPlotOptions,
     ) -> Result<Spectrum<Complex>, PlotError> {
-        let spectrum = mlab::csd(x, y, options.spectral).map_err(PlotError::Mlab)?;
+        let spectrum =
+            mlab::csd(&to_f64s(x), &to_f64s(y), options.spectral).map_err(PlotError::Mlab)?;
         let db: Vec<f64> = spectrum
             .values
             .iter()
@@ -115,11 +117,12 @@ impl Axes {
     /// When the estimate's options are invalid for the signals.
     pub fn cohere(
         &self,
-        x: &[f64],
-        y: &[f64],
+        x: impl IntoIterator<Item: Number>,
+        y: impl IntoIterator<Item: Number>,
         options: SpectralPlotOptions,
     ) -> Result<Spectrum, PlotError> {
-        let coherence = mlab::cohere(x, y, options.spectral).map_err(PlotError::Mlab)?;
+        let coherence =
+            mlab::cohere(&to_f64s(x), &to_f64s(y), options.spectral).map_err(PlotError::Mlab)?;
         self.plot_with(
             shifted(&coherence.freqs, options.fc),
             coherence.values.clone(),
@@ -137,11 +140,12 @@ impl Axes {
     /// When the spectrum's options are invalid for `x`.
     pub fn magnitude_spectrum(
         &self,
-        x: &[f64],
+        x: impl IntoIterator<Item: Number>,
         scale: SpectrumScale,
         options: SpectrumPlotOptions,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let spectrum = mlab::magnitude_spectrum(x, options.spectrum).map_err(PlotError::Mlab)?;
+        let spectrum =
+            mlab::magnitude_spectrum(&to_f64s(x), options.spectrum).map_err(PlotError::Mlab)?;
         let (values, units): (Vec<f64>, _) = match scale {
             SpectrumScale::Linear => (spectrum.values.clone(), "energy"),
             SpectrumScale::Decibels => (
@@ -163,10 +167,11 @@ impl Axes {
     /// When the spectrum's options are invalid for `x`.
     pub fn angle_spectrum(
         &self,
-        x: &[f64],
+        x: impl IntoIterator<Item: Number>,
         options: SpectrumPlotOptions,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let spectrum = mlab::angle_spectrum(x, options.spectrum).map_err(PlotError::Mlab)?;
+        let spectrum =
+            mlab::angle_spectrum(&to_f64s(x), options.spectrum).map_err(PlotError::Mlab)?;
         self.phase_line(spectrum, "Angle (radians)", options.fc, options.line)
     }
 
@@ -177,10 +182,11 @@ impl Axes {
     /// When the spectrum's options are invalid for `x`.
     pub fn phase_spectrum(
         &self,
-        x: &[f64],
+        x: impl IntoIterator<Item: Number>,
         options: SpectrumPlotOptions,
     ) -> Result<(Spectrum, Line2D), PlotError> {
-        let spectrum = mlab::phase_spectrum(x, options.spectrum).map_err(PlotError::Mlab)?;
+        let spectrum =
+            mlab::phase_spectrum(&to_f64s(x), options.spectrum).map_err(PlotError::Mlab)?;
         self.phase_line(spectrum, "Phase (radians)", options.fc, options.line)
     }
 
@@ -206,12 +212,13 @@ impl Axes {
     /// As [`Axes::xcorr`].
     pub fn acorr(
         &self,
-        x: &[f64],
+        x: impl IntoIterator<Item: Number>,
         options: XcorrOptions,
         usevlines: bool,
         line: LineProps,
     ) -> Result<(Correlation, CorrelationArtists), PlotError> {
-        self.xcorr(x, x, options, usevlines, line)
+        let x = to_f64s(x);
+        self.xcorr(&x, &x, options, usevlines, line)
     }
 
     /// Plots the cross-correlation of `x` and `y` by lag (matplotlib's
@@ -222,13 +229,14 @@ impl Axes {
     /// When the signals differ in length or `maxlags` is out of range.
     pub fn xcorr(
         &self,
-        x: &[f64],
-        y: &[f64],
+        x: impl IntoIterator<Item: Number>,
+        y: impl IntoIterator<Item: Number>,
         options: XcorrOptions,
         usevlines: bool,
         line: LineProps,
     ) -> Result<(Correlation, CorrelationArtists), PlotError> {
-        let correlation = mlab::xcorr(x, y, options).map_err(PlotError::Mlab)?;
+        let correlation =
+            mlab::xcorr(&to_f64s(x), &to_f64s(y), options).map_err(PlotError::Mlab)?;
         let lags: Vec<f64> = correlation.lags.iter().map(|&lag| lag as f64).collect();
         let artists = if usevlines {
             let lines = self.vlines(&lags, [0.0], &correlation.values)?;

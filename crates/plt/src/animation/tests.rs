@@ -114,8 +114,8 @@ fn blitted(frames: usize, repeat: bool) -> (Figure, Line2D, FuncAnimation) {
     };
     let animation = FuncAnimation::new(&fig, Frames::Count(frames), options, move |i| {
         let y = 0.1 + 0.2 * i as f64;
-        moved.set_data(&[0.0, 1.0], &[y, y]);
-        vec![moved.raw().clone()]
+        moved.set_data([0.0, 1.0], [y, y]);
+        moved.clone()
     });
     (fig, line, animation)
 }
@@ -184,9 +184,7 @@ fn a_window_starting_a_resized_animation_runs_one_timer() {
         blit: true,
         ..AnimationOptions::default()
     };
-    let animation = FuncAnimation::new(&fig, Frames::Endless, options, move |_| {
-        vec![line.raw().clone()]
-    });
+    let animation = FuncAnimation::new(&fig, Frames::Endless, options, move |_| line.clone());
     assert_eq!(fig.timers(), [], "not drawn yet");
     // The window opens: a resize, then a draw, which both start playing.
     fig.process_event(&Event::Resize {

@@ -10,103 +10,100 @@ use plt::lines::LineStyle;
 use plt::numeric::{arange, linspace};
 use plt::offsetbox::{AnchorLoc, BboxToAnchor};
 use plt::patches::PatchProps;
-use plt::stats::{Bins, HistAlign, HistBottom, HistOptions, HistOrientation, HistType};
+use plt::stats::{Bins, HistAlign, HistBottom, HistOrientation, HistType};
 
 use super::{classic, remove_ticks_and_titles};
-use crate::figures::cases::common::laid_out;
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_c/hist_stacked_stepfilled", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             histtype: HistType::StepFilled,
             stacked: true,
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[d_1_3(), d_0_10()], laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_offset", |fig| {
         let ax = fig.subplot();
         for (data, bottom) in [(d_0_10(), 5.0), (d_1_3(), 15.0)] {
-            let layout = HistOptions {
+            let options = HistPlotOptions {
                 bottom: HistBottom::Uniform(bottom),
-                ..HistOptions::default()
+                ..HistPlotOptions::default()
             };
-            ax.hist(&[data], laid_out(layout))?;
+            ax.hist(&[data], options)?;
         }
         Ok(())
     }),
     classic("mpl_axes_c/hist_step", |fig| {
         let ax = fig.subplot();
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             histtype: HistType::Step,
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        ax.hist(&[d_1_3()], laid_out(layout))?;
+        ax.hist(&[d_1_3()], options)?;
         ax.set_ylim(0.0, 10.0)?;
         ax.set_xlim(-1.0, 5.0)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_step_horiz", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             histtype: HistType::Step,
             orientation: HistOrientation::Horizontal,
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[d_0_10(), d_1_3()], laid_out(layout))?;
+        fig.subplot().hist(&[d_0_10(), d_1_3()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_weighted", |fig| {
         let weights = [linspace(0.01, 3.5, 50), linspace(0.05, 2.0, 20)];
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             weights: Some(&weights),
             histtype: HistType::StepFilled,
             stacked: true,
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[d_0_10(), d_1_3()], laid_out(layout))?;
+        fig.subplot().hist(&[d_0_10(), d_1_3()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_stepfilled_alpha", |fig| {
         let options = HistPlotOptions {
             props: PatchProps::default().alpha(0.5),
-            ..laid_out(HistOptions {
-                histtype: HistType::StepFilled,
-                stacked: true,
-                ..HistOptions::default()
-            })
+            histtype: HistType::StepFilled,
+            stacked: true,
+            ..HistPlotOptions::default()
         };
         fig.subplot().hist(&[d_1_3(), d_0_10()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_step", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             histtype: HistType::Step,
             stacked: true,
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[d_1_3(), d_0_10()], laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], options)?;
         Ok(())
     }),
     FigureCase::new("mpl_axes_c/hist_stacked_density", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             stacked: true,
             density: true,
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[d_1_3(), d_0_10()], laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3(), d_0_10()], options)?;
         Ok(())
     }),
     classic("mpl_axes_c/hist_step_bottom", |fig| {
-        let layout = HistOptions {
+        let options = HistPlotOptions {
             histtype: HistType::StepFilled,
             bottom: HistBottom::PerBin(arange(0.0, 10.0, 1.0)),
-            ..HistOptions::default()
+            ..HistPlotOptions::default()
         };
-        fig.subplot().hist(&[d_1_3()], laid_out(layout))?;
+        fig.subplot().hist(&[d_1_3()], options)?;
         remove_ticks_and_titles(fig);
         Ok(())
     }),
@@ -211,12 +208,10 @@ fn stacked_bar(fig: &Figure) -> CaseResult {
         label: ["first", "second", "third", "fourth", "fifth"]
             .map(String::from)
             .to_vec(),
-        ..laid_out(HistOptions {
-            bins: Some(Bins::Count(10)),
-            histtype: HistType::BarStacked,
-            align: HistAlign::Mid,
-            ..HistOptions::default()
-        })
+        bins: Some(Bins::Count(10)),
+        histtype: HistType::BarStacked,
+        align: HistAlign::Mid,
+        ..HistPlotOptions::default()
     };
     let ax = fig.subplot();
     ax.hist(&data, options)?;
@@ -246,11 +241,8 @@ fn vectorized(fig: &Figure, styling: &HistPlotOptions<'static>) -> CaseResult {
         .zip([HistType::StepFilled, HistType::Step])
     {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(10)),
-                histtype,
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(10)),
+            histtype,
             ..styling.clone()
         };
         ax.hist(&xs, options)?;

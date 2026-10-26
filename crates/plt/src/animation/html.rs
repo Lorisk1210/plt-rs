@@ -258,7 +258,7 @@ mod tests {
         let ax = fig.subplot();
         let line = ax.plot(vec![0.0, 1.0], vec![0.0, 0.0]).unwrap();
         FuncAnimation::new(&fig, Frames::Count(count), options, move |i| {
-            line.set_data(&[0.0, 1.0], &[0.0, i as f64]);
+            line.set_data([0.0, 1.0], [0.0, i as f64]);
         })
     }
 

@@ -68,7 +68,8 @@
 //!
 //! * They start with `use plt::prelude::*;`, which imports the names
 //!   nearly every program uses ([`Figure`], [`Axes`], [`LineProps`],
-//!   [`linspace`], ...). Other items are imported by their path.
+//!   [`LegendOptions`], [`linspace`], [`Grid`], ...). Other items are
+//!   imported by their path.
 //! * Fallible calls end in `?`. Each example runs in a function returning
 //!   `Result<(), Box<dyn std::error::Error>>`, hidden from the page; in
 //!   your program, `main` or the function drawing the figure can return
@@ -111,7 +112,9 @@
 //! [`Figure`]: crate::figure::Figure
 //! [`Axes`]: crate::axes::Axes
 //! [`LineProps`]: crate::lines::LineProps
+//! [`LegendOptions`]: crate::legend::LegendOptions
 //! [`linspace`]: crate::numeric::linspace
+//! [`Grid`]: crate::numeric::Grid
 
 pub mod anatomy;
 pub mod data;

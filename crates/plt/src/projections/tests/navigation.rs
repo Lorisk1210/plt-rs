@@ -13,7 +13,7 @@ use crate::transforms::ResolvedTransform;
 /// Rectilinear axes that pan with the right button by sliding x alone, a
 /// data unit per 10 pixels, and zoom into boxes along x alone; they keep
 /// what they were given.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Sliding {
     /// The press point and the x limits when a pan of its own started.
     start: Option<(Point, (f64, f64))>,

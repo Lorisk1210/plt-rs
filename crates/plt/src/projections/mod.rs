@@ -55,7 +55,7 @@
 //! use plt::transforms::{Affine2D, Point, ResolvedTransform};
 //!
 //! /// Rectilinear axes leaning `degrees` to the right.
-//! #[derive(Debug)]
+//! #[derive(Clone, Debug)]
 //! struct Leaning {
 //!     degrees: f64,
 //! }

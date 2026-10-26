@@ -22,7 +22,7 @@
 //! let axs = fig.subplots(2, 3)?;
 //! let x = linspace(0.0, 6.0, 100);
 //! for (k, ax) in [1.0, 2.0, 3.0, 4.0, 5.0, 6.0].into_iter().zip(axs.as_slice()) {
-//!     ax.plot(&x, x.iter().map(|x| (k * x).sin()).collect::<Vec<_>>())?;
+//!     ax.plot(&x, x.iter().map(|x| (k * x).sin()))?;
 //!     ax.set_title(format!("k = {k}"));
 //! }
 //! axs[(1, 0)].set_xlabel("x");
@@ -69,23 +69,23 @@
 //! # Mosaics
 //!
 //! When the cells differ in size, draw the grid as text.
-//! [`Figure::subplot_mosaic`] takes a [`Mosaic`] parsed from rows of
-//! labels separated by `;`: a label repeated across cells makes one axes
-//! spanning them, and `.` leaves a cell empty. The result maps each label
-//! to its axes.
+//! [`Figure::subplot_mosaic`] takes rows of labels separated by `;` (or
+//! a [`Mosaic`] built from cells): a label repeated across cells makes
+//! one axes spanning them, and `.` leaves a cell empty. The result maps
+//! each label to its axes. Index it with a label, which panics for a
+//! label the mosaic does not have, as indexing a map does; `get` returns
+//! an `Option` instead.
 //!
 //! ```
-//! use plt::figure::{Mosaic, MosaicOptions};
+//! use plt::figure::MosaicOptions;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();
-//! let layout: Mosaic = "AAB;CCB".parse()?;
-//! let axd = fig.subplot_mosaic(&layout, MosaicOptions::default())?;
-//! let wide = axd.get("A").ok_or("A is in the mosaic")?;
-//! wide.set_title("A spans two columns");
-//! let tall = axd.get("B").ok_or("B is in the mosaic")?;
-//! tall.set_title("B spans two rows");
+//! let axd = fig.subplot_mosaic("AAB;CCB", MosaicOptions::default())?;
+//! axd["A"].set_title("A spans two columns");
+//! axd["B"].set_title("B spans two rows");
 //! assert_eq!(axd.iter().count(), 3);
+//! assert!(axd.get("D").is_none());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -154,10 +154,8 @@
 //! share a colour scale.
 //!
 //! ```
-//! use plt::axes::ImshowOptions;
-//! use plt::colorbar::{ColorbarAxes, ColorbarOptions};
+//! use plt::colorbar::ColorbarAxes;
 //! use plt::colors::ColorizerOptions;
-//! use plt::numeric::Grid;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();

@@ -39,7 +39,6 @@
 //! The example builds a small figure and then walks down its tree.
 //!
 //! ```
-//! use plt::legend::LegendOptions;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::with_size(6.0, 4.0, 100.0);

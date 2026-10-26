@@ -6,7 +6,7 @@ use std::fmt;
 use super::{Axes, AxisMode, ImshowOptions, SpectrumScale};
 use crate::image::{AxesImage, Extent, ImageError, Origin};
 use crate::mlab::{self, MlabError, Specgram, SpecgramMode, SpectralOptions};
-use crate::numeric::Grid;
+use crate::numeric::{Grid, Number, to_f64s};
 
 /// Options of [`Axes::specgram`].
 #[derive(Debug, Default)]
@@ -97,9 +97,10 @@ impl Axes {
     /// are invalid.
     pub fn specgram(
         &self,
-        x: &[f64],
+        x: impl IntoIterator<Item: Number>,
         options: SpecgramOptions,
     ) -> Result<SpecgramPlot, SpecgramError> {
+        let x = &to_f64s(x);
         let phase = matches!(options.mode, SpecgramMode::Angle | SpecgramMode::Phase);
         let scale = match options.scale {
             None if phase => SpectrumScale::Linear,
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn the_image_spans_time_and_frequency() {
         let ax = Figure::new().subplot();
-        let plot = ax.specgram(&signal(), options(32, 16)).unwrap();
+        let plot = ax.specgram(signal(), options(32, 16)).unwrap();
         let times = &plot.spectrogram.times;
         // Half a segment step (16 samples at 10 Hz) beyond the midpoints.
         assert_eq!(ax.xlim(), (times[0] - 0.8, times[times.len() - 1] + 0.8));
@@ -192,7 +193,7 @@ mod tests {
             ..options(32, 16)
         };
         assert_eq!(
-            ax.specgram(&signal(), phase).err(),
+            ax.specgram(signal(), phase).err(),
             Some(SpecgramError::DecibelPhase)
         );
         let lower = SpecgramOptions {
@@ -203,11 +204,11 @@ mod tests {
             ..options(32, 16)
         };
         assert_eq!(
-            ax.specgram(&signal(), lower).err(),
+            ax.specgram(signal(), lower).err(),
             Some(SpecgramError::Origin)
         );
         assert!(matches!(
-            ax.specgram(&signal(), options(32, 32)),
+            ax.specgram(signal(), options(32, 32)),
             Err(SpecgramError::Mlab(_))
         ));
     }

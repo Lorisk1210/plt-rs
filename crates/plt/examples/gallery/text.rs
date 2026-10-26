@@ -5,13 +5,11 @@ use std::f64::consts::{FRAC_PI_2, PI};
 
 use plt::coords::Coords;
 use plt::fonts::{FontProperties, FontWeight, Fontset};
-use plt::patches::{ArrowStyle, BoxStyle, Circle, PathShape};
+use plt::patches::{BoxStyle, Circle, PathShape};
 use plt::patheffects::{GcUpdate, LineShadow, PatchShadow, PathEffect, Stroke, TickedStroke};
 use plt::prelude::*;
 use plt::rc::{self, Aspect};
-use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextBoxProps, VAlign, text_path,
-};
+use plt::text::{AnnotateOptions, HAlign, TextBoxProps, VAlign, text_path};
 use plt::transforms::{Affine2D, Point};
 
 use super::lines::map;
@@ -49,17 +47,12 @@ fn annotations() -> Built {
     let y = map(&x, |x| (2.0 * PI * x / 2.5).cos() * (-x / 3.0).exp());
     ax.plot(x, y)?;
     ax.set_ylim(-1.2, 1.5)?;
-    let arrow = |style: &str| -> Result<Option<ArrowProps>, Box<dyn std::error::Error>> {
-        Ok(Some(ArrowProps::Fancy(FancyArrowProps::new(
-            style.parse::<ArrowStyle>()?,
-        ))))
-    };
     ax.annotate(
         "local max",
         Point::new(2.5, (-2.5_f64 / 3.0).exp()),
         AnnotateOptions {
             xytext: Some(Point::new(3.3, 1.2).into()),
-            arrowprops: arrow("->")?,
+            arrowprops: Some("->".parse()?),
             ..AnnotateOptions::default()
         },
     )?;
@@ -69,7 +62,7 @@ fn annotations() -> Built {
         AnnotateOptions {
             xytext: Some(Point::new(0.15, 0.1).into()),
             textcoords: Some("axes fraction".parse::<Coords>()?),
-            arrowprops: arrow("fancy")?,
+            arrowprops: Some("fancy".parse()?),
             ..AnnotateOptions::default()
         },
     )?;

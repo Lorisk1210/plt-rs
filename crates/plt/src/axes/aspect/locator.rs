@@ -42,14 +42,14 @@ impl AxesLocator {
 /// a callable of the axes and the renderer): given the position the axes
 /// was given, in fractions of its figure, it returns the position to
 /// place the axes at before its aspect is applied. It runs inside the
-/// layout pass, so it must not call methods of the figure's handles.
-/// Clones share the function.
+/// layout pass and gets what it needs as its argument: it is `Send`, so
+/// it cannot use the figure's handles. Clones share the function.
 #[derive(Clone)]
 pub struct AxesLocatorFn(Rc<dyn Fn(Bbox) -> Bbox>);
 
 impl AxesLocatorFn {
     /// A locator calling `locate`.
-    pub fn new(locate: impl Fn(Bbox) -> Bbox + 'static) -> Self {
+    pub fn new(locate: impl Fn(Bbox) -> Bbox + Send + 'static) -> Self {
         Self(Rc::new(locate))
     }
 

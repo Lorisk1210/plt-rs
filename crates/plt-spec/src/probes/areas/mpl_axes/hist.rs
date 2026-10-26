@@ -5,7 +5,7 @@ use plt::axes::{Hist2dOptions, HistArtists, HistPlotOptions, StairsOptions};
 use plt::colors::Rgba;
 use plt::figure::Figure;
 use plt::patches::{Patch, PatchShape};
-use plt::stats::{Bins, HistBottom, HistOptions, HistType, Histogram2dOptions};
+use plt::stats::{Bins, HistBottom, HistType, Histogram2dOptions};
 
 use super::{color, iso_dates, made, numbers, on_axes, optional, pair, rgba_list};
 use crate::json::Json;
@@ -63,15 +63,12 @@ fn hist_options(args: Args<'_>) -> Result<HistPlotOptions<'static>, ProbeError> 
         Some(labels) => super::strings(labels)?,
     };
     let mut options = HistPlotOptions {
-        layout: HistOptions {
-            bins,
-            range,
-            density: args.opt_bool("density")?.unwrap_or(false),
-            stacked: args.opt_bool("stacked")?.unwrap_or(false),
-            histtype: histtype(args)?,
-            bottom,
-            ..HistOptions::default()
-        },
+        bins,
+        range,
+        density: args.opt_bool("density")?.unwrap_or(false),
+        stacked: args.opt_bool("stacked")?.unwrap_or(false),
+        histtype: histtype(args)?,
+        bottom,
         color: optional(args, "color", color)?.into_iter().collect(),
         label,
         ..HistPlotOptions::default()
@@ -172,11 +169,8 @@ pub(super) fn hist_dates(args: Args<'_>) -> Outcome {
             Ok(Bins::Edges(axis.convert_units(iso_dates(edges)?)))
         })?;
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins,
-                stacked: args.bool("stacked")?,
-                ..HistOptions::default()
-            },
+            bins,
+            stacked: args.bool("stacked")?,
             ..HistPlotOptions::default()
         };
         let plot = made(ax.hist(&datasets, options))?;
@@ -200,11 +194,8 @@ pub(super) fn log_barstacked(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         let axs = made(fig.subplots(2, 1))?;
         let barstacked = || HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(2)),
-                histtype: HistType::BarStacked,
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(2)),
+            histtype: HistType::BarStacked,
             ..HistPlotOptions::default()
         };
         let data = [vec![vec![0.0], vec![0.0, 1.0]], vec![vec![0.0, 0.0, 1.0]]];

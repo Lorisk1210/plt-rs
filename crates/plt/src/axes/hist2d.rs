@@ -3,7 +3,7 @@
 use super::{Axes, Mesh, PcolorOptions};
 use crate::collections::Collection;
 use crate::image::{ImageError, ScalarField};
-use crate::numeric::Grid;
+use crate::numeric::{Grid, Number, to_f64s};
 use crate::stats::{AxisBins, Histogram2d, Histogram2dOptions, histogram2d};
 
 /// The most cells [`Axes::hist2d`] draws, its x bins times its y bins
@@ -70,8 +70,8 @@ impl Axes {
     /// the colormap options are invalid.
     pub fn hist2d(
         &self,
-        x: &[f64],
-        y: &[f64],
+        x: impl IntoIterator<Item: Number>,
+        y: impl IntoIterator<Item: Number>,
         options: Hist2dOptions<'_>,
     ) -> Result<Hist2d, ImageError> {
         let [xbins, ybins] = &options.histogram.bins;
@@ -83,7 +83,7 @@ impl Axes {
             mut counts,
             xedges,
             yedges,
-        } = histogram2d(x, y, options.histogram)?;
+        } = histogram2d(&to_f64s(x), &to_f64s(y), options.histogram)?;
         for count in counts.as_mut_slice() {
             let below = options.cmin.is_some_and(|cmin| *count < cmin);
             let above = options.cmax.is_some_and(|cmax| *count > cmax);

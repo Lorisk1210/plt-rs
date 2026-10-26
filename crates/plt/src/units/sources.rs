@@ -64,7 +64,13 @@ impl UnitSources {
 
     /// Forgets the values along axis `name`, whose numbers were replaced.
     pub(crate) fn forget(&mut self, name: AxisName) {
-        *self.along_mut(name) = None;
+        self.replace(name, None);
+    }
+
+    /// Takes `source` as the values along axis `name`, whose numbers were
+    /// replaced by those of `source`, if any.
+    pub(crate) fn replace(&mut self, name: AxisName, source: Option<CustomValues>) {
+        *self.along_mut(name) = source;
     }
 
     /// Moves the coordinate along axis `name` of `point`, whose

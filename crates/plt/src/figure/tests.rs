@@ -209,13 +209,13 @@ fn line_data_read_back_as_pairs() {
     let ax = Figure::new().subplot();
     let line = ax.plot([1.0, 2.0, 3.0], [4.0, 5.0, 6.0]).expect("a line");
     assert_eq!(line.data(), (vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]));
-    line.set_data(&[0.0, 1.0], &[2.0]);
+    line.set_data([0.0, 1.0], [2.0]);
     assert_eq!(
         line.xydata(),
         [Point::new(0.0, 2.0)],
         "as many as the shorter"
     );
-    line.set_data(&[], &[]);
+    line.set_data(Vec::<f64>::new(), Vec::<f64>::new());
     assert_eq!(line.xydata(), Vec::<Point>::new());
 }
 

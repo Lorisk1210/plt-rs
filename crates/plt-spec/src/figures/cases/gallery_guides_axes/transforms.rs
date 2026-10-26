@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 use plt::axes::HistPlotOptions;
 use plt::patches::{Circle, Ellipse, Rectangle};
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::{AnnotateOptions, ArrowProps, TextProps, VAlign};
 use plt::ticker::pyfmt;
 use plt::transforms::{Point, Transform};
@@ -129,10 +129,7 @@ fn transforms_tutorial_4(fig: &Figure) -> CaseResult {
 fn transforms_tutorial_5(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(30)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(30)),
         ..HistPlotOptions::default()
     };
     ax.hist(&[SpecRng::new(SEED).normal(1000, 0.0, 1.0)], options)?;

@@ -113,6 +113,10 @@ impl HandlerArtist {
 /// `legend_artist` adds the artists of `create_artists` to the handle
 /// box).
 ///
+/// A handler runs while its legend is being made, and gets what it needs
+/// from the [`HandlerEntry`]. It is `Send`, so it cannot keep a handle to
+/// the figure and use it meanwhile.
+///
 /// matplotlib's legend guide draws an ellipse for a circle
 /// (`HandlerEllipse`):
 ///
@@ -143,7 +147,7 @@ impl HandlerArtist {
 /// )?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub trait LegendHandler: std::fmt::Debug {
+pub trait LegendHandler: std::fmt::Debug + Send {
     /// The artists drawing the handle of `entry` in its handle box
     /// (matplotlib's `create_artists`); none leaves the entry out of the
     /// legend.

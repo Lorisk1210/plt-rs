@@ -220,16 +220,18 @@ pub fn subplot2grid(
     fig.add_subplot_spec(&spec)
 }
 
-/// A new current figure with axes laid out by `mosaic` (matplotlib's
-/// `subplot_mosaic`).
+/// A new current figure with axes laid out by `mosaic`, given as for
+/// [`Figure::subplot_mosaic`] (matplotlib's `subplot_mosaic`).
 ///
 /// # Errors
 ///
-/// As [`Figure::subplot_mosaic`].
+/// As [`Figure::subplot_mosaic`]; text that does not parse makes no
+/// figure.
 pub fn subplot_mosaic(
-    mosaic: &Mosaic,
+    mosaic: impl TryInto<Mosaic, Error: Into<MosaicError>>,
     options: MosaicOptions,
 ) -> Result<(Figure, MosaicAxes), MosaicError> {
+    let mosaic: Mosaic = mosaic.try_into().map_err(Into::into)?;
     let fig = figure();
     let axes = fig.subplot_mosaic(mosaic, options)?;
     Ok((fig, axes))
@@ -247,9 +249,10 @@ pub fn subplot_mosaic(
 pub fn subplot_mosaic_num(
     num: u32,
     clear: bool,
-    mosaic: &Mosaic,
+    mosaic: impl TryInto<Mosaic, Error: Into<MosaicError>>,
     options: MosaicOptions,
 ) -> Result<(Figure, MosaicAxes), PyplotError> {
+    let mosaic: Mosaic = mosaic.try_into().map_err(Into::<MosaicError>::into)?;
     let fig = fresh_figure_num(num, clear)?;
     let axes = fig.subplot_mosaic(mosaic, options)?;
     Ok((fig, axes))

@@ -14,7 +14,7 @@ use plt::numeric::linspace;
 let fig = Figure::new();
 let ax = fig.subplot();
 let x = linspace(0.0, 10.0, 200);
-ax.plot(x.clone(), x.iter().map(|x| x.sin()).collect::<Vec<_>>())?;
+ax.plot(&x, x.iter().map(|x| x.sin()))?;
 ax.set_title("A sine");
 ax.set_xlabel("x");
 fig.savefig("sine.png")?;      // in plt-rs' modern look

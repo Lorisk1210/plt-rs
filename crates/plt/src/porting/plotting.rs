@@ -81,30 +81,32 @@
 //!
 //! | matplotlib input                       | plt-rs input                                       |
 //! |----------------------------------------|----------------------------------------------------|
-//! | a list or 1-D array                    | `[f64; N]`, `&[f64]`, `Vec<f64>`, `&Vec<f64>`      |
+//! | a list or 1-D array                    | any collection or iterator of numbers of any type: `[i32; N]`, `&[f64]`, `Vec<u8>`, `&Vec<f32>`, `0..n`, `x.iter().map(f)` |
 //! | `np.linspace`, `np.arange`, `np.logspace`, `np.geomspace` | [`linspace`], [`arange`], [`logspace`], [`geomspace`] |
 //! | a 2-D array                            | [`Grid`]`<f64>` ([`Grid::from_fn`], [`Grid::from_rows`]) |
 //! | `np.meshgrid(x, y)`                    | [`meshgrid`]                                       |
 //! | strings (categories)                   | `["a", "b"]`, `Vec<String>`: [`AxisValues::Categories`] |
 //! | `datetime`, `np.datetime64`            | `&[DateTime]`, `Vec<Datetime64>`: [`AxisValues::Dates`] |
-//! | objects of a class in `units.registry` | `Vec<T>`, `&[T]`, `[T; N]` of a [`Convertible`] `T`: [`AxisValues::Custom`] |
+//! | objects of a class in `units.registry` | `Vec<T>`, `[T; N]` or an iterator of a [`Convertible`] `T` (`values.iter().cloned()` for a slice): [`AxisValues::Custom`] |
 //! | `timedelta` or user-value bar heights, widths, error sizes | [`AxisDeltas`] (`Vec<TimeDelta>`, `Vec<T>` of a [`Convertible`] `T`), converted through the values they extend from |
 //! | `xunits=u`, `yunits=u` (`thetaunits=u`, `runits=u` on polar axes) | [`Axis::update_units`]`(x)` then [`Axis::set_units`]`(u)` before the call |
 //! | `np.nan` gaps in a line                | `f64::NAN`                                         |
 //! | masked arrays                          | NaN for lines and markers; [`ScalarField::with_mask`] for images; [`QuadField`] masks for contours; [`FillBetweenOptions::mask`]; `Option<f64>` values for norms and collections |
 //!
-//! The x and y of `plot`, `scatter`, `bar`, `barh` and `step` accept
-//! numbers, categories, dates and values of user types ([`AxisValues`]),
-//! and the heights, widths and error sizes of bars accept numbers,
-//! durations and values of user types ([`AxisDeltas`]); either comes as
-//! one value, a `Vec`, a slice, an array, or a reference to a `Vec` or an
-//! array. Single values of the same kinds place texts and annotations
-//! (`xy` and `xytext`) and give the corner and sides of a
-//! [`DataRectangle`]. Most other methods take numbers
-//! (`impl AsRef<[f64]>`), converted first with [`Axis::convert_units`]
-//! when they are not. As in matplotlib, lines, texts, annotations and
-//! rectangles of user values convert them again when an axis changes unit
-//! ([`Axis::set_units`]); spans, bars, fills and scatters do not.
+//! The x and y of `plot`, `scatter`, `bar`, `barh`, `step` and the other
+//! methods placing data accept numbers, categories, dates and values of
+//! user types ([`AxisValues`]) in any collection or iterator ([`AxisItem`]);
+//! one value is a list of one, `[v]`. The heights, widths and error sizes
+//! of bars accept numbers, durations and values of user types
+//! ([`AxisDeltas`]) as one value for all the bars or a list: a `Vec`, a
+//! slice, an array, or a reference to a `Vec` or an array. Single values
+//! of the same kinds place texts and annotations (`xy` and `xytext`), set
+//! limits, and give the corner and sides of a [`DataRectangle`]. Data
+//! that can only be numbers (pie values, samples of `ecdf` and
+//! spectra, ...) takes any collection or iterator of [`Number`]s. As in
+//! matplotlib, lines, texts, annotations and rectangles of user values
+//! convert them again when an axis changes unit ([`Axis::set_units`]);
+//! spans, bars, fills and scatters do not.
 //!
 //! # Lines
 //!
@@ -215,8 +217,10 @@
 //!
 //! # Histograms
 //!
-//! [`Axes::hist`] takes a slice of datasets, so a single dataset is
-//! `&[data]`. The binning options are shared with [`crate::stats::hist`].
+//! [`Axes::hist`] takes one dataset, or several side by side
+//! ([`Datasets`]). Its options are flat, as matplotlib's keywords; the
+//! binning ones are those [`crate::stats::hist`] takes as a
+//! [`HistOptions`].
 //!
 //! ```python
 //! counts, edges, patches = ax.hist(data, bins=5, range=(0, 10),
@@ -226,21 +230,18 @@
 //! ```
 //! use plt::axes::{HistArtists, HistPlotOptions};
 //! use plt::prelude::*;
-//! use plt::stats::{Bins, HistOptions, HistType};
+//! use plt::stats::{Bins, HistType};
 //!
 //! let ax = Figure::new().subplot();
 //! let data = [1.0, 2.0, 2.5, 3.0, 7.0, 9.5];
 //! let options = HistPlotOptions {
-//!     layout: HistOptions {
-//!         bins: Some(Bins::Count(5)),
-//!         range: Some((0.0, 10.0)),
-//!         density: true,
-//!         histtype: HistType::Step,
-//!         ..HistOptions::default()
-//!     },
+//!     bins: Some(Bins::Count(5)),
+//!     range: Some((0.0, 10.0)),
+//!     density: true,
+//!     histtype: HistType::Step,
 //!     ..HistPlotOptions::default()
 //! };
-//! let hist = ax.hist(&[data], options)?;
+//! let hist = ax.hist(&data, options)?;
 //! assert_eq!(hist.edges, [0.0, 2.0, 4.0, 6.0, 8.0, 10.0]);
 //! let area: f64 = hist.tops[0].iter().map(|density| density * 2.0).sum();
 //! assert!((area - 1.0).abs() < 1e-12);
@@ -343,7 +344,6 @@
 //! ```
 //!
 //! [`Axes`]: crate::axes::Axes
-//! [`Axis::convert_units`]: crate::axes::Axis::convert_units
 //! [`Axes::plot`]: crate::axes::Axes::plot
 //! [`Axes::plot_y`]: crate::axes::Axes::plot_y
 //! [`Axes::plot_fmt`]: crate::axes::Axes::plot_fmt
@@ -429,6 +429,9 @@
 //! [`HistPlotOptions`]: crate::axes::HistPlotOptions
 //! [`HistPlot`]: crate::axes::HistPlot
 //! [`HistOptions`]: crate::stats::HistOptions
+//! [`AxisItem`]: crate::units::AxisItem
+//! [`Number`]: crate::numeric::Number
+//! [`Datasets`]: crate::stats::Datasets
 //! [`Bins`]: crate::stats::Bins
 //! [`Hist2dOptions`]: crate::axes::Hist2dOptions
 //! [`HexbinOptions`]: crate::axes::HexbinOptions

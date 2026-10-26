@@ -73,8 +73,7 @@ fn colors(value: &Json) -> Option<Vec<Color>> {
 /// dataset.
 fn hist(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let x = call.f64_vec(0, "x")?;
-    let mut options = HistPlotOptions::default();
-    options.layout.bins = match call.keyword("bins") {
+    let bins = match call.keyword("bins") {
         None => None,
         Some(Json::Array(_)) => Some(Bins::Edges(call.f64_vec(KEYWORD_ONLY, "bins")?)),
         Some(count) => Some(Bins::Count(
@@ -84,15 +83,20 @@ fn hist(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
                 .ok_or_else(|| call.bad("bad bins"))?,
         )),
     };
-    options.layout.histtype = match call.opt_str(KEYWORD_ONLY, "histtype")? {
+    let histtype = match call.opt_str(KEYWORD_ONLY, "histtype")? {
         None | Some("bar") => HistType::Bar,
         Some("barstacked") => HistType::BarStacked,
         Some("step") => HistType::Step,
         Some("stepfilled") => HistType::StepFilled,
         Some(other) => return Err(ProbeError::rejected(format!("bad histtype {other:?}"))),
     };
-    options.label = label(call)?.map(str::to_owned).into_iter().collect();
-    ax.hist(&[x], options)
+    let options = HistPlotOptions {
+        bins,
+        histtype,
+        label: label(call)?.map(str::to_owned).into_iter().collect(),
+        ..HistPlotOptions::default()
+    };
+    ax.hist(&x, options)
         .map(|_| Produced::Nothing)
         .map_err(ProbeError::rejected)
 }

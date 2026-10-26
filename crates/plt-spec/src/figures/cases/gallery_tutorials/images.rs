@@ -9,7 +9,7 @@ use plt::colors::{ColorizerOptions, colormaps};
 use plt::image::{Interpolation, ScalarField};
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -82,10 +82,7 @@ fn images_5(fig: &Figure) -> CaseResult {
 
 fn images_6(fig: &Figure) -> CaseResult {
     let black = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges((0..256).map(f64::from).collect())),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges((0..256).map(f64::from).collect())),
         props: PatchProps::default().facecolor("k").edgecolor("k"),
         ..HistPlotOptions::default()
     };

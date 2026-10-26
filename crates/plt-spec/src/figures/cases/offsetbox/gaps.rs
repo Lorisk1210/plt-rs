@@ -104,7 +104,7 @@ pub(super) fn ecdf(fig: &Figure) -> CaseResult {
     )?;
     let counts = [1.0, 2.0, 2.0, 3.0, 5.0, 5.0, 5.0, 8.0, 8.0, 13.0];
     ax3.ecdf(
-        &counts,
+        counts,
         EcdfOptions {
             compress: true,
             line: LineProps::default().marker(Marker::Symbol(MarkerSymbol::Circle)),
@@ -112,7 +112,7 @@ pub(super) fn ecdf(fig: &Figure) -> CaseResult {
         },
     )?;
     ax3.ecdf(
-        &counts,
+        counts,
         EcdfOptions {
             weights: Some(counts.to_vec()),
             compress: true,

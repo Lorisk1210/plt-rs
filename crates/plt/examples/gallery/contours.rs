@@ -1,11 +1,9 @@
 //! Contours: filled and labelled contours on grids, hatched bands, and
 //! contours of scattered points through a triangulation.
 
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, ColorizerOptions, Extend, colormaps};
+use plt::colors::{ColorizerOptions, Extend};
 use plt::contour::{ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
 use plt::layout::LayoutEngine;
-use plt::numeric::{Grid, linspace, meshgrid};
 use plt::prelude::*;
 use plt::rc::Aspect;
 use plt::tri::Triangulation;

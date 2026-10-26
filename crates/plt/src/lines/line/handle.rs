@@ -9,7 +9,8 @@ use crate::colors::Color;
 use crate::lines::{DrawStyle, LineStyle, MarkEvery, MarkerIndicesError, StepError};
 use crate::markers::{FillStyle, Marker};
 use crate::rc::ColorOrAuto;
-use crate::units::UnitSources;
+use crate::ticker::AxisName;
+use crate::units::{AxisValues, UnitSources};
 
 /// A handle to a line in a figure (matplotlib's `Line2D`).
 ///
@@ -60,14 +61,61 @@ impl Line2D {
         })
     }
 
-    /// Replaces the line's data.
-    pub fn set_data(&self, x: &[f64], y: &[f64]) -> &Self {
-        self.raw.with_mut::<LineArtist, _>(|line| {
-            line.xdata = x.to_vec();
-            line.ydata = y.to_vec();
-            line.unit_sources = UnitSources::default();
-            line.recache();
-        });
+    /// The x data, in axis numbers.
+    pub fn xdata(&self) -> Vec<f64> {
+        self.raw.with::<LineArtist, _>(|line| line.xdata.clone())
+    }
+
+    /// The y data, in axis numbers.
+    pub fn ydata(&self) -> Vec<f64> {
+        self.raw.with::<LineArtist, _>(|line| line.ydata.clone())
+    }
+
+    /// Replaces the x data with values of any kind plotting takes
+    /// ([`AxisValues`]: any collection or iterator of numbers, names,
+    /// dates or user values), converted along the x axis of the line's
+    /// axes as [`Axes::plot`](crate::axes::Axes::plot) converts them.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let x = linspace(0.0, 1.0, 3);
+    /// let line = ax.plot(&x, [0.0, 0.0, 0.0])?;
+    /// line.set_ydata(x.iter().map(|x| 2.0 * x));
+    /// assert_eq!(line.ydata(), [0.0, 1.0, 2.0]);
+    /// line.set_xdata(["a", "b", "c"]);
+    /// assert_eq!(line.xdata(), [0.0, 1.0, 2.0], "categories, placed by the axis");
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// A line outside axes takes numbers and dates as they are; names and
+    /// user values need an axis to place them, and leave it without
+    /// points.
+    pub fn set_xdata(&self, x: impl Into<AxisValues>) -> &Self {
+        self.replace_data(AxisName::X, x.into())
+    }
+
+    /// Replaces the y data, as [`set_xdata`](Self::set_xdata) the x data.
+    pub fn set_ydata(&self, y: impl Into<AxisValues>) -> &Self {
+        self.replace_data(AxisName::Y, y.into())
+    }
+
+    /// Replaces the line's data (matplotlib's `set_data`), as
+    /// [`set_xdata`](Self::set_xdata) and [`set_ydata`](Self::set_ydata).
+    pub fn set_data(&self, x: impl Into<AxisValues>, y: impl Into<AxisValues>) -> &Self {
+        self.set_xdata(x).set_ydata(y)
+    }
+
+    /// Replaces the data along axis `name` with `values`, converted along
+    /// that axis of the line's axes.
+    fn replace_data(&self, name: AxisName, values: AxisValues) -> &Self {
+        let source = values.custom().cloned();
+        let numbers = match self.axes() {
+            Some(axes) => axes.axis_of(name).convert_plot_units(values),
+            None => values.into_unplaced_numbers(),
+        };
+        self.raw
+            .with_mut::<LineArtist, _>(|line| line.replace_data(name, numbers, source));
         self
     }
 
@@ -114,15 +162,6 @@ impl Line2D {
     pub fn rgba(&self) -> Result<Rgba, crate::colors::ColorError> {
         self.raw
             .with::<LineArtist, _>(|line| line.color.resolve_alpha(line.base.alpha))
-    }
-}
-
-artist_properties! {
-    Line2D => LineArtist {
-        /// The x data.
-        xdata, set_xdata: Vec<f64> => xdata_replaced;
-        /// The y data.
-        ydata, set_ydata: Vec<f64> => ydata_replaced;
     }
 }
 

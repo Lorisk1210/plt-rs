@@ -1,9 +1,10 @@
-//! What shows pyplot's figures: the window session, the web server, or
-//! nothing, as the backend says.
+//! What shows pyplot's figures, and those [`gui::show`](crate::gui::show)
+//! is given: the window session, the web server, or nothing, as the
+//! backend says.
 
 use std::time::Duration;
 
-use super::backend::Backend;
+use super::backend::{Backend, get_backend, record_backend};
 use crate::events::GinputOptions;
 use crate::figure::Figure;
 use crate::gui::{GuiError, Session};
@@ -23,6 +24,20 @@ fn fallback() -> Backend {
     } else {
         Backend::WebAgg
     }
+}
+
+/// Shows `figures`, titled "Figure 1", "Figure 2", ..., with the thread's
+/// backend, and returns once they are all closed (see
+/// [`gui::show`](crate::gui::show)).
+pub(crate) fn show_until_closed(figures: &[Figure]) -> Result<(), GuiError> {
+    let (mut host, backend) = Host::start(get_backend())?;
+    record_backend(backend);
+    let shown: Vec<Shown> = (1..)
+        .zip(figures)
+        .map(|(number, figure)| (number, figure.clone(), format!("Figure {number}")))
+        .collect();
+    host.show(&shown)?;
+    host.run()
 }
 
 /// The running backend.
@@ -166,5 +181,23 @@ impl Host {
             Self::Windows(session) => session.configure_subplots(figure),
             Self::Web(_) | Self::Agg => Err(GuiError::NotShown),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pyplot::{get_backend, switch_backend};
+
+    #[test]
+    fn figures_made_by_hand_show_with_the_backend() {
+        switch_backend(Backend::Agg);
+        let fig = Figure::new();
+        fig.subplot();
+        assert!(
+            crate::gui::show(&[fig]).is_ok(),
+            "agg shows nothing and returns"
+        );
+        assert_eq!(get_backend(), Backend::Agg);
     }
 }

@@ -4,21 +4,13 @@
 use plt::axes::{
     BoxplotOptions, BxpOptions, HistPlotOptions, ViolinDrawOptions, ViolinplotOptions,
 };
-use plt::stats::{Bins, HistOptions};
-
-/// Histogram options with `layout` and default styling.
-pub(crate) fn laid_out(layout: HistOptions<'_>) -> HistPlotOptions<'_> {
-    HistPlotOptions {
-        layout,
-        ..HistPlotOptions::default()
-    }
-}
+use plt::stats::Bins;
 
 /// `bins=n`.
-pub(crate) fn bins(n: usize) -> HistOptions<'static> {
-    HistOptions {
+pub(crate) fn bins(n: usize) -> HistPlotOptions<'static> {
+    HistPlotOptions {
         bins: Some(Bins::Count(n)),
-        ..HistOptions::default()
+        ..HistPlotOptions::default()
     }
 }
 

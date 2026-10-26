@@ -15,7 +15,7 @@ use plt::lines::StepWhere;
 use plt::markers::Marker;
 use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions, HistType};
+use plt::stats::{Bins, HistType};
 
 use crate::figures::cases::common::map;
 use crate::figures::{CaseResult, FigureCase};
@@ -446,11 +446,8 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         let data = SpecRng::new(304).normal(300, 0.0, 1.0);
         let histogram = |histtype: HistType, label: &str, props: PatchProps| HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(15)),
-                histtype,
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(15)),
+            histtype,
             label: vec![label.to_owned()],
             props,
             ..HistPlotOptions::default()

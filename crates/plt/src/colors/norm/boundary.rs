@@ -5,6 +5,7 @@ use plt_core::numeric::np_clip;
 use super::{Limits, Norm, NormError, NormKind};
 use crate::colors::npmath::np_less;
 use crate::colors::{Extend, Normalized};
+use crate::numeric::{Number, to_f64s};
 
 /// Maps data to colour *indices* by the bin it falls in (matplotlib's
 /// `BoundaryNorm`): bin `i` is `boundaries[i] <= x < boundaries[i + 1]`.
@@ -32,11 +33,11 @@ impl BoundaryNorm {
     /// A norm with the given bin edges (at least two, non-decreasing) for a
     /// colormap of `ncolors` colours; `extend` adds bins below and/or above.
     pub fn new(
-        boundaries: impl Into<Vec<f64>>,
+        boundaries: impl IntoIterator<Item: Number>,
         ncolors: usize,
         extend: Extend,
     ) -> Result<Self, NormError> {
-        let boundaries = boundaries.into();
+        let boundaries = to_f64s(boundaries);
         let (Some(&first), Some(&last), 2..) =
             (boundaries.first(), boundaries.last(), boundaries.len())
         else {

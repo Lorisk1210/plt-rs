@@ -3,8 +3,10 @@
 //! error sizes (matplotlib's `dx` arguments, which may be `timedelta`s or
 //! values of user types).
 
+use super::scalar::from_numbers;
 use super::{Convertible, CustomValues, from_value_lists};
 use crate::dates::TimeDelta;
+use crate::numeric::{Number, with_numbers};
 
 /// Microseconds in a day: a duration of that many microseconds spans one
 /// unit of a date axis.
@@ -15,9 +17,9 @@ pub(crate) fn days(duration: TimeDelta) -> f64 {
     duration.total_micros() as f64 / MICROS_PER_DAY
 }
 
-/// An extent along an axis before unit conversion: a number, a duration
-/// on a date axis (matplotlib's `timedelta` widths, heights and error
-/// sizes) or a value of a [`Convertible`] type.
+/// An extent along an axis before unit conversion: a number of any
+/// primitive type, a duration on a date axis (matplotlib's `timedelta`
+/// widths, heights and error sizes) or a value of a [`Convertible`] type.
 ///
 /// ```
 /// use plt::dates::TimeDelta;
@@ -80,11 +82,7 @@ impl AxisDelta {
     }
 }
 
-impl From<f64> for AxisDelta {
-    fn from(delta: f64) -> Self {
-        Self::Number(delta)
-    }
-}
+with_numbers!(from_numbers!(AxisDelta;));
 
 impl From<TimeDelta> for AxisDelta {
     fn from(duration: TimeDelta) -> Self {
@@ -99,9 +97,10 @@ impl<T: Convertible> From<T> for AxisDelta {
 }
 
 /// Extents along an axis before unit conversion, one or one per item:
-/// numbers, durations or values of a [`Convertible`] type (matplotlib's
-/// bar heights and widths and error sizes, which convert through the
-/// values they extend from, as its `_convert_dx` converts them).
+/// numbers of any primitive type, durations or values of a [`Convertible`]
+/// type (matplotlib's bar heights and widths and error sizes, which
+/// convert through the values they extend from, as its `_convert_dx`
+/// converts them).
 ///
 /// ```
 /// use plt::dates::TimeDelta;
@@ -204,7 +203,8 @@ impl<T: Convertible> From<Vec<T>> for AxisDeltas {
     }
 }
 
-from_value_lists!(AxisDeltas: f64, TimeDelta);
+from_value_lists!(numbers AxisDeltas);
+from_value_lists!(AxisDeltas: TimeDelta);
 from_value_lists!(impl<T: Convertible> AxisDeltas: T);
 
 #[cfg(test)]
@@ -305,15 +305,21 @@ mod tests {
         assert_eq!(AxisDeltas::from(&vec![day]), AxisDeltas::from(&[day]));
 
         let values = AxisValues::from(lengths.clone());
-        assert_eq!(AxisValues::from(&lengths), values);
-        assert_eq!(AxisValues::from(Metres(1.0)).len(), 1);
-        assert_eq!(AxisValues::from(2.5), AxisValues::Numbers(vec![2.5]));
-        assert_eq!(AxisValues::from("a"), AxisValues::from(["a"]));
+        assert_eq!(AxisValues::from(lengths.iter().copied()), values);
+        assert_eq!(AxisValues::from([Metres(1.0)]).len(), 1);
+        assert_eq!(AxisValues::from([2.5]), AxisValues::Numbers(vec![2.5]));
+        assert_eq!(
+            AxisValues::from(AxisValue::from("a")),
+            AxisValues::from(["a"])
+        );
         let names = vec![String::from("a")];
         assert_eq!(AxisValues::from(&names), AxisValues::from(names.clone()));
         let date = DateTime::new(1970, 1, 2, 0, 0, 0, 0).expect("a date");
         assert_eq!(AxisValues::from([date]), AxisValues::Dates(vec![1.0]));
-        assert_eq!(AxisValues::from(&[date]), AxisValues::from(date));
+        assert_eq!(
+            AxisValues::from(&[date]),
+            AxisValues::from(AxisValue::from(date))
+        );
 
         let metres = AxisValue::from(Metres(4.0));
         assert_eq!(metres.downcast_ref::<Metres>(), Some(&Metres(4.0)));

@@ -6,7 +6,6 @@ use std::collections::BTreeMap;
 use std::f64::consts::PI;
 
 use plt::animation::{AnimationOptions, Frames, FuncAnimation};
-use plt::artist::ArtistHandle;
 use plt::axes::{Axes, BarOptions, PlotError};
 use plt::collections::{CollectionProps, CollectionSpec};
 use plt::dates::{DateError, DateTime};
@@ -67,14 +66,14 @@ fn animation_frame(fig: &Figure) -> CaseResult {
     };
     let cleared = line.clone();
     let init = move || {
-        cleared.set_data(&[], &[]);
-        vec![cleared.raw().clone()]
+        cleared.set_data(Vec::<f64>::new(), Vec::<f64>::new());
+        cleared.clone()
     };
     let animate = move |i: usize| {
         let shift = i as f64 / 100.0;
         let y: Vec<f64> = x.iter().map(|x| (x + shift).sin()).collect();
         line.set_data(&x, &y);
-        vec![line.raw().clone()]
+        line.clone()
     };
     let animation = FuncAnimation::with_init(fig, Frames::Count(5), options, init, animate);
     animation.to_gif()?;

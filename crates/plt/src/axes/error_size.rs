@@ -8,10 +8,10 @@ use super::broadcast::broadcast;
 use crate::dates::TimeDelta;
 use crate::units::{AxisDelta, AxisDeltas, AxisValue, Convertible, CustomValues, from_value_lists};
 
-/// Error sizes along one axis (matplotlib's `xerr`/`yerr`): numbers,
-/// durations or user values ([`AxisDeltas`]), every list holding one
-/// value or one per point. Whatever makes [`AxisDeltas`] makes symmetric
-/// error sizes.
+/// Error sizes along one axis (matplotlib's `xerr`/`yerr`): numbers of
+/// any primitive type, durations or user values ([`AxisDeltas`]), every
+/// list holding one value or one per point. Whatever makes
+/// [`AxisDeltas`] makes symmetric error sizes.
 ///
 /// ```
 /// use plt::axes::ErrorSize;
@@ -73,7 +73,8 @@ impl<T: Convertible> From<Vec<T>> for ErrorSize {
     }
 }
 
-from_value_lists!(ErrorSize: f64, TimeDelta);
+from_value_lists!(numbers ErrorSize);
+from_value_lists!(ErrorSize: TimeDelta);
 from_value_lists!(impl<T: Convertible> ErrorSize: T);
 
 /// The lower and upper ends of error bars, one of each per point, in the

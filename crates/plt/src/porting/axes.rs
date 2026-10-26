@@ -57,6 +57,9 @@
 //! | `ax.locator_params(nbins=4)`                   | [`Axes::locator_params`]`(&LocatorParams { .. })` |
 //! | `ax.xaxis.tick_top()`, `set_ticks_position("both")` | [`Axis::tick_to`]`(SpineSide::Top)`, [`Axis::set_ticks_position`] |
 //! | `ax.yaxis.set_offset_position("right")`             | [`Axis::set_offset_position`]`(SpineSide::Right)?`, [`Axis::offset_position`] |
+//! | `ax.xaxis.set_picker(True)`, `ax.xaxis.contains(event)` | [`Axis::set_picker`]`(Some(Picker::Default))`, [`Axis::contains`]`(point)`; picks name the axis in [`PickEvent::axis`] |
+//! | `ax.xaxis.set_pickradius(r)`, `get_pickradius()`, `pickradius` | [`Axis::set_pickradius`]`(r)?`, [`Axis::pickradius`] |
+//! | `LockableBbox(bbox, y0=0)`, `locked.locked_y0 = None` | [`LockableBbox`]` { locked_y0: Some(0.0), ..LockableBbox::new(bbox) }`, the public `locked_*` fields; [`LockableBbox::bbox`] is `get_points()` |
 //! | `ax.grid(True, which="both", axis="y", ...)`   | [`Axes::grid`], [`Axes::grid_with`] with [`GridOptions`] |
 //! | `ax.set_axisbelow(True)`                       | [`Axes::set_axisbelow`]`(AxisBelow::Below)` ([`AxisBelow`]) |
 //! | `ax.set_xlabel(s)`, `ax.get_xlabel()`          | [`Axes::set_xlabel`], [`Axes::label`]`(AxisName::X)` |
@@ -421,3 +424,10 @@
 //! [`Axes::has_data`]: crate::axes::Axes::has_data
 //! [`Axis::set_offset_position`]: crate::axes::Axis::set_offset_position
 //! [`Axis::offset_position`]: crate::axes::Axis::offset_position
+//! [`Axis::set_picker`]: crate::axes::Axis::set_picker
+//! [`Axis::contains`]: crate::axes::Axis::contains
+//! [`Axis::set_pickradius`]: crate::axes::Axis::set_pickradius
+//! [`Axis::pickradius`]: crate::axes::Axis::pickradius
+//! [`PickEvent::axis`]: crate::events::PickEvent::axis
+//! [`LockableBbox`]: crate::transforms::LockableBbox
+//! [`LockableBbox::bbox`]: crate::transforms::LockableBbox::bbox

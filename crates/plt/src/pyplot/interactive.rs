@@ -37,11 +37,31 @@ fn with_session<R>(f: impl FnOnce(&mut Host) -> Result<R, GuiError>) -> Result<R
             .map(|entry| (entry.num, entry.figure.clone(), entry.title()))
             .collect()
     });
-    let result = host.show(&figures).and_then(|()| f(&mut host));
+    let requested: Vec<(Figure, (u32, u32))> = with_registry(|registry| {
+        registry
+            .figures
+            .iter_mut()
+            .filter_map(|entry| Some((entry.figure.clone(), entry.requested_size.take()?)))
+            .collect()
+    });
+    let result = host
+        .show(&figures)
+        .and_then(|()| {
+            requested
+                .iter()
+                .try_for_each(|(figure, (width, height))| host.resize(figure, *width, *height))
+        })
+        .and_then(|()| f(&mut host));
     let closed = host.take_closed();
     with_registry(|registry| registry.remove_where(|entry| closed.contains(&entry.figure)));
     SESSION.with(|stored| *stored.borrow_mut() = Some(host));
     result
+}
+
+/// Shows every open figure, giving the windows the sizes their managers
+/// asked for ([`FigureManager::resize`](super::FigureManager::resize)).
+pub(super) fn show_requested_sizes() -> Result<(), GuiError> {
+    with_session(|_| Ok(()))
 }
 
 /// Stops showing the figures: their windows close, or the web server

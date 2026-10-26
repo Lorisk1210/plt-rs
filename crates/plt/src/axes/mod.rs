@@ -11,6 +11,7 @@ pub(crate) mod axis_label;
 mod axis_label_layout;
 mod axis_layout;
 mod axis_mode;
+mod axis_pick;
 mod axis_ticks;
 mod axis_units;
 mod axis_user_units;

@@ -60,7 +60,7 @@ use plt_render::RgbaImage;
 
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::figure::{BboxInches, Figure, SaveError, SaveOptions};
-use player::Player;
+use player::{Control, Player, Requested};
 
 mod artists;
 mod blit;
@@ -236,10 +236,14 @@ impl std::error::Error for AnimationError {
 /// An animation driven by a frame function (matplotlib's
 /// `FuncAnimation`). It starts playing once its figure is drawn, as when
 /// a window shows it: the initial frame is set up, then a timer goes
-/// through `frames` every interval. It stops when dropped.
+/// through `frames` every interval. It stops when dropped. Pausing,
+/// resuming or stopping it from its own frame or init function, or from
+/// a draw callback of the figure, takes effect once the function returns.
 pub struct FuncAnimation {
     figure: Figure,
     player: Rc<RefCell<Player>>,
+    /// The control asked for while the player is busy.
+    requested: Requested,
 }
 
 impl fmt::Debug for FuncAnimation {
@@ -286,17 +290,63 @@ impl FuncAnimation {
         mut update: impl FnMut(usize) -> R + 'static,
     ) -> Self {
         let update: player::FrameFn = Box::new(move |frame| update(frame).into_artists());
+        let player = Player::connect(figure, frames, options, init, update);
+        let requested = player.borrow().requested();
         Self {
             figure: figure.clone(),
-            player: Player::connect(figure, frames, options, init, update),
+            player,
+            requested,
+        }
+    }
+
+    /// Applies `control`, or leaves it for the player to apply once the
+    /// program's function it is running returns.
+    fn control(&self, control: Control) {
+        match self.player.try_borrow_mut() {
+            Ok(mut player) => player.apply(control),
+            Err(_) => self.requested.set(Some(control)),
         }
     }
 
     /// Stops playback.
     pub fn stop(&self) {
-        if let Ok(mut player) = self.player.try_borrow_mut() {
-            player.stop();
-        }
+        self.control(Control::Stop);
+    }
+
+    /// Pauses playback (matplotlib's `Animation.pause`): the frames stop
+    /// where they are, and when blitting, the artists of the last frame
+    /// become ordinary ones, drawn with the rest of the figure. Pausing
+    /// before the figure is first drawn holds the animation at its
+    /// initial frame, and a resized window keeps it paused, where
+    /// matplotlib starts playing again. Pausing twice does nothing more.
+    ///
+    /// ```
+    /// use plt::animation::{AnimationOptions, Frames, FuncAnimation};
+    /// use plt::figure::Figure;
+    /// let fig = Figure::with_size(2.0, 2.0, 50.0);
+    /// let ax = fig.subplot();
+    /// let line = ax.plot(vec![0.0, 1.0], vec![0.0, 0.0])?;
+    /// let animation = FuncAnimation::new(&fig, Frames::Endless, AnimationOptions::default(), move |i| {
+    ///     line.set_data(&[0.0, 1.0], &[0.0, i as f64]);
+    /// });
+    /// fig.canvas().draw()?; // drawn, as a window draws it: playing
+    /// assert_eq!(fig.timers().len(), 1);
+    /// animation.pause();
+    /// assert!(fig.timers().is_empty());
+    /// animation.resume();
+    /// assert_eq!(fig.timers().len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn pause(&self) {
+        self.control(Control::Pause);
+    }
+
+    /// Resumes paused playback from the frame it stopped at (matplotlib's
+    /// `Animation.resume`); when blitting, the artists of the last frame
+    /// are animated again. Does nothing unless paused, nor once playback
+    /// stopped or ended.
+    pub fn resume(&self) {
+        self.control(Control::Resume);
     }
 
     /// The number of frames saved: all of them, or matplotlib's default

@@ -64,6 +64,7 @@
 //! | `ax.hist2d(x, y, bins=)`                           | [`Axes::hist2d`] with [`Hist2dOptions`]           |
 //! | `ax.hexbin(x, y, C=, gridsize=, mincnt=)`          | [`Axes::hexbin`] with [`HexbinOptions`]           |
 //! | `ax.boxplot(data, whis=, tick_labels=, showfliers=)` | [`Axes::boxplot`] with [`BoxplotOptions`] and [`BxpOptions`] |
+//! | `ax.boxplot(data, notch=True, bootstrap=5000)`     | [`BoxplotOptions::bootstrap`]`: Some(`[`Bootstrap`]` { resamples: 5000, seed })`, drawn from a seeded generator, not numpy's |
 //! | `ax.bxp(stats)`                                    | [`Axes::bxp`]                                     |
 //! | `ax.violinplot(data, showmeans=)`, `ax.violin(stats)` | [`Axes::violinplot`], [`Axes::violin`]         |
 //! | `ax.pie(x, labels=, autopct=, explode=)`           | [`Axes::pie`] with [`PieOptions`]; `autopct` is a [`LabelFormat`] |
@@ -380,6 +381,8 @@
 //! [`Axes::hist2d`]: crate::axes::Axes::hist2d
 //! [`Axes::hexbin`]: crate::axes::Axes::hexbin
 //! [`Axes::boxplot`]: crate::axes::Axes::boxplot
+//! [`BoxplotOptions::bootstrap`]: crate::axes::BoxplotOptions::bootstrap
+//! [`Bootstrap`]: crate::stats::Bootstrap
 //! [`Axes::bxp`]: crate::axes::Axes::bxp
 //! [`Axes::violinplot`]: crate::axes::Axes::violinplot
 //! [`Axes::violin`]: crate::axes::Axes::violin

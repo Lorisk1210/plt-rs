@@ -116,6 +116,8 @@ pub enum PlotError {
     FixedLimits(AxisName),
     /// An infinite line given by a slope on axes with a non-linear scale.
     SlopeOnNonlinearScale,
+    /// An axis pick radius that is negative or NaN.
+    InvalidPickRadius(f64),
 }
 
 impl fmt::Display for PlotError {
@@ -211,6 +213,9 @@ impl fmt::Display for PlotError {
                 "cannot be shared: the projection of its axes fixes their limits",
             ),
             Self::NormWithLimits => f.write_str(NORM_WITH_LIMITS),
+            Self::InvalidPickRadius(radius) => {
+                write!(f, "pick radius should be a distance, got {radius}")
+            }
             Self::SlopeOnNonlinearScale => {
                 f.write_str("'slope' cannot be used with non-linear scales")
             }

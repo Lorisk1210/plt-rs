@@ -11,7 +11,9 @@
 //!   densities; [`hist`] adds what `Axes.hist` does on top (shared edges,
 //!   stacking, cumulative counts, bar and step geometry).
 //! * [`histogram2d`] — `np.histogram2d` ([`AxisBins`], [`Histogram2d`]).
-//! * [`boxplot_stats`] — `cbook.boxplot_stats` ([`BoxStats`]).
+//! * [`boxplot_stats`] — `cbook.boxplot_stats` ([`BoxStats`]), its notches
+//!   optionally bootstrapped ([`Bootstrap`]) from a seeded generator
+//!   instead of numpy's global one.
 //! * [`violin_stats`] / [`GaussianKde`] — `cbook.violin_stats` and
 //!   `mlab.GaussianKDE`.
 //!
@@ -26,6 +28,7 @@
     reason = "numpy's algorithms branch on exact float comparisons; the ports keep them"
 )]
 
+mod bootstrap;
 mod boxplot;
 mod error;
 mod hist;
@@ -36,6 +39,7 @@ mod linalg;
 mod summary;
 mod violin;
 
+pub use bootstrap::{Bootstrap, MAX_BOOTSTRAP_DRAWS};
 pub use boxplot::{BoxStats, BoxplotStatsOptions, Whis, box_stats, boxplot_stats};
 pub use error::StatsError;
 pub use hist::{

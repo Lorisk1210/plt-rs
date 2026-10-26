@@ -33,6 +33,10 @@
 //! (the basis of [`crate::animation`]). [`GinputOptions`] configures
 //! pyplot's `ginput`, which waits for clicks in a shown figure.
 //!
+//! [`Figure::block_callbacks`](crate::figure::Figure::block_callbacks)
+//! keeps the callbacks of one kind of event, or of all, from running for
+//! a while (matplotlib's `callbacks.blocked()`).
+//!
 //! Interactive tools share the pointer through the figure's widget lock
 //! ([`Figure::lock_widgets`](crate::figure::Figure::lock_widgets)) and ask
 //! the window for cursor shapes
@@ -59,7 +63,7 @@ pub(crate) use drag::{DragTarget, Dragger};
 pub use lock::{CursorShape, LockError, LockOwner};
 pub use pick::PickEvent;
 pub(crate) use registry::CallbackRegistry;
-pub use registry::ConnectionId;
+pub use registry::{CallbacksBlocked, ConnectionId};
 pub use source::EventSource;
 pub use timers::TimerKey;
 pub(crate) use timers::TimerRegistry;

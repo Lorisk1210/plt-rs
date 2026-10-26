@@ -1,5 +1,10 @@
 //! Probe operations for the `api_audit` area: the public API the API audit
-//! found missing and added (see `spec/reference/probes/test_api_audit.py`).
+//! found missing and added (see `spec/reference/probes/test_api_audit.py`);
+//! the [`interaction`] API and the [`boxes`] added after it have modules
+//! of their own.
+
+mod boxes;
+mod interaction;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -47,6 +52,17 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Text3D.get_position_3d", text_position_3d),
     Op::new("Axis3D.get_rotate_label", rotate_label),
     Op::new("Axes3D.set_title", title_3d),
+    Op::new("Axis.pickradius", interaction::pickradius),
+    Op::new("Axis.contains", interaction::axis_contains),
+    Op::new("Axis.pick", interaction::axis_pick),
+    Op::new("LockableBbox", boxes::lockable_bbox),
+    Op::new("SpanSelector.new_axes", interaction::span_new_axes),
+    Op::new("Animation.pause", interaction::animation_pause),
+    Op::new("FigureManagerBase.resize", interaction::manager_resize),
+    Op::new("MouseButton", interaction::mouse_buttons),
+    Op::new("ToolToggleBase", interaction::toggle_tools),
+    Op::new("CallbackRegistry.blocked", interaction::callbacks_blocked),
+    Op::new("boxplot.bootstrap", boxes::boxplot_bootstrap),
 ];
 
 fn has_data(args: Args<'_>) -> Outcome {

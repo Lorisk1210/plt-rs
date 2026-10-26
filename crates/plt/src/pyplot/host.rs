@@ -174,6 +174,29 @@ impl Host {
         }
     }
 
+    /// Resizes the canvas showing `figure` to `width × height` physical
+    /// pixels (matplotlib's `manager.resize`): its window, or the figure
+    /// itself for the web pages, which follow it; nothing is shown to
+    /// resize without a display.
+    pub(super) fn resize(
+        &mut self,
+        figure: &Figure,
+        width: u32,
+        height: u32,
+    ) -> Result<(), GuiError> {
+        match self {
+            Self::Windows(session) => session.resize(figure, width, height),
+            Self::Web(_) => {
+                let dpi = figure.dpi();
+                figure
+                    .set_size_inches(f64::from(width) / dpi, f64::from(height) / dpi)
+                    .expect("whole pixels at a positive resolution make a valid size");
+                Ok(())
+            }
+            Self::Agg => Ok(()),
+        }
+    }
+
     /// Opens the subplot configuration tool of `figure`'s window; the web
     /// and non-interactive backends have none.
     pub(super) fn configure_subplots(&mut self, figure: &Figure) -> Result<(), GuiError> {

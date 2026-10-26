@@ -1,9 +1,10 @@
 //! Playing an animation (matplotlib's `Animation`, `TimedAnimation` and
 //! `FuncAnimation` machinery): it starts once its figure is first drawn,
-//! a timer then shows the frames, drawn in full or blitted, and a
-//! resized figure starts the blitting over.
+//! a timer then shows the frames, drawn in full or blitted, a resized
+//! figure starts the blitting over, and the program may pause and resume
+//! playback.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use std::time::Instant;
 
@@ -31,6 +32,34 @@ struct Connections {
     resize: Option<ConnectionId>,
 }
 
+/// What the program asks of playback.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Control {
+    /// Pause it (matplotlib's `pause`).
+    Pause,
+    /// Resume it (matplotlib's `resume`).
+    Resume,
+    /// Stop it for good.
+    Stop,
+}
+
+/// The control asked for while the player was busy running the program's
+/// frame or init function, applied once it returns.
+pub(super) type Requested = Rc<Cell<Option<Control>>>;
+
+/// Where playback stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Stage {
+    /// Waiting for the figure's first draw.
+    Waiting,
+    /// Showing frames on the timer.
+    Playing,
+    /// Waiting for the figure to be drawn at its new size.
+    Resizing,
+    /// Stopped, or at the end of a pass without repetition.
+    Over,
+}
+
 /// The frame function and where playback stands.
 pub(super) struct Player {
     /// The player itself, for the callbacks and timers it connects.
@@ -45,6 +74,11 @@ pub(super) struct Player {
     resume_at: Option<Instant>,
     /// The timer showing the frames, while playing.
     timer: Option<TimerKey>,
+    stage: Stage,
+    /// Whether the program paused playback (matplotlib's `pause`).
+    paused: bool,
+    /// The control asked for while busy.
+    requested: Requested,
     connections: Connections,
     /// The blitting state, when frames are blitted.
     blitter: Option<Blitter>,
@@ -72,6 +106,9 @@ impl Player {
                 next: 0,
                 resume_at: None,
                 timer: None,
+                stage: Stage::Waiting,
+                paused: false,
+                requested: Requested::default(),
                 connections: Connections::default(),
                 blitter: options.blit.then(Blitter::default),
             })
@@ -93,6 +130,28 @@ impl Player {
         player
     }
 
+    /// Where the program leaves the control it asks for while the player
+    /// is busy.
+    pub(super) fn requested(&self) -> Requested {
+        Rc::clone(&self.requested)
+    }
+
+    /// Applies `control` (matplotlib's `pause`, `resume` and `_stop`).
+    pub(super) fn apply(&mut self, control: Control) {
+        match control {
+            Control::Pause => self.pause(),
+            Control::Resume => self.resume(),
+            Control::Stop => self.stop(),
+        }
+    }
+
+    /// Applies the control asked for while the player was busy.
+    fn apply_requested(&mut self) {
+        if let Some(control) = self.requested.take() {
+            self.apply(control);
+        }
+    }
+
     /// Calls `act` on the player with every event of `kind`, unless the
     /// player is busy (the event comes from inside it) or gone.
     fn on(&self, kind: EventKind, act: fn(&mut Self)) -> ConnectionId {
@@ -102,6 +161,7 @@ impl Player {
                 && let Ok(mut player) = player.try_borrow_mut()
             {
                 act(&mut player);
+                player.apply_requested();
             }
         })
     }
@@ -113,20 +173,26 @@ impl Player {
             return;
         }
         disconnect(&self.figure, self.connections.first_draw.take());
+        self.stage = Stage::Playing;
         self.init_draw();
         self.start_timer();
     }
 
-    /// Starts the timer showing the frames, unless it runs (matplotlib
-    /// restarts its one timer).
+    /// Starts the timer showing the frames while playing, unless it runs
+    /// (matplotlib restarts its one timer) or playback is paused.
     fn start_timer(&mut self) {
-        if self.timer.is_some() {
+        if self.timer.is_some() || self.paused || self.stage != Stage::Playing {
             return;
         }
         let this = self.this.clone();
         let timer = self.figure.add_timer(self.options.interval, move || {
-            this.upgrade()
-                .is_some_and(|player| player.try_borrow_mut().map_or(true, |mut p| p.step()))
+            this.upgrade().is_some_and(|player| {
+                player.try_borrow_mut().map_or(true, |mut player| {
+                    let going = player.step();
+                    player.apply_requested();
+                    going
+                })
+            })
         });
         self.timer = Some(timer);
     }
@@ -138,8 +204,39 @@ impl Player {
         }
     }
 
+    /// Pauses playback (matplotlib's `pause`): the timer stops, and the
+    /// blitted artists become ordinary ones, drawn with the figure.
+    fn pause(&mut self) {
+        self.paused = true;
+        self.stop_timer();
+        self.set_drawn_animated(false);
+    }
+
+    /// Resumes paused playback (matplotlib's `resume`): the blitted
+    /// artists are animated again and the timer restarts, unless playback
+    /// has not started yet, waits for a redraw or is over.
+    fn resume(&mut self) {
+        if !std::mem::replace(&mut self.paused, false) {
+            return;
+        }
+        if self.stage != Stage::Over {
+            self.set_drawn_animated(true);
+        }
+        self.start_timer();
+    }
+
+    /// Makes the artists the last frame blitted animated, or not.
+    fn set_drawn_animated(&self, animated: bool) {
+        if let Some(blitter) = &self.blitter {
+            for artist in blitter.drawn.iter().filter(|a| a.is_attached()) {
+                artist.set_animated(animated);
+            }
+        }
+    }
+
     /// Stops playback and drops every connection (matplotlib's `_stop`).
-    pub(super) fn stop(&mut self) {
+    fn stop(&mut self) {
+        self.stage = Stage::Over;
         self.stop_timer();
         let connections = std::mem::take(&mut self.connections);
         for connection in [
@@ -157,6 +254,7 @@ impl Player {
     fn on_resize(&mut self) {
         disconnect(&self.figure, self.connections.resize.take());
         self.stop_timer();
+        self.stage = Stage::Resizing;
         if let Some(blitter) = &mut self.blitter {
             blitter.forget_backgrounds();
         }
@@ -165,9 +263,10 @@ impl Player {
     }
 
     /// The figure was drawn after a resize (matplotlib's `_end_redraw`):
-    /// playback resumes.
+    /// playback resumes, unless paused.
     fn end_redraw(&mut self) {
         self.post_draw(false);
+        self.stage = Stage::Playing;
         self.start_timer();
         disconnect(&self.figure, self.connections.resize.take());
         self.connections.resize = Some(self.on(EventKind::Resize, Self::on_resize));
@@ -207,11 +306,8 @@ impl Player {
     fn finish(&mut self) {
         // The ending tick removes the timer itself.
         self.timer = None;
-        if let Some(blitter) = &self.blitter {
-            for artist in blitter.drawn.iter().filter(|a| a.is_attached()) {
-                artist.set_animated(false);
-            }
-        }
+        self.stage = Stage::Over;
+        self.set_drawn_animated(false);
         disconnect(&self.figure, self.connections.resize.take());
         disconnect(&self.figure, self.connections.close.take());
     }

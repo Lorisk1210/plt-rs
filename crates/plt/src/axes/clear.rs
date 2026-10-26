@@ -51,6 +51,8 @@ impl AxesState {
                 };
             }
             new.label_size = old.label_size;
+            // The axis object stays, with its picker and pick radius.
+            new.picking = old.picking.clone();
         }
         if self.shares.0.is_some() {
             fresh.xaxis.visible = self.xaxis.visible;

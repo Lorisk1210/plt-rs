@@ -1,12 +1,14 @@
 //! Figure managers (matplotlib's `FigureManagerBase` as pyplot hands it
-//! out, `fig.canvas.manager`): a figure's number and the title of its
-//! window.
+//! out, `fig.canvas.manager`): a figure's number, the title of its window
+//! and the window's size.
 
-use super::interactive::draw_if_interactive;
+use super::interactive::{draw_if_interactive, isinteractive, show_requested_sizes};
 use super::registry::{gcf, with_registry};
 use crate::figure::{Figure, SaveFormat};
+use crate::gui::GuiError;
 
-/// The manager of a pyplot figure: its number and window title.
+/// The manager of a pyplot figure: its number, window title and window
+/// size.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FigureManager {
     num: u32,
@@ -72,6 +74,44 @@ impl FigureManager {
         });
         draw_if_interactive();
     }
+
+    /// Resizes the canvas of the figure's window to `width × height`
+    /// physical pixels, the window growing by its toolbar (matplotlib's
+    /// `resize`): at once in interactive mode, else when the figure is
+    /// next shown. The figure takes the size once the window system has
+    /// resized the window. The web backend's pages follow the figure,
+    /// which takes the size, and nothing is resized without a display, as
+    /// matplotlib's non-GUI backends do nothing.
+    ///
+    /// ```
+    /// use plt::pyplot::{self, Backend};
+    /// pyplot::switch_backend(Backend::Agg);
+    /// pyplot::figure();
+    /// pyplot::get_current_fig_manager().resize(800, 600)?;
+    /// pyplot::show()?; // nothing to show the figure in
+    /// # Ok::<(), plt::gui::GuiError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// In interactive mode, when the backend cannot start or the window
+    /// system refuses the size (a zero side).
+    pub fn resize(&self, width: u32, height: u32) -> Result<(), GuiError> {
+        with_registry(|registry| {
+            if let Some(entry) = registry
+                .figures
+                .iter_mut()
+                .find(|entry| entry.num == self.num)
+            {
+                entry.requested_size = Some((width, height));
+            }
+        });
+        if isinteractive() {
+            show_requested_sizes()
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// The manager of the current figure, which is made if there is none
@@ -113,5 +153,34 @@ mod tests {
             fresh.window_title(),
             Some(format!("Figure {}", fresh.num()))
         );
+    }
+
+    #[test]
+    fn sizes_wait_for_the_figure_to_be_shown() {
+        use crate::pyplot::{Backend, figure, ioff, ion, show, switch_backend};
+
+        switch_backend(Backend::Agg);
+        close_all();
+        let fig = figure();
+        let manager = get_current_fig_manager();
+        manager.resize(300, 200).unwrap();
+        let pending = |num| {
+            with_registry(|registry| {
+                registry
+                    .figures
+                    .iter()
+                    .find(|entry| entry.num == num)
+                    .and_then(|entry| entry.requested_size)
+            })
+        };
+        assert_eq!(pending(manager.num()), Some((300, 200)));
+        show().unwrap();
+        assert_eq!(pending(manager.num()), None, "taken by the backend");
+        assert_eq!(fig.size_inches(), (6.4, 4.8), "agg resizes nothing");
+        ion();
+        manager.resize(10, 10).unwrap();
+        assert_eq!(pending(manager.num()), None, "applied at once");
+        ioff();
+        close_all();
     }
 }

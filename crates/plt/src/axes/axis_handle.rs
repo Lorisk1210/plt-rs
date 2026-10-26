@@ -243,6 +243,7 @@ impl Axis {
             true,
         );
         crate::colorbar::follow_view(&self.axes);
+        super::run_limit_callbacks(self.axes.raw().figure_state());
         self
     }
 

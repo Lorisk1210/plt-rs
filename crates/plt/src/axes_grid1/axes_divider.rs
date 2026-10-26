@@ -7,6 +7,7 @@ use std::rc::Rc;
 use plt_core::Bbox;
 
 use super::divider::{DividerAspect, DividerCell, DividerId, DividerRect, DividerState, signed};
+use super::figure_divider::Divider;
 use super::size::{Size, SizeSpec};
 use crate::artist::{Artist, ArtistHandle, ArtistId};
 use crate::axes::{Axes, AxesState};
@@ -105,6 +106,23 @@ impl AxesDivider {
     /// The divided axes.
     pub fn axes(&self) -> &Axes {
         &self.axes
+    }
+
+    /// The divider itself, to read or change its sizes, aspect and
+    /// anchor (matplotlib's `AxesDivider` is a `Divider`).
+    ///
+    /// ```
+    /// use plt::axes_grid1::make_axes_locatable;
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let divider = make_axes_locatable(&ax);
+    /// divider.append_axes(SpineSide::Right, 0.5, None);
+    /// assert_eq!(divider.divider().horizontal().len(), 3, "axes, pad and appended axes");
+    /// assert!(!divider.divider().aspect(), "the axes has no fixed aspect");
+    /// ```
+    pub fn divider(&self) -> Divider {
+        Divider::from_id(self.axes.figure(), self.divider)
     }
 
     /// Adds an axes on `side` of the divided axes, `size` wide (left,

@@ -8,6 +8,7 @@ use plt_core::Bbox;
 
 use super::{Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
+use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
 
 /// Which position of an axes [`Axes::set_position_which`] sets
 /// (matplotlib's `which`).
@@ -24,8 +25,48 @@ pub enum WhichPosition {
 
 impl Axes {
     /// The grid cell the axes occupies, if it was placed on a grid.
-    pub fn subplot_spec(&self) -> Option<crate::gridspec::SubplotSpec> {
+    pub fn subplot_spec(&self) -> Option<SubplotSpec> {
         self.raw.with::<AxesState, _>(|a| a.subplot_spec.clone())
+    }
+
+    /// Moves the axes to the grid cell `spec`, its twins with it
+    /// (matplotlib's `set_subplotspec`); unlike
+    /// [`set_position`](Self::set_position), the layout engine goes on
+    /// placing the axes.
+    ///
+    /// ```
+    /// use plt::gridspec::GridSpec;
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let grid = GridSpec::new(2, 2)?;
+    /// let ax = fig.add_subplot_spec(&grid.cell(0, 0)?)?;
+    /// let reference = fig.add_subplot_spec(&grid.cell(1, 1)?)?;
+    /// ax.set_subplot_spec(grid.cell(1, 1)?)?;
+    /// assert_eq!(ax.subplot_spec(), Some(grid.cell(1, 1)?));
+    /// assert_eq!(ax.position(), reference.position());
+    /// # Ok::<(), plt::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the grid cannot be laid out with the figure's subplot
+    /// parameters.
+    pub fn set_subplot_spec(&self, spec: SubplotSpec) -> Result<&Self, GridSpecError> {
+        let figure = self.raw.figure_state();
+        let frame = self.raw.with::<AxesState, _>(|a| a.base().parent);
+        let params = frame
+            .and_then(|frame| figure.borrow().subplot_params_of(frame))
+            .unwrap_or_else(|| SubplotParams::from_rc(&crate::rc::params()));
+        let position = spec.position(&params)?;
+        for twin in self.twins() {
+            twin.raw.with_mut::<AxesState, _>(|a| {
+                a.position = position;
+                a.aspect.set_active(a.position, position);
+            });
+        }
+        self.raw
+            .with_mut::<AxesState, _>(|a| a.subplot_spec = Some(spec));
+        Ok(self)
     }
 
     /// Placement as a fraction of the figure (or subfigure), after the

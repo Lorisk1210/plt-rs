@@ -196,6 +196,23 @@ impl Axes {
         self.children_where(|artist| !listed_by_kind(artist))
     }
 
+    /// Whether a line, patch, collection or image was added to the axes
+    /// (matplotlib's `has_data`); texts, tables and the other artists do
+    /// not count, nor do removed artists.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.text(0.5, 0.5, "note");
+    /// assert!(!ax.has_data());
+    /// ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// assert!(ax.has_data());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn has_data(&self) -> bool {
+        !self.children_where(is_data_artist).is_empty()
+    }
+
     /// Adds `artist` as a child and applies `update` (matplotlib's
     /// `add_artist` bookkeeping, and that of `add_collection(...,
     /// autolim=False)`): an artist without a clip path of its own is
@@ -325,21 +342,29 @@ impl Axes {
 /// axisartist axes).
 fn listed_by_kind(artist: &dyn Artist) -> bool {
     let any = artist as &dyn Any;
+    is_data_artist(artist)
+        || any.is::<TextArtist>()
+        || any.is::<TableArtist>()
+        || any.is::<SpineArtist>()
+        || any.is::<LegendArtist>()
+        || any.is::<ColorbarArtist>()
+        || any.is::<AxisArtistState>()
+}
+
+/// Whether `artist` is a line, patch, collection (contour sets, triangle
+/// meshes and streamplot arrows included) or image: the kinds matplotlib's
+/// `has_data` looks for.
+fn is_data_artist(artist: &dyn Artist) -> bool {
+    let any = artist as &dyn Any;
     artist.as_patch().is_some()
         || any.is::<LineArtist>()
         || any.is::<CollectionArtist>()
         || any.is::<TriMeshArtist>()
         || any.is::<ContourSetArtist>()
         || any.is::<StreamArrowArtist>()
-        || any.is::<TextArtist>()
         || any.is::<AxesImageArtist>()
         || any.is::<NonUniformImageArtist>()
         || any.is::<PcolorImageArtist>()
-        || any.is::<TableArtist>()
-        || any.is::<SpineArtist>()
-        || any.is::<LegendArtist>()
-        || any.is::<ColorbarArtist>()
-        || any.is::<AxisArtistState>()
 }
 
 #[cfg(test)]

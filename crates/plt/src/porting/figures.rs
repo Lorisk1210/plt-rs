@@ -56,6 +56,7 @@
 //! | `gs.subgridspec(r, c)`, `GridSpecFromSubplotSpec` | [`GridSpec::nested`]                        |
 //! | `gs.update(left=...)`                           | [`GridSpec::update`]                          |
 //! | `ax.get_subplotspec()`, `ss.get_gridspec()`     | [`Axes::subplot_spec`], [`SubplotSpec::gridspec`] |
+//! | `ax.set_subplotspec(gs[1, 1])`                  | [`Axes::set_subplot_spec`]`(gs.cell(1, 1)?)?`     |
 //! | `fig.subplot_mosaic("AB;CC", ...)`              | [`Figure::subplot_mosaic`] with `"AB;CC".parse::<`[`Mosaic`]`>()?` and [`MosaicOptions`] |
 //! | `subplot_kw={"projection": ...}`, `per_subplot_kw={"A": {...}}` | [`MosaicOptions::projection`], [`MosaicOptions::per_subplot`] |
 //! | `axd["A"]`                                      | [`MosaicAxes::get`]`("A")`                    |
@@ -66,6 +67,7 @@
 //! | `fig.suptitle`, `fig.supxlabel`, `fig.supylabel` | [`Figure::suptitle`], [`Figure::supxlabel`], [`Figure::supylabel`] |
 //! | `fig.suptitle(s, y=...)`, `supxlabel(s, y=...)`, `supylabel(s, x=...)` | then [`Figure::set_suptitle_y`], [`Figure::set_supxlabel_y`], [`Figure::set_supylabel_x`] |
 //! | `fig.text(x, y, s)`                             | [`Figure::text`]                              |
+//! | `fig.artists`, `fig.images`, `fig.texts`, `fig.legends` | [`Figure::artists`], [`Figure::images`], [`Figure::texts`], [`Figure::legends`] |
 //! | `layout="constrained"`, `"compressed"`, `"tight"` | [`LayoutEngine::constrained`], [`LayoutEngine::compressed`], [`LayoutEngine::tight`] |
 //! | `fig.set_layout_engine(...)`, `fig.get_layout_engine()` | [`Figure::set_layout_engine`]`(...)?`, [`Figure::layout_engine`] |
 //! | `fig.set_layout_engine("none")`                 | [`Figure::set_layout_engine`]`(None)?` (a [`LayoutEngine::PlaceHolder`] stays) |
@@ -326,3 +328,8 @@
 //! [`LayoutEngine::Constrained`]: crate::layout::LayoutEngine::Constrained
 //! [`ConstrainedLayout`]: crate::layout::ConstrainedLayout
 //! [`TightLayout`]: crate::layout::TightLayout
+//! [`Axes::set_subplot_spec`]: crate::axes::Axes::set_subplot_spec
+//! [`Figure::artists`]: crate::figure::Figure::artists
+//! [`Figure::images`]: crate::figure::Figure::images
+//! [`Figure::texts`]: crate::figure::Figure::texts
+//! [`Figure::legends`]: crate::figure::Figure::legends

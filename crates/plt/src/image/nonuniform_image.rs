@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use plt_core::{Bbox, Point};
 use plt_render::RgbaImage;
 
-use super::make::RenderedImage;
+use super::make::{RenderedImage, autoscale_unset};
 use super::pcolor_image::{cell_colors, cell_of};
 use super::shared::{axes_image_contains, draw_rendered};
 use super::{Extent, ImageData, ImageError};
@@ -59,15 +59,7 @@ impl NonUniformImageArtist {
         x: &[f64],
         y: &[f64],
     ) -> Result<Self, ImageError> {
-        let grid = (y.len(), x.len());
-        if data.shape() != grid {
-            return Err(ImageError::ShapeMismatch {
-                what: "grid",
-                expected: data.shape(),
-                actual: grid,
-            });
-        }
-        let single = |values: &[f64]| values.iter().map(|&v| f64::from(v as f32)).collect();
+        let (x, y) = centres(&data, x, y)?;
         let mut base = ArtistBase::with_zorder(0.0);
         base.mouseover = true;
         Ok(Self {
@@ -75,8 +67,8 @@ impl NonUniformImageArtist {
             data,
             mappable: RefCell::new(mappable),
             interpolation,
-            x: single(x),
-            y: single(y),
+            x,
+            y,
         })
     }
 
@@ -349,6 +341,56 @@ impl NonUniformImage {
             .with_mut::<NonUniformImageArtist, _>(|image| image.interpolation = interpolation);
         self
     }
+
+    /// Replaces the pixel centres and values; unset limits of the norm
+    /// come from new scalar data (matplotlib's `NonUniformImage.set_data`).
+    ///
+    /// ```
+    /// use plt::axes::NonUniformOptions;
+    /// use plt::numeric::Grid;
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let image = ax.nonuniform_image(&[0.0, 1.0], &[0.0, 1.0], Grid::filled(2, 2, 1.0), NonUniformOptions::default())?;
+    /// image.set_data(&[0.0, 1.0, 4.0], &[0.0, 2.0], Grid::filled(2, 3, 2.0))?;
+    /// assert_eq!(image.centres(), (vec![0.0, 1.0, 4.0], vec![0.0, 2.0]));
+    /// assert!(image.set_data(&[0.0], &[0.0], Grid::filled(2, 3, 2.0)).is_err());
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `data` does not have one row per `y` and one column per `x`;
+    /// then the image is unchanged.
+    pub fn set_data(
+        &self,
+        x: &[f64],
+        y: &[f64],
+        data: impl Into<ImageData>,
+    ) -> Result<&Self, ImageError> {
+        let data = data.into().normalized();
+        let (x, y) = centres(&data, x, y)?;
+        self.raw.with_mut::<NonUniformImageArtist, _>(|image| {
+            autoscale_unset(image.mappable.get_mut(), &data);
+            (image.data, image.x, image.y) = (data, x, y);
+        });
+        Ok(self)
+    }
+}
+
+/// The pixel centres `x` and `y` rounded to single precision, as
+/// matplotlib keeps them (`float32`), when `data` has one row per `y` and
+/// one column per `x`.
+fn centres(data: &ImageData, x: &[f64], y: &[f64]) -> Result<(Vec<f64>, Vec<f64>), ImageError> {
+    let grid = (y.len(), x.len());
+    if data.shape() != grid {
+        return Err(ImageError::ShapeMismatch {
+            what: "grid",
+            expected: data.shape(),
+            actual: grid,
+        });
+    }
+    let single = |values: &[f64]| values.iter().map(|&v| f64::from(v as f32)).collect();
+    Ok((single(x), single(y)))
 }
 
 #[cfg(test)]

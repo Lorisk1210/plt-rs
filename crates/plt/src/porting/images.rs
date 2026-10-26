@@ -37,11 +37,14 @@
 //! | `im.set_clim(a, b)`, `im.set_cmap(c)`, `im.set_norm(n)` | [`AxesImage::set_clim`], [`AxesImage::set_cmap`], [`AxesImage::set_norm`] |
 //! | `ax.matshow(z)`, `ax.spy(z)`                     | [`Axes::matshow`], [`Axes::spy`]                 |
 //! | `fig.figimage(z, xo, yo)`                        | [`Figure::figimage`] with [`FigimageOptions`]    |
+//! | `fig.images`, `figim.get_extent()`, `figim.set_data(z)` | [`Figure::images`], [`FigureImage::extent`], [`FigureImage::set_data`] |
+//! | `nonuniform.set_data(x, y, z)`, `pcolorimage.set_data(x, y, z)` | [`NonUniformImage::set_data`], [`PcolorImage::set_data`] |
 //! | `ax.pcolormesh(x, y, c, shading="flat")`         | [`Axes::pcolormesh`]`(Mesh::from_coords(x, y, c), ..)` with [`PcolorOptions`], [`Shading`] |
 //! | `ax.pcolor(...)`, `ax.pcolorfast(...)`           | [`Axes::pcolor`], [`Axes::pcolorfast`]           |
 //! | `ax.hexbin`, `ax.hist2d`                         | [`Axes::hexbin`], [`Axes::hist2d`]               |
 //! | `fig.colorbar(im, ax=ax, label=, location=, shrink=)` | [`Figure::colorbar`] with [`ColorbarOptions`] |
 //! | `cb.set_label(s)`, `cb.set_ticks(t)`, `cb.ax`    | [`Colorbar::set_label`], [`Colorbar::set_ticks`], [`Colorbar::ax`] |
+//! | `im.colorbar`, `cb.solids`, `cb.solids_patches`  | [`ColorizingArtist::colorbar`], [`Colorbar::solids`], [`Colorbar::solids_patches`] |
 //! | `ax.contour(X, Y, Z, levels=[...])`              | [`Axes::contour`] with [`QuadField`] and [`ContourOptions`], [`Levels::Values`] |
 //! | `ax.contourf(Z, levels=10)`                      | [`Axes::contourf`], [`Levels::Count`]            |
 //! | `ax.clabel(cs, fmt="%.2f")`, `cs.clabel(...)`    | [`ContourSet::clabel`] with [`ClabelOptions`] ([`ClabelFormat`]) |
@@ -330,3 +333,11 @@
 //! [`BarbsOptions`]: crate::quiver::BarbsOptions
 //! [`StreamField`]: crate::streamplot::StreamField
 //! [`StreamplotOptions`]: crate::streamplot::StreamplotOptions
+//! [`Figure::images`]: crate::figure::Figure::images
+//! [`FigureImage::extent`]: crate::image::FigureImage::extent
+//! [`FigureImage::set_data`]: crate::image::FigureImage::set_data
+//! [`NonUniformImage::set_data`]: crate::image::NonUniformImage::set_data
+//! [`PcolorImage::set_data`]: crate::image::PcolorImage::set_data
+//! [`ColorizingArtist::colorbar`]: crate::axes::ColorizingArtist::colorbar
+//! [`Colorbar::solids`]: crate::colorbar::Colorbar::solids
+//! [`Colorbar::solids_patches`]: crate::colorbar::Colorbar::solids_patches

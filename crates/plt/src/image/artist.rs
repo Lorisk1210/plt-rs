@@ -394,18 +394,7 @@ impl AxesImage {
     /// ```
     pub fn set_data(&self, data: impl Into<ImageData>) -> &Self {
         let data = data.into().normalized();
-        self.update(|image| {
-            if let Some(field) = data.scalars() {
-                let masked = field.masked_values();
-                image
-                    .core
-                    .mappable
-                    .get_mut()
-                    .norm_mut()
-                    .autoscale_none(&masked);
-            }
-            image.core.data = data;
-        })
+        self.update(|image| image.core.replace_data(data))
     }
 
     /// The colormap.

@@ -7,7 +7,7 @@ use std::rc::Rc;
 use super::{Axes, AxesState, PlotError, Tripcolor};
 use crate::artist::{ArtistHandle, ArtistId, RawHandle};
 use crate::collections::{Collection, TriMesh};
-use crate::colorbar::Mappable;
+use crate::colorbar::{Colorbar, Mappable};
 use crate::colors::Colormap;
 use crate::contour::ContourSet;
 use crate::figure::Figure;
@@ -108,6 +108,26 @@ pub(crate) enum CurrentImage {
 }
 
 impl ColorizingArtist {
+    /// The colorbar made last for the artist, while it shows the artist
+    /// (matplotlib's `mappable.colorbar`).
+    ///
+    /// ```
+    /// use plt::axes::{ColorizingArtist, ImshowOptions};
+    /// use plt::colorbar::ColorbarOptions;
+    /// use plt::numeric::Grid;
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let image = ColorizingArtist::from(ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?);
+    /// assert!(image.colorbar().is_none());
+    /// let colorbar = fig.colorbar(&image, ColorbarOptions::default())?;
+    /// assert_eq!(image.colorbar().map(|c| c.ax().clone()), Some(colorbar.ax().clone()));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn colorbar(&self) -> Option<Colorbar> {
+        crate::colorbar::colorbar_of(self.into())
+    }
+
     /// Replaces the colormap (matplotlib's `set_cmap`); the artist and
     /// its colorbars are recoloured.
     pub fn set_cmap(&self, cmap: Colormap) -> &Self {

@@ -1,6 +1,7 @@
 //! Unresampled images placed in figure pixels (matplotlib's `FigureImage`
 //! and `Figure.figimage`).
 
+use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -112,6 +113,56 @@ impl FigureImage {
         self.raw
             .with::<FigureImageArtist, _>(|image| image.core.data.shape())
     }
+
+    /// The figure pixels the image covers, with pixel centres on whole
+    /// numbers (matplotlib's `FigureImage.get_extent`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::image::{Extent, FigimageOptions};
+    /// use plt::numeric::Grid;
+    /// let fig = Figure::new();
+    /// let options = FigimageOptions { xo: 10.0, yo: 20.0, ..Default::default() };
+    /// let image = fig.figimage(Grid::filled(2, 3, 1.0), options)?;
+    /// assert_eq!(image.extent(), Extent::new(9.5, 12.5, 19.5, 21.5));
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    pub fn extent(&self) -> Extent {
+        let (rows, cols) = self.shape();
+        let (xo, yo) = self.offset();
+        Extent::new(
+            xo - 0.5,
+            xo + cols as f64 - 0.5,
+            yo - 0.5,
+            yo + rows as f64 - 0.5,
+        )
+    }
+
+    /// The image array (matplotlib's `get_array`).
+    pub fn array(&self) -> ImageData {
+        self.raw
+            .with::<FigureImageArtist, _>(|image| image.core.data.clone())
+    }
+
+    /// Replaces the image array; unset limits of the norm come from new
+    /// scalar data (matplotlib's `FigureImage.set_data`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::image::FigimageOptions;
+    /// use plt::numeric::Grid;
+    /// let fig = Figure::new();
+    /// let image = fig.figimage(Grid::filled(2, 3, 1.0), FigimageOptions::default())?;
+    /// image.set_data(Grid::filled(4, 5, 2.0));
+    /// assert_eq!(image.shape(), (4, 5));
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    pub fn set_data(&self, data: impl Into<ImageData>) -> &Self {
+        let data = data.into().normalized();
+        self.raw
+            .with_mut::<FigureImageArtist, _>(|image| image.core.replace_data(data));
+        self
+    }
 }
 
 impl Figure {
@@ -176,6 +227,26 @@ impl Figure {
         Ok(FigureImage {
             raw: RawHandle::new(Rc::clone(figure), id),
         })
+    }
+
+    /// The images [`Figure::figimage`] drew in this figure (or subfigure)
+    /// itself, in the order they were made (matplotlib's `Figure.images`).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::image::FigimageOptions;
+    /// use plt::numeric::Grid;
+    /// let fig = Figure::new();
+    /// assert!(fig.images().is_empty());
+    /// let image = fig.figimage(Grid::filled(2, 2, 1.0), FigimageOptions::default())?;
+    /// assert_eq!(fig.images(), [image]);
+    /// # Ok::<(), plt::image::ImageError>(())
+    /// ```
+    pub fn images(&self) -> Vec<FigureImage> {
+        self.own_artists_where(|artist| (artist as &dyn Any).is::<FigureImageArtist>())
+            .into_iter()
+            .map(|raw| FigureImage { raw })
+            .collect()
     }
 }
 

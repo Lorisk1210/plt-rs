@@ -425,6 +425,39 @@ impl Collection {
     pub fn set_segments(&self, segments: Vec<Vec<Point>>) -> &Self {
         self.update(|c| c.paths = segments.into_iter().map(Path::polyline).collect())
     }
+
+    /// Replaces the items with closed polygons through the points of each
+    /// (matplotlib's `PolyCollection.set_verts`).
+    ///
+    /// ```
+    /// use plt::collections::CollectionSpec;
+    /// use plt::prelude::*;
+    /// use plt::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let triangle = vec![Point::new(0.0, 0.0), Point::new(1.0, 0.0), Point::new(0.0, 1.0)];
+    /// let polys = ax.add_collection(CollectionSpec::polygons(vec![triangle]));
+    /// polys.set_verts(vec![vec![Point::new(0.0, 0.0), Point::new(2.0, 0.0), Point::new(2.0, 2.0)]]);
+    /// assert_eq!(polys.paths()[0].vertices()[1], Point::new(2.0, 0.0));
+    /// ```
+    pub fn set_verts(&self, polygons: Vec<Vec<Point>>) -> &Self {
+        self.update(|c| c.paths = polygons.into_iter().map(Path::polygon).collect())
+    }
+
+    /// Replaces the item shapes (matplotlib's `Collection.set_paths`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::path::Path;
+    /// use plt::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let lines = ax.vlines([0.0], [0.0], [1.0])?;
+    /// lines.set_paths(vec![Path::polyline(vec![Point::new(1.0, 1.0), Point::new(2.0, 2.0)])]);
+    /// assert_eq!(lines.paths()[0].vertices()[0], Point::new(1.0, 1.0));
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn set_paths(&self, paths: Vec<Path>) -> &Self {
+        self.update(|c| c.paths = paths)
+    }
 }
 
 #[cfg(test)]

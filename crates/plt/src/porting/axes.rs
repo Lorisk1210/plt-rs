@@ -37,6 +37,7 @@
 //! | `ax.autoscale(axis="x", tight=True)`           | [`Axes::autoscale`]`(Some(AxisName::X), Some(true))` |
 //! | `ax.autoscale(enable=False)`                   | [`Axes::set_autoscale_on`]`(false)`              |
 //! | `ax.autoscale_view()`, `ax.relim()`            | [`Axes::autoscale_view`], [`Axes::relim`]        |
+//! | `ax.has_data()`                                | [`Axes::has_data`]                               |
 //! | `ax.axis("equal")`, `ax.axis("off")`           | [`Axes::axis_mode`]`(AxisMode::Equal)`, [`Axes::set_axis_off`] |
 //! | `ax.set_aspect("equal")`, `ax.set_aspect(2)`   | [`Axes::set_aspect`]`(Aspect::Equal)`, `Aspect::Ratio(2.0)` ([`Aspect`]) |
 //! | `ax.set_adjustable("datalim")`, `ax.set_box_aspect(1)` | [`Axes::set_adjustable`], [`Axes::set_box_aspect`] |
@@ -55,6 +56,7 @@
 //! | `ax.ticklabel_format(style="sci", scilimits=(0, 0))` | [`Axes::ticklabel_format`]`(&TicklabelFormat { .. })` |
 //! | `ax.locator_params(nbins=4)`                   | [`Axes::locator_params`]`(&LocatorParams { .. })` |
 //! | `ax.xaxis.tick_top()`, `set_ticks_position("both")` | [`Axis::tick_to`]`(SpineSide::Top)`, [`Axis::set_ticks_position`] |
+//! | `ax.yaxis.set_offset_position("right")`             | [`Axis::set_offset_position`]`(SpineSide::Right)?`, [`Axis::offset_position`] |
 //! | `ax.grid(True, which="both", axis="y", ...)`   | [`Axes::grid`], [`Axes::grid_with`] with [`GridOptions`] |
 //! | `ax.set_axisbelow(True)`                       | [`Axes::set_axisbelow`]`(AxisBelow::Below)` ([`AxisBelow`]) |
 //! | `ax.set_xlabel(s)`, `ax.get_xlabel()`          | [`Axes::set_xlabel`], [`Axes::label`]`(AxisName::X)` |
@@ -416,3 +418,6 @@
 //! [`Convertible`]: crate::units::Convertible
 //! [`UnitAxisInfo`]: crate::units::UnitAxisInfo
 //! [`ConversionError`]: crate::units::ConversionError
+//! [`Axes::has_data`]: crate::axes::Axes::has_data
+//! [`Axis::set_offset_position`]: crate::axes::Axis::set_offset_position
+//! [`Axis::offset_position`]: crate::axes::Axis::offset_position

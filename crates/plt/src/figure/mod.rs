@@ -388,11 +388,15 @@ impl Figure {
         state.last_draw_dpi = Some(state.dpi());
     }
 
-    /// The layout pass of [`Figure::layout`], before a draw.
+    /// The layout pass of [`Figure::layout`], before a draw, then the
+    /// limit callbacks its autoscaling queued.
     pub(crate) fn prepare_layout(&self) {
-        let mut state = self.state.borrow_mut();
-        state.layout.pending = true;
-        state.prepare();
+        {
+            let mut state = self.state.borrow_mut();
+            state.layout.pending = true;
+            state.prepare();
+        }
+        crate::axes::run_limit_callbacks(&self.state);
     }
 
     /// The root figure owning `state`.

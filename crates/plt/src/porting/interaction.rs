@@ -38,6 +38,8 @@
 //! | `"motion_notify_event"`, `"scroll_event"`, `"key_press_event"` | [`EventKind::Motion`], [`EventKind::Scroll`], [`EventKind::KeyPress`] |
 //! | `"pick_event"`, `"draw_event"`, `"resize_event"`, `"close_event"` | [`EventKind::Pick`], [`EventKind::Draw`], [`EventKind::Resize`], [`EventKind::Close`] |
 //! | `fig.canvas.mpl_disconnect(cid)`                | [`Figure::disconnect`]                         |
+//! | `ax.callbacks.connect("xlim_changed", f)`      | [`Axes::on_limits_changed`]`(AxisName::X, f)`  |
+//! | `ax.callbacks.disconnect(cid)`                  | [`Axes::disconnect_limits_changed`]            |
 //! | `event.x`, `event.xdata`, `event.inaxes`        | [`Location::x`], [`Location::xdata`], [`Location::inaxes`] |
 //! | `event.button`, `event.key`, `event.dblclick`   | [`MouseEvent::button`], [`MouseEvent::key`], [`MouseEvent::dblclick`] |
 //! | `event.artist`, `event.ind` (pick)              | [`PickEvent::artist`], [`PickEvent::ind`]      |
@@ -410,3 +412,5 @@
 //! [`Frames`]: crate::animation::Frames
 //! [`AnimationOptions`]: crate::animation::AnimationOptions
 //! [`MovieOptions`]: crate::animation::MovieOptions
+//! [`Axes::on_limits_changed`]: crate::axes::Axes::on_limits_changed
+//! [`Axes::disconnect_limits_changed`]: crate::axes::Axes::disconnect_limits_changed

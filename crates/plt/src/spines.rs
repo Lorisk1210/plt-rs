@@ -459,6 +459,22 @@ impl Spines {
     pub fn iter(&self) -> impl Iterator<Item = &Spine> {
         [&self.left, &self.right, &self.bottom, &self.top].into_iter()
     }
+
+    /// Shows or hides all four spines (matplotlib's
+    /// `ax.spines[:].set_visible(visible)`).
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.spines().set_visible(false);
+    /// assert!(ax.spines().iter().all(|spine| !spine.visible()));
+    /// ```
+    pub fn set_visible(&self, visible: bool) -> &Self {
+        for spine in self.iter() {
+            spine.set_visible(visible);
+        }
+        self
+    }
 }
 
 #[cfg(test)]

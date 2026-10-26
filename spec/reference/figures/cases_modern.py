@@ -6,14 +6,19 @@ plt-rs bundles) added to matplotlib's font manager.
 The sheets' ``plt.*`` parameters have no matplotlib counterpart and are
 left out: the cases do by hand what they ask for (an image turns the grid
 of its axes off, error bars of bars take ``plt.ink``, table cells
-``plt.table.edgecolor``). The data use exactly rounded arithmetic (no
-``exp`` or ``pow``), so that numpy and Rust agree to the last bit.
+``plt.table.edgecolor``, insets show all four spines, twins turn their
+grid off), and ``plt.mathtext.dejavu_symbols`` is emulated by a subclass
+of matplotlib's custom fontset (``_DejaVuSymbols``). The data use exactly
+rounded arithmetic (no ``exp`` or ``pow``), so that numpy and Rust agree to
+the last bit.
 """
 
 import pathlib
 
+import matplotlib as mpl
 import numpy as np
-from matplotlib import font_manager
+from matplotlib import _mathtext, font_manager
+from matplotlib.mathtext import MathTextParser
 
 from spec_support import case, rng
 
@@ -48,6 +53,41 @@ INK_DARK = "#" + _sheet_entries("plt-modern-dark")["plt.ink"]
 HAIRLINE = "#" + _sheet_entries("plt-modern")["plt.table.edgecolor"]
 SIZE = (7.2, 4.5)
 X = np.linspace(0, 10, 200)
+
+
+class _DejaVuSymbols(_mathtext.UnicodeFonts):
+    """matplotlib's custom fontset under the sheets' fonts, with what their
+    ``plt.mathtext.dejavu_symbols`` asks of plt-rs: big operators from
+    DejaVu Sans Display, as the dejavusans fontset draws them, and the
+    symbols the custom fonts lack from DejaVu Sans before
+    ``mathtext.fallback``. Other custom fonts (which no case here uses
+    alongside the sheets' Inter) keep matplotlib's behaviour."""
+
+    def __init__(self, default_font_prop, load_glyph_flags):
+        super().__init__(default_font_prop, load_glyph_flags)
+        self._symbols = None
+        if mpl.rcParams["mathtext.rm"] == MODERN["mathtext.rm"]:
+            self._symbols = _mathtext.DejaVuSansFonts(default_font_prop, load_glyph_flags)
+            self._symbols._fallback_font = self._fallback_font
+
+    def _get_glyph(self, fontname, font_class, sym):
+        if self._symbols is None:
+            return super()._get_glyph(fontname, font_class, sym)
+        try:
+            index = _mathtext.get_unicode_index(sym)
+        except ValueError:
+            index = None
+        if index is not None and self._symbols._get_font("ex").get_char_index(index):
+            return self._symbols._get_glyph(fontname, font_class, sym)
+        fallback, self._fallback_font = self._fallback_font, self._symbols
+        try:
+            return super()._get_glyph(fontname, font_class, sym)
+        finally:
+            self._fallback_font = fallback
+
+
+if _sheet_entries("plt-modern")["plt.mathtext.dejavu_symbols"] == "True":
+    MathTextParser._font_type_mapping["custom"] = _DejaVuSymbols
 
 
 def _damped(ax):
@@ -242,3 +282,53 @@ def _(fig):
     ax.set_ylabel("units (thousands)")
     ax.set_title("Sales by region")
     ax.legend()
+
+
+@case("modern/math", figsize=SIZE, rc=MODERN)
+def _(fig):
+    ax = fig.subplots()
+    n = np.arange(1, 21)
+    for p in range(2, 8):
+        ax.plot(n, np.cumsum(1.0 / n ** p), "o-", markersize=3, label=f"$p = {p}$")
+    ax.text(6, 1.33, r"$\int_n^\infty x^{-p}\,dx = \frac{n^{1-p}}{p-1}$ bounds the rest")
+    ax.set_title(r"Partial sums of $\zeta(p) = \sum_{k=1}^{\infty} k^{-p}$")
+    ax.set_xlabel("$n$")
+    ax.set_ylabel("partial sum")
+    ax.legend(title=r"$p \in \{2, \ldots, 7\}$", loc="upper left", bbox_to_anchor=(1.02, 1))
+
+
+@case("modern/inset", figsize=SIZE, rc=MODERN)
+def _(fig):
+    ax = fig.subplots()
+    x = np.linspace(0, 10, 1000)
+    y = np.sin(x) + 0.05 * np.sin(40 * x)
+    ax.plot(x, y)
+    ax.set_ylim(-1.5, 2.5)
+    zoom = ax.inset_axes([0.55, 0.6, 0.4, 0.35])
+    # `plt.inset.frame` gives insets all four spines.
+    zoom.spines[:].set_visible(True)
+    zoom.plot(x, y)
+    zoom.set_xlim(1.2, 1.9)
+    zoom.set_ylim(0.85, 1.08)
+    ax.indicate_inset_zoom(zoom)
+    ax.set_title("A detail, magnified")
+
+
+TEMPERATURE = [1.0, 2.5, 6.0, 11.0, 16.0, 19.5, 21.0, 19.5, 16.0, 11.0, 6.0, 2.5]
+RAIN = [72, 81, 85, 81, 72, 60, 48, 39, 35, 39, 48, 60]
+
+
+@case("modern/dark_twin", figsize=SIZE, rc=DARK)
+def _(fig):
+    ax = fig.subplots()
+    months = np.arange(1, 13)
+    warm, = ax.plot(months, TEMPERATURE, "o-", label="temperature")
+    right = ax.twinx()
+    # `plt.axes.twin_grid: False` leaves the grid to the host.
+    right.grid(False, which="both")
+    wet, = right.plot(months, RAIN, "s--", color="C5", label="rain")
+    ax.set_xlabel("month")
+    ax.set_ylabel("temperature (°C)")
+    right.set_ylabel("rain (mm)")
+    ax.set_title("A year of weather")
+    ax.legend(handles=[warm, wet], loc="upper left")

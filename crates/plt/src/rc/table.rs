@@ -699,6 +699,12 @@ rc_params! {
     plt_image_hide_grid: bool = "False" => "plt.image.hide_grid";
     /// `plt.tight_layout.keep_constrained`: Whether `tight_layout` leaves a figure laid out by constrained layout to it, rather than replacing it or failing once a colorbar exists (plt-rs only; its modern looks, whose figures use constrained layout, set it).
     plt_tight_layout_keep_constrained: bool = "False" => "plt.tight_layout.keep_constrained";
+    /// `plt.mathtext.dejavu_symbols`: Whether the custom fontset takes its symbols from `DejaVu` Sans, as the `dejavusans` fontset does: big operators from `DejaVu` Sans Display, and the symbols the custom fonts lack from `DejaVu` Sans before `mathtext.fallback` (plt-rs only; its modern looks set it).
+    plt_mathtext_dejavu_symbols: bool = "False" => "plt.mathtext.dejavu_symbols";
+    /// `plt.inset.frame`: Whether inset axes (`Axes.inset_axes` and `axes_grid1`'s `inset_axes` and `zoomed_inset_axes`) show all four spines, whatever `axes.spines.*` say (plt-rs only; its modern looks set it).
+    plt_inset_frame: bool = "False" => "plt.inset.frame";
+    /// `plt.axes.twin_grid`: Whether axes made by `twinx` and `twiny` draw a grid as `axes.grid` says; otherwise the grid of the axes they twin alone lies behind the data (plt-rs only; its modern looks turn it off).
+    plt_axes_twin_grid: bool = "True" => "plt.axes.twin_grid";
     /// `plt.ink`: The colour of marks matplotlib draws in black unless told otherwise: quiver arrows, wind barbs, the error bars of bar charts, size bars, the markers of size legends and the frames, checks and edges of check and radio buttons (plt-rs only).
     plt_ink: Color = "black" => "plt.ink";
     /// `plt.table.facecolor`: The face colour of table cells given none (matplotlib's fixed white; plt-rs only).

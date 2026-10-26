@@ -21,7 +21,8 @@ impl Axes {
     ///
     /// The inset belongs to this axes rather than the figure: it follows
     /// this axes when it moves or shrinks to an aspect, and is not among
-    /// [`Figure::axes`](crate::figure::Figure::axes).
+    /// [`Figure::axes`](crate::figure::Figure::axes). `plt.inset.frame`
+    /// gives it all four spines.
     ///
     /// ```
     /// use plt::prelude::*;
@@ -39,7 +40,17 @@ impl Axes {
         let position = Bbox::from_bounds(left, bottom, width, height);
         let inset = insert_axes(self.raw().figure_state(), self.id(), position, None);
         inset.set_zorder(INSET_ZORDER);
+        inset.frame_inset();
         inset
+    }
+
+    /// Shows all four spines of this new inset when `plt.inset.frame` asks
+    /// insets for a frame: the modern looks do, as their axes hide the top
+    /// and right spines, which leaves an inset over data with two edges.
+    pub(crate) fn frame_inset(&self) {
+        if crate::rc::params().plt_inset_frame {
+            self.spines().set_visible(true);
+        }
     }
 
     /// Adds an axes at `[left, bottom, width, height]` in the coordinates
@@ -151,5 +162,27 @@ mod tests {
             assert!((got - want).abs() < 1e-12, "{got} != {want}");
         }
         assert_eq!(inset.original_position().x0(), 0.7, "the bounds as given");
+    }
+
+    #[test]
+    fn insets_are_framed_only_when_asked() {
+        use crate::axes_grid1::{InsetOptions, zoomed_inset_axes};
+
+        let framed = |frame: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("axes.spines.top", "False").unwrap();
+                crate::rc::set("axes.spines.right", "False").unwrap();
+                crate::rc::set("plt.inset.frame", frame).unwrap();
+                let ax = Figure::new().subplot();
+                let insets = [
+                    ax.inset_axes([0.6, 0.6, 0.3, 0.3]),
+                    zoomed_inset_axes(&ax, 2.0, InsetOptions::default()),
+                ];
+                assert!(!ax.spines().top.visible(), "the parent keeps the rc spines");
+                insets.map(|inset| inset.spines().iter().all(ArtistHandle::visible))
+            })
+        };
+        assert_eq!(framed("False"), [false, false], "matplotlib's insets");
+        assert_eq!(framed("True"), [true, true]);
     }
 }

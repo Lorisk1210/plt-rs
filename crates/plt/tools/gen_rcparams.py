@@ -155,6 +155,19 @@ EXTENSIONS = [
      "`plt.tight_layout.keep_constrained`: Whether `tight_layout` leaves a figure laid out "
      "by constrained layout to it, rather than replacing it or failing once a colorbar exists "
      "(plt-rs only; its modern looks, whose figures use constrained layout, set it)."),
+    ("plt.mathtext.dejavu_symbols", "bool", "False",
+     "`plt.mathtext.dejavu_symbols`: Whether the custom fontset takes its symbols from "
+     "`DejaVu` Sans, as the `dejavusans` fontset does: big operators from `DejaVu` Sans "
+     "Display, and the symbols the custom fonts lack from `DejaVu` Sans before "
+     "`mathtext.fallback` (plt-rs only; its modern looks set it)."),
+    ("plt.inset.frame", "bool", "False",
+     "`plt.inset.frame`: Whether inset axes (`Axes.inset_axes` and `axes_grid1`'s "
+     "`inset_axes` and `zoomed_inset_axes`) show all four spines, whatever `axes.spines.*` "
+     "say (plt-rs only; its modern looks set it)."),
+    ("plt.axes.twin_grid", "bool", "True",
+     "`plt.axes.twin_grid`: Whether axes made by `twinx` and `twiny` draw a grid as "
+     "`axes.grid` says; otherwise the grid of the axes they twin alone lies behind the data "
+     "(plt-rs only; its modern looks turn it off)."),
     # Colours matplotlib fixes in code rather than in rcParams, so that the
     # modern looks can choose them (plt-rs only; the defaults are matplotlib's).
     ("plt.ink", "Color", "black",

@@ -346,7 +346,7 @@ impl<'e> Fonts<'e> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mathtext::style::MathFont;
+    use crate::mathtext::style::{MathFallback, MathFont};
     use plt_font::FontQuery;
 
     fn fonts(db: &FontDatabase, fontset: Fontset) -> Fonts<'_> {
@@ -412,6 +412,41 @@ mod tests {
                 .expect("minus");
             assert_eq!((minus.font, minus.code), (cmsy10, 0xa1), "{fontset:?}");
         }
+    }
+
+    #[test]
+    fn dejavu_symbols_draw_the_operators_of_the_custom_fontset() {
+        let db = FontDatabase::with_bundled_fonts();
+        let family = |name: &str| db.find_font(&FontQuery::families([name])).expect(name);
+        let mut style = MathStyle::default()
+            .with_fontset(Fontset::Custom)
+            .with_dpi(100.0);
+        style.custom.rm = "Inter".to_owned();
+        style.custom.it = "Inter:italic".to_owned();
+        style.fallback = Some(MathFallback::StixSans);
+        let text = db.find_font(&style.font.query).expect("text font");
+        let font_of = |style: &MathStyle, font, symbol| {
+            let mut fonts = Fonts::new(&db, style, text).expect("fonts");
+            fonts.info(key(font, symbol)).expect(symbol).font
+        };
+        // matplotlib's custom fontset: Inter's text-size operators, STIX
+        // for what Inter lacks.
+        assert_eq!(font_of(&style, FontName::Normal, "\\sum"), family("Inter"));
+        assert_eq!(
+            font_of(&style, FontName::Normal, "\\nabla"),
+            family("STIXGeneral")
+        );
+        style.dejavu_symbols = true;
+        let display = family("DejaVu Sans Display");
+        assert_eq!(font_of(&style, FontName::Normal, "\\sum"), display);
+        assert_eq!(font_of(&style, FontName::Bf, "\\int"), display);
+        assert_eq!(
+            font_of(&style, FontName::Normal, "\\nabla"),
+            family("DejaVu Sans")
+        );
+        assert_eq!(font_of(&style, FontName::Normal, "2"), family("Inter"));
+        // What DejaVu lacks still comes from the fallback.
+        assert_eq!(font_of(&style, FontName::Bb, "R"), family("STIXGeneral"));
     }
 
     #[test]

@@ -245,27 +245,41 @@ impl Axes {
     }
 
     /// Reads the projection of this axes as `P` with `read`; `None` when
-    /// the axes is not drawn through a `P`. `read` must not use the axes
-    /// or its figure.
-    pub fn with_projection<P: Projection, R>(&self, read: impl FnOnce(&P) -> R) -> Option<R> {
-        self.raw().with::<AxesState, _>(|state| {
-            let projection: &dyn Any = state.projection.custom()?;
-            projection.downcast_ref::<P>().map(read)
-        })
+    /// the axes is not drawn through a `P`. `read` gets a copy, so the
+    /// figure is not borrowed while it runs.
+    pub fn with_projection<P: Projection + Clone, R>(
+        &self,
+        read: impl FnOnce(&P) -> R,
+    ) -> Option<R> {
+        self.projection_copy()
+            .map(|projection: P| read(&projection))
     }
 
     /// Changes the projection of this axes as `P` with `change`, and draws
     /// the figure again with it; `None` when the axes is not drawn through
-    /// a `P`. `change` must not use the axes or its figure.
-    pub fn with_projection_mut<P: Projection, R>(
+    /// a `P`. `change` works on a copy, which replaces the projection once
+    /// it returns, so the figure is not borrowed while `change` runs.
+    pub fn with_projection_mut<P: Projection + Clone, R>(
         &self,
         change: impl FnOnce(&mut P) -> R,
     ) -> Option<R> {
-        self.with_custom_projection_mut(|projection| {
-            let projection: &mut dyn Any = projection;
-            projection.downcast_mut::<P>().map(change)
+        let mut projection: P = self.projection_copy()?;
+        let result = change(&mut projection);
+        self.with_custom_projection_mut(|stored| {
+            let stored: &mut dyn Any = stored;
+            if let Some(stored) = stored.downcast_mut::<P>() {
+                *stored = projection;
+            }
+        });
+        Some(result)
+    }
+
+    /// A copy of the projection of this axes, if it is a `P`.
+    fn projection_copy<P: Projection + Clone>(&self) -> Option<P> {
+        self.raw().with::<AxesState, _>(|state| {
+            let projection: &dyn Any = state.projection.custom()?;
+            projection.downcast_ref::<P>().cloned()
         })
-        .flatten()
     }
 
     /// Changes the projection defined by the program of this axes with

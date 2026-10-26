@@ -17,7 +17,7 @@ use plt::numeric::Grid;
 use plt::patches::{ConnectionEnd, ConnectionPatch};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::{HAlign, VAlign};
 
 use super::{SEED, uniform_rows};
@@ -42,10 +42,7 @@ fn animate_decay(fig: &Figure) -> CaseResult {
 fn animated_histogram(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let options = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges(linspace(-4.0, 4.0, 100))),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges(linspace(-4.0, 4.0, 100))),
         props: PatchProps::default()
             .linewidth(1.0)
             .edgecolor("yellow")

@@ -10,7 +10,8 @@ use crate::axes::{
     ViolinplotOptions,
 };
 use crate::collections::Collection;
-use crate::stats::BinSample;
+use crate::numeric::Number;
+use crate::stats::{BinSample, Datasets};
 use crate::text::{Annotation, Text};
 use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues};
 
@@ -80,14 +81,14 @@ pub fn grouped_bar(
     gca().grouped_bar(heights, options)
 }
 
-/// Draws histograms of `datasets` on the current axes (matplotlib's
-/// `hist`).
+/// Draws histograms of one dataset or of several on the current axes
+/// (matplotlib's `hist`).
 ///
 /// # Errors
 ///
 /// As [`Axes::hist`](crate::axes::Axes::hist).
-pub fn hist<T: BinSample, D: AsRef<[T]>>(
-    datasets: &[D],
+pub fn hist<T: BinSample, D: Datasets<T> + ?Sized>(
+    datasets: &D,
     options: HistPlotOptions<'_>,
 ) -> Result<HistPlot, PlotError> {
     gca().hist(datasets, options)
@@ -125,7 +126,10 @@ pub fn violinplot<D: AsRef<[f64]>>(
 /// # Errors
 ///
 /// As [`Axes::pie`](crate::axes::Axes::pie).
-pub fn pie(values: &[f64], options: PieOptions) -> Result<PieContainer, PlotError> {
+pub fn pie(
+    values: impl IntoIterator<Item: Number>,
+    options: PieOptions,
+) -> Result<PieContainer, PlotError> {
     gca().pie(values, options)
 }
 
@@ -186,7 +190,7 @@ mod tests {
     #[test]
     fn pies_and_their_labels() {
         close_all();
-        let mut wedges = pie(&[1.0, 2.0, 3.0], PieOptions::default()).unwrap();
+        let mut wedges = pie([1.0, 2.0, 3.0], PieOptions::default()).unwrap();
         let texts = pie_label(
             &mut wedges,
             ["a", "b", "c"].as_slice(),

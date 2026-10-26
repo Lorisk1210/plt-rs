@@ -11,6 +11,7 @@ use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, ColorMapping, EdgeColors};
 use crate::colors::{Alpha, Color, ColorizerOptions, impl_colorize};
 use crate::markers::{FillStyle, MarkerStyle};
+use crate::numeric::{Number, to_f64s};
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 use crate::units::AxisValues;
@@ -61,9 +62,9 @@ impl_colorize!(MappedColors);
 impl MappedColors {
     /// `values` mapped through `image.cmap` and a linear norm spanning
     /// the finite values.
-    pub fn new(values: impl Into<Vec<f64>>) -> Self {
+    pub fn new(values: impl IntoIterator<Item: Number>) -> Self {
         Self {
-            values: values.into(),
+            values: to_f64s(values),
             colorizer: ColorizerOptions::default(),
         }
     }

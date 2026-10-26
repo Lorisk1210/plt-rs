@@ -19,7 +19,7 @@ pub(super) use self::data::{
     path_patch_curve, points, radians, scan, segment, smooth2d, spike, strings, terrain, trimmed,
     two_bumps,
 };
-pub(super) use self::stats::{bins, drawn_boxes, drawn_violins, laid_out, with_sym};
+pub(super) use self::stats::{bins, drawn_boxes, drawn_violins, with_sym};
 pub(super) use self::styles::{
     aliased, arrow, autoscale_unset, black_arrow, colors, contour_effects, cosine, count, ellipse,
     flow_labels, flow_orientations, hatch_shadow_text, hatches, local_max, padded, percent_label,

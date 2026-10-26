@@ -9,6 +9,7 @@ use super::{Axes, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineProps, StepWhere};
+use crate::numeric::{Number, to_f64s};
 use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, StepBaseline, StepPatch};
 
@@ -43,10 +44,10 @@ impl Axes {
     /// `stairs`). A baseline is sticky: margins do not extend past it.
     pub fn stairs(
         &self,
-        values: impl Into<Vec<f64>>,
+        values: impl IntoIterator<Item: Number>,
         options: StairsOptions,
     ) -> Result<Patch<StepPatch>, PlotError> {
-        let values = values.into();
+        let values = to_f64s(values);
         let edges = options
             .edges
             .unwrap_or_else(|| (0..=values.len()).map(|i| i as f64).collect());

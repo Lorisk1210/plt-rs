@@ -29,7 +29,7 @@
 //! use plt::transforms::{Affine2D, Point};
 //!
 //! /// A bracket from `low` to `high` at `x`, in data coordinates.
-//! #[derive(Debug)]
+//! #[derive(Clone, Debug)]
 //! struct Bracket {
 //!     base: ArtistBase,
 //!     x: f64,
@@ -73,20 +73,23 @@
 //!     low: 1.0,
 //!     high: 4.0,
 //! });
-//! bracket.with_mut(|bracket| bracket.low = 2.0);
+//! bracket.update(|bracket| bracket.low = 2.0);
 //! bracket.set_zorder(3.0);
-//! assert_eq!(bracket.with(|bracket| bracket.high - bracket.low), 2.0);
+//! let copy = bracket.get();
+//! assert_eq!(copy.high - copy.low, 2.0);
 //! fig.to_png()?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The closures of [`Custom::with`] and [`Custom::with_mut`] run while
-//! the figure is borrowed, so they should touch only your artist: a
-//! closure changing the figure through another handle panics. The
-//! [`Artist`] trait has further methods with defaults, for an artist
-//! that takes room in the layout ([`Artist::window_extent`]), answers the
-//! mouse ([`Artist::contains`]) or widens its axes' data limits
-//! ([`Artist::limit_points`]).
+//! [`Custom::get`] returns a copy of your artist, which is why it derives
+//! `Clone`, and [`Custom::update`] changes a copy and puts it back. The
+//! figure is not borrowed while your code runs, so it may use any handle
+//! meanwhile. The [`Artist`] trait has further methods with defaults,
+//! for an artist that takes room in the layout ([`Artist::window_extent`]),
+//! answers the mouse ([`Artist::contains`]) or widens its axes' data
+//! limits ([`Artist::limit_points`]). They run while the figure is drawn
+//! or laid out, so they get what they need as arguments and should leave
+//! other handles alone.
 //!
 //! # Projections
 //!
@@ -97,8 +100,10 @@
 //! [`Figure::subplot_with_projection`]; every plotting method then works
 //! on them. The trait has one hook for each part a projection may
 //! change: the data transform, the transforms of the axes' ticks, the
-//! outline and spines, panning and zooming. The
-//! [`porting::toolkits`](crate::porting::toolkits) page builds skewed
+//! outline and spines, panning and zooming. The hooks run while the
+//! figure is laid out and drawn, so they get what they need as
+//! arguments; a projection holds settings, not handles, and is `Send`.
+//! The [`porting::toolkits`](crate::porting::toolkits) page builds skewed
 //! axes, and `custom_projection` in `projections.rs` in
 //! the gallery draws a weather sounding on them.
 //!
@@ -113,8 +118,6 @@
 //! [`AxisValues`](crate::units::AxisValues) like any other data.
 //!
 //! ```
-//! use std::rc::Rc;
-//!
 //! use plt::axes::Axis;
 //! use plt::prelude::*;
 //! use plt::ticker::StrMethodFormatter;
@@ -140,11 +143,8 @@
 //!     }
 //!
 //!     fn axisinfo(&self, _: Option<&()>, _: &Axis) -> Option<UnitAxisInfo> {
-//!         Some(UnitAxisInfo {
-//!             label: Some("price".into()),
-//!             majfmt: Some(Rc::new(StrMethodFormatter::new("{x:.2f} €").ok()?)),
-//!             ..UnitAxisInfo::default()
-//!         })
+//!         let format = StrMethodFormatter::new("{x:.2f} €").ok()?;
+//!         Some(UnitAxisInfo::default().label("price").majfmt(format))
 //!     }
 //! }
 //!
@@ -178,7 +178,7 @@
 //! at all.
 //!
 //! ```
-//! use plt::legend::{LegendHandle, LegendOptions};
+//! use plt::legend::LegendHandle;
 //! use plt::prelude::*;
 //!
 //! let ax = Figure::new().subplot();
@@ -241,8 +241,8 @@
 //! [`Artist::limit_points`]: crate::artist::Artist::limit_points
 //! [`ArtistBase`]: crate::artist::ArtistBase
 //! [`Custom`]: crate::artist::Custom
-//! [`Custom::with`]: crate::artist::Custom::with
-//! [`Custom::with_mut`]: crate::artist::Custom::with_mut
+//! [`Custom::get`]: crate::artist::Custom::get
+//! [`Custom::update`]: crate::artist::Custom::update
 //! [`Axes::add_custom_artist`]: crate::axes::Axes::add_custom_artist
 //! [`Projection`]: crate::projections::Projection
 //! [`Figure::subplot_with_projection`]: crate::figure::Figure::subplot_with_projection

@@ -14,7 +14,7 @@ use plt::figure::Share;
 use plt::layout::LayoutEngine;
 use plt::numeric::interp;
 use plt::prelude::*;
-use plt::stats::{AxisBins, Bins, HistOptions, Histogram2dOptions, histogram2d};
+use plt::stats::{AxisBins, Bins, Histogram2dOptions, histogram2d};
 use plt::ticker::PercentFormatter;
 
 use super::SEED;
@@ -79,11 +79,8 @@ fn two_distributions() -> (Vec<f64>, Vec<f64>) {
 /// Twenty bins and default styling, optionally as a density.
 fn twenty_bins(density: bool) -> HistPlotOptions<'static> {
     HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(20)),
-            density,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(20)),
+        density,
         ..HistPlotOptions::default()
     }
 }

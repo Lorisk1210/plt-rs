@@ -6,8 +6,8 @@
 
 use std::path::Path;
 
-use plt::rc::{self, RcParams};
-use plt::style::{self, STYLE_BLACKLIST, Style, XkcdSketch};
+use plt::rc::{self, RcError, RcParams};
+use plt::style::{self, STYLE_BLACKLIST, Style, XkcdError, XkcdSketch};
 
 use super::rcsetup::canonical;
 use super::text_metrics::{rc_text, with_rc};
@@ -154,7 +154,7 @@ fn context(args: Args<'_>) -> Outcome {
         let (record, _) = with_user_library(args, || {
             let scratch = ScratchDir::new("style").map_err(ProbeError::rejected)?;
             let styles = styles(args.json("style")?, &scratch)?;
-            let inside = style::context_with(&styles, || read_params(params))
+            let inside = style::context_with(&styles, || Ok::<_, RcError>(read_params(params)))
                 .ok()
                 .transpose()?;
             Ok(Json::Object(vec![
@@ -179,7 +179,8 @@ fn context_equal(args: Args<'_>) -> Outcome {
                 let name = name
                     .as_str()
                     .ok_or_else(|| ProbeError::BadArgs(format!("bad style {name}")))?;
-                style::context(name, || (*rc::params()).clone()).map_err(ProbeError::rejected)
+                style::context(name, || Ok::<_, RcError>((*rc::params()).clone()))
+                    .map_err(ProbeError::rejected)
             })
             .collect::<Result<Vec<RcParams>, _>>()?;
         Ok(snapshots.windows(2).all(|pair| pair[0] == pair[1]).into())
@@ -192,8 +193,10 @@ fn xkcd(args: Args<'_>) -> Outcome {
     with_rc(args, || {
         let before = read_params(&sketch)?;
         let inside = if scoped {
-            plt::pyplot::xkcd(XkcdSketch::default(), || read_params(&sketch))
-                .map_err(ProbeError::rejected)??
+            plt::pyplot::xkcd(XkcdSketch::default(), || {
+                Ok::<_, XkcdError>(read_params(&sketch))
+            })
+            .map_err(ProbeError::rejected)??
         } else {
             let mut updated = (*rc::params()).clone();
             style::apply_xkcd(&mut updated, XkcdSketch::default()).map_err(ProbeError::rejected)?;

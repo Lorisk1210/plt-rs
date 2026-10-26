@@ -43,16 +43,16 @@ use crate::transforms::ResolvedTransform;
 /// | `_set_view_from_bbox`                        | [`zoom_to_box`](Self::zoom_to_box)     |
 /// | `format_coord`                               | [`format_coord`](Self::format_coord)   |
 ///
-/// The hooks run while the figure is being laid out, drawn or navigated:
-/// they must not use the axes or any other handle to its figure (only
-/// [`set_up`](Self::set_up) is given the axes to work on). Settings of
-/// one axes live in the value itself, reached with
-/// [`Axes::with_projection`] and [`Axes::with_projection_mut`], and
-/// options given when the axes is made reach the factory registered with
-/// [`register_with`](super::register_with).
+/// The hooks run while the figure is being laid out, drawn or navigated,
+/// and get what they need as arguments; only [`set_up`](Self::set_up) is
+/// given the axes to work on. A projection is `Send`, so it cannot keep a
+/// handle to the figure and read it from a hook. Settings of one axes
+/// live in the value itself, reached with [`Axes::with_projection`] and
+/// [`Axes::with_projection_mut`], and options given when the axes is made
+/// reach the factory registered with [`register_with`](super::register_with).
 ///
 /// See the [module documentation](super) for a complete projection.
-pub trait Projection: Any + fmt::Debug {
+pub trait Projection: Any + fmt::Debug + Send {
     /// The name axes made with this projection report and the registry
     /// knows it by (matplotlib's `name` class attribute).
     fn name(&self) -> &'static str;

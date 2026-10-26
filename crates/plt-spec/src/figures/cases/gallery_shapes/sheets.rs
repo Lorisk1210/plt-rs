@@ -12,7 +12,7 @@ use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::patches::Circle;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions, HistType};
+use plt::stats::{Bins, HistType};
 
 use super::{SEED, beta};
 use crate::figures::cases::common::map;
@@ -56,12 +56,9 @@ pub(super) fn image_and_patch(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
 pub(super) fn beta_histograms(ax: &Axes, rng: &mut SpecRng, bins: usize) -> CaseResult {
     for (a, b) in [(10, 10), (4, 12), (50, 12), (6, 55)] {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(bins)),
-                density: true,
-                histtype: HistType::StepFilled,
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(bins)),
+            density: true,
+            histtype: HistType::StepFilled,
             props: PatchProps::default().alpha(0.8),
             ..HistPlotOptions::default()
         };
@@ -198,7 +195,7 @@ fn petroff10(fig: &Figure) -> CaseResult {
             let axs = sfig.subplots(1, 2)?;
             sigmoids(&axs[(0, 0)], true)?;
             image_and_patch(&axs[(0, 1)], &mut rng)
-        })??;
+        })?;
     }
     Ok(())
 }

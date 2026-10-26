@@ -7,7 +7,7 @@ use plt::fonts::{FontSize, RelativeSize};
 use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions, HistType};
+use plt::stats::{Bins, HistType};
 
 use super::{SEED, strings};
 use crate::figures::cases::common::{map, mosaic};
@@ -26,27 +26,26 @@ const VOLT_BINS: &str = "x bins [$V$]";
 /// The widths of the bins compared (`BIN_WIDTHS`).
 const BIN_WIDTHS: [f64; 3] = [0.1, 0.4, 1.2];
 
-/// Thick outlines in the first colour (`OUTLINE`), binned as `layout`
+/// Thick outlines in the first colour (`OUTLINE`), binned as `binning`
 /// says.
-fn outlined(layout: HistOptions<'_>) -> HistPlotOptions<'_> {
+fn outlined(binning: HistPlotOptions<'_>) -> HistPlotOptions<'_> {
     HistPlotOptions {
-        layout,
         props: PatchProps::default()
             .facecolor("none")
             .edgecolor("C0")
             .linewidth(3.0),
-        ..HistPlotOptions::default()
+        ..binning
     }
 }
 
 /// [`XDATA`] binned in outline with its values as diamonds on the axis
 /// (`binned_dots`).
 fn binned_dots(ax: &Axes, xlabel: &str, bins: Option<Bins>) -> CaseResult {
-    let layout = HistOptions {
+    let binning = HistPlotOptions {
         bins,
-        ..HistOptions::default()
+        ..HistPlotOptions::default()
     };
-    ax.hist(&[XDATA], outlined(layout))?;
+    ax.hist(&[XDATA], outlined(binning))?;
     ax.plot_with(XDATA, [0.0; 9], LineProps::fmt("d")?)?;
     ax.set_xlabel(xlabel);
     Ok(())
@@ -110,12 +109,12 @@ fn histogram_normalization_3(fig: &Figure) -> CaseResult {
 
 fn histogram_normalization_4(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    let layout = HistOptions {
+    let binning = HistPlotOptions {
         bins: Some(Bins::Edges(arange(1.0, 4.5, 0.5))),
         density: true,
-        ..HistOptions::default()
+        ..HistPlotOptions::default()
     };
-    ax.hist(&[XDATA], outlined(layout))?;
+    ax.hist(&[XDATA], outlined(binning))?;
     ax.set_ylabel("Probability density [$V^{-1}$])");
     ax.set_xlabel("x bins (dx=0.5 $V$)");
     Ok(())
@@ -134,12 +133,9 @@ fn normal_pdf() -> (Vec<f64>, Vec<f64>) {
 /// A step histogram of `xdata` over `xbins`, optionally a density.
 fn steps(xbins: Vec<f64>, density: bool) -> HistPlotOptions<'static> {
     HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges(xbins)),
-            density,
-            histtype: HistType::Step,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges(xbins)),
+        density,
+        histtype: HistType::Step,
         ..HistPlotOptions::default()
     }
 }
@@ -230,7 +226,7 @@ fn weighted_steps<'a>(
     label: &str,
 ) -> HistPlotOptions<'a> {
     let mut options = labelled(steps(xbins, false), label);
-    options.layout.weights = Some(weights);
+    options.weights = Some(weights);
     options
 }
 

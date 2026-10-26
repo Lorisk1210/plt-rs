@@ -12,7 +12,7 @@ use crate::pyplot;
 use crate::transforms::{Affine2D, ResolvedTransform};
 
 /// Rectilinear axes whose data keeps `pad` off every edge.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Padded {
     pad: f64,
 }
@@ -134,7 +134,7 @@ fn mosaics_take_registered_projections_per_label() {
         ..MosaicOptions::default()
     };
     let axes = Figure::new()
-        .subplot_mosaic(&"AB;CC".parse::<Mosaic>().unwrap(), options)
+        .subplot_mosaic("AB;CC".parse::<Mosaic>().unwrap(), options)
         .unwrap();
     let ax = |label| axes.get(label).unwrap();
     assert_eq!((pad_of(ax("A")), pad_of(ax("C"))), (Some(0.1), Some(0.3)));
@@ -145,7 +145,7 @@ fn mosaics_take_registered_projections_per_label() {
     };
     let fig = Figure::new();
     assert!(matches!(
-        fig.subplot_mosaic(&"AB".parse::<Mosaic>().unwrap(), wrong),
+        fig.subplot_mosaic("AB".parse::<Mosaic>().unwrap(), wrong),
         Err(MosaicError::Projection(ProjectionError::Options { .. }))
     ));
     assert_eq!(fig.axes(), []);

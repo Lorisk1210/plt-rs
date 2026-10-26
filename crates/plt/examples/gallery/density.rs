@@ -5,15 +5,13 @@ use std::error::Error;
 use std::f64::consts::PI;
 
 use plt::axes::{
-    HexGridSize, HexbinOptions, Hist2dOptions, HistPlotOptions, ImshowOptions, PcolorOptions,
-    SpecgramOptions, TickParams,
+    HexGridSize, HexbinOptions, Hist2dOptions, PcolorOptions, SpecgramOptions, TickParams,
 };
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{ColorizerOptions, colormaps};
+use plt::colors::ColorizerOptions;
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::mlab::SpectralOptions;
 use plt::prelude::*;
-use plt::stats::{AxisBins, Bins, HistOptions, HistOrientation, Histogram2dOptions};
+use plt::stats::{AxisBins, Bins, HistOrientation, Histogram2dOptions};
 
 use super::data::Samples;
 use super::{Built, Entry};
@@ -97,7 +95,7 @@ fn hexbin_marginals() -> Built {
     .cmap(colormaps::get("viridis")?);
     main.hexbin(&x, &y, options)?;
     main.set_xlabel("x").set_ylabel("y");
-    marginal_histograms(&main, &top, &right, x, y, 40)?;
+    marginal_histograms(&main, &top, &right, &x, &y, 40)?;
     top.set_title("hexbin with marginals");
     Ok(fig)
 }
@@ -110,34 +108,22 @@ pub(crate) fn marginal_histograms(
     joint: &Axes,
     top: &Axes,
     right: &Axes,
-    x: Vec<f64>,
-    y: Vec<f64>,
+    x: &[f64],
+    y: &[f64],
     bins: usize,
 ) -> Result<(), Box<dyn Error>> {
     top.share_x(joint)?;
     right.share_y(joint)?;
-    let layout = HistOptions {
+    let binned = HistPlotOptions {
         bins: Some(Bins::Count(bins)),
-        ..HistOptions::default()
+        ..HistPlotOptions::default()
     };
-    let sideways = HistOptions {
+    let sideways = HistPlotOptions {
         orientation: HistOrientation::Horizontal,
-        ..layout.clone()
+        ..binned.clone()
     };
-    top.hist(
-        &[x],
-        HistPlotOptions {
-            layout,
-            ..HistPlotOptions::default()
-        },
-    )?;
-    right.hist(
-        &[y],
-        HistPlotOptions {
-            layout: sideways,
-            ..HistPlotOptions::default()
-        },
-    )?;
+    top.hist(x, binned)?;
+    right.hist(y, sideways)?;
     top.tick_params(&TickParams {
         labelbottom: Some(false),
         ..TickParams::default()

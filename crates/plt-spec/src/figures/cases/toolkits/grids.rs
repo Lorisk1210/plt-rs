@@ -14,7 +14,7 @@ use plt::numeric::linspace;
 use plt::orientation::Orientation;
 use plt::rc::Aspect;
 use plt::spines::SpineSide;
-use plt::stats::{Bins, HistOptions, HistOrientation};
+use plt::stats::{Bins, HistOrientation};
 
 use super::field;
 use crate::figures::CaseResult;
@@ -198,19 +198,13 @@ pub(super) fn marginal_histograms(fig: &Figure) -> CaseResult {
     });
     let edges = linspace(-4.0, 4.0, 33);
     let upper = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges(edges.clone())),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges(edges.clone())),
         ..HistPlotOptions::default()
     };
     top.hist(&[x], upper)?;
     let side = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Edges(edges)),
-            orientation: HistOrientation::Horizontal,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Edges(edges)),
+        orientation: HistOrientation::Horizontal,
         color: vec![Color::from("tab:orange")],
         ..HistPlotOptions::default()
     };

@@ -442,8 +442,8 @@ fn blitted_animations_play_through_partial_updates() {
     };
     let animation = FuncAnimation::new(window.figure(), Frames::Count(4), options, move |i| {
         let y = [0.0, 0.25, 0.5, 0.75][i % 4];
-        moved.set_data(&[0.0, 1.0], &[y, y]);
-        vec![moved.raw().clone()]
+        moved.set_data([0.0, 1.0], [y, y]);
+        moved.clone()
     });
     // The window draws the figure, which starts the animation.
     window

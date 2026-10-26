@@ -10,7 +10,8 @@
 //!
 //! An axes fits its limits to the data it holds, with a small margin
 //! (5% of the range by default). [`Axes::set_xlim`] and
-//! [`Axes::set_ylim`] fix them; giving the larger value first inverts
+//! [`Axes::set_ylim`] fix them, in any values the axis takes (numbers of
+//! any type, dates, categories); giving the larger value first inverts
 //! the axis. [`Axes::set_margins`] changes the margin instead, keeping
 //! the limits automatic.
 //!
@@ -23,7 +24,7 @@
 //! assert_eq!(ax.xlim(), (0.0, 10.0));
 //! assert_eq!(ax.ylim(), (-0.5, 5.5));
 //!
-//! ax.set_xlim(0.0, 20.0)?.set_ylim(6.0, 0.0)?; // y grows downwards now
+//! ax.set_xlim(0, 20)?.set_ylim(6.0, 0.0)?; // y grows downwards now
 //! assert!(ax.yaxis().inverted());
 //! assert!(ax.set_xlim(f64::NAN, 1.0).is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -54,9 +55,7 @@
 //! let fig = Figure::new();
 //! let axs = fig.subplots(1, 2)?;
 //!
-//! let n: Vec<f64> = (0..20).map(f64::from).collect();
-//! let growth: Vec<f64> = n.iter().map(|n| 2f64.powf(*n)).collect();
-//! axs[(0, 0)].plot(&n, &growth)?;
+//! axs[(0, 0)].plot(0..20, (0..20).map(|n| 2f64.powi(n)))?;
 //! axs[(0, 0)].set_yscale("log")?; // 2ⁿ is a straight line
 //! assert_eq!(axs[(0, 0)].yscale(), ScaleName::Log);
 //!
@@ -166,8 +165,7 @@
 //!     .set_major_locator(RRuleLocator::months(&[], &[1], 3))
 //!     .set_major_formatter(DateFormatter::new("%b %Y"));
 //! let end = DateTime::new(2025, 1, 1, 0, 0, 0, 0)?;
-//! let limits = quarters.xaxis().convert_units(vec![start, end]);
-//! quarters.set_xlim(limits[0], limits[1])?;
+//! quarters.set_xlim(start, end)?;
 //! assert_eq!(
 //!     quarters.xaxis().ticklabels(false)?,
 //!     ["Jan 2024", "Apr 2024", "Jul 2024", "Oct 2024", "Jan 2025"]
@@ -175,8 +173,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Axes::set_xlim`] takes axis numbers, so date limits go through
-//! [`Axis::convert_units`](crate::axes::Axis::convert_units) first.
+//! [`Axes::set_xlim`] takes dates as it takes numbers.
 //! Gallery: `concise_dates` in `units.rs`. The
 //! [`porting::axes`](crate::porting::axes) page lists the locators,
 //! formatters, scales and tick settings.

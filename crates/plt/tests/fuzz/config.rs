@@ -260,6 +260,7 @@ fn style_libraries() {
             if let Some(format) = library.draw {
                 draw_standard_figure(format);
             }
+            Ok::<_, plt::rc::RcError>(())
         });
         for path in &files {
             read_and_apply(path);

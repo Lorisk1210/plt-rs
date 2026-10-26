@@ -9,8 +9,8 @@ use crate::patches::{Patch, PatchProps, PatchShape, Polygon};
 use crate::rc::HistBins;
 use crate::scale::{LogScale, NonPositive};
 use crate::stats::{
-    BinSample, Bins, HistBars, HistOptions, HistOrientation, HistPatches, HistType, StepOutline,
-    hist,
+    BinSample, Bins, Cumulative, Datasets, HistAlign, HistBars, HistBottom, HistOptions,
+    HistOrientation, HistPatches, HistType, StepOutline, hist,
 };
 use crate::ticker::AxisName;
 
@@ -20,11 +20,35 @@ use crate::ticker::AxisName;
 /// no such bound.
 pub const MAX_HIST_BARS: usize = 1 << 16;
 
-/// Options of [`Axes::hist`]: binning and layout plus styling.
+/// Options of [`Axes::hist`] (matplotlib's keywords): the binning and
+/// layout [`stats::hist`](crate::stats::hist) takes as a
+/// [`HistOptions`], whose fields come first and are documented there,
+/// then the styling. A [`HistOptions`] converts into them, with the
+/// default styling.
 #[derive(Clone, Debug, Default)]
 pub struct HistPlotOptions<'a> {
-    /// Bins, normalisation, stacking, histogram type and orientation.
-    pub layout: HistOptions<'a>,
+    /// The bins ([`HistOptions::bins`]); `None` takes `hist.bins`.
+    pub bins: Option<Bins>,
+    /// The range of equal-width bins ([`HistOptions::range`]).
+    pub range: Option<(f64, f64)>,
+    /// Normalise to densities ([`HistOptions::density`]).
+    pub density: bool,
+    /// One weight array per dataset ([`HistOptions::weights`]).
+    pub weights: Option<&'a [Vec<f64>]>,
+    /// Accumulate counts along the bins ([`HistOptions::cumulative`]).
+    pub cumulative: Cumulative,
+    /// Stack datasets on top of each other ([`HistOptions::stacked`]).
+    pub stacked: bool,
+    /// Bars or steps ([`HistOptions::histtype`]).
+    pub histtype: HistType,
+    /// Placement relative to the bin edges ([`HistOptions::align`]).
+    pub align: HistAlign,
+    /// Which way the bars grow ([`HistOptions::orientation`]).
+    pub orientation: HistOrientation,
+    /// The relative bar width ([`HistOptions::rwidth`]).
+    pub rwidth: Option<f64>,
+    /// The baseline of the first dataset ([`HistOptions::bottom`]).
+    pub bottom: HistBottom,
     /// Use a log scale (non-positive counts clipped) on the count axis.
     pub log: bool,
     /// One colour for every dataset or one per dataset (default: the next
@@ -48,7 +72,58 @@ pub struct HistPlotOptions<'a> {
     pub linestyles: Vec<LineStyle>,
 }
 
-impl HistPlotOptions<'_> {
+impl<'a> From<HistOptions<'a>> for HistPlotOptions<'a> {
+    /// The binning and layout of `options`, with the default styling.
+    fn from(options: HistOptions<'a>) -> Self {
+        let HistOptions {
+            bins,
+            range,
+            density,
+            weights,
+            cumulative,
+            stacked,
+            histtype,
+            align,
+            orientation,
+            rwidth,
+            bottom,
+        } = options;
+        Self {
+            bins,
+            range,
+            density,
+            weights,
+            cumulative,
+            stacked,
+            histtype,
+            align,
+            orientation,
+            rwidth,
+            bottom,
+            ..Self::default()
+        }
+    }
+}
+
+impl<'a> HistPlotOptions<'a> {
+    /// The binning and layout, as [`stats::hist`](crate::stats::hist)
+    /// takes them.
+    fn binning(&self) -> HistOptions<'a> {
+        HistOptions {
+            bins: self.bins.clone(),
+            range: self.range,
+            density: self.density,
+            weights: self.weights,
+            cumulative: self.cumulative,
+            stacked: self.stacked,
+            histtype: self.histtype,
+            align: self.align,
+            orientation: self.orientation,
+            rwidth: self.rwidth,
+            bottom: self.bottom.clone(),
+        }
+    }
+
     /// The properties of the patches of dataset `index`: the shared
     /// [`props`](Self::props) with the entries of the style sequences for
     /// that dataset on top (matplotlib's `style_generator`).
@@ -99,14 +174,19 @@ pub enum HistArtists {
 }
 
 impl Axes {
-    /// Histograms of one or more datasets (matplotlib's `hist`).
+    /// Histograms of one dataset, or of several side by side (see
+    /// [`Datasets`]; matplotlib's `hist`).
     ///
     /// ```
     /// use plt::prelude::*;
-    /// use plt::axes::HistPlotOptions;
+    /// use plt::stats::Bins;
     /// let ax = Figure::new().subplot();
-    /// let plot = ax.hist(&[[0.0, 1.0, 1.5, 2.0]], HistPlotOptions::default())?;
+    /// let samples = [0.0, 0.5, 1.5, 2.0];
+    /// let plot = ax.hist(&samples, HistPlotOptions::default())?;
     /// assert_eq!(plot.edges.len(), 11);
+    /// let two = HistPlotOptions { bins: Some(Bins::Count(2)), ..HistPlotOptions::default() };
+    /// let stacked = ax.hist(&[&samples[..2], &samples[2..]], two)?;
+    /// assert_eq!(stacked.tops, [[2.0, 0.0], [0.0, 2.0]]);
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
     ///
@@ -118,21 +198,22 @@ impl Axes {
     /// [`MAX_HIST_BARS`] bars.
     ///
     /// [`MAX_EQUAL_BINS`]: crate::stats::MAX_EQUAL_BINS
-    pub fn hist<T: BinSample, D: AsRef<[T]>>(
+    pub fn hist<T: BinSample, D: Datasets<T> + ?Sized>(
         &self,
-        datasets: &[D],
+        datasets: &D,
         options: HistPlotOptions<'_>,
     ) -> Result<HistPlot, PlotError> {
+        let datasets = datasets.datasets();
         let colors = if options.color.is_empty() {
             datasets.iter().map(|_| self.next_line_color()).collect()
         } else {
             broadcast("color", &options.color, datasets.len())?
         };
-        let mut layout = options.layout.clone();
+        let mut layout = options.binning();
         if layout.bins.is_none() {
             layout.bins = Some(rc_bins(&crate::rc::params().hist_bins)?);
         }
-        let computed = hist(datasets, layout).map_err(PlotError::Stats)?;
+        let computed = hist(datasets.as_slice(), layout).map_err(PlotError::Stats)?;
         let artists = match computed.patches {
             HistPatches::Bars(groups) => {
                 let bars = groups.iter().map(|group| group.positions.len()).sum();
@@ -161,7 +242,7 @@ impl Axes {
         colors: &[Color],
         options: &HistPlotOptions<'_>,
     ) -> Result<Vec<BarContainer>, PlotError> {
-        let horizontal = options.layout.orientation == HistOrientation::Horizontal;
+        let horizontal = options.orientation == HistOrientation::Horizontal;
         let containers = groups
             .into_iter()
             .zip(colors)
@@ -196,7 +277,7 @@ impl Axes {
         options: &HistPlotOptions<'_>,
     ) -> Vec<Patch<Polygon>> {
         if options.log {
-            let axis = match options.layout.orientation {
+            let axis = match options.orientation {
                 HistOrientation::Vertical => AxisName::Y,
                 HistOrientation::Horizontal => AxisName::X,
             };
@@ -205,7 +286,7 @@ impl Axes {
                 .with_nonpositive(NonPositive::Clip);
             self.set_scale(axis, Box::new(log));
         }
-        let filled = options.layout.histtype == HistType::StepFilled;
+        let filled = options.histtype == HistType::StepFilled;
         let mut patches: Vec<Patch<Polygon>> = outlines
             .into_iter()
             .zip(colors)
@@ -216,7 +297,7 @@ impl Axes {
                     props = props.edgecolor(color.clone()).zorder(2.0);
                 }
                 let patch = self.add_polygon(Polygon::new(outline.vertices, outline.closed), props);
-                match options.layout.orientation {
+                match options.orientation {
                     HistOrientation::Vertical => patch.set_sticky_edges(Vec::new(), vec![0.0]),
                     HistOrientation::Horizontal => patch.set_sticky_edges(vec![0.0], Vec::new()),
                 };
@@ -323,11 +404,8 @@ mod tests {
         // three million patches.
         let ax = Figure::new().subplot();
         let with = |histtype| HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(crate::stats::Bins::Count(1 << 20)),
-                histtype,
-                ..HistOptions::default()
-            },
+            bins: Some(crate::stats::Bins::Count(1 << 20)),
+            histtype,
             ..HistPlotOptions::default()
         };
         assert_eq!(
@@ -341,10 +419,7 @@ mod tests {
     fn step_outlines_take_edge_sequences_over_the_dataset_colours() {
         let ax = Figure::new().subplot();
         let step = |edgecolors: Vec<Color>| HistPlotOptions {
-            layout: HistOptions {
-                histtype: HistType::Step,
-                ..HistOptions::default()
-            },
+            histtype: HistType::Step,
             color: vec![Color::from("r")],
             edgecolors,
             ..HistPlotOptions::default()

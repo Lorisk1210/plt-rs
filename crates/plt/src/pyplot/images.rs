@@ -16,7 +16,7 @@ use crate::figure::Figure;
 use crate::image::{
     AxesImage, FigimageOptions, FigureImage, ImageData, ImageError, ImageIoError, ImsaveOptions,
 };
-use crate::numeric::Grid;
+use crate::numeric::{Grid, Number};
 
 /// Where `matshow` puts the axes of a new figure, in figure fractions.
 const MATSHOW_RECT: [f64; 4] = [0.15, 0.09, 0.775, 0.775];
@@ -131,7 +131,11 @@ pub fn spy(z: &Grid<f64>, options: SpyOptions) -> Result<Spy, ImageError> {
 /// # Errors
 ///
 /// As [`Axes::hexbin`](crate::axes::Axes::hexbin).
-pub fn hexbin(x: &[f64], y: &[f64], options: HexbinOptions) -> Result<Collection, ImageError> {
+pub fn hexbin(
+    x: impl IntoIterator<Item: Number>,
+    y: impl IntoIterator<Item: Number>,
+    options: HexbinOptions,
+) -> Result<Collection, ImageError> {
     let ax = gca();
     let cells = ax.hexbin(x, y, options)?;
     make_current(&ax, &cells);
@@ -144,7 +148,11 @@ pub fn hexbin(x: &[f64], y: &[f64], options: HexbinOptions) -> Result<Collection
 /// # Errors
 ///
 /// As [`Axes::hist2d`](crate::axes::Axes::hist2d).
-pub fn hist2d(x: &[f64], y: &[f64], options: Hist2dOptions<'_>) -> Result<Hist2d, ImageError> {
+pub fn hist2d(
+    x: impl IntoIterator<Item: Number>,
+    y: impl IntoIterator<Item: Number>,
+    options: Hist2dOptions<'_>,
+) -> Result<Hist2d, ImageError> {
     let ax = gca();
     let histogram = ax.hist2d(x, y, options)?;
     make_current(&ax, &histogram.mesh);

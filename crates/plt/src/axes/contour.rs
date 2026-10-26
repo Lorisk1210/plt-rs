@@ -10,6 +10,7 @@ use crate::contour::{
     ContourError, ContourOptions, ContourPlan, ContourSet, ContourSetArtist, ContourSource,
     Generator, Levels, QuadField, given_source,
 };
+use crate::numeric::{Number, to_f64s};
 use crate::tri::{Triangulation, contour_source};
 
 impl Axes {
@@ -74,10 +75,10 @@ impl Axes {
     pub fn tricontour(
         &self,
         tri: &Triangulation,
-        z: &[f64],
+        z: impl IntoIterator<Item: Number>,
         options: ContourOptions,
     ) -> Result<ContourSet, ContourError> {
-        let source = contour_source(tri, z, options.logscale())?;
+        let source = contour_source(tri, &to_f64s(z), options.logscale())?;
         self.add_contour_set(false, options, source)
     }
 
@@ -89,10 +90,10 @@ impl Axes {
     pub fn tricontourf(
         &self,
         tri: &Triangulation,
-        z: &[f64],
+        z: impl IntoIterator<Item: Number>,
         options: ContourOptions,
     ) -> Result<ContourSet, ContourError> {
-        let source = contour_source(tri, z, options.logscale())?;
+        let source = contour_source(tri, &to_f64s(z), options.logscale())?;
         self.add_contour_set(true, options, source)
     }
 

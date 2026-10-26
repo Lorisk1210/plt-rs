@@ -4,7 +4,7 @@ use plt::axes::{AxisName, HistPlotOptions};
 use plt::figure::Figure;
 use plt::numeric::linspace;
 use plt::patches::PatchProps;
-use plt::stats::{Bins, HistOptions, HistType};
+use plt::stats::{Bins, HistType};
 
 use super::{classic, from, remove_ticks_and_titles};
 use crate::figures::{CaseResult, FigureCase};
@@ -13,10 +13,7 @@ use crate::rng::SpecRng;
 /// Histogram options of the given type, otherwise default.
 fn of_type(histtype: HistType) -> HistPlotOptions<'static> {
     HistPlotOptions {
-        layout: HistOptions {
-            histtype,
-            ..HistOptions::default()
-        },
+        histtype,
         ..HistPlotOptions::default()
     }
 }
@@ -46,11 +43,8 @@ fn hist_step_filled(fig: &Figure) -> CaseResult {
         .flat_map(|&kind| fills.iter().map(move |&fill| (kind, fill)));
     for (ax, (histtype, fill)) in axs.as_slice().iter().zip(styles) {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                histtype,
-                stacked: true,
-                ..HistOptions::default()
-            },
+            histtype,
+            stacked: true,
             props: PatchProps {
                 fill,
                 ..PatchProps::default()
@@ -94,11 +88,8 @@ pub(super) const CASES: &[FigureCase] = &[
             .enumerate()
         {
             let options = HistPlotOptions {
-                layout: HistOptions {
-                    bins: Some(Bins::Count(1)),
-                    histtype,
-                    ..HistOptions::default()
-                },
+                bins: Some(Bins::Count(1)),
+                histtype,
                 ..HistPlotOptions::default()
             };
             axs[(0, i)].set_yscale("log")?;
@@ -116,10 +107,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_b/hist_density", |fig| {
         let data = SpecRng::new(19_680_801).normal(2000, 0.0, 1.0);
         let options = HistPlotOptions {
-            layout: HistOptions {
-                density: true,
-                ..HistOptions::default()
-            },
+            density: true,
             ..HistPlotOptions::default()
         };
         fig.subplot().hist(&[data], options)?;

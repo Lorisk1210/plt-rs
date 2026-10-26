@@ -45,6 +45,7 @@
 //! | `event.artist`, `event.ind` (pick)              | [`PickEvent::artist`], [`PickEvent::ind`]      |
 //! | `artist.set_picker(5)`                          | [`ArtistHandle::set_picker`]`(Some(Picker::Radius(5.0)))` |
 //! | `fig.canvas.button_press_event(...)` in tests   | [`EventSource::button_press`] and friends      |
+//! | `ax.transData.transform((x, y))` for a click    | [`Axes::data_to_display`]`((x, y))?`           |
 //! | `fig.canvas.new_timer(interval)`, `timer.start()` | [`Figure::add_timer`], [`Figure::remove_timer`] |
 //! | `fig.canvas.set_cursor(...)`                    | [`Figure::set_cursor`]                         |
 //! | `fig.canvas.widgetlock`                         | [`Figure::lock_widgets`], [`Figure::release_widgets`] |
@@ -93,7 +94,6 @@
 //! use plt::events::{Event, EventKind, EventSource};
 //! use plt::navigation::PointerButton;
 //! use plt::prelude::*;
-//! use plt::transforms::Point;
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
@@ -109,7 +109,7 @@
 //! });
 //!
 //! // A click at data (5, 5): where a window would report it, in pixels.
-//! let at = fig.resolve_transform(&ax.trans_data())?.transform_point(Point::new(5.0, 5.0));
+//! let at = ax.data_to_display((5.0, 5.0))?;
 //! let mut input = EventSource::new();
 //! input.button_press(&fig, at.x, at.y, PointerButton::Left, false);
 //! assert_eq!(clicks.borrow().len(), 1);
@@ -143,7 +143,6 @@
 //! use plt::events::{Event, EventKind, EventSource};
 //! use plt::navigation::PointerButton;
 //! use plt::prelude::*;
-//! use plt::transforms::Point;
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
@@ -156,7 +155,7 @@
 //!         seen.borrow_mut().extend(pick.ind.iter().copied());
 //!     }
 //! });
-//! let at = fig.resolve_transform(&ax.trans_data())?.transform_point(Point::new(1.0, 1.0));
+//! let at = ax.data_to_display((1.0, 1.0))?;
 //! EventSource::new().button_press(&fig, at.x, at.y, PointerButton::Left, false);
 //! assert!(picked.borrow().contains(&1), "the vertex at (1, 1)");
 //!
@@ -190,15 +189,13 @@
 //! let fig = Figure::new();
 //! let ax = fig.add_axes([0.1, 0.3, 0.8, 0.6])?;
 //! let x = linspace(0.0, 1.0, 50);
-//! let line = ax.plot(&x, x.iter().map(|v| (5.0 * v).sin()).collect::<Vec<_>>())?;
+//! let line = ax.plot(&x, x.iter().map(|v| (5.0 * v).sin()))?;
 //!
 //! let options = SliderOptions { valinit: 5.0, ..SliderOptions::default() };
 //! let freq = Slider::new(&fig.add_axes([0.2, 0.1, 0.6, 0.05])?, "Freq", 0.1, 30.0, options)?;
 //! let wave = line.clone();
 //! freq.on_changed(move |value| {
-//!     let (x, _) = wave.data();
-//!     let y: Vec<f64> = x.iter().map(|v| (value * v).sin()).collect();
-//!     wave.set_ydata(y);
+//!     wave.set_ydata(wave.xdata().iter().map(|v| (value * v).sin()));
 //! });
 //! freq.set_val(7.5);
 //! assert_eq!(freq.val(), 7.5);
@@ -223,13 +220,11 @@
 //! use plt::gui::{Icon, ToolKind, ToolSpec};
 //! use plt::navigation::{DragKey, NavMode, Navigation, PointerButton};
 //! use plt::prelude::*;
-//! use plt::transforms::Point;
 //!
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
 //! ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
-//! let to_pixels = fig.resolve_transform(&ax.trans_data())?;
-//! let (from, to) = (to_pixels.transform_point(Point::new(0.25, 0.25)), to_pixels.transform_point(Point::new(0.75, 0.75)));
+//! let (from, to) = (ax.data_to_display((0.25, 0.25))?, ax.data_to_display((0.75, 0.75))?);
 //!
 //! let mut nav = Navigation::new();
 //! nav.toggle(&fig, NavMode::Zoom)?;
@@ -287,8 +282,8 @@
 //! };
 //! let rising = line.clone();
 //! let animation = FuncAnimation::new(&fig, Frames::Count(5), options, move |i| {
-//!     rising.set_data(&[0.0, 1.0], &[0.0, i as f64 / 4.0]);
-//!     vec![rising.raw().clone()]
+//!     rising.set_data([0.0, 1.0], [0.0, i as f64 / 4.0]);
+//!     rising.clone()
 //! });
 //! assert!(animation.to_gif()?.starts_with(b"GIF89a")); // `animation.save("rise.gif")?`
 //! assert!(animation.to_jshtml(HtmlOptions::default())?.contains("<script"));
@@ -329,6 +324,7 @@
 //! ```
 //!
 //! [`Figure::connect`]: crate::figure::Figure::connect
+//! [`Axes::data_to_display`]: crate::axes::Axes::data_to_display
 //! [`Figure::disconnect`]: crate::figure::Figure::disconnect
 //! [`Figure::add_timer`]: crate::figure::Figure::add_timer
 //! [`Figure::remove_timer`]: crate::figure::Figure::remove_timer

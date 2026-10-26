@@ -32,8 +32,9 @@ use super::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
 pub struct AggFilter(Rc<FilterFn<'static>>);
 
 impl AggFilter {
-    /// A filter running `filter`.
-    pub fn new(filter: impl Fn(&FilterImage, f64) -> Filtered + 'static) -> Self {
+    /// A filter running `filter`, which runs while the figure is drawn:
+    /// it is `Send`, so it cannot use the figure's handles.
+    pub fn new(filter: impl Fn(&FilterImage, f64) -> Filtered + Send + 'static) -> Self {
         Self(Rc::new(filter))
     }
 
@@ -119,7 +120,8 @@ impl ArtistHandle for FilteredGroup {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::Cell;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
     use crate::figure::Figure;
@@ -130,10 +132,10 @@ mod tests {
         let ax = fig.subplot();
         let first = ax.plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
         let second = ax.plot(vec![0.0, 1.0], vec![1.0, 0.0]).unwrap();
-        let calls = Rc::new(Cell::new(0));
-        let counted = Rc::clone(&calls);
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counted = Arc::clone(&calls);
         let filter = AggFilter::new(move |image, _dpi| {
-            counted.set(counted.get() + 1);
+            counted.fetch_add(1, Ordering::Relaxed);
             Filtered {
                 image: image.clone(),
                 offset: (0.0, 0.0),
@@ -142,9 +144,17 @@ mod tests {
         let group = ax.add_filtered_group(&[first.raw().clone(), second.raw().clone()], filter);
         assert_eq!(group.zorder(), 0.0);
         fig.to_png().unwrap();
-        assert_eq!(calls.get(), 1, "one layer for the whole group");
+        assert_eq!(
+            calls.load(Ordering::Relaxed),
+            1,
+            "one layer for the whole group"
+        );
         group.set_visible(false);
         fig.to_png().unwrap();
-        assert_eq!(calls.get(), 1, "a hidden group is not drawn");
+        assert_eq!(
+            calls.load(Ordering::Relaxed),
+            1,
+            "a hidden group is not drawn"
+        );
     }
 }

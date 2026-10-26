@@ -50,7 +50,7 @@ use crate::ticker::{Formatter, Locator};
 ///
 ///     fn axisinfo(&self, unit: Option<&Unit>, _: &Axis) -> Option<UnitAxisInfo> {
 ///         let label = format!("{:?}", unit?).to_lowercase();
-///         Some(UnitAxisInfo { label: Some(label), ..UnitAxisInfo::default() })
+///         Some(UnitAxisInfo::default().label(label))
 ///     }
 ///
 ///     fn default_units(&self, values: &[Length], _: &Axis) -> Option<Unit> {
@@ -257,6 +257,21 @@ pub(crate) type UnitOf<T> = <<T as Convertible>::Converter as ConversionInterfac
 /// defaults, the label only a label that was not set, and the default
 /// limits, in axis numbers, become the view while neither data nor limits
 /// changed it.
+///
+/// Builder methods named after the fields set them, taking a locator or
+/// a formatter as the [`Axis`] setters do:
+///
+/// ```
+/// use plt::ticker::{MultipleLocator, StrMethodFormatter};
+/// use plt::units::UnitAxisInfo;
+/// let info = UnitAxisInfo::default()
+///     .label("price")
+///     .majloc(MultipleLocator::new(0.5)?)
+///     .majfmt(StrMethodFormatter::new("{x:.2f} €")?);
+/// assert_eq!(info.label.as_deref(), Some("price"));
+/// assert!(info.majfmt.is_some() && info.minfmt.is_none());
+/// # Ok::<(), plt::ticker::TickerError>(())
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct UnitAxisInfo {
     /// The locator of the major ticks.
@@ -271,6 +286,51 @@ pub struct UnitAxisInfo {
     pub label: Option<String>,
     /// The view of the axis before any data is plotted, in axis numbers.
     pub default_limits: Option<(f64, f64)>,
+}
+
+impl UnitAxisInfo {
+    /// Sets [`majloc`](Self::majloc), the locator of the major ticks.
+    #[must_use]
+    pub fn majloc(mut self, locator: impl Locator) -> Self {
+        self.majloc = Some(Rc::new(locator));
+        self
+    }
+
+    /// Sets [`minloc`](Self::minloc), the locator of the minor ticks.
+    #[must_use]
+    pub fn minloc(mut self, locator: impl Locator) -> Self {
+        self.minloc = Some(Rc::new(locator));
+        self
+    }
+
+    /// Sets [`majfmt`](Self::majfmt), the formatter of the major ticks.
+    #[must_use]
+    pub fn majfmt(mut self, formatter: impl Formatter) -> Self {
+        self.majfmt = Some(Rc::new(formatter));
+        self
+    }
+
+    /// Sets [`minfmt`](Self::minfmt), the formatter of the minor ticks.
+    #[must_use]
+    pub fn minfmt(mut self, formatter: impl Formatter) -> Self {
+        self.minfmt = Some(Rc::new(formatter));
+        self
+    }
+
+    /// Sets [`label`](Self::label), the axis label.
+    #[must_use]
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    /// Sets [`default_limits`](Self::default_limits), the view before any
+    /// data is plotted.
+    #[must_use]
+    pub fn default_limits(mut self, low: f64, high: f64) -> Self {
+        self.default_limits = Some((low, high));
+        self
+    }
 }
 
 /// Why values could not be converted to axis numbers (matplotlib's

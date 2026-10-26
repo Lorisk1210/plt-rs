@@ -76,8 +76,10 @@
 //! takes the text and the point `xy` it refers to; the
 //! [`AnnotateOptions`](crate::text::AnnotateOptions) say where the text
 //! goes (`xytext`) and how the arrow from the text to the point looks.
-//! Arrow styles parse matplotlib's names: `"->"` is a line with an open
-//! head, `"-|>"` a filled head, `"<->"` heads at both ends.
+//! An arrow parses from matplotlib's names of arrow styles: `"->"` is a
+//! line with an open head, `"-|>"` a filled head, `"<->"` heads at both
+//! ends; [`FancyArrowProps`](crate::text::FancyArrowProps) holds the rest
+//! of its settings.
 //!
 //! Positions can be in other coordinate systems than the data's, chosen
 //! by a [`Coords`](crate::coords::Coords) value that parses matplotlib's
@@ -87,17 +89,17 @@
 //!
 //! ```
 //! use plt::prelude::*;
-//! use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
+//! use plt::text::AnnotateOptions;
 //!
 //! let ax = Figure::new().subplot();
 //! let x = linspace(0.0, 6.0, 100);
-//! ax.plot(&x, x.iter().map(|x| x.sin()).collect::<Vec<_>>())?;
+//! ax.plot(&x, x.iter().map(|x| x.sin()))?;
 //!
 //! let peak = std::f64::consts::FRAC_PI_2;
 //! let options = AnnotateOptions {
 //!     xytext: Some((40.0, -30.0).into()),
 //!     textcoords: Some("offset points".parse()?),
-//!     arrowprops: Some(ArrowProps::Fancy("->".parse::<FancyArrowProps>()?)),
+//!     arrowprops: Some("->".parse()?),
 //!     ..AnnotateOptions::default()
 //! };
 //! let note = ax.annotate("maximum", (peak, 1.0), options)?;

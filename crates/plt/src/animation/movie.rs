@@ -335,7 +335,7 @@ mod tests {
             Frames::Count(3),
             AnimationOptions::default(),
             move |i| {
-                line.set_data(&[0.0, 1.0], &[0.0, i as f64]);
+                line.set_data([0.0, 1.0], [0.0, i as f64]);
             },
         )
     }

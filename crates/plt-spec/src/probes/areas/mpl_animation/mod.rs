@@ -50,7 +50,7 @@ fn anim(frames: usize, repeat: bool) -> Result<FuncAnimation, ProbeError> {
         Frames::Count(frames),
         options,
         move || {
-            cleared.set_data(&[], &[]);
+            cleared.set_data(Vec::<f64>::new(), Vec::<f64>::new());
         },
         move |i| {
             let x = linspace(0.0, 10.0, 100);

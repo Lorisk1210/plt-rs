@@ -30,8 +30,9 @@ pub enum LabelFormat {
 }
 
 impl LabelFormat {
-    /// The labels `f` writes.
-    pub fn func(f: impl Fn(f64) -> String + 'static) -> Self {
+    /// The labels `f` writes. Colorbars run `f` while their figure is
+    /// laid out: it is `Send`, so it cannot use the figure's handles.
+    pub fn func(f: impl Fn(f64) -> String + Send + 'static) -> Self {
         Self::Func(Rc::new(f))
     }
 
@@ -71,7 +72,7 @@ impl LabelFormat {
             },
             Self::Func(f) => {
                 let f = Rc::clone(f);
-                Rc::new(FuncFormatter::new(move |value, _| f(value)))
+                Rc::new(FuncFormatter::from_fn(move |value, _| f(value)))
             }
         })
     }

@@ -51,7 +51,6 @@ mod source;
 mod timers;
 pub(crate) mod wait;
 
-use crate::artist::ArtistHandle;
 use crate::axes::Axes;
 use crate::navigation::PointerButton;
 use crate::transforms::TransformError;
@@ -139,10 +138,7 @@ impl Location {
     ///
     /// When the data transform of `ax` cannot be resolved.
     pub fn from_ax_coords(ax: &Axes, (x, y): (f64, f64)) -> Result<Self, TransformError> {
-        let display = ax
-            .figure()
-            .resolve_transform(&ax.trans_data())?
-            .transform_point(plt_core::Point::new(x, y));
+        let display = ax.data_to_display((x, y))?;
         Ok(Self {
             x: display.x.trunc(),
             y: display.y.trunc(),

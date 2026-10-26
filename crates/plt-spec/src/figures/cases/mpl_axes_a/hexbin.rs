@@ -30,15 +30,16 @@ pub(super) fn hexbin_empty(fig: &Figure) -> CaseResult {
         bins: Some(bins),
         ..HexbinOptions::default()
     };
-    ax.hexbin(&[], &[], HexbinOptions::default())?;
-    ax.hexbin(&[], &[], binned(HexBins::Log))?;
+    let empty: &[f64] = &[];
+    ax.hexbin(empty, empty, HexbinOptions::default())?;
+    ax.hexbin(empty, empty, binned(HexBins::Log))?;
     let reduced = HexbinOptions {
         values: Some(Vec::new()),
         reduce: HexReduce::Max,
         ..HexbinOptions::default()
     };
-    ax.hexbin(&[], &[], reduced)?;
-    ax.hexbin(&[], &[], binned(HexBins::Edges(arange(0.0, 10.0, 1.0))))?;
+    ax.hexbin(empty, empty, reduced)?;
+    ax.hexbin(empty, empty, binned(HexBins::Edges(arange(0.0, 10.0, 1.0))))?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

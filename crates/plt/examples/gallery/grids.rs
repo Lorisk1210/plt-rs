@@ -1,16 +1,13 @@
 //! `axes_grid1`: grids of images, axes appended by a divider, zoomed
 //! insets marked on their parent, and anchored scale bars and arrows.
 
-use plt::axes::ImshowOptions;
 use plt::axes_grid1::anchored_artists::{AnchoredDirectionArrows, AnchoredSizeBar};
 use plt::axes_grid1::{
     CbarMode, Corner, GridRect, ImageGrid, ImageGridOptions, InsetOptions, SizeSpec,
     make_axes_locatable, mark_inset, zoomed_inset_axes,
 };
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{ColorizerOptions, colormaps};
+use plt::colors::ColorizerOptions;
 use plt::image::{Extent, Origin};
-use plt::numeric::Grid;
 use plt::offsetbox::{AnchorLoc, AnchoredBox};
 use plt::prelude::*;
 use plt::rc::Aspect;
@@ -124,7 +121,7 @@ fn axes_locatable() -> Built {
         SizeSpec::Inches(1.0),
         Some(SizeSpec::Inches(0.1)),
     );
-    marginal_histograms(&ax, &top, &right, x, y, 30)?;
+    marginal_histograms(&ax, &top, &right, &x, &y, 30)?;
     // Constrained layout places the scatter only; the appended axes take
     // their room from its box, so the title goes on the figure.
     fig.suptitle("Appended axes of fixed size");

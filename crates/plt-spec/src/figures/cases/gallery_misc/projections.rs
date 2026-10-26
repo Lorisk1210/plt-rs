@@ -1,6 +1,7 @@
 //! Polar axes: the matplotlib logo, the left ventricle bullseye and
 //! radar charts (`logos2`, `leftventricle_bullseye` and `radar_chart`).
 
+use std::error::Error;
 use std::f64::consts::PI;
 
 use plt::axes::{BarAlign, TickParams};
@@ -40,8 +41,8 @@ fn icon_axes(fig: &Figure, position: [f64; 4], sizes: &LogoSizes) -> CaseResult 
     let border = sizes.lw_border.to_string();
     let ax: PolarAxes = plt::pyplot::rc_context(
         &[("axes.edgecolor", MPL_BLUE), ("axes.linewidth", &border)],
-        || fig.add_polar_axes(position),
-    )??;
+        || -> Result<_, Box<dyn Error>> { Ok(fig.add_polar_axes(position)?) },
+    )?;
     ax.set_axisbelow(AxisBelow::Below);
     let n = 7;
     let arc = 2.0 * PI;

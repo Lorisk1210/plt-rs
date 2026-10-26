@@ -137,6 +137,40 @@ impl From<ArrowStyle> for ArrowProps {
     }
 }
 
+impl From<FancyArrowProps> for ArrowProps {
+    fn from(arrow: FancyArrowProps) -> Self {
+        Self::Fancy(arrow)
+    }
+}
+
+impl From<LegacyArrowProps> for ArrowProps {
+    fn from(arrow: LegacyArrowProps) -> Self {
+        Self::Legacy(arrow)
+    }
+}
+
+impl FromStr for ArrowProps {
+    type Err = StyleError;
+
+    /// A styled arrow of the arrow style `description` with matplotlib's
+    /// defaults (`arrowprops=dict(arrowstyle=...)`; see
+    /// [`FancyArrowProps`]).
+    ///
+    /// ```
+    /// use plt::text::{AnnotateOptions, ArrowProps};
+    /// let options = AnnotateOptions {
+    ///     arrowprops: Some("->".parse()?),
+    ///     ..AnnotateOptions::default()
+    /// };
+    /// assert!(matches!(options.arrowprops, Some(ArrowProps::Fancy(_))));
+    /// assert!("-~>".parse::<ArrowProps>().is_err());
+    /// # Ok::<(), plt::patches::StyleError>(())
+    /// ```
+    fn from_str(description: &str) -> Result<Self, Self::Err> {
+        description.parse().map(Self::Fancy)
+    }
+}
+
 /// How the arrow's start and size are chosen.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Placement {

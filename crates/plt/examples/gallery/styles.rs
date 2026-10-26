@@ -7,7 +7,7 @@ use plt::lines::LineProps;
 use plt::numeric::linspace;
 use plt::pyplot;
 use plt::style::{self, Style, XkcdSketch};
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
+use plt::text::{AnnotateOptions, FancyArrowProps};
 use plt::transforms::Point;
 
 use super::data::Samples;
@@ -70,7 +70,7 @@ fn styled(name: &str) -> Built {
         )?;
         grid[(0, 0)].set_title(name);
         Ok(fig)
-    })?
+    })
 }
 
 /// A comic-style chart: every path is drawn with a hand-made wobble
@@ -78,8 +78,9 @@ fn styled(name: &str) -> Built {
 /// previous parameters afterwards. Like the sheets above, it starts from
 /// matplotlib's defaults.
 fn xkcd() -> Built {
-    let comic = || pyplot::xkcd(XkcdSketch::default(), draw_comic);
-    style::context("default", comic)??
+    style::context("default", || {
+        pyplot::xkcd(XkcdSketch::default(), draw_comic)
+    })
 }
 
 /// The figure of [`xkcd`], drawn in the parameters in force.
@@ -105,7 +106,7 @@ fn draw_comic() -> Built {
     arrow.connectionstyle = "arc3,rad=-0.3".parse()?;
     let note = AnnotateOptions {
         xytext: Some(Point::new(25.0, 0.3).into()),
-        arrowprops: Some(ArrowProps::Fancy(arrow)),
+        arrowprops: Some(arrow.into()),
         ..AnnotateOptions::default()
     };
     ax.annotate(

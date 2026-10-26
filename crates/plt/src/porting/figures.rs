@@ -171,7 +171,7 @@
 //! ```
 //!
 //! ```
-//! use plt::figure::{Figure, Mosaic, MosaicOptions};
+//! use plt::figure::{Figure, MosaicOptions};
 //!
 //! let fig = Figure::new();
 //! let options = MosaicOptions {
@@ -179,8 +179,8 @@
 //!     sharex: true,
 //!     ..MosaicOptions::default()
 //! };
-//! let axd = fig.subplot_mosaic(&"AAB;C.B".parse::<Mosaic>()?, options)?;
-//! axd.get("A").ok_or("label A")?.set_title("A");
+//! let axd = fig.subplot_mosaic("AAB;C.B", options)?;
+//! axd["A"].set_title("A");
 //! let labels: Vec<&str> = axd.iter().map(|(label, _)| label).collect();
 //! assert_eq!(labels, ["A", "B", "C"]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())

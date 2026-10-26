@@ -19,7 +19,6 @@
 //! use std::error::Error;
 //!
 //! use plt::axes::PlotError;
-//! use plt::legend::LegendOptions;
 //! use plt::prelude::*;
 //!
 //! /// Monthly sales as bars, with the target as a dashed line.
@@ -107,7 +106,7 @@
 //! fn sine() -> Result<Figure, Box<dyn std::error::Error>> {
 //!     let fig = Figure::with_size(4.0, 3.0, 100.0);
 //!     let x = linspace(0.0, 6.0, 50);
-//!     fig.subplot().plot(&x, x.iter().map(|x| x.sin()).collect::<Vec<_>>())?;
+//!     fig.subplot().plot(&x, x.iter().map(|x| x.sin()))?;
 //!     Ok(fig)
 //! }
 //!

@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut phase = 0.0;
     figure.add_timer(Duration::from_millis(100), move || {
         phase += 0.1;
-        line.set_data(&x, &wave(&x, phase));
+        line.set_data(&x, wave(&x, phase));
         true
     });
     Ok(serve(&[figure], options)?)

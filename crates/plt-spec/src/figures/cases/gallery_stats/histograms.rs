@@ -7,10 +7,10 @@ use plt::figure::Share;
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::legend::LegendOptions;
 use plt::prelude::*;
-use plt::stats::{Bins, Cumulative, HistOptions, HistType, HistogramOptions, histogram};
+use plt::stats::{Bins, Cumulative, HistType, HistogramOptions, histogram};
 
 use super::{SEED, columns, strings};
-use crate::figures::cases::common::{bins, colors, cumsum, laid_out, map, sized};
+use crate::figures::cases::common::{bins, colors, cumsum, map, sized};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
@@ -26,20 +26,16 @@ fn histogram_bihistogram(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     let first = HistPlotOptions {
         label: strings(&["Dataset 1"]),
-        ..laid_out(HistOptions {
-            bins: Some(Bins::Edges(edges.clone())),
-            ..HistOptions::default()
-        })
+        bins: Some(Bins::Edges(edges.clone())),
+        ..HistPlotOptions::default()
     };
     ax.hist(&[dataset1], first)?;
     let weights = [vec![-1.0; dataset2.len()]];
     let second = HistPlotOptions {
         label: strings(&["Dataset 2"]),
-        ..laid_out(HistOptions {
-            bins: Some(Bins::Edges(edges)),
-            weights: Some(&weights),
-            ..HistOptions::default()
-        })
+        bins: Some(Bins::Edges(edges)),
+        weights: Some(&weights),
+        ..HistPlotOptions::default()
     };
     ax.hist(&[dataset2], second)?;
     ax.axhline(0.0, LineProps::default().color("k"));
@@ -55,13 +51,11 @@ fn histogram_cumulative(fig: &Figure) -> CaseResult {
     let (ax0, ax1) = (&axs[(0, 0)], &axs[(0, 1)]);
     let step = |cumulative: Cumulative, label: &str, bins: Bins| HistPlotOptions {
         label: strings(&[label]),
-        ..laid_out(HistOptions {
-            bins: Some(bins),
-            density: true,
-            histtype: HistType::Step,
-            cumulative,
-            ..HistOptions::default()
-        })
+        bins: Some(bins),
+        density: true,
+        histtype: HistType::Step,
+        cumulative,
+        ..HistPlotOptions::default()
     };
     ax0.ecdf(
         &data,
@@ -123,35 +117,31 @@ fn histogram_histtypes(fig: &Figure) -> CaseResult {
     ] {
         let options = HistPlotOptions {
             props: PatchProps::default().facecolor("g").alpha(0.75),
-            ..laid_out(HistOptions {
-                density: true,
-                histtype,
-                ..bins(20)
-            })
+            density: true,
+            histtype,
+            ..bins(20)
         };
         ax.hist(&x, options)?;
     }
     axs[(0, 0)].set_title("stepfilled");
     axs[(0, 1)].set_title("step");
-    let stacked = || {
-        laid_out(HistOptions {
-            density: true,
-            histtype: HistType::BarStacked,
-            rwidth: Some(0.8),
-            ..HistOptions::default()
-        })
+    let stacked = || HistPlotOptions {
+        density: true,
+        histtype: HistType::BarStacked,
+        rwidth: Some(0.8),
+        ..HistPlotOptions::default()
     };
     axs[(1, 0)].hist(&x, stacked())?;
     axs[(1, 0)].hist(&w, stacked())?;
     axs[(1, 0)].set_title("barstacked");
-    let unequal = laid_out(HistOptions {
+    let unequal = HistPlotOptions {
         bins: Some(Bins::Edges(vec![
             100.0, 150.0, 180.0, 195.0, 205.0, 220.0, 250.0, 300.0,
         ])),
         density: true,
         rwidth: Some(0.8),
-        ..HistOptions::default()
-    });
+        ..HistPlotOptions::default()
+    };
     axs[(1, 1)].hist(&x, unequal)?;
     axs[(1, 1)].set_title("bar, unequal bins");
     fig.tight_layout(&TightLayout::default())?;
@@ -177,28 +167,24 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
     let with_legend = HistPlotOptions {
         color: colors(&names),
         label: strings(&names),
-        ..laid_out(HistOptions {
-            density: true,
-            ..bins(N_BINS)
-        })
+        density: true,
+        ..bins(N_BINS)
     };
     axs[(0, 0)].hist(&x, with_legend)?;
     axs[(0, 0)].legend(LegendOptions::default().prop(sized(10.0)))?;
     axs[(0, 0)].set_title("bars with legend");
-    let stacked = laid_out(HistOptions {
+    let stacked = HistPlotOptions {
         density: true,
         stacked: true,
         ..bins(N_BINS)
-    });
+    };
     axs[(0, 1)].hist(&x, stacked)?;
     axs[(0, 1)].set_title("stacked bar");
     let steps = HistPlotOptions {
         props: PatchProps::default().fill(false),
-        ..laid_out(HistOptions {
-            histtype: HistType::Step,
-            stacked: true,
-            ..bins(N_BINS)
-        })
+        histtype: HistType::Step,
+        stacked: true,
+        ..bins(N_BINS)
     };
     axs[(1, 0)].hist(&x, steps)?;
     axs[(1, 0)].set_title("stack step (unfilled)");
@@ -206,7 +192,7 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
         .into_iter()
         .map(|n| g.normal(n, 0.0, 1.0))
         .collect();
-    axs[(1, 1)].hist(&x_multi, laid_out(bins(N_BINS)))?;
+    axs[(1, 1)].hist(&x_multi, bins(N_BINS))?;
     axs[(1, 1)].set_title("different sample sizes");
     fig.tight_layout(&TightLayout::default())?;
     Ok(())
@@ -226,20 +212,18 @@ fn outlined(histtype: HistType, stacked: bool) -> HistPlotOptions<'static> {
     HistPlotOptions {
         props: PatchProps::default().fill(false),
         edgecolors: colors(&STACK_COLORS),
-        ..laid_out(HistOptions {
-            histtype,
-            stacked,
-            ..bins(N_BINS)
-        })
+        histtype,
+        stacked,
+        ..bins(N_BINS)
     }
 }
 
 /// Stacked bars.
 fn barstacked() -> HistPlotOptions<'static> {
-    laid_out(HistOptions {
+    HistPlotOptions {
         histtype: HistType::BarStacked,
         ..bins(N_BINS)
-    })
+    }
 }
 
 fn histogram_multihist_2(fig: &Figure) -> CaseResult {

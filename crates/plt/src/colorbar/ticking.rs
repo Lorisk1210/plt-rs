@@ -9,7 +9,9 @@ use super::blocks::{Blocks, NormClass, forward_boundaries, inverse_boundaries};
 use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
 use crate::colors::{Norm, NormKind, Normalized};
-use crate::scale::{FuncScale, LinearScale, Scale, ScaleName, ScaleOptions, scale_factory};
+use crate::scale::{
+    FuncScale, FuncTransform, LinearScale, Scale, ScaleName, ScaleOptions, scale_factory,
+};
 use crate::ticker::{FixedLocator, Formatter, IndexLocator, Locator, NullLocator};
 
 /// The scale of the long axis: from the norm, or spreading discrete blocks
@@ -30,10 +32,10 @@ pub(crate) fn long_axis_scale(
             Spacing::Uniform => {
                 let boundaries: Rc<[f64]> = Rc::from(blocks.boundaries.as_slice());
                 let inverse = Rc::clone(&boundaries);
-                Box::new(FuncScale::new(
+                Box::new(FuncScale::from_transform(FuncTransform::from_fns(
                     move |x| forward_boundaries(&boundaries, &[x])[0],
                     move |y| inverse_boundaries(&inverse, y),
-                ))
+                )))
             }
             Spacing::Proportional => Box::new(LinearScale),
         };
@@ -55,7 +57,7 @@ pub(crate) fn scale_follows_limits(blocks: &Blocks, norm: &dyn Norm) -> bool {
 fn norm_scale(norm: &dyn Norm) -> Box<dyn Scale> {
     let forward = RefCell::new(norm.clone_box());
     let inverse = norm.clone_box();
-    Box::new(FuncScale::new(
+    Box::new(FuncScale::from_transform(FuncTransform::from_fns(
         move |x| {
             let mapped = forward.borrow_mut().normalize(&[x]);
             match mapped.as_deref() {
@@ -71,7 +73,7 @@ fn norm_scale(norm: &dyn Norm) -> Box<dyn Scale> {
                 .and_then(|v| v.first().copied().flatten())
                 .unwrap_or(f64::NAN)
         },
-    ))
+    )))
 }
 
 /// The tick helpers a colorbar installs on its long axis; `None` keeps the

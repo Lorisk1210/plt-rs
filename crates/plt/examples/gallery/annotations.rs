@@ -1,11 +1,10 @@
 //! Annotation styles: every connection style, the fancy box styles, the
 //! arrow styles, and a table under a bar chart.
 
-use plt::colors::{Color, colormaps};
 use plt::patches::{BoxStyle, ConnectionStyle};
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextBoxProps, VAlign};
+use plt::text::{AnnotateOptions, FancyArrowProps, HAlign, TextBoxProps, VAlign};
 use plt::transforms::Point;
 
 use super::{Built, Entry};
@@ -55,7 +54,7 @@ fn connection_styles() -> Built {
         arrow.shrink_b = 5.0;
         let options = AnnotateOptions {
             xytext: Some(from.into()),
-            arrowprops: Some(ArrowProps::Fancy(arrow)),
+            arrowprops: Some(arrow.into()),
             ..AnnotateOptions::default()
         };
         ax.annotate("", to, options)?;
@@ -125,7 +124,7 @@ fn arrow_styles() -> Built {
         arrow.mutation_scale = Some(18.0);
         let options = AnnotateOptions {
             xytext: Some(Point::new(x, y).into()),
-            arrowprops: Some(ArrowProps::Fancy(arrow)),
+            arrowprops: Some(arrow.into()),
             ..AnnotateOptions::default()
         };
         let label = ax.annotate(*style, Point::new(x + 0.38, y), options)?;

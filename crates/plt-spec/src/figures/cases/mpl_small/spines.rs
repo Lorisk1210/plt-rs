@@ -10,7 +10,7 @@ use plt::lines::LineProps;
 use plt::numeric::{arange, linspace, logspace};
 use plt::scale::{FuncTransform, NonPositive, ScaleOptions};
 use plt::spines::{SpinePosition, SpineSide};
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use super::{CLASSIC_TEST_PATCH, remove_text};
 use crate::figures::{CaseResult, FigureCase};
@@ -117,11 +117,8 @@ fn nonpos_values(fig: &Figure) -> CaseResult {
     let xs = SpecRng::new(19_680_801).normal(1000, 0.0, 1.0);
     let axs = fig.subplots(2, 2)?;
     let hist = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(10)),
-            range: Some((-5.0, 5.0)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(10)),
+        range: Some((-5.0, 5.0)),
         ..HistPlotOptions::default()
     };
     axs[(0, 0)].hist(&[&xs], hist.clone())?;

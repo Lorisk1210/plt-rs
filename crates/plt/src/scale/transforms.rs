@@ -247,8 +247,19 @@ pub struct FuncTransform {
 }
 
 impl FuncTransform {
-    /// `forward` must be monotonic and `inverse` its inverse.
+    /// `forward` must be monotonic and `inverse` its inverse. Both run
+    /// while figures are laid out and drawn: they are `Send`, so they
+    /// cannot use a figure's handles.
     pub fn new(
+        forward: impl Fn(f64) -> f64 + Send + 'static,
+        inverse: impl Fn(f64) -> f64 + Send + 'static,
+    ) -> Self {
+        Self::from_fns(forward, inverse)
+    }
+
+    /// A pair of plt-rs' own functions, which never use a figure's
+    /// handles, or of functions [`new`](Self::new) already took.
+    pub(crate) fn from_fns(
         forward: impl Fn(f64) -> f64 + 'static,
         inverse: impl Fn(f64) -> f64 + 'static,
     ) -> Self {

@@ -11,6 +11,7 @@ use crate::axes::{
 };
 use crate::lines::{Line2D, LineProps};
 use crate::mlab::{Complex, Correlation, SignalValue, Spectrum, XcorrOptions};
+use crate::numeric::Number;
 
 /// Plots the power spectral density of `x` on the current axes
 /// (matplotlib's `psd`).
@@ -29,8 +30,8 @@ pub fn psd<S: SignalValue>(x: &[S], options: SpectralPlotOptions) -> Result<Spec
 ///
 /// As [`Axes::csd`](crate::axes::Axes::csd).
 pub fn csd(
-    x: &[f64],
-    y: &[f64],
+    x: impl IntoIterator<Item: Number>,
+    y: impl IntoIterator<Item: Number>,
     options: SpectralPlotOptions,
 ) -> Result<Spectrum<Complex>, PlotError> {
     gca().csd(x, y, options)
@@ -42,7 +43,11 @@ pub fn csd(
 /// # Errors
 ///
 /// As [`Axes::cohere`](crate::axes::Axes::cohere).
-pub fn cohere(x: &[f64], y: &[f64], options: SpectralPlotOptions) -> Result<Spectrum, PlotError> {
+pub fn cohere(
+    x: impl IntoIterator<Item: Number>,
+    y: impl IntoIterator<Item: Number>,
+    options: SpectralPlotOptions,
+) -> Result<Spectrum, PlotError> {
     gca().cohere(x, y, options)
 }
 
@@ -52,7 +57,10 @@ pub fn cohere(x: &[f64], y: &[f64], options: SpectralPlotOptions) -> Result<Spec
 /// # Errors
 ///
 /// As [`Axes::specgram`](crate::axes::Axes::specgram).
-pub fn specgram(x: &[f64], options: SpecgramOptions) -> Result<SpecgramPlot, SpecgramError> {
+pub fn specgram(
+    x: impl IntoIterator<Item: Number>,
+    options: SpecgramOptions,
+) -> Result<SpecgramPlot, SpecgramError> {
     let ax = gca();
     let plot = ax.specgram(x, options)?;
     make_current(&ax, &plot.image);
@@ -66,7 +74,7 @@ pub fn specgram(x: &[f64], options: SpecgramOptions) -> Result<SpecgramPlot, Spe
 ///
 /// As [`Axes::magnitude_spectrum`](crate::axes::Axes::magnitude_spectrum).
 pub fn magnitude_spectrum(
-    x: &[f64],
+    x: impl IntoIterator<Item: Number>,
     scale: SpectrumScale,
     options: SpectrumPlotOptions,
 ) -> Result<(Spectrum, Line2D), PlotError> {
@@ -80,7 +88,7 @@ pub fn magnitude_spectrum(
 ///
 /// As [`Axes::angle_spectrum`](crate::axes::Axes::angle_spectrum).
 pub fn angle_spectrum(
-    x: &[f64],
+    x: impl IntoIterator<Item: Number>,
     options: SpectrumPlotOptions,
 ) -> Result<(Spectrum, Line2D), PlotError> {
     gca().angle_spectrum(x, options)
@@ -93,7 +101,7 @@ pub fn angle_spectrum(
 ///
 /// As [`Axes::phase_spectrum`](crate::axes::Axes::phase_spectrum).
 pub fn phase_spectrum(
-    x: &[f64],
+    x: impl IntoIterator<Item: Number>,
     options: SpectrumPlotOptions,
 ) -> Result<(Spectrum, Line2D), PlotError> {
     gca().phase_spectrum(x, options)
@@ -106,7 +114,7 @@ pub fn phase_spectrum(
 ///
 /// As [`Axes::acorr`](crate::axes::Axes::acorr).
 pub fn acorr(
-    x: &[f64],
+    x: impl IntoIterator<Item: Number>,
     options: XcorrOptions,
     usevlines: bool,
     line: LineProps,
@@ -121,8 +129,8 @@ pub fn acorr(
 ///
 /// As [`Axes::xcorr`](crate::axes::Axes::xcorr).
 pub fn xcorr(
-    x: &[f64],
-    y: &[f64],
+    x: impl IntoIterator<Item: Number>,
+    y: impl IntoIterator<Item: Number>,
     options: XcorrOptions,
     usevlines: bool,
     line: LineProps,
@@ -168,7 +176,7 @@ mod tests {
     #[test]
     fn spectrograms_become_the_current_image() {
         close_all();
-        let plot = specgram(&signal(), SpecgramOptions::default()).unwrap();
+        let plot = specgram(signal(), SpecgramOptions::default()).unwrap();
         assert!(matches!(gci(), Some(ColorizingArtist::Image(image)) if image == plot.image));
         close_all();
     }

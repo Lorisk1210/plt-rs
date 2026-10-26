@@ -4,10 +4,7 @@
 use std::f64::consts::PI;
 
 use plt::axes::{AxisName, ProjectionKind, TickParams};
-use plt::colors::colormaps;
 use plt::geo::GeoProjection;
-use plt::legend::LegendOptions;
-use plt::numeric::linspace;
 use plt::polar::{Compass, ThetaDirection};
 use plt::prelude::*;
 use plt::projections::{self, Projection, ProjectionView};
@@ -95,7 +92,7 @@ fn polar_scatter() -> Built {
     let theta: Vec<f64> = (0..150).map(|_| 2.0 * PI * samples.uniform()).collect();
     let options = ScatterOptions {
         sizes: Some(map(&r, |r| 200.0 * r * r)),
-        colors: MappedColors::new(theta.clone())
+        colors: MappedColors::new(&theta)
             .cmap(colormaps::get("twilight")?)
             .into(),
         alpha: 0.75.into(),

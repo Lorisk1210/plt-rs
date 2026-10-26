@@ -76,8 +76,8 @@
 //!
 //! let ax = Figure::new().subplot();
 //! let x = linspace(0.0, 6.0, 30);
-//! ax.plot_with(&x, x.iter().map(|v| v.sin()).collect::<Vec<_>>(), LineProps::default().label("sin"))?;
-//! ax.plot_with(&x, x.iter().map(|v| v.cos()).collect::<Vec<_>>(), LineProps::default().label("_nolegend_"))?;
+//! ax.plot_with(&x, x.iter().map(|v| v.sin()), LineProps::default().label("sin"))?;
+//! ax.plot_with(&x, x.iter().map(|v| v.cos()), LineProps::default().label("_nolegend_"))?;
 //! let options = LegendOptions::default()
 //!     .loc(AnchorLoc::UpperLeft)
 //!     .bbox_to_anchor((1.02, 1.0))

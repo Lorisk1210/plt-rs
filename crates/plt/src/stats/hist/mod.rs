@@ -6,8 +6,10 @@
 //! before it creates artists; `Axes::hist` draws [`HistPatches::Bars`]
 //! with `bar`/`barh` and [`HistPatches::Steps`] as `Polygon` patches.
 
+mod datasets;
 mod geometry;
 
+pub use datasets::Datasets;
 pub use geometry::{HistAlign, HistBars, HistOrientation, HistPatches, HistType, StepOutline};
 
 use super::histogram::{Bins, HistogramOptions, histogram, histogram_bin_edges};
@@ -101,12 +103,13 @@ pub struct Hist {
     pub patches: HistPatches,
 }
 
-/// Computes everything `Axes.hist` derives from its datasets.
+/// Computes everything `Axes.hist` derives from its datasets: one, or
+/// several side by side (see [`Datasets`]).
 ///
 /// ```
 /// use plt::stats::{Bins, HistOptions, hist};
 /// let opts = HistOptions { bins: Some(Bins::Count(2)), ..HistOptions::default() };
-/// let h = hist(&[vec![0.0, 1.0, 1.5, 2.0]], opts).unwrap();
+/// let h = hist(&[0.0, 1.0, 1.5, 2.0], opts).unwrap();
 /// assert_eq!(h.tops, vec![vec![1.0, 3.0]]);
 /// assert_eq!(h.edges, vec![0.0, 1.0, 2.0]);
 /// ```
@@ -116,11 +119,11 @@ pub struct Hist {
 /// When the weights do not match the datasets, or the bins are invalid,
 /// as for [`histogram`](super::histogram) (more than
 /// [`MAX_EQUAL_BINS`](super::MAX_EQUAL_BINS) equal-width bins included).
-pub fn hist<T: BinSample, D: AsRef<[T]>>(
-    datasets: &[D],
+pub fn hist<T: BinSample, D: Datasets<T> + ?Sized>(
+    datasets: &D,
     opts: HistOptions<'_>,
 ) -> Result<Hist, StatsError> {
-    let (counts, edges) = bin_datasets(datasets, &opts)?;
+    let (counts, edges) = bin_datasets(&datasets.datasets(), &opts)?;
     let tops = reduce(counts, &edges, &opts);
     let patches = geometry::patches(&tops, &edges, &opts);
     Ok(Hist {

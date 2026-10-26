@@ -204,7 +204,7 @@ fn tricontour_smooth_delaunay(fig: &Figure) -> CaseResult {
     ax.set_title("Filtering a Delaunay mesh\n(application to high-resolution tricontouring)");
     ax.tricontour(
         &refined.triangulation,
-        &refined_values(&refined.z),
+        refined_values(&refined.z),
         ContourOptions {
             colorizer: ColorizerOptions {
                 cmap: Some(colormaps::get("Blues")?),
@@ -289,7 +289,7 @@ fn trigradient_demo(fig: &Figure) -> CaseResult {
     ax.triplot(&triang, "", LineProps::default().color("0.8"))?;
     ax.tricontour(
         &refined.triangulation,
-        &refined_values(&refined.z),
+        refined_values(&refined.z),
         ContourOptions {
             colorizer: ColorizerOptions {
                 cmap: Some(colormaps::get("hot")?),

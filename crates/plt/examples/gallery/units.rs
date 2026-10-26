@@ -1,9 +1,7 @@
 //! Values that are not plain numbers: dates with the concise formatter,
 //! category names, and a type of our own converted by a unit converter.
 
-use std::rc::Rc;
-
-use plt::axes::{Axis, BarOptions};
+use plt::axes::Axis;
 use plt::dates::{AutoDateLocator, ConciseDateFormatter, DateTime, TimeDelta};
 use plt::prelude::*;
 use plt::ticker::StrMethodFormatter;
@@ -70,8 +68,7 @@ fn concise_dates() -> Built {
         DateTime::new(2025, 3, 1, 0, 0, 0, 0)?,
         DateTime::new(2025, 5, 1, 0, 0, 0, 0)?,
     );
-    let limits = axs[(1, 0)].xaxis().convert_units(vec![from, to]);
-    axs[(1, 0)].set_xlim(limits[0], limits[1])?;
+    axs[(1, 0)].set_xlim(from, to)?;
     axs[(0, 0)].set_title("Daily temperature and its 30-day mean");
     Ok(fig)
 }
@@ -158,11 +155,11 @@ impl ConversionInterface for TemperatureConverter {
     fn axisinfo(&self, unit: Option<&Scale>, _: &Axis) -> Option<UnitAxisInfo> {
         let symbol = unit?.symbol();
         let format = StrMethodFormatter::new(&format!("{{x:.0f}} {symbol}")).ok()?;
-        Some(UnitAxisInfo {
-            majfmt: Some(Rc::new(format)),
-            label: Some(format!("temperature ({symbol})")),
-            ..UnitAxisInfo::default()
-        })
+        Some(
+            UnitAxisInfo::default()
+                .majfmt(format)
+                .label(format!("temperature ({symbol})")),
+        )
     }
 
     fn default_units(&self, values: &[Temperature], _: &Axis) -> Option<Scale> {

@@ -120,6 +120,7 @@
 //! as matplotlib checks it; [`rc::update`](crate::rc::update) changes the
 //! typed fields. [`rc::context`](crate::rc::context) runs a closure and
 //! then restores the settings as they were, which keeps a change local.
+//! It returns what the closure returns.
 //!
 //! ```
 //! use std::error::Error;
@@ -127,7 +128,7 @@
 //! use plt::prelude::*;
 //! use plt::rc;
 //!
-//! let line = rc::context(|| -> Result<Line2D, Box<dyn Error>> {
+//! let line = rc::context(|| -> Result<_, Box<dyn Error>> {
 //!     rc::set("lines.linewidth", "3")?;
 //!     rc::update(|params| params.lines_markersize = 10.0);
 //!     let ax = Figure::new().subplot();
@@ -138,6 +139,12 @@
 //! assert!(rc::set("lines.linewidth", "thick").is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! The closure names its return type, `Result<_, Box<dyn Error>>`, for
+//! the sake of its `?`s: they convert each error into the closure's error
+//! type, which Rust cannot otherwise tell when the result goes through
+//! `?` again. A context that ends the function returning its result
+//! needs none.
 //!
 //! # Style sheets
 //!
@@ -156,19 +163,19 @@
 //! use plt::style;
 //!
 //! assert!(style::available().contains(&"ggplot".to_owned()));
-//! let png = style::context("dark_background", || -> Result<Vec<u8>, Box<dyn Error>> {
+//! let png = style::context("dark_background", || -> Result<_, Box<dyn Error>> {
 //!     let fig = Figure::new();
 //!     fig.subplot().plot([0.0, 1.0, 2.0], [1.0, 3.0, 2.0])?;
 //!     Ok(fig.to_png()?)
-//! })??;
+//! })?;
 //! assert!(png.starts_with(b"\x89PNG"));
 //! assert!(style::use_style("no such style").is_err());
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! The double `?` unwraps two results: the outer one says whether the
-//! sheet exists, the inner one is the closure's. Gallery: `styles.rs`
-//! draws one figure in each bundled sheet.
+//! A sheet that does not exist ends the call with an error of the
+//! closure's error type, without running it, so one `?` covers both.
+//! Gallery: `styles.rs` draws one figure in each bundled sheet.
 //!
 //! # Your configuration file
 //!

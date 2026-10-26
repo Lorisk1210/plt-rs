@@ -40,8 +40,7 @@
 //! let ax = fig.subplot();
 //!
 //! let x = linspace(0.0, 10.0, 200);
-//! let y: Vec<f64> = x.iter().map(|x| x.sin()).collect();
-//! ax.plot(&x, &y)?;
+//! ax.plot(&x, x.iter().map(|x| x.sin()))?;
 //!
 //! ax.set_title("A sine wave");
 //! ax.set_xlabel("time (s)").set_ylabel("amplitude");
@@ -62,9 +61,11 @@
 //! * [`linspace`] makes `n` evenly spaced numbers from `start` to `stop`,
 //!   both included.
 //! * [`Axes::plot`] draws a line through the points `(x[i], y[i])`. It
-//!   borrows or takes the data (slices, arrays, `Vec`s) and returns a
-//!   handle to the new line. It returns a `Result` because data can be
-//!   wrong: an x and a y of different lengths are an error, not a panic.
+//!   takes the data as you have it: borrowed or owned, in an array, a
+//!   slice or a `Vec`, or computed by an iterator as the y here, of `f64`
+//!   or any other number type. It returns a handle to the new line, in a
+//!   `Result` because data can be wrong: an x and a y of different
+//!   lengths are an error, not a panic.
 //! * The axes chose its limits from the data and placed the ticks and
 //!   their labels by itself. Chapter [`scales`](super::scales) shows how
 //!   to choose them.
@@ -84,14 +85,13 @@
 //! legend, which lists them.
 //!
 //! ```
-//! use plt::legend::LegendOptions;
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::with_size(6.0, 4.0, 100.0);
 //! let ax = fig.subplot();
 //! let x = linspace(0.0, 10.0, 200);
 //! for (k, label) in [(1.0, "sin x"), (2.0, "sin 2x")] {
-//!     let y: Vec<f64> = x.iter().map(|x| (k * x).sin()).collect();
+//!     let y = x.iter().map(|x| (k * x).sin());
 //!     ax.plot_with(&x, y, LineProps::default().label(label))?;
 //! }
 //! let legend = ax.legend(LegendOptions::default())?;
@@ -140,11 +140,10 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Windows need X11. [`pyplot::show`] adapts to the system instead: it
-//! opens windows where there is X11, serves the figures to a web browser
-//! where there is none (macOS, Windows), and does nothing on a machine
-//! without a display. It shows pyplot's figures, so hand it yours with
-//! [`pyplot::figure_activate`] first.
+//! Windows need X11, and `gui::show` adapts to the system as
+//! [`pyplot::show`] does: it opens windows where there is X11, serves the
+//! figures to a web browser where there is none (macOS, Windows), and
+//! returns at once on a machine without a display.
 //!
 //! # The pyplot shortcut
 //!
@@ -188,5 +187,4 @@
 //! [`linspace`]: crate::numeric::linspace
 //! [`pyplot`]: crate::pyplot
 //! [`pyplot::show`]: crate::pyplot::show
-//! [`pyplot::figure_activate`]: crate::pyplot::figure_activate
 //! [`pyplot::gca`]: crate::pyplot::gca

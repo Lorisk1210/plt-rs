@@ -83,7 +83,9 @@ fn child_with_a_user_configuration() {
     }
     // The configuration is live in this process...
     assert_eq!(plt::rc::params().lines_linewidth, 5.0);
-    let classic = plt::style::context("classic", || plt::rc::params().lines_linewidth);
+    let classic = plt::style::context("classic", || {
+        Ok::<_, plt::rc::RcError>(plt::rc::params().lines_linewidth)
+    });
     assert_eq!(classic, Ok(7.0));
     // ...but not in the harness.
     for report in reports().unwrap() {

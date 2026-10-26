@@ -60,7 +60,7 @@ impl Tool for LassoTool {
             verts.push((event.xdata, event.ydata));
             verts
         });
-        self.line.set_data(&[], &[]);
+        self.line.set_data(Vec::<f64>::new(), Vec::<f64>::new());
         self.line.set_visible(false);
         selection
     }

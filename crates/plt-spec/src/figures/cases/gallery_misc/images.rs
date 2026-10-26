@@ -18,7 +18,7 @@ use plt::image::{Interpolation, ScalarField};
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::{AnnotateOptions, HAlign, VAlign};
 use plt::transforms::Point;
 use plt_core::{Path, PathCode};
@@ -355,10 +355,7 @@ fn mri_with_eeg(fig: &Figure) -> CaseResult {
     density.hist(
         &[intensities],
         HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Edges(edges)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Edges(edges)),
             ..HistPlotOptions::default()
         },
     )?;

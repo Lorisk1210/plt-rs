@@ -39,8 +39,8 @@ mod violin;
 pub use boxplot::{BoxStats, BoxplotStatsOptions, Whis, box_stats, boxplot_stats};
 pub use error::StatsError;
 pub use hist::{
-    Cumulative, Hist, HistAlign, HistBars, HistBottom, HistOptions, HistOrientation, HistPatches,
-    HistType, StepOutline, hist,
+    Cumulative, Datasets, Hist, HistAlign, HistBars, HistBottom, HistOptions, HistOrientation,
+    HistPatches, HistType, StepOutline, hist,
 };
 pub use histogram::{
     BinEstimator, BinSample, Bins, Histogram, HistogramOptions, MAX_EQUAL_BINS, bin_width,

@@ -1,13 +1,11 @@
 //! Images and meshes: colour-mapped images, interpolation, masked data
 //! and pseudocolour meshes on irregular grids.
 
-use plt::axes::{ImshowOptions, Mesh, PcolorOptions, Shading};
+use plt::axes::{Mesh, PcolorOptions, Shading};
 use plt::collections::CollectionProps;
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{ColorizerOptions, colormaps};
+use plt::colors::ColorizerOptions;
 use plt::image::{Interpolation, ScalarField};
 use plt::layout::LayoutEngine;
-use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::rc::Aspect;
 

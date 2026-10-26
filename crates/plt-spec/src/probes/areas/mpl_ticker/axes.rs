@@ -9,7 +9,7 @@ use plt::dates::{DateFormatter, Datetime64, RRuleLocator};
 use plt::figure::{Figure, Share};
 use plt::rc;
 use plt::scale::{LogScale, NonPositive};
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::style::{self, Style};
 use plt::ticker::{
     AutoMinorLocator, Formatter, Locator, LogLabelStyle, MaxNLocator, MultipleLocator, Nbins,
@@ -340,10 +340,7 @@ pub(super) fn shared_hist(args: Args<'_>) -> Outcome {
             .subplots_shared(datasets.len(), 1, Share::All, Share::All)
             .map_err(ProbeError::rejected)?;
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(bins)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(bins)),
             ..HistPlotOptions::default()
         };
         let mut yticks = Vec::new();

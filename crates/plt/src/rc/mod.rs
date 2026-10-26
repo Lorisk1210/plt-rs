@@ -161,9 +161,13 @@ pub fn set(key: &str, value: &str) -> Result<(), RcError> {
     Ok(())
 }
 
-/// Modifies the current parameters in place.
+/// Changes the current parameters with `f`, which works on a copy that
+/// replaces them once it returns: meanwhile `f` may read the parameters,
+/// as they were, and make figures.
 pub fn update(f: impl FnOnce(&mut RcParams)) {
-    CURRENT.with(|current| f(Rc::make_mut(&mut current.borrow_mut())));
+    let mut updated = (*params()).clone();
+    f(&mut updated);
+    replace(updated);
 }
 
 /// Replaces the current parameters, returning the previous ones.

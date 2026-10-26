@@ -65,8 +65,9 @@ pub struct LegendElementsOptions {
     pub fmt: Option<Box<dyn Formatter>>,
     /// Maps the collection's values to the values the labels show, such
     /// as the inverse of a transform applied to the sizes (matplotlib's
-    /// `func`); the identity by default.
-    pub func: Option<Box<dyn Fn(f64) -> f64>>,
+    /// `func`); the identity by default. It runs while the collection is
+    /// read, so it is `Send` and cannot use the figure's handles.
+    pub func: Option<Box<dyn Fn(f64) -> f64 + Send>>,
     /// The marker colour of size entries; `plt.ink` (black) by default.
     pub color: Option<Color>,
     /// The marker size of colour entries in points; `lines.markersize` by

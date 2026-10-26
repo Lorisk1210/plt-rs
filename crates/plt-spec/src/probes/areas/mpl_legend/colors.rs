@@ -233,7 +233,7 @@ fn hist(ax: &Axes, kwargs: &Keywords) -> Result<Json, ProbeError> {
             "fc" => options.props.facecolor = Some(color(value)?),
             "ec" => options.props.edgecolor = Some(color(value)?),
             "histtype" => {
-                options.layout.histtype = match value.as_str() {
+                options.histtype = match value.as_str() {
                     Some("bar") => HistType::Bar,
                     Some("step") => HistType::Step,
                     Some("stepfilled") => HistType::StepFilled,

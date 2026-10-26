@@ -90,7 +90,7 @@ pub fn register<P: Projection>(
 /// use plt::transforms::{Affine2D, ResolvedTransform};
 ///
 /// /// Rectilinear axes leaning `degrees` to the right.
-/// #[derive(Debug)]
+/// #[derive(Clone, Debug)]
 /// struct Leaning {
 ///     degrees: f64,
 /// }

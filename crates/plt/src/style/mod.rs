@@ -16,10 +16,12 @@
 //! rc::reset(); // matplotlib's defaults, without grids
 //! style::context("ggplot", || {
 //!     assert!(rc::params().axes_grid);
+//!     Ok(())
 //! })?;
 //! assert!(!rc::params().axes_grid);
 //! let styles = [Style::from("ggplot"), Style::params(&[("axes.grid", "False")])];
-//! style::context_with(&styles, || assert!(!rc::params().axes_grid))?;
+//! let grid = style::context_with(&styles, || Ok(rc::params().axes_grid))?;
+//! assert!(!grid);
 //! # Ok::<(), plt::rc::RcError>(())
 //! ```
 //!
@@ -218,17 +220,46 @@ pub fn use_styles(styles: &[Style]) -> Result<(), RcError> {
 }
 
 /// Runs `f` with a style applied and restores the parameters afterwards
-/// (matplotlib's `style.context` with one name).
-pub fn context<R>(name: &str, f: impl FnOnce() -> R) -> Result<R, RcError> {
+/// (matplotlib's `style.context` with one name). `f` returns a `Result`
+/// whose error a failure to apply the style converts into, so the call
+/// returns one `Result`.
+///
+/// ```
+/// use std::error::Error;
+///
+/// use plt::prelude::*;
+/// use plt::style;
+///
+/// let png = style::context("ggplot", || -> Result<_, Box<dyn Error>> {
+///     let fig = Figure::new();
+///     fig.subplot().plot([0.0, 1.0], [1.0, 0.0])?;
+///     Ok(fig.to_png()?)
+/// })?;
+/// assert!(png.starts_with(b"\x89PNG"));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// As [`use_styles`], without running `f`, and `f`'s own errors.
+pub fn context<T, E: From<RcError>>(name: &str, f: impl FnOnce() -> Result<T, E>) -> Result<T, E> {
     context_with(&[Style::from(name)], f)
 }
 
 /// Runs `f` with styles applied and restores the parameters afterwards,
-/// also when applying them fails (matplotlib's `style.context`).
-pub fn context_with<R>(styles: &[Style], f: impl FnOnce() -> R) -> Result<R, RcError> {
+/// also when applying them fails (matplotlib's `style.context`); as
+/// [`context`].
+///
+/// # Errors
+///
+/// As [`use_styles`], without running `f`, and `f`'s own errors.
+pub fn context_with<T, E: From<RcError>>(
+    styles: &[Style],
+    f: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
     crate::rc::context(|| {
         use_styles(styles)?;
-        Ok(f())
+        f()
     })
 }
 
@@ -278,7 +309,7 @@ mod tests {
             );
             assert_eq!(crate::rc::params().image_cmap, "pink");
             crate::rc::reset();
-            assert!(context_with(&bad, || ()).is_err());
+            assert!(context_with(&bad, || Ok::<_, RcError>(())).is_err());
             assert_eq!(crate::rc::params().image_cmap, "viridis");
         });
     }
@@ -291,7 +322,9 @@ mod tests {
         std::fs::write(&path, "axes.facecolor: adeade\nfoo: bar\n").unwrap();
         let url = format!("file://{}", path.display()).replace(' ', "%20");
         for style in [Style::from(path.as_path()), Style::Named(url)] {
-            let color = context_with(&[style], || crate::rc::params().axes_facecolor.clone());
+            let color = context_with(&[style], || {
+                Ok::<_, RcError>(crate::rc::params().axes_facecolor.clone())
+            });
             assert_eq!(color, Ok("#adeade".into()));
         }
         assert_eq!(
@@ -313,7 +346,9 @@ mod tests {
 
     #[test]
     fn aliases_match_their_styles() {
-        let snapshot = |name: &str| context(name, || (*crate::rc::params()).clone()).unwrap();
+        let snapshot = |name: &str| {
+            context(name, || Ok::<_, RcError>((*crate::rc::params()).clone())).unwrap()
+        };
         assert_eq!(snapshot("mpl20"), snapshot("default"));
         assert_eq!(snapshot("mpl15"), snapshot("classic"));
     }

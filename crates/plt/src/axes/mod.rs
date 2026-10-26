@@ -165,7 +165,7 @@ use crate::scale::{Scale, ScaleError, ScaleName, ScaleOptions};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::ticker::TickerError;
-use crate::transforms::Transform;
+use crate::transforms::{Transform, TransformError};
 use crate::units::{AxisValue, DataPoint, UnitSources};
 
 /// A handle to one axes of a figure.
@@ -206,6 +206,32 @@ impl Axes {
     /// Data coordinates of this axes (`ax.transData`).
     pub fn trans_data(&self) -> Transform {
         Transform::Data(self.id())
+    }
+
+    /// Where the data point `at` lands in display pixels, from the lower
+    /// left corner of the figure, with the figure laid out as for drawing
+    /// (matplotlib's `ax.transData.transform(at)`): where a window would
+    /// report a click on that point.
+    ///
+    /// ```
+    /// use plt::events::EventSource;
+    /// use plt::navigation::PointerButton;
+    /// use plt::prelude::*;
+    /// let fig = Figure::with_size(4.0, 4.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// ax.set_xlim(0.0, 4.0)?.set_ylim(0.0, 4.0)?;
+    /// let at = ax.data_to_display((1.0, 3.0))?;
+    /// assert_eq!((at.x, at.y), (100.0, 300.0));
+    /// EventSource::new().button_press(&fig, at.x, at.y, PointerButton::Left, false);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the axes was removed from its figure.
+    pub fn data_to_display(&self, at: impl Into<Point>) -> Result<Point, TransformError> {
+        let to_display = self.figure().resolve_transform(&self.trans_data())?;
+        Ok(to_display.transform_point(at.into()))
     }
 
     /// Axes-fraction coordinates (`ax.transAxes`).

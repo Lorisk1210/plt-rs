@@ -11,11 +11,14 @@
 mod argsort;
 mod grid;
 mod interp;
+mod number;
 mod regions;
 
 pub use argsort::argsort;
 pub use grid::{Grid, GridShapeError};
 pub use interp::interp;
+pub use number::Number;
+pub(crate) use number::{to_f64s, with_numbers};
 pub use plt_core::numeric::{linspace, linspace_with, remainder};
 pub use regions::{block_perimeters, contiguous_regions};
 

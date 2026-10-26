@@ -8,7 +8,7 @@ use plt::colorbar::ColorbarOptions;
 use plt::figure::SaveFormat;
 use plt::image::Interpolation;
 use plt::prelude::*;
-use plt::stats::{AxisBins, BinEstimator, Bins, HistOptions, Histogram2dOptions};
+use plt::stats::{AxisBins, BinEstimator, Bins, Histogram2dOptions};
 use plt_spec::rng::SpecRng;
 
 use super::{Build, Workload, random_walk, smooth_field};
@@ -225,10 +225,7 @@ fn hist() -> Build {
     let values = SpecRng::new(8).normal(10_000_000, 0.0, 1.0);
     Box::new(move |fig| {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(1000)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(1000)),
             ..HistPlotOptions::default()
         };
         fig.subplot().hist(&[values.as_slice()], options)?;
@@ -241,10 +238,7 @@ fn hist_auto() -> Build {
     let values = SpecRng::new(15).normal(1_000_000, 0.0, 1.0);
     Box::new(move |fig| {
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Estimator(BinEstimator::Auto)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Estimator(BinEstimator::Auto)),
             ..HistPlotOptions::default()
         };
         fig.subplot().hist(&[values.as_slice()], options)?;

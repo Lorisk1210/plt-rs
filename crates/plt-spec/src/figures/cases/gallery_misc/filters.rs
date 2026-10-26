@@ -269,7 +269,7 @@ fn drop_shadow_patches(ax: &Axes) -> CaseResult {
 /// `light_filter_pie`: lit pie wedges over their common shadow.
 fn light_filter_pie(ax: &Axes) -> CaseResult {
     let pie = ax.pie(
-        &[15.0, 30.0, 45.0, 10.0],
+        [15.0, 30.0, 45.0, 10.0],
         PieOptions {
             explode: vec![0.1, 0.2, 0.1, 0.1],
             ..PieOptions::default()

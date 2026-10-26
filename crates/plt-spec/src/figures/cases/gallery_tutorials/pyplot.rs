@@ -9,7 +9,7 @@ use plt::axes::{AxisName, HistPlotOptions};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
 use plt::scale::ScaleOptions;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use super::SEED;
 use crate::figures::cases::common::map;
@@ -77,11 +77,8 @@ fn pyplot_8(fig: &Figure) -> CaseResult {
     let x = SpecRng::new(SEED).normal(10_000, 100.0, 15.0);
     let ax = fig.subplot();
     let green = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(50)),
-            density: true,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(50)),
+        density: true,
         props: PatchProps::default().facecolor("g").alpha(0.75),
         ..HistPlotOptions::default()
     };

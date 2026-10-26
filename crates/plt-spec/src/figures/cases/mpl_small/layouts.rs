@@ -7,7 +7,6 @@ use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
 use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::numeric::{Grid, arange, linspace, meshgrid};
 use plt::quiver::{BarbsOptions, QuiverOptions, VectorField};
-use plt::stats::HistOptions;
 use plt::streamplot::{StreamField, StreamWidths, StreamplotOptions};
 use plt::transforms::{Affine2D, Transform};
 
@@ -40,10 +39,7 @@ fn scale_swapping(fig: &Figure) -> CaseResult {
     let x = linspace(-5.0, 5.0, 10);
     let ax = fig.subplot();
     let options = HistPlotOptions {
-        layout: HistOptions {
-            density: true,
-            ..HistOptions::default()
-        },
+        density: true,
         log: true,
         ..HistPlotOptions::default()
     };

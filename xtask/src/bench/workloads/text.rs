@@ -7,7 +7,7 @@ use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::{HAlign, VAlign};
 use plt_spec::figures::CaseResult;
 use plt_spec::rng::SpecRng;
@@ -197,10 +197,7 @@ fn mid_size() -> Build {
         let positions: Vec<f64> = (0..heights.len()).map(|i| i as f64).collect();
         grid[(1, 0)].bar(positions, &heights, BarOptions::default())?;
         let options = HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(50)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(50)),
             ..HistPlotOptions::default()
         };
         grid[(1, 1)].hist(&[sample.as_slice()], options)?;

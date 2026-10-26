@@ -5,15 +5,18 @@ use plt_core::Point;
 
 use super::{AxisDelta, AxisValues, Convertible, CustomValues};
 use crate::dates::{DateTime, Datetime64, get_epoch};
+use crate::numeric::{Number, with_numbers};
 
-/// One plotting value along an axis before unit conversion: a number, a
-/// category name, a date or a value of a [`Convertible`] type (the
-/// scalars matplotlib passes through `convert_xunits`).
+/// One plotting value along an axis before unit conversion: a number of
+/// any primitive type, a category name, a date or a value of a
+/// [`Convertible`] type (the scalars matplotlib passes through
+/// `convert_xunits`).
 ///
 /// ```
 /// use plt::dates::DateTime;
 /// use plt::units::AxisValue;
 /// assert_eq!(AxisValue::from(2.5), AxisValue::Number(2.5));
+/// assert_eq!(AxisValue::from(3_u32), AxisValue::Number(3.0));
 /// let day = DateTime::new(1970, 1, 3, 12, 0, 0, 0)?;
 /// assert_eq!(AxisValue::from(day), AxisValue::Date(2.5));
 /// # Ok::<(), plt::dates::DateError>(())
@@ -71,11 +74,21 @@ impl<T: Convertible> From<T> for AxisValue {
     }
 }
 
-impl From<f64> for AxisValue {
-    fn from(value: f64) -> Self {
-        Self::Number(value)
-    }
+/// Implements `From` for each number type for a type holding a number in
+/// its `Number` variant.
+macro_rules! from_numbers {
+    ($target:ident; $($number:ty),+) => {$(
+        impl From<$number> for $target {
+            fn from(value: $number) -> Self {
+                Self::Number(value.to_f64())
+            }
+        }
+    )+};
 }
+
+pub(super) use from_numbers;
+
+with_numbers!(from_numbers!(AxisValue;));
 
 impl From<DateTime> for AxisValue {
     /// Naive date-times are taken as UTC, as matplotlib does by default.

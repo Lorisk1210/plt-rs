@@ -218,9 +218,12 @@ pub(super) fn jpl_consistent(args: Args<'_>) -> Outcome {
 /// (`__array__`).
 struct Kernel(Vec<f64>);
 
-impl AsRef<[f64]> for Kernel {
-    fn as_ref(&self) -> &[f64] {
-        &self.0
+impl IntoIterator for Kernel {
+    type Item = f64;
+    type IntoIter = std::vec::IntoIter<f64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

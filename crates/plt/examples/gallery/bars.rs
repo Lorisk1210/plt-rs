@@ -1,8 +1,7 @@
 //! Bar charts: grouped, stacked, horizontal and broken bars, with value
 //! labels.
 
-use plt::axes::{BandAlign, BarLabelOptions, BarOptions, GroupedBarData, GroupedBarOptions};
-use plt::legend::LegendOptions;
+use plt::axes::{BandAlign, BarLabelOptions, GroupedBarData, GroupedBarOptions};
 use plt::prelude::*;
 
 use super::{Built, Entry};

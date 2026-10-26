@@ -21,7 +21,7 @@ use plt::numeric::Grid;
 use plt::prelude::*;
 use plt::scale::FuncTransform;
 use plt::spines::SpineSide;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use crate::figures::cases::common::{
     GALLERY_SEED, cumsum, func3, local_max, map, mesh_field, mosaic, values,
@@ -173,11 +173,8 @@ fn quick_start_9(fig: &Figure) -> CaseResult {
     ax.hist(
         &[x],
         HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(50)),
-                density: true,
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(50)),
+            density: true,
             props: PatchProps::default().facecolor("C0").alpha(0.75),
             ..HistPlotOptions::default()
         },

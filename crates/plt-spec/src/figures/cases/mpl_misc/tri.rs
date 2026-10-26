@@ -133,7 +133,7 @@ fn tri_smooth_contouring(fig: &Figure) -> CaseResult {
     ax.triplot(&tri, "", LineProps::default().linewidth(0.5).color("0.5"))?;
     ax.tricontour(
         &refined.triangulation,
-        &refined_values(&refined.z),
+        refined_values(&refined.z),
         ContourOptions {
             levels: Levels::Values(arange(0.0, 1.0, 0.025)),
             colors: Some(vec![Color::from("black")]),
@@ -173,7 +173,7 @@ fn tri_smooth_gradient(fig: &Figure) -> CaseResult {
     ax.triplot(&tri, "", LineProps::default().color("0.8"))?;
     ax.tricontour(
         &refined.triangulation,
-        &refined_values(&refined.z),
+        refined_values(&refined.z),
         ContourOptions {
             colorizer: ColorizerOptions {
                 cmap: Some(colormaps::get("hot")?),

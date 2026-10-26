@@ -31,7 +31,7 @@ impl Default for RangeFrameOptions {
 }
 
 /// The cases' `RangeFrameAxes`, registered as `range_frame`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct RangeFrame {
     /// The fraction of the axes the data keeps off every edge.
     pub(crate) pad: f64,

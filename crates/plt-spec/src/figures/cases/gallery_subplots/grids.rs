@@ -8,7 +8,7 @@ use plt::axes::{HistPlotOptions, TickParams};
 use plt::gridspec::{GridSpec, GridSpecError, SubplotOverrides};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::{AnnotateOptions, HAlign, VAlign};
 
 use super::{SEED, convolve};
@@ -81,11 +81,8 @@ fn axes_demo(fig: &Figure) -> CaseResult {
     let right_inset_ax = fig.add_axes([0.65, 0.6, 0.2, 0.2])?;
     right_inset_ax.set_facecolor("k");
     let density = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(400)),
-            density: true,
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(400)),
+        density: true,
         ..HistPlotOptions::default()
     };
     right_inset_ax.hist(&[&s], density)?;

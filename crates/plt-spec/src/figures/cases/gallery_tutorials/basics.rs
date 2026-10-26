@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 use plt::axes::{Axes, HistPlotOptions, PlotError};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 
 use super::SEED;
 use crate::figures::cases::common::map;
@@ -28,10 +28,7 @@ fn artists_1(fig: &Figure) -> CaseResult {
     ax1.plot_with(&t, map(&t, |t| (2.0 * PI * t).sin()), blue)?;
     let ax2 = fig.add_axes([0.15, 0.1, 0.7, 0.3])?;
     let yellow = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(Bins::Count(50)),
-            ..HistOptions::default()
-        },
+        bins: Some(Bins::Count(50)),
         props: PatchProps::default()
             .facecolor("yellow")
             .edgecolor("yellow"),

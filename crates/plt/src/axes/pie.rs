@@ -6,6 +6,7 @@ use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::fonts::FontSize;
+use crate::numeric::{Number, to_f64s};
 use crate::patches::{Patch, PatchProps, Shadow, ShadowError, Wedge};
 use crate::rc::Aspect;
 use crate::text::{Text, TextProps};
@@ -259,10 +260,15 @@ impl Axes {
     /// `explode` do not match the values, `autopct` is invalid, the
     /// shadow's shade is outside `[0, 1]`, or, without a frame, the centre
     /// is not finite.
-    pub fn pie(&self, values: &[f64], options: PieOptions) -> Result<PieContainer, PlotError> {
+    pub fn pie(
+        &self,
+        values: impl IntoIterator<Item: Number>,
+        options: PieOptions,
+    ) -> Result<PieContainer, PlotError> {
+        let values = to_f64s(values);
         self.set_aspect(Aspect::Equal)
             .expect("an equal aspect is always valid");
-        let fracs = fractions(values, options.normalize).map_err(PlotError::Pie)?;
+        let fracs = fractions(&values, options.normalize).map_err(PlotError::Pie)?;
         let n = values.len();
         for (argument, len) in [
             ("labels", options.labels.len()),
@@ -335,7 +341,7 @@ impl Axes {
         }
         Ok(PieContainer {
             wedges,
-            values: values.to_vec(),
+            values,
             fracs,
             labels,
             pct_labels,
@@ -467,7 +473,7 @@ mod tests {
             labels: vec!["a".into(), "b".into()],
             ..PieOptions::default()
         };
-        let pie = ax.pie(&[1.0, 1.0], options).unwrap();
+        let pie = ax.pie([1.0, 1.0], options).unwrap();
         let first = pie.wedges[0].shape();
         assert_eq!((first.theta1, first.theta2), (-90.0, 90.0));
         assert_eq!(pie.labels.len(), 2);
@@ -479,7 +485,7 @@ mod tests {
             explode: vec![0.1, 0.2],
             ..PieOptions::default()
         };
-        assert!(ax.pie(&[1.0], mismatched).is_err());
+        assert!(ax.pie([1.0], mismatched).is_err());
     }
 
     #[test]
@@ -496,7 +502,7 @@ mod tests {
                 .rotation_mode(RotationMode::Anchor),
             ..PieOptions::default()
         };
-        let pie = ax.pie(&[1.0, 2.0], options).unwrap();
+        let pie = ax.pie([1.0, 2.0], options).unwrap();
         for text in pie.labels.iter().chain(&pie.pct_labels) {
             assert_eq!(
                 (text.halign(), text.valign()),
@@ -515,7 +521,7 @@ mod tests {
             labeldistance: None,
             ..PieOptions::default()
         };
-        let pie = ax.pie(&[1.0, 2.0], options).unwrap();
+        let pie = ax.pie([1.0, 2.0], options).unwrap();
         assert!(pie.labels.is_empty(), "no labels drawn without a distance");
         assert_eq!(ax.legend_handles_labels().1, ["a", "b"]);
     }
@@ -528,7 +534,7 @@ mod tests {
             autopct: Some(LabelFormat::from("%1.0f%%")),
             ..PieOptions::default()
         };
-        let mut pie = ax.pie(&[2.0, 3.0], options).unwrap();
+        let mut pie = ax.pie([2.0, 3.0], options).unwrap();
         let added: &[&str] = &["baz", "qux"];
         ax.pie_label(&mut pie, added, crate::axes::PieLabelOptions::default())
             .unwrap();

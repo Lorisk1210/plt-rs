@@ -14,7 +14,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::stats::{Bins, HistOptions};
+use plt::stats::Bins;
 use plt::text::{AnnotateOptions, HAlign, Text, TextBoxProps, VAlign};
 use plt::transforms::{Point, Transform};
 use plt_core::Affine2D;
@@ -329,10 +329,7 @@ fn placing_text_boxes(fig: &Figure) -> CaseResult {
     ax.hist(
         &[x],
         HistPlotOptions {
-            layout: HistOptions {
-                bins: Some(Bins::Count(50)),
-                ..HistOptions::default()
-            },
+            bins: Some(Bins::Count(50)),
             ..HistPlotOptions::default()
         },
     )?;

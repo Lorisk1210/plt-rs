@@ -12,6 +12,7 @@ use crate::collections::{
 };
 use crate::colors::{Colorize, ColorizerOptions, LogNorm, impl_colorize};
 use crate::image::{Extent, ImageError};
+use crate::numeric::{Number, to_f64s};
 use crate::scale::LogScale;
 use crate::transforms::Transform;
 
@@ -148,15 +149,15 @@ impl Axes {
     /// invalid.
     pub fn hexbin(
         &self,
-        x: &[f64],
-        y: &[f64],
+        x: impl IntoIterator<Item: Number>,
+        y: impl IntoIterator<Item: Number>,
         options: HexbinOptions,
     ) -> Result<Collection, ImageError> {
         let Points {
             x,
             y,
             values: weights,
-        } = kept_points(x, y, options.values.as_deref())?;
+        } = kept_points(&to_f64s(x), &to_f64s(y), options.values.as_deref())?;
         let (nx, ny) = match options.gridsize {
             HexGridSize::Count(nx) => (nx, (nx as f64 / 3.0_f64.sqrt()) as usize),
             HexGridSize::Shape(nx, ny) => (nx, ny),

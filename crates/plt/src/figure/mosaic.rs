@@ -1,9 +1,10 @@
 //! Named subplot layouts (matplotlib's `subplot_mosaic`).
 
+use std::convert::Infallible;
 use std::fmt;
 use std::str::FromStr;
 
-use super::Figure;
+use super::{Figure, MosaicAxes};
 use crate::axes::{Axes, AxisName};
 use crate::gridspec::{GridSpec, GridSpecError, SubplotOverrides};
 use crate::projections::{ProjectionError, ProjectionSpec};
@@ -60,6 +61,23 @@ impl FromStr for Mosaic {
     }
 }
 
+impl TryFrom<&str> for Mosaic {
+    type Error = MosaicError;
+
+    /// The mosaic `layout` describes (see [`FromStr`](#impl-FromStr-for-Mosaic)).
+    fn try_from(layout: &str) -> Result<Self, MosaicError> {
+        layout.parse()
+    }
+}
+
+impl From<&Mosaic> for Mosaic {
+    /// A copy of the mosaic, so that methods taking a mosaic take a
+    /// reference to one too.
+    fn from(mosaic: &Mosaic) -> Self {
+        mosaic.clone()
+    }
+}
+
 /// Options of [`Figure::subplot_mosaic`].
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MosaicOptions {
@@ -93,37 +111,6 @@ impl MosaicOptions {
             .find(|(name, _)| name == label)
             .map_or(&self.projection, |(_, projection)| projection)
             .clone()
-    }
-}
-
-/// The axes of a mosaic, by label, in creation order.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MosaicAxes {
-    entries: Vec<(String, Axes)>,
-}
-
-impl MosaicAxes {
-    /// The axes labelled `label`.
-    pub fn get(&self, label: &str) -> Option<&Axes> {
-        self.entries
-            .iter()
-            .find(|(name, _)| name == label)
-            .map(|(_, ax)| ax)
-    }
-
-    /// Labels and axes in creation order.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &Axes)> {
-        self.entries.iter().map(|(name, ax)| (name.as_str(), ax))
-    }
-
-    /// The number of axes.
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-
-    /// Whether the mosaic has no axes.
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
     }
 }
 
@@ -178,6 +165,13 @@ impl std::error::Error for MosaicError {}
 impl From<GridSpecError> for MosaicError {
     fn from(err: GridSpecError) -> Self {
         Self::Grid(err)
+    }
+}
+
+impl From<Infallible> for MosaicError {
+    /// A mosaic given as a [`Mosaic`], which converts without failing.
+    fn from(never: Infallible) -> Self {
+        match never {}
     }
 }
 
@@ -337,12 +331,13 @@ impl Region<'_> {
 impl Figure {
     /// Adds one axes per label of `mosaic` (matplotlib's
     /// `subplot_mosaic`), created level by level in order of their
-    /// top-left cells.
+    /// top-left cells. The mosaic is a [`Mosaic`], a reference to one, or
+    /// text it parses.
     ///
     /// ```
-    /// use plt::figure::{Figure, Mosaic, MosaicOptions};
+    /// use plt::figure::{Figure, MosaicOptions};
     /// let fig = Figure::new();
-    /// let axes = fig.subplot_mosaic(&"AAB;C.B".parse::<Mosaic>()?, MosaicOptions::default())?;
+    /// let axes = fig.subplot_mosaic("AAB;C.B", MosaicOptions::default())?;
     /// let labels: Vec<&str> = axes.iter().map(|(label, _)| label).collect();
     /// assert_eq!(labels, ["A", "B", "C"]);
     /// # Ok::<(), plt::figure::MosaicError>(())
@@ -352,13 +347,13 @@ impl Figure {
     ///
     /// ```
     /// use plt::axes::ProjectionKind;
-    /// use plt::figure::{Figure, Mosaic, MosaicOptions};
+    /// use plt::figure::{Figure, MosaicOptions};
     /// let options = MosaicOptions {
     ///     projection: ProjectionKind::Polar.into(),
     ///     per_subplot: vec![("C".into(), ProjectionKind::Mollweide.into())],
     ///     ..MosaicOptions::default()
     /// };
-    /// let axes = Figure::new().subplot_mosaic(&"AB;CC".parse::<Mosaic>()?, options)?;
+    /// let axes = Figure::new().subplot_mosaic("AB;CC", options)?;
     /// let kinds: Vec<&str> = axes.iter().map(|(_, ax)| ax.projection().name()).collect();
     /// assert_eq!(kinds, ["polar", "polar", "mollweide"]);
     /// # Ok::<(), plt::figure::MosaicError>(())
@@ -366,17 +361,19 @@ impl Figure {
     ///
     /// # Errors
     ///
-    /// When a label covers a non-rectangular area or appears twice, the
-    /// ratios do not match the grid, a label of
+    /// When the text of the mosaic does not parse, a label covers a
+    /// non-rectangular area or appears twice, the ratios do not match the
+    /// grid, a label of
     /// [`per_subplot`](MosaicOptions::per_subplot) is not in the mosaic, or
     /// axes cannot be made with a projection the options ask for
     /// (as [`Figure::subplots_on_with_projection`]: unknown projections and
     /// options add no axes).
     pub fn subplot_mosaic(
         &self,
-        mosaic: &Mosaic,
+        mosaic: impl TryInto<Mosaic, Error: Into<MosaicError>>,
         options: MosaicOptions,
     ) -> Result<MosaicAxes, MosaicError> {
+        let mosaic = &mosaic.try_into().map_err(Into::into)?;
         if let Some((label, _)) = options
             .per_subplot
             .iter()
@@ -409,7 +406,7 @@ impl Figure {
                 }
             }
         }
-        Ok(MosaicAxes { entries })
+        Ok(MosaicAxes::new(entries))
     }
 
     fn lay_out_mosaic(
@@ -534,7 +531,7 @@ mod tests {
             ..MosaicOptions::default()
         };
         let axes = fig
-            .subplot_mosaic(&"AB".parse::<Mosaic>().unwrap(), options)
+            .subplot_mosaic("AB".parse::<Mosaic>().unwrap(), options)
             .unwrap();
         let kind = |label: &str| axes.get(label).unwrap().projection();
         assert_eq!(
@@ -554,7 +551,7 @@ mod tests {
             ..MosaicOptions::default()
         };
         assert_eq!(
-            fig.subplot_mosaic(&"A".parse::<Mosaic>().unwrap(), options),
+            fig.subplot_mosaic("A".parse::<Mosaic>().unwrap(), options),
             Err(MosaicError::UnknownLabel("B".into()))
         );
         assert!(fig.axes().is_empty(), "no axes is made");

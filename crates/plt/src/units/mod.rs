@@ -59,22 +59,21 @@ mod category;
 mod custom;
 mod deltas;
 mod interface;
+mod items;
 mod lists;
 mod scalar;
 mod sources;
 
 use std::rc::Rc;
 
-use crate::dates::{
-    AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateTime, Datetime64, TimeZone,
-    get_epoch,
-};
+use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, TimeZone};
 use crate::ticker::{Formatter, Locator};
 
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
 pub use custom::{CustomConverter, CustomValues, Unit};
 pub use deltas::{AxisDelta, AxisDeltas};
 pub use interface::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
+pub use items::AxisItem;
 pub(crate) use lists::from_value_lists;
 pub use scalar::{AxisValue, DataPoint};
 pub(crate) use sources::UnitSources;
@@ -132,7 +131,10 @@ impl<C: ConversionInterface> From<C> for UnitConverter {
     }
 }
 
-/// Plotting values along one axis before unit conversion.
+/// Plotting values along one axis before unit conversion. Any collection
+/// or iterator of [`AxisItem`]s converts into them: numbers of any
+/// primitive type, names, dates or values of a [`Convertible`] type. One
+/// value is a list of one (`[value]`).
 #[derive(Clone, Debug, PartialEq)]
 pub enum AxisValues {
     /// Plain numbers.
@@ -158,6 +160,16 @@ impl AxisValues {
     /// Whether there are no values.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// The values as axis numbers where that needs no axis: numbers as
+    /// they are and dates as date numbers. Names and user values need an
+    /// axis to place them, and become NaN.
+    pub(crate) fn into_unplaced_numbers(self) -> Vec<f64> {
+        match self {
+            Self::Numbers(numbers) | Self::Dates(numbers) => numbers,
+            Self::Categories(_) | Self::Custom(_) => vec![f64::NAN; self.len()],
+        }
     }
 
     /// Value `index`, if there is one.
@@ -207,57 +219,11 @@ impl From<CustomValues> for AxisValues {
     }
 }
 
-impl<T: Convertible> From<Vec<T>> for AxisValues {
-    fn from(values: Vec<T>) -> Self {
-        Self::Custom(CustomValues::new(values))
-    }
-}
-
-impl From<Vec<DateTime>> for AxisValues {
-    /// Naive date-times are taken as UTC, as matplotlib does by default.
-    fn from(dates: Vec<DateTime>) -> Self {
-        let epoch = get_epoch();
-        Self::Dates(dates.into_iter().map(|d| epoch.date2num(d)).collect())
-    }
-}
-
-impl From<Vec<Datetime64>> for AxisValues {
-    fn from(dates: Vec<Datetime64>) -> Self {
-        let epoch = get_epoch();
-        Self::Dates(
-            dates
-                .into_iter()
-                .map(|d| epoch.datetime64_to_num(d))
-                .collect(),
-        )
-    }
-}
-
-impl From<Vec<f64>> for AxisValues {
-    fn from(values: Vec<f64>) -> Self {
-        Self::Numbers(values)
-    }
-}
-
-impl From<Vec<String>> for AxisValues {
-    fn from(names: Vec<String>) -> Self {
-        Self::Categories(names)
-    }
-}
-
-impl From<Vec<&str>> for AxisValues {
-    fn from(names: Vec<&str>) -> Self {
-        Self::Categories(names.into_iter().map(str::to_owned).collect())
-    }
-}
-
-from_value_lists!(AxisValues: f64, String, &str, DateTime, Datetime64);
-from_value_lists!(impl<T: Convertible> AxisValues: T);
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::axes::AxisName;
+    use crate::dates::{DateTime, Datetime64};
     use crate::figure::Figure;
 
     #[test]

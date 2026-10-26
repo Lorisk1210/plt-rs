@@ -6,7 +6,7 @@ use std::fmt;
 use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::lines::{DrawStyle, Line2D, LineProps};
-use crate::numeric::argsort;
+use crate::numeric::{Number, argsort, to_f64s};
 use crate::orientation::Orientation;
 use crate::stats::pairwise_sum;
 
@@ -138,7 +138,12 @@ impl Axes {
     ///
     /// When `x` is empty or holds NaNs, the weights do not match the
     /// values, or `options.line` sets a draw style.
-    pub fn ecdf(&self, x: &[f64], options: EcdfOptions) -> Result<Line2D, EcdfError> {
+    pub fn ecdf(
+        &self,
+        x: impl IntoIterator<Item: Number>,
+        options: EcdfOptions,
+    ) -> Result<Line2D, EcdfError> {
+        let x = &to_f64s(x);
         if options.line.drawstyle.is_some() {
             return Err(EcdfError::DrawStyle);
         }
@@ -230,7 +235,7 @@ mod tests {
             line: LineProps::default().drawstyle(DrawStyle::Default),
             ..EcdfOptions::default()
         };
-        assert_eq!(ax.ecdf(&[1.0], options).err(), Some(EcdfError::DrawStyle));
+        assert_eq!(ax.ecdf([1.0], options).err(), Some(EcdfError::DrawStyle));
     }
 
     #[test]
@@ -238,7 +243,7 @@ mod tests {
         let ax = Figure::new().subplot();
         let line = ax
             .ecdf(
-                &[1.0, 2.0],
+                [1.0, 2.0],
                 EcdfOptions {
                     complementary: true,
                     orientation: Orientation::Horizontal,

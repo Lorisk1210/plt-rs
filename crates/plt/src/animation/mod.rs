@@ -37,7 +37,7 @@
 //! let options = AnimationOptions { blit: true, ..AnimationOptions::default() };
 //! let animation = FuncAnimation::new(&fig, Frames::Count(5), options, move |i| {
 //!     line.set_data(&[0.0, 1.0], &[0.0, i as f64 / 4.0]);
-//!     vec![line.raw().clone()]
+//!     line.clone()
 //! });
 //! // The figure was drawn, and the animation started playing.
 //! let (timer, _) = fig.timers()[0];
@@ -58,7 +58,7 @@ use plt_codec::webp;
 use plt_core::Bbox;
 use plt_render::RgbaImage;
 
-use crate::artist::RawHandle;
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::figure::{BboxInches, Figure, SaveError, SaveOptions};
 use player::Player;
 
@@ -120,7 +120,21 @@ impl Default for AnimationOptions {
 
 /// What a frame or init function returns: nothing, or the artists it
 /// changed, which blitting draws (matplotlib requires them with
-/// `blit=True`).
+/// `blit=True`). The artists come as handles of any type: one handle, a
+/// `Vec` or an array of handles of one type, or a tuple of up to four
+/// handles of different types.
+///
+/// ```
+/// use plt::animation::ChangedArtists;
+/// use plt::prelude::*;
+/// let ax = Figure::new().subplot();
+/// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
+/// let note = ax.text(0.5, 0.5, "frame 0");
+/// assert_eq!(line.clone().into_artists().len(), 1);
+/// assert_eq!([line.clone(), line.clone()].into_artists().len(), 2);
+/// assert_eq!((line, note).into_artists().len(), 2);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub trait ChangedArtists {
     /// The artists changed.
     fn into_artists(self) -> Vec<RawHandle>;
@@ -132,11 +146,38 @@ impl ChangedArtists for () {
     }
 }
 
-impl ChangedArtists for Vec<RawHandle> {
+impl<H: ArtistHandle> ChangedArtists for H {
     fn into_artists(self) -> Vec<RawHandle> {
-        self
+        vec![self.raw().clone()]
     }
 }
+
+impl<H: ArtistHandle> ChangedArtists for Vec<H> {
+    fn into_artists(self) -> Vec<RawHandle> {
+        self.iter().map(|handle| handle.raw().clone()).collect()
+    }
+}
+
+impl<H: ArtistHandle, const N: usize> ChangedArtists for [H; N] {
+    fn into_artists(self) -> Vec<RawHandle> {
+        self.iter().map(|handle| handle.raw().clone()).collect()
+    }
+}
+
+/// Implements [`ChangedArtists`] for tuples of handles of these types.
+macro_rules! changed_tuples {
+    ($(($($handle:ident),+)),+) => {$(
+        impl<$($handle: ArtistHandle),+> ChangedArtists for ($($handle,)+) {
+            #[expect(non_snake_case, reason = "the bindings are named after their types")]
+            fn into_artists(self) -> Vec<RawHandle> {
+                let ($($handle,)+) = self;
+                vec![$($handle.raw().clone()),+]
+            }
+        }
+    )+};
+}
+
+changed_tuples!((A, B), (A, B, C), (A, B, C, D));
 
 /// Why an animation could not be saved.
 #[derive(Debug)]

@@ -5,6 +5,7 @@ use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps};
+use crate::numeric::{Number, to_f64s};
 use crate::rc::{CycleValue, Cycler};
 use crate::scale::LogScale;
 use crate::ticker::AxisName;
@@ -132,8 +133,8 @@ impl Axes {
     }
 
     /// Plots `y` against its indices `0, 1, 2, ...` (matplotlib's `ax.plot(y)`).
-    pub fn plot_y(&self, y: impl AsRef<[f64]>) -> Line2D {
-        let y = y.as_ref().to_vec();
+    pub fn plot_y(&self, y: impl IntoIterator<Item: Number>) -> Line2D {
+        let y = to_f64s(y);
         let x = (0..y.len()).map(|i| i as f64).collect();
         self.add_cycled_line(x, y, LineProps::default())
     }

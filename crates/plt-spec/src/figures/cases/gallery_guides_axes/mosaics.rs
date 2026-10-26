@@ -8,7 +8,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::LayoutEngine;
 use plt::numeric::Grid;
 use plt::prelude::*;
-use plt::stats::{BinEstimator, Bins, HistOptions};
+use plt::stats::{BinEstimator, Bins};
 
 use super::{SEED, annotate_axes};
 use crate::figures::cases::common::mosaic;
@@ -48,10 +48,7 @@ fn plot_kinds(axes: [&Axes; 4], bins: Bins) -> CaseResult {
     bar.bar(vec!["a", "b", "c"], [5.0, 7.0, 9.0], BarOptions::default())?;
     plot.plot_y([1.0, 2.0, 3.0]);
     let options = HistPlotOptions {
-        layout: HistOptions {
-            bins: Some(bins),
-            ..HistOptions::default()
-        },
+        bins: Some(bins),
         ..HistPlotOptions::default()
     };
     hist.hist(&[SpecRng::new(SEED).normal(1_500, 0.0, 1.0)], options)?;

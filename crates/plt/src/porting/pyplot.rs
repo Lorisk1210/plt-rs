@@ -30,8 +30,9 @@
 //! as in `::plt::legend::LegendOptions`.
 //!
 //! Figures do not need pyplot to be saved or shown: [`Figure::savefig`]
-//! writes a file, [`crate::gui::show`] opens windows for a list of figures
-//! and [`crate::web::serve`] serves them to a browser.
+//! writes a file, [`crate::gui::show`] shows a list of figures with
+//! pyplot's backend and its fallback, and [`crate::web::serve`] serves
+//! them to a browser.
 //!
 //! # Equivalences
 //!
@@ -204,7 +205,8 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Without pyplot, [`crate::gui::show`] takes the figures to show, and
+//! Without pyplot, [`crate::gui::show`] takes the figures to show, in
+//! windows or as [`pyplot::show`] falls back without them, and
 //! [`crate::web::serve`] serves them to a browser:
 //!
 //! ```no_run
@@ -213,7 +215,7 @@
 //!
 //! let fig = Figure::new();
 //! fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
-//! plt::gui::show(&[fig.clone()])?; // returns when the window is closed
+//! plt::gui::show(&[fig.clone()])?; // returns when the window is closed, at once headless
 //! serve(&[fig], WebOptions::from_rc()?)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -236,7 +238,7 @@
 //! let line = plt::rc_context(&[("lines.linewidth", "3")], || {
 //!     plt::rc("axes", &[("grid", "True")])?;
 //!     Ok::<_, Box<dyn std::error::Error>>(plt::plot([0.0, 1.0], [0.0, 1.0])?)
-//! })??;
+//! })?;
 //! assert_eq!(line.linewidth(), 3.0);
 //! plt::close_all();
 //! # Ok::<(), Box<dyn std::error::Error>>(())

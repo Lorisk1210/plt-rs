@@ -130,18 +130,18 @@ impl From<SaveError> for GuiError {
 }
 
 /// Shows each figure in its own window ("Figure 1", "Figure 2", ...) and
-/// returns once all of them are closed (matplotlib's `pyplot.show()`).
+/// returns once all of them are closed (matplotlib's `pyplot.show()`),
+/// with the backend [`pyplot::show`](crate::pyplot::show) uses, which
+/// falls back the same way: where windows cannot open, the figures are
+/// served to a web browser (macOS, Windows) or not shown at all (an X11
+/// system without a display). `MPLBACKEND` and
+/// [`pyplot::switch_backend`](crate::pyplot::switch_backend) choose
+/// another backend.
 ///
 /// # Errors
 ///
-/// When there is no window system to connect to, or a window fails.
+/// When the backend cannot start (no window system and no fallback, or a
+/// busy web port), or a window fails.
 pub fn show(figures: &[Figure]) -> Result<(), GuiError> {
-    let mut session = Session::new()?;
-    let titled: Vec<(Figure, String)> = figures
-        .iter()
-        .enumerate()
-        .map(|(i, figure)| (figure.clone(), format!("Figure {}", i + 1)))
-        .collect();
-    session.show(&titled)?;
-    session.run(None, || false)
+    crate::pyplot::show_until_closed(figures)
 }

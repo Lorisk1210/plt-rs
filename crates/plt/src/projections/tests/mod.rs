@@ -31,7 +31,7 @@ fn shear() -> ResolvedTransform {
 /// Rectilinear axes sheared to the right, ticking x over twice the view
 /// interval, drawing negative x ticks on the second side only, with its
 /// top spine spanning half the view; it counts its set-ups.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Sheared {
     set_ups: usize,
 }
@@ -93,7 +93,7 @@ impl Projection for Sheared {
 /// The unit disc around the origin: fixed limits and scales, no
 /// navigation, a fixed data ratio, all labels at the centre and its own
 /// status-bar text.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Disc;
 
 impl Projection for Disc {

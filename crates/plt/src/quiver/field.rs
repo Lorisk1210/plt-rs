@@ -5,7 +5,7 @@ use plt_core::Point;
 
 use crate::axes::{MappedColors, PlotError};
 use crate::collections::ColorMapping;
-use crate::numeric::{Grid, meshgrid};
+use crate::numeric::{Grid, Number, meshgrid, to_f64s};
 use crate::rc::RcParams;
 
 /// Vector positions and components, optionally with values mapped to
@@ -31,16 +31,16 @@ pub struct VectorField {
 impl VectorField {
     /// Components `u`, `v` at the positions `x`, `y`.
     pub fn new(
-        x: impl Into<Vec<f64>>,
-        y: impl Into<Vec<f64>>,
-        u: impl Into<Vec<f64>>,
-        v: impl Into<Vec<f64>>,
+        x: impl IntoIterator<Item: Number>,
+        y: impl IntoIterator<Item: Number>,
+        u: impl IntoIterator<Item: Number>,
+        v: impl IntoIterator<Item: Number>,
     ) -> Self {
         Self {
-            x: x.into(),
-            y: y.into(),
-            u: u.into(),
-            v: v.into(),
+            x: to_f64s(x),
+            y: to_f64s(y),
+            u: to_f64s(u),
+            v: to_f64s(v),
             colors: None,
         }
     }
@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn empty_fields_are_valid() {
-        let points = VectorField::new(Vec::new(), Vec::new(), Vec::new(), Vec::new())
+        let points = VectorField::new([0.0; 0], [0.0; 0], [0.0; 0], [0.0; 0])
             .into_points(&rc())
             .unwrap();
         assert_eq!(points.xy.len(), 0);

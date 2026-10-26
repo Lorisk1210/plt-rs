@@ -29,7 +29,10 @@
 //!   `norm`, `vmin` and `vmax` as one [`ColorizerOptions`] in their
 //!   `colorizer` field and its builders through [`Colorize`]
 //!   ([`ImshowOptions`], [`ContourOptions`], [`MappedColors`], ...).
-//!   Other option structs have none.
+//!   Other option structs have none. [`UnitAxisInfo`] has builders too,
+//!   which take a locator or a formatter by value as the [`Axis`]
+//!   setters do: tickers go as `impl Locator` and `impl Formatter`
+//!   wherever they are given.
 //! * **Strings become enums or parsed types.** `linestyle="--"` is
 //!   [`LineStyle::Dashed`]; matplotlib's spelling still works through
 //!   [`str::parse`] (every such type implements [`FromStr`]), which
@@ -50,15 +53,42 @@
 //!   counts and documented on the functions and options it bounds. The
 //!   error variant is named `TooMany*` after the same things
 //!   (`FftTooLong` for a length) and carries what was asked for.
-//! * **Values with units take every form.** Plotting values that may be
-//!   numbers, category names, dates or values of user types are
-//!   [`AxisValues`] (one is an [`AxisValue`], two make a [`DataPoint`]);
-//!   extents from them, numbers, durations or user values, are
-//!   [`AxisDeltas`] (one is an [`AxisDelta`]). They, and the types made
-//!   of them such as [`ErrorSize`], convert from one value, a `Vec`, a
-//!   slice, an array or a reference to a `Vec` or an array of any of
-//!   these kinds: methods take them as they are, option fields through
-//!   `.into()`.
+//! * **Data takes every form.** Plotting values that may be numbers,
+//!   category names, dates or values of user types are [`AxisValues`]
+//!   (one is an [`AxisValue`], two make a [`DataPoint`]): any collection
+//!   or iterator of [`AxisItem`]s converts into them, numbers of every
+//!   primitive type included, so data goes in borrowed, owned or computed
+//!   by an iterator, and one value is a list of one, `[v]`. Extents from
+//!   them, numbers, durations or user values, are [`AxisDeltas`] (one is
+//!   an [`AxisDelta`]); they, and the types made of them such as
+//!   [`ErrorSize`], take one value for all the items or a `Vec`, a slice,
+//!   an array or a reference to a `Vec` or an array. Data that can only be
+//!   numbers takes `impl IntoIterator<Item: Number>` ([`Number`]), and
+//!   one dataset or several, as histograms take them, are [`Datasets`].
+//!   Methods take these as they are, option fields through `.into()`, and
+//!   setters of data (`Line2D::set_ydata`) take what the plotting method
+//!   takes.
+//! * **User code may use the figure.** Closures plt-rs runs between draws
+//!   (event callbacks, timers, toolbar tools, widgets, animation frames,
+//!   pickers, unit converters) may use any handle of the figure. Methods
+//!   handing state to a closure ([`Custom::update`],
+//!   [`Patch::update_shape`], [`Axes::with_projection_mut`],
+//!   [`rc::update`]) give it a copy and store it back, so the figure is
+//!   not borrowed meanwhile. Functions and traits that run while a figure
+//!   is laid out or drawn (formatters, scale and norm functions, axes
+//!   locators, image filters, colorbar label functions, legend handlers,
+//!   projections) get what they need as arguments and are `Send`, which
+//!   keeps handles out of them.
+//! * **Contexts return the closure's result.** Helpers running a closure
+//!   in temporary settings return what it returns ([`rc::context`]).
+//!   Those that can fail before running it ([`style::context`],
+//!   [`pyplot::rc_context`], [`pyplot::xkcd`]) take a closure returning
+//!   `Result<T, E>` and convert their own error into `E`, so the call ends
+//!   in one `?`.
+//! * **Lookups index as `std` does.** Indexing a collection of handles
+//!   (`axs[(0, 1)]`, `axd["A"]` of a mosaic) panics on an entry that is
+//!   not there, as indexing a slice or a map does; `get` returns an
+//!   `Option` instead.
 //! * **Type names are unique.** Where matplotlib gives two classes one
 //!   name in modules a program may use together, plt-rs prefixes one with
 //!   its module: `units.AxisInfo` is [`UnitAxisInfo`], beside the
@@ -103,7 +133,10 @@
 //! | `ax.errorbar(..., fmt="o")`             | `fmt: "o".parse()?` ([`ErrorbarFormat`])         |
 //! | `linestyle="--"`                        | [`LineStyle::Dashed`], or `"--".parse::<LineStyle>()?` |
 //! | `marker="o"`                            | [`MarkerSymbol::Circle`], or `"o".parse::<Marker>()?` |
-//! | `arrowprops=dict(arrowstyle="->")`      | `"->".parse::<FancyArrowProps>()?` ([`FancyArrowProps`]) |
+//! | `arrowprops=dict(arrowstyle="->")`      | `Some("->".parse()?)` ([`ArrowProps`]; [`FancyArrowProps`] for its settings) |
+//! | `axd = fig.subplot_mosaic("AB;CC")`, `axd["A"]` | [`Figure::subplot_mosaic`]`("AB;CC", ..)?`, `axd["A"]` |
+//! | `ax.set_xlim(date1, date2)`             | [`Axes::set_xlim`]`(date1, date2)?` (any [`AxisValue`]) |
+//! | `ax.plot(np.arange(10), counts)`        | `ax.plot(0..10, &counts)?` (integers and iterators) |
 //! | `color="tab:red"`                       | `"tab:red"` (any `Into<`[`Color`]`>`); [`Color::parse`] validates now |
 //! | `loc="upper left"`                      | `AnchorLoc::UpperLeft`, or `"upper left".parse::<`[`LegendLoc`]`>()?` |
 //! | `ax.set_xscale("log")`, `ax.get_xscale()` | [`Axes::set_xscale`]`(ScaleName::Log)` or `("log")`; [`Axes::xscale`] is a [`ScaleName`] |
@@ -207,7 +240,7 @@
 //! ```
 //! use plt::markers::{Marker, MarkerSymbol};
 //! use plt::prelude::*;
-//! use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
+//! use plt::text::AnnotateOptions;
 //!
 //! let ax = Figure::new().subplot();
 //! let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
@@ -216,10 +249,9 @@
 //! assert_eq!("o".parse::<Marker>()?, Marker::Symbol(MarkerSymbol::Circle));
 //! assert!("not a marker".parse::<Marker>().is_err());
 //!
-//! let arrow: FancyArrowProps = "->".parse()?;
 //! let options = AnnotateOptions {
 //!     xytext: Some((2.0, 2.0).into()),
-//!     arrowprops: Some(ArrowProps::Fancy(arrow)),
+//!     arrowprops: Some("->".parse()?),
 //!     ..AnnotateOptions::default()
 //! };
 //! let note = ax.annotate("peak", (1.0, 1.0), options)?;
@@ -429,6 +461,20 @@
 //! [`Axes::plot_with`]: crate::axes::Axes::plot_with
 //! [`MarkerSymbol::Circle`]: crate::markers::MarkerSymbol::Circle
 //! [`FancyArrowProps`]: crate::text::FancyArrowProps
+//! [`ArrowProps`]: crate::text::ArrowProps
+//! [`AxisItem`]: crate::units::AxisItem
+//! [`Number`]: crate::numeric::Number
+//! [`Datasets`]: crate::stats::Datasets
+//! [`Custom::update`]: crate::artist::Custom::update
+//! [`Patch::update_shape`]: crate::patches::Patch::update_shape
+//! [`Axes::with_projection_mut`]: crate::axes::Axes::with_projection_mut
+//! [`rc::update`]: crate::rc::update
+//! [`rc::context`]: crate::rc::context
+//! [`style::context`]: crate::style::context
+//! [`pyplot::rc_context`]: crate::pyplot::rc_context
+//! [`pyplot::xkcd`]: crate::pyplot::xkcd
+//! [`Figure::subplot_mosaic`]: crate::figure::Figure::subplot_mosaic
+//! [`Axes::set_xlim`]: crate::axes::Axes::set_xlim
 //! [`Axes::margin`]: crate::axes::Axes::margin
 //! [`Axes::set_margin`]: crate::axes::Axes::set_margin
 //! [`Axes::bound`]: crate::axes::Axes::bound

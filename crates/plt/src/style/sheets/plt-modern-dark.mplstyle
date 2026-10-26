@@ -20,8 +20,10 @@ font.family: sans-serif
 font.sans-serif: Inter, DejaVu Sans, Bitstream Vera Sans, Arial, Helvetica, sans-serif
 font.size: 10
 text.color: e6e9ed
-# Math in Inter too (calligraphy in Computer Modern), with STIX Sans for
-# the symbols Inter lacks.
+# Math in Inter too (calligraphy in Computer Modern), with the symbols of
+# matplotlib's default math: sums, products and integrals at display size
+# from DejaVu Sans Display, what else Inter lacks from DejaVu Sans, and
+# STIX Sans for the rest.
 mathtext.fontset: custom
 mathtext.rm: Inter
 mathtext.it: Inter:italic
@@ -30,6 +32,7 @@ mathtext.bfit: Inter:italic:bold
 mathtext.sf: Inter
 mathtext.cal: cmsy10
 mathtext.fallback: stixsans
+plt.mathtext.dejavu_symbols: True
 
 ## Axes: no frame, a light baseline, the grid below the data
 axes.facecolor: 1e2024
@@ -48,7 +51,11 @@ axes.labelcolor: 9ea6b0
 axes.labelpad: 6
 # Blue, orange, aqua, yellow, magenta, green, violet, red: every adjacent
 # pair stays apart for protan, deutan and tritan vision.
-axes.prop_cycle: cycler('color', ['3987e5', 'd95926', '199e70', 'c98500', 'd55181', '008300', '9085e9', 'e66767'])
+axes.prop_cycle: cycler('color', ['3987e5', 'd95926', '199e70', 'c98500', 'd55181', '57bb5e', '9085e9', 'e66767'])
+# Twins leave the grid to the axes they twin: theirs would cross its data.
+plt.axes.twin_grid: False
+# Insets over data get all four spines, to stand apart from it.
+plt.inset.frame: True
 
 grid.color: 33373d
 grid.linestyle: -

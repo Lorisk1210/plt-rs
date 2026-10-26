@@ -14,9 +14,13 @@
 //! the ink of marks matplotlib draws black (`plt.ink`: quiver arrows,
 //! barbs, error bars of bar charts, size bars), the faces and edges of
 //! table cells and annotation boxes (`plt.table.*`, `plt.offsetbox.*`),
-//! the colours and frames of widgets (`plt.widgets.*`), and whether
+//! the colours and frames of widgets (`plt.widgets.*`), whether
 //! `tight_layout` leaves constrained layout in place
-//! (`plt.tight_layout.keep_constrained`).
+//! (`plt.tight_layout.keep_constrained`), the symbols of math in Inter
+//! (`plt.mathtext.dejavu_symbols`: display-size sums and integrals, and
+//! sans-serif symbols where Inter has none), framed insets
+//! (`plt.inset.frame`) and twin axes without a grid of their own
+//! (`plt.axes.twin_grid`).
 //!
 //! The choice comes from code ([`set_appearance`], [`set_figure_look`],
 //! [`set_chrome_look`]) or, until code makes one, from the environment:
@@ -411,6 +415,11 @@ mod tests {
         assert!(luminance(dark.figure_facecolor.resolve().unwrap()) < 0.18);
         for look in FigureLook::ALL {
             assert_eq!(look.name().parse::<FigureLook>(), Ok(look));
+            let params = look.params();
+            let modern = look != FigureLook::Matplotlib;
+            assert_eq!(params.plt_mathtext_dejavu_symbols, modern, "{look}");
+            assert_eq!(params.plt_inset_frame, modern, "{look}");
+            assert_eq!(params.plt_axes_twin_grid, !modern, "{look}");
         }
     }
 

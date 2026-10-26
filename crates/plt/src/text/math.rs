@@ -55,6 +55,7 @@ pub fn math_style(font: &FontProperties, dpi: f64, rc: &RcParams) -> MathStyle {
             tt: rc.mathtext_tt.clone(),
             cal: rc.mathtext_cal.clone(),
         },
+        dejavu_symbols: rc.plt_mathtext_dejavu_symbols,
         font: font.request(rc),
         pattern_defaults: PatternDefaults::of(&FontProperties::from_rc(rc).request(rc).query),
         dpi,
@@ -87,6 +88,10 @@ mod tests {
         assert_eq!(style.default, MathFont::Rm);
         assert_eq!(style.fallback, None);
         assert_eq!(style.custom.cal, "cursive");
+        assert!(!style.dejavu_symbols);
+        rc.set("plt.mathtext.dejavu_symbols", "True")
+            .expect("valid");
+        assert!(math_style(&font, 72.0, &rc).dejavu_symbols);
     }
 
     #[test]

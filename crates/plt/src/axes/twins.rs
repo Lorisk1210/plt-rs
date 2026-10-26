@@ -4,7 +4,9 @@
 use std::rc::Rc;
 
 use super::aspect::check_adjustable;
-use super::{Adjustable, AspectError, Axes, AxesState, AxisName, PlotError};
+use super::{
+    Adjustable, AspectError, Axes, AxesState, AxisName, GridOptions, PlotError, TickLevel,
+};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::figure::make_axes;
 use crate::projections::{ProjectionError, ProjectionSpec, Projector};
@@ -209,7 +211,9 @@ impl Axes {
     }
 
     /// Makes `twin`, sharing axis `shared` with this axes, its twin drawn
-    /// `delta_zorder` above it, with its other axis on the far side.
+    /// `delta_zorder` above it, with its other axis on the far side, and
+    /// with a grid of its own only under `plt.axes.twin_grid` (which the
+    /// modern looks turn off: that grid would cross this axes' data).
     fn join_twin(&self, twin: &Self, shared: AxisName, delta_zorder: f64) {
         let own = match shared {
             AxisName::X => AxisName::Y,
@@ -238,6 +242,13 @@ impl Axes {
         });
         self.raw
             .with_mut::<AxesState, _>(|axes| axes.axis_mut(own).tick_to(false));
+        if !crate::rc::params().plt_axes_twin_grid {
+            let options = GridOptions {
+                which: TickLevel::Both,
+                ..GridOptions::default()
+            };
+            twin.grid_with(false, options);
+        }
     }
 
     /// Hides the tick labels, axis labels and offset texts that face
@@ -591,5 +602,22 @@ mod tests {
             "no twin is made"
         );
         assert_eq!(geo.twins(), [geo]);
+    }
+
+    #[test]
+    fn twins_leave_the_grid_to_their_host_only_when_asked() {
+        let grids = |twin_grid: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("axes.grid", "True").unwrap();
+                crate::rc::set("axes.grid.which", "both").unwrap();
+                crate::rc::set("plt.axes.twin_grid", twin_grid).unwrap();
+                let ax = Figure::new().subplot();
+                let twin = ax.twinx().unwrap();
+                assert!(ax.has_grid(AxisName::Y, true), "the host keeps its grid");
+                [true, false].map(|major| twin.has_grid(AxisName::Y, major))
+            })
+        };
+        assert_eq!(grids("True"), [true, true], "matplotlib's twins");
+        assert_eq!(grids("False"), [false, false]);
     }
 }

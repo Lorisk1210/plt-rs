@@ -1,6 +1,7 @@
 //! Which font file and character code draw a symbol: matplotlib's
 //! `_get_glyph` for the `BaKoMa`, Unicode (custom), `DejaVu` and STIX
-//! fontsets, with their fallback chains and the STIX virtual fonts.
+//! fontsets, with their fallback chains and the STIX virtual fonts, plus
+//! plt-rs' `DejaVu` symbols for the custom fontset.
 
 use plt_font::{FontDatabase, FontId, FontQuery, GenericFamilies};
 
@@ -36,7 +37,7 @@ enum Kind {
 }
 
 /// One of matplotlib's `Fonts` objects: a font map plus fallbacks.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct GlyphSet {
     kind: Kind,
     fontmap: Vec<(FontName, FontId)>,
@@ -45,6 +46,10 @@ pub(crate) struct GlyphSet {
     text_font: FontId,
     /// Where symbols missing from this set come from.
     fallback: Option<Box<GlyphSet>>,
+    /// The `DejaVu` Sans set a custom set takes its symbols from
+    /// ([`MathStyle::dejavu_symbols`]): its big operators always, and what
+    /// the custom fonts lack before `fallback`.
+    symbols: Option<Box<GlyphSet>>,
     /// `DejaVu` takes `\prime` from Computer Modern.
     prime: Option<Box<GlyphSet>>,
     /// `mathtext.default`, used for STIX's placeholder glyphs.
@@ -138,6 +143,7 @@ impl GlyphSet {
             bakoma_files: Vec::new(),
             text_font,
             fallback: None,
+            symbols: None,
             prime: None,
             math_default,
             cmsy10: None,
@@ -174,7 +180,10 @@ impl GlyphSet {
         let math_default = style.default.into();
         match MathFonts::of(style) {
             MathFonts::Cm => Self::bakoma(finder, text_font, math_default),
-            MathFonts::DejaVu { serif } => Self::dejavu(finder, text_font, math_default, serif),
+            MathFonts::DejaVu { serif } => {
+                let stix = Self::stix(finder, text_font, math_default, !serif)?;
+                Self::dejavu(finder, text_font, math_default, serif, Some(Box::new(stix)))
+            }
             MathFonts::Stix { sans } => Self::stix(finder, text_font, math_default, sans),
             MathFonts::Custom => Self::custom(finder, style, text_font, math_default),
         }
@@ -226,11 +235,14 @@ impl GlyphSet {
         Ok(set)
     }
 
+    /// The `DejaVu` Sans or Serif set, falling back to `fallback` (STIX in
+    /// the `DejaVu` fontsets).
     fn dejavu(
         db: Finder<'_>,
         text_font: FontId,
         default: FontName,
         serif: bool,
+        fallback: Option<Box<Self>>,
     ) -> Result<Self, TextError> {
         let mut set = Self::unicode(Kind::DejaVu, db, text_font, default)?;
         let family = if serif { "DejaVu Serif" } else { "DejaVu Sans" };
@@ -250,7 +262,7 @@ impl GlyphSet {
             .collect();
         set.fontmap = db.find_all(&entries)?;
         set.fontmap.extend(db.stix_sizes()?.into_iter().skip(1));
-        set.fallback = Some(Box::new(Self::stix(db, text_font, default, !serif)?));
+        set.fallback = fallback;
         set.prime = Some(Box::new(Self::bakoma(db, text_font, default)?));
         Ok(set)
     }
@@ -271,6 +283,10 @@ impl GlyphSet {
             }
             None => None,
         };
+        if style.dejavu_symbols {
+            let dejavu = Self::dejavu(db, text_font, default, false, set.fallback.clone())?;
+            set.symbols = Some(Box::new(dejavu));
+        }
         set.fontmap = db.find_all(&[
             (FontName::Cal, &fonts.cal),
             (FontName::Rm, &fonts.rm),
@@ -329,7 +345,17 @@ impl GlyphSet {
         match self.kind {
             Kind::Bakoma => self.bakoma_glyph(faces, font, class, symbol),
             Kind::DejaVu => self.dejavu_glyph(faces, font, class, symbol),
-            Kind::Custom | Kind::Stix { .. } => self.unicode_glyph(faces, font, class, symbol),
+            Kind::Custom => self.custom_glyph(faces, font, class, symbol),
+            Kind::Stix { .. } => self.unicode_glyph(faces, font, class, symbol),
+        }
+    }
+
+    /// Whether this set's display font (`DejaVu` Sans or Serif Display,
+    /// which holds the big operators) has a glyph for `code`.
+    fn has_display_glyph(&self, faces: &mut FaceCache<'_>, code: u32) -> Result<bool, GlyphError> {
+        match self.font(FontName::Ex) {
+            Some(display) => Ok(faces.char_index(display, code)?.0 != 0),
+            None => Ok(false),
         }
     }
 
@@ -393,10 +419,27 @@ impl GlyphSet {
         }
         let code =
             unicode_index(symbol).ok_or_else(|| GlyphError::UnknownSymbol(symbol.to_owned()))?;
-        if let Some(display) = self.font(FontName::Ex)
-            && faces.char_index(display, code)?.0 != 0
-        {
+        if self.has_display_glyph(faces, code)? {
             return self.unicode_glyph(faces, FontName::Ex, class, symbol);
+        }
+        self.unicode_glyph(faces, font, class, symbol)
+    }
+
+    /// The custom fontset's glyph: with `DejaVu` symbols, the big operators
+    /// come from them as in the `DejaVu` fontsets; everything else as
+    /// matplotlib's `UnicodeFonts` picks it.
+    fn custom_glyph(
+        &self,
+        faces: &mut FaceCache<'_>,
+        font: FontName,
+        class: FontName,
+        symbol: &str,
+    ) -> Result<Glyph, GlyphError> {
+        if let Some(symbols) = &self.symbols
+            && let Some(code) = unicode_index(symbol)
+            && symbols.has_display_glyph(faces, code)?
+        {
+            return symbols.glyph(faces, font, class, symbol);
         }
         self.unicode_glyph(faces, font, class, symbol)
     }
@@ -441,13 +484,14 @@ impl GlyphSet {
             }
         }
         let regular = matches!(font, FontName::It | FontName::Regular | FontName::Normal);
-        if let Some(fallback) = &self.fallback {
-            let font = if regular && fallback.is_stix() {
+        // The `DejaVu` symbols of a custom set come before its fallback.
+        if let Some(next) = self.symbols.as_ref().or(self.fallback.as_ref()) {
+            let font = if regular && next.is_stix() {
                 FontName::Rm
             } else {
                 font
             };
-            return fallback.glyph(faces, font, class, symbol);
+            return next.glyph(faces, font, class, symbol);
         }
         if regular && self.is_stix() {
             return self.glyph(faces, FontName::Rm, class, symbol);

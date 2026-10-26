@@ -186,6 +186,12 @@ pub struct MathStyle {
     pub fallback: Option<MathFallback>,
     /// The fonts of [`Fontset::Custom`].
     pub custom: CustomFonts,
+    /// Whether [`Fontset::Custom`] takes its symbols from `DejaVu` Sans as
+    /// [`Fontset::DejaVuSans`] does: big operators from `DejaVu` Sans
+    /// Display, and the symbols its fonts lack from `DejaVu` Sans before
+    /// the fallback (plt-rs' `plt.mathtext.dejavu_symbols`; matplotlib
+    /// has no such setting).
+    pub dejavu_symbols: bool,
     /// The text font: used for text outside `$...$` and for `\mathdefault`;
     /// its size is the size of the math. Its generic families also resolve
     /// the custom fontset's patterns.
@@ -204,6 +210,7 @@ impl Default for MathStyle {
             default: MathFont::default(),
             fallback: Some(MathFallback::default()),
             custom: CustomFonts::default(),
+            dejavu_symbols: false,
             font: FontRequest::new(FontQuery::default()),
             pattern_defaults: PatternDefaults::default(),
             dpi: 72.0,
@@ -301,6 +308,7 @@ mod tests {
         assert_eq!(style.fontset, Fontset::Cm);
         assert_eq!(style.default, MathFont::Normal);
         assert_eq!(style.fallback, Some(MathFallback::Cm));
+        assert!(!style.dejavu_symbols);
         assert_eq!((style.font.query.size, style.dpi), (12.0, 100.0));
         assert_eq!(style.custom.cal, "cursive");
     }

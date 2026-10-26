@@ -82,7 +82,8 @@ impl Default for InsetOptions {
 /// anchor box) anchored in `parent` as `options` say (matplotlib's
 /// `inset_locator.inset_axes`). Unlike [`Axes::inset_axes`], the inset is
 /// an axes of the figure, placed anew at every layout pass, with
-/// navigation off.
+/// navigation off. Like it, it has all four spines under
+/// `plt.inset.frame`.
 ///
 /// ```
 /// use plt::axes_grid1::{InsetOptions, SizeSpec, inset_axes};
@@ -137,6 +138,7 @@ fn add_inset(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> Axes
     };
     let inset = make_axes(figure, frame, position, None);
     inset.set_navigate(false);
+    inset.frame_inset();
     register(&inset, locator);
     inset
 }

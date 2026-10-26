@@ -97,9 +97,7 @@ fn take_over_axes(ax: &Axes) {
     ax.set_xticks(Vec::<f64>::new());
     ax.set_yticks(Vec::<f64>::new());
     if crate::rc::params().plt_widgets_frame {
-        for spine in ax.spines().iter() {
-            spine.set_visible(true);
-        }
+        ax.spines().set_visible(true);
     }
 }
 

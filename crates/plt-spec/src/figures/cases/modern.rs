@@ -58,6 +58,9 @@ pub(crate) const CASES: &[FigureCase] = &[
     case("modern/dark_contour", "plt-modern-dark", dark_contour),
     case("modern/dark_bars", "plt-modern-dark", dark_bars),
     case("modern/table", "plt-modern", table),
+    case("modern/math", "plt-modern", math),
+    case("modern/inset", "plt-modern", inset),
+    case("modern/dark_twin", "plt-modern-dark", dark_twin),
 ];
 
 /// `X = np.linspace(0, 10, 200)`.
@@ -403,5 +406,91 @@ fn table(fig: &Figure) -> CaseResult {
     ax.set_ylabel("units (thousands)");
     ax.set_title("Sales by region");
     ax.legend(LegendOptions::default())?;
+    Ok(())
+}
+
+/// Partial sums of ζ(p): display-size sums and integrals, and `∈` from
+/// `DejaVu` Sans, as `plt.mathtext.dejavu_symbols` draws them.
+fn math(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let n: Vec<f64> = (1..=20).map(f64::from).collect();
+    for p in 2..8 {
+        let partial: Vec<f64> = (1..=20_u32)
+            .scan(0.0, |sum, k| {
+                *sum += 1.0 / f64::from(k.pow(p));
+                Some(*sum)
+            })
+            .collect();
+        let props = LineProps::fmt("o-")?
+            .markersize(3.0)
+            .label(format!("$p = {p}$"));
+        ax.plot_with(&n, partial, props)?;
+    }
+    ax.text(
+        6.0,
+        1.33,
+        r"$\int_n^\infty x^{-p}\,dx = \frac{n^{1-p}}{p-1}$ bounds the rest",
+    );
+    ax.set_title(r"Partial sums of $\zeta(p) = \sum_{k=1}^{\infty} k^{-p}$");
+    ax.set_xlabel("$n$").set_ylabel("partial sum");
+    ax.legend(
+        LegendOptions::default()
+            .title(r"$p \in \{2, \ldots, 7\}$")
+            .loc(AnchorLoc::UpperLeft)
+            .bbox_to_anchor((1.02, 1.0)),
+    )?;
+    Ok(())
+}
+
+/// A detail magnified in an inset, which `plt.inset.frame` frames with
+/// all four spines.
+fn inset(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let x = linspace(0.0, 10.0, 1000);
+    let y = map(&x, |x| x.sin() + 0.05 * (40.0 * x).sin());
+    ax.plot(&x, &y)?;
+    ax.set_ylim(-1.5, 2.5)?;
+    let zoom = ax.inset_axes([0.55, 0.6, 0.4, 0.35]);
+    zoom.plot(&x, &y)?;
+    zoom.set_xlim(1.2, 1.9)?.set_ylim(0.85, 1.08)?;
+    ax.indicate_inset_zoom(&zoom, PatchProps::default());
+    ax.set_title("A detail, magnified");
+    Ok(())
+}
+
+/// Monthly temperatures of `dark_twin`.
+const TEMPERATURE: [f64; 12] = [
+    1.0, 2.5, 6.0, 11.0, 16.0, 19.5, 21.0, 19.5, 16.0, 11.0, 6.0, 2.5,
+];
+
+/// Monthly rain of `dark_twin`.
+const RAIN: [f64; 12] = [
+    72.0, 81.0, 85.0, 81.0, 72.0, 60.0, 48.0, 39.0, 35.0, 39.0, 48.0, 60.0,
+];
+
+/// Two quantities on twin axes, the twin leaving the grid to its host
+/// (`plt.axes.twin_grid`), the second in the palette's sixth colour.
+fn dark_twin(fig: &Figure) -> CaseResult {
+    let ax = fig.subplot();
+    let months: Vec<f64> = (1..=12).map(f64::from).collect();
+    let warm = ax.plot_with(
+        &months,
+        TEMPERATURE,
+        LineProps::fmt("o-")?.label("temperature"),
+    )?;
+    let right = ax.twinx()?;
+    let wet = right.plot_with(
+        &months,
+        RAIN,
+        LineProps::fmt("s--")?.color("C5").label("rain"),
+    )?;
+    ax.set_xlabel("month").set_ylabel("temperature (°C)");
+    right.set_ylabel("rain (mm)");
+    ax.set_title("A year of weather");
+    ax.legend(
+        LegendOptions::default()
+            .handles([&warm, &wet])
+            .loc(AnchorLoc::UpperLeft),
+    )?;
     Ok(())
 }

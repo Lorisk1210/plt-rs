@@ -231,7 +231,8 @@ impl FigureState {
     /// Sets the view limits of axis `name` of `axes` (matplotlib's
     /// `Axis._set_lim`): validates them, marks the axis and its siblings
     /// as autoscaled, switches autoscaling to `auto` when given and, with
-    /// `emit`, applies the same limits to every sibling. The fixed limits
+    /// `emit`, applies the same limits to every sibling and queues the
+    /// limit callbacks of all of them (`xlim_changed`). The fixed limits
     /// of geographic axes, and of custom projections fixing theirs, refuse
     /// to change (matplotlib raises).
     pub(crate) fn set_axis_limits(
@@ -268,9 +269,11 @@ impl FigureState {
         }
         self.update_shared_axis(axes, name, |axis| axis.autoscale.stale = false);
         if emit {
+            self.limit_callbacks.notify(axes, name);
             for sibling in self.siblings(name, axes) {
                 if sibling != axes {
                     self.set_axis_limits(sibling, name, limits, auto, false);
+                    self.limit_callbacks.notify(sibling, name);
                 }
             }
         }

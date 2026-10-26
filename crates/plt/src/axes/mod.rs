@@ -41,6 +41,7 @@ mod hist;
 mod hist2d;
 mod image;
 mod inset;
+mod limit_callbacks;
 mod limits;
 mod lines;
 mod mesh;
@@ -118,6 +119,8 @@ pub use hexbin::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions, MAX_H
 pub use hist::{HistArtists, HistPlot, HistPlotOptions, MAX_HIST_BARS};
 pub use hist2d::{Hist2d, Hist2dOptions, MAX_HIST2D_CELLS};
 pub use image::{ImshowOptions, NonUniformOptions};
+pub use limit_callbacks::LimitsCallbackId;
+pub(crate) use limit_callbacks::{LimitCallbacks, run_limit_callbacks};
 pub use mesh::{Mesh, MeshCoords, MeshValues, Shading};
 pub use pcolor::PcolorOptions;
 pub use pcolor_rgba::RgbaMesh;
@@ -393,9 +396,11 @@ impl Axes {
         self.raw.with::<AxesState, _>(|a| a.view_lim)
     }
 
-    /// Applies pending autoscaling to the view limits.
+    /// Applies pending autoscaling to the view limits, then runs the limit
+    /// callbacks it queued.
     pub(crate) fn unstale_view(&self) {
         self.raw.figure_state().borrow_mut().unstale_axes(self.id());
+        run_limit_callbacks(self.raw.figure_state());
     }
 
     /// Sets the x scale by name ([`ScaleName::Log`], or its string

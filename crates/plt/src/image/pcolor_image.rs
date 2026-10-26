@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use plt_core::{Bbox, Point};
 use plt_render::RgbaImage;
 
-use super::make::RenderedImage;
+use super::make::{RenderedImage, autoscale_unset};
 use super::normalize::normalize_in;
 use super::shared::{axes_image_contains, draw_rendered};
 use super::{ImageData, ImageError};
@@ -32,26 +32,13 @@ pub(crate) struct PcolorImageArtist {
 impl PcolorImageArtist {
     /// An image with cell edges `x` and `y` (one more than the columns and
     /// rows of `data`); decreasing edges flip the data, as matplotlib does.
-    pub(crate) fn new(
-        data: ImageData,
-        mappable: ScalarMappable,
-        mut x: Vec<f64>,
-        mut y: Vec<f64>,
-    ) -> Self {
-        let (mut flip_x, mut flip_y) = (false, false);
-        if x.last() < x.first() {
-            x.reverse();
-            flip_x = true;
-        }
-        if y.last() < y.first() {
-            y.reverse();
-            flip_y = true;
-        }
+    pub(crate) fn new(data: ImageData, mappable: ScalarMappable, x: Vec<f64>, y: Vec<f64>) -> Self {
+        let (data, x, y) = increasing(data, x, y);
         let mut base = ArtistBase::with_zorder(0.0);
         base.mouseover = true;
         Self {
             base,
-            data: flipped(data, flip_x, flip_y),
+            data,
             mappable: RefCell::new(mappable),
             x,
             y,
@@ -291,6 +278,71 @@ impl PcolorImage {
         self.raw
             .with::<PcolorImageArtist, _>(|image| (image.x.clone(), image.y.clone()))
     }
+
+    /// Replaces the cell edges and values: one edge more than the columns
+    /// along `x` and than the rows along `y`; decreasing edges flip the
+    /// data. Unset limits of the norm come from new scalar data
+    /// (matplotlib's `PcolorImage.set_data`).
+    ///
+    /// ```
+    /// use plt::axes::{MeshCoords, PcolorFast, PcolorfastOptions};
+    /// use plt::numeric::Grid;
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let coords = (MeshCoords::Vector(vec![0.0, 1.0, 3.0]), MeshCoords::Vector(vec![0.0, 2.0]));
+    /// let values = Grid::filled(1, 2, 1.0);
+    /// let PcolorFast::PcolorImage(image) = ax.pcolorfast(Some(coords), values, PcolorfastOptions::default())? else {
+    ///     unreachable!("uneven edges make a pcolor image");
+    /// };
+    /// image.set_data(vec![3.0, 2.0, 0.0], vec![0.0, 1.0, 2.0], Grid::filled(2, 2, 5.0))?;
+    /// assert_eq!(image.edges(), (vec![0.0, 2.0, 3.0], vec![0.0, 1.0, 2.0]));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the edges do not fit the data; then the image is unchanged.
+    pub fn set_data(
+        &self,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        data: impl Into<ImageData>,
+    ) -> Result<&Self, ImageError> {
+        let data = data.into().normalized();
+        let (rows, cols) = data.shape();
+        let edges = (y.len(), x.len());
+        if edges != (rows + 1, cols + 1) {
+            return Err(ImageError::ShapeMismatch {
+                what: "cell edges",
+                expected: (rows + 1, cols + 1),
+                actual: edges,
+            });
+        }
+        let (data, x, y) = increasing(data, x, y);
+        self.raw.with_mut::<PcolorImageArtist, _>(|image| {
+            autoscale_unset(image.mappable.get_mut(), &data);
+            (image.data, image.x, image.y) = (data, x, y);
+        });
+        Ok(self)
+    }
+}
+
+/// The data and edges with the edges increasing: decreasing edges are
+/// reversed and the data flipped along them, as matplotlib does.
+fn increasing(
+    data: ImageData,
+    mut x: Vec<f64>,
+    mut y: Vec<f64>,
+) -> (ImageData, Vec<f64>, Vec<f64>) {
+    let flip_x = x.last() < x.first();
+    let flip_y = y.last() < y.first();
+    if flip_x {
+        x.reverse();
+    }
+    if flip_y {
+        y.reverse();
+    }
+    (flipped(data, flip_x, flip_y), x, y)
 }
 
 #[cfg(test)]

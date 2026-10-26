@@ -44,6 +44,10 @@
 //! | `ax.contour(X, Y, Z, zdir=, offset=)`             | [`Axes3D::contour`] with [`Contour3DOptions`]  |
 //! | `ax.bar3d`, `ax.voxels`, `ax.quiver`, `ax.stem`   | [`Axes3D::bar3d`], [`Axes3D::voxels`], [`Axes3D::quiver`], [`Axes3D::stem`] |
 //! | `ax.text(x, y, z, s)`, `ax.text2D(x, y, s)`       | [`Axes3D::text`], [`Axes3D::text2d`]           |
+//! | `line.set_data_3d(x, y, z)`, `line.get_data_3d()` | [`Axes3D::set_line_data`], [`Axes3D::line_data`] |
+//! | `scatter._offsets3d`, `scatter.get_depthshade()`  | [`Axes3D::set_scatter_offsets`], [`Axes3D::scatter_offsets`], [`Axes3D::depthshade`] |
+//! | `text3d.get_position_3d()`, `text3d.set_position_3d(p)` | [`Axes3D::text_position`], [`Axes3D::set_text_position`] |
+//! | `ax.set_title(s, loc="left")`, `ax.zaxis.get_rotate_label(s)` | [`Axes3D::set_title_at`], [`Axes3D::title_at`], [`Axes3D::rotate_label`] |
 //! | `ax.set_zlim(a, b)`, `ax.get_zlim()`              | [`Axes3D::set_zlim`], [`Axes3D::zlim`]         |
 //! | `ax.set_zlabel(s)`, `ax.set_zscale("log")`        | [`Axes3D::set_zlabel`], [`Axes3D::set_zscale`] |
 //! | `ax.get_zbound()`, `ax.zaxis_inverted()`          | [`Axes3D::bound`]`(Axis3::Z)`, [`Axes3D::inverted`]`(Axis3::Z)` |
@@ -80,6 +84,7 @@
 //! | `zoomed_inset_axes(ax, zoom)`, `mark_inset(...)`  | [`zoomed_inset_axes`], [`mark_inset`]          |
 //! | `ImageGrid(fig, 111, nrows_ncols=(2, 2), axes_pad=0.1)` | [`ImageGrid::new`] with [`GridRect`] and [`ImageGridOptions`] |
 //! | `Divider(fig, rect, horizontal, vertical)`, `Size.Fixed(1)` | [`Divider::new`], [`Size::Fixed`]        |
+//! | `divider.get_horizontal()`, `append_size("left", s)`, `get_aspect()` | [`Divider::horizontal`], [`Divider::append_size`], [`Divider::aspect`]; [`AxesDivider::divider`] for an axes divider |
 //! | `host_subplot(111)`, `host.twinx()`               | [`host_subplot`], [`HostAxes`]                 |
 //! | `AnchoredSizeBar`, `AnchoredDirectionArrows`      | [`crate::axes_grid1::anchored_artists`]        |
 //! | `fig.add_subplot(axes_class=axisartist.Axes)`     | [`axisartist::AxisArtistAxes::new`](crate::axisartist::AxisArtistAxes::new)`(fig.subplot())` |
@@ -413,3 +418,17 @@
 //! [`Sankey::finish`]: crate::sankey::Sankey::finish
 //! [`TableOptions`]: crate::table::TableOptions
 //! [`PathEffect::with_stroke`]: crate::patheffects::PathEffect::with_stroke
+//! [`Axes3D::set_line_data`]: crate::mplot3d::Axes3D::set_line_data
+//! [`Axes3D::line_data`]: crate::mplot3d::Axes3D::line_data
+//! [`Axes3D::set_scatter_offsets`]: crate::mplot3d::Axes3D::set_scatter_offsets
+//! [`Axes3D::scatter_offsets`]: crate::mplot3d::Axes3D::scatter_offsets
+//! [`Axes3D::depthshade`]: crate::mplot3d::Axes3D::depthshade
+//! [`Axes3D::text_position`]: crate::mplot3d::Axes3D::text_position
+//! [`Axes3D::set_text_position`]: crate::mplot3d::Axes3D::set_text_position
+//! [`Axes3D::set_title_at`]: crate::mplot3d::Axes3D::set_title_at
+//! [`Axes3D::title_at`]: crate::mplot3d::Axes3D::title_at
+//! [`Axes3D::rotate_label`]: crate::mplot3d::Axes3D::rotate_label
+//! [`Divider::horizontal`]: crate::axes_grid1::Divider::horizontal
+//! [`Divider::append_size`]: crate::axes_grid1::Divider::append_size
+//! [`Divider::aspect`]: crate::axes_grid1::Divider::aspect
+//! [`AxesDivider::divider`]: crate::axes_grid1::AxesDivider::divider

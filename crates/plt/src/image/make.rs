@@ -84,7 +84,22 @@ pub(crate) struct Placement {
     pub(crate) magnification: f64,
 }
 
+/// Sets the unset limits of `mappable`'s norm from `data`, when it holds
+/// scalars (matplotlib's `autoscale_None` on new image data).
+pub(crate) fn autoscale_unset(mappable: &mut ScalarMappable, data: &ImageData) {
+    if let Some(field) = data.scalars() {
+        mappable.norm_mut().autoscale_none(&field.masked_values());
+    }
+}
+
 impl ImageCore {
+    /// Replaces the image array; unset limits of the norm come from new
+    /// scalar data (matplotlib's `set_data`).
+    pub(crate) fn replace_data(&mut self, data: ImageData) {
+        autoscale_unset(self.mappable.get_mut(), &data);
+        self.data = data;
+    }
+
     /// The image of `data` made as `settings` say, with the uniform
     /// opacity, which lives on the artist; scalar data autoscale the norm's
     /// unset limits.

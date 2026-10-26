@@ -319,13 +319,7 @@ impl FigureState {
         let (fig_w, fig_h) = size;
         match divider.kind {
             DividerKind::Grid => {
-                let keep_aspect = match divider.aspect {
-                    DividerAspect::Fixed(keep) => keep,
-                    DividerAspect::OfAxes(axes) => self
-                        .store
-                        .get_as::<AxesState>(axes)
-                        .is_some_and(|state| state.aspect.ratio().is_some()),
-                };
+                let keep_aspect = self.divider_keeps_aspect(&divider);
                 grid_cell(
                     &rect,
                     &horizontal,
@@ -424,6 +418,27 @@ impl FigureState {
         self.layout.dividers.push(divider);
         self.stale = true;
         DividerId(self.layout.dividers.len() - 1)
+    }
+
+    /// The divider `id`.
+    pub(crate) fn divider(&self, id: DividerId) -> &DividerState {
+        self.layout
+            .dividers
+            .get(id.0)
+            .expect("dividers are never removed from their figure")
+    }
+
+    /// Whether `divider` keeps the proportions of its relative sizes: as
+    /// set, or, when it is left to its axes, if the axes has a fixed
+    /// aspect (matplotlib's `get_aspect`).
+    pub(crate) fn divider_keeps_aspect(&self, divider: &DividerState) -> bool {
+        match divider.aspect {
+            DividerAspect::Fixed(keep) => keep,
+            DividerAspect::OfAxes(axes) => self
+                .store
+                .get_as::<AxesState>(axes)
+                .is_some_and(|state| state.aspect.ratio().is_some()),
+        }
     }
 
     /// The divider `id`, mutably.

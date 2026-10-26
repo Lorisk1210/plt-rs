@@ -12,8 +12,9 @@ use super::divider::{DividerAspect, DividerId, DividerKind, DividerRect, Divider
 use super::size::Size;
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
-use crate::figure::Figure;
+use crate::figure::{Figure, FigureState};
 use crate::gridspec::SubplotSpec;
+use crate::spines::SpineSide;
 
 /// Why an axes cannot be placed by a divider.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -155,14 +156,52 @@ impl Divider {
         self
     }
 
+    /// The divider `id` of `figure`, for the handles sharing it.
+    pub(crate) fn from_id(figure: Figure, id: DividerId) -> Self {
+        Self { figure, id }
+    }
+
+    /// Reads the divider.
+    fn read<R>(&self, read: impl FnOnce(&FigureState, &DividerState) -> R) -> R {
+        let state = self.figure.raw().figure_state().borrow();
+        read(&state, state.divider(self.id))
+    }
+
     /// Replaces the column widths (matplotlib's `set_horizontal`).
     pub fn set_horizontal(&self, sizes: Vec<Size>) -> &Self {
         self.update(|divider| divider.horizontal = sizes)
     }
 
+    /// The column widths, left to right (matplotlib's `get_horizontal`).
+    pub fn horizontal(&self) -> Vec<Size> {
+        self.read(|_, divider| divider.horizontal.clone())
+    }
+
     /// Replaces the row heights (matplotlib's `set_vertical`).
     pub fn set_vertical(&self, sizes: Vec<Size>) -> &Self {
         self.update(|divider| divider.vertical = sizes)
+    }
+
+    /// The row heights, bottom to top (matplotlib's `get_vertical`).
+    pub fn vertical(&self) -> Vec<Size> {
+        self.read(|_, divider| divider.vertical.clone())
+    }
+
+    /// Adds `size` as a new outermost column (left, right) or row (bottom,
+    /// top) on `side`; the cells handed out before keep their place
+    /// (matplotlib's `append_size`).
+    ///
+    /// ```
+    /// use plt::axes_grid1::{Divider, Size};
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let fig = Figure::new();
+    /// let divider = Divider::new(&fig, [0.1, 0.1, 0.8, 0.8], vec![Size::Fixed(1.0)], vec![Size::Fixed(1.0)], false);
+    /// divider.append_size(SpineSide::Left, Size::Fixed(0.5));
+    /// assert_eq!(divider.horizontal(), [Size::Fixed(0.5), Size::Fixed(1.0)]);
+    /// ```
+    pub fn append_size(&self, side: SpineSide, size: Size) -> &Self {
+        self.update(|divider| divider.append_size(side, size))
     }
 
     /// Whether the relative sizes keep their proportions (matplotlib's
@@ -171,10 +210,23 @@ impl Divider {
         self.update(|divider| divider.aspect = DividerAspect::Fixed(aspect))
     }
 
+    /// Whether the relative sizes keep their proportions: as set, or for
+    /// the divider of an axes left to the axes, whether the axes has a
+    /// fixed aspect (matplotlib's `get_aspect`).
+    pub fn aspect(&self) -> bool {
+        self.read(FigureState::divider_keeps_aspect)
+    }
+
     /// Where the cells sit in the rectangle when they do not fill it
     /// (matplotlib's `set_anchor`; centred by default).
     pub fn set_anchor(&self, anchor: Anchor) -> &Self {
         self.update(|divider| divider.anchor = anchor)
+    }
+
+    /// Where the cells sit in the rectangle when they do not fill it
+    /// (matplotlib's `get_anchor`).
+    pub fn anchor(&self) -> Anchor {
+        self.read(|_, divider| divider.anchor)
     }
 
     /// The divided rectangle in fractions of the figure (matplotlib's

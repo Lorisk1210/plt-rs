@@ -67,6 +67,7 @@ impl Axes {
         let set = self.set_limits_unobserved(axis, limits)?;
         // matplotlib's `xlim_changed`/`ylim_changed` observers.
         crate::colorbar::follow_view(self);
+        super::run_limit_callbacks(self.raw.figure_state());
         Ok(set)
     }
 

@@ -413,16 +413,58 @@ impl Axes3D {
         self
     }
 
+    /// Whether the label of one axis follows the axis direction: as set
+    /// with [`set_rotate_label`](Self::set_rotate_label), else when the
+    /// label is longer than four characters (matplotlib's
+    /// `get_rotate_label` of the axis label).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// use plt::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_label(Axis3::Z, "z");
+    /// assert!(!ax.rotate_label(Axis3::Z));
+    /// ax.set_rotate_label(Axis3::Z, Some(true));
+    /// assert!(ax.rotate_label(Axis3::Z));
+    /// ```
+    pub fn rotate_label(&self, axis: Axis3) -> bool {
+        self.with(|axes| axes.axis(axis).label.rotated())
+    }
+
     /// Sets the centred title and returns it: like matplotlib's
     /// `Axes3D.set_title`, centred whatever `axes.titlelocation` says.
     pub fn set_title(&self, text: impl Into<String>) -> Text {
-        self.plane()
-            .set_title_at(crate::axes::TitleLocation::Center, text)
+        self.set_title_at(crate::axes::TitleLocation::Center, text)
+    }
+
+    /// Sets the title at `location` (left, centre or right) and returns
+    /// it (matplotlib's `Axes3D.set_title(label, loc=...)`).
+    ///
+    /// ```
+    /// use plt::axes::TitleLocation;
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let left = ax.set_title_at(TitleLocation::Left, "left");
+    /// assert_eq!(left.text(), "left");
+    /// assert_eq!(ax.title(), "", "the centred title stays empty");
+    /// ```
+    pub fn set_title_at(
+        &self,
+        location: crate::axes::TitleLocation,
+        text: impl Into<String>,
+    ) -> Text {
+        self.plane().set_title_at(location, text)
+    }
+
+    /// The title at `location`, empty when unset (matplotlib's
+    /// `get_title(loc=...)`).
+    pub fn title_at(&self, location: crate::axes::TitleLocation) -> String {
+        self.plane().title(location)
     }
 
     /// The centred title (empty when unset).
     pub fn title(&self) -> String {
-        self.plane().title(crate::axes::TitleLocation::Center)
+        self.title_at(crate::axes::TitleLocation::Center)
     }
 
     /// Sets the view angles in degrees (matplotlib's `view_init`).

@@ -378,13 +378,16 @@ impl Axes {
         let autoscale = self.raw().with::<AxesState, _>(|axes| {
             (axes.xaxis.autoscale.enabled, axes.yaxis.autoscale.enabled)
         });
-        let mut figure = self.raw().figure_state().borrow_mut();
-        if autoscale.0 {
-            figure.set_axis_limits(self.id(), AxisName::X, (left, right), None, true);
+        {
+            let mut figure = self.raw().figure_state().borrow_mut();
+            if autoscale.0 {
+                figure.set_axis_limits(self.id(), AxisName::X, (left, right), None, true);
+            }
+            if autoscale.1 {
+                figure.set_axis_limits(self.id(), AxisName::Y, (bottom, top), None, true);
+            }
         }
-        if autoscale.1 {
-            figure.set_axis_limits(self.id(), AxisName::Y, (bottom, top), None, true);
-        }
+        super::run_limit_callbacks(self.raw().figure_state());
     }
 }
 

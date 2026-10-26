@@ -1,12 +1,18 @@
 //! Adding ready-made artists to a figure (`Figure.add_artist`), and
 //! removed artists back.
 
+use std::any::Any;
 use std::rc::Rc;
 
+use super::frame::FigureFrame;
 use super::{Figure, attach};
-use crate::artist::{Artist, ArtistHandle, AttachError, Custom, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistLookup, AttachError, Custom, RawHandle};
 use crate::axes::AxesState;
+use crate::image::FigureImageArtist;
+use crate::legend::LegendArtist;
+use crate::mplot3d::Axes3DState;
 use crate::patches::{Patch, PatchArtist, PatchShape};
+use crate::text::TextArtist;
 use crate::transforms::Transform;
 
 impl Figure {
@@ -65,5 +71,51 @@ impl Figure {
             state.current_axes = Some(artist.id());
         }
         Ok(self)
+    }
+
+    /// The artists added to this figure (or subfigure) itself, in the
+    /// order they were added: patches, lines, anchored and annotation
+    /// boxes and custom artists (matplotlib's `Figure.artists`, which
+    /// `add_artist` fills). The axes, texts, legends, images and
+    /// subfigures, which have lists of their own, are not among them.
+    ///
+    /// ```
+    /// use plt::artist::ArtistHandle;
+    /// use plt::lines::LineProps;
+    /// use plt::patches::Circle;
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// fig.subplot();
+    /// fig.text(0.5, 0.5, "note");
+    /// assert!(fig.artists().is_empty());
+    /// let circle = fig.add_artist(Circle::new((0.5, 0.5), 0.1));
+    /// let line = fig.add_line(&[0.0, 1.0], &[0.0, 1.0], LineProps::default())?;
+    /// assert_eq!(fig.artists(), [circle.raw().clone(), line.raw().clone()]);
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    pub fn artists(&self) -> Vec<RawHandle> {
+        self.own_artists_where(|artist| {
+            let any = artist as &dyn Any;
+            !(any.is::<AxesState>()
+                || any.is::<Axes3DState>()
+                || any.is::<TextArtist>()
+                || any.is::<LegendArtist>()
+                || any.is::<FigureImageArtist>()
+                || any.is::<FigureFrame>())
+        })
+    }
+
+    /// Handles to the artists placed in this figure's (or subfigure's) own
+    /// frame for which `keep` holds, in the order they were added.
+    pub(crate) fn own_artists_where(&self, keep: impl Fn(&dyn Artist) -> bool) -> Vec<RawHandle> {
+        let children = self
+            .root
+            .with::<FigureFrame, _>(|frame| frame.children.clone());
+        let state = self.state.borrow();
+        children
+            .into_iter()
+            .filter(|&id| state.artist(id).is_some_and(&keep))
+            .map(|id| RawHandle::new(Rc::clone(&self.state), id))
+            .collect()
     }
 }

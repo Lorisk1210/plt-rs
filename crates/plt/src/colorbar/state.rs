@@ -279,21 +279,7 @@ fn norm_replaced(old: &dyn Norm, new: &dyn Norm) -> bool {
 /// `reset` when its norm was replaced. Problems are reported with the next
 /// draw.
 pub(crate) fn follow(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId, reset: bool) {
-    let colorbars: Vec<ArtistId> = {
-        let state = figure.borrow();
-        state
-            .store
-            .ids()
-            .filter(|&id| {
-                state
-                    .store
-                    .get_as::<ColorbarArtist>(id)
-                    .and_then(|colorbar| colorbar.state.link)
-                    .is_some_and(|link| link.id() == mappable)
-            })
-            .collect()
-    };
-    for id in colorbars {
+    for id in following(figure, mappable) {
         let Some(colorbar) = Colorbar::from_raw(RawHandle::new(Rc::clone(figure), id)) else {
             continue;
         };
@@ -301,6 +287,30 @@ pub(crate) fn follow(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId, rese
             report(figure, id, &err);
         }
     }
+}
+
+/// The colorbars following `mappable`, oldest first.
+fn following(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId) -> Vec<ArtistId> {
+    let state = figure.borrow();
+    state
+        .store
+        .ids()
+        .filter(|&id| {
+            state
+                .store
+                .get_as::<ColorbarArtist>(id)
+                .and_then(|colorbar| colorbar.state.link)
+                .is_some_and(|link| link.id() == mappable)
+        })
+        .collect()
+}
+
+/// The colorbar made last for `mappable` that still follows it, if any
+/// (matplotlib's `mappable.colorbar`).
+pub(crate) fn colorbar_of(mappable: Mappable<'_>) -> Option<Colorbar> {
+    let (figure, link) = mappable.link()?;
+    let id = following(figure, link.id()).pop()?;
+    Colorbar::from_raw(RawHandle::new(Rc::clone(figure), id))
 }
 
 /// Lets the colorbar drawn in `ax`, if any, follow a change of the view

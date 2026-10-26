@@ -8,7 +8,7 @@ use plt_render::{ClipPath, Renderer};
 use super::CanvasState;
 use super::frame::FigureFrame;
 use crate::artist::{Artist, ArtistId, ArtistStore, DetachedArtists, DrawContext, DrawError};
-use crate::axes::{AxesState, ShareGroups};
+use crate::axes::{AxesState, LimitCallbacks, ShareGroups};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
@@ -48,6 +48,8 @@ pub(crate) struct FigureState {
     /// The axes `gca` returns: the last added or made current
     /// (matplotlib's `_axstack` order).
     pub(crate) current_axes: Option<ArtistId>,
+    /// The callbacks of axes limit changes (`Axes::on_limits_changed`).
+    pub(crate) limit_callbacks: LimitCallbacks,
     /// The callbacks connected with `Figure::connect`.
     pub(crate) callbacks: CallbackRegistry,
     /// The timers added with `Figure::add_timer`.
@@ -157,6 +159,7 @@ impl FigureState {
             shared: ShareGroups::default(),
             layout: LayoutState::from_rc(&rc),
             current_axes: None,
+            limit_callbacks: LimitCallbacks::default(),
             callbacks: CallbackRegistry::default(),
             timers: TimerRegistry::default(),
             mouse_grabber: None,

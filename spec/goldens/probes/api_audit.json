@@ -1,0 +1,63 @@
+{
+ "area": "api_audit",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "Axes.callbacks", "args": {"scenario": "chain"}, "value": [[0, 1], [[1.0, 2.0]]]},
+  {"op": "Axes.callbacks", "args": {"scenario": "clear"}, "value": [[0, 0], [], []]},
+  {"op": "Axes.callbacks", "args": {"scenario": "disconnect"}, "value": [[0, 1], [], [[0.0, 2.0]]]},
+  {"op": "Axes.callbacks", "args": {"scenario": "draw"}, "value": [[1, 1], [[-0.05, 1.05]], [[-0.2, 4.2]]]},
+  {"op": "Axes.callbacks", "args": {"scenario": "invert"}, "value": [[0, 1], [], [[1.0, 0.0]]]},
+  {"op": "Axes.callbacks", "args": {"scenario": "read"}, "value": [[0, 0], [1, 1], [[-0.2, 4.2]]]},
+  {"op": "Axes.callbacks", "args": {"scenario": "set_xbound"}, "value": [[1, 0], [[1.0, 3.0]], []]},
+  {"op": "Axes.callbacks", "args": {"scenario": "set_xlim"}, "value": [[1, 0], [[0.0, 2.0]], []]},
+  {"op": "Axes.callbacks", "args": {"scenario": "shared"}, "value": [[1, 0], [1, 0], [[0.0, 3.0]]]},
+  {"op": "Axes.has_data", "args": {"artist": "image"}, "value": true},
+  {"op": "Axes.has_data", "args": {"artist": "line"}, "value": true},
+  {"op": "Axes.has_data", "args": {"artist": "none"}, "value": false},
+  {"op": "Axes.has_data", "args": {"artist": "patch"}, "value": true},
+  {"op": "Axes.has_data", "args": {"artist": "removed"}, "value": false},
+  {"op": "Axes.has_data", "args": {"artist": "scatter"}, "value": true},
+  {"op": "Axes.has_data", "args": {"artist": "table"}, "value": false},
+  {"op": "Axes.has_data", "args": {"artist": "text"}, "value": false},
+  {
+   "op": "Axes.set_subplotspec",
+   "args": {"to": [0, 1]},
+   "value": [[0.5477272727272726, 0.53, 0.3522727272727273, 0.35], [0.5477272727272726, 0.53, 0.3522727272727273, 0.35]]
+  },
+  {
+   "op": "Axes.set_subplotspec",
+   "args": {"to": [1, 1]},
+   "value": [[0.5477272727272726, 0.10999999999999999, 0.3522727272727273, 0.35000000000000003], [0.5477272727272726, 0.10999999999999999, 0.3522727272727273, 0.35000000000000003]]
+  },
+  {"op": "Axes3D.set_title", "args": {"loc": "center"}, "value": ["", "t", ""]},
+  {"op": "Axes3D.set_title", "args": {"loc": "left"}, "value": ["t", "", ""]},
+  {"op": "Axes3D.set_title", "args": {"loc": "right"}, "value": ["", "", "t"]},
+  {"op": "Axis3D.get_rotate_label", "args": {"label": "label", "rotate": false}, "value": false},
+  {"op": "Axis3D.get_rotate_label", "args": {"label": "label", "rotate": null}, "value": true},
+  {"op": "Axis3D.get_rotate_label", "args": {"label": "label", "rotate": true}, "value": true},
+  {"op": "Axis3D.get_rotate_label", "args": {"label": "z", "rotate": false}, "value": false},
+  {"op": "Axis3D.get_rotate_label", "args": {"label": "z", "rotate": null}, "value": false},
+  {"op": "Axis3D.get_rotate_label", "args": {"label": "z", "rotate": true}, "value": true},
+  {"op": "Collection.set_paths", "args": {"verts": [[[1, 1], [2, 2], [3, 1]]]}, "value": [[[1.0, 1.0], [2.0, 2.0], [3.0, 1.0]]]},
+  {"op": "Colorbar.solids", "args": {"hatched": false}, "value": [true, 0]},
+  {"op": "Colorbar.solids", "args": {"hatched": true}, "value": [false, 2]},
+  {"op": "Divider", "args": {}, "value": [2, 2, false, false, true]},
+  {"op": "Figure.artists", "args": {}, "value": [2, 1, 1, 1]},
+  {"op": "FigureImage.get_extent", "args": {"xo": 10, "yo": 20, "rows": 2, "cols": 3}, "value": [[9.5, 12.5, 19.5, 21.5], [3, 4]]},
+  {
+   "op": "Line3D.set_data_3d",
+   "args": {"x": [1, 2, 3], "y": [0, 0, 0], "z": [3, 2, 1]},
+   "value": [[[1.0, 2.0, 3.0], [0.0, 0.0, 0.0], [3.0, 2.0, 1.0]], [-0.07291666666666667, 1.0729166666666667], [-0.07291666666666667, 1.0729166666666667]]
+  },
+  {"op": "NonUniformImage.set_data", "args": {"x": [0.1, 1, 4], "y": [0, 2.3]}, "value": [0.10000000149011612, 4.0, 0.0, 2.299999952316284]},
+  {
+   "op": "PolyCollection.set_verts",
+   "args": {"verts": [[[0, 0], [2, 0], [2, 2]], [[1, 1], [3, 1], [3, 3], [1, 3]]]},
+   "value": [[[[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 0.0]], [1, 2, 2, 79]], [[[1.0, 1.0], [3.0, 1.0], [3.0, 3.0], [1.0, 3.0], [1.0, 1.0]], [1, 2, 2, 2, 79]]]
+  },
+  {"op": "ScalarMappable.colorbar", "args": {}, "value": [true, true, true]},
+  {"op": "Text3D.get_position_3d", "args": {"x": 1, "y": 2, "z": 3}, "value": [1.0, 2.0, 3.0]},
+  {"op": "YAxis.set_offset_position", "args": {"side": "left"}, "value": [0.0, 37.875]},
+  {"op": "YAxis.set_offset_position", "args": {"side": "right"}, "value": [272.125, 310.0]}
+ ]
+}

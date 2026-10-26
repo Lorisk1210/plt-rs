@@ -88,6 +88,7 @@ mod stem;
 mod surface;
 mod test_data;
 mod trisurf;
+mod update;
 mod voxels;
 
 pub(crate) use state::Axes3DState;

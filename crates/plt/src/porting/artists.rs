@@ -70,6 +70,7 @@
 //! | `ax.add_collection(c)`                         | [`Axes::add_collection`]                        |
 //! | `coll.set_array(values)`, `coll.set_offsets(xy)` | [`Collection::set_array`], [`Collection::set_offsets`] |
 //! | `coll.set_array(None)`, `coll.get_segments()`  | [`Collection::clear_array`], [`Collection::segments`] |
+//! | `coll.set_paths(paths)`, `polys.set_verts(verts)` | [`Collection::set_paths`], [`Collection::set_verts`]  |
 //! | `coll.get_datalim(ax.transData)`               | [`Collection::datalim`]                         |
 //! | `events.set_positions(p)`, `events.switch_orientation()` | [`EventCollection::set_positions`], [`EventCollection::switch_orientation`] (downcast the collection) |
 //! | `ellipses.set_widths(w)`, `ellipses.get_angles()` | [`EllipseCollection::set_widths`], [`EllipseCollection::angles`] |
@@ -282,3 +283,5 @@
 //! [`CollectionSpec::circles`]: crate::collections::CollectionSpec::circles
 //! [`CollectionSpec::regular_polygons`]: crate::collections::CollectionSpec::regular_polygons
 //! [`CollectionSpec::events`]: crate::collections::CollectionSpec::events
+//! [`Collection::set_paths`]: crate::collections::Collection::set_paths
+//! [`Collection::set_verts`]: crate::collections::Collection::set_verts

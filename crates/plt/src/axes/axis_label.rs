@@ -351,6 +351,36 @@ impl Axis {
             .flatten()
     }
 
+    /// The side the offset (or scale) text sits on: the side of the ticks
+    /// for x (matplotlib's `offset_text_position`), left or right of the
+    /// top end for y.
+    pub fn offset_position(&self) -> SpineSide {
+        self.read(|axis| axis.offset_side)
+    }
+
+    /// Puts the offset (or scale) text on `side` (matplotlib's
+    /// `YAxis.set_offset_position`); moving the ticks to one side later
+    /// takes it along.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// use plt::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// ax.yaxis().set_offset_position(SpineSide::Right)?;
+    /// assert_eq!(ax.yaxis().offset_position(), SpineSide::Right);
+    /// assert!(ax.yaxis().set_offset_position(SpineSide::Top).is_err());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `side` is not a side of this axis (e.g. `Top` for y).
+    pub fn set_offset_position(&self, side: SpineSide) -> Result<&Self, PlotError> {
+        self.check_side(side)?;
+        self.update(|axis| axis.offset_side = side);
+        Ok(self)
+    }
+
     /// Sets the font size of the axis label.
     pub fn set_label_fontsize(&self, size: FontSize) -> &Self {
         let base = crate::rc::params().font_size;

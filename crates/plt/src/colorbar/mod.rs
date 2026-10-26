@@ -52,7 +52,7 @@ pub use options::{
     ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks, ExtendFrac, ParentAnchor, Spacing,
 };
 pub(crate) use remove::release;
-pub(crate) use state::{follow, follow_view};
+pub(crate) use state::{colorbar_of, follow, follow_view};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -61,6 +61,7 @@ use plt_core::{Bbox, Path};
 
 use crate::artist::{ArtistHandle, ArtistId, ArtistStore, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState, Axis, AxisName, GridOptions, LabelLoc, TickLevel};
+use crate::collections::Collection;
 use crate::colors::{Color, Extend};
 use crate::contour::ContourSet;
 use crate::figure::{Figure, FigureState};
@@ -270,6 +271,37 @@ impl Colorbar {
     pub fn outline(&self) -> Patch<PathShape> {
         let id = self.read(|state| state.drawn.outline);
         Patch::from_raw(self.handle(id.expect("a colorbar is drawn with its outline")))
+    }
+
+    /// The mesh of colour blocks (matplotlib's `solids`); `None` when the
+    /// blocks are the hatched patches of
+    /// [`solids_patches`](Self::solids_patches). It is replaced when the
+    /// colorbar is redrawn.
+    ///
+    /// ```
+    /// use plt::axes::ImshowOptions;
+    /// use plt::colorbar::ColorbarOptions;
+    /// use plt::numeric::Grid;
+    /// use plt::prelude::*;
+    /// let fig = Figure::new();
+    /// let image = fig.subplot().imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?;
+    /// let colorbar = fig.colorbar(&image, ColorbarOptions::default())?;
+    /// assert!(colorbar.solids().is_some() && colorbar.solids_patches().is_empty());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn solids(&self) -> Option<Collection> {
+        self.read(|state| state.drawn.solids)
+            .map(|id| Collection::from_raw(self.handle(id)))
+    }
+
+    /// The hatched patches drawn as the colour blocks of hatched contours
+    /// instead of [`solids`](Self::solids) (matplotlib's
+    /// `solids_patches`), lowest block first.
+    pub fn solids_patches(&self) -> Vec<Patch<PathShape>> {
+        self.read(|state| state.drawn.solids_patches.clone())
+            .into_iter()
+            .map(|id| Patch::from_raw(self.handle(id)))
+            .collect()
     }
 
     /// The patches filling the extensions, the one at the lower end of the

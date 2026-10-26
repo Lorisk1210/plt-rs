@@ -132,16 +132,23 @@ impl Axes {
     /// scales, tickers, grids and the property cycle start over; the
     /// position, aspect, sharing, background colour and frame are kept,
     /// and polar, geographic and custom axes stay so (a custom projection
-    /// sets the axes up again).
+    /// sets the axes up again). The limit callbacks of the axes are
+    /// disconnected; those of the axes sharing its limits see them reset.
     pub fn clear(&self) -> &Self {
         let polar = self.projection() == ProjectionKind::Polar;
         let custom = self.take_custom_projection();
-        self.raw().figure_state().borrow_mut().clear_axes(self.id());
+        let figure = self.raw().figure_state();
+        let disconnected = figure.borrow_mut().limit_callbacks.take_axes(self.id());
+        figure.borrow_mut().clear_axes(self.id());
+        // Dropped once the figure is free: a callback may own handles whose
+        // drop uses it.
+        drop(disconnected);
         if polar {
             crate::polar::PolarAxes::convert(self.clone());
         } else if let Some(projection) = custom {
             crate::projections::reinstall(self, projection);
         }
+        super::run_limit_callbacks(figure);
         self
     }
 

@@ -295,6 +295,11 @@ fn surfaces_show_a_selection() {
         "the selection tints the surface: {tinted} < {plain}"
     );
     assert_eq!(red_at(&mut ui, 90.0, 90.0), plain, "outside the selection");
+    // Tk's rubber band: no tint, a black outline under white dashes.
+    ui.set_theme(Theme::classic());
+    assert_eq!(red_at(&mut ui, 50.0, 50.0), 255);
+    assert_eq!(red_at(&mut ui, 22.0, 20.0), 255, "a dash");
+    assert_eq!(red_at(&mut ui, 25.0, 20.0), 0, "a gap");
 }
 
 #[derive(Debug, Clone, PartialEq)]

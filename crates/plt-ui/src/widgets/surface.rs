@@ -2,7 +2,6 @@
 
 use std::fmt;
 
-use plt_core::Rgba;
 use plt_platform::{Key, KeyEvent, PhysicalRect, PhysicalSize};
 use plt_raster::Pixmap;
 
@@ -10,6 +9,10 @@ use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
+
+/// Length of the dashes and gaps over the rubber band's outline, in
+/// logical pixels (Tk's).
+const RUBBER_BAND_DASH: f64 = 3.0;
 
 /// What happened to a [`Surface`].
 #[derive(Debug, Clone, PartialEq)]
@@ -149,10 +152,12 @@ impl<M: 'static> Widget<M> for Surface<M> {
                 selection.width,
                 selection.height,
             );
-            let tint = Rgba::new(theme.accent.r, theme.accent.g, theme.accent.b, 0.12);
-            cx.canvas().fill_rect(placed, tint)?;
             let width = cx.scale_factor();
-            cx.canvas().stroke_rect(placed, width, theme.accent)?;
+            let dash = RUBBER_BAND_DASH * width;
+            let canvas = cx.canvas();
+            canvas.fill_rect(placed, theme.rubber_band)?;
+            canvas.stroke_rect(placed, width, theme.rubber_band_edge)?;
+            canvas.stroke_dashed_rect(placed, width, dash, theme.rubber_band_dashes)?;
         }
         if cx.status().focus_visible() {
             let ring = theme.focus_ring_width * cx.scale_factor();

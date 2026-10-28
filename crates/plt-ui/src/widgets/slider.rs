@@ -244,7 +244,7 @@ impl<M: 'static> Widget<M> for Slider<M> {
         let shadow = Path::circle(Point::new(x, y + scale), radius);
         cx.canvas().fill_path(&shadow, theme.shadow)?;
         let thumb = Path::circle(Point::new(x, y), radius);
-        cx.canvas().fill_path(&thumb, theme.surface)?;
+        cx.canvas().fill_path(&thumb, theme.raised)?;
         let outline = if status.active || status.hot {
             theme.accent
         } else {

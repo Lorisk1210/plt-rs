@@ -33,7 +33,29 @@ pub(crate) fn paint_frame(
     cx.canvas()
         .stroke_rounded_rect(rect, radius, scale, outline)?;
     if show_focus {
-        paint_halo(cx, rect, radius)?;
+        paint_halo(cx, rect, radius, theme.focus_ring)?;
+    }
+    Ok(())
+}
+
+/// Paints the outline of a framed control in `rect` (corners rounded to
+/// `radius` pixels) whose value the application refused: a one-pixel line
+/// in the danger colour, with a halo of it outside when `focused`, in
+/// place of the focus ring.
+pub(crate) fn paint_invalid(
+    cx: &mut PaintCx<'_>,
+    rect: Rect,
+    radius: f64,
+    focused: bool,
+) -> Result<(), UiError> {
+    let theme = cx.theme();
+    let scale = cx.scale_factor();
+    let danger = theme.danger;
+    cx.canvas()
+        .stroke_rounded_rect(rect, radius, scale, danger)?;
+    if focused {
+        let halo = Rgba::new(danger.r, danger.g, danger.b, theme.focus_ring.a);
+        paint_halo(cx, rect, radius, halo)?;
     }
     Ok(())
 }
@@ -53,13 +75,13 @@ pub(crate) fn paint_focus_ring(
     let scale = cx.scale_factor();
     cx.canvas()
         .stroke_rounded_rect(rect, radius, scale, theme.accent)?;
-    paint_halo(cx, rect, radius)
+    paint_halo(cx, rect, radius, theme.focus_ring)
 }
 
-/// Paints the translucent halo of the focus ring just outside `rect`.
-fn paint_halo(cx: &mut PaintCx<'_>, rect: Rect, radius: f64) -> Result<(), UiError> {
-    let theme = cx.theme();
-    let width = theme.focus_ring_width * cx.scale_factor();
+/// Paints a translucent halo of `color`, as wide as the focus ring, just
+/// outside `rect`.
+fn paint_halo(cx: &mut PaintCx<'_>, rect: Rect, radius: f64, color: Rgba) -> Result<(), UiError> {
+    let width = cx.theme().focus_ring_width * cx.scale_factor();
     cx.canvas()
-        .stroke_rounded_rect(rect.inset(-width), radius + width, width, theme.focus_ring)
+        .stroke_rounded_rect(rect.inset(-width), radius + width, width, color)
 }

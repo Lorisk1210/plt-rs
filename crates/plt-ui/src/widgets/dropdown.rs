@@ -340,7 +340,7 @@ impl<M: 'static> Widget<M> for Dropdown<M> {
                     .fill_rounded_rect(row, radius - scale, theme.selection)?;
             }
             let color = if index == self.chosen {
-                theme.accent
+                theme.accent_text
             } else {
                 theme.text
             };

@@ -273,6 +273,8 @@ impl SaveDialog {
             }
             DialogMessage::NameChanged(name) => {
                 self.replacing = None;
+                // A problem with the name before goes with the edit.
+                self.set_status(cx, String::new())?;
                 if let Some(format) = format_of(&name) {
                     self.format = format;
                     self.window.update(
@@ -367,6 +369,11 @@ impl SaveDialog {
     fn save(&mut self, cx: &mut Context<'_>) -> Result<Outcome, GuiError> {
         let name = self.name.trim();
         if name.is_empty() {
+            self.window.update(
+                cx,
+                self.widgets.name,
+                |input: &mut TextInput<DialogMessage>| input.set_invalid(true),
+            )?;
             self.set_status(cx, "Type a file name".to_owned())?;
             return Ok(Outcome::Open);
         }
@@ -382,7 +389,8 @@ impl SaveDialog {
             let shown = path
                 .file_name()
                 .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-            self.set_status(cx, format!("{shown} exists: Save again to replace it"))?;
+            // What to do first: a long name gives way at the end.
+            self.set_status(cx, format!("Save again to replace the existing {shown}"))?;
             self.replacing = Some(path);
             return Ok(Outcome::Open);
         }

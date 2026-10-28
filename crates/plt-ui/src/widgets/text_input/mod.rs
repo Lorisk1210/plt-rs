@@ -10,7 +10,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_platform::{KeyEvent, MouseButton};
 
-use super::frame::paint_frame;
+use super::frame::{paint_frame, paint_invalid};
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -38,7 +38,8 @@ type TextMessage<M> = Rc<dyn Fn(String) -> M>;
 ///
 /// It sends a message whenever the text changes. Enter sends another when
 /// the field has [`on_submit`](TextInput::on_submit); otherwise it goes
-/// on to the window's default button.
+/// on to the window's default button. A field whose text the application
+/// refuses can be [marked](TextInput::set_invalid) until it is edited.
 pub struct TextInput<M> {
     editor: Editor,
     changed: TextMessage<M>,
@@ -51,6 +52,8 @@ pub struct TextInput<M> {
     padding: f64,
     /// Whether the left button went down here and is held.
     selecting: bool,
+    /// Whether the application refused the text, until it is edited.
+    invalid: bool,
 }
 
 impl<M> fmt::Debug for TextInput<M> {
@@ -72,7 +75,19 @@ impl<M> TextInput<M> {
             layout: None,
             padding: 0.0,
             selecting: false,
+            invalid: false,
         }
+    }
+
+    /// Marks the text as refused, outlining the field in the danger
+    /// colour until the user edits it, or clears the mark.
+    pub fn set_invalid(&mut self, invalid: bool) {
+        self.invalid = invalid;
+    }
+
+    /// Whether the text is marked as refused.
+    pub fn invalid(&self) -> bool {
+        self.invalid
     }
 
     /// Also sends `submitted(text)` when Enter is pressed (which then
@@ -233,6 +248,7 @@ impl<M: 'static> TextInput<M> {
             Outcome::Ignored => return,
             Outcome::Moved => cx.request_paint(),
             Outcome::Changed => {
+                self.invalid = false;
                 cx.emit((self.changed)(self.text().to_owned()));
                 // The text is laid out again before the caret is placed.
                 cx.request_layout();
@@ -280,7 +296,10 @@ impl<M: 'static> Widget<M> for TextInput<M> {
         let scale = cx.scale_factor();
         let focused = cx.status().focused();
         let radius = theme.corner_radius * scale;
-        paint_frame(cx, rect, radius, theme.surface, focused)?;
+        paint_frame(cx, rect, radius, theme.surface, focused && !self.invalid)?;
+        if self.invalid {
+            paint_invalid(cx, rect, radius, focused)?;
+        }
         let Some((layout, _, _)) = &self.layout else {
             return Ok(());
         };

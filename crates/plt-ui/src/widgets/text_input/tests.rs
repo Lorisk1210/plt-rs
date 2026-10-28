@@ -226,3 +226,20 @@ fn clicks_in_long_text_take_few_layouts() {
     let caret = input(&mut ui).editor.caret();
     assert!(caret > 0 && caret < 50_000, "caret at {caret}");
 }
+
+#[test]
+fn a_refused_text_is_marked_until_edited() {
+    let mut ui = field("ten", false);
+    input(&mut ui).set_invalid(true);
+    let pixels = |ui: &mut Ui<Report>| ui.paint().unwrap().pixels().to_vec();
+    let marked = pixels(&mut ui);
+    // The outline on the left edge turns from the accent's blue to the
+    // danger's red.
+    let edge = &marked[14 * 300 * 4..14 * 300 * 4 + 4];
+    assert!(edge[0] > edge[2], "red: {edge:?}");
+    ui.handle(&key(Key::Left, None, Modifiers::NONE)).unwrap();
+    assert!(input(&mut ui).invalid(), "moving the caret keeps the mark");
+    typed(&mut ui, "s");
+    assert!(!input(&mut ui).invalid(), "editing clears it");
+    assert_ne!(pixels(&mut ui), marked);
+}

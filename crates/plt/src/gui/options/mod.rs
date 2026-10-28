@@ -7,7 +7,7 @@ mod axes_page;
 mod fields;
 
 use plt_platform::{Context, WindowEvent, WindowId};
-use plt_ui::{Dropdown, Flex, Label, Spacing, Stack, Swatch, UiWindow, WidgetId};
+use plt_ui::{Dropdown, Flex, Label, Spacing, Stack, Swatch, TextInput, UiWindow, WidgetId};
 
 use self::axes_page::AxesPage;
 use super::GuiError;
@@ -216,16 +216,21 @@ impl OptionsDialog {
         Ok(outcome)
     }
 
-    /// Reads every page and applies them all, or shows the first problem
-    /// and changes nothing.
+    /// Reads every page and applies them all, or shows the first problem,
+    /// marks its field and changes nothing.
     fn apply(&mut self, cx: &mut Context<'_>, close: bool) -> Result<Outcome, GuiError> {
         let mut plans = Vec::with_capacity(self.pages.len());
         for page in &self.pages {
             match page.read(&mut self.window) {
                 Ok(plan) => plans.push(plan),
                 Err(problem) => {
+                    self.window.update(
+                        cx,
+                        problem.field,
+                        |field: &mut TextInput<OptionsMessage>| field.set_invalid(true),
+                    )?;
                     self.window.update(cx, self.status, |label: &mut Label| {
-                        label.set_text(problem.0);
+                        label.set_text(problem.message);
                     })?;
                     return Ok(Outcome::Open);
                 }

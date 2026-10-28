@@ -5,6 +5,7 @@ use plt_core::Rgba;
 use plt_ui::{Choice, Flex, Label, Spacing, Swatch, TextInput, UiWindow, Widget, WidgetId};
 
 use super::OptionsMessage;
+use crate::dates::{TimeZone, datestr2num, num2date};
 use crate::markers::{Marker, MarkerKey, MarkerSymbol};
 use crate::ticker::{g_sig_digits, pyfmt};
 
@@ -97,7 +98,12 @@ pub(super) fn swatch_color(text: &str) -> Option<Rgba> {
 
 /// Why the form's values cannot be applied: the field and the problem.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct FieldError(pub(super) String);
+pub(super) struct FieldError {
+    /// The text field holding the value refused.
+    pub(super) field: WidgetId,
+    /// What is wrong, naming the field.
+    pub(super) message: String,
+}
 
 /// The text of text field `id`.
 pub(super) fn text_of(window: &mut UiWindow<OptionsMessage>, id: WidgetId) -> String {
@@ -105,6 +111,16 @@ pub(super) fn text_of(window: &mut UiWindow<OptionsMessage>, id: WidgetId) -> St
         .ui_mut()
         .widget_mut::<TextInput<OptionsMessage>>(id)
         .map_or_else(String::new, |input| input.text().to_owned())
+}
+
+/// The value of text field `id` as `parse` reads its text, or what is
+/// wrong with it.
+pub(super) fn read_field<T>(
+    window: &mut UiWindow<OptionsMessage>,
+    id: WidgetId,
+    parse: impl FnOnce(&str) -> Result<T, String>,
+) -> Result<T, FieldError> {
+    parse(&text_of(window, id)).map_err(|message| FieldError { field: id, message })
 }
 
 /// The chosen segment of choice `id`.
@@ -138,31 +154,47 @@ pub(super) fn limit_text(x: f64, resolution: Option<f64>) -> String {
 }
 
 /// The number typed into the field called `name`.
-pub(super) fn parse_number(name: &str, text: &str) -> Result<f64, FieldError> {
+pub(super) fn parse_number(name: &str, text: &str) -> Result<f64, String> {
     text.trim()
         .parse::<f64>()
-        .map_err(|_| FieldError(format!("{name}: {text:?} is not a number")))
+        .map_err(|_| format!("{name}: {text:?} is not a number"))
 }
 
 /// The axis limit typed into the field called `name`: a finite number.
-pub(super) fn parse_limit(name: &str, text: &str) -> Result<f64, FieldError> {
+pub(super) fn parse_limit(name: &str, text: &str) -> Result<f64, String> {
     let limit = parse_number(name, text)?;
     if limit.is_finite() {
         Ok(limit)
     } else {
-        Err(FieldError(format!(
-            "{name}: {text:?} is not a finite number"
-        )))
+        Err(format!("{name}: {text:?} is not a finite number"))
     }
 }
 
+/// How limits on axes of dates show: the date and time in UTC, to the
+/// second.
+const DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+
+/// Date number `x` as a date in [`DATE_FORMAT`], if it is a date.
+pub(super) fn date_text(x: f64) -> Option<String> {
+    num2date(x, &TimeZone::Utc)
+        .ok()
+        .map(|date| date.strftime(DATE_FORMAT))
+}
+
+/// The date typed into the field called `name`, as a date number: ISO
+/// 8601 (the time may be left out), in UTC unless it gives an offset.
+pub(super) fn parse_date(name: &str, text: &str) -> Result<f64, String> {
+    datestr2num(text.trim())
+        .map_err(|_| format!("{name}: {text:?} is not a date (YYYY-MM-DD HH:MM:SS)"))
+}
+
 /// The colour typed into the field called `name`.
-pub(super) fn parse_color(name: &str, text: &str) -> Result<crate::colors::Color, FieldError> {
+pub(super) fn parse_color(name: &str, text: &str) -> Result<crate::colors::Color, String> {
     let color = crate::colors::Color::from(text.trim());
     color
         .resolve()
         .map(|_| color)
-        .map_err(|_| FieldError(format!("{name}: {text:?} is not a colour")))
+        .map_err(|_| format!("{name}: {text:?} is not a colour"))
 }
 
 /// matplotlib's code for `marker` (`"o"`, `"None"`, `"$x$"`, ...), or an
@@ -185,9 +217,9 @@ pub(super) fn marker_text(marker: &Marker) -> String {
 
 /// The marker typed into the field called `name`: a code, an integer code
 /// or mathtext.
-pub(super) fn parse_marker(name: &str, text: &str) -> Result<Marker, FieldError> {
+pub(super) fn parse_marker(name: &str, text: &str) -> Result<Marker, String> {
     let text = text.trim();
-    let invalid = || FieldError(format!("{name}: {text:?} is not a marker"));
+    let invalid = || format!("{name}: {text:?} is not a marker");
     match text.parse::<i64>() {
         Ok(code) => MarkerSymbol::from_code(code)
             .map(Marker::Symbol)
@@ -237,6 +269,18 @@ mod tests {
             Ok(Marker::Symbol(MarkerSymbol::Square))
         );
         assert!(parse_marker("Style", "??").is_err());
+    }
+
+    #[test]
+    fn dates_show_and_read_back_in_utc() {
+        assert_eq!(date_text(18_262.5).as_deref(), Some("2020-01-01 12:00:00"));
+        assert_eq!(parse_date("Min", " 2020-01-01 12:00:00 "), Ok(18_262.5));
+        assert_eq!(parse_date("Min", "2020-01-01"), Ok(18_262.0));
+        assert_eq!(
+            parse_date("X min", "soon"),
+            Err("X min: \"soon\" is not a date (YYYY-MM-DD HH:MM:SS)".to_owned())
+        );
+        assert_eq!(date_text(f64::NAN), None);
     }
 
     #[test]

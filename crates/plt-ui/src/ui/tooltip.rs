@@ -154,6 +154,7 @@ pub(super) fn paint(
     let shadow = Rect::new(bubble.x, bubble.y + scale, bubble.width, bubble.height);
     canvas.fill_rounded_rect(shadow.inset(-scale), radius + scale, theme.shadow)?;
     canvas.fill_rounded_rect(bubble, radius, theme.tooltip)?;
+    canvas.stroke_rounded_rect(bubble, radius, scale, theme.tooltip_border)?;
     let origin = Point::new(bubble.x + padding.width, bubble.y + padding.height);
     canvas.draw_text(&layout, origin, theme.tooltip_text)
 }

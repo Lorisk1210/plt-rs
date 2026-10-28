@@ -2,7 +2,8 @@
 
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_raster::{
-    Antialias, Clip, ClipBox, FillRule, LineCap, LineJoin, Painter, Pixmap, StrokeStyle, draw_image,
+    Antialias, Clip, ClipBox, DashPattern, FillRule, LineCap, LineJoin, Painter, Pixmap,
+    StrokeStyle, draw_image,
 };
 use plt_text::TextEngine;
 
@@ -120,6 +121,32 @@ impl<'a> Canvas<'a> {
 
     /// Strokes the outline of a rectangle, keeping the line inside it.
     pub fn stroke_rect(&mut self, rect: Rect, width: f64, color: Rgba) -> Result<(), UiError> {
+        self.stroke_outline(rect, width, &StrokeStyle::new(width), color)
+    }
+
+    /// Strokes the outline of a rectangle in dashes and gaps `dash` pixels
+    /// long, keeping the line inside it.
+    pub fn stroke_dashed_rect(
+        &mut self,
+        rect: Rect,
+        width: f64,
+        dash: f64,
+        color: Rgba,
+    ) -> Result<(), UiError> {
+        let dashes = DashPattern::new(vec![(dash, dash)], 0.0)?;
+        let style = StrokeStyle::new(width).with_dashes(Some(dashes));
+        self.stroke_outline(rect, width, &style, color)
+    }
+
+    /// Strokes the outline of a rectangle with a line `width` pixels wide
+    /// in `style`, kept inside it.
+    fn stroke_outline(
+        &mut self,
+        rect: Rect,
+        width: f64,
+        style: &StrokeStyle,
+        color: Rgba,
+    ) -> Result<(), UiError> {
         let inner = rect.inset(width / 2.0);
         let corners = [
             Point::new(inner.x, inner.y),
@@ -128,12 +155,11 @@ impl<'a> Canvas<'a> {
             Point::new(inner.x, inner.max_y()),
         ];
         let clip = Clip::rect(self.clip_box());
-        let style = StrokeStyle::new(width);
         self.painter.stroke_path(
             self.target,
-            &Path::closed(corners.to_vec()),
+            &Path::polygon(corners),
             color,
-            &style,
+            style,
             Antialias::On,
             &clip,
         )?;
@@ -296,6 +322,21 @@ mod tests {
         assert_eq!(edge, pixel(&target, 0, 10), "the line is even");
         assert!(edge[1] > 100 && edge[1] < 160, "half covered: {edge:?}");
         assert_eq!(pixel(&target, 0, 0), [255; 4], "rounded corner");
+    }
+
+    #[test]
+    fn rectangle_outlines_have_four_sides_and_nothing_inside() {
+        let mut target = Pixmap::filled(20, 20, Rgba8::new(255, 255, 255, 255)).unwrap();
+        let mut painter = Painter::new();
+        let rect = Rect::new(2.0, 2.0, 16.0, 16.0);
+        let whole = Rect::new(0.0, 0.0, 20.0, 20.0);
+        let mut canvas = Canvas::new(&mut target, &mut painter, whole, 1.0);
+        canvas.stroke_rect(rect, 2.0, RED).unwrap();
+        for (x, y) in [(10, 2), (10, 17), (2, 10), (17, 10)] {
+            assert_eq!(pixel(&target, x, y), [255, 0, 0, 255], "side at ({x}, {y})");
+        }
+        assert_eq!(pixel(&target, 10, 10), [255; 4], "no diagonal");
+        assert_eq!(pixel(&target, 1, 1), [255; 4], "the line stays inside");
     }
 
     #[test]

@@ -7,7 +7,7 @@
 
 use plt_platform::{ButtonState, Context, Key, WindowEvent, WindowOptions};
 use plt_ui::{
-    Button, Flex, Label, Separator, Spacing, Theme, Tone, Ui, UiWindow, Widget, WidgetId,
+    Button, Flex, Label, Overflow, Separator, Spacing, Theme, Tone, Ui, UiWindow, Widget, WidgetId,
 };
 
 use super::{GuiError, icons};
@@ -35,17 +35,16 @@ pub(super) fn chrome_theme(figure: &Figure) -> Theme {
     crate::look::appearance().chrome.theme(background)
 }
 
-/// Opens a dialog of the window of `figure` at its content's natural
-/// size, in the figure's [theme](chrome_theme), with the focus on its
-/// first field.
+/// Opens a dialog of the window of `figure` in the figure's
+/// [theme](chrome_theme), at its content's natural size in that theme,
+/// with the focus on its first field.
 pub(super) fn open_fitted<M: 'static>(
     cx: &mut Context<'_>,
     figure: &Figure,
     options: &WindowOptions,
     root: impl Widget<M>,
 ) -> Result<UiWindow<M>, GuiError> {
-    let mut window = UiWindow::open_fitted(cx, options, root)?;
-    window.ui_mut().set_theme(chrome_theme(figure));
+    let mut window = UiWindow::open_fitted(cx, options, root, chrome_theme(figure))?;
     window.ui_mut().focus_first();
     Ok(window)
 }
@@ -69,16 +68,20 @@ pub(super) struct Dialog<M> {
 }
 
 impl<M: Clone + 'static> Dialog<M> {
-    /// A dialog whose footer shows problems on its left; returns the
-    /// status line's id too.
+    /// A dialog whose footer shows problems on its left, shortened with
+    /// an ellipsis where they would reach the buttons; returns the status
+    /// line's id too.
     pub(super) fn with_status() -> (Self, WidgetId) {
         let mut footer = Self::footer_row();
-        let status = footer.push(Label::new("").with_tone(Tone::Danger), 1.0);
+        let status = Label::new("")
+            .with_tone(Tone::Danger)
+            .with_overflow(Overflow::ElideEnd);
+        let status = footer.push(status, 1.0);
         (Self { footer }, status)
     }
 
     /// A dialog whose footer shows `note` on its left, in the quieter
-    /// secondary tone.
+    /// secondary tone (the dialog is made wide enough for it).
     pub(super) fn with_note(note: &str) -> Self {
         let mut footer = Self::footer_row();
         footer.push(Label::new(note).with_tone(Tone::Secondary), 1.0);

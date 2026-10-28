@@ -130,7 +130,7 @@ impl<M: 'static> Widget<M> for Choice<M> {
                 cx.canvas()
                     .fill_rounded_rect(shadow, radius - inset, theme.shadow)?;
                 cx.canvas()
-                    .fill_rounded_rect(face, radius - inset, theme.surface)?;
+                    .fill_rounded_rect(face, radius - inset, theme.raised)?;
             } else if hot == Some(index) {
                 cx.canvas()
                     .fill_rounded_rect(face, radius - inset, theme.hover)?;

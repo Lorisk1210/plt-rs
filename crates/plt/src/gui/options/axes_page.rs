@@ -8,10 +8,13 @@ use super::artists::{
     CurveFields, CurvePlan, ImageFields, ImagePlan, apply_curve, apply_image, curves_panel,
     edited_lines, images_panel, read_curve, read_image,
 };
-use super::fields::{FieldError, Form, chosen, limit_text, parse_limit, text_of};
+use super::fields::{
+    FieldError, Form, chosen, date_text, limit_text, parse_date, parse_limit, read_field, text_of,
+};
 use crate::axes::{Axes, AxisName, TitleLocation};
 use crate::legend::LegendOptions;
 use crate::scale::ScaleName;
+use crate::units::UnitConverter;
 
 /// The scales offered, as matplotlib names them.
 static SCALES: [ScaleName; 4] = [
@@ -21,7 +24,8 @@ static SCALES: [ScaleName; 4] = [
     ScaleName::Logit,
 ];
 
-/// The field of an axis limit, showing it rounded.
+/// The field of an axis limit, showing it rounded, or as a date on an
+/// axis of dates (as matplotlib's editor shows them).
 #[derive(Debug, Clone)]
 struct LimitField {
     id: WidgetId,
@@ -29,19 +33,32 @@ struct LimitField {
     value: f64,
     /// The text the field was given.
     shown: String,
+    /// Whether the limit is a date number, shown and typed as a date.
+    date: bool,
 }
 
 impl LimitField {
+    /// The text showing limit `value` on an axis with `resolution` (see
+    /// [`limit_text`]), as a date when `date`.
+    fn text(value: f64, resolution: Option<f64>, date: bool) -> String {
+        date.then(|| date_text(value))
+            .flatten()
+            .unwrap_or_else(|| limit_text(value, resolution))
+    }
+
     /// The limit typed into the field called `name`, or the exact limit
     /// it showed if the text was not edited (so that applying unedited
     /// fields changes no limit).
     fn read(&self, window: &mut UiWindow<OptionsMessage>, name: &str) -> Result<f64, FieldError> {
-        let text = text_of(window, self.id);
-        if text == self.shown {
-            Ok(self.value)
-        } else {
-            parse_limit(name, &text)
-        }
+        read_field(window, self.id, |text| {
+            if text == self.shown {
+                Ok(self.value)
+            } else if self.date {
+                parse_date(name, text)
+            } else {
+                parse_limit(name, text)
+            }
+        })
     }
 }
 
@@ -261,23 +278,26 @@ fn general_form(
     form.section("");
     let title = form.text("Title", shown_title);
     let mut axis = |name: AxisName| {
-        let (heading, (min, max), scale) = match name {
-            AxisName::X => ("X axis", axes.xlim(), axes.xscale()),
-            AxisName::Y => ("Y axis", axes.ylim(), axes.yscale()),
+        let (heading, (min, max), scale, axis) = match name {
+            AxisName::X => ("X axis", axes.xlim(), axes.xscale(), axes.xaxis()),
+            AxisName::Y => ("Y axis", axes.ylim(), axes.yscale(), axes.yaxis()),
         };
         form.section(heading);
-        let shown = |value| limit_text(value, axes.pixel_resolution(name, value));
+        let date = axis.converter() == Some(UnitConverter::Dates);
+        let shown = |value| LimitField::text(value, axes.pixel_resolution(name, value), date);
         let (min_text, max_text) = (shown(min), shown(max));
         let (min_id, max_id) = form.pair(("Min", min_text.clone()), ("Max", max_text.clone()));
         let min = LimitField {
             id: min_id,
             value: min,
             shown: min_text,
+            date,
         };
         let max = LimitField {
             id: max_id,
             value: max,
             shown: max_text,
+            date,
         };
         let label = form.text("Label", axes.label(name));
         let current = SCALES.iter().position(|s| *s == scale).unwrap_or(0);
@@ -354,10 +374,11 @@ mod tests {
         type_into(&mut window, page.title, "Edited");
         type_into(&mut window, x_max, "ten");
         let problem = page.read(&mut window).unwrap_err();
-        assert_eq!(problem.0, "X max: \"ten\" is not a number");
+        assert_eq!(problem.message, "X max: \"ten\" is not a number");
+        assert_eq!(problem.field, x_max, "the problem names its field");
         type_into(&mut window, x_max, "inf");
         let problem = page.read(&mut window).unwrap_err();
-        assert_eq!(problem.0, "X max: \"inf\" is not a finite number");
+        assert_eq!(problem.message, "X max: \"inf\" is not a finite number");
         type_into(&mut window, x_max, "10");
         type_into(&mut window, page.curves[0].width, "3");
         let plan = page.read(&mut window).unwrap();
@@ -436,5 +457,39 @@ mod tests {
             "",
             "nothing appears elsewhere"
         );
+    }
+
+    #[test]
+    fn limits_of_dates_show_and_read_as_dates() {
+        use plt_platform::{EventLoop, WindowOptions};
+        use plt_ui::TextInput;
+
+        use crate::dates::DateTime;
+
+        let ax = Figure::new().subplot();
+        let start = DateTime::new(2020, 1, 1, 0, 0, 0, 0).unwrap();
+        let end = DateTime::new(2020, 1, 3, 12, 0, 0, 0).unwrap();
+        ax.plot(&[start, end][..], &[0.0, 1.0][..]).unwrap();
+        ax.set_xlim(start, end).unwrap();
+        let (page, root) = AxesPage::build(&ax, 0);
+        let (mut event_loop, _handle) = EventLoop::headless();
+        let mut window = UiWindow::open(
+            &mut event_loop.context(),
+            &WindowOptions::new("options"),
+            root,
+        )
+        .unwrap();
+        let [x, y] = page.axis_fields.clone();
+        assert_eq!(text_of(&mut window, x.min.id), "2020-01-01 00:00:00");
+        assert_eq!(text_of(&mut window, x.max.id), "2020-01-03 12:00:00");
+        assert!(!text_of(&mut window, y.max.id).contains('-'), "numbers");
+        window
+            .ui_mut()
+            .widget_mut::<TextInput<OptionsMessage>>(x.max.id)
+            .unwrap()
+            .set_text("2020-01-05");
+        let plan = page.read(&mut window).unwrap();
+        assert!(page.apply(plan));
+        assert_eq!(ax.xlim(), (18_262.0, 18_266.0));
     }
 }

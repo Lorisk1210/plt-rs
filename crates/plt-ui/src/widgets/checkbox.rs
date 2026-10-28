@@ -106,18 +106,30 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
         let scale = cx.scale_factor();
         let status = cx.status();
         let hot = status.hot;
+        // Held down on the box or its label, until released over them.
+        let pressed = status.active && hot;
         let side = theme.checkbox_size * scale;
         let square = Rect::new(rect.x, rect.center().y - side / 2.0, side, side).snapped();
         // Slightly tighter corners than full-size controls.
         let radius = (theme.corner_radius - theme.space(Spacing::Xxs)) * scale;
         if self.checked {
-            let face = if hot { theme.accent_hot } else { theme.accent };
+            let face = if pressed {
+                theme.accent_active
+            } else if hot {
+                theme.accent_hot
+            } else {
+                theme.accent
+            };
             cx.canvas().fill_rounded_rect(square, radius, face)?;
             tick().paint(cx.canvas(), square, theme.text_on_accent)?;
         } else {
+            let face = if pressed {
+                theme.button_active
+            } else {
+                theme.surface
+            };
             let outline = if hot { theme.border_hot } else { theme.border };
-            cx.canvas()
-                .fill_rounded_rect(square, radius, theme.surface)?;
+            cx.canvas().fill_rounded_rect(square, radius, face)?;
             cx.canvas()
                 .stroke_rounded_rect(square, radius, scale, outline)?;
         }

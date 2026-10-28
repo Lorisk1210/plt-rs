@@ -149,7 +149,7 @@ impl<M: 'static> Widget<M> for Tabs<M> {
                 cx.canvas().fill_rounded_rect(wash, radius, theme.hover)?;
             }
             let color = if selected {
-                theme.accent
+                theme.accent_text
             } else if hot == Some(index) {
                 theme.text
             } else {

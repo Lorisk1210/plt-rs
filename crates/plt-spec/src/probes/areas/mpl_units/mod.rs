@@ -10,7 +10,7 @@ use plt::axes::{Axes, ErrorbarOptions};
 use plt::dates::{DateTime, Datetime64, TimeDelta, TimeZone, UtcOffset, get_epoch};
 use plt::figure::{Figure, Share};
 use plt::ticker::AxisName;
-use plt::units::UnitConverter;
+use plt::units::{DateConverter, UnitConverter};
 
 use crate::json::Json;
 use crate::probes::areas::mpl_ticker::styled;
@@ -34,10 +34,11 @@ pub(crate) const OPS: &[Op] = &[
 /// Seconds in a day.
 const SECONDS_PER_DAY: i64 = 86_400;
 
-/// The spec's name of a converter.
+/// The spec's name of a converter: either converter of dates is
+/// `"dates"`.
 fn kind(converter: Option<&UnitConverter>) -> Json {
     match converter {
-        Some(UnitConverter::Dates) => Json::from("dates"),
+        Some(UnitConverter::Dates | UnitConverter::DatesBy(_)) => Json::from("dates"),
         Some(UnitConverter::Categories) => Json::from("categories"),
         Some(UnitConverter::Custom(_)) | None => Json::Null,
     }
@@ -270,7 +271,7 @@ fn set_converter(args: Args<'_>) -> Outcome {
                 (Some("set"), Some(name)) => {
                     let converter = match name {
                         "categories" => UnitConverter::Categories,
-                        "dates" => UnitConverter::Dates,
+                        "dates" => DateConverter::Auto.into(),
                         _ => return Err(malformed("converter")),
                     };
                     recorded.push(match axis.set_converter(converter) {

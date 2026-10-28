@@ -60,15 +60,19 @@ Ops on their own
 Ops on an axes
 --------------
 ``Figure().subplots()`` in ``style.context(style)`` and ``rc_context(rc)``,
-set up in this order: ``converter`` (``"dates"``:
-``ax.xaxis.set_converter(DateConverter())``), ``date_first`` (``{tz}``:
-``ax.xaxis_date(tz)``, ``tz`` a zone name or ``null``), ``axhline``
-(``ax.axhline(y)``), ``plot`` (``{x, y}`` of numbers or ISO strings, or
-``{days: [start, stop]}`` for ``np.arange(start, stop,
-dtype='datetime64[D]')`` against ``0, 1, ...``, and ``{hours: [start,
-stop]}`` likewise with ``datetime64[h]``), ``replot`` (``{rc, plot}``: sets
-the rcParams ``rc`` for the rest of the op, then plots ``plot`` in the same
-forms), ``xaxis_date`` (``ax.xaxis_date()``), ``axis_date``
+set up in this order: ``converter`` (``ax.xaxis.set_converter(c)``, ``c``
+named: ``"dates"`` and ``"auto"`` for ``DateConverter()``, ``"concise"`` for
+``ConciseDateConverter()``, ``"switchable"`` for the
+``_SwitchableDateConverter`` in ``units.registry``, which plotting dates
+gives an axis), ``date_first`` (``{tz}``: ``ax.xaxis_date(tz)``, ``tz`` a
+zone name or ``null``), ``axhline`` (``ax.axhline(y)``), ``plot`` (``{x,
+y}`` of numbers or ISO strings, or ``{days: [start, stop]}`` for
+``np.arange(start, stop, dtype='datetime64[D]')`` against ``0, 1, ...``,
+and ``{hours: [start, stop]}`` likewise with ``datetime64[h]``), ``replot``
+(``{rc, plot}``: sets the rcParams ``rc`` for the rest of the op, then
+plots ``plot`` in the same forms), ``late_converter`` (a converter named as
+for ``converter``, set after the plots), ``xaxis_date`` (``true``:
+``ax.xaxis_date()``, or ``{tz}`` as for ``date_first``), ``axis_date``
 (``ax.xaxis.axis_date()``), then per axis ``"x"``/``"y"``: ``lim`` (ISO
 strings), ``major``/``minor`` locators (``["AutoDateLocator",
 {interval_multiples}]``, ``["MinuteLocator", [minutes]]``, ``["DayLocator"]``,
@@ -87,6 +91,8 @@ given, and ``invert``.
     x axis' major locator and formatter.
 ``axis.Axis.get_units`` {...} -> the x axis' unit: ``null``, or the
     abbreviation of its zone on 2020-01-01 (``units.tzname(...)``).
+``axis.Axis.get_converter`` {...} -> the x axis' converter of dates, named
+    as for ``converter`` (``"auto"`` for ``DateConverter()``), or ``null``.
 ``axis.ConciseDateFormatter.get_offset`` {xlims} -> the offset text after
     drawing at each of the successive x limits (``test_offset_changes``).
 
@@ -115,6 +121,17 @@ first ``date.converter``'s formatter stays through later plots and
 ``xaxis_date()``, and an explicitly set ``DateConverter`` brings none
 until ``xaxis_date`` gives it a zone.
 
+The ``test_explicit_converter_*`` cases, plt-rs' own too, pin the
+converters of a kind of their own, ``DateConverter()`` and
+``ConciseDateConverter()``, against the ``_SwitchableDateConverter`` that
+follows ``date.converter``: set explicitly, each brings the ticks of its
+kind once ``xaxis_date`` gives it a zone, whatever ``date.converter`` says,
+and with ``interval_multiples=True``, its constructor's default, whatever
+``date.interval_multiples`` says; the switchable converter reads both when
+it ticks. Converters of different kinds compare unequal, so one set
+explicitly refuses another, and one set after plotted dates replaces
+theirs, keeping their ticks until it gets a zone.
+
 Left out
 --------
 The image tests (``test_date_axhspan``, ``test_date_axvspan``,
@@ -123,8 +140,7 @@ The image tests (``test_date_axhspan``, ``test_date_axvspan``,
 ``mpl_misc`` group), ``test_DayLocator`` (the ``dates`` area probes the
 invalid intervals plt-rs can express; negative and fractional ones are
 type errors), ``test_date2num_masked`` and ``test_datetime_masked`` (numpy
-masked arrays), ``test_concise_converter_stays`` (the unit converter
-registry), ``test_date_formatter_callable`` (a Python callable as a
+masked arrays), ``test_date_formatter_callable`` (a Python callable as a
 format), ``test_warn_notintervals`` (mutates a private table and checks a
 warning), ``test_tz_utc`` (Python's ``tzinfo`` API), ``test_rrulewrapper``
 (the time zones dateutil rules attach; plt-rs rules run on local time
@@ -142,6 +158,7 @@ import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.style
 import matplotlib.ticker as mticker
+import matplotlib.units as munits
 import numpy as np
 import pytest
 from dateutil import rrule
@@ -535,8 +552,25 @@ def _configure(ax, name, config):
         axis.set_inverted(True)
 
 
-#: The ``converter`` an axes may be given explicitly.
-CONVERTERS = {"dates": mdates.DateConverter}
+#: The converters an axes may be given explicitly, by name: matplotlib's two
+#: kinds, and the switchable converter plotting dates gives an axis.
+CONVERTERS = {
+    "dates": mdates.DateConverter,
+    "auto": mdates.DateConverter,
+    "concise": mdates.ConciseDateConverter,
+    "switchable": lambda: munits.registry[datetime.datetime],
+}
+
+
+def _set_converter(ax, name):
+    if name is not None:
+        ax.xaxis.set_converter(CONVERTERS[name]())
+
+
+def _xaxis_date(ax, spec):
+    """``ax.xaxis_date(tz)`` for ``{tz}``, ``ax.xaxis_date()`` for ``True``."""
+    if spec:
+        ax.xaxis_date(None if spec is True else spec["tz"])
 
 
 def _plot(ax, plot):
@@ -550,15 +584,14 @@ def _plot(ax, plot):
 
 def _on_axes(query):
     def evaluate(style, rc=None, epoch=None, converter=None, date_first=None, axhline=None,
-                 plot=None, replot=None, xaxis_date=False, axis_date=False, x=None, y=None, **kw):
+                 plot=None, replot=None, late_converter=None, xaxis_date=False, axis_date=False,
+                 x=None, y=None, **kw):
         with _epoch(epoch), matplotlib.style.context(style), mpl.rc_context(rc or {}):
             fig = Figure()
             FigureCanvasAgg(fig)
             ax = fig.subplots()
-            if converter is not None:
-                ax.xaxis.set_converter(CONVERTERS[converter]())
-            if date_first is not None:
-                ax.xaxis_date(date_first["tz"])
+            _set_converter(ax, converter)
+            _xaxis_date(ax, date_first)
             if axhline is not None:
                 ax.axhline(axhline)
             if plot is not None:
@@ -566,8 +599,8 @@ def _on_axes(query):
             if replot is not None:
                 mpl.rcParams.update(replot.get("rc", {}))
                 _plot(ax, replot["plot"])
-            if xaxis_date:
-                ax.xaxis_date()
+            _set_converter(ax, late_converter)
+            _xaxis_date(ax, xaxis_date)
             if axis_date:
                 ax.xaxis.axis_date()
             for name, config in (("x", x), ("y", y)):
@@ -715,6 +748,14 @@ def test_change_interval_multiples():
     for multiples in (False, "True"):
         ticklabels(rc={"date.interval_multiples": multiples},
                    plot={"days": ["2020-01-10", "2020-05-01"]})
+
+
+def test_concise_converter_stays():
+    # Naive datetime64 values, as the test's naive datetimes, leave the unit unset.
+    scene = {"plot": {"days": ["2000-01-01", "2020-02-20"]}, "late_converter": "concise"}
+    assert on_axes("axis.Axis.get_units", _units, **scene) is None
+    lim = ["2000-01-01T00:00:00", "2020-02-20T00:00:00"]
+    assert on_axes("axis.Axis.get_converter", _converter, **scene, x={"lim": lim}) == "concise"
 
 
 # ---------------------------------------------------------------------------
@@ -865,6 +906,20 @@ def units(**scene):
     return on_axes("axis.Axis.get_units", _units, style=DEFAULT_STYLE, **scene)
 
 
+#: The names of the converters of dates, as the ``converter`` key names them.
+CONVERTER_NAMES = {mdates._SwitchableDateConverter: "switchable", mdates.DateConverter: "auto",
+                   mdates.ConciseDateConverter: "concise"}
+
+
+def _converter(fig, ax):
+    converter = ax.xaxis.get_converter()
+    return None if converter is None else CONVERTER_NAMES[type(converter)]
+
+
+def converter_name(**scene):
+    return on_axes("axis.Axis.get_converter", _converter, style=DEFAULT_STYLE, **scene)
+
+
 def test_timezone_rc_axis_date_first():
     for zone in ZONES:
         rc = {"timezone": zone}
@@ -899,3 +954,52 @@ def test_timezone_rc_explicit_converter():
         for tz in (None, "UTC"):
             major(**explicit, date_first={"tz": tz}, plot=NOON_HOURS)
             units(**explicit, date_first={"tz": tz})
+
+
+#: The class name of the major formatter each kind of converter gives.
+FORMATTERS = {"auto": "AutoDateFormatter", "concise": "ConciseDateFormatter"}
+
+#: The major tick helpers of an axis without date ticks.
+PLAIN = {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+
+
+def test_explicit_converter_kinds():
+    for kind, formatter in FORMATTERS.items():
+        dated = {"locator": "AutoDateLocator", "formatter": formatter}
+        for rc_kind in FORMATTERS:
+            scene = {"rc": {"date.converter": rc_kind}, "converter": kind, "plot": NOON_HOURS}
+            for later, expected in (({"xaxis_date": True}, PLAIN),
+                                    ({"xaxis_date": {"tz": "UTC"}}, dated)):
+                ticklabels(**scene, **later, style=DEFAULT_STYLE)
+                assert major(**scene, **later) == expected
+
+
+def test_explicit_converter_interval_multiples():
+    scene = {"rc": {"date.interval_multiples": False},
+             "plot": {"days": ["2020-01-10", "2020-05-01"]}, "xaxis_date": {"tz": "UTC"}}
+    labels = {name: ticklabels(**scene, converter=name)["labels"]
+              for name in ("switchable", *FORMATTERS)}
+    assert labels["switchable"] != labels["auto"]
+
+
+def test_explicit_converter_and_switchable():
+    for kind, other in (("auto", "concise"), ("concise", "auto")):
+        # Converters of different kinds compare unequal: the first one set
+        # explicitly refuses the other.
+        for first, second in ((kind, "switchable"), ("switchable", kind)):
+            refused = converter_name(converter=first, plot=NOON_HOURS, late_converter=second)
+            assert isinstance(refused, RuntimeError)
+        # Set after plotted dates, a converter replaces theirs and keeps their
+        # ticks until xaxis_date gives it a zone.
+        scene = {"rc": {"date.converter": other}, "plot": NOON_HOURS, "late_converter": kind}
+        for later, ticked in (({"xaxis_date": True}, other), ({"xaxis_date": {"tz": "UTC"}}, kind)):
+            ticklabels(**scene, **later, style=DEFAULT_STYLE)
+            assert major(**scene, **later)["formatter"] == FORMATTERS[ticked]
+            assert converter_name(**scene, **later) == kind
+        # Set explicitly, the switchable converter reads date.converter when
+        # it ticks; a converter of a kind of its own does not.
+        for name, ticked in (("switchable", other), (kind, kind)):
+            result = major(rc={"date.converter": kind}, converter=name, plot=NOON_HOURS,
+                           replot={"rc": {"date.converter": other}, "plot": NOON_HOURS},
+                           xaxis_date={"tz": "UTC"})
+            assert result["formatter"] == FORMATTERS[ticked]

@@ -42,7 +42,8 @@
 //! | `x, y, z = ax._process_unit_info([("x", x), ("y", y), ("z", z)])` before plotting dates or names | none: [`Axes3D::plot`], `scatter`, `text`, `bar`, `bar3d`, `stem`, `errorbar` and `fill_between` take dates, names and values with units, as do the limit setters and [`Axis3D::set_ticks`] |
 //! | `ax.convert_zunits(z)`, `ax.zaxis.convert_units(z)` | [`Axes3D::zaxis`]`().`[`convert_units`](crate::mplot3d::Axis3D::convert_units)`(z)` |
 //! | `ax.zaxis.update_units(v)`, `set_units(u)`, `get_units()` | [`Axis3D::update_units`], [`Axis3D::set_units`], [`Axis3D::units`] |
-//! | `ax.zaxis.set_converter(c)`, `get_converter()`    | [`Axis3D::set_converter`], [`Axis3D::converter`] |
+//! | `ax.zaxis.set_converter(c)`, `get_converter()`    | [`Axis3D::set_converter`], [`Axis3D::converter`]; `set_converter(mdates.ConciseDateConverter())` is `set_converter(`[`DateConverter::Concise`]`)?` |
+//! | `ax.zaxis.axis_date(tz)`, `ax.zaxis_date(tz)`     | [`Axis3D::axis_date`]                          |
 //! | `ax.fill_between(x1, y1, z1, x2, y2, z2)`         | [`Axes3D::fill_between`]`((x1, y1, z1), (x2, y2, z2), ..)` ([`Curve3D`]) |
 //! | `ax.bar3d(x, y, z, dx, dy, dz)`                   | [`Axes3D::bar3d`]`(`[`Boxes::new`]`(x, y, z, dx, dy, dz), ..)` |
 //! | `ax.plot_surface(X, Y, Z, cmap=, norm=, vmin=)`   | [`Axes3D::plot_surface`] with [`SurfaceOptions`], [`FaceColors::Mapped`] |
@@ -374,6 +375,8 @@
 //! [`Axis3D::units`]: crate::mplot3d::Axis3D::units
 //! [`Axis3D::set_converter`]: crate::mplot3d::Axis3D::set_converter
 //! [`Axis3D::converter`]: crate::mplot3d::Axis3D::converter
+//! [`Axis3D::axis_date`]: crate::mplot3d::Axis3D::axis_date
+//! [`DateConverter::Concise`]: crate::units::DateConverter::Concise
 //! [`TickLine3D`]: crate::mplot3d::TickLine3D
 //! [`GridLine3D`]: crate::mplot3d::GridLine3D
 //! [`Curve3D`]: crate::mplot3d::Curve3D

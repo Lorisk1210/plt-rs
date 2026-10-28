@@ -73,6 +73,7 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("axis.Axis.get_major_locator", axes::too_many_ticks),
     Op::new("axis.Axis.major", axes::major),
     Op::new("axis.Axis.get_units", axes::units),
+    Op::new("axis.Axis.get_converter", axes::converter_name),
     Op::new("axis.ConciseDateFormatter.get_offset", axes::offsets),
 ];
 

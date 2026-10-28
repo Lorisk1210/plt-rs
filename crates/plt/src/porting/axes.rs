@@ -80,11 +80,13 @@
 //! | `ax.secondary_xaxis("top", color="r")`, `sec.set_color("r")` | [`Axis::set_color`] on the secondary axes' [`Axes::xaxis`] |
 //! | `ax.sharex(other)`, `ax.get_shared_x_axes()`   | [`Axes::share_x`], [`Axes::shared_axes`]         |
 //! | `ax.label_outer()`                             | [`Axes::label_outer`]                            |
-//! | `ax.xaxis_date()`, `ax.xaxis.axis_date(tz)`    | [`Axes::xaxis_date`], [`Axis::axis_date`]        |
+//! | `ax.xaxis_date()`, `ax.xaxis.axis_date(tz)`    | [`Axes::xaxis_date`], [`Axis::axis_date`]: ticks of the kind of the axis' converter of dates |
 //! | `ax.xaxis.convert_units(values)`               | [`Axis::convert_units`]                          |
 //! | `ax.xaxis.set_units(u)`, `ax.xaxis.get_units()` | [`Axis::set_units`], [`Axis::units`] ([`Unit`])  |
 //! | `ax.xaxis.update_units(data)`                  | [`Axis::update_units`]                           |
 //! | `ax.xaxis.set_converter(c)`, `get_converter()` | [`Axis::set_converter`], [`Axis::converter`]     |
+//! | `ax.xaxis.set_converter(mdates.ConciseDateConverter())`, `DateConverter()` | [`Axis::set_converter`]`(`[`DateConverter::Concise`]`)?`, `(DateConverter::Auto)`: a [`UnitConverter::DatesBy`], whose ticks ignore `date.converter` |
+//! | the converter plotted dates get (`units.registry[datetime]`, a `_SwitchableDateConverter`) | [`UnitConverter::Dates`], whose ticks follow `date.converter`; [`UnitConverter::is_dates`] tells either converter of dates from the others |
 //! | `class C(units.ConversionInterface)`, `units.registry[T] = C()` | `impl` [`ConversionInterface`] `for C`, `impl` [`Convertible`] `for T` |
 //! | `def convert(value, unit, axis)` (and `axisinfo`, `default_units`) | `fn convert(&self, values, unit, axis: &`[`UnitAxis`]`)`: the axis of 2-D or of 3-D axes |
 //! | `units.AxisInfo(majloc=, label=, default_limits=)` | [`UnitAxisInfo`] `{ majloc, label, default_limits, .. }` |
@@ -428,6 +430,10 @@
 //! [`Axis::update_units`]: crate::axes::Axis::update_units
 //! [`Axis::set_converter`]: crate::axes::Axis::set_converter
 //! [`Axis::converter`]: crate::axes::Axis::converter
+//! [`DateConverter::Concise`]: crate::units::DateConverter::Concise
+//! [`UnitConverter::DatesBy`]: crate::units::UnitConverter::DatesBy
+//! [`UnitConverter::Dates`]: crate::units::UnitConverter::Dates
+//! [`UnitConverter::is_dates`]: crate::units::UnitConverter::is_dates
 //! [`Unit`]: crate::units::Unit
 //! [`ConversionInterface`]: crate::units::ConversionInterface
 //! [`Convertible`]: crate::units::Convertible

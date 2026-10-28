@@ -114,11 +114,13 @@ pub(crate) trait UnitState {
     fn use_default_label(&mut self, label: &str);
 
     /// Installs the tick helpers of dates in `tz`, or in the zone of the
-    /// `timezone` rcParam, where the defaults are still in place
-    /// (matplotlib's date converter's `axisinfo`).
-    fn use_date_tickers(&mut self, tz: Option<&TimeZone>) {
-        let (locator, formatter) = super::date_tickers(tz);
-        self.use_unit_tickers(locator, formatter);
+    /// `timezone` rcParam, that `converter` gives where the defaults are
+    /// still in place (matplotlib's date converters' `axisinfo`); a
+    /// converter of other values gives none here.
+    fn use_date_tickers(&mut self, converter: &UnitConverter, tz: Option<&TimeZone>) {
+        if let Some((locator, formatter)) = super::date_tickers(converter, tz) {
+            self.use_unit_tickers(locator, formatter);
+        }
     }
 
     /// Installs the tick helpers of the category names where the
@@ -133,24 +135,26 @@ pub(crate) trait UnitState {
         self.use_unit_tickers(locator, formatter);
     }
 
-    /// Takes date numbers, giving the axis the date converter and its
-    /// date ticks, in the time zone of the axis unit or else of the
-    /// `timezone` rcParam, unless tick helpers were chosen explicitly
-    /// (matplotlib's `update_units` + `convert_units` for dates).
+    /// Takes date numbers, giving the axis the converter of dates that
+    /// follows `date.converter` and its date ticks, in the time zone of
+    /// the axis unit or else of the `timezone` rcParam, unless tick
+    /// helpers were chosen explicitly (matplotlib's `update_units` +
+    /// `convert_units` for dates, whose converter in `units.registry` is
+    /// the `_SwitchableDateConverter`).
     fn convert_dates(&mut self, numbers: Vec<f64>) -> Vec<f64> {
-        self.adopt_dates();
+        self.adopt_dates(UnitConverter::Dates);
         numbers
     }
 
-    /// Takes the date converter unless another one was set explicitly,
-    /// and the date ticks only when it is new to the axis (matplotlib's
-    /// `update_units`, which updates the axis info when the converter
-    /// changes): ticks set up by earlier dates stay, and an axis given
-    /// the date converter explicitly keeps its tick helpers.
-    fn adopt_dates(&mut self) {
-        if self.units_mut().adopt(UnitConverter::Dates) {
+    /// Takes `converter`, a converter of dates, unless another one was set
+    /// explicitly, and its date ticks only when it is new to the axis
+    /// (matplotlib's `update_units`, which updates the axis info when the
+    /// converter changes): ticks set up by earlier dates stay, and an
+    /// axis given a converter explicitly keeps its tick helpers.
+    fn adopt_dates(&mut self, converter: UnitConverter) {
+        if self.units_mut().adopt(converter.clone()) {
             let tz = self.units().time_zone();
-            self.use_date_tickers(tz.as_ref());
+            self.use_date_tickers(&converter, tz.as_ref());
         }
     }
 
@@ -178,12 +182,15 @@ pub(crate) trait UnitState {
     /// shared with, after values were converted there, with the tick
     /// helpers they bring where the defaults are in place: matplotlib's
     /// shared axes hold one `units` object (category names placed on one
-    /// are placed on all) and share their tickers. Converters of user
-    /// values are not shared: matplotlib shares their units through
-    /// `set_units` alone.
+    /// are placed on all) and share their tickers. A converter of dates
+    /// is taken as it is, of the kind `date.converter` names or of a kind
+    /// of its own. Converters of user values are not shared: matplotlib
+    /// shares their units through `set_units` alone.
     fn share_units(&mut self, (units, categories): &UnitData) {
         match &units.converter {
-            Some(UnitConverter::Dates) => self.adopt_dates(),
+            Some(converter @ (UnitConverter::Dates | UnitConverter::DatesBy(_))) => {
+                self.adopt_dates(converter.clone());
+            }
             Some(UnitConverter::Categories) => {
                 self.units_mut().adopt(UnitConverter::Categories);
                 self.categories_mut().clone_from(categories);
@@ -392,9 +399,9 @@ pub(crate) trait UnitHandle: Sized {
                     self.use_axis_info(&info);
                 }
             }
-            Some(UnitConverter::Dates) => {
+            Some(converter @ (UnitConverter::Dates | UnitConverter::DatesBy(_))) => {
                 if let Some(tz) = unit.as_ref().and_then(Unit::downcast_ref::<TimeZone>) {
-                    self.use_date_axisinfo(Some(tz));
+                    self.use_date_axisinfo(&converter, Some(tz));
                 }
             }
             Some(UnitConverter::Categories) | None => {}
@@ -412,38 +419,42 @@ pub(crate) trait UnitHandle: Sized {
         }
     }
 
-    /// Takes the date converter, unless another one was set explicitly,
-    /// with the tick helpers and default view of dates (matplotlib's
-    /// `axis_date`, which updates the units with a date in `tz`): a given
-    /// zone becomes the unit of an axis without one, which sets them up in
-    /// that zone; otherwise they come only with a date converter new to
-    /// the axis, in the unit's zone, else in the `timezone` rcParam's. So
-    /// the ticks earlier dates set up stay, and an axis given the date
-    /// converter explicitly keeps its tick helpers until it gets a zone.
+    /// Takes the converter of dates that follows `date.converter`, unless
+    /// another one was set explicitly, with the tick helpers and default
+    /// view of dates its converter gives (matplotlib's `axis_date`, which
+    /// updates the units with a date in `tz`): a given zone becomes the
+    /// unit of an axis without one, which sets them up in that zone;
+    /// otherwise they come only with a converter new to the axis, in the
+    /// unit's zone, else in the `timezone` rcParam's. So the ticks earlier
+    /// dates set up stay, and an axis given a converter of dates
+    /// explicitly keeps its tick helpers until it gets a zone, then takes
+    /// those of that converter: one of a kind of its own ignores
+    /// `date.converter`.
     fn make_date_axis(&self, tz: Option<&TimeZone>) {
-        let (dated, new) = self.update_state(|state| {
+        let (converter, new) = self.update_state(|state| {
             let units = state.units_mut();
             let new = units.adopt(UnitConverter::Dates);
-            (units.converter == Some(UnitConverter::Dates), new)
+            (units.converter.clone().filter(UnitConverter::is_dates), new)
         });
-        if !dated {
+        let Some(converter) = converter else {
             return;
-        }
+        };
         match tz {
             Some(tz) if self.unit().is_none() => self.set_unit(Unit::new(tz.clone())),
             _ if new => {
                 let zone = self.read_state(|state| state.units().time_zone());
-                self.use_date_axisinfo(zone.as_ref());
+                self.use_date_axisinfo(&converter, zone.as_ref());
             }
             _ => {}
         }
     }
 
-    /// The tick helpers and default view of dates in `tz` (matplotlib's
-    /// `_update_axisinfo` with the date converter's `axisinfo`): the axes
+    /// The tick helpers and default view of dates in `tz` that
+    /// `converter`, a converter of dates, gives (matplotlib's
+    /// `_update_axisinfo` with a date converter's `axisinfo`): the axes
     /// sharing the axis take the tick helpers too.
-    fn use_date_axisinfo(&self, tz: Option<&TimeZone>) {
-        self.update_shared_states(|state| state.use_date_tickers(tz));
+    fn use_date_axisinfo(&self, converter: &UnitConverter, tz: Option<&TimeZone>) {
+        self.update_shared_states(|state| state.use_date_tickers(converter, tz));
         let epoch = get_epoch();
         let start = epoch.datetime64_to_num(Datetime64::new(0, 0));
         let end = epoch.datetime64_to_num(Datetime64::new(SECONDS_PER_DAY, 0));

@@ -95,7 +95,8 @@ pub struct MosaicOptions {
     pub projection: ProjectionSpec,
     /// The projections of the axes with these labels, in place of
     /// [`projection`](Self::projection) (matplotlib's
-    /// `per_subplot_kw={label: {"projection": ..., **options}}`).
+    /// `per_subplot_kw={label: {"projection": ..., **options}}`); each
+    /// label may appear once.
     pub per_subplot: Vec<(String, ProjectionSpec)>,
     /// The margins and spacing of the outer grid (matplotlib's
     /// `gridspec_kw` `left`, `right`, `bottom`, `top`, `wspace` and
@@ -134,6 +135,9 @@ pub enum MosaicError {
     /// Options name a label the mosaic does not have (matplotlib's
     /// `per_subplot_kw` keys).
     UnknownLabel(String),
+    /// Options give one label two projections (a label in two of
+    /// matplotlib's `per_subplot_kw` keys).
+    RepeatedLabel(String),
     /// The grid itself is invalid (for example mismatched ratios).
     Grid(GridSpecError),
     /// Axes cannot be made with a projection the options ask for.
@@ -154,6 +158,12 @@ impl fmt::Display for MosaicError {
             }
             Self::Duplicate(label) => write!(f, "the label {label:?} appears more than once"),
             Self::UnknownLabel(label) => write!(f, "the label {label:?} is not in the mosaic"),
+            Self::RepeatedLabel(label) => {
+                write!(
+                    f,
+                    "the label {label:?} appears multiple times in per_subplot"
+                )
+            }
             Self::Grid(err) => err.fmt(f),
             Self::Projection(err) => err.fmt(f),
         }
@@ -364,7 +374,8 @@ impl Figure {
     /// When the text of the mosaic does not parse, a label covers a
     /// non-rectangular area or appears twice, the ratios do not match the
     /// grid, a label of
-    /// [`per_subplot`](MosaicOptions::per_subplot) is not in the mosaic, or
+    /// [`per_subplot`](MosaicOptions::per_subplot) is not in the mosaic or
+    /// is listed twice, or
     /// axes cannot be made with a projection the options ask for
     /// (as [`Figure::subplots_on_with_projection`]: unknown projections and
     /// options add no axes).
@@ -380,6 +391,14 @@ impl Figure {
             .find(|(label, _)| !mosaic.contains(label))
         {
             return Err(MosaicError::UnknownLabel(label.clone()));
+        }
+        for (index, (label, _)) in options.per_subplot.iter().enumerate() {
+            if options.per_subplot[..index]
+                .iter()
+                .any(|(earlier, _)| earlier == label)
+            {
+                return Err(MosaicError::RepeatedLabel(label.clone()));
+            }
         }
         options.projection.check()?;
         for (_, projection) in &options.per_subplot {
@@ -557,6 +576,25 @@ mod tests {
         assert!(fig.axes().is_empty(), "no axes is made");
         let nested = "AB".parse::<Mosaic>().unwrap();
         assert!(nested.contains("B") && !nested.contains("C"));
+    }
+
+    #[test]
+    fn per_subplot_labels_may_appear_once() {
+        // matplotlib's test_per_subplot_kw_expander.
+        let fig = Figure::new();
+        let options = MosaicOptions {
+            per_subplot: vec![
+                ("A".into(), ProjectionKind::Polar.into()),
+                ("B".into(), ProjectionKind::Polar.into()),
+                ("B".into(), ProjectionKind::Rectilinear.into()),
+            ],
+            ..MosaicOptions::default()
+        };
+        assert_eq!(
+            fig.subplot_mosaic("AB".parse::<Mosaic>().unwrap(), options),
+            Err(MosaicError::RepeatedLabel("B".into()))
+        );
+        assert!(fig.axes().is_empty(), "no axes is made");
     }
 
     #[test]

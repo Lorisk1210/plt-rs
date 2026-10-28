@@ -290,6 +290,33 @@ fn side_buttons_step_through_the_view_history() {
     assert_eq!(xlim(&figure), panned, "forward");
 }
 
+/// matplotlib's `test_toolbar_button_dispatch_allowlist`: a
+/// `toolbar_button` message dispatches only the declared toolbar items;
+/// any other name, a Python method's included, changes nothing.
+#[test]
+fn only_declared_toolbar_buttons_are_dispatched() {
+    let (mut canvas, figure) = served();
+    let button = |name: &str| {
+        ClientMessage::parse(&format!(
+            r#"{{"type": "toolbar_button", "name": "{name}"}}"#
+        ))
+        .expect("a well-formed message")
+    };
+    canvas.handle(ClientMessage::Toolbar(Some(ToolbarButton::Pan)));
+    canvas.handle(mouse(MouseKind::Press, 200.0, 150.0));
+    canvas.handle(mouse(MouseKind::Motion, 240.0, 150.0));
+    canvas.handle(mouse(MouseKind::Release, 240.0, 150.0));
+    let panned = xlim(&figure);
+    events(&mut canvas);
+    for name in ["__init__", "not_a_real_button", "subplots", "save_figure"] {
+        assert_eq!(canvas.handle(button(name)), Next::Continue, "{name}");
+        assert_eq!(xlim(&figure), panned, "{name}");
+        assert_eq!(events(&mut canvas), [], "{name}");
+    }
+    canvas.handle(button("home"));
+    assert_eq!(xlim(&figure), (0.0, 10.0), "home");
+}
+
 #[test]
 fn zooming_shows_and_removes_the_rubberband() {
     let (mut canvas, figure) = served();

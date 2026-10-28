@@ -494,9 +494,11 @@ def _viridis(seed):
 
 def test_legend_pathcollection_labelcolors():
     cycle = ['r', 'g', 'b', 'c', 'm'] * 2
+    # test_legend_pathcollection_labelcolor_linecolor_iterable,
+    # test_legend_pathcollection_labelcolor_markeredgecolor_iterable and
+    # test_legend_pathcollection_labelcolor_markerfacecolor_iterable
     for rule, keyword in [("linecolor", "c"), ("markeredgecolor", "edgecolor"),
                           ("markerfacecolor", "facecolor")]:
-        # test_legend_pathcollection_labelcolor_<rule>_iterable
         probe("Legend.get_texts", _label_colors, kind="scatter",
               calls=[{"label": "#1", keyword: cycle}], labelcolor=rule)
     # test_legend_pathcollection_labelcolor_markerfacecolor
@@ -521,8 +523,9 @@ def test_legend_labelcolor_rcparams():
     # A tuple, which the rc-file syntax cannot give this parameter.
     probe("Legend.get_texts", _label_colors, kind="plot", calls=plain,
           rc_labelcolor=[0.5, 0.5, 0.5])
+    # test_legend_labelcolor_rcparam_markeredgecolor_short and
+    # test_legend_labelcolor_rcparam_markerfacecolor_short
     for short, keyword in [("mec", "markeredgecolor"), ("mfc", "markerfacecolor")]:
-        # test_legend_labelcolor_rcparam_<keyword>_short
         probe("Legend.get_texts", _label_colors, kind="plot",
               calls=[{"label": f"#{k}", keyword: c} for k, c in [(1, "r"), (2, "g"), (3, "b")]],
               rc={"legend.labelcolor": short})

@@ -577,6 +577,56 @@
   {
    "op": "axes_behaviour.run",
    "args": {
+    "case": "test_axis_not_in_layout/100",
+    "steps": [
+     ["fig", "subplots", 1, 2],
+     [0, "set_xlim", 0, 100],
+     [0, "set_xticks", [0, 100]],
+     [0, "xaxis.set_in_layout", false],
+     ["fig", "draw"],
+     [0, "get_position"],
+     [1, "get_position"]
+    ],
+    "figure": {"layout": "constrained"}
+   },
+   "value": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    [[0.056247808159722225, 0.05787106481481483], [0.48485258789062524, 0.9803267704716436]],
+    [[0.5476113335503474, 0.05787106481481483], [0.9762161132812499, 0.9803267704716436]]
+   ]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
+    "case": "test_axis_not_in_layout/120",
+    "steps": [
+     ["fig", "subplots", 1, 2],
+     [0, "set_xlim", 0, 120],
+     [0, "set_xticks", [0, 100]],
+     [0, "xaxis.set_in_layout", false],
+     ["fig", "draw"],
+     [0, "get_position"],
+     [1, "get_position"]
+    ],
+    "figure": {"layout": "constrained"}
+   },
+   "value": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    [[0.056247808159722225, 0.05787106481481483], [0.48485258789062524, 0.9803267704716436]],
+    [[0.5476113335503474, 0.05787106481481483], [0.9762161132812499, 0.9803267704716436]]
+   ]
+  },
+  {
+   "op": "axes_behaviour.run",
+   "args": {
     "case": "test_axisbelow",
     "steps": [
      ["fig", "subplots", 1, 3, {"sharex": true, "sharey": true}],

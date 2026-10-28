@@ -256,6 +256,7 @@ def test_Affine2D_from_values():
                      values=values, points=points)
 
 
+# TestAffineDeltaTransform.test_invalidate
 def test_affine_delta_invalidate():
     probes.probe("transforms.AffineDeltaTransform.get_matrix",
                  lambda values: mtransforms.AffineDeltaTransform(
@@ -426,32 +427,64 @@ TIMES10 = ["affine", [["scale", 10]]]
 OFFSET = ["affine", [["translate", 10, 10]]]
 
 
-def test_pre_transform_limits():
-    transform = ["+", TENTH, "data"]
-    probes.probe("axes.Axes.contourf.dataLim", _data_lim(_contourf), transform=transform)
-    for name in ("pcolor", "pcolormesh"):
-        probes.probe(f"axes.Axes.{name}.dataLim", _data_lim(_pcolor(name)), transform=transform)
+PRE_TENTH = ["+", TENTH, "data"]
 
 
-def test_line_extents():
-    x, y = [0.1, 1.2, 0.8], [0.9, 0.5, 0.8]
-    plot_lim(x=x, y=y, transform="axes")
-    plot_lim(x=x, y=y, transform="data")
-    y = [35, -5, 18]
-    plot_lim(x=x, y=y, transform=["blend", "axes", "data"])
-    plot_lim(x=x, y=y, transform=["+", TIMES10, "data"])
-    plot_lim(x=x, y=y, transform=["blend", "axes", ["+", TIMES10, "data"]])
-    tens = list(range(10))
-    plot_lim(y=tens, transform=["+", OFFSET, "data"])
-    plot_lim(y=tens, transform=["+", ["+", OFFSET, ["nonaffine", OFFSET]], "data"])
-    plot_lim(y=tens, transform=["+", ["affine", [["translate", 0, 10]]], "data"], projection="polar")
+def test_contour_pre_transform_limits():
+    probes.probe("axes.Axes.contourf.dataLim", _data_lim(_contourf), transform=PRE_TENTH)
 
 
-def test_patch_extents():
-    vertices = [[0, 0], [0, 10], [10, 10], [10, 0]]
-    for transform in (["+", ["+", OFFSET, ["nonaffine", OFFSET]], "data"], ["+", OFFSET, "data"]):
-        probes.probe("axes.Axes.add_patch.dataLim", _data_lim(_patch), vertices=vertices,
-                     transform=transform)
+def test_pcolor_pre_transform_limits():
+    probes.probe("axes.Axes.pcolor.dataLim", _data_lim(_pcolor("pcolor")), transform=PRE_TENTH)
+
+
+def test_pcolormesh_pre_transform_limits():
+    probes.probe("axes.Axes.pcolormesh.dataLim", _data_lim(_pcolor("pcolormesh")),
+                 transform=PRE_TENTH)
+
+
+LINE_X = [0.1, 1.2, 0.8]
+LINE_Y = [35, -5, 18]
+TENS = list(range(10))
+NONAFFINE_OFFSET = ["+", ["+", OFFSET, ["nonaffine", OFFSET]], "data"]
+
+
+class TestTransformPlotInterface:
+    def test_line_extent_axes_coords(self):
+        plot_lim(x=LINE_X, y=[0.9, 0.5, 0.8], transform="axes")
+
+    def test_line_extent_data_coords(self):
+        plot_lim(x=LINE_X, y=[0.9, 0.5, 0.8], transform="data")
+
+    def test_line_extent_compound_coords1(self):
+        plot_lim(x=LINE_X, y=LINE_Y, transform=["blend", "axes", "data"])
+
+    def test_line_extent_predata_transform_coords(self):
+        plot_lim(x=LINE_X, y=LINE_Y, transform=["+", TIMES10, "data"])
+
+    def test_line_extent_compound_coords2(self):
+        plot_lim(x=LINE_X, y=LINE_Y, transform=["blend", "axes", ["+", TIMES10, "data"]])
+
+    def test_line_extents_affine(self):
+        plot_lim(y=TENS, transform=["+", OFFSET, "data"])
+
+    def test_line_extents_non_affine(self):
+        plot_lim(y=TENS, transform=NONAFFINE_OFFSET)
+
+    def test_pathc_extents_non_affine(self):
+        _patch_lim(NONAFFINE_OFFSET)
+
+    def test_pathc_extents_affine(self):
+        _patch_lim(["+", OFFSET, "data"])
+
+    def test_line_extents_for_non_affine_transData(self):
+        plot_lim(y=TENS, transform=["+", ["affine", [["translate", 0, 10]]], "data"],
+                 projection="polar")
+
+
+def _patch_lim(transform):
+    probes.probe("axes.Axes.add_patch.dataLim", _data_lim(_patch),
+                 vertices=[[0, 0], [0, 10], [10, 10], [10, 0]], transform=transform)
 
 
 # ---------------------------------------------------------------------------

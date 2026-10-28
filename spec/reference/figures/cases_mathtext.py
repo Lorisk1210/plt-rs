@@ -10,7 +10,7 @@ r"""Mathtext rendered in every fontset: expressions from matplotlib's own
   Sans and STIX.
 * ``lightweight``: the ``lightweight_math_tests`` with
   ``math_fontfamily="dejavusans"`` on the texts while ``mathtext.fontset``
-  is ``cm``.
+  is ``cm`` (``test_mathtext_rendering_lightweight``).
 """
 
 from spec_support import case

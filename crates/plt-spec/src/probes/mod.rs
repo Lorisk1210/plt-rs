@@ -385,6 +385,7 @@ const AREAS: &[(&str, &[Op])] = &[
     ("mpl_animation", areas::mpl_animation::OPS),
     ("mpl_units", areas::mpl_units::OPS),
     ("mpl_agg", areas::mpl_agg::OPS),
+    ("mpl_afm", areas::mpl_afm::OPS),
     ("mpl_backend_pdf", areas::mpl_backend_pdf::OPS),
     ("mpl_backend_svg", areas::mpl_backend_svg::OPS),
     ("mpl_backend_ps", areas::mpl_backend_ps::OPS),
@@ -407,6 +408,7 @@ const AREAS: &[(&str, &[Op])] = &[
         areas::mpl_multivariate_colormaps::OPS,
     ),
     ("mpl_backend_pgf", areas::mpl_backend_pgf::OPS),
+    ("mpl_backend_tools", areas::mpl_backend_tools::OPS),
     ("units", areas::units::OPS),
 ];
 

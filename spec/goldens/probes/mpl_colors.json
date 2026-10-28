@@ -1305,7 +1305,18 @@
    "value": {"result": [0.0, 0.5, 0.75, 1.0], "vmin": 1.0, "vmax": 4.0}
   },
   {"op": "colors.TwoSlopeNorm.autoscale", "args": {"params": {"vcenter": 20}, "data": [10, 20, 30, 40]}, "value": {"vmin": 10.0, "vmax": 40.0}},
+  {
+   "op": "colors.TwoSlopeNorm.autoscale_None",
+   "args": {"params": {"vcenter": 2, "vmin": null, "vmax": 10}, "data": [1, 2, 3, 4, 5]},
+   "value": {"vmin": 1.0, "vmax": 10.0}
+  },
+  {
+   "op": "colors.TwoSlopeNorm.autoscale_None",
+   "args": {"params": {"vcenter": 2, "vmin": 0, "vmax": null}, "data": [1, 2, 3, 4, 5]},
+   "value": {"vmin": 0.0, "vmax": 5.0}
+  },
   {"op": "colors.TwoSlopeNorm.inverse", "args": {"params": {"vcenter": 2}, "values": [0.1, 0.5, 0.9]}, "error": "ValueError"},
+  {"op": "colors.TwoSlopeNorm.scaled", "args": {"params": {"vcenter": 2}, "values": [1, 2, 3, 4]}, "value": [false, true]},
   {"op": "colors.color_sequence", "args": {"name": "set"}, "error": "KeyError"},
   {
    "op": "colors.color_sequence",

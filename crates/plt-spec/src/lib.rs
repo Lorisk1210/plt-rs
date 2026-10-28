@@ -10,6 +10,15 @@
 //! * [`rng`] — the deterministic data generator shared with the Python side.
 //! * `user_units` — unit classes of matplotlib's tests and gallery written
 //!   against plt's unit API.
+//!
+//! A few of matplotlib's tests check something internal to one crate and
+//! are ported as that crate's unit tests rather than as probes, as
+//! matplotlib cannot record them here: `test_backend_webagg.py`'s
+//! `test_websocket_rejects_cross_origin` (the WebSocket handshake of
+//! `plt::web`, `crates/plt/src/web/websocket`) and
+//! `test_toolbar_button_dispatch_allowlist` (its canvas,
+//! `crates/plt/src/web/canvas/tests.rs`); both need Tornado, which the
+//! reference venv does not have.
 #![forbid(unsafe_code)]
 
 pub mod compare;

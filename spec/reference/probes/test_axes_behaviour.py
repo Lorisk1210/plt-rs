@@ -637,6 +637,14 @@ def test_axis_getters():
                             "left": False, "labelleft": False}],
         *positions,
     ])
+    # Both axes keep their places whether the left one's 100 label overlaps
+    # the end of its axis or not.
+    for xmax in (100, 120):
+        _case(f"test_axis_not_in_layout/{xmax}", [
+            ["fig", "subplots", 1, 2], [0, "set_xlim", 0, xmax], [0, "set_xticks", [0, 100]],
+            [0, "xaxis.set_in_layout", False], ["fig", "draw"], [0, "get_position"],
+            [1, "get_position"],
+        ], figure={"layout": "constrained"})
     _case("test_remove_overlapping_locs", [
         SUBPLOT, [0, "xaxis.get_remove_overlapping_locs"],
         [0, "xaxis.set_remove_overlapping_locs", False], [0, "xaxis.get_remove_overlapping_locs"],

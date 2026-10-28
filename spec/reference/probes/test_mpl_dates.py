@@ -183,9 +183,13 @@ def test_date_date2num_numpy():
         date2num64(d=times, unit=unit)
 
 
-def test_date2num_nat():
+def test_date2num_NaT():
     for unit in ("s", "ms", "us", "ns"):
         date2num64(d=["2017-01-01T00:01:01", "NaT"], unit=unit)
+
+
+def test_date2num_NaT_scalar():
+    for unit in ("s", "ms", "us", "ns"):
         date2num64(d="NaT", unit=unit)
 
 
@@ -216,8 +220,13 @@ def _num2date(x, tz=None):
     return [d.isoformat() for d in result] if isinstance(result, list) else result.isoformat()
 
 
-def test_num2date():
-    for x in (-1000000, 10000000, 100000.0000578702, 100000.0000578703):
+def test_num2date_error():
+    for x in (-1000000, 10000000):
+        assert isinstance(probes.probe("dates.num2date", _num2date, x=x), ValueError)
+
+
+def test_num2date_roundoff():
+    for x in (100000.0000578702, 100000.0000578703):
         probes.probe("dates.num2date", _num2date, x=x)
 
 
@@ -266,12 +275,19 @@ DELTAS = [{"weeks": 52 * 200}, {"weeks": 52}, {"days": 141}, {"days": 40}, {"hou
           {"minutes": 20}, {"seconds": 40}, {"microseconds": 1500}]
 
 
+def _auto_date_locator(interval_multiples, d1):
+    for delta in DELTAS:
+        probes.probe("dates.AutoDateLocator.__call__", _in_epoch(auto_locator_call), vmin=d1,
+                     vmax=_plus(d1, **delta), params={"interval_multiples": interval_multiples},
+                     epoch="2000-01-01")
+
+
 def test_auto_date_locator():
-    for interval_multiples, d1 in ((False, D1990), (True, D1997)):
-        for delta in DELTAS:
-            probes.probe("dates.AutoDateLocator.__call__", _in_epoch(auto_locator_call), vmin=d1,
-                         vmax=_plus(d1, **delta), params={"interval_multiples": interval_multiples},
-                         epoch="2000-01-01")
+    _auto_date_locator(False, D1990)
+
+
+def test_auto_date_locator_intmult():
+    _auto_date_locator(True, D1997)
 
 
 def _maxticks(params=None):
@@ -361,7 +377,7 @@ def test_year_locator():
                      vmin=D1990, vmax=_plus(D1990, weeks=weeks))
 
 
-def test_rrule_locator_dayrange():
+def test_RRuleLocator_dayrange():
     probes.probe("dates.DayLocator.tick_values",
                  lambda vmin, vmax: _ticks(mdates.DayLocator().tick_values(_dt(vmin), _dt(vmax))),
                  vmin="0001-01-01T00:00:00+00:00", vmax="0001-01-16T00:00:00+00:00")
@@ -374,7 +390,7 @@ def _rrule_tick_values(rule, vmin, vmax):
     return _ticks(locator.tick_values(_dt(vmin), _dt(vmax)))
 
 
-def test_rrule_locator_close_minmax():
+def test_RRuleLocator_close_minmax():
     probes.probe("dates.RRuleLocator.tick_values", _rrule_tick_values,
                  rule={"freq": "SECONDLY", "interval": 5}, vmin="2020-01-01T00:00:00",
                  vmax="2020-01-01T00:00:00.000001")
@@ -404,7 +420,7 @@ def test_date_locator():
     assert isinstance(error, ValueError)
 
 
-def test_date_formatter_settz():
+def test_DateFormatter_settz():
     def date_formatter(fmt, d, tz=None):
         formatter = mdates.DateFormatter(fmt)
         if tz is not None:
@@ -561,13 +577,21 @@ def concise(d1=D1997, **delta):
 CONCISE_DELTAS = DELTAS[:-1] + [{"seconds": 2}]
 
 
+def _concise_labels(formatter):
+    for delta in CONCISE_DELTAS:
+        ticklabels(axis="y", y={**concise(**delta), "major_formatter": ["ConciseDateFormatter", formatter]})
+
+
 def test_concise_formatter():
-    for formatter in ({}, {"formats": ["%Y", "%m/%Y", "day: %d", "%H hr %M min", "%H hr %M min",
-                                       "%S.%f sec"]},
-                      {"zero_formats": ["", "'%y", "%B", "%m-%d", "%S", "%S.%f"]}):
-        for delta in CONCISE_DELTAS:
-            ticklabels(axis="y", y={**concise(**delta),
-                                    "major_formatter": ["ConciseDateFormatter", formatter]})
+    _concise_labels({})
+
+
+def test_concise_formatter_formats():
+    _concise_labels({"formats": ["%Y", "%m/%Y", "day: %d", "%H hr %M min", "%H hr %M min", "%S.%f sec"]})
+
+
+def test_concise_formatter_zformats():
+    _concise_labels({"zero_formats": ["", "'%y", "%B", "%m-%d", "%S", "%S.%f"]})
 
 
 def test_concise_formatter_tz():
@@ -577,14 +601,19 @@ def test_concise_formatter_tz():
                                 "major_formatter": ["ConciseDateFormatter", {"tz": 3}]})
 
 
+def _offset_labels(delta, **x):
+    ticklabels(plot={"x": [D1997, _plus(D1997, **delta)], "y": [0, 0]},
+               x={"major": ["AutoDateLocator"], "major_formatter": ["ConciseDateFormatter", {}], **x})
+
+
 def test_concise_formatter_show_offset():
-    cases = [({"seconds": 0.01}, False), ({"minutes": 1}, False), ({"hours": 1}, False),
-             ({"days": 1}, False), ({"weeks": 1}, False), ({"weeks": 26}, False),
-             ({"weeks": 520}, False), ({"days": 60}, True)]
-    for delta, invert in cases:
-        ticklabels(plot={"x": [D1997, _plus(D1997, **delta)], "y": [0, 0]},
-                   x={"major": ["AutoDateLocator"], "major_formatter": ["ConciseDateFormatter", {}],
-                      **({"invert": True} if invert else {})})
+    for delta in ({"seconds": 0.01}, {"minutes": 1}, {"hours": 1}, {"days": 1}, {"weeks": 1},
+                  {"weeks": 26}, {"weeks": 520}):
+        _offset_labels(delta)
+
+
+def test_concise_formatter_show_offset_inverted():
+    _offset_labels({"days": 60}, invert=True)
 
 
 def _offsets(fig, ax, xlims):

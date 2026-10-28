@@ -100,20 +100,22 @@ fn width_from_char_name(args: Args<'_>) -> Outcome {
     )
 }
 
-fn kern_dist_from_name(args: Args<'_>) -> Outcome {
+pub(super) fn kern_dist_from_name(args: Args<'_>) -> Outcome {
     Ok(metrics(args)?
         .kern_dist_from_name(args.str("name1")?, args.str("name2")?)
         .into())
 }
 
+/// `text.encode("latin-1")`.
+pub(super) fn latin1(text: &str) -> Result<Vec<u8>, ProbeError> {
+    text.chars()
+        .map(|c| u8::try_from(c).map_err(|_| ProbeError::BadArgs(format!("{c:?} is not Latin-1"))))
+        .collect()
+}
+
 /// `AFM(BytesIO(data.encode("latin-1")))` summarised.
 fn parse(args: Args<'_>) -> Outcome {
-    let data = args
-        .str("data")?
-        .chars()
-        .map(|c| u8::try_from(c).map_err(|_| ProbeError::BadArgs(format!("{c:?} is not Latin-1"))))
-        .collect::<Result<Vec<u8>, _>>()?;
-    let afm = AfmMetrics::parse(&data).map_err(ProbeError::rejected)?;
+    let afm = AfmMetrics::parse(&latin1(args.str("data")?)?).map_err(ProbeError::rejected)?;
     Ok(Json::Object(vec![
         ("fontname".into(), afm.font_name().ok().into()),
         ("ascender".into(), afm.ascender().ok().into()),

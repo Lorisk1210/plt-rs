@@ -52,7 +52,12 @@ Named after the upstream tests; random data comes from
 20-point moving average). ``TestSpectral``'s tests run over all 66 fixtures
 (eleven parameter sets, three ``sides``, real and complex);
 ``test_spectral_helper_raises`` checks its errors through ``psd`` and
-``specgram``, on one fixture.
+``specgram``, on one fixture; ``test_spectral_helper_psd`` (the private
+helper's frequencies, times and shapes in the ``psd`` and ``magnitude``
+modes) is what the summaries of ``test_psd``, ``test_specgram`` and
+``test_spectrum`` record. ``TestDetrend``'s signals have 100 points rather
+than 1000, and its random base comes from ``spec_support.rng(0)``;
+``TestGaussianKDECustom`` draws its data from ``spec_support.rng(8765678)``.
 
 Already covered
 ---------------
@@ -63,15 +68,13 @@ its rejected keys and axes, the linear detrend errors;
 ``test_psd_window_hanning_detrend_linear``, ``test_psd_window_flattop``,
 ``test_psd_windowarray``, ``test_psd_windowarray_scale_by_freq`` and
 ``test_psd_windowarray_equal`` (detrending and windows, window arrays and
-``scale_by_freq``); ``TestGaussianKDE.test_kde_bandwidth_method``,
-``TestGaussianKDECustom``'s empty and single-element datasets, scalar and
-named bandwidths and the rejected bandwidth, and
+``scale_by_freq``); ``TestGaussianKDE.test_kde_bandwidth_method`` and
 ``TestGaussianKDEEvaluate.test_evaluate_inv_dim``.
 
 Left out
 --------
-``TestDetrend``'s callable keys, list inputs and ``axis=-1`` (Python
-callables and numpy's negative axes; ``axis=1`` is probed),
+``TestDetrend``'s callable keys and ``axis=-1`` (Python callables and
+numpy's negative axes; ``axis=1`` is probed),
 ``test_single_spectrum_helper_unsupported_modes`` and the ``y is x`` half of
 ``test_spectral_helper_raises`` (a private helper and Python object
 identity), the 32-bit ``sys.maxsize`` variant of ``test_csd``, the warning
@@ -83,7 +86,7 @@ Python callable bandwidth).
 import numpy as np
 from matplotlib import mlab
 
-from probes.test_stats import TOL_KDE, _detrend, _detrend_mean, _kde
+from probes.test_stats import TOL_KDE, TOL_LIN, _detrend, _detrend_mean, _kde
 from spec_support import ProbeSet, rng
 
 probes = ProbeSet("mpl_mlab")
@@ -133,8 +136,55 @@ def test_psd_oversampling():
                  detrend="none", noverlap=0, sides="onesided")
 
 
+def _detrend_signals(n=100):
+    """``TestDetrend``'s signals (on 100 points rather than 1000), its
+    random base drawn from ``spec_support.rng``."""
+    x = np.linspace(0., 100, n)
+    base = rng(0).normal(n) + np.sin(x * 2 * np.pi / (n / 100))
+    return {"zeros": np.zeros(n), "off": np.zeros(n) + 100., "slope": np.linspace(-10., 90., n),
+            "base": base - base.mean()}
+
+
+def detrend(x, tol=TOL_LIN, **kw):
+    return probes.probe("mlab.detrend", _detrend, tol=tol, x=np.asarray(x).tolist(), **kw)
+
+
+def detrend_mean(x, tol=TOL_LIN, **kw):
+    return probes.probe("mlab.detrend_mean", _detrend_mean, tol=tol, x=np.asarray(x).tolist(), **kw)
+
+
 class TestDetrend:
     SIG_SLOPE = np.linspace(-10., 90., 1000).tolist()
+
+    def test_detrend_mean_1d_base_slope_off_list_andor_axis0(self):
+        sig = _detrend_signals()
+        signal = sig["base"] + sig["slope"] + sig["off"]
+        detrend_mean(signal, axis=0)
+        detrend_mean(signal)
+
+    def test_detrend_mean_2d(self):
+        sig = _detrend_signals()
+        two = np.vstack([sig["off"], sig["base"] + sig["off"]])
+        for x, kw in [(two, {}), (two, {"axis": None}), (two.T, {"axis": None})]:
+            detrend_mean(x, **kw)
+        for x, kw in [(two, {}), (two, {"axis": None}), (two.T, {"key": "constant", "axis": None})]:
+            detrend(x, **kw)
+        four = np.vstack([sig["base"], sig["base"] + sig["off"], sig["base"] + sig["slope"],
+                          sig["base"] + sig["off"] + sig["slope"]])
+        detrend_mean(four.T, axis=0)
+        detrend_mean(four, axis=1)
+        detrend(four, key="default", axis=1)
+        detrend(four.T, key="mean", axis=0)
+
+    def test_detrend_str_linear_1d(self):
+        sig = _detrend_signals()
+        detrend(sig["slope"] + sig["off"], key="linear")
+
+    def test_detrend_linear_2d(self):
+        sig = _detrend_signals()
+        three = np.vstack([sig["off"], sig["slope"], sig["slope"] + sig["off"]])
+        detrend(three.T, key="linear", axis=0)
+        detrend(three, key="linear", axis=1)
 
     def test_detrend_ValueError(self):
         r = probes.probe("mlab.detrend", _detrend, x=5.5, axis=0)
@@ -281,6 +331,8 @@ class TestSpectral:
                 probes.probe(f"mlab.{kind}_spectrum.summary", _spectrum_summary(kind),
                              tol=TOL_FFT, stim=stim, sides=sides, pad_to=pad_to)
 
+    # test_specgram_auto_default_psd_equal and test_specgram_complex_equivalent
+    # compare modes: each mode's summary is recorded.
     def test_specgram(self):
         for stim, sides, density, _ in _fixtures():
             for mode in [None, "default", "psd", "magnitude", "complex", "angle", "phase"]:
@@ -320,6 +372,24 @@ class TestGaussianKDE:
 
 
 class TestGaussianKDECustom:
+    def test_single_dataset_element(self):
+        assert isinstance(_kde_probe(dataset=[42], points=[0]), ValueError)
+
+    def test_scalar_empty_dataset(self):
+        assert isinstance(_kde_probe(dataset=[], points=[0], bw_method=5), ValueError)
+
+    def test_scalar_covariance_dataset(self):
+        data = rng(8765678).normal(5 * 50).reshape(5, 50).tolist()
+        r = _kde_probe(dataset=data, points=[[0]] * 5, bw_method=0.5)
+        assert r["factor"] == 0.5
+
+    def test_callable_singledim_dataset(self):
+        _kde_probe(dataset=rng(8765678).normal(50).tolist(), points=[0], bw_method="silverman")
+
+    def test_wrong_bw_method(self):
+        r = _kde_probe(dataset=rng(8765678).normal(50).tolist(), points=[0], bw_method="invalid")
+        assert isinstance(r, ValueError)
+
     def test_silverman_multidim_dataset(self):
         r = _kde_probe(dataset=[[1, 2, 3], [4, 5, 6], [7, 8, 9]], points=[[1], [2], [3]],
                        bw_method="silverman")

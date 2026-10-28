@@ -171,8 +171,11 @@ def _anchor(panchor, layout=None):
     return _floats(mtransforms.Bbox.coefs[anchor] if isinstance(anchor, str) else anchor)
 
 
-def test_colorbar_single_ax_panchor():
+def test_colorbar_single_ax_panchor_false():
     probe("Axes.get_anchor", _anchor, panchor=False)
+
+
+def test_colorbar_single_ax_panchor_east():
     for layout in [None, "constrained"]:
         probe("Axes.get_anchor", _anchor, panchor="E", layout=layout)
 

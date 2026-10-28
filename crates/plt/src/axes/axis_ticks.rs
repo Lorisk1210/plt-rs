@@ -11,6 +11,7 @@ use super::axis_layout::{AxisPainter, AxisTexts};
 use super::ticks::{GridOptions, Sides, TickPosition, TickStyle};
 use super::{Axes, AxesState, PlotError, TickLabelProps};
 use crate::artist::{ArtistHandle, LayoutContext};
+use crate::figure::FigureState;
 use crate::polar::RadialLocator;
 use crate::spines::SpineSide;
 use crate::ticker::{AxisName, FixedFormatter, FixedLocator, Formatter, FuncFormatter, Locator};
@@ -28,7 +29,8 @@ impl Axis {
         self.set_shared_major_locator(&locator)
     }
 
-    /// Widens the view of this axis and its siblings to include `ticks`
+    /// Widens the view of this axis and its siblings to include `ticks`,
+    /// running this axes' limit callbacks when its view changed
     /// (matplotlib's `_set_tick_locations`).
     pub(super) fn include_ticks_in_view(&self, ticks: &[f64]) {
         if ticks.is_empty() {
@@ -38,12 +40,25 @@ impl Axis {
         let highest = ticks.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         self.axes.unstale_view();
         let figure = self.axes.raw().figure_state();
-        let mut state = figure.borrow_mut();
-        for id in state.siblings(self.name, self.axes.id()) {
-            if let Some(axes) = state.artist_as_mut::<AxesState>(id) {
-                axes.include_in_view(self.name, lowest, highest);
+        {
+            let mut state = figure.borrow_mut();
+            let (own, name) = (self.axes.id(), self.name);
+            let view = |state: &mut FigureState| {
+                state
+                    .artist_as_mut::<AxesState>(own)
+                    .map(|axes| axes.view_interval(name))
+            };
+            let before = view(&mut state);
+            for id in state.siblings(name, own) {
+                if let Some(axes) = state.artist_as_mut::<AxesState>(id) {
+                    axes.include_in_view(name, lowest, highest);
+                }
+            }
+            if view(&mut state) != before {
+                state.limit_callbacks.notify(own, name);
             }
         }
+        super::run_limit_callbacks(figure);
     }
 
     /// Labels the major ticks with `labels`: one per fixed tick when the

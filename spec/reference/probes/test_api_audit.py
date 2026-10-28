@@ -19,7 +19,10 @@ Ops
     y limits are read after plotting, read twice), ``"draw"`` (autoscaling
     while drawing), ``"clear"`` (callbacks of a cleared axes),
     ``"disconnect"``, ``"chain"`` (a callback of the first of two axes
-    setting the y limits of the second, whose callbacks record them).
+    setting the y limits of the second, whose callbacks record them),
+    ``"set_xticks"`` and ``"set_rticks"`` (ticks outside the limits
+    ``[0.5, 1]`` given to rectilinear and to polar axes; matplotlib's
+    ``test_axis.py::test_set_ticks_emits_lim_changed``).
 ``Axes.set_subplotspec``  {to} -> the position bounds of an axes made in
     cell ``[0, 0]`` of a 2 × 2 grid and moved to cell ``to``, and of its
     twin.
@@ -185,6 +188,16 @@ def _callbacks(scenario):
         first.callbacks.connect("xlim_changed", lambda a: second.set_ylim(*a.get_xlim()))
         first.set_xlim(1, 2)
         return [record.counts(), record.calls["y"]]
+    if scenario in ("set_xticks", "set_rticks"):
+        polar = scenario == "set_rticks"
+        ax = fig.add_subplot(projection="polar" if polar else None)
+        (ax.set_ylim if polar else ax.set_xlim)(0.5, 1)
+        record = _Recorder(ax)
+        if polar:
+            ax.set_rticks([1, 2, 3])
+        else:
+            ax.set_xticks([0, 100])
+        return [record.counts(), record.calls["x"], record.calls["y"]]
     ax = fig.add_subplot()
     record = _Recorder(ax)
     if scenario == "set_xlim":
@@ -628,3 +641,9 @@ def test_boxplot_bootstrap():
     for bootstrap in [500, 1, 0]:
         probes.probe("boxplot.bootstrap", _boxplot_bootstrap, data=data, bootstrap=bootstrap)
     probes.probe("boxplot.bootstrap", _boxplot_bootstrap, data=[3, 3, 3], bootstrap=20)
+
+
+def test_set_ticks_emits_lim_changed():
+    """matplotlib's ``test_axis.py::test_set_ticks_emits_lim_changed``."""
+    for scenario in ["set_xticks", "set_rticks"]:
+        probes.probe("Axes.callbacks", _callbacks, scenario=scenario)

@@ -108,6 +108,41 @@ mod tests {
         assert!(is_upgrade(&request("")));
     }
 
+    /// matplotlib's `test_websocket_rejects_cross_origin`: a page may open
+    /// a WebSocket only from the origin it was served from, the host and
+    /// port of `Origin` being those of `Host` (Tornado's `check_origin`).
+    #[test]
+    fn cross_origin_upgrades_are_forbidden() {
+        let cases = [
+            ("localhost:8988", "http://localhost:8988", true),
+            ("localhost:8988", "http://evil.com", false),
+            ("localhost:8988", "http://127.0.0.1:8988", false),
+            ("localhost:8988", "http://[::1]:8988", false),
+            ("127.0.0.1:8988", "http://127.0.0.1:8988", true),
+            ("127.0.0.1:8988", "http://localhost:8988", false),
+            ("127.0.0.1:8988", "http://[::1]:8988", false),
+            ("[::1]:8988", "http://[::1]:8988", true),
+            ("[::1]:8988", "http://[::2]:8988", false),
+            ("[::1]:8988", "http://localhost:8988", false),
+            ("[::1]:8988", "http://evil.com", false),
+        ];
+        for (host, origin, allowed) in cases {
+            let head = format!(
+                "GET /1/ws HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\n\
+                 Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\
+                 Sec-WebSocket-Version: 13\r\nOrigin: {origin}\r\n\r\n"
+            );
+            let request = parse_request(head.as_bytes()).expect("a valid head");
+            let status = handshake(&request).map_or_else(|r| r.status, |r| r.status);
+            let expected = if allowed {
+                Status::SwitchingProtocols
+            } else {
+                Status::Forbidden
+            };
+            assert_eq!(status, expected, "Host {host}, Origin {origin}");
+        }
+    }
+
     #[test]
     fn bad_upgrades_are_refused() {
         let status = |extra: &str| handshake(&request(extra)).map_err(|r| r.status);

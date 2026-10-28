@@ -227,9 +227,57 @@ EVENT_STEPS = {
 }
 
 
-def test_event_collection():
-    for steps in EVENT_STEPS.values():
-        probe("EventCollection.get", event_op, style="mpl20", steps=steps)
+def _probe_events(*names):
+    for name in names:
+        probe("EventCollection.get", event_op, style="mpl20", steps=EVENT_STEPS[name])
+
+
+def test__EventCollection__get_props():
+    _probe_events("get_props")
+
+
+def test__EventCollection__set_positions():
+    _probe_events("set_positions")
+
+
+def test__EventCollection__add_positions():
+    _probe_events("add_positions")
+
+
+def test__EventCollection__append_positions():
+    _probe_events("append_positions")
+
+
+def test__EventCollection__extend_positions():
+    _probe_events("extend_positions")
+
+
+def test__EventCollection__switch_orientation():
+    _probe_events("switch_orientation")
+
+
+def test__EventCollection__switch_orientation_2x():
+    _probe_events("switch_orientation_2x")
+
+
+def test__EventCollection__set_orientation():
+    _probe_events("set_orientation")
+
+
+def test__EventCollection__set_linelength():
+    _probe_events("set_linelength")
+
+
+def test__EventCollection__set_lineoffset():
+    _probe_events("set_lineoffset")
+
+
+def test__EventCollection__set_prop():
+    _probe_events("set_linestyle", "set_linestyle_tuple", "set_linewidth")
+
+
+def test__EventCollection__set_color():
+    _probe_events("set_color")
 
 
 # --- norms, limits, line styles ----------------------------------------------

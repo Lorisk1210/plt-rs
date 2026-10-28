@@ -139,8 +139,11 @@ def _font(file):
 
 
 def test_Type1Font():
-    for file in FILES:
-        probes.probe("_type1font.Type1Font", _font, file=file)
+    probes.probe("_type1font.Type1Font", _font, file="cmr10.pfb")
+
+
+def test_Type1Font_2():
+    probes.probe("_type1font.Type1Font", _font, file="Courier10PitchBT-Bold.pfb")
 
 
 def _transform(file, effects):

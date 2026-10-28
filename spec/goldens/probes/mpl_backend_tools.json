@@ -1,0 +1,17 @@
+{
+ "area": "mpl_backend_tools",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "1"}, "value": "1"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "A"}, "value": "A"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "a"}, "value": "a"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "backspace"}, "value": "Backspace"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "cmd+1"}, "value": "Cmd+1"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "cmd+p"}, "value": "Cmd+P"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "ctrl+A"}, "value": "Ctrl+Shift+A"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "ctrl+a"}, "value": "Ctrl+A"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "ctrl+shift+f1"}, "value": "Ctrl+Shift+F1"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "f1"}, "value": "F1"},
+  {"op": "backend_tools.ToolHelpBase.format_shortcut", "args": {"key_sequence": "home"}, "value": "Home"}
+ ]
+}

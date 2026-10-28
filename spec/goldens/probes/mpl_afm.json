@@ -1,0 +1,115 @@
+{
+ "area": "mpl_afm",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "A", "name2": "V"}, "value": -70.0},
+  {"op": "_afm.AFM.get_kern_dist_from_name", "args": {"file": "Helvetica.afm", "name1": "V", "name2": "A"}, "value": -80.0},
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nFontName MyFont-Bold\nEncodingScheme FontSpecific\nFullName My Font Bold\nFamilyName Test Fonts\nWeight Bold\nItalicAngle 0.0\nIsFixedPitch false\nUnderlinePosition -100\nUnderlineThickness 56,789\nVersion 001.000\nNotice Copyright © 2017 No one.\nFontBBox 0 -321 1234 369\nStartCharMetrics 3\nC 0 ; WX 250 ; N space ; B 0 0 0 0 ;\nC 42 ; WX 1141 ; N foo ; B 40 60 800 360 ;\nC 99 ; WX 583 ; N bar ; B 40 -10 543 210 ;\nEndCharMetrics\nEndFontMetrics\n",
+    "codes": [0, 42, 99],
+    "names": ["space", "foo", "bar"]
+   },
+   "value": {
+    "fontname": "MyFont-Bold",
+    "fullname": "My Font Bold",
+    "familyname": "Test Fonts",
+    "weight": "Bold",
+    "angle": 0.0,
+    "underline_thickness": 56.789,
+    "chars": [[250.0, "space", [0, 0, 0, 0]], [1141.0, "foo", [40, 60, 800, 360]], [583.0, "bar", [40, -10, 543, 210]]],
+    "by_name": [[250.0, "space", [0, 0, 0, 0]], [1141.0, "foo", [40, 60, 800, 360]], [583.0, "bar", [40, -10, 543, 210]]]
+   }
+  },
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nAardvark bob\nFontName MyFont-Bold\nEncodingScheme FontSpecific\nStartCharMetrics 3\nEndCharMetrics\n"
+   },
+   "value": {
+    "fontname": "MyFont-Bold",
+    "fullname": "MyFont-Bold",
+    "familyname": "MyFont",
+    "weight": null,
+    "angle": null,
+    "underline_thickness": null,
+    "chars": [],
+    "by_name": []
+   }
+  },
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nFontName MyFont-Bold\nEncodingScheme FontSpecific"
+   },
+   "error": "RuntimeError"
+  },
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nFontName MyFont-Bold\nEncodingScheme FontSpecific\nFullName My Font Bold\nFamilyName Test Fonts\nWeight Bold\nItalicAngle 0.0\nIsFixedPitch false\nUnderlinePosition -100\nUnderlineThickness 56,789\nVersion 001.000\nNotice Copyright © 2017 No one.\nFontBBox 0 -321 1234 369\nStartCharMetrics 3\nC 0 ; WX 250 ; N space ; B 0 0 0 0 ;\nC 42 ; WX 1141 ; N foo ; B 40 60 800 360 ;\nC 99 ; WX 583 ; N bar ; B 40 -10 543 210 ;\nEndCharMetrics\nEndFontMetrics\n"
+   },
+   "value": {
+    "fontname": "MyFont-Bold",
+    "fullname": "My Font Bold",
+    "familyname": "Test Fonts",
+    "weight": "Bold",
+    "angle": 0.0,
+    "underline_thickness": 56.789,
+    "chars": [],
+    "by_name": []
+   }
+  },
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nFontName MyFont-Bold\nEncodingScheme FontSpecific\nFullName My Font Bold\nWeight Bold\nItalicAngle 0.0\nIsFixedPitch false\nUnderlinePosition -100\nUnderlineThickness 56,789\nVersion 001.000\nNotice Copyright © 2017 No one.\nFontBBox 0 -321 1234 369\nStartCharMetrics 3\nC 0 ; WX 250 ; N space ; B 0 0 0 0 ;\nC 42 ; WX 1141 ; N foo ; B 40 60 800 360 ;\nC 99 ; WX 583 ; N bar ; B 40 -10 543 210 ;\nEndCharMetrics\nEndFontMetrics\n"
+   },
+   "value": {
+    "fontname": "MyFont-Bold",
+    "fullname": "My Font Bold",
+    "familyname": "My Font",
+    "weight": "Bold",
+    "angle": 0.0,
+    "underline_thickness": 56.789,
+    "chars": [],
+    "by_name": []
+   }
+  },
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nFontName MyFont-Bold\nEncodingScheme FontSpecific\nFullName привет\nFamilyName Test Fonts\nWeight Bold\nItalicAngle 0.0\nIsFixedPitch false\nUnderlinePosition -100\nUnderlineThickness 56,789\nVersion 001.000\nNotice Copyright © 2017 No one.\nFontBBox 0 -321 1234 369\nStartCharMetrics 3\nC 0 ; WX 250 ; N space ; B 0 0 0 0 ;\nC 42 ; WX 1141 ; N foo ; B 40 60 800 360 ;\nC 99 ; WX 583 ; N bar ; B 40 -10 543 210 ;\nEndCharMetrics\nEndFontMetrics\n",
+    "encoding": "utf-8"
+   },
+   "value": {
+    "fontname": "MyFont-Bold",
+    "fullname": "привет",
+    "familyname": "Test Fonts",
+    "weight": "Bold",
+    "angle": 0.0,
+    "underline_thickness": 56.789,
+    "chars": [],
+    "by_name": []
+   }
+  },
+  {
+   "op": "_afm.AFM.parse",
+   "args": {
+    "data": "StartFontMetrics 2.0\nComment Comments are ignored.\nComment Creation Date:Mon Nov 13 12:34:11 GMT 2017\nItalicAngle zero degrees\nFontName MyFont-Bold\nEncodingScheme FontSpecific\nStartCharMetrics 3\nEndCharMetrics\n"
+   },
+   "value": {
+    "fontname": "MyFont-Bold",
+    "fullname": "MyFont-Bold",
+    "familyname": "MyFont",
+    "weight": null,
+    "angle": null,
+    "underline_thickness": null,
+    "chars": [],
+    "by_name": []
+   }
+  },
+  {"op": "_afm.AFM.parse", "args": {"data": "nope\nreally nope"}, "error": "RuntimeError"}
+ ]
+}

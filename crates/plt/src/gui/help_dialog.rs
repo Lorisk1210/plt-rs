@@ -1,12 +1,13 @@
 //! The help window of figure windows (matplotlib's `ToolHelpBase`): every
 //! keyboard shortcut, from the `keymap.*` rcParams and the figure's own
-//! tools.
+//! tools, spelled the way matplotlib's help shows them.
 
 use plt_platform::{Context, WindowEvent, WindowId};
 use plt_ui::{Form, Keycaps, UiWindow};
 
 use super::GuiError;
 use super::dialog::{self, Dialog};
+use super::keys::format_shortcut;
 use super::tools::ToolSpec;
 use crate::figure::Figure;
 use crate::rc::RcParams;
@@ -27,7 +28,7 @@ fn shortcuts(rc: &RcParams, tools: &[ToolSpec]) -> Vec<(&'static str, Vec<Shortc
     let keyboard = |keys: &[String]| -> Vec<String> {
         keys.iter()
             .filter(|key| !key.starts_with("MouseButton."))
-            .cloned()
+            .map(|key| format_shortcut(key))
             .collect()
     };
     let group = |actions: &[(&str, &Vec<String>)]| -> Vec<Shortcut> {
@@ -176,8 +177,8 @@ mod tests {
             .find(|(action, _)| action == "Back to previous view");
         assert_eq!(
             back.map(|(_, keys)| keys.clone()),
-            Some(vec!["left".into(), "c".into(), "backspace".into()]),
-            "mouse buttons are not keys"
+            Some(vec!["Left".into(), "c".into(), "Backspace".into()]),
+            "mouse buttons are not keys, and names are spelled out"
         );
         assert_eq!(
             groups.last(),

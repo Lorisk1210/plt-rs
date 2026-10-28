@@ -3934,6 +3934,102 @@
   },
   {
    "op": "Axes.tick_params",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "draw": true,
+    "rc": {
+     "axes.grid": true,
+     "axes.grid.which": "both",
+     "ytick.minor.visible": true,
+     "xtick.minor.visible": true,
+     "grid.color": "gray",
+     "grid.minor.color": "red",
+     "grid.major.linestyle": ":",
+     "grid.major.linewidth": 2,
+     "grid.minor.alpha": 0.6
+    }
+   },
+   "value": {
+    "xmajor": {
+     "size": 4.0,
+     "width": 0.5,
+     "pad": 4.0,
+     "direction": "in",
+     "color": [0.0, 0.0, 0.0, 1],
+     "markeredgecolor": [0.0, 0.0, 0.0, 1],
+     "labelsize": 12.0,
+     "labelcolor": [0.0, 0.0, 0.0, 1],
+     "labelrotation": 0.0,
+     "rotation_mode": "default",
+     "labelfamily": "sans-serif",
+     "tick1On": true,
+     "tick2On": true,
+     "label1On": true,
+     "label2On": false,
+     "gridOn": true,
+     "grid": [[0.5019607843137255, 0.5019607843137255, 0.5019607843137255, 1.0], 2.0, 1.0, "dotted"]
+    },
+    "xminor": {
+     "size": 2.0,
+     "width": 0.5,
+     "pad": 4.0,
+     "direction": "in",
+     "color": [0.0, 0.0, 0.0, 1],
+     "markeredgecolor": [0.0, 0.0, 0.0, 1],
+     "labelsize": 12.0,
+     "labelcolor": [0.0, 0.0, 0.0, 1],
+     "labelrotation": 0.0,
+     "rotation_mode": "default",
+     "labelfamily": "sans-serif",
+     "tick1On": true,
+     "tick2On": true,
+     "label1On": true,
+     "label2On": false,
+     "gridOn": true,
+     "grid": [[1.0, 0.0, 0.0, 1.0], 0.5, 0.6, "dotted"]
+    },
+    "ymajor": {
+     "size": 4.0,
+     "width": 0.5,
+     "pad": 4.0,
+     "direction": "in",
+     "color": [0.0, 0.0, 0.0, 1],
+     "markeredgecolor": [0.0, 0.0, 0.0, 1],
+     "labelsize": 12.0,
+     "labelcolor": [0.0, 0.0, 0.0, 1],
+     "labelrotation": 0.0,
+     "rotation_mode": "default",
+     "labelfamily": "sans-serif",
+     "tick1On": true,
+     "tick2On": true,
+     "label1On": true,
+     "label2On": false,
+     "gridOn": true,
+     "grid": [[0.5019607843137255, 0.5019607843137255, 0.5019607843137255, 1.0], 2.0, 1.0, "dotted"]
+    },
+    "yminor": {
+     "size": 2.0,
+     "width": 0.5,
+     "pad": 4.0,
+     "direction": "in",
+     "color": [0.0, 0.0, 0.0, 1],
+     "markeredgecolor": [0.0, 0.0, 0.0, 1],
+     "labelsize": 12.0,
+     "labelcolor": [0.0, 0.0, 0.0, 1],
+     "labelrotation": 0.0,
+     "rotation_mode": "default",
+     "labelfamily": "sans-serif",
+     "tick1On": true,
+     "tick2On": true,
+     "label1On": true,
+     "label2On": false,
+     "gridOn": true,
+     "grid": [[1.0, 0.0, 0.0, 1.0], 0.5, 0.6, "dotted"]
+    }
+   }
+  },
+  {
+   "op": "Axes.tick_params",
    "args": {"style": ["classic", "_classic_test_patch"], "draw": true, "rc": {"axes.grid": true, "axes.grid.which": "both"}},
    "value": {
     "xmajor": {

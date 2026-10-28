@@ -1,5 +1,5 @@
 //! Norm calls of `test_colors.py` the `norms` area has no op for: the
-//! setters of `CenteredNorm`, `FuncNorm`, a colorizer's limits, the
+//! setters of `CenteredNorm`, whether a `TwoSlopeNorm` is scaled, `FuncNorm`, a colorizer's limits, the
 //! colorbars of norms, and `ScalarMappable.to_rgba` of colour images.
 
 use plt::axes::ImshowOptions;
@@ -69,6 +69,19 @@ pub(super) fn centered_steps(args: Args<'_>) -> Outcome {
         states.push(centered_state(&norm));
     }
     Ok(Json::Array(states))
+}
+
+/// `[norm.scaled(), norm.scaled()]` of `TwoSlopeNorm(**params)` before and
+/// after `norm(values)`.
+pub(super) fn two_slope_scaled(args: Args<'_>) -> Outcome {
+    let mut norm = make_norm("TwoSlopeNorm", args.json("params")?)?;
+    let before = norm.scaled();
+    norm.normalize(&args.f64_vec("values")?)
+        .map_err(ProbeError::rejected)?;
+    Ok(Json::Array(vec![
+        Json::Bool(before),
+        Json::Bool(norm.scaled()),
+    ]))
 }
 
 /// `FuncNorm(functions, vmin=vmin, vmax=vmax)` for the named function

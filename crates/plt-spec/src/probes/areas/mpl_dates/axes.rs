@@ -141,7 +141,7 @@ fn set_date_limits(ax: &Axes, name: AxisName, lim: &Json) -> Result<(), ProbeErr
             .and_then(date_num)
     };
     let (low, high) = (num(low)?, num(high)?);
-    ax.axis_of(name).axis_date(&TimeZone::Utc);
+    ax.axis_of(name).axis_date(None);
     ax.set_limits(name, low, high)
         .map_err(ProbeError::rejected)?;
     Ok(())
@@ -186,10 +186,10 @@ fn on_axes(args: Args<'_>, query: impl FnOnce(&Figure, &Axes) -> Outcome) -> Out
                 plot(&ax, spec)?;
             }
             if args.opt_bool("xaxis_date")? == Some(true) {
-                ax.xaxis_date(&TimeZone::Utc);
+                ax.xaxis_date(None);
             }
             if args.opt_bool("axis_date")? == Some(true) {
-                ax.xaxis().axis_date(&TimeZone::Utc);
+                ax.xaxis().axis_date(None);
             }
             for (key, name) in [("x", AxisName::X), ("y", AxisName::Y)] {
                 if let Some(config) = args.get(key) {
@@ -235,7 +235,7 @@ pub(super) fn ticklabels(args: Args<'_>) -> Outcome {
 pub(super) fn too_many_ticks(args: Args<'_>) -> Outcome {
     on_axes(args, |_, ax| {
         let t0 = date_num("2000-01-20T00:00:00")?;
-        ax.xaxis().axis_date(&TimeZone::Utc);
+        ax.xaxis().axis_date(None);
         let limits = Limits {
             auto: Some(true),
             ..Limits::new(t0, t0)

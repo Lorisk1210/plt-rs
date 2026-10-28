@@ -3,7 +3,6 @@
 
 use std::f64::consts::PI;
 
-use plt::dates::TimeZone;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
 use plt::text::HAlign;
@@ -51,13 +50,13 @@ fn zaxis_date(fig: &Figure) -> CaseResult {
     let y: Vec<f64> = t.iter().map(|t| t.sin()).collect();
     let z: Vec<f64> = t.iter().map(|t| 19_000.0 + t).collect();
     ax.plot(&x, &y, &z)?;
-    ax.zaxis().axis_date(&TimeZone::Utc);
+    ax.zaxis().axis_date(None);
     Ok(())
 }
 
 fn zaxis_date_concise(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     ax.set_zlim(19_000.0, 19_000.5)?;
-    ax.zaxis().axis_date(&TimeZone::Utc);
+    ax.zaxis().axis_date(None);
     Ok(())
 }

@@ -166,15 +166,17 @@ impl Axis {
         self.has_units()
     }
 
-    /// Ticks the axis as an axis of dates in `tz` without plotting any
+    /// Ticks the axis as an axis of dates without plotting any
     /// (matplotlib's `axis_date`, as `Axis3D::axis_date` does for 3-D
     /// axes): the axis takes the date converter, unless another one was
     /// set explicitly, and an `AutoDateLocator` with the formatter
     /// `date.converter` chooses in place of the major locator and
     /// formatter that were not set explicitly; the axes sharing the axis
-    /// follow. Before any data is plotted or limits are set, the view
-    /// becomes the first day of 1970, the default limits of matplotlib's
-    /// date converter (its `set_default_intervals`).
+    /// follow. A zone `tz` becomes the axis unit if it has none, so later
+    /// plots keep it; the ticks are in the unit's zone, else (`None`) in
+    /// the `timezone` rcParam's. Before any data is plotted or limits are
+    /// set, the view becomes the first day of 1970, the default limits of
+    /// matplotlib's date converter (its `set_default_intervals`).
     ///
     /// ```
     /// use plt::dates::TimeZone;
@@ -187,23 +189,23 @@ impl Axis {
     /// assert_eq!(ax.xaxis().ticklabels(false)?[0], "2022-01-09");
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn axis_date(&self, tz: &TimeZone) -> &Self {
-        self.make_date_axis(tz);
+    pub fn axis_date<'a>(&self, tz: impl Into<Option<&'a TimeZone>>) -> &Self {
+        self.make_date_axis(tz.into());
         self
     }
 }
 
 impl Axes {
-    /// Ticks the x axis as an axis of dates in `tz` (matplotlib's
+    /// Ticks the x axis as an axis of dates (matplotlib's
     /// `xaxis_date`; see [`Axis::axis_date`]).
-    pub fn xaxis_date(&self, tz: &TimeZone) -> &Self {
+    pub fn xaxis_date<'a>(&self, tz: impl Into<Option<&'a TimeZone>>) -> &Self {
         self.xaxis().axis_date(tz);
         self
     }
 
-    /// Ticks the y axis as an axis of dates in `tz` (matplotlib's
+    /// Ticks the y axis as an axis of dates (matplotlib's
     /// `yaxis_date`; see [`Axis::axis_date`]).
-    pub fn yaxis_date(&self, tz: &TimeZone) -> &Self {
+    pub fn yaxis_date<'a>(&self, tz: impl Into<Option<&'a TimeZone>>) -> &Self {
         self.yaxis().axis_date(tz);
         self
     }
@@ -240,7 +242,7 @@ mod tests {
         let ax = Figure::new().subplot();
         ax.yaxis()
             .set_major_locator(MultipleLocator::new(0.5).expect("a positive base"));
-        ax.xaxis_date(&TimeZone::Utc).yaxis_date(&TimeZone::Utc);
+        ax.xaxis_date(None).yaxis_date(None);
         let is = |axis: &Axis| {
             (
                 (axis.major_locator().as_ref() as &dyn Any).is::<AutoDateLocator>(),
@@ -251,6 +253,36 @@ mod tests {
         assert_eq!(is(&ax.yaxis()), (false, true), "the chosen locator stays");
         assert!(ax.xaxis().have_units() && ax.yaxis().have_units());
         assert_eq!((ax.xlim(), ax.ylim()), ((0.0, 1.0), (0.0, 1.0)));
+        // A zone becomes the unit, and the unit change autoscales, as in
+        // matplotlib (`xaxis_date("UTC")`).
+        ax.xaxis_date(&TimeZone::Utc);
+        assert_eq!(ax.xlim(), (-0.05, 1.05));
+    }
+
+    /// matplotlib's `axis_date(tz)` updates the units with a date in `tz`:
+    /// the zone becomes the unit, which later plots keep, while no zone
+    /// leaves the ticks in the `timezone` rcParam's.
+    #[test]
+    fn axis_date_keeps_its_zone_for_later_plots() {
+        crate::rc::context(|| {
+            crate::rc::set("timezone", "Europe/Berlin").expect("a valid rcParam");
+            let Ok(berlin) = TimeZone::from_rc() else {
+                return; // no zoneinfo on this system
+            };
+            let at = |hour| crate::dates::DateTime::new(2020, 1, 1, hour, 0, 0, 0).expect("a date");
+            let labels = |tz: Option<&TimeZone>| {
+                let ax = Figure::new().subplot();
+                ax.xaxis_date(tz);
+                ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
+                let unit = ax.xaxis().units();
+                assert_eq!(unit.as_ref().and_then(|u| u.downcast_ref::<TimeZone>()), tz);
+                ax.xaxis().ticklabels(false).expect("ticks")
+            };
+            // matplotlib: "01-01 12" ... in UTC, "01-01 13" ... in Berlin.
+            assert_eq!(labels(Some(&TimeZone::Utc))[0], "01-01 12");
+            assert_eq!(labels(None)[0], "01-01 13");
+            assert_eq!(labels(None), labels(Some(&berlin)));
+        });
     }
 
     #[test]

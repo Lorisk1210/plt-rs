@@ -8,7 +8,6 @@
 
 use plt::axes::{Adjustable, ScatterColors, ScatterOptions, TickParams};
 use plt::collections::CollectionProps;
-use plt::dates::TimeZone;
 use plt::figure::Figure;
 use plt::mplot3d::{
     Aspect3D, Axes3D, Axes3DOptions, Axis3, Axis3D, ProjType, Sampling, Scatter3DOptions,
@@ -333,15 +332,15 @@ fn tick_scene(scene: &str) -> Result<Axes3D, ProbeError> {
         }
         "dates" => {
             plot(&ax, [0.0, 1.0], [0.0, 1.0], [19_000.0, 19_010.0])?;
-            ax.zaxis().axis_date(&TimeZone::Utc);
+            ax.zaxis().axis_date(None);
         }
         "dates_zlim" => {
             made(ax.set_zlim(19_000.0, 19_003.0))?;
-            ax.zaxis().axis_date(&TimeZone::Utc);
+            ax.zaxis().axis_date(None);
         }
         "dates_kept_formatter" => {
             ax.zaxis().set_major_formatter(NullFormatter);
-            ax.zaxis().axis_date(&TimeZone::Utc);
+            ax.zaxis().axis_date(None);
         }
         other => return Err(ProbeError::BadArgs(format!("unknown scene {other:?}"))),
     }

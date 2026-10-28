@@ -3,7 +3,6 @@
 
 use plt::axes::{AxesLocatorFn, FillBetweenOptions, ImshowOptions, ScatterColors, ScatterOptions};
 use plt::collections::CollectionProps;
-use plt::dates::TimeZone;
 use plt::image::Interpolation;
 use plt::markers::MarkerStyle;
 use plt::numeric::Grid;
@@ -91,7 +90,7 @@ pub(super) fn date_axes(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(2, 1)?;
     let (dated, empty) = (&axs[(0, 0)], &axs[(1, 0)]);
     dated.plot([19_000.0, 19_003.0, 19_010.0], [0.0, 2.0, 1.0])?;
-    dated.xaxis_date(&TimeZone::Utc);
-    empty.yaxis_date(&TimeZone::Utc);
+    dated.xaxis_date(None);
+    empty.yaxis_date(None);
     Ok(())
 }

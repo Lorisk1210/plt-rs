@@ -160,7 +160,7 @@ fn subplots_demo_9(fig: &Figure) -> CaseResult {
 
 fn subplots_demo_10(fig: &Figure) -> CaseResult {
     let axs = three_stacked(fig, "Restored xtick labels on to Axes")?;
-    axs[0].tick_params(&TickParams {
+    axs[0].tick_params(TickParams {
         labelbottom: Some(true),
         ..TickParams::default()
     });
@@ -216,7 +216,7 @@ fn subplots_demo_13(fig: &Figure) -> CaseResult {
     axs[(0, 1)].set_title("unrelated");
     axs[(1, 1)].plot(shifted(2.0), map(&y(1.0, 1), |y| y + 2.0))?;
     axs[(1, 1)].set_title("also unrelated");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

@@ -66,7 +66,7 @@ pub(super) fn layout_engine(args: Args<'_>) -> Outcome {
                         w_pad: kwargs.get("w_pad").and_then(Json::as_f64),
                         ..TightLayout::default()
                     };
-                    fig.tight_layout(&params).map_err(ProbeError::rejected)?;
+                    fig.tight_layout(params).map_err(ProbeError::rejected)?;
                 }
                 [Json::String(name)] if name == "savefig_tight" => {
                     let options = SaveOptions {

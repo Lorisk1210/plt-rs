@@ -108,7 +108,7 @@ fn axes_ticks_5(fig: &Figure) -> CaseResult {
     }
     let ax = &axs[(0, 1)];
     ax.grid(true);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(plt::ticker::AxisName::Y),
         right: Some(true),
         left: Some(false),
@@ -117,7 +117,7 @@ fn axes_ticks_5(fig: &Figure) -> CaseResult {
         grid_color: Some("none".into()),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(plt::ticker::AxisName::X),
         color: Some("m".into()),
         length: Some(4.0),

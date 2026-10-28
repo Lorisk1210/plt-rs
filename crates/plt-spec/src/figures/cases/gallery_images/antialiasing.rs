@@ -212,9 +212,9 @@ fn image_antialiasing_8(fig: &Figure) -> CaseResult {
                 .cmap(cmap.clone())
                 .limits(Some(0.0), Some(2.0)),
             interpolation_stage: Some(stage),
+            interpolation: Some(interpolation),
             ..ImshowOptions::default()
-        }
-        .interpolation(interpolation);
+        };
         last = Some(ax.imshow(a.clone(), options)?);
         let mut title = format!("interpolation='{}'\nstage='{space}'", interpolation.name());
         if i == 2 {

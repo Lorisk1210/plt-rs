@@ -185,7 +185,7 @@ pub fn make_rgb_axes(ax: &Axes, pad: f64) -> [Axes; 3] {
         // Sharing with a fresh axes cannot form a cycle.
         axes.share_x(ax).expect("a fresh axes shares freely");
         axes.share_y(ax).expect("a fresh axes shares freely");
-        axes.tick_params(&TickParams {
+        axes.tick_params(TickParams {
             labelbottom: Some(false),
             labelleft: Some(false),
             ..TickParams::default()

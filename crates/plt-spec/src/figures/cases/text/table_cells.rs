@@ -84,7 +84,7 @@ fn outside(fig: &Figure) -> CaseResult {
             ..TableOptions::with_text(rows([[loc]]))
         })?;
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.25),
         right: Some(0.75),
         top: Some(0.8),

@@ -7,7 +7,7 @@ use plt::fonts::{
     parse_variant,
 };
 use plt::rc::{self, RcParams};
-use plt::text::{HAlign, LineSpacing, Text, TextRotationMode, VAlign};
+use plt::text::{HAlign, LineSpacing, RotationMode, Text, VAlign};
 
 use crate::json::Json;
 use crate::probes::{Args, ProbeError};
@@ -274,10 +274,10 @@ pub(crate) fn apply_text_kw(text: &Text, kw: Option<&Json>) -> Result<(), ProbeE
             }
             "rotation_mode" => {
                 let mode = match value {
-                    Json::Null => TextRotationMode::Default,
+                    Json::Null => RotationMode::Default,
                     other => {
                         let name = string(other)?;
-                        name.parse::<TextRotationMode>().map_err(|_| {
+                        name.parse::<RotationMode>().map_err(|_| {
                             ProbeError::rejected(format!("bad rotation mode {name:?}"))
                         })?
                     }

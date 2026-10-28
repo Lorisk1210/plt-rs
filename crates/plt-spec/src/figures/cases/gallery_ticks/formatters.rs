@@ -82,7 +82,7 @@ fn dollar_ticks(fig: &Figure) -> CaseResult {
     }));
     ax.yaxis()
         .set_major_formatter(StrMethodFormatter::new("${x:1.2f}")?)
-        .set_tick_params(&TickParams {
+        .set_tick_params(TickParams {
             which: TickLevel::Major,
             labelcolor: Some("green".into()),
             labelleft: Some(false),
@@ -134,7 +134,7 @@ fn engineering_formatter(fig: &Figure) -> CaseResult {
     );
     ax1.plot(xs, ys)?;
     ax1.set_xlabel("Frequency [Hz]");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -166,17 +166,17 @@ fn major_minor_demo_1(fig: &Figure) -> CaseResult {
 fn major_minor_demo_2(fig: &Figure) -> CaseResult {
     let ax = damped_sine(fig, 0.01, 2.0)?;
     ax.xaxis().set_minor_locator(AutoMinorLocator::new(None));
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Both,
         width: Some(2.0),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Major,
         length: Some(7.0),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Minor,
         length: Some(4.0),
         color: Some("r".into()),
@@ -205,11 +205,11 @@ fn scalarformatter(fig: &Figure) -> CaseResult {
         axs[(2, col)].plot(map(&x, |x| -x * 1e5 - 1e10), map(&x, |x| -x * 1e-5 - 1e-10))?;
     }
     for row in 0..3 {
-        axs[(row, 1)].ticklabel_format(&TicklabelFormat {
+        axs[(row, 1)].ticklabel_format(TicklabelFormat {
             use_mathtext: Some(true),
             ..TicklabelFormat::default()
         })?;
-        axs[(row, 2)].ticklabel_format(&TicklabelFormat {
+        axs[(row, 2)].ticklabel_format(TicklabelFormat {
             use_offset: Some(OffsetMode::Off),
             ..TicklabelFormat::default()
         })?;

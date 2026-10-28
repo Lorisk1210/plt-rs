@@ -179,7 +179,7 @@ pub(super) fn lightness(fig: &Figure, category: &Category) -> CaseResult {
         xaxis.set_major_formatter(FixedFormatter::new(
             names.iter().map(|&name| name.to_owned()).collect(),
         ));
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             labelrotation: Some(50.0),
             ..TickParams::default()
@@ -190,7 +190,7 @@ pub(super) fn lightness(fig: &Figure, category: &Category) -> CaseResult {
     let last = axs.last().ok_or("no subplots")?;
     last.set_xlabel(format!("{} colormaps", category.name));
     last.xaxis().set_label_fontsize(FontSize::Points(14.0));
-    fig.tight_layout(&TightLayout {
+    fig.tight_layout(TightLayout {
         pad: 1.5,
         h_pad: Some(0.0),
         ..TightLayout::default()
@@ -204,7 +204,7 @@ pub(super) fn lightness(fig: &Figure, category: &Category) -> CaseResult {
 pub(super) fn grayscale(fig: &Figure, category: &Category) -> CaseResult {
     let x = linspace(0.0, 1.0, 100);
     let axs = fig.subplots(category.cmaps.len(), 2)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.95),
         bottom: Some(0.01),
         left: Some(0.2),

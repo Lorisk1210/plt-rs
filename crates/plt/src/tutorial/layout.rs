@@ -67,10 +67,10 @@
 //! axes that fix their aspect, as polar axes do, cannot have twins. Each
 //! of the two axes has its own legend; for one legend listing the
 //! artists of both, give it their handles, and put it on the twin, which
-//! is drawn on top.
+//! is drawn on top. [`LegendOptions::handle`] adds one handle at a time,
+//! so the bars and the line go in side by side.
 //!
 //! ```
-//! use plt::legend::LegendHandle;
 //! use plt::prelude::*;
 //!
 //! let ax = Figure::new().subplot();
@@ -84,8 +84,7 @@
 //! let line = right.plot_with(months, [0.5, 1.8, 5.6, 9.4], warmth)?;
 //! right.set_ylabel("temperature (°C)");
 //!
-//! let both = [LegendHandle::from(&bars), LegendHandle::from(&line)];
-//! let legend = right.legend(LegendOptions::default().handles(both))?;
+//! let legend = right.legend(LegendOptions::default().handle(&bars).handle(&line))?;
 //! assert_eq!(legend.labels(), ["rain", "temperature"]);
 //! assert_eq!(right.xlim(), ax.xlim(), "one x axis");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -287,6 +286,7 @@
 //! [`Axes::twinx`]: crate::axes::Axes::twinx
 //! [`Axes::inset_axes`]: crate::axes::Axes::inset_axes
 //! [`Axes::indicate_inset_zoom`]: crate::axes::Axes::indicate_inset_zoom
+//! [`LegendOptions::handle`]: crate::legend::LegendOptions::handle
 //! [`Share`]: crate::figure::Share
 //! [`Mosaic`]: crate::figure::Mosaic
 //! [`GridSpec`]: crate::gridspec::GridSpec

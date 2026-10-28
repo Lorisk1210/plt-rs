@@ -2,7 +2,7 @@
 //! the colours or sizes of a scatter plot.
 
 use plt::axes::{MappedColors, ScatterOptions};
-use plt::collections::{ElementCount, LegendElementsOptions, LegendProperty};
+use plt::collections::{ElementCount, LegendElementsOptions, LegendProperty, LegendValueFn};
 use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::markers::{FillStyle, Marker, MarkerStyle};
@@ -28,10 +28,10 @@ fn count(value: &Json) -> Result<ElementCount, ProbeError> {
 }
 
 /// The functions `func` names.
-fn func(name: &str) -> Result<Box<dyn Fn(f64) -> f64 + Send>, ProbeError> {
+fn func(name: &str) -> Result<LegendValueFn, ProbeError> {
     match name {
-        "double" => Ok(Box::new(|x| 2.0 * x)),
-        "inverse5" => Ok(Box::new(|x| 5.0 / x)),
+        "double" => Ok(LegendValueFn::new(|x| 2.0 * x)),
+        "inverse5" => Ok(LegendValueFn::new(|x| 5.0 / x)),
         other => Err(ProbeError::BadArgs(format!("unknown func {other:?}"))),
     }
 }
@@ -53,7 +53,7 @@ fn options(value: &Json) -> Result<LegendElementsOptions, ProbeError> {
             }
             "num" => options.num = count(item)?,
             "fmt" => options.fmt = Some(Box::new(made(StrMethodFormatter::new(text()?))?)),
-            "func" => options.func = Some(func(text()?)?),
+            "func" => options.func = func(text()?)?,
             "alpha" => options.alpha = item.as_f64(),
             "color" => options.color = Some(Color::from(text()?)),
             other => return Err(ProbeError::BadArgs(format!("unknown option {other}"))),

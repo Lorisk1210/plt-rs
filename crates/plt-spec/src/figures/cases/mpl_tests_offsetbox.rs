@@ -46,7 +46,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             ax.plot_y([1.0, 2.0]).set_label("series 1");
             ax.plot_y([2.0, 1.0]).set_label("series 2");
             ax.legend(LegendOptions::default().ncols(2).mode(LegendMode::Expand))?;
-            fig.tight_layout(&TightLayout::default())?;
+            fig.tight_layout(TightLayout::default())?;
             Ok(())
         }),
     ]

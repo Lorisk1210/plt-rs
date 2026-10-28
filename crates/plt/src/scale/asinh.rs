@@ -10,7 +10,7 @@ use crate::ticker::{
 use crate::transforms::AxisMap;
 
 /// The minor tick multiples used for common bases when none are given.
-fn auto_tick_multipliers(base: i64) -> Option<Vec<f64>> {
+fn auto_tick_multipliers(base: i64) -> Vec<f64> {
     let subs: &[f64] = match base {
         3..=5 => &[2.0],
         8 => &[2.0, 4.0],
@@ -18,9 +18,9 @@ fn auto_tick_multipliers(base: i64) -> Option<Vec<f64>> {
         16 => &[2.0, 4.0, 8.0],
         64 => &[4.0, 16.0],
         1024 => &[256.0, 512.0],
-        _ => return None,
+        _ => &[],
     };
-    Some(subs.to_vec())
+    subs.to_vec()
 }
 
 /// The scale `w * asinh(x / w)`: linear near zero, logarithmic for large
@@ -29,7 +29,8 @@ fn auto_tick_multipliers(base: i64) -> Option<Vec<f64>> {
 pub struct AsinhScale {
     transform: AsinhTransform,
     base: i64,
-    subs: Option<Vec<f64>>,
+    /// The minor tick multiples; none when empty.
+    subs: Vec<f64>,
 }
 
 impl AsinhScale {
@@ -45,10 +46,11 @@ impl AsinhScale {
         })
     }
 
-    /// Explicit minor tick multiples (`None`: no minor multiples).
+    /// Minor tick multiples in an array or a `Vec`, in place of the
+    /// base's defaults; an empty list for none.
     #[must_use]
-    pub fn with_subs(mut self, subs: Option<Vec<f64>>) -> Self {
-        self.subs = subs;
+    pub fn with_subs(mut self, subs: impl Into<Vec<f64>>) -> Self {
+        self.subs = subs.into();
         self
     }
 
@@ -110,8 +112,8 @@ mod tests {
     fn asinh_defaults() {
         let scale = AsinhScale::default();
         assert_eq!(scale.forward(&[0.0]), [0.0]);
-        assert_eq!(scale.subs, Some(vec![2.0, 5.0]));
-        assert_eq!(AsinhScale::new(1.0, 7.0).unwrap().subs, None);
+        assert_eq!(scale.subs, [2.0, 5.0]);
+        assert_eq!(AsinhScale::new(1.0, 7.0).unwrap().subs, Vec::<f64>::new());
         assert!(AsinhScale::new(0.0, 10.0).is_err());
     }
 }

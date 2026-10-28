@@ -70,7 +70,7 @@ fn demo_parasite_axes(fig: &Figure) -> CaseResult {
 
 fn demo_parasite_axes2(fig: &Figure) -> CaseResult {
     let host = axisartist::AxisArtistAxes::new(fig.subplot());
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         right: Some(0.75),
         ..SubplotOverrides::default()
     })?;
@@ -82,9 +82,9 @@ fn demo_parasite_axes2(fig: &Figure) -> CaseResult {
         ..Toggle::default()
     };
     let right1 = axis_artist(&par1, "right")?;
-    right1.toggle(&everything);
+    right1.toggle(everything);
     let right2 = axis_artist(&par2, "right")?;
-    right2.toggle(&everything);
+    right2.toggle(everything);
     let [c1, c2, c3] = three_datasets(host.ax(), par1.ax(), par2.ax())?;
     axis_artist(&host, "left")?.label().set_color(Some(c1));
     right1.label().set_color(Some(c2));

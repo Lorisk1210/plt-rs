@@ -103,22 +103,24 @@ impl Default for ScaleRegistry {
         });
         registry.register("log", |o| {
             o.only("log", &["base", "subs", "nonpositive"])?;
-            Ok(boxed(
-                LogScale::new(o.base.unwrap_or(10.0))?
-                    .with_nonpositive(o.nonpositive.unwrap_or(NonPositive::Clip))
-                    .with_subs(o.subs.clone()),
-            ))
+            let mut scale = LogScale::new(o.base.unwrap_or(10.0))?
+                .with_nonpositive(o.nonpositive.unwrap_or(NonPositive::Clip));
+            if let Some(subs) = &o.subs {
+                scale = scale.with_subs(subs.clone());
+            }
+            Ok(boxed(scale))
         });
         registry.register("symlog", |o| {
             o.only("symlog", &["base", "linthresh", "subs", "linscale"])?;
-            Ok(boxed(
-                SymmetricalLogScale::new(
-                    o.base.unwrap_or(10.0),
-                    o.linthresh.unwrap_or(2.0),
-                    o.linscale.unwrap_or(1.0),
-                )?
-                .with_subs(o.subs.clone()),
-            ))
+            let mut scale = SymmetricalLogScale::new(
+                o.base.unwrap_or(10.0),
+                o.linthresh.unwrap_or(2.0),
+                o.linscale.unwrap_or(1.0),
+            )?;
+            if let Some(subs) = &o.subs {
+                scale = scale.with_subs(subs.clone());
+            }
+            Ok(boxed(scale))
         });
         registry.register("logit", |o| {
             o.only("logit", &["nonpositive", "one_half", "use_overline"])?;
@@ -132,8 +134,8 @@ impl Default for ScaleRegistry {
         registry.register("asinh", |o| {
             o.only("asinh", &["linear_width", "base", "subs"])?;
             let mut scale = AsinhScale::new(o.linear_width.unwrap_or(1.0), o.base.unwrap_or(10.0))?;
-            if o.subs.is_some() {
-                scale = scale.with_subs(o.subs.clone());
+            if let Some(subs) = &o.subs {
+                scale = scale.with_subs(subs.clone());
             }
             Ok(boxed(scale))
         });

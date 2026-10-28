@@ -45,7 +45,7 @@ fn negative_tick_label_rotations_lay_out_like_their_positive_equivalents() {
         let fig = Figure::new();
         let ax = fig.subplot();
         ax.set_ylim(0.0, 1000.0).expect("finite limits");
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::Y),
             labelrotation: Some(rotation),
             labelrotation_mode: Some(RotationMode::YTick),
@@ -61,7 +61,7 @@ fn the_tick_space_follows_the_major_label_size() {
     let ax = axes();
     let count = |ax: &super::Axes| ax.ticks(AxisName::X).expect("ticks").major.len();
     let default = count(&ax);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelsize: Some(FontSize::Points(40.0)),
         ..TickParams::default()
@@ -70,7 +70,7 @@ fn the_tick_space_follows_the_major_label_size() {
         count(&ax) < default,
         "large labels leave room for fewer ticks"
     );
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         which: TickLevel::Minor,
         labelsize: Some(FontSize::Points(4.0)),
@@ -111,7 +111,7 @@ fn grid_styles_survive_hiding_and_follow_tick_parameters() {
         },
     );
     ax.grid(false);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Both,
         grid_linewidth: Some(3.0),
         grid_linestyle: Some(LineStyle::Dotted),
@@ -203,7 +203,7 @@ fn tick_labels_take_a_font_family_weight_and_style() {
     // matplotlib's `tick_params(labelfontfamily=...)` and
     // `set_ticks(..., fontweight="bold", fontstyle="italic")`.
     let ax = axes();
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelfontfamily: Some("serif".into()),
         ..TickParams::default()
@@ -243,7 +243,7 @@ fn ticklocs_and_labels_reach_beyond_the_view() {
         axis.ticklabels(false).unwrap(),
         ["", "", "unit value", "", ""]
     );
-    axis.set_tick_params(&TickParams {
+    axis.set_tick_params(TickParams {
         labeltop: Some(true),
         ..TickParams::default()
     });
@@ -257,7 +257,7 @@ fn fixed_ticks_are_subsampled_by_locator_params() {
     let ax = axes();
     let ticks: Vec<f64> = (0..10).map(|i| f64::from(i) + 0.1).collect();
     ax.xaxis().set_ticks(ticks);
-    ax.locator_params(&super::LocatorParams {
+    ax.locator_params(super::LocatorParams {
         nbins: Some(crate::ticker::Nbins::Fixed(5)),
         ..super::LocatorParams::default()
     })
@@ -277,7 +277,7 @@ fn fixed_ticks_are_subsampled_by_locator_params() {
         ..super::LocatorParams::default()
     };
     assert!(
-        ax.locator_params(&steps).is_err(),
+        ax.locator_params(steps).is_err(),
         "fixed ticks take only nbins"
     );
 }
@@ -293,7 +293,7 @@ fn tick_labels_without_text_keep_the_axis_label_beyond_their_pad() {
         if blank {
             ax.yaxis().set_major_formatter(crate::ticker::NullFormatter);
         } else {
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 labelleft: Some(false),
                 ..TickParams::default()
             });

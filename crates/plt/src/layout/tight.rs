@@ -130,12 +130,12 @@ impl Figure {
     /// let fig = Figure::new();
     /// let ax = fig.subplot();
     /// ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
-    /// fig.tight_layout(&TightLayout::default())?;
+    /// fig.tight_layout(TightLayout::default())?;
     /// let (x, _, w, _) = ax.position().bounds();
     /// assert!(x < 0.125 && x + w > 0.9);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn tight_layout(&self, params: &TightLayout) -> Result<&Self, TightLayoutError> {
+    pub fn tight_layout(&self, params: TightLayout) -> Result<&Self, TightLayoutError> {
         let axes: Vec<ArtistId> = (self.axes().iter().map(ArtistHandle::id))
             .chain(self.axes3d().iter().map(ArtistHandle::id))
             .collect();
@@ -148,11 +148,11 @@ impl Figure {
         let has_colorbars = crate::colorbar::has_colorbars(&state.store);
         let swapped = state
             .layout
-            .swap_engine(Some(LayoutEngine::Tight(*params)), has_colorbars);
+            .swap_engine(Some(LayoutEngine::Tight(params)), has_colorbars);
         // The pass runs once, by hand: the engine left behind places nothing.
         state.layout.remove_engine();
         swapped?;
-        state.tight_layout_pass(self.raw().id(), &axes, params)?;
+        state.tight_layout_pass(self.raw().id(), &axes, &params)?;
         Ok(self)
     }
 }
@@ -171,7 +171,7 @@ impl FigureState {
         };
         let measured = Measured::new(self, axes, &subplot_params, None)?;
         if let Some(overrides) = adjusted_params(self, &measured, params)? {
-            self.set_subplot_params(subplot_params.updated(&overrides)?)?;
+            self.set_subplot_params(subplot_params.updated(overrides)?)?;
         }
         Ok(())
     }
@@ -344,7 +344,7 @@ mod tests {
             pad: 4.0,
             ..TightLayout::default()
         };
-        assert_eq!(fig.tight_layout(&params), Err(TightLayoutError::TooWide));
+        assert_eq!(fig.tight_layout(params), Err(TightLayoutError::TooWide));
         assert_eq!(ax.position().bounds().0, 0.125);
     }
 
@@ -356,7 +356,7 @@ mod tests {
         ax.set_xlim(0.0, 1.0)
             .and_then(|ax| ax.set_ylim(0.0, 1.0))
             .expect("finite limits");
-        fig.tight_layout(&TightLayout::default()).unwrap();
+        fig.tight_layout(TightLayout::default()).unwrap();
         let (_, y, w, h) = ax.position().bounds();
         // The empty cells to the right and below still take their share.
         assert!(w < 0.5 && h < 0.5 && y > 0.5, "{y} {w} {h}");
@@ -371,7 +371,7 @@ mod tests {
         // the room the default margins leave.
         let fig = Figure::new();
         let ax = fig.subplot_3d();
-        fig.tight_layout(&TightLayout::default()).unwrap();
+        fig.tight_layout(TightLayout::default()).unwrap();
         assert!(ax.position().bounds().0 < 0.2, "{:?}", ax.position());
         // test_axes3d_primary_views: the engine lays out a grid of
         // orthographic views, edge-on ones included, at every draw.

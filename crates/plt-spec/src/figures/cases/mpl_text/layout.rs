@@ -6,7 +6,7 @@ use plt::axes::TitleLocation;
 use plt::fonts::{FontExt, FontManager, FontProperties, FontStyle, FontWeight};
 use plt::patches::{BoxStyle, Rectangle};
 use plt::prelude::*;
-use plt::text::{AnnotateOptions, HAlign, TextBoxProps, TextRotationMode, VAlign};
+use plt::text::{AnnotateOptions, HAlign, RotationMode, TextBoxProps, VAlign};
 use plt::transforms::Point;
 
 use super::remove_ticks_and_titles;
@@ -232,7 +232,7 @@ fn rotation_anchor(fig: &Figure) -> CaseResult {
             .set_color(format!("C{r}"))
             .set_fontsize(100.0)
             .set_rotation(f64::from(r) / f64::from(N) * 360.0)
-            .set_rotation_mode(TextRotationMode::Anchor)
+            .set_rotation_mode(RotationMode::Anchor)
             .set_valign(VAlign::CenterBaseline);
     }
     remove_ticks_and_titles(fig);

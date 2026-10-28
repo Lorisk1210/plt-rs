@@ -73,7 +73,7 @@ fn labelled_grids(fig: &Figure) -> CaseResult {
     // matplotlib's `fmt` formats the tick angles in radians.
     ax.xaxis()
         .set_major_formatter(FormatStrFormatter::new("%d°")?);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelcolor: Some(Color::from("tab:purple")),
         labelsize: Some(FontSize::Points(8.0)),

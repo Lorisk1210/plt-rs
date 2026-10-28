@@ -135,7 +135,7 @@ fn text_commands(fig: &Figure) -> CaseResult {
         .set_fontsize(14.0)
         .set_weight(FontWeight::BOLD);
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.85),
         ..SubplotOverrides::default()
     })?;
@@ -202,7 +202,7 @@ fn text_fontdict(fig: &Figure) -> CaseResult {
     dark_red_serif_label(&ax.xaxis());
     ax.set_ylabel("voltage (mV)");
     dark_red_serif_label(&ax.yaxis());
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.15),
         ..SubplotOverrides::default()
     })?;

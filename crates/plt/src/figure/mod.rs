@@ -268,7 +268,7 @@ impl Figure {
     /// Changes the subplot margins and spacing of the figure and its
     /// subfigures, which share them as in matplotlib, and moves every
     /// grid-placed axes accordingly (`fig.subplots_adjust(...)`).
-    pub fn subplots_adjust(&self, overrides: &SubplotOverrides) -> Result<&Self, GridSpecError> {
+    pub fn subplots_adjust(&self, overrides: SubplotOverrides) -> Result<&Self, GridSpecError> {
         let params = self.subplot_params().updated(overrides)?;
         self.state.borrow_mut().set_subplot_params(params)?;
         Ok(self)

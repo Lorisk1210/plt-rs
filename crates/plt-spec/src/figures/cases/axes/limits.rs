@@ -108,7 +108,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("axes/axis_modes_equal_scaled_tight_square", |fig| {
         let axs = fig.subplots(2, 2)?;
-        fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+        fig.subplots_adjust(plt::gridspec::SubplotOverrides {
             hspace: Some(0.4),
             ..plt::gridspec::SubplotOverrides::default()
         })?;

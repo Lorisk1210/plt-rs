@@ -48,10 +48,10 @@ fn barcode_demo(fig: &Figure) -> CaseResult {
     ax.set_axis_off();
     let options = ImshowOptions {
         aspect: Some(Aspect::Auto),
+        interpolation: Some(Interpolation::Nearest),
         ..ImshowOptions::default()
     }
-    .cmap(colormaps::get("binary")?)
-    .interpolation(Interpolation::Nearest);
+    .cmap(colormaps::get("binary")?);
     ax.imshow(integers(1, BARCODE.len(), |_, c| BARCODE[c]), options)?;
     Ok(())
 }
@@ -200,7 +200,13 @@ fn image_demo_3(fig: &Figure) -> CaseResult {
         (Interpolation::Bilinear, "Bilinear"),
         (Interpolation::Bicubic, "Bicubic"),
     ]) {
-        ax.imshow(a.clone(), ImshowOptions::default().interpolation(interp))?;
+        ax.imshow(
+            a.clone(),
+            ImshowOptions {
+                interpolation: Some(interp),
+                ..ImshowOptions::default()
+            },
+        )?;
         ax.set_title(title);
         ax.grid(true);
     }
@@ -216,9 +222,9 @@ fn image_demo_4(fig: &Figure) -> CaseResult {
         ax.set_title(title);
         let options = ImshowOptions {
             origin: Some(origin),
+            interpolation: Some(Interpolation::Bilinear),
             ..ImshowOptions::default()
-        }
-        .interpolation(Interpolation::Bilinear);
+        };
         ax.imshow(integers(10, 12, |r, c| (r * 12 + c) as i64), options)?;
     }
     Ok(())
@@ -285,7 +291,7 @@ fn interpolation_methods(fig: &Figure) -> CaseResult {
         ax.imshow(grid.clone(), options)?;
         ax.set_title(method.map_or("None", Interpolation::name));
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -297,18 +303,18 @@ fn layer_images(fig: &Figure) -> CaseResult {
     let ax = fig.add_subplot(1, 1, 1)?;
     let chessboard = ImshowOptions {
         extent: Some(extent),
+        interpolation: Some(Interpolation::Nearest),
         ..ImshowOptions::default()
     }
-    .cmap(colormaps::get("gray")?)
-    .interpolation(Interpolation::Nearest);
+    .cmap(colormaps::get("gray")?);
     ax.imshow(integers(8, 8, |r, c| ((r + c) % 2) as i64), chessboard)?;
     let overlay = ImshowOptions {
         alpha: Some(ImageAlpha::Uniform(0.9)),
         extent: Some(extent),
+        interpolation: Some(Interpolation::Bilinear),
         ..ImshowOptions::default()
     }
-    .cmap(colormaps::get("viridis")?)
-    .interpolation(Interpolation::Bilinear);
+    .cmap(colormaps::get("viridis")?);
     ax.imshow(mesh_field(&x, &x, func3).2, overlay)?;
     Ok(())
 }

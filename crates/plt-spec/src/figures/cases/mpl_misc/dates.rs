@@ -33,7 +33,7 @@ fn padded_dates(
 /// `fig.subplots_adjust(left=0.25)`, making room for date labels on the
 /// y axis.
 fn room_on_the_left(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.25),
         ..SubplotOverrides::default()
     })?;

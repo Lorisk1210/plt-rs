@@ -118,7 +118,7 @@ fn customized_violin(fig: &Figure) -> CaseResult {
     for ax in [&ax1, &ax2, &ax3] {
         set_axis_style(ax, &["A", "B", "C", "D"])?;
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.15),
         wspace: Some(0.05),
         ..SubplotOverrides::default()
@@ -260,7 +260,7 @@ fn violinplot(fig: &Figure) -> CaseResult {
         ax.set_yticklabels(Vec::<String>::new())?;
     }
     fig.suptitle("Violin Plotting Examples");
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.4),
         ..SubplotOverrides::default()
     })?;

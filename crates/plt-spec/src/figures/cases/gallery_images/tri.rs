@@ -378,7 +378,7 @@ fn triinterp_demo(fig: &Figure) -> CaseResult {
         }
         ax.set_title(title);
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

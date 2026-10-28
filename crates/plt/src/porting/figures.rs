@@ -72,8 +72,8 @@
 //! | `fig.set_layout_engine(...)`, `fig.get_layout_engine()` | [`Figure::set_layout_engine`]`(...)?`, [`Figure::layout_engine`] |
 //! | `fig.set_layout_engine("none")`                 | [`Figure::set_layout_engine`]`(None)?` (a [`LayoutEngine::PlaceHolder`] stays) |
 //! | `ConstrainedLayoutEngine(w_pad=..., ...)`       | [`LayoutEngine::Constrained`]`(`[`ConstrainedLayout`]`)` |
-//! | `fig.tight_layout(pad=...)`                     | [`Figure::tight_layout`]`(&TightLayout { .. })` ([`TightLayout`]) |
-//! | `fig.subplots_adjust(left=..., wspace=...)`     | [`Figure::subplots_adjust`]`(&SubplotOverrides { .. })` |
+//! | `fig.tight_layout(pad=...)`                     | [`Figure::tight_layout`]`(TightLayout { .. })` ([`TightLayout`]) |
+//! | `fig.subplots_adjust(left=..., wspace=...)`     | [`Figure::subplots_adjust`]`(SubplotOverrides { .. })` |
 //! | `fig.subplotpars`                               | [`Figure::subplot_params`]                    |
 //! | `fig.align_labels()`, `fig.align_titles()`      | [`Figure::align_labels`]`(None)`, [`Figure::align_titles`]`(None)` |
 //! | `fig.autofmt_xdate()`                           | [`Figure::autofmt_xdate`]`(0.2, 30.0, HAlign::Right, TickLevel::Major)` |
@@ -238,10 +238,10 @@
 //! fig.set_layout_engine(None)?;
 //! fig.subplots(2, 2)?;
 //! let margins = SubplotOverrides { left: Some(0.2), wspace: Some(0.4), ..SubplotOverrides::default() };
-//! fig.subplots_adjust(&margins)?;
+//! fig.subplots_adjust(margins)?;
 //! assert_eq!(fig.subplot_params().left, 0.2);
 //!
-//! fig.tight_layout(&TightLayout { pad: 0.5, ..TightLayout::default() })?;
+//! fig.tight_layout(TightLayout { pad: 0.5, ..TightLayout::default() })?;
 //! fig.align_labels(None);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

@@ -35,7 +35,7 @@ fn examples(axes: &[Axes]) -> CaseResult {
 }
 
 /// [`examples`] on `axes`, then `tight_layout` with `params`.
-fn tight_examples(fig: &Figure, axes: &[Axes], params: &TightLayout) -> CaseResult {
+fn tight_examples(fig: &Figure, axes: &[Axes], params: TightLayout) -> CaseResult {
     examples(axes)?;
     fig.tight_layout(params)?;
     Ok(())
@@ -47,7 +47,7 @@ fn tight_layout_guide_1(fig: &Figure) -> CaseResult {
 
 fn tight_layout_guide_2(fig: &Figure) -> CaseResult {
     example_plot(&fig.subplot(), 24.0, false)?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -56,7 +56,7 @@ fn tight_layout_guide_3(fig: &Figure) -> CaseResult {
 }
 
 fn tight_layout_guide_4(fig: &Figure) -> CaseResult {
-    tight_examples(fig, fig.subplots(2, 2)?.as_slice(), &TightLayout::default())
+    tight_examples(fig, fig.subplots(2, 2)?.as_slice(), TightLayout::default())
 }
 
 fn tight_layout_guide_5(fig: &Figure) -> CaseResult {
@@ -66,7 +66,7 @@ fn tight_layout_guide_5(fig: &Figure) -> CaseResult {
         h_pad: Some(1.0),
         ..TightLayout::default()
     };
-    tight_examples(fig, fig.subplots(2, 2)?.as_slice(), &params)
+    tight_examples(fig, fig.subplots(2, 2)?.as_slice(), params)
 }
 
 fn tight_layout_guide_6(fig: &Figure) -> CaseResult {
@@ -75,21 +75,24 @@ fn tight_layout_guide_6(fig: &Figure) -> CaseResult {
         fig.add_subplot(2, 2, 3)?,
         fig.add_subplot(1, 2, 2)?,
     ];
-    tight_examples(fig, &axes, &TightLayout::default())
+    tight_examples(fig, &axes, TightLayout::default())
 }
 
 fn tight_layout_guide_7(fig: &Figure) -> CaseResult {
     subplot2grid(fig)?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
 fn tight_layout_guide_8(fig: &Figure) -> CaseResult {
     fig.subplot().imshow(
         arange_grid(10, 10),
-        ImshowOptions::default().interpolation(Interpolation::None),
+        ImshowOptions {
+            interpolation: Some(Interpolation::None),
+            ..ImshowOptions::default()
+        },
     )?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -104,7 +107,7 @@ fn gridspec_column(fig: &Figure, rect: Option<[f64; 4]>) -> CaseResult {
         rect,
         ..TightLayout::default()
     };
-    gs1.tight_layout(fig, &params)?;
+    gs1.tight_layout(fig, params)?;
     Ok(())
 }
 
@@ -128,7 +131,7 @@ fn legend_line(fig: &Figure, label: &str, in_layout: bool) -> CaseResult {
             .loc(AnchorLoc::CenterLeft),
     )?;
     leg.set_in_layout(in_layout);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -155,7 +158,7 @@ fn tight_layout_guide_13(fig: &Figure) -> CaseResult {
         .ok_or("four axes")?
         .title_text(TitleLocation::Center)
         .set_visible(false);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -165,7 +168,10 @@ fn imshow_colorbar(fig: &Figure, axes_locatable: bool) -> CaseResult {
     let ax = fig.subplot();
     let im = ax.imshow(
         arange_grid(10, 10),
-        ImshowOptions::default().interpolation(Interpolation::None),
+        ImshowOptions {
+            interpolation: Some(Interpolation::None),
+            ..ImshowOptions::default()
+        },
     )?;
     let options = if axes_locatable {
         let cax = make_axes_locatable(&ax).append_axes(
@@ -181,7 +187,7 @@ fn imshow_colorbar(fig: &Figure, axes_locatable: bool) -> CaseResult {
         ColorbarOptions::default()
     };
     fig.colorbar(&im, options)?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

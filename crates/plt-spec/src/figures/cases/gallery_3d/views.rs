@@ -47,7 +47,7 @@ fn wire3d_zero_stride(fig: &Figure) -> CaseResult {
     axs[0].set_title("Column (x) stride set to 0");
     test_wireframe(&axs[1], 0, 10)?;
     axs[1].set_title("Row (y) stride set to 0");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

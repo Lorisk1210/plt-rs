@@ -3,7 +3,7 @@
 
 use plt::artist::{ArtistHandle, RawHandle};
 use plt::axes::{Axes, MappedColors, ScatterOptions};
-use plt::collections::{ElementCount, LegendElementsOptions, LegendProperty};
+use plt::collections::{ElementCount, LegendElementsOptions, LegendProperty, LegendValueFn};
 use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::legend::{LegendHandle, LegendOptions};
@@ -84,7 +84,7 @@ pub(super) fn legend_elements(args: Args<'_>) -> Outcome {
         let (handles, labels) = made(scatter.legend_elements(LegendElementsOptions {
             prop: LegendProperty::Sizes,
             num: ElementCount::Values(vec![0.2, 0.4, 0.6, 0.8]),
-            func: Some(Box::new(|s| 5.0 / s)),
+            func: LegendValueFn::new(|s| 5.0 / s),
             ..LegendElementsOptions::default()
         }))?;
         return legend_looks(&ax, handles, labels);
@@ -128,7 +128,7 @@ pub(super) fn legend_elements(args: Args<'_>) -> Outcome {
             prop: LegendProperty::Sizes,
             num: ElementCount::Target(4),
             fmt: Some(Box::new(made(StrMethodFormatter::new("{x:.2f}"))?)),
-            func: Some(Box::new(|x| 2.0 * x)),
+            func: LegendValueFn::new(|x| 2.0 * x),
             ..LegendElementsOptions::default()
         },
         "locator" => {

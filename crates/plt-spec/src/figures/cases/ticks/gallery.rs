@@ -38,7 +38,7 @@ pub(super) fn formatters_gallery(fig: &Figure) -> CaseResult {
         ax.xaxis()
             .set_major_locator(MultipleLocator::new(1.0)?)
             .set_minor_locator(MultipleLocator::new(0.25)?);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             which: TickLevel::Minor,
             labelsize: Some(plt::fonts::FontSize::Points(10.0)),
             ..TickParams::default()
@@ -61,6 +61,6 @@ pub(super) fn formatters_gallery(fig: &Figure) -> CaseResult {
     axis(6).set_major_formatter(ScalarFormatter::new().with_use_mathtext(true));
     axis(7).set_major_formatter(FormatStrFormatter::new("#%d")?);
     axis(8).set_major_formatter(PercentFormatter::new(5.0));
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }

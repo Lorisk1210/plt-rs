@@ -122,7 +122,7 @@ impl AxisArtistAxes {
         ] {
             let artist = self.new_fixed_axis(side.name(), side, (0.0, 0.0));
             if side.is_high() {
-                artist.toggle(&Toggle {
+                artist.toggle(Toggle {
                     ticklabels: Some(false),
                     label: Some(false),
                     ..Toggle::default()
@@ -421,7 +421,7 @@ mod tests {
             .expect("finite limits");
         // The ray at angle 0 from the centre to the right edge.
         let ray = ax.new_floating_axis("ray", AxisName::X, 0.0);
-        ray.toggle(&Toggle {
+        ray.toggle(Toggle {
             all: Some(false),
             ..Toggle::default()
         });

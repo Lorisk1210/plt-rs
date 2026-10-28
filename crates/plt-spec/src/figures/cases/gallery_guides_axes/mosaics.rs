@@ -305,7 +305,7 @@ fn mosaic_21(fig: &Figure) -> CaseResult {
     let axd = shared_y(fig)?;
     axd.get("A")
         .ok_or("a mosaic axes")?
-        .tick_params(&TickParams {
+        .tick_params(TickParams {
             labelleft: Some(true),
             ..TickParams::default()
         });

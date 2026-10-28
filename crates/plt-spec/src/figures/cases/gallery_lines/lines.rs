@@ -270,7 +270,7 @@ fn plot_linestyles(ax: &Axes, linestyles: &[NamedStyle], title: &str) -> CaseRes
     ax.set_ylim(-0.5, n - 0.5)?;
     ax.set_yticks(arange(0.0, n, 1.0))
         .set_yticklabels(linestyles.iter().map(|style| style.name))?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         left: Some(false),
         bottom: Some(false),
         labelbottom: Some(false),

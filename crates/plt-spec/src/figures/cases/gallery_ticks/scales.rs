@@ -257,7 +257,7 @@ fn power_norm(fig: &Figure) -> CaseResult {
             histogram(ColorizerOptions::default().norm(PowerNorm::new(gamma))),
         )?;
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

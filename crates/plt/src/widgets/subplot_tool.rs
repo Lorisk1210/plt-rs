@@ -36,7 +36,7 @@ fn apply(target: &Figure, [left, bottom, right, top, wspace, hspace]: [f64; 6]) 
     };
     // An invalid combination (left at or beyond right, ...), which the
     // slider links normally prevent, keeps the previous parameters.
-    let _ = target.subplots_adjust(&overrides);
+    let _ = target.subplots_adjust(overrides);
 }
 
 /// Six sliders in one figure adjusting the subplot parameters of another,
@@ -55,7 +55,7 @@ impl SubplotTool {
             right: Some(0.9),
             ..SubplotOverrides::default()
         };
-        tool.subplots_adjust(&layout)
+        tool.subplots_adjust(layout)
             .expect("0.2 and 0.9 are valid margins");
         tool.suptitle("Click on slider to adjust subplot param");
         let grid = tool

@@ -118,7 +118,7 @@ fn secondary_axis_5(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot(dates, &temperature)?;
     ax.set_ylabel(r"$T\ [^oC]$");
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelrotation: Some(70.0),
         ..TickParams::default()

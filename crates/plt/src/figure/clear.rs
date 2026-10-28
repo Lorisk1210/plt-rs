@@ -82,7 +82,7 @@ mod tests {
         // matplotlib's test_clf_subplotpars.
         let fig = Figure::new();
         let defaults = fig.subplot_params();
-        fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
+        fig.subplots_adjust(crate::gridspec::SubplotOverrides {
             left: Some(0.2),
             hspace: Some(0.5),
             ..Default::default()

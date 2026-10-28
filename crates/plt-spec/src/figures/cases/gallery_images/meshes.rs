@@ -40,7 +40,7 @@ fn pcolor_demo_1(fig: &Figure) -> CaseResult {
     };
     axs[(1, 0)].pcolor(Mesh::new(z), edged)?;
     axs[(1, 0)].set_title("thick edges");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -104,7 +104,7 @@ fn pcolor_demo_2(fig: &Figure) -> CaseResult {
         Mappable::Collection(quads),
         ColorbarOptions::beside(&axs[(1, 1)]),
     )?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -315,7 +315,7 @@ fn pcolormesh_levels_4(fig: &Figure) -> CaseResult {
     let cf = ax1.contourf(&field, options)?;
     fig.colorbar(&cf, ColorbarOptions::beside(ax1))?;
     ax1.set_title("contourf with levels");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -352,7 +352,7 @@ fn quadmesh_demo(fig: &Figure) -> CaseResult {
         gouraud(ColorizerOptions::default()),
     )?;
     axs[(0, 2)].set_title("With masked values");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

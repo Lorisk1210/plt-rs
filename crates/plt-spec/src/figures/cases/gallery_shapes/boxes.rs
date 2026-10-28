@@ -153,7 +153,7 @@ fn fancybox_demo_2(fig: &Figure) -> CaseResult {
         ax.plot_with(x, y, LineProps::fmt(".")?.color(edge))?;
         bare_box(ax, &bb)?;
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

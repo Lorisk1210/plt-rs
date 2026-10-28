@@ -205,7 +205,7 @@ mod tests {
     fn tick_parameters_survive_but_the_grid_restarts() {
         // matplotlib's test_axes_clear_behavior.
         let ax = Figure::new().subplot();
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             length: Some(10.0),
             grid_color: Some(Color::from("r")),
             labelfontfamily: Some("serif".into()),

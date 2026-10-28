@@ -31,7 +31,7 @@ fn cmap_and_norm_from_levels_and_colors(fig: &Figure) -> CaseResult {
         },
     )?;
     fig.colorbar(&mesh, ColorbarOptions::default())?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelleft: Some(false),
         labelbottom: Some(false),
         ..TickParams::default()
@@ -106,7 +106,7 @@ fn light_source_topo_surface(fig: &Figure) -> CaseResult {
                 ..ShadeOptions::default()
             }
             .cmap(cmap.clone());
-            let rgba = light.shade(&elev, &options)?.map(|c| [c.r, c.g, c.b, c.a]);
+            let rgba = light.shade(&elev, options)?.map(|c| [c.r, c.g, c.b, c.a]);
             let ax = &axes[(row, col)];
             ax.imshow(rgba, ImshowOptions::default())?;
             ax.set_xticks(Vec::<f64>::new())

@@ -180,7 +180,7 @@ fn colorbar_align(fig: &Figure, location: SpineSide) -> CaseResult {
         ..TickParams::default()
     };
     for (nn, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
-        ax.tick_params(&inward);
+        ax.tick_params(inward.clone());
         let pc = example_pcolor(ax, 12.0)?;
         let cb = fig.colorbar(
             &pc,
@@ -191,7 +191,7 @@ fn colorbar_align(fig: &Figure, location: SpineSide) -> CaseResult {
                 ..ColorbarOptions::beside(ax)
             },
         )?;
-        cb.ax().tick_params(&inward);
+        cb.ax().tick_params(inward.clone());
         if nn != 1 {
             cb.ax().xaxis().set_ticks(Vec::<f64>::new());
             cb.ax().yaxis().set_ticks(Vec::<f64>::new());

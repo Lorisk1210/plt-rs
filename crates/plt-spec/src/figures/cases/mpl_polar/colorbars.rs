@@ -101,7 +101,7 @@ pub(super) fn gridspec_make_colorbar(fig: &Figure) -> CaseResult {
             },
         )?;
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.95),
         right: Some(0.95),
         bottom: Some(0.2),
@@ -284,7 +284,7 @@ fn halves(fig: &Figure) -> Result<[(Orientation, Figure); 2], Box<dyn std::error
 
 /// `fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, top=0.95)`.
 fn spread_out(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.05),
         bottom: Some(0.05),
         right: Some(0.95),
@@ -380,7 +380,7 @@ pub(super) fn colorbar_contourf_extend_patches(fig: &Figure) -> CaseResult {
 
 pub(super) fn nonorm(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.5),
         ..SubplotOverrides::default()
     })?;

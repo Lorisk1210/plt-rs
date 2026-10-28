@@ -27,9 +27,10 @@ use crate::rng::SpecRng;
 
 /// An image in a colormap, its pixels drawn unsmoothed.
 fn unsmoothed(cmap: &str) -> Result<ImshowOptions, plt::colors::ColormapError> {
-    Ok(ImshowOptions::default()
-        .cmap(colormaps::get(cmap)?)
-        .interpolation(Interpolation::None))
+    Ok(ImshowOptions {
+        interpolation: Some(Interpolation::None),
+        ..ImshowOptions::default().cmap(colormaps::get(cmap)?)
+    })
 }
 
 fn colorbar_basics(fig: &Figure) -> CaseResult {
@@ -53,14 +54,16 @@ fn colorbar_basics(fig: &Figure) -> CaseResult {
     )?;
     let clipped = ax3.imshow(
         z,
-        ImshowOptions::default()
-            .interpolation(Interpolation::None)
-            .colorizer(ColorizerOptions {
+        ImshowOptions {
+            interpolation: Some(Interpolation::None),
+            colorizer: ColorizerOptions {
                 cmap: Some(colormaps::get("RdBu")?),
                 vmin: Some(-1.2),
                 vmax: Some(1.2),
                 ..ColorizerOptions::default()
-            }),
+            },
+            ..ImshowOptions::default()
+        },
     )?;
     let cbar = fig.colorbar(
         &clipped,
@@ -144,7 +147,7 @@ fn colorbar_histogram(fig: &Figure) -> CaseResult {
         spine.set_visible(false);
     }
     cax.set_yticks(bin_edges);
-    cax.tick_params(&TickParams {
+    cax.tick_params(TickParams {
         which: TickLevel::Both,
         length: Some(0.0),
         ..TickParams::default()
@@ -216,7 +219,7 @@ fn color_demo(fig: &Figure) -> CaseResult {
             .color("C4")
             .linestyle(LineStyle::Dashed),
     )?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelcolor: Some("tab:orange".into()),
         ..TickParams::default()
     });
@@ -276,7 +279,7 @@ fn color_sequences(fig: &Figure) -> CaseResult {
     for spine in ax.spines().iter() {
         spine.set_visible(false);
     }
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         left: Some(false),
         ..TickParams::default()
     });

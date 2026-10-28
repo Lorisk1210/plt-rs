@@ -116,7 +116,7 @@ fn color_gradients(fig: &Figure, index: usize) -> CaseResult {
     let ramp = linspace(0.0, 1.0, 256);
     let gradient = Grid::from_fn(2, ramp.len(), |_, col| ramp[col]);
     let axs = fig.subplots(names.len(), 1)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(1.0 - 0.35 / figh),
         bottom: Some(0.15 / figh),
         left: Some(0.2),
@@ -158,7 +158,7 @@ fn waves() -> Grid<f64> {
 /// The 2 × 2 axes of `custom_cmap`, spread over the figure.
 fn custom_cmap_grid(fig: &Figure) -> Result<Vec<Axes>, Box<dyn std::error::Error>> {
     let axs = fig.subplots(2, 2)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.02),
         bottom: Some(0.06),
         right: Some(0.95),
@@ -273,7 +273,7 @@ fn custom_cmap_2(fig: &Figure) -> CaseResult {
     shown(&axs[3], blue_red3)?.set_cmap(blue_red_alpha);
     axs[3].set_title("Varying alpha");
     fig.suptitle("Custom Blue-Red colormaps").set_fontsize(16.0);
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.9),
         ..SubplotOverrides::default()
     })?;
@@ -347,7 +347,7 @@ fn colortable(fig: &Figure, index: usize) -> CaseResult {
     let nrows = colortable_rows(colors.len(), ncols);
     let (width, height) = colortable_size(colors.len(), ncols);
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(MARGIN / width),
         bottom: Some(MARGIN / height),
         right: Some((width - MARGIN) / width),

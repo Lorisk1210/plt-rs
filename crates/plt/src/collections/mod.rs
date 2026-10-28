@@ -31,7 +31,9 @@ pub use ellipses::EllipseCollection;
 pub use events::EventCollection;
 pub(crate) use events::EventLines;
 pub use handle::{Collection, CollectionColorError, CollectionColors};
-pub use legend_elements::{ElementCount, LegendElements, LegendElementsOptions, LegendProperty};
+pub use legend_elements::{
+    ElementCount, LegendElements, LegendElementsOptions, LegendProperty, LegendValueFn,
+};
 pub use props::{CollectionProps, CollectionStyle};
 use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;

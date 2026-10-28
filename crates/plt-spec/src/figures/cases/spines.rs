@@ -14,7 +14,7 @@ use crate::figures::{CaseResult, FigureCase};
 
 fn gallery_bounds(fig: &Figure) -> CaseResult {
     spine_bounds_demo(fig)?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -69,7 +69,7 @@ fn centered_with_arrows(fig: &Figure) -> CaseResult {
 
 fn multiple_yaxis(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         right: Some(0.75),
         ..Default::default()
     })?;
@@ -89,7 +89,7 @@ fn multiple_yaxis(fig: &Figure) -> CaseResult {
     twin2.set_ylim(1.0, 65.0)?.set_ylabel("Velocity");
     for (axes, line) in [(&ax, &p1), (&twin1, &p2), (&twin2, &p3)] {
         axes.yaxis().set_label_color(line.color());
-        axes.tick_params(&TickParams {
+        axes.tick_params(TickParams {
             axis: Some(AxisName::Y),
             colors: Some(line.color()),
             ..TickParams::default()
@@ -141,7 +141,7 @@ fn moved_with_ticks_and_labels(fig: &Figure) -> CaseResult {
         .set_position(SpinePosition::Outward(-10.0));
     ax2.spines().right.set_position(SpinePosition::Axes(0.5));
     ax2.yaxis().set_ticks_position(TickPosition::Both)?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

@@ -63,7 +63,7 @@ pub(crate) const GRIDS: &[FigureCase] = &[
         for (i, ax) in fig.subplots(2, 2)?.as_slice().iter().enumerate() {
             fill(ax, i)?;
         }
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.1),
             right: Some(0.98),
             bottom: Some(0.08),

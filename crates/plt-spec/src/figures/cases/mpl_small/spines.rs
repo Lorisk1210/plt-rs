@@ -60,7 +60,7 @@ fn nonlinear_data_positions(fig: &Figure) -> CaseResult {
     spines.left.set_position(SpinePosition::Data(1.0));
     spines.left.set_linewidth(2.0);
     spines.right.set_position(SpinePosition::Data(0.1));
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelleft: Some(false),
         direction: Some(TickDirection::In),

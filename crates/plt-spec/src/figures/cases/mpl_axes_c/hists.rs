@@ -205,9 +205,7 @@ fn stacked_bar(fig: &Figure) -> CaseResult {
     .to_vec();
     let options = HistPlotOptions {
         color,
-        label: ["first", "second", "third", "fourth", "fifth"]
-            .map(String::from)
-            .to_vec(),
+        label: ["first", "second", "third", "fourth", "fifth"].into(),
         bins: Some(Bins::Count(10)),
         histtype: HistType::BarStacked,
         align: HistAlign::Mid,

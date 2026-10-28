@@ -183,7 +183,7 @@ pub(super) fn log_locator_levels(fig: &Figure) -> CaseResult {
 
 pub(super) fn contour_datetime_axis(fig: &Figure) -> CaseResult {
     const DAY: i64 = 86_400_000_000;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.4),
         top: Some(0.98),
         bottom: Some(0.15),
@@ -296,7 +296,7 @@ pub(super) fn corner_mask_2(fig: &Figure) -> CaseResult {
 
 pub(super) fn contourf_log_extension(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 3)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.05),
         right: Some(0.95),
         ..SubplotOverrides::default()

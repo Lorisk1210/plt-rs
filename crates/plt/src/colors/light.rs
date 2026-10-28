@@ -135,7 +135,7 @@ impl std::error::Error for ShadeError {}
 /// use plt::numeric::Grid;
 /// let hill = Grid::from_fn(5, 5, |r, c| -((r as f64 - 2.0).powi(2) + (c as f64 - 2.0).powi(2)));
 /// let light = LightSource::default();
-/// let shade = light.hillshade(&hill, &Relief::default())?;
+/// let shade = light.hillshade(&hill, Relief::default())?;
 /// // The north-west slope faces the light.
 /// assert!(shade.get(1, 1) > shade.get(3, 3));
 /// # Ok::<(), plt::colors::ShadeError>(())
@@ -201,7 +201,7 @@ impl LightSource {
     pub fn hillshade(
         &self,
         elevation: &Grid<f64>,
-        relief: &Relief,
+        relief: Relief,
     ) -> Result<Grid<f64>, ShadeError> {
         let scaled = elevation.map(|&z| relief.vert_exag * z);
         // The first row is the top of the image (as `imshow` assumes), so
@@ -251,11 +251,7 @@ impl LightSource {
     ///
     /// When the data is too small for slopes, the norm cannot map it or
     /// `image.cmap` is unknown.
-    pub fn shade(
-        &self,
-        data: &Grid<f64>,
-        options: &ShadeOptions,
-    ) -> Result<Grid<Rgba>, ShadeError> {
+    pub fn shade(&self, data: &Grid<f64>, options: ShadeOptions) -> Result<Grid<Rgba>, ShadeError> {
         let colorizer = &options.colorizer;
         let cmap = colorizer
             .colormap(&crate::rc::params())
@@ -277,7 +273,7 @@ impl LightSource {
         let rgba = Grid::from_vec(data.rows(), data.cols(), colors)
             .map_err(|_| ShadeError::ShapeMismatch)?;
         let rgb = rgba.map(|c| [c.r, c.g, c.b]);
-        let shaded = self.shade_rgb(&rgb, data, &options.blend, &options.relief)?;
+        let shaded = self.shade_rgb(&rgb, data, options.blend, options.relief)?;
         Ok(Grid::from_fn(data.rows(), data.cols(), |r, c| {
             let [red, green, blue] = shaded.row(r)[c];
             Rgba::new(red, green, blue, rgba.row(r)[c].a)
@@ -295,8 +291,8 @@ impl LightSource {
         &self,
         rgb: &Grid<[f64; 3]>,
         elevation: &Grid<f64>,
-        blend: &BlendMode,
-        relief: &Relief,
+        blend: BlendMode,
+        relief: Relief,
     ) -> Result<Grid<[f64; 3]>, ShadeError> {
         if (rgb.rows(), rgb.cols()) != (elevation.rows(), elevation.cols()) {
             return Err(ShadeError::ShapeMismatch);
@@ -306,7 +302,7 @@ impl LightSource {
             .as_slice()
             .iter()
             .zip(intensity.as_slice())
-            .map(|(&color, &light)| match blend {
+            .map(|(&color, &light)| match &blend {
                 BlendMode::Hsv => self.blend_hsv(color, light),
                 BlendMode::SoftLight => Ok(blend_soft_light(color, light)),
                 BlendMode::Overlay => Ok(blend_overlay(color, light)),
@@ -400,7 +396,7 @@ mod tests {
     fn flat_ground_is_evenly_lit_and_blends_follow_matplotlib() {
         let light = LightSource::default();
         let flat = light
-            .hillshade(&Grid::filled(3, 3, 2.0), &Relief::default())
+            .hillshade(&Grid::filled(3, 3, 2.0), Relief::default())
             .unwrap();
         let expected = 45_f64.to_radians().sin();
         assert!(

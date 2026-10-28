@@ -459,7 +459,7 @@ fn percent_label(format: &LabelFormat, percent: f64, usetex: bool) -> Result<Str
 mod tests {
     use super::*;
     use crate::figure::Figure;
-    use crate::text::{HAlign, TextRotationMode as RotationMode, VAlign};
+    use crate::text::{HAlign, RotationMode, VAlign};
 
     #[test]
     fn fractions_validate_like_matplotlib() {

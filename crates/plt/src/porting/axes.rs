@@ -53,9 +53,9 @@
 //! | `LogLocator(base=2)`, `LogScale(axis, base=2)` | [`LogLocator::new`]`(2.0)?`, [`LogScale::new`]`(2.0)?`, or `from_base` with a [`LogBase`] checked once |
 //! | `FormatStrFormatter`, `FuncFormatter`, `PercentFormatter`, `EngFormatter`, `NullFormatter` | [`FormatStrFormatter`], [`FuncFormatter`], [`PercentFormatter`], [`EngFormatter`], [`NullFormatter`] |
 //! | `ax.minorticks_on()`                           | [`Axes::minorticks_on`]                          |
-//! | `ax.tick_params(axis="x", labelrotation=45)`   | [`Axes::tick_params`]`(&TickParams { .. })`      |
-//! | `ax.ticklabel_format(style="sci", scilimits=(0, 0))` | [`Axes::ticklabel_format`]`(&TicklabelFormat { .. })` |
-//! | `ax.locator_params(nbins=4)`                   | [`Axes::locator_params`]`(&LocatorParams { .. })` |
+//! | `ax.tick_params(axis="x", labelrotation=45)`   | [`Axes::tick_params`]`(TickParams { .. })`       |
+//! | `ax.ticklabel_format(style="sci", scilimits=(0, 0))` | [`Axes::ticklabel_format`]`(TicklabelFormat { .. })` |
+//! | `ax.locator_params(nbins=4)`                   | [`Axes::locator_params`]`(LocatorParams { .. })`  |
 //! | `ax.xaxis.tick_top()`, `set_ticks_position("both")` | [`Axis::tick_to`]`(SpineSide::Top)`, [`Axis::set_ticks_position`] |
 //! | `ax.yaxis.set_offset_position("right")`             | [`Axis::set_offset_position`]`(SpineSide::Right)?`, [`Axis::offset_position`] |
 //! | `ax.xaxis.set_picker(True)`, `ax.xaxis.contains(event)` | [`Axis::set_picker`]`(Some(Picker::Default))`, [`Axis::contains`]`(point)`; picks name the axis in [`PickEvent::axis`] |
@@ -196,7 +196,7 @@
 //!     .set_major_locator(MultipleLocator::new(0.5)?)
 //!     .set_major_formatter(FormatStrFormatter::new("%.1f")?)
 //!     .set_minor_locator(AutoMinorLocator::new(None));
-//! ax.tick_params(&TickParams {
+//! ax.tick_params(TickParams {
 //!     axis: Some(AxisName::X),
 //!     labelrotation: Some(45.0),
 //!     labelsize: Some(FontSize::Points(8.0)),

@@ -30,7 +30,8 @@ impl Session {
     }
 
     /// A session without a display, whose windows are driven through the
-    /// returned handle (for tests and off-screen use).
+    /// returned handle (for tests and off-screen use);
+    /// [`FigureWindow::capture`] reads what they show.
     pub fn headless() -> (Self, HeadlessHandle) {
         let (event_loop, handle) = EventLoop::headless();
         (Self::with_loop(event_loop), handle)
@@ -149,7 +150,9 @@ impl Session {
 
     /// Runs the windows until `deadline` passes (forever when `None`),
     /// `done` returns `true` after an event, or the last window closes
-    /// (matplotlib's `start_event_loop`).
+    /// (matplotlib's `start_event_loop`). The windows handle what is
+    /// queued by then even when `deadline` has passed, so
+    /// `run(Some(Instant::now()), ..)` draws the windows just shown.
     ///
     /// # Errors
     ///
@@ -222,21 +225,19 @@ impl Session {
         self.run_loop(deadline, |session| !done() && session.shows(figure))
     }
 
-    /// Dispatches events while `keep_going` holds, until `deadline`.
+    /// Dispatches events while `keep_going` holds, until `deadline`; the
+    /// events queued by then are handled even when it has passed already.
     fn run_loop(
         &mut self,
         deadline: Option<Instant>,
         mut keep_going: impl FnMut(&Self) -> bool,
     ) -> Result<(), GuiError> {
         let mut failure = None;
-        while failure.is_none() && keep_going(self) {
-            let timeout = match deadline {
-                Some(deadline) => match deadline.checked_duration_since(Instant::now()) {
-                    Some(left) if !left.is_zero() => Some(left),
-                    _ => break,
-                },
-                None => None,
-            };
+        let mut overdue = false;
+        while failure.is_none() && !overdue && keep_going(self) {
+            let timeout =
+                deadline.map(|deadline| deadline.saturating_duration_since(Instant::now()));
+            overdue = timeout.is_some_and(|left| left.is_zero());
             let (windows, closed) = (&mut self.windows, &mut self.closed);
             self.event_loop.pump_events(timeout, |cx, event| {
                 if let Err(err) = dispatch(windows, closed, cx, event) {
@@ -354,6 +355,16 @@ mod tests {
         assert_ne!(handle.stacking_order().last(), Some(&first));
         session.show(&[titled(&figures[0])]).unwrap();
         assert_eq!(handle.stacking_order().last(), Some(&first));
+    }
+
+    #[test]
+    fn running_past_the_deadline_still_draws_the_windows_shown() {
+        let (mut session, handle, _, id) = shown();
+        let blank = FigureWindow::capture(&handle, id).expect("open");
+        session
+            .run(Some(Instant::now()), || false)
+            .expect("the loop runs");
+        assert_ne!(FigureWindow::capture(&handle, id).expect("open"), blank);
     }
 
     #[test]

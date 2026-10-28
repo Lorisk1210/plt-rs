@@ -40,7 +40,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             counting(10, 10),
             ImshowOptions {
                 extent: Some(Extent::new(1.0, 2.0, 1.0, 2.0)),
-                ..ImshowOptions::default().interpolation(Interpolation::Bilinear)
+                interpolation: Some(Interpolation::Bilinear),
+                ..ImshowOptions::default()
             },
         )?;
         ax.set_xlim(0.0, 3.0)?.set_ylim(0.0, 3.0)?;
@@ -52,12 +53,16 @@ pub(crate) const CASES: &[FigureCase] = &[
             counting(2, 50),
             ImshowOptions {
                 origin: Some(Origin::Lower),
-                ..ImshowOptions::default().interpolation(Interpolation::None)
+                interpolation: Some(Interpolation::None),
+                ..ImshowOptions::default()
             },
         )?;
         axs[(1, 0)].imshow(
             counting(2, 50),
-            ImshowOptions::default().interpolation(Interpolation::None),
+            ImshowOptions {
+                interpolation: Some(Interpolation::None),
+                ..ImshowOptions::default()
+            },
         )?;
         remove_ticks_and_titles(fig);
         Ok(())
@@ -70,7 +75,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             ImshowOptions {
                 colorizer: ColorizerOptions::default().norm(LogNorm::default()),
                 extent: Some(Extent::new(734_717.945_208, 734_717.946_366, 1.0, 100.0)),
-                ..ImshowOptions::default().interpolation(Interpolation::None)
+                interpolation: Some(Interpolation::None),
+                ..ImshowOptions::default()
             },
         )?;
         ax.set_aspect(Aspect::Auto)?;
@@ -150,7 +156,8 @@ pub(crate) const CASES: &[FigureCase] = &[
                     .cmap(colormaps::get("Blues")?)
                     .limits(Some(-1.0), Some(1.0)),
                 extent: Some(Extent::new(0.0, 1.0, 0.0, 1.0)),
-                ..ImshowOptions::default().interpolation(Interpolation::None)
+                interpolation: Some(Interpolation::None),
+                ..ImshowOptions::default()
             },
         )?;
         ax.set_xlim(-0.1, 1.0 + 0.1)?.set_ylim(-0.1, 1.0 + 0.1)?;
@@ -264,7 +271,8 @@ fn rotate_image(fig: &Figure) -> CaseResult {
             colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
             origin: Some(Origin::Lower),
             extent: Some(Extent::new(-2.0, 4.0, -3.0, 2.0)),
-            ..ImshowOptions::default().interpolation(Interpolation::None)
+            interpolation: Some(Interpolation::None),
+            ..ImshowOptions::default()
         },
     )?;
     let rotated = Transform::Affine(Affine2D::identity().rotate_deg(30.0)).then(ax.trans_data());

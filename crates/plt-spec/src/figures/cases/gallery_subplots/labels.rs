@@ -50,7 +50,7 @@ fn align_labels_demo(fig: &Figure) -> CaseResult {
         ax.set_ylim(0.0, scale)?;
     }
     axs[(0, 0)].xaxis().tick_to(SpineSide::Top)?;
-    axs[(1, 2)].tick_params(&TickParams {
+    axs[(1, 2)].tick_params(TickParams {
         axis: Some(AxisName::X),
         labelrotation: Some(55.0),
         ..TickParams::default()
@@ -94,7 +94,7 @@ fn axes_props(fig: &Figure) -> CaseResult {
             ..GridOptions::default()
         },
     );
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelcolor: Some("r".into()),
         labelsize: Some(FontSize::Relative(RelativeSize::Medium)),
         width: Some(3.0),

@@ -51,7 +51,7 @@ fn simple_axisartist1(fig: &Figure) -> CaseResult {
     let grid = fig.add_gridspec(1, 2)?;
     let ax0 = axisartist::AxisArtistAxes::new(fig.add_subplot_spec(&grid.cell(0, 0)?)?);
     let y0 = ax0.new_floating_axis_facing("y=0", AxisName::X, 0.0, SpineSide::Bottom);
-    y0.toggle(&Toggle {
+    y0.toggle(Toggle {
         all: Some(true),
         ..Toggle::default()
     });
@@ -70,7 +70,7 @@ fn simple_axisartist1(fig: &Figure) -> CaseResult {
 }
 
 fn simple_axisline(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         right: Some(0.85),
         ..SubplotOverrides::default()
     })?;

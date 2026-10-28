@@ -37,7 +37,7 @@ pub fn figlegend(options: LegendOptions) -> Result<Legend, LegendError> {
 /// # Errors
 ///
 /// When the margins leave no room or the spacing is negative.
-pub fn subplots_adjust(overrides: &SubplotOverrides) -> Result<(), GridSpecError> {
+pub fn subplots_adjust(overrides: SubplotOverrides) -> Result<(), GridSpecError> {
     gcf().subplots_adjust(overrides).map(|_| ())
 }
 
@@ -47,7 +47,7 @@ pub fn subplots_adjust(overrides: &SubplotOverrides) -> Result<(), GridSpecError
 /// # Errors
 ///
 /// As [`Figure::tight_layout`](crate::figure::Figure::tight_layout).
-pub fn tight_layout(params: &TightLayout) -> Result<(), TightLayoutError> {
+pub fn tight_layout(params: TightLayout) -> Result<(), TightLayoutError> {
     gcf().tight_layout(params).map(|_| ())
 }
 
@@ -80,21 +80,21 @@ mod tests {
         let ax = subplot(2, 1, 1).unwrap();
         subplot(2, 1, 2).unwrap();
         let before = ax.position();
-        subplots_adjust(&SubplotOverrides {
+        subplots_adjust(SubplotOverrides {
             top: Some(0.8),
             ..SubplotOverrides::default()
         })
         .unwrap();
         assert!(ax.position().y1() < before.y1());
         assert!(
-            subplots_adjust(&SubplotOverrides {
+            subplots_adjust(SubplotOverrides {
                 left: Some(0.9),
                 right: Some(0.1),
                 ..SubplotOverrides::default()
             })
             .is_err()
         );
-        tight_layout(&TightLayout::default()).unwrap();
+        tight_layout(TightLayout::default()).unwrap();
         close_all();
     }
 }

@@ -350,7 +350,7 @@ mod tests {
         let ax = fig
             .add_axes([0.25, 0.25, 0.5, 0.5])
             .expect("a valid rectangle");
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             direction: Some(TickDirection::Out),
             length: Some(5.0),
             ..TickParams::default()

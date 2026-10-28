@@ -55,7 +55,7 @@ fn range_slider(fig: &Figure) -> CaseResult {
     let pixels = SpecRng::new(19_680_801).normal(n * n, 0.0, 1.0);
     let img = Grid::from_vec(n, n, pixels.clone())?;
     let axs = fig.subplots(1, 2)?;
-    fig.subplots_adjust(&bottom(0.25))?;
+    fig.subplots_adjust(bottom(0.25))?;
     axs[(0, 0)].imshow(img, ImshowOptions::default())?;
     let auto = HistPlotOptions {
         bins: Some(Bins::Estimator(BinEstimator::Auto)),
@@ -93,7 +93,7 @@ fn slider_demo(fig: &Figure) -> CaseResult {
         LineProps::default().linewidth(2.0),
     )?;
     ax.set_xlabel("Time [s]");
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.25),
         ..bottom(0.25)
     })?;
@@ -127,7 +127,7 @@ fn slider_demo(fig: &Figure) -> CaseResult {
 fn slider_snap_demo(fig: &Figure) -> CaseResult {
     let t = arange(0.0, 1.0, 0.001);
     let ax = fig.subplot();
-    fig.subplots_adjust(&bottom(0.25))?;
+    fig.subplots_adjust(bottom(0.25))?;
     ax.plot_with(
         t.clone(),
         wave(&t, 5.0, 3.0),
@@ -170,7 +170,7 @@ fn evaluate(expression: &str, t: &[f64]) -> Option<Vec<f64>> {
 
 fn textbox(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
-    fig.subplots_adjust(&bottom(0.2))?;
+    fig.subplots_adjust(bottom(0.2))?;
     let t = arange(-2.0, 2.0, 0.001);
     let line = ax.plot_with(
         t.clone(),

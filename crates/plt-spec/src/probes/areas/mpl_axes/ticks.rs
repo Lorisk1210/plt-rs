@@ -173,7 +173,7 @@ pub(super) fn tick_params_state(args: Args<'_>) -> Outcome {
         let fig = Figure::new();
         let ax = fig.subplot();
         for call in args.get("calls").and_then(Json::as_array).unwrap_or(&[]) {
-            ax.tick_params(&tick_params(call)?);
+            ax.tick_params(tick_params(call)?);
         }
         if args.opt_bool("draw")? == Some(true) {
             fig.layout();
@@ -238,7 +238,7 @@ pub(super) fn grid(args: Args<'_>) -> Outcome {
 
 /// `tick_params(reset=True, which="major", labelsize=10)`.
 fn reset_ticks(ax: &Axes) {
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         reset: true,
         labelsize: Some(FontSize::Points(10.0)),
         ..TickParams::default()
@@ -268,7 +268,7 @@ pub(super) fn offset_text(args: Args<'_>) -> Outcome {
         ))?;
         let axis = axis_arg(ax, args)?;
         if let Some(params) = args.get("params") {
-            axis.set_tick_params(&tick_params(params)?);
+            axis.set_tick_params(tick_params(params)?);
         }
         // The offset text takes the colour of the major tick labels.
         Ok(encode::object([
@@ -331,7 +331,7 @@ pub(super) fn get_tick_params(args: Args<'_>) -> Outcome {
             ]))
         };
         let before = levels(false)?;
-        axis.set_tick_params(&TickParams {
+        axis.set_tick_params(TickParams {
             which: TickLevel::Both,
             labelsize: Some(FontSize::Points(30.0)),
             labelcolor: Some(Color::from("red")),

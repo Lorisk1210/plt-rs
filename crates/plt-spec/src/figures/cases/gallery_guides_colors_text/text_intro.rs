@@ -31,7 +31,7 @@ fn oscillation() -> (Vec<f64>, Vec<f64>) {
 fn oscillation_axes(fig: &Figure, scale: f64) -> Result<Axes, Box<dyn std::error::Error>> {
     let (x, y) = oscillation();
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.15),
         left: Some(0.2),
         ..SubplotOverrides::default()
@@ -91,7 +91,7 @@ fn text_intro_6(fig: &Figure) -> CaseResult {
 fn text_intro_7(fig: &Figure) -> CaseResult {
     let (x, y) = oscillation();
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.2),
         left: Some(0.2),
         ..SubplotOverrides::default()
@@ -120,7 +120,7 @@ fn text_intro_8(fig: &Figure) -> CaseResult {
 fn text_intro_9(fig: &Figure) -> CaseResult {
     let (x, y) = oscillation();
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.8),
         ..SubplotOverrides::default()
     })?;
@@ -243,7 +243,7 @@ fn daily(fig: &Figure, setup: impl FnOnce(&Axes) -> CaseResult) -> CaseResult {
     let ax = fig.subplot();
     setup(&ax)?;
     ax.plot(time, y)?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelrotation: Some(70.0),
         ..TickParams::default()

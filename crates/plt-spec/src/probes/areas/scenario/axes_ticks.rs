@@ -177,6 +177,6 @@ fn locator_params(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         nbins,
         ..LocatorParams::default()
     };
-    ax.locator_params(&params).map_err(ProbeError::rejected)?;
+    ax.locator_params(params).map_err(ProbeError::rejected)?;
     Ok(Produced::Nothing)
 }

@@ -73,7 +73,7 @@ pub(super) const CASES: &[FigureCase] = &[
         .with_rc_setup(|rc| Ok(rc.set("savefig.transparent", "True")?)),
     classic("mpl_figure/tightlayout_autolayout_deconflict", |fig| {
         fig.subplots(1, 2)?;
-        fig.tight_layout(&TightLayout {
+        fig.tight_layout(TightLayout {
             w_pad: Some(10.0),
             ..TightLayout::default()
         })?;
@@ -113,7 +113,7 @@ pub(super) const CASES: &[FigureCase] = &[
 /// Rotates the x tick labels of `ax` by 90° (setting the rotation of
 /// each label of `ax.get_xticklabels()`).
 fn rotate_xticklabels(ax: &Axes) {
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelrotation: Some(90.0),
         ..TickParams::default()

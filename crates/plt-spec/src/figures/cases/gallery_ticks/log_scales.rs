@@ -139,7 +139,7 @@ fn symlog_demo_1(fig: &Figure) -> CaseResult {
     )?;
     ax2.grid(true);
     ax2.set_ylabel("symlog both");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

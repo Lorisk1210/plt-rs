@@ -139,7 +139,7 @@ pub(super) fn ticklabel_format(fig: &Figure) -> CaseResult {
     let rows = [Some(Axis3::X), Some(Axis3::Y), Some(Axis3::Z), None];
     for (row, axis) in axs.chunks(5).zip(rows) {
         for (ax, format) in row.iter().zip(&formats) {
-            ax.ticklabel_format(axis, format)?;
+            ax.ticklabel_format(axis, *format)?;
         }
     }
     Ok(())

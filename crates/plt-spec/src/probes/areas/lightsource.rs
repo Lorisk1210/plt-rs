@@ -101,7 +101,7 @@ fn rows_json<T>(grid: &Grid<T>, cell: impl Fn(&T) -> Json) -> Json {
 pub(crate) fn hillshade(args: Args<'_>) -> Outcome {
     let elevation = grid(args.json("elevation")?, "elevation")?;
     let shade = light(args)?
-        .hillshade(&elevation, &relief(args)?)
+        .hillshade(&elevation, relief(args)?)
         .map_err(ProbeError::rejected)?;
     Ok(rows_json(&shade, |&v| Json::from(v)))
 }
@@ -139,8 +139,8 @@ fn shade_rgb(args: Args<'_>) -> Outcome {
         .shade_rgb(
             &rgb,
             &elevation,
-            &blend_mode(args.str("blend_mode")?)?,
-            &relief(args)?,
+            blend_mode(args.str("blend_mode")?)?,
+            relief(args)?,
         )
         .map_err(ProbeError::rejected)?;
     Ok(rows_json(&shaded, |c| Json::from(c.to_vec())))
@@ -160,7 +160,7 @@ pub(crate) fn shade(args: Args<'_>) -> Outcome {
         relief: relief(args)?,
     };
     let shaded = light(args)?
-        .shade(&data, &options)
+        .shade(&data, options)
         .map_err(ProbeError::rejected)?;
     Ok(rows_json(&shaded, |c| Json::from(vec![c.r, c.g, c.b, c.a])))
 }

@@ -30,7 +30,7 @@ fn tick_not_in_layout(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xticks([0.0, 1.0])
         .set_xticklabels(["short", "very long"])?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelcolor: Some(Color::from("w")),
         ..TickParams::default()
     });

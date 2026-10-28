@@ -23,7 +23,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ax.set_ylabel("long y label\nwith two lines");
             ax.set_title(format!("panel title {i}"));
         }
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("layout/tight_layout_pads", |fig| {
@@ -33,7 +33,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ax.set_xlabel("x");
         }
         fig.suptitle("Suptitle");
-        fig.tight_layout(&TightLayout {
+        fig.tight_layout(TightLayout {
             pad: 2.0,
             w_pad: Some(4.0),
             ..TightLayout::default()
@@ -77,7 +77,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("layout/align_labels", |fig| {
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.2),
             wspace: Some(0.6),
             ..SubplotOverrides::default()
@@ -90,7 +90,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             ax.set_ylabel(format!("y label {i}"));
             ax.set_xlabel(format!("x label {i}"));
         }
-        axs[(0, 0)].tick_params(&TickParams {
+        axs[(0, 0)].tick_params(TickParams {
             axis: Some(AxisName::X),
             labelrotation: Some(55.0),
             ..TickParams::default()
@@ -99,7 +99,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         Ok(())
     }),
     FigureCase::new("layout/align_titles", |fig| {
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             top: Some(0.7),
             ..SubplotOverrides::default()
         })?;

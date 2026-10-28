@@ -88,7 +88,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         axs[(0, 0)].magnitude_spectrum(&x, SpectrumScale::Decibels, options.clone())?;
         axs[(1, 0)].angle_spectrum(&x, options.clone())?;
         axs[(2, 0)].phase_spectrum(&x, options)?;
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             hspace: Some(0.7),
             ..SubplotOverrides::default()
         })?;

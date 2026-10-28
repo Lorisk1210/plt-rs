@@ -21,7 +21,7 @@ use plt::rc::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, CycleValue, Cycler, Distiller,
     Dpi, FontType, HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
-use plt::text::{HAlign, TexEngine, TextHinting, TextRotationMode as RotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, TexEngine, TextHinting, VAlign};
 use plt::ticker::{AutolimitMode, MinorDivisions};
 use plt::units::DateConverter;
 use plt_render::{CapStyle, JoinStyle};

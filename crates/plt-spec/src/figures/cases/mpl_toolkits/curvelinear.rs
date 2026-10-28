@@ -183,7 +183,7 @@ fn floating_polar(
 /// floating axes tests; the label faces `label_direction` when given.
 fn z_axis(ax1: &FloatingAxes, radius: f64, label_direction: Option<SpineSide>) {
     let axis = ax1.new_floating_axis("z", AxisName::Y, radius);
-    axis.toggle(&Toggle {
+    axis.toggle(Toggle {
         all: Some(true),
         label: Some(true),
         ..Toggle::default()

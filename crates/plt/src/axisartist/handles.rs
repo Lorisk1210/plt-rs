@@ -199,7 +199,7 @@ impl AxisArtist {
 
     /// Shows or hides the tick marks, tick labels and label (matplotlib's
     /// `toggle`).
-    pub fn toggle(&self, toggle: &Toggle) -> &Self {
+    pub fn toggle(&self, toggle: Toggle) -> &Self {
         let ticks = toggle.ticks.or(toggle.all);
         let ticklabels = toggle.ticklabels.or(toggle.all);
         let label = toggle.label.or(toggle.all);
@@ -316,7 +316,7 @@ mod tests {
         assert_eq!(bottom.major_ticklabels().rotation(), 330.0);
         assert_eq!(bottom.label().text().as_deref(), Some("time"));
         assert_eq!(bottom.labelpad(), 12.0);
-        bottom.toggle(&Toggle {
+        bottom.toggle(Toggle {
             all: Some(false),
             ticks: Some(true),
             ..Toggle::default()

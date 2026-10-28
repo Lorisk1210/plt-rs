@@ -5,6 +5,7 @@
 mod canvas;
 mod dialogs;
 mod input;
+mod screenshot;
 mod toolbar;
 
 use plt_core::Point;

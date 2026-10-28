@@ -6,7 +6,7 @@ use plt::axes::{AxisName, LocatorParams, TickDirection, TickLabelProps, TickLeve
 use plt::fonts::{FontSize, RelativeSize};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::text::{HAlign, TextRotationMode as RotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, VAlign};
 use plt::ticker::Nbins;
 
 use super::line;
@@ -22,7 +22,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         {
             line(ax)?;
             ax.minorticks_on();
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 which: TickLevel::Both,
                 direction: Some(direction),
                 ..TickParams::default()
@@ -34,14 +34,14 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/tick_length_width_colors", |fig| {
         let ax = fig.subplot();
         line(&ax)?;
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             length: Some(10.0),
             width: Some(2.0),
             colors: Some(Color::from("tab:red")),
             ..TickParams::default()
         });
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::Y),
             length: Some(2.0),
             width: Some(0.5),
@@ -55,14 +55,14 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/tick_labelsize_rotation_pad", |fig| {
         let ax = fig.subplot();
         line(&ax)?;
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             labelsize: Some(FontSize::Points(14.0)),
             labelrotation: Some(45.0),
             pad: Some(8.0),
             ..TickParams::default()
         });
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::Y),
             labelsize: Some(FontSize::Relative(RelativeSize::XSmall)),
             ..TickParams::default()
@@ -73,7 +73,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/tick_labels_top_right", |fig| {
         let ax = fig.subplot();
         line(&ax)?;
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             top: Some(true),
             labeltop: Some(true),
             right: Some(true),
@@ -85,7 +85,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/tick_labelbottom_false", |fig| {
         let ax = fig.subplot();
         line(&ax)?;
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelbottom: Some(false),
             bottom: Some(false),
             labelleft: Some(false),
@@ -120,7 +120,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                     ..TickLabelProps::default()
                 },
             );
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             bottom: Some(0.25),
             ..SubplotOverrides::default()
         })?;
@@ -142,14 +142,14 @@ pub(crate) const CASES: &[FigureCase] = &[
         let axs = fig.subplots(1, 2)?;
         line(&axs[(0, 0)])?;
         for (axis, nbins) in [(AxisName::X, 3), (AxisName::Y, 10)] {
-            axs[(0, 0)].locator_params(&LocatorParams {
+            axs[(0, 0)].locator_params(LocatorParams {
                 axis: Some(axis),
                 nbins: Some(Nbins::Fixed(nbins)),
                 ..LocatorParams::default()
             })?;
         }
         line(&axs[(0, 1)])?;
-        axs[(0, 1)].locator_params(&LocatorParams {
+        axs[(0, 1)].locator_params(LocatorParams {
             nbins: Some(Nbins::Fixed(4)),
             steps: Some(vec![1.0, 2.5, 5.0]),
             ..LocatorParams::default()

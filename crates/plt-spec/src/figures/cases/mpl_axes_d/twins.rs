@@ -18,7 +18,7 @@ use crate::figures::{CaseResult, FigureCase};
 /// `test_twin_spines`: a host with two right-hand twins, the second one's
 /// spine pushed out by a fifth of the axes width.
 fn twin_spines(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         right: Some(0.75),
         ..SubplotOverrides::default()
     })?;
@@ -42,7 +42,7 @@ fn twin_spines(fig: &Figure) -> CaseResult {
     for (ax, line) in [&host, &par1, &par2].into_iter().zip(&lines) {
         let color = line.color();
         ax.yaxis().set_label_color(color.clone());
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::Y),
             colors: Some(color),
             length: Some(4.0),
@@ -50,7 +50,7 @@ fn twin_spines(fig: &Figure) -> CaseResult {
             ..TickParams::default()
         });
     }
-    host.tick_params(&TickParams {
+    host.tick_params(TickParams {
         axis: Some(AxisName::X),
         length: Some(4.0),
         width: Some(1.5),
@@ -97,7 +97,7 @@ fn twin_spines_on_top(fig: &Figure) -> CaseResult {
 fn reset_ticks(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.grid(true);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         direction: Some(TickDirection::In),
         length: Some(10.0),
         width: Some(5.0),
@@ -125,7 +125,7 @@ fn reset_ticks(fig: &Figure) -> CaseResult {
 )]
 fn axes_clear_behavior(fig: &Figure, which: AxisName) -> CaseResult {
     let ax = fig.subplot();
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(which),
         direction: Some(TickDirection::In),
         length: Some(10.0),

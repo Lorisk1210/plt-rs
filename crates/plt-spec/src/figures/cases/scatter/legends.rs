@@ -2,7 +2,9 @@
 //! `legend_elements`, several legends on one axes and hatched markers.
 
 use plt::axes::{MappedColors, ScatterColors, ScatterOptions};
-use plt::collections::{EdgeColors, ElementCount, LegendElementsOptions, LegendProperty};
+use plt::collections::{
+    EdgeColors, ElementCount, LegendElementsOptions, LegendProperty, LegendValueFn,
+};
 use plt::colors::{Color, Colorize, colormaps};
 use plt::figure::Figure;
 use plt::legend::LegendOptions;
@@ -74,7 +76,7 @@ fn num_fmt_func(fig: &Figure) -> CaseResult {
         num: ElementCount::Target(4),
         color: Some(Color::from("0.4")),
         fmt: Some(Box::new(StrMethodFormatter::new("$ {x:.2f}")?)),
-        func: Some(Box::new(|s| s / 20.0)),
+        func: LegendValueFn::new(|s| s / 20.0),
         ..LegendElementsOptions::default()
     };
     let (handles, labels) = points.legend_elements(sizes)?;

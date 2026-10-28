@@ -72,7 +72,7 @@ pub(super) fn plot(args: Args<'_>) -> Outcome {
         };
         let ax = Figure::new().subplot();
         let lines = ax
-            .plot_columns(x, &columns, &props, labels.as_deref())
+            .plot_columns(x, &columns, props, labels.as_deref())
             .map_err(ProbeError::rejected)?;
         let legend = ax
             .legend(LegendOptions::default())

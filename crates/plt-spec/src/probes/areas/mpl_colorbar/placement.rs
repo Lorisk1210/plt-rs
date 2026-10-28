@@ -243,7 +243,7 @@ fn remove_from_grid(scene: &str, use_gridspec: bool) -> Result<Json, ProbeError>
     };
     let points = scatter(&ax)?;
     let adjust = || {
-        fig.subplots_adjust(&SubplotOverrides::default())
+        fig.subplots_adjust(SubplotOverrides::default())
             .map(|_| extents(ax.position()))
             .map_err(ProbeError::rejected)
     };

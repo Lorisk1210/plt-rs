@@ -69,14 +69,14 @@ impl Axes3D {
     /// otherwise x or y; set the z axis alone with
     /// [`Axis3D::set_tick_params`] (matplotlib's `tick_params(axis='z')`).
     /// See [`Axis3D::set_tick_params`] for what 3-D axes honour.
-    pub fn tick_params(&self, params: &TickParams) -> &Self {
+    pub fn tick_params(&self, params: TickParams) -> &Self {
         let dirs: &[Axis3] = match params.axis {
             None => &Axis3::ALL,
             Some(AxisName::X) => &[Axis3::X],
             Some(AxisName::Y) => &[Axis3::Y],
         };
         for &dir in dirs {
-            self.axis(dir).set_tick_params(params);
+            self.axis(dir).set_tick_params(params.clone());
         }
         self
     }
@@ -98,7 +98,7 @@ impl Axes3D {
     ///     use_offset: Some(OffsetMode::Off),
     ///     ..TicklabelFormat::default()
     /// };
-    /// ax.ticklabel_format(Some(Axis3::X), &plain)?;
+    /// ax.ticklabel_format(Some(Axis3::X), plain)?;
     /// let ticks = ax.xaxis().ticks()?;
     /// assert!(ticks.offset.is_empty());
     /// assert!(ticks.major.iter().any(|tick| tick.label == "10000002"));
@@ -112,7 +112,7 @@ impl Axes3D {
     pub fn ticklabel_format(
         &self,
         axis: Option<Axis3>,
-        format: &TicklabelFormat,
+        format: TicklabelFormat,
     ) -> Result<&Self, Axes3DError> {
         for dir in Axis3::ALL
             .into_iter()
@@ -413,7 +413,7 @@ impl Axis3D {
     /// matplotlib they always draw the tick marks across the axis, as
     /// wide as `[xy]tick.*.width` say, and ignore the tick direction,
     /// length and width and the second label side.
-    pub fn set_tick_params(&self, params: &TickParams) -> &Self {
+    pub fn set_tick_params(&self, params: TickParams) -> &Self {
         let rc = crate::rc::params();
         let sides = if self.dir == Axis3::X {
             AxisName::X
@@ -535,7 +535,7 @@ mod tests {
     #[test]
     fn tick_params_route_label_switches_like_matplotlib() {
         let ax = Figure::new().subplot_3d();
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelleft: Some(false),
             labelcolor: Some("red".into()),
             which: TickLevel::Both,
@@ -544,7 +544,7 @@ mod tests {
         let style = |dir: Axis3| ax.with(|axes| axes.axis(dir).major_style.labels.first);
         assert!(style(Axis3::X), "x labels follow labelbottom");
         assert!(!style(Axis3::Y) && !style(Axis3::Z));
-        ax.zaxis().set_tick_params(&TickParams {
+        ax.zaxis().set_tick_params(TickParams {
             reset: true,
             ..TickParams::default()
         });

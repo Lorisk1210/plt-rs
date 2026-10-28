@@ -178,7 +178,7 @@ fn polar_legend(fig: &Figure) -> CaseResult {
             .linewidth(3.0)
             .label("another line"),
     )?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         grid_color: Some("palegoldenrod".into()),
         ..TickParams::default()
     });

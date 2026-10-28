@@ -168,7 +168,7 @@ fn fill_between_demo_1(fig: &Figure) -> CaseResult {
         ax.set_title(title);
     }
     axs[(2, 0)].set_xlabel("x");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -233,7 +233,7 @@ fn fill_between_demo_3(fig: &Figure) -> CaseResult {
             ax.fill_between(x, y1, y2, options)?;
         }
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

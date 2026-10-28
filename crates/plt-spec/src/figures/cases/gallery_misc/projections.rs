@@ -68,7 +68,7 @@ fn icon_axes(fig: &Figure, position: [f64; 4], sizes: &LogoSizes) -> CaseResult 
         let Rgba { r, g, b, .. } = jet.sample(r / 10.0);
         bar.set_facecolor(Rgba::new(r, g, b, 0.6));
     }
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelbottom: Some(false),
         labeltop: Some(false),
         labelleft: Some(false),
@@ -369,7 +369,7 @@ fn radar_chart(fig: &Figure) -> CaseResult {
     let axs: Vec<PolarAxes> = (1..=4)
         .map(|i| fig.add_polar_subplot(2, 2, i))
         .collect::<Result<_, _>>()?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.25),
         hspace: Some(0.20),
         top: Some(0.85),

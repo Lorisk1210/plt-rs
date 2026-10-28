@@ -51,7 +51,7 @@ pub(crate) fn tick_strip(ax: &Axes) {
         spines.get(side).set_visible(false);
     }
     for (which, width, length) in [(TickLevel::Major, 1.0, 5.0), (TickLevel::Minor, 0.75, 2.5)] {
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             which,
             width: Some(width),
             length: Some(length),
@@ -113,7 +113,7 @@ pub(crate) fn locator_strips(
     ax(7)
         .xaxis()
         .set_major_locator(LogLocator::new(10.0)?.with_numticks(NumTicks::Fixed(15)));
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -164,7 +164,7 @@ pub(crate) fn logit_grid(
             };
         }
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -345,7 +345,7 @@ pub(crate) fn example_plot(
     nodec: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     ax.plot_y([1.0, 2.0]);
-    ax.locator_params(&LocatorParams {
+    ax.locator_params(LocatorParams {
         nbins: Some(Nbins::Fixed(3)),
         ..LocatorParams::default()
     })?;

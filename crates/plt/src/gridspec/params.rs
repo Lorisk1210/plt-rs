@@ -38,7 +38,7 @@ impl SubplotParams {
 
     /// Applies the given overrides, rejecting an empty grid area
     /// (matplotlib's `SubplotParams.update`).
-    pub fn updated(self, overrides: &SubplotOverrides) -> Result<Self, GridSpecError> {
+    pub fn updated(self, overrides: SubplotOverrides) -> Result<Self, GridSpecError> {
         let updated = Self {
             left: overrides.left.unwrap_or(self.left),
             bottom: overrides.bottom.unwrap_or(self.bottom),

@@ -7,7 +7,7 @@ use plt::gridspec::SubplotOverrides;
 use plt::layout::TightLayout;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::text::{HAlign, TextRotationMode as RotationMode};
+use plt::text::{HAlign, RotationMode};
 use plt::ticker::OffsetMode;
 
 use crate::figures::CaseResult;
@@ -19,13 +19,13 @@ pub(super) fn offset_threshold_and_fixed_offset(fig: &Figure) -> CaseResult {
     let rising = map(&t, |t| 1000.1 + 0.8 * t);
     axs[(0, 0)].plot(&t, &rising)?;
     axs[(0, 1)].plot(&t, &rising)?;
-    axs[(0, 1)].ticklabel_format(&TicklabelFormat {
+    axs[(0, 1)].ticklabel_format(TicklabelFormat {
         axis: Some(AxisName::Y),
         use_offset: Some(OffsetMode::Fixed(1000.0)),
         ..TicklabelFormat::default()
     })?;
     axs[(0, 2)].plot(map(&t, |t| -1e5 - 3.0 * t), map(&t, |t| -2e-3 * t))?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -34,7 +34,7 @@ pub(super) fn mathtext_offset_and_scale(fig: &Figure) -> CaseResult {
     let t = linspace(0.0, 1.0, 20);
     axs[(0, 0)].plot(map(&t, |t| t * 5e-5), map(&t, |t| t * 4e4))?;
     axs[(0, 1)].plot(&t, map(&t, |t| 1e7 + 2e3 * t))?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -65,7 +65,7 @@ pub(super) fn rotated_multiline_labels(fig: &Figure) -> CaseResult {
             },
         );
     ax.set_xlabel("category");
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.25),
         left: Some(0.2),
         ..SubplotOverrides::default()
@@ -80,21 +80,21 @@ pub(super) fn rotation_mode_xtick_ytick(fig: &Figure) -> CaseResult {
         (AxisName::X, 40.0, RotationMode::XTick),
         (AxisName::Y, -25.0, RotationMode::YTick),
     ] {
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(axis),
             labelrotation: Some(rotation),
             labelrotation_mode: Some(mode),
             ..TickParams::default()
         });
     }
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         top: Some(true),
         labeltop: Some(true),
         right: Some(true),
         labelright: Some(true),
         ..TickParams::default()
     });
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.15),
         right: Some(0.85),
         bottom: Some(0.18),
@@ -109,14 +109,14 @@ pub(super) fn tick_params_grid_and_sides(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 4.0, 30);
     ax.plot(&x, map(&x, |x| x * x))?;
     ax.grid(true);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         grid_color: Some(Color::from("tab:orange")),
         grid_alpha: Some(0.6),
         grid_linewidth: Some(2.0),
         grid_linestyle: Some(LineStyle::Dotted),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         which: TickLevel::Both,
         direction: Some(TickDirection::InOut),
@@ -127,7 +127,7 @@ pub(super) fn tick_params_grid_and_sides(fig: &Figure) -> CaseResult {
         labelright: Some(true),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         pad: Some(10.0),
         labelcolor: Some(Color::from("tab:purple")),
@@ -178,7 +178,7 @@ pub(super) fn set_ticks_labels_minor_kwargs(fig: &Figure) -> CaseResult {
             },
         );
     ax.yaxis().set_minor_ticks([0.25, 0.75]);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         which: TickLevel::Minor,
         pad: Some(12.0),

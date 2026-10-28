@@ -105,14 +105,14 @@ fn anatomy_axes(fig: &Figure) -> Result<Axes, Box<dyn std::error::Error>> {
     ax.xaxis()
         .set_minor_formatter(StrMethodFormatter::new("{x:.2f}")?);
     ax.set_xlim(0.0, 4.0)?.set_ylim(0.0, 4.0)?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Major,
         width: Some(1.0),
         length: Some(10.0),
         labelsize: Some(FontSize::Points(14.0)),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Minor,
         width: Some(1.0),
         length: Some(5.0),
@@ -433,7 +433,7 @@ fn stock_prices(fig: &Figure) -> CaseResult {
             ..GridOptions::default()
         },
     );
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Both,
         labelsize: Some(FontSize::Relative(RelativeSize::Large)),
         bottom: Some(false),

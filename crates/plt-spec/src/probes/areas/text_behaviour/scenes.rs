@@ -9,8 +9,7 @@ use plt::layout::TightLayout;
 use plt::patches::ArrowStyle;
 use plt::rc;
 use plt::text::{
-    AnnotateOptions, Annotation, ArrowProps, HAlign, LegacyArrowProps, Text, TextRotationMode,
-    VAlign,
+    AnnotateOptions, Annotation, ArrowProps, HAlign, LegacyArrowProps, RotationMode, Text, VAlign,
 };
 use plt::units::DataPoint;
 use plt_core::Point;
@@ -160,7 +159,7 @@ fn null_rotation() -> Json {
     let mut rows = Vec::new();
     for ha in ["center", "right", "left"] {
         for va in ["center", "top", "bottom", "baseline", "center_baseline"] {
-            let extents = [TextRotationMode::Anchor, TextRotationMode::Default].map(|mode| {
+            let extents = [RotationMode::Anchor, RotationMode::Default].map(|mode| {
                 let text = ax.text(0.5, 0.5, "test");
                 text.set_rotation(0.0)
                     .set_valign(va.parse::<VAlign>().expect("a valid alignment"))
@@ -180,7 +179,7 @@ fn annotation_update() -> Outcome {
     let ax = fig.subplot();
     let ann = annotate(&ax, "annotation", (0.5, 0.5), AnnotateOptions::default())?;
     let before = extent(ann.window_extent());
-    fig.tight_layout(&TightLayout::default())
+    fig.tight_layout(TightLayout::default())
         .map_err(ProbeError::rejected)?;
     Ok(object([
         ("before", before),

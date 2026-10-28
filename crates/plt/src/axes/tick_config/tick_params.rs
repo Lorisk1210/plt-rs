@@ -1,14 +1,13 @@
 //! Tick parameters (matplotlib's `tick_params`): direction, size, colour,
 //! label and gridline style, and the sides ticks and labels are drawn on.
 
-use plt_text::RotationMode;
-
 use crate::axes::ticks::{GridOptions, TickDirection, TickStyle};
 use crate::axes::{Axes, Axis, AxisName, TickLevel};
 use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::lines::LineStyle;
 use crate::rc::RcParams;
+use crate::text::RotationMode;
 
 /// Options of [`Axes::tick_params`] (matplotlib's `tick_params`); unset
 /// fields keep their current value. The side switches only apply to the
@@ -145,7 +144,7 @@ impl TickParams {
 impl Axis {
     /// Changes the tick parameters of this axis (matplotlib's
     /// `Axis.set_tick_params`); `params.axis` is ignored.
-    pub fn set_tick_params(&self, params: &TickParams) -> &Self {
+    pub fn set_tick_params(&self, params: TickParams) -> &Self {
         let rc = crate::rc::params();
         let name = self.name();
         self.update(|axis| {
@@ -171,10 +170,10 @@ impl Axis {
 impl Axes {
     /// Changes the tick parameters of one or both axes (matplotlib's
     /// `tick_params`).
-    pub fn tick_params(&self, params: &TickParams) -> &Self {
+    pub fn tick_params(&self, params: TickParams) -> &Self {
         for name in [AxisName::X, AxisName::Y] {
             if params.axis.is_none_or(|only| only == name) {
-                self.axis_of(name).set_tick_params(params);
+                self.axis_of(name).set_tick_params(params.clone());
             }
         }
         self

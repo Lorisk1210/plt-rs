@@ -210,7 +210,7 @@ fn subplots_adjust(scene: &Scene, call: &Call<'_>) -> Result<Produced, ProbeErro
     };
     scene
         .fig
-        .subplots_adjust(&overrides)
+        .subplots_adjust(overrides)
         .map_err(ProbeError::rejected)?;
     Ok(Produced::Nothing)
 }

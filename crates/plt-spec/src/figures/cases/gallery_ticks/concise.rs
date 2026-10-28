@@ -7,7 +7,7 @@ use plt::axes::{AxisName, TickParams};
 use plt::dates::{AutoDateLocator, ConciseDateFormatter, DateTime, Datetime64, TimeDelta};
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
-use plt::text::TextRotationMode as RotationMode;
+use plt::text::RotationMode;
 
 use crate::figures::cases::common::cumsum;
 use crate::figures::{CaseResult, FigureCase};
@@ -70,7 +70,7 @@ fn unchanged(_: &Axes) -> CaseResult {
 
 fn default_formatter(fig: &Figure) -> CaseResult {
     for ax in concise_axes(fig, "Default Date Formatter", unchanged)? {
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             labelrotation: Some(40.0),
             labelrotation_mode: Some(RotationMode::XTick),

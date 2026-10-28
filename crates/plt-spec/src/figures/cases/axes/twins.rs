@@ -13,7 +13,7 @@ use crate::figures::FigureCase;
 pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/twinx", |fig| {
         let ax = fig.subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             right: Some(0.85),
             ..SubplotOverrides::default()
         })?;
@@ -70,7 +70,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("axes/secondary_yaxis_location", |fig| {
         let ax = fig.subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             right: Some(0.85),
             ..SubplotOverrides::default()
         })?;

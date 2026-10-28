@@ -42,7 +42,10 @@ pub(super) fn image_and_patch(ax: &Axes, rng: &mut SpecRng) -> CaseResult {
     let values = Grid::from_vec(20, 20, rng.uniform(20 * 20, 0.0, 1.0))?;
     ax.imshow(
         values,
-        ImshowOptions::default().interpolation(Interpolation::None),
+        ImshowOptions {
+            interpolation: Some(Interpolation::None),
+            ..ImshowOptions::default()
+        },
     )?;
     ax.add_patch_with(
         Circle::new((5.0, 5.0), 5.0),

@@ -104,7 +104,7 @@ fn annotations_16(fig: &Figure) -> CaseResult {
             ..AnchoredOptions::new(AnchorLoc::LowerLeft)
         },
     ));
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.8),
         ..SubplotOverrides::default()
     })?;

@@ -20,11 +20,17 @@ pub(crate) const CASES: &[FigureCase] = &[
         let img = Grid::from_fn(5, 5, |r, c| [0.0, 1.0, 0.0, f64::from(u8::from(c <= r))]);
         axs[(0, 0)].imshow(
             img.clone(),
-            ImshowOptions::default().interpolation(Interpolation::None),
+            ImshowOptions {
+                interpolation: Some(Interpolation::None),
+                ..ImshowOptions::default()
+            },
         )?;
         axs[(0, 1)].imshow(
             img,
-            ImshowOptions::default().interpolation(Interpolation::Bilinear),
+            ImshowOptions {
+                interpolation: Some(Interpolation::Bilinear),
+                ..ImshowOptions::default()
+            },
         )?;
         remove_ticks_and_titles(fig);
         Ok(())
@@ -48,7 +54,10 @@ pub(crate) const CASES: &[FigureCase] = &[
         {
             ax.imshow(
                 pixels.clone(),
-                ImshowOptions::default().interpolation(interpolation),
+                ImshowOptions {
+                    interpolation: Some(interpolation),
+                    ..ImshowOptions::default()
+                },
             )?;
             ax.set_title(format!("interpolation {interpolation}"));
         }
@@ -85,7 +94,10 @@ pub(crate) const CASES: &[FigureCase] = &[
         let ax = fig.subplot();
         ax.imshow(
             uniform(19_680_801, 300, 300),
-            ImshowOptions::default().interpolation(Interpolation::Auto),
+            ImshowOptions {
+                interpolation: Some(Interpolation::Auto),
+                ..ImshowOptions::default()
+            },
         )?;
         ax.set_xlim(10.0, 20.0)?.set_ylim(10.0, 20.0)?;
         Ok(())
@@ -104,7 +116,8 @@ pub(crate) const CASES: &[FigureCase] = &[
                 z.clone(),
                 ImshowOptions {
                     alpha: Some(ImageAlpha::Uniform(alpha)),
-                    ..ImshowOptions::default().interpolation(interpolation)
+                    interpolation: Some(interpolation),
+                    ..ImshowOptions::default()
                 },
             )?;
         }
@@ -124,7 +137,8 @@ pub(crate) const CASES: &[FigureCase] = &[
             ImshowOptions {
                 colorizer: ColorizerOptions::default().cmap(colormaps::get("viridis")?),
                 alpha: Some(ImageAlpha::Each(alpha)),
-                ..ImshowOptions::default().interpolation(Interpolation::Nearest)
+                interpolation: Some(Interpolation::Nearest),
+                ..ImshowOptions::default()
             },
         )?;
         Ok(())
@@ -180,7 +194,10 @@ fn antialiased(fig: &Figure, size: usize) -> CaseResult {
     ax.set_position([0.0, 0.0, 1.0, 1.0]);
     ax.imshow(
         uniform(19_680_801, n, n),
-        ImshowOptions::default().interpolation(Interpolation::Auto),
+        ImshowOptions {
+            interpolation: Some(Interpolation::Auto),
+            ..ImshowOptions::default()
+        },
     )?;
     Ok(())
 }

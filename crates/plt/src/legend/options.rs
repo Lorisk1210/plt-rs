@@ -369,10 +369,33 @@ impl LegendOptions {
         columnspacing: f64;
     }
 
-    /// Lists exactly these artists (matplotlib's `handles`).
+    /// Lists exactly these artists (matplotlib's `handles`): handles of
+    /// one type, owned or borrowed. [`LegendOptions::handle`] adds them
+    /// one at a time, of any types.
     #[must_use]
     pub fn handles(mut self, handles: impl IntoIterator<Item = impl Into<LegendHandle>>) -> Self {
         self.handles = Some(handles.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Lists `handle` after the handles given so far, so that artists of
+    /// different types share a legend, as matplotlib's `handles` list
+    /// mixes them.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let bars = ax.bar([1.0, 2.0], [3.0, 4.0], BarOptions { label: Some("rain".into()), ..BarOptions::default() })?;
+    /// let line = ax.plot_with([1.0, 2.0], [2.0, 3.0], LineProps::default().label("warmth"))?;
+    /// let legend = ax.legend(LegendOptions::default().handle(&bars).handle(&line))?;
+    /// assert_eq!(legend.labels(), ["rain", "warmth"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn handle(mut self, handle: impl Into<LegendHandle>) -> Self {
+        self.handles
+            .get_or_insert_with(Vec::new)
+            .push(handle.into());
         self
     }
 

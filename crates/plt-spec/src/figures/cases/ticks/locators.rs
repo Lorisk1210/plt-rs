@@ -35,7 +35,7 @@ pub(super) fn maxn_integer_symmetric_prune(fig: &Figure) -> CaseResult {
             .with_min_n_ticks(4)
             .with_prune(Some(Prune::Upper)),
     );
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -56,7 +56,7 @@ pub(super) fn minor_locators_and_params(fig: &Figure) -> CaseResult {
         .xaxis()
         .set_major_locator(MultipleLocator::new(2.0)?)
         .set_minor_locator(MultipleLocator::new(0.5)?);
-    axs[(0, 1)].tick_params(&TickParams {
+    axs[(0, 1)].tick_params(TickParams {
         which: TickLevel::Minor,
         length: Some(6.0),
         color: Some(Color::from("tab:red")),
@@ -64,7 +64,7 @@ pub(super) fn minor_locators_and_params(fig: &Figure) -> CaseResult {
         ..TickParams::default()
     });
     axs[(1, 0)].minorticks_on();
-    axs[(1, 0)].tick_params(&TickParams {
+    axs[(1, 0)].tick_params(TickParams {
         which: TickLevel::Minor,
         direction: Some(TickDirection::In),
         top: Some(true),
@@ -72,7 +72,7 @@ pub(super) fn minor_locators_and_params(fig: &Figure) -> CaseResult {
         length: Some(3.0),
         ..TickParams::default()
     });
-    axs[(1, 0)].tick_params(&TickParams {
+    axs[(1, 0)].tick_params(TickParams {
         direction: Some(TickDirection::InOut),
         length: Some(8.0),
         ..TickParams::default()
@@ -82,7 +82,7 @@ pub(super) fn minor_locators_and_params(fig: &Figure) -> CaseResult {
         .set_major_locator(MultipleLocator::new(1.0)?)
         .set_minor_locator(MultipleLocator::new(0.5)?)
         .set_remove_overlapping_locs(false);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Minor,
         length: Some(10.0),
         color: Some(Color::from("tab:green")),
@@ -91,14 +91,14 @@ pub(super) fn minor_locators_and_params(fig: &Figure) -> CaseResult {
     ax.yaxis()
         .set_minor_locator(FixedLocator::new(vec![-2.5, -0.5, 0.5, 2.5]))
         .set_minor_formatter(FormatStrFormatter::new("%.1f")?);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         which: TickLevel::Minor,
         labelsize: Some(FontSize::Points(7.0)),
         labelcolor: Some(Color::from("tab:green")),
         ..TickParams::default()
     });
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

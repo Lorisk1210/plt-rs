@@ -149,7 +149,7 @@ fn contourf_demo_3(fig: &Figure) -> CaseResult {
             },
         )?;
         ax.set_title(format!("extend = {name}"));
-        ax.locator_params(&LocatorParams {
+        ax.locator_params(LocatorParams {
             nbins: Some(Nbins::Fixed(4)),
             ..LocatorParams::default()
         })?;
@@ -286,7 +286,7 @@ fn contour_image(fig: &Figure) -> CaseResult {
     let norm = || Normalize::new(-top, top);
     let cmap = colormaps::get("PRGn")?;
     let axs = fig.subplots(2, 2)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.3),
         ..SubplotOverrides::default()
     })?;
@@ -352,7 +352,7 @@ fn contour_image(fig: &Figure) -> CaseResult {
     axs[3].set_ylim(top, bottom)?;
     axs[3].set_title("Origin from rc, reversed y-axis");
     fig.colorbar(&im, ColorbarOptions::beside(&axs[3]))?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -414,7 +414,7 @@ fn irregulardatagrid(fig: &Figure) -> CaseResult {
     ax2.set_xlim(-2.0, 2.0)?;
     ax2.set_ylim(-2.0, 2.0)?;
     ax2.set_title(format!("tricontour ({npts} points)"));
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.5),
         ..SubplotOverrides::default()
     })?;

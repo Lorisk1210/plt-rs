@@ -497,7 +497,7 @@ mod tests {
         yaxis.tick_to(SpineSide::Right).expect("a y side");
         let right = Some(TickPosition::Side(SpineSide::Right));
         assert_eq!(yaxis.ticks_position(), right);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelleft: Some(true),
             ..TickParams::default()
         });
@@ -509,7 +509,7 @@ mod tests {
         // matplotlib's test_get_tick_position_tick_params: the major ticks
         // move, the minor ones place nothing.
         let ax = Figure::new().subplot();
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             top: Some(true),
             labeltop: Some(true),
             bottom: Some(false),
@@ -535,14 +535,14 @@ mod tests {
         let ax = Figure::new().subplot();
         let xaxis = ax.xaxis();
         assert_eq!(xaxis.tick_padding(), 3.5);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             direction: Some(TickDirection::InOut),
             ..TickParams::default()
         });
         assert_eq!(xaxis.tick_padding(), 2.0, "the minor marks still point out");
         xaxis.set_ticks(Vec::<f64>::new());
         assert_eq!(xaxis.tick_padding(), 2.0, "with or without ticks");
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             which: TickLevel::Both,
             direction: Some(TickDirection::In),
             ..TickParams::default()

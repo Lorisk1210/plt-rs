@@ -221,7 +221,7 @@ fn integration_options(fig: &Figure) -> CaseResult {
         ax.set_axis_off();
         ax.indicate_inset_zoom(&inset, PatchProps::default().edgecolor("k"));
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

@@ -190,7 +190,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             },
         );
         ax.set_facecolor("#f0f0ff");
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             colors: Some(Color::from("tab:blue")),
             labelsize: Some(FontSize::Points(8.0)),

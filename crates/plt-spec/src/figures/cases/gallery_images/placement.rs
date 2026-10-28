@@ -124,10 +124,10 @@ fn image_masked(fig: &Figure) -> CaseResult {
             aspect: Some(Aspect::Auto),
             origin: Some(Origin::Lower),
             extent: Some(Extent::new(x0, x1, y0, y1)),
+            interpolation: Some(interpolation),
             ..ImshowOptions::default()
         }
         .colorizer(colorizer)
-        .interpolation(interpolation)
     };
     let uniform = ColorizerOptions::default()
         .cmap(palette.clone())
@@ -146,7 +146,7 @@ fn image_masked(fig: &Figure) -> CaseResult {
         },
     )?
     .set_label("uniform", None);
-    ax1.tick_params(&TickParams {
+    ax1.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelbottom: Some(false),
         ..TickParams::default()

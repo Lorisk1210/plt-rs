@@ -113,7 +113,7 @@ fn marker_reference_2(fig: &Figure) -> CaseResult {
 fn marker_sheet(fig: &Figure, title: &str, left: f64) -> Result<Axes, Box<dyn std::error::Error>> {
     let ax = fig.subplot();
     fig.suptitle(title).set_fontsize(14.0);
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         left: Some(left),
         ..Default::default()
     })?;
@@ -210,7 +210,7 @@ fn marker_reference_6(fig: &Figure) -> CaseResult {
         angle_label(&ax, x, 2.5, theta);
     }
     format_axes(&ax)?;
-    fig.tight_layout(&plt::layout::TightLayout::default())?;
+    fig.tight_layout(plt::layout::TightLayout::default())?;
     Ok(())
 }
 

@@ -67,7 +67,7 @@ fn gallery_collections(fig: &Figure) -> CaseResult {
         .map(|(&x, &y)| Point::new(x, y))
         .collect();
     let axs = fig.subplots(2, 2)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.92),
         left: Some(0.07),
         right: Some(0.97),

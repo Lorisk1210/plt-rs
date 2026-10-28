@@ -29,10 +29,16 @@ impl SymmetricalLogLocator {
         }
     }
 
-    /// Multiples of each power (default `[1.0]`).
+    /// Multiples of each power (default `[1.0]`), in an array or a `Vec`.
+    ///
+    /// ```
+    /// use plt::ticker::SymmetricalLogLocator;
+    /// let minor = SymmetricalLogLocator::new(10.0, 1.0).with_subs([2.0, 5.0]);
+    /// assert_eq!(minor.subs(), [2.0, 5.0]);
+    /// ```
     #[must_use]
-    pub fn with_subs(mut self, subs: Vec<f64>) -> Self {
-        self.subs = subs;
+    pub fn with_subs(mut self, subs: impl Into<Vec<f64>>) -> Self {
+        self.subs = subs.into();
         self
     }
 
@@ -184,7 +190,7 @@ mod tests {
         assert_eq!(ticks(&loc, -0.5, 0.5), [-0.5, 0.0, 0.5]);
         assert_eq!(ticks(&loc, 0.0, 0.5), [0.0, 0.5]);
         assert_eq!(ticks(&loc, 0.0, 0.0), Vec::<f64>::new());
-        let minor = loc.with_subs(vec![2.0, 5.0]);
+        let minor = loc.with_subs([2.0, 5.0]);
         assert_eq!(ticks(&minor, 0.0, 20.0), [0.0, 2.0, 5.0, 20.0, 50.0]);
     }
 }

@@ -61,7 +61,7 @@ pub(super) fn asinh_demo(fig: &Figure) -> CaseResult {
             ..ScaleOptions::default()
         },
     )?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

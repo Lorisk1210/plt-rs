@@ -84,14 +84,14 @@ fn decorations(case: &str) -> Outcome {
     }
     if let Some(direction) = case.strip_prefix("tickdirs_") {
         let direction = made(direction.parse())?;
-        ax.tick_params(&ticks(TickLevel::Major, Some(direction), None));
+        ax.tick_params(ticks(TickLevel::Major, Some(direction), None));
     }
     if case.starts_with("minor_") {
-        ax.tick_params(&ticks(TickLevel::Both, Some(TickDirection::Out), None));
+        ax.tick_params(ticks(TickLevel::Both, Some(TickDirection::Out), None));
     }
     if case == "minor_long" {
         ax.minorticks_on();
-        ax.tick_params(&ticks(TickLevel::Minor, None, Some(30.0)));
+        ax.tick_params(ticks(TickLevel::Minor, None, Some(30.0)));
     }
     Ok(color_boxes(&fig, &ax))
 }

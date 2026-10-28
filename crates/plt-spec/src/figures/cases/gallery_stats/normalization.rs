@@ -9,7 +9,7 @@ use plt::legend::LegendOptions;
 use plt::prelude::*;
 use plt::stats::{Bins, HistType};
 
-use super::{SEED, strings};
+use super::SEED;
 use crate::figures::cases::common::{map, mosaic};
 use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
@@ -143,7 +143,7 @@ fn steps(xbins: Vec<f64>, density: bool) -> HistPlotOptions<'static> {
 /// Step histograms labelled `label`.
 fn labelled<'a>(options: HistPlotOptions<'a>, label: &str) -> HistPlotOptions<'a> {
     HistPlotOptions {
-        label: strings(&[label]),
+        label: label.into(),
         ..options
     }
 }

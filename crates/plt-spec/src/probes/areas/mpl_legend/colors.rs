@@ -227,7 +227,7 @@ fn hist(ax: &Axes, kwargs: &Keywords) -> Result<Json, ProbeError> {
     for (key, value) in kwargs {
         match key.as_str() {
             "label" => {
-                options.label = vec![value.as_str().ok_or_else(|| bad(key, value))?.to_owned()];
+                options.label = value.as_str().ok_or_else(|| bad(key, value))?.into();
             }
             "color" => options.color = vec![color(value)?],
             "fc" => options.props.facecolor = Some(color(value)?),

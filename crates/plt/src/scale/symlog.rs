@@ -27,10 +27,11 @@ impl SymmetricalLogScale {
         })
     }
 
-    /// Multiples of each power where minor ticks go.
+    /// Multiples of each power where minor ticks go, in an array or a
+    /// `Vec` (by default the powers themselves).
     #[must_use]
-    pub fn with_subs(mut self, subs: Option<Vec<f64>>) -> Self {
-        self.subs = subs;
+    pub fn with_subs(mut self, subs: impl Into<Vec<f64>>) -> Self {
+        self.subs = Some(subs.into());
         self
     }
 

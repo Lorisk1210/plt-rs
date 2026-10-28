@@ -235,7 +235,7 @@ impl FigureState {
         // matplotlib refuses to make a figure whose subplot parameters
         // leave no room; plt-rs reports them whenever the figure draws.
         let params = self.subplot_params_of(self.root);
-        if let Some(Err(err)) = params.map(|p| p.updated(&SubplotOverrides::default())) {
+        if let Some(Err(err)) = params.map(|p| p.updated(SubplotOverrides::default())) {
             errors.push(DrawError {
                 artist: self.root,
                 message: err.to_string(),

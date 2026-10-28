@@ -95,7 +95,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .set_major_formatter(ConciseDateFormatter::new());
             ax.plot(dates(start, step, 30)?, wave(30))?;
         }
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             hspace: Some(0.6),
             ..SubplotOverrides::default()
         })?;

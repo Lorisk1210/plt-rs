@@ -127,7 +127,7 @@ fn set_tick_sides(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
         labelright: side("labelright")?,
         ..TickParams::default()
     };
-    ax.tick_params(&params);
+    ax.tick_params(params);
     Ok(Produced::Nothing)
 }
 

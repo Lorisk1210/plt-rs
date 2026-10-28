@@ -150,6 +150,24 @@ impl<M: 'static> Ui<M> {
         self.update_hot(Some(position));
     }
 
+    /// Delivers a wheel event to the widget with a popup open or the
+    /// capturing widget, else to the innermost widget under the pointer
+    /// and then to its ancestors in turn, until one acts on it: a list
+    /// inside a scrolled view scrolls itself, the text beside it scrolls
+    /// the view.
+    pub(super) fn wheel(&mut self, event: &UiEvent) {
+        if let Some(target) = self.routing.popup.or(self.routing.active) {
+            self.deliver(Some(target), event);
+            return;
+        }
+        let under = self.routing.hot.clone();
+        for id in under.into_iter().rev() {
+            if self.deliver(Some(id), event) {
+                return;
+            }
+        }
+    }
+
     /// Recomputes the widgets under the pointer (`None`: outside the
     /// window) and tells those that the pointer left or entered. While a
     /// popup is open, only its widget (and its ancestors) count as under

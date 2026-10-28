@@ -1,6 +1,6 @@
 //! Painting shared by the controls: the faces and outlines of framed ones
-//! (text fields, lists, buttons, drop-downs) and the focus ring of every
-//! focusable one.
+//! (text fields, lists, buttons, drop-downs), the strong edge identifying
+//! field-like ones, and the focus ring of every focusable one.
 
 use plt_core::Rgba;
 
@@ -36,6 +36,22 @@ pub(crate) fn paint_frame(
         paint_halo(cx, rect, radius, theme.focus_ring)?;
     }
     Ok(())
+}
+
+/// Paints the edge identifying a field-like control (a text field, a
+/// drop-down, a segmented control) in `rect`, whose corners are rounded to
+/// `radius` pixels: the bottom of its outline, one logical pixel high, in
+/// the theme's [`border_strong`](crate::Theme::border_strong), thinning
+/// out into the corners. The rest of the outline stays soft, so forms
+/// stay light while each field stands out from its card (WCAG 1.4.11).
+/// Controls leave it out while a focus ring or a refusal outlines them.
+pub(crate) fn paint_edge(cx: &mut PaintCx<'_>, rect: Rect, radius: f64) -> Result<(), UiError> {
+    let theme = cx.theme();
+    let scale = cx.scale_factor();
+    let band = Rect::new(rect.x, rect.max_y() - scale, rect.width, scale);
+    cx.canvas()
+        .clipped(band)
+        .stroke_rounded_rect(rect, radius, scale, theme.border_strong)
 }
 
 /// Paints the outline of a framed control in `rect` (corners rounded to

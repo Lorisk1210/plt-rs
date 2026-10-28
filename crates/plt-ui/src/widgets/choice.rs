@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use plt_platform::MouseButton;
 
-use super::frame::paint_focus_ring;
+use super::frame::{paint_edge, paint_focus_ring};
 use super::segments::Segments;
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -117,6 +117,8 @@ impl<M: 'static> Widget<M> for Choice<M> {
         cx.canvas().fill_rounded_rect(track, radius, theme.track)?;
         if cx.status().focus_visible() {
             paint_focus_ring(cx, track, radius)?;
+        } else {
+            paint_edge(cx, track, radius)?;
         }
         let inset = theme.space(THUMB_INSET) * scale;
         let margin = theme.space(DIVIDER_MARGIN) * scale;

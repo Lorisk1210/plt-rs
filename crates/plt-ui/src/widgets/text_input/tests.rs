@@ -228,6 +228,18 @@ fn clicks_in_long_text_take_few_layouts() {
 }
 
 #[test]
+fn text_typed_before_the_field_is_laid_out_shows_once_it_is() {
+    // A field on a page not yet shown is typed into at no width at all.
+    let blank = TextInput::new("", Report::Changed);
+    let mut ui = Ui::new(blank, PhysicalSize::new(1, 28), 1.0).unwrap();
+    ui.set_focus(Some(ui.root_id()));
+    typed(&mut ui, "thick");
+    assert!(input(&mut ui).scroll > 0.0, "the caret kept in no width");
+    ui.resize(PhysicalSize::new(300, 28), 1.0).unwrap();
+    assert_eq!(input(&mut ui).scroll, 0.0, "the whole text shows");
+}
+
+#[test]
 fn a_refused_text_is_marked_until_edited() {
     let mut ui = field("ten", false);
     input(&mut ui).set_invalid(true);

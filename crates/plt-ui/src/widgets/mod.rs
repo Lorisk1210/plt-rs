@@ -10,6 +10,8 @@ mod frame;
 mod keycaps;
 mod label;
 mod list;
+mod scroll;
+mod scroll_bar;
 mod segments;
 mod separator;
 mod slider;
@@ -30,6 +32,7 @@ pub use form::Form;
 pub use keycaps::Keycaps;
 pub use label::{Align, Label, Overflow, Tone};
 pub use list::{List, ListItem};
+pub use scroll::Scroll;
 pub use separator::Separator;
 pub use slider::Slider;
 pub use stack::Stack;
@@ -37,7 +40,7 @@ pub use surface::{Surface, SurfaceEvent};
 pub use swatch::Swatch;
 pub use tabs::Tabs;
 pub use text_input::TextInput;
-pub use tool_button::ToolButton;
+pub use tool_button::{ToolButton, ToolIcon};
 
 /// Widgets for the tests.
 #[cfg(test)]

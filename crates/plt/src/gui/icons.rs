@@ -5,7 +5,8 @@ use plt_ui::Icon;
 
 use super::GuiError;
 
-const GRID: f64 = 24.0;
+/// The side of the design grid of the icons.
+pub(crate) const GRID: f64 = 24.0;
 
 fn p(x: f64, y: f64) -> Point {
     Point::new(x, y)
@@ -72,7 +73,7 @@ pub(crate) fn zoom() -> Icon {
 }
 
 /// Three sliders with their knobs: configure the subplots.
-pub(super) fn subplots() -> Icon {
+pub(crate) fn subplots() -> Icon {
     const KNOB: f64 = 2.5;
     [(6.0, 15.0), (12.0, 8.0), (18.0, 13.0)]
         .iter()
@@ -133,7 +134,7 @@ pub(super) fn file() -> Icon {
 }
 
 /// A pencil: edit the figure's options.
-pub(super) fn options() -> Icon {
+pub(crate) fn options() -> Icon {
     Icon::new(GRID)
         .stroke(line(&[
             (15.0, 5.0),
@@ -160,7 +161,7 @@ pub(crate) fn save() -> Icon {
 }
 
 /// A question mark in a circle: the keyboard shortcuts.
-pub(super) fn help() -> Icon {
+pub(crate) fn help() -> Icon {
     Icon::new(GRID)
         .stroke(Path::circle(p(12.0, 12.0), 8.5))
         .stroke(line(&[

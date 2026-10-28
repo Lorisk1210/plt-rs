@@ -5,7 +5,7 @@ use plt_platform::{
 };
 
 use crate::error::UiError;
-use crate::geometry::Rect;
+use crate::geometry::{Rect, Size};
 use crate::theme::Theme;
 use crate::ui::Ui;
 use crate::widget::{ClipboardRequest, Widget, WidgetId};
@@ -51,19 +51,36 @@ impl<M: 'static> UiWindow<M> {
         root: impl Widget<M>,
         theme: Theme,
     ) -> Result<Self, UiError> {
+        let unlimited = LogicalSize::new(f64::INFINITY, f64::INFINITY);
+        Self::open_fitted_within(cx, options, root, theme, unlimited)
+    }
+
+    /// Opens a window showing `root` in `theme` fitted to its content as
+    /// [`UiWindow::open_fitted`] does, but no larger than `max`: content
+    /// that does not fit is measured within the limit (see
+    /// [`Ui::natural_size_within`]), so that a [`Scroll`](crate::Scroll)
+    /// in it scrolls.
+    pub fn open_fitted_within(
+        cx: &mut Context<'_>,
+        options: &WindowOptions,
+        root: impl Widget<M>,
+        theme: Theme,
+        max: LogicalSize,
+    ) -> Result<Self, UiError> {
         // Measure at scale factor 1 to get logical pixels, before the
         // window (and so its scale factor) exists.
         let mut ui = Ui::new(root, PhysicalSize::new(1, 1), 1.0)?.with_theme(theme);
         // That layout's messages describe a size never shown.
         ui.take_messages();
-        let natural = ui.natural_size()?;
+        let natural = ui.natural_size_within(Size::new(max.width, max.height))?;
         let logical = LogicalSize::new(natural.width.ceil(), natural.height.ceil());
         let id = cx.create_window(&options.clone().with_inner_size(logical))?;
         let scale_factor = cx.scale_factor(id)?;
         ui.resize(cx.inner_size(id)?, scale_factor)?;
         // Text does not scale exactly with the scale factor: grow the
         // window if the content needs a few more pixels.
-        let needed = ui.natural_size()?;
+        let limit = Size::new(max.width * scale_factor, max.height * scale_factor);
+        let needed = ui.natural_size_within(limit)?;
         let size = ui.size();
         let wanted = PhysicalSize::new(
             size.width.max(needed.width.ceil() as u32),
@@ -210,7 +227,8 @@ mod tests {
     use super::*;
     use crate::icon::Icon;
     use crate::theme::Spacing;
-    use crate::widgets::{Button, Flex, Label, Surface, TextInput, ToolButton};
+    use crate::widgets::testing::Fixed;
+    use crate::widgets::{Button, Flex, Label, Scroll, Surface, TextInput, ToolButton};
 
     /// Runs one loop iteration, feeding the window's events to `window`.
     fn pump(event_loop: &mut EventLoop, window: &mut UiWindow<&'static str>) -> Vec<&'static str> {
@@ -263,6 +281,33 @@ mod tests {
         assert_eq!(
             open(Theme::classic()),
             PhysicalSize::new(2 * (80 + 32), 2 * (26 + 32))
+        );
+    }
+
+    #[test]
+    fn fitted_windows_stay_within_their_limit_and_scroll_the_rest() {
+        let (mut event_loop, handle) = EventLoop::headless();
+        let options = WindowOptions::new("help");
+        let mut open = |content_height| {
+            let content = Flex::column()
+                .with_flex_child(Scroll::new(Fixed(Size::new(100.0, content_height))), 1.0)
+                .with_child(Button::new("Close", "close"));
+            let limit = LogicalSize::new(f64::INFINITY, 200.0);
+            let window = UiWindow::open_fitted_within(
+                &mut event_loop.context(),
+                &options,
+                content,
+                Theme::modern(),
+                limit,
+            )
+            .unwrap();
+            handle.window(window.id()).unwrap().size
+        };
+        assert_eq!(open(50.0), PhysicalSize::new(100, 78), "it fits");
+        assert_eq!(
+            open(400.0),
+            PhysicalSize::new(124, 200),
+            "as high as the limit, with a strip for the scroll bar"
         );
     }
 

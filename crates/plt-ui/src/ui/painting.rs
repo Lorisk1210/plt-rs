@@ -100,7 +100,9 @@ struct Painting<'a> {
 
 impl Painting<'_> {
     /// Paints `pod` and then its children, each clipped to its rectangle
-    /// (grown by the room for focus rings) and its ancestors' `clip`.
+    /// (grown by the room for focus rings) and its ancestors' `clip`, and
+    /// to the rectangle of an ancestor that
+    /// [clips them](crate::Widget::clips_children).
     fn paint<M: 'static>(&mut self, pod: &WidgetPod<M>, clip: Rect) -> Result<(), UiError> {
         let halo = self.theme.focus_ring_width * self.scale_factor;
         let clip = clip.intersect(pod.rect().inset(-halo));
@@ -113,8 +115,13 @@ impl Painting<'_> {
             status: self.routing.status(pod.id()),
         };
         pod.widget().paint(&mut cx, pod.rect())?;
+        let inner = if pod.widget().clips_children() {
+            clip.intersect(pod.rect())
+        } else {
+            clip
+        };
         for child in pod.widget().children() {
-            self.paint(child, clip)?;
+            self.paint(child, inner)?;
         }
         Ok(())
     }

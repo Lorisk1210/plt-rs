@@ -61,4 +61,4 @@ engine, windowing layer and conformance suite.
 | Yorick colormaps (`gist_*`) | Yorick licence (`matplotlib.txt`, "Yorick Colormaps") | `crates/plt/src/colors/colormaps` |
 | Solarized palette (`Solarize_Light2`) | MIT (`matplotlib.txt`, "Solarized") | `crates/plt/src/style` |
 | Unicode Character Database 17.0 | Unicode License V3 (`unicode.txt`) | `crates/plt-font/src/shape/ucd_tables.rs` |
-| matplotlib's WebAgg page, scripts and toolbar icons | Matplotlib License | `crates/plt/src/web/assets` (see its `LICENSE`) |
+| matplotlib's WebAgg page, scripts and toolbar icons, the toolbar icons also those of the figure windows in matplotlib's look | Matplotlib License | `crates/plt/src/web/assets` (see its `LICENSE`), embedded for the windows by `crates/plt/src/gui/images.rs` |

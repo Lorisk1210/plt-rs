@@ -241,7 +241,7 @@ impl<M: 'static> Ui<M> {
                     position,
                     modifiers: *modifiers,
                 };
-                self.deliver(self.routing.pointer_target(), &wheel);
+                self.wheel(&wheel);
             }
             WindowEvent::Key(key) => self.key(key),
             WindowEvent::ClipboardText(text) => {
@@ -259,15 +259,35 @@ impl<M: 'static> Ui<M> {
     /// physical pixels: what a window fitted to its content needs (see
     /// [`UiWindow::open_fitted`](crate::UiWindow::open_fitted)).
     pub fn natural_size(&mut self) -> Result<Size, UiError> {
+        self.measure_within(Size::INFINITE)
+    }
+
+    /// The size the widget tree asks for within `max` physical pixels:
+    /// its [natural size](Ui::natural_size) when that fits, else the size
+    /// it asks for when measured within the limit, so that a
+    /// [`Scroll`](crate::Scroll) in it takes the room left and a strip for
+    /// its scroll bar.
+    pub fn natural_size_within(&mut self, max: Size) -> Result<Size, UiError> {
+        let natural = self.natural_size()?;
+        if natural.width <= max.width && natural.height <= max.height {
+            return Ok(natural);
+        }
+        let limit = |natural: f64, max: f64| if natural > max { max } else { f64::INFINITY };
+        self.measure_within(Size::new(
+            limit(natural.width, max.width),
+            limit(natural.height, max.height),
+        ))
+    }
+
+    /// The size the widget tree asks for within `max` physical pixels.
+    fn measure_within(&mut self, max: Size) -> Result<Size, UiError> {
         let mut cx = LayoutCx {
             scale_factor: self.scale_factor,
             theme: &self.theme,
             messages: &mut self.messages,
             window: Size::INFINITE,
         };
-        let size = self
-            .root
-            .measure(&mut cx, Constraints::loose(Size::INFINITE))?;
+        let size = self.root.measure(&mut cx, Constraints::loose(max))?;
         // The next layout measures again within the framebuffer.
         self.request_layout();
         Ok(size)

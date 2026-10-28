@@ -47,6 +47,17 @@ impl Spacing {
     }
 }
 
+/// Where a tooltip shows and how it is shaped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TooltipStyle {
+    /// A bubble with rounded corners and a soft shadow, centred below its
+    /// widget (above it when there is no room), as in modern toolkits.
+    Bubble,
+    /// A square box without a shadow, right of its widget and level with
+    /// its top, as Tk shows the tooltips of matplotlib's toolbar.
+    Tk,
+}
+
 /// The look of a UI. Lengths are in logical pixels; widgets multiply them
 /// by the window's scale factor.
 #[derive(Debug, Clone, PartialEq)]
@@ -77,10 +88,15 @@ pub struct Theme {
     /// accent in light themes and lighter in dark ones, so that it reads
     /// as text on the backgrounds and the selection.
     pub accent_text: Rgba,
-    /// Outline of controls: text fields, buttons, lists, check boxes.
+    /// Outline of controls: text fields, buttons, lists.
     pub border: Rgba,
     /// Outline of a control under the pointer.
     pub border_hot: Rgba,
+    /// The edge that identifies a control against the card or window it
+    /// sits on, at a 3:1 contrast with them (WCAG 1.4.11): the lower edge
+    /// of text fields, drop-downs and segmented controls, and the outline
+    /// of unchecked check boxes and of slider thumbs.
+    pub border_strong: Rgba,
     /// Hairlines: separators and the outlines of cards.
     pub separator: Rgba,
     /// Face of secondary buttons.
@@ -90,9 +106,11 @@ pub struct Theme {
     /// Face of a secondary button while pressed.
     pub button_active: Rgba,
     /// Face of raised elements, which stand out from the surface they
-    /// sit on: the chosen segment of segmented controls, slider thumbs,
-    /// keycaps.
+    /// sit on: the chosen segment of segmented controls, keycaps.
     pub raised: Rgba,
+    /// Face of slider thumbs. With their outline in the strong border
+    /// colour, thumbs stand out from both parts of their track (3:1).
+    pub thumb: Rgba,
     /// Translucent wash over flat controls (tool buttons, list rows,
     /// tabs) under the pointer.
     pub hover: Rgba,
@@ -116,6 +134,8 @@ pub struct Theme {
     pub tooltip_text: Rgba,
     /// Outline of tooltips (transparent for none).
     pub tooltip_border: Rgba,
+    /// Where tooltips show and how they are shaped.
+    pub tooltip_style: TooltipStyle,
     /// Inside of the rectangle dragged over a surface (the zoom's rubber
     /// band; transparent for none).
     pub rubber_band: Rgba,
@@ -202,11 +222,13 @@ impl Theme {
             accent_text: rgb(30, 89, 200),
             border: rgb(208, 213, 221),
             border_hot: rgb(160, 168, 180),
+            border_strong: rgb(122, 129, 140),
             separator: rgb(225, 228, 233),
             button: rgb(255, 255, 255),
             button_hot: rgb(243, 244, 246),
             button_active: rgb(230, 232, 236),
             raised: rgb(255, 255, 255),
+            thumb: rgb(255, 255, 255),
             hover: rgba(31, 35, 40, 0.07),
             pressed: rgba(31, 35, 40, 0.13),
             selection: rgba(47, 111, 228, 0.16),
@@ -217,6 +239,7 @@ impl Theme {
             tooltip: rgb(36, 41, 47),
             tooltip_text: rgb(255, 255, 255),
             tooltip_border: rgba(0, 0, 0, 0.0),
+            tooltip_style: TooltipStyle::Bubble,
             rubber_band: rgba(47, 111, 228, 0.12),
             rubber_band_edge: rgb(47, 111, 228),
             rubber_band_dashes: rgba(0, 0, 0, 0.0),
@@ -245,8 +268,9 @@ impl Theme {
 
     /// plt-rs' own dark look, for figures on dark backgrounds: the modern
     /// layout in charcoal, with light text, accent faces deep enough for
-    /// white labels and lighter accent text, and raised elements and
-    /// tooltips a step lighter than the surfaces under them.
+    /// white labels and lighter accent text, raised elements and tooltips
+    /// a step lighter than the surfaces under them, and light slider
+    /// thumbs.
     pub fn dark() -> Self {
         Self {
             background: rgb(30, 32, 36),
@@ -262,11 +286,13 @@ impl Theme {
             accent_text: rgb(118, 170, 255),
             border: rgb(70, 75, 83),
             border_hot: rgb(104, 111, 122),
+            border_strong: rgb(124, 130, 140),
             separator: rgb(52, 56, 62),
             button: rgb(48, 52, 58),
             button_hot: rgb(57, 61, 68),
             button_active: rgb(66, 71, 79),
             raised: rgb(60, 64, 72),
+            thumb: rgb(210, 214, 221),
             hover: rgba(255, 255, 255, 0.08),
             pressed: rgba(255, 255, 255, 0.14),
             selection: rgba(52, 112, 226, 0.26),
@@ -284,9 +310,10 @@ impl Theme {
     }
 
     /// A light theme close to matplotlib's Tk figure windows: greys,
-    /// square-ish corners, tooltips outlined in black on the window's
-    /// grey, Tk's black and white dashed rubber band and matplotlib's
-    /// `DejaVu Sans`.
+    /// square-ish corners, controls outlined in a darker grey, Tk's
+    /// tooltips (square, outlined in black on the window's grey, beside
+    /// their widget), Tk's black and white dashed rubber band and
+    /// matplotlib's `DejaVu Sans`.
     pub fn classic() -> Self {
         let gray = |level: f64| Rgba::new(level, level, level, 1.0);
         let wash = |alpha: f64| Rgba::new(0.0, 0.0, 0.0, alpha);
@@ -303,13 +330,15 @@ impl Theme {
             accent_hot: Rgba::new(0.15, 0.31, 0.58, 1.0),
             accent_active: Rgba::new(0.12, 0.26, 0.5, 1.0),
             accent_text: blue,
-            border: gray(0.7),
-            border_hot: gray(0.5),
+            border: gray(0.48),
+            border_hot: gray(0.3),
+            border_strong: gray(0.48),
             separator: gray(0.8),
             button: gray(0.94),
             button_hot: gray(0.86),
             button_active: gray(0.75),
             raised: gray(1.0),
+            thumb: gray(1.0),
             hover: wash(0.08),
             pressed: wash(0.18),
             selection: Rgba::new(0.18, 0.36, 0.66, 0.2),
@@ -320,6 +349,7 @@ impl Theme {
             tooltip: gray(0.94),
             tooltip_text: gray(0.0),
             tooltip_border: gray(0.0),
+            tooltip_style: TooltipStyle::Tk,
             rubber_band: wash(0.0),
             rubber_band_edge: gray(0.0),
             rubber_band_dashes: gray(1.0),
@@ -468,6 +498,29 @@ mod tests {
             }
             assert!(contrast(theme.danger, theme.background) >= 4.5);
             assert!(contrast(theme.tooltip_text, theme.tooltip) >= 4.5);
+        }
+    }
+
+    #[test]
+    fn control_edges_meet_non_text_contrast() {
+        // WCAG 1.4.11 asks 3:1 of the boundaries that identify controls,
+        // against the cards and windows they sit on.
+        for theme in [Theme::modern(), Theme::dark(), Theme::classic()] {
+            for back in [theme.background, theme.surface] {
+                assert!(contrast(theme.border_strong, back) >= 3.0);
+            }
+        }
+    }
+
+    #[test]
+    fn slider_thumbs_stand_out_from_their_track() {
+        // The face or the outline against the empty part of the track,
+        // the face against the part filled with the accent.
+        for theme in [Theme::modern(), Theme::dark(), Theme::classic()] {
+            let edge =
+                contrast(theme.thumb, theme.track).max(contrast(theme.border_strong, theme.track));
+            assert!(edge >= 3.0);
+            assert!(contrast(theme.thumb, theme.accent) >= 3.0);
         }
     }
 

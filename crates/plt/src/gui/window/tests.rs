@@ -189,6 +189,40 @@ fn user_tools_and_help_are_on_the_toolbar() {
 }
 
 #[test]
+fn the_help_is_no_taller_than_its_window_and_scrolls() {
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    figure.subplot();
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    pump(&mut event_loop, &mut window);
+    window
+        .apply(&mut event_loop.context(), Message::Tool(Tool::Help))
+        .expect("help opens");
+    let help = window.help_dialog.as_ref().map(HelpDialog::id);
+    let help = help.expect("the help window is open");
+    pump(&mut event_loop, &mut window);
+    let height = |id| handle.window(id).expect("the window exists").size.height;
+    assert_eq!(height(help), height(window.id()), "as tall as the window");
+    let top = handle.surface(help).expect("the help is drawn");
+    let end = KeyEvent {
+        key: Key::End,
+        state: ButtonState::Pressed,
+        repeat: false,
+        text: None,
+        modifiers: Modifiers::NONE,
+        scancode: 0,
+    };
+    handle
+        .inject(help, WindowEvent::Key(end))
+        .expect("the help window exists");
+    pump(&mut event_loop, &mut window);
+    pump(&mut event_loop, &mut window);
+    let bottom = handle.surface(help).expect("the help is drawn");
+    assert_ne!(top.pixels(), bottom.pixels(), "End scrolled the shortcuts");
+}
+
+#[test]
 fn the_subplot_tool_adjusts_the_figure() {
     let figure = Figure::with_size(4.0, 3.0, 100.0);
     figure.subplots(2, 2).expect("a 2×2 grid has cells");

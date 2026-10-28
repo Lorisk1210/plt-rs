@@ -167,13 +167,13 @@ impl<M: 'static> Widget<M> for Surface<M> {
         Ok(())
     }
 
-    /// Reports input over the surface; the keys it turns into messages
-    /// are its own.
+    /// Reports input over the surface; the keys and the wheel events it
+    /// turns into messages are its own.
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
         let local = event.relative_to(rect.origin());
         if let Some(message) = (self.map)(SurfaceEvent::Input(local)) {
             cx.emit(message);
-            if matches!(event, UiEvent::Key(_)) {
+            if matches!(event, UiEvent::Key(_) | UiEvent::Wheel { .. }) {
                 cx.set_handled();
             }
         }

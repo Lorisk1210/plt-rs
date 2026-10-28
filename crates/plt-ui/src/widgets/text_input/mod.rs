@@ -10,7 +10,7 @@ use std::rc::Rc;
 use plt_core::Point;
 use plt_platform::{KeyEvent, MouseButton};
 
-use super::frame::{paint_frame, paint_invalid};
+use super::frame::{paint_edge, paint_frame, paint_invalid};
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
@@ -291,6 +291,20 @@ impl<M: 'static> Widget<M> for TextInput<M> {
         Ok(constraints.constrain(natural))
     }
 
+    /// Scrolls the text to suit the field's new width: the caret in view,
+    /// and no further than the text needs (keys may have been typed
+    /// before the field was first laid out).
+    fn arrange(&mut self, _cx: &mut LayoutCx<'_, M>, rect: Rect) -> Result<(), UiError> {
+        let width = Self::text_area(rect, self.padding).width;
+        self.keep_caret_visible(width);
+        let text = self
+            .layout
+            .as_ref()
+            .map_or(0.0, |(layout, _, _)| layout.size().width);
+        self.scroll = self.scroll.clamp(0.0, (text - width).max(0.0));
+        Ok(())
+    }
+
     fn paint(&self, cx: &mut PaintCx<'_>, rect: Rect) -> Result<(), UiError> {
         let theme = cx.theme();
         let scale = cx.scale_factor();
@@ -299,6 +313,8 @@ impl<M: 'static> Widget<M> for TextInput<M> {
         paint_frame(cx, rect, radius, theme.surface, focused && !self.invalid)?;
         if self.invalid {
             paint_invalid(cx, rect, radius, focused)?;
+        } else if !focused {
+            paint_edge(cx, rect, radius)?;
         }
         let Some((layout, _, _)) = &self.layout else {
             return Ok(());

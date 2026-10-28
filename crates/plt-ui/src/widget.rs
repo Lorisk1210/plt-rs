@@ -39,8 +39,8 @@ impl WidgetId {
 /// The engine paints a widget before its children, clipped to its
 /// rectangle grown by the theme's
 /// [`focus_ring_width`](crate::Theme::focus_ring_width) (room for a focus
-/// ring), and routes each event to a single widget; see [`UiEvent`] for
-/// the routing rules.
+/// ring), and routes each event to a single widget, but for wheel events
+/// left unused; see [`UiEvent`] for the routing rules.
 pub trait Widget<M>: Any {
     /// Chooses a size within `constraints`.
     fn measure(
@@ -104,6 +104,13 @@ pub trait Widget<M>: Any {
     /// widget, or when the keyboard moves the focus to it, if it has one.
     fn tooltip(&self) -> Option<&str> {
         None
+    }
+
+    /// Whether the widget's children are clipped to its rectangle, as in
+    /// a scrolled view whose child reaches past it, rather than to the
+    /// rectangle grown by the room for focus rings.
+    fn clips_children(&self) -> bool {
+        false
     }
 
     /// The child widgets, in painting order (later ones are on top).
@@ -376,10 +383,12 @@ impl<'a, M> EventCx<'a, M> {
         }
     }
 
-    /// Tells the engine that the widget acted on the key it received, so
-    /// that the key goes no further: keys left unused may be shortcuts of
-    /// other widgets (see [`Widget::handles_shortcut`]), such as Enter
-    /// pressing the default button.
+    /// Tells the engine that the widget acted on the key or the wheel
+    /// event it received, so that it goes no further: keys left unused
+    /// may be shortcuts of other widgets (see
+    /// [`Widget::handles_shortcut`]), such as Enter pressing the default
+    /// button, and wheel events left unused go on to the widget's
+    /// ancestors, such as a view scrolling it.
     pub fn set_handled(&mut self) {
         self.handled = true;
     }

@@ -1,9 +1,10 @@
 //! The help window of figure windows (matplotlib's `ToolHelpBase`): every
 //! keyboard shortcut, from the `keymap.*` rcParams and the figure's own
-//! tools, spelled the way matplotlib's help shows them.
+//! tools, spelled the way matplotlib's help shows them. The window is no
+//! taller than its figure window; the shortcuts scroll within it.
 
-use plt_platform::{Context, WindowEvent, WindowId};
-use plt_ui::{Form, Keycaps, UiWindow};
+use plt_platform::{Context, LogicalSize, WindowEvent, WindowId};
+use plt_ui::{Form, Keycaps, Scroll, UiWindow};
 
 use super::GuiError;
 use super::dialog::{self, Dialog};
@@ -21,6 +22,10 @@ pub(super) enum HelpMessage {
 
 /// A shortcut: what it does and its keys.
 type Shortcut = (String, Vec<String>);
+
+/// The height the help window may take whatever the height of its figure
+/// window, in logical pixels: room for a few groups of shortcuts.
+const MIN_HEIGHT: f64 = 320.0;
 
 /// The shortcuts listed, in groups: the group's name and its shortcuts.
 /// Unbound actions and empty groups are left out.
@@ -98,12 +103,19 @@ pub(super) struct HelpDialog {
 }
 
 impl HelpDialog {
-    /// Opens the help for a window whose figure has `tools`.
+    /// Opens the help for the window of `figure`, `height` logical pixels
+    /// high: the shortcuts of its keymaps and tools, scrolling where the
+    /// help would be taller than that window (but at least
+    /// [`MIN_HEIGHT`] high).
     ///
     /// # Errors
     ///
     /// When the window cannot be created.
-    pub(super) fn open(cx: &mut Context<'_>, figure: &Figure) -> Result<Self, GuiError> {
+    pub(super) fn open(
+        cx: &mut Context<'_>,
+        figure: &Figure,
+        height: f64,
+    ) -> Result<Self, GuiError> {
         let mut form = Form::new();
         for (group, rows) in shortcuts(&crate::rc::params(), &figure.tool_specs()) {
             form.section(group);
@@ -114,8 +126,10 @@ impl HelpDialog {
         let mut chrome = Dialog::without_status();
         chrome.primary("Close", HelpMessage::Close);
         let options = dialog::window_options("Help")?;
+        let root = chrome.finish(Scroll::new(form));
+        let max = LogicalSize::new(f64::INFINITY, height.max(MIN_HEIGHT));
         Ok(Self {
-            window: dialog::open_fitted(cx, figure, &options, chrome.finish(form))?,
+            window: dialog::open_fitted_within(cx, figure, &options, root, max)?,
         })
     }
 

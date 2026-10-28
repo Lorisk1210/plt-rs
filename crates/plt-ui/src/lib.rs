@@ -4,10 +4,12 @@
 //!
 //! * A UI is a tree of [`Widget`]s held in [`WidgetPod`]s. Containers own
 //!   their children: [`Flex`] (rows and columns), [`Form`] (labelled
-//!   fields on an aligned label column, grouped into titled cards) and
-//!   [`Stack`] (pages of which one shows, e.g. under [`Tabs`]). Leaves
+//!   fields on an aligned label column, grouped into titled cards),
+//!   [`Stack`] (pages of which one shows, e.g. under [`Tabs`]) and
+//!   [`Scroll`] (a view scrolling a taller widget). Leaves
 //!   paint and react to input: [`Button`], [`ToolButton`] (a vector
-//!   [`Icon`] that can be checked or disabled, with a tooltip),
+//!   [`Icon`] or a full-colour [`Picture`] that can be checked or
+//!   disabled, with a tooltip),
 //!   [`Label`], [`Separator`], [`TextInput`] (a one-line editable field),
 //!   [`List`] (scrollable rows), [`Choice`] (a segmented control),
 //!   [`Dropdown`] (a button opening a list of options), [`Slider`],
@@ -72,6 +74,7 @@ mod error;
 mod event;
 mod geometry;
 mod icon;
+mod picture;
 mod text;
 mod theme;
 mod ui;
@@ -94,15 +97,16 @@ pub use error::UiError;
 pub use event::UiEvent;
 pub use geometry::{Constraints, Rect, Size};
 pub use icon::Icon;
+pub use picture::Picture;
 pub use text::{FontFamily, TextLayout, TextStyle};
-pub use theme::{Spacing, Theme};
+pub use theme::{Spacing, Theme, TooltipStyle};
 pub use ui::Ui;
 pub use widget::{
     ClipboardRequest, EventCx, Focus, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod,
 };
 pub use widgets::{
     Align, Axis, Button, Checkbox, Choice, Dropdown, Flex, Form, Keycaps, Label, List, ListItem,
-    Overflow, Separator, Slider, Stack, Surface, SurfaceEvent, Swatch, Tabs, TextInput, Tone,
-    ToolButton,
+    Overflow, Scroll, Separator, Slider, Stack, Surface, SurfaceEvent, Swatch, Tabs, TextInput,
+    Tone, ToolButton, ToolIcon,
 };
 pub use window::UiWindow;

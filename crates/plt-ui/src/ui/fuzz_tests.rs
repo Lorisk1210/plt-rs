@@ -1,6 +1,7 @@
 //! Randomised robustness tests of the widgets: a dialog of tabs over a
 //! form (a text field, a choice, a drop-down, a slider, a check box), a
-//! list and a second field, with Cancel and OK below, gets random keys
+//! list, and a second field atop rows of shortcuts in a scrolled view,
+//! with Cancel and OK below, gets random keys
 //! (text editing, selection, undo and redo, Tab and Ctrl+Tab, type-ahead
 //! in the list and the drop-down), typing, clicks, drags, wheel turns,
 //! resizes, scale changes and clipboard answers, while the application
@@ -18,7 +19,8 @@ use super::Ui;
 use crate::fuzz::{Gen, fuzz};
 use crate::widget::ClipboardRequest;
 use crate::widgets::{
-    Button, Checkbox, Choice, Dropdown, Flex, Form, List, ListItem, Slider, Stack, Tabs, TextInput,
+    Button, Checkbox, Choice, Dropdown, Flex, Form, Keycaps, List, ListItem, Scroll, Slider, Stack,
+    Tabs, TextInput,
 };
 use crate::{Spacing, WidgetId};
 
@@ -99,9 +101,15 @@ fn dialog() -> (Ui<Message>, Ids) {
             .on_activate(Message::Opened)
             .with_visible_rows(5),
     );
-    let mut third = Flex::column();
-    third.push(TextInput::new("", Message::Text), 0.0);
-    stack.push(third);
+    let mut third = Form::new();
+    third.row("Find", TextInput::new("", Message::Text));
+    for label in labels(12) {
+        third.row(
+            label.clone(),
+            Keycaps::new(vec![label, "Ctrl+K".to_owned()]),
+        );
+    }
+    stack.push(Scroll::new(third));
     let stack = column.push(stack, 1.0);
     let mut footer = Flex::row().with_spacing(Spacing::Sm);
     footer.push(Button::new("Cancel", Message::Button("cancel")), 0.0);

@@ -5,7 +5,7 @@
 //! button unless the focused widget uses Enter, and Escape closes the
 //! dialog unless it closes an open drop-down.
 
-use plt_platform::{ButtonState, Context, Key, WindowEvent, WindowOptions};
+use plt_platform::{ButtonState, Context, Key, LogicalSize, WindowEvent, WindowOptions};
 use plt_ui::{
     Button, Flex, Label, Overflow, Separator, Spacing, Theme, Tone, Ui, UiWindow, Widget, WidgetId,
 };
@@ -44,7 +44,22 @@ pub(super) fn open_fitted<M: 'static>(
     options: &WindowOptions,
     root: impl Widget<M>,
 ) -> Result<UiWindow<M>, GuiError> {
-    let mut window = UiWindow::open_fitted(cx, options, root, chrome_theme(figure))?;
+    let unlimited = LogicalSize::new(f64::INFINITY, f64::INFINITY);
+    open_fitted_within(cx, figure, options, root, unlimited)
+}
+
+/// Opens a dialog as [`open_fitted`] does, but no larger than `max`
+/// logical pixels: content that does not fit scrolls (see
+/// [`plt_ui::Scroll`]).
+pub(super) fn open_fitted_within<M: 'static>(
+    cx: &mut Context<'_>,
+    figure: &Figure,
+    options: &WindowOptions,
+    root: impl Widget<M>,
+    max: LogicalSize,
+) -> Result<UiWindow<M>, GuiError> {
+    let theme = chrome_theme(figure);
+    let mut window = UiWindow::open_fitted_within(cx, options, root, theme, max)?;
     window.ui_mut().focus_first();
     Ok(window)
 }

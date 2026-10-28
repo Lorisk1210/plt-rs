@@ -1,15 +1,19 @@
 //! The toolbar below the canvas (matplotlib's `NavigationToolbar2`):
 //! navigation and save buttons, the figure's own tools, help, and the
-//! status line.
+//! status line. The modern chrome draws plt-rs' line icons on its
+//! buttons, matplotlib's chrome matplotlib's own toolbar images.
 
 use plt_platform::Context;
 use plt_ui::{
-    Align, Flex, Label, Overflow, Separator, Spacing, Theme, Tone, ToolButton, UiWindow, WidgetId,
+    Align, Flex, Icon, Label, Overflow, Separator, Spacing, Theme, Tone, ToolButton, ToolIcon,
+    UiWindow, WidgetId,
 };
 
 use super::Message;
+use crate::gui::images::{self, ToolbarImage};
 use crate::gui::tools::{ToolKind, ToolSpec};
 use crate::gui::{GuiError, icons};
+use crate::look::ChromeLook;
 use crate::navigation::{NavMode, Navigation};
 
 /// The space left and right of the toolbar's contents.
@@ -54,6 +58,27 @@ pub(in crate::gui) enum Tool {
 }
 
 impl Tool {
+    /// A built-in tool's icon in the chrome `look`.
+    fn builtin_icon(self, look: ChromeLook) -> ToolIcon {
+        let (line, image): (fn() -> Icon, ToolbarImage) = match self {
+            Self::Home => (icons::home, images::HOME),
+            Self::Back => (icons::back, images::BACK),
+            Self::Forward => (icons::forward, images::FORWARD),
+            Self::Pan => (icons::pan, images::MOVE),
+            Self::Zoom => (icons::zoom, images::ZOOM_TO_RECT),
+            Self::Subplots => (icons::subplots, images::SUBPLOTS),
+            Self::Options => (icons::options, images::FIGURE_OPTIONS),
+            Self::Save => (icons::save, images::FILESAVE),
+            Self::Help => (icons::help, images::HELP),
+            // The figure's tools bring their own icons.
+            Self::User(_) => return ToolIcon::Vector(Icon::new(icons::GRID)),
+        };
+        match look {
+            ChromeLook::Modern => line().into(),
+            ChromeLook::Matplotlib => image.picture().into(),
+        }
+    }
+
     /// A built-in tool's name and shortcut, for its tooltip.
     fn builtin_tooltip(self) -> &'static str {
         match self {
@@ -103,30 +128,32 @@ pub(super) struct Toolbar {
 
 impl Toolbar {
     /// Appends a separator and the toolbar to `root`, in matplotlib's
-    /// button order, the figure's `tools` after the built-in buttons.
-    pub(super) fn build(root: &mut Flex<Message>, tools: Vec<ToolSpec>) -> Self {
+    /// button order, the figure's `tools` after the built-in buttons, with
+    /// the icons of the chrome `look`.
+    pub(super) fn build(root: &mut Flex<Message>, tools: Vec<ToolSpec>, look: ChromeLook) -> Self {
         let mut row = Flex::row()
             .with_padding_xy(PADDING_X, PADDING_Y)
             .with_spacing(BUTTON_GAP);
-        let button = |row: &mut Flex<Message>, icon, tool: Tool, tooltip: String| {
+        let button = |row: &mut Flex<Message>, icon: ToolIcon, tool: Tool, tooltip: String| {
             let button = ToolButton::new(icon, Message::Tool(tool))
                 .with_hover_messages(Message::Hint(Some(tool)), Message::Hint(None))
                 .with_tooltip(tooltip);
             row.push(button, 0.0)
         };
-        let builtin = |row: &mut Flex<Message>, icon, tool: Tool| {
-            button(row, icon, tool, tool.builtin_tooltip().to_owned())
+        let builtin = |row: &mut Flex<Message>, tool: Tool| {
+            let tooltip = tool.builtin_tooltip().to_owned();
+            button(row, tool.builtin_icon(look), tool, tooltip)
         };
-        builtin(&mut row, icons::home(), Tool::Home);
-        let back = builtin(&mut row, icons::back(), Tool::Back);
-        let forward = builtin(&mut row, icons::forward(), Tool::Forward);
+        builtin(&mut row, Tool::Home);
+        let back = builtin(&mut row, Tool::Back);
+        let forward = builtin(&mut row, Tool::Forward);
         row.push(Separator::vertical(), 0.0);
-        let pan = builtin(&mut row, icons::pan(), Tool::Pan);
-        let zoom = builtin(&mut row, icons::zoom(), Tool::Zoom);
-        builtin(&mut row, icons::subplots(), Tool::Subplots);
-        builtin(&mut row, icons::options(), Tool::Options);
+        let pan = builtin(&mut row, Tool::Pan);
+        let zoom = builtin(&mut row, Tool::Zoom);
+        builtin(&mut row, Tool::Subplots);
+        builtin(&mut row, Tool::Options);
         row.push(Separator::vertical(), 0.0);
-        builtin(&mut row, icons::save(), Tool::Save);
+        builtin(&mut row, Tool::Save);
         if !tools.is_empty() {
             row.push(Separator::vertical(), 0.0);
         }
@@ -135,12 +162,13 @@ impl Toolbar {
             .enumerate()
             .map(|(index, tool)| {
                 let tooltip = user_hint(&tool);
-                let id = button(&mut row, tool.icon.clone(), Tool::User(index), tooltip);
+                let icon = tool.icon.clone().into();
+                let id = button(&mut row, icon, Tool::User(index), tooltip);
                 (id, tool)
             })
             .collect();
         row.push(Separator::vertical(), 0.0);
-        builtin(&mut row, icons::help(), Tool::Help);
+        builtin(&mut row, Tool::Help);
         let mut status_area = Flex::row().with_padding_xy(STATUS_GAP, Spacing::None);
         let status = status_area.push(
             Label::new("")
@@ -225,5 +253,31 @@ fn user_hint(tool: &ToolSpec) -> String {
         tool.description.clone()
     } else {
         format!("{} ({})", tool.description, tool.keys.join(", "))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn each_chrome_draws_its_own_icons() {
+        let builtin = [
+            Tool::Home,
+            Tool::Back,
+            Tool::Forward,
+            Tool::Pan,
+            Tool::Zoom,
+            Tool::Subplots,
+            Tool::Options,
+            Tool::Save,
+            Tool::Help,
+        ];
+        for tool in builtin {
+            let modern = tool.builtin_icon(ChromeLook::Modern);
+            assert!(matches!(modern, ToolIcon::Vector(_)), "{tool:?}");
+            let matplotlib = tool.builtin_icon(ChromeLook::Matplotlib);
+            assert!(matches!(matplotlib, ToolIcon::Picture(_)), "{tool:?}");
+        }
     }
 }

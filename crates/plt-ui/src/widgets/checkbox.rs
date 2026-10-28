@@ -125,13 +125,14 @@ impl<M: 'static> Widget<M> for Checkbox<M> {
         } else {
             let face = if pressed {
                 theme.button_active
+            } else if hot {
+                theme.button_hot
             } else {
                 theme.surface
             };
-            let outline = if hot { theme.border_hot } else { theme.border };
             cx.canvas().fill_rounded_rect(square, radius, face)?;
             cx.canvas()
-                .stroke_rounded_rect(square, radius, scale, outline)?;
+                .stroke_rounded_rect(square, radius, scale, theme.border_strong)?;
         }
         if status.focus_visible() {
             paint_focus_ring(cx, square, radius)?;

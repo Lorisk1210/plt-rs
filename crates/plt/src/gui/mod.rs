@@ -3,7 +3,8 @@
 //! windows.
 //!
 //! Each [`FigureWindow`] shows a figure above a toolbar — home, back,
-//! forward, pan, zoom, subplot configuration, figure options and save —
+//! forward, pan, zoom, subplot configuration, figure options and save,
+//! with matplotlib's own icons in matplotlib's [look](crate::look) —
 //! with a readout of the data coordinates under the pointer. Dragging pans
 //! or zooms as in matplotlib (see [`crate::navigation`]), the wheel zooms
 //! around the pointer, and the `keymap.*` rcParams bind the usual
@@ -39,6 +40,7 @@ mod backend_rc;
 mod dialog;
 mod help_dialog;
 pub(crate) mod icons;
+pub(crate) mod images;
 pub(crate) mod keys;
 mod options;
 mod save_dialog;

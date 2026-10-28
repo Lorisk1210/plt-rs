@@ -18,7 +18,7 @@ use plt::ticker::{
 
 use super::ticker::{self, integer_label, minor_divisions};
 use crate::json::Json;
-use crate::probes::areas::text_metrics::rc_text;
+use crate::probes::areas::text_metrics::set_rc;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
 /// Runs `f` under the reference configuration with the probe's `style`
@@ -42,9 +42,7 @@ pub(crate) fn styled<T>(
             })
             .ok_or_else(|| ProbeError::BadArgs("style is not a list of names".into()))?;
         style::use_styles(&styles).map_err(ProbeError::rejected)?;
-        for (key, value) in args.get("rc").and_then(Json::as_object).unwrap_or(&[]) {
-            rc::set(key, &rc_text(value)?).map_err(ProbeError::rejected)?;
-        }
+        set_rc(args.get("rc"))?;
         f()
     })
 }

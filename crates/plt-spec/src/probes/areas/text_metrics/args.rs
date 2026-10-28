@@ -22,11 +22,18 @@ pub(crate) fn with_rc<T>(
         rc::replace(RcParams::matplotlib());
         rc::set("font.family", "DejaVu Sans").map_err(ProbeError::rejected)?;
         rc::set("text.hinting", "none").map_err(ProbeError::rejected)?;
-        for (key, value) in args.get("rc").and_then(Json::as_object).unwrap_or(&[]) {
-            rc::set(key, &rc_text(value)?).map_err(ProbeError::rejected)?;
-        }
+        set_rc(args.get("rc"))?;
         f()
     })
+}
+
+/// Sets the rcParams of a probe's `rc` object, each value in its rc-file
+/// spelling ([`rc_text`]); anything but an object sets none.
+pub(crate) fn set_rc(params: Option<&Json>) -> Result<(), ProbeError> {
+    for (key, value) in params.and_then(Json::as_object).unwrap_or(&[]) {
+        rc::set(key, &rc_text(value)?).map_err(ProbeError::rejected)?;
+    }
+    Ok(())
 }
 
 /// The rc-file spelling of a JSON rc value: booleans as `True`/`False`,

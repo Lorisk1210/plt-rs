@@ -9,7 +9,8 @@ use plt::figure::Figure;
 use plt::numeric::Grid;
 
 use super::super::mpl_tests::in_test_style;
-use super::{bump, formatter_name, image, locator_name, orientation, side};
+use super::super::mpl_ticker::{formatter_name, locator_name};
+use super::{bump, image, orientation, side};
 use crate::json::Json;
 use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};

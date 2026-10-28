@@ -35,6 +35,7 @@
 //! ```
 
 pub(crate) mod actions;
+mod backend_rc;
 mod dialog;
 mod help_dialog;
 pub(crate) mod icons;
@@ -49,6 +50,7 @@ mod window;
 use std::fmt;
 
 pub use crate::events::GinputOptions;
+pub use backend_rc::{MacosxWindowMode, ToolbarKind};
 pub use keys::format_shortcut;
 pub use plt_ui::Icon;
 pub use session::Session;

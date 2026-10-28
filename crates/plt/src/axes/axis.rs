@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::artist::ArtistId;
 
-use super::axis_label::{AxisLabel, LabelLoc, label_font};
+use super::axis_label::{AxisLabel, label_font};
 use super::axis_pick::AxisPicking;
 use super::tick_set::TickSet;
 use super::ticks::{Sides, TickStyle};
@@ -212,10 +212,10 @@ impl AxisState {
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
                 side: SpineSide::of(name, false),
-                loc: LabelLoc::from_rc(match name {
-                    AxisName::X => &rc.xaxis_labellocation,
-                    AxisName::Y => &rc.yaxis_labellocation,
-                }),
+                loc: match name {
+                    AxisName::X => rc.xaxis_labellocation.into(),
+                    AxisName::Y => rc.yaxis_labellocation.into(),
+                },
                 halign: None,
                 multialign: None,
                 visible: true,

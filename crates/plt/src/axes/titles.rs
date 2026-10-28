@@ -1,12 +1,15 @@
 //! The titles of an axes: left, centre and right (matplotlib's
 //! `set_title`), their text, height and gap above the axes.
 
+use std::fmt;
 use std::rc::Rc;
+use std::str::FromStr;
 
 use plt_text::{HAlign, VAlign};
 
 use super::{Axes, AxesState, state};
 use crate::artist::{ArtistHandle, RawHandle};
+use crate::image::UnknownName;
 use crate::rc::ColorOrAuto;
 use crate::text::Text;
 use crate::transforms::Transform;
@@ -24,17 +27,18 @@ pub enum TitleLocation {
 }
 
 impl TitleLocation {
-    /// The location [`Axes::set_title`] uses: `axes.titlelocation`.
-    pub fn from_rc(rc: &crate::rc::RcParams) -> Self {
-        match rc.axes_titlelocation.as_str() {
-            "left" => Self::Left,
-            "right" => Self::Right,
-            _ => Self::Center,
+    /// Every location, in the order of the axes' titles.
+    const ALL: [Self; 3] = [Self::Left, Self::Center, Self::Right];
+
+    /// matplotlib's name (`left`, `center` or `right`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Center => "center",
+            Self::Right => "right",
         }
     }
-}
 
-impl TitleLocation {
     /// The horizontal alignment of a title here (matplotlib aligns titles
     /// by their location name).
     fn halign(self) -> HAlign {
@@ -46,18 +50,39 @@ impl TitleLocation {
     }
 }
 
+impl fmt::Display for TitleLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl FromStr for TitleLocation {
+    type Err = UnknownName;
+
+    /// Parses matplotlib's name ([`TitleLocation::name`]).
+    fn from_str(name: &str) -> Result<Self, UnknownName> {
+        Self::ALL
+            .into_iter()
+            .find(|location| location.name() == name)
+            .ok_or_else(|| UnknownName {
+                kind: "title location",
+                name: name.to_owned(),
+            })
+    }
+}
+
 impl Axes {
     /// Sets the title at the `axes.titlelocation` position (centre by
     /// default; matplotlib's `set_title`) and returns it.
     pub fn set_title(&self, text: impl Into<String>) -> Text {
-        self.set_title_at(TitleLocation::from_rc(&crate::rc::params()), text)
+        self.set_title_at(crate::rc::params().axes_titlelocation, text)
     }
 
     /// The title shown, and where: the one at `axes.titlelocation` if
     /// set, else the first set at the centre, left or right (empty at
     /// `axes.titlelocation` when none is).
     pub fn shown_title(&self) -> (TitleLocation, String) {
-        let usual = TitleLocation::from_rc(&crate::rc::params());
+        let usual = crate::rc::params().axes_titlelocation;
         [
             usual,
             TitleLocation::Center,
@@ -131,14 +156,23 @@ impl Axes {
     /// Sets the gap between the axes top and its titles in points
     /// (matplotlib's `set_title(..., pad=...)`).
     pub fn set_title_pad(&self, pad: f64) -> &Self {
-        for location in [
-            TitleLocation::Left,
-            TitleLocation::Center,
-            TitleLocation::Right,
-        ] {
+        for location in TitleLocation::ALL {
             self.title_text(location)
                 .set_transform(Transform::Axes(self.id()).offset_points(0.0, pad));
         }
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn locations_round_trip_their_names() {
+        for location in TitleLocation::ALL {
+            assert_eq!(location.to_string().parse(), Ok(location));
+        }
+        assert!("top".parse::<TitleLocation>().is_err());
     }
 }

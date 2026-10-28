@@ -9,6 +9,7 @@ use plt_text::{HAlign, VAlign};
 
 use super::axis_handle::Axis;
 use super::axis_layout::PlacedText;
+use super::label_loc::LabelLoc;
 use super::{AxesState, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
@@ -18,49 +19,6 @@ use crate::spines::SpineSide;
 use crate::text::{TextBoxPatch, TextBoxProps};
 use crate::ticker::AxisName;
 use crate::transforms::Bbox;
-
-/// Where an axis label sits along its axis (matplotlib's `loc` of
-/// `set_xlabel`/`set_ylabel`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum LabelLoc {
-    /// At the left (x) or bottom (y) end, aligned to it.
-    Start,
-    /// Centred.
-    #[default]
-    Center,
-    /// At the right (x) or top (y) end, aligned to it.
-    End,
-}
-
-impl LabelLoc {
-    /// The rc name (`"left"`, `"bottom"`, `"center"`, ...) for axis `name`.
-    pub(crate) fn from_rc(name: &str) -> Self {
-        match name {
-            "left" | "bottom" => Self::Start,
-            "right" | "top" => Self::End,
-            _ => Self::Center,
-        }
-    }
-
-    /// The position along the axis as a fraction of its length.
-    pub(crate) fn fraction(self) -> f64 {
-        match self {
-            Self::Start => 0.0,
-            Self::Center => 0.5,
-            Self::End => 1.0,
-        }
-    }
-
-    /// The label's alignment along the axis: the text's horizontal
-    /// alignment, before any rotation.
-    pub(crate) fn halign(self) -> HAlign {
-        match self {
-            Self::Start => HAlign::Left,
-            Self::Center => HAlign::Center,
-            Self::End => HAlign::Right,
-        }
-    }
-}
 
 /// The label of an axis (matplotlib's `Axis.label`).
 #[derive(Clone, Debug, PartialEq)]

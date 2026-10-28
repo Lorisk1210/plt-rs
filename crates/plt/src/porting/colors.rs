@@ -29,8 +29,10 @@
 //! `colorizer`.
 //!
 //! **rcParams.** [`RcParams`] has one typed field per parameter
-//! (`lines.linewidth` is `lines_linewidth`), and also matplotlib's
-//! string-keyed access with matplotlib's validation ([`rc::set`],
+//! (`lines.linewidth` is `lines_linewidth`; a parameter naming one of a
+//! few keywords holds the enum of its concept, such as the [`FillStyle`]
+//! of `markers.fillstyle`), and also matplotlib's string-keyed access
+//! with matplotlib's validation and spellings ([`rc::set`],
 //! [`RcParams::get`]). The current parameters belong to the thread, like
 //! pyplot's state. Style sheets apply on top ([`style::use_style`],
 //! [`style::context`]).
@@ -150,18 +152,22 @@
 //! with mpl.rc_context():
 //!     mpl.rcParams["lines.linewidth"] = 2
 //!     mpl.rcParams["axes.grid"] = True
+//!     mpl.rcParams["markers.fillstyle"] = "left"
 //!     assert mpl.rcParams["lines.linewidth"] == 2
 //! mpl.rcParams["lines.linewidth"] = "thick"   # ValueError
 //! ```
 //!
 //! ```
+//! use plt::markers::FillStyle;
 //! use plt::rc;
 //!
 //! rc::context(|| {
 //!     rc::set("lines.linewidth", "2")?;
 //!     rc::update(|params| params.axes_grid = true);
+//!     rc::set("markers.fillstyle", "left")?;
 //!     assert_eq!(rc::params().lines_linewidth, 2.0);
 //!     assert!(rc::params().axes_grid);
+//!     assert_eq!(rc::params().markers_fillstyle, FillStyle::Left);
 //!     assert_eq!(rc::params().get("lines.linewidth").as_deref(), Some("2.0"));
 //!     Ok::<(), rc::RcError>(())
 //! })?;
@@ -271,6 +277,7 @@
 //! [`ScalarMappable::with_norm`]: crate::colors::ScalarMappable::with_norm
 //! [`from_levels_and_colors`]: crate::colors::from_levels_and_colors
 //! [`RcParams`]: crate::rc::RcParams
+//! [`FillStyle`]: crate::markers::FillStyle
 //! [`RcParams::get`]: crate::rc::RcParams::get
 //! [`RcParams::matplotlib`]: crate::rc::RcParams::matplotlib
 //! [`RcParams::apply_rc_text`]: crate::rc::RcParams::apply_rc_text

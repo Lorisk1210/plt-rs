@@ -292,9 +292,7 @@ impl<'a> AxisPainter<'a> {
         let offset = layout.points_to_pixels(style.label_offset());
         // `xtick.alignment` and `ytick.alignment` (matplotlib's
         // `get_xaxis_text1_transform` and friends).
-        let rc = &self.axes.rc;
-        let x_align = rc.xtick_alignment.parse().unwrap_or(HAlign::Center);
-        let y_align = rc.ytick_alignment.parse().unwrap_or(VAlign::CenterBaseline);
+        let (x_align, y_align) = (self.axes.rc.xtick_alignment, self.axes.rc.ytick_alignment);
         Some(match (self.name, first_side) {
             (AxisName::X, true) => (base - Point::new(0.0, offset), (x_align, VAlign::Top)),
             (AxisName::X, false) => (base + Point::new(0.0, offset), (x_align, VAlign::Bottom)),

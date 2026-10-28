@@ -1,7 +1,9 @@
 //! Tick and grid appearance (matplotlib's tick parameters).
 
+use std::fmt;
 use std::str::FromStr;
 
+use super::which::TickLevel;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontStyle, FontWeight};
 use crate::image::UnknownName;
@@ -25,6 +27,8 @@ pub enum TickDirection {
 }
 
 impl TickDirection {
+    const ALL: [Self; 3] = [Self::In, Self::Out, Self::InOut];
+
     /// The fraction of the tick length extending outwards (matplotlib's
     /// `get_tick_padding` factors).
     pub const fn outward_fraction(self) -> f64 {
@@ -34,22 +38,35 @@ impl TickDirection {
             Self::InOut => 0.5,
         }
     }
+
+    /// matplotlib's name (`in`, `out`, `inout`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::In => "in",
+            Self::Out => "out",
+            Self::InOut => "inout",
+        }
+    }
 }
 
 impl FromStr for TickDirection {
     type Err = UnknownName;
 
-    /// Parses matplotlib's name (`in`, `out`, `inout`).
+    /// Parses matplotlib's name ([`TickDirection::name`]).
     fn from_str(name: &str) -> Result<Self, UnknownName> {
-        match name {
-            "in" => Ok(Self::In),
-            "out" => Ok(Self::Out),
-            "inout" => Ok(Self::InOut),
-            _ => Err(UnknownName {
+        Self::ALL
+            .into_iter()
+            .find(|direction| direction.name() == name)
+            .ok_or_else(|| UnknownName {
                 kind: "tick direction",
                 name: name.to_owned(),
-            }),
-        }
+            })
+    }
+}
+
+impl fmt::Display for TickDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
     }
 }
 
@@ -133,30 +150,6 @@ impl GridStyle {
                 .unwrap_or_else(|| rc.grid_linestyle.clone()),
             path_effects: rc.path_effects.clone(),
         }
-    }
-}
-
-/// Which tick levels a setting applies to (matplotlib's `which`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum TickLevel {
-    /// The major ticks.
-    #[default]
-    Major,
-    /// The minor ticks.
-    Minor,
-    /// Major and minor ticks.
-    Both,
-}
-
-impl TickLevel {
-    /// Whether the major ticks are included.
-    pub fn major(self) -> bool {
-        matches!(self, Self::Major | Self::Both)
-    }
-
-    /// Whether the minor ticks are included.
-    pub fn minor(self) -> bool {
-        matches!(self, Self::Minor | Self::Both)
     }
 }
 
@@ -280,13 +273,13 @@ impl TickStyle {
                 &rc.xtick_color,
                 &rc.xtick_labelcolor,
                 rc.xtick_labelsize,
-                &rc.xtick_direction,
+                rc.xtick_direction,
             ),
             AxisName::Y => (
                 &rc.ytick_color,
                 &rc.ytick_labelcolor,
                 rc.ytick_labelsize,
-                &rc.ytick_direction,
+                rc.ytick_direction,
             ),
         };
         let label_color = match label_color {
@@ -301,7 +294,7 @@ impl TickStyle {
             edgecolor: None,
             label_color,
             label_size: label_size.to_points(rc.font_size),
-            direction: direction.parse().unwrap_or_default(),
+            direction,
             ticks,
             labels,
             label_rotation: 0.0,
@@ -421,12 +414,7 @@ fn tick_sides(axis: AxisName, major: bool, rc: &RcParams) -> (Sides, Sides) {
 
 /// Whether `axes.grid*` turns the gridlines of a tick level on.
 fn grid_on_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> bool {
-    let axis_on = match rc.axes_grid_axis.as_str() {
-        "both" => true,
-        "x" => axis == AxisName::X,
-        _ => axis == AxisName::Y,
-    };
-    grid_level_on(major, rc) && axis_on
+    grid_level_on(major, rc) && rc.axes_grid_axis.includes(axis)
 }
 
 /// Whether `axes.grid` and `axes.grid.which` turn the gridlines of the
@@ -434,13 +422,8 @@ fn grid_on_from_rc(axis: AxisName, major: bool, rc: &RcParams) -> bool {
 /// `axes.grid.axis` names (matplotlib's `Axis._reset_major_tick_kw` and
 /// `_reset_minor_tick_kw`).
 pub(crate) fn grid_level_on(major: bool, rc: &RcParams) -> bool {
-    let which = rc.axes_grid_which.as_str();
-    let level_on = if major {
-        matches!(which, "major" | "both")
-    } else {
-        matches!(which, "minor" | "both")
-    };
-    rc.axes_grid && level_on
+    let which = rc.axes_grid_which;
+    rc.axes_grid && if major { which.major() } else { which.minor() }
 }
 
 #[cfg(test)]
@@ -525,6 +508,14 @@ mod tests {
         assert_eq!(major.labels, Sides::default(), "labeltop is off by default");
         let minor = TickStyle::from_rc(AxisName::X, false, &rc);
         assert!(minor.ticks.first && minor.labels.first);
+    }
+
+    #[test]
+    fn tick_directions_round_trip_their_names() {
+        for direction in TickDirection::ALL {
+            assert_eq!(direction.to_string().parse(), Ok(direction));
+        }
+        assert!("up".parse::<TickDirection>().is_err());
     }
 
     #[test]

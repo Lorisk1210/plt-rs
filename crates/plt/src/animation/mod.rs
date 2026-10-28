@@ -65,6 +65,7 @@ use player::{Control, Player, Requested};
 mod artists;
 mod blit;
 mod html;
+mod html_rc;
 mod html_template;
 mod movie;
 mod player;
@@ -73,6 +74,7 @@ mod save;
 mod tests;
 
 pub use html::{HtmlOptions, PlayMode};
+pub use html_rc::{FrameFormat, HtmlRepr};
 pub use movie::{MovieError, MovieOptions};
 
 /// Frames saved from an animation without a known length (matplotlib's

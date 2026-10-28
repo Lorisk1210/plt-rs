@@ -3,17 +3,27 @@
 //! representation, so that a colour is its RGBA and a line style its name
 //! or dash pattern.
 
+use plt::animation::{FrameFormat, HtmlRepr};
+use plt::axes::{
+    Shading, TickDirection, TickLevel, TitleLocation, WhichAxis, XLabelLoc, YLabelLoc,
+};
 use plt::colors::Color;
-use plt::fonts::{FontSize, FontStretch, FontWeight};
+use plt::contour::ContourAlgorithm;
+use plt::figure::{PageOrientation, Paper, SvgFontType};
+use plt::fonts::{FontSize, FontStretch, FontWeight, Fontset, MathFallback, MathFont};
+use plt::gui::{MacosxWindowMode, ToolbarKind};
+use plt::image::{InterpolationStage, Origin};
 use plt::legend::LegendLoc;
 use plt::lines::{LineStyle, MarkEvery};
-use plt::markers::{Marker, MarkerKey, MarkerSymbol};
+use plt::markers::{FillStyle, Marker, MarkerKey, MarkerSymbol};
+use plt::mplot3d::RotationStyle;
 use plt::rc::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, CycleValue, Cycler, Distiller,
     Dpi, FontType, HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
-use plt::text::{HAlign, TextRotationMode as RotationMode, VAlign};
-use plt::ticker::MinorDivisions;
+use plt::text::{HAlign, TextHinting, TextRotationMode as RotationMode, VAlign};
+use plt::ticker::{AutolimitMode, MinorDivisions};
+use plt::units::DateConverter;
 use plt_render::{CapStyle, JoinStyle};
 
 use crate::json::Json;
@@ -194,27 +204,46 @@ impl Canon for CapStyle {
     }
 }
 
-impl Canon for HAlign {
-    fn canon(&self) -> Json {
-        text(match self {
-            Self::Left => "left",
-            Self::Center => "center",
-            Self::Right => "right",
-        })
-    }
+/// Keywords as matplotlib keeps them: by name.
+macro_rules! canon_by_name {
+    ($($ty:ty),+ $(,)?) => {$(
+        impl Canon for $ty {
+            fn canon(&self) -> Json {
+                text(&self.to_string())
+            }
+        }
+    )+};
 }
 
-impl Canon for VAlign {
-    fn canon(&self) -> Json {
-        text(match self {
-            Self::Top => "top",
-            Self::Bottom => "bottom",
-            Self::Center => "center",
-            Self::Baseline => "baseline",
-            Self::CenterBaseline => "center_baseline",
-        })
-    }
-}
+canon_by_name!(
+    AutolimitMode,
+    ContourAlgorithm,
+    DateConverter,
+    FillStyle,
+    Fontset,
+    FrameFormat,
+    HAlign,
+    HtmlRepr,
+    InterpolationStage,
+    MacosxWindowMode,
+    MathFallback,
+    MathFont,
+    Origin,
+    PageOrientation,
+    Paper,
+    RotationStyle,
+    Shading,
+    SvgFontType,
+    TextHinting,
+    TickDirection,
+    TickLevel,
+    TitleLocation,
+    ToolbarKind,
+    VAlign,
+    WhichAxis,
+    XLabelLoc,
+    YLabelLoc,
+);
 
 impl Canon for RotationMode {
     fn canon(&self) -> Json {

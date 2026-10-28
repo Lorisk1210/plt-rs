@@ -115,10 +115,7 @@ impl LineArtist {
             drawstyle: DrawStyle::Default,
             gapcolor: Color::none(),
             marker: rc.lines_marker.clone(),
-            fillstyle: rc
-                .markers_fillstyle
-                .parse()
-                .expect("rc validates markers.fillstyle"),
+            fillstyle: rc.markers_fillstyle,
             marker_transform: None,
             marker_capstyle: None,
             marker_joinstyle: None,

@@ -1,5 +1,10 @@
 //! The rcParams that tick locators and formatters consult.
 
+use std::fmt;
+use std::str::FromStr;
+
+use crate::image::UnknownName;
+
 /// How `view_limits` treats data limits (`axes.autolimit_mode`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AutolimitMode {
@@ -8,6 +13,37 @@ pub enum AutolimitMode {
     Data,
     /// Expand the limits outwards to the nearest tick (`"round_numbers"`).
     RoundNumbers,
+}
+
+impl AutolimitMode {
+    /// matplotlib's name (`data` or `round_numbers`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Data => "data",
+            Self::RoundNumbers => "round_numbers",
+        }
+    }
+}
+
+impl fmt::Display for AutolimitMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl FromStr for AutolimitMode {
+    type Err = UnknownName;
+
+    /// Parses matplotlib's name ([`AutolimitMode::name`]).
+    fn from_str(name: &str) -> Result<Self, UnknownName> {
+        [Self::Data, Self::RoundNumbers]
+            .into_iter()
+            .find(|mode| mode.name() == name)
+            .ok_or_else(|| UnknownName {
+                kind: "autolimit mode",
+                name: name.to_owned(),
+            })
+    }
 }
 
 /// Number of minor intervals between major ticks (`xtick.minor.ndivs`).
@@ -114,11 +150,7 @@ impl From<&crate::rc::RcParams> for TickerSettings {
             axes_formatter_use_mathtext: rc.axes_formatter_use_mathtext,
             axes_formatter_min_exponent: i32::try_from(rc.axes_formatter_min_exponent).unwrap_or(0),
             text_usetex: rc.text_usetex,
-            axes_autolimit_mode: if rc.axes_autolimit_mode == "round_numbers" {
-                AutolimitMode::RoundNumbers
-            } else {
-                AutolimitMode::Data
-            },
+            axes_autolimit_mode: rc.axes_autolimit_mode,
             classic_mode: rc.internal_classic_mode,
             xtick_minor_ndivs: rc.xtick_minor_ndivs,
             ytick_minor_ndivs: rc.ytick_minor_ndivs,
@@ -138,5 +170,13 @@ mod tests {
         assert_eq!(settings.fix_minus("-1e-5"), "\u{2212}1e\u{2212}5");
         settings.axes_unicode_minus = false;
         assert_eq!(settings.fix_minus("-1e-5"), "-1e-5");
+    }
+
+    #[test]
+    fn autolimit_modes_round_trip_their_names() {
+        for mode in [AutolimitMode::Data, AutolimitMode::RoundNumbers] {
+            assert_eq!(mode.to_string().parse(), Ok(mode));
+        }
+        assert!("round".parse::<AutolimitMode>().is_err());
     }
 }

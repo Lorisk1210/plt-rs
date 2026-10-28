@@ -355,12 +355,13 @@ pub(crate) fn lay_out_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::text::TextHinting;
 
     /// The spec's reference configuration (`matplotlib.testing.setup`).
     fn reference() -> RcParams {
         let mut rc = RcParams::matplotlib();
         rc.font_family = vec!["DejaVu Sans".to_owned()];
-        rc.text_hinting = "none".to_owned();
+        rc.text_hinting = TextHinting::None;
         rc
     }
 

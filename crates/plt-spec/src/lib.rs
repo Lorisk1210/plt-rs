@@ -42,7 +42,7 @@ use std::path::PathBuf;
 /// outlines.
 pub fn reference_rc() {
     plt::testing::setup();
-    plt::rc::update(|params| params.text_hinting = String::from("none"));
+    plt::rc::update(|params| params.text_hinting = plt::text::TextHinting::None);
 }
 
 /// Root of the `spec/` directory of this repository.

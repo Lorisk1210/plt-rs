@@ -67,6 +67,7 @@ mod axis;
 mod category;
 mod converting;
 mod custom;
+mod date_converter;
 mod deltas;
 mod interface;
 mod items;
@@ -83,6 +84,7 @@ pub use axis::UnitAxis;
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
 pub(crate) use converting::{AxisUnits, UnitData, UnitHandle, UnitState};
 pub use custom::{CustomConverter, CustomValues, Unit};
+pub use date_converter::DateConverter;
 pub use deltas::{AxisDelta, AxisDeltas};
 pub use interface::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
 pub use items::AxisItem;
@@ -102,10 +104,9 @@ pub(crate) fn date_tickers(tz: &TimeZone) -> (Rc<dyn Locator>, Rc<dyn Formatter>
             .with_interval_multiples(rc.date_interval_multiples)
             .with_tz(tz.clone())
     };
-    let formatter: Rc<dyn Formatter> = if rc.date_converter == "concise" {
-        Rc::new(ConciseDateFormatter::new().with_tz(tz.clone()))
-    } else {
-        Rc::new(AutoDateFormatter::new(locator()).with_tz(tz.clone()))
+    let formatter: Rc<dyn Formatter> = match rc.date_converter {
+        DateConverter::Concise => Rc::new(ConciseDateFormatter::new().with_tz(tz.clone())),
+        DateConverter::Auto => Rc::new(AutoDateFormatter::new(locator()).with_tz(tz.clone())),
     };
     (Rc::new(locator()), formatter)
 }

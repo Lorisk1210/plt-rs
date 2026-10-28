@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 pub use manager::{FontExt, FontListEntry, FontManager};
 pub use plt_text::fontconfig::FontconfigPattern;
-pub use plt_text::mathtext::Fontset;
+pub use plt_text::mathtext::{Fontset, MathFallback, MathFont};
 pub use plt_text::{FontStyle, FontVariant};
 pub use properties::{FontProperties, parse_math_fontfamily, parse_style, parse_variant};
 
@@ -305,22 +305,6 @@ impl fmt::Display for FontPropertyError {
 }
 
 impl std::error::Error for FontPropertyError {}
-
-/// rc values reuse the `FromStr`/`Display` pair of each property.
-macro_rules! rc_via_str {
-    ($($ty:ty),+) => {$(
-        impl RcValue for $ty {
-            fn parse_rc(text: &str) -> Result<Self, String> {
-                text.parse().map_err(|err: FontPropertyError| err.to_string())
-            }
-            fn format_rc(&self) -> String {
-                self.to_string()
-            }
-        }
-    )+};
-}
-
-rc_via_str!(FontWeight, FontStretch);
 
 impl RcValue for FontSize {
     /// rc files spell size keywords case-insensitively.

@@ -17,7 +17,7 @@ use super::line::LineState;
 use super::ticks::{TicksState, tick_info};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, DrawContext, LayoutContext};
 use crate::axes::axis_draw::draw_text;
-use crate::axes::{AxesState, PlacedText, TickDirection};
+use crate::axes::{AxesState, PlacedText};
 use crate::patches::{DisplayPath, paint_paths};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
@@ -124,7 +124,7 @@ impl AxisArtistState {
                 rc.xtick_minor_size,
                 rc.xtick_major_pad,
                 rc.xtick_minor_pad,
-                &rc.xtick_direction,
+                rc.xtick_direction,
                 rc.xtick_labelsize,
             ),
             AxisName::Y => (
@@ -132,11 +132,10 @@ impl AxisArtistState {
                 rc.ytick_minor_size,
                 rc.ytick_major_pad,
                 rc.ytick_minor_pad,
-                &rc.ytick_direction,
+                rc.ytick_direction,
                 rc.ytick_labelsize,
             ),
         };
-        let tick_direction: TickDirection = tick_direction.parse().unwrap_or_default();
         let tick_font = (labelsize.to_points(rc.font_size), rc.font_weight);
         let label_font = (
             rc.axes_labelsize.to_points(rc.font_size),

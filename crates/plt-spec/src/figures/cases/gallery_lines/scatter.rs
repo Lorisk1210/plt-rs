@@ -178,7 +178,7 @@ fn scatter_star_poly(fig: &Figure) -> CaseResult {
         (polygon(5, PolygonStyle::Asterisk), "marker=(5, 2)"),
     ];
     for (ax, (marker, title)) in axs.as_slice().iter().zip(markers) {
-        let fillstyle = plt::rc::params().markers_fillstyle.parse()?;
+        let fillstyle = plt::rc::params().markers_fillstyle;
         let options = ScatterOptions {
             sizes: Some(vec![80.0]),
             marker: Some(MarkerStyle::new(marker, fillstyle)?),

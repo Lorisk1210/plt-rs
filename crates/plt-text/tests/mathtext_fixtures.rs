@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use plt_font::{FontDatabase, FontQuery, FontSource};
-use plt_text::mathtext::{CustomFonts, MathFallback, MathLayout, MathStyle, is_math_text};
+use plt_text::mathtext::{CustomFonts, MathLayout, MathStyle, is_math_text};
 use plt_text::{BlockStyle, FontRequest, LineMetrics, TextEngine, TextError, layout_block};
 
 const CASES: &str = include_str!("fixtures/mathtext/cases.txt");
@@ -100,7 +100,9 @@ fn style_for(case: &Expected) -> MathStyle {
             let (key, value) = item.split_once('=').expect("key=value");
             match key {
                 "default" => style.default = value.parse().expect("font"),
-                "fallback" => style.fallback = MathFallback::parse(value).expect("fallback"),
+                "fallback" => {
+                    style.fallback = (value != "none").then(|| value.parse().expect("fallback"));
+                }
                 "family" => style.font.query.families = vec![value.to_owned()],
                 "rm" => value.clone_into(&mut custom.rm),
                 "it" => value.clone_into(&mut custom.it),

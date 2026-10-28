@@ -81,13 +81,13 @@ pub use variates::MultiField;
 
 use crate::rc::RcParams;
 
-/// The rc defaults of new images: `image.interpolation`,
-/// `image.interpolation_stage` and `image.origin` (validated by rc, so
-/// unknown names fall back to matplotlib's defaults).
+/// The rc defaults of new images: `image.interpolation` (which rc takes
+/// as any text, like matplotlib, so unknown names fall back to
+/// matplotlib's default), `image.interpolation_stage` and `image.origin`.
 pub(crate) fn rc_defaults(rc: &RcParams) -> (Interpolation, InterpolationStage, Origin) {
     (
         rc.image_interpolation.parse().unwrap_or_default(),
-        rc.image_interpolation_stage.parse().unwrap_or_default(),
-        rc.image_origin.parse().unwrap_or_default(),
+        rc.image_interpolation_stage,
+        rc.image_origin,
     )
 }

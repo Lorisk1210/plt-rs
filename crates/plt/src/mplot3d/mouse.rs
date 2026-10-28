@@ -2,6 +2,7 @@
 //! `Axes3D.mouse_init`, `_on_move`, `drag_pan` and `_scale_axis_limits`):
 //! the buttons doing each, and the view or limits a drag produces.
 
+use std::fmt;
 use std::str::FromStr;
 
 use plt_core::Point;
@@ -32,17 +33,33 @@ pub enum RotationStyle {
     Arcball,
 }
 
+impl RotationStyle {
+    /// matplotlib's name (`azel`, `trackball`, `sphere` or `arcball`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Azel => "azel",
+            Self::Trackball => "trackball",
+            Self::Sphere => "sphere",
+            Self::Arcball => "arcball",
+        }
+    }
+}
+
+impl fmt::Display for RotationStyle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 impl FromStr for RotationStyle {
     type Err = Axes3DError;
 
+    /// Parses matplotlib's name ([`RotationStyle::name`]).
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        match name {
-            "azel" => Ok(Self::Azel),
-            "trackball" => Ok(Self::Trackball),
-            "sphere" => Ok(Self::Sphere),
-            "arcball" => Ok(Self::Arcball),
-            other => Err(Axes3DError::UnknownRotationStyle(other.to_owned())),
-        }
+        [Self::Azel, Self::Trackball, Self::Sphere, Self::Arcball]
+            .into_iter()
+            .find(|style| style.name() == name)
+            .ok_or_else(|| Axes3DError::UnknownRotationStyle(name.to_owned()))
     }
 }
 
@@ -62,7 +79,7 @@ impl RotationSettings {
     /// The `axes3d.*` rotation settings.
     pub(crate) fn from_rc(rc: &RcParams) -> Self {
         Self {
-            style: rc.axes3d_mouserotationstyle.parse().unwrap_or_default(),
+            style: rc.axes3d_mouserotationstyle,
             size: rc.axes3d_trackballsize,
             border: rc.axes3d_trackballborder,
             snap: rc.axes3d_snap_rotation,
@@ -334,6 +351,17 @@ mod tests {
             style,
             ..RotationSettings::from_rc(&RcParams::matplotlib())
         }
+    }
+
+    #[test]
+    fn rotation_styles_round_trip_their_names() {
+        for style in ["azel", "trackball", "sphere", "arcball"] {
+            assert_eq!(
+                style.parse::<RotationStyle>().map(|s| s.to_string()),
+                Ok(style.to_owned())
+            );
+        }
+        assert!("Arcball".parse::<RotationStyle>().is_err());
     }
 
     #[test]

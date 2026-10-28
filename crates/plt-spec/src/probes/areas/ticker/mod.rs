@@ -19,8 +19,8 @@ pub(crate) use locators::{
 };
 
 use plt::ticker::{
-    AutolimitMode, AxisInfo, FormattedTicks, Formatter, Locator, MinorDivisions, TickContext,
-    TickerError, TickerSettings,
+    AxisInfo, FormattedTicks, Formatter, Locator, MinorDivisions, TickContext, TickerError,
+    TickerSettings,
 };
 
 use crate::json::Json;
@@ -209,11 +209,10 @@ pub(crate) fn settings(args: Args<'_>) -> Result<TickerSettings, ProbeError> {
         };
         match key.as_str() {
             "axes.autolimit_mode" => {
-                s.axes_autolimit_mode = match value.as_str() {
-                    Some("data") => AutolimitMode::Data,
-                    Some("round_numbers") => AutolimitMode::RoundNumbers,
-                    _ => return Err(ProbeError::BadArgs("unknown autolimit mode".into())),
-                }
+                s.axes_autolimit_mode = value
+                    .as_str()
+                    .and_then(|mode| mode.parse().ok())
+                    .ok_or_else(|| ProbeError::BadArgs("unknown autolimit mode".into()))?;
             }
             "axes.unicode_minus" => s.axes_unicode_minus = flag()?,
             "axes.formatter.useoffset" => s.axes_formatter_useoffset = flag()?,

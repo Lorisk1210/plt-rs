@@ -13,7 +13,6 @@ use super::mpl2005::Mpl2005;
 use super::mpl2014::Mpl2014;
 use super::serial::Serial;
 use crate::numeric::Grid;
-use crate::rc::RcParams;
 
 /// The contouring algorithm for quadrilateral grids (contourpy's
 /// generators, as matplotlib names them).
@@ -33,11 +32,6 @@ pub enum ContourAlgorithm {
 }
 
 impl ContourAlgorithm {
-    /// The algorithm `contour.algorithm` selects.
-    pub fn from_rc(rc: &RcParams) -> Self {
-        rc.contour_algorithm.parse().unwrap_or_default()
-    }
-
     /// matplotlib's name for the algorithm.
     pub fn name(self) -> &'static str {
         match self {
@@ -265,6 +259,7 @@ impl QuadContourGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rc::RcParams;
 
     const ALGORITHMS: [ContourAlgorithm; 4] = [
         ContourAlgorithm::Mpl2005,
@@ -284,9 +279,9 @@ mod tests {
             Err(ContourError::UnknownAlgorithm("fast".to_owned()))
         );
         let mut rc = RcParams::matplotlib();
-        assert_eq!(ContourAlgorithm::from_rc(&rc), ContourAlgorithm::Mpl2014);
+        assert_eq!(rc.contour_algorithm, ContourAlgorithm::Mpl2014);
         rc.set("contour.algorithm", "serial").unwrap();
-        assert_eq!(ContourAlgorithm::from_rc(&rc), ContourAlgorithm::Serial);
+        assert_eq!(rc.contour_algorithm, ContourAlgorithm::Serial);
     }
 
     #[test]

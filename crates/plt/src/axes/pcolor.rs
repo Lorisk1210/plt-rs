@@ -262,12 +262,7 @@ impl Axes {
 
 /// The shading, `pcolor.shading` when unset.
 pub(super) fn default_shading(shading: Option<Shading>) -> Shading {
-    shading.unwrap_or_else(|| {
-        crate::rc::params()
-            .pcolor_shading
-            .parse()
-            .unwrap_or_default()
-    })
+    shading.unwrap_or_else(|| crate::rc::params().pcolor_shading)
 }
 
 /// `pcolor`'s edge defaults (shared by `tripcolor`): no edges, 0.25 pt

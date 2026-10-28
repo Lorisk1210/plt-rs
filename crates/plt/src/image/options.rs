@@ -233,6 +233,16 @@ impl FromStr for Origin {
     }
 }
 
+impl fmt::Display for Origin {
+    /// matplotlib's name (`upper` or `lower`).
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Upper => "upper",
+            Self::Lower => "lower",
+        })
+    }
+}
+
 /// The data rectangle an image covers: `(left, right, bottom, top)` edges
 /// of its outer pixels (matplotlib's `extent`). `left > right` or
 /// `bottom > top` flip the image.
@@ -328,6 +338,7 @@ mod tests {
     fn stages_and_origins_parse() {
         assert_eq!("rgba".parse(), Ok(InterpolationStage::Rgba));
         assert_eq!("lower".parse(), Ok(Origin::Lower));
+        assert_eq!(Origin::Lower.to_string(), "lower");
         let err = "middle".parse::<Origin>().unwrap_err();
         assert_eq!(err.to_string(), "\"middle\" is not a valid origin");
     }

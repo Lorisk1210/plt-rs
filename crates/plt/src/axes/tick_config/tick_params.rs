@@ -3,8 +3,8 @@
 
 use plt_text::RotationMode;
 
-use crate::axes::ticks::{GridOptions, TickDirection, TickLevel, TickStyle};
-use crate::axes::{Axes, Axis, AxisName};
+use crate::axes::ticks::{GridOptions, TickDirection, TickStyle};
+use crate::axes::{Axes, Axis, AxisName, TickLevel};
 use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::lines::LineStyle;

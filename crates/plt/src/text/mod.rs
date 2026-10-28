@@ -29,6 +29,7 @@
 mod annotation;
 mod error;
 mod handle;
+mod hinting;
 mod layout;
 mod math;
 mod math_image;
@@ -58,6 +59,7 @@ pub use annotation::{
 pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget};
 pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
+pub use hinting::TextHinting;
 use layout::rc_language;
 pub use layout::{LaidOutText, measure_text, text_path, text_path_tex};
 pub(crate) use layout::{Typesetting, lay_out, lay_out_with};

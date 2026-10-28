@@ -55,7 +55,7 @@ pub use ps::{PageOrientation, PageSetupError, Paper, PsOptions, PsRenderer};
 pub use quad_mesh::QuadMesh;
 pub use raster::{RasterBackendError, RasterRenderer};
 pub use renderer::Renderer;
-pub use svg::{ImageFile, SvgFontType, SvgOptions, SvgRenderer};
+pub use svg::{ImageFile, SvgFontType, SvgOptions, SvgRenderer, UnknownSvgFontType};
 pub use vector::{
     FontType, Metadata, PNG_SOFTWARE, PngMetadata, SvgMetadata, Timestamp, Trapped, VectorError,
     gzip,

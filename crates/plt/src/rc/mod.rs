@@ -22,6 +22,7 @@
 mod macros;
 mod cycler;
 mod file;
+mod keywords;
 mod kinds;
 mod literal;
 mod table;
@@ -236,6 +237,30 @@ mod tests {
         assert!(rc.set("image.origin", "middle").is_err());
         assert!(rc.set("axes.xmargin", "-0.6").is_err());
         assert!(rc.set("path.simplify_threshold", "1.5").is_err());
+    }
+
+    #[test]
+    fn keywords_keep_matplotlib_spellings_and_messages() {
+        let mut rc = RcParams::matplotlib();
+        rc.set("ps.papersize", "A4").expect("valid");
+        assert_eq!(rc.get("ps.papersize").as_deref(), Some("a4"));
+        rc.set("toolbar", "NONE").expect("valid");
+        assert_eq!(rc.toolbar, crate::gui::ToolbarKind::None);
+        assert_eq!(rc.get("toolbar").as_deref(), Some("None"));
+        rc.set("text.hinting", "either").expect("valid");
+        assert_eq!(rc.get("text.hinting").as_deref(), Some("either"));
+        rc.set("mathtext.fallback", "STIXSANS").expect("valid");
+        assert_eq!(rc.get("mathtext.fallback").as_deref(), Some("stixsans"));
+        assert!(rc.set("yaxis.labellocation", "left").is_err());
+        assert!(rc.set("markers.fillstyle", "Full").is_err());
+        let stage = rc
+            .set("image.interpolation_stage", "antialiased")
+            .unwrap_err();
+        assert_eq!(
+            stage.to_string(),
+            r#"key "image.interpolation_stage": "antialiased" is not one of ["auto", "data", "rgba"] (value "antialiased")"#,
+            "the stage parses more names than matplotlib's rc allows"
+        );
     }
 
     #[test]

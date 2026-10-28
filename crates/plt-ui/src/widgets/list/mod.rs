@@ -5,9 +5,10 @@ use std::rc::Rc;
 use std::time::Instant;
 
 use plt_core::Point;
-use plt_platform::{ButtonState, Key, KeyEvent, MouseButton, ScrollDelta};
+use plt_platform::{ButtonState, Key, KeyEvent, MouseButton};
 
 use super::frame::paint_frame;
+use super::scroll_bar::{ScrollBar, wheel_pixels};
 use super::type_ahead::TypeAhead;
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -23,8 +24,6 @@ const INSET: Spacing = Spacing::Xs;
 const ROW_PADDING: Spacing = Spacing::Sm;
 /// How many rows a list shows unless told otherwise.
 const DEFAULT_VISIBLE_ROWS: usize = 8;
-/// Rows scrolled per wheel notch.
-const ROWS_PER_NOTCH: f64 = 3.0;
 
 /// One row of a [`List`].
 #[derive(Debug, Clone, PartialEq)]
@@ -73,16 +72,10 @@ struct Metrics {
     inset: f64,
     /// Space between a row's edges and its content.
     padding: f64,
-    /// The height of the visible rows.
-    viewport: f64,
-    /// Width of the scroll bar's thumb.
-    scrollbar_width: f64,
     /// Width of the strip beside the rows that the scroll bar takes when
     /// the rows overflow: with the inset, a pointer target of the theme's
     /// [`target_size`](crate::Theme::target_size).
     gutter: f64,
-    /// Shortest scroll bar thumb.
-    min_thumb: f64,
 }
 
 /// A list of rows with at most one selected: a click selects a row, a
@@ -94,8 +87,8 @@ struct Metrics {
 pub struct List<M> {
     items: Vec<ListItem>,
     selected: Option<usize>,
-    /// Scroll offset in pixels.
-    scroll: f64,
+    /// How far the rows are scrolled, beside the scroll bar.
+    bar: ScrollBar,
     on_select: RowMessage<M>,
     on_activate: Option<RowMessage<M>>,
     visible_rows: usize,
@@ -104,9 +97,6 @@ pub struct List<M> {
     metrics: Metrics,
     /// The row under the pointer.
     hot: Option<usize>,
-    /// While the scroll bar's thumb is dragged: the pointer's distance
-    /// from the thumb's top.
-    dragging: Option<f64>,
     /// The start of a label being typed.
     type_ahead: TypeAhead,
 }
@@ -126,14 +116,13 @@ impl<M> List<M> {
         Self {
             items,
             selected: None,
-            scroll: 0.0,
+            bar: ScrollBar::default(),
             on_select: Rc::new(on_select),
             on_activate: None,
             visible_rows: DEFAULT_VISIBLE_ROWS,
             layouts: Vec::new(),
             metrics: Metrics::default(),
             hot: None,
-            dragging: None,
             type_ahead: TypeAhead::default(),
         }
     }
@@ -163,7 +152,8 @@ impl<M> List<M> {
         self.items = items;
         self.selected = None;
         self.hot = None;
-        self.scroll = 0.0;
+        self.bar.reset();
+        self.sync_extent();
         self.layouts.clear();
     }
 
@@ -183,16 +173,14 @@ impl<M> List<M> {
         let Some(row) = self.selected else {
             return;
         };
-        let Metrics {
-            row_height,
-            viewport,
-            ..
-        } = self.metrics;
+        self.sync_extent();
+        let row_height = self.metrics.row_height;
+        let (scroll, viewport) = (self.bar.offset(), self.bar.viewport());
         let top = row as f64 * row_height;
-        if top < self.scroll {
-            self.scroll = top;
-        } else if top + row_height > self.scroll + viewport {
-            self.scroll = top + row_height - viewport;
+        if top < scroll {
+            self.bar.scroll_to(top);
+        } else if top + row_height > scroll + viewport {
+            self.bar.scroll_to(top + row_height - viewport);
         }
     }
 
@@ -201,18 +189,19 @@ impl<M> List<M> {
         self.items.len() as f64 * self.metrics.row_height
     }
 
-    /// The largest useful scroll offset.
-    fn max_scroll(&self) -> f64 {
-        (self.content_height() - self.metrics.viewport).max(0.0)
+    /// Tells the scroll bar the height of all the rows.
+    fn sync_extent(&mut self) {
+        self.bar
+            .set_extent(self.content_height(), self.bar.viewport());
     }
 
     /// The row at height `y` within the visible rows.
     fn row_at(&self, y: f64) -> Option<usize> {
         let row_height = self.metrics.row_height;
-        if row_height <= 0.0 || y < 0.0 || y >= self.metrics.viewport {
+        if row_height <= 0.0 || y < 0.0 || y >= self.bar.viewport() {
             return None;
         }
-        let row = ((y + self.scroll) / row_height).floor() as usize;
+        let row = ((y + self.bar.offset()) / row_height).floor() as usize;
         (row < self.items.len()).then_some(row)
     }
 
@@ -224,38 +213,19 @@ impl<M> List<M> {
     /// The width of the rows in `area`: all of it, but the scroll bar's
     /// gutter when the rows overflow.
     fn row_width(&self, area: Rect) -> f64 {
-        if self.max_scroll() > 0.0 {
+        if self.bar.overflows() {
             (area.width - self.metrics.gutter).max(0.0)
         } else {
             area.width
         }
     }
 
-    /// The scroll bar's track and thumb, as wide as its gutter (the
-    /// pointer's targets), when the rows overflow.
-    fn scroll_bar(&self, rect: Rect) -> Option<(Rect, Rect)> {
-        let max_scroll = self.max_scroll();
-        if max_scroll <= 0.0 {
-            return None;
-        }
+    /// The scroll bar's track, as wide as its gutter (the pointer's
+    /// target), beside the rows of a list at `rect`.
+    fn track(&self, rect: Rect) -> Rect {
         let area = self.rows_area(rect);
         let width = self.metrics.gutter;
-        let track = Rect::new(area.max_x() - width, area.y, width, area.height);
-        let height = (track.height * self.metrics.viewport / self.content_height())
-            .max(self.metrics.min_thumb)
-            .min(track.height);
-        let top = track.y + (track.height - height) * self.scroll / max_scroll;
-        Some((track, Rect::new(track.x, top, width, height)))
-    }
-
-    /// Scrolls so that the scroll bar's thumb starts at height `top`.
-    fn drag_thumb_to(&mut self, cx: &mut EventCx<'_, M>, rect: Rect, top: f64) {
-        if let Some((track, thumb)) = self.scroll_bar(rect) {
-            let travel = track.height - thumb.height;
-            if travel > 0.0 {
-                self.scroll_to(cx, (top - track.y) / travel * self.max_scroll());
-            }
-        }
+        Rect::new(area.max_x() - width, area.y, width, area.height)
     }
 
     fn select(&mut self, cx: &mut EventCx<'_, M>, row: usize) {
@@ -273,11 +243,8 @@ impl<M> List<M> {
     /// How many rows a page of Page Up and Page Down moves: one fewer than
     /// the rows shown, and at least one.
     fn page(&self) -> usize {
-        let Metrics {
-            row_height,
-            viewport,
-            ..
-        } = self.metrics;
+        let row_height = self.metrics.row_height;
+        let viewport = self.bar.viewport();
         if row_height > 0.0 {
             // Whole rows of a finite viewport.
             ((viewport / row_height).floor() as usize)
@@ -336,11 +303,6 @@ impl<M> List<M> {
         }
     }
 
-    fn scroll_to(&mut self, cx: &mut EventCx<'_, M>, scroll: f64) {
-        self.scroll = scroll.clamp(0.0, self.max_scroll());
-        cx.request_paint();
-    }
-
     fn paint_row(
         &self,
         cx: &mut PaintCx<'_>,
@@ -355,7 +317,7 @@ impl<M> List<M> {
             padding,
             ..
         } = self.metrics;
-        let top = area.y + row as f64 * row_height - self.scroll;
+        let top = area.y + row as f64 * row_height - self.bar.offset();
         let band = Rect::new(area.x, top, self.row_width(area), row_height).snapped();
         let radius = theme.corner_radius * scale;
         let wash = if self.selected == Some(row) {
@@ -364,7 +326,7 @@ impl<M> List<M> {
             } else {
                 theme.selection_inactive
             })
-        } else if self.hot == Some(row) && self.dragging.is_none() {
+        } else if self.hot == Some(row) && !self.bar.dragging() {
             Some(theme.hover)
         } else {
             None
@@ -405,9 +367,8 @@ impl<M: 'static> Widget<M> for List<M> {
         self.metrics.row_height = theme.control_height * scale;
         self.metrics.padding = padding;
         self.metrics.inset = inset;
-        self.metrics.scrollbar_width = theme.scrollbar_width * scale;
         self.metrics.gutter = (theme.target_size * scale - inset).max(0.0);
-        self.metrics.min_thumb = theme.control_height * scale;
+        self.bar.set_metrics(theme, scale);
         let widest = self
             .items
             .iter()
@@ -422,8 +383,7 @@ impl<M: 'static> Widget<M> for List<M> {
 
     fn arrange(&mut self, cx: &mut LayoutCx<'_, M>, rect: Rect) -> Result<(), UiError> {
         let area = self.rows_area(rect);
-        self.metrics.viewport = area.height;
-        self.scroll = self.scroll.clamp(0.0, self.max_scroll());
+        self.bar.set_extent(self.content_height(), area.height);
         // Labels too long for their row end in an ellipsis.
         let theme = cx.theme();
         let scale = cx.scale_factor();
@@ -448,7 +408,7 @@ impl<M: 'static> Widget<M> for List<M> {
         let area = self.rows_area(rect);
         let row_height = self.metrics.row_height;
         if row_height > 0.0 {
-            let first = (self.scroll / row_height).floor() as usize;
+            let first = (self.bar.offset() / row_height).floor() as usize;
             // Rows a hair high (at a vanishing scale factor) count beyond
             // `usize`: the cast saturates and every row is a candidate.
             let shown = ((area.height / row_height).ceil() as usize).saturating_add(1);
@@ -456,25 +416,15 @@ impl<M: 'static> Widget<M> for List<M> {
                 self.paint_row(cx, area, row, status.focused())?;
             }
         }
-        if let Some((_, target)) = self.scroll_bar(rect) {
-            let color = if status.hot || self.dragging.is_some() {
-                theme.border_hot
-            } else {
-                theme.border
-            };
-            // A slim thumb in the middle of its target, which reaches the
-            // outline.
-            let reach = Rect::new(
-                target.x,
-                target.y,
-                target.width + self.metrics.inset,
-                target.height,
-            );
-            let width = self.metrics.scrollbar_width;
-            let thumb = reach.centered(Size::new(width, target.height)).snapped();
-            cx.canvas().fill_rounded_rect(thumb, width / 2.0, color)?;
-        }
-        Ok(())
+        // The thumb is centred in its target, which reaches the outline.
+        let track = self.track(rect);
+        let lane = Rect::new(
+            track.x,
+            track.y,
+            track.width + self.metrics.inset,
+            track.height,
+        );
+        self.bar.paint(cx, track, lane, status.hot)
     }
 
     fn event(&mut self, cx: &mut EventCx<'_, M>, event: &UiEvent, rect: Rect) {
@@ -486,17 +436,8 @@ impl<M: 'static> Widget<M> for List<M> {
                 click_count,
                 ..
             } => {
-                if let Some((track, thumb)) = self.scroll_bar(rect)
-                    && position.x >= track.x
-                {
-                    // A press beside the thumb moves it under the pointer.
-                    let anchor = if thumb.contains(*position) {
-                        position.y - thumb.y
-                    } else {
-                        thumb.height / 2.0
-                    };
-                    self.dragging = Some(anchor);
-                    self.drag_thumb_to(cx, rect, position.y - anchor);
+                if self.bar.press(self.track(rect), *position) {
+                    cx.request_paint();
                 } else if let Some(row) = self.row_at(position.y - area.y) {
                     self.select(cx, row);
                     if *click_count >= 2 {
@@ -505,12 +446,12 @@ impl<M: 'static> Widget<M> for List<M> {
                 }
             }
             UiEvent::PointerUp { .. } => {
-                self.dragging = None;
+                self.bar.release();
                 cx.request_paint();
             }
-            UiEvent::PointerMove { position, .. } if self.dragging.is_some() => {
-                let anchor = self.dragging.unwrap_or_default();
-                self.drag_thumb_to(cx, rect, position.y - anchor);
+            UiEvent::PointerMove { position, .. } if self.bar.dragging() => {
+                self.bar.drag(self.track(rect), position.y);
+                cx.request_paint();
             }
             UiEvent::PointerEnter(position) | UiEvent::PointerMove { position, .. } => {
                 let hot = self.row_at(position.y - area.y);
@@ -524,11 +465,10 @@ impl<M: 'static> Widget<M> for List<M> {
                 cx.request_paint();
             }
             UiEvent::Wheel { delta, .. } => {
-                let pixels = match *delta {
-                    ScrollDelta::Lines { y, .. } => y * ROWS_PER_NOTCH * self.metrics.row_height,
-                    ScrollDelta::Pixels { y, .. } => y,
-                };
-                self.scroll_to(cx, self.scroll - pixels);
+                let pixels = wheel_pixels(*delta, self.metrics.row_height);
+                self.bar.scroll_to(self.bar.offset() - pixels);
+                cx.request_paint();
+                cx.set_handled();
             }
             UiEvent::Key(key) if key.state == ButtonState::Pressed => self.key(cx, key),
             _ => {}

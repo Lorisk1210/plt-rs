@@ -7,8 +7,10 @@ use plt_platform::{KeyEvent, Modifiers, MouseButton, ScrollDelta};
 ///
 /// Pointer events go to the widget under the pointer, except that a
 /// widget pressed with a button receives every pointer event until all
-/// buttons are released (pointer capture). Key events go to the focused
-/// widget: the last clicked widget that accepts focus.
+/// buttons are released (pointer capture). Wheel events the widget under
+/// the pointer leaves unused go on to its ancestors (see
+/// [`EventCx::set_handled`](crate::EventCx::set_handled)). Key events go
+/// to the focused widget: the last clicked widget that accepts focus.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum UiEvent {

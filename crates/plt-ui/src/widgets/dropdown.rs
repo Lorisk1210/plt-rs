@@ -8,7 +8,7 @@ use std::time::Instant;
 use plt_core::{Path, Point};
 use plt_platform::{ButtonState, Key, KeyEvent, MouseButton};
 
-use super::frame::paint_frame;
+use super::frame::{paint_edge, paint_frame};
 use super::type_ahead::TypeAhead;
 use crate::error::UiError;
 use crate::event::UiEvent;
@@ -292,6 +292,9 @@ impl<M: 'static> Widget<M> for Dropdown<M> {
         };
         let radius = theme.corner_radius * scale;
         paint_frame(cx, rect, radius, face, status.focus_visible())?;
+        if !status.focus_visible() {
+            paint_edge(cx, rect, radius)?;
+        }
         let side = theme.small_icon_size * scale;
         let icon = Rect::new(
             rect.max_x() - self.padding - side,

@@ -83,7 +83,8 @@ impl FigureWindow {
         // The canvas keeps its keys while a toolbar button has the focus.
         let canvas = Surface::new(|event| Some(Message::Canvas(event))).with_unused_keys();
         let canvas = root.push(canvas, 1.0);
-        let toolbar = Toolbar::build(&mut root, figure.tool_specs());
+        let look = crate::look::appearance().chrome;
+        let toolbar = Toolbar::build(&mut root, figure.tool_specs(), look);
         let (width, height) = figure.size_inches();
         // The window is sized in logical pixels.
         let dpi = figure.dpi() / figure.canvas().device_pixel_ratio();

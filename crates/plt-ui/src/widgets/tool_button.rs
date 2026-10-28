@@ -8,13 +8,44 @@ use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::icon::Icon;
+use crate::picture::Picture;
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
+
+/// How opaque the picture of a disabled button is: greyed out, as Tk
+/// stipples the images of disabled buttons.
+const DISABLED_OPACITY: f64 = 0.4;
+
+/// What a [`ToolButton`] shows.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ToolIcon {
+    /// A vector icon painted in the theme's colours: the text colour, the
+    /// accent text colour when checked, the disabled text colour when
+    /// disabled. It is the theme's
+    /// [`icon_size`](crate::Theme::icon_size) wide.
+    Vector(Icon),
+    /// A full-colour picture drawn as it is, greyed out when disabled, at
+    /// its own size.
+    Picture(Picture),
+}
+
+impl From<Icon> for ToolIcon {
+    fn from(icon: Icon) -> Self {
+        Self::Vector(icon)
+    }
+}
+
+impl From<Picture> for ToolIcon {
+    fn from(picture: Picture) -> Self {
+        Self::Picture(picture)
+    }
+}
 
 /// An icon button that sends a message when clicked (pressed and released
 /// with the left button over it), or when Space is pressed while it has
-/// the focus. It is flat until the pointer is over it; a checked button
-/// shows an accent wash and an accent icon, and a disabled one is greyed
-/// out and ignores clicks. It may have a
+/// the focus. It shows a vector icon or a full-colour picture (see
+/// [`ToolIcon`]). It is flat until the pointer is over it; a checked
+/// button shows an accent wash (and an accent vector icon), and a disabled
+/// one is greyed out and ignores clicks. It may have a
 /// [tooltip](ToolButton::with_tooltip).
 ///
 /// As in Qt, Tab gives tool buttons the focus but clicks do not, so that
@@ -22,7 +53,7 @@ use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 /// other keys a focused tool button receives go on to shortcuts.
 #[derive(Debug)]
 pub struct ToolButton<M> {
-    icon: Icon,
+    icon: ToolIcon,
     message: M,
     /// Messages sent when the pointer enters and leaves the button.
     hover: Option<(M, M)>,
@@ -35,9 +66,9 @@ pub struct ToolButton<M> {
 
 impl<M> ToolButton<M> {
     /// An enabled, unchecked button showing `icon` that sends `message`.
-    pub fn new(icon: Icon, message: M) -> Self {
+    pub fn new(icon: impl Into<ToolIcon>, message: M) -> Self {
         Self {
-            icon,
+            icon: icon.into(),
             message,
             hover: None,
             tooltip: None,
@@ -119,16 +150,23 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
                 cx.canvas().fill_rounded_rect(square, radius, wash)?;
             }
         }
-        let color = if !self.enabled {
-            theme.text_disabled
-        } else if self.checked {
-            theme.accent_text
-        } else {
-            theme.text
-        };
-        let icon = theme.icon_size * scale;
-        self.icon
-            .paint(cx.canvas(), square.centered(Size::new(icon, icon)), color)?;
+        match &self.icon {
+            ToolIcon::Vector(icon) => {
+                let color = if !self.enabled {
+                    theme.text_disabled
+                } else if self.checked {
+                    theme.accent_text
+                } else {
+                    theme.text
+                };
+                let side = theme.icon_size * scale;
+                icon.paint(cx.canvas(), square.centered(Size::new(side, side)), color)?;
+            }
+            ToolIcon::Picture(picture) => {
+                let opacity = if self.enabled { 1.0 } else { DISABLED_OPACITY };
+                picture.paint(cx.canvas(), square, opacity)?;
+            }
+        }
         if status.focus_visible() {
             paint_focus_ring(cx, square, radius)?;
         }
@@ -198,5 +236,36 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
 
     fn tooltip(&self) -> Option<&str> {
         self.tooltip.as_deref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use plt_platform::PhysicalSize;
+    use plt_raster::{Pixmap, Rgba8};
+
+    use super::*;
+    use crate::Ui;
+
+    #[test]
+    fn pictures_are_drawn_as_they_are_and_greyed_out_when_disabled() {
+        let black = Pixmap::filled(24, 24, Rgba8::new(0, 0, 0, 255)).unwrap();
+        let button = ToolButton::new(Picture::new(24.0, vec![black]), ());
+        let mut ui = Ui::new(button, PhysicalSize::new(32, 32), 1.0).unwrap();
+        let centre = |ui: &mut Ui<()>| {
+            let frame = ui.paint().unwrap();
+            frame.pixels()[(16 * 32 + 16) * 4]
+        };
+        assert_eq!(centre(&mut ui), 0, "black, as drawn");
+        let root = ui.root_id();
+        if let Some(button) = ui.widget_mut::<ToolButton<()>>(root) {
+            button.set_enabled(false);
+        }
+        let background = ui.theme().background.r * 255.0;
+        let greyed = f64::from(centre(&mut ui));
+        assert!(
+            (greyed - background * (1.0 - DISABLED_OPACITY)).abs() < 2.0,
+            "faded towards the background: {greyed}"
+        );
     }
 }

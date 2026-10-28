@@ -16,9 +16,10 @@
 //! the window idle, with a button hovered, pressed and focused, panning
 //! (with the pointer's coordinates) and zooming (with a rubber band); the
 //! figure options on each tab, with the axes list open, on a datetime
-//! axis and with a problem; the subplot tool; the save dialog, in a deep
-//! directory full of files, without a file name and replacing a file;
-//! and the help. Each is
+//! axis (in UTC and in the `timezone` rcParam's Tokyo), and with a problem
+//! in a field shown, on another tab and on other axes; the subplot tool; the save dialog, in a deep directory full of
+//! files, without a file name and replacing a file; and the help, at the
+//! top and scrolled to its end. Each is
 //! drawn at pixel ratios 1 and 2, in the modern light and dark looks and
 //! in matplotlib's. The dialogs open from the toolbar and the keyboard,
 //! as a user would open them, and synthetic input drives them.
@@ -198,7 +199,7 @@ const LOOKS: [(&str, Appearance); 3] = [
 type Scene = fn(&mut Offscreen) -> Result<WindowId, Box<dyn Error>>;
 
 /// The surfaces reviewed: a name for the files and how to show them.
-const SURFACES: [(&str, Scene); 17] = [
+const SURFACES: [(&str, Scene); 21] = [
     ("window-idle", |shown| Ok(shown.main())),
     ("window-hover", |shown| {
         shown.point(shown.main(), HOME_BUTTON)?;
@@ -249,11 +250,45 @@ const SURFACES: [(&str, Scene); 17] = [
         shown.press(dialog, Key::End, Modifiers::NONE)?;
         shown.settle()
     }),
+    ("options-dates-zone", |shown| {
+        plt::rc::context(|| {
+            plt::rc::set("timezone", "Asia/Tokyo")?;
+            let dialog = shown.open_axes_list()?;
+            shown.press(dialog, Key::End, Modifiers::NONE)?;
+            shown.settle()
+        })
+    }),
     ("options-problem", |shown| {
         let dialog = shown.open_tool(OPTIONS_TABS)?;
         // From the title to the x axis' minimum.
         shown.press(dialog, Key::Tab, Modifiers::NONE)?;
         shown.type_text(dialog, "ten")?;
+        shown.press(dialog, Key::Enter, Modifiers::NONE)?;
+        shown.settle()
+    }),
+    ("options-problem-tab", |shown| {
+        // The second curve's width refused from the Axes tab, the first
+        // curve selected.
+        let dialog = shown.open_tool(OPTIONS_TABS)?;
+        shown.press(dialog, Key::Tab, Modifiers::CONTROL)?;
+        shown.press(dialog, Key::Down, Modifiers::NONE)?;
+        shown.tab(dialog, CURVE_WIDTH_TABS, Modifiers::NONE)?;
+        shown.type_text(dialog, "thick")?;
+        shown.tab(dialog, CURVE_WIDTH_TABS, Modifiers::SHIFT)?;
+        shown.press(dialog, Key::Up, Modifiers::NONE)?;
+        shown.press(dialog, Key::Tab, Modifiers::CONTROL)?;
+        shown.press(dialog, Key::Enter, Modifiers::NONE)?;
+        shown.settle()
+    }),
+    ("options-problem-axes", |shown| {
+        // The first axes' minimum refused while the last axes show.
+        let dialog = shown.open_tool(OPTIONS_TABS)?;
+        shown.press(dialog, Key::Tab, Modifiers::NONE)?;
+        shown.type_text(dialog, "ten")?;
+        // Back past the title and the tabs to the axes list.
+        shown.tab(dialog, 3, Modifiers::SHIFT)?;
+        shown.press(dialog, Key::End, Modifiers::NONE)?;
+        shown.press(dialog, Key::Tab, Modifiers::NONE)?;
         shown.press(dialog, Key::Enter, Modifiers::NONE)?;
         shown.settle()
     }),
@@ -282,6 +317,12 @@ const SURFACES: [(&str, Scene); 17] = [
         shown.press(shown.main(), Key::F(1), Modifiers::NONE)?;
         shown.settle()
     }),
+    ("help-end", |shown| {
+        shown.press(shown.main(), Key::F(1), Modifiers::NONE)?;
+        let help = shown.settle()?;
+        shown.press(help, Key::End, Modifiers::NONE)?;
+        shown.settle()
+    }),
 ];
 
 /// The centre of the Home button, in logical pixels from the window's
@@ -294,6 +335,9 @@ const IN_AXES: (f64, f64) = (150.0, 150.0);
 const OPTIONS_TABS: usize = 4;
 /// How many Tabs lead from Home to the subplot tool's button.
 const SUBPLOTS_TABS: usize = 3;
+/// How many Tabs lead from the list of curves to the width of the curve
+/// selected: past its label, line style and draw style.
+const CURVE_WIDTH_TABS: usize = 4;
 /// A file of the save dialog's directory with a long name.
 const LONG_FILE: &str = "quarterly-results-with-a-rather-long-descriptive-name-final-v2.png";
 
@@ -414,9 +458,7 @@ impl Offscreen {
     fn open_tool(&mut self, tabs: usize) -> Result<WindowId, Box<dyn Error>> {
         let main = self.main();
         self.press(main, Key::Tab, Modifiers::CONTROL)?;
-        for _ in 0..tabs {
-            self.press(main, Key::Tab, Modifiers::NONE)?;
-        }
+        self.tab(main, tabs, Modifiers::NONE)?;
         self.type_text(main, " ")?;
         self.settle()
     }
@@ -425,10 +467,19 @@ impl Offscreen {
     /// from the title past the tabs.
     fn open_axes_list(&mut self) -> Result<WindowId, Box<dyn Error>> {
         let dialog = self.open_tool(OPTIONS_TABS)?;
-        for _ in 0..2 {
-            self.press(dialog, Key::Tab, Modifiers::SHIFT)?;
-        }
+        self.tab(dialog, 2, Modifiers::SHIFT)?;
         Ok(dialog)
+    }
+
+    /// Presses Tab `count` times with `modifiers` held (Shift to go
+    /// back).
+    fn tab(
+        &self,
+        window: WindowId,
+        count: usize,
+        modifiers: Modifiers,
+    ) -> Result<(), Box<dyn Error>> {
+        (0..count).try_for_each(|_| self.press(window, Key::Tab, modifiers))
     }
 
     /// The physical position of `(x, y)` logical pixels in `window`,

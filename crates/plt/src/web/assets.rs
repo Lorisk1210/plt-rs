@@ -1,7 +1,8 @@
 //! The browser client: matplotlib's pages, script, style sheets and
 //! toolbar icons, embedded unchanged (their license is in
-//! `assets/LICENSE`), and the parts matplotlib's server generates; the
-//! modern chrome's additions are in [`super::modern`].
+//! `assets/LICENSE`; the toolbar icons are shared with the figure
+//! windows, see [`crate::gui::images`]), and the parts matplotlib's server
+//! generates; the modern chrome's additions are in [`super::modern`].
 
 use std::fmt::Write as _;
 
@@ -9,6 +10,7 @@ use plt_core::json;
 
 use super::modern;
 use crate::figure::SaveFormat;
+use crate::gui::images;
 use crate::look::ChromeLook;
 
 /// A file served as it is.
@@ -37,6 +39,17 @@ macro_rules! asset {
     };
 }
 
+/// A toolbar image of [`images`], which the figure windows show too.
+macro_rules! toolbar_png {
+    ($path:literal, $bytes:expr) => {
+        Asset {
+            path: $path,
+            content_type: PNG,
+            bytes: $bytes,
+        }
+    };
+}
+
 /// The static files, at matplotlib's URLs.
 const STATIC: [Asset; 18] = [
     asset!("/_static/css/page.css", CSS, "css/page.css"),
@@ -44,30 +57,21 @@ const STATIC: [Asset; 18] = [
     asset!("/_static/css/fbm.css", CSS, "css/fbm.css"),
     asset!("/_static/css/mpl.css", CSS, "css/mpl.css"),
     asset!("/_static/js/mpl_tornado.js", JS, "js/mpl_tornado.js"),
-    asset!("/_images/home.png", PNG, "images/home.png"),
-    asset!("/_images/home_large.png", PNG, "images/home_large.png"),
-    asset!("/_images/back.png", PNG, "images/back.png"),
-    asset!("/_images/back_large.png", PNG, "images/back_large.png"),
-    asset!("/_images/forward.png", PNG, "images/forward.png"),
-    asset!(
-        "/_images/forward_large.png",
-        PNG,
-        "images/forward_large.png"
-    ),
-    asset!("/_images/move.png", PNG, "images/move.png"),
-    asset!("/_images/move_large.png", PNG, "images/move_large.png"),
-    asset!("/_images/zoom_to_rect.png", PNG, "images/zoom_to_rect.png"),
-    asset!(
+    toolbar_png!("/_images/home.png", images::HOME.normal),
+    toolbar_png!("/_images/home_large.png", images::HOME.large),
+    toolbar_png!("/_images/back.png", images::BACK.normal),
+    toolbar_png!("/_images/back_large.png", images::BACK.large),
+    toolbar_png!("/_images/forward.png", images::FORWARD.normal),
+    toolbar_png!("/_images/forward_large.png", images::FORWARD.large),
+    toolbar_png!("/_images/move.png", images::MOVE.normal),
+    toolbar_png!("/_images/move_large.png", images::MOVE.large),
+    toolbar_png!("/_images/zoom_to_rect.png", images::ZOOM_TO_RECT.normal),
+    toolbar_png!(
         "/_images/zoom_to_rect_large.png",
-        PNG,
-        "images/zoom_to_rect_large.png"
+        images::ZOOM_TO_RECT.large
     ),
-    asset!("/_images/filesave.png", PNG, "images/filesave.png"),
-    asset!(
-        "/_images/filesave_large.png",
-        PNG,
-        "images/filesave_large.png"
-    ),
+    toolbar_png!("/_images/filesave.png", images::FILESAVE.normal),
+    toolbar_png!("/_images/filesave_large.png", images::FILESAVE.large),
     asset!("/favicon.ico", PNG, "images/matplotlib.png"),
 ];
 

@@ -5,7 +5,8 @@ use plt_core::Rgba;
 use plt_ui::{Choice, Flex, Label, Spacing, Swatch, TextInput, UiWindow, Widget, WidgetId};
 
 use super::OptionsMessage;
-use crate::dates::{TimeZone, datestr2num, num2date};
+use crate::dates::iso::fromisoformat;
+use crate::dates::{TimeZone, ZonedDateTime, date2num, num2date};
 use crate::markers::{Marker, MarkerKey, MarkerSymbol};
 use crate::ticker::{g_sig_digits, pyfmt};
 
@@ -170,22 +171,31 @@ pub(super) fn parse_limit(name: &str, text: &str) -> Result<f64, String> {
     }
 }
 
-/// How limits on axes of dates show: the date and time in UTC, to the
-/// second.
+/// How limits on axes of dates show: the date and time, to the second.
 const DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
-/// Date number `x` as a date in [`DATE_FORMAT`], if it is a date.
-pub(super) fn date_text(x: f64) -> Option<String> {
-    num2date(x, &TimeZone::Utc)
+/// The zone dates show in: the `timezone` rcParam, resolved as
+/// matplotlib's date formatting resolves it (`dates._get_tzinfo`), or UTC
+/// when the system knows no such zone.
+pub(super) fn date_zone() -> TimeZone {
+    TimeZone::named(&crate::rc::params().timezone).unwrap_or_default()
+}
+
+/// Date number `x` as a date in `zone`, in [`DATE_FORMAT`], if it is a
+/// date.
+pub(super) fn date_text(x: f64, zone: &TimeZone) -> Option<String> {
+    num2date(x, zone)
         .ok()
         .map(|date| date.strftime(DATE_FORMAT))
 }
 
 /// The date typed into the field called `name`, as a date number: ISO
-/// 8601 (the time may be left out), in UTC unless it gives an offset.
-pub(super) fn parse_date(name: &str, text: &str) -> Result<f64, String> {
-    datestr2num(text.trim())
-        .map_err(|_| format!("{name}: {text:?} is not a date (YYYY-MM-DD HH:MM:SS)"))
+/// 8601 (the time may be left out), in `zone` unless it gives an offset.
+pub(super) fn parse_date(name: &str, text: &str, zone: &TimeZone) -> Result<f64, String> {
+    let invalid = |_| format!("{name}: {text:?} is not a date (YYYY-MM-DD HH:MM:SS)");
+    let (local, offset) = fromisoformat(text.trim()).map_err(invalid)?;
+    let zone = offset.map_or_else(|| zone.clone(), TimeZone::Fixed);
+    date2num(&ZonedDateTime::from_local(local, zone)).map_err(invalid)
 }
 
 /// The colour typed into the field called `name`.
@@ -272,15 +282,51 @@ mod tests {
     }
 
     #[test]
-    fn dates_show_and_read_back_in_utc() {
-        assert_eq!(date_text(18_262.5).as_deref(), Some("2020-01-01 12:00:00"));
-        assert_eq!(parse_date("Min", " 2020-01-01 12:00:00 "), Ok(18_262.5));
-        assert_eq!(parse_date("Min", "2020-01-01"), Ok(18_262.0));
+    fn dates_show_and_read_back_in_their_zone() {
+        let utc = TimeZone::Utc;
         assert_eq!(
-            parse_date("X min", "soon"),
+            date_text(18_262.5, &utc).as_deref(),
+            Some("2020-01-01 12:00:00")
+        );
+        assert_eq!(
+            parse_date("Min", " 2020-01-01 12:00:00 ", &utc),
+            Ok(18_262.5)
+        );
+        assert_eq!(parse_date("Min", "2020-01-01", &utc), Ok(18_262.0));
+        assert_eq!(
+            parse_date("X min", "soon", &utc),
             Err("X min: \"soon\" is not a date (YYYY-MM-DD HH:MM:SS)".to_owned())
         );
-        assert_eq!(date_text(f64::NAN), None);
+        assert_eq!(date_text(f64::NAN, &utc), None);
+        let east = TimeZone::Fixed(crate::dates::UtcOffset::from_seconds(2 * 3600).unwrap());
+        assert_eq!(
+            date_text(18_262.5, &east).as_deref(),
+            Some("2020-01-01 14:00:00")
+        );
+        assert_eq!(
+            parse_date("Min", "2020-01-01 14:00:00", &east),
+            Ok(18_262.5)
+        );
+        assert_eq!(
+            parse_date("Min", "2020-01-01T12:00:00+00:00", &east),
+            Ok(18_262.5),
+            "an offset typed wins"
+        );
+    }
+
+    #[test]
+    fn dates_take_the_timezone_rc_param() {
+        let zone = |name: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("timezone", name).unwrap();
+                date_zone()
+            })
+        };
+        assert_eq!(zone("UTC"), TimeZone::Utc);
+        assert_eq!(zone("Nowhere/Atlantis"), TimeZone::Utc, "unknown zones");
+        if let Ok(paris) = TimeZone::named("Europe/Paris") {
+            assert_eq!(zone("Europe/Paris"), paris);
+        }
     }
 
     #[test]

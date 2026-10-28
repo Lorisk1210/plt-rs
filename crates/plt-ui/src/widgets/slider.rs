@@ -244,11 +244,11 @@ impl<M: 'static> Widget<M> for Slider<M> {
         let shadow = Path::circle(Point::new(x, y + scale), radius);
         cx.canvas().fill_path(&shadow, theme.shadow)?;
         let thumb = Path::circle(Point::new(x, y), radius);
-        cx.canvas().fill_path(&thumb, theme.raised)?;
+        cx.canvas().fill_path(&thumb, theme.thumb)?;
         let outline = if status.active || status.hot {
             theme.accent
         } else {
-            theme.border
+            theme.border_strong
         };
         let ring = Path::circle(Point::new(x, y), radius - scale / 2.0);
         cx.canvas().stroke_path(&ring, scale, outline)?;

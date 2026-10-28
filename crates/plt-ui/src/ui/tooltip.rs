@@ -7,14 +7,11 @@ use crate::canvas::Canvas;
 use crate::error::UiError;
 use crate::geometry::{Rect, Size};
 use crate::text::TextLayout;
-use crate::theme::{Spacing, Theme};
+use crate::theme::{Spacing, Theme, TooltipStyle};
 use crate::widget::WidgetId;
 
-/// Space between a tooltip's edge and its text, left and right.
-const PADDING_X: Spacing = Spacing::Sm;
-/// Space between a tooltip's edge and its text, above and below.
-const PADDING_Y: Spacing = Spacing::Xs;
-/// Space between a tooltip and its widget, and the window's edges.
+/// Space between a tooltip and the window's edges, and between a bubble
+/// and its widget.
 const MARGIN: Spacing = Spacing::Xs;
 
 /// Where the tooltip of the widget under the pointer (or given the focus
@@ -120,8 +117,8 @@ impl<M: 'static> Ui<M> {
 }
 
 /// Paints `text` in a tooltip next to `anchor`, the rectangle of its
-/// widget: below it when there is room in a window of `window` pixels,
-/// else above, and never past the window's sides.
+/// widget, in a window of `window` pixels, as the theme's
+/// [`TooltipStyle`] shows tooltips, never past the window's edges.
 pub(super) fn paint(
     canvas: &mut Canvas<'_>,
     theme: &Theme,
@@ -130,31 +127,102 @@ pub(super) fn paint(
     window: Size,
 ) -> Result<(), UiError> {
     let scale = canvas.scale_factor();
+    let style = theme.tooltip_style;
     let layout = TextLayout::new(text, &theme.text_style(), scale)?;
     let text_size = layout.size();
-    let padding = Size::new(
-        theme.space(PADDING_X) * scale,
-        theme.space(PADDING_Y) * scale,
-    );
-    let margin = theme.space(MARGIN) * scale;
+    let (across, down) = padding(style);
+    let padding = Size::new(theme.space(across) * scale, theme.space(down) * scale);
     let size = Size::new(
         text_size.width + 2.0 * padding.width,
         text_size.height + 2.0 * padding.height,
     );
-    let below = anchor.max_y() + margin;
-    let y = if below + size.height <= window.height - margin {
-        below
-    } else {
-        anchor.y - margin - size.height
-    };
-    let centered = anchor.center().x - size.width / 2.0;
-    let x = centered.min(window.width - margin - size.width).max(margin);
-    let bubble = Rect::new(x, y, size.width, size.height).snapped();
-    let radius = theme.corner_radius * scale;
-    let shadow = Rect::new(bubble.x, bubble.y + scale, bubble.width, bubble.height);
-    canvas.fill_rounded_rect(shadow.inset(-scale), radius + scale, theme.shadow)?;
-    canvas.fill_rounded_rect(bubble, radius, theme.tooltip)?;
-    canvas.stroke_rounded_rect(bubble, radius, scale, theme.tooltip_border)?;
-    let origin = Point::new(bubble.x + padding.width, bubble.y + padding.height);
+    let margin = theme.space(MARGIN) * scale;
+    let corner = place(style, anchor, size, window, margin);
+    let tip = Rect::from_origin_size(corner, size).snapped();
+    match style {
+        TooltipStyle::Bubble => {
+            let radius = theme.corner_radius * scale;
+            let shadow = Rect::new(tip.x, tip.y + scale, tip.width, tip.height);
+            canvas.fill_rounded_rect(shadow.inset(-scale), radius + scale, theme.shadow)?;
+            canvas.fill_rounded_rect(tip, radius, theme.tooltip)?;
+            canvas.stroke_rounded_rect(tip, radius, scale, theme.tooltip_border)?;
+        }
+        TooltipStyle::Tk => {
+            canvas.fill_rect(tip, theme.tooltip)?;
+            canvas.stroke_rect(tip, scale, theme.tooltip_border)?;
+        }
+    }
+    let origin = Point::new(tip.x + padding.width, tip.y + padding.height);
     canvas.draw_text(&layout, origin, theme.tooltip_text)
+}
+
+/// The space between a tooltip's edge and its text, across and down: Tk
+/// sets its tooltips tightly.
+fn padding(style: TooltipStyle) -> (Spacing, Spacing) {
+    match style {
+        TooltipStyle::Bubble => (Spacing::Sm, Spacing::Xs),
+        TooltipStyle::Tk => (Spacing::Xs, Spacing::Xxs),
+    }
+}
+
+/// The top-left corner of a tooltip of `size` for the widget at `anchor`
+/// in a window of `window` pixels, at least `margin` from the window's
+/// edges: a bubble centred below the widget (above it when there is no
+/// room below), a Tk tooltip right of the widget level with its top (left
+/// of it when there is no room on the right).
+fn place(style: TooltipStyle, anchor: Rect, size: Size, window: Size, margin: f64) -> Point {
+    let (x, y) = match style {
+        TooltipStyle::Bubble => {
+            let below = anchor.max_y() + margin;
+            let y = if below + size.height <= window.height - margin {
+                below
+            } else {
+                anchor.y - margin - size.height
+            };
+            (anchor.center().x - size.width / 2.0, y)
+        }
+        TooltipStyle::Tk => {
+            let x = if anchor.max_x() + size.width <= window.width - margin {
+                anchor.max_x()
+            } else {
+                anchor.x - size.width
+            };
+            (x, anchor.y.min(window.height - margin - size.height))
+        }
+    };
+    let x = x.min(window.width - margin - size.width).max(margin);
+    Point::new(x, y.max(margin))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const WINDOW: Size = Size::new(400.0, 300.0);
+    const TIP: Size = Size::new(60.0, 20.0);
+
+    #[test]
+    fn bubbles_centre_below_their_widget_or_above_it() {
+        let button = Rect::new(100.0, 100.0, 32.0, 32.0);
+        let corner = place(TooltipStyle::Bubble, button, TIP, WINDOW, 4.0);
+        assert_eq!(corner, Point::new(86.0, 136.0));
+        let low = Rect::new(100.0, 270.0, 32.0, 28.0);
+        let corner = place(TooltipStyle::Bubble, low, TIP, WINDOW, 4.0);
+        assert_eq!(corner, Point::new(86.0, 246.0), "above, without room below");
+        let left = Rect::new(0.0, 100.0, 32.0, 32.0);
+        assert_eq!(place(TooltipStyle::Bubble, left, TIP, WINDOW, 4.0).x, 4.0);
+    }
+
+    #[test]
+    fn tk_tooltips_sit_right_of_their_widget_level_with_its_top() {
+        let button = Rect::new(100.0, 100.0, 32.0, 32.0);
+        let corner = place(TooltipStyle::Tk, button, TIP, WINDOW, 4.0);
+        assert_eq!(corner, Point::new(132.0, 100.0));
+        let right = Rect::new(360.0, 100.0, 32.0, 32.0);
+        let corner = place(TooltipStyle::Tk, right, TIP, WINDOW, 4.0);
+        assert_eq!(corner, Point::new(300.0, 100.0), "left, without room right");
+        let low = Rect::new(100.0, 280.0, 32.0, 20.0);
+        let corner = place(TooltipStyle::Tk, low, TIP, WINDOW, 4.0);
+        assert_eq!(corner, Point::new(132.0, 276.0), "inside the window");
+    }
 }

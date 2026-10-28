@@ -10,6 +10,13 @@ all_figures.html the way the Tornado templates would, and appends the
 toolbar items and file formats to js/mpl.js as matplotlib's
 FigureManagerWebAgg.get_javascript does.
 
+The toolbar images in images/ are also the toolbar icons of plt-rs'
+figure windows in matplotlib's look (crates/plt/src/gui/images.rs, which
+embeds these same files), drawn as matplotlib's Tk toolbar draws them:
+the 24-pixel image on 1x screens and the _large one on 2x screens, faded
+while their button is disabled. Only the windows use the subplots,
+qt4_editor_options and help images.
+
 The ResizeObserver polyfill at the end of js/mpl.js is JSXTools' resize
 observer, dedicated to the public domain under CC0-1.0.
 

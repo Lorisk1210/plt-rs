@@ -169,13 +169,24 @@ impl<'a> Canvas<'a> {
     /// Draws an image with its top-left corner at `origin` (rounded to
     /// whole pixels).
     pub fn draw_pixmap(&mut self, image: &Pixmap, origin: Point) -> Result<(), UiError> {
+        self.draw_pixmap_with_opacity(image, origin, 1.0)
+    }
+
+    /// Draws an image faded to `opacity` (from 0, invisible, to 1) with
+    /// its top-left corner at `origin` (rounded to whole pixels).
+    pub fn draw_pixmap_with_opacity(
+        &mut self,
+        image: &Pixmap,
+        origin: Point,
+        opacity: f64,
+    ) -> Result<(), UiError> {
         let clip = Clip::rect(self.clip_box());
         draw_image(
             self.target,
             image,
             round(origin.x),
             round(origin.y),
-            1.0,
+            opacity,
             &clip,
         )?;
         Ok(())

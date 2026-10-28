@@ -48,6 +48,21 @@ pub(super) struct CurveFields {
     pub(super) edge: WidgetId,
 }
 
+impl CurveFields {
+    /// The text fields, which a problem may name.
+    pub(super) fn text_fields(&self) -> [WidgetId; 7] {
+        [
+            self.label,
+            self.width,
+            self.color,
+            self.marker,
+            self.marker_size,
+            self.face,
+            self.edge,
+        ]
+    }
+}
+
 /// The fields of one image.
 #[derive(Debug)]
 pub(super) struct ImageFields {
@@ -57,6 +72,45 @@ pub(super) struct ImageFields {
     pub(super) min: WidgetId,
     pub(super) max: WidgetId,
     pub(super) interpolation: WidgetId,
+}
+
+impl ImageFields {
+    /// The text fields, which a problem may name.
+    pub(super) fn text_fields(&self) -> [WidgetId; 5] {
+        [
+            self.label,
+            self.cmap,
+            self.min,
+            self.max,
+            self.interpolation,
+        ]
+    }
+}
+
+/// The list of an axes' curves or images, and the stack of pages beside
+/// it holding the fields of each.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Detail {
+    list: WidgetId,
+    pages: WidgetId,
+}
+
+impl Detail {
+    /// Selects artist `index` in the list and shows its fields.
+    pub(super) fn show(self, window: &mut UiWindow<OptionsMessage>, index: usize) {
+        if let Some(list) = window
+            .ui_mut()
+            .widget_mut::<List<OptionsMessage>>(self.list)
+        {
+            list.set_selected(Some(index));
+        }
+        if let Some(pages) = window
+            .ui_mut()
+            .widget_mut::<Stack<OptionsMessage>>(self.pages)
+        {
+            pages.show(index);
+        }
+    }
 }
 
 /// The settings of a curve read from its fields.
@@ -98,25 +152,25 @@ pub(super) fn edited_lines(axes: &Axes) -> Vec<Line2D> {
 
 /// A list of an axes' artists named `names` beside a stack of pages, the
 /// fields of the selected artist: the list sends `message(index)` when
-/// another is selected. Returns the panel and the stack.
+/// another is selected. Returns the panel and its parts.
 fn master_detail(
     names: Vec<ListItem>,
     message: impl Fn(usize) -> OptionsMessage + 'static,
     pages: Stack<OptionsMessage>,
-) -> (Flex<OptionsMessage>, WidgetId) {
+) -> (Flex<OptionsMessage>, Detail) {
     let mut panel = Flex::row().with_spacing(Spacing::Lg);
     let mut list = List::new(names, message);
     list.set_selected(Some(0));
-    panel.push(list, 0.0);
+    let list = panel.push(list, 0.0);
     let pages = panel.push(pages, 1.0);
-    (panel, pages)
+    (panel, Detail { list, pages })
 }
 
 /// A list of curves beside the fields of the selected one.
 pub(super) fn curves_panel(
     lines: &[Line2D],
     page: usize,
-) -> (Vec<CurveFields>, Flex<OptionsMessage>, WidgetId) {
+) -> (Vec<CurveFields>, Flex<OptionsMessage>, Detail) {
     let items = lines
         .iter()
         .map(|line| ListItem::new(shown_label(&line.label())))
@@ -131,8 +185,8 @@ pub(super) fn curves_panel(
         })
         .collect();
     let message = move |index| OptionsMessage::Curve { page, index };
-    let (panel, pages) = master_detail(items, message, pages);
-    (fields, panel, pages)
+    let (panel, detail) = master_detail(items, message, pages);
+    (fields, panel, detail)
 }
 
 /// The fields of one curve.
@@ -210,7 +264,7 @@ fn marker_color(line: &Line2D, color: ColorOrAuto) -> String {
 pub(super) fn images_panel(
     images: &[AxesImage],
     page: usize,
-) -> (Vec<ImageFields>, Flex<OptionsMessage>, WidgetId) {
+) -> (Vec<ImageFields>, Flex<OptionsMessage>, Detail) {
     let items = images
         .iter()
         .map(|image| ListItem::new(shown_label(&image.label())))
@@ -225,8 +279,8 @@ pub(super) fn images_panel(
         })
         .collect();
     let message = move |index| OptionsMessage::Image { page, index };
-    let (panel, pages) = master_detail(items, message, pages);
-    (fields, panel, pages)
+    let (panel, detail) = master_detail(items, message, pages);
+    (fields, panel, detail)
 }
 
 /// The fields of one image.

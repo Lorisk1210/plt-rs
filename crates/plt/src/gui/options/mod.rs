@@ -10,6 +10,7 @@ use plt_platform::{Context, WindowEvent, WindowId};
 use plt_ui::{Dropdown, Flex, Label, Spacing, Stack, Swatch, TextInput, UiWindow, WidgetId};
 
 use self::axes_page::AxesPage;
+use self::fields::FieldError;
 use super::GuiError;
 use super::dialog::{self, Dialog};
 use crate::figure::Figure;
@@ -91,6 +92,8 @@ fn axes_name(title: &str, index: usize) -> String {
 pub(super) struct OptionsDialog {
     window: UiWindow<OptionsMessage>,
     pages: Vec<AxesPage>,
+    /// The choice of the axes, when the figure has several.
+    axes_choice: Option<WidgetId>,
     axes_pages: WidgetId,
     status: WidgetId,
 }
@@ -108,18 +111,18 @@ impl OptionsDialog {
             return Ok(None);
         }
         let mut content = Flex::column().with_spacing(dialog::GAP);
-        if axes.len() > 1 {
+        let axes_choice = (axes.len() > 1).then(|| {
             let names = axes
                 .iter()
                 .enumerate()
                 .map(|(i, ax)| axes_name(&ax.shown_title().1, i))
                 .collect();
-            let chooser = Flex::row()
-                .with_spacing(Spacing::Md)
-                .with_child(Label::new("Axes"))
-                .with_child(Dropdown::new(names, OptionsMessage::Axes));
+            let mut chooser = Flex::row().with_spacing(Spacing::Md);
+            chooser.push(Label::new("Axes"), 0.0);
+            let choice = chooser.push(Dropdown::new(names, OptionsMessage::Axes), 0.0);
             content.push(chooser, 0.0);
-        }
+            choice
+        });
         let mut stack = Stack::new();
         let pages: Vec<AxesPage> = axes
             .iter()
@@ -143,6 +146,7 @@ impl OptionsDialog {
         Ok(Some(Self {
             window,
             pages,
+            axes_choice,
             axes_pages,
             status,
         }))
@@ -170,13 +174,7 @@ impl OptionsDialog {
         for message in self.window.handle(cx, event)? {
             outcome = match message {
                 OptionsMessage::Axes(index) => {
-                    if let Some(stack) = self
-                        .window
-                        .ui_mut()
-                        .widget_mut::<Stack<OptionsMessage>>(self.axes_pages)
-                    {
-                        stack.show(index);
-                    }
+                    self.show_axes(index);
                     Outcome::Open
                 }
                 OptionsMessage::Tab { page, tab } => {
@@ -216,25 +214,36 @@ impl OptionsDialog {
         Ok(outcome)
     }
 
-    /// Reads every page and applies them all, or shows the first problem,
-    /// marks its field and changes nothing.
+    /// Shows the page of axes `index` and names them in the axes choice.
+    fn show_axes(&mut self, index: usize) {
+        let ui = self.window.ui_mut();
+        if let Some(choice) = self.axes_choice
+            && let Some(choice) = ui.widget_mut::<Dropdown<OptionsMessage>>(choice)
+        {
+            choice.set_chosen(index);
+        }
+        if let Some(stack) = ui.widget_mut::<Stack<OptionsMessage>>(self.axes_pages) {
+            stack.show(index);
+        }
+    }
+
+    /// Reads every page and applies them all, or shows the first problem
+    /// and changes nothing.
     fn apply(&mut self, cx: &mut Context<'_>, close: bool) -> Result<Outcome, GuiError> {
         let mut plans = Vec::with_capacity(self.pages.len());
-        for page in &self.pages {
+        let mut refused = None;
+        for (index, page) in self.pages.iter().enumerate() {
             match page.read(&mut self.window) {
                 Ok(plan) => plans.push(plan),
                 Err(problem) => {
-                    self.window.update(
-                        cx,
-                        problem.field,
-                        |field: &mut TextInput<OptionsMessage>| field.set_invalid(true),
-                    )?;
-                    self.window.update(cx, self.status, |label: &mut Label| {
-                        label.set_text(problem.message);
-                    })?;
-                    return Ok(Outcome::Open);
+                    refused = Some((index, problem));
+                    break;
                 }
             }
+        }
+        if let Some((page, problem)) = refused {
+            self.refuse(cx, page, problem)?;
+            return Ok(Outcome::Open);
         }
         let limits_changed = self
             .pages
@@ -247,6 +256,35 @@ impl OptionsDialog {
             limits_changed,
             close,
         })
+    }
+
+    /// Shows the field `problem` names, on axes page `page`: switches to
+    /// its axes, its tab and its curve or image, marks the field and gives
+    /// it the focus with its text selected, ready to be typed over, and
+    /// tells what is wrong in the status line.
+    fn refuse(
+        &mut self,
+        cx: &mut Context<'_>,
+        page: usize,
+        problem: FieldError,
+    ) -> Result<(), GuiError> {
+        self.show_axes(page);
+        if let Some(axes) = self.pages.get(page) {
+            axes.reveal(&mut self.window, problem.field);
+        }
+        self.window.update(
+            cx,
+            problem.field,
+            |field: &mut TextInput<OptionsMessage>| {
+                field.set_invalid(true);
+                field.select(0, field.text().len());
+            },
+        )?;
+        self.window.ui_mut().set_focus(Some(problem.field));
+        self.window.update(cx, self.status, |label: &mut Label| {
+            label.set_text(problem.message);
+        })?;
+        Ok(())
     }
 
     /// Closes the dialog's window.

@@ -177,8 +177,8 @@ fn polar_grids(fig: &Figure) -> CaseResult {
     with_current(fig, || {
         let theta = linspace(0.0, 2.0 * PI, 100);
         pyplot::polar(&theta, map(&theta, |t| 1.0 + 0.5 * (3.0 * t).sin()))?;
-        pyplot::rgrids_labeled(&[0.5, 1.0, 1.5], ["a", "b", "c"], Some(45.0))?;
-        pyplot::thetagrids(&[0.0, 90.0, 180.0, 270.0])?;
+        pyplot::rgrids_labeled([0.5, 1.0, 1.5], ["a", "b", "c"], Some(45.0))?;
+        pyplot::thetagrids([0.0, 90.0, 180.0, 270.0])?;
         pyplot::title("polar");
         Ok(())
     })

@@ -13,9 +13,11 @@ use crate::artist::ArtistHandle;
 use crate::axes::axis::AxisRole;
 use crate::axes::projection::ProjectionState;
 use crate::axes::{Adjustable, Axes, AxesState, AxisName, PlotError, ProjectionKind, Sides};
+use crate::numeric::Number;
 use crate::rc::Aspect;
 use crate::scale::{LinearScale, ScaleError, ScaleName};
 use crate::transforms::Anchor;
+use crate::units::AxisValues;
 
 /// Why a polar setting was refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -318,15 +320,27 @@ impl PolarAxes {
     }
 
     /// Puts the radial ticks exactly at `radii`, like
-    /// [`set_yticks`](Axes::set_yticks).
-    pub fn set_rticks(&self, radii: &[f64]) -> &Self {
-        self.axes.set_yticks(radii.to_vec());
+    /// [`set_yticks`](Axes::set_yticks), which takes the same values.
+    ///
+    /// ```
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().polar_subplot();
+    /// ax.set_rticks([0.5, 1.0, 1.5]).set_thetagrids([0, 90, 180, 270]);
+    /// assert_eq!(ax.yaxis().ticklocs(false)?, [0.5, 1.0, 1.5]);
+    /// assert_eq!(ax.xaxis().ticklabels(false)?, ["0°", "90°", "180°", "270°"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_rticks(&self, radii: impl Into<AxisValues>) -> &Self {
+        self.axes.set_yticks(radii);
         self
     }
 
     /// Puts θ gridlines at `angles` degrees, keeping the degree labels.
-    pub fn set_thetagrids(&self, angles: &[f64]) -> &Self {
-        let radians: Vec<f64> = angles.iter().map(|a| a.to_radians()).collect();
+    pub fn set_thetagrids(&self, angles: impl IntoIterator<Item: Number>) -> &Self {
+        let radians: Vec<f64> = angles
+            .into_iter()
+            .map(|a| a.to_f64().to_radians())
+            .collect();
         self.axes.set_xticks(radians);
         self
     }
@@ -338,7 +352,7 @@ impl PolarAxes {
     /// When the number of labels differs from the number of angles.
     pub fn set_thetagrids_labeled<S: Into<String>>(
         &self,
-        angles: &[f64],
+        angles: impl IntoIterator<Item: Number>,
         labels: impl IntoIterator<Item = S>,
     ) -> Result<&Self, PlotError> {
         self.set_thetagrids(angles);
@@ -348,7 +362,7 @@ impl PolarAxes {
 
     /// Puts radial gridlines at `radii`, with their labels at `angle`
     /// degrees (the current label angle when `None`).
-    pub fn set_rgrids(&self, radii: &[f64], angle: Option<f64>) -> &Self {
+    pub fn set_rgrids(&self, radii: impl Into<AxisValues>, angle: Option<f64>) -> &Self {
         self.set_rticks(radii);
         self.set_rlabel_position(angle.unwrap_or_else(|| self.rlabel_position()))
     }
@@ -361,7 +375,7 @@ impl PolarAxes {
     /// When the number of labels differs from the number of radii.
     pub fn set_rgrids_labeled<S: Into<String>>(
         &self,
-        radii: &[f64],
+        radii: impl Into<AxisValues>,
         labels: impl IntoIterator<Item = S>,
         angle: Option<f64>,
     ) -> Result<&Self, PlotError> {
@@ -425,7 +439,7 @@ mod tests {
         // matplotlib's test_set_rticks_ticklabels_no_warning: the labels
         // belong to the fixed radii the radial locator wraps.
         let ax = Figure::new().polar_subplot();
-        ax.set_rticks(&[0.0, 1.0, 2.0, 3.0]);
+        ax.set_rticks([0.0, 1.0, 2.0, 3.0]);
         ax.yaxis()
             .set_ticklabels(["zero", "one", "two", "three"])
             .unwrap();

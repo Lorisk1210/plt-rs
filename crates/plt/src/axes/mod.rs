@@ -97,6 +97,9 @@ mod view_limits;
 mod violin;
 mod which;
 
+// The settings `set_aspect` and `set_axisbelow` take, which the
+// `image.aspect` and `axes.axisbelow` rcParams hold too.
+pub use crate::rc::{Aspect, AxisBelow};
 pub use crate::ticker::AxisName;
 pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError, AxesLocatorFn};

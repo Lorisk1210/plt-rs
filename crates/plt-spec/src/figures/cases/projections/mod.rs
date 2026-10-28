@@ -92,7 +92,7 @@ fn insets(fig: &Figure) -> CaseResult {
     polar
         .as_polar()
         .ok_or("a polar inset")?
-        .set_rticks(&[0.5, 1.0]);
+        .set_rticks([0.5, 1.0]);
     Ok(())
 }
 

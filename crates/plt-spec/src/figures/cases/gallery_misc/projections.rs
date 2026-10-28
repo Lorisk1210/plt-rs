@@ -381,7 +381,7 @@ fn radar_chart(fig: &Figure) -> CaseResult {
     for (ax, (title, profiles)) in axs.iter().zip(&RADAR_DATA) {
         ax.set_frame(PolarFrame::Polygon(spokes))?
             .set_theta_zero_location(Compass::N, 0.0);
-        ax.set_rgrids(&[0.2, 0.4, 0.6, 0.8], None);
+        ax.set_rgrids([0.2, 0.4, 0.6, 0.8], None);
         // matplotlib's `y` (1.0) overrides the `position` given with it.
         ax.set_title(*title)
             .set_weight(FontWeight::BOLD)

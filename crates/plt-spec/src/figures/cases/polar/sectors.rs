@@ -80,7 +80,7 @@ fn gauge(fig: &Figure) -> CaseResult {
     ax.plot_with(theta, vec![0.8; 50], props)?;
     ax.set_rorigin(Some(-1.0))
         .set_rlim(0.0, 1.0)?
-        .set_rticks(&[]);
+        .set_rticks(Vec::<f64>::new());
     let angles: Vec<f64> = (0..7).map(|i| -135.0 + 45.0 * f64::from(i)).collect();
     ax.set_thetagrids(&angles);
     Ok(())

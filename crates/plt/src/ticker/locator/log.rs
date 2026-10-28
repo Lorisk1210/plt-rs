@@ -18,6 +18,20 @@ pub enum LogSubs {
     Explicit(Vec<f64>),
 }
 
+/// Explicit multiples given as a list, as matplotlib's `subs=[2, 5]`.
+impl From<Vec<f64>> for LogSubs {
+    fn from(subs: Vec<f64>) -> Self {
+        Self::Explicit(subs)
+    }
+}
+
+/// Explicit multiples given as an array, as matplotlib's `subs=(2, 5)`.
+impl<const N: usize> From<[f64; N]> for LogSubs {
+    fn from(subs: [f64; N]) -> Self {
+        Self::Explicit(subs.to_vec())
+    }
+}
+
 /// The maximum number of major ticks a [`LogLocator`] places.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NumTicks {
@@ -71,10 +85,21 @@ impl LogLocator {
         Self::from_base(base).with_numticks(numticks)
     }
 
-    /// Sets the multiples of each power.
+    /// Sets the multiples of each power: a [`LogSubs`], or the multiples
+    /// themselves in an array or a `Vec`.
+    ///
+    /// ```
+    /// use plt::ticker::{Locator, LogLocator, LogSubs, TickContext};
+    /// let minor = LogLocator::new(10.0)?.with_subs([2.0, 5.0]);
+    /// assert_eq!(minor.subs(), &LogSubs::Explicit(vec![2.0, 5.0]));
+    /// let ticks = minor.tick_values(1.0, 100.0, &TickContext::default())?;
+    /// let inside: Vec<f64> = ticks.into_iter().filter(|t| (1.0..=100.0).contains(t)).collect();
+    /// assert_eq!(inside, [2.0, 5.0, 20.0, 50.0]);
+    /// # Ok::<(), plt::ticker::TickerError>(())
+    /// ```
     #[must_use]
-    pub fn with_subs(mut self, subs: LogSubs) -> Self {
-        self.subs = subs;
+    pub fn with_subs(mut self, subs: impl Into<LogSubs>) -> Self {
+        self.subs = subs.into();
         self
     }
 
@@ -360,6 +385,17 @@ mod tests {
         locator
             .tick_values(vmin, vmax, &TickContext::default())
             .unwrap()
+    }
+
+    #[test]
+    fn explicit_subs_convert_from_lists() {
+        assert_eq!(
+            LogSubs::from(vec![2.0, 5.0]),
+            LogSubs::Explicit(vec![2.0, 5.0])
+        );
+        assert_eq!(LogSubs::from([3.0]), LogSubs::Explicit(vec![3.0]));
+        let locator = LogLocator::default().with_subs([1.0, 2.0, 5.0]);
+        assert_eq!(ticks(&locator, 1.0, 10.0)[..4], [0.1, 0.2, 0.5, 1.0]);
     }
 
     #[test]

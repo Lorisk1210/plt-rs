@@ -63,7 +63,34 @@
 //!
 //! [`Axes::twinx`] makes a second axes over the first, sharing its x
 //! axis but with a y axis of its own on the right, for two quantities
-//! measured in different units along the same x.
+//! measured in different units along the same x. It returns a `Result`:
+//! axes that fix their aspect, as polar axes do, cannot have twins. Each
+//! of the two axes has its own legend; for one legend listing the
+//! artists of both, give it their handles, and put it on the twin, which
+//! is drawn on top.
+//!
+//! ```
+//! use plt::legend::LegendHandle;
+//! use plt::prelude::*;
+//!
+//! let ax = Figure::new().subplot();
+//! let months = ["Jan", "Feb", "Mar", "Apr"];
+//! let rain = BarOptions { label: Some("rain".into()), ..BarOptions::default() };
+//! let bars = ax.bar(months, [64.0, 59.0, 70.0, 88.0], rain)?;
+//! ax.set_ylabel("rain (mm)");
+//!
+//! let right = ax.twinx()?;
+//! let warmth = LineProps::default().color("tab:red").label("temperature");
+//! let line = right.plot_with(months, [0.5, 1.8, 5.6, 9.4], warmth)?;
+//! right.set_ylabel("temperature (°C)");
+//!
+//! let both = [LegendHandle::from(&bars), LegendHandle::from(&line)];
+//! let legend = right.legend(LegendOptions::default().handles(both))?;
+//! assert_eq!(legend.labels(), ["rain", "temperature"]);
+//! assert_eq!(right.xlim(), ax.xlim(), "one x axis");
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! Gallery: `twin_axes` and `secondary_axes` in `layout.rs`.
 //!
 //! # Mosaics

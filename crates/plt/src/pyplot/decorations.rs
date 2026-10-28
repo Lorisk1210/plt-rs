@@ -12,6 +12,7 @@ use crate::axes::{
 };
 use crate::coords::CoordError;
 use crate::legend::{Legend, LegendError, LegendOptions};
+use crate::numeric::Number;
 use crate::polar::PolarAxes;
 use crate::scale::{ScaleError, ScaleName};
 use crate::table::{Table, TableError, TableOptions};
@@ -352,7 +353,7 @@ pub fn table(options: TableOptions) -> Result<Table, TableError> {
 /// # Errors
 ///
 /// [`PyplotError::NotPolar`] when the current axes is not polar.
-pub fn rgrids(radii: &[f64], angle: Option<f64>) -> Result<(), PyplotError> {
+pub fn rgrids(radii: impl Into<AxisValues>, angle: Option<f64>) -> Result<(), PyplotError> {
     current_polar()?.set_rgrids(radii, angle);
     Ok(())
 }
@@ -366,7 +367,7 @@ pub fn rgrids(radii: &[f64], angle: Option<f64>) -> Result<(), PyplotError> {
 /// [`PyplotError::NotPolar`] when the current axes is not polar, and
 /// [`PyplotError::Plot`] when there is not one label per radius.
 pub fn rgrids_labeled<S: Into<String>>(
-    radii: &[f64],
+    radii: impl Into<AxisValues>,
     labels: impl IntoIterator<Item = S>,
     angle: Option<f64>,
 ) -> Result<(), PyplotError> {
@@ -381,7 +382,7 @@ pub fn rgrids_labeled<S: Into<String>>(
 /// # Errors
 ///
 /// [`PyplotError::NotPolar`] when the current axes is not polar.
-pub fn thetagrids(angles: &[f64]) -> Result<(), PyplotError> {
+pub fn thetagrids(angles: impl IntoIterator<Item: Number>) -> Result<(), PyplotError> {
     current_polar()?.set_thetagrids(angles);
     Ok(())
 }
@@ -395,7 +396,7 @@ pub fn thetagrids(angles: &[f64]) -> Result<(), PyplotError> {
 /// [`PyplotError::NotPolar`] when the current axes is not polar, and
 /// [`PyplotError::Plot`] when there is not one label per angle.
 pub fn thetagrids_labeled<S: Into<String>>(
-    angles: &[f64],
+    angles: impl IntoIterator<Item: Number>,
     labels: impl IntoIterator<Item = S>,
 ) -> Result<(), PyplotError> {
     current_polar()?.set_thetagrids_labeled(angles, labels)?;
@@ -512,13 +513,13 @@ mod tests {
     fn polar_grids_need_polar_axes() {
         close_all();
         plot(vec![0.0, 1.0], vec![0.0, 1.0]).unwrap();
-        assert_eq!(rgrids(&[0.5, 1.0], None), Err(PyplotError::NotPolar));
+        assert_eq!(rgrids([0.5, 1.0], None), Err(PyplotError::NotPolar));
         figure();
         polar(vec![0.0, 1.0], vec![1.0, 2.0]).unwrap();
-        rgrids_labeled(&[0.5, 1.0], ["half", "one"], Some(45.0)).unwrap();
-        thetagrids(&[0.0, 90.0]).unwrap();
+        rgrids_labeled([0.5, 1.0], ["half", "one"], Some(45.0)).unwrap();
+        thetagrids([0.0, 90.0]).unwrap();
         assert!(matches!(
-            thetagrids_labeled(&[0.0], ["a", "b"]),
+            thetagrids_labeled([0.0], ["a", "b"]),
             Err(PyplotError::Plot(_))
         ));
         assert_eq!(gca().as_polar().unwrap().rlabel_position(), 45.0);

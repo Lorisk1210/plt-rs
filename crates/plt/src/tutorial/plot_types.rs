@@ -144,8 +144,8 @@
 //!
 //! [`Axes::fill_between`] fills the area between two curves sharing an
 //! x: a range of measurements, an uncertainty band, the area under a
-//! curve (with a constant lower curve). Some transparency lets the grid
-//! show through.
+//! curve (with a constant lower curve, one value for every x: `[0.0]`).
+//! Some transparency lets the grid show through.
 //!
 //! ```
 //! use plt::collections::CollectionProps;
@@ -177,7 +177,10 @@
 //! colour-mapped scatter plot. The array is a [`Grid`]: rows and columns
 //! of one type, made from a function of the row and column or from rows
 //! (chapter [`data`](super::data)). A grid of RGB(A) pixels is drawn as
-//! the picture it is.
+//! the picture it is. The cells sit at the column and row numbers unless
+//! an `extent` (`[left, right, bottom, top]`) places the image in data
+//! coordinates. The colormap has a builder method, the other options are
+//! fields, so struct update syntax fills them around the builder:
 //!
 //! ```
 //! use plt::prelude::*;
@@ -185,9 +188,14 @@
 //! let fig = Figure::new();
 //! let ax = fig.subplot();
 //! let z = Grid::from_fn(40, 60, |row, col| (col as f64 / 10.0).sin() * (row as f64 / 10.0).cos());
-//! let image = ax.imshow(z, ImshowOptions::default().cmap(colormaps::get("magma")?))?;
+//! let options = ImshowOptions {
+//!     extent: Some([0.0, 6.0, 0.0, 4.0].into()),
+//!     ..ImshowOptions::default().cmap(colormaps::get("magma")?)
+//! };
+//! let image = ax.imshow(z, options)?;
 //! fig.colorbar(&image, ColorbarOptions::default())?;
 //! assert_eq!(image.shape(), (40, 60));
+//! assert_eq!(ax.xlim(), (0.0, 6.0));
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

@@ -70,8 +70,11 @@
 //! * `transparent: Some(true)`: leave out the figure and axes
 //!   backgrounds; `facecolor` paints the figure's background in another
 //!   colour.
-//! * `metadata`: the title, author, subject and keywords of PDF and SVG
-//!   documents, and the text entries of PNG files.
+//! * `metadata`: the title, author, subject and keywords of the vector
+//!   documents, and the text entries of PNG files. The other raster
+//!   formats have no room for them and refuse them
+//!   ([`SaveError::MetadataUnsupported`]), so a loop saving every format
+//!   gives them options without it.
 //! * `jpeg_quality`: from 1 to 100, 75 by default.
 //!
 //! ```
@@ -145,4 +148,5 @@
 //! [`Figure::to_format`]: crate::figure::Figure::to_format
 //! [`SaveFormat`]: crate::figure::SaveFormat
 //! [`SaveOptions`]: crate::figure::SaveOptions
+//! [`SaveError::MetadataUnsupported`]: crate::figure::SaveError::MetadataUnsupported
 //! [`PdfPages`]: crate::figure::PdfPages

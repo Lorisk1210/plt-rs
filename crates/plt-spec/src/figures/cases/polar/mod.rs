@@ -133,7 +133,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     square("polar/thetagrids_labels", |fig| {
         spiral_axes(fig)?
-            .set_thetagrids_labeled(&[0.0, 90.0, 180.0, 270.0], ["E", "N", "W", "S"])?;
+            .set_thetagrids_labeled([0.0, 90.0, 180.0, 270.0], ["E", "N", "W", "S"])?;
         Ok(())
     }),
     square("polar/sector", |fig| {
@@ -161,7 +161,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     square("polar/rticks_rlabel_position", |fig| {
         spiral_axes(fig)?
-            .set_rticks(&[0.5, 1.0, 1.5, 2.0])
+            .set_rticks([0.5, 1.0, 1.5, 2.0])
             .set_rlabel_position(-22.5);
         Ok(())
     }),

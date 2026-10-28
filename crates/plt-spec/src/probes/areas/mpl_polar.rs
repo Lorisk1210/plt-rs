@@ -264,11 +264,11 @@ fn radial_locators(_: Args<'_>) -> Outcome {
     states.push(radial_state(&ax)?);
     ax.clear();
     states.push(radial_state(&ax)?);
-    ax.set_rticks(&ticks);
+    ax.set_rticks(ticks);
     states.push(radial_state(&ax)?);
     ax.clear();
     states.push(radial_state(&ax)?);
-    ax.set_rgrids(&ticks, None);
+    ax.set_rgrids(ticks, None);
     states.push(radial_state(&ax)?);
     ax.clear();
     states.push(radial_state(&ax)?);
@@ -280,7 +280,7 @@ fn radial_locators(_: Args<'_>) -> Outcome {
 fn radial_ticklabels(args: Args<'_>) -> Outcome {
     let fig = Figure::new();
     let ax = fig.polar_subplot();
-    ax.set_rticks(&args.f64_vec("ticks")?);
+    ax.set_rticks(args.f64_vec("ticks")?);
     let texts: Vec<String> = args
         .json("labels")?
         .as_array()

@@ -65,11 +65,11 @@ fn limits(args: Args<'_>) -> Outcome {
         }
         "radial" => {
             let mut observed = vec![limits_of(&polar)];
-            polar.set_rticks(&[1.0, 2.0, 3.0, 4.0]);
+            polar.set_rticks([1.0, 2.0, 3.0, 4.0]);
             observed.push(limits_of(&polar));
             made(ax.plot([1.0, 2.0], [1.0, 2.0]))?;
             observed.push(limits_of(&polar));
-            polar.set_rticks(&[-1.0, 0.0, 1.0, 2.0]);
+            polar.set_rticks([-1.0, 0.0, 1.0, 2.0]);
             observed.push(limits_of(&polar));
             made(ax.plot([1.0, 2.0], [-1.0, -2.0]))?;
             observed.push(limits_of(&polar));

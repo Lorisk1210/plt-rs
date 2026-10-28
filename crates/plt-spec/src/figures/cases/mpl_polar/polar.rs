@@ -100,7 +100,7 @@ pub(super) fn polar_alignment(fig: &Figure) -> CaseResult {
     let grid_values = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
     let rect = [0.1, 0.1, 0.8, 0.8];
     let horizontal = fig.add_polar_axes(rect)?;
-    horizontal.set_thetagrids(&angles);
+    horizontal.set_thetagrids(angles);
     let vertical = fig.add_polar_axes(rect)?;
     vertical.set_patch_visible(false);
     let aligned = TickLabelProps {
@@ -109,7 +109,7 @@ pub(super) fn polar_alignment(fig: &Figure) -> CaseResult {
         ..TickLabelProps::default()
     };
     for (ax, angle) in [horizontal, vertical].iter().zip(angles) {
-        ax.set_rgrids(&grid_values, Some(angle));
+        ax.set_rgrids(grid_values, Some(angle));
         ax.yaxis()
             .set_ticklabel_props(TickLevel::Major, aligned.clone());
     }
@@ -362,7 +362,7 @@ pub(super) fn polar_log_rorigin(fig: &Figure) -> CaseResult {
     ax.set_rscale("log")?;
     ax.set_rlim(1.0, 100.0)?
         .set_rorigin(Some(1e-3))
-        .set_rticks(&logspace(0.0, 2.0, 5, 10.0));
+        .set_rticks(logspace(0.0, 2.0, 5, 10.0));
     ax.tick_params(&TickParams {
         labelleft: Some(false),
         ..TickParams::default()

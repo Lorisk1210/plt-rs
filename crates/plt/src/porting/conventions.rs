@@ -53,7 +53,10 @@
 //!   `rc::set` took: [`XLabelLoc`] and [`YLabelLoc`] convert into the
 //!   [`LabelLoc`] of [`Axis::set_label_loc`], [`TextHinting`] into a
 //!   [`Hinting`], and `axes.grid.axis` is a [`WhichAxis`] where options
-//!   take an `Option<AxisName>` (`None` for both).
+//!   take an `Option<AxisName>` (`None` for both). A type defined for an
+//!   rcParam is also named in the module of the methods taking it:
+//!   `image.aspect`'s [`Aspect`] is `plt::axes::Aspect` for
+//!   [`Axes::set_aspect`], as well as `plt::rc::Aspect`.
 //! * **Errors are `Result`s.** Invalid data, options or settings return
 //!   an error enum of the module ([`PlotError`], [`ImageError`],
 //!   [`LegendError`], [`AxesRectError`], ...), wherever matplotlib
@@ -85,7 +88,11 @@
 //!   one dataset or several, as histograms take them, are [`Datasets`].
 //!   Methods take these as they are, option fields through `.into()`, and
 //!   setters of data (`Line2D::set_ydata`) take what the plotting method
-//!   takes.
+//!   takes, as tick setters take what [`Axes::set_xticks`] takes, on
+//!   other projections too ([`PolarAxes::set_rticks`]). A list of
+//!   numbers in a setting converts from an array or a `Vec`: an image's
+//!   [`Extent`] from `[left, right, bottom, top]`,
+//!   [`LogLocator::with_subs`] from `[2.0, 5.0]`.
 //! * **User code may use the figure.** Closures plt-rs runs between draws
 //!   (event callbacks, timers, toolbar tools, widgets, animation frames,
 //!   pickers, unit converters) may use any handle of the figure. Methods
@@ -129,6 +136,9 @@
 //!   its [`figure`](crate::artist::ArtistHandle::figure) and its
 //!   [`axes`](crate::artist::ArtistHandle::axes), and searches what it
 //!   owns with [`findobj`](crate::artist::ArtistHandle::findobj).
+//!   Widgets are values instead: each owns its connections to the
+//!   figure's events, which end when it is dropped, so a widget is not
+//!   `Clone`; share one between callbacks through an `Rc`.
 //! * **The per-axis API takes an axis argument.** Where matplotlib has
 //!   `get_xmargin` and `get_ymargin`, plt-rs has `margin(AxisName::X)`.
 //!   The most common pairs (`set_xlim`, `set_xlabel`, `set_xscale`,
@@ -544,3 +554,9 @@
 //! [`Axes3D::autoscale_on`]: crate::mplot3d::Axes3D::autoscale_on
 //! [`Axes3D::set_margins`]: crate::mplot3d::Axes3D::set_margins
 //! [`Axes::set_margins`]: crate::axes::Axes::set_margins
+//! [`Aspect`]: crate::axes::Aspect
+//! [`Axes::set_aspect`]: crate::axes::Axes::set_aspect
+//! [`Axes::set_xticks`]: crate::axes::Axes::set_xticks
+//! [`PolarAxes::set_rticks`]: crate::polar::PolarAxes::set_rticks
+//! [`Extent`]: crate::image::Extent
+//! [`LogLocator::with_subs`]: crate::ticker::LogLocator::with_subs

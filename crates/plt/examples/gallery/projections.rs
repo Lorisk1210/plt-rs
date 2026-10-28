@@ -76,7 +76,7 @@ fn polar_bars() -> Built {
             ..bars("≥ 5 m/s")
         },
     )?;
-    ax.set_thetagrids_labeled(&[0.0, 90.0, 180.0, 270.0], ["N", "E", "S", "W"])?;
+    ax.set_thetagrids_labeled([0.0, 90.0, 180.0, 270.0], ["N", "E", "S", "W"])?;
     ax.set_title("Wind rose");
     ax.legend(LegendOptions::default().bbox_to_anchor((1.1, 1.05)))?;
     Ok(fig)

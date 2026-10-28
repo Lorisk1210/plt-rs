@@ -42,7 +42,8 @@ or `plt::look::set_appearance(...)` in code. The modern look is checked
 against matplotlib too: matplotlib drawing the same style sheet with
 Inter gives identical figures.
 
-The `pyplot`-style interface works too:
+The `pyplot`-style interface works too (with the module named `plt`,
+the crate's other items are spelled `::plt::...`):
 
 ```rust,no_run
 use plt::pyplot as plt;

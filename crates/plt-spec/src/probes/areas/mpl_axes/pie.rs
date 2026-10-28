@@ -45,7 +45,7 @@ fn text_props(value: &Json, options: &mut PieOptions) -> Result<(), ProbeError> 
         props = props.valign(made(va.parse::<plt::text::VAlign>())?);
     }
     if let Some(mode) = name("rotation_mode") {
-        props = props.rotation_mode(made(mode.parse::<plt::text::TextRotationMode>())?);
+        props = props.rotation_mode(made(mode.parse::<plt::text::RotationMode>())?);
     }
     if let Some(rotation) = field("rotation").and_then(Json::as_f64) {
         props = props.rotation(rotation);

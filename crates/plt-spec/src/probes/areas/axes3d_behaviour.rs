@@ -321,7 +321,7 @@ fn tick_scene(scene: &str) -> Result<Axes3D, ProbeError> {
             made(ax.set_xlim(0.0, 1.0))?;
             ax.xaxis()
                 .set_minor_locator(made(MultipleLocator::new(0.1))?);
-            ax.yaxis().set_tick_params(&TickParams {
+            ax.yaxis().set_tick_params(TickParams {
                 labelright: Some(true),
                 ..TickParams::default()
             });

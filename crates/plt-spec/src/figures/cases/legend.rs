@@ -121,7 +121,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("legend/bbox_to_anchor_outside_right", |fig| {
         let ax = fig.subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             right: Some(0.7),
             ..SubplotOverrides::default()
         })?;
@@ -136,7 +136,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     FigureCase::new("legend/bbox_to_anchor_below_mode_expand", |fig| {
         let ax = fig.subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             bottom: Some(0.25),
             ..SubplotOverrides::default()
         })?;
@@ -448,7 +448,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let histogram = |histtype: HistType, label: &str, props: PatchProps| HistPlotOptions {
             bins: Some(Bins::Count(15)),
             histtype,
-            label: vec![label.to_owned()],
+            label: label.into(),
             props,
             ..HistPlotOptions::default()
         };

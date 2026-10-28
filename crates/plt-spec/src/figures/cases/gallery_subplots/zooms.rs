@@ -101,7 +101,7 @@ fn broken_axis(fig: &Figure) -> CaseResult {
     }
     let axs = fig.subplots_shared(2, 1, Share::All, Share::None)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(1, 0)]);
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.05),
         ..SubplotOverrides::default()
     })?;
@@ -112,7 +112,7 @@ fn broken_axis(fig: &Figure) -> CaseResult {
     ax1.spines().get(SpineSide::Bottom).set_visible(false);
     ax2.spines().get(SpineSide::Top).set_visible(false);
     ax1.xaxis().tick_to(SpineSide::Top)?;
-    ax1.tick_params(&TickParams {
+    ax1.tick_params(TickParams {
         labeltop: Some(false),
         ..TickParams::default()
     });

@@ -162,7 +162,7 @@ fn plot_color_gradients(fig: &Figure, category: &Category) -> CaseResult {
     let nrows = category.cmaps.len();
     let figh = gradients_height(nrows);
     let axs = fig.subplots(nrows + 1, 1)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(1.0 - 0.35 / figh),
         bottom: Some(0.15 / figh),
         left: Some(0.2),

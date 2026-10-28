@@ -15,21 +15,21 @@ use crate::figures::{CaseResult, FigureCase};
 pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_figure/tight_layout1", |fig| {
         example_plot(&fig.subplot(), 24.0, false)?;
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/tight_layout2", |fig| {
         for ax in fig.subplots(2, 2)?.as_slice() {
             example_plot(ax, 12.0, false)?;
         }
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/tight_layout3", |fig| {
         for (nrows, ncols, index) in [(2, 2, 1), (2, 2, 3), (1, 2, 2)] {
             example_plot(&fig.add_subplot(nrows, ncols, index)?, 12.0, false)?;
         }
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/tight_layout4", |fig| {
@@ -38,7 +38,7 @@ pub(super) const CASES: &[FigureCase] = &[
         for (rows, cols) in [(0..1, 0..1), (0..1, 1..3), (1..3, 0..2), (1..3, 2..3)] {
             example_plot(&fig.add_subplot_spec(&gs.span(rows, cols)?)?, 12.0, false)?;
         }
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/tight_layout5", |fig| {
@@ -48,7 +48,7 @@ pub(super) const CASES: &[FigureCase] = &[
             ..ImshowOptions::default()
         };
         fig.subplot().imshow(arr, options)?;
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/tight_layout6", tight_layout6),
@@ -62,7 +62,7 @@ pub(super) const CASES: &[FigureCase] = &[
         ] {
             ax.set_title_at(location, title).set_fontsize(24.0);
         }
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
     FigureCase::new("mpl_figure/tight_layout8", |fig| {
@@ -75,7 +75,7 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_figure/tight_layout9", |fig| {
         let axs = fig.subplots(2, 2)?;
         axs[(1, 1)].set_visible(false);
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     }),
 ];
@@ -98,7 +98,7 @@ fn tight_layout6(fig: &Figure) -> CaseResult {
     for row in 0..2 {
         example_plot(&fig.add_subplot_spec(&gs1.cell(row, 0)?)?, 12.0, false)?;
     }
-    gs1.tight_layout(fig, &fitting([0.0, 0.0, 0.5, 1.0], None))?;
+    gs1.tight_layout(fig, fitting([0.0, 0.0, 0.5, 1.0], None))?;
 
     let gs2 = GridSpec::new(3, 1)?;
     let mut last = None;
@@ -112,7 +112,7 @@ fn tight_layout6(fig: &Figure) -> CaseResult {
     // Still in the 12 points `example_plot` gave the labels.
     last.ok_or("no axes")?.set_xlabel("x-label");
 
-    gs2.tight_layout(fig, &fitting([0.5, 0.0, 1.0, 1.0], Some(0.45)))?;
+    gs2.tight_layout(fig, fitting([0.5, 0.0, 1.0, 1.0], Some(0.45)))?;
 
     let edges = |grid: &GridSpec| {
         let o = grid.overrides();
@@ -122,11 +122,11 @@ fn tight_layout6(fig: &Figure) -> CaseResult {
     let (top, bottom) = (top1.min(top2), bottom1.max(bottom2));
     gs1.tight_layout(
         fig,
-        &fitting([0.0, bottom - bottom1, 0.5, 1.0 - (top1 - top)], None),
+        fitting([0.0, bottom - bottom1, 0.5, 1.0 - (top1 - top)], None),
     )?;
     gs2.tight_layout(
         fig,
-        &fitting([0.5, bottom - bottom2, 1.0, 1.0 - (top2 - top)], Some(0.45)),
+        fitting([0.5, bottom - bottom2, 1.0, 1.0 - (top2 - top)], Some(0.45)),
     )?;
     Ok(())
 }

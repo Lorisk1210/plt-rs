@@ -63,7 +63,7 @@ pub(super) fn polar_annotations(fig: &Figure) -> CaseResult {
     ax.annotate("a polar annotation", (thistheta, thisr), options)?
         .set_halign(HAlign::Left)
         .set_valign(VAlign::Baseline);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         bottom: Some(true),
         top: Some(true),
@@ -221,7 +221,7 @@ pub(super) fn polar_theta_position(fig: &Figure) -> CaseResult {
 pub(super) fn polar_rlabel_position(fig: &Figure) -> CaseResult {
     let ax = fig.polar_subplot();
     ax.set_rlabel_position(315.0);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelrotation_auto: Some(true),
         ..TickParams::default()
     });
@@ -254,7 +254,7 @@ pub(super) fn polar_theta_limits(fig: &Figure) -> CaseResult {
                     .set_thetamax(start)
                     .set_theta_direction(ThetaDirection::Clockwise);
             }
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 bottom: Some(true),
                 top: Some(true),
                 left: Some(true),
@@ -263,12 +263,12 @@ pub(super) fn polar_theta_limits(fig: &Figure) -> CaseResult {
                 labelrotation_auto: Some(true),
                 ..TickParams::default()
             });
-            ax.yaxis().set_tick_params(&TickParams {
+            ax.yaxis().set_tick_params(TickParams {
                 labelright: Some(true),
                 labelrotation_auto: Some(true),
                 ..TickParams::default()
             });
-            ax.locator_params(&LocatorParams {
+            ax.locator_params(LocatorParams {
                 axis: Some(AxisName::X),
                 steps: Some(vec![1.0, 2.0, 2.5, 5.0, 10.0]),
                 ..LocatorParams::default()
@@ -363,7 +363,7 @@ pub(super) fn polar_log_rorigin(fig: &Figure) -> CaseResult {
     ax.set_rlim(1.0, 100.0)?
         .set_rorigin(Some(1e-3))
         .set_rticks(logspace(0.0, 2.0, 5, 10.0));
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelleft: Some(false),
         ..TickParams::default()
     });

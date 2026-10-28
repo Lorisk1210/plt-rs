@@ -122,7 +122,7 @@ impl AxisDecor {
                     }),
                     ..TickParams::default()
                 };
-                ax.tick_params(&params);
+                ax.tick_params(params);
             }
             Self::Formatter {
                 x,

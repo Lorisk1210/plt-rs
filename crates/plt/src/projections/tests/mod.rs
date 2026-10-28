@@ -362,7 +362,7 @@ fn layouts_make_room_for_the_labels() {
     let (fig, ax) = sheared();
     ax.set_ylabel("height");
     let before = ax.position();
-    fig.tight_layout(&TightLayout::default()).unwrap();
+    fig.tight_layout(TightLayout::default()).unwrap();
     assert_ne!(ax.position(), before);
     let tight = ax.tight_bbox(true).unwrap();
     let box_extent = fig

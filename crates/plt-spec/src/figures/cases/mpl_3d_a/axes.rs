@@ -201,6 +201,6 @@ pub(super) fn text3d_modification(fig: &Figure) -> CaseResult {
 
 pub(super) fn tight_layout_text(fig: &Figure) -> CaseResult {
     fig.subplot_3d().text(0.5, 0.5, 0.5, "some string", None);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }

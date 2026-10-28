@@ -122,7 +122,7 @@ fn skew_rectangle(fig: &Figure) -> CaseResult {
                 .transform(skew.then(ax.trans_data())),
         );
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.0),
         left: Some(0.01),
         right: Some(0.99),

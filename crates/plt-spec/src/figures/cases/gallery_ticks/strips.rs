@@ -34,7 +34,7 @@ fn formatter_strip(ax: &Axes, title: &str) -> CaseResult {
     ax.xaxis()
         .set_major_locator(MultipleLocator::new(1.0)?)
         .set_minor_locator(MultipleLocator::new(0.25)?);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Minor,
         labelsize: Some(FontSize::Points(10.0)),
         ..TickParams::default()

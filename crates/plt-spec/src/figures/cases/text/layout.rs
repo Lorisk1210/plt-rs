@@ -4,7 +4,7 @@
 use plt::fonts::FontStyle;
 use plt::fonts::{FontStretch, FontWeight, RelativeSize};
 use plt::prelude::*;
-use plt::text::{HAlign, TextRotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, VAlign};
 
 use super::{LOREM, blank};
 use crate::figures::{CaseResult, FigureCase};
@@ -16,7 +16,7 @@ fn mark(ax: &Axes, x: f64, y: f64) -> CaseResult {
 }
 
 /// The rotated texts of the two rotation cases, in `mode`.
-fn rotations(fig: &Figure, mode: TextRotationMode) -> CaseResult {
+fn rotations(fig: &Figure, mode: RotationMode) -> CaseResult {
     let ax = blank(fig)?;
     for (i, rotation) in [0, 30, 45, 90, 135, 180, 270].into_iter().enumerate() {
         let x = 0.8 + 1.4 * i as f64;
@@ -64,11 +64,11 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/rotation_default_mode", |fig| {
-        rotations(fig, TextRotationMode::Default)
+        rotations(fig, RotationMode::Default)
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("text/rotation_mode_anchor", |fig| {
-        rotations(fig, TextRotationMode::Anchor)
+        rotations(fig, RotationMode::Anchor)
     })
     .sized(6.0, 3.0, 100.0),
     FigureCase::new("text/font_sizes", |fig| {
@@ -157,7 +157,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         ax.text(0.2, 0.5, "inherits text.color");
         ax.set_title("title colour");
         ax.set_xlabel("label (axes.labelcolor)");
-        fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+        fig.subplots_adjust(plt::gridspec::SubplotOverrides {
             bottom: Some(0.18),
             ..Default::default()
         })?;

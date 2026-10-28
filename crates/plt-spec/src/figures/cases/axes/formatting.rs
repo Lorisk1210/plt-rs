@@ -11,7 +11,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/ticklabel_format_sci", |fig| {
         let ax = fig.subplot();
         ax.plot(t(), of_t(|t| t * 1234.5))?;
-        ax.ticklabel_format(&TicklabelFormat {
+        ax.ticklabel_format(TicklabelFormat {
             axis: Some(AxisName::Y),
             scientific: Some(true),
             scilimits: Some((0, 0)),
@@ -23,7 +23,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/ticklabel_format_mathtext", |fig| {
         let ax = fig.subplot();
         ax.plot(of_t(|t| t * 1e-5), of_t(|t| t * 3e6))?;
-        ax.ticklabel_format(&TicklabelFormat {
+        ax.ticklabel_format(TicklabelFormat {
             scientific: Some(true),
             scilimits: Some((-2, 2)),
             use_mathtext: Some(true),
@@ -45,11 +45,11 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("axes/large_offset_use_offset_false", |fig| {
         let ax = fig.subplot();
         ax.plot(t(), of_t(|t| 1e5 + t.sin() * 0.01))?;
-        ax.ticklabel_format(&TicklabelFormat {
+        ax.ticklabel_format(TicklabelFormat {
             use_offset: Some(OffsetMode::Off),
             ..TicklabelFormat::default()
         })?;
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.25),
             ..SubplotOverrides::default()
         })?;

@@ -1,7 +1,7 @@
 //! Histograms, 2-D histograms and stairs.
 
 use plt::artist::ArtistHandle;
-use plt::axes::{Hist2dOptions, HistArtists, HistPlotOptions, StairsOptions};
+use plt::axes::{DatasetLabels, Hist2dOptions, HistArtists, HistPlotOptions, StairsOptions};
 use plt::colors::Rgba;
 use plt::figure::Figure;
 use plt::patches::{Patch, PatchShape};
@@ -58,9 +58,9 @@ fn hist_options(args: Args<'_>) -> Result<HistPlotOptions<'static>, ProbeError> 
         ),
     };
     let label = match args.get("label") {
-        None | Some(Json::Null) => Vec::new(),
-        Some(Json::String(label)) => vec![label.clone()],
-        Some(labels) => super::strings(labels)?,
+        None | Some(Json::Null) => DatasetLabels::default(),
+        Some(Json::String(label)) => label.as_str().into(),
+        Some(labels) => super::strings(labels)?.into(),
     };
     let mut options = HistPlotOptions {
         bins,

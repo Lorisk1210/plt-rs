@@ -16,7 +16,7 @@ use plt::legend::LegendOptions;
 use plt::patches::{Arc, Ellipse, PatchShape};
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{AnnotateOptions, HAlign, TextRotationMode as RotationMode, VAlign};
+use plt::text::{AnnotateOptions, HAlign, RotationMode, VAlign};
 use plt::ticker::{FormatStrFormatter, IndexLocator};
 use plt::units::{
     AxisDeltas, ConversionError, ConversionInterface, Convertible, DataPoint, UnitAxis,
@@ -119,7 +119,7 @@ fn bar_demo2(fig: &Figure) -> CaseResult {
     axs[(1, 0)].set_xlim(2.0, 6.0)?;
     unit_bars(&axs[(1, 1)], width, Some((INCH, INCH)))?;
     axs[(1, 1)].set_xlim(2.0 * CM, 6.0 * CM)?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -307,7 +307,7 @@ fn foo_plot(ax: &Axes, xunits: Option<f64>, line: LineProps) -> CaseResult {
         ax.xaxis().set_units(unit);
     }
     ax.plot_with(x, y, line)?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelrotation: Some(30.0),
         labelrotation_mode: Some(RotationMode::XTick),
@@ -320,7 +320,7 @@ fn evans_test(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     fig.suptitle("Custom units");
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         bottom: Some(0.2),
         ..plt::gridspec::SubplotOverrides::default()
     })?;
@@ -342,7 +342,7 @@ fn radian_demo(fig: &Figure) -> CaseResult {
         ax.xaxis().set_units(unit);
         ax.plot(x.clone(), cosines.clone())?;
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -394,7 +394,7 @@ fn units_scatter(fig: &Figure) -> CaseResult {
         ax.yaxis().set_units(yunits);
         ax.scatter_with(xsecs.clone(), xsecs.clone(), ScatterOptions::default())?;
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

@@ -126,7 +126,7 @@ pub(super) fn ecdf(fig: &Figure) -> CaseResult {
 pub(super) fn figtext(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot(t(), of_t(|x| x.sin().powi(2)))?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.2),
         ..SubplotOverrides::default()
     })?;

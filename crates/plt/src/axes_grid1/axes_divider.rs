@@ -226,7 +226,7 @@ mod tests {
         let divider = make_axes_locatable(&ax1);
         let ax2 = divider.append_axes(SpineSide::Right, SizeSpec::Percent(100.0), Some(0.3.into()));
         ax2.share_y(&ax1).unwrap();
-        ax2.tick_params(&crate::axes::TickParams {
+        ax2.tick_params(crate::axes::TickParams {
             labelleft: Some(false),
             ..Default::default()
         });

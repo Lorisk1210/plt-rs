@@ -26,7 +26,7 @@ impl GridSpec {
     /// let grid = GridSpec::new(2, 1)?;
     /// let ax = fig.add_subplot_spec(&grid.cell(0, 0)?)?;
     /// let left_half = TightLayout { rect: Some([0.0, 0.0, 0.5, 1.0]), ..TightLayout::default() };
-    /// grid.tight_layout(&fig, &left_half)?;
+    /// grid.tight_layout(&fig, left_half)?;
     /// let (x, _, w, _) = ax.position().bounds();
     /// assert!(x + w < 0.5);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -34,7 +34,7 @@ impl GridSpec {
     pub fn tight_layout(
         &self,
         figure: &Figure,
-        params: &TightLayout,
+        params: TightLayout,
     ) -> Result<&Self, TightLayoutError> {
         let axes: Vec<ArtistId> = figure.axes().iter().map(ArtistHandle::id).collect();
         let frame = figure.raw().id();
@@ -43,7 +43,7 @@ impl GridSpec {
             return Ok(self);
         };
         let measured = Measured::new(&mut state, &axes, &subplot_params, Some(self))?;
-        if let Some(overrides) = adjusted_params(&state, &measured, params)? {
+        if let Some(overrides) = adjusted_params(&state, &measured, &params)? {
             self.merge_overrides(&overrides);
             state.set_subplot_params(subplot_params)?;
         }
@@ -68,7 +68,7 @@ mod tests {
             rect: Some([0.0, 0.0, 0.5, 1.0]),
             ..TightLayout::default()
         };
-        left.tight_layout(&fig, &half).unwrap();
+        left.tight_layout(&fig, half).unwrap();
         assert_eq!(other.position(), before);
         let overrides = left.overrides();
         assert!(

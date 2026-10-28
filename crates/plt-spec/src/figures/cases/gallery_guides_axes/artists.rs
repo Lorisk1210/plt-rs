@@ -38,7 +38,7 @@ fn color_cycle(fig: &Figure) -> CaseResult {
         }
         ax.set_title(title);
     }
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         hspace: Some(0.3),
         ..plt::gridspec::SubplotOverrides::default()
     })?;

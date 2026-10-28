@@ -249,14 +249,13 @@ fn asinh(args: Args<'_>) -> Result<AsinhLocator, ProbeError> {
     if let Some(base) = p.opt_f64("base")? {
         locator = locator.with_base(base);
     }
-    let subs = p
-        .get("subs")
-        .map(|s| {
-            s.as_f64_vec()
-                .ok_or_else(|| ProbeError::BadArgs("subs".into()))
-        })
-        .transpose()?;
-    Ok(locator.with_subs(subs))
+    if let Some(subs) = p.get("subs") {
+        let subs = subs
+            .as_f64_vec()
+            .ok_or_else(|| ProbeError::BadArgs("subs".into()))?;
+        locator = locator.with_subs(subs);
+    }
+    Ok(locator)
 }
 
 pub(crate) fn asinh_tick_values(args: Args<'_>) -> Outcome {

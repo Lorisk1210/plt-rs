@@ -51,7 +51,7 @@ fn set_bounds(args: Args<'_>) -> Outcome {
 fn label_without_ticks(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         let fig = Figure::new();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.3),
             bottom: Some(0.3),
             ..SubplotOverrides::default()

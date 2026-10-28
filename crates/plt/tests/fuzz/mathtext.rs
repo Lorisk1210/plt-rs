@@ -319,7 +319,7 @@ fn drawing() {
             let text = fig.text(0.1, 0.5, source.as_str());
             text.set_fontsize(*size).set_rotation(*rotation);
             render(&fig, *format);
-            let _ = math_to_image(source, &MathImageOptions::default());
+            let _ = math_to_image(source, MathImageOptions::default());
         },
     );
 }

@@ -71,10 +71,11 @@ impl LogScale {
         self
     }
 
-    /// Multiples of each power where minor ticks go (`None`: automatic).
+    /// Multiples of each power where minor ticks go, in an array or a
+    /// `Vec`, in place of the automatic ones.
     #[must_use]
-    pub fn with_subs(mut self, subs: Option<Vec<f64>>) -> Self {
-        self.subs = subs;
+    pub fn with_subs(mut self, subs: impl Into<Vec<f64>>) -> Self {
+        self.subs = Some(subs.into());
         self
     }
 

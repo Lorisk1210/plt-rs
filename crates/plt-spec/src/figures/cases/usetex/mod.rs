@@ -15,7 +15,7 @@ use plt::patches::BoxStyle;
 use plt::patheffects::{GcUpdate, PathEffect, Stroke};
 use plt::prelude::*;
 use plt::text::{
-    AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, TextBoxProps, TextRotationMode, VAlign,
+    AnnotateOptions, ArrowProps, FancyArrowProps, HAlign, RotationMode, TextBoxProps, VAlign,
 };
 use plt::transforms::Point;
 
@@ -136,7 +136,7 @@ const CASES: &[FigureCase] = &[
         {
             fig.text(x, 0.5, format!(r"$\theta = {angle}^\circ$"))
                 .set_rotation(angle)
-                .set_rotation_mode(TextRotationMode::Anchor)
+                .set_rotation_mode(RotationMode::Anchor)
                 .set_halign(HAlign::Center)
                 .set_valign(VAlign::Center);
         }
@@ -245,7 +245,7 @@ const CASES: &[FigureCase] = &[
             ax.set_xlabel(format!("$x_{{{i}}}$"));
             ax.set_ylabel(format!(r"$\int f_{{{i}}}$"));
         }
-        fig.tight_layout(&TightLayout::default())?;
+        fig.tight_layout(TightLayout::default())?;
         Ok(())
     })
     .sized(4.0, 3.0, 100.0),

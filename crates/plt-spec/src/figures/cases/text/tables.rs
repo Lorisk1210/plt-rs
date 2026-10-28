@@ -35,7 +35,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             loc: TableLoc::Bottom,
             ..TableOptions::with_text(table_cells())
         })?;
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             bottom: Some(0.3),
             ..SubplotOverrides::default()
         })?;

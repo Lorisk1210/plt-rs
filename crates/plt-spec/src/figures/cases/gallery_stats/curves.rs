@@ -162,7 +162,7 @@ fn confidence_ellipse_3(fig: &Figure) -> CaseResult {
     dots(&ax_kwargs, &x, &y)?;
     red_mean(&ax_kwargs, mu)?;
     ax_kwargs.set_title("Using keyword arguments");
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.25),
         ..SubplotOverrides::default()
     })?;

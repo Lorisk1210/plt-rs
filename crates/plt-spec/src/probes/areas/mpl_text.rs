@@ -30,7 +30,7 @@ fn math_to_image(args: Args<'_>) -> Outcome {
             ..MathImageOptions::default()
         };
         let image =
-            plt::text::math_to_image(args.str("s")?, &options).map_err(ProbeError::rejected)?;
+            plt::text::math_to_image(args.str("s")?, options).map_err(ProbeError::rejected)?;
         let (rows, columns) = imread_bytes(&image.data)
             .map_err(ProbeError::rejected)?
             .shape();

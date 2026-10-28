@@ -16,7 +16,7 @@ use crate::figures::{CaseResult, FigureCase};
 use crate::rng::SpecRng;
 
 fn artists_1(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.8),
         ..SubplotOverrides::default()
     })?;

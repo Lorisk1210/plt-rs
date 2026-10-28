@@ -39,13 +39,13 @@ impl Axes {
     /// When an affected axis places its major ticks with another locator,
     /// its locator does not take a given parameter, or `steps` are
     /// invalid.
-    pub fn locator_params(&self, params: &LocatorParams) -> Result<&Self, PlotError> {
+    pub fn locator_params(&self, params: LocatorParams) -> Result<&Self, PlotError> {
         for name in [AxisName::X, AxisName::Y] {
             if params.axis.is_some_and(|only| only != name) {
                 continue;
             }
             let axis = self.axis_of(name);
-            axis.set_major_locator_params(params)?;
+            axis.set_major_locator_params(params.clone())?;
             axis.update_shared(|state| state.autoscale.stale = true);
         }
         Ok(self)
@@ -64,7 +64,7 @@ impl Axis {
     /// use plt::ticker::Nbins;
     /// let ax = Figure::new().subplot();
     /// let params = LocatorParams { nbins: Some(Nbins::Fixed(7)), ..LocatorParams::default() };
-    /// ax.xaxis().set_major_locator_params(&params)?;
+    /// ax.xaxis().set_major_locator_params(params)?;
     /// assert_eq!(ax.xlim(), (0.0, 1.0), "an empty axes keeps its limits");
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
@@ -72,8 +72,8 @@ impl Axis {
     /// # Errors
     ///
     /// As [`Axes::locator_params`].
-    pub fn set_major_locator_params(&self, params: &LocatorParams) -> Result<&Self, PlotError> {
-        let locator = self.read(|state| with_params(state.major_locator.as_ref(), params));
+    pub fn set_major_locator_params(&self, params: LocatorParams) -> Result<&Self, PlotError> {
+        let locator = self.read(|state| with_params(state.major_locator.as_ref(), &params));
         let locator = locator.ok_or(PlotError::NotMaxNLocator(self.name()))??;
         self.update_shared(|state| state.major_locator = Rc::clone(&locator));
         Ok(self)

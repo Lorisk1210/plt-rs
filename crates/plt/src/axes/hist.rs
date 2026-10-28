@@ -1,7 +1,7 @@
 //! Histograms (matplotlib's `hist`).
 
 use super::broadcast::broadcast;
-use super::{Axes, BarAlign, BarContainer, BarOptions, PlotError};
+use super::{Axes, BarAlign, BarContainer, BarOptions, DatasetLabels, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::lines::LineStyle;
@@ -54,8 +54,9 @@ pub struct HistPlotOptions<'a> {
     /// One colour for every dataset or one per dataset (default: the next
     /// colours of the line property cycle).
     pub color: Vec<Color>,
-    /// Legend labels, one per dataset.
-    pub label: Vec<String>,
+    /// Legend labels: one for the first dataset (`"label".into()`), or
+    /// one per dataset (`["first", "second"].into()`).
+    pub label: DatasetLabels,
     /// Properties applied to every patch.
     pub props: PatchProps,
     /// Face colours cycled over the datasets (matplotlib's sequence of
@@ -329,12 +330,12 @@ impl HistArtists {
 }
 
 /// Styles the patches of one dataset; only the first carries the label.
-fn style_dataset<S: PatchShape>(patches: &[Patch<S>], label: Option<&String>, props: &PatchProps) {
+fn style_dataset<S: PatchShape>(patches: &[Patch<S>], label: Option<&str>, props: &PatchProps) {
     for (i, patch) in patches.iter().enumerate() {
         patch.update_props(props.clone());
         match (i, label) {
             (0, Some(label)) => {
-                patch.set_label(label.clone());
+                patch.set_label(label);
             }
             (0, None) => {}
             _ => {

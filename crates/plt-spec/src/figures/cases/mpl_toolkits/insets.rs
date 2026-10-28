@@ -72,12 +72,12 @@ fn zoomed_demo(fig: &Figure, make_inset: fn(&Axes) -> Axes) -> CaseResult {
     sample_image(&ax, &framed)?;
     let axins = make_inset(&ax);
     sample_image(&axins, &framed)?;
-    axins.locator_params(&LocatorParams {
+    axins.locator_params(LocatorParams {
         nbins: Some(Nbins::Fixed(7)),
         ..LocatorParams::default()
     })?;
     axins.set_xlim(-1.5, -0.9)?.set_ylim(-2.5, -1.9)?;
-    axins.tick_params(&TickParams {
+    axins.tick_params(TickParams {
         labelbottom: Some(false),
         labelleft: Some(false),
         ..TickParams::default()

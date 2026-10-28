@@ -34,7 +34,7 @@ fn fancyarrow(fig: &Figure) -> CaseResult {
                 ..AnnotateOptions::default()
             };
             ax.annotate("", (0.5, 0.5 + r), options)?.set_fontsize(30.0);
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 labelleft: Some(false),
                 labelbottom: Some(false),
                 ..TickParams::default()
@@ -161,7 +161,7 @@ fn arrow_styles(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xlim(0.0, 1.0)?
         .set_ylim(-1.0, ARROW_STYLES.len() as f64)?;
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         left: Some(0.0),
         right: Some(1.0),
         bottom: Some(0.0),

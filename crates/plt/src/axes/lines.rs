@@ -86,7 +86,7 @@ impl Axes {
     /// let ax = Figure::new().subplot();
     /// let columns = [vec![1.0, 2.0, 4.0], vec![2.0, 5.0, 9.0]];
     /// let labels = ["low".to_owned(), "high".to_owned()];
-    /// let lines = ax.plot_columns([1.0, 2.0, 3.0], &columns, &LineProps::default(), Some(&labels))?;
+    /// let lines = ax.plot_columns([1.0, 2.0, 3.0], &columns, LineProps::default(), Some(&labels))?;
     /// assert_eq!(lines[1].label(), "high");
     /// assert_ne!(lines[0].color(), lines[1].color());
     /// # Ok::<(), plt::axes::PlotError>(())
@@ -100,7 +100,7 @@ impl Axes {
         &self,
         x: impl Into<AxisValues>,
         columns: &[Vec<f64>],
-        props: &LineProps,
+        props: LineProps,
         labels: Option<&[String]>,
     ) -> Result<Vec<Line2D>, PlotError> {
         let x = x.into();
@@ -351,14 +351,12 @@ mod tests {
         let ax = Figure::new().subplot();
         let columns = [vec![1.0, 2.0], vec![3.0, 4.0]];
         let shared = LineProps::default().label("one");
-        let lines = ax
-            .plot_columns([0.0, 1.0], &columns, &shared, None)
-            .unwrap();
+        let lines = ax.plot_columns([0.0, 1.0], &columns, shared, None).unwrap();
         let labels: Vec<String> = lines.iter().map(ArtistHandle::label).collect();
         assert_eq!(labels, ["one", "one"]);
         let own = ["a".to_owned(), "b".to_owned()];
         let lines = ax
-            .plot_columns([0.0, 1.0], &columns, &LineProps::default(), Some(&own))
+            .plot_columns([0.0, 1.0], &columns, LineProps::default(), Some(&own))
             .unwrap();
         assert_eq!(lines[1].label(), "b");
         assert_eq!(ax.lines().len(), 4);
@@ -370,7 +368,7 @@ mod tests {
         let columns = [vec![1.0, 2.0], vec![3.0, 4.0]];
         let three = ["a".to_owned(), "b".to_owned(), "c".to_owned()];
         assert_eq!(
-            ax.plot_columns([0.0, 1.0], &columns, &LineProps::default(), Some(&three)),
+            ax.plot_columns([0.0, 1.0], &columns, LineProps::default(), Some(&three)),
             Err(PlotError::DatasetCount {
                 argument: "label",
                 len: 3,
@@ -378,7 +376,7 @@ mod tests {
             })
         );
         assert_eq!(
-            ax.plot_columns([0.0], &columns, &LineProps::default(), None),
+            ax.plot_columns([0.0], &columns, LineProps::default(), None),
             Err(PlotError::LengthMismatch { x: 1, y: 2 })
         );
         assert_eq!(ax.lines(), Vec::new(), "nothing is plotted");

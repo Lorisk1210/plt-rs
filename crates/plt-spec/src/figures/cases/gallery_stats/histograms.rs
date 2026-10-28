@@ -25,14 +25,14 @@ fn histogram_bihistogram(fig: &Figure) -> CaseResult {
     let edges = arange(low, high + bin_width, bin_width);
     let ax = fig.subplot();
     let first = HistPlotOptions {
-        label: strings(&["Dataset 1"]),
+        label: "Dataset 1".into(),
         bins: Some(Bins::Edges(edges.clone())),
         ..HistPlotOptions::default()
     };
     ax.hist(&[dataset1], first)?;
     let weights = [vec![-1.0; dataset2.len()]];
     let second = HistPlotOptions {
-        label: strings(&["Dataset 2"]),
+        label: "Dataset 2".into(),
         bins: Some(Bins::Edges(edges)),
         weights: Some(&weights),
         ..HistPlotOptions::default()
@@ -50,7 +50,7 @@ fn histogram_cumulative(fig: &Figure) -> CaseResult {
     let axs = fig.subplots_shared(1, 2, Share::All, Share::All)?;
     let (ax0, ax1) = (&axs[(0, 0)], &axs[(0, 1)]);
     let step = |cumulative: Cumulative, label: &str, bins: Bins| HistPlotOptions {
-        label: strings(&[label]),
+        label: label.into(),
         bins: Some(bins),
         density: true,
         histtype: HistType::Step,
@@ -144,7 +144,7 @@ fn histogram_histtypes(fig: &Figure) -> CaseResult {
     };
     axs[(1, 1)].hist(&x, unequal)?;
     axs[(1, 1)].set_title("bar, unequal bins");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -166,7 +166,7 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
     let names = ["red", "tan", "lime"];
     let with_legend = HistPlotOptions {
         color: colors(&names),
-        label: strings(&names),
+        label: names.into(),
         density: true,
         ..bins(N_BINS)
     };
@@ -194,7 +194,7 @@ fn histogram_multihist_1(fig: &Figure) -> CaseResult {
         .collect();
     axs[(1, 1)].hist(&x_multi, bins(N_BINS))?;
     axs[(1, 1)].set_title("different sample sizes");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -228,7 +228,7 @@ fn barstacked() -> HistPlotOptions<'static> {
 
 fn histogram_multihist_2(fig: &Figure) -> CaseResult {
     let options = HistPlotOptions {
-        label: strings(&STACK_COLORS),
+        label: STACK_COLORS.into(),
         ..outlined(HistType::Step, true)
     };
     multihist(fig, options, "Stacked Steps with Edgecolors")
@@ -237,7 +237,7 @@ fn histogram_multihist_2(fig: &Figure) -> CaseResult {
 fn histogram_multihist_3(fig: &Figure) -> CaseResult {
     let options = HistPlotOptions {
         facecolors: colors(&STACK_COLORS),
-        label: strings(&STACK_COLORS),
+        label: STACK_COLORS.into(),
         ..barstacked()
     };
     multihist(fig, options, "Bars with different Facecolors")
@@ -247,7 +247,7 @@ fn histogram_multihist_4(fig: &Figure) -> CaseResult {
     let hatches = [".", "o", "x"];
     let options = HistPlotOptions {
         hatches: strings(&hatches),
-        label: strings(&hatches),
+        label: hatches.into(),
         ..barstacked()
     };
     multihist(fig, options, "Hatches on Stacked Bars")
@@ -256,7 +256,7 @@ fn histogram_multihist_4(fig: &Figure) -> CaseResult {
 fn histogram_multihist_5(fig: &Figure) -> CaseResult {
     let options = HistPlotOptions {
         linewidths: vec![1.0, 2.0, 3.0],
-        label: strings(&["1", "2", "3"]),
+        label: ["1", "2", "3"].into(),
         ..outlined(HistType::Bar, false)
     };
     multihist(fig, options, "Bars with Linewidths")
@@ -265,7 +265,7 @@ fn histogram_multihist_5(fig: &Figure) -> CaseResult {
 fn histogram_multihist_6(fig: &Figure) -> CaseResult {
     let options = HistPlotOptions {
         linestyles: vec![LineStyle::Solid, LineStyle::Dotted, LineStyle::Dashed],
-        label: strings(&["-", ":", "--"]),
+        label: ["-", ":", "--"].into(),
         ..outlined(HistType::Bar, false)
     };
     multihist(fig, options, "Bars with Linestyles")

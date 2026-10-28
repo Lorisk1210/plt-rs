@@ -118,7 +118,7 @@ fn pyplot_10(fig: &Figure) -> CaseResult {
         ax.set_title(scale);
         ax.grid(true);
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         top: Some(0.92),
         bottom: Some(0.08),
         left: Some(0.10),

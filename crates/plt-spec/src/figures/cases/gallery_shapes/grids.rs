@@ -126,7 +126,7 @@ fn llc_ticks(grid: &ImageGrid) {
 
 /// No tick labels at the top of `ax`.
 fn no_top_labels(ax: &Axes) {
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labeltop: Some(false),
         ..TickParams::default()
     });
@@ -385,7 +385,7 @@ fn demo_axes_rgb_2(fig: &Figure) -> CaseResult {
         axes.imshow(cube(pick), ImshowOptions::default())?;
     }
     for axes in fig.axes() {
-        axes.tick_params(&TickParams {
+        axes.tick_params(TickParams {
             direction: Some(TickDirection::In),
             color: Some("w".into()),
             ..TickParams::default()

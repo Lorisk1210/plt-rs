@@ -124,7 +124,7 @@ fn boxplot_demo_3(fig: &Figure) -> CaseResult {
     let n = 500;
     let data = bootstrap_pairs(&mut SpecRng::new(SEED), n)?;
     let ax1 = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.075),
         right: Some(0.95),
         top: Some(0.9),

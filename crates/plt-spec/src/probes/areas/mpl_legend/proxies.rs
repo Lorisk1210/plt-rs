@@ -181,7 +181,7 @@ fn patch_colors(patch: &Patch<Rectangle>) -> Result<[Rgba; 2], ProbeError> {
 fn opaque_histogram_proxy(ax: &Axes) -> Outcome {
     let mut options = HistPlotOptions {
         color: vec![Color::from("red")],
-        label: vec!["data".to_owned()],
+        label: "data".into(),
         ..HistPlotOptions::default()
     };
     options.props.base.alpha = Some(0.25);

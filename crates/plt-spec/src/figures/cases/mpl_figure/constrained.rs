@@ -434,7 +434,7 @@ fn colorbars_no_overlap(fig: &Figure, orientation: Orientation) -> CaseResult {
     let axs = fig.subplots_shared(nrows, ncols, Share::All, Share::All)?;
     for ax in axs.as_slice() {
         ax.yaxis().set_major_formatter(NullFormatter);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             direction: Some(TickDirection::In),
             ..TickParams::default()
         });

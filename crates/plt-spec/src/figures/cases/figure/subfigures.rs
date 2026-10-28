@@ -150,7 +150,7 @@ pub(super) fn tight_suptitle_suplabels(fig: &Figure) -> CaseResult {
     for (i, ax) in axs.as_slice().iter().enumerate() {
         ax.plot(map(&t, |t| t * 1000.0), map(&t, |t| (t + i as f64).sin()))?;
         ax.set_title(format!("panel {i}"));
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             labelrotation: Some(30.0),
             ..TickParams::default()
@@ -159,7 +159,7 @@ pub(super) fn tight_suptitle_suplabels(fig: &Figure) -> CaseResult {
     fig.suptitle("A tight suptitle").set_fontsize(16.0);
     fig.supxlabel("time [ms]");
     fig.supylabel("signal");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

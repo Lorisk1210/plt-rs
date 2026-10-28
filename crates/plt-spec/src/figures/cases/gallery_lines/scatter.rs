@@ -6,7 +6,7 @@ use std::f64::consts::PI;
 
 use plt::axes::{Axes, HistPlotOptions, TickParams};
 use plt::collections::{
-    Collection, EdgeColors, ElementCount, LegendElementsOptions, LegendProperty,
+    Collection, EdgeColors, ElementCount, LegendElementsOptions, LegendProperty, LegendValueFn,
 };
 use plt::colors::{Alpha, colormaps};
 use plt::figure::{Mosaic, MosaicOptions, Share};
@@ -66,19 +66,19 @@ fn scatter_demo2(fig: &Figure) -> CaseResult {
     ax.yaxis().set_label_fontsize(FontSize::Points(15.0));
     ax.set_title("Volume and percent change");
     ax.grid(true);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
 /// The example's `scatter_hist`: a scatter plot with the histograms of its
 /// coordinates above and beside it, in bins 0.25 wide.
 fn scatter_hist(x: &[f64], y: &[f64], ax: &Axes, ax_histx: &Axes, ax_histy: &Axes) -> CaseResult {
-    ax_histx.tick_params(&TickParams {
+    ax_histx.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelbottom: Some(false),
         ..TickParams::default()
     });
-    ax_histy.tick_params(&TickParams {
+    ax_histy.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelleft: Some(false),
         ..TickParams::default()
@@ -306,7 +306,7 @@ fn scatter_with_legend_3(fig: &Figure) -> CaseResult {
         num: ElementCount::Target(5),
         color: Some(Color::from(cmap.sample(0.7))),
         fmt: Some(Box::new(StrMethodFormatter::new("$ {x:.2f}")?)),
-        func: Some(Box::new(|s| (s / 0.3).sqrt() / 3.0)),
+        func: LegendValueFn::new(|s| (s / 0.3).sqrt() / 3.0),
         ..LegendElementsOptions::default()
     };
     ax.legend(elements_legend(&points, prices, "lower right", "Price")?)?;

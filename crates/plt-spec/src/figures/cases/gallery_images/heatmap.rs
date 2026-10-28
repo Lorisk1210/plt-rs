@@ -16,7 +16,7 @@ use plt::layout::TightLayout;
 use plt::lines::LineStyle;
 use plt::numeric::{Grid, arange, linspace};
 use plt::prelude::ArtistHandle;
-use plt::text::{HAlign, TextRotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, VAlign};
 use plt::ticker::pyfmt;
 use plt::ticker::{Formatter, FuncFormatter, StrMethodFormatter, TickContext};
 
@@ -69,7 +69,7 @@ fn label_columns(ax: &Axes, labels: &[String], rotation: f64) -> CaseResult {
         TickLevel::Major,
         TickLabelProps {
             rotation: Some(rotation),
-            rotation_mode: Some(TextRotationMode::XTick),
+            rotation_mode: Some(RotationMode::XTick),
             ..TickLabelProps::default()
         },
     );
@@ -106,7 +106,7 @@ fn image_annotated_heatmap_1(fig: &Figure) -> CaseResult {
         }
     }
     ax.set_title("Harvest of local farmers (in tons/year)");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -145,7 +145,7 @@ fn heatmap(
         .set_label_valign(VAlign::Bottom);
     label_columns(ax, cols, -30.0)?;
     label_rows(ax, rows)?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         top: Some(true),
         bottom: Some(false),
         labeltop: Some(true),
@@ -167,7 +167,7 @@ fn heatmap(
             ..GridOptions::default()
         },
     );
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         which: TickLevel::Minor,
         bottom: Some(false),
         left: Some(false),
@@ -295,7 +295,7 @@ fn image_annotated_heatmap_2(fig: &Figure) -> CaseResult {
         &mut autoscaled(&data),
         &Annotation::new(&format),
     )?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -441,7 +441,7 @@ fn image_annotated_heatmap_3(fig: &Figure) -> CaseResult {
     sales_panel(&axs[(0, 1)], &mut rng)?;
     quality_panel(&axs[(1, 0)], &mut rng)?;
     correlation_panel(&axs[(1, 1)])?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

@@ -160,7 +160,7 @@ fn nested_gridspecs() -> Built {
         )?;
         ax.set_ylabel(format!("k = {k}"));
         if row < 2 {
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 labelbottom: Some(false),
                 ..TickParams::default()
             });
@@ -284,7 +284,7 @@ fn broken_axes() -> Built {
     high.set_ylim(0.78, 1.0)?;
     low.set_ylim(0.0, 0.22)?;
     high.spines().get(SpineSide::Bottom).set_visible(false);
-    high.tick_params(&TickParams {
+    high.tick_params(TickParams {
         labelbottom: Some(false),
         ..TickParams::default()
     });

@@ -21,7 +21,22 @@ use crate::ticker::{MaxNLocator, Nbins};
 use crate::transforms::Transform;
 
 /// Options of [`Axes::imshow`] (matplotlib's keyword arguments); unset
-/// ones follow the `image.*` rc parameters.
+/// ones follow the `image.*` rc parameters. Its fields are set with
+/// struct update syntax, the colormap, norm and limits of its colorizer
+/// with the [`Colorize`](crate::colors::Colorize) builders:
+///
+/// ```
+/// use plt::axes::ImshowOptions;
+/// use plt::colors::{Colorize, colormaps};
+/// use plt::image::Interpolation;
+/// let options = ImshowOptions {
+///     interpolation: Some(Interpolation::Nearest),
+///     extent: Some([0.0, 10.0, 0.0, 3.0].into()),
+///     ..ImshowOptions::default().cmap(colormaps::get("magma")?)
+/// };
+/// assert!(options.colorizer.cmap.is_some());
+/// # Ok::<(), plt::colors::ColormapError>(())
+/// ```
 #[derive(Debug, Default)]
 pub struct ImshowOptions {
     /// Colormap, norm and limits for scalar data.
@@ -55,26 +70,6 @@ pub struct ImshowOptions {
 }
 
 impl_colorize!(ImshowOptions, NonUniformOptions);
-
-impl ImshowOptions {
-    /// These options with the interpolation `interpolation`.
-    ///
-    /// ```
-    /// use plt::axes::ImshowOptions;
-    /// use plt::colors::{Colorize, colormaps};
-    /// use plt::image::Interpolation;
-    /// let options = ImshowOptions::default()
-    ///     .cmap(colormaps::get("magma")?)
-    ///     .interpolation(Interpolation::Nearest);
-    /// assert_eq!(options.interpolation, Some(Interpolation::Nearest));
-    /// # Ok::<(), plt::colors::ColormapError>(())
-    /// ```
-    #[must_use]
-    pub fn interpolation(mut self, interpolation: Interpolation) -> Self {
-        self.interpolation = Some(interpolation);
-        self
-    }
-}
 
 /// Options of [`Axes::nonuniform_image`] (matplotlib's `NonUniformImage`
 /// keyword arguments).

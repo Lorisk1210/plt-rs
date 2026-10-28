@@ -100,13 +100,13 @@ pub(crate) const CASES: &[FigureCase] = &[
             .set_major_locator(MultipleLocator::new(1.5)?)
             .set_minor_locator(AutoMinorLocator::new(Some(MinorDivisions::Count(3))));
         ax.zaxis().set_major_locator(MultipleLocator::new(0.25)?);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             colors: Some("tab:red".into()),
             labelsize: Some(FontSize::Points(7.0)),
             ..TickParams::default()
         });
-        ax.zaxis().set_tick_params(&TickParams {
+        ax.zaxis().set_tick_params(TickParams {
             pad: Some(6.0),
             labelcolor: Some("tab:blue".into()),
             labelrotation: Some(20.0),
@@ -118,7 +118,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mplot3d/api_tick_params_hidden", |fig| {
         let ax = fig.subplot_3d();
         mapped_surface(&ax, surface(20), "viridis")?;
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelleft: Some(false),
             labelsize: Some(FontSize::Points(6.0)),
             which: TickLevel::Both,

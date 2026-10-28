@@ -34,7 +34,7 @@ fn label_cell(ax: &Axes, text: &str) {
         .set_transform(ax.trans_axes())
         .set_halign(HAlign::Center)
         .set_valign(VAlign::Center);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         bottom: Some(false),
         labelbottom: Some(false),
         left: Some(false),
@@ -106,7 +106,7 @@ fn simple_axes_divider3(fig: &Figure) -> CaseResult {
     ax[2].set_ylim(0.0, 2.0)?;
     divider.set_aspect(true);
     for axes in &ax {
-        axes.tick_params(&TickParams {
+        axes.tick_params(TickParams {
             labelbottom: Some(false),
             labelleft: Some(false),
             ..TickParams::default()
@@ -153,7 +153,7 @@ fn sample_image(ax: &Axes) -> Result<plt::image::AxesImage, Box<dyn std::error::
 
 /// No tick labels on the right of `axis`.
 fn no_right_labels(axis: &plt::axes::Axis) {
-    axis.set_tick_params(&TickParams {
+    axis.set_tick_params(TickParams {
         labelright: Some(false),
         ..TickParams::default()
     });
@@ -212,7 +212,7 @@ fn demo_axes_divider(fig: &Figure) -> CaseResult {
     );
     sample_image(&ax)?;
     sample_image(&ax2)?;
-    ax2.yaxis().set_tick_params(&TickParams {
+    ax2.yaxis().set_tick_params(TickParams {
         labelleft: Some(false),
         ..TickParams::default()
     });
@@ -291,7 +291,7 @@ fn demo_axes_hbox_divider_2(fig: &Figure) -> CaseResult {
 
 fn demo_colorbar_with_axes_divider(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.5),
         ..SubplotOverrides::default()
     })?;
@@ -333,11 +333,11 @@ fn scatter_hist_locatable_axes(fig: &Figure) -> CaseResult {
     ax_histx.share_x(&ax)?;
     let ax_histy = divider.append_axes(SpineSide::Right, 1.2, Some(0.1.into()));
     ax_histy.share_y(&ax)?;
-    ax_histx.xaxis().set_tick_params(&TickParams {
+    ax_histx.xaxis().set_tick_params(TickParams {
         labelbottom: Some(false),
         ..TickParams::default()
     });
-    ax_histy.yaxis().set_tick_params(&TickParams {
+    ax_histy.yaxis().set_tick_params(TickParams {
         labelleft: Some(false),
         ..TickParams::default()
     });

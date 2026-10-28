@@ -35,7 +35,10 @@ pub(super) fn imread_rgba_interpolation(fig: &Figure) -> CaseResult {
         )?;
         ax.imshow(
             image.clone(),
-            ImshowOptions::default().interpolation(interpolation),
+            ImshowOptions {
+                interpolation: Some(interpolation),
+                ..ImshowOptions::default()
+            },
         )?;
     }
     Ok(())
@@ -58,12 +61,16 @@ pub(super) fn imread_gray_float32(fig: &Figure) -> CaseResult {
         colorizer: ColorizerOptions::default()
             .cmap(colormaps::get("gray")?)
             .limits(Some(0.1), Some(0.9)),
-        ..ImshowOptions::default().interpolation(Interpolation::Bilinear)
+        interpolation: Some(Interpolation::Bilinear),
+        ..ImshowOptions::default()
     };
     axes[(0, 0)].imshow(gray.clone(), limited)?;
     axes[(0, 1)].imshow(
         gray,
-        ImshowOptions::default().interpolation(Interpolation::Nearest),
+        ImshowOptions {
+            interpolation: Some(Interpolation::Nearest),
+            ..ImshowOptions::default()
+        },
     )?;
     Ok(())
 }

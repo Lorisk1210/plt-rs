@@ -52,9 +52,50 @@ pub enum ElementCount {
     Locator(Rc<dyn Locator>),
 }
 
+/// Maps the values of a collection to the values the labels of
+/// [`Collection::legend_elements`] show (matplotlib's `func`): the
+/// inverse of what made the values from the data, such as sizes scaled
+/// to be seen. The identity by default. It runs while the collection is
+/// read, so it is `Send` and cannot use the figure's handles. Clones
+/// share the function.
+///
+/// ```
+/// use plt::collections::LegendValueFn;
+/// let sizes_to_population = LegendValueFn::new(|size| size / 20.0);
+/// assert_eq!(sizes_to_population.apply(60.0), 3.0);
+/// assert_eq!(LegendValueFn::default().apply(60.0), 60.0);
+/// ```
+#[derive(Clone)]
+pub struct LegendValueFn(Rc<dyn Fn(f64) -> f64>);
+
+impl LegendValueFn {
+    /// The function `func`.
+    pub fn new(func: impl Fn(f64) -> f64 + Send + 'static) -> Self {
+        Self(Rc::new(func))
+    }
+
+    /// The value the label of `value` shows.
+    pub fn apply(&self, value: f64) -> f64 {
+        (self.0)(value)
+    }
+}
+
+impl Default for LegendValueFn {
+    /// The identity.
+    fn default() -> Self {
+        Self::new(|value| value)
+    }
+}
+
+impl fmt::Debug for LegendValueFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LegendValueFn").finish_non_exhaustive()
+    }
+}
+
 /// Options of [`Collection::legend_elements`] (matplotlib's keyword
 /// arguments).
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct LegendElementsOptions {
     /// What the entries show.
     pub prop: LegendProperty,
@@ -63,11 +104,9 @@ pub struct LegendElementsOptions {
     /// The label formatter; by default a scalar formatter without offset
     /// that writes multipliers as mathtext.
     pub fmt: Option<Box<dyn Formatter>>,
-    /// Maps the collection's values to the values the labels show, such
-    /// as the inverse of a transform applied to the sizes (matplotlib's
-    /// `func`); the identity by default. It runs while the collection is
-    /// read, so it is `Send` and cannot use the figure's handles.
-    pub func: Option<Box<dyn Fn(f64) -> f64 + Send>>,
+    /// Maps the collection's values to the values the labels show
+    /// (matplotlib's `func`): `LegendValueFn::new(|size| size / 20.0)`.
+    pub func: LegendValueFn,
     /// The marker colour of size entries; `plt.ink` (black) by default.
     pub color: Option<Color>,
     /// The marker size of colour entries in points; `lines.markersize` by
@@ -75,26 +114,6 @@ pub struct LegendElementsOptions {
     pub size: Option<f64>,
     /// The opacity of the entries; the collection's by default.
     pub alpha: Option<f64>,
-}
-
-impl fmt::Debug for LegendElementsOptions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LegendElementsOptions")
-            .field("prop", &self.prop)
-            .field("num", &self.num)
-            .field("fmt", &self.fmt)
-            .field("func", &self.func.as_ref().map(|_| "Fn(f64) -> f64"))
-            .field("color", &self.color)
-            .field("size", &self.size)
-            .field("alpha", &self.alpha)
-            .finish()
-    }
-}
-
-impl LegendElementsOptions {
-    fn func(&self, value: f64) -> f64 {
-        self.func.as_ref().map_or(value, |func| func(value))
-    }
 }
 
 /// The legend handles and their labels.
@@ -155,7 +174,7 @@ fn elements(
         ElementCount::Auto => &ElementCount::Target(AUTO_ENTRIES),
         num => num,
     };
-    let shown: Vec<f64> = unique.iter().map(|&v| options.func(v)).collect();
+    let shown: Vec<f64> = unique.iter().map(|&v| options.func.apply(v)).collect();
     let shown_range = shown
         .iter()
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
@@ -215,7 +234,7 @@ fn located(
     options: &LegendElementsOptions,
 ) -> Result<(Vec<f64>, Vec<f64>), TickerError> {
     let shown = linspace(lowest, highest, 256);
-    let mapped: Vec<f64> = shown.iter().map(|&v| options.func(v)).collect();
+    let mapped: Vec<f64> = shown.iter().map(|&v| options.func.apply(v)).collect();
     let settings = TickerSettings::from(&*crate::rc::params());
     let ctx = TickContext::detached(&settings);
     let ticks = match num {
@@ -323,7 +342,7 @@ mod tests {
         let options = LegendElementsOptions {
             prop: LegendProperty::Sizes,
             num: ElementCount::Target(3),
-            func: Some(Box::new(|s| s / 10.0)),
+            func: LegendValueFn::new(|s| s / 10.0),
             fmt: Some(Box::new(
                 crate::ticker::StrMethodFormatter::new("{x:.0f}").expect("a template"),
             )),

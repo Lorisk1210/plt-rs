@@ -14,7 +14,7 @@ use plt::fonts::RelativeSize;
 use plt::layout::{ConstrainedLayout, LayoutEngine};
 use plt::legend::{LegendHandle, LegendOptions};
 use plt::prelude::*;
-use plt::text::{HAlign, TextRotationMode as RotationMode};
+use plt::text::{HAlign, RotationMode};
 use plt::ticker::{FuncFormatter, NullFormatter};
 
 use crate::figures::cases::common::{cumsum, map};
@@ -82,7 +82,7 @@ fn centered_ticklabels(fig: &Figure) -> CaseResult {
         .set_minor_locator(RRuleLocator::months(&[], &[16], 1))
         .set_major_formatter(NullFormatter)
         .set_minor_formatter(DateFormatter::new("%b"));
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         which: TickLevel::Minor,
         bottom: Some(false),
@@ -127,7 +127,7 @@ fn date(fig: &Figure) -> CaseResult {
     axs[(2, 0)]
         .xaxis()
         .set_major_formatter(DateFormatter::new("%Y-%b"))
-        .set_tick_params(&TickParams {
+        .set_tick_params(TickParams {
             labelrotation: Some(30.0),
             labelrotation_mode: Some(RotationMode::XTick),
             ..TickParams::default()
@@ -175,7 +175,7 @@ fn date_demo_rrule(fig: &Figure) -> CaseResult {
     ax.xaxis()
         .set_major_locator(RRuleLocator::new(easter_monday))
         .set_major_formatter(DateFormatter::new("%m/%d/%y"))
-        .set_tick_params(&TickParams {
+        .set_tick_params(TickParams {
             labelrotation: Some(30.0),
             labelsize: Some(plt::fonts::FontSize::Points(10.0)),
             ..TickParams::default()

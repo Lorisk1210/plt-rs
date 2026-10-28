@@ -123,7 +123,7 @@ fn axisbelow(fig: &Figure) -> CaseResult {
                 ..GridOptions::default()
             },
         );
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             top: Some(false),
             bottom: Some(false),
             left: Some(false),
@@ -145,12 +145,12 @@ pub(super) const CASES: &[FigureCase] = &[
     FigureCase::new("mpl_axes_d/retain_tick_visibility", |fig| {
         let ax = fig.subplot();
         ax.plot([0.0, 1.0, 2.0], [0.0, -1.0, 4.0])?;
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::Y),
             labelleft: Some(false),
             ..TickParams::default()
         });
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::Y),
             which: TickLevel::Both,
             length: Some(0.0),
@@ -221,7 +221,7 @@ pub(super) const CASES: &[FigureCase] = &[
         let cubes: Vec<f64> = x.iter().map(|x| x.powi(3)).collect();
         ax.loglog(&x, cubes)?.set_linewidth(5.0);
         for (which, length) in [(TickLevel::Major, 25.0), (TickLevel::Minor, 15.0)] {
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 which,
                 length: Some(length),
                 width: Some(2.0),

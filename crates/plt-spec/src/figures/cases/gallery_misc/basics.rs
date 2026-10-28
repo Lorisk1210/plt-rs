@@ -226,7 +226,7 @@ fn zorder_demo_1(fig: &Figure) -> CaseResult {
         }
         ax.set_title(title);
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

@@ -41,6 +41,7 @@
 //! | `borderpad=`, `labelspacing=`, `handlelength=`, `columnspacing=`, ... | the builder method of the same name |
 //! | `draggable=True`, `leg.set_draggable(True)`        | [`LegendOptions::draggable`], [`Legend::set_draggable`] |
 //! | `handles=[...]`, `labels=[...]`                    | [`LegendOptions::handles`], [`LegendOptions::labels`] |
+//! | `handles=[bars, line]` (artists of several kinds)  | [`LegendOptions::handle`]`(&bars).handle(&line)` |
 //! | `ax.get_legend_handles_labels()`                   | [`Axes::legend_handles_labels`]               |
 //! | `ax.get_legend()`                                  | [`Axes::current_legend`]                      |
 //! | `[t.get_text() for t in leg.get_texts()]`          | [`Legend::labels`]; [`Legend::texts`] for the text handles |
@@ -54,7 +55,7 @@
 //! | `handler_map={line: HandlerLine2D(numpoints=4)}`   | [`LegendHandle::with_handler`], [`LegendHandle::with_numpoints`] |
 //! | `class MyHandler(HandlerBase): def legend_artist(...)` | `impl` [`LegendHandler`] (see its example)  |
 //! | `Legend.update_default_handler_map(...)`           | [`Legend::update_default_handler_map`]        |
-//! | `sc.legend_elements(prop="sizes")`                 | [`Collection::legend_elements`]               |
+//! | `sc.legend_elements(prop="sizes", func=f)`         | [`Collection::legend_elements`] with `func: LegendValueFn::new(f)` ([`LegendValueFn`]) |
 //!
 //! # Placing and styling a legend
 //!
@@ -122,7 +123,8 @@
 //!         .linestyle(LineStyle::None)
 //!         .label("stars"),
 //! );
-//! let legend = ax.legend(LegendOptions::default().handles([LegendHandle::from(&line), red, stars]))?;
+//! let options = LegendOptions::default().handle(&line).handle(red).handle(stars);
+//! let legend = ax.legend(options)?;
 //! assert_eq!(legend.labels(), ["data", "red area", "stars"]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -176,7 +178,7 @@
 //! let line = ax.plot_fmt([0.0, 1.0], [0.0, 1.0], "o-")?;
 //! let dots = ax.scatter(vec![0.5], vec![0.5])?;
 //! let side_by_side = HandlerTuple { ndivide: None, ..HandlerTuple::default() };
-//! let both = LegendHandle::tuple([LegendHandle::from(&line), LegendHandle::from(&dots)], side_by_side);
+//! let both = LegendHandle::tuple([(&line).into(), dots.into()], side_by_side);
 //! let four = LegendHandle::from(&line).with_numpoints(4);
 //! let legend = ax.legend(
 //!     LegendOptions::default()
@@ -196,6 +198,7 @@
 //! [`Axes::legend_handles_labels`]: crate::axes::Axes::legend_handles_labels
 //! [`Figure::legend`]: crate::figure::Figure::legend
 //! [`Collection::legend_elements`]: crate::collections::Collection::legend_elements
+//! [`LegendValueFn`]: crate::collections::LegendValueFn
 //! [`Legend::labels`]: crate::legend::Legend::labels
 //! [`Legend::texts`]: crate::legend::Legend::texts
 //! [`Legend::set_title`]: crate::legend::Legend::set_title
@@ -246,5 +249,6 @@
 //! [`LegendOptions::markerfirst`]: crate::legend::LegendOptions::markerfirst
 //! [`LegendOptions::draggable`]: crate::legend::LegendOptions::draggable
 //! [`LegendOptions::handles`]: crate::legend::LegendOptions::handles
+//! [`LegendOptions::handle`]: crate::legend::LegendOptions::handle
 //! [`LegendOptions::labels`]: crate::legend::LegendOptions::labels
 //! [`LegendOptions::handler`]: crate::legend::LegendOptions::handler

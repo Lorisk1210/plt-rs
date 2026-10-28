@@ -130,7 +130,7 @@ fn light(sigma: f64) -> AggFilter {
         )
         .expect("one colour per pixel");
         let lit = LightSource::default()
-            .shade_rgb(&rgb, &elevation, &BlendMode::Overlay, &Relief::default())
+            .shade_rgb(&rgb, &elevation, BlendMode::Overlay, Relief::default())
             .expect("colours and elevations of one shape");
         Layer {
             width: source.width,
@@ -176,10 +176,10 @@ fn filtered_text(ax: &Axes) -> CaseResult {
             origin: Some(Origin::Lower),
             extent: Some(Extent::new(extent[0], extent[1], extent[2], extent[3])),
             aspect: Some(Aspect::Auto),
+            interpolation: Some(Interpolation::Bilinear),
             ..ImshowOptions::default()
         }
-        .cmap(colormaps::get("gray")?)
-        .interpolation(Interpolation::Bilinear),
+        .cmap(colormaps::get("gray")?),
     )?;
     let levels = arange(-1.2, 1.6, 0.2);
     let field = QuadField {

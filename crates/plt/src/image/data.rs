@@ -1,6 +1,8 @@
 //! The pixels of an image: colour-mapped scalars or explicit colours
 //! (matplotlib's image array `A` after `_normalize_image_array`).
 
+use plt_render::RgbaImage;
+
 use super::ImageError;
 use crate::artist::format_values;
 use crate::colors::{Norm, ScalarMappable};
@@ -334,6 +336,20 @@ impl From<Grid<[u8; 3]>> for ImageData {
 impl From<Grid<[u8; 4]>> for ImageData {
     fn from(grid: Grid<[u8; 4]>) -> Self {
         Self::RgbaBytes(grid)
+    }
+}
+
+/// The pixels of a rendered image (a canvas's
+/// [`buffer_rgba`](crate::figure::FigureCanvas::buffer_rgba), a
+/// [window screenshot](crate::gui::FigureWindow::screenshot)), row 0 at
+/// the top.
+impl From<RgbaImage> for ImageData {
+    fn from(image: RgbaImage) -> Self {
+        let pixels = image.data().as_chunks::<4>().0.to_vec();
+        Self::RgbaBytes(
+            Grid::from_vec(image.height(), image.width(), pixels)
+                .expect("an image holds a pixel per row and column"),
+        )
     }
 }
 

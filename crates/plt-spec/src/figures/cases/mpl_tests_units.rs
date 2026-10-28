@@ -86,7 +86,7 @@ fn numpy_facade(fig: &Figure) -> CaseResult {
     let y = quantities(linspace(0.0, 30.0, 50), QuantityUnit::Miles);
     let x = quantities(linspace(0.0, 5.0, 50), QuantityUnit::Hours);
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.15),
         ..SubplotOverrides::default()
     })?;

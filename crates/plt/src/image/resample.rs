@@ -58,7 +58,7 @@ impl Default for ResampleOptions {
 /// let data = Grid::from_vec(1, 3, vec![0.1, 0.3, 0.2])?;
 /// let mut out = Grid::filled(1, 10, 0.0);
 /// let stretch = ResolvedTransform::affine(Affine2D::scaling(10.0 / 3.0, 1.0));
-/// resample(&data, &mut out, &stretch, &ResampleOptions::default())?;
+/// resample(&data, &mut out, &stretch, ResampleOptions::default())?;
 /// assert_eq!(out.row(0), &[0.1, 0.1, 0.1, 0.3, 0.3, 0.3, 0.3, 0.2, 0.2, 0.2]);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -71,7 +71,7 @@ pub fn resample(
     data: &Grid<f64>,
     out: &mut Grid<f64>,
     transform: &ResolvedTransform,
-    options: &ResampleOptions,
+    options: ResampleOptions,
 ) -> Result<(), ImageError> {
     let (rows, cols) = data.shape();
     let (out_rows, out_cols) = out.shape();
@@ -370,7 +370,7 @@ mod tests {
             stretch,
         );
         let mut out = Grid::filled(1, 9, 0.0);
-        resample(&data, &mut out, &general, &ResampleOptions::default()).unwrap();
+        resample(&data, &mut out, &general, ResampleOptions::default()).unwrap();
         assert_eq!(out.row(0), &[0.1, 0.2, 0.2, 0.3, 0.4, 0.4, 0.5, 0.6, 0.6]);
         let mut bad = Grid::filled(1, 9, 0.0);
         let options = ResampleOptions {
@@ -382,7 +382,7 @@ mod tests {
                 &data,
                 &mut bad,
                 &ResolvedTransform::affine(stretch),
-                &options
+                options
             )
             .is_err()
         );

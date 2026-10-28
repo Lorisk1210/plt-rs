@@ -18,11 +18,14 @@
 //!   `ax.get_legend()` is [`Axes::current_legend`], the way `plt.gci()`
 //!   is [`Axes::current_image`].
 //! * **Keyword arguments become option structs, passed by value.** Each
-//!   plotting method, artist or widget constructor and save function takes
-//!   a struct of its keywords and consumes it; clone a struct to use it
-//!   again. The public fields are the API: fill them with struct update
-//!   syntax (`..Default::default()`); their names are matplotlib's
-//!   keywords. Unset options fall back to rcParams, as in matplotlib.
+//!   function or method taking keywords takes a struct of them and
+//!   consumes it: plotting methods, artist and widget constructors, save
+//!   functions, and settings such as [`Axes::tick_params`],
+//!   [`Axes::locator_params`], [`Figure::tight_layout`] and
+//!   [`Figure::subplots_adjust`]; clone a struct to use it again. The
+//!   public fields are the API: fill them with struct update syntax
+//!   (`..Default::default()`); their names are matplotlib's keywords.
+//!   Unset options fall back to rcParams, as in matplotlib.
 //!   Builder methods are conveniences a few structs add on top of their
 //!   fields: the property sets ([`LineProps`], [`PatchProps`],
 //!   [`CollectionProps`], [`TextProps`]) and [`LegendOptions`], whose
@@ -31,10 +34,16 @@
 //!   `norm`, `vmin` and `vmax` as one [`ColorizerOptions`] in their
 //!   `colorizer` field and its builders through [`Colorize`]
 //!   ([`ImshowOptions`], [`ContourOptions`], [`MappedColors`], ...).
-//!   Other option structs have none. [`UnitAxisInfo`] has builders too,
-//!   which take a locator or a formatter by value as the [`Axis`]
-//!   setters do: tickers go as `impl Locator` and `impl Formatter`
-//!   wherever they are given.
+//!   Other option structs have none, not even for a field used often;
+//!   the colorizer's builders end the struct update instead:
+//!   `ImshowOptions { extent: .., ..ImshowOptions::default().cmap(..) }`.
+//!   [`UnitAxisInfo`] has builders too, which take a locator or a
+//!   formatter by value as the [`Axis`] setters do: tickers go as
+//!   `impl Locator` and `impl Formatter` wherever they are given. A
+//!   function an option holds has a type with a constructor taking a
+//!   plain closure, whose default does what matplotlib's does:
+//!   `func: LegendValueFn::new(|size| size / 20.0)` ([`LegendValueFn`],
+//!   [`AxesLocatorFn`]).
 //! * **Strings become enums or parsed types.** `linestyle="--"` is
 //!   [`LineStyle::Dashed`]; matplotlib's spelling still works through
 //!   [`str::parse`] (every such type implements [`FromStr`]), which
@@ -91,8 +100,12 @@
 //!   takes, as tick setters take what [`Axes::set_xticks`] takes, on
 //!   other projections too ([`PolarAxes::set_rticks`]). A list of
 //!   numbers in a setting converts from an array or a `Vec`: an image's
-//!   [`Extent`] from `[left, right, bottom, top]`,
-//!   [`LogLocator::with_subs`] from `[2.0, 5.0]`.
+//!   [`Extent`] from `[left, right, bottom, top]`, the multiples every
+//!   `with_subs` takes (of the log, symlog and asinh locators and scales
+//!   alike) from `[2.0, 5.0]` ([`LogLocator::with_subs`]). Where
+//!   matplotlib takes a string or a list of them for the datasets of one
+//!   call, one label or a list converts: [`HistPlotOptions::label`] is
+//!   `"samples".into()` or `["a", "b"].into()` ([`DatasetLabels`]).
 //! * **User code may use the figure.** Closures plt-rs runs between draws
 //!   (event callbacks, timers, toolbar tools, widgets, animation frames,
 //!   pickers, unit converters) may use any handle of the figure. Methods
@@ -118,7 +131,10 @@
 //!   name in modules a program may use together, plt-rs prefixes one with
 //!   its module: `units.AxisInfo` is [`UnitAxisInfo`], beside the
 //!   [`ticker::AxisInfo`] tick helpers read, and `GeoAxes.ThetaFormatter`
-//!   is [`GeoThetaFormatter`], beside the polar [`ThetaFormatter`].
+//!   is [`GeoThetaFormatter`], beside the polar [`ThetaFormatter`]. A
+//!   type is imported under the name rustdoc shows for it: `plt`
+//!   re-exports the types of its lower crates under their own names
+//!   ([`RotationMode`] in `plt::text`), never renamed.
 //! * **plt-rs' own rcParams start with `plt.`**, then the matplotlib rc
 //!   group, module or class they belong to in lower case, then the
 //!   keyword whose value matplotlib fixes in code, spelled as that keyword:
@@ -138,7 +154,10 @@
 //!   owns with [`findobj`](crate::artist::ArtistHandle::findobj).
 //!   Widgets are values instead: each owns its connections to the
 //!   figure's events, which end when it is dropped, so a widget is not
-//!   `Clone`; share one between callbacks through an `Rc`.
+//!   `Clone`; share one between callbacks through an `Rc`. Legends take
+//!   the handles of what they draw owned or borrowed ([`LegendHandle`]
+//!   converts from both), and a list of handles of several types one at
+//!   a time ([`LegendOptions::handle`]).
 //! * **The per-axis API takes an axis argument.** Where matplotlib has
 //!   `get_xmargin` and `get_ymargin`, plt-rs has `margin(AxisName::X)`.
 //!   The most common pairs (`set_xlim`, `set_xlabel`, `set_xscale`,
@@ -560,3 +579,14 @@
 //! [`PolarAxes::set_rticks`]: crate::polar::PolarAxes::set_rticks
 //! [`Extent`]: crate::image::Extent
 //! [`LogLocator::with_subs`]: crate::ticker::LogLocator::with_subs
+//! [`Axes::tick_params`]: crate::axes::Axes::tick_params
+//! [`Axes::locator_params`]: crate::axes::Axes::locator_params
+//! [`Figure::tight_layout`]: crate::figure::Figure::tight_layout
+//! [`Figure::subplots_adjust`]: crate::figure::Figure::subplots_adjust
+//! [`LegendValueFn`]: crate::collections::LegendValueFn
+//! [`AxesLocatorFn`]: crate::axes::AxesLocatorFn
+//! [`HistPlotOptions::label`]: crate::axes::HistPlotOptions::label
+//! [`DatasetLabels`]: crate::axes::DatasetLabels
+//! [`RotationMode`]: crate::text::RotationMode
+//! [`LegendHandle`]: crate::legend::LegendHandle
+//! [`LegendOptions::handle`]: crate::legend::LegendOptions::handle

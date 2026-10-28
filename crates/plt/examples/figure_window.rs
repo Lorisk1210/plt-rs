@@ -9,10 +9,12 @@
 //! ```
 //!
 //! With `--screenshot PATH`, the window is drawn off screen (no display
-//! server needed), its contents are saved as a PNG and the example quits.
+//! server needed) by [`FigureWindow::screenshot`], saved as a PNG, and
+//! the example quits.
 //!
 //! With `--review DIR`, every surface of the window chrome is drawn off
-//! screen the same way and saved in `DIR` as `LOOK-RATIOx-SURFACE.png`:
+//! screen, captured by [`FigureWindow::capture`] and saved in `DIR` as
+//! `LOOK-RATIOx-SURFACE.png`:
 //! the window idle, with a button hovered, pressed and focused, panning
 //! (with the pointer's coordinates) and zooming (with a rubber band); the
 //! figure options on each tab, with the axes list open, on a datetime
@@ -48,6 +50,7 @@ use plt::axes::ImshowOptions;
 use plt::dates::{AutoDateLocator, ConciseDateFormatter, DateTime, TimeDelta};
 use plt::figure::Figure;
 use plt::gui::{FigureWindow, Icon, ToolKind, ToolSpec};
+use plt::image::{ImsaveOptions, RgbaImage, imsave};
 use plt::lines::LineProps;
 use plt::look::{Appearance, ChromeLook, FigureLook};
 use plt::numeric::{Grid, linspace};
@@ -173,10 +176,7 @@ impl Mode {
 fn main() -> Result<(), Box<dyn Error>> {
     match Mode::from_args()? {
         Mode::Show => Ok(plt::gui::show(&[demo()?])?),
-        Mode::Screenshot(path) => {
-            let shown = Offscreen::open(&demo()?, 1.0)?;
-            shown.save(shown.main(), &path)
-        }
+        Mode::Screenshot(path) => save(FigureWindow::screenshot(&demo()?, 1.0)?, &path),
         Mode::Review(dir) => review(&dir),
     }
 }
@@ -556,15 +556,13 @@ impl Offscreen {
 
     /// Saves what `window` shows to `path` as a PNG.
     fn save(&self, window: WindowId, path: &Path) -> Result<(), Box<dyn Error>> {
-        let frame = self.handle.surface(window).ok_or("the window is closed")?;
-        let size = frame.size();
-        let png = plt_codec::png::Encoder::new().encode(plt_codec::png::ImageRef::rgba8(
-            size.width,
-            size.height,
-            frame.pixels(),
-        )?)?;
-        std::fs::write(path, png)?;
-        println!("saved {}", path.display());
-        Ok(())
+        save(FigureWindow::capture(&self.handle, window)?, path)
     }
+}
+
+/// Saves a window's `image` to `path` as a PNG.
+fn save(image: RgbaImage, path: &Path) -> Result<(), Box<dyn Error>> {
+    imsave(path, image, ImsaveOptions::default())?;
+    println!("saved {}", path.display());
+    Ok(())
 }

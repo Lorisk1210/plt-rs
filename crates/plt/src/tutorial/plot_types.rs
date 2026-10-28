@@ -126,11 +126,16 @@
 //!     .collect();
 //!
 //! let ax = Figure::new().subplot();
-//! let options = HistPlotOptions { bins: Some(Bins::Count(30)), ..HistPlotOptions::default() };
+//! let options = HistPlotOptions {
+//!     bins: Some(Bins::Count(30)),
+//!     label: "samples".into(), // one per dataset for several: ["a", "b"].into()
+//!     ..HistPlotOptions::default()
+//! };
 //! let hist = ax.hist(&samples, options)?;
 //!
 //! assert_eq!(hist.edges.len(), 31, "30 bins have 31 edges");
 //! assert_eq!(hist.tops[0].iter().sum::<f64>(), 1000.0);
+//! assert_eq!(ax.legend(LegendOptions::default())?.labels(), ["samples"]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

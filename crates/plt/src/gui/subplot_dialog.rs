@@ -234,7 +234,7 @@ impl SubplotDialog {
         let value = param.limit(value, &self.figure.subplot_params());
         // A border meeting its opposite is refused and keeps the previous
         // parameters, as in matplotlib's tool.
-        let _ = self.figure.subplots_adjust(&param.overrides(value));
+        let _ = self.figure.subplots_adjust(param.overrides(value));
         self.show(cx, param, value, from_slider)
     }
 
@@ -250,7 +250,7 @@ impl SubplotDialog {
             hspace: Some(initial.hspace),
         };
         // The parameters were valid when the tool opened.
-        let _ = self.figure.subplots_adjust(&overrides);
+        let _ = self.figure.subplots_adjust(overrides);
         for param in Param::BORDERS.into_iter().chain(Param::SPACINGS) {
             self.show(cx, param, param.get(&initial), true)?;
         }

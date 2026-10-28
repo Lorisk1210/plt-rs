@@ -62,7 +62,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(5.0, 4.0, 100.0),
     FigureCase::new("axes/yscale_logit", |fig| {
         let ax = fig.subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.2),
             ..SubplotOverrides::default()
         })?;

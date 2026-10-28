@@ -151,7 +151,7 @@ pub(super) fn twin_aux_tight(fig: &Figure) -> CaseResult {
     right.set_xlabel("radians");
     degrees.set_xlabel("degrees");
     degrees.axis(SpineSide::Top).set_label_visible(true);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -164,7 +164,7 @@ pub(super) fn aux_axes_best_legend(fig: &Figure) -> CaseResult {
     right.set_visible(true);
     right.set_ticklabels_visible(true);
     right.set_label_visible(true);
-    par.axis(SpineSide::Left).toggle(&Toggle {
+    par.axis(SpineSide::Left).toggle(Toggle {
         all: Some(false),
         ..Toggle::default()
     });

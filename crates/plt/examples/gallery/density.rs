@@ -124,11 +124,11 @@ pub(crate) fn marginal_histograms(
     };
     top.hist(x, binned)?;
     right.hist(y, sideways)?;
-    top.tick_params(&TickParams {
+    top.tick_params(TickParams {
         labelbottom: Some(false),
         ..TickParams::default()
     });
-    right.tick_params(&TickParams {
+    right.tick_params(TickParams {
         labelleft: Some(false),
         ..TickParams::default()
     });

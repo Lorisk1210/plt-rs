@@ -102,7 +102,7 @@ mod tests {
         let first_color = line.rgba().unwrap();
         ax.view_init(10.0, 20.0, 0.0);
         ax.set_title("before");
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             color: Some(Color::from("red")),
             ..TickParams::default()
         });

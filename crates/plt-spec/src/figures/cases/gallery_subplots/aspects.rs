@@ -181,7 +181,7 @@ fn axis_equal_demo(fig: &Figure) -> CaseResult {
         .set_aspect(Aspect::Equal)?
         .set_adjustable(Adjustable::Box)?;
     title(&axs[(1, 1)], "still a circle, auto-adjusted data limits");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

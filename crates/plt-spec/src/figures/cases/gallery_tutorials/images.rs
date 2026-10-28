@@ -112,13 +112,19 @@ fn images_9(fig: &Figure) -> CaseResult {
 }
 
 fn images_10(fig: &Figure) -> CaseResult {
-    let bilinear = ImshowOptions::default().interpolation(Interpolation::Bilinear);
+    let bilinear = ImshowOptions {
+        interpolation: Some(Interpolation::Bilinear),
+        ..ImshowOptions::default()
+    };
     fig.subplot().imshow(stinkbug(THUMBNAIL), bilinear)?;
     Ok(())
 }
 
 fn images_11(fig: &Figure) -> CaseResult {
-    let bicubic = ImshowOptions::default().interpolation(Interpolation::Bicubic);
+    let bicubic = ImshowOptions {
+        interpolation: Some(Interpolation::Bicubic),
+        ..ImshowOptions::default()
+    };
     fig.subplot().imshow(stinkbug(THUMBNAIL), bicubic)?;
     Ok(())
 }

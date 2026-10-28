@@ -141,7 +141,7 @@ fn variable_errorbars(fig: &Figure) -> CaseResult {
     };
     ax.errorbar(&x, &y, options)?;
     ax.set_title("Vert. symmetric");
-    ax.locator_params(&LocatorParams {
+    ax.locator_params(LocatorParams {
         nbins: Some(Nbins::Fixed(4)),
         ..LocatorParams::default()
     })?;

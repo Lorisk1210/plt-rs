@@ -49,7 +49,7 @@ pub(super) fn eng_formatter(fig: &Figure) -> CaseResult {
             .with_unit("Hz")
             .with_use_offset(OffsetMode::Auto),
     );
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -63,7 +63,7 @@ pub(super) fn log_minor_labels(fig: &Figure) -> CaseResult {
             .with_label_only_base(false)
             .with_minor_thresholds(4.0, 0.5),
     );
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -87,7 +87,7 @@ pub(super) fn log_formatter_variants(fig: &Figure) -> CaseResult {
     axs[(3, 0)].set_scale_with(AxisName::X, "log", base2)?;
     axs[(3, 0)].set_xlim(1.0 / 8.0, 512.0)?;
     axis(3).set_major_formatter(LogFormatter::new(LogLabelStyle::SciNotation, 2.0));
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -124,7 +124,7 @@ pub(super) fn log_locator_subs(fig: &Figure) -> CaseResult {
     ax2.xaxis()
         .set_major_locator(LogLocator::new(10.0)?.with_numticks(NumTicks::Fixed(3)))
         .set_minor_locator(LogLocator::new(10.0)?.with_subs(LogSubs::Auto));
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -170,6 +170,6 @@ pub(super) fn symlog_subs_minor(fig: &Figure) -> CaseResult {
             ..ScaleOptions::default()
         },
     )?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }

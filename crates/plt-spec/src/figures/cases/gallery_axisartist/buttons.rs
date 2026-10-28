@@ -26,7 +26,7 @@ pub(super) const CASES: &[FigureCase] = &[
 fn buttons(fig: &Figure) -> CaseResult {
     let freqs = arange(2.0, 20.0, 3.0);
     let ax = fig.subplot();
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.2),
         ..SubplotOverrides::default()
     })?;

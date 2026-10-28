@@ -9,13 +9,18 @@ use super::handlers::{HandlerKey, HandlerMap, LegendHandler, TypeKey};
 use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, is_hidden_label};
 use crate::axes::{AxesState, BarContainer, ErrorbarContainer, StemContainer};
 use crate::axes_grid1::parasites_of;
+use crate::collections::{Collection, EllipseCollection, EventCollection};
 use crate::container::{Container, ContainerIds};
-use crate::lines::{LineArtist, LineProps};
-use crate::patches::{PatchArtist, PatchProps, Rectangle};
+use crate::lines::{Line2D, LineArtist, LineProps};
+use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Rectangle};
 
 /// Something a legend can show an entry for: a line, patch or collection,
 /// a bar, error bar or stem container, or any object a
 /// [`LegendHandler`] draws (matplotlib's legend handles).
+///
+/// Every artist handle converts into one, borrowed; the handles of what
+/// legends draw (lines, patches, collections and the containers) convert
+/// owned as well.
 ///
 /// ```
 /// use plt::prelude::*;
@@ -186,7 +191,7 @@ impl LegendHandle {
     /// let ax = Figure::new().subplot();
     /// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
     /// let dots = ax.scatter(vec![0.5], vec![0.5])?;
-    /// let both = LegendHandle::tuple([LegendHandle::from(&line), LegendHandle::from(&dots)], HandlerTuple::default());
+    /// let both = LegendHandle::tuple([line.into(), dots.into()], HandlerTuple::default());
     /// ax.legend(LegendOptions::default().handles([both]).labels(["line and dot"]))?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -267,6 +272,26 @@ impl<T: ArtistHandle> From<&T> for LegendHandle {
     }
 }
 
+/// Implements `From` for owned artist handles of these types, as for
+/// borrowed ones.
+macro_rules! owned_artist_handles {
+    ($($handle:ty),+) => {$(
+        impl From<$handle> for LegendHandle {
+            fn from(artist: $handle) -> Self {
+                Self::from(&artist)
+            }
+        }
+    )+};
+}
+
+owned_artist_handles!(Line2D, Collection, EventCollection, EllipseCollection);
+
+impl<S: PatchShape> From<Patch<S>> for LegendHandle {
+    fn from(patch: Patch<S>) -> Self {
+        Self::from(&patch)
+    }
+}
+
 impl From<&Container> for LegendHandle {
     fn from(container: &Container) -> Self {
         Self(Source::Container(container.into()))
@@ -279,23 +304,29 @@ impl From<Container> for LegendHandle {
     }
 }
 
-impl From<&BarContainer> for LegendHandle {
-    fn from(bars: &BarContainer) -> Self {
-        Self::from(Container::Bar(bars.clone()))
-    }
+/// Implements `From` for these containers, owned and borrowed, through
+/// the [`Container`] variant holding each.
+macro_rules! containers {
+    ($($container:ty => $variant:ident),+) => {$(
+        impl From<$container> for LegendHandle {
+            fn from(container: $container) -> Self {
+                Self::from(Container::$variant(container))
+            }
+        }
+
+        impl From<&$container> for LegendHandle {
+            fn from(container: &$container) -> Self {
+                Self::from(container.clone())
+            }
+        }
+    )+};
 }
 
-impl From<&ErrorbarContainer> for LegendHandle {
-    fn from(errors: &ErrorbarContainer) -> Self {
-        Self::from(Container::Errorbar(errors.clone()))
-    }
-}
-
-impl From<&StemContainer> for LegendHandle {
-    fn from(stems: &StemContainer) -> Self {
-        Self::from(Container::Stem(stems.clone()))
-    }
-}
+containers!(
+    BarContainer => Bar,
+    ErrorbarContainer => Errorbar,
+    StemContainer => Stem
+);
 
 impl Source {
     /// The legend label, if the artists still exist.

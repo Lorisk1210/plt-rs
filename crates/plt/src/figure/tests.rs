@@ -180,7 +180,7 @@ fn subplots_adjust_moves_grid_axes_only() {
     let free_axes = fig
         .add_axes([0.5, 0.5, 0.1, 0.1])
         .expect("a valid rectangle");
-    fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
+    fig.subplots_adjust(crate::gridspec::SubplotOverrides {
         left: Some(0.3),
         ..Default::default()
     })
@@ -188,7 +188,7 @@ fn subplots_adjust_moves_grid_axes_only() {
     assert!((grid_axes.position().x0() - 0.3).abs() < 1e-12);
     assert_eq!(free_axes.position().x0(), 0.5);
     assert!(
-        fig.subplots_adjust(&crate::gridspec::SubplotOverrides {
+        fig.subplots_adjust(crate::gridspec::SubplotOverrides {
             right: Some(0.2),
             ..Default::default()
         })

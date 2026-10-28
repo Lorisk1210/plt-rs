@@ -49,7 +49,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     }),
     FigureCase::new("axes/xlabel_ylabel_loc_and_pad", |fig| {
         let ax = fig.subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.18),
             ..SubplotOverrides::default()
         })?;

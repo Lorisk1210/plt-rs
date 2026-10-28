@@ -267,7 +267,7 @@ mod tests {
         ax.set_xticklabels(Vec::<String>::new())
             .expect("no labels fit any ticks");
         let empty = xlabel_top(&fig, &ax);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelbottom: Some(false),
             ..TickParams::default()
         });

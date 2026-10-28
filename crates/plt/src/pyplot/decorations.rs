@@ -243,7 +243,7 @@ pub fn axis(mode: AxisMode) -> Result<(), AspectError> {
 
 /// Changes the appearance of the ticks and tick labels of the current
 /// axes (matplotlib's `tick_params`).
-pub fn tick_params(params: &TickParams) {
+pub fn tick_params(params: TickParams) {
     gca().tick_params(params);
 }
 
@@ -253,7 +253,7 @@ pub fn tick_params(params: &TickParams) {
 /// # Errors
 ///
 /// As [`Axes::ticklabel_format`](crate::axes::Axes::ticklabel_format).
-pub fn ticklabel_format(format: &TicklabelFormat) -> Result<(), PlotError> {
+pub fn ticklabel_format(format: TicklabelFormat) -> Result<(), PlotError> {
     gca().ticklabel_format(format).map(|_| ())
 }
 
@@ -263,7 +263,7 @@ pub fn ticklabel_format(format: &TicklabelFormat) -> Result<(), PlotError> {
 /// # Errors
 ///
 /// As [`Axes::locator_params`](crate::axes::Axes::locator_params).
-pub fn locator_params(params: &LocatorParams) -> Result<(), PlotError> {
+pub fn locator_params(params: LocatorParams) -> Result<(), PlotError> {
     gca().locator_params(params).map(|_| ())
 }
 
@@ -444,8 +444,8 @@ mod tests {
     fn ticks_grids_and_frames() {
         close_all();
         plot(vec![0.0, 3.0], vec![0.0, 3.0]).unwrap();
-        ticklabel_format(&TicklabelFormat::default()).unwrap();
-        locator_params(&LocatorParams::default()).unwrap();
+        ticklabel_format(TicklabelFormat::default()).unwrap();
+        locator_params(LocatorParams::default()).unwrap();
         xticks(vec![0.0, 1.5, 3.0]);
         xticklabels(["a", "b", "c"]).unwrap();
         yticks(vec![0.0, 1.0]);
@@ -462,9 +462,9 @@ mod tests {
         grid(true);
         grid_with(true, GridOptions::default());
         assert!(gca().has_grid(AxisName::X, true));
-        tick_params(&TickParams::default());
+        tick_params(TickParams::default());
         assert!(
-            ticklabel_format(&TicklabelFormat::default()).is_err(),
+            ticklabel_format(TicklabelFormat::default()).is_err(),
             "fixed labels now"
         );
         let steps = LocatorParams {
@@ -472,7 +472,7 @@ mod tests {
             ..LocatorParams::default()
         };
         assert!(
-            locator_params(&steps).is_err(),
+            locator_params(steps).is_err(),
             "fixed ticks take only nbins now"
         );
         minorticks_on();

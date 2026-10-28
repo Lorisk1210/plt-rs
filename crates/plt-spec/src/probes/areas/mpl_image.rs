@@ -303,6 +303,6 @@ fn resample_row(args: Args<'_>) -> Outcome {
         interpolation,
         ..ResampleOptions::default()
     };
-    resample(&data, &mut out, &transform, &options).map_err(ProbeError::rejected)?;
+    resample(&data, &mut out, &transform, options).map_err(ProbeError::rejected)?;
     Ok(Json::from(out.row(0).to_vec()))
 }

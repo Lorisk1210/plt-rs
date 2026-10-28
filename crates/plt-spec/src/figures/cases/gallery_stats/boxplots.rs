@@ -93,7 +93,7 @@ fn boxplot_demo_1(fig: &Figure) -> CaseResult {
         ax.boxplot(&data, options)?;
         ax.set_title(title);
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.08),
         right: Some(0.98),
         bottom: Some(0.05),
@@ -184,7 +184,7 @@ fn log_grid(fig: &Figure) -> Result<Grid<Axes>, Box<dyn std::error::Error>> {
         ax.set_yscale("log")?;
         ax.set_yticklabels(Vec::<String>::new())?;
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.4),
         ..SubplotOverrides::default()
     })?;

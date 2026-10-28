@@ -137,7 +137,10 @@ fn rgba_image(colors: &Grid<plt_core::Rgba>) -> Grid<[f64; 4]> {
 
 /// Bilinear interpolation (`interpolation='bilinear'`).
 fn bilinear() -> ImshowOptions {
-    ImshowOptions::default().interpolation(Interpolation::Bilinear)
+    ImshowOptions {
+        interpolation: Some(Interpolation::Bilinear),
+        ..ImshowOptions::default()
+    }
 }
 
 /// The smallest and largest values of `z`.
@@ -153,7 +156,7 @@ fn advanced_hillshading_1(fig: &Figure) -> CaseResult {
     let z = cos_rings();
     let cmap = colormaps::get("copper")?;
     let rgb =
-        LightSource::new(315.0, 45.0).shade(&z, &ShadeOptions::default().cmap(cmap.clone()))?;
+        LightSource::new(315.0, 45.0).shade(&z, ShadeOptions::default().cmap(cmap.clone()))?;
     let ax = fig.subplot();
     ax.imshow(rgba_image(&rgb), bilinear())?;
     // The colorbar of the data the colours stand for.
@@ -174,7 +177,7 @@ fn advanced_hillshading_2(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
     ax1.imshow(
-        rgba_image(&ls.shade(&z, &ShadeOptions::default().cmap(copper.clone()))?),
+        rgba_image(&ls.shade(&z, ShadeOptions::default().cmap(copper.clone()))?),
         bilinear(),
     )?;
     ax1.set_title("Full range of data");
@@ -187,7 +190,7 @@ fn advanced_hillshading_2(fig: &Figure) -> CaseResult {
         },
         ..ShadeOptions::default()
     };
-    ax2.imshow(rgba_image(&ls.shade(&z, &limited)?), bilinear())?;
+    ax2.imshow(rgba_image(&ls.shade(&z, limited)?), bilinear())?;
     ax2.set_title("Manually set range");
     fig.suptitle("Avoiding Outliers in Shaded Plots")
         .set_fontsize(RelativeSize::XLarge);
@@ -208,7 +211,7 @@ fn advanced_hillshading_3(fig: &Figure) -> CaseResult {
     let colors = colored.to_rgba(&values, None)?;
     let rgb = Grid::from_vec(200, 200, colors.iter().map(|c| [c.r, c.g, c.b]).collect())?;
     let shaded =
-        LightSource::new(315.0, 45.0).shade_rgb(&rgb, &z1, &BlendMode::Hsv, &Relief::default())?;
+        LightSource::new(315.0, 45.0).shade_rgb(&rgb, &z1, BlendMode::Hsv, Relief::default())?;
     let ax = fig.subplot();
     ax.imshow(shaded, bilinear())?;
     ax.set_title("Shade by one variable, color by another")
@@ -242,7 +245,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
             ..Relief::default()
         };
         axs[(0, col)].imshow(
-            ls.hillshade(&z, &relief)?,
+            ls.hillshade(&z, relief)?,
             ImshowOptions::default().cmap(gray.clone()),
         )?;
         for (row, blend) in [BlendMode::Hsv, BlendMode::Overlay, BlendMode::SoftLight]
@@ -255,7 +258,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
                 ..ShadeOptions::default()
             }
             .cmap(cmap.clone());
-            let rgb = ls.shade(&z, &options)?;
+            let rgb = ls.shade(&z, options)?;
             axs[(row + 1, col)].imshow(rgba_image(&rgb), ImshowOptions::default())?;
         }
         axs[(0, col)]
@@ -301,7 +304,7 @@ fn topographic_hillshading(fig: &Figure) -> CaseResult {
         .set_valign(VAlign::Center)
         .set_fontsize(sized(20.0))
         .set_rotation(90.0);
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.05),
         right: Some(0.95),
         ..SubplotOverrides::default()

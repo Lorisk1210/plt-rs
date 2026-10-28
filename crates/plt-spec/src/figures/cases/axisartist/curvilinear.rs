@@ -39,7 +39,7 @@ fn shear() -> AuxTransform {
 type Adjustment = fn(&axisartist::AxisArtist);
 
 pub(super) fn simple_axis_pad(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.01),
         right: Some(0.99),
         bottom: Some(0.01),
@@ -166,7 +166,7 @@ pub(super) fn curvelinear_grid2(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.3),
         left: Some(0.05),
         right: Some(0.95),
@@ -245,7 +245,7 @@ pub(super) fn floating_axes(fig: &Figure) -> CaseResult {
     axis_artist(&ax3, "bottom")?.set_visible(false);
     let top = axis_artist(&ax3, "top")?;
     top.set_axis_direction(SpineSide::Bottom);
-    top.toggle(&Toggle {
+    top.toggle(Toggle {
         ticklabels: Some(true),
         label: Some(true),
         ..Toggle::default()

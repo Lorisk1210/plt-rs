@@ -27,7 +27,7 @@ pub(super) const CASES: &[FigureCase] = &[
 
 /// Hides (or shows) the tick labels of `axis`.
 fn toggle_ticklabels(axis: &AxisArtist, visible: bool) {
-    axis.toggle(&Toggle {
+    axis.toggle(Toggle {
         ticklabels: Some(visible),
         ..Toggle::default()
     });
@@ -51,7 +51,7 @@ fn arrow_axis(
 }
 
 fn axis_direction(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.1),
         top: Some(0.9),
         left: Some(0.05),
@@ -131,7 +131,7 @@ fn demo_axis_direction(fig: &Figure) -> CaseResult {
 type Adjustment = fn(&AxisArtist);
 
 fn simple_axis_pad(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.01),
         right: Some(0.99),
         bottom: Some(0.01),

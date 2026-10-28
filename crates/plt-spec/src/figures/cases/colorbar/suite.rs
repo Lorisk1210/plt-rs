@@ -62,7 +62,7 @@ fn bare_colorbar(fig: &Figure, cax: &Axes, extend: Extend, options: ColorbarOpti
             ..options
         },
     )?;
-    cax.tick_params(&TickParams {
+    cax.tick_params(TickParams {
         left: Some(false),
         labelleft: Some(false),
         bottom: Some(false),
@@ -75,7 +75,7 @@ fn bare_colorbar(fig: &Figure, cax: &Axes, extend: Extend, options: ColorbarOpti
 /// `_extension_length(fig, spacing)`: every extension kind with the
 /// default, automatic and 0.1 extension lengths.
 fn extension_length(fig: &Figure, spacing: Spacing) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.6),
         ..SubplotOverrides::default()
     })?;
@@ -105,7 +105,7 @@ pub(super) fn extension_length_proportional(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn extension_shape_rect(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(4.0),
         wspace: Some(0.3),
         ..SubplotOverrides::default()
@@ -139,7 +139,7 @@ pub(super) fn drawedges_with_extensions(fig: &Figure) -> CaseResult {
             "tab:brown",
         ],
     )?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(1.5),
         ..SubplotOverrides::default()
     })?;
@@ -257,7 +257,7 @@ pub(super) fn lognorm_extend_minor_custom_ticks(fig: &Figure) -> CaseResult {
         },
     )?;
     cb.minorticks_on();
-    cb.ax().tick_params(&TickParams {
+    cb.ax().tick_params(TickParams {
         which: TickLevel::Minor,
         length: Some(4.0),
         color: Some(Color::from("tab:red")),

@@ -44,7 +44,7 @@ fn four_projections(fig: &Figure) -> CaseResult {
         ax.plot_with(lon, lat, LineProps::default().color("tab:red"))?;
         ax.grid(true);
         ax.set_title(name).set_fontsize(10.0);
-        ax.tick_params(&label_size(7.0));
+        ax.tick_params(label_size(7.0));
     }
     Ok(())
 }
@@ -60,13 +60,13 @@ fn hammer_coarse(fig: &Figure) -> CaseResult {
             ..GridOptions::default()
         },
     );
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelcolor: Some(Color::from("tab:blue")),
         labelsize: Some(FontSize::Points(8.0)),
         ..TickParams::default()
     });
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelcolor: Some(Color::from("tab:green")),
         ..TickParams::default()
@@ -86,7 +86,7 @@ fn mollweide_fine(fig: &Figure) -> CaseResult {
             ..GridOptions::default()
         },
     );
-    ax.tick_params(&label_size(6.0));
+    ax.tick_params(label_size(6.0));
     Ok(())
 }
 

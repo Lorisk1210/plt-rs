@@ -51,7 +51,7 @@ fn invert_axes(fig: &Figure) -> CaseResult {
 /// Colours the y label and the y tick labels of `ax`.
 fn color_y(ax: &Axes, color: &str) {
     ax.yaxis().set_label_color(color);
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelcolor: Some(color.into()),
         ..TickParams::default()
@@ -74,7 +74,7 @@ fn two_scales(fig: &Figure) -> CaseResult {
         LineProps::default().color(color),
     )?;
     color_y(&ax2, color);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -131,7 +131,7 @@ fn twin_axes_zorder(fig: &Figure) -> CaseResult {
     ax.set_xlabel("x").set_ylabel("main y");
     ax2.set_ylabel("twin y");
     ax.set_title("Twin Axes drawn behind the main Axes using delta_zorder");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

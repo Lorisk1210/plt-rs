@@ -37,7 +37,7 @@ fn append_axes(fig: &plt::figure::Figure) -> CaseResult {
     let top = divider.append_axes(SpineSide::Top, 0.6, Some(0.1.into()));
     top.share_x(&ax)?;
     top.plot_y(field(20).row(10));
-    top.tick_params(&TickParams {
+    top.tick_params(TickParams {
         labelbottom: Some(false),
         ..TickParams::default()
     });

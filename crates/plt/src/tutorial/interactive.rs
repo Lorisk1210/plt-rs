@@ -151,6 +151,39 @@
 //! Gallery: `widgets` in `diagrams.rs`; `cargo run -p plt --example
 //! widgets` opens a window with live widgets.
 //!
+//! # The window, off screen
+//!
+//! [`FigureWindow::screenshot`] draws the window `gui::show` would open,
+//! toolbar and all, without a display, and returns its pixels: for a
+//! picture of the window in documentation, a test of what users see, or
+//! a server with no screen. The second argument is the pixel ratio of
+//! the display; 2 draws the window as a high-density display shows it.
+//! The figure is drawn as it is now, so a screenshot taken after the
+//! widget code above shows the slider where `set_val` moved it.
+//! [`image::imsave`](crate::image::imsave) saves the pixels.
+//!
+//! ```
+//! use plt::gui::FigureWindow;
+//! use plt::image::{ImsaveOptions, imsave};
+//! use plt::prelude::*;
+//! # let dir = std::env::temp_dir().join(format!("plt-tutorial-window-{}", std::process::id()));
+//! # std::fs::create_dir_all(&dir)?;
+//! # std::env::set_current_dir(&dir)?;
+//!
+//! let fig = Figure::with_size(4.0, 3.0, 100.0);
+//! fig.subplot().plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
+//! let window = FigureWindow::screenshot(&fig, 1.0)?;
+//! assert_eq!(window.width(), 400, "as wide as the figure");
+//! assert!(window.height() > 300, "and taller by the toolbar");
+//! imsave("window.png", window, ImsaveOptions::default())?;
+//! # assert!(std::fs::read("window.png")?.starts_with(b"\x89PNG"));
+//! # std::fs::remove_dir_all(&dir)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! `cargo run -p plt --example figure_window -- --screenshot window.png`
+//! saves the window of that example the same way.
+//!
 //! # Animation
 //!
 //! [`FuncAnimation`](crate::animation::FuncAnimation) calls a closure for
@@ -220,3 +253,4 @@
 //! [`Figure::disconnect`]: crate::figure::Figure::disconnect
 //! [`Figure::add_timer`]: crate::figure::Figure::add_timer
 //! [`Axes::data_to_display`]: crate::axes::Axes::data_to_display
+//! [`FigureWindow::screenshot`]: crate::gui::FigureWindow::screenshot

@@ -304,7 +304,7 @@ impl Axis {
     /// ```
     pub fn set_color(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
-        self.set_tick_params(&TickParams {
+        self.set_tick_params(TickParams {
             colors: Some(color.clone()),
             ..TickParams::default()
         });

@@ -520,7 +520,7 @@ mod tests {
             .expect("finite limits");
         // The ray at angle 0 runs to r = √2, past the right edge.
         let ray = ax.new_floating_axis("ray", AxisName::X, 0.0);
-        ray.toggle(&Toggle {
+        ray.toggle(Toggle {
             all: Some(false),
             ..Toggle::default()
         });

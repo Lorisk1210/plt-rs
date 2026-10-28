@@ -149,7 +149,7 @@ impl Axes {
     ///
     /// When an affected axis does not label its ticks with a
     /// `ScalarFormatter`.
-    pub fn ticklabel_format(&self, format: &TicklabelFormat) -> Result<&Self, PlotError> {
+    pub fn ticklabel_format(&self, format: TicklabelFormat) -> Result<&Self, PlotError> {
         for name in [AxisName::X, AxisName::Y] {
             if format.axis.is_some_and(|only| only != name) {
                 continue;

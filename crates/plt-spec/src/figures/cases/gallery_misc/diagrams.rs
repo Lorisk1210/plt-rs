@@ -404,7 +404,7 @@ fn anscombe(fig: &Figure) -> CaseResult {
             .set_fontsize(20.0)
             .set_transform(ax.trans_axes())
             .set_valign(VAlign::Top);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             direction: Some("in".parse()?),
             top: Some(true),
             right: Some(true),

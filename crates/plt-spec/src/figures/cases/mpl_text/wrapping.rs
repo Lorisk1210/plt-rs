@@ -5,7 +5,7 @@ use plt::axes::{AxisName, TickLabelProps, TickLevel};
 use plt::fonts::{FontStyle, FontWeight};
 use plt::gridspec::SubplotOverrides;
 use plt::prelude::*;
-use plt::text::{HAlign, Text, TextRotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, Text, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -65,12 +65,7 @@ fn font_wrap(fig: &Figure) -> CaseResult {
 
 /// 37 `foo` tick labels on axis `name` of `ax` and its twin, turned by
 /// 0°, 10°, ..., 360° in rotation mode `mode`.
-fn rotated_tick_labels(
-    ax: &Axes,
-    twin: &Axes,
-    name: AxisName,
-    mode: TextRotationMode,
-) -> CaseResult {
+fn rotated_tick_labels(ax: &Axes, twin: &Axes, name: AxisName, mode: RotationMode) -> CaseResult {
     let ticks: Vec<f64> = (0..37).map(f64::from).collect();
     let angles = linspace(0.0, 360.0, 37);
     for axis in [ax.axis_of(name), twin.axis_of(name)] {
@@ -98,8 +93,8 @@ fn xtick_rotation_mode(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_yticks(Vec::<f64>::new());
     let twin = ax.twiny()?;
-    rotated_tick_labels(&ax, &twin, AxisName::X, TextRotationMode::XTick)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    rotated_tick_labels(&ax, &twin, AxisName::X, RotationMode::XTick)?;
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.01),
         right: Some(0.99),
         top: Some(0.6),
@@ -115,8 +110,8 @@ fn ytick_rotation_mode(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.set_xticks(Vec::<f64>::new());
     let twin = ax.twinx()?;
-    rotated_tick_labels(&ax, &twin, AxisName::Y, TextRotationMode::YTick)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    rotated_tick_labels(&ax, &twin, AxisName::Y, RotationMode::YTick)?;
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.4),
         right: Some(0.6),
         top: Some(0.99),

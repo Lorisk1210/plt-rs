@@ -34,7 +34,7 @@ fn tight_layout(args: Args<'_>) -> Outcome {
 /// `test_empty_layout`: tight layout of a figure without axes.
 fn empty_layout() -> Outcome {
     let fig = pyplot::gcf();
-    let warned = fig.tight_layout(&TightLayout::default()).is_err();
+    let warned = fig.tight_layout(TightLayout::default()).is_err();
     let params = fig.subplot_params();
     Ok(object([
         ("warned", Json::from(warned)),
@@ -58,7 +58,7 @@ fn bad_subplot_grid() -> Outcome {
     let fig = pyplot::figure();
     pyplot::subplot2grid((4, 5), (0, 0), 1, 1).map_err(ProbeError::rejected)?;
     pyplot::subplot2grid((5, 5), (0, 3), 5, 3).map_err(ProbeError::rejected)?;
-    let warned = pyplot::tight_layout(&TightLayout::default()).is_err();
+    let warned = pyplot::tight_layout(TightLayout::default()).is_err();
     let positions = fig
         .axes()
         .iter()
@@ -98,7 +98,7 @@ fn collapsed() -> Outcome {
             rect,
             ..TightLayout::default()
         };
-        warned.push(Json::from(fig.tight_layout(&params).is_err()));
+        warned.push(Json::from(fig.tight_layout(params).is_err()));
         widths.push(width());
     }
     Ok(object([

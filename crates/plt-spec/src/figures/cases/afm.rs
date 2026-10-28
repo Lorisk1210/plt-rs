@@ -7,7 +7,7 @@ use plt::layout::LayoutEngine;
 use plt::legend::LegendOptions;
 use plt::offsetbox::AnchorLoc;
 use plt::prelude::*;
-use plt::text::{HAlign, TextRotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, VAlign};
 
 use crate::figures::{CaseResult, FigureCase};
 
@@ -63,7 +63,7 @@ fn gallery(fig: &Figure) {
         .set_halign(HAlign::Center);
     fig.text(0.92, 0.1, "anchor")
         .set_rotation(90.0)
-        .set_rotation_mode(TextRotationMode::Anchor)
+        .set_rotation_mode(RotationMode::Anchor)
         .set_valign(VAlign::Bottom);
 }
 

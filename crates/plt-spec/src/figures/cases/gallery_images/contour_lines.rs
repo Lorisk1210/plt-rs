@@ -156,10 +156,10 @@ fn contour_demo_6(fig: &Figure) -> CaseResult {
     let image = ImshowOptions {
         origin: Some(plt::image::Origin::Lower),
         extent: Some(Extent::new(-3.0, 3.0, -2.0, 2.0)),
+        interpolation: Some(Interpolation::Bilinear),
         ..ImshowOptions::default()
     }
-    .cmap(colormaps::get("gray")?)
-    .interpolation(Interpolation::Bilinear);
+    .cmap(colormaps::get("gray")?);
     let im = ax.imshow(z.clone(), image)?;
     let levels = arange(-1.2, 1.6, 0.2);
     let field = QuadField::new(z).with_coords(QuadCoords::Implicit {

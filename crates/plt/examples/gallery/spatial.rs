@@ -96,7 +96,7 @@ fn parasite_axes() -> Built {
         ..Toggle::default()
     };
     for parasite in [&temperature, &velocity] {
-        axis(parasite, "right")?.toggle(&everything);
+        axis(parasite, "right")?.toggle(everything);
     }
     let x = linspace(0.0, 2.0, 50);
     let datasets = [
@@ -175,7 +175,7 @@ fn floating_axes() -> Built {
     ray.label().set_text("radius").set_visible(true);
     let outer = axis(&ax, "top")?;
     outer.set_axis_direction(SpineSide::Bottom);
-    outer.toggle(&Toggle {
+    outer.toggle(Toggle {
         ticklabels: Some(true),
         label: Some(true),
         ..Toggle::default()
@@ -183,7 +183,7 @@ fn floating_axes() -> Built {
     outer.major_ticklabels().set_axis_direction(SpineSide::Top);
     outer.label().set_axis_direction(SpineSide::Top);
     outer.label().set_text("angle");
-    axis(&ax, "bottom")?.toggle(&Toggle {
+    axis(&ax, "bottom")?.toggle(Toggle {
         ticklabels: Some(false),
         ..Toggle::default()
     });

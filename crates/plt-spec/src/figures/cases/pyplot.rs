@@ -89,7 +89,7 @@ fn subplot_grid(fig: &Figure) -> CaseResult {
             StemOptions::default(),
         )?;
         pyplot::suptitle("pyplot subplots");
-        pyplot::subplots_adjust(&SubplotOverrides {
+        pyplot::subplots_adjust(SubplotOverrides {
             hspace: Some(0.4),
             ..SubplotOverrides::default()
         })?;

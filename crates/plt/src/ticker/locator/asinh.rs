@@ -53,11 +53,18 @@ impl AsinhLocator {
         self
     }
 
-    /// Multiples of each power (used for minor ticks), e.g. `[2, 5]`.
-    /// An empty list means none.
+    /// Multiples of each power (used for minor ticks), in an array or a
+    /// `Vec`: `[2.0, 5.0]`. An empty list means none, as by default.
+    ///
+    /// ```
+    /// use plt::ticker::AsinhLocator;
+    /// let minor = AsinhLocator::new(1.0).with_subs([2.0, 5.0]);
+    /// assert_eq!(minor.subs(), Some(&[2.0, 5.0][..]));
+    /// assert_eq!(minor.with_subs([]).subs(), None);
+    /// ```
     #[must_use]
-    pub fn with_subs(mut self, subs: Option<Vec<f64>>) -> Self {
-        self.subs = subs.filter(|s| !s.is_empty());
+    pub fn with_subs(mut self, subs: impl Into<Vec<f64>>) -> Self {
+        self.subs = Some(subs.into()).filter(|s| !s.is_empty());
         self
     }
 

@@ -180,7 +180,7 @@ pub(crate) fn save_figure(objects: &str, format: SaveFormat) -> Result<Vec<u8>, 
         let count = objects.len() + 1;
         let fig = Figure::with_size(7.0, 3.0 * count as f64, 100.0);
         let parts = fig.subfigures(count, 1, SubfigureOptions::default())?;
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             bottom: Some(0.15),
             ..SubplotOverrides::default()
         })?;

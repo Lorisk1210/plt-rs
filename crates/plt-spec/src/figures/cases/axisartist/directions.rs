@@ -24,7 +24,7 @@ fn ticked(
 
 pub(super) fn simple_axis_direction01(fig: &Figure) -> CaseResult {
     let ax = axisartist::AxisArtistAxes::new(fig.subplot());
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         right: Some(0.8),
         ..SubplotOverrides::default()
     })?;
@@ -39,7 +39,7 @@ pub(super) fn simple_axis_direction01(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn simple_axis_direction03(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.4),
         bottom: Some(0.3),
         ..SubplotOverrides::default()
@@ -58,7 +58,7 @@ pub(super) fn simple_axis_direction03(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn ticklabel_alignment(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.5),
         hspace: Some(0.7),
         ..SubplotOverrides::default()
@@ -94,7 +94,7 @@ pub(super) fn ticklabel_alignment(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn ticklabel_direction(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.2),
         ..SubplotOverrides::default()
     })?;
@@ -129,7 +129,7 @@ pub(super) fn ticklabel_direction(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.15),
         right: Some(0.85),
         bottom: Some(0.2),
@@ -182,14 +182,14 @@ pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
     left.minor_ticks().set_visible(false);
     left.label().set_axis_direction(SpineSide::Right);
     let right = axis_artist(&ax, "right")?;
-    right.toggle(&Toggle {
+    right.toggle(Toggle {
         all: Some(true),
         ..Toggle::default()
     });
     right.label().set_text("right label");
     right.invert_ticklabel_direction();
     let top = axis_artist(&ax, "top")?;
-    top.toggle(&Toggle {
+    top.toggle(Toggle {
         all: Some(false),
         ticks: Some(true),
         ..Toggle::default()
@@ -200,7 +200,7 @@ pub(super) fn axis_styling(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn axis_direction(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.04),
         right: Some(0.98),
         bottom: Some(0.06),
@@ -226,7 +226,7 @@ pub(super) fn axis_direction(fig: &Figure) -> CaseResult {
         {
             let ax = polar_box(fig, (2, 4, 4 * row + i + 1))?;
             for axis in ax.axis_artists() {
-                axis.toggle(&Toggle {
+                axis.toggle(Toggle {
                     ticklabels: Some(false),
                     ..Toggle::default()
                 });

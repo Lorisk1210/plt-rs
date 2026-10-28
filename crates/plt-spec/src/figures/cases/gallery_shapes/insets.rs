@@ -74,7 +74,7 @@ fn demo_colorbar_with_inset_locator(fig: &Figure) -> CaseResult {
 /// No tick labels on the left or at the bottom.
 fn hide_tick_labels(axes: &[&Axes]) {
     for ax in axes {
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelleft: Some(false),
             labelbottom: Some(false),
             ..TickParams::default()
@@ -187,7 +187,7 @@ fn inset_locator_demo_3(fig: &Figure) -> CaseResult {
     let beside = BboxToAnchor::Bounds(1.05, 0.6, 0.5, 0.4);
     let options = anchored(AnchorLoc::UpperLeft, beside, ax.trans_axes(), 0.0);
     let axins = inset_axes(&ax, full, full, options);
-    axins.tick_params(&TickParams {
+    axins.tick_params(TickParams {
         left: Some(false),
         right: Some(true),
         labelleft: Some(false),
@@ -233,8 +233,8 @@ fn seven_bins(axins: &Axes) -> CaseResult {
         nbins: Some(Nbins::Fixed(7)),
         ..LocatorParams::default()
     };
-    axins.yaxis().set_major_locator_params(&seven)?;
-    axins.xaxis().set_major_locator_params(&seven)?;
+    axins.yaxis().set_major_locator_params(seven.clone())?;
+    axins.xaxis().set_major_locator_params(seven)?;
     hide_tick_labels(&[axins]);
     Ok(())
 }

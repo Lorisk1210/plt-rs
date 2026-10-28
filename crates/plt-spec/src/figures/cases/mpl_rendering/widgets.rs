@@ -57,7 +57,7 @@ fn check_radio_buttons_image(fig: &Figure) -> CaseResult {
     ax.set_aspect(plt::rc::Aspect::Ratio(1.0))?;
     fig.layout();
 
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         left: Some(0.3),
         ..plt::gridspec::SubplotOverrides::default()
     })?;

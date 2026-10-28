@@ -117,7 +117,7 @@ fn params(p: &SubplotParams) -> Json {
 
 /// matplotlib's `SubplotParams(**changes)`: the rcParams' values, then
 /// the changes, validated.
-fn subplot_params_from(changes: &SubplotOverrides) -> Result<SubplotParams, ProbeError> {
+fn subplot_params_from(changes: SubplotOverrides) -> Result<SubplotParams, ProbeError> {
     SubplotParams::from_rc(&RcParams::matplotlib())
         .updated(changes)
         .map_err(ProbeError::rejected)
@@ -133,7 +133,7 @@ fn positional_params(args: Args<'_>) -> Result<SubplotParams, ProbeError> {
     for (name, value) in PARAMS.into_iter().zip(given) {
         *param_slot(&mut changes, name)? = Some(value);
     }
-    subplot_params_from(&changes)
+    subplot_params_from(changes)
 }
 
 fn subplotspec_eq(args: Args<'_>) -> Outcome {
@@ -146,7 +146,7 @@ fn subplotspec_eq(args: Args<'_>) -> Outcome {
 fn gridspec_update(args: Args<'_>) -> Outcome {
     let grid = grid(args)?;
     let fig = Figure::new();
-    grid.update(&fig, &overrides(args.json("changes")?)?)
+    grid.update(&fig, overrides(args.json("changes")?)?)
         .map_err(ProbeError::rejected)?;
     Ok(optional_params(&grid.overrides()))
 }
@@ -176,12 +176,12 @@ fn subplot_params(args: Args<'_>) -> Outcome {
     for name in PARAMS {
         *param_slot(&mut changes, name)? = args.opt_f64(name)?;
     }
-    Ok(params(&subplot_params_from(&changes)?))
+    Ok(params(&subplot_params_from(changes)?))
 }
 
 fn subplot_params_update(args: Args<'_>) -> Outcome {
     let updated = positional_params(args)?
-        .updated(&overrides(args.json("changes")?)?)
+        .updated(overrides(args.json("changes")?)?)
         .map_err(ProbeError::rejected)?;
     Ok(params(&updated))
 }

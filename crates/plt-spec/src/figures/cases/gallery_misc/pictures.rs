@@ -86,9 +86,9 @@ fn demo_ribbon_box(fig: &Figure) -> CaseResult {
             aspect: Some(Aspect::Auto),
             extent: Some(Extent::new(year - 0.4, year + 0.4, 0.0, height)),
             resample: Some(false),
+            interpolation: Some(Interpolation::Bicubic),
             ..ImshowOptions::default()
-        }
-        .interpolation(Interpolation::Bicubic);
+        };
         ax.imshow(ribbon_box(color, stretch), options)?
             .set_zorder(1.0);
         ax.annotate(
@@ -106,9 +106,9 @@ fn demo_ribbon_box(fig: &Figure) -> CaseResult {
     let options = ImshowOptions {
         extent: Some(Extent::new(0.0, 1.0, 0.0, 1.0)),
         transform: Some(ax.trans_axes()),
+        interpolation: Some(Interpolation::Bicubic),
         ..ImshowOptions::default()
-    }
-    .interpolation(Interpolation::Bicubic);
+    };
     ax.imshow(gradient, options)?.set_zorder(0.1);
     Ok(())
 }
@@ -177,14 +177,14 @@ fn mandelbrot(fig: &Figure) -> CaseResult {
             ..Relief::default()
         },
     };
-    let shaded = light.shade(&recount, &options)?;
+    let shaded = light.shade(&recount, options)?;
     ax.imshow(
         shaded.map(|c| [c.r, c.g, c.b, c.a]),
         ImshowOptions {
             extent: Some(Extent::new(xmin, xmax, ymin, ymax)),
+            interpolation: Some(Interpolation::Bicubic),
             ..ImshowOptions::default()
-        }
-        .interpolation(Interpolation::Bicubic),
+        },
     )?;
     ax.set_xticks(Vec::<f64>::new())
         .set_yticks(Vec::<f64>::new());

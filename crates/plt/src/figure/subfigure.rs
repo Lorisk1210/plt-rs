@@ -205,7 +205,7 @@ mod tests {
         let fig = Figure::new();
         let parts = fig.subfigures(1, 2, SubfigureOptions::default()).unwrap();
         let before = parts[(0, 0)].subplot();
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(0.05),
             ..SubplotOverrides::default()
         })

@@ -279,7 +279,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     .sized(6.0, 4.0, 100.0),
     FigureCase::new("text/connectionstyles", |fig| {
         let axs = fig.subplots(2, 4)?;
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             hspace: Some(0.6),
             wspace: Some(0.3),
             ..SubplotOverrides::default()

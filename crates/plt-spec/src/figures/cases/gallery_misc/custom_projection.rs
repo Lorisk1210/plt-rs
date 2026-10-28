@@ -174,7 +174,7 @@ impl<C: GeoCore> Projection for GeoAxes<C> {
             axis.set_minor_locator(NullLocator);
             axis.set_ticks_position(TickPosition::None)?;
         }
-        axes.yaxis().set_tick_params(&TickParams {
+        axes.yaxis().set_tick_params(TickParams {
             labelleft: Some(true),
             ..TickParams::default()
         });

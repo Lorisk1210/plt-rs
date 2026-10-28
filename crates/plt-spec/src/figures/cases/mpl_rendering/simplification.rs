@@ -233,7 +233,7 @@ fn fft_peaks(fig: &Figure) -> CaseResult {
 
 /// `test_clipper`: a zigzag on a figure-filling axes, clipped at its edges.
 fn clipper(fig: &Figure) -> CaseResult {
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.0),
         bottom: Some(0.0),
         wspace: Some(0.0),

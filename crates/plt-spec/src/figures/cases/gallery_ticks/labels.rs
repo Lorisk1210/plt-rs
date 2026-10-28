@@ -10,7 +10,7 @@ use plt::fonts::FontSize;
 use plt::layout::LayoutEngine;
 use plt::prelude::*;
 use plt::spines::SpineSide;
-use plt::text::{HAlign, TextRotationMode as RotationMode};
+use plt::text::{HAlign, RotationMode};
 
 use crate::figures::cases::common::constrained;
 use crate::figures::{CaseResult, FigureCase};
@@ -47,7 +47,7 @@ fn align_ticklabels(fig: &Figure) -> CaseResult {
             ..TickLabelProps::default()
         },
     );
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         pad: Some(70.0),
         ..axis_params(AxisName::Y)
     });
@@ -76,7 +76,7 @@ fn ticklabels_rotation(fig: &Figure) -> CaseResult {
     let (countries, millions): (Vec<&str>, Vec<f64>) = population.into_iter().unzip();
     let ax = constrained(fig)?;
     ax.bar(countries, millions, BarOptions::default())?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelrotation: Some(45.0),
         labelrotation_mode: Some(RotationMode::XTick),
         ..axis_params(AxisName::X)
@@ -88,7 +88,7 @@ fn ticklabels_rotation(fig: &Figure) -> CaseResult {
 fn ticks_top_right(fig: &Figure) -> CaseResult {
     let ax = fig.subplot();
     ax.plot_y((0..10).map(f64::from).collect::<Vec<_>>());
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         top: Some(true),
         labeltop: Some(true),
         bottom: Some(false),
@@ -110,13 +110,13 @@ fn fig_axes_customize_simple(fig: &Figure) -> CaseResult {
     fig.set_facecolor(Color::from("lightgoldenrodyellow").resolve()?);
     let ax1 = fig.add_axes([0.1, 0.3, 0.4, 0.4])?;
     ax1.set_facecolor("lightslategray");
-    ax1.tick_params(&TickParams {
+    ax1.tick_params(TickParams {
         labelcolor: Some("tab:red".into()),
         labelrotation: Some(45.0),
         labelsize: Some(FontSize::Points(16.0)),
         ..axis_params(AxisName::X)
     });
-    ax1.tick_params(&TickParams {
+    ax1.tick_params(TickParams {
         color: Some("tab:green".into()),
         length: Some(25.0),
         width: Some(3.0),
@@ -151,14 +151,14 @@ fn multilevel_ticks_2(fig: &Figure) -> CaseResult {
         "\n\nReptiles",
         "\n\nBirds",
     ])?;
-    sec.tick_params(&TickParams {
+    sec.tick_params(TickParams {
         length: Some(0.0),
         ..axis_params(AxisName::X)
     });
     let sec2 = bottom_axis(&ax, 0.0)?;
     sec2.set_xticks([-0.5, 2.5, 4.5, 8.5])
         .set_xticklabels(Vec::<String>::new())?;
-    sec2.tick_params(&TickParams {
+    sec2.tick_params(TickParams {
         length: Some(40.0),
         width: Some(1.5),
         ..axis_params(AxisName::X)
@@ -180,7 +180,7 @@ fn multilevel_ticks_3(fig: &Figure) -> CaseResult {
     sec.xaxis()
         .set_major_locator(RRuleLocator::months(&[], &[1], 1))
         .set_major_formatter(DateFormatter::new("  %b"));
-    sec.tick_params(&TickParams {
+    sec.tick_params(TickParams {
         length: Some(0.0),
         ..axis_params(AxisName::X)
     });
@@ -200,7 +200,7 @@ fn out_of_order(
     let axs = fig.subplots(1, 2)?;
     let (left, right) = (axs[(0, 0)].clone(), axs[(0, 1)].clone());
     left.plot_with(x.to_vec(), y.to_vec(), props)?;
-    left.tick_params(&TickParams {
+    left.tick_params(TickParams {
         color: Some("r".into()),
         labelcolor: Some("r".into()),
         ..axis_params(AxisName::X)
@@ -248,7 +248,7 @@ fn ticks_too_many_3(fig: &Figure) -> CaseResult {
         labelrotation: Some(90.0),
         ..axis_params(AxisName::X)
     };
-    left.tick_params(&upright);
+    left.tick_params(upright.clone());
     left.set_title("Dates out of order");
     let dates = x
         .iter()
@@ -256,7 +256,7 @@ fn ticks_too_many_3(fig: &Figure) -> CaseResult {
         .collect::<Result<Option<Vec<_>>, _>>()?
         .ok_or("not-a-time in the dates")?;
     right.plot_fmt(dates, y, "d")?;
-    right.tick_params(&upright);
+    right.tick_params(upright);
     right.set_title("x converted to datetimes");
     Ok(())
 }

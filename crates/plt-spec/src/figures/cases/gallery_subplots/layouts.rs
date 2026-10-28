@@ -74,7 +74,7 @@ fn tight_plots(axes: &[Axes], calls_before: usize) {
 /// `tight_plots` on a fresh grid of subplots, then `fig.tight_layout()`.
 fn tight_grid(fig: &Figure, nrows: usize, ncols: usize, calls_before: usize) -> CaseResult {
     tight_plots(fig.subplots(nrows, ncols)?.as_slice(), calls_before);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -105,7 +105,7 @@ fn demo_tight_layout_6(fig: &Figure) -> CaseResult {
         fig.add_subplot(1, 2, 2)?,
     ];
     tight_plots(&axes, 18);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -118,7 +118,7 @@ fn demo_tight_layout_7(fig: &Figure) -> CaseResult {
         fig.add_subplot_spec(&grid.span(1..3, 2..3)?)?,
     ];
     tight_plots(&axes, 21);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -139,7 +139,7 @@ fn tight_column(
         rect: Some(rect),
         ..TightLayout::default()
     };
-    grid.tight_layout(fig, &params)?;
+    grid.tight_layout(fig, params)?;
     Ok(grid)
 }
 
@@ -157,8 +157,8 @@ fn demo_tight_layout_8(fig: &Figure) -> CaseResult {
         bottom: edge(left_edges.bottom, right_edges.bottom, f64::max),
         ..SubplotOverrides::default()
     };
-    left.update(fig, &matched)?;
-    right.update(fig, &matched)?;
+    left.update(fig, matched)?;
+    right.update(fig, matched)?;
     Ok(())
 }
 
@@ -170,7 +170,7 @@ fn subplots_adjust(fig: &Figure) -> CaseResult {
     let image = fig
         .add_subplot(2, 1, 2)?
         .imshow(noise()?, ImshowOptions::default())?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.1),
         right: Some(0.8),
         top: Some(0.9),
@@ -197,7 +197,7 @@ fn auto_subplots_adjust(fig: &Figure) -> CaseResult {
     let bbox = Bbox::union_all(&extents).ok_or("the tick labels have extents")?;
     let bbox_width = bbox.width() / fig.size_pixels().0;
     if fig.subplot_params().left < bbox_width {
-        fig.subplots_adjust(&SubplotOverrides {
+        fig.subplots_adjust(SubplotOverrides {
             left: Some(1.1 * bbox_width),
             ..SubplotOverrides::default()
         })?;
@@ -211,7 +211,7 @@ fn ganged_plots(fig: &Figure) -> CaseResult {
     let s2 = map(&t, |t| (-t).exp());
     let s3: Vec<f64> = s1.iter().zip(&s2).map(|(a, b)| a * b).collect();
     let axs = fig.subplots_shared(3, 1, Share::All, Share::None)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.0),
         ..SubplotOverrides::default()
     })?;

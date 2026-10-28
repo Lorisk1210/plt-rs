@@ -117,7 +117,7 @@ fn lifecycle_10(fig: &Figure) -> CaseResult {
     titled(&ax)?;
     ax.xaxis().set_major_formatter(currency());
     ax.set_xticks([0.0, 25e3, 50e3, 75e3, 100e3, 125e3]);
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         right: Some(0.1),
         ..SubplotOverrides::default()
     })?;

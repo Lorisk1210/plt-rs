@@ -125,7 +125,7 @@ fn twin_axes_empty_and_removed(fig: &Figure) -> CaseResult {
         };
         centered_text(&host, &text);
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.5),
         hspace: Some(1.0),
         ..SubplotOverrides::default()

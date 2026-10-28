@@ -136,7 +136,7 @@ pub(super) fn clip_off_beyond_axes(fig: &Figure) -> CaseResult {
     )?
     .set_clip_on(false);
     ax.set_xlim(2.0, 18.0)?.set_ylim(2.0, 18.0)?;
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.2),
         right: Some(0.8),
         bottom: Some(0.2),

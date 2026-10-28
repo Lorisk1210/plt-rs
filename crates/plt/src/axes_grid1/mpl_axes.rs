@@ -19,7 +19,7 @@ use crate::spines::{Spine, SpineSide};
 /// let ax = Figure::new().subplot();
 /// ax.set_ylabel("y");
 /// let right = SimpleAxisArtist::new(&ax, SpineSide::Right);
-/// right.toggle(&Toggle { all: Some(true), ..Toggle::default() });
+/// right.toggle(Toggle { all: Some(true), ..Toggle::default() });
 /// assert_eq!(ax.yaxis().label_position(), SpineSide::Right);
 /// right.set_visible(false);
 /// assert!(!ax.spines().right.visible());
@@ -59,7 +59,7 @@ impl SimpleAxisArtist {
     /// and tick labels, and the label if it is or comes here; the axis
     /// itself stays visible (matplotlib's `SimpleAxisArtist.set_visible`).
     pub fn set_visible(&self, visible: bool) -> &Self {
-        self.toggle(&Toggle {
+        self.toggle(Toggle {
             all: Some(visible),
             ..Toggle::default()
         });
@@ -72,12 +72,12 @@ impl SimpleAxisArtist {
     /// label on this side; `all` applies first and the others override it
     /// (matplotlib's `SimpleAxisArtist.toggle`). Showing the label moves
     /// it here; hiding it only hides it when it is here.
-    pub fn toggle(&self, toggle: &Toggle) -> &Self {
+    pub fn toggle(&self, toggle: Toggle) -> &Self {
         let ticks = toggle.ticks.or(toggle.all);
         let ticklabels = toggle.ticklabels.or(toggle.all);
         let label = toggle.label.or(toggle.all);
         if ticks.is_some() || ticklabels.is_some() {
-            self.axes.tick_params(&self.side_params(ticks, ticklabels));
+            self.axes.tick_params(self.side_params(ticks, ticklabels));
         }
         match label {
             Some(true) => {
@@ -98,7 +98,7 @@ impl SimpleAxisArtist {
     /// Shows or hides the major tick labels on this side (matplotlib's
     /// `major_ticklabels.set_visible`).
     pub fn set_ticklabels_visible(&self, visible: bool) -> &Self {
-        self.toggle(&Toggle {
+        self.toggle(Toggle {
             ticklabels: Some(visible),
             ..Toggle::default()
         })
@@ -188,14 +188,14 @@ mod tests {
             ax.raw()
                 .with::<AxesState, _>(|state| state.yaxis.label.visible)
         };
-        SimpleAxisArtist::new(&ax, SpineSide::Right).toggle(&Toggle {
+        SimpleAxisArtist::new(&ax, SpineSide::Right).toggle(Toggle {
             label: Some(false),
             ..Toggle::default()
         });
         assert!(label_visible(&ax), "the label is on the left");
         SimpleAxisArtist::new(&ax, SpineSide::Left).set_ticklabels_visible(false);
         assert_eq!(major_tick_sides(&ax, AxisName::Y).1, (false, false));
-        SimpleAxisArtist::new(&ax, SpineSide::Left).toggle(&Toggle {
+        SimpleAxisArtist::new(&ax, SpineSide::Left).toggle(Toggle {
             all: Some(false),
             ticks: Some(true),
             ..Toggle::default()

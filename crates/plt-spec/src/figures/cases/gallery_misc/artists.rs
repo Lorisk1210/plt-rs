@@ -188,10 +188,10 @@ fn hyperlinks_2(fig: &Figure) -> CaseResult {
     let options = ImshowOptions {
         origin: Some(Origin::Lower),
         extent: Some(Extent::new(-3.0, 3.0, -3.0, 3.0)),
+        interpolation: Some(Interpolation::Bilinear),
         ..ImshowOptions::default()
     }
-    .cmap(colormaps::get("gray")?)
-    .interpolation(Interpolation::Bilinear);
+    .cmap(colormaps::get("gray")?);
     fig.subplot()
         .imshow(image_field(), options)?
         .set_url("https://www.google.com/");
@@ -261,7 +261,7 @@ fn findobj_demo(fig: &Figure) -> CaseResult {
     // Tick lines and labels and the axis labels are parts of their axis
     // in plt-rs, not artists of their own: they take the same styling
     // through the axis.
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         labelcolor: Some("blue".into()),
         ..TickParams::default()
     });
@@ -378,7 +378,7 @@ fn table_demo(fig: &Figure) -> CaseResult {
         loc: TableLoc::Bottom,
         ..TableOptions::with_text(cell_text)
     })?;
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         left: Some(0.2),
         bottom: Some(0.2),
         ..plt::gridspec::SubplotOverrides::default()

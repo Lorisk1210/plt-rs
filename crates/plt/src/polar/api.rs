@@ -524,7 +524,7 @@ mod tests {
         };
         assert!(degrees(&ax).contains(&22.5), "steps of 4.5°");
         // matplotlib's test_polar_theta_limits sets the base's steps.
-        ax.locator_params(&LocatorParams {
+        ax.locator_params(LocatorParams {
             axis: Some(AxisName::X),
             steps: Some(vec![1.0, 2.0, 2.5, 5.0, 10.0]),
             ..LocatorParams::default()

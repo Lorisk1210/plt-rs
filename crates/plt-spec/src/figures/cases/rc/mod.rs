@@ -96,7 +96,7 @@ fn labelled(fig: &Figure) -> CaseResult {
     ax.plot(&t, map(&t, f64::sin))?;
     ax.set_title("Title");
     ax.set_xlabel("time").set_ylabel("value");
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.2),
         bottom: Some(0.22),
         top: Some(0.85),

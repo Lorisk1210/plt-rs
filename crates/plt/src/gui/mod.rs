@@ -33,6 +33,10 @@
 //! plt::gui::show(&[fig])?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! [`FigureWindow::screenshot`] draws such a window off screen, with no
+//! display, and returns what it shows; [`FigureWindow::capture`] reads a
+//! window of a headless event loop driven by synthetic input.
 
 pub(crate) mod actions;
 mod backend_rc;

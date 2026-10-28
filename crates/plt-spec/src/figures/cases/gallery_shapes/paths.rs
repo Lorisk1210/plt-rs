@@ -120,10 +120,10 @@ fn dolphin(fig: &Figure) -> CaseResult {
     let options = ImshowOptions {
         origin: Some(Origin::Lower),
         extent: Some(Extent::new(-1.0, 1.0, -1.0, 1.0)),
+        interpolation: Some("spline36".parse()?),
         ..ImshowOptions::default()
     }
-    .colorizer(ColorizerOptions::default().cmap(colormaps::get("winter")?))
-    .interpolation("spline36".parse()?);
+    .colorizer(ColorizerOptions::default().cmap(colormaps::get("winter")?));
     ax.imshow(noise, options)?
         .set_clip_patch(&circle, ax.trans_data());
     let dots = LineProps::fmt("o")?.color((0.9, 0.9, 1.0)).alpha(0.8);

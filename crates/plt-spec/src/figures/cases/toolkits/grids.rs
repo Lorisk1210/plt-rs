@@ -186,12 +186,12 @@ pub(super) fn marginal_histograms(fig: &Figure) -> CaseResult {
     top.share_x(&ax)?;
     let right = divider.append_axes(SpineSide::Right, 1.0, Some(0.1.into()));
     right.share_y(&ax)?;
-    top.tick_params(&TickParams {
+    top.tick_params(TickParams {
         axis: Some(AxisName::X),
         labelbottom: Some(false),
         ..TickParams::default()
     });
-    right.tick_params(&TickParams {
+    right.tick_params(TickParams {
         axis: Some(AxisName::Y),
         labelleft: Some(false),
         ..TickParams::default()

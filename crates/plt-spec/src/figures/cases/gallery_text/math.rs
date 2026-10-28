@@ -25,7 +25,7 @@ fn accented_text_1(fig: &Figure) -> CaseResult {
     ax.set_xlabel(r#"$\"o\ddot o \'e\`e\~n\.x\^y$"#);
     ax.xaxis().set_label_fontsize(FontSize::Points(20.0));
     ax.text(4.0, 0.5, r"$F=m\ddot{x}$");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -111,7 +111,7 @@ fn mathtext_demo(fig: &Figure) -> CaseResult {
     )
     .set_fontsize(20.0)
     .set_valign(VAlign::Bottom);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

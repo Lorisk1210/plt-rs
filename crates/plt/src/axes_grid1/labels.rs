@@ -42,7 +42,7 @@ pub(super) fn apply_label_mode(rows: &[Vec<Axes>], mode: LabelMode) {
 /// Shows or hides the major tick labels and the axis label on `side`
 /// (matplotlib's `SimpleAxisArtist.toggle(ticklabels=..., label=...)`).
 fn toggle(ax: &Axes, side: SpineSide, shown: bool) {
-    SimpleAxisArtist::new(ax, side).toggle(&Toggle {
+    SimpleAxisArtist::new(ax, side).toggle(Toggle {
         ticklabels: Some(shown),
         label: Some(shown),
         ..Toggle::default()

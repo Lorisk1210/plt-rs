@@ -347,7 +347,7 @@ fn plot_streamplot_1(fig: &Figure) -> CaseResult {
     };
     axs[7].streamplot(&holey, unbroken)?;
     axs[7].set_title("Streamplot with unbroken streamlines");
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -426,7 +426,7 @@ fn plot_streamplot_2(fig: &Figure) -> CaseResult {
         ax.set_axis_off();
         ax.indicate_inset_zoom(&ax_ins, PatchProps::default().edgecolor("k"));
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

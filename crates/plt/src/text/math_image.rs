@@ -95,12 +95,12 @@ impl From<SaveError> for MathImageError {
 /// use plt::figure::SaveFormat;
 /// use plt::image::imread_bytes;
 /// use plt::text::{MathImageOptions, math_to_image};
-/// let image = math_to_image("$x^2$", &MathImageOptions::default())?;
+/// let image = math_to_image("$x^2$", MathImageOptions::default())?;
 /// assert!(image.depth >= 0.0);
 /// let (rows, columns) = imread_bytes(&image.data)?.shape();
 /// assert!(rows > 0 && columns > rows);
 /// let svg = MathImageOptions { format: SaveFormat::Svg, ..MathImageOptions::default() };
-/// assert!(math_to_image("$x^2$", &svg)?.data.starts_with(b"<?xml"));
+/// assert!(math_to_image("$x^2$", svg)?.data.starts_with(b"<?xml"));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
@@ -108,19 +108,16 @@ impl From<SaveError> for MathImageError {
 ///
 /// When the expression cannot be typeset or the figure cannot be saved in
 /// the format asked for.
-pub fn math_to_image(text: &str, options: &MathImageOptions) -> Result<MathImage, MathImageError> {
+pub fn math_to_image(text: &str, options: MathImageOptions) -> Result<MathImage, MathImageError> {
     let rc = crate::rc::params();
-    let font = options
-        .font
-        .clone()
-        .unwrap_or_else(|| FontProperties::from_rc(&rc));
+    let font = options.font.unwrap_or_else(|| FontProperties::from_rc(&rc));
     let run = TextEngine::global().layout_math(text, &math_style(&font, 72.0, &rc))?;
     let (width, height, depth) = (run.width, run.height, run.descent);
     let fig = Figure::with_size(width / 72.0, height / 72.0, rc.figure_dpi);
     let label = fig.text(0.0, depth / height, text);
     label.set_font(font);
-    if let Some(color) = &options.color {
-        label.set_color(color.clone());
+    if let Some(color) = options.color {
+        label.set_color(color);
     }
     let save = SaveOptions {
         dpi: options.dpi,
@@ -141,7 +138,7 @@ mod tests {
             dpi: Some(72.0),
             ..MathImageOptions::default()
         };
-        let image = math_to_image("$x^2$", &options).expect("typeset");
+        let image = math_to_image("$x^2$", options).expect("typeset");
         let rc = crate::rc::params();
         let style = math_style(&FontProperties::from_rc(&rc), 72.0, &rc);
         let run = TextEngine::global()
@@ -154,7 +151,7 @@ mod tests {
 
     #[test]
     fn malformed_math_is_an_error() {
-        let result = math_to_image(r"$\frac{1$", &MathImageOptions::default());
+        let result = math_to_image(r"$\frac{1$", MathImageOptions::default());
         assert!(matches!(result, Err(MathImageError::Text(_))));
     }
 }

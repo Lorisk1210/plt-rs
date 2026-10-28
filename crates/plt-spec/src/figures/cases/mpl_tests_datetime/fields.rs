@@ -155,7 +155,7 @@ fn imshow(fig: &Figure) -> CaseResult {
             ..ImshowOptions::default()
         },
     )?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(plt::axes::AxisName::X),
         labelrotation: Some(90.0),
         ..TickParams::default()

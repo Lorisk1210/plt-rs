@@ -124,7 +124,7 @@ impl GridSpec {
     /// let grid = GridSpec::new(2, 1)?;
     /// let ax = fig.add_subplot_spec(&grid.cell(0, 0)?)?;
     /// let lower_top = SubplotOverrides { top: Some(0.5), ..SubplotOverrides::default() };
-    /// grid.update(&fig, &lower_top)?;
+    /// grid.update(&fig, lower_top)?;
     /// assert_eq!(grid.overrides().top, Some(0.5));
     /// let (_, y, _, height) = ax.position().bounds();
     /// assert!((y + height - 0.5).abs() < 1e-12);
@@ -138,10 +138,10 @@ impl GridSpec {
     pub fn update(
         &self,
         figure: &Figure,
-        changes: &SubplotOverrides,
+        changes: SubplotOverrides,
     ) -> Result<&Self, GridSpecError> {
         let previous = self.overrides();
-        self.merge_overrides(changes);
+        self.merge_overrides(&changes);
         let params = figure.subplot_params();
         if let Err(err) = self.subplot_params(&params) {
             self.data.overrides.set(previous);
@@ -288,7 +288,7 @@ impl GridSpec {
         };
         match &self.data.parent {
             Some(_) => Ok(base),
-            None => base.updated(o),
+            None => base.updated(*o),
         }
     }
 
@@ -564,10 +564,7 @@ mod tests {
             right: Some(0.1),
             ..SubplotOverrides::default()
         };
-        assert_eq!(
-            defaults().updated(&squashed),
-            Err(GridSpecError::EmptyWidth)
-        );
+        assert_eq!(defaults().updated(squashed), Err(GridSpecError::EmptyWidth));
         assert!(
             GridSpec::with_ratios(1, 2, Some(vec![1.0]), None, SubplotOverrides::default())
                 .is_err()

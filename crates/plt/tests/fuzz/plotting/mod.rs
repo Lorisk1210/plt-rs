@@ -287,7 +287,7 @@ fn draw(plan: &Plan) {
         step.run(&fig, &made, &mut mappables);
     }
     if plan.layout == 3 {
-        let _ = fig.tight_layout(&TightLayout::default());
+        let _ = fig.tight_layout(TightLayout::default());
     }
     let options = SaveOptions {
         dpi: plan.save_dpi,

@@ -12,7 +12,7 @@ use plt::gridspec::{GridSpec, SubplotOverrides};
 use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::rc::Aspect;
-use plt::text::{HAlign, Text, TextBoxProps, TextRotationMode as RotationMode, VAlign};
+use plt::text::{HAlign, RotationMode, Text, TextBoxProps, VAlign};
 use plt::transforms::Point;
 
 use crate::figures::cases::common::{blank, styled_box, tickless};
@@ -333,7 +333,7 @@ fn multiline_2(fig: &Figure) -> CaseResult {
     ax.set_title("test line spacing for multiline text");
     ax.set_xlim(0.0, 0.7)?;
     ax.yaxis().minorticks_on();
-    ax.yaxis().set_tick_params(&TickParams {
+    ax.yaxis().set_tick_params(TickParams {
         which: TickLevel::Minor,
         grid_color: Some(Color::from("0.9")),
         ..TickParams::default()

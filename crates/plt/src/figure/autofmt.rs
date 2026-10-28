@@ -54,7 +54,7 @@ impl Figure {
                 if ax.subplot_spec().is_some_and(|spec| spec.is_last_row()) {
                     ax.xaxis().set_ticklabel_props(which, rotated.clone());
                 } else {
-                    ax.xaxis().set_tick_params(&TickParams {
+                    ax.xaxis().set_tick_params(TickParams {
                         which,
                         labelbottom: Some(false),
                         labeltop: Some(false),
@@ -68,7 +68,7 @@ impl Figure {
             .layout_engine()
             .is_none_or(|engine| engine.adjust_compatible());
         if all_subplots && adjustable {
-            self.subplots_adjust(&SubplotOverrides {
+            self.subplots_adjust(SubplotOverrides {
                 bottom: Some(bottom),
                 ..SubplotOverrides::default()
             })?;

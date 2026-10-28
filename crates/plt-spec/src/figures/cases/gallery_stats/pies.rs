@@ -29,7 +29,7 @@ fn percentages(format: &str) -> LabelFormat {
 fn bar_of_pie(fig: &Figure) -> CaseResult {
     let axs = fig.subplots(1, 2)?;
     let (ax1, ax2) = (&axs[(0, 0)], &axs[(0, 1)]);
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         wspace: Some(0.0),
         ..SubplotOverrides::default()
     })?;

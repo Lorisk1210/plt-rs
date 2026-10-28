@@ -377,7 +377,7 @@ impl ParasiteAxes {
                 host.axis(side).set_visible(true);
             }
             for &side in &restored {
-                host.axis(side).toggle(&Toggle {
+                host.axis(side).toggle(Toggle {
                     ticklabels: Some(false),
                     label: Some(false),
                     ..Toggle::default()

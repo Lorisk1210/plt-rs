@@ -60,7 +60,7 @@ pub(super) fn legend_bbox_figure_coords(fig: &Figure) -> CaseResult {
         line.set_label(format!("series {i}"));
         lines.push(LegendHandle::from(&line));
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         bottom: Some(0.25),
         ..SubplotOverrides::default()
     })?;
@@ -132,7 +132,7 @@ pub(super) fn savefig_tight_pad_extra_text(fig: &Figure) -> CaseResult {
     fig.text(-0.3, 0.5, "excluded from the box")
         .set_valign(VAlign::Center)
         .set_in_layout(false);
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         left: Some(0.3),
         right: Some(0.6),
         top: Some(0.7),

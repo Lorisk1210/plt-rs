@@ -154,7 +154,7 @@ fn custom_shaded_3d_surface(fig: &Figure) -> CaseResult {
         ..ShadeOptions::default()
     }
     .cmap(colormaps::get("gist_earth")?);
-    let rgb = LightSource::new(270.0, 45.0).shade(&z, &shading)?;
+    let rgb = LightSource::new(270.0, 45.0).shade(&z, shading)?;
     let options = SurfaceOptions {
         sampling: EVERY_POINT,
         cell_colors: Some(rgb.map(|&c| Color::from(c))),

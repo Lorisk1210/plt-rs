@@ -127,7 +127,7 @@ fn map_projections() -> Built {
         ax.set_longitude_grid(60.0)?.set_latitude_grid(30.0)?;
         if kind == lambert {
             // On the azimuthal map the latitude labels gather at the poles.
-            ax.tick_params(&TickParams {
+            ax.tick_params(TickParams {
                 labelleft: Some(false),
                 ..TickParams::default()
             });

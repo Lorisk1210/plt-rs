@@ -252,7 +252,7 @@ fn datetimes(
 /// `_datetime_mesh`: 1-D and 2-D datetime coordinates, with and without
 /// the extra row and column, under rotated tick labels.
 fn datetime_mesh(fig: &Figure, cells: bool) -> CaseResult {
-    fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         hspace: Some(0.4),
         top: Some(0.98),
         bottom: Some(0.15),

@@ -59,7 +59,7 @@ fn zero_locations(fig: &Figure) -> CaseResult {
         ax.set_title(format!("{name}, {sign}, {offset}°"))
             .set_fontsize(9.0);
     }
-    fig.subplots_adjust(&SubplotOverrides {
+    fig.subplots_adjust(SubplotOverrides {
         hspace: Some(0.4),
         ..SubplotOverrides::default()
     })?;

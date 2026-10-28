@@ -29,7 +29,7 @@ fn compare_shading(fig: &Figure, z: &Grid<f64>, cmap: &Colormap, ve: f64) -> Cas
     axs[(0, 0)].imshow(z.clone(), ImshowOptions::default().cmap(cmap.clone()))?;
     axs[(0, 0)].set_xlabel("Colormapped Data");
     let gray = ImshowOptions::default().cmap(colormaps::get("gray")?);
-    axs[(0, 1)].imshow(ls.hillshade(z, &relief)?, gray)?;
+    axs[(0, 1)].imshow(ls.hillshade(z, relief)?, gray)?;
     axs[(0, 1)].set_xlabel("Illumination Intensity");
     for (ax, blend, label) in [
         (
@@ -45,7 +45,7 @@ fn compare_shading(fig: &Figure, z: &Grid<f64>, cmap: &Colormap, ve: f64) -> Cas
             ..ShadeOptions::default()
         }
         .cmap(cmap.clone());
-        let rgba = ls.shade(z, &options)?;
+        let rgba = ls.shade(z, options)?;
         ax.imshow(rgba.map(|c| [c.r, c.g, c.b, c.a]), ImshowOptions::default())?;
         ax.set_xlabel(label);
     }

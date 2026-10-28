@@ -39,7 +39,7 @@ fn location_shared(share: Share) -> Outcome {
 /// A title placed by hand under a twin's top axis label.
 fn set_position() -> Outcome {
     let fig = Figure::new();
-    made(fig.subplots_adjust(&plt::gridspec::SubplotOverrides {
+    made(fig.subplots_adjust(plt::gridspec::SubplotOverrides {
         top: Some(0.8),
         ..plt::gridspec::SubplotOverrides::default()
     }))?;
@@ -65,7 +65,7 @@ fn xticks_top(ticks_top_only: bool) -> Outcome {
                 .set_ticks_position(TickPosition::Side(SpineSide::Top)),
         )?;
     } else {
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             axis: Some(AxisName::X),
             bottom: Some(true),
             top: Some(true),
@@ -131,7 +131,7 @@ fn above_hidden_offset() -> Outcome {
 fn no_move_off_page() -> Outcome {
     let fig = Figure::new();
     let ax = made(fig.add_axes([0.1, -0.5, 0.8, 0.2]))?;
-    ax.tick_params(&TickParams {
+    ax.tick_params(TickParams {
         axis: Some(AxisName::X),
         bottom: Some(true),
         top: Some(true),

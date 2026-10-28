@@ -115,7 +115,7 @@ fn font_table(fig: &Figure) -> CaseResult {
             cell.set_font(font.clone());
         }
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

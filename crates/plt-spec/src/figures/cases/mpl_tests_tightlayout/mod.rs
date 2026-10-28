@@ -60,7 +60,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             fig.add_subplot_spec(&fig.add_gridspec(5, 5)?.span(0..5, 3..5)?)?;
             // Grids of 4 and 5 rows do not combine: tight layout declines
             // (matplotlib warns) and leaves the figure alone.
-            let _ = fig.tight_layout(&TightLayout::default());
+            let _ = fig.tight_layout(TightLayout::default());
             Ok(())
         }),
         classic("mpl_tests_tightlayout/collapsed", |fig| {
@@ -75,8 +75,8 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             ax.annotate("BIG LONG STRING", (1.25, 2.0), options)?;
             // The annotation leaves the axes no width: tight layout
             // declines both times (matplotlib warns).
-            let _ = fig.tight_layout(&TightLayout::default());
-            let _ = fig.tight_layout(&TightLayout {
+            let _ = fig.tight_layout(TightLayout::default());
+            let _ = fig.tight_layout(TightLayout {
                 rect: Some([0.0, 0.0, 0.8, 0.8]),
                 ..TightLayout::default()
             });
@@ -118,8 +118,8 @@ fn outward_ticks(fig: &Figure) -> CaseResult {
         ..ticks(TickDirection::Out, 32.0, TickLevel::Minor)
     };
     for axis in [ax.xaxis(), ax.yaxis()] {
-        axis.set_tick_params(&ticks(TickDirection::Out, 16.0, TickLevel::Major))
-            .set_tick_params(&minor)
+        axis.set_tick_params(ticks(TickDirection::Out, 16.0, TickLevel::Major))
+            .set_tick_params(minor.clone())
             .set_minor_locator(FixedLocator::new(vec![0.0]));
     }
     for (index, direction) in [
@@ -129,10 +129,10 @@ fn outward_ticks(fig: &Figure) -> CaseResult {
     ] {
         let ax = fig.add_subplot(2, 2, index)?;
         for axis in [ax.xaxis(), ax.yaxis()] {
-            axis.set_tick_params(&ticks(direction, 32.0, TickLevel::Major));
+            axis.set_tick_params(ticks(direction, 32.0, TickLevel::Major));
         }
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -166,7 +166,7 @@ fn offsetboxes(fig: &Figure, boxes: Boxes) -> CaseResult {
             add_offsetboxes(ax, 20.0, color, boxes == Boxes::Visible);
         }
     }
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 
@@ -230,6 +230,6 @@ fn manual_colorbar(fig: &Figure) -> CaseResult {
             ..ColorbarOptions::default()
         },
     )?;
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }

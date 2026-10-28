@@ -428,7 +428,7 @@ mod tests {
     fn tight_layout_leaves_a_placeholder_and_respects_colorbars() {
         let fig = Figure::new();
         fig.subplot();
-        fig.tight_layout(&TightLayout::default()).unwrap();
+        fig.tight_layout(TightLayout::default()).unwrap();
         assert!(matches!(
             fig.layout_engine(),
             Some(LayoutEngine::PlaceHolder(PlaceHolderLayout {
@@ -439,7 +439,7 @@ mod tests {
 
         let fig = with_colorbar(LayoutEngine::constrained());
         assert_eq!(
-            fig.tight_layout(&TightLayout::default()),
+            fig.tight_layout(TightLayout::default()),
             Err(TightLayoutError::Engine(
                 LayoutEngineError::IncompatibleColorbars
             ))
@@ -458,7 +458,7 @@ mod tests {
         crate::rc::context(|| {
             crate::rc::set("plt.tight_layout.keep_constrained", "True").unwrap();
             let fig = with_colorbar(LayoutEngine::constrained());
-            fig.tight_layout(&TightLayout::default()).unwrap();
+            fig.tight_layout(TightLayout::default()).unwrap();
             assert!(matches!(
                 fig.layout_engine(),
                 Some(LayoutEngine::Constrained(_))
@@ -466,7 +466,7 @@ mod tests {
             // Other figures still take one tight layout pass.
             let fig = Figure::new();
             fig.subplot();
-            fig.tight_layout(&TightLayout::default()).unwrap();
+            fig.tight_layout(TightLayout::default()).unwrap();
             assert!(matches!(
                 fig.layout_engine(),
                 Some(LayoutEngine::PlaceHolder(_))

@@ -116,10 +116,10 @@ mod tests {
         let points = scatter(&ax);
         let before = ax.position();
         let colorbar = fig.colorbar(&points, ColorbarOptions::default()).unwrap();
-        fig.subplots_adjust(&SubplotOverrides::default()).unwrap();
+        fig.subplots_adjust(SubplotOverrides::default()).unwrap();
         assert!(ax.position().x1() < before.x1());
         colorbar.remove();
-        fig.subplots_adjust(&SubplotOverrides::default()).unwrap();
+        fig.subplots_adjust(SubplotOverrides::default()).unwrap();
         assert_close(ax.position(), before);
         assert_eq!(fig.axes(), [ax]);
     }

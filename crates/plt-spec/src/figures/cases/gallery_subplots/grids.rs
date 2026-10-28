@@ -23,7 +23,7 @@ fn label_axes(fig: &Figure) {
         ax.text(0.5, 0.5, format!("ax{}", i + 1))
             .set_valign(VAlign::Center)
             .set_halign(HAlign::Center);
-        ax.tick_params(&TickParams {
+        ax.tick_params(TickParams {
             labelbottom: Some(false),
             labelleft: Some(false),
             ..TickParams::default()
@@ -191,7 +191,7 @@ fn gridspec_and_subplots(fig: &Figure) -> CaseResult {
             },
         )?
         .set_valign(VAlign::Center);
-    fig.tight_layout(&TightLayout::default())?;
+    fig.tight_layout(TightLayout::default())?;
     Ok(())
 }
 

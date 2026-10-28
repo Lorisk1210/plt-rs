@@ -4,7 +4,6 @@
 use plt::artist::ArtistHandle;
 use plt::axes::{Mesh, PcolorOptions, TickLevel};
 use plt::colorbar::{ColorbarAxes, ColorbarOptions};
-use plt::dates::TimeZone;
 use plt::figure::{BboxInches, Figure, SaveOptions};
 use plt::layout::{ConstrainedLayout, LayoutEngine, TightLayout};
 use plt::numeric::Grid;
@@ -237,8 +236,8 @@ pub(super) fn autofmt_xdate(args: Args<'_>) -> Outcome {
             .map(|minutes| FIRST_DAY + (16.0 * 60.0 + 44.0 + minutes) / 1440.0)
             .collect();
         ax.plot(x, y).map_err(ProbeError::rejected)?;
-        ax.yaxis_date(&TimeZone::Utc);
-        ax.xaxis_date(&TimeZone::Utc);
+        ax.yaxis_date(None);
+        ax.xaxis_date(None);
         ax.xaxis()
             .set_minor_locator(AutoMinorLocator::new(Some(MinorDivisions::Count(2))))
             .set_minor_formatter(FixedFormatter::new(

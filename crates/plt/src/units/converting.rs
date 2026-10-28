@@ -385,7 +385,7 @@ pub(crate) trait UnitHandle: Sized {
             }
             Some(UnitConverter::Dates) => {
                 if let Some(tz) = unit.as_ref().and_then(Unit::downcast_ref::<TimeZone>) {
-                    self.use_date_axisinfo(tz);
+                    self.use_date_axisinfo(Some(tz));
                 }
             }
             Some(UnitConverter::Categories) | None => {}
@@ -404,24 +404,33 @@ pub(crate) trait UnitHandle: Sized {
     }
 
     /// Takes the date converter, unless another one was set explicitly,
-    /// with the tick helpers and default view of dates in `tz`
-    /// (matplotlib's `axis_date`).
-    fn make_date_axis(&self, tz: &TimeZone) {
+    /// with the tick helpers and default view of dates (matplotlib's
+    /// `axis_date`, which updates the units with a date in `tz`): a given
+    /// zone becomes the unit of an axis without one, and the ticks are in
+    /// the unit's zone, else in the `timezone` rcParam's.
+    fn make_date_axis(&self, tz: Option<&TimeZone>) {
         let dated = self.update_state(|state| {
             let units = state.units_mut();
             units.adopt(UnitConverter::Dates);
             units.converter == Some(UnitConverter::Dates)
         });
-        if dated {
-            self.use_date_axisinfo(tz);
+        if !dated {
+            return;
+        }
+        match tz {
+            Some(tz) if self.unit().is_none() => self.set_unit(Unit::new(tz.clone())),
+            _ => {
+                let zone = self.read_state(|state| state.units().time_zone());
+                self.use_date_axisinfo(zone.as_ref());
+            }
         }
     }
 
     /// The tick helpers and default view of dates in `tz` (matplotlib's
     /// `_update_axisinfo` with the date converter's `axisinfo`): the axes
     /// sharing the axis take the tick helpers too.
-    fn use_date_axisinfo(&self, tz: &TimeZone) {
-        self.update_shared_states(|state| state.use_date_tickers(Some(tz)));
+    fn use_date_axisinfo(&self, tz: Option<&TimeZone>) {
+        self.update_shared_states(|state| state.use_date_tickers(tz));
         let epoch = get_epoch();
         let start = epoch.datetime64_to_num(Datetime64::new(0, 0));
         let end = epoch.datetime64_to_num(Datetime64::new(SECONDS_PER_DAY, 0));

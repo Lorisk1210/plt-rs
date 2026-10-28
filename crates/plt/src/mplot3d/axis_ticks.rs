@@ -134,7 +134,7 @@ impl Axis3D {
         }
     }
 
-    /// Ticks the axis as an axis of dates in `tz`: its values are date
+    /// Ticks the axis as an axis of dates: its values are date
     /// numbers (days since the [epoch](crate::dates::get_epoch), see
     /// [`date2num`](crate::dates::date2num)), placed by an
     /// `AutoDateLocator` and labelled by the formatter `date.converter`
@@ -142,7 +142,9 @@ impl Axis3D {
     /// z axis). Like matplotlib, the axis takes the date converter unless
     /// another one was set explicitly, replaces only the major locator and
     /// formatter that were not set explicitly, and leaves the limits as
-    /// they are; the axes sharing the axis follow.
+    /// they are; the axes sharing the axis follow. A zone `tz` becomes the
+    /// axis unit if it has none, so later plots keep it; the ticks are in
+    /// the unit's zone, else (`None`) in the `timezone` rcParam's.
     ///
     /// ```
     /// use plt::dates::TimeZone;
@@ -153,8 +155,8 @@ impl Axis3D {
     /// assert_eq!(ax.zaxis().ticklabels(false)?[0], "2022-01-08");
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn axis_date(&self, tz: &TimeZone) -> &Self {
-        self.make_date_axis(tz);
+    pub fn axis_date<'a>(&self, tz: impl Into<Option<&'a TimeZone>>) -> &Self {
+        self.make_date_axis(tz.into());
         self
     }
 }

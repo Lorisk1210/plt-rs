@@ -1,7 +1,6 @@
 //! Axes steps about scales and ticks.
 
 use plt::axes::{Axes, Axis, AxisName, LocatorParams};
-use plt::dates::TimeZone;
 use plt::scale::{ScaleOptions, scale_factory};
 use plt::ticker::{MultipleLocator, Nbins};
 
@@ -94,7 +93,7 @@ pub(super) fn call(ax: &Axes, call: &Call<'_>) -> Handled {
         }
         "xaxis_date" | "yaxis_date" => {
             ax.axis_of(if method.starts_with('x') { X } else { Y })
-                .axis_date(&TimeZone::Utc);
+                .axis_date(None);
             Ok(Produced::Nothing)
         }
         "locator_params" => locator_params(ax, call),

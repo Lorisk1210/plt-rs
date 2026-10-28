@@ -33,6 +33,20 @@ pub struct FormattedTicks {
     pub offset: String,
 }
 
+impl FormattedTicks {
+    /// The labels `label` gives each of `locs` on its own, without an
+    /// offset text.
+    pub(crate) fn each(
+        locs: &[f64],
+        mut label: impl FnMut(f64) -> Result<String, TickerError>,
+    ) -> Result<Self, TickerError> {
+        Ok(Self {
+            labels: locs.iter().map(|&x| label(x)).collect::<Result<_, _>>()?,
+            offset: String::new(),
+        })
+    }
+}
+
 /// Turns tick values into label strings (matplotlib's `Formatter`).
 ///
 /// Formatters hold only configuration: everything that matplotlib's

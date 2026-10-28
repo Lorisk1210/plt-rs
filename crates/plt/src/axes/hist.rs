@@ -7,12 +7,12 @@ use crate::colors::Color;
 use crate::lines::LineStyle;
 use crate::patches::{Patch, PatchProps, PatchShape, Polygon};
 use crate::rc::HistBins;
-use crate::scale::{LogScale, NonPositive};
+use crate::scale::LogScale;
 use crate::stats::{
     BinSample, Bins, Cumulative, Datasets, HistAlign, HistBars, HistBottom, HistOptions,
     HistOrientation, HistPatches, HistType, StepOutline, hist,
 };
-use crate::ticker::AxisName;
+use crate::ticker::{AxisName, LogBase};
 
 /// The most bars a bar histogram draws, its datasets together: each is a
 /// patch, and matplotlib makes as many as the bins ask for (a million bins
@@ -281,10 +281,7 @@ impl Axes {
                 HistOrientation::Vertical => AxisName::Y,
                 HistOrientation::Horizontal => AxisName::X,
             };
-            let log = LogScale::new(10.0)
-                .expect("10 is a valid logarithm base")
-                .with_nonpositive(NonPositive::Clip);
-            self.set_scale(axis, Box::new(log));
+            self.set_scale(axis, Box::new(LogScale::from_base(LogBase::TEN)));
         }
         let filled = options.histtype == HistType::StepFilled;
         let mut patches: Vec<Patch<Polygon>> = outlines

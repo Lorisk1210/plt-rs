@@ -69,7 +69,7 @@ struct YccTables {
 
 impl YccTables {
     fn new() -> Self {
-        let x = |i: usize| i32::try_from(i).expect("a byte") - 128;
+        let x = |i: usize| i32::try_from(i).expect("the tables have 256 entries") - 128;
         Self {
             cr_r: std::array::from_fn(|i| (FIX_1_40200 * x(i) + ONE_HALF) >> SCALE_BITS),
             cb_b: std::array::from_fn(|i| (FIX_1_77200 * x(i) + ONE_HALF) >> SCALE_BITS),

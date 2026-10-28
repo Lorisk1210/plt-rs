@@ -109,12 +109,13 @@ fn refine_once(tri: &Triangulation) -> Triangulation {
     let mut x = tri.x().to_vec();
     let mut y = tri.y().to_vec();
     // Each edge's midpoint is created by its "master": the triangle with
-    // the higher index (border edges have no other side). Masters are
-    // numbered apex by apex, then triangle by triangle.
+    // the higher index (border edges have no other side, and a triangle
+    // that repeats a point and is its own neighbour masters its edges).
+    // Masters are numbered apex by apex, then triangle by triangle.
     let mut midside = vec![[usize::MAX; 3]; ntri];
     for apex in 0..3 {
         for t in 0..ntri {
-            let is_master = neighbors[t][apex].is_none_or(|n| t > n);
+            let is_master = neighbors[t][apex].is_none_or(|n| t >= n);
             if is_master {
                 let (a, b) = (triangles[t][apex], triangles[t][(apex + 1) % 3]);
                 x.push(f64::midpoint(tri.x()[a], tri.x()[b]));
@@ -123,13 +124,13 @@ fn refine_once(tri: &Triangulation) -> Triangulation {
             }
         }
     }
+    // The other triangles take the midpoint of the master's edge they
+    // share (even a flat triangle that shares all three edges with one
+    // master).
     for t in 0..ntri {
         for apex in 0..3 {
-            if let Some(master) = neighbors[t][apex].filter(|&n| t < n) {
-                let master_apex = neighbors[master]
-                    .iter()
-                    .position(|&n| n == Some(t))
-                    .expect("neighbour relations are symmetric");
+            if let Some((master, master_apex)) = tri.neighbor_edge(t, apex).filter(|&(n, _)| t < n)
+            {
                 midside[t][apex] = midside[master][master_apex];
             }
         }
@@ -188,6 +189,19 @@ mod tests {
         // The shared corners prefer the unmasked ancestor.
         assert_eq!(found[0], Some(0));
         assert_eq!(found[2], Some(1));
+    }
+
+    #[test]
+    fn degenerate_triangles_refine() {
+        // Two flat triangles sharing all three edges, and one repeating a
+        // point: refining them twice used to make a child triangle that is
+        // its own neighbour, and then reference a midpoint never made.
+        let (x, y) = ([0.0, 1.0, 2.0, 0.0], [0.0, 0.0, 0.0, 1.0]);
+        for triangles in [vec![[0, 1, 2], [2, 1, 0]], vec![[0, 3, 0]]] {
+            let tri = Triangulation::new(&x, &y, triangles).unwrap();
+            let refined = UniformTriRefiner::new(&tri).refine_triangulation(2);
+            assert_eq!(refined.ntri(), 16 * tri.ntri());
+        }
     }
 
     #[test]

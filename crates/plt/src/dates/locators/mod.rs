@@ -7,6 +7,32 @@
 //! axis. [`DateLocator::tick_dates`] is the date-time level entry point
 //! (matplotlib's `DateLocator.tick_values`).
 
+/// Implements [`Locator`] for a date locator in a child module whose
+/// ticks are its [`DateLocator::tick_dates`] across the view (matplotlib's
+/// `DateLocator.__call__` and `DateLocator.nonsingular`).
+macro_rules! locate_dates_in_view {
+    ($locator:ty) => {
+        impl Locator for $locator {
+            fn tick_values(
+                &self,
+                vmin: f64,
+                vmax: f64,
+                _: &TickContext<'_>,
+            ) -> Result<Vec<f64>, TickerError> {
+                super::ticks_in_view(self, vmin, vmax)
+            }
+
+            fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
+                super::date_nonsingular(v0, v1, self.unit(ctx), self.interval())
+            }
+
+            fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
+                Some(self.unit(ctx))
+            }
+        }
+    };
+}
+
 mod auto;
 mod microsecond;
 mod recurring;

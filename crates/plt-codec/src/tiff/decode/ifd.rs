@@ -46,15 +46,22 @@ impl ByteOrder {
             Self::Big => bytes.iter().fold(0, fold),
         }
     }
+
+    /// A 16-bit number.
+    pub(super) fn read_u16(self, bytes: [u8; 2]) -> u16 {
+        match self {
+            Self::Little => u16::from_le_bytes(bytes),
+            Self::Big => u16::from_be_bytes(bytes),
+        }
+    }
 }
 
-/// An entry: its field type, value count and where its values are.
+/// An entry: its tag, field type and the bytes of its values.
 #[derive(Clone, Copy, Debug)]
-struct Entry {
+struct Entry<'a> {
     tag: u16,
     kind: u16,
-    count: usize,
-    at: usize,
+    values: &'a [u8],
 }
 
 /// The first image file directory of a file.
@@ -62,7 +69,7 @@ struct Entry {
 pub(super) struct Directory<'a> {
     data: &'a [u8],
     order: ByteOrder,
-    entries: Vec<Entry>,
+    entries: Vec<Entry<'a>>,
 }
 
 impl<'a> Directory<'a> {
@@ -102,9 +109,11 @@ impl<'a> Directory<'a> {
             let Some(raw) = directory.bytes(at, entry_size) else {
                 break;
             };
-            let tag = u16::try_from(order.read(&raw[..2])).expect("two bytes");
-            let kind = u16::try_from(order.read(&raw[2..4])).expect("two bytes");
-            let (count, value) = raw[4..].split_at(offset_size);
+            let Some((&[t0, t1, k0, k1], rest)) = raw.split_first_chunk::<4>() else {
+                break;
+            };
+            let (tag, kind) = (order.read_u16([t0, t1]), order.read_u16([k0, k1]));
+            let (count, value) = rest.split_at(offset_size);
             let Some(size) = type_size(kind) else {
                 continue;
             };
@@ -117,21 +126,18 @@ impl<'a> Directory<'a> {
             if total == 0 {
                 continue;
             }
-            let at = if total <= offset_size {
-                at + 4 + offset_size
+            let values = if total <= offset_size {
+                value.get(..total)
             } else {
-                match usize::try_from(order.read(value)) {
-                    Ok(at) if directory.bytes(at, total).is_some() => at,
-                    _ => break,
-                }
+                usize::try_from(order.read(value))
+                    .ok()
+                    .and_then(|at| directory.bytes(at, total))
+            };
+            let Some(values) = values else {
+                break;
             };
             directory.entries.retain(|entry| entry.tag != tag);
-            directory.entries.push(Entry {
-                tag,
-                kind,
-                count,
-                at,
-            });
+            directory.entries.push(Entry { tag, kind, values });
         }
         Ok(directory)
     }
@@ -145,7 +151,7 @@ impl<'a> Directory<'a> {
         self.data.get(at..at.checked_add(len)?)
     }
 
-    fn entry(&self, tag: u16) -> Option<&Entry> {
+    fn entry(&self, tag: u16) -> Option<&Entry<'a>> {
         self.entries.iter().find(|entry| entry.tag == tag)
     }
 
@@ -166,10 +172,8 @@ impl<'a> Directory<'a> {
             .find(|(kind, _)| *kind == entry.kind)
             .ok_or(invalid.clone())?;
         let signed = matches!(entry.kind, 6 | 8 | 9);
-        let bytes = self
-            .bytes(entry.at, entry.count * size)
-            .expect("checked when read");
-        bytes
+        entry
+            .values
             .chunks_exact(size)
             .map(|chunk| {
                 let value = self.order.read(chunk);

@@ -150,8 +150,8 @@ fn raster(frame: &Frame, space: ColorSpace) -> Raster {
                 &plane,
                 frame.max_h / component.spec.h,
                 frame.max_v / component.spec.v,
-                frame.width,
-                frame.height,
+                usize::from(frame.width),
+                usize::from(frame.height),
             )
         })
         .collect();
@@ -178,6 +178,5 @@ fn raster(frame: &Frame, space: ColorSpace) -> Raster {
         ),
         _ => unreachable!("the colour space matches the number of components"),
     };
-    let side = |n: usize| u32::try_from(n).expect("sides are 16-bit");
-    Raster::new(side(frame.width), side(frame.height), pixels)
+    Raster::new(u32::from(frame.width), u32::from(frame.height), pixels)
 }

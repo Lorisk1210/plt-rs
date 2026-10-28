@@ -83,11 +83,11 @@ pub fn decode(text: &str) -> Result<Vec<u8>, Base64Error> {
             b'\n' | b'\r' => {}
             b'=' => symbols.push(None),
             _ => {
-                let value = ALPHABET
-                    .iter()
-                    .position(|&c| c == byte)
+                let value = (0_u32..)
+                    .zip(ALPHABET)
+                    .find_map(|(value, &c)| (c == byte).then_some(value))
                     .ok_or(Base64Error::InvalidCharacter(at))?;
-                symbols.push(Some(u32::try_from(value).expect("below 64")));
+                symbols.push(Some(value));
             }
         }
     }

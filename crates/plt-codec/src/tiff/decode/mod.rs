@@ -91,7 +91,9 @@ struct Image {
     order: ByteOrder,
     compression: Compression,
     fill_order: u64,
-    predictor: u64,
+    /// The size of a sample in bytes when rows are stored as horizontal
+    /// differences (predictor 2).
+    differencing: Option<usize>,
 }
 
 impl Image {
@@ -120,7 +122,7 @@ impl Image {
         if samples > MAX_SAMPLES {
             return Err(DecodeError::UnsupportedLayout);
         }
-        let samples = usize::try_from(samples).expect("at most 6");
+        let samples = usize::try_from(samples).expect("checked against MAX_SAMPLES");
         if samples < bits.len() {
             bits.truncate(samples);
         } else if samples > bits.len() && bits.len() == 1 {
@@ -149,14 +151,15 @@ impl Image {
         } else {
             1
         };
-        match (predictor, layout.sample_bytes()) {
-            (1, _) | (2, Some(_)) => {}
+        let differencing = match (predictor, layout.sample_bytes()) {
+            (1, _) => None,
+            (2, Some(sample_bytes)) => Some(sample_bytes),
             _ => {
                 return Err(DecodeError::UnsupportedPredictor(
                     u16::try_from(predictor).unwrap_or(u16::MAX),
                 ));
             }
-        }
+        };
         Ok(Self {
             width,
             height,
@@ -164,7 +167,7 @@ impl Image {
             order,
             compression,
             fill_order,
-            predictor,
+            differencing,
         })
     }
 
@@ -411,8 +414,7 @@ impl Image {
             reverse_bits(&mut stored);
         }
         let mut decoded = self.compression.decompress(&stored, expected)?;
-        if self.predictor == 2 {
-            let sample_bytes = self.layout.sample_bytes().expect("checked by read");
+        if let Some(sample_bytes) = self.differencing {
             let samples = self.layout.samples();
             compression::undo_differencing(
                 &mut decoded,

@@ -6,6 +6,8 @@
 
 mod decompose;
 
+pub(in crate::raster) use decompose::split_cubic;
+
 use plt_font::ScanPoint;
 
 use super::RasterError;

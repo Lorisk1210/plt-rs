@@ -11,6 +11,7 @@ use std::rc::Rc;
 use plt_core::numeric::np_sign;
 
 use super::{NonPositive, ScaleError};
+use crate::ticker::LogBase;
 use crate::transforms::AxisMap;
 
 /// The value non-positive inputs map to when clipping (`log10` of the
@@ -21,25 +22,30 @@ const CLIPPED: f64 = 1000.0;
 /// clipped to -1000 or mapped to NaN/-inf.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LogTransform {
-    base: f64,
+    base: LogBase,
     nonpositive: NonPositive,
 }
 
 impl LogTransform {
     /// A log map; `base` must be positive and not 1.
     pub fn new(base: f64, nonpositive: NonPositive) -> Result<Self, ScaleError> {
-        if base > 0.0 && base != 1.0 && base.is_finite() {
-            Ok(Self { base, nonpositive })
-        } else {
-            Err(ScaleError::invalid(
-                "base",
-                "the log base cannot be <= 0 or == 1",
-            ))
-        }
+        let base = LogBase::new(base)
+            .ok_or_else(|| ScaleError::invalid("base", "the log base cannot be <= 0 or == 1"))?;
+        Ok(Self::from_base(base, nonpositive))
+    }
+
+    /// A log map in `base`.
+    pub fn from_base(base: LogBase, nonpositive: NonPositive) -> Self {
+        Self { base, nonpositive }
     }
 
     /// The logarithm base.
     pub fn base(&self) -> f64 {
+        self.base.get()
+    }
+
+    /// The logarithm base, as checked on construction.
+    pub fn log_base(&self) -> LogBase {
         self.base
     }
 
@@ -51,14 +57,15 @@ impl LogTransform {
 
 impl AxisMap for LogTransform {
     fn forward(&self, value: f64) -> f64 {
-        let out = if self.base == std::f64::consts::E {
+        let base = self.base();
+        let out = if base == std::f64::consts::E {
             value.ln()
-        } else if self.base == 2.0 {
+        } else if base == 2.0 {
             value.log2()
-        } else if self.base == 10.0 {
+        } else if base == 10.0 {
             value.log10()
         } else {
-            value.ln() / self.base.ln()
+            value.ln() / base.ln()
         };
         if self.nonpositive == NonPositive::Clip && value <= 0.0 {
             -CLIPPED
@@ -77,12 +84,13 @@ impl AxisMap for LogTransform {
     }
 
     fn inverse(&self, value: f64) -> f64 {
-        if self.base == std::f64::consts::E {
+        let base = self.base();
+        if base == std::f64::consts::E {
             value.exp()
-        } else if self.base == 2.0 {
+        } else if base == 2.0 {
             value.exp2()
         } else {
-            (value * self.base.ln()).exp()
+            (value * base.ln()).exp()
         }
     }
 }

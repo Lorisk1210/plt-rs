@@ -74,13 +74,7 @@ impl Formatter for DateFormatter {
         locs: &[f64],
         ctx: &TickContext<'_>,
     ) -> Result<FormattedTicks, TickerError> {
-        Ok(FormattedTicks {
-            labels: locs
-                .iter()
-                .map(|&x| self.label(x, ctx))
-                .collect::<Result<_, _>>()?,
-            offset: String::new(),
-        })
+        FormattedTicks::each(locs, |x| self.label(x, ctx))
     }
 
     fn format_data(&self, value: f64, ctx: &TickContext<'_>) -> Result<String, TickerError> {

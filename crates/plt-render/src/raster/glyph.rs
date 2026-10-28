@@ -11,6 +11,8 @@
 
 use plt_core::{Path, Point, Segment};
 
+use super::mono::split_cubic as split_coordinate;
+
 /// `FreeType`'s `ONE_PIXEL` in 24.8 units.
 const ONE_PIXEL: i64 = 256;
 
@@ -200,17 +202,7 @@ impl Flattener {
 fn split_cubic(arc: [Fixed; 4]) -> ([Fixed; 4], [Fixed; 4]) {
     let split = |v: [i64; 4]| -> [i64; 7] {
         let mut base = [v[0], v[1], v[2], v[3], 0, 0, 0];
-        base[6] = base[3];
-        let mut a = base[0] + base[1];
-        let b = base[1] + base[2];
-        let mut c = base[2] + base[3];
-        base[5] = c >> 1;
-        c += b;
-        base[4] = c >> 2;
-        base[1] = a >> 1;
-        a += b;
-        base[2] = a >> 2;
-        base[3] = (a + c) >> 3;
+        split_coordinate(&mut base);
         base
     };
     let xs = split(arc.map(|p| p.x));

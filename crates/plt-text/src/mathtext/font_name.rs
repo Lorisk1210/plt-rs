@@ -48,24 +48,10 @@ pub(crate) enum FontName {
 }
 
 impl FontName {
-    /// Parses a user-visible font name (`\rm`, `\mathbf`, `mathtext.default`).
+    /// Parses a user-visible font name (`\rm`, `\mathbf`, `mathtext.default`):
+    /// the name of a [`MathFont`].
     pub(crate) fn parse(name: &str) -> Option<Self> {
-        Some(match name {
-            "rm" => Self::Rm,
-            "it" => Self::It,
-            "bf" => Self::Bf,
-            "bfit" => Self::Bfit,
-            "sf" => Self::Sf,
-            "tt" => Self::Tt,
-            "cal" => Self::Cal,
-            "default" => Self::Default,
-            "regular" => Self::Regular,
-            "normal" => Self::Normal,
-            "bb" => Self::Bb,
-            "frak" => Self::Frak,
-            "scr" => Self::Scr,
-            _ => return None,
-        })
+        name.parse::<MathFont>().ok().map(Self::from)
     }
 
     /// Whether selecting this font also changes the font class

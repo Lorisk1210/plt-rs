@@ -56,9 +56,9 @@ pub(super) struct Frame {
     /// Whether scans are progressive.
     pub(super) progressive: bool,
     /// The image width.
-    pub(super) width: usize,
+    pub(super) width: u16,
     /// The image height.
-    pub(super) height: usize,
+    pub(super) height: u16,
     /// The largest horizontal sampling factor.
     pub(super) max_h: usize,
     /// The largest vertical sampling factor.
@@ -83,7 +83,7 @@ impl Frame {
         {
             return Err(too_large);
         }
-        let (width, height) = (usize::from(width), usize::from(height));
+        let (columns, rows) = (usize::from(width), usize::from(height));
         let max_h = header.components.iter().map(|c| c.h).max().unwrap_or(1);
         let max_v = header.components.iter().map(|c| c.v).max().unwrap_or(1);
         if header
@@ -93,13 +93,13 @@ impl Frame {
         {
             return Err(DecodeError::InvalidSampling);
         }
-        let (mcus_across, mcus_down) = (width.div_ceil(8 * max_h), height.div_ceil(8 * max_v));
+        let (mcus_across, mcus_down) = (columns.div_ceil(8 * max_h), rows.div_ceil(8 * max_v));
         let components = header
             .components
             .iter()
             .map(|&spec| {
-                let sample_width = (width * spec.h).div_ceil(max_h);
-                let sample_height = (height * spec.v).div_ceil(max_v);
+                let sample_width = (columns * spec.h).div_ceil(max_h);
+                let sample_height = (rows * spec.v).div_ceil(max_v);
                 Component {
                     spec,
                     quant: None,
@@ -140,8 +140,8 @@ impl Frame {
             .sum();
         if coded > remaining.saturating_mul(8) {
             return Err(DecodeError::TooLarge {
-                width: u16::try_from(self.width).expect("checked by new"),
-                height: u16::try_from(self.height).expect("checked by new"),
+                width: self.width,
+                height: self.height,
             });
         }
         let mcus_down = self.mcus_down;

@@ -356,7 +356,10 @@ impl Parser {
             Token::Punct('(') => {
                 let (items, trailing_comma) = self.sequence(')')?;
                 Ok(if items.len() == 1 && !trailing_comma {
-                    items.into_iter().next().expect("one item")
+                    items
+                        .into_iter()
+                        .next()
+                        .expect("the sequence holds one item")
                 } else {
                     Expr::Tuple(items)
                 })

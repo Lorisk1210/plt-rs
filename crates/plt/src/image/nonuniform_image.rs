@@ -12,8 +12,10 @@ use plt_core::{Bbox, Point};
 use plt_render::RgbaImage;
 
 use super::make::{RenderedImage, autoscale_unset};
-use super::pcolor_image::{cell_colors, cell_of};
-use super::shared::{axes_image_contains, draw_rendered};
+use super::pcolor_image::cell_colors;
+use super::shared::{
+    axes_image_contains, draw_rendered, grid_cell, grid_corners, grid_extent, grid_limits,
+};
 use super::{Extent, ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
@@ -252,21 +254,13 @@ impl Artist for NonUniformImageArtist {
 
     /// The box between the first and last centres (the image's extent).
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let resolved = ctx.resolve(self.base.transform.as_ref()?)?;
-        let [first, last] = self.extent_corners()?;
-        Some(Bbox::from_points([
-            resolved.transform_point(first),
-            resolved.transform_point(last),
-        ]))
+        grid_extent(&self.base, ctx, &self.x, &self.y)
     }
 
     /// The first and last centres (matplotlib's `_update_image_limits`
     /// with `get_extent`), which `relim` takes into account.
     fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
-        Some(LimitPoints {
-            points: self.extent_corners()?.to_vec(),
-            directions: (true, true),
-        })
+        grid_limits(&self.x, &self.y)
     }
 
     /// matplotlib's `AxesImage.contains`: inside the axes and the extent.
@@ -277,22 +271,8 @@ impl Artist for NonUniformImageArtist {
     /// matplotlib's `NonUniformImage.get_cursor_data`: the value whose
     /// centre is the last one at or below `at` on each axis.
     fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
-        let data = ctx
-            .resolve(self.base.transform.as_ref()?)?
-            .inverted()?
-            .transform_point(at);
-        let element = (cell_of(&self.y, data.y)?, cell_of(&self.x, data.x)?);
+        let element = grid_cell(&self.base, ctx, at, &self.x, &self.y)?;
         Some(self.data.cursor_text(element, &self.mappable.borrow()))
-    }
-}
-
-impl NonUniformImageArtist {
-    /// The data points of the first and last centres.
-    fn extent_corners(&self) -> Option<[Point; 2]> {
-        Some([
-            Point::new(*self.x.first()?, *self.y.first()?),
-            Point::new(*self.x.last()?, *self.y.last()?),
-        ])
     }
 }
 
@@ -324,7 +304,7 @@ impl NonUniformImage {
     /// `get_extent`); `None` for an empty image.
     pub fn extent(&self) -> Option<Extent> {
         self.raw.with::<NonUniformImageArtist, _>(|image| {
-            let [first, last] = image.extent_corners()?;
+            let [first, last] = grid_corners(&image.x, &image.y)?;
             Some(Extent::new(first.x, last.x, first.y, last.y))
         })
     }

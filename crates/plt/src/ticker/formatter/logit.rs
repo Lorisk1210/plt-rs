@@ -243,14 +243,7 @@ impl Formatter for LogitFormatter {
         } else {
             Vec::new()
         };
-        let labels = locs
-            .iter()
-            .map(|&x| self.label(x, locs, &labelled))
-            .collect::<Result<_, _>>()?;
-        Ok(FormattedTicks {
-            labels,
-            offset: String::new(),
-        })
+        FormattedTicks::each(locs, |x| self.label(x, locs, &labelled))
     }
 
     fn format_data(&self, value: f64, _: &TickContext<'_>) -> Result<String, TickerError> {

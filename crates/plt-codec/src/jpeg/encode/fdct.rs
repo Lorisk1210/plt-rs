@@ -3,23 +3,11 @@
 //! Loeffler, Ligtenberg and Moschytz) and division by reciprocal
 //! multiplication (`compute_reciprocal` and `quantize`).
 
-/// Fractional bits of the fixed-point constants.
-const CONST_BITS: u32 = 13;
-/// Extra precision kept between the row and column passes.
-const PASS1_BITS: u32 = 2;
-
-const FIX_0_298631336: i32 = 2446;
-const FIX_0_390180644: i32 = 3196;
-const FIX_0_541196100: i32 = 4433;
-const FIX_0_765366865: i32 = 6270;
-const FIX_0_899976223: i32 = 7373;
-const FIX_1_175875602: i32 = 9633;
-const FIX_1_501321110: i32 = 12299;
-const FIX_1_847759065: i32 = 15137;
-const FIX_1_961570560: i32 = 16069;
-const FIX_2_053119869: i32 = 16819;
-const FIX_2_562915447: i32 = 20995;
-const FIX_3_072711026: i32 = 25172;
+use crate::jpeg::tables::{
+    CONST_BITS, FIX_0_298631336, FIX_0_390180644, FIX_0_541196100, FIX_0_765366865,
+    FIX_0_899976223, FIX_1_175875602, FIX_1_501321110, FIX_1_847759065, FIX_1_961570560,
+    FIX_2_053119869, FIX_2_562915447, FIX_3_072711026, PASS1_BITS,
+};
 
 /// `x / 2^n`, rounded half up.
 fn descale(x: i32, n: u32) -> i32 {

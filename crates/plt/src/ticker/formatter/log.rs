@@ -323,13 +323,8 @@ impl Formatter for LogFormatter {
         ctx: &TickContext<'_>,
     ) -> Result<FormattedTicks, TickerError> {
         let sublabels = self.sublabels(ctx)?;
-        let labels = locs
-            .iter()
-            .map(|&x| self.label(x, sublabels.as_deref(), self.label_only_base, ctx))
-            .collect::<Result<_, _>>()?;
-        Ok(FormattedTicks {
-            labels,
-            offset: String::new(),
+        FormattedTicks::each(locs, |x| {
+            self.label(x, sublabels.as_deref(), self.label_only_base, ctx)
         })
     }
 

@@ -223,7 +223,7 @@ impl Hull {
                 .facet_mut(facet)
                 .outside
                 .pop()
-                .expect("checked non-empty");
+                .expect("facets without outside points are skipped above");
             return Some((point, facet));
         }
         None

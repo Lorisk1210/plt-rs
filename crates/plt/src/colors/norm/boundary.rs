@@ -120,29 +120,7 @@ impl BoundaryNorm {
 }
 
 impl Norm for BoundaryNorm {
-    fn vmin(&self) -> Option<f64> {
-        self.limits.vmin
-    }
-
-    fn vmax(&self) -> Option<f64> {
-        self.limits.vmax
-    }
-
-    fn set_vmin(&mut self, vmin: Option<f64>) {
-        self.limits.vmin = vmin;
-    }
-
-    fn set_vmax(&mut self, vmax: Option<f64>) {
-        self.limits.vmax = vmax;
-    }
-
-    fn clip(&self) -> bool {
-        self.limits.clip
-    }
-
-    fn set_clip(&mut self, clip: bool) {
-        self.limits.clip = clip;
-    }
+    limit_accessors!();
 
     fn autoscale_none(&mut self, data: &[Option<f64>]) {
         self.limits.autoscale_none(data);

@@ -149,31 +149,22 @@ pub(crate) struct Compressed {
 
 impl Compressed {
     pub(crate) fn new(tri: &Triangulation) -> Self {
-        let mut used = vec![false; tri.npoints()];
-        for t in tri.unmasked() {
-            for v in tri.triangles()[t] {
-                used[v] = true;
-            }
-        }
+        let used = tri.used_points();
         let node_renum = renumber(&used);
         let live: Vec<bool> = (0..tri.ntri()).map(|t| !tri.is_masked(t)).collect();
         let tri_renum = renumber(&live);
         let triangles = tri
             .unmasked()
-            .map(|t| tri.triangles()[t].map(|v| node_renum[v].expect("used node")))
+            .map(|t| {
+                tri.triangles()[t]
+                    .map(|v| node_renum[v].expect("unmasked triangles use their corners"))
+            })
             .collect();
-        let pick = |values: &[f64]| -> Vec<f64> {
-            values
-                .iter()
-                .zip(&used)
-                .filter(|(_, u)| **u)
-                .map(|(v, _)| *v)
-                .collect()
-        };
+        let (x, y) = tri.coordinates_of(&used);
         Self {
             triangles,
-            x: pick(tri.x()),
-            y: pick(tri.y()),
+            x,
+            y,
             tri_renum,
             node_renum,
         }

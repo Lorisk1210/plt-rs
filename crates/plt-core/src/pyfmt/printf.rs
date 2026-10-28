@@ -65,20 +65,24 @@ impl PrintfFormat {
         let mut parser = Parser {
             chars: template.char_indices().peekable(),
         };
-        let mut pieces = vec![String::new()];
+        // The literal text before each conversion, then `text` after the
+        // last one.
+        let mut pieces = Vec::new();
+        let mut text = String::new();
         let mut conversions = Vec::new();
         while let Some((index, c)) = parser.chars.next() {
             if c != '%' {
-                pieces.last_mut().expect("pieces is never empty").push(c);
+                text.push(c);
                 continue;
             }
             if parser.chars.next_if(|&(_, c)| c == '%').is_some() {
-                pieces.last_mut().expect("pieces is never empty").push('%');
+                text.push('%');
                 continue;
             }
             conversions.push(parser.conversion(index)?);
-            pieces.push(String::new());
+            pieces.push(std::mem::take(&mut text));
         }
+        pieces.push(text);
         match (conversions.as_slice(), pieces.as_mut_slice()) {
             ([conversion], [prefix, suffix]) => Ok(Self {
                 template: template.to_owned(),
@@ -199,9 +203,14 @@ struct Parser<'a> {
 impl Parser<'_> {
     fn digits(&mut self) -> Option<usize> {
         let mut value: Option<usize> = None;
-        while let Some((_, c)) = self.chars.next_if(|(_, c)| c.is_ascii_digit()) {
-            let digit = c.to_digit(10).expect("checked ASCII digit") as usize;
-            value = Some(value.unwrap_or(0).saturating_mul(10).saturating_add(digit));
+        while let Some(digit) = self.chars.peek().and_then(|&(_, c)| c.to_digit(10)) {
+            self.chars.next();
+            value = Some(
+                value
+                    .unwrap_or(0)
+                    .saturating_mul(10)
+                    .saturating_add(digit as usize),
+            );
         }
         value
     }

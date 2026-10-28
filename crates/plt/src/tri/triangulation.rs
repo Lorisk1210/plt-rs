@@ -178,6 +178,31 @@ impl Triangulation {
         (0..self.triangles.len()).filter(|&t| !self.is_masked(t))
     }
 
+    /// Whether each point is a corner of an unmasked triangle.
+    pub(crate) fn used_points(&self) -> Vec<bool> {
+        let mut used = vec![false; self.npoints()];
+        for t in self.unmasked() {
+            for v in self.triangles[t] {
+                used[v] = true;
+            }
+        }
+        used
+    }
+
+    /// The x and y coordinates of the points `used` marks (see
+    /// [`used_points`](Self::used_points)), in order.
+    pub(crate) fn coordinates_of(&self, used: &[bool]) -> (Vec<f64>, Vec<f64>) {
+        let pick = |values: &[f64]| -> Vec<f64> {
+            values
+                .iter()
+                .zip(used)
+                .filter(|(_, used)| **used)
+                .map(|(value, _)| *value)
+                .collect()
+        };
+        (pick(&self.x), pick(&self.y))
+    }
+
     /// For each triangle, the triangles across its edges: entry `[t][e]` is
     /// the unmasked triangle sharing edge `e` (from vertex `e` to vertex
     /// `(e + 1) % 3`) of unmasked triangle `t`; masked triangles have none.
@@ -259,7 +284,14 @@ impl Triangulation {
             loop {
                 edge = (edge + 1) % 3;
                 let point = self.triangles[tri][edge];
-                while let Some(next) = self.neighbors[tri][edge] {
+                // A walk round `point` through more triangle edges than
+                // there are repeats itself, which only a triangle that is
+                // its own neighbour makes happen; it ends there, where
+                // matplotlib's goes on forever.
+                for _ in 0..3 * self.triangles.len() {
+                    let Some(next) = self.neighbors[tri][edge] else {
+                        break;
+                    };
                     tri = next;
                     edge = self.triangles[tri]
                         .iter()
@@ -292,7 +324,8 @@ impl Triangulation {
     }
 
     /// matplotlib's neighbour matching: each directed edge pairs with the
-    /// first unmatched opposite edge seen so far.
+    /// first unmatched opposite edge seen so far. A triangle that repeats a
+    /// point can be its own neighbour, as in matplotlib.
     fn compute_neighbors(&self) -> Vec<[Option<usize>; 3]> {
         let mut neighbors = vec![[None; 3]; self.triangles.len()];
         let mut open: HashMap<(usize, usize), TriEdge> = HashMap::new();
@@ -431,6 +464,16 @@ mod tests {
         assert_eq!(boundaries.len(), 1);
         assert_eq!(boundaries[0].len(), 8);
         assert_eq!(boundaries[0][0], (0, 0));
+    }
+
+    #[test]
+    fn boundaries_of_triangles_repeating_a_point_end() {
+        let (x, y) = ([0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]);
+        // [0, 1, 0] is its own neighbour, as in matplotlib, and walking
+        // round its point 0 used to go on forever.
+        let tri = Triangulation::new(&x, &y, vec![[0, 1, 0], [3, 3, 3]]).unwrap();
+        assert_eq!(tri.neighbors()[0], [Some(0), Some(0), None]);
+        assert_eq!(tri.boundaries(), [vec![(0, 2)], vec![(1, 2)]]);
     }
 
     #[test]

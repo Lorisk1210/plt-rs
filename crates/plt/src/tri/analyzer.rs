@@ -18,24 +18,8 @@ impl<'a> TriAnalyzer<'a> {
     /// Factors `[kx, ky]` scaling the points used by unmasked triangles
     /// into a unit square: `1 / ptp(x)` and `1 / ptp(y)`.
     pub fn scale_factors(&self) -> [f64; 2] {
-        let mut used = vec![false; self.tri.npoints()];
-        for t in self.tri.unmasked() {
-            for v in self.tri.triangles()[t] {
-                used[v] = true;
-            }
-        }
-        let pick = |values: &[f64]| -> Vec<f64> {
-            values
-                .iter()
-                .zip(&used)
-                .filter(|(_, u)| **u)
-                .map(|(v, _)| *v)
-                .collect()
-        };
-        [
-            1.0 / ptp(&pick(self.tri.x())),
-            1.0 / ptp(&pick(self.tri.y())),
-        ]
+        let (x, y) = self.tri.coordinates_of(&self.tri.used_points());
+        [1.0 / ptp(&x), 1.0 / ptp(&y)]
     }
 
     /// The ratio of incircle to circumcircle radius of each triangle (at most

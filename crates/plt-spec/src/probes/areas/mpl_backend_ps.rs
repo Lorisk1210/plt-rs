@@ -212,6 +212,6 @@ fn papertype(args: Args<'_>) -> Outcome {
 fn papersize(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
         plt::rc::set("ps.papersize", args.str("value")?).map_err(ProbeError::rejected)?;
-        Ok(Json::from(plt::rc::params().ps_papersize.clone()))
+        Ok(Json::from(plt::rc::params().ps_papersize.to_string()))
     })
 }

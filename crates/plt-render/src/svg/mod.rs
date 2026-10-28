@@ -20,6 +20,8 @@ mod text_elements;
 mod xml;
 
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::str::FromStr;
 
 use plt_codec::sha256::sha256_hex;
 use plt_core::path::convert::SimplifySettings;
@@ -49,6 +51,46 @@ pub enum SvgFontType {
     /// Text elements, rendered with the viewer's fonts (`"none"`).
     None,
 }
+
+impl SvgFontType {
+    /// matplotlib's name (`path` or `none`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Path => "path",
+            Self::None => "none",
+        }
+    }
+}
+
+impl fmt::Display for SvgFontType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl FromStr for SvgFontType {
+    type Err = UnknownSvgFontType;
+
+    /// Parses matplotlib's name ([`SvgFontType::name`]).
+    fn from_str(name: &str) -> Result<Self, UnknownSvgFontType> {
+        [Self::Path, Self::None]
+            .into_iter()
+            .find(|fonttype| fonttype.name() == name)
+            .ok_or_else(|| UnknownSvgFontType(name.to_owned()))
+    }
+}
+
+/// A name that is not an [`SvgFontType`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownSvgFontType(pub String);
+
+impl fmt::Display for UnknownSvgFontType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?} is not a valid SVG font type", self.0)
+    }
+}
+
+impl std::error::Error for UnknownSvgFontType {}
 
 /// Settings of an SVG document (matplotlib's `svg.*` rcParams and the
 /// `metadata` argument of `savefig`).

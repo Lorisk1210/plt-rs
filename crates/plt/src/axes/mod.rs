@@ -43,6 +43,7 @@ mod hist;
 mod hist2d;
 mod image;
 mod inset;
+mod label_loc;
 mod limit_callbacks;
 mod limits;
 mod lines;
@@ -92,13 +93,13 @@ mod unit_change_tests;
 mod view;
 mod view_limits;
 mod violin;
+mod which;
 
 pub use crate::ticker::AxisName;
 pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError, AxesLocatorFn};
 pub(crate) use axis::TickerDefaults;
 pub use axis_handle::Axis;
-pub use axis_label::LabelLoc;
 pub(crate) use axis_layout::{PlacedText, place_text};
 pub use axis_mode::AxisMode;
 pub(crate) use axis_ticks::tick_label_formatter;
@@ -122,6 +123,7 @@ pub use hexbin::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions, MAX_H
 pub use hist::{HistArtists, HistPlot, HistPlotOptions, MAX_HIST_BARS};
 pub use hist2d::{Hist2d, Hist2dOptions, MAX_HIST2D_CELLS};
 pub use image::{ImshowOptions, NonUniformOptions};
+pub use label_loc::{LabelLoc, XLabelLoc, YLabelLoc};
 pub use limit_callbacks::LimitsCallbackId;
 pub(crate) use limit_callbacks::{LimitCallbacks, run_limit_callbacks};
 pub use mesh::{Mesh, MeshCoords, MeshValues, Shading};
@@ -148,7 +150,7 @@ pub use tick_config::{LocatorParams, TickLabelProps, TickParams, TicklabelFormat
 pub use tick_lines::{GridLine, TickLine, TickLineProps};
 pub use tick_set::{Tick, TickSet};
 pub(crate) use ticks::grid_level_on;
-pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickLevel, TickPosition, TickStyle};
+pub use ticks::{GridOptions, GridStyle, Sides, TickDirection, TickPosition, TickStyle};
 pub(crate) use tight_bbox::spine_extent_with_ticks;
 pub(crate) use tight_bbox::{clipped_extent, collapse_x};
 pub use titles::TitleLocation;
@@ -157,6 +159,7 @@ pub use triplot::TriplotLines;
 pub(crate) use twins::share_free;
 pub use view_limits::Limits;
 pub use violin::{ViolinDrawOptions, ViolinParts, ViolinSide, ViolinplotOptions};
+pub use which::{TickLevel, WhichAxis};
 
 use plt_core::{Bbox, Point};
 

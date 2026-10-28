@@ -1,6 +1,7 @@
 //! Configuration of the mathtext typesetter (matplotlib's `mathtext.*`
 //! rcParams plus the text's font).
 
+use std::fmt;
 use std::str::FromStr;
 
 use plt_font::{FontQuery, FontStyle, FontVariant, Stretch, Weight};
@@ -58,6 +59,12 @@ impl Fontset {
     }
 }
 
+impl fmt::Display for Fontset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 /// A TeX font name, as accepted by `mathtext.default`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum MathFont {
@@ -90,27 +97,58 @@ pub enum MathFont {
     Scr,
 }
 
+impl MathFont {
+    const ALL: [Self; 13] = [
+        Self::Rm,
+        Self::It,
+        Self::Bf,
+        Self::Bfit,
+        Self::Sf,
+        Self::Tt,
+        Self::Cal,
+        Self::Default,
+        Self::Regular,
+        Self::Normal,
+        Self::Bb,
+        Self::Frak,
+        Self::Scr,
+    ];
+
+    /// The TeX font name (a `mathtext.default` value).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Rm => "rm",
+            Self::It => "it",
+            Self::Bf => "bf",
+            Self::Bfit => "bfit",
+            Self::Sf => "sf",
+            Self::Tt => "tt",
+            Self::Cal => "cal",
+            Self::Default => "default",
+            Self::Regular => "regular",
+            Self::Normal => "normal",
+            Self::Bb => "bb",
+            Self::Frak => "frak",
+            Self::Scr => "scr",
+        }
+    }
+}
+
+impl fmt::Display for MathFont {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 impl FromStr for MathFont {
     type Err = TextError;
 
-    /// Parses a `mathtext.default` value.
+    /// Parses a `mathtext.default` value ([`MathFont::name`]).
     fn from_str(name: &str) -> Result<Self, TextError> {
-        Ok(match name {
-            "rm" => Self::Rm,
-            "it" => Self::It,
-            "bf" => Self::Bf,
-            "bfit" => Self::Bfit,
-            "sf" => Self::Sf,
-            "tt" => Self::Tt,
-            "cal" => Self::Cal,
-            "default" => Self::Default,
-            "regular" => Self::Regular,
-            "normal" => Self::Normal,
-            "bb" => Self::Bb,
-            "frak" => Self::Frak,
-            "scr" => Self::Scr,
-            _ => return Err(TextError::unknown_name("math font", name)),
-        })
+        Self::ALL
+            .into_iter()
+            .find(|font| font.name() == name)
+            .ok_or_else(|| TextError::unknown_name("math font", name))
     }
 }
 
@@ -128,16 +166,33 @@ pub enum MathFallback {
 }
 
 impl MathFallback {
-    /// Parses a `mathtext.fallback` value (case-insensitive); `none`
-    /// disables the fallback and yields `Some(None)`.
-    pub fn parse(name: &str) -> Option<Option<Self>> {
-        Some(Some(match name.to_ascii_lowercase().as_str() {
-            "cm" => Self::Cm,
-            "stix" => Self::Stix,
-            "stixsans" => Self::StixSans,
-            "none" => return Some(None),
-            _ => return None,
-        }))
+    /// The `mathtext.fallback` value naming these fonts.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Cm => "cm",
+            Self::Stix => "stix",
+            Self::StixSans => "stixsans",
+        }
+    }
+}
+
+impl fmt::Display for MathFallback {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+impl FromStr for MathFallback {
+    type Err = TextError;
+
+    /// Parses a `mathtext.fallback` value other than `none`
+    /// ([`MathFallback::name`], in any case, as matplotlib's
+    /// `_validate_mathtext_fallback`).
+    fn from_str(name: &str) -> Result<Self, TextError> {
+        [Self::Cm, Self::Stix, Self::StixSans]
+            .into_iter()
+            .find(|fallback| fallback.name().eq_ignore_ascii_case(name))
+            .ok_or_else(|| TextError::unknown_name("math fallback", name))
     }
 }
 
@@ -289,14 +344,18 @@ mod tests {
             Fontset::StixSans,
             Fontset::Custom,
         ] {
-            assert_eq!(fontset.name().parse(), Ok(fontset));
+            assert_eq!(fontset.to_string().parse(), Ok(fontset));
         }
         assert!("comic".parse::<Fontset>().is_err());
+        for font in MathFont::ALL {
+            assert_eq!(font.to_string().parse(), Ok(font));
+        }
         assert_eq!("frak".parse(), Ok(MathFont::Frak));
         assert!("ex".parse::<MathFont>().is_err());
-        assert_eq!(MathFallback::parse("STIX"), Some(Some(MathFallback::Stix)));
-        assert_eq!(MathFallback::parse("None"), Some(None));
-        assert_eq!(MathFallback::parse("x"), None);
+        assert_eq!("STIX".parse(), Ok(MathFallback::Stix));
+        assert_eq!(MathFallback::StixSans.to_string(), "stixsans");
+        assert!("None".parse::<MathFallback>().is_err());
+        assert!("x".parse::<MathFallback>().is_err());
     }
 
     #[test]

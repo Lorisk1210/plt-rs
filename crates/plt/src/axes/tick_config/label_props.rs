@@ -5,10 +5,10 @@ use std::borrow::Cow;
 
 use plt_text::{HAlign, RotationMode, VAlign};
 
-use crate::axes::Axis;
 use crate::axes::axis::AxisState;
 use crate::axes::tick_lines::TickLineProps;
-use crate::axes::ticks::{TickLevel, TickStyle};
+use crate::axes::ticks::TickStyle;
+use crate::axes::{Axis, TickLevel};
 use crate::colors::Color;
 use crate::fonts::{FontSize, FontStyle, FontWeight};
 

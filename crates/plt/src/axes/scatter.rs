@@ -143,7 +143,7 @@ impl Axes {
         let classic = rc.internal_classic_mode;
         let style = match options.marker {
             Some(style) => style,
-            None => MarkerStyle::new(rc.scatter_marker.clone(), rc.markers_fillstyle.parse()?)?,
+            None => MarkerStyle::new(rc.scatter_marker.clone(), rc.markers_fillstyle)?,
         };
         let shape = style.path().transformed(&style.transform());
         let sizes = options.sizes.unwrap_or_else(|| {

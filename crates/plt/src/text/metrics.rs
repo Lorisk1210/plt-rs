@@ -84,13 +84,9 @@ pub(crate) fn with_afm_metrics<R>(directory: Option<AfmDirectory>, f: impl FnOnc
 /// [`without_hinting`].
 pub(crate) fn hinting(rc: &RcParams) -> Hinting {
     if UNHINTED.get() {
-        return Hinting::None;
-    }
-    match rc.text_hinting.as_str() {
-        "default" | "either" => Hinting::Default,
-        "no_autohint" | "native" => Hinting::Native,
-        "force_autohint" | "auto" => Hinting::Auto,
-        _ => Hinting::None,
+        Hinting::None
+    } else {
+        rc.text_hinting.hinting()
     }
 }
 
@@ -135,6 +131,7 @@ pub(super) fn font_height_metrics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::text::TextHinting;
     use plt_text::{FontQuery, FontRequest};
 
     #[test]
@@ -176,10 +173,10 @@ mod tests {
             ("none", Hinting::None),
             ("no_hinting", Hinting::None),
         ] {
-            rc.text_hinting = value.to_owned();
+            rc.set("text.hinting", value).expect("valid");
             assert_eq!(hinting(&rc), expected, "{value}");
         }
-        rc.text_hinting = "native".to_owned();
+        rc.text_hinting = TextHinting::Native;
         assert_eq!(without_hinting(|| hinting(&rc)), Hinting::None);
         assert_eq!(hinting(&rc), Hinting::Native, "the mode is restored");
     }

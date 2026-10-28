@@ -357,6 +357,13 @@ impl FillStyle {
     }
 }
 
+impl fmt::Display for FillStyle {
+    /// matplotlib's name ([`FillStyle::name`]).
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 impl FromStr for FillStyle {
     type Err = MarkerError;
 
@@ -411,5 +418,6 @@ mod tests {
         );
         assert!(FillStyle::Top.is_half());
         assert!(!FillStyle::None.is_half());
+        assert_eq!(FillStyle::Bottom.to_string(), "bottom");
     }
 }

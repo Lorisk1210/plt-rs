@@ -3,7 +3,7 @@
 
 use std::path::Path as FsPath;
 
-use plt_render::{ImageFile, SvgFontType, SvgOptions, SvgRenderer};
+use plt_render::{ImageFile, SvgOptions, SvgRenderer};
 
 use super::Figure;
 use super::print::SaveOptions;
@@ -64,11 +64,7 @@ impl Figure {
             metadata: options.metadata.clone().unwrap_or_default(),
             simplify: simplify_settings(),
             composite_images: rc.image_composite_image,
-            fonttype: if rc.svg_fonttype == "none" {
-                SvgFontType::None
-            } else {
-                SvgFontType::Path
-            },
+            fonttype: rc.svg_fonttype,
             image_files,
         };
         // matplotlib's SVG backend measures text with `TextToPath`.

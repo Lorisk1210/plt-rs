@@ -1,38 +1,64 @@
 //! Extra validation rules referenced by the parameter table.
 
-/// Accepts exactly one of `allowed`.
+use std::str::FromStr;
+
+use plt_text::mathtext::MathFallback;
+
+/// matplotlib's complaint about `text` not being one of `allowed`.
+fn not_one_of(text: &str, allowed: &[&str]) -> String {
+    format!("{text:?} is not one of {allowed:?}")
+}
+
+/// Accepts exactly one of `allowed`, for keyword parameters kept as text.
 pub(crate) fn one_of(allowed: &'static [&'static str]) -> impl Fn(&String) -> Result<(), String> {
     move |value| {
         allowed
             .contains(&value.as_str())
             .then_some(())
-            .ok_or_else(|| format!("{value:?} is not one of {allowed:?}"))
+            .ok_or_else(|| not_one_of(value, allowed))
     }
 }
 
-/// Parses one of `allowed` in any ASCII case, keeping `allowed`'s spelling
-/// (matplotlib's `ValidateInStrings(..., ignorecase=True)`).
-pub(crate) fn one_of_ignore_case(
+/// Parses exactly one of `allowed` into the keyword type `T` (matplotlib's
+/// `ValidateInStrings`): `allowed` lists the spellings matplotlib accepts
+/// for the parameter, which may be fewer than `T` parses.
+pub(crate) fn choice<T: FromStr>(
     allowed: &'static [&'static str],
-) -> impl Fn(&str) -> Result<String, String> {
+) -> impl Fn(&str) -> Result<T, String> {
+    move |text| parse_choice(allowed.iter().find(|a| **a == text), text, allowed)
+}
+
+/// Parses one of `allowed` in any ASCII case into the keyword type `T`
+/// (matplotlib's `ValidateInStrings(..., ignorecase=True)`).
+pub(crate) fn choice_ignore_case<T: FromStr>(
+    allowed: &'static [&'static str],
+) -> impl Fn(&str) -> Result<T, String> {
     move |text| {
-        allowed
-            .iter()
-            .find(|a| a.eq_ignore_ascii_case(text))
-            .map(|a| (*a).to_owned())
-            .ok_or_else(|| format!("{text:?} is not one of {allowed:?}"))
+        let found = allowed.iter().find(|a| a.eq_ignore_ascii_case(text));
+        parse_choice(found, text, allowed)
     }
+}
+
+/// The keyword `found` among `allowed` for `text`, parsed.
+fn parse_choice<T: FromStr>(
+    found: Option<&&str>,
+    text: &str,
+    allowed: &[&str],
+) -> Result<T, String> {
+    found
+        .and_then(|spelling| spelling.parse().ok())
+        .ok_or_else(|| not_one_of(text, allowed))
 }
 
 /// `mathtext.fallback`: `cm`, `stix`, `stixsans` or `none`, in any case
 /// (matplotlib's `_validate_mathtext_fallback`).
-pub(crate) fn mathtext_fallback(text: &str) -> Result<Option<String>, String> {
-    let lower = text.to_ascii_lowercase();
-    match lower.as_str() {
-        "none" => Ok(None),
-        "cm" | "stix" | "stixsans" => Ok(Some(lower)),
-        _ => Err(format!("{text:?} is not a valid fallback font name")),
+pub(crate) fn mathtext_fallback(text: &str) -> Result<Option<MathFallback>, String> {
+    if text.eq_ignore_ascii_case("none") {
+        return Ok(None);
     }
+    text.parse()
+        .map(Some)
+        .map_err(|_| format!("{text:?} is not a valid fallback font name"))
 }
 
 /// Accepts what numpy's `datetime64` parses, `NaT` included (matplotlib's
@@ -83,12 +109,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn choices_keep_their_spelling() {
-        let papers = one_of_ignore_case(&["a0", "letter"]);
-        assert_eq!(papers("A0"), Ok("a0".to_owned()));
+    fn choices_parse_matplotlib_spellings_only() {
+        let stages = choice::<crate::image::InterpolationStage>(&["auto", "data", "rgba"]);
+        assert_eq!(stages("rgba"), Ok(crate::image::InterpolationStage::Rgba));
+        assert_eq!(
+            stages("antialiased"),
+            Err(r#""antialiased" is not one of ["auto", "data", "rgba"]"#.to_owned()),
+            "the type parses more names than matplotlib allows here"
+        );
+        let papers = choice_ignore_case::<plt_render::Paper>(&["a0", "letter"]);
+        assert_eq!(
+            papers("A0").map(|paper| paper.to_string()),
+            Ok("a0".to_owned())
+        );
         assert!(papers("a11").is_err());
-        assert_eq!(mathtext_fallback("STIX"), Ok(Some("stix".to_owned())));
+        let engines = one_of(&["latex", "latex+dvipng"]);
+        assert_eq!(engines(&"latex".to_owned()), Ok(()));
+        assert!(engines(&"Latex".to_owned()).is_err());
+    }
+
+    #[test]
+    fn fallbacks_and_dates() {
+        assert_eq!(mathtext_fallback("STIX"), Ok(Some(MathFallback::Stix)));
         assert_eq!(mathtext_fallback("None"), Ok(None));
+        assert_eq!(
+            mathtext_fallback("comic"),
+            Err("\"comic\" is not a valid fallback font name".to_owned())
+        );
         assert!(numpy_datetime("1970-01-01T00:00").is_ok());
         assert!(numpy_datetime("bogus").is_err());
     }

@@ -2,7 +2,7 @@
 //! `backend_ps`): the vector renderer placed on a page per `ps.papersize`
 //! and `savefig.orientation`, with fonts embedded or taken from AFM metrics.
 
-use plt_render::{PageOrientation, Paper, PsOptions, PsRenderer};
+use plt_render::{PsOptions, PsRenderer};
 
 use super::Figure;
 use super::print::SaveOptions;
@@ -17,14 +17,8 @@ impl Figure {
         let rc = crate::rc::params();
         let ps = PsOptions {
             eps,
-            paper: options
-                .papertype
-                .unwrap_or_else(|| rc.ps_papersize.parse().unwrap_or(Paper::Figure)),
-            orientation: options.orientation.unwrap_or_else(|| {
-                rc.savefig_orientation
-                    .parse()
-                    .unwrap_or(PageOrientation::Portrait)
-            }),
+            paper: options.papertype.unwrap_or(rc.ps_papersize),
+            orientation: options.orientation.unwrap_or(rc.savefig_orientation),
             metadata: options.metadata.clone().unwrap_or_default(),
             simplify: simplify_settings(),
             composite_images: rc.image_composite_image,
@@ -79,7 +73,7 @@ mod tests {
     use plt_core::Bbox;
 
     use super::*;
-    use crate::figure::BboxInches;
+    use crate::figure::{BboxInches, PageOrientation, Paper};
 
     #[test]
     fn postscript_documents() {

@@ -85,6 +85,16 @@ impl FromStr for Paper {
     }
 }
 
+impl fmt::Display for Paper {
+    /// matplotlib's name of the paper (`figure`, `letter`, `a4`, ...).
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Figure => "figure",
+            Self::Named { name, .. } => name,
+        })
+    }
+}
+
 /// How the figure sits on the page (`savefig.orientation`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PageOrientation {
@@ -102,6 +112,12 @@ impl PageOrientation {
             Self::Portrait => "portrait",
             Self::Landscape => "landscape",
         }
+    }
+}
+
+impl fmt::Display for PageOrientation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
     }
 }
 
@@ -169,6 +185,11 @@ mod tests {
             "Landscape".parse::<PageOrientation>(),
             Err(PageSetupError::Orientation("Landscape".to_owned()))
         );
-        assert_eq!(PageOrientation::Landscape.name(), "landscape");
+        assert_eq!(PageOrientation::Landscape.to_string(), "landscape");
+        assert_eq!(
+            "A4".parse::<Paper>().map(|paper| paper.to_string()),
+            Ok("a4".to_owned())
+        );
+        assert_eq!(Paper::Figure.to_string(), "figure");
     }
 }

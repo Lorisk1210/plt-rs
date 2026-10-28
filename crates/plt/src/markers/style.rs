@@ -162,8 +162,10 @@ impl FromStr for MarkerStyle {
     /// Parses a marker code with the fill style of `markers.fillstyle`
     /// (matplotlib's `MarkerStyle(marker)`).
     fn from_str(code: &str) -> Result<Self, MarkerError> {
-        let fillstyle = crate::rc::params().markers_fillstyle.parse()?;
-        Self::new(code.parse::<Marker>()?, fillstyle)
+        Self::new(
+            code.parse::<Marker>()?,
+            crate::rc::params().markers_fillstyle,
+        )
     }
 }
 

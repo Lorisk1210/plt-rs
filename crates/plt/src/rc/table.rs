@@ -10,13 +10,25 @@ use super::kinds::{
     HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
 use super::validate;
+use crate::animation::{FrameFormat, HtmlRepr};
+use crate::axes::{
+    Shading, TickDirection, TickLevel, TitleLocation, WhichAxis, XLabelLoc, YLabelLoc,
+};
 use crate::colors::Color;
+use crate::contour::ContourAlgorithm;
 use crate::fonts::{FontSize, FontStretch, FontWeight};
+use crate::gui::{MacosxWindowMode, ToolbarKind};
+use crate::image::{InterpolationStage, Origin};
 use crate::lines::LineStyle;
-use crate::markers::Marker;
+use crate::markers::{FillStyle, Marker};
+use crate::mplot3d::RotationStyle;
 use crate::patheffects::PathEffect;
-use crate::ticker::MinorDivisions;
-use plt_render::{CapStyle, JoinStyle};
+use crate::text::TextHinting;
+use crate::ticker::{AutolimitMode, MinorDivisions};
+use crate::units::DateConverter;
+use plt_render::{CapStyle, JoinStyle, PageOrientation, Paper, SvgFontType};
+use plt_text::mathtext::{Fontset, MathFallback, MathFont};
+use plt_text::{HAlign, VAlign};
 
 rc_params! {
     /// `backend_fallback`.
@@ -24,7 +36,7 @@ rc_params! {
     /// `figure.hooks`: List of `dotted.module.name`:`dotted.callable.name`.
     figure_hooks: Vec<String> = "" => "figure.hooks";
     /// `toolbar`: {None, toolbar2, toolmanager}.
-    toolbar: String = "toolbar2" => "toolbar" using(validate::one_of_ignore_case(&["None", "toolbar2", "toolmanager"]));
+    toolbar: ToolbarKind = "toolbar2" => "toolbar" using(validate::choice_ignore_case(&["None", "toolbar2", "toolmanager"]));
     /// `interactive`.
     interactive: bool = "False" => "interactive";
     /// `timezone`: A pytz timezone string, `e.g`., US/Central or Europe/Paris.
@@ -72,9 +84,9 @@ rc_params! {
     /// `lines.scale_dashes`.
     lines_scale_dashes: bool = "True" => "lines.scale_dashes";
     /// `markers.fillstyle`: {full, left, right, bottom, top, none}.
-    markers_fillstyle: String = "full" => "markers.fillstyle" where validate::one_of(&["bottom", "full", "left", "none", "right", "top"]);
+    markers_fillstyle: FillStyle = "full" => "markers.fillstyle" using(validate::choice(&["bottom", "full", "left", "none", "right", "top"]));
     /// `pcolor.shading`.
-    pcolor_shading: String = "auto" => "pcolor.shading" where validate::one_of(&["auto", "flat", "gouraud", "nearest"]);
+    pcolor_shading: Shading = "auto" => "pcolor.shading" using(validate::choice(&["auto", "flat", "gouraud", "nearest"]));
     /// `pcolormesh.snap`: Whether to snap the mesh to pixel boundaries. This is.
     pcolormesh_snap: bool = "True" => "pcolormesh.snap";
     /// `patch.linewidth`: Edge width in points.
@@ -200,7 +212,7 @@ rc_params! {
     /// `text.latex.preamble`: IMPROPER USE OF THIS FEATURE WILL LEAD TO LATEX FAILURES.
     text_latex_preamble: String = "" => "text.latex.preamble";
     /// `text.hinting`.
-    text_hinting: String = "default" => "text.hinting" where validate::one_of(&["auto", "default", "either", "force_autohint", "native", "no_autohint", "no_hinting", "none"]);
+    text_hinting: TextHinting = "default" => "text.hinting" using(validate::choice(&["auto", "default", "either", "force_autohint", "native", "no_autohint", "no_hinting", "none"]));
     /// `text.hinting_factor`: This setting does nothing and is deprecated.
     text_hinting_factor: Option<i64> = "None" => "text.hinting_factor";
     /// `text.kerning_factor`: Specifies the scaling factor for kerning values. Values.
@@ -226,23 +238,23 @@ rc_params! {
     /// `mathtext.sf`.
     mathtext_sf: String = "sans" => "mathtext.sf";
     /// `mathtext.fontset`: Should be 'dejavusans' (default),.
-    mathtext_fontset: String = "dejavusans" => "mathtext.fontset" where validate::one_of(&["cm", "custom", "dejavusans", "dejavuserif", "stix", "stixsans"]);
+    mathtext_fontset: Fontset = "dejavusans" => "mathtext.fontset" using(validate::choice(&["cm", "custom", "dejavusans", "dejavuserif", "stix", "stixsans"]));
     /// `mathtext.default`: The default font to use for math.
-    mathtext_default: String = "normal" => "mathtext.default" where validate::one_of(&["bb", "bf", "bfit", "cal", "default", "frak", "it", "normal", "regular", "rm", "scr", "sf", "tt"]);
+    mathtext_default: MathFont = "normal" => "mathtext.default" using(validate::choice(&["bb", "bf", "bfit", "cal", "default", "frak", "it", "normal", "regular", "rm", "scr", "sf", "tt"]));
     /// `mathtext.fallback`: Select fallback font from ['cm' (Computer Modern), 'stix'.
-    mathtext_fallback: Option<String> = "cm" => "mathtext.fallback" using(validate::mathtext_fallback);
+    mathtext_fallback: Option<MathFallback> = "cm" => "mathtext.fallback" using(validate::mathtext_fallback);
     /// `image.aspect`: {equal, auto} or a number.
     image_aspect: Aspect = "equal" => "image.aspect";
     /// `image.interpolation`: See help(imshow) for options.
     image_interpolation: String = "auto" => "image.interpolation";
     /// `image.interpolation_stage`: See help(imshow) for options.
-    image_interpolation_stage: String = "auto" => "image.interpolation_stage" where validate::one_of(&["auto", "data", "rgba"]);
+    image_interpolation_stage: InterpolationStage = "auto" => "image.interpolation_stage" using(validate::choice(&["auto", "data", "rgba"]));
     /// `image.cmap`: A colormap name (plasma, magma, etc.).
     image_cmap: String = "viridis" => "image.cmap";
     /// `image.lut`: The size of the colormap lookup table.
     image_lut: i64 = "256" => "image.lut";
     /// `image.origin`: {lower, upper}.
-    image_origin: String = "upper" => "image.origin" where validate::one_of(&["lower", "upper"]);
+    image_origin: Origin = "upper" => "image.origin" using(validate::choice(&["lower", "upper"]));
     /// `image.resample`.
     image_resample: bool = "True" => "image.resample";
     /// `image.composite_image`: When True, all the images on a set of axes are.
@@ -254,7 +266,7 @@ rc_params! {
     /// `contour.linewidth`: {float, None} Size of the contour line.
     contour_linewidth: Option<f64> = "None" => "contour.linewidth";
     /// `contour.algorithm`: {mpl2005, mpl2014, serial, threaded}.
-    contour_algorithm: String = "mpl2014" => "contour.algorithm" where validate::one_of(&["mpl2005", "mpl2014", "serial", "threaded"]);
+    contour_algorithm: ContourAlgorithm = "mpl2014" => "contour.algorithm" using(validate::choice(&["mpl2005", "mpl2014", "serial", "threaded"]));
     /// `errorbar.capsize`: Length of end cap on error bars in pixels.
     errorbar_capsize: f64 = "0" => "errorbar.capsize";
     /// `errorbar.capthick`: Thickness of end cap on error bars in points.
@@ -262,9 +274,9 @@ rc_params! {
     /// `errorbar.elinewidth`: Line width of error bar lines in points.
     errorbar_elinewidth: Option<f64> = "None" => "errorbar.elinewidth";
     /// `xaxis.labellocation`: Alignment of the xaxis label: {left, right, center}.
-    xaxis_labellocation: String = "center" => "xaxis.labellocation" where validate::one_of(&["center", "left", "right"]);
+    xaxis_labellocation: XLabelLoc = "center" => "xaxis.labellocation" using(validate::choice(&["center", "left", "right"]));
     /// `yaxis.labellocation`: Alignment of the yaxis label: {bottom, top, center}.
-    yaxis_labellocation: String = "center" => "yaxis.labellocation" where validate::one_of(&["bottom", "center", "top"]);
+    yaxis_labellocation: YLabelLoc = "center" => "yaxis.labellocation" using(validate::choice(&["bottom", "center", "top"]));
     /// `axes.axisbelow`: Draw axis gridlines and ticks:.
     axes_axisbelow: AxisBelow = "line" => "axes.axisbelow";
     /// `axes.facecolor`: Axes background color.
@@ -284,7 +296,7 @@ rc_params! {
     /// `axes.titlesize`: Font size of the axes title.
     axes_titlesize: FontSize = "large" => "axes.titlesize";
     /// `axes.titlelocation`: Alignment of the title: {left, right, center}.
-    axes_titlelocation: String = "center" => "axes.titlelocation" where validate::one_of(&["center", "left", "right"]);
+    axes_titlelocation: TitleLocation = "center" => "axes.titlelocation" using(validate::choice(&["center", "left", "right"]));
     /// `axes.titleweight`: Font weight of title.
     axes_titleweight: FontWeight = "normal" => "axes.titleweight";
     /// `axes.titlecolor`: Color of the axes title, auto falls back to.
@@ -296,9 +308,9 @@ rc_params! {
     /// `axes.grid`: Display grid or not.
     axes_grid: bool = "False" => "axes.grid";
     /// `axes.grid.which`: Grid lines at {major, minor, both} ticks.
-    axes_grid_which: String = "major" => "axes.grid.which" where validate::one_of(&["both", "major", "minor"]);
+    axes_grid_which: TickLevel = "major" => "axes.grid.which" using(validate::choice(&["both", "major", "minor"]));
     /// `axes.grid.axis`: Which axis the grid should apply to.
-    axes_grid_axis: String = "both" => "axes.grid.axis" where validate::one_of(&["both", "x", "y"]);
+    axes_grid_axis: WhichAxis = "both" => "axes.grid.axis" using(validate::choice(&["both", "x", "y"]));
     /// `axes.labelsize`: Font size of the x and y labels.
     axes_labelsize: FontSize = "medium" => "axes.labelsize";
     /// `axes.labelpad`: Space between label and axis.
@@ -324,7 +336,7 @@ rc_params! {
     /// `axes.prop_cycle`.
     axes_prop_cycle: Cycler = "cycler(color='tab10')" => "axes.prop_cycle";
     /// `axes.autolimit_mode`: If "data", use `axes.xmargin` and `axes.ymargin` as is.
-    axes_autolimit_mode: String = "data" => "axes.autolimit_mode" where validate::one_of(&["data", "round_numbers"]);
+    axes_autolimit_mode: AutolimitMode = "data" => "axes.autolimit_mode" using(validate::choice(&["data", "round_numbers"]));
     /// `axes.xmargin`: X margin. See 'axes.Axes.margins'.
     axes_xmargin: f64 = ".05" => "axes.xmargin" where validate::above_minus_half();
     /// `axes.ymargin`: Y margin. See 'axes.Axes.margins'.
@@ -348,7 +360,7 @@ rc_params! {
     /// `axes3d.depthshade_minalpha`: Minimum alpha value for depth shading.
     axes3d_depthshade_minalpha: f64 = "0.3" => "axes3d.depthshade_minalpha";
     /// `axes3d.mouserotationstyle`: {azel, trackball, sphere, arcball}.
-    axes3d_mouserotationstyle: String = "arcball" => "axes3d.mouserotationstyle" where validate::one_of(&["arcball", "azel", "sphere", "trackball"]);
+    axes3d_mouserotationstyle: RotationStyle = "arcball" => "axes3d.mouserotationstyle" using(validate::choice(&["arcball", "azel", "sphere", "trackball"]));
     /// `axes3d.trackballsize`: Trackball diameter, in units of the Axes bbox.
     axes3d_trackballsize: f64 = "0.667" => "axes3d.trackballsize";
     /// `axes3d.trackballborder`: Trackball border width, in units of the Axes bbox (only for 'sphere' and 'arcball' style).
@@ -376,7 +388,7 @@ rc_params! {
     /// `date.autoformatter.microsecond`.
     date_autoformatter_microsecond: String = "%M:%S.%f" => "date.autoformatter.microsecond";
     /// `date.converter`.
-    date_converter: String = "auto" => "date.converter" where validate::one_of(&["auto", "concise"]);
+    date_converter: DateConverter = "auto" => "date.converter" using(validate::choice(&["auto", "concise"]));
     /// `date.interval_multiples`.
     date_interval_multiples: bool = "True" => "date.interval_multiples";
     /// `legend.fancybox`: If True, use a rounded box for the.
@@ -460,9 +472,9 @@ rc_params! {
     /// `xtick.labelsize`: Font size of the tick labels.
     xtick_labelsize: FontSize = "medium" => "xtick.labelsize";
     /// `xtick.direction`: Direction: {in, out, inout}.
-    xtick_direction: String = "out" => "xtick.direction" where validate::one_of(&["in", "inout", "out"]);
+    xtick_direction: TickDirection = "out" => "xtick.direction" using(validate::choice(&["in", "inout", "out"]));
     /// `xtick.alignment`: Alignment of xticks.
-    xtick_alignment: String = "center" => "xtick.alignment" where validate::one_of(&["center", "left", "right"]);
+    xtick_alignment: HAlign = "center" => "xtick.alignment" using(validate::choice(&["center", "left", "right"]));
     /// `ytick.left`: Draw ticks on the left side.
     ytick_left: bool = "True" => "ytick.left";
     /// `ytick.right`: Draw ticks on the right side.
@@ -502,9 +514,9 @@ rc_params! {
     /// `ytick.labelsize`: Font size of the tick labels.
     ytick_labelsize: FontSize = "medium" => "ytick.labelsize";
     /// `ytick.direction`: Direction: {in, out, inout}.
-    ytick_direction: String = "out" => "ytick.direction" where validate::one_of(&["in", "inout", "out"]);
+    ytick_direction: TickDirection = "out" => "ytick.direction" using(validate::choice(&["in", "inout", "out"]));
     /// `ytick.alignment`: Alignment of yticks.
-    ytick_alignment: String = "center_baseline" => "ytick.alignment" where validate::one_of(&["baseline", "bottom", "center", "center_baseline", "top"]);
+    ytick_alignment: VAlign = "center_baseline" => "ytick.alignment" using(validate::choice(&["baseline", "bottom", "center", "center_baseline", "top"]));
     /// `grid.color`: Grid color.
     grid_color: Color = "#b0b0b0" => "grid.color";
     /// `grid.linestyle`: Solid.
@@ -554,7 +566,7 @@ rc_params! {
     /// `figure.raise_window`: Raise the GUI window to front when `show()` is called.
     figure_raise_window: bool = "True" => "figure.raise_window";
     /// `macosx.window_mode`: How to open new figures (system, tab, window).
-    macosx_window_mode: String = "system" => "macosx.window_mode" where validate::one_of(&["system", "tab", "window"]);
+    macosx_window_mode: MacosxWindowMode = "system" => "macosx.window_mode" using(validate::choice(&["system", "tab", "window"]));
     /// `figure.subplot.left`: The left side of the subplots of the figure.
     figure_subplot_left: f64 = "0.125" => "figure.subplot.left";
     /// `figure.subplot.right`: The right side of the subplots of the figure.
@@ -584,7 +596,7 @@ rc_params! {
     /// `savefig.edgecolor`: Figure edge color when saving.
     savefig_edgecolor: ColorOrAuto = "auto" => "savefig.edgecolor";
     /// `savefig.orientation`: Orientation of saved figure, for `PostScript` output only.
-    savefig_orientation: String = "portrait" => "savefig.orientation" where validate::one_of(&["landscape", "portrait"]);
+    savefig_orientation: PageOrientation = "portrait" => "savefig.orientation" using(validate::choice(&["landscape", "portrait"]));
     /// `savefig.format`: {png, ps, pdf, svg}.
     savefig_format: String = "png" => "savefig.format";
     /// `savefig.bbox`: {tight, standard}.
@@ -598,7 +610,7 @@ rc_params! {
     /// `tk.window_focus`: Maintain shell focus for `TkAgg`.
     tk_window_focus: bool = "False" => "tk.window_focus";
     /// `ps.papersize`: {figure, letter, legal, ledger, A0-A10, B0-B10}.
-    ps_papersize: String = "letter" => "ps.papersize" using(validate::one_of_ignore_case(&["a0", "a1", "a10", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "b0", "b1", "b10", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "figure", "ledger", "legal", "letter"]));
+    ps_papersize: Paper = "letter" => "ps.papersize" using(validate::choice_ignore_case(&["a0", "a1", "a10", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9", "b0", "b1", "b10", "b2", "b3", "b4", "b5", "b6", "b7", "b8", "b9", "figure", "ledger", "legal", "letter"]));
     /// `ps.useafm`: Use AFM fonts, results in small files.
     ps_useafm: bool = "False" => "ps.useafm";
     /// `ps.usedistiller`: {ghostscript, xpdf, None}.
@@ -624,7 +636,7 @@ rc_params! {
     /// `svg.image_inline`: Write raster image data directly into the SVG file.
     svg_image_inline: bool = "True" => "svg.image_inline";
     /// `svg.fonttype`: How to handle SVG fonts:.
-    svg_fonttype: String = "path" => "svg.fonttype" where validate::one_of(&["none", "path"]);
+    svg_fonttype: SvgFontType = "path" => "svg.fonttype" using(validate::choice(&["none", "path"]));
     /// `svg.hashsalt`: If not None, use this string as hash salt instead of uuid4.
     svg_hashsalt: Option<String> = "None" => "svg.hashsalt";
     /// `svg.id`: If not None, use this string as the value for the 'id'.
@@ -674,7 +686,7 @@ rc_params! {
     /// `keymap.copy`: Copy figure to clipboard.
     keymap_copy: Vec<String> = "ctrl+c, cmd+c" => "keymap.copy";
     /// `animation.html`: How to display the animation as HTML in.
-    animation_html: String = "none" => "animation.html" where validate::one_of(&["html5", "jshtml", "none"]);
+    animation_html: HtmlRepr = "none" => "animation.html" using(validate::choice(&["html5", "jshtml", "none"]));
     /// `animation.embed_limit`: Limit, in MB, of size of base64 encoded.
     animation_embed_limit: f64 = "20.0" => "animation.embed_limit";
     /// `animation.writer`: `MovieWriter` 'backend' to use.
@@ -684,7 +696,7 @@ rc_params! {
     /// `animation.bitrate`: Controls size/quality trade-off for movie.
     animation_bitrate: i64 = "-1" => "animation.bitrate";
     /// `animation.frame_format`: Controls frame format used by temp files.
-    animation_frame_format: String = "png" => "animation.frame_format" where validate::one_of(&["bmp", "jpeg", "pbm", "png", "ppm", "raw", "rgba", "sgi", "svg", "tiff"]);
+    animation_frame_format: FrameFormat = "png" => "animation.frame_format" using(validate::choice(&["bmp", "jpeg", "pbm", "png", "ppm", "raw", "rgba", "sgi", "svg", "tiff"]));
     /// `animation.ffmpeg_path`.
     animation_ffmpeg_path: String = "ffmpeg" => "animation.ffmpeg_path";
     /// `animation.ffmpeg_args`.

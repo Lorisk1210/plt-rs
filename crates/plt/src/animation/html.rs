@@ -12,6 +12,7 @@ use std::time::Duration;
 use plt_codec::base64;
 use plt_core::numeric::floor_div;
 
+use super::html_rc::HtmlRepr;
 use super::html_template::{DISPLAY_TEMPLATE, INCLUDED_FRAMES, JS_INCLUDE, STYLE_INCLUDE};
 use super::{AnimationError, FuncAnimation, interval_millis};
 use crate::figure::{SaveError, SaveFormat, SaveOptions};
@@ -55,7 +56,7 @@ impl FuncAnimation {
     /// When a frame cannot be rendered.
     pub fn to_jshtml(&self, options: HtmlOptions) -> Result<String, AnimationError> {
         let rc = crate::rc::params();
-        let format = frame_format(&rc.animation_frame_format);
+        let format = rc.animation_frame_format.save_format();
         let limit = rc.animation_embed_limit * 1024.0 * 1024.0;
         let mut frames = Vec::new();
         let mut total = 0.0;
@@ -84,10 +85,10 @@ impl FuncAnimation {
     ///
     /// As [`FuncAnimation::to_html5_video`] or [`FuncAnimation::to_jshtml`].
     pub fn repr_html(&self) -> Result<Option<String>, AnimationError> {
-        match crate::rc::params().animation_html.as_str() {
-            "html5" => self.to_html5_video().map(Some),
-            "jshtml" => self.to_jshtml(HtmlOptions::default()).map(Some),
-            _ => Ok(None),
+        match crate::rc::params().animation_html {
+            HtmlRepr::Html5 => self.to_html5_video().map(Some),
+            HtmlRepr::JsHtml => self.to_jshtml(HtmlOptions::default()).map(Some),
+            HtmlRepr::None => Ok(None),
         }
     }
 
@@ -115,7 +116,7 @@ impl FuncAnimation {
         let frame_dir = format!("{stem}_frames");
         let directory = path.with_file_name(&frame_dir);
         std::fs::create_dir_all(&directory).map_err(io_error)?;
-        let format = frame_format(&crate::rc::params().animation_frame_format);
+        let format = crate::rc::params().animation_frame_format.save_format();
         let mut count = 0;
         self.for_each_frame(|figure| {
             let name = format!("frame{count:07}.{}", format.extension());
@@ -160,16 +161,6 @@ impl FuncAnimation {
             ],
         );
         [JS_INCLUDE, STYLE_INCLUDE, &display].concat()
-    }
-}
-
-/// The frame format named by `animation.frame_format`: SVG or PNG (the
-/// player's other formats, JPEG and TIFF, fall back to PNG).
-fn frame_format(name: &str) -> SaveFormat {
-    if name == "svg" {
-        SaveFormat::Svg
-    } else {
-        SaveFormat::Png
     }
 }
 

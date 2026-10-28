@@ -1,6 +1,7 @@
 //! Multi-line text blocks: line stacking, alignment and rotation
 //! (matplotlib's `Text._get_layout`).
 
+use std::fmt;
 use std::str::FromStr;
 
 use plt_core::{Bbox, Point};
@@ -127,34 +128,74 @@ pub struct BlockLayout {
     pub frame: (Point, (f64, f64)),
 }
 
+impl HAlign {
+    const ALL: [Self; 3] = [Self::Left, Self::Center, Self::Right];
+
+    /// matplotlib's name (`left`, `center`, `right`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Center => "center",
+            Self::Right => "right",
+        }
+    }
+}
+
+impl fmt::Display for HAlign {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 impl FromStr for HAlign {
     type Err = TextError;
 
-    /// Parses matplotlib's name (`left`, `center`, `right`).
+    /// Parses matplotlib's name ([`HAlign::name`]).
     fn from_str(name: &str) -> Result<Self, TextError> {
-        match name {
-            "left" => Ok(Self::Left),
-            "center" => Ok(Self::Center),
-            "right" => Ok(Self::Right),
-            _ => Err(TextError::unknown_name("horizontal alignment", name)),
+        Self::ALL
+            .into_iter()
+            .find(|align| align.name() == name)
+            .ok_or_else(|| TextError::unknown_name("horizontal alignment", name))
+    }
+}
+
+impl VAlign {
+    const ALL: [Self; 5] = [
+        Self::Top,
+        Self::Bottom,
+        Self::Center,
+        Self::Baseline,
+        Self::CenterBaseline,
+    ];
+
+    /// matplotlib's name (`top`, `bottom`, `center`, `baseline`,
+    /// `center_baseline`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Top => "top",
+            Self::Bottom => "bottom",
+            Self::Center => "center",
+            Self::Baseline => "baseline",
+            Self::CenterBaseline => "center_baseline",
         }
+    }
+}
+
+impl fmt::Display for VAlign {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
     }
 }
 
 impl FromStr for VAlign {
     type Err = TextError;
 
-    /// Parses matplotlib's name (`top`, `bottom`, `center`, `baseline`,
-    /// `center_baseline`).
+    /// Parses matplotlib's name ([`VAlign::name`]).
     fn from_str(name: &str) -> Result<Self, TextError> {
-        match name {
-            "top" => Ok(Self::Top),
-            "bottom" => Ok(Self::Bottom),
-            "center" => Ok(Self::Center),
-            "baseline" => Ok(Self::Baseline),
-            "center_baseline" => Ok(Self::CenterBaseline),
-            _ => Err(TextError::unknown_name("vertical alignment", name)),
-        }
+        Self::ALL
+            .into_iter()
+            .find(|align| align.name() == name)
+            .ok_or_else(|| TextError::unknown_name("vertical alignment", name))
     }
 }
 
@@ -439,6 +480,12 @@ mod tests {
 
     #[test]
     fn names_parse() {
+        for align in HAlign::ALL {
+            assert_eq!(align.to_string().parse(), Ok(align));
+        }
+        for align in VAlign::ALL {
+            assert_eq!(align.to_string().parse(), Ok(align));
+        }
         assert_eq!("center".parse(), Ok(HAlign::Center));
         assert_eq!(
             "middle".parse::<HAlign>().map_err(|e| e.to_string()),

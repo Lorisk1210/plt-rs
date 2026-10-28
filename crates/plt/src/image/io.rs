@@ -285,7 +285,7 @@ pub fn imsave_bytes(
     let mut pixels = rgba_bytes(&data, &options)?;
     let origin = options
         .origin
-        .unwrap_or_else(|| crate::rc::params().image_origin.parse().unwrap_or_default());
+        .unwrap_or_else(|| crate::rc::params().image_origin);
     if origin == Origin::Lower {
         let mut flipped = Vec::with_capacity(pixels.len());
         for row in pixels.chunks_exact(cols.max(1)).rev() {

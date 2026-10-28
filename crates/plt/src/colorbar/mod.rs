@@ -457,14 +457,14 @@ fn set_label(ax: &Axes, orientation: Orientation, text: String, loc: Option<Labe
     let default = match orientation {
         Orientation::Vertical => {
             ax.set_ylabel(text);
-            &rc.yaxis_labellocation
+            rc.yaxis_labellocation.into()
         }
         Orientation::Horizontal => {
             ax.set_xlabel(text);
-            &rc.xaxis_labellocation
+            rc.xaxis_labellocation.into()
         }
     };
-    let loc = loc.unwrap_or_else(|| LabelLoc::from_rc(default));
+    let loc = loc.unwrap_or(default);
     ax.axis_of(long_axis(orientation)).set_label_loc(loc);
 }
 

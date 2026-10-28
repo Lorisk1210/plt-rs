@@ -17,7 +17,8 @@ macro_rules! rc_parser {
 /// Each entry reads `field: Type = "default" => "key" [using(parse)]
 /// [where check];` where the default is written in rc-file syntax, `parse`
 /// an optional `Fn(&str) -> Result<Type, String>` replacing the type's own
-/// rc-file parsing (for validators with a syntax of their own) and `check`
+/// rc-file parsing (for validators with a syntax of their own, and for
+/// keywords, whose spellings and messages are the parameter's) and `check`
 /// an optional extra validator `Fn(&Type) -> Result<(), String>`.
 macro_rules! rc_params {
     ($(

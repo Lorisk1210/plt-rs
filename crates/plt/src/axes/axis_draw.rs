@@ -264,7 +264,7 @@ impl TickMark<'_> {
 /// `color`) and `markers.fillstyle` (`none` makes the face transparent).
 /// The marks are open paths, so only vector output shows the face.
 fn tick_face(rc: &RcParams, color: Rgba) -> Result<Rgba, ColorError> {
-    if rc.markers_fillstyle == "none" {
+    if rc.markers_fillstyle == FillStyle::None {
         return Ok(Rgba::TRANSPARENT);
     }
     match &rc.lines_markerfacecolor {

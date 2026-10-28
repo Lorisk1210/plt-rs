@@ -58,9 +58,9 @@ TYPES = {
     "validate_bbox": ("SavefigBbox", None),
     "_validate_date": ("String", "validate::numpy_datetime"),
     "_validate_pathlike": ("String", None),
-    "_validate_toolbar": ("String", None),
+    "_validate_toolbar": ("ToolbarKind", None),
     "validate_ps_distiller": ("Distiller", None),
-    "_validate_mathtext_fallback": ("Option<String>", None),
+    "_validate_mathtext_fallback": ("Option<MathFallback>", None),
     "_validate_cmap": ("String", None),
 }
 
@@ -125,7 +125,39 @@ def doc(comment, key):
 PARSERS = {
     "validate_sketch": "validate::sketch",
     "_validate_mathtext_fallback": "validate::mathtext_fallback",
-    "_validate_toolbar": 'validate::one_of_ignore_case(&["None", "toolbar2", "toolmanager"])',
+    "_validate_toolbar": 'validate::choice_ignore_case(&["None", "toolbar2", "toolmanager"])',
+}
+
+# `ValidateInStrings` parameters: key -> the Rust type of their keywords,
+# which `validate::choice` parses from the spellings matplotlib allows for
+# the parameter. Those left out stay text checked by `validate::one_of`.
+KEYWORDS = {
+    "markers.fillstyle": "FillStyle",
+    "pcolor.shading": "Shading",
+    "text.hinting": "TextHinting",
+    "mathtext.fontset": "Fontset",
+    "mathtext.default": "MathFont",
+    "image.interpolation_stage": "InterpolationStage",
+    "image.origin": "Origin",
+    "contour.algorithm": "ContourAlgorithm",
+    "xaxis.labellocation": "XLabelLoc",
+    "yaxis.labellocation": "YLabelLoc",
+    "axes.titlelocation": "TitleLocation",
+    "axes.grid.which": "TickLevel",
+    "axes.grid.axis": "WhichAxis",
+    "axes.autolimit_mode": "AutolimitMode",
+    "axes3d.mouserotationstyle": "RotationStyle",
+    "date.converter": "DateConverter",
+    "xtick.direction": "TickDirection",
+    "xtick.alignment": "HAlign",
+    "ytick.direction": "TickDirection",
+    "ytick.alignment": "VAlign",
+    "macosx.window_mode": "MacosxWindowMode",
+    "savefig.orientation": "PageOrientation",
+    "ps.papersize": "Paper",
+    "svg.fonttype": "SvgFontType",
+    "animation.html": "HtmlRepr",
+    "animation.frame_format": "FrameFormat",
 }
 
 # Fixed-length lists (`_listify_validator(..., n=N)`): element type by name.
@@ -227,11 +259,15 @@ def main():
         if name == "ValidateInStrings":
             allowed = sorted(validator.valid.values()) if isinstance(validator.valid, dict) else sorted(validator.valid)
             choices = f"(&[{', '.join(rust_str(a) for a in allowed)}])"
-            rust_type, check = "String", None
-            if validator.ignorecase:
-                parser = f"validate::one_of_ignore_case{choices}"
-            else:
+            rust_type, check = KEYWORDS.get(key, "String"), None
+            if rust_type == "String":
+                if validator.ignorecase:
+                    raise SystemExit(f"{key} ignores case: give it a type in KEYWORDS")
                 check = f"validate::one_of{choices}"
+            elif validator.ignorecase:
+                parser = f"validate::choice_ignore_case{choices}"
+            else:
+                parser = f"validate::choice{choices}"
         elif name in FIXED_LISTS and fixed_length(validator) is not None:
             rust_type, check = f"[{FIXED_LISTS[name]}; {fixed_length(validator)}]", None
         else:
@@ -253,13 +289,25 @@ def main():
         "    HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,",
         "};",
         "use super::validate;",
+        "use crate::animation::{FrameFormat, HtmlRepr};",
+        "use crate::axes::{",
+        "    Shading, TickDirection, TickLevel, TitleLocation, WhichAxis, XLabelLoc, YLabelLoc,",
+        "};",
         "use crate::colors::Color;",
+        "use crate::contour::ContourAlgorithm;",
         "use crate::fonts::{FontSize, FontStretch, FontWeight};",
+        "use crate::gui::{MacosxWindowMode, ToolbarKind};",
+        "use crate::image::{InterpolationStage, Origin};",
         "use crate::lines::LineStyle;",
-        "use crate::markers::Marker;",
+        "use crate::markers::{FillStyle, Marker};",
+        "use crate::mplot3d::RotationStyle;",
         "use crate::patheffects::PathEffect;",
-        "use crate::ticker::MinorDivisions;",
-        "use plt_render::{CapStyle, JoinStyle};",
+        "use crate::text::TextHinting;",
+        "use crate::ticker::{AutolimitMode, MinorDivisions};",
+        "use crate::units::DateConverter;",
+        "use plt_render::{CapStyle, JoinStyle, PageOrientation, Paper, SvgFontType};",
+        "use plt_text::mathtext::{Fontset, MathFallback, MathFont};",
+        "use plt_text::{HAlign, VAlign};",
         "",
         "rc_params! {",
     ]

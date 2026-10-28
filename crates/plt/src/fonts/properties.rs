@@ -78,7 +78,7 @@ impl FontProperties {
             weight: rc.font_weight,
             stretch: rc.font_stretch,
             size: clamp_size(rc.font_size),
-            math_fontfamily: rc.mathtext_fontset.parse().unwrap_or_default(),
+            math_fontfamily: rc.mathtext_fontset,
             file: None,
         }
     }

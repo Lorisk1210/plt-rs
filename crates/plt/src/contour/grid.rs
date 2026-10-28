@@ -6,6 +6,7 @@ use plt_core::{Affine2D, Point};
 
 use super::set::{ContourSource, ContourWarning};
 use super::{ContourAlgorithm, ContourError, QuadContourGenerator};
+use crate::image::Origin;
 use crate::numeric::{Grid, linspace, meshgrid};
 use crate::rc::RcParams;
 
@@ -119,8 +120,7 @@ impl QuadField {
 
     /// The algorithm: as asked, else `contour.algorithm`.
     fn effective_algorithm(&self, rc: &RcParams) -> ContourAlgorithm {
-        self.algorithm
-            .unwrap_or_else(|| ContourAlgorithm::from_rc(rc))
+        self.algorithm.unwrap_or(rc.contour_algorithm)
     }
 
     /// Whether corners are masked: as asked, else `contour.corner_mask`,
@@ -214,10 +214,10 @@ impl QuadField {
                 Ok((x.clone(), y.clone()))
             }
             QuadCoords::Implicit { origin, extent } => {
-                let origin = origin.map(|o| match o {
-                    ContourOrigin::Image if rc.image_origin == "lower" => ContourOrigin::Lower,
-                    ContourOrigin::Image => ContourOrigin::Upper,
-                    other => other,
+                let origin = origin.map(|o| match (o, rc.image_origin) {
+                    (ContourOrigin::Image, Origin::Lower) => ContourOrigin::Lower,
+                    (ContourOrigin::Image, Origin::Upper) => ContourOrigin::Upper,
+                    (other, _) => other,
                 });
                 Ok(implicit_coordinates(rows, cols, origin, *extent))
             }

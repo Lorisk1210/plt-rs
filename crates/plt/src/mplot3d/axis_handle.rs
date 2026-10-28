@@ -156,7 +156,7 @@ impl Axis3D {
         let locator: Rc<dyn Locator> = Rc::new(locator);
         self.set_tickers(|t| {
             t.major_locator = Rc::clone(&locator);
-            t.default_major.0 = false;
+            t.defaults.major.locator = false;
         })
     }
 
@@ -165,7 +165,10 @@ impl Axis3D {
     /// `set_minor_locator`).
     pub fn set_minor_locator(&self, locator: impl Locator) -> &Self {
         let locator: Rc<dyn Locator> = Rc::new(locator);
-        self.set_tickers(|t| t.minor_locator = Rc::clone(&locator))
+        self.set_tickers(|t| {
+            t.minor_locator = Rc::clone(&locator);
+            t.defaults.minor.locator = false;
+        })
     }
 
     /// Labels the major ticks with `formatter` (matplotlib's
@@ -174,7 +177,7 @@ impl Axis3D {
         let formatter: Rc<dyn Formatter> = Rc::new(formatter);
         self.set_tickers(|t| {
             t.major_formatter = Rc::clone(&formatter);
-            t.default_major.1 = false;
+            t.defaults.major.formatter = false;
         })
     }
 
@@ -182,7 +185,10 @@ impl Axis3D {
     /// `set_minor_formatter`).
     pub fn set_minor_formatter(&self, formatter: impl Formatter) -> &Self {
         let formatter: Rc<dyn Formatter> = Rc::new(formatter);
-        self.set_tickers(|t| t.minor_formatter = Rc::clone(&formatter))
+        self.set_tickers(|t| {
+            t.minor_formatter = Rc::clone(&formatter);
+            t.defaults.minor.formatter = false;
+        })
     }
 
     /// Puts the major ticks exactly at `ticks`, widening the view of this
@@ -265,9 +271,10 @@ impl Axis3D {
         Ok(self.set_tickers(|t| {
             if major {
                 t.major_formatter = Rc::clone(&formatter);
-                t.default_major.1 = false;
+                t.defaults.major.formatter = false;
             } else {
                 t.minor_formatter = Rc::clone(&formatter);
+                t.defaults.minor.formatter = false;
             }
         }))
     }
@@ -334,7 +341,10 @@ impl Axis3D {
             })
         });
         let locator = scale_minor.unwrap_or_else(|| Rc::new(AutoMinorLocator::new(None)));
-        self.set_tickers(|t| t.minor_locator = Rc::clone(&locator))
+        self.set_tickers(|t| {
+            t.minor_locator = Rc::clone(&locator);
+            t.defaults.minor.locator = false;
+        })
     }
 
     /// Removes the minor ticks (matplotlib's `Axis.minorticks_off`).

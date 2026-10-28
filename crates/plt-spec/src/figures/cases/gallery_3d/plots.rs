@@ -47,7 +47,7 @@ fn fillbetween3d(fig: &Figure) -> CaseResult {
         ..FillBetween3DOptions::default()
     };
     fig.subplot_3d()
-        .fill_between([&x1, &y1, &z1], [&x2, &y2, &[2.0]], options)?;
+        .fill_between((&x1, &y1, &z1), (&x2, &y2, &[2.0]), options)?;
     Ok(())
 }
 
@@ -66,8 +66,8 @@ fn fillunder3d(fig: &Figure) -> CaseResult {
             ..FillBetween3DOptions::default()
         };
         ax.fill_between(
-            [&x, &[lambda], &probability],
-            [&x, &[lambda], &[0.0]],
+            (&x, &[lambda], &probability),
+            (&x, &[lambda], &[0.0]),
             options,
         )?;
     }

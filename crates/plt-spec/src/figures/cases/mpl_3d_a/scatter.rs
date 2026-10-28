@@ -93,7 +93,7 @@ pub(super) fn cmap_alpha(fig: &Figure) -> CaseResult {
         ..Scatter3DOptions::default()
     };
     fig.subplot_3d()
-        .scatter_with(&range(5), &[0.0; 5], &range(5), options)?;
+        .scatter_with(range(5), [0.0; 5], range(5), options)?;
     Ok(())
 }
 
@@ -201,7 +201,7 @@ fn two_markers(fig: &Figure, azim: f64, axis_off: bool) -> CaseResult {
         scatter,
         ..Scatter3DOptions::default()
     };
-    ax.scatter_with(&[-1.0, 1.0], &[1.0, -1.0], &[0.0, 0.0], options)?;
+    ax.scatter_with([-1.0, 1.0], [1.0, -1.0], [0.0, 0.0], options)?;
     ax.view_init(0.0, azim, 0.0);
     Ok(())
 }

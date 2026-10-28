@@ -8,9 +8,47 @@ use super::collections3d::{NewPolys, PolyFaces, resolve_all};
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::{Vec3, cross, dot, norm, sub};
+use super::plot::spread;
 use super::shade::LightSource;
 use crate::collections::{Collection, CollectionProps, EdgeColors};
 use crate::numeric::contiguous_regions;
+use crate::units::AxisValues;
+
+/// The points of a curve in 3-D before unit conversion: x, y and z as
+/// plotting values, each one value for all the points or one per point
+/// (one curve of [`Axes3D::fill_between`]). Any triple of plotting values
+/// converts into it.
+///
+/// ```
+/// use plt::mplot3d::Curve3D;
+/// use plt::units::AxisValues;
+/// let curve = Curve3D::from((&[0.0, 1.0], ["a", "b"], [2.0]));
+/// assert_eq!(curve.z, AxisValues::Numbers(vec![2.0]));
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct Curve3D {
+    /// The x coordinates.
+    pub x: AxisValues,
+    /// The y coordinates.
+    pub y: AxisValues,
+    /// The z coordinates.
+    pub z: AxisValues,
+}
+
+impl<X, Y, Z> From<(X, Y, Z)> for Curve3D
+where
+    X: Into<AxisValues>,
+    Y: Into<AxisValues>,
+    Z: Into<AxisValues>,
+{
+    fn from((x, y, z): (X, Y, Z)) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+        }
+    }
+}
 
 /// How the area between the two curves is cut into polygons (matplotlib's
 /// `mode`).
@@ -50,7 +88,9 @@ pub struct FillBetween3DOptions {
 impl Axes3D {
     /// Fills the area between the curves `(x1, y1, z1)` and `(x2, y2,
     /// z2)`, each coordinate holding one value or one per point
-    /// (matplotlib's `fill_between`).
+    /// (matplotlib's `fill_between`); the coordinates are numbers, dates,
+    /// category names or user values, converted on their axes as by
+    /// [`Axes3D::plot`].
     ///
     /// ```
     /// use plt::figure::Figure;
@@ -58,7 +98,7 @@ impl Axes3D {
     /// let ax = Figure::new().subplot_3d();
     /// let x = [0.0, 1.0, 2.0, 3.0];
     /// let options = FillBetween3DOptions { mode: FillMode::Quad, ..Default::default() };
-    /// ax.fill_between([&x, &[0.0], &[0.0]], [&x, &[1.0], &[1.0, 2.0, 1.0, 2.0]], options)?;
+    /// ax.fill_between((&x, [0.0], [0.0]), (&x, [1.0], [1.0, 2.0, 1.0, 2.0]), options)?;
     /// assert_eq!(ax.zlim(), (-0.041666666666666664, 2.0416666666666665));
     /// # Ok::<(), plt::mplot3d::Axes3DError>(())
     /// ```
@@ -69,33 +109,29 @@ impl Axes3D {
     /// not have one flag per point, or a colour is invalid.
     pub fn fill_between(
         &self,
-        first: [&[f64]; 3],
-        second: [&[f64]; 3],
+        first: impl Into<Curve3D>,
+        second: impl Into<Curve3D>,
         options: FillBetween3DOptions,
     ) -> Result<Collection, Axes3DError> {
         let had_data = self.has_data();
-        let n = first
-            .iter()
-            .chain(&second)
-            .map(|c| c.len())
+        let curves = [first.into(), second.into()];
+        let n = (curves.iter())
+            .flat_map(|curve| [&curve.x, &curve.y, &curve.z])
+            .map(AxisValues::len)
             .max()
             .unwrap_or(0);
-        let broadcast = |values: &[f64]| -> Result<Vec<f64>, Axes3DError> {
-            if let [single] = values {
-                return Ok(vec![*single; n]);
+        for coordinates in curves
+            .iter()
+            .flat_map(|curve| [&curve.x, &curve.y, &curve.z])
+        {
+            if coordinates.len() != 1 {
+                check_len("fill_between coordinates", n, coordinates.len())?;
             }
-            check_len("fill_between coordinates", n, values.len())?;
-            Ok(values.to_vec())
-        };
-        let line = |coords: [&[f64]; 3]| -> Result<Vec<Vec3>, Axes3DError> {
-            let [x, y, z] = [
-                broadcast(coords[0])?,
-                broadcast(coords[1])?,
-                broadcast(coords[2])?,
-            ];
-            Ok((0..n).map(|i| [x[i], y[i], z[i]]).collect())
-        };
-        let (line1, line2) = (line(first)?, line(second)?);
+        }
+        let [line1, line2] = curves.map(|Curve3D { x, y, z }| {
+            let [x, y, z] = self.convert_xyz([x, y, z]).map(|values| spread(values, n));
+            (0..n).map(|i| [x[i], y[i], z[i]]).collect::<Vec<Vec3>>()
+        });
         let mut props = options.props;
         let faces = match props.facecolors.take() {
             Some(colors) => colors,
@@ -268,8 +304,8 @@ mod tests {
         let ax = Figure::new().subplot_3d();
         let x = [0.0, 1.0, 2.0];
         ax.fill_between(
-            [&x, &[0.0], &[0.0]],
-            [&x, &[1.0], &[5.0]],
+            (&x, [0.0], [0.0]),
+            (&x, [1.0], [5.0]),
             FillBetween3DOptions::default(),
         )
         .unwrap();
@@ -277,11 +313,23 @@ mod tests {
         assert!(lo < 0.0 && hi > 5.0);
         assert!(
             ax.fill_between(
-                [&x, &[0.0, 1.0], &[0.0]],
-                [&x, &[0.0], &[0.0]],
+                (&x, [0.0, 1.0], [0.0]),
+                (&x, [0.0], [0.0]),
                 FillBetween3DOptions::default()
             )
             .is_err()
+        );
+        let day = |d| crate::dates::DateTime::new(2020, 1, d, 0, 0, 0, 0).unwrap();
+        ax.fill_between(
+            (["a", "b", "c"], [0.0], vec![day(1), day(2), day(3)]),
+            (["a", "b", "c"], [1.0], [18_262.0]),
+            FillBetween3DOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(ax.xaxis().categories().unwrap().names(), ["a", "b", "c"]);
+        assert_eq!(
+            ax.zaxis().converter(),
+            Some(crate::units::UnitConverter::Dates)
         );
     }
 }

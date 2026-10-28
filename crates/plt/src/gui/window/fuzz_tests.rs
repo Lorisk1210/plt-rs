@@ -75,9 +75,7 @@ fn figure(kind: FigureKind) -> (Figure, Option<TextBox>) {
                 .plot(vec![0.0, 1.0, 2.0], vec![1.0, 2.0, 1.5]);
         }
         FigureKind::ThreeD => {
-            let _ = figure
-                .subplot_3d()
-                .plot(&[0.0, 1.0], &[1.0, 0.0], &[0.0, 1.0]);
+            let _ = figure.subplot_3d().plot([0.0, 1.0], [1.0, 0.0], [0.0, 1.0]);
         }
         FigureKind::Empty => {}
         FigureKind::TextBox => {

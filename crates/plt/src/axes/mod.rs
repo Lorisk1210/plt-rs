@@ -5,7 +5,6 @@ mod annotate;
 mod aspect;
 pub(crate) mod axis;
 pub(crate) mod axis_draw;
-mod axis_extents;
 mod axis_handle;
 pub(crate) mod axis_label;
 mod axis_label_layout;
@@ -32,6 +31,8 @@ mod error;
 mod error_size;
 mod errorbar;
 mod eventplot;
+#[cfg(test)]
+mod extent_tests;
 mod fill;
 mod fill_between;
 mod grouped_bar;
@@ -95,6 +96,7 @@ mod violin;
 pub use crate::ticker::AxisName;
 pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError, AxesLocatorFn};
+pub(crate) use axis::TickerDefaults;
 pub use axis_handle::Axis;
 pub use axis_label::LabelLoc;
 pub(crate) use axis_layout::{PlacedText, place_text};
@@ -167,7 +169,7 @@ use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
 use crate::ticker::TickerError;
 use crate::transforms::{Transform, TransformError};
-use crate::units::{AxisValue, DataPoint, UnitSources};
+use crate::units::{AxisValue, DataPoint, UnitHandle, UnitSources};
 
 /// A handle to one axes of a figure.
 #[derive(Clone, Debug, PartialEq, Eq)]

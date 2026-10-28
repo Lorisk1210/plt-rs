@@ -85,7 +85,7 @@ mod tests {
         let fig = Figure::new();
         let ax = fig.subplot_3d();
         let values = [0.0, 1.0, 2.0];
-        let line = ax.plot(&values, &values, &values).expect("valid line");
+        let line = ax.plot(values, values, values).expect("valid line");
         ax.set_xlim(-0.5, 1.5).expect("valid limits");
         fig.to_png().expect("drawable");
         assert!(projected_x(&line).iter().all(|x| x.is_finite()));
@@ -108,7 +108,7 @@ mod tests {
         );
         assert_eq!(ax.axlim_clip(&label), None);
         let other = Figure::new().subplot_3d();
-        let line = other.plot(&[0.0], &[0.0], &[0.0]).expect("valid line");
+        let line = other.plot([0.0], [0.0], [0.0]).expect("valid line");
         assert!(ax.set_axlim_clip(&line, true).is_err());
         let text = ax.text(0.0, 0.0, 0.0, "3-D", None);
         assert!(ax.set_axlim_clip(&text, true).is_ok());
@@ -124,12 +124,7 @@ mod tests {
             ..Scatter3DOptions::default()
         };
         let points = ax
-            .scatter_with(
-                &[0.0, 0.5, 9.0],
-                &[0.0, 0.5, 0.0],
-                &[0.0, 0.5, 0.0],
-                options,
-            )
+            .scatter_with([0.0, 0.5, 9.0], [0.0, 0.5, 0.0], [0.0, 0.5, 0.0], options)
             .expect("valid scatter");
         ax.set_xlim(-1.0, 1.0).expect("valid limits");
         fig.to_png().expect("drawable");
@@ -151,7 +146,7 @@ mod tests {
             ..Errorbar3DOptions::default()
         };
         let bars = ax
-            .errorbar(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0], options)
+            .errorbar([0.0, 1.0], [0.0, 1.0], [0.0, 1.0], options)
             .expect("valid error bars");
         let data_line = bars.data_line.expect("a data line");
         assert_eq!(ax.axlim_clip(&data_line), Some(true));
@@ -165,7 +160,7 @@ mod tests {
             ..Stem3DOptions::default()
         };
         let stem = ax
-            .stem(&[0.0, 1.0], &[0.0, 1.0], &[1.0, 2.0], options)
+            .stem([0.0, 1.0], [0.0, 1.0], [1.0, 2.0], options)
             .expect("valid stems");
         assert_eq!(ax.axlim_clip(&stem.stemlines), Some(true));
         assert_eq!(ax.axlim_clip(&stem.markerline), Some(false));

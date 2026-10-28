@@ -75,7 +75,7 @@ fn axlim_scatter(fig: &Figure, axlim_clip: bool) -> CaseResult {
         scatter,
         ..Scatter3DOptions::default()
     };
-    ax.scatter_with(&half(&x), &half(&y), &raised, options)?;
+    ax.scatter_with(half(&x), half(&y), &raised, options)?;
     limits(&ax, (-0.6, 0.65), (-0.8, 0.75), (-0.5, 1.05))?;
     Ok(())
 }
@@ -104,9 +104,9 @@ pub(crate) const CASES: &[FigureCase] = &[
         let every_sixth =
             |values: &[f64]| -> Vec<f64> { values.iter().step_by(6).copied().collect() };
         let markers = ax.plot_with(
-            &every_sixth(&x),
-            &every_sixth(&y),
-            &every_sixth(&z),
+            every_sixth(&x),
+            every_sixth(&y),
+            every_sixth(&z),
             Axis3::Z,
             LineProps::fmt("o")?.markersize(4.0),
         )?;
@@ -170,7 +170,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             axlim_clip: true,
             ..FillBetween3DOptions::default()
         };
-        ax.fill_between([&c, &s, &top], [&c, &s, &bottom], options)?;
+        ax.fill_between((&c, &s, &top), (&c, &s, &bottom), options)?;
         let x = linspace(-1.0, 1.0, 25);
         let wave: Vec<f64> = x.iter().map(|x| (3.0 * x).cos() + 1.5).collect();
         let options = FillBetween3DOptions {
@@ -183,7 +183,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             axlim_clip: true,
             ..FillBetween3DOptions::default()
         };
-        ax.fill_between([&x, &[-1.1], &wave], [&x, &[-1.1], &[0.0]], options)?;
+        ax.fill_between((&x, &[-1.1], &wave), (&x, &[-1.1], &[0.0]), options)?;
         limits(&ax, (-0.8, 0.9), (-1.2, 1.2), (-0.1, 2.2))?;
         Ok(())
     })
@@ -199,14 +199,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .zip(&y)
             .map(|(x, y)| 1.0 + (x * 3.0 + y * 5.0) % 7.0)
             .collect();
-        let boxes = Boxes {
-            x: &x,
-            y: &y,
-            z: &[0.0],
-            dx: &[0.6],
-            dy: &[0.6],
-            dz: &heights,
-        };
+        let boxes = Boxes::new(&x, &y, [0.0], [0.6], [0.6], &heights);
         let options = Bar3DOptions {
             color: vec!["tab:cyan".into()],
             props: CollectionProps::default().edgecolor("k").linewidth(0.5),

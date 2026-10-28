@@ -53,9 +53,19 @@
 //! less and plus their errors ([`Convertible::scale`]).
 //! [`ConversionInterface`] shows a converter.
 //!
+//! 3-D axes take plotting values the same way: their point-plotting
+//! methods ([`Axes3D::plot`], `scatter`, `text`, `bar3d`, ...) convert
+//! each list on the axis it lies along ([`Axis3D::convert_units`]),
+//! converters get that axis as a [`UnitAxis`], and the lines and texts
+//! of 3-D axes convert their user values again when a unit changes.
+//!
 //! [`Axis::set_units`]: crate::axes::Axis::set_units
+//! [`Axes3D::plot`]: crate::mplot3d::Axes3D::plot
+//! [`Axis3D::convert_units`]: crate::mplot3d::Axis3D::convert_units
 
+mod axis;
 mod category;
+mod converting;
 mod custom;
 mod deltas;
 mod interface;
@@ -69,7 +79,9 @@ use std::rc::Rc;
 use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, TimeZone};
 use crate::ticker::{Formatter, Locator};
 
+pub use axis::UnitAxis;
 pub use category::{Categories, CategoryFormatter, CategoryLocator};
+pub(crate) use converting::{AxisUnits, UnitData, UnitHandle, UnitState};
 pub use custom::{CustomConverter, CustomValues, Unit};
 pub use deltas::{AxisDelta, AxisDeltas};
 pub use interface::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};

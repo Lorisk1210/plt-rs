@@ -23,7 +23,9 @@ pub use polys::ZSort;
 use plt_core::{Path, Point};
 
 use super::camera::{Projection, norm_text_angle};
+use super::coords::Axis3;
 use super::math::{Vec3, add};
+use super::units::Sources3D;
 use crate::artist::{ArtistId, ArtistStore};
 use crate::collections::CollectionArtist;
 use crate::lines::LineArtist;
@@ -94,6 +96,29 @@ pub(crate) struct Artist3D {
     /// Whether the points outside the view limits are hidden
     /// (matplotlib's `axlim_clip`).
     pub(crate) axlim_clip: bool,
+    /// The user values the geometry came from, converted again when an
+    /// axis changes unit.
+    pub(crate) sources: Sources3D,
+}
+
+/// The polylines of a line collection (matplotlib's `Line3DCollection`).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Segments3D {
+    /// The polylines, possibly of different lengths.
+    pub(crate) lines: Vec<Vec<Vec3>>,
+    /// The z position given with `set_sort_zpos`, which matplotlib's line
+    /// collections keep without ordering by it (`_sort_zpos`).
+    pub(crate) sort_zpos: Option<f64>,
+}
+
+impl Segments3D {
+    /// `lines` without a sort position.
+    pub(crate) fn new(lines: Vec<Vec<Vec3>>) -> Self {
+        Self {
+            lines,
+            sort_zpos: None,
+        }
+    }
 }
 
 /// The 3-D geometry of one artist of the projection plane.
@@ -112,7 +137,7 @@ pub(crate) enum Art3D {
     /// The paths of a converted collection (`Collection3D`).
     Paths(Vec<Path3D>),
     /// The polylines of a line collection (`Line3DCollection`).
-    Segments(Vec<Vec<Vec3>>),
+    Segments(Segments3D),
     /// Scatter markers (`Path3DCollection`).
     Points(Points3D),
     /// Polygons (`Poly3DCollection`).
@@ -138,6 +163,79 @@ impl Art3D {
                 Some(SortKind::Collection)
             }
             Self::Patch(_) | Self::PathPatch(_) => Some(SortKind::Patch),
+        }
+    }
+
+    /// Every 3-D point of the geometry of a data artist, which the data
+    /// limits include (none for texts).
+    pub(crate) fn points(&self) -> Vec<Vec3> {
+        match self {
+            Self::Line(points) | Self::Patch(points) => points.clone(),
+            Self::Text { .. } => Vec::new(),
+            Self::Paths(paths) => (paths.iter())
+                .flat_map(|path| path.vertices.iter().copied())
+                .collect(),
+            Self::Segments(segments) => segments.lines.concat(),
+            Self::Points(points) => points.positions.clone(),
+            Self::Polys(polys) => polys.faces.concat(),
+            Self::PathPatch(path) => path.vertices.clone(),
+        }
+    }
+
+    /// Takes `numbers`, the user values along `dir` the geometry came
+    /// from converted again: one per point of a line (or one for all),
+    /// one for the anchor of a text.
+    pub(crate) fn reconvert(&mut self, dir: Axis3, numbers: &[f64]) {
+        let i = dir.index();
+        match self {
+            Self::Line(points) => {
+                let single = numbers.len() == 1;
+                for (j, point) in points.iter_mut().enumerate() {
+                    if let Some(&number) = numbers.get(if single { 0 } else { j }) {
+                        point[i] = number;
+                    }
+                }
+            }
+            Self::Text { position, .. } => {
+                if let Some(&number) = numbers.first() {
+                    position[i] = number;
+                }
+            }
+            Self::Paths(_)
+            | Self::Segments(_)
+            | Self::Points(_)
+            | Self::Polys(_)
+            | Self::Patch(_)
+            | Self::PathPatch(_) => {}
+        }
+    }
+
+    /// The sort position of a collection that takes one (matplotlib's
+    /// `_sort_zpos` of line, path, patch and polygon collections).
+    pub(crate) fn sort_zpos(&self) -> Option<&Option<f64>> {
+        match self {
+            Self::Segments(segments) => Some(&segments.sort_zpos),
+            Self::Points(points) => Some(&points.sort_zpos),
+            Self::Polys(polys) => Some(&polys.sort_zpos),
+            Self::Line(_)
+            | Self::Text { .. }
+            | Self::Paths(_)
+            | Self::Patch(_)
+            | Self::PathPatch(_) => None,
+        }
+    }
+
+    /// The same, to be set (matplotlib's `set_sort_zpos`).
+    pub(crate) fn sort_zpos_mut(&mut self) -> Option<&mut Option<f64>> {
+        match self {
+            Self::Segments(segments) => Some(&mut segments.sort_zpos),
+            Self::Points(points) => Some(&mut points.sort_zpos),
+            Self::Polys(polys) => Some(&mut polys.sort_zpos),
+            Self::Line(_)
+            | Self::Text { .. }
+            | Self::Paths(_)
+            | Self::Patch(_)
+            | Self::PathPatch(_) => None,
         }
     }
 
@@ -202,12 +300,12 @@ impl Art3D {
                     .collect();
                 Some(depth.min_or(1e9))
             }
-            Self::Segments(segments) => {
+            Self::Segments(Segments3D { lines, .. }) => {
                 let collection = store.get_as_mut::<CollectionArtist>(id)?;
                 let mut depth = Depth::default();
                 // matplotlib projects the points of every segment at once.
-                let mut points = projection.project_all(&segments.concat()).into_iter();
-                collection.paths = (segments.iter())
+                let mut points = projection.project_all(&lines.concat()).into_iter();
+                collection.paths = (lines.iter())
                     .map(|segment| {
                         let projected = points.by_ref().take(segment.len());
                         Path::polyline(projected.map(|q| depth.include(q)).collect())
@@ -326,7 +424,7 @@ mod tests {
         assert!(paths[0].vertices()[0].is_finite());
         assert!(!paths[0].vertices()[1].is_finite());
         assert_eq!(depth, far, "matplotlib drops the mask of contours");
-        let lines = Art3D::Segments(vec![vec![inside, outside]]);
+        let lines = Art3D::Segments(Segments3D::new(vec![vec![inside, outside]]));
         let (paths, depth) = project_hidden(&lines);
         assert!(!paths[0].vertices()[1].is_finite());
         assert_eq!(depth, near, "line collections keep it");

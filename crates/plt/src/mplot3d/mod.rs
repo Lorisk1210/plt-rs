@@ -31,7 +31,11 @@
 //!   `bar3d`, `bar`, `quiver`, `voxels`, `stem`, `text`, `text2d` and
 //!   `add_collection3d`.
 //! * [`Axis3D`] — one axis: tick locators and formatters (major and
-//!   minor), fixed ticks and labels, tick parameters.
+//!   minor), fixed ticks and labels, tick parameters, its tick marks and
+//!   gridlines, and unit conversion: the point-plotting methods take
+//!   dates, category names and values with units as 2-D plotting methods
+//!   do, converted on the axis each lies along
+//!   ([`Axis3D::convert_units`]).
 //! * [`LightSource`] — the light shading surfaces, bars and voxels.
 //!
 //! ```
@@ -88,13 +92,18 @@ mod stem;
 mod surface;
 mod test_data;
 mod trisurf;
+#[cfg(test)]
+mod unit_tests;
+mod units;
 mod update;
+mod update_collections;
 mod voxels;
 
 pub(crate) use state::Axes3DState;
 
 pub use art3d::{ProjectedOutline, ProjectedPath, ZSort};
 pub use aspect::Aspect3D;
+pub use axis_draw::{GridLine3D, TickLine3D};
 pub use axis_handle::Axis3D;
 pub use bars::{Bar3DOptions, Boxes};
 pub use camera::{ProjType, ViewAngles};
@@ -103,7 +112,7 @@ pub use contour::Contour3DOptions;
 pub use coords::Axis3;
 pub use error::Axes3DError;
 pub use errorbar::{Errorbar3D, Errorbar3DOptions};
-pub use fill_between::{FillBetween3DOptions, FillMode};
+pub use fill_between::{Curve3D, FillBetween3DOptions, FillMode};
 pub use geometry::AxisPosition;
 pub use handle::{Axes3D, Axes3DOptions};
 pub use lift::Poly3DOptions;

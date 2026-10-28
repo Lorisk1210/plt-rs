@@ -7,10 +7,9 @@ use std::f64::consts::PI;
 use std::ops::{Add, Mul};
 use std::rc::Rc;
 
-use plt::axes::Axis;
 use plt::ticker::{AutoLocator, FormatStrFormatter, FuncFormatter, MultipleLocator};
 use plt::units::{
-    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo,
 };
 
 /// A unit of `basic_units`.
@@ -157,7 +156,7 @@ impl ConversionInterface for BasicUnitConverter {
         &self,
         values: &[TaggedValue],
         unit: Option<&BasicUnit>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         values
             .iter()
@@ -170,7 +169,7 @@ impl ConversionInterface for BasicUnitConverter {
             .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&BasicUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&BasicUnit>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         let unit = *unit?;
         let label = Some(unit.fullname().to_owned());
         Some(match unit {
@@ -193,7 +192,7 @@ impl ConversionInterface for BasicUnitConverter {
         })
     }
 
-    fn default_units(&self, values: &[TaggedValue], _: &Axis) -> Option<BasicUnit> {
+    fn default_units(&self, values: &[TaggedValue], _: &UnitAxis) -> Option<BasicUnit> {
         values.first().map(|value| value.unit)
     }
 }

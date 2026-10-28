@@ -1,16 +1,18 @@
 //! The ticks of a 3-D axis: those drawn, every location with its label,
-//! and ticking an axis of dates (matplotlib's `get_ticklocs`,
-//! `get_ticklabels` and `axis_date`, which `Axes3D` wraps as
-//! `get_zticks`, `get_zticklabels` and `zaxis_date`).
+//! their marks and gridlines, and ticking an axis of dates (matplotlib's
+//! `get_ticklocs`, `get_ticklabels`, `get_ticklines`, `get_gridlines` and
+//! `axis_date`, which `Axes3D` wraps as `get_zticks`, `get_zticklabels`,
+//! `get_zticklines`, `get_zgridlines` and `zaxis_date`).
 
-use std::rc::Rc;
-
+use super::axis_draw::{GridLine3D, TickLine3D, grid_lines, tick_lines};
 use super::axis_handle::Axis3D;
-use crate::artist::ArtistHandle;
+use super::state::Axes3DState;
+use crate::artist::{ArtistHandle, LayoutContext};
 use crate::axes::TickSet;
 use crate::dates::TimeZone;
 use crate::ticker::TickerError;
-use crate::units::date_tickers;
+use crate::transforms::TransformContext;
+use crate::units::UnitHandle;
 
 impl Axis3D {
     /// The ticks the axis draws in the current view, after a layout pass
@@ -68,12 +70,77 @@ impl Axis3D {
         Ok(ticks.unclipped_labels(minor, sides))
     }
 
+    /// The tick marks of every major (or minor) tick of the current view,
+    /// in view or not, as the axes draw them after a layout pass
+    /// (matplotlib's `Axis.get_ticklines`, `Axes3D.get_zticklines` for
+    /// the z axis, whose tick objects matplotlib moves at every draw): one
+    /// per tick, with its mark on each edge carrying the ticks.
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_zlim(0.05, 0.95)?;
+    /// let marks = ax.zaxis().ticklines(false)?;
+    /// assert_eq!(marks.len(), ax.zaxis().ticklocs(false)?.len());
+    /// assert!(!marks[0].in_view, "0 is out of view");
+    /// assert!(marks.iter().all(|mark| mark.marks.len() == 1), "on one edge");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a locator or formatter fails.
+    pub fn ticklines(&self, minor: bool) -> Result<Vec<TickLine3D>, TickerError> {
+        self.ticks()?;
+        Ok(self
+            .with_layout(|axes, layout, extent| tick_lines(axes, layout, extent, self.dir, minor)))
+    }
+
+    /// The gridlines of every major tick of the current view, in view or
+    /// not, where the axes draw them across the panes after a layout pass
+    /// (matplotlib's `Axis.get_gridlines`, `Axes3D.get_zgridlines` for the
+    /// z axis).
+    ///
+    /// ```
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_zlim(0.05, 0.95)?;
+    /// let grid = ax.zaxis().gridlines()?;
+    /// let drawn = grid.iter().filter(|line| line.in_view).count();
+    /// assert_eq!(drawn, ax.zaxis().ticks()?.major.len());
+    /// assert!(!grid[0].in_view && grid[1].in_view, "0 is out of view");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a locator or formatter fails.
+    pub fn gridlines(&self) -> Result<Vec<GridLine3D>, TickerError> {
+        self.ticks()?;
+        Ok(self.with_layout(|axes, layout, extent| grid_lines(axes, layout, extent, self.dir)))
+    }
+
+    /// Runs `f` on the axes, the figure's layout and the display extent of
+    /// the axes; a default value when the axes is not laid out.
+    fn with_layout<R: Default>(
+        &self,
+        f: impl FnOnce(&Axes3DState, LayoutContext<'_>, &plt_core::Bbox) -> R,
+    ) -> R {
+        let figure = self.axes.raw().figure_state().borrow();
+        let axes = figure.store.get_as::<Axes3DState>(self.axes.id());
+        match (axes, figure.axes_bbox(self.axes.id())) {
+            (Some(axes), Some(extent)) => f(axes, LayoutContext::new(&figure), &extent),
+            _ => R::default(),
+        }
+    }
+
     /// Ticks the axis as an axis of dates in `tz`: its values are date
     /// numbers (days since the [epoch](crate::dates::get_epoch), see
     /// [`date2num`](crate::dates::date2num)), placed by an
     /// `AutoDateLocator` and labelled by the formatter `date.converter`
     /// chooses (matplotlib's `Axis.axis_date`, `Axes3D.zaxis_date` for the
-    /// z axis). Like matplotlib, it replaces only the major locator and
+    /// z axis). Like matplotlib, the axis takes the date converter unless
+    /// another one was set explicitly, replaces only the major locator and
     /// formatter that were not set explicitly, and leaves the limits as
     /// they are; the axes sharing the axis follow.
     ///
@@ -87,15 +154,8 @@ impl Axis3D {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn axis_date(&self, tz: &TimeZone) -> &Self {
-        let (locator, formatter) = date_tickers(tz);
-        self.set_tickers(|t| {
-            if t.default_major.0 {
-                t.major_locator = Rc::clone(&locator);
-            }
-            if t.default_major.1 {
-                t.major_formatter = Rc::clone(&formatter);
-            }
-        })
+        self.make_date_axis(tz);
+        self
     }
 }
 
@@ -137,6 +197,41 @@ mod tests {
         ax.with_mut(|axes| axes.axis_mut(Axis3::X).major_style.labels.second = true);
         let labels = axis.ticklabels(false).unwrap();
         assert_eq!(labels.len(), 2 * axis.ticklocs(false).unwrap().len());
+    }
+
+    #[test]
+    fn tick_lines_and_gridlines_follow_the_drawn_ticks() {
+        use crate::mplot3d::AxisPosition;
+        let ax = Figure::new().subplot_3d();
+        ax.set_zlim(0.05, 0.95).unwrap();
+        let axis = ax.zaxis();
+        let marks = axis.ticklines(false).unwrap();
+        let grid = axis.gridlines().unwrap();
+        assert_eq!(marks.len(), axis.ticklocs(false).unwrap().len());
+        let in_view = marks.iter().filter(|mark| mark.in_view).count();
+        assert_eq!(in_view, axis.ticks().unwrap().major.len());
+        assert_eq!(grid.len(), marks.len());
+        assert!(grid.iter().all(|line| line.visible), "axes3d.grid");
+        axis.set_ticks_position(AxisPosition::Both);
+        let marks = axis.ticklines(false).unwrap();
+        assert!(marks.iter().all(|mark| mark.marks.len() == 2));
+        ax.grid(false);
+        assert!(axis.gridlines().unwrap().iter().all(|line| !line.visible));
+        let before = marks[1].marks[0];
+        ax.view_init(10.0, 20.0, 0.0);
+        assert_ne!(
+            axis.ticklines(false).unwrap()[1].marks[0],
+            before,
+            "they move with the view"
+        );
+        assert_eq!(
+            axis.ticklines(true).unwrap(),
+            Vec::new(),
+            "no minor ticks on z"
+        );
+        ax.xaxis()
+            .set_minor_locator(MultipleLocator::new(0.1).unwrap());
+        assert_ne!(ax.xaxis().ticklines(true).unwrap(), Vec::new());
     }
 
     #[test]

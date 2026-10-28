@@ -24,14 +24,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             .zip(&y)
             .map(|(x, y)| 1.0 + (x * 3.0 + y * 5.0) % 7.0)
             .collect();
-        let boxes = Boxes {
-            x: &x,
-            y: &y,
-            z: &[0.0],
-            dx: &[0.6],
-            dy: &[0.6],
-            dz: &heights,
-        };
+        let boxes = Boxes::new(&x, &y, [0.0], [0.6], [0.6], &heights);
         let options = Bar3DOptions {
             color: vec!["tab:cyan".into()],
             ..Bar3DOptions::default()
@@ -41,14 +34,14 @@ pub(crate) const CASES: &[FigureCase] = &[
     })
     .sized(4.0, 4.0, 100.0),
     FigureCase::new("mplot3d/bar3d_no_shade_colors", |fig| {
-        let boxes = Boxes {
-            x: &[0.0, 1.0, 2.0],
-            y: &[0.0, 1.0, 2.0],
-            z: &[0.0, 0.0, 0.0],
-            dx: &[0.5],
-            dy: &[0.5],
-            dz: &[3.0, 1.0, 2.0],
-        };
+        let boxes = Boxes::new(
+            [0.0, 1.0, 2.0],
+            [0.0, 1.0, 2.0],
+            [0.0, 0.0, 0.0],
+            [0.5],
+            [0.5],
+            [3.0, 1.0, 2.0],
+        );
         let options = Bar3DOptions {
             color: vec!["red".into(), "green".into(), "blue".into()],
             shade: false,
@@ -70,7 +63,7 @@ pub(crate) const CASES: &[FigureCase] = &[
                 props: PatchProps::default().alpha(0.8),
                 ..BarOptions::default()
             };
-            ax.bar(&x, &heights, &[i as f64 * 10.0], Axis3::Y, options)?;
+            ax.bar(&x, &heights, [i as f64 * 10.0], Axis3::Y, options)?;
         }
         Ok(())
     })

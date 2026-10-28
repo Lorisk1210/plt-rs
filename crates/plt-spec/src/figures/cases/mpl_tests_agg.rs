@@ -83,7 +83,7 @@ fn sine(fig: &Figure) -> CaseResult {
 fn non_tuple_rgbaface(fig: &Figure) -> CaseResult {
     let points = fig
         .subplot_3d()
-        .scatter(&[0.0, 1.0, 2.0], &[0.0, 1.0, 2.0], &[0.0])?;
+        .scatter([0.0, 1.0, 2.0], [0.0, 1.0, 2.0], [0.0])?;
     points.set_path_effects(vec![PathEffect::stroke(Stroke::new(
         GcUpdate::default().linewidth(4.0),
     ))]);

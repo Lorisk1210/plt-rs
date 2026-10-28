@@ -8,7 +8,7 @@
 use std::ops::{Add, Mul, Neg, Sub};
 use std::rc::Rc;
 
-use plt::axes::{Axis, ProjectionKind};
+use plt::axes::ProjectionKind;
 use plt::dates::{AutoDateFormatter, AutoDateLocator, DateTime, get_epoch};
 use plt::polar::ThetaFormatter;
 use plt::ticker::pyfmt::FormatSpec;
@@ -17,7 +17,7 @@ use plt::ticker::{
     TickerSettings,
 };
 use plt::units::{
-    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo,
 };
 
 /// Seconds in a day.
@@ -134,7 +134,7 @@ impl ConversionInterface for EpochConverter {
         &self,
         values: &[Epoch],
         _: Option<&EphemerisTime>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         Ok(values
             .iter()
@@ -142,11 +142,11 @@ impl ConversionInterface for EpochConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         Some(epoch_axisinfo(unit))
     }
 
-    fn default_units(&self, values: &[Epoch], _: &Axis) -> Option<EphemerisTime> {
+    fn default_units(&self, values: &[Epoch], _: &UnitAxis) -> Option<EphemerisTime> {
         values.first().map(|_| EphemerisTime)
     }
 }
@@ -178,7 +178,7 @@ impl ConversionInterface for DurationConverter {
         &self,
         values: &[Duration],
         _: Option<&EphemerisTime>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         Ok(values
             .iter()
@@ -186,11 +186,11 @@ impl ConversionInterface for DurationConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&EphemerisTime>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         Some(epoch_axisinfo(unit))
     }
 
-    fn default_units(&self, values: &[Duration], _: &Axis) -> Option<EphemerisTime> {
+    fn default_units(&self, values: &[Duration], _: &UnitAxis) -> Option<EphemerisTime> {
         values.first().map(|_| EphemerisTime)
     }
 }
@@ -315,8 +315,8 @@ pub(crate) struct UnitDblConverter;
 
 /// Whether `axis` belongs to polar axes (`isinstance(axis.axes,
 /// PolarAxes)`).
-fn on_polar_axes(axis: &Axis) -> bool {
-    axis.axes().projection() == ProjectionKind::Polar
+fn on_polar_axes(axis: &UnitAxis) -> bool {
+    matches!(axis, UnitAxis::Axes(axis) if axis.axes().projection() == ProjectionKind::Polar)
 }
 
 impl ConversionInterface for UnitDblConverter {
@@ -327,7 +327,7 @@ impl ConversionInterface for UnitDblConverter {
         &self,
         values: &[UnitDbl],
         unit: Option<&UnitName>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let polar = on_polar_axes(axis);
         values
@@ -342,7 +342,7 @@ impl ConversionInterface for UnitDblConverter {
             .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&UnitName>, axis: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&UnitName>, axis: &UnitAxis) -> Option<UnitAxisInfo> {
         let major_formatter: Rc<dyn Formatter> =
             if unit == Some(&UnitName::Degrees) && on_polar_axes(axis) {
                 Rc::new(ThetaFormatter)
@@ -356,7 +356,7 @@ impl ConversionInterface for UnitDblConverter {
         })
     }
 
-    fn default_units(&self, values: &[UnitDbl], _: &Axis) -> Option<UnitName> {
+    fn default_units(&self, values: &[UnitDbl], _: &UnitAxis) -> Option<UnitName> {
         values.first().map(|value| value.default_unit())
     }
 }

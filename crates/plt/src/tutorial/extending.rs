@@ -118,10 +118,9 @@
 //! [`AxisValues`](crate::units::AxisValues) like any other data.
 //!
 //! ```
-//! use plt::axes::Axis;
 //! use plt::prelude::*;
 //! use plt::ticker::StrMethodFormatter;
-//! use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
+//! use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo};
 //!
 //! /// An amount of money.
 //! #[derive(Clone, Copy, Debug, PartialEq)]
@@ -137,12 +136,12 @@
 //!         &self,
 //!         values: &[Euros],
 //!         _: Option<&()>,
-//!         _: &Axis,
+//!         _: &UnitAxis,
 //!     ) -> Result<Vec<f64>, ConversionError> {
 //!         Ok(values.iter().map(|euros| euros.0).collect())
 //!     }
 //!
-//!     fn axisinfo(&self, _: Option<&()>, _: &Axis) -> Option<UnitAxisInfo> {
+//!     fn axisinfo(&self, _: Option<&()>, _: &UnitAxis) -> Option<UnitAxisInfo> {
 //!         let format = StrMethodFormatter::new("{x:.2f} €").ok()?;
 //!         Some(UnitAxisInfo::default().label("price").majfmt(format))
 //!     }

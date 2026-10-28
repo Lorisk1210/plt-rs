@@ -50,7 +50,7 @@ fn cube_edges(ax: &Axes3D, r: [f64; 2], props: &LineProps) -> Result<(), Axes3DE
         for e in &corners[i + 1..] {
             if s.iter().zip(e).filter(|(a, b)| a != b).count() == 1 {
                 let [x, y, z] = [0, 1, 2].map(|k| [r[s[k]], r[e[k]]]);
-                ax.plot_with(&x, &y, &z, Axis3::Z, props.clone())?;
+                ax.plot_with(x, y, z, Axis3::Z, props.clone())?;
             }
         }
     }

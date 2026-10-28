@@ -4,7 +4,7 @@
 
 use plt_core::{Path, Rgba};
 
-use super::art3d::{Art3D, Polys3D, ZSort};
+use super::art3d::{Art3D, Polys3D, Segments3D, ZSort};
 use super::error::Axes3DError;
 use super::handle::Axes3D;
 use super::math::Vec3;
@@ -202,7 +202,11 @@ impl Axes3D {
             CollectionArtist::new(CollectionKind::Line, Vec::new(), crate::rc::params());
         props.apply(&mut collection);
         let raw = self.adopt_projected(collection);
-        self.register(raw.id(), Art3D::Segments(segments), axlim_clip);
+        self.register(
+            raw.id(),
+            Art3D::Segments(Segments3D::new(segments)),
+            axlim_clip,
+        );
         Collection::from_raw(raw)
     }
 }

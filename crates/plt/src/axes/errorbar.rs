@@ -15,7 +15,7 @@ use crate::lines::{
 use crate::markers::{Marker, MarkerSymbol};
 use crate::orientation::Orientation;
 use crate::ticker::AxisName;
-use crate::units::{AxisValue, AxisValues, CustomValues, UnitSources};
+use crate::units::{AxisValue, AxisValues, CustomValues, UnitHandle, UnitSources};
 
 /// How [`Axes::errorbar`] draws the data line (matplotlib's `fmt`);
 /// matplotlib's strings parse with [`str::parse`].

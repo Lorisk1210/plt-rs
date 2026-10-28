@@ -49,12 +49,23 @@ impl Axis3 {
     }
 
     /// Places the 2-D point `(a, b)` in the plane normal to this axis, at
-    /// `c` along it (matplotlib's `juggle_axes(a, b, c, zdir)`).
-    pub const fn juggle(self, [a, b, c]: Vec3) -> Vec3 {
+    /// `c` along it (matplotlib's `juggle_axes(a, b, c, zdir)`); the
+    /// coordinates may be anything, such as lists of them.
+    pub fn juggle<T>(self, [a, b, c]: [T; 3]) -> [T; 3] {
         match self {
             Self::X => [c, a, b],
             Self::Y => [a, c, b],
             Self::Z => [a, b, c],
+        }
+    }
+
+    /// Undoes [`Axis3::juggle`]: the 2-D point and the position along
+    /// this axis of a point placed in the plane normal to it.
+    pub fn unjuggle<T>(self, [x, y, z]: [T; 3]) -> [T; 3] {
+        match self {
+            Self::X => [y, z, x],
+            Self::Y => [x, z, y],
+            Self::Z => [x, y, z],
         }
     }
 
@@ -108,6 +119,9 @@ mod tests {
         assert_eq!(Axis3::X.juggle([1.0, 2.0, 9.0]), [9.0, 1.0, 2.0]);
         assert_eq!(Axis3::Y.juggle([1.0, 2.0, 9.0]), [1.0, 9.0, 2.0]);
         assert_eq!(Axis3::Z.juggle([1.0, 2.0, 9.0]), [1.0, 2.0, 9.0]);
+        for axis in Axis3::ALL {
+            assert_eq!(axis.unjuggle(axis.juggle(["a", "b", "c"])), ["a", "b", "c"]);
+        }
     }
 
     #[test]

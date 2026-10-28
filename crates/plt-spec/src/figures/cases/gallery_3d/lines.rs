@@ -44,7 +44,7 @@ fn collections_2d(fig: &Figure) -> CaseResult {
     let x = linspace(0.0, 1.0, 100);
     let y: Vec<f64> = x.iter().map(|x| (x * 2.0 * PI).sin() / 2.0 + 0.5).collect();
     let curve = LineProps::default().label("curve in (x, y)");
-    ax.plot_with(&x, &y, &[0.0], Axis3::Z, curve)?;
+    ax.plot_with(&x, &y, [0.0], Axis3::Z, curve)?;
     let colors = ["r", "g", "b", "k"];
     let mut rng = SpecRng::new(SEED);
     let x = rng.uniform(20 * colors.len(), 0.0, 1.0);
@@ -61,7 +61,7 @@ fn collections_2d(fig: &Figure) -> CaseResult {
         },
         ..Scatter3DOptions::default()
     };
-    ax.scatter_with(&x, &y, &[0.0], options)?
+    ax.scatter_with(&x, &y, [0.0], options)?
         .set_label("points in (x, z)");
     ax.legend(LegendOptions::default())?;
     limit_all(&ax, 0.0, 1.0)?;

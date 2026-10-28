@@ -6,6 +6,8 @@
 use super::axis3d::AxisSpan;
 use super::coords::Axis3;
 use super::error::Axes3DError;
+use super::math::Vec3;
+use super::plot::columns;
 use super::share::LimitChange;
 use super::state::Axes3DState;
 use crate::rc::RcParams;
@@ -208,6 +210,13 @@ impl Axes3DState {
         z: Option<&[f64]>,
         had_data: bool,
     ) -> Result<(), Axes3DError> {
+        self.include_data(x, y, z, had_data);
+        self.autoscale_view()
+    }
+
+    /// Includes data in the data limits, replacing them unless
+    /// `had_data`; values outside an axis' scale are ignored.
+    fn include_data(&mut self, x: &[f64], y: &[f64], z: Option<&[f64]>, had_data: bool) {
         let masked = |axis: Axis3, values: &[f64]| -> Vec<f64> {
             let scale = &self.axis(axis).scale;
             values.iter().map(|&v| scale.masked(v)).collect()
@@ -215,7 +224,21 @@ impl Axes3DState {
         let (x, y) = (masked(Axis3::X, x), masked(Axis3::Y, y));
         let z = z.map(|z| masked(Axis3::Z, z));
         self.limits.include(&x, &y, z.as_deref(), had_data);
-        self.autoscale_view()
+    }
+
+    /// Recomputes the data limits from the geometry of the data artists
+    /// (matplotlib's `relim`, which a change of unit calls); without data
+    /// artists they stay as they are.
+    pub(crate) fn relim(&mut self) {
+        let points: Vec<Vec3> = (self.artists.iter())
+            .filter(|artist| artist.art.is_data())
+            .flat_map(|artist| artist.art.points())
+            .collect();
+        if points.is_empty() {
+            return;
+        }
+        let [x, y, z] = columns(&points);
+        self.include_data(&x, &y, Some(&z), false);
     }
 
     /// Fits the view of every autoscaled axis to the data (matplotlib's

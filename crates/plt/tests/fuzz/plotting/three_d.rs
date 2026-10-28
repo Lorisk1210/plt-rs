@@ -193,14 +193,7 @@ impl Call3D {
             }
             Self::Surface { .. } => self.surface(ax),
             Self::Bars { x, y, z, size } => {
-                let boxes = Boxes {
-                    x,
-                    y,
-                    z,
-                    dx: size,
-                    dy: size,
-                    dz: size,
-                };
+                let boxes = Boxes::new(x, y, z, size, size, size);
                 drop(ax.bar3d(boxes, Bar3DOptions::default()));
             }
             Self::Arrows {

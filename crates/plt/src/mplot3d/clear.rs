@@ -97,7 +97,7 @@ mod tests {
     fn clearing_forgets_the_artists_but_keeps_the_view_and_tick_parameters() {
         let fig = Figure::new();
         let ax = fig.subplot_3d();
-        let line = ax.plot(&[0.0, 5.0], &[0.0, 5.0], &[0.0, 5.0]).unwrap();
+        let line = ax.plot([0.0, 5.0], [0.0, 5.0], [0.0, 5.0]).unwrap();
         let first_color = line.rgba().unwrap();
         ax.view_init(10.0, 20.0, 0.0);
         ax.set_title("before");
@@ -113,7 +113,7 @@ mod tests {
         let tick_color = ax.with(|axes| axes.axis(Axis3::X).major_style.color.clone());
         assert_eq!(tick_color, Color::from("red"));
         // The property cycle starts over.
-        let again = ax.plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0]).unwrap();
+        let again = ax.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(again.rgba().unwrap(), first_color);
     }
 }

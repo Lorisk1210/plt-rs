@@ -68,7 +68,7 @@ fn lims(ax: &Axes3D) -> Json {
 }
 
 fn plot(ax: &Axes3D, x: [f64; 2], y: [f64; 2], z: [f64; 2]) -> Result<(), ProbeError> {
-    made(ax.plot(&x, &y, &z))?;
+    made(ax.plot(x, y, z))?;
     Ok(())
 }
 
@@ -291,9 +291,9 @@ fn scatter_nonfinite() -> Outcome {
         ..Scatter3DOptions::default()
     };
     let points = made(ax.scatter_with(
-        &[f64::NAN, 1.0, 2.0, 1.0],
-        &[0.0, f64::INFINITY, 2.0, 1.0],
-        &[0.0, 1.0, f64::NEG_INFINITY, 1.0],
+        [f64::NAN, 1.0, 2.0, 1.0],
+        [0.0, f64::INFINITY, 2.0, 1.0],
+        [0.0, 1.0, f64::NEG_INFINITY, 1.0],
         options,
     ))?;
     fig.layout();

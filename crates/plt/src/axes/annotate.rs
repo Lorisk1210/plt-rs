@@ -9,7 +9,7 @@ use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::coords::{CoordError, Coords};
 use crate::text::{AnnotateOptions, Annotation, AnnotationState, TextArtist};
 use crate::transforms::Transform;
-use crate::units::{AxisValue, DataPoint, UnitSources};
+use crate::units::{AxisValue, DataPoint, UnitHandle, UnitSources};
 
 impl Axes {
     /// Annotates the point `xy` with `text`, placed and optionally joined

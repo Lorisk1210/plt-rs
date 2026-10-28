@@ -3,9 +3,8 @@
 //! scale like numbers, so that temperatures serve as their own error
 //! sizes, and convert with an offset.
 
-use plt::axes::Axis;
 use plt::units::{
-    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo,
 };
 
 /// The unit of an axis of temperatures (`"C"`, `"F"` or `"K"`).
@@ -54,13 +53,13 @@ impl ConversionInterface for TemperatureConverter {
         &self,
         values: &[Temperature],
         unit: Option<&TemperatureUnit>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let unit = unit.copied().unwrap_or(TemperatureUnit::Celsius);
         Ok(values.iter().map(|value| value.to(unit)).collect())
     }
 
-    fn axisinfo(&self, unit: Option<&TemperatureUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&TemperatureUnit>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         let name = unit.map_or("None", |unit| unit.name());
         Some(UnitAxisInfo {
             label: Some(format!("temperature ({name})")),
@@ -68,7 +67,7 @@ impl ConversionInterface for TemperatureConverter {
         })
     }
 
-    fn default_units(&self, _: &[Temperature], _: &Axis) -> Option<TemperatureUnit> {
+    fn default_units(&self, _: &[Temperature], _: &UnitAxis) -> Option<TemperatureUnit> {
         Some(TemperatureUnit::Celsius)
     }
 }

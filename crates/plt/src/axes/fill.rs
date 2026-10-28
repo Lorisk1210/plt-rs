@@ -7,7 +7,7 @@ use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Polygon};
 use crate::rc::CycleValue;
-use crate::units::AxisValues;
+use crate::units::{AxisValues, UnitHandle};
 
 /// Line properties a polygon ignores when it takes a property-cycle entry.
 const MARKER_KEYS: [&str; 5] = [

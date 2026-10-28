@@ -9,6 +9,7 @@ use crate::colors::ColorError;
 use crate::contour::ContourError;
 use crate::figure::AxesRectError;
 use crate::gridspec::GridSpecError;
+use crate::path::PathError;
 use crate::scale::ScaleError;
 use crate::ticker::TickerError;
 use crate::tri::TriError;
@@ -24,6 +25,8 @@ pub enum Axes3DError {
     BoxAspect(Vec3),
     /// An autoscaling margin that is not above -0.5.
     Margin(f64),
+    /// A view margin of limits that is infinite or NaN.
+    ViewMargin(f64),
     /// Axis limits that are infinite or NaN.
     NonFiniteLimits(f64, f64),
     /// Coordinate arrays of different lengths or shapes.
@@ -53,6 +56,8 @@ pub enum Axes3DError {
     Grid(GridSpecError),
     /// An invalid rectangle for the axes.
     Rect(AxesRectError),
+    /// Path codes that do not fit the vertices given.
+    Path(PathError),
     /// A mouse rotation style other than `azel`, `trackball`, `sphere` and
     /// `arcball`.
     UnknownRotationStyle(String),
@@ -66,12 +71,15 @@ pub enum Axes3DError {
     AlreadyShared(&'static str),
     /// Axes of different figures cannot share an axis or the view.
     OtherFigure,
-    /// Only polygon and line collections can be lifted to 3-D.
+    /// Only polygon, line and patch collections can be lifted to 3-D.
     UnsupportedCollection,
     /// The artist is not a 3-D artist of the axes.
     Not3DArtist,
     /// The axis does not label its major ticks with a `ScalarFormatter`.
     NotScalarFormatter(Axis3),
+    /// Another unit converter was already set explicitly on the axis
+    /// (matplotlib's `set_converter` warning about it).
+    ExplicitConverter(Axis3),
     /// Error sizes along the axis are durations or values of a user type,
     /// which do not add to the numbers 3-D axes plot (matplotlib's
     /// `TypeError` from `data - err`).
@@ -89,6 +97,7 @@ impl fmt::Display for Axes3DError {
                 write!(f, "box aspect {aspect:?} must have positive components")
             }
             Self::Margin(value) => write!(f, "margin {value} must be greater than -0.5"),
+            Self::ViewMargin(value) => write!(f, "view margin {value} must be finite"),
             Self::NonFiniteLimits(low, high) => {
                 write!(f, "axis limits {low}, {high} cannot be infinite or NaN")
             }
@@ -112,12 +121,17 @@ impl fmt::Display for Axes3DError {
             Self::AlreadyShared(what) => write!(f, "{what} is already shared"),
             Self::OtherFigure => f.write_str("axes of another figure cannot be shared with"),
             Self::UnsupportedCollection => {
-                f.write_str("only polygon and line collections can be added to 3-D axes")
+                f.write_str("only polygon, line and patch collections can be added to 3-D axes")
             }
             Self::Not3DArtist => f.write_str("the artist is not a 3-D artist of these axes"),
             Self::NotScalarFormatter(axis) => write!(
                 f,
                 "the {}-axis tick labels do not use a ScalarFormatter",
+                axis.name()
+            ),
+            Self::ExplicitConverter(axis) => write!(
+                f,
+                "the {}-axis already has an explicit unit converter",
                 axis.name()
             ),
             Self::UnaddableErrors(axis) => write!(
@@ -134,6 +148,7 @@ impl fmt::Display for Axes3DError {
             Self::Tri(err) => err.fmt(f),
             Self::Grid(err) => err.fmt(f),
             Self::Rect(err) => err.fmt(f),
+            Self::Path(err) => err.fmt(f),
         }
     }
 }
@@ -147,6 +162,7 @@ impl std::error::Error for Axes3DError {
             Self::Tri(err) => Some(err),
             Self::Grid(err) => Some(err),
             Self::Rect(err) => Some(err),
+            Self::Path(err) => Some(err),
             Self::Scale(err) => Some(err),
             Self::Ticker(err) => Some(err),
             _ => None,
@@ -193,6 +209,12 @@ impl From<GridSpecError> for Axes3DError {
 impl From<AxesRectError> for Axes3DError {
     fn from(err: AxesRectError) -> Self {
         Self::Rect(err)
+    }
+}
+
+impl From<PathError> for Axes3DError {
+    fn from(err: PathError) -> Self {
+        Self::Path(err)
     }
 }
 

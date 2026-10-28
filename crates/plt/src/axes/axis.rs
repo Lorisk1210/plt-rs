@@ -7,18 +7,16 @@ use crate::artist::ArtistId;
 
 use super::axis_label::{AxisLabel, LabelLoc, label_font};
 use super::axis_pick::AxisPicking;
-use super::axis_units::AxisUnits;
 use super::tick_set::TickSet;
 use super::ticks::{Sides, TickStyle};
 use super::{TickLabelProps, TickLineProps};
-use crate::dates::TimeZone;
 use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
 use crate::ticker::{AxisName, Formatter, Locator, TickerError, TickerSettings};
 use crate::transforms::AxisMap;
-use crate::units::{Categories, CategoryFormatter, CategoryLocator, UnitConverter, date_tickers};
+use crate::units::{AxisUnits, Categories, UnitAxisInfo, UnitData, UnitState};
 
 /// Autoscaling configuration and state of one axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -340,11 +338,6 @@ impl AxisState {
         }
     }
 
-    /// The category names plotted on the axis, if any.
-    pub(crate) fn categories(&self) -> Option<&Categories> {
-        self.categories.as_ref()
-    }
-
     /// Replaces the major locator and hands it to the major formatter
     /// (matplotlib's `Axis.set_major_locator`).
     pub(crate) fn set_major_locator(&mut self, locator: Rc<dyn Locator>) {
@@ -377,94 +370,11 @@ impl AxisState {
         self.defaults.minor.formatter = false;
     }
 
-    /// Takes date numbers, giving the axis the date converter and its
-    /// date ticks, in the time zone of the axis unit, unless tick helpers
-    /// were chosen explicitly (matplotlib's `update_units` +
-    /// `convert_units` for dates).
-    pub(crate) fn convert_dates(&mut self, numbers: Vec<f64>) -> Vec<f64> {
-        self.units.adopt(UnitConverter::Dates);
-        self.use_date_tickers(&self.units.time_zone());
-        numbers
-    }
-
-    /// Converts category names to positions, registering new names and
-    /// labelling the ticks with them unless tick helpers were chosen
-    /// explicitly (matplotlib's `update_units` + `convert_units` for
-    /// strings).
-    pub(crate) fn convert_categories(&mut self, names: &[String]) -> Vec<f64> {
-        self.units.adopt(UnitConverter::Categories);
-        let positions = self
-            .categories
-            .get_or_insert_with(Categories::default)
-            .convert(names);
-        self.use_category_tickers();
-        positions
-    }
-
-    /// Installs the tick helpers of the category names where the defaults
-    /// are still in place (matplotlib's `_update_axisinfo` with the
-    /// category converter's `axisinfo`).
-    fn use_category_tickers(&mut self) {
-        let Some(categories) = &self.categories else {
-            return;
-        };
-        let (locator, formatter) = (
-            CategoryLocator::new(categories),
-            CategoryFormatter::new(categories),
-        );
-        if self.defaults.major.locator {
-            self.major_locator = self.for_role(Rc::new(locator));
-        }
-        if self.defaults.major.formatter {
-            self.major_formatter = Rc::new(formatter);
-        }
-    }
-
-    /// Takes over the [`unit_data`](Self::unit_data) of an axis it is
-    /// shared with, after values were converted there, with the tick
-    /// helpers they bring where the defaults are in place: matplotlib's
-    /// shared axes hold one `units` object (category names placed on one
-    /// are placed on all) and share their tickers.
-    /// Converters of user values are not shared: matplotlib shares their
-    /// units through `set_units` alone.
-    pub(crate) fn share_units(&mut self, (units, categories): &(AxisUnits, Option<Categories>)) {
-        match &units.converter {
-            Some(UnitConverter::Dates) => {
-                self.units.adopt(UnitConverter::Dates);
-                self.use_date_tickers(&self.units.time_zone());
-            }
-            Some(UnitConverter::Categories) => {
-                self.units.adopt(UnitConverter::Categories);
-                self.categories.clone_from(categories);
-                self.use_category_tickers();
-            }
-            Some(UnitConverter::Custom(_)) | None => {}
-        }
-    }
-
-    /// The unit converter and category names, which a twin takes over
-    /// (matplotlib's `twinx` assigning `ax2.xaxis.units = self.xaxis.units`).
-    pub(crate) fn unit_data(&self) -> (AxisUnits, Option<Categories>) {
-        (self.units.clone(), self.categories.clone())
-    }
-
-    /// Takes over the [`unit_data`](Self::unit_data) of another axis.
-    pub(crate) fn set_unit_data(&mut self, (units, categories): (AxisUnits, Option<Categories>)) {
+    /// Takes over the [`unit_data`](UnitState::unit_data) of another
+    /// axis.
+    pub(crate) fn set_unit_data(&mut self, (units, categories): UnitData) {
         self.units = units;
         self.categories = categories;
-    }
-
-    /// Installs the tick helpers of dates in `tz` where the defaults are
-    /// still in place (matplotlib's `_update_axisinfo` with the date
-    /// converter's `axisinfo`).
-    pub(crate) fn use_date_tickers(&mut self, tz: &TimeZone) {
-        let (locator, formatter) = date_tickers(tz);
-        if self.defaults.major.locator {
-            self.major_locator = self.for_role(locator);
-        }
-        if self.defaults.major.formatter {
-            self.major_formatter = formatter;
-        }
     }
 
     /// The non-linear part of the scale (`None` for linear axes).
@@ -480,6 +390,66 @@ impl AxisState {
     /// Maps a scaled value back to data.
     pub(crate) fn inverse(&self, value: f64) -> f64 {
         self.map.as_ref().map_or(value, |m| m.inverse(value))
+    }
+}
+
+impl UnitState for AxisState {
+    fn units(&self) -> &AxisUnits {
+        &self.units
+    }
+
+    fn units_mut(&mut self) -> &mut AxisUnits {
+        &mut self.units
+    }
+
+    fn categories(&self) -> Option<&Categories> {
+        self.categories.as_ref()
+    }
+
+    fn categories_mut(&mut self) -> &mut Option<Categories> {
+        &mut self.categories
+    }
+
+    fn use_unit_tickers(&mut self, locator: Rc<dyn Locator>, formatter: Rc<dyn Formatter>) {
+        if self.defaults.major.locator {
+            self.major_locator = self.for_role(locator);
+        }
+        if self.defaults.major.formatter {
+            self.major_formatter = formatter;
+        }
+    }
+
+    fn use_axis_info_tickers(&mut self, info: &UnitAxisInfo) {
+        if let Some(locator) = &info.majloc
+            && self.defaults.major.locator
+        {
+            self.set_major_locator(Rc::clone(locator));
+            self.defaults.major.locator = true;
+        }
+        if let Some(locator) = &info.minloc
+            && self.defaults.minor.locator
+        {
+            self.set_minor_locator(Rc::clone(locator));
+            self.defaults.minor.locator = true;
+        }
+        if let Some(formatter) = &info.majfmt
+            && self.defaults.major.formatter
+        {
+            self.set_major_formatter(Rc::clone(formatter));
+            self.defaults.major.formatter = true;
+        }
+        if let Some(formatter) = &info.minfmt
+            && self.defaults.minor.formatter
+        {
+            self.set_minor_formatter(Rc::clone(formatter));
+            self.defaults.minor.formatter = true;
+        }
+    }
+
+    fn use_default_label(&mut self, label: &str) {
+        if self.label.is_default {
+            label.clone_into(&mut self.label.text);
+        }
     }
 }
 

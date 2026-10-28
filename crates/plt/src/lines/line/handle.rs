@@ -10,7 +10,7 @@ use crate::lines::{DrawStyle, LineStyle, MarkEvery, MarkerIndicesError, StepErro
 use crate::markers::{FillStyle, Marker};
 use crate::rc::ColorOrAuto;
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, UnitSources};
+use crate::units::{AxisValues, UnitHandle, UnitSources};
 
 /// A handle to a line in a figure (matplotlib's `Line2D`).
 ///

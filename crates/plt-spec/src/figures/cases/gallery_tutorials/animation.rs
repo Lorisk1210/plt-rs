@@ -174,7 +174,7 @@ fn random_walk(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     let empty: [f64; 0] = [];
     for _ in 0..40 {
-        ax.plot(&empty, &empty, &empty)?;
+        ax.plot(empty, empty, empty)?;
     }
     ax.set_xlim(0.0, 1.0)?.set_xlabel("X");
     ax.set_ylim(0.0, 1.0)?.set_ylabel("Y");

@@ -474,7 +474,7 @@ fn line_data_3d(args: Args<'_>) -> Outcome {
     let fig = Figure::new();
     let ax = fig.subplot_3d();
     let line = ax
-        .plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])
+        .plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0])
         .map_err(ProbeError::rejected)?;
     fig.layout();
     let before = ax.xlim();

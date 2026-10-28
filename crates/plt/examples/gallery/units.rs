@@ -1,11 +1,10 @@
 //! Values that are not plain numbers: dates with the concise formatter,
 //! category names, and a type of our own converted by a unit converter.
 
-use plt::axes::Axis;
 use plt::dates::{AutoDateLocator, ConciseDateFormatter, DateTime, TimeDelta};
 use plt::prelude::*;
 use plt::ticker::StrMethodFormatter;
-use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
+use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo};
 
 use super::data::Samples;
 use super::{Built, Entry};
@@ -137,7 +136,7 @@ impl ConversionInterface for TemperatureConverter {
         &self,
         values: &[Temperature],
         unit: Option<&Scale>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let to_celsius = |t: &Temperature| match t.scale {
             Scale::Celsius => t.degrees,
@@ -152,7 +151,7 @@ impl ConversionInterface for TemperatureConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&Scale>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&Scale>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         let symbol = unit?.symbol();
         let format = StrMethodFormatter::new(&format!("{{x:.0f}} {symbol}")).ok()?;
         Some(
@@ -162,7 +161,7 @@ impl ConversionInterface for TemperatureConverter {
         )
     }
 
-    fn default_units(&self, values: &[Temperature], _: &Axis) -> Option<Scale> {
+    fn default_units(&self, values: &[Temperature], _: &UnitAxis) -> Option<Scale> {
         values.first().map(|t| t.scale)
     }
 }

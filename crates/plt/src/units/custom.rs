@@ -8,9 +8,8 @@ use std::rc::Rc;
 
 use super::interface::UnitOf;
 use super::{
-    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxisInfo,
+    AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo,
 };
-use crate::axes::Axis;
 
 /// The unit of an axis (matplotlib's `Axis.units`): a value of the unit
 /// type of a [`ConversionInterface`], whatever its type. Units compare
@@ -75,13 +74,12 @@ impl fmt::Debug for Unit {
 ///
 /// ```
 /// use plt::units::{CustomConverter, UnitConverter};
-/// # use plt::axes::Axis;
-/// # use plt::units::{ConversionError, ConversionInterface};
+/// # use plt::units::{ConversionError, ConversionInterface, UnitAxis};
 /// # struct Scaled;
 /// # impl ConversionInterface for Scaled {
 /// #     type Value = f32;
 /// #     type Unit = f64;
-/// #     fn convert(&self, values: &[f32], _: Option<&f64>, _: &Axis)
+/// #     fn convert(&self, values: &[f32], _: Option<&f64>, _: &UnitAxis)
 /// #         -> Result<Vec<f64>, ConversionError> {
 /// #         Ok(values.iter().map(|&v| f64::from(v)).collect())
 /// #     }
@@ -97,14 +95,14 @@ pub struct CustomConverter(Rc<dyn AnyConverter>);
 trait AnyConverter: Any {
     /// [`ConversionInterface::axisinfo`] in an axis unit, nothing when the
     /// unit is not one of the converter's.
-    fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<UnitAxisInfo>;
+    fn axisinfo(&self, unit: Option<&Unit>, axis: &UnitAxis) -> Option<UnitAxisInfo>;
 
     /// The type of the converter.
     fn type_name(&self) -> &'static str;
 }
 
 impl<C: ConversionInterface> AnyConverter for C {
-    fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&Unit>, axis: &UnitAxis) -> Option<UnitAxisInfo> {
         let unit = match unit {
             Some(unit) => Some(unit.downcast_ref::<C::Unit>()?),
             None => None,
@@ -140,7 +138,7 @@ impl CustomConverter {
 
     /// The tick helpers, label and default limits the converter gives
     /// `axis` in `unit`.
-    pub(crate) fn axisinfo(&self, unit: Option<&Unit>, axis: &Axis) -> Option<UnitAxisInfo> {
+    pub(crate) fn axisinfo(&self, unit: Option<&Unit>, axis: &UnitAxis) -> Option<UnitAxisInfo> {
         self.0.axisinfo(unit, axis)
     }
 
@@ -177,8 +175,7 @@ impl fmt::Debug for CustomConverter {
 /// them.
 ///
 /// ```
-/// # use plt::axes::Axis;
-/// # use plt::units::{ConversionError, ConversionInterface, Convertible};
+/// # use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis};
 /// use plt::units::CustomValues;
 /// # #[derive(Clone, Debug, PartialEq)]
 /// # struct Miles(f64);
@@ -186,7 +183,7 @@ impl fmt::Debug for CustomConverter {
 /// # impl ConversionInterface for MilesConverter {
 /// #     type Value = Miles;
 /// #     type Unit = ();
-/// #     fn convert(&self, values: &[Miles], _: Option<&()>, _: &Axis)
+/// #     fn convert(&self, values: &[Miles], _: Option<&()>, _: &UnitAxis)
 /// #         -> Result<Vec<f64>, ConversionError> {
 /// #         Ok(values.iter().map(|m| m.0).collect())
 /// #     }
@@ -212,7 +209,7 @@ trait AnyValues: Any + fmt::Debug {
 
     /// The unit `converter` picks for the values on `axis`, if it is the
     /// converter of their type and picks one.
-    fn default_units(&self, converter: &CustomConverter, axis: &Axis) -> Option<Unit>;
+    fn default_units(&self, converter: &CustomConverter, axis: &UnitAxis) -> Option<Unit>;
 
     /// The values in `unit` on `axis`, converted by `converter` when it is
     /// of the converter type of the values, else by their own converter.
@@ -220,7 +217,7 @@ trait AnyValues: Any + fmt::Debug {
         &self,
         converter: Option<&CustomConverter>,
         unit: Option<&Unit>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError>;
 
     /// Whether `other` holds equal values of the same type.
@@ -251,7 +248,7 @@ impl<T: Convertible> Values<T> {
         &self,
         converter: &T::Converter,
         unit: Option<&Unit>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let unit = unit
             .map(|unit| {
@@ -283,7 +280,7 @@ impl<T: Convertible> AnyValues for Values<T> {
         CustomConverter::new(T::converter())
     }
 
-    fn default_units(&self, converter: &CustomConverter, axis: &Axis) -> Option<Unit> {
+    fn default_units(&self, converter: &CustomConverter, axis: &UnitAxis) -> Option<Unit> {
         let converter = converter.downcast_ref::<T::Converter>()?;
         converter.default_units(&self.0, axis).map(Unit::new)
     }
@@ -292,7 +289,7 @@ impl<T: Convertible> AnyValues for Values<T> {
         &self,
         converter: Option<&CustomConverter>,
         unit: Option<&Unit>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         match converter.and_then(CustomConverter::downcast_ref::<T::Converter>) {
             Some(converter) => self.convert_with(converter, unit, axis),
@@ -359,7 +356,11 @@ impl CustomValues {
 
     /// The unit `converter` picks for the values on `axis` (matplotlib's
     /// `default_units`).
-    pub(crate) fn default_units(&self, converter: &CustomConverter, axis: &Axis) -> Option<Unit> {
+    pub(crate) fn default_units(
+        &self,
+        converter: &CustomConverter,
+        axis: &UnitAxis,
+    ) -> Option<Unit> {
         self.0.default_units(converter, axis)
     }
 
@@ -368,7 +369,7 @@ impl CustomValues {
         &self,
         converter: Option<&CustomConverter>,
         unit: Option<&Unit>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         self.0.convert(converter, unit, axis)
     }
@@ -442,13 +443,13 @@ mod tests {
             &self,
             values: &[Millimetres],
             unit: Option<&u32>,
-            _: &Axis,
+            _: &UnitAxis,
         ) -> Result<Vec<f64>, ConversionError> {
             let per = f64::from(*unit.unwrap_or(&1));
             Ok(values.iter().map(|v| v.0 / per).collect())
         }
 
-        fn default_units(&self, _: &[Millimetres], _: &Axis) -> Option<u32> {
+        fn default_units(&self, _: &[Millimetres], _: &UnitAxis) -> Option<u32> {
             Some(10)
         }
     }
@@ -473,7 +474,7 @@ mod tests {
     #[test]
     fn values_convert_in_the_axis_unit() {
         let ax = Figure::new().subplot();
-        let axis = ax.xaxis();
+        let axis = UnitAxis::from(ax.xaxis());
         let values = CustomValues::new(vec![Millimetres(20.0), Millimetres(5.0)]);
         let converter = values.converter();
         assert!(converter.is::<MillimetreConverter>());
@@ -547,7 +548,7 @@ mod tests {
             &self,
             values: &[Dropped],
             _: Option<&()>,
-            _: &Axis,
+            _: &UnitAxis,
         ) -> Result<Vec<f64>, ConversionError> {
             Ok(values.iter().skip(1).map(|v| v.0).collect())
         }
@@ -563,16 +564,14 @@ mod tests {
     #[test]
     fn values_keep_to_their_own_converter_and_count() {
         let ax = Figure::new().subplot();
+        let axis = UnitAxis::from(ax.xaxis());
         let values = CustomValues::new(vec![Millimetres(3.0)]);
         let other = CustomConverter::new(Lossy);
-        assert_eq!(
-            values.convert(Some(&other), None, &ax.xaxis()),
-            Ok(vec![3.0])
-        );
-        assert_eq!(values.default_units(&other, &ax.xaxis()), None);
+        assert_eq!(values.convert(Some(&other), None, &axis), Ok(vec![3.0]));
+        assert_eq!(values.default_units(&other, &axis), None);
         let dropped = CustomValues::new(vec![Dropped(1.0), Dropped(2.0)]);
         assert_eq!(
-            dropped.convert(None, None, &ax.xaxis()),
+            dropped.convert(None, None, &axis),
             Err(ConversionError::Count {
                 values: 2,
                 numbers: 1

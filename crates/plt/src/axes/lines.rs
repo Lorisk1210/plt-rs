@@ -9,7 +9,7 @@ use crate::numeric::{Number, to_f64s};
 use crate::rc::{CycleValue, Cycler};
 use crate::scale::LogScale;
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, UnitSources};
+use crate::units::{AxisValues, UnitHandle, UnitSources};
 
 impl Axes {
     /// Plots `y` against `x` as a line using the next property-cycle style

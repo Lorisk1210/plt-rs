@@ -6,6 +6,7 @@
 pub(crate) mod afm;
 pub(crate) mod animation;
 pub(crate) mod api_audit;
+pub(crate) mod api_audit_3d;
 pub(crate) mod argsort;
 pub(crate) mod artist_behaviour;
 pub(crate) mod axes3d;

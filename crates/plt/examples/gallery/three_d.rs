@@ -134,14 +134,7 @@ fn bars_3d() -> Built {
         .iter()
         .map(|year| Color::from(format!("C{year}")))
         .collect();
-    let boxes = Boxes {
-        x: &x,
-        y: &y,
-        z: &[0.0],
-        dx: &[0.7],
-        dy: &[0.5],
-        dz: &heights,
-    };
+    let boxes = Boxes::new(&x, &y, [0.0], [0.7], [0.5], &heights);
     let options = Bar3DOptions {
         color: colors,
         ..Bar3DOptions::default()
@@ -233,7 +226,7 @@ fn curve_3d() -> Built {
     ax.plot_with(
         &x,
         &y,
-        &vec![-1.5; t.len()],
+        vec![-1.5; t.len()],
         Axis3::Z,
         LineProps::default().color("0.8"),
     )?;

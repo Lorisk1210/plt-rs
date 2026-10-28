@@ -210,8 +210,7 @@ from_value_lists!(impl<T: Convertible> AxisDeltas: T);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::axes::Axis;
-    use crate::units::{ConversionError, ConversionInterface};
+    use crate::units::{ConversionError, ConversionInterface, UnitAxis};
 
     /// A length in metres.
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -227,7 +226,7 @@ mod tests {
             &self,
             values: &[Metres],
             _: Option<&()>,
-            _: &Axis,
+            _: &UnitAxis,
         ) -> Result<Vec<f64>, ConversionError> {
             Ok(values.iter().map(|m| m.0).collect())
         }

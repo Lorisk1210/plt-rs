@@ -44,8 +44,9 @@ impl ScalarMappable {
     }
 
     /// Replaces the norm.
-    pub fn set_norm(&mut self, norm: Box<dyn Norm>) {
+    pub fn set_norm(&mut self, norm: Box<dyn Norm>) -> &mut Self {
         self.norm = norm;
+        self
     }
 
     /// The colormap.
@@ -54,19 +55,21 @@ impl ScalarMappable {
     }
 
     /// Replaces the colormap.
-    pub fn set_cmap(&mut self, cmap: Colormap) {
+    pub fn set_cmap(&mut self, cmap: Colormap) -> &mut Self {
         self.cmap = cmap;
+        self
     }
 
     /// Sets the data values mapped to the ends of the colormap
     /// (matplotlib's `set_clim`); `None` leaves a limit unchanged.
-    pub fn set_clim(&mut self, vmin: Option<f64>, vmax: Option<f64>) {
+    pub fn set_clim(&mut self, vmin: Option<f64>, vmax: Option<f64>) -> &mut Self {
         if vmin.is_some() {
             self.norm.set_vmin(vmin);
         }
         if vmax.is_some() {
             self.norm.set_vmax(vmax);
         }
+        self
     }
 
     /// The data values mapped to the ends of the colormap (matplotlib's

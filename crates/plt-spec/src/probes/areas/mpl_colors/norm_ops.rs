@@ -58,8 +58,12 @@ pub(super) fn centered_steps(args: Args<'_>) -> Outcome {
             attribute => {
                 let value = value.as_f64().ok_or_else(bad)?;
                 match attribute {
-                    "vcenter" => norm.set_vcenter(value),
-                    "halfrange" => norm.set_halfrange(Some(value)),
+                    "vcenter" => {
+                        norm.set_vcenter(value);
+                    }
+                    "halfrange" => {
+                        norm.set_halfrange(Some(value));
+                    }
                     "vmin" => norm.set_vmin(Some(value)),
                     "vmax" => norm.set_vmax(Some(value)),
                     _ => return Err(bad()),

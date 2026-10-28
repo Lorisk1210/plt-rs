@@ -53,7 +53,7 @@ impl MappingChange {
             Self::Cmap(cmap) => mapping.set_cmap(*cmap),
             Self::Clim(vmin, vmax) => mapping.set_clim(vmin, vmax),
             Self::Norm(norm) => mapping.set_norm(norm),
-        }
+        };
     }
 }
 

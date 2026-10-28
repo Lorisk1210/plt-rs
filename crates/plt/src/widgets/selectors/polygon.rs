@@ -370,14 +370,14 @@ impl PolygonSelector {
     /// # Errors
     ///
     /// When `verts` is empty.
-    pub fn set_verts(&self, verts: &[(f64, f64)]) -> Result<(), SelectorError> {
+    pub fn set_verts(&self, verts: &[(f64, f64)]) -> Result<&Self, SelectorError> {
         if verts.is_empty() {
             return Err(SelectorError::NoVertices);
         }
         let mut shared = self.driver.shared.borrow_mut();
         let shared = &mut *shared;
         shared.tool.set_verts(&mut shared.core, verts);
-        Ok(())
+        Ok(self)
     }
 
     /// The line showing the polygon.
@@ -421,17 +421,19 @@ impl PolygonSelector {
     }
 
     /// Changes the line's look (matplotlib's `set_props`).
-    pub fn set_props(&self, props: LineProps) {
+    pub fn set_props(&self, props: LineProps) -> &Self {
         self.driver.shared.borrow().tool.line.update_props(props);
+        self
     }
 
     /// Changes the look of the vertex markers (matplotlib's
     /// `set_handle_props`).
-    pub fn set_handle_props(&self, props: LineProps) {
+    pub fn set_handle_props(&self, props: LineProps) -> &Self {
         let mut shared = self.driver.shared.borrow_mut();
         let polygon = &mut shared.tool;
         polygon.handles.update_props(&props);
         polygon.handle_props = std::mem::take(&mut polygon.handle_props).overlay(props);
+        self
     }
 }
 
@@ -479,7 +481,10 @@ mod tests {
             .set_verts(&[(1.0, 1.0), (3.0, 1.0), (3.0, 3.0)])
             .unwrap();
         assert_eq!(selector.verts().len(), 3);
-        assert_eq!(selector.set_verts(&[]), Err(SelectorError::NoVertices));
+        assert_eq!(
+            selector.set_verts(&[]).err(),
+            Some(SelectorError::NoVertices)
+        );
     }
 
     #[test]

@@ -231,8 +231,9 @@ macro_rules! angle_locator {
 
             /// Changes the number of intervals (matplotlib's
             /// `set_params(nbins=...)`).
-            pub fn set_params(&mut self, nbins: usize) {
+            pub fn set_params(&mut self, nbins: usize) -> &mut Self {
                 self.nbins = nbins;
+                self
             }
         }
 

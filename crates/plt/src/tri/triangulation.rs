@@ -85,7 +85,7 @@ impl Triangulation {
     }
 
     /// Sets or clears the triangle mask, recomputing the topology.
-    pub fn set_mask(&mut self, mask: Option<Vec<bool>>) -> Result<(), TriError> {
+    pub fn set_mask(&mut self, mask: Option<Vec<bool>>) -> Result<&mut Self, TriError> {
         if let Some(mask) = &mask
             && mask.len() != self.triangles.len()
         {
@@ -96,7 +96,7 @@ impl Triangulation {
         }
         self.mask = mask;
         self.neighbors = self.compute_neighbors();
-        Ok(())
+        Ok(self)
     }
 
     /// Point x coordinates.

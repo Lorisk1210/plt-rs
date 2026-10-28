@@ -146,8 +146,9 @@ impl Figure {
 
     /// Asks the window showing the figure for a cursor shape (matplotlib's
     /// `canvas.set_cursor`).
-    pub fn set_cursor(&self, cursor: CursorShape) {
+    pub fn set_cursor(&self, cursor: CursorShape) -> &Self {
         self.state_mut().cursor = cursor;
+        self
     }
 
     /// The cursor shape last asked for.

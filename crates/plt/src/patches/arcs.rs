@@ -259,26 +259,30 @@ impl Annulus {
     }
 
     /// Moves the centre (matplotlib's `set_center`).
-    pub fn set_center(&mut self, center: impl Into<Point>) {
+    pub fn set_center(&mut self, center: impl Into<Point>) -> &mut Self {
         self.center = center.into();
+        self
     }
 
     /// Sets the outer semi-axes `(a, b)` (matplotlib's `set_radii`); like
     /// matplotlib, the width is not checked against them.
-    pub fn set_radii(&mut self, (a, b): (f64, f64)) {
+    pub fn set_radii(&mut self, (a, b): (f64, f64)) -> &mut Self {
         self.semi_axes = (a, b);
+        self
     }
 
     /// Sets the outer semi-axis along the unrotated x direction
     /// (matplotlib's `set_semimajor`).
-    pub fn set_semimajor(&mut self, a: f64) {
+    pub fn set_semimajor(&mut self, a: f64) -> &mut Self {
         self.semi_axes.0 = a;
+        self
     }
 
     /// Sets the outer semi-axis along the unrotated y direction
     /// (matplotlib's `set_semiminor`).
-    pub fn set_semiminor(&mut self, b: f64) {
+    pub fn set_semiminor(&mut self, b: f64) -> &mut Self {
         self.semi_axes.1 = b;
+        self
     }
 
     /// Sets the ring thickness (matplotlib's `set_width`); fails, leaving
@@ -297,18 +301,19 @@ impl Annulus {
     ///
     /// [`ShapeError::AnnulusTooWide`] when `width` is larger than the
     /// smaller semi-axis.
-    pub fn set_width(&mut self, width: f64) -> Result<(), ShapeError> {
+    pub fn set_width(&mut self, width: f64) -> Result<&mut Self, ShapeError> {
         let (a, b) = self.semi_axes;
         if width > a.min(b) {
             return Err(ShapeError::AnnulusTooWide);
         }
         self.width = width;
-        Ok(())
+        Ok(self)
     }
 
     /// Sets the rotation in degrees (matplotlib's `set_angle`).
-    pub fn set_angle(&mut self, angle: f64) {
+    pub fn set_angle(&mut self, angle: f64) -> &mut Self {
         self.angle = angle;
+        self
     }
 
     fn placed(&self, vertices: impl Iterator<Item = Point>, a: f64, b: f64) -> Vec<Point> {

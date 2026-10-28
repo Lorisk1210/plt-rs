@@ -157,8 +157,9 @@ impl Slider {
     }
 
     /// Sets the value, moving the slider and running the callbacks.
-    pub fn set_val(&self, val: f64) {
+    pub fn set_val(&self, val: f64) -> &Self {
         self.parts.set_val(val);
+        self
     }
 
     /// Returns to the initial value.
@@ -174,19 +175,22 @@ impl Slider {
     }
 
     /// Whether the minimum and the maximum can be reached.
-    pub fn set_closed(&self, min: bool, max: bool) {
+    pub fn set_closed(&self, min: bool, max: bool) -> &Self {
         self.parts.base.closedmin.set(min);
         self.parts.base.closedmax.set(max);
+        self
     }
 
     /// Keeps the value above `other`'s (matplotlib's `slidermin`).
-    pub fn set_slidermin(&self, other: &Self) {
+    pub fn set_slidermin(&self, other: &Self) -> &Self {
         self.parts.links.borrow_mut().0 = Rc::downgrade(&other.parts);
+        self
     }
 
     /// Keeps the value below `other`'s (matplotlib's `slidermax`).
-    pub fn set_slidermax(&self, other: &Self) {
+    pub fn set_slidermax(&self, other: &Self) -> &Self {
         self.parts.links.borrow_mut().1 = Rc::downgrade(&other.parts);
+        self
     }
 
     /// The slider made with `other` as its `slidermin` (matplotlib's

@@ -151,9 +151,10 @@ macro_rules! region_methods {
 
             /// Shows the shape over `(xmin, xmax, ymin, ymax)` (matplotlib's
             /// `extents` setter).
-            pub fn set_extents(&self, extents: (f64, f64, f64, f64)) {
+            pub fn set_extents(&self, extents: (f64, f64, f64, f64)) -> &Self {
                 let shared = self.driver.shared.borrow();
                 shared.tool.set_extents(&shared.core, extents);
+                self
             }
 
             /// The centre in data coordinates (matplotlib's `center`).
@@ -182,10 +183,11 @@ macro_rules! region_methods {
 
             /// Rotates the shape about its centre; angles outside ±45° are
             /// ignored (matplotlib's `rotation` setter).
-            pub fn set_rotation(&self, degrees: f64) {
+            pub fn set_rotation(&self, degrees: f64) -> &Self {
                 let mut shared = self.driver.shared.borrow_mut();
                 let shared = &mut *shared;
                 shared.tool.set_rotation(&shared.core, degrees);
+                self
             }
 
             /// The outline of the shape in data coordinates, closed
@@ -220,8 +222,9 @@ macro_rules! region_methods {
             }
 
             /// Changes the shape's look (matplotlib's `set_props`).
-            pub fn set_props(&self, props: PatchProps) {
+            pub fn set_props(&self, props: PatchProps) -> &Self {
                 self.driver.shared.borrow().tool.patch.update_props(props);
+                self
             }
 
             /// Changes the look of the handles (matplotlib's
@@ -230,7 +233,7 @@ macro_rules! region_methods {
             /// # Errors
             ///
             /// When the selector is not interactive and has no handles.
-            pub fn set_handle_props(&self, props: LineProps) -> Result<(), SelectorError> {
+            pub fn set_handle_props(&self, props: LineProps) -> Result<&Self, SelectorError> {
                 let mut shared = self.driver.shared.borrow_mut();
                 let handles = shared
                     .tool
@@ -241,7 +244,7 @@ macro_rules! region_methods {
                     markers.update_props(&props);
                 }
                 handles.props = std::mem::take(&mut handles.props).overlay(props);
-                Ok(())
+                Ok(self)
             }
         }
     };

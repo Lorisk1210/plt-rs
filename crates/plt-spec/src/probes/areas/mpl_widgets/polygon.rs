@@ -48,8 +48,12 @@ impl Tool for PolygonSelector {
     fn call(&self, method: &str, args: &[Json]) -> Result<Attempt, ProbeError> {
         let props = || props::line(args.first().ok_or_else(|| malformed(method))?);
         match method {
-            "set_props" => self.set_props(props()?),
-            "set_handle_props" => self.set_handle_props(props()?),
+            "set_props" => {
+                self.set_props(props()?);
+            }
+            "set_handle_props" => {
+                self.set_handle_props(props()?);
+            }
             "clear" => self.clear(),
             other => return Err(unknown("method", other)),
         }

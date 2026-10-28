@@ -187,8 +187,9 @@ impl RangeSlider {
 
     /// Sets the interval (its ends are sorted and bounded) and runs the
     /// callbacks.
-    pub fn set_val(&self, val: (f64, f64)) {
+    pub fn set_val(&self, val: (f64, f64)) -> &Self {
         self.parts.set_val(val);
+        self
     }
 
     /// Returns to the initial interval.

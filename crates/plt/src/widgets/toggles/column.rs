@@ -104,6 +104,17 @@ impl ButtonColumn {
         })
     }
 
+    /// The text of label `index`.
+    pub(super) fn label_text(&self, index: usize) -> Result<String, ButtonsError> {
+        self.labels
+            .get(index)
+            .map(Text::text)
+            .ok_or(ButtonsError::IndexOutOfRange {
+                index,
+                buttons: self.labels.len(),
+            })
+    }
+
     /// `sizes`, or the default areas when unset.
     pub(super) fn sizes_or_default(&self, sizes: Option<&Vec<f64>>) -> Vec<f64> {
         sizes.cloned().unwrap_or_else(|| self.default_sizes.clone())

@@ -62,7 +62,7 @@ impl FigureManager {
     /// `set_window_title`): an open window is renamed in interactive mode,
     /// else when the figure is next shown. The figure's label is left
     /// alone.
-    pub fn set_window_title(&self, title: &str) {
+    pub fn set_window_title(&self, title: &str) -> &Self {
         with_registry(|registry| {
             if let Some(entry) = registry
                 .figures
@@ -73,6 +73,7 @@ impl FigureManager {
             }
         });
         draw_if_interactive();
+        self
     }
 
     /// Resizes the canvas of the figure's window to `width × height`

@@ -65,10 +65,10 @@ impl MultiMappable {
     ///
     /// [`MultivarError::NormCount`] when the colormap takes another number
     /// of variates than there are norms.
-    pub fn set_cmap(&mut self, cmap: MultiColormap) -> Result<(), MultivarError> {
+    pub fn set_cmap(&mut self, cmap: MultiColormap) -> Result<&mut Self, MultivarError> {
         check_norms(&cmap, &self.norm)?;
         self.cmap = cmap;
-        Ok(())
+        Ok(self)
     }
 
     /// Sets the limits of every norm (matplotlib's `set_clim`); `None`
@@ -81,14 +81,14 @@ impl MultiMappable {
         &mut self,
         vmin: Option<&[Option<f64>]>,
         vmax: Option<&[Option<f64>]>,
-    ) -> Result<(), MultivarError> {
+    ) -> Result<&mut Self, MultivarError> {
         if let Some(vmin) = vmin {
             self.norm.set_vmin(vmin)?;
         }
         if let Some(vmax) = vmax {
             self.norm.set_vmax(vmax)?;
         }
-        Ok(())
+        Ok(self)
     }
 
     /// The limits of every norm (matplotlib's `get_clim`).

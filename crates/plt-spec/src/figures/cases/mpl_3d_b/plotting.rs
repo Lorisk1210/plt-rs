@@ -62,7 +62,7 @@ pub(super) fn errorbar3d(fig: &Figure) -> CaseResult {
         line: LineProps::default().label("Error lines"),
         ..Errorbar3DOptions::default()
     };
-    ax.errorbar(&d, &d, &d, options)?;
+    ax.errorbar(d, d, d, options)?;
     ax.legend(LegendOptions::default())?;
     remove_ticks_and_titles(fig);
     Ok(())
@@ -94,7 +94,7 @@ pub(super) fn stem3d(fig: &Figure) -> CaseResult {
             orientation: zdir,
             ..Stem3DOptions::default()
         };
-        let stem = ax.stem(&x, &[1.0; 20], &z, options)?;
+        let stem = ax.stem(&x, [1.0; 20], &z, options)?;
         ax.set_title(format!("orientation={}", zdir.name()));
         stem.markerline
             .set_markerfacecolor("none")
@@ -175,7 +175,7 @@ pub(super) fn scatter_spiral(fig: &Figure) -> CaseResult {
 
 pub(super) fn mutating_input_arrays_y_and_z(fig: &Figure) -> CaseResult {
     fig.subplot_3d()
-        .plot_fmt(&[1.0, 2.0, 3.0], &[0.0; 3], &[0.0; 3], "o-")?;
+        .plot_fmt([1.0, 2.0, 3.0], [0.0; 3], [0.0; 3], "o-")?;
     Ok(())
 }
 
@@ -225,7 +225,7 @@ pub(super) fn axlim_clip(fig: &Figure) -> CaseResult {
     };
     ax.plot_surface(&xx, &yy, &zz, options)?;
     let props = LineProps::default().color("k").linewidth(3.0).zorder(5.0);
-    let line = ax.plot_with(&[0.5, 0.5], &[0.0, 1.0], &[0.5, 1.5], Axis3::Z, props)?;
+    let line = ax.plot_with([0.5, 0.5], [0.0, 1.0], [0.5, 1.5], Axis3::Z, props)?;
     ax.set_axlim_clip(&line, true)?;
     let (flat_x, flat_y) = (xx.as_slice(), yy.as_slice());
     let lifted = |dz: f64| zz.as_slice().iter().map(|z| z + dz).collect::<Vec<f64>>();
@@ -233,7 +233,7 @@ pub(super) fn axlim_clip(fig: &Figure) -> CaseResult {
         axlim_clip: true,
         ..Scatter3DOptions::default()
     };
-    ax.scatter_with(flat_x, flat_y, &lifted(1.0), options)?;
+    ax.scatter_with(flat_x, flat_y, lifted(1.0), options)?;
     let positions: Vec<[f64; 3]> = (flat_x.iter().zip(flat_y).zip(lifted(2.0)))
         .map(|((&x, &y), z)| [x, y, z])
         .collect();
@@ -246,7 +246,7 @@ pub(super) fn axlim_clip(fig: &Figure) -> CaseResult {
     let first_row = |g: &Grid<f64>| g.row(0).to_vec();
     let top: Vec<f64> = first_row(&zz).iter().map(|z| z + 3.0).collect();
     let props = LineProps::default().color("C2");
-    let line = ax.plot_with(&first_row(&xx), &first_row(&yy), &top, Axis3::Z, props)?;
+    let line = ax.plot_with(first_row(&xx), first_row(&yy), &top, Axis3::Z, props)?;
     ax.set_axlim_clip(&line, true)?;
     let text = ax.text(1.1, 0.5, 4.0, "test", None);
     ax.set_axlim_clip(&text, true)?;

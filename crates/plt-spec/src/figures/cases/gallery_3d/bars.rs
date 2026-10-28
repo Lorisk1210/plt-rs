@@ -23,21 +23,14 @@ fn bars_3d(fig: &Figure) -> CaseResult {
         .flat_map(|row| (0..4).map(move |col| (f64::from(col), f64::from(row))))
         .unzip();
     let top: Vec<f64> = x.iter().zip(&y).map(|(x, y)| x + y).collect();
-    let boxes = Boxes {
-        x: &x,
-        y: &y,
-        z: &[0.0],
-        dx: &[1.0],
-        dy: &[1.0],
-        dz: &top,
-    };
+    let boxes = Boxes::new(&x, &y, [0.0], [1.0], [1.0], &top);
     for (index, shade, title) in [(1, true, "Shaded"), (2, false, "Not Shaded")] {
         let ax = fig.add_subplot_3d(1, 2, index, Axes3DOptions::default())?;
         let options = Bar3DOptions {
             shade,
             ..Bar3DOptions::default()
         };
-        ax.bar3d(boxes, options)?;
+        ax.bar3d(boxes.clone(), options)?;
         ax.set_title(title);
     }
     Ok(())
@@ -57,7 +50,7 @@ fn bars3d(fig: &Figure) -> CaseResult {
             props: PatchProps::default().alpha(0.8),
             ..BarOptions::default()
         };
-        ax.bar(&xs, &ys, &[k], Axis3::Y, options)?;
+        ax.bar(&xs, &ys, [k], Axis3::Y, options)?;
     }
     label_xyz(&ax, ["X", "Y", "Z"]);
     ax.yaxis().set_ticks(&yticks);
@@ -80,14 +73,7 @@ fn hist3d(fig: &Figure) -> CaseResult {
         .iter()
         .flat_map(|x| hist.yedges[..4].iter().map(move |y| (x + 0.25, y + 0.25)))
         .unzip();
-    let boxes = Boxes {
-        x: &xpos,
-        y: &ypos,
-        z: &[0.0],
-        dx: &[0.5],
-        dy: &[0.5],
-        dz: hist.counts.as_slice(),
-    };
+    let boxes = Boxes::new(&xpos, &ypos, [0.0], [0.5], [0.5], hist.counts.as_slice());
     ax.bar3d(boxes, Bar3DOptions::default())?;
     Ok(())
 }

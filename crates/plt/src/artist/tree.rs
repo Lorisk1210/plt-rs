@@ -130,7 +130,7 @@ mod tests {
     fn artists_of_3d_axes_have_no_2d_axes() {
         let fig = Figure::new();
         let ax = fig.subplot_3d();
-        let line = ax.plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0]).unwrap();
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(line.axes(), None);
         assert_eq!(ax.axes(), None);
         assert_eq!(line.figure(), fig);

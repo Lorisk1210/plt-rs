@@ -58,8 +58,8 @@ fn figures() -> Result<Vec<(Figure, String)>, Box<dyn std::error::Error>> {
         .plot(vec![0.0, 1.0, 2.0, 3.0], vec![1.0, 2.0, 1.5, 3.0])?;
     let deep = Figure::with_size(3.0, 3.0, 50.0);
     let ax3 = deep.subplot_3d();
-    ax3.scatter(&[0.0, 1.0, 2.0], &[0.0, 1.0, 0.5], &[1.0, 0.0, 2.0])?;
-    ax3.plot(&[0.0, 1.0, 2.0], &[2.0, 1.0, 0.0], &[0.0, 1.0, 1.0])?;
+    ax3.scatter([0.0, 1.0, 2.0], [0.0, 1.0, 0.5], [1.0, 0.0, 2.0])?;
+    ax3.plot([0.0, 1.0, 2.0], [2.0, 1.0, 0.0], [0.0, 1.0, 1.0])?;
     Ok(vec![
         (flat, "Flat".to_owned()),
         (round, "Polar".to_owned()),

@@ -83,6 +83,7 @@
 //! | `ax.xaxis.update_units(data)`                  | [`Axis::update_units`]                           |
 //! | `ax.xaxis.set_converter(c)`, `get_converter()` | [`Axis::set_converter`], [`Axis::converter`]     |
 //! | `class C(units.ConversionInterface)`, `units.registry[T] = C()` | `impl` [`ConversionInterface`] `for C`, `impl` [`Convertible`] `for T` |
+//! | `def convert(value, unit, axis)` (and `axisinfo`, `default_units`) | `fn convert(&self, values, unit, axis: &`[`UnitAxis`]`)`: the axis of 2-D or of 3-D axes |
 //! | `units.AxisInfo(majloc=, label=, default_limits=)` | [`UnitAxisInfo`] `{ majloc, label, default_limits, .. }` |
 //! | `units.ConversionError`                        | [`ConversionError`]                              |
 //! | `mdates.MonthLocator()`, `DayLocator`, `WeekdayLocator` | [`RRuleLocator::months`], [`RRuleLocator::days`], [`RRuleLocator::weekdays`] |
@@ -420,6 +421,7 @@
 //! [`ConversionInterface`]: crate::units::ConversionInterface
 //! [`Convertible`]: crate::units::Convertible
 //! [`UnitAxisInfo`]: crate::units::UnitAxisInfo
+//! [`UnitAxis`]: crate::units::UnitAxis
 //! [`ConversionError`]: crate::units::ConversionError
 //! [`Axes::has_data`]: crate::axes::Axes::has_data
 //! [`Axis::set_offset_position`]: crate::axes::Axis::set_offset_position

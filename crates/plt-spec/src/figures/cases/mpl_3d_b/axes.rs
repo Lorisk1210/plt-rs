@@ -46,7 +46,7 @@ pub(super) fn axes3d_rotated(fig: &Figure) -> CaseResult {
 pub(super) fn culling(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     let xs = linspace(0.0, -100.0, 101);
-    ax.plot_fmt(&xs, &[1.0; 101], &[0.0; 101], "k")?;
+    ax.plot_fmt(&xs, [1.0; 101], [0.0; 101], "k")?;
     ax.set_xlim(-5.0, 5.0)?;
     ax.set_ylim(-5.0, 5.0)?;
     ax.set_zlim(-5.0, 5.0)?;
@@ -85,9 +85,9 @@ pub(super) fn axes3d_isometric(fig: &Figure) -> CaseResult {
 /// The line of the `inverted` tests.
 fn inverted_line(ax: &Axes3D) -> Result<(), Axes3DError> {
     let line = ax.plot(
-        &[1.0, 1.0, 10.0, 10.0],
-        &[1.0, 10.0, 10.0, 10.0],
-        &[1.0, 1.0, 1.0, 10.0],
+        [1.0, 1.0, 10.0, 10.0],
+        [1.0, 10.0, 10.0, 10.0],
+        [1.0, 1.0, 1.0, 10.0],
     );
     line.map(drop)
 }

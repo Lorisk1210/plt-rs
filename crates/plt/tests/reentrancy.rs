@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use plt::animation::{AnimationOptions, Frames, FuncAnimation};
 use plt::artist::{Artist, ArtistBase, DrawContext, Picker};
-use plt::axes::{Axis, AxisName, ProjectionKind};
+use plt::axes::{AxisName, ProjectionKind};
 use plt::events::{Event, EventKind, EventSource};
 use plt::gui::{Icon, ToolKind, ToolSpec};
 use plt::navigation::PointerButton;
@@ -23,7 +23,7 @@ use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::projections::{self, Projection, ProjectionView};
 use plt::transforms::ResolvedTransform;
-use plt::units::{ConversionError, ConversionInterface, Convertible};
+use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis};
 use plt::widgets::{Orientation, Slider, SliderOptions, SpanSelector, SpanSelectorOptions};
 
 /// A small figure with one line.
@@ -360,9 +360,11 @@ impl ConversionInterface for PriceConverter {
         &self,
         values: &[Price],
         _: Option<&()>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
-        axis.set_inverted(axis.inverted());
+        if let UnitAxis::Axes(axis) = axis {
+            axis.set_inverted(axis.inverted());
+        }
         TOUCHED.with_borrow(|touched| {
             if let Some((ax, line)) = touched {
                 touch(ax, line);

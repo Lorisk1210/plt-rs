@@ -44,14 +44,14 @@ fn minimum(values: &[f64]) -> f64 {
 
 fn bar3d_simple(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
-    let boxes = Boxes {
-        x: &[1.0, 1.0, 2.0, 2.0],
-        y: &[1.0, 2.0, 1.0, 2.0],
-        z: &[0.0, 0.0, 0.0, 0.0],
-        dx: &[0.5; 4],
-        dy: &[0.5; 4],
-        dz: &[2.0, 3.0, 1.0, 4.0],
-    };
+    let boxes = Boxes::new(
+        [1.0, 1.0, 2.0, 2.0],
+        [1.0, 2.0, 1.0, 2.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.5; 4],
+        [0.5; 4],
+        [2.0, 3.0, 1.0, 4.0],
+    );
     ax.bar3d(boxes, Bar3DOptions::default())?;
     no_tick_labels(&ax)
 }
@@ -68,7 +68,7 @@ fn fill_between3d_simple(fig: &Figure) -> CaseResult {
         props: CollectionProps::default().alpha(0.5),
         ..FillBetween3DOptions::default()
     };
-    ax.fill_between([&x1, &y1, &z], [&x2, &y2, &z], translucent)?;
+    ax.fill_between((&x1, &y1, &z), (&x2, &y2, &z), translucent)?;
     for (x, y) in [(&x1, &y1), (&x2, &y2)] {
         ax.plot_with(
             x,
@@ -86,8 +86,8 @@ fn plot3d_simple(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     ax.plot(
         &xs,
-        &map(&xs, |x| (x * 6.0 * PI).sin()),
-        &map(&xs, |x| (x * 6.0 * PI).cos()),
+        map(&xs, |x| (x * 6.0 * PI).sin()),
+        map(&xs, |x| (x * 6.0 * PI).cos()),
     )?;
     no_tick_labels(&ax)
 }
@@ -124,9 +124,9 @@ fn stem3d(fig: &Figure) -> CaseResult {
     let theta = linspace(0.0, 2.0 * PI, 20);
     let ax = fig.subplot_3d();
     ax.stem(
-        &map(&theta, f64::sin),
-        &map(&theta, f64::cos),
-        &linspace(0.0, 1.0, theta.len()),
+        map(&theta, f64::sin),
+        map(&theta, f64::cos),
+        linspace(0.0, 1.0, theta.len()),
         Stem3DOptions::default(),
     )?;
     no_tick_labels(&ax)

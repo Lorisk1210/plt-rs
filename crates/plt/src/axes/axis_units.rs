@@ -2,57 +2,62 @@
 //! into numbers, and the converter that remembers which kind of values
 //! the axis shows (matplotlib's `Axis.convert_units`, `update_units`,
 //! `get_converter`, `set_converter`, `have_units` and `axis_date`, and
-//! `Axes.convert_xunits` and `convert_yunits`).
+//! `Axes.convert_xunits` and `convert_yunits`). The conversions are those
+//! [`UnitHandle`] shares with 3-D axes; this module gives the 2-D axis
+//! its part of them.
 
 use plt_core::Point;
 
 use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::{Axes, AxesState, PlotError};
-use crate::artist::ArtistHandle;
-use crate::dates::{Datetime64, TimeZone, get_epoch};
-use crate::units::{AxisValue, AxisValues, Categories, DataPoint, Unit, UnitConverter};
+use crate::artist::{ArtistHandle, RawHandle};
+use crate::dates::TimeZone;
+use crate::units::{
+    AxisValue, AxisValues, Categories, DataPoint, UnitAxis, UnitConverter, UnitHandle, UnitState,
+};
 
-/// Seconds in a day: the length of the default view of a date axis.
-const SECONDS_PER_DAY: i64 = 86_400;
+impl UnitHandle for Axis {
+    type State = AxisState;
 
-/// The unit converter of an axis, how it was chosen, and the unit.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct AxisUnits {
-    /// The converter, once values with units were converted or one was
-    /// set (matplotlib's `_converter`).
-    pub(crate) converter: Option<UnitConverter>,
-    /// Whether the converter was set explicitly, so that converted values
-    /// do not replace it (matplotlib's `_converter_is_explicit`).
-    pub(crate) explicit: bool,
-    /// The unit, once one was set or picked for user values (matplotlib's
-    /// `units`).
-    pub(crate) unit: Option<Unit>,
-}
-
-impl AxisUnits {
-    /// Takes `converter` unless another one was set explicitly
-    /// (matplotlib's `_set_converter` from `update_units`).
-    pub(crate) fn adopt(&mut self, converter: UnitConverter) {
-        if !self.explicit {
-            self.converter = Some(converter);
-        }
+    fn unit_axis(&self) -> UnitAxis {
+        UnitAxis::Axes(self.clone())
     }
 
-    /// The converter, which is `converter` when there was none
-    /// (matplotlib's `Axis.convert_units`, which sets the converter of
-    /// the values it converts only on an axis without one).
-    pub(crate) fn converter_or(&mut self, converter: UnitConverter) -> UnitConverter {
-        self.converter.get_or_insert(converter).clone()
+    fn axes_raw(&self) -> &RawHandle {
+        self.axes.raw()
     }
 
-    /// The time zone of date ticks: the unit when it is a time zone, as
-    /// matplotlib's date converter takes it, else UTC.
-    pub(crate) fn time_zone(&self) -> TimeZone {
-        self.unit
-            .as_ref()
-            .and_then(Unit::downcast_ref::<TimeZone>)
-            .map_or(TimeZone::Utc, Clone::clone)
+    fn read_state<R>(&self, f: impl FnOnce(&AxisState) -> R) -> R {
+        self.read(f)
+    }
+
+    fn update_state<R>(&self, f: impl FnOnce(&mut AxisState) -> R) -> R {
+        self.update(f)
+    }
+
+    fn update_shared_states(&self, f: impl FnMut(&mut AxisState)) {
+        self.update_shared(f);
+    }
+
+    fn sharing(&self) -> Vec<Self> {
+        (self.axes.shared_axes(self.name).iter())
+            .map(|axes| axes.axis_of(self.name))
+            .collect()
+    }
+
+    fn units_changed(&self) {
+        self.axes.units_changed(self.name);
+    }
+
+    fn set_default_intervals(&self, limits: (f64, f64)) {
+        let name = self.name;
+        self.axes.raw().with_mut::<AxesState, _>(|axes| {
+            let ((low, high), _) = axes.data_interval(name);
+            if !(low.is_finite() || high.is_finite() || axes.view_mutated(name)) {
+                axes.set_view_interval(name, limits);
+            }
+        });
     }
 }
 
@@ -81,31 +86,7 @@ impl Axis {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn convert_units(&self, values: impl Into<AxisValues>) -> Vec<f64> {
-        let positions = match values.into() {
-            // Numbers need no converter, so the axis is left untouched.
-            AxisValues::Numbers(numbers) => return numbers,
-            AxisValues::Custom(values) => {
-                if !self.have_units() {
-                    self.update_custom_units(&values);
-                }
-                return self.convert_custom(&values);
-            }
-            AxisValues::Dates(numbers) => self.update(|axis| axis.convert_dates(numbers)),
-            AxisValues::Categories(names) => self.update(|axis| axis.convert_categories(&names)),
-        };
-        let units = self.read(AxisState::unit_data);
-        self.update_shared(|axis| axis.share_units(&units));
-        positions
-    }
-
-    /// Converts plotting values as matplotlib's `plot` and `fill` do: user
-    /// values update the axis units first even when it has some
-    /// (`_plot_args` calling `update_units`).
-    pub(crate) fn convert_plot_units(&self, values: AxisValues) -> Vec<f64> {
-        if let AxisValues::Custom(values) = &values {
-            self.update_custom_units(values);
-        }
-        self.convert_units(values)
+        self.convert_values(values.into())
     }
 
     /// Converts one plotting value to an axis number, as
@@ -122,10 +103,7 @@ impl Axis {
     /// # Ok::<(), plt::dates::DateError>(())
     /// ```
     pub fn convert_value(&self, value: impl Into<AxisValue>) -> f64 {
-        self.convert_units(AxisValues::from(value.into()))
-            .into_iter()
-            .next()
-            .expect("one value converts to one number")
+        self.convert_one(value.into())
     }
 
     /// The unit converter: the one set with
@@ -144,7 +122,7 @@ impl Axis {
     /// # Ok::<(), plt::axes::PlotError>(())
     /// ```
     pub fn converter(&self) -> Option<UnitConverter> {
-        self.read(|axis| axis.units.converter.clone())
+        self.current_converter()
     }
 
     /// Sets the unit converter explicitly (matplotlib's `set_converter`):
@@ -157,17 +135,12 @@ impl Axis {
     ///
     /// When another converter was already set explicitly.
     pub fn set_converter(&self, converter: impl Into<UnitConverter>) -> Result<&Self, PlotError> {
-        let converter = Some(converter.into());
-        self.update(|axis| {
-            let units = &mut axis.units;
-            if units.explicit && units.converter != converter {
-                return Err(PlotError::ExplicitConverter(axis.name));
-            }
-            units.converter = converter;
-            units.explicit = true;
-            Ok(())
-        })?;
-        Ok(self)
+        let converter = converter.into();
+        if self.update(|axis| axis.units_mut().set_explicit(converter)) {
+            Ok(self)
+        } else {
+            Err(PlotError::ExplicitConverter(self.name))
+        }
     }
 
     /// The category names plotted on the axis, in position order, if any
@@ -190,7 +163,7 @@ impl Axis {
     /// Whether the axis has a unit converter or a unit (matplotlib's
     /// `have_units`).
     pub fn have_units(&self) -> bool {
-        self.read(|axis| axis.units.converter.is_some() || axis.units.unit.is_some())
+        self.has_units()
     }
 
     /// Ticks the axis as an axis of dates in `tz` without plotting any
@@ -215,37 +188,8 @@ impl Axis {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn axis_date(&self, tz: &TimeZone) -> &Self {
-        let dated = self.update(|axis| {
-            axis.units.adopt(UnitConverter::Dates);
-            axis.units.converter == Some(UnitConverter::Dates)
-        });
-        if dated {
-            self.use_date_axisinfo(tz);
-        }
+        self.make_date_axis(tz);
         self
-    }
-
-    /// The tick helpers and default view of dates in `tz` (matplotlib's
-    /// `_update_axisinfo` with the date converter's `axisinfo`): the axes
-    /// sharing the axis take the tick helpers too.
-    pub(super) fn use_date_axisinfo(&self, tz: &TimeZone) {
-        self.update_shared(|axis| axis.use_date_tickers(tz));
-        let epoch = get_epoch();
-        let start = epoch.datetime64_to_num(Datetime64::new(0, 0));
-        let end = epoch.datetime64_to_num(Datetime64::new(SECONDS_PER_DAY, 0));
-        self.set_default_intervals((start, end));
-    }
-
-    /// matplotlib's `set_default_intervals`: the view becomes `limits`
-    /// when neither the data nor the view limits of the axis changed yet.
-    pub(super) fn set_default_intervals(&self, limits: (f64, f64)) {
-        let name = self.name;
-        self.axes.raw().with_mut::<AxesState, _>(|axes| {
-            let ((low, high), _) = axes.data_interval(name);
-            if !(low.is_finite() || high.is_finite() || axes.view_mutated(name)) {
-                axes.set_view_interval(name, limits);
-            }
-        });
     }
 }
 

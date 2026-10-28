@@ -8,6 +8,7 @@ use plt_core::{Bbox, Path, Point};
 use plt_render::GraphicsContext;
 use plt_text::{BlockStyle, HAlign, RotationMode, VAlign};
 
+use super::axis3d::Axis3DState;
 use super::camera::{Projection, norm_text_angle};
 use super::coords::Axis3;
 use super::geometry::{AxisPosition, BoxGeometry};
@@ -24,7 +25,11 @@ use crate::patheffects::with_path_effects;
 use crate::text::{draw_laid_out, lay_out};
 use crate::transforms::{ResolvedTransform, Transform};
 
+mod lines;
 mod ticks;
+
+pub use lines::{GridLine3D, TickLine3D};
+pub(crate) use lines::{grid_lines, tick_lines};
 
 /// Fraction of the tick offset the tick marks extend outwards and inwards.
 const TICK_OUTWARD: f64 = 0.1;
@@ -269,24 +274,9 @@ impl<'a> Painter<'a> {
         if axis.drawn_ticks().next().is_none() {
             return;
         }
-        let i = dir.index();
-        let (a, b) = ((i + 1) % 3, (i + 2) % 3);
-        let (far, near) = (self.geometry.far_corner(), self.geometry.near_corner());
-        let points: Vec<Vec3> = axis
-            .drawn_ticks()
-            .flat_map(|drawn| {
-                let mut corner = far;
-                corner[i] = axis.scale.masked_forward(drawn.tick.loc);
-                let (mut start, mut end) = (corner, corner);
-                start[a] = near[a];
-                end[b] = near[b];
-                [start, corner, end]
-            })
-            .collect();
-        // matplotlib's gridlines are one collection, projected at once.
-        let projected = self.projection.project_transformed_all(&points);
-        let paths = (projected.as_chunks::<3>().0.iter())
-            .map(|line| Path::polyline(line.iter().map(|q| Point::new(q[0], q[1])).collect()))
+        let locs: Vec<f64> = axis.drawn_ticks().map(|drawn| drawn.tick.loc).collect();
+        let paths = (self.gridlines(axis, &locs).into_iter())
+            .map(|line| Path::polyline(line.to_vec()))
             .collect();
         let style = &axis.style;
         let mut grid =
@@ -348,6 +338,30 @@ impl<'a> Painter<'a> {
                 },
             );
         }
+    }
+
+    /// The projected gridlines of `axis` at `locs`: from the near edge of
+    /// one pane through the far edge to the near edge of the other
+    /// (matplotlib's `draw_grid`, which projects them all at once).
+    fn gridlines(&self, axis: &Axis3DState, locs: &[f64]) -> Vec<[Point; 3]> {
+        let i = axis.dir.index();
+        let (a, b) = ((i + 1) % 3, (i + 2) % 3);
+        let (far, near) = (self.geometry.far_corner(), self.geometry.near_corner());
+        let points: Vec<Vec3> = locs
+            .iter()
+            .flat_map(|&loc| {
+                let mut corner = far;
+                corner[i] = axis.scale.masked_forward(loc);
+                let (mut start, mut end) = (corner, corner);
+                start[a] = near[a];
+                end[b] = near[b];
+                [start, corner, end]
+            })
+            .collect();
+        let projected = self.projection.project_transformed_all(&points);
+        (projected.as_chunks::<3>().0.iter())
+            .map(|line| line.map(|q| Point::new(q[0], q[1])))
+            .collect()
     }
 
     /// The box edge along `dir` at `position`.

@@ -1,8 +1,7 @@
 //! `test_units.Quantity` and the `quantity_converter` fixture: magnitudes
 //! in units of time and length, converted by a fixed table of factors.
 
-use plt::axes::Axis;
-use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
+use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo};
 
 /// A unit of a [`Quantity`] (the test's unit strings).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -115,7 +114,7 @@ impl ConversionInterface for QuantityConverter {
         &self,
         values: &[Quantity],
         unit: Option<&QuantityUnit>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         values
             .iter()
@@ -126,7 +125,7 @@ impl ConversionInterface for QuantityConverter {
             .collect()
     }
 
-    fn axisinfo(&self, unit: Option<&QuantityUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&QuantityUnit>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         Some(UnitAxisInfo {
             label: unit.map(|unit| unit.name().to_owned()),
             default_limits: Some((0.0, 100.0)),
@@ -134,7 +133,7 @@ impl ConversionInterface for QuantityConverter {
         })
     }
 
-    fn default_units(&self, values: &[Quantity], _: &Axis) -> Option<QuantityUnit> {
+    fn default_units(&self, values: &[Quantity], _: &UnitAxis) -> Option<QuantityUnit> {
         values.first().map(|value| value.units)
     }
 }

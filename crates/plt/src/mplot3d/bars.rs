@@ -11,13 +11,14 @@ use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
-use super::plot::{broadcast, columns};
+use super::plot::{columns, spread};
 use super::shade::LightSource;
 use crate::artist::{Artist, ArtistHandle};
 use crate::axes::BarOptions;
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
 use crate::patches::{Patch, PatchArtist, PatchShape, Rectangle};
+use crate::units::{AxisDeltas, AxisValues, UnitHandle};
 
 /// The faces of the unit cube, each counter-clockwise seen from outside:
 /// -z, +z, -y, +y, -x, +x.
@@ -94,53 +95,99 @@ impl Default for Bar3DOptions {
     }
 }
 
-/// The geometry of the boxes of [`Axes3D::bar3d`]: anchor corners and
-/// sizes, each holding one value per bar or one for all.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Boxes<'a> {
+/// The geometry of the boxes of [`Axes3D::bar3d`]: anchor corners as
+/// plotting values (numbers, dates, category names or user values) and
+/// sizes as extents from them (numbers, durations or user values), each
+/// holding one value per bar or one for all.
+///
+/// ```
+/// use plt::mplot3d::Boxes;
+/// let boxes = Boxes::new(["a", "b"], [0.0, 1.0], [0.0], [0.5], [0.5], [2.0, 3.0]);
+/// assert_eq!(boxes.dz.len(), 2);
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct Boxes {
     /// x of the anchor corners.
-    pub x: &'a [f64],
+    pub x: AxisValues,
     /// y of the anchor corners.
-    pub y: &'a [f64],
+    pub y: AxisValues,
     /// z of the anchor corners.
-    pub z: &'a [f64],
+    pub z: AxisValues,
     /// Widths along x.
-    pub dx: &'a [f64],
+    pub dx: AxisDeltas,
     /// Depths along y.
-    pub dy: &'a [f64],
+    pub dy: AxisDeltas,
     /// Heights along z.
-    pub dz: &'a [f64],
+    pub dz: AxisDeltas,
 }
 
-impl Boxes<'_> {
-    /// The anchors and sizes broadcast to one entry per bar.
-    fn broadcast(&self) -> Result<[Vec<f64>; 6], Axes3DError> {
-        let arrays = [self.x, self.y, self.z, self.dx, self.dy, self.dz];
-        let n = arrays.iter().map(|a| a.len()).max().unwrap_or(0);
-        let names = ["x", "y", "z", "dx", "dy", "dz"];
-        let mut out: [Vec<f64>; 6] = Default::default();
-        for ((slot, values), name) in out.iter_mut().zip(arrays).zip(names) {
-            *slot = broadcast(name, values, n)?;
+impl Boxes {
+    /// Boxes with corners at `(x, y, z)` and sizes `(dx, dy, dz)`.
+    pub fn new(
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
+        dx: impl Into<AxisDeltas>,
+        dy: impl Into<AxisDeltas>,
+        dz: impl Into<AxisDeltas>,
+    ) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+            dx: dx.into(),
+            dy: dy.into(),
+            dz: dz.into(),
         }
-        Ok(out)
+    }
+
+    /// The number of boxes: the length of the longest list.
+    fn len(&self) -> usize {
+        [self.x.len(), self.y.len(), self.z.len()]
+            .into_iter()
+            .chain([self.dx.len(), self.dy.len(), self.dz.len()])
+            .max()
+            .unwrap_or(0)
     }
 }
 
 impl Axes3D {
     /// Boxes with corners at `(x, y, z)` and sizes `(dx, dy, dz)`
-    /// (matplotlib's `bar3d`).
+    /// (matplotlib's `bar3d`). The corners convert on their axes as
+    /// [`Axes3D::plot`] converts its points, the sizes through the
+    /// corners they extend from (matplotlib's `_convert_dx`).
     ///
     /// # Errors
     ///
     /// When the arrays do not broadcast or a colour is invalid.
-    pub fn bar3d(
-        &self,
-        boxes: Boxes<'_>,
-        options: Bar3DOptions,
-    ) -> Result<Collection, Axes3DError> {
+    pub fn bar3d(&self, boxes: Boxes, options: Bar3DOptions) -> Result<Collection, Axes3DError> {
         let had_data = self.has_data();
-        let [x, y, z, dx, dy, dz] = boxes.broadcast()?;
-        let n = x.len();
+        let n = boxes.len();
+        let corners = [&boxes.x, &boxes.y, &boxes.z].map(AxisValues::len);
+        let sizes = [&boxes.dx, &boxes.dy, &boxes.dz].map(AxisDeltas::len);
+        let names = ["x", "y", "z", "dx", "dy", "dz"];
+        for (name, len) in names.into_iter().zip(corners.into_iter().chain(sizes)) {
+            if len != 1 {
+                check_len(name, n, len)?;
+            }
+        }
+        let Boxes {
+            x,
+            y,
+            z,
+            dx,
+            dy,
+            dz,
+        } = boxes;
+        let starts = self.convert_xyz([x.clone(), y.clone(), z.clone()]);
+        let extents = [(dx, &x), (dy, &y), (dz, &z)];
+        let [dx, dy, dz] = std::array::from_fn(|i| {
+            let (deltas, origin) = &extents[i];
+            self.axis(Axis3::ALL[i])
+                .convert_extents(deltas, origin, &starts[i])
+        });
+        let [x, y, z] = starts;
+        let [x, y, z, dx, dy, dz] = [x, y, z, dx, dy, dz].map(|values| spread(values, n));
         let span = |p: &[f64], dp: &[f64]| {
             let low = p.iter().copied().fold(f64::INFINITY, f64::min);
             let high = p
@@ -196,23 +243,41 @@ impl Axes3D {
     /// matplotlib's `ax.bar(left, height, zs=..., zdir=...)`).
     /// [`Axes3D::set_axlim_clip`] on a bar hides it where it reaches
     /// beyond the view limits (matplotlib's `axlim_clip`, which matplotlib
-    /// 3.11 fails to draw once a corner is hidden).
+    /// 3.11 fails to draw once a corner is hidden). The positions, the
+    /// bases in `options` and `zs` convert on the axes they lie along
+    /// once placed, as [`Axes3D::plot`] converts its points, and the
+    /// heights and thicknesses that are not numbers through them
+    /// (matplotlib's `_convert_dx`).
     ///
     /// # Errors
     ///
     /// When `zs` does not broadcast, or as [`crate::axes::Axes::bar`].
     pub fn bar(
         &self,
-        left: &[f64],
-        height: &[f64],
-        zs: &[f64],
+        left: impl Into<AxisValues>,
+        height: impl Into<AxisDeltas>,
+        zs: impl Into<AxisValues>,
         zdir: Axis3,
-        options: BarOptions,
+        mut options: BarOptions,
     ) -> Result<Vec<Patch<ProjectedOutline>>, Axes3DError> {
         let had_data = self.has_data();
+        let (left, height, zs) = (left.into(), height.into(), zs.into());
         check_len("height", left.len(), height.len())?;
-        let zs = broadcast("zs", zs, left.len())?;
-        let container = self.plane().bar(left.to_vec(), height, options)?;
+        if zs.len() != 1 {
+            check_len("zs", left.len(), zs.len())?;
+        }
+        // The axes the 2-D positions, the 2-D values and `zs` lie along.
+        let [along_left, along_height, along_zs] =
+            zdir.unjuggle(Axis3::ALL).map(|dir| self.axis(dir));
+        let positions = along_left.convert_values(left.clone());
+        options.thickness = along_left
+            .convert_extents(&options.thickness, &left, &positions)
+            .into();
+        let bases = along_height.convert_values(options.base.clone());
+        let height = along_height.convert_extents(&height, &options.base, &bases);
+        options.base = bases.into();
+        let zs = spread(along_zs.convert_values(zs), positions.len());
+        let container = self.plane().bar(positions, height, options)?;
         let mut all_points = Vec::new();
         let mut patches = Vec::with_capacity(container.patches.len());
         for (rectangle, &z) in container.patches.iter().zip(&zs) {
@@ -286,21 +351,37 @@ mod tests {
 
     #[test]
     fn boxes_broadcast_single_values() {
-        let boxes = Boxes {
-            x: &[0.0, 1.0, 2.0],
-            y: &[0.0],
-            z: &[0.0],
-            dx: &[0.5],
-            dy: &[0.5],
-            dz: &[3.0, 1.0, 2.0],
-        };
-        let [x, y, _, _, _, dz] = boxes.broadcast().expect("broadcastable");
-        assert_eq!((x.len(), y, dz), (3, vec![0.0; 3], vec![3.0, 1.0, 2.0]));
+        let boxes = Boxes::new([0.0, 1.0, 2.0], [0.0], [0.0], [0.5], [0.5], [3.0, 1.0, 2.0]);
+        assert_eq!(boxes.len(), 3);
+        let fig = crate::figure::Figure::new();
+        let ax = fig.subplot_3d();
+        let bars = ax
+            .bar3d(boxes.clone(), Bar3DOptions::default())
+            .expect("broadcastable");
+        fig.layout();
+        assert_eq!(bars.paths().len(), 18, "six faces per box");
         let bad = Boxes {
-            y: &[0.0, 1.0],
+            y: vec![0.0, 1.0].into(),
             ..boxes
         };
-        assert!(bad.broadcast().is_err());
+        assert!(ax.bar3d(bad, Bar3DOptions::default()).is_err());
+    }
+
+    #[test]
+    fn categorical_boxes_size_through_their_corners() {
+        use crate::dates::{DateTime, TimeDelta};
+        let ax = crate::figure::Figure::new().subplot_3d();
+        let day = DateTime::new(2020, 1, 1, 0, 0, 0, 0).expect("a date");
+        let half_day = TimeDelta::new(0, 43_200, 0).expect("a duration");
+        let boxes = Boxes::new(["a", "b"], [day], [0.0], [0.5], half_day, [1.0, 2.0]);
+        ax.bar3d(boxes, Bar3DOptions::default()).expect("boxes");
+        assert_eq!(ax.xaxis().ticklabels(false).expect("ticks"), ["a", "b"]);
+        let (low, high) = ax.ylim();
+        // The boxes span half a day from 2020-01-01 (day 18262).
+        assert!(
+            low < 18_262.0 && high > 18_262.5 && high < 18_263.0,
+            "{low} {high}"
+        );
     }
 
     #[test]

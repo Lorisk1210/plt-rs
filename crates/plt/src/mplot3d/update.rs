@@ -1,7 +1,7 @@
 //! Reading and replacing the 3-D geometry of artists already made, the
 //! way animations do (matplotlib's `Line3D.get_data_3d` and
-//! `set_data_3d`, `Path3DCollection._offsets3d`, `Text3D.get_position_3d`
-//! and `get_depthshade`).
+//! `set_data_3d`, the offsets of `Path3DCollection` and
+//! `Patch3DCollection`, `Text3D.get_position_3d` and `get_depthshade`).
 //!
 //! Like matplotlib's, the new geometry is shown from the next draw on and
 //! leaves the limits alone.
@@ -11,10 +11,12 @@ use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::plot::columns;
+use super::units::Sources3D;
 use crate::artist::ArtistHandle;
 use crate::collections::Collection;
 use crate::lines::Line2D;
 use crate::text::Text;
+use crate::units::AxisValues;
 
 impl Axes3D {
     /// The 3-D points of a line of these axes, as x, y and z coordinates
@@ -31,7 +33,9 @@ impl Axes3D {
     }
 
     /// Replaces the 3-D points of a line of these axes (matplotlib's
-    /// `Line3D.set_data_3d`); the limits stay as they are.
+    /// `Line3D.set_data_3d`); the limits stay as they are. The
+    /// coordinates convert on their axes as those of [`Axes3D::plot`]
+    /// do.
     ///
     /// ```
     /// use plt::figure::Figure;
@@ -50,11 +54,15 @@ impl Axes3D {
     pub fn set_line_data(
         &self,
         line: &Line2D,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
     ) -> Result<&Self, Axes3DError> {
-        let points = points_of(x, y, z)?;
+        let values = [x.into(), y.into(), z.into()];
+        check_lengths(&values)?;
+        self.read_art(line, |art| matches!(art, Art3D::Line(_)).then_some(()))?;
+        let sources = Sources3D::of(values.each_ref());
+        let points = points_of(self.convert_xyz(values));
         self.edit_art(line, |art| match art {
             Art3D::Line(old) => {
                 *old = points;
@@ -62,16 +70,19 @@ impl Axes3D {
             }
             _ => None,
         })?;
+        self.keep_unit_sources(line.id(), sources);
         Ok(self)
     }
 
     /// The 3-D positions of the markers of a scatter plot of these axes,
-    /// as x, y and z coordinates (matplotlib's
-    /// `Path3DCollection._offsets3d`).
+    /// or of the offsets of a patch collection added to them, as x, y and
+    /// z coordinates (matplotlib's `_offsets3d` of `Path3DCollection` and
+    /// `Patch3DCollection`).
     ///
     /// # Errors
     ///
-    /// When `scatter` is not a scatter plot of these axes.
+    /// When `scatter` is neither a scatter plot nor a patch collection of
+    /// these axes.
     pub fn scatter_offsets(&self, scatter: &Collection) -> Result<[Vec<f64>; 3], Axes3DError> {
         self.read_art(scatter, |art| match art {
             Art3D::Points(points) => Some(columns(&points.positions)),
@@ -80,9 +91,12 @@ impl Axes3D {
     }
 
     /// Moves the markers of a scatter plot of these axes, one position
-    /// per marker (matplotlib's `Path3DCollection.set_3d_properties` and
-    /// `_offsets3d`); their sizes and colours keep their order and the
-    /// limits stay as they are.
+    /// per marker, or the offsets of a patch collection added to them
+    /// (matplotlib's `set_3d_properties` and `_offsets3d` of
+    /// `Path3DCollection` and `Patch3DCollection`); their sizes and
+    /// colours keep their order and the limits stay as they are. The
+    /// coordinates convert on their axes as those of [`Axes3D::scatter`]
+    /// do.
     ///
     /// ```
     /// use plt::figure::Figure;
@@ -95,16 +109,19 @@ impl Axes3D {
     ///
     /// # Errors
     ///
-    /// When the coordinates differ in length, or `scatter` is not a
-    /// scatter plot of these axes.
+    /// When the coordinates differ in length, or `scatter` is neither a
+    /// scatter plot nor a patch collection of these axes.
     pub fn set_scatter_offsets(
         &self,
         scatter: &Collection,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
     ) -> Result<&Self, Axes3DError> {
-        let positions = points_of(x, y, z)?;
+        let values = [x.into(), y.into(), z.into()];
+        check_lengths(&values)?;
+        self.read_art(scatter, |art| matches!(art, Art3D::Points(_)).then_some(()))?;
+        let positions = points_of(self.convert_xyz(values));
         self.edit_art(scatter, |art| match art {
             Art3D::Points(points) => {
                 points.positions = positions;
@@ -116,11 +133,13 @@ impl Axes3D {
     }
 
     /// Whether the markers of a scatter plot of these axes fade with
-    /// depth (matplotlib's `get_depthshade`).
+    /// depth, or the offsets of a patch collection would (matplotlib's
+    /// `get_depthshade` of `Path3DCollection` and `Patch3DCollection`).
     ///
     /// # Errors
     ///
-    /// When `scatter` is not a scatter plot of these axes.
+    /// When `scatter` is neither a scatter plot nor a patch collection of
+    /// these axes.
     pub fn depthshade(&self, scatter: &Collection) -> Result<bool, Axes3DError> {
         self.read_art(scatter, |art| match art {
             Art3D::Points(points) => Some(points.depthshade),
@@ -150,7 +169,7 @@ impl Axes3D {
     }
 
     /// Reads the 3-D geometry of `artist` with `read`.
-    fn read_art<R>(
+    pub(super) fn read_art<R>(
         &self,
         artist: &impl ArtistHandle,
         read: impl FnOnce(&Art3D) -> Option<R>,
@@ -164,7 +183,7 @@ impl Axes3D {
     }
 
     /// Changes the 3-D geometry of `artist` with `edit`.
-    fn edit_art(
+    pub(super) fn edit_art(
         &self,
         artist: &impl ArtistHandle,
         edit: impl FnOnce(&mut Art3D) -> Option<()>,
@@ -178,15 +197,19 @@ impl Axes3D {
     }
 }
 
-/// The points `(x, y, z)`, which must be as many in each coordinate.
-fn points_of(x: &[f64], y: &[f64], z: &[f64]) -> Result<Vec<Vec3>, Axes3DError> {
+/// Checks that the coordinates `[x, y, z]` are as many in each.
+fn check_lengths([x, y, z]: &[AxisValues; 3]) -> Result<(), Axes3DError> {
     check_len("y", x.len(), y.len())?;
-    check_len("z", x.len(), z.len())?;
-    Ok(x.iter()
+    check_len("z", x.len(), z.len())
+}
+
+/// The points `(x, y, z)` of coordinates as many in each.
+fn points_of([x, y, z]: [Vec<f64>; 3]) -> Vec<Vec3> {
+    x.into_iter()
         .zip(y)
         .zip(z)
-        .map(|((&x, &y), &z)| [x, y, z])
-        .collect())
+        .map(|((x, y), z)| [x, y, z])
+        .collect()
 }
 
 #[cfg(test)]
@@ -198,16 +221,14 @@ mod tests {
     fn replacing_points_keeps_the_limits_and_checks_lengths() {
         let fig = Figure::new();
         let ax = fig.subplot_3d();
-        let line = ax
-            .plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])
-            .expect("a line");
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0]).expect("a line");
         fig.layout();
         let before = ax.xlim();
-        ax.set_line_data(&line, &[10.0, 20.0], &[0.0, 0.0], &[0.0, 0.0])
+        ax.set_line_data(&line, [10.0, 20.0], [0.0, 0.0], [0.0, 0.0])
             .expect("same lengths");
         assert_eq!(ax.xlim(), before);
         assert!(matches!(
-            ax.set_line_data(&line, &[1.0, 2.0], &[0.0], &[0.0, 0.0]),
+            ax.set_line_data(&line, [1.0, 2.0], [0.0], [0.0, 0.0]),
             Err(Axes3DError::Shape { .. })
         ));
     }
@@ -217,9 +238,9 @@ mod tests {
         let fig = Figure::new();
         let ax = fig.subplot_3d();
         let other = fig.subplot_3d();
-        let line = other.plot(&[0.0], &[0.0], &[0.0]).expect("a line");
+        let line = other.plot([0.0], [0.0], [0.0]).expect("a line");
         assert_eq!(ax.line_data(&line), Err(Axes3DError::Not3DArtist));
-        let points = ax.scatter(&[0.0], &[0.0], &[0.0]).expect("markers");
+        let points = ax.scatter([0.0], [0.0], [0.0]).expect("markers");
         ax.set_depthshade(&points, false).expect("a scatter");
         assert_eq!(ax.depthshade(&points), Ok(false));
         let label = ax.text(1.0, 2.0, 3.0, "t", None);

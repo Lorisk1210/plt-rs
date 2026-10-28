@@ -1,5 +1,6 @@
 //! Scatter markers in 3-D: projected offsets drawn back to front, faded
-//! with depth (matplotlib's `Path3DCollection`).
+//! with depth (matplotlib's `Path3DCollection`), and the offsets of patch
+//! collections (`Patch3DCollection`).
 
 use plt_core::{Point, Rgba};
 
@@ -10,7 +11,8 @@ use crate::mplot3d::math::Vec3;
 use crate::mplot3d::shade::depth_alphas;
 use crate::numeric::argsort;
 
-/// The 3-D state of a scatter collection.
+/// The 3-D state of a scatter collection or of the offsets of a patch
+/// collection.
 ///
 /// The 2-D collection keeps its sizes, widths and colours in the order of
 /// the points; projecting writes its offsets sorted by depth and, worked
@@ -24,12 +26,22 @@ pub(crate) struct Points3D {
     pub(crate) depthshade: bool,
     /// The alpha factor of the deepest markers.
     pub(crate) min_alpha: f64,
+    /// Whether the markers are drawn back to front, with their sizes,
+    /// widths and colours, and fade over the extent of the projected
+    /// points (scatter plots); the offsets of a patch collection keep
+    /// their order and its patches their styles, matplotlib's
+    /// `Patch3DCollection` having no data scale to fade them over.
+    pub(crate) depth_sorted: bool,
+    /// The z position given with `set_sort_zpos`, which matplotlib's path
+    /// and patch collections keep without ordering by it (`_sort_zpos`).
+    pub(crate) sort_zpos: Option<f64>,
 }
 
 impl Points3D {
-    /// Writes the projected, depth-sorted markers into `collection` and
-    /// returns the depth of the nearest one. Colours the collection cannot
-    /// resolve are left to be reported when it is drawn.
+    /// Writes the projected markers into `collection`, depth-sorted with
+    /// their styles for a scatter plot, and returns the depth of the
+    /// nearest one. Colours the collection cannot resolve are left to be
+    /// reported when it is drawn.
     pub(crate) fn project(
         &self,
         collection: &mut CollectionArtist,
@@ -40,7 +52,35 @@ impl Points3D {
             .iter()
             .map(|p| p.map_or(f64::NAN, |p| p[2]))
             .collect();
-        let order = deepest_first(&depths);
+        let order = if self.depth_sorted {
+            self.sort_styles(collection, &projected, &depths)
+        } else {
+            (0..projected.len()).collect()
+        };
+        collection.offsets = order
+            .iter()
+            .map(|&i| {
+                projected[i].map_or(Point::new(f64::NAN, f64::NAN), |p| Point::new(p[0], p[1]))
+            })
+            .collect();
+        depths
+            .iter()
+            .copied()
+            .filter(|z| !z.is_nan())
+            .reduce(f64::min)
+            .unwrap_or(f64::NAN)
+    }
+
+    /// Sorts the sizes, widths and colours (faded with depth) of the
+    /// markers of `collection` from the deepest to the nearest, worked out
+    /// afresh so that later changes show, and returns that order.
+    fn sort_styles(
+        &self,
+        collection: &mut CollectionArtist,
+        projected: &[Option<Vec3>],
+        depths: &[f64],
+    ) -> Vec<usize> {
+        let order = deepest_first(depths);
         let reorder = |values: &[f64]| -> Vec<f64> {
             if values.len() > 1 {
                 order.iter().map(|&i| values[i]).collect()
@@ -48,10 +88,10 @@ impl Points3D {
                 values.to_vec()
             }
         };
-        let data_scale = data_scale(&projected);
+        let data_scale = data_scale(projected);
         let alpha = collection.base().alpha;
         let shade = |colors: &[Rgba]| -> Vec<Rgba> {
-            let shaded = self.shaded(colors, &depths, data_scale, alpha);
+            let shaded = self.shaded(colors, depths, data_scale, alpha);
             if shaded.len() > 1 {
                 order.iter().map(|&i| shaded[i]).collect()
             } else {
@@ -66,18 +106,7 @@ impl Points3D {
             sizes: collection.sizes.as_deref().map(reorder),
             linewidths: collection.linewidths.as_deref().map(reorder),
         });
-        collection.offsets = order
-            .iter()
-            .map(|&i| {
-                projected[i].map_or(Point::new(f64::NAN, f64::NAN), |p| Point::new(p[0], p[1]))
-            })
-            .collect();
-        depths
-            .iter()
-            .copied()
-            .filter(|z| !z.is_nan())
-            .reduce(f64::min)
-            .unwrap_or(f64::NAN)
+        order
     }
 
     /// `colors` faded with depth (one colour per marker then) when depth
@@ -161,6 +190,8 @@ mod tests {
             positions: Vec::new(),
             depthshade: true,
             min_alpha: 0.3,
+            depth_sorted: true,
+            sort_zpos: None,
         };
         let red = Rgba::new(1.0, 0.0, 0.0, 0.5);
         let shaded = points.shaded(&[red], &[0.0, 1.0], 2.0, Some(0.5));

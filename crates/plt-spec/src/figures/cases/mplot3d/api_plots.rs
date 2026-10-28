@@ -71,7 +71,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             props: CollectionProps::default().alpha(0.6),
             ..FillBetween3DOptions::default()
         };
-        ax.fill_between([&c, &s, &top], [&c, &s, &bottom], options)?;
+        ax.fill_between((&c, &s, &top), (&c, &s, &bottom), options)?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),
@@ -87,14 +87,14 @@ pub(crate) const CASES: &[FigureCase] = &[
                 .linewidth(0.5),
             ..FillBetween3DOptions::default()
         };
-        ax.fill_between([&x, &[1.0], &wave], [&x, &[1.0], &[0.0]], options)?;
+        ax.fill_between((&x, &[1.0], &wave), (&x, &[1.0], &[0.0]), options)?;
         let cosine: Vec<f64> = x.iter().map(|x| x.cos()).collect();
         let options = FillBetween3DOptions {
             mode: FillMode::Polygon,
             props: CollectionProps::default().facecolor("tab:blue"),
             ..FillBetween3DOptions::default()
         };
-        ax.fill_between([&x, &[0.0], &cosine], [&x, &[0.0], &[0.0]], options)?;
+        ax.fill_between((&x, &[0.0], &cosine), (&x, &[0.0], &[0.0]), options)?;
         Ok(())
     })
     .sized(4.0, 4.0, 100.0),

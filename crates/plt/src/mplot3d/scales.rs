@@ -148,7 +148,7 @@ mod tests {
     fn logged_data_autoscales_in_transformed_coordinates() {
         let ax = Figure::new().subplot_3d();
         ax.set_zscale("log").unwrap();
-        ax.plot(&[0.0, 1.0], &[0.0, 1.0], &[1.0, 1000.0]).unwrap();
+        ax.plot([0.0, 1.0], [0.0, 1.0], [1.0, 1000.0]).unwrap();
         let (low, high) = ax.zlim();
         // matplotlib: (0.6042963902381328, 1654.817099943182).
         assert!((low - 0.604_296_390_238_132_8).abs() < 1e-9, "{low}");

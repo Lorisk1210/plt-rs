@@ -78,6 +78,7 @@ mod mpl_tests_widgets;
 mod mpl_text;
 mod mpl_toolkits;
 mod mplot3d;
+mod mplot3d_units;
 mod offsetbox;
 mod patches;
 mod polar;
@@ -152,14 +153,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         &matplotlib_tests(),
         &gallery_examples(),
         modern::CASES,
-        mplot3d::API,
-        mplot3d::API_PLOTS,
-        mplot3d::AXLIM,
-        mplot3d::CONTOURS,
-        mplot3d::OBJECTS,
-        mplot3d::SCATTER,
-        mplot3d::SURFACES,
-        mplot3d::VIEW,
+        &mplot3d_cases(),
         offsetbox::CASES,
         patches::COLLECTIONS,
         patches::FANCY,
@@ -199,6 +193,23 @@ pub(crate) fn all() -> Vec<FigureCase> {
         toolkits::CASES,
         vectors::CASES,
         widgets::CASES,
+    ]
+    .concat()
+}
+
+/// The spec's own cases of 3-D axes (the `mplot3d` and `mplot3d_units`
+/// groups).
+fn mplot3d_cases() -> Vec<FigureCase> {
+    [
+        mplot3d::API,
+        mplot3d::API_PLOTS,
+        mplot3d::AXLIM,
+        mplot3d::CONTOURS,
+        mplot3d::OBJECTS,
+        mplot3d::SCATTER,
+        mplot3d::SURFACES,
+        mplot3d::VIEW,
+        mplot3d_units::CASES,
     ]
     .concat()
 }

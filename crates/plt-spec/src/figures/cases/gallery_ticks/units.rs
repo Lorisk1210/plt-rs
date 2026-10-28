@@ -10,7 +10,7 @@
 //! other methods, which let the values pick the units first.
 //! `evans_test` defines its own `Foo` values and converter.
 
-use plt::axes::{Axis, AxisName, TickParams};
+use plt::axes::{AxisName, TickParams};
 use plt::layout::{LayoutEngine, TightLayout};
 use plt::legend::LegendOptions;
 use plt::patches::{Arc, Ellipse, PatchShape};
@@ -19,7 +19,8 @@ use plt::rc::Aspect;
 use plt::text::{AnnotateOptions, HAlign, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::{FormatStrFormatter, IndexLocator};
 use plt::units::{
-    AxisDeltas, ConversionError, ConversionInterface, Convertible, DataPoint, UnitAxisInfo,
+    AxisDeltas, ConversionError, ConversionInterface, Convertible, DataPoint, UnitAxis,
+    UnitAxisInfo,
 };
 
 use crate::figures::cases::common::{black_arrow, map};
@@ -261,7 +262,7 @@ impl ConversionInterface for FooConverter {
         &self,
         values: &[Foo],
         unit: Option<&f64>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         Ok(values
             .iter()
@@ -269,7 +270,7 @@ impl ConversionInterface for FooConverter {
             .collect())
     }
 
-    fn axisinfo(&self, unit: Option<&f64>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&f64>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         if !unit.is_some_and(|unit| [1.0, 2.0].contains(unit)) {
             return None;
         }
@@ -281,7 +282,7 @@ impl ConversionInterface for FooConverter {
         })
     }
 
-    fn default_units(&self, values: &[Foo], _: &Axis) -> Option<f64> {
+    fn default_units(&self, values: &[Foo], _: &UnitAxis) -> Option<f64> {
         values.first().map(|value| value.unit)
     }
 }

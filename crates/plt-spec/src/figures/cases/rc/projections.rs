@@ -37,11 +37,7 @@ fn scatter3d(fig: &Figure) -> CaseResult {
 /// A helix of `T` on 3-D axes.
 fn helix(ax: &Axes3D) -> CaseResult {
     let t = t();
-    ax.plot(
-        &map(&t, f64::cos),
-        &map(&t, f64::sin),
-        &map(&t, |x| x / 6.0),
-    )?;
+    ax.plot(map(&t, f64::cos), map(&t, f64::sin), map(&t, |x| x / 6.0))?;
     Ok(())
 }
 

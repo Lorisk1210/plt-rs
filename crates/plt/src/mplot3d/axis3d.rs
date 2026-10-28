@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use plt_core::Rgba;
 
-use crate::axes::{Tick, TickSet, TickStyle, grid_level_on};
+use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::lines::LineStyle;
@@ -16,6 +16,7 @@ use crate::ticker::{
     drawable_ticks,
 };
 use crate::transforms::interval_contains_close;
+use crate::units::{AxisUnits, Categories};
 
 use super::coords::Axis3;
 use super::geometry::AxisPosition;
@@ -50,6 +51,9 @@ pub(crate) struct AxisLabel3D {
     /// Whether the label follows the axis direction; `None` rotates
     /// labels longer than four characters.
     pub(crate) rotate: Option<bool>,
+    /// Whether the label was never set, so that a unit converter may
+    /// give it (matplotlib's `isDefault_label`).
+    pub(crate) is_default: bool,
 }
 
 impl AxisLabel3D {
@@ -146,10 +150,9 @@ pub(crate) struct Tickers3D {
     pub(crate) major_formatter: Rc<dyn Formatter>,
     pub(crate) minor_locator: Rc<dyn Locator>,
     pub(crate) minor_formatter: Rc<dyn Formatter>,
-    /// Whether the major locator and formatter are still the defaults a
-    /// unit converter may replace (matplotlib's `isDefault_majloc` and
-    /// `isDefault_majfmt`).
-    pub(crate) default_major: (bool, bool),
+    /// Which tick helpers are still the defaults a unit converter may
+    /// replace (matplotlib's `isDefault_majloc` and friends).
+    pub(crate) defaults: TickerDefaults,
 }
 
 impl Tickers3D {
@@ -178,7 +181,7 @@ impl Tickers3D {
             major_formatter: Rc::from(major_formatter),
             minor_locator: Rc::from(minor_locator),
             minor_formatter: Rc::from(minor_formatter),
-            default_major: (true, true),
+            defaults: TickerDefaults::default(),
         }
     }
 }
@@ -190,6 +193,10 @@ pub(crate) struct Axis3DState {
     pub(crate) scale: AxisScale,
     pub(crate) tickers: Tickers3D,
     pub(crate) settings: TickerSettings,
+    /// The unit converter, how it was chosen, and the unit.
+    pub(crate) units: AxisUnits,
+    /// Category names, once categorical values were plotted.
+    pub(crate) categories: Option<Categories>,
     pub(crate) label: AxisLabel3D,
     /// Fill and edge colour of the pane behind the data.
     pub(crate) pane_color: Color,
@@ -216,10 +223,6 @@ pub(crate) struct Axis3DState {
     /// pads, and the ticks it adds later copy the first one. Empty when
     /// every major tick has the pad of [`Self::major_style`].
     pub(crate) major_pads: Vec<f64>,
-    /// How many major ticks the last layout pass placed, inside the view
-    /// or not (the length of matplotlib's `get_major_ticks()`), and the
-    /// position among them of each major tick in [`Self::ticks`].
-    major_slots: (usize, Vec<usize>),
 }
 
 impl Axis3DState {
@@ -237,12 +240,15 @@ impl Axis3DState {
             tickers: Tickers3D::defaults(scale.scale().as_ref(), dir, &settings),
             scale,
             settings,
+            units: AxisUnits::default(),
+            categories: None,
             label: AxisLabel3D {
                 text: String::new(),
                 font: crate::axes::axis_label::label_font(rc),
                 color: rc.axes_labelcolor.clone(),
                 pad: rc.axes_labelpad,
                 rotate: None,
+                is_default: true,
             },
             pane_color: pane_color.clone(),
             style: AxisStyle::from_rc(dir, rc),
@@ -254,7 +260,6 @@ impl Axis3DState {
             tick_position: AxisPosition::Default,
             label_position: AxisPosition::Default,
             major_pads: Vec::new(),
-            major_slots: (0, Vec::new()),
         }
     }
 
@@ -320,16 +325,7 @@ impl Axis3DState {
     /// `Axis._update_ticks`) for an axes `length_points` wide; with
     /// `automargin` the view is inset as `axes3d.automargin` asks.
     pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64, automargin: bool) {
-        match self.compute_ticks(span, length_points, automargin) {
-            Ok((ticks, slots)) => {
-                self.ticks = Ok(ticks);
-                self.major_slots = slots;
-            }
-            Err(e) => {
-                self.ticks = Err(e);
-                self.major_slots = (0, Vec::new());
-            }
-        }
+        self.ticks = self.compute_ticks(span, length_points, automargin);
     }
 
     /// The label pad of the major tick at `slot` in the locator's order.
@@ -344,20 +340,21 @@ impl Axis3DState {
     /// inside the view or not (matplotlib's `get_pad` of every tick of
     /// `get_major_ticks()`).
     pub(crate) fn major_tick_pads(&self) -> Vec<f64> {
-        (0..self.major_slots.0)
-            .map(|slot| self.major_pad(slot))
-            .collect()
+        let located = self
+            .ticks
+            .as_ref()
+            .map_or(0, |ticks| ticks.major_unclipped.len());
+        (0..located).map(|slot| self.major_pad(slot)).collect()
     }
 
-    /// The ticks of the view, inside it or not, and, for the major ones,
-    /// how many the locator placed and the position among them of each
-    /// one inside.
+    /// The ticks of the view, inside it or not, with the position among
+    /// those of each one inside.
     fn compute_ticks(
         &self,
         span: &AxisSpan,
         length_points: f64,
         automargin: bool,
-    ) -> Result<(TickSet, (usize, Vec<usize>)), TickerError> {
+    ) -> Result<TickSet, TickerError> {
         let mut info = self.info(span, length_points);
         let major_locs = {
             let ctx = TickContext::new(&info, &self.settings);
@@ -372,28 +369,21 @@ impl Axis3DState {
                 .map(|(&loc, label)| Tick { loc, label })
                 .collect()
         };
-        let inside = |ticks: &[Tick]| -> Vec<Tick> {
-            ticks
-                .iter()
-                .filter(|tick| visible(tick.loc))
-                .cloned()
-                .collect()
+        let inside = |ticks: &[Tick]| -> (Vec<Tick>, Vec<usize>) {
+            (ticks.iter().enumerate())
+                .filter(|(_, tick)| visible(tick.loc))
+                .map(|(index, tick)| (tick.clone(), index))
+                .unzip()
         };
         let mut ticks = TickSet::default();
-        let mut slots = (0, Vec::new());
         if Self::level_computed(&self.major_style, self.tickers.major_locator.as_ref()) {
             let labels = self
                 .tickers
                 .major_formatter
                 .format_ticks(&major_locs, &ctx)?;
             ticks.major_unclipped = unclipped(&major_locs, labels.labels);
-            ticks.major = inside(&ticks.major_unclipped);
+            (ticks.major, ticks.major_index) = inside(&ticks.major_unclipped);
             ticks.offset = labels.offset;
-            let kept = (major_locs.iter().enumerate())
-                .filter(|(_, loc)| visible(**loc))
-                .map(|(slot, _)| slot)
-                .collect();
-            slots = (major_locs.len(), kept);
         }
         if Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()) {
             let minor = drawable_ticks(self.tickers.minor_locator.locate(&ctx)?)?;
@@ -403,9 +393,9 @@ impl Axis3DState {
                 .minor_formatter
                 .format_ticks(&minor_locs, &ctx)?;
             ticks.minor_unclipped = unclipped(&minor_locs, labels.labels);
-            ticks.minor = inside(&ticks.minor_unclipped);
+            (ticks.minor, ticks.minor_index) = inside(&ticks.minor_unclipped);
         }
-        Ok((ticks, slots))
+        Ok(ticks)
     }
 
     /// Whether a tick level is computed: something of it is shown and its
@@ -454,12 +444,12 @@ impl Axis3DState {
     /// The ticks drawn, major ones first; none when they could not be
     /// computed.
     pub(crate) fn drawn_ticks(&self) -> impl Iterator<Item = DrawnTick<'_>> {
-        let (major, minor): (&[Tick], &[Tick]) = match &self.ticks {
-            Ok(ticks) => (&ticks.major, &ticks.minor),
-            Err(_) => (&[], &[]),
+        let (major, slots, minor): (&[Tick], &[usize], &[Tick]) = match &self.ticks {
+            Ok(ticks) => (&ticks.major, &ticks.major_index, &ticks.minor),
+            Err(_) => (&[], &[], &[]),
         };
         let (style, width) = (&self.major_style, self.style.major_tick_width);
-        let majors = (major.iter().zip(&self.major_slots.1)).map(move |(tick, &slot)| DrawnTick {
+        let majors = (major.iter().zip(slots)).map(move |(tick, &slot)| DrawnTick {
             tick,
             style,
             width,

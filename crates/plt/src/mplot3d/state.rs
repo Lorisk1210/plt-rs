@@ -169,6 +169,7 @@ impl Axes3DState {
             id,
             art,
             axlim_clip,
+            ..
         } in &self.artists
         {
             let projection = if *axlim_clip { &hiding } else { &projection };

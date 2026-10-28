@@ -14,7 +14,7 @@ use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle};
 use crate::scale::{LogScale, NonPositive};
 use crate::ticker::AxisName;
-use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues};
+use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues, UnitHandle};
 
 /// Where a bar sits relative to its position (matplotlib's `align`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

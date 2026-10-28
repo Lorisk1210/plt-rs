@@ -2,7 +2,7 @@
 //! (matplotlib's `_get_updated_ticks`, `Tick.draw` and
 //! `_update_offset_text`).
 
-use plt_core::Path;
+use plt_core::{Path, Point};
 use plt_text::{BlockStyle, HAlign, VAlign};
 
 use super::{
@@ -10,10 +10,61 @@ use super::{
 };
 use crate::fonts::FontProperties;
 use crate::mplot3d::axis3d::{Axis3DState, DrawnTick};
+use crate::mplot3d::coords::Axis3;
 use crate::mplot3d::geometry::{AxisPosition, juggled, static_tick_direction, tick_direction};
 use crate::mplot3d::math::{Vec3, scaled};
 
+/// Where the tick marks of an axis go along one of its edges: across the
+/// edge, from outside the box inwards (matplotlib's `_get_updated_ticks`).
+pub(super) struct MarkSpan {
+    /// The start of the edge, in transformed coordinates.
+    origin: Vec3,
+    /// The direction the marks run along.
+    tickdir: usize,
+    /// Where the marks start and end along it.
+    ends: [f64; 2],
+}
+
+impl MarkSpan {
+    /// The point of the edge at `coordinate` along axis `along`, moved to
+    /// `at` along the direction of the marks.
+    fn point(&self, along: usize, coordinate: f64, at: f64) -> Vec3 {
+        let mut p = self.origin;
+        p[along] = coordinate;
+        p[self.tickdir] = at;
+        p
+    }
+}
+
 impl Painter<'_> {
+    /// The span of the tick marks of `dir` along the edge at `position`
+    /// starting at `origin`.
+    pub(super) fn mark_span(&self, dir: Axis3, position: AxisPosition, origin: Vec3) -> MarkSpan {
+        let tickdir = tick_direction(dir, &self.axes.camera, position);
+        let delta = self.geometry.deltas[tickdir];
+        let tickdelta = if self.geometry.highs[tickdir] {
+            delta
+        } else {
+            -delta
+        };
+        let base = origin[tickdir];
+        MarkSpan {
+            origin,
+            tickdir,
+            ends: [
+                base + TICK_OUTWARD * tickdelta,
+                base - TICK_INWARD * tickdelta,
+            ],
+        }
+    }
+
+    /// The projected tick mark of `axis` at `loc` in `span`.
+    pub(super) fn mark(&self, span: &MarkSpan, axis: &Axis3DState, loc: f64) -> [Point; 2] {
+        let coordinate = axis.scale.masked_forward(loc);
+        span.ends
+            .map(|at| self.project(span.point(axis.dir.index(), coordinate, at)))
+    }
+
     /// Draws each tick mark and its label (matplotlib's
     /// `_get_updated_ticks` followed by `Tick.draw`).
     pub(super) fn draw_ticks(
@@ -25,18 +76,7 @@ impl Painter<'_> {
         position: AxisPosition,
     ) {
         let dir = axis.dir;
-        let tickdir = tick_direction(dir, &self.axes.camera, position);
-        let delta = self.geometry.deltas[tickdir];
-        let tickdelta = if self.geometry.highs[tickdir] {
-            delta
-        } else {
-            -delta
-        };
-        let base = origin[tickdir];
-        let (outward, inward) = (
-            base + TICK_OUTWARD * tickdelta,
-            base - TICK_INWARD * tickdelta,
-        );
+        let span = self.mark_span(dir, position, origin);
         let points = scaled(self.geometry.deltas, deltas_per_point);
         for DrawnTick {
             tick,
@@ -45,13 +85,12 @@ impl Painter<'_> {
             pad,
         } in axis.drawn_ticks()
         {
-            let mut p = origin;
-            p[dir.index()] = axis.scale.masked_forward(tick.loc);
-            p[tickdir] = outward;
-            let out_end = self.project(p);
-            p[tickdir] = inward;
-            let in_end = self.project(p);
-            p[tickdir] = base;
+            let [out_end, in_end] = self.mark(&span, axis, tick.loc);
+            let p = span.point(
+                dir.index(),
+                axis.scale.masked_forward(tick.loc),
+                origin[span.tickdir],
+            );
             let label_deltas = scaled(points, pad + TICK_LABEL_OFFSET);
             let label_at = self.geometry.move_from_center(p, label_deltas, dir);
             if style.grid_on {

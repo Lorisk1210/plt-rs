@@ -1,17 +1,21 @@
 //! Adding collections to a 3-D axes (matplotlib's `add_collection3d`):
-//! 2-D collections lifted into planes (`poly_collection_2d_to_3d` and
-//! `line_collection_2d_to_3d`), and polylines and polygons through 3-D
-//! points (`Line3DCollection` and `Poly3DCollection`).
+//! 2-D collections lifted into planes (`poly_collection_2d_to_3d`,
+//! `line_collection_2d_to_3d` and `patch_collection_2d_to_3d`), and
+//! polylines and polygons through 3-D points (`Line3DCollection` and
+//! `Poly3DCollection`).
 
-use super::art3d::{Art3D, ZSort};
+use plt_core::Point;
+
+use super::art3d::{Art3D, Points3D, Segments3D, ZSort};
 use super::coords::Axis3;
-use super::error::Axes3DError;
+use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::plot::{broadcast, columns};
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, CollectionSpec,
 };
+use crate::transforms::Transform;
 
 /// Options of [`Axes3D::add_poly_collection3d_with`] (matplotlib's
 /// `Poly3DCollection` keywords, and `add_collection3d`'s `autolim` and
@@ -50,7 +54,13 @@ impl Axes3D {
     /// it, extending the data limits to it with `autolim` (matplotlib's
     /// `add_collection3d`). Lifted polygons keep their path codes and are
     /// ordered among the other collections by the depth of the lowest
-    /// position; lines lose their non-finite points.
+    /// position; lines lose their non-finite points. A patch collection
+    /// keeps its patches in projected coordinates, as matplotlib leaves
+    /// them: its offsets (the origin of the display when it has none, as
+    /// matplotlib's identity offset transform) go to `zs` along `zdir`
+    /// and are projected at every draw (matplotlib's `Patch3DCollection`,
+    /// whose offsets [`Axes3D::set_scatter_offsets`] replaces), and the
+    /// data limits stay as they are, `autolim` or not.
     /// [`Axes3D::set_axlim_clip`] on the result hides the points outside
     /// the view limits (matplotlib's `axlim_clip`; where a lifted polygon
     /// keeps only some of its vertices, matplotlib 3.11 fails to draw, here
@@ -71,9 +81,9 @@ impl Axes3D {
     ///
     /// # Errors
     ///
-    /// When the collection is neither a polygon nor a line collection
-    /// (matplotlib leaves those, and patch collections, in projected
-    /// coordinates), or `zs` does not match the paths.
+    /// When the collection is not a polygon, line or patch collection
+    /// (matplotlib leaves the others in projected coordinates), or `zs`
+    /// does not match the paths (the offsets of a patch collection).
     pub fn add_collection3d(
         &self,
         spec: CollectionSpec,
@@ -84,8 +94,13 @@ impl Axes3D {
         let had_data = self.has_data();
         let mut artist = spec.artist;
         let kind = artist.kind;
-        if !matches!(kind, CollectionKind::Poly | CollectionKind::Line) {
-            return Err(Axes3DError::UnsupportedCollection);
+        let sort_zpos = zs.iter().copied().reduce(f64::min).unwrap_or(0.0);
+        match kind {
+            CollectionKind::Patch => return self.lift_patches(artist, zs, zdir, sort_zpos),
+            CollectionKind::Poly | CollectionKind::Line => {}
+            CollectionKind::Generic | CollectionKind::Path | CollectionKind::QuadMesh => {
+                return Err(Axes3DError::UnsupportedCollection);
+            }
         }
         let paths = std::mem::take(&mut artist.paths);
         let positions = broadcast("zs", zs, paths.len())?;
@@ -105,7 +120,6 @@ impl Axes3D {
         let points: Vec<Vec3> = lifted.iter().flatten().copied().collect();
         let raw = self.adopt_projected(artist);
         if kind == CollectionKind::Poly {
-            let sort_zpos = zs.iter().copied().reduce(f64::min).unwrap_or(0.0);
             self.register_polys(
                 &raw,
                 lifted,
@@ -114,11 +128,57 @@ impl Axes3D {
                 false,
             )?;
         } else {
-            self.register(raw.id(), Art3D::Segments(lifted), false);
+            let segments = Segments3D {
+                lines: lifted,
+                sort_zpos: Some(sort_zpos),
+            };
+            self.register(raw.id(), Art3D::Segments(segments), false);
         }
         if autolim {
             self.scale_to(&points, had_data)?;
         }
+        Ok(Collection::from_raw(raw))
+    }
+
+    /// Adds a patch collection whose offsets go to `zs` along `zdir`
+    /// (matplotlib's `patch_collection_2d_to_3d` with `set_sort_zpos`);
+    /// the offsets and `zs` broadcast as numpy arrays do.
+    fn lift_patches(
+        &self,
+        mut artist: CollectionArtist,
+        zs: &[f64],
+        zdir: Axis3,
+        sort_zpos: f64,
+    ) -> Result<Collection, Axes3DError> {
+        if artist.offset_transform.is_none() {
+            artist.offsets = vec![Point::ORIGIN];
+            artist.offset_transform = Some(Transform::Display);
+        }
+        let offsets = &artist.offsets;
+        let n = match (offsets.len(), zs.len()) {
+            (1, count) | (count, 1) => count,
+            (count, z_count) => {
+                check_len("zs", count, z_count)?;
+                count
+            }
+        };
+        let pick = |len: usize, i: usize| if len == 1 { 0 } else { i };
+        let positions = (0..n)
+            .map(|i| {
+                let offset = offsets[pick(offsets.len(), i)];
+                zdir.juggle([offset.x, offset.y, zs[pick(zs.len(), i)]])
+            })
+            .collect();
+        let rc = crate::rc::params();
+        let raw = self.adopt_projected(artist);
+        let points = Points3D {
+            positions,
+            depthshade: rc.axes3d_depthshade,
+            min_alpha: rc.axes3d_depthshade_minalpha,
+            depth_sorted: false,
+            sort_zpos: Some(sort_zpos),
+        };
+        self.register(raw.id(), Art3D::Points(points), false);
         Ok(Collection::from_raw(raw))
     }
 
@@ -225,7 +285,6 @@ impl Axes3D {
 mod tests {
     use super::*;
     use crate::figure::Figure;
-    use plt_core::Point;
 
     #[test]
     fn lines_are_lifted_per_path() {
@@ -248,7 +307,7 @@ mod tests {
         let (low, high) = ax.zlim();
         assert!(low < -5.0 && high > 5.0);
         let art = ax.with(|axes| axes.artists[0].art.clone());
-        let Art3D::Segments(lines) = art else {
+        let Art3D::Segments(Segments3D { lines, .. }) = art else {
             panic!("a line collection");
         };
         assert_eq!(lines[1].len(), 2, "the NaN point is dropped");
@@ -267,10 +326,58 @@ mod tests {
                 .unwrap_err(),
             Axes3DError::UnsupportedCollection
         );
+        let patches = || {
+            let square = crate::collections::CollectionPatch::new(
+                &crate::patches::Rectangle::new((0.0, 0.0), 0.01, 0.01),
+                crate::patches::PatchProps::default(),
+            );
+            CollectionSpec::patches(&[square], false).expect("valid colours")
+        };
+        assert!(
+            ax.add_collection3d(patches(), &[1.0, 2.0], Axis3::Z, true)
+                .is_ok(),
+            "one offset broadcasts to the positions"
+        );
+        let placed = patches().with_offsets(vec![Point::new(0.0, 0.0); 3], Transform::Display);
+        assert!(matches!(
+            ax.add_collection3d(placed, &[1.0, 2.0], Axis3::Z, true),
+            Err(Axes3DError::Shape { argument: "zs", .. })
+        ));
         let before = ax.zlim();
         ax.add_collection3d(poly(), &[7.0], Axis3::Z, false)
             .unwrap();
         assert_eq!(ax.zlim(), before, "without autolim the limits stay");
+    }
+
+    #[test]
+    fn patch_collections_place_their_offsets_and_keep_the_limits() {
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let before = ax.zlim();
+        let circle = crate::collections::CollectionPatch::new(
+            &crate::patches::Circle::new((0.0, 0.0), 0.01),
+            crate::patches::PatchProps::default(),
+        );
+        let spec = CollectionSpec::patches(&[circle], false)
+            .expect("valid colours")
+            .with_offsets(
+                vec![Point::new(0.2, 0.3), Point::new(0.6, 0.7)],
+                Transform::Display,
+            );
+        let patches = ax
+            .add_collection3d(spec, &[0.1, 0.9], Axis3::Y, true)
+            .unwrap();
+        assert_eq!(ax.zlim(), before, "matplotlib does not autoscale them");
+        assert_eq!(
+            ax.scatter_offsets(&patches).unwrap(),
+            [vec![0.2, 0.6], vec![0.1, 0.9], vec![0.3, 0.7]]
+        );
+        assert_eq!(ax.depthshade(&patches), Ok(true), "axes3d.depthshade");
+        assert_eq!(ax.sort_zpos(&patches), Ok(Some(0.1)));
+        fig.layout();
+        let offsets = patches.offsets();
+        assert_eq!(offsets.len(), 2, "kept in order and projected");
+        assert!(offsets.iter().all(|p| p.x.abs() < 0.2 && p.y.abs() < 0.2));
     }
 
     #[test]

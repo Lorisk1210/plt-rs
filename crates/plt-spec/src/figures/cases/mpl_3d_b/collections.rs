@@ -140,7 +140,7 @@ fn plane_vector_points(ax: &Axes3D) -> CaseResult {
         .zorder(1.0);
     ax.add_poly_collection3d(vec![corners], props, true)?;
     let red = LineProps::default().color("red").zorder(2.0);
-    ax.plot_with(&[2.0, 2.0], &[2.0, 2.0], &[0.0, 4.0], Axis3::Z, red)?;
+    ax.plot_with([2.0, 2.0], [2.0, 2.0], [0.0, 4.0], Axis3::Z, red)?;
     let options = Scatter3DOptions {
         scatter: ScatterOptions {
             colors: ScatterColors::Single("red".into()),
@@ -148,7 +148,7 @@ fn plane_vector_points(ax: &Axes3D) -> CaseResult {
         },
         ..Scatter3DOptions::default()
     };
-    ax.scatter_with(&[3.0, 3.0], &[1.0, 3.0], &[1.0, 3.0], options)?
+    ax.scatter_with([3.0, 3.0], [1.0, 3.0], [1.0, 3.0], options)?
         .set_zorder(10.0);
     ax.set_xlim(0.0, 5.0)?;
     ax.set_ylim(0.0, 5.0)?;
@@ -210,7 +210,7 @@ fn planes_and_circles(ax: &Axes3D) -> CaseResult {
     ax.plot_with(&bx, &by, &bz, Axis3::Z, dashed("green", 0.0))?;
     flat_surface(ax, [&x, &y, &z], "red", 1.0)?;
     let (cx, cy): (Vec<f64>, Vec<f64>) = th.iter().map(|t| (r * t.sin(), r * t.cos())).unzip();
-    ax.plot_with(&cx, &cy, &[0.0; 1000], Axis3::Z, dashed("black", 2.0))?;
+    ax.plot_with(&cx, &cy, [0.0; 1000], Axis3::Z, dashed("black", 2.0))?;
     flat_surface(ax, [&x2, &y2, &z2], "blue", 3.0)?;
     let [fx, fy, fz] = half(true);
     ax.plot_with(&fx, &fy, &fz, Axis3::Z, dashed("green", 4.0))?;

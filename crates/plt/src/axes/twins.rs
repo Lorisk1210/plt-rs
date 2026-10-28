@@ -11,6 +11,7 @@ use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::figure::make_axes;
 use crate::projections::{ProjectionError, ProjectionSpec, Projector};
 use crate::spines::SpineSide;
+use crate::units::UnitState;
 
 impl Axes {
     /// Shares the x axis with `other`: both then show the same x range

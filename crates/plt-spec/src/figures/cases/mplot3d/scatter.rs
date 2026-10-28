@@ -26,7 +26,7 @@ pub(crate) const CASES: &[FigureCase] = &[
         let [x, y, z] = super::helix();
         let helix = LineProps::default().label("helix");
         ax.plot_with(&x, &y, &z, Axis3::Z, helix)?;
-        ax.plot_fmt(&[-1.0, 1.0], &[-1.0, 1.0], &[0.0, 1.0], "r--o")?;
+        ax.plot_fmt([-1.0, 1.0], [-1.0, 1.0], [0.0, 1.0], "r--o")?;
         ax.legend(LegendOptions::default())?;
         Ok(())
     })
@@ -110,9 +110,9 @@ pub(crate) const CASES: &[FigureCase] = &[
             ..area(80.0)
         };
         let points = ax.scatter_with(
-            &[0.0, 1.0, -1.0],
-            &[0.0, -1.0, 1.0],
-            &[-0.5],
+            [0.0, 1.0, -1.0],
+            [0.0, -1.0, 1.0],
+            [-0.5],
             Scatter3DOptions {
                 scatter,
                 ..Scatter3DOptions::default()

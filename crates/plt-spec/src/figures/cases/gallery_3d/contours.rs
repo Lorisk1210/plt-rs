@@ -167,9 +167,9 @@ fn box3d(fig: &Figure) -> CaseResult {
         .set_ylim(0.0, ymax)?
         .set_zlim(-zmax, 0.0)?;
     let edge = || LineProps::default().color("0.4").linewidth(1.0).zorder(1e3);
-    ax.plot_with(&[xmax, xmax], &[0.0, ymax], &[0.0], Axis3::Z, edge())?;
-    ax.plot_with(&[0.0, xmax], &[0.0, 0.0], &[0.0], Axis3::Z, edge())?;
-    ax.plot_with(&[xmax, xmax], &[0.0, 0.0], &[-zmax, 0.0], Axis3::Z, edge())?;
+    ax.plot_with([xmax, xmax], [0.0, ymax], [0.0], Axis3::Z, edge())?;
+    ax.plot_with([0.0, xmax], [0.0, 0.0], [0.0], Axis3::Z, edge())?;
+    ax.plot_with([xmax, xmax], [0.0, 0.0], [-zmax, 0.0], Axis3::Z, edge())?;
     label_xyz(&ax, ["X [km]", "Y [km]", "Z [m]"]);
     ax.zaxis().set_ticks(&[0.0, -150.0, -300.0, -450.0]);
     ax.view_init(40.0, -30.0, 0.0);

@@ -12,6 +12,7 @@ use super::error::Axes3DError;
 use super::math::{Matrix4, Vec3};
 use super::share::replay;
 use super::state::Axes3DState;
+use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxisName};
 use crate::colors::Color;
@@ -290,7 +291,18 @@ impl Axes3D {
                 id,
                 art,
                 axlim_clip,
+                sources: Sources3D::default(),
             });
+        });
+    }
+
+    /// Keeps the user values the geometry of artist `id` came from, to
+    /// convert them again when an axis changes unit.
+    pub(crate) fn keep_unit_sources(&self, id: ArtistId, sources: Sources3D) {
+        self.with_mut(|axes| {
+            if let Some(artist) = axes.artists.iter_mut().find(|a| a.id == id) {
+                artist.sources = sources;
+            }
         });
     }
 
@@ -381,7 +393,11 @@ impl Axes3D {
     /// Sets the label of one axis (matplotlib's `set_xlabel`).
     pub fn set_label(&self, axis: Axis3, text: impl Into<String>) -> &Self {
         let text = text.into();
-        self.with_mut(|axes| axes.axis_mut(axis).label.text = text);
+        self.with_mut(|axes| {
+            let label = &mut axes.axis_mut(axis).label;
+            label.text = text;
+            label.is_default = false;
+        });
         self
     }
 

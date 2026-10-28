@@ -58,14 +58,7 @@ fn cases_3d() -> Vec<(&'static str, Case3D)> {
         }),
         ("bar3d", |ax, x, y| {
             let z = vec![0.0; y.len()];
-            let boxes = Boxes {
-                x,
-                y,
-                z: &z,
-                dx: &[0.5],
-                dy: &[0.5],
-                dz: y,
-            };
+            let boxes = Boxes::new(x, y, &z, [0.5], [0.5], y);
             done(ax.bar3d(boxes, Bar3DOptions::default()))
         }),
         ("voxels", |ax, _, y| {
@@ -82,7 +75,7 @@ fn cases_3d() -> Vec<(&'static str, Case3D)> {
         }),
         ("fill_between", |ax, x, y| {
             let z = vec![0.0; y.len()];
-            done(ax.fill_between([x, y, y], [x, y, &z], FillBetween3DOptions::default()))
+            done(ax.fill_between((x, y, y), (x, y, &z), FillBetween3DOptions::default()))
         }),
         ("text, limits and log scale", |ax, x, y| {
             ax.scatter(x, y, y)?;

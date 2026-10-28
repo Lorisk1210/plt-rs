@@ -4,10 +4,11 @@ use super::art3d::{Art3D, Points3D};
 use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
-use super::plot::broadcast;
+use super::plot::spread;
 use crate::artist::ArtistHandle;
 use crate::axes::ScatterOptions;
 use crate::collections::{Collection, CollectionArtist};
+use crate::units::AxisValues;
 
 /// The smallest z margin of an axes holding a scatter plot (and, in
 /// classic mode, the smallest x and y margins).
@@ -41,12 +42,19 @@ pub struct Scatter3DOptions {
 
 impl Axes3D {
     /// A scatter plot of the points `(x, y, z)` with default styling;
-    /// `z` holds one value per point or one for all.
+    /// `z` holds one value per point or one for all. The coordinates are
+    /// numbers, dates, category names or user values, converted on their
+    /// axes as by [`Axes3D::plot`].
     ///
     /// # Errors
     ///
     /// When the coordinates differ in length.
-    pub fn scatter(&self, x: &[f64], y: &[f64], z: &[f64]) -> Result<Collection, Axes3DError> {
+    pub fn scatter(
+        &self,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
+    ) -> Result<Collection, Axes3DError> {
         self.scatter_with(x, y, z, Scatter3DOptions::default())
     }
 
@@ -60,20 +68,25 @@ impl Axes3D {
     /// [`crate::axes::Axes::scatter_with`].
     pub fn scatter_with(
         &self,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
         options: Scatter3DOptions,
     ) -> Result<Collection, Axes3DError> {
-        check_len("y", x.len(), y.len())?;
-        let z = broadcast("z", z, x.len())?;
+        let values = [x.into(), y.into(), z.into()];
+        check_len("y", values[0].len(), values[1].len())?;
+        if values[2].len() != 1 {
+            check_len("z", values[0].len(), values[2].len())?;
+        }
         let had_data = self.has_data();
+        let [x, y, z] = self.convert_juggled(values, options.zdir);
+        let z = spread(z, x.len());
         let rc = crate::rc::params();
         let scatter = ScatterOptions {
             sizes: Some(options.scatter.sizes.unwrap_or_else(|| vec![DEFAULT_SIZE])),
             ..options.scatter
         };
-        let collection = self.plane().scatter_with(x.to_vec(), y.to_vec(), scatter)?;
+        let collection = self.plane().scatter_with(x.clone(), y.clone(), scatter)?;
         let points =
             collection
                 .raw()
@@ -92,6 +105,8 @@ impl Axes3D {
                         min_alpha: options
                             .depthshade_minalpha
                             .unwrap_or(rc.axes3d_depthshade_minalpha),
+                        depth_sorted: true,
+                        sort_zpos: None,
                     })
                 })?;
         self.register(collection.id(), Art3D::Points(points), options.axlim_clip);
@@ -111,7 +126,7 @@ impl Axes3D {
                 }
             }
         });
-        self.auto_scale_xyz(x, y, Some(&z), had_data)?;
+        self.auto_scale_xyz(&x, &y, Some(&z), had_data)?;
         Ok(collection)
     }
 
@@ -169,7 +184,7 @@ mod tests {
             ..Scatter3DOptions::default()
         };
         let points = ax
-            .scatter_with(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0], options)
+            .scatter_with([0.0, 1.0], [0.0, 1.0], [0.0, 1.0], options)
             .unwrap();
         fig.layout();
         let viridis = colormaps::get("viridis").unwrap();
@@ -189,7 +204,7 @@ mod tests {
         let ax = fig.subplot_3d();
         // From the nearest marker to the deepest in the default view.
         let x = [2.0, 1.0, 0.0];
-        let points = ax.scatter(&x, &x, &x).unwrap();
+        let points = ax.scatter(x, x, x).unwrap();
         assert_eq!(points.sizes(), Some(vec![DEFAULT_SIZE]));
         points
             .set_sizes(vec![10.0, 20.0, 30.0])
@@ -225,7 +240,7 @@ mod tests {
                 crate::rc::set("_internal.classic_mode", classic).unwrap();
                 crate::rc::set("axes.xmargin", "0").unwrap();
                 let ax = Figure::new().subplot_3d();
-                ax.scatter(&[0.0, 4.0], &[0.0, 4.0], &[0.0, 4.0]).unwrap();
+                ax.scatter([0.0, 4.0], [0.0, 4.0], [0.0, 4.0]).unwrap();
                 Axis3::ALL.map(|axis| ax.margin(axis))
             })
         };

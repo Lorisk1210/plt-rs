@@ -202,7 +202,7 @@ pub(super) fn jpl_consistent(args: Args<'_>) -> Outcome {
         };
         let (_fig, ax) = axes();
         let converted = Epoch::converter()
-            .convert(&[Epoch::from_date(date)], None, &ax.xaxis())
+            .convert(&[Epoch::from_date(date)], None, &ax.xaxis().into())
             .map_err(ProbeError::rejected)?;
         let &[epoch] = converted.as_slice() else {
             return Err(ProbeError::rejected("one number per epoch"));

@@ -3,7 +3,6 @@
 use std::f64::consts::TAU;
 use std::fmt;
 
-use plt::axes::Axis;
 use plt::colors::{Color, colormaps};
 use plt::layout::LayoutEngine;
 use plt::numeric::linspace;
@@ -14,7 +13,7 @@ use plt::patches::Rectangle;
 use plt::prelude::*;
 use plt::table::{TableLoc, TableOptions};
 use plt::text::{HAlign, TextProps};
-use plt::units::{ConversionError, ConversionInterface, Convertible};
+use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis};
 use plt_core::Bbox;
 
 use super::{classic, remove_text};
@@ -295,7 +294,7 @@ impl ConversionInterface for UncalledConverter {
         &self,
         _: &[FakeUnit],
         _: Option<&()>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         Err(ConversionError::Failed(
             "tables do not convert units".to_owned(),

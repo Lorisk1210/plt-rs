@@ -9,7 +9,7 @@ use plt_core::Point;
 use super::{PatchShape, Rectangle, ShapeError};
 use crate::axes::Axes;
 use crate::ticker::AxisName;
-use crate::units::{AxisDelta, CustomValues, DataPoint, UnitSources};
+use crate::units::{AxisDelta, CustomValues, DataPoint, UnitHandle, UnitSources};
 
 /// What [`Axes::add_patch`] adds: a [`PatchShape`] in axis numbers, which
 /// it adds as it is, or a shape given in plotting values, such as a
@@ -163,10 +163,11 @@ impl IntoPatchShape for DataRectangle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::axes::Axis;
     use crate::dates::TimeDelta;
     use crate::figure::Figure;
-    use crate::units::{AxisValue, ConversionError, ConversionInterface, Convertible, Unit};
+    use crate::units::{
+        AxisValue, ConversionError, ConversionInterface, Convertible, Unit, UnitAxis,
+    };
 
     /// A distance in kilometres, which adds to distances.
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -183,13 +184,13 @@ mod tests {
             &self,
             values: &[Km],
             unit: Option<&&'static str>,
-            _: &Axis,
+            _: &UnitAxis,
         ) -> Result<Vec<f64>, ConversionError> {
             let scale = if unit == Some(&"m") { 1000.0 } else { 1.0 };
             Ok(values.iter().map(|km| km.0 * scale).collect())
         }
 
-        fn default_units(&self, _: &[Km], _: &Axis) -> Option<&'static str> {
+        fn default_units(&self, _: &[Km], _: &UnitAxis) -> Option<&'static str> {
             Some("km")
         }
     }

@@ -2,18 +2,16 @@
 //! setting one, taking the converter's tick helpers, label and default
 //! view, and converting the plotted lines again when the unit changes
 //! (matplotlib's `Axis.update_units`, `set_units`, `get_units`,
-//! `_update_axisinfo` and `Axes._unit_change_handler`).
+//! `_update_axisinfo` and `Axes._unit_change_handler`). The conversions
+//! are those [`UnitHandle`] shares with 3-D axes.
 
 use std::fmt;
-use std::rc::Rc;
 
-use super::axis::AxisState;
 use super::axis_handle::Axis;
 use super::{Axes, AxesState};
-use crate::artist::{ArtistHandle, ArtistLookup, DrawError};
-use crate::dates::TimeZone;
+use crate::artist::{ArtistHandle, ArtistLookup};
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, ConversionError, CustomValues, Unit, UnitAxisInfo, UnitConverter};
+use crate::units::{AxisValues, Unit, UnitHandle};
 
 impl Axis {
     /// Lets the axis pick its converter and unit from `values`
@@ -32,88 +30,7 @@ impl Axis {
     /// assert_eq!(ax.xaxis().categories().expect("names").names(), ["a", "b"]);
     /// ```
     pub fn update_units(&self, values: impl Into<AxisValues>) -> bool {
-        match values.into() {
-            AxisValues::Numbers(_) => false,
-            AxisValues::Custom(values) => {
-                self.update_custom_units(&values);
-                true
-            }
-            values => {
-                self.convert_units(values);
-                true
-            }
-        }
-    }
-
-    /// [`update_units`](Self::update_units) for user values.
-    pub(super) fn update_custom_units(&self, values: &CustomValues) {
-        let (current, explicit) =
-            self.read(|axis| (axis.units.converter.clone(), axis.units.explicit));
-        let converter = match current.clone().filter(|_| explicit) {
-            Some(converter) => converter,
-            None => UnitConverter::Custom(values.converter()),
-        };
-        let new = current.as_ref() != Some(&converter);
-        self.update(|axis| axis.units.adopt(converter.clone()));
-        let default = converter
-            .custom()
-            .and_then(|converter| values.default_units(converter, self));
-        match default {
-            Some(unit) if self.units().is_none() => {
-                self.set_units(unit);
-            }
-            _ if new => self.update_axisinfo(),
-            _ => {}
-        }
-    }
-
-    /// Converts user values in the axis unit, without letting them change
-    /// the unit (matplotlib's `Axis.convert_units`): an axis without a
-    /// converter takes theirs, without its tick helpers. Values that fail
-    /// to convert become NaN, and the figure reports why when it next
-    /// draws.
-    pub(super) fn convert_custom(&self, values: &CustomValues) -> Vec<f64> {
-        self.try_convert_custom(values).unwrap_or_else(|error| {
-            self.report(&error);
-            vec![f64::NAN; values.len()]
-        })
-    }
-
-    /// [`convert_custom`](Self::convert_custom), failing instead of
-    /// reporting.
-    pub(super) fn try_convert_custom(
-        &self,
-        values: &CustomValues,
-    ) -> Result<Vec<f64>, ConversionError> {
-        let fallback = UnitConverter::Custom(values.converter());
-        self.update(|axis| axis.units.converter_or(fallback));
-        self.try_convert_custom_as_is(values)
-    }
-
-    /// User values in the axis unit, converted by the axis converter if it
-    /// is of their converter's type and by their own otherwise, leaving
-    /// the axis as it is.
-    pub(super) fn try_convert_custom_as_is(
-        &self,
-        values: &CustomValues,
-    ) -> Result<Vec<f64>, ConversionError> {
-        let (converter, unit) =
-            self.read(|axis| (axis.units.converter.clone(), axis.units.unit.clone()));
-        let converter = converter.as_ref().and_then(UnitConverter::custom);
-        values.convert(converter, unit.as_ref(), self)
-    }
-
-    /// Reports a failed conversion when the figure next draws.
-    pub(super) fn report(&self, error: &ConversionError) {
-        self.axes
-            .raw()
-            .figure_state()
-            .borrow_mut()
-            .pending_errors
-            .push(DrawError {
-                artist: self.axes.id(),
-                message: error.to_string(),
-            });
+        self.update_units_from(values.into())
     }
 
     /// Sets the unit of the axis and of the axes sharing it (matplotlib's
@@ -123,8 +40,8 @@ impl Axis {
     /// [`DataRectangle`](crate::patches::DataRectangle)) convert them
     /// again. Before any user value is converted the axis has no
     /// converter to ask, so the unit only decides how values convert
-    /// later. Dates follow a [`TimeZone`] unit; category axes keep their
-    /// names.
+    /// later. Dates follow a [`TimeZone`](crate::dates::TimeZone) unit;
+    /// category axes keep their names.
     ///
     /// ```
     /// use plt::dates::TimeZone;
@@ -136,90 +53,14 @@ impl Axis {
     /// assert!(ax.xaxis().have_units() && ax.xaxis().converter().is_none());
     /// ```
     pub fn set_units<U: PartialEq + fmt::Debug + 'static>(&self, unit: U) -> &Self {
-        let unit = Unit::new(unit);
-        if self.units().as_ref() == Some(&unit) {
-            return self;
-        }
-        for axes in self.axes.shared_axes(self.name) {
-            let axis = axes.axis_of(self.name);
-            axis.update(|state| state.units.unit = Some(unit.clone()));
-            axis.update_axisinfo();
-            axes.units_changed(self.name);
-        }
+        self.set_unit(Unit::new(unit));
         self
     }
 
     /// The unit of the axis, once one was set or picked for user values
     /// (matplotlib's `get_units`).
     pub fn units(&self) -> Option<Unit> {
-        self.read(|axis| axis.units.unit.clone())
-    }
-
-    /// Takes the tick helpers, label and default view the converter gives
-    /// for the unit (matplotlib's `_update_axisinfo`); the tick helpers
-    /// are shared with the axes sharing the axis.
-    fn update_axisinfo(&self) {
-        let (converter, unit) =
-            self.read(|axis| (axis.units.converter.clone(), axis.units.unit.clone()));
-        match converter {
-            Some(UnitConverter::Custom(converter)) => {
-                if let Some(info) = converter.axisinfo(unit.as_ref(), self) {
-                    self.use_axis_info(&info);
-                }
-            }
-            Some(UnitConverter::Dates) => {
-                if let Some(tz) = unit.as_ref().and_then(Unit::downcast_ref::<TimeZone>) {
-                    self.use_date_axisinfo(tz);
-                }
-            }
-            Some(UnitConverter::Categories) | None => {}
-        }
-    }
-
-    /// Installs what `info` gives.
-    fn use_axis_info(&self, info: &UnitAxisInfo) {
-        self.update_shared(|axis| axis.use_axis_info_tickers(info));
-        if let Some(label) = &info.label {
-            self.update(|axis| {
-                if axis.label.is_default {
-                    axis.label.text.clone_from(label);
-                }
-            });
-        }
-        if let Some(limits) = info.default_limits {
-            self.set_default_intervals(limits);
-        }
-    }
-}
-
-impl AxisState {
-    /// Installs the tick helpers of `info` in place of those still at
-    /// their defaults, which they stay (matplotlib's `_update_axisinfo`).
-    fn use_axis_info_tickers(&mut self, info: &UnitAxisInfo) {
-        if let Some(locator) = &info.majloc
-            && self.defaults.major.locator
-        {
-            self.set_major_locator(Rc::clone(locator));
-            self.defaults.major.locator = true;
-        }
-        if let Some(locator) = &info.minloc
-            && self.defaults.minor.locator
-        {
-            self.set_minor_locator(Rc::clone(locator));
-            self.defaults.minor.locator = true;
-        }
-        if let Some(formatter) = &info.majfmt
-            && self.defaults.major.formatter
-        {
-            self.set_major_formatter(Rc::clone(formatter));
-            self.defaults.major.formatter = true;
-        }
-        if let Some(formatter) = &info.minfmt
-            && self.defaults.minor.formatter
-        {
-            self.set_minor_formatter(Rc::clone(formatter));
-            self.defaults.minor.formatter = true;
-        }
+        self.unit()
     }
 }
 
@@ -230,7 +71,7 @@ impl Axes {
     /// ([`Artist::unit_sources`](crate::artist::Artist::unit_sources))
     /// convert them again, the data limits are recomputed and the axis
     /// autoscales.
-    fn units_changed(&self, name: AxisName) {
+    pub(super) fn units_changed(&self, name: AxisName) {
         let axis = self.axis_of(name);
         let figure = self.raw().figure_state();
         let children = self
@@ -265,12 +106,16 @@ impl Axes {
 #[cfg(test)]
 mod tests {
     use std::any::Any;
+    use std::rc::Rc;
 
     use super::*;
+    use crate::dates::TimeZone;
     use crate::figure::{Figure, Share};
     use crate::lines::LineProps;
     use crate::ticker::{FixedLocator, MultipleLocator};
-    use crate::units::{ConversionInterface, Convertible, CustomConverter};
+    use crate::units::{
+        ConversionError, ConversionInterface, Convertible, CustomConverter, UnitAxis, UnitAxisInfo,
+    };
 
     /// A distance in kilometres or metres.
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -319,7 +164,7 @@ mod tests {
             &self,
             values: &[Distance],
             unit: Option<&DistanceUnit>,
-            _: &Axis,
+            _: &UnitAxis,
         ) -> Result<Vec<f64>, ConversionError> {
             let unit = unit.copied().unwrap_or(DistanceUnit::Metres);
             if unit == DistanceUnit::Furlongs {
@@ -331,7 +176,7 @@ mod tests {
                 .collect())
         }
 
-        fn axisinfo(&self, unit: Option<&DistanceUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+        fn axisinfo(&self, unit: Option<&DistanceUnit>, _: &UnitAxis) -> Option<UnitAxisInfo> {
             Some(UnitAxisInfo {
                 majloc: Some(Rc::new(MultipleLocator::new(0.5).expect("positive"))),
                 label: Some(format!("{:?}", unit?)),
@@ -340,7 +185,7 @@ mod tests {
             })
         }
 
-        fn default_units(&self, values: &[Distance], _: &Axis) -> Option<DistanceUnit> {
+        fn default_units(&self, values: &[Distance], _: &UnitAxis) -> Option<DistanceUnit> {
             values.first().map(|d| d.unit)
         }
     }

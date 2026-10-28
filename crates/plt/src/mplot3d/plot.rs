@@ -6,18 +6,40 @@ use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
+use super::units::Sources3D;
 use crate::artist::ArtistHandle;
 use crate::lines::{Line2D, LineProps};
 use crate::text::Text;
+use crate::units::{AxisValue, AxisValues};
 
 impl Axes3D {
     /// Plots a line through `(x, y, z)`; `z` holds one value per point or
-    /// one for all (matplotlib's `ax.plot(xs, ys, zs)`).
+    /// one for all (matplotlib's `ax.plot(xs, ys, zs)`). The coordinates
+    /// are numbers, dates, category names or user values, converted on
+    /// their axes as 2-D plotting values are ([`Axis3D::convert_units`]).
+    ///
+    /// ```
+    /// use plt::dates::DateTime;
+    /// use plt::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let day = |d| DateTime::new(2020, 1, d, 0, 0, 0, 0);
+    /// ax.plot(["a", "b", "c"], [1.0, 2.0, 3.0], vec![day(1)?, day(2)?, day(3)?])?;
+    /// assert_eq!(ax.xaxis().ticklabels(false)?, ["a", "b", "c"]);
+    /// assert_eq!(ax.zaxis().ticklabels(false)?[0], "01-01 00");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     ///
     /// # Errors
     ///
     /// When the coordinates differ in length.
-    pub fn plot(&self, x: &[f64], y: &[f64], z: &[f64]) -> Result<Line2D, Axes3DError> {
+    ///
+    /// [`Axis3D::convert_units`]: crate::mplot3d::Axis3D::convert_units
+    pub fn plot(
+        &self,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
+    ) -> Result<Line2D, Axes3DError> {
         self.plot_with(x, y, z, Axis3::Z, LineProps::default())
     }
 
@@ -29,9 +51,9 @@ impl Axes3D {
     /// length.
     pub fn plot_fmt(
         &self,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
         format: &str,
     ) -> Result<Line2D, Axes3DError> {
         let props = LineProps::fmt(format).map_err(crate::axes::PlotError::from)?;
@@ -42,25 +64,35 @@ impl Axes3D {
     /// in the plane normal to `zdir`, at `z` along it (matplotlib's
     /// `ax.plot(xs, ys, zs, zdir=..., **kwargs)`).
     /// [`Axes3D::set_axlim_clip`] on the line hides its points outside the
-    /// view limits (matplotlib's `axlim_clip`).
+    /// view limits (matplotlib's `axlim_clip`). The values convert on the
+    /// axes they lie along once placed, and the user values among them
+    /// convert again when their axis changes unit.
     ///
     /// # Errors
     ///
     /// When the coordinates differ in length.
     pub fn plot_with(
         &self,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
         zdir: Axis3,
         props: LineProps,
     ) -> Result<Line2D, Axes3DError> {
-        check_len("y", x.len(), y.len())?;
-        let z = broadcast("z", z, x.len())?;
+        let values = [x.into(), y.into(), z.into()];
+        let [x, y, z] = values.each_ref().map(AxisValues::len);
+        check_len("y", x, y)?;
+        if z != 1 {
+            check_len("z", x, z)?;
+        }
+        let sources = Sources3D::of(zdir.juggle(values.each_ref()));
         let had_data = self.has_data();
-        let line = self.plane().cycled_line(x.to_vec(), y.to_vec(), props);
-        let points = juggled(x, y, &z, zdir);
+        let [x, y, z] = self.convert_juggled(values, zdir);
+        let z = spread(z, x.len());
+        let line = self.plane().cycled_line(x.clone(), y.clone(), props);
+        let points = juggled(&x, &y, &z, zdir);
         let raw = self.add_artist(line, Art3D::Line(points.clone()), false);
+        self.keep_unit_sources(raw.id(), sources);
         let [xs, ys, zs] = columns(&points);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
         Ok(Line2D::from_raw(raw))
@@ -89,12 +121,16 @@ impl Axes3D {
     /// baseline follows that axis as seen on screen (matplotlib's
     /// `ax.text(x, y, z, s, zdir=...)`). [`Axes3D::set_axlim_clip`] on
     /// the text hides it while its anchor is outside the view limits
-    /// (matplotlib's `axlim_clip`).
+    /// (matplotlib's `axlim_clip`). The coordinates may be dates,
+    /// category names or user values, converted without changing their
+    /// axes as 2-D texts convert theirs (a name needs an axis with
+    /// categories); user values convert again when their axis changes
+    /// unit.
     pub fn text(
         &self,
-        x: f64,
-        y: f64,
-        z: f64,
+        x: impl Into<AxisValue>,
+        y: impl Into<AxisValue>,
+        z: impl Into<AxisValue>,
         text: impl Into<String>,
         zdir: Option<Axis3>,
     ) -> Text {
@@ -106,27 +142,31 @@ impl Axes3D {
     /// `ax.text(x, y, z, s, zdir=(dx, dy, dz))`).
     pub fn text_along(
         &self,
-        x: f64,
-        y: f64,
-        z: f64,
+        x: impl Into<AxisValue>,
+        y: impl Into<AxisValue>,
+        z: impl Into<AxisValue>,
         text: impl Into<String>,
         direction: Vec3,
     ) -> Text {
-        let handle = self.plane().text(x, y, text);
+        let values = [x.into(), y.into(), z.into()];
+        let sources = Sources3D::of_position(&values);
+        let position = self.convert_position(values);
+        let handle = self.plane().text(position[0], position[1], text);
         self.register(
             handle.id(),
             Art3D::Text {
-                position: [x, y, z],
+                position,
                 direction,
             },
             false,
         );
+        self.keep_unit_sources(handle.id(), sources);
         handle
     }
 
     /// Moves a text placed with [`Axes3D::text`] or [`Axes3D::text_along`]
-    /// to `position`, its baseline following `direction` when given and
-    /// keeping its direction otherwise (matplotlib's
+    /// to `position`, in axis numbers, its baseline following `direction`
+    /// when given and keeping its direction otherwise (matplotlib's
     /// `Text3D.set_position_3d`).
     ///
     /// ```
@@ -156,6 +196,8 @@ impl Axes3D {
             else {
                 return None;
             };
+            // Numbers replace the values the anchor came from.
+            entry.sources = Sources3D::default();
             *anchor = position;
             if let Some(direction) = direction {
                 *baseline = direction;
@@ -186,6 +228,15 @@ pub(crate) fn broadcast(
     }
     check_len(argument, len, values.len())?;
     Ok(values.to_vec())
+}
+
+/// `values` with `len` entries when it holds one value, repeated, and as
+/// it is otherwise (numpy broadcasting of lengths checked before).
+pub(crate) fn spread(values: Vec<f64>, len: usize) -> Vec<f64> {
+    match values[..] {
+        [single] => vec![single; len],
+        _ => values,
+    }
 }
 
 /// The points `(x, y)` placed in the plane normal to `zdir` at `z`.
@@ -236,16 +287,16 @@ mod tests {
     fn zdir_places_the_line_in_another_plane() {
         let ax = Figure::new().subplot_3d();
         ax.plot_with(
-            &[0.0, 1.0],
-            &[0.0, 2.0],
-            &[5.0],
+            [0.0, 1.0],
+            [0.0, 2.0],
+            [5.0],
             Axis3::Y,
             LineProps::default(),
         )
         .expect("valid line");
         let (y0, y1) = ax.ylim();
         assert!(y0 < 5.0 && y1 > 5.0, "the line lies at y = 5");
-        assert!(ax.plot(&[1.0], &[1.0, 2.0], &[0.0]).is_err());
+        assert!(ax.plot([1.0], [1.0, 2.0], [0.0]).is_err());
     }
 
     #[test]

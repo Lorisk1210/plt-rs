@@ -35,14 +35,7 @@ fn bar_grid(height_offset: f64) -> [Vec<f64>; 3] {
 /// `ax.bar3d(x2d, y2d, x2d * 0, 1, 1, z, shade=shade)` on [`bar_grid`].
 fn bar3d_grid(ax: &Axes3D, height_offset: f64, shade: bool) -> Result<(), Axes3DError> {
     let [x, y, heights] = bar_grid(height_offset);
-    let boxes = Boxes {
-        x: &x,
-        y: &y,
-        z: &[0.0],
-        dx: &[1.0],
-        dy: &[1.0],
-        dz: &heights,
-    };
+    let boxes = Boxes::new(&x, &y, [0.0], [1.0], [1.0], &heights);
     let options = Bar3DOptions {
         shade,
         ..Bar3DOptions::default()
@@ -63,7 +56,7 @@ pub(super) fn bar3d(fig: &Figure) -> CaseResult {
             props: PatchProps::default().alpha(0.8),
             ..BarOptions::default()
         };
-        ax.bar(&xs, &xs, &[z], Axis3::Y, options)?;
+        ax.bar(&xs, &xs, [z], Axis3::Y, options)?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -102,7 +95,7 @@ pub(super) fn lines3d(fig: &Figure) -> CaseResult {
 }
 
 pub(super) fn plot_scalar(fig: &Figure) -> CaseResult {
-    fig.subplot_3d().plot_fmt(&[1.0], &[1.0], &[0.0], "o")?;
+    fig.subplot_3d().plot_fmt([1.0], [1.0], [0.0], "o")?;
     Ok(())
 }
 
@@ -135,7 +128,7 @@ pub(super) fn plot_3d_from_2d(fig: &Figure) -> CaseResult {
     let xs = range(5);
     let ys: Vec<f64> = (5..10).map(f64::from).collect();
     for zdir in [Axis3::X, Axis3::Y] {
-        ax.plot_with(&xs, &ys, &[0.0], zdir, LineProps::default())?;
+        ax.plot_with(&xs, &ys, [0.0], zdir, LineProps::default())?;
     }
     remove_ticks_and_titles(fig);
     Ok(())
@@ -170,7 +163,7 @@ pub(super) fn fill_between_quad(fig: &Figure) -> CaseResult {
         ..FillBetween3DOptions::default()
     };
     fig.subplot_3d()
-        .fill_between([&x1, &y1, &z1], [&x2, &y2, &[2.0]], options)?;
+        .fill_between((&x1, &y1, &z1), (&x2, &y2, &[2.0]), options)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }
@@ -186,7 +179,7 @@ pub(super) fn fill_between_polygon(fig: &Figure) -> CaseResult {
         ..FillBetween3DOptions::default()
     };
     fig.subplot_3d()
-        .fill_between([&theta, &[0.0], &z1], [&theta, &[0.0], &z2], options)?;
+        .fill_between((&theta, &[0.0], &z1), (&theta, &[0.0], &z2), options)?;
     remove_ticks_and_titles(fig);
     Ok(())
 }

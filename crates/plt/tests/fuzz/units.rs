@@ -22,7 +22,7 @@ use plt::text::AnnotateOptions;
 use plt::ticker::{FormattedTicks, Formatter, Locator, TickContext, TickerError};
 use plt::units::{
     AxisDelta, AxisDeltas, AxisValue, AxisValues, ConversionError, ConversionInterface,
-    Convertible, UnitAxisInfo,
+    Convertible, UnitAxis, UnitAxisInfo,
 };
 
 use crate::harness::{Gen, fuzz};
@@ -186,13 +186,13 @@ impl ConversionInterface for OddConverter {
         &self,
         values: &[Odd],
         unit: Option<&OddUnit>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let numbers: Vec<f64> = values.iter().map(|odd| odd.0).collect();
         convert(&numbers, unit, next_conversion())
     }
 
-    fn axisinfo(&self, _: Option<&OddUnit>, _: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, _: Option<&OddUnit>, _: &UnitAxis) -> Option<UnitAxisInfo> {
         let behaviour = BEHAVIOUR.with(|cell| cell.borrow().0.clone());
         let ticks = behaviour.ticks;
         Some(UnitAxisInfo {
@@ -204,7 +204,7 @@ impl ConversionInterface for OddConverter {
         })
     }
 
-    fn default_units(&self, _: &[Odd], _: &Axis) -> Option<OddUnit> {
+    fn default_units(&self, _: &[Odd], _: &UnitAxis) -> Option<OddUnit> {
         BEHAVIOUR.with(|cell| cell.borrow().0.default_unit.map(OddUnit))
     }
 }
@@ -239,7 +239,7 @@ impl ConversionInterface for GapConverter {
         &self,
         values: &[Gap],
         unit: Option<&OddUnit>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let numbers: Vec<f64> = values.iter().map(|gap| gap.0).collect();
         convert(&numbers, unit, next_conversion())

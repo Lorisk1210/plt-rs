@@ -114,8 +114,7 @@ fn value_source(value: &AxisValue) -> Option<CustomValues> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::axes::Axis;
-    use crate::units::{ConversionError, ConversionInterface, Convertible};
+    use crate::units::{ConversionError, ConversionInterface, Convertible, UnitAxis};
 
     /// A number of steps.
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -131,7 +130,7 @@ mod tests {
             &self,
             values: &[Steps],
             _: Option<&()>,
-            _: &Axis,
+            _: &UnitAxis,
         ) -> Result<Vec<f64>, ConversionError> {
             Ok(values.iter().map(|steps| steps.0).collect())
         }

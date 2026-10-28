@@ -6,14 +6,14 @@
 
 use std::any::Any;
 
-use super::{Axis, BarOptions, ErrorbarOptions, FillBetweenOptions};
+use super::{BarOptions, ErrorbarOptions, FillBetweenOptions};
 use crate::dates::{AutoDateFormatter, DateTime, TimeDelta};
 use crate::figure::{Figure, Share};
 use crate::lines::Line2D;
 use crate::patches::{DataRectangle, Rectangle};
 use crate::text::AnnotateOptions;
 use crate::units::{
-    AxisDelta, AxisDeltas, AxisValue, ConversionError, ConversionInterface, Convertible,
+    AxisDelta, AxisDeltas, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxis,
     UnitConverter,
 };
 
@@ -59,13 +59,13 @@ impl ConversionInterface for LengthConverter {
         &self,
         values: &[Length],
         unit: Option<&LengthUnit>,
-        _: &Axis,
+        _: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError> {
         let per = unit.map_or(1.0, |unit| unit.metres());
         Ok(values.iter().map(|length| length.metres / per).collect())
     }
 
-    fn default_units(&self, values: &[Length], _: &Axis) -> Option<LengthUnit> {
+    fn default_units(&self, values: &[Length], _: &UnitAxis) -> Option<LengthUnit> {
         values.first().map(|length| length.unit)
     }
 }

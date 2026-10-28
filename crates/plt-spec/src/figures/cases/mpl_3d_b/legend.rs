@@ -17,7 +17,7 @@ pub(super) fn legend_plot(fig: &Figure) -> CaseResult {
     for (sign, label) in [(-1.0, "z=1"), (1.0, "z=-1")] {
         let y: Vec<f64> = x.iter().map(|x| sign * (x - 5.0)).collect();
         let props = LineProps::fmt("o")?.label(label);
-        ax.plot_with(&x, &y, &[0.0], Axis3::Y, props)?;
+        ax.plot_with(&x, &y, [0.0], Axis3::Y, props)?;
     }
     ax.legend(LegendOptions::default())?;
     remove_ticks_and_titles(fig);
@@ -33,8 +33,8 @@ pub(super) fn legend_bar(fig: &Figure) -> CaseResult {
         color: vec![color.into()],
         ..BarOptions::default()
     };
-    let up = ax.bar(&x, &x, &[0.0], Axis3::Y, bars("m"))?;
-    let down = ax.bar(&x, &reversed, &[0.0], Axis3::X, bars("g"))?;
+    let up = ax.bar(&x, &x, [0.0], Axis3::Y, bars("m"))?;
+    let down = ax.bar(&x, &reversed, [0.0], Axis3::X, bars("g"))?;
     let handles = [LegendHandle::from(&up[0]), LegendHandle::from(&down[0])];
     ax.legend(
         LegendOptions::default()
@@ -49,15 +49,15 @@ pub(super) fn fancy(fig: &Figure) -> CaseResult {
     let ax = fig.subplot_3d();
     let x = indices(10);
     let props = LineProps::fmt("o--")?.label("line");
-    ax.plot_with(&x, &[5.0; 10], &[5.0; 10], Axis3::Z, props)?;
+    ax.plot_with(&x, [5.0; 10], [5.0; 10], Axis3::Z, props)?;
     let countdown: Vec<f64> = x.iter().map(|x| 10.0 - x).collect();
-    ax.scatter(&x, &countdown, &[0.0])?.set_label("scatter");
+    ax.scatter(&x, &countdown, [0.0])?.set_label("scatter");
     let options = Errorbar3DOptions {
         errors: [Some(ErrorSize::from(0.5)), None, Some(ErrorSize::from(0.5))],
         line: LineProps::default().label("errorbar"),
         ..Errorbar3DOptions::default()
     };
-    ax.errorbar(&[5.0; 10], &x, &[10.0; 10], options)?;
+    ax.errorbar([5.0; 10], &x, [10.0; 10], options)?;
     let options = LegendOptions {
         loc: Some(LegendLoc::Anchored(AnchorLoc::LowerLeft)),
         ncols: 2,

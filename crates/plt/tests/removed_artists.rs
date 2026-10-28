@@ -348,19 +348,19 @@ fn selectors_and_extras(fig: &Figure) -> Outcome {
 
 fn three_d(fig: &Figure) -> Outcome {
     let ax = fig.subplot_3d();
-    let line = ax.plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])?;
-    let points = ax.scatter(&[0.0, 1.0], &[1.0, 0.0], &[0.5, 0.5])?;
+    let line = ax.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0])?;
+    let points = ax.scatter([0.0, 1.0], [1.0, 0.0], [0.5, 0.5])?;
     line.remove();
     points.remove();
     exercise(&line);
     exercise(&points);
     let _ = line.data();
     let other = fig.subplot_3d();
-    other.plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])?;
+    other.plot([0.0, 1.0], [0.0, 1.0], [0.0, 1.0])?;
     other.remove();
     let _ = (other.position(), other.trans_axes());
     other.set_title("gone");
-    let late = other.plot(&[0.0, 1.0], &[1.0, 0.0], &[0.0, 1.0])?;
+    let late = other.plot([0.0, 1.0], [1.0, 0.0], [0.0, 1.0])?;
     assert!(!late.raw().is_attached(), "made in a removed 3-D axes");
     draw(fig)
 }

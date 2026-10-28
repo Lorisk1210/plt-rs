@@ -22,7 +22,7 @@ fn plot_cuboid(ax: &Axes3D, scale: Vec3) -> Result<(), Axes3DError> {
             if distance == 1 {
                 let [x, y, z] = [0, 1, 2]
                     .map(|k| [f64::from(start[k]) * scale[k], f64::from(end[k]) * scale[k]]);
-                ax.plot(&x, &y, &z)?;
+                ax.plot(x, y, z)?;
             }
         }
     }
@@ -73,7 +73,7 @@ pub(super) fn axis_positions_inverted(fig: &Figure) -> CaseResult {
     for (i, ax) in subplots_3d(fig, 2, 4)?.iter().enumerate() {
         // itertools.product([False, True], repeat=3)
         let inverted = [i & 4 != 0, i & 2 != 0, i & 1 != 0];
-        ax.plot(&[0.0, 1.0, 1.0], &[0.0, 0.0, 1.0], &[0.0, 1.0, 1.0])?;
+        ax.plot([0.0, 1.0, 1.0], [0.0, 0.0, 1.0], [0.0, 1.0, 1.0])?;
         let mut names = Vec::new();
         for ((axis, inverted), name) in Axis3::ALL.into_iter().zip(inverted).zip(["x", "y", "z"]) {
             if inverted {

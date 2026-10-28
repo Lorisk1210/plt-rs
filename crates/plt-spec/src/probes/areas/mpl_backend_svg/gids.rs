@@ -77,7 +77,7 @@ pub(super) fn missing_gids(args: Args<'_>) -> Outcome {
             .map_err(ProbeError::rejected)?;
         fig.add_subplot_3d(1, 3, 3, Axes3DOptions::default())
             .map_err(ProbeError::rejected)?
-            .plot(&[1.0, 2.0], &[1.0, 2.0], &[1.0, 2.0])
+            .plot([1.0, 2.0], [1.0, 2.0], [1.0, 2.0])
             .map_err(ProbeError::rejected)?;
         fig.layout();
         let artists: Vec<(String, RawHandle)> = fig

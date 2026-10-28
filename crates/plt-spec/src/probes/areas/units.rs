@@ -158,7 +158,7 @@ fn errorbar_3d_timedelta(_: Args<'_>) -> Outcome {
         errors: [Some(day.into()), None, None],
         ..Errorbar3DOptions::default()
     };
-    ax.errorbar(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0], options)
+    ax.errorbar([0.0, 1.0], [0.0, 1.0], [0.0, 1.0], options)
         .map_err(ProbeError::rejected)?;
     fig.layout();
     Ok(Json::Null)

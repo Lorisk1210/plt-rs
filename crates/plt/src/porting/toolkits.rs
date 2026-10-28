@@ -39,6 +39,12 @@
 //! | `fig.add_subplot(projection="3d")`                | [`Figure::subplot_3d`], [`Figure::add_subplot_3d`] |
 //! | `fig.add_subplot(projection="3d", elev=, azim=, proj_type=)` | [`Figure::subplot_3d_with`] and [`Axes3DOptions`] |
 //! | `ax.plot(x, y, z)`, `ax.scatter(x, y, z, ...)`    | [`Axes3D::plot`], [`Axes3D::scatter_with`] with [`Scatter3DOptions`] |
+//! | `x, y, z = ax._process_unit_info([("x", x), ("y", y), ("z", z)])` before plotting dates or names | none: [`Axes3D::plot`], `scatter`, `text`, `bar3d`, `stem`, `errorbar` and `fill_between` take dates, names and values with units |
+//! | `ax.convert_zunits(z)`, `ax.zaxis.convert_units(z)` | [`Axes3D::zaxis`]`().`[`convert_units`](crate::mplot3d::Axis3D::convert_units)`(z)` |
+//! | `ax.zaxis.update_units(v)`, `set_units(u)`, `get_units()` | [`Axis3D::update_units`], [`Axis3D::set_units`], [`Axis3D::units`] |
+//! | `ax.zaxis.set_converter(c)`, `get_converter()`    | [`Axis3D::set_converter`], [`Axis3D::converter`] |
+//! | `ax.fill_between(x1, y1, z1, x2, y2, z2)`         | [`Axes3D::fill_between`]`((x1, y1, z1), (x2, y2, z2), ..)` ([`Curve3D`]) |
+//! | `ax.bar3d(x, y, z, dx, dy, dz)`                   | [`Axes3D::bar3d`]`(`[`Boxes::new`]`(x, y, z, dx, dy, dz), ..)` |
 //! | `ax.plot_surface(X, Y, Z, cmap=, norm=, vmin=)`   | [`Axes3D::plot_surface`] with [`SurfaceOptions`], [`FaceColors::Mapped`] |
 //! | `ax.plot_wireframe`, `ax.plot_trisurf`            | [`Axes3D::plot_wireframe`], [`Axes3D::plot_trisurf`] |
 //! | `ax.contour(X, Y, Z, zdir=, offset=)`             | [`Axes3D::contour`] with [`Contour3DOptions`]  |
@@ -49,9 +55,15 @@
 //! | `text3d.get_position_3d()`, `text3d.set_position_3d(p)` | [`Axes3D::text_position`], [`Axes3D::set_text_position`] |
 //! | `ax.set_title(s, loc="left")`, `ax.zaxis.get_rotate_label(s)` | [`Axes3D::set_title_at`], [`Axes3D::title_at`], [`Axes3D::rotate_label`] |
 //! | `ax.set_zlim(a, b)`, `ax.get_zlim()`              | [`Axes3D::set_zlim`], [`Axes3D::zlim`]         |
+//! | `ax.set_zlim(a, b, view_margin=m)`, `ax.set_zbound(a, b, view_margin=m)` | [`Axes3D::set_limits_with_margin`], [`Axes3D::set_bound_with_margin`] |
 //! | `ax.set_zlabel(s)`, `ax.set_zscale("log")`        | [`Axes3D::set_zlabel`], [`Axes3D::set_zscale`] |
 //! | `ax.get_zbound()`, `ax.zaxis_inverted()`          | [`Axes3D::bound`]`(Axis3::Z)`, [`Axes3D::inverted`]`(Axis3::Z)` |
 //! | `ax.zaxis`, `ax.get_zticks()`                     | [`Axes3D::zaxis`], [`Axis3D::ticklocs`]        |
+//! | `ax.get_zticklines()`, `ax.get_zgridlines()`      | [`Axis3D::ticklines`], [`Axis3D::gridlines`] ([`TickLine3D`], [`GridLine3D`]) |
+//! | `col.set_sort_zpos(z)`                            | [`Axes3D::set_sort_zpos`], [`Axes3D::sort_zpos`] |
+//! | `lines3d.set_segments(segments)`                  | [`Axes3D::set_segments`]                       |
+//! | `poly3d.set_verts(v)`, `set_verts_and_codes(v, c)`, `set_3d_properties()` | [`Axes3D::set_poly_verts`], [`Axes3D::set_poly_verts_and_codes`], [`Axes3D::set_poly_3d_properties`] |
+//! | `ax.add_collection3d(PatchCollection(...))`, `patches3d.get_depthshade()`, `set_3d_properties(zs, zdir)` | [`Axes3D::add_collection3d`], [`Axes3D::depthshade`], [`Axes3D::set_scatter_offsets`] |
 //! | `ax.view_init(elev, azim, roll)`                  | [`Axes3D::view_init`], [`Axes3D::view`]        |
 //! | `ax.set_box_aspect((1, 1, 1))`, `ax.set_aspect("equal")` | [`Axes3D::set_box_aspect`], [`Axes3D::set_aspect`] with [`Aspect3D`] |
 //! | `ax.set_proj_type("ortho")`                       | [`Axes3D::set_proj_type`]`(ProjType::Ortho)`   |
@@ -352,6 +364,28 @@
 //! [`Axes3D::share_view`]: crate::mplot3d::Axes3D::share_view
 //! [`Axes3D::proj`]: crate::mplot3d::Axes3D::proj
 //! [`Axis3D::ticklocs`]: crate::mplot3d::Axis3D::ticklocs
+//! [`Axis3D::ticklines`]: crate::mplot3d::Axis3D::ticklines
+//! [`Axis3D::gridlines`]: crate::mplot3d::Axis3D::gridlines
+//! [`Axis3D::convert_units`]: crate::mplot3d::Axis3D::convert_units
+//! [`Axis3D::update_units`]: crate::mplot3d::Axis3D::update_units
+//! [`Axis3D::set_units`]: crate::mplot3d::Axis3D::set_units
+//! [`Axis3D::units`]: crate::mplot3d::Axis3D::units
+//! [`Axis3D::set_converter`]: crate::mplot3d::Axis3D::set_converter
+//! [`Axis3D::converter`]: crate::mplot3d::Axis3D::converter
+//! [`TickLine3D`]: crate::mplot3d::TickLine3D
+//! [`GridLine3D`]: crate::mplot3d::GridLine3D
+//! [`Curve3D`]: crate::mplot3d::Curve3D
+//! [`Boxes::new`]: crate::mplot3d::Boxes::new
+//! [`Axes3D::fill_between`]: crate::mplot3d::Axes3D::fill_between
+//! [`Axes3D::set_limits_with_margin`]: crate::mplot3d::Axes3D::set_limits_with_margin
+//! [`Axes3D::set_bound_with_margin`]: crate::mplot3d::Axes3D::set_bound_with_margin
+//! [`Axes3D::set_sort_zpos`]: crate::mplot3d::Axes3D::set_sort_zpos
+//! [`Axes3D::sort_zpos`]: crate::mplot3d::Axes3D::sort_zpos
+//! [`Axes3D::set_segments`]: crate::mplot3d::Axes3D::set_segments
+//! [`Axes3D::set_poly_verts`]: crate::mplot3d::Axes3D::set_poly_verts
+//! [`Axes3D::set_poly_verts_and_codes`]: crate::mplot3d::Axes3D::set_poly_verts_and_codes
+//! [`Axes3D::set_poly_3d_properties`]: crate::mplot3d::Axes3D::set_poly_3d_properties
+//! [`Axes3D::add_collection3d`]: crate::mplot3d::Axes3D::add_collection3d
 //! [`Axis3`]: crate::mplot3d::Axis3
 //! [`Axes3DOptions`]: crate::mplot3d::Axes3DOptions
 //! [`Scatter3DOptions`]: crate::mplot3d::Scatter3DOptions

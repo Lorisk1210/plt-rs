@@ -7,9 +7,10 @@ use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
-use super::plot::{broadcast, columns};
+use super::plot::columns;
 use super::quiver::Quiver3DOptions;
 use super::state::Axes3DState;
+use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle};
 use crate::axes::{ErrorSize, ErrorbarContainer, ErrorbarFormat, PlotError, without_marker_style};
 use crate::collections::{Collection, CollectionProps};
@@ -17,7 +18,7 @@ use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
 use crate::markers::{Marker, MarkerSymbol};
 use crate::transforms::{TransformContext, unit_to_bbox};
-use crate::units::AxisDeltas;
+use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues, UnitHandle};
 
 /// The tangent of a quiver head's 15° barb angle, inverted: arrow length
 /// over half the width of its base (matplotlib's `1.8660254037844388`).
@@ -86,7 +87,11 @@ impl Axes3D {
     /// Points `(x, y, z)` with error bars along the axes that have errors
     /// (matplotlib's `errorbar` on 3-D axes). The caps are flat markers
     /// (`|` on x and y bars, `_` on z bars); limits end in arrows sized
-    /// like the caps seen face on.
+    /// like the caps seen face on. The points are numbers, dates, category
+    /// names or user values, converted on their axes as by
+    /// [`Axes3D::plot`] (matplotlib's `_process_unit_info`); the bars end
+    /// at the values less and plus their errors, computed in the units of
+    /// the values, such as dates and durations.
     ///
     /// ```
     /// use plt::figure::Figure;
@@ -106,20 +111,23 @@ impl Axes3D {
     /// # Errors
     ///
     /// When the coordinates differ in length, an error or limit list does
-    /// not broadcast, `errorevery` is invalid, or errors are durations or
-    /// user values, which do not add to the coordinates
+    /// not broadcast, `errorevery` is invalid, or errors do not add to the
+    /// coordinates, such as durations to numbers
     /// ([`Axes3DError::UnaddableErrors`]; matplotlib fails on them too).
     pub fn errorbar(
         &self,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
         mut options: Errorbar3DOptions,
     ) -> Result<Errorbar3D, Axes3DError> {
-        check_len("y", x.len(), y.len())?;
-        check_len("z", x.len(), z.len())?;
-        let n = x.len();
+        let values = [x.into(), y.into(), z.into()];
+        check_len("y", values[0].len(), values[1].len())?;
+        check_len("z", values[0].len(), values[2].len())?;
+        let n = values[0].len();
         let had_data = self.has_data();
+        let sources = Sources3D::of(values.each_ref());
+        let [x, y, z] = self.convert_xyz(values.clone());
         let every = every_mask(options.errorevery.as_ref(), n)?;
         let (has_xyerr, has_zerr) = (
             options.errors[0].is_some() || options.errors[1].is_some(),
@@ -132,7 +140,7 @@ impl Axes3D {
         let hidden = !options.fmt.draws_line();
         let format = options.fmt.line_props();
         let plane = self.plane();
-        let mut data = plane.cycled_line(x.to_vec(), y.to_vec(), format.overlay(kwargs.clone()));
+        let mut data = plane.cycled_line(x.clone(), y.clone(), format.overlay(kwargs.clone()));
         let color = if hidden {
             kwargs.color.clone().unwrap_or_else(|| Color::from("C0"))
         } else {
@@ -142,7 +150,9 @@ impl Axes3D {
         data.base_mut().zorder = zorder + if options.barsabove { -0.1 } else { 0.1 };
         let points: Vec<Vec3> = (0..n).map(|i| [x[i], y[i], z[i]]).collect();
         let data_line = (!hidden).then(|| {
-            Line2D::from_raw(self.add_artist(data, Art3D::Line(points.clone()), options.axlim_clip))
+            let raw = self.add_artist(data, Art3D::Line(points.clone()), options.axlim_clip);
+            self.keep_unit_sources(raw.id(), sources);
+            Line2D::from_raw(raw)
         });
         let ecolor = options.ecolor.take().unwrap_or(color);
         let capsize = options
@@ -178,7 +188,8 @@ impl Axes3D {
                 lolims: broadcast_flags("lolims", &options.lolims[axis.index()], n)?,
                 uplims: broadcast_flags("uplims", &options.uplims[axis.index()], n)?,
             };
-            let ends = self.error_direction(&direction, &points, &every, &style, &mut bars)?;
+            let ends =
+                self.error_direction(&direction, (&values, &points), &every, &style, &mut bars)?;
             extremes.extend(ends.lows.iter().chain(&ends.highs));
         }
         // matplotlib autoscales to the bar ends; without bars it would
@@ -203,18 +214,39 @@ impl Axes3D {
     }
 
     /// Adds the caps, limit arrows and bars of one axis to `bars` and
-    /// returns the bar ends.
+    /// returns the bar ends, for the points `points` converted from
+    /// `values`.
     fn error_direction(
         &self,
         direction: &ErrorDirection,
-        points: &[Vec3],
+        (values, points): (&[AxisValues; 3], &[Vec3]),
         every: &[bool],
         style: &CapStyle,
         bars: &mut Errorbar3D,
     ) -> Result<BarEnds, Axes3DError> {
         let axis = direction.axis;
         let (lolims, uplims) = (&direction.lolims, &direction.uplims);
-        let ends = bar_ends(points, axis, &direction.err, (lolims, uplims), every)?;
+        let (lows, highs) = end_values(
+            &values[axis.index()],
+            axis,
+            &direction.err,
+            (lolims, uplims),
+            every,
+        )?;
+        let along = self.axis(axis);
+        let place = |ends: &[AxisValue]| -> Vec<Vec3> {
+            (points.iter().zip(ends))
+                .map(|(&point, end)| {
+                    let mut moved = point;
+                    moved[axis.index()] = along.convert_without_update(end);
+                    moved
+                })
+                .collect()
+        };
+        let ends = BarEnds {
+            lows: place(&lows),
+            highs: place(&highs),
+        };
         let nolims: Vec<bool> = lolims
             .iter()
             .zip(uplims)
@@ -368,43 +400,48 @@ impl CapStyle {
     }
 }
 
-/// The lower and upper bar ends along `axis` of every point: the point
-/// itself on the limited side and for points without bars (matplotlib's
-/// `_extract_errs`).
-fn bar_ends(
-    points: &[Vec3],
+/// The lower and upper bar ends along `axis` of every point, in the
+/// units of `values`, the coordinates of the points along it: the value
+/// itself on the limited side and for points without bars, else the value
+/// less or plus its error (matplotlib's `_extract_errs`, which computes
+/// `data - err` and `data + err` on the data as given).
+fn end_values(
+    values: &AxisValues,
     axis: Axis3,
     err: &ErrorSize,
     (lolims, uplims): (&[bool], &[bool]),
     every: &[bool],
-) -> Result<BarEnds, Axes3DError> {
-    let n = points.len();
-    // matplotlib computes the ends as `data - err` and `data + err` on the
-    // coordinates, which are numbers here: only numbers add to them.
-    let (lower, upper) = err.sides(|errors| match errors {
-        AxisDeltas::Numbers(numbers) => Ok(numbers.clone()),
-        AxisDeltas::Durations(_) | AxisDeltas::Custom(_) => Err(Axes3DError::UnaddableErrors(axis)),
-    })?;
-    let (lower, upper) = (
-        broadcast("errors", &lower, n)?,
-        broadcast("errors", &upper, n)?,
-    );
-    let i = axis.index();
-    let moved = |p: Vec3, delta: f64, keep: bool| {
-        let mut q = p;
-        if !keep {
-            q[i] += delta;
-        }
-        q
+) -> Result<(Vec<AxisValue>, Vec<AxisValue>), Axes3DError> {
+    let items: Vec<AxisValue> = (0..values.len()).filter_map(|j| values.get(j)).collect();
+    let n = items.len();
+    let (lower, upper) = match err {
+        ErrorSize::Symmetric(errors) => (errors, errors),
+        ErrorSize::Asymmetric { lower, upper } => (lower, upper),
     };
-    Ok(BarEnds {
-        lows: (0..n)
-            .map(|j| moved(points[j], -lower[j], lolims[j] || !every[j]))
-            .collect(),
-        highs: (0..n)
-            .map(|j| moved(points[j], upper[j], uplims[j] || !every[j]))
-            .collect(),
-    })
+    let per_point = |errors: &AxisDeltas| -> Result<Vec<AxisDelta>, Axes3DError> {
+        let errors: Vec<AxisDelta> = errors.iter().collect();
+        if let [single] = errors.as_slice() {
+            return Ok(vec![single.clone(); n]);
+        }
+        check_len("errors", n, errors.len())?;
+        Ok(errors)
+    };
+    let (lower, upper) = (per_point(lower)?, per_point(upper)?);
+    let end = |j: usize, error: &AxisDelta, factor: i64, keep: bool| {
+        if keep {
+            return Ok(items[j].clone());
+        }
+        items[j]
+            .offset(error, factor)
+            .ok_or(Axes3DError::UnaddableErrors(axis))
+    };
+    let lows = (0..n)
+        .map(|j| end(j, &lower[j], -1, lolims[j] || !every[j]))
+        .collect::<Result<_, _>>()?;
+    let highs = (0..n)
+        .map(|j| end(j, &upper[j], 1, uplims[j] || !every[j]))
+        .collect::<Result<_, _>>()?;
+    Ok((lows, highs))
 }
 
 /// One flag per point from one flag or one per point.
@@ -461,31 +498,56 @@ mod tests {
 
     #[test]
     fn limits_drop_one_side_and_every_skips_points() {
-        let points = [[0.0, 0.0, 1.0], [1.0, 1.0, 2.0], [2.0, 2.0, 3.0]];
+        let z = AxisValues::from([1.0, 2.0, 3.0]);
         let err = ErrorSize::Asymmetric {
             lower: 0.5.into(),
             upper: 1.0.into(),
         };
-        let ends = bar_ends(
-            &points,
+        let (lows, highs) = end_values(
+            &z,
             Axis3::Z,
             &err,
             (&[true, false, false], &[false, false, false]),
             &[true, true, false],
         )
         .unwrap();
-        assert_eq!(ends.lows[0][2], 1.0, "a lower limit keeps its low end");
-        assert_eq!(ends.highs[0][2], 2.0);
-        assert_eq!((ends.lows[1][2], ends.highs[1][2]), (1.5, 3.0));
-        assert_eq!((ends.lows[2][2], ends.highs[2][2]), (3.0, 3.0), "no bar");
-        assert_eq!(ends.lows[1][0], 1.0, "other coordinates stay");
+        let number = AxisValue::Number;
+        assert_eq!(lows[0], number(1.0), "a lower limit keeps its low end");
+        assert_eq!(highs[0], number(2.0));
+        assert_eq!((&lows[1], &highs[1]), (&number(1.5), &number(3.0)));
+        assert_eq!(
+            (&lows[2], &highs[2]),
+            (&number(3.0), &number(3.0)),
+            "no bar"
+        );
+    }
+
+    #[test]
+    fn date_bars_end_a_duration_away() {
+        use crate::dates::{DateTime, TimeDelta};
+        let ax = Figure::new().subplot_3d();
+        let day = |d| DateTime::new(2020, 1, d, 0, 0, 0, 0).unwrap();
+        let half_day = TimeDelta::new(0, 43_200, 0).unwrap();
+        let options = Errorbar3DOptions {
+            errors: [None, None, Some(half_day.into())],
+            ..Errorbar3DOptions::default()
+        };
+        let bars = ax
+            .errorbar([0.0, 1.0], [0.0, 1.0], vec![day(1), day(2)], options)
+            .unwrap();
+        let ends = ax.with(|axes| {
+            let id = bars.errlines[0].id();
+            let entry = axes.artists.iter().find(|a| a.id == id).cloned();
+            entry.map(|a| a.art.points())
+        });
+        let z: Vec<f64> = ends.unwrap().iter().map(|p| p[2]).collect();
+        assert_eq!(z, [18_261.5, 18_262.5, 18_262.5, 18_263.5]);
     }
 
     #[test]
     fn errors_with_units_are_refused_as_in_matplotlib() {
-        use crate::axes::Axis;
         use crate::dates::TimeDelta;
-        use crate::units::{ConversionError, ConversionInterface, Convertible};
+        use crate::units::{ConversionError, ConversionInterface, Convertible, UnitAxis};
 
         /// A length in some unit.
         #[derive(Clone, Copy, Debug, PartialEq)]
@@ -500,7 +562,7 @@ mod tests {
                 &self,
                 values: &[Length],
                 _: Option<&()>,
-                _: &Axis,
+                _: &UnitAxis,
             ) -> Result<Vec<f64>, ConversionError> {
                 Ok(values.iter().map(|length| length.0).collect())
             }
@@ -513,17 +575,17 @@ mod tests {
             }
         }
 
-        let points = [[0.0, 0.0, 1.0]];
+        let values = AxisValues::from([0.0]);
         let flags: (&[bool], &[bool]) = (&[false], &[false]);
         let half_day = TimeDelta::new(0, 43_200, 0).unwrap();
         assert_eq!(
-            bar_ends(&points, Axis3::X, &half_day.into(), flags, &[true]).err(),
+            end_values(&values, Axis3::X, &half_day.into(), flags, &[true]).err(),
             Some(Axes3DError::UnaddableErrors(Axis3::X)),
             "a number plus a duration fails in Python"
         );
         let lengths = ErrorSize::from(AxisDeltas::from(vec![Length(1.0)]));
         assert_eq!(
-            bar_ends(&points, Axis3::Y, &lengths, flags, &[true]).err(),
+            end_values(&values, Axis3::Y, &lengths, flags, &[true]).err(),
             Some(Axes3DError::UnaddableErrors(Axis3::Y))
         );
     }
@@ -538,7 +600,7 @@ mod tests {
             ..Errorbar3DOptions::default()
         };
         let bars = ax
-            .errorbar(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0], options)
+            .errorbar([0.0, 1.0], [0.0, 1.0], [0.0, 1.0], options)
             .unwrap();
         assert_eq!(bars.errlines.len(), 2);
         assert_eq!(bars.limit_arrows.len(), 1);
@@ -550,7 +612,7 @@ mod tests {
         let (lo, hi) = ax.zlim();
         assert!(lo < 0.0 && lo > -0.1 && hi > 2.0);
         assert!(
-            ax.errorbar(&[0.0], &[0.0, 1.0], &[0.0], Errorbar3DOptions::default())
+            ax.errorbar([0.0], [0.0, 1.0], [0.0], Errorbar3DOptions::default())
                 .is_err()
         );
     }

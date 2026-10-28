@@ -111,14 +111,7 @@ fn lines_points_bars(fig: &Figure) -> CaseResult {
         .unzip();
     let scaled = |v: &[f64]| v.iter().map(|v| v * 0.3).collect::<Vec<f64>>();
     let heights: Vec<f64> = bx.iter().zip(&by).map(|(x, y)| x * y / 10.0).collect();
-    let boxes = Boxes {
-        x: &bx,
-        y: &by,
-        z: &[1.0],
-        dx: &scaled(&bx),
-        dy: &scaled(&by),
-        dz: &heights,
-    };
+    let boxes = Boxes::new(&bx, &by, [1.0], scaled(&bx), scaled(&by), &heights);
     let options = Bar3DOptions {
         props: CollectionProps::default().alpha(0.8),
         ..Bar3DOptions::default()
@@ -184,7 +177,7 @@ fn stems_arrows_texts(fig: &Figure) -> CaseResult {
         bottom: 1.0,
         ..Stem3DOptions::default()
     };
-    ax.stem(&decades, &decades, &[10.0, 100.0, 1000.0], options)?;
+    ax.stem(decades, decades, [10.0, 100.0, 1000.0], options)?;
     log_axes(&ax, "stem")?;
 
     let ax = panel(fig, 10)?;
@@ -243,11 +236,7 @@ pub(super) fn scale3d_all_clipped(fig: &Figure) -> CaseResult {
     for dir in Axis3::ALL {
         ax.set_limits(dir, 0.1, 10.0)?;
     }
-    ax.plot(
-        &[-1.0, -2.0, -3.0],
-        &[-4.0, -5.0, -6.0],
-        &[-7.0, -8.0, -9.0],
-    )?;
+    ax.plot([-1.0, -2.0, -3.0], [-4.0, -5.0, -6.0], [-7.0, -8.0, -9.0])?;
     Ok(())
 }
 

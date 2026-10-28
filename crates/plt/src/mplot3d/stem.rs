@@ -9,6 +9,7 @@ use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
 use crate::lines::{FormatString, Line2D, LineProps, LineStyle};
 use crate::markers::{Marker, MarkerSymbol};
+use crate::units::AxisValues;
 
 /// Label of the parts of a stem plot kept out of legends.
 const NO_LEGEND: &str = "_nolegend_";
@@ -64,26 +65,31 @@ pub struct Stem3D {
 impl Axes3D {
     /// Stems from a baseline at `bottom` along the orientation axis to the
     /// heads `(x, y, z)`, with markers at the heads (matplotlib's `stem`).
+    /// The heads are numbers, dates, category names or user values,
+    /// converted on their axes as by [`Axes3D::plot`]; `bottom` is a
+    /// number of the orientation axis.
     ///
     /// # Errors
     ///
     /// When the coordinates differ in length.
     pub fn stem(
         &self,
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        z: impl Into<AxisValues>,
         options: Stem3DOptions,
     ) -> Result<Stem3D, Axes3DError> {
-        check_len("y", x.len(), y.len())?;
-        check_len("z", x.len(), z.len())?;
+        let values = [x.into(), y.into(), z.into()];
+        check_len("y", values[0].len(), values[1].len())?;
+        check_len("z", values[0].len(), values[2].len())?;
         let had_data = self.has_data();
+        let [x, y, z] = self.convert_xyz(values);
         let span = |v: &[f64]| {
             let low = v.iter().copied().fold(f64::INFINITY, f64::min);
             let high = v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             (low, high)
         };
-        let limits = [span(x), span(y), span(z)];
+        let limits = [span(&x), span(&y), span(&z)];
         let bottom = options.bottom;
         let orientation = options.orientation.index();
         // The baseline lies in the plane of the two other axes.
@@ -92,7 +98,7 @@ impl Axes3D {
             Axis3::Y => (0, 2),
             Axis3::Z => (0, 1),
         };
-        let columns = [x, y, z];
+        let columns = [&x, &y, &z];
         let stems: Vec<Vec<Vec3>> = (0..x.len())
             .map(|i| {
                 let head = [x[i], y[i], z[i]];
@@ -105,7 +111,7 @@ impl Axes3D {
         let baseline = self.plot_with(
             columns[a],
             columns[b],
-            &[bottom],
+            [bottom],
             options.orientation,
             no_legend(options.basefmt),
         )?;
@@ -117,7 +123,7 @@ impl Axes3D {
                 crate::rc::params().lines_linestyle.clone()
             })]);
         let stemlines = self.add_segments(stems, props, options.axlim_clip);
-        let markerline = self.plot_with(x, y, z, Axis3::Z, no_legend(options.markerfmt))?;
+        let markerline = self.plot_with(&x, &y, &z, Axis3::Z, no_legend(options.markerfmt))?;
         let base_span = |axis: usize| -> [f64; 2] {
             let (low, high) = limits[axis];
             [low, high]

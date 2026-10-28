@@ -6,8 +6,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use super::{AxisDelta, AxisValue};
-use crate::axes::Axis;
+use super::{AxisDelta, AxisValue, UnitAxis};
 use crate::ticker::{Formatter, Locator};
 
 /// A converter of plotting values of a user type to axis numbers
@@ -22,9 +21,8 @@ use crate::ticker::{Formatter, Locator};
 /// ([`convert`](Self::convert)).
 ///
 /// ```
-/// use plt::axes::Axis;
 /// use plt::prelude::*;
-/// use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxisInfo};
+/// use plt::units::{ConversionError, ConversionInterface, Convertible, UnitAxis, UnitAxisInfo};
 ///
 /// /// A length in metres or feet.
 /// #[derive(Clone, Copy, Debug, PartialEq)]
@@ -39,7 +37,7 @@ use crate::ticker::{Formatter, Locator};
 ///     type Value = Length;
 ///     type Unit = Unit;
 ///
-///     fn convert(&self, values: &[Length], unit: Option<&Unit>, _: &Axis)
+///     fn convert(&self, values: &[Length], unit: Option<&Unit>, _: &UnitAxis)
 ///         -> Result<Vec<f64>, ConversionError> {
 ///         let metres_per = |unit| if unit == Unit::Feet { 0.3048 } else { 1.0 };
 ///         Ok(values.iter().map(|length| {
@@ -48,12 +46,12 @@ use crate::ticker::{Formatter, Locator};
 ///         }).collect())
 ///     }
 ///
-///     fn axisinfo(&self, unit: Option<&Unit>, _: &Axis) -> Option<UnitAxisInfo> {
+///     fn axisinfo(&self, unit: Option<&Unit>, _: &UnitAxis) -> Option<UnitAxisInfo> {
 ///         let label = format!("{:?}", unit?).to_lowercase();
 ///         Some(UnitAxisInfo::default().label(label))
 ///     }
 ///
-///     fn default_units(&self, values: &[Length], _: &Axis) -> Option<Unit> {
+///     fn default_units(&self, values: &[Length], _: &UnitAxis) -> Option<Unit> {
 ///         values.first().map(|length| length.unit)
 ///     }
 /// }
@@ -81,7 +79,8 @@ pub trait ConversionInterface: 'static {
     type Unit: PartialEq + fmt::Debug + 'static;
 
     /// The axis numbers of `values` in `unit`, one per value (`None` when
-    /// the axis has no unit), on `axis` (matplotlib's `convert`).
+    /// the axis has no unit), on `axis`, an axis of 2-D or of 3-D axes
+    /// (matplotlib's `convert`).
     ///
     /// # Errors
     ///
@@ -91,20 +90,20 @@ pub trait ConversionInterface: 'static {
         &self,
         values: &[Self::Value],
         unit: Option<&Self::Unit>,
-        axis: &Axis,
+        axis: &UnitAxis,
     ) -> Result<Vec<f64>, ConversionError>;
 
     /// The tick helpers, label and default limits of `axis` in `unit`,
     /// if the converter has any (matplotlib's `axisinfo`; the default has
     /// none).
-    fn axisinfo(&self, unit: Option<&Self::Unit>, axis: &Axis) -> Option<UnitAxisInfo> {
+    fn axisinfo(&self, unit: Option<&Self::Unit>, axis: &UnitAxis) -> Option<UnitAxisInfo> {
         let _ = (unit, axis);
         None
     }
 
     /// The unit `axis` takes from `values` when it has none yet
     /// (matplotlib's `default_units`; the default picks none).
-    fn default_units(&self, values: &[Self::Value], axis: &Axis) -> Option<Self::Unit> {
+    fn default_units(&self, values: &[Self::Value], axis: &UnitAxis) -> Option<Self::Unit> {
         let _ = (values, axis);
         None
     }
@@ -120,7 +119,8 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     type Converter: ConversionInterface<Value = Self>;
 
     /// The converter an axis uses for these values unless another one of
-    /// the same type was set on it ([`Axis::set_converter`]).
+    /// the same type was set on it
+    /// ([`Axis::set_converter`](crate::axes::Axis::set_converter)).
     fn converter() -> Self::Converter;
 
     /// This value moved by the extent `delta`, if extents of that kind
@@ -134,9 +134,11 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     /// `_convert_dx` falls back to.
     ///
     /// ```
-    /// use plt::axes::{Axis, BarOptions};
+    /// use plt::axes::BarOptions;
     /// use plt::prelude::*;
-    /// use plt::units::{AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible};
+    /// use plt::units::{
+    ///     AxisDelta, AxisValue, ConversionError, ConversionInterface, Convertible, UnitAxis,
+    /// };
     ///
     /// /// A day of a year.
     /// #[derive(Clone, Copy, Debug, PartialEq)]
@@ -151,7 +153,7 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     /// impl ConversionInterface for DayConverter {
     ///     type Value = Day;
     ///     type Unit = ();
-    ///     fn convert(&self, days: &[Day], _: Option<&()>, _: &Axis)
+    ///     fn convert(&self, days: &[Day], _: Option<&()>, _: &UnitAxis)
     ///         -> Result<Vec<f64>, ConversionError> {
     ///         Ok(days.iter().map(|day| day.0).collect())
     ///     }
@@ -170,7 +172,7 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     /// impl ConversionInterface for DaysConverter {
     ///     type Value = Days;
     ///     type Unit = ();
-    ///     fn convert(&self, days: &[Days], _: Option<&()>, _: &Axis)
+    ///     fn convert(&self, days: &[Days], _: Option<&()>, _: &UnitAxis)
     ///         -> Result<Vec<f64>, ConversionError> {
     ///         Ok(days.iter().map(|days| days.0).collect())
     ///     }
@@ -201,10 +203,11 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     /// they do in matplotlib.
     ///
     /// ```
-    /// use plt::axes::{Axis, ErrorbarOptions};
+    /// use plt::axes::ErrorbarOptions;
     /// use plt::prelude::*;
     /// use plt::units::{
     ///     AxisDelta, AxisDeltas, AxisValue, ConversionError, ConversionInterface, Convertible,
+    ///     UnitAxis,
     /// };
     ///
     /// /// A temperature in degrees Celsius, plotted in degrees Fahrenheit.
@@ -216,7 +219,7 @@ pub trait Convertible: Clone + PartialEq + fmt::Debug + 'static {
     /// impl ConversionInterface for Fahrenheit {
     ///     type Value = Celsius;
     ///     type Unit = ();
-    ///     fn convert(&self, values: &[Celsius], _: Option<&()>, _: &Axis)
+    ///     fn convert(&self, values: &[Celsius], _: Option<&()>, _: &UnitAxis)
     ///         -> Result<Vec<f64>, ConversionError> {
     ///         Ok(values.iter().map(|t| t.0 * 9.0 / 5.0 + 32.0).collect())
     ///     }
@@ -259,7 +262,7 @@ pub(crate) type UnitOf<T> = <<T as Convertible>::Converter as ConversionInterfac
 /// changed it.
 ///
 /// Builder methods named after the fields set them, taking a locator or
-/// a formatter as the [`Axis`] setters do:
+/// a formatter as the [`Axis`](crate::axes::Axis) setters do:
 ///
 /// ```
 /// use plt::ticker::{MultipleLocator, StrMethodFormatter};

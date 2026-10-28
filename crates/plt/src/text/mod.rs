@@ -22,9 +22,10 @@
 //! backend draws it as matplotlib's `draw_tex` does: the raster backend
 //! from the Type 1 glyphs of the DVI file (or `dvipng`'s image with
 //! `text.latex.engine = "latex+dvipng"`), PDF output with the Type 1 fonts
-//! embedded, SVG output as glyph paths. Where TeX is missing, drawing the
-//! text fails with matplotlib's error, and [`check_usetex`] says so
-//! beforehand.
+//! embedded, SVG output as glyph paths, PGF output as the TeX string
+//! itself; PostScript output fails with [`TexError::PostScriptOutput`].
+//! Where TeX is missing, drawing the text fails with matplotlib's error,
+//! and [`check_usetex`] says so beforehand.
 
 mod annotation;
 mod error;
@@ -68,8 +69,9 @@ pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image}
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
 pub use plt_text::tex::{TexEngine, TexError};
 pub use plt_text::{
-    BlockLayout, Feature, HAlign, Language, LanguageRange, LanguageTag, LineMetrics, LinePlacement,
-    LineSpacing, ParseFeatureError, RotationMode as TextRotationMode, TextError, VAlign,
+    BlockLayout, Feature, HAlign, Hinting, Language, LanguageRange, LanguageTag, LineMetrics,
+    LinePlacement, LineSpacing, ParseFeatureError, RotationMode as TextRotationMode, TextError,
+    VAlign,
 };
 pub use tex::check_usetex;
 pub(crate) use text_box::BoxPlacement;

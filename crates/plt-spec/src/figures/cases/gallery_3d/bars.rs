@@ -53,7 +53,7 @@ fn bars3d(fig: &Figure) -> CaseResult {
         ax.bar(&xs, &ys, [k], Axis3::Y, options)?;
     }
     label_xyz(&ax, ["X", "Y", "Z"]);
-    ax.yaxis().set_ticks(&yticks);
+    ax.yaxis().set_ticks(yticks);
     Ok(())
 }
 

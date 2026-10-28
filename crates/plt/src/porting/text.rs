@@ -1,4 +1,4 @@
-//! Text, fonts, mathtext and annotations.
+//! Text, fonts, mathtext, text typeset by LaTeX, and annotations.
 //!
 //! [`Axes::text`], [`Figure::text`], the title and label setters return a
 //! [`Text`] handle. matplotlib styles text with keywords at creation

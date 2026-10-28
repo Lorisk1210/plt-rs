@@ -259,7 +259,7 @@ mod tests {
         // The x span 4 over the box width 4 (of 4:4:3) sets the scale.
         assert_eq!(ax.ylim(), (-1.5, 2.5));
         assert_eq!(ax.zlim(), (0.0, 3.0));
-        assert!(ax.autoscale(Axis3::Y));
+        assert!(ax.autoscale_on(Axis3::Y));
         ax.set_aspect(Aspect3D::Auto, Adjustable::Datalim).unwrap();
         assert_eq!(ax.ylim(), (0.0, 1.0));
     }

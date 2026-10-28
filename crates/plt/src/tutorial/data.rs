@@ -111,6 +111,22 @@
 //! Data that can only be numbers, such as the values of a pie chart,
 //! takes any collection or iterator of [`Number`]s.
 //!
+//! The plotting methods of 3-D axes take their x, y and z the same way,
+//! and each of the three axes converts its values as a 2-D axis does:
+//!
+//! ```
+//! use plt::dates::DateTime;
+//! use plt::prelude::*;
+//!
+//! let ax = Figure::new().subplot_3d();
+//! let day = |d| DateTime::new(2024, 3, d, 0, 0, 0, 0);
+//! let line = ax.plot(["north", "south", "east"], [1.0, 2.0, 4.0], [day(1)?, day(2)?, day(3)?])?;
+//! let [x, _, z] = ax.line_data(&line)?;
+//! assert_eq!(x, [0.0, 1.0, 2.0]);
+//! assert_eq!(z[0], 19783.0, "2024-03-01 is day 19783");
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! # Options
 //!
 //! Python has keyword arguments; Rust has structs. A plotting method that

@@ -16,6 +16,7 @@ use super::dvi::DviPage;
 use super::error::{TexError, TexFile};
 use super::files::TexFiles;
 use super::source::{TexFonts, tex_source};
+use crate::TextError;
 
 /// How Agg-based backends draw TeX's output (`text.latex.engine`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -30,7 +31,7 @@ pub enum TexEngine {
 
 impl TexEngine {
     /// The engine's `text.latex.engine` name.
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         match self {
             Self::Latex => "latex",
             Self::LatexDvipng => "latex+dvipng",
@@ -45,16 +46,14 @@ impl std::fmt::Display for TexEngine {
 }
 
 impl std::str::FromStr for TexEngine {
-    type Err = String;
+    type Err = TextError;
 
-    fn from_str(name: &str) -> Result<Self, Self::Err> {
-        match name {
-            "latex" => Ok(Self::Latex),
-            "latex+dvipng" => Ok(Self::LatexDvipng),
-            _ => Err(format!(
-                "{name:?} is not a TeX engine (latex, latex+dvipng)"
-            )),
-        }
+    /// Parses the engine's name ([`TexEngine::name`]).
+    fn from_str(name: &str) -> Result<Self, TextError> {
+        [Self::Latex, Self::LatexDvipng]
+            .into_iter()
+            .find(|engine| engine.name() == name)
+            .ok_or_else(|| TextError::unknown_name("TeX engine", name))
     }
 }
 
@@ -162,9 +161,9 @@ impl TexManager {
     pub fn check_installation() -> Result<(), TexError> {
         for (program, needed) in [("tex", "TeX"), ("latex", "LaTeX"), ("dvipng", "dvipng")] {
             if !on_path(program) {
-                return Err(TexError::Unsupported(format!(
-                    "usetex mode requires {needed}."
-                )));
+                return Err(TexError::NotInstalled {
+                    program: needed.to_owned(),
+                });
             }
         }
         Ok(())
@@ -423,6 +422,10 @@ mod tests {
     fn engines_parse_from_the_rc_values() {
         assert_eq!("latex".parse(), Ok(TexEngine::Latex));
         assert_eq!("latex+dvipng".parse(), Ok(TexEngine::LatexDvipng));
-        assert!("dvipng".parse::<TexEngine>().is_err());
+        assert_eq!(
+            "dvipng".parse::<TexEngine>(),
+            Err(TextError::unknown_name("TeX engine", "dvipng"))
+        );
+        assert_eq!(TexEngine::LatexDvipng.to_string(), "latex+dvipng");
     }
 }

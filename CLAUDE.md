@@ -2,8 +2,9 @@
 
 plt-rs is a from-scratch reimplementation of matplotlib in Rust. It is fully
 self-contained: **no crates.io dependencies, ever** (not even dev-dependencies).
-Everything — DEFLATE/PNG, TrueType, rasterization, text layout, mathtext,
-PDF/SVG/PS writers, the UI engine and the windowing layer — lives in this repo.
+Everything — DEFLATE/PNG, TrueType and Type 1, rasterization, text layout,
+mathtext, usetex's DVI reader, PDF/SVG/PS/PGF writers, the UI engine and the
+windowing layer — lives in this repo.
 
 ## Toolchain
 
@@ -25,11 +26,11 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 | crate          | responsibility                                                       |
 |----------------|----------------------------------------------------------------------|
 | `plt-core`     | `Point`, `Affine2D`, `Bbox`, `Path` (+ path conditioning), `Rgba`    |
-| `plt-codec`    | CRC32/Adler32, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, base64       |
-| `plt-font`     | TrueType/OpenType parsing, outlines, metrics, kerning, font manager  |
+| `plt-codec`    | CRC32/Adler32, SHA-1/SHA-256, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, WebP, base64 |
+| `plt-font`     | TrueType/OpenType and Type 1 parsing, outlines, metrics, kerning, font manager |
 | `plt-raster`   | AA scanline rasterizer, stroker, dashes, clipping, compositing       |
-| `plt-text`     | text layout into glyph runs, mathtext parser + typesetter            |
-| `plt-render`   | `Renderer` trait; raster (PNG), SVG, PDF, PS backends                |
+| `plt-text`     | text layout into glyph runs, mathtext parser + typesetter, usetex    |
+| `plt-render`   | `Renderer` trait; raster (PNG), SVG, PDF, PS, PGF backends           |
 | `plt-platform` | windows, input events, event loop (X11 first; pluggable platforms)  |
 | `plt-ui`       | retained-mode UI engine: widgets, theme, layout, painting           |
 | `plt`          | the matplotlib model: Figure, Axes, artists, ticker, styles, pyplot |
@@ -41,8 +42,9 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 * Idiomatic, readable, documented Rust. No code smells: no dead code, no
   commented-out code, no `TODO` left behind, no copy-paste duplication, no
   god-functions. Prefer small modules (aim < ~600 lines) with one purpose.
-* `#![forbid(unsafe_code)]` in every crate root except `plt-platform`, where
-  each `unsafe` block carries a `// SAFETY:` justification.
+* `#![forbid(unsafe_code)]` in every crate root. Only `plt-platform` may
+  lift it, for a platform that needs FFI, with a `// SAFETY:` justification
+  on each `unsafe` block; none does today (X11 is spoken over a socket).
 * Zero warnings under `cargo clippy --all-targets -- -D warnings` (the
   workspace enables `clippy::pedantic`; see `[workspace.lints]`). Don't
   silence lints locally without a one-line reason.

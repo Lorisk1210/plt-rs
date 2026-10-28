@@ -50,6 +50,7 @@
 //! | `ax.xaxis.set_major_locator(MultipleLocator(0.5))` | [`Axis::set_major_locator`]`(MultipleLocator::new(0.5)?)` |
 //! | `ax.xaxis.set_major_formatter("{x:.1f}")`      | [`Axis::set_major_formatter`]`(StrMethodFormatter::new("{x:.1f}")?)` |
 //! | `MaxNLocator`, `AutoMinorLocator`, `LogLocator`, `FixedLocator`, `NullLocator` | [`MaxNLocator`], [`AutoMinorLocator`], [`LogLocator`], [`FixedLocator`], [`NullLocator`] |
+//! | `LogLocator(base=2)`, `LogScale(axis, base=2)` | [`LogLocator::new`]`(2.0)?`, [`LogScale::new`]`(2.0)?`, or `from_base` with a [`LogBase`] checked once |
 //! | `FormatStrFormatter`, `FuncFormatter`, `PercentFormatter`, `EngFormatter`, `NullFormatter` | [`FormatStrFormatter`], [`FuncFormatter`], [`PercentFormatter`], [`EngFormatter`], [`NullFormatter`] |
 //! | `ax.minorticks_on()`                           | [`Axes::minorticks_on`]                          |
 //! | `ax.tick_params(axis="x", labelrotation=45)`   | [`Axes::tick_params`]`(&TickParams { .. })`      |
@@ -64,6 +65,8 @@
 //! | `ax.set_axisbelow(True)`                       | [`Axes::set_axisbelow`]`(AxisBelow::Below)` ([`AxisBelow`]) |
 //! | `ax.set_xlabel(s)`, `ax.get_xlabel()`          | [`Axes::set_xlabel`], [`Axes::label`]`(AxisName::X)` |
 //! | `set_xlabel(..., loc=, labelpad=, fontsize=, color=)` | [`Axis::set_label_loc`], [`Axis::set_label_pad`], [`Axis::set_label_fontsize`], [`Axis::set_label_color`] |
+//! | `set_xlabel(s, loc="left")`, `set_ylabel(s, loc="top")` | [`Axis::set_label_loc`] with [`XLabelLoc::Left`] or [`YLabelLoc::Top`], matplotlib's names, or the [`LabelLoc`] of either axis |
+//! | `ax.xaxis.set_in_layout(False)`                | [`Axis::set_in_layout`]`(false)`: the layout engines leave that axis out |
 //! | `ax.xaxis.set_label_position("top")`           | [`Axis::set_label_position`]`(SpineSide::Top)`   |
 //! | `ax.xaxis.set_label_coords(x, y)`              | [`Axis::set_label_coords`]                       |
 //! | `ax.set_ylabel(s, y=1, ha="left")`             | [`Axis::set_label_loc`]`(LabelLoc::End)` then [`Axis::set_label_halign`]`(HAlign::Left)` |
@@ -215,7 +218,7 @@
 //! ```
 //!
 //! ```
-//! use plt::axes::{GridOptions, LabelLoc, TickLevel};
+//! use plt::axes::{GridOptions, LabelLoc, TickLevel, XLabelLoc};
 //! use plt::prelude::*;
 //! use plt::spines::{SpinePosition, SpineSide};
 //! use plt::ticker::AxisName;
@@ -233,8 +236,9 @@
 //! assert!(!ax.has_grid(AxisName::X, true));
 //!
 //! ax.set_xlabel("time");
-//! ax.xaxis().set_label_loc(LabelLoc::Start).set_label_pad(8.0);
+//! ax.xaxis().set_label_loc(XLabelLoc::Left).set_label_pad(8.0);
 //! assert_eq!(ax.label(AxisName::X), "time");
+//! assert_eq!(ax.xaxis().label_loc(), LabelLoc::Start, "the start of any axis");
 //!
 //! for side in [SpineSide::Top, SpineSide::Right] {
 //!     ax.spines().get(side).set_visible(false);
@@ -328,6 +332,13 @@
 //! [`MaxNLocator`]: crate::ticker::MaxNLocator
 //! [`AutoMinorLocator`]: crate::ticker::AutoMinorLocator
 //! [`LogLocator`]: crate::ticker::LogLocator
+//! [`LogLocator::new`]: crate::ticker::LogLocator::new
+//! [`LogScale::new`]: crate::scale::LogScale::new
+//! [`LogBase`]: crate::ticker::LogBase
+//! [`LabelLoc`]: crate::axes::LabelLoc
+//! [`XLabelLoc::Left`]: crate::axes::XLabelLoc::Left
+//! [`YLabelLoc::Top`]: crate::axes::YLabelLoc::Top
+//! [`Axis::set_in_layout`]: crate::axes::Axis::set_in_layout
 //! [`FixedLocator`]: crate::ticker::FixedLocator
 //! [`NullLocator`]: crate::ticker::NullLocator
 //! [`FormatStrFormatter`]: crate::ticker::FormatStrFormatter

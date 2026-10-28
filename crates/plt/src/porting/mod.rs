@@ -83,7 +83,8 @@
 //!   own figures.
 //! * [`axes`]: limits, scales, ticks, locators, formatters, spines, twin
 //!   and secondary axes, units and dates.
-//! * [`text`]: text, fonts, mathtext and annotations.
+//! * [`text`]: text, fonts, mathtext, text typeset by LaTeX (`usetex`)
+//!   and annotations.
 //! * [`legends`]: legends, their options and custom handlers.
 //! * [`images`]: images, contours, meshes and vector fields.
 //! * [`saving`]: output formats and the options of `savefig`.
@@ -109,6 +110,7 @@
 //! | `matplotlib.patches`                         | [`crate::patches`]              |
 //! | `matplotlib.collections`                     | [`crate::collections`]          |
 //! | `matplotlib.text`                            | [`crate::text`]                 |
+//! | `matplotlib.texmanager`, `matplotlib.dviread` | [`crate::text`] ([`check_usetex`](crate::text::check_usetex), [`TexEngine`](crate::text::TexEngine)); the TeX machinery is `plt_text::tex` |
 //! | `matplotlib.font_manager`                    | [`crate::fonts`]                |
 //! | `matplotlib.colors`, `matplotlib.cm`         | [`crate::colors`]               |
 //! | `matplotlib.colorbar`                        | [`crate::colorbar`]             |

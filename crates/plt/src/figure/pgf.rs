@@ -1,9 +1,7 @@
 //! Writing figures as PGF pictures for LaTeX documents (matplotlib's
 //! `print_pgf`): images go beside the document as PNG files.
 
-use std::fmt;
 use std::path::Path as FsPath;
-use std::str::FromStr;
 
 use plt_render::{PgfDocument, PgfOptions, PgfRenderer};
 
@@ -11,15 +9,16 @@ use super::Figure;
 use super::print::SaveOptions;
 use super::save::{SaveError, simplify_settings};
 use crate::fonts::{FontExt, FontManager, FontProperties};
-use crate::rc::RcParams;
+use crate::rc::{RcParams, keyword_names};
 
 /// The LaTeX program a PGF picture is meant for (`pgf.texsystem`).
 ///
 /// It does not change the picture: matplotlib only runs it to typeset
 /// PGF figures into PDFs, which plt-rs writes directly instead.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum PgfTexSystem {
     /// `xelatex`, matplotlib's default.
+    #[default]
     XeLaTeX,
     /// `lualatex`.
     LuaLaTeX,
@@ -28,8 +27,10 @@ pub enum PgfTexSystem {
 }
 
 impl PgfTexSystem {
+    const ALL: [Self; 3] = [Self::XeLaTeX, Self::LuaLaTeX, Self::PdfLaTeX];
+
     /// The program's name, as `pgf.texsystem` spells it.
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         match self {
             Self::XeLaTeX => "xelatex",
             Self::LuaLaTeX => "lualatex",
@@ -38,22 +39,7 @@ impl PgfTexSystem {
     }
 }
 
-impl fmt::Display for PgfTexSystem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for PgfTexSystem {
-    type Err = String;
-
-    fn from_str(name: &str) -> Result<Self, Self::Err> {
-        [Self::XeLaTeX, Self::LuaLaTeX, Self::PdfLaTeX]
-            .into_iter()
-            .find(|system| system.name() == name)
-            .ok_or_else(|| format!("{name:?} is not a TeX system (xelatex, lualatex, pdflatex)"))
-    }
-}
+keyword_names!(PgfTexSystem, "TeX system", Self::ALL);
 
 impl Figure {
     /// The figure as a PGF picture (matplotlib's `savefig(format="pgf")`),
@@ -186,6 +172,18 @@ mod tests {
             pgf.contains("%% plt-rs used the following preamble\n%%   \\def\\mathdefault#1{#1}\n")
         );
         assert_eq!("pgf".parse::<SaveFormat>().unwrap(), SaveFormat::Pgf);
+    }
+
+    #[test]
+    fn tex_systems_round_trip_their_names() {
+        for system in PgfTexSystem::ALL {
+            assert_eq!(system.to_string().parse(), Ok(system));
+        }
+        assert_eq!(PgfTexSystem::default(), PgfTexSystem::XeLaTeX);
+        assert_eq!(
+            "tex".parse::<PgfTexSystem>().map_err(|err| err.to_string()),
+            Err("\"tex\" is not a valid TeX system".to_owned())
+        );
     }
 
     #[test]

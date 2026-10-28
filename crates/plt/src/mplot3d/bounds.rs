@@ -179,7 +179,7 @@ impl Axes3D {
     /// let ax = Figure::new().subplot_3d();
     /// ax.set_bound_with_margin(Axis3::X, Some(4.0), Some(-4.0), Some(0.25))?;
     /// assert_eq!(ax.xlim(), (-6.0, 6.0));
-    /// assert!(ax.autoscale(Axis3::X), "bounds leave autoscaling on");
+    /// assert!(ax.autoscale_on(Axis3::X), "bounds leave autoscaling on");
     /// # Ok::<(), plt::mplot3d::Axes3DError>(())
     /// ```
     ///
@@ -270,13 +270,19 @@ impl Axes3D {
     }
 
     /// Whether one axis follows the data (matplotlib's
-    /// `get_autoscalex_on`).
-    pub fn autoscale(&self, axis: Axis3) -> bool {
+    /// `get_autoscalex_on`), as [`Axes::autoscale_on`] tells on 2-D axes.
+    ///
+    /// [`Axes::autoscale_on`]: crate::axes::Axes::autoscale_on
+    pub fn autoscale_on(&self, axis: Axis3) -> bool {
         self.with(|axes| axes.limits.autoscale[axis.index()])
     }
 
-    /// Turns autoscaling of one axis on or off.
-    pub fn set_autoscale(&self, axis: Axis3, on: bool) -> &Self {
+    /// Turns autoscaling of one axis on or off without autoscaling now
+    /// (matplotlib's `set_autoscalex_on`), as
+    /// [`Axes::set_axis_autoscale_on`] does on 2-D axes.
+    ///
+    /// [`Axes::set_axis_autoscale_on`]: crate::axes::Axes::set_axis_autoscale_on
+    pub fn set_axis_autoscale_on(&self, axis: Axis3, on: bool) -> &Self {
         self.with_mut(|axes| axes.limits.autoscale[axis.index()] = on);
         self
     }
@@ -290,7 +296,7 @@ impl Axes3D {
     pub fn set_margin(&self, axis: Axis3, margin: f64) -> Result<&Self, Axes3DError> {
         let mut margins = [None; 3];
         margins[axis.index()] = Some(margin);
-        self.margins(margins, None)
+        self.set_margins(margins, None)
     }
 
     /// The autoscaling margin of one axis.
@@ -307,7 +313,7 @@ impl Axes3D {
     /// use plt::figure::Figure;
     /// let ax = Figure::new().subplot_3d();
     /// ax.plot(&[0.0, 10.0], &[0.0, 1.0], &[0.0, 1.0])?;
-    /// ax.margins([Some(0.1), None, None], Some(true))?;
+    /// ax.set_margins([Some(0.1), None, None], Some(true))?;
     /// let (lo, hi) = ax.xlim();
     /// assert!((lo + 1.25).abs() < 1e-12 && (hi - 11.25).abs() < 1e-12);
     /// # Ok::<(), plt::mplot3d::Axes3DError>(())
@@ -316,7 +322,7 @@ impl Axes3D {
     /// # Errors
     ///
     /// When a margin is not above -0.5 or a locator fails.
-    pub fn margins(
+    pub fn set_margins(
         &self,
         margins: [Option<f64>; 3],
         tight: Option<bool>,
@@ -357,7 +363,7 @@ mod tests {
         let ax = Figure::new().subplot_3d();
         ax.set_bound(Axis3::X, Some(4.0), Some(-4.0)).unwrap();
         assert_eq!(ax.xlim(), (-4.0, 4.0));
-        assert!(ax.autoscale(Axis3::X), "bounds leave autoscaling on");
+        assert!(ax.autoscale_on(Axis3::X), "bounds leave autoscaling on");
         ax.set_inverted(Axis3::X, true);
         ax.set_xbound(None, Some(6.0)).unwrap();
         assert_eq!(ax.xlim(), (6.0, -4.0));

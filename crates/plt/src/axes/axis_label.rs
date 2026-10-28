@@ -189,8 +189,19 @@ impl Axis {
     /// Places the axis label along the axis, aligned to that place
     /// (matplotlib's `loc` of `set_xlabel`, which sets the position and
     /// the horizontal alignment together); an alignment set with
-    /// [`Axis::set_label_halign`] gives way to that of `loc`.
-    pub fn set_label_loc(&self, loc: LabelLoc) -> &Self {
+    /// [`Axis::set_label_halign`] gives way to that of `loc`. The place is
+    /// a [`LabelLoc`], or matplotlib's name for it on an x or a y axis
+    /// ([`XLabelLoc`](super::XLabelLoc), [`YLabelLoc`](super::YLabelLoc)).
+    ///
+    /// ```
+    /// use plt::axes::{LabelLoc, XLabelLoc};
+    /// use plt::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.xaxis().set_label_loc(XLabelLoc::Right);
+    /// assert_eq!(ax.xaxis().label_loc(), LabelLoc::End);
+    /// ```
+    pub fn set_label_loc(&self, loc: impl Into<LabelLoc>) -> &Self {
+        let loc = loc.into();
         self.update(|axis| {
             axis.label.loc = loc;
             axis.label.halign = None;

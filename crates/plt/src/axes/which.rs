@@ -42,7 +42,12 @@ impl TickLevel {
 
 keyword_names!(TickLevel, "tick level", Self::ALL);
 
-/// Which axes of an axes a setting applies to (matplotlib's `axis`).
+/// Which axes of an axes a setting applies to, as `axes.grid.axis` names
+/// them (matplotlib's `axis`). Methods and options take the same choice as
+/// an `Option<AxisName>`, `None` for both ([`GridOptions::axis`]); this
+/// type spells it for the rcParam.
+///
+/// [`GridOptions::axis`]: super::GridOptions::axis
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum WhichAxis {
     /// Both axes.

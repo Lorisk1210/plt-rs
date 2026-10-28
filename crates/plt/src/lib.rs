@@ -10,7 +10,7 @@
 //!
 //! The object-oriented interface: make a [`figure::Figure`], add axes and
 //! plot on them, then save the figure (PNG, JPEG, TIFF, GIF, WebP, SVG,
-//! PDF or PostScript, chosen from the file name).
+//! PDF, PostScript or PGF, chosen from the file name).
 //!
 //! ```
 //! use plt::prelude::*;
@@ -49,8 +49,14 @@
 //!   mosaics, and the canvas a figure keeps between draws for blitting;
 //!   axes with their plotting methods, axis, ticks and spines; grids of
 //!   subplots. [`prelude`] imports the everyday names.
+//! * [`artist`] — the artist model: the handles every artist is reached
+//!   through, their shared properties, and artists of your own.
 //! * [`lines`] / [`markers`] / [`collections`] / [`text`] / [`fonts`] —
-//!   the artists most plots are made of.
+//!   the artists most plots are made of; text includes mathtext and, with
+//!   TeX installed, text typeset by LaTeX (`text.usetex`).
+//! * [`spines`] / [`orientation`] — the lines framing the data area; the
+//!   direction of bars, histograms, colorbars and sliders.
+//! * [`transforms`] — coordinate systems and the transforms between them.
 //! * [`numeric`] — numpy-style ranges and the [`numeric::Grid`] 2-D array.
 //! * [`colors`] — colour specifications, colormaps and normalisation.
 //! * [`ticker`] / [`scale`] / [`dates`] — tick placement, formatting and
@@ -61,7 +67,8 @@
 //!   grids.
 //! * [`quiver`] / [`streamplot`] — vector fields as arrows, wind barbs and
 //!   streamlines.
-//! * [`units`] — categorical axes and the conversion of plotting values.
+//! * [`units`] — the conversion of plotting values (categories, dates and
+//!   values of your own types) to axis numbers, on 2-D and 3-D axes.
 //! * [`image`] — images (`imshow`, `figimage`, `pcolorfast`) and their
 //!   resampling.
 //! * [`polar`] — polar axes: angle and radius instead of x and y.
@@ -75,11 +82,12 @@
 //! * [`colorbar`] — colorbars for images, collections and contour sets.
 //! * [`sankey`] — Sankey flow diagrams.
 //! * [`pyplot`] — the stateful `matplotlib.pyplot`-style interface.
-//! * [`widgets`] — buttons, sliders, check/radio buttons and text boxes.
+//! * [`widgets`] — buttons, sliders, check/radio buttons, text boxes,
+//!   cursors and selectors.
 //! * [`events`] — figure events, callbacks (`mpl_connect`) and timers;
 //!   [`animation`] plays frame functions on them, redrawing or blitting,
-//!   and saves animated PNG and GIF files, HTML players and (through
-//!   ffmpeg) videos.
+//!   and saves animated PNG, GIF and WebP files, HTML players and
+//!   (through ffmpeg) videos.
 //! * [`navigation`] — interactive pan, zoom and view history, independent
 //!   of any window system; [`gui`] shows figures in windows with a
 //!   toolbar ([`gui::show`]), and [`web`] in a web browser, like
@@ -91,7 +99,8 @@
 //!   paddings, anchored scale bars and direction arrows, and axes drawn
 //!   by axis artists (`mpl_toolkits`).
 //! * [`mplot3d`] — 3-D axes: surfaces, wireframes, 3-D scatter, bars,
-//!   contours and more, projected through a camera.
+//!   contours and more, projected through a camera, with units on each of
+//!   their three axes.
 //! * [`legend`] / [`offsetbox`] / [`container`] — legends, the box
 //!   packers they are laid out with (also anchored and annotation boxes
 //!   of texts, images and artists), and the artist groups of bar, error
@@ -184,3 +193,8 @@ pub mod widgets;
 )]
 #[path = "../tests/fuzz/harness.rs"]
 mod fuzz;
+
+/// The README, whose Rust examples are checked as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../../../README.md")]
+struct Readme;

@@ -1,9 +1,10 @@
 //! The types and traits most programs need: `use plt::prelude::*;`.
 //!
-//! Figures, axes and the artists plotting returns; the option structs of
-//! the common plot types (lines, scatter plots, bars, histograms, filled
-//! areas, images); legends and colorbars; colours, colormaps and line
-//! styles; and the numeric helpers that make data: ranges, meshes and
+//! Figures, axes, lines and the [`ArtistHandle`] trait every artist's
+//! common methods come from; the option structs of the common plot types
+//! (lines, scatter plots, bars, histograms, filled areas, images); the
+//! options of legends and colorbars; colours, colormaps, line styles and
+//! markers; and the numeric helpers that make data: ranges, meshes and
 //! [`Grid`]s.
 
 pub use crate::artist::ArtistHandle;

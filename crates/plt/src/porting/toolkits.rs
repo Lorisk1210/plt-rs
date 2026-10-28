@@ -39,7 +39,7 @@
 //! | `fig.add_subplot(projection="3d")`                | [`Figure::subplot_3d`], [`Figure::add_subplot_3d`] |
 //! | `fig.add_subplot(projection="3d", elev=, azim=, proj_type=)` | [`Figure::subplot_3d_with`] and [`Axes3DOptions`] |
 //! | `ax.plot(x, y, z)`, `ax.scatter(x, y, z, ...)`    | [`Axes3D::plot`], [`Axes3D::scatter_with`] with [`Scatter3DOptions`] |
-//! | `x, y, z = ax._process_unit_info([("x", x), ("y", y), ("z", z)])` before plotting dates or names | none: [`Axes3D::plot`], `scatter`, `text`, `bar3d`, `stem`, `errorbar` and `fill_between` take dates, names and values with units |
+//! | `x, y, z = ax._process_unit_info([("x", x), ("y", y), ("z", z)])` before plotting dates or names | none: [`Axes3D::plot`], `scatter`, `text`, `bar`, `bar3d`, `stem`, `errorbar` and `fill_between` take dates, names and values with units, as do the limit setters and [`Axis3D::set_ticks`] |
 //! | `ax.convert_zunits(z)`, `ax.zaxis.convert_units(z)` | [`Axes3D::zaxis`]`().`[`convert_units`](crate::mplot3d::Axis3D::convert_units)`(z)` |
 //! | `ax.zaxis.update_units(v)`, `set_units(u)`, `get_units()` | [`Axis3D::update_units`], [`Axis3D::set_units`], [`Axis3D::units`] |
 //! | `ax.zaxis.set_converter(c)`, `get_converter()`    | [`Axis3D::set_converter`], [`Axis3D::converter`] |
@@ -58,6 +58,8 @@
 //! | `ax.set_zlim(a, b, view_margin=m)`, `ax.set_zbound(a, b, view_margin=m)` | [`Axes3D::set_limits_with_margin`], [`Axes3D::set_bound_with_margin`] |
 //! | `ax.set_zlabel(s)`, `ax.set_zscale("log")`        | [`Axes3D::set_zlabel`], [`Axes3D::set_zscale`] |
 //! | `ax.get_zbound()`, `ax.zaxis_inverted()`          | [`Axes3D::bound`]`(Axis3::Z)`, [`Axes3D::inverted`]`(Axis3::Z)` |
+//! | `ax.margins(x, y, z, tight=True)`, `ax.set_zmargin(m)`, `ax.get_zmargin()` | [`Axes3D::set_margins`]`([Some(x), Some(y), Some(z)], Some(true))`, [`Axes3D::set_margin`], [`Axes3D::margin`] |
+//! | `ax.get_autoscalez_on()`, `ax.set_autoscalez_on(b)` | [`Axes3D::autoscale_on`]`(Axis3::Z)`, [`Axes3D::set_axis_autoscale_on`] |
 //! | `ax.zaxis`, `ax.get_zticks()`                     | [`Axes3D::zaxis`], [`Axis3D::ticklocs`]        |
 //! | `ax.get_zticklines()`, `ax.get_zgridlines()`      | [`Axis3D::ticklines`], [`Axis3D::gridlines`] ([`TickLine3D`], [`GridLine3D`]) |
 //! | `col.set_sort_zpos(z)`                            | [`Axes3D::set_sort_zpos`], [`Axes3D::sort_zpos`] |
@@ -466,3 +468,9 @@
 //! [`Divider::append_size`]: crate::axes_grid1::Divider::append_size
 //! [`Divider::aspect`]: crate::axes_grid1::Divider::aspect
 //! [`AxesDivider::divider`]: crate::axes_grid1::AxesDivider::divider
+//! [`Axis3D::set_ticks`]: crate::mplot3d::Axis3D::set_ticks
+//! [`Axes3D::set_margins`]: crate::mplot3d::Axes3D::set_margins
+//! [`Axes3D::set_margin`]: crate::mplot3d::Axes3D::set_margin
+//! [`Axes3D::margin`]: crate::mplot3d::Axes3D::margin
+//! [`Axes3D::autoscale_on`]: crate::mplot3d::Axes3D::autoscale_on
+//! [`Axes3D::set_axis_autoscale_on`]: crate::mplot3d::Axes3D::set_axis_autoscale_on

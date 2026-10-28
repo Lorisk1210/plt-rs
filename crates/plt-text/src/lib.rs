@@ -1,4 +1,4 @@
-//! Text shaping, layout and mathtext typesetting.
+//! Text shaping, layout, mathtext typesetting and TeX typesetting.
 //!
 //! * [`TextEngine`] — the shared font catalogue; lays out single lines of
 //!   text exactly as matplotlib's FreeType/HarfBuzz pipeline does and

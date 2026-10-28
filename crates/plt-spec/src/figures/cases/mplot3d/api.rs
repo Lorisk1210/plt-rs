@@ -94,7 +94,7 @@ pub(crate) const CASES: &[FigureCase] = &[
             CollectionProps::default().color("0.4").linewidth(0.5),
         )?;
         ax.xaxis()
-            .set_ticks(&[-3.0, 0.0, 2.0])
+            .set_ticks([-3.0, 0.0, 2.0])
             .set_ticklabels(["low", "zero", "two"])?;
         ax.yaxis()
             .set_major_locator(MultipleLocator::new(1.5)?)
@@ -131,7 +131,7 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("mplot3d/api_bounds_margins", |fig| {
         let ax = fig.subplot_3d();
         plot_ellipse_helix(&ax, Some("tab:purple"))?;
-        ax.margins([Some(0.2); 3], Some(true))?;
+        ax.set_margins([Some(0.2); 3], Some(true))?;
         ax.set_zbound(Some(-1.0), None)?
             .set_ybound(Some(1.0), Some(-1.0))?
             .set_inverted(Axis3::Z, true)

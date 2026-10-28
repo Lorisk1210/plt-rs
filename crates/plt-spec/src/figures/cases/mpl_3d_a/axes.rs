@@ -47,7 +47,7 @@ pub(super) fn grid_off(fig: &Figure) {
 pub(super) fn invisible_ticks_axis(fig: &Figure) {
     let ax = fig.subplot_3d();
     for axis in [ax.xaxis(), ax.yaxis(), ax.zaxis()] {
-        axis.set_ticks(&[]).set_line_visible(false);
+        axis.set_ticks(Vec::<f64>::new()).set_line_visible(false);
     }
     remove_ticks_and_titles(fig);
 }

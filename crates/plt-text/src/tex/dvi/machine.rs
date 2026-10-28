@@ -200,9 +200,7 @@ impl<'a> Machine<'a> {
             }
             249..=251 => return Err(self.error(format!("opcode {byte} is not implemented"))),
             252..=254 => {
-                return Err(TexError::Unsupported(
-                    "DVI files with XeTeX native fonts are not supported".to_owned(),
-                ));
+                return Err(TexError::XetexNativeFonts);
             }
             255 => return Err(self.error("unknown command: byte 255")),
         }
@@ -479,9 +477,7 @@ impl<'a> Machine<'a> {
             &texname[texname.len() - l..]
         };
         if name.starts_with(b"[") && checksum == 0x4c75_6146 {
-            return Err(TexError::Unsupported(
-                "DVI files with LuaTeX native fonts are not supported".to_owned(),
-            ));
+            return Err(TexError::LuatexNativeFonts);
         }
         let name = std::str::from_utf8(name)
             .ok()

@@ -116,6 +116,9 @@
 //! field per setting, named after matplotlib's dotted keys
 //! (`lines.linewidth` is `lines_linewidth`). Most artists read them when
 //! they are made, so change the settings before plotting.
+//! A setting naming one of a few keywords holds the enum of its concept,
+//! the type the matching option takes: `axes.titlelocation` is a
+//! [`TitleLocation`], `markers.fillstyle` a [`FillStyle`].
 //! [`rc::set`](crate::rc::set) takes a key and a value as text, checked
 //! as matplotlib checks it; [`rc::update`](crate::rc::update) changes the
 //! typed fields. [`rc::context`](crate::rc::context) runs a closure and
@@ -125,12 +128,17 @@
 //! ```
 //! use std::error::Error;
 //!
+//! use plt::axes::TitleLocation;
 //! use plt::prelude::*;
 //! use plt::rc;
 //!
 //! let line = rc::context(|| -> Result<_, Box<dyn Error>> {
 //!     rc::set("lines.linewidth", "3")?;
-//!     rc::update(|params| params.lines_markersize = 10.0);
+//!     rc::update(|params| {
+//!         params.lines_markersize = 10.0;
+//!         params.axes_titlelocation = TitleLocation::Left;
+//!     });
+//!     assert_eq!(rc::params().get("axes.titlelocation").as_deref(), Some("left"));
 //!     let ax = Figure::new().subplot();
 //!     Ok(ax.plot([0.0, 1.0], [0.0, 1.0])?)
 //! })?;
@@ -227,3 +235,5 @@
 //! [`Marker`]: crate::markers::Marker
 //! [`PatchProps`]: crate::patches::PatchProps
 //! [`RcParams`]: crate::rc::RcParams
+//! [`TitleLocation`]: crate::axes::TitleLocation
+//! [`FillStyle`]: crate::markers::FillStyle

@@ -137,7 +137,7 @@ impl PsRenderer {
             return Ok(());
         }
         if self.options.usetex {
-            return Err(super::usetex_unsupported());
+            return Err(TexError::PostScriptOutput);
         }
         let plain = TextSource::Plain {
             text: tex.tex.clone(),

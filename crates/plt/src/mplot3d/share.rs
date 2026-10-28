@@ -335,7 +335,7 @@ mod tests {
         c.share_z(&b).unwrap();
         a.set_zlim(-3.0, 4.0).unwrap();
         assert_eq!(c.zlim(), (-3.0, 4.0));
-        assert!(!c.autoscale(Axis3::Z), "autoscaling follows too");
+        assert!(!c.autoscale_on(Axis3::Z), "autoscaling follows too");
         assert_eq!(a.shared_axes(Axis3::Z).len(), 3);
         assert_eq!(a.shared_axes(Axis3::X).len(), 1);
         let d = fig.subplot_3d();

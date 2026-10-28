@@ -1,10 +1,7 @@
 //! Which converter dates get (`date.converter`): matplotlib's
 //! `DateConverter` or its `ConciseDateConverter`.
 
-use std::fmt;
-use std::str::FromStr;
-
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 
 /// The converter of date axes (`date.converter`), which decides their
 /// default tick label formatter.
@@ -28,26 +25,7 @@ impl DateConverter {
     }
 }
 
-impl fmt::Display for DateConverter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for DateConverter {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`DateConverter::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        [Self::Auto, Self::Concise]
-            .into_iter()
-            .find(|converter| converter.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "date converter",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(DateConverter, "date converter", [Self::Auto, Self::Concise]);
 
 #[cfg(test)]
 mod tests {

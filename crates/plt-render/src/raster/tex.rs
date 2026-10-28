@@ -8,12 +8,13 @@ use plt_core::{Affine2D, Point};
 use plt_font::{Dropouts, OutlineSink, ScanOutline, ScanPoint, ScanPointKind, ScanRules};
 use plt_raster::{Clip, CoverageRounding, Mask};
 use plt_text::Hinting;
-use plt_text::tex::{TexEngine, TexError, TexGlyph, TexHinting, TexText, load_glyph};
+use plt_text::tex::{TexEngine, TexError, TexGlyph, TexHinting, TexText};
 
 use super::RasterRenderer;
 use super::glyph::GlyphTransform;
 use super::text::{GlyphShape, pen_position, text_contexts, within_reach};
 use crate::gc::GraphicsContext;
+use crate::renderer::text_placement;
 
 /// How `FreeType` loads a Type 1 glyph for `text.hinting`: the Adobe
 /// engine hints it unless hinting is off (`FreeType` has no autohinting
@@ -82,8 +83,8 @@ impl OutlineSink for ScanSink {
 /// receives it, with the rules the Type 1 loader sets (high precision
 /// below 24 pixels per em, simple drop-out control).
 fn scan_outline(glyph: &TexGlyph, dpi: f64, hinting: TexHinting) -> Result<ScanOutline, TexError> {
-    let size = glyph.face.size(glyph.size, dpi);
-    let loaded = load_glyph(&glyph.face, glyph.index, glyph.size, dpi, hinting)?;
+    let size = glyph.file.face.size(glyph.size, dpi);
+    let loaded = glyph.load(dpi, hinting)?;
     let mut sink = ScanSink::default();
     loaded.outline(&mut sink);
     Ok(ScanOutline {
@@ -124,9 +125,7 @@ impl RasterRenderer {
         let page = tex.page(tex.size(), self.dpi)?;
         let glyphs = tex.glyphs(&page)?;
         let hinting = type1_hinting(tex.font.hinting);
-        let placement = Affine2D::identity()
-            .rotate_deg(angle)
-            .translate(origin.x, origin.y);
+        let placement = text_placement(origin, angle);
         let (fill_gc, glyph_gc) = text_contexts(gc);
         self.painter
             .set_coverage_rounding(CoverageRounding::FreeType);
@@ -142,8 +141,8 @@ impl RasterRenderer {
             };
             let transform = GlyphTransform::with_effects(
                 angle,
-                glyph.effects.slant.unwrap_or(0.0),
-                glyph.effects.extend.unwrap_or(1.0),
+                glyph.file.effects.slant.unwrap_or(0.0),
+                glyph.file.effects.extend.unwrap_or(1.0),
                 pen,
             );
             self.blit_glyph(&glyph_gc, &shape, &transform, pen);

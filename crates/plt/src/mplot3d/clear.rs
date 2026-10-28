@@ -2,8 +2,9 @@
 //! (matplotlib's `Axes3D.clear` and `cla`).
 
 use super::axis3d::Axis3DState;
+use super::create::show_view_window;
 use super::error::Axes3DError;
-use super::handle::{Axes3D, show_view_window};
+use super::handle::Axes3D;
 use super::limits::Limits3D;
 use super::state::Axes3DState;
 use crate::axes::TickStyle;

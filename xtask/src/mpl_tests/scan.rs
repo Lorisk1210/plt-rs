@@ -15,15 +15,18 @@ pub(super) fn test_modules(dir: &Path) -> io::Result<BTreeMap<String, BTreeSet<S
         let Some(file) = path.file_name().and_then(|name| name.to_str()) else {
             continue;
         };
-        if file
-            .strip_suffix(".py")
-            .is_some_and(|stem| stem.starts_with("test_"))
-        {
+        if is_test_module(file) {
             let source = std::fs::read_to_string(&path)?;
             modules.insert(file.to_owned(), test_functions(&source));
         }
     }
     Ok(modules)
+}
+
+/// Whether `file` names a test module (`test_*.py`).
+pub(super) fn is_test_module(file: &str) -> bool {
+    file.strip_suffix(".py")
+        .is_some_and(|stem| stem.starts_with("test_"))
 }
 
 /// The names of the tests pytest collects from a Python source: the

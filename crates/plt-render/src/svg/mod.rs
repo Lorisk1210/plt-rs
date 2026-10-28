@@ -26,8 +26,8 @@ use std::str::FromStr;
 use plt_codec::sha256::sha256_hex;
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::tex::TexError;
-use plt_text::{TextRun, TextSource};
+use plt_text::TextRun;
+use plt_text::tex::{TexError, TexText};
 
 use self::defs::{Clips, Hatches};
 use self::xml::XmlWriter;
@@ -350,16 +350,12 @@ impl Renderer for SvgRenderer {
     fn draw_tex(
         &mut self,
         gc: &GraphicsContext,
-        run: &TextRun,
+        _run: &TextRun,
+        tex: &TexText,
         origin: Point,
         angle: f64,
     ) -> Result<(), TexError> {
-        if let Some(TextSource::Tex(tex)) = &run.source {
-            self.svg_tex(gc, tex, origin, angle)
-        } else {
-            self.svg_text(gc, run, origin, angle);
-            Ok(())
-        }
+        self.svg_tex(gc, tex, origin, angle)
     }
 
     fn open_group(&mut self, name: &str, gid: Option<&str>) {

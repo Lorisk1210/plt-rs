@@ -5,10 +5,8 @@
 //! 26.6 units) and placed with `<use>`, every rule a path; no clip group
 //! and no link, which matplotlib only adds in `draw_text`.
 
-use plt_core::{Affine2D, Path, Point};
-use plt_text::tex::{
-    TEX_FONT_SCALE, TEX_PATH_DPI, TexError, TexGlyph, TexHinting, TexText, glyph_outline,
-};
+use plt_core::{Affine2D, Point};
+use plt_text::tex::{TEX_FONT_SCALE, TEX_PATH_DPI, TexError, TexGlyph, TexText};
 
 use super::SvgRenderer;
 use super::defs::path_data;
@@ -19,7 +17,7 @@ use crate::gc::GraphicsContext;
 /// `_get_glyph_repr`: the quoted PostScript name of the glyph's font and
 /// its glyph index.
 fn glyph_repr(glyph: &TexGlyph) -> String {
-    let name = glyph.face.postscript_name().unwrap_or_default();
+    let name = glyph.file.face.postscript_name().unwrap_or_default();
     url_quote(&format!("{name}-{:x}", glyph.index.0))
 }
 
@@ -47,15 +45,7 @@ impl SvgRenderer {
             if self.glyphs.contains(repr) || new.iter().any(|(known, _)| known == repr) {
                 continue;
             }
-            let outline = glyph_outline(
-                &glyph.path,
-                &glyph.face,
-                glyph.index,
-                TEX_FONT_SCALE,
-                TEX_PATH_DPI,
-                TexHinting::Adobe,
-            )?;
-            new.push((repr.clone(), outline));
+            new.push((repr.clone(), glyph.path_outline()?));
         }
         self.define_glyph_paths(new);
         for (repr, glyph) in reprs.iter().zip(&glyphs) {
@@ -74,18 +64,11 @@ impl SvgRenderer {
                 ],
             );
         }
-        for b in &page.boxes {
-            let outline = Path::compound_from_polygons(&[[
-                Point::new(b.x, b.y),
-                Point::new(b.x + b.width, b.y),
-                Point::new(b.x + b.width, b.y + b.height),
-                Point::new(b.x, b.y + b.height),
-                Point::new(b.x, b.y),
-            ]]);
+        for rule in &page.boxes {
             self.writer.element(
                 "path",
                 "",
-                &[("d", path_data(&outline, Affine2D::IDENTITY))],
+                &[("d", path_data(&rule.outline(), Affine2D::IDENTITY))],
             );
         }
         Ok(())

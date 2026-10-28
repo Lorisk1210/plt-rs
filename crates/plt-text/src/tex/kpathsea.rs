@@ -102,7 +102,7 @@ enum Lookup {
 /// matplotlib's `find_tex_file`, with its results kept (found or not) for
 /// the life of the process.
 #[derive(Debug)]
-pub struct Kpathsea {
+pub(crate) struct Kpathsea {
     cache_dir: PathBuf,
     lookup: Mutex<Lookup>,
     found: Mutex<HashMap<String, Option<PathBuf>>>,
@@ -111,7 +111,7 @@ pub struct Kpathsea {
 impl Kpathsea {
     /// A lookup whose generated fonts go to `cache_dir/vartexfonts`
     /// (where the LuaTeX helper's script is written too).
-    pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
+    pub(crate) fn new(cache_dir: impl Into<PathBuf>) -> Self {
         Self {
             cache_dir: cache_dir.into(),
             lookup: Mutex::new(Lookup::Unstarted),

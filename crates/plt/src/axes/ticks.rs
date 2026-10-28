@@ -1,14 +1,11 @@
 //! Tick and grid appearance (matplotlib's tick parameters).
 
-use std::fmt;
-use std::str::FromStr;
-
 use super::which::TickLevel;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontStyle, FontWeight};
-use crate::image::UnknownName;
 use crate::lines::LineStyle;
 use crate::patheffects::PathEffect;
+use crate::rc::keyword_names;
 use crate::rc::{ColorOrInherit, RcParams};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
@@ -49,26 +46,7 @@ impl TickDirection {
     }
 }
 
-impl FromStr for TickDirection {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`TickDirection::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|direction| direction.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "tick direction",
-                name: name.to_owned(),
-            })
-    }
-}
-
-impl fmt::Display for TickDirection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
+keyword_names!(TickDirection, "tick direction", Self::ALL);
 
 /// Which sides of an axes show something: the first side is bottom (x)
 /// or left (y), the second top or right.

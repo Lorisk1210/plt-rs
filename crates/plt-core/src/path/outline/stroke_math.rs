@@ -1,24 +1,99 @@
-//! Caps and joins — a port of Agg's `math_stroke`.
+//! Caps and joins: a port of Agg's `math_stroke`, which plt-raster's
+//! stroker and the containment outlines of [`super::Outline`] share.
 //!
 //! Offsets are computed with the same floating-point expressions in the
 //! same order as the C++ code so outlines match vertex for vertex.
 
 use std::f64::consts::PI;
 
-use plt_core::Point;
-use plt_core::path::outline::{
-    VERTEX_DIST_EPSILON, VertexDist, calc_distance, calc_intersection, cross_product,
-};
-
-use crate::style::{InnerJoin, LineCap, LineJoin, StrokeStyle};
+use super::math::{calc_distance, calc_intersection, cross_product};
+use super::vertex_seq::{VERTEX_DIST_EPSILON, VertexDist};
+use crate::Point;
 
 /// The most intermediate points of a round cap or join. A stroke as wide as
 /// the largest canvas (2²³ pixels) needs about 6 400 for a half turn.
 const MAX_ARC_POINTS: i32 = 1 << 13;
 
-/// Precomputed stroke parameters.
+/// Shape of the ends of open sub-paths and dashes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum LineCap {
+    /// The stroke ends exactly at the end point.
+    #[default]
+    Butt,
+    /// The stroke extends half a width beyond the end point (matplotlib's
+    /// `"projecting"`).
+    Square,
+    /// A semicircle centred on the end point.
+    Round,
+}
+
+/// Shape of the outer corner where two segments meet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum LineJoin {
+    /// Agg's `miter_join`: a miter that is cut off at the miter limit.
+    #[default]
+    Miter,
+    /// Agg's `miter_join_revert`: a miter that falls back to a bevel
+    /// beyond the limit, as in SVG/PDF. matplotlib's `"miter"` uses this.
+    MiterRevert,
+    /// A circular arc.
+    Round,
+    /// A straight cut across the corner.
+    Bevel,
+    /// A miter that falls back to a round join beyond the limit.
+    MiterRound,
+}
+
+/// Shape of the inner corner where two segments meet.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum InnerJoin {
+    /// A straight cut.
+    Bevel,
+    /// A miter limited by the inner miter limit (Agg's default, used by
+    /// matplotlib).
+    #[default]
+    Miter,
+    /// A notch back to the vertex for very short segments.
+    Jag,
+    /// A rounded notch for very short segments.
+    Round,
+}
+
+/// How the ends and corners of a stroke are shaped (the settings of Agg's
+/// `math_stroke` other than the width). The default is Agg's: butt caps,
+/// miter joins limited to 4 half widths, inner miters limited to 1.01.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StrokeShape {
+    /// End caps.
+    pub cap: LineCap,
+    /// Outer joins.
+    pub join: LineJoin,
+    /// Miter length limit, in multiples of half the width.
+    pub miter_limit: f64,
+    /// Inner joins.
+    pub inner_join: InnerJoin,
+    /// Inner miter limit.
+    pub inner_miter_limit: f64,
+    /// Scale for the number of segments in round caps and joins.
+    pub approximation_scale: f64,
+}
+
+impl Default for StrokeShape {
+    fn default() -> Self {
+        Self {
+            cap: LineCap::Butt,
+            join: LineJoin::Miter,
+            miter_limit: 4.0,
+            inner_join: InnerJoin::Miter,
+            inner_miter_limit: 1.01,
+            approximation_scale: 1.0,
+        }
+    }
+}
+
+/// The caps and joins of a stroke of a given width and shape.
 #[derive(Clone, Debug)]
-pub(super) struct StrokeMath {
+pub struct StrokeMath {
     width: f64,
     width_abs: f64,
     width_eps: f64,
@@ -32,19 +107,22 @@ pub(super) struct StrokeMath {
 }
 
 impl StrokeMath {
-    pub(super) fn new(style: &StrokeStyle) -> Self {
-        let width = style.width * 0.5;
+    /// `math_stroke::width` and the shape's settings: offsets are half of
+    /// `width`, on the right of the direction of travel for positive
+    /// widths.
+    pub fn new(width: f64, shape: &StrokeShape) -> Self {
+        let width = width * 0.5;
         Self {
             width,
             width_abs: width.abs(),
             width_eps: width / 1024.0,
             width_sign: if width < 0.0 { -1.0 } else { 1.0 },
-            miter_limit: style.miter_limit,
-            inner_miter_limit: style.inner_miter_limit,
-            approx_scale: style.approximation_scale,
-            cap: style.cap,
-            join: style.join,
-            inner_join: style.inner_join,
+            miter_limit: shape.miter_limit,
+            inner_miter_limit: shape.inner_miter_limit,
+            approx_scale: shape.approximation_scale,
+            cap: shape.cap,
+            join: shape.join,
+            inner_join: shape.inner_join,
         }
     }
 
@@ -184,14 +262,9 @@ impl StrokeMath {
         }
     }
 
-    /// The cap at `v0` of the segment `v0 → v1` of length `len`.
-    pub(super) fn calc_cap(
-        &self,
-        out: &mut Vec<Point>,
-        v0: &VertexDist,
-        v1: &VertexDist,
-        len: f64,
-    ) {
+    /// Agg's `calc_cap`: the cap at `v0` of the segment `v0 → v1` of
+    /// length `len`, replacing the points of `out`.
+    pub fn calc_cap(&self, out: &mut Vec<Point>, v0: &VertexDist, v1: &VertexDist, len: f64) {
         out.clear();
         let mut dx1 = (v1.y - v0.y) / len;
         let mut dy1 = (v1.x - v0.x) / len;
@@ -233,9 +306,10 @@ impl StrokeMath {
         }
     }
 
-    /// The join at `v1` between segments `v0 → v1` (length `len1`) and
-    /// `v1 → v2` (length `len2`).
-    pub(super) fn calc_join(
+    /// Agg's `calc_join`: the join at `v1` between segments `v0 → v1`
+    /// (length `len1`) and `v1 → v2` (length `len2`), replacing the points
+    /// of `out`.
+    pub fn calc_join(
         &self,
         out: &mut Vec<Point>,
         v0: &VertexDist,
@@ -349,13 +423,25 @@ mod tests {
         VertexDist::new(Point::new(x, y))
     }
 
+    fn math(width: f64, shape: StrokeShape) -> StrokeMath {
+        StrokeMath::new(width, &shape)
+    }
+
+    fn shaped(cap: LineCap, join: LineJoin) -> StrokeShape {
+        StrokeShape {
+            cap,
+            join,
+            ..StrokeShape::default()
+        }
+    }
+
     #[test]
     fn butt_and_square_caps() {
         let mut out = Vec::new();
-        let butt = StrokeMath::new(&StrokeStyle::new(2.0));
+        let butt = math(2.0, StrokeShape::default());
         butt.calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
         assert_eq!(out, vec![Point::new(0.0, 1.0), Point::new(0.0, -1.0)]);
-        let square = StrokeMath::new(&StrokeStyle::new(2.0).with_cap(LineCap::Square));
+        let square = math(2.0, shaped(LineCap::Square, LineJoin::Miter));
         square.calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
         assert_eq!(out, vec![Point::new(-1.0, 1.0), Point::new(-1.0, -1.0)]);
     }
@@ -363,7 +449,7 @@ mod tests {
     #[test]
     fn round_cap_is_a_semicircle() {
         let mut out = Vec::new();
-        let m = StrokeMath::new(&StrokeStyle::new(20.0).with_cap(LineCap::Round));
+        let m = math(20.0, shaped(LineCap::Round, LineJoin::Miter));
         m.calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
         assert!(out.len() > 4);
         for p in &out {
@@ -376,65 +462,44 @@ mod tests {
     fn round_caps_and_joins_stay_bounded() {
         // A zero angular step would ask for i32::MAX points per arc.
         let mut out = Vec::new();
-        let mut huge = StrokeStyle::new(1e300)
-            .with_cap(LineCap::Round)
-            .with_join(LineJoin::Round);
-        let m = StrokeMath::new(&huge);
-        m.calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
+        let mut round = shaped(LineCap::Round, LineJoin::Round);
+        math(1e300, round).calc_cap(&mut out, &vd(0.0, 0.0), &vd(10.0, 0.0), 10.0);
         assert_eq!(out.len(), MAX_ARC_POINTS as usize + 2);
-        huge.width = 2.0;
-        huge.approximation_scale = 1e300;
-        let m = StrokeMath::new(&huge);
+        round.approximation_scale = 1e300;
         let (a, b, c) = (vd(0.0, 0.0), vd(10.0, 0.0), vd(10.0, -10.0));
-        m.calc_join(&mut out, &a, &b, &c, 10.0, 10.0);
+        math(2.0, round).calc_join(&mut out, &a, &b, &c, 10.0, 10.0);
         assert!(out.len() <= MAX_ARC_POINTS as usize + 2);
-        huge.approximation_scale = f64::NAN;
-        StrokeMath::new(&huge).calc_cap(&mut out, &a, &b, 10.0);
+        round.approximation_scale = f64::NAN;
+        math(2.0, round).calc_cap(&mut out, &a, &b, 10.0);
         assert_eq!(out.len(), 2);
     }
 
     #[test]
     fn right_angle_miter() {
         let mut out = Vec::new();
-        let m = StrokeMath::new(&StrokeStyle::new(2.0));
+        let m = math(2.0, StrokeShape::default());
+        let (a, b) = (vd(0.0, 0.0), vd(10.0, 0.0));
         // Turning towards +y puts the offset side (-y) on the outside.
-        m.calc_join(
-            &mut out,
-            &vd(0.0, 0.0),
-            &vd(10.0, 0.0),
-            &vd(10.0, 10.0),
-            10.0,
-            10.0,
-        );
+        m.calc_join(&mut out, &a, &b, &vd(10.0, 10.0), 10.0, 10.0);
         assert_eq!(out, vec![Point::new(11.0, -1.0)]);
         // The opposite turn is an inner join, mitered at the offset lines' crossing.
-        m.calc_join(
-            &mut out,
-            &vd(0.0, 0.0),
-            &vd(10.0, 0.0),
-            &vd(10.0, -10.0),
-            10.0,
-            10.0,
-        );
+        m.calc_join(&mut out, &a, &b, &vd(10.0, -10.0), 10.0, 10.0);
         assert_eq!(out, vec![Point::new(9.0, -1.0)]);
     }
 
     #[test]
-    fn sharp_miter_reverts_to_bevel() {
+    fn sharp_miters_are_clipped_or_revert_to_bevels() {
         let mut out = Vec::new();
-        let m = StrokeMath::new(
-            &StrokeStyle::new(2.0)
-                .with_join(LineJoin::MiterRevert)
-                .with_miter_limit(1.0),
-        );
-        m.calc_join(
-            &mut out,
-            &vd(0.0, 0.0),
-            &vd(10.0, 0.0),
-            &vd(0.0, 1.0),
-            10.0,
-            101f64.sqrt(),
-        );
-        assert_eq!(out.len(), 2);
+        let (a, b, c) = (vd(0.0, 0.0), vd(10.0, 0.0), vd(0.0, 1.0));
+        let len2 = 101f64.sqrt();
+        math(2.0, StrokeShape::default()).calc_join(&mut out, &a, &b, &c, 10.0, len2);
+        assert_eq!(out.len(), 2, "Agg's default clips the miter");
+        let revert = StrokeShape {
+            miter_limit: 1.0,
+            ..shaped(LineCap::Butt, LineJoin::MiterRevert)
+        };
+        math(2.0, revert).calc_join(&mut out, &a, &b, &c, 10.0, len2);
+        assert_eq!(out.len(), 2, "a bevel");
+        assert_eq!(out[0], Point::new(10.0, -1.0));
     }
 }

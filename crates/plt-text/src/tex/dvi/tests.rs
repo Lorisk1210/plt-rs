@@ -165,3 +165,66 @@ fn self_referring_virtual_fonts_are_errors() {
     dvi.font_def(0, "loop", 1 << 20).bop().end();
     assert!(read_dvi(&dvi.0, &files).is_err());
 }
+
+#[test]
+fn glyphs_of_a_virtual_font_share_their_scaled_font() {
+    // Character 65 of `virt` sets `B` of `test`.
+    let mut vf = DviWriter::vf();
+    vf.font_def(0, "test", 1 << 20);
+    vf.op(1).u1(65).op(0).op(0).op(0).op(66).op(248);
+    let files = files(&[
+        ("virt.tfm", tfm_bytes(65, 65, &[1 << 20], 0)),
+        ("virt.vf", vf.0),
+    ]);
+    let mut dvi = DviWriter::dvi();
+    dvi.font_def(0, "virt", 10 << 16)
+        .font_def(1, "virt", 12 << 16)
+        .bop()
+        .op(171)
+        .op(65)
+        .op(65)
+        .op(172)
+        .op(65)
+        .end();
+    let pages = read_dvi(&dvi.0, &files).unwrap();
+    let [first, second, larger] = pages[0].glyphs() else {
+        panic!("three glyphs")
+    };
+    assert!(Arc::ptr_eq(&first.font, &second.font));
+    assert!(!Arc::ptr_eq(&first.font, &larger.font));
+    assert_eq!(larger.font.scale(), 12 << 16);
+}
+
+#[test]
+fn extents_too_large_for_the_arithmetic_are_errors() {
+    let rule = |x| RawRule {
+        x,
+        y: 0,
+        height: 1,
+        width: 1,
+    };
+    let page = RawPage {
+        text: Vec::new(),
+        boxes: vec![rule(i128::MIN / 2 - 10), rule(i128::MAX / 2 + 10)],
+        baseline: None,
+    };
+    assert!(page.extent().is_err());
+    assert!(page.at(72.0).is_err());
+}
+
+#[test]
+fn rules_outline_as_rectangles_going_right_first() {
+    let rule = DviBox {
+        x: 1.0,
+        y: 2.0,
+        height: 3.0,
+        width: 4.0,
+    };
+    let outline = rule.outline();
+    let corners = [(1.0, 2.0), (5.0, 2.0), (5.0, 5.0), (1.0, 5.0), (1.0, 2.0)];
+    assert_eq!(
+        outline.vertices()[..5],
+        corners.map(|(x, y)| Point::new(x, y))
+    );
+    assert_eq!(outline.codes().map(<[_]>::len), Some(6), "closed");
+}

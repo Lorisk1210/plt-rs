@@ -16,7 +16,7 @@
 //! * [`TexFiles`] finds TeX's files as matplotlib's `find_tex_file` does
 //!   (a long-lived `luatex --luaonly` helper, else `kpsewhich`), keeps
 //!   what it read, and maps DVI glyphs to the glyphs of their Type 1
-//!   faces.
+//!   faces ([`TexFontFile`]).
 //! * [`TexText`] is a line of usetex text as backends receive it; its
 //!   [`glyphs`](TexText::glyphs) are resolved to Type 1 faces, and its
 //!   [`text_path`](TexText::text_path) is the outline matplotlib's
@@ -25,10 +25,12 @@
 //! Everything read from TeX's files is untrusted: malformed DVI, VF, TFM,
 //! map and encoding files give errors, never panics.
 
+mod bytes;
 mod command;
 mod dvi;
 mod error;
 mod files;
+mod font_file;
 #[cfg(test)]
 mod fuzz_tests;
 mod kpathsea;
@@ -44,12 +46,10 @@ mod vf;
 pub use dvi::{DviBox, DviFont, DviPage, DviText, RawGlyph, RawPage, RawRule, read_dvi};
 pub use error::{TexError, TexFile};
 pub use files::{FileFinder, FontSource, TexFiles};
-pub use kpathsea::Kpathsea;
+pub use font_file::{TexFontFile, TexHinting};
 pub use manager::{GreyImage, TexEngine, TexManager};
 pub use psfonts::{PsFont, PsfontsMap, parse_enc};
 pub use source::{TexFonts, tex_source};
-pub use text::{
-    TEX_FONT_SCALE, TEX_PATH_DPI, TexGlyph, TexHinting, TexText, glyph_outline, load_glyph,
-};
+pub use text::{TEX_FONT_SCALE, TEX_PATH_DPI, TexGlyph, TexText};
 pub use tfm::{TexMetrics, Tfm};
 pub use vf::{Vf, VfPacket};

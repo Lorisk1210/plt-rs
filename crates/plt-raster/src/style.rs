@@ -1,5 +1,8 @@
 //! Fill and stroke parameters.
 
+use plt_core::path::outline::StrokeShape;
+pub use plt_core::path::outline::{InnerJoin, LineCap, LineJoin};
+
 use crate::error::RasterError;
 
 /// How overlapping sub-paths and self-intersections decide what is inside.
@@ -30,51 +33,6 @@ impl From<bool> for Antialias {
     fn from(antialiased: bool) -> Self {
         if antialiased { Self::On } else { Self::Off }
     }
-}
-
-/// Shape of the ends of open sub-paths and dashes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum LineCap {
-    /// The stroke ends exactly at the end point.
-    #[default]
-    Butt,
-    /// The stroke extends half a width beyond the end point (matplotlib's
-    /// `"projecting"`).
-    Square,
-    /// A semicircle centred on the end point.
-    Round,
-}
-
-/// Shape of the outer corner where two segments meet.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum LineJoin {
-    /// Agg's `miter_join`: a miter that is cut off at the miter limit.
-    #[default]
-    Miter,
-    /// Agg's `miter_join_revert`: a miter that falls back to a bevel
-    /// beyond the limit, as in SVG/PDF. matplotlib's `"miter"` uses this.
-    MiterRevert,
-    /// A circular arc.
-    Round,
-    /// A straight cut across the corner.
-    Bevel,
-    /// A miter that falls back to a round join beyond the limit.
-    MiterRound,
-}
-
-/// Shape of the inner corner where two segments meet.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum InnerJoin {
-    /// A straight cut.
-    Bevel,
-    /// A miter limited by the inner miter limit (Agg's default, used by
-    /// matplotlib).
-    #[default]
-    Miter,
-    /// A notch back to the vertex for very short segments.
-    Jag,
-    /// A rounded notch for very short segments.
-    Round,
 }
 
 /// At most this many `(dash, gap)` pairs are used, like Agg's
@@ -158,15 +116,28 @@ pub struct StrokeStyle {
 impl StrokeStyle {
     /// A solid stroke of `width` pixels with Agg's default parameters.
     pub fn new(width: f64) -> Self {
+        let shape = StrokeShape::default();
         Self {
             width,
-            cap: LineCap::Butt,
-            join: LineJoin::Miter,
-            miter_limit: 4.0,
-            inner_join: InnerJoin::Miter,
-            inner_miter_limit: 1.01,
-            approximation_scale: 1.0,
+            cap: shape.cap,
+            join: shape.join,
+            miter_limit: shape.miter_limit,
+            inner_join: shape.inner_join,
+            inner_miter_limit: shape.inner_miter_limit,
+            approximation_scale: shape.approximation_scale,
             dashes: None,
+        }
+    }
+
+    /// How the stroke's ends and corners are shaped.
+    pub(crate) fn shape(&self) -> StrokeShape {
+        StrokeShape {
+            cap: self.cap,
+            join: self.join,
+            miter_limit: self.miter_limit,
+            inner_join: self.inner_join,
+            inner_miter_limit: self.inner_miter_limit,
+            approximation_scale: self.approximation_scale,
         }
     }
 

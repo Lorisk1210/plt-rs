@@ -33,8 +33,8 @@ mod writer;
 
 use plt_core::path::convert::{SimplifySettings, SketchParams, StringCodes, StringOptions};
 use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
-use plt_text::tex::TexError;
-use plt_text::{AfmDirectory, TextRun, TextSource};
+use plt_text::tex::{TexError, TexText};
+use plt_text::{AfmDirectory, TextRun};
 
 use self::fonts::FontNames;
 use self::object::Obj;
@@ -446,17 +446,13 @@ impl Renderer for PdfRenderer {
     fn draw_tex(
         &mut self,
         gc: &GraphicsContext,
-        run: &TextRun,
+        _run: &TextRun,
+        tex: &TexText,
         origin: Point,
         angle: f64,
     ) -> Result<(), TexError> {
         self.begin_draw();
-        if let Some(TextSource::Tex(tex)) = &run.source {
-            self.pdf_tex(gc, tex, origin, angle)
-        } else {
-            self.pdf_text(gc, run, origin, angle);
-            Ok(())
-        }
+        self.pdf_tex(gc, tex, origin, angle)
     }
 
     fn open_group(&mut self, _name: &str, _gid: Option<&str>) {

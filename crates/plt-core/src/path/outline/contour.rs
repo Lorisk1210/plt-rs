@@ -1,7 +1,7 @@
 //! Agg's `vcgen_contour`: every sub-path as a closed polygon offset by half
 //! the width.
 
-use super::join::JoinMath;
+use super::stroke_math::{StrokeMath, StrokeShape};
 use super::vertex_seq::VertexSequence;
 use super::{Generator, accumulate};
 use crate::Point;
@@ -21,7 +21,7 @@ enum Status {
 /// The contour generator; see [`super::Outline`].
 #[derive(Clone, Debug)]
 pub(crate) struct Contour {
-    math: JoinMath,
+    math: StrokeMath,
     src: VertexSequence,
     out: Vec<Point>,
     status: Status,
@@ -36,7 +36,7 @@ impl Contour {
     /// A generator offsetting by `width / 2` (Agg's `width(w)`).
     pub(crate) fn new(width: f64) -> Self {
         Self {
-            math: JoinMath::new(width),
+            math: StrokeMath::new(width, &StrokeShape::default()),
             src: VertexSequence::default(),
             out: Vec::new(),
             status: Status::Initial,
@@ -89,7 +89,7 @@ impl Generator for Contour {
                     let i = self.src_vertex;
                     let (prev, curr, next) = (self.src.prev(i), self.src.get(i), self.src.next(i));
                     self.math
-                        .join(&mut self.out, prev, curr, next, prev.dist, curr.dist);
+                        .calc_join(&mut self.out, prev, curr, next, prev.dist, curr.dist);
                     self.src_vertex += 1;
                     self.status = Status::OutVertices;
                     self.out_vertex = 0;

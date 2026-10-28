@@ -1,16 +1,14 @@
 //! The titles of an axes: left, centre and right (matplotlib's
 //! `set_title`), their text, height and gap above the axes.
 
-use std::fmt;
 use std::rc::Rc;
-use std::str::FromStr;
 
 use plt_text::{HAlign, VAlign};
 
 use super::{Axes, AxesState, state};
 use crate::artist::{ArtistHandle, RawHandle};
-use crate::image::UnknownName;
 use crate::rc::ColorOrAuto;
+use crate::rc::keyword_names;
 use crate::text::Text;
 use crate::transforms::Transform;
 
@@ -50,26 +48,7 @@ impl TitleLocation {
     }
 }
 
-impl fmt::Display for TitleLocation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for TitleLocation {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`TitleLocation::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|location| location.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "title location",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(TitleLocation, "title location", Self::ALL);
 
 impl Axes {
     /// Sets the title at the `axes.titlelocation` position (centre by

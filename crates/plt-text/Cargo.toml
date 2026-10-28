@@ -7,6 +7,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+plt-codec.workspace = true
 plt-core.workspace = true
 plt-font.workspace = true
 

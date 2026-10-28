@@ -18,7 +18,11 @@
 //! `plt::web`, `crates/plt/src/web/websocket`) and
 //! `test_toolbar_button_dispatch_allowlist` (its canvas,
 //! `crates/plt/src/web/canvas/tests.rs`); both need Tornado, which the
-//! reference venv does not have.
+//! reference venv does not have. `test_text.py`'s
+//! `test_single_artist_usenotex` only checks that saving succeeds, which
+//! `crates/plt/src/text/tex.rs` tests without TeX, and `test_axes.py`'s
+//! `test_latex_pie_percent` that two autopct templates give the same
+//! labels under TeX, which `crates/plt/src/axes/pie.rs` tests.
 #![forbid(unsafe_code)]
 
 pub mod compare;

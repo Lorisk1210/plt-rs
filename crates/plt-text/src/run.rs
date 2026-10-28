@@ -10,6 +10,7 @@ use crate::engine::{FontRequest, TextEngine};
 use crate::error::TextError;
 use crate::mathtext::MathStyle;
 use crate::shaping::Shaping;
+use crate::tex::TexText;
 
 /// The characters a glyph renders (matplotlib's `LayoutItem.char` for
 /// shaped text, the character code of a mathtext glyph).
@@ -71,6 +72,10 @@ pub enum TextSource {
         /// Its fonts and resolution.
         style: MathStyle,
     },
+    /// TeX text (`ismath="TeX"`, drawn by `draw_tex`): the run carries
+    /// no glyphs, only the extent of the typeset line; backends typeset
+    /// it themselves.
+    Tex(TexText),
 }
 
 impl TextSource {
@@ -78,6 +83,7 @@ impl TextSource {
     pub fn text(&self) -> &str {
         match self {
             Self::Plain { text, .. } | Self::Math { text, .. } => text,
+            Self::Tex(tex) => &tex.tex,
         }
     }
 
@@ -86,12 +92,18 @@ impl TextSource {
         matches!(self, Self::Math { .. })
     }
 
+    /// Whether the run is TeX text, typeset by `latex`.
+    pub fn is_tex(&self) -> bool {
+        matches!(self, Self::Tex(_))
+    }
+
     /// The text font (for mathtext, the font of text outside `$...$`,
     /// whose size is the size of the math).
     pub fn font(&self) -> &FontRequest {
         match self {
             Self::Plain { font, .. } => font,
             Self::Math { style, .. } => &style.font,
+            Self::Tex(tex) => &tex.font,
         }
     }
 
@@ -103,13 +115,14 @@ impl TextSource {
     /// Lays the text out again, unhinted, at `points` and `dpi` with the
     /// same features and language (with `points` 100 and `dpi` 72 this is
     /// matplotlib's `TextToPath`, which vector backends and path effects
-    /// use).
+    /// use). TeX text is typeset at `points` and measured at `dpi`; its
+    /// run has no glyphs.
     ///
     /// # Errors
     ///
     /// When the fonts cannot be loaded (or, for mathtext, the math does
     /// not parse, which cannot happen for a source that was laid out
-    /// before).
+    /// before), or TeX fails.
     pub fn layout(&self, engine: &TextEngine, points: f64, dpi: f64) -> Result<TextRun, TextError> {
         match self {
             Self::Plain {
@@ -126,6 +139,24 @@ impl TextSource {
                 let mut style = style.clone().with_size(points).with_dpi(dpi);
                 style.font.hinting = Hinting::None;
                 engine.layout_math(text, &style)
+            }
+            Self::Tex(tex) => {
+                let (width, height, descent) =
+                    tex.manager
+                        .text_width_height_descent(&tex.tex, points, dpi / 72.0)?;
+                let mut font = tex.font.clone();
+                font.query.size = points;
+                Ok(TextRun {
+                    width,
+                    height,
+                    descent,
+                    dpi,
+                    source: Some(Self::Tex(TexText {
+                        font,
+                        ..tex.clone()
+                    })),
+                    ..TextRun::default()
+                })
             }
         }
     }
@@ -172,9 +203,12 @@ pub struct TextRun {
 }
 
 impl TextRun {
-    /// Whether nothing would be drawn.
+    /// Whether nothing would be drawn (TeX text is typeset when drawn, so
+    /// its runs count as drawn).
     pub fn is_empty(&self) -> bool {
-        self.glyphs.is_empty() && self.rects.is_empty()
+        self.glyphs.is_empty()
+            && self.rects.is_empty()
+            && !self.source.as_ref().is_some_and(TextSource::is_tex)
     }
 
     /// The characters `glyph` renders, if known.

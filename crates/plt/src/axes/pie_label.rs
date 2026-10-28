@@ -89,6 +89,21 @@ pub(super) struct LabelPlacement {
     pub(super) rotate: bool,
 }
 
+/// `text` with each `%` that follows a character other than a backslash
+/// escaped for LaTeX (matplotlib's `re.sub(r"([^\\])%", r"\1\\%", s)`,
+/// whose matches do not overlap: `5%%` becomes `5\%%`).
+pub(super) fn escape_tex_percents(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len() + 2);
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        escaped.push(c);
+        if c != '\\' && chars.next_if_eq(&'%').is_some() {
+            escaped.push_str("\\%");
+        }
+    }
+    escaped
+}
+
 /// The texts `template` writes for each wedge of `container`.
 fn formatted(template: &str, container: &PieContainer) -> Result<Vec<String>, PieError> {
     let template =
@@ -140,7 +155,12 @@ impl Axes {
     ) -> Result<Vec<Text>, PlotError> {
         let texts = match labels.into() {
             PieLabels::Format(template) => {
-                formatted(&template, container).map_err(PlotError::Pie)?
+                let texts = formatted(&template, container).map_err(PlotError::Pie)?;
+                if crate::rc::params().text_usetex {
+                    texts.iter().map(|text| escape_tex_percents(text)).collect()
+                } else {
+                    texts
+                }
             }
             PieLabels::Texts(texts) if texts.len() != container.wedges.len() => {
                 return Err(PlotError::Pie(PieError::LabelCount {

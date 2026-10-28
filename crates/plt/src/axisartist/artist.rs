@@ -449,11 +449,11 @@ impl Artist for AxisArtistState {
                 }
             }
             for text in &level.texts {
-                draw_text(ctx, text, &self.rc);
+                draw_text(ctx, id, text, &self.rc);
             }
         }
         if let Some(offset) = &drawing.offset {
-            draw_text(ctx, offset, &self.rc);
+            draw_text(ctx, id, offset, &self.rc);
         }
         let (style, edge_default) = self.line.patch_style(&self.rc);
         if let Err(err) = paint_paths(
@@ -467,7 +467,7 @@ impl Artist for AxisArtistState {
             ctx.report(id, err);
         }
         if let Some(label) = &drawing.label {
-            draw_text(ctx, label, &self.rc);
+            draw_text(ctx, id, label, &self.rc);
         }
         ctx.renderer().close_group(GROUP);
     }

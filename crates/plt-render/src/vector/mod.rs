@@ -3,7 +3,6 @@
 //! images, metadata and the error type.
 
 mod base64;
-mod digest;
 mod font;
 mod format;
 mod image;
@@ -20,9 +19,9 @@ use plt_core::Path;
 use plt_core::path::convert::VertexSource;
 use plt_core::{Affine2D, Bbox, Point};
 use plt_text::TextError;
+use plt_text::tex::TexError;
 
 pub(crate) use base64::encode as base64_encode;
-pub(crate) use digest::sha256_hex;
 pub(crate) use font::{FontCache, FontInfo};
 pub(crate) use format::{fixed, general, hex, repr, repr_bytes, repr_str, short, trimmed};
 pub(crate) use image::{flipped_rows, png_idat};
@@ -81,6 +80,8 @@ pub enum VectorError {
     NonFinite(&'static str),
     /// Something the format cannot hold.
     Unsupported(&'static str),
+    /// TeX text could not be typeset or its fonts embedded.
+    Tex(TexError),
 }
 
 impl fmt::Display for VectorError {
@@ -94,6 +95,7 @@ impl fmt::Display for VectorError {
             Self::Image(err) => write!(f, "cannot encode image: {err}"),
             Self::NonFinite(what) => write!(f, "cannot write a non-finite {what}"),
             Self::Unsupported(what) => f.write_str(what),
+            Self::Tex(err) => write!(f, "cannot draw TeX text: {err}"),
         }
     }
 }
@@ -103,6 +105,7 @@ impl std::error::Error for VectorError {
         match self {
             Self::Font(err) => Some(err),
             Self::Image(err) => Some(err),
+            Self::Tex(err) => Some(err),
             Self::InvalidCanvas { .. } | Self::NonFinite(_) | Self::Unsupported(_) => None,
         }
     }
@@ -111,6 +114,12 @@ impl std::error::Error for VectorError {
 impl From<TextError> for VectorError {
     fn from(err: TextError) -> Self {
         Self::Font(err)
+    }
+}
+
+impl From<TexError> for VectorError {
+    fn from(err: TexError) -> Self {
+        Self::Tex(err)
     }
 }
 

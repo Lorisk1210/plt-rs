@@ -120,9 +120,9 @@ impl Painter {
 
     /// Blends a coverage bitmap in `color` through an affine `transform`
     /// from bitmap pixels (y down, origin at its top-left corner) to the
-    /// target, sampling bilinearly like Agg's
-    /// `span_image_filter_gray_bilinear` and colouring like matplotlib's
-    /// `font_to_rgba`. Non-invertible transforms draw nothing.
+    /// target, sampling with Agg's `spline36` filter and colouring like
+    /// matplotlib's `font_to_rgba` (its `draw_text_image` at an angle).
+    /// Non-invertible transforms draw nothing.
     pub fn draw_coverage_transformed(
         &mut self,
         target: &mut Pixmap,
@@ -140,7 +140,9 @@ impl Painter {
             coverage.width(),
             coverage.height(),
         ));
-        self.render_with(target, clip.mask, Scanlines::Unpacked, |x, y, out| {
+        // `draw_text_image` renders with `scanline_p8`, whose spans decide
+        // where the interpolator restarts.
+        self.render_with(target, clip.mask, Scanlines::Packed, |x, y, out| {
             sampler.generate(x, y, out);
         })
     }

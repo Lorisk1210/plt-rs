@@ -1,0 +1,1131 @@
+{
+ "area": "texmanager",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {
+   "op": "TexManager._get_base_path",
+   "args": {"tex": "x", "fontsize": 10.0, "dpi": 100.0, "rc": {}},
+   "value": "b67eab7fec9de5d4cb9d198ec7283b211a4620d6ba2b9ab34bcbca69b9378ace"
+  },
+  {
+   "op": "TexManager._get_base_path",
+   "args": {"tex": "x", "fontsize": 12.0, "dpi": 72.0, "rc": {}},
+   "value": "025bd389d7ec54c0aeb2e907296b18382c52ccc2bd7ede22471b07d997bcec16"
+  },
+  {
+   "op": "TexManager._get_base_path",
+   "args": {"tex": "\\LaTeX", "fontsize": 10.0, "dpi": null, "rc": {}},
+   "value": "82cec630c0e0b2abce92471f4df73eaecf142128588c5e8dba9db10173c1e506"
+  },
+  {
+   "op": "TexManager._get_base_path",
+   "args": {"tex": "x", "fontsize": 10.0, "dpi": null, "rc": {}},
+   "value": "fd5e2fef51e35eaebfe644436cb74c1d06f5d8c04ce88b15348ee30eb151446a"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "$\\frac{1}{2}$", "fontsize": 10.0, "rc": {}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{10.0}{12.5}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily $\\frac{1}{2}$}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "x", "fontsize": 100.0, "rc": {}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{100.0}{125.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily x}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "cursive", "font.cursive": "zapf chancery"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{chancery}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "DejaVu Sans"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "Times"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{mathptmx}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "computer modern sans serif"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\sffamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "courier"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{courier}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\ttfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "cursive"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{chancery}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "helvetica"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{helvet}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\sffamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "monospace", "font.monospace": "courier"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{courier}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\ttfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "monospace"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\ttfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "palatino"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{mathpazo}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "sans-serif", "font.sans-serif": "helvetica"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{helvet}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\sffamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "sans-serif", "font.sans-serif": ["Unknown Font"]}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\sffamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "sans-serif"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\sffamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "serif", "font.serif": "palatino"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{mathpazo}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "serif", "font.serif": ["Unknown Font", "Charter", "Times"]}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{charter}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "serif", "text.latex.preamble": "\\usepackage{txfonts}"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\\usepackage{txfonts}\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "serif"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": "zapf chancery"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{chancery}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"font.family": ["serif", "sans-serif"]}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "rc": {"text.latex.preamble": "\\usepackage{underscore}\\usepackage[full]{textcomp}"}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\\usepackage{underscore}\\usepackage[full]{textcomp}\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily hello, world}%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "", "fontsize": 12.0, "rc": {}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{12.0}{15.0}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily }%\n\\end{document}"
+  },
+  {
+   "op": "TexManager._get_tex_source",
+   "args": {"tex": "x", "fontsize": 7.25, "rc": {}},
+   "value": "\\RequirePackage{fix-cm}\n\\documentclass{article}\n% Pass-through \\mathdefault, which is used in non-usetex mode\n% to use the default text font but was historically suppressed\n% in usetex mode.\n\\newcommand{\\mathdefault}[1]{#1}\n\\IfFileExists{type1ec.sty}{}{\\PackageError{matplotlib-support}{Missing cm-super package, required by Matplotlib}{}}\n\\usepackage{type1cm}\n\\usepackage[utf8]{inputenc}\n\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\n% geometry is loaded before the custom preamble as \n% convert_psfrags relies on a custom preamble to change the \n% geometry.\n\\usepackage[papersize=72in, margin=1in]{geometry}\n\n% Use `underscore` package to take care of underscores in text.\n% The [strings] option allows to use underscores in file names.\n\\makeatletter\\@ifpackageloaded{underscore}{}{\\usepackage[strings]{underscore}}\\makeatother\n% Custom packages (e.g. newtxtext) may already have loaded \n% textcomp with different options.\n\\makeatletter\\@ifpackageloaded{textcomp}{}{\\usepackage{textcomp}}\\makeatother\n\\pagestyle{empty}\n\\begin{document}\n% The empty hbox ensures that a page is printed even for empty\n% inputs, except when using psfrag which gets confused by it.\n\\fontsize{7.25}{9.0625}%\n\\ifdefined\\psfrag\\else\\hbox{}\\fi%\n{\\rmfamily x}%\n\\end{document}"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e80041",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e80041",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e80041",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [{"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [{"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [{"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8e8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8e8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8e8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffff",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffff",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffff",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41428400004e20000075308e8e8e8c",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41428400004e20000075308e8e8e8c",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41428400004e20000075308e8e8e8c",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41428400004e20000075308e8e8e8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 9.962640099626402, 65, 6.918500069185001], [6.918500069185001, 0.0, "test", 9.962640099626402, 66, 9.685878983272364]],
+     "boxes": [[16.604379052457364, 0.0, 0.42227173273834234, 0.6334075991075135]],
+     "width": 17.23778665156488,
+     "height": 0.42227173273834234,
+     "descent": 0.0003800445594645081
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41428400004e20000075308e8e8e8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 9.962640099626402, 65, 4.981320049813201], [4.981320049813201, 0.0, "test", 9.962640099626402, 66, 6.973832867956102]],
+     "boxes": [[11.955152917769304, 0.0, 0.3040356475716065, 0.45605347135740976]],
+     "width": 12.411206389126713,
+     "height": 0.3040356475716065,
+     "descent": 0.00027363208281444584
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41428400004e20000075308e8e8e8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0, 1300, "test", 9.962640099626402, 65, 327680], [327680, 1300, "test", 9.962640099626402, 66, 458751]],
+     "boxes": [[786431, 1300, 20000, 30000]],
+     "width": 816431,
+     "height": 20000,
+     "descent": 18
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab418c8b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab92000003e842438cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 9.962640099626402, 65, 6.918500069185001]],
+     "boxes": [],
+     "width": 6.918500069185001,
+     "height": 0.0013090423714888612,
+     "descent": 0.0003800445594645081
+    },
+    {
+     "text": [[0.0, 0.0, "test", 9.962640099626402, 66, 9.685878983272364], [9.685878983272364, 0.0, "test", 9.962640099626402, 67, 7.917594988843919]],
+     "boxes": [],
+     "width": 17.603473972116284,
+     "height": 0.0013090423714888612,
+     "descent": 0.0003800445594645081
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab418c8b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab92000003e842438cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 9.962640099626402, 65, 4.981320049813201]],
+     "boxes": [],
+     "width": 4.981320049813201,
+     "height": 0.0009425105074719802,
+     "descent": 0.00027363208281444584
+    },
+    {
+     "text": [[0.0, 0.0, "test", 9.962640099626402, 66, 6.973832867956102], [6.973832867956102, 0.0, "test", 9.962640099626402, 67, 5.700668391967622]],
+     "boxes": [],
+     "width": 12.674501259923725,
+     "height": 0.0009425105074719802,
+     "descent": 0.00027363208281444584
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab418c8b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab92000003e842438cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {"text": [[0, 0, "test", 9.962640099626402, 65, 327680]], "boxes": [], "width": 327680, "height": 62, "descent": 18},
+    {
+     "text": [[1000, 0, "test", 9.962640099626402, 66, 458751], [459751, 0, "test", 9.962640099626402, 67, 375000]],
+     "boxes": [],
+     "width": 833751,
+     "height": 62,
+     "descent": 18
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000006636d737931308b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab0001028e8e8e8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "cmsy10", 9.962640099626402, 0, 10.556793318458558], [10.556793318458558, 0.0, "cmsy10", 9.962640099626402, 1, 6.597995824036599], [17.154789142495158, 0.0, "cmsy10", 9.962640099626402, 2, 6.597995824036599]],
+     "boxes": [],
+     "width": 23.752784966531756,
+     "height": 0.6597995824036599,
+     "descent": 0.9237194153651238
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000006636d737931308b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab0001028e8e8e8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "cmsy10", 9.962640099626402, 0, 7.600891189290163], [7.600891189290163, 0.0, "cmsy10", 9.962640099626402, 1, 4.750556993306351], [12.351448182596513, 0.0, "cmsy10", 9.962640099626402, 2, 4.750556993306351]],
+     "boxes": [],
+     "width": 17.102005175902868,
+     "height": 0.4750556993306352,
+     "descent": 0.6650779790628892
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000a0000000a00000006636d737931308b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab0001028e8e8e8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0, 1300, "cmsy10", 9.962640099626402, 0, 500000], [500000, 1300, "cmsy10", 9.962640099626402, 1, 312500], [812500, 1300, "cmsy10", 9.962640099626402, 2, 312500]],
+     "boxes": [],
+     "width": 1125000,
+     "height": 31250,
+     "descent": 43750
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000c0000000c0000000474657374f3030000000000060000000600000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41950bb893439afe0c9844ae45a300c8a146a71046a6418542804389000013880000000089ffffffff00000064ef036162638e8e8e8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 11.955168119551683, 65, 8.302200083022], [8.428881602843504, 0.0, "test", 11.955168119551683, 67, 9.501113986612703], [17.90888200281929, 0.0, "test", 11.955168119551683, 68, 6.334075991075135], [24.242957993894425, 0.0, "test", 5.977584059775841, 69, 6.226650062266501], [30.469608056160926, -0.008445434654766847, "test", 5.977584059775841, 70, 8.302200083022], [38.77180813918292, -0.00878325204095752, "test", 5.977584059775841, 70, 8.302200083022], [47.074008222204924, -0.009121069427148194, "test", 5.977584059775841, 65, 4.151100041511], [51.225108263715924, -0.009121069427148194, "test", 5.977584059775841, 66, 5.8115358353980735], [51.225108263715924, -0.009121069427148194, "test", 5.977584059775841, 67, 4.750556993306351]],
+     "boxes": [],
+     "width": 57.036644099114,
+     "height": 0.0015835189977687837,
+     "descent": 0.009353318880154282
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000c0000000c0000000474657374f3030000000000060000000600000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41950bb893439afe0c9844ae45a300c8a146a71046a6418542804389000013880000000089ffffffff00000064ef036162638e8e8e8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 11.955168119551683, 65, 5.977584059775841], [6.068794754047323, 0.0, "test", 11.955168119551683, 67, 6.840802070361146], [12.894395042029888, 0.0, "test", 11.955168119551683, 68, 4.560534713574097], [17.454929755603988, 0.0, "test", 5.977584059775841, 69, 4.483188044831881], [21.93811780043587, -0.00608071295143213, "test", 5.977584059775841, 70, 5.977584059775841], [27.91570186021171, -0.006323941469489416, "test", 5.977584059775841, 70, 5.977584059775841], [33.89328591998755, -0.0065671699875467, "test", 5.977584059775841, 65, 2.9887920298879207], [36.88207794987547, -0.0065671699875467, "test", 5.977584059775841, 66, 4.184305801486613], [36.88207794987547, -0.0065671699875467, "test", 5.977584059775841, 67, 3.420401035180573]],
+     "boxes": [],
+     "width": 41.06638375136208,
+     "height": 0.0011401336783935243,
+     "descent": 0.006734389593711084
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30000000000000c0000000c0000000474657374f3030000000000060000000600000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffa0000000648da000000064a0000000648da0000003e88dab41950bb893439afe0c9844ae45a300c8a146a71046a6418542804389000013880000000089ffffffff00000064ef036162638e8e8e8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [
+    {
+     "text": [[0, 1300, "test", 11.955168119551683, 65, 393216], [399216, 1300, "test", 11.955168119551683, 67, 450000], [848216, 1300, "test", 11.955168119551683, 68, 300000], [1148216, 1300, "test", 5.977584059775841, 69, 294912], [1443128, 1700, "test", 5.977584059775841, 70, 393216], [1836344, 1716, "test", 5.977584059775841, 70, 393216], [2229560, 1732, "test", 5.977584059775841, 65, 196608], [2426168, 1732, "test", 5.977584059775841, 66, 275251], [2426168, 1732, "test", 5.977584059775841, 67, 225000]],
+     "boxes": [],
+     "width": 2701419,
+     "height": 75,
+     "descent": 443
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000000100000001000000006616273656e748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [{"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000000100000001000000006616273656e748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [{"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000000100000001000000006616273656e748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": [{"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000000100000001000000006616273656e748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab418cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "FileNotFoundError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000000100000001000000006616273656e748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab418cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "FileNotFoundError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000000100000001000000006616273656e748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffab418cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "FileNotFoundError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000900100000001000000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000900100000001000000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f3000000000900100000001000000004746573748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30100000000000a0000000a00000004766972748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffac41428cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {"virt": "f7ca000000000000a00000f30000000000000800000008000000047465737411410000008d4292000003e88400100000001000008e074200100043a0fffff83044f8"}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 4.981320049813201, 66, 4.842928934842863], [13.837000138370001, 0.0, "test", 4.981320049813201, 67, 3.9587974944219595], [17.79579763279196, 0.026391983296146396, "test", 4.981320049813201, 68, 2.6391983296146395]],
+     "boxes": [[4.856124926490937, 0.0, 13.837000138370001, 13.837000138370001]],
+     "width": 20.4349959624066,
+     "height": 13.837000138370001,
+     "descent": 0.00019002227973225405
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30100000000000a0000000a00000004766972748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffac41428cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {"virt": "f7ca000000000000a00000f30000000000000800000008000000047465737411410000008d4292000003e88400100000001000008e074200100043a0fffff83044f8"}
+   },
+   "value": [
+    {
+     "text": [[0.0, 0.0, "test", 4.981320049813201, 66, 3.4869088330868623], [9.962640099626402, 0.0, "test", 4.981320049813201, 67, 2.850334195983811], [12.812974295610212, 0.019002227973225407, "test", 4.981320049813201, 68, 1.9002227973225407]],
+     "boxes": [[3.4964099470734746, 0.0, 9.962640099626402, 9.962640099626402]],
+     "width": 14.713197092932754,
+     "height": 9.962640099626402,
+     "descent": 0.00013681604140722292
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000003e800f30100000000000a0000000a00000004766972748b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffac41428cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {"virt": "f7ca000000000000a00000f30000000000000800000008000000047465737411410000008d4292000003e88400100000001000008e074200100043a0fffff83044f8"}
+   },
+   "value": [
+    {
+     "text": [[0, 0, "test", 4.981320049813201, 66, 229375], [655360, 0, "test", 4.981320049813201, 67, 187500], [842860, -1250, "test", 4.981320049813201, 68, 125000]],
+     "boxes": [[230000, 0, 655360, 655360]],
+     "width": 967860,
+     "height": 655360,
+     "descent": 9
+    }
+   ]
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000007d0008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000007d0008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f702018392c01c3b0000000007d0008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f703018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 100.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f703018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": 72.0,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "op": "dviread.Dvi",
+   "args": {
+    "data": "f703018392c01c3b0000000003e8008b00000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff8cf8",
+    "dpi": null,
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "ValueError"
+  },
+  {"op": "dviread.PsfontsMap", "args": {"texname": "%"}, "error": "LookupError"},
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont1"},
+   "value": {"texname": "TeXfont1", "psname": "PSfont1", "effects": {}, "encoding": "font1.enc", "filename": "font1.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont2"},
+   "value": {"texname": "TeXfont2", "psname": "PSfont2", "effects": {}, "encoding": "font2.enc", "filename": "font2.pfa"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont3"},
+   "value": {"texname": "TeXfont3", "psname": "PSfont3", "effects": {}, "encoding": "enc3.foo", "filename": "font3.pfa"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont4"},
+   "value": {"texname": "TeXfont4", "psname": "PSfont4", "effects": {"extend": 1.2, "slant": -0.1}, "encoding": "font4.enc", "filename": "font4.pfa"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont5"},
+   "value": {"texname": "TeXfont5", "psname": "PSfont5", "effects": {}, "encoding": "encoding2.enc", "filename": "font5.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont6"},
+   "value": {"texname": "TeXfont6", "psname": "PSfont6", "effects": {}, "encoding": null, "filename": null}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont7"},
+   "value": {"texname": "TeXfont7", "psname": "PSfont7", "effects": {}, "encoding": "font7.enc", "filename": null}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont8"},
+   "value": {"texname": "TeXfont8", "psname": "PSfont8", "effects": {}, "encoding": null, "filename": "font8.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfont9"},
+   "value": {"texname": "TeXfont9", "psname": "TeXfont9", "effects": {}, "encoding": null, "filename": "/absolute/font9.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfontA"},
+   "value": {"texname": "TeXfontA", "psname": "PSfontA1", "effects": {}, "encoding": null, "filename": null}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfontB"},
+   "value": {"texname": "TeXfontB", "psname": "PSfontB6", "effects": {}, "encoding": null, "filename": null}
+  },
+  {
+   "op": "dviread.PsfontsMap",
+   "args": {"texname": "TeXfontC"},
+   "value": {"texname": "TeXfontC", "psname": "PSfontC3", "effects": {}, "encoding": "8r.enc", "filename": "fontC3.ttf"}
+  },
+  {"op": "dviread.PsfontsMap", "args": {"texname": "no-such-font"}, "error": "LookupError"},
+  {
+   "op": "dviread.Tfm",
+   "args": {
+    "data": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170"
+   },
+   "value": {
+    "checksum": 0,
+    "design_size": 10485760,
+    "metrics": [[0, 800000, 50000, 70000], [1, 500000, 50000, 70000], [2, 500000, 50000, 70000], [3, 500000, 50000, 70000]]
+   }
+  },
+  {
+   "op": "dviread.Tfm",
+   "args": {"data": "0000000200010000000100020002000000000000000000000000000000a00000000000000000000000000064000000000000001e"},
+   "value": {"checksum": 0, "design_size": 10485760, "metrics": []}
+  },
+  {
+   "op": "dviread.Tfm",
+   "args": {
+    "data": "00000002004100460007000200020000000000000000000000000000000000000911000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e"
+   },
+   "error": "IndexError"
+  },
+  {"op": "dviread.Tfm", "args": {"data": "0000000200410046000700020002000000000000000000000000000700a0"}, "error": "error"},
+  {
+   "op": "dviread.Tfm",
+   "args": {
+    "data": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c000000100000000000000000006400000000000000"
+   },
+   "error": "error"
+  },
+  {
+   "op": "dviread.Tfm",
+   "args": {
+    "data": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e"
+   },
+   "value": {
+    "checksum": 7,
+    "design_size": 10485760,
+    "metrics": [[65, 524288, 100, 30], [66, 734003, 100, 30], [67, 600000, 100, 30], [68, 400000, 100, 30], [69, 786432, 100, 30], [70, 1048576, 100, 30]]
+   }
+  },
+  {
+   "op": "dviread.Vf",
+   "args": {
+    "data": "f7ca000000",
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Vf",
+   "args": {
+    "data": "f7ca000000000000a00000f30000000000000800000008000000047465737411410000008d4292000003e88400100000001000008e074200100043a0fffff83044",
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "error": "IndexError"
+  },
+  {
+   "op": "dviread.Vf",
+   "args": {
+    "data": "f7ca000000000000a00000f30000000000000800000008000000047465737411410000008d4292000003e88400100000001000008e074200100043a0fffff83044f8",
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": {
+    "packets": [[65, 0, [[0, 0, "test", 524288, 66]], [[368001, 0, 1048576, 1048576]]], [66, 4096, [[0, 0, "test", 524288, 67], [300000, -2000, "test", 524288, 68]], []]]
+   }
+  },
+  {
+   "op": "dviread.Vf",
+   "args": {
+    "data": "f7ca000000000000a00000f30000000000000800000008000000047465737411410000008d4292000003e88400100000001000008e074200100043a0fffff83044f8",
+    "tfm": {},
+    "vf": {}
+   },
+   "value": {"packets": []}
+  },
+  {
+   "op": "dviread.Vf",
+   "args": {
+    "data": "f7ca000000000000a00000f3000000000000080000000800000006616273656e7411410000008d4292000003e88400100000001000008e074200100043a0fffff83044f8",
+    "tfm": {
+     "test": "0000000200410046000700020002000000000000000000000000000700a000000111000002110000031100000411000005110000061100000000000000080000000b3333000927c000061a80000c0000001000000000000000000064000000000000001e",
+     "cmsy10": "0000000200000003000300020002000000000000000000000000000000a000000111000002110000021100000211000000000000000c35000007a120000000000000c3500000000000011170",
+     "virt": "0000000200410042000300020002000000000000000000000000000000a0000001110000021100000000000000100000001000000000000000000064000000000000001e"
+    },
+    "vf": {}
+   },
+   "value": {"packets": []}
+  },
+  {
+   "op": "dviread._parse_enc",
+   "args": {"text": "% comment [ /not ]\n/TeXBase1Encoding [ % first\n/grave /acute\n/a /b ] def\n"},
+   "value": ["grave", "acute", "a", "b"]
+  },
+  {"op": "dviread._parse_enc", "args": {"text": "/E [ /x ] [ /y ] def"}, "error": "ValueError"},
+  {"op": "dviread._parse_enc", "args": {"text": "/Enc [ /a /b /c ] def"}, "value": ["a", "b", "c"]},
+  {"op": "dviread._parse_enc", "args": {"text": "[ /a b ]"}, "error": "ValueError"},
+  {"op": "dviread._parse_enc", "args": {"text": "[]"}, "value": []},
+  {"op": "dviread._parse_enc", "args": {"text": "é [ /a ]"}, "error": "UnicodeDecodeError"},
+  {"op": "dviread._parse_enc", "args": {"text": "no array here"}, "error": "AttributeError"}
+ ]
+}

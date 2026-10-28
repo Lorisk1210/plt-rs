@@ -15,6 +15,16 @@
 //! and its [`Language`] (`text.language` unless set), in every backend
 //! that shapes text; its measured extent ignores both, as matplotlib's
 //! does.
+//!
+//! A text with `usetex` set (`text.usetex` when it was made;
+//! [`Text::set_usetex`]) is typeset by LaTeX instead, line by line, and
+//! measured from the DVI file `latex` writes (see `plt_text::tex`). Each
+//! backend draws it as matplotlib's `draw_tex` does: the raster backend
+//! from the Type 1 glyphs of the DVI file (or `dvipng`'s image with
+//! `text.latex.engine = "latex+dvipng"`), PDF output with the Type 1 fonts
+//! embedded, SVG output as glyph paths. Where TeX is missing, drawing the
+//! text fails with matplotlib's error, and [`check_usetex`] says so
+//! beforehand.
 
 mod annotation;
 mod error;
@@ -23,13 +33,14 @@ mod layout;
 mod math;
 mod math_image;
 mod metrics;
+mod tex;
 mod text_box;
 mod wrap;
 
 use std::rc::Rc;
 
 use plt_core::{Bbox, Point};
-use plt_text::{BlockStyle, RotationMode, Shaping, TextAnchor, TextRun};
+use plt_text::{BlockStyle, RotationMode, Shaping, TextAnchor, TextRun, TextSource};
 
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
@@ -48,15 +59,17 @@ pub(crate) use annotation::{AnnotationArrow, AnnotationState, ArrowTarget};
 pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
 use layout::rc_language;
-pub use layout::{LaidOutText, measure_text, text_path};
-pub(crate) use layout::{lay_out, lay_out_with_math};
+pub use layout::{LaidOutText, measure_text, text_path, text_path_tex};
+pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
+pub use plt_text::tex::TexError;
 pub use plt_text::{
     BlockLayout, Feature, HAlign, Language, LanguageRange, LanguageTag, LineMetrics, LinePlacement,
     LineSpacing, ParseFeatureError, RotationMode as TextRotationMode, TextError, VAlign,
 };
+pub use tex::check_usetex;
 pub(crate) use text_box::BoxPlacement;
 pub use text_box::{TextBoxPatch, TextBoxProps};
 
@@ -100,6 +113,9 @@ pub(crate) struct TextArtist {
     pub(crate) wrap: bool,
     /// Whether `$...$` is typeset as math.
     pub(crate) parse_math: bool,
+    /// Whether the text is typeset by LaTeX (`text.usetex` when the text
+    /// was made).
+    pub(crate) usetex: bool,
     /// OpenType feature settings for drawing the text on one line.
     pub(crate) fontfeatures: Vec<Feature>,
     /// The language of the text (`text.language` when the text was made).
@@ -136,6 +152,7 @@ impl TextArtist {
             antialiased: rc.text_antialiased,
             wrap: false,
             parse_math: rc.text_parse_math,
+            usetex: rc.text_usetex,
             fontfeatures: Vec::new(),
             language: rc_language(&rc),
             bbox: None,
@@ -229,9 +246,9 @@ impl TextArtist {
 
     /// The text with line breaks inserted so that it fits in its figure
     /// when anchored at `anchor`, if wrapping is on (matplotlib's
-    /// `_get_wrapped_text`).
+    /// `_get_wrapped_text`; TeX text is never wrapped).
     fn wrapped_at(&self, ctx: LayoutContext<'_>, anchor: Point) -> Result<String, TextError> {
-        let Some(figure) = self.figure_box(ctx).filter(|_| self.wrap) else {
+        let Some(figure) = self.figure_box(ctx).filter(|_| self.wrap && !self.usetex) else {
             return Ok(self.text.clone());
         };
         let style = self.block_style(ctx);
@@ -250,14 +267,35 @@ impl TextArtist {
         }
     }
 
+    /// How the text's lines are typeset.
+    fn typesetting(&self) -> Typesetting {
+        Typesetting::of(self.parse_math, self.usetex)
+    }
+
+    /// The extent of `"lp"` in the text's font at `dpi`, measured as its
+    /// lines are (by TeX for usetex text; matplotlib's `TextArea` measures
+    /// it so).
+    pub(crate) fn lp_metrics(&self, dpi: f64) -> Result<LineMetrics, TextError> {
+        if self.usetex {
+            let run = tex::tex_run("lp", &self.font, dpi, &self.rc)?;
+            Ok(LineMetrics {
+                width: run.width,
+                height: run.height,
+                descent: run.descent,
+            })
+        } else {
+            measure_text("lp", &self.font, false, dpi, &self.rc)
+        }
+    }
+
     fn layout_at(&self, ctx: LayoutContext<'_>, anchor: Point) -> Result<LaidOutText, TextError> {
-        lay_out_with_math(
+        lay_out_with(
             &self.wrapped_at(ctx, anchor)?,
             &self.font,
             &self.block_style(ctx),
             ctx.dpi(),
             &self.rc,
-            self.parse_math,
+            self.typesetting(),
         )
     }
 
@@ -265,13 +303,13 @@ impl TextArtist {
     pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LaidOutText, TextError> {
         match self.anchor(ctx) {
             Some(anchor) => self.layout_at(ctx, anchor),
-            None => lay_out_with_math(
+            None => lay_out_with(
                 &self.text,
                 &self.font,
                 &self.block_style(ctx),
                 ctx.dpi(),
                 &self.rc,
-                self.parse_math,
+                self.typesetting(),
             ),
         }
     }
@@ -367,10 +405,11 @@ impl TextArtist {
         // matplotlib never sketches glyphs, even as paths.
         gc.sketch = None;
         let rotation = self.block_style(layout).rotation;
+        let mut drawn = Ok(());
         with_path_effects(ctx, &self.base.path_effects, |ctx| {
-            draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
+            drawn = draw_laid_out(ctx, &gc, &laid_out, anchor, rotation);
         })?;
-        Ok(())
+        Ok(drawn?)
     }
 }
 
@@ -460,32 +499,47 @@ impl Artist for TextArtist {
 /// Draws every line of a laid-out text block anchored at `anchor`
 /// (display coordinates), rotated by `angle` degrees. A single line tells
 /// the renderer where and how the text is anchored, as matplotlib passes
-/// the text artist along with single-line texts.
+/// the text artist along with single-line texts. TeX lines go to the
+/// renderer's `draw_tex`, other lines to its `draw_text`.
+///
+/// # Errors
+///
+/// When TeX cannot typeset or draw a line (the other lines are drawn).
 pub(crate) fn draw_laid_out(
     ctx: &mut DrawContext<'_>,
     gc: &plt_render::GraphicsContext,
     laid_out: &LaidOutText,
     anchor: Point,
     angle: f64,
-) {
-    if let ([line], [run]) = (laid_out.block.lines.as_slice(), laid_out.runs.as_slice()) {
-        let anchored = TextRun {
-            anchor: Some(TextAnchor {
-                point: anchor,
-                halign: laid_out.style.halign,
-                valign: laid_out.style.valign,
-                rotation_mode: laid_out.style.rotation_mode,
-            }),
-            ..run.clone()
-        };
-        ctx.renderer()
-            .draw_text(gc, &anchored, anchor + line.origin, angle);
-        return;
-    }
+) -> Result<(), TextError> {
+    let single = laid_out.runs.len() == 1;
+    let mut result = Ok(());
     for (line, run) in laid_out.block.lines.iter().zip(&laid_out.runs) {
-        ctx.renderer()
-            .draw_text(gc, run, anchor + line.origin, angle);
+        let anchored;
+        let run = if single {
+            anchored = TextRun {
+                anchor: Some(TextAnchor {
+                    point: anchor,
+                    halign: laid_out.style.halign,
+                    valign: laid_out.style.valign,
+                    rotation_mode: laid_out.style.rotation_mode,
+                }),
+                ..run.clone()
+            };
+            &anchored
+        } else {
+            run
+        };
+        let origin = anchor + line.origin;
+        if run.source.as_ref().is_some_and(TextSource::is_tex) {
+            if let Err(err) = ctx.renderer().draw_tex(gc, run, origin, angle) {
+                result = result.and(Err(TextError::Tex(err)));
+            }
+        } else {
+            ctx.renderer().draw_text(gc, run, origin, angle);
+        }
     }
+    result
 }
 
 #[cfg(test)]

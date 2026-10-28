@@ -19,6 +19,7 @@
 //! * [`raster`] — decoded JPEG, TIFF, GIF and WebP images in the Pillow mode
 //!   the same file opens in, convertible to RGBA as Pillow converts them.
 //! * [`sha1`] — the SHA-1 digest, as the WebSocket handshake needs it.
+//! * [`sha256`] — the SHA-256 digest (SVG ids, the `text.usetex` cache).
 //! * [`webp`] — decoding of WebP files as Pillow opens them: lossless
 //!   (VP8L) and lossy (VP8, with alpha) bitstreams, still or animated.
 //! * [`zlib`] — the RFC 1950 container (header and Adler-32 trailer) around
@@ -57,6 +58,7 @@ pub mod jpeg;
 pub mod png;
 pub mod raster;
 pub mod sha1;
+pub mod sha256;
 pub mod tiff;
 pub mod webp;
 pub mod zlib;

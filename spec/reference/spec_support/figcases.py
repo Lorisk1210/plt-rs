@@ -25,6 +25,8 @@ class FigureCase:
     then blitting: ``copy_from_bbox``, ``restore_region``, ``draw_artist``,
     ``blit``); their golden image is ``fig.canvas.buffer_rgba()`` once
     ``build`` returns, rather than the figure saved with ``savefig``.
+    ``needs_tex`` cases use ``text.usetex`` and are skipped where TeX is
+    missing (see ``spec_support.tex``).
     """
 
     name: str
@@ -33,6 +35,7 @@ class FigureCase:
     dpi: float = 100.0
     rc: dict[str, Any] = dataclasses.field(default_factory=dict)
     canvas: bool = False
+    needs_tex: bool = False
 
     @property
     def png_path(self) -> pathlib.Path:
@@ -68,7 +71,8 @@ class FigureCase:
     def render_vector(self, fmt: str) -> bytes:
         """Build the figure with matplotlib and save it as ``fmt`` (svg, pdf
         or ps) with everything that varies between runs pinned: fixed SVG id
-        salt, no creator or dates, ``SOURCE_DATE_EPOCH=0`` for PostScript."""
+        salt, no creator or dates, ``SOURCE_DATE_EPOCH=0`` for PostScript,
+        and the subset tags of TeX fonts (see ``_stable_subset_tags``)."""
         import os
 
         import matplotlib as mpl
@@ -77,6 +81,7 @@ class FigureCase:
         metadata = VECTOR_METADATA[fmt]
         previous_epoch = os.environ.get("SOURCE_DATE_EPOCH")
         os.environ["SOURCE_DATE_EPOCH"] = "0"
+        restore_tags = _stable_subset_tags()
         try:
             with mpl.rc_context({**self.rc, "svg.hashsalt": "plt-rs"}):
                 fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -87,11 +92,32 @@ class FigureCase:
                 finally:
                     plt.close(fig)
         finally:
+            restore_tags()
             if previous_epoch is None:
                 del os.environ["SOURCE_DATE_EPOCH"]
             else:
                 os.environ["SOURCE_DATE_EPOCH"] = previous_epoch
         return buffer.getvalue()
+
+
+def _stable_subset_tags() -> Callable[[], None]:
+    """Make the PDF backend tag the subsets of TeX fonts after their glyphs.
+
+    ``_embedTeXFont`` hashes a dict view of the glyphs, whose hash is its
+    address, so the six-letter tags of usetex fonts change from run to run;
+    hashing the glyph set instead, as ``_get_subsetted_psname`` does for
+    TrueType fonts (whose tags this leaves unchanged), pins them. Returns
+    the function restoring matplotlib's.
+    """
+    from matplotlib.backends.backend_pdf import PdfFile
+
+    original = PdfFile._get_subset_prefix
+    PdfFile._get_subset_prefix = staticmethod(lambda charset: original(frozenset(charset)))
+
+    def restore() -> None:
+        PdfFile._get_subset_prefix = staticmethod(original)
+
+    return restore
 
 
 def canvas_png(fig: Any) -> bytes:

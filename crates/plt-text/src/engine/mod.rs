@@ -3,6 +3,7 @@
 mod outline;
 mod request;
 
+pub(crate) use outline::PathSink;
 pub use request::FontRequest;
 
 use std::collections::HashMap;

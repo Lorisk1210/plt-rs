@@ -15,6 +15,7 @@
 //! matplotlib does.
 
 use plt_core::{Affine2D, Path, Point};
+use plt_font::ScanOutline;
 use plt_raster::CoverageRounding;
 use plt_text::{Hinting, TextEngine, TextRun};
 
@@ -37,7 +38,7 @@ const MAX_GLYPH_REACH: f64 = 2_147_483_648.0;
 
 /// Whether `p` lies within [`MAX_GLYPH_REACH`] of the origin (NaN does
 /// not).
-fn within_reach(p: Point) -> bool {
+pub(super) fn within_reach(p: Point) -> bool {
     p.x.abs() <= MAX_GLYPH_REACH && p.y.abs() <= MAX_GLYPH_REACH
 }
 
@@ -61,6 +62,37 @@ fn touches_canvas(pen: Point, reach: f64, (width, height): (f64, f64)) -> bool {
         && pen.y - reach <= height
 }
 
+/// A glyph's outline as `FreeType` hands it to a rasterizer: the smooth
+/// one (in pixels relative to the pen) or the monochrome one.
+pub(super) enum GlyphShape {
+    /// For anti-aliased text.
+    Smooth(Path),
+    /// For text without anti-aliasing.
+    Mono(ScanOutline),
+}
+
+/// The graphics contexts text is drawn with: rules with a fresh,
+/// anti-aliased context clipping nothing, glyphs as Agg's
+/// `draw_text_image` blits them, clipped to the clip rectangle only.
+pub(super) fn text_contexts(gc: &GraphicsContext) -> (GraphicsContext, GraphicsContext) {
+    let fill_gc = GraphicsContext {
+        linewidth: 0.0,
+        dashes: Dashes::solid(),
+        hatch: None,
+        sketch: None,
+        antialiased: true,
+        clip_rect: None,
+        clip_path: None,
+        ..gc.clone()
+    };
+    let glyph_gc = GraphicsContext {
+        snap: SnapMode::Never,
+        clip_rect: gc.clip_rect,
+        ..fill_gc.clone()
+    };
+    (fill_gc, glyph_gc)
+}
+
 impl RasterRenderer {
     pub(super) fn draw_text_run(
         &mut self,
@@ -70,27 +102,10 @@ impl RasterRenderer {
         angle: f64,
     ) {
         let engine = TextEngine::global();
-        let rotation = Affine2D::identity().rotate_deg(angle);
-        let placement = rotation.translate(origin.x, origin.y);
-        let color = gc.stroke_color();
-        // matplotlib draws rules with a fresh, anti-aliased context, which
-        // clips nothing.
-        let fill_gc = GraphicsContext {
-            linewidth: 0.0,
-            dashes: Dashes::solid(),
-            hatch: None,
-            sketch: None,
-            antialiased: true,
-            clip_rect: None,
-            clip_path: None,
-            ..gc.clone()
-        };
-        // Agg's `draw_text_image` clips glyphs to the clip rectangle only.
-        let glyph_gc = GraphicsContext {
-            snap: SnapMode::Never,
-            clip_rect: gc.clip_rect,
-            ..fill_gc.clone()
-        };
+        let placement = Affine2D::identity()
+            .rotate_deg(angle)
+            .translate(origin.x, origin.y);
+        let (fill_gc, glyph_gc) = text_contexts(gc);
         let hinting = run
             .source
             .as_ref()
@@ -100,49 +115,85 @@ impl RasterRenderer {
         self.painter
             .set_coverage_rounding(CoverageRounding::FreeType);
         for glyph in &run.glyphs {
-            let pen = placement.transform_point(Point::new(glyph.x, glyph.y));
-            let pen = Point::new(quantize(pen.x), quantize(pen.y));
+            let pen = pen_position(&placement, glyph.x, glyph.y);
             if !within_reach(pen) {
                 continue;
             }
-            let polygon = if gc.antialiased {
-                let Ok(outline) = engine.raster_glyph_outline(
-                    glyph.font,
-                    glyph.glyph,
-                    glyph.size,
-                    run.dpi,
-                    hinting,
-                    axis_aligned,
-                ) else {
-                    continue;
-                };
-                match outline_reach(&outline) {
-                    Some(reach)
-                        if reach <= MAX_GLYPH_REACH && touches_canvas(pen, reach, self.size) => {}
-                    _ => continue,
-                }
-                freetype_polygon(&outline, angle, pen)
+            let shape = if gc.antialiased {
+                engine
+                    .raster_glyph_outline(
+                        glyph.font,
+                        glyph.glyph,
+                        glyph.size,
+                        run.dpi,
+                        hinting,
+                        axis_aligned,
+                    )
+                    .map(GlyphShape::Smooth)
             } else {
-                let Ok(outline) = engine.scan_glyph_outline(
-                    glyph.font,
-                    glyph.glyph,
-                    glyph.size,
-                    run.dpi,
-                    hinting,
-                    axis_aligned,
-                ) else {
-                    continue;
-                };
-                let Some(bitmap) = mono::render(&outline, &GlyphTransform::new(angle, pen)) else {
-                    continue;
-                };
-                bitmap.to_path()
+                engine
+                    .scan_glyph_outline(
+                        glyph.font,
+                        glyph.glyph,
+                        glyph.size,
+                        run.dpi,
+                        hinting,
+                        axis_aligned,
+                    )
+                    .map(GlyphShape::Mono)
             };
-            self.draw_path(&glyph_gc, &polygon, &Affine2D::IDENTITY, Some(color));
+            if let Ok(shape) = shape {
+                self.blit_glyph(&glyph_gc, &shape, &GlyphTransform::new(angle, pen), pen);
+            }
         }
         self.painter.set_coverage_rounding(CoverageRounding::Agg);
-        for rect in &run.rects {
-            let (mut x, mut y, mut w, mut h) = rect.bounds();
+        let rules = run.rects.iter().map(plt_core::Bbox::bounds);
+        self.draw_rules(gc, &fill_gc, rules, &placement);
+    }
+
+    /// Blits one glyph whose pen is at `pen` (display pixels, on the 26.6
+    /// grid), placed by `transform`, in the colour of `glyph_gc`, as
+    /// `_render_glyph` and `draw_text_image` do. Glyphs that cannot reach
+    /// the canvas are skipped.
+    pub(super) fn blit_glyph(
+        &mut self,
+        glyph_gc: &GraphicsContext,
+        shape: &GlyphShape,
+        transform: &GlyphTransform,
+        pen: Point,
+    ) {
+        let polygon = match shape {
+            GlyphShape::Smooth(outline) => {
+                match outline_reach(outline) {
+                    Some(reach)
+                        if reach <= MAX_GLYPH_REACH && touches_canvas(pen, reach, self.size) => {}
+                    _ => return,
+                }
+                freetype_polygon(outline, transform)
+            }
+            GlyphShape::Mono(outline) => {
+                let Some(bitmap) = mono::render(outline, transform) else {
+                    return;
+                };
+                bitmap.to_path()
+            }
+        };
+        let color = glyph_gc.stroke_color();
+        self.draw_path(glyph_gc, &polygon, &Affine2D::IDENTITY, Some(color));
+    }
+
+    /// Draws rules `(x, y, width, height)` placed by `placement` as
+    /// matplotlib's `_draw_text_glyphs_and_boxes` does: thin rules grow to
+    /// a pixel unless the text is never snapped.
+    pub(super) fn draw_rules(
+        &mut self,
+        gc: &GraphicsContext,
+        fill_gc: &GraphicsContext,
+        rules: impl Iterator<Item = (f64, f64, f64, f64)>,
+        placement: &Affine2D,
+    ) {
+        let color = gc.stroke_color();
+        for (mut x, mut y, mut w, mut h) in rules {
             if gc.snap != SnapMode::Never {
                 // Keep thin rules visible by growing them symmetrically.
                 if w < 1.0 {
@@ -156,9 +207,16 @@ impl RasterRenderer {
             }
             let corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)];
             let path = Path::polygon(corners.map(|(cx, cy)| Point::new(cx, cy)));
-            self.draw_path(&fill_gc, &path, &placement, Some(color));
+            self.draw_path(fill_gc, &path, placement, Some(color));
         }
     }
+}
+
+/// The pen of a glyph at `(x, y)` in a text placed by `placement`, on
+/// `FreeType`'s 26.6 grid.
+pub(super) fn pen_position(placement: &Affine2D, x: f64, y: f64) -> Point {
+    let pen = placement.transform_point(Point::new(x, y));
+    Point::new(quantize(pen.x), quantize(pen.y))
 }
 
 #[cfg(test)]

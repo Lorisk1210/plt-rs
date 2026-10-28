@@ -11,6 +11,7 @@ use crate::error::RasterError;
 use crate::mask::Mask;
 use crate::pixmap::Pixmap;
 use crate::raster::{Covers, Span};
+use crate::resample::WeightLut;
 use crate::style::Antialias;
 
 /// Composites `image` (straight alpha) onto `target` with its top-left
@@ -106,15 +107,17 @@ pub fn draw_coverage(
 }
 
 /// Samples a coverage bitmap through an inverse affine transform with
-/// Agg's integer bilinear filter (`span_interpolator_linear` +
-/// `span_image_filter_gray_bilinear` over `image_accessor_clip`) and turns
-/// it into colour like matplotlib's `font_to_rgba`.
-#[derive(Clone, Copy, Debug)]
+/// Agg's `spline36` filter (`span_interpolator_linear` +
+/// `span_image_filter_gray` over `image_accessor_clip` with a zero
+/// background, as matplotlib's `draw_text_image` samples rotated text
+/// images) and turns it into colour like matplotlib's `font_to_rgba`.
+#[derive(Clone, Debug)]
 pub(crate) struct CoverageSampler<'a> {
     src: &'a Mask,
     /// Inverse transform in Agg's order `[sx, shy, shx, sy, tx, ty]`.
     inv: [f64; 6],
     color: Rgba8,
+    lut: WeightLut,
 }
 
 impl<'a> CoverageSampler<'a> {
@@ -136,6 +139,7 @@ impl<'a> CoverageSampler<'a> {
             src,
             inv: [t0, shy, shx, sy, t4, ty],
             color,
+            lut: WeightLut::spline36(),
         })
     }
 
@@ -144,31 +148,49 @@ impl<'a> CoverageSampler<'a> {
         (x * sx + y * shx + tx, x * shy + y * sy + ty)
     }
 
-    fn sample(&self, x: i32, y: i32) -> u32 {
+    fn sample(&self, x: i32, y: i32) -> i32 {
         match (u32::try_from(x), u32::try_from(y)) {
-            (Ok(x), Ok(y)) => self.src.get(x, y).map_or(0, u32::from),
+            (Ok(x), Ok(y)) => self.src.get(x, y).map_or(0, i32::from),
             _ => 0,
         }
     }
 
+    /// The filtered coverage at the sub-pixel position `(x_hr, y_hr)`
+    /// (already moved back by half a pixel), clamped to a byte.
+    fn filtered(&self, x_hr: i32, y_hr: i32) -> u32 {
+        let (diameter, start) = (self.lut.diameter(), self.lut.start());
+        let (x_lr, y_lr) = (x_hr >> 8, y_hr >> 8);
+        let x_fract = x_hr & 255;
+        let mut weight_y_at = 255 - (y_hr & 255);
+        let mut fg: i32 = 0;
+        for row in 0..diameter {
+            let weight_y = self.lut.weight(weight_y_at);
+            let mut weight_x_at = 255 - x_fract;
+            for column in 0..diameter {
+                let weight = (weight_y * self.lut.weight(weight_x_at) + (1 << 13)) >> 14;
+                let value = self.sample(x_lr + start + column, y_lr + start + row);
+                fg = fg.wrapping_add(value.wrapping_mul(weight));
+                weight_x_at += 256;
+            }
+            weight_y_at += 256;
+        }
+        (fg >> 14).clamp(0, 255) as u32
+    }
+
     /// Fills `out` with the colours of pixels `x..x + out.len()` on row `y`.
     pub(crate) fn generate(&self, x: i32, y: i32, out: &mut [Rgba8]) {
-        let len = i32::try_from(out.len()).unwrap_or(i32::MAX);
+        // matplotlib builds Agg with MPL_FIX_AGG_INTERPOLATION_ENDPOINT_BUG:
+        // the span's last pixel, not the one after it, is transformed.
+        let steps = i32::try_from(out.len())
+            .unwrap_or(i32::MAX)
+            .saturating_sub(1);
         let (fx, fy) = (f64::from(x) + 0.5, f64::from(y) + 0.5);
         let (sx1, sy1) = self.inverse(fx, fy);
-        let (sx2, sy2) = self.inverse(fx + f64::from(len), fy);
-        let mut li_x = Dda2::new(iround(sx1 * 256.0), iround(sx2 * 256.0), len);
-        let mut li_y = Dda2::new(iround(sy1 * 256.0), iround(sy2 * 256.0), len);
+        let (sx2, sy2) = self.inverse(fx + f64::from(steps), fy);
+        let mut li_x = Dda2::new(iround(sx1 * 256.0), iround(sx2 * 256.0), steps);
+        let mut li_y = Dda2::new(iround(sy1 * 256.0), iround(sy2 * 256.0), steps);
         for px in out.iter_mut() {
-            let x_hr = li_x.y.wrapping_sub(128);
-            let y_hr = li_y.y.wrapping_sub(128);
-            let (x_lr, y_lr) = (x_hr >> 8, y_hr >> 8);
-            let (fx, fy) = ((x_hr & 255) as u32, (y_hr & 255) as u32);
-            let fg = self.sample(x_lr, y_lr) * (256 - fx) * (256 - fy)
-                + self.sample(x_lr + 1, y_lr) * fx * (256 - fy)
-                + self.sample(x_lr, y_lr + 1) * (256 - fx) * fy
-                + self.sample(x_lr + 1, y_lr + 1) * fx * fy;
-            let v = fg >> 16;
+            let v = self.filtered(li_x.y.wrapping_sub(128), li_y.y.wrapping_sub(128));
             *px = self
                 .color
                 .with_alpha(((u32::from(self.color.a) * v) >> 8) as u8);
@@ -239,6 +261,7 @@ mod tests {
             CoverageSampler::new(&src, &Affine2D::identity(), Rgba8::new(0, 0, 0, 255)).unwrap();
         let mut out = [Rgba8::default(); 3];
         s.generate(0, 0, &mut out);
+        // spline36 at the pixel centres reproduces the pixels;
         // font_to_rgba: (255 * v) >> 8.
         assert_eq!(out.map(|c| c.a), [254, 99, 0]);
         assert!(

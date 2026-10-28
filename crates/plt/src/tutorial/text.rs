@@ -4,7 +4,8 @@
 //! are [`Text`] artists. The methods that add text return its handle,
 //! and the handle styles it: font size, colour, weight, alignment,
 //! rotation, a box behind it. A text between two `$` signs is typeset as
-//! a mathematical formula, without needing a TeX installation.
+//! a mathematical formula, without needing a TeX installation; with one,
+//! LaTeX can typeset text too.
 //!
 //! # Titles and labels
 //!
@@ -146,6 +147,45 @@
 //! look sets to match its text; `mathtext.fontset` selects Computer
 //! Modern (`"cm"`), STIX and others. Gallery: `mathtext` in `text.rs`.
 //!
+//! # Text typeset by LaTeX
+//!
+//! With a TeX installation (`latex`, plus `dvipng` and `kpsewhich`, as
+//! matplotlib needs them), LaTeX itself can typeset the text: every text
+//! made while the `text.usetex` setting is on, or one text with
+//! [`Text::set_usetex`]. The whole string goes to LaTeX, so it may use any
+//! LaTeX the preamble (`text.latex.preamble`) provides, and math is
+//! written between `$` as in a LaTeX document. The font comes from
+//! `font.family`: `"serif"` (Computer Modern), `"sans-serif"`,
+//! `"monospace"`, or one of the PostScript fonts LaTeX knows
+//! (`"helvetica"`, `"times"`, `"palatino"`, ...). Tick labels follow the
+//! setting too.
+//!
+//! The typeset strings are cached in the cache directory
+//! ([`config::cache_dir`](crate::config::cache_dir)), so a figure is
+//! typeset once. Without TeX, drawing such a figure fails with an error
+//! saying which program is missing; [`check_usetex`] tells beforehand.
+//! PDF, SVG, PNG and PGF output take TeX text; PostScript output does not
+//! (matplotlib needs Ghostscript and `psfrag` there).
+//!
+//! ```
+//! use plt::prelude::*;
+//! use plt::rc;
+//!
+//! # rc::context(|| -> Result<(), Box<dyn std::error::Error>> {
+//! rc::set("text.usetex", "True")?;
+//! rc::set("font.family", "serif")?;
+//! let fig = Figure::new();
+//! let ax = fig.subplot();
+//! ax.plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
+//! ax.set_title(r"\textbf{Growth} of $x^2$");
+//! if plt::text::check_usetex().is_ok() {
+//!     assert!(!fig.to_png()?.is_empty());
+//! }
+//! # Ok(())
+//! # })?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! # Fonts
 //!
 //! The `font.family` and `font.size` settings choose the default font
@@ -159,6 +199,8 @@
 //!
 //! [`Text`]: crate::text::Text
 //! [`Text::set_parse_math`]: crate::text::Text::set_parse_math
+//! [`Text::set_usetex`]: crate::text::Text::set_usetex
+//! [`check_usetex`]: crate::text::check_usetex
 //! [`Text::layout`]: crate::text::Text::layout
 //! [`Text::set_family`]: crate::text::Text::set_family
 //! [`Text::set_fontsize`]: crate::text::Text::set_fontsize

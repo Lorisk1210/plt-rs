@@ -1,0 +1,55 @@
+//! TeX typesetting for `text.usetex`: matplotlib's `texmanager` and
+//! `dviread`.
+//!
+//! * [`TexManager`] writes the LaTeX document a string is typeset in
+//!   (preamble, font selection from `font.family` and the family lists,
+//!   `text.latex.preamble`, `\fontsize`), runs `latex` (and `dvipng` for
+//!   Agg's `latex+dvipng` engine) in a cache directory, `tex.cache`, and
+//!   measures the typeset text. A missing or failing program is a
+//!   [`TexError`] with matplotlib's message.
+//! * [`read_dvi`] reads the DVI file `latex` writes into pages of glyphs
+//!   and rules ([`RawPage`], [`DviPage`] at a resolution), expanding
+//!   virtual fonts ([`Vf`]) and measuring with TeX font metrics
+//!   ([`Tfm`]).
+//! * [`PsfontsMap`] reads `pdftex.map`, which gives each TeX font its Type 1
+//!   file, `SlantFont`/`ExtendFont` effects and encoding ([`parse_enc`]).
+//! * [`TexFiles`] finds TeX's files as matplotlib's `find_tex_file` does
+//!   (a long-lived `luatex --luaonly` helper, else `kpsewhich`), keeps
+//!   what it read, and maps DVI glyphs to the glyphs of their Type 1
+//!   faces.
+//! * [`TexText`] is a line of usetex text as backends receive it; its
+//!   [`glyphs`](TexText::glyphs) are resolved to Type 1 faces, and its
+//!   [`text_path`](TexText::text_path) is the outline matplotlib's
+//!   `TextToPath` makes of it.
+//!
+//! Everything read from TeX's files is untrusted: malformed DVI, VF, TFM,
+//! map and encoding files give errors, never panics.
+
+mod command;
+mod dvi;
+mod error;
+mod files;
+#[cfg(test)]
+mod fuzz_tests;
+mod kpathsea;
+mod manager;
+mod psfonts;
+mod source;
+#[cfg(test)]
+mod test_support;
+mod text;
+mod tfm;
+mod vf;
+
+pub use dvi::{DviBox, DviFont, DviPage, DviText, RawGlyph, RawPage, RawRule, read_dvi};
+pub use error::{TexError, TexFile};
+pub use files::{FileFinder, FontSource, TexFiles};
+pub use kpathsea::Kpathsea;
+pub use manager::{GreyImage, TexEngine, TexManager};
+pub use psfonts::{PsFont, PsfontsMap, parse_enc};
+pub use source::{TexFonts, tex_source};
+pub use text::{
+    TEX_FONT_SCALE, TEX_PATH_DPI, TexGlyph, TexHinting, TexText, glyph_outline, load_glyph,
+};
+pub use tfm::{TexMetrics, Tfm};
+pub use vf::{Vf, VfPacket};

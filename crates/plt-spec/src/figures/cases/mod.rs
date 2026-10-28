@@ -95,6 +95,7 @@ mod text;
 mod ticks;
 mod toolkits;
 mod units;
+mod usetex;
 mod vectors;
 mod widgets;
 
@@ -181,6 +182,19 @@ pub(crate) fn all() -> Vec<FigureCase> {
         stats::VIOLIN,
         styles::CASES,
         styles::SHEETS,
+        &text_cases(),
+        ticks::CASES,
+        toolkits::CASES,
+        vectors::CASES,
+        widgets::CASES,
+    ]
+    .concat()
+}
+
+/// The text cases: the `text` group's and those typeset by TeX
+/// (`usetex`).
+fn text_cases() -> Vec<FigureCase> {
+    [
         text::ANNOTATE,
         text::BOXES,
         text::EFFECTS,
@@ -189,10 +203,7 @@ pub(crate) fn all() -> Vec<FigureCase> {
         text::MATH,
         text::TABLES,
         text::TABLE_CELLS,
-        ticks::CASES,
-        toolkits::CASES,
-        vectors::CASES,
-        widgets::CASES,
+        &usetex::cases(),
     ]
     .concat()
 }

@@ -100,6 +100,20 @@ pub const VECTOR_CASES: &[&str] = &[
     "vectors/text_fonts",
 ];
 
+/// The usetex cases saved as SVG and PDF (`TEX_VECTOR_CASES` of
+/// `test_vectors.py`; matplotlib's usetex PostScript needs psfrag and
+/// Ghostscript); skipped where TeX is missing.
+pub const TEX_VECTOR_CASES: &[&str] = &[
+    "usetex/math_display",
+    "usetex/mpl_test_usetex",
+    "usetex/pdf_kerning",
+    "usetex/rotation",
+    "usetex/ticks",
+];
+
+/// The formats of [`TEX_VECTOR_CASES`].
+pub const TEX_FORMATS: &[VectorFormat] = &[VectorFormat::Svg, VectorFormat::Pdf];
+
 /// A case saved again with other settings (`VECTOR_VARIANTS` in the
 /// spec's `figures/test_vectors.py`); its goldens are named
 /// `<case>.<name>.<extension>`.

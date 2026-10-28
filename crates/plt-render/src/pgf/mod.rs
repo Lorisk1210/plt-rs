@@ -21,6 +21,7 @@ use std::fmt::Write as _;
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_text::TextRun;
+use plt_text::tex::TexError;
 
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
@@ -259,6 +260,19 @@ impl Renderer for PgfRenderer {
 
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         self.pgf_text(gc, run, origin, angle);
+    }
+
+    /// TeX text goes to LaTeX as it is, like any text (matplotlib's
+    /// `draw_tex` calls `draw_text`).
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        self.pgf_text(gc, run, origin, angle);
+        Ok(())
     }
 
     fn option_image_nocomposite(&self) -> bool {

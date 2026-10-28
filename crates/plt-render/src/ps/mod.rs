@@ -27,7 +27,8 @@ use std::fmt::Write as _;
 
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::{AfmDirectory, TextRun};
+use plt_text::tex::TexError;
+use plt_text::{AfmDirectory, TextRun, TextSource};
 
 use crate::collection::PathCollection;
 use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
@@ -39,8 +40,22 @@ use crate::vector::{
     CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
 };
 
+/// Why PostScript output with `text.usetex` fails.
+fn usetex_unsupported() -> TexError {
+    TexError::Unsupported(
+        "PostScript output with text.usetex needs LaTeX's psfrag package, dvips and Ghostscript \
+         (matplotlib's _print_figure_tex), which plt-rs does not run; save as PDF, SVG or PNG \
+         instead"
+            .to_owned(),
+    )
+}
+
 /// Settings of a PostScript document.
 #[derive(Clone, Debug, PartialEq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors matplotlib's independent rcParams"
+)]
 pub struct PsOptions {
     /// Encapsulated PostScript: no page, sized to the figure.
     pub eps: bool,
@@ -60,6 +75,11 @@ pub struct PsOptions {
     /// PostScript fonts, measured with their AFM metrics, and no font is
     /// embedded.
     pub afm: bool,
+    /// `text.usetex`: matplotlib then makes the whole document with LaTeX's
+    /// `psfrag`, `dvips` and Ghostscript, which plt-rs does not run, so the
+    /// document fails ([`PsRenderer::finish`]); with it off, texts marked
+    /// usetex are drawn as plain text, as matplotlib draws them.
+    pub usetex: bool,
 }
 
 impl Default for PsOptions {
@@ -73,6 +93,7 @@ impl Default for PsOptions {
             composite_images: true,
             fonttype: FontType::Type3,
             afm: false,
+            usetex: false,
         }
     }
 }
@@ -154,8 +175,18 @@ impl PsRenderer {
     ///
     /// # Errors
     ///
-    /// When a font met while drawing could not be embedded.
-    pub fn finish(mut self) -> Result<String, VectorError> {
+    /// When a font met while drawing could not be embedded, or with
+    /// [`PsOptions::usetex`] (matplotlib's `_print_figure_tex`, which needs
+    /// `psfrag`, `dvips` and Ghostscript).
+    pub fn finish(self) -> Result<String, VectorError> {
+        if self.options.usetex {
+            return Err(usetex_unsupported().into());
+        }
+        self.write_document()
+    }
+
+    /// The document of [`finish`](Self::finish).
+    fn write_document(mut self) -> Result<String, VectorError> {
         let (width, height) = (self.width, self.height);
         let (paper_width, paper_height) = match (self.options.eps, self.options.paper) {
             (false, Paper::Named { width, height, .. }) => match self.options.orientation {
@@ -334,6 +365,21 @@ impl Renderer for PsRenderer {
 
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         self.ps_text(gc, run, origin, angle);
+    }
+
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        if let Some(TextSource::Tex(tex)) = &run.source {
+            self.ps_tex(gc, tex, origin, angle)
+        } else {
+            self.ps_text(gc, run, origin, angle);
+            Ok(())
+        }
     }
 
     fn option_image_nocomposite(&self) -> bool {

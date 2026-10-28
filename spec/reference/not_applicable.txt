@@ -189,6 +189,7 @@ test_legend.py::test_legend_positional_handles_only: artists passed where labels
 test_legend.py::test_loc_invalid_type: `loc` given as a dict; plt-rs' LegendLoc is an enum of names, codes and coordinates
 test_legend.py::test_no_warn_big_data_when_loc_specified: the absence of matplotlib's slow-`best` warning (the test fakes the timer); plt-rs has no warnings channel
 test_legend.py::test_shadow_invalid_argument: `shadow="aardvark"`; plt-rs' legend shadow is a typed bool or shadow settings
+test_legend.py::test_usetex_no_warn: the absence of a log message from matplotlib's font manager when a usetex legend looks up Computer Modern; plt-rs has no logging, and TeX picks the fonts of usetex text without the font manager
 test_legend.py::test_warn_big_data_best_loc: the UserWarning matplotlib issues when placing a `best` legend took over a second (the test fakes the timer); plt-rs has no warnings channel and places the legend the same way however long it takes
 
 # --- test_multivariate_colormaps.py ----------------------------------------

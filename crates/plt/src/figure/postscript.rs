@@ -30,6 +30,7 @@ impl Figure {
             composite_images: rc.image_composite_image,
             fonttype: embedding(rc.ps_fonttype),
             afm: rc.ps_useafm,
+            usetex: rc.text_usetex,
         };
         // Text the backend draws in AFM fonts is laid out with their metrics.
         crate::text::with_afm_metrics(ps.afm_directory(), || {

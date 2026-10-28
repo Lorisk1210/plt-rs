@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use super::pie_label::escape_tex_percents;
 use super::{Axes, PlotError};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
@@ -308,9 +309,13 @@ impl Axes {
         };
         let pct_labels = match &options.autopct {
             Some(format) => {
+                let usetex = options
+                    .textprops
+                    .usetex
+                    .unwrap_or(crate::rc::params().text_usetex);
                 let texts = fracs
                     .iter()
-                    .map(|frac| percent_label(format, 100.0 * frac))
+                    .map(|frac| percent_label(format, 100.0 * frac, usetex))
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(PlotError::Pie)?;
                 self.place_pie_labels(
@@ -433,11 +438,21 @@ fn fractions(values: &[f64], normalize: bool) -> Result<Vec<f64>, PieError> {
 }
 
 /// The percentage label `format` writes for `percent` (matplotlib's
-/// `autopct % pct` or `autopct(pct)`).
-fn percent_label(format: &LabelFormat, percent: f64) -> Result<String, PieError> {
-    format
+/// `autopct % pct` or `autopct(pct)`), its percent signs escaped for
+/// LaTeX when `usetex` typesets it.
+///
+/// matplotlib escapes them only when `textprops` are given; plt-rs
+/// does whenever TeX typesets the label, where an unescaped `%` would
+/// start a TeX comment and drop the rest of the label.
+fn percent_label(format: &LabelFormat, percent: f64, usetex: bool) -> Result<String, PieError> {
+    let label = format
         .printf(percent)
-        .map_err(|e| PieError::Format(e.to_string()))
+        .map_err(|e| PieError::Format(e.to_string()))?;
+    Ok(if usetex {
+        escape_tex_percents(&label)
+    } else {
+        label
+    })
 }
 
 #[cfg(test)]
@@ -459,9 +474,9 @@ mod tests {
     #[test]
     fn percentage_labels_use_printf() {
         let format = LabelFormat::from("%1.1f%%");
-        assert_eq!(percent_label(&format, 35.0), Ok("35.0%".into()));
+        assert_eq!(percent_label(&format, 35.0, false), Ok("35.0%".into()));
         let integer = LabelFormat::from("%d%%");
-        assert_eq!(percent_label(&integer, 12.6), Ok("12%".into()));
+        assert_eq!(percent_label(&integer, 12.6, false), Ok("12%".into()));
     }
 
     #[test]
@@ -541,5 +556,25 @@ mod tests {
         assert_eq!((ax.patches().len(), ax.texts().len()), (2, 6));
         pie.remove();
         assert_eq!((ax.patches().len(), ax.texts().len()), (0, 0));
+    }
+
+    #[test]
+    fn percent_signs_escape_for_tex() {
+        // matplotlib's test_axes.py::test_latex_pie_percent: `%1.0f%%`
+        // and `%1.0f\%%` give the same labels when TeX typesets them.
+        let ax = Figure::new().subplot();
+        let labels = |autopct: &str, usetex: bool| {
+            let options = PieOptions {
+                autopct: Some(LabelFormat::from(autopct)),
+                textprops: TextProps::default().usetex(usetex),
+                ..PieOptions::default()
+            };
+            let pie = ax.pie([20.0, 10.0, 70.0], options).unwrap();
+            pie.pct_labels.iter().map(Text::text).collect::<Vec<_>>()
+        };
+        assert_eq!(labels("%1.0f%%", true), [r"20\%", r"10\%", r"70\%"]);
+        assert_eq!(labels(r"%1.0f\%%", true), labels("%1.0f%%", true));
+        assert_eq!(labels("%1.0f%%", false), ["20%", "10%", "70%"]);
+        assert_eq!(escape_tex_percents("%5%%"), r"%5\%%");
     }
 }

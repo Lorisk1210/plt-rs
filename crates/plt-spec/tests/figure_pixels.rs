@@ -1,7 +1,7 @@
 //! Pixel comparison of every translated figure case with its golden PNG.
 //!
 //! Prints matplotlib's `compare_images` RMS per case (run with
-//! `--nocapture`). Lines, markers, patches, fills and text without
+//! `--nocapture`); cases needing TeX are skipped where it is missing. Lines, markers, patches, fills and text without
 //! anti-aliasing are pixel-exact; the residual differences are glyph
 //! anti-aliasing (outlines are filled by plt-raster instead of being
 //! rendered by `FreeType`), so the bound is small but not zero.
@@ -16,6 +16,10 @@ fn figure_cases_match_golden_pixels() {
     let mut failures = Vec::new();
     let mut reports: Vec<(String, PixelReport)> = Vec::new();
     for case in figures::translated_cases() {
+        if let Some(reason) = case.skip_reason() {
+            println!("{:<44} skipped: {reason}", case.name);
+            continue;
+        }
         match figures::pixel_report(&case) {
             Ok(report) => reports.push((case.name.to_owned(), report)),
             Err(err) => failures.push(format!("{}: {err}", case.name)),

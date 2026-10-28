@@ -45,6 +45,7 @@ mod span;
 
 pub use error::ResampleError;
 pub use grid::{Grid, GridRef};
+pub(crate) use lut::WeightLut;
 pub use params::{Interpolation, PixelTransform, ResampleParams};
 pub use pixel::Pixel;
 
@@ -54,7 +55,6 @@ use self::filters::FilterShape;
 use self::interpolator::{
     LinearInterpolator, MeshAlignment, MeshInterpolator, NearestInterpolator,
 };
-use self::lut::WeightLut;
 use self::numeric::{AggAffine, iround};
 use self::span::Footprint;
 use crate::geometry::PathSink;

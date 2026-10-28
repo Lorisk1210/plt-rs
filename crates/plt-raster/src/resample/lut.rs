@@ -14,7 +14,7 @@ const MAX_NORMALIZE_PASSES: u32 = 64;
 
 /// Tabulated filter weights, `diameter × 256` entries scaled by `1 << 14`.
 #[derive(Clone, Debug)]
-pub(super) struct WeightLut {
+pub(crate) struct WeightLut {
     diameter: i32,
     start: i32,
     weights: Vec<i16>,
@@ -50,18 +50,24 @@ impl WeightLut {
         lut
     }
 
+    /// The normalized `spline36` table matplotlib's `draw_text_image`
+    /// samples rotated text images with.
+    pub(crate) fn spline36() -> Self {
+        Self::new(&FilterShape::Spline36, true)
+    }
+
     /// Number of source pixels the unscaled kernel spans.
-    pub(super) fn diameter(&self) -> i32 {
+    pub(crate) fn diameter(&self) -> i32 {
         self.diameter
     }
 
     /// Offset of the first tap relative to the sample's pixel.
-    pub(super) fn start(&self) -> i32 {
+    pub(crate) fn start(&self) -> i32 {
         self.start
     }
 
     /// The weight at table index `index` (sub-pixel resolution).
-    pub(super) fn weight(&self, index: i32) -> i32 {
+    pub(crate) fn weight(&self, index: i32) -> i32 {
         i32::from(self.weights[index as usize])
     }
 

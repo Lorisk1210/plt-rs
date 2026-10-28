@@ -8,14 +8,48 @@
 
 use plt_core::{Affine2D, Path, Point};
 use plt_text::{
-    BlockLayout, BlockStyle, Language, LineMetrics, PlacedGlyph, Shaping, TextEngine, TextError,
-    TextRun, TextSource, layout_block,
+    BlockLayout, BlockStyle, Language, LineMetrics, LineSpacing, PlacedGlyph, Shaping, TextEngine,
+    TextError, TextRun, TextSource, layout_block,
 };
 
 use super::math::{Line, math_style};
 use super::metrics::without_hinting;
+use super::tex::{tex_height_metrics, tex_line, tex_manager, tex_run};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
+
+/// How the lines of a text are typeset: by mathtext where they hold math
+/// (when math parsing is on), or all by TeX (matplotlib's `Text` with
+/// `parse_math` and `usetex`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Typesetting {
+    /// Plain text, with mathtext for the lines holding `$...$` math when
+    /// `parse_math` is set.
+    Mathtext {
+        /// Whether `$...$` is typeset.
+        parse_math: bool,
+    },
+    /// Every line typeset by LaTeX (`usetex`).
+    Tex,
+}
+
+impl Typesetting {
+    /// The typesetting of a text with these `parse_math` and `usetex`
+    /// properties.
+    pub(crate) fn of(parse_math: bool, usetex: bool) -> Self {
+        if usetex {
+            Self::Tex
+        } else {
+            Self::Mathtext { parse_math }
+        }
+    }
+
+    /// The typesetting `rc` gives texts (`text.parse_math`,
+    /// `text.usetex`).
+    pub(crate) fn from_rc(rc: &RcParams) -> Self {
+        Self::of(rc.text_parse_math, rc.text_usetex)
+    }
+}
 
 /// A text block laid out for drawing: per-line runs plus their placement.
 #[derive(Clone, Debug, PartialEq)]
@@ -88,6 +122,32 @@ pub fn text_path(
         .transformed(&Affine2D::scaling(scale, scale).translate(xy.x, xy.y)))
 }
 
+/// The outline of one line of `text` typeset by LaTeX with its baseline
+/// starting at `xy`, in the units of `xy` with the font `size` units tall
+/// (`None` = the font's size): typeset at 100 points, every glyph loaded
+/// from its Type 1 font with light hinting, then scaled (matplotlib's
+/// `TextPath(xy, text, size, prop, usetex=True)`). Only the size of `font`
+/// matters to TeX; the fonts come from the rcParams (`font.family` and the
+/// family lists, `text.latex.preamble`).
+///
+/// # Errors
+///
+/// When TeX is missing or fails on the text, or a font it uses has no
+/// Type 1 version.
+pub fn text_path_tex(
+    xy: Point,
+    text: &str,
+    size: Option<f64>,
+    font: &FontProperties,
+) -> Result<Path, TextError> {
+    let rc = crate::rc::params();
+    let tex = plt_text::tex::TexText::new(tex_line(text), font.request(&rc), tex_manager(&rc)?);
+    let scale = size.unwrap_or(font.size) / PATH_FONT_SCALE;
+    Ok(tex
+        .text_path()?
+        .transformed(&Affine2D::scaling(scale, scale).translate(xy.x, xy.y)))
+}
+
 impl LaidOutText {
     /// The same text as drawn with `shaping`: a block of a single plain
     /// line has that line laid out again, in the same font, with the
@@ -137,7 +197,8 @@ impl LaidOutText {
             .iter()
             .zip(&self.runs)
             .map(|(line, run)| {
-                if line.is_empty() {
+                // TeX lines are drawn as paths from their own typesetting.
+                if line.is_empty() || run.source.as_ref().is_some_and(TextSource::is_tex) {
                     return Ok(run.clone());
                 }
                 let path_run = match &run.source {
@@ -216,8 +277,9 @@ fn line_run(
 /// Lays out `text` (lines separated by `\n`) at `dpi` with matplotlib's
 /// line metrics, stacking and alignment rules; lines with math (see
 /// [`Line::classify`]) are typeset as mathtext when `rc` enables
-/// `text.parse_math`. A single plain line is drawn in the language of
-/// `text.language`, which matplotlib gives every text it creates.
+/// `text.parse_math`, every line by TeX when it enables `text.usetex`. A
+/// single plain line is drawn in the language of `text.language`, which
+/// matplotlib gives every text it creates.
 pub(crate) fn lay_out(
     text: &str,
     font: &FontProperties,
@@ -229,7 +291,7 @@ pub(crate) fn lay_out(
         features: Vec::new(),
         language: rc_language(rc),
     };
-    lay_out_with_math(text, font, style, dpi, rc, rc.text_parse_math)?.shaped(&shaping)
+    lay_out_with(text, font, style, dpi, rc, Typesetting::from_rc(rc))?.shaped(&shaping)
 }
 
 /// The language matplotlib gives the texts it creates: `text.language`.
@@ -237,42 +299,56 @@ pub(crate) fn rc_language(rc: &RcParams) -> Option<Language> {
     rc.text_language.as_deref().map(Language::from)
 }
 
-/// [`lay_out`] with math parsing switched on or off explicitly (a text's
-/// `parse_math` property).
-pub(crate) fn lay_out_with_math(
+/// [`lay_out`] with the typesetting chosen explicitly (a text's
+/// `parse_math` and `usetex` properties). TeX lines all stack with the
+/// normal spacing, at least as tall as TeX's `"lp"`, as matplotlib's
+/// `Text._get_layout` stacks them.
+pub(crate) fn lay_out_with(
     text: &str,
     font: &FontProperties,
     style: &BlockStyle,
     dpi: f64,
     rc: &RcParams,
-    parse_math: bool,
+    typesetting: Typesetting,
 ) -> Result<LaidOutText, TextError> {
     let lines: Vec<String> = text.split('\n').map(str::to_owned).collect();
     let runs = lines
         .iter()
-        .map(|line| {
-            if line.is_empty() {
-                Ok(TextRun {
-                    dpi,
-                    source: Some(TextSource::Plain {
-                        text: String::new(),
-                        font: font.request(rc),
-                        shaping: Shaping::default(),
-                    }),
-                    ..TextRun::default()
-                })
-            } else {
+        .map(|line| match typesetting {
+            Typesetting::Tex => tex_run(line, font, dpi, rc),
+            Typesetting::Mathtext { .. } if line.is_empty() => Ok(TextRun {
+                dpi,
+                source: Some(TextSource::Plain {
+                    text: String::new(),
+                    font: font.request(rc),
+                    shaping: Shaping::default(),
+                }),
+                ..TextRun::default()
+            }),
+            Typesetting::Mathtext { parse_math } => {
                 line_run(&Line::classify(line, parse_math), font, dpi, rc)
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
     let line_metrics: Vec<LineMetrics> = runs.iter().map(metrics).collect();
-    let font_metrics = super::metrics::font_height_metrics(&font.request(rc), dpi)?;
+    let (font_metrics, style) = match typesetting {
+        Typesetting::Tex => (
+            tex_height_metrics(font, dpi, rc)?,
+            BlockStyle {
+                linespacing: LineSpacing::Normal,
+                ..*style
+            },
+        ),
+        Typesetting::Mathtext { .. } => (
+            super::metrics::font_height_metrics(&font.request(rc), dpi)?,
+            *style,
+        ),
+    };
     Ok(LaidOutText {
         lines,
-        block: layout_block(&line_metrics, font_metrics, style),
+        block: layout_block(&line_metrics, font_metrics, &style),
         runs,
-        style: *style,
+        style,
     })
 }
 

@@ -1,4 +1,17 @@
-//! SHA-256 (FIPS 180-4), used for the SVG backend's content-derived ids.
+//! SHA-256 (FIPS 180-4): the SVG backend's content-derived ids and the
+//! names of the files `text.usetex` caches.
+//!
+//! ```
+//! use plt_codec::sha256::{sha256, sha256_hex};
+//!
+//! assert_eq!(sha256(b"abc")[..4], [0xba, 0x78, 0x16, 0xbf]);
+//! assert_eq!(&sha256_hex(b"abc")[..8], "ba7816bf");
+//! ```
+
+use std::fmt::Write as _;
+
+/// The length of a digest in bytes.
+pub const DIGEST_LEN: usize = 32;
 
 /// Round constants: the first 32 bits of the fractional parts of the cube
 /// roots of the first 64 primes.
@@ -123,7 +136,7 @@ fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
 }
 
 /// The SHA-256 digest of `data`.
-pub(crate) fn sha256(data: &[u8]) -> [u8; 32] {
+pub fn sha256(data: &[u8]) -> [u8; DIGEST_LEN] {
     let mut state = H0;
     let mut message = data.to_vec();
     let bit_len = (data.len() as u64).wrapping_mul(8);
@@ -135,7 +148,7 @@ pub(crate) fn sha256(data: &[u8]) -> [u8; 32] {
     for block in message.as_chunks::<64>().0 {
         compress(&mut state, block);
     }
-    let mut digest = [0u8; 32];
+    let mut digest = [0u8; DIGEST_LEN];
     for (bytes, word) in digest.as_chunks_mut::<4>().0.iter_mut().zip(state) {
         *bytes = word.to_be_bytes();
     }
@@ -144,8 +157,13 @@ pub(crate) fn sha256(data: &[u8]) -> [u8; 32] {
 
 /// The lowercase hexadecimal SHA-256 digest of `data` (Python's
 /// `hashlib.sha256(data).hexdigest()`).
-pub(crate) fn sha256_hex(data: &[u8]) -> String {
-    super::format::hex(&sha256(data))
+pub fn sha256_hex(data: &[u8]) -> String {
+    sha256(data)
+        .iter()
+        .fold(String::with_capacity(2 * DIGEST_LEN), |mut out, byte| {
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
 }
 
 #[cfg(test)]

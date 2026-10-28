@@ -1,0 +1,19 @@
+{
+ "size_px": [320, 240],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.125, 0.11, 0.775, 0.77],
+   "title": "",
+   "xlim": [-0.05, 1.05],
+   "ylim": [-0.05, 1.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "",
+   "ylabel": "",
+   "xticks": [[0.0, "$\\mathdefault{0.00}$"], [0.25, "$\\mathdefault{0.25}$"], [0.5, "$\\mathdefault{0.50}$"], [0.75, "$\\mathdefault{0.75}$"], [1.0, "$\\mathdefault{1.00}$"]],
+   "yticks": [[0.0, "$\\mathdefault{0.0}$"], [0.2, "$\\mathdefault{0.2}$"], [0.4, "$\\mathdefault{0.4}$"], [0.6, "$\\mathdefault{0.6}$"], [0.8, "$\\mathdefault{0.8}$"], [1.0, "$\\mathdefault{1.0}$"]]
+  }
+ ]
+}

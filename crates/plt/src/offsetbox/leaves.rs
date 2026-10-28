@@ -11,7 +11,7 @@ use plt_text::HAlign;
 use super::{ArtistRef, OffsetBox, OffsetBoxError, Placement};
 use crate::artist::LayoutContext;
 use crate::image::BboxImageArtist;
-use crate::text::{TextArtist, measure_text};
+use crate::text::TextArtist;
 use crate::transforms::Transform;
 
 /// An area of fixed size whose artists are positioned relative to its
@@ -135,7 +135,7 @@ impl<A: ArtistRef> TextArea<A> {
             .store()
             .get_as::<TextArtist>(id)
             .ok_or(OffsetBoxError::MissingText(id))?;
-        let reference = measure_text("lp", &text.font, false, ctx.dpi(), &text.rc)?;
+        let reference = text.lp_metrics(ctx.dpi())?;
         let (h_ref, d_ref) = (reference.height, reference.descent);
         let laid_out = text.layout(ctx)?;
         let (width, mut height) = (laid_out.block.bbox.width(), laid_out.block.bbox.height());

@@ -150,12 +150,12 @@ impl TextEngine {
 
 /// Collects font outline commands into a [`Path`].
 #[derive(Debug, Default)]
-struct PathSink {
+pub(crate) struct PathSink {
     builder: PathBuilder,
 }
 
 impl PathSink {
-    fn finish(self) -> Path {
+    pub(crate) fn finish(self) -> Path {
         self.builder.build()
     }
 

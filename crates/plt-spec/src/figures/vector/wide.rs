@@ -20,6 +20,8 @@ pub enum WideOutcome {
     Numeric(f64),
     /// A different structure (or no rendering), described.
     Different(String),
+    /// Not compared: the case cannot run here (it needs TeX).
+    Skipped(String),
 }
 
 /// One compared case and format.
@@ -43,13 +45,17 @@ pub fn write_items(path: &Path, items: &[Item]) {
 }
 
 /// Compares one case in one format with matplotlib's document in
-/// `reference` (`None` when there is none). Both item lists of a case that
-/// is not exact are written to `spec/out/vector-wide/`.
+/// `reference` (`None` when there is none; skipped when the case cannot
+/// run here). Both item lists of a case that is not exact are written to
+/// `spec/out/vector-wide/`.
 pub fn wide_outcome(
     case: &FigureCase,
     format: VectorFormat,
     reference: &Path,
 ) -> Option<WideOutcome> {
+    if let Some(reason) = case.skip_reason() {
+        return Some(WideOutcome::Skipped(reason));
+    }
     let name = case.name.replace('/', "__");
     let golden = std::fs::read(reference.join(format!("{name}.{format}"))).ok()?;
     let compared = render_vector(case, format)
@@ -118,7 +124,7 @@ pub fn wide_summary(results: &[WideResult]) -> String {
     let mut text = String::new();
     for result in results {
         match &result.outcome {
-            WideOutcome::Exact => {}
+            WideOutcome::Exact | WideOutcome::Skipped(_) => {}
             WideOutcome::Numeric(deviation) => {
                 let _ = writeln!(
                     text,
@@ -145,12 +151,20 @@ pub fn wide_summary(results: &[WideResult]) -> String {
             .iter()
             .filter(|o| matches!(o, WideOutcome::Numeric(_)))
             .count();
-        let _ = writeln!(
+        let skipped = outcomes
+            .iter()
+            .filter(|o| matches!(o, WideOutcome::Skipped(_)))
+            .count();
+        let _ = write!(
             text,
             "{format}: {}/{} structurally equal, {exact} with every number equal",
             exact + numeric,
-            outcomes.len()
+            outcomes.len() - skipped
         );
+        if skipped > 0 {
+            let _ = write!(text, ", {skipped} skipped (needing TeX)");
+        }
+        text.push('\n');
     }
     text
 }

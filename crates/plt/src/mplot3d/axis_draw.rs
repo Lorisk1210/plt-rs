@@ -453,7 +453,9 @@ impl<'a> Painter<'a> {
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        draw_laid_out(ctx, &gc, &laid_out, anchor, text.block.rotation);
+        if let Err(err) = draw_laid_out(ctx, &gc, &laid_out, anchor, text.block.rotation) {
+            self.report(ctx, err);
+        }
     }
 }
 

@@ -63,12 +63,12 @@ fn latin1(args: Args<'_>, key: &str) -> Result<Vec<u8>, ProbeError> {
 }
 
 /// Bytes as Latin-1 text.
-fn text(bytes: &[u8]) -> Json {
+pub(crate) fn text(bytes: &[u8]) -> Json {
     Json::String(bytes.iter().map(|&b| char::from(b)).collect())
 }
 
 /// Lowercase hexadecimal digits of `bytes` (Python's `bytes.hex()`).
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::new(), |mut hex, b| {
         write!(hex, "{b:02x}").expect("writing to a String cannot fail");
         hex

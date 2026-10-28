@@ -848,6 +848,14 @@ def test_percent_formatter():
                      locs=[10.0, 20.0], view=[0.0, 100.0], rc={"text.usetex": True})
 
 
+def test_engformatter_usetex_useMathText():
+    # matplotlib's test_engformatter_usetex_useMathText: TeX and mathtext
+    # labels wrap the numbers in dollars.
+    for params in [{"usetex": True}, {"useMathText": True}]:
+        probes.probe("ticker.EngFormatter.format_ticks", eng_format_ticks, params=params,
+                     locs=[0.0, 500.0, 1000.0], view=[0.0, 1000.0])
+
+
 def test_string_formatters():
     locs = [-1500.25, -1.0, -1e-5, 0.0, 1e-5, 0.5, 1.0, 2.0, 1500.25, 1e7]
     view = [-1500.25, 1e7]

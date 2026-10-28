@@ -17,9 +17,22 @@
 //! Mathtext works as in matplotlib. Any line with an even number of
 //! unescaped `$` is typeset, in the fontset of `mathtext.fontset` or the
 //! text's own ([`Text::set_math_fontfamily`]). Errors in the math show up
-//! when the text is laid out ([`Text::layout`]) or drawn. `text.usetex`
-//! only changes how tick formatters write their labels; text artists are
-//! typeset by mathtext, except in PGF output, where LaTeX typesets them.
+//! when the text is laid out ([`Text::layout`]) or drawn.
+//!
+//! `text.usetex` works as in matplotlib too: a text made while it is on,
+//! or given [`Text::set_usetex`]`(true)`, is typeset by `latex` with the
+//! fonts of `font.family` and the family lists and the preamble of
+//! `text.latex.preamble`, cached in `tex.cache` under the
+//! [cache directory](crate::config::cache_dir); tick formatters wrap their
+//! labels in `$\mathdefault{...}$` for it. PNG output draws the DVI
+//! file's glyphs (or `dvipng`'s image with `text.latex.engine =
+//! "latex+dvipng"`), PDF output embeds its Type 1 fonts, SVG output draws
+//! glyph paths and PGF output hands the string to LaTeX. matplotlib's
+//! usetex PostScript needs `psfrag` and Ghostscript, which plt-rs does not
+//! run: saving such a figure as PS or EPS fails, as it does without them.
+//! Where TeX is not installed, drawing usetex text fails with
+//! matplotlib's message ([`check_usetex`] tells beforehand), and a LaTeX
+//! error in the string fails with `latex`'s output, as in matplotlib.
 //!
 //! Annotations take their keywords in an [`AnnotateOptions`]; coordinate
 //! systems are [`Coords`] values, parsed from matplotlib's names
@@ -42,6 +55,11 @@
 //! | `bbox=dict(boxstyle="round", fc="w")`         | [`Text::set_bbox`]`(Some(TextBoxProps::new(..).with_patch(..)))` |
 //! | `backgroundcolor=`                            | [`Text::set_backgroundcolor`]                     |
 //! | `parse_math=False`                            | [`Text::set_parse_math`]`(false)`                 |
+//! | `usetex=True`, `t.set_usetex(None)`           | [`Text::set_usetex`]`(true)`, [`Text::set_usetex`]`(rc::params().text_usetex)` |
+//! | `rcParams["text.usetex"] = True`              | `rc::set("text.usetex", "True")`                  |
+//! | `rcParams["text.latex.preamble"] = r"\usepackage{amsmath}"` | `rc::set("text.latex.preamble", r"\usepackage{amsmath}")` |
+//! | `matplotlib.checkdep_usetex(True)`            | [`check_usetex`]                                  |
+//! | `TextPath(xy, s, usetex=True)`                | [`text_path_tex`]                                 |
 //! | `math_fontfamily="cm"`                        | [`Text::set_math_fontfamily`]`(Fontset::Cm)` ([`Fontset`]) |
 //! | `t.set(**kwargs)`                             | [`Text::update_props`] with [`TextProps`]         |
 //! | `t.get_window_extent()`                       | [`ArtistHandle::window_extent`]                   |
@@ -159,6 +177,32 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! # TeX
+//!
+//! ```python
+//! plt.rcParams["text.latex.preamble"] = r"\usepackage{amssymb}"
+//! t = ax.text(0, 0, r"$\mathbb{R}^2$, \LaTeX", usetex=True)
+//! fig.savefig("tex.pdf")    # RuntimeError where TeX is not installed
+//! ```
+//!
+//! ```
+//! use plt::prelude::*;
+//! use plt::rc;
+//!
+//! # rc::context(|| -> Result<(), Box<dyn std::error::Error>> {
+//! rc::set("text.latex.preamble", r"\usepackage{amssymb}")?;
+//! let fig = Figure::new();
+//! let t = fig.subplot().text(0.0, 0.0, r"$\mathbb{R}^2$, \LaTeX");
+//! t.set_usetex(true);
+//! assert!(t.usetex());
+//! if plt::text::check_usetex().is_ok() {
+//!     assert!(fig.to_pdf().is_ok());
+//! }
+//! # Ok(())
+//! # })?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! # Annotations
 //!
 //! ```python
@@ -229,6 +273,9 @@
 //! [`Text::set_backgroundcolor`]: crate::text::Text::set_backgroundcolor
 //! [`Text::set_parse_math`]: crate::text::Text::set_parse_math
 //! [`Text::set_math_fontfamily`]: crate::text::Text::set_math_fontfamily
+//! [`Text::set_usetex`]: crate::text::Text::set_usetex
+//! [`check_usetex`]: crate::text::check_usetex
+//! [`text_path_tex`]: crate::text::text_path_tex
 //! [`Text::layout`]: crate::text::Text::layout
 //! [`TextProps`]: crate::text::TextProps
 //! [`TextBoxProps`]: crate::text::TextBoxProps

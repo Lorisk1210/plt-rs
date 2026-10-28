@@ -4,11 +4,12 @@
 use std::fmt::Write as _;
 
 use plt_core::Point;
-use plt_text::{PlacedGlyph, TextRun, TextSource};
+use plt_text::tex::{TexError, TexText};
+use plt_text::{PlacedGlyph, Shaping, TextRun, TextSource};
 
 use super::PsRenderer;
 use crate::gc::GraphicsContext;
-use crate::vector::{VectorError, general, glyph_chars, in_points, repr};
+use crate::vector::{POINTS_DPI, VectorError, general, glyph_chars, in_points, repr};
 
 impl PsRenderer {
     /// The subset font name and glyph name of a glyph of `run`, recording
@@ -122,6 +123,36 @@ impl PsRenderer {
         self.body.push_str("grestore\n");
     }
 
+    /// `draw_tex`: matplotlib marks usetex text for `psfrag` to replace
+    /// when `text.usetex` is on, which plt-rs cannot finish (an error);
+    /// with it off, the text is drawn as plain text, as matplotlib does.
+    pub(super) fn ps_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        tex: &TexText,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        if gc.stroke_color().a == 0.0 {
+            return Ok(());
+        }
+        if self.options.usetex {
+            return Err(super::usetex_unsupported());
+        }
+        let plain = TextSource::Plain {
+            text: tex.tex.clone(),
+            font: tex.font.clone(),
+            shaping: Shaping::default(),
+        };
+        let run = plain
+            .layout(self.fonts.engine(), tex.size(), POINTS_DPI)
+            .map_err(VectorError::from);
+        if let Some(run) = self.problems.record(run) {
+            self.ps_text(gc, &run, origin, angle);
+        }
+        Ok(())
+    }
+
     /// `draw_text`: fully transparent text is not drawn; text that is not
     /// mathtext is shown in an AFM font with `ps.useafm`; runs without a
     /// source are filled as paths.
@@ -139,6 +170,11 @@ impl PsRenderer {
             crate::renderer::fill_text(self, gc, run, origin, angle);
             return;
         };
+        if let TextSource::Tex(tex) = source {
+            let result = self.ps_tex(gc, tex, origin, angle);
+            self.problems.record(result.map_err(VectorError::from));
+            return;
+        }
         // AFM text ignores the features and language, as matplotlib does.
         if let (TextSource::Plain { text, font, .. }, Some(directory)) =
             (source, self.options.afm_directory())

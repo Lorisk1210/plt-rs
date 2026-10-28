@@ -59,7 +59,7 @@ impl AxisPainter<'_> {
                         sides.second
                     };
                     if shown {
-                        draw_text(ctx, &label.text, rc);
+                        draw_text(ctx, self.axes_id, &label.text, rc);
                     }
                 }
             });
@@ -72,7 +72,7 @@ impl AxisPainter<'_> {
         }
         let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
             for text in [&texts.label, &texts.offset].into_iter().flatten() {
-                draw_text(ctx, text, rc);
+                draw_text(ctx, self.axes_id, text, rc);
             }
         });
         if let Err(err) = drawn {
@@ -300,15 +300,22 @@ pub(crate) fn grid_gc(
     Ok(gc)
 }
 
-/// Draws a laid-out axis text.
-pub(crate) fn draw_text(ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &crate::rc::RcParams) {
+/// Draws a laid-out axis text, reporting a TeX failure on `owner`.
+pub(crate) fn draw_text(
+    ctx: &mut DrawContext<'_>,
+    owner: ArtistId,
+    text: &PlacedText,
+    rc: &crate::rc::RcParams,
+) {
     let gc = GraphicsContext {
         foreground: text.color,
         antialiased: rc.text_antialiased,
         url: text.url.clone(),
         ..GraphicsContext::default()
     };
-    draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation);
+    if let Err(err) = draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation) {
+        ctx.report(owner, err);
+    }
 }
 
 /// The tick markers on side 1 (bottom/left) and side 2 (top/right).

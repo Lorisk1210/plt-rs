@@ -298,8 +298,7 @@ impl Cell {
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        draw_laid_out(ctx, &gc, &laid_out, Point::new(x, y), 0.0);
-        Ok(())
+        Ok(draw_laid_out(ctx, &gc, &laid_out, Point::new(x, y), 0.0)?)
     }
 }
 

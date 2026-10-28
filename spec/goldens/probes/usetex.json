@@ -1,0 +1,662 @@
+{
+ "area": "usetex",
+ "matplotlib": "3.11.2",
+ "probes": [
+  {"op": "TexManager.get_grey", "args": {"tex": "hello", "fontsize": 10.0, "dpi": 100.0}, "value": [10, 29, 15398, "d5aac1f2299c987968850f7e314f96d55c0bf307"]},
+  {"op": "TexManager.get_grey", "args": {"tex": "\\LaTeX", "fontsize": 20.0, "dpi": 150.0}, "value": [38, 96, 163365, "ee7a231fdd6bdcdaf1d2d8c9a7d889a2164c674a"]},
+  {
+   "op": "TexManager.get_grey",
+   "args": {"tex": "$\\frac{1}{2}$", "fontsize": 12.0, "dpi": 72.0},
+   "value": [15, 5, 3970, "25d6b3e23e982aae630e79d505e913fc9ed5f7fa"]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "cursive"}},
+   "value": [66.28842774113134, 18.256833910595685, 5.0974743353375365]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "monospace", "font.monospace": "Courier"}},
+   "value": [105.47539233435597, 13.507987117806923, 0.3486275425487754]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "sans-serif", "font.sans-serif": "Helvetica"}},
+   "value": [74.37474140079087, 13.458137939757162, 0.2987783644990141]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "serif", "font.serif": "Palatino"}},
+   "value": [74.84629224473977, 14.717521155475993, 0.215759741842656]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "times"}},
+   "value": [68.53675024133675, 14.586638031913743, 0.11623029443622873]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"text.latex.preamble": "\\usepackage{amssymb}"}},
+   "value": [74.38386247021802, 13.159359575258147, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$-1$", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [21.04372177873556, 10.7005979570426, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\frac{1}{2}\\pi$", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [16.76391331308591, 19.3973054063754, 5.725878014412101]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\left[\\int\\limits_e^{-2e}\\sqrt\\frac{\\log^3 x}{x}\\,\\mathrm{d}x \\right\\}$", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [114.97143906017581, 39.85094466578239, 15.774382848173516]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\mathdefault{0.5}$", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [20.774502435528227, 10.7005979570426, 0.0]
+  },
+  {"op": "TexManager.get_text_width_height_descent", "args": {"tex": "% a comment", "fontsize": 12.0, "dpi": 100.0, "rc": {}}, "value": [0, 0, 0]},
+  {"op": "TexManager.get_text_width_height_descent", "args": {"tex": "\\ ", "fontsize": 12.0, "dpi": 100.0, "rc": {}}, "value": [0, 0, 0]},
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\LaTeX", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [40.92594292940103, 14.92088722196278, 3.5745513312167048]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textit{Velocity (°/sec)}", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [109.61939821075697, 16.604400166044, 4.151100041511]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textsf{fi ffl 1234} \\texttt{tt}", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [87.75275327926093, 11.530805297192819, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textwon", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [16.700234735788968, 11.435794157326692, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "−2", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [21.04372177873556, 10.7005979570426, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "foo_bar", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [51.014943622332055, 11.530805297192819, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "hello, world", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [82.64639012394926, 14.759410511363637, 3.228605214170818]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "lp", "fontsize": 12.0, "dpi": 100.0, "rc": {}},
+   "value": [13.548588544909714, 14.759410511363637, 3.228605214170818]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$-1$", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [41.059317456186434, 21.406769900957347, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\frac{1}{2}\\pi$", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [31.4865228429414, 39.50789111010577, 11.451734915237564]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\left[\\int\\limits_e^{-2e}\\sqrt\\frac{\\log^3 x}{x}\\,\\mathrm{d}x \\right\\}$", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [224.20659110772752, 99.62741444842258, 41.51150714118929]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\mathdefault{0.5}$", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [39.492710441313825, 21.406769900957347, 0.0]
+  },
+  {"op": "TexManager.get_text_width_height_descent", "args": {"tex": "% a comment", "fontsize": 24.0, "dpi": 100.0, "rc": {}}, "value": [0, 0, 0]},
+  {"op": "TexManager.get_text_width_height_descent", "args": {"tex": "\\ ", "fontsize": 24.0, "dpi": 100.0, "rc": {}}, "value": [0, 0, 0]},
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\LaTeX", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [77.8265172257139, 29.836031548360317, 7.148046983101564]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textit{Velocity (°/sec)}", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [218.77871025510888, 33.208800332088, 8.302200083022]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textsf{fi ffl 1234} \\texttt{tt}", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [169.5727998494145, 23.06167393514555, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textwon", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [32.06495066244638, 22.68245280555988, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "−2", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [41.059317456186434, 21.406769900957347, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "foo_bar", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [95.40687182046275, 23.06167393514555, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "hello, world", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [154.13524204885974, 29.521059062910787, 6.459385127765238]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "lp", "fontsize": 24.0, "dpi": 100.0, "rc": {}},
+   "value": [25.255481154654422, 29.521059062910787, 6.459385127765238]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$-1$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [12.730078976299815, 6.420366375116751, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\frac{1}{2}\\pi$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [10.84572683978051, 11.852373667107722, 3.435511606864882]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\left[\\int\\limits_e^{-2e}\\sqrt\\frac{\\log^3 x}{x}\\,\\mathrm{d}x \\right\\}$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [73.68294797828456, 23.97690484413917, 9.464629708904111]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "$\\mathdefault{0.5}$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [12.730078976299815, 6.420366375116751, 0.0]
+  },
+  {"op": "TexManager.get_text_width_height_descent", "args": {"tex": "% a comment", "fontsize": 10.0, "dpi": 72.0, "rc": {}}, "value": [0, 0, 0]},
+  {"op": "TexManager.get_text_width_height_descent", "args": {"tex": "\\ ", "fontsize": 10.0, "dpi": 72.0, "rc": {}}, "value": [0, 0, 0]},
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\LaTeX", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [25.567801773622357, 8.952512064134496, 2.1447282650996264]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textit{Velocity (°/sec)}", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [67.23540081627492, 9.962640099626402, 2.4906600249066004]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textsf{fi ffl 1234} \\texttt{tt}", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [53.79822613441781, 6.918498380098071, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "\\textwon", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [10.236880253735992, 6.861476494396015, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "−2", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [12.730078976299815, 6.420366375116751, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "foo_bar", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [31.288323693376405, 6.918498380098071, 0.0]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "hello, world", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [50.67118909557908, 8.85567671038294, 1.9371783302848695]
+  },
+  {
+   "op": "TexManager.get_text_width_height_descent",
+   "args": {"tex": "lp", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": [8.302225419325966, 8.85567671038294, 1.9371783302848695]
+  },
+  {"op": "TexManager.make_dvi", "args": {"tex": "$x"}, "error": "RuntimeError"},
+  {"op": "TexManager.make_dvi", "args": {"tex": "50\\%"}, "value": true},
+  {"op": "TexManager.make_dvi", "args": {"tex": "\\frac{"}, "error": "RuntimeError"},
+  {"op": "TexManager.make_dvi", "args": {"tex": "\\undefinedcommand"}, "error": "RuntimeError"},
+  {"op": "TexManager.make_dvi", "args": {"tex": "¼Öøæ"}, "value": true},
+  {"op": "TexManager.make_dvi", "args": {"tex": "☃"}, "error": "RuntimeError"},
+  {
+   "op": "TextToPath.get_glyphs_tex",
+   "args": {"tex": "$\\sqrt{x}$"},
+   "value": {"glyphs": [["CMSY10-71", 0.0, 71.75869116302148, 0.9962640099626402], ["CMMI12-79", 83.02225419325966, 0.0, 0.9962640099626402]], "rects": 1}
+  },
+  {"op": "TextToPath.get_glyphs_tex", "args": {"tex": "W"}, "value": {"glyphs": [["CMR17-59", 0.0, 0.0, 0.9962640099626402]], "rects": 0}},
+  {
+   "op": "TextToPath.get_glyphs_tex",
+   "args": {"tex": "\\LaTeX"},
+   "value": {
+    "glyphs": [["CMR17-4e", 0.0, 0.0, 0.9962640099626402], ["CMR17-43", 24.484188322112395, 20.419398933686182, 0.6973817666173724], ["CMR17-56", 59.128077448824726, 0.0, 0.9962640099626402], ["CMR17-47", 110.40454071158936, -21.444151083826277, 0.9962640099626402], ["CMR17-5a", 161.5682219508873, 0.0, 0.9962640099626402]],
+    "rects": 0
+   }
+  },
+  {"op": "TextToPath.get_glyphs_tex", "args": {"tex": "\\textwon"}, "value": {"glyphs": [["SFRM1728-232", 0.0, 0.0, 0.9962640099626402]], "rects": 0}},
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "cursive"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "pzcmi8r", 11.955168119551683, 70, 9.63043470476382, 138, "uzcmi8a.pfb", {}],
+     [9.63043470476382, 0.0, "pzcmi8r", 11.955168119551683, 111, 6.641743175548291, 180, "uzcmi8a.pfb", {}],
+     [16.27217788031211, 0.0, "pzcmi8r", 11.955168119551683, 110, 7.6379877610112255, 179, "uzcmi8a.pfb", {}],
+     [23.910165641323335, 0.0, "pzcmi8r", 11.955168119551683, 116, 5.31331853152674, 185, "uzcmi8a.pfb", {}],
+     [29.223484172850075, 0.0, "pzcmi8r", 11.955168119551683, 115, 5.31331853152674, 184, "uzcmi8a.pfb", {}],
+     [38.18968544201648, 0.0, "cmmi12", 11.955168119551683, 120, 9.239009922102014, 121, "cmmi12.pfb", {}],
+     [47.4286953641185, 6.025606490309776, "cmr8", 7.970112079701122, 50, 5.880809513153798, 52, "cmr8.pfb", {}],
+     [57.65423762183046, 0.0, "pzcmi8r", 11.955168119551683, 2, 8.634190119300886, 197, "uzcmi8a.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 66.28842774113134,
+    "height": 13.159359575258147,
+    "descent": 5.0974743353375365
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "monospace", "font.monospace": "Courier"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "pcrr8r", 11.955168119551683, 70, 9.962635876909074, 138, "ucrr8a.pfb", {}],
+     [9.962635876909074, 0.0, "pcrr8r", 11.955168119551683, 111, 9.962635876909074, 180, "ucrr8a.pfb", {}],
+     [19.925271753818148, 0.0, "pcrr8r", 11.955168119551683, 110, 9.962635876909074, 179, "ucrr8a.pfb", {}],
+     [29.88790763072722, 0.0, "pcrr8r", 11.955168119551683, 116, 9.962635876909074, 185, "ucrr8a.pfb", {}],
+     [39.850543507636296, 0.0, "pcrr8r", 11.955168119551683, 115, 9.962635876909074, 184, "ucrr8a.pfb", {}],
+     [59.77581526145444, 0.0, "cmmi12", 11.955168119551683, 120, 9.239009922102014, 121, "cmmi12.pfb", {}],
+     [69.01482518355645, 6.025606490309776, "cmr8", 7.970112079701122, 50, 5.880809513153798, 52, "cmr8.pfb", {}],
+     [85.55012058053782, 0.0, "pcrr8r", 11.955168119551683, 102, 9.962635876909074, 171, "ucrr8a.pfb", {}],
+     [95.5127564574469, 0.0, "pcrr8r", 11.955168119551683, 105, 9.962635876909074, 174, "ucrr8a.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 105.47539233435597,
+    "height": 13.159359575258147,
+    "descent": 0.3486275425487754
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "sans-serif", "font.sans-serif": "Helvetica"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "phvr8r", 11.955168119551683, 70, 10.145268401318408, 39, "uhvr8a.pfb", {}],
+     [9.647241119726806, 0.0, "phvr8r", 11.955168119551683, 111, 9.231936870578647, 80, "uhvr8a.pfb", {}],
+     [18.87917799030545, 0.0, "phvr8r", 11.955168119551683, 110, 9.231936870578647, 79, "uhvr8a.pfb", {}],
+     [28.111114860884097, 0.0, "phvr8r", 11.955168119551683, 116, 4.61585231056282, 85, "uhvr8a.pfb", {}],
+     [32.726967171446915, 0.0, "phvr8r", 11.955168119551683, 115, 8.302200083022, 84, "uhvr8a.pfb", {}],
+     [45.64501956503174, 0.0, "cmmi12", 11.955168119551683, 120, 9.239009922102014, 121, "cmmi12.pfb", {}],
+     [54.88402948713375, 6.025606490309776, "cmr8", 7.970112079701122, 50, 5.880809513153798, 52, "cmr8.pfb", {}],
+     [66.07254131776887, 0.0, "phvr8r", 11.955168119551683, 2, 8.302200083022, 109, "uhvr8a.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 74.37474140079087,
+    "height": 13.159359575258147,
+    "descent": 0.2987783644990141
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "serif", "font.serif": "Palatino"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "pplr8r", 11.955168119551683, 70, 9.231936870578647, 138, "uplr8a.pfb", {}],
+     [9.231936870578647, 0.0, "pplr8r", 11.955168119551683, 111, 9.065920738852567, 180, "uplr8a.pfb", {}],
+     [18.29785760943121, 0.0, "pplr8r", 11.955168119551683, 110, 9.663667490130328, 179, "uplr8a.pfb", {}],
+     [27.96152509956154, 0.0, "pplr8r", 11.955168119551683, 116, 5.412847978933168, 185, "uplr8a.pfb", {}],
+     [33.374373078494706, 0.0, "pplr8r", 11.955168119551683, 115, 7.040241009733465, 184, "uplr8a.pfb", {}],
+     [45.05552822612901, 0.0, "pplri8r", 11.955168119551683, 120, 8.302200083022, 189, "uplri8a.pfb", {}],
+     [53.731164315998164, 6.027380031587277, "pplr8r", 8.966376089663761, 50, 6.226650062266501, 204, "uplr8a.pfb", {}],
+     [64.80076442669417, 0.0, "pplr8r", 11.955168119551683, 2, 10.04552781804561, 197, "uplr8a.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 74.84629224473977,
+    "height": 14.501761413633337,
+    "descent": 0.215759741842656
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"font.family": "times"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "ptmr8r", 11.955168119551683, 70, 9.231936870578647, 138, "utmr8a.pfb", {}],
+     [8.983028797716031, 0.0, "ptmr8r", 11.955168119551683, 111, 8.302200083022, 180, "utmr8a.pfb", {}],
+     [17.285228880738032, 0.0, "ptmr8r", 11.955168119551683, 110, 8.302200083022, 179, "utmr8a.pfb", {}],
+     [25.587428963760033, 0.0, "ptmr8r", 11.955168119551683, 116, 4.61585231056282, 185, "utmr8a.pfb", {}],
+     [30.20328127432285, 0.0, "ptmr8r", 11.955168119551683, 115, 6.458941742445862, 184, "utmr8a.pfb", {}],
+     [40.813323058279714, 0.0, "ptmri8r", 11.955168119551683, 120, 7.372252159598986, 189, "utmri8a.pfb", {}],
+     [48.235213260062096, 6.027190009307544, "ptmr8r", 8.966376089663761, 50, 6.226650062266501, 204, "utmr8a.pfb", {}],
+     [59.3048133707581, 0.0, "ptmr8r", 11.955168119551683, 2, 9.231936870578647, 197, "utmr8a.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 68.53675024133675,
+    "height": 14.470407737477515,
+    "descent": 0.11623029443622873
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "Fonts $x^2$ fi", "fontsize": 12.0, "dpi": 100.0, "rc": {"text.latex.preamble": "\\usepackage{amssymb}"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmr12", 11.955168119551683, 70, 10.610189579063322, 72, "cmr12.pfb", {}],
+     [9.25533072457235, 0.0, "cmr12", 11.955168119551683, 111, 8.129153126945829, 113, "cmr12.pfb", {}],
+     [17.38448385151818, 0.0, "cmr12", 11.955168119551683, 110, 9.032392363273143, 112, "cmr12.pfb", {}],
+     [25.965256596627665, 0.0, "cmr12", 11.955168119551683, 116, 6.3226746542912, 118, "cmr12.pfb", {}],
+     [32.28793125091887, 0.0, "cmr12", 11.955168119551683, 115, 6.412998577923931, 117, "cmr12.pfb", {}],
+     [44.12036524680668, 0.0, "cmmi12", 11.955168119551683, 120, 9.239009922102014, 121, "cmmi12.pfb", {}],
+     [53.35937516890869, 6.025606490309776, "cmr8", 7.970112079701122, 50, 5.880809513153798, 52, "cmr8.pfb", {}],
+     [65.35147010694487, 0.0, "cmr12", 11.955168119551683, 12, 9.032392363273143, 13, "cmr12.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 74.38386247021802,
+    "height": 13.159359575258147,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "$\\mathbb{R} \\circledcirc$", "fontsize": 10.0, "dpi": 72.0, "rc": {"text.latex.preamble": "\\usepackage{amssymb}"}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "msbm10", 9.962640099626402, 82, 7.195246828300125, 83, "msbm10.pfb", {}],
+     [7.195246828300125, 0.0, "msam10", 9.962640099626402, 125, 7.748743724704235, 126, "msam10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 14.94399055300436,
+    "height": 6.86314869045766,
+    "descent": 0.8167157582892279
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "$-1$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmsy10", 9.962640099626402, 0, 7.748743724704235, 1, "cmsy10.pfb", {}],
+     [7.748743724704235, 0.0, "cmr10", 9.962640099626402, 49, 4.9813352515955795, 51, "cmr10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 12.730078976299815,
+    "height": 6.420366375116751,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "$\\frac{1}{2}\\pi$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 3.9226071178393527, "cmr7", 6.973848069738481, 49, 3.971237619668431, 51, "cmr7.pfb", {}],
+     [0.0, -3.435511606864882, "cmr7", 6.973848069738481, 50, 3.971237619668431, 52, "cmr7.pfb", {}],
+     [5.166751391267124, 0.0, "cmmi10", 9.962640099626402, 25, 5.678975448513388, 26, "cmmi10.pfb", {}]
+    ],
+    "boxes": [[0.0, 2.291425465052927, 0.39848432148972607, 3.971237619668431]],
+    "width": 10.84572683978051,
+    "height": 8.41686206024284,
+    "descent": 3.435511606864882
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "$\\left[\\int\\limits_e^{-2e}\\sqrt\\frac{\\log^3 x}{x}\\,\\mathrm{d}x \\right\\}$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 14.047450235445206, "cmex10", 9.962640099626402, 20, 5.258083699797634, 21, "cmex10.pfb", {}],
+     [6.226680465831258, 10.01802019283157, "cmsy7", 6.973848069738481, 0, 6.22666526404888, 1, "cmsy7.pfb", {}],
+     [12.453345729880137, 10.01802019283157, "cmr7", 6.973848069738481, 50, 3.971237619668431, 52, "cmr7.pfb", {}],
+     [16.42458334954857, 10.01802019283157, "cmmi7", 6.973848069738481, 101, 3.7799383902163766, 102, "cmmi7.pfb", {}],
+     [8.926121769925281, 8.025507374688667, "cmex10", 9.962640099626402, 82, 4.704586803393525, 83, "cmex10.pfb", {}],
+     [9.388438375622666, -9.021786586433688, "cmmi7", 6.973848069738481, 101, 3.7799383902163766, 102, "cmmi7.pfb", {}],
+     [20.89632445224938, 12.315769599353986, "cmex10", 9.962640099626402, 113, 9.96265530140878, 114, "cmex10.pfb", {}],
+     [32.05449352525685, 4.444408297984122, "cmr7", 6.973848069738481, 108, 2.2554428461628273, 110, "cmr7.pfb", {}],
+     [34.30993637141968, 4.444408297984122, "cmr7", 6.973848069738481, 111, 3.971237619668431, 113, "cmr7.pfb", {}],
+     [38.28117399108811, 4.444408297984122, "cmr7", 6.973848069738481, 103, 3.971237619668431, 105, "cmr7.pfb", {}],
+     [42.35962978187267, 6.824353741827521, "cmr5", 4.981320049813201, 51, 3.3901190846824414, 53, "cmr5.pfb", {}],
+     [47.608516403331265, 4.444408297984122, "cmmi7", 6.973848069738481, 120, 4.51778730152553, 121, "cmmi7.pfb", {}],
+     [39.83151256518525, -3.4355116068648828, "cmmi7", 6.973848069738481, 120, 4.51778730152553, 121, "cmmi7.pfb", {}],
+     [54.982216954973545, 0.0, "cmr10", 9.962640099626402, 100, 5.534816946217311, 102, "cmr10.pfb", {}],
+     [60.51703390119085, 0.0, "cmmi10", 9.962640099626402, 120, 5.693918800591533, 121, "cmmi10.pfb", {}],
+     [66.21095270178239, 14.047450235445206, "cmex10", 9.962640099626402, 27, 7.47199527650218, 28, "cmex10.pfb", {}]
+    ],
+    "boxes": [[30.85897975365816, 12.315769599353986, 0.39848432148972607, 22.462837722797325], [32.05449352525685, 2.291425465052926, 0.39848432148972607, 20.07181017959994]],
+    "width": 73.68294797828456,
+    "height": 14.512275135235058,
+    "descent": 9.464629708904111
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "$\\mathdefault{0.5}$", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmr10", 9.962640099626402, 48, 4.9813352515955795, 50, "cmr10.pfb", {}],
+     [4.9813352515955795, 0.0, "cmmi10", 9.962640099626402, 58, 2.7674084731086555, 59, "cmmi10.pfb", {}],
+     [7.748743724704235, 0.0, "cmr10", 9.962640099626402, 53, 4.9813352515955795, 55, "cmr10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 12.730078976299815,
+    "height": 6.420366375116751,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "% a comment", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "\\ ", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {"text": [], "boxes": [], "width": 0, "height": 0, "descent": 0}
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "\\LaTeX", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmr10", 9.962640099626402, 76, 6.22666526404888, 78, "cmr10.pfb", {}],
+     [2.6401087474704235, 2.042313857215131, "cmr7", 6.973848069738481, 65, 5.880763907806663, 67, "cmr7.pfb", {}],
+     [7.0265374474626405, 0.0, "cmr10", 9.962640099626402, 84, 7.195246828300125, 86, "cmr10.pfb", {}],
+     [12.560989550902866, -2.1447282650996264, "cmr10", 9.962640099626402, 69, 6.780146958670611, 71, "cmr10.pfb", {}],
+     [18.095806497120176, 0.0, "cmr10", 9.962640099626402, 88, 7.47199527650218, 90, "cmr10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 25.567801773622357,
+    "height": 6.80778379903487,
+    "descent": 2.1447282650996264
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "\\textit{Velocity (°/sec)}", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmti10", 9.962640099626402, 86, 7.405517882160648, 88, "cmti10.pfb", {}],
+     [6.641719528331258, 0.0, "cmti10", 9.962640099626402, 101, 4.582774921193961, 103, "cmti10.pfb", {}],
+     [11.224494449525219, 0.0, "cmti10", 9.962640099626402, 108, 2.545994512764633, 110, "cmti10.pfb", {}],
+     [13.770488962289852, 0.0, "cmti10", 9.962640099626402, 111, 5.091989025529266, 113, "cmti10.pfb", {}],
+     [18.353263883483812, 0.0, "cmti10", 9.962640099626402, 99, 4.582774921193961, 101, "cmti10.pfb", {}],
+     [22.93603880467777, 0.0, "cmti10", 9.962640099626402, 105, 3.0551934153175595, 107, "cmti10.pfb", {}],
+     [25.991232219995332, 0.0, "cmti10", 9.962640099626402, 116, 3.3097776648116444, 118, "cmti10.pfb", {}],
+     [29.301009884806977, 0.0, "cmti10", 9.962640099626402, 121, 4.837374372470424, 123, "cmti10.pfb", {}],
+     [37.702761373365504, 0.0, "cmti10", 9.962640099626402, 40, 4.073591220423412, 41, "cmti10.pfb", {}],
+     [41.77635259378892, 0.0, "tcti1000", 9.962640099626402, 176, 3.5635410180572857, 297, "sfti1000.pfb", {}],
+     [45.33989361184621, 0.0, "cmti10", 9.962640099626402, 47, 5.091989025529266, 49, "cmti10.pfb", {}],
+     [50.43188263737547, 0.0, "cmti10", 9.962640099626402, 115, 4.073591220423412, 117, "cmti10.pfb", {}],
+     [54.50547385779888, 0.0, "cmti10", 9.962640099626402, 101, 4.582774921193961, 103, "cmti10.pfb", {}],
+     [58.57903467465754, 0.0, "cmti10", 9.962640099626402, 99, 4.582774921193961, 101, "cmti10.pfb", {}],
+     [63.1618095958515, 0.0, "cmti10", 9.962640099626402, 41, 4.073591220423412, 42, "cmti10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 67.23540081627492,
+    "height": 7.471980074719801,
+    "descent": 2.4906600249066004
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "\\textsf{fi ffl 1234} \\texttt{tt}", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmss10", 9.962640099626402, 12, 5.341085431584683, 13, "cmss10.pfb", {}],
+     [8.66196039753269, 0.0, "cmss10", 9.962640099626402, 15, 8.108493904693338, 16, "cmss10.pfb", {}],
+     [20.091329268174036, 0.0, "cmss10", 9.962640099626402, 49, 4.9813352515955795, 51, "cmss10.pfb", {}],
+     [25.072664519769617, 0.0, "cmss10", 9.962640099626402, 50, 4.9813352515955795, 52, "cmss10.pfb", {}],
+     [30.053999771365195, 0.0, "cmss10", 9.962640099626402, 51, 4.9813352515955795, 53, "cmss10.pfb", {}],
+     [35.03533502296077, 0.0, "cmss10", 9.962640099626402, 52, 4.9813352515955795, 54, "cmss10.pfb", {}],
+     [43.33754524050436, 0.0, "cmtt10", 9.962640099626402, 116, 5.230340446956725, 118, "cmtt10.pfb", {}],
+     [48.567885687461086, 0.0, "cmtt10", 9.962640099626402, 116, 5.230340446956725, 118, "cmtt10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 53.79822613441781,
+    "height": 6.918498380098071,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "\\textwon", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [[0.0, 0.0, "tcrm1000", 9.962640099626402, 142, 10.236880253735992, 562, "sfrm1000.pfb", {}]],
+    "boxes": [],
+    "width": 10.236880253735992,
+    "height": 6.861476494396015,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "−2", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmsy10", 9.962640099626402, 0, 7.748743724704235, 1, "cmsy10.pfb", {}],
+     [7.748743724704235, 0.0, "cmr10", 9.962640099626402, 50, 4.9813352515955795, 52, "cmr10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 12.730078976299815,
+    "height": 6.420366375116751,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "foo_bar", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmr10", 9.962640099626402, 102, 3.04415692131071, 104, "cmr10.pfb", {}],
+     [3.04415692131071, 0.0, "cmr10", 9.962640099626402, 111, 4.9813352515955795, 113, "cmr10.pfb", {}],
+     [8.302240621108345, 0.0, "cmr10", 9.962640099626402, 111, 4.9813352515955795, 113, "cmr10.pfb", {}],
+     [16.87013238928238, 0.0, "cmr10", 9.962640099626402, 98, 5.534816946217311, 100, "cmr10.pfb", {}],
+     [22.40494933549969, 0.0, "cmr10", 9.962640099626402, 97, 4.9813352515955795, 99, "cmr10.pfb", {}],
+     [27.386284587095272, 0.0, "cmr10", 9.962640099626402, 114, 3.9020391062811335, 116, "cmr10.pfb", {}]
+    ],
+    "boxes": [[13.881309955829703, 0.0, 0.39849952327210464, 2.9888224334526776]],
+    "width": 31.288323693376405,
+    "height": 6.918498380098071,
+    "descent": 0.0
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "hello, world", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmr10", 9.962640099626402, 104, 5.534816946217311, 106, "cmr10.pfb", {}],
+     [5.534816946217311, 0.0, "cmr10", 9.962640099626402, 101, 4.4278383551914695, 103, "cmr10.pfb", {}],
+     [9.96265530140878, 0.0, "cmr10", 9.962640099626402, 108, 2.7674084731086555, 110, "cmr10.pfb", {}],
+     [12.730063774517436, 0.0, "cmr10", 9.962640099626402, 108, 2.7674084731086555, 110, "cmr10.pfb", {}],
+     [15.49747224762609, 0.0, "cmr10", 9.962640099626402, 111, 4.9813352515955795, 113, "cmr10.pfb", {}],
+     [20.47880749922167, 0.0, "cmr10", 9.962640099626402, 44, 2.7674084731086555, 45, "cmr10.pfb", {}],
+     [26.567090938278334, 0.0, "cmr10", 9.962640099626402, 119, 7.195246828300125, 121, "cmr10.pfb", {}],
+     [33.485589318376405, 0.0, "cmr10", 9.962640099626402, 111, 4.9813352515955795, 113, "cmr10.pfb", {}],
+     [38.46692456997199, 0.0, "cmr10", 9.962640099626402, 114, 3.9020391062811335, 116, "cmr10.pfb", {}],
+     [42.36896367625312, 0.0, "cmr10", 9.962640099626402, 108, 2.7674084731086555, 110, "cmr10.pfb", {}],
+     [45.136372149361776, 0.0, "cmr10", 9.962640099626402, 100, 5.534816946217311, 102, "cmr10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 50.67118909557908,
+    "height": 6.918498380098071,
+    "descent": 1.9371783302848695
+   }
+  },
+  {
+   "op": "dviread.Dvi.page",
+   "args": {"tex": "lp", "fontsize": 10.0, "dpi": 72.0, "rc": {}},
+   "value": {
+    "text": [
+     [0.0, 0.0, "cmr10", 9.962640099626402, 108, 2.7674084731086555, 110, "cmr10.pfb", {}],
+     [2.7674084731086555, 0.0, "cmr10", 9.962640099626402, 112, 5.534816946217311, 114, "cmr10.pfb", {}]
+    ],
+    "boxes": [],
+    "width": 8.302225419325966,
+    "height": 6.918498380098071,
+    "descent": 1.9371783302848695
+   }
+  },
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "cmex10"}, "value": {"psname": "CMEX10", "effects": {}, "encoding": null, "filename": "cmex10.pfb"}},
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "cmmi12"}, "value": {"psname": "CMMI12", "effects": {}, "encoding": null, "filename": "cmmi12.pfb"}},
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "cmr10"}, "value": {"psname": "CMR10", "effects": {}, "encoding": null, "filename": "cmr10.pfb"}},
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "cmsy10"}, "value": {"psname": "CMSY10", "effects": {}, "encoding": null, "filename": "cmsy10.pfb"}},
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "eufm10"}, "value": {"psname": "EUFM10", "effects": {}, "encoding": null, "filename": "eufm10.pfb"}},
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "msam10"}, "value": {"psname": "MSAM10", "effects": {}, "encoding": null, "filename": "msam10.pfb"}},
+  {"op": "dviread.PsfontsMap.pdftex", "args": {"texname": "no-such-font"}, "error": "LookupError"},
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "pcrr8r"},
+   "value": {"psname": "NimbusMonL-Regu", "effects": {}, "encoding": "8r.enc", "filename": "ucrr8a.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "phvr8r"},
+   "value": {"psname": "NimbusSanL-Regu", "effects": {}, "encoding": "8r.enc", "filename": "uhvr8a.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "pplr8r"},
+   "value": {"psname": "URWPalladioL-Roma", "effects": {}, "encoding": "8r.enc", "filename": "uplr8a.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "ptmr8r"},
+   "value": {"psname": "NimbusRomNo9L-Regu", "effects": {}, "encoding": "8r.enc", "filename": "utmr8a.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "ptmro8r"},
+   "value": {"psname": "NimbusRomNo9L-Regu", "effects": {"slant": 0.167}, "encoding": "8r.enc", "filename": "utmr8a.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "pzcmi8r"},
+   "value": {"psname": "URWChanceryL-MediItal", "effects": {}, "encoding": "8r.enc", "filename": "uzcmi8a.pfb"}
+  },
+  {
+   "op": "dviread.PsfontsMap.pdftex",
+   "args": {"texname": "tcrm1000"},
+   "value": {"psname": "SFRM1000", "effects": {}, "encoding": "cm-super-ts1.enc", "filename": "sfrm1000.pfb"}
+  },
+  {"op": "dviread.find_tex_file", "args": {"name": "8r.enc"}, "value": "8r.enc"},
+  {"op": "dviread.find_tex_file", "args": {"name": "cmr10.pfb"}, "value": "cmr10.pfb"},
+  {"op": "dviread.find_tex_file", "args": {"name": "cmr10.tfm"}, "value": "cmr10.tfm"},
+  {"op": "dviread.find_tex_file", "args": {"name": "no-such-file.tfm"}, "error": "FileNotFoundError"},
+  {"op": "dviread.find_tex_file", "args": {"name": "ptmr7t.vf"}, "value": "ptmr7t.vf"},
+  {"op": "dviread.find_tex_file", "args": {"name": "type1ec.sty"}, "value": "type1ec.sty"},
+  {"op": "test_usetex.minus_no_descent", "args": {"fontsize": 10.0}, "value": [10, 10, 10]},
+  {"op": "test_usetex.minus_no_descent", "args": {"fontsize": 12.0}, "value": [12, 12, 12]},
+  {"op": "test_usetex.minus_no_descent", "args": {"fontsize": 8.0}, "value": [8, 8, 8]}
+ ]
+}

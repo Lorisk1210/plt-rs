@@ -10,6 +10,7 @@ mod draw;
 mod filter;
 mod glyph;
 mod mono;
+mod tex;
 mod text;
 
 use std::fmt;

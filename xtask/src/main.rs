@@ -203,8 +203,9 @@ fn figure_cases(args: &[String]) -> ExitCode {
     let selected = |name: &str| prefixes.is_empty() || prefixes.iter().any(|p| name.starts_with(p));
     let translated = figures::translated_cases();
 
-    let mut groups: BTreeMap<String, [usize; 3]> = BTreeMap::new();
+    let mut groups: BTreeMap<String, [usize; 4]> = BTreeMap::new();
     let mut failures = Vec::new();
+    let mut skipped = Vec::new();
     for name in figures::golden_case_names()
         .into_iter()
         .filter(|n| selected(n))
@@ -221,26 +222,36 @@ fn figure_cases(args: &[String]) -> ExitCode {
                 counts[1] += 1;
                 failures.push(format!("FAIL {name}: {why}"));
             }
-            CaseVerdict::Untranslated => counts[2] += 1,
+            CaseVerdict::Skipped(why) => {
+                counts[2] += 1;
+                skipped.push(format!("SKIP {name}: {why}"));
+            }
+            CaseVerdict::Untranslated => counts[3] += 1,
         }
     }
 
     println!(
-        "{:<20} {:>8} {:>8} {:>12}",
-        "group", "pass", "fail", "untranslated"
+        "{:<20} {:>8} {:>8} {:>8} {:>12}",
+        "group", "pass", "fail", "skip", "untranslated"
     );
-    let mut totals = [0_usize; 3];
+    let mut totals = [0_usize; 4];
     for (group, counts) in &groups {
         println!(
-            "{group:<20} {:>8} {:>8} {:>12}",
-            counts[0], counts[1], counts[2]
+            "{group:<20} {:>8} {:>8} {:>8} {:>12}",
+            counts[0], counts[1], counts[2], counts[3]
         );
         for (total, n) in totals.iter_mut().zip(counts) {
             *total += n;
         }
     }
-    let [pass, fail, untranslated] = totals;
-    println!("{:<20} {pass:>8} {fail:>8} {untranslated:>12}", "TOTAL");
+    let [pass, fail, skip, untranslated] = totals;
+    println!(
+        "{:<20} {pass:>8} {fail:>8} {skip:>8} {untranslated:>12}",
+        "TOTAL"
+    );
+    if let Some(first) = skipped.first() {
+        println!("{} case(s) skipped, e.g. {first}", skipped.len());
+    }
     if show_failures {
         for failure in &failures {
             println!("{failure}");
@@ -302,37 +313,42 @@ fn spec(args: &[String]) -> ExitCode {
 
 fn print_summary(reports: &[AreaReport], show_failures: bool) {
     println!(
-        "{:<20} {:>8} {:>8} {:>8} {:>8} {:>8}",
-        "area", "pass", "fail", "waived", "missing", "total"
+        "{:<20} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
+        "area", "pass", "fail", "waived", "skipped", "missing", "total"
     );
-    let mut totals = [0_usize; 5];
+    let mut totals = [0_usize; 6];
     for report in reports {
         let missing: usize = report.unimplemented.values().sum();
         let row = [
             report.passed,
             report.failures.len(),
             report.waived.len(),
+            report.skipped.len(),
             missing,
             report.total(),
         ];
         println!(
-            "{:<20} {:>8} {:>8} {:>8} {:>8} {:>8}",
-            report.area, row[0], row[1], row[2], row[3], row[4]
+            "{:<20} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
+            report.area, row[0], row[1], row[2], row[3], row[4], row[5]
         );
         for (total, value) in totals.iter_mut().zip(row) {
             *total += value;
         }
     }
-    let [pass, fail, waived, missing, total] = totals;
-    let percent = if total == 0 {
+    let [pass, fail, waived, skipped, missing, total] = totals;
+    let percent = if total == skipped {
         0.0
     } else {
-        100.0 * pass as f64 / total as f64
+        100.0 * pass as f64 / (total - skipped) as f64
     };
     println!(
-        "{:<20} {pass:>8} {fail:>8} {waived:>8} {missing:>8} {total:>8}  ({percent:.1}% passing)",
+        "{:<20} {pass:>8} {fail:>8} {waived:>8} {skipped:>8} {missing:>8} {total:>8}  \
+         ({percent:.1}% of those run passing)",
         "TOTAL"
     );
+    if let Some(reason) = reports.iter().find_map(|r| r.skipped.first()) {
+        println!("{skipped} probe(s) skipped, e.g. {reason}");
+    }
 
     if show_failures {
         for report in reports {

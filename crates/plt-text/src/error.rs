@@ -26,6 +26,8 @@ pub enum TextError {
         /// The unknown name.
         name: String,
     },
+    /// TeX could not typeset or draw usetex text.
+    Tex(crate::tex::TexError),
 }
 
 impl TextError {
@@ -53,11 +55,25 @@ impl fmt::Display for TextError {
                  for layout"
             ),
             Self::UnknownName { kind, name } => write!(f, "{name:?} is not a valid {kind}"),
+            Self::Tex(err) => err.fmt(f),
         }
     }
 }
 
-impl std::error::Error for TextError {}
+impl std::error::Error for TextError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Tex(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<crate::tex::TexError> for TextError {
+    fn from(err: crate::tex::TexError) -> Self {
+        Self::Tex(err)
+    }
+}
 
 impl From<plt_font::FontError> for TextError {
     fn from(err: plt_font::FontError) -> Self {

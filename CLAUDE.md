@@ -95,6 +95,10 @@ must reproduce them.
   `spec/reference/not_applicable.txt` as `test_file.py::test_name:
   reason`) and unaccounted. `--strict` fails on unaccounted tests and on
   ledger lines naming a test that is gone or ported.
+* usetex needs TeX on `PATH` (here TinyTeX:
+  `export PATH="$HOME/.TinyTeX/bin/x86_64-linux:$PATH"`). Without it,
+  every check skips the `usetex` group and the TeX probes and says so;
+  run the checks both ways when changing text or the backends.
 * `cargo xtask render --look modern|modern-dark PREFIX...` renders cases
   in plt-rs' own looks instead, to `spec/out/look-<look>/` (no goldens, so
   no diff): the way to review how the modern looks treat a feature.
@@ -107,9 +111,10 @@ must reproduce them.
   before and after.
 * Robustness: `cargo test -p plt --test fuzz` feeds seeded random input
   to the parsers, plotting, output and interaction;
-  `cargo test -p plt -p plt-ui -p plt-platform --lib fuzz_tests` fuzzes
-  crate-private code (the web server's HTTP/WebSocket/messages, X11
-  replies and events, the GUI dialogs and widgets, the config lookup).
+  `cargo test -p plt -p plt-ui -p plt-platform -p plt-text --lib fuzz_tests`
+  fuzzes crate-private code (the web server's HTTP/WebSocket/messages,
+  X11 replies and events, the GUI dialogs and widgets, the config lookup,
+  the DVI/VF/TFM/font-map readers of usetex).
   `PLT_FUZZ_SCALE=50` runs longer, and `PLT_FUZZ_REPLAY=<seed>` reruns a
   failure.
   Absurd input must return an error, never panic, hang or exhaust

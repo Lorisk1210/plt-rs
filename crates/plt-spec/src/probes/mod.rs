@@ -48,6 +48,8 @@ pub enum ProbeError {
     Rejected(String),
     /// The golden's arguments could not be interpreted (a harness bug).
     BadArgs(String),
+    /// The probe cannot run here (it needs TeX, which is missing).
+    Skipped(String),
 }
 
 impl fmt::Display for ProbeError {
@@ -55,6 +57,7 @@ impl fmt::Display for ProbeError {
         match self {
             Self::Rejected(why) => write!(f, "rejected: {why}"),
             Self::BadArgs(why) => write!(f, "bad probe arguments: {why}"),
+            Self::Skipped(why) => write!(f, "skipped: {why}"),
         }
     }
 }
@@ -196,6 +199,8 @@ pub enum Verdict {
     Fail(String),
     /// plt-rs deliberately disagrees; see [`waivers`].
     Waived(&'static waivers::Waiver),
+    /// The probe cannot run here (it needs TeX, which is missing).
+    Skipped(String),
 }
 
 impl Probe {
@@ -215,6 +220,9 @@ impl Probe {
             return Verdict::Unimplemented;
         };
         let outcome = (op.eval)(Args::new(&self.args));
+        if let Err(ProbeError::Skipped(why)) = outcome {
+            return Verdict::Skipped(why);
+        }
         let tol = self
             .tol
             .map_or_else(Tolerance::default, Tolerance::relative);
@@ -239,7 +247,7 @@ impl Probe {
                 "{} {}: expected {want}, got {err}",
                 self.op, self.args
             )),
-            (Expected::Error(_), Err(err @ ProbeError::BadArgs(_))) => {
+            (Expected::Error(_), Err(err @ (ProbeError::BadArgs(_) | ProbeError::Skipped(_)))) => {
                 Verdict::Fail(format!("{} {}: {err}", self.op, self.args))
             }
         }
@@ -259,6 +267,8 @@ pub struct AreaReport {
     pub waived: Vec<String>,
     /// Unimplemented operations and how many probes use each.
     pub unimplemented: BTreeMap<String, usize>,
+    /// Probes that cannot run here, with the reason.
+    pub skipped: Vec<String>,
 }
 
 impl AreaReport {
@@ -267,6 +277,7 @@ impl AreaReport {
         self.passed
             + self.failures.len()
             + self.waived.len()
+            + self.skipped.len()
             + self.unimplemented.values().sum::<usize>()
     }
 }
@@ -289,6 +300,7 @@ pub fn run(file: &ProbeFile, ops: &[Op]) -> AreaReport {
             Verdict::Unimplemented => {
                 *report.unimplemented.entry(probe.op.clone()).or_default() += 1;
             }
+            Verdict::Skipped(why) => report.skipped.push(format!("{}: {why}", probe.op)),
         }
     }
     report
@@ -322,6 +334,8 @@ const AREAS: &[(&str, &[Op])] = &[
     ("text_shaping", areas::text_shaping::OPS),
     ("afm", areas::afm::OPS),
     ("type1font", areas::type1font::OPS),
+    ("texmanager", areas::texmanager::OPS),
+    ("usetex", areas::usetex::OPS),
     ("mathtext", areas::mathtext::OPS),
     ("stats", areas::stats::OPS),
     ("argsort", areas::argsort::OPS),

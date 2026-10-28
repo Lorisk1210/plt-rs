@@ -10,7 +10,8 @@
 //! `PdfPages`), with text notes attached to them.
 //!
 //! TrueType fonts are embedded as Type 3 fonts or, with `pdf.fonttype =
-//! 42`, as `CIDFontType2` subsets of the font program. With
+//! 42`, as `CIDFontType2` subsets of the font program; the fonts of usetex
+//! text as subsets of their Type 1 programs (see `tex`). With
 //! `pdf.use14corefonts`, text that is not mathtext is shown in one of the
 //! 14 PDF core fonts instead, referenced by name and never embedded (see
 //! `core_fonts`).
@@ -25,19 +26,22 @@ mod object;
 mod pages;
 mod resources;
 mod state;
+mod tex;
 mod text;
 mod type42;
 mod writer;
 
 use plt_core::path::convert::{SimplifySettings, SketchParams, StringCodes, StringOptions};
 use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
-use plt_text::{AfmDirectory, TextRun};
+use plt_text::tex::TexError;
+use plt_text::{AfmDirectory, TextRun, TextSource};
 
 use self::fonts::FontNames;
 use self::object::Obj;
 use self::pages::{Note, PageParents, Pages};
 use self::resources::{ResourceIds, Resources};
 use self::state::{PdfState, StateStack};
+use self::tex::DviFonts;
 use self::writer::PdfWriter;
 use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
@@ -138,6 +142,8 @@ pub struct PdfRenderer {
     resources: Resources,
     states: StateStack,
     font_names: FontNames,
+    /// The TeX fonts of usetex text.
+    dvi_fonts: DviFonts,
     tracker: CharacterTracker,
     fonts: FontCache,
     options: PdfOptions,
@@ -222,6 +228,7 @@ impl PdfRenderer {
             resources: Resources::default(),
             states,
             font_names: FontNames::default(),
+            dvi_fonts: DviFonts::default(),
             tracker: CharacterTracker::new(options.fonttype.subset_size()),
             fonts: FontCache::default(),
             options,
@@ -312,8 +319,10 @@ impl PdfRenderer {
     pub fn finish(mut self) -> Result<Vec<u8>, VectorError> {
         self.end_page()?;
         self.pages.write_annotations(&mut self.writer)?;
+        let tex_fonts = self.dvi_fonts.embed(&mut self.writer)?;
         fonts::write_fonts(
             &mut self.writer,
+            tex_fonts,
             &mut self.fonts,
             &self.font_names,
             &self.tracker,
@@ -432,6 +441,22 @@ impl Renderer for PdfRenderer {
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         self.begin_draw();
         self.pdf_text(gc, run, origin, angle);
+    }
+
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        self.begin_draw();
+        if let Some(TextSource::Tex(tex)) = &run.source {
+            self.pdf_tex(gc, tex, origin, angle)
+        } else {
+            self.pdf_text(gc, run, origin, angle);
+            Ok(())
+        }
     }
 
     fn open_group(&mut self, _name: &str, _gid: Option<&str>) {

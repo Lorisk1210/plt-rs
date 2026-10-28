@@ -174,6 +174,11 @@ impl PdfRenderer {
             crate::renderer::fill_text(self, gc, run, origin, angle);
             return;
         };
+        if let TextSource::Tex(tex) = source {
+            let result = self.pdf_tex(gc, tex, origin, angle);
+            self.problems.record(result.map_err(VectorError::from));
+            return;
+        }
         self.check_gc(gc, Some(gc.stroke_color()));
         // Core-font text ignores the features and language, as matplotlib
         // does.
@@ -212,7 +217,7 @@ impl PdfRenderer {
         angle: f64,
     ) {
         let extent = match source {
-            TextSource::Math { .. } => Ok((points.width, points.height)),
+            TextSource::Math { .. } | TextSource::Tex(_) => Ok((points.width, points.height)),
             TextSource::Plain {
                 text,
                 font,

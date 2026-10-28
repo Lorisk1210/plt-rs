@@ -10,11 +10,17 @@
 //! * [`SvgRenderer`] writes the SVG documents of matplotlib's `RendererSVG`
 //!   (text as glyph paths).
 //! * [`PdfRenderer`] writes the PDF documents of matplotlib's
-//!   `RendererPdf` (text in Type 3 fonts).
+//!   `RendererPdf` (text in Type 3 fonts, usetex text in the Type 1 fonts
+//!   of its DVI file).
 //! * [`PsRenderer`] writes the PostScript and EPS documents of
 //!   matplotlib's `RendererPS` (text in Type 3 fonts).
 //! * [`PgfRenderer`] writes the LaTeX PGF pictures of matplotlib's
 //!   `RendererPgf` (text left to LaTeX).
+//!
+//! TeX text (`text.usetex`) reaches a backend through
+//! [`Renderer::draw_tex`], which each backend implements as matplotlib's
+//! `draw_tex`: from the DVI file's glyphs (or `dvipng`'s image), as
+//! embedded Type 1 fonts, as glyph paths, or as LaTeX source.
 //!
 //! The vector backends draw in points, rasterize images at their own
 //! resolution ([`Renderer::image_magnification`]) and share [`Metadata`]

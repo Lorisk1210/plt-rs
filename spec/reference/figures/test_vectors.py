@@ -9,9 +9,12 @@ plus the figures of matplotlib's own PDF, PostScript and SVG backend tests
 (``mpl_backends``).
 Some cases are saved again with other font settings (Type 42 fonts, SVG text
 as text, standard PostScript fonts), and two cases are collected into one
-multi-page PDF. plt-rs compares its own documents with these structurally
-(plt-spec's ``figure_vectors`` test); keep the lists in sync with
-``VECTOR_CASES``, ``VECTOR_VARIANTS`` and ``PDF_PAGES`` there.
+multi-page PDF. The usetex cases of ``TEX_VECTOR_CASES`` are saved as SVG
+and PDF only (matplotlib's usetex PostScript needs psfrag and Ghostscript)
+and skipped where TeX is missing. plt-rs compares its own documents with
+these structurally (plt-spec's ``figure_vectors`` test); keep the lists in
+sync with ``VECTOR_CASES``, ``TEX_VECTOR_CASES``, ``VECTOR_VARIANTS`` and
+``PDF_PAGES`` there.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ import pytest
 
 from spec_support import all_cases
 from spec_support.figcases import FIGURE_ROOT, VECTOR_METADATA
+from spec_support.tex import needs_usetex
 
 for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
     importlib.import_module(f"figures.{module.stem}")
@@ -99,6 +103,17 @@ VECTOR_CASES = [
 
 FORMATS = ["svg", "pdf", "ps"]
 
+#: usetex cases, saved as SVG and PDF.
+TEX_VECTOR_CASES = [
+    "usetex/math_display",
+    "usetex/mpl_test_usetex",
+    "usetex/pdf_kerning",
+    "usetex/rotation",
+    "usetex/ticks",
+]
+
+TEX_FORMATS = ["svg", "pdf"]
+
 #: Cases saved again with other settings: case, variant name (part of the
 #: golden's file name), rcParams and formats.
 VECTOR_VARIANTS = [
@@ -128,6 +143,14 @@ def _check(path, document, update_goldens):
 @pytest.mark.parametrize("fmt", FORMATS)
 @pytest.mark.parametrize("name", VECTOR_CASES)
 def test_vector_case(name, fmt, update_goldens):
+    case = _BY_NAME[name]
+    _check(case.vector_path(fmt), case.render_vector(fmt), update_goldens)
+
+
+@needs_usetex
+@pytest.mark.parametrize("fmt", TEX_FORMATS)
+@pytest.mark.parametrize("name", TEX_VECTOR_CASES)
+def test_tex_vector_case(name, fmt, update_goldens):
     case = _BY_NAME[name]
     _check(case.vector_path(fmt), case.render_vector(fmt), update_goldens)
 

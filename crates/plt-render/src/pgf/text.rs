@@ -10,7 +10,7 @@ use std::fmt::Write as _;
 
 use plt_core::Point;
 use plt_font::FontStyle;
-use plt_text::{FontRequest, HAlign, RotationMode, TextRun, TextSource, VAlign};
+use plt_text::{FontRequest, HAlign, RotationMode, TextRun, VAlign};
 
 use super::{PgfRenderer, num};
 use crate::gc::GraphicsContext;
@@ -44,11 +44,7 @@ impl PgfRenderer {
             fill_text(self, gc, run, origin, angle);
             return;
         };
-        let font = match source {
-            TextSource::Plain { font, .. } => font,
-            TextSource::Math { style, .. } => &style.font,
-        };
-        let text = escape_and_apply_props(source.text(), &self.font_commands(font));
+        let text = escape_and_apply_props(source.text(), &self.font_commands(source.font()));
         self.line(r"\begin{pgfscope}");
         self.clip(gc);
         let alpha = gc.alpha.unwrap_or(1.0);

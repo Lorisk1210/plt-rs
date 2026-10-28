@@ -1,7 +1,8 @@
 //! The drawing interface every output backend implements.
 
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::{TextEngine, TextRun};
+use plt_text::tex::{TEX_FONT_SCALE, TexError, TexText};
+use plt_text::{TextEngine, TextRun, TextSource};
 
 use crate::collection::PathCollection;
 use crate::filter::FilterFn;
@@ -110,6 +111,33 @@ pub trait Renderer {
         fill_text(self, gc, run, origin, angle);
     }
 
+    /// Draws a line of TeX text (a run whose source is
+    /// [`TextSource::Tex`]) with its origin at `origin`, rotated by
+    /// `angle` degrees counter-clockwise about it (matplotlib's
+    /// `draw_tex`). Runs of other text are drawn by
+    /// [`draw_text`](Self::draw_text).
+    ///
+    /// The default fills the outline matplotlib's `TextToPath` makes of
+    /// the typeset text (`RendererBase.draw_tex`).
+    ///
+    /// # Errors
+    ///
+    /// When TeX cannot typeset the text or its fonts cannot be drawn.
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        if let Some(TextSource::Tex(tex)) = &run.source {
+            fill_tex(self, gc, tex, origin, angle)
+        } else {
+            self.draw_text(gc, run, origin, angle);
+            Ok(())
+        }
+    }
+
     /// Starts a named group of draw calls (vector backends emit a group).
     fn open_group(&mut self, _name: &str, _gid: Option<&str>) {}
 
@@ -163,6 +191,28 @@ pub trait Renderer {
     fn image_magnification(&self) -> f64 {
         1.0
     }
+}
+
+/// Fills the outline of TeX text at `origin`, rotated by `angle`, in the
+/// stroke colour of `gc` (matplotlib's `_draw_text_as_path` with
+/// `ismath="TeX"`): typeset at `TextToPath`'s size, then scaled to the
+/// text's size in pixels.
+pub(crate) fn fill_tex<R: Renderer + ?Sized>(
+    renderer: &mut R,
+    gc: &GraphicsContext,
+    tex: &TexText,
+    origin: Point,
+    angle: f64,
+) -> Result<(), TexError> {
+    let path = tex.text_path()?;
+    let scale = renderer.points_to_pixels(tex.size()) / TEX_FONT_SCALE;
+    let transform = Affine2D::scaling(scale, scale)
+        .rotate_deg(angle)
+        .translate(origin.x, origin.y);
+    let mut fill_gc = gc.clone();
+    fill_gc.linewidth = 0.0;
+    renderer.draw_path(&fill_gc, &path, &transform, Some(gc.stroke_color()));
+    Ok(())
 }
 
 /// Fills every glyph outline and rule of `run` as a path in the stroke

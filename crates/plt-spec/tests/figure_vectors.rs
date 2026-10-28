@@ -1,7 +1,8 @@
 //! Structural comparison of plt-rs's SVG, PDF and PostScript documents
-//! with matplotlib's: the cases in `VECTOR_CASES`, the font variants in
-//! `VECTOR_VARIANTS` (Type 42 fonts, SVG text as text) and the multi-page
-//! PDF of `PDF_PAGES`.
+//! with matplotlib's: the cases in `VECTOR_CASES`, the usetex cases in
+//! `TEX_VECTOR_CASES` (SVG and PDF, skipped without TeX), the font variants
+//! in `VECTOR_VARIANTS` (Type 42 fonts, SVG text as text) and the
+//! multi-page PDF of `PDF_PAGES`.
 //!
 //! Both documents are reduced to drawing items (see
 //! `plt_spec::figures::vector`): ids, object numbers, metadata, comments,
@@ -162,6 +163,40 @@ fn vector_variants_match_matplotlib_structurally() {
     assert!(
         failures.is_empty(),
         "vector variant failures:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn tex_documents_match_matplotlib_structurally() {
+    let mut failures = Vec::new();
+    for name in vector::TEX_VECTOR_CASES {
+        let case = translated(name);
+        if let Some(reason) = case.skip_reason() {
+            println!("{name:<40} skipped: {reason}");
+            continue;
+        }
+        for &format in vector::TEX_FORMATS {
+            dump(
+                &name.replace('/', "__"),
+                format,
+                &case.vector_path(format),
+                vector::render_vector(&case, format).ok(),
+            );
+            match vector::vector_report(&case, format) {
+                Ok(report) => {
+                    println!("{name:<40} {format:<4} {report}");
+                    if let Some(problem) = problems(&report) {
+                        failures.push(format!("{name} {format}: {problem}"));
+                    }
+                }
+                Err(err) => failures.push(format!("{name} {format}: {err}")),
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "TeX vector comparison failures:\n{}",
         failures.join("\n")
     );
 }

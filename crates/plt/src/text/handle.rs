@@ -198,6 +198,11 @@ artist_properties! {
         wrap, set_wrap: bool;
         /// Whether `$...$` is typeset as math (`text.parse_math`).
         parse_math, set_parse_math: bool;
+        /// Whether LaTeX typesets the text (matplotlib's `usetex`, by
+        /// default `text.usetex` when the text was made): every line is
+        /// typeset by `latex` on its own and drawn from its DVI output.
+        /// Drawing fails where TeX is not installed.
+        usetex, set_usetex: bool;
         /// OpenType feature settings on top of the font's defaults
         /// (matplotlib's `fontfeatures`, e.g. `-kern`, `ss01`, `aalt=2`,
         /// `liga[0:3]=0`; parse them with `str::parse`), applied when the

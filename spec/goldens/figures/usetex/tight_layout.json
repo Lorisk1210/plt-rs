@@ -1,0 +1,58 @@
+{
+ "size_px": [400, 300],
+ "suptitle": "",
+ "axes": [
+  {
+   "kind": "rectilinear",
+   "position": [0.202534, 0.657923, 0.294728, 0.225863],
+   "title": "Panel $0$",
+   "xlim": [-0.05, 1.05],
+   "ylim": [-0.055, 0.055],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "$x_{0}$",
+   "ylabel": "$\\int f_{0}$",
+   "xticks": [[0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{1}$"]],
+   "yticks": [[-0.05, "$\\mathdefault{−0.05}$"], [0.0, "$\\mathdefault{0.00}$"], [0.05, "$\\mathdefault{0.05}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.661683, 0.657923, 0.294728, 0.225863],
+   "title": "Panel $1$",
+   "xlim": [-0.05, 1.05],
+   "ylim": [-0.05, 1.05],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "$x_{1}$",
+   "ylabel": "$\\int f_{1}$",
+   "xticks": [[0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{1}$"]],
+   "yticks": [[0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{1}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.202534, 0.182923, 0.294728, 0.225863],
+   "title": "Panel $2$",
+   "xlim": [-0.05, 1.05],
+   "ylim": [-0.1, 2.1],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "$x_{2}$",
+   "ylabel": "$\\int f_{2}$",
+   "xticks": [[0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{1}$"]],
+   "yticks": [[0.0, "$\\mathdefault{0}$"], [2.0, "$\\mathdefault{2}$"]]
+  },
+  {
+   "kind": "rectilinear",
+   "position": [0.661683, 0.182923, 0.294728, 0.225863],
+   "title": "Panel $3$",
+   "xlim": [-0.05, 1.05],
+   "ylim": [-0.15, 3.15],
+   "xscale": "linear",
+   "yscale": "linear",
+   "xlabel": "$x_{3}$",
+   "ylabel": "$\\int f_{3}$",
+   "xticks": [[0.0, "$\\mathdefault{0}$"], [1.0, "$\\mathdefault{1}$"]],
+   "yticks": [[0.0, "$\\mathdefault{0}$"], [2.0, "$\\mathdefault{2}$"]]
+  }
+ ]
+}

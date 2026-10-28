@@ -63,6 +63,10 @@ pub struct FigureCase {
     pub build: fn(&Figure) -> CaseResult,
     /// Where the case's image comes from.
     pub capture: Capture,
+    /// Whether the case typesets text with TeX (`text.usetex`): it is
+    /// skipped where TeX is not installed (a `needs_tex=True` case in the
+    /// Python spec).
+    pub needs_tex: bool,
 }
 
 impl fmt::Debug for FigureCase {
@@ -85,7 +89,29 @@ impl FigureCase {
             rc_setup: None,
             build,
             capture: Capture::Savefig,
+            needs_tex: false,
         }
+    }
+
+    /// The same case, typesetting with TeX: skipped where TeX is missing.
+    #[must_use]
+    pub const fn needing_tex(self) -> Self {
+        Self {
+            needs_tex: true,
+            ..self
+        }
+    }
+
+    /// Why the case cannot run here, if it cannot: it needs TeX and TeX
+    /// is not installed (matplotlib's `_checkdep_usetex`, Ghostscript
+    /// aside).
+    pub fn skip_reason(&self) -> Option<String> {
+        if !self.needs_tex {
+            return None;
+        }
+        plt::text::check_usetex()
+            .err()
+            .map(|err| format!("needs TeX: {err}"))
     }
 
     /// The same case taken from the figure's canvas, on which it draws and
@@ -227,6 +253,8 @@ pub enum CaseVerdict {
     Pass,
     /// No Rust translation of this case exists yet.
     Untranslated,
+    /// The case cannot run here (it needs TeX, which is missing).
+    Skipped(String),
     /// The case failed to build or its facts differ.
     Fail(String),
 }
@@ -263,6 +291,9 @@ pub fn golden_case_names() -> Vec<String> {
 
 /// Builds a case and compares its facts with the golden.
 pub fn judge(case: &FigureCase) -> CaseVerdict {
+    if let Some(reason) = case.skip_reason() {
+        return CaseVerdict::Skipped(reason);
+    }
     let golden = std::fs::read_to_string(case.facts_path())
         .map_err(|e| e.to_string())
         .and_then(|text| Json::parse(&text).map_err(|e| e.to_string()));

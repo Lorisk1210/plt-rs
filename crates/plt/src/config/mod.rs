@@ -109,7 +109,9 @@ pub fn config_dir() -> Result<PathBuf, ConfigError> {
 
 /// The cache directory (matplotlib's `get_cachedir`), looked up as
 /// [`config_dir`] is with `$XDG_CACHE_HOME` (by default `~/.cache`) in
-/// place of `$XDG_CONFIG_HOME`. plt-rs caches nothing there itself.
+/// place of `$XDG_CONFIG_HOME`. plt-rs keeps there what `text.usetex`
+/// makes, in `tex.cache` as matplotlib does (and the fonts kpathsea
+/// generates in `vartexfonts`).
 ///
 /// # Errors
 ///

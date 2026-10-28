@@ -69,7 +69,7 @@ fn frozenset_hash(glyphs: &[u16]) -> u64 {
 
 /// `_get_subset_prefix`: six base-26 letters of the glyph set's hash and
 /// a plus sign.
-fn subset_prefix(glyphs: &[u16]) -> String {
+pub(super) fn subset_prefix(glyphs: &[u16]) -> String {
     let mut n = frozenset_hash(glyphs);
     let mut letters = Vec::new();
     loop {
@@ -371,12 +371,14 @@ fn embed_type3(
     Ok(dict_id)
 }
 
-/// `writeFonts`: references the core fonts used (matplotlib's data
+/// `writeFonts`: after the entries of the TeX fonts embedded already
+/// (`tex_fonts`), references the core fonts used (matplotlib's data
 /// directory sorts them before its TrueType fonts), embeds every used
 /// subset, sorted by font file and subset, and writes the font resource
 /// dictionary as object `dictionary`.
 pub(super) fn write_fonts(
     writer: &mut PdfWriter,
+    tex_fonts: Vec<(String, Obj)>,
     fonts: &mut FontCache,
     names: &FontNames,
     tracker: &CharacterTracker,
@@ -396,7 +398,7 @@ pub(super) fn write_fonts(
     }
     core.sort_by_key(|(font, _)| font.file);
     used.sort_by(|a, b| (&a.0, a.1).cmp(&(&b.0, b.1)));
-    let mut entries = Vec::new();
+    let mut entries = tex_fonts;
     for (font, name) in core {
         let dict = super::core_fonts::write_core_font(writer, font)?;
         entries.push((name, Obj::Ref(dict)));

@@ -11,6 +11,8 @@
 //!   rotation of a text block.
 //! * [`mathtext`] — matplotlib's TeX-like math typesetting.
 //! * [`fontconfig`] — the fontconfig patterns font properties are written in.
+//! * [`tex`] — `text.usetex`: typesetting with LaTeX and reading its DVI
+//!   output (matplotlib's `texmanager` and `dviread`).
 //! * AFM text metrics — [`FontRequest::afm_line_metrics`] and
 //!   [`FontRequest::afm_height_metrics`] measure text in the standard
 //!   PostScript fonts as matplotlib's PDF and PostScript backends do with
@@ -26,6 +28,17 @@ pub mod mathtext;
 mod memo;
 mod run;
 mod shaping;
+pub mod tex;
+
+/// The harness of plt's fuzz tests (`crates/plt/tests/fuzz`), driving the
+/// unit tests that fuzz TeX's file formats.
+#[cfg(test)]
+#[allow(
+    dead_code,
+    reason = "plt's fuzz tests use every generator, these unit tests only some"
+)]
+#[path = "../../plt/tests/fuzz/harness.rs"]
+mod fuzz;
 
 pub use block::{
     BlockLayout, BlockStyle, FontHeightMetrics, HAlign, LineMetrics, LinePlacement, LineSpacing,

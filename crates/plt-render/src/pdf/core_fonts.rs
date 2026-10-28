@@ -113,21 +113,7 @@ impl PdfRenderer {
             Obj::Real(font.query.size),
             Obj::op("Tf"),
         ]);
-        if angle == 0.0 {
-            self.output(&[Obj::Real(origin.x), Obj::Real(origin.y), Obj::op("Td")]);
-        } else {
-            let (sin, cos) = angle.to_radians().sin_cos();
-            self.output(&[
-                Obj::Real(cos),
-                Obj::Real(sin),
-                Obj::Real(-sin),
-                Obj::Real(cos),
-                Obj::Real(origin.x),
-                Obj::Real(origin.y),
-                Obj::op("Tm"),
-            ]);
-            self.output(&[Obj::Int(0), Obj::Int(0), Obj::op("Td")]);
-        }
+        self.setup_textpos(origin, angle, Point::ORIGIN);
         self.output(&[Obj::Str(encode_cp1252(text)), Obj::op("Tj"), Obj::op("ET")]);
     }
 }

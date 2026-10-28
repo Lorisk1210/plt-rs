@@ -14,6 +14,7 @@
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_text::TextRun;
+use plt_text::tex::TexError;
 
 use crate::collection::PathCollection;
 use crate::filter::FilterFn;
@@ -135,6 +136,16 @@ impl Renderer for MixedModeRenderer<'_> {
 
     fn draw_quad_mesh(&mut self, gc: &GraphicsContext, mesh: &QuadMesh<'_>) {
         self.active().draw_quad_mesh(gc, mesh);
+    }
+
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        self.active().draw_tex(gc, run, origin, angle)
     }
 
     fn draw_gouraud_triangles(

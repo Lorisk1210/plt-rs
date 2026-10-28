@@ -15,7 +15,7 @@ use plt_text::{FontRequest, HAlign, RotationMode, TextRun, TextSource};
 use super::SvgRenderer;
 use super::style::{Style, TransformOp, css, transform_attr};
 use crate::gc::GraphicsContext;
-use crate::vector::{repr_str, short};
+use crate::vector::{VectorError, repr_str, short};
 
 /// The family names matplotlib treats as generic (`font_family_aliases`).
 const ALIASES: [&str; 7] = [
@@ -270,6 +270,11 @@ impl SvgRenderer {
                 self.plain_text_element(gc, run, text, font, origin, angle);
             }
             TextSource::Math { text, .. } => self.math_text_element(gc, run, text, origin, angle),
+            // TeX text is drawn as paths whatever `svg.fonttype` says.
+            TextSource::Tex(tex) => {
+                let result = self.svg_tex(gc, tex, origin, angle);
+                self.problems.record(result.map_err(VectorError::from));
+            }
         }
     }
 }

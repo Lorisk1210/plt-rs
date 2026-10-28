@@ -51,13 +51,24 @@ impl GlyphTransform {
     /// matplotlib's `_set_transform` for a glyph rotated by `angle` degrees
     /// with its origin at `pen` (display pixels, already on the 26.6 grid).
     pub(super) fn new(angle: f64, pen: Point) -> Self {
+        Self::with_effects(angle, 0.0, 1.0, pen)
+    }
+
+    /// matplotlib's `_set_transform` for a glyph of a font slanted by
+    /// `slant` and extended by `extend` (`psfonts.map` effects), rotated
+    /// by `angle` degrees with its origin at `pen`: the rotation matrix in
+    /// 16.16 times the effects, rounded to integers.
+    pub(super) fn with_effects(angle: f64, slant: f64, extend: f64, pen: Point) -> Self {
         let (sin, cos) = angle.to_radians().sin_cos();
-        let fixed = |v: f64| (65536.0 * v).round_ties_even() as i64;
+        let (c, s) = (65536.0 * cos, 65536.0 * -sin);
+        let (sc, cc) = (65536.0 * sin, 65536.0 * cos);
+        // `(0x10000 * R) @ [[extend, extend * slant], [0, 1]]`.
+        let fixed = |v: f64| v.round_ties_even() as i64;
         Self {
-            xx: fixed(cos),
-            xy: fixed(-sin),
-            yx: fixed(sin),
-            yy: fixed(cos),
+            xx: fixed(c * extend + s * 0.0),
+            xy: fixed(c * (extend * slant) + s),
+            yx: fixed(sc * extend + cc * 0.0),
+            yy: fixed(sc * (extend * slant) + cc),
             dx: (pen.x * 64.0).round() as i64,
             dy: (pen.y * 64.0).round() as i64,
         }
@@ -211,11 +222,9 @@ fn split_cubic(arc: [Fixed; 4]) -> ([Fixed; 4], [Fixed; 4]) {
     ([at(0), at(1), at(2), at(3)], [at(3), at(4), at(5), at(6)])
 }
 
-/// The glyph `outline` (pixels, origin at the pen) rotated by `angle`
-/// degrees and moved to `pen` (display pixels, y up, on the 26.6 grid),
-/// flattened as `FreeType` flattens it.
-pub(super) fn freetype_polygon(outline: &Path, angle: f64, pen: Point) -> Path {
-    let transform = GlyphTransform::new(angle, pen);
+/// The glyph `outline` (pixels, origin at the pen) placed by `transform`
+/// (display pixels, y up), flattened as `FreeType` flattens it.
+pub(super) fn freetype_polygon(outline: &Path, transform: &GlyphTransform) -> Path {
     let place = |p: Point| transform.apply(p);
     let mut flattener = Flattener::default();
     for segment in outline.segments() {
@@ -249,6 +258,16 @@ mod tests {
     }
 
     #[test]
+    fn effects_slant_and_extend_the_rotation() {
+        let plain = GlyphTransform::new(30.0, Point::ORIGIN);
+        let same = GlyphTransform::with_effects(30.0, 0.0, 1.0, Point::ORIGIN);
+        assert_eq!(plain.transform(64, 64), same.transform(64, 64));
+        let slanted = GlyphTransform::with_effects(0.0, 0.25, 2.0, Point::new(1.0, 2.0));
+        // x' = 2x + 0.5y + 64, y' = y + 128 (26.6).
+        assert_eq!(slanted.transform(64, 64), (2 * 64 + 32 + 64, 64 + 128));
+    }
+
+    #[test]
     fn flat_conics_are_lines() {
         let path = freetype_polygon(
             &conic(
@@ -256,8 +275,7 @@ mod tests {
                 Point::new(1.0, 0.1),
                 Point::new(2.0, 0.0),
             ),
-            0.0,
-            Point::ORIGIN,
+            &GlyphTransform::new(0.0, Point::ORIGIN),
         );
         assert_eq!(path.vertices().len(), 3, "move, line, close");
     }
@@ -270,8 +288,7 @@ mod tests {
                 Point::new(10.0, 20.0),
                 Point::new(20.0, 0.0),
             ),
-            0.0,
-            Point::ORIGIN,
+            &GlyphTransform::new(0.0, Point::ORIGIN),
         );
         // A deviation of 40 px (10240 units) falls within a quarter pixel
         // after four four-fold reductions: 2^4 = 16 segments.
@@ -291,7 +308,7 @@ mod tests {
                 Point::new(10.0, 0.0),
             )
             .build();
-        let flat = freetype_polygon(&path, 0.0, Point::ORIGIN);
+        let flat = freetype_polygon(&path, &GlyphTransform::new(0.0, Point::ORIGIN));
         let vertices = flat.vertices();
         assert!(vertices.len() > 8);
         assert_eq!(vertices[vertices.len() - 2], Point::new(10.0, 0.0));

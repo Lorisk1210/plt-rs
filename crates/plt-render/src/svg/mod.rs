@@ -14,15 +14,18 @@ mod draw;
 mod gouraud;
 mod metadata;
 mod style;
+mod tex;
 mod text;
 mod text_elements;
 mod xml;
 
 use std::collections::{HashMap, HashSet};
 
+use plt_codec::sha256::sha256_hex;
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::TextRun;
+use plt_text::tex::TexError;
+use plt_text::{TextRun, TextSource};
 
 use self::defs::{Clips, Hatches};
 use self::xml::XmlWriter;
@@ -30,9 +33,7 @@ use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
-use crate::vector::{
-    FontCache, Metadata, Problems, Timestamp, VectorError, check_canvas, sha256_hex, short,
-};
+use crate::vector::{FontCache, Metadata, Problems, Timestamp, VectorError, check_canvas, short};
 
 /// The XML declaration and doctype every document starts with.
 const PROLOG: &str = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n\
@@ -302,6 +303,21 @@ impl Renderer for SvgRenderer {
 
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
         self.svg_text(gc, run, origin, angle);
+    }
+
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        run: &TextRun,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        if let Some(TextSource::Tex(tex)) = &run.source {
+            self.svg_tex(gc, tex, origin, angle)
+        } else {
+            self.svg_text(gc, run, origin, angle);
+            Ok(())
+        }
     }
 
     fn open_group(&mut self, name: &str, gid: Option<&str>) {

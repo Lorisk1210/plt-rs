@@ -23,7 +23,7 @@ use crate::vector::{POINTS_DPI, VectorError, in_points, short};
 const FONT_SCALE: f64 = 100.0;
 
 /// `urllib.parse.quote` with its default safe characters.
-fn url_quote(text: &str) -> String {
+pub(super) fn url_quote(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for byte in text.bytes() {
         if byte.is_ascii_alphanumeric() || b"_.-~/".contains(&byte) {
@@ -36,7 +36,7 @@ fn url_quote(text: &str) -> String {
 }
 
 /// `_adjust_glyph_repr`: the id a glyph is defined and referenced by.
-fn adjusted(glyph_repr: &str) -> String {
+pub(super) fn adjusted(glyph_repr: &str) -> String {
     glyph_repr.replace("%20", "_")
 }
 
@@ -63,12 +63,19 @@ impl SvgRenderer {
             let outline = engine.glyph_outline(glyph.font, glyph.glyph, FONT_SCALE, POINTS_DPI)?;
             new.push((repr.clone(), outline));
         }
+        self.define_glyph_paths(new);
+        Ok(())
+    }
+
+    /// Writes the `<defs>` of glyphs not defined before, by `glyph_repr`,
+    /// their outlines (in pixels at `FONT_SCALE`) back in `FreeType`'s
+    /// integral 26.6 units.
+    pub(super) fn define_glyph_paths(&mut self, new: Vec<(String, Path)>) {
         if new.is_empty() {
-            return Ok(());
+            return;
         }
         self.writer.start("defs", &[]);
         for (repr, outline) in new {
-            // Back to FreeType's integral 26.6 units.
             let d = path_data(&outline, Affine2D::scaling(64.0, 64.0));
             self.writer.element(
                 "path",
@@ -85,7 +92,6 @@ impl SvgRenderer {
             self.glyphs.insert(repr);
         }
         self.writer.end(true);
-        Ok(())
     }
 
     /// The glyphs and rules of one text laid out at [`FONT_SCALE`]
@@ -138,15 +144,18 @@ impl SvgRenderer {
         Ok(())
     }
 
-    /// Writes the comment and group of one text.
-    fn text_group(
+    /// Writes the comment and group of one text of `size` points whose
+    /// glyphs `content` writes.
+    pub(super) fn text_group<E>(
         &mut self,
         gc: &GraphicsContext,
-        source: &TextSource,
+        comment: &str,
+        size: f64,
         origin: Point,
         angle: f64,
-    ) -> Result<(), VectorError> {
-        self.writer.comment(source.text());
+        content: impl FnOnce(&mut Self) -> Result<(), E>,
+    ) -> Result<(), E> {
+        self.writer.comment(comment);
         let color = gc.stroke_color();
         let mut style = Style::new();
         if color.to_hex(false) != "#000000" {
@@ -156,7 +165,7 @@ impl SvgRenderer {
         if alpha != 1.0 {
             style.push(("opacity", short(alpha)));
         }
-        let font_scale = source.size() / FONT_SCALE;
+        let font_scale = size / FONT_SCALE;
         self.writer.start(
             "g",
             &[
@@ -171,13 +180,13 @@ impl SvgRenderer {
                 ),
             ],
         );
-        let result = self.text_glyphs(source);
+        let result = content(self);
         self.writer.end(true);
         result
     }
 
-    /// `draw_text`: the text as glyph paths or text elements; runs without
-    /// a source are filled as paths.
+    /// `draw_text`: the text as glyph paths or text elements (TeX text
+    /// always as paths); runs without a source are filled as paths.
     pub(super) fn svg_text(
         &mut self,
         gc: &GraphicsContext,
@@ -196,7 +205,14 @@ impl SvgRenderer {
         let link = self.open_link(gc);
         match self.options.fonttype {
             SvgFontType::Path => {
-                let result = self.text_group(gc, source, origin, angle);
+                let result = match source {
+                    TextSource::Tex(tex) => self
+                        .svg_tex(gc, tex, origin, angle)
+                        .map_err(VectorError::from),
+                    _ => self.text_group(gc, source.text(), source.size(), origin, angle, |svg| {
+                        svg.text_glyphs(source)
+                    }),
+                };
                 self.problems.record(result);
             }
             SvgFontType::None => {

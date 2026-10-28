@@ -530,7 +530,7 @@
 //! [`WhichAxis`]: crate::axes::WhichAxis
 //! [`TexError::PostScriptOutput`]: crate::text::TexError::PostScriptOutput
 //! [`TexError::NotInstalled`]: crate::text::TexError::NotInstalled
-//! [`UnknownName`]: crate::image::UnknownName
+//! [`UnknownName`]: crate::rc::UnknownName
 //! [`Axes3D`]: crate::mplot3d::Axes3D
 //! [`Axis3D`]: crate::mplot3d::Axis3D
 //! [`Axes`]: crate::axes::Axes

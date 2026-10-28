@@ -11,13 +11,7 @@ use super::dvi::{DviBox, DviFont, DviPage};
 use super::error::TexError;
 use super::font_file::{TexFontFile, TexHinting};
 use super::manager::TexManager;
-use crate::engine::FontRequest;
-
-/// The size text paths are typeset at (`TextToPath.FONT_SCALE`).
-pub const TEX_FONT_SCALE: f64 = 100.0;
-
-/// The resolution text paths are typeset at (`TextToPath.DPI`).
-pub const TEX_PATH_DPI: f64 = 72.0;
+use crate::engine::{FontRequest, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE};
 
 /// One line of TeX text: the string given to TeX, the font it is drawn
 /// with (only its size matters to TeX; PGF output names the family) and
@@ -73,15 +67,19 @@ impl TexGlyph {
     }
 
     /// The outline `TextToPath` makes of the glyph: loaded at
-    /// [`TEX_FONT_SCALE`] points and [`TEX_PATH_DPI`] with light hinting.
-    /// Scale it by `size / TEX_FONT_SCALE`.
+    /// [`TEXT_PATH_FONT_SCALE`] points and [`TEXT_PATH_DPI`] with light hinting.
+    /// Scale it by `size / TEXT_PATH_FONT_SCALE`.
     ///
     /// # Errors
     ///
     /// When the glyph cannot be loaded.
     pub fn path_outline(&self) -> Result<Path, TexError> {
-        self.file
-            .outline(self.index, TEX_FONT_SCALE, TEX_PATH_DPI, TexHinting::Adobe)
+        self.file.outline(
+            self.index,
+            TEXT_PATH_FONT_SCALE,
+            TEXT_PATH_DPI,
+            TexHinting::Adobe,
+        )
     }
 }
 
@@ -135,20 +133,20 @@ impl TexText {
             .collect()
     }
 
-    /// The text's outline at [`TEX_FONT_SCALE`] points and
-    /// [`TEX_PATH_DPI`] (`TextToPath.get_text_path(prop, s,
+    /// The text's outline at [`TEXT_PATH_FONT_SCALE`] points and
+    /// [`TEXT_PATH_DPI`] (`TextToPath.get_text_path(prop, s,
     /// ismath="TeX")`): every glyph loaded at that size with light hinting
     /// and scaled to its own size, then every rule as a closed rectangle
-    /// going right first. Scale it by `size / TEX_FONT_SCALE`.
+    /// going right first. Scale it by `size / TEXT_PATH_FONT_SCALE`.
     ///
     /// # Errors
     ///
     /// When TeX fails or a glyph cannot be resolved or loaded.
     pub fn text_path(&self) -> Result<Path, TexError> {
-        let page = self.page(TEX_FONT_SCALE, TEX_PATH_DPI)?;
+        let page = self.page(TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)?;
         let mut parts = Vec::new();
         for glyph in self.glyphs(&page)? {
-            let scale = glyph.size / TEX_FONT_SCALE;
+            let scale = glyph.size / TEXT_PATH_FONT_SCALE;
             parts.push(
                 glyph
                     .path_outline()?

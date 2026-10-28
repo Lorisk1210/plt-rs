@@ -50,6 +50,6 @@ pub use font_file::{TexFontFile, TexHinting};
 pub use manager::{GreyImage, TexEngine, TexManager};
 pub use psfonts::{PsFont, PsfontsMap, parse_enc};
 pub use source::{TexFonts, tex_source};
-pub use text::{TEX_FONT_SCALE, TEX_PATH_DPI, TexGlyph, TexText};
+pub use text::{TexGlyph, TexText};
 pub use tfm::{TexMetrics, Tfm};
 pub use vf::{Vf, VfPacket};

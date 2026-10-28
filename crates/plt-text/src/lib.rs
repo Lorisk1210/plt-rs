@@ -44,7 +44,7 @@ pub use block::{
     BlockLayout, BlockStyle, FontHeightMetrics, HAlign, LineMetrics, LinePlacement, LineSpacing,
     RotationMode, VAlign, layout_block,
 };
-pub use engine::{FontRequest, TextEngine};
+pub use engine::{FontRequest, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::TextError;
 pub use plt_font::{
     AfmDirectory, AfmFont, AfmMetrics, Feature, FontDatabase, FontEntry, FontId, FontQuery,

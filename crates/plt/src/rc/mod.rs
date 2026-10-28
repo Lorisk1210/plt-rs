@@ -36,6 +36,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+pub use keywords::UnknownName;
 pub(crate) use keywords::keyword_names;
 pub(crate) use literal::Expr;
 pub(crate) use value::RcValue;

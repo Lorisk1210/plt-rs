@@ -8,8 +8,9 @@ use std::fmt::Write as _;
 use plt::figure::Figure;
 use plt::text::check_usetex;
 use plt_codec::sha1::sha1;
-use plt_text::tex::{TEX_FONT_SCALE, TEX_PATH_DPI, TexEngine, TexManager, TexText};
+use plt_text::tex::{TexEngine, TexManager, TexText};
 use plt_text::{FontQuery, FontRequest};
+use plt_text::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE};
 
 use super::texmanager::{effects, tex_fonts};
 use super::text_metrics::with_rc;
@@ -146,7 +147,7 @@ fn glyphs_tex(args: Args<'_>) -> Outcome {
     with_rc(args, || {
         let font = FontRequest::new(FontQuery::families(["DejaVu Sans"]));
         let text = TexText::new(tex, font, manager()?);
-        let page = made(text.page(TEX_FONT_SCALE, TEX_PATH_DPI))?;
+        let page = made(text.page(TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI))?;
         let glyphs = made(text.glyphs(&page))?
             .iter()
             .map(|g| {
@@ -155,7 +156,7 @@ fn glyphs_tex(args: Args<'_>) -> Outcome {
                     url_quote(&format!("{name}-{:x}", g.index.0)).into(),
                     Json::Number(g.x),
                     Json::Number(g.y),
-                    Json::Number(g.size / TEX_FONT_SCALE),
+                    Json::Number(g.size / TEXT_PATH_FONT_SCALE),
                 ])
             })
             .collect();

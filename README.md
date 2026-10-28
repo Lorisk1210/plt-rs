@@ -93,7 +93,10 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   anti-aliasing through FreeType's monochrome rasterizer, and mathtext in
   every matplotlib fontset (DejaVu Sans and Serif, Computer Modern, STIX,
   STIX sans, custom), placing every glyph and rule where matplotlib does
-  on its own mathtext test suite.
+  on its own mathtext test suite. With TeX installed, `usetex` text is
+  typeset by LaTeX as in matplotlib (`latex`, or `latex` with `dvipng`):
+  plt-rs reads the DVI files, virtual fonts, TFM metrics and font maps
+  itself, and draws the Type 1 glyphs in PNG, PDF, SVG and PGF.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,
@@ -195,10 +198,12 @@ cargo run -p plt --example widgets              # sliders and a span selector
 ```
 
 The conformance spec in `spec/` was run against matplotlib 3.11 to
-produce golden values and images: about 31 000 probes of functions and
-artist behaviour, and some 3 200 figures, among them ports of
+produce golden values and images: about 41 500 probes of functions and
+artist behaviour, and some 3 400 figures, among them ports of
 matplotlib's own image tests, of every example in its gallery and of
-the figures of its tutorials and user guides.
+the figures of its tutorials and user guides. Every one of matplotlib's
+2 939 tests is accounted for: ported, or listed with the reason it
+cannot apply (`cargo xtask mpl-tests --strict`).
 Every figure matches matplotlib's in its structure and pixels; the
 SVG, PDF, PostScript and PGF documents of all of them can be compared
 with matplotlib's item by item:
@@ -212,7 +217,11 @@ cargo xtask render polar/                       # write renderings and diffs to 
 cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF and PS
 cargo xtask vectors [PREFIX...]                 # every case's SVG/PDF/PS/PGF against
                                                 # documents matplotlib writes then and there
+cargo xtask mpl-tests --strict                  # matplotlib's tests: ported or not applicable
 ```
+
+The `usetex` cases and probes need TeX on `PATH`; without it they are
+skipped, and each check says so.
 
 `cargo xtask bench [PREFIX...] --reference` times 45 large workloads
 (a million-point line, 10⁵-marker scatters, 1000² meshes and labelled

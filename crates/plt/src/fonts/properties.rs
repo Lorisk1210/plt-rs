@@ -110,8 +110,9 @@ impl FontProperties {
 
     /// Sets the size (`FontProperties.set_size`): relative sizes scale
     /// `base` (the current `font.size`) and sizes below 1 pt become 1 pt.
-    pub fn set_size(&mut self, size: FontSize, base: f64) {
+    pub fn set_size(&mut self, size: FontSize, base: f64) -> &mut Self {
         self.size = clamp_size(size.to_points(base));
+        self
     }
 
     /// The same properties at another size, given relative to `font.size`.
@@ -133,7 +134,7 @@ impl FontProperties {
         &mut self,
         pattern: &str,
         base_size: f64,
-    ) -> Result<(), FontPropertyError> {
+    ) -> Result<&mut Self, FontPropertyError> {
         let parsed = FontconfigPattern::parse(pattern)
             .map_err(|err| FontPropertyError::Pattern(err.to_string()))?;
         for (key, values) in parsed.properties() {
@@ -144,11 +145,13 @@ impl FontProperties {
                 "variant" => self.variant = parse_variant(value)?,
                 "weight" => self.weight = value.parse()?,
                 "stretch" => self.stretch = value.parse()?,
-                "size" => self.set_size(value.parse()?, base_size),
+                "size" => {
+                    self.set_size(value.parse()?, base_size);
+                }
                 _ => return Err(FontPropertyError::PatternKey(key.clone())),
             }
         }
-        Ok(())
+        Ok(self)
     }
 
     /// The fontconfig pattern describing these properties

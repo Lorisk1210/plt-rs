@@ -1,5 +1,6 @@
 //! Options of check and radio buttons: their layout, the properties of
-//! their labels and markers, and what can go wrong building them.
+//! their labels and markers, and what can go wrong building or using
+//! them.
 
 use std::fmt;
 
@@ -82,7 +83,7 @@ pub struct RadioButtonsOptions {
     pub radio_props: ButtonMarkerProps,
 }
 
-/// Why check or radio buttons cannot be built.
+/// Why check or radio buttons cannot be built, or refuse a request.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ButtonsError {
     /// A grid layout with fewer cells than labels.
@@ -94,6 +95,13 @@ pub enum ButtonsError {
     },
     /// A label cannot be measured for the layout (malformed math).
     Text(TextError),
+    /// No button has this index.
+    IndexOutOfRange {
+        /// The index asked for.
+        index: usize,
+        /// The number of buttons.
+        buttons: usize,
+    },
 }
 
 impl fmt::Display for ButtonsError {
@@ -104,6 +112,10 @@ impl fmt::Display for ButtonsError {
                 "the layout has {positions} positions but {labels} labels were provided"
             ),
             Self::Text(err) => write!(f, "cannot measure a label: {err}"),
+            Self::IndexOutOfRange { index, buttons } => write!(
+                f,
+                "invalid button index {index}: there are {buttons} buttons"
+            ),
         }
     }
 }
@@ -112,7 +124,7 @@ impl std::error::Error for ButtonsError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Text(err) => Some(err),
-            Self::TooFewPositions { .. } => None,
+            Self::TooFewPositions { .. } | Self::IndexOutOfRange { .. } => None,
         }
     }
 }

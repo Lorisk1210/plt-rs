@@ -147,9 +147,13 @@ impl CheckButtons {
     }
 
     /// Checks (`Some(true)`), unchecks or toggles (`None`) box `index` and
-    /// runs the callbacks with its label; `None` for an index out of range.
-    pub fn set_active(&self, index: usize, state: Option<bool>) -> Option<()> {
-        let label = self.column.labels.get(index)?.text();
+    /// runs the callbacks with its label.
+    ///
+    /// # Errors
+    ///
+    /// [`ButtonsError::IndexOutOfRange`] when there is no box `index`.
+    pub fn set_active(&self, index: usize, state: Option<bool>) -> Result<&Self, ButtonsError> {
+        let label = self.column.label_text(index)?;
         toggle(
             &self.states,
             &self.checks,
@@ -158,7 +162,7 @@ impl CheckButtons {
             state,
         );
         self.clicked.process(&Some(label));
-        Some(())
+        Ok(self)
     }
 
     /// The labels of the checked boxes (matplotlib's
@@ -338,21 +342,25 @@ impl RadioButtons {
         self.column.labels[self.selected.get()].text()
     }
 
-    /// Selects button `index` and runs the callbacks with its label;
-    /// `None` for an index out of range.
-    pub fn set_active(&self, index: usize) -> Option<()> {
-        let label = self.column.labels.get(index)?.text();
+    /// Selects button `index` and runs the callbacks with its label.
+    ///
+    /// # Errors
+    ///
+    /// [`ButtonsError::IndexOutOfRange`] when there is no button `index`.
+    pub fn set_active(&self, index: usize) -> Result<&Self, ButtonsError> {
+        let label = self.column.label_text(index)?;
         self.selected.set(index);
         show_selection(&self.buttons, &self.active_colors.borrow(), index);
         self.clicked.process(&label);
-        Some(())
+        Ok(self)
     }
 
     /// Selects the button selected at first again and runs the callbacks
     /// with its label (matplotlib's `clear`).
     pub fn clear(&self) {
-        // The initial button exists: the widget was built with it.
-        self.set_active(self.initial);
+        // The constructors take any initial index; one without a button
+        // leaves the selection as it is.
+        let _ = self.set_active(self.initial);
     }
 
     /// The round button markers (matplotlib's `_buttons`).
@@ -416,7 +424,9 @@ mod tests {
         let seen = Rc::new(RefCell::new(Vec::new()));
         let log = Rc::clone(&seen);
         checks.on_clicked(move |label| log.borrow_mut().push(label.map(str::to_owned)));
-        checks.set_active(1, None);
+        checks.set_active(1, None).unwrap();
+        assert_eq!(checks.status(), [true, true, true]);
+        assert!(checks.set_active(3, Some(false)).is_err());
         assert_eq!(checks.status(), [true, true, true]);
         // Click the middle box: x = 0.05 + 0.15 * 0.25 of 600 px, y = middle.
         let mut source = EventSource::new();
@@ -442,9 +452,16 @@ mod tests {
             .expect("a valid rectangle");
         let radio = RadioButtons::new(&ax, &["one", "two", "three"], 1);
         assert_eq!(radio.value_selected(), "two");
-        radio.set_active(2);
+        radio.set_active(2).unwrap();
         assert_eq!(radio.index_selected(), 2);
-        assert_eq!(radio.set_active(7), None);
+        assert_eq!(
+            radio.set_active(7).err(),
+            Some(ButtonsError::IndexOutOfRange {
+                index: 7,
+                buttons: 3
+            })
+        );
+        assert_eq!(radio.index_selected(), 2, "left as it was");
     }
 
     #[test]
@@ -469,7 +486,7 @@ mod tests {
         let radio = RadioButtons::with_options(&ax, &["a", "b", "c"], 1, options).unwrap();
         assert_eq!(radio.labels()[2].color(), Color::from("red"));
         assert_eq!(radio.active_colors.borrow()[1], Color::from("C1"));
-        radio.set_active(2);
+        radio.set_active(2).unwrap();
         assert_eq!(radio.value_selected(), "c");
     }
 

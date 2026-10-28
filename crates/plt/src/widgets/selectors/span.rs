@@ -430,11 +430,12 @@ impl SpanSelector {
 
     /// Shows a completed span between data values `extents`, snapped to the
     /// snap values (matplotlib's `extents` setter).
-    pub fn set_extents(&self, extents: (f64, f64)) {
+    pub fn set_extents(&self, extents: (f64, f64)) -> &Self {
         let mut shared = self.driver.shared.borrow_mut();
         let shared = &mut *shared;
         shared.tool.set_extents(&shared.core, extents);
         shared.core.selection_completed = true;
+        self
     }
 
     /// The values the edges snap to, if any (matplotlib's
@@ -445,8 +446,9 @@ impl SpanSelector {
 
     /// Snaps the edges to `values` from now on, or not at all with `None`
     /// (matplotlib's `snap_values` attribute).
-    pub fn set_snap_values(&self, values: Option<Vec<f64>>) {
+    pub fn set_snap_values(&self, values: Option<Vec<f64>>) -> &Self {
         self.driver.shared.borrow_mut().tool.snap_values = values;
+        self
     }
 
     /// The direction spans are selected along.
@@ -456,18 +458,19 @@ impl SpanSelector {
 
     /// Selects along `direction` from now on; the span starts over
     /// (matplotlib's `direction` setter).
-    pub fn set_direction(&self, direction: Orientation) {
+    pub fn set_direction(&self, direction: Orientation) -> &Self {
         let mut shared = self.driver.shared.borrow_mut();
         let shared = &mut *shared;
         let span = &mut shared.tool;
         if span.direction == direction {
-            return;
+            return self;
         }
         let visible = span.rect.visible();
         span.direction = direction;
         shared.core.selection_completed = false;
         span.rebuild(&shared.core.ax);
         span.rect.set_visible(visible);
+        self
     }
 
     /// Makes the selector work in `ax` from now on, which may belong to
@@ -517,11 +520,12 @@ impl SpanSelector {
     }
 
     /// Changes the span's look (matplotlib's `set_props`).
-    pub fn set_props(&self, props: PatchProps) {
+    pub fn set_props(&self, props: PatchProps) -> &Self {
         let mut shared = self.driver.shared.borrow_mut();
         let span = &mut shared.tool;
         span.rect.update_props(props.clone());
         span.props = std::mem::take(&mut span.props).overlay(props);
+        self
     }
 
     /// Changes the look of the handles (matplotlib's `set_handle_props`).
@@ -529,13 +533,13 @@ impl SpanSelector {
     /// # Errors
     ///
     /// When the span is not interactive and has no handles.
-    pub fn set_handle_props(&self, props: LineProps) -> Result<(), SelectorError> {
+    pub fn set_handle_props(&self, props: LineProps) -> Result<&Self, SelectorError> {
         let mut shared = self.driver.shared.borrow_mut();
         let span = &mut shared.tool;
         let handles = span.handles.as_ref().ok_or(SelectorError::NoHandles)?;
         handles.update_props(&props);
         span.handle_props = std::mem::take(&mut span.handle_props).overlay(props);
-        Ok(())
+        Ok(self)
     }
 }
 

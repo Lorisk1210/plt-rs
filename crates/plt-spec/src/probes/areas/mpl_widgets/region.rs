@@ -101,12 +101,14 @@ impl Tool for Region {
             }
             "set_props" => {
                 let props = props::patch(arg.ok_or_else(|| malformed("set_props"))?)?;
-                with_selector!(self, s => s.set_props(props));
+                with_selector!(self, s => {
+                    s.set_props(props);
+                });
                 Attempt::Done
             }
             "set_handle_props" => {
                 let props = props::line(arg.ok_or_else(|| malformed("set_handle_props"))?)?;
-                with_selector!(self, s => s.set_handle_props(props)).into()
+                with_selector!(self, s => Attempt::from(s.set_handle_props(props)))
             }
             other => return Err(unknown("method", other)),
         })
@@ -116,14 +118,18 @@ impl Tool for Region {
         match attribute {
             "extents" => match value.as_f64_vec().as_deref() {
                 Some(&[x0, x1, y0, y1]) => {
-                    with_selector!(self, s => s.set_extents((x0, x1, y0, y1)));
+                    with_selector!(self, s => {
+                        s.set_extents((x0, x1, y0, y1));
+                    });
                     Ok(Attempt::Done)
                 }
                 _ => Err(malformed("extents")),
             },
             "rotation" => {
                 let degrees = value.as_f64().ok_or_else(|| malformed("rotation"))?;
-                with_selector!(self, s => s.set_rotation(degrees));
+                with_selector!(self, s => {
+                    s.set_rotation(degrees);
+                });
                 Ok(Attempt::Done)
             }
             other => Err(unknown("attribute", other)),

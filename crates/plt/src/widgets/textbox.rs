@@ -258,14 +258,15 @@ impl TextBox {
     /// Replaces the text, shows the cursor where it stands in the new text
     /// and runs the change and submit callbacks (matplotlib's `set_val`);
     /// does nothing when the text is already `value`.
-    pub fn set_val(&self, value: &str) {
+    pub fn set_val(&self, value: &str) -> &Self {
         if self.entry.value() == value {
-            return;
+            return self;
         }
         self.entry.text.set_text(value);
         self.entry.render_cursor();
         self.entry.changed.process(&value.to_owned());
         self.entry.submitted.process(&value.to_owned());
+        self
     }
 
     /// Starts editing: key presses go to the box (matplotlib's

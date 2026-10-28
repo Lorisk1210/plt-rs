@@ -181,16 +181,17 @@ impl CenteredNorm {
     /// norm.set_vcenter(1.0);
     /// assert_eq!((norm.vmin(), norm.vmax()), (Some(0.0), Some(2.0)));
     /// ```
-    pub fn set_vcenter(&mut self, vcenter: f64) {
+    pub fn set_vcenter(&mut self, vcenter: f64) -> &mut Self {
         if vcenter != self.vcenter {
             let halfrange = self.halfrange();
             self.vcenter = vcenter;
             self.set_halfrange(halfrange);
         }
+        self
     }
 
     /// Sets the limits to `vcenter ∓ |halfrange|`, or clears them.
-    pub fn set_halfrange(&mut self, halfrange: Option<f64>) {
+    pub fn set_halfrange(&mut self, halfrange: Option<f64>) -> &mut Self {
         match halfrange {
             None => {
                 self.set_vmin(None);
@@ -201,6 +202,7 @@ impl CenteredNorm {
                 self.set_vmax(Some(self.vcenter + h.abs()));
             }
         }
+        self
     }
 }
 

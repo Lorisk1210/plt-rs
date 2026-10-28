@@ -463,11 +463,12 @@ impl<S: RegionShape> Tool for Region<S> {
         self.extents_on_press = Some(self.extents());
         self.rotation_on_press = self.rotation;
         self.set_aspect_ratio_correction(&core.ax);
-        match self.action(core) {
-            Action::Move => core.ax.figure().set_cursor(CursorShape::Move),
-            Action::Create => core.ax.figure().set_cursor(CursorShape::SelectRegion),
-            Action::Rotate | Action::Resize => {}
-        }
+        let cursor = match self.action(core) {
+            Action::Move => CursorShape::Move,
+            Action::Create => CursorShape::SelectRegion,
+            Action::Rotate | Action::Resize => return,
+        };
+        core.ax.figure().set_cursor(cursor);
     }
 
     fn drag(&mut self, core: &mut Core, event: &SelectorEvent) -> Option<Self::Selection> {

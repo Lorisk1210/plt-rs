@@ -241,12 +241,12 @@ impl MultiNorm {
     /// # Errors
     ///
     /// When not given one limit per norm.
-    pub fn set_vmin(&mut self, vmin: &[Option<f64>]) -> Result<(), NormError> {
+    pub fn set_vmin(&mut self, vmin: &[Option<f64>]) -> Result<&mut Self, NormError> {
         self.check("vmin", vmin.len())?;
         for (norm, &v) in self.norms.iter_mut().zip(vmin) {
             norm.set_vmin(v);
         }
-        Ok(())
+        Ok(self)
     }
 
     /// Sets (or, with `None` entries, clears) the upper limit of each norm.
@@ -254,12 +254,12 @@ impl MultiNorm {
     /// # Errors
     ///
     /// When not given one limit per norm.
-    pub fn set_vmax(&mut self, vmax: &[Option<f64>]) -> Result<(), NormError> {
+    pub fn set_vmax(&mut self, vmax: &[Option<f64>]) -> Result<&mut Self, NormError> {
         self.check("vmax", vmax.len())?;
         for (norm, &v) in self.norms.iter_mut().zip(vmax) {
             norm.set_vmax(v);
         }
-        Ok(())
+        Ok(self)
     }
 
     /// Sets the clipping flag of each norm.
@@ -267,12 +267,12 @@ impl MultiNorm {
     /// # Errors
     ///
     /// When not given one flag per norm.
-    pub fn set_clip(&mut self, clip: &[bool]) -> Result<(), NormError> {
+    pub fn set_clip(&mut self, clip: &[bool]) -> Result<&mut Self, NormError> {
         self.check("clip", clip.len())?;
         for (norm, &c) in self.norms.iter_mut().zip(clip) {
             norm.set_clip(c);
         }
-        Ok(())
+        Ok(self)
     }
 
     /// Whether every norm has both limits.
@@ -402,8 +402,8 @@ mod tests {
         assert_eq!(MultiNorm::new([]).err(), Some(NormError::NoNorms));
         let mut norm = MultiNorm::linear(2).unwrap();
         assert_eq!(
-            norm.set_vmin(&[Some(1.0)]),
-            Err(NormError::ComponentCount {
+            norm.set_vmin(&[Some(1.0)]).err(),
+            Some(NormError::ComponentCount {
                 what: "vmin",
                 expected: 2,
                 given: 1

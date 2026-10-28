@@ -234,8 +234,9 @@ macro_rules! selector_methods {
             }
 
             /// Turns the selector on or off (matplotlib's `set_active`).
-            pub fn set_active(&self, active: bool) {
+            pub fn set_active(&self, active: bool) -> &Self {
                 self.driver.shared.borrow_mut().core.active = active;
+                self
             }
 
             /// Whether the selection is shown (matplotlib's
@@ -246,8 +247,9 @@ macro_rules! selector_methods {
 
             /// Shows or hides the selection and its handles (matplotlib's
             /// `set_visible`).
-            pub fn set_visible(&self, visible: bool) {
+            pub fn set_visible(&self, visible: bool) -> &Self {
                 self.driver.shared.borrow_mut().set_visible(visible);
+                self
             }
 
             /// Whether a selection was completed and is kept (matplotlib's

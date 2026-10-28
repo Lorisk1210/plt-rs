@@ -461,8 +461,9 @@ impl Figure {
     /// Makes a widget receive key presses without the window acting on its
     /// keyboard shortcuts, or gives them back (matplotlib's text boxes
     /// clear the `keymap.*` rcParams while typing).
-    pub fn set_capture_keys(&self, capture: bool) {
+    pub fn set_capture_keys(&self, capture: bool) -> &Self {
         self.state.borrow_mut().capture_keys = capture;
+        self
     }
 
     /// Whether key presses are captured by a widget.

@@ -139,7 +139,7 @@ impl<A> OffsetBox<A> {
     }
 
     /// Shows or hides the box.
-    pub fn set_visible(&mut self, visible: bool) {
+    pub fn set_visible(&mut self, visible: bool) -> &mut Self {
         match self {
             Self::HPacker(packer) | Self::VPacker(packer) => packer.visible = visible,
             Self::DrawingArea(area) => area.visible = visible,
@@ -148,14 +148,16 @@ impl<A> OffsetBox<A> {
             Self::Image(image) => image.visible = visible,
             Self::PaddedBox(padded) => padded.visible = visible,
         }
+        self
     }
 
     /// Fixes the width of a packer, in pixels (matplotlib's `set_width`);
     /// other boxes keep their size.
-    pub fn set_width(&mut self, width: Option<f64>) {
+    pub fn set_width(&mut self, width: Option<f64>) -> &mut Self {
         if let Self::HPacker(packer) | Self::VPacker(packer) = self {
             packer.width = width;
         }
+        self
     }
 
     /// The artists of the visible boxes in drawing order: frames before

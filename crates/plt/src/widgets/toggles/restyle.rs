@@ -150,8 +150,7 @@ mod tests {
         assert_eq!(radio.buttons.sizes(), Some(vec![144.0, 144.0]));
         let faces = radio.buttons.colors().unwrap().faces;
         assert!(faces[0].is_transparent() && faces[1] == Color::from("green").resolve().unwrap());
-        radio.set_activecolor("red").unwrap();
-        radio.set_active(0);
+        radio.set_activecolor("red").unwrap().set_active(0).unwrap();
         let faces = radio.buttons.colors().unwrap().faces;
         assert_eq!(faces[0], Color::from("red").resolve().unwrap());
     }
@@ -182,7 +181,7 @@ mod tests {
         let faces = checks.checks.colors().unwrap().faces;
         assert_eq!(faces[0], Color::from("blue").resolve().unwrap());
         assert!(faces[1].is_transparent());
-        checks.set_active(1, Some(true));
+        checks.set_active(1, Some(true)).unwrap();
         let faces = checks.checks.colors().unwrap().faces;
         assert_eq!(faces[1], Color::from("blue").resolve().unwrap());
     }

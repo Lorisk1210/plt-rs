@@ -106,8 +106,9 @@ impl LassoSelector {
     }
 
     /// Changes the curve's look (matplotlib's `set_props`).
-    pub fn set_props(&self, props: LineProps) {
+    pub fn set_props(&self, props: LineProps) -> &Self {
         self.driver.shared.borrow().tool.line.update_props(props);
+        self
     }
 }
 
@@ -222,8 +223,9 @@ impl Lasso {
     }
 
     /// Turns the lasso on or off.
-    pub fn set_active(&self, active: bool) {
+    pub fn set_active(&self, active: bool) -> &Self {
         self.state.borrow_mut().active = active;
+        self
     }
 
     /// The line showing the curve.

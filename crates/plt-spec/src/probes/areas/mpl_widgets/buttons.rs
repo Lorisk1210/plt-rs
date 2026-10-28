@@ -64,7 +64,7 @@ pub(super) fn check_buttons(args: Args<'_>) -> Outcome {
         let status = check.status();
         check
             .set_active(0, None)
-            .ok_or_else(|| malformed("no first button"))?;
+            .map_err(|_| malformed("no first button"))?;
         let (after, checked) = (check.status(), check.checked_labels());
         check.clear();
         let cid = check.on_clicked(|_| {});
@@ -88,7 +88,7 @@ pub(super) fn check_set_active(args: Args<'_>) -> Outcome {
             .map_err(|_| ProbeError::rejected("a negative index"))?;
         check
             .set_active(index, None)
-            .ok_or_else(|| ProbeError::rejected("index out of range"))?;
+            .map_err(ProbeError::rejected)?;
         Ok(flags(&check.status()))
     })
 }
@@ -108,7 +108,7 @@ pub(super) fn radio_buttons(args: Args<'_>) -> Outcome {
         };
         radio
             .set_active(1)
-            .ok_or_else(|| malformed("no second button"))?;
+            .map_err(|_| malformed("no second button"))?;
         let selected = selection(&radio);
         radio.clear();
         Ok(Json::Array(vec![selected, selection(&radio)]))

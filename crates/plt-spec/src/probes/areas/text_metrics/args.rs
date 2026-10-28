@@ -144,7 +144,9 @@ fn set_font_property(
         "variant" => font.variant = parse_variant(string(value)?).map_err(ProbeError::rejected)?,
         "weight" => font.weight = weight(value)?,
         "stretch" => font.stretch = stretch(value)?,
-        "size" => font.set_size(size(value)?, rc.font_size),
+        "size" => {
+            font.set_size(size(value)?, rc.font_size);
+        }
         "math_fontfamily" => {
             font.math_fontfamily =
                 parse_math_fontfamily(string(value)?).map_err(ProbeError::rejected)?;

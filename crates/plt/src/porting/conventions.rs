@@ -9,12 +9,14 @@
 //!   `&Self` so calls chain. A setter whose argument can be invalid
 //!   returns `Result<&Self, _>` and chains through `?`:
 //!   `ax.set_xlim(0.0, 10.0)?.set_ylim(-1.0, 1.0)?` refuses limits that
-//!   are NaN or infinite, where matplotlib raises. Setters that create an
-//!   artist, such as `set_title`, return its handle. Where the plain name already
-//!   makes something, the getter reads `current_`: `ax.legend()` makes a
-//!   legend, as in matplotlib, so `ax.get_legend()` is
-//!   [`Axes::current_legend`], the way `plt.gci()` is
-//!   [`Axes::current_image`].
+//!   are NaN or infinite, where matplotlib raises. Values that are not
+//!   handles ([`FontProperties`], [`ScalarMappable`], [`Triangulation`])
+//!   chain the same way through `&mut self`, returning `&mut Self`.
+//!   Setters that create an artist, such as `set_title`, return its
+//!   handle. Where the plain name already makes something, the getter
+//!   reads `current_`: `ax.legend()` makes a legend, as in matplotlib, so
+//!   `ax.get_legend()` is [`Axes::current_legend`], the way `plt.gci()`
+//!   is [`Axes::current_image`].
 //! * **Keyword arguments become option structs, passed by value.** Each
 //!   plotting method, artist or widget constructor and save function takes
 //!   a struct of its keywords and consumes it; clone a struct to use it
@@ -457,6 +459,9 @@
 //! [`AxisDelta`]: crate::units::AxisDelta
 //! [`ErrorSize`]: crate::axes::ErrorSize
 //! [`UnitAxisInfo`]: crate::units::UnitAxisInfo
+//! [`FontProperties`]: crate::fonts::FontProperties
+//! [`ScalarMappable`]: crate::colors::ScalarMappable
+//! [`Triangulation`]: crate::tri::Triangulation
 //! [`ticker::AxisInfo`]: crate::ticker::AxisInfo
 //! [`GeoThetaFormatter`]: crate::geo::GeoThetaFormatter
 //! [`ThetaFormatter`]: crate::polar::ThetaFormatter

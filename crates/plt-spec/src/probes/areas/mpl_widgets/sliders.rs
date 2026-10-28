@@ -152,7 +152,9 @@ pub(super) fn range_slider(args: Args<'_>) -> Outcome {
             let parts = step.as_array().ok_or_else(|| malformed("step"))?;
             match (parts.first().and_then(Json::as_str), parts.get(1)) {
                 (Some("set_val"), Some(value)) => match value.as_f64_vec().as_deref() {
-                    Some(&[a, b]) => slider.set_val((a, b)),
+                    Some(&[a, b]) => {
+                        slider.set_val((a, b));
+                    }
                     _ => return Err(malformed("set_val")),
                 },
                 (Some("reset"), None) => slider.reset(),

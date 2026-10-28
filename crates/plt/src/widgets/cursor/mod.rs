@@ -110,8 +110,9 @@ macro_rules! cursor_switches {
             }
 
             /// Turns following the pointer on or off.
-            pub fn set_active(&self, active: bool) {
+            pub fn set_active(&self, active: bool) -> &Self {
                 self.switches.active.set(active);
+                self
             }
 
             /// Whether the lines show while the pointer is over the axes
@@ -121,8 +122,9 @@ macro_rules! cursor_switches {
             }
 
             /// Shows or hides the lines from the next motion on.
-            pub fn set_visible(&self, visible: bool) {
+            pub fn set_visible(&self, visible: bool) -> &Self {
                 self.switches.visible.set(visible);
+                self
             }
 
             /// Whether the horizontal line is drawn (matplotlib's
@@ -132,8 +134,9 @@ macro_rules! cursor_switches {
             }
 
             /// Draws the horizontal line or not.
-            pub fn set_horizontal(&self, on: bool) {
+            pub fn set_horizontal(&self, on: bool) -> &Self {
                 self.switches.horizontal.set(on);
+                self
             }
 
             /// Whether the vertical line is drawn (matplotlib's `vertOn`).
@@ -142,8 +145,9 @@ macro_rules! cursor_switches {
             }
 
             /// Draws the vertical line or not.
-            pub fn set_vertical(&self, on: bool) {
+            pub fn set_vertical(&self, on: bool) -> &Self {
                 self.switches.vertical.set(on);
+                self
             }
 
             /// Whether moving the lines blits them rather than redrawing

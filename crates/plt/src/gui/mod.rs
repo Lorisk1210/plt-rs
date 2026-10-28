@@ -13,9 +13,8 @@
 //! forward buttons step through the views. The window resizes the
 //! figure with it and renders at the screen's scale factor. Saving opens a
 //! dialog to pick the directory, the file name and the format (PNG, JPEG,
-//! TIFF, GIF, WebP, SVG, PDF, PS or EPS); the figure options dialog edits
-//! the titles, limits,
-//! labels and scales of the axes, the style of their curves and the
+//! TIFF, GIF, WebP, SVG, PDF, PS, EPS or PGF); the figure options dialog
+//! edits the titles, limits, labels and scales of the axes, the style of their curves and the
 //! colormaps of their images.
 //!
 //! Everything works from the keyboard too, following Qt and GTK. The

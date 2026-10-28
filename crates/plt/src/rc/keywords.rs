@@ -27,11 +27,19 @@ use crate::units::DateConverter;
 
 /// Implements `Display` (the value's `name()`) and `FromStr` (the value of
 /// `$all` with that name, else an [`UnknownName`] of `$kind`) for a
-/// keyword type: the names matplotlib reads and writes.
+/// keyword type: the names matplotlib reads and writes. With
+/// `ignore_case`, names parse in any ASCII case, as matplotlib's
+/// case-insensitive validators read them.
 ///
 /// [`UnknownName`]: crate::image::UnknownName
 macro_rules! keyword_names {
     ($ty:ty, $kind:literal, $all:expr) => {
+        $crate::rc::keyword_names!(@impl $ty, $kind, $all, |a: &str, b: &str| a == b);
+    };
+    ($ty:ty, $kind:literal, $all:expr, ignore_case) => {
+        $crate::rc::keyword_names!(@impl $ty, $kind, $all, str::eq_ignore_ascii_case);
+    };
+    (@impl $ty:ty, $kind:literal, $all:expr, $same:expr) => {
         impl ::std::fmt::Display for $ty {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.write_str(self.name())
@@ -44,7 +52,7 @@ macro_rules! keyword_names {
             /// Parses matplotlib's name.
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 $all.into_iter()
-                    .find(|value| value.name() == name)
+                    .find(|value| $same(value.name(), name))
                     .ok_or_else(|| $crate::image::UnknownName {
                         kind: $kind,
                         name: name.to_owned(),

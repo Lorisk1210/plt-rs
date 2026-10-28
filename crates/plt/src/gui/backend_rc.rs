@@ -2,10 +2,7 @@
 //! of toolbar (`toolbar`) and how the macOS backend opens windows
 //! (`macosx.window_mode`).
 
-use std::fmt;
-use std::str::FromStr;
-
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 
 /// The toolbar of figure windows (`toolbar`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -30,27 +27,12 @@ impl ToolbarKind {
     }
 }
 
-impl fmt::Display for ToolbarKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for ToolbarKind {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`ToolbarKind::name`]) in any case, as
-    /// matplotlib does.
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        [Self::None, Self::Toolbar2, Self::ToolManager]
-            .into_iter()
-            .find(|kind| kind.name().eq_ignore_ascii_case(name))
-            .ok_or_else(|| UnknownName {
-                kind: "toolbar",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(
+    ToolbarKind,
+    "toolbar",
+    [Self::None, Self::Toolbar2, Self::ToolManager],
+    ignore_case
+);
 
 /// How matplotlib's macOS backend opens new figure windows
 /// (`macosx.window_mode`).
@@ -76,26 +58,11 @@ impl MacosxWindowMode {
     }
 }
 
-impl fmt::Display for MacosxWindowMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for MacosxWindowMode {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`MacosxWindowMode::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        [Self::System, Self::Tab, Self::Window]
-            .into_iter()
-            .find(|mode| mode.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "window mode",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(
+    MacosxWindowMode,
+    "window mode",
+    [Self::System, Self::Tab, Self::Window]
+);
 
 #[cfg(test)]
 mod tests {

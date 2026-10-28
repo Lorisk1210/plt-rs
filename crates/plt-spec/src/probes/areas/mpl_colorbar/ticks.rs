@@ -14,7 +14,8 @@ use plt::orientation::Orientation;
 use plt::ticker::{FixedLocator, Formatter, Locator, LogFormatter, LogLabelStyle};
 
 use super::super::mpl_tests::in_test_style;
-use super::{formatter_name, image, locator_name};
+use super::super::mpl_ticker::{formatter_name, locator_name};
+use super::image;
 use crate::json::Json;
 use crate::probes::encode::{numbers, object};
 use crate::probes::{Args, Outcome, ProbeError};

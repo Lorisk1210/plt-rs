@@ -38,11 +38,15 @@ pub(crate) struct AxisUnits {
 
 impl AxisUnits {
     /// Takes `converter` unless another one was set explicitly
-    /// (matplotlib's `_set_converter` from `update_units`).
-    pub(crate) fn adopt(&mut self, converter: UnitConverter) {
-        if !self.explicit {
-            self.converter = Some(converter);
+    /// (matplotlib's `_set_converter` from `update_units`); returns whether
+    /// the converter changed (`update_units`' `neednew`), which is when
+    /// its tick helpers are set up.
+    pub(crate) fn adopt(&mut self, converter: UnitConverter) -> bool {
+        if self.explicit || self.converter.as_ref() == Some(&converter) {
+            return false;
         }
+        self.converter = Some(converter);
+        true
     }
 
     /// The converter, which is `converter` when there was none
@@ -144,9 +148,7 @@ pub(crate) trait UnitState {
     /// changes): ticks set up by earlier dates stay, and an axis given
     /// the date converter explicitly keeps its tick helpers.
     fn adopt_dates(&mut self) {
-        let before = self.units().converter.clone();
-        self.units_mut().adopt(UnitConverter::Dates);
-        if self.units().converter != before {
+        if self.units_mut().adopt(UnitConverter::Dates) {
             let tz = self.units().time_zone();
             self.use_date_tickers(tz.as_ref());
         }
@@ -269,12 +271,11 @@ pub(crate) trait UnitHandle: Sized {
     fn update_custom_units(&self, values: &CustomValues) {
         let (current, explicit) =
             self.read_state(|state| (state.units().converter.clone(), state.units().explicit));
-        let converter = match current.clone().filter(|_| explicit) {
+        let converter = match current.filter(|_| explicit) {
             Some(converter) => converter,
             None => UnitConverter::Custom(values.converter()),
         };
-        let new = current.as_ref() != Some(&converter);
-        self.update_state(|state| state.units_mut().adopt(converter.clone()));
+        let new = self.update_state(|state| state.units_mut().adopt(converter.clone()));
         let default = converter
             .custom()
             .and_then(|converter| values.default_units(converter, &self.unit_axis()));
@@ -414,23 +415,27 @@ pub(crate) trait UnitHandle: Sized {
     /// Takes the date converter, unless another one was set explicitly,
     /// with the tick helpers and default view of dates (matplotlib's
     /// `axis_date`, which updates the units with a date in `tz`): a given
-    /// zone becomes the unit of an axis without one, and the ticks are in
-    /// the unit's zone, else in the `timezone` rcParam's.
+    /// zone becomes the unit of an axis without one, which sets them up in
+    /// that zone; otherwise they come only with a date converter new to
+    /// the axis, in the unit's zone, else in the `timezone` rcParam's. So
+    /// the ticks earlier dates set up stay, and an axis given the date
+    /// converter explicitly keeps its tick helpers until it gets a zone.
     fn make_date_axis(&self, tz: Option<&TimeZone>) {
-        let dated = self.update_state(|state| {
+        let (dated, new) = self.update_state(|state| {
             let units = state.units_mut();
-            units.adopt(UnitConverter::Dates);
-            units.converter == Some(UnitConverter::Dates)
+            let new = units.adopt(UnitConverter::Dates);
+            (units.converter == Some(UnitConverter::Dates), new)
         });
         if !dated {
             return;
         }
         match tz {
             Some(tz) if self.unit().is_none() => self.set_unit(Unit::new(tz.clone())),
-            _ => {
+            _ if new => {
                 let zone = self.read_state(|state| state.units().time_zone());
                 self.use_date_axisinfo(zone.as_ref());
             }
+            _ => {}
         }
     }
 

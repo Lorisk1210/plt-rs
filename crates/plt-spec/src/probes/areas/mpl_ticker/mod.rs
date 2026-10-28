@@ -4,12 +4,15 @@
 //!
 //! Locators and formatters used on their own are the `ticker` area's
 //! ops plus the calls of [`standalone`]; the tests that read the ticks of
-//! an axes are replayed by [`axes`].
+//! an axes are replayed by [`axes`]. Other areas share the axes set-up
+//! and the class names of [`names`].
 
 mod axes;
+mod names;
 mod standalone;
 
 pub(crate) use axes::{install_formatter, install_locator, spec_parts, styled};
+pub(crate) use names::{formatter_name, locator_name};
 
 use super::ticker;
 use crate::probes::Op;

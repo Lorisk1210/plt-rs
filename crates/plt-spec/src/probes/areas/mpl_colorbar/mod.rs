@@ -7,9 +7,6 @@ mod mapping;
 mod placement;
 mod ticks;
 
-use std::any::Any;
-use std::rc::Rc;
-
 use crate::json::Json;
 use crate::probes::encode::{numbers, rgba};
 use crate::probes::{Args, Op, ProbeError};
@@ -19,9 +16,6 @@ use plt::image::AxesImage;
 use plt::numeric::{Grid, linspace};
 use plt::orientation::Orientation;
 use plt::spines::SpineSide;
-use plt::ticker::{
-    FixedLocator, Formatter, Locator, LogFormatter, LogLabelStyle, LogLocator, StrMethodFormatter,
-};
 use plt_core::Bbox;
 
 /// Operations implemented for this area.
@@ -46,32 +40,6 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Axes.get_yticks", ticks::boundary_norms),
     Op::new("Colorbar.locator", ticks::tickers),
 ];
-
-/// matplotlib's class name of the locators the probes meet.
-fn locator_name(locator: &Rc<dyn Locator>) -> Result<&'static str, ProbeError> {
-    let any = locator.as_ref() as &dyn Any;
-    if any.is::<FixedLocator>() {
-        Ok("FixedLocator")
-    } else if any.is::<LogLocator>() {
-        Ok("LogLocator")
-    } else {
-        Err(ProbeError::rejected(format!(
-            "unexpected locator {locator:?}"
-        )))
-    }
-}
-
-/// matplotlib's class name of the formatters the probes meet.
-fn formatter_name(formatter: &Rc<dyn Formatter>) -> Result<&'static str, ProbeError> {
-    let any = formatter.as_ref() as &dyn Any;
-    match any.downcast_ref::<LogFormatter>() {
-        Some(log) if log.style() == LogLabelStyle::Plain => Ok("LogFormatter"),
-        _ if any.is::<StrMethodFormatter>() => Ok("StrMethodFormatter"),
-        _ => Err(ProbeError::rejected(format!(
-            "unexpected formatter {formatter:?}"
-        ))),
-    }
-}
 
 /// `[x0, y0, x1, y1]`.
 fn extents(bbox: Bbox) -> Json {

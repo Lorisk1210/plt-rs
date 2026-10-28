@@ -60,11 +60,15 @@ Ops on their own
 Ops on an axes
 --------------
 ``Figure().subplots()`` in ``style.context(style)`` and ``rc_context(rc)``,
-set up in this order: ``axhline`` (``ax.axhline(y)``), ``plot`` (``{x, y}``
-of numbers or ISO strings, or ``{days: [start, stop]}`` for
-``np.arange(start, stop, dtype='datetime64[D]')`` against ``0, 1, ...``,
-and ``{hours: [start, stop]}`` likewise with ``datetime64[h]``),
-``xaxis_date`` (``ax.xaxis_date()``), ``axis_date``
+set up in this order: ``converter`` (``"dates"``:
+``ax.xaxis.set_converter(DateConverter())``), ``date_first`` (``{tz}``:
+``ax.xaxis_date(tz)``, ``tz`` a zone name or ``null``), ``axhline``
+(``ax.axhline(y)``), ``plot`` (``{x, y}`` of numbers or ISO strings, or
+``{days: [start, stop]}`` for ``np.arange(start, stop,
+dtype='datetime64[D]')`` against ``0, 1, ...``, and ``{hours: [start,
+stop]}`` likewise with ``datetime64[h]``), ``replot`` (``{rc, plot}``: sets
+the rcParams ``rc`` for the rest of the op, then plots ``plot`` in the same
+forms), ``xaxis_date`` (``ax.xaxis_date()``), ``axis_date``
 (``ax.xaxis.axis_date()``), then per axis ``"x"``/``"y"``: ``lim`` (ISO
 strings), ``major``/``minor`` locators (``["AutoDateLocator",
 {interval_multiples}]``, ``["MinuteLocator", [minutes]]``, ``["DayLocator"]``,
@@ -79,6 +83,10 @@ given, and ``invert``.
     drawing.
 ``axis.Axis.get_major_locator`` {...} -> the number of ticks the x major
     locator gives (``test_too_many_date_ticks``) and the x limits.
+``axis.Axis.major`` {...} -> {locator, formatter}: the class names of the
+    x axis' major locator and formatter.
+``axis.Axis.get_units`` {...} -> the x axis' unit: ``null``, or the
+    abbreviation of its zone on 2020-01-01 (``units.tzname(...)``).
 ``axis.ConciseDateFormatter.get_offset`` {xlims} -> the offset text after
     drawing at each of the successive x limits (``test_offset_changes``).
 
@@ -97,6 +105,15 @@ locators and ``DateFormatter`` are made, whenever ``AutoDateFormatter`` and
 ``ConciseDateFormatter`` format), and a name no zone has. The figures plot
 ``datetime64`` values, which carry no zone, so their ticks follow the
 rcParam (UTC-aware date-times would make UTC the axis unit).
+
+Under the same two zones, in the ``default`` style (whose margins show the
+autoscaling a unit change does), the ``test_timezone_rc_*`` cases also pin
+how ``update_units`` sets a date axis up: ``xaxis_date(tz)`` makes a given
+zone the axis unit, which later plots keep, while ``tz=None`` leaves the
+unit unset; date ticks come only with a converter new to the axis, so the
+first ``date.converter``'s formatter stays through later plots and
+``xaxis_date()``, and an explicitly set ``DateConverter`` brings none
+until ``xaxis_date`` gives it a zone.
 
 Left out
 --------
@@ -518,22 +535,37 @@ def _configure(ax, name, config):
         axis.set_inverted(True)
 
 
+#: The ``converter`` an axes may be given explicitly.
+CONVERTERS = {"dates": mdates.DateConverter}
+
+
+def _plot(ax, plot):
+    spacing = next((key for key in SPACINGS if key in plot), None)
+    if spacing is not None:
+        times = np.arange(*plot[spacing], dtype=f"datetime64[{SPACINGS[spacing]}]")
+        ax.plot(times, np.arange(len(times)))
+    else:
+        ax.plot(_values(plot["x"]), _values(plot["y"]))
+
+
 def _on_axes(query):
-    def evaluate(style, rc=None, epoch=None, axhline=None, plot=None, xaxis_date=False,
-                 axis_date=False, x=None, y=None, **kw):
+    def evaluate(style, rc=None, epoch=None, converter=None, date_first=None, axhline=None,
+                 plot=None, replot=None, xaxis_date=False, axis_date=False, x=None, y=None, **kw):
         with _epoch(epoch), matplotlib.style.context(style), mpl.rc_context(rc or {}):
             fig = Figure()
             FigureCanvasAgg(fig)
             ax = fig.subplots()
+            if converter is not None:
+                ax.xaxis.set_converter(CONVERTERS[converter]())
+            if date_first is not None:
+                ax.xaxis_date(date_first["tz"])
             if axhline is not None:
                 ax.axhline(axhline)
             if plot is not None:
-                spacing = next((key for key in SPACINGS if key in plot), None)
-                if spacing is not None:
-                    times = np.arange(*plot[spacing], dtype=f"datetime64[{SPACINGS[spacing]}]")
-                    ax.plot(times, np.arange(len(times)))
-                else:
-                    ax.plot(_values(plot["x"]), _values(plot["y"]))
+                _plot(ax, plot)
+            if replot is not None:
+                mpl.rcParams.update(replot.get("rc", {}))
+                _plot(ax, replot["plot"])
             if xaxis_date:
                 ax.xaxis_date()
             if axis_date:
@@ -803,3 +835,67 @@ def test_timezone_rc_unknown():
     given = probes.probe("dates.DateLocator.datalim_to_dt", _in_rc(_datalim_to_dt), tz="Europe/Berlin",
                          rc=UNKNOWN_ZONE)
     assert given == ["1970-01-01T01:00:00+01:00", "1970-01-02T01:00:00+01:00"]
+
+
+# ---------------------------------------------------------------------------
+# How a date axis takes its zone and ticks (plt-rs' own cases)
+# ---------------------------------------------------------------------------
+
+DEFAULT_STYLE = ["default"]
+
+#: Hourly ``datetime64`` values from 12:00 to 18:00 UTC on 2020-01-01.
+NOON_HOURS = {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}
+
+
+def _major(fig, ax):
+    major = ax.xaxis.major
+    return {"locator": type(major.locator).__name__, "formatter": type(major.formatter).__name__}
+
+
+def major(**scene):
+    return on_axes("axis.Axis.major", _major, style=DEFAULT_STYLE, **scene)
+
+
+def _units(fig, ax):
+    units = ax.xaxis.get_units()
+    return None if units is None else units.tzname(datetime.datetime(2020, 1, 1))
+
+
+def units(**scene):
+    return on_axes("axis.Axis.get_units", _units, style=DEFAULT_STYLE, **scene)
+
+
+def test_timezone_rc_axis_date_first():
+    for zone in ZONES:
+        rc = {"timezone": zone}
+        for tz in ("UTC", None, zone):
+            scene = {"rc": rc, "date_first": {"tz": tz}}
+            labels = ticklabels(**scene, style=DEFAULT_STYLE, plot=NOON_HOURS)
+            units(**scene, plot=NOON_HOURS)
+            xlim = on_axes("axes.Axes.get_xlim", _xlim, **scene, style=DEFAULT_STYLE)
+            # A given zone becomes the unit, whose change autoscales the view.
+            assert xlim == ([0.0, 1.0] if tz is None else [-0.05, 1.05])
+            if zone == "Europe/Berlin":
+                assert labels["labels"][0] == ("01-01 12" if tz == "UTC" else "01-01 13")
+
+
+def test_timezone_rc_first_converter_stays():
+    for zone in ZONES:
+        for first, second in (("auto", "concise"), ("concise", "auto")):
+            scene = {"rc": {"timezone": zone, "date.converter": first}, "plot": NOON_HOURS,
+                     "replot": {"rc": {"date.converter": second}, "plot": NOON_HOURS}}
+            ticklabels(**scene, style=DEFAULT_STYLE)
+            for later in ({}, {"xaxis_date": True}):
+                kept = major(**scene, **later)
+                assert kept["formatter"] == f"{first.capitalize()}DateFormatter"
+
+
+def test_timezone_rc_explicit_converter():
+    for zone in ZONES:
+        explicit = {"rc": {"timezone": zone}, "converter": "dates"}
+        plain = major(**explicit, plot=NOON_HOURS)
+        assert plain == {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+        ticklabels(**explicit, style=DEFAULT_STYLE, plot=NOON_HOURS)
+        for tz in (None, "UTC"):
+            major(**explicit, date_first={"tz": tz}, plot=NOON_HOURS)
+            units(**explicit, date_first={"tz": tz})

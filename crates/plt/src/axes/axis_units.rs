@@ -128,7 +128,8 @@ impl Axis {
     /// Sets the unit converter explicitly (matplotlib's `set_converter`):
     /// values plotted later no longer change it, though each is still
     /// converted as its own kind. Like matplotlib, this leaves the tick
-    /// helpers alone; [`axis_date`](Self::axis_date) installs those of
+    /// helpers alone, and so do values plotted later;
+    /// [`axis_date`](Self::axis_date) with a zone installs those of
     /// dates.
     ///
     /// # Errors
@@ -174,9 +175,12 @@ impl Axis {
     /// formatter that were not set explicitly; the axes sharing the axis
     /// follow. A zone `tz` becomes the axis unit if it has none, so later
     /// plots keep it; the ticks are in the unit's zone, else (`None`) in
-    /// the `timezone` rcParam's. Before any data is plotted or limits are
-    /// set, the view becomes the first day of 1970, the default limits of
-    /// matplotlib's date converter (its `set_default_intervals`).
+    /// the `timezone` rcParam's. As in matplotlib (`update_units`), the
+    /// date ticks come with that new unit or with a date converter new to
+    /// the axis; with neither, the axis keeps its tick helpers. Before any
+    /// data is plotted or limits are set, the view becomes the first day
+    /// of 1970, the default limits of matplotlib's date converter (its
+    /// `set_default_intervals`).
     ///
     /// ```
     /// use plt::dates::TimeZone;
@@ -286,8 +290,9 @@ mod tests {
     }
 
     /// matplotlib's `update_units` sets the date ticks up only when the
-    /// axis takes the date converter: later dates keep them, and an axis
-    /// given the converter explicitly keeps its tick helpers.
+    /// axis takes the date converter or a unit: later dates and
+    /// `axis_date()` keep them, and an axis given the converter explicitly
+    /// keeps its tick helpers until `axis_date` gives it a zone.
     #[test]
     fn date_ticks_are_set_up_once() {
         let at = |hour| crate::dates::DateTime::new(2020, 1, 1, hour, 0, 0, 0).expect("a date");
@@ -298,6 +303,7 @@ mod tests {
             ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
             crate::rc::set("date.converter", "concise").expect("a valid rcParam");
             ax.plot(vec![at(12), at(18)], [1.0, 0.0]).expect("a line");
+            ax.xaxis_date(None);
             assert!(
                 is_auto(&ax.xaxis()),
                 "the first converter's formatter stays"
@@ -305,13 +311,16 @@ mod tests {
         });
         let ax = Figure::new().subplot();
         ax.xaxis()
-            .set_converter(crate::units::UnitConverter::Dates)
+            .set_converter(UnitConverter::Dates)
             .expect("no converter yet");
         ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
+        ax.xaxis_date(None);
         assert!(
             !is_auto(&ax.xaxis()),
             "an explicit converter brings no ticks"
         );
+        ax.xaxis_date(&TimeZone::Utc);
+        assert!(is_auto(&ax.xaxis()), "a zone as the unit does");
     }
 
     #[test]

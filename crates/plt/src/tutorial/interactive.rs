@@ -101,29 +101,50 @@
 //! stays connected while its value lives, so keep it in a variable for
 //! as long as the figure is shown.
 //!
+//! A widget is a value, not a handle: it owns its connections to the
+//! figure's events, so it cannot be cloned. To use one in another
+//! widget's callback, share it through an `Rc`, as the reset button
+//! below shares the slider:
+//!
 //! ```
+//! use std::rc::Rc;
+//!
+//! use plt::events::EventSource;
+//! use plt::navigation::PointerButton;
 //! use plt::prelude::*;
-//! use plt::widgets::{Slider, SliderOptions};
+//! use plt::widgets::{Button, ButtonOptions, Slider, SliderOptions};
 //!
 //! let fig = Figure::new();
 //! let ax = fig.add_axes([0.1, 0.3, 0.8, 0.6])?;
 //! let x = linspace(0.0, 1.0, 200);
 //! let wave = ax.plot(&x, x.iter().map(|x| (5.0 * x).sin()))?;
 //!
-//! let frequency = Slider::new(
-//!     &fig.add_axes([0.2, 0.1, 0.6, 0.05])?,
+//! let frequency = Rc::new(Slider::new(
+//!     &fig.add_axes([0.2, 0.1, 0.5, 0.05])?,
 //!     "frequency",
 //!     1.0,
 //!     30.0,
 //!     SliderOptions { valinit: 5.0, ..SliderOptions::default() },
-//! )?;
+//! )?);
 //! let line = wave.clone();
 //! frequency.on_changed(move |k| {
 //!     line.set_ydata(line.xdata().iter().map(|x| (k * x).sin()));
 //! });
 //!
+//! let reset_ax = fig.add_axes([0.8, 0.1, 0.1, 0.05])?;
+//! let reset = Button::new(&reset_ax, "Reset", ButtonOptions::default());
+//! let slider = Rc::clone(&frequency);
+//! reset.on_clicked(move || slider.reset());
+//!
 //! frequency.set_val(12.0); // what dragging the slider does
 //! assert_eq!(wave.ydata()[10], (12.0 * x[10]).sin());
+//!
+//! // A click in the middle of the button, as the mouse makes one.
+//! let middle = reset_ax.data_to_display((0.5, 0.5))?;
+//! let mut input = EventSource::new();
+//! input.button_press(&fig, middle.x, middle.y, PointerButton::Left, false);
+//! input.button_release(&fig, middle.x, middle.y, PointerButton::Left);
+//! assert_eq!(frequency.val(), 5.0);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!

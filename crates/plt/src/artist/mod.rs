@@ -10,7 +10,11 @@
 //!
 //! Rendering happens in two passes: a mutable *prepare* pass (autoscaling,
 //! tick computation, layout) followed by a read-only *draw* pass in which
-//! each artist renders itself through a [`DrawContext`].
+//! each artist renders itself through a [`DrawContext`]: an artist of
+//! your own draws paths, markers, text and images with the context's
+//! [`Renderer`], in the colour, width and dashes of a
+//! [`GraphicsContext`] ([`DrawContext::base_gc`] starts one from the
+//! artist's common properties).
 
 mod attach;
 mod base;
@@ -52,7 +56,7 @@ pub use filter::{AggFilter, FilteredGroup};
 pub use handle::{ArtistHandle, TypedHandle};
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
-pub use plt_render::{FilterImage, Filtered, Sketch};
+pub use plt_render::{FilterImage, Filtered, GraphicsContext, Renderer, Sketch};
 pub use properties::BaseProps;
 pub use raw::RawHandle;
 pub use store::{ArtistId, ArtistStore};

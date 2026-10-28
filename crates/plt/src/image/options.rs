@@ -259,6 +259,13 @@ impl From<(f64, f64, f64, f64)> for Extent {
     }
 }
 
+/// `[left, right, bottom, top]`, the list matplotlib's `extent` takes.
+impl From<[f64; 4]> for Extent {
+    fn from([left, right, bottom, top]: [f64; 4]) -> Self {
+        Self::new(left, right, bottom, top)
+    }
+}
+
 /// The opacity of an image (matplotlib's `alpha`: a scalar or an array).
 #[derive(Clone, Debug, PartialEq)]
 pub enum ImageAlpha {
@@ -326,6 +333,13 @@ mod tests {
             Extent::default_for(2, 3, Origin::Lower),
             Extent::new(-0.5, 2.5, -0.5, 1.5)
         );
+    }
+
+    #[test]
+    fn extents_convert_from_a_tuple_or_a_list() {
+        let extent = Extent::new(0.0, 10.0, -1.0, 1.0);
+        assert_eq!(Extent::from((0.0, 10.0, -1.0, 1.0)), extent);
+        assert_eq!(Extent::from([0.0, 10.0, -1.0, 1.0]), extent);
     }
 
     #[test]

@@ -125,9 +125,9 @@
 //! Plotting [`DateTime`] values makes a date axis (chapter
 //! [`data`](super::data)): the values become days since 1970, and the
 //! axis takes a date locator and formatter, which choose years, months,
-//! days or hours to suit the range shown.
-//! [`ConciseDateFormatter`](crate::dates::ConciseDateFormatter) writes
-//! each label as briefly as its neighbours allow and moves the rest (the
+//! days or hours to suit the range shown. Replace the formatter with a
+//! [`ConciseDateFormatter`](crate::dates::ConciseDateFormatter) to write
+//! each label as briefly as its neighbours allow and move the rest (the
 //! year, say) to the end of the axis. For a fixed rhythm, a
 //! [`RRuleLocator`](crate::dates::RRuleLocator) places ticks by a
 //! calendar rule, such as the first day of every third month, and a
@@ -137,9 +137,7 @@
 //! ```
 //! use std::f64::consts::TAU;
 //!
-//! use plt::dates::{
-//!     AutoDateLocator, ConciseDateFormatter, DateFormatter, DateTime, RRuleLocator, TimeDelta,
-//! };
+//! use plt::dates::{ConciseDateFormatter, DateFormatter, DateTime, RRuleLocator, TimeDelta};
 //! use plt::prelude::*;
 //!
 //! let start = DateTime::new(2024, 1, 1, 0, 0, 0, 0)?;
@@ -153,10 +151,8 @@
 //! let fig = Figure::with_size(7.0, 5.0, 100.0);
 //! let axs = fig.subplots(2, 1)?;
 //! axs[(0, 0)].plot(&days[..], &temperature)?;
-//! axs[(0, 0)]
-//!     .xaxis()
-//!     .set_major_locator(AutoDateLocator::new())
-//!     .set_major_formatter(ConciseDateFormatter::new());
+//! axs[(0, 0)].xaxis().set_major_formatter(ConciseDateFormatter::new());
+//! assert_eq!(axs[(0, 0)].xaxis().ticklabels(false)?[..3], ["2024", "Mar", "May"]);
 //!
 //! let quarters = &axs[(1, 0)];
 //! quarters.plot(&days[..], &temperature)?;
@@ -174,9 +170,60 @@
 //! ```
 //!
 //! [`Axes::set_xlim`] takes dates as it takes numbers.
-//! Gallery: `concise_dates` in `units.rs`. The
-//! [`porting::axes`](crate::porting::axes) page lists the locators,
-//! formatters, scales and tick settings.
+//! Gallery: `concise_dates` in `units.rs`.
+//!
+//! # Time zones
+//!
+//! A [`DateTime`] is a time in UTC, and date numbers count days in UTC.
+//! A date axis writes its ticks in the zone the `timezone` setting
+//! names, UTC by default, or in the zone given to [`Axes::xaxis_date`]
+//! ([`Axis::axis_date`] on any axis), which the axis keeps for later
+//! plots. [`TimeZone::named`] reads a zone from the system's time zone
+//! database, daylight saving time included.
+//!
+//! The kind of label, automatic or concise, follows the `date.converter`
+//! setting, for every date axis; [`Axis::set_converter`] chooses it for
+//! one axis. As in matplotlib, an axis given its converter that way
+//! takes the converter's ticks when it is given a zone, so pass
+//! `&TimeZone::Utc` for UTC.
+//!
+//! ```
+//! use plt::dates::{DateTime, TimeDelta, TimeZone};
+//! use plt::prelude::*;
+//! use plt::units::DateConverter;
+//!
+//! # if TimeZone::named("Europe/Zurich").is_err() {
+//! #     return Ok(()); // no time zone database on this system
+//! # }
+//! let zurich = TimeZone::named("Europe/Zurich")?;
+//! let noon = DateTime::new(2024, 3, 30, 12, 0, 0, 0)?; // UTC
+//! let hours = (0..6)
+//!     .map(|hour| noon.checked_add(TimeDelta::new(0, 3600 * hour, 0)?))
+//!     .collect::<Result<Vec<_>, _>>()?;
+//!
+//! let ax = Figure::new().subplot();
+//! ax.plot(&hours, [3.0, 4.0, 4.5, 4.0, 3.0, 2.0])?;
+//! ax.xaxis().set_converter(DateConverter::Concise)?.axis_date(&zurich);
+//! assert_eq!(ax.xaxis().ticklabels(false)?[..3], ["13:00", "14:00", "15:00"]);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! To set both for a whole program, change the settings (chapter
+//! [`styling`](super::styling)):
+//!
+//! ```
+//! use plt::rc;
+//! use plt::units::DateConverter;
+//!
+//! rc::update(|params| {
+//!     params.timezone = "Europe/Zurich".into();
+//!     params.date_converter = DateConverter::Concise;
+//! });
+//! # rc::restore_startup();
+//! ```
+//!
+//! The [`porting::axes`](crate::porting::axes) page lists the locators,
+//! formatters, scales, tick settings and date converters.
 //!
 //! Next: [saving and output formats](super::saving).
 //!
@@ -195,3 +242,7 @@
 //! [`Axes::grid`]: crate::axes::Axes::grid
 //! [`Axes::grid_with`]: crate::axes::Axes::grid_with
 //! [`DateTime`]: crate::dates::DateTime
+//! [`TimeZone::named`]: crate::dates::TimeZone::named
+//! [`Axes::xaxis_date`]: crate::axes::Axes::xaxis_date
+//! [`Axis::axis_date`]: crate::axes::Axis::axis_date
+//! [`Axis::set_converter`]: crate::axes::Axis::set_converter

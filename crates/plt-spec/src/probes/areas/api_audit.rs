@@ -212,7 +212,7 @@ fn limit_callbacks(args: Args<'_>) -> Outcome {
             let ax = fig.polar_subplot();
             ax.set_ylim(0.5, 1.0).map_err(ProbeError::rejected)?;
             let (calls, _) = record(&ax);
-            ax.set_rticks(&[1.0, 2.0, 3.0]);
+            ax.set_rticks([1.0, 2.0, 3.0]);
             return Ok(summary(&calls.borrow()));
         }
         _ => {}

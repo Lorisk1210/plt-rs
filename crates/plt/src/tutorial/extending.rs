@@ -17,13 +17,20 @@
 //!
 //! Drawing happens in display coordinates (pixels). The artist's
 //! transform, data coordinates when it was added to an axes, maps its
-//! points there; then the renderer draws paths with a graphics context,
-//! which carries the colour, width, alpha and clipping. Here, a bracket
-//! marking a range of y at one x, with arms of a fixed length in pixels
-//! whatever the zoom:
+//! points there; then the [`Renderer`] draws paths with a
+//! [`GraphicsContext`], which carries the colour, width, dashes, alpha
+//! and clipping. [`DrawContext::base_gc`] fills in what all artists
+//! share (alpha, clipping, ...) and leaves the rest at black, 1 point
+//! wide, for the artist to set from fields of its own. A problem found
+//! while drawing, such as a colour that does not parse, goes to
+//! [`DrawContext::report`]: the figure draws everything else and the
+//! drawing fails with the problems found. Here, a bracket marking a
+//! range of y at one x, with arms of a fixed length in pixels whatever
+//! the zoom:
 //!
 //! ```
 //! use plt::artist::{Artist, ArtistBase, DrawContext};
+//! use plt::colors::Color;
 //! use plt::path::Path;
 //! use plt::prelude::*;
 //! use plt::transforms::{Affine2D, Point};
@@ -35,6 +42,7 @@
 //!     x: f64,
 //!     low: f64,
 //!     high: f64,
+//!     color: Color,
 //! }
 //!
 //! impl Artist for Bracket {
@@ -59,7 +67,12 @@
 //!             top,
 //!             Point::new(top.x + arm, top.y),
 //!         ]);
-//!         let gc = ctx.base_gc(&self.base);
+//!         let mut gc = ctx.base_gc(&self.base);
+//!         match self.color.resolve() {
+//!             Ok(rgba) => gc.foreground = rgba,
+//!             Err(problem) => return ctx.report(self.base.id(), problem),
+//!         }
+//!         gc.linewidth = 1.5;
 //!         ctx.renderer().draw_path(&gc, &outline, &Affine2D::IDENTITY, None);
 //!     }
 //! }
@@ -72,12 +85,16 @@
 //!     x: 1.2,
 //!     low: 1.0,
 //!     high: 4.0,
+//!     color: "tab:red".into(),
 //! });
 //! bracket.update(|bracket| bracket.low = 2.0);
 //! bracket.set_zorder(3.0);
 //! let copy = bracket.get();
 //! assert_eq!(copy.high - copy.low, 2.0);
 //! fig.to_png()?;
+//!
+//! bracket.update(|bracket| bracket.color = "not a colour".into());
+//! assert!(fig.to_png().is_err(), "reported while drawing");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -240,6 +257,10 @@
 //! [`Artist::contains`]: crate::artist::Artist::contains
 //! [`Artist::limit_points`]: crate::artist::Artist::limit_points
 //! [`ArtistBase`]: crate::artist::ArtistBase
+//! [`DrawContext::base_gc`]: crate::artist::DrawContext::base_gc
+//! [`DrawContext::report`]: crate::artist::DrawContext::report
+//! [`GraphicsContext`]: crate::artist::GraphicsContext
+//! [`Renderer`]: crate::artist::Renderer
 //! [`Custom`]: crate::artist::Custom
 //! [`Custom::get`]: crate::artist::Custom::get
 //! [`Custom::update`]: crate::artist::Custom::update

@@ -14,7 +14,6 @@
 //!
 //! ```
 //! use plt::prelude::*;
-//! use plt::legend::LegendOptions;
 //!
 //! let fig = Figure::with_size(6.4, 4.0, 100.0);
 //! let ax = fig.subplot();

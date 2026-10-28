@@ -11,6 +11,12 @@
 //! stays connected for as long as it is alive; keep it around while the
 //! figure is shown.
 //!
+//! A widget is a value, not a handle: it owns its connections to the
+//! figure's events, so it is not `Clone`. To use one in the callback of
+//! another, as a reset button resets a slider, share it through an
+//! [`Rc`](std::rc::Rc) (the
+//! [tutorial](crate::tutorial::interactive#widgets) shows one).
+//!
 //! ```
 //! use plt::figure::Figure;
 //! use plt::widgets::{Slider, SliderOptions};

@@ -39,7 +39,7 @@ fn log_rgrids(fig: &Figure) -> CaseResult {
     ax.plot(theta, r)?;
     ax.set_rscale("log")?;
     ax.set_rlim(1.0, 1000.0)?
-        .set_rgrids(&[1.0, 10.0, 100.0, 1000.0], Some(135.0));
+        .set_rgrids([1.0, 10.0, 100.0, 1000.0], Some(135.0));
     Ok(())
 }
 
@@ -67,7 +67,7 @@ fn labelled_grids(fig: &Figure) -> CaseResult {
         r,
         LineProps::default().color(Color::from("tab:purple")),
     )?;
-    ax.set_rgrids_labeled(&[0.5, 1.0, 1.5], ["low", "mid", "high"], Some(200.0))?;
+    ax.set_rgrids_labeled([0.5, 1.0, 1.5], ["low", "mid", "high"], Some(200.0))?;
     let angles: Vec<f64> = (0..12).map(|i| 30.0 * f64::from(i)).collect();
     ax.set_thetagrids(&angles);
     // matplotlib's `fmt` formats the tick angles in radians.

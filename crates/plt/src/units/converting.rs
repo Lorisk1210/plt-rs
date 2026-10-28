@@ -134,10 +134,22 @@ pub(crate) trait UnitState {
     /// `timezone` rcParam, unless tick helpers were chosen explicitly
     /// (matplotlib's `update_units` + `convert_units` for dates).
     fn convert_dates(&mut self, numbers: Vec<f64>) -> Vec<f64> {
-        self.units_mut().adopt(UnitConverter::Dates);
-        let tz = self.units().time_zone();
-        self.use_date_tickers(tz.as_ref());
+        self.adopt_dates();
         numbers
+    }
+
+    /// Takes the date converter unless another one was set explicitly,
+    /// and the date ticks only when it is new to the axis (matplotlib's
+    /// `update_units`, which updates the axis info when the converter
+    /// changes): ticks set up by earlier dates stay, and an axis given
+    /// the date converter explicitly keeps its tick helpers.
+    fn adopt_dates(&mut self) {
+        let before = self.units().converter.clone();
+        self.units_mut().adopt(UnitConverter::Dates);
+        if self.units().converter != before {
+            let tz = self.units().time_zone();
+            self.use_date_tickers(tz.as_ref());
+        }
     }
 
     /// Converts category names to positions, registering new names and
@@ -169,11 +181,7 @@ pub(crate) trait UnitState {
     /// `set_units` alone.
     fn share_units(&mut self, (units, categories): &UnitData) {
         match &units.converter {
-            Some(UnitConverter::Dates) => {
-                self.units_mut().adopt(UnitConverter::Dates);
-                let tz = self.units().time_zone();
-                self.use_date_tickers(tz.as_ref());
-            }
+            Some(UnitConverter::Dates) => self.adopt_dates(),
             Some(UnitConverter::Categories) => {
                 self.units_mut().adopt(UnitConverter::Categories);
                 self.categories_mut().clone_from(categories);

@@ -285,6 +285,35 @@ mod tests {
         });
     }
 
+    /// matplotlib's `update_units` sets the date ticks up only when the
+    /// axis takes the date converter: later dates keep them, and an axis
+    /// given the converter explicitly keeps its tick helpers.
+    #[test]
+    fn date_ticks_are_set_up_once() {
+        let at = |hour| crate::dates::DateTime::new(2020, 1, 1, hour, 0, 0, 0).expect("a date");
+        let is_auto =
+            |axis: &Axis| (axis.major_formatter().as_ref() as &dyn Any).is::<AutoDateFormatter>();
+        crate::rc::context(|| {
+            let ax = Figure::new().subplot();
+            ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
+            crate::rc::set("date.converter", "concise").expect("a valid rcParam");
+            ax.plot(vec![at(12), at(18)], [1.0, 0.0]).expect("a line");
+            assert!(
+                is_auto(&ax.xaxis()),
+                "the first converter's formatter stays"
+            );
+        });
+        let ax = Figure::new().subplot();
+        ax.xaxis()
+            .set_converter(crate::units::UnitConverter::Dates)
+            .expect("no converter yet");
+        ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
+        assert!(
+            !is_auto(&ax.xaxis()),
+            "an explicit converter brings no ticks"
+        );
+    }
+
     #[test]
     fn the_default_date_view_leaves_data_and_set_limits_alone() {
         let ax = Figure::new().subplot();

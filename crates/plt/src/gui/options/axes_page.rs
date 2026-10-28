@@ -326,7 +326,9 @@ fn general_form(
             AxisName::Y => ("Y axis", axes.ylim(), axes.yscale(), axes.yaxis()),
         };
         form.section(heading);
-        let zone = (axis.converter() == Some(UnitConverter::Dates)).then(date_zone);
+        let zone = (axis.converter().as_ref())
+            .is_some_and(UnitConverter::is_dates)
+            .then(date_zone);
         let shown = |value| {
             let resolution = axes.pixel_resolution(name, value);
             LimitField::text(value, resolution, zone.as_ref())

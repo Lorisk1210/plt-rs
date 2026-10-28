@@ -29,7 +29,211 @@
   {"op": "axes.Axes.get_xlim", "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "date_first": {"tz": null}}, "value": [0.0, 1.0]},
   {"op": "axes.Axes.get_xlim", "args": {"style": ["classic", "_classic_test_patch"], "xaxis_date": true, "epoch": "0000-12-31"}, "value": [719163.0, 719164.0]},
   {"op": "axes.Axes.get_xlim", "args": {"style": ["classic", "_classic_test_patch"], "xaxis_date": true}, "value": [0.0, 1.0]},
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {"style": ["default"], "converter": "auto", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}, "late_converter": "switchable"},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {"style": ["default"], "converter": "concise", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}, "late_converter": "switchable"},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {"style": ["default"], "converter": "switchable", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}, "late_converter": "auto"},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {"style": ["default"], "converter": "switchable", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}, "late_converter": "concise"},
+   "error": "RuntimeError"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "auto",
+    "xaxis_date": true
+   },
+   "value": "auto"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "auto",
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": "auto"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "plot": {"days": ["2000-01-01", "2020-02-20"]},
+    "late_converter": "concise",
+    "x": {"lim": ["2000-01-01T00:00:00", "2020-02-20T00:00:00"]}
+   },
+   "value": "concise"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "concise",
+    "xaxis_date": true
+   },
+   "value": "concise"
+  },
+  {
+   "op": "axis.Axis.get_converter",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "concise",
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": "concise"
+  },
   {"op": "axis.Axis.get_major_locator", "args": {"style": ["classic", "_classic_test_patch"]}, "value": {"count": 1461, "xlim": [10246.0, 11706.0]}},
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.interval_multiples": false},
+    "plot": {"days": ["2020-01-10", "2020-05-01"]},
+    "xaxis_date": {"tz": "UTC"},
+    "converter": "auto"
+   },
+   "value": {"labels": ["Jan 15 2020", "Feb 01 2020", "Feb 15 2020", "Mar 01 2020", "Mar 15 2020", "Apr 01 2020", "Apr 15 2020"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "auto"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"labels": ["0.45", "0.50", "0.55", "0.60", "0.65", "0.70", "0.75", "0.80"], "offset": "+1.8262e4"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "auto"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"labels": ["01-01 12", "01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "concise"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"labels": ["0.45", "0.50", "0.55", "0.60", "0.65", "0.70", "0.75", "0.80"], "offset": "+1.8262e4"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "concise"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"labels": ["01-01 12", "01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.interval_multiples": false},
+    "plot": {"days": ["2020-01-10", "2020-05-01"]},
+    "xaxis_date": {"tz": "UTC"},
+    "converter": "concise"
+   },
+   "value": {"labels": ["15", "Feb", "15", "Mar", "15", "Apr", "15"], "offset": "2020-Apr"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "auto"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"labels": ["0.45", "0.50", "0.55", "0.60", "0.65", "0.70", "0.75", "0.80"], "offset": "+1.8262e4"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "auto"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"labels": ["12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"], "offset": "2020-Jan-01"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "concise"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"labels": ["0.45", "0.50", "0.55", "0.60", "0.65", "0.70", "0.75", "0.80"], "offset": "+1.8262e4"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "concise"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"labels": ["12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"], "offset": "2020-Jan-01"}
+  },
   {
    "op": "axis.Axis.get_ticklabels",
    "args": {
@@ -53,6 +257,19 @@
     "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}
    },
    "value": {"labels": ["0.45", "0.50", "0.55", "0.60", "0.65", "0.70", "0.75", "0.80"], "offset": "+1.8262e4"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["classic", "_classic_test_patch"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.interval_multiples": false},
+    "plot": {"days": ["2020-01-10", "2020-05-01"]},
+    "xaxis_date": {"tz": "UTC"},
+    "converter": "switchable"
+   },
+   "value": {"labels": ["Jan 10 2020", "Jan 24 2020", "Feb 07 2020", "Feb 21 2020", "Mar 06 2020", "Mar 20 2020", "Apr 03 2020", "Apr 17 2020"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -125,6 +342,58 @@
     "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}
    },
    "value": {"labels": ["01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18", "01-01 19"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "concise"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "auto",
+    "xaxis_date": true
+   },
+   "value": {"labels": ["12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"], "offset": "2020-Jan-01"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "concise"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "auto",
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"labels": ["01-01 12", "01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "auto"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "concise",
+    "xaxis_date": true
+   },
+   "value": {"labels": ["01-01 12", "01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"date.converter": "auto"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "concise",
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"labels": ["12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"], "offset": "2020-Jan-01"}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -929,6 +1198,117 @@
    "value": null
   },
   {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["classic", "_classic_test_patch"], "plot": {"days": ["2000-01-01", "2020-02-20"]}, "late_converter": "concise"},
+   "value": null
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "replot": {"rc": {"date.converter": "concise"}, "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "AutoDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {"style": ["default"], "rc": {"date.converter": "auto"}, "converter": "auto", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}, "xaxis_date": true},
+   "value": {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "AutoDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "converter": "auto",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "AutoDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "ConciseDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "replot": {"rc": {"date.converter": "auto"}, "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "ConciseDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": true
+   },
+   "value": {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "converter": "concise",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "ConciseDateFormatter"}
+  },
+  {
    "op": "axis.Axis.major",
    "args": {
     "style": ["default"],
@@ -981,6 +1361,74 @@
    "op": "axis.Axis.major",
    "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "converter": "dates", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
    "value": {"locator": "AutoLocator", "formatter": "ScalarFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "converter": "switchable",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "replot": {"rc": {"date.converter": "concise"}, "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "ConciseDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "converter": "switchable",
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "replot": {"rc": {"date.converter": "auto"}, "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "AutoDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "auto",
+    "xaxis_date": true
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "ConciseDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "concise"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "auto",
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "AutoDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "concise",
+    "xaxis_date": true
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "AutoDateFormatter"}
+  },
+  {
+   "op": "axis.Axis.major",
+   "args": {
+    "style": ["default"],
+    "rc": {"date.converter": "auto"},
+    "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]},
+    "late_converter": "concise",
+    "xaxis_date": {"tz": "UTC"}
+   },
+   "value": {"locator": "AutoDateLocator", "formatter": "ConciseDateFormatter"}
   },
   {
    "op": "axis.Axis.major",

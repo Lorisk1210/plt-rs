@@ -1,6 +1,7 @@
-//! The tests of `test_dates.py` that read the limits or the tick labels of
-//! a date axis, and plt-rs' own cases of how a date axis takes its zone
-//! and tick helpers, replayed in a fresh figure in the probe's style (see
+//! The tests of `test_dates.py` that read the limits, the tick labels or
+//! the converter of a date axis, and plt-rs' own cases of how a date axis
+//! takes its zone, converter and tick helpers, replayed in a fresh figure
+//! in the probe's style (see
 //! the module docs of `test_mpl_dates.py` for the order of the set-up).
 
 use plt::axes::{Axes, Axis, AxisName, Limits};
@@ -8,7 +9,7 @@ use plt::dates::{AutoDateFormatter, DateTime, Datetime64, RRuleLocator, TimeZone
 use plt::figure::Figure;
 use plt::lines::LineProps;
 use plt::ticker::NullLocator;
-use plt::units::{AxisValues, UnitConverter};
+use plt::units::{AxisValues, DateConverter, UnitConverter};
 
 use super::in_epoch;
 use crate::json::Json;
@@ -177,38 +178,54 @@ fn configure(ax: &Axes, name: AxisName, config: Args<'_>) -> Result<(), ProbeErr
     Ok(())
 }
 
-/// The converter a probe's `converter` names (only `"dates"`, matplotlib's
-/// `DateConverter`).
+/// The converter a probe's converter name gives: `"dates"` and `"auto"`
+/// matplotlib's `DateConverter()`, `"concise"` its
+/// `ConciseDateConverter()`, and `"switchable"` the
+/// `_SwitchableDateConverter` plotting dates gives.
 fn converter(name: &str) -> Result<UnitConverter, ProbeError> {
     match name {
-        "dates" => Ok(UnitConverter::Dates),
+        "dates" | "auto" => Ok(DateConverter::Auto.into()),
+        "concise" => Ok(DateConverter::Concise.into()),
+        "switchable" => Ok(UnitConverter::Dates),
         _ => Err(ProbeError::BadArgs(format!("bad converter {name:?}"))),
     }
 }
 
-/// `ax.xaxis_date(tz)` for the probe's `date_first`, `{tz}` with `tz` a
-/// zone name or `null`.
-fn date_first(ax: &Axes, spec: &Json) -> Result<(), ProbeError> {
-    let tz = Args::new(spec)
-        .opt_str("tz")?
-        .map(TimeZone::named)
-        .transpose()
-        .map_err(ProbeError::rejected)?;
+/// `ax.xaxis.set_converter(...)` with the converter the probe's `key`
+/// names, if it names one.
+fn set_converter(ax: &Axes, args: Args<'_>, key: &str) -> Result<(), ProbeError> {
+    if let Some(name) = args.opt_str(key)? {
+        ax.xaxis()
+            .set_converter(converter(name)?)
+            .map_err(ProbeError::rejected)?;
+    }
+    Ok(())
+}
+
+/// `ax.xaxis_date(tz)` for the probe's `date_first` or `xaxis_date`:
+/// `{tz}`, `tz` a zone name or `null`; `xaxis_date` may also be `true`,
+/// `ax.xaxis_date()`, or `false`, no call.
+fn xaxis_date(ax: &Axes, spec: &Json) -> Result<(), ProbeError> {
+    let tz = match spec.as_bool() {
+        Some(false) => return Ok(()),
+        Some(true) => None,
+        None => Args::new(spec)
+            .opt_str("tz")?
+            .map(TimeZone::named)
+            .transpose()
+            .map_err(ProbeError::rejected)?,
+    };
     ax.xaxis_date(tz.as_ref());
     Ok(())
 }
 
 /// Sets the probe's axes up, in the order of the reference module's
-/// `_on_axes`: the converter, `date_first`, the line, the plots, the date
-/// axis calls and the config of each axis.
+/// `_on_axes`: the converter, `date_first`, the line, the plots, the late
+/// converter, the date axis calls and the config of each axis.
 fn set_up(ax: &Axes, args: Args<'_>) -> Result<(), ProbeError> {
-    if let Some(name) = args.opt_str("converter")? {
-        ax.xaxis()
-            .set_converter(converter(name)?)
-            .map_err(ProbeError::rejected)?;
-    }
+    set_converter(ax, args, "converter")?;
     if let Some(spec) = args.get("date_first") {
-        date_first(ax, spec)?;
+        xaxis_date(ax, spec)?;
     }
     if let Some(y) = args.opt_f64("axhline")? {
         ax.axhline(y, LineProps::default());
@@ -220,8 +237,9 @@ fn set_up(ax: &Axes, args: Args<'_>) -> Result<(), ProbeError> {
         set_rc(replot.get("rc"))?;
         plot(ax, replot.json("plot")?)?;
     }
-    if args.opt_bool("xaxis_date")? == Some(true) {
-        ax.xaxis_date(None);
+    set_converter(ax, args, "late_converter")?;
+    if let Some(spec) = args.get("xaxis_date") {
+        xaxis_date(ax, spec)?;
     }
     if args.opt_bool("axis_date")? == Some(true) {
         ax.xaxis().axis_date(None);
@@ -302,6 +320,17 @@ pub(super) fn units(args: Args<'_>) -> Outcome {
             .ok_or_else(|| ProbeError::rejected(format!("the unit {unit:?} is no zone")))?;
         let new_year = DateTime::new(2020, 1, 1, 0, 0, 0, 0).map_err(ProbeError::rejected)?;
         Ok(Json::from(zone.name_at_local(new_year, false)))
+    })
+}
+
+/// The x axis' converter of dates, named as the probe's `converter` names
+/// it (`"auto"` for `DateConverter()`), or `null` without a converter.
+pub(super) fn converter_name(args: Args<'_>) -> Outcome {
+    on_axes(args, |_, ax| match ax.xaxis().converter() {
+        None => Ok(Json::Null),
+        Some(UnitConverter::Dates) => Ok(Json::from("switchable")),
+        Some(UnitConverter::DatesBy(kind)) => Ok(Json::from(kind.name())),
+        Some(other) => Err(ProbeError::rejected(format!("{other:?} converts no dates"))),
     })
 }
 

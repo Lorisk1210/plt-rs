@@ -130,11 +130,34 @@ impl Axis {
     /// converted as its own kind. Like matplotlib, this leaves the tick
     /// helpers alone, and so do values plotted later;
     /// [`axis_date`](Self::axis_date) with a zone installs those of
-    /// dates.
+    /// dates that the converter gives.
+    ///
+    /// A [`DateConverter`] gives an axis dates of that kind
+    /// ([`UnitConverter::DatesBy`], matplotlib's `DateConverter()` or
+    /// `ConciseDateConverter()`), whose ticks are of that kind whatever
+    /// `date.converter` says, while [`UnitConverter::Dates`] is the
+    /// converter plotting dates gives, whose kind follows the rcParam.
+    ///
+    /// ```
+    /// use std::any::Any;
+    /// use plt::dates::{ConciseDateFormatter, TimeZone};
+    /// use plt::prelude::*;
+    /// use plt::units::DateConverter;
+    /// let ax = Figure::new().subplot();
+    /// // matplotlib: ax.xaxis.set_converter(mdates.ConciseDateConverter())
+    /// ax.xaxis().set_converter(DateConverter::Concise)?;
+    /// ax.xaxis_date(&TimeZone::Utc); // date.converter is "auto"
+    /// let formatter = ax.xaxis().major_formatter();
+    /// assert!((formatter.as_ref() as &dyn Any).is::<ConciseDateFormatter>());
+    /// # Ok::<(), plt::axes::PlotError>(())
+    /// ```
     ///
     /// # Errors
     ///
-    /// When another converter was already set explicitly.
+    /// When another converter was already set explicitly; converters of
+    /// dates of different kinds are different converters.
+    ///
+    /// [`DateConverter`]: crate::units::DateConverter
     pub fn set_converter(&self, converter: impl Into<UnitConverter>) -> Result<&Self, PlotError> {
         let converter = converter.into();
         if self.update(|axis| axis.units_mut().set_explicit(converter)) {
@@ -169,15 +192,19 @@ impl Axis {
 
     /// Ticks the axis as an axis of dates without plotting any
     /// (matplotlib's `axis_date`, as `Axis3D::axis_date` does for 3-D
-    /// axes): the axis takes the date converter, unless another one was
-    /// set explicitly, and an `AutoDateLocator` with the formatter
-    /// `date.converter` chooses in place of the major locator and
-    /// formatter that were not set explicitly; the axes sharing the axis
-    /// follow. A zone `tz` becomes the axis unit if it has none, so later
-    /// plots keep it; the ticks are in the unit's zone, else (`None`) in
-    /// the `timezone` rcParam's. As in matplotlib (`update_units`), the
-    /// date ticks come with that new unit or with a date converter new to
-    /// the axis; with neither, the axis keeps its tick helpers. Before any
+    /// axes): the axis takes the converter plotting dates gives
+    /// ([`UnitConverter::Dates`]), unless another one was set explicitly,
+    /// and an `AutoDateLocator` with the formatter of its converter in
+    /// place of the major locator and formatter that were not set
+    /// explicitly: the one `date.converter` chooses, or that of the kind
+    /// a converter set with [`set_converter`](Self::set_converter) has
+    /// ([`UnitConverter::DatesBy`]). The axes sharing the axis follow. A
+    /// zone `tz` becomes the axis unit if it has none, so later plots
+    /// keep it; the ticks are in the unit's zone, else (`None`) in the
+    /// `timezone` rcParam's. As in matplotlib (`update_units`), the date
+    /// ticks come with that new unit or with a converter new to the axis;
+    /// with neither, the axis keeps its tick helpers, so an explicit
+    /// converter of dates brings its ticks only with a zone. Before any
     /// data is plotted or limits are set, the view becomes the first day
     /// of 1970, the default limits of matplotlib's date converter (its
     /// `set_default_intervals`).
@@ -237,9 +264,27 @@ mod tests {
     use std::any::Any;
 
     use super::*;
-    use crate::dates::{AutoDateFormatter, AutoDateLocator};
+    use crate::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateTime};
     use crate::figure::{Figure, Share};
     use crate::ticker::{AxisName, MultipleLocator};
+    use crate::units::DateConverter;
+
+    /// 2020-01-01 at `hour` (UTC).
+    fn at(hour: u32) -> DateTime {
+        DateTime::new(2020, 1, 1, hour, 0, 0, 0).expect("a date")
+    }
+
+    /// The kind of date formatter `axis` has as its major formatter, if
+    /// it has one.
+    fn date_formatter(axis: &Axis) -> Option<DateConverter> {
+        let formatter = axis.major_formatter();
+        let formatter = formatter.as_ref() as &dyn Any;
+        if formatter.is::<AutoDateFormatter>() {
+            Some(DateConverter::Auto)
+        } else {
+            (formatter.is::<ConciseDateFormatter>()).then_some(DateConverter::Concise)
+        }
+    }
 
     #[test]
     fn axis_date_installs_date_tickers_where_defaults_remain() {
@@ -273,7 +318,6 @@ mod tests {
             let Ok(berlin) = TimeZone::from_rc() else {
                 return; // no zoneinfo on this system
             };
-            let at = |hour| crate::dates::DateTime::new(2020, 1, 1, hour, 0, 0, 0).expect("a date");
             let labels = |tz: Option<&TimeZone>| {
                 let ax = Figure::new().subplot();
                 ax.xaxis_date(tz);
@@ -291,36 +335,92 @@ mod tests {
 
     /// matplotlib's `update_units` sets the date ticks up only when the
     /// axis takes the date converter or a unit: later dates and
-    /// `axis_date()` keep them, and an axis given the converter explicitly
-    /// keeps its tick helpers until `axis_date` gives it a zone.
+    /// `axis_date()` keep them.
     #[test]
     fn date_ticks_are_set_up_once() {
-        let at = |hour| crate::dates::DateTime::new(2020, 1, 1, hour, 0, 0, 0).expect("a date");
-        let is_auto =
-            |axis: &Axis| (axis.major_formatter().as_ref() as &dyn Any).is::<AutoDateFormatter>();
         crate::rc::context(|| {
             let ax = Figure::new().subplot();
             ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
             crate::rc::set("date.converter", "concise").expect("a valid rcParam");
             ax.plot(vec![at(12), at(18)], [1.0, 0.0]).expect("a line");
             ax.xaxis_date(None);
-            assert!(
-                is_auto(&ax.xaxis()),
+            assert_eq!(
+                date_formatter(&ax.xaxis()),
+                Some(DateConverter::Auto),
                 "the first converter's formatter stays"
             );
         });
+    }
+
+    /// An explicit converter of dates brings no ticks until `axis_date`
+    /// gives the axis a zone, and then those of its kind: matplotlib's
+    /// `DateConverter()` and `ConciseDateConverter()` keep theirs whatever
+    /// `date.converter` says, while its `_SwitchableDateConverter` takes
+    /// the rcParam's kind when it ticks.
+    #[test]
+    fn explicit_date_converters_tick_as_their_kind() {
+        use DateConverter::{Auto, Concise};
+        let cases = [
+            (UnitConverter::Dates, "concise", Concise),
+            (UnitConverter::Dates, "auto", Auto),
+            (Auto.into(), "concise", Auto),
+            (Concise.into(), "auto", Concise),
+        ];
+        for (converter, ticked, kind) in cases {
+            crate::rc::context(|| {
+                let ax = Figure::new().subplot();
+                ax.xaxis()
+                    .set_converter(converter.clone())
+                    .expect("no converter yet");
+                ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
+                ax.xaxis_date(None);
+                assert_eq!(date_formatter(&ax.xaxis()), None, "{converter:?}");
+                crate::rc::set("date.converter", ticked).expect("a valid rcParam");
+                ax.xaxis_date(&TimeZone::Utc);
+                assert_eq!(date_formatter(&ax.xaxis()), Some(kind), "{converter:?}");
+                assert_eq!(ax.xaxis().converter(), Some(converter));
+            });
+        }
+    }
+
+    /// matplotlib's `set_converter` after plotted dates replaces their
+    /// converter without touching the ticks, which change only when
+    /// `axis_date` gives the axis a zone.
+    #[test]
+    fn an_explicit_date_converter_after_plotted_dates_ticks_with_a_zone() {
+        crate::rc::context(|| {
+            crate::rc::set("date.converter", "concise").expect("a valid rcParam");
+            let ax = Figure::new().subplot();
+            ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
+            ax.xaxis()
+                .set_converter(DateConverter::Auto)
+                .expect("no explicit converter yet");
+            ax.xaxis_date(None);
+            let concise = Some(DateConverter::Concise);
+            assert_eq!(date_formatter(&ax.xaxis()), concise, "the plotted ticks");
+            ax.xaxis_date(&TimeZone::Utc);
+            assert_eq!(date_formatter(&ax.xaxis()), Some(DateConverter::Auto));
+        });
+    }
+
+    /// Converters of dates of different kinds are different converters,
+    /// so an axis keeps the first one set explicitly.
+    #[test]
+    fn date_converters_of_different_kinds_differ() {
         let ax = Figure::new().subplot();
-        ax.xaxis()
-            .set_converter(UnitConverter::Dates)
+        let xaxis = ax.xaxis();
+        xaxis
+            .set_converter(DateConverter::Auto)
             .expect("no converter yet");
-        ax.plot(vec![at(12), at(18)], [0.0, 1.0]).expect("a line");
-        ax.xaxis_date(None);
-        assert!(
-            !is_auto(&ax.xaxis()),
-            "an explicit converter brings no ticks"
-        );
-        ax.xaxis_date(&TimeZone::Utc);
-        assert!(is_auto(&ax.xaxis()), "a zone as the unit does");
+        assert!(xaxis.set_converter(DateConverter::Auto).is_ok());
+        for other in [UnitConverter::Dates, DateConverter::Concise.into()] {
+            assert_eq!(
+                xaxis.set_converter(other).err(),
+                Some(PlotError::ExplicitConverter(AxisName::X))
+            );
+        }
+        let auto = UnitConverter::DatesBy(DateConverter::Auto);
+        assert_eq!(xaxis.converter(), Some(auto));
     }
 
     #[test]
@@ -342,6 +442,16 @@ mod tests {
         axs[(0, 0)].xaxis_date(&TimeZone::Utc);
         let below = axs[(1, 0)].xaxis().major_locator();
         assert!((below.as_ref() as &dyn Any).is::<AutoDateLocator>());
+
+        let axs = fig
+            .subplots_shared(2, 1, Share::All, Share::None)
+            .expect("a grid");
+        (axs[(0, 0)].xaxis())
+            .set_converter(DateConverter::Concise)
+            .expect("no converter yet");
+        axs[(0, 0)].xaxis_date(&TimeZone::Utc);
+        let below = date_formatter(&axs[(1, 0)].xaxis());
+        assert_eq!(below, Some(DateConverter::Concise), "the converter's kind");
     }
 
     #[test]

@@ -92,20 +92,35 @@ pub(crate) use lists::from_value_lists;
 pub use scalar::{AxisValue, DataPoint};
 pub(crate) use sources::UnitSources;
 
-/// The tick helpers of an axis of dates in `tz` (matplotlib's
-/// `DateConverter.axisinfo`, or `ConciseDateConverter`'s when
-/// `date.converter` says so): an `AutoDateLocator` following
-/// `date.interval_multiples`, and an `AutoDateFormatter` or a
-/// `ConciseDateFormatter`. Without `tz` (the axis unit is no zone) they
-/// take the `timezone` rcParam as matplotlib's do given `tz=None`: the
-/// locator now, the formatter whenever it formats.
-pub(crate) fn date_tickers(tz: Option<&TimeZone>) -> (Rc<dyn Locator>, Rc<dyn Formatter>) {
-    let rc = crate::rc::params();
+/// The tick helpers of an axis of dates in `tz` that `converter` gives,
+/// if it converts dates (matplotlib's `DateConverter.axisinfo` and
+/// `ConciseDateConverter.axisinfo`): an `AutoDateLocator` and an
+/// `AutoDateFormatter` or a `ConciseDateFormatter`, as the kind of the
+/// converter says. The switchable converter takes its kind from
+/// `date.converter` and its locator's `interval_multiples` from
+/// `date.interval_multiples` now (matplotlib's `_SwitchableDateConverter`,
+/// which makes a converter of either kind from them); a converter of a
+/// given kind ticks at interval multiples, the default of matplotlib's
+/// constructors. Without `tz` (the axis unit is no zone) they take the
+/// `timezone` rcParam as matplotlib's do given `tz=None`: the locator
+/// now, the formatter whenever it formats.
+pub(crate) fn date_tickers(
+    converter: &UnitConverter,
+    tz: Option<&TimeZone>,
+) -> Option<(Rc<dyn Locator>, Rc<dyn Formatter>)> {
+    let (kind, interval_multiples) = match *converter {
+        UnitConverter::Dates => {
+            let rc = crate::rc::params();
+            (rc.date_converter, rc.date_interval_multiples)
+        }
+        UnitConverter::DatesBy(kind) => (kind, true),
+        UnitConverter::Categories | UnitConverter::Custom(_) => return None,
+    };
     let locator = || {
-        let locator = AutoDateLocator::new().with_interval_multiples(rc.date_interval_multiples);
+        let locator = AutoDateLocator::new().with_interval_multiples(interval_multiples);
         with_optional_tz(locator, tz, AutoDateLocator::with_tz)
     };
-    let formatter: Rc<dyn Formatter> = match rc.date_converter {
+    let formatter: Rc<dyn Formatter> = match kind {
         DateConverter::Concise => Rc::new(with_optional_tz(
             ConciseDateFormatter::new(),
             tz,
@@ -117,7 +132,7 @@ pub(crate) fn date_tickers(tz: Option<&TimeZone>) -> (Rc<dyn Locator>, Rc<dyn Fo
             AutoDateFormatter::with_tz,
         )),
     };
-    (Rc::new(locator()), formatter)
+    Some((Rc::new(locator()), formatter))
 }
 
 /// `ticker` given `tz` by `with_tz` if there is one.
@@ -132,12 +147,38 @@ fn with_optional_tz<T>(ticker: T, tz: Option<&TimeZone>, with_tz: fn(T, TimeZone
 /// registered for dates and strings, and those of users): what plotted
 /// values were converted from, which decides the axis' default tick
 /// helpers.
+///
+/// Dates have two: the one plotting dates gives an axis, whose kind of
+/// ticks follows `date.converter`, and one of a kind of its own, which an
+/// axis is given with [`Axis::set_converter`] and which converts from
+/// that kind ([`DateConverter`]). They compare unequal, as converters of
+/// different kinds do.
+///
+/// ```
+/// use plt::dates::TimeZone;
+/// use plt::prelude::*;
+/// use plt::units::{DateConverter, UnitConverter};
+/// let ax = Figure::new().subplot();
+/// ax.xaxis().set_converter(DateConverter::Concise)?;
+/// ax.xaxis_date(&TimeZone::Utc);
+/// let converter = ax.xaxis().converter().expect("a converter");
+/// assert_eq!(converter, UnitConverter::DatesBy(DateConverter::Concise));
+/// assert!(converter.is_dates() && converter != UnitConverter::Dates);
+/// # Ok::<(), plt::axes::PlotError>(())
+/// ```
+///
+/// [`Axis::set_converter`]: crate::axes::Axis::set_converter
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum UnitConverter {
-    /// Dates, as date numbers with date ticks (matplotlib's
-    /// `DateConverter`, or `ConciseDateConverter` as `date.converter`
-    /// says).
+    /// Dates, as date numbers with date ticks of the kind `date.converter`
+    /// names whenever the axis takes them (matplotlib's
+    /// `_SwitchableDateConverter`, the converter of dates in its
+    /// `units.registry`): the converter plotting dates gives an axis.
     Dates,
+    /// Dates, as date numbers with date ticks of one kind whatever
+    /// `date.converter` says (matplotlib's `DateConverter()` or
+    /// `ConciseDateConverter()`, given to `set_converter`).
+    DatesBy(DateConverter),
     /// Category names, placed at 0, 1, 2, ... (matplotlib's
     /// `StrCategoryConverter`).
     Categories,
@@ -150,8 +191,20 @@ impl UnitConverter {
     pub fn custom(&self) -> Option<&CustomConverter> {
         match self {
             Self::Custom(converter) => Some(converter),
-            Self::Dates | Self::Categories => None,
+            Self::Dates | Self::DatesBy(_) | Self::Categories => None,
         }
+    }
+
+    /// Whether the converter is one of dates, of the kind `date.converter`
+    /// names or of a kind of its own.
+    pub fn is_dates(&self) -> bool {
+        matches!(self, Self::Dates | Self::DatesBy(_))
+    }
+}
+
+impl From<DateConverter> for UnitConverter {
+    fn from(kind: DateConverter) -> Self {
+        Self::DatesBy(kind)
     }
 }
 

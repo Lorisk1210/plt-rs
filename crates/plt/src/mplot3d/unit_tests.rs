@@ -11,7 +11,8 @@ use crate::figure::Figure;
 use crate::mplot3d::{Axes3DError, Axis3, Scatter3DOptions};
 use crate::ticker::MultipleLocator;
 use crate::units::{
-    ConversionError, ConversionInterface, Convertible, Unit, UnitAxis, UnitAxisInfo, UnitConverter,
+    ConversionError, ConversionInterface, Convertible, DateConverter, Unit, UnitAxis, UnitAxisInfo,
+    UnitConverter,
 };
 
 /// A length, which keeps the unit it was given in.
@@ -175,6 +176,29 @@ fn explicit_converters_stay() {
         Figure::new().subplot_3d().ylim(),
         "the view stays"
     );
+}
+
+/// As on 2-D axes, an explicit converter of dates ticks as its kind once
+/// `axis_date` gives the axis a zone, whatever `date.converter` says.
+#[test]
+fn explicit_date_converters_tick_as_their_kind() {
+    let labels = |rc: &str, converter: Option<DateConverter>| {
+        crate::rc::context(|| {
+            crate::rc::set("date.converter", rc).unwrap();
+            let ax = Figure::new().subplot_3d();
+            if let Some(kind) = converter {
+                ax.zaxis().set_converter(kind).unwrap();
+            }
+            ax.plot([0.0, 1.0], [0.0, 1.0], vec![day(1), day(3)])
+                .unwrap();
+            ax.zaxis().axis_date(&TimeZone::Utc);
+            ax.zaxis().ticklabels(false).unwrap()
+        })
+    };
+    let (auto, concise) = (labels("auto", None), labels("concise", None));
+    assert_ne!(auto, concise);
+    assert_eq!(labels("concise", Some(DateConverter::Auto)), auto);
+    assert_eq!(labels("auto", Some(DateConverter::Concise)), concise);
 }
 
 #[test]

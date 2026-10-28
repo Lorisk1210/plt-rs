@@ -137,14 +137,22 @@ impl Axis3D {
     /// Ticks the axis as an axis of dates: its values are date
     /// numbers (days since the [epoch](crate::dates::get_epoch), see
     /// [`date2num`](crate::dates::date2num)), placed by an
-    /// `AutoDateLocator` and labelled by the formatter `date.converter`
-    /// chooses (matplotlib's `Axis.axis_date`, `Axes3D.zaxis_date` for the
-    /// z axis). Like matplotlib, the axis takes the date converter unless
-    /// another one was set explicitly, replaces only the major locator and
-    /// formatter that were not set explicitly, and leaves the limits as
-    /// they are; the axes sharing the axis follow. A zone `tz` becomes the
-    /// axis unit if it has none, so later plots keep it; the ticks are in
-    /// the unit's zone, else (`None`) in the `timezone` rcParam's.
+    /// `AutoDateLocator` and labelled by the formatter of the axis'
+    /// converter of dates (matplotlib's `Axis.axis_date`,
+    /// `Axes3D.zaxis_date` for the z axis): the one `date.converter`
+    /// chooses, or that of the kind a converter set with
+    /// [`set_converter`](Self::set_converter) has
+    /// ([`UnitConverter::DatesBy`](crate::units::UnitConverter::DatesBy)).
+    /// Like matplotlib, the axis takes the converter plotting dates gives
+    /// unless another one was set explicitly, replaces only the major
+    /// locator and formatter that were not set explicitly, and leaves the
+    /// limits as they are; the axes sharing the axis follow. A zone `tz`
+    /// becomes the axis unit if it has none, so later plots keep it; the
+    /// ticks are in the unit's zone, else (`None`) in the `timezone`
+    /// rcParam's. As [`Axis::axis_date`](crate::axes::Axis::axis_date)
+    /// does, they come only with that new unit or with a converter new to
+    /// the axis, so an explicit converter of dates brings its ticks only
+    /// with a zone.
     ///
     /// ```
     /// use plt::dates::TimeZone;

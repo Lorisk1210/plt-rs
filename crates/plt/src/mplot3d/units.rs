@@ -208,11 +208,17 @@ impl Axis3D {
     }
 
     /// Sets the unit converter explicitly (matplotlib's `set_converter`):
-    /// values converted later no longer change it.
+    /// values converted later no longer change it. A
+    /// [`DateConverter`](crate::units::DateConverter) gives the axis dates
+    /// of that kind whatever `date.converter` says, as
+    /// [`Axis::set_converter`] does.
     ///
     /// # Errors
     ///
-    /// When another converter was already set explicitly.
+    /// When another converter was already set explicitly; converters of
+    /// dates of different kinds are different converters.
+    ///
+    /// [`Axis::set_converter`]: crate::axes::Axis::set_converter
     pub fn set_converter(&self, converter: impl Into<UnitConverter>) -> Result<&Self, Axes3DError> {
         let converter = converter.into();
         if self.update_state(|axis| axis.units.set_explicit(converter)) {

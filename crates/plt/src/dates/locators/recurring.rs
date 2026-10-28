@@ -4,7 +4,7 @@
 use super::{DateLocator, to_nums};
 use crate::dates::calendar::Weekday;
 use crate::dates::rrule::{Frequency, NthWeekday, RRule, RRuleSpec};
-use crate::dates::tz::{TimeZone, ZonedDateTime};
+use crate::dates::tz::{TickZone, TimeZone, ZonedDateTime};
 use crate::dates::{DateError, DateTime, RelativeDelta};
 use crate::ticker::{Locator, TickContext, TickerError};
 
@@ -21,7 +21,7 @@ use crate::ticker::{Locator, TickContext, TickerError};
 #[derive(Clone, Debug, PartialEq)]
 pub struct RRuleLocator {
     rule: RRuleSpec,
-    tz: TimeZone,
+    tz: TickZone,
 }
 
 /// The `byhour=0, byminute=0, bysecond=0` of matplotlib's `hms0d`.
@@ -43,18 +43,20 @@ fn or_all<T: Clone>(values: &[T], default: impl Iterator<Item = T>) -> Vec<T> {
 
 impl RRuleLocator {
     /// Ticks at the occurrences of `rule` (its `dtstart`/`until` are
-    /// replaced when locating), in UTC.
+    /// replaced when locating), in the zone of the `timezone` rcParam.
     pub fn new(rule: RRuleSpec) -> Self {
-        Self {
-            rule,
-            tz: TimeZone::Utc,
-        }
+        Self::in_zone(rule, TickZone::from_rc())
     }
 
-    /// Places ticks in `tz` instead of UTC.
+    /// Ticks at the occurrences of `rule` in `tz`.
+    pub(super) const fn in_zone(rule: RRuleSpec, tz: TickZone) -> Self {
+        Self { rule, tz }
+    }
+
+    /// Places ticks in `tz` instead of the zone of the `timezone` rcParam.
     #[must_use]
     pub fn with_tz(mut self, tz: TimeZone) -> Self {
-        self.tz = tz;
+        self.tz = tz.into();
         self
     }
 
@@ -161,8 +163,8 @@ fn rule_ticks(
 locate_dates_in_view!(RRuleLocator);
 
 impl DateLocator for RRuleLocator {
-    fn tz(&self) -> &TimeZone {
-        &self.tz
+    fn tz(&self) -> Result<&TimeZone, DateError> {
+        self.tz.get()
     }
 
     fn unit(&self, _: &TickContext<'_>) -> f64 {
@@ -185,7 +187,13 @@ impl DateLocator for RRuleLocator {
             .subtract_from(lo)
             .unwrap_or(DateTime::midnight(crate::dates::Date::MIN));
         let stop = delta.add_to(hi).unwrap_or_else(|_| last_second());
-        rule_ticks(&self.rule, &self.tz, (start, stop), (lo, hi), (dmin, dmax))
+        rule_ticks(
+            &self.rule,
+            self.tz.get()?,
+            (start, stop),
+            (lo, hi),
+            (dmin, dmax),
+        )
     }
 }
 
@@ -201,12 +209,23 @@ pub struct YearLocator {
     base: u32,
     month: u32,
     day: u32,
-    tz: TimeZone,
+    tz: TickZone,
 }
 
 impl YearLocator {
-    /// Ticks on `month`/`day` of every `base`-th year, in UTC.
+    /// Ticks on `month`/`day` of every `base`-th year, in the zone of the
+    /// `timezone` rcParam.
     pub fn new(base: u32, month: u32, day: u32) -> Result<Self, DateError> {
+        Self::in_zone(base, month, day, TickZone::from_rc())
+    }
+
+    /// Ticks on `month`/`day` of every `base`-th year in `tz`.
+    pub(super) fn in_zone(
+        base: u32,
+        month: u32,
+        day: u32,
+        tz: TickZone,
+    ) -> Result<Self, DateError> {
         if base == 0 {
             return Err(DateError::InvalidArgument(
                 "'step' must be positive".to_owned(),
@@ -216,14 +235,14 @@ impl YearLocator {
             base,
             month,
             day,
-            tz: TimeZone::Utc,
+            tz,
         })
     }
 
-    /// Places ticks in `tz` instead of UTC.
+    /// Places ticks in `tz` instead of the zone of the `timezone` rcParam.
     #[must_use]
     pub fn with_tz(mut self, tz: TimeZone) -> Self {
-        self.tz = tz;
+        self.tz = tz.into();
         self
     }
 
@@ -255,8 +274,8 @@ impl YearLocator {
 locate_dates_in_view!(YearLocator);
 
 impl DateLocator for YearLocator {
-    fn tz(&self) -> &TimeZone {
-        &self.tz
+    fn tz(&self) -> Result<&TimeZone, DateError> {
+        self.tz.get()
     }
 
     fn unit(&self, _: &TickContext<'_>) -> f64 {
@@ -284,7 +303,7 @@ impl DateLocator for YearLocator {
         let stop = anchored(last_year)?;
         rule_ticks(
             &self.rule(),
-            &self.tz,
+            self.tz.get()?,
             (start, stop),
             (start, stop),
             (dmin, dmax),

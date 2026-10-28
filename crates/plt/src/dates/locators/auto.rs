@@ -5,7 +5,7 @@ use super::{
 };
 use crate::dates::convert::MICROSECONDS_PER_DAY;
 use crate::dates::rrule::{Frequency, RRuleSpec};
-use crate::dates::tz::{TimeZone, ZonedDateTime};
+use crate::dates::tz::{TickZone, TimeZone, ZonedDateTime};
 use crate::dates::{DateError, RelativeDelta};
 use crate::ticker::{Locator, TickContext, TickerError};
 
@@ -111,7 +111,7 @@ fn daily_intervals(interval_multiples: bool) -> Vec<u32> {
 /// the view starts).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AutoDateLocator {
-    tz: TimeZone,
+    tz: TickZone,
     minticks: u32,
     maxticks: [u32; 7],
     interval_multiples: bool,
@@ -148,11 +148,12 @@ pub struct LocatorChoice {
 }
 
 impl AutoDateLocator {
-    /// matplotlib's defaults: UTC, `minticks = 5`, `maxticks` of
-    /// 11/12/11/12/11/11/8 and interval multiples.
+    /// matplotlib's defaults: the zone of the `timezone` rcParam,
+    /// `minticks = 5`, `maxticks` of 11/12/11/12/11/11/8 and interval
+    /// multiples.
     pub fn new() -> Self {
         Self {
-            tz: TimeZone::Utc,
+            tz: TickZone::from_rc(),
             minticks: 5,
             maxticks: [11, 12, 11, 12, 11, 11, 8],
             interval_multiples: true,
@@ -173,10 +174,10 @@ impl AutoDateLocator {
         }
     }
 
-    /// Places ticks in `tz` instead of UTC.
+    /// Places ticks in `tz` instead of the zone of the `timezone` rcParam.
     #[must_use]
     pub fn with_tz(mut self, tz: TimeZone) -> Self {
-        self.tz = tz;
+        self.tz = tz.into();
         self
     }
 
@@ -292,9 +293,10 @@ impl AutoDateLocator {
         }
         let (frequency, interval) = chosen.unzip();
         let interval = interval.unwrap_or(1);
+        let tz = self.tz.clone();
         let locator = match frequency.and_then(AutoFrequency::rrule) {
             Some(Frequency::Yearly) if self.interval_multiples => {
-                ChosenLocator::Year(YearLocator::new(interval, 1, 1)?.with_tz(self.tz.clone()))
+                ChosenLocator::Year(YearLocator::in_zone(interval, 1, 1, tz)?)
             }
             Some(freq) => {
                 let [_, bymonth, bymonthday, byhour, byminute, bysecond, _] = byranges;
@@ -311,18 +313,16 @@ impl AutoDateLocator {
                     bysecond: bysecond.unwrap_or_default(),
                     ..RRuleSpec::new(freq)
                 };
-                ChosenLocator::RRule(Box::new(RRuleLocator::new(rule).with_tz(self.tz.clone())))
+                ChosenLocator::RRule(Box::new(RRuleLocator::in_zone(rule, tz)))
             }
-            None => ChosenLocator::Microsecond(
-                MicrosecondLocator::new(interval)?.with_tz(self.tz.clone()),
-            ),
+            None => ChosenLocator::Microsecond(MicrosecondLocator::in_zone(interval, tz)?),
         };
         Ok(LocatorChoice { locator, frequency })
     }
 
     /// The choice for the view interval `(vmin, vmax)` in date numbers.
     pub fn choose(&self, vmin: f64, vmax: f64) -> Result<LocatorChoice, TickerError> {
-        let (dmin, dmax) = view_dates(vmin, vmax, &self.tz)?;
+        let (dmin, dmax) = view_dates(vmin, vmax, self.tz.get()?)?;
         self.get_locator(&dmin, &dmax)
     }
 }
@@ -384,8 +384,8 @@ impl Locator for AutoDateLocator {
 }
 
 impl DateLocator for AutoDateLocator {
-    fn tz(&self) -> &TimeZone {
-        &self.tz
+    fn tz(&self) -> Result<&TimeZone, DateError> {
+        self.tz.get()
     }
 
     /// The unit of the frequency chosen for the context's view.
@@ -441,7 +441,7 @@ impl Locator for ChosenLocator {
 }
 
 impl DateLocator for ChosenLocator {
-    fn tz(&self) -> &TimeZone {
+    fn tz(&self) -> Result<&TimeZone, DateError> {
         self.inner().tz()
     }
 
@@ -500,6 +500,56 @@ mod tests {
         assert_eq!(chosen.frequency, Some(AutoFrequency::Microsecondly));
         let ticks = auto.tick_values(0.0, 1.0, &TickContext::default()).unwrap();
         assert_eq!(ticks.len(), 9);
+    }
+
+    #[test]
+    fn the_zone_is_the_rc_param_when_made() {
+        let Ok(berlin) = TimeZone::named("Europe/Berlin") else {
+            return; // no system zoneinfo database
+        };
+        let (made_in_berlin, unknown) = crate::rc::context(|| {
+            crate::rc::set("timezone", "Europe/Berlin").unwrap();
+            let made = AutoDateLocator::new();
+            crate::rc::set("timezone", "Nowhere/Atlantis").unwrap();
+            (made, AutoDateLocator::new())
+        });
+        assert_eq!(made_in_berlin.tz(), Ok(&berlin));
+        // Around 2020-03-29T01:00Z, when Berlin's clocks skip from 02:00 to
+        // 03:00: the rule's 02:00 lands on 01:00, as dateutil puts it.
+        let (a, b) = (
+            datestr2num("2020-03-28T22:00").unwrap(),
+            datestr2num("2020-03-29T04:00").unwrap(),
+        );
+        let ctx = TickContext::default();
+        let ticks = made_in_berlin.tick_values(a, b, &ctx).unwrap();
+        let hours: Vec<String> = ticks
+            .iter()
+            .map(|&t| {
+                crate::dates::num2date(t, &berlin)
+                    .unwrap()
+                    .strftime("%H:%M %Z")
+            })
+            .collect();
+        assert_eq!(
+            hours,
+            [
+                "23:00 CET",
+                "00:00 CET",
+                "01:00 CET",
+                "01:00 CET",
+                "03:00 CEST",
+                "04:00 CEST",
+                "05:00 CEST",
+                "06:00 CEST"
+            ]
+        );
+        assert!(unknown.tick_values(a, b, &ctx).is_err(), "an unknown zone");
+        assert!(
+            unknown
+                .with_tz(TimeZone::Utc)
+                .tick_values(a, b, &ctx)
+                .is_ok()
+        );
     }
 
     #[test]

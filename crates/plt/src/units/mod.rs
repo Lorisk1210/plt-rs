@@ -96,19 +96,36 @@ pub(crate) use sources::UnitSources;
 /// `DateConverter.axisinfo`, or `ConciseDateConverter`'s when
 /// `date.converter` says so): an `AutoDateLocator` following
 /// `date.interval_multiples`, and an `AutoDateFormatter` or a
-/// `ConciseDateFormatter`.
-pub(crate) fn date_tickers(tz: &TimeZone) -> (Rc<dyn Locator>, Rc<dyn Formatter>) {
+/// `ConciseDateFormatter`. Without `tz` (the axis unit is no zone) they
+/// take the `timezone` rcParam as matplotlib's do given `tz=None`: the
+/// locator now, the formatter whenever it formats.
+pub(crate) fn date_tickers(tz: Option<&TimeZone>) -> (Rc<dyn Locator>, Rc<dyn Formatter>) {
     let rc = crate::rc::params();
     let locator = || {
-        AutoDateLocator::new()
-            .with_interval_multiples(rc.date_interval_multiples)
-            .with_tz(tz.clone())
+        let locator = AutoDateLocator::new().with_interval_multiples(rc.date_interval_multiples);
+        with_optional_tz(locator, tz, AutoDateLocator::with_tz)
     };
     let formatter: Rc<dyn Formatter> = match rc.date_converter {
-        DateConverter::Concise => Rc::new(ConciseDateFormatter::new().with_tz(tz.clone())),
-        DateConverter::Auto => Rc::new(AutoDateFormatter::new(locator()).with_tz(tz.clone())),
+        DateConverter::Concise => Rc::new(with_optional_tz(
+            ConciseDateFormatter::new(),
+            tz,
+            ConciseDateFormatter::with_tz,
+        )),
+        DateConverter::Auto => Rc::new(with_optional_tz(
+            AutoDateFormatter::new(locator()),
+            tz,
+            AutoDateFormatter::with_tz,
+        )),
     };
     (Rc::new(locator()), formatter)
+}
+
+/// `ticker` given `tz` by `with_tz` if there is one.
+fn with_optional_tz<T>(ticker: T, tz: Option<&TimeZone>, with_tz: fn(T, TimeZone) -> T) -> T {
+    match tz {
+        Some(tz) => with_tz(ticker, tz.clone()),
+        None => ticker,
+    }
 }
 
 /// The unit converter of an axis (matplotlib's `ConversionInterface`s
@@ -274,6 +291,50 @@ mod tests {
         // matplotlib 3.11 labels this span the same way.
         assert_eq!(labels[..3], ["01-02 00", "01-02 04", "01-02 08"]);
         assert_eq!(labels.last(), Some(&"01-03 12"));
+    }
+
+    #[test]
+    fn date_ticks_are_in_the_timezone_rc_param_unless_the_unit_is_a_zone() {
+        use crate::dates::TimeZone;
+
+        if TimeZone::named("America/New_York").is_err() {
+            return; // no system zoneinfo database
+        }
+        let labels = |converter: &str, unit: Option<TimeZone>| {
+            crate::rc::context(|| {
+                crate::rc::set("timezone", "America/New_York").unwrap();
+                crate::rc::set("date.converter", converter).unwrap();
+                let ax = Figure::new().subplot();
+                if let Some(zone) = unit {
+                    ax.xaxis().set_units(zone);
+                }
+                // Across 07:00 UTC, when New York's clocks skip from 02:00
+                // to 03:00 (the rule's 02:00 and 02:30 land an hour early).
+                let hour = |h| DateTime::new(2020, 3, 8, h, 0, 0, 0).unwrap();
+                ax.plot(vec![hour(6), hour(9)], [0.0, 1.0]).unwrap();
+                ax.xaxis().ticklabels(false).unwrap()
+            })
+        };
+        // matplotlib 3.11 labels these the same way.
+        assert_eq!(
+            labels("auto", None),
+            [
+                "08 01:00", "08 01:30", "08 01:00", "08 01:30", "08 03:00", "08 03:30", "08 04:00",
+                "08 04:30", "08 05:00"
+            ]
+        );
+        assert_eq!(
+            labels("concise", None),
+            [
+                "01:00", "01:30", "01:00", "01:30", "03:00", "03:30", "04:00", "04:30", "05:00"
+            ]
+        );
+        assert_eq!(
+            labels("auto", Some(TimeZone::Utc)),
+            [
+                "08 06:00", "08 06:30", "08 07:00", "08 07:30", "08 08:00", "08 08:30", "08 09:00"
+            ]
+        );
     }
 
     #[test]

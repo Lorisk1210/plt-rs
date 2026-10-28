@@ -17,9 +17,17 @@ pub(crate) fn date_num(text: &str) -> Result<f64, ProbeError> {
     date2num(&zoned(text)?).map_err(ProbeError::rejected)
 }
 
-/// `num2date(x).isoformat()`.
-pub(super) fn iso(x: f64) -> Result<Json, ProbeError> {
-    num2date(x, &TimeZone::Utc)
+/// The zone the probe's `tz` names, or `num2date`'s default without one:
+/// the zone of the `timezone` rcParam.
+pub(crate) fn zone_arg(args: Args<'_>) -> Result<TimeZone, ProbeError> {
+    args.opt_str("tz")?
+        .map_or_else(TimeZone::from_rc, TimeZone::named)
+        .map_err(ProbeError::rejected)
+}
+
+/// `num2date(x, tz).isoformat()`.
+pub(super) fn iso(x: f64, tz: &TimeZone) -> Result<Json, ProbeError> {
+    num2date(x, tz)
         .map(|d| Json::from(d.isoformat()))
         .map_err(ProbeError::rejected)
 }
@@ -92,11 +100,13 @@ pub(crate) fn ticks(ticks: Vec<f64>) -> Outcome {
     Ok(tick_fields(ticks)?.into())
 }
 
-/// The `{ticks, iso}` fields as object entries.
+/// The `{ticks, iso}` fields as object entries, the dates in the zone of
+/// the `timezone` rcParam.
 pub(super) fn tick_fields(ticks: Vec<f64>) -> Result<ObjectBuilder, ProbeError> {
+    let tz = TimeZone::from_rc().map_err(ProbeError::rejected)?;
     let iso = ticks
         .iter()
-        .map(|&t| iso(t))
+        .map(|&t| iso(t, &tz))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(ObjectBuilder::default()
         .field("ticks", ticks)

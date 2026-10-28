@@ -201,12 +201,17 @@ pub fn datetime64_to_num(value: Option<Datetime64>) -> f64 {
     value.map_or(f64::NAN, |v| get_epoch().datetime64_to_num(v))
 }
 
-/// The date-time in `tz` of a date number (`dates.num2date`).
+/// The date-time in `tz` of a date number (`dates.num2date`). Pass
+/// [`TimeZone::from_rc`] for matplotlib's default, the zone of the
+/// `timezone` rcParam.
 ///
 /// ```
 /// use plt::dates::{TimeZone, num2date};
 /// let dt = num2date(18_262.5, &TimeZone::Utc).unwrap();
 /// assert_eq!(dt.isoformat(), "2020-01-01T12:00:00+00:00");
+/// let default = num2date(18_262.5, &TimeZone::from_rc()?)?;
+/// assert_eq!(default.isoformat(), "2020-01-01T12:00:00+00:00");
+/// # Ok::<(), plt::dates::DateError>(())
 /// ```
 pub fn num2date(x: f64, tz: &TimeZone) -> Result<ZonedDateTime, DateError> {
     get_epoch().num2date(x, tz)

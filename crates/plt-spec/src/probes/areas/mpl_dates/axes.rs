@@ -30,23 +30,27 @@ fn values(value: &Json) -> Result<AxisValues, ProbeError> {
     Ok(AxisValues::from(dates))
 }
 
-/// `np.arange(start, stop, dtype='datetime64[D]')`.
-fn days(range: &Json) -> Result<Vec<Datetime64>, ProbeError> {
+/// The `plot` forms of evenly spaced `datetime64` values, with their
+/// spacing in seconds: `datetime64[D]` and `datetime64[h]`.
+const SPACINGS: [(&str, usize); 2] = [("days", 86_400), ("hours", 3_600)];
+
+/// `np.arange(start, stop, dtype=...)` for values `step` seconds apart.
+fn spaced(range: &Json, step: usize) -> Result<Vec<Datetime64>, ProbeError> {
     let bounds = range
         .as_array()
         .and_then(|items| items.iter().map(Json::as_str).collect::<Option<Vec<_>>>())
-        .ok_or_else(|| ProbeError::BadArgs("days needs two dates".into()))?;
-    let day = |text: &str| {
+        .ok_or_else(|| ProbeError::BadArgs("a range needs two dates".into()))?;
+    let instant = |text: &str| {
         Datetime64::parse(text)
             .map_err(ProbeError::rejected)?
             .ok_or_else(|| ProbeError::BadArgs("NaT".into()))
     };
     let [start, stop] = bounds[..] else {
-        return Err(ProbeError::BadArgs("days needs two dates".into()));
+        return Err(ProbeError::BadArgs("a range needs two dates".into()));
     };
-    let (first, last) = (day(start)?.seconds(), day(stop)?.seconds());
+    let (first, last) = (instant(start)?.seconds(), instant(stop)?.seconds());
     Ok((first..last)
-        .step_by(86_400)
+        .step_by(step)
         .map(|seconds| Datetime64::new(seconds, 0))
         .collect())
 }
@@ -54,10 +58,13 @@ fn days(range: &Json) -> Result<Vec<Datetime64>, ProbeError> {
 /// `ax.plot(...)` for the probe's `plot`.
 fn plot(ax: &Axes, spec: &Json) -> Result<(), ProbeError> {
     let spec = Args::new(spec);
-    if let Some(range) = spec.get("days") {
-        let days = days(range)?;
-        let counts: Vec<f64> = (0..days.len()).map(|i| i as f64).collect();
-        ax.plot(days, counts).map_err(ProbeError::rejected)?;
+    if let Some((range, step)) = SPACINGS
+        .iter()
+        .find_map(|&(key, step)| spec.get(key).map(|range| (range, step)))
+    {
+        let times = spaced(range, step)?;
+        let counts: Vec<f64> = (0..times.len()).map(|i| i as f64).collect();
+        ax.plot(times, counts).map_err(ProbeError::rejected)?;
         return Ok(());
     }
     ax.plot(values(spec.json("x")?)?, values(spec.json("y")?)?)

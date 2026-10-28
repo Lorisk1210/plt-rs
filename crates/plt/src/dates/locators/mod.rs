@@ -6,6 +6,13 @@
 //! and places ticks there, exactly like matplotlib's `locator()` on an
 //! axis. [`DateLocator::tick_dates`] is the date-time level entry point
 //! (matplotlib's `DateLocator.tick_values`).
+//!
+//! Every constructor settles the zone the `timezone` rcParam names, as
+//! matplotlib's `DateLocator.__init__` does with `tz=None`; `with_tz`
+//! replaces it. A name the system does not know makes locating fail with
+//! [`DateError::UnknownTimeZone`], where matplotlib's constructors raise,
+//! so that no constructor fails for it and a zone given with `with_tz`
+//! never depends on the rcParam.
 
 /// Implements [`Locator`] for a date locator in a child module whose
 /// ticks are its [`DateLocator::tick_dates`] across the view (matplotlib's
@@ -48,8 +55,9 @@ use crate::ticker::{Locator, TickContext, TickerError};
 
 /// What all date locators provide beyond [`Locator`].
 pub trait DateLocator: Locator {
-    /// The time zone ticks are placed in.
-    fn tz(&self) -> &TimeZone;
+    /// The time zone ticks are placed in, or why the `timezone` rcParam
+    /// named none when the locator was made.
+    fn tz(&self) -> Result<&TimeZone, DateError>;
 
     /// Days per tick unit (matplotlib's `_get_unit`), which drives
     /// [`AutoDateFormatter`](super::AutoDateFormatter). It may depend on the
@@ -102,7 +110,7 @@ fn ticks_in_view<L: DateLocator + ?Sized>(
     vmin: f64,
     vmax: f64,
 ) -> Result<Vec<f64>, TickerError> {
-    match view_dates(vmin, vmax, locator.tz()) {
+    match view_dates(vmin, vmax, locator.tz()?) {
         Ok((dmin, dmax)) => locator.tick_dates(&dmin, &dmax),
         Err(DateError::DateNumberOutOfRange(_) | DateError::NonFinite(_)) => Ok(Vec::new()),
         Err(err) => Err(err.into()),
@@ -157,5 +165,38 @@ mod tests {
         assert_eq!(date_nonsingular(5.0, 5.0, 365.0, 5.0), (-3645.0, 3655.0));
         let err: TickerError = DateError::NonFinite(f64::NAN).into();
         assert_eq!(err, TickerError::NonFinite("date number"));
+    }
+
+    #[test]
+    fn an_unknown_rc_zone_fails_when_locating_unless_replaced() {
+        let (hours, years, micros) = crate::rc::context(|| {
+            crate::rc::set("timezone", "Nowhere/Atlantis").unwrap();
+            (
+                RRuleLocator::hours(&[], 1),
+                YearLocator::new(1, 1, 1).unwrap(),
+                MicrosecondLocator::new(10).unwrap(),
+            )
+        });
+        let ctx = TickContext::default();
+        let unknown = DateError::UnknownTimeZone("Nowhere/Atlantis".to_owned());
+        let locators: [&dyn DateLocator; 3] = [&hours, &years, &micros];
+        for locator in locators {
+            assert_eq!(locator.tz(), Err(unknown.clone()));
+            assert!(locator.tick_values(0.0, 1.0, &ctx).is_err());
+        }
+        let utc = hours.with_tz(TimeZone::Utc);
+        assert_eq!(utc.tick_values(0.0, 0.25, &ctx).unwrap().len(), 7);
+        assert!(
+            years
+                .with_tz(TimeZone::Utc)
+                .tick_values(0.0, 1.0, &ctx)
+                .is_ok()
+        );
+        assert!(
+            micros
+                .with_tz(TimeZone::Utc)
+                .tick_values(0.0, 1e-9, &ctx)
+                .is_ok()
+        );
     }
 }

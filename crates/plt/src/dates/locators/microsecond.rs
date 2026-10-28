@@ -2,8 +2,9 @@
 //! `MicrosecondLocator`).
 
 use super::{DateLocator, to_nums};
+use crate::dates::DateError;
 use crate::dates::convert::MICROSECONDS_PER_DAY;
-use crate::dates::tz::{TimeZone, ZonedDateTime};
+use crate::dates::tz::{TickZone, TimeZone, ZonedDateTime};
 use crate::ticker::{Locator, MultipleLocator, TickContext, TickerError};
 
 /// Ticks every `interval` microseconds, counted from the start of the day
@@ -15,23 +16,29 @@ use crate::ticker::{Locator, MultipleLocator, TickContext, TickerError};
 pub struct MicrosecondLocator {
     interval: u32,
     multiples: MultipleLocator,
-    tz: TimeZone,
+    tz: TickZone,
 }
 
 impl MicrosecondLocator {
-    /// Ticks every `interval` microseconds (at least 1), in UTC.
+    /// Ticks every `interval` microseconds (at least 1), in the zone of
+    /// the `timezone` rcParam.
     pub fn new(interval: u32) -> Result<Self, TickerError> {
+        Self::in_zone(interval, TickZone::from_rc())
+    }
+
+    /// Ticks every `interval` microseconds in `tz`.
+    pub(super) fn in_zone(interval: u32, tz: TickZone) -> Result<Self, TickerError> {
         Ok(Self {
             interval,
             multiples: MultipleLocator::new(f64::from(interval))?,
-            tz: TimeZone::Utc,
+            tz,
         })
     }
 
-    /// Places ticks in `tz` instead of UTC.
+    /// Places ticks in `tz` instead of the zone of the `timezone` rcParam.
     #[must_use]
     pub fn with_tz(mut self, tz: TimeZone) -> Self {
-        self.tz = tz;
+        self.tz = tz.into();
         self
     }
 
@@ -44,8 +51,8 @@ impl MicrosecondLocator {
 locate_dates_in_view!(MicrosecondLocator);
 
 impl DateLocator for MicrosecondLocator {
-    fn tz(&self) -> &TimeZone {
-        &self.tz
+    fn tz(&self) -> Result<&TimeZone, DateError> {
+        self.tz.get()
     }
 
     fn unit(&self, _: &TickContext<'_>) -> f64 {

@@ -9,7 +9,7 @@ use plt::axes::{
 };
 use plt::colors::Color;
 use plt::contour::ContourAlgorithm;
-use plt::figure::{PageOrientation, Paper, SvgFontType};
+use plt::figure::{PageOrientation, Paper, PgfTexSystem, SvgFontType};
 use plt::fonts::{FontSize, FontStretch, FontWeight, Fontset, MathFallback, MathFont};
 use plt::gui::{MacosxWindowMode, ToolbarKind};
 use plt::image::{InterpolationStage, Origin};
@@ -21,7 +21,7 @@ use plt::rc::{
     Aspect, AxisBelow, ColorOrAuto, ColorOrEdge, ColorOrInherit, CycleValue, Cycler, Distiller,
     Dpi, FontType, HistBins, LabelColor, LegendLocParam, SavefigBbox, Whiskers,
 };
-use plt::text::{HAlign, TextHinting, TextRotationMode as RotationMode, VAlign};
+use plt::text::{HAlign, TexEngine, TextHinting, TextRotationMode as RotationMode, VAlign};
 use plt::ticker::{AutolimitMode, MinorDivisions};
 use plt::units::DateConverter;
 use plt_render::{CapStyle, JoinStyle};
@@ -231,9 +231,11 @@ canon_by_name!(
     Origin,
     PageOrientation,
     Paper,
+    PgfTexSystem,
     RotationStyle,
     Shading,
     SvgFontType,
+    TexEngine,
     TextHinting,
     TickDirection,
     TickLevel,

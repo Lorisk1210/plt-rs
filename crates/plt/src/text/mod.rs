@@ -66,7 +66,7 @@ pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
-pub use plt_text::tex::TexError;
+pub use plt_text::tex::{TexEngine, TexError};
 pub use plt_text::{
     BlockLayout, Feature, HAlign, Language, LanguageRange, LanguageTag, LineMetrics, LinePlacement,
     LineSpacing, ParseFeatureError, RotationMode as TextRotationMode, TextError, VAlign,

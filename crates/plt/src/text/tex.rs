@@ -29,12 +29,11 @@ pub(crate) fn tex_manager(rc: &RcParams) -> Result<TexManager, TextError> {
         cursive: rc.font_cursive.clone(),
         monospace: rc.font_monospace.clone(),
     };
-    let engine = rc.text_latex_engine.parse().unwrap_or_default();
     Ok(TexManager::new(
         &cache_dir,
         fonts,
         &rc.text_latex_preamble,
-        engine,
+        rc.text_latex_engine,
     ))
 }
 
@@ -113,7 +112,7 @@ mod tests {
     fn managers_follow_the_rc() {
         let mut rc = RcParams::matplotlib();
         rc.text_latex_preamble = r"\usepackage{amsmath}".to_owned();
-        rc.text_latex_engine = "latex+dvipng".to_owned();
+        rc.text_latex_engine = plt_text::tex::TexEngine::LatexDvipng;
         let tex = tex_manager(&rc).expect("a cache directory");
         assert_eq!(tex.engine(), plt_text::tex::TexEngine::LatexDvipng);
         assert!(tex.source("x", 10.0).contains("\n\\usepackage{amsmath}\n"));

@@ -16,6 +16,7 @@ use crate::axes::{
 };
 use crate::colors::Color;
 use crate::contour::ContourAlgorithm;
+use crate::figure::PgfTexSystem;
 use crate::fonts::{FontSize, FontStretch, FontWeight};
 use crate::gui::{MacosxWindowMode, ToolbarKind};
 use crate::image::{InterpolationStage, Origin};
@@ -28,6 +29,7 @@ use crate::ticker::{AutolimitMode, MinorDivisions};
 use crate::units::DateConverter;
 use plt_render::{CapStyle, JoinStyle, PageOrientation, Paper, SvgFontType};
 use plt_text::mathtext::{Fontset, MathFallback, MathFont};
+use plt_text::tex::TexEngine;
 use plt_text::{HAlign, VAlign};
 
 rc_params! {
@@ -208,7 +210,7 @@ rc_params! {
     /// `text.usetex`: Use latex for all text handling. The following fonts.
     text_usetex: bool = "False" => "text.usetex";
     /// `text.latex.engine`.
-    text_latex_engine: String = "latex" => "text.latex.engine" where validate::one_of(&["latex", "latex+dvipng"]);
+    text_latex_engine: TexEngine = "latex" => "text.latex.engine" using(validate::choice(&["latex", "latex+dvipng"]));
     /// `text.latex.preamble`: IMPROPER USE OF THIS FEATURE WILL LEAD TO LATEX FAILURES.
     text_latex_preamble: String = "" => "text.latex.preamble";
     /// `text.hinting`.
@@ -628,7 +630,7 @@ rc_params! {
     /// `pdf.fonttype`: Output Type 3 (Type3) or Type 42 (`TrueType`).
     pdf_fonttype: FontType = "3" => "pdf.fonttype";
     /// `pgf.texsystem`.
-    pgf_texsystem: String = "xelatex" => "pgf.texsystem" where validate::one_of(&["lualatex", "pdflatex", "xelatex"]);
+    pgf_texsystem: PgfTexSystem = "xelatex" => "pgf.texsystem" using(validate::choice(&["lualatex", "pdflatex", "xelatex"]));
     /// `pgf.rcfonts`.
     pgf_rcfonts: bool = "True" => "pgf.rcfonts";
     /// `pgf.preamble`: See `text.latex.preamble` for documentation.

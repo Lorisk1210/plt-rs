@@ -9,16 +9,6 @@ fn not_one_of(text: &str, allowed: &[&str]) -> String {
     format!("{text:?} is not one of {allowed:?}")
 }
 
-/// Accepts exactly one of `allowed`, for keyword parameters kept as text.
-pub(crate) fn one_of(allowed: &'static [&'static str]) -> impl Fn(&String) -> Result<(), String> {
-    move |value| {
-        allowed
-            .contains(&value.as_str())
-            .then_some(())
-            .ok_or_else(|| not_one_of(value, allowed))
-    }
-}
-
 /// Parses exactly one of `allowed` into the keyword type `T` (matplotlib's
 /// `ValidateInStrings`): `allowed` lists the spellings matplotlib accepts
 /// for the parameter, which may be fewer than `T` parses.
@@ -123,9 +113,12 @@ mod tests {
             Ok("a0".to_owned())
         );
         assert!(papers("a11").is_err());
-        let engines = one_of(&["latex", "latex+dvipng"]);
-        assert_eq!(engines(&"latex".to_owned()), Ok(()));
-        assert!(engines(&"Latex".to_owned()).is_err());
+        let engines = choice::<plt_text::tex::TexEngine>(&["latex", "latex+dvipng"]);
+        assert_eq!(
+            engines("latex+dvipng"),
+            Ok(plt_text::tex::TexEngine::LatexDvipng)
+        );
+        assert!(engines("Latex").is_err());
     }
 
     #[test]

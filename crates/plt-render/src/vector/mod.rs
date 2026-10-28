@@ -2,7 +2,6 @@
 //! number formatting, embedded-font data, glyph tracking, run analysis,
 //! images, metadata and the error type.
 
-mod base64;
 mod font;
 mod format;
 mod image;
@@ -21,7 +20,6 @@ use plt_core::{Affine2D, Bbox, Point};
 use plt_text::TextError;
 use plt_text::tex::TexError;
 
-pub(crate) use base64::encode as base64_encode;
 pub(crate) use font::{FontCache, FontInfo};
 pub(crate) use format::{fixed, general, hex, repr, repr_bytes, repr_str, short, trimmed};
 pub(crate) use image::{flipped_rows, png_idat};

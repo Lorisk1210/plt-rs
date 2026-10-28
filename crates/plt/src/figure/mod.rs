@@ -39,6 +39,7 @@ pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
 pub use mosaic_axes::MosaicAxes;
 pub use pdf_pages::PdfPages;
+pub use pgf::PgfTexSystem;
 pub use plt_render::{
     Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType, SvgMetadata,
     UnknownSvgFontType,

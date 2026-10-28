@@ -6,6 +6,7 @@
     reason = "matplotlib's SVG writer leaves out exactly-default values"
 )]
 
+use plt_codec::base64;
 use plt_codec::png::{self, ImageRef};
 use plt_core::path::convert::{StringCodes, StringOptions};
 use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
@@ -16,9 +17,7 @@ use super::{ImageFile, SvgRenderer};
 use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
-use crate::vector::{
-    VectorError, base64_encode, flipped_rows, repr_bytes, repr_str, segment_ends, short,
-};
+use crate::vector::{VectorError, flipped_rows, repr_bytes, repr_str, segment_ends, short};
 
 impl SvgRenderer {
     /// The inline style of a filled and/or stroked element.
@@ -191,7 +190,7 @@ impl SvgRenderer {
             (name, id)
         } else {
             let id = gid.unwrap_or_else(|| self.make_id("image", &repr_bytes(&file)));
-            let href = format!("data:image/png;base64,\n{}", base64_encode(&file));
+            let href = format!("data:image/png;base64,\n{}", base64::encode(&file));
             (href, id)
         }
     }

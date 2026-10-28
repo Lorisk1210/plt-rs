@@ -20,6 +20,14 @@
 //!   [`AutoDateFormatter`], [`ConciseDateFormatter`] — implementing the
 //!   [`ticker`](crate::ticker) traits.
 //!
+//! Locators, formatters and date axes given no zone work in the one the
+//! `timezone` rcParam names ([`TimeZone::from_rc`]), read when matplotlib
+//! reads it: when locators (those of date axes too) and [`DateFormatter`]s
+//! are made, and whenever [`AutoDateFormatter`] and
+//! [`ConciseDateFormatter`] format. A name the system does not know makes
+//! locating and formatting fail with [`DateError::UnknownTimeZone`]; a
+//! zone given with `with_tz` replaces it.
+//!
 //! ```
 //! use plt::dates::{AutoDateLocator, ConciseDateFormatter, datestr2num};
 //! use plt::ticker::{AxisInfo, Formatter, Locator, TickContext, TickerSettings};

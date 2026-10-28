@@ -10,7 +10,10 @@ an axes run in the ``classic`` style plus ``_classic_test_patch`` unless a
 test picks another style, and record it in ``style``. ``epoch`` (optional)
 is set with ``set_epoch`` for the duration of the op, as the tests'
 ``_new_epoch_decorator`` does; without it the epoch is the default
-``1970-01-01T00:00:00``. Time zones are IANA names.
+``1970-01-01T00:00:00``. Time zones are IANA names. ``rc`` (optional) is
+in effect for the whole op, ``made`` (optional) is the ``timezone``
+rcParam while the op makes its locator or formatter, and ``iso`` strings
+are ``num2date(x).isoformat()``, in the zone of ``timezone``.
 
 Ops on their own
 ----------------
@@ -18,8 +21,8 @@ Ops on their own
 ``dates.date2num.datetime64`` {d, unit?, epoch?} -> ``date2num(np.array(d,
     dtype=f"datetime64[{unit}]"))`` (``datetime64`` without ``unit``); ``d``
     is a string or a list of strings, ``"NaT"`` gives NaN.
-``dates.num2date`` {x, tz?} -> ``num2date(x, tz).isoformat()`` (a list for
-    a list).
+``dates.num2date`` {x, tz?, rc?} -> ``num2date(x, tz).isoformat()`` (a
+    list for a list).
 ``dates.num2timedelta`` {x} -> ``[days, seconds, microseconds]`` (or a list
     of them).
 ``dates.drange`` {dstart, dend, delta} -> date numbers.
@@ -27,35 +30,40 @@ Ops on their own
     ``default`` is a date (``YYYY-MM-DD``).
 ``dates.set_epoch`` {epoch, used} -> null, or an error when the epoch was
     already used (``used``: ``get_epoch()`` was called after resetting it).
-``dates.AutoDateLocator.__call__`` {vmin, vmax, params?, epoch?} -> {ticks,
-    iso, unit, locator} (the ``dates`` area's op); ``params`` may also hold
-    ``tz``.
+``dates.AutoDateLocator.__call__`` {vmin, vmax, params?, epoch?, rc?} ->
+    {ticks, iso, unit, locator} (the ``dates`` area's op); ``params`` may
+    also hold ``tz``.
 ``dates.AutoDateLocator.maxticks`` {params?} -> ``{frequency name: count}``.
-``dates.AutoDateFormatter.format_ticks`` {vmin, vmax, locator?, params?} ->
-    labels; ``params`` may hold ``defaultfmt`` and ``usetex``.
-``dates.ConciseDateFormatter.format_ticks`` {vmin, vmax, locator?, params?}
-    -> {labels, offset} (the ``dates`` area's op), or {locs, locator?} ->
-    labels of ``locs`` for a formatter without an axis.
-``dates.ConciseDateFormatter.__call__`` / ``.format_data_short`` {x} -> the
-    label of ``ConciseDateFormatter(AutoDateLocator())`` without an axis.
+``dates.AutoDateFormatter.format_ticks`` {vmin, vmax, locator?, params?,
+    rc?} -> labels; ``params`` may hold ``defaultfmt`` and ``usetex``.
+``dates.AutoDateFormatter.__call__`` {x, made?, rc?} -> the label of
+    ``AutoDateFormatter(HourLocator())`` without an axis.
+``dates.ConciseDateFormatter.format_ticks`` {vmin, vmax, locator?, params?,
+    rc?} -> {labels, offset} (the ``dates`` area's op), or {locs, locator?}
+    -> labels of ``locs`` for a formatter without an axis.
+``dates.ConciseDateFormatter.__call__`` / ``.format_data_short`` {x, made?,
+    rc?} -> the label of ``ConciseDateFormatter(AutoDateLocator())``
+    without an axis.
 ``dates.YearLocator.__call__`` {params, vmin, vmax} -> {ticks, iso}.
 ``dates.DayLocator.tick_values`` {vmin, vmax} -> {ticks, iso} of
     ``DayLocator().tick_values(vmin, vmax)`` (date-time arguments).
 ``dates.RRuleLocator.tick_values`` {rule, vmin, vmax} -> {ticks, iso} of
     ``RRuleLocator(rrulewrapper(freq, **rule)).tick_values(vmin, vmax)``.
 ``dates.DateLocator.nonsingular`` {vmin, vmax} -> ``[vmin, vmax]``.
-``dates.DateLocator.datalim_to_dt`` {data?, tz?, rc?} -> the ISO pair of
-    ``DateLocator(tz=tz).datalim_to_dt()`` on a dummy axis whose data
-    interval is ``date2num(data)`` (the dummy default without ``data``);
-    an unknown time zone is an error.
-``dates.DateFormatter.__call__`` {fmt, d, tz?} -> the label of ``d``.
+``dates.DateLocator.datalim_to_dt`` {data?, tz?, made?, rc?} -> the ISO
+    pair of ``DateLocator(tz=tz).datalim_to_dt()`` on a dummy axis whose
+    data interval is ``date2num(data)`` (the dummy default without
+    ``data``); an unknown time zone is an error.
+``dates.DateFormatter.__call__`` {fmt, d, tz?, made?, rc?} -> the label of
+    ``d`` by ``DateFormatter(fmt)``, given ``set_tzinfo(tz)``.
 
 Ops on an axes
 --------------
 ``Figure().subplots()`` in ``style.context(style)`` and ``rc_context(rc)``,
 set up in this order: ``axhline`` (``ax.axhline(y)``), ``plot`` (``{x, y}``
 of numbers or ISO strings, or ``{days: [start, stop]}`` for
-``np.arange(start, stop, dtype='datetime64[D]')`` against ``0, 1, ...``),
+``np.arange(start, stop, dtype='datetime64[D]')`` against ``0, 1, ...``,
+and ``{hours: [start, stop]}`` likewise with ``datetime64[h]``),
 ``xaxis_date`` (``ax.xaxis_date()``), ``axis_date``
 (``ax.xaxis.axis_date()``), then per axis ``"x"``/``"y"``: ``lim`` (ISO
 strings), ``major``/``minor`` locators (``["AutoDateLocator",
@@ -81,6 +89,14 @@ Brussels-time date-times it converts as ISO strings with their offsets.
 ``Canada/Pacific`` and ``Iceland`` are spelled ``America/Vancouver`` and
 ``Atlantic/Reykjavik`` (the system zone database has only the canonical
 names).
+
+The ``test_timezone_rc_*`` cases are plt-rs' own: the ``timezone``
+rcParam as ``Europe/Berlin`` and ``America/New_York`` across their 2020
+clock changes, read when matplotlib reads it (``made`` against ``rc``: when
+locators and ``DateFormatter`` are made, whenever ``AutoDateFormatter`` and
+``ConciseDateFormatter`` format), and a name no zone has. The figures plot
+``datetime64`` values, which carry no zone, so their ticks follow the
+rcParam (UTC-aware date-times would make UTC the axis unit).
 
 Left out
 --------
@@ -327,6 +343,12 @@ def _in_rc(fn):
     return evaluate
 
 
+def _made_in(made):
+    """The ``timezone`` rcParam ``made`` (unchanged when ``None``), while an op
+    makes its locator or formatter."""
+    return mpl.rc_context({} if made is None else {"timezone": made})
+
+
 def test_date_formatter_usetex():
     with matplotlib.style.context("default"):
         for delta in ({"weeks": 52 * 200}, {"days": 30}, {"hours": 20}, {"minutes": 10}):
@@ -362,10 +384,18 @@ def test_concise_formatter_exceptions():
         assert isinstance(error, ValueError)
 
 
+def _concise_text(method):
+    def label(x, made=None):
+        with _made_in(made):
+            formatter = mdates.ConciseDateFormatter(mdates.AutoDateLocator())
+        return getattr(formatter, method)(x)
+
+    return _in_rc(label)
+
+
 def test_concise_formatter_call():
-    formatter = mdates.ConciseDateFormatter(mdates.AutoDateLocator())
-    probes.probe("dates.ConciseDateFormatter.__call__", formatter, x=19002.0)
-    probes.probe("dates.ConciseDateFormatter.format_data_short", lambda x: formatter.format_data_short(x),
+    probes.probe("dates.ConciseDateFormatter.__call__", _concise_text("__call__"), x=19002.0)
+    probes.probe("dates.ConciseDateFormatter.format_data_short", _concise_text("format_data_short"),
                  x=19002.0)
 
 
@@ -402,14 +432,7 @@ def test_date_locator():
                      lambda vmin, vmax: list(mdates.DateLocator().nonsingular(vmin, vmax)),
                      vmin=vmin, vmax=vmax)
 
-    def datalim_to_dt(data=None, tz=None, rc=None):
-        with mpl.rc_context(rc or {}):
-            locator = mdates.DateLocator(tz=tz)
-            locator.create_dummy_axis()
-            if data is not None:
-                locator.axis.set_data_interval(*mdates.date2num(data))
-            return [d.isoformat() for d in locator.datalim_to_dt()]
-
+    datalim_to_dt = _in_rc(_datalim_to_dt)
     reykjavik = "Atlantic/Reykjavik"
     probes.probe("dates.DateLocator.datalim_to_dt", datalim_to_dt)
     probes.probe("dates.DateLocator.datalim_to_dt", datalim_to_dt,
@@ -420,13 +443,25 @@ def test_date_locator():
     assert isinstance(error, ValueError)
 
 
-def test_DateFormatter_settz():
-    def date_formatter(fmt, d, tz=None):
-        formatter = mdates.DateFormatter(fmt)
-        if tz is not None:
-            formatter.set_tzinfo(tz)
-        return formatter(mdates.date2num(_dt(d)))
+def _datalim_to_dt(data=None, tz=None, made=None):
+    with _made_in(made):
+        locator = mdates.DateLocator(tz=tz)
+    locator.create_dummy_axis()
+    if data is not None:
+        locator.axis.set_data_interval(*mdates.date2num(data))
+    return [d.isoformat() for d in locator.datalim_to_dt()]
 
+
+@_in_rc
+def date_formatter(fmt, d, tz=None, made=None):
+    with _made_in(made):
+        formatter = mdates.DateFormatter(fmt)
+    if tz is not None:
+        formatter.set_tzinfo(tz)
+    return formatter(mdates.date2num(_dt(d)))
+
+
+def test_DateFormatter_settz():
     for tz in (None, "Pacific/Kiritimati"):
         probes.probe("dates.DateFormatter.__call__", date_formatter, fmt="%Y-%b-%d %H:%M",
                      d="2011-01-01T00:00:00+00:00", **({} if tz is None else {"tz": tz}))
@@ -435,6 +470,9 @@ def test_DateFormatter_settz():
 # ---------------------------------------------------------------------------
 # On an axes
 # ---------------------------------------------------------------------------
+
+#: The ``plot`` forms of evenly spaced ``datetime64`` values, and their unit.
+SPACINGS = {"days": "D", "hours": "h"}
 
 LOCATORS = {
     "AutoDateLocator": lambda kw=None: mdates.AutoDateLocator(**(kw or {})),
@@ -490,9 +528,10 @@ def _on_axes(query):
             if axhline is not None:
                 ax.axhline(axhline)
             if plot is not None:
-                if "days" in plot:
-                    days = np.arange(*plot["days"], dtype="datetime64[D]")
-                    ax.plot(days, np.arange(len(days)))
+                spacing = next((key for key in SPACINGS if key in plot), None)
+                if spacing is not None:
+                    times = np.arange(*plot[spacing], dtype=f"datetime64[{SPACINGS[spacing]}]")
+                    ax.plot(times, np.arange(len(times)))
                 else:
                     ax.plot(_values(plot["x"]), _values(plot["y"]))
             if xaxis_date:
@@ -644,3 +683,123 @@ def test_change_interval_multiples():
     for multiples in (False, "True"):
         ticklabels(rc={"date.interval_multiples": multiples},
                    plot={"days": ["2020-01-10", "2020-05-01"]})
+
+
+# ---------------------------------------------------------------------------
+# The timezone rcParam (plt-rs' own cases)
+# ---------------------------------------------------------------------------
+
+ZONES = ["Europe/Berlin", "America/New_York"]
+UNKNOWN_ZONE = {"timezone": "Nowhere/Atlantis"}
+
+#: Views across the 2020 clock changes of both zones (Berlin's at 01:00 UTC
+#: on March 29 and October 25, New York's at 07:00 UTC on March 8 and 06:00
+#: UTC on November 1): hours, minutes, days and the whole year.
+ZONE_SPANS = [
+    ("2020-03-28T22:00:00", "2020-03-29T04:00:00"),
+    ("2020-10-24T22:00:00", "2020-10-25T04:00:00"),
+    ("2020-03-29T00:40:00", "2020-03-29T01:20:00"),
+    ("2020-03-26T00:00:00", "2020-04-01T00:00:00"),
+    ("2020-03-08T04:00:00", "2020-03-08T10:00:00"),
+    ("2020-11-01T03:00:00", "2020-11-01T09:00:00"),
+    ("2020-03-08T06:40:00", "2020-03-08T07:20:00"),
+    ("2020-03-05T00:00:00", "2020-03-11T00:00:00"),
+    ("2020-01-01T00:00:00", "2021-01-01T00:00:00"),
+]
+
+#: Instants on either side of each change (UTC).
+ZONE_INSTANTS = [
+    "2020-03-29T00:59:59", "2020-03-29T01:00:00", "2020-10-25T00:30:00", "2020-10-25T01:30:00",
+    "2020-03-08T06:59:59", "2020-03-08T07:00:00", "2020-11-01T05:30:00", "2020-11-01T06:30:00",
+]
+
+#: Plotted ``datetime64`` hours across each zone's changes; days across both
+#: springs.
+ZONE_PLOTS = {
+    "Europe/Berlin": [{"hours": ["2020-03-28T22:00", "2020-03-29T04:00"]},
+                      {"hours": ["2020-10-24T22:00", "2020-10-25T04:00"]}],
+    "America/New_York": [{"hours": ["2020-03-08T04:00", "2020-03-08T10:00"]},
+                         {"hours": ["2020-11-01T03:00", "2020-11-01T09:00"]}],
+}
+DAYS_ACROSS_SPRING = {"days": ["2020-03-01", "2020-04-15"]}
+
+
+def test_timezone_rc_locators_and_formatters():
+    for zone in ZONES:
+        rc = {"timezone": zone}
+        for vmin, vmax in ZONE_SPANS:
+            probes.probe("dates.AutoDateLocator.__call__", _in_rc(auto_locator_call), vmin=vmin, vmax=vmax,
+                         rc=rc)
+            probes.probe("dates.AutoDateFormatter.format_ticks", _in_rc(auto_formatter), vmin=vmin, vmax=vmax,
+                         rc=rc)
+            probes.probe("dates.ConciseDateFormatter.format_ticks", _in_rc(concise_formatter), vmin=vmin,
+                         vmax=vmax, rc=rc)
+    berlin = _in_rc(auto_locator_call)(vmin=ZONE_SPANS[0][0], vmax=ZONE_SPANS[0][1],
+                                       rc={"timezone": "Europe/Berlin"})
+    # The rule's 02:00, which Berlin skips, lands on 01:00 CET as dateutil resolves it.
+    assert berlin["iso"][2:4] == ["2020-03-29T01:00:00+01:00"] * 2
+
+
+def test_timezone_rc_conversions():
+    numbers = [float(date2num(d)) for d in ZONE_INSTANTS]
+    for zone in ZONES:
+        rc = {"timezone": zone}
+        probes.probe("dates.num2date", _in_rc(_num2date), x=numbers, rc=rc)
+        for d in ZONE_INSTANTS:
+            probes.probe("dates.DateFormatter.__call__", date_formatter, fmt="%Y-%m-%d %H:%M:%S %Z%z", d=d, rc=rc)
+    assert _in_rc(_num2date)(x=numbers[1], rc={"timezone": "Europe/Berlin"}) == "2020-03-29T03:00:00+02:00"
+
+
+def test_timezone_rc_figures():
+    for zone, plots in ZONE_PLOTS.items():
+        for plot in plots + [DAYS_ACROSS_SPRING]:
+            for converter in ("auto", "concise"):
+                ticklabels(rc={"timezone": zone, "date.converter": converter}, plot=plot)
+
+
+def _auto_hour_label(x, made=None):
+    with _made_in(made):
+        formatter = mdates.AutoDateFormatter(mdates.HourLocator())
+    return formatter(x)
+
+
+def test_timezone_rc_read_when_made_or_used():
+    berlin, new_york = ZONES
+    instant = ZONE_INSTANTS[1]
+    x = float(date2num(instant))
+    for made, used in [(berlin, new_york), (new_york, berlin), ("UTC", berlin), (berlin, "UTC")]:
+        rc = {"timezone": used}
+        probes.probe("dates.DateFormatter.__call__", date_formatter, fmt="%H:%M %Z", d=instant, made=made, rc=rc)
+        probes.probe("dates.DateLocator.datalim_to_dt", _in_rc(_datalim_to_dt),
+                     data=[instant, ZONE_INSTANTS[0]], made=made, rc=rc)
+        probes.probe("dates.AutoDateFormatter.__call__", _in_rc(_auto_hour_label), x=x, made=made, rc=rc)
+        probes.probe("dates.ConciseDateFormatter.format_data_short", _concise_text("format_data_short"), x=x,
+                     made=made, rc=rc)
+    assert date_formatter(fmt="%H:%M", d=instant, made=berlin, rc={"timezone": "UTC"}) == "03:00"
+    concise = _concise_text("format_data_short")(x=x, made=berlin, rc={"timezone": "UTC"})
+    assert concise == "2020-03-29 01:00:00"
+
+
+def test_timezone_rc_unknown():
+    instant = ZONE_INSTANTS[1]
+    x = float(date2num(instant))
+    vmin, vmax = ZONE_SPANS[0]
+    results = [
+        probes.probe("dates.num2date", _in_rc(_num2date), x=x, rc=UNKNOWN_ZONE),
+        probes.probe("dates.DateFormatter.__call__", date_formatter, fmt="%H:%M", d=instant, rc=UNKNOWN_ZONE),
+        probes.probe("dates.AutoDateLocator.__call__", _in_rc(auto_locator_call), vmin=vmin, vmax=vmax,
+                     rc=UNKNOWN_ZONE),
+        probes.probe("dates.AutoDateFormatter.format_ticks", _in_rc(auto_formatter), vmin=vmin, vmax=vmax,
+                     rc=UNKNOWN_ZONE),
+        probes.probe("dates.ConciseDateFormatter.format_ticks", _in_rc(concise_formatter), vmin=vmin, vmax=vmax,
+                     rc=UNKNOWN_ZONE),
+        probes.probe("dates.ConciseDateFormatter.format_data_short", _concise_text("format_data_short"), x=x,
+                     made="UTC", rc=UNKNOWN_ZONE),
+        probes.probe("dates.DateLocator.datalim_to_dt", _in_rc(_datalim_to_dt), rc=UNKNOWN_ZONE),
+        ticklabels(rc=UNKNOWN_ZONE, plot=DAYS_ACROSS_SPRING),
+    ]
+    assert all(isinstance(result, ValueError) for result in results)
+    # A zone given to the constructor never reads the rcParam.
+    given = probes.probe("dates.DateLocator.datalim_to_dt", _in_rc(_datalim_to_dt), tz="Europe/Berlin",
+                         rc=UNKNOWN_ZONE)
+    assert given == ["1970-01-01T01:00:00+01:00", "1970-01-02T01:00:00+01:00"]

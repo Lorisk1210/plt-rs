@@ -1,7 +1,7 @@
 //! Compact date labels with an offset string (matplotlib's
 //! `ConciseDateFormatter`).
 
-use super::{format_date, resolve_usetex, wrap_in_tex};
+use super::{format_date, resolve_usetex, wrap_in_tex, zone_or_rc};
 use crate::dates::DateError;
 use crate::dates::convert::num2date;
 use crate::dates::tz::{TimeZone, ZonedDateTime};
@@ -29,9 +29,14 @@ const ZERO_VALUES: [u32; 6] = [0, 1, 1, 0, 0, 0];
 /// at the start of the next larger unit and `offset_formats` the offset.
 /// The offset describes the last tick (the first on an inverted axis) and
 /// is dropped when the ticks already show the year.
+///
+/// Without [`with_tz`](Self::with_tz) the formatter labels in the zone the
+/// `timezone` rcParam names when it formats, as matplotlib's keeps
+/// `tz=None` for `num2date`; a name the system does not know makes
+/// formatting fail, as in matplotlib.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConciseDateFormatter {
-    tz: TimeZone,
+    tz: Option<TimeZone>,
     formats: Option<Levels>,
     zero_formats: Option<Levels>,
     offset_formats: Option<Levels>,
@@ -56,10 +61,10 @@ fn levels(name: &str, formats: &[&str]) -> Result<Levels, DateError> {
 }
 
 impl ConciseDateFormatter {
-    /// matplotlib's defaults, in UTC.
+    /// matplotlib's defaults, in the zone of the `timezone` rcParam.
     pub const fn new() -> Self {
         Self {
-            tz: TimeZone::Utc,
+            tz: None,
             formats: None,
             zero_formats: None,
             offset_formats: None,
@@ -68,10 +73,10 @@ impl ConciseDateFormatter {
         }
     }
 
-    /// Formats in `tz` instead of UTC.
+    /// Formats in `tz` instead of the zone of the `timezone` rcParam.
     #[must_use]
     pub fn with_tz(mut self, tz: TimeZone) -> Self {
-        self.tz = tz;
+        self.tz = Some(tz);
         self
     }
 
@@ -181,9 +186,10 @@ impl Formatter for ConciseDateFormatter {
         locs: &[f64],
         ctx: &TickContext<'_>,
     ) -> Result<FormattedTicks, TickerError> {
+        let tz = zone_or_rc(self.tz.as_ref())?;
         let dates: Vec<ZonedDateTime> = locs
             .iter()
-            .map(|&x| num2date(x, &self.tz))
+            .map(|&x| num2date(x, &tz))
             .collect::<Result<_, _>>()?;
         let (Some(first), Some(last)) = (dates.first(), dates.last()) else {
             return Ok(FormattedTicks::default());
@@ -227,11 +233,13 @@ impl Formatter for ConciseDateFormatter {
 
     /// The year of `value` (matplotlib's `__call__` with format `%Y`).
     fn format_data(&self, value: f64, ctx: &TickContext<'_>) -> Result<String, TickerError> {
-        format_date(value, "%Y", &self.tz, resolve_usetex(self.usetex, ctx))
+        let tz = zone_or_rc(self.tz.as_ref())?;
+        format_date(value, "%Y", &tz, resolve_usetex(self.usetex, ctx))
     }
 
     fn format_data_short(&self, value: f64, _: &TickContext<'_>) -> Result<String, TickerError> {
-        format_date(value, "%Y-%m-%d %H:%M:%S", &self.tz, false)
+        let tz = zone_or_rc(self.tz.as_ref())?;
+        format_date(value, "%Y-%m-%d %H:%M:%S", &tz, false)
     }
 }
 
@@ -299,6 +307,27 @@ mod tests {
             ]
         );
         assert_eq!(labels.offset, "2020-Nov-01");
+    }
+
+    #[test]
+    fn labels_take_the_rc_zone_when_formatting() {
+        if TimeZone::named("Europe/Berlin").is_err() {
+            return; // no system zoneinfo database
+        }
+        let formatter = ConciseDateFormatter::new();
+        let settings = TickerSettings::default();
+        let ctx = TickContext::detached(&settings);
+        // 2020-10-25T01:00Z, when Berlin's clocks go back from 03:00 to 02:00.
+        let change = 18_560.0 + 1.0 / 24.0;
+        let short = |zone: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("timezone", zone).unwrap();
+                formatter.format_data_short(change, &ctx)
+            })
+        };
+        assert_eq!(short("UTC").unwrap(), "2020-10-25 01:00:00");
+        assert_eq!(short("Europe/Berlin").unwrap(), "2020-10-25 02:00:00");
+        assert!(short("Nowhere/Atlantis").is_err());
     }
 
     #[test]

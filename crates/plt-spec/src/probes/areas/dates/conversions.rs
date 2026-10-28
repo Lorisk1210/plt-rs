@@ -3,7 +3,7 @@
 
 use plt::dates::{Datetime64, TimeDelta, datetime64_to_num, drange, get_epoch, num2timedelta};
 
-use super::support::{date_num, iso, zoned};
+use super::support::{date_num, iso, zone_arg, zoned};
 use crate::json::Json;
 use crate::probes::{Args, Outcome, ProbeError};
 
@@ -50,13 +50,16 @@ pub(super) fn date2num_datetime64(args: Args<'_>) -> Outcome {
         .map(Json::from)
 }
 
-pub(super) fn num2date_op(args: Args<'_>) -> Outcome {
+/// `num2date(x, tz).isoformat()` for a number or a list of numbers, in
+/// the zone the probe's `tz` names or else the `timezone` rcParam's.
+pub(crate) fn num2date_op(args: Args<'_>) -> Outcome {
+    let tz = zone_arg(args)?;
     let x = args.json("x")?;
     match (x.as_f64(), x.as_f64_vec()) {
-        (Some(x), _) => iso(x),
+        (Some(x), _) => iso(x, &tz),
         (_, Some(values)) => values
             .into_iter()
-            .map(iso)
+            .map(|x| iso(x, &tz))
             .collect::<Result<Vec<_>, _>>()
             .map(Json::Array),
         _ => Err(ProbeError::BadArgs(

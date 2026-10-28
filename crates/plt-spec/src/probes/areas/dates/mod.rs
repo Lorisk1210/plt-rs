@@ -15,10 +15,10 @@ mod formatters;
 mod support;
 
 pub(crate) use auto::{auto_call, auto_locator};
-pub(crate) use conversions::{date2num_op, drange_op, num2timedelta_op};
+pub(crate) use conversions::{date2num_op, drange_op, num2date_op, num2timedelta_op};
 pub(crate) use fixed::{rrule_spec, year_call};
 pub(crate) use formatters::{auto_format_ticks, concise_format_ticks, concise_formatter};
-pub(crate) use support::{date_num, ticks, zoned};
+pub(crate) use support::{date_num, ticks, zone_arg, zoned};
 
 use crate::probes::Op;
 
@@ -30,7 +30,7 @@ pub(crate) const OPS: &[Op] = &[
         "dates.date2num.datetime64",
         conversions::date2num_datetime64,
     ),
-    Op::new("dates.num2date", conversions::num2date_op),
+    Op::new("dates.num2date", num2date_op),
     Op::new("dates.num2timedelta", num2timedelta_op),
     Op::new("dates.drange", drange_op),
     Op::new("dates.AutoDateLocator.__call__", auto_call),

@@ -3,18 +3,21 @@
 //! `spec/reference/probes/test_mpl_dates.py`).
 //!
 //! Many operations are the `dates` area's; the tests that read the ticks
-//! of a date axis are replayed by [`axes`].
+//! of a date axis are replayed by [`axes`]. The probe's `rc` is in effect
+//! for a whole operation and `made` is the `timezone` rcParam while the
+//! operation makes its locator or formatter ([`made_in`]).
 
 mod axes;
 
 use plt::dates::{
-    AutoFrequency, ConciseDateFormatter, Date, DateFormatter, DateLocator, Datetime64,
-    RRuleLocator, TimeZone, datestr2num, datestr2num_with_default, datetime64_to_num, get_epoch,
+    AutoDateFormatter, AutoFrequency, ConciseDateFormatter, Date, DateFormatter, DateLocator,
+    Datetime64, RRuleLocator, datestr2num, datestr2num_with_default, datetime64_to_num, get_epoch,
     num2date, reset_epoch, set_epoch,
 };
+use plt::rc;
 use plt::ticker::{Formatter, Locator, TickContext, TickerSettings};
 
-use super::dates::{self, date_num, ticks, zoned};
+use super::dates::{self, date_num, ticks, zone_arg, zoned};
 use super::text_metrics::with_rc;
 use crate::json::Json;
 use crate::probes::{Args, Op, Outcome, ProbeError};
@@ -25,7 +28,9 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("dates.date2num.datetime64", |args| {
         in_epoch(args, || date2num_datetime64(args))
     }),
-    Op::new("dates.num2date", num2date_op),
+    Op::new("dates.num2date", |args| {
+        with_rc(args, || dates::num2date_op(args))
+    }),
     Op::new("dates.num2timedelta", dates::num2timedelta_op),
     Op::new("dates.drange", dates::drange_op),
     Op::new("dates.datestr2num", datestr2num_op),
@@ -34,16 +39,24 @@ pub(crate) const OPS: &[Op] = &[
         in_epoch(args, || with_rc(args, || dates::auto_call(args)))
     }),
     Op::new("dates.AutoDateLocator.maxticks", maxticks),
-    Op::new(
-        "dates.AutoDateFormatter.format_ticks",
-        dates::auto_format_ticks,
-    ),
-    Op::new("dates.ConciseDateFormatter.format_ticks", concise_ticks),
+    Op::new("dates.AutoDateFormatter.format_ticks", |args| {
+        with_rc(args, || dates::auto_format_ticks(args))
+    }),
+    Op::new("dates.AutoDateFormatter.__call__", |args| {
+        with_rc(args, || auto_hour_label(args))
+    }),
+    Op::new("dates.ConciseDateFormatter.format_ticks", |args| {
+        with_rc(args, || concise_ticks(args))
+    }),
     Op::new("dates.ConciseDateFormatter.__call__", |args| {
-        concise_text(args, ConciseDateFormatter::format_data)
+        with_rc(args, || {
+            concise_text(args, ConciseDateFormatter::format_data)
+        })
     }),
     Op::new("dates.ConciseDateFormatter.format_data_short", |args| {
-        concise_text(args, ConciseDateFormatter::format_data_short)
+        with_rc(args, || {
+            concise_text(args, ConciseDateFormatter::format_data_short)
+        })
     }),
     Op::new("dates.YearLocator.__call__", dates::year_call),
     Op::new("dates.DayLocator.tick_values", day_tick_values),
@@ -52,7 +65,9 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("dates.DateLocator.datalim_to_dt", |args| {
         with_rc(args, || datalim_to_dt(args))
     }),
-    Op::new("dates.DateFormatter.__call__", date_formatter),
+    Op::new("dates.DateFormatter.__call__", |args| {
+        with_rc(args, || date_formatter(args))
+    }),
     Op::new("axes.Axes.get_xlim", axes::xlim),
     Op::new("axis.Axis.get_ticklabels", axes::ticklabels),
     Op::new("axis.Axis.get_major_locator", axes::too_many_ticks),
@@ -101,31 +116,20 @@ fn date2num_datetime64(args: Args<'_>) -> Outcome {
     })
 }
 
-/// The probe's `tz` (UTC when absent).
-fn tz_arg(args: Args<'_>) -> Result<TimeZone, ProbeError> {
-    args.opt_str("tz")?
-        .map_or(Ok(TimeZone::Utc), TimeZone::named)
-        .map_err(ProbeError::rejected)
-}
-
-/// `num2date(x, tz).isoformat()` for a number or a list of numbers.
-fn num2date_op(args: Args<'_>) -> Outcome {
-    let tz = tz_arg(args)?;
-    let iso = |x: f64| -> Result<Json, ProbeError> {
-        num2date(x, &tz)
-            .map(|d| Json::from(d.isoformat()))
-            .map_err(ProbeError::rejected)
+/// Makes a locator or formatter with `make` while the `timezone` rcParam
+/// is the probe's `made`, or as it is without one (the reference module's
+/// `_made_in`).
+fn made_in<T>(
+    args: Args<'_>,
+    make: impl FnOnce() -> Result<T, ProbeError>,
+) -> Result<T, ProbeError> {
+    let Some(zone) = args.opt_str("made")? else {
+        return make();
     };
-    let x = args.json("x")?;
-    match (x.as_f64(), x.as_f64_vec()) {
-        (Some(x), _) => iso(x),
-        (_, Some(values)) => values
-            .into_iter()
-            .map(iso)
-            .collect::<Result<Vec<_>, _>>()
-            .map(Json::Array),
-        _ => Err(ProbeError::BadArgs("x is not a number or a list".into())),
-    }
+    rc::context(|| {
+        rc::set("timezone", zone).map_err(ProbeError::rejected)?;
+        make()
+    })
 }
 
 /// `datestr2num(s, default)`; `default` is a `YYYY-MM-DD` date.
@@ -204,14 +208,29 @@ fn concise_text(
         &TickContext<'_>,
     ) -> Result<String, plt::ticker::TickerError>,
 ) -> Outcome {
+    let formatter = made_in(args, || Ok(ConciseDateFormatter::new()))?;
+    detached_label(&formatter, method, args.f64("x")?)
+}
+
+/// What `AutoDateFormatter(HourLocator())` makes of the probe's `x`
+/// without an axis.
+fn auto_hour_label(args: Args<'_>) -> Outcome {
+    let formatter = made_in(args, || {
+        Ok(AutoDateFormatter::new(RRuleLocator::hours(&[], 1)))
+    })?;
+    detached_label(&formatter, AutoDateFormatter::format_data, args.f64("x")?)
+}
+
+/// The label `method` gives `x` without an axis.
+fn detached_label<F>(
+    formatter: &F,
+    method: fn(&F, f64, &TickContext<'_>) -> Result<String, plt::ticker::TickerError>,
+    x: f64,
+) -> Outcome {
     let settings = TickerSettings::default();
-    method(
-        &ConciseDateFormatter::new(),
-        args.f64("x")?,
-        &TickContext::detached(&settings),
-    )
-    .map(Json::from)
-    .map_err(ProbeError::rejected)
+    method(formatter, x, &TickContext::detached(&settings))
+        .map(Json::from)
+        .map_err(ProbeError::rejected)
 }
 
 /// `DayLocator().tick_values(vmin, vmax)` for date-times.
@@ -252,10 +271,13 @@ fn date_locator_nonsingular(args: Args<'_>) -> Outcome {
 /// date-times in the locator's zone; the dummy axis' data interval is
 /// `(0, 1)` unless the probe gives `data`.
 fn datalim_to_dt(args: Args<'_>) -> Outcome {
-    let mut locator = RRuleLocator::days(&[], 1).map_err(ProbeError::rejected)?;
+    let mut locator = made_in(args, || {
+        RRuleLocator::days(&[], 1).map_err(ProbeError::rejected)
+    })?;
     if args.get("tz").is_some() {
-        locator = locator.with_tz(tz_arg(args)?);
+        locator = locator.with_tz(zone_arg(args)?);
     }
+    let tz = locator.tz().map_err(ProbeError::rejected)?;
     let (a, b) = match args.json("data").ok().and_then(Json::as_array) {
         Some([a, b]) => {
             let num = |value: &Json| {
@@ -272,7 +294,7 @@ fn datalim_to_dt(args: Args<'_>) -> Outcome {
     [a.min(b), a.max(b)]
         .into_iter()
         .map(|x| {
-            num2date(x, locator.tz())
+            num2date(x, tz)
                 .map(|d| Json::from(d.isoformat()))
                 .map_err(ProbeError::rejected)
         })
@@ -280,9 +302,13 @@ fn datalim_to_dt(args: Args<'_>) -> Outcome {
         .map(Json::Array)
 }
 
-/// `DateFormatter(fmt)` (in zone `tz` when given) applied to `d`.
+/// `DateFormatter(fmt)`, given `set_tzinfo(tz)` when the probe names a
+/// zone, applied to `d`.
 fn date_formatter(args: Args<'_>) -> Outcome {
-    let formatter = DateFormatter::new(args.str("fmt")?).with_tz(tz_arg(args)?);
+    let mut formatter = made_in(args, || Ok(DateFormatter::new(args.str("fmt")?)))?;
+    if args.get("tz").is_some() {
+        formatter = formatter.with_tz(zone_arg(args)?);
+    }
     formatter
         .label(date_num(args.str("d")?)?, &TickContext::default())
         .map(Json::from)

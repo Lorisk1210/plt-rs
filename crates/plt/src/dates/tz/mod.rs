@@ -97,6 +97,31 @@ impl TimeZone {
         TzFile::find(name).map(|zone| Self::Zone(Arc::new(zone)))
     }
 
+    /// The zone the `timezone` rcParam names, resolved by
+    /// [`named`](Self::named) (matplotlib's `_get_tzinfo(None)`): the zone
+    /// of date locators, formatters and date axes given none, and the one
+    /// to pass [`num2date`](super::num2date) for matplotlib's default.
+    ///
+    /// ```
+    /// use plt::dates::TimeZone;
+    /// plt::rc::context(|| {
+    ///     plt::rc::set("timezone", "UTC")?;
+    ///     assert_eq!(TimeZone::from_rc(), Ok(TimeZone::Utc));
+    ///     plt::rc::set("timezone", "Nowhere/Atlantis")?;
+    ///     assert!(TimeZone::from_rc().is_err());
+    ///     Ok::<(), plt::rc::RcError>(())
+    /// })?;
+    /// # Ok::<(), plt::rc::RcError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`DateError::UnknownTimeZone`] when the system knows no zone of
+    /// that name (matplotlib's `ValueError`).
+    pub fn from_rc() -> Result<Self, DateError> {
+        Self::named(&crate::rc::params().timezone)
+    }
+
     /// The offset in effect at the wall-clock time `local`; `fold` selects
     /// the second occurrence of a repeated wall time.
     pub fn offset_at_local(&self, local: DateTime, fold: bool) -> UtcOffset {
@@ -128,9 +153,52 @@ impl TimeZone {
     }
 }
 
+/// The zone a date locator or formatter settles when it is made: the one
+/// given, or the `timezone` rcParam's (matplotlib's `self.tz =
+/// _get_tzinfo(tz)`). A name the system does not know is kept as the
+/// error that using the zone gives, so that the constructors need not
+/// fail and a zone given later replaces it.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TickZone(Result<TimeZone, DateError>);
+
+impl TickZone {
+    /// The zone the `timezone` rcParam names now.
+    pub(crate) fn from_rc() -> Self {
+        Self(TimeZone::from_rc())
+    }
+
+    /// The zone, or why the rcParam named none.
+    pub(crate) fn get(&self) -> Result<&TimeZone, DateError> {
+        self.0.as_ref().map_err(Clone::clone)
+    }
+}
+
+impl From<TimeZone> for TickZone {
+    fn from(tz: TimeZone) -> Self {
+        Self(Ok(tz))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tick_zones_settle_the_rc_param_when_made() {
+        let (utc, unknown) = crate::rc::context(|| {
+            crate::rc::set("timezone", "Nowhere/Atlantis").unwrap();
+            let unknown = TickZone::from_rc();
+            crate::rc::set("timezone", "UTC").unwrap();
+            (TickZone::from_rc(), unknown)
+        });
+        assert_eq!(utc.get(), Ok(&TimeZone::Utc));
+        assert_eq!(
+            unknown.get(),
+            Err(DateError::UnknownTimeZone("Nowhere/Atlantis".to_owned()))
+        );
+        let fixed = TimeZone::Fixed(UtcOffset::from_seconds(3600).unwrap());
+        assert_eq!(TickZone::from(fixed.clone()).get(), Ok(&fixed));
+    }
 
     #[test]
     fn offsets_format_like_python() {

@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use super::{format_date, resolve_usetex};
+use super::{format_date, resolve_usetex, zone_or_rc};
 use crate::dates::convert::MICROSECONDS_PER_DAY;
 use crate::dates::locators::DateLocator;
 use crate::dates::tz::TimeZone;
@@ -28,18 +28,25 @@ use crate::ticker::{FormattedTicks, Formatter, Locator, TickContext, TickerError
 /// major locator hands it to the formatter, as matplotlib's does; a
 /// locator that is not a date locator counts as a unit of one day, so
 /// explicit ticks on a date axis are labelled with dates.
+///
+/// Without [`with_tz`](Self::with_tz) the formatter labels in the zone the
+/// `timezone` rcParam names when it formats, as matplotlib's makes a
+/// `DateFormatter` with `tz=None` for each label; a name the system does
+/// not know makes formatting fail, where matplotlib's constructor already
+/// raises.
 #[derive(Clone, Debug)]
 pub struct AutoDateFormatter {
     locator: Rc<dyn Locator>,
-    tz: TimeZone,
+    tz: Option<TimeZone>,
     defaultfmt: String,
     scaled: Vec<(f64, String)>,
     usetex: Option<bool>,
 }
 
 impl AutoDateFormatter {
-    /// A formatter following `locator`'s unit, in UTC, with the formats
-    /// of the `date.autoformatter.*` rcParams.
+    /// A formatter following `locator`'s unit, in the zone of the
+    /// `timezone` rcParam, with the formats of the `date.autoformatter.*`
+    /// rcParams.
     pub fn new(locator: impl DateLocator) -> Self {
         let rc = crate::rc::params();
         let scaled = [
@@ -56,7 +63,7 @@ impl AutoDateFormatter {
         ];
         let mut formatter = Self {
             locator: Rc::new(locator),
-            tz: TimeZone::Utc,
+            tz: None,
             defaultfmt: "%Y-%m-%d".to_owned(),
             scaled: Vec::new(),
             usetex: None,
@@ -67,10 +74,10 @@ impl AutoDateFormatter {
         formatter
     }
 
-    /// Formats in `tz` instead of UTC.
+    /// Formats in `tz` instead of the zone of the `timezone` rcParam.
     #[must_use]
     pub fn with_tz(mut self, tz: TimeZone) -> Self {
-        self.tz = tz;
+        self.tz = Some(tz);
         self
     }
 
@@ -124,14 +131,16 @@ impl Formatter for AutoDateFormatter {
     ) -> Result<FormattedTicks, TickerError> {
         let format = self.format_for(ctx);
         let usetex = resolve_usetex(self.usetex, ctx);
-        FormattedTicks::each(locs, |x| format_date(x, format, &self.tz, usetex))
+        let tz = zone_or_rc(self.tz.as_ref())?;
+        FormattedTicks::each(locs, |x| format_date(x, format, &tz, usetex))
     }
 
     fn format_data(&self, value: f64, ctx: &TickContext<'_>) -> Result<String, TickerError> {
+        let tz = zone_or_rc(self.tz.as_ref())?;
         format_date(
             value,
             self.format_for(ctx),
-            &self.tz,
+            &tz,
             resolve_usetex(self.usetex, ctx),
         )
     }
@@ -182,6 +191,29 @@ mod tests {
                 .to_owned()
         });
         assert_eq!(format, "%H h");
+    }
+
+    #[test]
+    fn labels_take_the_rc_zone_when_formatting() {
+        if TimeZone::named("America/New_York").is_err() {
+            return; // no system zoneinfo database
+        }
+        let settings = TickerSettings::default();
+        let ctx = TickContext::detached(&settings);
+        let formatter = AutoDateFormatter::new(RRuleLocator::hours(&[], 1));
+        let utc = formatter.clone().with_tz(TimeZone::Utc);
+        // 2020-03-08T07:00Z, when New York's clocks skip from 02:00 to 03:00.
+        let change = 18_329.0 + 7.0 / 24.0;
+        let label = |formatter: &AutoDateFormatter, zone: &str| {
+            crate::rc::context(|| {
+                crate::rc::set("timezone", zone).unwrap();
+                formatter.format_data(change, &ctx)
+            })
+        };
+        assert_eq!(label(&formatter, "UTC").unwrap(), "03-08 07");
+        assert_eq!(label(&formatter, "America/New_York").unwrap(), "03-08 03");
+        assert!(label(&formatter, "Nowhere/Atlantis").is_err());
+        assert_eq!(label(&utc, "Nowhere/Atlantis").unwrap(), "03-08 07");
     }
 
     #[test]

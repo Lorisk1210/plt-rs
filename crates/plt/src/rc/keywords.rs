@@ -25,6 +25,37 @@ use crate::text::TextHinting;
 use crate::ticker::AutolimitMode;
 use crate::units::DateConverter;
 
+/// Implements `Display` (the value's `name()`) and `FromStr` (the value of
+/// `$all` with that name, else an [`UnknownName`] of `$kind`) for a
+/// keyword type: the names matplotlib reads and writes.
+///
+/// [`UnknownName`]: crate::image::UnknownName
+macro_rules! keyword_names {
+    ($ty:ty, $kind:literal, $all:expr) => {
+        impl ::std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                f.write_str(self.name())
+            }
+        }
+
+        impl ::std::str::FromStr for $ty {
+            type Err = $crate::image::UnknownName;
+
+            /// Parses matplotlib's name.
+            fn from_str(name: &str) -> Result<Self, Self::Err> {
+                $all.into_iter()
+                    .find(|value| value.name() == name)
+                    .ok_or_else(|| $crate::image::UnknownName {
+                        kind: $kind,
+                        name: name.to_owned(),
+                    })
+            }
+        }
+    };
+}
+
+pub(crate) use keyword_names;
+
 /// rc values reuse the `FromStr`/`Display` pair of each type.
 macro_rules! rc_via_str {
     ($($ty:ty),+ $(,)?) => {$(

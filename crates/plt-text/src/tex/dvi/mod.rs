@@ -5,6 +5,8 @@ mod machine;
 
 use std::sync::Arc;
 
+use plt_core::{Path, Point};
+
 pub(crate) use machine::{Machine, Registers, State, mul1220};
 
 use super::error::{TexError, TexFile};
@@ -192,6 +194,21 @@ pub struct DviBox {
     pub width: f64,
 }
 
+impl DviBox {
+    /// The rule as a closed rectangle from its bottom-left corner, going
+    /// right first (as `TextToPath` outlines rules).
+    pub fn outline(&self) -> Path {
+        let (x, y, w, h) = (self.x, self.y, self.width, self.height);
+        Path::compound_from_polygons(&[[
+            Point::new(x, y),
+            Point::new(x + w, y),
+            Point::new(x + w, y + h),
+            Point::new(x, y + h),
+            Point::new(x, y),
+        ]])
+    }
+}
+
 /// A page at a resolution (matplotlib's `dviread.Page`): its glyphs and
 /// rules, and the extent of its ink, in pixels at that resolution.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -206,6 +223,21 @@ pub struct DviPage {
     pub height: f64,
     /// Depth of the ink below the baseline.
     pub descent: f64,
+}
+
+/// The error of DVI arithmetic that overflows.
+fn too_large() -> TexError {
+    TexError::malformed(TexFile::Dvi, "number too large")
+}
+
+/// `a - b`, an error when it overflows.
+fn difference(a: i128, b: i128) -> Result<i128, TexError> {
+    a.checked_sub(b).ok_or_else(too_large)
+}
+
+/// `a + b`, an error when it overflows.
+fn sum(a: i128, b: i128) -> Result<i128, TexError> {
+    a.checked_add(b).ok_or_else(too_large)
 }
 
 /// The extremes of a page's ink and its baseline, in DVI units.
@@ -234,7 +266,6 @@ impl RawPage {
         if self.text.is_empty() && self.boxes.is_empty() {
             return Ok(None);
         }
-        let overflow = || TexError::malformed(TexFile::Dvi, "number too large");
         let (mut minx, mut miny) = (i128::MAX, i128::MAX);
         let (mut maxx, mut maxy, mut maxy_pure) = (i128::MIN, i128::MIN, i128::MIN);
         let glyphs = self.text.iter().map(|text| {
@@ -248,9 +279,9 @@ impl RawPage {
         for extent in glyphs.chain(rules) {
             let (x, y, h, w, e): (i128, i128, i128, i128, i128) = extent?;
             minx = minx.min(x);
-            miny = miny.min(y.checked_sub(h).ok_or_else(overflow)?);
-            maxx = maxx.max(x.checked_add(w).ok_or_else(overflow)?);
-            maxy = maxy.max(y.checked_add(e).ok_or_else(overflow)?);
+            miny = miny.min(difference(y, h)?);
+            maxx = maxx.max(sum(x, w)?);
+            maxy = maxy.max(sum(y, e)?);
             maxy_pure = maxy_pure.max(y);
         }
         Ok(Some(Ink {
@@ -267,22 +298,23 @@ impl RawPage {
     ///
     /// # Errors
     ///
-    /// When a glyph's metrics overflow.
+    /// When a glyph's metrics or the extent overflow.
     pub fn extent(&self) -> Result<(i128, i128, i128), TexError> {
-        Ok(self.ink()?.map_or((0, 0, 0), |ink| {
-            (
-                ink.maxx - ink.minx,
-                ink.baseline - ink.miny,
-                ink.maxy - ink.baseline,
-            )
-        }))
+        let Some(ink) = self.ink()? else {
+            return Ok((0, 0, 0));
+        };
+        Ok((
+            difference(ink.maxx, ink.minx)?,
+            difference(ink.baseline, ink.miny)?,
+            difference(ink.maxy, ink.baseline)?,
+        ))
     }
 
     /// The page in pixels at `dpi` (matplotlib's `Dvi._output`).
     ///
     /// # Errors
     ///
-    /// When a glyph's metrics overflow.
+    /// When a glyph's metrics or the extent overflow.
     pub fn at(&self, dpi: f64) -> Result<DviPage, TexError> {
         let Some(ink) = self.ink()? else {
             return Ok(DviPage::default());
@@ -295,33 +327,38 @@ impl RawPage {
             baseline,
         } = ink;
         let d = dpi / SCALED_POINTS_PER_INCH;
-        let descent = (maxy - baseline) as f64 * d;
+        let pixels = |a: i128, b: i128| Ok::<_, TexError>(difference(a, b)? as f64 * d);
+        let descent = pixels(maxy, baseline)?;
         let text = self
             .text
             .iter()
-            .map(|text| DviText {
-                x: (text.x - minx) as f64 * d,
-                y: (maxy - text.y) as f64 * d - descent,
-                font: Arc::clone(&text.font),
-                glyph: text.glyph as i64,
-                width: text.width as f64 * d,
+            .map(|text| {
+                Ok(DviText {
+                    x: pixels(text.x, minx)?,
+                    y: pixels(maxy, text.y)? - descent,
+                    font: Arc::clone(&text.font),
+                    glyph: text.glyph as i64,
+                    width: text.width as f64 * d,
+                })
             })
-            .collect();
+            .collect::<Result<_, TexError>>()?;
         let boxes = self
             .boxes
             .iter()
-            .map(|b| DviBox {
-                x: (b.x - minx) as f64 * d,
-                y: (maxy - b.y) as f64 * d - descent,
-                height: b.height as f64 * d,
-                width: b.width as f64 * d,
+            .map(|b| {
+                Ok(DviBox {
+                    x: pixels(b.x, minx)?,
+                    y: pixels(maxy, b.y)? - descent,
+                    height: b.height as f64 * d,
+                    width: b.width as f64 * d,
+                })
             })
-            .collect();
+            .collect::<Result<_, TexError>>()?;
         Ok(DviPage {
             text,
             boxes,
-            width: (maxx - minx) as f64 * d,
-            height: (baseline - miny) as f64 * d,
+            width: pixels(maxx, minx)?,
+            height: pixels(baseline, miny)?,
             descent,
         })
     }
@@ -334,8 +371,7 @@ fn read_page(machine: &mut Machine<'_>) -> Result<Option<RawPage>, TexError> {
     let mut down_stack: Vec<u64> = vec![0];
     let mut baseline = None;
     loop {
-        let byte = machine.byte()?;
-        let executed = machine.execute(byte)?;
+        let executed = machine.next_opcode()?;
         if let Some(missing) = machine.missing_font.take() {
             return Err(missing);
         }
@@ -350,7 +386,7 @@ fn read_page(machine: &mut Machine<'_>) -> Result<Option<RawPage>, TexError> {
                     *last += 1;
                 }
             }
-            Executed::Other => {}
+            Executed::EndOfPage | Executed::Other => {}
         }
         if baseline.is_none()
             && machine.stack.len() == 3
@@ -358,7 +394,7 @@ fn read_page(machine: &mut Machine<'_>) -> Result<Option<RawPage>, TexError> {
         {
             baseline = Some(machine.regs.v);
         }
-        if byte == 140 {
+        if executed == Executed::EndOfPage {
             return Ok(Some(RawPage {
                 text: std::mem::take(&mut machine.text),
                 boxes: std::mem::take(&mut machine.boxes),

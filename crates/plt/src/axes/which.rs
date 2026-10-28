@@ -2,10 +2,7 @@
 //! `which` and `axis` arguments, and `axes.grid.which` and
 //! `axes.grid.axis`).
 
-use std::fmt;
-use std::str::FromStr;
-
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 use crate::ticker::AxisName;
 
 /// Which tick levels a setting applies to (matplotlib's `which`).
@@ -43,26 +40,7 @@ impl TickLevel {
     }
 }
 
-impl fmt::Display for TickLevel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for TickLevel {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`TickLevel::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|level| level.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "tick level",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(TickLevel, "tick level", Self::ALL);
 
 /// Which axes of an axes a setting applies to (matplotlib's `axis`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -98,26 +76,7 @@ impl WhichAxis {
     }
 }
 
-impl fmt::Display for WhichAxis {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for WhichAxis {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`WhichAxis::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|axis| axis.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "axis",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(WhichAxis, "axis", Self::ALL);
 
 #[cfg(test)]
 mod tests {

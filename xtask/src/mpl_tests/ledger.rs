@@ -5,6 +5,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use super::scan::is_test_module;
+
 /// The tests the ledger lists, by test file.
 #[derive(Debug, Default)]
 pub(super) struct Ledger {
@@ -48,10 +50,7 @@ impl Ledger {
             let (test, reason) = rest
                 .split_once(':')
                 .ok_or_else(|| error("expected `: reason` after the test name"))?;
-            if !file
-                .strip_suffix(".py")
-                .is_some_and(|stem| stem.starts_with("test_"))
-            {
+            if !is_test_module(file) {
                 return Err(error("the file is not a `test_*.py` module"));
             }
             if !test.starts_with("test_") {

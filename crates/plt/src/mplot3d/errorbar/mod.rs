@@ -2,6 +2,9 @@
 //! and z for each point, flat caps at its ends, and arrows marking upper
 //! and lower limits.
 
+mod ends;
+mod style;
+
 use super::art3d::Art3D;
 use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
@@ -12,13 +15,15 @@ use super::quiver::Quiver3DOptions;
 use super::state::Axes3DState;
 use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle};
-use crate::axes::{ErrorSize, ErrorbarContainer, ErrorbarFormat, PlotError, without_marker_style};
-use crate::collections::{Collection, CollectionProps};
+use crate::axes::{ErrorSize, ErrorbarContainer, ErrorbarFormat, without_marker_style};
+use crate::collections::Collection;
 use crate::colors::Color;
-use crate::lines::{Line2D, LineArtist, LineProps, LineStyle, MarkEvery};
-use crate::markers::{Marker, MarkerSymbol};
+use crate::lines::{Line2D, LineArtist, LineProps, MarkEvery};
+use crate::markers::MarkerSymbol;
 use crate::transforms::{TransformContext, unit_to_bbox};
-use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues, UnitHandle};
+use crate::units::{AxisValue, AxisValues, UnitHandle};
+use ends::{and, broadcast_flags, end_values, every_mask, masked, nan_extremes};
+use style::CapStyle;
 
 /// The tangent of a quiver head's 15° barb angle, inverted: arrow length
 /// over half the width of its base (matplotlib's `1.8660254037844388`).
@@ -133,12 +138,12 @@ impl Axes3D {
             options.errors[0].is_some() || options.errors[1].is_some(),
             options.errors[2].is_some(),
         );
-        let mut kwargs = options.line;
+        let mut kwargs = std::mem::take(&mut options.line);
         let label = kwargs.base.label.take();
         kwargs.base.zorder.get_or_insert(2.0);
         kwargs.base.label = Some(NO_LEGEND.into());
         let hidden = !options.fmt.draws_line();
-        let format = options.fmt.line_props();
+        let format = std::mem::take(&mut options.fmt).line_props();
         let plane = self.plane();
         let mut data = plane.cycled_line(x.clone(), y.clone(), format.overlay(kwargs.clone()));
         let color = if hidden {
@@ -155,43 +160,15 @@ impl Axes3D {
             Line2D::from_raw(raw)
         });
         let ecolor = options.ecolor.take().unwrap_or(color);
-        let capsize = options
-            .capsize
-            .unwrap_or_else(|| crate::rc::params().errorbar_capsize);
-        let mut style = CapStyle {
-            base: without_marker_style(kwargs.clone()),
-            ecolor,
-            capsize,
-            capthick: options.capthick,
-            bar_width: options
-                .elinewidth
-                .filter(|&w| w != 0.0)
-                .or(kwargs.linewidth),
-            arrow_length: f64::NAN,
-            axlim_clip: options.axlim_clip,
-        };
-        style.arrow_length = self.limit_arrow_length(style.markersize());
+        let style = self.cap_style(&kwargs, &options, ecolor);
         let mut bars = Errorbar3D {
             data_line,
             errlines: Vec::new(),
             caplines: Vec::new(),
             limit_arrows: Vec::new(),
         };
-        let mut extremes: Vec<Vec3> = Vec::new();
-        for axis in Axis3::ALL {
-            let Some(err) = options.errors[axis.index()].take() else {
-                continue;
-            };
-            let direction = ErrorDirection {
-                axis,
-                err,
-                lolims: broadcast_flags("lolims", &options.lolims[axis.index()], n)?,
-                uplims: broadcast_flags("uplims", &options.uplims[axis.index()], n)?,
-            };
-            let ends =
-                self.error_direction(&direction, (&values, &points), &every, &style, &mut bars)?;
-            extremes.extend(ends.lows.iter().chain(&ends.highs));
-        }
+        let extremes =
+            self.error_bars(&mut options, (&values, &points), &every, &style, &mut bars)?;
         // matplotlib autoscales to the bar ends; without bars it would
         // fail, here the points are used.
         let span = if extremes.is_empty() {
@@ -211,6 +188,61 @@ impl Axes3D {
             label,
         });
         Ok(bars)
+    }
+
+    /// The style of the bars, caps and arrows: the data line's properties
+    /// `kwargs` without their marker, in `ecolor`.
+    fn cap_style(
+        &self,
+        kwargs: &LineProps,
+        options: &Errorbar3DOptions,
+        ecolor: Color,
+    ) -> CapStyle {
+        let mut style = CapStyle {
+            base: without_marker_style(kwargs.clone()),
+            ecolor,
+            capsize: options
+                .capsize
+                .unwrap_or_else(|| crate::rc::params().errorbar_capsize),
+            capthick: options.capthick,
+            bar_width: options
+                .elinewidth
+                .filter(|&w| w != 0.0)
+                .or(kwargs.linewidth),
+            arrow_length: f64::NAN,
+            axlim_clip: options.axlim_clip,
+        };
+        style.arrow_length = self.limit_arrow_length(style.markersize());
+        style
+    }
+
+    /// Adds the caps, limit arrows and bars of every axis with errors to
+    /// `bars`, for the points `points` converted from `values`; returns
+    /// the bar ends.
+    fn error_bars(
+        &self,
+        options: &mut Errorbar3DOptions,
+        (values, points): (&[AxisValues; 3], &[Vec3]),
+        every: &[bool],
+        style: &CapStyle,
+        bars: &mut Errorbar3D,
+    ) -> Result<Vec<Vec3>, Axes3DError> {
+        let n = points.len();
+        let mut extremes = Vec::new();
+        for axis in Axis3::ALL {
+            let Some(err) = options.errors[axis.index()].take() else {
+                continue;
+            };
+            let direction = ErrorDirection {
+                axis,
+                err,
+                lolims: broadcast_flags("lolims", &options.lolims[axis.index()], n)?,
+                uplims: broadcast_flags("uplims", &options.uplims[axis.index()], n)?,
+            };
+            let ends = self.error_direction(&direction, (values, points), every, style, bars)?;
+            extremes.extend(ends.lows.iter().chain(&ends.highs));
+        }
+        Ok(extremes)
     }
 
     /// Adds the caps, limit arrows and bars of one axis to `bars` and
@@ -336,191 +368,10 @@ struct ErrorDirection {
     uplims: Vec<bool>,
 }
 
-/// The styles shared by the bars, caps and arrows of one call.
-struct CapStyle {
-    /// The data line's style without its marker and line-style parts
-    /// (matplotlib's `base_style`).
-    base: LineProps,
-    ecolor: Color,
-    capsize: f64,
-    capthick: Option<f64>,
-    /// Width of the bars: the error width, or the line width given.
-    bar_width: Option<f64>,
-    /// Length of the limit arrows in data units.
-    arrow_length: f64,
-    /// Whether the bars and caps hide their points outside the view
-    /// limits; the arrows never do, as in matplotlib.
-    axlim_clip: bool,
-}
-
-impl CapStyle {
-    /// The marker size of the caps, which also sizes the arrows.
-    fn markersize(&self) -> f64 {
-        if self.capsize > 0.0 {
-            2.0 * self.capsize
-        } else {
-            crate::rc::params().lines_markersize
-        }
-    }
-
-    /// matplotlib's `eb_cap_style` with the cap `marker`.
-    fn cap_props(&self, marker: MarkerSymbol) -> LineProps {
-        let mut props = self
-            .base
-            .clone()
-            .linestyle(LineStyle::None)
-            .marker(Marker::Symbol(marker))
-            .color(self.ecolor.clone());
-        if self.capsize > 0.0 {
-            props.markersize = Some(2.0 * self.capsize);
-        }
-        props.markeredgewidth = self.capthick;
-        props
-    }
-
-    /// matplotlib's `eb_lines_style`: the bars take the error colour, the
-    /// error width (or the line width given), and the line's alpha and
-    /// z-order.
-    fn bar_props(&self) -> CollectionProps {
-        let mut props = CollectionProps::default().color(self.ecolor.clone());
-        props.base = self.base.base.clone();
-        props.linewidths = self.bar_width.map(|w| vec![w]);
-        props.antialiased = self.base.antialiased.map(|a| vec![a]);
-        props
-    }
-
-    /// The arrows' style: the cap style as a line collection (matplotlib's
-    /// `eb_quiver_style`, whose `'None'` line style draws solid lines).
-    fn arrow_props(&self) -> CollectionProps {
-        let mut props = CollectionProps::default().color(self.ecolor.clone());
-        props.base = self.base.base.clone();
-        props.linewidths = self.base.linewidth.map(|w| vec![w]);
-        props.antialiased = self.base.antialiased.map(|a| vec![a]);
-        props
-    }
-}
-
-/// The lower and upper bar ends along `axis` of every point, in the
-/// units of `values`, the coordinates of the points along it: the value
-/// itself on the limited side and for points without bars, else the value
-/// less or plus its error (matplotlib's `_extract_errs`, which computes
-/// `data - err` and `data + err` on the data as given).
-fn end_values(
-    values: &AxisValues,
-    axis: Axis3,
-    err: &ErrorSize,
-    (lolims, uplims): (&[bool], &[bool]),
-    every: &[bool],
-) -> Result<(Vec<AxisValue>, Vec<AxisValue>), Axes3DError> {
-    let items: Vec<AxisValue> = (0..values.len()).filter_map(|j| values.get(j)).collect();
-    let n = items.len();
-    let (lower, upper) = match err {
-        ErrorSize::Symmetric(errors) => (errors, errors),
-        ErrorSize::Asymmetric { lower, upper } => (lower, upper),
-    };
-    let per_point = |errors: &AxisDeltas| -> Result<Vec<AxisDelta>, Axes3DError> {
-        let errors: Vec<AxisDelta> = errors.iter().collect();
-        if let [single] = errors.as_slice() {
-            return Ok(vec![single.clone(); n]);
-        }
-        check_len("errors", n, errors.len())?;
-        Ok(errors)
-    };
-    let (lower, upper) = (per_point(lower)?, per_point(upper)?);
-    let end = |j: usize, error: &AxisDelta, factor: i64, keep: bool| {
-        if keep {
-            return Ok(items[j].clone());
-        }
-        items[j]
-            .offset(error, factor)
-            .ok_or(Axes3DError::UnaddableErrors(axis))
-    };
-    let lows = (0..n)
-        .map(|j| end(j, &lower[j], -1, lolims[j] || !every[j]))
-        .collect::<Result<_, _>>()?;
-    let highs = (0..n)
-        .map(|j| end(j, &upper[j], 1, uplims[j] || !every[j]))
-        .collect::<Result<_, _>>()?;
-    Ok((lows, highs))
-}
-
-/// One flag per point from one flag or one per point.
-fn broadcast_flags(name: &'static str, flags: &[bool], n: usize) -> Result<Vec<bool>, Axes3DError> {
-    match flags {
-        [] => Ok(vec![false; n]),
-        [single] => Ok(vec![*single; n]),
-        _ => {
-            check_len(name, n, flags.len())?;
-            Ok(flags.to_vec())
-        }
-    }
-}
-
-/// The points getting error bars (matplotlib's `_errorevery_to_mask`).
-fn every_mask(every: Option<&MarkEvery>, n: usize) -> Result<Vec<bool>, Axes3DError> {
-    let Some(every) = every else {
-        return Ok(vec![true; n]);
-    };
-    let mut mask = vec![false; n];
-    for i in every.indices(n).map_err(PlotError::ErrorEvery)? {
-        mask[i] = true;
-    }
-    Ok(mask)
-}
-
-/// Element-wise `a & b`.
-fn and(a: &[bool], b: &[bool]) -> Vec<bool> {
-    a.iter().zip(b).map(|(&a, &b)| a && b).collect()
-}
-
-/// The points where `mask` is set.
-fn masked(points: &[Vec3], mask: &[bool]) -> Vec<Vec3> {
-    points
-        .iter()
-        .zip(mask)
-        .filter_map(|(p, &keep)| keep.then_some(*p))
-        .collect()
-}
-
-/// The smallest and largest non-NaN value, as matplotlib's `nanmin` and
-/// `nanmax` (none when every value is NaN).
-fn nan_extremes(values: &[f64]) -> Vec<f64> {
-    let finite = values.iter().copied().filter(|v| !v.is_nan());
-    let low = finite.clone().reduce(f64::min);
-    let high = finite.reduce(f64::max);
-    low.into_iter().chain(high).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::figure::Figure;
-
-    #[test]
-    fn limits_drop_one_side_and_every_skips_points() {
-        let z = AxisValues::from([1.0, 2.0, 3.0]);
-        let err = ErrorSize::Asymmetric {
-            lower: 0.5.into(),
-            upper: 1.0.into(),
-        };
-        let (lows, highs) = end_values(
-            &z,
-            Axis3::Z,
-            &err,
-            (&[true, false, false], &[false, false, false]),
-            &[true, true, false],
-        )
-        .unwrap();
-        let number = AxisValue::Number;
-        assert_eq!(lows[0], number(1.0), "a lower limit keeps its low end");
-        assert_eq!(highs[0], number(2.0));
-        assert_eq!((&lows[1], &highs[1]), (&number(1.5), &number(3.0)));
-        assert_eq!(
-            (&lows[2], &highs[2]),
-            (&number(3.0), &number(3.0)),
-            "no bar"
-        );
-    }
 
     #[test]
     fn date_bars_end_a_duration_away() {
@@ -542,52 +393,6 @@ mod tests {
         });
         let z: Vec<f64> = ends.unwrap().iter().map(|p| p[2]).collect();
         assert_eq!(z, [18_261.5, 18_262.5, 18_262.5, 18_263.5]);
-    }
-
-    #[test]
-    fn errors_with_units_are_refused_as_in_matplotlib() {
-        use crate::dates::TimeDelta;
-        use crate::units::{ConversionError, ConversionInterface, Convertible, UnitAxis};
-
-        /// A length in some unit.
-        #[derive(Clone, Copy, Debug, PartialEq)]
-        struct Length(f64);
-
-        struct LengthConverter;
-
-        impl ConversionInterface for LengthConverter {
-            type Value = Length;
-            type Unit = ();
-            fn convert(
-                &self,
-                values: &[Length],
-                _: Option<&()>,
-                _: &UnitAxis,
-            ) -> Result<Vec<f64>, ConversionError> {
-                Ok(values.iter().map(|length| length.0).collect())
-            }
-        }
-
-        impl Convertible for Length {
-            type Converter = LengthConverter;
-            fn converter() -> LengthConverter {
-                LengthConverter
-            }
-        }
-
-        let values = AxisValues::from([0.0]);
-        let flags: (&[bool], &[bool]) = (&[false], &[false]);
-        let half_day = TimeDelta::new(0, 43_200, 0).unwrap();
-        assert_eq!(
-            end_values(&values, Axis3::X, &half_day.into(), flags, &[true]).err(),
-            Some(Axes3DError::UnaddableErrors(Axis3::X)),
-            "a number plus a duration fails in Python"
-        );
-        let lengths = ErrorSize::from(AxisDeltas::from(vec![Length(1.0)]));
-        assert_eq!(
-            end_values(&values, Axis3::Y, &lengths, flags, &[true]).err(),
-            Some(Axes3DError::UnaddableErrors(Axis3::Y))
-        );
     }
 
     #[test]
@@ -615,11 +420,5 @@ mod tests {
             ax.errorbar([0.0], [0.0, 1.0], [0.0], Errorbar3DOptions::default())
                 .is_err()
         );
-    }
-
-    #[test]
-    fn nan_extremes_ignore_nan() {
-        assert_eq!(nan_extremes(&[f64::NAN, 3.0, -1.0]), [-1.0, 3.0]);
-        assert_eq!(nan_extremes(&[f64::NAN]).len(), 0);
     }
 }

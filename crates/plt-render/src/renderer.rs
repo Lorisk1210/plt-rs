@@ -2,7 +2,7 @@
 
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_text::tex::{TEX_FONT_SCALE, TexError, TexText};
-use plt_text::{TextEngine, TextRun, TextSource};
+use plt_text::{TextEngine, TextRun};
 
 use crate::collection::PathCollection;
 use crate::filter::FilterFn;
@@ -111,11 +111,10 @@ pub trait Renderer {
         fill_text(self, gc, run, origin, angle);
     }
 
-    /// Draws a line of TeX text (a run whose source is
-    /// [`TextSource::Tex`]) with its origin at `origin`, rotated by
-    /// `angle` degrees counter-clockwise about it (matplotlib's
-    /// `draw_tex`). Runs of other text are drawn by
-    /// [`draw_text`](Self::draw_text).
+    /// Draws `tex`, a line of TeX text that is the source of `run`
+    /// ([`TextSource::Tex`](plt_text::TextSource::Tex)), with its origin at
+    /// `origin`, rotated by `angle` degrees counter-clockwise about it
+    /// (matplotlib's `draw_tex`).
     ///
     /// The default fills the outline matplotlib's `TextToPath` makes of
     /// the typeset text (`RendererBase.draw_tex`).
@@ -126,16 +125,12 @@ pub trait Renderer {
     fn draw_tex(
         &mut self,
         gc: &GraphicsContext,
-        run: &TextRun,
+        _run: &TextRun,
+        tex: &TexText,
         origin: Point,
         angle: f64,
     ) -> Result<(), TexError> {
-        if let Some(TextSource::Tex(tex)) = &run.source {
-            fill_tex(self, gc, tex, origin, angle)
-        } else {
-            self.draw_text(gc, run, origin, angle);
-            Ok(())
-        }
+        fill_tex(self, gc, tex, origin, angle)
     }
 
     /// Starts a named group of draw calls (vector backends emit a group).
@@ -215,6 +210,14 @@ pub(crate) fn fill_tex<R: Renderer + ?Sized>(
     Ok(())
 }
 
+/// The transform placing text drawn at `origin`, rotated by `angle`
+/// degrees counter-clockwise about it.
+pub(crate) fn text_placement(origin: Point, angle: f64) -> Affine2D {
+    Affine2D::identity()
+        .rotate_deg(angle)
+        .translate(origin.x, origin.y)
+}
+
 /// Fills every glyph outline and rule of `run` as a path in the stroke
 /// colour of `gc` (the default [`Renderer::draw_text`], which vector
 /// backends also use for runs that carry no source).
@@ -226,9 +229,7 @@ pub(crate) fn fill_text<R: Renderer + ?Sized>(
     angle: f64,
 ) {
     let engine = TextEngine::global();
-    let placement = Affine2D::identity()
-        .rotate_deg(angle)
-        .translate(origin.x, origin.y);
+    let placement = text_placement(origin, angle);
     let mut fill_gc = gc.clone();
     fill_gc.linewidth = 0.0;
     let color = gc.stroke_color();

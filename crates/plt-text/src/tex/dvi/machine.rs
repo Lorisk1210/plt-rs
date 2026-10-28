@@ -2,9 +2,11 @@
 //! dispatch table, argument decoding, registers and font definitions.
 
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use super::{DviFont, RawGlyph, RawRule};
+use crate::tex::bytes::Bytes;
 use crate::tex::error::{TexError, TexFile, bytes_repr};
 use crate::tex::files::FontSource;
 
@@ -32,14 +34,39 @@ pub(crate) struct Registers {
     z: i128,
 }
 
-/// What an opcode did, as far as the baseline detection of `Dvi._read`
-/// cares.
+/// What an opcode did, as far as reading pages and the baseline detection
+/// of `Dvi._read` care.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Executed {
+    /// `push`.
     Push,
+    /// `pop`.
     Pop,
+    /// A `down` move by an amount.
     Down,
+    /// `eop`, the end of a page.
+    EndOfPage,
+    /// Anything else.
     Other,
+}
+
+/// A font of a virtual font's packets, compared by identity: the key of
+/// the fonts scaled for the virtual fonts using them.
+#[derive(Clone, Debug)]
+struct PacketFont(Arc<DviFont>);
+
+impl PartialEq for PacketFont {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for PacketFont {}
+
+impl Hash for PacketFont {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.0).hash(state);
+    }
 }
 
 /// A font number's definition: the font, or why it could not be loaded
@@ -59,8 +86,7 @@ pub(crate) fn mul1220(a: i128, b: i128) -> Result<i128, TexError> {
 
 /// The interpreter: the input, the registers and what has been set.
 pub(crate) struct Machine<'a> {
-    data: &'a [u8],
-    pub(crate) pos: usize,
+    input: Bytes<'a>,
     pub(crate) state: State,
     pub(crate) regs: Registers,
     pub(crate) stack: Vec<Registers>,
@@ -68,6 +94,9 @@ pub(crate) struct Machine<'a> {
     /// font selection.
     pub(crate) font: Option<i64>,
     fonts: HashMap<i64, FontSlot>,
+    /// The fonts of virtual font packets at the scales they were set at,
+    /// made once rather than for every glyph.
+    scaled: HashMap<(PacketFont, i128), Arc<DviFont>>,
     pub(crate) text: Vec<RawGlyph>,
     pub(crate) boxes: Vec<RawRule>,
     /// The error of a missing font a glyph was set in.
@@ -80,13 +109,13 @@ pub(crate) struct Machine<'a> {
 impl<'a> Machine<'a> {
     pub(crate) fn new(data: &'a [u8], files: &'a dyn FontSource, kind: TexFile) -> Self {
         Self {
-            data,
-            pos: 0,
+            input: Bytes::new(data),
             state: State::Pre,
             regs: Registers::default(),
             stack: Vec::new(),
             font: None,
             fonts: HashMap::new(),
+            scaled: HashMap::new(),
             text: Vec::new(),
             boxes: Vec::new(),
             missing_font: None,
@@ -99,36 +128,27 @@ impl<'a> Machine<'a> {
         TexError::malformed(self.kind, message)
     }
 
+    /// How many bytes of the file have been read.
+    pub(crate) fn pos(&self) -> usize {
+        self.input.pos()
+    }
+
     /// The next byte (`file.read(1)[0]`), an error at the end.
     pub(crate) fn byte(&mut self) -> Result<u8, TexError> {
-        let byte = *self
-            .data
-            .get(self.pos)
-            .ok_or_else(|| self.error("index out of range"))?;
-        self.pos += 1;
-        Ok(byte)
+        self.input
+            .byte()
+            .ok_or_else(|| self.error("index out of range"))
     }
 
     /// The next `n` bytes, or as many as are left (`file.read(n)`).
     pub(crate) fn read(&mut self, n: usize) -> &'a [u8] {
-        let end = self.pos.saturating_add(n).min(self.data.len());
-        let bytes = &self.data[self.pos..end];
-        self.pos = end;
-        bytes
+        self.input.read(n)
     }
 
     /// `_read_arg`: a big-endian number of up to `n` bytes (fewer at the
     /// end of the file, none giving 0).
     pub(crate) fn arg(&mut self, n: usize, signed: bool) -> i128 {
-        let bytes = self.read(n);
-        let mut value: i128 = 0;
-        for &byte in bytes {
-            value = (value << 8) | i128::from(byte);
-        }
-        if signed && bytes.first().is_some_and(|&b| b & 0x80 != 0) {
-            value -= 1 << (8 * bytes.len());
-        }
-        value
+        self.input.arg(n, signed)
     }
 
     /// `olen1`: `delta + 1` bytes, signed when there are four.
@@ -158,6 +178,12 @@ impl<'a> Machine<'a> {
         self.font
             .and_then(|f| self.fonts.get(&f))
             .ok_or_else(|| self.error("undefined font"))
+    }
+
+    /// Reads and runs the next opcode of a DVI file.
+    pub(crate) fn next_opcode(&mut self) -> Result<Executed, TexError> {
+        let byte = self.byte()?;
+        self.execute(byte)
     }
 
     /// Runs one opcode of a page or packet (`_dtable[byte]`).
@@ -228,6 +254,7 @@ impl<'a> Machine<'a> {
                 self.require(State::InPage)?;
                 self.state = State::Outer;
                 self.stack.clear();
+                return Ok(Executed::EndOfPage);
             }
             141 => {
                 self.require(State::InPage)?;
@@ -304,16 +331,23 @@ impl<'a> Machine<'a> {
                 self.read(usize::try_from(length).unwrap_or(usize::MAX));
             }
             _ => {
-                let k = self.olen1(byte - 243) as i64;
-                let c = self.arg(4, false) as u32;
-                let s = self.arg(4, false);
-                self.arg(4, false);
-                let a = self.arg(1, false) as usize;
-                let l = self.arg(1, false) as usize;
-                self.define_font(k, c, s, a, l)?;
+                self.font_definition(byte)?;
             }
         }
         Ok(())
+    }
+
+    /// `fnt_def1` to `fnt_def4` (opcodes 243 to 246, in DVI and VF files
+    /// alike): defines a font; returns its number.
+    pub(crate) fn font_definition(&mut self, byte: u8) -> Result<i64, TexError> {
+        let k = self.olen1(byte - 243) as i64;
+        let checksum = self.arg(4, false) as u32;
+        let scale = self.arg(4, false);
+        self.arg(4, false);
+        let area = self.arg(1, false) as usize;
+        let name = self.arg(1, false) as usize;
+        self.define_font(k, checksum, scale, area, name)?;
+        Ok(k)
     }
 
     /// `pre`: checks the format, units and magnification.
@@ -377,12 +411,7 @@ impl<'a> Machine<'a> {
             .and_then(|code| vf.packet(code))
             .ok_or_else(|| self.error(format!("virtual font has no character {code}")))?;
         for item in &packet.text {
-            let inner = Arc::new(DviFont::new(
-                mul1220(scale, item.font.scale())?,
-                Arc::clone(item.font.metrics()),
-                item.font.texname().to_vec(),
-                item.font.vf().cloned(),
-            ));
+            let inner = self.scaled_font(&item.font, scale)?;
             let width = inner.width_of(item.glyph)?;
             self.text.push(RawGlyph {
                 x: self.add(h, mul1220(item.x, scale)?)?,
@@ -403,6 +432,23 @@ impl<'a> Machine<'a> {
         Ok(())
     }
 
+    /// `font`, of a virtual font's packet, scaled by `scale`, the scale of
+    /// the virtual font (`DviFont._scale` times the packet font's scale).
+    fn scaled_font(&mut self, font: &Arc<DviFont>, scale: i128) -> Result<Arc<DviFont>, TexError> {
+        let key = (PacketFont(Arc::clone(font)), scale);
+        if let Some(scaled) = self.scaled.get(&key) {
+            return Ok(Arc::clone(scaled));
+        }
+        let scaled = Arc::new(DviFont::new(
+            mul1220(scale, font.scale())?,
+            Arc::clone(font.metrics()),
+            font.texname().to_vec(),
+            font.vf().cloned(),
+        ));
+        self.scaled.insert(key, Arc::clone(&scaled));
+        Ok(scaled)
+    }
+
     /// `_put_rule_real`: a rule of positive height `a` and width `b`.
     fn put_rule(&mut self, a: i128, b: i128) {
         if a > 0 && b > 0 {
@@ -417,7 +463,7 @@ impl<'a> Machine<'a> {
 
     /// `_fnt_def_real`: defines font number `k` from the `a + l` bytes of
     /// its area and name that follow.
-    pub(crate) fn define_font(
+    fn define_font(
         &mut self,
         k: i64,
         checksum: u32,

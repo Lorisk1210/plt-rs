@@ -1,9 +1,10 @@
 //! Where TeX's files come from and what is kept of them: the metrics and
 //! virtual fonts DVI files refer to, the font map, encodings, parsed DVI
-//! files, and how a DVI glyph maps to a glyph of its Type 1 font
-//! (matplotlib's `lru_cache`d `_tfmfile`, `_vffile`, `PsfontsMap`, and
+//! files, and the Type 1 fonts DVI fonts are drawn with (matplotlib's
+//! `lru_cache`d `_tfmfile`, `_vffile`, `PsfontsMap`, and
 //! `DviFont.resolve_path`, `effects` and `_index_dvi_to_freetype`).
 
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -15,6 +16,7 @@ use plt_font::{GlyphId, Type1Effects, Type1Face};
 
 use super::dvi::{DviFont, RawPage, read_dvi};
 use super::error::{TexError, TexFile};
+use super::font_file::TexFontFile;
 use super::kpathsea::Kpathsea;
 use super::psfonts::{PsFont, PsfontsMap, parse_enc};
 use super::tfm::Tfm;
@@ -79,7 +81,11 @@ impl<K: Eq + Hash, V: Clone> Cache<K, V> {
         Self(Mutex::new(HashMap::new()))
     }
 
-    fn get(&self, key: &K) -> Option<V> {
+    fn get<Q>(&self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Eq + Hash + ?Sized,
+    {
         self.0
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -105,7 +111,7 @@ pub struct TexFiles {
     vfs: Cache<String, Option<Arc<Vf>>>,
     maps: Cache<PathBuf, Arc<PsfontsMap>>,
     encodings: Cache<PathBuf, Arc<Vec<String>>>,
-    glyph_maps: Cache<Vec<u8>, Arc<Vec<GlyphId>>>,
+    font_files: Cache<Vec<u8>, Arc<TexFontFile>>,
     pages: Cache<PathBuf, Arc<Vec<RawPage>>>,
 }
 
@@ -118,7 +124,7 @@ impl TexFiles {
             vfs: Cache::new(),
             maps: Cache::new(),
             encodings: Cache::new(),
-            glyph_maps: Cache::new(),
+            font_files: Cache::new(),
             pages: Cache::new(),
         }
     }
@@ -147,7 +153,7 @@ impl TexFiles {
     /// When the file cannot be read or is malformed, or a font it sets
     /// glyphs in cannot be found.
     pub fn dvi_pages(&self, path: &Path) -> Result<Arc<Vec<RawPage>>, TexError> {
-        if let Some(pages) = self.pages.get(&path.to_path_buf()) {
+        if let Some(pages) = self.pages.get(path) {
             return Ok(pages);
         }
         let data = std::fs::read(path).map_err(|err| TexError::io(path, &err))?;
@@ -182,7 +188,7 @@ impl TexFiles {
     ///
     /// When it cannot be read or is malformed.
     pub fn encoding(&self, path: &Path) -> Result<Arc<Vec<String>>, TexError> {
-        if let Some(names) = self.encodings.get(&path.to_path_buf()) {
+        if let Some(names) = self.encodings.get(path) {
             return Ok(names);
         }
         let data = std::fs::read(path).map_err(|err| TexError::io(path, &err))?;
@@ -200,10 +206,7 @@ impl TexFiles {
     /// or the map names no Type 1 file for it.
     pub fn font_path(&self, font: &DviFont) -> Result<PathBuf, TexError> {
         match self.psfont(font.texname()) {
-            Ok(psfont) => psfont.filename.ok_or_else(|| TexError::NoType1Font {
-                psname: String::from_utf8_lossy(&psfont.psname).into_owned(),
-                texname: String::from_utf8_lossy(&psfont.texname).into_owned(),
-            }),
+            Ok(psfont) => psfont.type1_file().map(Path::to_path_buf),
             Err(unmapped @ TexError::UnmappedFont { .. }) => {
                 let name = font.name();
                 match self.find(&format!("{name}.mf")) {
@@ -229,65 +232,63 @@ impl TexFiles {
         Ok(self.psfont(font.texname())?.effects)
     }
 
-    /// The Type 1 face of `font`, as FreeType opens it.
+    /// The Type 1 font that draws `font`, found once: its file
+    /// ([`font_path`](Self::font_path)), its face as FreeType opens it,
+    /// the effects of the font map, and the glyph each character code
+    /// shows, through the encoding the font map gives, else the font's own
+    /// encoding vector.
     ///
     /// # Errors
     ///
-    /// As [`font_path`](Self::font_path), and when the file is not a Type
-    /// 1 font (PK bitmaps cannot be drawn).
-    pub fn face(&self, font: &DviFont) -> Result<Arc<Type1Face>, TexError> {
-        let path = self.font_path(font)?;
-        if is_pk(&path) {
-            return Err(TexError::Unsupported(format!(
-                "{} is a PK bitmap font, which cannot be drawn",
-                path.display()
-            )));
+    /// As [`font_path`](Self::font_path), when the file is not a Type 1
+    /// font (PK bitmaps cannot be drawn), or when the encoding cannot be
+    /// read.
+    pub fn font_file(&self, font: &DviFont) -> Result<Arc<TexFontFile>, TexError> {
+        if let Some(file) = self.font_files.get(font.texname()) {
+            return Ok(file);
         }
-        TextEngine::global()
-            .database()
-            .type1_face(&path)
-            .map_err(|err| {
-                TexError::malformed(TexFile::Type1, format!("{}: {err}", path.display()))
-            })
+        let path = self.font_path(font)?;
+        let face = type1_face(&path)?;
+        let psfont = self.psfont(font.texname())?;
+        let glyphs = match &psfont.encoding {
+            Some(encoding) => self
+                .encoding(encoding)?
+                .iter()
+                .map(|name| face.glyph_index(name).unwrap_or(GlyphId(0)))
+                .collect(),
+            None => face.encoding_vector().to_vec(),
+        };
+        let file = TexFontFile::new(path, face, psfont.effects, glyphs);
+        Ok(self
+            .font_files
+            .insert(font.texname().to_vec(), Arc::new(file)))
     }
 
     /// The glyph of `font`'s Type 1 face that character `code` of a DVI
-    /// file shows (`_index_dvi_to_freetype`): through the encoding the
-    /// font map gives, else the font's own encoding vector. Negative codes
-    /// count from the end, as Python's indexing does.
+    /// file shows (`_index_dvi_to_freetype`); see
+    /// [`font_file`](Self::font_file).
     ///
     /// # Errors
     ///
-    /// As [`face`](Self::face), when the encoding cannot be read, or when
-    /// `code` is beyond it.
+    /// As [`font_file`](Self::font_file), and when `code` is beyond the
+    /// encoding.
     pub fn glyph_index(&self, font: &DviFont, code: i64) -> Result<GlyphId, TexError> {
-        let glyphs = if let Some(glyphs) = self.glyph_maps.get(&font.texname().to_vec()) {
-            glyphs
-        } else {
-            let face = self.face(font)?;
-            let glyphs = match self.psfont(font.texname())?.encoding {
-                Some(encoding) => self
-                    .encoding(&encoding)?
-                    .iter()
-                    .map(|name| face.glyph_index(name).unwrap_or(GlyphId(0)))
-                    .collect(),
-                None => face.encoding_vector().to_vec(),
-            };
-            self.glyph_maps
-                .insert(font.texname().to_vec(), Arc::new(glyphs))
-        };
-        let len = glyphs.len() as i64;
-        let index = if code < 0 { code + len } else { code };
-        usize::try_from(index)
-            .ok()
-            .and_then(|index| glyphs.get(index).copied())
-            .ok_or_else(|| {
-                TexError::malformed(
-                    TexFile::Encoding,
-                    format!("character {code} is beyond the encoding of {}", font.name()),
-                )
-            })
+        self.font_file(font)?.glyph(font, code)
     }
+}
+
+/// The Type 1 face of the font file at `path`, as FreeType opens it.
+fn type1_face(path: &Path) -> Result<Arc<Type1Face>, TexError> {
+    if is_pk(path) {
+        return Err(TexError::Unsupported(format!(
+            "{} is a PK bitmap font, which cannot be drawn",
+            path.display()
+        )));
+    }
+    TextEngine::global()
+        .database()
+        .type1_face(path)
+        .map_err(|err| TexError::malformed(TexFile::Type1, format!("{}: {err}", path.display())))
 }
 
 /// Whether `path` is a PK bitmap font (`*pk`, as matplotlib's
@@ -299,19 +300,18 @@ fn is_pk(path: &Path) -> bool {
 
 impl FontSource for TexFiles {
     fn tfm(&self, name: &str) -> Result<Arc<Tfm>, TexError> {
-        let name = name.to_owned();
-        if let Some(tfm) = self.tfms.get(&name) {
+        if let Some(tfm) = self.tfms.get(name) {
             return Ok(tfm);
         }
         let tfm = Arc::new(Tfm::parse(&self.finder.read(&format!("{name}.tfm"))?)?);
-        Ok(self.tfms.insert(name, tfm))
+        Ok(self.tfms.insert(name.to_owned(), tfm))
     }
 
     fn vf(&self, name: &str) -> Result<Option<Arc<Vf>>, TexError> {
-        let name = name.to_owned();
-        if let Some(vf) = self.vfs.get(&name) {
+        if let Some(vf) = self.vfs.get(name) {
             return Ok(vf);
         }
+        let name = name.to_owned();
         let data = match self.finder.read(&format!("{name}.vf")) {
             Ok(data) => data,
             Err(TexError::NotFound { .. }) => return Ok(self.vfs.insert(name, None)),

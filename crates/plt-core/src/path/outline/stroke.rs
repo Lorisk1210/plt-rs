@@ -1,7 +1,7 @@
 //! Agg's `vcgen_stroke` with butt caps and miter joins: the closed outline
 //! of a stroked sub-path.
 
-use super::join::JoinMath;
+use super::stroke_math::{StrokeMath, StrokeShape};
 use super::vertex_seq::VertexSequence;
 use super::{Generator, accumulate};
 use crate::Point;
@@ -26,7 +26,7 @@ enum Status {
 /// The stroke generator; see [`super::Outline`].
 #[derive(Clone, Debug)]
 pub(crate) struct Stroke {
-    math: JoinMath,
+    math: StrokeMath,
     src: VertexSequence,
     out: Vec<Point>,
     status: Status,
@@ -42,7 +42,7 @@ impl Stroke {
     /// A generator for strokes `width` wide.
     pub(crate) fn new(width: f64) -> Self {
         Self {
-            math: JoinMath::new(width),
+            math: StrokeMath::new(width, &StrokeShape::default()),
             src: VertexSequence::default(),
             out: Vec::new(),
             status: Status::Initial,
@@ -105,14 +105,14 @@ impl Generator for Stroke {
                 }
                 Status::Cap1 => {
                     let (v0, v1) = (self.src.get(0), self.src.get(1));
-                    self.math.butt_cap(&mut self.out, v0, v1, v0.dist);
+                    self.math.calc_cap(&mut self.out, v0, v1, v0.dist);
                     self.src_vertex = 1;
                     self.emit_then(Status::Outline1);
                 }
                 Status::Cap2 => {
                     let n = self.src.len();
                     let (v0, v1) = (self.src.get(n - 1), self.src.get(n - 2));
-                    self.math.butt_cap(&mut self.out, v0, v1, v1.dist);
+                    self.math.calc_cap(&mut self.out, v0, v1, v1.dist);
                     self.emit_then(Status::Outline2);
                 }
                 Status::Outline1 => {
@@ -133,7 +133,7 @@ impl Generator for Stroke {
                     let i = self.src_vertex;
                     let (prev, curr, next) = (self.src.prev(i), self.src.get(i), self.src.next(i));
                     self.math
-                        .join(&mut self.out, prev, curr, next, prev.dist, curr.dist);
+                        .calc_join(&mut self.out, prev, curr, next, prev.dist, curr.dist);
                     self.src_vertex += 1;
                     self.emit_then(Status::Outline1);
                 }
@@ -152,7 +152,7 @@ impl Generator for Stroke {
                     let i = self.src_vertex;
                     let (next, curr, prev) = (self.src.next(i), self.src.get(i), self.src.prev(i));
                     self.math
-                        .join(&mut self.out, next, curr, prev, curr.dist, prev.dist);
+                        .calc_join(&mut self.out, next, curr, prev, curr.dist, prev.dist);
                     self.emit_then(Status::Outline2);
                 }
                 Status::OutVertices => {

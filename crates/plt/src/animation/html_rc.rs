@@ -2,11 +2,8 @@
 //! (`animation.html`) and the format of the player's frames
 //! (`animation.frame_format`).
 
-use std::fmt;
-use std::str::FromStr;
-
 use crate::figure::SaveFormat;
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 
 /// What an animation shows in a notebook (`animation.html`, see
 /// [`FuncAnimation::repr_html`](super::FuncAnimation::repr_html)).
@@ -32,26 +29,11 @@ impl HtmlRepr {
     }
 }
 
-impl fmt::Display for HtmlRepr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for HtmlRepr {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`HtmlRepr::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        [Self::Html5, Self::JsHtml, Self::None]
-            .into_iter()
-            .find(|repr| repr.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "HTML representation",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(
+    HtmlRepr,
+    "HTML representation",
+    [Self::Html5, Self::JsHtml, Self::None]
+);
 
 /// The format of the frames of an animation as a web page
 /// (`animation.frame_format`): matplotlib's names, of which the player
@@ -121,26 +103,7 @@ impl FrameFormat {
     }
 }
 
-impl fmt::Display for FrameFormat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for FrameFormat {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`FrameFormat::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|format| format.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "frame format",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(FrameFormat, "frame format", Self::ALL);
 
 #[cfg(test)]
 mod tests {

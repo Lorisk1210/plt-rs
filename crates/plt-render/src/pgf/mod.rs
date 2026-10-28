@@ -21,7 +21,7 @@ use std::fmt::Write as _;
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_text::TextRun;
-use plt_text::tex::TexError;
+use plt_text::tex::{TexError, TexText};
 
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
@@ -268,6 +268,7 @@ impl Renderer for PgfRenderer {
         &mut self,
         gc: &GraphicsContext,
         run: &TextRun,
+        _tex: &TexText,
         origin: Point,
         angle: f64,
     ) -> Result<(), TexError> {

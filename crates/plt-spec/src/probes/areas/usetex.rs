@@ -150,7 +150,7 @@ fn glyphs_tex(args: Args<'_>) -> Outcome {
         let glyphs = made(text.glyphs(&page))?
             .iter()
             .map(|g| {
-                let name = g.face.postscript_name().unwrap_or_default();
+                let name = g.file.face.postscript_name().unwrap_or_default();
                 Json::Array(vec![
                     url_quote(&format!("{name}-{:x}", g.index.0)).into(),
                     Json::Number(g.x),

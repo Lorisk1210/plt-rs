@@ -533,8 +533,8 @@ pub(crate) fn draw_laid_out(
             run
         };
         let origin = anchor + line.origin;
-        if run.source.as_ref().is_some_and(TextSource::is_tex) {
-            if let Err(err) = ctx.renderer().draw_tex(gc, run, origin, angle) {
+        if let Some(TextSource::Tex(tex)) = &run.source {
+            if let Err(err) = ctx.renderer().draw_tex(gc, run, tex, origin, angle) {
                 result = result.and(Err(TextError::Tex(err)));
             }
         } else {

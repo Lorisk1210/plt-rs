@@ -1,101 +1,22 @@
-//! Shared and twinned axes (matplotlib's `sharex`/`sharey`, `twinx`/`twiny`
-//! and `label_outer`).
-
-use std::rc::Rc;
+//! Twinned axes (matplotlib's `twinx` and `twiny`): axes on top of one
+//! another sharing one axis, of which only the bottom-most draws the
+//! background.
 
 use super::aspect::check_adjustable;
-use super::{
-    Adjustable, AspectError, Axes, AxesState, AxisName, GridOptions, PlotError, TickLevel,
-};
-use crate::artist::{Artist, ArtistHandle, RawHandle};
+use super::sharing::share_free;
+use super::{Adjustable, AspectError, Axes, AxesState, AxisName, GridOptions, TickLevel};
+use crate::artist::{Artist, ArtistHandle};
 use crate::figure::make_axes;
 use crate::projections::{ProjectionError, ProjectionSpec, Projector};
 use crate::spines::SpineSide;
 use crate::units::UnitState;
 
 impl Axes {
-    /// Shares the x axis with `other`: both then show the same x range
-    /// and ticks, autoscaled from the data of both, and changing the
-    /// limits or scale of one changes all (matplotlib's `sharex`).
-    ///
-    /// ```
-    /// use plt::figure::Figure;
-    /// let fig = Figure::new();
-    /// let (top, bottom) = (fig.add_subplot(2, 1, 1)?, fig.add_subplot(2, 1, 2)?);
-    /// bottom.share_x(&top)?;
-    /// top.plot([0.0, 1.0], [0.0, 1.0])?;
-    /// bottom.plot([3.0, 4.0], [0.0, 1.0])?;
-    /// assert_eq!(bottom.xlim(), top.xlim());
-    /// assert_eq!(top.xlim(), (-0.2, 4.2));
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// When the x axis is already shared with a different axes, `other`
-    /// belongs to another figure, or this axes has a projection fixing its
-    /// limits, such as a geographic one ([`PlotError::FixedLimits`];
-    /// matplotlib's geographic axes raise a `TypeError` when they share).
-    pub fn share_x(&self, other: &Self) -> Result<&Self, PlotError> {
-        self.share(AxisName::X, other)
-    }
-
-    /// Shares the y axis with `other` (matplotlib's `sharey`); see
-    /// [`Axes::share_x`].
-    ///
-    /// # Errors
-    ///
-    /// As [`Axes::share_x`].
-    pub fn share_y(&self, other: &Self) -> Result<&Self, PlotError> {
-        self.share(AxisName::Y, other)
-    }
-
-    /// Shares axis `name` with `other`.
-    pub(crate) fn share(&self, name: AxisName, other: &Self) -> Result<&Self, PlotError> {
-        let figure = self.raw().figure_state();
-        if !Rc::ptr_eq(figure, other.raw().figure_state()) {
-            return Err(PlotError::ForeignAxes);
-        }
-        if self
-            .raw
-            .with::<AxesState, _>(|axes| axes.projection.fixed_limits())
-        {
-            return Err(PlotError::FixedLimits(name));
-        }
-        figure
-            .borrow_mut()
-            .share_axis(name, self.id(), other.id())?;
-        Ok(self)
-    }
-
-    /// This axes and the axes sharing axis `name` with it (matplotlib's
-    /// `get_shared_x_axes().get_siblings(ax)`).
-    ///
-    /// ```
-    /// use plt::figure::{Figure, Share};
-    /// use plt::ticker::AxisName;
-    /// let fig = Figure::new();
-    /// let axs = fig.subplots_shared(1, 2, Share::None, Share::All)?;
-    /// assert_eq!(axs[(0, 0)].shared_axes(AxisName::Y).len(), 2);
-    /// assert_eq!(axs[(0, 0)].shared_axes(AxisName::X), [axs[(0, 0)].clone()]);
-    /// # Ok::<(), plt::gridspec::GridSpecError>(())
-    /// ```
-    pub fn shared_axes(&self, name: AxisName) -> Vec<Self> {
-        let figure = self.raw.figure_state();
-        let ids = figure.borrow().siblings(name, self.id());
-        ids.into_iter()
-            .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
-            .collect()
-    }
-
     /// This axes and the axes twinned with it by [`Axes::twinx`] and
     /// [`Axes::twiny`] (matplotlib's `_twinned_axes.get_siblings`).
     pub fn twins(&self) -> Vec<Self> {
-        let figure = self.raw.figure_state();
-        let ids = figure.borrow().shared.twins(self.id());
-        ids.into_iter()
-            .map(|id| Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
-            .collect()
+        let ids = self.raw.figure_state().borrow().shared.twins(self.id());
+        self.in_same_figure(ids)
     }
 
     /// A new axes on top of this one sharing its x axis, with its y axis
@@ -252,74 +173,6 @@ impl Axes {
         }
     }
 
-    /// Hides the tick labels, axis labels and offset texts that face
-    /// neighbouring subplots, keeping only those on the outer edges of the
-    /// grid (matplotlib's `label_outer`). Axes not placed on a grid are
-    /// left alone.
-    pub fn label_outer(&self) -> &Self {
-        self.label_outer_with(false)
-    }
-
-    /// [`label_outer`](Self::label_outer), also removing the inner tick
-    /// marks when `remove_inner_ticks` is set (matplotlib's
-    /// `label_outer(remove_inner_ticks=True)`).
-    pub fn label_outer_with(&self, remove_inner_ticks: bool) -> &Self {
-        self.label_outer_axis(AxisName::X, remove_inner_ticks);
-        self.label_outer_axis(AxisName::Y, remove_inner_ticks);
-        self
-    }
-
-    /// What grids sharing axis `name` do to their axes (matplotlib's
-    /// `_label_outer_xaxis(skip_non_rectangular_axes=True)`): the inner
-    /// labels go, except on axes of curved projections, which have no
-    /// inner sides.
-    pub(crate) fn label_outer_shared(&self, name: AxisName) {
-        let rectangular = self
-            .raw
-            .with::<AxesState, _>(|axes| axes.projection.is_rectangular());
-        if rectangular {
-            self.label_outer_axis(name, false);
-        }
-    }
-
-    /// matplotlib's `_label_outer_xaxis` / `_label_outer_yaxis`; with
-    /// `remove_inner_ticks` the inner tick marks go too.
-    fn label_outer_axis(&self, name: AxisName, remove_inner_ticks: bool) {
-        self.raw.with_mut::<AxesState, _>(|axes| {
-            let Some(spec) = axes.subplot_spec.clone() else {
-                return;
-            };
-            let (inner_low, inner_high) = match name {
-                AxisName::X => (!spec.is_last_row(), !spec.is_first_row()),
-                AxisName::Y => (!spec.is_first_col(), !spec.is_last_col()),
-            };
-            let axis = axes.axis_mut(name);
-            for (inner, high) in [(inner_high, true), (inner_low, false)] {
-                if !inner {
-                    continue;
-                }
-                let side = SpineSide::of(name, high);
-                if axis.label.side == side {
-                    axis.label.set_text(String::new());
-                }
-                axis.restyle_ticks(|style| {
-                    let (labels, ticks) = if high {
-                        (&mut style.labels.second, &mut style.ticks.second)
-                    } else {
-                        (&mut style.labels.first, &mut style.ticks.first)
-                    };
-                    *labels = false;
-                    if remove_inner_ticks {
-                        *ticks = false;
-                    }
-                });
-                if axis.offset_side == side {
-                    axis.offset_visible = false;
-                }
-            }
-        });
-    }
-
     /// Shows the background patch of the bottom-most axes of a group of
     /// twinned axes only (the lowest z-order, the first added among
     /// equals), and only if it draws its frame (matplotlib's
@@ -364,19 +217,11 @@ impl Axes {
     }
 }
 
-/// Makes `axes`, new in the figure of `target` and of free limits, share
-/// axis `name` with it, which always succeeds (the `sharex=` argument of
-/// a new rectilinear or polar axes in matplotlib).
-pub(crate) fn share_free(axes: &Axes, name: AxisName, target: &Axes) {
-    axes.share(name, target)
-        .expect("a new axes with free limits shares any axis of its figure");
-}
-
 #[cfg(test)]
 mod tests {
     use crate::artist::Artist;
     use crate::axes::{AxesState, AxisName};
-    use crate::figure::{Figure, Share};
+    use crate::figure::Figure;
     use crate::prelude::*;
     use crate::spines::SpineSide;
     use crate::units::UnitConverter;
@@ -431,64 +276,6 @@ mod tests {
     }
 
     #[test]
-    fn label_outer_keeps_only_the_grid_edges() {
-        let fig = Figure::new();
-        let axs = fig.subplots(2, 2).unwrap();
-        for ax in axs.as_slice() {
-            ax.set_xlabel("x").set_ylabel("y").label_outer();
-        }
-        let labels = |row: usize, col: usize| {
-            let ax = &axs[(row, col)];
-            let shown = ax.raw().with::<AxesState, _>(|state| {
-                (
-                    state.xaxis.major_style.labels.first,
-                    state.yaxis.major_style.labels.first,
-                )
-            });
-            (ax.label(AxisName::X), ax.label(AxisName::Y), shown)
-        };
-        assert_eq!(labels(1, 0), ("x".into(), "y".into(), (true, true)));
-        assert_eq!(labels(0, 0), (String::new(), "y".into(), (false, true)));
-        assert_eq!(labels(1, 1), ("x".into(), String::new(), (true, false)));
-        assert_eq!(labels(0, 1), (String::new(), String::new(), (false, false)));
-    }
-
-    #[test]
-    fn label_outer_can_remove_the_inner_ticks_too() {
-        let fig = Figure::new();
-        let axs = fig.subplots(2, 1).unwrap();
-        let ticks = |row: usize| {
-            axs[(row, 0)]
-                .raw()
-                .with::<AxesState, _>(|state| state.xaxis.major_style.ticks.first)
-        };
-        axs[(0, 0)].label_outer();
-        assert!(ticks(0), "label_outer keeps the tick marks");
-        axs[(0, 0)].label_outer_with(true);
-        assert!(!ticks(0) && ticks(1));
-    }
-
-    #[test]
-    fn shared_subplots_hide_inner_tick_labels() {
-        let fig = Figure::new();
-        let axs = fig.subplots_shared(2, 1, Share::Row, Share::None).unwrap();
-        let shown = |row: usize| {
-            axs[(row, 0)]
-                .raw()
-                .with::<AxesState, _>(|state| state.xaxis.major_style.labels.first)
-        };
-        assert!(shown(0), "rows sharing x keep every label");
-        let fig = Figure::new();
-        let axs = fig.subplots_shared(2, 1, Share::Col, Share::None).unwrap();
-        let shown = |row: usize| {
-            axs[(row, 0)]
-                .raw()
-                .with::<AxesState, _>(|state| state.xaxis.major_style.labels.first)
-        };
-        assert!(!shown(0) && shown(1));
-    }
-
-    #[test]
     fn a_twin_below_draws_the_background() {
         // matplotlib's test_twinning_patch_visibility_respects_delta_zorder.
         let ax = Figure::new().subplot();
@@ -529,56 +316,6 @@ mod tests {
         fig.layout();
         assert_eq!(ax.position(), twin.position());
         assert!(ax.position().width() > 0.5, "the layout took over");
-    }
-
-    #[test]
-    fn shared_axes_list_the_group() {
-        let fig = Figure::new();
-        let axs = fig.subplots_shared(2, 2, Share::All, Share::Row).unwrap();
-        assert_eq!(axs[(0, 0)].shared_axes(AxisName::X).len(), 4);
-        assert_eq!(axs[(0, 0)].shared_axes(AxisName::Y).len(), 2);
-        assert!(axs[(1, 1)].shared_axes(AxisName::Y).contains(&axs[(1, 0)]));
-    }
-
-    #[test]
-    fn geographic_axes_share_nothing_as_in_matplotlib() {
-        use crate::axes::{PlotError, ProjectionKind};
-        use crate::figure::{Mosaic, MosaicError, MosaicOptions};
-        use crate::projections::ProjectionError;
-
-        let fig = Figure::new();
-        let rect = fig.add_subplot(1, 2, 1).unwrap();
-        let geo = fig
-            .subplot_with_projection(ProjectionKind::Mollweide)
-            .unwrap();
-        assert_eq!(
-            geo.share_x(&rect).err(),
-            Some(PlotError::FixedLimits(AxisName::X))
-        );
-        assert_eq!(
-            geo.shared_axes(AxisName::X),
-            std::slice::from_ref(&geo),
-            "not joined"
-        );
-        assert!(rect.share_y(&geo).is_ok(), "others may share theirs");
-
-        let grid = Figure::new();
-        assert_eq!(
-            grid.subplots_with_projection(1, 2, Share::None, Share::All, ProjectionKind::Hammer),
-            Err(ProjectionError::Share(PlotError::FixedLimits(AxisName::Y)))
-        );
-        assert_eq!(grid.axes().len(), 1, "matplotlib fails to make the second");
-
-        let options = MosaicOptions {
-            sharex: true,
-            projection: ProjectionKind::Aitoff.into(),
-            ..MosaicOptions::default()
-        };
-        let mosaic = "AB".parse::<Mosaic>().unwrap();
-        assert!(matches!(
-            Figure::new().subplot_mosaic(&mosaic, options),
-            Err(MosaicError::Projection(ProjectionError::Share(_)))
-        ));
     }
 
     #[test]

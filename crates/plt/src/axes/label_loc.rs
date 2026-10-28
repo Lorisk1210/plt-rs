@@ -3,12 +3,9 @@
 //! [`YLabelLoc`]: the `loc` of `set_xlabel` and `set_ylabel`, and
 //! `xaxis.labellocation` and `yaxis.labellocation`).
 
-use std::fmt;
-use std::str::FromStr;
-
 use plt_text::HAlign;
 
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 
 /// Where an axis label sits along its axis (matplotlib's `loc` of
 /// `set_xlabel`/`set_ylabel`).
@@ -79,26 +76,7 @@ impl From<XLabelLoc> for LabelLoc {
     }
 }
 
-impl fmt::Display for XLabelLoc {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for XLabelLoc {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`XLabelLoc::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|loc| loc.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "x label location",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(XLabelLoc, "x label location", Self::ALL);
 
 /// Where the label of a y axis sits (`yaxis.labellocation`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -135,26 +113,7 @@ impl From<YLabelLoc> for LabelLoc {
     }
 }
 
-impl fmt::Display for YLabelLoc {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for YLabelLoc {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`YLabelLoc::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|loc| loc.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "y label location",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(YLabelLoc, "y label location", Self::ALL);
 
 #[cfg(test)]
 mod tests {

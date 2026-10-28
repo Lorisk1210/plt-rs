@@ -24,6 +24,7 @@ use super::glyph::{GlyphTransform, freetype_polygon, is_axis_aligned};
 use super::mono;
 use crate::gc::{Dashes, GraphicsContext, SnapMode};
 use crate::renderer::Renderer;
+use crate::renderer::text_placement;
 
 /// `FreeType`'s 26.6 pen position: Python's `round(0x40 * v) / 0x40`.
 fn quantize(v: f64) -> f64 {
@@ -102,9 +103,7 @@ impl RasterRenderer {
         angle: f64,
     ) {
         let engine = TextEngine::global();
-        let placement = Affine2D::identity()
-            .rotate_deg(angle)
-            .translate(origin.x, origin.y);
+        let placement = text_placement(origin, angle);
         let (fill_gc, glyph_gc) = text_contexts(gc);
         let hinting = run
             .source

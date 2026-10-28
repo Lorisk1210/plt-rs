@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 
+use super::bytes::Bytes;
 use super::error::{TexError, TexFile};
 
 /// The metrics of one character, with TeX's meaning (matplotlib's
@@ -27,35 +28,20 @@ pub struct Tfm {
     metrics: HashMap<i64, TexMetrics>,
 }
 
-/// Reads big-endian numbers from a byte slice as Python's `struct` does,
-/// failing where it would find too few bytes.
-struct Cursor<'a> {
-    data: &'a [u8],
-    pos: usize,
-}
-
-impl<'a> Cursor<'a> {
-    /// The next `n` bytes, or as many as are left (`file.read(n)`).
-    fn read(&mut self, n: usize) -> &'a [u8] {
-        let end = self.pos.saturating_add(n).min(self.data.len());
-        let bytes = &self.data[self.pos..end];
-        self.pos = end;
-        bytes
+/// The next `n` signed 32-bit numbers of `file`
+/// (`struct.unpack(f"!{n}i", file.read(4 * n))`), failing where Python's
+/// `struct` would find too few bytes.
+fn words(file: &mut Bytes<'_>, n: usize) -> Result<Vec<i32>, TexError> {
+    let bytes = file.read(n.saturating_mul(4));
+    if bytes.len() != n * 4 {
+        return Err(truncated());
     }
-
-    /// `n` signed 32-bit numbers (`struct.unpack(f"!{n}i", file.read(4 * n))`).
-    fn words(&mut self, n: usize) -> Result<Vec<i32>, TexError> {
-        let bytes = self.read(n.saturating_mul(4));
-        if bytes.len() != n * 4 {
-            return Err(truncated());
-        }
-        Ok(bytes
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .map(|&word| i32::from_be_bytes(word))
-            .collect())
-    }
+    Ok(bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|&word| i32::from_be_bytes(word))
+        .collect())
 }
 
 fn truncated() -> TexError {
@@ -70,7 +56,7 @@ impl Tfm {
     /// When the file is too short for the tables its header declares or a
     /// character refers to a width, height or depth that is not there.
     pub fn parse(data: &[u8]) -> Result<Self, TexError> {
-        let mut file = Cursor { data, pos: 0 };
+        let mut file = Bytes::new(data);
         let header1 = file.read(24);
         if header1.len() < 14 {
             return Err(truncated());
@@ -90,9 +76,9 @@ impl Tfm {
         } else {
             file.read(4 * count as usize)
         };
-        let widths = file.words(nw)?;
-        let heights = file.words(nh)?;
-        let depths = file.words(nd)?;
+        let widths = words(&mut file, nw)?;
+        let heights = words(&mut file, nh)?;
+        let depths = words(&mut file, nd)?;
         let mut metrics = HashMap::new();
         for (index, code) in (bc..=ec).enumerate() {
             let entry = |i: usize| {

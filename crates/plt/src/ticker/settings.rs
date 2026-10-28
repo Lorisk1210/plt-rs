@@ -1,9 +1,6 @@
 //! The rcParams that tick locators and formatters consult.
 
-use std::fmt;
-use std::str::FromStr;
-
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 
 /// How `view_limits` treats data limits (`axes.autolimit_mode`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -25,26 +22,11 @@ impl AutolimitMode {
     }
 }
 
-impl fmt::Display for AutolimitMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for AutolimitMode {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`AutolimitMode::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        [Self::Data, Self::RoundNumbers]
-            .into_iter()
-            .find(|mode| mode.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "autolimit mode",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(
+    AutolimitMode,
+    "autolimit mode",
+    [Self::Data, Self::RoundNumbers]
+);
 
 /// Number of minor intervals between major ticks (`xtick.minor.ndivs`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

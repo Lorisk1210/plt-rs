@@ -1,12 +1,9 @@
 //! `text.hinting`: matplotlib's names of `FreeType`'s load flags, kept as
 //! spelled, and the hinting each selects.
 
-use std::fmt;
-use std::str::FromStr;
-
 use plt_text::Hinting;
 
-use crate::image::UnknownName;
+use crate::rc::keyword_names;
 
 /// The glyph hinting `text.hinting` names: `FreeType`'s load flags by their
 /// own names (`default`, `no_autohint`, ...) or by matplotlib's shorter
@@ -70,26 +67,7 @@ impl TextHinting {
     }
 }
 
-impl fmt::Display for TextHinting {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl FromStr for TextHinting {
-    type Err = UnknownName;
-
-    /// Parses matplotlib's name ([`TextHinting::name`]).
-    fn from_str(name: &str) -> Result<Self, UnknownName> {
-        Self::ALL
-            .into_iter()
-            .find(|hinting| hinting.name() == name)
-            .ok_or_else(|| UnknownName {
-                kind: "text hinting",
-                name: name.to_owned(),
-            })
-    }
-}
+keyword_names!(TextHinting, "text hinting", Self::ALL);
 
 #[cfg(test)]
 mod tests {

@@ -8,7 +8,6 @@
 
 pub(crate) mod dash;
 pub(crate) mod stroke;
-pub(crate) mod stroke_math;
 
 use plt_core::path::convert::{Vertex, VertexSource};
 use plt_core::{Path, PathCode, Point};

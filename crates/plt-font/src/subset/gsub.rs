@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::error::Result;
 use crate::layout::common::{ClassDef, Coverage, LayoutTable};
-use crate::reader::{Array, Reader, tail};
+use crate::reader::{Array, FromBytes, Reader, tail};
 use crate::types::{GlyphId, Tag};
 
 const GSUB: Tag = Tag::new(b"GSUB");
@@ -42,7 +42,7 @@ struct LookupRecord {
     lookup_index: u16,
 }
 
-impl crate::reader::FromBytes for LookupRecord {
+impl FromBytes for LookupRecord {
     const SIZE: usize = 4;
     fn from_bytes(bytes: &[u8]) -> Self {
         Self {
@@ -72,7 +72,7 @@ struct Closure<'a> {
     nesting: u8,
 }
 
-/// The coverage-indexed offsets of a subtable after `skip` bytes: the
+/// The coverage-indexed offsets of a subtable at `offsets_at`: the
 /// sub-tables of the covered glyphs in `glyphs`, with those glyphs.
 fn covered<'d>(
     coverage: &Coverage<'_>,
@@ -95,14 +95,33 @@ fn covered<'d>(
     Ok(out)
 }
 
-/// The glyph array after a count at the start of `data`.
-fn counted_glyphs(data: &[u8]) -> Result<Vec<GlyphId>> {
-    let mut r = Reader::new(data, GSUB);
-    let count = r.u16()?;
-    Ok(r.array::<GlyphId>(usize::from(count))?.iter().collect())
+/// The coverage table whose offset follows the format of a subtable.
+fn first_coverage(data: &[u8]) -> Result<Coverage<'_>> {
+    Coverage::at(data, Reader::at(data, 2, GSUB)?.u16()?, GSUB)
 }
 
-/// Coverage tables at the offsets following a count at `at`.
+/// The next `count` items.
+fn read_list<T: FromBytes>(r: &mut Reader<'_>, count: u16) -> Result<Vec<T>> {
+    Ok(r.array::<T>(usize::from(count))?.iter().collect())
+}
+
+/// The items after their count.
+fn read_counted<T: FromBytes>(r: &mut Reader<'_>) -> Result<Vec<T>> {
+    let count = r.u16()?;
+    read_list(r, count)
+}
+
+/// The glyphs of `coverage` that are in `glyphs`.
+fn covered_glyphs(coverage: &Coverage<'_>, glyphs: &BTreeSet<GlyphId>) -> BTreeSet<GlyphId> {
+    coverage
+        .entries()
+        .into_iter()
+        .map(|(_, g)| g)
+        .filter(|g| glyphs.contains(g))
+        .collect()
+}
+
+/// The coverage tables of `data` at the offsets after a count in `r`.
 fn coverages<'d>(data: &'d [u8], r: &mut Reader<'d>) -> Result<Vec<Coverage<'d>>> {
     let count = r.u16()?;
     let offsets: Array<'_, u16> = r.array(usize::from(count))?;
@@ -138,6 +157,22 @@ enum RuleParts<'d> {
 }
 
 impl Closure<'_> {
+    /// Whether every one of `coverages` covers a glyph of the set.
+    fn all_present<'c>(&self, coverages: impl IntoIterator<Item = &'c Coverage<'c>>) -> bool {
+        coverages
+            .into_iter()
+            .all(|c| self.glyphs.iter().any(|&g| c.contains(g)))
+    }
+
+    /// The glyphs of the set that `coverage` covers.
+    fn glyphs_in(&self, coverage: &Coverage<'_>) -> BTreeSet<GlyphId> {
+        self.glyphs
+            .iter()
+            .copied()
+            .filter(|&g| coverage.contains(g))
+            .collect()
+    }
+
     /// Whether every part of a rule can occur in the glyph set.
     fn matches(&self, parts: &RuleParts<'_>) -> bool {
         match parts {
@@ -186,59 +221,26 @@ impl Closure<'_> {
         applied
     }
 
+    /// Applies one subtable of a lookup of type `kind` to `current`: the
+    /// glyphs a substitution produces join the set, and contextual rules
+    /// apply their nested lookups.
     fn subtable(&mut self, kind: u16, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<()> {
-        match kind {
-            1 => self.single(data, current),
-            2 | 3 => self.sequences(data, current),
-            4 => self.ligatures(data, current),
-            5 | 6 => self.context(kind == 6, data, current),
-            8 => self.reverse_chain(data, current),
-            _ => Ok(()),
-        }
-    }
-
-    fn single(&mut self, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<()> {
-        let mut r = Reader::new(data, GSUB);
-        let format = r.u16()?;
-        let coverage = Coverage::at(data, r.u16()?, GSUB)?;
-        let mut added = Vec::new();
-        if format == 1 {
-            let delta = r.i16()?;
-            for (_, glyph) in coverage.entries() {
-                if current.contains(&glyph) {
-                    added.push(GlyphId(glyph.0.wrapping_add(delta as u16)));
-                }
-            }
-        } else {
-            let count = r.u16()?;
-            let substitutes: Array<'_, GlyphId> = r.array(usize::from(count))?;
-            for (index, glyph) in coverage.entries() {
-                if current.contains(&glyph) {
-                    added.extend(substitutes.get(usize::from(index)));
-                }
-            }
-        }
-        self.glyphs.extend(added);
-        Ok(())
-    }
-
-    /// Multiple and alternate substitutions: every glyph of the covered
-    /// glyphs' sequences or alternate sets.
-    fn sequences(&mut self, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<()> {
-        let coverage = Coverage::at(data, Reader::at(data, 2, GSUB)?.u16()?, GSUB)?;
-        let mut added = Vec::new();
-        for (_, sequence) in covered(&coverage, data, 4, current)? {
-            added.extend(counted_glyphs(sequence)?);
-        }
+        let added = match kind {
+            1 => single(data, current)?,
+            2 | 3 => sequences(data, current)?,
+            4 => self.ligatures(data, current)?,
+            5 | 6 => return self.context(kind == 6, data, current),
+            8 => self.reverse_chain(data, current)?,
+            _ => return Ok(()),
+        };
         self.glyphs.extend(added);
         Ok(())
     }
 
     /// Ligatures whose components are all in the set.
-    fn ligatures(&mut self, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<()> {
-        let coverage = Coverage::at(data, Reader::at(data, 2, GSUB)?.u16()?, GSUB)?;
+    fn ligatures(&self, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<Vec<GlyphId>> {
         let mut added = Vec::new();
-        for (_, set) in covered(&coverage, data, 4, current)? {
+        for (_, set) in covered(&first_coverage(data)?, data, 4, current)? {
             let mut r = Reader::new(set, GSUB);
             let count = r.u16()?;
             let offsets: Array<'_, u16> = r.array(usize::from(count))?;
@@ -253,11 +255,11 @@ impl Closure<'_> {
                 }
             }
         }
-        self.glyphs.extend(added);
-        Ok(())
+        Ok(added)
     }
 
-    fn reverse_chain(&mut self, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<()> {
+    /// Reverse chaining substitutions whose context can occur in the set.
+    fn reverse_chain(&self, data: &[u8], current: &BTreeSet<GlyphId>) -> Result<Vec<GlyphId>> {
         let mut r = Reader::new(data, GSUB);
         r.skip(2)?;
         let coverage = Coverage::at(data, r.u16()?, GSUB)?;
@@ -271,19 +273,13 @@ impl Closure<'_> {
             .filter(|(_, g)| current.contains(g))
             .map(|(i, _)| i)
             .collect();
-        let context_present = lookahead
-            .iter()
-            .chain(&backtrack)
-            .all(|c| self.glyphs.iter().any(|&g| c.contains(g)));
-        if indices.is_empty() || !context_present {
-            return Ok(());
+        if indices.is_empty() || !self.all_present(lookahead.iter().chain(&backtrack)) {
+            return Ok(Vec::new());
         }
-        let added: Vec<GlyphId> = indices
+        Ok(indices
             .into_iter()
             .filter_map(|i| substitutes.get(usize::from(i)))
-            .collect();
-        self.glyphs.extend(added);
-        Ok(())
+            .collect())
     }
 
     /// Contextual and chaining contextual substitutions.
@@ -333,8 +329,7 @@ impl Closure<'_> {
         data: &[u8],
         current: &BTreeSet<GlyphId>,
     ) -> Result<()> {
-        let coverage = Coverage::at(data, Reader::at(data, 2, GSUB)?.u16()?, GSUB)?;
-        for (first, set) in covered(&coverage, data, 4, current)? {
+        for (first, set) in covered(&first_coverage(data)?, data, 4, current)? {
             for rule in rules(set)? {
                 let GlyphRule {
                     parts,
@@ -377,12 +372,7 @@ impl Closure<'_> {
         };
         let set_count = r.u16()?;
         let sets: Array<'_, u16> = r.array(usize::from(set_count))?;
-        let current: BTreeSet<GlyphId> = coverage
-            .entries()
-            .into_iter()
-            .map(|(_, g)| g)
-            .filter(|g| current.contains(g))
-            .collect();
+        let current = covered_glyphs(&coverage, current);
         if current.is_empty() {
             return Ok(());
         }
@@ -442,7 +432,7 @@ impl Closure<'_> {
             let backtrack = coverages(data, &mut r)?;
             let input = coverages(data, &mut r)?;
             let lookahead = coverages(data, &mut r)?;
-            (backtrack, input, lookahead, read_records(&mut r)?)
+            (backtrack, input, lookahead, read_counted(&mut r)?)
         } else {
             let glyph_count = r.u16()?;
             let record_count = r.u16()?;
@@ -451,27 +441,19 @@ impl Closure<'_> {
                 .iter()
                 .map(|offset| Coverage::at(data, offset, GSUB))
                 .collect::<Result<Vec<_>>>()?;
-            let records = r.array(usize::from(record_count))?.iter().collect();
-            (Vec::new(), input, Vec::new(), records)
+            (
+                Vec::new(),
+                input,
+                Vec::new(),
+                read_list(&mut r, record_count)?,
+            )
         };
         let Some(first) = input.first() else {
             return Ok(());
         };
-        let current: BTreeSet<GlyphId> = first
-            .entries()
-            .into_iter()
-            .map(|(_, g)| g)
-            .filter(|g| current.contains(g))
-            .collect();
-        if current.is_empty() {
-            return Ok(());
-        }
-        let present = backtrack
-            .iter()
-            .chain(&input)
-            .chain(&lookahead)
-            .all(|c| self.glyphs.iter().any(|&g| c.contains(g)));
-        if !present {
+        let current = covered_glyphs(first, current);
+        if current.is_empty() || !self.all_present(backtrack.iter().chain(&input).chain(&lookahead))
+        {
             return Ok(());
         }
         self.apply_records(&records, input.len(), |closure, index| {
@@ -480,17 +462,45 @@ impl Closure<'_> {
             } else {
                 input
                     .get(usize::from(index))
-                    .map_or_else(BTreeSet::new, |c| {
-                        closure
-                            .glyphs
-                            .iter()
-                            .copied()
-                            .filter(|&g| c.contains(g))
-                            .collect()
-                    })
+                    .map_or_else(BTreeSet::new, |c| closure.glyphs_in(c))
             }
         })
     }
+}
+
+/// Single substitutions of the glyphs of `current`.
+fn single(data: &[u8], current: &BTreeSet<GlyphId>) -> Result<Vec<GlyphId>> {
+    let mut r = Reader::new(data, GSUB);
+    let format = r.u16()?;
+    let coverage = Coverage::at(data, r.u16()?, GSUB)?;
+    let mut added = Vec::new();
+    if format == 1 {
+        let delta = r.i16()?;
+        for (_, glyph) in coverage.entries() {
+            if current.contains(&glyph) {
+                added.push(GlyphId(glyph.0.wrapping_add(delta as u16)));
+            }
+        }
+    } else {
+        let count = r.u16()?;
+        let substitutes: Array<'_, GlyphId> = r.array(usize::from(count))?;
+        for (index, glyph) in coverage.entries() {
+            if current.contains(&glyph) {
+                added.extend(substitutes.get(usize::from(index)));
+            }
+        }
+    }
+    Ok(added)
+}
+
+/// Multiple and alternate substitutions: every glyph of the sequences or
+/// alternate sets of the glyphs of `current`.
+fn sequences(data: &[u8], current: &BTreeSet<GlyphId>) -> Result<Vec<GlyphId>> {
+    let mut added = Vec::new();
+    for (_, sequence) in covered(&first_coverage(data)?, data, 4, current)? {
+        added.extend(read_counted::<GlyphId>(&mut Reader::new(sequence, GSUB))?);
+    }
+    Ok(added)
 }
 
 /// The rules of a rule set (count, offsets).
@@ -503,12 +513,6 @@ fn rules(set: &[u8]) -> Result<Vec<&[u8]>> {
         .filter(|&offset| offset != 0)
         .map(|offset| tail(set, usize::from(offset), GSUB))
         .collect()
-}
-
-/// The lookup records after their count.
-fn read_records(r: &mut Reader<'_>) -> Result<Vec<LookupRecord>> {
-    let count = r.u16()?;
-    Ok(r.array(usize::from(count))?.iter().collect())
 }
 
 /// A glyph or class rule of a contextual subtable (classes are held in
@@ -526,13 +530,11 @@ impl GlyphRule {
     fn parse(chain: bool, rule: &[u8]) -> Result<Self> {
         let mut r = Reader::new(rule, GSUB);
         if chain {
-            let backtrack_count = r.u16()?;
-            let backtrack: Vec<GlyphId> = r.array(usize::from(backtrack_count))?.iter().collect();
+            let backtrack = read_counted(&mut r)?;
             let input_count = r.u16()?.saturating_sub(1);
-            let input: Vec<GlyphId> = r.array(usize::from(input_count))?.iter().collect();
-            let lookahead_count = r.u16()?;
-            let lookahead: Vec<GlyphId> = r.array(usize::from(lookahead_count))?.iter().collect();
-            let records = read_records(&mut r)?;
+            let input: Vec<GlyphId> = read_list(&mut r, input_count)?;
+            let lookahead = read_counted(&mut r)?;
+            let records = read_counted(&mut r)?;
             Ok(Self {
                 parts: vec![backtrack, input.clone(), lookahead],
                 input,
@@ -541,8 +543,8 @@ impl GlyphRule {
         } else {
             let glyph_count = r.u16()?.saturating_sub(1);
             let record_count = r.u16()?;
-            let input: Vec<GlyphId> = r.array(usize::from(glyph_count))?.iter().collect();
-            let records = r.array(usize::from(record_count))?.iter().collect();
+            let input: Vec<GlyphId> = read_list(&mut r, glyph_count)?;
+            let records = read_list(&mut r, record_count)?;
             Ok(Self {
                 parts: vec![input.clone()],
                 input,

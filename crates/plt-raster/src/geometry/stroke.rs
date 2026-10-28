@@ -7,9 +7,8 @@
 //! which the non-zero fill rule turns into a ring.
 
 use plt_core::Point;
-use plt_core::path::outline::{VertexDist, VertexSequence};
+use plt_core::path::outline::{StrokeMath, VertexDist, VertexSequence};
 
-use super::stroke_math::StrokeMath;
 use super::{PathSink, SubpathAccumulator, SubpathGenerator};
 use crate::style::StrokeStyle;
 
@@ -25,7 +24,7 @@ pub(crate) struct Stroker {
 impl Stroker {
     /// Configures the stroker for `style`.
     pub(crate) fn configure(&mut self, style: &StrokeStyle) {
-        self.math = Some(StrokeMath::new(style));
+        self.math = Some(StrokeMath::new(style.width, &style.shape()));
     }
 
     /// Emits the generated vertices of `out`, the first one as a move-to

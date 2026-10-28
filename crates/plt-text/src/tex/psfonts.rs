@@ -2,7 +2,7 @@
 //! `dviread.PsfontsMap`) and PostScript encoding files (`_parse_enc`).
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 
 use plt_font::Type1Effects;
@@ -24,6 +24,22 @@ pub struct PsFont {
     pub encoding: Option<PathBuf>,
     /// The font file, if the map names one.
     pub filename: Option<PathBuf>,
+}
+
+impl PsFont {
+    /// The Type 1 file the map names for the font.
+    ///
+    /// # Errors
+    ///
+    /// [`TexError::NoType1Font`] when it names none.
+    pub fn type1_file(&self) -> Result<&Path, TexError> {
+        self.filename
+            .as_deref()
+            .ok_or_else(|| TexError::NoType1Font {
+                psname: String::from_utf8_lossy(&self.psname).into_owned(),
+                texname: String::from_utf8_lossy(&self.texname).into_owned(),
+            })
+    }
 }
 
 /// A font map. Its lines are only parsed when a font they define is asked
@@ -160,6 +176,114 @@ impl PsfontsMap {
     }
 }
 
+/// The words of a map line, as `_parse_and_cache_line` sorts them: the TeX
+/// and PostScript names, the special in quotes, and the encoding and font
+/// files.
+#[derive(Debug, Default)]
+struct LineFields<'a> {
+    tfmname: Option<&'a [u8]>,
+    basename: Option<&'a [u8]>,
+    special: Option<&'a [u8]>,
+    encodingfile: Option<&'a [u8]>,
+    fontfile: Option<&'a [u8]>,
+    /// Whether the font file is named with `<` alone, to be subset.
+    is_subsetted: bool,
+}
+
+impl<'a> LineFields<'a> {
+    /// Sorts the words of `line`.
+    fn parse(line: &'a [u8]) -> Result<Self, TexError> {
+        let mut fields = Self::default();
+        let mut words = words(line).into_iter();
+        while let Some(word) = words.next() {
+            match word {
+                Word::Unquoted(word) => {
+                    if let Some(file) = word.strip_prefix(b"<<") {
+                        fields.fontfile = Some(file);
+                    } else if let Some(file) = word.strip_prefix(b"<[") {
+                        fields.encodingfile = Some(file);
+                    } else if let Some(file) = word.strip_prefix(b"<") {
+                        let file = if file.is_empty() {
+                            match words.next() {
+                                Some(Word::Unquoted(next) | Word::Quoted(next))
+                                    if !next.is_empty() =>
+                                {
+                                    next
+                                }
+                                _ => return Err(malformed("missing file name after '<'")),
+                            }
+                        } else {
+                            file
+                        };
+                        if file.ends_with(b".enc") {
+                            fields.encodingfile = Some(file);
+                        } else {
+                            fields.fontfile = Some(file);
+                            fields.is_subsetted = true;
+                        }
+                    } else if fields.tfmname.is_none() {
+                        fields.tfmname = Some(word);
+                    } else if fields.basename.is_none() {
+                        fields.basename = Some(word);
+                    }
+                }
+                Word::Quoted(quoted) if !quoted.is_empty() => fields.special = Some(quoted),
+                Word::Quoted(_) => {}
+            }
+        }
+        Ok(fields)
+    }
+
+    /// Whether a PDF backend can use the font with `effects`: a subset
+    /// TrueType font needs an encoding, and only Type 1 fonts take effects,
+    /// within ±1 for the slant and ±2 for the extension.
+    fn usable(&self, effects: &Type1Effects) -> bool {
+        let (mut is_t1, mut is_truetype) = (false, false);
+        if let Some(file) = self.fontfile {
+            if file.ends_with(b".ttf") || file.ends_with(b".ttc") {
+                is_truetype = true;
+            } else if !file.ends_with(b".otf") {
+                is_t1 = true;
+            }
+        } else if self.basename.is_some() {
+            is_t1 = true;
+        }
+        let has_effects = effects.slant.is_some() || effects.extend.is_some();
+        !((is_truetype && self.is_subsetted && self.encodingfile.is_none())
+            || (!is_t1 && has_effects)
+            || effects.slant.unwrap_or(0.0).abs() > 1.0
+            || effects.extend.unwrap_or(0.0).abs() > 2.0)
+    }
+}
+
+/// A malformed font map.
+fn malformed(message: &str) -> TexError {
+    TexError::malformed(TexFile::FontMap, message)
+}
+
+/// The `SlantFont` and `ExtendFont` effects of a map line's special, each
+/// given by the number before it.
+fn parse_effects(special: &[u8]) -> Result<Type1Effects, TexError> {
+    let mut effects = Type1Effects::default();
+    let mut words = special
+        .split(|&b| is_space(b))
+        .filter(|w| !w.is_empty())
+        .rev();
+    while let Some(word) = words.next() {
+        let slot = match word {
+            b"SlantFont" => &mut effects.slant,
+            b"ExtendFont" => &mut effects.extend,
+            _ => continue,
+        };
+        let value = words
+            .next()
+            .and_then(python_float)
+            .ok_or_else(|| malformed("invalid effect value"))?;
+        *slot = Some(value);
+    }
+    Ok(effects)
+}
+
 /// A parsed map line: the TeX name it defines a font for, if it has one,
 /// and the font.
 type MapLine = (Option<Vec<u8>>, PsFont);
@@ -171,90 +295,25 @@ fn parse_line(line: &[u8], finder: &dyn FileFinder) -> Result<Option<MapLine>, T
     if line.is_empty() || line.starts_with(b" ") || b"%*;#".contains(&line[0]) {
         return Ok(None);
     }
-    let malformed = |message: &str| TexError::malformed(TexFile::FontMap, message);
-    let (mut tfmname, mut basename, mut special) = (None, None, None);
-    let (mut encodingfile, mut fontfile) = (None, None);
-    let mut is_subsetted = false;
-    let mut words = words(line).into_iter();
-    while let Some(word) = words.next() {
-        match word {
-            Word::Unquoted(word) => {
-                if let Some(file) = word.strip_prefix(b"<<") {
-                    fontfile = Some(file);
-                } else if let Some(file) = word.strip_prefix(b"<[") {
-                    encodingfile = Some(file);
-                } else if let Some(file) = word.strip_prefix(b"<") {
-                    let file = if file.is_empty() {
-                        match words.next() {
-                            Some(Word::Unquoted(next) | Word::Quoted(next)) if !next.is_empty() => {
-                                next
-                            }
-                            _ => return Err(malformed("missing file name after '<'")),
-                        }
-                    } else {
-                        file
-                    };
-                    if file.ends_with(b".enc") {
-                        encodingfile = Some(file);
-                    } else {
-                        fontfile = Some(file);
-                        is_subsetted = true;
-                    }
-                } else if tfmname.is_none() {
-                    tfmname = Some(word);
-                } else if basename.is_none() {
-                    basename = Some(word);
-                }
-            }
-            Word::Quoted(quoted) if !quoted.is_empty() => special = Some(quoted),
-            Word::Quoted(_) => {}
-        }
-    }
-    let mut effects = Type1Effects::default();
-    if let Some(special) = special {
-        let mut words = special
-            .split(|&b| is_space(b))
-            .filter(|w| !w.is_empty())
-            .rev();
-        while let Some(word) = words.next() {
-            let slot = match word {
-                b"SlantFont" => &mut effects.slant,
-                b"ExtendFont" => &mut effects.extend,
-                _ => continue,
-            };
-            let value = words
-                .next()
-                .and_then(python_float)
-                .ok_or_else(|| malformed("invalid effect value"))?;
-            *slot = Some(value);
-        }
-    }
-    let (mut is_t1, mut is_truetype) = (false, false);
-    if let Some(file) = fontfile {
-        if file.ends_with(b".ttf") || file.ends_with(b".ttc") {
-            is_truetype = true;
-        } else if !file.ends_with(b".otf") {
-            is_t1 = true;
-        }
-    } else if basename.is_some() {
-        is_t1 = true;
-    }
-    let has_effects = effects.slant.is_some() || effects.extend.is_some();
-    if (is_truetype && is_subsetted && encodingfile.is_none())
-        || (!is_t1 && has_effects)
-        || effects.slant.unwrap_or(0.0).abs() > 1.0
-        || effects.extend.unwrap_or(0.0).abs() > 2.0
-    {
+    let fields = LineFields::parse(line)?;
+    let effects = fields
+        .special
+        .map(parse_effects)
+        .transpose()?
+        .unwrap_or_default();
+    if !fields.usable(&effects) {
         return Ok(None);
     }
     let find = |file: &[u8]| finder.find(&String::from_utf8_lossy(file));
-    let encoding = encodingfile.map(find).transpose()?;
-    let filename = fontfile.map(find).transpose()?;
-    let texname = tfmname.unwrap_or_default().to_vec();
+    let encoding = fields.encodingfile.map(find).transpose()?;
+    let filename = fields.fontfile.map(find).transpose()?;
+    let texname = fields.tfmname.unwrap_or_default().to_vec();
     Ok(Some((
-        tfmname.map(<[u8]>::to_vec),
+        fields.tfmname.map(<[u8]>::to_vec),
         PsFont {
-            psname: basename.map_or_else(|| texname.clone(), <[u8]>::to_vec),
+            psname: fields
+                .basename
+                .map_or_else(|| texname.clone(), <[u8]>::to_vec),
             texname,
             effects,
             encoding,

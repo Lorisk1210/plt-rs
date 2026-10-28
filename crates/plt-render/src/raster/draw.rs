@@ -7,8 +7,8 @@ use plt_core::hatch;
 use plt_core::path::convert::{SnapMode as PathSnap, VertexSource};
 use plt_core::{Affine2D, Path, PathCode, Point, Rgba};
 use plt_raster::{Antialias, Clip, ClipBox, FillRule, Pixmap, Rgba8};
-use plt_text::tex::TexError;
-use plt_text::{TextRun, TextSource};
+use plt_text::TextRun;
+use plt_text::tex::{TexError, TexText};
 
 use super::RasterRenderer;
 use super::condition::{Conditioning, cached_mask, mpl_round, sketch_params, snap_mode};
@@ -315,16 +315,12 @@ impl Renderer for RasterRenderer {
     fn draw_tex(
         &mut self,
         gc: &GraphicsContext,
-        run: &TextRun,
+        _run: &TextRun,
+        tex: &TexText,
         origin: Point,
         angle: f64,
     ) -> Result<(), TexError> {
-        if let Some(TextSource::Tex(tex)) = &run.source {
-            self.draw_tex_text(gc, tex, origin, angle)
-        } else {
-            self.draw_text_run(gc, run, origin, angle);
-            Ok(())
-        }
+        self.draw_tex_text(gc, tex, origin, angle)
     }
 
     /// Agg's quad mesh generator walks every cell down its first column

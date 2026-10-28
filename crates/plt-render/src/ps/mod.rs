@@ -27,8 +27,8 @@ use std::fmt::Write as _;
 
 use plt_core::path::convert::SimplifySettings;
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::tex::TexError;
-use plt_text::{AfmDirectory, TextRun, TextSource};
+use plt_text::tex::{TexError, TexText};
+use plt_text::{AfmDirectory, TextRun};
 
 use crate::collection::PathCollection;
 use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
@@ -370,16 +370,12 @@ impl Renderer for PsRenderer {
     fn draw_tex(
         &mut self,
         gc: &GraphicsContext,
-        run: &TextRun,
+        _run: &TextRun,
+        tex: &TexText,
         origin: Point,
         angle: f64,
     ) -> Result<(), TexError> {
-        if let Some(TextSource::Tex(tex)) = &run.source {
-            self.ps_tex(gc, tex, origin, angle)
-        } else {
-            self.ps_text(gc, run, origin, angle);
-            Ok(())
-        }
+        self.ps_tex(gc, tex, origin, angle)
     }
 
     fn option_image_nocomposite(&self) -> bool {

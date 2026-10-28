@@ -6,11 +6,12 @@
 //! extended as the map says, with widths from the TeX font metrics.
 
 use std::collections::BTreeMap;
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 use plt_core::{Affine2D, Path, PathCode, Point};
 use plt_font::{GlyphId, PsNumber, PsValue, Type1Encoding, Type1Font};
-use plt_text::tex::{DviBox, DviFont, DviPage, TexError, TexFile, TexFiles, TexText};
+use plt_text::tex::{DviBox, DviFont, DviPage, PsFont, TexError, TexFile, TexFiles, TexText, Tfm};
 
 use super::PdfRenderer;
 use super::fonts::subset_prefix;
@@ -18,6 +19,7 @@ use super::object::Obj;
 use super::pages::Link;
 use super::writer::PdfWriter;
 use crate::gc::GraphicsContext;
+use crate::renderer::text_placement;
 use crate::vector::{POINTS_DPI, VectorError};
 
 /// A TeX font a document uses: the DVI font last registered under its
@@ -140,9 +142,7 @@ impl PdfRenderer {
         let files = tex.manager.files();
         self.dvi_fonts.files.get_or_insert(files);
         let seq = self.track_text(&page, files)?;
-        let placement = Affine2D::identity()
-            .rotate_deg(angle)
-            .translate(origin.x, origin.y);
+        let placement = text_placement(origin, angle);
         self.check_gc(gc, Some(gc.stroke_color()));
         self.show_items(join_strings(seq), &placement, angle);
         self.fill_rules(gc, &page.boxes, &placement);
@@ -153,36 +153,36 @@ impl PdfRenderer {
     /// in its font (`dviFontName` and `track_glyph`).
     fn track_text(&mut self, page: &DviPage, files: &TexFiles) -> Result<Vec<Item>, TexError> {
         let mut seq = Vec::new();
-        let mut old_font: Option<&Arc<DviFont>> = None;
-        for text in &page.text {
-            let name = format!("F-{}", text.font.name());
-            if old_font != Some(&text.font) {
-                seq.push(Item::Font(name.clone(), text.font.size()));
-                old_font = Some(&text.font);
-            }
-            let code = u8::try_from(text.glyph).map_err(|_| {
-                TexError::malformed(
-                    TexFile::Dvi,
-                    format!("character {} is not a byte", text.glyph),
-                )
-            })?;
-            seq.push(Item::Text {
-                x: text.x,
-                y: text.y,
-                shown: vec![Shown::Codes(vec![code])],
-                end: text.x + text.width,
-            });
-            let index = files.glyph_index(&text.font, text.glyph)?;
+        for run in page.text.chunk_by(|a, b| a.font == b.font) {
+            // `chunk_by` makes no empty runs.
+            let font = &run[0].font;
+            let name = format!("F-{}", font.name());
+            seq.push(Item::Font(name.clone(), font.size()));
             let used = self
                 .dvi_fonts
                 .fonts
                 .entry(name)
                 .or_insert_with(|| UsedFont {
-                    font: Arc::clone(&text.font),
+                    font: Arc::clone(font),
                     glyphs: BTreeMap::new(),
                 });
-            used.font = Arc::clone(&text.font);
-            used.glyphs.entry(text.glyph).or_insert(index);
+            for text in run {
+                let code = u8::try_from(text.glyph).map_err(|_| {
+                    TexError::malformed(
+                        TexFile::Dvi,
+                        format!("character {} is not a byte", text.glyph),
+                    )
+                })?;
+                seq.push(Item::Text {
+                    x: text.x,
+                    y: text.y,
+                    shown: vec![Shown::Codes(vec![code])],
+                    end: text.x + text.width,
+                });
+                let index = files.glyph_index(&text.font, text.glyph)?;
+                used.font = Arc::clone(&text.font);
+                used.glyphs.entry(text.glyph).or_insert(index);
+            }
         }
         Ok(seq)
     }
@@ -298,15 +298,59 @@ fn embed_font(
     used: &UsedFont,
 ) -> Result<u32, VectorError> {
     let psfont = files.psfont(used.font.texname())?;
-    let filename = psfont
-        .filename
-        .clone()
-        .ok_or_else(|| TexError::NoType1Font {
-            psname: String::from_utf8_lossy(&psfont.psname).into_owned(),
-            texname: String::from_utf8_lossy(&psfont.texname).into_owned(),
-        })?;
+    let filename = psfont.type1_file()?;
     let dict_id = writer.reserve();
-    let mut font = Type1Font::open(&filename).map_err(type1_error)?;
+    let font = embedded_program(files, &psfont, filename, used)?;
+    let prop = font.prop();
+    let font_name = prop.font_name().as_text().unwrap_or_default().to_owned();
+    let descriptor_id = type1_descriptor(writer, &font, &font_name)?;
+    let encoding: Vec<(i64, String)> = prop
+        .encoding()
+        .map(|e| {
+            e.iter()
+                .map(|(code, name)| (code, name.to_owned()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let first = encoding.first().map_or(0, |(code, _)| *code);
+    let last = encoding.last().map_or(255, |(code, _)| *code);
+    let widths_id = writer.reserve();
+    writer.write_object(
+        widths_id,
+        &Obj::Array(tfm_widths(used.font.metrics(), first..=last)),
+    )?;
+    writer.write_object(
+        dict_id,
+        &Obj::dict([
+            ("Type", Obj::name("Font")),
+            ("Subtype", Obj::name("Type1")),
+            ("BaseFont", Obj::name(font_name)),
+            ("FontDescriptor", Obj::Ref(descriptor_id)),
+            (
+                "Encoding",
+                Obj::dict([
+                    ("Type", Obj::name("Encoding")),
+                    ("Differences", Obj::Array(differences(&encoding))),
+                ]),
+            ),
+            ("FirstChar", Obj::Int(first)),
+            ("LastChar", Obj::Int(last)),
+            ("Widths", Obj::Ref(widths_id)),
+        ]),
+    )?;
+    Ok(dict_id)
+}
+
+/// The Type 1 program at `filename` as the document embeds it for the
+/// TeX font `used`: re-encoded as the font map `psfont` says, slanted or
+/// extended as it says, and subset to the characters shown.
+fn embedded_program(
+    files: &TexFiles,
+    psfont: &PsFont,
+    filename: &std::path::Path,
+    used: &UsedFont,
+) -> Result<Type1Font, VectorError> {
+    let mut font = Type1Font::open(filename).map_err(type1_error)?;
     if let Some(encoding) = &psfont.encoding {
         let names = files.encoding(encoding)?;
         let codes = names
@@ -325,33 +369,30 @@ fn embed_font(
         .glyphs
         .keys()
         .filter_map(|&code| u32::try_from(code).ok());
-    let font = font
+    Ok(font
         .subset(codes, &subset_prefix(&glyphs))
-        .map_err(type1_error)?;
-    let prop = font.prop();
-    let font_name = prop.font_name().as_text().unwrap_or_default().to_owned();
-    let descriptor_id = type1_descriptor(writer, &font, &font_name)?;
-    let encoding: Vec<(i64, String)> = prop
-        .encoding()
-        .map(|e| {
-            e.iter()
-                .map(|(code, name)| (code, name.to_owned()))
-                .collect()
-        })
-        .unwrap_or_default();
-    let first = encoding.first().map_or(0, |(code, _)| *code);
-    let last = encoding.last().map_or(255, |(code, _)| *code);
+        .map_err(type1_error)?)
+}
+
+/// The `Differences` array of an encoding: each glyph name, every run of
+/// consecutive codes preceded by its first code.
+fn differences(encoding: &[(i64, String)]) -> Vec<Obj> {
     let mut differences = Vec::new();
     let mut previous = None;
-    for (code, name) in &encoding {
+    for (code, name) in encoding {
         if previous.is_none_or(|p: i64| p + 1 != *code) {
             differences.push(Obj::Int(*code));
         }
         differences.push(Obj::name(name.clone()));
         previous = Some(*code);
     }
-    let metrics = used.font.metrics();
-    let widths: Vec<Obj> = (first..=last)
+    differences
+}
+
+/// The widths of characters `codes` in thousandths of the font size, from
+/// the TeX font metrics (0 for characters the font has none for).
+fn tfm_widths(metrics: &Tfm, codes: RangeInclusive<i64>) -> Vec<Obj> {
+    codes
         .map(|code| {
             Obj::Int(
                 metrics
@@ -359,29 +400,7 @@ fn embed_font(
                     .map_or(0, |m| (1000 * i64::from(m.width)) >> 20),
             )
         })
-        .collect();
-    let widths_id = writer.reserve();
-    writer.write_object(widths_id, &Obj::Array(widths))?;
-    writer.write_object(
-        dict_id,
-        &Obj::dict([
-            ("Type", Obj::name("Font")),
-            ("Subtype", Obj::name("Type1")),
-            ("BaseFont", Obj::name(font_name)),
-            ("FontDescriptor", Obj::Ref(descriptor_id)),
-            (
-                "Encoding",
-                Obj::dict([
-                    ("Type", Obj::name("Encoding")),
-                    ("Differences", Obj::Array(differences)),
-                ]),
-            ),
-            ("FirstChar", Obj::Int(first)),
-            ("LastChar", Obj::Int(last)),
-            ("Widths", Obj::Ref(widths_id)),
-        ]),
-    )?;
-    Ok(dict_id)
+        .collect()
 }
 
 /// `createType1Descriptor`: writes the font descriptor and the font

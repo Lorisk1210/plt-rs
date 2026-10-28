@@ -90,9 +90,28 @@ pub enum TexError {
         /// What is wrong with it.
         message: String,
     },
-    /// Something matplotlib's TeX support does not handle either, or that
-    /// needs a program that is not available.
-    Unsupported(String),
+    /// A program usetex needs is not installed, found before typesetting
+    /// anything (the warnings of matplotlib's `checkdep_usetex`).
+    NotInstalled {
+        /// What is missing (`TeX`, `LaTeX`, `dvipng`).
+        program: String,
+    },
+    /// The font map gives a TeX font a PK bitmap font, which cannot be
+    /// drawn as outlines.
+    PkFont {
+        /// The font file.
+        path: String,
+    },
+    /// A DVI file uses XeTeX's native fonts, which matplotlib's `dviread`
+    /// does not read either.
+    XetexNativeFonts,
+    /// A DVI file uses LuaTeX's native fonts, which matplotlib's `dviread`
+    /// does not read either.
+    LuatexNativeFonts,
+    /// PostScript output of usetex text, which needs LaTeX's `psfrag`
+    /// package, `dvips` and Ghostscript (matplotlib's `_print_figure_tex`),
+    /// programs plt-rs does not run.
+    PostScriptOutput,
 }
 
 impl TexError {
@@ -200,7 +219,21 @@ impl fmt::Display for TexError {
                  Type-1 version"
             ),
             Self::Malformed { file, message } => write!(f, "malformed {file}: {message}"),
-            Self::Unsupported(what) => f.write_str(what),
+            Self::NotInstalled { program } => write!(f, "usetex mode requires {program}."),
+            Self::PkFont { path } => {
+                write!(f, "{path} is a PK bitmap font, which cannot be drawn")
+            }
+            Self::XetexNativeFonts => {
+                f.write_str("DVI files with XeTeX native fonts are not supported")
+            }
+            Self::LuatexNativeFonts => {
+                f.write_str("DVI files with LuaTeX native fonts are not supported")
+            }
+            Self::PostScriptOutput => f.write_str(
+                "PostScript output with text.usetex needs LaTeX's psfrag package, dvips and \
+                 Ghostscript (matplotlib's _print_figure_tex), which plt-rs does not run; save \
+                 as PDF, SVG or PNG instead",
+            ),
         }
     }
 }
@@ -242,5 +275,9 @@ mod tests {
             missing.to_string(),
             "Failed to process string with tex because dvipng could not be found"
         );
+        let not_installed = TexError::NotInstalled {
+            program: "dvipng".into(),
+        };
+        assert_eq!(not_installed.to_string(), "usetex mode requires dvipng.");
     }
 }

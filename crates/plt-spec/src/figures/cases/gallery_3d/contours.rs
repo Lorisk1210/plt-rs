@@ -171,7 +171,7 @@ fn box3d(fig: &Figure) -> CaseResult {
     ax.plot_with([0.0, xmax], [0.0, 0.0], [0.0], Axis3::Z, edge())?;
     ax.plot_with([xmax, xmax], [0.0, 0.0], [-zmax, 0.0], Axis3::Z, edge())?;
     label_xyz(&ax, ["X [km]", "Y [km]", "Z [m]"]);
-    ax.zaxis().set_ticks(&[0.0, -150.0, -300.0, -450.0]);
+    ax.zaxis().set_ticks([0.0, -150.0, -300.0, -450.0]);
     ax.view_init(40.0, -30.0, 0.0);
     ax.set_box_aspect(None, 0.9)?;
     let colorbar = ColorbarOptions {

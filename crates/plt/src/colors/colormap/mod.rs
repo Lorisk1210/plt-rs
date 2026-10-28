@@ -27,12 +27,12 @@ mod lookup;
 mod segment;
 
 use std::fmt;
-use std::str::FromStr;
 
 use plt_core::Rgba;
 
 use super::{Alpha, Color, Colors, to_rgba_array};
 use crate::numeric::linspace;
+use crate::rc::keyword_names;
 
 pub use error::{ColormapError, SegmentProblem};
 pub use lookup::Normalized;
@@ -87,6 +87,18 @@ pub enum Extend {
 }
 
 impl Extend {
+    const ALL: [Self; 4] = [Self::Neither, Self::Both, Self::Min, Self::Max];
+
+    /// matplotlib's name (`neither`, `both`, `min` or `max`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Neither => "neither",
+            Self::Both => "both",
+            Self::Min => "min",
+            Self::Max => "max",
+        }
+    }
+
     /// Whether values below the range are extended.
     pub fn extends_min(self) -> bool {
         matches!(self, Self::Min | Self::Both)
@@ -98,21 +110,7 @@ impl Extend {
     }
 }
 
-impl FromStr for Extend {
-    type Err = String;
-
-    fn from_str(text: &str) -> Result<Self, String> {
-        match text {
-            "neither" => Ok(Self::Neither),
-            "both" => Ok(Self::Both),
-            "min" => Ok(Self::Min),
-            "max" => Ok(Self::Max),
-            _ => Err(format!(
-                "{text:?} is not one of 'neither', 'both', 'min', 'max'"
-            )),
-        }
-    }
-}
+keyword_names!(Extend, "value for extend", Self::ALL);
 
 /// matplotlib's colormap classes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -558,6 +556,10 @@ mod tests {
     fn extend_parsing() {
         assert_eq!("both".parse(), Ok(Extend::Both));
         assert!(Extend::Min.extends_min() && !Extend::Min.extends_max());
-        assert!("sideways".parse::<Extend>().is_err());
+        assert_eq!(Extend::Max.to_string(), "max");
+        assert_eq!(
+            "sideways".parse::<Extend>().map_err(|err| err.to_string()),
+            Err("\"sideways\" is not a valid value for extend".to_owned())
+        );
     }
 }

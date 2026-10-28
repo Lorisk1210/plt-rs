@@ -95,16 +95,16 @@ fn aspect_datalim_untouched(ax: &Axes3D) -> Result<Vec<Json>, ProbeError> {
 }
 
 fn autoscale(ax: &Axes3D) -> Result<Vec<Json>, ProbeError> {
-    made(ax.margins([Some(0.0), Some(0.1), Some(0.2)], None))?;
+    made(ax.set_margins([Some(0.0), Some(0.1), Some(0.2)], None))?;
     plot(ax, [0.0, 1.0], [0.0, 1.0], [0.0, 1.0])?;
     let mut observed = vec![lims(ax)];
     for axis in AXES {
-        ax.set_autoscale(axis, false);
+        ax.set_axis_autoscale_on(axis, false);
     }
-    ax.set_autoscale(Axis3::Z, true);
+    ax.set_axis_autoscale_on(Axis3::Z, true);
     plot(ax, [0.0, 2.0], [0.0, 2.0], [0.0, 2.0])?;
     observed.push(lims(ax));
-    ax.set_autoscale(Axis3::X, true);
+    ax.set_axis_autoscale_on(Axis3::X, true);
     plot(ax, [0.0, 2.0], [0.0, 2.0], [0.0, 2.0])?;
     observed.push(lims(ax));
     Ok(observed)
@@ -115,7 +115,7 @@ fn shared_retick(fig: &Figure, ax: &Axes3D) -> Result<Vec<Json>, ProbeError> {
     made(other.share_z(ax))?;
     plot(ax, [0.0, 1.0], [0.0, 1.0], [0.0, 2.0])?;
     plot(&other, [0.0, 1.0], [0.0, 1.0], [0.0, 2.0])?;
-    ax.zaxis().set_ticks(&[-0.5, 0.0, 2.0, 2.5]);
+    ax.zaxis().set_ticks([-0.5, 0.0, 2.0, 2.5]);
     Ok(vec![lims(ax), lims(&other)])
 }
 
@@ -242,7 +242,7 @@ fn errors(args: Args<'_>) -> Outcome {
             } else {
                 -0.4
             };
-            made(ax.margins([Some(margin); 3], None))?;
+            made(ax.set_margins([Some(margin); 3], None))?;
         }
         other => return Err(ProbeError::BadArgs(format!("unknown case {other:?}"))),
     }
@@ -261,7 +261,7 @@ fn margins() -> Outcome {
     ];
     let mut observed = Vec::new();
     for change in changes {
-        made(ax.margins(change, None))?;
+        made(ax.set_margins(change, None))?;
         observed.push(Json::from(AXES.map(|axis| ax.margin(axis)).to_vec()));
     }
     Ok(Json::Array(observed))

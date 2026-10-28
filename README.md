@@ -7,18 +7,21 @@ against matplotlib 3.11. No crates.io dependencies: fonts, PNG/DEFLATE,
 rasterization, layout, windowing (X11) and the UI are all implemented
 here.
 
-```rust
+```rust,no_run
 use plt::figure::Figure;
 use plt::numeric::linspace;
 
-let fig = Figure::new();
-let ax = fig.subplot();
-let x = linspace(0.0, 10.0, 200);
-ax.plot(&x, x.iter().map(|x| x.sin()))?;
-ax.set_title("A sine");
-ax.set_xlabel("x");
-fig.savefig("sine.png")?;      // in plt-rs' modern look
-plt::gui::show(&[fig])?;       // or explore it in a window
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let x = linspace(0.0, 10.0, 200);
+    ax.plot(&x, x.iter().map(|x| x.sin()))?;
+    ax.set_title("A sine");
+    ax.set_xlabel("x");
+    fig.savefig("sine.png")?; // in plt-rs' modern look
+    plt::gui::show(&[fig])?; // or explore it in a window
+    Ok(())
+}
 ```
 
 Figures and windows take plt-rs' modern look unless told otherwise:
@@ -41,11 +44,15 @@ Inter gives identical figures.
 
 The `pyplot`-style interface works too:
 
-```rust
+```rust,no_run
 use plt::pyplot as plt;
-plt::plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
-plt::title("Squares");
-plt::show()?;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    plt::plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
+    plt::title("Squares");
+    plt::show()?;
+    Ok(())
+}
 ```
 
 On systems without X11 (macOS, Windows), `show()` serves the figures to a
@@ -95,8 +102,10 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   STIX sans, custom), placing every glyph and rule where matplotlib does
   on its own mathtext test suite. With TeX installed, `usetex` text is
   typeset by LaTeX as in matplotlib (`latex`, or `latex` with `dvipng`):
-  plt-rs reads the DVI files, virtual fonts, TFM metrics and font maps
-  itself, and draws the Type 1 glyphs in PNG, PDF, SVG and PGF.
+  plt-rs reads the DVI files, virtual fonts, TFM metrics, font maps and
+  Type 1 fonts itself, and draws the glyphs in PNG, PDF and SVG; PGF
+  output hands the text to LaTeX, and PostScript output refuses it, since
+  matplotlib needs `psfrag` and Ghostscript there.
 * **Axes and layout**: scales, tickers and formatters, dates and
   categories, shared and twin axes, secondary axes, aspect handling,
   subplot grids, mosaics, subfigures, constrained and tight layout,
@@ -176,10 +185,10 @@ background, `PLT_LOOK=matplotlib` in matplotlib's look.
 | crate          | responsibility                                                    |
 |----------------|-------------------------------------------------------------------|
 | `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, SHA-1, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write |
-| `plt-font`     | TrueType/OpenType parsing, shaping (GSUB/GPOS), font manager      |
+| `plt-codec`    | CRC32/Adler32, SHA-1, SHA-256, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write |
+| `plt-font`     | TrueType/OpenType and Type 1 parsing, shaping (GSUB/GPOS), font manager |
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
-| `plt-text`     | text layout and the mathtext parser and typesetter                |
+| `plt-text`     | text layout, the mathtext parser and typesetter, and usetex (DVI, VF, TFM, font maps) |
 | `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS/PGF |
 | `plt-platform` | windows, input and the event loop (X11; headless for tests)       |
 | `plt-ui`       | the retained-mode UI engine used by figure windows                |
@@ -232,7 +241,8 @@ backend; plt-rs is faster on all of them.
 See `CLAUDE.md` for the coding conventions.
 
 plt-rs ports code from matplotlib, Anti-Grain Geometry, FreeType,
-HarfBuzz, Qhull, ContourPy, NumPy, CPython, dateutil, fontTools, Pillow,
-libjpeg-turbo, libtiff and libwebp (and one file from libstdc++, under
-GPL-3.0-or-later), and bundles fonts (including Inter) and colour data;
-see `THIRD_PARTY.md` for their licences.
+HarfBuzz, libraqm, Qhull, ContourPy, NumPy and x86-simd-sort, CPython,
+dateutil, fontTools, Pillow, libjpeg-turbo, libtiff and libwebp (and one
+file from libstdc++, under GPL-3.0-or-later), and bundles fonts (including
+Inter), colour data and Unicode data; see `THIRD_PARTY.md` for their
+licences.

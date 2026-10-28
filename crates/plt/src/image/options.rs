@@ -7,6 +7,7 @@ use std::str::FromStr;
 use plt_raster::resample::Interpolation as Kernel;
 
 use crate::numeric::Grid;
+use crate::rc::keyword_names;
 
 /// How image pixels are interpolated when resampled to the screen
 /// (matplotlib's `interpolation`).
@@ -133,7 +134,11 @@ impl fmt::Display for Interpolation {
     }
 }
 
-/// A name that is not an interpolation, stage or origin.
+/// A name that a keyword type does not have: what parsing an
+/// [`Interpolation`] or an [`Origin`] returns, and the keyword types of
+/// rcParams across the crate ([`TickLevel`](crate::axes::TickLevel),
+/// [`XLabelLoc`](crate::axes::XLabelLoc),
+/// [`PgfTexSystem`](crate::figure::PgfTexSystem), ...).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnknownName {
     /// What was being parsed (`"interpolation"`, ...).
@@ -218,30 +223,19 @@ pub enum Origin {
     Lower,
 }
 
-impl FromStr for Origin {
-    type Err = UnknownName;
+impl Origin {
+    const ALL: [Self; 2] = [Self::Upper, Self::Lower];
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "upper" => Ok(Self::Upper),
-            "lower" => Ok(Self::Lower),
-            _ => Err(UnknownName {
-                kind: "origin",
-                name: s.to_owned(),
-            }),
+    /// matplotlib's name (`upper` or `lower`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Upper => "upper",
+            Self::Lower => "lower",
         }
     }
 }
 
-impl fmt::Display for Origin {
-    /// matplotlib's name (`upper` or `lower`).
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Upper => "upper",
-            Self::Lower => "lower",
-        })
-    }
-}
+keyword_names!(Origin, "origin", Self::ALL);
 
 /// The data rectangle an image covers: `(left, right, bottom, top)` edges
 /// of its outer pixels (matplotlib's `extent`). `left > right` or

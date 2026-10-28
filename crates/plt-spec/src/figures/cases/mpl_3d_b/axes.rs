@@ -150,7 +150,7 @@ pub(super) fn minor_ticks(fig: &Figure) -> CaseResult {
     let ticks = [(Axis3::X, 0.25, "quarter"), (Axis3::Y, 0.33, "third")];
     for (dir, tick, label) in ticks.into_iter().chain([(Axis3::Z, 0.5, "half")]) {
         ax.axis(dir)
-            .set_minor_ticks(&[tick])
+            .set_minor_ticks([tick])
             .set_minor_ticklabels([label])?;
     }
     Ok(())

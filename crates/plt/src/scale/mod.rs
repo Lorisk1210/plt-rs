@@ -40,6 +40,7 @@ use std::any::Any;
 use std::fmt;
 use std::rc::Rc;
 
+pub use crate::ticker::LogBase;
 pub use asinh::AsinhScale;
 pub use linear::{FuncScale, LinearScale};
 pub use log::{FuncScaleLog, LogScale};

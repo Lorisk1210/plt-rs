@@ -1,9 +1,11 @@
 //! Runtime configuration: matplotlib's `rcParams`, rc files and their values.
 //!
 //! [`RcParams`] holds every parameter as a typed field
-//! (`params.lines_linewidth`) and also offers matplotlib's string-keyed
-//! access ([`RcParams::set`]`("lines.linewidth", "2")`) with identical
-//! validation. The *current* parameters are per thread, like pyplot state;
+//! (`params.lines_linewidth`; a parameter naming one of a few keywords
+//! holds an enum, such as the [`TitleLocation`](crate::axes::TitleLocation)
+//! of `params.axes_titlelocation`) and also offers matplotlib's
+//! string-keyed access ([`RcParams::set`]`("lines.linewidth", "2")`) with
+//! identical validation and spellings. The *current* parameters are per thread, like pyplot state;
 //! threads start from [`RcParams::startup`], matplotlib's defaults with
 //! the figure [look](crate::look)'s style on top and then the user's rc
 //! file, `pltrc` (see [`config`](crate::config)):

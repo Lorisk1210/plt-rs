@@ -41,11 +41,27 @@
 //!   instead: a [`Color`], validated when it is resolved, and a
 //!   [`ScaleName`], since a scale can be registered under any name; a
 //!   setter refuses an unknown scale.
+//! * **Keyword rcParams hold the type of their option.** An rcParam naming
+//!   one of a few keywords holds the enum the matching option takes
+//!   (`axes.titlelocation` is a [`TitleLocation`]), read and written in
+//!   matplotlib's spelling through `FromStr` and `Display`. Where the
+//!   spellings carry nothing of their own, aliases or names that differ
+//!   per axis, the rcParam keeps them in a type of its own that converts
+//!   into the one the API takes, so that `rc::get` gives back what
+//!   `rc::set` took: [`XLabelLoc`] and [`YLabelLoc`] convert into the
+//!   [`LabelLoc`] of [`Axis::set_label_loc`], [`TextHinting`] into a
+//!   [`Hinting`], and `axes.grid.axis` is a [`WhichAxis`] where options
+//!   take an `Option<AxisName>` (`None` for both).
 //! * **Errors are `Result`s.** Invalid data, options or settings return
 //!   an error enum of the module ([`PlotError`], [`ImageError`],
 //!   [`LegendError`], [`AxesRectError`], ...), wherever matplotlib
 //!   raises. All of them implement [`std::error::Error`], so `?` into
-//!   `Box<dyn Error>` works everywhere.
+//!   `Box<dyn Error>` works everywhere. A problem plt-rs can name has a
+//!   variant of its own carrying the values involved, rather than a
+//!   message in a catch-all variant ([`TexError::PostScriptOutput`],
+//!   [`TexError::NotInstalled`]), and parsing a name fails with such an
+//!   error, never a bare `String` ([`UnknownName`] for the keyword types
+//!   of `plt`).
 //! * **Limits are public.** Where matplotlib allocates whatever an input
 //!   asks for until memory runs out, plt-rs refuses inputs beyond a
 //!   `MAX_*` constant of the module ([`MAX_HIST_BARS`],
@@ -115,6 +131,14 @@
 //!   `get_xmargin` and `get_ymargin`, plt-rs has `margin(AxisName::X)`.
 //!   The most common pairs (`set_xlim`, `set_xlabel`, `set_xscale`,
 //!   `twinx`, ...) keep their x and y spellings.
+//! * **3-D axes are 2-D axes with a z.** A method of [`Axes3D`] or
+//!   [`Axis3D`] doing what a method of [`Axes`] or [`Axis`] does has its
+//!   name and takes the same kinds of values, with an [`Axis3`] where the
+//!   2-D one takes an [`AxisName`]: plotting values for data, limits and
+//!   fixed ticks ([`Axis3D::set_ticks`] as [`Axis::set_ticks`]),
+//!   [`Axes3D::autoscale_on`] as [`Axes::autoscale_on`],
+//!   [`Axes3D::set_margins`] as [`Axes::set_margins`]. Grids of surfaces
+//!   and contours are numbers on both.
 //!
 //! # Equivalences
 //!
@@ -496,3 +520,22 @@
 //! [`Axis`]: crate::axes::Axis
 //! [`TickContext`]: crate::ticker::TickContext
 //! [`pyplot::rc`]: crate::pyplot::rc
+//! [`TitleLocation`]: crate::axes::TitleLocation
+//! [`XLabelLoc`]: crate::axes::XLabelLoc
+//! [`YLabelLoc`]: crate::axes::YLabelLoc
+//! [`LabelLoc`]: crate::axes::LabelLoc
+//! [`Axis::set_label_loc`]: crate::axes::Axis::set_label_loc
+//! [`TextHinting`]: crate::text::TextHinting
+//! [`Hinting`]: crate::text::Hinting
+//! [`WhichAxis`]: crate::axes::WhichAxis
+//! [`TexError::PostScriptOutput`]: crate::text::TexError::PostScriptOutput
+//! [`TexError::NotInstalled`]: crate::text::TexError::NotInstalled
+//! [`UnknownName`]: crate::image::UnknownName
+//! [`Axes3D`]: crate::mplot3d::Axes3D
+//! [`Axis3D`]: crate::mplot3d::Axis3D
+//! [`Axes`]: crate::axes::Axes
+//! [`Axis3D::set_ticks`]: crate::mplot3d::Axis3D::set_ticks
+//! [`Axis::set_ticks`]: crate::axes::Axis::set_ticks
+//! [`Axes3D::autoscale_on`]: crate::mplot3d::Axes3D::autoscale_on
+//! [`Axes3D::set_margins`]: crate::mplot3d::Axes3D::set_margins
+//! [`Axes::set_margins`]: crate::axes::Axes::set_margins

@@ -140,7 +140,7 @@ fn bars_3d() -> Built {
         ..Bar3DOptions::default()
     };
     ax.bar3d(boxes, options)?;
-    ax.yaxis().set_ticks(&[0.25, 1.25, 2.25, 3.25]);
+    ax.yaxis().set_ticks([0.25, 1.25, 2.25, 3.25]);
     ax.yaxis()
         .set_ticklabels(["2022", "2023", "2024", "2025"])?;
     ax.set_xlabel("month").set_zlabel("sales");
@@ -264,7 +264,7 @@ fn trisurf_3d() -> Built {
     };
     ax.plot_trisurf(&Triangulation::delaunay(&x, &y)?, &z, options)?;
     for axis in [ax.xaxis(), ax.yaxis(), ax.zaxis()] {
-        axis.set_ticks(&[-1.0, -0.5, 0.0, 0.5, 1.0]);
+        axis.set_ticks([-1.0, -0.5, 0.0, 0.5, 1.0]);
     }
     label_xyz(&ax);
     ax.set_title("plot_trisurf");

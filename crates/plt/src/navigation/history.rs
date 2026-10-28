@@ -76,7 +76,7 @@ impl Axes3DView {
     fn of(ax: &Axes3D) -> Self {
         Self {
             limits: Axis3::ALL.map(|axis| ax.limits(axis)),
-            autoscale: Axis3::ALL.map(|axis| ax.autoscale(axis)),
+            autoscale: Axis3::ALL.map(|axis| ax.autoscale_on(axis)),
             angles: ax.view(),
         }
     }
@@ -86,7 +86,7 @@ impl Axes3DView {
         for ((axis, (lo, hi)), on) in Axis3::ALL.into_iter().zip(self.limits).zip(self.autoscale) {
             // Recorded limits are finite, so setting them cannot fail.
             let _ = ax.set_limits(axis, lo, hi);
-            ax.set_autoscale(axis, on);
+            ax.set_axis_autoscale_on(axis, on);
         }
         ax.view_init(self.angles.elev, self.angles.azim, self.angles.roll);
     }
@@ -237,7 +237,7 @@ mod tests {
         stack.back();
         stack.restore(&fig);
         assert_eq!(ax.view(), ViewAngles::default());
-        assert!(ax.autoscale(Axis3::Z), "autoscaling comes back too");
+        assert!(ax.autoscale_on(Axis3::Z), "autoscaling comes back too");
         stack.forward();
         stack.restore(&fig);
         assert_eq!((ax.view().roll, ax.zlim()), (30.0, (0.0, 5.0)));

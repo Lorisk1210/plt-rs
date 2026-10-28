@@ -280,10 +280,9 @@ impl TexFiles {
 /// The Type 1 face of the font file at `path`, as FreeType opens it.
 fn type1_face(path: &Path) -> Result<Arc<Type1Face>, TexError> {
     if is_pk(path) {
-        return Err(TexError::Unsupported(format!(
-            "{} is a PK bitmap font, which cannot be drawn",
-            path.display()
-        )));
+        return Err(TexError::PkFont {
+            path: path.display().to_string(),
+        });
     }
     TextEngine::global()
         .database()

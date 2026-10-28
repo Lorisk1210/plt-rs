@@ -40,16 +40,6 @@ use crate::vector::{
     CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
 };
 
-/// Why PostScript output with `text.usetex` fails.
-fn usetex_unsupported() -> TexError {
-    TexError::Unsupported(
-        "PostScript output with text.usetex needs LaTeX's psfrag package, dvips and Ghostscript \
-         (matplotlib's _print_figure_tex), which plt-rs does not run; save as PDF, SVG or PNG \
-         instead"
-            .to_owned(),
-    )
-}
-
 /// Settings of a PostScript document.
 #[derive(Clone, Debug, PartialEq)]
 #[expect(
@@ -180,7 +170,7 @@ impl PsRenderer {
     /// `psfrag`, `dvips` and Ghostscript).
     pub fn finish(self) -> Result<String, VectorError> {
         if self.options.usetex {
-            return Err(usetex_unsupported().into());
+            return Err(TexError::PostScriptOutput.into());
         }
         self.write_document()
     }

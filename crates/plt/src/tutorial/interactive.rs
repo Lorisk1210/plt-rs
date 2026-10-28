@@ -17,9 +17,10 @@
 //! under it.
 //!
 //! The keyboard has matplotlib's shortcuts: `h` home, `left` and `right`
-//! back and forward, `p` pan, `o` zoom, `g` grid, `l` and `k` log scales
-//! on y and x, `s` save, `f` full screen, `ctrl+c` copy the figure, `q`
-//! close, `F1` the list of shortcuts. The `keymap.*` settings rebind them.
+//! back and forward (as do the mouse's back and forward buttons), `p`
+//! pan, `o` zoom, `g` grid, `l` and `k` log scales on y and x, `s` save,
+//! `f` full screen, `ctrl+c` copy the figure, `q` close, `F1` the list of
+//! shortcuts. The `keymap.*` settings rebind them.
 //!
 //! ```no_run
 //! use plt::prelude::*;

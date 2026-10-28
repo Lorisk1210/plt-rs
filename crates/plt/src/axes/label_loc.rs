@@ -1,7 +1,12 @@
-//! Where an axis label sits along its axis: anywhere ([`LabelLoc`]), and
-//! as matplotlib names it for the x and y axis ([`XLabelLoc`],
+//! Where an axis label sits along its axis: on any axis ([`LabelLoc`]),
+//! and as matplotlib names it for the x and y axis ([`XLabelLoc`],
 //! [`YLabelLoc`]: the `loc` of `set_xlabel` and `set_ylabel`, and
 //! `xaxis.labellocation` and `yaxis.labellocation`).
+//!
+//! [`Axis::set_label_loc`](super::Axis::set_label_loc) takes either: the
+//! per-axis names convert into a [`LabelLoc`], and keep matplotlib's
+//! spelling of each rcParam, so that `rc::get` gives back what `rc::set`
+//! took.
 
 use plt_text::HAlign;
 

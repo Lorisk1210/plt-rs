@@ -50,13 +50,15 @@
 //! assert!(!FigureLook::Matplotlib.params().axes_grid);
 //! ```
 //!
-//! ```no_run
+//! ```
 //! use plt::look::{self, Appearance, ChromeLook, FigureLook};
 //! // matplotlib's figures, plt-rs' windows.
 //! look::set_appearance(Appearance {
 //!     figures: FigureLook::Matplotlib,
 //!     chrome: ChromeLook::Modern,
 //! });
+//! assert_eq!(look::appearance().figures, FigureLook::Matplotlib);
+//! assert!(!plt::rc::params().axes_grid, "threads now start from matplotlib's defaults");
 //! ```
 
 use std::fmt;

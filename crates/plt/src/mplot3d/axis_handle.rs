@@ -17,6 +17,7 @@ use crate::ticker::{
     AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator, ScalarFormatter,
     TickerError,
 };
+use crate::units::AxisValues;
 
 /// One axis of a 3-D axes, from [`Axes3D::xaxis`], [`Axes3D::yaxis`],
 /// [`Axes3D::zaxis`] or [`Axes3D::axis`].
@@ -27,7 +28,7 @@ use crate::ticker::{
 /// ```
 /// use plt::figure::Figure;
 /// let ax = Figure::new().subplot_3d();
-/// ax.zaxis().set_ticks(&[0.0, 0.5, 2.0]).set_ticklabels(["low", "mid", "high"])?;
+/// ax.zaxis().set_ticks([0.0, 0.5, 2.0]).set_ticklabels(["low", "mid", "high"])?;
 /// assert_eq!(ax.zlim(), (-0.020833333333333332, 2.0));
 /// let ticks = ax.zaxis().ticks()?;
 /// assert_eq!(ticks.major[2].label, "high");
@@ -191,20 +192,23 @@ impl Axis3D {
         })
     }
 
-    /// Puts the major ticks exactly at `ticks`, widening the view of this
-    /// axis and of the axes sharing it to include them without changing
-    /// their autoscaling (matplotlib's `Axis.set_ticks`).
-    pub fn set_ticks(&self, ticks: &[f64]) -> &Self {
-        self.include_ticks_in_view(ticks);
-        self.set_major_locator(FixedLocator::new(ticks.to_vec()))
+    /// Puts the major ticks exactly at `ticks`, converted on this axis
+    /// (numbers, dates, category names or user values), widening the view
+    /// of this axis and of the axes sharing it to include them without
+    /// changing their autoscaling (matplotlib's `Axis.set_ticks`).
+    pub fn set_ticks(&self, ticks: impl Into<AxisValues>) -> &Self {
+        let ticks = self.convert_units(ticks);
+        self.include_ticks_in_view(&ticks);
+        self.set_major_locator(FixedLocator::new(ticks))
     }
 
-    /// Puts the minor ticks exactly at `ticks`, widening the view as
-    /// [`Axis3D::set_ticks`] does (matplotlib's `set_ticks(...,
+    /// Puts the minor ticks exactly at `ticks`, converted and widening the
+    /// view as [`Axis3D::set_ticks`] does (matplotlib's `set_ticks(...,
     /// minor=True)`).
-    pub fn set_minor_ticks(&self, ticks: &[f64]) -> &Self {
-        self.include_ticks_in_view(ticks);
-        self.set_minor_locator(FixedLocator::new(ticks.to_vec()))
+    pub fn set_minor_ticks(&self, ticks: impl Into<AxisValues>) -> &Self {
+        let ticks = self.convert_units(ticks);
+        self.include_ticks_in_view(&ticks);
+        self.set_minor_locator(FixedLocator::new(ticks))
     }
 
     /// matplotlib's `_set_tick_locations` widening the view intervals.
@@ -240,7 +244,7 @@ impl Axis3D {
     /// ```
     /// use plt::figure::Figure;
     /// let ax = Figure::new().subplot_3d();
-    /// ax.xaxis().set_minor_ticks(&[0.25]).set_minor_ticklabels(["quarter"])?;
+    /// ax.xaxis().set_minor_ticks([0.25]).set_minor_ticklabels(["quarter"])?;
     /// assert_eq!(ax.xaxis().ticks()?.minor[0].label, "quarter");
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
@@ -457,9 +461,9 @@ mod tests {
     #[test]
     fn fixed_ticks_widen_the_view_and_take_labels() {
         let ax = Figure::new().subplot_3d();
-        ax.xaxis().set_ticks(&[-1.0, 3.0]);
+        ax.xaxis().set_ticks([-1.0, 3.0]);
         assert_eq!(ax.xlim(), (-1.0, 3.0));
-        assert!(ax.autoscale(Axis3::X), "set_ticks leaves autoscaling on");
+        assert!(ax.autoscale_on(Axis3::X), "set_ticks leaves autoscaling on");
         assert!(ax.xaxis().set_ticklabels(["a"]).is_err());
         ax.xaxis().set_ticklabels(["a", "b"]).unwrap();
         let labels: Vec<String> = ax
@@ -471,6 +475,16 @@ mod tests {
             .map(|t| t.label)
             .collect();
         assert_eq!(labels, ["a", "b"]);
+    }
+
+    #[test]
+    fn fixed_ticks_convert_on_the_axis() {
+        let ax = Figure::new().subplot_3d();
+        ax.plot([0.0, 1.0], [0.0, 1.0], ["low", "high"]).unwrap();
+        ax.zaxis().set_ticks(["high"]).set_minor_ticks(["low"]);
+        assert_eq!(ax.zaxis().ticklocs(false).unwrap(), [1.0]);
+        assert_eq!(ax.zaxis().ticklocs(true).unwrap(), [0.0]);
+        assert_eq!(ax.zaxis().ticklabels(false).unwrap(), ["high"]);
     }
 
     #[test]

@@ -31,8 +31,8 @@
 //!    configuration file.
 //! 6. [`layout`]: several axes in one figure (grids, mosaics, gridspecs,
 //!    subfigures), constrained layout, colorbars, shared axes and insets.
-//! 7. [`text`]: titles, labels, free text, annotations with arrows, and
-//!    mathematical notation.
+//! 7. [`text`]: titles, labels, free text, annotations with arrows,
+//!    mathematical notation, and text typeset by LaTeX.
 //! 8. [`scales`]: logarithmic and other scales, choosing where ticks go
 //!    and how they read, and dates on an axis.
 //! 9. [`saving`]: the output formats and the options of saving:
@@ -95,9 +95,10 @@
 //!
 //! writes each figure as a PNG file and an `index.html` showing them
 //! section by section. The chapters name the gallery entries that go
-//! further than their examples by function and file: "`line_plot` in
-//! `lines.rs`" is the function in `crates/plt/examples/gallery/lines.rs`
-//! that draws `target/gallery/line_plot.png`.
+//! further than their examples by name and file: "`line_plot` in
+//! `lines.rs`" is drawn by a function in
+//! `crates/plt/examples/gallery/lines.rs`, to
+//! `target/gallery/line_plot.png`.
 //!
 //! # After the tutorial
 //!

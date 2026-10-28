@@ -28,6 +28,22 @@ pub enum TexEngine {
     LatexDvipng,
 }
 
+impl TexEngine {
+    /// The engine's `text.latex.engine` name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Latex => "latex",
+            Self::LatexDvipng => "latex+dvipng",
+        }
+    }
+}
+
+impl std::fmt::Display for TexEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 impl std::str::FromStr for TexEngine {
     type Err = String;
 

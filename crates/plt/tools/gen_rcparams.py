@@ -158,6 +158,8 @@ KEYWORDS = {
     "svg.fonttype": "SvgFontType",
     "animation.html": "HtmlRepr",
     "animation.frame_format": "FrameFormat",
+    "text.latex.engine": "TexEngine",
+    "pgf.texsystem": "PgfTexSystem",
 }
 
 # Fixed-length lists (`_listify_validator(..., n=N)`): element type by name.
@@ -259,12 +261,10 @@ def main():
         if name == "ValidateInStrings":
             allowed = sorted(validator.valid.values()) if isinstance(validator.valid, dict) else sorted(validator.valid)
             choices = f"(&[{', '.join(rust_str(a) for a in allowed)}])"
-            rust_type, check = KEYWORDS.get(key, "String"), None
-            if rust_type == "String":
-                if validator.ignorecase:
-                    raise SystemExit(f"{key} ignores case: give it a type in KEYWORDS")
-                check = f"validate::one_of{choices}"
-            elif validator.ignorecase:
+            if key not in KEYWORDS:
+                raise SystemExit(f"{key} is a keyword parameter: give it a type in KEYWORDS")
+            rust_type, check = KEYWORDS[key], None
+            if validator.ignorecase:
                 parser = f"validate::choice_ignore_case{choices}"
             else:
                 parser = f"validate::choice{choices}"
@@ -295,6 +295,7 @@ def main():
         "};",
         "use crate::colors::Color;",
         "use crate::contour::ContourAlgorithm;",
+        "use crate::figure::PgfTexSystem;",
         "use crate::fonts::{FontSize, FontStretch, FontWeight};",
         "use crate::gui::{MacosxWindowMode, ToolbarKind};",
         "use crate::image::{InterpolationStage, Origin};",
@@ -307,6 +308,7 @@ def main():
         "use crate::units::DateConverter;",
         "use plt_render::{CapStyle, JoinStyle, PageOrientation, Paper, SvgFontType};",
         "use plt_text::mathtext::{Fontset, MathFallback, MathFont};",
+        "use plt_text::tex::TexEngine;",
         "use plt_text::{HAlign, VAlign};",
         "",
         "rc_params! {",

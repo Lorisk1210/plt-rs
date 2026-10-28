@@ -6,6 +6,7 @@
 
 use plt_render::{PageOrientation, Paper, SvgFontType};
 use plt_text::mathtext::{Fontset, MathFallback, MathFont};
+use plt_text::tex::TexEngine;
 use plt_text::{HAlign, VAlign};
 
 use super::value::RcValue;
@@ -14,6 +15,7 @@ use crate::axes::{
     Shading, TickDirection, TickLevel, TitleLocation, WhichAxis, XLabelLoc, YLabelLoc,
 };
 use crate::contour::ContourAlgorithm;
+use crate::figure::PgfTexSystem;
 use crate::fonts::{FontStretch, FontWeight};
 use crate::gui::{MacosxWindowMode, ToolbarKind};
 use crate::image::{InterpolationStage, Origin};
@@ -55,9 +57,11 @@ rc_via_str!(
     Origin,
     PageOrientation,
     Paper,
+    PgfTexSystem,
     RotationStyle,
     Shading,
     SvgFontType,
+    TexEngine,
     TextHinting,
     TickDirection,
     TickLevel,

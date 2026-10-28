@@ -92,6 +92,10 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("colors.TwoSlopeNorm.autoscale", |args| {
         norms::autoscale("TwoSlopeNorm", args, false)
     }),
+    Op::new("colors.TwoSlopeNorm.autoscale_None", |args| {
+        norms::autoscale("TwoSlopeNorm", args, true)
+    }),
+    Op::new("colors.TwoSlopeNorm.scaled", norm_ops::two_slope_scaled),
     Op::new("colors.CenteredNorm.__call__", |args| {
         norms::call("CenteredNorm", args)
     }),

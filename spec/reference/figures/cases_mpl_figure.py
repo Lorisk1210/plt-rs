@@ -258,6 +258,7 @@ classic("subplot_mosaic_basic_int")(functools.partial(
     _titled_mosaic, layout=[[1, 1, 2], [3, 4, 2]]))
 
 
+# TestSubplotMosaic.test_all_nested
 @classic("subplot_mosaic_all_nested")
 def _(fig):
     x = [["A", "B"], ["C", "D"]]
@@ -274,6 +275,7 @@ def _(fig):
     _titled_mosaic(fig, [["F"], [x]])
 
 
+# TestSubplotMosaic.test_nested_tuple
 @classic("subplot_mosaic_nested_tuple")
 def _(fig):
     xt = (("A", "B", "B"), ("C", "C", "D"))
@@ -308,12 +310,14 @@ def _(fig):
     )
 
 
+# TestSubplotMosaic.test_single_str_input
 classic("subplot_mosaic_single_str_input_1")(
     lambda fig: fig.subplot_mosaic("AAA\nBBB"))
 classic("subplot_mosaic_single_str_input_2")(
     lambda fig: fig.subplot_mosaic("ABC\nDEF"))
 
 
+# TestSubplotMosaic.test_hashable_keys
 @classic("subplot_mosaic_hashable_keys")
 def _(fig):
     fig.subplot_mosaic([[object(), object()]])
@@ -881,6 +885,8 @@ def _(fig):
     ax.set_xlabel("X axis")
 
 
+# test_bbox_inches_tight_suptitle_non_default (its baseline image is named
+# "suptile")
 @image_test("bbox_inches_tight_suptile_non_default", rc=TIGHT_BBOX)
 def _(fig):
     fig.subplots()

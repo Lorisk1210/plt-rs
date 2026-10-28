@@ -140,6 +140,8 @@ def test_legend_locations():
                       ("tuple_text", [0.481, "go blue"])]:
         _case(f"test_loc_invalid_tuple_exception/{name}", [SUBPLOT, [0, "legend",
                                                                      {"loc": loc, **labels}]])
+    # test_loc_valid_tuple gives the same locations as tuples, which JSON
+    # spells as lists.
     for loc in [[0.481, 0.442], [1, 2]]:
         _case(f"test_loc_valid_list/{loc}", [SUBPLOT, [0, "legend", {"loc": loc, **labels}],
                                              ["@1", "get_texts"]])
@@ -168,23 +170,30 @@ def test_label_colors():
         SUBPLOT, *rows, [0, "legend", {"labelcolor": ["r", "g", "b"]}],
         ["@4", "get_texts.get_color"],
     ])
-    for rule, keyword in [("linecolor", "color"), ("markeredgecolor", "markeredgecolor"),
-                          ("markerfacecolor", "markerfacecolor")]:
+    for name, rc_name, rule, keyword in [
+            ("test_legend_labelcolor_linecolor", "test_legend_labelcolor_rcparam_linecolor",
+             "linecolor", "color"),
+            ("test_legend_labelcolor_markeredgecolor",
+             "test_legend_labelcolor_rcparam_markeredgecolor", "markeredgecolor", "markeredgecolor"),
+            ("test_legend_labelcolor_markerfacecolor",
+             "test_legend_labelcolor_rcparam_markerfacecolor", "markerfacecolor", "markerfacecolor")]:
         colored = [[0, "plot", RANGE, [k * v for v in RANGE],
                     {"label": f"#{k}", keyword: color}]
                    for k, color in [(1, "r"), (2, "g"), (3, "b")]]
-        _case(f"test_legend_labelcolor_{rule}", [
+        _case(name, [
             SUBPLOT, *colored, [0, "legend", {"labelcolor": rule}],
             ["@4", "get_texts.get_color"],
         ])
-        _case(f"test_legend_labelcolor_rcparam_{rule}", [
+        _case(rc_name, [
             SUBPLOT, *colored, [0, "legend"], ["@4", "get_texts.get_color"],
         ], rc={"legend.labelcolor": rule})
-    for rule, keyword in [("linecolor", "c"), ("markeredgecolor", "edgecolor")]:
+    for name, rule, keyword in [
+            ("test_legend_pathcollection_labelcolor_linecolor", "linecolor", "c"),
+            ("test_legend_pathcollection_labelcolor_markeredgecolor", "markeredgecolor", "edgecolor")]:
         scattered = [[0, "scatter", RANGE, [k * v for v in RANGE],
                       {"label": f"#{k}", keyword: color}]
                      for k, color in [(1, "r"), (2, "g"), (3, "b")]]
-        _case(f"test_legend_pathcollection_labelcolor_{rule}", [
+        _case(name, [
             SUBPLOT, *scattered, [0, "legend", {"labelcolor": rule}],
             ["@4", "get_texts.get_color"],
         ])

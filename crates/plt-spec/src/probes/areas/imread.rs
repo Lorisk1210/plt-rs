@@ -1,5 +1,6 @@
 //! Probe operations for the `imread` and `imread_webp` areas
-//! (`matplotlib.image.imread` of JPEG, TIFF, GIF and WebP files).
+//! (`matplotlib.image.imread` of JPEG, TIFF, GIF and WebP files, and of
+//! the truncated PNG files both libraries reject).
 
 use plt::image::{ImageData, imread_bytes};
 use plt_codec::base64;

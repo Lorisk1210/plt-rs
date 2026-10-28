@@ -59,3 +59,20 @@ def test_mosaics():
                                     ("AB;CD", [1, 2], [1, 2, 3])]:
         probes.probe("figure.subplot_mosaic", _mosaic, mosaic=mosaic, width_ratios=widths,
                      height_ratios=heights)
+
+
+def test_string_parser():
+    """matplotlib's ``TestSubplotMosaic.test_string_parser``: the grids its
+    strings parse to (``Figure._normalize_grid_string``) show in the axes
+    they lay out."""
+    for mosaic in ("ABC", "AB;CC", "AB;CC;DE", """
+                         ABC
+                         """, """
+                         AB
+                         CC
+                         """, """
+                         AB
+                         CC
+                         DE
+                         """):
+        probes.probe("figure.subplot_mosaic", _mosaic, mosaic=mosaic)

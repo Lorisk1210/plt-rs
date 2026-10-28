@@ -261,6 +261,28 @@ impl Axis {
             .with::<AxesState, _>(|axes| axes.axis(self.name).visible)
     }
 
+    /// Includes or leaves out the axis' tick labels, label and offset
+    /// text when layouts (constrained and tight) make room for the axes
+    /// (matplotlib's `Axis.set_in_layout`); a tight `savefig` still counts
+    /// them.
+    ///
+    /// ```
+    /// let ax = plt::figure::Figure::new().subplot();
+    /// ax.xaxis().set_in_layout(false);
+    /// assert!(!ax.xaxis().in_layout() && ax.yaxis().in_layout());
+    /// ```
+    pub fn set_in_layout(&self, in_layout: bool) -> &Self {
+        self.update(|axis| axis.in_layout = in_layout);
+        self
+    }
+
+    /// Whether layouts make room for the axis' texts.
+    pub fn in_layout(&self) -> bool {
+        self.axes
+            .raw()
+            .with::<AxesState, _>(|axes| axes.axis(self.name).in_layout)
+    }
+
     /// Colours the axis with its decorations: the spines along it (on both
     /// sides), the major ticks and their labels, and the axis label
     /// (matplotlib's `SecondaryAxis.set_color`, also its `color` keyword

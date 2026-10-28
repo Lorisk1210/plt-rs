@@ -155,7 +155,8 @@ impl FigureState {
         let layout = LayoutContext::new(self);
         if state.decorations.axis_on {
             for name in [AxisName::X, AxisName::Y] {
-                if state.axis(name).visible {
+                let axis = state.axis(name);
+                if axis.visible && (axis.in_layout || !for_layout_only) {
                     let painter = AxisPainter::new(axes, state, name);
                     boxes.extend(axis_tight_bbox(layout, &painter, for_layout_only));
                 }

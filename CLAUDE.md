@@ -88,6 +88,13 @@ must reproduce them.
   against documents matplotlib writes for it then and there), and
   `cargo xtask render PREFIX...` to write a case's rendering plus a diff
   against its golden PNG to `spec/out/` for inspection.
+* Coverage of matplotlib's own tests: `cargo xtask mpl-tests [--strict]`
+  sorts every `def test_*` of `matplotlib/tests` into ported (named or
+  cited, with or without `test_`, in `spec/reference` or
+  `crates/plt-spec/src`), not applicable (listed in
+  `spec/reference/not_applicable.txt` as `test_file.py::test_name:
+  reason`) and unaccounted. `--strict` fails on unaccounted tests and on
+  ledger lines naming a test that is gone or ported.
 * `cargo xtask render --look modern|modern-dark PREFIX...` renders cases
   in plt-rs' own looks instead, to `spec/out/look-<look>/` (no goldens, so
   no diff): the way to review how the modern looks treat a feature.

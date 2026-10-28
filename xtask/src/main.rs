@@ -7,6 +7,7 @@
 //! cargo xtask render --look LOOK PREFIX...       render cases in a plt-rs look to spec/out/look-LOOK
 //! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
 //! cargo xtask bench [PREFIX...] [--reference]     timings of large workloads (vs matplotlib)
+//! cargo xtask mpl-tests [--strict]               matplotlib's own tests: ported, n/a or unaccounted
 //! ```
 #![forbid(unsafe_code)]
 #![expect(
@@ -16,6 +17,7 @@
 )]
 
 mod bench;
+mod mpl_tests;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -38,6 +40,7 @@ fn main() -> ExitCode {
         }
         Some((command, rest)) if command == "vectors" => vectors(rest),
         Some((command, rest)) if command == "bench" => bench::run(rest),
+        Some((command, rest)) if command == "mpl-tests" => mpl_tests::run(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
@@ -45,6 +48,7 @@ fn main() -> ExitCode {
             eprintln!("       cargo xtask render --look modern|modern-dark PREFIX...");
             eprintln!("       cargo xtask vectors [PREFIX...] [--formats svg,pdf,ps,pgf]");
             eprintln!("       cargo xtask bench [PREFIX...] [--reference] [--runs N]");
+            eprintln!("       cargo xtask mpl-tests [--strict]");
             ExitCode::FAILURE
         }
     }

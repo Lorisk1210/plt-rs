@@ -2330,6 +2330,15 @@ def test_relative_ticklabel_sizes():
               rc={"xtick.labelsize": size, "ytick.labelsize": size})
 
 
+def test_grid_rcparams():
+    """``test_axis.py::test_grid_rcparams``: ``grid.major.*`` and
+    ``grid.minor.*`` take precedence over ``grid.*``."""
+    probe("Axes.tick_params", _tick_params, draw=True,
+          rc={"axes.grid": True, "axes.grid.which": "both", "ytick.minor.visible": True,
+              "xtick.minor.visible": True, "grid.color": "gray", "grid.minor.color": "red",
+              "grid.major.linestyle": ":", "grid.major.linewidth": 2, "grid.minor.alpha": 0.6})
+
+
 def test_rcparam_grid_minor():
     for which in ["both", "major", "minor"]:
         probe("Axes.tick_params", _tick_params, draw=True,

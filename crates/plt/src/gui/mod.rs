@@ -49,6 +49,7 @@ mod window;
 use std::fmt;
 
 pub use crate::events::GinputOptions;
+pub use keys::format_shortcut;
 pub use plt_ui::Icon;
 pub use session::Session;
 pub use tools::{NAVIGATION_GROUP, ToolError, ToolEvent, ToolKind, ToolSpec};

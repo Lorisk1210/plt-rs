@@ -212,6 +212,7 @@ def _linear(params, vmin, vmax):
     return mticker.LinearLocator(**params).tick_values(vmin, vmax)
 
 
+# TestLinearLocator.test_zero_numticks
 def test_linear_locator():
     probe("ticker.LinearLocator.tick_values", _linear, params={"numticks": 3}, vmin=-0.8, vmax=0.2)
     probe("ticker.LinearLocator.tick_values", _linear, params={"numticks": 0}, vmin=-0.8, vmax=0.2)
@@ -224,12 +225,15 @@ def test_linear_presets():
               vmax=vmax)
 
 
+# TestMultipleLocator.test_basic_with_offset
 def test_multiple_locator():
     for params in ({"base": 3.147}, {"base": 3.147, "offset": 1.2}):
         probe("ticker.MultipleLocator.tick_values", multiple_tick_values, params=params, vmin=-7,
               vmax=10)
 
 
+# TestMultipleLocator.test_view_limits_round_numbers,
+# test_view_limits_round_numbers_with_offset and test_view_limits_single_bin
 def test_multiple_view_limits():
     probe("ticker.MultipleLocator.view_limits", multiple_view_limits, params={"base": 3.147},
           dmin=-5, dmax=5, rc=classic(**{"axes.autolimit_mode": "data"}))
@@ -254,6 +258,7 @@ def test_log_locator_basic():
     probe("ticker.LogLocator.tick_values", log_tick_values, params={"base": 2}, vmin=1, vmax=100)
 
 
+# TestLogLocator.test_switch_to_autolocator
 def test_log_switch_to_autolocator():
     probe("ticker.LogLocator.tick_values", log_tick_values, params={"subs": "all"}, vmin=0.45,
           vmax=0.55)
@@ -263,6 +268,7 @@ def test_log_switch_to_autolocator():
     probe("ticker.LogLocator.tick_values", log_tick_values, params={"subs": "auto"}, vmin=10, vmax=20)
 
 
+# TestLogLocator.test_tick_values_correct and test_tick_values_not_empty
 def test_log_tick_values():
     probe("ticker.LogLocator.tick_values", log_tick_values, params={"subs": [1, 2, 5]}, vmin=1,
           vmax=1e7)
@@ -291,11 +297,13 @@ def logit(params, lims):
                  vmax=lims[1])
 
 
+# TestLogitLocator.test_basic_major
 def test_logit_basic_major():
     for lims in LOGIT_BASIC:
         logit({"nbins": 100}, lims)
 
 
+# TestLogitLocator.test_maxn_major
 def test_logit_maxn_major():
     for lims in LOGIT_MAXN:
         for nbins in (4, 8, 16):
@@ -304,6 +312,7 @@ def test_logit_maxn_major():
                   params={"nbins": nbins, "steps": [1, 2, 5, 10]}, vmin=lims[0], vmax=lims[1])
 
 
+# TestLogitLocator.test_nbins_major
 def test_logit_nbins_and_minor():
     for lims in LOGIT_BASIC + LOGIT_MAXN:
         basic_needed = int(-np.floor(np.log10(lims[0]))) * 2 + 1
@@ -313,6 +322,7 @@ def test_logit_nbins_and_minor():
                 logit({"nbins": nbins, "minor": True}, lims)
 
 
+# TestLogitLocator.test_nonsingular_ok and test_nonsingular_nok
 def test_logit_nonsingular():
     acceptable = [*(2.5 ** np.arange(-3, 0)), *(1 - 2.5 ** np.arange(-3, 0))]
     for a, b in itertools.product(acceptable, repeat=2):
@@ -323,6 +333,7 @@ def test_logit_nonsingular():
             probe("ticker.LogitLocator.nonsingular", logit_nonsingular, params={}, vmin=vmin, vmax=vmax)
 
 
+# TestIndexLocator.test_tick_values_not_exceeding_vmax
 def test_index_tick_values_not_exceeding_vmax():
     for params, vmax in [({"base": 1, "offset": 0}, 4), ({"base": 1, "offset": 0.5}, 4),
                          ({"base": 2, "offset": 0}, 5)]:
@@ -336,6 +347,7 @@ def _symlog_call(params, view):
     return locator()
 
 
+# TestSymmetricalLogLocator.test_extending
 def test_symlog_locator():
     params = {"base": 10, "linthresh": 1}
     for vmin, vmax in [(0, 1), (-1, 1)]:
@@ -350,6 +362,8 @@ def test_symlog_locator():
               vmin=vmin, vmax=vmax)
 
 
+# TestAsinhLocator.test_linear_values, test_wide_values, test_symmetrizing and
+# test_base_rounding
 def test_asinh_locator():
     for params, ranges in [
         ({"linear_width": 100, "numticks": 11, "base": 0}, [(-1, 1), (-0.1, 0.1), (-0.01, 0.01)]),
@@ -372,6 +386,8 @@ def test_asinh_locator():
 # ---------------------------------------------------------------------------
 
 
+# TestScalarFormatter.test_set_use_offset_float, test_set_use_offset_bool and
+# test_set_use_offset_int
 def test_scalar_use_offset():
     def get_use_offset(useOffset=None):
         formatter = mticker.ScalarFormatter()
@@ -455,6 +471,7 @@ PPRINT_VALUES = [3.141592654e-05, 0.0003141592654, 0.003141592654, 0.03141592654
                  1e-05, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000]
 
 
+# TestLogFormatter.test_pprint
 def test_log_formatter_pprint():
     for domain in (0.001, 0.015, 0.5, 5, 100, 1000000.0):
         for value in PPRINT_VALUES:
@@ -463,6 +480,7 @@ def test_log_formatter_pprint():
                   value=value, domain=domain)
 
 
+# TestLogFormatter.test_LogFormatter_call and test_LogFormatter_call_tiny
 def test_log_formatter_call():
     for value in (1, 10, 100, 1000, 1e-323, 2e-323, 10e-323, 11e-323):
         log_call("LogFormatter", params={}, values=[value], view=[1, 10])
@@ -489,6 +507,7 @@ def test_logit_formatter_basic_and_invalid():
     logit_call(params=params, locs=DECADES, values=[-1, -0.5, -0.1, 1.1, 1.5, 2])
 
 
+# TestLogitFormatter.test_variablelength
 def test_logit_formatter_variable_length():
     for x in 1 / (1 + np.exp(-np.linspace(-7, 7, 10))):
         for n in (10, 20, 50, 100, 200, 1000, 2000, 5000, 10000):
@@ -497,6 +516,7 @@ def test_logit_formatter_variable_length():
                            values=[x, x + 1 / n])
 
 
+# TestLogitFormatter.test_minor_vs_major
 def test_logit_formatter_minor_vs_major():
     cases = [
         (True, (5e-8, 1 - 5e-8), (25, 75)),
@@ -717,30 +737,36 @@ def format_data(method, **scene):
     return on_axes(f"axis.Formatter.{method}", _format_data(method), axis="x", **scene)
 
 
+# TestAutoMinorLocator.test_first_and_last_minorticks
 def test_auto_minor_basic():
     ticklocs(x={"lim": [0, 1.39]}, minorticks_on=True)
     for lim in ([-1.9, 1.9], [-5, 5]):
         ticklocs(x={"lim": lim, "minor": ["AutoMinorLocator"]})
 
 
+# TestAutoMinorLocator.test_low_number_of_majorticks
 def test_auto_minor_low_number_of_majorticks():
     for count in (0, 1):
         ticklocs(x={"lim": [0, 5], "ticks": np.linspace(0, 5, count).tolist(),
                     "minor": ["AutoMinorLocator"]}, minorticks_on=True)
 
 
+# TestAutoMinorLocator.test_number_of_minor_ticks
 def test_auto_minor_number_of_minor_ticks():
     for step in (1, 2, 2.5, 5, 10):
         ticklocs(x={"lim": [0, step], "ticks": [0, step], "minor": ["AutoMinorLocator"]},
                  minorticks_on=True)
 
 
+# TestAutoMinorLocator.test_additional
 def test_auto_minor_additional():
     for lim in [(0, 1.39), (0, 0.139), (0, 0.11e-19), (0, 0.112e-12), (-2.0e-07, -3.3e-08),
                 (1.20e-06, 1.42e-06), (-1.34e-06, -1.44e-06), (-8.76e-07, -1.51e-06)]:
         ticklocs(axis="y", y={"lim": list(lim)}, minorticks_on=True)
 
 
+# TestAutoMinorLocator.test_number_of_minor_ticks_auto and
+# test_number_of_minor_ticks_int
 def test_auto_minor_ndivs():
     for use_rcparam in (False, True):
         for lim in ((0, 1.39), (0, 0.139)):
@@ -757,6 +783,7 @@ def test_auto_minor_ndivs():
                 ticklocs(axis=axis, rc=rc, x=config, y=config)
 
 
+# TestLogLocator.test_polar_axes
 def test_log_polar_axes():
     ticklocs(axis="y", minor=False, projection="polar", y={"scale": "log", "lim": [1, 100]})
 
@@ -791,6 +818,7 @@ OFFSET_DATA = [
 ]
 
 
+# TestScalarFormatter.test_offset_value
 def test_scalar_offset_value():
     for left, right in OFFSET_DATA:
         for lim in ([left, right], [right, left]):
@@ -823,6 +851,7 @@ def test_log_formatter_format_data():
             format_data(method, value=value, x={"scale": "log"})
 
 
+# TestLogFormatter.test_sublabel
 def test_log_formatter_sublabel():
     config = {
         "scale": "log",

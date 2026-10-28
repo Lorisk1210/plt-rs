@@ -43,6 +43,8 @@ And these:
 ``colors.from_levels_and_colors.with_extremes`` {levels, colors, extend,
     bad, values, masked} -> ``cmap(norm(values))`` rows after
     ``cmap.with_extremes(bad=bad)``; with ``masked`` the values are masked.
+``colors.TwoSlopeNorm.scaled`` {params, values} -> ``[before, after]``:
+    ``norm.scaled()`` before and after ``norm(values)``.
 ``colors.CenteredNorm`` {params, steps} -> ``{vmin, vmax, halfrange,
     vcenter}`` after each step: ``["call", values]`` (``norm(values)``) or
     ``[attribute, value]`` assigning ``vcenter``, ``halfrange``, ``vmin`` or
@@ -235,17 +237,25 @@ def test_colormap_invalid():
     probes.probe("colormaps.sample", sample, name="plasma", x=[-INF, -1, 0, NAN, .7, 2, INF])
 
 
-def test_bad_under_over():
-    extremes = {"bad": "c", "under": "m", "over": "y"}
-    probes.probe("colors.ListedColormap", listed, colors=["r", "g", "b"], **extremes)
+EXTREMES = {"bad": "c", "under": "m", "over": "y"}
+
+
+def test_ListedColormap_bad_under_over():
+    probes.probe("colors.ListedColormap", listed, colors=["r", "g", "b"], **EXTREMES)
+
+
+def test_LinearSegmentedColormap_bad_under_over():
     cdict = {
         "red": [(0., 0., 0.), (0.5, 1., 1.), (1., 1., 1.)],
         "green": [(0., 0., 0.), (0.25, 0., 0.), (0.75, 1., 1.), (1., 1., 1.)],
         "blue": [(0., 0., 0.), (0.5, 0., 0.), (1., 1., 1.)],
     }
     probes.probe("colors.LinearSegmentedColormap", _segmented,
-                 segmentdata={k: [list(row) for row in v] for k, v in cdict.items()}, **extremes)
-    probes.probe("colors.LinearSegmentedColormap.from_list", from_list, colors=["r", "g", "b"], **extremes)
+                 segmentdata={k: [list(row) for row in v] for k, v in cdict.items()}, **EXTREMES)
+
+
+def test_LinearSegmentedColormap_from_list_bad_under_over():
+    probes.probe("colors.LinearSegmentedColormap.from_list", from_list, colors=["r", "g", "b"], **EXTREMES)
 
 
 def _with_alpha(colors, alpha, x):
@@ -299,18 +309,28 @@ def test_set_cmap_mismatched_name():
     probes.probe("colormaps.register.get", _register_get, name="viridis", over="r", as_name="wrong-cmap")
 
 
-def test_linear_segmented_from_list():
+def test_LinearSegmentedColormap_from_list_color_alpha_tuple():
     probes.probe("colors.LinearSegmentedColormap.from_list", from_list,
                  colors=[["red", 0.3], ["0.42", 0.1], "green"], N=3)
     probes.probe("colors.to_rgba_array", to_rgba_array, c=[["red", 0.3], ["0.42", 0.1], "green"])
+
+
+def test_LinearSegmentedColormap_from_list_invalid_inputs():
     for colors in ([[0.42, "blue"], [.1, .1, .1, .1]], ["blue", [0.42, "red"]],
                    ["blue", [.1, .1, .1, .1], ["red", 2]], [[0, "red"], [1.1, "blue"]],
                    [[0.52, "red"], [0.42, "blue"]]):
         error = probes.probe("colors.LinearSegmentedColormap.from_list", from_list, colors=colors)
         assert isinstance(error, ValueError)
-    for colors in ([[0, "red"], [0.6, "blue"], [1, "green"]],
-                   [[0, "red"], [0.6, "red"], [0.6, "blue"], [1, "green"]]):
-        probes.probe("colors.LinearSegmentedColormap.from_list", from_list, colors=colors, N=11)
+
+
+def test_LinearSegmentedColormap_from_list_value_color_tuple():
+    probes.probe("colors.LinearSegmentedColormap.from_list", from_list,
+                 colors=[[0, "red"], [0.6, "blue"], [1, "green"]], N=11)
+
+
+def test_LinearSegmentedColormap_from_list_repeat_values():
+    probes.probe("colors.LinearSegmentedColormap.from_list", from_list,
+                 colors=[[0, "red"], [0.6, "red"], [0.6, "blue"], [1, "green"]], N=11)
 
 
 # ---------------------------------------------------------------------------
@@ -404,8 +424,11 @@ def test_lognorm_invalid():
         assert isinstance(norm_inverse("LogNorm", params, 1), ValueError)
 
 
-def test_lognorm():
+def test_LogNorm():
     norm_call("LogNorm", {"clip": True, "vmax": 5}, [1, 6])
+
+
+def test_LogNorm_inverse():
     params = {"vmin": 0.1, "vmax": 10}
     norm_call("LogNorm", params, [0.5, 0.4])
     norm_call("LogNorm", params, 0.4)
@@ -413,7 +436,7 @@ def test_lognorm():
     norm_inverse("LogNorm", params, [0.30103])
 
 
-def test_power_norm():
+def test_PowerNorm():
     a = [0, 0.5, 1, 1.5]
     norm_call("PowerNorm", {"gamma": 1}, a)
     norm_call("Normalize", {}, a)
@@ -433,7 +456,7 @@ def test_power_norm():
     norm_call("PowerNorm", {**clipped, "clip": False}, [5, 2], mask=[True, False], clip=True)
 
 
-def test_power_norm_translation_invariance():
+def test_PowerNorm_translation_invariance():
     norm_call("PowerNorm", {"vmin": 0, "vmax": 1, "gamma": 3}, [0, 0.5, 1])
     norm_call("PowerNorm", {"vmin": -2, "vmax": -1, "gamma": 3}, [-2, -1.5, -1])
 
@@ -487,25 +510,85 @@ def test_func_norm():
     norm_inverse("LogNorm", {"vmin": 0.1, "vmax": 10}, [0.2, 5, 10])
 
 
-def test_two_slope_norm():
+def _two_slope_error(vmin, vcenter, vmax):
+    error = norm_call("TwoSlopeNorm", {"vmin": vmin, "vcenter": vcenter, "vmax": vmax}, [0.0])
+    assert isinstance(error, ValueError)
+
+
+def test_TwoSlopeNorm_autoscale():
     probes.probe("colors.TwoSlopeNorm.autoscale", _autoscale("TwoSlopeNorm", "autoscale"),
                  params={"vcenter": 20}, data=[10, 20, 30, 40])
-    norm_call("TwoSlopeNorm", {"vcenter": 2, "vmin": 0, "vmax": None}, [1, 2, 3, 4, 5])
-    norm_call("TwoSlopeNorm", {"vcenter": 2, "vmin": None, "vmax": 10}, [1, 2, 3, 4, 5])
+
+
+def test_TwoSlopeNorm_autoscale_None_vmin():
+    params = {"vcenter": 2, "vmin": 0, "vmax": None}
+    probes.probe("colors.TwoSlopeNorm.autoscale_None", _autoscale("TwoSlopeNorm", "autoscale_None"),
+                 params=params, data=[1, 2, 3, 4, 5])
+    norm_call("TwoSlopeNorm", params, [1, 2, 3, 4, 5])
+
+
+def test_TwoSlopeNorm_autoscale_None_vmax():
+    params = {"vcenter": 2, "vmin": None, "vmax": 10}
+    probes.probe("colors.TwoSlopeNorm.autoscale_None", _autoscale("TwoSlopeNorm", "autoscale_None"),
+                 params=params, data=[1, 2, 3, 4, 5])
+    norm_call("TwoSlopeNorm", params, [1, 2, 3, 4, 5])
+
+
+def _scaled(params, values):
+    norm = mcolors.TwoSlopeNorm(**params)
+    before = norm.scaled()
+    norm(np.asarray(values, float))
+    return [before, norm.scaled()]
+
+
+def test_TwoSlopeNorm_scale():
+    probes.probe("colors.TwoSlopeNorm.scaled", _scaled, params={"vcenter": 2}, values=[1, 2, 3, 4])
     norm_call("TwoSlopeNorm", {"vcenter": 2}, [1, 2, 3, 4])
+
+
+def test_TwoSlopeNorm_scaleout_center():
     norm_call("TwoSlopeNorm", {"vcenter": 0}, [0, 1, 2, 3, 5])
+
+
+def test_TwoSlopeNorm_scaleout_center_max():
     norm_call("TwoSlopeNorm", {"vcenter": 0}, [0, -1, -2, -3, -5])
+
+
+def test_TwoSlopeNorm_Even():
     norm_call("TwoSlopeNorm", {"vmin": -1, "vcenter": 0, "vmax": 4},
               [-1.0, -0.5, 0.0, 1.0, 2.0, 3.0, 4.0])
+
+
+def test_TwoSlopeNorm_Odd():
     norm_call("TwoSlopeNorm", {"vmin": -2, "vcenter": 0, "vmax": 5},
               [-2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-    for vmin, vcenter, vmax in ((-2, -2, 2), (-2, 2, 2), (10, 0, 20), (10, 0, 5), (10, 25, 20)):
-        error = norm_call("TwoSlopeNorm", {"vmin": vmin, "vcenter": vcenter, "vmax": vmax}, [0.0])
-        assert isinstance(error, ValueError)
+
+
+def test_TwoSlopeNorm_VminEqualsVcenter():
+    _two_slope_error(-2, -2, 2)
+
+
+def test_TwoSlopeNorm_VmaxEqualsVcenter():
+    _two_slope_error(-2, 2, 2)
+
+
+def test_TwoSlopeNorm_VminGTVcenter():
+    _two_slope_error(10, 0, 20)
+
+
+def test_TwoSlopeNorm_TwoSlopeNorm_VminGTVmax():
+    _two_slope_error(10, 0, 5)
+
+
+def test_TwoSlopeNorm_VcenterGTVmax():
+    _two_slope_error(10, 25, 20)
+
+
+def test_TwoSlopeNorm_premature_scaling():
     assert isinstance(norm_inverse("TwoSlopeNorm", {"vcenter": 2}, [0.1, 0.5, 0.9]), ValueError)
 
 
-def test_symlog_norm():
+def test_SymLogNorm():
     vals = [-30.0, -1.0, 2.0, 6.0]
     params = {"linthresh": 3, "vmax": 5, "linscale": 1.2, "base": E}
     result = norm_call("SymLogNorm", params, vals)
@@ -526,25 +609,36 @@ def _colorbar_ticks(norm):
     return cbar.get_ticks()
 
 
-def test_symlog_norm_colorbar():
-    for params in ({"linthresh": 0.1, "vmin": -1, "vmax": 1, "linscale": 1, "base": E},
-                   {"linthresh": 1e-5, "vmin": -1, "vmax": 1, "base": E}):
-        probes.probe("colorbar.Colorbar.get_ticks", _colorbar_ticks,
-                     norm={"class": "SymLogNorm", "params": params})
+def test_SymLogNorm_colorbar():
+    probes.probe("colorbar.Colorbar.get_ticks", _colorbar_ticks,
+                 norm={"class": "SymLogNorm",
+                       "params": {"linthresh": 0.1, "vmin": -1, "vmax": 1, "linscale": 1, "base": E}})
+
+
+def test_SymLogNorm_single_zero():
+    probes.probe("colorbar.Colorbar.get_ticks", _colorbar_ticks,
+                 norm={"class": "SymLogNorm", "params": {"linthresh": 1e-5, "vmin": -1, "vmax": 1, "base": E}})
 
 
 def test_asinh_norm():
     norm_call("AsinhNorm", {"linear_width": 2, "vmin": -4, "vmax": 4}, np.arange(-3.5, 3.5, 10).tolist())
 
 
-def test_multi_norm():
+def test_multi_norm_creation():
     for norms in ("linear", [], None, ["linear", "bad_norm_name"], ["linear", "linear"]):
         probes.probe("colors.MultiNorm", _multi_attrs, norms=norms)
+
+
+def test_multi_norm_call_vmin_vmax():
     lin_log = ["linear", "log"]
     probes.probe("colors.MultiNorm", _multi_attrs, norms=lin_log, vmin=[1, 1], vmax=[2, 2])
     for key, value in (("vmin", 1), ("vmax", 1), ("vmin", [1, 2, 3]), ("vmax", [1, 2, 3])):
         error = probes.probe("colors.MultiNorm", _multi_attrs, norms=lin_log, **{key: value})
         assert isinstance(error, ValueError)
+
+
+def test_multi_norm_call_clip_inverse():
+    lin_log = ["linear", "log"]
     limits = {"vmin": [1, 1], "vmax": [2, 2]}
     for clip in ([False, False], [True, True], [True, False]):
         probes.probe("colors.MultiNorm.__call__", _multi_call, norms=lin_log, values=[3, 3],
@@ -559,6 +653,10 @@ def test_multi_norm():
         assert isinstance(error, ValueError)
     probes.probe("colors.MultiNorm.inverse", _multi_inverse, norms=lin_log, values=[0.5, 0.5849625007211562],
                  **limits)
+
+
+def test_multi_norm_autoscale():
+    lin_log = ["linear", "log"]
     probes.probe("colors.MultiNorm.autoscale", _multi_autoscale("autoscale"), norms=lin_log,
                  data=[[0, 1, 2, 3], [0.1, 1, 2, 3]])
     two_slope = {"class": "TwoSlopeNorm", "params": {"vcenter": 2, "vmin": 0, "vmax": None}}
@@ -647,13 +745,22 @@ def test_rgb_hsv_round_trip():
         probes.probe("colors.hsv_to_rgb", _hsv_to_rgb, hsv=tt)
         probes.probe("colors.hsv_to_rgb", _hsv_to_rgb, hsv=_rgb_to_hsv(tt).tolist())
         probes.probe("colors.rgb_to_hsv", _rgb_to_hsv, arr=_hsv_to_rgb(tt).tolist())
+
+
+def test_rgb_to_hsv_int():
     probes.probe("colors.rgb_to_hsv", _rgb_to_hsv, arr=[0, 1, 0])
+
+
+def test_hsv_to_rgb_int():
     probes.probe("colors.hsv_to_rgb", _hsv_to_rgb, hsv=[0, 1, 1])
 
 
-def test_color_names_and_cn():
+def test_color_names():
     for name in ("blue", "xkcd:blue", "tab:blue"):
         probes.probe("colors.to_hex", to_hex, c=name)
+
+
+def test_cn():
     for cycle, specs in (("cycler('color', ['blue', 'r'])", ["C0", "C1"]),
                          ("cycler('color', ['xkcd:blue', 'r'])", ["C0", "C1", "C10", "C11"]),
                          ("cycler('color', ['8e4585', 'r'])", ["C0"])):
@@ -664,32 +771,58 @@ def test_color_names_and_cn():
 
 
 def test_conversions():
-    for c in ("none", [], [".2", ".5", ".8"], "red", "rgb"):
+    for c in ("none", [], [".2", ".5", ".8"]):
         probes.probe("colors.to_rgba_array", to_rgba_array, c=c)
     probes.probe("colors.to_rgba", to_rgba, c=[1, 1, 1], alpha=.5)
     probes.probe("colors.to_rgba", to_rgba, c=".1", alpha=.5)
     probes.probe("colors.to_hex", to_hex, c=[.7, .7, .7])
     probes.probe("colors.to_hex", to_hex, c="#1234abcd", keep_alpha=True)
+
+
+def test_to_rgba_array_single_str():
+    probes.probe("colors.to_rgba_array", to_rgba_array, c="red")
+    assert isinstance(probes.probe("colors.to_rgba_array", to_rgba_array, c="rgb"), ValueError)
+
+
+def test_to_rgba_array_2tuple_str():
     probes.probe("colors.to_rgba_array", to_rgba_array, c=["k", "w"], tuple=True)
 
 
-def test_to_rgba_array_alpha():
+def test_to_rgba_array_alpha_array():
     error = probes.probe("colors.to_rgba_array", to_rgba_array, c=[[1, 1, 1]] * 5, ndarray=True,
                          alpha=[1, 1])
     assert isinstance(error, ValueError)
     probes.probe("colors.to_rgba_array", to_rgba_array, c=[[1, 1, 1]] * 2, ndarray=True, alpha=[0.5, 0.6])
     probes.probe("colors.to_rgba_array", to_rgba_array, c=["r", "g"], alpha=[0.5, 0.6])
+
+
+def test_to_rgba_array_accepts_color_alpha_tuple():
     probes.probe("colors.to_rgba_array", to_rgba_array, c=["black", 0.9], tuple=True)
+
+
+def test_to_rgba_array_explicit_alpha_overrides_tuple_alpha():
     probes.probe("colors.to_rgba_array", to_rgba_array, c=["black", 0.9], tuple=True, alpha=0.5)
+
+
+def test_to_rgba_array_error_with_color_invalid_alpha_tuple():
     assert isinstance(probes.probe("colors.to_rgba_array", to_rgba_array, c=["black", 2.0], tuple=True),
                       ValueError)
+
+
+def test_to_rgba_array_none_color_with_alpha_param():
     probes.probe("colors.to_rgba_array", to_rgba_array, c=["blue", "none"], alpha=[1, 1])
 
 
-def test_to_rgba_alpha_tuple():
+def test_to_rgba_accepts_color_alpha_tuple():
     for spec in (["white", 0.5], ["#ffffff", 0.5], ["#ffffff00", 0.5], [[1.0, 1.0, 1.0, 1.0], 0.5]):
         probes.probe("colors.to_rgba", to_rgba, c=spec)
+
+
+def test_to_rgba_explicit_alpha_overrides_tuple_alpha():
     probes.probe("colors.to_rgba", to_rgba, c=["red", 0.1], alpha=0.9)
+
+
+def test_to_rgba_error_with_color_invalid_alpha_tuple():
     assert isinstance(probes.probe("colors.to_rgba", to_rgba, c=["blue", 2.0]), ValueError)
 
 
@@ -700,8 +833,12 @@ def test_failed_conversions():
 
 def test_same_color():
     for c1, c2 in (("k", [0, 0, 0]), ("w", [1, 1, 0]), (["red", "blue"], ["r", "b"]), ("none", "none"),
-                   ("none", "red"), (["r", "g", "b"], ["r"]), (["red", "green"], "none"),
-                   ("#123", "#112233"), ("#123a", "#112233aa")):
+                   ("none", "red"), (["r", "g", "b"], ["r"]), (["red", "green"], "none")):
+        probes.probe("colors.same_color", same_color, c1=c1, c2=c2)
+
+
+def test_hex_shorthand_notation():
+    for c1, c2 in (("#123", "#112233"), ("#123a", "#112233aa")):
         probes.probe("colors.same_color", same_color, c1=c1, c2=c2)
 
 

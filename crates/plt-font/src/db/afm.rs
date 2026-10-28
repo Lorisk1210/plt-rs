@@ -203,6 +203,22 @@ mod tests {
         );
     }
 
+    /// matplotlib's `test_font_manager_weight_normalization`: a weight
+    /// keyword `afmFontProperty` does not know weighs `normal`.
+    #[test]
+    fn unknown_weight_keywords_weigh_normal() {
+        let custom = AfmFont {
+            weight: "custom",
+            ..AFM_FONTS[0]
+        };
+        assert_eq!(custom.weight_value(), Weight::NORMAL);
+        let bold = AFM_FONTS
+            .iter()
+            .find(|font| font.weight == "bold")
+            .expect("a bold font is catalogued");
+        assert_eq!(bold.weight_value(), Weight::BOLD);
+    }
+
     #[test]
     fn generic_and_unknown_families() {
         assert_eq!(find(&FontQuery::families(["serif"])), "pncr8a.afm");

@@ -1884,6 +1884,16 @@
   },
   {
    "op": "image.imread",
+   "args": {"data": "iVBORw0KGgoAAAANSUhEUgAAAoA=", "format": "png", "case": "first 20 bytes of a saved figure, from a buffer"},
+   "error": "OSError"
+  },
+  {
+   "op": "image.imread",
+   "args": {"data": "iVBORw0KGgoAAAANSUhEUgAAAoA=", "format": "png", "case": "first 20 bytes of a saved figure, from a file"},
+   "error": "OSError"
+  },
+  {
+   "op": "image.imread",
    "args": {
     "data": "SUkqABABAACHCuTXmRvXvMUHvYHbEbmK5jGtmPhEtVPTTZRk0TSmnaxBjkaFVmPBbWFLyn8S5k2jF/CnvSzhLdwRy1jYK8Uz3CTEJrspxFjIPr/vqEeKMWhFlys9VnXafwq8JLUN38XWEOFy0S/PVs4jy4XJRL0Ezk/f8qtbqRyeSqk+ZnKaQFJ1o1WOJqbf0B205b8oy4bpFsW86TvOrO9Cx52tRtMIvUi5YHhjrL5sSMZtSVO7maMWpNbYHcS66xDHj9ozxIL4N827w1bKTbcyzgCVPNIEamS8lEFe0XdBg85xrgGba7YVrb3hH5Ap0CareN0+rx/FQN1WoELB+4Vc6WlwXsEHSF3ZWCF4vGsJAAABBAABAAAACwAAAAEBBAABAAAABgAAAAIBAwAEAAAAggEAAAMBAwABAAAAAQAAAAYBAwABAAAAAgAAABEBBAABAAAACAAAABUBAwABAAAABAAAABYBBAABAAAABgAAABcBBAABAAAACAEAAAAAAAAIAAgACAAIAA==",
     "format": "tiff",

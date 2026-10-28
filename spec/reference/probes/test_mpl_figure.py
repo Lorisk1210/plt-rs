@@ -88,7 +88,9 @@ Ops
     sharex?, sharey?, per_subplot_kw?, set_scales?} -> the labels in the
     order the mosaic lists them, the labels of ``fig.axes`` in order, the
     width and height ratios of each axes' grid, and with ``set_scales`` the
-    scales of every axes after setting them on ``"A"``.
+    scales of every axes after setting them on ``"A"``. ``per_subplot_kw``
+    is a dict, or a list of ``[key, kwargs]`` pairs whose key is a label or
+    a list of labels (a tuple key).
 ``SubplotSpec.get_gridspec``  {} -> whether the axes of
     ``test_reused_gridspec`` share one grid.
 ``SubFigure.set_dpi``  {} -> a subfigure's and its figure's dpi before and
@@ -101,7 +103,7 @@ Ops
     and at 300 dpi.
 ``SubFigure.remove``  {} -> the number of subfigures left after removing
     one of a 2 x 2 grid, and whether ``subfigs`` lists a 4 x 3 grid in row
-    order.
+    order (``test_subfigure_row_order``).
 ``Figure.add_subplot``  {projections} -> for two ``add_subplot(1, 1, 1)``
     with these projections: whether they are distinct and their names.
 ``Figure.add_axes``  {projections} -> the same for ``add_axes``.
@@ -230,12 +232,27 @@ def test_clf_keyword():
     ])
 
 
-def test_figsize():
-    for figsize in [[6, 4], [6, 4, "in"], [5.08, 2.54, "cm"], [600, 400, "px"], [None, 4],
-                    [6, None], [None, None], [6, 4, "um"], [1, float("nan")], [-1, 1],
-                    [float("inf"), 1]]:
+def _figure_size(*figsizes):
+    for figsize in figsizes:
         probe("pyplot.figure", _pyplot,
               steps=[["figure", {"figsize": figsize, "dpi": 100}], ["get_size_inches"]])
+
+
+def test_figsize():
+    _figure_size([6, 4], [6, 4, "in"], [5.08, 2.54, "cm"], [600, 400, "px"], [1, float("nan")],
+                 [-1, 1], [float("inf"), 1])
+
+
+def test_figsize_partial_none():
+    _figure_size([None, 4], [6, None])
+
+
+def test_figsize_both_none():
+    _figure_size([None, None])
+
+
+def test_figsize_invalid_unit():
+    _figure_size([6, 4, "um"])
 
 
 def _align_labels(layout=None, seed=None):
@@ -705,12 +722,18 @@ def _mosaic_layout(mosaic):
     return mosaic
 
 
+def _per_subplot_kw(entries):
+    if entries is None or isinstance(entries, dict):
+        return entries
+    return {tuple(key) if isinstance(key, list) else key: kw for key, kw in entries}
+
+
 def _subplot_mosaic(mosaic, width_ratios=None, height_ratios=None, sharex=False, sharey=False,
                     per_subplot_kw=None, set_scales=None):
     fig = plt.figure()
     axd = fig.subplot_mosaic(_mosaic_layout(mosaic), width_ratios=width_ratios,
                              height_ratios=height_ratios, sharex=sharex, sharey=sharey,
-                             per_subplot_kw=per_subplot_kw)
+                             per_subplot_kw=_per_subplot_kw(per_subplot_kw))
     label = {id(ax): key for key, ax in axd.items()}
     out = {"keys": list(axd), "axes": [label[id(ax)] for ax in fig.axes],
            "width_ratios": {k: list(ax.get_gridspec().get_width_ratios()) for k, ax in axd.items()},
@@ -725,19 +748,43 @@ def _subplot_mosaic(mosaic, width_ratios=None, height_ratios=None, sharex=False,
 NESTED_ORDER = [["A", [["B", "C"], ["D", "E"]]], ["F", "G"], [".", [["H", [["I"], ["."]]]]]]
 
 
-def test_subplot_mosaic():
+def test_nested_width_ratios():
     probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic=[["A", [["B"], ["C"]]]],
           width_ratios=[2, 1])
+
+
+def test_nested_height_ratios():
     probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic=[["A", [["B"], ["C"]]], ["D", "D"]],
           height_ratios=[1, 2])
+
+
+def test_fail():
     for mosaic in [[["A", "."], [".", "A"]], [["A", "B"], [None, [["A", "B"], ["C", "D"]]]],
                    "AAA\nc\nBBB", [["A", [["B", "C"], ["D"]]], ["E", "E"]]]:
         probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic=mosaic)
+
+
+def test_user_order():
     for pattern in ['abc', 'cab', 'bca', 'cba', 'acb', 'bac']:
         probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic=pattern)
+
+
+def test_nested_user_order():
     probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic=NESTED_ORDER)
+
+
+def test_share_all():
     probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic=NESTED_ORDER, sharex=True,
           sharey=True, set_scales=["log", "logit"])
+
+
+def test_per_subplot_kw_expander():
+    for entries in ([["A", {}], ["B", {}]], [[["A", "B"], {}]], [[["A", "B"], {}], ["B", {}]],
+                    [["B", {}], [["A", "B"], {}]]):
+        probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic="AB", per_subplot_kw=entries)
+
+
+def test_extra_per_subplot_kw():
     probe("Figure.subplot_mosaic", _subplot_mosaic, mosaic="A",
           per_subplot_kw={"B": {"projection": "polar"}})
 
@@ -837,10 +884,17 @@ def _added(method, projections):
     return {"distinct": axes[0] is not axes[1], "names": [ax.name for ax in fig.axes]}
 
 
+ADDED_PROJECTIONS = [[None, None], ["polar", "polar"], ["polar", None]]
+
+
 def test_add_subplot_kwargs():
-    for projections in [[None, None], ["polar", "polar"], ["polar", None]]:
+    for projections in ADDED_PROJECTIONS:
         probe("Figure.add_subplot", lambda projections: _added("add_subplot", projections),
               projections=projections)
+
+
+def test_add_axes_kwargs():
+    for projections in ADDED_PROJECTIONS:
         probe("Figure.add_axes", lambda projections: _added("add_axes", projections),
               projections=projections)
 

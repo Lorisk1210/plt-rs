@@ -113,6 +113,52 @@ pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
     Some(name)
 }
 
+/// A key name of the `keymap.*` rcParams as the help window shows it
+/// (matplotlib's `ToolHelpBase.format_shortcut`): a single character as
+/// it is, any other name with `Shift+` spelled out before an upper-case
+/// key and every word capitalised.
+///
+/// ```
+/// use plt::gui::format_shortcut;
+/// assert_eq!(format_shortcut("ctrl+A"), "Ctrl+Shift+A");
+/// assert_eq!(format_shortcut("pageup"), "Pageup");
+/// assert_eq!(format_shortcut("a"), "a");
+/// ```
+pub fn format_shortcut(key: &str) -> String {
+    if key.chars().nth(1).is_none() {
+        return key.to_owned();
+    }
+    let mut spelled = String::with_capacity(key.len() + 6);
+    let mut after_plus = false;
+    for c in key.chars() {
+        if after_plus && c.is_ascii_uppercase() {
+            spelled.push_str("Shift+");
+        }
+        after_plus = c == '+';
+        spelled.push(c);
+    }
+    title_case(&spelled)
+}
+
+/// Python's `str.title`: every run of cased letters starts upper case and
+/// goes on lower case.
+fn title_case(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut in_word = false;
+    for c in text.chars() {
+        let cased = c.is_lowercase() || c.is_uppercase();
+        if cased && !in_word {
+            out.extend(c.to_uppercase());
+        } else if cased {
+            out.extend(c.to_lowercase());
+        } else {
+            out.push(c);
+        }
+        in_word = cased;
+    }
+    out
+}
+
 /// The action bound to key `name` under `rc`.
 pub(crate) fn action(name: &str, rc: &RcParams) -> Option<KeyAction> {
     [
@@ -189,6 +235,14 @@ mod tests {
             key_name(&press(Key::Left, Modifiers::NONE)).as_deref(),
             Some("left")
         );
+    }
+
+    #[test]
+    fn degenerate_shortcuts_format_without_panicking() {
+        assert_eq!(format_shortcut(""), "");
+        assert_eq!(format_shortcut("+A"), "+Shift+A");
+        assert_eq!(format_shortcut("ctrl+\u{c9}"), "Ctrl+\u{c9}");
+        assert_eq!(format_shortcut("ctrl+"), "Ctrl+");
     }
 
     #[test]

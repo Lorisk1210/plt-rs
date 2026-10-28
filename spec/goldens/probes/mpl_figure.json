@@ -190,6 +190,18 @@
   {"op": "Figure.subplot_mosaic", "args": {"mosaic": "AAA\nc\nBBB"}, "error": "ValueError"},
   {
    "op": "Figure.subplot_mosaic",
+   "args": {"mosaic": "AB", "per_subplot_kw": [["A", {}], ["B", {}]]},
+   "value": {"keys": ["A", "B"], "axes": ["A", "B"], "width_ratios": {"A": [1, 1], "B": [1, 1]}, "height_ratios": {"A": [1], "B": [1]}}
+  },
+  {"op": "Figure.subplot_mosaic", "args": {"mosaic": "AB", "per_subplot_kw": [["B", {}], [["A", "B"], {}]]}, "error": "ValueError"},
+  {"op": "Figure.subplot_mosaic", "args": {"mosaic": "AB", "per_subplot_kw": [[["A", "B"], {}], ["B", {}]]}, "error": "ValueError"},
+  {
+   "op": "Figure.subplot_mosaic",
+   "args": {"mosaic": "AB", "per_subplot_kw": [[["A", "B"], {}]]},
+   "value": {"keys": ["A", "B"], "axes": ["A", "B"], "width_ratios": {"A": [1, 1], "B": [1, 1]}, "height_ratios": {"A": [1], "B": [1]}}
+  },
+  {
+   "op": "Figure.subplot_mosaic",
    "args": {"mosaic": "abc"},
    "value": {
     "keys": ["a", "b", "c"],

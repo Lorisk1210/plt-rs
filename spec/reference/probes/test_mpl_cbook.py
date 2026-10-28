@@ -81,11 +81,18 @@ def _lognormal_data():
 
 def test_boxplot_stats():
     data = _lognormal_data()
+    # Test_boxplot_stats.test_form_main_list, test_form_each_dict,
+    # test_form_dict_keys and test_results_baseline
     bxp(X=data, X_ndarray=True)
+    # test_results_whiskers_float
     bxp(X=data, X_ndarray=True, whis=3)
+    # test_results_whiskers_range
     bxp(X=data, X_ndarray=True, whis=[0, 100])
+    # test_results_whiskers_percentiles
     bxp(X=data, X_ndarray=True, whis=[5, 95])
+    # test_results_withlabels
     bxp(X=data, X_ndarray=True, labels=["Test1", "2", "Aardvark", "4"])
+    # test_label_error
     bxp(X=data, X_ndarray=True, labels=["1", "2"])
 
 
@@ -100,14 +107,40 @@ def _steps(name):
     return lambda x, ys: np.asarray(fn(x, *ys)).tolist()
 
 
-def test_steps():
+def _probe_steps(name):
     x = list(range(4))
     y1 = list(range(4))
-    y2 = y1[::-1]
-    for name in ("pts_to_prestep", "pts_to_poststep", "pts_to_midstep"):
-        for ys in ([y1, y2], [y1], []):
-            probes.probe(f"cbook.{name}", _steps(name), x=[] if not ys else x, ys=ys)
-        probes.probe(f"cbook.{name}", _steps(name), x=[], ys=[[]])
+    for ys in ([y1, y1[::-1]], [y1]):
+        probes.probe(f"cbook.{name}", _steps(name), x=x, ys=ys)
+
+
+def _probe_empty_steps(name):
+    for ys in ([], [[]]):
+        probes.probe(f"cbook.{name}", _steps(name), x=[], ys=ys)
+
+
+def test_to_prestep():
+    _probe_steps("pts_to_prestep")
+
+
+def test_to_prestep_empty():
+    _probe_empty_steps("pts_to_prestep")
+
+
+def test_to_poststep():
+    _probe_steps("pts_to_poststep")
+
+
+def test_to_poststep_empty():
+    _probe_empty_steps("pts_to_poststep")
+
+
+def test_to_midstep():
+    _probe_steps("pts_to_midstep")
+
+
+def test_to_midstep_empty():
+    _probe_empty_steps("pts_to_midstep")
 
 
 def test_step_fails():

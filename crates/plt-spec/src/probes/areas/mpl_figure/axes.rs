@@ -9,6 +9,7 @@ use plt::axes::{Axes, ProjectionKind, ScatterOptions};
 use plt::dates::{AutoDateFormatter, DateTime};
 use plt::events::{Location, MouseEvent};
 use plt::figure::{Figure, Mosaic, MosaicOptions, Share};
+use plt::projections::ProjectionSpec;
 use plt::ticker::ScalarFormatter;
 
 use super::super::mosaic::nested;
@@ -171,6 +172,46 @@ pub(super) fn formatter_after_removal(args: Args<'_>) -> Outcome {
     })
 }
 
+/// The per-label projections of `per_subplot_kw`: a dict of label to
+/// keywords, or `[key, keywords]` pairs whose key is a label or a list of
+/// labels (a tuple key, one entry per label); keywords without a
+/// `projection` keep the default one.
+fn per_subplot(json: &Json) -> Result<Vec<(String, ProjectionSpec)>, ProbeError> {
+    let bad = || ProbeError::BadArgs(format!("bad per_subplot_kw {json}"));
+    let entries: Vec<(Json, &Json)> = match json {
+        Json::Object(entries) => entries
+            .iter()
+            .map(|(label, kw)| (Json::String(label.clone()), kw))
+            .collect(),
+        Json::Array(pairs) => pairs
+            .iter()
+            .map(|pair| match pair.as_array() {
+                Some([key, kw]) => Ok((key.clone(), kw)),
+                _ => Err(bad()),
+            })
+            .collect::<Result<_, _>>()?,
+        _ => return Err(bad()),
+    };
+    let mut out = Vec::new();
+    for (key, kw) in entries {
+        let projection = match kw.get("projection").and_then(Json::as_str) {
+            None => ProjectionSpec::default(),
+            Some(name) => ProjectionKind::from_name(name).ok_or_else(bad)?.into(),
+        };
+        let labels = match key {
+            Json::String(label) => vec![label.clone()],
+            Json::Array(labels) => labels
+                .iter()
+                .map(|label| label.as_str().map(str::to_owned))
+                .collect::<Option<_>>()
+                .ok_or_else(bad)?,
+            _ => return Err(bad()),
+        };
+        out.extend(labels.into_iter().map(|label| (label, projection.clone())));
+    }
+    Ok(out)
+}
+
 /// A mosaic's labels, the order of the figure's axes, their grids' ratios
 /// and, with `set_scales`, every axes' scales after setting them on `"A"`.
 pub(super) fn subplot_mosaic(args: Args<'_>) -> Outcome {
@@ -181,22 +222,14 @@ pub(super) fn subplot_mosaic(args: Args<'_>) -> Outcome {
             other => return Err(ProbeError::BadArgs(format!("bad mosaic {other}"))),
         };
         let ratios = |key: &str| args.get(key).map(|_| args.f64_vec(key)).transpose();
-        let per_subplot = args
-            .get("per_subplot_kw")
-            .and_then(Json::as_object)
-            .unwrap_or(&[])
-            .iter()
-            .filter_map(|(label, kw)| {
-                let kind = ProjectionKind::from_name(kw.get("projection")?.as_str()?)?;
-                Some((label.clone(), kind.into()))
-            })
-            .collect();
         let options = MosaicOptions {
             width_ratios: ratios("width_ratios")?,
             height_ratios: ratios("height_ratios")?,
             sharex: args.opt_bool("sharex")?.unwrap_or(false),
             sharey: args.opt_bool("sharey")?.unwrap_or(false),
-            per_subplot,
+            per_subplot: args
+                .get("per_subplot_kw")
+                .map_or_else(|| Ok(Vec::new()), per_subplot)?,
             ..MosaicOptions::default()
         };
         let fig = Figure::new();

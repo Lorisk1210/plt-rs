@@ -185,11 +185,17 @@ def _tri_bool(filled):
     return run
 
 
-def test_contour_shape():
+def test_contour_shape_error():
     for scene in SHAPE_ERRORS:
         assert isinstance(probe("Axes.contour", contour_op, scene=scene), TypeError)
-    for scene in ("valid_1d", "valid_2d"):
-        probe("Axes.contour", contour_op, scene=scene)
+
+
+def test_contour_shape_1d_valid():
+    probe("Axes.contour", contour_op, scene="valid_1d")
+
+
+def test_contour_shape_2d_valid():
+    probe("Axes.contour", contour_op, scene="valid_2d")
 
 
 def test_contour_no_valid_levels():

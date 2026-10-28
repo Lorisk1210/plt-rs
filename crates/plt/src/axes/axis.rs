@@ -108,6 +108,10 @@ impl Default for LevelDefaults {
 /// The scale and tick helpers are reference counted because axes sharing
 /// an axis share them (matplotlib shares the `Ticker` and scale objects).
 #[derive(Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors matplotlib's independent boolean Axis attributes"
+)]
 pub(crate) struct AxisState {
     pub(crate) name: AxisName,
     /// The part the axis plays in its projection.
@@ -152,6 +156,9 @@ pub(crate) struct AxisState {
     pub(crate) label: AxisLabel,
     /// Whether ticks, tick labels, the label and the offset text are drawn.
     pub(crate) visible: bool,
+    /// Whether layouts make room for the axis' texts (matplotlib's
+    /// `Axis.set_in_layout`).
+    pub(crate) in_layout: bool,
     /// The side the offset text sits on (matplotlib's tick position for
     /// x, offset position for y).
     pub(crate) offset_side: SpineSide,
@@ -218,6 +225,7 @@ impl AxisState {
                 bbox: None,
             },
             visible: true,
+            in_layout: true,
             offset_side: SpineSide::of(name, false),
             offset_visible: true,
             remove_overlapping_locs: true,

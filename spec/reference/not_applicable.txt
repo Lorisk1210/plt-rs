@@ -1,0 +1,255 @@
+# matplotlib 3.11's own tests that cannot apply to plt-rs, with why.
+#
+# One `test_file.py::test_name: reason` per line, grouped by test file.
+# `cargo xtask mpl-tests` counts every other test as ported when the spec
+# (spec/reference, crates/plt-spec/src) names it; `--strict` fails when a
+# test is neither ported nor listed here, or when a line names a test that
+# no longer exists or that the spec ports.
+
+# --- test_api.py: matplotlib's private `_api` helpers ----------------------
+test_api.py::test_check_in_list_numpy: `_api.check_in_list` on numpy arrays; plt-rs validates choices with enums
+test_api.py::test_check_shape: `_api.check_shape`, numpy shape validation; plt-rs takes typed grids and point lists
+test_api.py::test_classproperty_deprecation: `_api.classproperty` and its deprecation machinery
+test_api.py::test_delete_parameter: `_api.delete_parameter`, Python deprecation decorators
+test_api.py::test_deprecate_privatize_attribute: `_api.deprecate_privatize_attribute`, Python deprecation decorators
+test_api.py::test_deprecation_alternative: `_api.deprecated` docstrings, Python deprecation decorators
+test_api.py::test_empty_check_in_list: `_api.check_in_list` called without a value (TypeError), a Python calling convention
+test_api.py::test_make_keyword_only: `_api.make_keyword_only`, Python keyword-only deprecations
+test_api.py::test_unsupported_method: `_api.unsupported_method`, hiding an inherited method of a Python subclass
+test_api.py::test_warn_deprecated: `_api.warn_deprecated`, Python's warnings machinery
+
+# --- test_artist.py --------------------------------------------------------
+test_artist.py::test_artist_inspector_get_aliases: `ArtistInspector`, Python introspection of setter names; plt-rs properties are typed methods
+test_artist.py::test_artist_inspector_get_valid_values: `ArtistInspector` parsing the "ACCEPTS" lines of Python docstrings
+test_artist.py::test_artist_set_duplicate_aliases_raises: `Artist.set(lw=..., linewidth=...)` keyword aliases; plt-rs has one typed setter per property, so a property cannot be given twice
+test_artist.py::test_artist_set_invalid_property_raises: `Artist.set(not_a_property=...)`; an unknown property is a compile error with plt-rs' typed setters
+
+# --- test_axes.py ----------------------------------------------------------
+test_axes.py::test_pandas_bar_align_center: pandas
+test_axes.py::test_pandas_errorbar_indexing: pandas
+test_axes.py::test_pandas_index_shape: pandas
+test_axes.py::test_pandas_indexing_dates: pandas
+test_axes.py::test_pandas_indexing_hist: pandas
+test_axes.py::test_pandas_pcolormesh: pandas
+
+# --- test_axis.py ----------------------------------------------------------
+test_axis.py::test_tick_labelcolor_array: constructs an `XTick` directly with a numpy colour array; plt-rs ticks are made by their axis and colours are typed
+test_axis.py::test_translate_tick_params_reverse: `Axis._translate_tick_params`, a private translation of Python keyword names
+
+# --- GUI backends plt-rs does not have (Qt, Tk, GTK, macOS, notebooks) ----
+test_backend_gtk3.py::test_save_figure_return: GTK3 backend
+test_backend_inline.py::test_ipynb: the IPython inline backend in a Jupyter notebook
+test_backend_macosx.py::test_cached_renderer: macOS backend
+test_backend_macosx.py::test_create_figure_on_worker_thread_fails: macOS backend
+test_backend_macosx.py::test_ipython: macOS backend in IPython
+test_backend_macosx.py::test_save_figure_return: macOS backend
+test_backend_macosx.py::test_savefig_rcparam: macOS backend's save dialog
+test_backend_nbagg.py::test_ipynb: the nbagg backend in a Jupyter notebook
+test_backend_qt.py::test_canvas_reinit: Qt backend
+test_backend_qt.py::test_correct_key: Qt backend's key translation
+test_backend_qt.py::test_device_pixel_ratio_change: Qt backend
+test_backend_qt.py::test_double_resize: Qt backend
+test_backend_qt.py::test_fig_close: Qt backend
+test_backend_qt.py::test_fig_sigint_override: Qt backend's SIGINT handling
+test_backend_qt.py::test_figureoptions: Qt backend's figure options dialog
+test_backend_qt.py::test_figureoptions_with_datetime_axes: Qt backend's figure options dialog
+test_backend_qt.py::test_form_widget_get_with_datetime_and_date_fields: Qt backend's formlayout widgets
+test_backend_qt.py::test_ipython: Qt backend in IPython
+test_backend_qt.py::test_save_figure_return: Qt backend
+test_backend_qt.py::test_subplottool: Qt backend's subplot tool
+test_backend_tk.py::test_canvas_focus: Tk backend
+test_backend_tk.py::test_dpi_change_triggers_resize: Tk backend
+test_backend_tk.py::test_figuremanager_cleans_own_mainloop: Tk backend's mainloop
+test_backend_tk.py::test_figuremanager_preserves_host_mainloop: Tk backend's mainloop
+test_backend_tk.py::test_missing_back_button: Tk backend's toolbar subclassing
+test_backend_tk.py::test_never_update: Tk backend
+test_backend_tk.py::test_save_figure_return: Tk backend
+test_backends_interactive.py::test_blitting_events: interactive Python backends run in subprocesses (Qt, Tk, GTK, wx, macOS)
+test_backends_interactive.py::test_cross_Qt_imports: Qt bindings
+test_backends_interactive.py::test_fallback_to_different_backend: Python backend selection
+test_backends_interactive.py::test_interactive_backend: interactive Python backends run in subprocesses (Qt, Tk, GTK, wx, macOS)
+test_backends_interactive.py::test_interactive_thread_safety: interactive Python backends and Python threads
+test_backends_interactive.py::test_interactive_timers: the timers of interactive Python backends
+test_backends_interactive.py::test_lazy_auto_backend_selection: Python backend selection
+test_backends_interactive.py::test_lazy_linux_headless: Python backend selection without a display
+test_backends_interactive.py::test_other_signal_before_sigint: SIGINT handling of the Python event loops
+test_backends_interactive.py::test_qt5backends_uses_qt5: Qt bindings
+test_backends_interactive.py::test_qt_missing: Qt bindings
+test_backends_interactive.py::test_sigint: SIGINT handling of the Python event loops
+
+# --- test_backend_pgf.py ---------------------------------------------------
+test_backend_pgf.py::test__metadata_to_str_error: the `\hypersetup` metadata of documents matplotlib compiles with LaTeX; plt-rs writes .pgf pictures and compiles nothing
+test_backend_pgf.py::test_pdf_pages_metadata_check: a multipage PDF compiled by a TeX system (checked with pikepdf); plt-rs' PGF backend compiles nothing
+
+# --- test_backend_registry.py, test_backend_template.py: Python backends --
+test_backend_registry.py::test_backend_for_gui_framework: the backend registry maps GUI frameworks to Python modules
+test_backend_registry.py::test_backend_normalization: backend module names in the backend registry
+test_backend_registry.py::test_entry_point_identical: backend entry points of installed Python packages
+test_backend_registry.py::test_entry_point_name_duplicate: backend entry points of installed Python packages
+test_backend_registry.py::test_entry_point_name_is_module: backend entry points of installed Python packages
+test_backend_registry.py::test_entry_point_name_shadows_builtin: backend entry points of installed Python packages
+test_backend_registry.py::test_entry_points_inline: backend entry points of installed Python packages
+test_backend_registry.py::test_entry_points_ipympl: backend entry points of installed Python packages
+test_backend_registry.py::test_is_valid_backend: Python backend names and "module://" backends
+test_backend_registry.py::test_list_builtin: the backend registry's list of Python backends
+test_backend_registry.py::test_list_builtin_with_filter: the backend registry's list of Python backends
+test_backend_registry.py::test_list_gui_frameworks: the backend registry's list of GUI frameworks
+test_backend_registry.py::test_load_entry_points_only_if_needed: backend entry points of installed Python packages
+test_backend_registry.py::test_resolve_gui_or_backend: the backend registry's resolution of GUI framework names
+test_backend_registry.py::test_resolve_gui_or_backend_invalid: the backend registry's resolution of GUI framework names
+test_backend_template.py::test_load_case_sensitive: loading a Python backend module by name
+test_backend_template.py::test_load_old_api: loading a Python backend module by name
+test_backend_template.py::test_load_template: loading a Python backend module by name
+test_backend_template.py::test_show_old_global_api: a Python backend module's global `show`
+
+# --- test_backend_webagg.py ------------------------------------------------
+test_backend_webagg.py::test_webagg_core_no_toolbar: `FigureManagerWebAgg._toolbar2_class`, a Python class attribute
+test_backend_webagg.py::test_webagg_fallback: the MPLBACKEND environment variable selecting a Python backend in a subprocess
+
+# --- test_basic.py, test_doc.py, test_getattr.py, test_matplotlib.py -------
+test_basic.py::test_lazy_imports: which Python modules `import matplotlib` loads
+test_basic.py::test_override_builtins: names `pylab` exports over Python builtins
+test_doc.py::test_sphinx_gallery_example_header: matplotlib's documentation build (sphinx-gallery)
+test_getattr.py::test_backend_getattr: module-level `__getattr__` of the Python backend modules
+test_matplotlib.py::test_configdir_uses_localappdata_on_windows: matplotlib's configuration directory on Windows
+test_matplotlib.py::test_configdir_uses_userprofile_on_windows_if_exists: matplotlib's configuration directory on Windows
+test_matplotlib.py::test_get_executable_info_timeout: `_get_executable_info`, probing external programs (LaTeX, Ghostscript) by subprocess
+test_matplotlib.py::test_importable_with__OO: importing the Python package under `python -OO`
+test_matplotlib.py::test_importable_with_no_home: importing the Python package without a home directory
+test_matplotlib.py::test_parse_to_version_info: parsing Python package version strings
+test_matplotlib.py::test_tmpconfigdir_warning: the warning when the Python package falls back to a temporary configuration directory
+test_matplotlib.py::test_use_doc_standard_backends: the list of backends in matplotlib.use's docstring
+
+# --- test_cbook.py ---------------------------------------------------------
+test_cbook.py::test__safe_first_finite_all_inf: `cbook._safe_first_finite`, a Python iteration helper without a counterpart
+test_cbook.py::test__safe_first_finite_all_nan: `cbook._safe_first_finite`, a Python iteration helper without a counterpart
+test_cbook.py::test_bad_first_arg: `cbook.delete_masked_points` given a string; plt-rs drops non-finite points inside the plotting functions, which take typed data
+test_cbook.py::test_callback_complete: `CallbackRegistry` of Python callables held by weak references; plt-rs' event registry holds Rust closures keyed by typed event kinds
+test_cbook.py::test_callback_disconnect: `CallbackRegistry` disconnection by id; plt-rs' event registry holds Rust closures keyed by typed event kinds
+test_cbook.py::test_callback_disconnect_func: `CallbackRegistry.disconnect_func`, disconnecting a Python function object
+test_cbook.py::test_callback_disconnect_func_all_signals: `CallbackRegistry.disconnect_func`, disconnecting a Python function object
+test_cbook.py::test_callback_disconnect_func_redefined: `CallbackRegistry.disconnect_func`, disconnecting a Python function object
+test_cbook.py::test_callback_disconnect_func_selective: `CallbackRegistry.disconnect_func`, disconnecting a Python function object
+test_cbook.py::test_callback_disconnect_func_wrong: `CallbackRegistry.disconnect_func`, disconnecting a Python function object
+test_cbook.py::test_callback_wrong_disconnect: `CallbackRegistry.disconnect` given a string id; plt-rs callback ids are a typed handle
+test_cbook.py::test_callbackregistry_blocking: `CallbackRegistry.blocked`, a Python context manager over string signals
+test_cbook.py::test_callbackregistry_custom_exception_handler: `CallbackRegistry` exception handlers for Python exceptions raised by callbacks
+test_cbook.py::test_callbackregistry_default_exception_handler: `CallbackRegistry` exception handlers for Python exceptions raised by callbacks
+test_cbook.py::test_callbackregistry_signals: `CallbackRegistry` validating string signal names; plt-rs signals are a typed event kind
+test_cbook.py::test_cid_restore: `CallbackRegistry` ids restored after pickling
+test_cbook.py::test_disconnect_cid_with_signal_raises: `CallbackRegistry.disconnect` keyword arguments, a Python calling convention
+test_cbook.py::test_grouper_private: `cbook.Grouper`'s private mapping of weak references
+test_cbook.py::test_index_of_pandas: pandas
+test_cbook.py::test_index_of_xarray: xarray
+test_cbook.py::test_normalize_kwargs_fail: `cbook.normalize_kwargs`, Python keyword aliases; plt-rs uses typed property builders
+test_cbook.py::test_normalize_kwargs_pass: `cbook.normalize_kwargs`, Python keyword aliases; plt-rs uses typed property builders
+test_cbook.py::test_registration_on_non_empty_registry: `CallbackRegistry` pickling with registered callbacks
+test_cbook.py::test_reshape2d_pandas: pandas
+test_cbook.py::test_reshape2d_xarray: xarray
+test_cbook.py::test_safe_first_element_pandas_series: pandas
+test_cbook.py::test_safe_first_element_with_none: `cbook._safe_first_finite` on Python sequences holding None
+test_cbook.py::test_string_seq: `cbook.delete_masked_points` on sequences of strings; plt-rs plotting functions take typed data
+test_cbook.py::test_unpack_to_numpy_from_jax: converting JAX arrays to numpy
+test_cbook.py::test_unpack_to_numpy_from_mlx: converting MLX arrays to numpy
+test_cbook.py::test_unpack_to_numpy_from_tensorflow: converting TensorFlow tensors to numpy
+test_cbook.py::test_unpack_to_numpy_from_torch: converting PyTorch tensors to numpy
+test_cbook.py::test_warn_external_frame_embedded_python: `_api.warn_external` walking Python stack frames of an embedded interpreter
+
+# --- test_compare_images.py, test_testing.py: matplotlib.testing internals -
+test_compare_images.py::test_image_comparison_expect_rms: `matplotlib.testing.compare`'s RMS of baseline images; plt-spec compares to goldens with its own RMS
+test_compare_images.py::test_invalid_input: `matplotlib.testing.compare`'s shape checks
+test_testing.py::test_check_figures_equal_empty_figs: the `check_figures_equal` decorator of matplotlib.testing
+test_testing.py::test_parametrize_with_check_figure_equal: the `check_figures_equal` decorator of matplotlib.testing
+test_testing.py::test_warn_to_fail: matplotlib.testing's pytest warning filters
+test_testing.py::test_wrap_failure: the `check_figures_equal` decorator of matplotlib.testing
+
+# --- test_figure.py --------------------------------------------------------
+test_figure.py::test_add_subplot_subclass: `axes_class` and conflicting `projection`/`polar` keywords; plt-rs has no axes classes and a projection is one ProjectionKind value, so `projection="3d", polar=True` or `projection=42` cannot be written
+test_figure.py::test_clf_not_redefined: the attributes of Python subclasses of FigureBase
+test_figure.py::test_fail_list_of_str: one-dimensional mosaics; a plt-rs Mosaic is rows of cells (Mosaic::new takes Vec<Vec<MosaicCell>>, nested mosaics are Mosaic values), so a 1-D layout cannot be written
+test_figure.py::test_figure_label_replaced: setting the deprecated `Figure.number` attribute; plt-rs figures have no number, pyplot's registry holds them
+test_figure.py::test_figure_no_label: the `Figure.number` attribute of a standalone figure (AttributeError) and its deprecated setter; plt-rs figures have no number, pyplot's registry holds them
+test_figure.py::test_figure_repr: Python's repr
+test_figure.py::test_gridspec_no_mutate_input: a `gridspec_kw` dict left unchanged; plt-rs takes grid options by value (SubplotOverrides is Copy), so the caller's options cannot change
+test_figure.py::test_iterability_axes_argument: the `_as_mpl_axes` protocol of Python projection classes
+test_figure.py::test_savefig_backend: `savefig(backend="module://...")`, loading Python backend modules by name
+test_figure.py::test_savefig_warns: unknown keyword arguments to savefig (TypeError); plt-rs' SaveOptions is a struct whose fields are all known
+test_figure.py::test_too_many_figures: the RuntimeWarning of `figure.max_open_warning`; plt-rs has no warnings channel
+test_figure.py::test_unpickle_with_device_pixel_ratio: pickling
+test_figure.py::test_warn_colorbar_mismatch: a UserWarning for a colorbar of another figure's mappable; plt-rs has no warnings channel
+
+# --- test_font_manager.py --------------------------------------------------
+test_font_manager.py::test_fontentry_dataclass_invalid_path: `FontEntry._repr_html_`, a Jupyter representation of a font file
+
+# --- test_legend.py --------------------------------------------------------
+test_legend.py::test_error_args_kwargs: `fig.legend(handles, labels=...)` mixing positional and keyword arguments (TypeError), a Python calling convention
+test_legend.py::test_error_mixed_args_and_kwargs: `ax.legend(handles, labels=...)` mixing positional and keyword arguments (TypeError), a Python calling convention
+test_legend.py::test_legend_label_three_args: three positional arguments to `fig.legend` (TypeError), a Python calling convention
+test_legend.py::test_legend_positional_handles_only: artists passed where labels go (TypeError); plt-rs' LegendOptions takes handles and labels as separately typed fields
+test_legend.py::test_loc_invalid_type: `loc` given as a dict; plt-rs' LegendLoc is an enum of names, codes and coordinates
+test_legend.py::test_no_warn_big_data_when_loc_specified: the absence of matplotlib's slow-`best` warning (the test fakes the timer); plt-rs has no warnings channel
+test_legend.py::test_shadow_invalid_argument: `shadow="aardvark"`; plt-rs' legend shadow is a typed bool or shadow settings
+test_legend.py::test_warn_big_data_best_loc: the UserWarning matplotlib issues when placing a `best` legend took over a second (the test fakes the timer); plt-rs has no warnings channel and places the legend the same way however long it takes
+
+# --- test_multivariate_colormaps.py ----------------------------------------
+test_multivariate_colormaps.py::test_bivariate_repr_html: `_repr_html_`, a Jupyter display hook; plt-rs colormaps have no notebook representations
+test_multivariate_colormaps.py::test_bivariate_repr_png: `_repr_png_`, a Jupyter display hook; plt-rs colormaps have no notebook representations
+test_multivariate_colormaps.py::test_multivariate_repr_html: `_repr_html_`, a Jupyter display hook; plt-rs colormaps have no notebook representations
+test_multivariate_colormaps.py::test_multivariate_repr_png: `_repr_png_`, a Jupyter display hook; plt-rs colormaps have no notebook representations
+
+# --- test_patheffects.py ---------------------------------------------------
+test_patheffects.py::test_PathEffect_points_to_pixels: matplotlib's PathEffectRenderer, a Python renderer wrapper; plt-rs path effects transform paths inside its renderers, with no wrapper object
+test_patheffects.py::test_SimplePatchShadow_offset: reads the private `_offset` attribute back
+test_patheffects.py::test_patheffects_overridden_methods_open_close_group: a Python RendererBase subclass and the PathEffectRenderer wrapper's method delegation
+
+# --- test_pickle.py --------------------------------------------------------
+test_pickle.py::test_axeswidget_interactive: pickling
+test_pickle.py::test_dynamic_norm: pickling
+test_pickle.py::test_inset_and_secondary: pickling
+test_pickle.py::test_no_pyplot: pickling
+test_pickle.py::test_pickle_load_from_subprocess: pickling
+test_pickle.py::test_standard_norm: pickling
+test_pickle.py::test_unpickle_canvas: pickling
+test_pickle.py::test_vertexselector: pickling
+
+# --- test_preprocess_data.py: the `data=` keyword decorator ----------------
+test_preprocess_data.py::test_compiletime_checks: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_data_parameter_replacement: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_docstring_addition: `_preprocess_data` editing Python docstrings
+test_preprocess_data.py::test_function_call_replace_all: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_function_call_with_dict_data: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_function_call_with_dict_data_not_in_data: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_function_call_with_dict_input: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_function_call_with_pandas_data: pandas
+test_preprocess_data.py::test_function_call_without_data: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_more_args_than_pos_parameter: `_preprocess_data`, the Python decorator behind `data=` keywords
+test_preprocess_data.py::test_no_label_replacements: `_preprocess_data`, the Python decorator behind `data=` keywords
+
+# --- test_quiver.py --------------------------------------------------------
+test_quiver.py::test_barb_copy: a caller's numpy arrays changed after `barbs`; plt-rs takes the VectorField by value, so later changes of the caller's data cannot reach the barbs
+test_quiver.py::test_quiver_copy: a caller's numpy arrays changed after `quiver`; plt-rs takes the VectorField by value, so later changes of the caller's data cannot reach the arrows
+test_quiver.py::test_quiver_key_memory_leak: Python reference counts (memory leak test)
+test_quiver.py::test_quiver_memory_leak: Python reference counts (memory leak test)
+
+# --- test_rcparams.py ------------------------------------------------------
+test_rcparams.py::test_backend_fallback_headful: Python backend selection with a display
+test_rcparams.py::test_backend_fallback_headless_auto_backend: Python backend selection without a display
+test_rcparams.py::test_backend_fallback_headless_invalid_backend: Python backend selection without a display
+
+# --- test_sphinxext.py: matplotlib's Sphinx extension ----------------------
+test_sphinxext.py::test_plot_html_code_caption: the plot directive of matplotlib's Sphinx extension
+test_sphinxext.py::test_plot_html_show_source_link: the plot directive of matplotlib's Sphinx extension
+test_sphinxext.py::test_plot_html_show_source_link_custom_basename: the plot directive of matplotlib's Sphinx extension
+test_sphinxext.py::test_show_source_link_false: the plot directive of matplotlib's Sphinx extension
+test_sphinxext.py::test_show_source_link_true: the plot directive of matplotlib's Sphinx extension
+test_sphinxext.py::test_srcset_version: the plot directive of matplotlib's Sphinx extension
+test_sphinxext.py::test_tinypages: building a Sphinx project with matplotlib's extension
+
+# --- test_subplots.py ------------------------------------------------------
+test_subplots.py::test_dont_mutate_kwargs: `subplot_kw`/`gridspec_kw` dicts left unchanged; plt-rs takes its options by value, so the caller's cannot change
+test_subplots.py::test_old_subplot_compat: the `SubplotBase` class of the Python class hierarchy
+test_subplots.py::test_ratio_overlapping_kws: ratios given both as keywords and in `gridspec_kw` (ValueError); plt-rs has a single field for each ratio list
+
+# --- test_transforms.py ----------------------------------------------------
+test_transforms.py::test_scaledrotation_get_matrix_invalid: the private `_ScaledRotation` transform driven by mocks
+test_transforms.py::test_scaledrotation_initialization: the private attributes of `_ScaledRotation`

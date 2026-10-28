@@ -40,6 +40,7 @@ pub(super) fn call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
         }),
         "get_box_aspect" => Ok(Produced::Value(ax.box_aspect().into())),
         "set_position" => set_position(ax, call),
+        "xaxis.set_in_layout" | "yaxis.set_in_layout" => set_axis_in_layout(ax, call),
         "get_position" => call.opt_bool(0, "original").map(|original| {
             Produced::Value(bbox(if original == Some(true) {
                 ax.original_position()
@@ -162,6 +163,20 @@ fn set_aspect(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
 }
 
 /// matplotlib's `set_position(pos, which='both')`.
+/// `ax.xaxis.set_in_layout(in_layout)` (or `yaxis`).
+fn set_axis_in_layout(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
+    let in_layout = call
+        .opt_bool(0, "in_layout")?
+        .ok_or_else(|| call.bad("in_layout is required"))?;
+    let name = if call.method.starts_with('x') {
+        AxisName::X
+    } else {
+        AxisName::Y
+    };
+    ax.axis_of(name).set_in_layout(in_layout);
+    Ok(Produced::Nothing)
+}
+
 fn set_position(ax: &Axes, call: &Call<'_>) -> Result<Produced, ProbeError> {
     let which = match call.opt_str(1, "which")? {
         None | Some("both") => WhichPosition::Both,

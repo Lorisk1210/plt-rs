@@ -201,6 +201,20 @@ fn limit_callbacks(args: Args<'_>) -> Outcome {
             let calls = calls.borrow();
             return Ok(Json::Array(vec![counts(&calls), limits(&calls.y)]));
         }
+        "set_xticks" => {
+            let ax = fig.subplot();
+            ax.set_xlim(0.5, 1.0).map_err(ProbeError::rejected)?;
+            let (calls, _) = record(&ax);
+            ax.set_xticks(vec![0.0, 100.0]);
+            return Ok(summary(&calls.borrow()));
+        }
+        "set_rticks" => {
+            let ax = fig.polar_subplot();
+            ax.set_ylim(0.5, 1.0).map_err(ProbeError::rejected)?;
+            let (calls, _) = record(&ax);
+            ax.set_rticks(&[1.0, 2.0, 3.0]);
+            return Ok(summary(&calls.borrow()));
+        }
         _ => {}
     }
     let ax = fig.subplot();

@@ -1,4 +1,5 @@
-"""Reading JPEG, TIFF and GIF files (``matplotlib.image.imread``).
+"""Reading JPEG, TIFF and GIF files (``matplotlib.image.imread``), and
+rejecting truncated PNG files.
 
 Area ``imread``. matplotlib opens every file that is not a PNG with
 Pillow's ``Image.open`` and returns ``pil_to_array(image)``. Each probe
@@ -14,7 +15,9 @@ Argument conventions
 * ``data``: the file's bytes in base64.
 * ``format``: ``"jpeg"``, ``"tiff"`` or ``"gif"``, passed as imread's
   ``format``; any value but ``"png"`` makes matplotlib use
-  ``Image.open``, which recognises the file by its contents.
+  ``Image.open``, which recognises the file by its contents. The
+  truncated PNG files of ``test_png.py`` are read as ``"png"``, which
+  both libraries reject.
 * ``case``: a label describing the file (not passed to imread).
 
 Ops
@@ -24,9 +27,11 @@ Ops
     ``(M, N, 4)`` for RGBA; errors are ``{"error": "<ExceptionType>"}``.
 """
 
+import io
 import struct
 import zlib
 
+import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
@@ -632,3 +637,22 @@ def test_gif():
     _probe("gif", "truncated", small[:-6])
     table = 3 << ((small[10] & 7) + 1) if small[10] & 0x80 else 0
     _probe("gif", "no image", small[:13 + table] + b";")
+
+
+# --------------------------------------------------------------------------
+# Truncated PNG files (matplotlib's tests/test_png.py)
+
+def _saved_png():
+    """The PNG ``plt.savefig`` writes of an empty figure."""
+    buffer = io.BytesIO()
+    plt.savefig(buffer)
+    plt.close("all")
+    return buffer.getvalue()
+
+
+def test_truncated_file():
+    _probe("png", "first 20 bytes of a saved figure, from a file", _saved_png()[:20])
+
+
+def test_truncated_buffer():
+    _probe("png", "first 20 bytes of a saved figure, from a buffer", _saved_png()[:20])

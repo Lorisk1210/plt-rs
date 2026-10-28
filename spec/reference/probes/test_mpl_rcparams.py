@@ -295,7 +295,11 @@ def test_rcparams_legend_loc_from_file():
 
 
 def test_validate_sketch():
-    _validate_all("path.sketch", ["1, 2, 3", "(1, 2, 3)", "1", "1 2 3"])
+    _validate_all("path.sketch", ["1, 2, 3", "(1, 2, 3)"])
+
+
+def test_validate_sketch_error():
+    _validate_all("path.sketch", ["1", "1 2 3"])
 
 
 def test_rcparams_path_sketch_from_file():

@@ -105,12 +105,30 @@ struct Connections {
     streams: HashMap<ConnectionId, TcpStream>,
 }
 
+/// A served figure, as its pages show it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ServedFigure {
+    /// Its number.
+    pub(crate) number: u32,
+    /// Whether it is drawn on a dark background, which the modern chrome
+    /// shows in its dark theme.
+    pub(crate) dark: bool,
+}
+
+#[cfg(test)]
+impl ServedFigure {
+    /// Figure `number`, drawn on a dark background when `dark`.
+    pub(crate) const fn new(number: u32, dark: bool) -> Self {
+        Self { number, dark }
+    }
+}
+
 /// What the server's threads share.
 pub(crate) struct Shared {
     /// The channel to the figures' thread.
     inbound: SyncSender<Inbound>,
-    /// The numbers of the served figures.
-    figures: Mutex<Vec<u32>>,
+    /// The served figures, in the order of their numbers.
+    figures: Mutex<Vec<ServedFigure>>,
     /// The client script.
     pub(crate) script: String,
     /// The address the server listens on.
@@ -144,20 +162,28 @@ impl Shared {
         self.inbound.send(message)
     }
 
-    /// Whether figure `number` is served.
-    pub(crate) fn serves(&self, number: u32) -> bool {
-        lock(&self.figures).contains(&number)
+    /// Figure `number`, if it is served.
+    pub(crate) fn figure(&self, number: u32) -> Option<ServedFigure> {
+        lock(&self.figures)
+            .iter()
+            .copied()
+            .find(|figure| figure.number == number)
     }
 
-    /// The numbers of the served figures, in order.
-    pub(crate) fn figure_numbers(&self) -> Vec<u32> {
+    /// Whether figure `number` is served.
+    pub(crate) fn serves(&self, number: u32) -> bool {
+        self.figure(number).is_some()
+    }
+
+    /// The served figures, in the order of their numbers.
+    pub(crate) fn figures(&self) -> Vec<ServedFigure> {
         lock(&self.figures).clone()
     }
 
-    /// Publishes the numbers of the served figures.
-    pub(crate) fn set_figure_numbers(&self, mut numbers: Vec<u32>) {
-        numbers.sort_unstable();
-        *lock(&self.figures) = numbers;
+    /// Publishes the served figures.
+    pub(crate) fn set_figures(&self, mut figures: Vec<ServedFigure>) {
+        figures.sort_unstable_by_key(|figure| figure.number);
+        *lock(&self.figures) = figures;
     }
 
     /// Registers a new connection, unless the server is stopping or full.

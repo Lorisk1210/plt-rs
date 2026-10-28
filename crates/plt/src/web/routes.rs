@@ -135,11 +135,11 @@ pub(crate) fn respond(route: Route, request: &Request, shared: &Shared) -> Respo
                 return Response::error(Status::BadRequest);
             };
             let page = match route {
-                Route::Figure(number) if shared.serves(number) => {
-                    assets::single_figure_page(&ws_uri, number, shared.chrome)
-                }
-                Route::Figure(_) => return Response::error(Status::NotFound),
-                _ => assets::all_figures_page(&ws_uri, &shared.figure_numbers(), shared.chrome),
+                Route::Figure(number) => match shared.figure(number) {
+                    Some(figure) => assets::single_figure_page(&ws_uri, figure, shared.chrome),
+                    None => return Response::error(Status::NotFound),
+                },
+                _ => assets::all_figures_page(&ws_uri, &shared.figures(), shared.chrome),
             };
             Response::ok("text/html; charset=utf-8", page.into_bytes())
         }

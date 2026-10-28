@@ -8,8 +8,8 @@
 
 use plt_core::{Affine2D, Path, Point};
 use plt_text::{
-    BlockLayout, BlockStyle, Language, LineMetrics, LineSpacing, PlacedGlyph, Shaping, TextEngine,
-    TextError, TextRun, TextSource, layout_block,
+    BlockLayout, BlockStyle, Language, LineMetrics, LineSpacing, PlacedGlyph, Shaping,
+    TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine, TextError, TextRun, TextSource, layout_block,
 };
 
 use super::math::{Line, math_style};
@@ -83,13 +83,6 @@ pub fn measure_text(
     line_run(&line, font, dpi, rc).map(|run| metrics(&run))
 }
 
-/// The size text paths are typeset at before scaling to their size
-/// (matplotlib's `TextToPath.FONT_SCALE`).
-const PATH_FONT_SCALE: f64 = 100.0;
-
-/// The resolution text paths are typeset at (`TextToPath.DPI`).
-const PATH_DPI: f64 = 72.0;
-
 /// The outline of one line of `text` with its baseline starting at `xy`,
 /// in the units of `xy` with the font `size` units tall (`None` = the
 /// font's size): typeset with `font` (as mathtext when it holds math and
@@ -107,16 +100,16 @@ pub fn text_path(
 ) -> Result<Path, TextError> {
     let rc = crate::rc::params();
     let mut typeset = font.clone();
-    typeset.size = PATH_FONT_SCALE;
+    typeset.size = TEXT_PATH_FONT_SCALE;
     let run = without_hinting(|| {
         line_run(
             &Line::classify(text, rc.text_parse_math),
             &typeset,
-            PATH_DPI,
+            TEXT_PATH_DPI,
             &rc,
         )
     })?;
-    let scale = size.unwrap_or(font.size) / PATH_FONT_SCALE;
+    let scale = size.unwrap_or(font.size) / TEXT_PATH_FONT_SCALE;
     Ok(run
         .outline(TextEngine::global())
         .transformed(&Affine2D::scaling(scale, scale).translate(xy.x, xy.y)))
@@ -142,7 +135,7 @@ pub fn text_path_tex(
 ) -> Result<Path, TextError> {
     let rc = crate::rc::params();
     let tex = plt_text::tex::TexText::new(tex_line(text), font.request(&rc), tex_manager(&rc)?);
-    let scale = size.unwrap_or(font.size) / PATH_FONT_SCALE;
+    let scale = size.unwrap_or(font.size) / TEXT_PATH_FONT_SCALE;
     Ok(tex
         .text_path()?
         .transformed(&Affine2D::scaling(scale, scale).translate(xy.x, xy.y)))
@@ -190,8 +183,8 @@ impl LaidOutText {
         rc: &RcParams,
     ) -> Result<Self, TextError> {
         let mut typeset = font.clone();
-        typeset.size = PATH_FONT_SCALE;
-        let scale = font.size * dpi / 72.0 / PATH_FONT_SCALE;
+        typeset.size = TEXT_PATH_FONT_SCALE;
+        let scale = font.size * dpi / 72.0 / TEXT_PATH_FONT_SCALE;
         let runs = self
             .lines
             .iter()
@@ -203,10 +196,15 @@ impl LaidOutText {
                 }
                 let path_run = match &run.source {
                     Some(source @ TextSource::Plain { shaping, .. }) if !shaping.is_default() => {
-                        source.layout(TextEngine::global(), PATH_FONT_SCALE, PATH_DPI)
+                        source.layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)
                     }
                     _ => without_hinting(|| {
-                        line_run(&Line::classify(line, parse_math), &typeset, PATH_DPI, rc)
+                        line_run(
+                            &Line::classify(line, parse_math),
+                            &typeset,
+                            TEXT_PATH_DPI,
+                            rc,
+                        )
                     }),
                 }?;
                 Ok(scaled_run(&path_run, scale, dpi, run.source.clone()))
@@ -230,7 +228,7 @@ fn scaled_run(run: &TextRun, scale: f64, dpi: f64, source: Option<TextSource>) -
             .glyphs
             .iter()
             .map(|glyph| PlacedGlyph {
-                size: glyph.size * scale * PATH_DPI / dpi,
+                size: glyph.size * scale * TEXT_PATH_DPI / dpi,
                 x: glyph.x * scale,
                 y: glyph.y * scale,
                 ..*glyph

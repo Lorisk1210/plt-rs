@@ -4,6 +4,7 @@ mod outline;
 mod request;
 
 pub(crate) use outline::PathSink;
+pub use outline::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE};
 pub use request::FontRequest;
 
 use std::collections::HashMap;

@@ -1,7 +1,8 @@
 //! The drawing interface every output backend implements.
 
 use plt_core::{Affine2D, Path, Point, Rgba};
-use plt_text::tex::{TEX_FONT_SCALE, TexError, TexText};
+use plt_text::TEXT_PATH_FONT_SCALE;
+use plt_text::tex::{TexError, TexText};
 use plt_text::{TextEngine, TextRun};
 
 use crate::collection::PathCollection;
@@ -200,7 +201,7 @@ pub(crate) fn fill_tex<R: Renderer + ?Sized>(
     angle: f64,
 ) -> Result<(), TexError> {
     let path = tex.text_path()?;
-    let scale = renderer.points_to_pixels(tex.size()) / TEX_FONT_SCALE;
+    let scale = renderer.points_to_pixels(tex.size()) / TEXT_PATH_FONT_SCALE;
     let transform = Affine2D::scaling(scale, scale)
         .rotate_deg(angle)
         .translate(origin.x, origin.y);

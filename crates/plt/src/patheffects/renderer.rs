@@ -3,16 +3,10 @@
 
 use plt_core::{Affine2D, Path, Point, Rgba};
 use plt_render::{FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage};
-use plt_text::{TextEngine, TextRun};
+use plt_text::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine, TextRun};
 
 use super::{EffectColors, PathEffect};
 use crate::colors::ColorError;
-
-/// The size text outlines are made at (`TextToPath.FONT_SCALE`).
-const TEXT_PATH_POINTS: f64 = 100.0;
-
-/// The resolution text outlines are made at (`TextToPath.DPI`).
-const TEXT_PATH_DPI: f64 = 72.0;
 
 /// Wraps a renderer so that every path drawn goes through each effect in
 /// turn; markers and collections are drawn path by path, once per effect,
@@ -152,9 +146,9 @@ impl Renderer for PathEffectRenderer<'_> {
         let engine = TextEngine::global();
         let scaled = run.source.as_ref().and_then(|source| {
             let laid_out = source
-                .layout(engine, TEXT_PATH_POINTS, TEXT_PATH_DPI)
+                .layout(engine, TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)
                 .ok()?;
-            let scale = self.points_to_pixels(source.size()) / TEXT_PATH_POINTS;
+            let scale = self.points_to_pixels(source.size()) / TEXT_PATH_FONT_SCALE;
             Some((laid_out.outline(engine), scale))
         });
         let (outline, scale) = scaled.unwrap_or_else(|| (run.outline(engine), 1.0));

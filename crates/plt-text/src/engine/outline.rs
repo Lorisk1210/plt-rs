@@ -12,6 +12,13 @@ use plt_font::{
 use super::TextEngine;
 use crate::error::TextError;
 
+/// The size text outlines are made at before scaling them to their size
+/// (matplotlib's `TextToPath.FONT_SCALE`).
+pub const TEXT_PATH_FONT_SCALE: f64 = 100.0;
+
+/// The resolution text outlines are made at (`TextToPath.DPI`).
+pub const TEXT_PATH_DPI: f64 = 72.0;
+
 /// What a cached outline depends on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) struct OutlineKey {

@@ -7,7 +7,7 @@ use std::str::FromStr;
 use plt_raster::resample::Interpolation as Kernel;
 
 use crate::numeric::Grid;
-use crate::rc::keyword_names;
+use crate::rc::{UnknownName, keyword_names};
 
 /// How image pixels are interpolated when resampled to the screen
 /// (matplotlib's `interpolation`).
@@ -133,27 +133,6 @@ impl fmt::Display for Interpolation {
         f.write_str(self.name())
     }
 }
-
-/// A name that a keyword type does not have: what parsing an
-/// [`Interpolation`] or an [`Origin`] returns, and the keyword types of
-/// rcParams across the crate ([`TickLevel`](crate::axes::TickLevel),
-/// [`XLabelLoc`](crate::axes::XLabelLoc),
-/// [`PgfTexSystem`](crate::figure::PgfTexSystem), ...).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct UnknownName {
-    /// What was being parsed (`"interpolation"`, ...).
-    pub kind: &'static str,
-    /// The unknown name.
-    pub name: String,
-}
-
-impl fmt::Display for UnknownName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?} is not a valid {}", self.name, self.kind)
-    }
-}
-
-impl std::error::Error for UnknownName {}
 
 impl FromStr for Interpolation {
     type Err = UnknownName;

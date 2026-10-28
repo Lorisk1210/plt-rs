@@ -8,8 +8,9 @@ use std::str::FromStr;
 use plt_core::Point;
 
 use crate::collections::MeshShading;
-use crate::image::{ImageError, MultiField, ScalarField, UnknownName};
+use crate::image::{ImageError, MultiField, ScalarField};
 use crate::numeric::Grid;
+use crate::rc::UnknownName;
 
 /// Where the colour values of a mesh sit (matplotlib's `shading`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

@@ -25,13 +25,33 @@ use crate::text::TextHinting;
 use crate::ticker::AutolimitMode;
 use crate::units::DateConverter;
 
+/// A name that a keyword type does not have: what parsing a keyword type
+/// returns, such as an [`Interpolation`](crate::image::Interpolation),
+/// an [`Origin`](crate::image::Origin), a
+/// [`TickLevel`](crate::axes::TickLevel) or a
+/// [`PgfTexSystem`](crate::figure::PgfTexSystem).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownName {
+    /// What was being parsed (`"interpolation"`, ...).
+    pub kind: &'static str,
+    /// The unknown name.
+    pub name: String,
+}
+
+impl std::fmt::Display for UnknownName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} is not a valid {}", self.name, self.kind)
+    }
+}
+
+impl std::error::Error for UnknownName {}
+
 /// Implements `Display` (the value's `name()`) and `FromStr` (the value of
 /// `$all` with that name, else an [`UnknownName`] of `$kind`) for a
 /// keyword type: the names matplotlib reads and writes. With
 /// `ignore_case`, names parse in any ASCII case, as matplotlib's
 /// case-insensitive validators read them.
 ///
-/// [`UnknownName`]: crate::image::UnknownName
 macro_rules! keyword_names {
     ($ty:ty, $kind:literal, $all:expr) => {
         $crate::rc::keyword_names!(@impl $ty, $kind, $all, |a: &str, b: &str| a == b);
@@ -47,13 +67,13 @@ macro_rules! keyword_names {
         }
 
         impl ::std::str::FromStr for $ty {
-            type Err = $crate::image::UnknownName;
+            type Err = $crate::rc::UnknownName;
 
             /// Parses matplotlib's name.
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 $all.into_iter()
                     .find(|value| $same(value.name(), name))
-                    .ok_or_else(|| $crate::image::UnknownName {
+                    .ok_or_else(|| $crate::rc::UnknownName {
                         kind: $kind,
                         name: name.to_owned(),
                     })

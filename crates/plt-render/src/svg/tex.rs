@@ -6,7 +6,8 @@
 //! and no link, which matplotlib only adds in `draw_text`.
 
 use plt_core::{Affine2D, Point};
-use plt_text::tex::{TEX_FONT_SCALE, TEX_PATH_DPI, TexError, TexGlyph, TexText};
+use plt_text::tex::{TexError, TexGlyph, TexText};
+use plt_text::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE};
 
 use super::SvgRenderer;
 use super::defs::path_data;
@@ -37,7 +38,7 @@ impl SvgRenderer {
 
     /// `get_glyphs_tex` and the elements placing its glyphs and rules.
     fn tex_glyphs(&mut self, tex: &TexText) -> Result<(), TexError> {
-        let page = tex.page(TEX_FONT_SCALE, TEX_PATH_DPI)?;
+        let page = tex.page(TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)?;
         let glyphs = tex.glyphs(&page)?;
         let reprs: Vec<String> = glyphs.iter().map(glyph_repr).collect();
         let mut new = Vec::new();
@@ -58,7 +59,7 @@ impl SvgRenderer {
                         "transform",
                         transform_attr(&[
                             TransformOp::Translate(glyph.x, glyph.y),
-                            TransformOp::Scale(glyph.size / TEX_FONT_SCALE),
+                            TransformOp::Scale(glyph.size / TEXT_PATH_FONT_SCALE),
                         ]),
                     ),
                 ],

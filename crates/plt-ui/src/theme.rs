@@ -61,17 +61,22 @@ pub struct Theme {
     pub text: Rgba,
     /// Quieter text: hints, section headings, the status line.
     pub text_secondary: Rgba,
-    /// Text and icons of disabled widgets.
+    /// Text and icons of disabled widgets: dimmed, yet legible.
     pub text_disabled: Rgba,
     /// Text on accent-coloured faces.
     pub text_on_accent: Rgba,
-    /// Highlight colour: primary buttons, selected tabs, focus, checked
-    /// tools.
+    /// Highlight colour of faces and lines: primary buttons, checked
+    /// boxes, the line under the selected tab, focus rings.
     pub accent: Rgba,
     /// The accent under the pointer.
     pub accent_hot: Rgba,
     /// The accent while pressed.
     pub accent_active: Rgba,
+    /// Accent-coloured text and icons: the selected tab's name, checked
+    /// tools, the chosen option of an open drop-down. Darker than the
+    /// accent in light themes and lighter in dark ones, so that it reads
+    /// as text on the backgrounds and the selection.
+    pub accent_text: Rgba,
     /// Outline of controls: text fields, buttons, lists, check boxes.
     pub border: Rgba,
     /// Outline of a control under the pointer.
@@ -84,6 +89,10 @@ pub struct Theme {
     pub button_hot: Rgba,
     /// Face of a secondary button while pressed.
     pub button_active: Rgba,
+    /// Face of raised elements, which stand out from the surface they
+    /// sit on: the chosen segment of segmented controls, slider thumbs,
+    /// keycaps.
+    pub raised: Rgba,
     /// Translucent wash over flat controls (tool buttons, list rows,
     /// tabs) under the pointer.
     pub hover: Rgba,
@@ -105,6 +114,16 @@ pub struct Theme {
     pub tooltip: Rgba,
     /// Tooltip text.
     pub tooltip_text: Rgba,
+    /// Outline of tooltips (transparent for none).
+    pub tooltip_border: Rgba,
+    /// Inside of the rectangle dragged over a surface (the zoom's rubber
+    /// band; transparent for none).
+    pub rubber_band: Rgba,
+    /// Outline of the rubber band.
+    pub rubber_band_edge: Rgba,
+    /// Dashes drawn over the rubber band's outline, as Tk draws it
+    /// (transparent for none).
+    pub rubber_band_dashes: Rgba,
     /// Typeface of text.
     pub font_family: FontFamily,
     /// Font size of text, in points.
@@ -140,8 +159,11 @@ pub struct Theme {
     pub list_min_width: f64,
     /// Narrowest segment of segmented controls.
     pub segment_min_width: f64,
-    /// Width of scroll bars.
+    /// Width of the thumbs of scroll bars.
     pub scrollbar_width: f64,
+    /// The smallest side of a pointer target (WCAG asks for 24 pixels):
+    /// slim parts, such as scroll bars, are this wide to the pointer.
+    pub target_size: f64,
     /// How long the pointer rests on a widget before its tooltip shows.
     pub tooltip_delay: Duration,
 }
@@ -172,17 +194,19 @@ impl Theme {
             track: rgb(234, 236, 240),
             text: rgb(31, 35, 40),
             text_secondary: rgb(96, 104, 115),
-            text_disabled: rgb(170, 175, 182),
+            text_disabled: rgb(134, 141, 151),
             text_on_accent: rgb(255, 255, 255),
             accent: rgb(47, 111, 228),
             accent_hot: rgb(37, 96, 207),
             accent_active: rgb(29, 80, 178),
+            accent_text: rgb(30, 89, 200),
             border: rgb(208, 213, 221),
             border_hot: rgb(160, 168, 180),
             separator: rgb(225, 228, 233),
             button: rgb(255, 255, 255),
             button_hot: rgb(243, 244, 246),
             button_active: rgb(230, 232, 236),
+            raised: rgb(255, 255, 255),
             hover: rgba(31, 35, 40, 0.07),
             pressed: rgba(31, 35, 40, 0.13),
             selection: rgba(47, 111, 228, 0.16),
@@ -192,6 +216,10 @@ impl Theme {
             shadow: rgba(16, 24, 40, 0.12),
             tooltip: rgb(36, 41, 47),
             tooltip_text: rgb(255, 255, 255),
+            tooltip_border: rgba(0, 0, 0, 0.0),
+            rubber_band: rgba(47, 111, 228, 0.12),
+            rubber_band_edge: rgb(47, 111, 228),
+            rubber_band_dashes: rgba(0, 0, 0, 0.0),
             font_family: FontFamily::Interface,
             font_size: 9.5,
             space_unit: 4.0,
@@ -210,12 +238,15 @@ impl Theme {
             list_min_width: 160.0,
             segment_min_width: 52.0,
             scrollbar_width: 6.0,
+            target_size: 24.0,
             tooltip_delay: Duration::from_millis(600),
         }
     }
 
     /// plt-rs' own dark look, for figures on dark backgrounds: the modern
-    /// layout in charcoal, with light text and a brighter accent.
+    /// layout in charcoal, with light text, accent faces deep enough for
+    /// white labels and lighter accent text, and raised elements and
+    /// tooltips a step lighter than the surfaces under them.
     pub fn dark() -> Self {
         Self {
             background: rgb(30, 32, 36),
@@ -223,32 +254,39 @@ impl Theme {
             track: rgb(23, 25, 28),
             text: rgb(230, 233, 237),
             text_secondary: rgb(158, 166, 176),
-            text_disabled: rgb(96, 102, 111),
+            text_disabled: rgb(112, 119, 129),
             text_on_accent: rgb(255, 255, 255),
-            accent: rgb(76, 139, 245),
-            accent_hot: rgb(98, 154, 247),
-            accent_active: rgb(61, 121, 222),
+            accent: rgb(52, 112, 226),
+            accent_hot: rgb(47, 105, 216),
+            accent_active: rgb(40, 96, 204),
+            accent_text: rgb(118, 170, 255),
             border: rgb(70, 75, 83),
             border_hot: rgb(104, 111, 122),
             separator: rgb(52, 56, 62),
             button: rgb(48, 52, 58),
             button_hot: rgb(57, 61, 68),
             button_active: rgb(66, 71, 79),
+            raised: rgb(60, 64, 72),
             hover: rgba(255, 255, 255, 0.08),
             pressed: rgba(255, 255, 255, 0.14),
-            selection: rgba(76, 139, 245, 0.28),
-            selection_inactive: rgba(76, 139, 245, 0.14),
+            selection: rgba(52, 112, 226, 0.26),
+            selection_inactive: rgba(52, 112, 226, 0.13),
             focus_ring: rgba(76, 139, 245, 0.5),
             danger: rgb(248, 81, 73),
             shadow: rgba(0, 0, 0, 0.4),
-            tooltip: rgb(232, 234, 237),
-            tooltip_text: rgb(30, 32, 36),
+            tooltip: rgb(58, 62, 70),
+            tooltip_text: rgb(230, 233, 237),
+            tooltip_border: rgb(82, 88, 98),
+            rubber_band: rgba(118, 170, 255, 0.14),
+            rubber_band_edge: rgb(118, 170, 255),
             ..Self::modern()
         }
     }
 
     /// A light theme close to matplotlib's Tk figure windows: greys,
-    /// square-ish corners and matplotlib's `DejaVu Sans`.
+    /// square-ish corners, tooltips outlined in black on the window's
+    /// grey, Tk's black and white dashed rubber band and matplotlib's
+    /// `DejaVu Sans`.
     pub fn classic() -> Self {
         let gray = |level: f64| Rgba::new(level, level, level, 1.0);
         let wash = |alpha: f64| Rgba::new(0.0, 0.0, 0.0, alpha);
@@ -264,12 +302,14 @@ impl Theme {
             accent: blue,
             accent_hot: Rgba::new(0.15, 0.31, 0.58, 1.0),
             accent_active: Rgba::new(0.12, 0.26, 0.5, 1.0),
+            accent_text: blue,
             border: gray(0.7),
             border_hot: gray(0.5),
             separator: gray(0.8),
             button: gray(0.94),
             button_hot: gray(0.86),
             button_active: gray(0.75),
+            raised: gray(1.0),
             hover: wash(0.08),
             pressed: wash(0.18),
             selection: Rgba::new(0.18, 0.36, 0.66, 0.2),
@@ -277,8 +317,12 @@ impl Theme {
             focus_ring: Rgba::new(0.18, 0.36, 0.66, 0.4),
             danger: Rgba::new(0.75, 0.1, 0.1, 1.0),
             shadow: wash(0.15),
-            tooltip: Rgba::new(1.0, 1.0, 0.88, 1.0),
+            tooltip: gray(0.94),
             tooltip_text: gray(0.0),
+            tooltip_border: gray(0.0),
+            rubber_band: wash(0.0),
+            rubber_band_edge: gray(0.0),
+            rubber_band_dashes: gray(1.0),
             font_family: FontFamily::SansSerif,
             font_size: 10.0,
             space_unit: 4.0,
@@ -297,6 +341,7 @@ impl Theme {
             list_min_width: 160.0,
             segment_min_width: 52.0,
             scrollbar_width: 8.0,
+            target_size: 24.0,
             tooltip_delay: Duration::from_millis(600),
         }
     }
@@ -382,6 +427,50 @@ mod tests {
         }
     }
 
+    /// The translucent `top` over the opaque `back`.
+    fn over(top: Rgba, back: Rgba) -> Rgba {
+        let mix = |t: f64, b: f64| t * top.a + b * (1.0 - top.a);
+        Rgba::new(
+            mix(top.r, back.r),
+            mix(top.g, back.g),
+            mix(top.b, back.b),
+            1.0,
+        )
+    }
+
+    #[test]
+    fn modern_text_meets_wcag_aa() {
+        // WCAG AA asks 4.5:1 of text this small; disabled controls are
+        // exempt, but stay legible.
+        for theme in [Theme::modern(), Theme::dark()] {
+            for back in [theme.background, theme.surface, theme.button] {
+                assert!(contrast(theme.text, back) >= 4.5);
+                assert!(contrast(theme.text_secondary, back) >= 4.5);
+            }
+            for back in [theme.background, theme.surface] {
+                assert!(contrast(theme.text_disabled, back) >= 3.0);
+            }
+            assert!(contrast(theme.text, theme.raised) >= 4.5);
+            // The labels of the segments not chosen.
+            assert!(contrast(theme.text_secondary, theme.track) >= 4.5);
+            let selected = [
+                over(theme.selection, theme.background),
+                over(theme.selection, theme.surface),
+            ];
+            for back in [theme.background, theme.surface]
+                .into_iter()
+                .chain(selected)
+            {
+                assert!(contrast(theme.accent_text, back) >= 4.5);
+            }
+            for face in [theme.accent, theme.accent_hot, theme.accent_active] {
+                assert!(contrast(theme.text_on_accent, face) >= 4.5);
+            }
+            assert!(contrast(theme.danger, theme.background) >= 4.5);
+            assert!(contrast(theme.tooltip_text, theme.tooltip) >= 4.5);
+        }
+    }
+
     #[test]
     fn focus_rings_stand_out() {
         // WCAG asks focus indicators for a 3:1 contrast with what is
@@ -402,6 +491,16 @@ mod tests {
             assert!(theme.checkbox_size < theme.control_height);
             assert!(theme.corner_radius * 2.0 < theme.control_height);
             assert_eq!(theme.control_height % (theme.space_unit / 2.0), 0.0);
+        }
+    }
+
+    #[test]
+    fn pointer_targets_are_at_least_24_pixels() {
+        for theme in [Theme::modern(), Theme::dark(), Theme::classic()] {
+            assert!(theme.target_size >= 24.0);
+            for side in [theme.control_height, theme.tool_button_size] {
+                assert!(side >= theme.target_size);
+            }
         }
     }
 }

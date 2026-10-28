@@ -87,7 +87,7 @@ impl<M> Widget<M> for Keycaps {
                 key.height - 3.0 * scale,
             );
             cx.canvas()
-                .fill_rounded_rect(face, radius - scale, theme.surface)?;
+                .fill_rounded_rect(face, radius - scale, theme.raised)?;
             let origin = Point::new(
                 (key.x + padding).round(),
                 face.center().y - size.height / 2.0,

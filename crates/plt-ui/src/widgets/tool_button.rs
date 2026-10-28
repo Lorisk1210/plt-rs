@@ -122,7 +122,7 @@ impl<M: Clone + 'static> Widget<M> for ToolButton<M> {
         let color = if !self.enabled {
             theme.text_disabled
         } else if self.checked {
-            theme.accent
+            theme.accent_text
         } else {
             theme.text
         };

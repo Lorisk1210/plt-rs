@@ -13,8 +13,8 @@ use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::{Constraints, Rect, Size};
 use crate::icon::Icon;
-use crate::text::TextLayout;
-use crate::theme::Spacing;
+use crate::text::{Cut, TextLayout};
+use crate::theme::{Spacing, Theme};
 use crate::widget::{EventCx, LayoutCx, PaintCx, Widget};
 
 /// Space between the list's outline and its rows.
@@ -50,6 +50,16 @@ impl ListItem {
         self.icon = Some(icon);
         self
     }
+
+    /// The width the row's icon and the `padding` after it take, in
+    /// pixels.
+    fn icon_width(&self, theme: &Theme, scale: f64, padding: f64) -> f64 {
+        if self.icon.is_some() {
+            theme.small_icon_size * scale + padding
+        } else {
+            0.0
+        }
+    }
 }
 
 /// Makes the message sent for a row.
@@ -65,8 +75,12 @@ struct Metrics {
     padding: f64,
     /// The height of the visible rows.
     viewport: f64,
-    /// Width of the scroll bar.
+    /// Width of the scroll bar's thumb.
     scrollbar_width: f64,
+    /// Width of the strip beside the rows that the scroll bar takes when
+    /// the rows overflow: with the inset, a pointer target of the theme's
+    /// [`target_size`](crate::Theme::target_size).
+    gutter: f64,
     /// Shortest scroll bar thumb.
     min_thumb: f64,
 }
@@ -207,14 +221,25 @@ impl<M> List<M> {
         rect.inset(self.metrics.inset)
     }
 
-    /// The scroll bar's track and thumb, when the rows overflow.
+    /// The width of the rows in `area`: all of it, but the scroll bar's
+    /// gutter when the rows overflow.
+    fn row_width(&self, area: Rect) -> f64 {
+        if self.max_scroll() > 0.0 {
+            (area.width - self.metrics.gutter).max(0.0)
+        } else {
+            area.width
+        }
+    }
+
+    /// The scroll bar's track and thumb, as wide as its gutter (the
+    /// pointer's targets), when the rows overflow.
     fn scroll_bar(&self, rect: Rect) -> Option<(Rect, Rect)> {
         let max_scroll = self.max_scroll();
         if max_scroll <= 0.0 {
             return None;
         }
         let area = self.rows_area(rect);
-        let width = self.metrics.scrollbar_width;
+        let width = self.metrics.gutter;
         let track = Rect::new(area.max_x() - width, area.y, width, area.height);
         let height = (track.height * self.metrics.viewport / self.content_height())
             .max(self.metrics.min_thumb)
@@ -331,7 +356,7 @@ impl<M> List<M> {
             ..
         } = self.metrics;
         let top = area.y + row as f64 * row_height - self.scroll;
-        let band = Rect::new(area.x, top, area.width, row_height).snapped();
+        let band = Rect::new(area.x, top, self.row_width(area), row_height).snapped();
         let radius = theme.corner_radius * scale;
         let wash = if self.selected == Some(row) {
             Some(if focused {
@@ -381,26 +406,36 @@ impl<M: 'static> Widget<M> for List<M> {
         self.metrics.padding = padding;
         self.metrics.inset = inset;
         self.metrics.scrollbar_width = theme.scrollbar_width * scale;
+        self.metrics.gutter = (theme.target_size * scale - inset).max(0.0);
         self.metrics.min_thumb = theme.control_height * scale;
-        let icon = theme.small_icon_size * scale + padding;
         let widest = self
             .items
             .iter()
             .zip(&self.layouts)
-            .map(|(item, layout)| {
-                layout.size().width + if item.icon.is_some() { icon } else { 0.0 }
-            })
+            .map(|(item, layout)| layout.size().width + item.icon_width(theme, scale, padding))
             .fold(0.0, f64::max);
-        let scroll_bar = (theme.scrollbar_width + theme.space(Spacing::Xs)) * scale;
-        let width =
-            (widest + 2.0 * (padding + inset) + scroll_bar).max(theme.list_min_width * scale);
+        let width = (widest + 2.0 * (padding + inset) + self.metrics.gutter)
+            .max(theme.list_min_width * scale);
         let height = self.visible_rows as f64 * self.metrics.row_height + 2.0 * inset;
         Ok(constraints.constrain(Size::new(width, height)))
     }
 
-    fn arrange(&mut self, _cx: &mut LayoutCx<'_, M>, rect: Rect) -> Result<(), UiError> {
-        self.metrics.viewport = self.rows_area(rect).height;
+    fn arrange(&mut self, cx: &mut LayoutCx<'_, M>, rect: Rect) -> Result<(), UiError> {
+        let area = self.rows_area(rect);
+        self.metrics.viewport = area.height;
         self.scroll = self.scroll.clamp(0.0, self.max_scroll());
+        // Labels too long for their row end in an ellipsis.
+        let theme = cx.theme();
+        let scale = cx.scale_factor();
+        let style = theme.text_style();
+        let padding = self.metrics.padding;
+        let room = self.row_width(area) - 2.0 * padding;
+        for (item, layout) in self.items.iter().zip(&mut self.layouts) {
+            let width = room - item.icon_width(theme, scale, padding);
+            if layout.size().width > width {
+                *layout = TextLayout::fitted(&item.label, &style, scale, width, Cut::End)?;
+            }
+        }
         Ok(())
     }
 
@@ -421,14 +456,23 @@ impl<M: 'static> Widget<M> for List<M> {
                 self.paint_row(cx, area, row, status.focused())?;
             }
         }
-        if let Some((_, thumb)) = self.scroll_bar(rect) {
+        if let Some((_, target)) = self.scroll_bar(rect) {
             let color = if status.hot || self.dragging.is_some() {
                 theme.border_hot
             } else {
                 theme.border
             };
-            cx.canvas()
-                .fill_rounded_rect(thumb, thumb.width / 2.0, color)?;
+            // A slim thumb in the middle of its target, which reaches the
+            // outline.
+            let reach = Rect::new(
+                target.x,
+                target.y,
+                target.width + self.metrics.inset,
+                target.height,
+            );
+            let width = self.metrics.scrollbar_width;
+            let thumb = reach.centered(Size::new(width, target.height)).snapped();
+            cx.canvas().fill_rounded_rect(thumb, width / 2.0, color)?;
         }
         Ok(())
     }

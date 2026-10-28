@@ -34,6 +34,20 @@ impl FontFamily {
     }
 }
 
+/// The end of a text that gives way to an ellipsis when the text is too
+/// wide (see [`TextLayout::fitted`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Cut {
+    /// The start goes, keeping the end (e.g. the last directories of a
+    /// path).
+    Start,
+    /// The end goes.
+    End,
+}
+
+/// The mark replacing the part of a text cut off.
+const ELLIPSIS: char = '…';
+
 /// How text is set.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
@@ -103,6 +117,50 @@ impl TextLayout {
             ascent: metrics.ascent,
             descent: metrics.descent,
         })
+    }
+
+    /// `text` laid out as [`TextLayout::new`] does, shortened with an
+    /// ellipsis at its `cut` end to the most characters that fit in
+    /// `width` pixels (just the ellipsis when nothing does), unless the
+    /// whole text fits.
+    pub(crate) fn fitted(
+        text: &str,
+        style: &TextStyle,
+        scale_factor: f64,
+        width: f64,
+        cut: Cut,
+    ) -> Result<Self, UiError> {
+        let whole = Self::new(text, style, scale_factor)?;
+        if whole.size().width <= width {
+            return Ok(whole);
+        }
+        let starts: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
+        let count = starts.len();
+        let lay_out = |kept: usize| {
+            let shortened = match cut {
+                Cut::End => {
+                    let end = starts.get(kept).copied().unwrap_or(text.len());
+                    format!("{}{ELLIPSIS}", text.get(..end).unwrap_or_default())
+                }
+                Cut::Start => {
+                    let start = starts.get(count - kept).copied().unwrap_or(text.len());
+                    format!("{ELLIPSIS}{}", text.get(start..).unwrap_or_default())
+                }
+            };
+            Self::new(&shortened, style, scale_factor)
+        };
+        // The most characters that fit: a binary search, as keeping more
+        // never makes the text narrower.
+        let (mut low, mut high) = (0, count.saturating_sub(1));
+        while low < high {
+            let middle = (low + high).div_ceil(2);
+            if lay_out(middle)?.size().width <= width {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        lay_out(low)
     }
 
     /// The box the text occupies: advance width by line height.

@@ -4,7 +4,7 @@ use plt_core::{Point, Rgba};
 
 use crate::error::UiError;
 use crate::geometry::{Constraints, Rect, Size};
-use crate::text::{TextLayout, TextStyle};
+use crate::text::{Cut, TextLayout, TextStyle};
 use crate::theme::Theme;
 use crate::widget::{LayoutCx, PaintCx, Widget};
 
@@ -57,8 +57,16 @@ pub enum Overflow {
     ElideEnd,
 }
 
-/// The mark replacing elided text.
-const ELLIPSIS: char = '…';
+impl Overflow {
+    /// The end of the text an ellipsis replaces, if any.
+    fn cut(self) -> Option<Cut> {
+        match self {
+            Self::Clip => None,
+            Self::ElideStart => Some(Cut::Start),
+            Self::ElideEnd => Some(Cut::End),
+        }
+    }
+}
 
 /// A line of text, vertically centred in its rectangle.
 #[derive(Debug, Clone, PartialEq)]
@@ -138,36 +146,6 @@ impl Label {
         let style = theme.text_style();
         if self.bold { style.bold() } else { style }
     }
-
-    /// The text shortened with an ellipsis where the overflow says, as
-    /// long as fits in `width` pixels (just the ellipsis when nothing
-    /// does).
-    fn elided(&self, style: &TextStyle, scale: f64, width: f64) -> Result<TextLayout, UiError> {
-        let starts: Vec<usize> = self.text.char_indices().map(|(i, _)| i).collect();
-        let count = starts.len();
-        let lay_out = |kept: usize| {
-            let text = if self.overflow == Overflow::ElideEnd {
-                let end = starts.get(kept).copied().unwrap_or(self.text.len());
-                format!("{}{ELLIPSIS}", self.text.get(..end).unwrap_or_default())
-            } else {
-                let start = starts.get(count - kept).copied().unwrap_or(self.text.len());
-                format!("{ELLIPSIS}{}", self.text.get(start..).unwrap_or_default())
-            };
-            TextLayout::new(&text, style, scale)
-        };
-        // The most characters that fit: a binary search, as keeping more
-        // never makes the text narrower.
-        let (mut low, mut high) = (0, count.saturating_sub(1));
-        while low < high {
-            let middle = (low + high).div_ceil(2);
-            if lay_out(middle)?.size().width <= width {
-                low = middle;
-            } else {
-                high = middle - 1;
-            }
-        }
-        lay_out(low)
-    }
 }
 
 impl<M> Widget<M> for Label {
@@ -193,9 +171,10 @@ impl<M> Widget<M> for Label {
             .layout
             .as_ref()
             .is_some_and(|layout| layout.size().width > rect.width);
-        if self.overflow != Overflow::Clip && too_wide {
+        if let (true, Some(cut)) = (too_wide, self.overflow.cut()) {
             let style = self.style(cx.theme());
-            self.layout = Some(self.elided(&style, cx.scale_factor(), rect.width)?);
+            let fitted = TextLayout::fitted(&self.text, &style, cx.scale_factor(), rect.width, cut);
+            self.layout = Some(fitted?);
         }
         Ok(())
     }

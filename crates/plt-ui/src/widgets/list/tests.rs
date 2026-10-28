@@ -13,6 +13,7 @@ fn list(rows: usize) -> List<usize> {
         padding: 0.0,
         viewport: 50.0,
         scrollbar_width: 6.0,
+        gutter: 24.0,
         min_thumb: 20.0,
     };
     list
@@ -40,12 +41,36 @@ fn the_scroll_bar_shows_where_the_rows_are() {
     assert!(list(5).scroll_bar(rect).is_none(), "all rows fit");
     let mut long = list(100);
     let (track, top) = long.scroll_bar(rect).unwrap();
-    assert_eq!((track.x, track.height), (94.0, 50.0));
+    assert_eq!((track.x, track.width, track.height), (76.0, 24.0, 50.0));
+    assert_eq!(long.row_width(rect), 76.0, "the rows leave the gutter");
+    assert_eq!(list(5).row_width(rect), 100.0);
     assert_eq!(top.y, 0.0);
     assert_eq!(top.height, 20.0, "never shorter than the minimum");
     long.scroll = long.max_scroll();
     let (_, bottom) = long.scroll_bar(rect).unwrap();
     assert_eq!(bottom.max_y(), track.max_y());
+}
+
+#[test]
+fn long_labels_end_in_an_ellipsis_before_the_scroll_bar() {
+    let theme = Theme::default();
+    let mut messages = Vec::new();
+    let mut cx = LayoutCx::for_tests(&theme, &mut messages, 1.0);
+    let label = "a-rather-long-file-name-that-does-not-fit.png";
+    let items = (0..20).map(|_| ListItem::new(label)).collect();
+    let mut list = List::new(items, |row: usize| row);
+    let rect = Rect::new(0.0, 0.0, 160.0, 100.0);
+    list.measure(&mut cx, Constraints::tight(rect.size()))
+        .unwrap();
+    list.arrange(&mut cx, rect).unwrap();
+    let room = list.row_width(list.rows_area(rect)) - 2.0 * list.metrics.padding;
+    let shown = &list.layouts[0];
+    assert!(
+        shown.size().width <= room,
+        "{} > {room}",
+        shown.size().width
+    );
+    assert!(shown.run().glyphs.len() < label.len(), "cut short");
 }
 
 fn press(key: Key, text: Option<&str>) -> UiEvent {

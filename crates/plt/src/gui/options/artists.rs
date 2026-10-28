@@ -6,7 +6,7 @@ use plt_ui::{Flex, List, ListItem, Spacing, Stack, UiWindow, WidgetId};
 use super::OptionsMessage;
 use super::fields::{
     FieldError, Form, chosen, marker_text, number_text, parse_color, parse_marker, parse_number,
-    text_of,
+    read_field, text_of,
 };
 use crate::artist::ArtistHandle;
 use crate::axes::Axes;
@@ -262,26 +262,22 @@ pub(super) fn read_curve(
         .get(chosen(window, fields.style))
         .map(|(_, style)| style.clone());
     let draw_style = DRAW_STYLES[chosen(window, fields.draw_style).min(DRAW_STYLES.len() - 1)].1;
-    let width = parse_number(&format!("{label}: width"), &text_of(window, fields.width))?;
-    let color = parse_color(&format!("{label}: color"), &text_of(window, fields.color))?;
-    let marker_text = text_of(window, fields.marker);
-    let marker = if marker_text.trim().eq_ignore_ascii_case("none") {
+    let name = |field: &str| format!("{label}: {field}");
+    let width = read_field(window, fields.width, |t| parse_number(&name("width"), t))?;
+    let color = read_field(window, fields.color, |t| parse_color(&name("color"), t))?;
+    let marker = if text_of(window, fields.marker)
+        .trim()
+        .eq_ignore_ascii_case("none")
+    {
         None
     } else {
         Some((
-            parse_marker(&format!("{label}: marker"), &marker_text)?,
-            parse_number(
-                &format!("{label}: marker size"),
-                &text_of(window, fields.marker_size),
-            )?,
-            parse_color(
-                &format!("{label}: face color"),
-                &text_of(window, fields.face),
-            )?,
-            parse_color(
-                &format!("{label}: edge color"),
-                &text_of(window, fields.edge),
-            )?,
+            read_field(window, fields.marker, |t| parse_marker(&name("marker"), t))?,
+            read_field(window, fields.marker_size, |t| {
+                parse_number(&name("marker size"), t)
+            })?,
+            read_field(window, fields.face, |t| parse_color(&name("face color"), t))?,
+            read_field(window, fields.edge, |t| parse_color(&name("edge color"), t))?,
         ))
     };
     Ok(CurvePlan {
@@ -299,23 +295,24 @@ pub(super) fn read_image(
     fields: &ImageFields,
 ) -> Result<ImagePlan, FieldError> {
     let label = text_of(window, fields.label);
-    let name = text_of(window, fields.cmap);
-    let cmap = colormaps::get(name.trim())
-        .map_err(|_| FieldError(format!("{label}: no colormap is called {name:?}")))?;
+    let cmap = read_field(window, fields.cmap, |name| {
+        colormaps::get(name.trim()).map_err(|_| format!("{label}: no colormap is called {name:?}"))
+    })?;
     let (low, high) = (text_of(window, fields.min), text_of(window, fields.max));
     let limits = if low.trim().is_empty() && high.trim().is_empty() {
         None
     } else {
+        let name = |field: &str| format!("{label}: {field}");
         Some((
-            parse_number(&format!("{label}: min. value"), &low)?,
-            parse_number(&format!("{label}: max. value"), &high)?,
+            read_field(window, fields.min, |t| parse_number(&name("min. value"), t))?,
+            read_field(window, fields.max, |t| parse_number(&name("max. value"), t))?,
         ))
     };
-    let text = text_of(window, fields.interpolation);
-    let interpolation = text
-        .trim()
-        .parse()
-        .map_err(|_| FieldError(format!("{label}: {text:?} is not an interpolation")))?;
+    let interpolation = read_field(window, fields.interpolation, |text| {
+        text.trim()
+            .parse()
+            .map_err(|_| format!("{label}: {text:?} is not an interpolation"))
+    })?;
     Ok(ImagePlan {
         label,
         cmap,

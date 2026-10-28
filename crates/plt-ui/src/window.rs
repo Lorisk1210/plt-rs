@@ -6,6 +6,7 @@ use plt_platform::{
 
 use crate::error::UiError;
 use crate::geometry::Rect;
+use crate::theme::Theme;
 use crate::ui::Ui;
 use crate::widget::{ClipboardRequest, Widget, WidgetId};
 
@@ -41,17 +42,18 @@ impl<M: 'static> UiWindow<M> {
         })
     }
 
-    /// Opens a window showing `root` at the content's natural size (see
-    /// [`Ui::natural_size`]), ignoring the size in `options`; dialogs use
-    /// this to fit their fields.
+    /// Opens a window showing `root` in `theme` at the content's natural
+    /// size in that theme (see [`Ui::natural_size`]), ignoring the size in
+    /// `options`; dialogs use this to fit their fields.
     pub fn open_fitted(
         cx: &mut Context<'_>,
         options: &WindowOptions,
         root: impl Widget<M>,
+        theme: Theme,
     ) -> Result<Self, UiError> {
         // Measure at scale factor 1 to get logical pixels, before the
         // window (and so its scale factor) exists.
-        let mut ui = Ui::new(root, PhysicalSize::new(1, 1), 1.0)?;
+        let mut ui = Ui::new(root, PhysicalSize::new(1, 1), 1.0)?.with_theme(theme);
         // That layout's messages describe a size never shown.
         ui.take_messages();
         let natural = ui.natural_size()?;
@@ -241,15 +243,27 @@ mod tests {
     fn fitted_windows_take_the_size_of_their_contents() {
         let (mut event_loop, handle) = EventLoop::headless();
         handle.set_scale_factor(2.0).unwrap();
-        let row = Flex::row()
-            .with_padding(Spacing::Lg)
-            .with_child(Button::new("OK", "ok"));
         let options = WindowOptions::new("dialog");
-        let window = UiWindow::open_fitted(&mut event_loop.context(), &options, row).unwrap();
-        let size = handle.window(window.id()).unwrap().size;
+        let mut open = |theme| {
+            let row = Flex::row()
+                .with_padding(Spacing::Lg)
+                .with_child(Button::new("OK", "ok"));
+            let window =
+                UiWindow::open_fitted(&mut event_loop.context(), &options, row, theme).unwrap();
+            let size = handle.window(window.id()).unwrap().size;
+            assert_eq!(window.ui().size(), size);
+            size
+        };
         // The narrowest button, 80 × 28 logical pixels, in 16-pixel margins.
-        assert_eq!(size, PhysicalSize::new(2 * (80 + 32), 2 * (28 + 32)));
-        assert_eq!(window.ui().size(), size);
+        assert_eq!(
+            open(Theme::modern()),
+            PhysicalSize::new(2 * (80 + 32), 2 * (28 + 32))
+        );
+        // Measured in the theme shown: classic buttons are 26 pixels high.
+        assert_eq!(
+            open(Theme::classic()),
+            PhysicalSize::new(2 * (80 + 32), 2 * (26 + 32))
+        );
     }
 
     #[test]

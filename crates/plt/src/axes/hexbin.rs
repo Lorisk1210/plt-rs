@@ -14,6 +14,7 @@ use crate::colors::{Colorize, ColorizerOptions, LogNorm, impl_colorize};
 use crate::image::{Extent, ImageError};
 use crate::numeric::{Number, to_f64s};
 use crate::scale::LogScale;
+use crate::ticker::LogBase;
 use crate::transforms::Transform;
 
 /// The most hexagons (of both interleaved lattices) a hexbin grid holds,
@@ -208,8 +209,7 @@ impl Axes {
 
         for (name, scale) in [(AxisName::X, options.xscale), (AxisName::Y, options.yscale)] {
             if scale == HexScale::Log {
-                let log = LogScale::new(10.0).expect("10 is a valid logarithm base");
-                self.set_scale(name, Box::new(log));
+                self.set_scale(name, Box::new(LogScale::from_base(LogBase::TEN)));
             }
         }
         let corners = lattice.corners(options.xscale, options.yscale);

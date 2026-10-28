@@ -8,7 +8,7 @@ use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::numeric::{Number, to_f64s};
 use crate::rc::{CycleValue, Cycler};
 use crate::scale::LogScale;
-use crate::ticker::AxisName;
+use crate::ticker::{AxisName, LogBase};
 use crate::units::{AxisValues, UnitHandle, UnitSources};
 
 impl Axes {
@@ -170,7 +170,7 @@ impl Axes {
     }
 
     fn set_log_scales(&self, x: bool, y: bool) {
-        let log = || Box::new(LogScale::new(10.0).expect("10 is a valid logarithm base"));
+        let log = || Box::new(LogScale::from_base(LogBase::TEN));
         if x {
             self.set_scale(AxisName::X, log());
         }

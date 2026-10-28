@@ -12,8 +12,8 @@ use crate::collections::{Collection, CollectionArtist, CollectionKind};
 use crate::colors::Color;
 use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, PatchProps, Rectangle};
-use crate::scale::{LogScale, NonPositive};
-use crate::ticker::AxisName;
+use crate::scale::LogScale;
+use crate::ticker::{AxisName, LogBase};
 use crate::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues, UnitHandle};
 
 /// Where a bar sits relative to its position (matplotlib's `align`).
@@ -334,10 +334,7 @@ impl Axes {
             vec![self.next_patch_color()]
         };
         if options.log {
-            let log = LogScale::new(10.0)
-                .expect("10 is a valid logarithm base")
-                .with_nonpositive(NonPositive::Clip);
-            self.set_scale(value_name, Box::new(log));
+            self.set_scale(value_name, Box::new(LogScale::from_base(LogBase::TEN)));
         }
         let numbers = self.bar_numbers(orientation, &positions, values, &mut options);
         let geometry = layout_bars(&numbers, &options)?;

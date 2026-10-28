@@ -135,6 +135,16 @@ impl FuncScaleLog {
         })
     }
 
+    /// `log_base(func(x))` in `base`.
+    pub fn from_base(func: FuncTransform, base: LogBase) -> Self {
+        Self {
+            transform: FuncLogTransform::new(
+                func,
+                LogTransform::from_base(base, NonPositive::Clip),
+            ),
+        }
+    }
+
     /// The logarithm base.
     pub fn base(&self) -> f64 {
         self.transform.log().base()

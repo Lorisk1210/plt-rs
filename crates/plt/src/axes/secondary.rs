@@ -9,7 +9,7 @@ use crate::artist::{ArtistHandle, ArtistId};
 use crate::figure::{FigureState, insert_axes};
 use crate::scale::{FuncScale, FuncScaleLog, FuncTransform, Scale, ScaleName};
 use crate::spines::SpineSide;
-use crate::ticker::NullLocator;
+use crate::ticker::{LogBase, NullLocator};
 use crate::transforms::{AxisMap, Bbox};
 
 /// Where a secondary axis sits on its host.
@@ -175,7 +175,7 @@ impl FigureState {
         if link.host_scale.as_ref() != Some(&host_scale) {
             let reversed = link.functions.reversed();
             let scale: Rc<dyn Scale> = if host_scale == ScaleName::Log {
-                Rc::new(FuncScaleLog::new(reversed, 10.0).expect("10 is a valid log base"))
+                Rc::new(FuncScaleLog::from_base(reversed, LogBase::TEN))
             } else {
                 Rc::new(FuncScale::from_transform(reversed))
             };

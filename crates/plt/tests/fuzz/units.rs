@@ -22,7 +22,7 @@ use plt::text::AnnotateOptions;
 use plt::ticker::{FormattedTicks, Formatter, Locator, TickContext, TickerError};
 use plt::units::{
     AxisDelta, AxisDeltas, AxisValue, AxisValues, ConversionError, ConversionInterface,
-    Convertible, UnitAxis, UnitAxisInfo,
+    Convertible, CustomValues, UnitAxis, UnitAxisInfo,
 };
 
 use crate::harness::{Gen, fuzz};
@@ -494,6 +494,12 @@ fn use_axis(ax: &Axes, call: &Call) {
             if let Some(&first) = values.first() {
                 let _ = axis.convert_value(Odd(first));
                 let _ = ax.convert_point((Odd(first), Odd(first)));
+            } else {
+                // A user value holding no value at all.
+                let none = || AxisValue::Custom(CustomValues::new(Vec::<Odd>::new()));
+                let _ = axis.convert_value(none());
+                let _ = ax.convert_point((none(), none()));
+                drop(ax.text(none(), none(), "t"));
             }
         }
         Call::Units(unit, x) => {

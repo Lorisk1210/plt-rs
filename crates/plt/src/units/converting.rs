@@ -541,10 +541,8 @@ pub(crate) trait UnitHandle: Sized {
     }
 }
 
-/// The number one value converted to.
+/// The number one value converted to: NaN for a user value holding no
+/// value at all, as for a value that fails to convert.
 fn one_number(numbers: Vec<f64>) -> f64 {
-    numbers
-        .into_iter()
-        .next()
-        .expect("one value converts to one number")
+    numbers.into_iter().next().unwrap_or(f64::NAN)
 }

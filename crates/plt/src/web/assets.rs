@@ -9,6 +9,7 @@ use std::fmt::Write as _;
 use plt_core::json;
 
 use super::modern;
+use super::net::ServedFigure;
 use crate::figure::SaveFormat;
 use crate::gui::images;
 use crate::look::ChromeLook;
@@ -168,39 +169,33 @@ pub(crate) fn script(default_extension: &str) -> String {
 }
 
 /// Fills a page template's placeholders as matplotlib's server does (the
-/// pages live at the root, so the URL prefix is empty).
-fn fill(template: &str, ws_uri: &str, chrome: ChromeLook) -> String {
+/// pages live at the root, so the URL prefix is empty), for a page showing
+/// `figures` in the `chrome` look.
+fn fill(template: &str, ws_uri: &str, chrome: ChromeLook, figures: &[ServedFigure]) -> String {
     let page = template
         .replace("{{ prefix }}", "")
         .replace("{{ ws_uri }}", ws_uri);
     match chrome {
         ChromeLook::Matplotlib => page,
-        ChromeLook::Modern => page.replacen(
-            MPL_STYLESHEET,
-            &format!(
-                "{MPL_STYLESHEET}\n    <link rel=\"stylesheet\" href=\"{}\" type=\"text/css\">",
-                modern::STYLESHEET
-            ),
-            1,
-        ),
+        ChromeLook::Modern => modern::dress(&page, figures),
     }
 }
 
-/// The link to matplotlib's own style sheet in the page templates, which
-/// the modern chrome's follows.
-const MPL_STYLESHEET: &str =
-    r#"<link rel="stylesheet" href="/_static/css/mpl.css" type="text/css">"#;
-
-/// The page of figure `number` in the `chrome` look; `ws_uri` is the
-/// WebSocket root (`ws://host/`).
-pub(crate) fn single_figure_page(ws_uri: &str, number: u32, chrome: ChromeLook) -> String {
-    fill(SINGLE_FIGURE, ws_uri, chrome).replace("{{ str(fig_id) }}", &number.to_string())
+/// The page of `figure` in the `chrome` look; `ws_uri` is the WebSocket
+/// root (`ws://host/`).
+pub(crate) fn single_figure_page(ws_uri: &str, figure: ServedFigure, chrome: ChromeLook) -> String {
+    fill(SINGLE_FIGURE, ws_uri, chrome, &[figure])
+        .replace("{{ str(fig_id) }}", &figure.number.to_string())
 }
 
-/// The page of every figure, in the order of `numbers`, in the `chrome`
+/// The page of every figure, in the order of `figures`, in the `chrome`
 /// look.
-pub(crate) fn all_figures_page(ws_uri: &str, numbers: &[u32], chrome: ChromeLook) -> String {
-    let page = fill(ALL_FIGURES, ws_uri, chrome);
+pub(crate) fn all_figures_page(
+    ws_uri: &str,
+    figures: &[ServedFigure],
+    chrome: ChromeLook,
+) -> String {
+    let page = fill(ALL_FIGURES, ws_uri, chrome, figures);
     let (head, rest) = page
         .split_once(FIGURE_LOOP.0)
         .expect("the page template loops over the figures");
@@ -208,8 +203,8 @@ pub(crate) fn all_figures_page(ws_uri: &str, numbers: &[u32], chrome: ChromeLook
         .split_once(FIGURE_LOOP.1)
         .expect("the figure loop of the page template ends");
     let mut out = head.to_owned();
-    for number in numbers {
-        out.push_str(&body.replace("{{ str(fig_id) }}", &number.to_string()));
+    for figure in figures {
+        out.push_str(&body.replace("{{ str(fig_id) }}", &figure.number.to_string()));
     }
     out.push_str(tail);
     out
@@ -243,11 +238,16 @@ mod tests {
 
     #[test]
     fn pages_fill_their_templates() {
-        let page = single_figure_page("ws://localhost:8988/", 3, ChromeLook::Matplotlib);
+        let page = single_figure_page(
+            "ws://localhost:8988/",
+            ServedFigure::new(3, false),
+            ChromeLook::Matplotlib,
+        );
         assert!(page.contains(r#"<script src="/js/mpl.js"></script>"#));
         assert!(page.contains(r#"var uri = "ws://localhost:8988/" + 3 + "/ws";"#));
         assert!(!page.contains("{{") && !page.contains("{%"));
-        let page = all_figures_page("ws://h/", &[1, 4], ChromeLook::Matplotlib);
+        let figures = [ServedFigure::new(1, false), ServedFigure::new(4, true)];
+        let page = all_figures_page("ws://h/", &figures, ChromeLook::Matplotlib);
         assert!(page.contains("ready(figure_ready(1));"));
         assert!(page.contains("ready(figure_ready(4));"));
         assert!(!page.contains("{{") && !page.contains("{%"));
@@ -256,17 +256,21 @@ mod tests {
     }
 
     #[test]
-    fn modern_pages_add_their_style_sheet_after_matplotlibs() {
-        let link = format!(r#"<link rel="stylesheet" href="{}""#, modern::STYLESHEET);
+    fn modern_pages_load_the_chrome_and_name_dark_figures() {
+        let figures = [ServedFigure::new(1, false), ServedFigure::new(4, true)];
         for page in [
-            single_figure_page("ws://h/", 1, ChromeLook::Modern),
-            all_figures_page("ws://h/", &[1], ChromeLook::Modern),
+            single_figure_page("ws://h/", ServedFigure::new(4, true), ChromeLook::Modern),
+            all_figures_page("ws://h/", &figures, ChromeLook::Modern),
         ] {
-            let mpl = page.find(MPL_STYLESHEET).expect("matplotlib's style sheet");
-            assert!(page.find(&link).is_some_and(|modern| modern > mpl));
+            assert!(page.contains(r#"<link rel="stylesheet" href="/_static/css/plt-modern.css""#));
+            assert!(page.contains(r#"<script src="/_static/js/plt-modern.js"></script>"#));
+            assert!(page.contains(r#" data-plt-dark="4">"#));
         }
-        let classic = single_figure_page("ws://h/", 1, ChromeLook::Matplotlib);
-        assert!(!classic.contains(&link));
+        let modern = all_figures_page("ws://h/", &figures, ChromeLook::Modern);
+        assert!(modern.contains("<title>Figures</title>"));
+        let classic = all_figures_page("ws://h/", &figures, ChromeLook::Matplotlib);
+        assert!(!classic.contains("plt-modern") && !classic.contains("plt-dark"));
+        assert!(classic.contains("<title>MPL | WebAgg current figures</title>"));
     }
 
     #[test]

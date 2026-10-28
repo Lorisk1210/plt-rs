@@ -12,9 +12,9 @@ use std::time::{Duration, Instant};
 use plt_codec::base64;
 
 use super::canvas::{Next, Output, WebCanvas};
-use super::net::{ConnectionId, DownloadError, Inbound, Listener, Outbound};
+use super::net::{ConnectionId, DownloadError, Inbound, Listener, Outbound, ServedFigure};
 use super::protocol::ClientMessage;
-use super::{WebError, WebOptions, assets, browser};
+use super::{WebError, WebOptions, assets, browser, modern};
 use crate::events::{Event, GinputOptions, wait};
 use crate::figure::Figure;
 
@@ -135,8 +135,8 @@ impl WebServer {
     }
 
     /// Serves `figure` as figure `number` titled `title` (pyplot's
-    /// numbering); a figure already served keeps its number and takes the
-    /// title.
+    /// numbering); a figure already served keeps its number, takes the
+    /// title, and its pages loaded from now on follow its background.
     ///
     /// # Errors
     ///
@@ -149,6 +149,7 @@ impl WebServer {
     ) -> Result<(), WebError> {
         if let Some((_, canvas)) = self.canvases.iter_mut().find(|(_, c)| c.figure() == figure) {
             canvas.set_title(title);
+            self.publish();
             return Ok(());
         }
         if self.canvas(number).is_some() {
@@ -163,10 +164,19 @@ impl WebServer {
         self.publish();
     }
 
-    /// Tells the network threads which figures are served.
+    /// Tells the network threads which figures are served, and which are
+    /// drawn on dark backgrounds now (a page chooses its theme when it
+    /// loads, as a window does when it opens).
     fn publish(&self) {
-        let numbers = self.canvases.iter().map(|(number, _)| *number).collect();
-        self.listener.shared().set_figure_numbers(numbers);
+        let figures = self
+            .canvases
+            .iter()
+            .map(|(number, canvas)| ServedFigure {
+                number: *number,
+                dark: modern::is_dark(canvas.figure()),
+            })
+            .collect();
+        self.listener.shared().set_figures(figures);
     }
 
     /// The number `figure` is served under.

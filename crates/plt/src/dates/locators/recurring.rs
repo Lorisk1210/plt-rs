@@ -1,7 +1,7 @@
 //! Locators driven by recurrence rules: matplotlib's `RRuleLocator`, its
 //! fixed-frequency subclasses and `YearLocator`.
 
-use super::{DateLocator, date_nonsingular, ticks_in_view, to_nums};
+use super::{DateLocator, to_nums};
 use crate::dates::calendar::Weekday;
 use crate::dates::rrule::{Frequency, NthWeekday, RRule, RRuleSpec};
 use crate::dates::tz::{TimeZone, ZonedDateTime};
@@ -158,24 +158,7 @@ fn rule_ticks(
     to_nums(&zoned)
 }
 
-impl Locator for RRuleLocator {
-    fn tick_values(
-        &self,
-        vmin: f64,
-        vmax: f64,
-        _: &TickContext<'_>,
-    ) -> Result<Vec<f64>, TickerError> {
-        ticks_in_view(self, vmin, vmax)
-    }
-
-    fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
-        date_nonsingular(v0, v1, self.unit(ctx), self.interval())
-    }
-
-    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
-        Some(self.unit(ctx))
-    }
-}
+locate_dates_in_view!(RRuleLocator);
 
 impl DateLocator for RRuleLocator {
     fn tz(&self) -> &TimeZone {
@@ -269,24 +252,7 @@ impl YearLocator {
     }
 }
 
-impl Locator for YearLocator {
-    fn tick_values(
-        &self,
-        vmin: f64,
-        vmax: f64,
-        _: &TickContext<'_>,
-    ) -> Result<Vec<f64>, TickerError> {
-        ticks_in_view(self, vmin, vmax)
-    }
-
-    fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
-        date_nonsingular(v0, v1, self.unit(ctx), self.interval())
-    }
-
-    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
-        Some(self.unit(ctx))
-    }
-}
+locate_dates_in_view!(YearLocator);
 
 impl DateLocator for YearLocator {
     fn tz(&self) -> &TimeZone {

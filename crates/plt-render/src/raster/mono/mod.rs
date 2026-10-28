@@ -11,6 +11,8 @@
 mod profiles;
 mod sweep;
 
+pub(super) use profiles::split_cubic;
+
 use plt_core::{Path, Point};
 use plt_font::{ScanOutline, ScanPoint};
 

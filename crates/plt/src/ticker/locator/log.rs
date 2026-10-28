@@ -2,7 +2,7 @@
 
 use super::{AutoLocator, Locator};
 use crate::ticker::pymath::{arange, ceil_int, floor_int, round_int};
-use crate::ticker::{AutolimitMode, TickContext, TickerError, TickerSettings};
+use crate::ticker::{AutolimitMode, LogBase, TickContext, TickerError, TickerSettings};
 
 /// Multiples of each power of the base at which [`LogLocator`] places
 /// ticks.
@@ -46,25 +46,29 @@ pub struct LogLocator {
 impl LogLocator {
     /// Major ticks at powers of `base` (positive and not 1).
     pub fn new(base: f64) -> Result<Self, TickerError> {
-        if !(base > 0.0 && base.is_finite() && base != 1.0) {
-            return Err(TickerError::invalid("base", "must be positive and not 1"));
-        }
-        Ok(Self {
-            base,
+        LogBase::new(base)
+            .map(Self::from_base)
+            .ok_or_else(|| TickerError::invalid("base", "must be positive and not 1"))
+    }
+
+    /// Major ticks at powers of `base`.
+    pub fn from_base(base: LogBase) -> Self {
+        Self {
+            base: base.get(),
             subs: LogSubs::Explicit(vec![1.0]),
             numticks: NumTicks::Auto,
-        })
+        }
     }
 
     /// The default locator for `settings`: classic mode caps it at 15
     /// ticks instead of deriving the count from the axis.
-    pub fn from_settings(base: f64, settings: &TickerSettings) -> Result<Self, TickerError> {
+    pub fn from_settings(base: LogBase, settings: &TickerSettings) -> Self {
         let numticks = if settings.classic_mode {
             NumTicks::Fixed(15)
         } else {
             NumTicks::Auto
         };
-        Ok(Self::new(base)?.with_numticks(numticks))
+        Self::from_base(base).with_numticks(numticks)
     }
 
     /// Sets the multiples of each power.
@@ -175,7 +179,7 @@ impl LogLocator {
 impl Default for LogLocator {
     /// Base 10, major ticks at the powers.
     fn default() -> Self {
-        Self::new(10.0).expect("10 is a valid base")
+        Self::from_base(LogBase::TEN)
     }
 }
 

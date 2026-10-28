@@ -8,7 +8,7 @@ use plt_render::RgbaImage;
 
 use super::make::{RenderedImage, autoscale_unset};
 use super::normalize::normalize_in;
-use super::shared::{axes_image_contains, draw_rendered};
+use super::shared::{axes_image_contains, draw_rendered, grid_cell, grid_extent, grid_limits};
 use super::{ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
@@ -134,7 +134,10 @@ fn flipped(data: ImageData, x: bool, y: bool) -> ImageData {
         ImageData::Scalar(field) => {
             let values = flip(field.values(), x, y);
             let mask = flip(field.mask(), x, y);
-            ImageData::Scalar(super::ScalarField::masked(values, &mask).expect("flipped together"))
+            ImageData::Scalar(
+                super::ScalarField::masked(values, &mask)
+                    .expect("values and mask flip to one shape"),
+            )
         }
         ImageData::Rgb(grid) => ImageData::Rgb(flip(&grid, x, y)),
         ImageData::Rgba(grid) => ImageData::Rgba(flip(&grid, x, y)),
@@ -203,26 +206,12 @@ impl Artist for PcolorImageArtist {
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let resolved = ctx.resolve(self.base.transform.as_ref()?)?;
-        let corners = [
-            (self.x.first()?, self.y.first()?),
-            (self.x.last()?, self.y.last()?),
-        ];
-        Some(Bbox::from_points(
-            corners.map(|(&x, &y)| resolved.transform_point(Point::new(x, y))),
-        ))
+        grid_extent(&self.base, ctx, &self.x, &self.y)
     }
 
     /// The corners of the grid (matplotlib's `_update_image_limits`).
     fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
-        let corners = [
-            Point::new(*self.x.first()?, *self.y.first()?),
-            Point::new(*self.x.last()?, *self.y.last()?),
-        ];
-        Some(LimitPoints {
-            points: corners.to_vec(),
-            directions: (true, true),
-        })
+        grid_limits(&self.x, &self.y)
     }
 
     /// matplotlib's `AxesImage.contains` with the grid as extent.
@@ -233,26 +222,9 @@ impl Artist for PcolorImageArtist {
     /// matplotlib's `PcolorImage.get_cursor_data`: the value of the cell
     /// under `at`.
     fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
-        let data = ctx
-            .resolve(self.base.transform.as_ref()?)?
-            .inverted()?
-            .transform_point(at);
-        let element = (cell_of(&self.y, data.y)?, cell_of(&self.x, data.x)?);
+        let element = grid_cell(&self.base, ctx, at, &self.x, &self.y)?;
         Some(self.data.cursor_text(element, &self.mappable.borrow()))
     }
-}
-
-/// The cell between `edges` holding `value`: the lower one on an inner
-/// edge, and the last one on the first edge, where matplotlib's
-/// `searchsorted(value) - 1` wraps around as a negative index.
-pub(super) fn cell_of(edges: &[f64], value: f64) -> Option<usize> {
-    let (&first, &last) = (edges.first()?, edges.last()?);
-    if !(first..=last).contains(&value) {
-        return None;
-    }
-    let cells = edges.len() - 1;
-    let below = edges.partition_point(|&edge| edge < value);
-    Some((below + cells - 1) % cells)
 }
 
 /// A handle to an image with non-uniform cells (matplotlib's

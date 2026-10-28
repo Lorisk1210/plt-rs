@@ -185,6 +185,10 @@ impl TriContourGenerator {
     /// crossing points, until it leaves through a boundary edge
     /// (`end_on_boundary`) or returns to a visited triangle. `at` ends as
     /// the last edge crossed.
+    ///
+    /// A walk through more triangle edges than there are repeats itself,
+    /// which only triangles that are their own neighbours make happen; it
+    /// ends there, where matplotlib's goes on forever.
     fn follow_interior(
         &mut self,
         line: &mut Line,
@@ -194,7 +198,7 @@ impl TriContourGenerator {
         on_upper: bool,
     ) {
         line.push(self.interp(*at, level));
-        loop {
+        for _ in 0..=3 * self.tri.ntri() {
             let visited = self.visited_index(at.0, on_upper);
             if !end_on_boundary && self.interior_visited[visited] {
                 break;
@@ -274,7 +278,10 @@ impl TriContourGenerator {
                 let mut line = Line::default();
                 let mut at = start;
                 let mut on_upper = incr_upper;
-                loop {
+                // Each turn starts on a boundary edge, on either level:
+                // more turns than that repeat one, which only triangles
+                // that are their own neighbours make happen.
+                for _ in 0..=2 * self.boundary_index.len() {
                     let level = if on_upper { upper } else { lower };
                     self.follow_interior(&mut line, &mut at, true, level, on_upper);
                     match self.follow_boundary(&mut line, &mut at, lower, upper, on_upper) {
@@ -313,7 +320,9 @@ impl TriContourGenerator {
 
     /// Follows the boundary from the edge `at` until z crosses a level,
     /// adding the boundary points passed. Returns whether it stopped on the
-    /// upper level (`None` if `at` is not a boundary edge).
+    /// upper level (`None` if `at` is not a boundary edge, or if a lap of
+    /// the boundary and its first edge again cross no level, which only
+    /// triangles that are their own neighbours make happen).
     fn follow_boundary(
         &mut self,
         line: &mut Line,
@@ -326,7 +335,7 @@ impl TriContourGenerator {
         self.boundaries_used[boundary] = true;
         let mut first_edge = true;
         let mut z_end = 0.0;
-        loop {
+        for _ in 0..=self.boundaries[boundary].len() {
             self.boundaries_visited[boundary][index] = true;
             let z_start = if first_edge {
                 self.edge_z(*at, false)
@@ -358,6 +367,7 @@ impl TriContourGenerator {
             *at = self.boundaries[boundary][index];
             line.push(self.tri.point(self.tri.triangles()[at.0][at.1]));
         }
+        None
     }
 }
 
@@ -458,6 +468,19 @@ mod tests {
         );
         assert_eq!(generator.filled(2.0, 3.0).unwrap().codes(), Some(&[][..]));
         assert!(generator.filled(1.0, 1.0).is_err());
+    }
+
+    #[test]
+    fn triangles_repeating_a_point_end_their_contours() {
+        // Each of these used to send the generator round in circles.
+        let (x, y) = ([0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]);
+        let z = [0.0, 1.0, 2.0, 3.0];
+        for triangles in [vec![[0, 1, 0]], vec![[0, 0, 0]], vec![[0, 1, 2], [0, 2, 0]]] {
+            let tri = Triangulation::new(&x, &y, triangles).unwrap();
+            let mut generator = TriContourGenerator::new(&tri, &z).unwrap();
+            generator.lines(0.5);
+            generator.filled(0.5, 1.5).unwrap();
+        }
     }
 
     #[test]

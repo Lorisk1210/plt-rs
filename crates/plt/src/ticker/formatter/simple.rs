@@ -191,14 +191,7 @@ impl Formatter for FormatStrFormatter {
         locs: &[f64],
         _: &TickContext<'_>,
     ) -> Result<FormattedTicks, TickerError> {
-        let labels = locs
-            .iter()
-            .map(|&x| self.format.format(x))
-            .collect::<Result<_, _>>()?;
-        Ok(FormattedTicks {
-            labels,
-            offset: String::new(),
-        })
+        FormattedTicks::each(locs, |x| Ok(self.format.format(x)?))
     }
 
     fn format_data(&self, value: f64, _: &TickContext<'_>) -> Result<String, TickerError> {

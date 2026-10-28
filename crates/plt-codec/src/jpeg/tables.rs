@@ -1,6 +1,7 @@
 //! The tables of baseline JPEG: the zigzag order, the example quantization
-//! tables of ITU T.81 Annex K scaled by quality as libjpeg does, and the
-//! standard Huffman tables.
+//! tables of ITU T.81 Annex K scaled by quality as libjpeg does, the
+//! standard Huffman tables, and the fixed-point constants of libjpeg's
+//! accurate integer forward and inverse DCTs (`jfdctint.c`, `jidctint.c`).
 
 /// The natural (row-major) position of each zigzag index.
 pub(super) const ZIGZAG: [usize; 64] = [
@@ -116,6 +117,25 @@ pub(super) const AC_CHROMINANCE: HuffmanSpec = HuffmanSpec {
         0xe8, 0xe9, 0xea, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa,
     ],
 };
+
+/// Fractional bits of the DCTs' fixed-point constants.
+pub(super) const CONST_BITS: u32 = 13;
+/// Extra precision the DCTs keep between their two passes.
+pub(super) const PASS1_BITS: u32 = 2;
+
+// `FIX(x)`: `x` with `CONST_BITS` fractional bits.
+pub(super) const FIX_0_298631336: i32 = 2446;
+pub(super) const FIX_0_390180644: i32 = 3196;
+pub(super) const FIX_0_541196100: i32 = 4433;
+pub(super) const FIX_0_765366865: i32 = 6270;
+pub(super) const FIX_0_899976223: i32 = 7373;
+pub(super) const FIX_1_175875602: i32 = 9633;
+pub(super) const FIX_1_501321110: i32 = 12299;
+pub(super) const FIX_1_847759065: i32 = 15137;
+pub(super) const FIX_1_961570560: i32 = 16069;
+pub(super) const FIX_2_053119869: i32 = 16819;
+pub(super) const FIX_2_562915447: i32 = 20995;
+pub(super) const FIX_3_072711026: i32 = 25172;
 
 #[cfg(test)]
 mod tests {

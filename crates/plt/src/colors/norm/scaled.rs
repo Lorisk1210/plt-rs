@@ -9,6 +9,7 @@ use crate::scale::{
     AsinhScale, AsinhTransform, FuncScale, FuncTransform, LinearScale, LogScale, LogTransform,
     LogitScale, LogitTransform, NonPositive, Scale, SymmetricalLogScale, SymmetricalLogTransform,
 };
+use crate::ticker::LogBase;
 use crate::transforms::AxisMap;
 
 /// A scale transform a [`ScaleNorm`] can normalise through.
@@ -26,8 +27,7 @@ pub trait NormTransform: AxisMap + Clone + 'static {
 
 impl NormTransform for LogTransform {
     fn scale(&self) -> Box<dyn Scale> {
-        let scale = LogScale::new(self.base()).expect("the transform has a valid base");
-        Box::new(scale.with_nonpositive(self.nonpositive()))
+        Box::new(LogScale::from_base(self.log_base()).with_nonpositive(self.nonpositive()))
     }
 }
 
@@ -165,8 +165,7 @@ impl LogNorm {
 
 impl Default for LogNorm {
     fn default() -> Self {
-        let log = LogTransform::new(10.0, NonPositive::Mask).expect("10 is a valid log base");
-        Self::from_transform(log)
+        Self::from_transform(LogTransform::from_base(LogBase::TEN, NonPositive::Mask))
     }
 }
 

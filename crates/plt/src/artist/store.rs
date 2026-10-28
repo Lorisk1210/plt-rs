@@ -70,13 +70,13 @@ impl ArtistStore {
     /// Takes the artist out of the store: until it is
     /// [put back](Self::put_back), `id` behaves as if the artist were
     /// absent.
-    pub fn take(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
+    pub(crate) fn take(&mut self, id: ArtistId) -> Option<Box<dyn Artist>> {
         self.slots.get_mut(id.index as usize)?.take()
     }
 
     /// Puts back an artist taken out with [`take`](Self::take) or
     /// [`take_tree`](Self::take_tree).
-    pub fn put_back(&mut self, id: ArtistId, artist: Box<dyn Artist>) {
+    pub(crate) fn put_back(&mut self, id: ArtistId, artist: Box<dyn Artist>) {
         let slot = self
             .slots
             .get_mut(id.index as usize)
@@ -87,7 +87,7 @@ impl ArtistStore {
 
     /// Takes the artist and, recursively, every artist it owns out of the
     /// store (see [`take`](Self::take)), the artist first.
-    pub fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, Box<dyn Artist>)> {
+    pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, Box<dyn Artist>)> {
         take_tree(id, |id| self.take(id))
     }
 

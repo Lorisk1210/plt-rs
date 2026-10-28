@@ -1,9 +1,9 @@
 //! Agg's `vcgen_contour`: every sub-path as a closed polygon offset by half
 //! the width.
 
-use super::Generator;
 use super::join::JoinMath;
-use super::vertex_seq::{VertexDist, VertexSequence};
+use super::vertex_seq::VertexSequence;
+use super::{Generator, accumulate};
 use crate::Point;
 use crate::path::PathCode;
 use crate::path::convert::Vertex;
@@ -57,13 +57,7 @@ impl Generator for Contour {
 
     fn add_vertex(&mut self, vertex: Vertex) {
         self.status = Status::Initial;
-        match vertex.code {
-            PathCode::MoveTo => self.src.modify_last(VertexDist::new(vertex.point)),
-            PathCode::ClosePoly => self.closed = true,
-            PathCode::LineTo | PathCode::Curve3 | PathCode::Curve4 => {
-                self.src.add(VertexDist::new(vertex.point));
-            }
-        }
+        accumulate(&mut self.src, &mut self.closed, vertex);
     }
 
     fn rewind(&mut self) {

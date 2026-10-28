@@ -317,8 +317,9 @@ fn split_conic(base: &mut [i64]) {
     base[1] = a >> 1;
 }
 
-/// `Split_Cubic` on one coordinate.
-fn split_cubic(base: &mut [i64]) {
+/// `Split_Cubic` on one coordinate (the smooth rasterizer's
+/// `gray_split_cubic` computes the same halves).
+pub(in crate::raster) fn split_cubic(base: &mut [i64]) {
     base[6] = base[3];
     let mut a = base[0] + base[1];
     let b = base[1] + base[2];

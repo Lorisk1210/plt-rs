@@ -103,6 +103,9 @@ pub(crate) enum FieldCall {
         x: Vec<f64>,
         y: Vec<f64>,
         z: Vec<f64>,
+        /// Explicit triangles, points repeated included; `None` takes the
+        /// Delaunay triangulation.
+        triangles: Option<Vec<[usize; 3]>>,
         kind: usize,
         levels: i64,
     },
@@ -221,20 +224,25 @@ impl FieldCall {
         }
     }
 
-    /// Runs a [`FieldCall::Tri`] on the Delaunay triangulation of its
-    /// points.
+    /// Runs a [`FieldCall::Tri`] on its triangles, or the Delaunay
+    /// triangulation of its points.
     fn triangulated(&self, ax: &Axes) {
         let Self::Tri {
             x,
             y,
             z,
+            triangles,
             kind,
             levels,
         } = self
         else {
             return;
         };
-        let Ok(tri) = Triangulation::delaunay(x, y) else {
+        let tri = match triangles {
+            Some(triangles) => Triangulation::new(x, y, triangles.clone()),
+            None => Triangulation::delaunay(x, y),
+        };
+        let Ok(tri) = tri else {
             return;
         };
         let options = || ContourOptions {
@@ -377,6 +385,11 @@ impl FieldCall {
                 x: series(g, n),
                 y: partner(g, n),
                 z: partner(g, n),
+                triangles: g.chance(0.3).then(|| {
+                    (0..g.below(12))
+                        .map(|_| [g.below(n), g.below(n), g.below(n)])
+                        .collect()
+                }),
                 kind: g.below(4),
                 levels: count(g, 10) as i64,
             },

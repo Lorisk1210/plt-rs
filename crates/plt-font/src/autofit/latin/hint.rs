@@ -58,8 +58,10 @@ fn align_blue_edges(
         }
         let (edge1, blue) = if let Some(blue) = edges[edge].blue {
             (edge, blue)
-        } else if let Some(blue) = edge2.and_then(|other| edges[other].blue) {
-            let other = edge2.replace(edge).expect("a linked edge");
+        } else if let Some((other, blue)) =
+            edge2.and_then(|other| edges[other].blue.map(|blue| (other, blue)))
+        {
+            edge2 = Some(edge);
             (other, blue)
         } else {
             continue;

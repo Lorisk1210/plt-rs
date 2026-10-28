@@ -7,7 +7,7 @@ use super::{
     ScaleName,
 };
 use crate::ticker::{
-    AxisName, LogFormatter, LogLabelStyle, LogLocator, LogSubs, ScaleHint, TickerSettings,
+    AxisName, LogBase, LogFormatter, LogLabelStyle, LogLocator, LogSubs, ScaleHint, TickerSettings,
 };
 use crate::transforms::AxisMap;
 
@@ -22,11 +22,10 @@ fn positive_range(vmin: f64, vmax: f64, minpos: f64) -> (f64, f64) {
 }
 
 /// The tick helpers of a log axis with the given base and minor `subs`.
-fn log_tickers(base: f64, subs: Option<&[f64]>, settings: &TickerSettings) -> AxisTickers {
-    let locator =
-        LogLocator::from_settings(base, settings).expect("the scale validated the log base");
+fn log_tickers(base: LogBase, subs: Option<&[f64]>, settings: &TickerSettings) -> AxisTickers {
+    let locator = LogLocator::from_settings(base, settings);
     let minor_subs = subs.map_or(LogSubs::Auto, |subs| LogSubs::Explicit(subs.to_vec()));
-    let formatter = LogFormatter::from_settings(LogLabelStyle::SciNotation, base, settings);
+    let formatter = LogFormatter::from_settings(LogLabelStyle::SciNotation, base.get(), settings);
     AxisTickers {
         minor_locator: Box::new(locator.clone().with_subs(minor_subs)),
         major_locator: Box::new(locator),
@@ -47,17 +46,28 @@ impl LogScale {
     /// A log scale with `base` (positive, not 1) that clips non-positive
     /// values.
     pub fn new(base: f64) -> Result<Self, ScaleError> {
-        Ok(Self {
-            transform: LogTransform::new(base, NonPositive::Clip)?,
+        Ok(Self::with_transform(LogTransform::new(
+            base,
+            NonPositive::Clip,
+        )?))
+    }
+
+    /// A log scale in `base` that clips non-positive values.
+    pub fn from_base(base: LogBase) -> Self {
+        Self::with_transform(LogTransform::from_base(base, NonPositive::Clip))
+    }
+
+    fn with_transform(transform: LogTransform) -> Self {
+        Self {
+            transform,
             subs: None,
-        })
+        }
     }
 
     /// How non-positive values are treated.
     #[must_use]
     pub fn with_nonpositive(mut self, nonpositive: NonPositive) -> Self {
-        self.transform = LogTransform::new(self.transform.base(), nonpositive)
-            .expect("the base was validated on construction");
+        self.transform = LogTransform::from_base(self.transform.log_base(), nonpositive);
         self
     }
 
@@ -106,7 +116,7 @@ impl Scale for LogScale {
     }
 
     fn default_tickers(&self, _: AxisName, settings: &TickerSettings) -> AxisTickers {
-        log_tickers(self.base(), self.subs(), settings)
+        log_tickers(self.transform.log_base(), self.subs(), settings)
     }
 }
 
@@ -149,7 +159,7 @@ impl Scale for FuncScaleLog {
     }
 
     fn default_tickers(&self, _: AxisName, settings: &TickerSettings) -> AxisTickers {
-        log_tickers(self.base(), None, settings)
+        log_tickers(self.transform.log().log_base(), None, settings)
     }
 }
 

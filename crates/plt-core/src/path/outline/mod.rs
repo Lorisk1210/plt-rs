@@ -41,6 +41,19 @@ pub(crate) trait Generator {
     fn vertex(&mut self) -> Option<Vertex>;
 }
 
+/// Agg's `add_vertex` of the outline generators: a move replaces the last
+/// vertex of the sub-path `src`, a closure marks it `closed` and the other
+/// commands append their point.
+fn accumulate(src: &mut VertexSequence, closed: &mut bool, vertex: Vertex) {
+    match vertex.code {
+        PathCode::MoveTo => src.modify_last(VertexDist::new(vertex.point)),
+        PathCode::ClosePoly => *closed = true,
+        PathCode::LineTo | PathCode::Curve3 | PathCode::Curve4 => {
+            src.add(VertexDist::new(vertex.point));
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Status {
     Initial,

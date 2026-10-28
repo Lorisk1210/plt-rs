@@ -2,15 +2,15 @@
 //! navigation tools and a coordinate readout (matplotlib's
 //! `FigureManager` + `NavigationToolbar2`).
 
+mod canvas;
 mod dialogs;
 mod input;
 mod toolbar;
 
 use plt_core::Point;
 use plt_platform::{
-    Context, CursorIcon, LogicalSize, PhysicalRect, PhysicalSize, TimerId, WindowEvent, WindowId,
+    Context, CursorIcon, LogicalSize, PhysicalSize, TimerId, WindowEvent, WindowId,
 };
-use plt_raster::Pixmap;
 use plt_ui::{Flex, Surface, SurfaceEvent, UiWindow, WidgetId};
 
 use super::help_dialog::HelpDialog;
@@ -19,7 +19,7 @@ use super::save_dialog::{Outcome, SaveDialog};
 use super::subplot_dialog::SubplotDialog;
 use super::{GuiError, dialog, tools};
 use crate::events::{CursorShape, Event, EventSource, TimerKey};
-use crate::figure::{CanvasError, Figure, PixelBox, Presentation, Presenting};
+use crate::figure::{Figure, Presenting};
 use crate::navigation::{NavMode, Navigation};
 use toolbar::{Tool, Toolbar};
 
@@ -473,108 +473,6 @@ impl FigureWindow {
         };
         self.set_status(cx, status)
     }
-
-    /// Gives the figure the size of the canvas area at the window's scale
-    /// factor, its device pixel ratio (which scales the resolution the
-    /// figure was made at); returns whether its size in pixels or its
-    /// resolution changed.
-    fn fit_figure(&mut self) -> bool {
-        let size = self.canvas_size;
-        if size.width == 0 || size.height == 0 {
-            return false;
-        }
-        let before = (self.figure.width_height(), self.figure.dpi());
-        // A degenerate scale factor leaves the resolution alone, and at a
-        // degenerate resolution the figure keeps its size.
-        let _ = self
-            .figure
-            .canvas()
-            .set_device_pixel_ratio(self.window.ui().scale_factor());
-        let dpi = self.figure.dpi();
-        let _ = self
-            .figure
-            .set_size_inches(f64::from(size.width) / dpi, f64::from(size.height) / dpi);
-        before.0 != self.figure.width_height() || before.1.total_cmp(&dpi).is_ne()
-    }
-
-    /// Tells the figure's callbacks the size of the canvas area
-    /// (matplotlib's `resize_event`).
-    fn announce_size(&self) {
-        self.figure.process_event(&Event::Resize {
-            width: f64::from(self.canvas_size.width),
-            height: f64::from(self.canvas_size.height),
-        });
-    }
-
-    /// Draws the figure onto its canvas at the window's size and
-    /// resolution and shows it; artists that cannot be drawn are skipped
-    /// and the first problem is shown in the status line.
-    fn render(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        let size = self.canvas_size;
-        if size.width == 0 || size.height == 0 {
-            return Ok(());
-        }
-        if self.fit_figure() {
-            // The scale factor changed.
-            self.announce_size();
-        }
-        let problem = match self.figure.canvas().draw() {
-            Ok(()) => None,
-            Err(CanvasError::Draw(problem)) => Some(problem),
-            Err(err) => return Err(err.into()),
-        };
-        self.present(cx)?;
-        if let Some(problem) = problem {
-            self.set_status(cx, problem.to_string())?;
-        }
-        Ok(())
-    }
-
-    /// Shows what changed on the figure's canvas since it was last shown:
-    /// all of it after a draw, or only the blitted regions, updating only
-    /// those parts of the window (matplotlib's `blit`).
-    fn present(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        let figure_canvas = self.figure.canvas();
-        match figure_canvas.take_presentation() {
-            Presentation::Nothing => Ok(()),
-            Presentation::Whole => {
-                if let Some(image) = figure_canvas.with_pixels(Pixmap::clone) {
-                    self.window
-                        .update(cx, self.canvas, |canvas: &mut Surface<Message>| {
-                            canvas.set_image(image);
-                        })?;
-                }
-                Ok(())
-            }
-            Presentation::Regions(regions) => figure_canvas
-                .with_pixels(|pixels| {
-                    regions.into_iter().try_for_each(|region| {
-                        let region = window_rect(region);
-                        self.window.update_region(
-                            cx,
-                            self.canvas,
-                            region,
-                            |canvas: &mut Surface<Message>| {
-                                canvas.blit(pixels, region);
-                            },
-                        )?;
-                        Ok(())
-                    })
-                })
-                .unwrap_or(Ok(())),
-        }
-    }
-}
-
-/// A blitted part of the canvas as a rectangle of the canvas area.
-fn window_rect(region: PixelBox) -> PhysicalRect {
-    let corner = |at: i64| u32::try_from(at).unwrap_or(0);
-    PhysicalRect::new(
-        corner(region.x0),
-        corner(region.y0),
-        region.width(),
-        region.height(),
-    )
 }
 
 /// The platform cursor of a cursor shape.

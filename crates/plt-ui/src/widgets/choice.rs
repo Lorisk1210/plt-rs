@@ -3,7 +3,6 @@
 use std::fmt;
 use std::rc::Rc;
 
-use plt_core::Point;
 use plt_platform::MouseButton;
 
 use super::frame::paint_focus_ring;
@@ -149,13 +148,8 @@ impl<M: 'static> Widget<M> for Choice<M> {
             } else {
                 theme.text_secondary
             };
-            let layout = &self.segments.layouts[index];
-            let size = layout.size();
-            let origin = Point::new(
-                (x + (width - size.width) / 2.0).round(),
-                segment.center().y - size.height / 2.0,
-            );
-            cx.canvas().draw_text(layout, origin, color)?;
+            self.segments
+                .draw_label(cx.canvas(), index, segment, color)?;
         }
         Ok(())
     }
@@ -191,6 +185,7 @@ impl<M: 'static> Widget<M> for Choice<M> {
 
 #[cfg(test)]
 mod tests {
+    use plt_core::Point;
     use plt_platform::Modifiers;
 
     use super::*;

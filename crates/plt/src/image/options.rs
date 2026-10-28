@@ -86,29 +86,14 @@ impl Interpolation {
         Self::Auto,
     ];
 
-    /// matplotlib's name (`"spline16"`, `"auto"`, ...).
+    /// matplotlib's name (`"spline16"`, `"auto"`, ...): a kernel's is the
+    /// kernel's own.
     pub const fn name(self) -> &'static str {
         match self {
             Self::Auto => "auto",
             Self::Antialiased => "antialiased",
             Self::None => "none",
-            Self::Nearest => "nearest",
-            Self::Bilinear => "bilinear",
-            Self::Bicubic => "bicubic",
-            Self::Spline16 => "spline16",
-            Self::Spline36 => "spline36",
-            Self::Hanning => "hanning",
-            Self::Hamming => "hamming",
-            Self::Hermite => "hermite",
-            Self::Kaiser => "kaiser",
-            Self::Quadric => "quadric",
-            Self::Catrom => "catrom",
-            Self::Gaussian => "gaussian",
-            Self::Bessel => "bessel",
-            Self::Mitchell => "mitchell",
-            Self::Sinc => "sinc",
-            Self::Lanczos => "lanczos",
-            Self::Blackman => "blackman",
+            _ => self.kernel().name(),
         }
     }
 

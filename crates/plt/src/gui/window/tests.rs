@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use plt_platform::{
     ButtonState, Event, EventLoop, HeadlessHandle, Key, KeyEvent, Modifiers, MouseButton,
-    PhysicalPosition,
+    PhysicalPosition, PhysicalRect,
 };
 
 use super::*;

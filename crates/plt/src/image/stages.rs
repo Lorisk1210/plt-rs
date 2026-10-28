@@ -108,7 +108,9 @@ pub(crate) fn rgba_stage(
     let colors = match data {
         ImageData::Scalar(field) => {
             let rgba = scalar_colors(field, mappable)?;
-            Colors::F64(Grid::from_vec(shape.0, shape.1, rgba).expect("same shape"))
+            Colors::F64(
+                Grid::from_vec(shape.0, shape.1, rgba).expect("one colour per data element"),
+            )
         }
         ImageData::Rgb(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),
         ImageData::RgbF32(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),

@@ -2,8 +2,10 @@
 //! and tab bars: their layout, hit testing, hover tracking and arrow
 //! keys.
 
+use plt_core::{Point, Rgba};
 use plt_platform::{ButtonState, Key, KeyEvent};
 
+use crate::canvas::Canvas;
 use crate::error::UiError;
 use crate::event::UiEvent;
 use crate::geometry::Rect;
@@ -73,6 +75,24 @@ impl Segments {
             })
     }
 
+    /// Draws label `index` centred in `cell`, its left edge on a whole
+    /// pixel.
+    pub(crate) fn draw_label(
+        &self,
+        canvas: &mut Canvas<'_>,
+        index: usize,
+        cell: Rect,
+        color: Rgba,
+    ) -> Result<(), UiError> {
+        let layout = &self.layouts[index];
+        let size = layout.size();
+        let origin = Point::new(
+            (cell.x + (cell.width - size.width) / 2.0).round(),
+            cell.center().y - size.height / 2.0,
+        );
+        canvas.draw_text(layout, origin, color)
+    }
+
     /// The segment a key press moves to from `current`: Left and Right
     /// (also Up and Down when `up_down`) step without wrapping, Home and
     /// End jump to the ends. `None` for other keys and releases.
@@ -115,8 +135,6 @@ impl Segments {
 
 #[cfg(test)]
 mod tests {
-    use plt_core::Point;
-
     use super::*;
 
     #[test]

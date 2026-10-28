@@ -266,11 +266,14 @@ impl Cycler {
         match (args, kwargs) {
             ([inner], []) => Self::from_expr(inner),
             ([Expr::Str(property), values], []) => property_cycle(property, values),
-            ([], [_, ..]) => kwargs
-                .iter()
-                .map(|(property, values)| property_cycle(property, values))
-                .reduce(|a, b| a?.zip(b?).map_err(|err| err.0))
-                .expect("kwargs is non-empty"),
+            ([], [(property, values), rest @ ..]) => rest.iter().try_fold(
+                property_cycle(property, values)?,
+                |cycler, (property, values)| {
+                    cycler
+                        .zip(property_cycle(property, values)?)
+                        .map_err(|err| err.0)
+                },
+            ),
             _ => Err("cycler() takes (label, values), (cycler) or label=values".to_owned()),
         }
     }

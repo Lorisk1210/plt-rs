@@ -34,6 +34,7 @@ mod error;
 mod formatter;
 mod label_format;
 mod locator;
+mod log_base;
 pub(crate) mod pymath;
 mod settings;
 
@@ -53,5 +54,6 @@ pub use locator::{
     MultipleLocator, Nbins, NullLocator, NumTicks, Prune, SymmetricalLogLocator, exceeds_max_ticks,
     scale_range,
 };
+pub use log_base::LogBase;
 pub use plt_core::pyfmt;
 pub use settings::{AutolimitMode, MinorDivisions, TickerSettings};

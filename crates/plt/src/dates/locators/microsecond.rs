@@ -1,7 +1,7 @@
 //! Ticks at multiples of a number of microseconds (matplotlib's
 //! `MicrosecondLocator`).
 
-use super::{DateLocator, date_nonsingular, ticks_in_view, to_nums};
+use super::{DateLocator, to_nums};
 use crate::dates::convert::MICROSECONDS_PER_DAY;
 use crate::dates::tz::{TimeZone, ZonedDateTime};
 use crate::ticker::{Locator, MultipleLocator, TickContext, TickerError};
@@ -41,24 +41,7 @@ impl MicrosecondLocator {
     }
 }
 
-impl Locator for MicrosecondLocator {
-    fn tick_values(
-        &self,
-        vmin: f64,
-        vmax: f64,
-        _: &TickContext<'_>,
-    ) -> Result<Vec<f64>, TickerError> {
-        ticks_in_view(self, vmin, vmax)
-    }
-
-    fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {
-        date_nonsingular(v0, v1, self.unit(ctx), self.interval())
-    }
-
-    fn date_unit(&self, ctx: &TickContext<'_>) -> Option<f64> {
-        Some(self.unit(ctx))
-    }
-}
+locate_dates_in_view!(MicrosecondLocator);
 
 impl DateLocator for MicrosecondLocator {
     fn tz(&self) -> &TimeZone {

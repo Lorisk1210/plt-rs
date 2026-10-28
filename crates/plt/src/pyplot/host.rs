@@ -188,9 +188,9 @@ impl Host {
             Self::Windows(session) => session.resize(figure, width, height),
             Self::Web(_) => {
                 let dpi = figure.dpi();
-                figure
-                    .set_size_inches(f64::from(width) / dpi, f64::from(height) / dpi)
-                    .expect("whole pixels at a positive resolution make a valid size");
+                // At a degenerate resolution the size is invalid: the
+                // figure keeps its size, as it does in a window.
+                let _ = figure.set_size_inches(f64::from(width) / dpi, f64::from(height) / dpi);
                 Ok(())
             }
             Self::Agg => Ok(()),
@@ -222,5 +222,20 @@ mod tests {
             "agg shows nothing and returns"
         );
         assert_eq!(get_backend(), Backend::Agg);
+    }
+
+    #[test]
+    fn web_pages_resize_figures_at_any_resolution() {
+        let server = WebServer::bind(WebOptions::new("127.0.0.1", 0)).unwrap();
+        let mut host = Host::Web(server);
+        let fig = Figure::new();
+        host.resize(&fig, 320, 240).unwrap();
+        assert_eq!(fig.size_inches(), (3.2, 2.4));
+        // A degenerate resolution used to panic: the figure keeps its size.
+        for dpi in [0.0, -100.0, f64::NAN] {
+            fig.set_dpi(dpi);
+            host.resize(&fig, 640, 480).unwrap();
+            assert_eq!(fig.size_inches(), (3.2, 2.4));
+        }
     }
 }

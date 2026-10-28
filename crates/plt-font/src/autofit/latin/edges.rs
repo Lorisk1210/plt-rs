@@ -72,20 +72,21 @@ pub(crate) fn compute_edges(
             } else {
                 straight += 1;
             }
-            let serif_edge = segment.serif.and_then(|serif| axis.segments[serif].edge);
-            let is_serif = serif_edge.is_some_and(|serif_edge| serif_edge != edge);
-            let link_edge = segment.link.and_then(|link| axis.segments[link].edge);
-            if link_edge.is_none() && !is_serif {
-                continue;
-            }
-            let (other, mut edge2) = if is_serif {
-                (segment.serif, axis.edges[edge].serif)
-            } else {
-                (segment.link, axis.edges[edge].link)
+            // A serif on another edge, else a link to a segment on an edge.
+            let serif = segment
+                .serif
+                .filter(|&serif| axis.segments[serif].edge.is_some_and(|other| other != edge));
+            let link = segment
+                .link
+                .filter(|&link| axis.segments[link].edge.is_some());
+            let (other, current) = match (serif, link) {
+                (Some(serif), _) => (serif, axis.edges[edge].serif),
+                (None, Some(link)) => (link, axis.edges[edge].link),
+                (None, None) => continue,
             };
-            let other = other.expect("a serif or link segment");
+            let is_serif = serif.is_some();
             let other_edge = axis.segments[other].edge;
-            edge2 = match edge2 {
+            let edge2 = match current {
                 Some(current) => {
                     let edge_delta = (i64::from(axis.edges[edge].fpos)
                         - i64::from(axis.edges[current].fpos))

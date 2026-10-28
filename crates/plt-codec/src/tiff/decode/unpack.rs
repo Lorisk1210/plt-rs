@@ -36,8 +36,7 @@ pub(super) fn unpack_row(layout: Layout, order: ByteOrder, row: &[u8], out: &mut
         Layout::Gray16 => {
             let samples = row.as_chunks::<2>().0;
             for (pair, sample) in out.as_chunks_mut::<2>().0.iter_mut().zip(samples) {
-                let value = u16::try_from(order.read(sample)).expect("two bytes");
-                pair.copy_from_slice(&value.to_le_bytes());
+                *pair = order.read_u16(*sample).to_le_bytes();
             }
         }
         Layout::GrayAlpha | Layout::PaletteAlpha => out.copy_from_slice(&row[..width * 2]),

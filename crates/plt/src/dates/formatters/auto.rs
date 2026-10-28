@@ -124,13 +124,7 @@ impl Formatter for AutoDateFormatter {
     ) -> Result<FormattedTicks, TickerError> {
         let format = self.format_for(ctx);
         let usetex = resolve_usetex(self.usetex, ctx);
-        Ok(FormattedTicks {
-            labels: locs
-                .iter()
-                .map(|&x| format_date(x, format, &self.tz, usetex))
-                .collect::<Result<_, _>>()?,
-            offset: String::new(),
-        })
+        FormattedTicks::each(locs, |x| format_date(x, format, &self.tz, usetex))
     }
 
     fn format_data(&self, value: f64, ctx: &TickContext<'_>) -> Result<String, TickerError> {

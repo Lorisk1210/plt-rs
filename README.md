@@ -162,6 +162,17 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   does: `setup`, `compare_images` with its failure diff, and
   `check_figures_equal`.
 
+## Examples
+
+[`examples/`](examples/README.md) holds twenty common graphs, each
+written twice and shown with its image: in Rust with plt, and in Python
+with pltrs in matplotlib's syntax. Among them are line, scatter, bar,
+area, pie and polar plots, histograms, box and violin plots, error bars,
+an annotated heatmap, contours, streamlines, a 3-D surface, dates, a
+mosaic dashboard, log and twin axes, annotations, mathtext and an
+animation. `cargo xtask examples` renders them and compares each Rust
+image with matplotlib drawing the Python script.
+
 ## Gallery
 
 `crates/plt/examples/gallery/` holds over ninety short, commented

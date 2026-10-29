@@ -20,6 +20,7 @@
 )]
 
 mod bench;
+mod examples;
 mod mpl_suite;
 mod mpl_tests;
 mod python;
@@ -48,6 +49,7 @@ fn main() -> ExitCode {
         Some((command, rest)) if command == "mpl-tests" => mpl_tests::run(rest),
         Some((command, rest)) if command == "python" => python::run(rest),
         Some((command, rest)) if command == "mpl-suite" => mpl_suite::run(rest),
+        Some((command, rest)) if command == "examples" => examples::run(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");

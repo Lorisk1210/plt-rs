@@ -98,6 +98,11 @@ class Figure(Artist):
 
     axes = property(get_axes, doc="List of Axes in the Figure.")
 
+    def _axes_at(self, x, y):
+        """The topmost visible Axes containing the display point (*x*, *y*),
+        or None (``canvas.inaxes``)."""
+        return _handles.wrap(_figure.axes_at(self._native, x, y), Axes, self)
+
     def add_subplot(self, *args, **kwargs):
         """Add an `~.axes.Axes` to the figure as part of a subplot arrangement."""
         if not args:
@@ -112,8 +117,22 @@ class Figure(Artist):
             raise TypeError(f"add_subplot() takes 1 or 3 positional arguments "
                             f"but {len(args)} were given")
         nrows, ncols, index = args
-        ax = _handles.wrap(_figure.add_subplot(self._native, nrows, ncols, index),
-                           Axes, self)
+        projection = kwargs.pop('projection', None)
+        if kwargs.pop('polar', False):
+            if projection is not None and projection != 'polar':
+                raise ValueError(
+                    f"polar={True}, yet projection={projection!r}. "
+                    "Only one of these arguments should be supplied."
+                )
+            projection = 'polar'
+        if projection is None or projection == 'rectilinear':
+            ax = _handles.wrap(
+                _figure.add_subplot(self._native, nrows, ncols, index), Axes, self)
+        else:
+            from .projections import get_projection_class
+            cls = get_projection_class(projection)
+            ax = _handles.wrap(_figure.add_subplot_projection(
+                self._native, (nrows, ncols, index), cls.name), cls, self)
         ax._internal_update(kwargs)
         return ax
 

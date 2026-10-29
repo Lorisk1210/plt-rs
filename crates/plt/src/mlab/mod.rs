@@ -45,9 +45,9 @@ pub use correlate::{Correlation, XcorrOptions, acorr, correlate_full, xcorr};
 pub use detrend::{Detrend, DetrendFn, detrend_grid, detrend_linear, detrend_mean, detrend_none};
 pub use fft::{FftPlan, fft, fft_n, fftfreq, ifft};
 pub use spectral::{
-    SignalValue, Specgram, SpecgramMode, SpectralOptions, Spectrum, SpectrumOptions, SpectrumSides,
-    angle_spectrum, cohere, complex_specgram, complex_spectrum, csd, magnitude_spectrum,
-    phase_spectrum, psd, specgram,
+    SignalValue, Specgram, SpecgramMode, SpectralMode, SpectralOptions, Spectrum, SpectrumOptions,
+    SpectrumSides, angle_spectrum, cohere, complex_specgram, complex_spectrum, csd,
+    magnitude_spectrum, phase_spectrum, psd, specgram, spectral_segments,
 };
 pub use stride::stride_windows;
 pub use window::{Window, blackman, hanning, window_hanning, window_none};
@@ -123,6 +123,9 @@ pub enum MlabError {
         /// Samples returned.
         actual: usize,
     },
+    /// A cross spectrum asked for in a mode other than the power spectral
+    /// density.
+    CrossSpectrumMode,
 }
 
 impl fmt::Display for MlabError {
@@ -163,6 +166,7 @@ impl fmt::Display for MlabError {
                 f,
                 "the detrend function returned {actual} values for {expected} samples"
             ),
+            Self::CrossSpectrumMode => f.write_str("x and y must be equal if mode is not 'psd'"),
         }
     }
 }

@@ -53,7 +53,7 @@ pub use colorizer::{Colorize, ColorizerError, ColorizerOptions};
 pub(crate) use colorizer::{NORM_WITH_LIMITS, impl_colorize};
 pub use colormap::{
     Channel, Colormap, ColormapError, ColormapKind, Extend, Normalized, Segment, SegmentData,
-    SegmentFn, SegmentProblem,
+    SegmentFn, SegmentProblem, create_lookup_table,
 };
 pub use hsv::{hsv_to_rgb, rgb_to_hsv};
 pub use levels::{LevelsError, from_levels_and_colors};

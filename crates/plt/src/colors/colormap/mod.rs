@@ -38,7 +38,7 @@ pub use error::{ColormapError, SegmentProblem};
 pub use lookup::Normalized;
 pub(crate) use lookup::truncate_byte;
 pub(crate) use segment::cubehelix_channel;
-pub use segment::{Segment, SegmentData, SegmentFn};
+pub use segment::{Segment, SegmentData, SegmentFn, create_lookup_table};
 
 /// A colour channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

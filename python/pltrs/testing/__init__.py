@@ -3,11 +3,15 @@ Helper functions for testing (matplotlib's ``testing``): the
 configuration image tests run in, and running code in a subprocess.
 """
 
+import itertools
 import locale
 import logging
 import os
+from pathlib import Path
+import string
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 
 from .. import _api, rcdefaults, rcParams, use
 
@@ -110,3 +114,85 @@ def subprocess_run_helper(func, *args, timeout, extra_env=None):
         timeout=timeout, check=True,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
+
+
+def _check_for_pgf(texsystem):
+    """
+    Check if a given TeX system + pgf is available
+
+    Parameters
+    ----------
+    texsystem : str
+        The executable name to check
+    """
+    with TemporaryDirectory() as tmpdir:
+        tex_path = Path(tmpdir, "test.tex")
+        tex_path.write_text(r"""
+            \documentclass{article}
+            \usepackage{pgf}
+            \begin{document}
+            \typeout{pgfversion=\pgfversion}
+            \makeatletter
+            \@@end
+        """, encoding="utf-8")
+        try:
+            subprocess.check_call(
+                [texsystem, "-halt-on-error", "-no-shell-escape",
+                 str(tex_path)], cwd=tmpdir,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError):
+            return False
+        return True
+
+
+def _has_tex_package(package):
+    """Whether the TeX installation has the LaTeX package *package*."""
+    from .. import dviread
+    try:
+        dviread.find_tex_file(f"{package}.sty")
+        return True
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def _gen_multi_font_text():
+    """
+    Generate text intended for use with multiple fonts to exercise font fallbacks.
+
+    Returns
+    -------
+    fonts : list of str
+        The names of the fonts used to render the test string, sorted by intended
+        priority. This should be set as the font family for the Figure or Text artist.
+    text : str
+        The test string.
+    """
+    # These fonts are serif and sans-serif, and would not normally be combined, but that
+    # should make it easier to see which glyph is from which font.
+    fonts = ['cmr10', 'DejaVu Sans']
+    # cmr10 does not contain accented characters, so they should fall back to DejaVu
+    # Sans. However, some accented capital A versions *are* in cmr10 with non-standard
+    # glyph shapes, so don't test those (otherwise this Latin1 supplement group would
+    # start at 0xA0.)
+    start = 0xC5
+    latin1_supplement = [chr(x) for x in range(start, 0xFF+1)]
+    latin_extended_A = [chr(x) for x in range(0x100, 0x17F+1)]
+    latin_extended_B = [chr(x) for x in range(0x180, 0x24F+1)]
+    non_basic_multilingual_plane = [chr(x) for x in range(0x1F600, 0x1F610)]
+    count = itertools.count(start - 0xA0)
+    non_basic_characters = '\n'.join(
+        ''.join(line)
+        for _, line in itertools.groupby(
+            [*latin1_supplement, *latin_extended_A, *latin_extended_B,
+             *non_basic_multilingual_plane],
+            key=lambda x: next(count) // 32)  # 32 characters per line.
+    )
+    test_str = f"""There are basic characters
+{string.ascii_uppercase} {string.ascii_lowercase}
+{string.digits} {string.punctuation}
+and accented characters
+{non_basic_characters}
+in between!"""
+    # The resulting string contains 491 unique characters. Some file formats use 8-bit
+    # tables, which the large number of characters exercises twice over.
+    return fonts, test_str

@@ -8,9 +8,10 @@ use crate::mlab::{Complex, MAX_FFT_LENGTH, MlabError};
 use crate::numeric::{Grid, arange};
 use crate::stats::pairwise;
 
-/// What the helper computes per frequency and segment.
+/// What the helper computes per frequency and segment (matplotlib's
+/// `mode` of `_spectral_helper`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Mode {
+pub enum Mode {
     /// (Cross) power spectral density `conj(X)·Y`, scaled.
     Psd,
     /// `X / sum(w)`.

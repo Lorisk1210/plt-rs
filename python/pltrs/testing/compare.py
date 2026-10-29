@@ -12,6 +12,11 @@ from .._native import testing as _testing
 
 __all__ = ['comparable_formats', 'compare_images']
 
+#: The converters to PNG of the formats other than PNG, by extension.
+#: matplotlib fills it from the Ghostscript and Inkscape it finds; plt-rs
+#: converts no format, so there are none.
+converter = {}
+
 
 def make_test_filename(fname, purpose):
     """

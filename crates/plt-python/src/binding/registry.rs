@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
+use super::convert::IntoPy;
 use super::error::{PyErr, PyResult};
 use super::gil::Python;
 use super::module::Module;
@@ -40,6 +41,17 @@ pub(crate) fn lookup<'py>(py: Python<'py>, name: &str) -> PyResult<Bound<'py>> {
         .get(name)
         .map(|object| object.bind(py))
         .ok_or_else(|| PyErr::runtime_error(format!("pltrs registered no object named {name:?}")))
+}
+
+/// An instance of the exception class registered as `name`, made with
+/// `message` (`ImageComparisonFailure`, numpy's `LinAlgError`), to be
+/// raised; the error making it, should that fail.
+pub(crate) fn registered_error(name: &str, message: &str) -> PyErr {
+    Python::with_gil(|py| {
+        lookup(py, name)
+            .and_then(|class| class.call(&[message.into_py(py)?], &[]))
+            .map_or_else(|err| err, PyErr::from_instance)
+    })
 }
 
 /// Adds `register` to the extension module.

@@ -21,16 +21,28 @@
 
 mod artist;
 mod axes;
+mod bezier;
+mod c_internal_utils;
+mod cbook;
 mod collections;
 mod colors;
+mod dates;
+mod dviread;
 mod figure;
+mod font_manager;
 mod legend;
 mod lines;
+mod markers;
+mod mlab;
 mod patches;
+mod path;
+mod patheffects;
 mod rcsetup;
+mod scale;
 mod testing;
 mod text;
 mod ticker;
+mod transforms;
 
 use crate::binding::{Module, PyResult};
 
@@ -41,16 +53,28 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     plt::rc::restore_startup();
     artist::register(&module.submodule("artist")?)?;
     axes::register(&module.submodule("axes")?)?;
+    bezier::register(&module.submodule("bezier")?)?;
+    c_internal_utils::register(&module.submodule("c_internal_utils")?)?;
+    cbook::register(&module.submodule("cbook")?)?;
     collections::register(&module.submodule("collections")?)?;
     colors::register(&module.submodule("colors")?)?;
+    dates::register(&module.submodule("dates")?)?;
+    dviread::register(&module.submodule("dviread")?)?;
     figure::register(&module.submodule("figure")?)?;
+    font_manager::register(&module.submodule("font_manager")?)?;
     legend::register(&module.submodule("legend")?)?;
     lines::register(&module.submodule("lines")?)?;
+    markers::register(&module.submodule("markers")?)?;
+    mlab::register(&module.submodule("mlab")?)?;
     patches::register(&module.submodule("patches")?)?;
+    path::register(&module.submodule("path")?)?;
+    patheffects::register(&module.submodule("patheffects")?)?;
     rcsetup::register(&module.submodule("rcsetup")?)?;
+    scale::register(&module.submodule("scale")?)?;
     testing::register(&module.submodule("testing")?)?;
     text::register(&module.submodule("text")?)?;
     ticker::register(&module.submodule("ticker")?)?;
+    transforms::register(&module.submodule("transforms")?)?;
     Ok(())
 }
 
@@ -74,7 +98,26 @@ mod tests {
         with_python(|py| {
             let native = extension(py);
             for module in [
-                "artist", "axes", "colors", "figure", "lines", "rcsetup", "testing",
+                "artist",
+                "axes",
+                "bezier",
+                "c_internal_utils",
+                "cbook",
+                "colors",
+                "dates",
+                "dviread",
+                "figure",
+                "font_manager",
+                "lines",
+                "markers",
+                "mlab",
+                "path",
+                "patheffects",
+                "rcsetup",
+                "scale",
+                "testing",
+                "ticker",
+                "transforms",
             ] {
                 assert!(native.getattr(module).is_ok(), "_native.{module}");
             }

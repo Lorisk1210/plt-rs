@@ -1,6 +1,7 @@
 //! `_native.axes`: axes and their plotting methods (matplotlib's
 //! `axes`).
 
+use plt::artist::ArtistHandle;
 use plt::axes::{Axes, BarOptions, PlotError, ScatterColors, ScatterOptions, TitleLocation};
 use plt::collections::Collection;
 use plt::colors::Color;
@@ -168,9 +169,59 @@ fn get_legend(axes: Axes) -> PyResult<Option<Legend>> {
     Ok(axes.current_legend())
 }
 
+/// A horizontal (`orientation` `"h"`) or vertical (`"v"`) line across the
+/// axes at data position `at`, from axes fraction `start` to `end`
+/// (`axhline`, `axvline`).
+fn axline(
+    axes: Axes,
+    orientation: String,
+    at: f64,
+    (start, end): (f64, f64),
+    kwargs: LineKwargs,
+) -> PyResult<Line2D> {
+    let props = kwargs.over_format(None)?;
+    Ok(match orientation.as_str() {
+        "h" => axes.axhline_between(at, start, end, props),
+        _ => axes.axvline_between(at, start, end, props),
+    })
+}
+
+/// A horizontal (`orientation` `"h"`) or vertical (`"v"`) band across the
+/// axes between data positions `(low, high)`, from axes fraction `start`
+/// to `end` (`axhspan`, `axvspan`).
+fn axspan(
+    axes: Axes,
+    orientation: String,
+    (low, high): (f64, f64),
+    (start, end): (f64, f64),
+) -> PyResult<Patch<Rectangle>> {
+    Ok(match orientation.as_str() {
+        "h" => axes.axhspan_between(low, high, start, end),
+        _ => axes.axvspan_between(low, high, start, end),
+    })
+}
+
+/// The data coordinates of the display point `(x, y)`
+/// (`ax.transData.inverted().transform((x, y))`); `ValueError` when the
+/// data transform cannot be inverted.
+fn display_to_data(axes: Axes, x: f64, y: f64) -> PyResult<(f64, f64)> {
+    let figure = axes.figure();
+    let to_display = figure
+        .resolve_transform(&axes.trans_data())
+        .map_err(|err| PyErr::value_error(err.to_string()))?;
+    let to_data = to_display
+        .inverted()
+        .ok_or_else(|| PyErr::value_error("the data transform of the axes is singular"))?;
+    let point = to_data.transform_point(plt::transforms::Point::new(x, y));
+    Ok((point.x, point.y))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("plot", plot)?;
+    module.add("display_to_data", display_to_data)?;
+    module.add("axline", axline)?;
+    module.add("axspan", axspan)?;
     module.add("scatter", scatter)?;
     module.add("bar", bar)?;
     module.add("set_title", set_title)?;

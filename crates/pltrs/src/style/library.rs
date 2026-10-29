@@ -151,6 +151,18 @@ pub(crate) fn bundled_sheet(name: &str) -> Option<StyleSheet> {
         .map(StyleSheet::bundled)
 }
 
+/// The sheets bundled with pltrs, sorted by name, without the user
+/// library (matplotlib's `style._base_library`, the sheets of its
+/// `stylelib` directory).
+///
+/// ```
+/// let names: Vec<String> = pltrs::style::bundled_sheets().iter().map(|s| s.name().to_owned()).collect();
+/// assert!(names.contains(&"classic".to_owned()) && names.contains(&"_classic_test_patch".to_owned()));
+/// ```
+pub fn bundled_sheets() -> Vec<StyleSheet> {
+    BUNDLED.iter().copied().map(StyleSheet::bundled).collect()
+}
+
 /// Every sheet of the library, sorted by name (matplotlib's
 /// `style.library`).
 pub fn library() -> Vec<StyleSheet> {

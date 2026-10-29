@@ -11,7 +11,7 @@ use super::unsampled::UnsampledImage;
 use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, ClipPathSpec, DrawContext,
-    LayoutContext, LimitPoints, RawHandle,
+    LayoutContext, LimitPoints, RawHandle, TypedHandle,
 };
 use crate::axes::Axes;
 use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
@@ -247,6 +247,13 @@ pub struct AxesImage {
 impl ArtistHandle for AxesImage {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for AxesImage {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<AxesImageArtist>()
+            .then(|| Self::from_raw(raw.clone()))
     }
 }
 

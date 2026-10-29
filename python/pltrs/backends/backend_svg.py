@@ -39,9 +39,7 @@ class FigureCanvasSVG(FigureCanvasBase):
     def _print_svg(self, fmt, filename, bbox_inches_restore, metadata,
                    facecolor, edgecolor):
         """Write the figure as *fmt*, ``svg`` or ``svgz``."""
-        if metadata is not None:
-            raise NotImplementedError(f"pltrs: print_{fmt}(metadata=...)")
-        self._print_native(fmt, filename,
+        self._print_native(fmt, filename, metadata=metadata,
                            bbox_inches_restore=bbox_inches_restore,
                            facecolor=facecolor, edgecolor=edgecolor)
 

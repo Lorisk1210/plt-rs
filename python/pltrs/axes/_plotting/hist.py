@@ -51,6 +51,11 @@ class HistMixin:
         patches : `.BarContainer` or list of a single `.Polygon` or list of such objects
             Container of individual artists used to create the histogram
             or list of such containers if there are multiple input datasets.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         bin_range = range
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.Patch)

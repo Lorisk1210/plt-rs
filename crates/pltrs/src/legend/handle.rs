@@ -6,7 +6,10 @@ use std::fmt;
 use std::rc::Rc;
 
 use super::handlers::{HandlerKey, HandlerMap, LegendHandler, TypeKey};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, is_hidden_label};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, ArtistStore, RawHandle, downcast_ref,
+    is_hidden_label,
+};
 use crate::axes::{AxesState, BarContainer, ErrorbarContainer, StemContainer};
 use crate::axes_grid1::parasites_of;
 use crate::collections::{Collection, EllipseCollection, EventCollection};
@@ -263,6 +266,47 @@ impl LegendHandle {
     #[must_use]
     pub fn with_numpoints(self, numpoints: usize) -> Self {
         Self(Source::Npoints(Box::new(self.0), numpoints))
+    }
+}
+
+impl LegendHandle {
+    /// The handle of `artist`: the artist itself for an artist of a
+    /// figure; for a line or a rectangle made outside any figure
+    /// ([`RawHandle::is_loose`]), a proxy drawn as it is now (matplotlib's
+    /// proxy artists, `Line2D([], [], ...)` and `Patch(...)`). `None` for
+    /// another artist made outside any figure, which no legend can show.
+    pub fn of_artist(artist: &RawHandle) -> Option<Self> {
+        if !artist.is_loose() {
+            return Some(Self(Source::Artist(artist.id())));
+        }
+        let state = artist.figure_state().borrow();
+        let loose = state.artist(artist.id())?;
+        if let Some(line) = downcast_ref::<LineArtist>(loose) {
+            return Some(Self::proxy(line.clone()));
+        }
+        downcast_ref::<PatchArtist<Rectangle>>(loose)
+            .map(|patch| Self(Source::Proxy(Proxy::Patch(Rc::new(patch.clone())))))
+    }
+
+    /// The artist the handle shows, when it shows one artist (not a
+    /// container, a proxy, a tuple or another object), as a handle in the
+    /// figure of `owner`, the axes or figure the handle was found in.
+    ///
+    /// ```
+    /// use pltrs::legend::LegendHandle;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("a"))?;
+    /// let (handles, _) = ax.legend_handles_labels();
+    /// assert_eq!(handles[0].artist(&ax).as_ref(), Some(line.raw()));
+    /// assert_eq!(LegendHandle::line(LineProps::default()).artist(&ax), None);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn artist(&self, owner: &impl ArtistHandle) -> Option<RawHandle> {
+        match self.0 {
+            Source::Artist(id) => Some(RawHandle::new(Rc::clone(owner.raw().figure_state()), id)),
+            _ => None,
+        }
     }
 }
 

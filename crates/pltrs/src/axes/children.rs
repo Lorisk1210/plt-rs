@@ -219,17 +219,7 @@ impl Axes {
     /// clipped to the axes' box. [`relim`](Self::relim) leaves the artist
     /// out; [`adopt_in_autoscale`](Self::adopt_in_autoscale) adds one it
     /// counts.
-    pub(crate) fn adopt(&self, artist: impl Artist, update: &DataUpdate) -> RawHandle {
-        self.adopt_boxed(Box::new(artist), update)
-    }
-
-    /// [`adopt`](Self::adopt) for an artist already boxed (one moved from
-    /// another figure).
-    pub(crate) fn adopt_boxed(
-        &self,
-        mut artist: Box<dyn Artist>,
-        update: &DataUpdate,
-    ) -> RawHandle {
+    pub(crate) fn adopt(&self, mut artist: impl Artist, update: &DataUpdate) -> RawHandle {
         let axes_id = self.id();
         let base = artist.base_mut();
         if base.clip_path.is_none() {
@@ -237,7 +227,7 @@ impl Axes {
         }
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
-        let id = state.adopt(axes_id, artist);
+        let id = state.adopt(axes_id, Box::new(artist));
         drop(state);
         self.update_data(update);
         RawHandle::new(Rc::clone(figure), id)

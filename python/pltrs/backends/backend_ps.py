@@ -44,8 +44,6 @@ class FigureCanvasPS(FigureCanvasBase):
             bbox_inches_restore=None, facecolor=None, edgecolor=None):
         """Write the figure as *fmt*, ``ps`` or ``eps``, after matplotlib's
         checks of the paper type and orientation."""
-        if metadata is not None:
-            raise NotImplementedError(f"pltrs: print_{fmt}(metadata=...)")
         if papertype is None:
             papertype = rcParams['ps.papersize']
         papertype = papertype.lower()
@@ -53,7 +51,8 @@ class FigureCanvasPS(FigureCanvasBase):
         orientation = _api.getitem_checked(
             _Orientation, orientation=orientation.lower())
         self._print_native(
-            fmt, outfile, bbox_inches_restore=bbox_inches_restore,
+            fmt, outfile, metadata=metadata,
+            bbox_inches_restore=bbox_inches_restore,
             facecolor=facecolor, edgecolor=edgecolor,
             orientation=orientation.name, papertype=papertype)
 

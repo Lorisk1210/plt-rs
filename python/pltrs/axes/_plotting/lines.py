@@ -302,6 +302,11 @@ class LinesMixin:
         Returns
         -------
         `~matplotlib.collections.LineCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         return self._segments(False, y, xmin, xmax, colors, linestyles, label,
                               kwargs)
@@ -316,6 +321,11 @@ class LinesMixin:
         Returns
         -------
         `~matplotlib.collections.LineCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         return self._segments(True, x, ymin, ymax, colors, linestyles, label,
                               kwargs)

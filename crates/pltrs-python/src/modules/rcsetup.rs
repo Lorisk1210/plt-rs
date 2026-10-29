@@ -9,7 +9,9 @@
 //! file would, then validated by pltrs (Rust) exactly as matplotlib validates
 //! it) and as typed values the other.
 
-use pltrs::rc::{RcError, RcParams};
+use std::path::PathBuf;
+
+use pltrs::rc::{RcError, RcFile, RcParams, RcWarningKind};
 
 use crate::binding::prelude::*;
 
@@ -27,6 +29,7 @@ impl From<RcError> for PyErr {
             RcError::InvalidValue { key, reason, .. } => {
                 PyErr::value_error(format!("Key {key}: {reason}"))
             }
+            RcError::Unreadable { .. } => PyErr::new(ExceptionKind::OSError, err.to_string()),
             other => PyErr::value_error(other.to_string()),
         }
     }
@@ -141,9 +144,20 @@ fn read<T>(store: Option<&Native<RcParams>>, read: impl FnOnce(&RcParams) -> T) 
     }
 }
 
-/// `rcParams[key]`.
+/// `rcParams[key]`, typed as [`RcValue`] (pltrs (Rust)'s own `pltrs.*`
+/// parameters, which matplotlib's validators do not know).
 fn get(store: Option<Native<RcParams>>, key: String) -> PyResult<RcValue> {
     read(store.as_ref(), |params| RcValue::of(params, &key))
+}
+
+/// The rc-file text of `key`'s value, which matplotlib's validator of the
+/// parameter turns into matplotlib's Python value.
+fn text(store: Option<Native<RcParams>>, key: String) -> PyResult<String> {
+    read(store.as_ref(), |params| {
+        params
+            .get(&key)
+            .ok_or_else(|| PyErr::from(RcError::UnknownKey(key)))
+    })
 }
 
 /// The rc-file text of `text` (an [`RcText`]) for `key`: Python's `None`
@@ -203,10 +217,95 @@ fn use_styles(names: Vec<String>) -> PyResult<()> {
     Ok(())
 }
 
+/// Pairs of strings: rc settings `(key, value)`, or reported lines
+/// `(kind, message)`.
+type Pairs = Vec<(String, String)>;
+
+/// The assignments of the rc file at `path`, `(key, value)` in the order
+/// the keys first appear (each with its last valid value), and the lines
+/// matplotlib reports, `(kind, message)` with kind `"missing colon"`,
+/// `"duplicate key"`, `"unknown key"` or `"invalid value"` and
+/// matplotlib's message (`_rc_params_in_file`).
+fn read_file(path: PathBuf) -> PyResult<(Pairs, Pairs)> {
+    let file = RcFile::read(path)?;
+    let entries = file
+        .entries
+        .into_iter()
+        .map(|entry| (entry.key, entry.value))
+        .collect();
+    let warnings = file
+        .warnings
+        .into_iter()
+        .map(|warning| {
+            let kind = match warning.kind {
+                RcWarningKind::MissingColon => "missing colon",
+                RcWarningKind::DuplicateKey => "duplicate key",
+                RcWarningKind::UnknownKey(_) => "unknown key",
+                RcWarningKind::InvalidValue(_) => "invalid value",
+            };
+            (kind.to_owned(), warning.to_string())
+        })
+        .collect();
+    Ok((entries, warnings))
+}
+
+/// The style sheets bundled with pltrs (matplotlib's `stylelib`), each as
+/// its name and its `(key, value)` settings in file order.
+fn bundled_styles() -> PyResult<Vec<(String, Pairs)>> {
+    pltrs::style::bundled_sheets()
+        .into_iter()
+        .map(|sheet| {
+            let settings = sheet
+                .entries()?
+                .into_iter()
+                .map(|entry| (entry.key, entry.value))
+                .collect();
+            Ok((sheet.name().to_owned(), settings))
+        })
+        .collect()
+}
+
+/// Copies the parameters `keys` of the store `source` into the store
+/// `target` as they are (`rcParams.update(other_rcparams)`, `style.use`).
+fn update_from(
+    target: Option<Native<RcParams>>,
+    source: Option<Native<RcParams>>,
+    keys: Vec<String>,
+) -> PyResult<()> {
+    let texts = read(source.as_ref(), |params| {
+        keys.iter()
+            .map(|key| {
+                params
+                    .get(key)
+                    .map(|text| (key.as_str(), text))
+                    .ok_or_else(|| RcError::UnknownKey(key.clone()))
+            })
+            .collect::<Result<Vec<_>, _>>()
+    })?;
+    let copy = |params: &mut RcParams| -> Result<(), RcError> {
+        texts
+            .iter()
+            .try_for_each(|(key, text)| params.set(key, text))
+    };
+    if let Some(params) = target {
+        copy(&mut params.borrow_mut())?;
+    } else {
+        let mut updated = (*pltrs::rc::params()).clone();
+        let copied = copy(&mut updated);
+        pltrs::rc::replace(updated);
+        copied?;
+    }
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("read_file", read_file)?;
+    module.add("bundled_styles", bundled_styles)?;
+    module.add("update_from", update_from)?;
     module.add("keys", keys)?;
     module.add("get", get)?;
+    module.add("text", text)?;
     module.add("set", set)?;
     module.add("copy", copy)?;
     module.add("defaults", defaults)?;

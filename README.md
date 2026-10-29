@@ -216,10 +216,19 @@ ax.legend()
 fig.savefig("figure.png")
 ```
 
+It draws in pltrs' modern look by default, as the crate does;
+`PLTRS_LOOK=matplotlib` gives matplotlib's look, and with it matplotlib's
+output:
+
+```sh
+python your_script.py                       # pltrs' modern look
+PLTRS_LOOK=matplotlib python your_script.py # matplotlib's look
+```
+
 It is a Python package (`python/pltrs`) whose classes keep matplotlib's
 names and signatures, over a native extension written in Rust against
 CPython's stable ABI, without PyO3 or any crate (`crates/pltrs-python`). It
-needs Python 3.12 or later and numpy. Build it, and run it from the source
+needs Python 3.12 or later, numpy and cycler. Build it, and run it from the source
 tree:
 
 ```sh
@@ -230,9 +239,11 @@ cargo xtask python test         # pltrs's smoke tests
 cargo xtask mpl-suite           # matplotlib 3.11's own test suite, run against pltrs
 ```
 
-pltrs (Python) is young: it covers a first slice of pyplot (figures, subplots,
-`plot`, `scatter`, `bar`, titles and labels, legends, saving as PNG, SVG
-and PDF), rcParams and the image-comparison test tools. Its measure is
+pltrs (Python) is young: it covers a first slice of pyplot (figures,
+subplots on grids and mosaics, subfigures, layout engines, `plot`,
+`scatter`, `bar`, titles and labels, legends, artists made before they are
+added, saving as PNG, SVG and PDF), rcParams with rc files and style
+sheets, and the image-comparison test tools. Its measure is
 matplotlib's own test suite: the share of the tests passing under
 matplotlib that pass under pltrs, tracked in `spec/mpl-suite/`. How it is
 built, and how to extend it, is in [`python/DESIGN.md`](python/DESIGN.md).

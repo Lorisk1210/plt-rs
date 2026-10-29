@@ -6,15 +6,21 @@ The figures pyplot manages are kept in `._pylab_helpers.Gcf`; each
 function here acts on `gcf` or `gca`, as matplotlib's does.
 """
 
+from contextlib import ExitStack
+import importlib
 import inspect
 import logging
 
 from . import _pylab_helpers, get_backend, rcParams, style  # noqa: F401  (matplotlib.style, as pyplot imports it)
-from . import cbook, rcParamsDefault
+from . import _api, cbook, interactive, is_interactive, set_loglevel  # noqa: F401
+from . import (rc, rc_context, rcdefaults, rcParamsDefault,  # noqa: F401  (pyplot exports them)
+               rc_file_defaults)
 from . import image  # noqa: F401  (matplotlib.image, as pyplot imports it)
 from .backend_bases import _Backend, FigureManagerBase
 from .backends import backend_registry
-from .figure import Figure
+from .figure import Figure, FigureBase, figaspect  # noqa: F401  (pyplot exports figaspect)
+from .lines import Line2D  # noqa: F401  (pyplot exports it)
+from .gridspec import GridSpec, SubplotSpec
 
 _log = logging.getLogger(__name__)
 
@@ -226,29 +232,66 @@ def figure(num=None, figsize=None, dpi=None, *, facecolor=None,
         A unique identifier for the figure: its number, its label, or the
         figure itself.
     """
-    if isinstance(num, Figure):
-        if num.canvas.manager is None:
-            raise ValueError("The passed figure is not managed by pyplot")
-        _pylab_helpers.Gcf._set_new_active_manager(num.canvas.manager)
-        return num
-
     allnums = get_fignums()
     next_num = max(allnums) + 1 if allnums else 1
+
+    if isinstance(num, FigureBase):
+        has_figure_property_parameters = (
+            any(param is not None for param in [figsize, dpi, facecolor, edgecolor])
+            or not frameon or kwargs
+        )
+
+        root_fig = num.get_figure(root=True)
+        if root_fig.canvas.manager is None:
+            if has_figure_property_parameters:
+                raise ValueError(
+                    "You cannot pass figure properties when calling figure() with "
+                    "an existing Figure instance")
+            backend = _get_backend_mod()
+            manager = backend.new_figure_manager_given_figure(next_num, root_fig)
+            _pylab_helpers.Gcf._set_new_active_manager(manager)
+            return manager.canvas.figure
+        elif has_figure_property_parameters and root_fig.canvas.manager.num in allnums:
+            _api.warn_external(
+                "Ignoring specified arguments in this call because figure "
+                f"with num: {root_fig.canvas.manager.num} already exists")
+        _pylab_helpers.Gcf.set_active(root_fig.canvas.manager)
+        return root_fig
+
     fig_label = ''
     if num is None:
         num = next_num
-    elif isinstance(num, str):
-        fig_label = num
-        all_labels = get_figlabels()
-        if fig_label not in all_labels:
-            num = next_num
-        else:
-            num = allnums[all_labels.index(fig_label)]
     else:
-        num = int(num)
+        if (any(param is not None for param in [figsize, dpi, facecolor, edgecolor])
+              or not frameon or kwargs) and num in allnums:
+            _api.warn_external(
+                "Ignoring specified arguments in this call "
+                f"because figure with num: {num} already exists")
+        if isinstance(num, str):
+            fig_label = num
+            all_labels = get_figlabels()
+            if fig_label not in all_labels:
+                if fig_label == 'all':
+                    _api.warn_external("close('all') closes all existing figures.")
+                num = next_num
+            else:
+                inum = all_labels.index(fig_label)
+                num = allnums[inum]
+        else:
+            num = int(num)  # crude validation of num argument
 
     manager = _pylab_helpers.Gcf.get_fig_manager(num)
     if manager is None:
+        max_open_warning = rcParams['figure.max_open_warning']
+        if len(allnums) == max_open_warning >= 1:
+            _api.warn_external(
+                f"More than {max_open_warning} figures have been opened. "
+                f"Figures created through the pyplot interface "
+                f"(`matplotlib.pyplot.figure`) are retained until explicitly "
+                f"closed and may consume too much memory. (To control this "
+                f"warning, see the rcParam `figure.max_open_warning`). "
+                f"Consider using `matplotlib.pyplot.close()`.",
+                RuntimeWarning)
         manager = new_figure_manager(
             num, figsize=figsize, dpi=dpi, facecolor=facecolor,
             edgecolor=edgecolor, frameon=frameon, FigureClass=FigureClass,
@@ -256,8 +299,20 @@ def figure(num=None, figsize=None, dpi=None, *, facecolor=None,
         fig = manager.canvas.figure
         if fig_label:
             fig.set_label(fig_label)
+
+        for hookspecs in rcParams["figure.hooks"]:
+            module_name, dotted_name = hookspecs.split(":")
+            obj = importlib.import_module(module_name)
+            for part in dotted_name.split("."):
+                obj = getattr(obj, part)
+            obj(fig)
+
         _pylab_helpers.Gcf._set_new_active_manager(manager)
         draw_if_interactive()
+
+    if clear:
+        manager.canvas.figure.clear()
+
     return manager.canvas.figure
 
 
@@ -292,6 +347,8 @@ def close(fig=None):
         _pylab_helpers.Gcf.destroy_all()
     elif isinstance(fig, int):
         _pylab_helpers.Gcf.destroy(fig)
+    elif hasattr(fig, 'int'):  # UUIDs get converted to ints by figure().
+        _pylab_helpers.Gcf.destroy(fig.int)
     elif isinstance(fig, str):
         all_labels = get_figlabels()
         if fig in all_labels:
@@ -299,8 +356,63 @@ def close(fig=None):
     elif isinstance(fig, Figure):
         _pylab_helpers.Gcf.destroy_fig(fig)
     else:
-        raise TypeError("close() argument must be a Figure, an int, a string, "
-                        "or None, not %s" % type(fig))
+        _api.check_isinstance((Figure, int, str, None), fig=fig)
+
+
+def _raise_if_figure_exists(num, func_name, clear=False):
+    """
+    Raise a ValueError if the figure *num* already exists.
+    """
+    if num is not None and not clear:
+        if isinstance(num, FigureBase):
+            raise ValueError(
+                f"num {num!r} cannot be a FigureBase instance. "
+                f"plt.{func_name}() is for creating new figures. "
+                f"To add to an existing figure, use fig.{func_name}() "
+                "instead.")
+
+        if fignum_exists(num):
+            raise ValueError(
+                f"Figure {num!r} already exists. Use plt.figure({num!r}) "
+                f"to get it or plt.close({num!r}) to close it. "
+                f"Alternatively, pass 'clear=True' to {func_name}().")
+
+
+def isinteractive():
+    """
+    Return whether plots are updated after every plotting command.
+    """
+    return is_interactive()
+
+
+def ioff():
+    """
+    Disable interactive mode.
+
+    For a temporary change, this can be used as a context manager::
+
+        with plt.ioff():
+            fig2 = plt.figure()
+    """
+    stack = ExitStack()
+    stack.callback(ion if isinteractive() else ioff)
+    interactive(False)
+    return stack
+
+
+def ion():
+    """
+    Enable interactive mode.
+
+    For a temporary change, this can be used as a context manager::
+
+        with plt.ion():
+            fig2 = plt.figure()
+    """
+    stack = ExitStack()
+    stack.callback(ion if isinteractive() else ioff)
+    interactive(True)
+    return stack
 
 
 def show(*args, **kwargs):
@@ -329,6 +441,7 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, squeeze=True,
              width_ratios=None, height_ratios=None, subplot_kw=None,
              gridspec_kw=None, **fig_kw):
     """Create a figure and a set of subplots."""
+    _raise_if_figure_exists(fig_kw.get('num'), "subplots", fig_kw.get('clear'))
     fig = figure(**fig_kw)
     axs = fig.subplots(nrows=nrows, ncols=ncols, sharex=sharex, sharey=sharey,
                        squeeze=squeeze, subplot_kw=subplot_kw,
@@ -512,6 +625,224 @@ def clim(vmin=None, vmax=None):
         raise RuntimeError('You must first define an image, e.g., with imshow')
 
     im.set_clim(vmin, vmax)
+
+
+def axes(arg=None, **kwargs):
+    """
+    Add an Axes to the current figure and make it the current Axes.
+
+    Call signatures::
+
+        plt.axes()
+        plt.axes(rect, projection=None, polar=False, **kwargs)
+        plt.axes(ax)
+
+    Parameters
+    ----------
+    arg : None or 4-tuple
+        The exact behavior of this function depends on the type:
+
+        - *None*: A new full window Axes is added using
+          ``subplot(**kwargs)``.
+        - 4-tuple of floats *rect* = ``(left, bottom, width, height)``.
+          A new Axes is added with dimensions *rect* in normalized
+          (0, 1) units using `~.Figure.add_axes` on the current figure.
+
+    Returns
+    -------
+    `~.axes.Axes`, or a subclass of `~.axes.Axes`
+    """
+    fig = gcf()
+    pos = kwargs.pop('position', None)
+    if arg is None:
+        if pos is None:
+            return fig.add_subplot(**kwargs)
+        else:
+            return fig.add_axes(pos, **kwargs)
+    else:
+        return fig.add_axes(arg, **kwargs)
+
+
+def subplot(*args, **kwargs):
+    """
+    Add an Axes to the current figure or retrieve an existing Axes.
+
+    This is a wrapper of `.Figure.add_subplot` which provides additional
+    behavior when working with the implicit API (see the notes section).
+
+    Call signatures::
+
+       subplot(nrows, ncols, index, **kwargs)
+       subplot(pos, **kwargs)
+       subplot(**kwargs)
+       subplot(ax)
+
+    Returns
+    -------
+    `~.axes.Axes`
+    """
+    # Here we will only normalize `polar=True` vs `projection='polar'` and let
+    # downstream code deal with the rest.
+    unset = object()
+    projection = kwargs.get('projection', unset)
+    polar = kwargs.pop('polar', unset)
+    if polar is not unset and polar:
+        # if we got mixed messages from the user, raise
+        if projection is not unset and projection != 'polar':
+            raise ValueError(
+                f"polar={polar}, yet projection={projection!r}. "
+                "Only one of these arguments should be supplied."
+            )
+        kwargs['projection'] = projection = 'polar'
+
+    # if subplot called without arguments, create subplot(1, 1, 1)
+    if len(args) == 0:
+        args = (1, 1, 1)
+
+    # This check was added because it is very easy to type subplot(1, 2, False)
+    # when subplots(1, 2, False) was intended (sharex=False, that is). In most
+    # cases, no error will ever occur, but mysterious behavior can result
+    # because what was intended to be the sharex argument is instead treated as
+    # a subplot index for subplot()
+    if len(args) >= 3 and isinstance(args[2], bool):
+        _api.warn_external("The subplot index argument to subplot() appears "
+                           "to be a boolean. Did you intend to use "
+                           "subplots()?")
+    # Check for nrows and ncols, which are not valid subplot args:
+    if 'nrows' in kwargs or 'ncols' in kwargs:
+        raise TypeError("subplot() got an unexpected keyword argument 'ncols' "
+                        "and/or 'nrows'.  Did you intend to call subplots()?")
+
+    fig = gcf()
+
+    # First, search for an existing subplot with a matching spec.
+    key = SubplotSpec._from_subplot_args(fig, args)
+
+    for ax in fig.axes:
+        # If we found an Axes at the position, we can reuse it if the user passed no
+        # kwargs or if the Axes class and kwargs are identical.
+        if (ax.get_subplotspec() == key
+            and (kwargs == {}
+                 or (getattr(ax, "_projection_init", None)
+                     == fig._process_projection_requirements(**kwargs)))):
+            break
+    else:
+        # we have exhausted the known Axes and none match, make a new one!
+        ax = fig.add_subplot(*args, **kwargs)
+
+    fig.sca(ax)
+
+    return ax
+
+
+def subplot2grid(shape, loc, rowspan=1, colspan=1, fig=None, **kwargs):
+    """
+    Create a subplot at a specific location inside a regular grid.
+
+    Parameters
+    ----------
+    shape : (int, int)
+        Number of rows and of columns of the grid in which to place axis.
+    loc : (int, int)
+        Row number and column number of the axis location within the grid.
+    rowspan : int, default: 1
+        Number of rows for the axis to span downwards.
+    colspan : int, default: 1
+        Number of columns for the axis to span to the right.
+    fig : `.Figure`, optional
+        Figure to place the subplot in. Defaults to the current figure.
+    **kwargs
+        Additional keyword arguments are handed to `~.Figure.add_subplot`.
+
+    Returns
+    -------
+    `~.axes.Axes`
+    """
+    if fig is None:
+        fig = gcf()
+    rows, cols = shape
+    gs = GridSpec._check_gridspec_exists(fig, rows, cols)
+    subplotspec = gs.new_subplotspec(loc, rowspan=rowspan, colspan=colspan)
+    return fig.add_subplot(subplotspec, **kwargs)
+
+
+def subplot_mosaic(mosaic, *, sharex=False, sharey=False,
+                   width_ratios=None, height_ratios=None, empty_sentinel='.',
+                   subplot_kw=None, gridspec_kw=None, per_subplot_kw=None,
+                   **fig_kw):
+    """
+    Build a layout of Axes based on ASCII art or nested lists.
+
+    See `.Figure.subplot_mosaic`; *fig_kw* go to `.pyplot.figure`.
+
+    Returns
+    -------
+    fig : `.Figure`
+       The new figure
+    dict[label, Axes]
+       A dictionary mapping the labels to the Axes objects.
+    """
+    _raise_if_figure_exists(fig_kw.get('num'), "subplot_mosaic", fig_kw.get('clear'))
+    fig = figure(**fig_kw)
+    ax_dict = fig.subplot_mosaic(
+        mosaic,
+        sharex=sharex, sharey=sharey,
+        height_ratios=height_ratios, width_ratios=width_ratios,
+        subplot_kw=subplot_kw, gridspec_kw=gridspec_kw,
+        empty_sentinel=empty_sentinel,
+        per_subplot_kw=per_subplot_kw,
+    )
+    return fig, ax_dict
+
+
+def twinx(ax=None):
+    """
+    Make and return a second Axes that shares the *x*-axis.  The new Axes will
+    overlay *ax* (or the current Axes if *ax* is *None*), and its ticks will be
+    on the right.
+    """
+    if ax is None:
+        ax = gca()
+    return ax.twinx()
+
+
+def twiny(ax=None):
+    """
+    Make and return a second Axes that shares the *y*-axis.  The new Axes will
+    overlay *ax* (or the current Axes if *ax* is *None*), and its ticks will be
+    on the top.
+    """
+    if ax is None:
+        ax = gca()
+    return ax.twiny()
+
+
+def sca(ax):
+    """
+    Set the current Axes to *ax* and the current Figure to the parent of *ax*.
+    """
+    fig = ax.get_figure(root=False)
+    figure(fig)
+    fig.sca(ax)
+
+
+def subplots_adjust(left=None, bottom=None, right=None, top=None,
+                    wspace=None, hspace=None):
+    """Adjust the subplot layout parameters (`.Figure.subplots_adjust`)."""
+    gcf().subplots_adjust(left=left, bottom=bottom, right=right, top=top,
+                          wspace=wspace, hspace=hspace)
+
+
+def getp(obj, *args, **kwargs):
+    """Return the value of an `.Artist`'s property (`.artist.getp`)."""
+    from . import artist
+    return artist.getp(obj, *args, **kwargs)
+
+
+def setp(obj, *args, **kwargs):
+    """Set one or more properties on an `.Artist` (`.artist.setp`)."""
+    from . import artist
+    return artist.setp(obj, *args, **kwargs)
 
 
 # The wrappers of the plotting methods (plt.hist, plt.errorbar, ...).

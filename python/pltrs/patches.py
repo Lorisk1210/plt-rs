@@ -13,7 +13,7 @@ import numpy as np
 
 from . import _api, colors as mcolors
 from ._enums import CapStyle, JoinStyle
-from ._native import held as _held, patches as _patches
+from ._native import patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
 from .artist import Artist
@@ -63,12 +63,13 @@ class Patch(Artist):
                  **kwargs):
         """
         Style the patch a subclass holds in ``self._native``: the patch is
-        made before it is added to an Axes (`.Axes.add_patch` adds it). A
-        bare `Patch` (a legend proxy, say) has an empty path.
+        outside any figure until an axes or a figure adds it
+        (`~.Axes.add_patch`, `.Figure.add_artist`). A bare `Patch` (a legend
+        proxy, say) has an empty path.
         """
         if "_native" not in self.__dict__:
-            self._native = _held.path_patch(Path(np.empty((0, 2))))
-        self._figure = None
+            self._native = _patches.new_path_patch(Path(np.empty((0, 2))))
+        super().__init__()
         if linestyle is None:
             linestyle = "solid"
         if capstyle is None:
@@ -292,7 +293,7 @@ class Rectangle(Patch):
             rotate around the center. If 2-tuple of number, rotate around
             this coordinate.
         """
-        self._native = _held.rectangle(
+        self._native = _patches.new_rectangle(
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             float(angle))
         self.rotation_point = rotation_point
@@ -430,7 +431,7 @@ class RegularPolygon(Patch):
         orientation : float
             The polygon is rotated by *orientation* radians.
         """
-        self._native = _held.regular_polygon(
+        self._native = _patches.new_regular_polygon(
             (float(xy[0]), float(xy[1])), int(numVertices), float(radius),
             float(orientation))
         super().__init__(**kwargs)
@@ -469,7 +470,7 @@ class PathPatch(Patch):
         """
         *path* is a `.Path` object.
         """
-        self._native = _held.path_patch(path)
+        self._native = _patches.new_path_patch(path)
         super().__init__(**kwargs)
 
     def set_path(self, path):
@@ -504,7 +505,7 @@ class StepPatch(PathPatch):
             ``fill=True``, position of lower edge.
         """
         _api.check_in_list(('vertical', 'horizontal'), orientation=orientation)
-        self._native = _held.step_patch(
+        self._native = _patches.new_step_patch(
             np.asarray(values, dtype=float), np.asarray(edges, dtype=float),
             None if baseline is None else np.asarray(baseline, dtype=float),
             orientation == 'horizontal')
@@ -557,7 +558,7 @@ class Polygon(Patch):
             Whether the polygon is closed (i.e., has identical start and end
             points).
         """
-        self._native = _held.polygon(
+        self._native = _patches.new_polygon(
             np.asarray(xy, dtype=float).reshape(-1, 2), bool(closed))
         super().__init__(**kwargs)
 
@@ -621,7 +622,7 @@ class Wedge(Patch):
         then a partial wedge is drawn from inner radius *r* - *width*
         to outer radius *r*.
         """
-        self._native = _held.wedge(
+        self._native = _patches.new_wedge(
             (float(center[0]), float(center[1])), float(r),
             (float(theta1), float(theta2)), None if width is None else float(width))
         super().__init__(**kwargs)
@@ -698,7 +699,7 @@ class Arrow(Patch):
         Draws an arrow from (*x*, *y*) to (*x* + *dx*, *y* + *dy*).
         The width of the arrow is scaled by *width*.
         """
-        self._native = _held.arrow((float(x), float(y)), (float(dx), float(dy)),
+        self._native = _patches.new_arrow((float(x), float(y)), (float(dx), float(dy)),
                                    float(width))
         super().__init__(**kwargs)
 
@@ -741,7 +742,7 @@ class FancyArrow(Polygon):
             If True, the head starts being drawn at coordinate 0
             instead of ending at coordinate 0.
         """
-        self._native = _held.fancy_arrow(
+        self._native = _patches.new_fancy_arrow(
             (float(x), float(y)), (float(dx), float(dy)), float(width),
             (None if head_width is None else float(head_width),
              None if head_length is None else float(head_length),
@@ -774,7 +775,7 @@ class CirclePolygon(RegularPolygon):
         This circle is approximated by a regular polygon with *resolution*
         sides.  For a smoother circle drawn with splines, see `Circle`.
         """
-        self._native = _held.circle_polygon(
+        self._native = _patches.new_circle_polygon(
             (float(xy[0]), float(xy[1])), float(radius), int(resolution))
         Patch.__init__(self, **kwargs)
 
@@ -801,7 +802,7 @@ class Ellipse(Patch):
         angle : float, default: 0
             Rotation in degrees anti-clockwise.
         """
-        self._native = _held.ellipse(
+        self._native = _patches.new_ellipse(
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             float(angle))
         super().__init__(**kwargs)
@@ -916,7 +917,7 @@ class Annulus(Patch):
             x-axis).
         """
         a, b = (r, r) if np.isscalar(r) else r
-        self._native = _held.annulus(
+        self._native = _patches.new_annulus(
             (float(xy[0]), float(xy[1])), (float(a), float(b)), float(width),
             float(angle))
         super().__init__(**kwargs)
@@ -934,7 +935,7 @@ class Circle(Ellipse):
         """
         Create a true circle at center *xy* = (*x*, *y*) with given *radius*.
         """
-        self._native = _held.circle((float(xy[0]), float(xy[1])), float(radius))
+        self._native = _patches.new_circle((float(xy[0]), float(xy[1])), float(radius))
         Patch.__init__(self, **kwargs)
 
     def _fields(self):
@@ -992,7 +993,7 @@ class Arc(Ellipse):
         fill = kwargs.setdefault('fill', False)
         if fill:
             raise ValueError("Arc objects cannot be filled")
-        self._native = _held.arc(
+        self._native = _patches.new_arc(
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             float(angle), (float(theta1), float(theta2)))
         Patch.__init__(self, **kwargs)
@@ -1045,7 +1046,7 @@ class FancyBboxPatch(Patch):
             the mutation and the mutated box will be stretched by the inverse
             of it.
         """
-        self._native = _held.fancy_bbox(
+        self._native = _patches.new_fancy_bbox(
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             _native_spec(boxstyle, BoxStyle),
             (float(mutation_scale), float(mutation_aspect)))
@@ -1158,7 +1159,7 @@ class FancyArrowPatch(Patch):
             ends = None
         else:
             raise ValueError("Either posA and posB, or path need to provided")
-        self._native = _held.fancy_arrow_patch(
+        self._native = _patches.new_fancy_arrow_patch(
             (ends, path),
             (_native_spec(arrowstyle, ArrowStyle),
              _native_spec(connectionstyle, ConnectionStyle),

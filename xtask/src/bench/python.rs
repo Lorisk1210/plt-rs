@@ -21,11 +21,13 @@ const PLTRS_IMPORT: &str = "import pltrs.pyplot as plt";
 
 /// Environment every Python process of the benchmark gets: the
 /// non-interactive Agg backend (what matplotlib picks without a display),
-/// and numpy's BLAS kept to one thread, as pltrs draws on one thread
-/// (`OpenBLAS` would otherwise start a thread per core when numpy is
-/// imported).
-pub(super) const PYTHON_ENV: [(&str, &str); 4] = [
+/// matplotlib's look for pltrs (Python), which otherwise draws in its
+/// modern look, so that both columns draw the same figures, and numpy's
+/// BLAS kept to one thread, as pltrs draws on one thread (`OpenBLAS`
+/// would otherwise start a thread per core when numpy is imported).
+pub(super) const PYTHON_ENV: [(&str, &str); 5] = [
     ("MPLBACKEND", "agg"),
+    ("PLTRS_LOOK", "matplotlib"),
     ("OPENBLAS_NUM_THREADS", "1"),
     ("OMP_NUM_THREADS", "1"),
     ("MKL_NUM_THREADS", "1"),

@@ -12,6 +12,7 @@ use pltrs::lines::{
 };
 use pltrs::markers::{FillStyle, Marker, MarkerStyle, MarkerSymbol};
 use pltrs::rc::ColorOrAuto;
+use pltrs::transforms::Transform;
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::markers::marker_of_spec;
@@ -20,7 +21,7 @@ use super::transforms::{affine, matrix};
 use crate::binding::prelude::*;
 use crate::binding::{NdArray, dict_items};
 
-typed_artist_handle!(Line2D);
+artist_handle!(Line2D);
 
 impl From<FormatStringError> for PyErr {
     /// matplotlib's `ValueError` for a bad format string, which quotes it
@@ -303,6 +304,7 @@ fn line_prop(props: LineProps, key: &str, value: &Bound<'_>) -> PyResult<LinePro
         "zorder" => props.zorder(value.extract::<f64>()?),
         "visible" => props.visible(value.extract::<bool>()?),
         "clip_on" => props.clip_on(value.extract::<bool>()?),
+        "transform" => props.transform(value.extract::<Transform>()?),
         _ => {
             return Err(PyErr::new(
                 ExceptionKind::AttributeError,
@@ -348,6 +350,13 @@ impl LineKwargs {
         };
         Ok(base.overlay(self.0))
     }
+}
+
+/// A line through `(x, y)` styled by the keyword arguments, outside any
+/// figure (`Line2D(xdata, ydata, **kwargs)`), for an axes or a figure to
+/// adopt (`_native.artist.adopt_into_axes`).
+fn new(x: NdArray, y: NdArray, kwargs: LineKwargs) -> PyResult<Line2D> {
+    Ok(Line2D::loose(x.into_vec()?, y.into_vec()?, kwargs.0))
 }
 
 /// The x data.
@@ -497,6 +506,7 @@ fn is_attached(line: Line2D) -> PyResult<bool> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("new", new)?;
     module.add("get_xdata", get_xdata)?;
     module.add("get_ydata", get_ydata)?;
     module.add("set_data", set_data)?;

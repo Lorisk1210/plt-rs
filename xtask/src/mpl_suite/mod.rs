@@ -37,6 +37,11 @@ const WORKERS: &str = "8";
 /// The seconds a single test may take before pytest-timeout fails it.
 const TEST_TIMEOUT: &str = "600";
 
+/// The variable choosing pltrs' look, set to `matplotlib` for both runs:
+/// pltrs (Python) draws in its modern look by default, and matplotlib's
+/// tests expect matplotlib's defaults (matplotlib itself ignores it).
+const LOOK_VARIABLE: &str = "PLTRS_LOOK";
+
 /// What runs the suite.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Mode {
@@ -229,6 +234,7 @@ fn pytest(
         .args(targets)
         .current_dir(site)
         .env("PYTHONPATH", python_path)
+        .env(LOOK_VARIABLE, "matplotlib")
         .env("MPL_SUITE_RESULTS", results)
         .env("MPLCONFIGDIR", dir.join("mplconfig"))
         .stdin(Stdio::null())

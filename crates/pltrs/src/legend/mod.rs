@@ -69,7 +69,9 @@ use settings::Placement;
 
 use pltrs_core::Bbox;
 
-use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, LayoutContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistHandle, ArtistId, ArtistLookup, LayoutContext, RawHandle, TypedHandle,
+};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{Figure, FigureFrame, FigureState};
 use crate::patches::{FancyBboxPatch, Patch};
@@ -80,6 +82,12 @@ use crate::transforms::Transform;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Legend {
     raw: RawHandle,
+}
+
+impl TypedHandle for Legend {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<LegendArtist>().then(|| Self { raw: raw.clone() })
+    }
 }
 
 impl ArtistHandle for Legend {
@@ -360,6 +368,32 @@ impl Axes {
         legend
             .raw
             .with_mut::<LegendArtist, _>(|legend| legend.kept = true);
+    }
+
+    /// The artists and containers a legend of the axes can show, with
+    /// their labels, hidden ones included (matplotlib's
+    /// `_get_legend_handles`, from which `legend(labels)` takes as many
+    /// handles as there are labels); those labelled `_nolegend_` are left
+    /// out.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// assert_eq!(ax.legend_candidates().len(), 1);
+    /// assert!(ax.legend_handles_labels().0.is_empty(), "the line has no label");
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn legend_candidates(&self) -> Vec<(LegendHandle, String)> {
+        let handlers = handlers::default_handlers();
+        let state = self.raw().figure_state().borrow();
+        handle::candidates(&state.store, &[self.id()], &handlers)
+            .into_iter()
+            .map(|source| {
+                let label = source.label(&state.store).unwrap_or_default();
+                (LegendHandle(source), label)
+            })
+            .collect()
     }
 
     /// The handles and labels `legend()` would list (matplotlib's

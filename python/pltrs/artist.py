@@ -6,10 +6,21 @@ its getters and setters call the native functions of ``_native.artist``
 and of its own module. Property handling that is inherently Python stays
 here, as in matplotlib: ``set(**kwargs)`` resolves aliases and calls the
 ``set_<name>`` methods, which subclasses may override.
+
+An artist made by its constructor (``Line2D(x, y)``, ``Artist()``) is
+loose: its native handle reaches a pltrs (Rust) artist outside any figure,
+and its ``figure`` is None. An axes or a figure adopting it
+(``ax.add_line(line)``, ``fig.add_artist(artist)``) moves the artist into
+its figure and gives the object the new handle (`._handles.adopt`).
 """
 
+from numbers import Real
+
 from . import _handles, cbook
+from . import _live_transforms
 from ._native import artist as _artist
+from ._native import transforms as _transforms
+from .transforms import IdentityTransform
 
 
 class Artist:
@@ -20,9 +31,10 @@ class Artist:
     """
 
     def __init__(self):
-        raise NotImplementedError(
-            "pltrs cannot make an artist outside a figure yet; make it with "
-            "a plotting method instead")
+        # Subclasses make their own native artist before calling this.
+        if not hasattr(self, "_native"):
+            self._native = _artist.new()
+        self._figure = None
 
     @classmethod
     def _from_native(cls, native, figure):
@@ -39,8 +51,67 @@ class Artist:
         return self._figure
 
     def get_figure(self, root=False):
-        """Return the `.Figure` instance the artist belongs to."""
-        return self._figure
+        """
+        Return the `.Figure` or `.SubFigure` instance the artist belongs to.
+
+        Parameters
+        ----------
+        root : bool, default=False
+            If False, return the (Sub)Figure this artist is on.  If True,
+            return the root Figure for a nested tree of SubFigures.
+        """
+        if root or self._figure is None:
+            return self._figure
+        from .figure import Figure
+        return _handles.wrap(_artist.parent_figure(self._native), Figure,
+                             self._figure)
+
+    @property
+    def axes(self):
+        """The `~.axes.Axes` instance the artist resides in, or *None*."""
+        if self._figure is None:
+            return self.__dict__.get("_axes")
+        from .axes import Axes
+        return _handles.wrap(_artist.axes(self._native), Axes, self._figure)
+
+    @axes.setter
+    def axes(self, new_axes):
+        if (new_axes is not None and self.axes is not None
+                and new_axes is not self.axes):
+            raise ValueError("Can not reset the Axes. You are probably trying to reuse "
+                             "an artist in more than one Axes which is not supported")
+        # Kept for an artist outside any figure; one in a figure is in the
+        # axes pltrs (Rust) has it in.
+        self._axes = new_axes
+
+    def get_transform(self):
+        """Return the `.Transform` instance used by this artist."""
+        given = self.__dict__.get("_transform")
+        if given is not None:
+            return given
+        native = _transforms.get_transform(self._native)
+        if native is None or self._figure is None:
+            return IdentityTransform()
+        return _live_transforms.from_native(self._figure, native)
+
+    def set_transform(self, t):
+        """
+        Set the artist transform.
+
+        Parameters
+        ----------
+        t : `~matplotlib.transforms.Transform`
+        """
+        _transforms.set_transform(self._native, _live_transforms.to_native(t))
+        self._transform = t
+
+    def is_transform_set(self):
+        """
+        Return whether the Artist has an explicitly set transform.
+
+        This is *True* after `.set_transform` has been called.
+        """
+        return _transforms.get_transform(self._native) is not None
 
     @property
     def stale(self):
@@ -80,9 +151,114 @@ class Artist:
         return _artist.get_alpha(self._native)
 
     def set_alpha(self, alpha):
-        """Set the alpha value used for blending - not supported on all
-        backends."""
+        """
+        Set the alpha value used for blending - not supported on all backends.
+
+        Parameters
+        ----------
+        alpha : float or None
+            *alpha* must be within the 0-1 range, inclusive.
+        """
+        if alpha is not None and not isinstance(alpha, Real):
+            raise TypeError(
+                f'alpha must be numeric or None, not {type(alpha)}')
+        if alpha is not None and not (0 <= alpha <= 1):
+            raise ValueError(f'alpha ({alpha}) is outside 0-1 range')
         _artist.set_alpha(self._native, alpha)
+
+    def get_clip_on(self):
+        """Return whether the artist uses clipping."""
+        return _artist.get_clip_on(self._native)
+
+    def set_clip_on(self, b):
+        """
+        Set whether the artist uses clipping.
+
+        When False, artists will be visible outside the Axes which
+        can lead to unexpected results.
+        """
+        _artist.set_clip_on(self._native, bool(b))
+
+    def get_rasterized(self):
+        """Return whether the artist is to be rasterized."""
+        return _artist.get_rasterized(self._native)
+
+    def set_rasterized(self, rasterized):
+        """
+        Force rasterized (bitmap) drawing for vector graphics output.
+
+        Rasterized drawing is not supported by all artists. If you try to
+        enable this on an artist that does not support it, the command has no
+        effect and a warning will be issued.
+        """
+        _artist.set_rasterized(self._native, bool(rasterized))
+
+    def get_animated(self):
+        """Return whether the artist is animated."""
+        return _artist.get_animated(self._native)
+
+    def set_animated(self, b):
+        """
+        Set whether the artist is intended to be used in an animation.
+
+        If True, the artist is excluded from regular drawing of the figure.
+        You have to call `.Figure.draw_artist` / `.Axes.draw_artist`
+        explicitly on the artist.
+        """
+        _artist.set_animated(self._native, bool(b))
+
+    def get_in_layout(self):
+        """
+        Return boolean flag, ``True`` if artist is included in layout
+        calculations.
+        """
+        return _artist.get_in_layout(self._native)
+
+    def set_in_layout(self, in_layout):
+        """
+        Set if artist is to be included in layout calculations,
+        E.g. :ref:`constrainedlayout_guide`,
+        `.Figure.tight_layout()`, and
+        ``fig.savefig(fname, bbox_inches='tight')``.
+        """
+        _artist.set_in_layout(self._native, bool(in_layout))
+
+    def get_mouseover(self):
+        """
+        Return whether this artist is queried for custom context information
+        when the mouse cursor moves over it.
+        """
+        return _artist.get_mouseover(self._native)
+
+    def set_mouseover(self, mouseover):
+        """
+        Set whether this artist is queried for custom context information when
+        the mouse cursor moves over it.
+        """
+        _artist.set_mouseover(self._native, bool(mouseover))
+
+    mouseover = property(get_mouseover, set_mouseover)
+
+    def get_snap(self):
+        """Return the snap setting."""
+        return _artist.get_snap(self._native)
+
+    def set_snap(self, snap):
+        """
+        Set the snapping behavior.
+
+        Snapping aligns positions with the pixel grid, which results in
+        clearer images.
+
+        Parameters
+        ----------
+        snap : bool or None
+            - *True*: Snap vertices to the nearest pixel center.
+            - *False*: Do not modify vertex positions.
+            - *None*: (auto) If the path contains only rectilinear line
+              segments, round to the nearest pixel center.
+        """
+        _artist.set_snap(self._native, None if snap is None else bool(snap))
 
     def get_label(self):
         """Return the label used for this artist in the legend."""
@@ -92,10 +268,33 @@ class Artist:
         """Set a label that will be displayed in the legend."""
         _artist.set_label(self._native, str(s) if s is not None else "")
 
+    def _add_to_axes(self, axes, kind, autolim=True):
+        """
+        Join *axes* as its ``add_<kind>`` method adds an artist (``kind`` is
+        ``"artist"``, ``"line"``, ``"patch"``, ``"image"`` or
+        ``"collection"``, the last with *autolim*); return self.
+        """
+        native = _artist.adopt_into_axes(axes._native, self._native, kind,
+                                         bool(autolim))
+        return _handles.adopt(self, native, axes.figure)
+
+    def _add_to_figure(self, figure, clip):
+        """Join *figure* as `.Figure.add_artist` adds an artist; return
+        self."""
+        native = _artist.adopt_into_figure(figure._native, self._native,
+                                           bool(clip))
+        return _handles.adopt(self, native, figure.figure)
+
     def remove(self):
         """Remove the artist from the figure if possible."""
+        if self._figure is None:
+            raise NotImplementedError('cannot remove artist')
         _artist.remove(self._native)
         _handles.forget(self)
+
+    def properties(self):
+        """Return a dictionary of all the properties of the artist."""
+        return ArtistInspector(self).properties()
 
     def set(self, **kwargs):
         """Set multiple properties at once."""
@@ -133,3 +332,7 @@ class Artist:
                     errfmt.format(cls=type(self), prop_name=k), name=k)
             ret.append(func(v))
         return ret
+
+
+# The introspection of artist properties, which needs `Artist` defined.
+from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: E402, F401

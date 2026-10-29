@@ -13,8 +13,8 @@ use super::stats::{Samples, Sampling};
 use super::workloads::{Build, DPI, Output, Workload};
 
 /// Puts this thread in the configuration a matplotlib user starts from,
-/// which pltrs (Python) also selects when it is imported: matplotlib's look and
-/// default rcParams.
+/// which pltrs (Python) also runs in here (the benchmark gives it
+/// `PLTRS_LOOK=matplotlib`): matplotlib's look and default rcParams.
 pub(super) fn user_configuration() {
     look::set_appearance(Appearance::MATPLOTLIB);
     pltrs::rc::restore_startup();

@@ -1,16 +1,43 @@
 //! Adding ready-made artists and collections to an axes (`add_artist`,
-//! `add_collection`), filtered groups of artists, and removed artists
-//! back.
+//! `add_collection`), filtered groups of artists, artists made outside
+//! any figure, and removed artists back.
 
-use super::Axes;
 use super::children::DataUpdate;
+use super::{Axes, AxesState};
 use crate::artist::{
-    AggFilter, Artist, ArtistHandle, AttachError, Custom, FilteredGroup, FilteredGroupArtist,
-    RawHandle,
+    AggFilter, Artist, ArtistHandle, ArtistLookup, AttachError, Custom, FilteredGroup,
+    FilteredGroupArtist, RawHandle, take_in,
 };
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
 use crate::figure::attach;
+use crate::legend::LegendArtist;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
+
+/// Which of matplotlib's `Axes.add_*` methods [`Axes::adopt_artist`]
+/// follows:
+/// they differ in how the artist counts in the data limits and whether an
+/// unlabelled artist gets a `_child<n>` label.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AddAs {
+    /// `add_artist` (and `add_table`): the data limits are left alone.
+    Artist,
+    /// `add_line`: extends the data limits, counts in
+    /// [`relim`](Axes::relim), and labels an unlabelled line.
+    Line,
+    /// `add_patch`: extends the data limits and counts in
+    /// [`relim`](Axes::relim).
+    Patch,
+    /// `add_image`: counts in [`relim`](Axes::relim) and labels an
+    /// unlabelled image.
+    Image,
+    /// `add_collection`: labels an unlabelled collection; with `autolim`,
+    /// extends the data limits, autoscales the view and counts in
+    /// [`relim`](Axes::relim).
+    Collection {
+        /// Whether the collection takes part in the limits.
+        autolim: bool,
+    },
+}
 
 impl Axes {
     /// Adds a patch in data coordinates (unless its shape chose others),
@@ -98,6 +125,94 @@ impl Axes {
         TriMesh::from_raw(self.adopt_collection(artist, &update))
     }
 
+    /// Adds a ready-made artist to the axes as matplotlib's `add_*` method
+    /// `add_as` names does, and returns its handle in this figure: an
+    /// artist made outside any figure ([`RawHandle::is_loose`]) moves in
+    /// under a new id, which the returned handle refers to, and takes the
+    /// axes' data coordinates (`ax.transData`) unless it was given a
+    /// transform, while an artist removed from this figure comes back
+    /// under its own id, keeping its coordinates. Without a clip path the
+    /// artist is clipped to the axes, it
+    /// is drawn above the children of equal z-order, and lines, images and
+    /// collections without a label are labelled `_child<n>`, `n` counting
+    /// the children before them.
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, TypedHandle};
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::lines::{Line2D, LineProps};
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = Line2D::loose(vec![0.0, 4.0], vec![1.0, 3.0], LineProps::default());
+    /// let line = Line2D::from_raw_handle(&ax.adopt_artist(line.raw(), AddAs::Line)?).unwrap();
+    /// assert_eq!(ax.lines(), [line.clone()]);
+    /// assert_eq!(line.label(), "_child0");
+    /// assert_eq!(ax.data_lim().bbox.p1.x, 4.0);
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError`] when the artist belongs to another figure, is still
+    /// in this one (or was removed only with an artist owning it), is a
+    /// figure or a 3-D axes, or owns this axes.
+    pub fn adopt_artist(
+        &self,
+        artist: &RawHandle,
+        add_as: AddAs,
+    ) -> Result<RawHandle, AttachError> {
+        let figure = self.raw().figure_state();
+        let fresh = artist.is_loose();
+        let artist = take_in(figure, artist)?;
+        let data = self.trans_data();
+        let child_count = self.listed_children();
+        attach(figure, self.id(), &artist)?;
+        let labelled = matches!(
+            add_as,
+            AddAs::Line | AddAs::Image | AddAs::Collection { .. }
+        );
+        let counted = !matches!(add_as, AddAs::Artist | AddAs::Collection { autolim: false });
+        let limits = figure
+            .borrow_mut()
+            .artist_mut(artist.id())
+            .and_then(|adopted| {
+                let base = adopted.base_mut();
+                if fresh {
+                    base.transform.get_or_insert(data);
+                }
+                if base.clip_path.is_none() {
+                    base.clip_box = Some(self.id());
+                }
+                if labelled && base.label.is_empty() {
+                    base.label = format!("_child{child_count}");
+                }
+                base.in_autoscale |= counted;
+                adopted.limit_points(self.id())
+            });
+        match add_as {
+            AddAs::Artist | AddAs::Image | AddAs::Collection { autolim: false } => {}
+            AddAs::Line | AddAs::Patch => self.update_data(&DataUpdate::extending(limits)),
+            AddAs::Collection { autolim: true } => {
+                self.unstale_view();
+                self.update_data(&DataUpdate::autoscaled(limits));
+            }
+        }
+        Ok(artist)
+    }
+
+    /// How many children matplotlib's `ax._children` would hold: the
+    /// children but the spines, the titles and the legend.
+    fn listed_children(&self) -> usize {
+        let figure = self.raw().figure_state().borrow();
+        self.raw().with::<AxesState, _>(|axes| {
+            axes.children
+                .iter()
+                .filter(|&&id| !axes.spines.contains(&id) && !axes.titles.contains(&id))
+                .filter(|&&id| figure.artist_as::<LegendArtist>(id).is_none())
+                .count()
+        })
+    }
+
     /// Adds `artist`, removed from this axes' figure with
     /// [`ArtistHandle::remove`], back as an artist of this axes, with the
     /// artists it owns (matplotlib's `add_artist`, `add_line`,
@@ -127,20 +242,101 @@ impl Axes {
     /// removed (or only with an artist owning it), is a figure or a 3-D
     /// axes, or owns this axes.
     pub fn attach(&self, artist: &impl ArtistHandle) -> Result<&Self, AttachError> {
-        let figure = self.raw().figure_state();
-        attach(figure, self.id(), artist.raw())?;
-        let limits = figure
-            .borrow_mut()
-            .artist_mut(artist.id())
-            .and_then(|artist| {
-                let base = artist.base_mut();
-                if base.clip_path.is_none() {
-                    base.clip_box = Some(self.id());
-                }
-                base.in_autoscale = true;
-                artist.limit_points(self.id())
-            });
-        self.update_data(&DataUpdate::extending(limits));
+        if artist.raw().is_loose() {
+            return Err(AttachError::OtherFigure);
+        }
+        self.adopt_artist(artist.raw(), AddAs::Patch)?;
         Ok(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pltrs_core::Point;
+
+    use super::*;
+    use crate::artist::TypedHandle;
+    use crate::figure::Figure;
+    use crate::lines::{Line2D, LineProps};
+    use crate::patches::Rectangle;
+    use crate::transforms::Transform;
+
+    fn loose_line() -> Line2D {
+        Line2D::loose(vec![0.0, 4.0], vec![1.0, 3.0], LineProps::default())
+    }
+
+    #[test]
+    fn a_loose_line_moves_in_as_add_line_adds_it() {
+        let ax = Figure::new().subplot();
+        let adopted = ax.adopt_artist(loose_line().raw(), AddAs::Line).unwrap();
+        let line = Line2D::from_raw_handle(&adopted).unwrap();
+        assert_eq!(ax.lines(), std::slice::from_ref(&line));
+        assert_eq!(line.label(), "_child0");
+        assert_eq!(line.transform(), Some(Transform::Data(ax.id())));
+        assert_eq!(ax.data_lim().bbox.p1, Point::new(4.0, 3.0));
+        let second = ax.adopt_artist(loose_line().raw(), AddAs::Line).unwrap();
+        assert_eq!(second.label(), "_child1", "the first line counts");
+        assert_eq!(
+            ax.adopt_artist(&adopted, AddAs::Line),
+            Err(AttachError::NotRemoved)
+        );
+    }
+
+    #[test]
+    fn add_artist_leaves_the_limits_alone_and_keeps_a_given_transform() {
+        let ax = Figure::new().subplot();
+        let patch = Patch::loose(
+            Rectangle::new(Point::new(5.0, 5.0), 1.0, 1.0),
+            PatchProps::default(),
+        );
+        patch.set_transform(Transform::Axes(ax.id()));
+        let adopted = ax.adopt_artist(patch.raw(), AddAs::Artist).unwrap();
+        assert!(ax.data_lim().bbox.is_null());
+        assert_eq!(adopted.transform(), Some(Transform::Axes(ax.id())));
+        assert_eq!(adopted.label(), "", "add_artist labels nothing");
+        assert_eq!(ax.patches(), [adopted]);
+    }
+
+    #[test]
+    fn collections_take_part_in_the_limits_with_autolim_only() {
+        let ax = Figure::new().subplot();
+        let segments = vec![vec![Point::new(0.0, 0.0), Point::new(2.0, 2.0)]];
+        let without = Collection::loose(CollectionSpec::lines(segments.clone()));
+        ax.adopt_artist(without.raw(), AddAs::Collection { autolim: false })
+            .unwrap();
+        assert!(ax.data_lim().bbox.is_null());
+        let with = Collection::loose(CollectionSpec::lines(segments));
+        let adopted = ax
+            .adopt_artist(with.raw(), AddAs::Collection { autolim: true })
+            .unwrap();
+        assert_eq!(ax.data_lim().bbox.p1, Point::new(2.0, 2.0));
+        assert_eq!(adopted.label(), "_child1");
+        assert_eq!(ax.collections().len(), 2);
+    }
+
+    #[test]
+    fn artists_of_other_figures_are_refused() {
+        let ax = Figure::new().subplot();
+        let line = Figure::new()
+            .subplot()
+            .plot([0.0, 1.0], [0.0, 1.0])
+            .unwrap();
+        assert_eq!(
+            ax.adopt_artist(line.raw(), AddAs::Line),
+            Err(AttachError::OtherFigure)
+        );
+        assert_eq!(
+            ax.attach(&loose_line()).unwrap_err(),
+            AttachError::OtherFigure,
+            "attach takes removed artists only"
+        );
+    }
+
+    #[test]
+    fn figures_adopt_loose_artists_in_figure_fractions() {
+        let fig = Figure::new();
+        let adopted = fig.adopt_artist(loose_line().raw(), true).unwrap();
+        assert_eq!(adopted.transform(), Some(Transform::Figure(fig.id())));
+        assert_eq!(fig.artists(), [adopted]);
     }
 }

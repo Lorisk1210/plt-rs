@@ -1,0 +1,118 @@
+//! The constructors of matplotlib's collection classes
+//! (`LineCollection(...)`, `PatchCollection(...)`, ...): each makes a
+//! loose pltrs (Rust) collection ([`Collection::loose`]), which an axes
+//! or a figure then adopts (`_native.artist.adopt_into_axes`).
+
+use pltrs::collections::{Collection, CollectionSpec, EllipseUnits};
+use pltrs::orientation::Orientation;
+use pltrs_core::Point;
+
+use super::super::patches::collection_patches;
+use super::super::path::PyPath;
+use super::super::transforms::points;
+use crate::binding::prelude::*;
+
+/// `(N, 2)` arrays as point lists.
+fn point_lists(arrays: &[NdArray]) -> PyResult<Vec<Vec<Point>>> {
+    arrays.iter().map(points).collect()
+}
+
+/// A loose line collection of polylines (matplotlib's `LineCollection`).
+fn line_collection(segments: Vec<NdArray>) -> PyResult<Collection> {
+    Ok(Collection::loose(CollectionSpec::lines(point_lists(
+        &segments,
+    )?)))
+}
+
+/// A loose collection of closed polygons (matplotlib's `PolyCollection`).
+fn poly_collection(verts: Vec<NdArray>) -> PyResult<Collection> {
+    Ok(Collection::loose(CollectionSpec::polygons(point_lists(
+        &verts,
+    )?)))
+}
+
+/// A loose collection of paths (matplotlib's `PathCollection`).
+fn path_collection(paths: Vec<PyPath>) -> PyResult<Collection> {
+    let paths = paths.into_iter().map(|path| path.path).collect();
+    Ok(Collection::loose(CollectionSpec::paths(paths)))
+}
+
+/// A loose event collection (matplotlib's `EventCollection`): event lines
+/// at `positions` along x (along y when `vertical`), centred on
+/// `lineoffset` and `linelength` long.
+fn event_collection(
+    positions: NdArray,
+    vertical: bool,
+    lineoffset: f64,
+    linelength: f64,
+) -> PyResult<Collection> {
+    let orientation = if vertical {
+        Orientation::Vertical
+    } else {
+        Orientation::Horizontal
+    };
+    let spec = CollectionSpec::events(&positions.into_vec()?, orientation, lineoffset, linelength);
+    Ok(Collection::loose(spec))
+}
+
+/// A loose collection of the outlines of `patches` (native patch objects;
+/// matplotlib's `PatchCollection`), each keeping its own look when
+/// `match_original`.
+fn patch_collection(patches: Vec<Owned>, match_original: bool) -> PyResult<Collection> {
+    let items = collection_patches(&patches)?;
+    let spec = CollectionSpec::patches(&items, match_original)?;
+    Ok(Collection::loose(spec))
+}
+
+/// A loose collection of circles of areas `sizes` in points²
+/// (matplotlib's `CircleCollection`).
+fn circle_collection(sizes: NdArray) -> PyResult<Collection> {
+    Ok(Collection::loose(CollectionSpec::circles(
+        sizes.into_vec()?,
+    )))
+}
+
+/// A loose collection of regular polygons (matplotlib's
+/// `RegularPolyCollection`).
+fn regular_poly_collection(numsides: usize, rotation: f64, sizes: NdArray) -> PyResult<Collection> {
+    let spec = CollectionSpec::regular_polygons(numsides, rotation, sizes.into_vec()?);
+    Ok(Collection::loose(spec))
+}
+
+/// A loose collection of ellipses (matplotlib's `EllipseCollection`), with
+/// the units of their sizes.
+fn ellipse_collection(
+    (widths, heights, angles): (NdArray, NdArray, NdArray),
+    units: String,
+) -> PyResult<Collection> {
+    let units = match units.as_str() {
+        "xy" => EllipseUnits::Xy,
+        "x" => EllipseUnits::X,
+        "y" => EllipseUnits::Y,
+        "inches" => EllipseUnits::Inches,
+        "width" => EllipseUnits::Width,
+        "height" => EllipseUnits::Height,
+        "dots" => EllipseUnits::Dots,
+        _ => EllipseUnits::Points,
+    };
+    let spec = CollectionSpec::ellipses(
+        &widths.into_vec()?,
+        &heights.into_vec()?,
+        &angles.into_vec()?,
+        units,
+    );
+    Ok(Collection::loose(spec))
+}
+
+/// Registers the constructors, as `new_<kind>`.
+pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("new_line_collection", line_collection)?;
+    module.add("new_poly_collection", poly_collection)?;
+    module.add("new_path_collection", path_collection)?;
+    module.add("new_event_collection", event_collection)?;
+    module.add("new_patch_collection", patch_collection)?;
+    module.add("new_circle_collection", circle_collection)?;
+    module.add("new_regular_poly_collection", regular_poly_collection)?;
+    module.add("new_ellipse_collection", ellipse_collection)?;
+    Ok(())
+}

@@ -184,10 +184,9 @@ class FigureCanvasAgg(FigureCanvasBase):
     def _print_raster(self, filename_or_obj, fmt, metadata, pil_kwargs,
                       **kwargs):
         """Write the figure as the raster format *fmt*, after the checks of
-        matplotlib's ``_print_pil``."""
-        if metadata is not None:
-            raise NotImplementedError(f"pltrs: print_{fmt}(metadata=...)")
-        settings = {}
+        matplotlib's ``_print_pil``; pltrs (Rust) refuses *metadata* for
+        the formats other than PNG, as matplotlib does."""
+        settings = {"metadata": metadata}
         for key, value in (pil_kwargs or {}).items():
             if fmt == "jpeg" and key == "quality":
                 settings["jpeg_quality"] = int(value)

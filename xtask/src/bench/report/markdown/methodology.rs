@@ -48,9 +48,9 @@ fn workloads(out: &mut String, report: &Report) {
          * {RUST} draws the same figures through the API of the `pltrs` crate, built in \
          release mode ({rustc}).\n\n\
          All three draw in matplotlib's look with matplotlib's default rcParams (DejaVu \
-         Sans, default hinting, 100 dpi). {PYTHON} selects that look when it is imported, \
-         and the Rust workloads select it the same way \
-         (`pltrs::look::Appearance::MATPLOTLIB`).\n\n",
+         Sans, default hinting, 100 dpi). {PYTHON}, which draws in its modern look by \
+         default, runs with `PLTRS_LOOK=matplotlib`, and the Rust workloads select the \
+         same look in code (`pltrs::look::Appearance::MATPLOTLIB`).\n\n",
         mpl = versions.reference("matplotlib"),
         python = versions.reference("python"),
         numpy = versions.reference("numpy"),

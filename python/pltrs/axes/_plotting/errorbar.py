@@ -108,6 +108,11 @@ class ErrorbarMixin:
               bar caps.
             - barlinecols : A tuple of `.LineCollection` with the horizontal and
               vertical error ranges.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         # Drop anything that comes in as None to use the default instead.

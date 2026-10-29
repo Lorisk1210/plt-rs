@@ -11,7 +11,7 @@ use super::artist::ContourSetArtist;
 use super::label::ContourLabel;
 use super::levels;
 use super::set::{ContourState, ContourWarning};
-use crate::artist::{ArtistHandle, ArtistId, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, RawHandle, TypedHandle};
 use crate::axes::Axes;
 use crate::collections::{Collection, CollectionArtist, EdgeColors};
 use crate::colorizer::{MappingChange, change_mapping};
@@ -35,6 +35,17 @@ impl ArtistHandle for ContourSet {
     /// and labels (what removing, hiding or re-ordering the set acts on).
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+/// A contour set in an axes; one removed from its axes has no handle of
+/// this type, which needs the axes.
+impl TypedHandle for ContourSet {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        if !raw.is::<ContourSetArtist>() {
+            return None;
+        }
+        Some(Self::from_raw(raw.owning_axes()?, raw.clone()))
     }
 }
 

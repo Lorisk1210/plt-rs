@@ -155,6 +155,22 @@ impl GridSpec {
         Ok(self)
     }
 
+    /// Replaces the margins and spacing the grid sets itself, all of them,
+    /// without moving any axes (matplotlib's `left`, ..., `hspace`
+    /// attributes of a grid, set one by one; [`update`](Self::update)
+    /// moves the axes of a figure as well).
+    ///
+    /// ```
+    /// use pltrs::gridspec::{GridSpec, SubplotOverrides};
+    /// let grid = GridSpec::new(2, 1)?;
+    /// grid.set_overrides(SubplotOverrides { left: Some(0.1), ..SubplotOverrides::default() });
+    /// assert_eq!(grid.overrides().left, Some(0.1));
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    pub fn set_overrides(&self, overrides: SubplotOverrides) {
+        self.data.overrides.set(overrides);
+    }
+
     /// Replaces the margins and spacing given in `changes`, keeping the
     /// others, without moving any axes.
     pub(crate) fn merge_overrides(&self, changes: &SubplotOverrides) {

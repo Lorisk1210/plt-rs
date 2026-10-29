@@ -169,6 +169,11 @@ class ContoursMixin:
         Returns
         -------
         `~matplotlib.contour.QuadContourSet`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         return self._contour(False, args, kwargs)
 
@@ -184,6 +189,11 @@ class ContoursMixin:
         Returns
         -------
         `~matplotlib.contour.QuadContourSet`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         return self._contour(True, args, kwargs)
 

@@ -43,6 +43,11 @@ class EventsMixin:
         -------
         list of `.EventCollection`
             The `.EventCollection` that were added.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
         if not np.iterable(positions):

@@ -11,14 +11,26 @@ behaviour; the work (validation, layout, drawing, saving) is done by
 pltrs (Rust), a reimplementation of matplotlib, through the native module
 ``pltrs._native``. See ``python/DESIGN.md`` for how the two fit together.
 
+Figures take pltrs' modern look by default, as in pltrs (Rust): the
+``pltrs-modern`` style sheet, Inter type and constrained layout. Setting
+the environment variable ``PLTRS_LOOK=matplotlib`` before the import
+selects matplotlib's look, in which the output is matplotlib's.
+``rcParamsDefault``, `rcdefaults` and ``style.use("default")`` give
+matplotlib's defaults in either look.
+
 This module holds what matplotlib's top level holds: ``rcParams`` and its
 helpers (``rc``, ``rc_context``, ``rcdefaults``), backend selection
 (``use``, ``get_backend``) and ``__version__``.
 """
 
+from collections import namedtuple
 import contextlib
+import functools
+import logging
+import os
 import pprint
 import re
+import subprocess  # noqa: F401  (matplotlib.subprocess, which tests mock)
 import sys
 from collections.abc import MutableMapping
 
@@ -29,6 +41,7 @@ from ._preprocess import _preprocess_data  # noqa: F401
 from ._native import cbook as _cbook
 from ._native import rcsetup as _rcsetup
 from ._native import register as _register
+from . import rcsetup
 
 import numpy as _np
 
@@ -36,9 +49,51 @@ import numpy as _np
 # pltrs (Rust) raises where matplotlib calls numpy.
 _register("LinAlgError", _np.linalg.LinAlgError)
 
+_log = logging.getLogger(__name__)
+
+_VersionInfo = namedtuple('_VersionInfo',
+                          'major, minor, micro, releaselevel, serial')
+
+#: The parts of a PEP 440 version string that matplotlib's versions use.
+_VERSION_PATTERN = re.compile(r"""
+    (?P<release>\d+(?:\.\d+)*)
+    (?:(?P<pre_l>a|b|rc)(?P<pre_n>\d+))?
+    (?:\.post(?P<post>\d+))?
+    (?:\.dev(?P<dev>\d+))?
+    (?:\+[a-z0-9.]+)?$""", re.VERBOSE | re.IGNORECASE)
+
+
+def _parse_to_version_info(version_str):
+    """
+    Parse a version string to a namedtuple analogous to sys.version_info.
+
+    See:
+    https://packaging.pypa.io/en/latest/version.html#packaging.version.parse
+    https://docs.python.org/3/library/sys.html#sys.version_info
+    """
+    match = _VERSION_PATTERN.match(version_str)
+    if match is None:
+        raise ValueError(f"Invalid version: {version_str!r}")
+    major, minor, micro = ([*map(int, match['release'].split('.')), 0, 0])[:3]
+    if match['pre_l'] is None and match['post'] is None and match['dev'] is None:
+        return _VersionInfo(major, minor, micro, 'final', 0)
+    elif match['dev'] is not None:
+        return _VersionInfo(major, minor, micro, 'alpha', int(match['dev']))
+    elif match['pre_l'] is not None:
+        releaselevel = {
+            'a': 'alpha',
+            'b': 'beta',
+            'rc': 'candidate'}[match['pre_l'].lower()]
+        return _VersionInfo(major, minor, micro, releaselevel,
+                            int(match['pre_n']))
+    else:
+        # fallback for post: guess-next-dev scheme from setuptools_scm
+        return _VersionInfo(major, minor, micro + 1, 'alpha', int(match['post']))
+
+
 #: The matplotlib version whose API pltrs implements.
 __version__ = "3.11.2"
-__version_info__ = (3, 11, 2, "final", 0)
+__version_info__ = _parse_to_version_info(__version__)
 
 #: Set by the test configuration (``testing.conftest``) while pytest runs.
 _called_from_pytest = False
@@ -66,15 +121,22 @@ class RcParams(MutableMapping, dict):
 
     Values are validated and stored by pltrs (Rust): assigning an invalid value
     raises the ``ValueError`` matplotlib raises, an unknown key the
-    ``KeyError``. ``matplotlib.rcParams`` holds the current parameters;
-    other instances (``rcParamsDefault``, ``RcParams({...})``, copies) hold
-    their own, and only the keys given to them.
+    ``KeyError``. Reading a value gives matplotlib's Python value: the
+    parameter's validator (`.rcsetup`) applied to the rc text pltrs (Rust)
+    keeps, or to the value given, while pltrs (Rust) holds that value (so
+    that ``'dashed'`` stays ``'dashed'`` where pltrs (Rust) keeps ``--``).
+    ``matplotlib.rcParams`` holds the current parameters; other instances
+    (``rcParamsDefault``, ``RcParams({...})``, copies) hold their own, and
+    only the keys given to them.
     """
+
+    validate = rcsetup._validators
 
     def __init__(self, *args, **kwargs):
         self._store = _rcsetup.defaults()
         self._keys = set()
         self._python = {}
+        self._given = {}
         self.update(*args, **kwargs)
 
     @classmethod
@@ -84,6 +146,7 @@ class RcParams(MutableMapping, dict):
         params._store = None
         params._keys = None
         params._python = dict(_PYTHON_PARAMS)
+        params._given = {}
         return params
 
     def _has(self, key):
@@ -100,6 +163,7 @@ class RcParams(MutableMapping, dict):
             self._python[key] = val
             return
         _rcsetup.set(self._store, key, val)
+        self._given[key] = (val, _rcsetup.text(self._store, key))
         if self._keys is not None:
             self._keys.add(key)
 
@@ -111,10 +175,19 @@ class RcParams(MutableMapping, dict):
                 f"a list of valid parameters)")
         if key in _PYTHON_PARAMS:
             return self._python[key]
-        return _rcsetup.get(self._store, key)
+        validator = self.validate.get(key)
+        if validator is None:
+            return _rcsetup.get(self._store, key)
+        text = _rcsetup.text(self._store, key)
+        given, held = self._given.get(key, (text, text))
+        return validator(given if held == text else text)
 
     def __setitem__(self, key, val):
+        if key not in _PYTHON_PARAMS and not key.startswith("pltrs."):
+            _api.getitem_checked(self.validate, rcParam=key, _error_cls=KeyError)
         self._set(key, val)
+        if key in {"text.hinting_factor", "text.kerning_factor"} and val is not None:
+            _api.warn_deprecated("3.11", name=key, obj_type="rcParam")
 
     def __getitem__(self, key):
         return self._get(key)
@@ -143,6 +216,51 @@ class RcParams(MutableMapping, dict):
     def __str__(self):
         return '\n'.join(map('{0[0]}: {0[1]}'.format, sorted(self.items())))
 
+    def update(self, other=(), /, **kwargs):
+        """Update from a mapping or pairs, validating each value; another
+        `RcParams` is copied as pltrs (Rust) holds it."""
+        if isinstance(other, RcParams):
+            self._update_from(other, list(other))
+            other = ()
+        super().update(other, **kwargs)
+
+    def _update_from(self, other, keys):
+        """Copy *keys* of the `RcParams` *other* into this one."""
+        native = [key for key in keys if key not in _PYTHON_PARAMS]
+        _rcsetup.update_from(self._store, other._store, native)
+        if self._keys is not None:
+            self._keys.update(native)
+        for key in native:
+            self._given.pop(key, None)
+            if key in other._given:
+                self._given[key] = other._given[key]
+        for key in keys:
+            if key in _PYTHON_PARAMS:
+                self._python[key] = other._get(key)
+
+    def __or__(self, other):
+        merged = dict(self)
+        merged.update(other)
+        return merged
+
+    def __ror__(self, other):
+        merged = dict(other)
+        merged.update(self)
+        return merged
+
+    def __ior__(self, other):
+        self.update(other)
+        return self
+
+    def __copy__(self):
+        return self.copy()
+
+    def __deepcopy__(self, memo):
+        return self.copy()
+
+    def __reduce__(self):
+        return RcParams, (dict(self),)
+
     def find_all(self, pattern):
         """
         Return the subset of this RcParams dictionary whose keys match,
@@ -158,6 +276,7 @@ class RcParams(MutableMapping, dict):
         params._store = _rcsetup.copy(self._store)
         params._keys = set(self) - _PYTHON_PARAMS.keys()
         params._python = dict(self._python)
+        params._given = dict(self._given)
         return params
 
 
@@ -167,11 +286,28 @@ def _of(store):
     params._store = store
     params._keys = set(_NATIVE_KEYS)
     params._python = dict(_PYTHON_PARAMS)
+    params._given = {}
     return params
+
+
+def _default_spellings():
+    """
+    matplotlib's defaults as matplotlib spells them (``'dashed'`` where
+    pltrs (Rust) keeps ``--``), by parameter, with the rc text pltrs (Rust)
+    holds for each (see `RcParams`): what `RcParams` gives back while a
+    parameter keeps its default.
+    """
+    scratch = RcParams()
+    for param in rcsetup._params_list():
+        if param.name not in _PYTHON_PARAMS and param.default is not None:
+            scratch._set(param.name, param.default)
+    return scratch._given
 
 
 rcParams = RcParams._current()
 rcParamsDefault = _of(_rcsetup.defaults())
+rcParamsDefault._given = _default_spellings()
+rcParams._given = dict(rcParamsDefault._given)
 rcParamsOrig = rcParams.copy()
 
 
@@ -187,6 +323,7 @@ def rc(group, **kwargs):
         'lw': 'linewidth', 'ls': 'linestyle', 'c': 'color',
         'fc': 'facecolor', 'ec': 'edgecolor', 'mew': 'markeredgewidth',
         'aa': 'antialiased',
+        'sans': 'sans-serif',
     }
     if isinstance(group, str):
         group = (group,)
@@ -210,6 +347,7 @@ def rcdefaults():
     """
     kept = {key: rcParams[key] for key in _STYLE_BLACKLIST if key in rcParams}
     _rcsetup.replace(_rcsetup.defaults())
+    rcParams._given = dict(rcParamsDefault._given)
     for key, value in kept.items():
         rcParams._set(key, value)
 
@@ -220,16 +358,171 @@ def rc_context(rc=None, fname=None):
     Return a context manager for temporarily changing rcParams.
 
     The :rc:`backend` will not be reset by the context manager.
+
+    rcParams changed both through the context manager invocation and
+    in the body of the context will be reset on context exit.
+
+    Parameters
+    ----------
+    rc : dict
+        The rcParams to temporarily set.
+    fname : str or path-like
+        A file with Matplotlib rc settings. If both *fname* and *rc* are given,
+        settings from *rc* take precedence.
     """
-    if fname is not None:
-        raise NotImplementedError("pltrs does not read rc files yet")
     saved = _rcsetup.copy(None)
+    given = dict(rcParams._given)
     try:
+        if fname:
+            rc_file(fname)
         if rc:
             rcParams.update(rc)
         yield
     finally:
         _rcsetup.replace(saved)
+        rcParams._given = given
+
+
+def _local_path(fname):
+    """The path of the file *fname* names: a path, or a ``file:`` URL
+    (matplotlib's ``_open_file_or_url`` for local files)."""
+    if isinstance(fname, str) and fname.startswith('file:'):
+        from urllib.parse import unquote, urlparse
+        from urllib.request import url2pathname
+        return url2pathname(unquote(urlparse(fname).path))
+    return os.path.expanduser(os.fspath(fname))
+
+
+def _rc_params_in_file(fname, fail_on_error=False):
+    """
+    Construct a `RcParams` instance from file *fname*.
+
+    Unlike `rc_params_from_file`, the configuration class only contains the
+    parameters specified in the file (i.e. default values are not filled in).
+    pltrs (Rust) reads the file; the lines matplotlib skips are logged with
+    matplotlib's messages, or raise with *fail_on_error*.
+    """
+    entries, warnings = _rcsetup.read_file(_local_path(fname))
+    for kind, message in warnings:
+        if fail_on_error and kind == "invalid value":
+            raise ValueError(message)
+        _log.warning(message)
+    config = RcParams()
+    for key, value in entries:
+        config._set(key, value)
+    return config
+
+
+def rc_params_from_file(fname, fail_on_error=False, use_default_template=True):
+    """
+    Construct a `RcParams` from file *fname*.
+
+    Parameters
+    ----------
+    fname : str or path-like
+        A file with Matplotlib rc settings.
+    fail_on_error : bool
+        If True, raise an error when the parser fails to convert a parameter.
+    use_default_template : bool
+        If True, initialize with default parameters before updating with those
+        in the given file. If False, the configuration class only contains the
+        parameters specified in the file. (Useful for updating dicts.)
+    """
+    config_from_file = _rc_params_in_file(fname, fail_on_error=fail_on_error)
+    if not use_default_template:
+        return config_from_file
+    config = rcParamsDefault.copy()
+    config.update(config_from_file)
+    _log.debug('loaded rc file %s', fname)
+    return config
+
+
+def rc_file(fname, *, use_default_template=True):
+    """
+    Update `.rcParams` from file.
+
+    Style-blacklisted `.rcParams` (defined in
+    ``matplotlib.style.core.STYLE_BLACKLIST``) are not updated.
+
+    Parameters
+    ----------
+    fname : str or path-like
+        A file with Matplotlib rc settings.
+
+    use_default_template : bool
+        If True, initialize with default parameters before updating with those
+        in the given file. If False, the current configuration persists
+        and only the parameters specified in the file are updated.
+    """
+    rc_from_file = rc_params_from_file(
+        fname, use_default_template=use_default_template)
+    rcParams._update_from(
+        rc_from_file, [key for key in rc_from_file if key not in _STYLE_BLACKLIST])
+
+
+def rc_file_defaults():
+    """
+    Restore the `.rcParams` from the original rc file loaded by Matplotlib.
+
+    Style-blacklisted `.rcParams` (defined in
+    ``matplotlib.style.core.STYLE_BLACKLIST``) are not updated.
+    """
+    rcParams._update_from(
+        rcParamsOrig, [key for key in rcParamsOrig if key not in _STYLE_BLACKLIST])
+
+
+@functools.cache
+def _ensure_handler():
+    """
+    The first time this function is called, attach a `StreamHandler` using the
+    same format as `logging.basicConfig` to the Matplotlib root logger.
+
+    Return this handler every time this function is called.
+    """
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    _log.addHandler(handler)
+    return handler
+
+
+def set_loglevel(level):
+    """
+    Configure Matplotlib's logging levels.
+
+    Matplotlib uses the standard library `logging` framework under the root
+    logger 'matplotlib'.  This is a helper function to:
+
+    - set Matplotlib's root logger level
+    - set the root logger handler's level, creating the handler
+      if it does not exist yet
+
+    Parameters
+    ----------
+    level : {"NOTSET", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        The log level as defined in `Python logging levels
+        <https://docs.python.org/3/library/logging.html#logging-levels>`__.
+    """
+    _log.setLevel(level.upper())
+    _ensure_handler().setLevel(level.upper())
+
+
+def interactive(b):
+    """
+    Set whether to redraw after every plotting command (e.g. `.pyplot.xlabel`).
+    """
+    rcParams['interactive'] = b
+
+
+def is_interactive():
+    """
+    Return whether to redraw after every plotting command.
+
+    .. note::
+
+        This function is only intended for use in backends. End users should
+        use `.pyplot.isinteractive` instead.
+    """
+    return rcParams['interactive']
 
 
 def use(backend, *, force=True):
@@ -293,23 +586,18 @@ def _val_or_rc(val, rc_name):
     return val if val is not None else rcParams[rc_name]
 
 
-def interactive(b):
-    """
-    Set whether to redraw after every plotting command (e.g. `.pyplot.xlabel`).
-    """
-    rcParams['interactive'] = b
-
-
-def is_interactive():
-    """
-    Return whether to redraw after every plotting command.
-    """
-    return rcParams['interactive']
-
-
 def _init_tests():
-    """Check the test environment (matplotlib checks its FreeType build;
-    pltrs (Rust) ports FreeType, so there is nothing to check)."""
+    """
+    Prepare the test environment: add the ``_classic_test`` style (the
+    ``classic`` style with ``_classic_test_patch``) to the style library.
+    matplotlib also checks its FreeType build here; pltrs (Rust) ports
+    FreeType, so there is nothing to check.
+    """
+    from .style import _base_library, library
+    classic_test = RcParams()
+    classic_test.update(_base_library['classic'])
+    classic_test.update(_base_library['_classic_test_patch'])
+    _base_library['_classic_test'] = library['_classic_test'] = classic_test
 
 
 def get_configdir():

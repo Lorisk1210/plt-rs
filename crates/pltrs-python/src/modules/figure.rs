@@ -1,12 +1,17 @@
-//! `_native.figure`: figures, their subplots and saving them
-//! (matplotlib's `figure` and the `print_figure` of its backends).
+//! `_native.figure`: figures, subfigures, their subplots and layout
+//! engines (matplotlib's `figure`); `_native.backends` prints them.
 
+use pltrs::artist::RawHandle;
 use pltrs::axes::{Axes, ProjectionKind};
 use pltrs::colors::Color;
-use pltrs::figure::{Figure, SaveError, SaveFormat, SaveOptions, SizeError};
-use pltrs::gridspec::GridSpecError;
+use pltrs::figure::{AxesRectError, Figure, SaveError, SizeError, SubfigureOptions};
+use pltrs::gridspec::{GridSpecError, SubplotOverrides, SubplotSpec};
+use pltrs::layout::{
+    ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, TightLayout,
+};
 use pltrs::text::Text;
 
+use super::gridspec::Overrides;
 use crate::binding::prelude::*;
 
 artist_handle!(Figure);
@@ -14,6 +19,24 @@ artist_handle!(Figure);
 impl From<GridSpecError> for PyErr {
     fn from(err: GridSpecError) -> Self {
         PyErr::value_error(err.to_string())
+    }
+}
+
+impl From<AxesRectError> for PyErr {
+    fn from(err: AxesRectError) -> Self {
+        PyErr::value_error(err.to_string())
+    }
+}
+
+impl From<LayoutEngineError> for PyErr {
+    /// matplotlib's `RuntimeError` when a colorbar pins the engine.
+    fn from(err: LayoutEngineError) -> Self {
+        match err {
+            LayoutEngineError::IncompatibleColorbars => PyErr::runtime_error(
+                "Colorbar layout of new layout engine not compatible with old engine, and a \
+                 colorbar has been created.  Engine not changed.",
+            ),
+        }
     }
 }
 
@@ -94,16 +117,6 @@ fn set_frameon(figure: Figure, frameon: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// `add_subplot(nrows, ncols, index)`.
-fn add_subplot(figure: Figure, nrows: usize, ncols: usize, index: usize) -> PyResult<Axes> {
-    Ok(figure.add_subplot(nrows, ncols, index)?)
-}
-
-/// The axes of an `nrows × ncols` grid, row by row.
-fn subplots(figure: Figure, nrows: usize, ncols: usize) -> PyResult<Vec<Axes>> {
-    Ok(figure.subplots(nrows, ncols)?.into_vec())
-}
-
 /// The current axes, made if there are none.
 fn gca(figure: Figure) -> PyResult<Axes> {
     Ok(figure.gca())
@@ -125,26 +138,35 @@ fn suptitle(figure: Figure, text: String) -> PyResult<Text> {
     Ok(figure.suptitle(text))
 }
 
-/// The figure as a file of `format` (`print_figure`): the bytes the
-/// Python side writes to a path or a file object.
-fn print_figure(
-    figure: Figure,
-    format: String,
-    dpi: Option<f64>,
-    facecolor: Option<Color>,
-    edgecolor: Option<Color>,
-    transparent: Option<bool>,
-) -> PyResult<Bytes> {
-    let format: SaveFormat = format.parse()?;
-    let options = SaveOptions {
-        dpi,
-        facecolor,
-        edgecolor,
-        transparent,
-        format: Some(format),
-        ..SaveOptions::default()
-    };
-    Ok(Bytes(figure.to_format(format, options)?))
+/// Sets the figure's centred x label.
+fn supxlabel(figure: Figure, text: String) -> PyResult<Text> {
+    Ok(figure.supxlabel(text))
+}
+
+/// Sets the figure's centred y label.
+fn supylabel(figure: Figure, text: String) -> PyResult<Text> {
+    Ok(figure.supylabel(text))
+}
+
+/// The strings of the figure's centred title, x label and y label, empty
+/// where unset (`get_suptitle`, `get_supxlabel`, `get_supylabel`).
+fn super_texts(figure: Figure) -> PyResult<(String, String, String)> {
+    Ok((
+        figure.suptitle_text(),
+        figure.supxlabel_text(),
+        figure.supylabel_text(),
+    ))
+}
+
+/// The texts added to the figure itself (`fig.texts`).
+fn texts(figure: Figure) -> PyResult<Vec<Text>> {
+    Ok(figure.texts())
+}
+
+/// The artists added to the figure itself that no other list holds
+/// (`fig.artists`).
+fn artists(figure: Figure) -> PyResult<Vec<RawHandle>> {
+    Ok(figure.artists())
 }
 
 /// The built-in projection named `name` (`"polar"`, `"hammer"`...).
@@ -153,19 +175,6 @@ fn projection_kind(name: &str) -> PyResult<ProjectionKind> {
         .into_iter()
         .find(|kind| kind.name() == name)
         .ok_or_else(|| PyErr::value_error(format!("Unknown projection {name:?}")))
-}
-
-/// Axes with the projection `projection` in cell `index` (1-based) of an
-/// `nrows × ncols` grid (`add_subplot(..., projection=...)`).
-fn add_subplot_projection(
-    figure: Figure,
-    (nrows, ncols, index): (usize, usize, usize),
-    projection: String,
-) -> PyResult<Axes> {
-    let kind = projection_kind(&projection)?;
-    figure
-        .add_subplot_with_projection(nrows, ncols, index, kind)
-        .map_err(|err| PyErr::value_error(err.to_string()))
 }
 
 /// The topmost visible axes containing the display point `(x, y)`
@@ -177,11 +186,158 @@ fn axes_at(figure: Figure, x: f64, y: f64) -> PyResult<Option<Axes>> {
     ))
 }
 
+/// The Python description of a constrained layout engine: `("constrained",
+/// (h_pad, w_pad, hspace, wspace), rect, compress)`.
+type ConstrainedSpec = (String, (f64, f64, f64, f64), (f64, f64, f64, f64), bool);
+
+/// The Python description of a tight layout engine: `("tight", pad,
+/// h_pad, w_pad, rect)`.
+type TightSpec = (String, f64, Option<f64>, Option<f64>, (f64, f64, f64, f64));
+
+/// A layout engine as Python describes it: `("constrained", (h_pad,
+/// w_pad, hspace, wspace), rect, compress)`, `("tight", pad, h_pad,
+/// w_pad, rect)` with `rect` `(left, bottom, right, top)`, or
+/// `("placeholder", adjust_compatible, colorbar_gridspec)`.
+struct EngineSpec(LayoutEngine);
+
+impl FromPy<'_> for EngineSpec {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let kind: String = object
+            .try_iter()?
+            .next()
+            .ok_or_else(|| PyErr::value_error("a layout engine needs a kind"))??
+            .extract()?;
+        Ok(Self(match kind.as_str() {
+            "constrained" => {
+                let (_, (h_pad, w_pad, hspace, wspace), rect, compress): ConstrainedSpec =
+                    object.extract()?;
+                LayoutEngine::Constrained(ConstrainedLayout {
+                    w_pad,
+                    h_pad,
+                    wspace,
+                    hspace,
+                    rect: [rect.0, rect.1, rect.2, rect.3],
+                    compress,
+                })
+            }
+            "tight" => {
+                let (_, pad, h_pad, w_pad, rect): TightSpec = object.extract()?;
+                LayoutEngine::Tight(TightLayout {
+                    pad,
+                    h_pad,
+                    w_pad,
+                    rect: Some([rect.0, rect.1, rect.2, rect.3]),
+                })
+            }
+            "placeholder" => {
+                let (_, adjust_compatible, colorbar_gridspec): (String, bool, bool) =
+                    object.extract()?;
+                LayoutEngine::PlaceHolder(PlaceHolderLayout {
+                    adjust_compatible,
+                    colorbar_gridspec,
+                })
+            }
+            _ => return Err(PyErr::value_error(format!("no layout engine {kind:?}"))),
+        }))
+    }
+}
+
+/// Gives the figure the layout engine `engine` (`None`: none, or a
+/// placeholder for the engine it had; `set_layout_engine`).
+fn set_layout_engine(figure: Figure, engine: Option<EngineSpec>) -> PyResult<()> {
+    figure.set_layout_engine(engine.map(|spec| spec.0))?;
+    Ok(())
+}
+
+/// Lays the figure out once with `engine` (`LayoutEngine.execute`).
+fn execute_layout(figure: Figure, engine: EngineSpec) -> PyResult<()> {
+    figure.execute_layout(engine.0);
+    Ok(())
+}
+
+/// Axes at `[left, bottom, width, height]` in figure fractions
+/// (`add_axes(rect)`).
+fn add_axes(figure: Figure, (left, bottom, width, height): (f64, f64, f64, f64)) -> PyResult<Axes> {
+    Ok(figure.add_axes([left, bottom, width, height])?)
+}
+
+/// Axes with the projection `projection` on the block `spec`
+/// (`add_subplot(gs[...], projection=...)`).
+fn add_subplot_spec_projection(
+    figure: Figure,
+    spec: SubplotSpec,
+    projection: String,
+) -> PyResult<Axes> {
+    let kind = projection_kind(&projection)?;
+    figure
+        .add_subplot_spec_with_projection(&spec, kind)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// Changes some of the figure's subplot parameters (`subplots_adjust`).
+fn subplots_adjust(
+    figure: Figure,
+    (left, bottom, right, top, wspace, hspace): Overrides,
+) -> PyResult<()> {
+    figure.subplots_adjust(SubplotOverrides {
+        left,
+        bottom,
+        right,
+        top,
+        wspace,
+        hspace,
+    })?;
+    Ok(())
+}
+
+/// A grid of subfigures filling `figure`, row by row (`subfigures`):
+/// `spacing` is `(wspace, hspace)`.
+fn subfigures(
+    figure: Figure,
+    (nrows, ncols): (usize, usize),
+    (wspace, hspace): (Option<f64>, Option<f64>),
+    width_ratios: Option<Vec<f64>>,
+    height_ratios: Option<Vec<f64>>,
+) -> PyResult<Vec<Figure>> {
+    let options = SubfigureOptions {
+        wspace,
+        hspace,
+        width_ratios,
+        height_ratios,
+    };
+    Ok(figure.subfigures(nrows, ncols, options)?.into_vec())
+}
+
+/// A subfigure of `figure` covering the block `spec` (`add_subfigure`).
+fn add_subfigure(figure: Figure, spec: SubplotSpec) -> PyResult<Figure> {
+    Ok(figure.add_subfigure(&spec))
+}
+
+/// Removes everything from the figure, its subfigures included (`clear`).
+fn clear(figure: Figure) -> PyResult<()> {
+    figure.clear();
+    Ok(())
+}
+
+/// Lays the figure out without drawing it (`draw_without_rendering`).
+fn layout(figure: Figure) -> PyResult<()> {
+    figure.layout();
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
+    module.add("set_layout_engine", set_layout_engine)?;
+    module.add("execute_layout", execute_layout)?;
+    module.add("add_axes", add_axes)?;
+    module.add("add_subplot_spec_projection", add_subplot_spec_projection)?;
+    module.add("subplots_adjust", subplots_adjust)?;
+    module.add("layout", layout)?;
+    module.add("clear", clear)?;
+    module.add("subfigures", subfigures)?;
+    module.add("add_subfigure", add_subfigure)?;
     module.add("axes_at", axes_at)?;
-    module.add("add_subplot_projection", add_subplot_projection)?;
     module.add("get_size_inches", get_size_inches)?;
     module.add("set_size_inches", set_size_inches)?;
     module.add("get_dpi", get_dpi)?;
@@ -191,11 +347,13 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_edgecolor", set_edgecolor)?;
     module.add("set_linewidth", set_linewidth)?;
     module.add("set_frameon", set_frameon)?;
-    module.add("add_subplot", add_subplot)?;
-    module.add("subplots", subplots)?;
     module.add("gca", gca)?;
     module.add("sca", sca)?;
     module.add("axes", axes)?;
     module.add("suptitle", suptitle)?;
-    module.add("print_figure", print_figure)
+    module.add("supxlabel", supxlabel)?;
+    module.add("supylabel", supylabel)?;
+    module.add("super_texts", super_texts)?;
+    module.add("texts", texts)?;
+    module.add("artists", artists)
 }

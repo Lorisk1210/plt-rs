@@ -6,7 +6,7 @@ use pltrs_core::{Affine2D, Bbox, Path, Point};
 use pltrs_render::CapStyle;
 
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
 use crate::axes::AxesState;
 use crate::colors::Color;
@@ -311,6 +311,12 @@ pub struct Spine {
 impl ArtistHandle for Spine {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for Spine {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<SpineArtist>().then(|| Self::from_raw(raw.clone()))
     }
 }
 

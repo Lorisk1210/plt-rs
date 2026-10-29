@@ -5,6 +5,9 @@ the real measure; these catch a broken build or binding in seconds.
 """
 
 import io
+import os
+import subprocess
+import sys
 import warnings
 
 import numpy as np
@@ -20,10 +23,33 @@ from pltrs.testing.exceptions import ImageComparisonFailure
 
 @pytest.fixture(autouse=True)
 def close_figures():
-    """Start and end every test without figures and with default rcParams."""
+    """Start and end every test without figures, with matplotlib's default
+    rcParams (whatever the look in force) during the test."""
     with pltrs.rc_context():
+        pltrs.rcdefaults()
         yield
     plt.close("all")
+
+
+def _look_params(look):
+    """``axes.titlelocation`` and ``axes.grid`` as a fresh interpreter with
+    ``PLTRS_LOOK=look`` (or without the variable, for None) starts."""
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith("PLTRS_")}
+    if look is not None:
+        env["PLTRS_LOOK"] = look
+    code = ("import pltrs; "
+            "print(pltrs.rcParams['axes.titlelocation'], "
+            "pltrs.rcParams['axes.grid'], "
+            "pltrs.rcParamsDefault['axes.titlelocation'])")
+    result = subprocess.run([sys.executable, "-c", code], env=env,
+                            capture_output=True, text=True, check=True)
+    return result.stdout.split()
+
+
+def test_the_modern_look_is_the_default_and_matplotlibs_one_switch_away():
+    assert _look_params(None) == ["left", "True", "center"]
+    assert _look_params("matplotlib") == ["center", "False", "center"]
 
 
 def test_pyplot_slice_draws_and_saves_every_format(tmp_path):
@@ -77,7 +103,7 @@ def test_rcparams_validate_through_pltrs():
     assert pltrs.rcParams["lines.linewidth"] == 4.0
     with pytest.raises(ValueError, match="lines.linewidth"):
         pltrs.rcParams["lines.linewidth"] = "wide"
-    with pytest.raises(KeyError, match="not a valid rc parameter"):
+    with pytest.raises(KeyError, match="not a valid value for rcParam"):
         pltrs.rcParams["no.such.key"] = 1
     with pltrs.rc_context({"lines.linewidth": 7}):
         assert pltrs.rcParams["lines.linewidth"] == 7.0
@@ -206,3 +232,41 @@ def test_animations_save_through_the_writers(tmp_path):
     anim.save(tmp_path / "movie.gif", writer="pillow")
     assert (tmp_path / "movie.gif").read_bytes().startswith(b"GIF8")
     assert "<script" in anim.to_jshtml()
+
+
+def test_artists_made_before_they_are_added():
+    from pltrs.artist import Artist
+    from pltrs.lines import Line2D
+    fig, ax = plt.subplots()
+    line = Line2D([0, 2], [1, 3], linewidth=3)
+    assert line.figure is None and line.axes is None
+    assert ax.add_line(line) is line
+    assert line.figure is fig and line.axes is ax and ax.lines == [line]
+    assert line.get_linewidth() == 3 and line.get_label() == "_child0"
+    from pltrs.collections import LineCollection
+    from pltrs.patches import Rectangle
+    rect = Rectangle((0, 0), 4, 2, facecolor="red")
+    assert ax.add_patch(rect) is rect and ax.patches == [rect]
+    assert rect.get_facecolor() == (1, 0, 0, 1) and rect.axes is ax
+    segments = LineCollection([[(0, 0), (5, 5)]])
+    assert ax.add_collection(segments) is segments
+    assert ax.collections == [segments] and ax.get_xlim()[1] >= 5
+    with pytest.raises(ValueError, match="Can not reset the Axes"):
+        fig.add_subplot(212).add_line(line)
+    with pytest.raises(RuntimeError, match="more than one figure"):
+        plt.figure().add_subplot().add_line(line)
+    assert line.get_transform() is ax.transData
+    assert ax.transAxes.transform((1, 1)) == pytest.approx(ax.bbox.p1)
+    with pytest.raises(NotImplementedError, match="cannot remove artist"):
+        Artist().remove()
+
+
+def test_grids_and_legends_keep_matplotlibs_api():
+    fig = plt.figure()
+    gs = fig.add_gridspec(2, 2)
+    ax = fig.add_subplot(gs[0, :])
+    assert ax.get_subplotspec() == gs[0, :] and ax.get_gridspec() is gs
+    ax.plot([0, 1], label="a")
+    legend = ax.legend(loc="upper left")
+    assert [t.get_text() for t in legend.get_texts()] == ["a"]
+    assert legend._loc == 2 and ax.get_legend() is legend

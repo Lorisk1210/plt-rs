@@ -5,13 +5,13 @@
 # What pltrs itself imports:
 numpy==2.5.4
 pillow==12.3.0
+cycler==0.12.1
 # What running the suite needs:
 pytest==9.1.1
 pytest-xdist==3.8.0
 pytest-timeout==2.4.0
 # What matplotlib's test files import at module level (pltrs does not):
 contourpy==1.4.0
-cycler==0.12.1
 packaging==26.3
 pyparsing==3.3.3
 python-dateutil==2.9.0.post0

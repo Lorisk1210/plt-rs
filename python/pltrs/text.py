@@ -68,6 +68,19 @@ class Text(Artist):
         x, y = self.get_position()
         return f"Text({x}, {y}, {self.get_text()!r})"
 
+    def __init__(self, x=0, y=0, text='', **kwargs):
+        """
+        Create a `.Text` instance at *x*, *y* with string *text*; *kwargs*
+        are `.Text` properties.
+
+        The text is outside any figure until an axes or a figure adds it
+        (`~.Axes.add_artist`, `.Figure.add_artist`).
+        """
+        self._native = _text.new(float(x), float(y),
+                                 "" if text is None else str(text))
+        super().__init__()
+        self._init_properties(kwargs)
+
     def _init_properties(self, kwargs):
         """
         Apply the keywords a new text was made with, as ``Text.__init__``

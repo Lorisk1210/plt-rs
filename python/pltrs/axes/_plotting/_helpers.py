@@ -11,14 +11,8 @@ from ... import _api, _handles, cbook, collections as mcoll, lines as mlines
 
 
 def wrap(axes, native, cls):
-    """
-    The object of class *cls* for the artist *native* of *axes*' figure,
-    whose ``axes`` is *axes*.
-    """
-    artist = _handles.wrap(native, cls, axes.figure)
-    if artist is not None and "axes" not in artist.__dict__:
-        artist.axes = axes
-    return artist
+    """The object of class *cls* for the artist *native* of *axes*' figure."""
+    return _handles.wrap(native, cls, axes.figure)
 
 
 def wrap_all(axes, natives, cls):

@@ -24,7 +24,9 @@ use super::transforms::{matrix, points, points_array};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
-typed_artist_handle!(
+mod new;
+
+artist_handle!(
     Patch<Rectangle>,
     Patch<Ellipse>,
     Patch<Circle>,
@@ -652,5 +654,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("step_patch", step_patch)?;
     module.add("set_step_patch", set_step_patch)?;
     module.add("fancy_bbox", fancy_bbox)?;
-    module.add("set_fancy_bbox", set_fancy_bbox)
+    module.add("set_fancy_bbox", set_fancy_bbox)?;
+    new::register(module)
 }

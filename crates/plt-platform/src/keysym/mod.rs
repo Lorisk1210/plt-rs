@@ -1,7 +1,17 @@
-//! X keysyms: translation to [`Key`]s and characters, and case mapping.
+//! X keysyms, shared by the X11 and Wayland backends (XKB keymaps name
+//! keys by keysym too): translation to [`Key`]s and characters, case
+//! mapping, and the keysym names keymaps are written with.
 
-use super::keysym_table::RUNS;
-use crate::keyboard::Key;
+// XKB keymaps name keysyms; only the Wayland backend reads them.
+#[cfg(target_os = "linux")]
+mod name_table;
+mod table;
+
+use crate::event::{ButtonState, KeyEvent};
+use crate::keyboard::{Key, Modifiers};
+#[cfg(target_os = "linux")]
+use name_table::NAMES;
+use table::RUNS;
 
 /// The "no symbol" keysym.
 pub(crate) const NO_SYMBOL: u32 = 0;
@@ -70,6 +80,32 @@ pub(crate) fn key(keysym: u32) -> Key {
     }
 }
 
+/// The event of a key producing `keysym` with `modifiers` held: presses
+/// of printable keys carry their text, unless Control, Alt or Super make
+/// them a shortcut.
+pub(crate) fn key_event(
+    keysym: u32,
+    state: ButtonState,
+    modifiers: Modifiers,
+    repeat: bool,
+    scancode: u32,
+) -> KeyEvent {
+    let shortcut = modifiers.control() || modifiers.alt() || modifiers.super_key();
+    let text = (state.is_pressed() && !shortcut)
+        .then(|| to_char(keysym))
+        .flatten()
+        .filter(|c| !c.is_control())
+        .map(String::from);
+    KeyEvent {
+        key: key(keysym),
+        state,
+        repeat,
+        text,
+        modifiers,
+        scancode,
+    }
+}
+
 /// The character a keysym stands for, if any.
 pub(crate) fn to_char(keysym: u32) -> Option<char> {
     match keysym {
@@ -87,6 +123,27 @@ pub(crate) fn to_char(keysym: u32) -> Option<char> {
         0x0100..=0xffff => legacy_char(keysym as u16),
         _ => None,
     }
+}
+
+/// The keysym `name` stands for, as keymaps write it: a keysym name
+/// (`a`, `Return`, `Cyrillic_a`), `U` and a hexadecimal code point
+/// (`U20AC`), a hexadecimal number (`0x1008ff11`), or `NoSymbol`.
+#[cfg(target_os = "linux")]
+pub(crate) fn from_name(name: &str) -> Option<u32> {
+    if name == "NoSymbol" {
+        return Some(NO_SYMBOL);
+    }
+    if let Ok(index) = NAMES.binary_search_by(|(known, _)| known.as_bytes().cmp(name.as_bytes())) {
+        return Some(NAMES[index].1);
+    }
+    if let Some(digits) = name.strip_prefix("0x") {
+        return u32::from_str_radix(digits, 16).ok();
+    }
+    let code = name
+        .strip_prefix('U')
+        .filter(|digits| (4..=6).contains(&digits.len()))
+        .and_then(|digits| u32::from_str_radix(digits, 16).ok())?;
+    char::from_u32(code).map(from_char)
 }
 
 /// The keysym standing for character `c`.
@@ -183,6 +240,36 @@ mod tests {
             RUNS.windows(2).all(|w| w[0].0 + w[0].2 <= w[1].0),
             "sorted, disjoint runs"
         );
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn names_are_looked_up() {
+        assert!(
+            NAMES
+                .windows(2)
+                .all(|w| w[0].0.as_bytes() < w[1].0.as_bytes()),
+            "sorted, unique names"
+        );
+        assert_eq!(from_name("a"), Some(0x61));
+        assert_eq!(from_name("Return"), Some(0xff0d));
+        assert_eq!(from_name("ISO_Level3_Shift"), Some(names::ISO_LEVEL3_SHIFT));
+        assert_eq!(from_name("Cyrillic_a"), Some(0x6c1));
+        assert_eq!(from_name("XF86AudioMute"), Some(0x1008_ff12));
+        assert_eq!(from_name("NoSymbol"), Some(NO_SYMBOL));
+        assert_eq!(from_name("U20AC"), Some(0x0100_20ac));
+        assert_eq!(
+            from_name("U00E9"),
+            Some(0xe9),
+            "Latin-1 has its own keysyms"
+        );
+        assert_eq!(from_name("0x1008ff11"), Some(0x1008_ff11));
+        assert_eq!(from_name("U110000"), None, "beyond Unicode");
+        assert_eq!(from_name("UD800"), None, "a surrogate");
+        assert_eq!(from_name("U12"), None, "too few digits");
+        assert_eq!(from_name("0xzz"), None);
+        assert_eq!(from_name("no_such_key"), None);
+        assert_eq!(from_name(""), None);
     }
 
     #[test]

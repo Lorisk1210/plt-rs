@@ -33,7 +33,7 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 | `plt-raster`   | AA scanline rasterizer, stroker, dashes, clipping, compositing       |
 | `plt-text`     | text layout into glyph runs, mathtext parser + typesetter, usetex    |
 | `plt-render`   | `Renderer` trait; raster (PNG), SVG, PDF, PS, PGF backends           |
-| `plt-platform` | windows, input events, event loop (X11 first; pluggable platforms)  |
+| `plt-platform` | windows, input events, event loop (X11, Wayland; pluggable platforms) |
 | `plt-ui`       | retained-mode UI engine: widgets, theme, layout, painting           |
 | `plt`          | the matplotlib model: Figure, Axes, artists, ticker, styles, pyplot |
 | `plt-spec`     | conformance harness: runs spec cases, compares to goldens           |
@@ -45,12 +45,15 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 * Idiomatic, readable, documented Rust. No code smells: no dead code, no
   commented-out code, no `TODO` left behind, no copy-paste duplication, no
   god-functions. Prefer small modules (aim < ~600 lines) with one purpose.
-* `#![forbid(unsafe_code)]` in every crate root. Only two crates may lift
-  it, with a `// SAFETY:` justification on each `unsafe` block:
-  `plt-platform`, for a platform that needs FFI (none does today: X11 is
-  spoken over a socket), and `plt-python`, the CPython extension, whose
-  `ffi` (declarations) and `binding` (safe wrappers) modules hold all of its
-  `unsafe` code.
+* `#![forbid(unsafe_code)]` in every crate root. Only two crates lift it,
+  with a `// SAFETY:` justification on each `unsafe` block, behind safe
+  wrappers:
+  - `plt-platform` goes to `#![deny(unsafe_code)]` and allows unsafe code
+    in one module, `wayland::sys`: the FFI to `sendmsg`/`recvmsg` (file
+    descriptors over the compositor's socket) and `memfd_create`. X11 is
+    spoken over a plain socket.
+  - `plt-python`, the CPython extension, keeps all of its unsafe code in
+    its `ffi` (declarations) and `binding` (safe wrappers) modules.
 * Zero warnings under `cargo clippy --all-targets -- -D warnings` (the
   workspace enables `clippy::pedantic`; see `[workspace.lints]`). Don't
   silence lints locally without a one-line reason.
@@ -121,12 +124,21 @@ must reproduce them.
   to the parsers, plotting, output and interaction;
   `cargo test -p plt -p plt-ui -p plt-platform -p plt-text --lib fuzz_tests`
   fuzzes crate-private code (the web server's HTTP/WebSocket/messages,
-  X11 replies and events, the GUI dialogs and widgets, the config lookup,
-  the DVI/VF/TFM/font-map readers of usetex).
+  X11 replies and events, Wayland messages, XKB keymaps and a hostile
+  compositor, the GUI dialogs and widgets, the config lookup, the
+  DVI/VF/TFM/font-map readers of usetex).
   `PLT_FUZZ_SCALE=50` runs longer, and `PLT_FUZZ_REPLAY=<seed>` reruns a
   failure.
   Absurd input must return an error, never panic, hang or exhaust
   memory.
+* Windowing against real display servers: `plt-platform`'s live tests run
+  when `$DISPLAY` / `$WAYLAND_DISPLAY` is set and pass trivially
+  otherwise. X11: `Xvfb :117 -screen 0 1280x800x24 -nolisten tcp &` then
+  `DISPLAY=:117 cargo test -p plt-platform`. Wayland: a headless weston
+  installed without root, `crates/plt-platform/tools/weston.sh install`
+  (into `~/.local/weston`) and `weston.sh run &`, then
+  `WAYLAND_DISPLAY=wayland-plt cargo test -p plt-platform wayland`;
+  `weston.sh run --debug` lets `weston.sh screenshot` capture the screen.
 
 ## pltrs (`python/`, `crates/plt-python`)
 

@@ -17,8 +17,9 @@ use super::output::SharedOutput;
 use super::reply;
 use super::request::{self, Query, Request};
 use super::setup::{self, Setup};
-use super::transport::{Stream, Wait};
+use super::transport::Stream;
 use super::wire::{u16_at, u32_at};
+use crate::backend::Wait;
 use crate::error::{Error, X11Error};
 
 /// Bytes requested from the socket per read.

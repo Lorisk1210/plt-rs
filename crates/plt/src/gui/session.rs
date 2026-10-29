@@ -4,7 +4,9 @@
 
 use std::time::{Duration, Instant};
 
+use plt_core::Rgba;
 use plt_platform::{Context, Event, EventLoop, HeadlessHandle};
+use plt_ui::TitleBarPainter;
 
 use super::{FigureWindow, GuiError};
 use crate::events::{GinputOptions, wait};
@@ -20,13 +22,22 @@ pub struct Session {
 }
 
 impl Session {
-    /// A session on the system's window system.
+    /// A session on the system's window system. Where windows draw their
+    /// own title bars (Wayland without server-side decorations), they take
+    /// the chrome's look.
     ///
     /// # Errors
     ///
     /// When there is no window system to connect to.
     pub fn new() -> Result<Self, GuiError> {
-        Ok(Self::with_loop(EventLoop::new()?))
+        let mut event_loop = EventLoop::new()?;
+        let background = crate::rc::params()
+            .figure_facecolor
+            .resolve()
+            .unwrap_or(Rgba::WHITE);
+        let theme = crate::look::appearance().chrome.theme(background);
+        event_loop.set_decoration_painter(TitleBarPainter::new(theme))?;
+        Ok(Self::with_loop(event_loop))
     }
 
     /// A session without a display, whose windows are driven through the

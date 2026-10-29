@@ -32,6 +32,9 @@ pub enum Error {
     Unsupported(&'static str),
     /// The X server reported an error for a request.
     X11(X11Error),
+    /// The Wayland compositor reported a fatal protocol error and closed
+    /// the connection.
+    Wayland(WaylandError),
     /// The window id does not belong to a live window of this loop.
     UnknownWindow(WindowId),
     /// A pixel buffer has the wrong length for its dimensions.
@@ -73,6 +76,7 @@ impl fmt::Display for Error {
             Self::Malformed(what) => write!(f, "malformed message from display server: {what}"),
             Self::Unsupported(what) => write!(f, "display server unsupported: {what}"),
             Self::X11(error) => error.fmt(f),
+            Self::Wayland(error) => error.fmt(f),
             Self::UnknownWindow(id) => write!(f, "unknown window {id:?}"),
             Self::BufferSize { expected, actual } => {
                 write!(f, "pixel buffer has {actual} bytes, expected {expected}")
@@ -142,6 +146,27 @@ impl fmt::Display for X11Error {
     }
 }
 
+/// A fatal protocol error from a Wayland compositor (`wl_display.error`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WaylandError {
+    /// The id of the object the error is about.
+    pub object: u32,
+    /// The error code, defined by the object's interface.
+    pub code: u32,
+    /// The compositor's description.
+    pub message: String,
+}
+
+impl fmt::Display for WaylandError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Wayland protocol error {} on object {}: {}",
+            self.code, self.object, self.message
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,6 +191,19 @@ mod tests {
             }
             .to_string()
             .contains("expected 4")
+        );
+    }
+
+    #[test]
+    fn wayland_errors_name_object_and_code() {
+        let err = Error::Wayland(WaylandError {
+            object: 12,
+            code: 3,
+            message: String::from("invalid buffer size"),
+        });
+        assert_eq!(
+            err.to_string(),
+            "Wayland protocol error 3 on object 12: invalid buffer size"
         );
     }
 

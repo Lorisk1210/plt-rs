@@ -4,7 +4,7 @@ matplotlib, rebuilt from scratch in Rust: the figure model, every plot
 type, text and mathtext, the Agg-exact rasterizer, interactive windows
 with their own UI engine, and a conformance suite that checks the output
 against matplotlib 3.11. No crates.io dependencies: fonts, PNG/DEFLATE,
-rasterization, layout, windowing (X11) and the UI are all implemented
+rasterization, layout, windowing (Wayland and X11) and the UI are all implemented
 here.
 
 ```rust,no_run
@@ -56,9 +56,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-On systems without X11 (macOS, Windows), `show()` serves the figures to a
-web browser instead, like matplotlib's WebAgg backend, and prints their
-address; on an X11 system without a display it shows nothing, as
+On Linux, windows open natively under Wayland or X11 (`PLT_PLATFORM`
+picks one). On systems without either (macOS, Windows), `show()` serves
+the figures to a web browser instead, like matplotlib's WebAgg backend,
+and prints their address; on Linux without a display it shows nothing, as
 matplotlib falls back to `agg`. `MPLBACKEND=webagg` (or
 `plt::switch_backend(Backend::WebAgg)`) picks the browser everywhere (a
 remote machine, WSL), and `plt::web::serve(&[fig], WebOptions::from_rc()?)`
@@ -227,7 +228,7 @@ built, and how to extend it, is in [`python/DESIGN.md`](python/DESIGN.md).
 | `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
 | `plt-text`     | text layout, the mathtext parser and typesetter, and usetex (DVI, VF, TFM, font maps) |
 | `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS/PGF |
-| `plt-platform` | windows, input and the event loop (X11; headless for tests)       |
+| `plt-platform` | windows, input and the event loop (Wayland, X11; headless for tests) |
 | `plt-ui`       | the retained-mode UI engine used by figure windows                |
 | `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |
 | `plt-spec`     | the conformance harness                                           |

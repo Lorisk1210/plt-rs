@@ -33,6 +33,9 @@
 //!   choosing, returned by [`Ui::handle`].
 //! * [`UiWindow`] connects a [`Ui`] to a `plt-platform` window, which it
 //!   can size to fit its content, and to the platform's clipboard.
+//!   [`TitleBarPainter`] draws the title bars the platform adds where the
+//!   desktop leaves window decorations to applications (Wayland without
+//!   server-side decorations).
 //!
 //! All lengths are window pixels (physical pixels); widgets scale the
 //! [`Theme`]'s logical lengths by the window's scale factor. The theme
@@ -77,6 +80,7 @@ mod icon;
 mod picture;
 mod text;
 mod theme;
+mod title_bar;
 mod ui;
 mod widget;
 mod widgets;
@@ -100,6 +104,7 @@ pub use icon::Icon;
 pub use picture::Picture;
 pub use text::{FontFamily, TextLayout, TextStyle};
 pub use theme::{Spacing, Theme, TooltipStyle};
+pub use title_bar::TitleBarPainter;
 pub use ui::Ui;
 pub use widget::{
     ClipboardRequest, EventCx, Focus, LayoutCx, PaintCx, Status, Widget, WidgetId, WidgetPod,

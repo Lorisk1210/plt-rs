@@ -8,21 +8,11 @@ use std::time::Instant;
 
 use super::auth::{self, Credentials};
 use super::display::{DisplayName, Target};
+use crate::backend::Wait;
 use crate::error::Error;
 
 /// First TCP port of X servers; display `n` listens on `6000 + n`.
 const X_TCP_PORT_BASE: u32 = 6000;
-
-/// How long a read may block.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Wait {
-    /// Return at once when no data is available.
-    Poll,
-    /// Block until data arrives or the instant passes.
-    Until(Instant),
-    /// Block until data arrives.
-    Forever,
-}
 
 /// A connected socket to the X server.
 #[derive(Debug)]

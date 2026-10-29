@@ -1,0 +1,23 @@
+[package]
+name = "pltrs"
+description = "Matplotlib, reimagined in Rust: figures, axes, artists and a pyplot-style API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+pltrs-codec.workspace = true
+pltrs-core.workspace = true
+pltrs-platform.workspace = true
+pltrs-raster.workspace = true
+pltrs-render.workspace = true
+pltrs-text.workspace = true
+pltrs-ui.workspace = true
+
+[dev-dependencies]
+# The fuzz tests feed corrupted fonts to the font parser directly.
+pltrs-font.workspace = true
+
+[lints]
+workspace = true

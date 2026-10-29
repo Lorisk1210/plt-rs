@@ -20,7 +20,7 @@ def to_jsonable(value: Any) -> Any:
     """Convert matplotlib/numpy results into plain JSON-compatible values.
 
     Non-finite floats are kept (they are written as ``NaN``/``Infinity``,
-    which the plt-rs JSON reader accepts).
+    which the pltrs JSON reader accepts).
     """
     if isinstance(value, np.ndarray):
         if value.dtype.kind == "M":
@@ -74,7 +74,7 @@ class ProbeSet:
 
         Exceptions are recorded as ``{"error": <ExceptionType>}`` and returned
         (not raised), so tests can assert that matplotlib rejects an input.
-        ``tol`` widens the relative tolerance plt-rs is held to.
+        ``tol`` widens the relative tolerance pltrs is held to.
         """
         try:
             result = fn(**args)

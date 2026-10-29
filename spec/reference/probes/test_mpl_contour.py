@@ -88,7 +88,7 @@ case of ``mpl_tests_contour``.
 Left out: the mixed 1-D/2-D and 3-D inputs of ``test_contour_shape_error``
 (a quadrilateral field holds 1-D or 2-D coordinates of one kind and a 2-D
 z), the colours and types of the ``legend_elements`` handles (opaque in
-plt-rs), ``test_label_nonagg`` (backend switching),
+pltrs), ``test_label_nonagg`` (backend switching),
 ``test_clabel_raises_on_filled_contours`` (a deprecation warning),
 ``test_quadcontourset_reuse`` (contour generator identity),
 ``test_contour_no_args`` and ``test_contour_singular_color`` (Python

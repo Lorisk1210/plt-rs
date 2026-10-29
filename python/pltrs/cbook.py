@@ -4,7 +4,7 @@ A collection of utility functions and classes.  Originally, many
 
 pltrs keeps matplotlib's ``cbook`` (from matplotlib 3.11.2, under the
 Matplotlib License): utilities that work on Python objects. Its numeric
-work is plt-rs's: the box-plot statistics, and stripping mathtext.
+work is pltrs (Rust)'s: the box-plot statistics, and stripping mathtext.
 """
 
 import collections

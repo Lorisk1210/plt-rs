@@ -1,6 +1,6 @@
 """
 The geometry of paths (matplotlib's C++ ``_path`` module), computed by
-plt-rs (``_native.path`` and ``_native.transforms``).
+pltrs (Rust) (``_native.path`` and ``_native.transforms``).
 
 The functions keep the C++ module's signatures: paths are `.Path` objects,
 transforms are anything with a 3×3 matrix (an affine `.Transform`, an

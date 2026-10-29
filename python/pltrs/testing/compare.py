@@ -1,7 +1,7 @@
 """
 Utilities for comparing image results (matplotlib's ``testing.compare``).
 
-plt-rs compares PNG images by the RMS of their difference, as matplotlib
+pltrs (Rust) compares PNG images by the RMS of their difference, as matplotlib
 does; it has no converter for PDF, PostScript or SVG, as matplotlib has
 none without Ghostscript and Inkscape.
 """
@@ -13,7 +13,7 @@ from .._native import testing as _testing
 __all__ = ['comparable_formats', 'compare_images']
 
 #: The converters to PNG of the formats other than PNG, by extension.
-#: matplotlib fills it from the Ghostscript and Inkscape it finds; plt-rs
+#: matplotlib fills it from the Ghostscript and Inkscape it finds; pltrs (Rust)
 #: converts no format, so there are none.
 converter = {}
 

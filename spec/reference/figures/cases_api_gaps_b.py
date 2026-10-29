@@ -1,4 +1,4 @@
-"""Figures drawn through the matplotlib API that plt-rs gained in its
+"""Figures drawn through the matplotlib API that pltrs gained in its
 axes and artist classes: axes locators, the colour mapping, hatch and
 offsets of collections set after they are made, new image data and
 resampling settings, and date axes without dates. (Its custom legend

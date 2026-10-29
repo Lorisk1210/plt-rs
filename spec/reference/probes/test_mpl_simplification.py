@@ -45,7 +45,7 @@ Ops
 
 The image tests are cases of ``mpl_rendering``. Left out:
 ``test_throw_rendering_complexity_exceeded``, which checks that Agg gives
-up on two million unsimplified points with an ``OverflowError``: plt-rs's
+up on two million unsimplified points with an ``OverflowError``: pltrs's
 rasterizer has no such cell budget.
 """
 

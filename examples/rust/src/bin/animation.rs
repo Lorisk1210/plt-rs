@@ -3,9 +3,9 @@
 
 use std::time::Duration;
 
-use plt::animation::{AnimationOptions, Frames, FuncAnimation};
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
+use pltrs::animation::{AnimationOptions, Frames, FuncAnimation};
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
 
 /// The envelope of the packet centred at `centre`, over `x`.
 fn envelope(x: &[f64], centre: f64) -> Vec<f64> {

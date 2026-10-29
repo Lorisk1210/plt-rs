@@ -1,15 +1,15 @@
 //! Contours, vector fields and triangulations, and 3-D axes.
 
-use plt::collections::CollectionProps;
-use plt::colorbar::ColorbarOptions;
-use plt::colors::{Color, Colorize, ColorizerOptions, colormaps};
-use plt::contour::{ClabelOptions, ContourOptions, Levels, QuadField};
-use plt::mplot3d::{FaceColors, Sampling, SurfaceOptions};
-use plt::numeric::{Grid, linspace, meshgrid};
-use plt::quiver::{QuiverOptions, VectorField};
-use plt::streamplot::{StreamField, StreamplotOptions};
-use plt::tri::Triangulation;
-use plt_spec::rng::SpecRng;
+use pltrs::collections::CollectionProps;
+use pltrs::colorbar::ColorbarOptions;
+use pltrs::colors::{Color, Colorize, ColorizerOptions, colormaps};
+use pltrs::contour::{ClabelOptions, ContourOptions, Levels, QuadField};
+use pltrs::mplot3d::{FaceColors, Sampling, SurfaceOptions};
+use pltrs::numeric::{Grid, linspace, meshgrid};
+use pltrs::quiver::{QuiverOptions, VectorField};
+use pltrs::streamplot::{StreamField, StreamplotOptions};
+use pltrs::tri::Triangulation;
+use pltrs_spec::rng::SpecRng;
 
 use super::{Build, Workload, smooth_field};
 

@@ -57,7 +57,7 @@ Covered elsewhere: ``test_bivariate_cmap_shapes`` and
 ``test_multivar_alpha_mixing`` (cases of ``mpl_rest``); the registered
 colormaps' colours (``multivar``).
 
-Left out: array ``alpha`` (plt-rs takes one opacity per call), byte-swapped
+Left out: array ``alpha`` (pltrs takes one opacity per call), byte-swapped
 integer arrays, ``clip=False`` with ``bytes`` and colormaps given as
 something else than colormaps (Python dtypes and types),
 ``test_bivar_cmap_bad_lut`` (a table of five channels cannot be built), the

@@ -1,11 +1,11 @@
 //! Stacked area chart: where a country's electricity came from, year by
 //! year, the top edge giving the total.
 
-use plt::axes::StackplotOptions;
-use plt::collections::CollectionProps;
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
+use pltrs::axes::StackplotOptions;
+use pltrs::collections::CollectionProps;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let years: Vec<f64> = (2000..=2024).map(f64::from).collect();

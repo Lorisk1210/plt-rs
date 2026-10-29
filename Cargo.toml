@@ -10,16 +10,16 @@ publish = false
 repository = "https://github.com/loris/plt-rs"
 
 [workspace.dependencies]
-plt-core = { path = "crates/plt-core" }
-plt-codec = { path = "crates/plt-codec" }
-plt-font = { path = "crates/plt-font" }
-plt-raster = { path = "crates/plt-raster" }
-plt-text = { path = "crates/plt-text" }
-plt-render = { path = "crates/plt-render" }
-plt-platform = { path = "crates/plt-platform" }
-plt-ui = { path = "crates/plt-ui" }
-plt = { path = "crates/plt" }
-plt-spec = { path = "crates/plt-spec" }
+pltrs-core = { path = "crates/pltrs-core" }
+pltrs-codec = { path = "crates/pltrs-codec" }
+pltrs-font = { path = "crates/pltrs-font" }
+pltrs-raster = { path = "crates/pltrs-raster" }
+pltrs-text = { path = "crates/pltrs-text" }
+pltrs-render = { path = "crates/pltrs-render" }
+pltrs-platform = { path = "crates/pltrs-platform" }
+pltrs-ui = { path = "crates/pltrs-ui" }
+pltrs = { path = "crates/pltrs" }
+pltrs-spec = { path = "crates/pltrs-spec" }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

@@ -48,7 +48,7 @@ Ops
     ``Rectangle((0, 0), 1, 1, **kw)`` followed by the setters in ``steps``,
     all under ``rc_context(rcparams)`` (matplotlib reads
     ``patch.edgecolor`` again whenever it falls back to it for the hatch
-    colour, plt-rs when the patch is made) (``[name, value]`` for ``set_edgecolor``,
+    colour, pltrs when the patch is made) (``[name, value]`` for ``set_edgecolor``,
     ``set_hatchcolor``, ``set_facecolor``, ``set_edgegapcolor`` and
     ``set_linestyle``, a name or ``[offset, [on, off, ...]]``); colours as RGBA (``get_facecolor()``,
     ``get_edgecolor()``, ``get_hatchcolor()``, ``get_edgegapcolor()`` or
@@ -64,16 +64,16 @@ Ops
 
 Left out: ``test_patch_str`` (Python ``repr``), the datetime and units
 tests, ``test_fancyarrow_shape_error`` (the arrow shape is an enum in
-plt-rs, so an unknown one cannot be given), ``test_color_override_warning`` (a warning), ``test_default_antialiased``
+pltrs, so an unknown one cannot be given), ``test_color_override_warning`` (a warning), ``test_default_antialiased``
 and ``test_default_linestyle`` (setting ``None`` to restore a default is
-Python API; plt-rs setters take values), ``test_boxstyle_errors`` (the
+Python API; pltrs setters take values), ``test_boxstyle_errors`` (the
 ``fancy`` area parses box styles), ``test_patch_linestyle_accents`` and
 ``test_patch_zero_linewidth_dashed_uses_solid_gc_dashes`` (smoke tests
 drawing only), ``test_empty_fancyarrow`` (empty array arguments) and
 ``test_patch_edgegapcolor_update_from`` (``update_from`` copies Python
 attributes). An edge gap colour of ``"none"`` is left out too: matplotlib
 tells it from ``None`` (no gap colour) although both draw nothing, while
-plt-rs uses ``"none"`` for no gap colour.
+pltrs uses ``"none"`` for no gap colour.
 """
 
 import matplotlib as mpl

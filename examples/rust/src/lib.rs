@@ -1,21 +1,21 @@
-//! Example graphs drawn with plt, one binary per graph in `src/bin/`.
+//! Example graphs drawn with pltrs, one binary per graph in `src/bin/`.
 //!
 //! Each binary draws one figure and saves it as `<name>.png` (the
 //! animation as `<name>.gif`) in the working directory:
 //!
 //! ```text
-//! cargo run -p plt-examples --bin line_plot
+//! cargo run -p pltrs-examples --bin line_plot
 //! ```
 //!
-//! `examples/python/` holds the same graphs written with pltrs, plt-rs'
-//! Python package, in matplotlib's syntax, and `cargo xtask examples`
+//! `examples/python/` holds the same graphs written with pltrs
+//! (Python), in matplotlib's syntax, and `cargo xtask examples`
 //! renders both into the gallery of `examples/README.md`.
 //!
 //! This library holds what several examples share: [`Samples`], the seeded
 //! generator of the examples that need noisy data.
 #![forbid(unsafe_code)]
 
-use plt_core::rng::SplitMix64;
+use pltrs_core::rng::SplitMix64;
 
 /// Uniform and normal draws from a seeded `SplitMix64` stream.
 ///
@@ -23,7 +23,7 @@ use plt_core::rng::SplitMix64;
 /// (`examples/python/samples.py`), so both languages plot the same points.
 ///
 /// ```
-/// use plt_examples::Samples;
+/// use pltrs_examples::Samples;
 ///
 /// let heights = Samples::new(7).normal(100, 1.75, 0.1);
 /// assert_eq!(heights.len(), 100);

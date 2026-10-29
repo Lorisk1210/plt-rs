@@ -64,15 +64,15 @@ Left out:
   which Rust's types rule out;
 * ``test_fallback_position``: the ``position`` keyword standing in for the
   rectangle is a Python calling convention;
-* ``test_subplot_kwarg_collision``: plt-rs's projection requests carry no
+* ``test_subplot_kwarg_collision``: pltrs's projection requests carry no
   projection keywords (``theta_offset`` is set on the axes afterwards);
 * the ``"3d"`` projection of ``test_subplot_change_projection``: pyplot's
   axes functions make 2-D axes, 3-D axes have a type of their own;
 * ``test_multiple_same_figure_calls`` and ``test_close_all_warning``, which
-  check warnings about arguments plt-rs's ``figure_num`` and
+  check warnings about arguments pltrs's ``figure_num`` and
   ``figure_label`` do not take;
 * of ``test_register_existing_figure_with_pyplot``, the ``AttributeError``
-  for the number of an unregistered figure: plt-rs figures have no number
+  for the number of an unregistered figure: pltrs figures have no number
   attribute.
 """
 

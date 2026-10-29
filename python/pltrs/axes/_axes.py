@@ -1,5 +1,5 @@
 """
-The `Axes` class: plotting methods on a plt-rs axes (matplotlib's
+The `Axes` class: plotting methods on a pltrs (Rust) axes (matplotlib's
 ``axes._axes`` and ``axes._base``).
 
 Each plotting method turns matplotlib's signature (positional forms,

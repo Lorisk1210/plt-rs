@@ -1,7 +1,7 @@
 """Seeded sample data for the examples that need noise.
 
 numpy's random generators cannot be reproduced outside numpy, so the
-examples draw from SplitMix64, the small generator plt-rs uses, here and in
+examples draw from SplitMix64, the small generator pltrs uses, here and in
 the Rust examples (``examples/rust/src/lib.rs``) alike: both languages plot
 the same points.
 """

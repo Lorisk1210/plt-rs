@@ -1,13 +1,13 @@
 //! Box plots and violin plots: the exam scores of four classes taught four
 //! ways, summarised side by side on a shared axis.
 
-use plt::axes::{
+use pltrs::axes::{
     BoxArtist, BoxProps, BoxplotOptions, BxpOptions, ViolinDrawOptions, ViolinplotOptions,
 };
-use plt::figure::Share;
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
-use plt_examples::Samples;
+use pltrs::figure::Share;
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
+use pltrs_examples::Samples;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = Samples::new(11);

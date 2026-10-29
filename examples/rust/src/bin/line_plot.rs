@@ -1,8 +1,8 @@
 //! Line plot with a legend: the step response of a spring-mass system for
 //! three damping ratios.
 
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let t = linspace(0.0, 12.0, 400);

@@ -29,8 +29,8 @@ Custom scaling can be achieved through `FuncScale`, or by creating your own
 Third parties can register their scales by name through `register_scale`.
 
 pltrs keeps matplotlib's scale classes (from matplotlib 3.11.2, under the
-Matplotlib License); the maps of the non-linear scales are plt-rs's
-(``plt::scale``).
+Matplotlib License); the maps of the non-linear scales are pltrs (Rust)'s
+(``pltrs::scale``).
 """  # noqa: E501
 
 import inspect
@@ -55,7 +55,7 @@ def _rcParams():
 
 
 def _native_transform(kind, params, values, inverse=False):
-    """*values* (an array-like, masked or not) mapped by plt-rs's scale map
+    """*values* (an array-like, masked or not) mapped by pltrs (Rust)'s scale map
     *kind* of *params*, or by its inverse."""
     if isinstance(values, np.ma.MaskedArray):
         out = _scale.transform(kind, params, np.ma.getdata(values).astype(float),

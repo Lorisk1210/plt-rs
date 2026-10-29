@@ -41,8 +41,8 @@ Cases
 -----
 Named after the upstream tests. ``test_use_url`` and ``test_single_path``
 write their style files as described above; ``test_up_to_date_blacklist``
-probes the blacklist (plt-rs checks in a unit test that every entry but
-``backend``, which plt-rs' pyplot handles outside the rcParams, is a
+probes the blacklist (pltrs checks in a unit test that every entry but
+``backend``, which pltrs' pyplot handles outside the rcParams, is a
 parameter); ``test_invalid_rc_warning_includes_filename`` records which
 file each warning names.
 

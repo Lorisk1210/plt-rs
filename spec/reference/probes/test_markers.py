@@ -54,7 +54,7 @@ MARKER DESCRIPTION (output of ``markers.MarkerStyle`` and
                      marker has no alternate transform. (matplotlib actually
                      raises AttributeError/TypeError from get_alt_transform()
                      in that case because its internal ``_alt_transform`` is
-                     None; plt-rs should model it as "absent".) ``alt_path`` is
+                     None; pltrs should model it as "absent".) ``alt_path`` is
                      null iff ``alt_transform`` is null.
   ``user_transform`` Matrix of ``get_user_transform()`` or null.
   ``joinstyle``      ``get_joinstyle()`` ("miter" | "round" | "bevel").
@@ -210,7 +210,7 @@ Ops
         rows; the probe maps them back to original data indices.
     Every distance-based probe in the golden is tie-free: its selection is
     unchanged when the display segment lengths or the axes diagonal are
-    perturbed by 1e-10 (relative), so plt-rs does not need last-ulp agreement
+    perturbed by 1e-10 (relative), so pltrs does not need last-ulp agreement
     of its transforms to reproduce it. (Exactly evenly spaced data whose
     spacing divides the marker step is tie-prone and deliberately avoided.)
 """

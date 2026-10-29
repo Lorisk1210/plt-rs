@@ -13,8 +13,8 @@ paper sizes), and two cases are collected into one multi-page PDF. The
 usetex cases of ``TEX_VECTOR_CASES`` are saved as SVG, PDF and PostScript
 and skipped where TeX is missing, their PostScript where ``dvips``,
 ``psfrag`` or Ghostscript is; distilled variants are skipped where the
-distiller is missing. plt-rs compares its own documents with
-these structurally (plt-spec's ``figure_vectors`` test); keep the lists in
+distiller is missing. pltrs compares its own documents with
+these structurally (pltrs-spec's ``figure_vectors`` test); keep the lists in
 sync with ``VECTOR_CASES``, ``TEX_VECTOR_CASES``, ``VECTOR_VARIANTS`` and
 ``PDF_PAGES`` there.
 """

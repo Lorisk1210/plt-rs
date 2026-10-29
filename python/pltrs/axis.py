@@ -10,7 +10,7 @@ class Axis:
     """
     Base class for `.XAxis` and `.YAxis`.
 
-    An Axis belongs to an `~.axes.Axes` (``axis.axes``); plt-rs reaches it
+    An Axis belongs to an `~.axes.Axes` (``axis.axes``); pltrs (Rust) reaches it
     through the axes and the axis name.
     """
 
@@ -24,7 +24,7 @@ class Axis:
         Set the formatter of the major ticker: a `.ticker.Formatter`, or a
         function ``f(x, pos)`` (made a `.ticker.FuncFormatter`).
 
-        plt-rs calls the formatter (any callable taking ``(x, pos)``) each
+        pltrs (Rust) calls the formatter (any callable taking ``(x, pos)``) each
         time it labels the ticks.
         """
         self._set_formatter("major", formatter)

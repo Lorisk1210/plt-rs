@@ -1,7 +1,7 @@
-"""Support code for the plt-rs conformance spec.
+"""Support code for the pltrs conformance spec.
 
-The spec is the contract plt-rs must honour. It is *executed against real
-matplotlib* to produce goldens, and plt-rs is then checked against those
+The spec is the contract pltrs must honour. It is *executed against real
+matplotlib* to produce goldens, and pltrs is then checked against those
 goldens. Two kinds of golden exist:
 
 * **Probes** — ``(area, op, args) -> result`` records of matplotlib's

@@ -1,30 +1,30 @@
-//! The summary: where pltrs and plt are faster or slower than matplotlib,
-//! tier by tier, warm and cold.
+//! The summary: how much faster or slower pltrs (Python) and pltrs (Rust)
+//! are than matplotlib, tier by tier, warm and cold.
 
 use std::fmt::Write as _;
 
 use super::super::super::cold::ColdResult;
 use super::super::super::guard::{TOLERANCE, Verdict};
-use super::super::super::stats::{Samples, geometric_mean};
+use super::super::super::stats::{Samples, geometric_mean, speedup};
 use super::super::super::workloads::Tier;
 use super::super::{Column, Measurement, Report};
-use super::{ms, ratio};
+use super::{PYTHON, RUST, ms};
 
 /// An implementation measured against matplotlib.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Contender {
-    /// pltrs, the same scripts.
-    Pltrs,
-    /// plt, from Rust.
-    Plt,
+    /// pltrs (Python), the same scripts.
+    Python,
+    /// pltrs (Rust).
+    Rust,
 }
 
 impl Contender {
     /// Its name in the report.
     const fn name(self) -> &'static str {
         match self {
-            Self::Pltrs => "pltrs",
-            Self::Plt => "plt",
+            Self::Python => PYTHON,
+            Self::Rust => RUST,
         }
     }
 }
@@ -55,8 +55,8 @@ fn ratio_of(m: &Measurement, contender: Contender, mode: Mode) -> Option<f64> {
         Mode::Warm => (
             m.warm.matplotlib.measured().map(Samples::median),
             match contender {
-                Contender::Pltrs => m.warm.pltrs.measured().map(Samples::median),
-                Contender::Plt => Some(m.warm.plt.median()),
+                Contender::Python => m.warm.python.measured().map(Samples::median),
+                Contender::Rust => Some(m.warm.rust.median()),
             },
         ),
         Mode::Cold => {
@@ -64,8 +64,8 @@ fn ratio_of(m: &Measurement, contender: Contender, mode: Mode) -> Option<f64> {
             (
                 m.cold.matplotlib.measured().map(median),
                 match contender {
-                    Contender::Pltrs => m.cold.pltrs.measured().map(median),
-                    Contender::Plt => Some(median(&m.cold.plt)),
+                    Contender::Python => m.cold.python.measured().map(median),
+                    Contender::Rust => Some(median(&m.cold.rust)),
                 },
             )
         }
@@ -73,19 +73,26 @@ fn ratio_of(m: &Measurement, contender: Contender, mode: Mode) -> Option<f64> {
     Some(value? / reference?)
 }
 
+/// The typical speed-up of `ratios`: their geometric mean, as a speed-up.
+fn typical(ratios: &[f64]) -> String {
+    geometric_mean(ratios).map_or_else(|| "n/a".to_owned(), speedup)
+}
+
 /// The summary section.
 pub(super) fn write(out: &mut String, report: &Report) {
     out.push_str(
         "## Summary\n\n\
-         A ratio is an implementation's median time divided by matplotlib's. Below 1 it is \
-         faster, above 1 slower. A tier's geometric mean averages its ratios. A warm run \
-         times the figure alone in a running program, and a cold run times a whole program \
-         in a fresh process, interpreter start and imports included.\n\n\
-         | | tier | timed | warm, faster / slower | warm, geometric mean | \
-         cold, faster / slower | cold, geometric mean |\n\
+         A speed-up compares an implementation's median time with matplotlib's: 4.2× faster \
+         means matplotlib takes 4.2 times as long, and 1.3× slower means the implementation \
+         takes 1.3 times as long as matplotlib. A tier's typical speed-up is the geometric \
+         mean over its workloads. A warm run times the figure alone in a running program, \
+         and a cold run times a whole program in a fresh process, interpreter start and \
+         imports included.\n\n\
+         | | tier | timed | warm, faster / slower | warm, typical speed-up | \
+         cold, faster / slower | cold, typical speed-up |\n\
          |---|---|---:|---:|---:|---:|---:|\n",
     );
-    for contender in [Contender::Pltrs, Contender::Plt] {
+    for contender in [Contender::Python, Contender::Rust] {
         for tier in Tier::ALL {
             tier_row(out, report, contender, tier);
         }
@@ -102,11 +109,11 @@ fn startup(out: &mut String, report: &Report) {
     let _ = write!(
         out,
         "\nA fresh Python interpreter that imports `matplotlib.pyplot` takes {} ms here, and \
-         one that imports `pltrs.pyplot` takes {} ms. plt's executable starts and exits in \
-         {} ms.",
+         one that imports `pltrs.pyplot` takes {} ms. The benchmark executable of {RUST} \
+         starts and exits in {} ms.",
         ms(s.matplotlib.seconds.median()),
-        ms(s.pltrs.seconds.median()),
-        ms(s.plt.seconds.median()),
+        ms(s.python.seconds.median()),
+        ms(s.rust.seconds.median()),
     );
     let line = report
         .measurements
@@ -127,9 +134,9 @@ fn startup(out: &mut String, report: &Report) {
         let _ = write!(
             out,
             " In the cold run of `{SMALLEST}`, start-up and imports are {} of matplotlib's \
-             time and {} of pltrs'.",
+             time and {} of the time of {PYTHON}.",
             share(&s.matplotlib, &line.cold.matplotlib),
-            share(&s.pltrs, &line.cold.pltrs),
+            share(&s.python, &line.cold.python),
         );
     }
     out.push_str("\n\n");
@@ -160,7 +167,6 @@ fn tier_row(out: &mut String, report: &Report, contender: Contender, tier: Tier)
         let faster = ratios.iter().filter(|&&r| r < 1.0).count();
         format!("{faster} / {}", ratios.len() - faster)
     };
-    let mean = |ratios: &[f64]| geometric_mean(ratios).map_or_else(|| "n/a".to_owned(), ratio);
     let _ = writeln!(
         out,
         "| {} | {} | {} of {} | {} | {} | {} | {} |",
@@ -169,19 +175,20 @@ fn tier_row(out: &mut String, report: &Report, contender: Contender, tier: Tier)
         warm.len(),
         comparable.len(),
         tally(&warm),
-        mean(&warm),
+        typical(&warm),
         tally(&cold),
-        mean(&cold),
+        typical(&cold),
     );
 }
 
-/// pltrs' and plt's geometric means over the workloads pltrs runs, the
-/// fair comparison of the two: pltrs' rows above cover fewer workloads.
+/// The typical speed-ups of both contenders over the workloads pltrs
+/// (Python) runs, the fair comparison of the two: its rows above cover
+/// fewer workloads.
 fn same_workloads(out: &mut String, report: &Report) {
     let shared: Vec<&Measurement> = report
         .measurements
         .iter()
-        .filter(|m| m.warm.pltrs.measured().is_some())
+        .filter(|m| m.warm.python.measured().is_some())
         .collect();
     if shared.is_empty() {
         return;
@@ -191,31 +198,32 @@ fn same_workloads(out: &mut String, report: &Report) {
             .iter()
             .filter_map(|m| ratio_of(m, contender, mode))
             .collect();
-        geometric_mean(&ratios).map_or_else(|| "n/a".to_owned(), ratio)
+        typical(&ratios)
     };
     let _ = writeln!(
         out,
-        "\npltrs' rows cover only the workloads it runs. On those {} workloads, the geometric \
-         mean ratio is {} warm and {} cold for pltrs, and {} warm and {} cold for plt.",
+        "\nThe rows of {PYTHON} cover only the workloads it runs. On those {} workloads, the \
+         typical speed-up is {} warm and {} cold for {PYTHON}, and {} warm and {} cold for \
+         {RUST}.",
         shared.len(),
-        mean(Contender::Pltrs, Mode::Warm),
-        mean(Contender::Pltrs, Mode::Cold),
-        mean(Contender::Plt, Mode::Warm),
-        mean(Contender::Plt, Mode::Cold),
+        mean(Contender::Python, Mode::Warm),
+        mean(Contender::Python, Mode::Cold),
+        mean(Contender::Rust, Mode::Warm),
+        mean(Contender::Rust, Mode::Cold),
     );
 }
 
-/// How many of the closest margins the summary names.
+/// How many of the smallest speed-ups the summary names.
 const CLOSEST: usize = 3;
 
-/// The workloads where pltrs or plt is slower than matplotlib, or else
-/// where they come closest to it.
+/// The workloads where pltrs (Python) or pltrs (Rust) is slower than
+/// matplotlib, or else where its speed-up is smallest.
 fn losses(out: &mut String, report: &Report) {
-    out.push_str(
-        "### Where pltrs or plt is slower, or closest to matplotlib\n\n\
-         Ratios of 1 or more are losses.\n\n",
+    let _ = write!(
+        out,
+        "### Where {PYTHON} or {RUST} is slower, or closest to matplotlib\n\n"
     );
-    for contender in [Contender::Pltrs, Contender::Plt] {
+    for contender in [Contender::Python, Contender::Rust] {
         for mode in [Mode::Warm, Mode::Cold] {
             let mut ratios: Vec<(&str, f64)> = report
                 .measurements
@@ -230,7 +238,7 @@ fn losses(out: &mut String, report: &Report) {
             let named = |shown: usize| {
                 ratios[..shown]
                     .iter()
-                    .map(|(name, r)| format!("`{name}` ({})", ratio(*r)))
+                    .map(|(name, r)| format!("`{name}` ({})", speedup(*r)))
                     .collect::<Vec<_>>()
                     .join(", ")
             };
@@ -245,26 +253,27 @@ fn losses(out: &mut String, report: &Report) {
             } else {
                 writeln!(
                     out,
-                    "* {who} is faster {how} on all {total} workloads. The closest margins are \
-                     {}.",
+                    "* {who} is faster {how} on all {total} workloads. The smallest speed-ups \
+                     are {}.",
                     named(CLOSEST.min(total))
                 )
             };
         }
     }
     out.push('\n');
-    pltrs_against_plt(out, report);
+    python_against_rust(out, report);
 }
 
-/// How far pltrs' warm times are from plt's, which run the same Rust code.
-fn pltrs_against_plt(out: &mut String, report: &Report) {
+/// How far the warm times of pltrs (Python) are from those of pltrs
+/// (Rust), which runs the same Rust code.
+fn python_against_rust(out: &mut String, report: &Report) {
     let gaps: Vec<(&str, f64, f64)> = report
         .measurements
         .iter()
         .filter_map(|m| {
-            let pltrs = m.warm.pltrs.measured()?.median();
-            let plt = m.warm.plt.median();
-            Some((m.workload.name, pltrs - plt, pltrs / plt - 1.0))
+            let python = m.warm.python.measured()?.median();
+            let rust = m.warm.rust.median();
+            Some((m.workload.name, python - rust, python / rust - 1.0))
         })
         .collect();
     let Some(widest) = gaps.iter().max_by(|a, b| a.2.total_cmp(&b.2)) else {
@@ -276,10 +285,10 @@ fn pltrs_against_plt(out: &mut String, report: &Report) {
         .unwrap_or(widest);
     let _ = writeln!(
         out,
-        "pltrs runs the same Rust code as plt, plus its Python layer. Warm, on the {} \
-         workloads it runs, it takes at most {:.0}% longer than plt (`{}`) and at most {} ms \
-         longer (`{}`). The tier of many small calls measures [what a call \
-         costs](#what-a-call-costs-in-pltrs) in pltrs.\n",
+        "{PYTHON} runs the same Rust code as {RUST}, plus its Python layer. Warm, on the {} \
+         workloads it runs, it takes at most {:.0}% longer than {RUST} (`{}`) and at most {} \
+         ms longer (`{}`). The tier of many small calls measures [what a call \
+         costs](#what-a-call-costs-in-pltrs-python) in {PYTHON}.\n",
         gaps.len(),
         100.0 * widest.2,
         widest.0,
@@ -288,7 +297,8 @@ fn pltrs_against_plt(out: &mut String, report: &Report) {
     );
 }
 
-/// What pltrs runs, and whether every figure matched matplotlib's.
+/// What pltrs (Python) runs, and whether every figure matched
+/// matplotlib's.
 fn coverage(out: &mut String, report: &Report) {
     let comparable = report
         .measurements
@@ -298,32 +308,32 @@ fn coverage(out: &mut String, report: &Report) {
     let unsupported = report
         .measurements
         .iter()
-        .filter(|m| matches!(m.warm.pltrs, Column::NotSupported(_)))
+        .filter(|m| matches!(m.warm.python, Column::NotSupported(_)))
         .count();
     let _ = writeln!(
         out,
-        "pltrs runs {} of the {comparable} workloads matplotlib runs. The other {unsupported} \
-         need parts of matplotlib's API it does not have yet, which [Not supported \
-         yet](#not-supported-yet-by-pltrs) lists.\n",
+        "{PYTHON} runs {} of the {comparable} workloads matplotlib runs. The other \
+         {unsupported} need parts of matplotlib's API it does not have yet, which [Not \
+         supported yet](#not-supported-yet-by-pltrs-python) lists.\n",
         comparable - unsupported,
     );
     let divergent: Vec<String> = report
         .measurements
         .iter()
         .flat_map(|m| {
-            let plt = m
+            let python = m
                 .guard
-                .plt
-                .as_ref()
-                .filter(|v| v.diverges())
-                .map(|v| ("plt", v));
-            let pltrs = m
-                .guard
-                .pltrs
+                .python
                 .measured()
                 .filter(|v| v.diverges())
-                .map(|v| ("pltrs", v));
-            [plt, pltrs]
+                .map(|v| (PYTHON, v));
+            let rust = m
+                .guard
+                .rust
+                .as_ref()
+                .filter(|v| v.diverges())
+                .map(|v| (RUST, v));
+            [python, rust]
                 .into_iter()
                 .flatten()
                 .map(|(name, v): (&str, &Verdict)| format!("`{}` in {name} ({v})", m.workload.name))
@@ -333,7 +343,7 @@ fn coverage(out: &mut String, report: &Report) {
         let largest = report
             .measurements
             .iter()
-            .flat_map(|m| [m.guard.plt.as_ref(), m.guard.pltrs.measured()])
+            .flat_map(|m| [m.guard.python.measured(), m.guard.rust.as_ref()])
             .flatten()
             .filter_map(|verdict| match verdict {
                 Verdict::Same { rms } => Some(*rms),

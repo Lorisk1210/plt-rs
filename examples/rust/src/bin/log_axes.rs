@@ -1,9 +1,9 @@
 //! Log axes: how the running time of three sorting algorithms grows with
 //! the input, power laws becoming straight lines on log-log axes.
 
-use plt::axes::{GridOptions, TickLevel};
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
+use pltrs::axes::{GridOptions, TickLevel};
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let n = logspace(1.0, 7.0, 13, 10.0);

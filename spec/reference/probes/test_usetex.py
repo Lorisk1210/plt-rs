@@ -30,15 +30,15 @@ Ops
 
 Left out
 --------
-``test_usetex_fallback`` monkeypatches the Agg renderer (plt-rs' default
+``test_usetex_fallback`` monkeypatches the Agg renderer (pltrs' default
 ``draw_tex`` is covered by the ``path_effects`` figure case);
 ``test_missing_psfont`` monkeypatches ``PsfontsMap``;
 ``test_pdf_type1_font_subsetting`` needs pikepdf (the PDF goldens of the
 ``usetex`` figure group hold the subsets); ``test_usetex_packages`` needs
 ``chemformula``, which TinyTeX lacks; ``test_openin_any_paranoid`` checks a
 subprocess environment; ``test_usetex_is_copied`` checks per-artist state
-the tick labels of plt-rs are not artists for. ``test_partial_usetex`` is a
-unit test of plt's PostScript output (``figure/postscript``), and the EPS
+the tick labels of pltrs are not artists for. ``test_partial_usetex`` is a
+unit test of pltrs's PostScript output (``figure/postscript``), and the EPS
 of ``test_rotation`` is compared with the ``usetex`` figure group's
 PostScript, which LaTeX's ``psfrag``, ``dvips`` and Ghostscript make.
 """

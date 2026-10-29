@@ -1,11 +1,11 @@
 //! Annotations and arrows: a year of a share price with its high, its
 //! sharpest fall and a summary box pointed out.
 
-use plt::layout::LayoutEngine;
-use plt::patches::BoxStyle;
-use plt::prelude::*;
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps, TextBoxProps, VAlign};
-use plt_examples::Samples;
+use pltrs::layout::LayoutEngine;
+use pltrs::patches::BoxStyle;
+use pltrs::prelude::*;
+use pltrs::text::{AnnotateOptions, ArrowProps, FancyArrowProps, TextBoxProps, VAlign};
+use pltrs_examples::Samples;
 
 /// The index of the largest of `values`.
 fn argmax(values: impl IntoIterator<Item = f64>) -> usize {

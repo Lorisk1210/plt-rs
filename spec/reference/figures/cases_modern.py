@@ -1,13 +1,13 @@
-"""plt-rs' modern look (``plt::look``), drawn by matplotlib: the style
-sheets ``crates/plt/src/style/sheets/plt-modern.mplstyle`` and
-``plt-modern-dark.mplstyle`` applied to typical plots, with Inter (which
-plt-rs bundles) added to matplotlib's font manager.
+"""pltrs' modern look (``pltrs::look``), drawn by matplotlib: the style
+sheets ``crates/pltrs/src/style/sheets/pltrs-modern.mplstyle`` and
+``pltrs-modern-dark.mplstyle`` applied to typical plots, with Inter (which
+pltrs bundles) added to matplotlib's font manager.
 
-The sheets' ``plt.*`` parameters have no matplotlib counterpart and are
+The sheets' ``pltrs.*`` parameters have no matplotlib counterpart and are
 left out: the cases do by hand what they ask for (an image turns the grid
-of its axes off, error bars of bars take ``plt.ink``, table cells
-``plt.table.edgecolor``, insets show all four spines, twins turn their
-grid off), and ``plt.mathtext.dejavu_symbols`` is emulated by a subclass
+of its axes off, error bars of bars take ``pltrs.ink``, table cells
+``pltrs.table.edgecolor``, insets show all four spines, twins turn their
+grid off), and ``pltrs.mathtext.dejavu_symbols`` is emulated by a subclass
 of matplotlib's custom fontset (``_DejaVuSymbols``). The data use exactly
 rounded arithmetic (no ``exp`` or ``pow``), so that numpy and Rust agree to
 the last bit.
@@ -24,13 +24,13 @@ from spec_support import case, rng
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
 
-for _font in sorted((REPO / "crates" / "plt-font" / "fonts").glob("Inter-*.ttf")):
+for _font in sorted((REPO / "crates" / "pltrs-font" / "fonts").glob("Inter-*.ttf")):
     font_manager.fontManager.addfont(str(_font))
 
 
 def _sheet_entries(name):
-    """Every parameter of a plt-rs style sheet."""
-    path = REPO / "crates" / "plt" / "src" / "style" / "sheets" / f"{name}.mplstyle"
+    """Every parameter of a pltrs style sheet."""
+    path = REPO / "crates" / "pltrs" / "src" / "style" / "sheets" / f"{name}.mplstyle"
     params = {}
     for line in path.read_text().splitlines():
         line = line.split("#", 1)[0].strip()
@@ -41,23 +41,23 @@ def _sheet_entries(name):
 
 
 def _sheet(name):
-    """The parameters of a plt-rs style sheet, without its ``plt.*`` ones."""
-    return {k: v for k, v in _sheet_entries(name).items() if not k.startswith("plt.")}
+    """The parameters of a pltrs style sheet, without its ``pltrs.*`` ones."""
+    return {k: v for k, v in _sheet_entries(name).items() if not k.startswith("pltrs.")}
 
 
-MODERN = _sheet("plt-modern")
-DARK = _sheet("plt-modern-dark")
-#: The colours the sheets' `plt.ink` (dark) and `plt.table.edgecolor`
+MODERN = _sheet("pltrs-modern")
+DARK = _sheet("pltrs-modern-dark")
+#: The colours the sheets' `pltrs.ink` (dark) and `pltrs.table.edgecolor`
 #: (light) ask for.
-INK_DARK = "#" + _sheet_entries("plt-modern-dark")["plt.ink"]
-HAIRLINE = "#" + _sheet_entries("plt-modern")["plt.table.edgecolor"]
+INK_DARK = "#" + _sheet_entries("pltrs-modern-dark")["pltrs.ink"]
+HAIRLINE = "#" + _sheet_entries("pltrs-modern")["pltrs.table.edgecolor"]
 SIZE = (7.2, 4.5)
 X = np.linspace(0, 10, 200)
 
 
 class _DejaVuSymbols(_mathtext.UnicodeFonts):
     """matplotlib's custom fontset under the sheets' fonts, with what their
-    ``plt.mathtext.dejavu_symbols`` asks of plt-rs: big operators from
+    ``pltrs.mathtext.dejavu_symbols`` asks of pltrs: big operators from
     DejaVu Sans Display, as the dejavusans fontset draws them, and the
     symbols the custom fonts lack from DejaVu Sans before
     ``mathtext.fallback``. Other custom fonts (which no case here uses
@@ -86,7 +86,7 @@ class _DejaVuSymbols(_mathtext.UnicodeFonts):
             self._fallback_font = fallback
 
 
-if _sheet_entries("plt-modern")["plt.mathtext.dejavu_symbols"] == "True":
+if _sheet_entries("pltrs-modern")["pltrs.mathtext.dejavu_symbols"] == "True":
     MathTextParser._font_type_mapping["custom"] = _DejaVuSymbols
 
 
@@ -257,7 +257,7 @@ def _(fig):
 def _(fig):
     ax = fig.subplots()
     x = np.arange(4)
-    # `plt.ink` draws the error bars in ink; matplotlib draws them black.
+    # `pltrs.ink` draws the error bars in ink; matplotlib draws them black.
     ax.bar(x, [18, 24, 31, 12], 0.6, yerr=[2, 3, 4, 2], capsize=4,
            error_kw={"ecolor": INK_DARK})
     ax.set_xticks(x, ["north", "south", "east", "west"])
@@ -275,7 +275,7 @@ def _(fig):
     table = ax.table(cellText=[[str(v) for v in values] for values in years.values()],
                      rowLabels=list(years), colLabels=["north", "south", "east", "west"],
                      loc="bottom")
-    # `plt.table.edgecolor` draws the cells in hairlines; matplotlib in black.
+    # `pltrs.table.edgecolor` draws the cells in hairlines; matplotlib in black.
     for cell in table.get_celld().values():
         cell.set_edgecolor(HAIRLINE)
     ax.set_xticks([])
@@ -305,7 +305,7 @@ def _(fig):
     ax.plot(x, y)
     ax.set_ylim(-1.5, 2.5)
     zoom = ax.inset_axes([0.55, 0.6, 0.4, 0.35])
-    # `plt.inset.frame` gives insets all four spines.
+    # `pltrs.inset.frame` gives insets all four spines.
     zoom.spines[:].set_visible(True)
     zoom.plot(x, y)
     zoom.set_xlim(1.2, 1.9)
@@ -324,7 +324,7 @@ def _(fig):
     months = np.arange(1, 13)
     warm, = ax.plot(months, TEMPERATURE, "o-", label="temperature")
     right = ax.twinx()
-    # `plt.axes.twin_grid: False` leaves the grid to the host.
+    # `pltrs.axes.twin_grid: False` leaves the grid to the host.
     right.grid(False, which="both")
     wet, = right.plot(months, RAIN, "s--", color="C5", label="rain")
     ax.set_xlabel("month")

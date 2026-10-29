@@ -5,9 +5,9 @@
 use std::fs;
 use std::path::Path;
 
-use plt::image::{ImageData, imread};
-use plt::numeric::Grid;
-use plt::testing::calculate_rms;
+use pltrs::image::{ImageData, imread};
+use pltrs::numeric::Grid;
+use pltrs::testing::calculate_rms;
 
 /// Converts a float channel in `[0, 1]` to a byte.
 fn byte(channel: f32) -> u8 {

@@ -47,14 +47,14 @@ Cases
 Each probe is named after the upstream test it mirrors in a comment.
 Adaptations: ``test_find_invalid`` probes one missing path (the ``str``,
 ``bytes`` and ``Path`` spellings are Python types);
-``test_json_serialization`` probes the three lookups it compares (plt-rs
+``test_json_serialization`` probes the three lookups it compares (pltrs
 keeps no JSON font cache); ``test_missing_family``,
 ``test_font_match_warning``, ``test_mutable_fontproperty_cache_invalidation``
 and ``test_fontproperty_default_cache_invalidation`` probe the fonts found
-(plt-rs logs nothing); ``test_get_font_names`` probes the names of the
+(pltrs logs nothing); ``test_get_font_names`` probes the names of the
 bundled fonts; ``test_addfont_alternative_names`` and
 ``test_alt_name_weight_from_subfamily`` probe ``_get_font_alt_names``
-(the ``addfont`` half is a unit test of plt-font: alternative entries keep
+(the ``addfont`` half is a unit test of pltrs-font: alternative entries keep
 the primary entry's file, style and stretch); of
 ``test_fontproperties_init_deprecation`` only the calls that are still
 accepted are probed.

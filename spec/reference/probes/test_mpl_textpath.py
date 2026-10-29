@@ -2,7 +2,7 @@
 
 Area ``mpl_textpath``. The upstream test checks that copies of a
 ``TextPath`` share (``copy``) or own (``deepcopy``) equal vertices: Python
-object identity, which plt-rs' value types make moot (a cloned path holds
+object identity, which pltrs' value types make moot (a cloned path holds
 equal vertices of its own). The probes record the path itself, for the
 text the test uses and a few more, under the reference rcParams with only
 matplotlib's bundled fonts installed.

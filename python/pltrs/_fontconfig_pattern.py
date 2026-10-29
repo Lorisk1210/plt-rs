@@ -1,6 +1,6 @@
 """
 A module for parsing and generating `fontconfig patterns`_ (matplotlib's
-``_fontconfig_pattern``), by plt-rs (``plt_text::fontconfig``), where
+``_fontconfig_pattern``), by pltrs (Rust) (``pltrs_text::fontconfig``), where
 matplotlib uses pyparsing.
 
 .. _fontconfig patterns:

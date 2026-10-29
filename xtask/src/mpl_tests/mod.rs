@@ -4,7 +4,7 @@
 //! running Python).
 //!
 //! A test is *ported* when its name, with or without the `test_` prefix,
-//! is a whole word somewhere in `spec/reference` or `crates/plt-spec/src`
+//! is a whole word somewhere in `spec/reference` or `crates/pltrs-spec/src`
 //! (the probes and figure cases are named after the tests they port, or
 //! cite them); *n/a* when the ledger `spec/reference/not_applicable.txt`
 //! lists it; *unaccounted* otherwise. `--strict` fails when a test is
@@ -159,7 +159,7 @@ fn take_census(root: &Path) -> Result<Census, String> {
     let ledger = Ledger::parse(&ledger_text).map_err(|err| err.to_string())?;
     let spec_dirs = [
         root.join("spec/reference"),
-        root.join("crates/plt-spec/src"),
+        root.join("crates/pltrs-spec/src"),
     ];
     let corpus = scan::corpus_words(&spec_dirs, &ledger_path)
         .map_err(|err| format!("reading the spec: {err}"))?;

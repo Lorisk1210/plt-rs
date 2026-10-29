@@ -42,7 +42,7 @@ cases of the ``mpl_tests_offsetbox`` figure group;
 which lists the other tests left out. ``test_picking`` is covered by the
 ``pick`` area, which picks offset boxes' kin; ``test_packers`` beyond its
 alignment is left out (child offsets of a packer are not observable from
-outside plt-rs).
+outside pltrs).
 """
 
 import numpy as np

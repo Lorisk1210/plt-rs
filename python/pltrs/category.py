@@ -10,8 +10,8 @@ strings to integers and provides a tick locator, a tick formatter, and the
 `.UnitData` class that creates and stores the string-to-integer mapping.
 
 Kept from matplotlib 3.11.2 (under the Matplotlib License): the mapping is
-Python bookkeeping. Whether a string reads as a date is plt-rs's
-(``plt::dates``) where matplotlib asks dateutil.
+Python bookkeeping. Whether a string reads as a date is pltrs (Rust)'s
+(``pltrs::dates``) where matplotlib asks dateutil.
 """
 
 from collections import OrderedDict

@@ -69,7 +69,7 @@ Left out
 of ``test_ft2font_face_index`` (not bundled), ``test_ft2font_clear``
 (``FT2Font`` object state), the ``num_named_instances`` and
 ``num_fixed_sizes`` attributes (variable fonts and bitmap strikes, which
-plt-font does not read), the vertical metrics of ``test_ft2font_loading``
+pltrs-font does not read), the vertical metrics of ``test_ft2font_loading``
 (FreeType's synthesized vertical layout, unused by matplotlib), the
 deprecated kerning constants of ``test_ft2font_get_kerning``, and
 ``test_fallback_missing`` (warnings). ``test_ft2font_drawing`` is the

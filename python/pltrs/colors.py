@@ -39,9 +39,9 @@ Colors that Matplotlib recognizes are listed at
 .. _xkcd color survey: https://xkcd.com/color/rgb/
 
 pltrs keeps matplotlib's colour classes (from matplotlib 3.11.2, under the
-Matplotlib License); plt-rs parses colours, holds the colour sequences,
+Matplotlib License); pltrs (Rust) parses colours, holds the colour sequences,
 builds the lookup tables of segmented colormaps and converts between RGB
-and HSV (``plt::colors``).
+and HSV (``pltrs::colors``).
 """
 
 import base64
@@ -337,7 +337,7 @@ def to_rgba(c, alpha=None):
             c, alpha = c
         else:
             c = c[0]
-    # Special-case nth color syntax because it should not be cached: plt-rs
+    # Special-case nth color syntax because it should not be cached: pltrs (Rust)
     # resolves it with the current property cycle.
     if _is_nth_color(c):
         return _to_rgba_no_colorcycle(c, alpha)
@@ -489,7 +489,7 @@ def to_rgba_array(c, alpha=None):
 
 def _to_rgba_rows(c):
     """The RGBA rows of the colours of *c* (the colour cycle resolved), by
-    plt-rs."""
+    pltrs (Rust)."""
     colors = [tuple(cc) if isinstance(cc, np.ndarray) else cc for cc in c]
     try:
         return _colors.to_rgba_array(colors, None)

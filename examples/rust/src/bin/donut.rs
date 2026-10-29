@@ -1,10 +1,10 @@
 //! Donut chart: how a household's monthly budget is spent, with the total
 //! in the hole.
 
-use plt::axes::{PieDirection, PieOptions};
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
-use plt::text::{HAlign, VAlign};
+use pltrs::axes::{PieDirection, PieOptions};
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
+use pltrs::text::{HAlign, VAlign};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spending = [

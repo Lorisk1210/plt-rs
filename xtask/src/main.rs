@@ -1,15 +1,15 @@
-//! Developer automation for plt-rs.
+//! Developer automation for pltrs.
 //!
 //! ```text
 //! cargo xtask spec [AREA...] [--failures]        probe conformance vs matplotlib goldens
 //! cargo xtask figures [PREFIX...] [--failures]   figure-case conformance
 //! cargo xtask render PREFIX... [--vectors]       render cases to spec/out
-//! cargo xtask render --look LOOK PREFIX...       render cases in a plt-rs look to spec/out/look-LOOK
+//! cargo xtask render --look LOOK PREFIX...       render cases in a pltrs look to spec/out/look-LOOK
 //! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
 //! cargo xtask bench [PREFIX...] [--reference]     timings of the benchmark workloads (vs matplotlib)
-//! cargo xtask bench [PREFIX...] --report         matplotlib, pltrs and plt timed: benchmarks/README.md
+//! cargo xtask bench [PREFIX...] --report         matplotlib and pltrs (Python, Rust) timed: benchmarks/README.md
 //! cargo xtask mpl-tests [--strict]               matplotlib's own tests: ported, n/a or unaccounted
-//! cargo xtask python [--release] | setup | test   build pltrs's extension, make its venvs, smoke-test it
+//! cargo xtask python [--release] | setup | test   build pltrs (Python)'s extension, make its venvs, smoke-test it
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
 //!                                                 matplotlib's own test suite run against pltrs (or matplotlib)
 //! ```
@@ -30,10 +30,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::process::ExitCode;
 
-use plt::look::FigureLook;
-use plt_spec::figures::vector::{VectorFormat, render_vector};
-use plt_spec::figures::{self, CaseVerdict, FigureCase};
-use plt_spec::probes::{self, AreaReport, ProbeFile};
+use pltrs::look::FigureLook;
+use pltrs_spec::figures::vector::{VectorFormat, render_vector};
+use pltrs_spec::figures::{self, CaseVerdict, FigureCase};
+use pltrs_spec::probes::{self, AreaReport, ProbeFile};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -71,7 +71,7 @@ fn main() -> ExitCode {
 /// The wide comparison of the cases whose names start with a prefix (all
 /// without one): matplotlib writes their documents in the `--formats`
 /// asked for (default all) into `spec/out/vector-reference`
-/// (`render_vectors.py` through the reference venv), then plt-rs's are
+/// (`render_vectors.py` through the reference venv), then pltrs's are
 /// compared with them item by item.
 fn vectors(args: &[String]) -> ExitCode {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
@@ -105,8 +105,8 @@ fn vectors(args: &[String]) -> ExitCode {
         .into_iter()
         .filter(|case| prefixes.is_empty() || prefixes.iter().any(|p| case.name.starts_with(p)))
         .collect();
-    let results = plt_spec::figures::vector::wide_comparison(&cases, &reference);
-    print!("{}", plt_spec::figures::vector::wide_summary(&results));
+    let results = pltrs_spec::figures::vector::wide_comparison(&cases, &reference);
+    print!("{}", pltrs_spec::figures::vector::wide_summary(&results));
     ExitCode::SUCCESS
 }
 
@@ -114,7 +114,7 @@ fn vectors(args: &[String]) -> ExitCode {
 /// `spec/out/<case>.png`, with `<case>.diff.png` marking the pixels that
 /// differ from the golden image; `--vectors` also writes the case as SVG,
 /// PDF and PostScript the way the vector goldens are saved. `--look LOOK`
-/// renders in one of plt-rs' figure looks instead (`modern`,
+/// renders in one of pltrs' figure looks instead (`modern`,
 /// `modern-dark`) into `spec/out/look-LOOK/<case>.png` (PNG only, no diff:
 /// the goldens show matplotlib's look).
 fn render(args: &[String]) -> ExitCode {
@@ -278,7 +278,7 @@ fn figure_cases(args: &[String]) -> ExitCode {
     }
 }
 
-/// Replays every probe golden against plt-rs and prints a summary table.
+/// Replays every probe golden against pltrs and prints a summary table.
 fn spec(args: &[String]) -> ExitCode {
     let show_failures = args.iter().any(|a| a == "--failures");
     let areas: Vec<&str> = args
@@ -287,7 +287,7 @@ fn spec(args: &[String]) -> ExitCode {
         .map(String::as_str)
         .collect();
 
-    let mut paths: Vec<_> = match std::fs::read_dir(plt_spec::probe_goldens_dir()) {
+    let mut paths: Vec<_> = match std::fs::read_dir(pltrs_spec::probe_goldens_dir()) {
         Ok(entries) => entries
             .filter_map(Result::ok)
             .map(|e| e.path())

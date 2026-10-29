@@ -1,4 +1,4 @@
-"""The public API the API audit found missing in plt-rs and added
+"""The public API the API audit found missing in pltrs and added
 (``target/agents/api-audit/coverage.md`` in the audit's worktree).
 
 Area ``api_audit``. Every op works on a fresh ``Figure``, drawn with the

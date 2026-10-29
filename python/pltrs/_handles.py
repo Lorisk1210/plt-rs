@@ -1,5 +1,5 @@
 """
-One Python object per plt-rs artist.
+One Python object per pltrs (Rust) artist.
 
 A native function returning an artist returns a new native handle each
 time (``_native.Native``), but matplotlib code expects the same object

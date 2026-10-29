@@ -33,7 +33,7 @@ of how to use transforms.
 pltrs keeps matplotlib's transform tree as it is (from matplotlib 3.11.2,
 under the Matplotlib License): its nodes, their invalidation and their
 matrices. The arithmetic, which matplotlib does in C++ and numpy, is
-plt-rs's (``_native.transforms``): composing, inverting and applying
+pltrs (Rust)'s (``_native.transforms``): composing, inverting and applying
 matrices, and the bounding-box computations.
 """
 

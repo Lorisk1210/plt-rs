@@ -20,7 +20,7 @@ column draws, is a case of ``mpl_tests_table``; the image tests are cases
 of ``mpl_misc``.
 
 Left out: ``test_table_cells`` (``Table(ax)`` made empty outside the axes
-and Python's item protocol, ``table[row, col] = cell``; plt-rs tables come
+and Python's item protocol, ``table[row, col] = cell``; pltrs tables come
 from ``Axes::table`` and take cells with ``add_cell``, which the unit tests
 check) and ``test_table_dataframe`` (pandas).
 """

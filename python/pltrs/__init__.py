@@ -1,5 +1,5 @@
 """
-pltrs: matplotlib's API, drawn by plt-rs.
+pltrs (Python): matplotlib's API, drawn by pltrs (Rust).
 
 Code written for matplotlib runs on pltrs with one change, the import::
 
@@ -8,7 +8,7 @@ Code written for matplotlib runs on pltrs with one change, the import::
 
 The classes and functions here keep matplotlib's names, signatures and
 behaviour; the work (validation, layout, drawing, saving) is done by
-plt-rs, a Rust reimplementation of matplotlib, through the native module
+pltrs (Rust), a reimplementation of matplotlib, through the native module
 ``pltrs._native``. See ``python/DESIGN.md`` for how the two fit together.
 
 This module holds what matplotlib's top level holds: ``rcParams`` and its
@@ -31,7 +31,7 @@ from ._native import register as _register
 import numpy as _np
 
 # The exceptions of numpy's linear algebra (singular matrices), which
-# plt-rs raises where matplotlib calls numpy.
+# pltrs (Rust) raises where matplotlib calls numpy.
 _register("LinAlgError", _np.linalg.LinAlgError)
 
 #: The matplotlib version whose API pltrs implements.
@@ -44,7 +44,7 @@ _called_from_pytest = False
 #: rcParams pltrs keeps in Python: the backend is chosen by Python code.
 _PYTHON_PARAMS = {"backend": "agg"}
 
-#: The rcParams plt-rs keeps (matplotlib's, without plt-rs's own).
+#: The rcParams pltrs (Rust) keeps (matplotlib's, without pltrs (Rust)'s own).
 _NATIVE_KEYS = frozenset(_rcsetup.keys())
 
 #: rcParams that ``rcdefaults`` and styles leave alone (matplotlib's
@@ -62,7 +62,7 @@ class RcParams(MutableMapping, dict):
     """
     A dict-like key-value store for config parameters, including validation.
 
-    Values are validated and stored by plt-rs: assigning an invalid value
+    Values are validated and stored by pltrs (Rust): assigning an invalid value
     raises the ``ValueError`` matplotlib raises, an unknown key the
     ``KeyError``. ``matplotlib.rcParams`` holds the current parameters;
     other instances (``rcParamsDefault``, ``RcParams({...})``, copies) hold
@@ -234,7 +234,7 @@ def use(backend, *, force=True):
     """
     Select the backend used for rendering and GUI integration.
 
-    pltrs renders through plt-rs whatever the backend; the name is kept
+    pltrs (Python) renders through pltrs (Rust) whatever the backend; the name is kept
     so that ``get_backend`` returns it.
     """
     rcParams['backend'] = backend.lower()
@@ -247,4 +247,4 @@ def get_backend(*, auto_select=True):
 
 def _init_tests():
     """Check the test environment (matplotlib checks its FreeType build;
-    plt-rs ports FreeType, so there is nothing to check)."""
+    pltrs (Rust) ports FreeType, so there is nothing to check)."""

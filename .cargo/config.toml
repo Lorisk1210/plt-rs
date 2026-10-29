@@ -6,8 +6,8 @@ rustflags = ["-C", "link-self-contained=yes"]
 [alias]
 xtask = "run --package xtask --release --"
 
-# What cargo runs here (tests, doctests, examples, xtask) sees no plt-rs
-# configuration from the home directory (`~/.config/plt-rs`): unless the
-# shell sets it, PLTCONFIGDIR names an empty directory under target/.
+# What cargo runs here (tests, doctests, examples, xtask) sees no pltrs
+# configuration from the home directory (`~/.config/pltrs`): unless the
+# shell sets it, PLTRSCONFIGDIR names an empty directory under target/.
 [env]
-PLTCONFIGDIR = { value = "target/plt-config", relative = true }
+PLTRSCONFIGDIR = { value = "target/pltrs-config", relative = true }

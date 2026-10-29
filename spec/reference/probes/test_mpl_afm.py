@@ -25,11 +25,11 @@ getters: ``test_parse_header``, ``test_parse_char_metrics`` and
 ``AFM`` too), ``test_get_familyname_guessed`` with the ``FamilyName`` line
 removed from the data instead of from the parsed header,
 ``test_malformed_header`` with the character metrics closed so that
-``AFM`` reads on (its log record has no counterpart: plt-rs skips the
+``AFM`` reads on (its log record has no counterpart: pltrs skips the
 entry silently, as matplotlib does after logging), ``test_nonascii_str``
 with a full name in UTF-8. ``test_afm_kerning`` reads the core Helvetica,
 which ``findfont("Helvetica", fontext="afm")`` finds.
-``test_font_manager_weight_normalization`` is a unit test of plt-font: an
+``test_font_manager_weight_normalization`` is a unit test of pltrs-font: an
 AFM font whose weight keyword is unknown weighs ``normal``
 (``AfmFont::weight_value``).
 """

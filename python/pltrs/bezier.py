@@ -1,6 +1,6 @@
 """
 A module providing some utility functions regarding Bézier path manipulation
-(matplotlib's ``bezier``), computed by plt-rs.
+(matplotlib's ``bezier``), computed by pltrs (Rust).
 """
 
 import numpy as np

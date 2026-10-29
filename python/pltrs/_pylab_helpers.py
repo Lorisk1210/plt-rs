@@ -4,7 +4,7 @@ Manage figures for the pyplot interface.
 pyplot's figure registry holds Python objects (each figure's manager, so
 its canvas and `.Figure` object, subclass and attributes included), so it
 lives here in Python, as in matplotlib (from matplotlib 3.11.2, Matplotlib
-License). The figures themselves are drawn by plt-rs.
+License). The figures themselves are drawn by pltrs (Rust).
 """
 
 import atexit

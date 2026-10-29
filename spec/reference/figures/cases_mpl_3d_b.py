@@ -25,7 +25,7 @@ Not ported: ``test_patch_collection_modification``. Its ``Patch3DCollection``
 of circles without offsets gets the projected origin as offsets in display
 units, and keeps only the first of its face colours: ``set_3d_properties``
 leaves ``_z_markers_idx`` at ``slice(-1)``, which drops the last colour of
-every colour array longer than one. plt-rs has no ``Patch3DCollection``.
+every colour array longer than one. pltrs has no ``Patch3DCollection``.
 """
 
 import itertools

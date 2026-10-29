@@ -57,13 +57,13 @@ Ops
     ``set_box_aspect(None)``: the box aspect rolled to the vertical axis
     (``_roll_to_vertical(_box_aspect)``, the edge lengths the camera sees,
     always 4:4:3; ``test_set_box_aspect_vertical_axis`` checks the stored
-    order, which plt-rs keeps private).
+    order, which pltrs keeps private).
 ``axes3d.scatter_nonfinite``  {} -> {"finite_offsets", "aligned"}
     ``ax.scatter(x, y, z, color=four colours)`` with a NaN or infinite
     coordinate in three of the points: the number of points drawn, and
     whether there are as many face colours as offsets
     (``test_scatter_masked_color``; matplotlib deletes the non-finite
-    points, plt-rs keeps them undrawn, the colours aligned either way).
+    points, pltrs keeps them undrawn, the colours aligned either way).
 
 ``axes3d.ticks``  {scene} -> {"x": axis ticks, "y": ..., "z": ...}
     After a draw, each axis' ``get_ticklocs()``, ``[t.get_text() for t in
@@ -98,10 +98,10 @@ helpers), ``test_quaternion``, ``test_rotate``, ``test_pan``,
 ``test_toolbar_zoom_pan``, ``test_format_coord``,
 ``test_ctrl_rotation_snaps_to_5deg`` and the 3-D scale navigation tests
 (the ``axes3d`` area), ``test_mixedsamplesraises`` (strides and counts are
-one enum in plt-rs), ``test_unautoscale`` (``auto=`` of ``set_xlim``),
+one enum in pltrs), ``test_unautoscale`` (``auto=`` of ``set_xlim``),
 ``test_inverted_cla``, ``test_axes3d_set_aspect_deperecated_params``
 (deprecations), ``test_axes3d_focal_length_checks``' orthographic case
-(an orthographic projection has no focal length in plt-rs), the
+(an orthographic projection has no focal length in pltrs), the
 tight-bbox and offset-text tests, and smoke tests.
 """
 

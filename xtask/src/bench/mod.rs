@@ -1,4 +1,5 @@
-//! `cargo xtask bench`: times figures in plt-rs and in matplotlib.
+//! `cargo xtask bench`: times figures in matplotlib, pltrs (Python) and
+//! pltrs (Rust).
 //!
 //! ```text
 //! cargo xtask bench [PREFIX...] [--reference] [--runs N] [--out DIR]
@@ -11,16 +12,17 @@
 //! out. Its data is made before the clock starts and one run warms up
 //! before the timed ones.
 //!
-//! Without `--report`, plt's warm times are printed as a table, with
-//! matplotlib's beside them under `--reference` (the scripts run through
-//! `spec/reference/bench/bench.py` in the reference venv). `--runs N`
+//! Without `--report`, the warm times of pltrs (Rust) are printed as a
+//! table, with matplotlib's and the speed-up beside them under
+//! `--reference` (the scripts run through `spec/reference/bench/bench.py`
+//! in the reference venv). `--runs N`
 //! (default 3) is the least number of timed runs; the median counts.
 //! `--out DIR` also writes each document to `DIR`, so that the output of
 //! two builds can be compared byte for byte: documents carry no metadata
 //! and SVG ids a fixed salt.
 //!
-//! `--report` measures the workloads in matplotlib, pltrs and plt, warm
-//! and cold, after checking that the three draw the same figure, and
+//! `--report` measures the workloads in matplotlib, pltrs (Python) and
+//! pltrs (Rust), warm and cold, after checking that the three draw the same figure, and
 //! writes `benchmarks/README.md` (see `report`); `--runs` defaults to 5
 //! there.
 
@@ -41,7 +43,7 @@ use std::process::ExitCode;
 
 use python::{Outcome, PythonRunner};
 use render::{time_warm, user_configuration};
-use stats::Sampling;
+use stats::{Sampling, speedup};
 use workloads::{Output, Script, Workload};
 
 /// What `cargo xtask bench` was asked to do.
@@ -143,8 +145,8 @@ pub(crate) fn run(args: &[String]) -> ExitCode {
     }
 }
 
-/// Prints plt's warm median of each workload, with matplotlib's under
-/// `--reference`.
+/// Prints the warm median of each workload in pltrs (Rust), with
+/// matplotlib's and the speed-up under `--reference`.
 fn table(request: &Request<'_>, selected: &[&Workload]) -> Result<(), Box<dyn Error>> {
     let runs = request.runs.unwrap_or(3);
     let sampling = Sampling {
@@ -158,8 +160,8 @@ fn table(request: &Request<'_>, selected: &[&Workload]) -> Result<(), Box<dyn Er
         BTreeMap::new()
     };
     println!(
-        "{:<34} {:>11} {:>14} {:>7}",
-        "workload", "plt-rs ms", "matplotlib ms", "ratio"
+        "{:<34} {:>15} {:>14} {:>13}",
+        "workload", "pltrs (Rust) ms", "matplotlib ms", "speed-up"
     );
     let mut failed = 0;
     for workload in selected {
@@ -174,10 +176,10 @@ fn table(request: &Request<'_>, selected: &[&Workload]) -> Result<(), Box<dyn Er
             Ok(median) => {
                 let ms = median * 1e3;
                 let row = match reference.get(workload.name) {
-                    Some(&mpl) => format!("{mpl:>14.1} {:>7.2}", ms / mpl),
-                    None => format!("{:>14} {:>7}", "-", "-"),
+                    Some(&mpl) => format!("{mpl:>14.1} {:>13}", speedup(ms / mpl)),
+                    None => format!("{:>14} {:>13}", "-", "-"),
                 };
-                println!("{:<34} {ms:>11.1} {row}", workload.name);
+                println!("{:<34} {ms:>15.1} {row}", workload.name);
             }
             Err(err) => {
                 eprintln!("{}: {err}", workload.name);

@@ -80,17 +80,17 @@ Ops
 
 Adaptations: the key presses ``k`` and ``l`` of
 ``test_toolbar_home_restores_autoscale`` become the scale changes
-matplotlib's ``key_press_handler`` makes for them (plt-rs's keyboard
+matplotlib's ``key_press_handler`` makes for them (pltrs's keyboard
 shortcuts belong to its figure windows), and ``h`` the toolbar's ``home``.
 
 Left out: Python machinery (``test_canvas_ctor``, ``test_canvas_change``
 replacing a figure's canvas object); ``test_non_gui_warning``, a warning
-plt-rs has no counterpart of (showing on a non-interactive backend does
+pltrs has no counterpart of (showing on a non-interactive backend does
 nothing); the ``None`` positions of ``test_location_event_position``
-(plt-rs events always have a position); the toolmanager tests
+(pltrs events always have a position); the toolmanager tests
 (``test_toolbar_zoompan``, ``test_toolmanager_remove``,
 ``test_toolmanager_get_tool``, ``test_toolmanager_update_keymap``): the
-toolmanager is experimental matplotlib API, and plt-rs's own tools have no
+toolmanager is experimental matplotlib API, and pltrs's own tools have no
 built-in pan and zoom tools to trigger or remove; and the PGF variant of
 ``test_draw`` (it needs XeLaTeX).
 """

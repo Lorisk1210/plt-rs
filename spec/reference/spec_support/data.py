@@ -2,7 +2,7 @@
 
 numpy's generators cannot be reproduced bit-for-bit outside numpy, so figure
 cases draw "random" data from this tiny SplitMix64-based generator instead.
-plt-spec implements the identical algorithm in Rust; keep the two in sync.
+pltrs-spec implements the identical algorithm in Rust; keep the two in sync.
 """
 
 from __future__ import annotations

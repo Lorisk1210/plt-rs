@@ -1,11 +1,11 @@
 //! 3-D surface: the "peaks" function, three bumps and two wells, coloured
 //! by height with a colorbar.
 
-use plt::collections::CollectionProps;
-use plt::colors::ColorizerOptions;
-use plt::layout::LayoutEngine;
-use plt::mplot3d::{FaceColors, Sampling, SurfaceOptions};
-use plt::prelude::*;
+use pltrs::collections::CollectionProps;
+use pltrs::colors::ColorizerOptions;
+use pltrs::layout::LayoutEngine;
+use pltrs::mplot3d::{FaceColors, Sampling, SurfaceOptions};
+use pltrs::prelude::*;
 
 /// The peaks function at `(x, y)`.
 fn peaks(x: f64, y: f64) -> f64 {

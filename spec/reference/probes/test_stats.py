@@ -4,7 +4,7 @@ Area ``stats`` (golden ``spec/goldens/probes/stats.json``).  Covers
 ``matplotlib.cbook.boxplot_stats`` / ``violin_stats``, ``matplotlib.mlab``
 (``GaussianKDE``, windows, detrending, Welch spectra, single spectra,
 coherence), numpy's histogram binning (which ``Axes.hist`` delegates to and
-plt-rs must reproduce), ``Axes.hist`` and ``Axes.acorr`` / ``Axes.xcorr``.
+pltrs must reproduce), ``Axes.hist`` and ``Axes.acorr`` / ``Axes.xcorr``.
 
 General conventions (apply to every op below)
 =============================================

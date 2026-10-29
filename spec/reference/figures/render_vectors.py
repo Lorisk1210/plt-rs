@@ -1,15 +1,15 @@
 """Render every figure case with matplotlib as SVG, PDF, PostScript and PGF into
-a directory, for plt-spec's opt-in wide comparison of vector output.
+a directory, for pltrs-spec's opt-in wide comparison of vector output.
 
     .venv/bin/python spec/reference/figures/render_vectors.py [--formats svg,pdf,ps,pgf] \\
         OUTDIR [PREFIX ...]
-    PLT_VECTOR_REFERENCE=OUTDIR cargo test -p plt-spec --test figure_vectors \\
+    PLTRS_VECTOR_REFERENCE=OUTDIR cargo test -p pltrs-spec --test figure_vectors \\
         -- --ignored --nocapture
 
 Documents are named ``<group>__<name>.<format>`` and saved like the vector
 goldens (``FigureCase.render_vector``) under the reference configuration.
-matplotlib's PGF backend measures text with LaTeX, which plt-rs does not
-have: here it measures text as Agg does (as plt-rs does), and includes
+matplotlib's PGF backend measures text with LaTeX, which pltrs does not
+have: here it measures text as Agg does (as pltrs does), and includes
 images with ``\\includegraphics``. PGF images go beside their documents.
 Only cases whose names start with one of the PREFIXes are rendered when any
 are given. Nothing is written to the spec itself.

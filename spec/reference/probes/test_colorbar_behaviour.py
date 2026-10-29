@@ -20,7 +20,7 @@ where it is false already; random data comes from ``spec_support.rng``.
 Left out: colorbars of bare ``ScalarMappable``s and ``Colorbar(ax, ...)``
 built without a figure method, norms assigned as attributes
 (``pcm.norm = ...``), the private ``_values`` and ``locator`` attributes,
-and ``cbar.vmin``/``cbar.vmax``, which plt-rs does not expose.
+and ``cbar.vmin``/``cbar.vmax``, which pltrs does not expose.
 """
 
 import numpy as np
@@ -144,7 +144,7 @@ def test_colorbar_minor_ticks():
         ["@2", "ax.yaxis.get_minorticklocs"],
     ])
     # Drawn first: before its first draw a colorbar axes still has its box
-    # without the room for the extensions, which plt-rs never shows.
+    # without the room for the extensions, which pltrs never shows.
     _case("test_colorbar_inverted_ticks", [
         ["fig", "subplots", 2],
         [0, "pcolormesh", (10 ** np.arange(1, 5).reshape(2, 2)).tolist(), {"norm": LOG_NORM}],

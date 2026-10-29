@@ -53,12 +53,12 @@ Left out
 --------
 ``test_optional_axis_signature`` and ``test_custom_scale_with_axis``
 (Python constructor signatures and their deprecation),
-``test_custom_scale_without_axis`` (registering a Python scale class; plt-rs
+``test_custom_scale_without_axis`` (registering a Python scale class; pltrs
 takes custom scale objects through ``Axes::set_scale`` and
 ``ScaleRegistry::register``), ``test_logscale_transform_repr`` (Python
 ``repr``), ``test_scale_deepcopy``
 (Python copies), the masked-array half of ``test_symlog_mask_nan`` (numpy
-masked arrays) and the warnings ``test_invalid_log_lims`` expects (plt-rs
+masked arrays) and the warnings ``test_invalid_log_lims`` expects (pltrs
 has no warnings).
 """
 

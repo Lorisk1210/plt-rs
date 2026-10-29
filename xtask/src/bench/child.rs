@@ -1,5 +1,5 @@
-//! What the report runs of plt in fresh processes, as a Rust program
-//! would: `cargo xtask bench --child cold NAME OUT` makes the data of the
+//! What the report runs of pltrs (Rust) in fresh processes, as a Rust
+//! program would: `cargo xtask bench --child cold NAME OUT` makes the data of the
 //! workload `NAME`, builds its figure and writes it to `OUT`, as its script
 //! does in Python; `--child start` starts and exits, the floor of every
 //! cold run.
@@ -11,6 +11,9 @@ use std::path::Path;
 use super::cold::ColdCommand;
 use super::render::{render, user_configuration};
 use super::workloads::{self, Output, Workload};
+
+/// The column of pltrs (Rust) in labels and artifact directories.
+pub(super) const LABEL: &str = "pltrs-rust";
 
 /// Runs the child mode `args` asks for.
 pub(super) fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
@@ -61,7 +64,7 @@ fn command(args: Vec<OsString>) -> Result<ColdCommand, Box<dyn Error>> {
     ];
     argv.extend(args);
     Ok(ColdCommand {
-        label: "plt".to_owned(),
+        label: LABEL.to_owned(),
         argv,
         env: Vec::new(),
     })

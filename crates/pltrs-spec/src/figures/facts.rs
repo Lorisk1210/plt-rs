@@ -1,0 +1,165 @@
+//! Structural facts of a figure, mirroring `spec_support.figcases.figure_facts`.
+
+use pltrs::artist::ArtistHandle;
+use pltrs::axes::{Axes, AxisName, TitleLocation};
+use pltrs::figure::Figure;
+use pltrs::mplot3d::Axes3D;
+
+use crate::compare::{Tolerance, compare};
+use crate::json::Json;
+
+/// The facts pltrs can report about a figure, in the golden layout,
+/// after a layout pass (matplotlib's are taken once the figure is drawn).
+pub fn figure_facts(fig: &Figure) -> Json {
+    fig.layout();
+    let (width, height) = fig.width_height();
+    Json::Object(vec![
+        (
+            "size_px".into(),
+            Json::from(vec![f64::from(width), f64::from(height)]),
+        ),
+        ("suptitle".into(), fig.suptitle_text().into()),
+        ("axes".into(), Json::Array(all_axes_facts(fig))),
+    ])
+}
+
+/// The facts of every 2-D and 3-D axes, in creation order.
+fn all_axes_facts(fig: &Figure) -> Vec<Json> {
+    let mut facts: Vec<_> = fig
+        .axes()
+        .iter()
+        .map(|ax| (ax.id(), axes_facts(ax)))
+        .chain(fig.axes3d().iter().map(|ax| (ax.id(), axes3d_facts(ax))))
+        .collect();
+    facts.sort_by_key(|(id, _)| *id);
+    facts.into_iter().map(|(_, facts)| facts).collect()
+}
+
+/// The facts matplotlib records for an `Axes3D`.
+fn axes3d_facts(ax: &Axes3D) -> Json {
+    let (x, y, w, h) = ax.position().bounds();
+    let limits = |(low, high): (f64, f64)| Json::from(vec![low, high]);
+    let mut facts = vec![
+        ("kind".into(), "3d".into()),
+        ("position".into(), Json::from(vec![x, y, w, h])),
+        ("title".into(), ax.title().into()),
+        ("xlim".into(), limits(ax.xlim())),
+        ("ylim".into(), limits(ax.ylim())),
+        ("zlim".into(), limits(ax.zlim())),
+    ];
+    if let Some(legend) = ax.current_legend() {
+        let labels = legend.labels().into_iter().map(Json::from).collect();
+        facts.push(("legend".into(), Json::Array(labels)));
+    }
+    Json::Object(facts)
+}
+
+fn axes_facts(ax: &Axes) -> Json {
+    let (x, y, w, h) = ax.position().bounds();
+    let (x0, x1) = ax.xlim();
+    let (y0, y1) = ax.ylim();
+    let mut facts = vec![
+        ("kind".into(), ax.projection().name().into()),
+        ("position".into(), Json::from(vec![x, y, w, h])),
+        ("title".into(), ax.title(TitleLocation::Center).into()),
+        ("xlim".into(), Json::from(vec![x0, x1])),
+        ("ylim".into(), Json::from(vec![y0, y1])),
+        ("xscale".into(), ax.xscale().to_string().into()),
+        ("yscale".into(), ax.yscale().to_string().into()),
+        ("xlabel".into(), ax.label(AxisName::X).into()),
+        ("ylabel".into(), ax.label(AxisName::Y).into()),
+        ("xticks".into(), ticks(ax, AxisName::X)),
+        ("yticks".into(), ticks(ax, AxisName::Y)),
+    ];
+    if let Some(legend) = ax.current_legend() {
+        let labels = legend.labels().into_iter().map(Json::from).collect();
+        facts.push(("legend".into(), Json::Array(labels)));
+    }
+    Json::Object(facts)
+}
+
+/// Drawn major ticks as `[[location, label], ...]`; a tick computation
+/// failure is reported as its message so the diff shows it.
+fn ticks(ax: &Axes, axis: AxisName) -> Json {
+    match ax.ticks(axis) {
+        Ok(set) => Json::Array(
+            set.major
+                .into_iter()
+                .map(|tick| Json::Array(vec![tick.loc.into(), tick.label.into()]))
+                .collect(),
+        ),
+        Err(err) => Json::String(err.to_string()),
+    }
+}
+
+/// Key-by-key differences between golden and actual facts: one message per
+/// mismatched or missing fact, empty when they agree.
+pub(crate) fn diff_facts(golden: &Json, actual: &Json) -> Vec<String> {
+    let tolerance = Tolerance {
+        rel: 0.0,
+        abs: 1.5e-6,
+    };
+    let mut problems = Vec::new();
+    diff_object(golden, actual, "", tolerance, &mut problems);
+    problems
+}
+
+fn diff_object(
+    golden: &Json,
+    actual: &Json,
+    path: &str,
+    tol: Tolerance,
+    problems: &mut Vec<String>,
+) {
+    let Some(entries) = golden.as_object() else {
+        return;
+    };
+    for (key, expected) in entries {
+        let here = format!("{path}.{key}");
+        match (expected, actual.get(key)) {
+            (_, None) => problems.push(format!("{here}: not reported by pltrs")),
+            (Json::Array(items), Some(Json::Array(got)))
+                if items.iter().all(|i| i.as_object().is_some()) =>
+            {
+                if items.len() != got.len() {
+                    problems.push(format!(
+                        "{here}: expected {} entries, got {}",
+                        items.len(),
+                        got.len()
+                    ));
+                }
+                for (i, (item, other)) in items.iter().zip(got).enumerate() {
+                    diff_object(item, other, &format!("{here}[{i}]"), tol, problems);
+                }
+            }
+            (_, Some(got)) => {
+                if let Err(mismatch) = compare(expected, got, tol) {
+                    problems.push(format!("{here}{}", strip_root(&mismatch.to_string())));
+                }
+            }
+        }
+    }
+}
+
+fn strip_root(message: &str) -> String {
+    message
+        .strip_prefix("at <root>")
+        .map_or_else(|| format!(" {message}"), str::to_owned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diff_reports_each_problem() {
+        let golden =
+            Json::parse(r#"{"size_px": [640, 480], "axes": [{"xlim": [0, 1], "title": "t"}]}"#)
+                .unwrap();
+        let actual = Json::parse(r#"{"size_px": [640, 480], "axes": [{"xlim": [0, 2]}]}"#).unwrap();
+        let problems = diff_facts(&golden, &actual);
+        assert_eq!(problems.len(), 2);
+        assert!(problems[0].starts_with(".axes[0].xlim"));
+        assert!(problems[1].contains("title: not reported"));
+    }
+}

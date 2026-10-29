@@ -30,7 +30,7 @@ modules (the WenQuanYi Zen Hei font is not bundled),
 ``test_truetype_conversion`` (``mpltest.ttf`` from matplotlib's test data),
 ``test_font_heuristica``, ``test_font_dejavusans`` and
 ``test_font_bitstream_charter`` (usetex); ``test_transparency_tex`` is a unit
-test of plt's PostScript output (``figure/postscript``).
+test of pltrs's PostScript output (``figure/postscript``).
 """
 
 import matplotlib.style

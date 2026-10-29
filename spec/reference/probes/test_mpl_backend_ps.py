@@ -51,7 +51,7 @@ By the ``mpl_rendering`` figure group: ``test_patheffects``. By the
 ``test_multi_font_type42``, ``test_path_collection`` and
 ``test_colorbar_shift``.
 
-By plt's unit tests of its PostScript output (``figure/postscript``):
+By pltrs's unit tests of its PostScript output (``figure/postscript``):
 ``test_tilde_in_tempfilename``, ``test_transparency_tex``,
 ``test_failing_latex``, ``test_partial_usetex``, ``test_usetex_preamble``
 and ``test_d_glyph``, and the distiller and usetex cases of

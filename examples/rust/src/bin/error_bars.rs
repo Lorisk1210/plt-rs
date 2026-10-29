@@ -2,9 +2,9 @@
 //! across temperatures, each point the mean of repeated measurements with
 //! its standard deviation.
 
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
 
 /// Bell-shaped activity with a maximum of `peak` at `optimum` °C.
 fn activity(temperature: &[f64], peak: f64, optimum: f64, width: f64) -> Vec<f64> {

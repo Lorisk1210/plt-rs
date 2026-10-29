@@ -30,7 +30,7 @@ Deviations from the tests:
 Not ported: ``test_labelbase`` and ``test_ticklabels`` of
 ``test_axis_artist.py``, which place axisartist's internal text artists
 through their private attributes (``_ref_angle``, ``_offset_radius``,
-``_locs_angles_labels``); plt-rs keeps those parts inside its axis artists.
+``_locs_angles_labels``); pltrs keeps those parts inside its axis artists.
 """
 
 from itertools import product

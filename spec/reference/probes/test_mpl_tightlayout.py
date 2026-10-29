@@ -41,7 +41,7 @@ went, ``test_verybig_decorators``, ``test_big_decorators_*``,
 ``test_badsubplotgrid``, ``test_collapsed``, ``test_suptitle``,
 ``test_manual_colorbar``, ``test_tight_pads`` and ``test_tight_kwargs``,
 which make the same figure). Not ported: the
-warning of ``test_manual_colorbar`` (plt-rs leaves axes off grids out
+warning of ``test_manual_colorbar`` (pltrs leaves axes off grids out
 without a warning; its figure is a case), the pending deprecation
 warnings (``test_tight_pads``, ``test_tight_toggle``),
 ``test_non_agg_renderer`` (which renderer class a backend instantiates)

@@ -3,10 +3,10 @@
 
 use std::f64::consts::{FRAC_PI_2, TAU};
 
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::polar::ThetaDirection;
-use plt::prelude::*;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::polar::ThetaDirection;
+use pltrs::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let criteria = ["speed", "battery", "screen", "weight", "price", "keyboard"];

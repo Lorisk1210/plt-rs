@@ -111,14 +111,14 @@ the result.
 Left out
 --------
 The ``test_set_params`` tests, ``TestLogitLocator.test_minor_attr``,
-``TestAsinhLocator.test_init`` (Python attribute setters; plt-rs configures
+``TestAsinhLocator.test_init`` (Python attribute setters; pltrs configures
 locators and formatters with typed builders),
 ``TestScalarFormatter.test_use_locale`` and ``test_locale_comma`` (the
 system locale), ``test_empty_locs`` (a formatter called with no ``set_locs``
-state; plt-rs formatters label a whole set of ticks at once),
+state; pltrs formatters label a whole set of ticks at once),
 ``test_mathtext_ticks`` and ``test_cmr10_substitutions`` (warnings and log
 records about fonts), ``TestStrMethodFormatter.test_basic`` (formats
-Python ints with ``{x:05d}``; plt-rs tick values are always floats, and the
+Python ints with ``{x:05d}``; pltrs tick values are always floats, and the
 ``ticker`` area probes the minus signs of float templates),
 ``TestLogitFormatter.test_logit_deformater`` (tests the test's own parser), ``test_majformatter_type``,
 ``test_minformatter_type``, ``test_majlocator_type``,

@@ -1,30 +1,30 @@
-# plt-rs examples
+# pltrs examples
 
 Twenty graphs of the kinds people plot most, each written twice: in Rust
-with plt, and in Python with pltrs, plt-rs' Python package, which keeps
+with pltrs (Rust), and in Python with pltrs (Python), which keeps
 matplotlib's syntax (`import pltrs.pyplot as plt`). The two versions of
 an example draw the same figure from the same data.
 
-* `rust/` is the `plt-examples` crate, with one binary per graph in
+* `rust/` is the `pltrs-examples` crate, with one binary per graph in
   `src/bin/`.
 * `python/` has one script per graph, with the same names.
 * `images/` holds what the Rust examples draw. These are the images below.
 
 ## The look
 
-The images show plt-rs' modern look, the look plt and pltrs draw in by
-default. The Python scripts are ordinary matplotlib code apart from the
+The images show pltrs' modern look, the look pltrs (Rust) and pltrs
+(Python) draw in by default. The Python scripts are ordinary matplotlib code apart from the
 import, so they also run under matplotlib once the import names
 `matplotlib`, and matplotlib then draws them in its own look.
 `cargo xtask examples` gives matplotlib the modern look's style sheet
-(`crates/plt/src/style/sheets/plt-modern.mplstyle`) and the Inter font,
+(`crates/pltrs/src/style/sheets/pltrs-modern.mplstyle`) and the Inter font,
 so that it draws them in the modern look too.
 
 ## Running one example
 
 ```sh
-cargo run --release -p plt-examples --bin line_plot   # writes line_plot.png here
-python examples/python/line_plot.py                   # the same, with pltrs installed
+cargo run --release -p pltrs-examples --bin line_plot  # writes line_plot.png here
+python examples/python/line_plot.py                    # the same, with pltrs installed
 ```
 
 Each example saves its figure in the working directory, as `<name>.png`.
@@ -33,7 +33,7 @@ The animation saves `animation.gif`.
 The examples that need noisy data draw it from a seeded generator, so
 every run plots the same points. numpy's generators cannot be reproduced
 outside numpy, so both languages use SplitMix64, the generator inside
-plt-rs: `plt_examples::Samples` in Rust and `python/samples.py` in Python.
+pltrs: `pltrs_examples::Samples` in Rust and `python/samples.py` in Python.
 
 ## Running them all
 
@@ -234,7 +234,7 @@ box pointed out.
 
 ### Mathtext
 
-Normal distributions labelled with TeX-like formulas, which plt-rs
+Normal distributions labelled with TeX-like formulas, which pltrs
 typesets itself, without TeX.
 
 ![Mathtext](images/mathtext.png)

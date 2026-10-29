@@ -1,0 +1,121 @@
+//! Shading: faces lit by a light source and scatter markers faded with
+//! depth (matplotlib's `LightSource`, `_generate_normals`,
+//! `_shade_colors` and `_zalpha`).
+
+use pltrs_core::Rgba;
+
+use super::math::{Vec3, cross, dot, norm, sub};
+pub use crate::colors::LightSource;
+
+/// A normal of a planar polygon from three of its vertices spread around
+/// it; it points towards the viewer when the vertices run
+/// counter-clockwise (matplotlib's `_generate_normals`).
+pub(crate) fn polygon_normal(polygon: &[Vec3]) -> Vec3 {
+    let n = polygon.len();
+    if n == 0 {
+        return [f64::NAN; 3];
+    }
+    let (p1, p2, p3) = (polygon[0], polygon[n / 3], polygon[2 * n / 3]);
+    cross(sub(p1, p2), sub(p2, p3))
+}
+
+/// `colors` (one, or one per normal) darkened where their face turns away
+/// from the light, keeping their alpha (matplotlib's `_shade_colors`).
+pub(crate) fn shade_colors(colors: &[Rgba], normals: &[Vec3], light: &LightSource) -> Vec<Rgba> {
+    let direction = light.direction();
+    let shades: Vec<f64> = normals
+        .iter()
+        .map(|&n| {
+            let length = norm(n);
+            dot([n[0] / length, n[1] / length, n[2] / length], direction)
+        })
+        .collect();
+    if shades.iter().all(|s| s.is_nan()) || colors.is_empty() {
+        return colors.to_vec();
+    }
+    // Normalize(-1, 1) followed by Normalize(0.3, 1).inverse.
+    let (vmin, vmax) = (0.3, 1.0);
+    shades
+        .iter()
+        .enumerate()
+        .map(|(i, &shade)| {
+            let shade = if shade.is_nan() { 0.0 } else { shade };
+            let fraction = (shade - -1.0) / 2.0;
+            let factor = vmin + fraction * (vmax - vmin);
+            let color = colors[if colors.len() == 1 { 0 } else { i }];
+            Rgba::new(
+                factor * color.r,
+                factor * color.g,
+                factor * color.b,
+                color.a,
+            )
+        })
+        .collect()
+}
+
+/// The alpha factor of each point at projected depth `zs`: 1 for the
+/// nearest, fading to `min_alpha` over `data_scale` (matplotlib's
+/// `_zalpha`).
+pub(crate) fn depth_alphas(zs: &[f64], min_alpha: f64, data_scale: f64) -> Vec<f64> {
+    let min_alpha = min_alpha.clamp(0.0, 1.0);
+    if data_scale == 0.0 {
+        return vec![1.0; zs.len()];
+    }
+    let nearest = zs
+        .iter()
+        .copied()
+        .filter(|z| !z.is_nan())
+        .fold(f64::INFINITY, f64::min);
+    zs.iter()
+        .map(|z| (1.0 - (z - nearest) / data_scale).clamp(min_alpha, 1.0))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn light_direction_matches_matplotlib() {
+        let d = LightSource::default().direction();
+        let expected = [-0.5, 0.5, std::f64::consts::FRAC_1_SQRT_2];
+        for (got, want) in d.iter().zip(expected) {
+            assert!((got - want).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn normals_follow_the_right_hand_rule() {
+        let square = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let n = polygon_normal(&square);
+        assert!(n[2] > 0.0 && n[0] == 0.0 && n[1] == 0.0);
+        assert!(polygon_normal(&[]).iter().all(|c| c.is_nan()));
+    }
+
+    #[test]
+    fn faces_towards_the_light_stay_bright() {
+        let light = LightSource::mplot3d();
+        let toward = light.direction();
+        let away = [-toward[0], -toward[1], -toward[2]];
+        let red = Rgba::new(1.0, 0.0, 0.0, 0.5);
+        let shaded = shade_colors(&[red], &[toward, away, [0.0; 3]], &light);
+        assert!((shaded[0].r - 1.0).abs() < 1e-12);
+        assert!((shaded[1].r - 0.3).abs() < 1e-12);
+        assert!(
+            (shaded[2].r - 0.65).abs() < 1e-12,
+            "degenerate faces are half lit"
+        );
+        assert!(shaded.iter().all(|c| (c.a - 0.5).abs() < 1e-12));
+    }
+
+    #[test]
+    fn depth_fades_alpha_down_to_the_minimum() {
+        assert_eq!(depth_alphas(&[0.0, 1.0, 10.0], 0.3, 2.0), [1.0, 0.5, 0.3]);
+        assert_eq!(depth_alphas(&[0.0, 1.0], 0.3, 0.0), [1.0, 1.0]);
+    }
+}

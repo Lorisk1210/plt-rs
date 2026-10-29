@@ -1,10 +1,10 @@
 //! Grouped bars with value labels: daily screen time by age group and
 //! device.
 
-use plt::axes::BarLabelOptions;
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
+use pltrs::axes::BarLabelOptions;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let groups = ["13–17", "18–24", "25–34", "35–49", "50–64", "65+"];

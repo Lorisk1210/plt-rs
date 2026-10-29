@@ -1,6 +1,6 @@
 """
 Core functions and attributes for the matplotlib style library: `use`
-and `context`. plt-rs bundles matplotlib's style sheets and applies them.
+and `context`. pltrs (Rust) bundles matplotlib's style sheets and applies them.
 """
 
 import contextlib

@@ -50,7 +50,7 @@ Cases
 -----
 Named after the upstream tests; random data comes from ``spec_support.rng``
 with the tests' seeds. The cursor probe draws its figure first: until
-then matplotlib has not applied the image's equal aspect, while plt-rs
+then matplotlib has not applied the image's equal aspect, while pltrs
 lays a figure out before reading it.
 
 Already covered
@@ -68,7 +68,7 @@ norm name of ``test_str_norms``.
 
 Left out
 --------
-Python and numpy mechanics plt-rs's types rule out: ``test_image_python_io``
+Python and numpy mechanics pltrs's types rule out: ``test_image_python_io``
 (``BytesIO``), ``test_imread_fspath``, ``test_imsave_fspath``,
 ``test_imsave_python_sequences``, ``test_imsave_rgba_origin`` (array
 contiguity), ``test_imsave_pil_kwargs_tiff`` (Pillow options), ``test_imshow_pil``
@@ -81,7 +81,7 @@ and ``test_jpeg_2d`` (PIL images), ``test_imshow_multi_draw``,
 (images without data or of shapes the image data types rule out),
 ``test_imshow_float16``, ``test_imshow_float128``, ``test_quantitynd``,
 ``test_imshow_quantitynd``, ``test_resample_dtypes`` and the integer dtypes
-of ``test_imshow_clips_rgb_to_valid_range`` (numpy dtypes: plt-rs's
+of ``test_imshow_clips_rgb_to_valid_range`` (numpy dtypes: pltrs's
 integer colours are bytes), ``test_format_cursor_data_multinorm`` (private
 attributes), ``test_load_from_url`` (URLs), ``test__resample_valid_output``
 and ``test__resample_nonaffine_mesh_shape`` (argument checks of the Python

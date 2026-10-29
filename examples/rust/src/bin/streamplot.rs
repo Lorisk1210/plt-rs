@@ -1,12 +1,14 @@
 //! Streamplot: air flowing past a cylinder (ideal flow), the streamlines
 //! coloured by speed.
 
-use plt::colors::ColorizerOptions;
-use plt::layout::LayoutEngine;
-use plt::patches::Circle;
-use plt::prelude::*;
-use plt::rc::Aspect;
-use plt::streamplot::{StreamColorMap, StreamColors, StreamField, StreamWidths, StreamplotOptions};
+use pltrs::colors::ColorizerOptions;
+use pltrs::layout::LayoutEngine;
+use pltrs::patches::Circle;
+use pltrs::prelude::*;
+use pltrs::rc::Aspect;
+use pltrs::streamplot::{
+    StreamColorMap, StreamColors, StreamField, StreamWidths, StreamplotOptions,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let radius: f64 = 1.0;

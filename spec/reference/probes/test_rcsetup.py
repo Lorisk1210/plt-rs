@@ -25,7 +25,7 @@ Canonical values compare meaning rather than Python representation:
 * ``legend.labelcolor`` keeps ``None`` (the text colour) as ``None``, and
   ``*.minor.ndivs`` its ``auto`` in lower case.
 
-Left out where plt-rs is stricter on purpose: marker texts that name no
+Left out where pltrs is stricter on purpose: marker texts that name no
 marker and font weights or stretches outside 0-1000, which matplotlib only
 rejects when a figure uses them, and eight-character colour names for
 ``legend.labelcolor``, which an operator-precedence slip in

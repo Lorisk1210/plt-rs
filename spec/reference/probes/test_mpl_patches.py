@@ -63,9 +63,9 @@ Left out
 ``test_patch_str`` (Python ``repr``), ``test_units_rectangle``,
 ``test_datetime_rectangle``, ``test_datetime_datetime_fails`` and
 ``test_fancyarrow_units`` (Python unit conversion of patch coordinates),
-``test_fancyarrow_shape_error`` (the arrow shape is an enum in plt-rs),
+``test_fancyarrow_shape_error`` (the arrow shape is an enum in pltrs),
 ``test_color_override_warning`` (a warning), ``test_default_antialiased``
-and ``test_default_linestyle`` (``None`` restoring a default: plt-rs
+and ``test_default_linestyle`` (``None`` restoring a default: pltrs
 setters take values), ``test_empty_fancyarrow`` (empty arrays for
 ``ax.arrow``'s numbers) and ``test_patch_edgegapcolor_update_from``
 (``update_from`` copies Python attributes).

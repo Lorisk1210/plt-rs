@@ -67,10 +67,10 @@ Left out: imread/imsave tests (the ``imread`` and ``imsave`` areas), the
 dtype tests (``float16``, ``float128``, ``bool``, ``uint16``,
 ``QuantityND``), argument validation (``test_imshow_10_10_2``,
 ``test_imshow_10_10_5``, ``test_image_array_alpha_validation``,
-``test_rc_interpolation_stage``; typed in plt-rs), Python copies
+``test_rc_interpolation_stage``; typed in pltrs), Python copies
 (``test_axesimage_setdata``, ``test_figureimage_setdata``,
 ``test_setdata_xya``), ``test_axesimage_get_shape``, ``test_empty_imshow``
-(an empty image is rejected by plt-rs's image data), private resampling
+(an empty image is rejected by pltrs's image data), private resampling
 helpers (``test__resample_*``, ``test_resample_dtypes``,
 ``test_rgba_stage_demultiplies_resampled_alpha``: ``make_image`` output
 before compositing is not observable), ``test_format_cursor_data_multinorm``

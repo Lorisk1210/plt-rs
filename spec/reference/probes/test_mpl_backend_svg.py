@@ -75,7 +75,7 @@ Left out
 --------
 ``test_unicode_won`` (usetex), ``test_svg_font_string`` (needs the
 WenQuanYi Zen Hei font) and ``test_svg_incorrect_metadata``: its values
-of the wrong type and unknown keys cannot be written with plt-rs's typed
+of the wrong type and unknown keys cannot be written with pltrs's typed
 ``Metadata``.
 """
 

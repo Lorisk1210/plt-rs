@@ -18,8 +18,8 @@ Every case is named after the upstream test it mirrors; the
 the arguments ``Legend`` receives through a mock, are ported as the labels
 of the legend made and the handles ``get_legend_handles_labels`` reports.
 Placement tests compare the legend's window extent in pixels. A ``loc``
-point of other than two numbers cannot be expressed in plt-rs (its
-``LegendLoc::Point`` holds two), so plt-spec rejects those while
+point of other than two numbers cannot be expressed in pltrs (its
+``LegendLoc::Point`` holds two), so pltrs-spec rejects those while
 converting the arguments.
 
 Left out: argument-type errors of the Python API (``TypeError`` for

@@ -48,7 +48,7 @@ Ops
 Left out: the ffmpeg and ImageMagick writers (external programs:
 ``test_failing_ffmpeg``, ``test_movie_writer_registry``, the ffmpeg and
 ImageMagick parameters of ``test_save_animation_smoketest``), the writer
-registry and writer objects plt-rs does not have (it picks the writer from
+registry and writer objects pltrs does not have (it picks the writer from
 the file name: ``test_invalid_writer``, ``test_null_movie_writer``'s
 custom ``AbstractMovieWriter``, ``test_movie_writer_dpi_default``,
 ``test_grabframe``), Python warnings and object lifetimes
@@ -56,7 +56,7 @@ custom ``AbstractMovieWriter``, ``test_movie_writer_dpi_default``,
 ``test_no_frame_warning``, the warnings of ``test_exhausted_animation``,
 ``test_save_count_override_warnings_has_length``,
 ``test_save_count_override_warnings_scaler``, ``test_disable_cache_warning``),
-frames from Python iterators (plt-rs animations count their frames:
+frames from Python iterators (pltrs animations count their frames:
 ``test_no_length_frames``), and ``test_draw_frame`` (Rust's types keep a
 frame function from returning anything but artists).
 """

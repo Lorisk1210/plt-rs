@@ -90,28 +90,28 @@ asserting that two matrices are equal records both.
 
 Left out
 --------
-``test_init`` (numpy dtypes; plt-rs's ``Affine2D`` holds the six affine
+``test_init`` (numpy dtypes; pltrs's ``Affine2D`` holds the six affine
 coefficients, not the arbitrary bottom row the test passes),
 ``test_values``, ``test_clear`` (the ``transforms`` area probes
 ``from_values``, ``to_values`` and ``clear``), ``test_transform_single_point``
 (the ``transforms`` area's 1-D points), ``test_offset_copy_errors`` (the
-``transforms`` area's unknown units; plt-rs resolves units at draw time,
+``transforms`` area's unknown units; pltrs resolves units at draw time,
 so there is no figure to miss), ``test_pre_transform_plotting`` and
 ``test_scale_swapping`` (figure cases of the ``mpl_small`` group);
 ``test_modify_inplace`` (numpy views of the matrix), ``test_copy``,
 ``test_deepcopy``, ``test_affine_inverted_invalidated``,
 ``TestAffineDeltaTransform``'s mutation half, ``test_transformed_path``,
 ``test_transformed_patch_path``, ``test_lockable_bbox`` and
-``test_non_affine_caching`` (matplotlib's invalidation graph: plt-rs
+``test_non_affine_caching`` (matplotlib's invalidation graph: pltrs
 transforms are values resolved against the figure at draw time, with no
 cached state to go stale), ``test_invalid_transform``,
 ``test_transformwrapper`` and the error half of ``test_transform_angles``
-and of ``test_count_bboxes_overlapping_bbox`` (array shape checks; plt-rs
+and of ``test_count_bboxes_overlapping_bbox`` (array shape checks; pltrs
 takes typed points and boxes), ``test_external_transform_api``
 (``_as_mpl_transform``), ``test_left_to_right_iteration`` (a private
 generator), ``test_bbox_as_strings`` and ``test_str_transform`` (Python
 ``repr``/``str``), ``test_transform_depth`` and ``test_transform_shortcuts``
-(``Transform.depth`` and the ``-`` operator, which plt-rs's transform
+(``Transform.depth`` and the ``-`` operator, which pltrs's transform
 expressions do not have), ``test_scaledrotation_*`` (a private class driven by
 mocks), ``test_pcolormesh_gouraud_nans`` (only checks that drawing does not
 raise).

@@ -165,16 +165,16 @@ draw and save, are cases of ``mpl_tests_widgets``.
 
 Left out: ``test_axeswidget_del_on_failed_init`` (Python's ``TypeError`` for
 an unknown keyword and unraisable exceptions), ``test_tool_line_handle``
-(plt-rs keeps ``ToolLineHandles`` inside the span selector, whose handles
+(pltrs keeps ``ToolLineHandles`` inside the span selector, whose handles
 the ``SpanSelector`` queries read), ``test_span_selector_animated_artists_callback``
 (the Qt backend), ``test_slider_slidermin_slidermax_invalid`` (a
 ``slidermin`` that is not a slider cannot be written in Rust), the warning
-of ``test_cursor_overlapping_axes_blitting_warning`` (plt-rs has no
+of ``test_cursor_overlapping_axes_blitting_warning`` (pltrs has no
 warnings; the probe records that the cursor does not blit), the
 ``with_deprecated_canvas`` cases of ``test_MultiCursor``
 (deprecation machinery), and of the tests ported, the ``TypeError`` of
 ``CheckButtons.set_active(1, state="invalid")`` and the ``ValueError`` of an
-invalid ``Rectangle.rotation_point`` (both typed in plt-rs).
+invalid ``Rectangle.rotation_point`` (both typed in pltrs).
 """
 
 import copy

@@ -21,10 +21,10 @@ Ops
     label lies beyond its spine.
 
 The image tests are cases of ``mpl_small``. Left out: ``test_spine_class``
-(the ``Spines`` container's Python indexing, slicing and proxying; plt-rs
+(the ``Spines`` container's Python indexing, slicing and proxying; pltrs
 spines are the fields of a struct) and ``test_arc_spine_inner_no_axis``
 (drawing a polar inner spine detached from its axis with
-``register_axis(None)``, an object link plt-rs spines do not have).
+``register_axis(None)``, an object link pltrs spines do not have).
 """
 
 import matplotlib.pyplot as plt

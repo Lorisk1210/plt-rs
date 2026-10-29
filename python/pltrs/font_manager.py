@@ -8,7 +8,7 @@ function returns the best TrueType (TTF) font file in the local or
 system font path that matches the specified `FontProperties`
 instance.
 
-plt-rs finds the fonts and matches them (``plt::fonts``): it knows
+pltrs (Rust) finds the fonts and matches them (``pltrs::fonts``): it knows
 matplotlib's bundled fonts, the fonts of the system and those added with
 `FontManager.addfont`, and ranks them as matplotlib does. The property
 tables, the system font discovery, `FontProperties` and the JSON
@@ -934,7 +934,7 @@ class FontManager:
     matches the specification.  If no good enough match is found, the default
     font is returned.
 
-    plt-rs keeps the fonts and does the search; ``ttflist`` and ``afmlist``
+    pltrs (Rust) keeps the fonts and does the search; ``ttflist`` and ``afmlist``
     are its font lists.
     """
     # Increment this version number whenever the font cache data

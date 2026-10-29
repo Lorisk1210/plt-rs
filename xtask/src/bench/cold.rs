@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn the_spec_lists_every_command() {
         let command = ColdCommand {
-            label: "plt".to_owned(),
+            label: "pltrs-rust".to_owned(),
             argv: vec!["/bin/true".into()],
             env: vec![("A".to_owned(), "1".to_owned())],
         };
@@ -182,8 +182,8 @@ mod tests {
         assert_eq!(
             spec,
             "{\"min_runs\": 5, \"min_seconds\": 2, \"max_runs\": 20, \"commands\": [\
-             {\"label\": \"plt\", \"argv\": [\"/bin/true\"], \"env\": {\"A\": \"1\"}, \
-             \"stderr\": \"/logs/plt.stderr\"}]}"
+             {\"label\": \"pltrs-rust\", \"argv\": [\"/bin/true\"], \"env\": {\"A\": \"1\"}, \
+             \"stderr\": \"/logs/pltrs-rust.stderr\"}]}"
         );
     }
 }

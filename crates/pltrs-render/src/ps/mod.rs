@@ -1,0 +1,420 @@
+//! The PostScript backend: matplotlib's `RendererPS`, writing PostScript
+//! (centred on a page of `ps.papersize`) or Encapsulated PostScript (sized
+//! to the figure).
+//!
+//! Every drawing is wrapped in `gsave`/`grestore`; line properties and
+//! the stroke colour are only written when they change. Markers and large
+//! path collections become procedures, clip paths procedures reused while
+//! the same clip comes back, hatches pattern dictionaries, images hex
+//! `colorimage` data and Gouraud triangles type 4 shadings. Fonts are
+//! embedded in the prolog as Type 3 programs or, with `ps.fonttype = 42`,
+//! as Type 42 fonts over TrueType subsets. With `ps.useafm`, text that is
+//! not mathtext is shown in standard PostScript fonts placed by their AFM
+//! metrics instead, and no font is embedded at all (see `afm`).
+//! PostScript has no transparency: partially transparent colours are drawn
+//! opaque.
+//!
+//! With `text.usetex`, every text is a tag for LaTeX's `psfrag` package
+//! instead, and the renderer makes the figure LaTeX includes
+//! ([`PsfragFigure`]).
+//! The external programs matplotlib then runs (LaTeX, `dvips` and the
+//! distillers of `ps.usedistiller`) are the caller's; [`pstoeps`] turns
+//! what a distiller wrote back into EPS.
+
+mod afm;
+mod draw;
+mod dsc;
+mod fonts;
+mod page;
+mod psfrag;
+mod text;
+mod type42;
+
+use std::fmt::Write as _;
+
+use pltrs_core::path::convert::SimplifySettings;
+use pltrs_core::{Affine2D, Bbox, Path, Point, Rgba};
+use pltrs_text::tex::{TexError, TexText};
+use pltrs_text::{AfmDirectory, TextRun};
+
+use crate::collection::PathCollection;
+use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
+use crate::image::RgbaImage;
+use crate::renderer::Renderer;
+pub use dsc::pstoeps;
+pub use page::{PageOrientation, PageSetupError, Paper};
+pub use psfrag::PsfragFigure;
+
+use crate::vector::{
+    CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
+};
+
+/// Settings of a PostScript document.
+#[derive(Clone, Debug, PartialEq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors matplotlib's independent rcParams"
+)]
+pub struct PsOptions {
+    /// Encapsulated PostScript: no page, sized to the figure.
+    pub eps: bool,
+    /// `ps.papersize` (ignored for EPS).
+    pub paper: Paper,
+    /// `savefig.orientation`.
+    pub orientation: PageOrientation,
+    /// Title, creator and creation date (DSC comments).
+    pub metadata: Metadata,
+    /// `path.simplify` and `path.simplify_threshold`.
+    pub simplify: SimplifySettings,
+    /// `image.composite_image`.
+    pub composite_images: bool,
+    /// `ps.fonttype`: how TrueType fonts are embedded.
+    pub fonttype: FontType,
+    /// `ps.useafm`: text that is not mathtext is drawn in standard
+    /// PostScript fonts, measured with their AFM metrics, and no font is
+    /// embedded.
+    pub afm: bool,
+    /// `text.usetex`: texts are tags for LaTeX's `psfrag` package, and
+    /// [`PsRenderer::finish`] makes the figure LaTeX includes
+    /// ([`PsOutput::Psfrag`]); with it off, texts marked usetex are drawn
+    /// as plain text, as matplotlib draws them.
+    pub usetex: bool,
+}
+
+impl Default for PsOptions {
+    fn default() -> Self {
+        Self {
+            eps: false,
+            paper: Paper::from_name("letter").unwrap_or(Paper::Figure),
+            orientation: PageOrientation::Portrait,
+            metadata: Metadata::default(),
+            simplify: SimplifySettings::default(),
+            composite_images: true,
+            fonttype: FontType::Type3,
+            afm: false,
+            usetex: false,
+        }
+    }
+}
+
+impl PsOptions {
+    /// The AFM fonts text that is not mathtext is drawn in, and must be
+    /// measured with, if any (`RendererPS._afm_font_dir` when `ps.useafm`
+    /// is set).
+    ///
+    /// matplotlib reads these metrics from `mpl-data/fonts/afm` (the 35
+    /// standard PostScript fonts); the notices of those files do not
+    /// permit redistribution, so pltrs uses the metrics of the 14 PDF
+    /// core fonts, which describe the same Courier, Helvetica, Times,
+    /// Symbol and `ZapfDingbats` fonts.
+    pub fn afm_directory(&self) -> Option<AfmDirectory> {
+        self.afm.then_some(AfmDirectory::PdfCore)
+    }
+}
+
+/// A finished PostScript document and where the figure sits on its page.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PsDocument {
+    /// The PostScript or EPS document.
+    pub text: String,
+    /// The figure's bounding box on the page in points, turned with the
+    /// page in landscape (the `bbox` of `_print_figure`).
+    pub bbox: Bbox,
+}
+
+/// What a [`PsRenderer`] made of a figure.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PsOutput {
+    /// The document (matplotlib's `_print_figure`).
+    Document(PsDocument),
+    /// With [`PsOptions::usetex`], the figure for LaTeX to finish
+    /// (matplotlib's `_print_figure_tex`).
+    Psfrag(PsfragFigure),
+}
+
+/// The line properties last written (`None` until first set).
+#[derive(Clone, Debug, Default, PartialEq)]
+struct LineState {
+    color: Option<[f64; 3]>,
+    width: Option<f64>,
+    join: Option<JoinStyle>,
+    cap: Option<CapStyle>,
+    dash: Option<(f64, Option<Vec<f64>>)>,
+}
+
+/// Renders into a PostScript document exactly like matplotlib's
+/// `RendererPS`. Coordinates are points with the origin at the bottom
+/// left.
+#[derive(Debug)]
+pub struct PsRenderer {
+    /// Figure size in inches.
+    width: f64,
+    height: f64,
+    image_dpi: f64,
+    body: String,
+    line: LineState,
+    hatches: Vec<String>,
+    clip_paths: Vec<ClipPath>,
+    path_collection_id: usize,
+    tracker: CharacterTracker,
+    fonts: FontCache,
+    options: PsOptions,
+    /// The `\psfrag` commands of the usetex texts tagged so far.
+    psfrags: Vec<String>,
+    problems: Problems,
+}
+
+impl PsRenderer {
+    /// A document for a figure of `width × height` inches whose images are
+    /// rasterized at `image_dpi`.
+    pub fn new(
+        width: f64,
+        height: f64,
+        image_dpi: f64,
+        options: PsOptions,
+    ) -> Result<Self, VectorError> {
+        check_canvas(width, height, image_dpi)?;
+        Ok(Self {
+            width,
+            height,
+            image_dpi,
+            body: String::new(),
+            line: LineState::default(),
+            hatches: Vec::new(),
+            clip_paths: Vec::new(),
+            path_collection_id: 0,
+            tracker: CharacterTracker::new(options.fonttype.subset_size()),
+            fonts: FontCache::default(),
+            options,
+            psfrags: Vec::new(),
+            problems: Problems::default(),
+        })
+    }
+
+    /// The document: header comments, the prolog with the procedures and
+    /// fonts, then the drawing placed on the page (matplotlib's
+    /// `_print_figure`); with [`PsOptions::usetex`], the figure whose
+    /// texts LaTeX typesets ([`PsOutput::Psfrag`]).
+    ///
+    /// # Errors
+    ///
+    /// When a font met while drawing could not be embedded, or TeX could
+    /// not measure a usetex text.
+    pub fn finish(self) -> Result<PsOutput, VectorError> {
+        if self.options.usetex {
+            self.psfrag_figure().map(PsOutput::Psfrag)
+        } else {
+            self.write_document().map(PsOutput::Document)
+        }
+    }
+
+    /// The `%%Title`, `%%Creator` and `%%CreationDate` comments of the
+    /// metadata, one per line (matplotlib's `dsc_comments`).
+    fn dsc_comments(&self) -> String {
+        let metadata = &self.options.metadata;
+        let mut comments = String::new();
+        if let Some(title) = &metadata.title {
+            let ascii: String = title
+                .chars()
+                .map(|c| if c.is_ascii() { c } else { '?' })
+                .collect();
+            let _ = writeln!(comments, "%%Title: {ascii}");
+        }
+        if let Some(creator) = &metadata.creator {
+            let _ = writeln!(comments, "%%Creator: {creator}");
+        }
+        if let Some(date) = metadata.date {
+            let _ = writeln!(comments, "%%CreationDate: {}", date.ctime());
+        }
+        comments
+    }
+
+    /// The document of [`finish`](Self::finish) without usetex.
+    fn write_document(mut self) -> Result<PsDocument, VectorError> {
+        let (width, height) = (self.width, self.height);
+        let (paper_width, paper_height) = match (self.options.eps, self.options.paper) {
+            (false, Paper::Named { width, height, .. }) => match self.options.orientation {
+                PageOrientation::Portrait => (width, height),
+                PageOrientation::Landscape => (height, width),
+            },
+            _ => (width, height),
+        };
+        let (mut xo, mut yo) = (
+            72.0 * 0.5 * (paper_width - width),
+            72.0 * 0.5 * (paper_height - height),
+        );
+        let (mut llx, mut lly) = (xo, yo);
+        let (mut urx, mut ury) = (llx + width * 72.0, lly + height * 72.0);
+        let landscape = self.options.orientation == PageOrientation::Landscape;
+        if landscape {
+            (llx, lly, urx, ury) = (lly, llx, ury, urx);
+            (xo, yo) = (72.0 * paper_height - yo, xo);
+        }
+        let mut out = String::new();
+        if self.options.eps {
+            out.push_str("%!PS-Adobe-3.0 EPSF-3.0\n");
+        } else {
+            out.push_str("%!PS-Adobe-3.0\n");
+            if let Paper::Named { name, .. } = self.options.paper {
+                let _ = writeln!(out, "%%DocumentPaperSizes: {name}");
+            }
+            out.push_str("%%Pages: 1\n");
+        }
+        out.push_str("%%LanguageLevel: 3\n");
+        out.push_str(&self.dsc_comments());
+        let bbox = Bbox::from_extents(llx, lly, urx, ury);
+        let _ = writeln!(
+            out,
+            "%%Orientation: {}\n{}\n%%EndComments",
+            self.options.orientation.name(),
+            dsc::bbox_header(&bbox)
+        );
+        // With `ps.useafm` matplotlib embeds no font, not even the fonts
+        // mathtext was drawn with.
+        let fonts: Vec<_> = if self.options.afm {
+            Vec::new()
+        } else {
+            self.tracker
+                .fonts()
+                .map(|(id, subsets)| (id, subsets.to_vec()))
+                .collect()
+        };
+        let dictionary_size = PS_DEFS.len() + fonts.iter().map(|(_, s)| s.len()).sum::<usize>();
+        let _ = writeln!(
+            out,
+            "%%BeginProlog\n/mpldict {dictionary_size} dict def\nmpldict begin\n{}",
+            PS_DEFS.join("\n")
+        );
+        for (id, subsets) in fonts {
+            let font = self.fonts.get(id)?;
+            for (index, subset) in subsets.iter().enumerate().filter(|(_, s)| !s.is_empty()) {
+                match self.options.fonttype {
+                    FontType::Type3 => out.push_str(&fonts::type3_font(font, index, subset)),
+                    FontType::Type42 => out.push_str(&type42::type42_font(font, index, subset)?),
+                }
+            }
+        }
+        out.push_str("end\n%%EndProlog\n");
+        if !self.options.eps {
+            out.push_str("%%Page: 1 1\n");
+        }
+        let _ = writeln!(out, "mpldict begin\n{} translate", draw::nums(&[xo, yo]));
+        if landscape {
+            out.push_str("90 rotate\n");
+        }
+        let _ = writeln!(
+            out,
+            "0 0 {} rectclip\n{}\nend\nshowpage",
+            draw::nums(&[width * 72.0, height * 72.0]),
+            self.body
+        );
+        if !self.options.eps {
+            out.push_str("%%EOF\n");
+        }
+        self.problems.into_result(PsDocument { text: out, bbox })
+    }
+}
+
+/// The procedures of `mpldict` (`_psDefs`).
+const PS_DEFS: [&str; 8] = [
+    "/_d { bind def } bind def",
+    "/m { moveto } _d",
+    "/l { lineto } _d",
+    "/r { rlineto } _d",
+    "/c { curveto } _d",
+    "/cl { closepath } _d",
+    "/ce { closepath eofill } _d",
+    "/sc { setcachedevice } _d",
+];
+
+impl Renderer for PsRenderer {
+    fn canvas_size(&self) -> (f64, f64) {
+        (self.width * 72.0, self.height * 72.0)
+    }
+
+    /// The image resolution, as matplotlib's `MixedModeRenderer.dpi`.
+    fn dpi(&self) -> f64 {
+        self.image_dpi
+    }
+
+    /// Lengths are points already.
+    fn points_to_pixels(&self, points: f64) -> f64 {
+        points
+    }
+
+    fn draw_path(
+        &mut self,
+        gc: &GraphicsContext,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        self.ps_path(gc, path, *transform, fill);
+    }
+
+    fn draw_markers(
+        &mut self,
+        gc: &GraphicsContext,
+        marker: &Path,
+        marker_transform: &Affine2D,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        self.ps_markers(gc, marker, *marker_transform, path, *transform, fill);
+    }
+
+    fn draw_path_collection(&mut self, gc: &GraphicsContext, collection: &PathCollection<'_>) {
+        self.ps_path_collection(gc, collection);
+    }
+
+    fn draw_gouraud_triangles(
+        &mut self,
+        _gc: &GraphicsContext,
+        triangles: &[[Point; 3]],
+        colors: &[[Rgba; 3]],
+        transform: &Affine2D,
+    ) {
+        self.ps_gouraud_triangles(triangles, colors, *transform);
+    }
+
+    fn draw_image(
+        &mut self,
+        gc: &GraphicsContext,
+        origin: Point,
+        image: &RgbaImage,
+        transform: Option<&Affine2D>,
+    ) {
+        self.ps_image(gc, origin, image, transform.copied());
+    }
+
+    fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
+        self.ps_text(gc, run, origin, angle);
+    }
+
+    fn draw_tex(
+        &mut self,
+        gc: &GraphicsContext,
+        _run: &TextRun,
+        tex: &TexText,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), TexError> {
+        self.ps_tex(gc, tex, origin, angle)
+    }
+
+    fn option_image_nocomposite(&self) -> bool {
+        !self.options.composite_images
+    }
+
+    fn option_scale_image(&self) -> bool {
+        true
+    }
+
+    fn image_magnification(&self) -> f64 {
+        self.image_dpi / 72.0
+    }
+}
+
+#[cfg(test)]
+mod tests;

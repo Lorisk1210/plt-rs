@@ -2,7 +2,7 @@
 A module for reading dvi files output by TeX, and the files of the TeX
 installation they refer to (matplotlib's ``dviread``).
 
-plt-rs reads them itself (plt-text's usetex), and finds TeX's files with
+pltrs (Rust) reads them itself (pltrs-text's usetex), and finds TeX's files with
 kpathsea, as matplotlib does.
 """
 

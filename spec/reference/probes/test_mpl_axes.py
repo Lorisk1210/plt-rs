@@ -103,7 +103,7 @@ Ops
     of ``bxp(boxplot_stats(data), ...)`` on a log y axis, or the error
     (``test_bxp_bad_widths``, ``test_bxp_bad_positions``,
     ``test_bxp_bad_capwidths``; the bad widths and cap widths are two
-    values for four boxes rather than one, which plt-rs reads as one value
+    values for four boxes rather than one, which pltrs reads as one value
     for every box).
 ``Axes.violinplot``  {data, positions?, widths?, quantiles?, facecolor?,
     linecolor?, showmeans?, showmedians?} -> {bodies, alphas, lines}: the
@@ -394,7 +394,7 @@ Ops
     text after plotting values near 1e27 that differ by 1e-12 relatively
     (``test_large_offset``).
 ``Axes.barbs.dates``  {kind} -> {xlim, datalim} after ``barbs`` (``quiver``)
-    at datetimes, given as date numbers in plt-rs (``test_barb_units``,
+    at datetimes, given as date numbers in pltrs (``test_barb_units``,
     ``test_quiver_units``).
 ``Figure.savefig.pdf``  {} -> whether a PDF with a rasterised line under a
     rasterisation z-order starts with ``%PDF``
@@ -498,7 +498,7 @@ structured arrays and ``data=``), ``test_marker_as_markerstyle`` (a
 ``test_hist_float16`` (numpy error states, read-only masks and float16);
 pandas inputs (``test_boxplot_dates_pandas``, ``test_pcolor_regression``,
 ``test_bar_pandas``, ``test_bar_pandas_indexed``, ``test_pandas_minimal_plot``,
-``test_grouped_bar_dataframe``); warnings, which plt-rs does not emit
+``test_grouped_bar_dataframe``); warnings, which pltrs does not emit
 (``test_plot_format_kwarg_redundant``, ``test_stairs_no_baseline_fill_warns``,
 ``test_scatter_color_warning``, ``test_parse_c_facecolor_warning_direct``,
 ``test_scatter_c_facecolor_warning_integration``, the non-monotonic grids of
@@ -510,7 +510,7 @@ inputs Rust's types rule out: 2-D data (``test_fill_between_input``,
 (``test_xerr_yerr_not_none``, the ``None`` width of
 ``test_scatter_linewidths`` and colour of ``test_eventplot_colors``),
 numbers as labels (``0`` and ``[0]`` in ``test_hist_labels``), masked
-coordinates (``test_pcolorargs``), timedeltas and datetimes where plt-rs
+coordinates (``test_pcolorargs``), timedeltas and datetimes where pltrs
 takes numbers (``test_hist_timedelta_raises``, the timedelta error of
 ``test_xerr_yerr_not_negative``, ``test_datetime_positions_with_datetime64``,
 ``test_datetime_positions_with_float_widths_raises``,
@@ -532,7 +532,7 @@ Left out of the second half: Python mechanics: ``test_secondary_repr``
 ``test_spines_properbbox_after_zoom`` (the private ``titleOffsetTrans`` and
 ``_set_view_from_bbox``; the ``navigation`` area covers zooming),
 ``test_cla_clears_children_axes_and_fig`` (the ``axes`` and ``figure`` of
-removed artists, whose plt-rs handles are invalid once removed);
+removed artists, whose pltrs handles are invalid once removed);
 keywords and calling conventions typed options rule out:
 ``test_specgram_origin_kwarg``, ``test_set_ticks_kwargs_raise_error_without_labels``,
 ``test_color_alias`` (``c=``), ``test_shared_bool``, ``test_axis_errors``,
@@ -541,7 +541,7 @@ the argument checks of ``test_axline_args`` and ``test_secondary_fail``
 ``set_yticks`` of a secondary x axis in ``test_secondary_init_xticks``,
 ``fmt=10`` in ``test_bar_label_fmt_error`` and callable formats in
 ``test_bar_label_fmt``, ``test_grid`` (``grid()`` with ``visible=None``
-toggling; plt-rs's ``grid`` takes the visibility) and the
+toggling; pltrs's ``grid`` takes the visibility) and the
 ``grid(color=...)`` of ``test_reset_grid`` that turns the grid on, the
 list and tuple arithmetic and ``IndexError`` of ``test_artist_sublists``;
 ``data=`` (``test_automatic_legend``, the data variants of
@@ -557,7 +557,7 @@ as span limits (``test_axline_minmax``), ``None``, 2-D and 3-D data
 (``test_numerical_hist_label``), a scalar as event positions in
 ``test_eventplot_errors``, and the multi-group calls of
 ``test_plot_format``. Also left out: ``test_wrong_use_colorizer``
-(plt-rs's colour options are one value holding the norm, colormap and
+(pltrs's colour options are one value holding the norm, colormap and
 limits, so a colorizer cannot be combined with them; a norm with limits is
 rejected as ``test_imshow_norm_vminvmax`` checks).
 """

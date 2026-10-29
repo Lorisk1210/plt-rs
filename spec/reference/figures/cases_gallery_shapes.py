@@ -26,7 +26,7 @@ Not ported: the second and third figures of
 ``make_room_for_ylabel_using_axesgrid``. Each axes there makes room for
 the decorations of axes drawn after it, and measuring an axes puts it back
 at its original position once it has been drawn, so the positions
-matplotlib reports after drawing are not where it drew those axes (plt-rs
+matplotlib reports after drawing are not where it drew those axes (pltrs
 reports where it drew them; ``toolkits/auto_adjustable_area_shared``
 covers the layout without the side effect).
 """

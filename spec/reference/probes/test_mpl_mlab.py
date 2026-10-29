@@ -78,7 +78,7 @@ numpy's negative axes; ``axis=1`` is probed),
 ``test_single_spectrum_helper_unsupported_modes`` and the ``y is x`` half of
 ``test_spectral_helper_raises`` (a private helper and Python object
 identity), the 32-bit ``sys.maxsize`` variant of ``test_csd``, the warning
-of ``test_specgram_warn_only1seg`` (plt-rs has no warnings; its values are
+of ``test_specgram_warn_only1seg`` (pltrs has no warnings; its values are
 probed), ``TestGaussianKDECustom.test_callable_covariance_dataset`` (a
 Python callable bandwidth).
 """

@@ -3,11 +3,11 @@
 
 use std::f64::consts::PI;
 
-use plt::dates::{AutoDateLocator, ConciseDateFormatter, DateRange, DateTime, TimeDelta};
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
-use plt_examples::Samples;
+use pltrs::dates::{AutoDateLocator, ConciseDateFormatter, DateRange, DateTime, TimeDelta};
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
+use pltrs_examples::Samples;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let first = DateTime::new(2024, 1, 1, 0, 0, 0, 0)?;

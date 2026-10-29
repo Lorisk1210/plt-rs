@@ -16,10 +16,10 @@ Ops
     figure either way.
 
 Left out, besides the tests the ``artist_behaviour`` area lists: the
-parts of ``test_get_figure`` about artists outside any figure (a plt-rs
+parts of ``test_get_figure`` about artists outside any figure (a pltrs
 artist always belongs to one), about the deprecated ``get_figure()``
 without ``root`` and about the ``figure`` attribute, which matplotlib
-makes the parent for axes but the root for subfigures (plt-rs's
+makes the parent for axes but the root for subfigures (pltrs's
 ``figure()`` is always the root, ``parent_figure()`` the parent).
 """
 

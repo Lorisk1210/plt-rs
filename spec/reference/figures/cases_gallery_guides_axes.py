@@ -24,7 +24,7 @@ included), the ``plot_children`` figures of the constrained layout guide
 (they draw through the private ``matplotlib._layoutgrid``), the cells
 that only print, ``arranging_axes_4`` (its left column's tick at x = 0.5
 falls on the pixel boundary 137.5 px, which kiwisolver's round-off in the
-constrained layout puts 3e-14 px below and plt-rs's exact solution right
+constrained layout puts 3e-14 px below and pltrs's exact solution right
 on, so the tick snaps to different pixels) and ``arranging_axes_14`` (kiwisolver
 solves its 144 nested axes with a round-off that changes from run to run,
 moving about a hundred pixels: matplotlib does not reproduce its own

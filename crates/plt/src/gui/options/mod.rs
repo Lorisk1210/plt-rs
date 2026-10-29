@@ -5,6 +5,7 @@
 mod artists;
 mod axes_page;
 mod fields;
+mod general;
 
 use plt_platform::{Context, WindowEvent, WindowId};
 use plt_ui::{Dropdown, Flex, Label, Spacing, Stack, Swatch, TextInput, UiWindow, WidgetId};

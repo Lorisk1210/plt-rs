@@ -170,6 +170,19 @@ impl Collection {
         self.update(|c| c.hatch = Some(pattern))
     }
 
+    /// Removes the hatch pattern (matplotlib's `set_hatch(None)`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let points = Figure::new().subplot().scatter([0.0], [0.0])?;
+    /// points.set_hatch("//").clear_hatch();
+    /// assert_eq!(points.style().hatch, None);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn clear_hatch(&self) -> &Self {
+        self.update(|c| c.hatch = None)
+    }
+
     /// Sets the hatch colours: the edge colours, or explicit colours
     /// cycled over the items (matplotlib's `set_hatchcolor`).
     pub fn set_hatchcolors(&self, colors: HatchColors) -> &Self {

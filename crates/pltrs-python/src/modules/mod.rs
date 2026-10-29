@@ -30,20 +30,24 @@ mod cm;
 mod collections;
 mod colorbar;
 mod colors;
+mod contour;
 mod dates;
 mod dviread;
 mod figure;
 mod font_manager;
 mod ft2font;
+mod held;
 mod image;
 mod legend;
 mod lines;
 mod markers;
 mod mathtext;
 mod mlab;
+mod patch_styles;
 mod patches;
 mod path;
 mod patheffects;
+mod plotting;
 mod rcsetup;
 mod scale;
 mod testing;
@@ -52,6 +56,7 @@ mod text;
 mod textpath;
 mod ticker;
 mod transforms;
+mod tri;
 
 use crate::binding::{Module, PyResult};
 
@@ -71,19 +76,23 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     collections::register(&module.submodule("collections")?)?;
     colorbar::register(&module.submodule("colorbar")?)?;
     colors::register(&module.submodule("colors")?)?;
+    contour::register(&module.submodule("contour")?)?;
     dates::register(&module.submodule("dates")?)?;
     dviread::register(&module.submodule("dviread")?)?;
     figure::register(&module.submodule("figure")?)?;
     font_manager::register(&module.submodule("font_manager")?)?;
     image::register(&module.submodule("image")?)?;
     ft2font::register(&module.submodule("ft2font")?)?;
+    held::register(&module.submodule("held")?)?;
     legend::register(&module.submodule("legend")?)?;
     lines::register(&module.submodule("lines")?)?;
     markers::register(&module.submodule("markers")?)?;
     mathtext::register(&module.submodule("mathtext")?)?;
     mlab::register(&module.submodule("mlab")?)?;
+    patch_styles::register(&module.submodule("patch_styles")?)?;
     patches::register(&module.submodule("patches")?)?;
     path::register(&module.submodule("path")?)?;
+    plotting::register(&module.submodule("plotting")?)?;
     patheffects::register(&module.submodule("patheffects")?)?;
     rcsetup::register(&module.submodule("rcsetup")?)?;
     scale::register(&module.submodule("scale")?)?;
@@ -93,6 +102,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     textpath::register(&module.submodule("textpath")?)?;
     ticker::register(&module.submodule("ticker")?)?;
     transforms::register(&module.submodule("transforms")?)?;
+    tri::register(&module.submodule("tri")?)?;
     Ok(())
 }
 
@@ -162,18 +172,13 @@ mod tests {
             let kwargs = eval(py, "", "{'linewidth': 2.0, 'label': 'line'}");
             let line = call(
                 &native,
-                "axes",
+                "plotting",
                 "plot",
                 &[axes, x.clone(), x, Bound::none(py), kwargs],
             )
             .unwrap();
-            let width = call(
-                &native,
-                "lines",
-                "get_linewidth",
-                std::slice::from_ref(&line),
-            )
-            .unwrap();
+            let name = "linewidth".into_py(py).unwrap();
+            let width = call(&native, "lines", "get", &[line.clone(), name]).unwrap();
             assert_eq!(width.extract::<f64>().unwrap(), 2.0);
             let id = call(&native, "artist", "id", &[line])
                 .unwrap()

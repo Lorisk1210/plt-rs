@@ -28,7 +28,7 @@ impl From<MarkerError> for PyErr {
 }
 
 /// The marker `(kind, value)` describes.
-fn marker(spec: &Bound<'_>) -> PyResult<Marker> {
+pub(super) fn marker_of_spec(spec: &Bound<'_>) -> PyResult<Marker> {
     let (kind, value): (String, Bound<'_>) = spec.extract()?;
     Ok(match kind.as_str() {
         "code" => match value.extract::<String>() {
@@ -67,7 +67,7 @@ fn resolve(
     capstyle: Option<String>,
     joinstyle: Option<String>,
 ) -> PyResult<Resolved> {
-    let marker = Python::with_gil(|py| marker(&spec.bind(py)))?;
+    let marker = Python::with_gil(|py| marker_of_spec(&spec.bind(py)))?;
     let fillstyle = FillStyle::from_str(&fillstyle)?;
     let capstyle = capstyle
         .map(|name| {

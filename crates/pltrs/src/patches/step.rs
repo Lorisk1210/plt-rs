@@ -44,8 +44,8 @@ impl fmt::Display for StepPatchError {
         match self {
             Self::EdgeCount { edges, values } => write!(
                 f,
-                "size mismatch between \"values\" and \"edges\": expected `len(values) + 1 == \
-                 len(edges)`, but `len(values) = {values}` and `len(edges) = {edges}`"
+                "Size mismatch between \"values\" and \"edges\". Expected `len(values) + 1 == \
+                 len(edges)`, but `len(values) = {values}` and `len(edges) = {edges}`."
             ),
             Self::NanEdge => f.write_str("Nan values in \"edges\" are disallowed"),
             Self::BaselineCount { baseline, values } => {

@@ -117,6 +117,22 @@ impl<S: PatchShape> Patch<S> {
         self.read(|p| p.style.clone())
     }
 
+    /// Changes the edge/face/hatch properties with `f`; a field set back
+    /// to `None` takes its default again (matplotlib's setters given
+    /// `None`), which the edge colour re-derives from the fill.
+    ///
+    /// ```
+    /// use pltrs::patches::Rectangle;
+    /// use pltrs::prelude::*;
+    /// let patch = Figure::new().subplot().add_patch(Rectangle::new((0.0, 0.0), 1.0, 1.0));
+    /// patch.set_edgecolor("red");
+    /// patch.update_style(|style| style.edgecolor = None);
+    /// assert_eq!(patch.style().edgecolor, None);
+    /// ```
+    pub fn update_style(&self, f: impl FnOnce(&mut PatchStyle)) -> &Self {
+        self.update(|p| f(&mut p.style))
+    }
+
     /// The edge width in points: the one set, else `patch.linewidth`
     /// (matplotlib's `get_linewidth`).
     pub fn linewidth(&self) -> f64 {

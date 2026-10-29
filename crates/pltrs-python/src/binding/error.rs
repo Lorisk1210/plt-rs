@@ -31,6 +31,8 @@ pub(crate) enum ExceptionKind {
     TypeError,
     /// `KeyError`: an unknown key (rcParams, style names, ...).
     KeyError,
+    /// `IndexError`: an index out of range (a contour level, a position or a value beyond a table).
+    IndexError,
     /// `AttributeError`: an unknown attribute or property.
     AttributeError,
     /// `RuntimeError`: an operation that cannot run now.
@@ -45,8 +47,6 @@ pub(crate) enum ExceptionKind {
     NotImplementedError,
     /// `SystemError`: a broken promise of the C API.
     SystemError,
-    /// `IndexError`: a position or a value beyond a table.
-    IndexError,
 }
 
 impl ExceptionKind {
@@ -59,6 +59,7 @@ impl ExceptionKind {
                 Self::ValueError => ffi::PyExc_ValueError,
                 Self::TypeError => ffi::PyExc_TypeError,
                 Self::KeyError => ffi::PyExc_KeyError,
+                Self::IndexError => ffi::PyExc_IndexError,
                 Self::AttributeError => ffi::PyExc_AttributeError,
                 Self::RuntimeError => ffi::PyExc_RuntimeError,
                 Self::OSError => ffi::PyExc_OSError,
@@ -66,7 +67,6 @@ impl ExceptionKind {
                 Self::OverflowError => ffi::PyExc_OverflowError,
                 Self::NotImplementedError => ffi::PyExc_NotImplementedError,
                 Self::SystemError => ffi::PyExc_SystemError,
-                Self::IndexError => ffi::PyExc_IndexError,
             }
         }
     }

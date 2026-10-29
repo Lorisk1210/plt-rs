@@ -351,7 +351,38 @@ macro_rules! artist_handle {
     )*};
 }
 
-pub(crate) use {artist_handle, native_value};
+/// [`artist_handle!`] for handle types that pltrs (Rust) can recover from
+/// an untyped handle ([`TypedHandle`](pltrs::artist::TypedHandle)): a
+/// native function taking one also accepts the native object of the same
+/// artist made with another handle type (a [`RawHandle`] from a list of
+/// children, say), and raises `TypeError` for an artist of another kind.
+macro_rules! typed_artist_handle {
+    ($($ty:ty),* $(,)?) => {$(
+        impl $crate::binding::FromPy<'_> for $ty {
+            fn from_py(object: &$crate::binding::Bound<'_>) -> $crate::binding::PyResult<Self> {
+                if let Ok(native) = object.extract::<$crate::binding::Native<$ty>>() {
+                    let handle = native.borrow().clone();
+                    return Ok(handle);
+                }
+                let raw: pltrs::artist::RawHandle = object.extract()?;
+                <$ty as pltrs::artist::TypedHandle>::from_raw_handle(&raw).ok_or_else(|| {
+                    $crate::binding::PyErr::type_error(format!(
+                        "expected a native {} handle",
+                        $crate::binding::short_name(std::any::type_name::<$ty>())
+                    ))
+                })
+            }
+        }
+
+        impl $crate::binding::IntoPy for $ty {
+            fn into_py(self, py: $crate::binding::Python<'_>) -> $crate::binding::PyResult<$crate::binding::Bound<'_>> {
+                $crate::binding::wrap_artist(py, self)
+            }
+        }
+    )*};
+}
+
+pub(crate) use {artist_handle, native_value, typed_artist_handle};
 
 #[cfg(test)]
 mod tests {

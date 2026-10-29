@@ -1,32 +1,262 @@
-//! `_native.lines`: `Line2D` (matplotlib's `lines`), and the line
-//! properties plotting functions take as keyword arguments.
+//! `_native.lines`: `Line2D` (matplotlib's `lines`), the line properties
+//! plotting functions take as keyword arguments, and the conversions of
+//! the style values lines share with patches and collections (line
+//! styles, cap and join styles, `markevery`).
 
+use std::str::FromStr;
+
+use pltrs::artist::ArtistHandle;
 use pltrs::colors::Color;
-use pltrs::lines::{FormatStringError, Line2D, LineProps, LineStyle};
-use pltrs::markers::Marker;
+use pltrs::lines::{
+    DrawStyle, FormatStringError, Line2D, LineProps, LineStyle, MarkEvery, StepError,
+};
+use pltrs::markers::{FillStyle, Marker, MarkerStyle, MarkerSymbol};
+use pltrs::rc::ColorOrAuto;
+use pltrs_render::{CapStyle, JoinStyle};
 
+use super::markers::marker_of_spec;
+use super::path::{PathArrays, path_arrays};
+use super::transforms::{affine, matrix};
 use crate::binding::prelude::*;
 use crate::binding::{NdArray, dict_items};
 
-artist_handle!(Line2D);
+typed_artist_handle!(Line2D);
 
 impl From<FormatStringError> for PyErr {
-    /// matplotlib's `ValueError` for a bad format string.
+    /// matplotlib's `ValueError` for a bad format string, which quotes it
+    /// as Python's `repr` does.
     fn from(err: FormatStringError) -> Self {
+        let quoted = Python::with_gil(|py| err.format.as_str().into_py(py)?.repr())
+            .unwrap_or_else(|_| format!("{:?}", err.format));
+        PyErr::value_error(format!(
+            "{quoted} is not a valid format string ({})",
+            err.reason
+        ))
+    }
+}
+
+impl From<StepError> for PyErr {
+    /// matplotlib's `ValueError` for an unknown draw style.
+    fn from(err: StepError) -> Self {
         PyErr::value_error(err.to_string())
     }
 }
 
 /// Parses a keyword's string value, raising `ValueError` with pltrs (Rust)'s
 /// reason.
-fn parse<T: std::str::FromStr<Err: std::fmt::Display>>(object: &Bound<'_>) -> PyResult<T> {
+pub(super) fn parse<T: FromStr<Err: std::fmt::Display>>(object: &Bound<'_>) -> PyResult<T> {
     let text: String = object.extract()?;
     text.parse()
         .map_err(|err: T::Err| PyErr::value_error(err.to_string()))
 }
 
+/// A line style as matplotlib takes it: a name or short form (`"--"`),
+/// or an `(offset, on-off sequence)` tuple whose sequence may be `None`.
+pub(super) struct PyLineStyle(pub(super) LineStyle);
+
+impl FromPy<'_> for PyLineStyle {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        if object.extract::<String>().is_ok() {
+            return parse(object).map(Self);
+        }
+        let invalid = || {
+            PyErr::value_error(format!(
+                "{} is not a valid value for ls; supported values are '-', '--', '-.', ':', \
+                 'None', ' ', '', 'solid', 'dashed', 'dashdot', 'dotted'",
+                object.repr().unwrap_or_default()
+            ))
+        };
+        let (offset, pattern): (f64, Option<Vec<f64>>) = object.extract().map_err(|_| invalid())?;
+        if pattern
+            .as_ref()
+            .is_some_and(|pattern| pattern.iter().any(|&v| v < 0.0 || !v.is_finite()))
+        {
+            return Err(PyErr::value_error(
+                "All values in the dash list must be non-negative",
+            ));
+        }
+        if pattern
+            .as_ref()
+            .is_some_and(|pattern| !pattern.is_empty() && pattern.iter().all(|&v| v == 0.0))
+        {
+            return Err(PyErr::value_error(
+                "At least one value in the dash list must be positive",
+            ));
+        }
+        Ok(Self(LineStyle::Dashes { offset, pattern }))
+    }
+}
+
+impl IntoPy for PyLineStyle {
+    /// matplotlib's spelling: the short form of a named style, else the
+    /// `(offset, sequence)` tuple.
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        match self.0 {
+            LineStyle::Dashes { offset, pattern } => (offset, pattern).into_py(py),
+            named => named.to_string().into_py(py),
+        }
+    }
+}
+
+/// A cap style by matplotlib's name.
+pub(super) fn cap_style(object: &Bound<'_>) -> PyResult<CapStyle> {
+    let name: String = object.str()?;
+    CapStyle::from_name(&name)
+        .ok_or_else(|| PyErr::value_error(format!("{name:?} is not a valid CapStyle")))
+}
+
+/// A join style by matplotlib's name.
+pub(super) fn join_style(object: &Bound<'_>) -> PyResult<JoinStyle> {
+    let name: String = object.str()?;
+    JoinStyle::from_name(&name)
+        .ok_or_else(|| PyErr::value_error(format!("{name:?} is not a valid JoinStyle")))
+}
+
+/// matplotlib's `markevery`: an integer, an `(start, step)` pair of
+/// integers or of floats, a float, a slice, a list of indices or a mask.
+struct PyMarkEvery(MarkEvery);
+
+impl FromPy<'_> for PyMarkEvery {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let invalid = || {
+            PyErr::value_error(format!(
+                "markevery={} is not a recognized value",
+                object.repr().unwrap_or_default()
+            ))
+        };
+        if object.type_name() == "slice" {
+            let field = |name| object.getattr(name)?.extract::<Option<i64>>();
+            return Ok(Self(MarkEvery::Slice {
+                start: field("start")?,
+                stop: field("stop")?,
+                step: field("step")?,
+            }));
+        }
+        if is_integer(object) {
+            return Ok(Self(MarkEvery::Every {
+                start: 0,
+                step: object.extract()?,
+            }));
+        }
+        if object.type_name().starts_with("float") {
+            return Ok(Self(MarkEvery::Distance {
+                start: 0.0,
+                step: object.extract()?,
+            }));
+        }
+        let items: Vec<Bound<'_>> = object.extract().map_err(|_| invalid())?;
+        if items.len() == 2 && items.iter().all(is_integer) {
+            return Ok(Self(MarkEvery::Every {
+                start: items[0].extract()?,
+                step: items[1].extract()?,
+            }));
+        }
+        if items.len() == 2
+            && items
+                .iter()
+                .all(|item| item.type_name().starts_with("float"))
+        {
+            return Ok(Self(MarkEvery::Distance {
+                start: items[0].extract()?,
+                step: items[1].extract()?,
+            }));
+        }
+        if !items.is_empty()
+            && items
+                .iter()
+                .all(|item| item.type_name().starts_with("bool"))
+        {
+            return Ok(Self(MarkEvery::Mask(
+                items.iter().map(Bound::extract).collect::<PyResult<_>>()?,
+            )));
+        }
+        if items.iter().all(is_integer) {
+            return Ok(Self(MarkEvery::Indices(
+                items.iter().map(Bound::extract).collect::<PyResult<_>>()?,
+            )));
+        }
+        Err(invalid())
+    }
+}
+
+/// Whether `object` is an integer (Python's or numpy's, not a bool).
+fn is_integer(object: &Bound<'_>) -> bool {
+    let name = object.type_name();
+    name == "int" || (name.starts_with("int") || name.starts_with("uint")) && name != "bool"
+}
+
+/// `markevery` back as matplotlib's values.
+fn markevery_object(py: Python<'_>, every: Option<MarkEvery>) -> PyResult<Bound<'_>> {
+    match every {
+        None => Ok(Bound::none(py)),
+        Some(MarkEvery::Every { start: 0, step }) => step.into_py(py),
+        Some(MarkEvery::Every { start, step }) => (start, step).into_py(py),
+        Some(MarkEvery::Distance { start, step }) => (start, step).into_py(py),
+        Some(MarkEvery::Indices(indices)) => indices.into_py(py),
+        Some(MarkEvery::Mask(mask)) => mask.into_py(py),
+        Some(MarkEvery::Slice { start, stop, step }) => (start, stop, step).into_py(py),
+    }
+}
+
+/// A marker as the Python side passes it: the `(kind, value)` spec of a
+/// `MarkerStyle` (see `_native.markers`), its fill style, its user
+/// transform's matrix and its cap and join styles.
+pub(super) struct PyMarker {
+    marker: Marker,
+    fillstyle: FillStyle,
+    transform: Option<NdArray>,
+    capstyle: Option<CapStyle>,
+    joinstyle: Option<JoinStyle>,
+}
+
+impl FromPy<'_> for PyMarker {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let (spec, fillstyle, transform, capstyle, joinstyle): (
+            Bound<'_>,
+            String,
+            Option<NdArray>,
+            Option<Bound<'_>>,
+            Option<Bound<'_>>,
+        ) = object.extract()?;
+        Ok(Self {
+            marker: marker_of_spec(&spec)?,
+            fillstyle: fillstyle.parse()?,
+            transform,
+            capstyle: capstyle.as_ref().map(cap_style).transpose()?,
+            joinstyle: joinstyle.as_ref().map(join_style).transpose()?,
+        })
+    }
+}
+
+impl PyMarker {
+    /// The marker as a resolved style (what collections of markers take).
+    pub(super) fn style(&self) -> PyResult<MarkerStyle> {
+        let style = MarkerStyle::with_styles(
+            self.marker.clone(),
+            self.fillstyle,
+            self.capstyle,
+            self.joinstyle,
+        )?;
+        Ok(match &self.transform {
+            Some(matrix) => style.transformed(affine(matrix)?),
+            None => style,
+        })
+    }
+
+    /// `props` with the marker's properties.
+    fn apply(self, props: LineProps) -> PyResult<LineProps> {
+        Ok(props
+            .marker(self.marker)
+            .fillstyle(self.fillstyle)
+            .marker_transform(self.transform.as_ref().map(affine).transpose()?)
+            .marker_capstyle(self.capstyle)
+            .marker_joinstyle(self.joinstyle))
+    }
+}
+
 /// The line properties of a dict of `Line2D` keyword arguments, whose
-/// aliases the Python side has already resolved (`lw` is `linewidth`).
+/// aliases the Python side has already resolved (`lw` is `linewidth`)
+/// and whose markers it made `MarkerStyle` specs.
 #[derive(Clone, Debug, Default)]
 pub(super) struct LineKwargs(pub(super) LineProps);
 
@@ -35,26 +265,77 @@ impl FromPy<'_> for LineKwargs {
         let mut props = LineProps::default();
         for (key, value) in dict_items(object)? {
             let key: String = key.extract()?;
-            props = match key.as_str() {
-                "color" => props.color(value.extract::<Color>()?),
-                "linewidth" => props.linewidth(value.extract::<f64>()?),
-                "linestyle" => props.linestyle(parse::<LineStyle>(&value)?),
-                "marker" => props.marker(parse::<Marker>(&value)?),
-                "markersize" => props.markersize(value.extract::<f64>()?),
-                "label" => props.label(value.str()?),
-                "alpha" => props.alpha(value.extract::<f64>()?),
-                "zorder" => props.zorder(value.extract::<f64>()?),
-                "visible" => props.visible(value.extract::<bool>()?),
-                _ => {
-                    return Err(PyErr::new(
-                        ExceptionKind::AttributeError,
-                        format!("Line2D.set() got an unexpected keyword argument '{key}'"),
-                    ));
-                }
-            };
+            props = line_prop(props, &key, &value)?;
         }
         Ok(Self(props))
     }
+}
+
+/// `props` with the property `key` set to `value`.
+fn line_prop(props: LineProps, key: &str, value: &Bound<'_>) -> PyResult<LineProps> {
+    Ok(match key {
+        "color" => props.color(value.extract::<Color>()?),
+        "linewidth" => props.linewidth(value.extract::<f64>()?),
+        "linestyle" => props.linestyle(value.extract::<PyLineStyle>()?.0),
+        "drawstyle" => props.drawstyle(drawstyle(value)?),
+        "gapcolor" => props.gapcolor(optional_color(value)?),
+        "marker" => value.extract::<PyMarker>()?.apply(props)?,
+        "fillstyle" => props.fillstyle(parse::<FillStyle>(value)?),
+        "markersize" => props.markersize(value.extract::<f64>()?),
+        "markeredgewidth" => props.markeredgewidth(value.extract::<f64>()?),
+        "markeredgecolor" => props.markeredgecolor(color_or_auto(value)?),
+        "markerfacecolor" => props.markerfacecolor(color_or_auto(value)?),
+        "markerfacecoloralt" => props.markerfacecoloralt(optional_color(value)?),
+        "markevery" => {
+            props.markevery(value.extract::<Option<PyMarkEvery>>()?.map(|every| every.0))
+        }
+        "antialiased" => props.antialiased(value.extract::<bool>()?),
+        "pickradius" => props.pickradius(value.extract::<f64>()?),
+        "solid_capstyle" => props.solid_capstyle(cap_style(value)?),
+        "solid_joinstyle" => props.solid_joinstyle(join_style(value)?),
+        "dash_capstyle" => props.dash_capstyle(cap_style(value)?),
+        "dash_joinstyle" => props.dash_joinstyle(join_style(value)?),
+        "label" => props.label(value.str()?),
+        "alpha" => match value.extract::<Option<f64>>()? {
+            Some(alpha) => props.alpha(alpha),
+            None => props,
+        },
+        "zorder" => props.zorder(value.extract::<f64>()?),
+        "visible" => props.visible(value.extract::<bool>()?),
+        "clip_on" => props.clip_on(value.extract::<bool>()?),
+        _ => {
+            return Err(PyErr::new(
+                ExceptionKind::AttributeError,
+                format!("Line2D.set() got an unexpected keyword argument '{key}'"),
+            ));
+        }
+    })
+}
+
+/// A draw style by name, with matplotlib's message for others.
+fn drawstyle(value: &Bound<'_>) -> PyResult<DrawStyle> {
+    let name: String = value.extract()?;
+    name.parse().map_err(|_| {
+        PyErr::value_error(format!(
+            "{name:?} is not a valid value for drawstyle; supported values are 'default', \
+             'steps-mid', 'steps-pre', 'steps-post', 'steps'"
+        ))
+    })
+}
+
+/// A colour, `None` meaning `"none"`.
+fn optional_color(value: &Bound<'_>) -> PyResult<Color> {
+    Ok(value
+        .extract::<Option<Color>>()?
+        .unwrap_or_else(Color::none))
+}
+
+/// A colour or `"auto"`, `None` meaning `"auto"`.
+fn color_or_auto(value: &Bound<'_>) -> PyResult<ColorOrAuto> {
+    Ok(match value.extract::<Option<Color>>()? {
+        Some(color) => ColorOrAuto::from(color),
+        None => ColorOrAuto::Auto,
+    })
 }
 
 impl LineKwargs {
@@ -85,54 +366,133 @@ fn set_data(line: Line2D, x: NdArray, y: NdArray) -> PyResult<()> {
     Ok(())
 }
 
-/// The line colour, as it was given.
-fn get_color(line: Line2D) -> PyResult<Color> {
-    Ok(line.color())
-}
-
-/// Sets the line colour.
-fn set_color(line: Line2D, color: Color) -> PyResult<()> {
-    line.set_color(color);
+/// Sets the properties of a dict of keyword arguments (`Line2D.set`).
+fn update(line: Line2D, kwargs: LineKwargs) -> PyResult<()> {
+    line.update_props(kwargs.0);
     Ok(())
 }
 
-/// The line width in points.
-fn get_linewidth(line: Line2D) -> PyResult<f64> {
-    Ok(line.linewidth())
+/// The property `name` of the line, as matplotlib's `get_<name>` returns
+/// it: colours as given (`markeredgecolor` and `markerfacecolor`
+/// resolved as matplotlib resolves `"auto"`), styles by name.
+fn get(line: Line2D, name: String) -> PyResult<Owned> {
+    Python::with_gil(|py| {
+        let value = match name.as_str() {
+            "color" => line.color().into_py(py)?,
+            "linewidth" => line.linewidth().into_py(py)?,
+            "linestyle" => match line.linestyle() {
+                LineStyle::Dashes { .. } => "--".into_py(py)?,
+                named => named.to_string().into_py(py)?,
+            },
+            "dash_pattern" => PyLineStyle(line.linestyle()).into_py(py)?,
+            "drawstyle" => line.drawstyle().to_string().into_py(py)?,
+            "gapcolor" => gap_color(line.gapcolor()).into_py(py)?,
+            "marker" => marker_object(py, line.marker())?,
+            "fillstyle" => line.fillstyle().to_string().into_py(py)?,
+            "markersize" => line.markersize().into_py(py)?,
+            "markeredgewidth" => line.markeredgewidth().into_py(py)?,
+            "markeredgecolor" => line.effective_markeredgecolor().into_py(py)?,
+            "markerfacecolor" => line.effective_markerfacecolor().into_py(py)?,
+            "markerfacecoloralt" => line.markerfacecoloralt().into_py(py)?,
+            "markeredgecolor_setting" => color_setting(line.markeredgecolor()).into_py(py)?,
+            "markerfacecolor_setting" => color_setting(line.markerfacecolor()).into_py(py)?,
+            "markevery" => markevery_object(py, line.markevery())?,
+            "antialiased" => line.antialiased().into_py(py)?,
+            "pickradius" => line.pickradius().into_py(py)?,
+            "solid_capstyle" => line.solid_capstyle().name().into_py(py)?,
+            "solid_joinstyle" => line.solid_joinstyle().name().into_py(py)?,
+            "dash_capstyle" => line.dash_capstyle().name().into_py(py)?,
+            "dash_joinstyle" => line.dash_joinstyle().name().into_py(py)?,
+            "marker_transform" => line
+                .marker_transform()
+                .map(matrix)
+                .transpose()?
+                .into_py(py)?,
+            _ => {
+                return Err(PyErr::new(
+                    ExceptionKind::AttributeError,
+                    format!("'Line2D' object has no property '{name}'"),
+                ));
+            }
+        };
+        Ok(value.unbind())
+    })
 }
 
-/// Sets the line width in points.
-fn set_linewidth(line: Line2D, width: f64) -> PyResult<()> {
-    line.set_linewidth(width);
-    Ok(())
+/// A marker colour as set: `"auto"` or the colour.
+fn color_setting(color: ColorOrAuto) -> Color {
+    match color {
+        ColorOrAuto::Auto => Color::from("auto"),
+        ColorOrAuto::Color(color) => color,
+    }
 }
 
-/// The line style, as matplotlib spells it (`"--"`).
-fn get_linestyle(line: Line2D) -> PyResult<String> {
-    Ok(line.linestyle().to_string())
+/// The gap colour, `None` for `"none"` (matplotlib's default).
+fn gap_color(color: Color) -> Option<Color> {
+    (!color.is_none()).then_some(color)
 }
 
-/// Sets the line style from its name or short form.
-fn set_linestyle(line: Line2D, style: String) -> PyResult<()> {
-    let style: LineStyle =
-        style
-            .parse()
-            .map_err(|err: <LineStyle as std::str::FromStr>::Err| {
-                PyErr::value_error(err.to_string())
-            })?;
-    line.set_linestyle(style);
-    Ok(())
+/// A marker as matplotlib spells it: a named marker by its key (`"o"`,
+/// an integer code), `(sides, style, angle)` for polygons, the vertices,
+/// `("path", (vertices, codes))` for a path, or the mathtext.
+fn marker_object(py: Python<'_>, marker: Marker) -> PyResult<Bound<'_>> {
+    match marker {
+        Marker::Symbol(MarkerSymbol::Nothing) => "None".into_py(py),
+        Marker::Symbol(symbol) => match MarkerSymbol::all().find(|(_, s)| *s == symbol) {
+            Some((pltrs::markers::MarkerKey::Char(key), _)) => key.into_py(py),
+            Some((pltrs::markers::MarkerKey::Code(code), _)) => code.into_py(py),
+            None => "None".into_py(py),
+        },
+        Marker::Polygon {
+            sides,
+            style,
+            angle,
+        } => {
+            let code: i64 = match style {
+                pltrs::markers::PolygonStyle::Regular => 0,
+                pltrs::markers::PolygonStyle::Star => 1,
+                pltrs::markers::PolygonStyle::Asterisk => 2,
+            };
+            (sides, code, angle).into_py(py)
+        }
+        Marker::Vertices(vertices) => {
+            let shape = vec![vertices.len(), 2];
+            super::transforms::points_array(&vertices, shape)?.into_py(py)
+        }
+        Marker::Path(path) => ("path", path_arrays(&path, false)?).into_py(py),
+        Marker::Math(text) => text.into_py(py),
+    }
 }
 
-/// The marker size in points.
-fn get_markersize(line: Line2D) -> PyResult<f64> {
-    Ok(line.markersize())
+/// The path the line draws (its data through the draw style), as
+/// `(vertices, codes)`.
+fn get_path(line: Line2D) -> PyResult<PathArrays> {
+    path_arrays(&line.path()?, false)
 }
 
-/// Sets the marker size in points.
-fn set_markersize(line: Line2D, size: f64) -> PyResult<()> {
-    line.set_markersize(size);
-    Ok(())
+/// Whether the line is dashed (matplotlib's `is_dashed`).
+fn is_dashed(line: Line2D) -> PyResult<bool> {
+    Ok(!matches!(
+        line.linestyle(),
+        LineStyle::Solid | LineStyle::None
+    ))
+}
+
+/// The indices of the points that get markers.
+fn marker_indices(line: Line2D) -> PyResult<Vec<usize>> {
+    line.marker_indices()
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// The resolved RGBA colour of the line.
+fn get_rgba(line: Line2D) -> PyResult<(f64, f64, f64, f64)> {
+    let rgba = line.rgba()?;
+    Ok((rgba.r, rgba.g, rgba.b, rgba.a))
+}
+
+/// Whether the line is in its figure.
+fn is_attached(line: Line2D) -> PyResult<bool> {
+    Ok(line.raw().is_attached())
 }
 
 /// Registers the module's functions.
@@ -140,12 +500,11 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_xdata", get_xdata)?;
     module.add("get_ydata", get_ydata)?;
     module.add("set_data", set_data)?;
-    module.add("get_color", get_color)?;
-    module.add("set_color", set_color)?;
-    module.add("get_linewidth", get_linewidth)?;
-    module.add("set_linewidth", set_linewidth)?;
-    module.add("get_linestyle", get_linestyle)?;
-    module.add("set_linestyle", set_linestyle)?;
-    module.add("get_markersize", get_markersize)?;
-    module.add("set_markersize", set_markersize)
+    module.add("update", update)?;
+    module.add("get", get)?;
+    module.add("get_path", get_path)?;
+    module.add("is_dashed", is_dashed)?;
+    module.add("marker_indices", marker_indices)?;
+    module.add("get_rgba", get_rgba)?;
+    module.add("is_attached", is_attached)
 }

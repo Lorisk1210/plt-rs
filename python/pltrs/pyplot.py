@@ -512,3 +512,9 @@ def clim(vmin=None, vmax=None):
         raise RuntimeError('You must first define an image, e.g., with imshow')
 
     im.set_clim(vmin, vmax)
+
+
+# The wrappers of the plotting methods (plt.hist, plt.errorbar, ...).
+from ._pyplot_plotting import *  # noqa: E402,F401,F403
+from ._pyplot_plotting import __all__ as _plotting_all  # noqa: E402
+__all__ += _plotting_all

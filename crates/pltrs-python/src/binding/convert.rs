@@ -301,6 +301,9 @@ tuples! {
     2: (a: A, b: B);
     3: (a: A, b: B, c: C);
     4: (a: A, b: B, c: C, d: D);
+    5: (a: A, b: B, c: C, d: D, e: E);
+    6: (a: A, b: B, c: C, d: D, e: E, f: F);
+    7: (a: A, b: B, c: C, d: D, e: E, f: F, g: G);
 }
 
 impl<'py, V: FromPy<'py>> FromPy<'py> for BTreeMap<String, V> {

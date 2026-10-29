@@ -2,9 +2,7 @@
 //! `axes`).
 
 use pltrs::artist::ArtistHandle;
-use pltrs::axes::{Axes, BarOptions, PlotError, ScatterColors, ScatterOptions, TitleLocation};
-use pltrs::collections::Collection;
-use pltrs::colors::Color;
+use pltrs::axes::{Axes, PlotError, TitleLocation};
 use pltrs::legend::{Legend, LegendError, LegendOptions};
 use pltrs::lines::Line2D;
 use pltrs::patches::{Patch, Rectangle};
@@ -26,67 +24,6 @@ impl From<LegendError> for PyErr {
     fn from(err: LegendError) -> Self {
         PyErr::value_error(err.to_string())
     }
-}
-
-/// One line of `y` against `x` (one group of `plot`'s arguments), styled
-/// by the format string and the keyword arguments.
-fn plot(
-    axes: Axes,
-    x: NdArray,
-    y: NdArray,
-    fmt: Option<String>,
-    kwargs: LineKwargs,
-) -> PyResult<Line2D> {
-    let props = kwargs.over_format(fmt.as_deref())?;
-    Ok(axes.plot_with(x.into_vec()?, y.into_vec()?, props)?)
-}
-
-/// A scatter plot: marker areas in points², one colour for all markers
-/// (the next of the property cycle when `None`), a legend label.
-fn scatter(
-    axes: Axes,
-    x: NdArray,
-    y: NdArray,
-    sizes: Option<NdArray>,
-    color: Option<Color>,
-    label: Option<String>,
-) -> PyResult<Collection> {
-    let options = ScatterOptions {
-        sizes: sizes.map(NdArray::into_vec).transpose()?,
-        colors: color.map_or(ScatterColors::Cycle, ScatterColors::Single),
-        ..ScatterOptions::default()
-    };
-    let collection = axes.scatter_with(x.into_vec()?, y.into_vec()?, options)?;
-    if let Some(label) = label {
-        use pltrs::artist::ArtistHandle as _;
-        collection.set_label(label);
-    }
-    Ok(collection)
-}
-
-/// Vertical bars: their rectangles, and the bar values.
-fn bar(
-    axes: Axes,
-    x: NdArray,
-    height: NdArray,
-    width: NdArray,
-    bottom: Option<NdArray>,
-    color: Option<Color>,
-    label: Option<String>,
-) -> PyResult<(Vec<Patch<Rectangle>>, Vec<f64>)> {
-    let defaults = BarOptions::default();
-    let options = BarOptions {
-        thickness: width.into_vec()?.into(),
-        base: match bottom {
-            Some(bottom) => bottom.into_vec()?.into(),
-            None => defaults.base.clone(),
-        },
-        color: color.into_iter().collect(),
-        label,
-        ..defaults
-    };
-    let bars = axes.bar(x.into_vec()?, height.into_vec()?, options)?;
-    Ok((bars.patches, bars.datavalues))
 }
 
 /// Sets the title at the location `axes.titlelocation` names.
@@ -218,12 +155,9 @@ fn display_to_data(axes: Axes, x: f64, y: f64) -> PyResult<(f64, f64)> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("plot", plot)?;
     module.add("display_to_data", display_to_data)?;
     module.add("axline", axline)?;
     module.add("axspan", axspan)?;
-    module.add("scatter", scatter)?;
-    module.add("bar", bar)?;
     module.add("set_title", set_title)?;
     module.add("get_title", get_title)?;
     module.add("set_xlabel", set_xlabel)?;

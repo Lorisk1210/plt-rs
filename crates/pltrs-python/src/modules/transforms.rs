@@ -226,7 +226,7 @@ fn contains(points: NdArray, x: Option<f64>, y: Option<f64>, fully: bool) -> PyR
 }
 
 /// An anchor: a code (`"C"`, `"SW"`...) or fractions `(cx, cy)`.
-fn anchor(object: &Bound<'_>) -> PyResult<Anchor> {
+pub(super) fn anchor(object: &Bound<'_>) -> PyResult<Anchor> {
     if let Ok(code) = object.extract::<String>() {
         return Anchor::from_code(&code)
             .ok_or_else(|| PyErr::value_error(format!("Unknown anchor code {code:?}")));

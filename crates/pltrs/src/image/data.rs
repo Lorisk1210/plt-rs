@@ -43,6 +43,8 @@ pub struct ScalarField {
     values: Grid<f64>,
     masked: Grid<bool>,
     kind: ScalarKind,
+    /// The bits of the wider floats the values were narrowed from.
+    narrowed_from: Option<u16>,
 }
 
 impl ScalarField {
@@ -106,13 +108,38 @@ impl ScalarField {
         Self::with_kind(values.map(|&v| f64::from(v)), ScalarKind::Float32)
     }
 
+    /// Floating-point data narrowed to double precision from floats of
+    /// `bits` bits (numpy's `float128`), which matplotlib resamples in
+    /// double precision, warning that it casts them each time.
+    ///
+    /// ```
+    /// use pltrs::image::ScalarField;
+    /// use pltrs::numeric::Grid;
+    /// let field = ScalarField::narrowed(Grid::filled(2, 2, 0.5), 128);
+    /// assert_eq!(field.narrowed_from(), Some(128));
+    /// assert_eq!(ScalarField::new(Grid::filled(2, 2, 0.5)).narrowed_from(), None);
+    /// ```
+    pub fn narrowed(values: Grid<f64>, bits: u16) -> Self {
+        Self {
+            narrowed_from: Some(bits),
+            ..Self::new(values)
+        }
+    }
+
     fn with_kind(values: Grid<f64>, kind: ScalarKind) -> Self {
         let masked = values.map(|v| !v.is_finite());
         Self {
             values,
             masked,
             kind,
+            narrowed_from: None,
         }
+    }
+
+    /// The bits of the floats the values were narrowed from, if they were
+    /// (see [`ScalarField::narrowed`]).
+    pub fn narrowed_from(&self) -> Option<u16> {
+        self.narrowed_from
     }
 
     /// The values, including those under the mask.

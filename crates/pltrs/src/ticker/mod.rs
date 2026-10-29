@@ -44,7 +44,7 @@ pub(crate) use formatter::g_sig_digits;
 pub use formatter::{
     EngFormatter, FixedFormatter, FormatStrFormatter, FormattedTicks, Formatter, FuncFormatter,
     LogFormatter, LogLabelStyle, LogitFormatter, NullFormatter, OffsetMode, PercentFormatter,
-    ScalarFormatter, StrMethodFormatter, strip_math,
+    SI_PREFIXES, ScalarFormatter, StrMethodFormatter, strip_math,
 };
 pub use label_format::LabelFormat;
 pub(crate) use locator::drawable_ticks;

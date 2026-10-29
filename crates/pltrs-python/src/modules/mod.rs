@@ -61,6 +61,7 @@ mod textpath;
 mod ticker;
 mod transforms;
 mod tri;
+mod warnings;
 
 use crate::binding::{Module, PyResult};
 
@@ -112,6 +113,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     ticker::register(&module.submodule("ticker")?)?;
     transforms::register(&module.submodule("transforms")?)?;
     tri::register(&module.submodule("tri")?)?;
+    warnings::register(&module.submodule("warnings")?)?;
     Ok(())
 }
 

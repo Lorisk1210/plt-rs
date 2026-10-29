@@ -478,3 +478,10 @@ def warn_external(message, category=None):
     kwargs = {'skip_file_prefixes': (str(package),
                                      str(package.parent / 'mpl_toolkits'))}
     warnings.warn(message, category, **kwargs)
+
+
+# pltrs (Rust) issues its warnings through warn_external, looked up when it
+# warns (so that replacing it, as matplotlib's docstring suggests, works).
+from .._native import register as _register  # noqa: E402
+
+_register("warn_external", lambda message: warn_external(message))

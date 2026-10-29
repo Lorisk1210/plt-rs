@@ -270,3 +270,38 @@ def test_grids_and_legends_keep_matplotlibs_api():
     legend = ax.legend(loc="upper left")
     assert [t.get_text() for t in legend.get_texts()] == ["a"]
     assert legend._loc == 2 and ax.get_legend() is legend
+
+
+def test_norms_of_other_classes_map_images_through_python():
+    from pltrs import colors
+
+    class Halving(colors.Normalize):
+        def __call__(self, value, clip=None):
+            return np.ma.asarray(value) / 2
+
+    fig, ax = plt.subplots()
+    data = np.array([[0.2, 1.6]])
+    im = ax.imshow(data, norm=Halving(0, 1), cmap="gray",
+                   interpolation="nearest")
+    fig.canvas.draw()
+    pixels = im.make_image(None)[0]
+    expected = (im.cmap(data[0] / 2, bytes=True))
+    assert (pixels[0, 0] == expected[0]).all()
+    assert (pixels[0, -1] == expected[1]).all()
+
+
+def test_formatters_see_every_tick_and_give_the_offset():
+    formatter = ticker.ScalarFormatter(useOffset=True)
+    fig, ax = plt.subplots()
+    ax.plot([1e5 + 1, 1e5 + 2])
+    ax.yaxis.set_major_formatter(formatter)
+    fig.canvas.draw()
+    assert formatter.get_offset() != ""
+
+
+def test_wide_floats_warn_when_drawn():
+    fig, ax = plt.subplots()
+    ax.imshow(np.zeros((3, 3), dtype=np.longdouble))
+    if np.dtype(np.longdouble).itemsize > 8:
+        with pytest.warns(UserWarning, match="Casting input data from"):
+            fig.canvas.draw()

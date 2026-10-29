@@ -9,7 +9,9 @@
 //!   `pcolormesh` and quad-mesh `pcolorfast` draw; as in matplotlib 3.11,
 //!   images take no multivariate data.
 //! * [`AxesImage`] — an image on a regular grid in data coordinates, as
-//!   made by `imshow`, `matshow`, `spy` and `pcolorfast`.
+//!   made by `imshow`, `matshow`, `spy` and `pcolorfast`; its
+//!   [`make_image`](AxesImage::make_image) gives the pixels drawn
+//!   ([`MadeImage`]).
 //! * [`NonUniformImage`] and [`PcolorImage`] — images whose pixel centres
 //!   or cell edges lie on non-uniform rectilinear grids.
 //! * [`FigureImage`] — an image placed in figure pixels by
@@ -19,9 +21,13 @@
 //!   [`Axes::add_bbox_image`](crate::axes::Axes::add_bbox_image) adds it.
 //! * [`Interpolation`], [`InterpolationStage`], [`Origin`], [`Extent`] and
 //!   [`ImageAlpha`] — how images are oriented, placed and resampled.
+//! * [`resample`] and [`resample_pixels`] — Agg's resampler as
+//!   matplotlib's `image.resample` exposes it, for scalar or RGBA
+//!   [`Pixel`]s through an affine map or a lookup mesh ([`PixelMapping`]).
 //! * [`imread`] and [`imsave`] — PNG, JPEG, TIFF, GIF and WebP files to
 //!   image arrays, and arrays to PNG, JPEG, TIFF, GIF, WebP or raw files
-//!   ([`BitmapFormat`]); [`thumbnail`] writes a scaled copy of an image
+//!   ([`BitmapFormat`]), and [`imsave_vector`] arrays of colours to PDF,
+//!   PostScript or SVG; [`thumbnail`] writes a scaled copy of an image
 //!   file.
 //!
 //! Drawing follows matplotlib's `_make_image` exactly: the image is
@@ -50,6 +56,7 @@ mod stages;
 mod thumbnail;
 mod unsampled;
 mod variates;
+mod vector_save;
 
 pub use artist::AxesImage;
 pub(crate) use artist::AxesImageArtist;
@@ -66,6 +73,7 @@ pub(crate) use figure_image::FigureImageArtist;
 pub use figure_image::{FigimageOptions, FigureImage};
 pub use imread::{ImreadFormat, imread, imread_bytes, imread_png};
 pub use io::{ImageIoError, ImsaveOptions, imsave, imsave_bytes, imsave_format, imsave_png};
+pub use make::MadeImage;
 pub(crate) use make::{CoreSettings, ImageCore};
 pub(crate) use nonuniform_image::NonUniformImageArtist;
 pub use nonuniform_image::{NonUniformImage, NonUniformInterpolation};
@@ -73,11 +81,13 @@ pub(crate) use normalize::normalize as normalize_scalars;
 pub use options::{Extent, ImageAlpha, Interpolation, InterpolationStage, Origin};
 pub use pcolor_image::PcolorImage;
 pub(crate) use pcolor_image::PcolorImageArtist;
+pub use pltrs_raster::resample::Pixel;
 pub use pltrs_render::RgbaImage;
 pub(crate) use resample::Resampling;
-pub use resample::{ResampleOptions, resample};
+pub use resample::{PixelMapping, ResampleOptions, resample, resample_pixels};
 pub use thumbnail::{ThumbnailError, ThumbnailOptions, thumbnail};
 pub use variates::MultiField;
+pub use vector_save::{VectorImsaveError, imsave_vector};
 
 use crate::rc::RcParams;
 

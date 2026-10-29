@@ -321,6 +321,9 @@ them gets a copy: a native function taking a `pltrs::colors::Colormap`
 accepts any Python colormap (the colormap of its lookup table), and one
 taking a `Box<dyn Norm>` accepts a norm of matplotlib's classes (the
 pltrs (Rust) norm of that kind, with its limits; `modules/colors/mapping.rs`).
+Any other norm (a subclass of the user's) maps data through the Python
+norm itself: pltrs (Rust) calls the callables the package's registered
+`native_norm` gives for it (`modules/colors/python_norm.rs`).
 A mappable pltrs (Rust) makes (an image) is wrapped, attached to its
 colorizer with `_ScalarMappable._attach_colorizer`, and hands the native
 side a new copy from `changed()`.
@@ -330,9 +333,11 @@ side a new copy from `changed()`.
 Python code runs inside pltrs (Rust) through `Callback`: the native function
 takes the callable, and the pltrs (Rust) closure or trait object holds it
 (`Callback` is `Send`, as pltrs (Rust) requires of what runs during layout and
-drawing). `ticker.rs` shows the pattern: any Python formatter (a
-`Formatter` subclass or a plain function) becomes a pltrs (Rust)
-`FuncFormatter` calling it.
+drawing). `ticker.rs` shows the pattern: the Python formatter of an axis
+becomes a pltrs (Rust) formatter calling its methods as matplotlib's
+`Axis` does (`Formatter._label_axis`: `format_ticks`, then `get_offset`),
+handing it pltrs (Rust)'s description of the axis being drawn, which its
+`_axis_info()` returns meanwhile.
 
 pltrs (Rust)'s callback traits cannot fail the Python way, so when the callable
 raises, the exception is kept in the frame of the native call that is
@@ -355,6 +360,15 @@ pltrs (Rust)'s rule that code run while a figure is laid out or drawn cannot
 use the figure's handles (it would re-borrow the figure) applies to
 Python callbacks too: a native call made from such a callback that touches
 the same figure panics, which arrives as the `RuntimeError` above.
+
+### Warnings
+
+pltrs (Rust) issues its warnings through `pltrs::warnings` (data cast to
+a narrower type to be drawn, say). The extension sends them to
+`_api.warn_external`, which `_api` registers, so they are matplotlib's
+`UserWarning`s; one that the warning filters turn into an exception
+raises from the native call that issued it, as a callback's exception
+does.
 
 ### Errors
 

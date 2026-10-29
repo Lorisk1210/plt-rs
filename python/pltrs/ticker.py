@@ -99,8 +99,14 @@ class TickHelper:
         if self.axis is None:
             self.axis = _DummyAxis(**kwargs)
 
+    #: The description pltrs (Rust) gave of the axis it is drawing, while it
+    #: asks the helper about it (see `Formatter._label_axis`).
+    _drawn_axis = None
+
     def _axis_info(self):
         """The native description of the helper's axis, or None."""
+        if self._drawn_axis is not None:
+            return self._drawn_axis
         axis = self.axis
         if axis is None:
             return None
@@ -139,6 +145,23 @@ class Formatter(TickHelper):
         """Return the tick labels for all the ticks at once."""
         self.set_locs(values)
         return [self(value, i) for i, value in enumerate(values)]
+
+    def _label_axis(self, locs, axis):
+        """
+        The labels of the ticks at *locs* and the offset text, which pltrs
+        (Rust) asks for as matplotlib's Axis does while drawing
+        (`format_ticks`, then `get_offset`), describing the axis it draws
+        with *axis*.
+        """
+        self._drawn_axis = axis
+        try:
+            labels = self.format_ticks(locs)
+            offset = self.get_offset()
+        finally:
+            self._drawn_axis = None
+        # Tick labels take any object, as Text.set_text does.
+        return (['' if label is None else str(label) for label in labels],
+                str(offset))
 
     def format_data(self, value):
         """
@@ -736,6 +759,31 @@ class EngFormatter(ScalarFormatter):
     of 1000, plus a specified unit, e.g., 10 MHz instead of 1e7.
     """
 
+    # The SI engineering prefixes
+    ENG_PREFIXES = {
+        -30: "q",
+        -27: "r",
+        -24: "y",
+        -21: "z",
+        -18: "a",
+        -15: "f",
+        -12: "p",
+         -9: "n",
+         -6: "\N{MICRO SIGN}",
+         -3: "m",
+          0: "",
+          3: "k",
+          6: "M",
+          9: "G",
+         12: "T",
+         15: "P",
+         18: "E",
+         21: "Z",
+         24: "Y",
+         27: "R",
+         30: "Q"
+    }
+
     def __init__(self, unit="", places=None, sep=" ", *, usetex=None,
                  useMathText=None, useOffset=False):
         r"""
@@ -775,7 +823,8 @@ class EngFormatter(ScalarFormatter):
         return {"kind": "eng", "unit": self.unit, "places": self.places,
                 "sep": self.sep, "usetex": bool(self._usetex),
                 "use_mathtext": bool(self._useMathText),
-                "use_offset": bool(self._useOffset)}
+                "use_offset": bool(self._useOffset),
+                "prefixes": list(self.ENG_PREFIXES.items())}
 
     def __call__(self, x, pos=None):
         """

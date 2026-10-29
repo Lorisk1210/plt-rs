@@ -24,6 +24,7 @@ from . import _api, _image, cbook, colorizer as mcolorizer, colors as mcolors
 # the image namespace
 from ._image import *  # noqa: F401, F403
 from ._native import image as _native_image
+from .transforms import Affine2D
 
 _log = logging.getLogger(__name__)
 
@@ -83,11 +84,29 @@ def _native_data(A):
         kind = 'integer'
     elif values.dtype.itemsize <= 4:
         kind = 'single'
+    elif values.dtype.itemsize <= 8:
+        kind = 'double'
     else:
         # Wider floats (float128) are resampled in double precision, as
-        # matplotlib resamples them.
-        kind, values = 'double', values.astype(np.float64)
+        # matplotlib resamples them, with its warning when drawn.
+        kind, values = values.dtype.name, values.astype(np.float64)
     return kind, values, mask
+
+
+def _warn_identical_limits(axes, extent):
+    """
+    Warn, as matplotlib's ``set_xlim`` and ``set_ylim`` do, when the image
+    *extent* gives an axis of *axes* that follows its data identical
+    limits (which pltrs (Rust) expands).
+    """
+    left, right, bottom, top = extent
+    follows = _native_image.autoscale_on(axes._native)
+    for name, on, low, high in (('x', follows[0], left, right),
+                                ('y', follows[1], bottom, top)):
+        if on and low == high:
+            _api.warn_external(
+                f"Attempting to set identical low and high {name}lims "
+                f"makes transformation singular; automatically expanding.")
 
 
 def _checked_alpha(alpha):
@@ -382,7 +401,42 @@ class AxesImage(_ImageBase):
         """
         if kwargs:
             raise _api.kwarg_error("set_extent", kwargs)
-        _native_image.set_extent(self._native, tuple(map(float, extent)))
+        extent = tuple(map(float, extent))
+        _warn_identical_limits(self.axes, extent)
+        _native_image.set_extent(self._native, extent)
+
+    def make_image(self, renderer, magnification=1.0, unsampled=False):
+        """
+        Normalize, rescale, and colormap this image's data for rendering using
+        *renderer*, with the given *magnification*.
+
+        If *unsampled* is True, the image will not be scaled, but an
+        appropriate affine transformation will be returned instead.
+
+        Returns
+        -------
+        image : (M, N, 4) `numpy.uint8` array
+            The RGBA image, resampled unless *unsampled* is True.
+        x, y : float
+            The upper left corner where the image should be drawn, in pixel
+            space.
+        trans : `~matplotlib.transforms.Affine2D`
+            The affine transformation from image to pixel space (None, in
+            pltrs, for an image on non-affine axes).
+        """
+        if unsampled:
+            raise NotImplementedError("pltrs: make_image(unsampled=True)")
+        if self._A is None:
+            raise RuntimeError('You must first set the image array')
+        if self._A.size == 0:
+            raise RuntimeError("_make_image must get a non-empty image. "
+                               "Your Artist's draw method must filter before "
+                               "this method is called.")
+        made = _native_image.make_image(self._native, float(magnification))
+        if made is None:
+            return None, 0, 0, None
+        pixels, x, y, matrix = made
+        return pixels, x, y, None if matrix is None else Affine2D(matrix)
 
 
 def imread(fname, format=None):
@@ -508,8 +562,15 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
     if format is None:
         format = (Path(fname).suffix[1:] if isinstance(fname, str)
                   else _rc("savefig.format")).lower()
-    if format in ["pdf", "ps", "eps", "svg"]:
-        raise NotImplementedError(f"pltrs: imsave(format={format!r})")
+    vector = format in ["pdf", "ps", "eps", "svg"]
+    if vector:
+        # Vector formats that are not handled by PIL.
+        if pil_kwargs is not None:
+            raise ValueError(
+                f"Cannot use 'pil_kwargs' when saving to {format}")
+        if metadata is not None:
+            raise NotImplementedError(
+                f"pltrs: imsave(format={format!r}, metadata=...)")
     # Don't bother creating an image; this avoids rounding errors on the
     # size when dividing and then multiplying by dpi.
     origin = _val_or_rc(origin, "image.origin")
@@ -527,6 +588,17 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
         sm = mcolorizer.Colorizer(cmap=cmap)
         sm.set_clim(vmin, vmax)
         rgba = sm.to_rgba(arr, bytes=True)
+    if vector:
+        # matplotlib draws the image with figimage on a frameless,
+        # transparent figure of its size; so does pltrs (Rust).
+        document = _native_image.imsave_vector(
+            np.asarray(rgba, dtype=np.uint8), format, float(dpi))
+        if hasattr(fname, "write"):
+            fname.write(document)
+        else:
+            with open(fname, "wb") as file:
+                file.write(document)
+        return
     if pil_kwargs is None:
         pil_kwargs = {}
     else:

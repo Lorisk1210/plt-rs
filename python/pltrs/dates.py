@@ -36,7 +36,7 @@ __all__ = ('datestr2num', 'date2num', 'num2date', 'num2timedelta', 'drange',
            'MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU',
            'YEARLY', 'MONTHLY', 'WEEKLY', 'DAILY',
            'HOURLY', 'MINUTELY', 'SECONDLY', 'MICROSECONDLY',
-           'DateConverter', 'rrulewrapper', 'UTC')
+           'DateConverter', 'ConciseDateConverter', 'rrulewrapper', 'UTC')
 
 UTC = datetime.timezone.utc
 
@@ -229,17 +229,24 @@ def datestr2num(d, default=None):
     d : str or sequence of str
         The dates to convert, as ISO 8601 strings.
 
-    default : datetime.datetime, optional
-        pltrs reads ISO 8601 dates, which need no default.
+    default : datetime.date or datetime.datetime, optional
+        The day and month a date leaving them out (``'2022'``,
+        ``'2022-01'``) takes.
     """
-    if default is not None:
-        raise NotImplementedError("pltrs: datestr2num(default=...)")
+    if default is None:
+        convert = _dates.datestr2num
+    else:
+        if (isinstance(default, datetime.datetime)
+                and default.time() != datetime.time()):
+            raise NotImplementedError(
+                "pltrs: datestr2num(default=<datetime with a time of day>)")
+        day = (default.year, default.month, default.day)
+
+        def convert(s):
+            return _dates.datestr2num_with_default(s, day)
     if isinstance(d, str):
-        return _dates.datestr2num(d)
-    d = [_dates.datestr2num(s) for s in d]
-    if not d:
-        return d
-    return np.asarray(d)
+        return convert(d)
+    return np.asarray([convert(s) for s in d], dtype=float)
 
 
 def drange(dstart, dend, delta):
@@ -620,6 +627,24 @@ class DateConverter(units.ConversionInterface):
         self._interval_multiples = interval_multiples
         super().__init__()
 
+    def axisinfo(self, unit, axis):
+        """
+        Return the `~matplotlib.units.AxisInfo` for *unit*.
+
+        *unit* is a `~datetime.tzinfo` instance or None.
+        The *axis* argument is required but not used.
+        """
+        tz = unit
+
+        majloc = AutoDateLocator(tz=tz,
+                                 interval_multiples=self._interval_multiples)
+        majfmt = AutoDateFormatter(majloc, tz=tz)
+        datemin = datetime.date(1970, 1, 1)
+        datemax = datetime.date(1970, 1, 2)
+
+        return units.AxisInfo(majloc=majloc, majfmt=majfmt, label='',
+                              default_limits=(datemin, datemax))
+
     @staticmethod
     def convert(value, unit, axis):
         """
@@ -651,21 +676,56 @@ class DateConverter(units.ConversionInterface):
         return None
 
 
+class ConciseDateConverter(DateConverter):
+    # docstring inherited
+
+    def __init__(self, formats=None, zero_formats=None, offset_formats=None,
+                 show_offset=True, *, interval_multiples=True):
+        self._formats = formats
+        self._zero_formats = zero_formats
+        self._offset_formats = offset_formats
+        self._show_offset = show_offset
+        self._interval_multiples = interval_multiples
+        super().__init__()
+
+    def axisinfo(self, unit, axis):
+        # docstring inherited
+        tz = unit
+        majloc = AutoDateLocator(tz=tz,
+                                 interval_multiples=self._interval_multiples)
+        majfmt = ConciseDateFormatter(majloc, tz=tz, formats=self._formats,
+                                      zero_formats=self._zero_formats,
+                                      offset_formats=self._offset_formats,
+                                      show_offset=self._show_offset)
+        datemin = datetime.date(1970, 1, 1)
+        datemax = datetime.date(1970, 1, 2)
+        return units.AxisInfo(majloc=majloc, majfmt=majfmt, label='',
+                              default_limits=(datemin, datemax))
+
+
 class _SwitchableDateConverter:
     """
     Helper converter-like object that generates and dispatches to
-    temporary DateConverter instances based on :rc:`date.converter` and
-    :rc:`date.interval_multiples`.
+    temporary ConciseDateConverter or DateConverter instances based on
+    :rc:`date.converter` and :rc:`date.interval_multiples`.
     """
 
     @staticmethod
     def _get_converter():
-        return DateConverter(interval_multiples=_rc('date.interval_multiples'))
+        converter_cls = {
+            "concise": ConciseDateConverter, "auto": DateConverter}[
+                _rc("date.converter")]
+        interval_multiples = _rc("date.interval_multiples")
+        return converter_cls(interval_multiples=interval_multiples)
 
-    def __getattr__(self, name):
-        if name in ["convert", "default_units"]:
-            return getattr(self._get_converter(), name)
-        raise AttributeError(name)
+    def axisinfo(self, *args, **kwargs):
+        return self._get_converter().axisinfo(*args, **kwargs)
+
+    def default_units(self, *args, **kwargs):
+        return self._get_converter().default_units(*args, **kwargs)
+
+    def convert(self, *args, **kwargs):
+        return self._get_converter().convert(*args, **kwargs)
 
 
 units.registry[np.datetime64] = \

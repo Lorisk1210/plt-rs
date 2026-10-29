@@ -114,6 +114,8 @@
 //!   `stylelib`.
 //! * [`testing`] — testing your own figures as matplotlib's tests do:
 //!   their configuration, image comparison by RMS and figure comparison.
+//! * [`warnings`] — the warnings pltrs issues while it works, where
+//!   matplotlib warns, and where they go.
 #![forbid(unsafe_code)]
 #![expect(
     clippy::needless_pass_by_value,
@@ -179,6 +181,7 @@ pub mod transforms;
 pub mod tri;
 pub mod tutorial;
 pub mod units;
+pub mod warnings;
 pub mod web;
 pub mod widgets;
 

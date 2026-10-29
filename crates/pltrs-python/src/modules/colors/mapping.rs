@@ -12,6 +12,7 @@ use pltrs::colors::{
 };
 use pltrs::scale::{LogTransform, LogitTransform, NonPositive};
 
+use super::python_norm::PythonNorm;
 use crate::binding::prelude::*;
 
 impl From<NormError> for PyErr {
@@ -104,15 +105,16 @@ fn norm_of_scale(scale: &Bound<'_>, kind: &str) -> PyResult<Option<Box<dyn Norm>
 }
 
 /// The pltrs (Rust) norm of the kind of the Python norm `norm`, named by
-/// its class, before its limits are set.
-fn norm_of_kind(norm: &Bound<'_>, kind: &str) -> PyResult<Box<dyn Norm>> {
+/// its class, before its limits are set; `None` for a kind pltrs (Rust)
+/// has no norm for.
+fn norm_of_kind(norm: &Bound<'_>, kind: &str) -> PyResult<Option<Box<dyn Norm>>> {
     if let Ok(scale) = norm.getattr("_scale") {
         let scale_kind: String = attr(&scale.getattr("__class__")?, "__name__")?;
         if let Some(norm) = norm_of_scale(&scale, &scale_kind)? {
-            return Ok(norm);
+            return Ok(Some(norm));
         }
     }
-    Ok(match kind {
+    Ok(Some(match kind {
         "Normalize" => Box::new(Normalize::default()),
         "NoNorm" => Box::new(NoNorm::default()),
         "PowerNorm" => Box::new(PowerNorm::new(attr(norm, "gamma")?)),
@@ -130,30 +132,35 @@ fn norm_of_kind(norm: &Bound<'_>, kind: &str) -> PyResult<Box<dyn Norm>> {
             attr(norm, "vcenter")?,
             attr(norm, "halfrange")?,
         )),
-        other => {
-            return Err(PyErr::new(
-                ExceptionKind::NotImplementedError,
-                format!("pltrs: drawing through a norm of class {other}"),
-            ));
-        }
-    })
+        _ => return Ok(None),
+    }))
 }
 
 impl FromPy<'_> for Box<dyn Norm> {
     /// A Python norm of one of matplotlib's classes (not a subclass, which
     /// may compute differently) as the pltrs (Rust) norm of that kind, with
-    /// its limits and clipping.
+    /// its limits and clipping; any other norm of one component as itself,
+    /// called from pltrs (Rust) (see [`PythonNorm`]).
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         let class = object.getattr("__class__")?;
         let module: String = attr(&class, "__module__")?;
         let kind: String = attr(&class, "__name__")?;
-        if !module.ends_with(".colors") && module != "colors" {
-            return Err(PyErr::new(
-                ExceptionKind::NotImplementedError,
-                format!("pltrs: drawing through a norm of class {module}.{kind}"),
-            ));
-        }
-        let mut norm = norm_of_kind(object, &kind)?;
+        let matplotlib = module.ends_with(".colors") || module == "colors";
+        let copy = if matplotlib {
+            norm_of_kind(object, &kind)?
+        } else {
+            None
+        };
+        let Some(mut norm) = copy else {
+            let components: usize = attr(object, "n_components")?;
+            if components != 1 {
+                return Err(PyErr::new(
+                    ExceptionKind::NotImplementedError,
+                    format!("pltrs: drawing through a norm of class {module}.{kind}"),
+                ));
+            }
+            return Ok(Box::new(PythonNorm::of(object)?));
+        };
         norm.set_vmin(attr(object, "vmin")?);
         norm.set_vmax(attr(object, "vmax")?);
         norm.set_clip(object.getattr("clip")?.is_truthy()?);

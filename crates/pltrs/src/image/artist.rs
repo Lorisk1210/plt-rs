@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path, Point};
 
-use super::make::{ImageCore, Placement, RenderedImage};
+use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::shared::{axes_image_contains, canvas_bbox, draw_rendered, split_alpha};
 use super::unsampled::UnsampledImage;
@@ -81,10 +81,8 @@ impl AxesImageArtist {
     }
 
     /// The display box the image is clipped to (matplotlib's clip box,
-    /// axes box or figure box).
-    fn clip_bbox(&self, ctx: &mut DrawContext<'_>) -> Bbox {
-        let canvas = canvas_bbox(ctx);
-        let layout = ctx.layout();
+    /// axes box or figure box, the `canvas`).
+    fn clip_bbox(&self, layout: LayoutContext<'_>, canvas: Bbox) -> Bbox {
         let clip = if self.base.clip_on {
             layout.clip_rect(&self.base).or_else(|| {
                 self.base
@@ -98,26 +96,34 @@ impl AxesImageArtist {
         clip.unwrap_or(canvas)
     }
 
+    /// Where the image goes at `magnification` on a figure of size
+    /// `canvas` (matplotlib's `AxesImage.make_image`); `None` when its
+    /// transform refers to removed artists.
+    fn placement(
+        &self,
+        layout: LayoutContext<'_>,
+        canvas: Bbox,
+        magnification: f64,
+    ) -> Option<Placement> {
+        Some(Placement {
+            extent: self.extent,
+            transform: Some(PixelMap::from_resolved(layout.resolve(&self.transform())?)),
+            out_bbox: self.out_bbox(layout)?,
+            clip: self.clip_bbox(layout, canvas),
+            round_to_pixels: true,
+            magnification,
+        })
+    }
+
     /// matplotlib's `AxesImage.make_image` at `magnification`.
     pub(super) fn render(
         &self,
         ctx: &mut DrawContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
-        let clip = self.clip_bbox(ctx);
-        let layout = ctx.layout();
-        let (Some(resolved), Some(out_bbox)) =
-            (ctx.resolve(&self.transform()), self.out_bbox(*layout))
-        else {
+        let canvas = canvas_bbox(ctx);
+        let Some(placement) = self.placement(*ctx.layout(), canvas, magnification) else {
             return Ok(None);
-        };
-        let placement = Placement {
-            extent: self.extent,
-            transform: Some(PixelMap::from_resolved(resolved)),
-            out_bbox,
-            clip,
-            round_to_pixels: true,
-            magnification,
         };
         let alpha = self.core.alpha(self.base.alpha);
         self.core.make_image(&placement, alpha.as_ref())
@@ -131,7 +137,8 @@ impl AxesImageArtist {
         &self,
         ctx: &mut DrawContext<'_>,
     ) -> Option<Result<Option<UnsampledImage>, ImageError>> {
-        let clip = self.clip_bbox(ctx);
+        let canvas = canvas_bbox(ctx);
+        let clip = self.clip_bbox(*ctx.layout(), canvas);
         let resolved = ctx
             .resolve(&self.transform())
             .filter(ResolvedTransform::is_affine)?;
@@ -378,6 +385,45 @@ impl AxesImage {
     /// `get_alpha`).
     pub fn image_alpha(&self) -> Option<ImageAlpha> {
         self.read(|image| image.core.alpha(image.base.alpha))
+    }
+
+    /// The image resampled and colour-mapped for display at
+    /// `magnification`, as the figure is laid out now (matplotlib's
+    /// `make_image`): its pixels, top row first, where they go and how the
+    /// array maps onto them; `None` when nothing of it is visible.
+    ///
+    /// ```
+    /// use pltrs::axes::ImshowOptions;
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::with_size(2.0, 2.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// let image = ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?;
+    /// let made = image.make_image(1.0)?.expect("the image is visible");
+    /// assert_eq!((made.pixels.width(), made.pixels.height()), (200, 200));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the image's colormap or norm cannot map its data.
+    pub fn make_image(&self, magnification: f64) -> Result<Option<MadeImage>, ImageError> {
+        let state = self.raw.figure_state().borrow();
+        let layout = LayoutContext::new(&state);
+        let (width, height) = state.size_pixels();
+        let canvas = Bbox::from_extents(0.0, 0.0, width, height);
+        self.read(|image| {
+            let Some(placement) = image.placement(layout, canvas, magnification) else {
+                return Ok(None);
+            };
+            let alpha = image.core.alpha(image.base.alpha);
+            let made = image.core.make_mapped(&placement, alpha.as_ref())?;
+            Ok(made.map(|(rendered, map)| MadeImage {
+                pixels: rendered.pixels,
+                origin: rendered.origin,
+                transform: map.affine(),
+            }))
+        })
     }
 
     /// The image array (matplotlib's `get_array`).

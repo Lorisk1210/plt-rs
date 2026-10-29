@@ -70,6 +70,8 @@ impl RcValue {
             number.map_or(Self::None, Self::Float)
         } else if let Some(text) = value.downcast_ref::<Option<String>>() {
             text.clone().map_or(Self::None, Self::Text)
+        } else if let Some(&pltrs::rc::Dpi::Value(dpi)) = value.downcast_ref::<pltrs::rc::Dpi>() {
+            Self::Float(dpi)
         } else {
             let text = params.get(key).unwrap_or_default();
             if text == "None" {
@@ -140,11 +142,23 @@ fn get(store: Option<Native<RcParams>>, key: String) -> PyResult<RcValue> {
     read(store.as_ref(), |params| RcValue::of(params, &key))
 }
 
+/// The rc-file text of `text` (an [`RcText`]) for `key`: Python's `None`
+/// for `savefig.bbox` is `standard`, which matplotlib's `validate_bbox`
+/// takes as the object `None` though not as the text.
+fn for_key<'a>(key: &str, text: &'a str) -> &'a str {
+    if key == "savefig.bbox" && text == "None" {
+        "standard"
+    } else {
+        text
+    }
+}
+
 /// `rcParams[key] = value`, validated.
 fn set(store: Option<Native<RcParams>>, key: String, value: RcText) -> PyResult<()> {
+    let text = for_key(&key, &value.0);
     match store {
-        Some(params) => params.borrow_mut().set(&key, &value.0)?,
-        None => pltrs::rc::set(&key, &value.0)?,
+        Some(params) => params.borrow_mut().set(&key, text)?,
+        None => pltrs::rc::set(&key, text)?,
     }
     Ok(())
 }

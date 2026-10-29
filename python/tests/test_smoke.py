@@ -162,3 +162,47 @@ def test_style_use_applies_bundled_sheets():
         warnings.simplefilter("error")
         pltrs.style.use("classic")
     assert pltrs.rcParams["lines.linewidth"] == 1.0
+
+
+def test_backends_switch_and_canvases_draw_print_and_blit(tmp_path):
+    from pltrs.backends.backend_agg import FigureCanvasAgg
+    from pltrs.backends.backend_pdf import PdfPages
+    plt.switch_backend("agg")
+    fig, ax = plt.subplots(figsize=(2, 1), dpi=50)
+    ax.plot([0, 1], [0, 1])
+    assert type(fig.canvas) is FigureCanvasAgg
+    draws = []
+    fig.canvas.mpl_connect("draw_event", draws.append)
+    fig.canvas.draw()
+    assert np.asarray(fig.canvas.buffer_rgba()).shape == (50, 100, 4)
+    assert len(fig.canvas.tostring_argb()) == 50 * 100 * 4
+    corner = type("Box", (), {"extents": (0, 0, 10, 10)})
+    region = fig.canvas.copy_from_bbox(corner)
+    assert region.get_extents() == (0, 40, 10, 50)
+    fig.canvas.restore_region(region)
+    raw = io.BytesIO()
+    fig.savefig(raw, format="rgba", dpi=10)
+    assert len(raw.getvalue()) == 20 * 10 * 4 and len(draws) == 2
+    with PdfPages(tmp_path / "pages.pdf") as pdf:
+        pdf.savefig(fig)
+        pdf.savefig(fig)
+        assert pdf.get_pagecount() == 2
+    assert (tmp_path / "pages.pdf").read_bytes().startswith(b"%PDF")
+    plt.switch_backend("pdf")
+    assert type(plt.figure().canvas).__name__ == "FigureCanvasPdf"
+    plt.switch_backend("agg")
+
+
+def test_animations_save_through_the_writers(tmp_path):
+    from pltrs import animation
+    fig, ax = plt.subplots(figsize=(1, 1), dpi=20)
+    line, = ax.plot([], [])
+
+    def update(frame):
+        line.set_data([0, 1], [0, frame])
+        return line,
+
+    anim = animation.FuncAnimation(fig, update, frames=3)
+    anim.save(tmp_path / "movie.gif", writer="pillow")
+    assert (tmp_path / "movie.gif").read_bytes().startswith(b"GIF8")
+    assert "<script" in anim.to_jshtml()

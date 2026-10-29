@@ -14,7 +14,7 @@ use crate::ticker::{
 
 /// `nx × ny` equispaced points of `bbox`, row by row (matplotlib's
 /// `meshgrid` of two `linspace`s, flattened).
-pub(crate) fn sample_grid(bbox: Bbox, nx: usize, ny: usize) -> Vec<Point> {
+pub fn sample_grid(bbox: Bbox, nx: usize, ny: usize) -> Vec<Point> {
     let xs = linspace(bbox.x0(), bbox.x1(), nx);
     linspace(bbox.y0(), bbox.y1(), ny)
         .into_iter()
@@ -25,7 +25,7 @@ pub(crate) fn sample_grid(bbox: Bbox, nx: usize, ny: usize) -> Vec<Point> {
 /// The bounding box of the finite `points` grown by `1 + 2 / nx` and
 /// `1 + 2 / ny` around its centre (matplotlib's `Bbox.null()` updated from
 /// the points, then `expanded`).
-pub(crate) fn padded_extent(points: &[Point], nx: usize, ny: usize) -> Bbox {
+pub fn padded_extent(points: &[Point], nx: usize, ny: usize) -> Bbox {
     let mut limits = DataLimits::NULL;
     limits.update_from_points(points, true, true);
     limits

@@ -19,6 +19,7 @@ helpers (``rc``, ``rc_context``, ``rcdefaults``), backend selection
 import contextlib
 import pprint
 import re
+import sys
 from collections.abc import MutableMapping
 
 from . import _api
@@ -234,15 +235,75 @@ def use(backend, *, force=True):
     """
     Select the backend used for rendering and GUI integration.
 
-    pltrs (Python) renders through pltrs (Rust) whatever the backend; the name is kept
-    so that ``get_backend`` returns it.
+    If pyplot is already imported, `~matplotlib.pyplot.switch_backend` is used
+    to switch the backend.
+
+    Parameters
+    ----------
+    backend : str
+        The backend to switch to: one of the standard backend names, which
+        are case-insensitive, or a string of the form
+        ``module://my.module.name``.
+    force : bool, default: True
+        If True (the default), raise an `ImportError` if the backend cannot be
+        set up (either because it fails to import, or because an incompatible
+        GUI interactive framework is already running); if False, silently
+        ignore the failure.
     """
-    rcParams['backend'] = backend.lower()
+    from .backends import backend_registry
+    if not backend_registry.is_valid_backend(backend):
+        raise ValueError(
+            f"'{backend}' is not a valid value for backend; supported values "
+            f"are {backend_registry.list_all()}")
+    if rcParams._get('backend') != backend:
+        # if pyplot is not already imported, do not import it.  Doing
+        # so may trigger a `plt.switch_backend` to the _default_ backend
+        # before we get a chance to change to the one the user just requested
+        plt = sys.modules.get(f'{__name__}.pyplot')
+        # if pyplot is imported, then try to change backends
+        if plt is not None:
+            try:
+                # we need this import check here to re-raise if the
+                # user does not have the libraries to support their
+                # chosen backend installed.
+                plt.switch_backend(backend)
+            except ImportError:
+                if force:
+                    raise
+        # if we have not imported pyplot, then we can set the rcParam
+        # value which will be respected when the user finally imports
+        # pyplot
+        else:
+            rcParams['backend'] = backend
+    # if the user has asked for a given backend, do not helpfully
+    # fallback
+    rcParams['backend_fallback'] = False
 
 
 def get_backend(*, auto_select=True):
     """Return the name of the current backend."""
     return rcParams['backend']
+
+
+def _val_or_rc(val, rc_name):
+    """
+    If *val* is None, the value of :rc:`rc_name`, else *val*.
+    """
+    return val if val is not None else rcParams[rc_name]
+
+
+def interactive(b):
+    """
+    Set whether to redraw after every plotting command (e.g. `.pyplot.xlabel`).
+    """
+    rcParams['interactive'] = b
+
+
+def is_interactive():
+    """
+    Return whether to redraw after every plotting command.
+    """
+    return rcParams['interactive']
 
 
 def _init_tests():

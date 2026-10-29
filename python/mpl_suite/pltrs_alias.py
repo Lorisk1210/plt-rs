@@ -35,12 +35,21 @@ class _AliasLoader(importlib.abc.Loader):
 
     def __init__(self, real_name):
         self.real_name = real_name
+        self.real_spec = None
 
     def create_module(self, spec):
-        return importlib.import_module(self.real_name)
+        module = importlib.import_module(self.real_name)
+        self.real_spec = module.__spec__
+        return module
 
     def exec_module(self, module):
-        """The real module is already executed."""
+        """
+        The real module is already executed; importing the alias gave it
+        the alias's ``__spec__``, which would break the relative imports
+        its functions make when called (``__package__ != __spec__.parent``):
+        it gets its own back.
+        """
+        module.__spec__ = self.real_spec
 
 
 class _AliasFinder(importlib.abc.MetaPathFinder):

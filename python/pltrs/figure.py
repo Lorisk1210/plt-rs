@@ -7,20 +7,15 @@ objects of its artists (``self._artists``, see `._handles`).
 """
 
 import math
-import os
 
 import numpy as np
 
-from . import _handles, rcParams
+from . import _api, _handles, cbook, rcParams
 from ._native import artist as _artist, figure as _figure
 from .artist import Artist
 from .axes import Axes
-from .backend_bases import FigureCanvasBase
+from .backend_bases import FigureCanvasBase, NonGuiException
 from .text import Text
-
-#: `savefig` keywords pltrs accepts but does not apply yet.
-_UNSUPPORTED_SAVEFIG = ("bbox_inches", "pad_inches", "metadata", "backend",
-                        "orientation", "papertype", "pil_kwargs")
 
 
 class Figure(Artist):
@@ -171,46 +166,36 @@ class Figure(Artist):
         text._internal_update(kwargs)
         return text
 
-    def savefig_bytes(self, format, *, dpi=None, facecolor=None,
-                      edgecolor=None, transparent=None):
-        """The figure as a file of *format*, as bytes (what `savefig`
-        writes)."""
-        return _figure.print_figure(self._native, format, dpi, facecolor,
-                                    edgecolor, transparent)
+    def show(self, warn=True):
+        """
+        If using a GUI backend with pyplot, display the figure window.
+
+        If the figure was not created using `~.pyplot.figure`, it will lack
+        a `~.backend_bases.FigureManagerBase`, and this method will raise an
+        AttributeError.
+        """
+        if self.canvas.manager is None:
+            raise AttributeError(
+                "Figure.show works only for figures managed by pyplot, "
+                "normally created by pyplot.figure()")
+        try:
+            self.canvas.manager.show()
+        except NonGuiException as exc:
+            if warn:
+                _api.warn_external(str(exc))
 
     def savefig(self, fname, *, transparent=None, **kwargs):
-        """Save the current figure as an image or vector graphic to a file."""
-        for name in _UNSUPPORTED_SAVEFIG:
-            if kwargs.get(name) is not None:
-                raise NotImplementedError(f"pltrs: savefig({name}=...)")
-            kwargs.pop(name, None)
-        fmt = kwargs.pop("format", None)
-        dpi = kwargs.pop("dpi", rcParams["savefig.dpi"])
-        facecolor = kwargs.pop("facecolor", rcParams["savefig.facecolor"])
-        edgecolor = kwargs.pop("edgecolor", rcParams["savefig.edgecolor"])
-        if kwargs:
-            name = next(iter(kwargs))
-            raise TypeError(
-                f"savefig() got an unexpected keyword argument {name!r}")
-        is_path = isinstance(fname, (str, os.PathLike))
-        if is_path:
-            fname = os.fspath(fname)
-        if fmt is None:
-            ext = os.path.splitext(fname)[1][1:] if is_path else ""
-            fmt = ext or rcParams["savefig.format"]
-            if is_path and not ext:
-                fname = f"{fname}.{fmt}"
-        data = self.savefig_bytes(
-            fmt.lower(),
-            dpi=None if dpi == "figure" else float(dpi),
-            facecolor=None if facecolor == "auto" else facecolor,
-            edgecolor=None if edgecolor == "auto" else edgecolor,
-            transparent=transparent)
-        if is_path:
-            with open(fname, "wb") as file:
-                file.write(data)
-        else:
-            try:
-                fname.write(data)
-            except TypeError:
-                fname.write(data.decode("utf-8"))
+        """
+        Save the current figure as an image or vector graphic to a file.
+
+        The canvas prints it (`.FigureCanvasBase.print_figure`), switching
+        to the canvas of the format or of the *backend* asked for.
+        """
+        kwargs.setdefault('dpi', rcParams['savefig.dpi'])
+        if transparent is None:
+            transparent = rcParams['savefig.transparent']
+        if transparent:
+            kwargs.setdefault('facecolor', 'none')
+            kwargs.setdefault('edgecolor', 'none')
+        with cbook._setattr_cm(self.canvas, _transparent=transparent):
+            self.canvas.print_figure(fname, **kwargs)

@@ -21,6 +21,8 @@
 
 mod artist;
 mod axes;
+mod axisartist;
+mod backends;
 mod bezier;
 mod c_internal_utils;
 mod cbook;
@@ -53,6 +55,8 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::rc::restore_startup();
     artist::register(&module.submodule("artist")?)?;
     axes::register(&module.submodule("axes")?)?;
+    axisartist::register(&module.submodule("axisartist")?)?;
+    backends::register(&module.submodule("backends")?)?;
     bezier::register(&module.submodule("bezier")?)?;
     c_internal_utils::register(&module.submodule("c_internal_utils")?)?;
     cbook::register(&module.submodule("cbook")?)?;
@@ -100,6 +104,8 @@ mod tests {
             for module in [
                 "artist",
                 "axes",
+                "axisartist",
+                "backends",
                 "bezier",
                 "c_internal_utils",
                 "cbook",

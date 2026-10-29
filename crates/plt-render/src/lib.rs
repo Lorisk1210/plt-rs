@@ -21,9 +21,10 @@
 //! TeX text (`text.usetex`) reaches a backend through
 //! [`Renderer::draw_tex`], which each backend implements as matplotlib's
 //! `draw_tex`: from the DVI file's glyphs (or `dvipng`'s image), as
-//! embedded Type 1 fonts, as glyph paths, or as LaTeX source. The
-//! PostScript backend refuses it, since matplotlib needs `psfrag`, `dvips`
-//! and Ghostscript there.
+//! embedded Type 1 fonts, as glyph paths, or as LaTeX source. With
+//! `text.usetex`, the PostScript backend tags it for LaTeX's `psfrag`
+//! package and leaves LaTeX, `dvips` and Ghostscript to the caller
+//! ([`PsOutput::Psfrag`]).
 //!
 //! The vector backends draw in points, rasterize images at their own
 //! resolution ([`Renderer::image_magnification`]) and share [`Metadata`]
@@ -54,7 +55,10 @@ pub use image::{ImageSizeError, RgbaImage};
 pub use mixed::MixedModeRenderer;
 pub use pdf::{PdfOptions, PdfRenderer};
 pub use pgf::{PgfDocument, PgfOptions, PgfRenderer};
-pub use ps::{PageOrientation, PageSetupError, Paper, PsOptions, PsRenderer};
+pub use ps::{
+    PageOrientation, PageSetupError, Paper, PsDocument, PsOptions, PsOutput, PsRenderer,
+    PsfragFigure, pstoeps,
+};
 pub use quad_mesh::QuadMesh;
 pub use raster::{RasterBackendError, RasterRenderer};
 pub use renderer::Renderer;

@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use super::filters::{ascii85, lzw};
 use crate::figures::vector::postscript::is_delimiter;
 
 /// A PDF object.
@@ -84,6 +85,23 @@ impl<'a> Lexer<'a> {
     pub(crate) fn at_end(&mut self) -> bool {
         self.skip_space();
         self.pos >= self.data.len()
+    }
+
+    /// The data of an inline image after its `ID` operator: from after
+    /// the one whitespace byte that follows `ID` up to the whitespace
+    /// before `EI`, which is consumed.
+    fn inline_image_data(&mut self) -> Vec<u8> {
+        let start = (self.pos + 1).min(self.data.len());
+        let rest = &self.data[start..];
+        let end = (1..rest.len().saturating_sub(1))
+            .find(|&at| {
+                rest[at - 1].is_ascii_whitespace()
+                    && rest[at..].starts_with(b"EI")
+                    && rest.get(at + 2).is_none_or(|&b| is_delimiter(b))
+            })
+            .unwrap_or(rest.len());
+        self.pos = (start + end + 2).min(self.data.len());
+        rest[..end.saturating_sub(1)].to_vec()
     }
 
     fn word(&mut self) -> &'a str {
@@ -274,6 +292,20 @@ pub(crate) struct Stored {
 pub(crate) struct Document {
     pub(crate) objects: HashMap<u32, Stored>,
     pub(crate) trailer: Value,
+    /// The object numbers in the order the objects stand in the file.
+    pub(crate) order: Vec<u32>,
+}
+
+/// The number of the object whose definition (`<n> <generation> obj`)
+/// fills `line`.
+fn object_number(line: &[u8]) -> Option<u32> {
+    let text = std::str::from_utf8(line).ok()?.trim_end();
+    match text.split(' ').collect::<Vec<_>>().as_slice() {
+        [number, generation, "obj"] if generation.bytes().all(|b| b.is_ascii_digit()) => {
+            number.parse().ok()
+        }
+        _ => None,
+    }
 }
 
 impl Document {
@@ -300,6 +332,31 @@ impl Document {
             return Err("no trailer".to_owned());
         }
         let trailer = lexer.value()?;
+        Self::read_objects(data, offsets, trailer)
+    }
+
+    /// Reads the objects of a file without a cross-reference table from
+    /// the lines that start them, as Ghostscript's `ps2write` device
+    /// writes PDF objects into PostScript (no trailer).
+    pub(crate) fn scan(data: &[u8]) -> Result<Self, String> {
+        let mut offsets = Vec::new();
+        let mut start = 0;
+        for line in data.split_inclusive(|&byte| byte == b'\n') {
+            if let Some(number) = object_number(line) {
+                offsets.push((number, start));
+            }
+            start += line.len();
+        }
+        Self::read_objects(data, offsets, Value::Null)
+    }
+
+    /// Reads the objects at `offsets`.
+    fn read_objects(
+        data: &[u8],
+        offsets: Vec<(u32, usize)>,
+        trailer: Value,
+    ) -> Result<Self, String> {
+        let order = offsets.iter().map(|&(id, _)| id).collect();
         let mut objects = HashMap::new();
         let mut pending = Vec::new();
         for (id, offset) in offsets {
@@ -352,7 +409,11 @@ impl Document {
                 },
             );
         }
-        Ok(Self { objects, trailer })
+        Ok(Self {
+            objects,
+            trailer,
+            order,
+        })
     }
 
     /// Follows references.
@@ -366,15 +427,26 @@ impl Document {
         }
     }
 
-    /// The decoded data of the stream `value` refers to.
+    /// The decoded data of the stream `value` refers to: its filters
+    /// undone in order, data of a filter not known here kept as it is.
     pub(crate) fn stream(&self, value: &Value) -> Option<Vec<u8>> {
         let Value::Ref(id) = value else { return None };
         let stored = self.objects.get(id)?;
-        let raw = stored.stream.as_ref()?;
-        match stored.value.get("Filter").and_then(Value::as_name) {
-            Some("FlateDecode") => plt_codec::zlib::decompress(raw).ok(),
-            _ => Some(raw.clone()),
+        let mut data = stored.stream.clone()?;
+        let filters = match stored.value.get("Filter") {
+            Some(Value::Array(filters)) => filters.iter().filter_map(Value::as_name).collect(),
+            Some(filter) => filter.as_name().into_iter().collect(),
+            None => Vec::new(),
+        };
+        for filter in filters {
+            data = match filter {
+                "FlateDecode" => plt_codec::zlib::decompress(&data).ok()?,
+                "ASCII85Decode" => ascii85(&data)?,
+                "LZWDecode" => lzw(&data)?,
+                _ => return Some(data),
+            };
         }
+        Some(data)
     }
 }
 
@@ -382,13 +454,24 @@ fn find_last(data: &[u8], needle: &[u8]) -> Option<usize> {
     data.windows(needle.len()).rposition(|w| w == needle)
 }
 
-/// Splits content-stream data into `(operands, operator)` pairs.
+/// Splits content-stream data into `(operands, operator)` pairs. An
+/// inline image (`BI` keys and values `ID` data `EI`) is the operator
+/// `ID` with its dictionary and data as operands.
 pub(crate) fn operations(data: &[u8]) -> Result<Vec<(Vec<Value>, String)>, String> {
     let mut lexer = Lexer::new(data, 0);
     let mut ops = Vec::new();
     let mut operands = Vec::new();
     while !lexer.at_end() {
         match lexer.value()? {
+            Value::Op(op) if op == "ID" => {
+                let mut entries = Vec::new();
+                let mut pairs = std::mem::take(&mut operands).into_iter();
+                while let (Some(Value::Name(key)), Some(value)) = (pairs.next(), pairs.next()) {
+                    entries.push((key, value));
+                }
+                let image = Value::Str(lexer.inline_image_data());
+                ops.push((vec![Value::Dict(entries), image], op));
+            }
             Value::Op(op) => ops.push((std::mem::take(&mut operands), op)),
             value => operands.push(value),
         }
@@ -424,5 +507,29 @@ mod tests {
             Some(&Value::Array(vec![Value::Ref(2), Value::Num(3.0)]))
         );
         assert_eq!(dict.get("C d"), Some(&Value::Str(b"x".to_vec())));
+    }
+
+    #[test]
+    fn inline_images_carry_their_dictionary_and_data() {
+        let ops = operations(b"q BI /W 1 /H 1 /F/A85 ID\n!!~>\nEI Q").unwrap();
+        let names: Vec<&str> = ops.iter().map(|(_, op)| op.as_str()).collect();
+        assert_eq!(names, ["q", "BI", "ID", "Q"]);
+        assert_eq!(ops[2].0[0].get("F"), Some(&Value::Name("A85".to_owned())));
+        assert_eq!(ops[2].0[1], Value::Str(b"!!~>".to_vec()));
+    }
+
+    #[test]
+    fn objects_are_found_without_a_cross_reference_table() {
+        let data = b"%!PS\n/obj { } def\n7 0 obj\n<</Filter[/ASCII85Decode]/Length 7>>stream\n\
+                     87cUR~>\nendstream\nendobj\n3 0 obj\n<</Type/Page>>\nendobj\n";
+        let doc = Document::scan(data).unwrap();
+        assert_eq!(doc.order, [7, 3]);
+        assert_eq!(doc.stream(&Value::Ref(7)).unwrap(), b"Hell");
+        assert_eq!(
+            doc.objects[&3].value.get("Type"),
+            Some(&Value::Name("Page".to_owned()))
+        );
+        assert_eq!(object_number(b"12 0 obj\n"), Some(12));
+        assert_eq!(object_number(b"12 0 objects\n"), None);
     }
 }

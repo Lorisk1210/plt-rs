@@ -27,9 +27,11 @@
 //! labels in `$\mathdefault{...}$` for it. PNG output draws the DVI
 //! file's glyphs (or `dvipng`'s image with `text.latex.engine =
 //! "latex+dvipng"`), PDF output embeds its Type 1 fonts, SVG output draws
-//! glyph paths and PGF output hands the string to LaTeX. matplotlib's
-//! usetex PostScript needs `psfrag` and Ghostscript, which plt-rs does not
-//! run: saving such a figure as PS or EPS fails, as it does without them.
+//! glyph paths and PGF output hands the string to LaTeX. PostScript and
+//! EPS output, as in matplotlib, tags the texts for LaTeX's `psfrag`
+//! package, and runs LaTeX, `dvips` and Ghostscript on the whole figure;
+//! saving fails with matplotlib's message where one of them is missing
+//! ([`check_usetex_postscript`] tells beforehand).
 //! Where TeX is not installed, drawing usetex text fails with
 //! matplotlib's message ([`check_usetex`] tells beforehand), and a LaTeX
 //! error in the string fails with `latex`'s output, as in matplotlib.
@@ -275,6 +277,7 @@
 //! [`Text::set_math_fontfamily`]: crate::text::Text::set_math_fontfamily
 //! [`Text::set_usetex`]: crate::text::Text::set_usetex
 //! [`check_usetex`]: crate::text::check_usetex
+//! [`check_usetex_postscript`]: crate::text::check_usetex_postscript
 //! [`text_path_tex`]: crate::text::text_path_tex
 //! [`Text::layout`]: crate::text::Text::layout
 //! [`TextProps`]: crate::text::TextProps

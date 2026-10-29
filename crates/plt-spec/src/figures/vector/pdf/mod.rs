@@ -6,6 +6,7 @@
 //! state operators do not matter. The embedded fonts follow as items of
 //! their own: metrics, encoding and glyph procedures.
 
+mod filters;
 mod fonts;
 mod interp;
 mod samples;
@@ -94,9 +95,29 @@ pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
         .iter()
         .map(|kid| doc.resolve(kid))
         .collect();
+    document_items(&doc, &pages)
+}
+
+/// The drawing items of the PDF objects Ghostscript's `ps2write` device
+/// writes into PostScript: its pages in the order they stand in the
+/// file, then the fonts.
+pub(super) fn embedded_items(document: &[u8]) -> Result<Vec<Item>, String> {
+    let doc = Document::scan(document)?;
+    let pages: Vec<&Value> = doc
+        .order
+        .iter()
+        .filter_map(|id| doc.objects.get(id))
+        .map(|stored| &stored.value)
+        .filter(|object| object.get("Type").and_then(Value::as_name) == Some("Page"))
+        .collect();
+    document_items(&doc, &pages)
+}
+
+/// The items of `pages` of `doc`, then the fonts of the first page.
+fn document_items(doc: &Document, pages: &[&Value]) -> Result<Vec<Item>, String> {
     let mut items = Vec::new();
-    for page in &pages {
-        page_items(&doc, page, &mut items)?;
+    for page in pages {
+        page_items(doc, page, &mut items)?;
     }
     // The pages share one resource dictionary.
     let resources = pages.first().map_or(&Value::Null, |page| {
@@ -105,7 +126,7 @@ pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
     if let Value::Dict(fonts) = doc.resolve(resources.get("Font").unwrap_or(&Value::Null)) {
         let mut fonts: Vec<Item> = fonts
             .iter()
-            .map(|(_, font)| font_item(&doc, doc.resolve(font)))
+            .map(|(_, font)| font_item(doc, doc.resolve(font)))
             .collect();
         fonts.sort_by_key(ToString::to_string);
         items.extend(fonts);

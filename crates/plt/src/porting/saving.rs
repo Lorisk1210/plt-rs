@@ -17,6 +17,17 @@
 //! ...). Documents carry plt-rs as creator and the current date, or the
 //! date in `SOURCE_DATE_EPOCH` for reproducible builds.
 //!
+//! Like matplotlib, PostScript output runs external programs where asked
+//! to: the distiller of `ps.usedistiller` (Ghostscript's `ps2write`, or
+//! `ps2pdf` and `pdftops` for `xpdf`) at `ps.distiller.res`, and with
+//! `text.usetex` LaTeX with `psfrag`, `dvips` and Ghostscript. They run in
+//! a temporary directory removed afterwards, dated as the document is (as
+//! `SOURCE_DATE_EPOCH`); a missing program fails the save with
+//! matplotlib's message ([`ProgramError`], [`check_distiller`]). Where
+//! matplotlib finds no Ghostscript or `pdftops`, it logs that message and
+//! leaves the document undistilled instead; plt-rs, which logs nothing,
+//! fails.
+//!
 //! # Equivalences
 //!
 //! | matplotlib                                         | plt-rs                                         |
@@ -145,6 +156,8 @@
 //! [`Figure::to_pdf`]: crate::figure::Figure::to_pdf
 //! [`Figure::to_ps`]: crate::figure::Figure::to_ps
 //! [`Figure::to_eps`]: crate::figure::Figure::to_eps
+//! [`ProgramError`]: crate::figure::ProgramError
+//! [`check_distiller`]: crate::figure::check_distiller
 //! [`Figure::to_pgf`]: crate::figure::Figure::to_pgf
 //! [`Figure::to_format`]: crate::figure::Figure::to_format
 //! [`Figure::canvas`]: crate::figure::Figure::canvas

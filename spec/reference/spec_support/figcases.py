@@ -69,10 +69,11 @@ class FigureCase:
         return FIGURE_ROOT / f"{self.name}.{fmt}"
 
     def render_vector(self, fmt: str) -> bytes:
-        """Build the figure with matplotlib and save it as ``fmt`` (svg, pdf
-        or ps) with everything that varies between runs pinned: fixed SVG id
-        salt, no creator or dates, ``SOURCE_DATE_EPOCH=0`` for PostScript,
-        and the subset tags of TeX fonts (see ``_stable_subset_tags``)."""
+        """Build the figure with matplotlib and save it as ``fmt`` (svg, pdf,
+        ps or eps) with everything that varies between runs pinned: fixed SVG
+        id salt, no creator or dates, ``SOURCE_DATE_EPOCH=0`` for PostScript
+        (and the programs that distill it), and the subset tags of TeX fonts
+        (see ``_stable_subset_tags``)."""
         import os
 
         import matplotlib as mpl
@@ -136,6 +137,7 @@ VECTOR_METADATA: dict[str, dict[str, Any]] = {
     "svg": {"Date": None, "Creator": None},
     "pdf": {"Creator": None, "Producer": None, "CreationDate": None},
     "ps": {"Creator": None},
+    "eps": {"Creator": None},
 }
 
 

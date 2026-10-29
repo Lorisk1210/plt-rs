@@ -36,9 +36,11 @@ Left out
 ``test_pdf_type1_font_subsetting`` needs pikepdf (the PDF goldens of the
 ``usetex`` figure group hold the subsets); ``test_usetex_packages`` needs
 ``chemformula``, which TinyTeX lacks; ``test_openin_any_paranoid`` checks a
-subprocess environment; ``test_usetex_is_copied`` and
-``test_partial_usetex`` check per-artist state the tick labels of plt-rs
-are not artists for, and PostScript usetex output (psfrag and Ghostscript).
+subprocess environment; ``test_usetex_is_copied`` checks per-artist state
+the tick labels of plt-rs are not artists for. ``test_partial_usetex`` is a
+unit test of plt's PostScript output (``figure/postscript``), and the EPS
+of ``test_rotation`` is compared with the ``usetex`` figure group's
+PostScript, which LaTeX's ``psfrag``, ``dvips`` and Ghostscript make.
 """
 
 import hashlib

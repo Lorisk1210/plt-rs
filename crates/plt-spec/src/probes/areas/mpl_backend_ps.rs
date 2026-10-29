@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use plt::figure::{Figure, PageOrientation, Paper, SaveOptions, Share};
 use plt::lines::LineStyle;
-use plt::rc::FontType;
+use plt::rc::{Distiller, FontType};
 
 use super::mpl_tests::in_test_style;
 use crate::json::Json;
@@ -17,6 +17,7 @@ use crate::probes::{Args, Op, Outcome, ProbeError};
 /// Operations implemented for this area.
 pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.savefig", placed),
+    Op::new("Figure.savefig.distilled", distilled),
     Op::new("savefig.eps.bbox", bounding_box),
     Op::new("rcParams.ps.fonttype", font_type),
     Op::new("Line2D.set_linestyle", dashed_line),
@@ -47,39 +48,58 @@ fn section<'a>(document: &'a str, from: &str, start: &str, end: &str) -> Option<
     rest.find(end).map(|stop| &rest[..stop])
 }
 
+/// `test_savefig_to_stringio`'s figure, a line titled "Déjà vu" (with a
+/// minus and a euro sign unless `title_signs` is off), saved as the
+/// `format` of `args` with its orientation and paper type.
+fn titled_line(args: Args<'_>, title_signs: bool) -> Result<String, ProbeError> {
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    if args.opt_bool("log")?.unwrap_or(false) {
+        ax.set_yscale("log").map_err(ProbeError::rejected)?;
+    }
+    ax.plot([1.0, 2.0], [1.0, 2.0])
+        .map_err(ProbeError::rejected)?;
+    ax.set_title(if title_signs {
+        "Déjà vu \u{2212}\u{20ac}"
+    } else {
+        "Déjà vu"
+    });
+    let options = SaveOptions {
+        orientation: Some(
+            args.str("orientation")?
+                .parse::<PageOrientation>()
+                .map_err(ProbeError::rejected)?,
+        ),
+        papertype: Some(
+            args.str("papertype")?
+                .parse::<Paper>()
+                .map_err(ProbeError::rejected)?,
+        ),
+        ..SaveOptions::default()
+    };
+    document(&fig, args.str("format")?, options)
+}
+
+/// The header comments of `document` but those naming the library, the
+/// date or the file.
+fn stable_header(document: &str) -> Result<Vec<Json>, ProbeError> {
+    let end = document
+        .find("%%EndComments")
+        .ok_or_else(|| ProbeError::rejected("the document has no %%EndComments"))?;
+    Ok(document[..end]
+        .lines()
+        .filter(|line| !UNSTABLE.iter().any(|prefix| line.starts_with(prefix)))
+        .map(Json::from)
+        .collect())
+}
+
 /// The header comments and the placement on the page of a titled line
 /// saved with an orientation and a paper type.
 fn placed(args: Args<'_>) -> Outcome {
     in_test_style(args, || {
-        let fig = Figure::new();
-        let ax = fig.subplot();
-        if args.bool("log")? {
-            ax.set_yscale("log").map_err(ProbeError::rejected)?;
-        }
-        ax.plot([1.0, 2.0], [1.0, 2.0])
-            .map_err(ProbeError::rejected)?;
-        ax.set_title("Déjà vu \u{2212}\u{20ac}");
-        let options = SaveOptions {
-            orientation: Some(
-                args.str("orientation")?
-                    .parse::<PageOrientation>()
-                    .map_err(ProbeError::rejected)?,
-            ),
-            papertype: Some(
-                args.str("papertype")?
-                    .parse::<Paper>()
-                    .map_err(ProbeError::rejected)?,
-            ),
-            ..SaveOptions::default()
-        };
-        let document = document(&fig, args.str("format")?, options)?;
+        let document = titled_line(args, true)?;
         let missing = || ProbeError::rejected("the document misses a section");
-        let head = &document[..document.find("%%EndComments").ok_or_else(missing)?];
-        let header: Vec<Json> = head
-            .lines()
-            .filter(|line| !UNSTABLE.iter().any(|prefix| line.starts_with(prefix)))
-            .map(Json::from)
-            .collect();
+        let header = stable_header(&document)?;
         let body =
             section(&document, "%%EndProlog", "mpldict begin", "rectclip").ok_or_else(missing)?;
         let lines: Vec<&str> = body.lines().collect();
@@ -92,6 +112,35 @@ fn placed(args: Args<'_>) -> Outcome {
         Ok(Json::Object(vec![
             ("header".to_owned(), Json::Array(header)),
             ("placement".to_owned(), Json::Array(placement)),
+        ]))
+    })
+}
+
+/// The header and page comments of the titled line distilled, or typeset
+/// by LaTeX and distilled; a skip where the programs are missing.
+fn distilled(args: Args<'_>) -> Outcome {
+    in_test_style(args, || {
+        let rc = plt::rc::params();
+        let available = if rc.text_usetex {
+            plt::text::check_usetex_postscript().map_err(|err| err.to_string())
+        } else {
+            plt::figure::check_distiller(rc.ps_usedistiller).map_err(|err| err.to_string())
+        };
+        available.map_err(ProbeError::Skipped)?;
+        if !rc.text_usetex && rc.ps_usedistiller == Distiller::Off {
+            return Err(ProbeError::BadArgs(
+                "neither distilled nor usetex".to_owned(),
+            ));
+        }
+        let document = titled_line(args, !rc.text_usetex)?;
+        let pages = document
+            .lines()
+            .filter(|line| line.starts_with("%%Page"))
+            .map(Json::from)
+            .collect();
+        Ok(Json::Object(vec![
+            ("header".to_owned(), Json::Array(stable_header(&document)?)),
+            ("pages".to_owned(), Json::Array(pages)),
         ]))
     })
 }

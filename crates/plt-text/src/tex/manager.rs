@@ -5,7 +5,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use plt_codec::sha256::sha256_hex;
@@ -16,6 +15,7 @@ use super::dvi::DviPage;
 use super::error::{TexError, TexFile};
 use super::files::TexFiles;
 use super::source::{TexFonts, tex_source};
+use super::tempdir::TemporaryDirectory;
 use crate::TextError;
 
 /// How Agg-based backends draw TeX's output (`text.latex.engine`).
@@ -89,36 +89,9 @@ fn make_dirs(path: &Path) -> Result<(), TexError> {
     std::fs::create_dir_all(path).map_err(|err| TexError::io(path, &err))
 }
 
-/// A fresh directory in `parent` (Python's `TemporaryDirectory`), removed
-/// when dropped.
-struct TemporaryDirectory(PathBuf);
-
-impl TemporaryDirectory {
-    fn new(parent: &Path) -> Result<Self, TexError> {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        loop {
-            let nanos = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.subsec_nanos());
-            let name = format!(
-                "tmp{}_{}_{nanos}",
-                std::process::id(),
-                COUNTER.fetch_add(1, Ordering::Relaxed)
-            );
-            let path = parent.join(name);
-            match std::fs::create_dir(&path) {
-                Ok(()) => return Ok(Self(path)),
-                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {}
-                Err(err) => return Err(TexError::io(&path, &err)),
-            }
-        }
-    }
-}
-
-impl Drop for TemporaryDirectory {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
+/// A fresh directory in `parent` for TeX's files.
+fn temporary_directory(parent: &Path) -> Result<TemporaryDirectory, TexError> {
+    TemporaryDirectory::new(parent).map_err(|err| TexError::io(parent, &err))
 }
 
 /// Moves `from` to `to` (`Path.replace`).
@@ -240,8 +213,8 @@ impl TexManager {
             return Ok(dvi);
         }
         let dir = dvi.parent().unwrap_or(&self.0.cache_dir);
-        let tmp = TemporaryDirectory::new(dir)?;
-        let source = tmp.0.join("file.tex");
+        let tmp = temporary_directory(dir)?;
+        let source = tmp.path().join("file.tex");
         std::fs::write(&source, self.source(tex, fontsize))
             .map_err(|err| TexError::io(&source, &err))?;
         let args = [
@@ -251,8 +224,8 @@ impl TexManager {
             "file.tex",
         ]
         .map(OsStr::new);
-        run_checked("latex", &args, tex, &tmp.0)?;
-        replace(&tmp.0.join("file.dvi"), &dvi)?;
+        run_checked("latex", &args, tex, tmp.path())?;
+        replace(&tmp.path().join("file.dvi"), &dvi)?;
         replace(&source, &dvi.with_extension("tex"))?;
         Ok(dvi)
     }
@@ -272,7 +245,7 @@ impl TexManager {
             return Ok(png);
         }
         let dvi = self.make_dvi(tex, fontsize)?;
-        let tmp = TemporaryDirectory::new(png.parent().unwrap_or(&self.0.cache_dir))?;
+        let tmp = temporary_directory(png.parent().unwrap_or(&self.0.cache_dir))?;
         let dpi = pyfmt::repr(dpi);
         let args = [
             OsStr::new("-bg"),
@@ -285,8 +258,8 @@ impl TexManager {
             OsStr::new("file.png"),
             dvi.as_os_str(),
         ];
-        run_checked("dvipng", &args, tex, &tmp.0)?;
-        replace(&tmp.0.join("file.png"), &png)?;
+        run_checked("dvipng", &args, tex, tmp.path())?;
+        replace(&tmp.path().join("file.png"), &png)?;
         Ok(png)
     }
 

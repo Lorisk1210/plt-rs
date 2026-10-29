@@ -506,6 +506,17 @@ impl<'a> Interpreter<'a> {
                     self.xobject(resources, name);
                 }
             }
+            "ID" => {
+                // An inline image: its placement, dictionary and data.
+                let mut item = self.painted("inline-image");
+                item.tokens
+                    .extend(self.state.ctm.iter().map(|&v| Token::Num(v)));
+                item.tokens.extend(self.state.fill.iter().cloned());
+                for operand in operands {
+                    value_tokens(operand, &mut item.tokens);
+                }
+                self.items.push(item);
+            }
             "sh" => {
                 if let Some(name) = name {
                     let shading = self.resource(resources, "Shading", name);

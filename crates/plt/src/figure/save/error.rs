@@ -3,9 +3,10 @@
 use std::fmt;
 
 use plt_render::{RasterBackendError, VectorError};
+use plt_text::tex::TexError;
 
 use super::SaveFormat;
-use crate::figure::DrawErrors;
+use crate::figure::{DrawErrors, ProgramError};
 use crate::image::BitmapError;
 
 /// Why a figure could not be rendered or saved.
@@ -24,6 +25,9 @@ pub enum SaveError {
     /// Metadata was given for a format that cannot hold it (the bitmap
     /// formats other than PNG).
     MetadataUnsupported(SaveFormat),
+    /// A program the PostScript backend runs (a distiller, `dvips`) is
+    /// missing or failed.
+    Program(ProgramError),
     /// Writing the file failed.
     Io(std::io::Error),
 }
@@ -44,6 +48,7 @@ impl fmt::Display for SaveError {
                 "metadata not supported for format {:?}",
                 format.extension()
             ),
+            Self::Program(err) => err.fmt(f),
             Self::Io(err) => write!(f, "cannot write the figure: {err}"),
         }
     }
@@ -56,8 +61,22 @@ impl std::error::Error for SaveError {
             Self::Vector(err) => Some(err),
             Self::Bitmap(err) => Some(err),
             Self::Draw(err) => Some(err),
+            Self::Program(err) => Some(err),
             Self::Io(err) => Some(err),
             Self::UnsupportedFormat(_) | Self::MetadataUnsupported(_) => None,
         }
+    }
+}
+
+impl From<ProgramError> for SaveError {
+    fn from(err: ProgramError) -> Self {
+        Self::Program(err)
+    }
+}
+
+impl From<TexError> for SaveError {
+    /// TeX failing on a document is the document's failure.
+    fn from(err: TexError) -> Self {
+        Self::Vector(err.into())
     }
 }

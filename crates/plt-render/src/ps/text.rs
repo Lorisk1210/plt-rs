@@ -123,9 +123,9 @@ impl PsRenderer {
         self.body.push_str("grestore\n");
     }
 
-    /// `draw_tex`: matplotlib marks usetex text for `psfrag` to replace
-    /// when `text.usetex` is on, which plt-rs cannot finish (an error);
-    /// with it off, the text is drawn as plain text, as matplotlib does.
+    /// `draw_tex`: usetex text is a tag for `psfrag` to replace when
+    /// `text.usetex` is on (`psfrag_mark`); with it off, the text is drawn
+    /// as plain text, as matplotlib does.
     pub(super) fn ps_tex(
         &mut self,
         gc: &GraphicsContext,
@@ -137,7 +137,7 @@ impl PsRenderer {
             return Ok(());
         }
         if self.options.usetex {
-            return Err(TexError::PostScriptOutput);
+            return self.psfrag_mark(gc, tex, origin, angle);
         }
         let plain = TextSource::Plain {
             text: tex.tex.clone(),

@@ -2,11 +2,20 @@
 //! matplotlib's documents is checked by plt-spec's vector tests.
 
 use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
+use plt_text::tex::{TexEngine, TexFonts, TexManager};
 use plt_text::{FontQuery, FontRequest, TextEngine};
 
 use super::*;
 use crate::gc::Hatch;
 use crate::testing::square;
+
+/// The document `r` finishes (no usetex).
+fn document(r: PsRenderer) -> PsDocument {
+    match r.finish().expect("document") {
+        PsOutput::Document(document) => document,
+        PsOutput::Psfrag(figure) => panic!("a psfrag figure: {figure:?}"),
+    }
+}
 
 fn renderer(eps: bool) -> PsRenderer {
     PsRenderer::new(
@@ -24,7 +33,13 @@ fn renderer(eps: bool) -> PsRenderer {
 
 #[test]
 fn documents_are_centred_on_the_paper() {
-    let ps = renderer(false).finish().expect("document");
+    let centred = document(renderer(false));
+    let (x0, y0) = (36.0 * (8.5 - 6.4), 36.0 * (11.0 - 4.8));
+    assert_eq!(
+        centred.bbox,
+        Bbox::from_extents(x0, y0, x0 + 6.4 * 72.0, y0 + 4.8 * 72.0)
+    );
+    let ps = centred.text;
     assert!(ps.starts_with("%!PS-Adobe-3.0\n%%DocumentPaperSizes: letter\n%%Pages: 1\n"));
     assert!(ps.contains("%%BoundingBox: 75 223 537 569\n"));
     assert!(ps.contains("%%HiResBoundingBox: 75.600000 223.200000 536.400000 568.800000\n"));
@@ -33,7 +48,7 @@ fn documents_are_centred_on_the_paper() {
         ps.contains("%%Page: 1 1\nmpldict begin\n75.6 223.2 translate\n0 0 460.8 345.6 rectclip\n")
     );
     assert!(ps.ends_with("\nend\nshowpage\n%%EOF\n"));
-    let eps = renderer(true).finish().expect("document");
+    let eps = document(renderer(true)).text;
     assert!(eps.starts_with("%!PS-Adobe-3.0 EPSF-3.0\n%%LanguageLevel: 3\n"));
     assert!(eps.contains("%%BoundingBox: 0 0 461 346\n"));
     assert!(!eps.contains("%%EOF"));
@@ -59,7 +74,7 @@ fn paths_write_changed_properties_only() {
     };
     r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::WHITE));
     r.draw_path(&gc, &square(), &Affine2D::IDENTITY, Some(Rgba::WHITE));
-    let ps = r.finish().expect("document");
+    let ps = document(r).text;
     assert_eq!(ps.matches("2 setlinewidth").count(), 1);
     assert_eq!(ps.matches("makepattern").count(), 1);
     assert!(ps.contains(
@@ -80,7 +95,7 @@ fn markers_are_procedures() {
         &Affine2D::IDENTITY,
         Some(Rgba::opaque(1.0, 0.0, 0.0)),
     );
-    let ps = r.finish().expect("document");
+    let ps = document(r).text;
     assert!(ps.contains(
         "/o {\ngsave\nnewpath\ntranslate\n1.0 setlinewidth\n1 setlinejoin\n\n0 setlinecap\n"
     ));
@@ -108,7 +123,7 @@ fn text_embeds_type3_fonts() {
         Point::new(65.8874, 23.4183),
         0.0,
     );
-    let ps = r.finish().expect("document");
+    let ps = document(r).text;
     assert!(ps.contains("/mpldict 9 dict def"));
     assert!(ps.contains("/FontName /DejaVuSans-0 def"));
     assert!(ps.contains(
@@ -148,7 +163,7 @@ fn afm_text_is_placed_by_its_metrics_and_nothing_is_embedded() {
         .layout_math("$x$", &plt_text::mathtext::MathStyle::default())
         .expect("valid math");
     r.draw_text(&gc, &math, Point::new(1.0, 1.0), 0.0);
-    let ps = r.finish().expect("document");
+    let ps = document(r).text;
     assert!(ps.contains(
         "/Helvetica 10.000 selectfont\ngsave\n\n1 2 translate\n0 rotate\n\
          0 0 m /A glyphshow\n5.97 0 m /V glyphshow\ngrestore\n"
@@ -181,10 +196,81 @@ fn images_and_shadings() {
         &[[Rgba::BLACK, Rgba::WHITE, Rgba::BLACK]],
         &Affine2D::IDENTITY,
     );
-    let ps = r.finish().expect("document");
+    let ps = document(r).text;
     assert!(ps.contains(
         "1 2 translate\n[1 0 0 1 0 0] concat\n1.44 0.72 scale\n/DataString 2 string def"
     ));
     assert!(ps.contains("bind false 3 colorimage\nff00000000ff\ngrestore\n"));
     assert!(ps.contains("/Decode [ -4096 4106 -4096 4106 0 1 0 1 0 1 ]"));
+}
+
+#[test]
+fn usetex_texts_are_psfrag_tags_in_a_figure_without_fonts() {
+    let mut r = PsRenderer::new(
+        3.2,
+        2.0,
+        100.0,
+        PsOptions {
+            orientation: PageOrientation::Landscape,
+            metadata: Metadata::none(),
+            usetex: true,
+            ..PsOptions::default()
+        },
+    )
+    .expect("valid figure");
+    let fonts = TexFonts {
+        family: vec!["sans-serif".to_owned()],
+        ..TexFonts::default()
+    };
+    let manager = TexManager::new(&std::env::temp_dir(), fonts, "", TexEngine::Latex);
+    // Blank text has no extent, so TeX need not run.
+    let font = FontRequest::new(FontQuery {
+        size: 12.0,
+        ..FontQuery::families(["DejaVu Sans"])
+    });
+    let tex = TexText::new(" ", font, manager);
+    let red = GraphicsContext {
+        foreground: Rgba::opaque(1.0, 0.0, 0.0),
+        ..GraphicsContext::default()
+    };
+    let run = TextRun::default();
+    r.draw_tex(&red, &run, &tex, Point::new(10.0, 20.0), 30.0)
+        .expect("tagged");
+    let clear = GraphicsContext {
+        alpha: Some(0.0),
+        ..GraphicsContext::default()
+    };
+    r.draw_tex(&clear, &run, &tex, Point::new(1.0, 2.0), 0.0)
+        .expect("not drawn");
+    r.draw_path(
+        &GraphicsContext::default(),
+        &square(),
+        &Affine2D::IDENTITY,
+        None,
+    );
+    let PsOutput::Psfrag(figure) = r.finish().expect("figure") else {
+        panic!("not a psfrag figure");
+    };
+    assert_eq!(
+        figure.psfrags,
+        [
+            r"\psfrag{psmarker0}[bl][bl][1][30.000000]{\fontsize{12.000000}{15.000000}\color[rgb]{1,0,0} {\sffamily  }}"
+        ]
+    );
+    assert!(figure.figure.starts_with(
+        "%!PS-Adobe-3.0 EPSF-3.0\n%%LanguageLevel: 3\n%%BoundingBox: 0 0 231 144\n\
+         %%HiResBoundingBox: 0.000000 0.000000 230.400000 144.000000\n%%EndComments\n\
+         %%BeginProlog\n/mpldict 8 dict def\nmpldict begin\n/_d { bind def } bind def/m { moveto } _d"
+    ));
+    assert!(figure.figure.contains(
+        "/sc { setcachedevice } _d\nend\n%%EndProlog\nmpldict begin\n0 0 translate\n\
+         0 0 230.4 144 rectclip\ngsave\n10 20 moveto\n(psmarker0)\nshow\ngrestore\n"
+    ));
+    assert!(
+        figure
+            .figure
+            .ends_with("stroke\ngrestore\n\nend\nshowpage\n")
+    );
+    assert_eq!((figure.width, figure.height), (3.2, 2.0));
+    assert_eq!(figure.bbox, Bbox::from_extents(0.0, 0.0, 144.0, 3.2 * 72.0));
 }

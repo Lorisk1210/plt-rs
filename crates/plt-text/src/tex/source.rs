@@ -126,9 +126,17 @@ impl TexFonts {
     }
 }
 
-/// `_usepackage_if_not_loaded`: loads a package unless the custom preamble
-/// already did.
-fn usepackage_if_not_loaded(package: &str, option: Option<&str>) -> String {
+/// `_usepackage_if_not_loaded`: loads `package` (with `option`) unless the
+/// custom preamble already did.
+///
+/// ```
+/// use plt_text::tex::usepackage_if_not_loaded;
+/// assert_eq!(
+///     usepackage_if_not_loaded("psfrag", None),
+///     r"\makeatletter\@ifpackageloaded{psfrag}{}{\usepackage{psfrag}}\makeatother"
+/// );
+/// ```
+pub fn usepackage_if_not_loaded(package: &str, option: Option<&str>) -> String {
     let option = option.map(|o| format!("[{o}]")).unwrap_or_default();
     format!(
         r"\makeatletter\@ifpackageloaded{{{package}}}{{}}{{\usepackage{option}{{{package}}}}}\makeatother"

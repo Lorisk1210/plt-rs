@@ -1,6 +1,6 @@
 //! Writing figures: matplotlib's `savefig` with the Agg canvas (PNG, and
 //! JPEG, TIFF, GIF, WebP and raw RGBA through the bitmap encoders) and the
-//! SVG, PDF, PostScript and PGF backends (the latter two in `postscript.rs`
+//! SVG, PDF, PostScript and PGF backends (the latter two in `postscript`
 //! and `pgf.rs`), chosen from the file extension. The formats are in
 //! `format`, the renderer settings taken from the rcParams in `settings`.
 
@@ -137,8 +137,8 @@ impl Figure {
                 .to_svg_with(options)
                 .map(|svg| plt_render::gzip(svg.as_bytes())),
             SaveFormat::Pdf => self.to_pdf_with(options),
-            SaveFormat::Ps => self.to_ps_with(options).map(String::into_bytes),
-            SaveFormat::Eps => self.to_eps_with(options).map(String::into_bytes),
+            SaveFormat::Ps => self.postscript(&options, false),
+            SaveFormat::Eps => self.postscript(&options, true),
             SaveFormat::Pgf => self.to_pgf_with(options).map(String::into_bytes),
             SaveFormat::Jpeg => self.to_bitmap(BitmapFormat::Jpeg, options),
             SaveFormat::Tiff => self.to_bitmap(BitmapFormat::Tiff, options),

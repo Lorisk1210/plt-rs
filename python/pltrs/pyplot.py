@@ -402,3 +402,113 @@ def ylabel(ylabel, fontdict=None, labelpad=None, *, loc=None, **kwargs):
 def legend(*args, **kwargs):
     """Place a legend on the Axes (`.Axes.legend`)."""
     return gca().legend(*args, **kwargs)
+
+
+# Colormaps, images and colorbars.
+from . import cm  # noqa: E402, F401  (matplotlib.cm, as pyplot imports it)
+from .cm import _colormaps as colormaps  # noqa: E402
+from .colors import Colormap, Normalize  # noqa: E402, F401
+from .colors import _color_sequences as color_sequences  # noqa: E402
+
+
+def gci():
+    """
+    Get the current colorable artist.
+
+    Specifically, returns the current `.ScalarMappable` instance (`.Image`
+    created by `imshow` or `figimage`, `.Collection` created by `pcolor` or
+    `scatter`, etc.), or *None* if no such instance has been defined.
+    """
+    return gcf()._gci()
+
+
+def get_cmap(name=None, lut=None):
+    """
+    Get a colormap instance, defaulting to rc values if *name* is None.
+
+    Parameters
+    ----------
+    name : `~matplotlib.colors.Colormap` or str or None, default: None
+        If a `.Colormap` instance, it will be returned. Otherwise, the name of
+        a colormap known to Matplotlib, which will be resampled by *lut*. The
+        default, None, means :rc:`image.cmap`.
+    lut : int or None, default: None
+        If *name* is not already a Colormap instance and *lut* is not None, the
+        colormap will be resampled to have *lut* entries in the lookup table.
+    """
+    from . import _api
+    if name is None:
+        name = rcParams['image.cmap']
+    if isinstance(name, Colormap):
+        return name
+    _api.check_in_list(sorted(colormaps), name=name)
+    if lut is None:
+        return colormaps[name]
+    else:
+        return colormaps[name].resampled(lut)
+
+
+def set_cmap(cmap):
+    """
+    Set the default colormap, and applies it to the current image if any.
+
+    Parameters
+    ----------
+    cmap : `~matplotlib.colors.Colormap` or str
+        A colormap instance or the name of a registered colormap.
+    """
+    from . import rc
+    cmap = get_cmap(cmap)
+    rc('image', cmap=cmap.name)
+    im = gci()
+    if im is not None:
+        im.set_cmap(cmap)
+
+
+def imshow(X, cmap=None, norm=None, *, aspect=None, interpolation=None,
+           alpha=None, vmin=None, vmax=None, colorizer=None, origin=None,
+           extent=None, interpolation_stage=None, filternorm=True,
+           filterrad=4.0, resample=None, url=None, **kwargs):
+    """Display data as an image (`.Axes.imshow`)."""
+    return gca().imshow(
+        X, cmap=cmap, norm=norm, aspect=aspect, interpolation=interpolation,
+        alpha=alpha, vmin=vmin, vmax=vmax, colorizer=colorizer,
+        origin=origin, extent=extent, interpolation_stage=interpolation_stage,
+        filternorm=filternorm, filterrad=filterrad, resample=resample,
+        url=url, **kwargs)
+
+
+def imread(fname, format=None):
+    """Read an image from a file into an array (`.image.imread`)."""
+    return image.imread(fname, format)
+
+
+def imsave(fname, arr, **kwargs):
+    """Colormap and save an array as an image file (`.image.imsave`)."""
+    image.imsave(fname, arr, **kwargs)
+
+
+def colorbar(mappable=None, cax=None, ax=None, **kwargs):
+    """Add a colorbar to the current image (`.Figure.colorbar`)."""
+    if mappable is None:
+        mappable = gci()
+        if mappable is None:
+            raise RuntimeError('No mappable was found to use for colorbar '
+                               'creation. First define a mappable such as '
+                               'an image (with imshow) or a contour set ('
+                               'with contourf).')
+    return gcf().colorbar(mappable, cax=cax, ax=ax, **kwargs)
+
+
+def clim(vmin=None, vmax=None):
+    """
+    Set the color limits of the current image.
+
+    If either *vmin* or *vmax* is None, the image min/max respectively
+    will be used for color scaling.
+    """
+    im = gci()
+    if im is None:
+        raise RuntimeError('You must first define an image, e.g., with imshow')
+
+    im.set_clim(vmin, vmax)

@@ -5,12 +5,23 @@
 //! or 4 numbers; it converts back as the string it was given, or as an
 //! RGBA tuple.
 
+pub(crate) mod mapping;
+
+use pltrs::colors::multivar::{BivarColormap, BivarShape, MultivarError};
 use pltrs::colors::{
     Channel, Color, ColorError, ColormapError, Rgba, SegmentProblem, color_sequence,
     color_sequence_names, create_lookup_table, hsv_to_rgb, rgb_to_hsv,
 };
+use pltrs::numeric::Grid;
 
 use crate::binding::prelude::*;
+
+impl From<MultivarError> for PyErr {
+    /// matplotlib's `ValueError` for invalid multivariate colormaps.
+    fn from(err: MultivarError) -> Self {
+        PyErr::value_error(err.to_string())
+    }
+}
 
 impl From<ColorError> for PyErr {
     /// matplotlib's `ValueError` for invalid colours.
@@ -135,6 +146,24 @@ fn lookup_table(n: usize, rows: Vec<(f64, f64, f64)>, gamma: f64) -> PyResult<Nd
     )?))
 }
 
+/// The `(n, n, 4)` table of `SegmentedBivarColormap(patch, n)`: the RGB
+/// patch `(M, K, 3)` interpolated bilinearly.
+fn segmented_bivar_lut(patch: NdArray, n: usize) -> PyResult<NdArray> {
+    let [rows, cols, 3] = patch.shape[..] else {
+        return Err(PyErr::value_error(format!(
+            "patch must have shape (M, N, 3), not {:?}",
+            patch.shape
+        )));
+    };
+    let cells = patch.data.as_chunks::<3>().0.to_vec();
+    let patch =
+        Grid::from_vec(rows, cols, cells).map_err(|err| PyErr::value_error(err.to_string()))?;
+    let cmap = BivarColormap::segmented("", &patch, n, BivarShape::Square, (0.0, 0.0))?;
+    let lut = cmap.lut();
+    let (rows, cols) = lut.shape();
+    NdArray::with_shape(lut.into_vec().concat(), vec![rows, cols, 4])
+}
+
 /// The colours of the built-in colour sequence `name`, as RGBA tuples.
 fn sequence(name: String) -> PyResult<Vec<(f64, f64, f64, f64)>> {
     color_sequence(&name)
@@ -154,6 +183,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("rgb_to_hsv", rgb_to_hsv_array)?;
     module.add("hsv_to_rgb", hsv_to_rgb_array)?;
     module.add("lookup_table", lookup_table)?;
+    module.add("segmented_bivar_lut", segmented_bivar_lut)?;
     module.add("color_sequence", sequence)?;
     module.add("color_sequence_names", sequence_names)
 }

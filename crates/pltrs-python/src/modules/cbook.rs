@@ -1,6 +1,8 @@
-//! `_native.cbook`: the numeric helpers of matplotlib's `cbook` (box-plot
-//! statistics, stripping mathtext), computed by pltrs.
+//! `_native.cbook`: the helpers of matplotlib's `cbook` and its package (box-plot
+//! statistics, stripping mathtext, the configuration and cache directories),
+//! computed by pltrs.
 
+use pltrs::config::{self, ConfigError};
 use pltrs::stats::{Bootstrap, BoxStats, BoxplotStatsOptions, StatsError, Whis, boxplot_stats};
 
 use crate::binding::prelude::*;
@@ -73,8 +75,27 @@ fn box_stats(
     ))
 }
 
+impl From<ConfigError> for PyErr {
+    /// matplotlib's `OSError` when no writable directory can be found.
+    fn from(err: ConfigError) -> Self {
+        PyErr::new(ExceptionKind::OSError, err.to_string())
+    }
+}
+
+/// The configuration directory (matplotlib's `get_configdir`).
+fn config_dir() -> PyResult<String> {
+    Ok(config::config_dir()?.display().to_string())
+}
+
+/// The cache directory (matplotlib's `get_cachedir`).
+fn cache_dir() -> PyResult<String> {
+    Ok(config::cache_dir()?.display().to_string())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("config_dir", config_dir)?;
+    module.add("cache_dir", cache_dir)?;
     module.add("strip_math", strip_math)?;
     module.add("box_stats", box_stats)
 }

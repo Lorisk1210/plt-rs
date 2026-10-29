@@ -197,8 +197,31 @@ pub fn bivar_colormap_names() -> [&'static str; 3] {
     ["BiPeak", "BiOrangeBlue", "BiCone"]
 }
 
-/// The registered bivariate colormap `name`.
-pub fn bivar_colormap(name: &str) -> Result<BivarColormap, MultivarError> {
+/// How a registered bivariate colormap is made: the arguments of
+/// matplotlib's `SegmentedBivarColormap` in `_cm_bivar.py`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BivarDefinition {
+    /// The RGB grid the table is interpolated from.
+    pub patch: Grid<[f64; 3]>,
+    /// What happens to pairs outside the unit square.
+    pub shape: BivarShape,
+    /// Where the colormap is cut into components, as fractions.
+    pub origin: (f64, f64),
+}
+
+/// The definition of the registered bivariate colormap `name`.
+///
+/// ```
+/// use pltrs::colors::multivar::{BivarShape, bivar_colormap_definition};
+/// let cone = bivar_colormap_definition("BiCone")?;
+/// assert_eq!((cone.patch.shape(), cone.shape), ((65, 65), BivarShape::Circle));
+/// # Ok::<(), pltrs::colors::multivar::MultivarError>(())
+/// ```
+///
+/// # Errors
+///
+/// When no bivariate colormap is registered under `name`.
+pub fn bivar_colormap_definition(name: &str) -> Result<BivarDefinition, MultivarError> {
     let (patch, side, shape, origin) = match name {
         "BiPeak" => (data::BI_PEAK, 65, BivarShape::Square, (0.5, 0.5)),
         "BiOrangeBlue" => (data::BI_ORANGE_BLUE, 2, BivarShape::Square, (0.0, 0.0)),
@@ -210,6 +233,20 @@ pub fn bivar_colormap(name: &str) -> Result<BivarColormap, MultivarError> {
         .map(|row| row.iter().map(|&[r, g, b, _]| [r, g, b]).collect())
         .collect();
     let patch = Grid::from_rows(rows).map_err(|_| MultivarError::EmptyTable)?;
+    Ok(BivarDefinition {
+        patch,
+        shape,
+        origin,
+    })
+}
+
+/// The registered bivariate colormap `name`.
+pub fn bivar_colormap(name: &str) -> Result<BivarColormap, MultivarError> {
+    let BivarDefinition {
+        patch,
+        shape,
+        origin,
+    } = bivar_colormap_definition(name)?;
     BivarColormap::segmented(name, &patch, 256, shape, origin)
 }
 

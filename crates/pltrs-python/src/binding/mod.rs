@@ -37,7 +37,7 @@ mod registry;
 #[cfg(test)]
 pub(crate) mod testing;
 
-pub(crate) use buffer::NdArray;
+pub(crate) use buffer::{Element, NdArray};
 pub(crate) use callback::Callback;
 pub(crate) use containers::{dict_items, dict_value};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};

@@ -150,8 +150,8 @@ fn rms_and_diff(
     actual: &Loaded,
 ) -> Result<(f64, Grid<[u8; 3]>), ImageShapeError> {
     match (expected, actual) {
-        (Loaded::Rgb(expected), Loaded::Rgb(actual)) => rms_and_diff_of(expected, actual),
-        (Loaded::Rgba(expected), Loaded::Rgba(actual)) => rms_and_diff_of(expected, actual),
+        (Loaded::Rgb(expected), Loaded::Rgb(actual)) => calculate_rms_and_diff(expected, actual),
+        (Loaded::Rgba(expected), Loaded::Rgba(actual)) => calculate_rms_and_diff(expected, actual),
         _ => Err(ImageShapeError {
             expected: expected.shape(),
             actual: actual.shape(),
@@ -159,10 +159,25 @@ fn rms_and_diff(
     }
 }
 
-/// The RMS of two images and their difference image: the colour channels
-/// of each pixel differ ten times as much, clipped to 255, and alpha is
-/// left out.
-fn rms_and_diff_of<const N: usize>(
+/// The RMS of two images and their difference image (matplotlib's
+/// `_image.calculate_rms_and_diff`): the colour channels of each pixel
+/// differ ten times as much, clipped to 255, and alpha is left out.
+///
+/// ```
+/// use pltrs::numeric::Grid;
+/// use pltrs::testing::calculate_rms_and_diff;
+/// let expected = Grid::from_vec(1, 1, vec![[10_u8, 20, 30, 255]])?;
+/// let actual = Grid::from_vec(1, 1, vec![[10_u8, 50, 30, 255]])?;
+/// let (rms, diff) = calculate_rms_and_diff(&expected, &actual)?;
+/// assert_eq!(rms, 15.0);
+/// assert_eq!(diff.as_slice(), [[0, 255, 0]]);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// [`ImageShapeError`] when the images differ in size.
+pub fn calculate_rms_and_diff<const N: usize>(
     expected: &Grid<[u8; N]>,
     actual: &Grid<[u8; N]>,
 ) -> Result<(f64, Grid<[u8; 3]>), ImageShapeError> {

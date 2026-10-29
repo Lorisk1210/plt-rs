@@ -201,13 +201,14 @@ const VERSION_POLL: Duration = Duration::from_millis(5);
 /// started, or when it runs longer than [`VERSION_TIMEOUT`] (killed).
 fn printed(program: &str, flag: &str) -> Result<(bool, String), ProgramError> {
     let not_found = |err: &io::Error| ProgramError::NotFound(os_error(program, err));
-    let mut child = Command::new(program)
-        .arg(flag)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|err| not_found(&err))?;
+    let mut child = crate::process::spawn(
+        Command::new(program)
+            .arg(flag)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )
+    .map_err(|err| not_found(&err))?;
     let started = Instant::now();
     let status = loop {
         if let Some(status) = child.try_wait().map_err(|err| not_found(&err))? {
@@ -281,13 +282,14 @@ impl Workspace {
     /// When it cannot be started, or exits with an error (quoting the
     /// command and everything it printed).
     pub(crate) fn run(&self, program: &str, args: &[OsString]) -> Result<Vec<u8>, ProgramError> {
-        let output = Command::new(program)
-            .args(args)
-            .current_dir(self.directory.path())
-            .env("SOURCE_DATE_EPOCH", self.source_date.to_string())
-            .stdin(Stdio::null())
-            .output()
-            .map_err(|err| ProgramError::start(program, &err))?;
+        let output = crate::process::output(
+            Command::new(program)
+                .args(args)
+                .current_dir(self.directory.path())
+                .env("SOURCE_DATE_EPOCH", self.source_date.to_string())
+                .stdin(Stdio::null()),
+        )
+        .map_err(|err| ProgramError::start(program, &err))?;
         if output.status.success() {
             return Ok(output.stdout);
         }

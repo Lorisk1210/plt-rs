@@ -3,8 +3,12 @@
 //!
 //! Instants cross as microseconds since 1970 (numpy's `datetime64[us]`)
 //! one way, and as UTC calendar parts `((year, month, day), (hour, minute,
-//! second, microsecond))` the other; Python attaches time zones.
+//! second, microsecond))` the other; Python attaches time zones. The
+//! locators and recurrence rules are in [`locators`].
 
+mod locators;
+
+pub(super) use locators::date_locator;
 use pltrs::dates::{
     DateError, Datetime64, TimeZone, datestr2num, datetime64_to_num, get_epoch, num2date,
     num2timedelta, reset_epoch, set_epoch, wrap_in_tex,
@@ -13,9 +17,13 @@ use pltrs::dates::{
 use crate::binding::prelude::*;
 
 impl From<DateError> for PyErr {
-    /// matplotlib's `ValueError` for dates it cannot convert.
+    /// matplotlib's `ValueError` for dates it cannot convert, and its
+    /// `RuntimeError` for an epoch set after dates were used.
     fn from(err: DateError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            DateError::EpochAlreadySet => PyErr::runtime_error(err.to_string()),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 
@@ -114,6 +122,7 @@ fn tex(text: String) -> PyResult<String> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    locators::register(module)?;
     module.add("is_datetime_string", is_datetime_string)?;
     module.add("micros_to_num", micros_to_num)?;
     module.add("num_to_utc", num_to_utc)?;

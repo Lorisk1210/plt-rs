@@ -187,18 +187,19 @@ impl FuncAnimation {
         let size = self.frame_size()?;
         let program = crate::rc::params().animation_ffmpeg_path.clone();
         let movie = |error| AnimationError::Movie(error);
-        let mut child = Command::new(&program)
-            .args(ffmpeg_args(path, size, &pyfmt::repr(fps), &options))
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|error| {
-                movie(MovieError::Spawn {
-                    program: program.clone(),
-                    error,
-                })
-            })?;
+        let mut child = crate::process::spawn(
+            Command::new(&program)
+                .args(ffmpeg_args(path, size, &pyfmt::repr(fps), &options))
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped()),
+        )
+        .map_err(|error| {
+            movie(MovieError::Spawn {
+                program: program.clone(),
+                error,
+            })
+        })?;
         // Drained on its own thread so that a chatty encoder cannot block
         // while its input is still being written.
         let stderr = child.stderr.take().map(|mut pipe| {

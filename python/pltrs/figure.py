@@ -199,3 +199,51 @@ class Figure(Artist):
             kwargs.setdefault('edgecolor', 'none')
         with cbook._setattr_cm(self.canvas, _transparent=transparent):
             self.canvas.print_figure(fname, **kwargs)
+
+    def colorbar(self, mappable, cax=None, ax=None, use_gridspec=True,
+                 **kwargs):
+        """
+        Add a colorbar to a plot: in *cax*, or in a new Axes taking space
+        from *ax* (an Axes or a list of them; by default the Axes of
+        *mappable*). See `.colorbar.Colorbar` for the keyword arguments.
+        """
+        from .colorbar import Colorbar
+        if ax is None:
+            ax = getattr(mappable, "axes", None)
+        if cax is not None:
+            for key in ('fraction', 'pad', 'shrink', 'aspect', 'anchor',
+                        'panchor'):
+                kwargs.pop(key, None)
+            return Colorbar(cax, mappable, **kwargs)
+        if ax is None:
+            raise ValueError(
+                'Unable to determine Axes to steal space for Colorbar. '
+                'Either provide the *cax* argument to use as the Axes for '
+                'the Colorbar, provide the *ax* argument to steal space '
+                'from it, or add *mappable* to an Axes.')
+        if isinstance(ax, np.ndarray):
+            parents = list(ax.flat)
+        elif np.iterable(ax):
+            parents = list(ax)
+        else:
+            parents = [ax]
+        return Colorbar._beside(self, mappable, parents,
+                                use_gridspec=use_gridspec, **kwargs)
+
+    def _gci(self):
+        """
+        Get the current colorable artist: the current image of the current
+        Axes, else of the last Axes that has one, else None (helper for
+        `.pyplot.gci`).
+        """
+        axes = self.axes
+        if not axes:
+            return None
+        im = self.gca()._gci()
+        if im is not None:
+            return im
+        for ax in reversed(axes):
+            im = ax._gci()
+            if im is not None:
+                return im
+        return None

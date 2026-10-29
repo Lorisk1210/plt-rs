@@ -245,6 +245,19 @@ method), and passes arrays to native functions, which take `NdArray`.
 Results that matplotlib returns as arrays come back as `NdArray` (numpy
 arrays); lists come back as `Vec`.
 
+### Colour mapping
+
+Colormaps and norms are matplotlib's Python classes (`colors`, with the
+registries of `cm` built from pltrs (Rust)'s colormap definitions), and a
+mappable keeps its Python `Colorizer`. What pltrs (Rust) draws through
+them gets a copy: a native function taking a `pltrs::colors::Colormap`
+accepts any Python colormap (the colormap of its lookup table), and one
+taking a `Box<dyn Norm>` accepts a norm of matplotlib's classes (the
+pltrs (Rust) norm of that kind, with its limits; `modules/colors/mapping.rs`).
+A mappable pltrs (Rust) makes (an image) is wrapped, attached to its
+colorizer with `_ScalarMappable._attach_colorizer`, and hands the native
+side a new copy from `changed()`.
+
 ### Callbacks and subclassing
 
 Python code runs inside pltrs (Rust) through `Callback`: the native function
@@ -436,10 +449,11 @@ cargo xtask mpl-suite --imports          # every missing import of each test fil
   options (`--import-mode=importlib`). The committed outcomes were
   recorded with TinyTeX on `PATH`
   (`export PATH="$HOME/.TinyTeX/bin/x86_64-linux:$PATH"`), which runs the
-  usetex tests: run both modes the same way. There is no Ghostscript or
-  Inkscape here, so PDF, EPS and SVG image comparisons skip in the
-  reference run; pltrs's `testing.compare` skips them with matplotlib's
-  messages.
+  usetex tests: run both modes the same way. Ghostscript is installed in
+  `~/.local/gs/bin` (put it on `PATH` too): `testing.compare` converts PDF
+  and EPS files to PNG with it, as matplotlib's does, so those image
+  comparisons run in both modes; there is no Inkscape, so SVG comparisons
+  skip with matplotlib's message.
 * **Outcomes.** `spec/mpl-suite/<mode>.json` holds the counts, the
   collection errors (file and reason) and every test id's outcome
   (`passed`, `failed`, `error`, `skipped`, `xfailed`, `xpassed`), one per

@@ -192,6 +192,7 @@ pub mod widgets;
 )]
 #[path = "../tests/fuzz/harness.rs"]
 mod fuzz;
+mod process;
 
 /// The README, whose Rust examples are checked as doctests.
 #[cfg(doctest)]

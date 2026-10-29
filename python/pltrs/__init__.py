@@ -26,6 +26,7 @@ from . import _api
 from ._api import MatplotlibDeprecationWarning  # noqa: F401  (matplotlib exports it here)
 from ._executables import ExecutableNotFoundError, _get_executable_info  # noqa: F401
 from ._preprocess import _preprocess_data  # noqa: F401
+from ._native import cbook as _cbook
 from ._native import rcsetup as _rcsetup
 from ._native import register as _register
 
@@ -309,3 +310,29 @@ def is_interactive():
 def _init_tests():
     """Check the test environment (matplotlib checks its FreeType build;
     pltrs (Rust) ports FreeType, so there is nothing to check)."""
+
+
+def get_configdir():
+    """
+    Return the string path of the configuration directory: the one
+    ``PLTRSCONFIGDIR`` names, else ``$XDG_CONFIG_HOME/pltrs`` (by default
+    ``~/.config/pltrs``), made if missing; a temporary directory when it
+    cannot be made or written to.
+    """
+    return _cbook.config_dir()
+
+
+def get_cachedir():
+    """
+    Return the string path of the cache directory, found as the
+    configuration directory is (see `get_configdir`) in
+    ``$XDG_CACHE_HOME`` (by default ``~/.cache``).
+    """
+    return _cbook.cache_dir()
+
+
+# The colormap and colour sequence registries, as matplotlib exports them.
+from .cm import _colormaps as colormaps  # noqa: E402
+from .cm import _multivar_colormaps as multivar_colormaps  # noqa: E402
+from .cm import _bivar_colormaps as bivar_colormaps  # noqa: E402
+from .colors import _color_sequences as color_sequences  # noqa: E402

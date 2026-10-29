@@ -39,6 +39,17 @@ pub fn bundled_font_data(file_name: &str) -> Option<&'static [u8]> {
         .map(|&(_, data)| data)
 }
 
+/// `(file name, contents)` of every bundled font file, for writing them
+/// where other programs look for fonts (matplotlib's `mpl-data/fonts/ttf`).
+///
+/// ```
+/// let mut fonts = pltrs_font::bundled_font_files();
+/// assert!(fonts.any(|(name, data)| name == "DejaVuSans.ttf" && !data.is_empty()));
+/// ```
+pub fn bundled_font_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
+    BUNDLED_FONTS.iter().copied()
+}
+
 /// Where a face's bytes come from.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum FontSource {

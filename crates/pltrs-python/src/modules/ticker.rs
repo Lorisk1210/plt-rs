@@ -181,7 +181,10 @@ fn locator(spec: &Bound<'_>) -> PyResult<Box<dyn Locator>> {
                 Some(ndivs.map_or(MinorDivisions::Auto, MinorDivisions::Count))
             }))
         }
-        _ => return Err(PyErr::value_error(format!("no locator kind {kind:?}"))),
+        _ => {
+            return super::dates::date_locator(&kind, spec)?
+                .ok_or_else(|| PyErr::value_error(format!("no locator kind {kind:?}")));
+        }
     })
 }
 
@@ -255,19 +258,33 @@ fn log_style(kind: &str) -> Option<LogLabelStyle> {
     })
 }
 
+/// The log formatter a spec of a log kind describes.
+fn log_formatter(spec: &Bound<'_>) -> PyResult<LogFormatter> {
+    let kind: String = dict_value(spec, "kind")?;
+    let style =
+        log_style(&kind).ok_or_else(|| PyErr::value_error(format!("no log formatter {kind:?}")))?;
+    let base: f64 = dict_value(spec, "base")?;
+    let (subset, all): (f64, f64) = dict_value(spec, "minor_thresholds")?;
+    Ok(LogFormatter::from_settings(style, base, &settings())
+        .with_label_only_base(dict_value(spec, "label_only_base")?)
+        .with_minor_thresholds(subset, all)
+        .with_linthresh(dict_value(spec, "linthresh")?))
+}
+
+/// The percent formatter a `"percent"` spec describes.
+fn percent_formatter(spec: &Bound<'_>) -> PyResult<PercentFormatter> {
+    Ok(PercentFormatter::new(dict_value(spec, "xmax")?)
+        .with_decimals(dict_value(spec, "decimals")?)
+        .with_symbol(dict_value(spec, "symbol")?)
+        .with_is_latex(dict_value(spec, "is_latex")?))
+}
+
 /// The formatter a spec describes.
 fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
     let kind: String = dict_value(spec, "kind")?;
     let settings = settings();
-    if let Some(style) = log_style(&kind) {
-        let base: f64 = dict_value(spec, "base")?;
-        let (subset, all): (f64, f64) = dict_value(spec, "minor_thresholds")?;
-        return Ok(Box::new(
-            LogFormatter::from_settings(style, base, &settings)
-                .with_label_only_base(dict_value(spec, "label_only_base")?)
-                .with_minor_thresholds(subset, all)
-                .with_linthresh(dict_value(spec, "linthresh")?),
-        ));
+    if log_style(&kind).is_some() {
+        return Ok(Box::new(log_formatter(spec)?));
     }
     Ok(match kind.as_str() {
         "scalar" => {
@@ -310,12 +327,7 @@ fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
                     }),
             )
         }
-        "percent" => Box::new(
-            PercentFormatter::new(dict_value(spec, "xmax")?)
-                .with_decimals(dict_value(spec, "decimals")?)
-                .with_symbol(dict_value(spec, "symbol")?)
-                .with_is_latex(dict_value(spec, "is_latex")?),
-        ),
+        "percent" => Box::new(percent_formatter(spec)?),
         _ => return Err(PyErr::value_error(format!("no formatter kind {kind:?}"))),
     })
 }
@@ -347,6 +359,40 @@ fn format_data(spec: Owned, value: f64, short: bool, info: Option<Owned>) -> PyR
     })
 }
 
+/// The coefficients of the ticks the log formatter `spec` labels on the
+/// axis `info`, `None` for all (`LogFormatter.set_locs`, kept as
+/// `_sublabels`).
+fn log_sublabels(spec: Owned, info: Option<Owned>) -> PyResult<Option<Vec<f64>>> {
+    let formatter = Python::with_gil(|py| log_formatter(&spec.bind(py)))?;
+    with_context(info, |ctx| Ok(formatter.sublabels(ctx)?))
+}
+
+/// The label the log formatter `spec` gives `x` when the ticks with the
+/// coefficients `sublabels` get labels (`LogFormatter.__call__`).
+fn log_label(
+    spec: Owned,
+    x: f64,
+    sublabels: Option<Vec<f64>>,
+    info: Option<Owned>,
+) -> PyResult<String> {
+    let formatter = Python::with_gil(|py| log_formatter(&spec.bind(py)))?;
+    with_context(info, |ctx| {
+        Ok(formatter.call(x, sublabels.as_deref(), ctx)?)
+    })
+}
+
+/// `LogFormatter._pprint_val(x, d)`: `x` written for a view spanning `d`.
+fn pprint_val(x: f64, d: f64) -> PyResult<String> {
+    Ok(LogFormatter::pprint_val(x, d))
+}
+
+/// `PercentFormatter.format_pct(x, display_range)` of the formatter
+/// `spec`.
+fn format_pct(spec: Owned, x: f64, display_range: f64) -> PyResult<String> {
+    let formatter = Python::with_gil(|py| percent_formatter(&spec.bind(py)))?;
+    Ok(formatter.format_pct(x, display_range, &settings())?)
+}
+
 /// matplotlib's `scale_range(vmin, vmax, n, threshold)`.
 fn scale_range(vmin: f64, vmax: f64, n: f64, threshold: f64) -> PyResult<(f64, f64)> {
     Ok(pltrs::ticker::scale_range(vmin, vmax, n, threshold))
@@ -366,6 +412,10 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("nonsingular", nonsingular)?;
     module.add("format_ticks", format_ticks)?;
     module.add("format_data", format_data)?;
+    module.add("log_sublabels", log_sublabels)?;
+    module.add("log_label", log_label)?;
+    module.add("pprint_val", pprint_val)?;
+    module.add("format_pct", format_pct)?;
     module.add("scale_range", scale_range)?;
     module.add("is_log_base", is_log_base)
 }

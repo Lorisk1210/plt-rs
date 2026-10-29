@@ -1,0 +1,19 @@
+[package]
+name = "plt-python"
+description = "pltrs: plt-rs for Python with matplotlib's syntax (a hand-written CPython extension)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+# The Python extension: `cargo xtask python` installs the library as
+# `python/pltrs/_native.abi3.so`.
+crate-type = ["cdylib"]
+
+[dependencies]
+plt.workspace = true
+plt-core.workspace = true
+
+[lints]
+workspace = true

@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 /spec/out/
 /.claude/worktrees/
+/.venv-pltrs
+/python/pltrs/_native.abi3.so
+/python/pltrs/_native.abi3.so.new
+result_images/

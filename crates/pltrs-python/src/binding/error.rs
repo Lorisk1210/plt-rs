@@ -43,6 +43,8 @@ pub(crate) enum ExceptionKind {
     OverflowError,
     /// `SystemError`: a broken promise of the C API.
     SystemError,
+    /// `IndexError`: a position or a value beyond a table.
+    IndexError,
 }
 
 impl ExceptionKind {
@@ -61,6 +63,7 @@ impl ExceptionKind {
                 Self::FileNotFoundError => ffi::PyExc_FileNotFoundError,
                 Self::OverflowError => ffi::PyExc_OverflowError,
                 Self::SystemError => ffi::PyExc_SystemError,
+                Self::IndexError => ffi::PyExc_IndexError,
             }
         }
     }

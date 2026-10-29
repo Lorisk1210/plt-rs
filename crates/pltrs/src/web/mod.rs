@@ -67,6 +67,14 @@ pub use server::WebServer;
 
 use crate::figure::Figure;
 
+/// matplotlib's client script (its `web_backend/js/mpl.js`), as the pages
+/// load it before the toolbar items and download formats are appended:
+/// for programs embedding the client themselves (matplotlib's
+/// `FigureManagerWebAgg.get_javascript`).
+pub fn client_script() -> &'static str {
+    assets::MPL_JS
+}
+
 /// Why the web server failed.
 #[derive(Debug)]
 pub enum WebError {

@@ -299,6 +299,33 @@ module, kept as it is, because tests use it directly. pltrs (Rust)'s own
 `pltrs::pyplot` registry is not used. The current axes of a figure is
 pltrs (Rust)'s (`Figure.gca` calls `_figure.gca`).
 
+### Backends, canvases and printing
+
+Backends are matplotlib's: `backends.backend_registry` names them,
+`pyplot.switch_backend` loads `backends/backend_<name>.py` and builds
+`new_figure_manager` and `show` from its `FigureCanvas` (the `_Backend`
+export machinery), and `pyplot.figure` makes managers through it. The
+GUI-toolkit backends (Qt, GTK, Tk, wx, macOS) are not there: loading one
+raises `ImportError`, as matplotlib does without the toolkit.
+
+A canvas draws and prints through the figure's native handle
+(`_native.backends`):
+
+* `FigureCanvasAgg.draw` draws the figure onto the raster canvas pltrs
+  (Rust) keeps per figure; `buffer_rgba`, `copy_from_bbox`,
+  `restore_region` and `blit` work on it, and `RendererAgg` stands for
+  it.
+* `Figure.savefig` hands over to `FigureCanvasBase.print_figure`, which
+  resolves the keywords (format, dpi, colours, `bbox_inches`), switches
+  to the canvas of the format or of `backend=`, and calls its
+  `print_<format>`; the built-in ones render with pltrs (Rust)
+  (`_print_native`) and emit the `draw_event` matplotlib's `Figure.draw`
+  emits. The area to save travels as `bbox_inches_restore`, the keyword
+  matplotlib passes to print methods for it, and `savefig`'s
+  `transparent` as the canvas's `_transparent` while saving.
+* Canvas callbacks belong to the figure (`figure._canvas_callbacks`), so
+  that they survive a change of canvas.
+
 ### rcParams
 
 pltrs (Rust)'s `rc` module is the source of truth: `rcParams[key] = value`

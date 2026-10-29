@@ -6,27 +6,200 @@ The figures pyplot manages are kept in `._pylab_helpers.Gcf`; each
 function here acts on `gcf` or `gca`, as matplotlib's does.
 """
 
+import inspect
+import logging
+
 from . import _pylab_helpers, get_backend, rcParams, style  # noqa: F401  (matplotlib.style, as pyplot imports it)
+from . import cbook, rcParamsDefault
 from . import image  # noqa: F401  (matplotlib.image, as pyplot imports it)
-from .backend_bases import FigureManagerBase
+from .backend_bases import _Backend, FigureManagerBase
+from .backends import backend_registry
 from .figure import Figure
 
+_log = logging.getLogger(__name__)
+
 __all__ = [
-    "bar", "close", "figure", "gca", "gcf", "get_backend", "get_fignums",
-    "get_figlabels", "legend", "plot", "rcParams", "savefig", "scatter",
+    "bar", "close", "draw", "figure", "fignum_exists", "gca", "gcf",
+    "get_backend", "get_current_fig_manager", "get_fignums", "get_figlabels",
+    "legend", "new_figure_manager", "plot", "rcParams", "savefig", "scatter",
     "show", "subplots", "switch_backend", "title", "xlabel", "ylabel",
 ]
+
+
+#: The backend pyplot uses, set by `switch_backend` (a `._Backend`
+#: subclass made from the backend module).
+_backend_mod = None
+
+
+def _get_backend_mod():
+    """
+    Ensure that a backend is selected and return it.
+
+    This is currently private, but may be made public in the future.
+    """
+    if _backend_mod is None:
+        switch_backend(rcParams._get("backend"))
+    return _backend_mod
 
 
 def switch_backend(newbackend):
     """
     Set the pyplot backend.
 
-    pltrs (Python) draws through pltrs (Rust) whatever the backend; closing the figures and
-    recording the name is what switching does.
+    Switching to an interactive backend is possible only if no event loop for
+    another interactive backend has started.  Switching to and from
+    non-interactive backends is always possible.
+
+    Parameters
+    ----------
+    newbackend : str
+        The case-insensitive name of the backend to use.
     """
-    close("all")
-    rcParams["backend"] = newbackend.lower()
+    global _backend_mod
+    # make sure the init is pulled up so we can assign to it later
+    from . import backends
+
+    module = backend_registry.load_backend_module(newbackend)
+    canvas_class = module.FigureCanvas
+
+    required_framework = canvas_class.required_interactive_framework
+    if required_framework is not None:
+        current_framework = cbook._get_running_interactive_framework()
+        if (current_framework and required_framework
+                and current_framework != required_framework):
+            raise ImportError(
+                "Cannot load backend {!r} which requires the {!r} interactive "
+                "framework, as {!r} is currently running".format(
+                    newbackend, required_framework, current_framework))
+
+    # Load the new_figure_manager() and show() functions from the backend.
+
+    # Classically, backends can directly export these functions.  This should
+    # keep working for backcompat.
+    new_figure_manager = getattr(module, "new_figure_manager", None)
+    show = getattr(module, "show", None)
+
+    # In that classical approach, backends are implemented as modules, but
+    # "inherit" default method implementations from backend_bases._Backend.
+    # This is achieved by creating a "class" that inherits from
+    # backend_bases._Backend and whose body is filled with the module globals.
+    class backend_mod(_Backend):
+        locals().update(vars(module))
+
+    # However, the newer approach for defining new_figure_manager and
+    # show is to derive them from canvas methods.  In that case, also
+    # update backend_mod accordingly; also, per-backend customization of
+    # draw_if_interactive is disabled.
+    if new_figure_manager is None:
+
+        def new_figure_manager_given_figure(num, figure):
+            return canvas_class.new_manager(figure, num)
+
+        def new_figure_manager(num, *args, FigureClass=Figure, **kwargs):
+            fig = FigureClass(*args, **kwargs)
+            return new_figure_manager_given_figure(num, fig)
+
+        def draw_if_interactive():
+            if rcParams["interactive"]:
+                manager = _pylab_helpers.Gcf.get_active()
+                if manager:
+                    manager.canvas.draw_idle()
+
+        backend_mod.new_figure_manager_given_figure = (
+            new_figure_manager_given_figure)
+        backend_mod.new_figure_manager = new_figure_manager
+        backend_mod.draw_if_interactive = draw_if_interactive
+
+    # If the manager explicitly overrides pyplot_show, use it even if a global
+    # show is already present, as the latter may be here for backcompat.
+    manager_class = getattr(canvas_class, "manager_class", None)
+    # We can't compare directly manager_class.pyplot_show and FMB.pyplot_show
+    # because pyplot_show is a classmethod so the above constructs are bound
+    # classmethods, and thus always different (being bound to different
+    # classes).  We also have to use getattr_static instead of vars as
+    # manager_class could have no __dict__.
+    manager_pyplot_show = inspect.getattr_static(manager_class, "pyplot_show", None)
+    base_pyplot_show = inspect.getattr_static(FigureManagerBase, "pyplot_show", None)
+    if (show is None
+            or (manager_pyplot_show is not None
+                and manager_pyplot_show != base_pyplot_show)):
+        if not manager_pyplot_show:
+            raise ValueError(
+                f"Backend {newbackend} defines neither FigureCanvas.manager_class nor "
+                f"a toplevel show function")
+        backend_mod.show = manager_class.pyplot_show
+
+    _log.debug("Loaded backend %s version %s.",
+               newbackend, backend_mod.backend_version)
+
+    rcParams['backend'] = rcParamsDefault['backend'] = newbackend
+    _backend_mod = backend_mod
+    for func_name in ["new_figure_manager", "draw_if_interactive", "show"]:
+        globals()[func_name].__signature__ = inspect.signature(
+            getattr(backend_mod, func_name))
+
+    # Need to keep a global reference to the backend for compatibility reasons.
+    # See https://github.com/matplotlib/matplotlib/issues/6092
+    backends.backend = newbackend
+
+
+def new_figure_manager(*args, **kwargs):
+    """Create a new figure manager instance."""
+    return _get_backend_mod().new_figure_manager(*args, **kwargs)
+
+
+# This function's signature is rewritten upon backend-load by switch_backend.
+def draw_if_interactive(*args, **kwargs):
+    """
+    Redraw the current figure if in interactive mode.
+
+    .. warning::
+
+        End users will typically not have to call this function because the
+        the interactive mode takes care of this.
+    """
+    return _get_backend_mod().draw_if_interactive(*args, **kwargs)
+
+
+def fignum_exists(num):
+    """
+    Return whether the figure with the given id exists.
+
+    Parameters
+    ----------
+    num : int or str
+        A figure identifier.
+
+    Returns
+    -------
+    bool
+        Whether or not a figure with id *num* exists.
+    """
+    return (
+        _pylab_helpers.Gcf.has_fignum(num)
+        if isinstance(num, int)
+        else num in get_figlabels()
+    )
+
+
+def get_current_fig_manager():
+    """
+    Return the figure manager of the current figure.
+
+    If no figure exists, a new one is created, and its figure manager is
+    returned.
+    """
+    return gcf().canvas.manager
+
+
+def draw():
+    """
+    Redraw the current figure.
+
+    This is used to update a figure that has been altered, but not
+    automatically re-drawn.
+    """
+    gcf().canvas.draw_idle()
 
 
 def get_fignums():
@@ -76,12 +249,15 @@ def figure(num=None, figsize=None, dpi=None, *, facecolor=None,
 
     manager = _pylab_helpers.Gcf.get_fig_manager(num)
     if manager is None:
-        fig = FigureClass(figsize=figsize, dpi=dpi, facecolor=facecolor,
-                          edgecolor=edgecolor, frameon=frameon, **kwargs)
-        manager = FigureManagerBase(fig.canvas, num)
+        manager = new_figure_manager(
+            num, figsize=figsize, dpi=dpi, facecolor=facecolor,
+            edgecolor=edgecolor, frameon=frameon, FigureClass=FigureClass,
+            **kwargs)
+        fig = manager.canvas.figure
         if fig_label:
             fig.set_label(fig_label)
         _pylab_helpers.Gcf._set_new_active_manager(manager)
+        draw_if_interactive()
     return manager.canvas.figure
 
 
@@ -128,7 +304,25 @@ def close(fig=None):
 
 
 def show(*args, **kwargs):
-    """Display all open figures: without a GUI backend, nothing to do."""
+    """
+    Display all open figures.
+
+    Parameters
+    ----------
+    block : bool, optional
+        Whether to wait for all figures to be closed before returning.
+
+        If `True` block and run the GUI main loop until all figure windows
+        are closed.
+
+        If `False` ensure that all figure windows are displayed and return
+        immediately.  In this case, you are responsible for ensuring
+        that the event loop is running to have responsive figures.
+
+        Defaults to True in non-interactive mode and to False in interactive
+        mode (see `.pyplot.isinteractive`).
+    """
+    return _get_backend_mod().show(*args, **kwargs)
 
 
 def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, squeeze=True,

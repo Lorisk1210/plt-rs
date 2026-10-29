@@ -357,15 +357,12 @@ fn one_turn((low, high): (f64, f64), cycle: Option<f64>) -> (f64, f64) {
     }
 }
 
-impl ExtremeFinder for ExtremeFinderCycle {
-    fn find_transformed_bbox(&self, transform: &AuxTransform, bbox: Bbox) -> Bbox {
-        let (mut lon, mut lat): (Vec<f64>, Vec<f64>) = sample_grid(bbox, self.nx, self.ny)
-            .into_iter()
-            .map(|p| {
-                let q = transform.transform_point(p);
-                (q.x, q.y)
-            })
-            .unzip();
+impl ExtremeFinderCycle {
+    /// The box of the transformed samples `lon` and `lat`: unwrapped,
+    /// padded by one sampling step, limited to one turn and clipped (the
+    /// second half of matplotlib's `_find_transformed_bbox`, for samples
+    /// mapped by any transform).
+    pub fn extent(&self, mut lon: Vec<f64>, mut lat: Vec<f64>) -> Bbox {
         if self.lon_cycle.is_some() {
             unwrap(&mut lon);
         }
@@ -383,6 +380,19 @@ impl ExtremeFinder for ExtremeFinderCycle {
         let (lon_min, lon_max) = clipped(lon, self.lon_minmax);
         let (lat_min, lat_max) = clipped(lat, self.lat_minmax);
         Bbox::from_extents(lon_min, lat_min, lon_max, lat_max)
+    }
+}
+
+impl ExtremeFinder for ExtremeFinderCycle {
+    fn find_transformed_bbox(&self, transform: &AuxTransform, bbox: Bbox) -> Bbox {
+        let (lon, lat) = sample_grid(bbox, self.nx, self.ny)
+            .into_iter()
+            .map(|p| {
+                let q = transform.transform_point(p);
+                (q.x, q.y)
+            })
+            .unzip();
+        self.extent(lon, lat)
     }
 }
 

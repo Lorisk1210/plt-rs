@@ -18,7 +18,7 @@ use crate::ticker::pyfmt::FormatError;
 pub use tickers::{
     DictFormatter, ExtremeFinderSimple, FormatterPrettyPrint, GridFixedLocator, GridMaxNLocator,
 };
-pub(crate) use tickers::{padded_extent, sample_grid};
+pub use tickers::{padded_extent, sample_grid};
 
 /// Why grid levels, labels or lines could not be computed.
 #[derive(Clone, Debug, PartialEq)]
@@ -360,7 +360,7 @@ pub(crate) enum Coordinate {
 /// angle (degrees, 0 = moving right), interpolated between the points on
 /// either side: the crossings with the left, right, bottom and top sides
 /// (matplotlib's `_find_line_box_crossings`).
-pub(crate) fn line_box_crossings(xys: &[Point], bbox: Bbox) -> [Vec<(Point, f64)>; 4] {
+pub fn line_box_crossings(xys: &[Point], bbox: Bbox) -> [Vec<(Point, f64)>; 4] {
     let (xmin, xmax) = (bbox.xmin(), bbox.xmax());
     let (ymin, ymax) = (bbox.ymin(), bbox.ymax());
     let along_x = |p: Point| (p.x, p.y);

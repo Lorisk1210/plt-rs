@@ -269,6 +269,23 @@ impl FontDatabase {
         self.entries.read().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Appends `entry` to the catalogue: a name, style and weight its face
+    /// is matched by from now on (matplotlib's `ttflist.append`).
+    pub fn add_entry(&self, entry: FontEntry) {
+        self.entries
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(entry);
+    }
+
+    /// Removes the first catalogue entry equal to `entry` (matplotlib's
+    /// `ttflist.remove`); whether there was one.
+    pub fn remove_entry(&self, entry: &FontEntry) -> bool {
+        let mut entries = self.entries.write().unwrap_or_else(PoisonError::into_inner);
+        let found = entries.iter().position(|candidate| candidate == entry);
+        found.map(|index| entries.remove(index)).is_some()
+    }
+
     /// The faces added from `source`, in order.
     pub fn faces_from(&self, source: &FontSource) -> Vec<FontId> {
         self.faces_where(|candidate| candidate == source)
@@ -343,18 +360,33 @@ impl FontDatabase {
     /// matplotlib's `findfont` without fallback: the best-scoring face, or
     /// `None` when no family matches.
     fn best_match(&self, query: &FontQuery, generics: &GenericFamilies) -> Option<FontId> {
-        let mut best: Option<(f64, FontId)> = None;
-        for entry in self.entries().iter() {
+        self.best_entry(query, generics, |_| true)
+            .filter(|(_, score)| *score < 10.0)
+            .map(|(entry, _)| entry.font)
+    }
+
+    /// The best-scoring entry among those of the faces `accept` takes, and
+    /// its score, as matplotlib's `_findfont_cached` finds it (`accept`
+    /// restricts the search to a directory); `None` when it takes none. A
+    /// score of 10 or more means that no family matched.
+    pub fn best_entry(
+        &self,
+        query: &FontQuery,
+        generics: &GenericFamilies,
+        accept: impl Fn(FontId) -> bool,
+    ) -> Option<(FontEntry, f64)> {
+        let mut best: Option<(&FontEntry, f64)> = None;
+        let entries = self.entries();
+        for entry in entries.iter().filter(|entry| accept(entry.font)) {
             let score = score::total(query, entry, generics);
-            if best.is_none_or(|(best_score, _)| score < best_score) {
-                best = Some((score, entry.font));
+            if best.is_none_or(|(_, best_score)| score < best_score) {
+                best = Some((entry, score));
             }
             if score == 0.0 {
                 break;
             }
         }
-        best.filter(|&(score, _)| score < 10.0)
-            .map(|(_, font)| font)
+        best.map(|(entry, score)| (entry.clone(), score))
     }
 
     /// matplotlib's `findfont(prop, fallback_to_default=True)`: when no
@@ -462,120 +494,4 @@ impl FontDatabase {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn bundled_fonts_are_catalogued() {
-        let db = FontDatabase::with_bundled_fonts();
-        assert_eq!(db.faces.len(), BUNDLED_FONTS.len());
-        assert_eq!(
-            db.faces_from(&FontSource::Bundled(LAST_RESORT)),
-            db.last_resort().into_iter().collect::<Vec<_>>()
-        );
-        assert!(db.entries().iter().any(|entry| entry.name == "DejaVu Sans"));
-        let resort = db.last_resort().unwrap();
-        assert_eq!(
-            db.source(resort).and_then(FontSource::file_name),
-            Some(LAST_RESORT)
-        );
-        assert_eq!(db.face_index(resort), Some(0));
-        assert!(db.face(FontId(usize::MAX)).is_err());
-        for index in 0..db.faces.len() {
-            assert!(db.face(FontId(index)).is_ok());
-        }
-    }
-
-    #[test]
-    fn find_font_basics() {
-        let db = FontDatabase::with_bundled_fonts();
-        let name = |id: FontId| {
-            db.source(id)
-                .and_then(FontSource::file_name)
-                .unwrap_or_default()
-                .to_owned()
-        };
-        assert_eq!(
-            name(db.find_font(&FontQuery::default()).unwrap()),
-            "DejaVuSans.ttf"
-        );
-        let bold = FontQuery::families(["serif"]).with_weight(Weight::BOLD);
-        assert_eq!(name(db.find_font(&bold).unwrap()), "DejaVuSerif-Bold.ttf");
-        let missing = FontQuery::families(["No Such Font"]);
-        assert_eq!(name(db.find_font(&missing).unwrap()), "DejaVuSans.ttf");
-        assert!(db.find_font_exact(&missing).is_err());
-        let fonts = db
-            .find_fonts(&FontQuery::families([
-                "cmr10",
-                "No Such Font",
-                "DejaVu Sans",
-            ]))
-            .unwrap();
-        assert_eq!(fonts.len(), 2);
-        let chain = db.font_chain(&fonts, true).unwrap();
-        assert_eq!(chain.faces().len(), 3);
-        assert_eq!(
-            FontDatabase::new().find_font(&FontQuery::default()),
-            Err(FontError::NoMatchingFont(FontQuery::default().to_string()))
-        );
-    }
-
-    #[test]
-    fn bundled_files_are_available_by_name() {
-        let inter = bundled_font_data("Inter-Regular.ttf").unwrap();
-        assert_eq!(face_count(inter), Ok(1));
-        assert!(bundled_font_data("Inter-Thin.ttf").is_none());
-    }
-
-    #[test]
-    fn inter_is_found_by_name_only() {
-        let db = FontDatabase::with_bundled_fonts();
-        let name = |query: &FontQuery| {
-            let id = db.find_font(query).unwrap();
-            db.source(id)
-                .and_then(FontSource::file_name)
-                .unwrap()
-                .to_owned()
-        };
-        let semibold = FontQuery::families(["Inter", "DejaVu Sans"]).with_weight(Weight(600));
-        assert_eq!(name(&semibold), "Inter-SemiBold.ttf");
-        let italic = FontQuery::families(["Inter"]).with_style(FontStyle::Italic);
-        assert_eq!(name(&italic), "Inter-Italic.ttf");
-        // matplotlib's lists do not name Inter: their queries are unchanged.
-        let sans = FontQuery::families(["sans-serif"]).with_weight(Weight(600));
-        assert_eq!(name(&sans), "DejaVuSans-Bold.ttf");
-        let unknown = FontQuery::families(["Helvetica"]).with_weight(Weight(600));
-        assert_eq!(name(&unknown), "DejaVuSans-Bold.ttf");
-    }
-
-    #[test]
-    fn font_files_can_be_used_without_being_catalogued() {
-        let db = FontDatabase::with_bundled_fonts();
-        let bundled = db.file_faces("cmr10.ttf").unwrap();
-        assert_eq!(
-            bundled,
-            db.faces_where(|source| source.file_name() == Some("cmr10.ttf"))
-        );
-        let count = db.face_count();
-        let path = std::env::temp_dir().join(format!("pltrs-font-file-{}.ttf", std::process::id()));
-        fs::write(&path, bundled_font_data("DejaVuSans-Bold.ttf").unwrap()).unwrap();
-        let entries = db.entries().len();
-        let faces = db.file_faces(&path).unwrap();
-        assert_eq!((faces.len(), db.face_count()), (1, count + 1));
-        assert_eq!(db.entries().len(), entries, "not catalogued");
-        assert_eq!(db.file_faces(&path).unwrap(), faces, "read once");
-        db.add_file(&path).unwrap();
-        assert!(db.entries().len() > entries, "catalogued by add_file");
-        fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn unreadable_files_are_reported() {
-        let db = FontDatabase::new();
-        assert!(matches!(
-            db.add_file("/nonexistent/font.ttf"),
-            Err(FontError::Io { .. })
-        ));
-        assert_eq!(db.add_directory("/nonexistent"), 0);
-    }
-}
+mod tests;

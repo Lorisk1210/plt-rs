@@ -11,7 +11,7 @@ use super::metrics::{Scaler, StyleMetrics};
 use crate::error::Result;
 use crate::face::Face;
 use crate::fixed::{mul_fix, pix_round};
-use crate::hinting::HintedGlyph;
+use crate::hinting::{HintedGlyph, VerticalMetrics};
 use crate::outline::{Outline, PointKind};
 use crate::scale::Size;
 use crate::scan::ScanRules;
@@ -44,7 +44,41 @@ impl Autohinter {
             target,
         };
         let hints = hint(face, glyph, &outline, style, &scaler);
-        Ok(finish(face, &outline, advance, &hints, style, &scaler))
+        let hinted = finish(face, &outline, advance, &hints, style, &scaler);
+        let vertical = vertical_metrics(face, glyph, advance, &hints, &hinted);
+        Ok(hinted.with_vertical_metrics(vertical))
+    }
+}
+
+/// The vertical metrics of an autohinted glyph (`Hint_Metrics` in
+/// `af_loader_load_glyph`): the offsets of the unscaled vertical bearings
+/// the TrueType loader made up from the horizontal ones, scaled with the
+/// hinted scales and placed at the rounded control box of the hinted
+/// outline, and the advance height scaled and rounded.
+fn vertical_metrics(
+    face: &Face<'_>,
+    glyph: GlyphId,
+    advance: i64,
+    hints: &GlyphHints,
+    hinted: &HintedGlyph,
+) -> VerticalMetrics {
+    let (top, vertical_advance) = face.synthesized_vertical_metrics(glyph);
+    let y_max = face
+        .glyph_bbox(glyph)
+        .ok()
+        .flatten()
+        .map_or(0, |bbox| i64::from(bbox.y_max));
+    // The loader puts the vertical origin half an advance (C's truncating
+    // division) left of the horizontal one.
+    let offset_x = mul_fix(-(advance / 2), hints.x_scale);
+    let offset_y = mul_fix(top - y_max, hints.y_scale);
+    let metrics = hinted.metrics();
+    let floor = |v: i64| v & !63;
+    let fit = |v: i64| v.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
+    VerticalMetrics {
+        bearing_x: fit(floor(i64::from(metrics.hori_bearing_x) + offset_x)),
+        bearing_y: fit(floor(i64::from(metrics.hori_bearing_y) + offset_y)),
+        advance: fit(pix_round(mul_fix(vertical_advance, hints.y_scale))),
     }
 }
 

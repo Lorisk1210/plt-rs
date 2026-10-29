@@ -71,6 +71,7 @@ pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};
 pub use hinting::{
     BytecodeError, BytecodeProgram, GlyphMetrics, HintedGlyph, Hinter, Hinting, HintingInstance,
+    VerticalMetrics,
 };
 pub use layout::feature::{Feature, ParseFeatureError};
 pub use outline::{OutlineRecorder, OutlineSink, PathCommand};
@@ -90,8 +91,8 @@ pub use tables::os2::{Os2, ScriptMetrics};
 pub use tables::pclt::Pclt;
 pub use tables::post::Post;
 pub use type1::{
-    Abbreviations, CharStrings, Program, PsNumber, PsToken, PsTokenKind, PsValue, Type1Cipher,
-    Type1Effects, Type1Encoding, Type1Error, Type1Face, Type1Font, Type1Glyph, Type1Parts,
-    Type1Properties, Type1Section, ps_tokenize,
+    Abbreviations, CharStrings, Program, PsNumber, PsToken, PsTokenKind, PsTokenStream, PsValue,
+    Type1Cipher, Type1Effects, Type1Encoding, Type1Error, Type1Face, Type1Font, Type1Glyph,
+    Type1Parts, Type1Properties, Type1Section, ps_tokenize,
 };
 pub use types::{Direction, GlyphId, Rect, Tag};

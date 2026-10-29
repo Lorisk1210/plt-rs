@@ -95,7 +95,7 @@ impl Figure {
                 .into_iter()
                 .map(|entry| entry.name)
                 .collect(),
-            preamble: preamble(&rc, fonts),
+            preamble: pgf_preamble(&rc),
             image_stem,
         };
         self.render_at_save_resolution(options, |width, height, dpi| {
@@ -110,8 +110,10 @@ impl Figure {
 /// `_get_preamble()`): `\mathdefault` removed, display-style math, the
 /// normal size at `font.size`, `pgf.preamble`, with `pgf.rcfonts` the
 /// rcParams' fonts for `XeLaTeX` and `LuaLaTeX`, and the `underscore`
-/// package.
-fn preamble(rc: &RcParams, fonts: FontManager) -> String {
+/// package. PGF pictures quote it, and documents typesetting them (the
+/// pages of a PGF `PdfPages`) use it.
+pub fn pgf_preamble(rc: &RcParams) -> String {
+    let fonts = FontManager::global();
     let size = rc.font_size;
     let mut lines = vec![
         r"\def\mathdefault#1{#1}".to_owned(),
@@ -176,6 +178,17 @@ mod tests {
             pgf.contains("%% pltrs used the following preamble\n%%   \\def\\mathdefault#1{#1}\n")
         );
         assert_eq!("pgf".parse::<SaveFormat>().unwrap(), SaveFormat::Pgf);
+    }
+
+    #[test]
+    fn the_preamble_follows_the_rc_params() {
+        let mut rc = RcParams::matplotlib();
+        rc.pgf_preamble = r"\usepackage{amsmath}".to_owned();
+        let preamble = pgf_preamble(&rc);
+        assert!(preamble.starts_with(r"\def\mathdefault#1{#1}"));
+        assert!(preamble.contains("\n\\usepackage{amsmath}\n"));
+        assert!(preamble.contains(r"\usepackage[fontsize=10.000000pt]{scrextend}"));
+        assert!(preamble.ends_with(r"{\usepackage[strings]{underscore}}\makeatother"));
     }
 
     #[test]

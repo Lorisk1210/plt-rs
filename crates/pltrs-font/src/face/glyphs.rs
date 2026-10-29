@@ -135,6 +135,22 @@ impl<'a> Face<'a> {
         Ok(control_rect(&self.load_outline(glyph, Scaling::Units)?))
     }
 
+    /// The top side bearing and advance height of `glyph`, in font units,
+    /// that FreeType's TrueType loader makes up for a face without
+    /// vertical metrics (`compute_glyph_metrics`): an advance of the
+    /// typographic ascender minus descender (`hhea`'s without an `OS/2`
+    /// table), with the glyph's control box centred in it.
+    pub fn synthesized_vertical_metrics(&self, glyph: GlyphId) -> (i64, i64) {
+        let bbox = self.glyph_bbox(glyph).ok().flatten().unwrap_or_default();
+        let height = i64::from(bbox.y_max) - i64::from(bbox.y_min);
+        let advance = match self.os2() {
+            Some(os2) => i64::from(os2.typo_ascender) - i64::from(os2.typo_descender),
+            None => i64::from(self.hhea().ascender) - i64::from(self.hhea().descender),
+        };
+        // C's division, truncating towards zero.
+        ((advance - height) / 2, advance)
+    }
+
     /// Whether the face has TrueType or CFF outlines.
     pub const fn has_outlines(&self) -> bool {
         !matches!(self.outlines, Outlines::None)

@@ -384,6 +384,20 @@ matplotlib defines in Python, such as `ImageComparisonFailure`, are
 registered by the package (`_native.register`) and raised through
 `binding::registered_error`.
 
+### Warnings issued while pltrs (Rust) works
+
+Some of matplotlib's warnings come from deep inside a draw or a layout,
+where pltrs (Rust) cannot call Python: "Glyph 128579 (\N{UPSIDE-DOWN
+FACE}) missing from font(s) DejaVu Sans." is issued for every text laid
+out with a character no font has. pltrs (Rust) queues such events on the
+thread (`pltrs_text::take_missing_glyphs`), and every native call ends,
+when it succeeds, with the functions `modules::register` installed
+(`binding::after_call`), which drain the queues and issue the warnings
+through the package's own functions (registered with `_native.register`,
+here `_text_helpers.warn_on_missing_glyph`, which calls
+`_api.warn_external`). A warning turned into an error by the warning
+filters is raised in place of the call's result.
+
 ### pyplot's state
 
 pyplot's figure registry is Python state: `_pylab_helpers.Gcf` maps

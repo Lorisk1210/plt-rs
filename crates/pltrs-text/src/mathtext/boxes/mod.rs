@@ -5,10 +5,12 @@
 mod auto;
 mod pack;
 mod ship;
+mod tree;
 
 pub(crate) use auto::{auto_height_char, auto_width_char};
 pub(crate) use pack::Packing;
 pub(crate) use ship::{Shipped, ship};
+pub use tree::MathNode;
 
 use super::font_name::FontName;
 use super::fonts::{FontMetrics, Fonts, GlyphError, GlyphKey};
@@ -205,6 +207,21 @@ pub(crate) struct Dims {
     /// in every slot, so shrinking the list shrinks that object once per
     /// slot; each copy here replays all of those shrinks.
     copies: u32,
+    /// What matplotlib made it as (its box tree names it so).
+    pub(crate) kind: DimsKind,
+}
+
+/// The class matplotlib makes an empty box or a rule of.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DimsKind {
+    /// `Box(width, height, depth)`.
+    Box,
+    /// `Hbox(width)`.
+    Hbox,
+    /// `Vbox(height, depth)`.
+    Vbox,
+    /// `Hrule(state, thickness)`.
+    Hrule,
 }
 
 impl Dims {
@@ -216,7 +233,13 @@ impl Dims {
             depth,
             level: 0,
             copies: 1,
+            kind: DimsKind::Box,
         }
+    }
+
+    /// The box made as `kind`.
+    const fn made_as(self, kind: DimsKind) -> Self {
+        Self { kind, ..self }
     }
 
     fn shrink(&mut self) {
@@ -256,7 +279,23 @@ pub(crate) struct List {
     pub(crate) is_phantom: bool,
     /// The function this list typesets (`\lim`, ...).
     pub(crate) function_name: Option<String>,
+    /// The subclass of `Hlist` matplotlib made it as, if any.
+    pub(crate) class: ListClass,
     level: u32,
+}
+
+/// The subclasses of `Hlist` matplotlib makes lists of (its box tree names
+/// them so).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ListClass {
+    /// A plain `Hlist` or `Vlist`.
+    Plain,
+    /// `HCentered`: content centred between stretchable glue.
+    Centered,
+    /// `AutoHeightChar`: a delimiter sized to a height.
+    AutoHeightChar,
+    /// `AutoWidthChar`: an accent sized to a width.
+    AutoWidthChar,
 }
 
 /// A node of the box model.
@@ -299,12 +338,12 @@ impl Node {
 
     /// An empty box of width `width` (`Hbox`).
     pub(crate) fn hbox(width: f64) -> Self {
-        Self::Box(Dims::new(width, 0.0, 0.0))
+        Self::Box(Dims::new(width, 0.0, 0.0).made_as(DimsKind::Hbox))
     }
 
     /// An empty box of the given height and depth (`Vbox`).
     pub(crate) fn vbox(height: f64, depth: f64) -> Self {
-        Self::Box(Dims::new(0.0, height, depth))
+        Self::Box(Dims::new(0.0, height, depth).made_as(DimsKind::Vbox))
     }
 
     /// One of `copies` slots of a list holding the same empty box of the
@@ -312,13 +351,15 @@ impl Node {
     pub(crate) fn shared_vbox(height: f64, depth: f64, copies: u32) -> Self {
         Self::Box(Dims {
             copies,
-            ..Dims::new(0.0, height, depth)
+            ..Dims::new(0.0, height, depth).made_as(DimsKind::Vbox)
         })
     }
 
     /// A horizontal rule running across the enclosing box (`Hrule`).
     pub(crate) fn hrule(thickness: f64) -> Self {
-        Self::Rule(Dims::new(f64::INFINITY, thickness * 0.5, thickness * 0.5))
+        Self::Rule(
+            Dims::new(f64::INFINITY, thickness * 0.5, thickness * 0.5).made_as(DimsKind::Hrule),
+        )
     }
 
     /// Width of the node (zero for glue).
@@ -406,6 +447,7 @@ impl List {
             glue_order: 0,
             is_phantom: false,
             function_name: None,
+            class: ListClass::Plain,
             level: 0,
         }
     }
@@ -432,7 +474,10 @@ impl List {
         all.push(Node::glue(GlueSpec::SS));
         all.extend(children);
         all.push(Node::glue(GlueSpec::SS));
-        Self::hlist_unkerned(all)
+        Self {
+            class: ListClass::Centered,
+            ..Self::hlist_unkerned(all)
+        }
     }
 
     /// A `Vlist` at its natural height.

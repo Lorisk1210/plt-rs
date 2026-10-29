@@ -33,7 +33,7 @@ import re
 import subprocess
 import sys
 
-from . import _api, cbook
+from . import _api, cbook, ft2font
 from ._fontconfig_pattern import (
     parse_fontconfig_pattern, generate_fontconfig_pattern)
 from ._native import font_manager as _font_manager, ft2font as _native_ft2font
@@ -944,6 +944,88 @@ def json_load(filename):
         return json.load(fh, object_hook=_json_decode)
 
 
+def _data_font_path(fname, fontext='ttf'):
+    """
+    The path of the font file *fname*: pltrs (Rust) names the fonts it bundles
+    by their bare file names, which are in the data directory's
+    ``fonts/ttf`` (``fonts/pdfcorefonts`` for AFM files), as matplotlib's
+    are in its ``mpl-data``.
+    """
+    if os.path.dirname(fname):
+        return fname
+    subdir = 'pdfcorefonts' if fontext == 'afm' else 'ttf'
+    return str(cbook._get_data_path('fonts', subdir, fname))
+
+
+def _entries(fontext):
+    """The `FontEntry` of every font pltrs (Rust) has in the list *fontext*."""
+    return [FontEntry(fname=_data_font_path(fname, fontext), index=index,
+                      name=name, style=style,
+                      variant=variant,
+                      weight=int(weight) if weight.isdigit() else weight,
+                      stretch=stretch)
+            for fname, index, name, (style, variant, weight, stretch)
+            in _font_manager.font_list(fontext)]
+
+
+def _native_entry(entry):
+    """A `FontEntry` as `_native.font_manager` takes it."""
+    return (entry.fname, entry.index, entry.name,
+            (entry.style, entry.variant, entry.weight, entry.stretch))
+
+
+class _TrueTypeList(list):
+    """
+    The TrueType fonts of the `FontManager`, as `FontEntry` objects: the
+    entries pltrs (Rust) matches fonts by, which appending and removing
+    entries changes, as changing matplotlib's ``ttflist`` does.
+    """
+
+    def append(self, entry):
+        """Append *entry*: its font is matched by its name from now on."""
+        _font_manager.add_entry(_native_entry(entry))
+        super().append(entry)
+
+    def extend(self, entries):
+        """Append each of *entries*."""
+        for entry in entries:
+            self.append(entry)
+
+    def __iadd__(self, entries):
+        self.extend(entries)
+        return self
+
+    def remove(self, entry):
+        """Remove the first entry equal to *entry*."""
+        super().remove(entry)
+        _font_manager.remove_entry(_native_entry(entry))
+
+
+class _FontList:
+    """
+    A font list attribute of `FontManager`: made from pltrs (Rust)'s fonts
+    on first use (the paths of the bundled fonts need the data directory,
+    which may not be writable when the font manager is made); assigning
+    replaces it.
+    """
+
+    def __init__(self, make):
+        self._make = make
+
+    def __set_name__(self, owner, name):
+        self._key = f"_{name}"
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        if self._key not in instance.__dict__:
+            instance.__dict__[self._key] = self._make()
+        return instance.__dict__[self._key]
+
+    def __set__(self, instance, value):
+        instance.__dict__[self._key] = value
+
+
 class FontManager:
     """
     On import, the `FontManager` singleton instance creates a list of ttf and
@@ -952,13 +1034,17 @@ class FontManager:
     matches the specification.  If no good enough match is found, the default
     font is returned.
 
-    pltrs (Rust) keeps the fonts and does the search; ``ttflist`` and ``afmlist``
-    are its font lists.
+    pltrs (Rust) keeps the fonts and does the search: ``ttflist`` holds the
+    TrueType fonts it matches (appending to it and removing from it changes
+    them), ``afmlist`` the Adobe Font Metrics of the PostScript core fonts.
     """
     # Increment this version number whenever the font cache data
     # format or behavior has changed and requires an existing font
     # cache files to be rebuilt.
     __version__ = '3.11.0'
+
+    ttflist = _FontList(lambda: _TrueTypeList(_entries('ttf')))
+    afmlist = _FontList(lambda: _entries('afm'))
 
     def __init__(self, size=None, weight='normal'):
         self._version = self.__version__
@@ -968,28 +1054,6 @@ class FontManager:
             'ttf': 'DejaVu Sans',
             'afm': 'Helvetica'}
 
-    @staticmethod
-    def _entries(fontext):
-        """The `FontEntry` of every font of the list *fontext*."""
-        return [FontEntry(fname=_data_font_path(fname, fontext), index=index,
-                          name=name, style=style,
-                          variant=variant,
-                          weight=int(weight) if weight.isdigit() else weight,
-                          stretch=stretch)
-                for fname, index, name, (style, variant, weight, stretch)
-                in _font_manager.font_list(fontext)]
-
-    @property
-    def ttflist(self):
-        """The TrueType fonts, as `FontEntry` objects."""
-        return self._entries('ttf')
-
-    @property
-    def afmlist(self):
-        """The Adobe Font Metrics of the PostScript core fonts, as
-        `FontEntry` objects."""
-        return self._entries('afm')
-
     def addfont(self, path):
         """
         Cache the properties of the font at *path* to make it available to the
@@ -998,8 +1062,34 @@ class FontManager:
         Parameters
         ----------
         path : str or path-like
+
+        Notes
+        -----
+        This method is useful for adding a custom font without installing it in
+        your operating system. See the `FontManager` singleton instance for
+        usage and caveats about this function.
         """
-        _font_manager.add_font(os.fsdecode(path))
+        # Convert to string in case of a path as FT2Font expects this.
+        path = os.fsdecode(path)
+        if Path(path).suffix.lower() == ".afm":
+            raise NotImplementedError(
+                "pltrs: addfont of an AFM file (pltrs matches the AFM "
+                "metrics of the PostScript core fonts only)")
+        font = ft2font.FT2Font(path)
+        prop = ttfFontProperty(font)
+        self.ttflist.append(prop)
+        for alt_name, alt_weight in _get_font_alt_names(font, prop.name):
+            self.ttflist.append(
+                dataclasses.replace(prop, name=alt_name, weight=alt_weight))
+
+        for face_index in range(1, font.num_faces):
+            subfont = ft2font.FT2Font(path, face_index=face_index)
+            prop = ttfFontProperty(subfont)
+            self.ttflist.append(prop)
+            for alt_name, alt_weight in _get_font_alt_names(subfont, prop.name):
+                self.ttflist.append(
+                    dataclasses.replace(prop, name=alt_name, weight=alt_weight))
+
         self._findfont_cached.cache_clear()
 
     @property
@@ -1072,7 +1162,9 @@ class FontManager:
             - 'afm': Adobe Font Metrics (.afm)
 
         directory : str, optional
-            pltrs searches the fonts it knows: a directory is not supported.
+            If given, only search this directory and its subdirectories.
+            If :envvar:`MPL_IGNORE_SYSTEM_FONTS` is set, then this defaults to
+            the font directory of the data path (the fonts pltrs bundles).
 
         fallback_to_default : bool
             If True, will fall back to the default font family (usually
@@ -1088,20 +1180,78 @@ class FontManager:
         FontPath
             The filename of the best matching font, and its face index.
         """
-        if directory is not None:
-            raise NotImplementedError("pltrs: findfont(directory=...)")
-        return self._findfont_cached(self._props(prop), fontext,
-                                     fallback_to_default, tuple(_rcParams()['font.family']))
+        # Pass the relevant rcParams to _findfont_cached so as not to use a
+        # stale cache entry after an rcParam was changed.
+        rc_params = tuple(
+            tuple(value) if isinstance(value, list) else value
+            for value in (_rcParams()[f"font.{key}"] for key in [
+                "family", "style", "variant", "weight", "stretch", "size",
+                "serif", "sans-serif", "cursive", "fantasy", "monospace"]))
+        if directory is None and os.getenv('MPL_IGNORE_SYSTEM_FONTS'):
+            directory = cbook._get_data_path('fonts')
+        ret = self._findfont_cached(
+            FontProperties._from_any(prop), fontext,
+            None if directory is None else os.fspath(directory),
+            fallback_to_default, rc_params)
+        if isinstance(ret, cbook._ExceptionInfo):
+            raise ret.to_exception()
+        return ret
 
     @lru_cache(1024)
-    def _findfont_cached(self, props, fontext, fallback_to_default, family):
-        """The `FontPath` the search finds (cached per properties and
-        :rc:`font.family`)."""
-        fname = _data_font_path(
-            _font_manager.find_font(props, fontext, fallback_to_default), fontext)
-        index = next((entry.index for entry in self._entries(fontext)
-                      if entry.fname == fname), 0)
-        return FontPath(fname, index)
+    def _findfont_cached(self, prop, fontext, directory, fallback_to_default,
+                         rc_params):
+        """
+        The `FontPath` the search finds, or the exception to raise, logging
+        as matplotlib does when the weight or the family is not found
+        (cached per properties, directory and font rcParams).
+        """
+        fname = prop.get_file()
+        if fname is not None:
+            return fname
+        if fontext == 'afm':
+            if directory is not None:
+                raise NotImplementedError(
+                    "pltrs: findfont(fontext='afm', directory=...)")
+            fname = _data_font_path(_font_manager.find_font(
+                self._props(prop), fontext, fallback_to_default), fontext)
+            return FontPath(fname, 0)
+        best = _font_manager.best_font(
+            self._props(prop), directory, cbook._get_data_path('fonts', 'ttf'))
+        if best is not None:
+            (fname, index, name, (_, _, weight, _)), score = best
+            weight = int(weight) if weight.isdigit() else weight
+            if _normalize_weight(prop.get_weight()) != _normalize_weight(weight):
+                _log.warning(
+                    'findfont: Failed to find font weight %s for %s, now using %s.',
+                    prop.get_weight(), name, weight)
+        if best is None or score >= 10.0:
+            if fallback_to_default:
+                _log.warning(
+                    'findfont: Font family %s not found. Falling back to %s.',
+                    prop.get_family(), self.defaultFamily[fontext])
+                for family in map(str.lower, prop.get_family()):
+                    if family in font_family_aliases:
+                        _log.warning(
+                            "findfont: Generic family %r not found because "
+                            "none of the following families were found: %s",
+                            family, ", ".join(self._expand_aliases(family)))
+                default_prop = prop.copy()
+                default_prop.set_family(self.defaultFamily[fontext])
+                return self.findfont(default_prop, fontext, directory,
+                                     fallback_to_default=False)
+            # Returned rather than raised, so that the failure is cached.
+            return cbook._ExceptionInfo(
+                ValueError,
+                f"Failed to find font {prop}, and fallback to the default font was "
+                f"disabled")
+        return FontPath(_data_font_path(fname), index)
+
+    @staticmethod
+    def _expand_aliases(family):
+        """The families :rc:`font.<family>` lists for a generic family."""
+        if family in ('sans', 'sans serif'):
+            family = 'sans-serif'
+        return _rcParams()['font.' + family]
 
     def get_font_names(self):
         """Return the list of available fonts."""
@@ -1257,19 +1407,6 @@ def _get_font_alt_names(font, primary_name):
         if key[:3] in (mac_key, ms_key) and key[3] in (1, 2, 16, 17, 21, 22)]
     return [tuple(pair) for pair in
             _font_manager.alternative_family_names(primary_name, records)]
-
-
-def _data_font_path(fname, fontext='ttf'):
-    """
-    The path of the font file *fname*: pltrs (Rust) names the fonts it bundles
-    by their bare file names, which are in the data directory's
-    ``fonts/ttf`` (``fonts/pdfcorefonts`` for AFM files), as matplotlib's
-    are in its ``mpl-data``.
-    """
-    if os.path.dirname(fname):
-        return fname
-    subdir = 'pdfcorefonts' if fontext == 'afm' else 'ttf'
-    return str(cbook._get_data_path('fonts', subdir, fname))
 
 
 @lru_cache(64)

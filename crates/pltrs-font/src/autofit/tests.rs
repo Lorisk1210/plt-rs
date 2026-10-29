@@ -46,6 +46,29 @@ fn unmapped_font() -> Vec<u8> {
 }
 
 #[test]
+fn vertical_metrics_match_freetype() {
+    // FreeType 2.14.3: matplotlib's `test_ft2font_loading`, `load_char`
+    // of 'M' in DejaVu Sans at 12 pt and 72 dpi (`FORCE_AUTOHINT`).
+    let face = Face::parse(DEJAVU, 0).expect("bundled font");
+    let m = load(&face, 'M', 12.0, 72.0, AutohintTarget::Normal);
+    let metrics = m.metrics();
+    assert_eq!(
+        (metrics.width, metrics.height, metrics.hori_bearing_x),
+        (576, 576, 0)
+    );
+    assert_eq!((metrics.hori_bearing_y, metrics.hori_advance), (576, 640));
+    assert_eq!(
+        m.vertical_metrics(),
+        Some(crate::hinting::VerticalMetrics {
+            bearing_x: -384,
+            bearing_y: 64,
+            advance: 832,
+        })
+    );
+    assert_eq!(face.synthesized_vertical_metrics(GlyphId(0)).1, 2048);
+}
+
+#[test]
 fn bundled_glyphs_match_freetype() {
     // FreeType 2.14.3: matplotlib's `FT2Font.load_glyph` with
     // `LoadFlags.FORCE_AUTOHINT` (and a target) and `get_path()` for

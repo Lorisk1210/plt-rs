@@ -71,6 +71,12 @@ fn text_width_height_descent(
     Ok(manager()?.text_width_height_descent(&tex, fontsize, pixels_per_point)?)
 }
 
+/// `backend_pgf._get_preamble()`: the LaTeX preamble of the current
+/// rcParams that PGF pictures assume.
+fn pgf_preamble() -> PyResult<String> {
+    Ok(pltrs::figure::pgf_preamble(&pltrs::rc::params()))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tex_source", tex_source)?;
@@ -80,5 +86,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("make_dvi", make_dvi)?;
     module.add("make_png", make_png)?;
     module.add("grey", grey)?;
-    module.add("text_width_height_descent", text_width_height_descent)
+    module.add("text_width_height_descent", text_width_height_descent)?;
+    module.add("pgf_preamble", pgf_preamble)
 }

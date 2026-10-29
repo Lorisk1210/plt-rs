@@ -11,6 +11,8 @@ unsafe extern "C" {
     pub(crate) static mut PyExc_TypeError: *mut PyObject;
     /// `PyExc_KeyError`.
     pub(crate) static mut PyExc_KeyError: *mut PyObject;
+    /// `PyExc_LookupError`.
+    pub(crate) static mut PyExc_LookupError: *mut PyObject;
     /// `PyExc_IndexError`.
     pub(crate) static mut PyExc_IndexError: *mut PyObject;
     /// `PyExc_AttributeError`.

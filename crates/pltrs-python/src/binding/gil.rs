@@ -20,9 +20,9 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::NonNull;
 use std::sync::Mutex;
 
-use super::callback;
 use super::error::{PyErr, PyResult};
 use super::object::Bound;
+use super::{after_call, callback};
 use crate::ffi;
 
 thread_local! {
@@ -140,9 +140,10 @@ fn release_pending() {
 /// slot of the native type) and turns its outcome into what CPython
 /// expects: a new reference, or NULL with the exception raised.
 ///
-/// A panic becomes a `RuntimeError` instead of unwinding into C, and an
+/// A panic becomes a `RuntimeError` instead of unwinding into C, an
 /// exception a Python callback raised meanwhile ([`callback`]) replaces
-/// the result.
+/// the result, and a successful call ends with the work the modules left
+/// for its end ([`after_call`]).
 ///
 /// # Safety
 ///
@@ -160,6 +161,11 @@ pub(crate) unsafe fn entry(
         Some(raised) => Err(raised),
         None => outcome,
     };
+    let outcome = outcome.and_then(|object| {
+        catch_unwind(AssertUnwindSafe(|| after_call::run(py)))
+            .unwrap_or_else(|panic| Err(PyErr::from_panic(&*panic)))?;
+        Ok(object)
+    });
     match outcome {
         Ok(object) => object.into_ptr(),
         Err(err) => {

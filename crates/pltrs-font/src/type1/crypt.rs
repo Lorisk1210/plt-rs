@@ -14,6 +14,20 @@ pub enum Type1Cipher {
 }
 
 impl Type1Cipher {
+    /// Decrypts `ciphertext` and drops the first `discard` bytes of the
+    /// plaintext (matplotlib's `Type1Font._decrypt(ciphertext, key,
+    /// ndiscard)`): a negative `discard` keeps only that many final bytes,
+    /// as Python's slice does.
+    pub fn decrypt(self, ciphertext: &[u8], discard: i64) -> Vec<u8> {
+        decrypt(ciphertext, self, discard)
+    }
+
+    /// Encrypts `plaintext` after `discard` NUL bytes (matplotlib's
+    /// `Type1Font._encrypt(plaintext, key, ndiscard)`).
+    pub fn encrypt(self, plaintext: &[u8], discard: i64) -> Vec<u8> {
+        encrypt(plaintext, self, discard)
+    }
+
     const fn seed(self) -> u32 {
         match self {
             Self::Eexec => 55665,
@@ -82,5 +96,13 @@ mod tests {
         assert_eq!(decrypt(&encrypted, Type1Cipher::Charstring, -10), b"abcdef");
         assert_eq!(decrypt(&encrypted, Type1Cipher::Charstring, 10), b"");
         assert_eq!(encrypt(b"x", Type1Cipher::Eexec, -1).len(), 1);
+    }
+
+    #[test]
+    fn the_cipher_methods_take_the_discard() {
+        let encrypted = Type1Cipher::Eexec.encrypt(b"abc", 2);
+        assert_eq!(encrypted, encrypt(b"abc", Type1Cipher::Eexec, 2));
+        assert_eq!(Type1Cipher::Eexec.decrypt(&encrypted, 2), b"abc");
+        assert_eq!(Type1Cipher::Eexec.decrypt(&encrypted, -1), b"c");
     }
 }

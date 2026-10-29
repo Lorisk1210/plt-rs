@@ -41,6 +41,18 @@ pub struct GlyphMetrics {
     pub hori_advance: i32,
 }
 
+/// The vertical metrics FreeType gives a glyph (`FT_Glyph_Metrics`), in
+/// 26.6 pixels.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct VerticalMetrics {
+    /// Left side bearing for vertical layout.
+    pub bearing_x: i32,
+    /// Top side bearing for vertical layout.
+    pub bearing_y: i32,
+    /// The advance height.
+    pub advance: i32,
+}
+
 /// A glyph loaded with hinting: its grid-fitted outline in 26.6 pixels,
 /// with the origin at the first phantom point, its advance, and how it is
 /// scan-converted without anti-aliasing.
@@ -49,6 +61,9 @@ pub struct HintedGlyph {
     outline: Outline,
     advance: i32,
     rules: ScanRules,
+    /// The vertical metrics the autohinter computes itself; `None` for
+    /// glyphs whose vertical metrics come from the font's loader.
+    vertical: Option<VerticalMetrics>,
 }
 
 impl HintedGlyph {
@@ -59,7 +74,23 @@ impl HintedGlyph {
             outline,
             advance,
             rules,
+            vertical: None,
         }
+    }
+
+    /// The glyph with the vertical metrics its hinter computed.
+    pub(crate) const fn with_vertical_metrics(mut self, vertical: VerticalMetrics) -> Self {
+        self.vertical = Some(vertical);
+        self
+    }
+
+    /// The vertical metrics of an autohinted glyph, which the autohinter
+    /// computes from the hinted outline and its own scales
+    /// (`af_loader_load_glyph`); `None` for a glyph the font's bytecode
+    /// hinted, whose vertical metrics are the loader's, rounded to whole
+    /// pixels (`ft_glyphslot_grid_fit_metrics`).
+    pub const fn vertical_metrics(&self) -> Option<VerticalMetrics> {
+        self.vertical
     }
 
     /// The advance width in 26.6 pixels, rounded to a whole pixel

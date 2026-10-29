@@ -4,10 +4,13 @@ Implementation details for :mod:`.mathtext` (matplotlib's ``_mathtext``).
 pltrs (Rust) parses and typesets mathtext (``pltrs_text::mathtext``, a port
 of matplotlib's parser, font sets and TeX box model). This module keeps
 matplotlib's names for what the Python side sees of it: the parse results,
-the font sets (which select the fonts pltrs (Rust) typesets with), the
+the font sets (which select the fonts pltrs (Rust) typesets with), the box
+tree `Parser.parse` returns (the node classes and their reprs are
+matplotlib's, from matplotlib 3.11.2, under the Matplotlib License), the
 parser's symbol tables and `get_unicode_index`.
 """
 
+import textwrap
 from typing import NamedTuple
 
 from ._native import mathtext as _mathtext
@@ -201,3 +204,135 @@ class Parser:
     _accent_map = dict(_mathtext.accent_map())
 
     _wide_accents = set(_mathtext.wide_accents())
+
+    def parse(self, s, fonts_object, fontsize, dpi):
+        """
+        Parse expression *s* using the given *fonts_object* for
+        output, at the given *fontsize* and *dpi*.
+
+        Returns the parse tree of `Node` instances.
+        """
+        from .font_manager import FontManager
+        prop = fonts_object.default_font_prop.copy()
+        prop.set_size(fontsize)
+        if fonts_object._fontset is not None:
+            prop.set_math_fontfamily(fonts_object._fontset)
+        return _node(_mathtext.parse_box_tree(
+            s, float(dpi), FontManager._props(prop)))
+
+
+def _node(native):
+    """The `Node` of the box tree node *native* (``(class name, payload)``,
+    see ``_native.mathtext.parse_box_tree``)."""
+    name, payload = native
+    cls = _NODE_CLASSES[name]
+    if issubclass(cls, List):
+        width, height, depth, shift_amount, children = payload
+        return cls(width, height, depth, shift_amount,
+                   [_node(child) for child in children])
+    if cls is Char:
+        return Char(payload)
+    if cls is Kern:
+        return Kern(payload)
+    return cls()
+
+
+class Node:
+    """A node in the TeX box model."""
+
+    def __repr__(self):
+        return type(self).__name__
+
+
+class Box(Node):
+    """A node with a physical location."""
+
+
+class Vbox(Box):
+    """A box with only height (zero width)."""
+
+
+class Hbox(Box):
+    """A box with only width (zero height and depth)."""
+
+
+class Char(Node):
+    """A single character."""
+
+    def __init__(self, c):
+        self.c = c
+
+    def __repr__(self):
+        return '`%s`' % self.c
+
+
+class List(Box):
+    """A list of nodes (either horizontal or vertical)."""
+
+    def __init__(self, width, height, depth, shift_amount, children):
+        self.width = width
+        self.height = height
+        self.depth = depth
+        self.shift_amount = shift_amount
+        self.children = children
+
+    def __repr__(self):
+        return "{}<w={:.02f} h={:.02f} d={:.02f} s={:.02f}>[{}]".format(
+            super().__repr__(),
+            self.width, self.height,
+            self.depth, self.shift_amount,
+            "\n" + textwrap.indent(
+                "\n".join(map("{!r},".format, self.children)),
+                "  ") + "\n"
+            if self.children else ""
+        )
+
+
+class Hlist(List):
+    """A horizontal list of boxes."""
+
+
+class Vlist(List):
+    """A vertical list of boxes."""
+
+
+class Rule(Box):
+    """A solid black rectangle."""
+
+
+class Hrule(Rule):
+    """Convenience class to create a horizontal rule."""
+
+
+class Glue(Node):
+    """Most of the information in this object is stored in the underlying
+    ``_GlueSpec`` class, which is shared between multiple glue objects."""
+
+
+class HCentered(Hlist):
+    """A convenience class to create an `Hlist` whose contents are
+    centered within its enclosing box."""
+
+
+class Kern(Node):
+    """A `Kern` node has a width field to specify a (normally negative)
+    amount of spacing."""
+
+    def __init__(self, width):
+        self.width = width
+
+    def __repr__(self):
+        return "k%.02f" % self.width
+
+
+class AutoHeightChar(Hlist):
+    """A character as close to the given height and depth as possible."""
+
+
+class AutoWidthChar(Hlist):
+    """A character as close to the given width as possible."""
+
+
+_NODE_CLASSES = {cls.__name__: cls for cls in [
+    Box, Hbox, Vbox, Char, Kern, Glue, Hrule,
+    Hlist, Vlist, HCentered, AutoHeightChar, AutoWidthChar]}

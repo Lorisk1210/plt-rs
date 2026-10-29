@@ -31,6 +31,8 @@ pub(crate) enum ExceptionKind {
     TypeError,
     /// `KeyError`: an unknown key (rcParams, style names, ...).
     KeyError,
+    /// `LookupError`: a missing entry of a table that is not a mapping (a font map).
+    LookupError,
     /// `IndexError`: an index out of range (a contour level, a position or a value beyond a table).
     IndexError,
     /// `AttributeError`: an unknown attribute or property.
@@ -59,6 +61,7 @@ impl ExceptionKind {
                 Self::ValueError => ffi::PyExc_ValueError,
                 Self::TypeError => ffi::PyExc_TypeError,
                 Self::KeyError => ffi::PyExc_KeyError,
+                Self::LookupError => ffi::PyExc_LookupError,
                 Self::IndexError => ffi::PyExc_IndexError,
                 Self::AttributeError => ffi::PyExc_AttributeError,
                 Self::RuntimeError => ffi::PyExc_RuntimeError,

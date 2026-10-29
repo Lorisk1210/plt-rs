@@ -131,6 +131,19 @@ fn legacy_arrows_are_filled_in_their_face_colour() {
 }
 
 #[test]
+fn annotations_are_recovered_from_their_raw_handles() {
+    let (_, ax) = data_axes();
+    let note = ax
+        .annotate("note", (1.0, 2.0), AnnotateOptions::default())
+        .expect("valid");
+    let recovered = note.raw().downcast::<Annotation>().expect("an annotation");
+    assert_eq!(recovered.xy(), Point::new(1.0, 2.0));
+    let plain = ax.text(0.0, 0.0, "plain");
+    assert!(plain.raw().downcast::<Annotation>().is_none());
+    assert!(plain.raw().downcast::<crate::text::Text>().is_some());
+}
+
+#[test]
 fn texts_can_be_annotated_points() {
     let (_, ax) = data_axes();
     let box_text = ax

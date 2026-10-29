@@ -1,4 +1,4 @@
-//! The ledger of matplotlib tests that cannot apply to plt-rs,
+//! The ledger of matplotlib tests that cannot apply to pltrs,
 //! `spec/reference/not_applicable.txt`: one `test_file.py::test_name:
 //! reason` per line, blank lines and `#` comments allowed.
 

@@ -2,7 +2,7 @@
 The top level container for all the plot elements (matplotlib's
 ``figure``).
 
-A `Figure` owns a plt-rs figure (``self._native``) and the registry of the
+A `Figure` owns a pltrs (Rust) figure (``self._native``) and the registry of the
 objects of its artists (``self._artists``, see `._handles`).
 """
 

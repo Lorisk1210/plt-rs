@@ -7,8 +7,8 @@ Defines classes for path effects. The path effects are supported in `.Text`,
 
 pltrs keeps matplotlib's path effects (from matplotlib 3.11.2, under the
 Matplotlib License): renderer wrappers that redraw paths with changed
-graphics contexts. The ticks of `TickedStroke` are plt-rs's
-(``plt::patheffects``).
+graphics contexts. The ticks of `TickedStroke` are pltrs (Rust)'s
+(``pltrs::patheffects``).
 """
 
 import math

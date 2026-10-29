@@ -3,7 +3,7 @@ Numerical Python functions written for compatibility with MATLAB
 commands with the same names (matplotlib's ``mlab``): spectral estimates,
 detrending and kernel density estimation.
 
-plt-rs computes them (``plt::mlab``); the functions here keep matplotlib's
+pltrs (Rust) computes them (``pltrs::mlab``); the functions here keep matplotlib's
 signatures and defaults.
 
 Spectral functions
@@ -153,14 +153,14 @@ def detrend_linear(y):
     return _detrend(y, "linear", None)
 
 
-#: The detrend functions plt-rs implements, by the name it knows them by.
+#: The detrend functions pltrs (Rust) implements, by the name it knows them by.
 _DETREND_FUNCTIONS = {detrend_none: "none", detrend_mean: "mean",
                       detrend_linear: "linear"}
 
 
 def _detrend_name(key):
-    """The plt-rs name of the detrend method *key*, or None for a function
-    plt-rs does not know (or an invalid key)."""
+    """The pltrs (Rust) name of the detrend method *key*, or None for a function
+    pltrs (Rust) does not know (or an invalid key)."""
     if key is None or cbook._str_equal(key, "default") or cbook._str_equal(
             key, "constant") or cbook._str_equal(key, "mean"):
         return "mean"
@@ -172,7 +172,7 @@ def _detrend_name(key):
 
 
 def _detrend(x, name, axis):
-    """*x* (an array-like of any dtype) detrended by plt-rs's *name*."""
+    """*x* (an array-like of any dtype) detrended by pltrs (Rust)'s *name*."""
     x = np.asarray(x)
     return _mlab.detrend(np.asarray(x, dtype=float), name, axis).astype(
         np.result_type(x.dtype, float), copy=False)

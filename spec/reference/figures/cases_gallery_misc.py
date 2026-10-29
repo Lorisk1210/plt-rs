@@ -1426,7 +1426,7 @@ def radar_factory(num_vars, frame='circle'):
     """The example's radar projection with ``num_vars`` axes, and its axes
     class. The example registers the class as ``radar``; the case passes
     the class itself instead, named like the polar axes it extends (which
-    plt-rs draws with a polygon frame), so that matplotlib's registry is
+    pltrs draws with a polygon frame), so that matplotlib's registry is
     left alone."""
     theta = np.linspace(0, 2*np.pi, num_vars, endpoint=False)
 

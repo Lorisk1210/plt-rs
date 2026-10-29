@@ -1,7 +1,8 @@
 # pltrs: design
 
-pltrs is plt-rs for Python with matplotlib's syntax. Code written for
-matplotlib runs with one change, the import:
+pltrs (Python) is pltrs with matplotlib's syntax: a Python package over
+pltrs (Rust), the crate. Code written for matplotlib runs with one
+change, the import:
 
 ```python
 import pltrs.pyplot as plt          # import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ that bind them, and where to put new code.
 ## Layout
 
 ```
-crates/plt-python/              the native extension (a cdylib, no crates)
+crates/pltrs-python/            the native extension (a cdylib, no crates)
   build.rs                      finds a libpython for the unit tests only
   src/lib.rs                    PyInit__native
   src/ffi/                      the CPython C API, declarations only
@@ -33,7 +34,7 @@ crates/plt-python/              the native extension (a cdylib, no crates)
     native.rs                   the native object; native_value!, artist_handle!
     function.rs                 native functions from plain Rust functions
     module.rs                   the extension module and its submodules
-    callback.rs                 Callback: Python called from plt-rs
+    callback.rs                 Callback: Python called from pltrs (Rust)
     registry.rs                 Python objects registered for native code
     init.rs                     the module definition
   src/modules/                  one file per matplotlib module
@@ -44,7 +45,7 @@ python/
     __init__.py                 rcParams, RcParams, rc, rc_context, rcdefaults, use
     _native.abi3.so             built by `cargo xtask python` (gitignored)
     _api/                       matplotlib's _api, kept as it is
-    _handles.py                 one Python object per plt-rs artist
+    _handles.py                 one Python object per pltrs (Rust) artist
     _pylab_helpers.py           pyplot's figure registry (Gcf)
     artist.py figure.py axes/ axis.py lines.py text.py patches.py
     collections.py container.py legend.py colors.py ticker.py units.py
@@ -67,7 +68,7 @@ spec/mpl-suite/
 
 ### The C API: abi3, limited API 3.12
 
-There is no PyO3 (no crates at all): `crates/plt-python/src/ffi` declares
+There is no PyO3 (no crates at all): `crates/pltrs-python/src/ffi` declares
 by hand the part of CPython's limited API the crate uses. The extension is
 built once and loads in Python 3.12 and every later CPython
 (`_native.abi3.so`). The floor is 3.12, not 3.11, because the limited API
@@ -83,7 +84,7 @@ CPython's headers with `Py_LIMITED_API=0x030c0000` (gcc exists here).
 
 The extension links no libpython: the interpreter importing it provides
 the symbols. The Rust unit tests embed an interpreter instead: `build.rs`
-finds a shared libpython 3.14+ (`PLT_PYTHON`, else `.venv-pltrs`, else
+finds a shared libpython 3.14+ (`PLTRS_PYTHON`, else `.venv-pltrs`, else
 `.venv`, else `python3`) and links it only into the test binary, which
 starts it with the PEP 741 `PyInitConfig` API. Without one the crate's test
 build is empty (with a cargo warning), so `cargo test --workspace` still
@@ -92,7 +93,7 @@ works on a machine without Python.
 ### `unsafe`
 
 The crate lifts the workspace's ban on `unsafe`, as only it and
-`plt-platform` may. `ffi` holds the declarations; `binding` the wrappers,
+`pltrs-platform` may. `ffi` holds the declarations; `binding` the wrappers,
 with a `// SAFETY:` comment on every block (`clippy::undocumented_unsafe_blocks`
 is on). `modules` and everything above them are safe Rust: they never see
 a raw pointer.
@@ -107,7 +108,7 @@ a raw pointer.
   (`PyGILState_Ensure`, skipped when the count is already positive).
 * **`Bound<'py>`** is a strong reference usable while the GIL is held;
   **`Owned`** is the strong reference Rust state keeps (a callback in a
-  plt-rs closure): `Send + Sync`, used through `bind(py)`. An `Owned`
+  pltrs (Rust) closure): `Send + Sync`, used through `bind(py)`. An `Owned`
   dropped where the thread is not known to hold the GIL is not released
   there; it waits in a pool released at the next entry from Python.
 * **`PyErr` / `PyResult<T>`**: a native function returns `PyResult<T>`;
@@ -130,7 +131,7 @@ a raw pointer.
   Python. Python cannot make or subclass it. See below.
 * **Native functions** are plain Rust functions or closures, registered
   with `Module::add(name, function)`; see "Adding a function".
-* **`Callback`**: a Python callable plt-rs calls. See "Callbacks".
+* **`Callback`**: a Python callable pltrs (Rust) calls. See "Callbacks".
 * **The registry** (`_native.register(name, object)`, `binding::registered_error`):
   Python objects the package defines that native code needs, such as an
   exception class to raise (`ImageComparisonFailure`). The native module
@@ -151,12 +152,12 @@ that made it, and, for artist handles, the artist's `RawHandle`.
   artists (a clone comes out). A function that must change the value in
   place takes `Native<T>` instead and uses `borrow_mut()`.
 
-plt-rs handles share their figure through an `Rc`, so they are not
+pltrs (Rust) handles share their figure through an `Rc`, so they are not
 `Send`, while Python lets any thread holding the GIL reach any object. A
 native object therefore refuses use from a thread other than its maker's
 (`RuntimeError: this pltrs object belongs to another thread`), and one
 deallocated on another thread leaks its value rather than dropping it
-there. plt-rs's rcParams are per thread too. pltrs is used from one
+there. pltrs (Rust)'s rcParams are per thread too. pltrs is used from one
 thread, as matplotlib's GUI backends already require; the handful of
 matplotlib tests using threads with figures will need a plan of their own.
 
@@ -164,7 +165,7 @@ matplotlib tests using threads with figures will need a plan of their own.
 
 ### Where logic lives
 
-plt-rs does the work: validation, layout, drawing, saving, colour and
+pltrs (Rust) does the work: validation, layout, drawing, saving, colour and
 tick computation. Python holds what is inherently Python: matplotlib's
 signatures (positional forms, keywords, defaults, aliases), `set(**kw)`
 dispatch, pyplot's registry of Python figure objects, the `_api`
@@ -178,7 +179,7 @@ output.
 
 ### How a class wraps a native handle
 
-An artist object holds `self._native`, the native object of its plt-rs
+An artist object holds `self._native`, the native object of its pltrs (Rust)
 artist, and `self._figure`, its (root) `Figure`. Methods call the native
 functions of their module:
 
@@ -206,10 +207,10 @@ artist's object lives as long as its figure, and Python's garbage
 collector sees the whole cycle (all references are Python's).
 
 Not done yet, and decided: artists made before they are added
-(`Line2D(x, y)` then `ax.add_line(line)`). plt-rs makes artists inside a
-figure, so the native side of such an artist will be a plt-rs value (a
+(`Line2D(x, y)` then `ax.add_line(line)`). pltrs (Rust) makes artists inside a
+figure, so the native side of such an artist will be a pltrs (Rust) value (a
 `PatchArtist`, a `LineProps`...) held by its native object until it is
-added; adding it needs a plt-rs function that adopts the value into an
+added; adding it needs a pltrs (Rust) function that adopts the value into an
 axes and returns the handle, after which the object's `_native` is the
 handle and the object is registered in the figure. `Artist.__init__`
 raises `NotImplementedError` until then.
@@ -223,9 +224,9 @@ raises `NotImplementedError` until then.
   key, raising matplotlib's `AttributeError` for unknown ones; subclasses
   override setters as in matplotlib.
 * Plotting methods pass their artist properties to the native function in
-  one dict, after normalizing aliases, because plt-rs applies them when it
+  one dict, after normalizing aliases, because pltrs (Rust) applies them when it
   makes the artist (a given colour, for instance, does not advance the
-  property cycle). The module file converts the dict into the plt-rs
+  property cycle). The module file converts the dict into the pltrs (Rust)
   property set (`lines::LineKwargs` builds `LineProps`), raising
   `AttributeError("Line2D.set() got an unexpected keyword argument 'x'")`
   for keys it does not know: extend that table as properties are added.
@@ -246,18 +247,18 @@ arrays); lists come back as `Vec`.
 
 ### Callbacks and subclassing
 
-Python code runs inside plt-rs through `Callback`: the native function
-takes the callable, and the plt-rs closure or trait object holds it
-(`Callback` is `Send`, as plt-rs requires of what runs during layout and
+Python code runs inside pltrs (Rust) through `Callback`: the native function
+takes the callable, and the pltrs (Rust) closure or trait object holds it
+(`Callback` is `Send`, as pltrs (Rust) requires of what runs during layout and
 drawing). `ticker.rs` shows the pattern: any Python formatter (a
-`Formatter` subclass or a plain function) becomes a plt-rs
+`Formatter` subclass or a plain function) becomes a pltrs (Rust)
 `FuncFormatter` calling it.
 
-plt-rs's callback traits cannot fail the Python way, so when the callable
+pltrs (Rust)'s callback traits cannot fail the Python way, so when the callable
 raises, the exception is kept in the frame of the native call that is
 running, the callback returns a fallback (`None` from `call`), later
 callbacks of that call are skipped, and the native function raises the
-kept exception when plt-rs returns. Each native call has its own frame, so
+kept exception when pltrs (Rust) returns. Each native call has its own frame, so
 a native function a callback calls cannot pick up its caller's exception.
 A callback outside any native call turns its exception into a
 `RuntimeWarning`.
@@ -270,21 +271,21 @@ must refer back to Python objects that can reach it (an event callback
 holding its figure) must hold them weakly, or the cycle runs through Rust
 where Python's garbage collector cannot see it.
 
-plt-rs's rule that code run while a figure is laid out or drawn cannot
+pltrs (Rust)'s rule that code run while a figure is laid out or drawn cannot
 use the figure's handles (it would re-borrow the figure) applies to
 Python callbacks too: a native call made from such a callback that touches
 the same figure panics, which arrives as the `RuntimeError` above.
 
 ### Errors
 
-Each module file implements `From<plt error> for PyErr`, choosing
-matplotlib's exception class and, as far as plt-rs's messages allow,
+Each module file implements `From<pltrs error> for PyErr`, choosing
+matplotlib's exception class and, as far as pltrs (Rust)'s messages allow,
 matplotlib's message (`RcError::UnknownKey` becomes matplotlib's
 `KeyError: '<key> is not a valid rc parameter (see rcParams.keys() for a
 list of valid parameters)'`). Tests match messages with `pytest.raises(...,
-match=...)`, so message fidelity counts: where plt-rs's message differs
+match=...)`, so message fidelity counts: where pltrs (Rust)'s message differs
 from matplotlib's, prefer fixing the message in the Python-facing `From`
-impl, or in plt-rs when its own message is the problem. Exceptions that
+impl, or in pltrs (Rust) when its own message is the problem. Exceptions that
 matplotlib defines in Python, such as `ImageComparisonFailure`, are
 registered by the package (`_native.register`) and raised through
 `binding::registered_error`.
@@ -294,25 +295,25 @@ registered by the package (`_native.register`) and raised through
 pyplot's figure registry is Python state: `_pylab_helpers.Gcf` maps
 numbers to managers, which hold canvases and `Figure` objects (whatever
 `FigureClass` made them, with their Python attributes). It is matplotlib's
-module, kept as it is, because tests use it directly. plt-rs's own
-`plt::pyplot` registry is not used. The current axes of a figure is
-plt-rs's (`Figure.gca` calls `_figure.gca`).
+module, kept as it is, because tests use it directly. pltrs (Rust)'s own
+`pltrs::pyplot` registry is not used. The current axes of a figure is
+pltrs (Rust)'s (`Figure.gca` calls `_figure.gca`).
 
 ### rcParams
 
-plt-rs's `rc` module is the source of truth: `rcParams[key] = value`
+pltrs (Rust)'s `rc` module is the source of truth: `rcParams[key] = value`
 spells the Python value as rc-file text (`True`, `None`, numbers as
 Python prints them, sequences joined by commas, a `Cycler` as its repr)
-and plt-rs validates it exactly as matplotlib does; `rcParams[key]` gives
+and pltrs (Rust) validates it exactly as matplotlib does; `rcParams[key]` gives
 the typed value back (floats, ints, bools, strings, lists of them; other
 types, such as colours, keywords and cyclers, as their rc text).
 `RcParams` instances other than `rcParams` (`rcParamsDefault`, copies,
 `RcParams({...})`) hold a native `RcParams` of their own and only the keys
-given to them. `backend` is kept in Python (no plt-rs parameter: the
-backend is chosen by Python code). plt-rs's own `plt.*` parameters are left
+given to them. `backend` is kept in Python (no pltrs (Rust) parameter: the
+backend is chosen by Python code). pltrs (Rust)'s own `pltrs.*` parameters are left
 out of iteration, so that code iterating over rcParams sees matplotlib's
 keys, but can be read and set by name. `rc_context` saves and restores
-plt-rs's current parameters.
+pltrs (Rust)'s current parameters.
 
 ### Imports inside the package
 
@@ -332,7 +333,7 @@ The suite loads `python/pltrs` under the name `matplotlib`, so:
 
 `Text.get_rotation()` and `Text.set_rotation()`:
 
-1. **Rust** (`crates/plt-python/src/modules/text.rs`): write the native
+1. **Rust** (`crates/pltrs-python/src/modules/text.rs`): write the native
    functions and register them.
 
    ```rust
@@ -354,8 +355,8 @@ The suite loads `python/pltrs` under the name `matplotlib`, so:
 
    Arguments convert through `FromPy` (here `Text` through
    `artist_handle!`, `f64` as `float()` would), results through `IntoPy`.
-   Errors of plt-rs convert through the module's `From` impls with `?`. If
-   plt-rs lacks what matplotlib does, add it to plt-rs first (and run the
+   Errors of pltrs (Rust) convert through the module's `From` impls with `?`. If
+   pltrs (Rust) lacks what matplotlib does, add it there first (and run the
    output identity check if outputs could change).
 2. **Python** (`python/pltrs/text.py`): the method with matplotlib's
    signature and docstring; the signature handling stays here.
@@ -445,7 +446,7 @@ Most work touches only its own module's files: `modules/<name>.rs` and
 `python/pltrs/<name>.py`. These are shared, so keep edits there small and
 additive:
 
-* `crates/plt-python/src/modules/mod.rs`: one `mod` line and one
+* `crates/pltrs-python/src/modules/mod.rs`: one `mod` line and one
   `register` line per module; merge conflicts here are resolved by keeping
   both lines.
 * `python/pltrs/__init__.py`, `pyplot.py`, `axes/_axes.py`, `figure.py`,

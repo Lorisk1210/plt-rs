@@ -68,11 +68,11 @@ parsing), ``test_tripcolor_warnings`` (warnings), ``test_no_modify`` and
 ``test_trirefiner_fortran_contiguous_triangles`` (numpy array ownership
 and memory layout), ``test_internal_cpp_api`` (the private C++ extension),
 ``test_tricontourset_reuse`` (identity of private generator objects) and
-the masked-array case of ``test_tricontour_non_finite_z`` (plt-rs takes
+the masked-array case of ``test_tricontour_non_finite_z`` (pltrs takes
 plain values). ``test_triinterpcubic_cg_solver`` and
 ``test_triinterpcubic_geom_weights`` test private helpers; they are
-plt-rs unit tests of its conjugate gradient solver and angle weights
-(``crates/plt/src/tri/interpolate/dof.rs``).
+pltrs unit tests of its conjugate gradient solver and angle weights
+(``crates/pltrs/src/tri/interpolate/dof.rs``).
 """
 
 import numpy as np

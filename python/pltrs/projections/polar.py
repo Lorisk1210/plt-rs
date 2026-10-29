@@ -1,5 +1,5 @@
 """
-Polar axes (matplotlib's ``projections.polar``): plt-rs axes in the polar
+Polar axes (matplotlib's ``projections.polar``): pltrs (Rust) axes in the polar
 projection, made by ``add_subplot(projection='polar')``.
 """
 

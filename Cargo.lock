@@ -3,120 +3,120 @@
 version = 4
 
 [[package]]
-name = "plt"
+name = "pltrs"
 version = "0.1.0"
 dependencies = [
- "plt-codec",
- "plt-core",
- "plt-font",
- "plt-platform",
- "plt-raster",
- "plt-render",
- "plt-text",
- "plt-ui",
+ "pltrs-codec",
+ "pltrs-core",
+ "pltrs-font",
+ "pltrs-platform",
+ "pltrs-raster",
+ "pltrs-render",
+ "pltrs-text",
+ "pltrs-ui",
 ]
 
 [[package]]
-name = "plt-codec"
+name = "pltrs-codec"
 version = "0.1.0"
 dependencies = [
- "plt-core",
+ "pltrs-core",
 ]
 
 [[package]]
-name = "plt-core"
+name = "pltrs-core"
 version = "0.1.0"
 
 [[package]]
-name = "plt-examples"
+name = "pltrs-examples"
 version = "0.1.0"
 dependencies = [
- "plt",
- "plt-core",
+ "pltrs",
+ "pltrs-core",
 ]
 
 [[package]]
-name = "plt-font"
+name = "pltrs-font"
 version = "0.1.0"
 dependencies = [
- "plt-core",
+ "pltrs-core",
 ]
 
 [[package]]
-name = "plt-platform"
+name = "pltrs-platform"
 version = "0.1.0"
 dependencies = [
- "plt-codec",
- "plt-core",
+ "pltrs-codec",
+ "pltrs-core",
 ]
 
 [[package]]
-name = "plt-python"
+name = "pltrs-python"
 version = "0.1.0"
 dependencies = [
- "plt",
- "plt-core",
- "plt-font",
- "plt-platform",
- "plt-render",
- "plt-text",
+ "pltrs",
+ "pltrs-core",
+ "pltrs-font",
+ "pltrs-platform",
+ "pltrs-render",
+ "pltrs-text",
 ]
 
 [[package]]
-name = "plt-raster"
+name = "pltrs-raster"
 version = "0.1.0"
 dependencies = [
- "plt-core",
+ "pltrs-core",
 ]
 
 [[package]]
-name = "plt-render"
+name = "pltrs-render"
 version = "0.1.0"
 dependencies = [
- "plt-codec",
- "plt-core",
- "plt-font",
- "plt-raster",
- "plt-text",
+ "pltrs-codec",
+ "pltrs-core",
+ "pltrs-font",
+ "pltrs-raster",
+ "pltrs-text",
 ]
 
 [[package]]
-name = "plt-spec"
+name = "pltrs-spec"
 version = "0.1.0"
 dependencies = [
- "plt",
- "plt-codec",
- "plt-core",
- "plt-font",
- "plt-render",
- "plt-text",
+ "pltrs",
+ "pltrs-codec",
+ "pltrs-core",
+ "pltrs-font",
+ "pltrs-render",
+ "pltrs-text",
 ]
 
 [[package]]
-name = "plt-text"
+name = "pltrs-text"
 version = "0.1.0"
 dependencies = [
- "plt-codec",
- "plt-core",
- "plt-font",
+ "pltrs-codec",
+ "pltrs-core",
+ "pltrs-font",
 ]
 
 [[package]]
-name = "plt-ui"
+name = "pltrs-ui"
 version = "0.1.0"
 dependencies = [
- "plt-codec",
- "plt-core",
- "plt-platform",
- "plt-raster",
- "plt-text",
+ "pltrs-codec",
+ "pltrs-core",
+ "pltrs-platform",
+ "pltrs-raster",
+ "pltrs-text",
 ]
 
 [[package]]
 name = "xtask"
 version = "0.1.0"
 dependencies = [
- "plt",
- "plt-render",
- "plt-spec",
+ "pltrs",
+ "pltrs-render",
+ "pltrs-spec",
 ]

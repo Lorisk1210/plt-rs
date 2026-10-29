@@ -3,7 +3,7 @@ and synthetic stand-ins for matplotlib's sample data files.
 
 Figure cases porting matplotlib's gallery examples cannot read the sample
 data (``cbook.get_sample_data``); they use arrays of the same shape and
-spirit instead. plt-spec builds the same arrays in Rust
+spirit instead. pltrs-spec builds the same arrays in Rust
 (``figures/cases/common.rs``); keep the two in sync.
 """
 

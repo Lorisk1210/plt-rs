@@ -1,11 +1,11 @@
 //! Contour and filled contour plot: a relief map of two hills and a
 //! valley, with labelled contour lines over coloured height bands.
 
-use plt::contour::{ClabelFormat, ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
-use plt::rc::Aspect;
-use plt::ticker::LabelFormat;
+use pltrs::contour::{ClabelFormat, ClabelOptions, ContourOptions, Levels, QuadCoords, QuadField};
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
+use pltrs::rc::Aspect;
+use pltrs::ticker::LabelFormat;
 
 /// The height in metres at `(x, y)` km.
 fn height(x: f64, y: f64) -> f64 {

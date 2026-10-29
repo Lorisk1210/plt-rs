@@ -53,7 +53,7 @@ Ops
 ``artist.alpha``  {kind, alpha} -> alpha
     ``set_alpha(alpha)`` on a line, patch, text or scatter (``kind``), then
     a draw: the alpha, or an error for values outside ``[0, 1]`` and NaN
-    (matplotlib rejects them in ``set_alpha``, plt-rs when it draws them).
+    (matplotlib rejects them in ``set_alpha``, pltrs when it draws them).
     For ``kind == "scatter_array"`` ``alpha`` is a list, one per point
     (``_set_alpha_for_array``). Mirrors ``test_set_alpha`` and
     ``test_set_alpha_for_array``.

@@ -1,6 +1,6 @@
-//! `cargo xtask bench --report`: every workload timed in matplotlib, pltrs
-//! and plt, warm and cold, after the correctness guard, and the report
-//! written to `benchmarks/README.md`.
+//! `cargo xtask bench --report`: every workload timed in matplotlib,
+//! pltrs (Python) and pltrs (Rust), warm and cold, after the correctness
+//! guard, and the report written to `benchmarks/README.md`.
 
 mod markdown;
 
@@ -21,7 +21,8 @@ use super::workloads::{Script, Workload};
 pub(super) enum Column<T> {
     /// Measured.
     Measured(T),
-    /// pltrs raised this exception: it lacks something the script uses.
+    /// pltrs (Python) raised this exception: it lacks something the
+    /// script uses.
     NotSupported(String),
     /// matplotlib cannot be timed doing the same work, for this reason.
     NotComparable(&'static str),
@@ -52,19 +53,21 @@ impl<T> Column<T> {
 pub(super) struct Columns<T> {
     /// matplotlib.
     pub(super) matplotlib: Column<T>,
-    /// pltrs.
-    pub(super) pltrs: Column<T>,
-    /// plt, which runs every workload.
-    pub(super) plt: T,
+    /// pltrs (Python), the same scripts.
+    pub(super) python: Column<T>,
+    /// pltrs (Rust), which runs every workload.
+    pub(super) rust: T,
 }
 
-/// How plt's and pltrs' PNGs of a workload compare with matplotlib's.
+/// How the PNGs of pltrs (Python) and pltrs (Rust) compare with
+/// matplotlib's.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Guard {
-    /// plt's, unless matplotlib has no counterpart of the workload.
-    pub(super) plt: Option<Verdict>,
-    /// pltrs'.
-    pub(super) pltrs: Column<Verdict>,
+    /// pltrs (Python)'s.
+    pub(super) python: Column<Verdict>,
+    /// pltrs (Rust)'s, unless matplotlib has no counterpart of the
+    /// workload.
+    pub(super) rust: Option<Verdict>,
 }
 
 /// Everything measured of one workload.
@@ -92,9 +95,9 @@ pub(super) struct Startup {
     /// `python -c "import matplotlib.pyplot"`.
     pub(super) matplotlib: ColdResult,
     /// `python -c "import pltrs.pyplot"`.
-    pub(super) pltrs: ColdResult,
-    /// The plt benchmark executable starting and exiting.
-    pub(super) plt: ColdResult,
+    pub(super) python: ColdResult,
+    /// The benchmark executable of pltrs (Rust) starting and exiting.
+    pub(super) rust: ColdResult,
 }
 
 /// The versions of the Python side: `(name, version)` pairs of each venv
@@ -103,7 +106,7 @@ pub(super) struct Startup {
 pub(super) struct Versions {
     /// The reference venv's.
     pub(super) reference: Vec<(String, String)>,
-    /// The pltrs venv's.
+    /// The pltrs (Python) venv's.
     pub(super) pltrs: Vec<(String, String)>,
 }
 
@@ -113,7 +116,7 @@ impl Versions {
         lookup(&self.reference, name)
     }
 
-    /// The pltrs venv's version of `name`, or `unknown`.
+    /// The pltrs (Python) venv's version of `name`, or `unknown`.
     pub(super) fn pltrs(&self, name: &str) -> &str {
         lookup(&self.pltrs, name)
     }
@@ -185,7 +188,7 @@ pub(super) struct Report {
 struct Bench {
     /// matplotlib.
     matplotlib: PythonRunner,
-    /// pltrs.
+    /// pltrs (Python).
     pltrs: PythonRunner,
     /// `target/bench`: PNGs of the guard, documents of the cold runs,
     /// standard errors.
@@ -282,7 +285,7 @@ fn startup(bench: &Bench, machine: &Machine, plan: Plan) -> Result<Startup, Box<
         plan.startup,
         &bench.logs(),
     )?;
-    let [interpreter, numpy, numpy_threaded, matplotlib, pltrs, plt] =
+    let [interpreter, numpy, numpy_threaded, matplotlib, python, rust] =
         <[ColdResult; 6]>::try_from(results)
             .map_err(|_| "the start-up runs returned the wrong number of results")?;
     Ok(Startup {
@@ -290,8 +293,8 @@ fn startup(bench: &Bench, machine: &Machine, plan: Plan) -> Result<Startup, Box<
         numpy,
         numpy_threaded,
         matplotlib,
-        pltrs,
-        plt,
+        python,
+        rust,
     })
 }
 
@@ -302,61 +305,61 @@ fn measure(
     plan: Plan,
 ) -> Result<Measurement, Box<dyn Error>> {
     let build = (workload.setup)();
-    let plt_png = bench.artifact("guard", "plt", workload, "png")?;
-    std::fs::write(&plt_png, render(workload, &build, workload.png_output())?)?;
-    let (plt_warm, _) = time_warm(workload, &build, plan.warm)?;
+    let rust_png = bench.artifact("guard", child::LABEL, workload, "png")?;
+    std::fs::write(&rust_png, render(workload, &build, workload.png_output())?)?;
+    let (rust_warm, _) = time_warm(workload, &build, plan.warm)?;
     drop(build);
     let document = bench.artifact(
         "cold",
-        "plt",
+        child::LABEL,
         workload,
         workload.extension().unwrap_or("txt"),
     )?;
-    let plt_cold = child::cold_command(workload, &document)?;
+    let rust_cold = child::cold_command(workload, &document)?;
     let script = match workload.script {
         Script::Python(script) => script,
         Script::NotComparable(why) => {
             let cold = time_cold(
                 &bench.matplotlib.python,
-                &[plt_cold],
+                &[rust_cold],
                 plan.cold,
                 &bench.logs(),
             )?;
             return Ok(Measurement {
                 workload,
                 guard: Guard {
-                    plt: None,
-                    pltrs: Column::NotComparable(why),
+                    python: Column::NotComparable(why),
+                    rust: None,
                 },
                 warm: Columns {
                     matplotlib: Column::NotComparable(why),
-                    pltrs: Column::NotComparable(why),
-                    plt: plt_warm,
+                    python: Column::NotComparable(why),
+                    rust: rust_warm,
                 },
                 cold: Columns {
                     matplotlib: Column::NotComparable(why),
-                    pltrs: Column::NotComparable(why),
-                    plt: cold.into_iter().next().ok_or("no cold result")?,
+                    python: Column::NotComparable(why),
+                    rust: cold.into_iter().next().ok_or("no cold result")?,
                 },
             });
         }
     };
-    let guard = guard(workload, script, bench, &plt_png)?;
+    let guard = guard(workload, script, bench, &rust_png)?;
     let warm = Columns {
         matplotlib: Column::Measured(required(
             bench.matplotlib.warm(workload, script, plan.warm)?,
             script,
         )?),
-        pltrs: match guard.pltrs.skipped() {
+        python: match guard.python.skipped() {
             Some(skipped) => skipped,
             None => match bench.pltrs.warm(workload, script, plan.warm)? {
                 Outcome::Done(samples) => Column::Measured(samples),
                 Outcome::Unsupported(why) => Column::NotSupported(why),
             },
         },
-        plt: plt_warm,
+        rust: rust_warm,
     };
-    let cold = cold(workload, script, bench, &warm, plt_cold, plan)?;
+    let cold = cold(workload, script, bench, &warm, rust_cold, plan)?;
     Ok(Measurement {
         workload,
         guard,
@@ -375,42 +378,42 @@ fn required<T>(outcome: Outcome<T>, script: &str) -> Result<T, Box<dyn Error>> {
     }
 }
 
-/// Saves the PNG of `script` in matplotlib and pltrs and compares them,
-/// and plt's at `plt_png`, with matplotlib's.
+/// Saves the PNG of `script` in matplotlib and pltrs (Python) and compares
+/// it, and the PNG of pltrs (Rust) at `rust_png`, with matplotlib's.
 fn guard(
     workload: &Workload,
     script: &str,
     bench: &Bench,
-    plt_png: &Path,
+    rust_png: &Path,
 ) -> Result<Guard, Box<dyn Error>> {
     let reference = bench.artifact("guard", "matplotlib", workload, "png")?;
     required(bench.matplotlib.png(workload, script, &reference)?, script)?;
-    let pltrs_png = bench.artifact("guard", "pltrs", workload, "png")?;
-    let pltrs = match bench.pltrs.png(workload, script, &pltrs_png)? {
-        Outcome::Done(()) => Column::Measured(guard::compare(&reference, &pltrs_png)),
+    let python_png = bench.artifact("guard", bench.pltrs.flavor.name(), workload, "png")?;
+    let python = match bench.pltrs.png(workload, script, &python_png)? {
+        Outcome::Done(()) => Column::Measured(guard::compare(&reference, &python_png)),
         Outcome::Unsupported(why) => Column::NotSupported(why),
     };
     Ok(Guard {
-        plt: Some(guard::compare(&reference, plt_png)),
-        pltrs,
+        python,
+        rust: Some(guard::compare(&reference, rust_png)),
     })
 }
 
-/// Times `script` (in matplotlib, and in pltrs where it ran warm) and
-/// plt's `plt_cold` in fresh processes, taking turns.
+/// Times `script` (in matplotlib, and in pltrs (Python) where it ran warm)
+/// and `rust_cold` of pltrs (Rust) in fresh processes, taking turns.
 fn cold(
     workload: &Workload,
     script: &str,
     bench: &Bench,
     warm: &Columns<Samples>,
-    plt_cold: ColdCommand,
+    rust_cold: ColdCommand,
     plan: Plan,
 ) -> Result<Columns<ColdResult>, Box<dyn Error>> {
     let extension = workload.extension().unwrap_or("txt");
     let mut commands = Vec::new();
     for (runner, column) in [
         (&bench.matplotlib, &warm.matplotlib),
-        (&bench.pltrs, &warm.pltrs),
+        (&bench.pltrs, &warm.python),
     ] {
         if column.measured().is_some() {
             let name = runner.flavor.name();
@@ -418,7 +421,7 @@ fn cold(
             commands.push(runner.script_command(workload, script, &document));
         }
     }
-    commands.push(plt_cold);
+    commands.push(rust_cold);
     let mut results = time_cold(
         &bench.matplotlib.python,
         &commands,
@@ -433,10 +436,10 @@ fn cold(
         })
     };
     let matplotlib = take(&warm.matplotlib)?;
-    let pltrs = take(&warm.pltrs)?;
+    let python = take(&warm.python)?;
     Ok(Columns {
         matplotlib,
-        pltrs,
-        plt: results.next().ok_or("missing cold result")?,
+        python,
+        rust: results.next().ok_or("missing cold result")?,
     })
 }

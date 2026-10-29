@@ -48,7 +48,7 @@ Named after the upstream tests; ``test_cursor_precision`` asks for the
 upstream data points here (the ``polar_behaviour`` area moves the cursor in
 pixels). ``axes.Axes.format_coord`` draws the figure first: until then
 matplotlib's polar axes are still stretched to the subplot box (the equal
-aspect applies at draw time), while plt-rs lays a figure out before
+aspect applies at draw time), while pltrs lays a figure out before
 formatting coordinates.
 
 Already covered

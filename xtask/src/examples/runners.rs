@@ -1,9 +1,9 @@
 //! Running the examples: the Rust binaries, and the Python scripts under
 //! real matplotlib and under pltrs.
 //!
-//! Every run draws in plt-rs' modern look whatever the environment asks
+//! Every run draws in pltrs' modern look whatever the environment asks
 //! for, so that the images agree from one machine to the next: the Rust
-//! examples and pltrs get `PLT_LOOK=modern` and no user configuration,
+//! examples and pltrs get `PLTRS_LOOK=modern` and no user configuration,
 //! and matplotlib applies the modern look's style sheet
 //! (`run_matplotlib.py`).
 
@@ -15,8 +15,8 @@ use std::process::{Command, Output, Stdio};
 
 use super::catalogue::{self, Layout};
 
-/// The environment variables that would change how plt-rs draws.
-const LOOK_VARIABLES: &[&str] = &["PLT_FIGURE_LOOK", "PLT_CHROME_LOOK", "PLTRC"];
+/// The environment variables that would change how pltrs draws.
+const LOOK_VARIABLES: &[&str] = &["PLTRS_FIGURE_LOOK", "PLTRS_CHROME_LOOK", "PLTRSRC"];
 
 /// `command` drawing in the modern look, ignoring the look and the rc
 /// file the environment names.
@@ -24,7 +24,7 @@ fn in_modern_look(command: &mut Command) -> &mut Command {
     for variable in LOOK_VARIABLES {
         command.env_remove(variable);
     }
-    command.env("PLT_LOOK", "modern")
+    command.env("PLTRS_LOOK", "modern")
 }
 
 /// The last line `output` wrote to stderr, for a one-line report.
@@ -71,7 +71,7 @@ pub(super) fn build_rust() -> Result<PathBuf, String> {
             "--profile",
             profile,
             "-p",
-            "plt-examples",
+            "pltrs-examples",
             "--bins",
         ])
         .status()

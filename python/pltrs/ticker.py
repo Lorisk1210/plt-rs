@@ -2,8 +2,8 @@
 Tick locating and formatting (matplotlib's ``ticker``).
 
 Locators decide where the ticks go and formatters write their labels. The
-classes keep matplotlib's names, parameters and attributes; plt-rs computes
-the ticks and the labels (``plt::ticker``): each locator or formatter hands
+classes keep matplotlib's names, parameters and attributes; pltrs (Rust) computes
+the ticks and the labels (``pltrs::ticker``): each locator or formatter hands
 its parameters to the native side as a *spec*, with a description of the
 axis it is attached to.
 
@@ -12,7 +12,7 @@ The formatters that format with Python's own string formatting
 that only look labels up (`FixedFormatter`, `NullFormatter`) are
 matplotlib's, kept as they are (from matplotlib 3.11.2, under the
 Matplotlib License). Any formatter is a Python callable
-``formatter(x, pos)``: plt-rs calls it each time it labels the ticks of the
+``formatter(x, pos)``: pltrs (Rust) calls it each time it labels the ticks of the
 axis it was given to.
 """
 
@@ -323,8 +323,8 @@ class StrMethodFormatter(Formatter):
 
 class _NativeFormatter(Formatter):
     """
-    A formatter whose labels plt-rs writes: `set_locs` formats all the
-    ticks at once (as plt-rs does when it draws an axis), and calling the
+    A formatter whose labels pltrs (Rust) writes: `set_locs` formats all the
+    ticks at once (as pltrs (Rust) does when it draws an axis), and calling the
     formatter looks the label of a value up among them.
     """
 
@@ -928,7 +928,7 @@ class Locator(TickHelper):
 
 
 class _NativeLocator(Locator):
-    """A locator whose ticks plt-rs computes from its parameters."""
+    """A locator whose ticks pltrs (Rust) computes from its parameters."""
 
     def _spec(self):
         """The native description of the locator (its kind and

@@ -42,7 +42,7 @@ Ops
     ``StrCategoryConverter`` (one instance for the whole op) or a
     ``DateConverter`` and records null, or ``"error"`` when it raises;
     ``["plot"]`` plots ``{"a": 1, "b": 2}`` and records null; ``["get"]``
-    records the converter's kind (``test_explicit_converter``; plt-rs
+    records the converter's kind (``test_explicit_converter``; pltrs
     converters are kinds, so the test's second ``StrCategoryConverter``
     instance has no counterpart).
 

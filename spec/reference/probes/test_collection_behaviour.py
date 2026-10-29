@@ -68,7 +68,7 @@ Ops
     linewidths=0)`` with ``x``, ``y`` from ``spec_support.rng(1)`` (10
     points each), then ``sc.legend_elements(**options)``: the labels and the
     number of handles (the handles' own properties are not observable from
-    outside plt-rs, whose legend handles are opaque). ``options`` holds
+    outside pltrs, whose legend handles are opaque). ``options`` holds
     ``prop``, ``num`` (a number, a list or ``"auto"``), ``fmt`` (a format
     string), ``func`` (``"double"`` for ``2 * x`` or ``"inverse5"`` for ``5 /
     x``), ``alpha`` and ``color``.

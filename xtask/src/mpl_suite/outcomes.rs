@@ -13,7 +13,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 use std::str::FromStr;
 
-use plt_spec::json::Json;
+use pltrs_spec::json::Json;
 
 /// How one test ended, in pytest's terms.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

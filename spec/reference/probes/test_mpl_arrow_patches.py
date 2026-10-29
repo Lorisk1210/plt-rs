@@ -12,7 +12,7 @@ Ops
     drawn, or the error when the two directions are parallel and the
     connection has no corner (``test_invalid_intersection``: 20° and 200°
     are, 20° and 199.9° are not). matplotlib raises when the patch is
-    added, plt-rs when it is drawn.
+    added, pltrs when it is drawn.
 
 Every other test of the file draws an image: they are cases of
 ``mpl_rendering``.

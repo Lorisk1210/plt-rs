@@ -6,7 +6,7 @@ Area ``mpl_collections``. Every op runs in the style matplotlib's test
 fixture applies (``classic`` plus ``_classic_test_patch``) unless its
 ``style`` is ``mpl20`` (tests marked ``mpl20`` or ``default``).
 ``np.random`` draws come from ``spec_support.rng``. Collections are added
-to ``plt.subplots()`` axes, which plt-rs collections always live in.
+to ``plt.subplots()`` axes, which pltrs collections always live in.
 
 Ops
 ---
@@ -125,17 +125,17 @@ tests (``collection_behaviour``); ``test_quiver_limits`` and
 ``test_barb_limits`` (``quiver_behaviour``).
 
 Left out: ``test_array_dimensions`` and the 2-D and RGB(A) arrays of
-``test_quadmesh_set_array_validation`` (plt-rs arrays are flat lists of
+``test_quadmesh_set_array_validation`` (pltrs arrays are flat lists of
 values), the new arrays of ``test_polyquadmesh_masked_vertices_array``
-(plt-rs's ``pcolor`` makes plain polygons, which keep their number when the
+(pltrs's ``pcolor`` makes plain polygons, which keep their number when the
 array changes),
 ``test_set_offset_units`` (``set_offsets`` takes data floats), the
 ``pcolor`` case of ``test_quadmesh_get_coordinates`` (no mesh behind
-``pcolor`` in plt-rs), ``test_pandas_indexing``,
+``pcolor`` in pltrs), ``test_pandas_indexing``,
 ``test_EventCollection_nosort``, ``test_collection_set_verts_array``,
 ``test_collection_set_array`` and ``test_check_offsets_dtype`` (Python
 containers and dtypes), the direction and dimension errors of
-``test_fill_between_poly_collection_raise`` (typed in plt-rs),
+``test_fill_between_poly_collection_raise`` (typed in pltrs),
 ``test_draw_path_collection_no_hatchcolor`` and
 ``test_third_party_backend_hatchcolors_arg_fallback`` (calls into Python
 renderers).

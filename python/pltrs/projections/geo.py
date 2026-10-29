@@ -1,5 +1,5 @@
 """
-Geographic axes (matplotlib's ``projections.geo``): plt-rs axes in the
+Geographic axes (matplotlib's ``projections.geo``): pltrs (Rust) axes in the
 Aitoff, Hammer, Lambert or Mollweide projection, made by
 ``add_subplot(projection=...)``.
 """

@@ -13,7 +13,7 @@ probes of the ``mpl_colorbar`` area; the cases draw what the tests make.
 Adaptations: pyplot's current axes and image become the ones named; the
 axes sequences of ``test_colorbar_axes_parameters`` (an array, a list, a
 tuple and dict values) all come as lists; ``test_colorbar_wrong_figure``
-draws the constrained figure, the tight one getting nothing; plt-rs's
+draws the constrained figure, the tight one getting nothing; pltrs's
 colorbars keep a copy of a bare mappable, so ``test_mappable_no_alpha``'s
 colorbar takes the new colormap with ``update_normal``.
 """

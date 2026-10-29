@@ -5,7 +5,7 @@ operations (matplotlib's ``image``).
 Images are read with Pillow, as matplotlib reads them (``imread`` and
 ``pil_to_array`` are matplotlib's, from matplotlib 3.11.2, under the
 Matplotlib License). The image artists wrap the native handles of the
-images plt-rs draws.
+images pltrs (Rust) draws.
 """
 
 from pathlib import Path
@@ -147,7 +147,7 @@ def imread(fname, format=None):
 
 class _ImageBase(Artist):
     """
-    Base class for images: an image drawn by plt-rs, colormapped from
+    Base class for images: an image drawn by pltrs (Rust), colormapped from
     scalar data or given as RGB(A).
     """
 

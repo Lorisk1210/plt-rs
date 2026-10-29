@@ -1,9 +1,9 @@
 """What the benchmark scripts share: their data and how they end.
 
-The data comes from the seeded stream plt-rs' workloads use
+The data comes from the seeded stream pltrs' workloads use
 (``spec_support.SpecRng``, SplitMix64), drawn with numpy in bulk so that
 making ten million samples stays quick; each script draws the same figure
-from the same numbers as the plt-rs workload of the same name in
+from the same numbers as the pltrs workload of the same name in
 ``xtask/src/bench/workloads``.
 
 A script run on its own, ``python SCRIPT.py OUT [KEY=VALUE...]``, draws its

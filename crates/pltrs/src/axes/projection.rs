@@ -1,0 +1,148 @@
+//! The coordinate system of an axes (matplotlib's projections).
+
+use super::{Axes, AxesState};
+use crate::polar::PolarState;
+use crate::projections::{AxesOutline, Projection};
+
+/// The kind of coordinate system an axes draws in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProjectionKind {
+    /// Cartesian x and y.
+    #[default]
+    Rectilinear,
+    /// Angle and radius (see [`crate::polar`]).
+    Polar,
+    /// Longitude and latitude through the Aitoff projection (see
+    /// [`crate::geo`]).
+    Aitoff,
+    /// Longitude and latitude through the Hammer projection.
+    Hammer,
+    /// Longitude and latitude through the Lambert azimuthal equal-area
+    /// projection.
+    Lambert,
+    /// Longitude and latitude through the Mollweide projection.
+    Mollweide,
+    /// A projection defined by the program and registered under this name
+    /// (see [`crate::projections`]).
+    Registered(&'static str),
+}
+
+impl ProjectionKind {
+    /// The built-in kinds of 2-D axes.
+    pub const BUILTIN: [Self; 6] = [
+        Self::Rectilinear,
+        Self::Polar,
+        Self::Aitoff,
+        Self::Hammer,
+        Self::Lambert,
+        Self::Mollweide,
+    ];
+
+    /// matplotlib's projection name (`ax.name`).
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Rectilinear => "rectilinear",
+            Self::Polar => "polar",
+            Self::Aitoff => "aitoff",
+            Self::Hammer => "hammer",
+            Self::Lambert => "lambert",
+            Self::Mollweide => "mollweide",
+            Self::Registered(name) => name,
+        }
+    }
+
+    /// The kind called `name`: a built-in one, or one registered on this
+    /// thread (see [`crate::projections::register`]).
+    ///
+    /// ```
+    /// use pltrs::axes::ProjectionKind;
+    /// assert_eq!(ProjectionKind::from_name("polar"), Some(ProjectionKind::Polar));
+    /// assert_eq!(ProjectionKind::from_name("unheard-of"), None);
+    /// ```
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::BUILTIN
+            .into_iter()
+            .find(|kind| kind.name() == name)
+            .or_else(|| crate::projections::registered_name(name).map(Self::Registered))
+    }
+}
+
+/// The projection of an axes with its settings.
+#[derive(Debug, Default)]
+pub(crate) enum ProjectionState {
+    /// Cartesian x and y.
+    #[default]
+    Rectilinear,
+    /// Angle and radius.
+    Polar(PolarState),
+    /// A projection drawn through the [`Projection`] hooks: geographic
+    /// axes, or one defined by the program.
+    Custom(Box<dyn Projection>),
+}
+
+impl ProjectionState {
+    /// The kind of projection.
+    pub(crate) fn kind(&self) -> ProjectionKind {
+        match self {
+            Self::Rectilinear => ProjectionKind::Rectilinear,
+            Self::Polar(_) => ProjectionKind::Polar,
+            // Built-in names are not registered: such a projection is the
+            // built-in one.
+            Self::Custom(custom) => ProjectionKind::BUILTIN
+                .into_iter()
+                .find(|kind| kind.name() == custom.name())
+                .unwrap_or(ProjectionKind::Registered(custom.name())),
+        }
+    }
+
+    /// Whether this is matplotlib's `rectilinear` projection itself.
+    pub(crate) fn is_rectilinear(&self) -> bool {
+        matches!(self, Self::Rectilinear)
+    }
+
+    /// Whether the axes is the unit square framed by its four side spines;
+    /// curved projections draw their own outline and clip to their patch.
+    pub(crate) fn is_rectangular(&self) -> bool {
+        match self {
+            Self::Rectilinear => true,
+            Self::Polar(_) => false,
+            Self::Custom(custom) => custom.outline() == AxesOutline::Rectangle,
+        }
+    }
+
+    /// The projection drawn through the [`Projection`] hooks, if it is one.
+    pub(crate) fn custom(&self) -> Option<&dyn Projection> {
+        match self {
+            Self::Custom(custom) => Some(&**custom),
+            _ => None,
+        }
+    }
+
+    /// The data ratio the projection fixes (matplotlib's overridden
+    /// `get_data_ratio`): 1 for polar and geographic axes.
+    pub(crate) fn fixed_data_ratio(&self) -> Option<f64> {
+        match self {
+            Self::Rectilinear => None,
+            Self::Polar(_) => Some(1.0),
+            Self::Custom(custom) => custom.data_ratio(),
+        }
+    }
+
+    /// Whether the view limits refuse to change once the projection is set
+    /// up (geographic axes show the whole globe).
+    pub(crate) fn fixed_limits(&self) -> bool {
+        self.custom().is_some_and(Projection::fixed_limits)
+    }
+
+    /// Whether both axes must keep linear scales.
+    pub(crate) fn linear_only(&self) -> bool {
+        self.custom().is_some_and(Projection::linear_only)
+    }
+}
+
+impl Axes {
+    /// The kind of coordinate system this axes draws in.
+    pub fn projection(&self) -> ProjectionKind {
+        self.raw.with::<AxesState, _>(|axes| axes.projection.kind())
+    }
+}

@@ -3,9 +3,9 @@
 
 use std::f64::consts::PI;
 
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let x = linspace(-5.0, 5.0, 400);

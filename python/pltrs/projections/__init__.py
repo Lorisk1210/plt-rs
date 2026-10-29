@@ -5,7 +5,7 @@ Non-separable transforms that map from data space to screen space
 
 The registry is matplotlib's (from matplotlib 3.11.2, under the Matplotlib
 License). The built-in projections (polar and the geographic ones) are
-plt-rs's: their axes are plt-rs axes made with that projection.
+pltrs (Rust)'s: their axes are pltrs (Rust) axes made with that projection.
 """
 
 from .. import _api, axes, _docstring

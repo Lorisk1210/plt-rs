@@ -1,7 +1,7 @@
 """
 Whether a display server is reachable (matplotlib's ``_c_internal_utils``).
 
-plt-rs connects to the X server itself (and to a Wayland compositor's
+pltrs (Rust) connects to the X server itself (and to a Wayland compositor's
 socket), where matplotlib loads libX11 and libwayland-client.
 """
 

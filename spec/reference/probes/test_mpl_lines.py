@@ -31,7 +31,7 @@ style and with an empty dash pattern draw, is a case of
 ``mpl_tests_lines``.
 
 Left out, besides the tests the ``line_behaviour`` area lists:
-``test_input_copy`` (that plotting copies the caller's arrays: a plt-rs
+``test_input_copy`` (that plotting copies the caller's arrays: a pltrs
 line owns its data) and the deprecated one-argument-per-coordinate forms
 of the axline setters.
 """

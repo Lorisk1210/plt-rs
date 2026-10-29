@@ -9,10 +9,10 @@ mod fields;
 mod plots;
 mod text;
 
-use plt::figure::{Figure, SaveFormat};
-use plt::numeric::{Grid, linspace};
-use plt_spec::figures::CaseResult;
-use plt_spec::rng::SpecRng;
+use pltrs::figure::{Figure, SaveFormat};
+use pltrs::numeric::{Grid, linspace};
+use pltrs_spec::figures::CaseResult;
+use pltrs_spec::rng::SpecRng;
 
 /// The resolution every workload is drawn and saved at (matplotlib's
 /// default `figure.dpi`, which `savefig` keeps).

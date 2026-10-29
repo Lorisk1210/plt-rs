@@ -4,11 +4,11 @@
 
 use std::f64::consts::PI;
 
-use plt::axes::BarLabelOptions;
-use plt::figure::SaveFormat;
-use plt::prelude::*;
-use plt::stats::Bins;
-use plt_spec::rng::SpecRng;
+use pltrs::axes::BarLabelOptions;
+use pltrs::figure::SaveFormat;
+use pltrs::prelude::*;
+use pltrs::stats::Bins;
+use pltrs_spec::rng::SpecRng;
 
 use super::{Build, Tier, Workload, random_walk, smooth_field};
 

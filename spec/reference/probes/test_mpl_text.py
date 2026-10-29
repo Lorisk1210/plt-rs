@@ -21,7 +21,7 @@ Ops
     present: the font's description leaves the math fonts to
     ``mathtext.fontset`` (``test_default_math_fontfamily``) and an explicit
     ``math_fontfamily`` wins (``test_argument_order``, whose four keyword
-    orders are one in plt-rs, which sets the math fonts after the font).
+    orders are one in pltrs, which sets the math fonts after the font).
 ``mathtext.math_to_image``  {s, color?} -> ``[depth, height, width]``: the
     depth ``math_to_image(s, buffer, color=color)`` returns and the size of
     the PNG it writes, a figure as large as the expression at 72 dpi saved

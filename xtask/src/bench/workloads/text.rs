@@ -1,20 +1,20 @@
 //! Text and layout, and one mid-size figure in every output format.
 //!
-//! The PGF document of the mid-size figure is timed in plt-rs only: to
-//! measure text, matplotlib's PGF backend runs LaTeX, which plt-rs does
+//! The PGF document of the mid-size figure is timed in pltrs only: to
+//! measure text, matplotlib's PGF backend runs LaTeX, which pltrs does
 //! not, so the two do different work.
 
-use plt::axes::{BarOptions, HistPlotOptions, ImshowOptions};
-use plt::colorbar::ColorbarOptions;
-use plt::figure::SaveFormat;
-use plt::layout::LayoutEngine;
-use plt::legend::LegendOptions;
-use plt::numeric::Grid;
-use plt::prelude::*;
-use plt::stats::Bins;
-use plt::text::{HAlign, VAlign};
-use plt_spec::figures::CaseResult;
-use plt_spec::rng::SpecRng;
+use pltrs::axes::{BarOptions, HistPlotOptions, ImshowOptions};
+use pltrs::colorbar::ColorbarOptions;
+use pltrs::figure::SaveFormat;
+use pltrs::layout::LayoutEngine;
+use pltrs::legend::LegendOptions;
+use pltrs::numeric::Grid;
+use pltrs::prelude::*;
+use pltrs::stats::Bins;
+use pltrs::text::{HAlign, VAlign};
+use pltrs_spec::figures::CaseResult;
+use pltrs_spec::rng::SpecRng;
 
 use super::{Build, Tier, Workload};
 
@@ -48,7 +48,7 @@ pub(super) const WORKLOADS: &[Workload] = &[
     mid("output/mid_pgf")
         .saved_as(SaveFormat::Pgf)
         .not_comparable(
-            "matplotlib's PGF backend runs LaTeX to measure every text, while plt-rs lays PGF \
+            "matplotlib's PGF backend runs LaTeX to measure every text, while pltrs lays PGF \
              out with its own font metrics",
         ),
     mid("output/mid_eps").saved_as(SaveFormat::Eps),

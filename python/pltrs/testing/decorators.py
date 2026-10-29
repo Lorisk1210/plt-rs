@@ -3,7 +3,7 @@ The decorators of image comparison tests (matplotlib's
 ``testing.decorators``): `image_comparison` and `check_figures_equal`.
 
 They are pytest plumbing, inherently Python, ported from matplotlib 3.11.2
-(Matplotlib License); plt-rs saves the figures and compares the images.
+(Matplotlib License); pltrs (Rust) saves the figures and compares the images.
 """
 
 import contextlib

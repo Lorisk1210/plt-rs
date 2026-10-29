@@ -3,9 +3,9 @@
 
 use std::f64::consts::PI;
 
-use plt::prelude::*;
-use plt::text::AnnotateOptions;
-use plt_spec::rng::SpecRng;
+use pltrs::prelude::*;
+use pltrs::text::AnnotateOptions;
+use pltrs_spec::rng::SpecRng;
 
 use super::{Build, Tier, Workload};
 

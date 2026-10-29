@@ -27,9 +27,9 @@ Ops
     (``test_piecontainer_unpack_backcompat``).
 
 Left out: ``test_nonstring_label``, which checks that a number is accepted
-as a legend label (plt-rs labels are strings), and the
+as a legend label (pltrs labels are strings), and the
 ``errorbar([1], [1], fmt="none")`` case of ``test_errorbar_remove``: that
-container holds no artist at all, and plt-rs containers find the axes
+container holds no artist at all, and pltrs containers find the axes
 recording them through their artists, so its entry stays in
 ``ax.containers``.
 """

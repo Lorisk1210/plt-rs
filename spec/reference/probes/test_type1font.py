@@ -3,7 +3,7 @@
 ``FT2Font`` loads ``.pfb`` files for ``text.usetex``.
 
 Area ``type1font``. A ``file`` is a fixture of
-``crates/plt-font/tests/fixtures/type1`` (copies of matplotlib's test data
+``crates/pltrs-font/tests/fixtures/type1`` (copies of matplotlib's test data
 ``cmr10.pfb`` and ``Courier10PitchBT-Bold.pfb``). Byte strings are recorded
 as ``[length, sha1 hex digest]`` (``digest``), texts as Latin-1 decoded
 strings.
@@ -66,7 +66,7 @@ Ops
 Left out
 --------
 ``test_Subrs_no_preallocation`` measures memory with ``tracemalloc``;
-the ``pfa`` probe records its error and plt-rs' unit tests check that no
+the ``pfa`` probe records its error and pltrs' unit tests check that no
 count-sized array is allocated.
 """
 
@@ -83,7 +83,7 @@ from spec_support import ProbeSet
 
 probes = ProbeSet("type1font")
 
-FIXTURES = Path(__file__).resolve().parents[3] / "crates/plt-font/tests/fixtures/type1"
+FIXTURES = Path(__file__).resolve().parents[3] / "crates/pltrs-font/tests/fixtures/type1"
 FILES = ["cmr10.pfb", "Courier10PitchBT-Bold.pfb"]
 
 

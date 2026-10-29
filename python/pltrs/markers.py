@@ -3,8 +3,8 @@ Functions to handle markers; used by the marker functionality of
 `~matplotlib.axes.Axes.plot`, `~matplotlib.axes.Axes.scatter`, and
 `~matplotlib.axes.Axes.errorbar` (matplotlib's ``markers``).
 
-A `MarkerStyle` keeps matplotlib's attributes; plt-rs resolves the marker
-into the paths and transforms it draws (``plt::markers``).
+A `MarkerStyle` keeps matplotlib's attributes; pltrs (Rust) resolves the marker
+into the paths and transforms it draws (``pltrs::markers``).
 
 Markers are given as one of matplotlib's codes (``"o"``, ``"s"``,
 `CARETLEFT`...), a mathtext string (``"$\alpha$"``), a list of vertices,
@@ -139,7 +139,7 @@ class MarkerStyle:
         self._set_marker(marker)
 
     def _recache(self):
-        """Resolve the marker into its paths and transforms (by plt-rs)."""
+        """Resolve the marker into its paths and transforms (by pltrs (Rust))."""
         if self._spec is None:
             return
         ((path, mtx), alt, (self._snap_threshold, joinstyle, capstyle,

@@ -5,7 +5,7 @@ Two areas are recorded:
 * ``colormaps`` — behaviour of every registered colormap (and its ``_r``
   reverse) plus colormap construction/derivation APIs.
 * ``colormap_luts`` — the complete lookup table of every builtin base
-  colormap, so plt-rs can verify its embedded data bit-for-bit.
+  colormap, so pltrs can verify its embedded data bit-for-bit.
 
 Argument conventions
 --------------------

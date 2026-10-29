@@ -42,7 +42,7 @@ figure cases of ``mpl_tests_agg``; ``test_agg_filter`` is the case
 ``mpl_misc/agg_filter``.
 
 Left out: Pillow's keyword arguments (``test_pil_kwargs_tiff``,
-``test_pil_kwargs_webp``; plt-rs writes lossless WebP), AVIF (``test_pil_kwargs_avif``, ``test_avif_alpha``),
+``test_pil_kwargs_webp``; pltrs writes lossless WebP), AVIF (``test_pil_kwargs_avif``, ``test_avif_alpha``),
 ``test_draw_path_collection_error_handling`` (a lone path given as the
 paths of a collection is a type error in Rust) and ``test_chunksize_fails``
 (the Agg renderer's own limits on splitting huge paths).
@@ -159,7 +159,7 @@ def _chunk_types(png):
 
 
 # The default ``Software`` entry names the library writing the file
-# (``Matplotlib version...`` here, ``plt-rs v...`` in plt-rs), so it is
+# (``Matplotlib version...`` here, ``pltrs v...`` in pltrs), so it is
 # recorded as this placeholder.
 _DEFAULT_SOFTWARE = f"Matplotlib version{matplotlib.__version__}, https://matplotlib.org/"
 

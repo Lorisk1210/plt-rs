@@ -1,6 +1,6 @@
 //! `cargo xtask examples [NAME...] [--check] [--require-pltrs]`: the gallery of `examples/`,
 //! every graph drawn by a Rust binary (`examples/rust`, the
-//! `plt-examples` crate) and by a Python script (`examples/python`,
+//! `pltrs-examples` crate) and by a Python script (`examples/python`,
 //! written for pltrs in matplotlib's syntax).
 //!
 //! * The Rust examples are built and run, and write their images to
@@ -9,7 +9,7 @@
 //! * The Python examples run under real matplotlib in the reference venv
 //!   (`.venv`), writing to `target/examples/python-mpl/`:
 //!   `run_matplotlib.py` answers their `pltrs` imports with matplotlib
-//!   and draws in plt-rs' modern look, as pltrs does.
+//!   and draws in the modern look, as pltrs (Python) does.
 //! * Where pltrs can be imported ([`runners::Pltrs::find`]: by the pltrs
 //!   venv's Python, `.venv-pltrs`, or `PLTRS_PYTHON`, with `python/` on
 //!   `PYTHONPATH`), they also run under pltrs, writing to

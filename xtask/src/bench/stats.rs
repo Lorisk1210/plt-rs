@@ -71,9 +71,43 @@ pub(super) fn geometric_mean(ratios: &[f64]) -> Option<f64> {
     Some((logs / ratios.len() as f64).exp())
 }
 
+/// A time `ratio` (a median over matplotlib's) as a speed-up, worded so
+/// that it cannot be misread: `4.2× faster` when matplotlib takes 4.2 times
+/// as long, `1.27× slower` when this takes 1.27 times as long as
+/// matplotlib, `as fast` when they agree to within half a percent. Factors
+/// under 2 keep two decimals, under 10 one, larger ones none.
+pub(super) fn speedup(ratio: f64) -> String {
+    let factor = ratio.max(1.0 / ratio);
+    let shown = if factor < 1.995 {
+        format!("{factor:.2}")
+    } else if factor < 9.95 {
+        format!("{factor:.1}")
+    } else {
+        format!("{factor:.0}")
+    };
+    if shown == "1.00" {
+        "as fast".to_owned()
+    } else if ratio < 1.0 {
+        format!("{shown}× faster")
+    } else {
+        format!("{shown}× slower")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn speedups_say_faster_or_slower() {
+        assert_eq!(speedup(1.0 / 4.2), "4.2× faster");
+        assert_eq!(speedup(1.27), "1.27× slower");
+        assert_eq!(speedup(0.8), "1.25× faster");
+        assert_eq!(speedup(0.02), "50× faster");
+        assert_eq!(speedup(1.004), "as fast");
+        assert_eq!(speedup(1.0 / 9.96), "10× faster");
+        assert_eq!(speedup(1.0 / 1.996), "2.0× faster");
+    }
 
     #[test]
     fn sampling_runs_at_least_the_count_and_the_time() {

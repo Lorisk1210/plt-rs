@@ -1,0 +1,15 @@
+[package]
+name = "pltrs-text"
+description = "Text shaping, layout and mathtext typesetting"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+pltrs-codec.workspace = true
+pltrs-core.workspace = true
+pltrs-font.workspace = true
+
+[lints]
+workspace = true

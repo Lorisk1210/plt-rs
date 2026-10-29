@@ -1,11 +1,11 @@
-"""The 3-D API the API audit found missing in plt-rs and added: units on
+"""The 3-D API the API audit found missing in pltrs and added: units on
 3-D axes, the tick and gridlines of their axes, the view margin of their
 limit setters, and the setters of their collections.
 
 Area ``api_audit_3d``. Every op works on a fresh ``Figure`` with one 3-D
 axes, drawn with the Agg canvas where it says so. matplotlib converts no
 plotting values on 3-D axes by itself, so values with units go through
-``Axes3D._process_unit_info`` first, as plt-rs' plotting methods convert
+``Axes3D._process_unit_info`` first, as pltrs' plotting methods convert
 them.
 
 Ops

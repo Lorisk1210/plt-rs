@@ -32,13 +32,13 @@ The tests that only draw are cases of ``mpl_tests_offsetbox``
 (``test_offsetbox_loc_codes``, ``test_expand_with_tight_layout``).
 
 Left out, besides the tests the ``offsetbox_behaviour`` area lists as
-covered: ``test_offsetbox_clip_children`` (plt-rs offset boxes are values
+covered: ``test_offsetbox_clip_children`` (pltrs offset boxes are values
 put together before they join a figure, without a handle to toggle a
 drawing area's clipping afterwards), ``test_paddedbox_default_values`` (a
-``PaddedBox`` around an ``AnchoredText``: plt-rs anchored boxes are roots
+``PaddedBox`` around an ``AnchoredText``: pltrs anchored boxes are roots
 of box trees, not children), ``test_zorder``, ``test_arrowprops_copied``
 and ``test_textarea_properties`` (Python keyword and attribute handling;
-plt-rs text areas are plain values) and the child offsets of
+pltrs text areas are plain values) and the child offsets of
 ``test_packers`` (internal to the packer's layout; the
 ``offsetbox_behaviour`` area checks the alignment it computes).
 """

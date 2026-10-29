@@ -48,7 +48,7 @@ Ops
     arange(1, 10)``) with ``levels=[10, 30, 50]``, three colours and
     ``extend="both"``, then ``legend_elements()``: the labels and the
     number of handles (``test_contour_legend_elements``,
-    ``test_contourf_legend_elements``; the handles are opaque in plt-rs).
+    ``test_contourf_legend_elements``; the handles are opaque in pltrs).
 
 Left out: ``test_contour_Nlevels``, ``test_contourf_decreasing_levels``,
 ``test_contourf_symmetric_locator`` (covered by the ``contour`` area), and

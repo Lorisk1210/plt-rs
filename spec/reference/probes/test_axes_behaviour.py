@@ -25,7 +25,7 @@ and the like) are ported by recording both. Adaptations:
 * ``test_tick_label_update`` labels the ticks with ``set_ticklabels``
   instead of a Python ``FuncFormatter``;
 * ``test_remove_shared_axes_relim`` sets the limits of a remaining axes:
-  plt-rs handles of removed artists are invalid;
+  pltrs handles of removed artists are invalid;
 * ``test_twin_with_aspect`` compares positions after a draw rather than
   ``bbox`` before it, which only shows the original positions;
 * ``test_zoom_inset`` uses a 4 x 4 mesh over the same square and leaves out

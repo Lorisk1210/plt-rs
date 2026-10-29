@@ -19,7 +19,7 @@ Ops
 ``z`` may hold NaN, masked like ``mask`` (``null`` = none) as contourpy
 masks invalid values. ``threaded`` is probed without chunks only: with
 several, its threads append their chunks' contours in whatever order they
-finish, which differs from run to run (plt-rs keeps ``serial``'s order).
+finish, which differs from run to run (pltrs keeps ``serial``'s order).
 """
 import contourpy
 import numpy as np

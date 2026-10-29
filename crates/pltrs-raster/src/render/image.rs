@@ -1,0 +1,271 @@
+//! Compositing images and coverage bitmaps (matplotlib's `draw_image` and
+//! `draw_text_image`).
+
+use pltrs_core::{Affine2D, Point, Rgba};
+
+use super::{Surface, iround};
+use crate::clip::Clip;
+use crate::color::Rgba8;
+use crate::dda::Dda2;
+use crate::error::RasterError;
+use crate::mask::Mask;
+use crate::pixmap::Pixmap;
+use crate::raster::{Covers, Span};
+use crate::resample::WeightLut;
+use crate::style::Antialias;
+
+/// Composites `image` (straight alpha) onto `target` with its top-left
+/// corner at `(x, y)`, scaled by the global opacity `alpha ∈ [0, 1]`.
+///
+/// This reproduces both branches of matplotlib's `RendererAgg::draw_image`:
+///
+/// * without a mask, `alpha` becomes a cover `⌊255·alpha⌋` for every pixel
+///   (`renderer_base::blend_from`); matplotlib clips with its clip box
+///   *inclusively* here (see [`ClipBox::inclusive`](crate::ClipBox::inclusive));
+/// * with a mask, each source alpha is scaled to `⌊a·alpha⌋` and the mask
+///   value is the cover (`span_conv_alpha` through `pixfmt_amask_adaptor`).
+///
+/// matplotlib's Python wrapper always passes `alpha = 1` (image opacity is
+/// baked into the pixels beforehand), so a faithful backend does the same.
+pub fn draw_image(
+    target: &mut Pixmap,
+    image: &Pixmap,
+    x: i32,
+    y: i32,
+    alpha: f64,
+    clip: &Clip<'_>,
+) -> Result<(), RasterError> {
+    let alpha = if alpha.is_nan() {
+        0.0
+    } else {
+        alpha.clamp(0.0, 1.0)
+    };
+    let mut surface = Surface::new(target, clip.rect, clip.mask)?;
+    let width = image.width() as usize;
+    if width == 0 {
+        return Ok(());
+    }
+    let (convert_alpha, cover) = if clip.mask.is_some() {
+        (true, 255)
+    } else {
+        (false, (alpha * 255.0) as u8)
+    };
+    let mut colors = Vec::with_capacity(width);
+    for (row_index, row) in image.data().chunks_exact(width * 4).enumerate() {
+        let Some(dy) = i32::try_from(row_index).ok().and_then(|r| y.checked_add(r)) else {
+            break;
+        };
+        colors.clear();
+        colors.extend(row.as_chunks::<4>().0.iter().map(|&[r, g, b, a]| {
+            let a = if convert_alpha {
+                (f64::from(a) * alpha) as u8
+            } else {
+                a
+            };
+            Rgba8::new(r, g, b, a)
+        }));
+        let span = Span {
+            x,
+            covers: Covers::Solid {
+                len: image.width(),
+                cover,
+            },
+        };
+        surface.blend_colors(dy, span, &colors);
+    }
+    Ok(())
+}
+
+/// Blends a coverage bitmap (such as a rendered glyph) in `color` with its
+/// top-left corner at `(x, y)` — matplotlib's `draw_text_image` at angle 0
+/// (`blend_solid_hspan` with the bitmap as covers). matplotlib clips text
+/// to the clip rectangle only; a mask in `clip` is honoured nevertheless.
+pub fn draw_coverage(
+    target: &mut Pixmap,
+    coverage: &Mask,
+    x: i32,
+    y: i32,
+    color: Rgba,
+    clip: &Clip<'_>,
+) -> Result<(), RasterError> {
+    let mut surface = Surface::new(target, clip.rect, clip.mask)?;
+    let color = Rgba8::from(color);
+    for row_index in 0..coverage.height() {
+        let Some(row) = coverage.row(row_index) else {
+            break;
+        };
+        let Some(dy) = i32::try_from(row_index).ok().and_then(|r| y.checked_add(r)) else {
+            break;
+        };
+        let span = Span {
+            x,
+            covers: Covers::Varying(row),
+        };
+        surface.blend_solid(dy, span, color, Antialias::On);
+    }
+    Ok(())
+}
+
+/// Samples a coverage bitmap through an inverse affine transform with
+/// Agg's `spline36` filter (`span_interpolator_linear` +
+/// `span_image_filter_gray` over `image_accessor_clip` with a zero
+/// background, as matplotlib's `draw_text_image` samples rotated text
+/// images) and turns it into colour like matplotlib's `font_to_rgba`.
+#[derive(Clone, Debug)]
+pub(crate) struct CoverageSampler<'a> {
+    src: &'a Mask,
+    /// Inverse transform in Agg's order `[sx, shy, shx, sy, tx, ty]`.
+    inv: [f64; 6],
+    color: Rgba8,
+    lut: WeightLut,
+}
+
+impl<'a> CoverageSampler<'a> {
+    /// `None` when `transform` is not invertible.
+    pub(crate) fn new(src: &'a Mask, transform: &Affine2D, color: Rgba8) -> Option<Self> {
+        let [sx, shy, shx, sy, tx, ty] = transform.values();
+        let d = 1.0 / (sx * sy - shy * shx);
+        if !d.is_finite() {
+            return None;
+        }
+        // Agg's trans_affine::invert, operation for operation.
+        let t0 = sy * d;
+        let sy = sx * d;
+        let shy = -shy * d;
+        let shx = -shx * d;
+        let t4 = -tx * t0 - ty * shx;
+        let ty = -tx * shy - ty * sy;
+        Some(Self {
+            src,
+            inv: [t0, shy, shx, sy, t4, ty],
+            color,
+            lut: WeightLut::spline36(),
+        })
+    }
+
+    fn inverse(&self, x: f64, y: f64) -> (f64, f64) {
+        let [sx, shy, shx, sy, tx, ty] = self.inv;
+        (x * sx + y * shx + tx, x * shy + y * sy + ty)
+    }
+
+    fn sample(&self, x: i32, y: i32) -> i32 {
+        match (u32::try_from(x), u32::try_from(y)) {
+            (Ok(x), Ok(y)) => self.src.get(x, y).map_or(0, i32::from),
+            _ => 0,
+        }
+    }
+
+    /// The filtered coverage at the sub-pixel position `(x_hr, y_hr)`
+    /// (already moved back by half a pixel), clamped to a byte.
+    fn filtered(&self, x_hr: i32, y_hr: i32) -> u32 {
+        let (diameter, start) = (self.lut.diameter(), self.lut.start());
+        let (x_lr, y_lr) = (x_hr >> 8, y_hr >> 8);
+        let x_fract = x_hr & 255;
+        let mut weight_y_at = 255 - (y_hr & 255);
+        let mut fg: i32 = 0;
+        for row in 0..diameter {
+            let weight_y = self.lut.weight(weight_y_at);
+            let mut weight_x_at = 255 - x_fract;
+            for column in 0..diameter {
+                let weight = (weight_y * self.lut.weight(weight_x_at) + (1 << 13)) >> 14;
+                let value = self.sample(x_lr + start + column, y_lr + start + row);
+                fg = fg.wrapping_add(value.wrapping_mul(weight));
+                weight_x_at += 256;
+            }
+            weight_y_at += 256;
+        }
+        (fg >> 14).clamp(0, 255) as u32
+    }
+
+    /// Fills `out` with the colours of pixels `x..x + out.len()` on row `y`.
+    pub(crate) fn generate(&self, x: i32, y: i32, out: &mut [Rgba8]) {
+        // matplotlib builds Agg with MPL_FIX_AGG_INTERPOLATION_ENDPOINT_BUG:
+        // the span's last pixel, not the one after it, is transformed.
+        let steps = i32::try_from(out.len())
+            .unwrap_or(i32::MAX)
+            .saturating_sub(1);
+        let (fx, fy) = (f64::from(x) + 0.5, f64::from(y) + 0.5);
+        let (sx1, sy1) = self.inverse(fx, fy);
+        let (sx2, sy2) = self.inverse(fx + f64::from(steps), fy);
+        let mut li_x = Dda2::new(iround(sx1 * 256.0), iround(sx2 * 256.0), steps);
+        let mut li_y = Dda2::new(iround(sy1 * 256.0), iround(sy2 * 256.0), steps);
+        for px in out.iter_mut() {
+            let v = self.filtered(li_x.y.wrapping_sub(128), li_y.y.wrapping_sub(128));
+            *px = self
+                .color
+                .with_alpha(((u32::from(self.color.a) * v) >> 8) as u8);
+            li_x.step();
+            li_y.step();
+        }
+    }
+
+    /// The bitmap's outline in device space.
+    pub(crate) fn outline(transform: &Affine2D, width: u32, height: u32) -> [Point; 4] {
+        let (w, h) = (f64::from(width), f64::from(height));
+        [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
+            .map(|(x, y)| transform.transform_point(Point::new(x, y)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::clip::ClipBox;
+
+    #[test]
+    fn unmasked_image_uses_alpha_as_cover() {
+        let mut target = Pixmap::filled(3, 3, Rgba8::new(255, 255, 255, 255)).unwrap();
+        let img = Pixmap::filled(2, 2, Rgba8::new(0, 0, 0, 255)).unwrap();
+        draw_image(&mut target, &img, 1, 1, 1.0, &Clip::NONE).unwrap();
+        assert_eq!(target.pixel(2, 2), Some(Rgba8::new(0, 0, 0, 255)));
+        assert_eq!(target.pixel(0, 0), Some(Rgba8::new(255, 255, 255, 255)));
+        draw_image(&mut target, &img, -1, -1, 0.5, &Clip::NONE).unwrap();
+        // cover = 127 -> alpha 127 over white.
+        assert_eq!(target.pixel(0, 0), Some(Rgba8::new(128, 128, 128, 255)));
+    }
+
+    #[test]
+    fn masked_image_scales_source_alpha() {
+        let mut target = Pixmap::new(2, 1).unwrap();
+        let img = Pixmap::filled(2, 1, Rgba8::new(10, 20, 30, 200)).unwrap();
+        let mask = Mask::from_vec(2, 1, vec![255, 0]).unwrap();
+        draw_image(&mut target, &img, 0, 0, 0.5, &Clip::NONE.with_mask(&mask)).unwrap();
+        assert_eq!(target.pixel(0, 0), Some(Rgba8::new(10, 20, 30, 100)));
+        assert_eq!(target.pixel(1, 0), Some(Rgba8::default()));
+    }
+
+    #[test]
+    fn empty_images_draw_nothing() {
+        let mut target = Pixmap::new(2, 2).unwrap();
+        for (w, h) in [(0, 0), (0, 3), (3, 0)] {
+            let img = Pixmap::new(w, h).unwrap();
+            draw_image(&mut target, &img, 0, 0, 1.0, &Clip::NONE).unwrap();
+        }
+        assert_eq!(target, Pixmap::new(2, 2).unwrap());
+    }
+
+    #[test]
+    fn coverage_is_clipped() {
+        let mut target = Pixmap::new(3, 1).unwrap();
+        let glyph = Mask::from_vec(3, 1, vec![255, 255, 255]).unwrap();
+        let clip = Clip::rect(ClipBox::new(1, 0, 2, 1));
+        draw_coverage(&mut target, &glyph, 0, 0, Rgba::BLACK, &clip).unwrap();
+        let alphas: Vec<u8> = target.data().chunks(4).map(|c| c[3]).collect();
+        assert_eq!(alphas, vec![0, 255, 0]);
+    }
+
+    #[test]
+    fn identity_sampling_reproduces_the_bitmap() {
+        let src = Mask::from_vec(2, 1, vec![255, 100]).unwrap();
+        let s =
+            CoverageSampler::new(&src, &Affine2D::identity(), Rgba8::new(0, 0, 0, 255)).unwrap();
+        let mut out = [Rgba8::default(); 3];
+        s.generate(0, 0, &mut out);
+        // spline36 at the pixel centres reproduces the pixels;
+        // font_to_rgba: (255 * v) >> 8.
+        assert_eq!(out.map(|c| c.a), [254, 99, 0]);
+        assert!(
+            CoverageSampler::new(&src, &Affine2D::scaling(0.0, 1.0), Rgba8::default()).is_none()
+        );
+    }
+}

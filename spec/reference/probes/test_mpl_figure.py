@@ -123,9 +123,9 @@ existing axes is ``sca(ax)`` (what it does to an axes of the figure);
 ``set_xlabel`` evidently meant, and compares label extents rather than
 positions; ``test_autofmt_xdate`` gives its times of day a date
 (``datestr2num`` of a bare time takes today's); ``test_not_visible_figure``
-looks for the background's path instead of a group (plt-rs's SVG has no
+looks for the background's path instead of a group (pltrs's SVG has no
 group for the figure itself); ``test_extra_per_subplot_kw`` asks for a
-polar projection of the missing key, the per-subplot setting plt-rs
+polar projection of the missing key, the per-subplot setting pltrs
 takes; ``test_savefig_pixel_ratio`` also runs in ``mpl20`` (the test style
 saves at 100 dpi whatever the figure's resolution) and after ``set_dpi``;
 random data comes from ``spec_support.rng``.

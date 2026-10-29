@@ -59,7 +59,7 @@ inputs). By the ``mpl_lines`` figure group: ``test_path_clipping``,
 
 Left out
 --------
-``test_readonly_path`` (Python attribute mutability: plt-rs paths are
+``test_readonly_path`` (Python attribute mutability: pltrs paths are
 values), ``test_path_deepcopy``, ``test_path_deepcopy_cycle`` and
 ``test_path_shallowcopy`` (Python copy semantics), and
 ``test_arrow_contains_point`` (see the ``mpl_lines`` group: it hit-tests

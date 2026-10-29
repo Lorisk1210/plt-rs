@@ -2,7 +2,7 @@
 The canvas and manager every figure has, the events they emit and the
 renderer interface (matplotlib's ``backend_bases``).
 
-plt-rs renders figures itself, whatever the backend: the canvas here
+pltrs (Rust) renders figures itself, whatever the backend: the canvas here
 draws and prints through the figure's native handle, and the manager is
 what pyplot registers in `._pylab_helpers.Gcf`. The renderer and graphics
 context bases, the events, and the navigation toolbar are matplotlib's

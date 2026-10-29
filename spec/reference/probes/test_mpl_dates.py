@@ -106,7 +106,7 @@ Brussels-time date-times it converts as ISO strings with their offsets.
 ``Atlantic/Reykjavik`` (the system zone database has only the canonical
 names).
 
-The ``test_timezone_rc_*`` cases are plt-rs' own: the ``timezone``
+The ``test_timezone_rc_*`` cases are pltrs' own: the ``timezone``
 rcParam as ``Europe/Berlin`` and ``America/New_York`` across their 2020
 clock changes, read when matplotlib reads it (``made`` against ``rc``: when
 locators and ``DateFormatter`` are made, whenever ``AutoDateFormatter`` and
@@ -123,7 +123,7 @@ first ``date.converter``'s formatter stays through later plots and
 ``xaxis_date()``, and an explicitly set ``DateConverter`` brings none
 until ``xaxis_date`` gives it a zone.
 
-The ``test_explicit_converter_*`` cases, plt-rs' own too, pin the
+The ``test_explicit_converter_*`` cases, pltrs' own too, pin the
 converters of a kind of their own, ``DateConverter()`` and
 ``ConciseDateConverter()``, against the ``_SwitchableDateConverter`` that
 follows ``date.converter``: set explicitly, each brings the ticks of its
@@ -134,7 +134,7 @@ it ticks. Converters of different kinds compare unequal, so one set
 explicitly refuses another, and one set after plotted dates replaces
 theirs, keeping their ticks until it gets a zone.
 
-The ``test_aware_*`` cases, plt-rs' own too, plot aware date-times in
+The ``test_aware_*`` cases, pltrs' own too, plot aware date-times in
 Berlin and New York across their 2020 clock changes, in the ``default``
 style. The date converter's ``default_units`` is the ``tzinfo`` of the
 first value, which ``update_units`` makes the unit of an axis without
@@ -150,12 +150,12 @@ The image tests (``test_date_axhspan``, ``test_date_axvspan``,
 ``test_date_axhline``, ``test_date_axvline``, ``test_RRuleLocator``,
 ``test_DateFormatter``, ``test_date_inverted_limit``: figure cases of the
 ``mpl_misc`` group), ``test_DayLocator`` (the ``dates`` area probes the
-invalid intervals plt-rs can express; negative and fractional ones are
+invalid intervals pltrs can express; negative and fractional ones are
 type errors), ``test_date2num_masked`` and ``test_datetime_masked`` (numpy
 masked arrays), ``test_date_formatter_callable`` (a Python callable as a
 format), ``test_warn_notintervals`` (mutates a private table and checks a
 warning), ``test_tz_utc`` (Python's ``tzinfo`` API), ``test_rrulewrapper``
-(the time zones dateutil rules attach; plt-rs rules run on local time
+(the time zones dateutil rules attach; pltrs rules run on local time
 inside ``RRuleLocator``, probed by ``test_auto_date_locator_intmult_tz``),
 ``test_rrulewrapper_pytz`` and ``test_yearlocator_pytz`` (pytz),
 ``test_date2num_dst_pandas`` (pandas), and the ``'boo'`` half of
@@ -780,7 +780,7 @@ def test_concise_converter_stays():
 
 
 # ---------------------------------------------------------------------------
-# The timezone rcParam (plt-rs' own cases)
+# The timezone rcParam (pltrs' own cases)
 # ---------------------------------------------------------------------------
 
 ZONES = ["Europe/Berlin", "America/New_York"]
@@ -900,7 +900,7 @@ def test_timezone_rc_unknown():
 
 
 # ---------------------------------------------------------------------------
-# How a date axis takes its zone and ticks (plt-rs' own cases)
+# How a date axis takes its zone and ticks (pltrs' own cases)
 # ---------------------------------------------------------------------------
 
 DEFAULT_STYLE = ["default"]
@@ -1027,7 +1027,7 @@ def test_explicit_converter_and_switchable():
 
 
 # ---------------------------------------------------------------------------
-# Aware date-times on an axis (plt-rs' own cases)
+# Aware date-times on an axis (pltrs' own cases)
 # ---------------------------------------------------------------------------
 
 #: The abbreviation of each zone on 2020-01-01, as ``get_units`` reports it.

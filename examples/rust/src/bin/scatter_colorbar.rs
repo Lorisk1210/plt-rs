@@ -1,10 +1,10 @@
 //! Scatter plot with a colormap and a colorbar: the weight, fuel use and
 //! power of 150 cars, the marker size giving the engine size.
 
-use plt::collections::EdgeColors;
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
-use plt_examples::Samples;
+use pltrs::collections::EdgeColors;
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
+use pltrs_examples::Samples;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut rng = Samples::new(7);

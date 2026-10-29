@@ -1,4 +1,4 @@
-"""The parts of ``matplotlib.cbook`` plt-rs reproduces, ported from
+"""The parts of ``matplotlib.cbook`` pltrs reproduces, ported from
 matplotlib's own ``tests/test_cbook.py``: box plot statistics, step
 conversions, contiguous regions, comment stripping in rc files, the
 mathtext stripping of formatters, the label formats of ``bar_label`` and
@@ -40,23 +40,23 @@ labels with strings only; ``test_step_fails`` keeps the length mismatch;
 Left out
 --------
 ``test_results_bootstrapped`` (numpy's global random generator),
-``test_bad_dims`` and ``test_reshape2d*`` (plt-rs takes datasets as a typed
+``test_bad_dims`` and ``test_reshape2d*`` (pltrs takes datasets as a typed
 slice of sequences, so there is no shape normalisation to port; the
 ``stats`` probes cover the flat and nested conventions),
-``Test_delete_masked_points`` (generic over Python sequence types; plt-rs
+``Test_delete_masked_points`` (generic over Python sequence types; pltrs
 drops non-finite points inside quiver, hexbin and scatter, covered by
 their probes), ``Test_callback_registry`` and the ``callbackregistry``
-tests (plt-rs' event registry is keyed by a typed event kind and holds
+tests (pltrs' event registry is keyed by a typed event kind and holds
 Rust closures: no weak references, pickling, exception handlers, signal
 names or blocking contexts), ``test_normalize_kwargs_*`` (Python keyword
-aliases; plt-rs uses typed property builders), ``test_grouper*`` (plt-rs'
+aliases; pltrs uses typed property builders), ``test_grouper*`` (pltrs'
 grouper is internal to axis sharing, which the ``axes_behaviour`` probes
 cover), ``test_resize_sequence`` (contour colours are cycled inline),
 ``test_warn_external*``, ``test_sanitize_sequence``, ``test_flatiter``,
 ``test__safe_first_finite*``, ``test_safe_first_element_*``,
 ``test_setattr_cm``, ``test_unpack_to_numpy_*`` (Python utilities without a
 counterpart), ``test_format_approx`` (only used by the Type 1 font code,
-which plt-rs does not have), the pandas and xarray tests.
+which pltrs does not have), the pandas and xarray tests.
 """
 
 import numpy as np

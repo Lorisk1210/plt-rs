@@ -1,37 +1,38 @@
-//! plt's side of a workload: its figure built and saved in this process,
-//! under the configuration the scripts get in matplotlib and pltrs.
+//! The pltrs (Rust) side of a workload: its figure built and saved in this
+//! process, under the configuration the scripts get in matplotlib and
+//! pltrs (Python).
 
 use std::error::Error;
 use std::time::Instant;
 
-use plt::figure::{BboxInches, Figure, SaveOptions};
-use plt::look::{self, Appearance};
-use plt_render::Metadata;
+use pltrs::figure::{BboxInches, Figure, SaveOptions};
+use pltrs::look::{self, Appearance};
+use pltrs_render::Metadata;
 
 use super::stats::{Samples, Sampling};
 use super::workloads::{Build, DPI, Output, Workload};
 
 /// Puts this thread in the configuration a matplotlib user starts from,
-/// which pltrs also selects when it is imported: matplotlib's look and
+/// which pltrs (Python) also selects when it is imported: matplotlib's look and
 /// default rcParams.
 pub(super) fn user_configuration() {
     look::set_appearance(Appearance::MATPLOTLIB);
-    plt::rc::restore_startup();
+    pltrs::rc::restore_startup();
 }
 
 /// Builds the figure of `workload` with `build` and finishes it as
 /// `output` asks: the document saved, or nothing for a figure only laid
 /// out. Documents carry no metadata and SVG ids a fixed salt, so that two
-/// builds of plt-rs can be compared byte for byte.
+/// builds of pltrs can be compared byte for byte.
 pub(super) fn render(
     workload: &Workload,
     build: &Build,
     output: Output,
 ) -> Result<Vec<u8>, Box<dyn Error>> {
-    plt::rc::context(|| {
-        plt::rc::set("svg.hashsalt", "plt-rs")?;
+    pltrs::rc::context(|| {
+        pltrs::rc::set("svg.hashsalt", "plt-rs")?;
         for (key, value) in workload.rc {
-            plt::rc::set(key, value)?;
+            pltrs::rc::set(key, value)?;
         }
         let (width, height) = workload.figsize;
         let fig = Figure::with_size(width, height, DPI);

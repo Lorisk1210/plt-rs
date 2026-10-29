@@ -1,11 +1,11 @@
 //! Twin axes: a climate chart, monthly rainfall as bars on one y axis and
 //! the mean temperature as a line on another, sharing the months.
 
-use plt::axes::TickParams;
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
-use plt::ticker::AxisName;
+use pltrs::axes::TickParams;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
+use pltrs::ticker::AxisName;
 
 /// Colours the y axis label and tick labels of `ax`.
 fn colour_y_axis(ax: &Axes, label: &str, color: &str) {

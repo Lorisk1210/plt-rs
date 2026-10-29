@@ -63,7 +63,7 @@ By the ``mpl_backends`` figure group: ``test_use14corefonts``,
 
 Left out
 --------
-``test_invalid_metadata`` (warnings for values plt-rs's typed
+``test_invalid_metadata`` (warnings for values pltrs's typed
 ``Metadata`` cannot hold), ``test_pdfpages_fspath`` (Python path-like
 objects), ``test_text_urls_tex``, ``test_failing_latex``,
 ``test_font_heuristica``, ``test_font_dejavusans`` and

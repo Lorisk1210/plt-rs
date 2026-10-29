@@ -40,10 +40,10 @@ PNG, ``test_pdflatex``, the PDFs of ``test_rcupdate``, ``test_pathclip``,
 ``test_document_font_size`` and the PDF comparison of
 ``test_minus_signs_with_tex``); the fontspec lines ``pgf.rcfonts`` adds to
 the preamble (matplotlib points them at its font files with
-``Path=\\detokenize{<mpl-data>/fonts/ttf/}``, while plt-rs's fonts are
+``Path=\\detokenize{<mpl-data>/fonts/ttf/}``, while pltrs's fonts are
 built into it and have no directory to point at, so it names the files
 alone); ``test__metadata_to_str*``, the
-``\\hypersetup`` metadata of documents matplotlib compiles with LaTeX (plt-rs
+``\\hypersetup`` metadata of documents matplotlib compiles with LaTeX (pltrs
 writes ``.pgf`` pictures and compiles nothing); and the log warning of
 ``test_unknown_font``.
 """

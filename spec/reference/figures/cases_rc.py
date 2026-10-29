@@ -10,7 +10,7 @@ them, except ``path.effects``, which has no text form.
 
 ``font.variant`` and ``font.stretch`` are the only parameters set here
 without a visible change: no bundled font has small-caps or condensed faces,
-so matplotlib picks the same DejaVu Sans face. The case checks that plt-rs's
+so matplotlib picks the same DejaVu Sans face. The case checks that pltrs's
 font matching agrees. ``figure.frameon`` is checked on subfigures, because
 ``pyplot.figure`` (which the harness uses) passes ``frameon=True`` and the
 root figure never reads it.

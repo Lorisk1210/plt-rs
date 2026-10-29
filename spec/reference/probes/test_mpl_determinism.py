@@ -3,9 +3,9 @@
 
 Area ``mpl_determinism``. Upstream draws a figure in three processes and
 compares the bytes, and checks that ``SOURCE_DATE_EPOCH`` sets the
-creation date. The byte comparison (``test_determinism_check``) is a plt-rs
-integration test (``crates/plt/tests/determinism``), which also checks that
-plt-rs reads ``SOURCE_DATE_EPOCH``; the probes compare the dates written
+creation date. The byte comparison (``test_determinism_check``) is a pltrs
+integration test (``crates/pltrs/tests/determinism``), which also checks that
+pltrs reads ``SOURCE_DATE_EPOCH``; the probes compare the dates written
 for an epoch with matplotlib's.
 
 Ops

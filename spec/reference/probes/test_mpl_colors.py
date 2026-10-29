@@ -95,7 +95,7 @@ in-place setters), ``test_norm_callback``,
 ``test_light_source_shading_empty_mask``,
 ``test_light_source_masked_shading`` and the masked halves of
 ``test_colormap_invalid`` and ``test_scalarmappable_to_rgba`` (numpy masked
-arrays the plt-rs colour APIs do not take), the integer half of
+arrays the pltrs colour APIs do not take), the integer half of
 ``test_scalarmappable_to_rgba`` (uint8 images), the list cases of
 ``test_is_color_like`` (Python lists as opposed to tuples),
 ``test_has_alpha_channel`` (a private helper on Python specs),

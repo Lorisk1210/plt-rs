@@ -1,0 +1,18 @@
+[package]
+name = "pltrs-platform"
+description = "Native windowing and input abstraction (X11 and Wayland, more platforms pluggable)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+# The window example saves screenshots as PNG.
+pltrs-codec.workspace = true
+# The fuzz tests share pltrs's fuzz harness, which draws from its generator.
+pltrs-core.workspace = true
+
+[lints]
+workspace = true

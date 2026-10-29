@@ -1,4 +1,4 @@
-# plt-rs
+# pltrs
 
 matplotlib, rebuilt from scratch in Rust: the figure model, every plot
 type, text and mathtext, the Agg-exact rasterizer, interactive windows
@@ -7,9 +7,17 @@ against matplotlib 3.11. No crates.io dependencies: fonts, PNG/DEFLATE,
 rasterization, layout, windowing (Wayland and X11) and the UI are all implemented
 here.
 
+The Rust crate (`use pltrs::...`) and the Python package
+(`import pltrs.pyplot as plt`) share the name pltrs, as the crate and the
+package of polars do. Where the language matters, this README says
+pltrs (Rust) or pltrs (Python). The crate is built from crates of its
+own, `pltrs-core` to `pltrs-ui` (see [Crates](#crates)). Bare `plt` stays
+matplotlib's: the name matplotlib users give `pyplot`, which pltrs keeps
+for its own `pyplot` in both languages.
+
 ```rust,no_run
-use plt::figure::Figure;
-use plt::numeric::linspace;
+use pltrs::figure::Figure;
+use pltrs::numeric::linspace;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fig = Figure::new();
@@ -18,35 +26,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ax.plot(&x, x.iter().map(|x| x.sin()))?;
     ax.set_title("A sine");
     ax.set_xlabel("x");
-    fig.savefig("sine.png")?; // in plt-rs' modern look
-    plt::gui::show(&[fig])?; // or explore it in a window
+    fig.savefig("sine.png")?; // in pltrs' modern look
+    pltrs::gui::show(&[fig])?; // or explore it in a window
     Ok(())
 }
 ```
 
-Figures and windows take plt-rs' modern look unless told otherwise:
+Figures and windows take pltrs' modern look unless told otherwise:
 Inter type, hairline grids behind the data, no top or right spines,
 left-aligned titles, constrained layout and a palette checked for
-colour-vision deficiencies (the `plt-modern` style sheet), in modern
+colour-vision deficiencies (the `pltrs-modern` style sheet), in modern
 windows. matplotlib's look is one switch away, for the figures, the
 windows or both, and is what makes PNG output pixel-identical to
 matplotlib's Agg:
 
 ```sh
-PLT_LOOK=matplotlib cargo run ...          # matplotlib's figures and windows
-PLT_FIGURE_LOOK=matplotlib cargo run ...   # matplotlib's figures, modern windows
-PLT_FIGURE_LOOK=modern-dark cargo run ...  # the modern look on charcoal
+PLTRS_LOOK=matplotlib cargo run ...          # matplotlib's figures and windows
+PLTRS_FIGURE_LOOK=matplotlib cargo run ...   # matplotlib's figures, modern windows
+PLTRS_FIGURE_LOOK=modern-dark cargo run ...  # the modern look on charcoal
 ```
 
-or `plt::look::set_appearance(...)` in code. The modern look is checked
+or `pltrs::look::set_appearance(...)` in code. The modern look is checked
 against matplotlib too: matplotlib drawing the same style sheet with
 Inter gives identical figures.
 
-The `pyplot`-style interface works too (with the module named `plt`,
-the crate's other items are spelled `::plt::...`):
+The `pyplot`-style interface works too, with the module named `plt` as in
+matplotlib:
 
 ```rust,no_run
-use plt::pyplot as plt;
+use pltrs::pyplot as plt;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     plt::plot([0.0, 1.0, 2.0], [0.0, 1.0, 4.0])?;
@@ -56,29 +64,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-On Linux, windows open natively under Wayland or X11 (`PLT_PLATFORM`
+On Linux, windows open natively under Wayland or X11 (`PLTRS_PLATFORM`
 picks one). On systems without either (macOS, Windows), `show()` serves
 the figures to a web browser instead, like matplotlib's WebAgg backend,
 and prints their address; on Linux without a display it shows nothing, as
 matplotlib falls back to `agg`. `MPLBACKEND=webagg` (or
 `plt::switch_backend(Backend::WebAgg)`) picks the browser everywhere (a
-remote machine, WSL), and `plt::web::serve(&[fig], WebOptions::from_rc()?)`
+remote machine, WSL), and `pltrs::web::serve(&[fig], WebOptions::from_rc()?)`
 does it without pyplot.
 
 ## New to matplotlib
 
-The `plt::tutorial` module of the API documentation (`cargo doc -p plt
---open`) teaches plotting with plt-rs from the ground up, in Rust terms:
+The `pltrs::tutorial` module of the API documentation (`cargo doc -p pltrs
+--open`) teaches plotting with pltrs from the ground up, in Rust terms:
 a first plot, the parts of a figure and the handles that reach them,
 plot types, data and option structs, styling, layout, text, scales and
-dates, output formats, interactive figures, extending plt-rs and testing
+dates, output formats, interactive figures, extending pltrs and testing
 your figures. Every example in it runs as a doctest.
 
 ## Coming from matplotlib
 
-The `plt::porting` module of the API documentation (`cargo doc -p plt
+The `pltrs::porting` module of the API documentation (`cargo doc -p pltrs
 --open`) is a porting guide: topic by topic, it maps matplotlib's calls
-to plt-rs (keyword arguments to option structs, strings to enums,
+to pltrs (keyword arguments to option structs, strings to enums,
 exceptions to `Result`s, `get_xlim()` to `xlim()`) with equivalence
 tables and side-by-side examples whose Rust half runs as a doctest.
 
@@ -104,7 +112,7 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   STIX sans, custom), placing every glyph and rule where matplotlib does
   on its own mathtext test suite. With TeX installed, `usetex` text is
   typeset by LaTeX as in matplotlib (`latex`, or `latex` with `dvipng`):
-  plt-rs reads the DVI files, virtual fonts, TFM metrics, font maps and
+  pltrs reads the DVI files, virtual fonts, TFM metrics, font maps and
   Type 1 fonts itself, and draws the glyphs in PNG, PDF and SVG; PGF
   output hands the text to LaTeX, and PostScript output refuses it, since
   matplotlib needs `psfrag` and Ghostscript there.
@@ -133,7 +141,7 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   player, `to_jshtml`, or as a video through an installed ffmpeg,
   `to_html5_video`); pyplot's interactive mode with `pause`, `ginput`
   and `waitforbuttonpress`; the same figures in a web browser
-  (matplotlib's WebAgg protocol and client over plt-rs's own HTTP and
+  (matplotlib's WebAgg protocol and client over pltrs's own HTTP and
   WebSocket server): pan, zoom, history, readout, mouse and key events,
   timers and downloads in every output format.
 * **Output**: PNG pixel-identical to matplotlib's Agg; JPEG and TIFF
@@ -141,7 +149,7 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   raw RGBA; SVG, PDF and PostScript/EPS documents structured like
   matplotlib's, including the 14 core fonts of `pdf.use14corefonts` and
   `ps.useafm`; and PGF pictures for LaTeX (text typeset by LaTeX, laid
-  out with plt-rs' metrics). `imread` reads PNG, JPEG, TIFF, GIF and WebP (lossy and
+  out with pltrs' metrics). `imread` reads PNG, JPEG, TIFF, GIF and WebP (lossy and
   lossless, still or animated) to the pixels matplotlib gets.
 * **Widgets**: buttons, sliders and range sliders, check and radio
   buttons, text boxes, crosshair cursors, and span, rectangle, ellipse,
@@ -155,27 +163,27 @@ tables and side-by-side examples whose Rust half runs as a doctest.
   sequences registered by name, and toolbar tools.
   Removed artists stay usable and can be attached again, as in
   matplotlib.
-* **Configuration and testing**: a `pltrc` file in matplotlib's
+* **Configuration and testing**: a `pltrsrc` file in matplotlib's
   `matplotlibrc` syntax and user style sheets in the configuration
-  directory (`plt::config`; `PLTCONFIGDIR`, `PLTRC`), and
-  `plt::testing` for testing your own figures, as `matplotlib.testing`
+  directory (`pltrs::config`; `PLTRSCONFIGDIR`, `PLTRSRC`), and
+  `pltrs::testing` for testing your own figures, as `matplotlib.testing`
   does: `setup`, `compare_images` with its failure diff, and
   `check_figures_equal`.
 
 ## Examples
 
 [`examples/`](examples/README.md) holds twenty common graphs, each
-written twice and shown with its image: in Rust with plt, and in Python
-with pltrs in matplotlib's syntax. Among them are line, scatter, bar,
-area, pie and polar plots, histograms, box and violin plots, error bars,
-an annotated heatmap, contours, streamlines, a 3-D surface, dates, a
-mosaic dashboard, log and twin axes, annotations, mathtext and an
-animation. `cargo xtask examples` renders them and compares each Rust
-image with matplotlib drawing the Python script.
+written twice and shown with its image: in Rust with pltrs (Rust), and
+in Python with pltrs (Python) in matplotlib's syntax. Among them are
+line, scatter, bar, area, pie and polar plots, histograms, box and
+violin plots, error bars, an annotated heatmap, contours, streamlines, a
+3-D surface, dates, a mosaic dashboard, log and twin axes, annotations,
+mathtext and an animation. `cargo xtask examples` renders them and
+compares each Rust image with matplotlib drawing the Python script.
 
 ## Gallery
 
-`crates/plt/examples/gallery/` holds over ninety short, commented
+`crates/pltrs/examples/gallery/` holds over ninety short, commented
 examples grouped like matplotlib's gallery: lines, bars and areas;
 statistics; images and meshes; contours and vector fields; colour; text
 and annotations; layout; dates, categories and units; 3-D; polar,
@@ -184,19 +192,19 @@ toolkits; diagrams, widgets and animation; reference sheets of markers,
 line styles and hatches; and style sheets.
 
 ```sh
-cargo run -p plt --release --example gallery -- target/gallery
+cargo run -p pltrs --release --example gallery -- target/gallery
 ```
 
 writes every figure as a PNG (the animation as an animated PNG), an
 `index.html` showing them section by section, and a contact sheet of
 each section (`sheet-<section>.png`). The figures take the look in
-force: `PLT_FIGURE_LOOK=modern-dark` draws the gallery on a dark
-background, `PLT_LOOK=matplotlib` in matplotlib's look.
+force: `PLTRS_FIGURE_LOOK=modern-dark` draws the gallery on a dark
+background, `PLTRS_LOOK=matplotlib` in matplotlib's look.
 
-## Python: pltrs
+## Python
 
-pltrs is plt-rs for Python, with matplotlib's syntax: only the import
-changes.
+pltrs (Python) is pltrs with matplotlib's syntax: code written for
+matplotlib runs on it with only the import changed.
 
 ```python
 import pltrs.pyplot as plt
@@ -210,7 +218,7 @@ fig.savefig("figure.png")
 
 It is a Python package (`python/pltrs`) whose classes keep matplotlib's
 names and signatures, over a native extension written in Rust against
-CPython's stable ABI, without PyO3 or any crate (`crates/plt-python`). It
+CPython's stable ABI, without PyO3 or any crate (`crates/pltrs-python`). It
 needs Python 3.12 or later and numpy. Build it, and run it from the source
 tree:
 
@@ -222,7 +230,7 @@ cargo xtask python test         # pltrs's smoke tests
 cargo xtask mpl-suite           # matplotlib 3.11's own test suite, run against pltrs
 ```
 
-pltrs is young: it covers a first slice of pyplot (figures, subplots,
+pltrs (Python) is young: it covers a first slice of pyplot (figures, subplots,
 `plot`, `scatter`, `bar`, titles and labels, legends, saving as PNG, SVG
 and PDF), rcParams and the image-comparison test tools. Its measure is
 matplotlib's own test suite: the share of the tests passing under
@@ -231,29 +239,29 @@ built, and how to extend it, is in [`python/DESIGN.md`](python/DESIGN.md).
 
 ## Crates
 
-| crate          | responsibility                                                    |
-|----------------|-------------------------------------------------------------------|
-| `plt-core`     | points, affine transforms, bounding boxes, paths, colours         |
-| `plt-codec`    | CRC32/Adler32, SHA-1, SHA-256, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write |
-| `plt-font`     | TrueType/OpenType and Type 1 parsing, shaping (GSUB/GPOS), font manager |
-| `plt-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
-| `plt-text`     | text layout, the mathtext parser and typesetter, and usetex (DVI, VF, TFM, font maps) |
-| `plt-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS/PGF |
-| `plt-platform` | windows, input and the event loop (Wayland, X11; headless for tests) |
-| `plt-ui`       | the retained-mode UI engine used by figure windows                |
-| `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |
-| `plt-spec`     | the conformance harness                                           |
-| `plt-python`   | pltrs's CPython extension (stable ABI, hand-written FFI)          |
-| `xtask`        | developer automation                                              |
+| crate            | responsibility                                                    |
+|------------------|-------------------------------------------------------------------|
+| `pltrs-core`     | points, affine transforms, bounding boxes, paths, colours         |
+| `pltrs-codec`    | CRC32/Adler32, SHA-1, SHA-256, DEFLATE/zlib, base64, PNG/APNG; JPEG, TIFF, GIF, WebP read and write |
+| `pltrs-font`     | TrueType/OpenType and Type 1 parsing, shaping (GSUB/GPOS), font manager |
+| `pltrs-raster`   | anti-aliased scanline rasterizer, stroker, dashes, compositing    |
+| `pltrs-text`     | text layout, the mathtext parser and typesetter, and usetex (DVI, VF, TFM, font maps) |
+| `pltrs-render`   | the `Renderer` trait, the Agg-compatible raster backend, SVG/PDF/PS/PGF |
+| `pltrs-platform` | windows, input and the event loop (Wayland, X11; headless for tests) |
+| `pltrs-ui`       | the retained-mode UI engine used by figure windows                |
+| `pltrs`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |
+| `pltrs-spec`     | the conformance harness                                           |
+| `pltrs-python`   | pltrs (Python)'s CPython extension (stable ABI, hand-written FFI) |
+| `xtask`          | developer automation                                              |
 
 ## Building and testing
 
 ```sh
 cargo build --workspace
 cargo test --workspace
-cargo run -p plt --example figure_window        # needs an X server
-cargo run -p plt --example web_figure           # an animated figure in a browser
-cargo run -p plt --example widgets              # sliders and a span selector
+cargo run -p pltrs --example figure_window      # needs an X server
+cargo run -p pltrs --example web_figure         # an animated figure in a browser
+cargo run -p pltrs --example widgets            # sliders and a span selector
 ```
 
 The conformance spec in `spec/` was run against matplotlib 3.11 to
@@ -270,8 +278,8 @@ with matplotlib's item by item:
 ```sh
 cargo xtask spec                                # probes: op(args) -> value
 cargo xtask figures                             # figure structure (limits, ticks, ...)
-cargo test -p plt-spec --test figure_pixels     # figure pixels, RMS <= 1.0
-cargo test -p plt-spec --test figure_vectors    # SVG/PDF/PS documents, item by item
+cargo test -p pltrs-spec --test figure_pixels   # figure pixels, RMS <= 1.0
+cargo test -p pltrs-spec --test figure_vectors  # SVG/PDF/PS documents, item by item
 cargo xtask render polar/                       # write renderings and diffs to spec/out/
 cargo xtask render polar/rose --vectors         # ... with the case's SVG, PDF and PS
 cargo xtask vectors [PREFIX...]                 # every case's SVG/PDF/PS/PGF against
@@ -283,8 +291,8 @@ The `usetex` cases and probes need TeX on `PATH`; without it they are
 skipped, and each check says so.
 
 [`benchmarks/README.md`](benchmarks/README.md) times 62 figures in
-matplotlib 3.11, in pltrs (the same Python scripts with only the import
-changed) and in plt from Rust. The figures range in size from a single
+matplotlib 3.11, in pltrs (Python), running the same scripts with only the
+import changed, and in pltrs (Rust). The figures range in size from a single
 line plot to million-point lines, 4000² images and text-heavy layouts.
 Each is timed warm (the figure alone, in a running program) and cold (a
 fresh process, as a user waits for it), with its peak memory, after a
@@ -292,23 +300,24 @@ pixel comparison checks that the three draw the same figure. `cargo
 xtask bench --report` regenerates it. At the last run, on a shared
 16-core Ryzen 9 9955HX:
 
-* plt was faster than matplotlib on all 61 comparable workloads, warm
-  and cold. Its warm times were 0.02 to 0.81 of matplotlib's (geometric
-  mean 0.22), and its cold times 0.02 to 0.59 (geometric mean 0.12). The
-  thinnest warm margin is a PDF of 10⁵ unsimplified points, where
-  compressing the content stream takes most of the time in both.
-* pltrs ran 22 of the 61 workloads; the other 39 need parts of
+* pltrs (Rust) was faster than matplotlib on all 61 comparable
+  workloads, warm and cold: 1.23× to 54× faster warm (typically 4.5×
+  faster, the geometric mean) and 1.69× to 42× faster cold (typically
+  8.6× faster). The thinnest warm margin is a PDF of 10⁵ unsimplified
+  points, where compressing the content stream takes most of the time
+  in both.
+* pltrs (Python) ran 22 of the 61 workloads; the other 39 need parts of
   matplotlib's API it lacks so far. It was faster than matplotlib on all
-  22 (geometric mean 0.26 warm and cold) and at most 27% slower than plt
-  warm.
-* A fresh interpreter importing `matplotlib.pyplot` took 211 ms, and one
-  importing `pltrs.pyplot` 47 ms. A single line plot saved as PNG took
-  244 ms end to end in matplotlib, 61 ms in pltrs and 16 ms in plt
-  (26 ms, 5.0 ms and 5.0 ms warm).
+  22, typically 3.8× faster warm and 3.0× faster cold, and at most 28%
+  slower than pltrs (Rust) warm.
+* A fresh interpreter importing `matplotlib.pyplot` took 208 ms, and one
+  importing `pltrs.pyplot` 68 ms. A single line plot saved as PNG took
+  246 ms end to end in matplotlib, 85 ms in pltrs (Python) and 18 ms in
+  pltrs (Rust) (26 ms, 5.0 ms and 4.9 ms warm).
 
 See `CLAUDE.md` for the coding conventions.
 
-plt-rs ports code from matplotlib, Anti-Grain Geometry, FreeType,
+pltrs ports code from matplotlib, Anti-Grain Geometry, FreeType,
 HarfBuzz, libraqm, Qhull, ContourPy, NumPy and x86-simd-sort, CPython,
 dateutil, fontTools, Pillow, libjpeg-turbo, libtiff and libwebp (and one
 file from libstdc++, under GPL-3.0-or-later), and bundles fonts (including

@@ -22,7 +22,7 @@ def switch_backend(newbackend):
     """
     Set the pyplot backend.
 
-    pltrs draws through plt-rs whatever the backend; closing the figures and
+    pltrs (Python) draws through pltrs (Rust) whatever the backend; closing the figures and
     recording the name is what switching does.
     """
     close("all")

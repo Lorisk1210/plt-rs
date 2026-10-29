@@ -17,7 +17,7 @@ Ops
     (the SHA-256 the cache path ends with).
 ``dviread.PsfontsMap``  {texname} -> ``{"texname", "psname", "effects",
     "encoding", "filename"}`` of matplotlib's ``test.map`` (copied to
-    ``crates/plt-text/tests/fixtures/tex``) with ``find_tex_file`` giving
+    ``crates/pltrs-text/tests/fixtures/tex``) with ``find_tex_file`` giving
     every name back, as ``test_PsfontsMap`` sets it up; or the error.
 ``dviread._parse_enc``  {text} -> the glyph names; or the error.
 ``dviread.Tfm``  {data} -> ``{"checksum", "design_size", "metrics":
@@ -34,7 +34,7 @@ Left out
 --------
 ``test_dviread`` and ``test_dviread_pk`` need TeX (the ``usetex`` area
 reads real DVI files). XeTeX and LuaTeX native fonts, which ``latex`` never
-writes, are not supported by plt-rs.
+writes, are not supported by pltrs.
 """
 
 import struct
@@ -49,7 +49,7 @@ from spec_support import ProbeSet
 
 probes = ProbeSet("texmanager")
 
-FIXTURES = Path(__file__).resolve().parents[3] / "crates/plt-text/tests/fixtures/tex"
+FIXTURES = Path(__file__).resolve().parents[3] / "crates/pltrs-text/tests/fixtures/tex"
 
 
 def _source(tex, fontsize, rc):

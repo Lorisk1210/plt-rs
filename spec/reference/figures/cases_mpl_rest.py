@@ -28,7 +28,7 @@ Deviations from the tests:
   movie writer to a temporary file; the case saves it with the Pillow
   writer, which needs no external program.
 
-Not ported: ``test_data_kwarg`` (plt-rs has no ``data`` keyword; looking
+Not ported: ``test_data_kwarg`` (pltrs has no ``data`` keyword; looking
 the columns up draws the figures of ``test_dict_unpack``).
 """
 

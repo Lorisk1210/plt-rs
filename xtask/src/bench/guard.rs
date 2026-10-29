@@ -5,11 +5,11 @@
 use std::fmt;
 use std::path::Path;
 
-use plt::testing::compare_images;
+use pltrs::testing::compare_images;
 
 /// The largest RMS difference (of 0–255 channel values) accepted between
 /// two renderings of the same figure. Loose: the conformance spec holds
-/// plt-rs to 1.0 against matplotlib under its reference configuration,
+/// pltrs to 1.0 against matplotlib under its reference configuration,
 /// and a figure missing a title or drawing a line in another colour
 /// differs by several units.
 pub(super) const TOLERANCE: f64 = 2.0;

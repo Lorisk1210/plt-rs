@@ -72,7 +72,7 @@ def test_figure_numbers_and_closing():
     assert plt.get_fignums() == []
 
 
-def test_rcparams_validate_through_plt_rs():
+def test_rcparams_validate_through_pltrs():
     pltrs.rcParams["lines.linewidth"] = 4
     assert pltrs.rcParams["lines.linewidth"] == 4.0
     with pytest.raises(ValueError, match="lines.linewidth"):
@@ -82,7 +82,7 @@ def test_rcparams_validate_through_plt_rs():
     with pltrs.rc_context({"lines.linewidth": 7}):
         assert pltrs.rcParams["lines.linewidth"] == 7.0
     assert pltrs.rcParams["lines.linewidth"] == 4.0
-    assert "plt.ink" not in pltrs.rcParams
+    assert "pltrs.ink" not in pltrs.rcParams
     standalone = pltrs.RcParams({"figure.figsize": (3.5, 42)})
     assert dict(standalone) == {"figure.figsize": [3.5, 42.0]}
 
@@ -126,7 +126,7 @@ def test_native_errors_are_matplotlibs_exceptions():
 
 
 @check_figures_equal()
-def test_check_figures_equal_compares_through_plt_rs(fig_test, fig_ref):
+def test_check_figures_equal_compares_through_pltrs(fig_test, fig_ref):
     fig_test.subplots().plot([1, 3, 5])
     fig_ref.subplots().plot([0, 1, 2], [1, 3, 5])
 

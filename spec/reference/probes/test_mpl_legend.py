@@ -94,7 +94,7 @@ Cases
 -----
 Named after the upstream tests. Adaptations: random data comes from
 ``spec_support.rng``; ``test_handler_numpoints`` gives 0.5 points, which
-plt-rs (where ``numpoints`` is a count) cannot express: the port asks for
+pltrs (where ``numpoints`` is a count) cannot express: the port asks for
 one point, the other case of at most one, and for none, which both reject;
 the placement tests record the extents rather than comparing two of
 them; ``test_legend_linewidth`` and ``test_shadow_framealpha`` share one
@@ -112,7 +112,7 @@ slow-``best`` warnings (they monkeypatch the timer), ``loc`` given as a
 (``test_legend_text_axes``), a string iterated as labels with the handles
 of another figure (``test_cross_figure_patch_legend``), a Python class as a
 label, and a ``title_fontproperties`` dict without a size under
-``legend.title_fontsize: 20``: plt-rs's ``FontProperties`` always has a
+``legend.title_fontsize: 20``: pltrs's ``FontProperties`` always has a
 size, so the dict cannot ask for the rc one.
 """
 

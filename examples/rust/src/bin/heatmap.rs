@@ -1,11 +1,11 @@
 //! Annotated heatmap: how strongly six daily weather measurements move
 //! together, each cell labelled with its correlation.
 
-use plt::axes::{TickLabelProps, TickLevel};
-use plt::colors::ColorizerOptions;
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
-use plt::text::{HAlign, RotationMode, VAlign};
+use pltrs::axes::{TickLabelProps, TickLevel};
+use pltrs::colors::ColorizerOptions;
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
+use pltrs::text::{HAlign, RotationMode, VAlign};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let names = [

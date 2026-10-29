@@ -1,7 +1,7 @@
-//! `cargo xtask python [--release] | setup | test`: pltrs, plt-rs for
-//! Python.
+//! `cargo xtask python [--release] | setup | test`: pltrs
+//! (Python).
 //!
-//! * `python [--release]` builds the extension (`crates/plt-python`) and
+//! * `python [--release]` builds the extension (`crates/pltrs-python`) and
 //!   puts it in the package as `python/pltrs/_native.abi3.so`, so that
 //!   `python/` on `PYTHONPATH` is a working install;
 //! * `python setup` makes the pltrs venv (`.venv-pltrs`, without
@@ -66,19 +66,19 @@ impl Profile {
     }
 }
 
-/// Builds `plt-python` and copies the library into the package as
+/// Builds `pltrs-python` and copies the library into the package as
 /// `python/pltrs/_native.abi3.so`.
 pub(crate) fn build(profile: Profile) -> Result<(), String> {
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut command = Command::new(cargo);
-    command.args(["build", "-p", "plt-python"]);
+    command.args(["build", "-p", "pltrs-python"]);
     if profile == Profile::Release {
         command.arg("--release");
     }
     run_checked(&mut command)?;
     let built = target_dir()
         .join(profile.directory())
-        .join("libplt_python.so");
+        .join("libpltrs_python.so");
     let installed = root().join("python/pltrs/_native.abi3.so");
     // Replacing the file (rather than writing over it) keeps a running
     // interpreter that mapped the old library from crashing.

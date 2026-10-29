@@ -1,5 +1,5 @@
-//! The two Python columns: matplotlib in the reference venv, and pltrs in
-//! its own venv running the same scripts with only their import of
+//! The two Python columns: matplotlib in the reference venv, and
+//! pltrs (Python) in its own venv running the same scripts with only their import of
 //! `matplotlib.pyplot` changed. Both go through the harness
 //! `spec/reference/bench/bench.py`.
 
@@ -21,7 +21,7 @@ const PLTRS_IMPORT: &str = "import pltrs.pyplot as plt";
 
 /// Environment every Python process of the benchmark gets: the
 /// non-interactive Agg backend (what matplotlib picks without a display),
-/// and numpy's BLAS kept to one thread, as plt-rs draws on one thread
+/// and numpy's BLAS kept to one thread, as pltrs draws on one thread
 /// (`OpenBLAS` would otherwise start a thread per core when numpy is
 /// imported).
 pub(super) const PYTHON_ENV: [(&str, &str); 4] = [
@@ -36,7 +36,7 @@ pub(super) const PYTHON_ENV: [(&str, &str); 4] = [
 pub(super) enum Flavor {
     /// matplotlib itself.
     Matplotlib,
-    /// pltrs, plt-rs for Python.
+    /// pltrs (Python).
     Pltrs,
 }
 
@@ -45,7 +45,7 @@ impl Flavor {
     pub(super) const fn name(self) -> &'static str {
         match self {
             Self::Matplotlib => "matplotlib",
-            Self::Pltrs => "pltrs",
+            Self::Pltrs => "pltrs-python",
         }
     }
 }
@@ -55,7 +55,8 @@ impl Flavor {
 pub(super) enum Outcome<T> {
     /// It ran.
     Done(T),
-    /// It raised this exception: pltrs lacks something the script uses.
+    /// It raised this exception: pltrs (Python) lacks something the script
+    /// uses.
     Unsupported(String),
 }
 

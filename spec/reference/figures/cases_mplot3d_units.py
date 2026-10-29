@@ -3,7 +3,7 @@
 
 matplotlib converts no plotting values on 3-D axes by itself (its 3-D
 plotting methods hand them to numpy as they are), so these cases convert
-them first with ``Axes3D._process_unit_info``, as plt-rs' 3-D plotting
+them first with ``Axes3D._process_unit_info``, as pltrs' 3-D plotting
 methods convert the values they are given: the axes take the converter,
 tick helpers and label of the values.
 

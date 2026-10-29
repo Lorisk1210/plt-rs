@@ -50,7 +50,7 @@ tests that draw and then check positions are figure cases of the
 ``test_colorbar_align``, ``test_manually_set_position``,
 ``test_gridspec_addressing``, ``test_discouraged_api``, ``test_kwargs``,
 ``test_rect``, ``test_compressed1``, ``test_submerged_subfig``). Not
-ported: the warning of ``test_constrained_layout7`` (plt-rs grids have no
+ported: the warning of ``test_constrained_layout7`` (pltrs grids have no
 ``figure`` argument to forget: every grid an axes is placed on takes part
 in the layout), the ``TypeError`` of misspelt keywords
 (``test_constrained_layout13``), the pending deprecation warnings

@@ -1,13 +1,13 @@
 //! Subplot mosaic dashboard: four views of an online shop's year laid out
 //! by name, the revenue trend across the top.
 
-use plt::axes::{GridOptions, PieOptions};
-use plt::collections::CollectionProps;
-use plt::figure::MosaicOptions;
-use plt::layout::LayoutEngine;
-use plt::offsetbox::AnchorLoc;
-use plt::prelude::*;
-use plt::ticker::AxisName;
+use pltrs::axes::{GridOptions, PieOptions};
+use pltrs::collections::CollectionProps;
+use pltrs::figure::MosaicOptions;
+use pltrs::layout::LayoutEngine;
+use pltrs::offsetbox::AnchorLoc;
+use pltrs::prelude::*;
+use pltrs::ticker::AxisName;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let months = [

@@ -1,7 +1,7 @@
 """
 The base class of everything drawn in a figure (matplotlib's ``artist``).
 
-An `Artist` wraps the native handle of a plt-rs artist (``self._native``):
+An `Artist` wraps the native handle of a pltrs (Rust) artist (``self._native``):
 its getters and setters call the native functions of ``_native.artist``
 and of its own module. Property handling that is inherently Python stays
 here, as in matplotlib: ``set(**kwargs)`` resolves aliases and calls the
@@ -44,7 +44,7 @@ class Artist:
 
     @property
     def stale(self):
-        """Whether the artist needs drawing: plt-rs draws from scratch
+        """Whether the artist needs drawing: pltrs (Rust) draws from scratch
         every time, so never."""
         return False
 

@@ -67,7 +67,7 @@ Ops
 
 Left out: ``test_invalid_line_data``, ``test_valid_colors``,
 ``test_valid_linestyles``, ``test_valid_drawstyles`` (Python type and
-string validation; plt-rs takes typed values and the parsers are covered
+string validation; pltrs takes typed values and the parsers are covered
 by the ``rcsetup`` and ``markers`` areas), ``test_set_drawstyle`` and the
 markevery tests (covered by the ``markers`` area, the float ones also by
 ``mpl_lines``), ``test_axline_setters`` and

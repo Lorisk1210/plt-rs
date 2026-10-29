@@ -2,11 +2,11 @@
 
     python run_matplotlib.py OUT_DIR SCRIPT...
 
-The examples are written for pltrs, plt-rs' Python package with matplotlib's
+The examples are written for pltrs (Python), in matplotlib's
 syntax, and import it (`import pltrs.pyplot as plt`). Here every `pltrs`
 import is answered with the matplotlib module of the same name, and figures
-are drawn in plt-rs' modern look, the look pltrs draws in by default: the
-`plt-modern` style sheet with Inter, set up for matplotlib as the spec's
+are drawn in pltrs' modern look, the look pltrs draws in by default: the
+`pltrs-modern` style sheet with Inter, set up for matplotlib as the spec's
 `cases_modern.py` does it. Each script runs in OUT_DIR, where it saves its
 figure. A script that fails shows its traceback on stderr and its name on
 stdout, and the others still run.

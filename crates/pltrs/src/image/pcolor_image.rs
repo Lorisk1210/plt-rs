@@ -1,0 +1,363 @@
+//! Images on non-uniform rectangular grids (matplotlib's `PcolorImage`,
+//! made by `pcolorfast`).
+
+use std::cell::RefCell;
+
+use pltrs_core::{Bbox, Point};
+use pltrs_render::RgbaImage;
+
+use super::make::{RenderedImage, autoscale_unset};
+use super::normalize::normalize_in;
+use super::shared::{axes_image_contains, draw_rendered, grid_cell, grid_extent, grid_limits};
+use super::{ImageData, ImageError};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+};
+use crate::axes::AxesState;
+use crate::colors::ScalarMappable;
+use crate::numeric::{Grid, linspace};
+
+/// State of an image whose cells have individual widths and heights.
+#[derive(Debug)]
+pub(crate) struct PcolorImageArtist {
+    base: ArtistBase,
+    data: ImageData,
+    mappable: RefCell<ScalarMappable>,
+    /// Increasing cell edges along x.
+    x: Vec<f64>,
+    /// Increasing cell edges along y.
+    y: Vec<f64>,
+}
+
+impl PcolorImageArtist {
+    /// An image with cell edges `x` and `y` (one more than the columns and
+    /// rows of `data`); decreasing edges flip the data, as matplotlib does.
+    pub(crate) fn new(data: ImageData, mappable: ScalarMappable, x: Vec<f64>, y: Vec<f64>) -> Self {
+        let (data, x, y) = increasing(data, x, y);
+        let mut base = ArtistBase::with_zorder(0.0);
+        base.mouseover = true;
+        Self {
+            base,
+            data,
+            mappable: RefCell::new(mappable),
+            x,
+            y,
+        }
+    }
+
+    /// matplotlib's `PcolorImage.make_image`: every pixel of the axes box,
+    /// at `magnification` pixels per display unit, takes the colour of the
+    /// cell containing its centre (transparent outside the grid).
+    pub(super) fn render(
+        &self,
+        ctx: &DrawContext<'_>,
+        magnification: f64,
+    ) -> Result<Option<RenderedImage>, ImageError> {
+        let layout = ctx.layout();
+        let Some(axes_id) = self.base.parent else {
+            return Ok(None);
+        };
+        let (Some(axes), Some(view)) = (
+            layout.axes_extent(axes_id),
+            layout
+                .store()
+                .get_as::<AxesState>(axes_id)
+                .map(|axes| axes.view_lim),
+        ) else {
+            return Ok(None);
+        };
+        let colors = cell_colors(&self.data, &mut self.mappable.borrow_mut())?;
+        let round = |v: f64| (v * magnification + 0.5) as i64;
+        let (l, b, r, t) = (
+            round(axes.x0()),
+            round(axes.y0()),
+            round(axes.x1()),
+            round(axes.y1()),
+        );
+        let (Ok(width), Ok(height)) = (usize::try_from(r - l), usize::try_from(t - b)) else {
+            return Ok(None);
+        };
+        if width == 0 || height == 0 {
+            return Ok(None);
+        }
+        let x_cells = pixel_cells(&self.x, view.x0(), view.x1(), width);
+        let y_cells = pixel_cells(&self.y, view.y0(), view.y1(), height);
+        let (rows, cols) = colors.shape();
+        // Index 0 and the last index fall outside the grid (the padding).
+        let color = |row: usize, col: usize| {
+            if row == 0 || col == 0 || row > rows || col > cols {
+                [0; 4]
+            } else {
+                colors[(row - 1, col - 1)]
+            }
+        };
+        let data = y_cells
+            .iter()
+            .rev()
+            .flat_map(|&row| x_cells.iter().map(move |&col| (row, col)))
+            .flat_map(|(row, col)| color(row, col))
+            .collect();
+        Ok(Some(RenderedImage {
+            pixels: RgbaImage::new(width, height, data).expect("four bytes per pixel"),
+            origin: Point::new(l as f64 / magnification, b as f64 / magnification),
+        }))
+    }
+}
+
+/// For each of `count` pixels spanning `low..high`, the index of the first
+/// edge at or beyond its centre (numpy's `searchsorted`).
+fn pixel_cells(edges: &[f64], low: f64, high: f64, count: usize) -> Vec<usize> {
+    let pixel_edges = linspace(low, high, count + 1);
+    pixel_edges
+        .windows(2)
+        .map(|w| {
+            let centre = f64::midpoint(w[0], w[1]);
+            edges.partition_point(|&edge| edge < centre)
+        })
+        .collect()
+}
+
+/// `data` with its columns and/or rows reversed.
+fn flipped(data: ImageData, x: bool, y: bool) -> ImageData {
+    fn flip<T: Clone>(grid: &Grid<T>, x: bool, y: bool) -> Grid<T> {
+        let (rows, cols) = grid.shape();
+        Grid::from_fn(rows, cols, |r, c| {
+            let r = if y { rows - 1 - r } else { r };
+            let c = if x { cols - 1 - c } else { c };
+            grid[(r, c)].clone()
+        })
+    }
+    if !x && !y {
+        return data;
+    }
+    match data {
+        ImageData::Scalar(field) => {
+            let values = flip(field.values(), x, y);
+            let mask = flip(field.mask(), x, y);
+            ImageData::Scalar(
+                super::ScalarField::masked(values, &mask)
+                    .expect("values and mask flip to one shape"),
+            )
+        }
+        ImageData::Rgb(grid) => ImageData::Rgb(flip(&grid, x, y)),
+        ImageData::Rgba(grid) => ImageData::Rgba(flip(&grid, x, y)),
+        ImageData::RgbF32(grid) => ImageData::RgbF32(flip(&grid, x, y)),
+        ImageData::RgbaF32(grid) => ImageData::RgbaF32(flip(&grid, x, y)),
+        ImageData::RgbBytes(grid) => ImageData::RgbBytes(flip(&grid, x, y)),
+        ImageData::RgbaBytes(grid) => ImageData::RgbaBytes(flip(&grid, x, y)),
+    }
+}
+
+/// matplotlib's `to_rgba(A, bytes=True)`: mapped scalars, or colours
+/// passed through (opaque when without alpha, transparent when NaN) and
+/// scaled to bytes in their own precision.
+pub(crate) fn cell_colors(
+    data: &ImageData,
+    mappable: &mut ScalarMappable,
+) -> Result<Grid<[u8; 4]>, ImageError> {
+    let unit = |pixel: [f64; 4]| {
+        if pixel.iter().any(|v| v.is_nan()) {
+            [0; 4]
+        } else {
+            pixel.map(|v| (v * 255.0) as u8)
+        }
+    };
+    let unit_f32 = |pixel: [f32; 4]| {
+        if pixel.iter().any(|v| v.is_nan()) {
+            [0; 4]
+        } else {
+            pixel.map(|v| (v * 255.0) as u8)
+        }
+    };
+    Ok(match data {
+        ImageData::Scalar(field) => {
+            let (rows, cols) = field.values().shape();
+            let values = field.masked_values();
+            let normalized = normalize_in(mappable, &values, field.kind(), field.precision())?;
+            let cmap = mappable.cmap();
+            let colors = normalized
+                .into_iter()
+                .map(|n| cmap.lookup_bytes(n, None))
+                .collect();
+            Grid::from_vec(rows, cols, colors).expect("one colour per cell")
+        }
+        ImageData::Rgb(grid) => grid.map(|&[r, g, b]| unit([r, g, b, 1.0])),
+        ImageData::Rgba(grid) => grid.map(|&pixel| unit(pixel)),
+        ImageData::RgbF32(grid) => grid.map(|&[r, g, b]| unit_f32([r, g, b, 1.0])),
+        ImageData::RgbaF32(grid) => grid.map(|&pixel| unit_f32(pixel)),
+        ImageData::RgbBytes(grid) => grid.map(|&[r, g, b]| [r, g, b, u8::MAX]),
+        ImageData::RgbaBytes(grid) => grid.clone(),
+    })
+}
+
+impl Artist for PcolorImageArtist {
+    fn base(&self) -> &ArtistBase {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut ArtistBase {
+        &mut self.base
+    }
+
+    fn draw(&self, ctx: &mut DrawContext<'_>) {
+        let magnification = ctx.renderer().image_magnification();
+        let rendered = self.render(ctx, magnification);
+        draw_rendered(ctx, &self.base, rendered);
+    }
+
+    fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
+        grid_extent(&self.base, ctx, &self.x, &self.y)
+    }
+
+    /// The corners of the grid (matplotlib's `_update_image_limits`).
+    fn limit_points(&self, _axes: ArtistId) -> Option<LimitPoints> {
+        grid_limits(&self.x, &self.y)
+    }
+
+    /// matplotlib's `AxesImage.contains` with the grid as extent.
+    fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
+        axes_image_contains(&self.base, ctx, point, || self.window_extent(ctx))
+    }
+
+    /// matplotlib's `PcolorImage.get_cursor_data`: the value of the cell
+    /// under `at`.
+    fn cursor_text(&self, ctx: &LayoutContext<'_>, at: Point) -> Option<String> {
+        let element = grid_cell(&self.base, ctx, at, &self.x, &self.y)?;
+        Some(self.data.cursor_text(element, &self.mappable.borrow()))
+    }
+}
+
+/// A handle to an image with non-uniform cells (matplotlib's
+/// `PcolorImage`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PcolorImage {
+    raw: RawHandle,
+}
+
+impl ArtistHandle for PcolorImage {
+    fn raw(&self) -> &RawHandle {
+        &self.raw
+    }
+}
+
+impl PcolorImage {
+    pub(crate) fn from_raw(raw: RawHandle) -> Self {
+        Self { raw }
+    }
+
+    /// The increasing cell edges `(x, y)`.
+    pub fn edges(&self) -> (Vec<f64>, Vec<f64>) {
+        self.raw
+            .with::<PcolorImageArtist, _>(|image| (image.x.clone(), image.y.clone()))
+    }
+
+    /// Replaces the cell edges and values: one edge more than the columns
+    /// along `x` and than the rows along `y`; decreasing edges flip the
+    /// data. Unset limits of the norm come from new scalar data
+    /// (matplotlib's `PcolorImage.set_data`).
+    ///
+    /// ```
+    /// use pltrs::axes::{MeshCoords, PcolorFast, PcolorfastOptions};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let coords = (MeshCoords::Vector(vec![0.0, 1.0, 3.0]), MeshCoords::Vector(vec![0.0, 2.0]));
+    /// let values = Grid::filled(1, 2, 1.0);
+    /// let PcolorFast::PcolorImage(image) = ax.pcolorfast(Some(coords), values, PcolorfastOptions::default())? else {
+    ///     unreachable!("uneven edges make a pcolor image");
+    /// };
+    /// image.set_data(vec![3.0, 2.0, 0.0], vec![0.0, 1.0, 2.0], Grid::filled(2, 2, 5.0))?;
+    /// assert_eq!(image.edges(), (vec![0.0, 2.0, 3.0], vec![0.0, 1.0, 2.0]));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the edges do not fit the data; then the image is unchanged.
+    pub fn set_data(
+        &self,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        data: impl Into<ImageData>,
+    ) -> Result<&Self, ImageError> {
+        let data = data.into().normalized();
+        let (rows, cols) = data.shape();
+        let edges = (y.len(), x.len());
+        if edges != (rows + 1, cols + 1) {
+            return Err(ImageError::ShapeMismatch {
+                what: "cell edges",
+                expected: (rows + 1, cols + 1),
+                actual: edges,
+            });
+        }
+        let (data, x, y) = increasing(data, x, y);
+        self.raw.with_mut::<PcolorImageArtist, _>(|image| {
+            autoscale_unset(image.mappable.get_mut(), &data);
+            (image.data, image.x, image.y) = (data, x, y);
+        });
+        Ok(self)
+    }
+}
+
+/// The data and edges with the edges increasing: decreasing edges are
+/// reversed and the data flipped along them, as matplotlib does.
+fn increasing(
+    data: ImageData,
+    mut x: Vec<f64>,
+    mut y: Vec<f64>,
+) -> (ImageData, Vec<f64>, Vec<f64>) {
+    let flip_x = x.last() < x.first();
+    let flip_y = y.last() < y.first();
+    if flip_x {
+        x.reverse();
+    }
+    if flip_y {
+        y.reverse();
+    }
+    (flipped(data, flip_x, flip_y), x, y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::colors::{Normalize, colormaps};
+
+    #[test]
+    fn pixels_find_their_cells() {
+        let edges = [0.0, 1.0, 3.0];
+        assert_eq!(pixel_cells(&edges, 0.0, 3.0, 3), vec![1, 2, 2]);
+        assert_eq!(pixel_cells(&edges, -1.0, 4.0, 5), vec![0, 1, 2, 2, 3]);
+    }
+
+    #[test]
+    fn decreasing_edges_flip_the_data() {
+        let data = ImageData::from(Grid::from_vec(1, 2, vec![1.0, 2.0]).unwrap());
+        let mappable = ScalarMappable::new(colormaps::get("gray").unwrap());
+        let image = PcolorImageArtist::new(data, mappable, vec![2.0, 1.0, 0.0], vec![0.0, 1.0]);
+        assert_eq!(image.x, vec![0.0, 1.0, 2.0]);
+        let ImageData::Scalar(field) = &image.data else {
+            unreachable!("still scalar")
+        };
+        assert_eq!(field.values().as_slice(), &[2.0, 1.0]);
+    }
+
+    #[test]
+    fn colours_pass_through_or_map() {
+        let mut gray = ScalarMappable::with_norm(
+            colormaps::get("gray").unwrap(),
+            Box::new(Normalize::new(0.0, 1.0)),
+        );
+        let scalars = ImageData::from(Grid::from_vec(1, 2, vec![0.0, 1.0]).unwrap());
+        assert_eq!(
+            cell_colors(&scalars, &mut gray).unwrap().as_slice(),
+            &[[0, 0, 0, 255], [255, 255, 255, 255]]
+        );
+        let rgb = ImageData::from(Grid::from_vec(1, 1, vec![[1.0, 0.5, f64::NAN]]).unwrap());
+        assert_eq!(cell_colors(&rgb, &mut gray).unwrap().as_slice(), &[[0; 4]]);
+        let bytes = ImageData::from(Grid::from_vec(1, 1, vec![[1_u8, 2, 3]]).unwrap());
+        assert_eq!(
+            cell_colors(&bytes, &mut gray).unwrap().as_slice(),
+            &[[1, 2, 3, 255]]
+        );
+    }
+}

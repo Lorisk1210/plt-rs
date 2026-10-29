@@ -10,7 +10,7 @@ visualisation.
 
 pltrs keeps matplotlib's `Path` class (from matplotlib 3.11.2, under the
 Matplotlib License); the geometry, which matplotlib does in C++ (``_path``)
-and numpy, is plt-rs's: containment, intersections, cleaning, clipping,
+and numpy, is pltrs (Rust)'s: containment, intersections, cleaning, clipping,
 extents and the unit shapes.
 """
 

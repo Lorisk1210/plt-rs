@@ -1,4 +1,4 @@
-"""Gaps in plt-rs's coverage of matplotlib's API, closed: cells added to a
+"""Gaps in pltrs's coverage of matplotlib's API, closed: cells added to a
 table one by one (``Table.add_cell``) and a 3-D z axis of dates
 (``Axes3D.zaxis_date``)."""
 

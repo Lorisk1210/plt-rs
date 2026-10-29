@@ -1,15 +1,15 @@
 //! Lines, markers, meshes and images, and statistics.
 
-use plt::axes::{
+use pltrs::axes::{
     BoxplotOptions, FillBetweenOptions, HexbinOptions, Hist2dOptions, HistPlotOptions,
     ImshowOptions, Mesh, PcolorOptions, StackplotOptions, ViolinplotOptions,
 };
-use plt::colorbar::ColorbarOptions;
-use plt::figure::SaveFormat;
-use plt::image::Interpolation;
-use plt::prelude::*;
-use plt::stats::{AxisBins, BinEstimator, Bins, Histogram2dOptions};
-use plt_spec::rng::SpecRng;
+use pltrs::colorbar::ColorbarOptions;
+use pltrs::figure::SaveFormat;
+use pltrs::image::Interpolation;
+use pltrs::prelude::*;
+use pltrs::stats::{AxisBins, BinEstimator, Bins, Histogram2dOptions};
+use pltrs_spec::rng::SpecRng;
 
 use super::{Build, Workload, random_walk, smooth_field};
 

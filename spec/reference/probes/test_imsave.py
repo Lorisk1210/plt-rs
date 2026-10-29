@@ -1,6 +1,6 @@
 """Writing arrays as image files (``matplotlib.image.imsave``).
 
-Area ``imsave``. JPEG and TIFF go through Pillow, whose output plt-rs
+Area ``imsave``. JPEG and TIFF go through Pillow, whose output pltrs
 reproduces byte for byte (libjpeg-turbo's defaults for JPEG).
 
 Argument conventions

@@ -7,7 +7,7 @@ of days since a default epoch of 1970-01-01 UTC; for example,
 1970-01-01, 06:00 is the floating point number 0.25. The epoch can be changed
 with `set_epoch` or :rc:`date.epoch`.
 
-plt-rs numbers the dates and converts the numbers back (``plt::dates``);
+pltrs (Rust) numbers the dates and converts the numbers back (``pltrs::dates``);
 Python's `datetime` objects and numpy's ``datetime64`` arrays come in and
 out here, with their time zones.
 """

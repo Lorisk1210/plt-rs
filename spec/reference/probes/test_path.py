@@ -2,7 +2,7 @@
 
 Most results come from matplotlib's C++ ``_path`` module (point-in-path,
 intersections, clipping, ``cleanup_path`` = transform/NaN-removal/clip/snap/
-simplify/curve-flattening pipeline, polygon conversion); plt-rs must
+simplify/curve-flattening pipeline, polygon conversion); pltrs must
 reproduce those algorithms exactly, including Agg's ``curve_div`` Bezier
 flattening (approximation_scale 1, angle tolerance 0), Agg ``conv_contour``
 for non-zero ``radius`` and the crossing-number (even-odd) inside test.

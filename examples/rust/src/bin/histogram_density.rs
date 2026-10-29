@@ -3,11 +3,11 @@
 
 use std::f64::consts::PI;
 
-use plt::layout::LayoutEngine;
-use plt::prelude::*;
-use plt::stats::Bins;
-use plt::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
-use plt_examples::Samples;
+use pltrs::layout::LayoutEngine;
+use pltrs::prelude::*;
+use pltrs::stats::Bins;
+use pltrs::text::{AnnotateOptions, ArrowProps, FancyArrowProps};
+use pltrs_examples::Samples;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (mu, sigma) = (3.3, 0.35); // of the logarithm of the time in minutes

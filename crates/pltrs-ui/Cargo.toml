@@ -1,0 +1,20 @@
+[package]
+name = "pltrs-ui"
+description = "A small retained-mode UI engine used for pltrs figure windows"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+pltrs-core.workspace = true
+pltrs-raster.workspace = true
+pltrs-text.workspace = true
+pltrs-platform.workspace = true
+
+[dev-dependencies]
+# The canvas window example saves screenshots as PNG.
+pltrs-codec.workspace = true
+
+[lints]
+workspace = true

@@ -88,9 +88,9 @@ Cases
 -----
 Named after the upstream tests. Adaptations: pyplot's current axes and
 image become the ones named; the int16 images of ``test_colorbar_int``
-hold their values as floats (plt-rs's images are float, so nothing can
+hold their values as floats (pltrs's images are float, so nothing can
 overflow); the parentless ``PatchCollection`` of
-``test_parentless_mappable`` is a bare ``ScalarMappable``, plt-rs's
+``test_parentless_mappable`` is a bare ``ScalarMappable``, pltrs's
 mappable drawn in no axes; ``test_axes_remove`` (a mock) records what
 removing the colorbar's axes does; ``test_offset_text_loc`` records the
 offset text's extent rather than its anchor; the probes record the values
@@ -104,7 +104,7 @@ Covered elsewhere: the image tests (figure groups ``mpl_polar`` and
 ``colorbar_behaviour``); the smoke tests that only draw are figure cases
 of the ``mpl_tests_colorbar`` group. Not ported: the warnings of
 ``test_colorbar_wrong_figure`` and ``test_colorbar_no_warning_rcparams_grid_true``
-(plt-rs does not warn; their figures are cases).
+(pltrs does not warn; their figures are cases).
 """
 
 import matplotlib as mpl

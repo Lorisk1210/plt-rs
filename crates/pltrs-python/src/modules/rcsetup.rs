@@ -41,6 +41,7 @@ enum RcValue {
     Float(f64),
     Text(String),
     Floats(Vec<f64>),
+    Ints(Vec<i64>),
     Texts(Vec<String>),
 }
 
@@ -64,6 +65,8 @@ impl RcValue {
             Self::Floats(numbers.clone())
         } else if let Some(pair) = value.downcast_ref::<[f64; 2]>() {
             Self::Floats(pair.to_vec())
+        } else if let Some(pair) = value.downcast_ref::<[i64; 2]>() {
+            Self::Ints(pair.to_vec())
         } else if let Some(texts) = value.downcast_ref::<Vec<String>>() {
             Self::Texts(texts.clone())
         } else if let Some(number) = value.downcast_ref::<Option<f64>>() {
@@ -93,6 +96,7 @@ impl IntoPy for RcValue {
             Self::Float(number) => number.into_py(py),
             Self::Text(text) => text.into_py(py),
             Self::Floats(numbers) => numbers.into_py(py),
+            Self::Ints(numbers) => numbers.into_py(py),
             Self::Texts(texts) => texts.into_py(py),
         }
     }

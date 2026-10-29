@@ -37,9 +37,6 @@ pub struct LogFormatter {
     linthresh: Option<f64>,
 }
 
-/// The coefficients of ticks that get labels; `None` labels everything.
-type Sublabels = Option<Vec<f64>>;
-
 impl LogFormatter {
     /// A formatter for powers of `base`, configured from matplotlib's
     /// default rcParams.
@@ -125,8 +122,23 @@ impl LogFormatter {
         pprint_val(value, domain)
     }
 
-    /// matplotlib's `set_locs`: which coefficients get labels in `view`.
-    fn sublabels(&self, ctx: &TickContext<'_>) -> Result<Sublabels, TickerError> {
+    /// The coefficients of the ticks that get labels on the axis of `ctx`,
+    /// `None` when every tick does (what matplotlib's `set_locs` keeps as
+    /// `_sublabels`).
+    ///
+    /// ```
+    /// use pltrs::ticker::{AxisInfo, LogFormatter, TickContext, TickerSettings};
+    /// let axis = AxisInfo::with_view(1.0, 1e6);
+    /// let settings = TickerSettings::default();
+    /// let ctx = TickContext::new(&axis, &settings);
+    /// assert_eq!(LogFormatter::default().sublabels(&ctx)?, Some(vec![1.0]));
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the view is not finite.
+    pub fn sublabels(&self, ctx: &TickContext<'_>) -> Result<Option<Vec<f64>>, TickerError> {
         let (subset, all) = self.minor_thresholds;
         if subset.is_infinite() {
             return Ok(None);
@@ -173,6 +185,31 @@ impl LogFormatter {
         } else {
             arange(1.0, b + 1.0, 1.0)?
         }))
+    }
+
+    /// The label of `x` when only the ticks with the coefficients
+    /// `sublabels` get labels (all of them for `None`), as matplotlib's
+    /// `__call__` writes it after a `set_locs` that kept them.
+    ///
+    /// ```
+    /// use pltrs::ticker::{LogFormatter, TickContext};
+    /// let ctx = TickContext::default();
+    /// let f = LogFormatter::default();
+    /// assert_eq!(f.call(2.0, None, &ctx)?, r"$\mathdefault{2\times10^{0}}$");
+    /// assert_eq!(f.call(2.0, Some(&[1.0]), &ctx)?, "");
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `x` is not finite.
+    pub fn call(
+        &self,
+        x: f64,
+        sublabels: Option<&[f64]>,
+        ctx: &TickContext<'_>,
+    ) -> Result<String, TickerError> {
+        self.label(x, sublabels, self.label_only_base, ctx)
     }
 
     /// One label (matplotlib's `__call__`).

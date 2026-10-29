@@ -70,6 +70,12 @@ def _rcParams():
     return rcParams
 
 
+def _mpl():
+    """The package (its colormap registries and version), imported once it
+    exists."""
+    return importlib.import_module(__package__)
+
+
 class _ColorMapping(dict):
     def __init__(self, mapping):
         super().__init__(mapping)
@@ -365,12 +371,14 @@ def _to_rgba_no_colorcycle(c, alpha=None):
     *alpha* is ignored for the color value ``"none"`` (case-insensitive),
     which always maps to ``(0, 0, 0, 0)``.
     """
+    if alpha is not None and not 0 <= alpha <= 1:
+        raise ValueError("'alpha' must be between 0 and 1, inclusive")
+    if c is np.ma.masked:
+        return (0., 0., 0., 0.)
     if isinstance(c, np.ndarray):
         if c.ndim == 2 and c.shape[0] == 1:
             c = c.reshape(-1)
         c = tuple(c)
-    if alpha is not None and not 0 <= alpha <= 1:
-        raise ValueError("'alpha' must be between 0 and 1, inclusive")
     try:
         return _colors.to_rgba(c, alpha)
     except ValueError as err:
@@ -490,6 +498,11 @@ def to_rgba_array(c, alpha=None):
 def _to_rgba_rows(c):
     """The RGBA rows of the colours of *c* (the colour cycle resolved), by
     pltrs (Rust)."""
+    if any(isinstance(cc, tuple) and len(cc) == 2 or cc is np.ma.masked
+           for cc in c):
+        # (color, alpha) pairs and masked entries, which to_rgba resolves
+        # one at a time.
+        return np.array([to_rgba(cc) for cc in c], float)
     colors = [tuple(cc) if isinstance(cc, np.ndarray) else cc for cc in c]
     try:
         return _colors.to_rgba_array(colors, None)
@@ -1355,6 +1368,859 @@ class ListedColormap(Colormap):
         return new_cmap
 
 
+class MultivarColormap:
+    """
+    Class for holding multiple `~matplotlib.colors.Colormap` for use in a
+    `~matplotlib.cm.ScalarMappable` object
+    """
+    def __init__(self, colormaps, combination_mode, name='multivariate colormap'):
+        """
+        Parameters
+        ----------
+        colormaps: list or tuple of `~matplotlib.colors.Colormap` objects
+            The individual colormaps that are combined
+        combination_mode: str, 'sRGB_add' or 'sRGB_sub'
+            Describe how colormaps are combined in sRGB space
+
+            - If 'sRGB_add' -> Mixing produces brighter colors
+              `sRGB = sum(colors)`
+            - If 'sRGB_sub' -> Mixing produces darker colors
+              `sRGB = 1 - sum(1 - colors)`
+        name : str, optional
+            The name of the colormap family.
+        """
+        self.name = name
+
+        if not np.iterable(colormaps) \
+           or len(colormaps) == 1 \
+           or isinstance(colormaps, str):
+            raise ValueError("A MultivarColormap must have more than one colormap.")
+        colormaps = list(colormaps)  # ensure cmaps is a list, i.e. not a tuple
+        for i, cmap in enumerate(colormaps):
+            if isinstance(cmap, str):
+                colormaps[i] = _mpl().colormaps[cmap]
+            elif not isinstance(cmap, Colormap):
+                raise ValueError("colormaps must be a list of objects that subclass"
+                                 " Colormap or a name found in the colormap registry.")
+
+        self._colormaps = colormaps
+        _api.check_in_list(['sRGB_add', 'sRGB_sub'], combination_mode=combination_mode)
+        self._combination_mode = combination_mode
+        self.n_variates = len(colormaps)
+        self._rgba_bad = (0.0, 0.0, 0.0, 0.0)  # If bad, don't paint anything.
+
+    def __call__(self, X, alpha=None, bytes=False, clip=True):
+        r"""
+        Parameters
+        ----------
+        X : tuple (X0, X1, ...) of length equal to the number of colormaps
+            X0, X1 ...:
+            float or int, `~numpy.ndarray` or scalar
+            The data value(s) to convert to RGBA.
+            For floats, *Xi...* should be in the interval ``[0.0, 1.0]`` to
+            return the RGBA values ``X*100`` percent along the Colormap line.
+            For integers, *Xi...*  should be in the interval ``[0, self[i].N)`` to
+            return RGBA values *indexed* from colormap [i] with index ``Xi``, where
+            self[i] is colormap i.
+        alpha : float or array-like or None
+            Alpha must be a scalar between 0 and 1, a sequence of such
+            floats with shape matching *Xi*, or None.
+        bytes : bool, default: False
+            If False (default), the returned RGBA values will be floats in the
+            interval ``[0, 1]`` otherwise they will be `numpy.uint8`\s in the
+            interval ``[0, 255]``.
+        clip : bool, default: True
+            If True, clip output to 0 to 1
+
+        Returns
+        -------
+        Tuple of RGBA values if X[0] is scalar, otherwise an array of
+        RGBA values with a shape of ``X.shape + (4, )``.
+        """
+
+        if len(X) != len(self):
+            raise ValueError(
+                f'For the selected colormap the data must have a first dimension '
+                f'{len(self)}, not {len(X)}')
+        rgba, mask_bad = self[0]._get_rgba_and_mask(X[0], bytes=False)
+        for c, xx in zip(self[1:], X[1:]):
+            sub_rgba, sub_mask_bad = c._get_rgba_and_mask(xx, bytes=False)
+            rgba[..., :3] += sub_rgba[..., :3]  # add colors
+            rgba[..., 3] *= sub_rgba[..., 3]  # multiply alpha
+            mask_bad |= sub_mask_bad
+
+        if self.combination_mode == 'sRGB_sub':
+            rgba[..., :3] -= len(self) - 1
+
+        rgba[mask_bad] = self.get_bad()
+
+        if clip:
+            rgba = np.clip(rgba, 0, 1)
+
+        if alpha is not None:
+            if clip:
+                alpha = np.clip(alpha, 0, 1)
+            if np.shape(alpha) not in [(), np.shape(X[0])]:
+                raise ValueError(
+                    f"alpha is array-like but its shape {np.shape(alpha)} does "
+                    f"not match that of X[0] {np.shape(X[0])}")
+            rgba[..., -1] *= alpha
+
+        if bytes:
+            if not clip:
+                raise ValueError(
+                    "clip cannot be false while bytes is true"
+                    " as uint8 does not support values below 0"
+                    " or above 255.")
+            rgba = (rgba * 255).astype('uint8')
+
+        if not np.iterable(X[0]):
+            rgba = tuple(rgba)
+
+        return rgba
+
+    def copy(self):
+        """Return a copy of the multivarcolormap."""
+        return self.__copy__()
+
+    def __copy__(self):
+        cls = self.__class__
+        cmapobject = cls.__new__(cls)
+        cmapobject.__dict__.update(self.__dict__)
+        cmapobject._colormaps = [cm.copy() for cm in self._colormaps]
+        cmapobject._rgba_bad = np.copy(self._rgba_bad)
+        return cmapobject
+
+    def __eq__(self, other):
+        if not isinstance(other, MultivarColormap):
+            return False
+        if len(self) != len(other):
+            return False
+        for c0, c1 in zip(self, other):
+            if c0 != c1:
+                return False
+        if not all(self._rgba_bad == other._rgba_bad):
+            return False
+        if self.combination_mode != other.combination_mode:
+            return False
+        return True
+
+    def __getitem__(self, item):
+        return self._colormaps[item]
+
+    def __iter__(self):
+        for c in self._colormaps:
+            yield c
+
+    def __len__(self):
+        return len(self._colormaps)
+
+    def __str__(self):
+        return self.name
+
+    def get_bad(self):
+        """Get the color for masked values."""
+        return np.array(self._rgba_bad)
+
+    def resampled(self, lutshape):
+        """
+        Return a new colormap with *lutshape* entries.
+
+        Parameters
+        ----------
+        lutshape : tuple of (`int`, `None`)
+            The tuple must have a length matching the number of variates.
+            For each element in the tuple, if `int`, the corresponding colorbar
+            is resampled, if `None`, the corresponding colorbar is not resampled.
+
+        Returns
+        -------
+        MultivarColormap
+        """
+
+        if not np.iterable(lutshape) or len(lutshape) != len(self):
+            raise ValueError(f"lutshape must be of length {len(self)}")
+        new_cmap = self.copy()
+        for i, s in enumerate(lutshape):
+            if s is not None:
+                new_cmap._colormaps[i] = self[i].resampled(s)
+        return new_cmap
+
+    def with_extremes(self, *, bad=None, under=None, over=None):
+        """
+        Return a copy of the `MultivarColormap` with modified out-of-range attributes.
+
+        The *bad* keyword modifies the copied `MultivarColormap` while *under* and
+        *over* modifies the attributes of the copied component colormaps.
+        Note that *under* and *over* colors are subject to the mixing rules determined
+        by the *combination_mode*.
+
+        Parameters
+        ----------
+        bad: :mpltype:`color`, default: None
+            If Matplotlib color, the bad value is set accordingly in the copy
+
+        under tuple of :mpltype:`color`, default: None
+            If tuple, the `under` value of each component is set with the values
+            from the tuple.
+
+        over tuple of :mpltype:`color`, default: None
+            If tuple, the `over` value of each component is set with the values
+            from the tuple.
+
+        Returns
+        -------
+        MultivarColormap
+            copy of self with attributes set
+
+        """
+        new_cm = self.copy()
+        if bad is not None:
+            new_cm._rgba_bad = to_rgba(bad)
+        if under is not None:
+            if not np.iterable(under) or len(under) != len(new_cm):
+                raise ValueError("*under* must contain a color for each scalar colormap"
+                                 f" i.e. be of length {len(new_cm)}.")
+            else:
+                for c, b in zip(new_cm, under):
+                    # in-place change is ok, since we've just created c as a copy
+                    c._set_extremes(under=b)
+        if over is not None:
+            if not np.iterable(over) or len(over) != len(new_cm):
+                raise ValueError("*over* must contain a color for each scalar colormap"
+                                 f" i.e. be of length {len(new_cm)}.")
+            else:
+                for c, b in zip(new_cm, over):
+                    # in-place change is ok, since we've just created c as a copy
+                    c._set_extremes(over=b)
+        return new_cm
+
+    @property
+    def combination_mode(self):
+        return self._combination_mode
+
+    def _repr_png_(self):
+        """Generate a PNG representation of the Colormap."""
+        X = np.tile(np.linspace(0, 1, _REPR_PNG_SIZE[0]),
+                                (_REPR_PNG_SIZE[1], 1))
+        pixels = np.zeros((_REPR_PNG_SIZE[1]*len(self), _REPR_PNG_SIZE[0], 4),
+                          dtype=np.uint8)
+        for i, c in enumerate(self):
+            pixels[i*_REPR_PNG_SIZE[1]:(i+1)*_REPR_PNG_SIZE[1], :] = c(X, bytes=True)
+        png_bytes = io.BytesIO()
+        title = self.name + ' multivariate colormap'
+        author = f'Matplotlib v{_mpl().__version__}, https://matplotlib.org'
+        pnginfo = PngInfo()
+        pnginfo.add_text('Title', title)
+        pnginfo.add_text('Description', title)
+        pnginfo.add_text('Author', author)
+        pnginfo.add_text('Software', author)
+        Image.fromarray(pixels).save(png_bytes, format='png', pnginfo=pnginfo)
+        return png_bytes.getvalue()
+
+    def _repr_html_(self):
+        """Generate an HTML representation of the MultivarColormap."""
+        return ''.join([c._repr_html_() for c in self._colormaps])
+
+
+class BivarColormap:
+    """
+    Base class for all bivariate to RGBA mappings.
+
+    Designed as a drop-in replacement for Colormap when using a 2D
+    lookup table. To be used with `~matplotlib.cm.ScalarMappable`.
+    """
+
+    def __init__(self, N=256, M=256, shape='square', origin=(0, 0),
+                 name='bivariate colormap'):
+        """
+        Parameters
+        ----------
+        N : int, default: 256
+            The number of RGB quantization levels along the first axis.
+        M : int, default: 256
+            The number of RGB quantization levels along the second axis.
+        shape : {'square', 'circle', 'ignore', 'circleignore'}
+
+            - 'square' each variate is clipped to [0,1] independently
+            - 'circle' the variates are clipped radially to the center
+              of the colormap, and a circular mask is applied when the colormap
+              is displayed
+            - 'ignore' the variates are not clipped, but instead assigned the
+              'outside' color
+            - 'circleignore' a circular mask is applied, but the data is not
+              clipped and instead assigned the 'outside' color
+
+        origin : (float, float), default: (0,0)
+            The relative origin of the colormap. Typically (0, 0), for colormaps
+            that are linear on both axis, and (.5, .5) for circular colormaps.
+            Used when getting 1D colormaps from 2D colormaps.
+        name : str, optional
+            The name of the colormap.
+        """
+
+        self.name = name
+        self.N = int(N)  # ensure that N is always int
+        self.M = int(M)
+        _api.check_in_list(['square', 'circle', 'ignore', 'circleignore'], shape=shape)
+        self._shape = shape
+        self._rgba_bad = (0.0, 0.0, 0.0, 0.0)  # If bad, don't paint anything.
+        self._rgba_outside = (1.0, 0.0, 1.0, 1.0)
+        self._isinit = False
+        self.n_variates = 2
+        self._origin = (float(origin[0]), float(origin[1]))
+        '''#: When this colormap exists on a scalar mappable and colorbar_extend
+        #: is not False, colorbar creation will pick up ``colorbar_extend`` as
+        #: the default value for the ``extend`` keyword in the
+        #: `matplotlib.colorbar.Colorbar` constructor.
+        self.colorbar_extend = False'''
+
+    def __call__(self, X, alpha=None, bytes=False):
+        r"""
+        Parameters
+        ----------
+        X : tuple (X0, X1), X0 and X1: float or int or array-like
+            The data value(s) to convert to RGBA.
+
+            - For floats, *X* should be in the interval ``[0.0, 1.0]`` to
+              return the RGBA values ``X*100`` percent along the Colormap.
+            - For integers, *X* should be in the interval ``[0, Colormap.N)`` to
+              return RGBA values *indexed* from the Colormap with index ``X``.
+
+        alpha : float or array-like or None, default: None
+            Alpha must be a scalar between 0 and 1, a sequence of such
+            floats with shape matching X0, or None.
+        bytes : bool, default: False
+            If False (default), the returned RGBA values will be floats in the
+            interval ``[0, 1]`` otherwise they will be `numpy.uint8`\s in the
+            interval ``[0, 255]``.
+
+        Returns
+        -------
+        Tuple of RGBA values if X is scalar, otherwise an array of
+        RGBA values with a shape of ``X.shape + (4, )``.
+        """
+
+        if len(X) != 2:
+            raise ValueError(
+                f'For a `BivarColormap` the data must have a first dimension '
+                f'2, not {len(X)}')
+
+        if not self._isinit:
+            self._init()
+
+        X0 = np.ma.array(X[0], copy=True)
+        X1 = np.ma.array(X[1], copy=True)
+        # clip to shape of colormap, circle square, etc.
+        self._clip((X0, X1))
+
+        # Native byteorder is faster.
+        if not X0.dtype.isnative:
+            X0 = X0.byteswap().view(X0.dtype.newbyteorder())
+        if not X1.dtype.isnative:
+            X1 = X1.byteswap().view(X1.dtype.newbyteorder())
+
+        if X0.dtype.kind == "f":
+            X0 *= self.N
+            # xa == 1 (== N after multiplication) is not out of range.
+            X0[X0 == self.N] = self.N - 1
+
+        if X1.dtype.kind == "f":
+            X1 *= self.M
+            # xa == 1 (== N after multiplication) is not out of range.
+            X1[X1 == self.M] = self.M - 1
+
+        # Pre-compute the masks before casting to int (which can truncate)
+        mask_outside = (X0 < 0) | (X1 < 0) | (X0 >= self.N) | (X1 >= self.M)
+        # If input was masked, get the bad mask from it; else mask out nans.
+        mask_bad_0 = X0.mask if np.ma.is_masked(X0) else np.isnan(X0)
+        mask_bad_1 = X1.mask if np.ma.is_masked(X1) else np.isnan(X1)
+        mask_bad = mask_bad_0 | mask_bad_1
+
+        with np.errstate(invalid="ignore"):
+            # We need this cast for unsigned ints as well as floats
+            X0 = X0.astype(int)
+            X1 = X1.astype(int)
+
+        # Set masked values to zero
+        # The corresponding rgb values will be replaced later
+        for X_part in [X0, X1]:
+            X_part[mask_outside] = 0
+            X_part[mask_bad] = 0
+
+        rgba = self._lut[X0, X1]
+        if np.isscalar(X[0]):
+            rgba = np.copy(rgba)
+        rgba[mask_outside] = self._rgba_outside
+        rgba[mask_bad] = self._rgba_bad
+        if bytes:
+            rgba = (rgba * 255).astype(np.uint8)
+        if alpha is not None:
+            alpha = np.clip(alpha, 0, 1)
+            if bytes:
+                alpha *= 255  # Will be cast to uint8 upon assignment.
+            if np.shape(alpha) not in [(), np.shape(X0)]:
+                raise ValueError(
+                    f"alpha is array-like but its shape {np.shape(alpha)} does "
+                    f"not match that of X[0] {np.shape(X0)}")
+            rgba[..., -1] = alpha
+            # If the "bad" color is all zeros, then ignore alpha input.
+            if (np.array(self._rgba_bad) == 0).all():
+                rgba[mask_bad] = (0, 0, 0, 0)
+
+        if not np.iterable(X[0]):
+            rgba = tuple(rgba)
+        return rgba
+
+    @property
+    def lut(self):
+        """
+        For external access to the lut, i.e. for displaying the cmap.
+        For circular colormaps this returns a lut with a circular mask.
+
+        Internal functions (such as to_rgb()) should use _lut
+        which stores the lut without a circular mask
+        A lut without the circular mask is needed in to_rgb() because the
+        conversion from floats to ints results in some some pixel-requests
+        just outside of the circular mask
+
+        """
+        if not self._isinit:
+            self._init()
+        lut = np.copy(self._lut)
+        if self.shape == 'circle' or self.shape == 'circleignore':
+            n = np.linspace(-1, 1, self.N)
+            m = np.linspace(-1, 1, self.M)
+            radii_sqr = (n**2)[:, np.newaxis] + (m**2)[np.newaxis, :]
+            mask_outside = radii_sqr > 1
+            lut[mask_outside, 3] = 0
+        return lut
+
+    def __copy__(self):
+        cls = self.__class__
+        cmapobject = cls.__new__(cls)
+        cmapobject.__dict__.update(self.__dict__)
+
+        cmapobject._rgba_outside = np.copy(self._rgba_outside)
+        cmapobject._rgba_bad = np.copy(self._rgba_bad)
+        cmapobject._shape = self.shape
+        if self._isinit:
+            cmapobject._lut = np.copy(self._lut)
+        return cmapobject
+
+    def __eq__(self, other):
+        if not isinstance(other, BivarColormap):
+            return False
+        # To compare lookup tables the Colormaps have to be initialized
+        if not self._isinit:
+            self._init()
+        if not other._isinit:
+            other._init()
+        if not np.array_equal(self._lut, other._lut):
+            return False
+        if not np.array_equal(self._rgba_bad, other._rgba_bad):
+            return False
+        if not np.array_equal(self._rgba_outside, other._rgba_outside):
+            return False
+        if self.shape != other.shape:
+            return False
+        return True
+
+    def get_bad(self):
+        """Get the color for masked values."""
+        return self._rgba_bad
+
+    def get_outside(self):
+        """Get the color for out-of-range values."""
+        return self._rgba_outside
+
+    def resampled(self, lutshape, transposed=False):
+        """
+        Return a new colormap with *lutshape* entries.
+
+        Note that this function does not move the origin.
+
+        Parameters
+        ----------
+        lutshape : tuple of ints or None
+            The tuple must be of length 2, and each entry is either an int or None.
+
+            - If an int, the corresponding axis is resampled.
+            - If negative the corresponding axis is resampled in reverse
+            - If -1, the axis is inverted
+            - If 1 or None, the corresponding axis is not resampled.
+
+        transposed : bool, default: False
+            if True, the axes are swapped after resampling
+
+        Returns
+        -------
+        BivarColormap
+        """
+
+        if not np.iterable(lutshape) or len(lutshape) != 2:
+            raise ValueError("lutshape must be of length 2")
+        lutshape = [lutshape[0], lutshape[1]]
+        if lutshape[0] is None or lutshape[0] == 1:
+            lutshape[0] = self.N
+        if lutshape[1] is None or lutshape[1] == 1:
+            lutshape[1] = self.M
+
+        inverted = [False, False]
+        if lutshape[0] < 0:
+            inverted[0] = True
+            lutshape[0] = -lutshape[0]
+            if lutshape[0] == 1:
+                lutshape[0] = self.N
+        if lutshape[1] < 0:
+            inverted[1] = True
+            lutshape[1] = -lutshape[1]
+            if lutshape[1] == 1:
+                lutshape[1] = self.M
+        x_0, x_1 = np.mgrid[0:1:(lutshape[0] * 1j), 0:1:(lutshape[1] * 1j)]
+        if inverted[0]:
+            x_0 = x_0[::-1, :]
+        if inverted[1]:
+            x_1 = x_1[:, ::-1]
+
+        # we need to use shape = 'square' while resampling the colormap.
+        # if the colormap has shape = 'circle' we would otherwise get *outside* in the
+        # resampled colormap
+        shape_memory = self._shape
+        self._shape = 'square'
+        if transposed:
+            new_lut = self((x_1, x_0))
+            new_cmap = BivarColormapFromImage(new_lut, name=self.name,
+                                              shape=shape_memory,
+                                              origin=self.origin[::-1])
+        else:
+            new_lut = self((x_0, x_1))
+            new_cmap = BivarColormapFromImage(new_lut, name=self.name,
+                                              shape=shape_memory,
+                                              origin=self.origin)
+        self._shape = shape_memory
+
+        new_cmap._rgba_bad = self._rgba_bad
+        new_cmap._rgba_outside = self._rgba_outside
+        return new_cmap
+
+    def reversed(self, axis_0=True, axis_1=True):
+        """
+        Reverses both or one of the axis.
+        """
+        r_0 = -1 if axis_0 else 1
+        r_1 = -1 if axis_1 else 1
+        return self.resampled((r_0, r_1))
+
+    def transposed(self):
+        """
+        Transposes the colormap by swapping the order of the axis
+        """
+        return self.resampled((None, None), transposed=True)
+
+    def with_extremes(self, *, bad=None, outside=None, shape=None, origin=None):
+        """
+        Return a copy of the `BivarColormap` with modified attributes.
+
+        Note that the *outside* color is only relevant if `shape` = 'ignore'
+        or 'circleignore'.
+
+        Parameters
+        ----------
+        bad : :mpltype:`color`, optional
+            If given, the *bad* value is set accordingly in the copy.
+
+        outside : :mpltype:`color`, optional
+            If given and shape is 'ignore' or 'circleignore', values
+            *outside* the colormap are colored accordingly in the copy.
+
+        shape : {'square', 'circle', 'ignore', 'circleignore'}
+
+            - If 'square' each variate is clipped to [0,1] independently
+            - If 'circle' the variates are clipped radially to the center
+              of the colormap, and a circular mask is applied when the colormap
+              is displayed
+            - If 'ignore' the variates are not clipped, but instead assigned the
+              *outside* color
+            - If 'circleignore' a circular mask is applied, but the data is not
+              clipped and instead assigned the *outside* color
+
+        origin : (float, float)
+            The relative origin of the colormap. Typically (0, 0), for colormaps
+            that are linear on both axis, and (.5, .5) for circular colormaps.
+            Used when getting 1D colormaps from 2D colormaps.
+
+        Returns
+        -------
+        BivarColormap
+            copy of self with attributes set
+        """
+        new_cm = self.copy()
+        if bad is not None:
+            new_cm._rgba_bad = to_rgba(bad)
+        if outside is not None:
+            new_cm._rgba_outside = to_rgba(outside)
+        if shape is not None:
+            _api.check_in_list(['square', 'circle', 'ignore', 'circleignore'],
+                               shape=shape)
+            new_cm._shape = shape
+        if origin is not None:
+            new_cm._origin = (float(origin[0]), float(origin[1]))
+
+        return new_cm
+
+    def _init(self):
+        """Generate the lookup table, ``self._lut``."""
+        raise NotImplementedError("Abstract class only")
+
+    @property
+    def shape(self):
+        return self._shape
+
+    @property
+    def origin(self):
+        return self._origin
+
+    def _clip(self, X):
+        """
+        For internal use when applying a BivarColormap to data.
+        i.e. cm.ScalarMappable().to_rgba()
+        Clips X[0] and X[1] according to 'self.shape'.
+        X is modified in-place.
+
+        Parameters
+        ----------
+        X: np.array
+            array of floats or ints to be clipped
+        shape : {'square', 'circle', 'ignore', 'circleignore'}
+
+            - If 'square' each variate is clipped to [0,1] independently
+            - If 'circle' the variates are clipped radially to the center
+              of the colormap.
+              It is assumed that a circular mask is applied when the colormap
+              is displayed
+            - If 'ignore' the variates are not clipped, but instead assigned the
+              'outside' color
+            - If 'circleignore' a circular mask is applied, but the data is not clipped
+              and instead assigned the 'outside' color
+
+        """
+        if self.shape == 'square':
+            for X_part, mx in zip(X, (self.N, self.M)):
+                X_part[X_part < 0] = 0
+                if X_part.dtype.kind == "f":
+                    X_part[X_part > 1] = 1
+                else:
+                    X_part[X_part >= mx] = mx - 1
+
+        elif self.shape == 'ignore':
+            for X_part, mx in zip(X, (self.N, self.M)):
+                X_part[X_part < 0] = -1
+                if X_part.dtype.kind == "f":
+                    X_part[X_part > 1] = -1
+                else:
+                    X_part[X_part >= mx] = -1
+
+        elif self.shape == 'circle' or self.shape == 'circleignore':
+            for X_part in X:
+                if X_part.dtype.kind != "f":
+                    raise NotImplementedError(
+                        "Circular bivariate colormaps are only"
+                        " implemented for use with with floats")
+            radii_sqr = (X[0] - 0.5)**2 + (X[1] - 0.5)**2
+            mask_outside = radii_sqr > 0.25
+            if self.shape == 'circle':
+                overextend = 2 * np.sqrt(radii_sqr[mask_outside])
+                X[0][mask_outside] = (X[0][mask_outside] - 0.5) / overextend + 0.5
+                X[1][mask_outside] = (X[1][mask_outside] - 0.5) / overextend + 0.5
+            else:
+                X[0][mask_outside] = -1
+                X[1][mask_outside] = -1
+
+    def __getitem__(self, item):
+        """Creates and returns a colorbar along the selected axis"""
+        if not self._isinit:
+            self._init()
+        extremes = (
+            dict(bad=self._rgba_bad, over=self._rgba_outside, under=self._rgba_outside)
+            if self.shape in ['ignore', 'circleignore']
+            else dict(bad=self._rgba_bad)
+        )
+        if item == 0:
+            origin_1_as_int = int(self._origin[1]*self.M)
+            if origin_1_as_int > self.M-1:
+                origin_1_as_int = self.M-1
+            one_d_lut = self._lut[:, origin_1_as_int]
+            new_cmap = ListedColormap(one_d_lut, name=f'{self.name}_0', **extremes)
+
+        elif item == 1:
+            origin_0_as_int = int(self._origin[0]*self.N)
+            if origin_0_as_int > self.N-1:
+                origin_0_as_int = self.N-1
+            one_d_lut = self._lut[origin_0_as_int, :]
+            new_cmap = ListedColormap(one_d_lut, name=f'{self.name}_1', **extremes)
+        else:
+            raise KeyError(f"only 0 or 1 are"
+                           f" valid keys for BivarColormap, not {item!r}")
+        return new_cmap
+
+    def _repr_png_(self):
+        """Generate a PNG representation of the BivarColormap."""
+        if not self._isinit:
+            self._init()
+        pixels = self.lut
+        if pixels.shape[0] < _BIVAR_REPR_PNG_SIZE:
+            pixels = np.repeat(pixels,
+                               repeats=_BIVAR_REPR_PNG_SIZE//pixels.shape[0],
+                               axis=0)[:256, :]
+        if pixels.shape[1] < _BIVAR_REPR_PNG_SIZE:
+            pixels = np.repeat(pixels,
+                               repeats=_BIVAR_REPR_PNG_SIZE//pixels.shape[1],
+                               axis=1)[:, :256]
+        pixels = (pixels[::-1, :, :] * 255).astype(np.uint8)
+        png_bytes = io.BytesIO()
+        title = self.name + ' BivarColormap'
+        author = f'Matplotlib v{_mpl().__version__}, https://matplotlib.org'
+        pnginfo = PngInfo()
+        pnginfo.add_text('Title', title)
+        pnginfo.add_text('Description', title)
+        pnginfo.add_text('Author', author)
+        pnginfo.add_text('Software', author)
+        Image.fromarray(pixels).save(png_bytes, format='png', pnginfo=pnginfo)
+        return png_bytes.getvalue()
+
+    def _repr_html_(self):
+        """Generate an HTML representation of the Colormap."""
+        png_bytes = self._repr_png_()
+        png_base64 = base64.b64encode(png_bytes).decode('ascii')
+        def color_block(color):
+            hex_color = to_hex(color, keep_alpha=True)
+            return (f'<div title="{hex_color}" '
+                    'style="display: inline-block; '
+                    'width: 1em; height: 1em; '
+                    'margin: 0; '
+                    'vertical-align: middle; '
+                    'border: 1px solid #555; '
+                    f'background-color: {hex_color};"></div>')
+
+        return ('<div style="vertical-align: middle;">'
+                f'<strong>{self.name}</strong> '
+                '</div>'
+                '<div class="cmap"><img '
+                f'alt="{self.name} BivarColormap" '
+                f'title="{self.name}" '
+                'style="border: 1px solid #555;" '
+                f'src="data:image/png;base64,{png_base64}"></div>'
+                '<div style="vertical-align: middle; '
+                f'max-width: {_BIVAR_REPR_PNG_SIZE+2}px; '
+                'display: flex; justify-content: space-between;">'
+                '<div style="float: left;">'
+                f'{color_block(self.get_outside())} outside'
+                '</div>'
+                '<div style="float: right;">'
+                f'bad {color_block(self.get_bad())}'
+                '</div></div>')
+
+    def copy(self):
+        """Return a copy of the colormap."""
+        return self.__copy__()
+
+
+class SegmentedBivarColormap(BivarColormap):
+    """
+    BivarColormap object generated by supersampling a regular grid.
+
+    Parameters
+    ----------
+    patch : np.array
+        Patch is required to have a shape (k, l, 3), and will get supersampled
+        to a lut of shape (N, N, 4).
+    N : int
+        The number of RGB quantization levels along each axis.
+    shape : {'square', 'circle', 'ignore', 'circleignore'}
+
+        - If 'square' each variate is clipped to [0,1] independently
+        - If 'circle' the variates are clipped radially to the center
+          of the colormap, and a circular mask is applied when the colormap
+          is displayed
+        - If 'ignore' the variates are not clipped, but instead assigned the
+          'outside' color
+        - If 'circleignore' a circular mask is applied, but the data is not clipped
+
+    origin : (float, float)
+        The relative origin of the colormap. Typically (0, 0), for colormaps
+        that are linear on both axis, and (.5, .5) for circular colormaps.
+        Used when getting 1D colormaps from 2D colormaps.
+
+    name : str, optional
+        The name of the colormap.
+    """
+
+    def __init__(self, patch, N=256, shape='square', origin=(0, 0),
+                 name='segmented bivariate colormap'):
+        _api.check_shape((None, None, 3), patch=patch)
+        self.patch = patch
+        super().__init__(N, N, shape, origin, name=name)
+
+    def _init(self):
+        # pltrs (Rust) interpolates the patch bilinearly.
+        self._lut = _colors.segmented_bivar_lut(
+            np.asarray(self.patch, dtype=float), int(self.N))
+        self._isinit = True
+
+
+class BivarColormapFromImage(BivarColormap):
+    """
+    BivarColormap object generated by supersampling a regular grid.
+
+    Parameters
+    ----------
+    lut : nparray of shape (N, M, 3) or (N, M, 4)
+        The look-up-table
+    shape: {'square', 'circle', 'ignore', 'circleignore'}
+
+        - If 'square' each variate is clipped to [0,1] independently
+        - If 'circle' the variates are clipped radially to the center
+          of the colormap, and a circular mask is applied when the colormap
+          is displayed
+        - If 'ignore' the variates are not clipped, but instead assigned the
+          'outside' color
+        - If 'circleignore' a circular mask is applied, but the data is not clipped
+
+    origin: (float, float)
+        The relative origin of the colormap. Typically (0, 0), for colormaps
+        that are linear on both axis, and (.5, .5) for circular colormaps.
+        Used when getting 1D colormaps from 2D colormaps.
+    name : str, optional
+        The name of the colormap.
+
+    """
+
+    def __init__(self, lut, shape='square', origin=(0, 0), name='from image'):
+        # We can allow for a PIL.Image as input in the following way, but importing
+        # matplotlib.image.pil_to_array() results in a circular import
+        # For now, this function only accepts numpy arrays.
+        # i.e.:
+        # if isinstance(Image, lut):
+        #    lut = image.pil_to_array(lut)
+        lut = np.array(lut, copy=True)
+        if lut.ndim != 3 or lut.shape[2] not in (3, 4):
+            raise ValueError("The lut must be an array of shape (n, m, 3) or (n, m, 4)",
+                             " or a PIL.image encoded as RGB or RGBA")
+
+        if lut.dtype == np.uint8:
+            lut = lut.astype(np.float32)/255
+        if lut.shape[2] == 3:
+            new_lut = np.empty((lut.shape[0], lut.shape[1], 4), dtype=lut.dtype)
+            new_lut[:, :, :3] = lut
+            new_lut[:, :, 3] = 1.
+            lut = new_lut
+        self._lut = lut
+        super().__init__(lut.shape[0], lut.shape[1], shape, origin, name=name)
+
+    def _init(self):
+        self._isinit = True
+
 class Norm(ABC):
     """
     Abstract base class for normalizations.
@@ -1458,9 +2324,9 @@ class Normalize(Norm):
 
         x = [-2, -1, 0, 1, 2]
 
-        norm = mpl.colors.Normalize(vmin=-1, vmax=1, clip=False)
+        norm = Normalize(vmin=-1, vmax=1, clip=False)
         norm(x)  # [-0.5, 0., 0.5, 1., 1.5]
-        norm = mpl.colors.Normalize(vmin=-1, vmax=1, clip=True)
+        norm = Normalize(vmin=-1, vmax=1, clip=True)
         norm(x)  # [0., 0., 0.5, 1., 1.]
 
     See Also
@@ -2395,6 +3261,300 @@ class NoNorm(Normalize):
         return value
 
 
+class MultiNorm(Norm):
+    """
+    A class which contains multiple scalar norms.
+    """
+
+    def __init__(self, norms, vmin=None, vmax=None, clip=None):
+        """
+        Parameters
+        ----------
+        norms : list of (str or `Normalize`)
+            The constituent norms. The list must have a minimum length of 1.
+        vmin, vmax : None or list of (float or None)
+            Limits of the constituent norms.
+            If a list, one value is assigned to each of the constituent
+            norms.
+            If None, the limits of the constituent norms
+            are not changed.
+        clip : None or list of bools, default: None
+            Determines the behavior for mapping values outside the range
+            ``[vmin, vmax]`` for the constituent norms.
+            If a list, each value is assigned to each of the constituent
+            norms.
+            If None, the behaviour of the constituent norms is not changed.
+        """
+        if cbook.is_scalar_or_string(norms):
+            raise ValueError(
+                    "MultiNorm must be assigned an iterable of norms, where each "
+                    f"norm is of type `str`, or `Normalize`, not {type(norms)}")
+
+        if len(norms) < 1:
+            raise ValueError("MultiNorm must be assigned at least one norm")
+
+        def resolve(norm):
+            if isinstance(norm, str):
+                scale_cls = _api.getitem_checked(scale._scale_mapping, norm=norm)
+                colorizer = importlib.import_module(".colorizer", __package__)
+                return colorizer._auto_norm_from_scale(scale_cls)()
+            elif isinstance(norm, Normalize):
+                return norm
+            else:
+                raise ValueError(
+                    "Each norm assigned to MultiNorm must be "
+                    f"of type `str`, or `Normalize`, not {type(norm)}")
+
+        self._norms = tuple(resolve(norm) for norm in norms)
+
+        self.callbacks = cbook.CallbackRegistry(signals=["changed"])
+
+        self.vmin = vmin
+        self.vmax = vmax
+        self.clip = clip
+
+        for n in self._norms:
+            n.callbacks.connect('changed', self._changed)
+
+    @property
+    def n_components(self):
+        """Number of norms held by this `MultiNorm`."""
+        return len(self._norms)
+
+    @property
+    def norms(self):
+        """The individual norms held by this `MultiNorm`."""
+        return self._norms
+
+    @property
+    def vmin(self):
+        """The lower limit of each constituent norm."""
+        return tuple(n.vmin for n in self._norms)
+
+    @vmin.setter
+    def vmin(self, values):
+        if values is None:
+            return
+        if not np.iterable(values) or len(values) != self.n_components:
+            raise ValueError("*vmin* must have one component for each norm. "
+                             f"Expected an iterable of length {self.n_components}, "
+                             f"but got {values!r}")
+        with self.callbacks.blocked():
+            for norm, v in zip(self.norms, values):
+                norm.vmin = v
+        self._changed()
+
+    @property
+    def vmax(self):
+        """The upper limit of each constituent norm."""
+        return tuple(n.vmax for n in self._norms)
+
+    @vmax.setter
+    def vmax(self, values):
+        if values is None:
+            return
+        if not np.iterable(values) or len(values) != self.n_components:
+            raise ValueError("*vmax* must have one component for each norm. "
+                             f"Expected an iterable of length {self.n_components}, "
+                             f"but got {values!r}")
+        with self.callbacks.blocked():
+            for norm, v in zip(self.norms, values):
+                norm.vmax = v
+        self._changed()
+
+    @property
+    def clip(self):
+        """The clip behaviour of each constituent norm."""
+        return tuple(n.clip for n in self._norms)
+
+    @clip.setter
+    def clip(self, values):
+        if values is None:
+            return
+        if not np.iterable(values) or len(values) != self.n_components:
+            raise ValueError("*clip* must have one component for each norm. "
+                             f"Expected an iterable of length {self.n_components}, "
+                             f"but got {values!r}")
+        with self.callbacks.blocked():
+            for norm, v in zip(self.norms, values):
+                norm.clip = v
+        self._changed()
+
+    def _changed(self):
+        """
+        Call this whenever the norm is changed to notify all the
+        callback listeners to the 'changed' signal.
+        """
+        self.callbacks.process('changed')
+
+    def __call__(self, values, clip=None):
+        """
+        Normalize the data and return the normalized data.
+
+        Each component of the input is normalized via the constituent norm.
+
+        Parameters
+        ----------
+        values : array-like
+            The input data, as an iterable or a structured numpy array.
+
+            - If iterable, must be of length `n_components`. Each element can be a
+              scalar or array-like and is normalized through the corresponding norm.
+            - If structured array, must have `n_components` fields. Each field
+              is normalized through the corresponding norm.
+
+        clip : list of bools or None, optional
+            Determines the behavior for mapping values outside the range
+            ``[vmin, vmax]``. See the description of the parameter *clip* in
+            `.Normalize`.
+            If ``None``, defaults to ``self.clip`` (which defaults to
+            ``False``).
+
+        Returns
+        -------
+        tuple
+            Normalized input values
+
+        Notes
+        -----
+        If not already initialized, ``self.vmin`` and ``self.vmax`` are
+        initialized using ``self.autoscale_None(values)``.
+        """
+        if clip is None:
+            clip = self.clip
+        if not np.iterable(clip) or len(clip) != self.n_components:
+            raise ValueError("*clip* must have one component for each norm. "
+                             f"Expected an iterable of length {self.n_components}, "
+                             f"but got {clip!r}")
+
+        values = self._iterable_components_in_data(values, self.n_components)
+        result = tuple(n(v, clip=c) for n, v, c in zip(self.norms, values, clip))
+        return result
+
+    def inverse(self, values):
+        """
+        Map the normalized values (i.e., index in the colormap) back to data values.
+
+        Parameters
+        ----------
+        values : array-like
+            The input data, as an iterable or a structured numpy array.
+
+            - If iterable, must be of length `n_components`. Each element can be a
+              scalar or array-like and is mapped through the corresponding norm.
+            - If structured array, must have `n_components` fields. Each field
+              is mapped through the corresponding norm.
+
+        """
+        values = self._iterable_components_in_data(values, self.n_components)
+        result = tuple(n.inverse(v) for n, v in zip(self.norms, values))
+        return result
+
+    def autoscale(self, A):
+        """
+        For each constituent norm, set *vmin*, *vmax* to min, max of the corresponding
+        component in *A*.
+
+        Parameters
+        ----------
+        A : array-like
+            The input data, as an iterable or a structured numpy array.
+
+            - If iterable, must be of length `n_components`. Each element
+              is used for the limits of one constituent norm.
+            - If structured array, must have `n_components` fields. Each field
+              is used for the limits of one constituent norm.
+        """
+        with self.callbacks.blocked():
+            A = self._iterable_components_in_data(A, self.n_components)
+            for n, a in zip(self.norms, A):
+                n.autoscale(a)
+        self._changed()
+
+    def autoscale_None(self, A):
+        """
+        If *vmin* or *vmax* are not set on any constituent norm,
+        use the min/max of the corresponding component in *A* to set them.
+
+        Parameters
+        ----------
+        A : array-like
+            The input data, as an iterable or a structured numpy array.
+
+            - If iterable, must be of length `n_components`. Each element
+              is used for the limits of one constituent norm.
+            - If structured array, must have `n_components` fields. Each field
+              is used for the limits of one constituent norm.
+        """
+        with self.callbacks.blocked():
+            A = self._iterable_components_in_data(A, self.n_components)
+            for n, a in zip(self.norms, A):
+                n.autoscale_None(a)
+        self._changed()
+
+    def scaled(self):
+        """Return whether both *vmin* and *vmax* are set on all constituent norms."""
+        return all(n.scaled() for n in self.norms)
+
+    @staticmethod
+    def _iterable_components_in_data(data, n_components):
+        """
+        Provides an iterable over the components contained in the data.
+
+        An input array with `n_components` fields is returned as a tuple of length n
+        referencing slices of the original array.
+
+        Parameters
+        ----------
+        data : array-like
+            The input data, as an iterable or a structured numpy array.
+
+            - If iterable, must be of length `n_components`
+            - If structured array, must have `n_components` fields.
+
+        Returns
+        -------
+        tuple of np.ndarray
+
+        """
+        if isinstance(data, np.ndarray) and data.dtype.fields is not None:
+            # structured array
+            if len(data.dtype.fields) != n_components:
+                raise ValueError(
+                    "Structured array inputs to MultiNorm must have the same "
+                    "number of fields as components in the MultiNorm. Expected "
+                    f"{n_components}, but got {len(data.dtype.fields)} fields"
+                    )
+            else:
+                return tuple(data[field] for field in data.dtype.names)
+        try:
+            n_elements = len(data)
+        except TypeError:
+            raise ValueError("MultiNorm expects a sequence with one element per "
+                             f"component as input, but got {data!r} instead")
+        if n_elements != n_components:
+            if isinstance(data, np.ndarray) and data.shape[-1] == n_components:
+                if len(data.shape) == 2:
+                    raise ValueError(
+                        f"MultiNorm expects a sequence with one element per component. "
+                        "You can use `data_transposed = data.T` "
+                        "to convert the input data of shape "
+                        f"{data.shape} to a compatible shape {data.shape[::-1]}")
+                else:
+                    raise ValueError(
+                        f"MultiNorm expects a sequence with one element per component. "
+                        "You can use `data_as_list = [data[..., i] for i in "
+                        "range(data.shape[-1])]` to convert the input data of shape "
+                        f" {data.shape} to a compatible list")
+
+            raise ValueError(
+                "MultiNorm expects a sequence with one element per component. "
+                f"This MultiNorm has {n_components} components, but got a sequence "
+                f"with {n_elements} elements"
+                )
+
+        return tuple(data[i] for i in range(n_elements))
+
 def rgb_to_hsv(arr):
     """
     Convert an array of float RGB values (in the range [0, 1]) to HSV values.
@@ -2448,6 +3608,445 @@ def hsv_to_rgb(hsv):
     out = _colors.hsv_to_rgb(np.asarray(hsv, float).reshape(-1, 3))
     return out.reshape(in_shape).astype(hsv.dtype, copy=False)
 
+
+def _vector_magnitude(arr):
+    # things that don't work here:
+    #  * np.linalg.norm: drops mask from ma.array
+    #  * np.sum: drops mask from ma.array unless entire vector is masked
+    sum_sq = 0
+    for i in range(arr.shape[-1]):
+        sum_sq += arr[..., i, np.newaxis] ** 2
+    return np.sqrt(sum_sq)
+
+
+class LightSource:
+    """
+    Create a light source coming from the specified azimuth and elevation.
+    Angles are in degrees, with the azimuth measured
+    clockwise from north and elevation up from the zero plane of the surface.
+
+    `shade` is used to produce "shaded" RGB values for a data array.
+    `shade_rgb` can be used to combine an RGB image with an elevation map.
+    `hillshade` produces an illumination map of a surface.
+    """
+
+    def __init__(self, azdeg=315, altdeg=45, hsv_min_val=0, hsv_max_val=1,
+                 hsv_min_sat=1, hsv_max_sat=0):
+        """
+        Specify the azimuth (measured clockwise from south) and altitude
+        (measured up from the plane of the surface) of the light source
+        in degrees.
+
+        Parameters
+        ----------
+        azdeg : float, default: 315 degrees (from the northwest)
+            The azimuth (0-360, degrees clockwise from North) of the light
+            source.
+        altdeg : float, default: 45 degrees
+            The altitude (0-90, degrees up from horizontal) of the light
+            source.
+        hsv_min_val : number, default: 0
+            The minimum value ("v" in "hsv") that the *intensity* map can shift the
+            output image to.
+        hsv_max_val : number, default: 1
+            The maximum value ("v" in "hsv") that the *intensity* map can shift the
+            output image to.
+        hsv_min_sat : number, default: 1
+            The minimum saturation value that the *intensity* map can shift the output
+            image to.
+        hsv_max_sat : number, default: 0
+            The maximum saturation value that the *intensity* map can shift the output
+            image to.
+
+        Notes
+        -----
+        For backwards compatibility, the parameters *hsv_min_val*,
+        *hsv_max_val*, *hsv_min_sat*, and *hsv_max_sat* may be supplied at
+        initialization as well.  However, these parameters will only be used if
+        "blend_mode='hsv'" is passed into `shade` or `shade_rgb`.
+        See the documentation for `blend_hsv` for more details.
+        """
+        self.azdeg = azdeg
+        self.altdeg = altdeg
+        self.hsv_min_val = hsv_min_val
+        self.hsv_max_val = hsv_max_val
+        self.hsv_min_sat = hsv_min_sat
+        self.hsv_max_sat = hsv_max_sat
+
+    @property
+    def direction(self):
+        """The unit vector direction towards the light source."""
+        # Azimuth is in degrees clockwise from North. Convert to radians
+        # counterclockwise from East (mathematical notation).
+        az = np.radians(90 - self.azdeg)
+        alt = np.radians(self.altdeg)
+        return np.array([
+            np.cos(az) * np.cos(alt),
+            np.sin(az) * np.cos(alt),
+            np.sin(alt)
+        ])
+
+    def hillshade(self, elevation, vert_exag=1, dx=1, dy=1, fraction=1.):
+        """
+        Calculate the illumination intensity for a surface using the defined
+        azimuth and elevation for the light source.
+
+        This computes the normal vectors for the surface, and then passes them
+        on to `shade_normals`
+
+        Parameters
+        ----------
+        elevation : 2D array-like
+            The height values used to generate an illumination map
+        vert_exag : number, optional
+            The amount to exaggerate the elevation values by when calculating
+            illumination. This can be used either to correct for differences in
+            units between the x-y coordinate system and the elevation
+            coordinate system (e.g. decimal degrees vs. meters) or to
+            exaggerate or de-emphasize topographic effects.
+        dx : number, optional
+            The x-spacing (columns) of the input *elevation* grid.
+        dy : number, optional
+            The y-spacing (rows) of the input *elevation* grid.
+        fraction : number, optional
+            Increases or decreases the contrast of the hillshade.  Values
+            greater than one will cause intermediate values to move closer to
+            full illumination or shadow (and clipping any values that move
+            beyond 0 or 1). Note that this is not visually or mathematically
+            the same as vertical exaggeration.
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            A 2D array of illumination values between 0-1, where 0 is
+            completely in shadow and 1 is completely illuminated.
+        """
+
+        # Because most image and raster GIS data has the first row in the array
+        # as the "top" of the image, dy is implicitly negative.  This is
+        # consistent to what `imshow` assumes, as well.
+        dy = -dy
+
+        # compute the normal vectors from the partial derivatives
+        e_dy, e_dx = np.gradient(vert_exag * elevation, dy, dx)
+
+        # .view is to keep subclasses
+        normal = np.empty(elevation.shape + (3,)).view(type(elevation))
+        normal[..., 0] = -e_dx
+        normal[..., 1] = -e_dy
+        normal[..., 2] = 1
+        normal /= _vector_magnitude(normal)
+
+        return self.shade_normals(normal, fraction)
+
+    def shade_normals(self, normals, fraction=1.):
+        """
+        Calculate the illumination intensity for the normal vectors of a
+        surface using the defined azimuth and elevation for the light source.
+
+        Imagine an artificial sun placed at infinity in some azimuth and
+        elevation position illuminating our surface. The parts of the surface
+        that slope toward the sun should brighten while those sides facing away
+        should become darker.
+
+        Parameters
+        ----------
+        fraction : number, optional
+            Increases or decreases the contrast of the hillshade.  Values
+            greater than one will cause intermediate values to move closer to
+            full illumination or shadow (and clipping any values that move
+            beyond 0 or 1). Note that this is not visually or mathematically
+            the same as vertical exaggeration.
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            A 2D array of illumination values between 0-1, where 0 is
+            completely in shadow and 1 is completely illuminated.
+        """
+
+        intensity = normals.dot(self.direction)
+
+        # Apply contrast stretch
+        imin, imax = intensity.min(), intensity.max()
+        intensity *= fraction
+
+        # Rescale to 0-1, keeping range before contrast stretch
+        # If constant slope, keep relative scaling (i.e. flat should be 0.5,
+        # fully occluded 0, etc.)
+        if (imax - imin) > 1e-6:
+            # Strictly speaking, this is incorrect. Negative values should be
+            # clipped to 0 because they're fully occluded. However, rescaling
+            # in this manner is consistent with the previous implementation and
+            # visually appears better than a "hard" clip.
+            intensity -= imin
+            intensity /= (imax - imin)
+        intensity = np.clip(intensity, 0, 1)
+
+        return intensity
+
+    def shade(self, data, cmap, norm=None, blend_mode='overlay', vmin=None,
+              vmax=None, vert_exag=1, dx=1, dy=1, fraction=1, **kwargs):
+        """
+        Combine colormapped data values with an illumination intensity map
+        (a.k.a.  "hillshade") of the values.
+
+        Parameters
+        ----------
+        data : 2D array-like
+            The height values used to generate a shaded map.
+        cmap : `~matplotlib.colors.Colormap`
+            The colormap used to color the *data* array. Note that this must be
+            a `~matplotlib.colors.Colormap` instance.  For example, rather than
+            passing in ``cmap='gist_earth'``, use
+            ``cmap=plt.get_cmap('gist_earth')`` instead.
+        norm : `~matplotlib.colors.Normalize` instance, optional
+            The normalization used to scale values before colormapping. If
+            None, the input will be linearly scaled between its min and max.
+        blend_mode : {'hsv', 'overlay', 'soft'} or callable, optional
+            The type of blending used to combine the colormapped data
+            values with the illumination intensity.  Default is
+            "overlay".  Note that for most topographic surfaces,
+            "overlay" or "soft" appear more visually realistic. If a
+            user-defined function is supplied, it is expected to
+            combine an (M, N, 3) RGB array of floats (ranging 0 to 1) with
+            an (M, N, 1) hillshade array (also 0 to 1).  (Call signature
+            ``func(rgb, illum, **kwargs)``) Additional kwargs supplied
+            to this function will be passed on to the *blend_mode*
+            function.
+        vmin : float or None, optional
+            The minimum value used in colormapping *data*. If *None* the
+            minimum value in *data* is used. If *norm* is specified, then this
+            argument will be ignored.
+        vmax : float or None, optional
+            The maximum value used in colormapping *data*. If *None* the
+            maximum value in *data* is used. If *norm* is specified, then this
+            argument will be ignored.
+        vert_exag : number, optional
+            The amount to exaggerate the elevation values by when calculating
+            illumination. This can be used either to correct for differences in
+            units between the x-y coordinate system and the elevation
+            coordinate system (e.g. decimal degrees vs. meters) or to
+            exaggerate or de-emphasize topography.
+        dx : number, optional
+            The x-spacing (columns) of the input *elevation* grid.
+        dy : number, optional
+            The y-spacing (rows) of the input *elevation* grid.
+        fraction : number, optional
+            Increases or decreases the contrast of the hillshade.  Values
+            greater than one will cause intermediate values to move closer to
+            full illumination or shadow (and clipping any values that move
+            beyond 0 or 1). Note that this is not visually or mathematically
+            the same as vertical exaggeration.
+        **kwargs
+            Additional kwargs are passed on to the *blend_mode* function.
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            An (M, N, 4) array of floats ranging between 0-1.
+        """
+        if vmin is None:
+            vmin = data.min()
+        if vmax is None:
+            vmax = data.max()
+        if norm is None:
+            norm = Normalize(vmin=vmin, vmax=vmax)
+
+        rgb0 = cmap(norm(data))
+        rgb1 = self.shade_rgb(rgb0, elevation=data, blend_mode=blend_mode,
+                              vert_exag=vert_exag, dx=dx, dy=dy,
+                              fraction=fraction, **kwargs)
+        # Don't overwrite the alpha channel, if present.
+        rgb0[..., :3] = rgb1[..., :3]
+        return rgb0
+
+    def shade_rgb(self, rgb, elevation, fraction=1., blend_mode='hsv',
+                  vert_exag=1, dx=1, dy=1, **kwargs):
+        """
+        Use this light source to adjust the colors of the *rgb* input array to
+        give the impression of a shaded relief map with the given *elevation*.
+
+        Parameters
+        ----------
+        rgb : array-like
+            An (M, N, 3) RGB array, assumed to be in the range of 0 to 1.
+        elevation : array-like
+            An (M, N) array of the height values used to generate a shaded map.
+        fraction : number
+            Increases or decreases the contrast of the hillshade.  Values
+            greater than one will cause intermediate values to move closer to
+            full illumination or shadow (and clipping any values that move
+            beyond 0 or 1). Note that this is not visually or mathematically
+            the same as vertical exaggeration.
+        blend_mode : {'hsv', 'overlay', 'soft'} or callable, optional
+            The type of blending used to combine the colormapped data values
+            with the illumination intensity.  For backwards compatibility, this
+            defaults to "hsv". Note that for most topographic surfaces,
+            "overlay" or "soft" appear more visually realistic. If a
+            user-defined function is supplied, it is expected to combine an
+            (M, N, 3) RGB array of floats (ranging 0 to 1) with an (M, N, 1)
+            hillshade array (also 0 to 1).  (Call signature
+            ``func(rgb, illum, **kwargs)``)
+            Additional kwargs supplied to this function will be passed on to
+            the *blend_mode* function.
+        vert_exag : number, optional
+            The amount to exaggerate the elevation values by when calculating
+            illumination. This can be used either to correct for differences in
+            units between the x-y coordinate system and the elevation
+            coordinate system (e.g. decimal degrees vs. meters) or to
+            exaggerate or de-emphasize topography.
+        dx : number, optional
+            The x-spacing (columns) of the input *elevation* grid.
+        dy : number, optional
+            The y-spacing (rows) of the input *elevation* grid.
+        **kwargs
+            Additional kwargs are passed on to the *blend_mode* function.
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            An (m, n, 3) array of floats ranging between 0-1.
+        """
+        # Calculate the "hillshade" intensity.
+        intensity = self.hillshade(elevation, vert_exag, dx, dy, fraction)
+        intensity = intensity[..., np.newaxis]
+
+        # Blend the hillshade and rgb data using the specified mode
+        lookup = {
+                'hsv': self.blend_hsv,
+                'soft': self.blend_soft_light,
+                'overlay': self.blend_overlay,
+                }
+        if blend_mode in lookup:
+            blend = lookup[blend_mode](rgb, intensity, **kwargs)
+        else:
+            try:
+                blend = blend_mode(rgb, intensity, **kwargs)
+            except TypeError as err:
+                raise ValueError('"blend_mode" must be callable or one of '
+                                 f'{lookup.keys}') from err
+
+        # Only apply result where hillshade intensity isn't masked
+        if np.ma.is_masked(intensity):
+            mask = intensity.mask[..., 0]
+            for i in range(3):
+                blend[..., i][mask] = rgb[..., i][mask]
+
+        return blend
+
+    def blend_hsv(self, rgb, intensity, hsv_max_sat=None, hsv_max_val=None,
+                  hsv_min_val=None, hsv_min_sat=None):
+        """
+        Take the input data array, convert to HSV values in the given colormap,
+        then adjust those color values to give the impression of a shaded
+        relief map with a specified light source.  RGBA values are returned,
+        which can then be used to plot the shaded image with imshow.
+
+        The color of the resulting image will be darkened by moving the (s, v)
+        values (in HSV colorspace) toward (hsv_min_sat, hsv_min_val) in the
+        shaded regions, or lightened by sliding (s, v) toward (hsv_max_sat,
+        hsv_max_val) in regions that are illuminated.  The default extremes are
+        chose so that completely shaded points are nearly black (s = 1, v = 0)
+        and completely illuminated points are nearly white (s = 0, v = 1).
+
+        Parameters
+        ----------
+        rgb : `~numpy.ndarray`
+            An (M, N, 3) RGB array of floats ranging from 0 to 1 (color image).
+        intensity : `~numpy.ndarray`
+            An (M, N, 1) array of floats ranging from 0 to 1 (grayscale image).
+        hsv_max_sat : number, optional
+            The maximum saturation value that the *intensity* map can shift the output
+            image to. If not provided, use the value provided upon initialization.
+        hsv_min_sat : number, optional
+            The minimum saturation value that the *intensity* map can shift the output
+            image to. If not provided, use the value provided upon initialization.
+        hsv_max_val : number, optional
+            The maximum value ("v" in "hsv") that the *intensity* map can shift the
+            output image to. If not provided, use the value provided upon
+            initialization.
+        hsv_min_val : number, optional
+            The minimum value ("v" in "hsv") that the *intensity* map can shift the
+            output image to. If not provided, use the value provided upon
+            initialization.
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            An (M, N, 3) RGB array representing the combined images.
+        """
+        # Backward compatibility...
+        if hsv_max_sat is None:
+            hsv_max_sat = self.hsv_max_sat
+        if hsv_max_val is None:
+            hsv_max_val = self.hsv_max_val
+        if hsv_min_sat is None:
+            hsv_min_sat = self.hsv_min_sat
+        if hsv_min_val is None:
+            hsv_min_val = self.hsv_min_val
+
+        # Expects a 2D intensity array scaled between -1 to 1...
+        intensity = intensity[..., 0]
+        intensity = 2 * intensity - 1
+
+        # Convert to rgb, then rgb to hsv
+        hsv = rgb_to_hsv(rgb[:, :, 0:3])
+        hue, sat, val = np.moveaxis(hsv, -1, 0)
+
+        # Modify hsv values (in place) to simulate illumination.
+        # putmask(A, mask, B) <=> A[mask] = B[mask]
+        np.putmask(sat, (np.abs(sat) > 1.e-10) & (intensity > 0),
+                   (1 - intensity) * sat + intensity * hsv_max_sat)
+        np.putmask(sat, (np.abs(sat) > 1.e-10) & (intensity < 0),
+                   (1 + intensity) * sat - intensity * hsv_min_sat)
+        np.putmask(val, intensity > 0,
+                   (1 - intensity) * val + intensity * hsv_max_val)
+        np.putmask(val, intensity < 0,
+                   (1 + intensity) * val - intensity * hsv_min_val)
+        np.clip(hsv[:, :, 1:], 0, 1, out=hsv[:, :, 1:])
+
+        # Convert modified hsv back to rgb.
+        return hsv_to_rgb(hsv)
+
+    def blend_soft_light(self, rgb, intensity):
+        """
+        Combine an RGB image with an intensity map using "soft light" blending,
+        using the "pegtop" formula.
+
+        Parameters
+        ----------
+        rgb : `~numpy.ndarray`
+            An (M, N, 3) RGB array of floats ranging from 0 to 1 (color image).
+        intensity : `~numpy.ndarray`
+            An (M, N, 1) array of floats ranging from 0 to 1 (grayscale image).
+
+        Returns
+        -------
+        `~numpy.ndarray`
+            An (M, N, 3) RGB array representing the combined images.
+        """
+        return 2 * intensity * rgb + (1 - 2 * intensity) * rgb**2
+
+    def blend_overlay(self, rgb, intensity):
+        """
+        Combine an RGB image with an intensity map using "overlay" blending.
+
+        Parameters
+        ----------
+        rgb : `~numpy.ndarray`
+            An (M, N, 3) RGB array of floats ranging from 0 to 1 (color image).
+        intensity : `~numpy.ndarray`
+            An (M, N, 1) array of floats ranging from 0 to 1 (grayscale image).
+
+        Returns
+        -------
+        ndarray
+            An (M, N, 3) RGB array representing the combined images.
+        """
+        low = 2 * intensity * rgb
+        high = 1 - 2 * (1 - intensity) * (1 - rgb)
+        return np.where(rgb <= 0.5, low, high)
 
 def from_levels_and_colors(levels, colors, extend='neither'):
     """

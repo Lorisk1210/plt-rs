@@ -41,6 +41,8 @@ pub(crate) enum ExceptionKind {
     FileNotFoundError,
     /// `OverflowError`: a number too large for its Rust type.
     OverflowError,
+    /// `NotImplementedError`: what matplotlib does and pltrs does not yet.
+    NotImplementedError,
     /// `SystemError`: a broken promise of the C API.
     SystemError,
     /// `IndexError`: a position or a value beyond a table.
@@ -62,6 +64,7 @@ impl ExceptionKind {
                 Self::OSError => ffi::PyExc_OSError,
                 Self::FileNotFoundError => ffi::PyExc_FileNotFoundError,
                 Self::OverflowError => ffi::PyExc_OverflowError,
+                Self::NotImplementedError => ffi::PyExc_NotImplementedError,
                 Self::SystemError => ffi::PyExc_SystemError,
                 Self::IndexError => ffi::PyExc_IndexError,
             }

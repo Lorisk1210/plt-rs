@@ -41,13 +41,14 @@ pub(crate) fn open(url: &str) -> io::Result<()> {
         let Some((program, args)) = opener.split_first() else {
             continue;
         };
-        let started = Command::new(program)
-            .args(args)
-            .arg(url)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
+        let started = crate::process::spawn(
+            Command::new(program)
+                .args(args)
+                .arg(url)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null()),
+        );
         match started {
             Ok(mut child) => {
                 // Reap the opener whenever it exits.

@@ -145,6 +145,10 @@ pub struct LocatorChoice {
     /// `minticks` ticks (matplotlib then keeps its previous unit, yearly
     /// for a fresh locator).
     pub frequency: Option<AutoFrequency>,
+    /// The interval used when none of the allowed intervals keeps the
+    /// ticks within `maxticks`: the largest one, for which matplotlib warns
+    /// (unless daily ticks fall on interval multiples).
+    pub fallback_interval: Option<u32>,
 }
 
 impl AutoDateLocator {
@@ -258,6 +262,7 @@ impl AutoDateLocator {
             None,
         ];
         let mut chosen = None;
+        let mut fallback_interval = None;
         for frequency in AutoFrequency::ALL {
             let i = frequency.index();
             if counts[i] < f64::from(self.minticks) {
@@ -266,12 +271,15 @@ impl AutoDateLocator {
             }
             let limit = f64::from(self.maxticks[i]) - 1.0;
             let candidates = &self.intervals[i];
-            let mut interval = candidates
+            let fitting = candidates
                 .iter()
                 .copied()
-                .find(|&interval| counts[i] <= f64::from(interval) * limit)
-                .or_else(|| candidates.last().copied())
-                .unwrap_or(1);
+                .find(|&interval| counts[i] <= f64::from(interval) * limit);
+            let mut interval = fitting.or_else(|| candidates.last().copied()).unwrap_or(1);
+            let daily_multiples = self.interval_multiples && frequency == AutoFrequency::Daily;
+            if fitting.is_none() && !daily_multiples {
+                fallback_interval = Some(interval);
+            }
             match frequency.byrange() {
                 Some(range) if self.interval_multiples => {
                     // Avoid ticks on the 29th-31st. matplotlib applies this to
@@ -317,7 +325,11 @@ impl AutoDateLocator {
             }
             None => ChosenLocator::Microsecond(MicrosecondLocator::in_zone(interval, tz)?),
         };
-        Ok(LocatorChoice { locator, frequency })
+        Ok(LocatorChoice {
+            locator,
+            frequency,
+            fallback_interval,
+        })
     }
 
     /// The choice for the view interval `(vmin, vmax)` in date numbers.
@@ -484,6 +496,19 @@ mod tests {
         assert_eq!(rule.rule().byhour, vec![0, 3, 6, 9, 12, 15, 18, 21]);
         assert_eq!(rule.rule().interval, 1);
         assert_eq!(rule.rule().bymonth, Vec::<u32>::new());
+    }
+
+    #[test]
+    fn too_few_intervals_fall_back_to_the_largest() {
+        let auto = AutoDateLocator::new()
+            .with_interval_multiples(false)
+            .with_intervals(AutoFrequency::Daily, vec![2])
+            .unwrap();
+        let chosen = choice("2001-01-10", "2001-03-03", &auto);
+        assert_eq!(chosen.frequency, Some(AutoFrequency::Daily));
+        assert_eq!(chosen.fallback_interval, Some(2));
+        let fitting = choice("2001-01-10", "2001-01-20", &AutoDateLocator::new());
+        assert_eq!(fitting.fallback_interval, None);
     }
 
     #[test]

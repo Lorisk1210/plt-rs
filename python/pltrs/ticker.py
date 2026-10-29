@@ -521,7 +521,7 @@ class ScalarFormatter(_NativeFormatter):
         return super().__call__(x, pos)
 
 
-class LogFormatter(_NativeFormatter):
+class LogFormatter(Formatter):
     """
     Base class for formatting ticks on a log or symlog scale.
 
@@ -581,6 +581,32 @@ class LogFormatter(_NativeFormatter):
             If True, label ticks only at integer powers of base.
         """
         self.labelOnlyBase = labelOnlyBase
+
+    def set_locs(self, locs=None):
+        """
+        Use axis view limits to control which ticks are labeled.
+
+        The *locs* parameter is ignored in the present algorithm.
+        """
+        self._sublabels = _ticker.log_sublabels(self._spec(), self._axis_info())
+
+    def __call__(self, x, pos=None):
+        # docstring inherited
+        return _ticker.log_label(self._spec(), float(x), self._sublabels,
+                                 self._axis_info())
+
+    def format_data(self, value):
+        # docstring inherited
+        with cbook._setattr_cm(self, labelOnlyBase=False):
+            return cbook.strip_math(self.__call__(value))
+
+    def format_data_short(self, value):
+        # docstring inherited
+        return ('%-12g' % value).rstrip()
+
+    def _pprint_val(self, x, d):
+        """*x* written for a view spanning *d*."""
+        return _ticker.pprint_val(float(x), float(d))
 
 
 class LogFormatterExponent(LogFormatter):
@@ -821,6 +847,30 @@ class PercentFormatter(_NativeFormatter):
             return labels[0]
         return super().__call__(x, pos)
 
+    def format_pct(self, x, display_range):
+        """
+        Format the number as a percentage number with the correct
+        number of decimals and adds the percent symbol, if any.
+
+        If ``self.decimals`` is `None`, the number of digits after the
+        decimal point is set based on the *display_range* of the axis
+        as follows:
+
+        ============= ======== =======================
+        display_range decimals sample
+        ============= ======== =======================
+        >50           0        ``x = 34.5`` => 35%
+        >5            1        ``x = 34.5`` => 34.5%
+        >0.5          2        ``x = 34.5`` => 34.50%
+        ...           ...      ...
+        ============= ======== =======================
+
+        This method will not be very good for tiny axis ranges or
+        extremely large ones. It assumes that the values on the chart
+        are percentages displayed on a reasonable scale.
+        """
+        return _ticker.format_pct(self._spec(), float(x), float(display_range))
+
     @property
     def symbol(self):
         r"""
@@ -943,8 +993,8 @@ class _NativeLocator(Locator):
 
     def __call__(self):
         """Return the locations of the ticks."""
-        vmin, vmax = self.axis.get_view_interval()
-        return self.tick_values(vmin, vmax)
+        return self.raise_if_exceeds(
+            _ticker.locate(self._spec(), self._axis_info()))
 
     def view_limits(self, dmin, dmax):
         # docstring inherited

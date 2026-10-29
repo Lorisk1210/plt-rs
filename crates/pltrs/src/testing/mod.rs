@@ -55,7 +55,8 @@ mod figures;
 mod support;
 
 pub use compare::{
-    Comparison, ComparisonError, ImageShapeError, calculate_rms, comparable_formats, compare_images,
+    Comparison, ComparisonError, ImageShapeError, calculate_rms, calculate_rms_and_diff,
+    comparable_formats, compare_images,
 };
 pub use figures::check_figures_equal;
 #[cfg(test)]

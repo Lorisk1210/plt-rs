@@ -15,30 +15,36 @@ use super::{Build, Workload, random_walk, smooth_field};
 
 /// The workloads of this module.
 pub(super) const WORKLOADS: &[Workload] = &[
-    Workload::new("lines/plot_1e6_png", walk_1e6),
-    Workload::new("lines/plot_1e6_svg", walk_1e6).saved_as(SaveFormat::Svg),
-    Workload::new("lines/plot_1e6_pdf", walk_1e6).saved_as(SaveFormat::Pdf),
-    Workload::new("lines/1000_lines_of_1000", many_lines),
-    Workload::new("lines/dashed_1e5", dashed),
-    Workload::new("lines/markevery_1e5", markevery),
-    Workload::new("lines/fill_between_1e5", fill_between),
-    Workload::new("lines/stackplot_5x1e5", stackplot),
-    Workload::new("markers/scatter_1e5", scatter),
-    Workload::new("markers/plot_o_1e5", plot_markers),
-    Workload::new("meshes/pcolormesh_1000", pcolormesh),
-    Workload::new("meshes/imshow_4000_antialiased", || {
-        imshow(Interpolation::Antialiased)
-    }),
-    Workload::new("meshes/imshow_4000_nearest", || {
+    Workload::new("lines/plot_1e6_png", "walk_1e6", walk_1e6),
+    Workload::new("lines/plot_1e6_svg", "walk_1e6", walk_1e6).saved_as(SaveFormat::Svg),
+    Workload::new("lines/plot_1e6_pdf", "walk_1e6", walk_1e6).saved_as(SaveFormat::Pdf),
+    Workload::new("lines/1000_lines_of_1000", "lines_1000x1000", many_lines).calls(1000),
+    Workload::new("lines/dashed_1e5", "dashed_1e5", dashed),
+    Workload::new("lines/markevery_1e5", "markevery_1e5", markevery),
+    Workload::new("lines/fill_between_1e5", "fill_between_1e5", fill_between),
+    Workload::new("lines/stackplot_5x1e5", "stackplot_5x1e5", stackplot),
+    Workload::new("markers/scatter_1e5", "scatter_1e5", scatter),
+    Workload::new("markers/plot_o_1e5", "plot_o_1e5", plot_markers),
+    Workload::new("meshes/pcolormesh_1000", "pcolormesh_1000", pcolormesh),
+    Workload::new(
+        "meshes/imshow_4000_antialiased",
+        "imshow_4000_antialiased",
+        || imshow(Interpolation::Antialiased),
+    ),
+    Workload::new("meshes/imshow_4000_nearest", "imshow_4000_nearest", || {
         imshow(Interpolation::Nearest)
     }),
-    Workload::new("meshes/imshow_2000_bicubic_colorbar", imshow_colorbar),
-    Workload::new("meshes/hexbin_1e6", hexbin),
-    Workload::new("meshes/hist2d_1e6", hist2d),
-    Workload::new("stats/hist_1e7", hist),
-    Workload::new("stats/hist_1e6_auto", hist_auto),
-    Workload::new("stats/boxplot_100", boxplot),
-    Workload::new("stats/violinplot_50", violinplot),
+    Workload::new(
+        "meshes/imshow_2000_bicubic_colorbar",
+        "imshow_2000_bicubic_colorbar",
+        imshow_colorbar,
+    ),
+    Workload::new("meshes/hexbin_1e6", "hexbin_1e6", hexbin),
+    Workload::new("meshes/hist2d_1e6", "hist2d_1e6", hist2d),
+    Workload::new("stats/hist_1e7", "hist_1e7", hist),
+    Workload::new("stats/hist_1e6_auto", "hist_1e6_auto", hist_auto),
+    Workload::new("stats/boxplot_100", "boxplot_100", boxplot),
+    Workload::new("stats/violinplot_50", "violinplot_50", violinplot),
 ];
 
 /// `ax.plot` of a 10⁶-point random walk.

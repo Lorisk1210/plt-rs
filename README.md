@@ -282,11 +282,29 @@ cargo xtask mpl-tests --strict                  # matplotlib's tests: ported or 
 The `usetex` cases and probes need TeX on `PATH`; without it they are
 skipped, and each check says so.
 
-`cargo xtask bench [PREFIX...] --reference` times 45 large workloads
-(a million-point line, 10⁵-marker scatters, 1000² meshes and labelled
-contours, 4000² images, 3-D surfaces, text-heavy layouts, constrained
-layout, every output format) in plt-rs and in matplotlib with its Agg
-backend; plt-rs is faster on all of them.
+[`benchmarks/README.md`](benchmarks/README.md) times 62 figures in
+matplotlib 3.11, in pltrs (the same Python scripts with only the import
+changed) and in plt from Rust. The figures range in size from a single
+line plot to million-point lines, 4000² images and text-heavy layouts.
+Each is timed warm (the figure alone, in a running program) and cold (a
+fresh process, as a user waits for it), with its peak memory, after a
+pixel comparison checks that the three draw the same figure. `cargo
+xtask bench --report` regenerates it. At the last run, on a shared
+16-core Ryzen 9 9955HX:
+
+* plt was faster than matplotlib on all 61 comparable workloads, warm
+  and cold. Its warm times were 0.02 to 0.81 of matplotlib's (geometric
+  mean 0.22), and its cold times 0.02 to 0.59 (geometric mean 0.12). The
+  thinnest warm margin is a PDF of 10⁵ unsimplified points, where
+  compressing the content stream takes most of the time in both.
+* pltrs ran 22 of the 61 workloads; the other 39 need parts of
+  matplotlib's API it lacks so far. It was faster than matplotlib on all
+  22 (geometric mean 0.26 warm and cold) and at most 27% slower than plt
+  warm.
+* A fresh interpreter importing `matplotlib.pyplot` took 211 ms, and one
+  importing `pltrs.pyplot` 47 ms. A single line plot saved as PNG took
+  244 ms end to end in matplotlib, 61 ms in pltrs and 16 ms in plt
+  (26 ms, 5.0 ms and 5.0 ms warm).
 
 See `CLAUDE.md` for the coding conventions.
 

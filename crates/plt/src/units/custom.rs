@@ -398,7 +398,7 @@ impl CustomValues {
             .into_iter()
             .map(|value| match value {
                 AxisValue::Custom(values) => Some(values),
-                AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date(_) => None,
+                AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date { .. } => None,
             })
             .collect::<Option<Vec<_>>>()?;
         let (first, rest) = parts.split_first()?;

@@ -19,7 +19,9 @@ impl Axis {
     /// unless one was set explicitly, and the unit the converter picks
     /// for them if the axis has none; a new converter brings its tick
     /// helpers and label. Dates and category names register as when they
-    /// are converted. Returns whether the values have units, numbers
+    /// are converted, and [`ZonedDateTime`](crate::dates::ZonedDateTime)s
+    /// make the zone of the first the unit if the axis has none, as
+    /// plotting them does. Returns whether the values have units, numbers
     /// having none.
     ///
     /// ```

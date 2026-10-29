@@ -19,16 +19,118 @@
   },
   {
    "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "date_first": {"tz": "America/New_York"}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
    "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "date_first": {"tz": "America/New_York"}},
    "value": [-0.05, 1.05]
   },
   {"op": "axes.Axes.get_xlim", "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "date_first": {"tz": "Europe/Berlin"}}, "value": [-0.05, 1.05]},
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "date_first": {"tz": "Europe/Berlin"}, "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}},
+   "value": [18349.958333333332, 18350.166666666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "date_first": {"tz": "UTC"}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": [18349.90625, 18350.135416666668]
+  },
   {"op": "axes.Axes.get_xlim", "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "date_first": {"tz": "UTC"}}, "value": [-0.05, 1.05]},
   {"op": "axes.Axes.get_xlim", "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "date_first": {"tz": "UTC"}}, "value": [-0.05, 1.05]},
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "date_first": {"tz": null}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": [18349.90625, 18350.135416666668]
+  },
   {"op": "axes.Axes.get_xlim", "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "date_first": {"tz": null}}, "value": [0.0, 1.0]},
   {"op": "axes.Axes.get_xlim", "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "date_first": {"tz": null}}, "value": [0.0, 1.0]},
   {"op": "axes.Axes.get_xlim", "args": {"style": ["classic", "_classic_test_patch"], "xaxis_date": true, "epoch": "0000-12-31"}, "value": [719163.0, 719164.0]},
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "America/New_York"}},
+   "value": [18319.8, 18368.2]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "Europe/Berlin"}},
+   "value": [18319.8, 18368.2]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"}},
+   "value": [18329.15625, 18329.385416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {
+    "style": ["default"],
+    "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"},
+    "replot": {"plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}}
+   },
+   "value": [18328.11875, 18351.172916666666]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {
+    "style": ["default"],
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"},
+    "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}
+   },
+   "value": [18349.958333333332, 18350.166666666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["America/New_York", "Europe/Berlin"]}},
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["Europe/Berlin", "America/New_York"]}},
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["UTC", "Europe/Berlin", "America/New_York"]}},
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {
+    "style": ["default"],
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"]},
+    "replot": {"plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}}
+   },
+   "value": [18349.90625, 18350.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "plot": {"hours": ["2020-10-24T22:00", "2020-10-25T04:00"], "tz": "Europe/Berlin"}},
+   "value": [18559.90625, 18560.135416666668]
+  },
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "plot": {"hours": ["2020-11-01T03:00", "2020-11-01T09:00"], "tz": "America/New_York"}},
+   "value": [18567.114583333332, 18567.34375]
+  },
   {"op": "axes.Axes.get_xlim", "args": {"style": ["classic", "_classic_test_patch"], "xaxis_date": true}, "value": [0.0, 1.0]},
+  {
+   "op": "axes.Axes.get_xlim",
+   "args": {"style": ["default"], "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}},
+   "value": [18349.958333333332, 18350.166666666668]
+  },
   {
    "op": "axis.Axis.get_converter",
    "args": {"style": ["default"], "converter": "auto", "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}, "late_converter": "switchable"},
@@ -289,11 +391,33 @@
     "style": ["default"],
     "axis": "x",
     "minor": false,
+    "date_first": {"tz": "America/New_York"},
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["03-28 18", "03-28 19", "03-28 20", "03-28 21", "03-28 22", "03-28 23"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
     "rc": {"timezone": "Europe/Berlin"},
     "date_first": {"tz": "Europe/Berlin"},
     "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}
    },
    "value": {"labels": ["01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18", "01-01 19"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "date_first": {"tz": "Europe/Berlin"},
+    "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}
+   },
+   "value": {"labels": ["03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05", "03-29 06"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -318,6 +442,17 @@
     "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}
    },
    "value": {"labels": ["01-01 12", "01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "date_first": {"tz": "UTC"},
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["03-28 22", "03-28 23", "03-29 00", "03-29 01", "03-29 02", "03-29 03"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -342,6 +477,17 @@
     "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}
    },
    "value": {"labels": ["01-01 13", "01-01 14", "01-01 15", "01-01 16", "01-01 17", "01-01 18", "01-01 19"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "date_first": {"tz": null},
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["03-28 23", "03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -426,6 +572,50 @@
     "plot": {"days": ["2020-01-10", "2020-05-01"]}
    },
    "value": {"labels": ["Jan 10 2020", "Jan 24 2020", "Feb 07 2020", "Feb 21 2020", "Mar 06 2020", "Mar 20 2020", "Apr 03 2020", "Apr 17 2020"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "Europe/Berlin", "date.converter": "concise"},
+    "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "America/New_York"}
+   },
+   "value": {"labels": ["Mar", "08", "15", "22", "Apr", "08", "15"], "offset": "2020-Apr"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "Europe/Berlin"},
+    "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "America/New_York"}
+   },
+   "value": {"labels": ["2020-03-01", "2020-03-08", "2020-03-15", "2020-03-22", "2020-04-01", "2020-04-08", "2020-04-15"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "America/New_York", "date.converter": "concise"},
+    "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["Mar", "08", "15", "22", "Apr", "08", "15"], "offset": "2020-Apr"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "America/New_York"},
+    "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["2020-03-01", "2020-03-08", "2020-03-15", "2020-03-22", "2020-04-01", "2020-04-08", "2020-04-15"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -533,6 +723,39 @@
   {
    "op": "axis.Axis.get_ticklabels",
    "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "Europe/Berlin", "date.converter": "concise"},
+    "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"}
+   },
+   "value": {"labels": ["23:00", "Mar-08", "01:00", "01:00", "03:00", "04:00", "05:00"], "offset": "2020-Mar-08"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "Europe/Berlin"},
+    "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"}
+   },
+   "value": {"labels": ["03-07 23", "03-08 00", "03-08 01", "03-08 01", "03-08 03", "03-08 04", "03-08 05"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"},
+    "replot": {"plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}}
+   },
+   "value": {"labels": ["2020-03-09", "2020-03-13", "2020-03-17", "2020-03-21", "2020-03-25", "2020-03-29"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
     "style": ["classic", "_classic_test_patch"],
     "axis": "x",
     "minor": false,
@@ -551,6 +774,64 @@
     "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"]}
    },
    "value": {"labels": ["23:00", "Mar-08", "01:00", "01:00", "03:00", "04:00", "05:00"], "offset": "2020-Mar-08"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "America/New_York", "date.converter": "concise"},
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["23:00", "Mar-29", "01:00", "01:00", "03:00", "04:00", "05:00"], "offset": "2020-Mar-29"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "America/New_York"},
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["03-28 23", "03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"},
+    "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}
+   },
+   "value": {"labels": ["03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05", "03-29 06"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {"style": ["default"], "axis": "x", "minor": false, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": {"labels": ["03-28 23", "03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {"style": ["default"], "axis": "x", "minor": false, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["America/New_York", "Europe/Berlin"]}},
+   "value": {"labels": ["03-28 18", "03-28 19", "03-28 20", "03-28 21", "03-28 22", "03-28 23"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {"style": ["default"], "axis": "x", "minor": false, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["Europe/Berlin", "America/New_York"]}},
+   "value": {"labels": ["03-28 23", "03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["UTC", "Europe/Berlin", "America/New_York"]}
+   },
+   "value": {"labels": ["03-28 22", "03-28 23", "03-29 00", "03-29 01", "03-29 02", "03-29 03"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -577,6 +858,39 @@
   {
    "op": "axis.Axis.get_ticklabels",
    "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"]},
+    "replot": {"plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}}
+   },
+   "value": {"labels": ["03-28 23", "03-29 00", "03-29 01", "03-29 01", "03-29 03", "03-29 04", "03-29 05"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "America/New_York", "date.converter": "concise"},
+    "plot": {"hours": ["2020-10-24T22:00", "2020-10-25T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00", "03:30", "04:00"], "offset": "2020-Oct-25"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "America/New_York"},
+    "plot": {"hours": ["2020-10-24T22:00", "2020-10-25T04:00"], "tz": "Europe/Berlin"}
+   },
+   "value": {"labels": ["25 00:00", "25 00:30", "25 01:00", "25 01:30", "25 02:00", "25 02:30", "25 03:00", "25 03:30", "25 04:00"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
     "style": ["classic", "_classic_test_patch"],
     "axis": "x",
     "minor": false,
@@ -598,6 +912,28 @@
     "plot": {"hours": ["2020-10-24T22:00", "2020-10-25T04:00"]}
    },
    "value": {"labels": ["00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00", "03:30", "04:00"], "offset": "2020-Oct-25"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "Europe/Berlin", "date.converter": "concise"},
+    "plot": {"hours": ["2020-11-01T03:00", "2020-11-01T09:00"], "tz": "America/New_York"}
+   },
+   "value": {"labels": ["23:00", "23:30", "00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00"], "offset": "2020-Nov-01"}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {
+    "style": ["default"],
+    "axis": "x",
+    "minor": false,
+    "rc": {"timezone": "Europe/Berlin"},
+    "plot": {"hours": ["2020-11-01T03:00", "2020-11-01T09:00"], "tz": "America/New_York"}
+   },
+   "value": {"labels": ["31 23:00", "31 23:30", "01 00:00", "01 00:30", "01 01:00", "01 01:30", "01 02:00", "01 02:30", "01 03:00"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -723,6 +1059,11 @@
     "x": {"major": ["MinuteLocator", [0, 30]]}
    },
    "value": {"labels": ["30 08:00", "30 08:30", "30 09:00", "30 09:30", "30 10:00", "30 10:30"], "offset": ""}
+  },
+  {
+   "op": "axis.Axis.get_ticklabels",
+   "args": {"style": ["default"], "axis": "x", "minor": false, "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}},
+   "value": {"labels": ["03-29 00", "03-29 01", "03-29 02", "03-29 03", "03-29 04", "03-29 05"], "offset": ""}
   },
   {
    "op": "axis.Axis.get_ticklabels",
@@ -1174,7 +1515,17 @@
   },
   {
    "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "date_first": {"tz": "America/New_York"}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": "EST"
+  },
+  {
+   "op": "axis.Axis.get_units",
    "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "date_first": {"tz": "Europe/Berlin"}, "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "date_first": {"tz": "Europe/Berlin"}, "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}},
    "value": "CET"
   },
   {
@@ -1189,6 +1540,11 @@
   },
   {
    "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "date_first": {"tz": "UTC"}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": "UTC"
+  },
+  {
+   "op": "axis.Axis.get_units",
    "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "date_first": {"tz": null}, "plot": {"hours": ["2020-01-01T12:00", "2020-01-01T19:00"]}},
    "value": null
   },
@@ -1199,9 +1555,92 @@
   },
   {
    "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "date_first": {"tz": null}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
    "args": {"style": ["classic", "_classic_test_patch"], "plot": {"days": ["2000-01-01", "2020-02-20"]}, "late_converter": "concise"},
    "value": null
   },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "America/New_York"}},
+   "value": "EST"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "plot": {"days": ["2020-03-01", "2020-04-15"], "tz": "Europe/Berlin"}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"}},
+   "value": "EST"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {
+    "style": ["default"],
+    "plot": {"hours": ["2020-03-08T04:00", "2020-03-08T10:00"], "tz": "America/New_York"},
+    "replot": {"plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}}
+   },
+   "value": "EST"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {
+    "style": ["default"],
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"},
+    "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}
+   },
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["America/New_York", "Europe/Berlin"]}},
+   "value": "EST"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["Europe/Berlin", "America/New_York"]}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": ["UTC", "Europe/Berlin", "America/New_York"]}},
+   "value": "UTC"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {
+    "style": ["default"],
+    "plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"]},
+    "replot": {"plot": {"hours": ["2020-03-28T22:00", "2020-03-29T04:00"], "tz": "Europe/Berlin"}}
+   },
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "rc": {"timezone": "America/New_York"}, "plot": {"hours": ["2020-10-24T22:00", "2020-10-25T04:00"], "tz": "Europe/Berlin"}},
+   "value": "CET"
+  },
+  {
+   "op": "axis.Axis.get_units",
+   "args": {"style": ["default"], "rc": {"timezone": "Europe/Berlin"}, "plot": {"hours": ["2020-11-01T03:00", "2020-11-01T09:00"], "tz": "America/New_York"}},
+   "value": "EST"
+  },
+  {"op": "axis.Axis.get_units", "args": {"style": ["default"], "x": {"lim": ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]}}, "value": "UTC+01:00"},
   {
    "op": "axis.Axis.major",
    "args": {

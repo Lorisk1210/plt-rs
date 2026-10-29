@@ -473,7 +473,10 @@ mod tests {
             "matplotlib asks the explicit converter for tick helpers"
         );
         assert_eq!(xaxis.convert_units(vec![3.0]), [3.0]);
-        let dates = xaxis.convert_units(AxisValues::Dates(vec![10.0]));
+        let dates = xaxis.convert_units(AxisValues::Dates {
+            numbers: vec![10.0],
+            tz: Some(TimeZone::Utc),
+        });
         assert_eq!(dates, [10.0], "values convert as their own kind");
         assert_eq!(xaxis.converter(), Some(UnitConverter::Categories));
     }
@@ -483,8 +486,10 @@ mod tests {
         let fig = Figure::new();
         let axs = fig.subplots_shared(2, 1, Share::All, Share::None).unwrap();
         let (top, bottom) = (&axs[(0, 0)], &axs[(1, 0)]);
-        top.xaxis()
-            .convert_units(AxisValues::Dates(vec![0.0, 30.0]));
+        top.xaxis().convert_units(AxisValues::Dates {
+            numbers: vec![0.0, 30.0],
+            tz: None,
+        });
         top.set_xlim(0.0, 30.0).expect("finite limits");
         assert_eq!(bottom.xaxis().converter(), Some(UnitConverter::Dates));
         let ticks = bottom.ticks(AxisName::X).unwrap();

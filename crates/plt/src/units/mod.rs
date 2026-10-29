@@ -37,6 +37,29 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! Dates in a zone ([`ZonedDateTime`]) plot as their instants, and the
+//! zone of the first becomes the unit of an axis without one, whose
+//! ticks then read in that zone, as matplotlib's date converter takes
+//! the `tzinfo` of the first aware `datetime`. As there, `plot` and
+//! `fill` set it on any axis without a unit, the other methods placing
+//! data only on an axis with neither converter nor unit, and texts
+//! never.
+//!
+//! ```
+//! use plt::dates::{DateTime, TimeZone, UtcOffset, ZonedDateTime};
+//! use plt::prelude::*;
+//! use plt::units::Unit;
+//! let ax = Figure::new().subplot();
+//! let eastern = TimeZone::Fixed(UtcOffset::from_seconds(-5 * 3600)?);
+//! let open = DateTime::new(2020, 6, 1, 9, 0, 0, 0)?;
+//! let close = DateTime::new(2020, 6, 1, 17, 0, 0, 0)?;
+//! let hours = [open, close].map(|local| ZonedDateTime::from_local(local, eastern.clone()));
+//! ax.plot(hours, [1.0, 2.0])?;
+//! assert_eq!(ax.xaxis().units(), Some(Unit::new(eastern)));
+//! assert_eq!(ax.xaxis().ticklabels(false)?[0], "06-01 09");
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! Values of your own types plot the same way once a
 //! [`ConversionInterface`] converts them and they are [`Convertible`]
 //! (matplotlib's `units.registry`): lists of them are [`AxisValues`], one
@@ -60,6 +83,7 @@
 //! of 3-D axes convert their user values again when a unit changes.
 //!
 //! [`Axis::set_units`]: crate::axes::Axis::set_units
+//! [`ZonedDateTime`]: crate::dates::ZonedDateTime
 //! [`Axes3D::plot`]: crate::mplot3d::Axes3D::plot
 //! [`Axis3D::convert_units`]: crate::mplot3d::Axis3D::convert_units
 
@@ -74,6 +98,8 @@ mod items;
 mod lists;
 mod scalar;
 mod sources;
+#[cfg(test)]
+mod zoned_tests;
 
 use std::rc::Rc;
 
@@ -224,8 +250,18 @@ pub enum AxisValues {
     Numbers(Vec<f64>),
     /// Category names.
     Categories(Vec<String>),
-    /// Dates as date numbers (days since the [epoch](crate::dates::get_epoch)).
-    Dates(Vec<f64>),
+    /// Dates, naive or in zones.
+    Dates {
+        /// The instants as date numbers (days since the
+        /// [epoch](crate::dates::get_epoch), in UTC).
+        numbers: Vec<f64>,
+        /// The zone of the first value, if the values are
+        /// [`ZonedDateTime`](crate::dates::ZonedDateTime)s: the unit an
+        /// axis without one takes, which writes its ticks in that zone
+        /// (matplotlib's date converter's `default_units`). `None` for
+        /// naive dates, which leave the unit alone.
+        tz: Option<TimeZone>,
+    },
     /// Values of a user type, converted by its [`ConversionInterface`].
     Custom(CustomValues),
 }
@@ -234,7 +270,7 @@ impl AxisValues {
     /// The number of values.
     pub fn len(&self) -> usize {
         match self {
-            Self::Numbers(values) | Self::Dates(values) => values.len(),
+            Self::Numbers(numbers) | Self::Dates { numbers, .. } => numbers.len(),
             Self::Categories(names) => names.len(),
             Self::Custom(values) => values.len(),
         }
@@ -250,7 +286,7 @@ impl AxisValues {
     /// axis to place them, and become NaN.
     pub(crate) fn into_unplaced_numbers(self) -> Vec<f64> {
         match self {
-            Self::Numbers(numbers) | Self::Dates(numbers) => numbers,
+            Self::Numbers(numbers) | Self::Dates { numbers, .. } => numbers,
             Self::Categories(_) | Self::Custom(_) => vec![f64::NAN; self.len()],
         }
     }
@@ -259,7 +295,10 @@ impl AxisValues {
     pub(crate) fn get(&self, index: usize) -> Option<AxisValue> {
         match self {
             Self::Numbers(values) => values.get(index).copied().map(AxisValue::Number),
-            Self::Dates(values) => values.get(index).copied().map(AxisValue::Date),
+            Self::Dates { numbers, tz } => numbers.get(index).map(|&number| AxisValue::Date {
+                number,
+                tz: tz.clone(),
+            }),
             Self::Categories(names) => names.get(index).cloned().map(AxisValue::Category),
             Self::Custom(values) => values.get(index).map(AxisValue::Custom),
         }
@@ -269,7 +308,7 @@ impl AxisValues {
     pub fn custom(&self) -> Option<&CustomValues> {
         match self {
             Self::Custom(values) => Some(values),
-            Self::Numbers(_) | Self::Categories(_) | Self::Dates(_) => None,
+            Self::Numbers(_) | Self::Categories(_) | Self::Dates { .. } => None,
         }
     }
 
@@ -279,7 +318,10 @@ impl AxisValues {
     pub(crate) fn first_finite(&self) -> Option<AxisValue> {
         match self {
             Self::Numbers(values) => first_finite(values).map(AxisValue::Number),
-            Self::Dates(values) => first_finite(values).map(AxisValue::Date),
+            Self::Dates { numbers, tz } => first_finite(numbers).map(|number| AxisValue::Date {
+                number,
+                tz: tz.clone(),
+            }),
             Self::Categories(names) => names.first().cloned().map(AxisValue::Category),
             Self::Custom(values) => values.get(0).map(AxisValue::Custom),
         }
@@ -314,8 +356,14 @@ mod tests {
         assert_eq!(first_finite(&[f64::NAN, 2.0]), Some(2.0));
         assert!(first_finite(&[f64::NAN]).is_some_and(f64::is_nan));
         assert_eq!(first_finite(&[]), None);
-        let dates = AxisValues::Dates(vec![f64::INFINITY, 3.0]);
-        assert_eq!(dates.first_finite(), Some(AxisValue::Date(3.0)));
+        let tz = Some(TimeZone::Utc);
+        let dates = AxisValues::Dates {
+            numbers: vec![f64::INFINITY, 3.0],
+            tz: tz.clone(),
+        };
+        let first = AxisValue::Date { number: 3.0, tz };
+        assert_eq!(dates.first_finite(), Some(first.clone()));
+        assert_eq!(dates.get(1), Some(first));
         let names = AxisValues::from(["b", "a"]);
         assert_eq!(names.first_finite(), Some(AxisValue::from("b")));
         assert_eq!(AxisValues::Numbers(Vec::new()).first_finite(), None);
@@ -327,15 +375,10 @@ mod tests {
             DateTime::new(1970, 1, 2, 0, 0, 0, 0).unwrap(),
             DateTime::new(1970, 1, 3, 12, 0, 0, 0).unwrap(),
         ];
-        assert_eq!(
-            AxisValues::from(&days[..]),
-            AxisValues::Dates(vec![1.0, 2.5])
-        );
+        let naive = |numbers| AxisValues::Dates { numbers, tz: None };
+        assert_eq!(AxisValues::from(&days[..]), naive(vec![1.0, 2.5]));
         let instants = [Datetime64::new(86_400, 0)];
-        assert_eq!(
-            AxisValues::from(&instants[..]),
-            AxisValues::Dates(vec![1.0])
-        );
+        assert_eq!(AxisValues::from(&instants[..]), naive(vec![1.0]));
 
         let ax = Figure::new().subplot();
         ax.plot(days.to_vec(), [1.0, 2.0]).unwrap();

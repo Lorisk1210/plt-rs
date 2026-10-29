@@ -314,7 +314,11 @@ mod tests {
         let names = vec![String::from("a")];
         assert_eq!(AxisValues::from(&names), AxisValues::from(names.clone()));
         let date = DateTime::new(1970, 1, 2, 0, 0, 0, 0).expect("a date");
-        assert_eq!(AxisValues::from([date]), AxisValues::Dates(vec![1.0]));
+        let naive = AxisValues::Dates {
+            numbers: vec![1.0],
+            tz: None,
+        };
+        assert_eq!(AxisValues::from([date]), naive);
         assert_eq!(
             AxisValues::from(&[date]),
             AxisValues::from(AxisValue::from(date))

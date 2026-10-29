@@ -78,10 +78,13 @@
 //! first sees them, and labels its ticks with them. [`DateTime`] values
 //! make a date axis, whose ticks read as dates (chapter
 //! [`scales`](super::scales)). Both are converted to numbers when
-//! plotted: categories to their index, dates to days since 1970.
+//! plotted: categories to their index, dates to days since 1970. A
+//! [`DateRange`] gives a series of date-times, from a start up to an
+//! end, a [`TimeDelta`] apart (`TimeDelta::from_hours(6)`,
+//! `TimeDelta::from_days(1)?`), and plots as it is.
 //!
 //! ```
-//! use plt::dates::{DateTime, TimeDelta};
+//! use plt::dates::{DateRange, DateTime, TimeDelta};
 //! use plt::prelude::*;
 //!
 //! let fig = Figure::new();
@@ -91,14 +94,17 @@
 //! assert_eq!(line.xdata(), [0.0, 1.0, 2.0]);
 //!
 //! let start = DateTime::new(2024, 3, 1, 0, 0, 0, 0)?;
-//! let days = (0..30)
-//!     .map(|day| start.checked_add(TimeDelta::new(day, 0, 0)?))
-//!     .collect::<Result<Vec<_>, _>>()?;
+//! let end = DateTime::new(2024, 3, 31, 0, 0, 0, 0)?;
+//! let days = DateRange::new(start, end, TimeDelta::from_days(1)?)?;
 //! let temperatures = (0..30).map(|day| 8.0 + 0.2 * f64::from(day));
 //! let series = axs[(0, 1)].plot(days, temperatures)?;
 //! assert_eq!(series.xdata()[0], 19783.0, "2024-03-01 is day 19783");
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! A [`ZonedDateTime`] plots as the instant it stands for, and gives an
+//! axis without a unit its zone, in which the ticks then read; chapter
+//! [`scales`](super::scales) shows it.
 //!
 //! Behind these parameters is one type, [`AxisValues`]: numbers,
 //! category names, dates, or values of your own types converted by a
@@ -246,6 +252,9 @@
 //! [`meshgrid`]: crate::numeric::meshgrid
 //! [`Grid`]: crate::numeric::Grid
 //! [`DateTime`]: crate::dates::DateTime
+//! [`DateRange`]: crate::dates::DateRange
+//! [`TimeDelta`]: crate::dates::TimeDelta
+//! [`ZonedDateTime`]: crate::dates::ZonedDateTime
 //! [`AxisValues`]: crate::units::AxisValues
 //! [`AxisDeltas`]: crate::units::AxisDeltas
 //! [`Number`]: crate::numeric::Number

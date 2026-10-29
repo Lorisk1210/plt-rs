@@ -4,7 +4,7 @@
 use plt_core::Point;
 
 use super::{AxisDelta, AxisValues, Convertible, CustomValues};
-use crate::dates::{DateTime, Datetime64, get_epoch};
+use crate::dates::{DateTime, Datetime64, Epoch, TimeZone, ZonedDateTime, get_epoch};
 use crate::numeric::{Number, with_numbers};
 
 /// One plotting value along an axis before unit conversion: a number of
@@ -13,12 +13,15 @@ use crate::numeric::{Number, with_numbers};
 /// `convert_xunits`).
 ///
 /// ```
-/// use plt::dates::DateTime;
+/// use plt::dates::{DateTime, TimeZone, ZonedDateTime};
 /// use plt::units::AxisValue;
 /// assert_eq!(AxisValue::from(2.5), AxisValue::Number(2.5));
 /// assert_eq!(AxisValue::from(3_u32), AxisValue::Number(3.0));
 /// let day = DateTime::new(1970, 1, 3, 12, 0, 0, 0)?;
-/// assert_eq!(AxisValue::from(day), AxisValue::Date(2.5));
+/// assert_eq!(AxisValue::from(day), AxisValue::Date { number: 2.5, tz: None });
+/// let noon = ZonedDateTime::utc(day);
+/// let tz = Some(TimeZone::Utc);
+/// assert_eq!(AxisValue::from(&noon), AxisValue::Date { number: 2.5, tz });
 /// # Ok::<(), plt::dates::DateError>(())
 /// ```
 #[derive(Clone, Debug, PartialEq)]
@@ -27,9 +30,17 @@ pub enum AxisValue {
     Number(f64),
     /// A category name.
     Category(String),
-    /// A date as a date number (days since the
-    /// [epoch](crate::dates::get_epoch)).
-    Date(f64),
+    /// A date, naive or in a zone.
+    Date {
+        /// The instant as a date number (days since the
+        /// [epoch](crate::dates::get_epoch), in UTC).
+        number: f64,
+        /// The zone of a [`ZonedDateTime`], which an axis without a unit
+        /// takes as its unit (matplotlib's date converter's
+        /// `default_units`, the value's `tzinfo`); `None` for a naive
+        /// date, which leaves the unit alone.
+        tz: Option<TimeZone>,
+    },
     /// A value of a user type: [`CustomValues`] holding one value.
     Custom(CustomValues),
 }
@@ -40,21 +51,23 @@ impl AxisValue {
     pub fn downcast_ref<T: Convertible>(&self) -> Option<&T> {
         match self {
             Self::Custom(values) => values.downcast_ref::<T>()?.first(),
-            Self::Number(_) | Self::Category(_) | Self::Date(_) => None,
+            Self::Number(_) | Self::Category(_) | Self::Date { .. } => None,
         }
     }
 
     /// The value an extent `delta` reaches from this one, if the extent
     /// adds to it (Python's `value + delta`): a number to a number, a
     /// duration to a date (on the instant, as Python adds a `timedelta`
-    /// to a `datetime`: [`Epoch::add_duration`](crate::dates::Epoch::add_duration)),
-    /// and to a user value what its [`Convertible::add_delta`] adds.
+    /// to a `datetime`: [`Epoch::add_duration`](crate::dates::Epoch::add_duration),
+    /// keeping its zone), and to a user value what its
+    /// [`Convertible::add_delta`] adds.
     pub(crate) fn add_delta(&self, delta: &AxisDelta) -> Option<Self> {
         match (self, delta) {
             (Self::Number(value), AxisDelta::Number(delta)) => Some(Self::Number(value + delta)),
-            (Self::Date(date), AxisDelta::Duration(duration)) => {
-                Some(Self::Date(get_epoch().add_duration(*date, *duration)))
-            }
+            (Self::Date { number, tz }, AxisDelta::Duration(duration)) => Some(Self::Date {
+                number: get_epoch().add_duration(*number, *duration),
+                tz: tz.clone(),
+            }),
             (Self::Custom(value), delta) => value.add_delta(delta),
             _ => None,
         }
@@ -93,14 +106,45 @@ with_numbers!(from_numbers!(AxisValue;));
 impl From<DateTime> for AxisValue {
     /// Naive date-times are taken as UTC, as matplotlib does by default.
     fn from(date: DateTime) -> Self {
-        Self::Date(get_epoch().date2num(date))
+        naive_date(get_epoch().date2num(date))
     }
 }
 
 impl From<Datetime64> for AxisValue {
     fn from(date: Datetime64) -> Self {
-        Self::Date(get_epoch().datetime64_to_num(date))
+        naive_date(get_epoch().datetime64_to_num(date))
     }
+}
+
+impl From<&ZonedDateTime> for AxisValue {
+    /// The instant, and the zone an axis without a unit takes.
+    fn from(date: &ZonedDateTime) -> Self {
+        Self::Date {
+            number: zoned_date_number(&get_epoch(), date),
+            tz: Some(date.tz().clone()),
+        }
+    }
+}
+
+impl From<ZonedDateTime> for AxisValue {
+    /// The instant, and the zone an axis without a unit takes.
+    fn from(date: ZonedDateTime) -> Self {
+        Self::from(&date)
+    }
+}
+
+/// A date without a zone.
+fn naive_date(number: f64) -> AxisValue {
+    AxisValue::Date { number, tz: None }
+}
+
+/// The date number of the instant `date` stands for (matplotlib's
+/// `date2num`, which converts aware date-times to UTC first); NaN when
+/// that instant is outside years 1 to 9999 in UTC, where Python fails to
+/// convert it.
+pub(super) fn zoned_date_number(epoch: &Epoch, date: &ZonedDateTime) -> f64 {
+    date.to_utc()
+        .map_or(f64::NAN, |instant| epoch.date2num(instant))
 }
 
 impl From<&str> for AxisValue {
@@ -121,7 +165,10 @@ impl From<AxisValue> for AxisValues {
         match value {
             AxisValue::Number(value) => Self::Numbers(vec![value]),
             AxisValue::Category(name) => Self::Categories(vec![name]),
-            AxisValue::Date(value) => Self::Dates(vec![value]),
+            AxisValue::Date { number, tz } => Self::Dates {
+                numbers: vec![number],
+                tz,
+            },
             AxisValue::Custom(value) => Self::Custom(value),
         }
     }
@@ -134,7 +181,8 @@ impl From<AxisValue> for AxisValues {
 /// use plt::dates::DateTime;
 /// use plt::units::{AxisValue, DataPoint};
 /// let point = DataPoint::from((DateTime::new(1970, 1, 2, 0, 0, 0, 0)?, 5.0));
-/// assert_eq!((point.x, point.y), (AxisValue::Date(1.0), AxisValue::Number(5.0)));
+/// let day = AxisValue::Date { number: 1.0, tz: None };
+/// assert_eq!((point.x, point.y), (day, AxisValue::Number(5.0)));
 /// # Ok::<(), plt::dates::DateError>(())
 /// ```
 #[derive(Clone, Debug, PartialEq)]
@@ -169,7 +217,7 @@ impl From<[f64; 2]> for DataPoint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dates::{DateTime, TimeDelta};
+    use crate::dates::{TimeDelta, UtcOffset};
 
     #[test]
     fn single_values_become_one_element_lists() {
@@ -179,7 +227,10 @@ mod tests {
         );
         assert_eq!(
             AxisValues::from(AxisValue::from(Datetime64::new(86_400, 0))),
-            AxisValues::Dates(vec![1.0])
+            AxisValues::Dates {
+                numbers: vec![1.0],
+                tz: None
+            }
         );
         assert_eq!(
             AxisValues::from(AxisValue::from(3.0)),
@@ -200,8 +251,8 @@ mod tests {
     #[test]
     fn extents_add_to_values_of_their_kind() {
         let day = TimeDelta::new(1, 43_200, 0).expect("a duration");
-        let date = AxisValue::Date(10.0);
-        assert_eq!(date.add_delta(&day.into()), Some(AxisValue::Date(11.5)));
+        let date = naive_date(10.0);
+        assert_eq!(date.add_delta(&day.into()), Some(naive_date(11.5)));
         assert_eq!(date.add_delta(&AxisDelta::Number(1.0)), None);
         let number = AxisValue::Number(0.25);
         assert_eq!(
@@ -222,15 +273,12 @@ mod tests {
         // Adding a third of a day to the date number rounds the other way.
         assert_eq!(at(0, 1).add_delta(&eight_hours), Some(at(8, 1)));
         // A date number of no whole microsecond adds as a number.
-        let odd = AxisValue::Date(0.123_456_789_012_345);
+        let odd = naive_date(0.123_456_789_012_345);
         let day = AxisDelta::from(TimeDelta::new(1, 0, 0).unwrap());
-        assert_eq!(
-            odd.add_delta(&day),
-            Some(AxisValue::Date(1.123_456_789_012_345))
-        );
+        assert_eq!(odd.add_delta(&day), Some(naive_date(1.123_456_789_012_345)));
         assert!(matches!(
-            AxisValue::Date(f64::NAN).add_delta(&day),
-            Some(AxisValue::Date(date)) if date.is_nan()
+            naive_date(f64::NAN).add_delta(&day),
+            Some(AxisValue::Date { number, .. }) if number.is_nan()
         ));
     }
 
@@ -246,5 +294,30 @@ mod tests {
             Some(AxisValue::Number(0.75))
         );
         assert_eq!(AxisValue::Number(1.0).offset(&back, 1), None);
+    }
+
+    #[test]
+    fn zoned_dates_are_their_instants_in_their_zone() {
+        let offset = UtcOffset::from_seconds(-5 * 3600).unwrap();
+        let tz = TimeZone::Fixed(offset);
+        let local = DateTime::new(1970, 1, 1, 19, 0, 0, 0).unwrap();
+        let evening = AxisValue::from(ZonedDateTime::from_local(local, tz.clone()));
+        let tz = Some(tz);
+        assert_eq!(
+            evening,
+            AxisValue::Date {
+                number: 1.0,
+                tz: tz.clone()
+            }
+        );
+        // Durations keep the zone, as Python's aware arithmetic does.
+        let hour = AxisDelta::from(TimeDelta::from_hours(6));
+        let later = evening.add_delta(&hour);
+        assert_eq!(later, Some(AxisValue::Date { number: 1.25, tz }));
+        // Before year 1 in UTC, where Python's astimezone fails.
+        let first = DateTime::new(1, 1, 1, 0, 0, 0, 0).unwrap();
+        let east = TimeZone::Fixed(UtcOffset::from_seconds(3600).unwrap());
+        let early = AxisValue::from(ZonedDateTime::from_local(first, east));
+        assert!(matches!(early, AxisValue::Date { number, tz: Some(_) } if number.is_nan()));
     }
 }

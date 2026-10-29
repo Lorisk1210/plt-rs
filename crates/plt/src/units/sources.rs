@@ -107,7 +107,7 @@ impl UnitSources {
 fn value_source(value: &AxisValue) -> Option<CustomValues> {
     match value {
         AxisValue::Custom(value) => Some(value.clone()),
-        AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date(_) => None,
+        AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date { .. } => None,
     }
 }
 
@@ -157,7 +157,13 @@ mod tests {
         let mark = UnitSources::of_value(AxisName::Y, &Steps(3.0).into());
         assert!(mark.x.is_none() && mark.y.is_some());
         assert_eq!(
-            UnitSources::of_value(AxisName::X, &AxisValue::Date(1.0)),
+            UnitSources::of_value(
+                AxisName::X,
+                &AxisValue::Date {
+                    number: 1.0,
+                    tz: None
+                }
+            ),
             UnitSources::default()
         );
     }

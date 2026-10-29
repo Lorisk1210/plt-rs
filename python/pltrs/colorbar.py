@@ -19,7 +19,7 @@ matplotlib 3.11.2, under the Matplotlib License).
 
 import numpy as np
 
-from . import _api, _handles, colorizer as mcolorizer
+from . import _api, _handles, colorizer as mcolorizer, ticker
 from ._native import colorbar as _colorbar
 
 
@@ -38,9 +38,6 @@ def _get_ticklocation_from_orientation(orientation):
 #: The keywords of `.Figure.colorbar` that place a new colorbar Axes.
 _LAYOUT_KEYS = ('location', 'orientation', 'fraction', 'shrink', 'aspect',
                 'pad', 'anchor', 'panchor')
-
-#: Layout keywords pltrs accepts but does not apply yet.
-_UNSUPPORTED_LAYOUT = ('anchor', 'panchor')
 
 
 class Colorbar:
@@ -117,9 +114,6 @@ class Colorbar:
         if mappable is None:
             mappable = mcolorizer._ScalarMappable(
                 colorizer=mcolorizer.Colorizer(norm=norm, cmap=cmap))
-        for name in _UNSUPPORTED_LAYOUT:
-            if layout.get(name) is not None:
-                raise NotImplementedError(f"pltrs: colorbar({name}=...)")
         if alpha is not None:
             raise NotImplementedError("pltrs: Colorbar(alpha=...)")
         if ticks is not None and not np.iterable(ticks):
@@ -142,6 +136,15 @@ class Colorbar:
 
         self.mappable = mappable
         self._figure = figure
+        if isinstance(format, str):
+            # Check format between FormatStrFormatter and StrMethodFormatter
+            try:
+                self._formatter = ticker.FormatStrFormatter(format)
+                _ = self._formatter(0)
+            except (TypeError, ValueError):
+                self._formatter = ticker.StrMethodFormatter(format)
+        else:
+            self._formatter = format  # Assume it is a Formatter or None
         spec = {
             'use_gridspec': layout.get('use_gridspec', False),
             'location': location,
@@ -151,6 +154,8 @@ class Colorbar:
             'shrink': float(layout.get('shrink', 1.0)),
             'aspect': float(layout.get('aspect', 20)),
             'pad': None if layout.get('pad') is None else float(layout['pad']),
+            'anchor': layout.get('anchor'),
+            'panchor': layout.get('panchor'),
             'extend': extend,
             'extendfrac': extendfrac,
             'extendrect': bool(extendrect),
@@ -164,7 +169,7 @@ class Colorbar:
             'values': None if values is None else [float(v) for v in values],
         }
         self._native = _colorbar.new(
-            figure._native, mappable.cmap, mappable.norm,
+            figure._native, self._shown(),
             None if cax is None else cax._native,
             None if parents is None else [ax._native for ax in parents],
             spec)
@@ -241,8 +246,18 @@ class Colorbar:
         """
         if mappable is not None:
             self.mappable = mappable
-        _colorbar.update_normal(self._native, self.mappable.cmap,
-                                self.mappable.norm)
+        _colorbar.update_normal(self._native, self._shown())
+
+    def _shown(self):
+        """
+        What pltrs (Rust) shows: the colormap and norm of the mappable, and
+        the image pltrs (Rust) draws, whose opacity the colorbar takes, if
+        the mappable is one.
+        """
+        from .image import AxesImage
+        image = self.mappable if isinstance(self.mappable, AxesImage) else None
+        return (self.mappable.cmap, self.mappable.norm,
+                None if image is None else image._native)
 
     def set_ticks(self, ticks, *, labels=None, minor=False, **kwargs):
         """

@@ -61,6 +61,7 @@ from PIL.PngImagePlugin import PngInfo
 import numpy as np
 from . import _api, cbook, scale
 from ._native import colors as _colors
+from ._native import register as _register
 from ._color_data import BASE_COLORS, TABLEAU_COLORS, CSS4_COLORS, XKCD_COLORS
 
 
@@ -2310,6 +2311,48 @@ class Norm(ABC):
         *vmin*, *vmax*.
         """
         pass
+
+
+def _native_norm(norm):
+    """
+    The callables through which pltrs (Rust) maps data with *norm*, a norm
+    of a class it has no copy of: ``normalize(values, mask, clip)``,
+    ``autoscale_none(values, mask)``, ``inverse(values)``,
+    ``set_limits(vmin, vmax)`` and ``state()``. They take and give plain
+    arrays, the mask apart. pltrs (Rust) calls them while it draws, when
+    the norm's changes must not reach its mappables (which pltrs (Rust)
+    is drawing), so they change the norm without its callbacks.
+    """
+    def masked(values, mask):
+        return np.ma.masked_array(values, mask)
+
+    def plain(result):
+        result = np.ma.asarray(result, dtype=float)
+        return (np.ma.getdata(result).ravel(),
+                np.ma.getmaskarray(result).ravel())
+
+    def normalize(values, mask, clip):
+        return plain(norm(masked(values, mask), clip=clip))
+
+    def autoscale_none(values, mask):
+        with norm.callbacks.blocked():
+            norm.autoscale_None(masked(values, mask))
+        return norm.vmin, norm.vmax
+
+    def inverse(values):
+        return plain(norm.inverse(values))
+
+    def set_limits(vmin, vmax):
+        with norm.callbacks.blocked():
+            norm.vmin, norm.vmax = vmin, vmax
+
+    def state():
+        return norm.vmin, norm.vmax, bool(norm.clip)
+
+    return normalize, autoscale_none, inverse, set_limits, state
+
+
+_register("native_norm", _native_norm)
 
 
 class Normalize(Norm):

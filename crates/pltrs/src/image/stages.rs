@@ -28,6 +28,11 @@ pub(crate) fn data_stage(
     map: &PixelMap,
 ) -> Result<Grid<[u8; 4]>, ImageError> {
     let values = field.values();
+    if let Some(bits) = field.narrowed_from() {
+        crate::warnings::warn(&format!(
+            "Casting input data from float{bits} to float64 for imshow."
+        ));
+    }
     let precision = if field.resamples_in_f32() {
         Precision::Single
     } else {

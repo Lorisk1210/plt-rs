@@ -49,6 +49,20 @@ pub(crate) struct RenderedImage {
     pub(crate) origin: Point,
 }
 
+/// An image resampled and colour-mapped for display (what matplotlib's
+/// `make_image` returns).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MadeImage {
+    /// The RGBA pixels, top row first.
+    pub pixels: RgbaImage,
+    /// The display position of the pixels' bottom-left corner.
+    pub origin: Point,
+    /// The map from array indices (column, row) to the pixels, counted
+    /// from `origin`, when it is affine; images on non-affine axes (log
+    /// scales, projections) map through their data transform instead.
+    pub transform: Option<Affine2D>,
+}
+
 /// The colouring and resampling state every image kind shares.
 #[derive(Debug)]
 pub(crate) struct ImageCore {
@@ -157,6 +171,16 @@ impl ImageCore {
         placement: &Placement,
         alpha: Option<&ImageAlpha>,
     ) -> Result<Option<RenderedImage>, ImageError> {
+        Ok(self.make_mapped(placement, alpha)?.map(|(image, _)| image))
+    }
+
+    /// [`ImageCore::make_image`] with the map from array indices to the
+    /// output pixels (matplotlib's `t`).
+    pub(crate) fn make_mapped(
+        &self,
+        placement: &Placement,
+        alpha: Option<&ImageAlpha>,
+    ) -> Result<Option<(RenderedImage, PixelMap)>, ImageError> {
         if self.data.is_empty() {
             return Ok(None);
         }
@@ -210,10 +234,11 @@ impl ImageCore {
                 &map,
             )?,
         };
-        Ok(Some(RenderedImage {
+        let rendered = RenderedImage {
             pixels: top_down(&pixels),
             origin: Point::new(output.x0() / magnification, output.y0() / magnification),
-        }))
+        };
+        Ok(Some((rendered, map)))
     }
 
     /// The array-index → output-pixel map `t`, composed in matplotlib's

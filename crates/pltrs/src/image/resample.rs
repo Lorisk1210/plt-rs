@@ -73,12 +73,82 @@ pub fn resample(
     transform: &ResolvedTransform,
     options: ResampleOptions,
 ) -> Result<(), ImageError> {
+    let (out_rows, out_cols) = out.shape();
+    let map = PixelMap::from_resolved(transform.clone());
+    resample_raster(data, out, map.pixel_transform(out_cols, out_rows)?, options)
+}
+
+/// Where [`resample_pixels`] takes the output pixels from.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PixelMapping {
+    /// An affine map from source to output pixel coordinates.
+    Affine(Affine2D),
+    /// The source position of the centre of every output pixel, in a grid
+    /// of the output's shape: what matplotlib computes for a non-affine
+    /// transform by mapping the centres back through its inverse.
+    Mesh(Grid<[f64; 2]>),
+}
+
+/// [`resample`] for any of the pixel types of matplotlib's
+/// `_image.resample`: scalars (`u8`, `f32`, `f64`) or RGBA pixels (`[u8;
+/// 4]`, `[f32; 4]`, `[f64; 4]`), through an affine map or the lookup mesh
+/// matplotlib computes for other transforms.
+///
+/// ```
+/// use pltrs::image::{PixelMapping, ResampleOptions, resample_pixels};
+/// use pltrs::numeric::Grid;
+/// use pltrs::transforms::Affine2D;
+/// let data = Grid::from_vec(1, 2, vec![[255_u8, 0, 0, 255], [0, 0, 255, 255]])?;
+/// let mut out = Grid::filled(1, 4, [0; 4]);
+/// let stretch = PixelMapping::Affine(Affine2D::scaling(2.0, 1.0));
+/// resample_pixels(&data, &mut out, &stretch, ResampleOptions::default())?;
+/// assert_eq!(out.row(0)[1], [255, 0, 0, 255]);
+/// assert_eq!(out.row(0)[2], [0, 0, 255, 255]);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// As [`resample`]; also when a mesh does not have the output's shape.
+pub fn resample_pixels<P: Pixel>(
+    data: &Grid<P>,
+    out: &mut Grid<P>,
+    mapping: &PixelMapping,
+    options: ResampleOptions,
+) -> Result<(), ImageError> {
+    let transform = match mapping {
+        PixelMapping::Affine(affine) => PixelTransform::Affine(*affine),
+        PixelMapping::Mesh(mesh) => {
+            let (rows, cols) = mesh.shape();
+            if (rows, cols) != out.shape() {
+                return Err(ImageError::ShapeMismatch {
+                    what: "mesh",
+                    expected: out.shape(),
+                    actual: (rows, cols),
+                });
+            }
+            PixelTransform::Mesh(raster::Grid::from_vec(
+                cols,
+                rows,
+                mesh.as_slice().to_vec(),
+            )?)
+        }
+    };
+    resample_raster(data, out, transform, options)
+}
+
+/// Runs Agg's resampler from `data` into `out` as `options` say.
+fn resample_raster<P: Pixel>(
+    data: &Grid<P>,
+    out: &mut Grid<P>,
+    transform: PixelTransform,
+    options: ResampleOptions,
+) -> Result<(), ImageError> {
     let (rows, cols) = data.shape();
     let (out_rows, out_cols) = out.shape();
     let src = raster::GridRef::new(cols, rows, data.as_slice())?;
     let mut dst = raster::Grid::from_vec(out_cols, out_rows, out.as_slice().to_vec())?;
-    let map = PixelMap::from_resolved(transform.clone());
-    let params = ResampleParams::new(map.pixel_transform(out_cols, out_rows)?)
+    let params = ResampleParams::new(transform)
         .with_interpolation(options.interpolation.kernel())
         .with_resample(options.resample)
         .with_alpha(options.alpha)
@@ -143,6 +213,14 @@ impl PixelMap {
             Self::General(transform) => {
                 Self::General(transform.then(ResolvedTransform::affine(post)))
             }
+        }
+    }
+
+    /// The map as an affine transformation, when it is one.
+    pub(crate) fn affine(&self) -> Option<Affine2D> {
+        match self {
+            Self::Affine(affine) => Some(*affine),
+            Self::General(_) => None,
         }
     }
 
@@ -386,6 +464,57 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn pixels_of_every_kind_resample_through_affine_maps_and_meshes() {
+        let data = Grid::from_vec(1, 3, vec![0.1, 0.3, 0.2]).unwrap();
+        let stretch = Affine2D::scaling(10.0 / 3.0, 1.0);
+        let mut affine = Grid::filled(1, 10, 0.0);
+        resample_pixels(
+            &data,
+            &mut affine,
+            &PixelMapping::Affine(stretch),
+            ResampleOptions::default(),
+        )
+        .unwrap();
+        // The mesh of the same stretch: every output centre mapped back.
+        let inverse = stretch.inverted().unwrap();
+        let mesh = Grid::from_fn(1, 10, |r, c| {
+            let p = inverse.transform_point(Point::new(c as f64 + 0.5, r as f64 + 0.5));
+            [p.x, p.y]
+        });
+        let mut meshed = Grid::filled(1, 10, 0.0);
+        resample_pixels(
+            &data,
+            &mut meshed,
+            &PixelMapping::Mesh(mesh),
+            ResampleOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(affine, meshed);
+        assert_eq!(affine.row(0)[..4], [0.1, 0.1, 0.1, 0.3]);
+        let colours = Grid::from_vec(1, 1, vec![[10_u8, 20, 30, 255]]).unwrap();
+        let mut out = Grid::filled(2, 2, [0; 4]);
+        let doubled = PixelMapping::Affine(Affine2D::scaling(2.0, 2.0));
+        resample_pixels(&colours, &mut out, &doubled, ResampleOptions::default()).unwrap();
+        assert!(out.as_slice().iter().all(|&p| p == [10, 20, 30, 255]));
+    }
+
+    #[test]
+    fn a_mesh_must_have_the_output_shape() {
+        let data = Grid::filled(2, 2, 1.0_f32);
+        let mut out = Grid::filled(2, 3, 0.0_f32);
+        let mesh = PixelMapping::Mesh(Grid::filled(1, 2, [0.5, 0.5]));
+        let err = resample_pixels(&data, &mut out, &mesh, ResampleOptions::default());
+        assert!(matches!(
+            err,
+            Err(ImageError::ShapeMismatch {
+                what: "mesh",
+                expected: (2, 3),
+                actual: (1, 2),
+            })
+        ));
     }
 
     #[test]

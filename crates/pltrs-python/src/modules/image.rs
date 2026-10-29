@@ -2,22 +2,29 @@
 //!
 //! An image's data crosses as `(kind, values, mask)`: the kind of numbers
 //! (`"double"`, `"single"`, `"integer"`, `"boolean"` scalars to be colour
-//! mapped, `"rgb"`/`"rgba"` colours as fractions, `"rgb8"`/`"rgba8"` as
+//! mapped, or `"float128"` and the like for floats wider than double
+//! precision, narrowed to it by Python; `"rgb"`/`"rgba"` colours as
+//! fractions, `"rgb8"`/`"rgba8"` as
 //! bytes), the values as an array of shape `(M, N)` or `(M, N, 3|4)`, and
 //! the mask of a scalar array. The Python image keeps its colorizer and
 //! hands pltrs (Rust) a copy of its colormap and norm (see
 //! `colors::mapping`) whenever they change; pltrs (Rust) resamples and
-//! colour-maps the image as matplotlib's `_make_image` does.
+//! colour-maps the image as matplotlib's `_make_image` does. Agg's
+//! resampler itself, matplotlib's `_image.resample`, is in [`resample`].
+
+mod resample;
 
 use pltrs::axes::{Axes, ImshowOptions};
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::image::{
     AxesImage, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
-    Origin, ScalarField,
+    Origin, ScalarField, VectorImsaveError,
 };
 use pltrs::numeric::Grid;
 use pltrs::rc::Aspect;
+use pltrs::ticker::AxisName;
 
+use super::transforms::matrix;
 use crate::binding::prelude::*;
 use crate::binding::{Element, dict_value};
 
@@ -85,6 +92,15 @@ impl FromPy<'_> for ImageArray {
             "boolean" => scalars(ScalarField::booleans(&grid(
                 &values.extract::<NdArray<bool>>()?,
             )?))?,
+            wide if wide.starts_with("float") => {
+                let bits = wide["float".len()..]
+                    .parse()
+                    .map_err(|_| PyErr::value_error(format!("no image data kind {wide:?}")))?;
+                scalars(ScalarField::narrowed(
+                    grid(&values.extract::<NdArray>()?)?,
+                    bits,
+                ))?
+            }
             "rgb" => ImageData::Rgb(pixels(&values.extract::<NdArray>()?)?),
             "rgba" => ImageData::Rgba(pixels(&values.extract::<NdArray>()?)?),
             "rgb8" => ImageData::RgbBytes(pixels(&values.extract::<NdArray<u8>>()?)?),
@@ -186,6 +202,15 @@ fn imshow(
     Ok(axes.imshow(data.0, options)?)
 }
 
+/// Whether the x and y views of `axes` follow their data, so that an
+/// image's extent moves them (`get_autoscalex_on`, `get_autoscaley_on`).
+fn autoscale_on(axes: Axes) -> PyResult<(bool, bool)> {
+    Ok((
+        axes.autoscale_on(Some(AxisName::X)),
+        axes.autoscale_on(Some(AxisName::Y)),
+    ))
+}
+
 /// The images of `axes`, in the order they were added.
 fn get_images(axes: Axes) -> PyResult<Vec<AxesImage>> {
     Ok(axes.images())
@@ -282,6 +307,57 @@ fn set_resample(image: AxesImage, resample: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// The image resampled for display at `magnification` (matplotlib's
+/// `make_image`): `(pixels, x, y, matrix)`, the pixels an `(M, N, 4)` byte
+/// array with the display's bottom row first (as matplotlib's resampler
+/// writes it), `(x, y)` their bottom-left display corner and the 3×3
+/// matrix of the map from array indices to them (`None` when not affine);
+/// `None` when nothing is visible.
+fn make_image(image: AxesImage, magnification: f64) -> PyResult<Option<MadeImageParts>> {
+    let Some(made) = image.make_image(magnification)? else {
+        return Ok(None);
+    };
+    let (width, height) = (made.pixels.width(), made.pixels.height());
+    let bottom_up = made
+        .pixels
+        .data()
+        .chunks_exact(width * 4)
+        .rev()
+        .flatten()
+        .copied()
+        .collect();
+    let pixels = NdArray::with_shape(bottom_up, vec![height, width, 4])?;
+    let matrix = made.transform.map(matrix).transpose()?;
+    Ok(Some((pixels, made.origin.x, made.origin.y, matrix)))
+}
+
+/// `imsave` to a vector format: the document of `format` (`'pdf'`,
+/// `'ps'`, `'eps'` or `'svg'`) showing the `(M, N, 4)` byte array `rgba`,
+/// top row first, at `dpi`.
+fn imsave_vector(rgba: NdArray<u8>, format: String, dpi: f64) -> PyResult<Bytes> {
+    let pixels = pixels::<u8, 4>(&rgba)?;
+    Ok(Bytes(pltrs::image::imsave_vector(
+        pixels,
+        format.parse()?,
+        dpi,
+        None,
+    )?))
+}
+
+impl From<VectorImsaveError> for PyErr {
+    /// matplotlib's `ValueError` for formats it cannot write and images it
+    /// cannot place, and the errors of `savefig` otherwise.
+    fn from(err: VectorImsaveError) -> Self {
+        match err {
+            VectorImsaveError::Save(err) => err.into(),
+            other => PyErr::value_error(other.to_string()),
+        }
+    }
+}
+
+/// What [`make_image`] returns.
+type MadeImageParts = (NdArray<u8>, f64, f64, Option<NdArray>);
+
 /// Sets the image's opacity: one value, one per pixel, or `None`.
 fn set_image_alpha(image: AxesImage, alpha: Option<Alpha>) -> PyResult<()> {
     image.set_image_alpha(alpha.map(|Alpha(alpha)| alpha));
@@ -290,8 +366,10 @@ fn set_image_alpha(image: AxesImage, alpha: Option<Alpha>) -> PyResult<()> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    resample::register(module)?;
     module.add("imshow", imshow)?;
     module.add("get_images", get_images)?;
+    module.add("autoscale_on", autoscale_on)?;
     module.add("set_data", set_data)?;
     module.add("set_mapping", set_mapping)?;
     module.add("get_extent", get_extent)?;
@@ -307,5 +385,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_filterrad", set_filterrad)?;
     module.add("get_resample", get_resample)?;
     module.add("set_resample", set_resample)?;
-    module.add("set_image_alpha", set_image_alpha)
+    module.add("set_image_alpha", set_image_alpha)?;
+    module.add("make_image", make_image)?;
+    module.add("imsave_vector", imsave_vector)
 }

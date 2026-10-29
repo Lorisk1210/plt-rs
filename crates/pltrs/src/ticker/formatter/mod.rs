@@ -11,7 +11,7 @@ use std::any::Any;
 use std::fmt;
 use std::rc::Rc;
 
-pub use eng::EngFormatter;
+pub use eng::{EngFormatter, SI_PREFIXES};
 pub use log::{LogFormatter, LogLabelStyle};
 pub use logit::LogitFormatter;
 pub use percent::PercentFormatter;

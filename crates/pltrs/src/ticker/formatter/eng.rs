@@ -1,38 +1,38 @@
 //! `EngFormatter`: engineering notation with SI prefixes (`10 MHz`).
 
+use std::collections::BTreeMap;
+
 use super::scalar::{ScalarLayout, compute_offset, decimals};
 use super::{FormattedTicks, Formatter, OffsetMode};
 use crate::ticker::pyfmt::{fixed, general};
 use crate::ticker::pymath::{floor_int, log_base, pow10, pow10_int, py_round};
 use crate::ticker::{TickContext, TickerError, TickerSettings};
 
-/// The SI prefix for `10^exponent` (`exponent` a multiple of 3 in
-/// `-30..=30`).
-fn si_prefix(exponent: i64) -> &'static str {
-    match exponent {
-        -30 => "q",
-        -27 => "r",
-        -24 => "y",
-        -21 => "z",
-        -18 => "a",
-        -15 => "f",
-        -12 => "p",
-        -9 => "n",
-        -6 => "\u{b5}",
-        -3 => "m",
-        3 => "k",
-        6 => "M",
-        9 => "G",
-        12 => "T",
-        15 => "P",
-        18 => "E",
-        21 => "Z",
-        24 => "Y",
-        27 => "R",
-        30 => "Q",
-        _ => "",
-    }
-}
+/// matplotlib's `EngFormatter.ENG_PREFIXES`: the SI prefix of each power
+/// of 1000 from `10^-30` to `10^30`.
+pub const SI_PREFIXES: [(i64, &str); 21] = [
+    (-30, "q"),
+    (-27, "r"),
+    (-24, "y"),
+    (-21, "z"),
+    (-18, "a"),
+    (-15, "f"),
+    (-12, "p"),
+    (-9, "n"),
+    (-6, "\u{b5}"),
+    (-3, "m"),
+    (0, ""),
+    (3, "k"),
+    (6, "M"),
+    (9, "G"),
+    (12, "T"),
+    (15, "P"),
+    (18, "E"),
+    (21, "Z"),
+    (24, "Y"),
+    (27, "R"),
+    (30, "Q"),
+];
 
 /// Formats values as a mantissa in `[1, 1000)` with an SI prefix and unit,
 /// e.g. `4.7 kΩ` (matplotlib's `EngFormatter`).
@@ -51,6 +51,7 @@ pub struct EngFormatter {
     usetex: bool,
     use_offset: OffsetMode,
     offset_threshold: i32,
+    prefixes: BTreeMap<i64, String>,
 }
 
 impl EngFormatter {
@@ -71,6 +72,10 @@ impl EngFormatter {
             usetex: settings.text_usetex,
             use_offset: OffsetMode::Off,
             offset_threshold: settings.axes_formatter_offset_threshold,
+            prefixes: SI_PREFIXES
+                .iter()
+                .map(|&(exponent, prefix)| (exponent, prefix.to_owned()))
+                .collect(),
         }
     }
 
@@ -118,6 +123,26 @@ impl EngFormatter {
         self
     }
 
+    /// The prefix of each power of ten (by default [`SI_PREFIXES`]):
+    /// numbers are written with the prefix of the power of 1000 below
+    /// them, within the table's range (matplotlib's `ENG_PREFIXES`, which
+    /// code may change).
+    ///
+    /// ```
+    /// use pltrs::ticker::{EngFormatter, Formatter, TickContext};
+    /// let bytes = EngFormatter::new()
+    ///     .with_unit("B")
+    ///     .with_prefixes([(0, String::new()), (3, "K".to_owned())].into());
+    /// let ctx = TickContext::default();
+    /// assert_eq!(bytes.format_data(2048.0, &ctx).unwrap(), "2.048 KB");
+    /// assert_eq!(bytes.format_data(3e6, &ctx).unwrap(), "3000 KB");
+    /// ```
+    #[must_use]
+    pub fn with_prefixes(mut self, prefixes: BTreeMap<i64, String>) -> Self {
+        self.prefixes = prefixes;
+        self
+    }
+
     /// The unit.
     pub fn unit(&self) -> &str {
         &self.unit
@@ -158,18 +183,26 @@ impl EngFormatter {
             let decade = floor_int(magnitude.log10() / 3.0, "value")?;
             (decade * 3, magnitude)
         };
-        exponent = exponent.clamp(-30, 30);
+        let (Some((&lowest, _)), Some((&highest, _))) = (
+            self.prefixes.first_key_value(),
+            self.prefixes.last_key_value(),
+        ) else {
+            return Err(TickerError::invalid("ENG_PREFIXES", "no prefixes"));
+        };
+        exponent = exponent.clamp(lowest, highest);
         let mut mantissa = sign * magnitude / pow10(exponent as f64);
         // 999.9... may round up to 1000: use the next prefix instead.
         let rounded: f64 = self
             .mantissa_text(mantissa)
             .parse()
             .map_err(|_| TickerError::NonFinite("mantissa"))?;
-        if rounded.abs() >= 1000.0 && exponent < 30 {
+        if rounded.abs() >= 1000.0 && exponent < highest {
             mantissa /= 1000.0;
             exponent += 3;
         }
-        let prefix = si_prefix(exponent);
+        let prefix = self.prefixes.get(&exponent).ok_or_else(|| {
+            TickerError::invalid("ENG_PREFIXES", format!("no prefix for 10^{exponent}"))
+        })?;
         let suffix = if self.unit.is_empty() && prefix.is_empty() {
             String::new()
         } else {
@@ -305,6 +338,25 @@ mod tests {
             f.format_data(f64::INFINITY, &TickContext::default())
                 .is_err()
         );
+    }
+
+    #[test]
+    fn a_changed_prefix_table_names_and_bounds_the_prefixes() {
+        let mut prefixes: BTreeMap<i64, String> = SI_PREFIXES
+            .iter()
+            .map(|&(exponent, prefix)| (exponent, prefix.to_owned()))
+            .collect();
+        prefixes.insert(0, "_".to_owned());
+        let marked = EngFormatter::new().with_prefixes(prefixes);
+        assert_eq!(eng(&marked, 12.0), "12 _");
+        assert_eq!(eng(&marked, 1.2e4), "12 k");
+        let narrow =
+            EngFormatter::new().with_prefixes([(-3, "m".to_owned()), (3, "k".to_owned())].into());
+        assert_eq!(eng(&narrow, 1e7), "10000 k");
+        assert_eq!(eng(&narrow, 1e-7), "0.0001 m");
+        assert!(narrow.format_data(5.0, &TickContext::default()).is_err());
+        let empty = EngFormatter::new().with_prefixes(BTreeMap::new());
+        assert!(empty.format_data(5.0, &TickContext::default()).is_err());
     }
 
     #[test]

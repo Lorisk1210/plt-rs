@@ -49,7 +49,7 @@ pub(crate) use native::{
     Native, artist_handle, native_value, retyped, wrap as wrap_native, wrap_artist,
 };
 pub(crate) use object::{Bound, Owned};
-pub(crate) use registry::registered_error;
+pub(crate) use registry::{lookup, registered_error};
 
 /// Everything a matplotlib module's file needs.
 pub(crate) mod prelude {

@@ -9,12 +9,15 @@
 //! by an *axis info* dict (view and data intervals, smallest positive
 //! datum, tick space, major ticks), or a dummy axis.
 //!
-//! Formatters also show how Python code runs inside a pltrs (Rust) draw: any
-//! Python formatter (a `Formatter` subclass, a `FuncFormatter`) becomes a
-//! pltrs (Rust) `FuncFormatter` holding it as a [`Callback`], which pltrs (Rust) calls
-//! with the GIL each time it labels ticks; an exception the formatter
-//! raises surfaces from the native call that drew (`savefig`), and the
-//! tick labels of that draw stay empty.
+//! Formatters also show how Python code runs inside a pltrs (Rust) draw: the
+//! Python formatter of an axis (a `Formatter` subclass, a `FuncFormatter`)
+//! becomes a pltrs (Rust) formatter holding its methods as [`Callback`]s,
+//! which pltrs (Rust) calls with the GIL each time it labels ticks
+//! ([`axis_formatter`]); an exception the formatter raises surfaces from
+//! the native call that drew (`savefig`), and the tick labels of that draw
+//! stay empty.
+
+mod axis_formatter;
 
 use pltrs::axes::{Axes, Axis};
 use pltrs::ticker::{
@@ -24,6 +27,8 @@ use pltrs::ticker::{
     MultipleLocator, Nbins, NullLocator, NumTicks, OffsetMode, PercentFormatter, Prune,
     ScalarFormatter, ScaleHint, SymmetricalLogLocator, TickContext, TickerError, TickerSettings,
 };
+
+use axis_formatter::AxisFormatter;
 
 use crate::binding::dict_value;
 use crate::binding::prelude::*;
@@ -45,16 +50,27 @@ fn axis(axes: &Axes, name: &str) -> PyResult<Axis> {
 }
 
 /// Formats the `level` (`"major"` or `"minor"`) ticks of the axis `name`
-/// with the Python formatter `formatter`, called as `formatter(value,
-/// position)` (`set_major_formatter` and `set_minor_formatter`).
-fn set_formatter(axes: Axes, name: String, level: String, formatter: Callback) -> PyResult<()> {
+/// with the Python `Formatter` `formatter`, or with any callable called as
+/// `formatter(value, position)` (`set_major_formatter` and
+/// `set_minor_formatter`).
+fn set_formatter(axes: Axes, name: String, level: String, formatter: Owned) -> PyResult<()> {
     let axis = axis(&axes, &name)?;
+    if let Ok(methods) = Python::with_gil(|py| AxisFormatter::of(&formatter.bind(py))) {
+        return install_formatter(&axis, &level, methods);
+    }
+    let callback: Callback = Python::with_gil(|py| formatter.bind(py).extract())?;
     let formatter = FuncFormatter::new(move |value, position| {
-        formatter
+        callback
             .call::<String>((value, position))
             .unwrap_or_default()
     });
-    match level.as_str() {
+    install_formatter(&axis, &level, formatter)
+}
+
+/// Labels the `level` (`"major"` or `"minor"`) ticks of `axis` with
+/// `formatter`.
+fn install_formatter(axis: &Axis, level: &str, formatter: impl Formatter) -> PyResult<()> {
+    match level {
         "major" => axis.set_major_formatter(formatter),
         "minor" => axis.set_minor_formatter(formatter),
         _ => return Err(PyErr::value_error(format!("no tick level named {level:?}"))),
@@ -72,6 +88,9 @@ fn axis_info(info: Option<&Bound<'_>>) -> PyResult<Option<AxisInfo>> {
     let Some(info) = info else {
         return Ok(None);
     };
+    if let Ok(drawn) = info.extract::<AxisInfo>() {
+        return Ok(Some(drawn));
+    }
     let scale: String = dict_value(info, "scale")?;
     let linthresh: Option<f64> = dict_value(info, "linthresh")?;
     Ok(Some(AxisInfo {
@@ -320,6 +339,11 @@ fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
                     .with_sep(dict_value::<String>(spec, "sep")?)
                     .with_usetex(dict_value(spec, "usetex")?)
                     .with_use_mathtext(dict_value(spec, "use_mathtext")?)
+                    .with_prefixes(
+                        dict_value::<Vec<(i64, String)>>(spec, "prefixes")?
+                            .into_iter()
+                            .collect(),
+                    )
                     .with_use_offset(if use_offset {
                         OffsetMode::Auto
                     } else {

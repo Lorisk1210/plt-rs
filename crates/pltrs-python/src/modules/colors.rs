@@ -6,6 +6,7 @@
 //! RGBA tuple.
 
 pub(crate) mod mapping;
+mod python_norm;
 
 use pltrs::colors::multivar::{BivarColormap, BivarShape, MultivarError};
 use pltrs::colors::{

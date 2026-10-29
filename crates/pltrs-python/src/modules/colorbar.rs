@@ -3,23 +3,27 @@
 //! A colorbar shows the colour mapping of its Python mappable: the
 //! mappable's colormap and norm convert to pltrs (Rust)'s (see
 //! `colors::mapping`), and the Python `Colorbar` hands them over again
-//! when the mappable changes (`update_normal`). pltrs (Rust) lays the
-//! colorbar out, in an axes of its own or in the one given, and draws it.
+//! when the mappable changes (`update_normal`); a colorbar of an image
+//! follows the image pltrs (Rust) draws, its opacity included. pltrs
+//! (Rust) lays the colorbar out, in an axes of its own or in the one
+//! given, and draws it.
 
 use std::rc::Rc;
 
 use pltrs::axes::{Axes, LabelLoc};
 use pltrs::colorbar::{
     Colorbar, ColorbarAxes, ColorbarError, ColorbarFormat, ColorbarOptions, ColorbarTicks,
-    ExtendFrac, Spacing,
+    ExtendFrac, Mappable, ParentAnchor, Spacing,
 };
 use pltrs::colors::{Colormap, Extend, Norm, ScalarMappable};
 use pltrs::figure::Figure;
+use pltrs::image::AxesImage;
 use pltrs::orientation::Orientation;
 use pltrs::spines::SpineSide;
 use pltrs::ticker::{FuncFormatter, LabelFormat};
 
 use super::colors::mapping::extend;
+use super::transforms::anchor;
 use crate::binding::dict_value;
 use crate::binding::prelude::*;
 
@@ -95,6 +99,18 @@ fn format(value: &Bound<'_>) -> PyResult<Option<ColorbarFormat>> {
     ))))
 }
 
+/// matplotlib's `panchor`: `None` for the default (towards the colorbar),
+/// `False` to leave the parent's anchor alone, or an anchor.
+fn parent_anchor(value: &Bound<'_>) -> PyResult<ParentAnchor> {
+    if value.is_none() {
+        return Ok(ParentAnchor::Default);
+    }
+    if value.type_name() == "bool" && !value.is_truthy()? {
+        return Ok(ParentAnchor::Unchanged);
+    }
+    Ok(ParentAnchor::At(anchor(value)?))
+}
+
 /// The options of `Figure.colorbar` given as a dict of matplotlib's
 /// keywords (see `colorbar.py`), drawing in `cax` or beside `parents`.
 fn options(
@@ -102,7 +118,6 @@ fn options(
     parents: Option<Vec<Axes>>,
     spec: &Bound<'_>,
 ) -> PyResult<ColorbarOptions> {
-    let defaults = ColorbarOptions::default();
     let named = |key: &str| -> PyResult<Option<String>> { dict_value(spec, key) };
     Ok(ColorbarOptions {
         axes: match (cax, parents) {
@@ -125,6 +140,11 @@ fn options(
         shrink: dict_value(spec, "shrink")?,
         aspect: dict_value(spec, "aspect")?,
         pad: dict_value(spec, "pad")?,
+        anchor: dict_value::<Option<Bound<'_>>>(spec, "anchor")?
+            .as_ref()
+            .map(anchor)
+            .transpose()?,
+        panchor: parent_anchor(&dict_value(spec, "panchor")?)?,
         extend: named("extend")?.as_deref().map(extend).transpose()?,
         extendfrac: extendfrac(&dict_value(spec, "extendfrac")?)?,
         extendrect: dict_value(spec, "extendrect")?,
@@ -138,24 +158,46 @@ fn options(
         },
         boundaries: dict_value(spec, "boundaries")?,
         values: dict_value(spec, "values")?,
-        ..defaults
     })
 }
 
-/// A colorbar in `figure` showing the mapping through `cmap` and `norm`,
-/// drawn in `cax` or in a new axes taking space from `parents`, with the
-/// options of the dict `spec`.
+/// What a colorbar shows: the mapping through `cmap` and `norm`, which it
+/// follows as the image `image` (its opacity included) when the mappable
+/// is one.
+struct Shown {
+    mapping: ScalarMappable,
+    image: Option<AxesImage>,
+}
+
+impl Shown {
+    fn new(cmap: Colormap, norm: Box<dyn Norm>, image: Option<AxesImage>) -> Self {
+        Self {
+            mapping: ScalarMappable::with_norm(cmap, norm),
+            image,
+        }
+    }
+
+    fn mappable(&self) -> Mappable<'_> {
+        self.image
+            .as_ref()
+            .map_or_else(|| Mappable::from(&self.mapping), Mappable::from)
+    }
+}
+
+/// A colorbar in `figure` showing the mapping through `cmap` and `norm`
+/// (of the image `image`, if the mappable is one), drawn in `cax` or in a
+/// new axes taking space from `parents`, with the options of the dict
+/// `spec`.
 fn new(
     figure: Figure,
-    cmap: Colormap,
-    norm: Box<dyn Norm>,
+    (cmap, norm, image): (Colormap, Box<dyn Norm>, Option<AxesImage>),
     cax: Option<Axes>,
     parents: Option<Vec<Axes>>,
     spec: Owned,
 ) -> PyResult<Colorbar> {
     let options = Python::with_gil(|py| options(cax, parents, &spec.bind(py)))?;
-    let mappable = ScalarMappable::with_norm(cmap, norm);
-    Ok(figure.colorbar(&mappable, options)?)
+    let shown = Shown::new(cmap, norm, image);
+    Ok(figure.colorbar(shown.mappable(), options)?)
 }
 
 /// The axes the colorbar is drawn in.
@@ -235,9 +277,13 @@ fn set_minorticks(colorbar: Colorbar, on: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// Shows the mapping through `cmap` and `norm` (the mappable changed).
-fn update_normal(colorbar: Colorbar, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
-    colorbar.update_normal(&ScalarMappable::with_norm(cmap, norm))?;
+/// Shows the mapping through `cmap` and `norm`, of the image `image` if
+/// the mappable is one (the mappable changed).
+fn update_normal(
+    colorbar: Colorbar,
+    (cmap, norm, image): (Colormap, Box<dyn Norm>, Option<AxesImage>),
+) -> PyResult<()> {
+    colorbar.update_normal(Shown::new(cmap, norm, image).mappable())?;
     Ok(())
 }
 

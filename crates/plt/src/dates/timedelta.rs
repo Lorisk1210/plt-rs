@@ -6,8 +6,14 @@ use super::DateError;
 
 /// Microseconds per second.
 pub(crate) const MICROS_PER_SECOND: i64 = 1_000_000;
+/// Microseconds per minute.
+const MICROS_PER_MINUTE: i64 = 60 * MICROS_PER_SECOND;
+/// Microseconds per hour.
+const MICROS_PER_HOUR: i64 = 60 * MICROS_PER_MINUTE;
 /// Microseconds per day.
 pub(crate) const MICROS_PER_DAY: i64 = 86_400 * MICROS_PER_SECOND;
+/// Microseconds per week.
+const MICROS_PER_WEEK: i64 = 7 * MICROS_PER_DAY;
 
 /// A signed duration with microsecond resolution.
 ///
@@ -16,6 +22,19 @@ pub(crate) const MICROS_PER_DAY: i64 = 86_400 * MICROS_PER_SECOND;
 /// [`microseconds`](Self::microseconds) (`0..1_000_000`), so negative
 /// durations have a negative day count and non-negative remainders.
 /// The representable range is about ±292 000 years.
+///
+/// A whole number of one unit is a constructor of its own, as Python's
+/// `timedelta(hours=6)`: hours, minutes and seconds come as `i32`, which
+/// always fits, days and weeks as `i64`, which may not.
+///
+/// ```
+/// use plt::dates::TimeDelta;
+/// assert_eq!(TimeDelta::from_hours(6), TimeDelta::new(0, 6 * 3600, 0)?);
+/// assert_eq!(TimeDelta::from_mins(90), TimeDelta::from_secs(5400));
+/// assert_eq!(TimeDelta::from_weeks(2)?, TimeDelta::from_days(14)?);
+/// assert!(TimeDelta::from_days(i64::MAX).is_err());
+/// # Ok::<(), plt::dates::DateError>(())
+/// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TimeDelta {
     micros: i64,
@@ -28,6 +47,50 @@ impl TimeDelta {
     /// A duration of exactly `micros` microseconds.
     pub const fn from_micros(micros: i64) -> Self {
         Self { micros }
+    }
+
+    /// `seconds` seconds (`timedelta(seconds=n)`).
+    pub const fn from_secs(seconds: i32) -> Self {
+        Self::from_micros(seconds as i64 * MICROS_PER_SECOND)
+    }
+
+    /// `minutes` minutes (`timedelta(minutes=n)`).
+    pub const fn from_mins(minutes: i32) -> Self {
+        Self::from_micros(minutes as i64 * MICROS_PER_MINUTE)
+    }
+
+    /// `hours` hours (`timedelta(hours=n)`): any `i32` of them is within
+    /// the range of a duration.
+    pub const fn from_hours(hours: i32) -> Self {
+        Self::from_micros(hours as i64 * MICROS_PER_HOUR)
+    }
+
+    /// `days` days (`timedelta(days=n)`).
+    ///
+    /// # Errors
+    ///
+    /// [`DateError::Overflow`] beyond the range of a duration, about
+    /// 106 million days either way.
+    pub const fn from_days(days: i64) -> Result<Self, DateError> {
+        Self::of_units(days, MICROS_PER_DAY)
+    }
+
+    /// `weeks` weeks (`timedelta(weeks=n)`).
+    ///
+    /// # Errors
+    ///
+    /// [`DateError::Overflow`] beyond the range of a duration, about
+    /// 15 million weeks either way.
+    pub const fn from_weeks(weeks: i64) -> Result<Self, DateError> {
+        Self::of_units(weeks, MICROS_PER_WEEK)
+    }
+
+    /// `count` units of `unit` microseconds, failing on overflow.
+    const fn of_units(count: i64, unit: i64) -> Result<Self, DateError> {
+        match count.checked_mul(unit) {
+            Some(micros) => Ok(Self::from_micros(micros)),
+            None => Err(DateError::Overflow),
+        }
     }
 
     /// `days + seconds + microseconds`, each of any sign.
@@ -203,6 +266,24 @@ mod tests {
         }
         assert!(TimeDelta::from_days_f64(f64::NAN).is_err());
         assert!(TimeDelta::from_days_f64(1e300).is_err());
+    }
+
+    #[test]
+    fn whole_units_build_durations() {
+        assert_eq!(parts(TimeDelta::from_secs(-1)), (-1, 86_399, 0));
+        assert_eq!(parts(TimeDelta::from_mins(61)), (0, 3660, 0));
+        assert_eq!(parts(TimeDelta::from_hours(25)), (1, 3600, 0));
+        assert_eq!(TimeDelta::from_days(-3).map(parts), Ok((-3, 0, 0)));
+        assert_eq!(TimeDelta::from_weeks(1), TimeDelta::from_days(7));
+        // The widest of the infallible units still fits.
+        let hours = [i32::MIN, i32::MAX].map(TimeDelta::from_hours);
+        assert_eq!(hours[1].total_micros(), i64::from(i32::MAX) * 3_600_000_000);
+        assert!(hours[0] < TimeDelta::ZERO);
+        assert_eq!(TimeDelta::from_days(i64::MAX), Err(DateError::Overflow));
+        assert_eq!(
+            TimeDelta::from_weeks(i64::MIN / 2),
+            Err(DateError::Overflow)
+        );
     }
 
     #[test]

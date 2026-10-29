@@ -137,13 +137,12 @@
 //! ```
 //! use std::f64::consts::TAU;
 //!
-//! use plt::dates::{ConciseDateFormatter, DateFormatter, DateTime, RRuleLocator, TimeDelta};
+//! use plt::dates::{ConciseDateFormatter, DateFormatter, DateRange, DateTime, RRuleLocator, TimeDelta};
 //! use plt::prelude::*;
 //!
 //! let start = DateTime::new(2024, 1, 1, 0, 0, 0, 0)?;
-//! let days = (0..366)
-//!     .map(|day| start.checked_add(TimeDelta::new(day, 0, 0)?))
-//!     .collect::<Result<Vec<_>, _>>()?;
+//! let end = DateTime::new(2025, 1, 1, 0, 0, 0, 0)?;
+//! let days: Vec<DateTime> = DateRange::new(start, end, TimeDelta::from_days(1)?)?.collect();
 //! let temperature: Vec<f64> = (0..366)
 //!     .map(|day| 10.0 - 8.0 * (TAU * f64::from(day) / 366.0).cos())
 //!     .collect();
@@ -160,7 +159,6 @@
 //!     .xaxis()
 //!     .set_major_locator(RRuleLocator::months(&[], &[1], 3))
 //!     .set_major_formatter(DateFormatter::new("%b %Y"));
-//! let end = DateTime::new(2025, 1, 1, 0, 0, 0, 0)?;
 //! quarters.set_xlim(start, end)?;
 //! assert_eq!(
 //!     quarters.xaxis().ticklabels(false)?,
@@ -169,17 +167,50 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! [`Axes::set_xlim`] takes dates as it takes numbers.
+//! [`Axes::set_xlim`] takes dates as it takes numbers. A [`DateRange`]
+//! is the series of date-times from a start up to an end, a
+//! [`TimeDelta`] apart, as matplotlib's `drange` but of date-times; it
+//! plots directly, or collects into a `Vec`.
 //! Gallery: `concise_dates` in `units.rs`.
 //!
 //! # Time zones
 //!
-//! A [`DateTime`] is a time in UTC, and date numbers count days in UTC.
-//! A date axis writes its ticks in the zone the `timezone` setting
-//! names, UTC by default, or in the zone given to [`Axes::xaxis_date`]
-//! ([`Axis::axis_date`] on any axis), which the axis keeps for later
-//! plots. [`TimeZone::named`] reads a zone from the system's time zone
-//! database, daylight saving time included.
+//! A [`DateTime`] has no zone: plotting takes it as UTC, and date
+//! numbers count days in UTC. A [`ZonedDateTime`] is a time on the
+//! clocks of a [`TimeZone`]. It plots as the instant it stands for, and
+//! an axis without a unit takes the zone of the first one it plots as
+//! its unit, so its ticks read in that zone, daylight saving time
+//! included, as matplotlib's do with aware `datetime`s. Values of other
+//! zones in the same list plot as their instants. [`TimeZone::named`]
+//! reads a zone from the system's time zone database.
+//!
+//! ```
+//! use plt::dates::{DateRange, DateTime, TimeDelta, TimeZone, ZonedDateTime};
+//! use plt::prelude::*;
+//! use plt::units::Unit;
+//!
+//! # if TimeZone::named("Europe/Zurich").is_err() {
+//! #     return Ok(()); // no time zone database on this system
+//! # }
+//! let zurich = TimeZone::named("Europe/Zurich")?;
+//! // Readings of a clock in Zurich, every hour from 13:00.
+//! let start = DateTime::new(2024, 3, 30, 13, 0, 0, 0)?;
+//! let end = DateTime::new(2024, 3, 30, 19, 0, 0, 0)?;
+//! let readings = DateRange::new(start, end, TimeDelta::from_hours(1))?
+//!     .map(|local| ZonedDateTime::from_local(local, zurich.clone()));
+//!
+//! let ax = Figure::new().subplot();
+//! ax.plot(readings, [3.0, 4.0, 4.5, 4.0, 3.0, 2.0])?;
+//! assert_eq!(ax.xaxis().units(), Some(Unit::new(zurich)));
+//! assert_eq!(ax.xaxis().ticklabels(false)?[..3], ["03-30 13", "03-30 14", "03-30 15"]);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! Times recorded in UTC plot as they are; [`Axes::xaxis_date`]
+//! ([`Axis::axis_date`] on any axis) gives the axis the zone to show
+//! them in. Either way the axis keeps its zone for later plots; without
+//! one, it writes its ticks in the zone the `timezone` setting names,
+//! UTC by default.
 //!
 //! The kind of label, automatic or concise, follows the `date.converter`
 //! setting, for every date axis; [`Axis::set_converter`] chooses it for
@@ -188,7 +219,7 @@
 //! `&TimeZone::Utc` for UTC.
 //!
 //! ```
-//! use plt::dates::{DateTime, TimeDelta, TimeZone};
+//! use plt::dates::{DateRange, DateTime, TimeDelta, TimeZone};
 //! use plt::prelude::*;
 //! use plt::units::DateConverter;
 //!
@@ -197,12 +228,11 @@
 //! # }
 //! let zurich = TimeZone::named("Europe/Zurich")?;
 //! let noon = DateTime::new(2024, 3, 30, 12, 0, 0, 0)?; // UTC
-//! let hours = (0..6)
-//!     .map(|hour| noon.checked_add(TimeDelta::new(0, 3600 * hour, 0)?))
-//!     .collect::<Result<Vec<_>, _>>()?;
+//! let evening = DateTime::new(2024, 3, 30, 18, 0, 0, 0)?;
+//! let hours = DateRange::new(noon, evening, TimeDelta::from_hours(1))?;
 //!
 //! let ax = Figure::new().subplot();
-//! ax.plot(&hours, [3.0, 4.0, 4.5, 4.0, 3.0, 2.0])?;
+//! ax.plot(hours, [3.0, 4.0, 4.5, 4.0, 3.0, 2.0])?;
 //! ax.xaxis().set_converter(DateConverter::Concise)?.axis_date(&zurich);
 //! assert_eq!(ax.xaxis().ticklabels(false)?[..3], ["13:00", "14:00", "15:00"]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -242,6 +272,10 @@
 //! [`Axes::grid`]: crate::axes::Axes::grid
 //! [`Axes::grid_with`]: crate::axes::Axes::grid_with
 //! [`DateTime`]: crate::dates::DateTime
+//! [`DateRange`]: crate::dates::DateRange
+//! [`TimeDelta`]: crate::dates::TimeDelta
+//! [`ZonedDateTime`]: crate::dates::ZonedDateTime
+//! [`TimeZone`]: crate::dates::TimeZone
 //! [`TimeZone::named`]: crate::dates::TimeZone::named
 //! [`Axes::xaxis_date`]: crate::axes::Axes::xaxis_date
 //! [`Axis::axis_date`]: crate::axes::Axis::axis_date

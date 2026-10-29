@@ -88,6 +88,8 @@
 //! | `np.meshgrid(x, y)`                    | [`meshgrid`]                                       |
 //! | strings (categories)                   | `["a", "b"]`, `Vec<String>`: [`AxisValues::Categories`] |
 //! | `datetime`, `np.datetime64`            | `&[DateTime]`, `Vec<Datetime64>`: [`AxisValues::Dates`] |
+//! | aware `datetime`s (with a `tzinfo`)    | `&[ZonedDateTime]`, `Vec<ZonedDateTime>`: [`AxisValues::Dates`] with the zone of the first, which an axis without a unit takes as its unit |
+//! | `[d1 + i * delta for i in range(n)]`, `mdates.drange` | [`DateRange::new`]`(d1, d2, delta)?`, an iterator of date-times that plots directly |
 //! | objects of a class in `units.registry` | `Vec<T>`, `[T; N]` or an iterator of a [`Convertible`] `T` (`values.iter().cloned()` for a slice): [`AxisValues::Custom`] |
 //! | `timedelta` or user-value bar heights, widths, error sizes | [`AxisDeltas`] (`Vec<TimeDelta>`, `Vec<T>` of a [`Convertible`] `T`), converted through the values they extend from |
 //! | `xunits=u`, `yunits=u` (`thetaunits=u`, `runits=u` on polar axes) | [`Axis::update_units`]`(x)` then [`Axis::set_units`]`(u)` before the call |
@@ -454,6 +456,7 @@
 //! [`AxisValues`]: crate::units::AxisValues
 //! [`AxisValues::Categories`]: crate::units::AxisValues::Categories
 //! [`AxisValues::Dates`]: crate::units::AxisValues::Dates
+//! [`DateRange::new`]: crate::dates::DateRange::new
 //! [`AxisValues::Custom`]: crate::units::AxisValues::Custom
 //! [`AxisDeltas`]: crate::units::AxisDeltas
 //! [`Convertible`]: crate::units::Convertible

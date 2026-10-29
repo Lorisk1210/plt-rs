@@ -68,7 +68,9 @@ gives an axis), ``date_first`` (``{tz}``: ``ax.xaxis_date(tz)``, ``tz`` a
 zone name or ``null``), ``axhline`` (``ax.axhline(y)``), ``plot`` (``{x,
 y}`` of numbers or ISO strings, or ``{days: [start, stop]}`` for
 ``np.arange(start, stop, dtype='datetime64[D]')`` against ``0, 1, ...``,
-and ``{hours: [start, stop]}`` likewise with ``datetime64[h]``), ``replot``
+and ``{hours: [start, stop]}`` likewise with ``datetime64[h]``; ``tz``,
+a zone name or a list of them taken in turn, makes the spaced values aware
+date-times, their instants in those zones), ``replot``
 (``{rc, plot}``: sets the rcParams ``rc`` for the rest of the op, then
 plots ``plot`` in the same forms), ``late_converter`` (a converter named as
 for ``converter``, set after the plots), ``xaxis_date`` (``true``:
@@ -131,6 +133,16 @@ and with ``interval_multiples=True``, its constructor's default, whatever
 it ticks. Converters of different kinds compare unequal, so one set
 explicitly refuses another, and one set after plotted dates replaces
 theirs, keeping their ticks until it gets a zone.
+
+The ``test_aware_*`` cases, plt-rs' own too, plot aware date-times in
+Berlin and New York across their 2020 clock changes, in the ``default``
+style. The date converter's ``default_units`` is the ``tzinfo`` of the
+first value, which ``update_units`` makes the unit of an axis without
+one, so the ticks follow that zone, whatever ``timezone`` says, and every
+value converts to its UTC date number: a list mixing zones is in the
+first one's. ``plot`` updates the units even on an axis with a converter
+(naive dates plotted before), while an axis with a unit keeps it, and
+aware limits make their zone the unit of a fresh axis too.
 
 Left out
 --------
@@ -573,11 +585,20 @@ def _xaxis_date(ax, spec):
         ax.xaxis_date(None if spec is True else spec["tz"])
 
 
+def _aware(times, zones):
+    """``datetime64`` values as aware date-times: their instants in the zones
+    ``zones`` names (a name, or a list of names taken in turn)."""
+    zones = [zones] if isinstance(zones, str) else zones
+    return [t.astype("datetime64[us]").astype(datetime.datetime).replace(tzinfo=UTC)
+            .astimezone(_tz(zones[i % len(zones)])) for i, t in enumerate(times)]
+
+
 def _plot(ax, plot):
     spacing = next((key for key in SPACINGS if key in plot), None)
     if spacing is not None:
         times = np.arange(*plot[spacing], dtype=f"datetime64[{SPACINGS[spacing]}]")
-        ax.plot(times, np.arange(len(times)))
+        x = times if "tz" not in plot else _aware(times, plot["tz"])
+        ax.plot(x, np.arange(len(times)))
     else:
         ax.plot(_values(plot["x"]), _values(plot["y"]))
 
@@ -1003,3 +1024,70 @@ def test_explicit_converter_and_switchable():
                            replot={"rc": {"date.converter": other}, "plot": NOON_HOURS},
                            xaxis_date={"tz": "UTC"})
             assert result["formatter"] == FORMATTERS[ticked]
+
+
+# ---------------------------------------------------------------------------
+# Aware date-times on an axis (plt-rs' own cases)
+# ---------------------------------------------------------------------------
+
+#: The abbreviation of each zone on 2020-01-01, as ``get_units`` reports it.
+ZONE_NAMES = {"Europe/Berlin": "CET", "America/New_York": "EST", "UTC": "UTC"}
+
+
+def aware(plot, tz):
+    """The ``plot`` of spaced ``datetime64`` values as aware date-times in ``tz``."""
+    return {**plot, "tz": tz}
+
+
+def axis_facts(**scene):
+    """The unit, the tick labels and the limits of the x axis of ``scene``, in
+    the ``default`` style."""
+    return (units(**scene), ticklabels(style=DEFAULT_STYLE, **scene)["labels"],
+            on_axes("axes.Axes.get_xlim", _xlim, style=DEFAULT_STYLE, **scene))
+
+
+def test_aware_unit_ticks_and_limits():
+    for zone, other in zip(ZONES, ZONES[::-1]):
+        for plot in ZONE_PLOTS[zone] + [DAYS_ACROSS_SPRING]:
+            rc = {"timezone": other}
+            # The zone of the values is the unit, whatever timezone says.
+            assert axis_facts(rc=rc, plot=aware(plot, zone))[0] == ZONE_NAMES[zone]
+            ticklabels(rc={**rc, "date.converter": "concise"}, plot=aware(plot, zone),
+                       style=DEFAULT_STYLE)
+    berlin_spring = axis_facts(rc={"timezone": ZONES[1]}, plot=aware(ZONE_PLOTS[ZONES[0]][0], ZONES[0]))
+    assert berlin_spring[1][:3] == ["03-28 23", "03-29 00", "03-29 01"]
+
+
+def test_aware_mixed_zones():
+    berlin = ZONES[0]
+    plot = ZONE_PLOTS[berlin][0]
+    xlims = []
+    for zones in (ZONES, ZONES[::-1], ["UTC", *ZONES]):
+        unit, _, xlim = axis_facts(plot=aware(plot, zones))
+        # The first value's zone is the unit; every value is its instant.
+        assert unit == ZONE_NAMES[zones[0]]
+        xlims.append(xlim)
+    assert xlims[0] == xlims[1] == xlims[2] == axis_facts(plot=aware(plot, berlin))[2]
+
+
+def test_aware_on_an_axis_with_a_unit():
+    berlin, new_york = ZONES
+    in_berlin = aware(ZONE_PLOTS[berlin][0], berlin)
+    in_new_york = aware(ZONE_PLOTS[new_york][0], new_york)
+    for scene, unit in [
+        ({"date_first": {"tz": new_york}, "plot": in_berlin}, "EST"),
+        ({"date_first": {"tz": "UTC"}, "plot": in_berlin}, "UTC"),
+        # A converter but no unit yet: plot updates the units all the same.
+        ({"date_first": {"tz": None}, "plot": in_berlin}, "CET"),
+        ({"plot": ZONE_PLOTS[berlin][0], "replot": {"plot": in_berlin}}, "CET"),
+        ({"plot": in_new_york, "replot": {"plot": in_berlin}}, "EST"),
+    ]:
+        assert axis_facts(**scene)[0] == unit
+
+
+def test_aware_limits():
+    berlin = ZONES[0]
+    lim = ["2020-03-29T00:00:00+01:00", "2020-03-29T06:00:00+02:00"]
+    assert axis_facts(x={"lim": lim})[0] == "UTC+01:00"
+    assert axis_facts(date_first={"tz": berlin}, x={"lim": lim})[0] == "CET"
+    assert axis_facts(plot=aware(ZONE_PLOTS[berlin][0], berlin), x={"lim": lim})[0] == "CET"

@@ -43,6 +43,12 @@ pub enum DateError {
     /// An argument has an invalid value (matplotlib's `ValueError` for
     /// parameters such as a zero interval or a wrong number of formats).
     InvalidArgument(String),
+    /// A [`DateRange`](super::DateRange) step that is zero or negative,
+    /// which never reaches the end.
+    NonPositiveStep(super::TimeDelta),
+    /// A range of this many dates, more than
+    /// [`MAX_RANGE_DATES`](super::MAX_RANGE_DATES).
+    TooManyRangeDates(u64),
 }
 
 impl fmt::Display for DateError {
@@ -63,6 +69,14 @@ impl fmt::Display for DateError {
             Self::InvalidTimeZoneData(why) => write!(f, "invalid time zone data: {why}"),
             Self::EmptyRule(why) => write!(f, "recurrence rule is empty: {why}"),
             Self::InvalidArgument(why) => f.write_str(why),
+            Self::NonPositiveStep(step) => {
+                write!(f, "the step of a date range must be positive, not {step}")
+            }
+            Self::TooManyRangeDates(count) => write!(
+                f,
+                "a date range of {count} dates is more than the {} allowed",
+                super::MAX_RANGE_DATES
+            ),
         }
     }
 }

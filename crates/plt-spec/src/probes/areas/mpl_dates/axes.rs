@@ -5,7 +5,10 @@
 //! the module docs of `test_mpl_dates.py` for the order of the set-up).
 
 use plt::axes::{Axes, Axis, AxisName, Limits};
-use plt::dates::{AutoDateFormatter, DateTime, Datetime64, RRuleLocator, TimeZone, UtcOffset};
+use plt::dates::{
+    AutoDateFormatter, DateRange, DateTime, Datetime64, RRuleLocator, TimeDelta, TimeZone,
+    UtcOffset, ZonedDateTime,
+};
 use plt::figure::Figure;
 use plt::lines::LineProps;
 use plt::ticker::NullLocator;
@@ -13,67 +16,95 @@ use plt::units::{AxisValues, DateConverter, UnitConverter};
 
 use super::in_epoch;
 use crate::json::Json;
-use crate::probes::areas::dates::{self, date_num, zoned};
+use crate::probes::areas::dates::{self, zoned};
 use crate::probes::areas::mpl_ticker::{
     formatter_name, install_formatter, install_locator, locator_name, spec_parts, styled,
 };
 use crate::probes::areas::text_metrics::set_rc;
 use crate::probes::{Args, Outcome, ProbeError, encode};
 
-/// Plotted values: numbers, or ISO strings for dates.
+/// The strings of a JSON array, if it holds only strings.
+fn strings(value: &Json) -> Option<Vec<&str>> {
+    value.as_array()?.iter().map(Json::as_str).collect()
+}
+
+/// Plotted values: numbers, or ISO strings for dates, aware as the
+/// reference module's `_dt` makes them (in UTC unless they give an
+/// offset).
 fn values(value: &Json) -> Result<AxisValues, ProbeError> {
     if let Some(numbers) = value.as_f64_vec() {
         return Ok(AxisValues::from(numbers));
     }
-    let dates = value
-        .as_array()
-        .and_then(|items| items.iter().map(Json::as_str).collect::<Option<Vec<_>>>())
+    let dates = strings(value)
         .ok_or_else(|| ProbeError::BadArgs(format!("not numbers or dates: {value}")))?
         .into_iter()
-        .map(|text| zoned(text)?.to_utc().map_err(ProbeError::rejected))
-        .collect::<Result<Vec<DateTime>, _>>()?;
+        .map(zoned)
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(AxisValues::from(dates))
 }
 
 /// The `plot` forms of evenly spaced `datetime64` values, with their
-/// spacing in seconds: `datetime64[D]` and `datetime64[h]`.
-const SPACINGS: [(&str, usize); 2] = [("days", 86_400), ("hours", 3_600)];
+/// spacing: `datetime64[D]` and `datetime64[h]`.
+const SPACINGS: [(&str, TimeDelta); 2] = [
+    ("days", TimeDelta::from_hours(24)),
+    ("hours", TimeDelta::from_hours(1)),
+];
 
-/// `np.arange(start, stop, dtype=...)` for values `step` seconds apart.
-fn spaced(range: &Json, step: usize) -> Result<Vec<Datetime64>, ProbeError> {
-    let bounds = range
-        .as_array()
-        .and_then(|items| items.iter().map(Json::as_str).collect::<Option<Vec<_>>>())
-        .ok_or_else(|| ProbeError::BadArgs("a range needs two dates".into()))?;
+/// `np.arange(start, stop, dtype=...)` for values `step` apart.
+fn spaced(range: &Json, step: TimeDelta) -> Result<DateRange, ProbeError> {
     let instant = |text: &str| {
-        Datetime64::parse(text)
+        let seconds = Datetime64::parse(text)
             .map_err(ProbeError::rejected)?
-            .ok_or_else(|| ProbeError::BadArgs("NaT".into()))
+            .ok_or_else(|| ProbeError::BadArgs("NaT".into()))?
+            .seconds();
+        let micros = seconds.checked_mul(1_000_000).unwrap_or(i64::MAX);
+        DateTime::from_timestamp_micros(micros).map_err(ProbeError::rejected)
     };
-    let [start, stop] = bounds[..] else {
+    let Some(&[start, stop]) = strings(range).as_deref() else {
         return Err(ProbeError::BadArgs("a range needs two dates".into()));
     };
-    let (first, last) = (instant(start)?.seconds(), instant(stop)?.seconds());
-    Ok((first..last)
-        .step_by(step)
-        .map(|seconds| Datetime64::new(seconds, 0))
-        .collect())
+    DateRange::new(instant(start)?, instant(stop)?, step).map_err(ProbeError::rejected)
 }
 
-/// `ax.plot(...)` for the probe's `plot`.
+/// The zones of the probe's `tz`: one name, or a list of names taken in
+/// turn.
+fn zones(spec: &Json) -> Result<Vec<TimeZone>, ProbeError> {
+    let names = match spec.as_str() {
+        Some(name) => vec![name],
+        None => strings(spec)
+            .filter(|names| !names.is_empty())
+            .ok_or_else(|| ProbeError::BadArgs(format!("not zones: {spec}")))?,
+    };
+    names
+        .into_iter()
+        .map(|name| TimeZone::named(name).map_err(ProbeError::rejected))
+        .collect()
+}
+
+/// `ax.plot(...)` for the probe's `plot`: spaced values are aware
+/// date-times in the zones of `tz`, if it is given, and naive otherwise.
 fn plot(ax: &Axes, spec: &Json) -> Result<(), ProbeError> {
     let spec = Args::new(spec);
-    if let Some((range, step)) = SPACINGS
+    let Some((range, step)) = SPACINGS
         .iter()
         .find_map(|&(key, step)| spec.get(key).map(|range| (range, step)))
-    {
-        let times = spaced(range, step)?;
-        let counts: Vec<f64> = (0..times.len()).map(|i| i as f64).collect();
-        ax.plot(times, counts).map_err(ProbeError::rejected)?;
+    else {
+        ax.plot(values(spec.json("x")?)?, values(spec.json("y")?)?)
+            .map_err(ProbeError::rejected)?;
         return Ok(());
-    }
-    ax.plot(values(spec.json("x")?)?, values(spec.json("y")?)?)
-        .map_err(ProbeError::rejected)?;
+    };
+    let times = spaced(range, step)?;
+    let counts: Vec<f64> = (0..times.len()).map(|i| i as f64).collect();
+    let times = match spec.get("tz") {
+        None => AxisValues::from(times),
+        Some(tz) => times
+            .zip(zones(tz)?.into_iter().cycle())
+            .map(|(instant, tz)| ZonedDateTime::from_utc(instant, tz))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ProbeError::rejected)?
+            .into(),
+    };
+    ax.plot(times, counts).map_err(ProbeError::rejected)?;
     Ok(())
 }
 
@@ -133,22 +164,18 @@ fn set_formatter(axis: &Axis, minor: bool, spec: &Json) -> Result<(), ProbeError
     Ok(())
 }
 
-/// Sets the view limits of axis `name` to two dates, which makes it a
-/// date axis as matplotlib's unit conversion of `set_xlim` does.
+/// `ax.set_xlim(...)` or `ax.set_ylim(...)` with two aware dates, which
+/// makes axis `name` a date axis, in their zone if it had no converter.
 fn set_date_limits(ax: &Axes, name: AxisName, lim: &Json) -> Result<(), ProbeError> {
-    let Some([low, high]) = lim.as_array() else {
+    let Some(&[low, high]) = strings(lim).as_deref() else {
         return Err(ProbeError::BadArgs("lim needs two dates".into()));
     };
-    let num = |value: &Json| {
-        value
-            .as_str()
-            .ok_or_else(|| ProbeError::BadArgs("lim holds dates".into()))
-            .and_then(date_num)
-    };
-    let (low, high) = (num(low)?, num(high)?);
-    ax.axis_of(name).axis_date(None);
-    ax.set_limits(name, low, high)
-        .map_err(ProbeError::rejected)?;
+    let (low, high) = (zoned(low)?, zoned(high)?);
+    match name {
+        AxisName::X => ax.set_xlim(low, high),
+        AxisName::Y => ax.set_ylim(low, high),
+    }
+    .map_err(ProbeError::rejected)?;
     Ok(())
 }
 
@@ -338,8 +365,7 @@ pub(super) fn converter_name(args: Args<'_>) -> Outcome {
 /// locator, then a `DayLocator`: `{count, xlim}`.
 pub(super) fn too_many_ticks(args: Args<'_>) -> Outcome {
     on_axes(args, |_, ax| {
-        let t0 = date_num("2000-01-20T00:00:00")?;
-        ax.xaxis().axis_date(None);
+        let t0 = ax.xaxis().convert_value(zoned("2000-01-20T00:00:00")?);
         let limits = Limits {
             auto: Some(true),
             ..Limits::new(t0, t0)

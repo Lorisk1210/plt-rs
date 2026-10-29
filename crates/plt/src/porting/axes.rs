@@ -95,6 +95,9 @@
 //! | `mdates.YearLocator`, `AutoDateLocator`        | [`YearLocator`], [`AutoDateLocator`]             |
 //! | `mdates.DateFormatter("%b %Y")`, `ConciseDateFormatter` | [`DateFormatter::new`], [`ConciseDateFormatter`] |
 //! | `mdates.date2num`, `num2date`, `datestr2num`   | [`date2num`], [`num2date`], [`datestr2num`]      |
+//! | `mdates.drange(d1, d2, delta)`                 | [`drange`] for the date numbers; [`DateRange::new`]`(d1, d2, delta)?` for the date-times, which plot directly |
+//! | `timedelta(hours=6)`, `timedelta(days=1)`      | [`TimeDelta::from_hours`]`(6)`, [`TimeDelta::from_days`]`(1)?` (also `from_secs`, `from_mins`, `from_weeks`) |
+//! | aware `datetime`s, whose first `tzinfo` becomes the unit | [`ZonedDateTime`]s: an axis without a unit takes the first one's zone, and its ticks follow it |
 //! | `mdates.set_epoch`, `get_epoch`                | [`set_epoch`], [`get_epoch`]                     |
 //!
 //! # Limits, margins and aspect
@@ -366,6 +369,11 @@
 //! [`datestr2num`]: crate::dates::datestr2num
 //! [`set_epoch`]: crate::dates::set_epoch
 //! [`get_epoch`]: crate::dates::get_epoch
+//! [`drange`]: crate::dates::drange
+//! [`DateRange::new`]: crate::dates::DateRange::new
+//! [`TimeDelta::from_hours`]: crate::dates::TimeDelta::from_hours
+//! [`TimeDelta::from_days`]: crate::dates::TimeDelta::from_days
+//! [`ZonedDateTime`]: crate::dates::ZonedDateTime
 //! [`Axes::xaxis`]: crate::axes::Axes::xaxis
 //! [`Axes::yaxis`]: crate::axes::Axes::yaxis
 //! [`Axes::set_xlim`]: crate::axes::Axes::set_xlim

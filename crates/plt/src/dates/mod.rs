@@ -12,7 +12,8 @@
 //! * parsing ([`iso`]) and `strftime` formatting
 //!   ([`DateTime::strftime`]) with Python's and the C library's semantics;
 //! * the conversions [`date2num`], [`num2date`], [`num2timedelta`],
-//!   [`drange`] and [`datestr2num`];
+//!   [`drange`] and [`datestr2num`], and evenly spaced date-times
+//!   ([`DateRange`]);
 //! * recurrence rules ([`rrule`], dateutil semantics);
 //! * the tick locators — [`AutoDateLocator`], [`RRuleLocator`] (with the
 //!   `MonthLocator`-style constructors), [`YearLocator`],
@@ -49,6 +50,7 @@ mod error;
 mod formatters;
 pub mod iso;
 mod locators;
+mod range;
 mod relativedelta;
 pub mod rrule;
 mod strftime;
@@ -68,6 +70,7 @@ pub use locators::{
     AutoDateLocator, AutoFrequency, ChosenLocator, DateLocator, LocatorChoice, MicrosecondLocator,
     RRuleLocator, YearLocator,
 };
+pub use range::{DateRange, MAX_RANGE_DATES};
 pub use relativedelta::RelativeDelta;
 pub use rrule::{Frequency, NthWeekday, RRule, RRuleSpec};
 pub use timedelta::TimeDelta;

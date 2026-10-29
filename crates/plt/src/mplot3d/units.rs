@@ -39,7 +39,7 @@ impl Sources3D {
     pub(crate) fn of_position(position: &[AxisValue; 3]) -> Self {
         Self(position.each_ref().map(|value| match value {
             AxisValue::Custom(values) => Some(values.clone()),
-            AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date(_) => None,
+            AxisValue::Number(_) | AxisValue::Category(_) | AxisValue::Date { .. } => None,
         }))
     }
 

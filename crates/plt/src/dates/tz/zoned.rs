@@ -12,6 +12,10 @@ use crate::dates::{DateError, DateTime};
 /// clock; [`to_utc`](Self::to_utc) resolves the offset. `fold` picks the
 /// second occurrence of a wall time repeated when clocks go back. Equality
 /// is structural (same wall time, zone and fold), not instant equality.
+///
+/// Zoned date-times plot as the instants they stand for, and an axis
+/// without a unit takes the zone of the first one as its unit, as
+/// matplotlib does with aware `datetime`s (see [`crate::units`]).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ZonedDateTime {
     local: DateTime,

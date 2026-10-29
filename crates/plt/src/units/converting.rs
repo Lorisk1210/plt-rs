@@ -265,7 +265,7 @@ pub(crate) trait UnitHandle: Sized {
                 true
             }
             values => {
-                self.convert_values(values);
+                self.convert_plot_units(values);
                 true
             }
         }
@@ -297,9 +297,9 @@ pub(crate) trait UnitHandle: Sized {
     /// names; the axes sharing this axis take over its converter,
     /// category names and the tick helpers they bring (matplotlib's
     /// `update_units` + `convert_units`, as `_process_unit_info` does).
-    /// User values set the axis up first if it has no unit; values that
-    /// fail to convert become NaN, and the figure reports why when it
-    /// next draws.
+    /// User values and zoned dates set the axis up first if it has
+    /// neither converter nor unit; values that fail to convert become
+    /// NaN, and the figure reports why when it next draws.
     fn convert_values(&self, values: AxisValues) -> Vec<f64> {
         let positions = match values {
             // Numbers need no converter, so the axis is left untouched.
@@ -310,7 +310,12 @@ pub(crate) trait UnitHandle: Sized {
                 }
                 return self.convert_custom(&values);
             }
-            AxisValues::Dates(numbers) => self.update_state(|state| state.convert_dates(numbers)),
+            AxisValues::Dates { numbers, tz } => {
+                if let Some(tz) = tz.filter(|_| !self.has_units()) {
+                    self.make_date_axis(Some(&tz));
+                }
+                self.update_state(|state| state.convert_dates(numbers))
+            }
             AxisValues::Categories(names) => {
                 self.update_state(|state| state.convert_categories(&names))
             }
@@ -321,11 +326,14 @@ pub(crate) trait UnitHandle: Sized {
     }
 
     /// Converts plotting values as matplotlib's `plot` and `fill` do: user
-    /// values update the axis units first even when it has some
-    /// (`_plot_args` calling `update_units`).
+    /// values and zoned dates update the axis units first even when it
+    /// has some (`_plot_args` calling `update_units`), so the zone of
+    /// zoned dates becomes the unit of an axis of naive dates.
     fn convert_plot_units(&self, values: AxisValues) -> Vec<f64> {
-        if let AxisValues::Custom(values) = &values {
-            self.update_custom_units(values);
+        match &values {
+            AxisValues::Custom(values) => self.update_custom_units(values),
+            AxisValues::Dates { tz: Some(tz), .. } => self.make_date_axis(Some(tz)),
+            AxisValues::Numbers(_) | AxisValues::Categories(_) | AxisValues::Dates { .. } => {}
         }
         self.convert_values(values)
     }
@@ -422,10 +430,11 @@ pub(crate) trait UnitHandle: Sized {
     /// Takes the converter of dates that follows `date.converter`, unless
     /// another one was set explicitly, with the tick helpers and default
     /// view of dates its converter gives (matplotlib's `axis_date`, which
-    /// updates the units with a date in `tz`): a given zone becomes the
-    /// unit of an axis without one, which sets them up in that zone;
-    /// otherwise they come only with a converter new to the axis, in the
-    /// unit's zone, else in the `timezone` rcParam's. So the ticks earlier
+    /// updates the units with a date in `tz`, as dates in zone `tz` do):
+    /// a given zone becomes the unit of an axis without one, which sets
+    /// them up in that zone; otherwise they come only with a converter
+    /// new to the axis, in the unit's zone, else in the `timezone`
+    /// rcParam's. So the ticks earlier
     /// dates set up stay, and an axis given a converter of dates
     /// explicitly keeps its tick helpers until it gets a zone, then takes
     /// those of that converter: one of a kind of its own ignores
@@ -545,7 +554,7 @@ pub(crate) trait UnitHandle: Sized {
     /// reported when the figure next draws.
     fn convert_when_drawn(&self, value: &AxisValue) -> f64 {
         let converted = match value {
-            &AxisValue::Number(number) | &AxisValue::Date(number) => Ok(number),
+            &AxisValue::Number(number) | &AxisValue::Date { number, .. } => Ok(number),
             AxisValue::Category(name) => {
                 if self.read_state(|state| state.categories().is_some()) {
                     Ok(self.convert_one(value.clone()))
@@ -566,7 +575,7 @@ pub(crate) trait UnitHandle: Sized {
     fn try_convert_value(&self, value: &AxisValue) -> Result<f64, ConversionError> {
         match value {
             &AxisValue::Number(number) => Ok(number),
-            &AxisValue::Date(number) => {
+            &AxisValue::Date { number, .. } => {
                 self.update_state(|state| state.units_mut().converter_or(UnitConverter::Dates));
                 Ok(number)
             }

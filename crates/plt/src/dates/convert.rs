@@ -10,6 +10,7 @@ use std::sync::{Mutex, PoisonError};
 
 use super::datetime::{MAX_YEAR, MIN_YEAR};
 use super::iso::Datetime64;
+use super::range::MAX_RANGE_DATES;
 use super::timedelta::{MICROS_PER_DAY, MICROS_PER_SECOND};
 use super::tz::{TimeZone, ZonedDateTime};
 use super::{Date, DateError, DateTime, TimeDelta, calendar};
@@ -223,15 +224,24 @@ pub fn num2timedelta(x: f64) -> Result<TimeDelta, DateError> {
 }
 
 /// Date numbers from `start` up to, not including, `end` in steps of
-/// `delta` (`dates.drange`).
+/// `delta` (`dates.drange`). A [`DateRange`](super::DateRange) gives the
+/// date-times themselves, which plot directly.
 ///
 /// ```
 /// use plt::dates::{TimeDelta, ZonedDateTime, drange};
 /// let start = ZonedDateTime::parse_iso("2020-01-01").unwrap();
 /// let end = ZonedDateTime::parse_iso("2020-01-02").unwrap();
-/// let six_hours = TimeDelta::new(0, 6 * 3600, 0).unwrap();
+/// let six_hours = TimeDelta::from_hours(6);
 /// assert_eq!(drange(&start, &end, six_hours).unwrap(), [18262.0, 18262.25, 18262.5, 18262.75]);
 /// ```
+///
+/// # Errors
+///
+/// When `delta` is zero, when `end` is a step or more on the wrong side
+/// of `start` (matplotlib's negative number of samples), when the dates
+/// leave years 1 to 9999, and when there would be more than
+/// [`MAX_RANGE_DATES`](super::MAX_RANGE_DATES) numbers
+/// ([`DateError::TooManyRangeDates`]).
 pub fn drange(
     start: &ZonedDateTime,
     end: &ZonedDateTime,
@@ -259,6 +269,10 @@ pub fn drange(
             count + 1
         ))
     })?;
+    if samples > MAX_RANGE_DATES {
+        let samples = u64::try_from(samples).unwrap_or(u64::MAX);
+        return Err(DateError::TooManyRangeDates(samples));
+    }
     Ok(linspace(first, date2num(&interval_end)?, samples))
 }
 
@@ -427,6 +441,10 @@ mod tests {
         assert!(drange(&start, &before, day).is_err());
         assert!(drange(&start, &before, TimeDelta::ZERO).is_err());
         assert_eq!(datestr2num("1970-01-02T00:00:00Z"), Ok(1.0));
+        let later = ZonedDateTime::parse_iso("2020-01-01T00:01:08").unwrap();
+        let micro = TimeDelta::from_micros(1);
+        let too_many = drange(&start, &later, micro);
+        assert_eq!(too_many, Err(DateError::TooManyRangeDates(68_000_000)));
     }
 
     #[test]

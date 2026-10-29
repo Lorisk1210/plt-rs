@@ -9,6 +9,7 @@
 //! failure names the seed that reproduces it.
 
 mod config;
+mod dates;
 mod fonts;
 mod harness;
 mod images;

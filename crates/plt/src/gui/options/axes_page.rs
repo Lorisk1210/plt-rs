@@ -8,80 +8,10 @@ use super::artists::{
     CurveFields, CurvePlan, Detail, ImageFields, ImagePlan, apply_curve, apply_image, curves_panel,
     edited_lines, images_panel, read_curve, read_image,
 };
-use super::fields::{
-    FieldError, Form, chosen, date_text, date_zone, limit_text, parse_date, parse_limit,
-    read_field, text_of,
-};
-use crate::axes::{Axes, AxisName, TitleLocation};
-use crate::dates::TimeZone;
+use super::fields::{FieldError, text_of};
+use super::general::{AxisFields, AxisPlan, general_form, read_axis};
+use crate::axes::{Axes, TitleLocation};
 use crate::legend::LegendOptions;
-use crate::scale::ScaleName;
-use crate::units::UnitConverter;
-
-/// The scales offered, as matplotlib names them.
-static SCALES: [ScaleName; 4] = [
-    ScaleName::Linear,
-    ScaleName::Log,
-    ScaleName::Symlog,
-    ScaleName::Logit,
-];
-
-/// The field of an axis limit, showing it rounded, or as a date on an
-/// axis of dates (as matplotlib's editor shows them).
-#[derive(Debug, Clone)]
-struct LimitField {
-    id: WidgetId,
-    /// The limit, which the field keeps while its text is the one shown.
-    value: f64,
-    /// The text the field was given.
-    shown: String,
-    /// On an axis of dates, the zone the limit, a date number, is shown
-    /// and typed in.
-    zone: Option<TimeZone>,
-}
-
-impl LimitField {
-    /// The text showing limit `value` on an axis with `resolution` (see
-    /// [`limit_text`]), as a date in `zone` on an axis of dates.
-    fn text(value: f64, resolution: Option<f64>, zone: Option<&TimeZone>) -> String {
-        zone.and_then(|zone| date_text(value, zone))
-            .unwrap_or_else(|| limit_text(value, resolution))
-    }
-
-    /// The limit typed into the field called `name`, or the exact limit
-    /// it showed if the text was not edited (so that applying unedited
-    /// fields changes no limit).
-    fn read(&self, window: &mut UiWindow<OptionsMessage>, name: &str) -> Result<f64, FieldError> {
-        read_field(window, self.id, |text| {
-            if text == self.shown {
-                Ok(self.value)
-            } else if let Some(zone) = &self.zone {
-                parse_date(name, text, zone)
-            } else {
-                parse_limit(name, text)
-            }
-        })
-    }
-}
-
-/// The fields of one axis.
-#[derive(Debug, Clone)]
-struct AxisFields {
-    name: AxisName,
-    min: LimitField,
-    max: LimitField,
-    label: WidgetId,
-    scale: WidgetId,
-}
-
-/// The settings of an axis read from its fields.
-#[derive(Debug)]
-struct AxisPlan {
-    name: AxisName,
-    limits: (f64, f64),
-    label: String,
-    scale: ScaleName,
-}
 
 /// Everything a page sets, read and validated before anything changes.
 #[derive(Debug)]
@@ -192,11 +122,8 @@ impl AxesPage {
     /// Shows text field `field` if it is one of the page's, as choosing
     /// its tab and its curve or image would; returns whether it is.
     pub(super) fn reveal(&self, window: &mut UiWindow<OptionsMessage>, field: WidgetId) -> bool {
-        let mut general = std::iter::once(self.title).chain(
-            self.axis_fields
-                .iter()
-                .flat_map(|axis| [axis.min.id, axis.max.id, axis.label]),
-        );
+        let mut general = std::iter::once(self.title)
+            .chain(self.axis_fields.iter().flat_map(AxisFields::text_fields));
         let curve = self
             .curves
             .iter()
@@ -264,26 +191,7 @@ impl AxesPage {
         let before = (ax.xlim(), ax.ylim());
         ax.set_title_at(self.title_location, plan.title);
         for axis in plan.axes {
-            let (min, max) = axis.limits;
-            // An unknown scale cannot come from the fixed choices.
-            match axis.name {
-                AxisName::X => {
-                    if ax.xscale() != axis.scale {
-                        let _ = ax.set_xscale(axis.scale);
-                    }
-                    ax.set_xlim(min, max)
-                        .expect("the form takes finite limits only")
-                        .set_xlabel(axis.label);
-                }
-                AxisName::Y => {
-                    if ax.yscale() != axis.scale {
-                        let _ = ax.set_yscale(axis.scale);
-                    }
-                    ax.set_ylim(min, max)
-                        .expect("the form takes finite limits only")
-                        .set_ylabel(axis.label);
-                }
-            }
+            axis.apply(ax);
         }
         for (fields, plan) in self.curves.iter().zip(plan.curves) {
             apply_curve(&fields.line, plan);
@@ -305,83 +213,6 @@ fn show(window: &mut UiWindow<OptionsMessage>, stack: WidgetId, index: usize) {
     if let Some(stack) = window.ui_mut().widget_mut::<Stack<OptionsMessage>>(stack) {
         stack.show(index);
     }
-}
-
-/// The title, both axes and the legend switch.
-fn general_form(
-    axes: &Axes,
-    shown_title: &str,
-) -> (
-    WidgetId,
-    [AxisFields; 2],
-    WidgetId,
-    plt_ui::Form<OptionsMessage>,
-) {
-    let mut form = Form::new();
-    form.section("");
-    let title = form.text("Title", shown_title);
-    let mut axis = |name: AxisName| {
-        let (heading, (min, max), scale, axis) = match name {
-            AxisName::X => ("X axis", axes.xlim(), axes.xscale(), axes.xaxis()),
-            AxisName::Y => ("Y axis", axes.ylim(), axes.yscale(), axes.yaxis()),
-        };
-        form.section(heading);
-        let zone = (axis.converter().as_ref())
-            .is_some_and(UnitConverter::is_dates)
-            .then(date_zone);
-        let shown = |value| {
-            let resolution = axes.pixel_resolution(name, value);
-            LimitField::text(value, resolution, zone.as_ref())
-        };
-        let (min_text, max_text) = (shown(min), shown(max));
-        let (min_id, max_id) = form.pair(("Min", min_text.clone()), ("Max", max_text.clone()));
-        let min = LimitField {
-            id: min_id,
-            value: min,
-            shown: min_text,
-            zone: zone.clone(),
-        };
-        let max = LimitField {
-            id: max_id,
-            value: max,
-            shown: max_text,
-            zone,
-        };
-        let label = form.text("Label", axes.label(name));
-        let current = SCALES.iter().position(|s| *s == scale).unwrap_or(0);
-        let scale = form.choice("Scale", &SCALES.each_ref().map(ScaleName::as_str), current);
-        AxisFields {
-            name,
-            min,
-            max,
-            label,
-            scale,
-        }
-    };
-    let fields = [axis(AxisName::X), axis(AxisName::Y)];
-    form.section("");
-    let legend = form.wide(Checkbox::new("(Re-)Generate automatic legend", |_| {
-        OptionsMessage::Edited
-    }));
-    (title, fields, legend, form.finish())
-}
-
-fn read_axis(
-    window: &mut UiWindow<OptionsMessage>,
-    fields: &AxisFields,
-) -> Result<AxisPlan, FieldError> {
-    let axis = match fields.name {
-        AxisName::X => "X",
-        AxisName::Y => "Y",
-    };
-    let min = fields.min.read(window, &format!("{axis} min"))?;
-    let max = fields.max.read(window, &format!("{axis} max"))?;
-    Ok(AxisPlan {
-        name: fields.name,
-        limits: (min, max),
-        label: text_of(window, fields.label),
-        scale: SCALES[chosen(window, fields.scale).min(SCALES.len() - 1)].clone(),
-    })
 }
 
 #[cfg(test)]
@@ -418,7 +249,7 @@ mod tests {
                 .unwrap()
                 .set_text(text);
         };
-        let x_max = page.axis_fields[0].max.id;
+        let x_max = page.axis_fields[0].text_fields()[1];
         type_into(&mut window, page.title, "Edited");
         type_into(&mut window, x_max, "ten");
         let problem = page.read(&mut window).unwrap_err();
@@ -458,15 +289,15 @@ mod tests {
         )
         .unwrap();
         let [x, y] = page.axis_fields.clone();
-        assert_eq!(text_of(&mut window, x.min.id), "-0.49");
-        assert_eq!(text_of(&mut window, x.max.id), "10.29");
-        assert_eq!(text_of(&mut window, y.max.id), "1.05");
+        assert_eq!(text_of(&mut window, x.text_fields()[0]), "-0.49");
+        assert_eq!(text_of(&mut window, x.text_fields()[1]), "10.29");
+        assert_eq!(text_of(&mut window, y.text_fields()[1]), "1.05");
         let plan = page.read(&mut window).unwrap();
         assert!(!page.apply(plan), "no limit changed");
         assert_eq!((ax.xlim(), ax.ylim()), ((x0, x1), ylim));
         window
             .ui_mut()
-            .widget_mut::<TextInput<OptionsMessage>>(x.max.id)
+            .widget_mut::<TextInput<OptionsMessage>>(x.text_fields()[1])
             .unwrap()
             .set_text("12");
         let plan = page.read(&mut window).unwrap();
@@ -528,12 +359,21 @@ mod tests {
         )
         .unwrap();
         let [x, y] = page.axis_fields.clone();
-        assert_eq!(text_of(&mut window, x.min.id), "2020-01-01 00:00:00");
-        assert_eq!(text_of(&mut window, x.max.id), "2020-01-03 12:00:00");
-        assert!(!text_of(&mut window, y.max.id).contains('-'), "numbers");
+        assert_eq!(
+            text_of(&mut window, x.text_fields()[0]),
+            "2020-01-01 00:00:00"
+        );
+        assert_eq!(
+            text_of(&mut window, x.text_fields()[1]),
+            "2020-01-03 12:00:00"
+        );
+        assert!(
+            !text_of(&mut window, y.text_fields()[1]).contains('-'),
+            "numbers"
+        );
         window
             .ui_mut()
-            .widget_mut::<TextInput<OptionsMessage>>(x.max.id)
+            .widget_mut::<TextInput<OptionsMessage>>(x.text_fields()[1])
             .unwrap()
             .set_text("2020-01-05");
         let plan = page.read(&mut window).unwrap();
@@ -546,7 +386,7 @@ mod tests {
         use plt_platform::{EventLoop, WindowOptions};
         use plt_ui::TextInput;
 
-        use crate::dates::DateTime;
+        use crate::dates::{DateTime, TimeZone};
 
         if TimeZone::named("Asia/Tokyo").is_err() {
             return;
@@ -568,11 +408,17 @@ mod tests {
             .unwrap();
             let x = page.axis_fields[0].clone();
             // Tokyo is nine hours ahead of UTC.
-            assert_eq!(text_of(&mut window, x.min.id), "2020-01-01 09:00:00");
-            assert_eq!(text_of(&mut window, x.max.id), "2020-01-03 21:00:00");
+            assert_eq!(
+                text_of(&mut window, x.text_fields()[0]),
+                "2020-01-01 09:00:00"
+            );
+            assert_eq!(
+                text_of(&mut window, x.text_fields()[1]),
+                "2020-01-03 21:00:00"
+            );
             window
                 .ui_mut()
-                .widget_mut::<TextInput<OptionsMessage>>(x.max.id)
+                .widget_mut::<TextInput<OptionsMessage>>(x.text_fields()[1])
                 .unwrap()
                 .set_text("2020-01-05 09:00");
             let plan = page.read(&mut window).unwrap();

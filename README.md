@@ -181,6 +181,42 @@ each section (`sheet-<section>.png`). The figures take the look in
 force: `PLT_FIGURE_LOOK=modern-dark` draws the gallery on a dark
 background, `PLT_LOOK=matplotlib` in matplotlib's look.
 
+## Python: pltrs
+
+pltrs is plt-rs for Python, with matplotlib's syntax: only the import
+changes.
+
+```python
+import pltrs.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3], [4, 1, 3], "o--", label="data")
+ax.set_title("pltrs")
+ax.legend()
+fig.savefig("figure.png")
+```
+
+It is a Python package (`python/pltrs`) whose classes keep matplotlib's
+names and signatures, over a native extension written in Rust against
+CPython's stable ABI, without PyO3 or any crate (`crates/plt-python`). It
+needs Python 3.12 or later and numpy. Build it, and run it from the source
+tree:
+
+```sh
+cargo xtask python setup        # the venvs: .venv-pltrs for pltrs, .venv for matplotlib
+cargo xtask python --release    # builds python/pltrs/_native.abi3.so
+PYTHONPATH=python .venv-pltrs/bin/python your_script.py
+cargo xtask python test         # pltrs's smoke tests
+cargo xtask mpl-suite           # matplotlib 3.11's own test suite, run against pltrs
+```
+
+pltrs is young: it covers a first slice of pyplot (figures, subplots,
+`plot`, `scatter`, `bar`, titles and labels, legends, saving as PNG, SVG
+and PDF), rcParams and the image-comparison test tools. Its measure is
+matplotlib's own test suite: the share of the tests passing under
+matplotlib that pass under pltrs, tracked in `spec/mpl-suite/`. How it is
+built, and how to extend it, is in [`python/DESIGN.md`](python/DESIGN.md).
+
 ## Crates
 
 | crate          | responsibility                                                    |
@@ -195,6 +231,7 @@ background, `PLT_LOOK=matplotlib` in matplotlib's look.
 | `plt-ui`       | the retained-mode UI engine used by figure windows                |
 | `plt`          | the matplotlib model: figures, axes, artists, pyplot, GUI, web    |
 | `plt-spec`     | the conformance harness                                           |
+| `plt-python`   | pltrs's CPython extension (stable ABI, hand-written FFI)          |
 | `xtask`        | developer automation                                              |
 
 ## Building and testing

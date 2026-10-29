@@ -1,0 +1,4 @@
+# What `cargo xtask python setup` adds to the reference venv (`.venv`,
+# real matplotlib 3.11) for running matplotlib's suite in parallel.
+pytest-xdist==3.8.0
+pytest-timeout==2.4.0

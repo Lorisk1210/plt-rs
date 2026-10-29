@@ -17,6 +17,15 @@ pub struct ArtistId {
     index: u32,
 }
 
+impl ArtistId {
+    /// The id as a number: how many artists the figure made before this
+    /// one. Bindings that keep one object per artist, such as pltrs's
+    /// Python classes, look their objects up by it.
+    pub fn index(self) -> u32 {
+        self.index
+    }
+}
+
 impl fmt::Display for ArtistId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "#{}", self.index)

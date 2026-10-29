@@ -3,8 +3,8 @@
 plt-rs is a from-scratch reimplementation of matplotlib in Rust. It is fully
 self-contained: **no crates.io dependencies, ever** (not even dev-dependencies).
 Everything — DEFLATE/PNG, TrueType and Type 1, rasterization, text layout,
-mathtext, usetex's DVI reader, PDF/SVG/PS/PGF writers, the UI engine and the
-windowing layer — lives in this repo.
+mathtext, usetex's DVI reader, PDF/SVG/PS/PGF writers, the UI engine, the
+windowing layer and the CPython binding of pltrs — lives in this repo.
 
 ## Toolchain
 
@@ -16,8 +16,10 @@ cargo clippy -p <crate> --all-targets -- -D warnings
 cargo fmt --all
 ```
 
-The host has no C toolchain. Builds target `x86_64-unknown-linux-musl` and link
-with the bundled `rust-lld` (see `.cargo/config.toml` and `~/.cargo/config.toml`).
+Builds use the host's gnu target (gcc links them); `.cargo/config.toml` also
+configures `x86_64-unknown-linux-musl` with the bundled `rust-lld`, for hosts
+without a C toolchain. pltrs's extension (`plt-python`, a cdylib) needs the
+gnu target.
 When several people/agents build at once, use a private target directory to
 avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 
@@ -35,6 +37,7 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 | `plt-ui`       | retained-mode UI engine: widgets, theme, layout, painting           |
 | `plt`          | the matplotlib model: Figure, Axes, artists, ticker, styles, pyplot |
 | `plt-spec`     | conformance harness: runs spec cases, compares to goldens           |
+| `plt-python`   | pltrs's CPython extension (abi3, hand-written FFI) over `plt`       |
 | `xtask`        | developer automation (`cargo xtask ...`)                             |
 
 ## Rust style — non-negotiable
@@ -42,9 +45,12 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 * Idiomatic, readable, documented Rust. No code smells: no dead code, no
   commented-out code, no `TODO` left behind, no copy-paste duplication, no
   god-functions. Prefer small modules (aim < ~600 lines) with one purpose.
-* `#![forbid(unsafe_code)]` in every crate root. Only `plt-platform` may
-  lift it, for a platform that needs FFI, with a `// SAFETY:` justification
-  on each `unsafe` block; none does today (X11 is spoken over a socket).
+* `#![forbid(unsafe_code)]` in every crate root. Only two crates may lift
+  it, with a `// SAFETY:` justification on each `unsafe` block:
+  `plt-platform`, for a platform that needs FFI (none does today: X11 is
+  spoken over a socket), and `plt-python`, the CPython extension, whose
+  `ffi` (declarations) and `binding` (safe wrappers) modules hold all of its
+  `unsafe` code.
 * Zero warnings under `cargo clippy --all-targets -- -D warnings` (the
   workspace enables `clippy::pedantic`; see `[workspace.lints]`). Don't
   silence lints locally without a one-line reason.
@@ -121,6 +127,40 @@ must reproduce them.
   failure.
   Absurd input must return an error, never panic, hang or exhaust
   memory.
+
+## pltrs (`python/`, `crates/plt-python`)
+
+pltrs is plt-rs for Python with matplotlib's syntax (`import pltrs.pyplot as
+plt`); its measure is matplotlib 3.11's own test suite run unchanged against
+it. The architecture, the decisions that bind contributors and where to add
+code are in `python/DESIGN.md`: read it before working on pltrs.
+
+```sh
+cargo xtask python setup      # once: .venv-pltrs (no matplotlib), pytest-xdist in .venv
+cargo xtask python [--release]  # build the extension into python/pltrs/_native.abi3.so
+cargo xtask python test       # the extension plus pltrs's smoke tests (python/tests)
+cargo xtask mpl-suite [PATTERN...] [--failures] [--imports]   # matplotlib's suite on pltrs
+cargo xtask mpl-suite --reference                           # ... on real matplotlib
+```
+
+* `python/` on `PYTHONPATH` is a working install once the extension is
+  built (`PYTHONPATH=python .venv-pltrs/bin/python`).
+* Two venvs: `.venv` holds real matplotlib (the spec runner and the suite's
+  reference run) and `.venv-pltrs` holds numpy, pytest, pytest-xdist,
+  pytest-timeout, Pillow and the packages matplotlib's test files import,
+  but never matplotlib, so nothing imports the real one by accident.
+  Pinned lists: `python/requirements-*.txt`.
+* The suite runs in `target/mpl-suite/<mode>/site/`, which lays out the
+  package under test with the sdist's test packages inside (`MPL_SDIST`,
+  default `target/refs/matplotlib-dl/matplotlib-3.11.2`); in pltrs mode
+  `matplotlib`, `mpl_toolkits` and `pylab` load from `python/pltrs`.
+* Outcomes are committed: `spec/mpl-suite/reference.json` and
+  `spec/mpl-suite/pltrs.json` (per test id). Run both modes with TinyTeX on
+  `PATH`, as they were recorded. After merging, rerun the suite rather
+  than resolving conflicts in `pltrs.json` by hand.
+* Inside `python/pltrs`, modules import each other relatively; the
+  toolkits and `pylab.py` import `pltrs` by name (the suite loads them as
+  top-level packages).
 
 ## Git
 

@@ -73,6 +73,16 @@ macro_rules! rc_params {
                     _ => None,
                 }
             }
+
+            /// The parameter `key` as a value of its field's type, if it
+            /// exists: what bindings downcast to give the parameter in
+            /// their own language's types (pltrs's `rcParams`).
+            pub fn value(&self, key: &str) -> Option<&dyn std::any::Any> {
+                match key {
+                    $( $key => Some(&self.$field), )*
+                    _ => None,
+                }
+            }
         }
     };
 }

@@ -43,6 +43,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "plt-python"
+version = "0.1.0"
+dependencies = [
+ "plt",
+ "plt-core",
+]
+
+[[package]]
 name = "plt-raster"
 version = "0.1.0"
 dependencies = [

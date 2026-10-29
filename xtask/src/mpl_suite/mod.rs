@@ -161,7 +161,8 @@ fn import_gaps(python: &Path, site: &Path) -> Result<(), String> {
             .arg(Mode::Reference.outcome_file())
             .current_dir(site)
             .env("PYTHONPATH", site)
-            .env("MPLCONFIGDIR", site.join("../mplconfig")),
+            .env("MPLCONFIGDIR", site.join("../mplconfig"))
+            .env("PLTRSCONFIGDIR", site.join("../pltrsconfig")),
     )
 }
 
@@ -237,6 +238,10 @@ fn pytest(
         .env(LOOK_VARIABLE, "matplotlib")
         .env("MPL_SUITE_RESULTS", results)
         .env("MPLCONFIGDIR", dir.join("mplconfig"))
+        // The suite's own configuration directory: some of matplotlib's
+        // tests make theirs unwritable, which must not reach the one
+        // cargo's tests share (`target/pltrs-config`).
+        .env("PLTRSCONFIGDIR", dir.join("pltrsconfig"))
         .stdin(Stdio::null())
         .stdout(log)
         .stderr(stderr)

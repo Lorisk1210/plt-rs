@@ -1,8 +1,15 @@
 """
-Groups of artists made by one plotting call (matplotlib's ``container``).
+Groups of artists made by one plotting call (matplotlib's ``container``,
+kept close to the original).
 
-Containers are plain Python tuples of artist objects.
+Containers are tuples of artist objects. The plotting methods that make
+one also record it in pltrs (Rust), where legends find it; such a
+container keeps that record as ``_native``, and `Container.remove` drops
+it with the artists.
 """
+
+from . import cbook
+from .artist import Artist
 
 
 class Container(tuple):
@@ -20,29 +27,77 @@ class Container(tuple):
         return tuple.__new__(cls, args[0])
 
     def __init__(self, kl, label=None):
-        self._label = label
+        self._callbacks = cbook.CallbackRegistry(signals=["pchanged"])
+        self._remove_method = None
+        self._native = None
+        self._label = str(label) if label is not None else None
+
+    def remove(self):
+        """Remove the container's artists, and the container from its Axes."""
+        for c in cbook.flatten(
+                self, scalarp=lambda x: isinstance(x, Artist)):
+            if c is not None:
+                c.remove()
+        if self._native is not None:
+            from ._native import plotting as _plotting
+            _plotting.remove_container(self._native)
+        if self._remove_method:
+            self._remove_method(self)
+
+    def get_children(self):
+        """Return the artists of the container."""
+        return [child for child in cbook.flatten(self) if child is not None]
 
     def get_label(self):
         """Return the label used for this container in the legend."""
         return self._label
 
-    def get_children(self):
-        """Return the artists of the container."""
-        return [child for child in self if child is not None]
+    def set_label(self, s):
+        """Set a label that will be displayed in the legend."""
+        label = str(s) if s is not None else None
+        if label != self._label:
+            self._label = label
+            self.pchanged()
+
+    def add_callback(self, func):
+        """
+        Add a callback function that will be called whenever one of the
+        container's properties changes; return its id.
+        """
+        return self._callbacks.connect("pchanged", lambda: func(self))
+
+    def remove_callback(self, oid):
+        """Remove a callback based on its observer id."""
+        self._callbacks.disconnect(oid)
+
+    def pchanged(self):
+        """Call all of the registered callbacks."""
+        self._callbacks.process("pchanged")
 
 
 class BarContainer(Container):
     """
     Container for the artists of bar plots (e.g. created by `.Axes.bar`).
 
+    The container can be treated as a tuple of the *patches* themselves.
+    Additionally, you can access these and further parameters by the
+    attributes.
+
     Attributes
     ----------
     patches : list of :class:`~matplotlib.patches.Rectangle`
         The artists of the bars.
+
+    errorbar : None or :class:`~matplotlib.container.ErrorbarContainer`
+        A container for the error bar artists if error bars are present.
+        *None* otherwise.
+
     datavalues : None or array-like
         The underlying data values corresponding to the bars.
+
     orientation : {'vertical', 'horizontal'}, default: None
         If 'vertical', the bars are assumed to be vertical.
+        If 'horizontal', the bars are assumed to be horizontal.
     """
 
     def __init__(self, patches, errorbar=None, *, datavalues=None,
@@ -52,3 +107,142 @@ class BarContainer(Container):
         self.datavalues = datavalues
         self.orientation = orientation
         super().__init__(patches, **kwargs)
+
+    def _by_orientation(self, vertical, horizontal):
+        if self.orientation == 'vertical':
+            return [vertical(p) for p in self.patches]
+        elif self.orientation == 'horizontal':
+            return [horizontal(p) for p in self.patches]
+        else:
+            raise ValueError("orientation must be 'vertical' or 'horizontal'.")
+
+    @property
+    def bottoms(self):
+        """Return the values at the lower end of the bars."""
+        return self._by_orientation(lambda p: p.get_y(), lambda p: p.get_x())
+
+    @property
+    def tops(self):
+        """Return the values at the upper end of the bars."""
+        return self._by_orientation(lambda p: p.get_y() + p.get_height(),
+                                    lambda p: p.get_x() + p.get_width())
+
+    @property
+    def position_centers(self):
+        """Return the centers of bar positions."""
+        return self._by_orientation(lambda p: p.get_x() + p.get_width() / 2,
+                                    lambda p: p.get_y() + p.get_height() / 2)
+
+
+class ErrorbarContainer(Container):
+    """
+    Container for the artists of error bars (e.g. created by `.Axes.errorbar`).
+
+    The container can be treated as the *lines* tuple itself.
+    Additionally, you can access these and further parameters by the
+    attributes.
+
+    Attributes
+    ----------
+    lines : tuple
+        Tuple of ``(data_line, caplines, barlinecols)``.
+
+    has_xerr, has_yerr : bool
+        ``True`` if the errorbar has x/y errors.
+    """
+
+    def __init__(self, lines, has_xerr=False, has_yerr=False, **kwargs):
+        self.lines = lines
+        self.has_xerr = has_xerr
+        self.has_yerr = has_yerr
+        super().__init__(lines, **kwargs)
+
+
+class PieContainer:
+    """
+    Container for the artists of pie charts (e.g. created by `.Axes.pie`).
+
+    Attributes
+    ----------
+    wedges : list of `~matplotlib.patches.Wedge`
+        The artists of the pie wedges.
+
+    values : `numpy.ndarray`
+        The data that the pie is based on.
+
+    fracs : `numpy.ndarray`
+        The fraction of the pie that each wedge represents.
+
+    texts : list of list of `~matplotlib.text.Text`
+        The artists of any labels on the pie wedges.  Each inner list has one
+        text label per wedge.
+    """
+    def __init__(self, wedges, values, normalize):
+        self.wedges = wedges
+        self._texts = []
+        self._values = values
+        self._normalize = normalize
+
+    @property
+    def texts(self):
+        """The non-empty lists of labels."""
+        return [t_list for t_list in self._texts if t_list]
+
+    @property
+    def values(self):
+        """The data of the pie (read-only)."""
+        result = self._values.copy()
+        result.flags.writeable = False
+        return result
+
+    @property
+    def fracs(self):
+        """The fraction of the pie of each wedge (read-only)."""
+        if self._normalize:
+            result = self._values / self._values.sum()
+        else:
+            result = self._values
+
+        result.flags.writeable = False
+        return result
+
+    def add_texts(self, texts):
+        """Add a list of `~matplotlib.text.Text` objects to the container."""
+        self._texts.append(texts)
+
+    def remove(self):
+        """Remove all wedges and texts from the axes"""
+        for artist_list in self.wedges, self._texts:
+            for artist in cbook.flatten(artist_list):
+                artist.remove()
+
+    def __getitem__(self, key):
+        # needed to support unpacking into a tuple for backward compatibility of the
+        # Axes.pie return value
+        return (self.wedges, *self._texts)[key]
+
+
+class StemContainer(Container):
+    """
+    Container for the artists created in a :meth:`.Axes.stem` plot.
+
+    The container can be treated like a namedtuple ``(markerline, stemlines,
+    baseline)``.
+
+    Attributes
+    ----------
+    markerline : `~matplotlib.lines.Line2D`
+        The artist of the markers at the stem heads.
+
+    stemlines : `~matplotlib.collections.LineCollection`
+        The artists of the vertical lines for all stems.
+
+    baseline : `~matplotlib.lines.Line2D`
+        The artist of the horizontal baseline.
+    """
+    def __init__(self, markerline_stemlines_baseline, **kwargs):
+        markerline, stemlines, baseline = markerline_stemlines_baseline
+        self.markerline = markerline
+        self.stemlines = stemlines
+        self.baseline = baseline
+        super().__init__(markerline_stemlines_baseline, **kwargs)

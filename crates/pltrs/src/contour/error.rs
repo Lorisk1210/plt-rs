@@ -183,7 +183,7 @@ impl fmt::Display for ContourError {
             }
             Self::NoContourToLabel => f.write_str("no labelled contour line to place a label on"),
             Self::Unlabelled => f.write_str("label the contour set with clabel first"),
-            Self::FilledUnsupported => f.write_str("method does not support filled contours"),
+            Self::FilledUnsupported => f.write_str("Method does not support filled contours"),
             Self::LevelIndex { index, levels } => {
                 write!(f, "level index {index} is out of range for {levels} levels")
             }

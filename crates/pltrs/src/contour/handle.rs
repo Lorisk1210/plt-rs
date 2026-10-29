@@ -30,6 +30,14 @@ pub struct ContourSet {
     collections: Vec<Collection>,
 }
 
+impl ArtistHandle for ContourSet {
+    /// The handle of the set's own artist, which owns its collections
+    /// and labels (what removing, hiding or re-ordering the set acts on).
+    fn raw(&self) -> &RawHandle {
+        &self.raw
+    }
+}
+
 impl ContourSet {
     /// The handle to the contour set artist behind `raw`, drawn in `axes`.
     pub(crate) fn from_raw(axes: Axes, raw: RawHandle) -> Self {

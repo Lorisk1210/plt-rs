@@ -9,50 +9,19 @@ aliases, defaults) into the explicit arguments of a native function of
 
 import numpy as np
 
-from .. import _handles, cbook
+from .. import _handles
 from .._native import axes as _axes
 from ..artist import Artist
 from ..axis import XAxis, YAxis
-from ..collections import PathCollection
-from ..container import BarContainer
 from ..legend import Legend
 from ..lines import Line2D
-from ..patches import Rectangle
 from ..text import Text
 from ._imaging import ImagingMixin
+from ._plotting import PlottingMixin
 from .._text_methods import AxesText
 
 
-def _floats(values):
-    """*values* as a float array (scalars as one value)."""
-    return np.atleast_1d(np.asarray(values, dtype=float))
-
-
-def _plot_groups(args):
-    """
-    Split ``plot``'s positional arguments into ``(x, y, fmt)`` groups,
-    as matplotlib's ``_process_plot_var_args`` does: each group is ``[x],
-    y, [fmt]``.
-    """
-    args = list(args)
-    while args:
-        this, args = args[:2], args[2:]
-        if args and isinstance(args[0], str):
-            this += [args[0]]
-            args = args[1:]
-        if len(this) == 2 and isinstance(this[1], str):
-            this = [None, this[0], this[1]]
-        elif len(this) == 1:
-            this = [None, this[0], None]
-        elif len(this) == 2:
-            this = [this[0], this[1], None]
-        x, y, fmt = this
-        y = np.asarray(y, dtype=float)
-        x = np.arange(len(y), dtype=float) if x is None else np.asarray(x, dtype=float)
-        yield x, y, fmt
-
-
-class Axes(ImagingMixin, AxesText, Artist):
+class Axes(PlottingMixin, ImagingMixin, AxesText, Artist):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot
     in a figure.
@@ -71,68 +40,6 @@ class Axes(ImagingMixin, AxesText, Artist):
         ax.yaxis = YAxis(ax)
         ax.child_axes = []
         return ax
-
-    def plot(self, *args, scalex=True, scaley=True, data=None, **kwargs):
-        """Plot y versus x as lines and/or markers."""
-        if data is not None:
-            raise NotImplementedError("pltrs: plot(data=...)")
-        kwargs = cbook.normalize_kwargs(kwargs, Line2D)
-        lines = []
-        for x, y, fmt in _plot_groups(args):
-            if x.shape[0] != y.shape[0]:
-                raise ValueError(f"x and y must have same first dimension, but "
-                                 f"have shapes {x.shape} and {y.shape}")
-            columns = y.reshape(len(y), -1).T if y.ndim > 1 else [y]
-            for column in columns:
-                native = _axes.plot(self._native, x, column, fmt, kwargs)
-                lines.append(_handles.wrap(native, Line2D, self.figure))
-        return lines
-
-    def scatter(self, x, y, s=None, c=None, *, marker=None, cmap=None,
-                norm=None, vmin=None, vmax=None, alpha=None, linewidths=None,
-                edgecolors=None, colorizer=None, plotnonfinite=False,
-                data=None, **kwargs):
-        """A scatter plot of *y* vs. *x* with varying marker size and/or color."""
-        unsupported = {"marker": marker, "cmap": cmap, "norm": norm,
-                       "vmin": vmin, "vmax": vmax, "alpha": alpha,
-                       "linewidths": linewidths, "edgecolors": edgecolors,
-                       "colorizer": colorizer, "data": data}
-        for name, value in unsupported.items():
-            if value is not None:
-                raise NotImplementedError(f"pltrs: scatter({name}=...)")
-        color = kwargs.pop("color", None)
-        if c is not None and color is not None:
-            raise ValueError("Supply a 'c' argument or a 'color' kwarg but not "
-                             "both; they differ but their functionalities "
-                             "overlap.")
-        label = kwargs.pop("label", None)
-        if kwargs:
-            raise NotImplementedError(f"pltrs: scatter({next(iter(kwargs))}=...)")
-        x, y = _floats(x), _floats(y)
-        sizes = None if s is None else _floats(s)
-        native = _axes.scatter(self._native, x, y, sizes,
-                               c if c is not None else color,
-                               None if label is None else str(label))
-        return _handles.wrap(native, PathCollection, self.figure)
-
-    def bar(self, x, height, width=0.8, bottom=None, *, align="center",
-            data=None, **kwargs):
-        """Make a bar plot."""
-        if align != "center" or data is not None:
-            raise NotImplementedError("pltrs: bar(align=..., data=...)")
-        color = kwargs.pop("color", None)
-        label = kwargs.pop("label", None)
-        if kwargs:
-            raise NotImplementedError(f"pltrs: bar({next(iter(kwargs))}=...)")
-        x, height = _floats(x), _floats(height)
-        x, height = np.broadcast_arrays(x, height)
-        width = np.broadcast_to(_floats(width), x.shape)
-        bottom = None if bottom is None else np.broadcast_to(_floats(bottom), x.shape)
-        patches, values = _axes.bar(self._native, x, height, width, bottom,
-                                    color, None if label is None else str(label))
-        rectangles = _handles.wrap_all(patches, Rectangle, self.figure)
-        return BarContainer(rectangles, datavalues=np.asarray(values),
-                            orientation="vertical", label=label)
 
     def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
                   **kwargs):
@@ -165,109 +72,6 @@ class Axes(ImagingMixin, AxesText, Artist):
     def get_ylabel(self):
         """Get the ylabel text string."""
         return _axes.get_ylabel(self._native)
-
-    @staticmethod
-    def _check_no_units(vals, names):
-        # Helper method to check that vals are not unitized
-        from .. import units
-        for val, name in zip(vals, names):
-            if not units._is_natively_supported(val):
-                raise ValueError(f"{name} must be a single scalar value, "
-                                 f"but got {val}")
-
-    def axhline(self, y=0, xmin=0, xmax=1, **kwargs):
-        """
-        Add a horizontal line spanning the whole or fraction of the Axes.
-
-        Parameters
-        ----------
-        y : float, default: 0
-            y position in :ref:`data coordinates <coordinate-systems>`.
-        xmin : float, default: 0
-            The start x-position in :ref:`axes coordinates <coordinate-systems>`.
-            Should be between 0 and 1, 0 being the far left of the plot,
-            1 the far right of the plot.
-        xmax : float, default: 1
-            The end x-position in :ref:`axes coordinates <coordinate-systems>`.
-            Should be between 0 and 1, 0 being the far left of the plot,
-            1 the far right of the plot.
-
-        Returns
-        -------
-        `~matplotlib.lines.Line2D`
-        """
-        self._check_no_units([xmin, xmax], ['xmin', 'xmax'])
-        if "transform" in kwargs:
-            raise ValueError("'transform' is not allowed as a keyword "
-                             "argument; axhline generates its own transform.")
-        native = _axes.axline(self._native, "h", y, (xmin, xmax),
-                              cbook.normalize_kwargs(kwargs, Line2D))
-        return _handles.wrap(native, Line2D, self.figure)
-
-    def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
-        """
-        Add a vertical line spanning the whole or fraction of the Axes.
-
-        Parameters
-        ----------
-        x : float, default: 0
-            x position in :ref:`data coordinates <coordinate-systems>`.
-        ymin : float, default: 0
-            The start y-position in :ref:`axes coordinates <coordinate-systems>`.
-            Should be between 0 and 1, 0 being the bottom of the plot, 1 the
-            top of the plot.
-        ymax : float, default: 1
-            The end y-position in :ref:`axes coordinates <coordinate-systems>`.
-            Should be between 0 and 1, 0 being the bottom of the plot, 1 the
-            top of the plot.
-
-        Returns
-        -------
-        `~matplotlib.lines.Line2D`
-        """
-        self._check_no_units([ymin, ymax], ['ymin', 'ymax'])
-        if "transform" in kwargs:
-            raise ValueError("'transform' is not allowed as a keyword "
-                             "argument; axvline generates its own transform.")
-        native = _axes.axline(self._native, "v", x, (ymin, ymax),
-                              cbook.normalize_kwargs(kwargs, Line2D))
-        return _handles.wrap(native, Line2D, self.figure)
-
-    def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
-        """
-        Add a horizontal span (rectangle) across the Axes.
-
-        The rectangle spans from *ymin* to *ymax* vertically, and, by default,
-        the whole x-axis horizontally.
-
-        Returns
-        -------
-        `~matplotlib.patches.Rectangle`
-            Horizontal span (rectangle) from (xmin, ymin) to (xmax, ymax).
-        """
-        self._check_no_units([xmin, xmax], ['xmin', 'xmax'])
-        native = _axes.axspan(self._native, "h", (ymin, ymax), (xmin, xmax))
-        patch = _handles.wrap(native, Rectangle, self.figure)
-        patch._internal_update(kwargs)
-        return patch
-
-    def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
-        """
-        Add a vertical span (rectangle) across the Axes.
-
-        The rectangle spans from *xmin* to *xmax* horizontally, and, by
-        default, the whole y-axis vertically.
-
-        Returns
-        -------
-        `~matplotlib.patches.Rectangle`
-            Vertical span (rectangle) from (xmin, ymin) to (xmax, ymax).
-        """
-        self._check_no_units([ymin, ymax], ['ymin', 'ymax'])
-        native = _axes.axspan(self._native, "v", (xmin, xmax), (ymin, ymax))
-        patch = _handles.wrap(native, Rectangle, self.figure)
-        patch._internal_update(kwargs)
-        return patch
 
     def _display_to_data(self, xy):
         """The data coordinates of the display point *xy*

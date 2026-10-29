@@ -8,9 +8,13 @@ Kept from matplotlib 3.11.2's ``__init__`` under the Matplotlib License;
 
 import functools
 import inspect
+import logging
 from inspect import Parameter
 
 from . import cbook
+
+#: The package's logger, matplotlib's ``_log``.
+_log = logging.getLogger(__package__)
 
 
 def _replacer(data, value):

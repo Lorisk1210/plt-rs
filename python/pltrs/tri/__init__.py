@@ -1,0 +1,24 @@
+"""
+Unstructured triangular grid functions (matplotlib's ``tri``).
+
+pltrs (Rust)'s ``pltrs::tri`` triangulates, locates, interpolates,
+refines, analyses and contours; these classes keep matplotlib's API.
+"""
+
+from ._triangulation import Triangulation
+from ._tricontour import TriContourSet, tricontour, tricontourf
+from ._trifinder import TriFinder, TrapezoidMapTriFinder
+from ._triinterpolate import (TriInterpolator, LinearTriInterpolator,
+                              CubicTriInterpolator)
+from ._triplot import triplot
+from ._trirefine import TriRefiner, UniformTriRefiner
+from ._tritools import TriAnalyzer
+
+
+__all__ = ["Triangulation",
+           "TriContourSet", "tricontour", "tricontourf",
+           "TriFinder", "TrapezoidMapTriFinder",
+           "TriInterpolator", "LinearTriInterpolator", "CubicTriInterpolator",
+           "triplot",
+           "TriRefiner", "UniformTriRefiner",
+           "TriAnalyzer"]

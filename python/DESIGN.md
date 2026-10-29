@@ -206,14 +206,19 @@ artist object refers to its figure and the figure to its artists, so an
 artist's object lives as long as its figure, and Python's garbage
 collector sees the whole cycle (all references are Python's).
 
-Not done yet, and decided: artists made before they are added
-(`Line2D(x, y)` then `ax.add_line(line)`). pltrs (Rust) makes artists inside a
-figure, so the native side of such an artist will be a pltrs (Rust) value (a
-`PatchArtist`, a `LineProps`...) held by its native object until it is
-added; adding it needs a pltrs (Rust) function that adopts the value into an
-axes and returns the handle, after which the object's `_native` is the
-handle and the object is registered in the figure. `Artist.__init__`
-raises `NotImplementedError` until then.
+Artists made before they are added (`Line2D(x, y)`, `Rectangle(...)`,
+`LineCollection(...)`, then `ax.add_line`, `add_patch`,
+`add_collection`, `add_artist`): pltrs (Rust) makes artists inside a
+figure, so such an artist is *held*, as a removed artist, by a figure of
+its thread that is never drawn (`_native.held`, over pltrs (Rust)'s
+`Figure::hold_patch`, `hold_line` and `hold_collection`); its handle
+works as any other, so its getters and setters are those of an added
+artist. Adding it moves it into the axes (`Axes::adopt_held`, which
+takes the artist out of the holding figure and adopts it the way the
+adding method says), after which the object's `_native` is the new
+handle and the object is registered in its figure. The constructors of
+`Line2D`, the patches and the collections do this; `Artist.__init__`
+itself still raises `NotImplementedError`.
 
 ### Keyword arguments and aliases
 

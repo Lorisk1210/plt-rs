@@ -45,7 +45,10 @@ pub(crate) use error::{ExceptionKind, PyErr, PyResult};
 pub(crate) use gil::Python;
 pub(crate) use init::init_module;
 pub(crate) use module::Module;
-pub(crate) use native::{Native, artist_handle, native_value, wrap as wrap_native, wrap_artist};
+pub(crate) use native::{
+    Native, artist_handle, native_value, short_name, typed_artist_handle, wrap as wrap_native,
+    wrap_artist,
+};
 pub(crate) use object::{Bound, Owned};
 pub(crate) use registry::registered_error;
 
@@ -53,6 +56,6 @@ pub(crate) use registry::registered_error;
 pub(crate) mod prelude {
     pub(crate) use super::{
         Bound, Bytes, Callback, ExceptionKind, FromPy, IntoPy, Module, Native, NdArray, Owned,
-        PyErr, PyResult, Python, artist_handle, native_value,
+        PyErr, PyResult, Python, artist_handle, native_value, typed_artist_handle,
     };
 }

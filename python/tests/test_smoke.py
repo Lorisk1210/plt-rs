@@ -120,7 +120,7 @@ def test_native_errors_are_matplotlibs_exceptions():
     with pytest.raises(AttributeError, match="unexpected keyword argument 'bogus'"):
         ax.plot([1, 2], bogus=1)
     with pytest.raises(TypeError, match="expected a native"):
-        pltrs._native.lines.get_linewidth(ax._native)
+        pltrs._native.lines.get(ax._native, "linewidth")
     with pytest.raises(ValueError):
         fig.savefig(io.BytesIO(), format="nonsense")
 

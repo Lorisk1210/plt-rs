@@ -66,8 +66,15 @@ impl Axes {
     }
 
     /// The next colour of the patch property cycle (matplotlib's
-    /// `_get_patches_for_fill.get_next_color`).
-    pub(crate) fn next_patch_color(&self) -> Color {
+    /// `_get_patches_for_fill.get_next_color`), black when the cycle has
+    /// no colours; the cycle advances only when it has.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert_ne!(ax.next_patch_color(), ax.next_patch_color());
+    /// ```
+    pub fn next_patch_color(&self) -> Color {
         self.raw().with_mut::<AxesState, _>(|axes| {
             let color = cycle_color(&axes.prop_cycle, axes.patch_cycle);
             // Like matplotlib, only a cycle that provides colours advances.

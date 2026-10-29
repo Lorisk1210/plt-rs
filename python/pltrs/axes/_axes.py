@@ -58,6 +58,10 @@ class Axes(Artist):
     See matplotlib's documentation of `matplotlib.axes.Axes`.
     """
 
+    #: The name of the projection, under which `.projections` registers
+    #: the class.
+    name = "rectilinear"
+
     @classmethod
     def _from_native(cls, native, figure):
         ax = super()._from_native(native, figure)
@@ -159,6 +163,115 @@ class Axes(Artist):
     def get_ylabel(self):
         """Get the ylabel text string."""
         return _axes.get_ylabel(self._native)
+
+    @staticmethod
+    def _check_no_units(vals, names):
+        # Helper method to check that vals are not unitized
+        from .. import units
+        for val, name in zip(vals, names):
+            if not units._is_natively_supported(val):
+                raise ValueError(f"{name} must be a single scalar value, "
+                                 f"but got {val}")
+
+    def axhline(self, y=0, xmin=0, xmax=1, **kwargs):
+        """
+        Add a horizontal line spanning the whole or fraction of the Axes.
+
+        Parameters
+        ----------
+        y : float, default: 0
+            y position in :ref:`data coordinates <coordinate-systems>`.
+        xmin : float, default: 0
+            The start x-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the far left of the plot,
+            1 the far right of the plot.
+        xmax : float, default: 1
+            The end x-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the far left of the plot,
+            1 the far right of the plot.
+
+        Returns
+        -------
+        `~matplotlib.lines.Line2D`
+        """
+        self._check_no_units([xmin, xmax], ['xmin', 'xmax'])
+        if "transform" in kwargs:
+            raise ValueError("'transform' is not allowed as a keyword "
+                             "argument; axhline generates its own transform.")
+        native = _axes.axline(self._native, "h", y, (xmin, xmax),
+                              cbook.normalize_kwargs(kwargs, Line2D))
+        return _handles.wrap(native, Line2D, self.figure)
+
+    def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
+        """
+        Add a vertical line spanning the whole or fraction of the Axes.
+
+        Parameters
+        ----------
+        x : float, default: 0
+            x position in :ref:`data coordinates <coordinate-systems>`.
+        ymin : float, default: 0
+            The start y-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the bottom of the plot, 1 the
+            top of the plot.
+        ymax : float, default: 1
+            The end y-position in :ref:`axes coordinates <coordinate-systems>`.
+            Should be between 0 and 1, 0 being the bottom of the plot, 1 the
+            top of the plot.
+
+        Returns
+        -------
+        `~matplotlib.lines.Line2D`
+        """
+        self._check_no_units([ymin, ymax], ['ymin', 'ymax'])
+        if "transform" in kwargs:
+            raise ValueError("'transform' is not allowed as a keyword "
+                             "argument; axvline generates its own transform.")
+        native = _axes.axline(self._native, "v", x, (ymin, ymax),
+                              cbook.normalize_kwargs(kwargs, Line2D))
+        return _handles.wrap(native, Line2D, self.figure)
+
+    def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
+        """
+        Add a horizontal span (rectangle) across the Axes.
+
+        The rectangle spans from *ymin* to *ymax* vertically, and, by default,
+        the whole x-axis horizontally.
+
+        Returns
+        -------
+        `~matplotlib.patches.Rectangle`
+            Horizontal span (rectangle) from (xmin, ymin) to (xmax, ymax).
+        """
+        self._check_no_units([xmin, xmax], ['xmin', 'xmax'])
+        native = _axes.axspan(self._native, "h", (ymin, ymax), (xmin, xmax))
+        patch = _handles.wrap(native, Rectangle, self.figure)
+        patch._internal_update(kwargs)
+        return patch
+
+    def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
+        """
+        Add a vertical span (rectangle) across the Axes.
+
+        The rectangle spans from *xmin* to *xmax* horizontally, and, by
+        default, the whole y-axis vertically.
+
+        Returns
+        -------
+        `~matplotlib.patches.Rectangle`
+            Vertical span (rectangle) from (xmin, ymin) to (xmax, ymax).
+        """
+        self._check_no_units([ymin, ymax], ['ymin', 'ymax'])
+        native = _axes.axspan(self._native, "v", (xmin, xmax), (ymin, ymax))
+        patch = _handles.wrap(native, Rectangle, self.figure)
+        patch._internal_update(kwargs)
+        return patch
+
+    def _display_to_data(self, xy):
+        """The data coordinates of the display point *xy*
+        (``self.transData.inverted().transform(xy)``)."""
+        x, y = xy
+        return _axes.display_to_data(self._native, x, y)
 
     def get_xlim(self):
         """Return the x-axis view limits."""

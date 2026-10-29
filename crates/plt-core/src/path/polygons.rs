@@ -150,8 +150,10 @@ impl Path {
         polygons
     }
 
-    /// The polygons of matplotlib's `_path.clip_path_to_rect`.
-    fn clip_polygons(&self, bbox: &Bbox, inside: bool) -> Vec<Vec<Point>> {
+    /// The polygons of matplotlib's `_path.clip_path_to_rect`: every
+    /// closed polygon of the path clipped to the box, as
+    /// [`clip_to_bbox`](Self::clip_to_bbox) joins them.
+    pub fn clip_polygons(&self, bbox: &Bbox, inside: bool) -> Vec<Vec<Point>> {
         let (mut xmin, mut xmax) = (bbox.xmin(), bbox.xmax());
         let (mut ymin, mut ymax) = (bbox.ymin(), bbox.ymax());
         if !inside {

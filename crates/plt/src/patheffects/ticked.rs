@@ -43,8 +43,8 @@ const MAX_TICKS: f64 = 1_048_576.0;
 
 impl TickedStroke {
     /// The tick segments along one polyline (display pixels), or `None`
-    /// when it is a single point or would take more than [`MAX_TICKS`].
-    fn ticks(&self, polyline: &[Point], spacing_px: f64) -> Option<Path> {
+    /// when it is a single point or would take more than 2²⁰ ticks.
+    pub fn ticks(&self, polyline: &[Point], spacing_px: f64) -> Option<Path> {
         if polyline.len() < 2 {
             return None;
         }

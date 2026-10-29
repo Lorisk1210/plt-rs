@@ -56,6 +56,10 @@ version = "0.1.0"
 dependencies = [
  "plt",
  "plt-core",
+ "plt-font",
+ "plt-platform",
+ "plt-render",
+ "plt-text",
 ]
 
 [[package]]

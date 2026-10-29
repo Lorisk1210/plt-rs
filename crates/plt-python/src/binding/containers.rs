@@ -1,5 +1,6 @@
 //! Making tuples, lists and dicts.
 
+use super::convert::{FromPy, IntoPy};
 use super::error::{PyErr, PyResult};
 use super::gil::Python;
 use super::object::Bound;
@@ -38,6 +39,15 @@ pub(crate) fn list<'py>(py: Python<'py>, items: Vec<Bound<'py>>) -> PyResult<Bou
 pub(crate) fn new_dict(py: Python<'_>) -> PyResult<Bound<'_>> {
     // SAFETY: the GIL is held; a new reference or NULL.
     unsafe { Bound::from_owned_ptr(py, ffi::PyDict_New()) }
+}
+
+/// The value of `key` in the mapping `mapping` (`mapping[key]`),
+/// converted.
+pub(crate) fn dict_value<'py, T: FromPy<'py>>(mapping: &Bound<'py>, key: &str) -> PyResult<T> {
+    let py = mapping.py();
+    mapping
+        .call_method("__getitem__", &[key.into_py(py)?])?
+        .extract()
 }
 
 /// The items of a dict, in insertion order.

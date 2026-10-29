@@ -131,7 +131,7 @@ a raw pointer.
 * **Native functions** are plain Rust functions or closures, registered
   with `Module::add(name, function)`; see "Adding a function".
 * **`Callback`**: a Python callable plt-rs calls. See "Callbacks".
-* **The registry** (`_native.register(name, object)`, `binding::lookup`):
+* **The registry** (`_native.register(name, object)`, `binding::registered_error`):
   Python objects the package defines that native code needs, such as an
   exception class to raise (`ImageComparisonFailure`). The native module
   never imports the package by name, so it works under any name (see the
@@ -287,7 +287,7 @@ from matplotlib's, prefer fixing the message in the Python-facing `From`
 impl, or in plt-rs when its own message is the problem. Exceptions that
 matplotlib defines in Python, such as `ImageComparisonFailure`, are
 registered by the package (`_native.register`) and raised through
-`binding::lookup`.
+`binding::registered_error`.
 
 ### pyplot's state
 

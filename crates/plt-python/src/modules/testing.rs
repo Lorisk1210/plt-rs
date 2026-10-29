@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 use plt::testing::ComparisonError;
 
-use crate::binding::lookup;
 use crate::binding::prelude::*;
+use crate::binding::registered_error;
 
 impl From<ComparisonError> for PyErr {
     /// matplotlib's exceptions: `OSError` for missing files, its
@@ -18,11 +18,7 @@ impl From<ComparisonError> for PyErr {
             ComparisonError::MissingOutput(_)
             | ComparisonError::MissingBaseline(_)
             | ComparisonError::Unwritable { .. } => PyErr::new(ExceptionKind::OSError, message),
-            ComparisonError::Shape(_) => Python::with_gil(|py| {
-                lookup(py, "ImageComparisonFailure")
-                    .and_then(|class| class.call(&[message.as_str().into_py(py)?], &[]))
-                    .map_or_else(|err| err, PyErr::from_instance)
-            }),
+            ComparisonError::Shape(_) => registered_error("ImageComparisonFailure", &message),
             _ => PyErr::value_error(message),
         }
     }

@@ -23,7 +23,16 @@ from collections.abc import MutableMapping
 
 from . import _api
 from ._api import MatplotlibDeprecationWarning  # noqa: F401  (matplotlib exports it here)
+from ._executables import ExecutableNotFoundError, _get_executable_info  # noqa: F401
+from ._preprocess import _preprocess_data  # noqa: F401
 from ._native import rcsetup as _rcsetup
+from ._native import register as _register
+
+import numpy as _np
+
+# The exceptions of numpy's linear algebra (singular matrices), which
+# plt-rs raises where matplotlib calls numpy.
+_register("LinAlgError", _np.linalg.LinAlgError)
 
 #: The matplotlib version whose API pltrs implements.
 __version__ = "3.11.2"

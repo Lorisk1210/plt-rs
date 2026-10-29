@@ -189,6 +189,29 @@ pub(crate) fn lookup_table(
     Ok(table.into_iter().map(|v| np_clip(v, 0.0, 1.0)).collect())
 }
 
+/// matplotlib's `_create_lookup_table(N, data, gamma)` for the anchor rows
+/// `[x, y_below, y_above]` of one channel: the channel sampled at
+/// `linspace(0, 1, n) ** gamma`, clipped to `[0, 1]`.
+///
+/// ```
+/// use plt::colors::{Channel, create_lookup_table};
+/// let rows = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]];
+/// let lut = create_lookup_table(3, &rows, 1.0, Channel::Red).unwrap();
+/// assert_eq!(lut, vec![0.0, 0.5, 1.0]);
+/// ```
+///
+/// # Errors
+///
+/// When the rows do not run from 0 to 1 in increasing order of `x`.
+pub fn create_lookup_table(
+    n: usize,
+    rows: &[[f64; 3]],
+    gamma: f64,
+    channel: Channel,
+) -> Result<Vec<f64>, ColormapError> {
+    lookup_table(n, &Segment::Anchors(rows.to_vec()), gamma, channel)
+}
+
 /// The anchor-table branch of `_create_lookup_table`, before clipping.
 fn anchors_table(n: usize, rows: &[[f64; 3]], gamma: f64) -> Result<Vec<f64>, SegmentProblem> {
     let (Some(first), Some(last)) = (rows.first(), rows.last()) else {

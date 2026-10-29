@@ -37,6 +37,8 @@ pub(crate) enum ExceptionKind {
     RuntimeError,
     /// `OSError`: a file that cannot be read or written.
     OSError,
+    /// `FileNotFoundError`: a file that does not exist.
+    FileNotFoundError,
     /// `OverflowError`: a number too large for its Rust type.
     OverflowError,
     /// `SystemError`: a broken promise of the C API.
@@ -56,6 +58,7 @@ impl ExceptionKind {
                 Self::AttributeError => ffi::PyExc_AttributeError,
                 Self::RuntimeError => ffi::PyExc_RuntimeError,
                 Self::OSError => ffi::PyExc_OSError,
+                Self::FileNotFoundError => ffi::PyExc_FileNotFoundError,
                 Self::OverflowError => ffi::PyExc_OverflowError,
                 Self::SystemError => ffi::PyExc_SystemError,
             }

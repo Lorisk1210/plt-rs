@@ -3,6 +3,7 @@
 
 mod helper;
 
+pub use helper::Mode as SpectralMode;
 use helper::{Mode, Raw, Signal, spectral_helper};
 
 use super::{Complex, Detrend, MlabError, Window};
@@ -118,6 +119,45 @@ impl Default for SpectrumOptions {
             sides: SpectrumSides::Default,
         }
     }
+}
+
+/// The unaveraged spectra of each segment, `freqs × segments` (matplotlib's
+/// `_spectral_helper`, which `psd`, `csd` and `specgram` build on).
+///
+/// Without `y`, `x` is transformed as `mode` asks; a `y` gives the cross
+/// spectrum `conj(X)·Y`, which only [`SpectralMode::Psd`] defines.
+/// `noverlap = None` means no overlap.
+///
+/// ```
+/// use plt::mlab::{SpectralMode, SpectralOptions, spectral_segments};
+/// let x: Vec<f64> = (0..64).map(|i| f64::from(i).sin()).collect();
+/// let opts = SpectralOptions { nfft: 16, ..SpectralOptions::default() };
+/// let s = spectral_segments(&x, None::<&[f64]>, &opts, SpectralMode::Psd).unwrap();
+/// assert_eq!(s.values.shape(), (9, 4));
+/// assert_eq!(s.times, vec![4.0, 12.0, 20.0, 28.0]);
+/// ```
+pub fn spectral_segments<S: SignalValue, U: SignalValue>(
+    x: &[S],
+    y: Option<&[U]>,
+    opts: &SpectralOptions,
+    mode: SpectralMode,
+) -> Result<Specgram<Complex>, MlabError> {
+    if y.is_some() && mode != Mode::Psd {
+        return Err(MlabError::CrossSpectrumMode);
+    }
+    let y = y.map(Signal::new);
+    let raw = spectral_helper(
+        &Signal::new(x),
+        y.as_ref(),
+        opts,
+        opts.noverlap.unwrap_or(0),
+        mode,
+    )?;
+    Ok(Specgram {
+        values: raw.values,
+        freqs: raw.freqs,
+        times: raw.times,
+    })
 }
 
 /// Values over frequency.
@@ -355,6 +395,22 @@ mod tests {
                 0.7 + (0.3 * t).sin() + 0.4 * if i % 2 == 0 { 1.0 } else { -1.0 }
             })
             .collect()
+    }
+
+    #[test]
+    fn segments_cross_only_in_psd_mode() {
+        let x = signal(32);
+        let opts = SpectralOptions {
+            nfft: 8,
+            ..SpectralOptions::default()
+        };
+        let cross = spectral_segments(&x, Some(&x[..]), &opts, SpectralMode::Psd).unwrap();
+        let own = spectral_segments(&x, None::<&[f64]>, &opts, SpectralMode::Psd).unwrap();
+        assert_eq!(cross.values.shape(), own.values.shape());
+        assert_eq!(
+            spectral_segments(&x, Some(&x[..]), &opts, SpectralMode::Magnitude).unwrap_err(),
+            MlabError::CrossSpectrumMode
+        );
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! `_native.figure`: figures, their subplots and saving them
 //! (matplotlib's `figure` and the `print_figure` of its backends).
 
-use plt::axes::Axes;
+use plt::axes::{Axes, ProjectionKind};
 use plt::colors::Color;
 use plt::figure::{Figure, SaveError, SaveFormat, SaveOptions, SizeError};
 use plt::gridspec::GridSpecError;
@@ -147,9 +147,41 @@ fn print_figure(
     Ok(Bytes(figure.to_format(format, options)?))
 }
 
+/// The built-in projection named `name` (`"polar"`, `"hammer"`...).
+fn projection_kind(name: &str) -> PyResult<ProjectionKind> {
+    ProjectionKind::BUILTIN
+        .into_iter()
+        .find(|kind| kind.name() == name)
+        .ok_or_else(|| PyErr::value_error(format!("Unknown projection {name:?}")))
+}
+
+/// Axes with the projection `projection` in cell `index` (1-based) of an
+/// `nrows × ncols` grid (`add_subplot(..., projection=...)`).
+fn add_subplot_projection(
+    figure: Figure,
+    (nrows, ncols, index): (usize, usize, usize),
+    projection: String,
+) -> PyResult<Axes> {
+    let kind = projection_kind(&projection)?;
+    figure
+        .add_subplot_with_projection(nrows, ncols, index, kind)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// The topmost visible axes containing the display point `(x, y)`
+/// (matplotlib's `canvas.inaxes`).
+fn axes_at(figure: Figure, x: f64, y: f64) -> PyResult<Option<Axes>> {
+    Ok(plt::navigation::axes_at(
+        &figure,
+        plt::transforms::Point::new(x, y),
+    ))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
+    module.add("axes_at", axes_at)?;
+    module.add("add_subplot_projection", add_subplot_projection)?;
     module.add("get_size_inches", get_size_inches)?;
     module.add("set_size_inches", set_size_inches)?;
     module.add("get_dpi", get_dpi)?;

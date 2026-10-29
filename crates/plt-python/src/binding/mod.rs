@@ -11,7 +11,8 @@
 //!   the native object that holds a Rust value for Python;
 //! * [`Module`] — the extension's modules and their native functions;
 //! * [`Callback`] — Python callables plt-rs calls;
-//! * [`lookup`] — Python objects the package registers for native code.
+//! * [`registered_error`] — exceptions of the classes the package registers
+//!   for native code ([`registry::lookup`] finds any registered object).
 //!
 //! This is the only module besides [`crate::ffi`] with `unsafe` code;
 //! every block says why it is sound. The matplotlib modules
@@ -38,20 +39,20 @@ pub(crate) mod testing;
 
 pub(crate) use buffer::NdArray;
 pub(crate) use callback::Callback;
-pub(crate) use containers::dict_items;
+pub(crate) use containers::{dict_items, dict_value};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use error::{ExceptionKind, PyErr, PyResult};
 pub(crate) use gil::Python;
 pub(crate) use init::init_module;
 pub(crate) use module::Module;
 pub(crate) use native::{Native, artist_handle, native_value, wrap as wrap_native, wrap_artist};
-pub(crate) use object::Bound;
-pub(crate) use registry::lookup;
+pub(crate) use object::{Bound, Owned};
+pub(crate) use registry::registered_error;
 
 /// Everything a matplotlib module's file needs.
 pub(crate) mod prelude {
     pub(crate) use super::{
-        Bound, Bytes, Callback, ExceptionKind, FromPy, IntoPy, Module, Native, NdArray, PyErr,
-        PyResult, Python, artist_handle, native_value,
+        Bound, Bytes, Callback, ExceptionKind, FromPy, IntoPy, Module, Native, NdArray, Owned,
+        PyErr, PyResult, Python, artist_handle, native_value,
     };
 }

@@ -6,7 +6,8 @@ The figures pyplot manages are kept in `._pylab_helpers.Gcf`; each
 function here acts on `gcf` or `gca`, as matplotlib's does.
 """
 
-from . import _pylab_helpers, get_backend, rcParams
+from . import _pylab_helpers, get_backend, rcParams, style  # noqa: F401  (matplotlib.style, as pyplot imports it)
+from . import image  # noqa: F401  (matplotlib.image, as pyplot imports it)
 from .backend_bases import FigureManagerBase
 from .figure import Figure
 
@@ -162,6 +163,28 @@ def bar(x, height, width=0.8, bottom=None, *, align='center', data=None,
     """Make a bar plot (`.Axes.bar`)."""
     return gca().bar(x, height, width=width, bottom=bottom, align=align,
                      data=data, **kwargs)
+
+
+def axhline(y=0, xmin=0, xmax=1, **kwargs):
+    """Add a horizontal line spanning the whole or fraction of the Axes
+    (`.Axes.axhline`)."""
+    return gca().axhline(y=y, xmin=xmin, xmax=xmax, **kwargs)
+
+
+def axvline(x=0, ymin=0, ymax=1, **kwargs):
+    """Add a vertical line spanning the whole or fraction of the Axes
+    (`.Axes.axvline`)."""
+    return gca().axvline(x=x, ymin=ymin, ymax=ymax, **kwargs)
+
+
+def axhspan(ymin, ymax, xmin=0, xmax=1, **kwargs):
+    """Add a horizontal span (rectangle) across the Axes (`.Axes.axhspan`)."""
+    return gca().axhspan(ymin, ymax, xmin=xmin, xmax=xmax, **kwargs)
+
+
+def axvspan(xmin, xmax, ymin=0, ymax=1, **kwargs):
+    """Add a vertical span (rectangle) across the Axes (`.Axes.axvspan`)."""
+    return gca().axvspan(xmin, xmax, ymin=ymin, ymax=ymax, **kwargs)
 
 
 def title(label, fontdict=None, loc=None, pad=None, *, y=None, **kwargs):

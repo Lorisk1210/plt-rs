@@ -17,6 +17,8 @@ unsafe extern "C" {
     pub(crate) static mut PyExc_RuntimeError: *mut PyObject;
     /// `PyExc_OSError`.
     pub(crate) static mut PyExc_OSError: *mut PyObject;
+    /// `PyExc_FileNotFoundError`.
+    pub(crate) static mut PyExc_FileNotFoundError: *mut PyObject;
     /// `PyExc_OverflowError`.
     pub(crate) static mut PyExc_OverflowError: *mut PyObject;
     /// `PyExc_SystemError`.

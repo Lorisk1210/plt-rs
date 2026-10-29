@@ -19,6 +19,25 @@ pub enum BandwidthMethod {
     Factor(f64),
 }
 
+impl BandwidthMethod {
+    /// The bandwidth factor for `n` samples of `dim` dimensions
+    /// (matplotlib's `scotts_factor`, `silverman_factor`, or the fixed one).
+    ///
+    /// ```
+    /// use plt::stats::BandwidthMethod;
+    /// assert_eq!(BandwidthMethod::Scott.factor(1, 32), 0.5);
+    /// assert_eq!(BandwidthMethod::Factor(0.3).factor(2, 10), 0.3);
+    /// ```
+    pub fn factor(self, dim: usize, n: usize) -> f64 {
+        let exponent = -1.0 / (dim as f64 + 4.0);
+        match self {
+            Self::Scott => (n as f64).powf(exponent),
+            Self::Silverman => (n as f64 * (dim as f64 + 2.0) / 4.0).powf(exponent),
+            Self::Factor(f) => f,
+        }
+    }
+}
+
 /// A Gaussian kernel density estimate of a `d`-dimensional dataset.
 ///
 /// ```
@@ -53,13 +72,7 @@ impl GaussianKde {
             return Err(StatsError::TooFewSamples);
         }
         let (dim, n) = dataset.shape();
-        let factor = match bw_method {
-            BandwidthMethod::Scott => (n as f64).powf(-1.0 / (dim as f64 + 4.0)),
-            BandwidthMethod::Silverman => {
-                (n as f64 * (dim as f64 + 2.0) / 4.0).powf(-1.0 / (dim as f64 + 4.0))
-            }
-            BandwidthMethod::Factor(f) => f,
-        };
+        let factor = bw_method.factor(dim, n);
         let data_covariance = sample_covariance(&dataset);
         let data_inv_cov = Lu::new(&data_covariance)
             .ok_or(StatsError::SingularCovariance)?

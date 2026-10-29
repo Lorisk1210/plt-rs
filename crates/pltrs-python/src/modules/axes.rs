@@ -3,7 +3,6 @@
 
 use pltrs::artist::ArtistHandle;
 use pltrs::axes::{Axes, PlotError, TitleLocation};
-use pltrs::legend::{Legend, LegendError, LegendOptions};
 use pltrs::lines::Line2D;
 use pltrs::patches::{Patch, Rectangle};
 use pltrs::text::Text;
@@ -16,12 +15,6 @@ artist_handle!(Axes);
 impl From<PlotError> for PyErr {
     /// matplotlib's `ValueError` for data it cannot plot.
     fn from(err: PlotError) -> Self {
-        PyErr::value_error(err.to_string())
-    }
-}
-
-impl From<LegendError> for PyErr {
-    fn from(err: LegendError) -> Self {
         PyErr::value_error(err.to_string())
     }
 }
@@ -96,16 +89,6 @@ fn get_lines(axes: Axes) -> PyResult<Vec<Line2D>> {
     Ok(axes.lines())
 }
 
-/// A legend of the labelled artists.
-fn legend(axes: Axes) -> PyResult<Legend> {
-    Ok(axes.legend(LegendOptions::default())?)
-}
-
-/// The legend, if one was made.
-fn get_legend(axes: Axes) -> PyResult<Option<Legend>> {
-    Ok(axes.current_legend())
-}
-
 /// A horizontal (`orientation` `"h"`) or vertical (`"v"`) line across the
 /// axes at data position `at`, from axes fraction `start` to `end`
 /// (`axhline`, `axvline`).
@@ -168,7 +151,5 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_xlim", set_xlim)?;
     module.add("get_ylim", get_ylim)?;
     module.add("set_ylim", set_ylim)?;
-    module.add("get_lines", get_lines)?;
-    module.add("legend", legend)?;
-    module.add("get_legend", get_legend)
+    module.add("get_lines", get_lines)
 }

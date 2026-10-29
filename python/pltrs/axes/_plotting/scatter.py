@@ -217,6 +217,11 @@ class ScatterMixin:
         Returns
         -------
         `~matplotlib.collections.PathCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         if colorizer is not None:
             raise NotImplementedError("pltrs: scatter(colorizer=...)")

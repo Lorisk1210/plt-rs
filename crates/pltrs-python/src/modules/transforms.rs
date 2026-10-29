@@ -16,6 +16,8 @@ use pltrs::transforms::{
 use crate::binding::prelude::*;
 use crate::binding::registered_error;
 
+mod live;
+
 /// The affine map of a 3×3 matrix (its last row is taken as `0 0 1`).
 pub(super) fn affine(matrix: &NdArray) -> PyResult<Affine2D> {
     match (&matrix.shape[..], &matrix.data[..]) {
@@ -296,7 +298,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("anchored", anchored)?;
     module.add("shrunk_to_aspect", shrunk_to_aspect)?;
     module.add("nonsingular", nonsingular_interval)?;
-    module.add("interval_contains", contains_value)
+    module.add("interval_contains", contains_value)?;
+    live::register(module)
 }
 
 #[cfg(test)]

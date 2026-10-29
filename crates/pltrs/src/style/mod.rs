@@ -43,7 +43,7 @@ use std::path::{Path, PathBuf};
 
 pub(crate) use library::bundled_sheet;
 pub use library::{
-    StyleSheet, available, library, reload_library, set_user_library_paths, sheet,
+    StyleSheet, available, bundled_sheets, library, reload_library, set_user_library_paths, sheet,
     user_library_paths,
 };
 pub use xkcd::{XkcdError, XkcdSketch, apply_xkcd};

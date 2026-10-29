@@ -147,7 +147,12 @@ that made it, and, for artist handles, the artist's `RawHandle`.
   native functions take and return `Line2D` directly. Its native object
   also serves the functions common to all artists, which take a
   `RawHandle` (`_native.artist`: visibility, z-order, alpha, label,
-  `remove`, and `id`, the artist's id in its figure).
+  `remove`, and `id`, the artist's id in its figure). The other way
+  round, a function taking a `Line2D` accepts the native object of any
+  handle of a line (the untyped `RawHandle` of a list of children or of
+  an adoption, say) and raises `TypeError` for an artist of another
+  kind: every type given to `artist_handle!` implements pltrs (Rust)'s
+  `TypedHandle`, which recovers it from an untyped handle.
 * `native_value!(RcParams)` does the same for values that are not
   artists (a clone comes out). A function that must change the value in
   place takes `Native<T>` instead and uses `borrow_mut()`.
@@ -173,9 +178,20 @@ decorators, `cbook` helpers that work on Python objects, the pytest
 plumbing of `testing`. When a Python method grows logic beyond turning
 its signature into native arguments, the logic belongs in Rust.
 
-pltrs draws in matplotlib's look (`modules::register` selects
-`Appearance::MATPLOTLIB` at import), since it promises matplotlib's
-output.
+### The look
+
+pltrs (Python) draws in pltrs' modern look by default, as pltrs (Rust)
+does: the `pltrs-modern` style sheet, Inter, constrained layout (see
+`pltrs::look`). `PLTRS_LOOK=matplotlib` (or `PLTRS_FIGURE_LOOK`) selects
+matplotlib's look, in which the output is matplotlib's. The extension
+does not choose: `modules::register` only starts the thread's parameters
+from the look pltrs (Rust) resolves from the environment. `rcParams` then
+holds the look's parameters (`rcParamsOrig` keeps them), while
+`rcParamsDefault`, `rcdefaults()` and `style.use("default")` are
+matplotlib's defaults, as `pltrs::rc::reset` is. What compares with
+matplotlib runs in matplotlib's look: `cargo xtask mpl-suite` sets
+`PLTRS_LOOK=matplotlib` for both runs, and so do the benchmarks
+(`xtask/src/bench`).
 
 ### How a class wraps a native handle
 
@@ -206,19 +222,65 @@ artist object refers to its figure and the figure to its artists, so an
 artist's object lives as long as its figure, and Python's garbage
 collector sees the whole cycle (all references are Python's).
 
-Artists made before they are added (`Line2D(x, y)`, `Rectangle(...)`,
-`LineCollection(...)`, then `ax.add_line`, `add_patch`,
-`add_collection`, `add_artist`): pltrs (Rust) makes artists inside a
-figure, so such an artist is *held*, as a removed artist, by a figure of
-its thread that is never drawn (`_native.held`, over pltrs (Rust)'s
-`Figure::hold_patch`, `hold_line` and `hold_collection`); its handle
-works as any other, so its getters and setters are those of an added
-artist. Adding it moves it into the axes (`Axes::adopt_held`, which
-takes the artist out of the holding figure and adopts it the way the
-adding method says), after which the object's `_native` is the new
-handle and the object is registered in its figure. The constructors of
-`Line2D`, the patches and the collections do this; `Artist.__init__`
-itself still raises `NotImplementedError`.
+### Artists made before they are added
+
+matplotlib code makes artists with their constructors and adds them
+later: `line = Line2D(x, y)`, then `ax.add_line(line)` (or `add_patch`,
+`add_collection`, `add_image`, `add_artist`, `fig.add_artist`). pltrs
+(Rust) supports this for every artist that owns no other (lines, patches,
+collections, texts, images, custom artists): a *loose* artist
+(`Line2D::loose`, `Patch::loose`, `Collection::loose`, `Text::loose`,
+`Custom::loose`) lives in a holder of its own, a figure state that is no
+figure, so that its handle works as any handle does and its properties
+can be read and set before it is added. `Axes::adopt_artist(artist,
+AddAs::Line)` (matplotlib's `add_line`; `AddAs` names the `add_*`
+method, which decides the data limits and the `_child<n>` label) and
+`Figure::adopt_artist(artist, clip)` move it into the figure under a new
+id, give it the default transform (`transData`, `transSubfigure`) unless
+it has one, and return the handle there; an artist removed from the same
+figure comes back under its own id.
+
+In Python, a constructor makes the native loose artist with the `new`
+functions of its module (`_lines.new(x, y, kwargs)`, `_text.new(x, y,
+text)`, `_patches.new_rectangle(...)` and a `new_<shape>` per patch
+class, `_collections.new_line_collection(...)` and a `new_<kind>` per
+collection class; `Artist()` itself makes a plain artist that draws
+nothing, `_artist.new()`) and calls `Artist.__init__`, which sets
+`_figure` to None. Its getters and setters are then those of an added
+artist. The `add_*` methods (`axes/_base.py`, `Figure.add_artist`) call
+`_native.artist.adopt_into_axes` / `adopt_into_figure` (through
+`Artist._add_to_axes` / `_add_to_figure`, which a class overrides when it
+joins differently), and `_handles.adopt` gives the object the returned
+handle and registers it in the figure. The returned handle is untyped (a
+`RawHandle` native object), which the `artist_handle!` conversions accept
+(see "The native object and its threads"). The loose handle is not used
+again: its holder is empty. An artist's `axes` is the one pltrs (Rust)
+has it in.
+
+Artists that own others are made in their figure instead, as removed
+artists, since matplotlib's constructors take their parent (`Axes(fig,
+rect)`, `Legend(ax, ...)`): `fig.add_axes(ax)` then adds them back.
+
+### Transforms
+
+`transforms` is matplotlib's Python transform tree, computing with
+`_native.transforms`. The transforms of the layout (`ax.transData`,
+`ax.transAxes`, `fig.transFigure`, `subfig.transSubfigure`,
+`fig.dpi_scale_trans`) are `_live_transforms.LiveTransform`s: each holds
+a pltrs (Rust) `Transform` (`Transform::Data(axes)`, ...) that the figure
+resolves in its current layout whenever points go through it, so they
+follow limits, scales and layout engines without matplotlib's
+invalidation; `ax.bbox` and `fig.bbox` are the boxes they map the unit
+square to. An axes or figure makes each once, so `line.get_transform() is
+ax.transData` holds. matplotlib's classes compose with them as with any
+transform. A transform crosses to pltrs (Rust) (`Artist.set_transform`,
+the `transform` keyword of the line properties) as the nested tuples of
+`_native.transforms.native` (`_live_transforms.to_native`: composites,
+blends, `ScaledTranslation`s and affine maps around live transforms),
+and comes back from `describe` as matplotlib's objects around the live
+transforms of the axes and figures it names (`from_native`). Python
+transforms of other kinds (non-affine ones of their own) raise
+`NotImplementedError`.
 
 ### Keyword arguments and aliases
 
@@ -340,7 +402,9 @@ A canvas draws and prints through the figure's native handle
   (`_print_native`) and emit the `draw_event` matplotlib's `Figure.draw`
   emits. The area to save travels as `bbox_inches_restore`, the keyword
   matplotlib passes to print methods for it, and `savefig`'s
-  `transparent` as the canvas's `_transparent` while saving.
+  `transparent` as the canvas's `_transparent` while saving. A print
+  method's `metadata` goes to pltrs (Rust) with the other settings, which
+  refuses it for the formats that cannot hold it, as matplotlib does.
 * Canvas callbacks belong to the figure (`figure._canvas_callbacks`), so
   that they survive a change of canvas.
 
@@ -359,6 +423,78 @@ backend is chosen by Python code). pltrs (Rust)'s own `pltrs.*` parameters are l
 out of iteration, so that code iterating over rcParams sees matplotlib's
 keys, but can be read and set by name. `rc_context` saves and restores
 pltrs (Rust)'s current parameters.
+
+matplotlib's validators (`rcsetup`, kept from matplotlib with its table
+of parameters `_params_list`) give `rcParams[key]` matplotlib's Python
+value: `RcParams._get` applies the parameter's validator to the rc text
+pltrs (Rust) holds, so that a cycler comes back as a `Cycler`, a sketch as
+a tuple, a colour as matplotlib keeps it. pltrs (Rust) keeps the value
+normalised (`--` for `'dashed'`), so an `RcParams` also remembers the
+value it was given with the rc text pltrs (Rust) made of it
+(`RcParams._given`): while pltrs (Rust) still holds that text, the given
+value is validated instead, and matplotlib's spelling comes back. The
+defaults start with matplotlib's spellings (`_default_spellings`), and
+`rc_context` restores the remembered values with the parameters.
+`rcParams[key] = value` still validates through pltrs (Rust), which is the
+source of truth; the validators are not run on assignment. pltrs takes
+`cycler` from the `cycler` package, as matplotlib does (`rcsetup`
+returns its `Cycler` objects).
+
+Style sheets are matplotlib's `style` package over pltrs (Rust)'s
+bundled sheets (`_native.rcsetup.bundled_styles`): `style.library` maps
+names to `RcParams`, user sheets are read from `USER_LIBRARY_PATHS`
+(`get_configdir()/stylelib`, in pltrs (Rust)'s configuration directory), and
+`matplotlib._init_tests` adds `_classic_test`. Applying a library sheet
+copies its rc text natively (`RcParams._update_from`, no Python round
+trip). rc files are read by pltrs (Rust) (`_native.rcsetup.read_file`),
+which reports the lines matplotlib logs.
+
+### Grids, layout engines, legends
+
+A `GridSpec` holds its native grid for its whole life: pltrs (Rust) and
+its layout engines tell grids apart by identity, so a Python grid made
+once and indexed many times places all its axes on one native grid, and
+`gridspec._wrap` finds the Python object of a native grid pltrs (Rust)
+made (`fig.subplots`, `add_subplot(2, 2, 1)` reuse grids as matplotlib's
+`_check_gridspec_exists` does). The margins of a grid (`gs.left`, ...)
+live in the native grid. `add_subplot` resolves its arguments with
+matplotlib's `SubplotSpec._from_subplot_args` and adds the axes on the
+native block; `subplot_mosaic` is matplotlib's, placing each label with
+`add_subplot` on nested grids.
+
+Layout engines (`layout_engine`) are matplotlib's classes holding their
+parameters; a figure gives pltrs (Rust) the description of its engine
+(`_native_spec`) when the engine is set or one of its parameters
+changes (an engine knows the figures it is set on).
+
+A `Legend(parent, handles, labels, **kwargs)` makes the native legend of
+its parent at once: matplotlib's argument handling (`_parse_legend_args`,
+handler maps by handle and type) runs in Python, and the entries reach
+pltrs (Rust) explicitly: an artist's handle (a loose line or rectangle
+becomes a proxy drawn as it is now), a tuple with its `HandlerTuple`
+layout, or the native handle of a container found on the axes
+(`_native.legend.candidates`, which lists what matplotlib's
+`_get_legend_handles` lists).
+
+### Pickling
+
+Decided, not done yet: a figure pickles as a serialisation of its native
+state, since pltrs (Rust) holds everything drawn and pickles must load in
+another process (`test_pickle_load_from_subprocess`). pltrs (Rust) will
+get a versioned binary archive of a figure (`pltrs::figure::archive`):
+every artist type encodes and decodes its state, artist ids included, so
+that the tree, the transforms and the shared axes come back as they were.
+`Figure.__reduce__` then returns `(_figure_from_archive, (bytes, state))`,
+where `state` holds the Python side the archive cannot: the `__dict__`
+of each artist object (without `_native` and `_figure`) by artist id and
+the figure's own attributes. Unpickling rebuilds the native figure from
+the bytes, wraps every artist id with the class it had, restores the
+attributes, and re-registers the figure with pyplot as matplotlib's
+`Figure.__setstate__` does (`restore_to_pylab`). Axes and other artists
+pickle through their figure (`(_artist_of_figure, (figure, id))`).
+Recording the calls that built a figure and replaying them was ruled
+out: it cannot capture changes pltrs (Rust) makes itself (layout,
+autoscaling) nor artists changed through their natives.
 
 ### Imports inside the package
 
@@ -515,12 +651,10 @@ additive:
   `_pylab_helpers`, the testing decorators) is kept close to the original
   and says so in its module docstring; it is under matplotlib's licence
   (`LICENSES/matplotlib.txt`, `THIRD_PARTY.md`).
-* pltrs imports numpy and, where matplotlib does, Pillow, nothing else.
-  The pltrs venv also holds what matplotlib's *test files* import at module
-  level (`cycler`, `packaging`, `pyparsing`, `python-dateutil`,
-  `contourpy`), so that those files can be collected; pltrs itself does not
-  import them. Whether pltrs should depend on `cycler`, the type of
-  matplotlib's `axes.prop_cycle`, is an open question for the lead: users'
-  code imports it next to matplotlib, and returning real `Cycler` objects
-  would be matplotlib's behaviour exactly.
+* pltrs imports numpy, `cycler` (in `rcsetup`, whose validators return
+  `Cycler` objects as matplotlib's do) and, where matplotlib does,
+  Pillow, nothing else. The pltrs venv also holds what matplotlib's *test
+  files* import at module level (`packaging`, `pyparsing`,
+  `python-dateutil`, `contourpy`), so that those files can be collected;
+  pltrs itself does not import them.
 * Unimplemented keywords raise `NotImplementedError("pltrs: ...")`.

@@ -118,10 +118,9 @@ class FigureCanvasPdf(FigureCanvasBase):
 
     def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None,
                   facecolor=None, edgecolor=None):
-        """Write the figure as a PDF document to *filename*, or as a new
-        page of the `PdfPages` *filename*."""
-        if metadata is not None:
-            raise NotImplementedError("pltrs: print_pdf(metadata=...)")
+        """Write the figure as a PDF document to *filename*, with the
+        document *metadata*, or as a new page of the `PdfPages` *filename*
+        (whose document has its own metadata)."""
         settings = dict(bbox_inches_restore=bbox_inches_restore,
                         facecolor=facecolor, edgecolor=edgecolor)
         if isinstance(filename, PdfPages):
@@ -130,7 +129,7 @@ class FigureCanvasPdf(FigureCanvasBase):
                 self._print_settings(**settings))
             DrawEvent("draw_event", self, None)._process()
         else:
-            self._print_native("pdf", filename, **settings)
+            self._print_native("pdf", filename, metadata=metadata, **settings)
 
 
 FigureManagerPdf = FigureManagerBase

@@ -230,9 +230,12 @@ fn color_values(values: &Expr, allow_cycle_refs: bool) -> Result<Vec<CycleValue>
     }
 }
 
+/// A cycle value in the syntax `cycler(...)` takes back: opaque colours
+/// as `(r, g, b)` tuples, as matplotlib's colour sequences hold them.
 pub(super) fn format_value(value: &CycleValue) -> String {
     match value {
         CycleValue::Color(Color::Spec(spec)) => format!("'{spec}'"),
+        CycleValue::Color(Color::Rgba(c)) if c.a >= 1.0 => format!("({}, {}, {})", c.r, c.g, c.b),
         CycleValue::Color(Color::Rgba(c)) => format!("({}, {}, {}, {})", c.r, c.g, c.b, c.a),
         CycleValue::Number(n) => n.format_rc(),
         CycleValue::LineStyle(style) => format!("'{}'", style.format_rc()),

@@ -59,6 +59,11 @@ class StatsMixin:
         dict
           A dictionary mapping each component of the boxplot to a list
           of the `.Line2D` instances created.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         rc = _rcParams()
         whis = rc['boxplot.whiskers'] if whis is None else whis
@@ -237,6 +242,11 @@ class StatsMixin:
         dict
             A dictionary mapping each component of the violinplot to a
             list of the corresponding collection instances created.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         vpstats = cbook.violin_stats(dataset, ("GaussianKDE", bw_method),
                                      points=points, quantiles=quantiles)
@@ -318,6 +328,11 @@ class StatsMixin:
         -------
         `.PieContainer`
             Container with all the wedge patches and any associated text objects.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         x = np.asarray(x)
         if x.ndim > 1:

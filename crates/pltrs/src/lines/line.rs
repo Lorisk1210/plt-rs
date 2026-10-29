@@ -54,7 +54,7 @@ impl PolarMarkerRotation {
 }
 
 /// State of a [`Line2D`] (matplotlib's `Line2D`).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct LineArtist {
     pub(super) base: ArtistBase,
     pub(crate) xdata: Vec<f64>,

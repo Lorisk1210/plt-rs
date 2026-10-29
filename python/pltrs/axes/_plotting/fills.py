@@ -96,6 +96,11 @@ class FillsMixin:
         Returns
         -------
         `.FillBetweenPolyCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         return self._fill_between_x_or_y(
             "x", x, y1, y2,
@@ -110,6 +115,11 @@ class FillsMixin:
         Returns
         -------
         `.FillBetweenPolyCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         return self._fill_between_x_or_y(
             "y", y, x1, x2,
@@ -124,6 +134,11 @@ class FillsMixin:
         Returns
         -------
         `~matplotlib.patches.StepPatch`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         _api.check_in_list(('vertical', 'horizontal'), orientation=orientation)
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.StepPatch)

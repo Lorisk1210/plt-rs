@@ -330,47 +330,35 @@ macro_rules! native_value {
     )*};
 }
 
+/// The handle of type `H` of the artist behind `object`, a native object
+/// of another handle type (an untyped [`RawHandle`] such as an adoption
+/// returns, or another typed handle of the same artist); the type error
+/// `mismatch` when the artist is no `H`.
+pub(crate) fn retyped<H: pltrs::artist::TypedHandle>(
+    object: &Bound<'_>,
+    mismatch: PyErr,
+) -> PyResult<H> {
+    match object.extract::<RawHandle>() {
+        Ok(raw) => H::from_raw_handle(&raw).ok_or(mismatch),
+        Err(_) => Err(mismatch),
+    }
+}
+
 /// Gives pltrs (Rust) artist handle types (`Axes`, `Line2D`, ...) their
 /// conversions: a native function takes and returns them directly, and
-/// their native objects also serve functions taking any artist.
+/// their native objects also serve functions taking any artist. A native
+/// object of any handle of the artist converts to the type, which must
+/// therefore implement [`TypedHandle`](pltrs::artist::TypedHandle): an
+/// artist adopted by an axes is reached through the untyped handle the
+/// adoption returns.
 macro_rules! artist_handle {
     ($($ty:ty),* $(,)?) => {$(
         impl $crate::binding::FromPy<'_> for $ty {
             fn from_py(object: &$crate::binding::Bound<'_>) -> $crate::binding::PyResult<Self> {
-                let native: $crate::binding::Native<$ty> = object.extract()?;
-                let handle = native.borrow().clone();
-                Ok(handle)
-            }
-        }
-
-        impl $crate::binding::IntoPy for $ty {
-            fn into_py(self, py: $crate::binding::Python<'_>) -> $crate::binding::PyResult<$crate::binding::Bound<'_>> {
-                $crate::binding::wrap_artist(py, self)
-            }
-        }
-    )*};
-}
-
-/// [`artist_handle!`] for handle types that pltrs (Rust) can recover from
-/// an untyped handle ([`TypedHandle`](pltrs::artist::TypedHandle)): a
-/// native function taking one also accepts the native object of the same
-/// artist made with another handle type (a [`RawHandle`] from a list of
-/// children, say), and raises `TypeError` for an artist of another kind.
-macro_rules! typed_artist_handle {
-    ($($ty:ty),* $(,)?) => {$(
-        impl $crate::binding::FromPy<'_> for $ty {
-            fn from_py(object: &$crate::binding::Bound<'_>) -> $crate::binding::PyResult<Self> {
-                if let Ok(native) = object.extract::<$crate::binding::Native<$ty>>() {
-                    let handle = native.borrow().clone();
-                    return Ok(handle);
+                match object.extract::<$crate::binding::Native<$ty>>() {
+                    Ok(native) => Ok(native.borrow().clone()),
+                    Err(mismatch) => $crate::binding::retyped(object, mismatch),
                 }
-                let raw: pltrs::artist::RawHandle = object.extract()?;
-                <$ty as pltrs::artist::TypedHandle>::from_raw_handle(&raw).ok_or_else(|| {
-                    $crate::binding::PyErr::type_error(format!(
-                        "expected a native {} handle",
-                        $crate::binding::short_name(std::any::type_name::<$ty>())
-                    ))
-                })
             }
         }
 
@@ -382,7 +370,7 @@ macro_rules! typed_artist_handle {
     )*};
 }
 
-pub(crate) use {artist_handle, native_value, typed_artist_handle};
+pub(crate) use {artist_handle, native_value};
 
 #[cfg(test)]
 mod tests {

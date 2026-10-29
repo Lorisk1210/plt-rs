@@ -82,6 +82,18 @@ pub(crate) struct FigureState {
     /// The raster canvas kept between draws, and what the windows showing
     /// the figure have to present of it.
     pub(crate) canvas: CanvasState,
+    /// A figure, or the holder of an artist made outside any figure.
+    pub(crate) role: StateRole,
+}
+
+/// What a [`FigureState`] is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum StateRole {
+    /// A figure.
+    Figure,
+    /// No figure but the holder of an artist made outside any figure (see
+    /// [`RawHandle::is_loose`](crate::artist::RawHandle::is_loose)).
+    LooseHolder,
 }
 
 impl FigureState {
@@ -172,6 +184,21 @@ impl FigureState {
             suppress_composite: None,
             last_draw_dpi: None,
             canvas: CanvasState::default(),
+            role: StateRole::Figure,
+        }
+    }
+
+    /// The holder of an artist made outside any figure: a state with
+    /// matplotlib's default figure geometry that is never drawn.
+    pub(crate) fn holder() -> Self {
+        Self {
+            role: StateRole::LooseHolder,
+            ..Self::new(
+                (6.4, 4.8),
+                100.0,
+                Color::from("white"),
+                Color::from("white"),
+            )
         }
     }
 

@@ -10,8 +10,8 @@ matplotlib does. The module-level dash helpers are matplotlib's.
 
 import numpy as np
 
-from . import _api, cbook
-from ._native import held as _held, lines as _lines
+from . import _api, _live_transforms, cbook
+from ._native import lines as _lines
 from .artist import Artist
 from .cbook import ls_mapper
 from .markers import (  # noqa: F401  (matplotlib re-exports these here)
@@ -148,9 +148,12 @@ def _native_kwargs(kwargs):
     """
     *kwargs*, whose aliases are resolved, in the form the native line
     properties take: markers as `_marker_spec`, ``dashes`` as a line style,
-    ``data``/``xdata``/``ydata`` left to the caller.
+    a transform as its native transform, ``data``/``xdata``/``ydata`` left
+    to the caller.
     """
     kwargs = dict(kwargs)
+    if "transform" in kwargs:
+        kwargs["transform"] = _live_transforms.to_native(kwargs["transform"])
     fillstyle = kwargs.get("fillstyle")
     if "marker" in kwargs:
         kwargs["marker"] = _marker_spec(kwargs["marker"], fillstyle)
@@ -255,8 +258,10 @@ class Line2D(Artist):
                  ):
         """
         Create a `.Line2D` instance with *x* and *y* data in sequences of
-        *xdata*, *ydata*; it is made before an Axes adds it
-        (`.Axes.add_line`).
+        *xdata*, *ydata*.
+
+        The line is outside any figure until an axes or a figure adds it
+        (`~.Axes.add_line`, `.Figure.add_artist`).
 
         Additional keyword arguments are `.Line2D` properties.
         """
@@ -285,10 +290,10 @@ class Line2D(Artist):
         props = {k: v for k, v in props.items() if v is not None}
         if marker is not None:
             props["marker"] = marker
-        self._native = _held.line(
+        self._native = _lines.new(
             cbook._to_unmasked_float_array(xdata).ravel(),
             cbook._to_unmasked_float_array(ydata).ravel(), _native_kwargs(props))
-        self._figure = None
+        super().__init__()
         if markevery is not None:
             self.set_markevery(markevery)
         self._internal_update(kwargs)

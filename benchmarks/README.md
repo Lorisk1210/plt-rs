@@ -57,7 +57,7 @@ The workloads save PNG, SVG, PDF, PostScript and EPS.
 * pltrs (Python) runs copies of the same scripts in which `import matplotlib.pyplot as plt` reads `import pltrs.pyplot as plt` and nothing else changes. It runs on Python 3.14.8 with numpy 2.5.4, with its extension built in release mode from this commit.
 * pltrs (Rust) draws the same figures through the API of the `pltrs` crate, built in release mode (rustc 1.99.1 (58cf8f9c3 2026-10-13)).
 
-All three draw in matplotlib's look with matplotlib's default rcParams (DejaVu Sans, default hinting, 100 dpi). pltrs (Python) selects that look when it is imported, and the Rust workloads select it the same way (`pltrs::look::Appearance::MATPLOTLIB`).
+All three draw in matplotlib's look with matplotlib's default rcParams (DejaVu Sans, default hinting, 100 dpi). pltrs (Python), which draws in its modern look by default, runs with `PLTRS_LOOK=matplotlib`, and the Rust workloads select the same look in code (`pltrs::look::Appearance::MATPLOTLIB`).
 
 ### Warm runs time the figure alone
 

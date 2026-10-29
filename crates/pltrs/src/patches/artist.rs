@@ -114,7 +114,7 @@ pub struct PatchView<'a> {
 }
 
 /// A shape painted with a [`PatchStyle`] (matplotlib's `Patch` subclasses).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct PatchArtist<S: PatchShape> {
     pub(super) base: ArtistBase,
     pub(crate) style: PatchStyle,

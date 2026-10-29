@@ -59,6 +59,11 @@ class MeshMixin:
         Returns
         -------
         `matplotlib.collections.PolyQuadMesh`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         if colorizer is not None:
             raise NotImplementedError("pltrs: pcolor(colorizer=...)")
@@ -82,6 +87,11 @@ class MeshMixin:
         Returns
         -------
         `matplotlib.collections.QuadMesh`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         if colorizer is not None:
             raise NotImplementedError("pltrs: pcolormesh(colorizer=...)")

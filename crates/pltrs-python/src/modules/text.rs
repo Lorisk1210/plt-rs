@@ -47,6 +47,12 @@ fn axes_texts(axes: Axes) -> PyResult<Vec<Text>> {
     Ok(axes.texts())
 }
 
+/// The text `value` at `(x, y)`, outside any figure (`Text(x, y, text)`),
+/// for an axes or a figure to adopt (`_native.artist.adopt_into_axes`).
+fn new(x: f64, y: f64, value: String) -> PyResult<Text> {
+    Ok(Text::loose(x, y, value))
+}
+
 /// The string shown.
 fn get_text(text: Text) -> PyResult<String> {
     Ok(text.text())
@@ -337,6 +343,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("figure_text", figure_text)?;
     module.add("axes_text", axes_text)?;
     module.add("axes_texts", axes_texts)?;
+    module.add("new", new)?;
     module.add("get_text", get_text)?;
     module.add("set_text", set_text)?;
     module.add("get_position", get_position)?;

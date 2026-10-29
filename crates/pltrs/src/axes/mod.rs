@@ -102,6 +102,7 @@ mod which;
 // `image.aspect` and `axes.axisbelow` rcParams hold too.
 pub use crate::rc::{Aspect, AxisBelow};
 pub use crate::ticker::AxisName;
+pub use add_artist::AddAs;
 pub(crate) use aspect::AxesLocator;
 pub use aspect::{Adjustable, AspectError, AxesLocatorFn};
 pub(crate) use axis::TickerDefaults;
@@ -173,7 +174,7 @@ use pltrs_core::{Bbox, Point};
 use std::rc::Rc;
 
 use crate::artist::Artist;
-use crate::artist::{ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::scale::{Scale, ScaleError, ScaleName, ScaleOptions};
 use crate::spines::{Spine, Spines};
 use crate::text::{Text, TextArtist};
@@ -185,6 +186,12 @@ use crate::units::{AxisValue, DataPoint, UnitHandle, UnitSources};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Axes {
     raw: RawHandle,
+}
+
+impl TypedHandle for Axes {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<AxesState>().then(|| Self::from_raw(raw.clone()))
+    }
 }
 
 impl ArtistHandle for Axes {

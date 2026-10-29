@@ -76,7 +76,6 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         collections = _contour.get_collections(contour)
         cs = _handles.wrap(collections[0], cls, axes.figure)
         cs._contour = contour
-        cs.axes = axes
         return cs
 
     @property

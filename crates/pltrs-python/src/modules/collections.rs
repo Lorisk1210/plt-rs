@@ -17,7 +17,9 @@ use super::path::{PathArrays, PyPath, path_arrays};
 use super::transforms::{points, points_array};
 use crate::binding::prelude::*;
 
-typed_artist_handle!(Collection, EventCollection);
+mod new;
+
+artist_handle!(Collection, EventCollection);
 
 /// Colours as an `(N, 4)` RGBA array.
 pub(super) fn rgba_rows(array: &NdArray) -> PyResult<Vec<Color>> {
@@ -410,5 +412,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("event_orientation", event_orientation)?;
     module.add("set_event_orientation", set_event_orientation)?;
     module.add("event_lines", event_lines)?;
-    module.add("set_event_lines", set_event_lines)
+    module.add("set_event_lines", set_event_lines)?;
+    new::register(module)
 }

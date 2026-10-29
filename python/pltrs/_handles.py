@@ -38,6 +38,18 @@ def wrap_all(natives, cls, figure):
     return [wrap(native, cls, figure) for native in natives]
 
 
+def adopt(artist, native, figure):
+    """
+    Make *artist*, a loose artist or one removed from *figure*, the object
+    of the artist the handle *native* reaches in *figure*, once an axes or
+    the figure adopted it (``_native.artist.adopt_into_axes``); return it.
+    """
+    artist._native = native
+    artist._figure = figure
+    figure._artists[_artist.id(native)] = artist
+    return artist
+
+
 def forget(artist):
     """Drop *artist* from its figure's registry (once it is removed)."""
     artist.figure._artists.pop(_artist.id(artist._native), None)

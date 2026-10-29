@@ -7,7 +7,6 @@ mod clear;
 mod detach;
 mod draw_order;
 mod frame;
-mod hold;
 mod mosaic;
 mod mosaic_axes;
 mod pdf_pages;
@@ -37,7 +36,6 @@ pub(crate) use canvas::{CanvasState, Presentation, Presenting};
 pub(crate) use detach::attach;
 pub(crate) use draw_order::draws_before;
 pub(crate) use frame::{FigureFrame, SuperText};
-pub use hold::AdoptAs;
 pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
 pub use mosaic_axes::MosaicAxes;
 pub use pdf_pages::PdfPages;
@@ -53,12 +51,14 @@ pub(crate) use rect::axes_bounds;
 use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
 pub use size::{FigSize, SizeError, SizeUnit};
-pub(crate) use state::FigureState;
+pub(crate) use state::{FigureState, StateRole};
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
 pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes, make_axes};
 
-use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, RawHandle};
+use crate::artist::{
+    Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, RawHandle, TypedHandle,
+};
 use crate::axes::{Axes, AxesState, PlotError};
 use crate::colors::Color;
 use crate::events::Event;
@@ -493,6 +493,16 @@ impl Figure {
     /// Whether something changed since the last draw.
     pub fn is_stale(&self) -> bool {
         self.state.borrow().stale
+    }
+}
+
+/// A figure frame's handle is the figure or subfigure it frames.
+impl TypedHandle for Figure {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<FigureFrame>().then(|| Self {
+            state: Rc::clone(raw.figure_state()),
+            root: raw.clone(),
+        })
     }
 }
 

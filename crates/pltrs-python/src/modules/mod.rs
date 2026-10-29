@@ -21,6 +21,8 @@
 
 mod artist;
 mod axes;
+mod axes_base;
+mod axis;
 mod axisartist;
 mod backends;
 mod bezier;
@@ -36,13 +38,14 @@ mod dviread;
 mod figure;
 mod font_manager;
 mod ft2font;
-mod held;
+mod gridspec;
 mod image;
 mod legend;
 mod lines;
 mod markers;
 mod mathtext;
 mod mlab;
+mod offsetbox;
 mod patch_styles;
 mod patches;
 mod path;
@@ -50,6 +53,7 @@ mod patheffects;
 mod plotting;
 mod rcsetup;
 mod scale;
+mod spines;
 mod testing;
 mod texmanager;
 mod text;
@@ -60,13 +64,16 @@ mod tri;
 
 use crate::binding::{Module, PyResult};
 
-/// Fills the extension module: pltrs (Rust) takes matplotlib's look, then each
+/// Fills the extension module: the current thread's parameters start from
+/// the look in force (pltrs' modern look unless `PLTRS_LOOK` or
+/// `PLTRS_FIGURE_LOOK` chooses another, as in pltrs (Rust)), then each
 /// matplotlib module gets its submodule.
 pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
-    pltrs::look::set_appearance(pltrs::look::Appearance::MATPLOTLIB);
     pltrs::rc::restore_startup();
     artist::register(&module.submodule("artist")?)?;
     axes::register(&module.submodule("axes")?)?;
+    axes_base::register(&module.submodule("axes_base")?)?;
+    axis::register(&module.submodule("axis")?)?;
     axisartist::register(&module.submodule("axisartist")?)?;
     backends::register(&module.submodule("backends")?)?;
     bezier::register(&module.submodule("bezier")?)?;
@@ -81,14 +88,15 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     dviread::register(&module.submodule("dviread")?)?;
     figure::register(&module.submodule("figure")?)?;
     font_manager::register(&module.submodule("font_manager")?)?;
-    image::register(&module.submodule("image")?)?;
     ft2font::register(&module.submodule("ft2font")?)?;
-    held::register(&module.submodule("held")?)?;
+    gridspec::register(&module.submodule("gridspec")?)?;
+    image::register(&module.submodule("image")?)?;
     legend::register(&module.submodule("legend")?)?;
     lines::register(&module.submodule("lines")?)?;
     markers::register(&module.submodule("markers")?)?;
     mathtext::register(&module.submodule("mathtext")?)?;
     mlab::register(&module.submodule("mlab")?)?;
+    offsetbox::register(&module.submodule("offsetbox")?)?;
     patch_styles::register(&module.submodule("patch_styles")?)?;
     patches::register(&module.submodule("patches")?)?;
     path::register(&module.submodule("path")?)?;
@@ -96,6 +104,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     patheffects::register(&module.submodule("patheffects")?)?;
     rcsetup::register(&module.submodule("rcsetup")?)?;
     scale::register(&module.submodule("scale")?)?;
+    spines::register(&module.submodule("spines")?)?;
     testing::register(&module.submodule("testing")?)?;
     texmanager::register(&module.submodule("texmanager")?)?;
     text::register(&module.submodule("text")?)?;
@@ -186,9 +195,8 @@ mod tests {
                 .unwrap();
             assert!(id > 0, "the figure itself is artist 0");
             let png = "png".into_py(py).unwrap();
-            let none = || Bound::none(py);
-            let args = [figure, png, none(), none(), none(), none()];
-            let bytes = call(&native, "figure", "print_figure", &args).unwrap();
+            let args = [figure, png, eval(py, "", "{'metadata': {'Title': 'line'}}")];
+            let bytes = call(&native, "backends", "print_figure", &args).unwrap();
             assert!(bytes.repr().unwrap().starts_with("b'\\x89PNG"));
         });
     }

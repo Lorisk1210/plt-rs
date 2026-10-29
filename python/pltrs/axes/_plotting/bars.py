@@ -83,6 +83,11 @@ class BarsMixin:
         -------
         `.BarContainer`
             Container with all the bars and optionally errorbars.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.Patch)
         facecolor, edgecolor = self._parse_bar_color_args(kwargs)
@@ -168,7 +173,9 @@ class BarsMixin:
             (positions, _axis_deltas(value)),
             (_axis_deltas(thickness), None if base is None else axis_values(base)),
             align, (facecolors, edgecolors, linewidths, hatches),
-            (bar_container_label, patch_labels, tick_labels or [], bool(log)),
+            # The container's label as text, as `.Container` keeps it.
+            ('' if bar_container_label is None else str(bar_container_label),
+             patch_labels, tick_labels or [], bool(log)),
             (errors.get("x"), errors.get("y"), error_style,
              mlines._native_kwargs(cbook.normalize_kwargs(error_kw, mlines.Line2D))))
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
@@ -212,6 +219,11 @@ class BarsMixin:
         Returns
         -------
         `~.collections.PolyCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         _api.check_in_list(['bottom', 'center', 'top'], align=align)
         starts, widths = [], []

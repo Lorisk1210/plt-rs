@@ -319,6 +319,29 @@ impl Figure {
     pub fn layout_engine(&self) -> Option<LayoutEngine> {
         self.raw().figure_state().borrow().layout.engine
     }
+
+    /// Lays the figure out once with `engine`, whatever engine the figure
+    /// has, which it keeps (matplotlib's `LayoutEngine.execute(fig)`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::layout::LayoutEngine;
+    /// let fig = Figure::new();
+    /// fig.set_layout_engine(None)?;
+    /// fig.subplot().set_title("title");
+    /// let (own, params) = (fig.layout_engine(), fig.subplot_params());
+    /// fig.execute_layout(LayoutEngine::tight());
+    /// assert_ne!(fig.subplot_params(), params, "the tight layout moved the grid");
+    /// assert_eq!(fig.layout_engine(), own);
+    /// # Ok::<(), pltrs::layout::LayoutEngineError>(())
+    /// ```
+    pub fn execute_layout(&self, engine: LayoutEngine) {
+        let mut state = self.raw().figure_state().borrow_mut();
+        let own = state.layout.engine.replace(engine);
+        state.layout.pending = true;
+        state.prepare();
+        state.layout.engine = own;
+    }
 }
 
 impl FigureState {

@@ -15,7 +15,7 @@ import numpy as np
 
 from . import _api, cbook, colors as mcolors, lines as mlines
 from ._enums import CapStyle, JoinStyle
-from ._native import collections as _collections, held as _held
+from ._native import collections as _collections
 from .artist import Artist
 from .path import Path
 
@@ -130,15 +130,15 @@ class Collection(Artist):
                  ):
         """
         Style the collection a subclass holds in ``self._native``: the
-        collection is made before it is added to an Axes
-        (`.Axes.add_collection` adds it).
+        collection is outside any figure until an axes or a figure adds it
+        (`~.Axes.add_collection`, `.Figure.add_artist`).
         """
         for name, value in (("offset_transform", offset_transform),
                             ("norm", norm), ("cmap", cmap),
                             ("colorizer", colorizer)):
             if value is not None:
                 raise NotImplementedError(f"pltrs: {type(self).__name__}({name}=...)")
-        self._figure = None
+        Artist.__init__(self)
         self.set_facecolor(facecolors)
         self.set_edgecolor(edgecolors)
         self.set_linewidth(linewidths)
@@ -432,7 +432,7 @@ class PathCollection(_CollectionWithSizes):
         sizes : array-like
             The factor by which to scale each drawn `~.path.Path`.
         """
-        self._native = _held.path_collection(list(paths))
+        self._native = _collections.new_path_collection(list(paths))
         super().__init__(**kwargs)
         self.set_sizes(sizes)
 
@@ -455,7 +455,7 @@ class PolyCollection(_CollectionWithSizes):
             Whether the polygon should be closed by adding a CLOSEPOLY
             connection at the end.
         """
-        self._native = _held.poly_collection(
+        self._native = _collections.new_poly_collection(
             [np.asarray(v, float).reshape(-1, 2) for v in verts])
         super().__init__(**kwargs)
         if sizes is not None:
@@ -507,7 +507,7 @@ class RegularPolyCollection(_CollectionWithSizes):
         sizes : tuple of float
             The area of the circle circumscribing the polygon in points^2.
         """
-        self._native = _held.regular_poly_collection(
+        self._native = _collections.new_regular_poly_collection(
             int(numsides), float(rotation), np.atleast_1d(np.asarray(sizes, float)))
         super().__init__(**kwargs)
 
@@ -546,7 +546,7 @@ class LineCollection(Collection):
             Forwarded to `.Collection`.
         """
         kwargs.setdefault('facecolors', 'none')
-        self._native = _held.line_collection(
+        self._native = _collections.new_line_collection(
             [] if segments is None else
             [np.asarray(seg, float).reshape(-1, 2) for seg in segments])
         super().__init__(zorder=zorder, **kwargs)
@@ -629,7 +629,7 @@ class EventCollection(LineCollection):
         positions = np.asarray(positions, dtype=float)
         if positions.ndim > 1:
             raise ValueError('positions must be one-dimensional')
-        self._native = _held.event_collection(
+        self._native = _collections.new_event_collection(
             np.atleast_1d(positions), orientation == 'vertical',
             float(lineoffset), float(linelength))
         Collection.__init__(self, linewidths=linewidth, linestyles=linestyle,
@@ -732,7 +732,7 @@ class CircleCollection(_CollectionWithSizes):
         sizes : float or array-like
             The area of each circle in points^2.
         """
-        self._native = _held.circle_collection(
+        self._native = _collections.new_circle_collection(
             np.atleast_1d(np.asarray(sizes, float)))
         super().__init__(**kwargs)
 
@@ -758,7 +758,7 @@ class EllipseCollection(Collection):
         widths, heights, angles = np.broadcast_arrays(
             np.ravel(widths).astype(float), np.ravel(heights).astype(float),
             np.ravel(angles).astype(float))
-        self._native = _held.ellipse_collection((widths, heights, angles), units)
+        self._native = _collections.new_ellipse_collection((widths, heights, angles), units)
         super().__init__(**kwargs)
 
 
@@ -785,10 +785,10 @@ class PatchCollection(Collection):
             edgecolor, linewidths, norm or cmap.
         """
         patches = list(patches)
-        self._native = _held.patch_collection([p._native for p in patches],
+        self._native = _collections.new_patch_collection([p._native for p in patches],
                                               bool(match_original))
         if match_original:
-            self._figure = None
+            Artist.__init__(self)
             self._internal_update(kwargs)
         else:
             super().__init__(**kwargs)

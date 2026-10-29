@@ -6,79 +6,64 @@ A `Figure` owns a pltrs (Rust) figure (``self._native``) and the registry of the
 objects of its artists (``self._artists``, see `._handles`).
 """
 
+from numbers import Integral
+import logging
 import math
 
 import numpy as np
 
-from . import _api, _handles, cbook, rcParams
-from ._native import artist as _artist, figure as _figure
+from . import _api, _blocking_input, _handles, _live_transforms, cbook, rcParams
+from ._native import artist as _artist, axes_base as _axes_base
+from ._native import figure as _figure, gridspec as _gridspec
+from ._native import transforms as _transforms
 from .artist import Artist
 from .axes import Axes
-from .backend_bases import FigureCanvasBase, NonGuiException
+from .axes._base import _AxesBase
+from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
+from .gridspec import GridSpec, SubplotParams, SubplotSpec
+from ._figure_mosaic import _MosaicMixin
+from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
+                            PlaceHolderLayoutEngine, TightLayoutEngine)
+from .lines import Line2D
 from .text import Text
 from ._text_methods import FigureText
 
+_log = logging.getLogger(__name__)
 
-class Figure(FigureText, Artist):
+
+class FigureBase(FigureText, _MosaicMixin, Artist):
     """
-    The top level container for all the plot elements.
-
-    See matplotlib's documentation of `matplotlib.figure.Figure`.
+    Base class for `.Figure` and `.SubFigure` containing the methods that add
+    artists to the figure or subfigure, create Axes, etc.
     """
-
-    def __init__(self, figsize=None, dpi=None, *, facecolor=None,
-                 edgecolor=None, linewidth=0.0, frameon=None, **kwargs):
-        if figsize is None:
-            figsize = rcParams['figure.figsize']
-        if dpi is None:
-            dpi = rcParams['figure.dpi']
-        width, height = figsize
-        if not all(math.isfinite(v) and v > 0 for v in (width, height)):
-            raise ValueError(
-                f'figure size must be positive finite not {figsize}')
-        self._native = _figure.new(float(width), float(height), float(dpi))
-        self._figure = self
-        self._artists = {_artist.id(self._native): self}
-        self._number = None
-        FigureCanvasBase(self)
-        if facecolor is not None:
-            self.set_facecolor(facecolor)
-        if edgecolor is not None:
-            _figure.set_edgecolor(self._native, edgecolor)
-        if linewidth:
-            _figure.set_linewidth(self._native, linewidth)
-        if frameon is not None:
-            _figure.set_frameon(self._native, bool(frameon))
-        self._internal_update(kwargs)
 
     @property
-    def number(self):
-        """The figure's number in pyplot, if pyplot manages it."""
-        return self._number
+    def transSubfigure(self):
+        """The transform from fractions of this (sub)figure to display
+        coordinates."""
+        return _live_transforms.cached(self, "transSubfigure",
+                                       _transforms.trans_figure)
 
-    @number.setter
-    def number(self, num):
-        self._number = num
+    @property
+    def transFigure(self):
+        """The transform from fractions of the root figure to display
+        coordinates."""
+        return self.figure.transSubfigure
 
-    def get_size_inches(self):
-        """Return the current size of the figure in inches."""
-        return np.array(_figure.get_size_inches(self._native))
+    @property
+    def dpi_scale_trans(self):
+        """The transform from inches to display coordinates."""
+        return _live_transforms.cached(self.figure, "dpi_scale_trans",
+                                       _live_transforms.inches)
 
-    def set_size_inches(self, w, h=None, forward=True):
-        """Set the figure size in inches."""
-        if h is None:
-            w, h = w
-        _figure.set_size_inches(self._native, float(w), float(h))
+    @property
+    def bbox(self):
+        """The (sub)figure's box in display coordinates."""
+        return _live_transforms.LiveBbox.spanned(self.transSubfigure)
 
-    def get_dpi(self):
-        """Return the resolution in dots per inch as a float."""
-        return _figure.get_dpi(self._native)
-
-    def set_dpi(self, val):
-        """Set the resolution of the figure in dots-per-inch."""
-        _figure.set_dpi(self._native, float(val))
-
-    dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
+    def get_window_extent(self, renderer=None):
+        """Return the (sub)figure's box in display coordinates."""
+        return self.bbox
 
     def get_facecolor(self):
         """Get the face color of the Figure rectangle."""
@@ -90,116 +75,442 @@ class Figure(FigureText, Artist):
 
     def get_axes(self):
         """List of Axes in the Figure."""
-        return _handles.wrap_all(_figure.axes(self._native), Axes, self)
+        return _handles.wrap_all(_figure.axes(self._native), Axes, self.figure)
 
     axes = property(get_axes, doc="List of Axes in the Figure.")
 
-    def _axes_at(self, x, y):
-        """The topmost visible Axes containing the display point (*x*, *y*),
-        or None (``canvas.inaxes``)."""
-        return _handles.wrap(_figure.axes_at(self._native, x, y), Axes, self)
+    def add_gridspec(self, nrows=1, ncols=1, **kwargs):
+        """
+        Low-level API for creating a `.GridSpec` that has this figure as a parent.
 
-    def add_subplot(self, *args, **kwargs):
-        """Add an `~.axes.Axes` to the figure as part of a subplot arrangement."""
-        if not args:
-            args = (1, 1, 1)
-        if len(args) == 1 and isinstance(args[0], int):
-            if not 100 <= args[0] <= 999:
+        This is a low-level API, allowing you to create a gridspec and
+        subsequently add subplots based on the gridspec. Most users do
+        not need that freedom and should use the higher-level methods
+        `~.Figure.subplots` or `~.Figure.subplot_mosaic`.
+
+        Parameters
+        ----------
+        nrows : int, default: 1
+            Number of rows in grid.
+        ncols : int, default: 1
+            Number of columns in grid.
+
+        Returns
+        -------
+        `.GridSpec`
+
+        Other Parameters
+        ----------------
+        **kwargs
+            Keyword arguments are passed to `.GridSpec`.
+        """
+        _ = kwargs.pop('figure', None)  # pop in case user has added this...
+        gs = GridSpec(nrows=nrows, ncols=ncols, figure=self, **kwargs)
+        return gs
+
+    def _process_projection_requirements(self, *, axes_class=None, polar=False,
+                                         projection=None, **kwargs):
+        """
+        Handle the args/kwargs to add_axes/add_subplot/gca, returning::
+
+            (axes_proj_class, proj_class_kwargs)
+
+        which can be used for new Axes initialization/identification.
+        """
+        from .projections import get_projection_class
+        if axes_class is not None:
+            if polar or projection is not None:
                 raise ValueError(
-                    "Integer subplot specification must be a three-digit "
-                    f"number, not {args[0]}")
-            args = tuple(map(int, str(args[0])))
-        if len(args) != 3:
-            raise TypeError(f"add_subplot() takes 1 or 3 positional arguments "
-                            f"but {len(args)} were given")
-        nrows, ncols, index = args
-        projection = kwargs.pop('projection', None)
-        if kwargs.pop('polar', False):
-            if projection is not None and projection != 'polar':
-                raise ValueError(
-                    f"polar={True}, yet projection={projection!r}. "
-                    "Only one of these arguments should be supplied."
-                )
-            projection = 'polar'
-        if projection is None or projection == 'rectilinear':
-            ax = _handles.wrap(
-                _figure.add_subplot(self._native, nrows, ncols, index), Axes, self)
+                    "Cannot combine 'axes_class' and 'projection' or 'polar'")
+            projection_class = axes_class
         else:
-            from .projections import get_projection_class
-            cls = get_projection_class(projection)
-            ax = _handles.wrap(_figure.add_subplot_projection(
-                self._native, (nrows, ncols, index), cls.name), cls, self)
+            if polar:
+                if projection is not None and projection != 'polar':
+                    raise ValueError(
+                        f"polar={polar}, yet projection={projection!r}. "
+                        "Only one of these arguments should be supplied."
+                    )
+                projection = 'polar'
+            if isinstance(projection, str) or projection is None:
+                projection_class = get_projection_class(projection)
+            else:
+                raise TypeError(
+                    f"projection must be a string, None or implement a "
+                    f"_as_mpl_axes method, not {projection!r}")
+        return projection_class, kwargs
+
+    def _new_axes(self, native, projection_class, kwargs):
+        """The Axes object of the new native axes *native*, of class
+        *projection_class*, sharing and styled as *kwargs* say."""
+        ax = _handles.wrap(native, projection_class, self.figure)
+        # plt.subplot reuses an axes made with the same class and keywords.
+        ax._projection_init = (projection_class, dict(kwargs))
+        for name in ("x", "y"):
+            other = kwargs.pop(f"share{name}", None)
+            if other is not None:
+                _axes_base.share(ax._native, name, other._native)
         ax._internal_update(kwargs)
         return ax
+
+    def add_axes(self, *args, **kwargs):
+        """
+        Add an `~.axes.Axes` to the figure.
+
+        Call signatures::
+
+            add_axes(rect, projection=None, polar=False, **kwargs)
+            add_axes(ax)
+
+        Parameters
+        ----------
+        rect : tuple (left, bottom, width, height)
+            The dimensions (left, bottom, width, height) of the new
+            `~.axes.Axes`. All quantities are in fractions of figure width and
+            height.
+        projection, polar, axes_class, sharex, sharey, label
+            As `~.Figure.add_subplot`.
+
+        Returns
+        -------
+        `~.axes.Axes`
+        """
+        if not len(args) and 'rect' not in kwargs:
+            raise TypeError("add_axes() missing 1 required positional argument: 'rect'")
+        elif 'rect' in kwargs:
+            if len(args):
+                raise TypeError("add_axes() got multiple values for argument 'rect'")
+            args = (kwargs.pop('rect'), )
+        if len(args) != 1:
+            raise _api.nargs_error("add_axes", 1, len(args))
+
+        if isinstance(args[0], _AxesBase):
+            a, = args
+            if a.get_figure(root=False) is not self:
+                raise ValueError(
+                    "The Axes must have been created in the present figure")
+            if a in self.axes:  # already here: it becomes the current axes
+                self.sca(a)
+                return a
+            return a._add_to_figure(self, False)
+        rect, = args
+        if not np.isfinite(rect).all():
+            raise ValueError(f'all entries in rect must be finite not {rect}')
+        projection_class, pkw = self._process_projection_requirements(**kwargs)
+        if projection_class.name != "rectilinear":
+            raise NotImplementedError(
+                f"pltrs: add_axes(projection={projection_class.name!r})")
+        native = _figure.add_axes(self._native, tuple(map(float, rect)))
+        return self._new_axes(native, projection_class, pkw)
+
+    def add_subplot(self, *args, **kwargs):
+        """
+        Add an `~.axes.Axes` to the figure as part of a subplot arrangement.
+
+        Call signatures::
+
+           add_subplot(nrows, ncols, index, **kwargs)
+           add_subplot(pos, **kwargs)
+           add_subplot(ax)
+           add_subplot()
+
+        Parameters
+        ----------
+        *args : int, (int, int, *index*), or `.SubplotSpec`, default: (1, 1, 1)
+            The position of the subplot described by one of
+
+            - Three integers (*nrows*, *ncols*, *index*). The subplot will
+              take the *index* position on a grid with *nrows* rows and
+              *ncols* columns. *index* starts at 1 in the upper left corner
+              and increases to the right.  *index* can also be a two-tuple
+              specifying the (*first*, *last*) indices (1-based, and including
+              *last*) of the subplot, e.g., ``fig.add_subplot(3, 1, (1, 2))``
+              makes a subplot that spans the upper 2/3 of the figure.
+            - A 3-digit integer. The digits are interpreted as if given
+              separately as three single-digit integers, i.e.
+              ``fig.add_subplot(235)`` is the same as
+              ``fig.add_subplot(2, 3, 5)``. Note that this can only be used
+              if there are no more than 9 subplots.
+            - A `.SubplotSpec`.
+
+        projection : {None, 'aitoff', 'hammer', 'lambert', 'mollweide', \
+'polar', 'rectilinear', str}, optional
+            The projection type of the subplot (`~.axes.Axes`).
+        polar : bool, default: False
+            If True, equivalent to projection='polar'.
+        axes_class : subclass type of `~.axes.Axes`, optional
+            The `.axes.Axes` subclass that is instantiated.
+        sharex, sharey : `~matplotlib.axes.Axes`, optional
+            Share the x or y `~matplotlib.axis` with sharex and/or sharey.
+        label : str
+            A label for the returned Axes.
+
+        Returns
+        -------
+        `~.axes.Axes`
+        """
+        if 'figure' in kwargs:
+            # Axes itself allows for a 'figure' kwarg, but since we want to
+            # bind the created Axes to self, it is not allowed here.
+            raise _api.kwarg_error("add_subplot", "figure")
+
+        if (len(args) == 1
+                and isinstance(args[0], _AxesBase)
+                and args[0].get_subplotspec()):
+            ax = args[0]
+            if ax.get_figure(root=False) is not self:
+                raise ValueError("The Axes must have been created in "
+                                 "the present figure")
+            return ax._add_to_figure(self, False)
+        if not args:
+            args = (1, 1, 1)
+        # Normalize correct ijk values to (i, j, k) here so that
+        # add_subplot(211) == add_subplot(2, 1, 1).  Invalid values will
+        # trigger errors later (via SubplotSpec._from_subplot_args).
+        if (len(args) == 1 and isinstance(args[0], Integral)
+                and 100 <= args[0] <= 999):
+            args = tuple(map(int, str(args[0])))
+        projection_class, pkw = self._process_projection_requirements(**kwargs)
+        spec = SubplotSpec._from_subplot_args(self, args)._native_spec()
+        if projection_class.name == "rectilinear":
+            native = _gridspec.add_subplot(self._native, spec)
+        else:
+            native = _figure.add_subplot_spec_projection(
+                self._native, spec, projection_class.name)
+        return self._new_axes(native, projection_class, pkw)
 
     def subplots(self, nrows=1, ncols=1, *, sharex=False, sharey=False,
                  squeeze=True, width_ratios=None, height_ratios=None,
                  subplot_kw=None, gridspec_kw=None):
-        """Add a set of subplots to this figure."""
-        unsupported = {"sharex": sharex, "sharey": sharey,
-                       "width_ratios": width_ratios,
-                       "height_ratios": height_ratios,
-                       "gridspec_kw": gridspec_kw}
-        for name, value in unsupported.items():
-            if value:
-                raise NotImplementedError(f"pltrs: subplots({name}=...)")
-        natives = _figure.subplots(self._native, nrows, ncols)
-        axs = np.empty((nrows, ncols), dtype=object)
-        for i, ax in enumerate(_handles.wrap_all(natives, Axes, self)):
-            ax._internal_update(subplot_kw or {})
-            axs.flat[i] = ax
-        if squeeze:
-            return axs.item() if axs.size == 1 else axs.squeeze()
+        """
+        Add a set of subplots to this figure.
+
+        This utility wrapper makes it convenient to create common layouts of
+        subplots in a single call.
+
+        Parameters
+        ----------
+        nrows, ncols : int, default: 1
+            Number of rows/columns of the subplot grid.
+        sharex, sharey : bool or {'none', 'all', 'row', 'col'}, default: False
+            Controls sharing of x-axis (*sharex*) or y-axis (*sharey*).
+        squeeze : bool, default: True
+            Whether to squeeze the returned array of Axes.
+        width_ratios, height_ratios : array-like, optional
+            The relative widths of the columns, heights of the rows.
+        subplot_kw : dict, optional
+            Dict with keywords passed to the `.Figure.add_subplot` call used to
+            create each subplot.
+        gridspec_kw : dict, optional
+            Dict with keywords passed to the
+            `~matplotlib.gridspec.GridSpec` constructor used to create
+            the grid the subplots are placed on.
+
+        Returns
+        -------
+        `~.axes.Axes` or array of Axes
+        """
+        gridspec_kw = dict(gridspec_kw or {})
+        if height_ratios is not None:
+            if 'height_ratios' in gridspec_kw:
+                raise ValueError("'height_ratios' must not be defined both as "
+                                 "parameter and as key in 'gridspec_kw'")
+            gridspec_kw['height_ratios'] = height_ratios
+        if width_ratios is not None:
+            if 'width_ratios' in gridspec_kw:
+                raise ValueError("'width_ratios' must not be defined both as "
+                                 "parameter and as key in 'gridspec_kw'")
+            gridspec_kw['width_ratios'] = width_ratios
+
+        gs = self.add_gridspec(nrows, ncols, figure=self, **gridspec_kw)
+        axs = gs.subplots(sharex=sharex, sharey=sharey, squeeze=squeeze,
+                          subplot_kw=subplot_kw)
         return axs
 
-    def gca(self):
-        """Get the current Axes, creating one if necessary."""
-        return _handles.wrap(_figure.gca(self._native), Axes, self)
-
-    def sca(self, a):
-        """Set the current Axes to be *a* and return *a*."""
-        _figure.sca(self._native, a._native)
-        return a
-
-    def suptitle(self, t, **kwargs):
-        """Add a centered super title to the figure."""
-        text = _handles.wrap(_figure.suptitle(self._native, str(t)), Text, self)
-        text._internal_update(kwargs)
-        return text
-
-    def show(self, warn=True):
+    def subfigures(self, nrows=1, ncols=1, squeeze=True,
+                   wspace=None, hspace=None,
+                   width_ratios=None, height_ratios=None,
+                   **kwargs):
         """
-        If using a GUI backend with pyplot, display the figure window.
+        Add a set of subfigures to this figure or subfigure.
 
-        If the figure was not created using `~.pyplot.figure`, it will lack
-        a `~.backend_bases.FigureManagerBase`, and this method will raise an
-        AttributeError.
-        """
-        if self.canvas.manager is None:
-            raise AttributeError(
-                "Figure.show works only for figures managed by pyplot, "
-                "normally created by pyplot.figure()")
-        try:
-            self.canvas.manager.show()
-        except NonGuiException as exc:
-            if warn:
-                _api.warn_external(str(exc))
+        A subfigure has the same artist methods as a figure, and is logically
+        the same as a figure, but cannot print itself.
 
-    def savefig(self, fname, *, transparent=None, **kwargs):
-        """
-        Save the current figure as an image or vector graphic to a file.
+        Parameters
+        ----------
+        nrows, ncols : int, default: 1
+            Number of rows/columns of the subfigure grid.
+        squeeze : bool, default: True
+            If True, extra dimensions are squeezed out from the returned
+            array of subfigures.
+        wspace, hspace : float, default: None
+            The amount of width/height reserved for space between subfigures,
+            expressed as a fraction of the average subfigure width/height.
+            If not given, the values will be inferred from rcParams if using
+            constrained layout (see `~.ConstrainedLayoutEngine`), or zero if
+            not using a layout engine.
+        width_ratios, height_ratios : array-like, optional
+            The relative widths of the columns, heights of the rows.
+        **kwargs
+            The keyword arguments of `.SubFigure`.
 
-        The canvas prints it (`.FigureCanvasBase.print_figure`), switching
-        to the canvas of the format or of the *backend* asked for.
+        Returns
+        -------
+        `.SubFigure` or array of `.SubFigure`
         """
-        kwargs.setdefault('dpi', rcParams['savefig.dpi'])
-        if transparent is None:
-            transparent = rcParams['savefig.transparent']
-        if transparent:
-            kwargs.setdefault('facecolor', 'none')
-            kwargs.setdefault('edgecolor', 'none')
-        with cbook._setattr_cm(self.canvas, _transparent=transparent):
-            self.canvas.print_figure(fname, **kwargs)
+        gs = GridSpec(nrows=nrows, ncols=ncols, figure=self,
+                      wspace=wspace, hspace=hspace,
+                      width_ratios=width_ratios,
+                      height_ratios=height_ratios,
+                      left=0, right=1, bottom=0, top=1)
+        natives = _figure.subfigures(
+            self._native, (nrows, ncols), (wspace, hspace),
+            None if width_ratios is None else [float(r) for r in width_ratios],
+            None if height_ratios is None else [float(r) for r in height_ratios])
+        sfarr = np.empty((nrows, ncols), dtype=object)
+        for i, native in enumerate(natives):
+            row, col = divmod(i, ncols)
+            sfarr[row, col] = SubFigure._from_native(self, native, gs[row, col],
+                                                     **kwargs)
+            self.subfigs.append(sfarr[row, col])
+
+        if squeeze:
+            # Discarding unneeded dimensions that equal 1.  If we only have one
+            # subfigure, just return it instead of a 1-element array.
+            return sfarr.item() if sfarr.size == 1 else sfarr.squeeze()
+        else:
+            # Returned axis array will be always 2-d, even if nrows=ncols=1.
+            return sfarr
+
+    def add_subfigure(self, subplotspec, **kwargs):
+        """
+        Add a `.SubFigure` to the figure as part of a subplot arrangement.
+
+        Parameters
+        ----------
+        subplotspec : `.gridspec.SubplotSpec`
+            Defines the region in a parent gridspec where the subfigure will
+            be placed.
+
+        Returns
+        -------
+        `.SubFigure`
+
+        Other Parameters
+        ----------------
+        **kwargs
+            Are passed to the `.SubFigure` object.
+        """
+        sf = SubFigure(self, subplotspec, **kwargs)
+        self.subfigs.append(sf)
+        return sf
+
+    @property
+    def subplotpars(self):
+        """The `.SubplotParams` of the figure."""
+        return SubplotParams(*_gridspec.figure_params(self._native))
+
+    def subplots_adjust(self, left=None, bottom=None, right=None, top=None,
+                        wspace=None, hspace=None):
+        """
+        Adjust the subplot layout parameters.
+
+        Unset parameters are left unmodified; initial values are given by
+        :rc:`figure.subplot.[name]`.
+
+        Parameters
+        ----------
+        left : float, optional
+            The position of the left edge of the subplots,
+            as a fraction of the figure width.
+        right : float, optional
+            The position of the right edge of the subplots,
+            as a fraction of the figure width.
+        bottom : float, optional
+            The position of the bottom edge of the subplots,
+            as a fraction of the figure height.
+        top : float, optional
+            The position of the top edge of the subplots,
+            as a fraction of the figure height.
+        wspace : float, optional
+            The width of the padding between subplots,
+            as a fraction of the average Axes width.
+        hspace : float, optional
+            The height of the padding between subplots,
+            as a fraction of the average Axes height.
+        """
+        if (self.get_layout_engine() is not None and
+                not self.get_layout_engine().adjust_compatible):
+            _api.warn_external(
+                "This figure was using a layout engine that is "
+                "incompatible with subplots_adjust and/or tight_layout; "
+                "not calling subplots_adjust.")
+            return
+        self.subplotpars.update(left, bottom, right, top, wspace, hspace)
+        _figure.subplots_adjust(self._native,
+                                (left, bottom, right, top, wspace, hspace))
+
+    def set_layout_engine(self, layout=None, **kwargs):
+        """
+        Set the layout engine for this figure.
+
+        Parameters
+        ----------
+        layout : {'constrained', 'compressed', 'tight', 'none', `.LayoutEngine`, None}
+
+            - 'constrained' will use `~.ConstrainedLayoutEngine`
+            - 'compressed' will also use `~.ConstrainedLayoutEngine`, but with
+              a correction that attempts to make a good layout for fixed-aspect
+              ratio Axes.
+            - 'tight' uses `~.TightLayoutEngine`
+            - 'none' removes layout engine.
+
+            If a `.LayoutEngine` instance, that instance will be used.
+
+            If `None`, the behavior is controlled by :rc:`figure.autolayout`
+            (which if `True` behaves as if 'tight' was passed) and
+            :rc:`figure.constrained_layout.use` (which if `True` behaves as if
+            'constrained' was passed).  If both are `True`,
+            :rc:`figure.autolayout` takes priority.
+
+        **kwargs
+            The keyword arguments are passed to the layout engine to set things
+            like padding and margin sizes.  Only used if *layout* is a string.
+        """
+        if layout is None:
+            if rcParams['figure.autolayout']:
+                layout = 'tight'
+            elif rcParams['figure.constrained_layout.use']:
+                layout = 'constrained'
+            else:
+                self._layout_engine = None
+                _figure.set_layout_engine(self._native, None)
+                return
+        if layout == 'tight':
+            new_layout_engine = TightLayoutEngine(**kwargs)
+        elif layout == 'constrained':
+            new_layout_engine = ConstrainedLayoutEngine(**kwargs)
+        elif layout == 'compressed':
+            new_layout_engine = ConstrainedLayoutEngine(compress=True,
+                                                        **kwargs)
+        elif layout == 'none':
+            if self._layout_engine is not None:
+                new_layout_engine = PlaceHolderLayoutEngine(
+                    self._layout_engine.adjust_compatible,
+                    self._layout_engine.colorbar_gridspec
+                )
+            else:
+                new_layout_engine = None
+        elif isinstance(layout, LayoutEngine):
+            new_layout_engine = layout
+        else:
+            raise ValueError(f"Invalid value for 'layout': {layout!r}")
+
+        if new_layout_engine is None:
+            _figure.set_layout_engine(self._native, None)
+        else:
+            new_layout_engine._attach(self)
+        self._layout_engine = new_layout_engine
 
     def colorbar(self, mappable, cax=None, ax=None, use_gridspec=True,
                  **kwargs):
@@ -231,6 +542,607 @@ class Figure(FigureText, Artist):
         return Colorbar._beside(self, mappable, parents,
                                 use_gridspec=use_gridspec, **kwargs)
 
+    def add_artist(self, artist, clip=False):
+        """
+        Add an `.Artist` to the figure.
+
+        Usually artists are added to `~.axes.Axes` objects using
+        `.Axes.add_artist`; this method can be used in the rare cases where
+        one needs to add artists directly to the figure instead. Without a
+        transform of its own, the artist is placed in figure fractions; with
+        *clip*, it is clipped to the figure patch.
+
+        Returns
+        -------
+        `~matplotlib.artist.Artist`
+            The added artist.
+        """
+        return artist._add_to_figure(self, clip)
+
+    @property
+    def artists(self):
+        """The artists added to the figure itself (`add_artist`)."""
+        return _handles.wrap_all(_figure.artists(self._native), Artist,
+                                 self.figure)
+
+    def legend(self, *args, **kwargs):
+        """
+        Place a legend on the figure.
+
+        Call signatures::
+
+            legend()
+            legend(handles, labels)
+            legend(handles=handles)
+            legend(labels)
+
+        The keyword arguments are those of `.Legend`.
+
+        Returns
+        -------
+        `~matplotlib.legend.Legend`
+        """
+        from . import legend as mlegend
+        handles, labels, kwargs = mlegend._parse_legend_args(
+            self.axes,
+            *args,
+            **kwargs
+        )
+        return mlegend.Legend(self, handles, labels, **kwargs)
+
+    @property
+    def legends(self):
+        """The legends of the figure, in the order they were made."""
+        from . import legend as mlegend
+        from ._native import legend as _legend
+        return _handles.wrap_all(_legend.figure_legends(self._native),
+                                 mlegend.Legend, self.figure)
+
+    def get_layout_engine(self):
+        """Return the `.LayoutEngine` of the figure, or None."""
+        return self._layout_engine
+
+    def clear(self, keep_observers=False):
+        """
+        Clear the figure.
+
+        Parameters
+        ----------
+        keep_observers : bool, default: False
+            Set *keep_observers* to True if, for example,
+            a gui widget is tracking the Axes in the figure.
+        """
+        _figure.clear(self._native)
+
+    def clf(self, keep_observers=False):
+        """[*Discouraged*] Clear the figure (an alias of `clear`)."""
+        return self.clear(keep_observers=keep_observers)
+
+    def draw_without_rendering(self):
+        """
+        Draw the figure with no output.  Useful to get the final size of
+        artists that require a draw before their size is known (e.g. text).
+        """
+        _figure.layout(self._native)
+
+
+class SubFigure(FigureBase):
+    """
+    Logical figure that can be placed inside a figure.
+
+    Typically instantiated using `.Figure.add_subfigure` or
+    `.SubFigure.add_subfigure`, or `.SubFigure.subfigures`.  A subfigure has
+    the same methods as a figure except for those particularly tied to the size
+    or dpi of the figure, and is confined to a prescribed region of the figure.
+    """
+
+    def __init__(self, parent, subplotspec, *,
+                 facecolor=None,
+                 edgecolor=None,
+                 linewidth=0.0,
+                 frameon=None,
+                 **kwargs):
+        """
+        Parameters
+        ----------
+        parent : `.Figure` or `.SubFigure`
+            Figure or subfigure that contains the SubFigure.  SubFigures
+            can be nested.
+        subplotspec : `.gridspec.SubplotSpec`
+            Defines the region in a parent gridspec where the subfigure will
+            be placed.
+        facecolor : default: ``"none"``
+            The figure patch face color; transparent by default.
+        edgecolor : default: :rc:`figure.edgecolor`
+            The figure patch edge color.
+        linewidth : float
+            The linewidth of the frame (i.e. the edge linewidth of the figure
+            patch).
+        frameon : bool, default: :rc:`figure.frameon`
+            If ``False``, suppress drawing the figure background patch.
+        **kwargs
+            `.SubFigure` properties.
+        """
+        native = _figure.add_subfigure(parent._native,
+                                       subplotspec._native_spec())
+        self._adopt_native(parent, native, subplotspec, facecolor=facecolor,
+                           edgecolor=edgecolor, linewidth=linewidth,
+                           frameon=frameon, **kwargs)
+
+    @classmethod
+    def _from_native(cls, parent, native, subplotspec, **kwargs):
+        """The subfigure of *parent* around its native frame *native*."""
+        subfigure = cls.__new__(cls)
+        subfigure._adopt_native(parent, native, subplotspec, **kwargs)
+        return subfigure
+
+    def _adopt_native(self, parent, native, subplotspec, *, facecolor=None,
+                      edgecolor=None, linewidth=0.0, frameon=None, **kwargs):
+        """Become the subfigure of *parent* around *native*, styled by the
+        keyword arguments."""
+        self._parent = parent
+        self._subplotspec = subplotspec
+        self.subfigs = []
+        _handles.adopt(self, native, parent.figure)
+        if facecolor is not None:
+            _figure.set_facecolor(native, facecolor)
+        if edgecolor is not None:
+            _figure.set_edgecolor(native, edgecolor)
+        if linewidth:
+            _figure.set_linewidth(native, linewidth)
+        if frameon is not None:
+            _figure.set_frameon(native, bool(frameon))
+        self._internal_update(kwargs)
+
+    def get_figure(self, root=None):
+        """
+        Return the `.Figure` or `.SubFigure` instance the (Sub)Figure belongs to.
+
+        Parameters
+        ----------
+        root : bool, default=True
+            If False, return the (Sub)Figure this artist is on.  If True,
+            return the root Figure for a nested tree of SubFigures.
+        """
+        return self._figure if root or root is None else self._parent
+
+    def get_subplotspec(self):
+        """Get the SubplotSpec instance."""
+        return self._subplotspec
+
+    def get_constrained_layout(self):
+        """
+        Return whether constrained layout is being used.
+
+        See :ref:`constrainedlayout_guide`.
+        """
+        return self._parent.get_constrained_layout()
+
+    def get_layout_engine(self):
+        """Return the layout engine of the root figure."""
+        return self._parent.get_layout_engine()
+
+    @property
+    def canvas(self):
+        """The canvas of the root figure."""
+        return self._parent.canvas
+
+    @property
+    def dpi(self):
+        """The resolution of the root figure."""
+        return self._parent.dpi
+
+    def get_dpi(self):
+        """Return the resolution of the parent figure in dots-per-inch as a float."""
+        return self._parent.dpi
+
+    def set_dpi(self, val):
+        """
+        Set the resolution of parent figure in dots-per-inch.
+
+        Parameters
+        ----------
+        val : float
+        """
+        self._parent.dpi = val
+
+
+class Figure(FigureBase):
+    """
+    The top level container for all the plot elements.
+
+    See matplotlib's documentation of `matplotlib.figure.Figure`.
+    """
+
+    def __str__(self):
+        width, height = self.get_size_inches() * self.dpi
+        return "Figure(%gx%g)" % (width, height)
+
+    def __repr__(self):
+        width, height = self.get_size_inches() * self.dpi
+        return "<{clsname} size {h:g}x{w:g} with {naxes} Axes>".format(
+            clsname=self.__class__.__name__,
+            h=width, w=height,
+            naxes=len(self.axes),
+        )
+
+    def __init__(self, figsize=None, dpi=None, *, facecolor=None,
+                 edgecolor=None, linewidth=0.0, frameon=None,
+                 subplotpars=None, tight_layout=None,
+                 constrained_layout=None, layout=None, **kwargs):
+        if figsize is None:
+            figsize = rcParams['figure.figsize']
+        if dpi is None:
+            dpi = rcParams['figure.dpi']
+        width, height = _parse_figsize(figsize, dpi)
+        if not all(math.isfinite(v) and v > 0 for v in (width, height)):
+            raise ValueError(
+                f'figure size must be positive finite not {figsize}')
+        self._native = _figure.new(float(width), float(height), float(dpi))
+        self._figure = self
+        self._artists = {_artist.id(self._native): self}
+        self.subfigs = []
+        FigureCanvasBase(self)
+        if facecolor is not None:
+            self.set_facecolor(facecolor)
+        if edgecolor is not None:
+            _figure.set_edgecolor(self._native, edgecolor)
+        if linewidth:
+            _figure.set_linewidth(self._native, linewidth)
+        if frameon is not None:
+            _figure.set_frameon(self._native, bool(frameon))
+        self._layout_engine = None
+        if layout is not None:
+            if (tight_layout is not None):
+                _api.warn_external(
+                    "The Figure parameters 'layout' and 'tight_layout' cannot "
+                    "be used together. Please use 'layout' only.")
+            if (constrained_layout is not None):
+                _api.warn_external(
+                    "The Figure parameters 'layout' and 'constrained_layout' "
+                    "cannot be used together. Please use 'layout' only.")
+            self.set_layout_engine(layout=layout)
+        elif tight_layout is not None:
+            if constrained_layout is not None:
+                _api.warn_external(
+                    "The Figure parameters 'tight_layout' and "
+                    "'constrained_layout' cannot be used together. Please use "
+                    "'layout' parameter")
+            self.set_layout_engine(layout='tight')
+            if isinstance(tight_layout, dict):
+                self.get_layout_engine().set(**tight_layout)
+        elif constrained_layout is not None:
+            if isinstance(constrained_layout, dict):
+                self.set_layout_engine(layout='constrained',
+                                       **constrained_layout)
+            else:
+                self.set_layout_engine(layout='constrained')
+        else:
+            # everything is None, so use default:
+            self.set_layout_engine(layout=layout)
+        if subplotpars is not None:
+            self.subplots_adjust(**subplotpars.to_dict())
+        self._internal_update(kwargs)
+
+    @property
+    def number(self):
+        """The figure id, used to identify figures in `.pyplot`."""
+        if hasattr(self, '_number'):
+            return self._number
+        else:
+            raise AttributeError(
+                "'Figure' object has no attribute 'number'. In the future this"
+                "will change to returning 'None' instead.")
+
+    @number.setter
+    def number(self, num):
+        _api.warn_deprecated(
+            "3.10",
+            message="Changing 'Figure.number' is deprecated since %(since)s and "
+                    "will raise an error starting %(removal)s")
+        self._number = num
+
+    def get_tight_layout(self):
+        """Return whether `.Figure.tight_layout` is called when drawing."""
+        return isinstance(self.get_layout_engine(), TightLayoutEngine)
+
+    @_api.deprecated("3.6", alternative="set_layout_engine",
+                     pending=True)
+    def set_tight_layout(self, tight):
+        """
+        Set whether and how `.Figure.tight_layout` is called when drawing.
+
+        Parameters
+        ----------
+        tight : bool or dict with keys "pad", "w_pad", "h_pad", "rect" or None
+            If a bool, sets whether to call `.Figure.tight_layout` upon drawing.
+            If ``None``, use :rc:`figure.autolayout` instead.
+            If a dict, pass it as kwargs to `.Figure.tight_layout`, overriding the
+            default paddings.
+        """
+        if tight is None:
+            tight = rcParams['figure.autolayout']
+        _tight = 'tight' if bool(tight) else 'none'
+        _tight_parameters = tight if isinstance(tight, dict) else {}
+        self.set_layout_engine(_tight, **_tight_parameters)
+
+    def get_constrained_layout(self):
+        """
+        Return whether constrained layout is being used.
+
+        See :ref:`constrainedlayout_guide`.
+        """
+        return isinstance(self.get_layout_engine(), ConstrainedLayoutEngine)
+
+    @_api.deprecated("3.6", alternative="set_layout_engine('constrained')",
+                     pending=True)
+    def set_constrained_layout(self, constrained):
+        """
+        Set whether ``constrained_layout`` is used upon drawing.
+
+        If None, :rc:`figure.constrained_layout.use` value will be used.
+
+        Parameters
+        ----------
+        constrained : bool or dict or None
+        """
+        if constrained is None:
+            constrained = rcParams['figure.constrained_layout.use']
+        _constrained = 'constrained' if bool(constrained) else 'none'
+        _parameters = constrained if isinstance(constrained, dict) else {}
+        self.set_layout_engine(_constrained, **_parameters)
+
+    @_api.deprecated("3.6", alternative="fig.get_layout_engine().get()",
+                     pending=True)
+    def get_constrained_layout_pads(self, relative=False):
+        """
+        Get padding for ``constrained_layout``.
+
+        Returns a list of ``w_pad, h_pad`` in inches and
+        ``wspace`` and ``hspace`` as fractions of the subplot.
+        All values are None if ``constrained_layout`` is not used.
+
+        Parameters
+        ----------
+        relative : bool
+            If `True`, then convert from inches to figure relative.
+        """
+        if not isinstance(self.get_layout_engine(), ConstrainedLayoutEngine):
+            return None, None, None, None
+        info = self.get_layout_engine().get()
+        w_pad = info['w_pad']
+        h_pad = info['h_pad']
+        wspace = info['wspace']
+        hspace = info['hspace']
+
+        if relative and (w_pad is not None or h_pad is not None):
+            width, height = self.get_size_inches()
+            w_pad = w_pad / width
+            h_pad = h_pad / height
+
+        return w_pad, h_pad, wspace, hspace
+
+    def set_figwidth(self, val, forward=True):
+        """
+        Set the width of the figure in inches.
+
+        Parameters
+        ----------
+        val : float
+        forward : bool
+            See `set_size_inches`.
+        """
+        self.set_size_inches(val, self.get_figheight(), forward=forward)
+
+    def set_figheight(self, val, forward=True):
+        """
+        Set the height of the figure in inches.
+
+        Parameters
+        ----------
+        val : float
+        forward : bool
+            See `set_size_inches`.
+        """
+        self.set_size_inches(self.get_figwidth(), val, forward=forward)
+
+    def get_figwidth(self):
+        """Return the figure width in inches."""
+        return self.get_size_inches()[0]
+
+    def get_figheight(self):
+        """Return the figure height in inches."""
+        return self.get_size_inches()[1]
+
+    def get_size_inches(self):
+        """Return the current size of the figure in inches."""
+        return np.array(_figure.get_size_inches(self._native))
+
+    def set_size_inches(self, w, h=None, forward=True):
+        """Set the figure size in inches."""
+        if h is None:
+            w, h = w
+        _figure.set_size_inches(self._native, float(w), float(h))
+
+    def get_dpi(self):
+        """Return the resolution in dots per inch as a float."""
+        return _figure.get_dpi(self._native)
+
+    def set_dpi(self, val):
+        """Set the resolution of the figure in dots-per-inch."""
+        _figure.set_dpi(self._native, float(val))
+
+    dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
+
+    def _axes_at(self, x, y):
+        """The topmost visible Axes containing the display point (*x*, *y*),
+        or None (``canvas.inaxes``)."""
+        return _handles.wrap(_figure.axes_at(self._native, x, y), Axes, self)
+
+    def gca(self):
+        """Get the current Axes, creating one if necessary."""
+        return _handles.wrap(_figure.gca(self._native), Axes, self)
+
+    def sca(self, a):
+        """Set the current Axes to be *a* and return *a*."""
+        _figure.sca(self._native, a._native)
+        return a
+
+    def suptitle(self, t, **kwargs):
+        """Add a centered super title to the figure."""
+        text = _handles.wrap(_figure.suptitle(self._native, str(t)), Text, self)
+        text._internal_update(kwargs)
+        return text
+
+    def supxlabel(self, t, **kwargs):
+        """Add a centered super xlabel to the figure."""
+        text = _handles.wrap(_figure.supxlabel(self._native, str(t)), Text, self)
+        text._internal_update(kwargs)
+        return text
+
+    def supylabel(self, t, **kwargs):
+        """Add a centered super ylabel to the figure."""
+        text = _handles.wrap(_figure.supylabel(self._native, str(t)), Text, self)
+        text._internal_update(kwargs)
+        return text
+
+    def get_suptitle(self):
+        """Return the suptitle as string or an empty string if not set."""
+        return _figure.super_texts(self._native)[0]
+
+    def get_supxlabel(self):
+        """Return the supxlabel as string or an empty string if not set."""
+        return _figure.super_texts(self._native)[1]
+
+    def get_supylabel(self):
+        """Return the supylabel as string or an empty string if not set."""
+        return _figure.super_texts(self._native)[2]
+
+    @property
+    def texts(self):
+        """The `.Text` instances added to the figure itself."""
+        return _handles.wrap_all(_figure.texts(self._native), Text, self)
+
+    def show(self, warn=True):
+        """
+        If using a GUI backend with pyplot, display the figure window.
+
+        If the figure was not created using `~.pyplot.figure`, it will lack
+        a `~.backend_bases.FigureManagerBase`, and this method will raise an
+        AttributeError.
+        """
+        if self.canvas.manager is None:
+            raise AttributeError(
+                "Figure.show works only for figures managed by pyplot, "
+                "normally created by pyplot.figure()")
+        try:
+            self.canvas.manager.show()
+        except NonGuiException as exc:
+            if warn:
+                _api.warn_external(str(exc))
+
+    def ginput(self, n=1, timeout=30, show_clicks=True,
+               mouse_add=MouseButton.LEFT,
+               mouse_pop=MouseButton.RIGHT,
+               mouse_stop=MouseButton.MIDDLE):
+        """
+        Blocking call to interact with a figure.
+
+        Wait until the user clicks *n* times on the figure, and return the
+        coordinates of each click in a list: right click (*mouse_pop*)
+        removes the last point, middle click (*mouse_stop*) stops early; the
+        keys backspace/delete, escape/enter and any other key do the same.
+        *timeout* seconds without a click stop the input (0 or negative:
+        never).
+
+        Returns
+        -------
+        list of tuples
+            A list of the clicked (x, y) coordinates.
+        """
+        clicks = []
+        marks = []
+
+        def handler(event):
+            is_button = event.name == "button_press_event"
+            is_key = event.name == "key_press_event"
+            # Quit (even if not in infinite mode; this is consistent with
+            # MATLAB and sometimes quite useful, but will require the user to
+            # test how many points were actually returned before using data).
+            if (is_button and event.button == mouse_stop
+                    or is_key and event.key in ["escape", "enter"]):
+                self.canvas.stop_event_loop()
+            # Pop last click.
+            elif (is_button and event.button == mouse_pop
+                  or is_key and event.key in ["backspace", "delete"]):
+                if clicks:
+                    clicks.pop()
+                    if show_clicks:
+                        marks.pop().remove()
+                        self.canvas.draw()
+            # Add new click.
+            elif (is_button and event.button == mouse_add
+                  # On macOS/gtk, some keys return None.
+                  or is_key and event.key is not None):
+                if event.inaxes:
+                    clicks.append((event.xdata, event.ydata))
+                    _log.info("input %i: %f, %f",
+                              len(clicks), event.xdata, event.ydata)
+                    if show_clicks:
+                        line = Line2D([event.xdata], [event.ydata],
+                                      marker="+", color="r")
+                        event.inaxes.add_line(line)
+                        marks.append(line)
+                        self.canvas.draw()
+            if len(clicks) == n and n > 0:
+                self.canvas.stop_event_loop()
+
+        _blocking_input.blocking_input_loop(
+            self, ["button_press_event", "key_press_event"], timeout, handler)
+
+        # Cleanup.
+        for mark in marks:
+            mark.remove()
+        self.canvas.draw()
+
+        return clicks
+
+    def waitforbuttonpress(self, timeout=-1):
+        """
+        Blocking call to interact with the figure.
+
+        Wait for user input and return True if a key was pressed, False if a
+        mouse button was pressed and None if no input was given within
+        *timeout* seconds.  Negative values deactivate *timeout*.
+        """
+        event = None
+
+        def handler(ev):
+            nonlocal event
+            event = ev
+            self.canvas.stop_event_loop()
+
+        _blocking_input.blocking_input_loop(
+            self, ["button_press_event", "key_press_event"], timeout, handler)
+
+        return None if event is None else event.name == "key_press_event"
+
+    def savefig(self, fname, *, transparent=None, **kwargs):
+        """
+        Save the current figure as an image or vector graphic to a file.
+
+        The canvas prints it (`.FigureCanvasBase.print_figure`), switching
+        to the canvas of the format or of the *backend* asked for.
+        """
+        kwargs.setdefault('dpi', rcParams['savefig.dpi'])
+        if transparent is None:
+            transparent = rcParams['savefig.transparent']
+        if transparent:
+            kwargs.setdefault('facecolor', 'none')
+            kwargs.setdefault('edgecolor', 'none')
+        with cbook._setattr_cm(self.canvas, _transparent=transparent):
+            self.canvas.print_figure(fname, **kwargs)
+
     def _gci(self):
         """
         Get the current colorable artist: the current image of the current
@@ -248,3 +1160,114 @@ class Figure(FigureText, Artist):
             if im is not None:
                 return im
         return None
+
+
+def figaspect(arg):
+    """
+    Calculate the width and height for a figure with a specified aspect ratio.
+
+    While the height is taken from :rc:`figure.figsize`, the width is
+    adjusted to match the desired aspect ratio. Additionally, it is ensured
+    that the width is in the range [4., 16.] and the height is in the range
+    [2., 16.]. If necessary, the default height is adjusted to ensure this.
+
+    Parameters
+    ----------
+    arg : float or 2D array
+        If a float, this defines the aspect ratio (i.e. the ratio height /
+        width).
+        In case of an array the aspect ratio is number of rows / number of
+        columns, so that the array could be fitted in the figure undistorted.
+
+    Returns
+    -------
+    size : (2,) array
+        The width and height of the figure in inches.
+    """
+    isarray = hasattr(arg, 'shape') and not np.isscalar(arg)
+
+    # min/max sizes to respect when autoscaling.
+    figsize_min = np.array((4.0, 2.0))  # min length for width/height
+    figsize_max = np.array((16.0, 16.0))  # max length for width/height
+
+    # Extract the aspect ratio of the array
+    if isarray:
+        nr, nc = arg.shape[:2]
+        arr_ratio = nr / nc
+    else:
+        arr_ratio = arg
+
+    # Height of user figure defaults
+    fig_height = rcParams['figure.figsize'][1]
+
+    # New size for the figure, keeping the aspect ratio of the caller
+    newsize = np.array((fig_height / arr_ratio, fig_height))
+
+    # Sanity checks, don't drop either dimension below figsize_min
+    newsize /= min(1.0, *(newsize / figsize_min))
+
+    # Avoid humongous windows as well
+    newsize /= max(1.0, *(newsize / figsize_max))
+
+    # Finally, if we have a really funky aspect ratio, break it but respect
+    # the min/max dimensions (we don't want figures 10 feet tall!)
+    newsize = np.clip(newsize, figsize_min, figsize_max)
+    return newsize
+
+
+def _parse_figsize(figsize, dpi):
+    """
+    Convert a figsize expression to (width, height) in inches.
+
+    Parameters
+    ----------
+    figsize : (float, float) or (float, float, str)
+        This can be
+
+        - a tuple ``(width, height, unit)``, where *unit* is one of "in" (inch),
+          "cm" (centimenter), "px" (pixel).
+        - a tuple ``(width, height)``, which is interpreted in inches, i.e. as
+          ``(width, height, "in")``.
+
+    dpi : float
+        The dots-per-inch; used for converting 'px' to 'in'.
+    """
+    num_parts = len(figsize)
+    if num_parts == 2:
+        x, y = figsize
+    elif num_parts == 3:
+        x, y, unit = figsize
+        if unit == 'in':
+            pass
+        elif unit == 'cm':
+            if x is not None:
+                x /= 2.54
+            if y is not None:
+                y /= 2.54
+        elif unit == 'px':
+            if x is not None:
+                x /= dpi
+            if y is not None:
+                y /= dpi
+        else:
+            raise ValueError(
+                f"Invalid unit {unit!r} in 'figsize'; "
+                "supported units are 'in', 'cm', 'px'"
+            )
+    else:
+        raise ValueError(
+            "Invalid figsize format, expected (x, y) or (x, y, unit) but got "
+            f"{figsize!r}"
+        )
+
+    if x is None and y is None:
+        raise ValueError(
+            "figsize=(None, None) is invalid; at least one of width or "
+            "height must be provided")
+
+    default_width, default_height = rcParams["figure.figsize"]
+    if x is None:
+        x = default_width
+    if y is None:
+        y = default_height
+    return x, y

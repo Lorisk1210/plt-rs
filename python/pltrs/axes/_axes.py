@@ -11,7 +11,7 @@ import numpy as np
 
 from .. import _handles
 from .._native import axes as _axes
-from ..artist import Artist
+from ._base import _AxesBase
 from ..axis import XAxis, YAxis
 from ..legend import Legend
 from ..lines import Line2D
@@ -21,7 +21,7 @@ from ._plotting import PlottingMixin
 from .._text_methods import AxesText
 
 
-class Axes(PlottingMixin, ImagingMixin, AxesText, Artist):
+class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot
     in a figure.
@@ -112,12 +112,46 @@ class Axes(PlottingMixin, ImagingMixin, AxesText, Artist):
         """The lines of the Axes."""
         return _handles.wrap_all(_axes.get_lines(self._native), Line2D, self.figure)
 
+    def get_legend_handles_labels(self, legend_handler_map=None):
+        """
+        Return handles and labels for legend
+
+        ``ax.legend()`` is equivalent to ::
+
+          h, l = ax.get_legend_handles_labels()
+          ax.legend(h, l)
+        """
+        from .. import legend as mlegend
+        return mlegend._get_legend_handles_labels([self], legend_handler_map)
+
     def legend(self, *args, **kwargs):
-        """Place a legend on the Axes."""
-        if args or kwargs:
-            raise NotImplementedError("pltrs: legend() with arguments")
-        return _handles.wrap(_axes.legend(self._native), Legend, self.figure)
+        """
+        Place a legend on the Axes.
+
+        Call signatures::
+
+            legend()
+            legend(handles, labels)
+            legend(handles=handles)
+            legend(labels)
+
+        See matplotlib's documentation of `matplotlib.axes.Axes.legend` for
+        the keyword arguments, which are those of `.Legend`.
+
+        Returns
+        -------
+        `~matplotlib.legend.Legend`
+        """
+        from .. import legend as mlegend
+        handles, labels, kwargs = mlegend._parse_legend_args([self], *args, **kwargs)
+        return mlegend.Legend(self, handles, labels, **kwargs)
 
     def get_legend(self):
         """Return the `.Legend` instance, or None if no legend is defined."""
-        return _handles.wrap(_axes.get_legend(self._native), Legend, self.figure)
+        from .._native import legend as _legend
+        return _handles.wrap(_legend.axes_legend(self._native), Legend, self.figure)
+
+    @property
+    def legend_(self):
+        """The `.Legend` of the Axes, or None."""
+        return self.get_legend()

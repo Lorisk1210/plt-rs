@@ -24,6 +24,7 @@ mod custom;
 mod detached;
 mod filter;
 mod handle;
+mod loose;
 mod pick;
 #[macro_use]
 mod properties;
@@ -54,6 +55,7 @@ pub(crate) use detached::DetachedArtists;
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
 pub use handle::{ArtistHandle, TypedHandle};
+pub(crate) use loose::take_in;
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
 pub use pltrs_render::{FilterImage, Filtered, GraphicsContext, Renderer, Sketch};

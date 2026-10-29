@@ -71,7 +71,6 @@ class ImagingMixin:
         native = _native_image.imshow(self._native, mimage._native_data(A),
                                       colorizer.cmap, colorizer.norm, spec)
         im = _handles.wrap(native, mimage.AxesImage, self.figure)
-        im.axes = self
         im._set_mapped_data(colorizer, A)
         im.set_alpha(alpha)
         im._internal_update(kwargs)

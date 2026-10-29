@@ -3,7 +3,7 @@
 
 use pltrs::colors::Color;
 use pltrs::figure::{
-    BboxInches, Figure, PadInches, PageOrientation, Paper, SaveFormat, SaveOptions,
+    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, SaveFormat, SaveOptions,
 };
 use pltrs::transforms::Bbox;
 
@@ -43,10 +43,56 @@ fn pad_inches(object: &Bound<'_>) -> PyResult<PadInches> {
     }
 }
 
+/// The document metadata of `savefig(metadata=...)`: pltrs' defaults
+/// with the entries given set (a string) or left out (`None`). A PNG file
+/// records every entry as a text chunk; the vector formats record those of
+/// PDF's document information dictionary they hold (`Title`, `Author`,
+/// `Subject`, `Keywords`, `Creator`, `Producer`, and the dates, which
+/// can only be left out).
+fn metadata(object: &Bound<'_>) -> PyResult<Metadata> {
+    let mut metadata = Metadata::default();
+    for (key, value) in dict_items(object)? {
+        let key: String = key.extract()?;
+        let date = match key.as_str() {
+            "CreationDate" => Some(&mut metadata.date),
+            "ModDate" => Some(&mut metadata.modified),
+            _ => None,
+        };
+        if let Some(date) = date {
+            if !value.is_none() {
+                return Err(PyErr::new(
+                    ExceptionKind::NotImplementedError,
+                    format!("pltrs: savefig(metadata={{{key:?}: <a date>}})"),
+                ));
+            }
+            *date = None;
+            continue;
+        }
+        let text: Option<String> = value.extract()?;
+        let field = match key.as_str() {
+            "Title" => Some(&mut metadata.title),
+            "Author" => Some(&mut metadata.author),
+            "Subject" => Some(&mut metadata.subject),
+            "Keywords" => Some(&mut metadata.keywords),
+            "Creator" => Some(&mut metadata.creator),
+            "Producer" => Some(&mut metadata.producer),
+            _ => None,
+        };
+        if let Some(field) = field {
+            field.clone_from(&text);
+        }
+        metadata.png = match text {
+            Some(text) => metadata.png.with(key, text),
+            None => metadata.png.without(&key),
+        };
+    }
+    Ok(metadata)
+}
+
 /// The save options of a dict of `print_figure`'s resolved keywords:
 /// `dpi`, `facecolor`, `edgecolor`, `transparent`, `bbox_inches`,
-/// `pad_inches`, `orientation`, `papertype` and `jpeg_quality`; absent
-/// or `None` ones follow the `savefig.*` rcParams.
+/// `pad_inches`, `orientation`, `papertype`, `jpeg_quality` and
+/// `metadata`; absent or `None` ones follow the `savefig.*` rcParams.
 pub(super) struct PrintSettings(pub(super) SaveOptions);
 
 impl FromPy<'_> for PrintSettings {
@@ -67,6 +113,7 @@ impl FromPy<'_> for PrintSettings {
                 "orientation" => options.orientation = Some(parse::<PageOrientation>(&value)?),
                 "papertype" => options.papertype = Some(parse::<Paper>(&value)?),
                 "jpeg_quality" => options.jpeg_quality = Some(value.extract()?),
+                "metadata" => options.metadata = Some(metadata(&value)?),
                 _ => {
                     return Err(PyErr::type_error(format!(
                         "print_figure() got an unexpected setting '{key}'"
@@ -124,6 +171,26 @@ mod tests {
             let raw = print(&native, "rgba", "{'dpi': 10.0, 'bbox_inches': None}").unwrap();
             let length = raw.call_method("__len__", &[]).unwrap();
             assert_eq!(length.extract::<usize>().unwrap(), 20 * 10 * 4);
+        });
+    }
+
+    #[test]
+    fn metadata_is_written_where_the_format_holds_it() {
+        with_python(|py| {
+            let native = extension(py);
+            let settings = "{'metadata': {'Title': 'Waves', 'Creator': None, \
+                            'CreationDate': None}}";
+            let pdf = print(&native, "pdf", settings).unwrap();
+            let pdf = pdf.repr().unwrap();
+            assert!(pdf.contains("/Title (Waves)") && !pdf.contains("/Creator"));
+            assert!(!pdf.contains("/CreationDate"));
+            let png = print(&native, "png", "{'metadata': {'Author': 'me'}}").unwrap();
+            assert!(png.repr().unwrap().contains("Author"));
+            let err = print(&native, "jpeg", "{'metadata': {}}").unwrap_err();
+            assert!(err.message(py).contains("metadata not supported"));
+            let dated = "{'metadata': {'ModDate': 1}}";
+            let err = print(&native, "pdf", dated).unwrap_err();
+            assert_eq!(err.class_name(py), "NotImplementedError");
         });
     }
 

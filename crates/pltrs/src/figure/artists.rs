@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use super::frame::FigureFrame;
 use super::{Figure, attach};
-use crate::artist::{Artist, ArtistHandle, ArtistLookup, AttachError, Custom, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistLookup, AttachError, Custom, RawHandle, take_in};
 use crate::axes::AxesState;
 use crate::image::FigureImageArtist;
 use crate::legend::LegendArtist;
@@ -65,12 +65,59 @@ impl Figure {
     /// [`AttachError`] when the artist belongs to another figure, was not
     /// removed (or only with an artist owning it), or owns this figure.
     pub fn attach(&self, artist: &impl ArtistHandle) -> Result<&Self, AttachError> {
-        attach(&self.state, self.id(), artist.raw())?;
+        if artist.raw().is_loose() {
+            return Err(AttachError::OtherFigure);
+        }
+        self.adopt_artist(artist.raw(), false)?;
+        Ok(self)
+    }
+
+    /// Adds a ready-made artist to this figure (or subfigure) and returns
+    /// its handle in the figure (matplotlib's `Figure.add_artist(artist,
+    /// clip)`): an artist made outside any figure
+    /// ([`RawHandle::is_loose`]) moves in under a new id, which the
+    /// returned handle refers to, and takes figure fractions
+    /// (`transSubfigure`) unless it was given a transform; an artist
+    /// removed from this figure comes back under its own id, and a removed
+    /// axes as the current axes. With `clip`, an artist without a clip
+    /// path is clipped to the figure's frame. It is drawn above the
+    /// artists of equal z-order.
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, TypedHandle};
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::Text;
+    /// let fig = Figure::new();
+    /// let note = Text::loose(0.5, 0.5, "note");
+    /// let note = Text::from_raw_handle(&fig.adopt_artist(note.raw(), false)?).unwrap();
+    /// assert_eq!(fig.texts(), [note]);
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError`] when the artist belongs to another figure, is still
+    /// in this one (or was removed only with an artist owning it), or owns
+    /// this figure.
+    pub fn adopt_artist(&self, artist: &RawHandle, clip: bool) -> Result<RawHandle, AttachError> {
+        let fresh = artist.is_loose();
+        let artist = take_in(&self.state, artist)?;
+        attach(&self.state, self.id(), &artist)?;
+        let frame = self.id();
         let mut state = self.state.borrow_mut();
+        if let Some(adopted) = state.artist_mut(artist.id()) {
+            let base = adopted.base_mut();
+            if fresh {
+                base.transform.get_or_insert(Transform::Figure(frame));
+            }
+            if clip && base.clip_path.is_none() {
+                base.clip_box = Some(frame);
+            }
+        }
         if state.store.get_as::<AxesState>(artist.id()).is_some() {
             state.current_axes = Some(artist.id());
         }
-        Ok(self)
+        Ok(artist)
     }
 
     /// The artists added to this figure (or subfigure) itself, in the

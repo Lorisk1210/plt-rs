@@ -26,7 +26,16 @@ impl Axes {
     /// `_label_outer_xaxis(skip_non_rectangular_axes=True)`): the inner
     /// labels go, except on axes of curved projections, which have no
     /// inner sides.
-    pub(crate) fn label_outer_shared(&self, name: AxisName) {
+    ///
+    /// ```
+    /// use pltrs::axes::AxisName;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let top = fig.add_subplot(2, 1, 1)?;
+    /// top.label_outer_shared(AxisName::X);
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    pub fn label_outer_shared(&self, name: AxisName) {
         let rectangular = self
             .raw
             .with::<AxesState, _>(|axes| axes.projection.is_rectangular());

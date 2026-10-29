@@ -34,10 +34,12 @@ mod dates;
 mod dviread;
 mod figure;
 mod font_manager;
+mod ft2font;
 mod image;
 mod legend;
 mod lines;
 mod markers;
+mod mathtext;
 mod mlab;
 mod patches;
 mod path;
@@ -45,7 +47,9 @@ mod patheffects;
 mod rcsetup;
 mod scale;
 mod testing;
+mod texmanager;
 mod text;
+mod textpath;
 mod ticker;
 mod transforms;
 
@@ -72,9 +76,11 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     figure::register(&module.submodule("figure")?)?;
     font_manager::register(&module.submodule("font_manager")?)?;
     image::register(&module.submodule("image")?)?;
+    ft2font::register(&module.submodule("ft2font")?)?;
     legend::register(&module.submodule("legend")?)?;
     lines::register(&module.submodule("lines")?)?;
     markers::register(&module.submodule("markers")?)?;
+    mathtext::register(&module.submodule("mathtext")?)?;
     mlab::register(&module.submodule("mlab")?)?;
     patches::register(&module.submodule("patches")?)?;
     path::register(&module.submodule("path")?)?;
@@ -82,7 +88,9 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     rcsetup::register(&module.submodule("rcsetup")?)?;
     scale::register(&module.submodule("scale")?)?;
     testing::register(&module.submodule("testing")?)?;
+    texmanager::register(&module.submodule("texmanager")?)?;
     text::register(&module.submodule("text")?)?;
+    textpath::register(&module.submodule("textpath")?)?;
     ticker::register(&module.submodule("ticker")?)?;
     transforms::register(&module.submodule("transforms")?)?;
     Ok(())

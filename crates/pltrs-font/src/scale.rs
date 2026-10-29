@@ -204,6 +204,26 @@ impl Size {
         Ok(())
     }
 
+    /// Emits the unhinted outline at this size in pixels as FreeType's
+    /// smooth rasterizer decomposes it: implied on-curve points rounded
+    /// down, where [`outline`](Self::outline) truncates them as `get_path`
+    /// does.
+    ///
+    /// # Errors
+    ///
+    /// When the glyph is missing or its outline data is malformed.
+    pub fn raster_outline(
+        &self,
+        face: &Face<'_>,
+        glyph: GlyphId,
+        sink: &mut impl OutlineSink,
+    ) -> Result<()> {
+        let mut pixels = PixelSink(sink);
+        face.load_outline(glyph, self.scaling())?
+            .decompose(&mut pixels, Midpoint::Floored);
+        Ok(())
+    }
+
     /// The unhinted outline FreeType loads at this size with the rules
     /// its loader sets, for monochrome rendering.
     ///

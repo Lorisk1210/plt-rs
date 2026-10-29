@@ -5,9 +5,8 @@
 //! rasterizer's 24.8 units; conic arcs are split into `2^n` segments by
 //! integer forward differencing until their deviation is within a quarter
 //! pixel (`gray_render_conic`), cubic arcs are bisected until flat enough
-//! (`gray_render_cubic`). The polygon is returned in pixels; every vertex
-//! is a multiple of 1/256 pixel, so the Agg rasterizer sees the same
-//! integer coordinates `FreeType` would.
+//! (`gray_render_cubic`). The contours are returned in those 24.8 units,
+//! for `pltrs_raster::render_glyph`, `FreeType`'s rasterizer.
 
 use pltrs_core::{Path, Point, Segment};
 
@@ -21,12 +20,6 @@ const ONE_PIXEL: i64 = 256;
 struct Fixed {
     x: i64,
     y: i64,
-}
-
-impl Fixed {
-    fn to_point(self) -> Point {
-        Point::new(self.x as f64 / 256.0, self.y as f64 / 256.0)
-    }
 }
 
 /// `FT_MulFix`: `a * b / 0x10000`, rounded half away from zero.
@@ -104,26 +97,24 @@ fn left_shift(a: i64, b: u32) -> i64 {
     ((a as u64) << b) as i64
 }
 
-/// Accumulates the flattened polygon.
+/// Accumulates the flattened contours.
 #[derive(Default)]
 struct Flattener {
-    vertices: Vec<Point>,
-    starts: Vec<usize>,
+    contours: Vec<Vec<(i64, i64)>>,
     current: Option<Fixed>,
 }
 
 impl Flattener {
     fn move_to(&mut self, p: Fixed) {
-        self.starts.push(self.vertices.len());
-        self.vertices.push(p.to_point());
+        self.contours.push(vec![(p.x, p.y)]);
         self.current = Some(p);
     }
 
     fn line_to(&mut self, p: Fixed) {
-        if self.current.is_none() {
-            return self.move_to(p);
+        match self.contours.last_mut() {
+            Some(contour) if self.current.is_some() => contour.push((p.x, p.y)),
+            _ => return self.move_to(p),
         }
-        self.vertices.push(p.to_point());
         self.current = Some(p);
     }
 
@@ -188,24 +179,6 @@ impl Flattener {
             }
         }
     }
-
-    fn finish(self) -> Path {
-        let mut builder = Path::builder();
-        let ends = self
-            .starts
-            .iter()
-            .skip(1)
-            .copied()
-            .chain([self.vertices.len()]);
-        for (&start, end) in self.starts.iter().zip(ends) {
-            builder = builder.move_to(self.vertices[start]);
-            for &p in &self.vertices[start + 1..end] {
-                builder = builder.line_to(p);
-            }
-            builder = builder.close();
-        }
-        builder.build()
-    }
 }
 
 /// `gray_split_cubic` on an arc stored end first: returns the half nearer
@@ -223,8 +196,12 @@ fn split_cubic(arc: [Fixed; 4]) -> ([Fixed; 4], [Fixed; 4]) {
 }
 
 /// The glyph `outline` (pixels, origin at the pen) placed by `transform`
-/// (display pixels, y up), flattened as `FreeType` flattens it.
-pub(super) fn freetype_polygon(outline: &Path, transform: &GlyphTransform) -> Path {
+/// (display pixels, y up), flattened as `FreeType` flattens it: one
+/// polygon per contour, in 24.8 units.
+pub(super) fn freetype_contours(
+    outline: &Path,
+    transform: &GlyphTransform,
+) -> Vec<Vec<(i64, i64)>> {
     let place = |p: Point| transform.apply(p);
     let mut flattener = Flattener::default();
     for segment in outline.segments() {
@@ -236,7 +213,7 @@ pub(super) fn freetype_polygon(outline: &Path, transform: &GlyphTransform) -> Pa
             Segment::Close => {}
         }
     }
-    flattener.finish()
+    flattener.contours
 }
 
 #[cfg(test)]
@@ -269,7 +246,7 @@ mod tests {
 
     #[test]
     fn flat_conics_are_lines() {
-        let path = freetype_polygon(
+        let contours = freetype_contours(
             &conic(
                 Point::new(0.0, 0.0),
                 Point::new(1.0, 0.1),
@@ -277,12 +254,12 @@ mod tests {
             ),
             &GlyphTransform::new(0.0, Point::ORIGIN),
         );
-        assert_eq!(path.vertices().len(), 3, "move, line, close");
+        assert_eq!(contours, [vec![(0, 0), (512, 0)]]);
     }
 
     #[test]
     fn curved_conics_end_exactly_on_their_end_point() {
-        let path = freetype_polygon(
+        let contours = freetype_contours(
             &conic(
                 Point::new(0.0, 0.0),
                 Point::new(10.0, 20.0),
@@ -292,10 +269,11 @@ mod tests {
         );
         // A deviation of 40 px (10240 units) falls within a quarter pixel
         // after four four-fold reductions: 2^4 = 16 segments.
-        let vertices = path.vertices();
-        assert_eq!(vertices.len(), 1 + 16 + 1);
-        assert_eq!(vertices[16], Point::new(20.0, 0.0));
-        assert!(vertices.iter().all(|p| (p.x * 256.0).fract() == 0.0));
+        let [contour] = contours.as_slice() else {
+            panic!("one contour, got {contours:?}");
+        };
+        assert_eq!(contour.len(), 1 + 16);
+        assert_eq!(contour[16], (20 * 256, 0));
     }
 
     #[test]
@@ -308,10 +286,14 @@ mod tests {
                 Point::new(10.0, 0.0),
             )
             .build();
-        let flat = freetype_polygon(&path, &GlyphTransform::new(0.0, Point::ORIGIN));
-        let vertices = flat.vertices();
-        assert!(vertices.len() > 8);
-        assert_eq!(vertices[vertices.len() - 2], Point::new(10.0, 0.0));
-        assert!(vertices.iter().all(|p| p.y >= 0.0 && p.y <= 7.5 + 1e-9));
+        let contours = freetype_contours(&path, &GlyphTransform::new(0.0, Point::ORIGIN));
+        let contour = &contours[0];
+        assert!(contour.len() > 8);
+        assert_eq!(contour[contour.len() - 1], (10 * 256, 0));
+        assert!(
+            contour
+                .iter()
+                .all(|&(_, y)| (0..=7 * 256 + 128).contains(&y))
+        );
     }
 }

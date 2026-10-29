@@ -139,14 +139,15 @@ impl TextEngine {
         let face = self.db.face(font)?;
         let size = Size::new(&face, size, dpi);
         let mut sink = PathSink::default();
-        let hinted = match raster {
+        // The rasterizer decomposes outlines with their implied points
+        // rounded down; `get_path` truncates them.
+        match raster {
             Some((hinting, axis_aligned)) => {
-                self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)?
+                match self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)? {
+                    Some(hinted) => hinted.raster_outline(&mut sink),
+                    None => size.raster_outline(&face, glyph, &mut sink)?,
+                }
             }
-            None => None,
-        };
-        match hinted {
-            Some(hinted) => hinted.outline(&mut sink),
             None => size.outline(&face, glyph, &mut sink)?,
         }
         let path = sink.finish();
@@ -155,14 +156,17 @@ impl TextEngine {
     }
 }
 
-/// Collects font outline commands into a [`Path`].
+/// Collects font outline commands into a [`Path`], each contour closed
+/// with a vertex at the glyph origin as matplotlib's `FT2Font.get_path`
+/// closes it.
 #[derive(Debug, Default)]
-pub(crate) struct PathSink {
+pub struct PathSink {
     builder: PathBuilder,
 }
 
 impl PathSink {
-    pub(crate) fn finish(self) -> Path {
+    /// The path collected.
+    pub fn finish(self) -> Path {
         self.builder.build()
     }
 

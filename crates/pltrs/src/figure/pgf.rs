@@ -140,7 +140,11 @@ fn preamble(rc: &RcParams, fonts: FontManager) -> String {
                 ..FontProperties::from_rc(rc)
             };
             if let Ok(file) = fonts.find_font(&props, rc, FontExt::Ttf, true) {
-                lines.push(format!(r"  \{command}{{{file}}}"));
+                let path = std::path::Path::new(&file);
+                let name = path
+                    .file_name()
+                    .map_or(file.as_str(), |name| name.to_str().unwrap_or(file.as_str()));
+                lines.push(format!(r"  \{command}{{{name}}}"));
             }
         }
         lines.push(r"\fi".to_owned());

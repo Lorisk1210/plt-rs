@@ -48,6 +48,7 @@
 //! set already, so doctests and examples see no configuration from the
 //! home directory either.
 
+mod data;
 #[cfg(test)]
 mod fuzz_tests;
 mod lookup;
@@ -57,6 +58,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub use data::{DataDirError, data_dir};
 use lookup::{DirKind, Environment};
 
 use crate::rc::{RcError, RcFile, RcParams};

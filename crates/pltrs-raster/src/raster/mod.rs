@@ -10,6 +10,7 @@ mod cells;
 mod clip;
 mod dense;
 mod gamma;
+mod grays;
 mod scanline;
 
 use pltrs_core::{Path, Point};
@@ -17,6 +18,7 @@ use pltrs_core::{Path, Point};
 use self::cells::CellBuffer;
 use self::clip::Clipper;
 pub use self::gamma::Gamma;
+pub use self::grays::{GrayBitmap, render_glyph};
 pub use self::scanline::{Covers, Scanline, Span};
 use crate::error::RasterError;
 use crate::geometry::{PathSink, feed_path};

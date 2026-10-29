@@ -44,13 +44,13 @@ pub use block::{
     BlockLayout, BlockStyle, FontHeightMetrics, HAlign, LineMetrics, LinePlacement, LineSpacing,
     RotationMode, VAlign, layout_block,
 };
-pub use engine::{FontRequest, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
+pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::TextError;
 pub use pltrs_font::{
     AfmDirectory, AfmFont, AfmMetrics, Feature, FontDatabase, FontEntry, FontId, FontQuery,
     FontSource, FontStyle, FontVariant, GenericFamilies, GlyphId, Hinting, LanguageRange,
     LanguageTag, ParseFeatureError, Stretch, Type1Effects, Type1Encoding, Type1Face, Type1Font,
-    Type1Glyph, Weight, bundled_font_data, score_weight,
+    Type1Glyph, Weight, bundled_afm_files, bundled_font_data, bundled_font_files, score_weight,
 };
 pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};
 pub use shaping::{Language, Shaping};

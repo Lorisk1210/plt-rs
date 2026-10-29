@@ -336,3 +336,11 @@ from .cm import _colormaps as colormaps  # noqa: E402
 from .cm import _multivar_colormaps as multivar_colormaps  # noqa: E402
 from .cm import _bivar_colormaps as bivar_colormaps  # noqa: E402
 from .colors import _color_sequences as color_sequences  # noqa: E402
+
+
+def get_data_path():
+    """Return the path to Matplotlib data: the directory where pltrs (Rust)
+    writes the data files it bundles (its fonts), as matplotlib's
+    ``mpl-data``."""
+    from ._native import font_manager as _font_manager
+    return _font_manager.data_path()

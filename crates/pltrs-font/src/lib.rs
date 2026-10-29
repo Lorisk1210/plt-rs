@@ -58,14 +58,14 @@ mod type1;
 mod types;
 
 pub use afm::{
-    AfmError, AfmMetrics, AfmSection, CharMetrics, CompositePart, StrBbox, bundled_metrics,
-    type1_name,
+    AfmError, AfmMetrics, AfmSection, CharMetrics, CompositePart, StrBbox, bundled_afm_files,
+    bundled_metrics, type1_name,
 };
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
-    AfmDirectory, AfmFont, FontDatabase, FontEntry, FontId, FontQuery, FontSource, FontStyle,
-    FontVariant, GenericFamilies, GenericFamily, Stretch, Weight, alternative_family_names,
-    bundled_font_data, bundled_font_files, score_weight,
+    AfmDirectory, AfmFont, FaceStyle, FontDatabase, FontEntry, FontId, FontQuery, FontSource,
+    FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
+    alternative_family_names, bundled_font_data, bundled_font_files, face_style, score_weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};

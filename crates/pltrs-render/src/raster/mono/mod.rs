@@ -53,6 +53,23 @@ impl MonoBitmap {
         }
     }
 
+    /// `(bitmap_left, bitmap_top)`, saturated to `i32`.
+    pub(super) fn origin(&self) -> (i32, i32) {
+        let saturate = |v: i64| i32::try_from(v).unwrap_or(if v < 0 { i32::MIN } else { i32::MAX });
+        (saturate(self.left), saturate(self.top))
+    }
+
+    /// `(width, rows)`, saturated to `u32`.
+    pub(super) fn size(&self) -> (u32, u32) {
+        let saturate = |v: usize| u32::try_from(v).unwrap_or(u32::MAX);
+        (saturate(self.width), saturate(self.rows))
+    }
+
+    /// Whether each pixel is set, row-major from the top row.
+    pub(super) fn pixels(&self) -> impl Iterator<Item = bool> + '_ {
+        self.pixels.iter().copied()
+    }
+
     /// The rightmost column (`bRight`).
     fn right(&self) -> i64 {
         self.width as i64 - 1

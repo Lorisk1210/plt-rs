@@ -17,7 +17,7 @@ use crate::rc::{Distiller, RcParams};
 /// # Errors
 ///
 /// When there is no usable cache directory.
-pub(crate) fn tex_manager(rc: &RcParams) -> Result<TexManager, TexError> {
+pub fn tex_manager(rc: &RcParams) -> Result<TexManager, TexError> {
     let cache_dir = crate::config::cache_dir().map_err(|err| TexError::Io {
         path: "the cache directory".to_owned(),
         message: err.to_string(),

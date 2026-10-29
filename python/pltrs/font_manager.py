@@ -19,6 +19,7 @@ Matplotlib License).
 from __future__ import annotations
 
 from base64 import b64encode
+from io import BytesIO
 import dataclasses
 from functools import cache, lru_cache
 import functools
@@ -35,7 +36,7 @@ import sys
 from . import _api, cbook
 from ._fontconfig_pattern import (
     parse_fontconfig_pattern, generate_fontconfig_pattern)
-from ._native import font_manager as _font_manager
+from ._native import font_manager as _font_manager, ft2font as _native_ft2font
 
 _log = logging.getLogger(__name__)
 
@@ -849,6 +850,23 @@ class FontProperties:
         """Return a copy of self."""
         return self.__copy__()
 
+    @classmethod
+    def _from_native(cls, props):
+        """The properties pltrs (Rust) describes as `FontManager._props`
+        does (already validated)."""
+        (family, (style, variant), (weight, stretch, size),
+         (math_fontfamily, file)) = props
+        new = cls.__new__(cls)
+        new._family = tuple(family)
+        new._slant = style
+        new._variant = variant
+        new._weight = weight
+        new._stretch = stretch
+        new._file = file
+        new._size = size
+        new._math_fontfamily = math_fontfamily
+        return new
+
     # Aliases
     set_name = set_family
     get_slant = get_style
@@ -953,7 +971,8 @@ class FontManager:
     @staticmethod
     def _entries(fontext):
         """The `FontEntry` of every font of the list *fontext*."""
-        return [FontEntry(fname=fname, index=index, name=name, style=style,
+        return [FontEntry(fname=_data_font_path(fname, fontext), index=index,
+                          name=name, style=style,
                           variant=variant,
                           weight=int(weight) if weight.isdigit() else weight,
                           stretch=stretch)
@@ -1078,7 +1097,8 @@ class FontManager:
     def _findfont_cached(self, props, fontext, fallback_to_default, family):
         """The `FontPath` the search finds (cached per properties and
         :rc:`font.family`)."""
-        fname = _font_manager.find_font(props, fontext, fallback_to_default)
+        fname = _data_font_path(
+            _font_manager.find_font(props, fontext, fallback_to_default), fontext)
         index = next((entry.index for entry in self._entries(fontext)
                       if entry.fname == fname), 0)
         return FontPath(fname, index)
@@ -1099,8 +1119,9 @@ class FontManager:
                 f"pltrs: _find_fonts_by_props(fontext={fontext!r})")
         if directory is not None:
             raise NotImplementedError("pltrs: _find_fonts_by_props(directory=...)")
-        return [FontPath(fname, 0) for fname in _font_manager.find_fonts(
-            self._props(prop), fallback_to_default)]
+        return [FontPath(_data_font_path(fname), 0)
+                for fname in _font_manager.find_fonts(
+                    self._props(prop), fallback_to_default)]
 
     def _family_name(self, fpath):
         """The family name of the font at *fpath*."""
@@ -1128,3 +1149,224 @@ def is_opentype_cff_font(filename):
             return fd.read(4) == b"OTTO"
     else:
         return False
+
+
+def ttfFontProperty(font):
+    """
+    Extract information from a TrueType font file.
+
+    Parameters
+    ----------
+    font : `.FT2Font`
+        The TrueType font file from which information will be extracted.
+
+    Returns
+    -------
+    `FontEntry`
+        The extracted font properties.
+
+    """
+    if not font.scalable:
+        raise NotImplementedError("Non-scalable fonts are not supported")
+    name, style, variant, (weight, stretch) = \
+        _native_ft2font.face_properties(font._native)
+    return FontEntry(font.fname, font.face_index, name,
+                     style, variant, weight, stretch, 'scalable')
+
+
+def afmFontProperty(fontpath, font):
+    """
+    Extract information from an AFM font file.
+
+    Parameters
+    ----------
+    fontpath : str
+        The filename corresponding to *font*.
+    font : AFM
+        The AFM font file from which information will be extracted.
+
+    Returns
+    -------
+    `FontEntry`
+        The extracted font properties.
+    """
+
+    name = font.get_familyname()
+    fontname = font.get_fontname().lower()
+
+    #  Styles are: italic, oblique, and normal (default)
+
+    if font.get_angle() != 0 or 'italic' in name.lower():
+        style = 'italic'
+    elif 'oblique' in name.lower():
+        style = 'oblique'
+    else:
+        style = 'normal'
+
+    #  Variants are: small-caps and normal (default)
+
+    # !!!!  Untested
+    if name.lower() in ['capitals', 'small-caps']:
+        variant = 'small-caps'
+    else:
+        variant = 'normal'
+
+    weight = font.get_weight().lower()
+    if weight not in weight_dict:
+        weight = 'normal'
+
+    #  Stretch can be absolute and relative
+    if 'demi cond' in fontname:
+        stretch = 'semi-condensed'
+    elif any(word in fontname for word in ['narrow', 'cond']):
+        stretch = 'condensed'
+    elif any(word in fontname for word in ['wide', 'expanded', 'extended']):
+        stretch = 'expanded'
+    else:
+        stretch = 'normal'
+
+    #  All AFM fonts are apparently scalable.
+    size = 'scalable'
+
+    return FontEntry(fontpath, 0, name, style, variant, weight, stretch, size)
+
+
+def _get_font_alt_names(font, primary_name):
+    """
+    Return ``(name, weight)`` pairs for alternate family names of *font*:
+    its family names other than *primary_name* (name IDs 1, 16 and 21 on
+    the Macintosh and Windows English records), each with the weight of its
+    subfamily on the same record.
+    """
+    try:
+        sfnt = font.get_sfnt()
+    except ValueError:
+        return []
+    mac_key = (1,  # platform: macintosh
+               0,  # id: roman
+               0)  # langid: english
+    ms_key = (3,   # platform: microsoft
+              1,   # id: unicode_cs
+              0x0409)  # langid: english_united_states
+    # The records the names and their subfamilies are read from, decoded:
+    # mac_roman (any ASCII-compatible encoding will do for the names
+    # matched) and big-endian UTF-16.
+    records = [
+        (key, value.decode('latin-1' if key[:3] == mac_key else 'utf-16-be'))
+        for key, value in sfnt.items()
+        if key[:3] in (mac_key, ms_key) and key[3] in (1, 2, 16, 17, 21, 22)]
+    return [tuple(pair) for pair in
+            _font_manager.alternative_family_names(primary_name, records)]
+
+
+def _data_font_path(fname, fontext='ttf'):
+    """
+    The path of the font file *fname*: pltrs (Rust) names the fonts it bundles
+    by their bare file names, which are in the data directory's
+    ``fonts/ttf`` (``fonts/pdfcorefonts`` for AFM files), as matplotlib's
+    are in its ``mpl-data``.
+    """
+    if os.path.dirname(fname):
+        return fname
+    subdir = 'pdfcorefonts' if fontext == 'afm' else 'ttf'
+    return str(cbook._get_data_path('fonts', subdir, fname))
+
+
+@lru_cache(64)
+def _get_font(font_filepaths, *, _kerning_factor, thread_id,
+              enable_last_resort):
+    from . import ft2font
+    (first_fontpath, first_fontindex), *rest = font_filepaths
+    fallback_list = [
+        ft2font.FT2Font(fpath, face_index=index,
+                        _kerning_factor=_kerning_factor)
+        for fpath, index in rest
+    ]
+    last_resort_path = _cached_realpath(
+        cbook._get_data_path('fonts', 'ttf', 'LastResortHE-Regular.ttf'))
+    try:
+        last_resort_index = font_filepaths.index((last_resort_path, 0))
+    except ValueError:
+        last_resort_index = -1
+        # Add Last Resort font so we always have glyphs regardless of font, unless we're
+        # already in the list.
+        if enable_last_resort:
+            fallback_list.append(
+                ft2font.FT2Font(last_resort_path,
+                                _kerning_factor=_kerning_factor,
+                                _warn_if_used=True))
+            last_resort_index = len(fallback_list)
+    font = ft2font.FT2Font(
+        first_fontpath, face_index=first_fontindex,
+        _fallback_list=fallback_list,
+        _kerning_factor=_kerning_factor
+    )
+    # Ensure we are using the right charmap for the Last Resort font; FreeType picks the
+    # Unicode one by default, but this exists only for Windows, and is empty.
+    if last_resort_index == 0:
+        font.set_charmap(0)
+    elif last_resort_index > 0:
+        fallback_list[last_resort_index - 1].set_charmap(0)
+    return font
+
+
+# FT2Font objects cannot be used across fork()s in matplotlib; pltrs keeps
+# the same cache discipline.
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_get_font.cache_clear)
+
+
+@lru_cache(64)
+def _cached_realpath(path):
+    # Resolving the path avoids embedding the font twice in pdf/ps output if a
+    # single font is selected using two different relative paths.
+    return os.path.realpath(path)
+
+
+@_api.delete_parameter('3.11', 'hinting_factor')
+def get_font(font_filepaths, hinting_factor=None):
+    """
+    Get an `.ft2font.FT2Font` object given a list of file paths.
+
+    Parameters
+    ----------
+    font_filepaths : Iterable[str, bytes, os.PathLike, FontPath], \
+str, bytes, os.PathLike, FontPath
+        Relative or absolute paths to the font files to be used.
+
+        If a single string, bytes, or `os.PathLike`, then it will be treated
+        as a list with that entry only.
+
+        If more than one filepath is passed, then the returned FT2Font object
+        will fall back through the fonts, in the order given, to find a needed
+        glyph.
+
+    Returns
+    -------
+    `.ft2font.FT2Font`
+
+    """
+    import threading
+    match font_filepaths:
+        case FontPath(path, index):
+            paths = ((_cached_realpath(path), index), )
+        case str() | bytes() | os.PathLike() as path:
+            paths = ((_cached_realpath(path), 0), )
+        case _:
+            paths = tuple(
+                (_cached_realpath(fname.path), fname.face_index)
+                if isinstance(fname, FontPath) else (_cached_realpath(fname), 0)
+                for fname in font_filepaths)
+
+    rc = _rcParams()
+    font = _get_font(
+        # must be a tuple to be cached
+        paths,
+        _kerning_factor=rc['text.kerning_factor'],
+        # also key on the thread ID to prevent segfaults with multi-threading
+        thread_id=threading.get_ident(),
+        enable_last_resort=rc['font.enable_last_resort'],
+    )
+    # Ensure the transform is always consistent.
+    font._set_transform([[0x10000, 0], [0, 0x10000]], [0, 0])
+    return font

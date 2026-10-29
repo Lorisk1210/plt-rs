@@ -5,6 +5,7 @@
 //! them, and rasterizes it with pltrs-raster's port of Agg, so the pixels
 //! match matplotlib's Agg output.
 
+mod bitmap;
 mod condition;
 mod draw;
 mod filter;
@@ -23,6 +24,8 @@ use pltrs_raster::{Mask, Painter, Pixmap, RasterError, Rgba8};
 use crate::gc::ClipPath;
 use crate::image::RgbaImage;
 use crate::vector::PngMetadata;
+
+pub use self::bitmap::{GlyphBitmap, GlyphShape, glyph_axis_aligned, render_glyph};
 
 /// Why a raster canvas could not be created or encoded.
 #[derive(Debug)]

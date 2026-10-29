@@ -72,14 +72,14 @@ impl FontManager {
         }
     }
 
-    /// The file name of a catalogued face.
+    /// The file of a catalogued face, as matplotlib's font lists name it:
+    /// its path, or its file name for a bundled font (which has no path).
     fn file_name(self, id: FontId) -> String {
-        self.engine
-            .database()
-            .source(id)
-            .and_then(FontSource::file_name)
-            .unwrap_or_default()
-            .to_owned()
+        match self.engine.database().source(id) {
+            Some(FontSource::File(path)) => path.display().to_string(),
+            Some(FontSource::Bundled(name)) => (*name).to_owned(),
+            None => String::new(),
+        }
     }
 
     /// The font list for `ext`, in matching order (`ttflist`/`afmlist`).

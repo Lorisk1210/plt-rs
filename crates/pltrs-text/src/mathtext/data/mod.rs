@@ -257,6 +257,16 @@ pub(crate) fn accent_symbol(name: &str) -> Option<&'static str> {
     sorted_lookup(&symbols::ACCENT_MAP, name)
 }
 
+/// The narrow accent commands and their symbols, sorted by command.
+pub(crate) fn accent_map() -> &'static [(&'static str, &'static str)] {
+    &symbols::ACCENT_MAP
+}
+
+/// The wide accent commands, sorted.
+pub(crate) fn wide_accents() -> &'static [&'static str] {
+    &symbols::WIDE_ACCENTS
+}
+
 /// Every accent command name (narrow and wide).
 pub(crate) fn accent_names() -> impl Iterator<Item = &'static str> {
     symbols::ACCENT_MAP

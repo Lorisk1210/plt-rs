@@ -58,9 +58,68 @@ pub struct FontconfigPattern {
     index: HashMap<String, usize>,
 }
 
+/// A malformed fontconfig pattern and where parsing stopped.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FontconfigError {
+    /// The pattern.
+    pub pattern: String,
+    /// The index of the first character not understood.
+    pub position: usize,
+}
+
+impl FontconfigError {
+    /// pyparsing's explanation of the failure, which matplotlib's
+    /// `parse_fontconfig_pattern` raises: the pattern, a caret under the
+    /// character not understood, and the `ParseException` message.
+    ///
+    /// ```
+    /// use pltrs_text::fontconfig::FontconfigPattern;
+    /// let err = FontconfigPattern::try_parse("a:b:c").unwrap_err();
+    /// assert_eq!(
+    ///     err.explanation(),
+    ///     "a:b:c\n ^\nParseException: Expected end of text, found ':'  (at char 1), \
+    ///      (line:1, col:2)"
+    /// );
+    /// ```
+    pub fn explanation(&self) -> String {
+        let found = self.pattern.chars().nth(self.position).unwrap_or_default();
+        format!(
+            "{}\n{}^\nParseException: Expected end of text, found '{found}'  (at char {}), \
+             (line:1, col:{})",
+            self.pattern,
+            " ".repeat(self.position),
+            self.position,
+            self.position + 1
+        )
+    }
+}
+
+impl std::fmt::Display for FontconfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "invalid fontconfig pattern {:?} at character {}",
+            self.pattern, self.position
+        )
+    }
+}
+
+impl std::error::Error for FontconfigError {}
+
+impl From<FontconfigError> for TextError {
+    fn from(err: FontconfigError) -> Self {
+        Self::Font(err.to_string())
+    }
+}
+
 impl FontconfigPattern {
     /// Parses `pattern`; malformed patterns yield [`TextError::Font`].
     pub fn parse(pattern: &str) -> Result<Self, TextError> {
+        Ok(Self::try_parse(pattern)?)
+    }
+
+    /// Parses `pattern`, telling where a malformed one stops making sense.
+    pub fn try_parse(pattern: &str) -> Result<Self, FontconfigError> {
         let mut scan = Scanner {
             chars: pattern.chars().collect(),
             pos: 0,
@@ -88,10 +147,10 @@ impl FontconfigPattern {
         if scan.pos == scan.chars.len() {
             Ok(parsed)
         } else {
-            Err(TextError::Font(format!(
-                "invalid fontconfig pattern {pattern:?} at character {}",
-                scan.pos
-            )))
+            Err(FontconfigError {
+                pattern: pattern.to_owned(),
+                position: scan.pos,
+            })
         }
     }
 

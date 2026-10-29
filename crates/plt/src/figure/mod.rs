@@ -44,6 +44,7 @@ pub use plt_render::{
     Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType, SvgMetadata,
     UnknownSvgFontType,
 };
+pub use postscript::{ProgramError, check_distiller};
 pub use print::{BboxInches, PadInches, SaveOptions};
 pub use rect::AxesRectError;
 pub(crate) use rect::axes_bounds;

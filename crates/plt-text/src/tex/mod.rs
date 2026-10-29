@@ -17,6 +17,9 @@
 //!   (a long-lived `luatex --luaonly` helper, else `kpsewhich`), keeps
 //!   what it read, and maps DVI glyphs to the glyphs of their Type 1
 //!   faces ([`TexFontFile`]).
+//! * [`TemporaryDirectory`], [`format_command`] and [`on_path`] are the
+//!   temporary directories and program helpers TeX runs with, which the
+//!   PostScript backend's external programs share.
 //! * [`TexText`] is a line of usetex text as backends receive it; its
 //!   [`glyphs`](TexText::glyphs) are resolved to Type 1 faces, and its
 //!   [`text_path`](TexText::text_path) is the outline matplotlib's
@@ -37,19 +40,22 @@ mod kpathsea;
 mod manager;
 mod psfonts;
 mod source;
+mod tempdir;
 #[cfg(test)]
 mod test_support;
 mod text;
 mod tfm;
 mod vf;
 
+pub use command::{format_command, on_path};
 pub use dvi::{DviBox, DviFont, DviPage, DviText, RawGlyph, RawPage, RawRule, read_dvi};
 pub use error::{TexError, TexFile};
 pub use files::{FileFinder, FontSource, TexFiles};
 pub use font_file::{TexFontFile, TexHinting};
 pub use manager::{GreyImage, TexEngine, TexManager};
 pub use psfonts::{PsFont, PsfontsMap, parse_enc};
-pub use source::{TexFonts, tex_source};
+pub use source::{TexFonts, tex_source, usepackage_if_not_loaded};
+pub use tempdir::TemporaryDirectory;
 pub use text::{TexGlyph, TexText};
 pub use tfm::{TexMetrics, Tfm};
 pub use vf::{Vf, VfPacket};

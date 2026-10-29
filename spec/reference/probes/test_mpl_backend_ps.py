@@ -15,8 +15,16 @@ Ops
     (``ps`` or ``eps``) with ``orientation`` and ``papertype``: the DSC
     comments before ``%%EndComments`` but the creator, date and title, and
     the commands placing the figure on the page (from ``mpldict begin``
-    after the prolog to ``rectclip``). The test's ``eps afm`` case sets ``ps.useafm``; its
-    distiller and usetex cases are left out.
+    after the prolog to ``rectclip``). The test's ``eps afm`` case sets ``ps.useafm``.
+``Figure.savefig.distilled``  {format, orientation, papertype, rc} ->
+    ``{"header", "pages"}``: the distiller and usetex cases of
+    ``test_savefig_to_stringio`` (the title without its minus and euro sign
+    with usetex), whose documents Ghostscript or ``pdftops`` writes: the
+    DSC comments before ``%%EndComments`` but the creator, date and title
+    (Ghostscript records the paper options it was run with), and every
+    comment line starting ``%%Page`` (the page's size, and the page
+    ``pstoeps`` makes of EPS output). Skipped where the programs are
+    missing.
 ``savefig.eps.bbox``  {} -> ``{"bbox", "hires"}``: the numbers of the
     ``%%BoundingBox`` and ``%%HiResBoundingBox`` comments of an EPS
     ``plt.subplots()`` figure (``test_bbox``).
@@ -43,15 +51,17 @@ By the ``mpl_rendering`` figure group: ``test_patheffects``. By the
 ``test_multi_font_type42``, ``test_path_collection`` and
 ``test_colorbar_shift``.
 
+By plt's unit tests of its PostScript output (``figure/postscript``):
+``test_tilde_in_tempfilename``, ``test_transparency_tex``,
+``test_failing_latex``, ``test_partial_usetex``, ``test_usetex_preamble``
+and ``test_d_glyph``, and the distiller and usetex cases of
+``test_savefig_to_stringio`` with matplotlib's own assertions.
+
 Left out
 --------
-The distiller and usetex cases of ``test_savefig_to_stringio`` and its
-comparison of text and binary streams (Python file objects),
-``test_tilde_in_tempfilename``, ``test_transparency_tex``,
-``test_failing_latex``, ``test_partial_usetex`` and
-``test_usetex_preamble`` (usetex), ``test_d_glyph`` (Ghostscript), and
-``test_ttc_type3`` and ``test_ttc_type42`` (the WenQuanYi Zen Hei font is
-not bundled).
+The comparison of text and binary streams of ``test_savefig_to_stringio``
+(Python file objects), and ``test_ttc_type3`` and ``test_ttc_type42`` (the
+WenQuanYi Zen Hei font is not bundled).
 """
 
 import io
@@ -64,6 +74,7 @@ from matplotlib.figure import Figure
 
 from probes._mpl_tests import prober
 from spec_support import ProbeSet
+from spec_support.tex import has_ghostscript, has_usetex_ps, has_xpdf
 
 probes = ProbeSet("mpl_backend_ps")
 probe = prober(probes)
@@ -100,6 +111,43 @@ def test_savefig_to_stringio():
             for papertype in ("letter", "figure"):
                 probe("Figure.savefig", _saved, format=format, orientation=orientation,
                       papertype=papertype, log=log, rc=rc)
+
+
+#: The distiller and usetex cases of ``test_savefig_to_stringio``, and
+#: whether their programs can run here.
+DISTILLED = [
+    ("ps", {"ps.usedistiller": "ghostscript"}, has_ghostscript),
+    ("ps", {"ps.usedistiller": "xpdf"}, has_xpdf),
+    ("ps", {"text.usetex": True}, has_usetex_ps),
+    ("eps", {"text.usetex": True}, has_usetex_ps),
+]
+
+
+def _distilled(format, orientation, papertype):
+    fig, ax = plt.subplots()
+    ax.plot([1, 2], [1, 2])
+    title = "Déjà vu"
+    if not mpl.rcParams["text.usetex"]:
+        title += " \N{MINUS SIGN}\N{EURO SIGN}"
+    ax.set_title(title)
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format=format, orientation=orientation, papertype=papertype)
+    document = buffer.getvalue().decode("latin-1")
+    head = document[:document.index("%%EndComments")]
+    return {
+        "header": [line for line in head.splitlines() if not line.startswith(UNSTABLE)],
+        "pages": [line for line in document.splitlines() if line.startswith("%%Page")],
+    }
+
+
+def test_savefig_to_stringio_distilled():
+    for format, rc, available in DISTILLED:
+        if not available():
+            continue
+        for orientation in ("portrait", "landscape"):
+            for papertype in ("letter", "figure"):
+                probe("Figure.savefig.distilled", _distilled, format=format,
+                      orientation=orientation, papertype=papertype, rc=rc)
 
 
 def _bbox():

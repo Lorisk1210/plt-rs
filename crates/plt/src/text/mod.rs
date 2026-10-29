@@ -23,9 +23,11 @@
 //! from the Type 1 glyphs of the DVI file (or `dvipng`'s image with
 //! `text.latex.engine = "latex+dvipng"`), PDF output with the Type 1 fonts
 //! embedded, SVG output as glyph paths, PGF output as the TeX string
-//! itself; PostScript output fails with [`TexError::PostScriptOutput`].
-//! Where TeX is missing, drawing the text fails with matplotlib's error,
-//! and [`check_usetex`] says so beforehand.
+//! itself. With `text.usetex` on, PostScript output runs LaTeX with the
+//! `psfrag` package, `dvips` and Ghostscript on the whole figure, as
+//! matplotlib does. Where TeX is missing, drawing the text fails with
+//! matplotlib's error, and [`check_usetex`] says so beforehand
+//! ([`check_usetex_postscript`] for PostScript).
 
 mod annotation;
 mod error;
@@ -72,7 +74,8 @@ pub use plt_text::{
     BlockLayout, Feature, HAlign, Hinting, Language, LanguageRange, LanguageTag, LineMetrics,
     LinePlacement, LineSpacing, ParseFeatureError, RotationMode, TextError, VAlign,
 };
-pub use tex::check_usetex;
+pub(crate) use tex::tex_manager;
+pub use tex::{check_usetex, check_usetex_postscript};
 pub(crate) use text_box::BoxPlacement;
 pub use text_box::{TextBoxPatch, TextBoxProps};
 

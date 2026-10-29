@@ -72,7 +72,7 @@
 //!   raises. All of them implement [`std::error::Error`], so `?` into
 //!   `Box<dyn Error>` works everywhere. A problem plt-rs can name has a
 //!   variant of its own carrying the values involved, rather than a
-//!   message in a catch-all variant ([`TexError::PostScriptOutput`],
+//!   message in a catch-all variant ([`TexError::NoType1Font`],
 //!   [`TexError::NotInstalled`]), and parsing a name fails with such an
 //!   error, never a bare `String` ([`UnknownName`] for the keyword types
 //!   of `plt`).
@@ -562,7 +562,7 @@
 //! [`TextHinting`]: crate::text::TextHinting
 //! [`Hinting`]: crate::text::Hinting
 //! [`WhichAxis`]: crate::axes::WhichAxis
-//! [`TexError::PostScriptOutput`]: crate::text::TexError::PostScriptOutput
+//! [`TexError::NoType1Font`]: crate::text::TexError::NoType1Font
 //! [`TexError::NotInstalled`]: crate::text::TexError::NotInstalled
 //! [`UnknownName`]: crate::rc::UnknownName
 //! [`Axes3D`]: crate::mplot3d::Axes3D

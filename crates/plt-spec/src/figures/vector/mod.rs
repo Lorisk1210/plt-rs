@@ -100,9 +100,9 @@ pub const VECTOR_CASES: &[&str] = &[
     "vectors/text_fonts",
 ];
 
-/// The usetex cases saved as SVG and PDF (`TEX_VECTOR_CASES` of
-/// `test_vectors.py`; matplotlib's usetex PostScript needs psfrag and
-/// Ghostscript); skipped where TeX is missing.
+/// The usetex cases saved as SVG, PDF and PostScript (`TEX_VECTOR_CASES` of
+/// `test_vectors.py`); skipped where TeX is missing, their PostScript where
+/// `psfrag`, `dvips` or Ghostscript is.
 pub const TEX_VECTOR_CASES: &[&str] = &[
     "usetex/math_display",
     "usetex/mpl_test_usetex",
@@ -112,7 +112,7 @@ pub const TEX_VECTOR_CASES: &[&str] = &[
 ];
 
 /// The formats of [`TEX_VECTOR_CASES`].
-pub const TEX_FORMATS: &[VectorFormat] = &[VectorFormat::Svg, VectorFormat::Pdf];
+pub const TEX_FORMATS: &[VectorFormat] = &[VectorFormat::Svg, VectorFormat::Pdf, VectorFormat::Ps];
 
 /// A case saved again with other settings (`VECTOR_VARIANTS` in the
 /// spec's `figures/test_vectors.py`); its goldens are named
@@ -167,6 +167,69 @@ pub const VECTOR_VARIANTS: &[VectorVariant] = &[
         rc: &[("svg.fonttype", "none")],
         formats: &[VectorFormat::Svg],
     },
+    VectorVariant {
+        case: "basic/line",
+        name: "ghostscript",
+        rc: &[("ps.usedistiller", "ghostscript")],
+        formats: &[VectorFormat::Ps, VectorFormat::Eps],
+    },
+    VectorVariant {
+        case: "basic/line",
+        name: "ghostscript_figure",
+        rc: &[
+            ("ps.usedistiller", "ghostscript"),
+            ("ps.papersize", "figure"),
+        ],
+        formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "basic/line",
+        name: "xpdf",
+        rc: &[("ps.usedistiller", "xpdf")],
+        formats: &[VectorFormat::Ps, VectorFormat::Eps],
+    },
+    VectorVariant {
+        case: "basic/line",
+        name: "xpdf_figure",
+        rc: &[("ps.usedistiller", "xpdf"), ("ps.papersize", "figure")],
+        formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "vectors/text_fonts",
+        name: "ghostscript",
+        rc: &[("ps.usedistiller", "ghostscript")],
+        formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "vectors/text_fonts",
+        name: "xpdf",
+        rc: &[("ps.usedistiller", "xpdf")],
+        formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "images/imshow_default",
+        name: "ghostscript",
+        rc: &[("ps.usedistiller", "ghostscript")],
+        formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "usetex/text_basic",
+        name: "encapsulated",
+        rc: &[],
+        formats: &[VectorFormat::Eps],
+    },
+    VectorVariant {
+        case: "usetex/text_basic",
+        name: "figure",
+        rc: &[("ps.papersize", "figure")],
+        formats: &[VectorFormat::Ps],
+    },
+    VectorVariant {
+        case: "usetex/text_basic",
+        name: "a4",
+        rc: &[("ps.papersize", "a4")],
+        formats: &[VectorFormat::Ps],
+    },
 ];
 
 /// The cases collected, one per page, into the multi-page golden
@@ -183,6 +246,8 @@ pub enum VectorFormat {
     Pdf,
     /// PostScript with Type 3 fonts.
     Ps,
+    /// Encapsulated PostScript (variants only).
+    Eps,
     /// LaTeX PGF pictures (no goldens: compared in the wide comparison
     /// only, where matplotlib measures text like Agg instead of LaTeX).
     Pgf,
@@ -201,8 +266,15 @@ impl VectorFormat {
             Self::Svg => "svg",
             Self::Pdf => "pdf",
             Self::Ps => "ps",
+            Self::Eps => "eps",
             Self::Pgf => "pgf",
         }
+    }
+
+    /// PostScript or Encapsulated PostScript, which a distiller may write
+    /// and usetex text needs LaTeX's `psfrag`, `dvips` and Ghostscript for.
+    pub const fn is_postscript(self) -> bool {
+        matches!(self, Self::Ps | Self::Eps)
     }
 
     const fn save_format(self) -> SaveFormat {
@@ -210,6 +282,7 @@ impl VectorFormat {
             Self::Svg => SaveFormat::Svg,
             Self::Pdf => SaveFormat::Pdf,
             Self::Ps => SaveFormat::Ps,
+            Self::Eps => SaveFormat::Eps,
             Self::Pgf => SaveFormat::Pgf,
         }
     }
@@ -219,7 +292,7 @@ impl VectorFormat {
         match self {
             Self::Svg => svg::items(document),
             Self::Pdf => pdf::items(document),
-            Self::Ps => ps::items(document),
+            Self::Ps | Self::Eps => ps::items(document),
             Self::Pgf => pgf::items(document),
         }
     }
@@ -248,6 +321,36 @@ impl FigureCase {
             self.name,
             format.extension()
         ))
+    }
+
+    /// Why the case's document in `format`, saved with the rcParams `rc`
+    /// on top of the case's, cannot be made here, if it cannot: the case
+    /// needs TeX ([`skip_reason`](Self::skip_reason)) and, for PostScript,
+    /// LaTeX's `psfrag` package, `dvips` and Ghostscript; or PostScript is
+    /// to be distilled by a program that is not installed.
+    pub fn vector_skip_reason(&self, format: VectorFormat, rc: &[(&str, &str)]) -> Option<String> {
+        if let Some(reason) = self.skip_reason() {
+            return Some(reason);
+        }
+        if !format.is_postscript() {
+            return None;
+        }
+        if self.needs_tex
+            && let Err(err) = plt::text::check_usetex_postscript()
+        {
+            return Some(format!("needs TeX for PostScript: {err}"));
+        }
+        let distiller = plt::rc::context(|| {
+            for (key, value) in self.rc.iter().chain(rc) {
+                if *key == "ps.usedistiller" {
+                    plt::rc::set(key, value).ok()?;
+                }
+            }
+            Some(plt::rc::params().ps_usedistiller)
+        })?;
+        plt::figure::check_distiller(distiller)
+            .err()
+            .map(|err| format!("needs a distiller: {err}"))
     }
 }
 

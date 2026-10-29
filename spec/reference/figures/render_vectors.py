@@ -80,13 +80,14 @@ def _render(job: tuple[str, str, list[str]]) -> list[str]:
     from conftest import reference_rc
     from spec_support import all_cases
 
-    from spec_support.tex import SKIP_REASON, has_usetex
+    from spec_support.tex import document_skip_reason
 
     case = next(c for c in all_cases() if c.name == name)
-    if case.needs_tex and not has_usetex():
-        return [f"{name}: skipped, {SKIP_REASON}"]
     failures = []
     for fmt in formats:
+        if reason := document_skip_reason(case, fmt):
+            failures.append(f"{name} {fmt}: skipped, {reason}")
+            continue
         try:
             reference_rc()
             path = pathlib.Path(out) / f"{name.replace('/', '__')}.{fmt}"

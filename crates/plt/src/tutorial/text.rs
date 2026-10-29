@@ -164,8 +164,8 @@
 //! ([`config::cache_dir`](crate::config::cache_dir)), so a figure is
 //! typeset once. Without TeX, drawing such a figure fails with an error
 //! saying which program is missing; [`check_usetex`] tells beforehand.
-//! PDF, SVG, PNG and PGF output take TeX text; PostScript output does not
-//! (matplotlib needs Ghostscript and `psfrag` there).
+//! Every format takes TeX text; PostScript output runs LaTeX's `psfrag`,
+//! `dvips` and Ghostscript on the whole figure, as matplotlib does.
 //!
 //! ```
 //! use plt::prelude::*;

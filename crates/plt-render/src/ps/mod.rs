@@ -14,19 +14,26 @@
 //! PostScript has no transparency: partially transparent colours are drawn
 //! opaque.
 //!
-//! Not supported: distillers (`ps.usedistiller`) and `usetex`.
+//! With `text.usetex`, every text is a tag for LaTeX's `psfrag` package
+//! instead, and the renderer makes the figure LaTeX includes
+//! ([`PsfragFigure`]).
+//! The external programs matplotlib then runs (LaTeX, `dvips` and the
+//! distillers of `ps.usedistiller`) are the caller's; [`pstoeps`] turns
+//! what a distiller wrote back into EPS.
 
 mod afm;
 mod draw;
+mod dsc;
 mod fonts;
 mod page;
+mod psfrag;
 mod text;
 mod type42;
 
 use std::fmt::Write as _;
 
 use plt_core::path::convert::SimplifySettings;
-use plt_core::{Affine2D, Path, Point, Rgba};
+use plt_core::{Affine2D, Bbox, Path, Point, Rgba};
 use plt_text::tex::{TexError, TexText};
 use plt_text::{AfmDirectory, TextRun};
 
@@ -34,7 +41,9 @@ use crate::collection::PathCollection;
 use crate::gc::{CapStyle, ClipPath, GraphicsContext, JoinStyle};
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
+pub use dsc::pstoeps;
 pub use page::{PageOrientation, PageSetupError, Paper};
+pub use psfrag::PsfragFigure;
 
 use crate::vector::{
     CharacterTracker, FontCache, FontType, Metadata, Problems, VectorError, check_canvas,
@@ -65,10 +74,10 @@ pub struct PsOptions {
     /// PostScript fonts, measured with their AFM metrics, and no font is
     /// embedded.
     pub afm: bool,
-    /// `text.usetex`: matplotlib then makes the whole document with LaTeX's
-    /// `psfrag`, `dvips` and Ghostscript, which plt-rs does not run, so the
-    /// document fails ([`PsRenderer::finish`]); with it off, texts marked
-    /// usetex are drawn as plain text, as matplotlib draws them.
+    /// `text.usetex`: texts are tags for LaTeX's `psfrag` package, and
+    /// [`PsRenderer::finish`] makes the figure LaTeX includes
+    /// ([`PsOutput::Psfrag`]); with it off, texts marked usetex are drawn
+    /// as plain text, as matplotlib draws them.
     pub usetex: bool,
 }
 
@@ -103,6 +112,26 @@ impl PsOptions {
     }
 }
 
+/// A finished PostScript document and where the figure sits on its page.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PsDocument {
+    /// The PostScript or EPS document.
+    pub text: String,
+    /// The figure's bounding box on the page in points, turned with the
+    /// page in landscape (the `bbox` of `_print_figure`).
+    pub bbox: Bbox,
+}
+
+/// What a [`PsRenderer`] made of a figure.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PsOutput {
+    /// The document (matplotlib's `_print_figure`).
+    Document(PsDocument),
+    /// With [`PsOptions::usetex`], the figure for LaTeX to finish
+    /// (matplotlib's `_print_figure_tex`).
+    Psfrag(PsfragFigure),
+}
+
 /// The line properties last written (`None` until first set).
 #[derive(Clone, Debug, Default, PartialEq)]
 struct LineState {
@@ -130,6 +159,8 @@ pub struct PsRenderer {
     tracker: CharacterTracker,
     fonts: FontCache,
     options: PsOptions,
+    /// The `\psfrag` commands of the usetex texts tagged so far.
+    psfrags: Vec<String>,
     problems: Problems,
 }
 
@@ -155,28 +186,51 @@ impl PsRenderer {
             tracker: CharacterTracker::new(options.fonttype.subset_size()),
             fonts: FontCache::default(),
             options,
+            psfrags: Vec::new(),
             problems: Problems::default(),
         })
     }
 
     /// The document: header comments, the prolog with the procedures and
     /// fonts, then the drawing placed on the page (matplotlib's
-    /// `_print_figure`).
+    /// `_print_figure`); with [`PsOptions::usetex`], the figure whose
+    /// texts LaTeX typesets ([`PsOutput::Psfrag`]).
     ///
     /// # Errors
     ///
-    /// When a font met while drawing could not be embedded, or with
-    /// [`PsOptions::usetex`] (matplotlib's `_print_figure_tex`, which needs
-    /// `psfrag`, `dvips` and Ghostscript).
-    pub fn finish(self) -> Result<String, VectorError> {
+    /// When a font met while drawing could not be embedded, or TeX could
+    /// not measure a usetex text.
+    pub fn finish(self) -> Result<PsOutput, VectorError> {
         if self.options.usetex {
-            return Err(TexError::PostScriptOutput.into());
+            self.psfrag_figure().map(PsOutput::Psfrag)
+        } else {
+            self.write_document().map(PsOutput::Document)
         }
-        self.write_document()
     }
 
-    /// The document of [`finish`](Self::finish).
-    fn write_document(mut self) -> Result<String, VectorError> {
+    /// The `%%Title`, `%%Creator` and `%%CreationDate` comments of the
+    /// metadata, one per line (matplotlib's `dsc_comments`).
+    fn dsc_comments(&self) -> String {
+        let metadata = &self.options.metadata;
+        let mut comments = String::new();
+        if let Some(title) = &metadata.title {
+            let ascii: String = title
+                .chars()
+                .map(|c| if c.is_ascii() { c } else { '?' })
+                .collect();
+            let _ = writeln!(comments, "%%Title: {ascii}");
+        }
+        if let Some(creator) = &metadata.creator {
+            let _ = writeln!(comments, "%%Creator: {creator}");
+        }
+        if let Some(date) = metadata.date {
+            let _ = writeln!(comments, "%%CreationDate: {}", date.ctime());
+        }
+        comments
+    }
+
+    /// The document of [`finish`](Self::finish) without usetex.
+    fn write_document(mut self) -> Result<PsDocument, VectorError> {
         let (width, height) = (self.width, self.height);
         let (paper_width, paper_height) = match (self.options.eps, self.options.paper) {
             (false, Paper::Named { width, height, .. }) => match self.options.orientation {
@@ -207,32 +261,13 @@ impl PsRenderer {
             out.push_str("%%Pages: 1\n");
         }
         out.push_str("%%LanguageLevel: 3\n");
-        let metadata = &self.options.metadata;
-        let ascii = |text: &str| -> String {
-            text.chars()
-                .map(|c| if c.is_ascii() { c } else { '?' })
-                .collect()
-        };
-        if let Some(title) = &metadata.title {
-            let _ = writeln!(out, "%%Title: {}", ascii(title));
-        }
-        if let Some(creator) = &metadata.creator {
-            let _ = writeln!(out, "%%Creator: {creator}");
-        }
-        if let Some(date) = metadata.date {
-            let _ = writeln!(out, "%%CreationDate: {}", date.ctime());
-        }
+        out.push_str(&self.dsc_comments());
+        let bbox = Bbox::from_extents(llx, lly, urx, ury);
         let _ = writeln!(
             out,
-            "%%Orientation: {}\n\
-             %%BoundingBox: {} {} {} {}\n\
-             %%HiResBoundingBox: {llx:.6} {lly:.6} {urx:.6} {ury:.6}\n\
-             %%EndComments",
+            "%%Orientation: {}\n{}\n%%EndComments",
             self.options.orientation.name(),
-            llx.trunc() as i64,
-            lly.trunc() as i64,
-            urx.ceil() as i64,
-            ury.ceil() as i64
+            dsc::bbox_header(&bbox)
         );
         // With `ps.useafm` matplotlib embeds no font, not even the fonts
         // mathtext was drawn with.
@@ -276,7 +311,7 @@ impl PsRenderer {
         if !self.options.eps {
             out.push_str("%%EOF\n");
         }
-        self.problems.into_result(out)
+        self.problems.into_result(PsDocument { text: out, bbox })
     }
 }
 

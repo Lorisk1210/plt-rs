@@ -93,7 +93,8 @@ pub enum TexError {
     /// A program usetex needs is not installed, found before typesetting
     /// anything (the warnings of matplotlib's `checkdep_usetex`).
     NotInstalled {
-        /// What is missing (`TeX`, `LaTeX`, `dvipng`).
+        /// What is missing (`TeX`, `LaTeX`, `dvipng`, and for PostScript
+        /// output `dvips`, `ghostscript` and `the psfrag package`).
         program: String,
     },
     /// The font map gives a TeX font a PK bitmap font, which cannot be
@@ -108,10 +109,6 @@ pub enum TexError {
     /// A DVI file uses LuaTeX's native fonts, which matplotlib's `dviread`
     /// does not read either.
     LuatexNativeFonts,
-    /// PostScript output of usetex text, which needs LaTeX's `psfrag`
-    /// package, `dvips` and Ghostscript (matplotlib's `_print_figure_tex`),
-    /// programs plt-rs does not run.
-    PostScriptOutput,
 }
 
 impl TexError {
@@ -229,11 +226,6 @@ impl fmt::Display for TexError {
             Self::LuatexNativeFonts => {
                 f.write_str("DVI files with LuaTeX native fonts are not supported")
             }
-            Self::PostScriptOutput => f.write_str(
-                "PostScript output with text.usetex needs LaTeX's psfrag package, dvips and \
-                 Ghostscript (matplotlib's _print_figure_tex), which plt-rs does not run; save \
-                 as PDF, SVG or PNG instead",
-            ),
         }
     }
 }

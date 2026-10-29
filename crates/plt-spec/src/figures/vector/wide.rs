@@ -20,7 +20,8 @@ pub enum WideOutcome {
     Numeric(f64),
     /// A different structure (or no rendering), described.
     Different(String),
-    /// Not compared: the case cannot run here (it needs TeX).
+    /// Not compared: the case cannot run here (it needs TeX, or its
+    /// PostScript Ghostscript).
     Skipped(String),
 }
 
@@ -53,7 +54,7 @@ pub fn wide_outcome(
     format: VectorFormat,
     reference: &Path,
 ) -> Option<WideOutcome> {
-    if let Some(reason) = case.skip_reason() {
+    if let Some(reason) = case.vector_skip_reason(format, &[]) {
         return Some(WideOutcome::Skipped(reason));
     }
     let name = case.name.replace('/', "__");
@@ -162,7 +163,7 @@ pub fn wide_summary(results: &[WideResult]) -> String {
             outcomes.len() - skipped
         );
         if skipped > 0 {
-            let _ = write!(text, ", {skipped} skipped (needing TeX)");
+            let _ = write!(text, ", {skipped} skipped (needing TeX or Ghostscript)");
         }
         text.push('\n');
     }

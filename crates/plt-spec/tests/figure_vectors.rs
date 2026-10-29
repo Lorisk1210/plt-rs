@@ -1,8 +1,10 @@
 //! Structural comparison of plt-rs's SVG, PDF and PostScript documents
 //! with matplotlib's: the cases in `VECTOR_CASES`, the usetex cases in
-//! `TEX_VECTOR_CASES` (SVG and PDF, skipped without TeX), the font variants
-//! in `VECTOR_VARIANTS` (Type 42 fonts, SVG text as text) and the
-//! multi-page PDF of `PDF_PAGES`.
+//! `TEX_VECTOR_CASES` (skipped without TeX, their PostScript without
+//! `psfrag`, `dvips` and Ghostscript), the variants in `VECTOR_VARIANTS`
+//! (Type 42 fonts, SVG text as text, the distillers, usetex EPS and paper
+//! sizes; skipped without the programs they need) and the multi-page PDF
+//! of `PDF_PAGES`.
 //!
 //! Both documents are reduced to drawing items (see
 //! `plt_spec::figures::vector`): ids, object numbers, metadata, comments,
@@ -140,6 +142,13 @@ fn vector_variants_match_matplotlib_structurally() {
     for variant in vector::VECTOR_VARIANTS {
         let case = translated(variant.case);
         for &format in variant.formats {
+            if let Some(reason) = case.vector_skip_reason(format, variant.rc) {
+                println!(
+                    "{:<30} {:<8} {format:<4} skipped: {reason}",
+                    case.name, variant.name
+                );
+                continue;
+            }
             let rendered = vector::render_vector_with(&case, format, variant.rc);
             let golden = case.variant_path(variant.name, format);
             let stem = format!("{}.{}", case.name.replace('/', "__"), variant.name);
@@ -172,11 +181,11 @@ fn tex_documents_match_matplotlib_structurally() {
     let mut failures = Vec::new();
     for name in vector::TEX_VECTOR_CASES {
         let case = translated(name);
-        if let Some(reason) = case.skip_reason() {
-            println!("{name:<40} skipped: {reason}");
-            continue;
-        }
         for &format in vector::TEX_FORMATS {
+            if let Some(reason) = case.vector_skip_reason(format, &[]) {
+                println!("{name:<40} {format:<4} skipped: {reason}");
+                continue;
+            }
             dump(
                 &name.replace('/', "__"),
                 format,

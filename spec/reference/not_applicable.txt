@@ -113,7 +113,7 @@ test_doc.py::test_sphinx_gallery_example_header: matplotlib's documentation buil
 test_getattr.py::test_backend_getattr: module-level `__getattr__` of the Python backend modules
 test_matplotlib.py::test_configdir_uses_localappdata_on_windows: matplotlib's configuration directory on Windows
 test_matplotlib.py::test_configdir_uses_userprofile_on_windows_if_exists: matplotlib's configuration directory on Windows
-test_matplotlib.py::test_get_executable_info_timeout: `_get_executable_info`, probing external programs (LaTeX, Ghostscript) by subprocess
+test_matplotlib.py::test_get_executable_info_timeout: `_get_executable_info('inkscape')` timing out under a mocked `subprocess.check_output`; plt-rs times out `gs --version` and `pdftops -v` after 30 s too, but checks no Inkscape and has nothing to mock
 test_matplotlib.py::test_importable_with__OO: importing the Python package under `python -OO`
 test_matplotlib.py::test_importable_with_no_home: importing the Python package without a home directory
 test_matplotlib.py::test_parse_to_version_info: parsing Python package version strings

@@ -7,11 +7,13 @@ shaped with OpenType features and languages, images, clipping, hatches,
 Gouraud shading, polar axes, collections, rasterized artists and colorbars,
 plus the figures of matplotlib's own PDF, PostScript and SVG backend tests
 (``mpl_backends``).
-Some cases are saved again with other font settings (Type 42 fonts, SVG text
-as text, standard PostScript fonts), and two cases are collected into one
-multi-page PDF. The usetex cases of ``TEX_VECTOR_CASES`` are saved as SVG
-and PDF only (matplotlib's usetex PostScript needs psfrag and Ghostscript)
-and skipped where TeX is missing. plt-rs compares its own documents with
+Some cases are saved again with other settings (Type 42 fonts, SVG text as
+text, standard PostScript fonts, the PostScript distillers, usetex EPS and
+paper sizes), and two cases are collected into one multi-page PDF. The
+usetex cases of ``TEX_VECTOR_CASES`` are saved as SVG, PDF and PostScript
+and skipped where TeX is missing, their PostScript where ``dvips``,
+``psfrag`` or Ghostscript is; distilled variants are skipped where the
+distiller is missing. plt-rs compares its own documents with
 these structurally (plt-spec's ``figure_vectors`` test); keep the lists in
 sync with ``VECTOR_CASES``, ``TEX_VECTOR_CASES``, ``VECTOR_VARIANTS`` and
 ``PDF_PAGES`` there.
@@ -29,7 +31,7 @@ import pytest
 
 from spec_support import all_cases
 from spec_support.figcases import FIGURE_ROOT, VECTOR_METADATA
-from spec_support.tex import needs_usetex
+from spec_support.tex import document_skip_reason
 
 for module in sorted(pathlib.Path(__file__).parent.glob("cases_*.py")):
     importlib.import_module(f"figures.{module.stem}")
@@ -103,7 +105,7 @@ VECTOR_CASES = [
 
 FORMATS = ["svg", "pdf", "ps"]
 
-#: usetex cases, saved as SVG and PDF.
+#: usetex cases, saved as SVG, PDF and PostScript.
 TEX_VECTOR_CASES = [
     "usetex/math_display",
     "usetex/mpl_test_usetex",
@@ -112,7 +114,7 @@ TEX_VECTOR_CASES = [
     "usetex/ticks",
 ]
 
-TEX_FORMATS = ["svg", "pdf"]
+TEX_FORMATS = ["svg", "pdf", "ps"]
 
 #: Cases saved again with other settings: case, variant name (part of the
 #: golden's file name), rcParams and formats.
@@ -123,6 +125,17 @@ VECTOR_VARIANTS = [
     ("shaping/features", "afm", {"pdf.use14corefonts": True, "ps.useafm": True}, ["pdf", "ps"]),
     ("mpl_backends/multi_font", "type42", {"pdf.fonttype": 42, "ps.fonttype": 42}, ["pdf", "ps"]),
     ("mpl_backends/multi_font", "astext", {"svg.fonttype": "none"}, ["svg"]),
+    ("basic/line", "ghostscript", {"ps.usedistiller": "ghostscript"}, ["ps", "eps"]),
+    ("basic/line", "ghostscript_figure",
+     {"ps.usedistiller": "ghostscript", "ps.papersize": "figure"}, ["ps"]),
+    ("basic/line", "xpdf", {"ps.usedistiller": "xpdf"}, ["ps", "eps"]),
+    ("basic/line", "xpdf_figure", {"ps.usedistiller": "xpdf", "ps.papersize": "figure"}, ["ps"]),
+    ("vectors/text_fonts", "ghostscript", {"ps.usedistiller": "ghostscript"}, ["ps"]),
+    ("vectors/text_fonts", "xpdf", {"ps.usedistiller": "xpdf"}, ["ps"]),
+    ("images/imshow_default", "ghostscript", {"ps.usedistiller": "ghostscript"}, ["ps"]),
+    ("usetex/text_basic", "encapsulated", {}, ["eps"]),
+    ("usetex/text_basic", "figure", {"ps.papersize": "figure"}, ["ps"]),
+    ("usetex/text_basic", "a4", {"ps.papersize": "a4"}, ["ps"]),
 ]
 
 #: Cases collected, one per page, into ``vectors/pages.pdf``; a note is
@@ -147,11 +160,12 @@ def test_vector_case(name, fmt, update_goldens):
     _check(case.vector_path(fmt), case.render_vector(fmt), update_goldens)
 
 
-@needs_usetex
 @pytest.mark.parametrize("fmt", TEX_FORMATS)
 @pytest.mark.parametrize("name", TEX_VECTOR_CASES)
 def test_tex_vector_case(name, fmt, update_goldens):
     case = _BY_NAME[name]
+    if reason := document_skip_reason(case, fmt):
+        pytest.skip(reason)
     _check(case.vector_path(fmt), case.render_vector(fmt), update_goldens)
 
 
@@ -161,6 +175,8 @@ def test_tex_vector_case(name, fmt, update_goldens):
 )
 def test_vector_variant(name, variant, rc, fmt, update_goldens):
     case = _BY_NAME[name]
+    if reason := document_skip_reason(case, fmt, rc):
+        pytest.skip(reason)
     varied = dataclasses.replace(case, rc={**case.rc, **rc})
     path = FIGURE_ROOT / f"{name}.{variant}.{fmt}"
     _check(path, varied.render_vector(fmt), update_goldens)

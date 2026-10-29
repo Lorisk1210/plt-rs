@@ -1,8 +1,10 @@
 //! PostScript documents as drawing items: the header's bounding box, the
 //! page description run by a small interpreter ([`interp`]) — one item
 //! per fill, stroke, glyph, image and shading with its graphics state —
-//! and the Type 3 and Type 42 fonts of the prolog.
+//! and the Type 3 and Type 42 fonts of the prolog. Documents a distiller
+//! wrote are read as [`distilled`] documents.
 
+mod distilled;
 mod interp;
 mod lexer;
 
@@ -102,9 +104,13 @@ fn type42_item(program: &str) -> Item {
     item
 }
 
-/// The drawing items of a PostScript document.
+/// The drawing items of a PostScript document (see [`distilled`] for what
+/// a distiller wrote).
 pub(super) fn items(document: &[u8]) -> Result<Vec<Item>, String> {
     let text = std::str::from_utf8(document).map_err(|e| e.to_string())?;
+    if let Some(distiller) = distilled::distiller(text) {
+        return distilled::items(text, distiller);
+    }
     let (prolog, body) = text.split_once("%%EndProlog\n").ok_or("no %%EndProlog")?;
     let mut header = Item::new("header");
     for line in prolog.lines() {

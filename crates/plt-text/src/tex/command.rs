@@ -19,7 +19,7 @@ fn shell_quote(arg: &str) -> String {
 }
 
 /// `cbook._pformat_subprocess`: the command line, quoted.
-pub(crate) fn format_command(program: &str, args: &[&OsStr]) -> String {
+pub fn format_command(program: &str, args: &[&OsStr]) -> String {
     std::iter::once(shell_quote(program))
         .chain(args.iter().map(|arg| shell_quote(&arg.to_string_lossy())))
         .collect::<Vec<_>>()
@@ -28,7 +28,7 @@ pub(crate) fn format_command(program: &str, args: &[&OsStr]) -> String {
 
 /// Whether `program` can be run: an executable file of that name is on
 /// `PATH` (`shutil.which`).
-pub(crate) fn on_path(program: &str) -> bool {
+pub fn on_path(program: &str) -> bool {
     std::env::var_os("PATH").is_some_and(|paths| {
         std::env::split_paths(&paths).any(|dir| {
             let candidate = dir.join(program);

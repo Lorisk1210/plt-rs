@@ -8,7 +8,7 @@ use plt_text::tex::{TexError, TexFonts, TexManager, TexText};
 use plt_text::{FontHeightMetrics, TextError, TextRun, TextSource};
 
 use crate::fonts::FontProperties;
-use crate::rc::RcParams;
+use crate::rc::{Distiller, RcParams};
 
 /// The TeX typesetter of the rcParams `rc`: the fonts of `font.family`
 /// and the family lists, `text.latex.preamble`, `text.latex.engine`,
@@ -17,7 +17,7 @@ use crate::rc::RcParams;
 /// # Errors
 ///
 /// When there is no usable cache directory.
-pub(crate) fn tex_manager(rc: &RcParams) -> Result<TexManager, TextError> {
+pub(crate) fn tex_manager(rc: &RcParams) -> Result<TexManager, TexError> {
     let cache_dir = crate::config::cache_dir().map_err(|err| TexError::Io {
         path: "the cache directory".to_owned(),
         message: err.to_string(),
@@ -39,13 +39,37 @@ pub(crate) fn tex_manager(rc: &RcParams) -> Result<TexManager, TextError> {
 
 /// Whether TeX text can be drawn here: `tex`, `latex` and `dvipng` are
 /// installed (matplotlib's test suite checks the same, and Ghostscript,
-/// before running its usetex tests).
+/// before running its usetex tests; see [`check_usetex_postscript`]).
 ///
 /// # Errors
 ///
 /// Which program is missing.
 pub fn check_usetex() -> Result<(), TexError> {
     TexManager::check_installation()
+}
+
+/// Whether TeX text can be saved as PostScript here: TeX
+/// ([`check_usetex`]), `dvips`, LaTeX's `psfrag` package (found as
+/// `matplotlib.testing._has_tex_package` finds it) and Ghostscript
+/// (matplotlib's `_checkdep_usetex` warns "usetex mode requires
+/// ghostscript.").
+///
+/// # Errors
+///
+/// What is missing.
+pub fn check_usetex_postscript() -> Result<(), TexError> {
+    check_usetex()?;
+    let missing = |program: &str| TexError::NotInstalled {
+        program: program.to_owned(),
+    };
+    if !plt_text::tex::on_path("dvips") {
+        return Err(missing("dvips"));
+    }
+    let rc = crate::rc::params();
+    if tex_manager(&rc)?.files().find("psfrag.sty").is_err() {
+        return Err(missing("the psfrag package"));
+    }
+    crate::figure::check_distiller(Distiller::Ghostscript).map_err(|_| missing("ghostscript"))
 }
 
 /// A line as TeX receives it (`Text._preprocess_math` with usetex): a

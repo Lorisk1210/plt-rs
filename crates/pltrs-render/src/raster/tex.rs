@@ -11,8 +11,9 @@ use pltrs_text::Hinting;
 use pltrs_text::tex::{TexEngine, TexError, TexGlyph, TexHinting, TexText};
 
 use super::RasterRenderer;
+use super::bitmap::GlyphShape;
 use super::glyph::GlyphTransform;
-use super::text::{GlyphShape, pen_position, text_contexts, within_reach};
+use super::text::{pen_position, text_contexts, within_reach};
 use crate::gc::GraphicsContext;
 use crate::renderer::text_placement;
 

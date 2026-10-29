@@ -39,6 +39,32 @@ pub fn is_math_text(text: &str) -> bool {
     dollars > 0 && dollars.is_multiple_of(2)
 }
 
+/// matplotlib's `get_unicode_index`: the code point of a single character,
+/// or of a TeX symbol name (with or without its backslash); `None` for
+/// names mathtext does not know.
+///
+/// ```
+/// use pltrs_text::mathtext::unicode_index;
+/// assert_eq!(unicode_index("a"), Some(0x61));
+/// assert_eq!(unicode_index(r"\alpha"), Some(0x3B1));
+/// assert_eq!(unicode_index(r"\foo"), None);
+/// ```
+pub fn unicode_index(symbol: &str) -> Option<u32> {
+    data::unicode_index(symbol)
+}
+
+/// matplotlib's `Parser._accent_map`: each narrow accent command (without
+/// its backslash) and the symbol it draws, sorted by command.
+pub fn accent_map() -> &'static [(&'static str, &'static str)] {
+    data::accent_map()
+}
+
+/// matplotlib's `Parser._wide_accents`: the accents that stretch over
+/// their body, sorted.
+pub fn wide_accents() -> &'static [&'static str] {
+    data::wide_accents()
+}
+
 /// Lays out mathtext with the shared [`TextEngine`]; see
 /// [`TextEngine::layout_math`].
 pub fn layout(source: &str, style: &MathStyle) -> Result<TextRun, TextError> {

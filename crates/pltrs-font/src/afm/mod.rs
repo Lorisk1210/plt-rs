@@ -20,7 +20,7 @@ mod metrics;
 mod names;
 mod parse;
 
-pub use bundled::bundled_metrics;
+pub use bundled::{bundled_afm_files, bundled_metrics};
 pub use error::{AfmError, AfmSection};
 pub use metrics::{AfmMetrics, CharMetrics, CompositePart, StrBbox};
 pub use names::type1_name;

@@ -117,8 +117,62 @@ fn guess_weight(face: &Face<'_>) -> u16 {
         .unwrap_or(if face.style_flags().bold { 700 } else { 500 })
 }
 
+/// What matplotlib's `ttfFontProperty` reads from a face.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct FaceStyle {
+    /// The FreeType family name.
+    pub name: String,
+    /// Slant.
+    pub style: FontStyle,
+    /// Variant.
+    pub variant: FontVariant,
+    /// Weight (100–1000), guessed as fontconfig does.
+    pub weight: u16,
+    /// Stretch.
+    pub stretch: Stretch,
+}
+
 /// Builds the primary and alternative catalogue entries of `face`.
 pub(crate) fn entries_for_face(face: &Face<'_>, font: FontId) -> Vec<FontEntry> {
+    let FaceStyle {
+        name,
+        style,
+        variant,
+        weight,
+        stretch,
+    } = face_style(face);
+    let primary = FontEntry {
+        font,
+        name,
+        style,
+        variant,
+        weight,
+        stretch,
+    };
+    let alternatives =
+        alternative_family_names(&primary.name, |key, name_id| face.name_string(key, name_id));
+    std::iter::once(primary.clone())
+        .chain(alternatives.into_iter().map(|(name, weight)| FontEntry {
+            name,
+            weight,
+            ..primary.clone()
+        }))
+        .collect()
+}
+
+/// The family name, style, variant, weight and stretch of `face`, read
+/// exactly as matplotlib's `ttfFontProperty` reads them.
+///
+/// ```
+/// use pltrs_font::{Face, FontStyle, Stretch, bundled_font_data, face_style};
+/// let data = bundled_font_data("DejaVuSans-BoldOblique.ttf").expect("bundled");
+/// let style = face_style(&Face::parse(data, 0)?);
+/// assert_eq!(style.name, "DejaVu Sans");
+/// assert_eq!((style.style, style.weight), (FontStyle::Oblique, 700));
+/// assert_eq!(style.stretch, Stretch::NORMAL);
+/// # Ok::<(), pltrs_font::FontError>(())
+/// ```
+pub fn face_style(face: &Face<'_>) -> FaceStyle {
     let name = face.family_name().unwrap_or_default();
     let full_name = sfnt_lower(face, id::FULL_NAME);
     let subfamily = sfnt_lower(face, id::SUBFAMILY);
@@ -152,24 +206,13 @@ pub(crate) fn entries_for_face(face: &Face<'_>, font: FontId) -> Vec<FontEntry> 
     } else {
         Stretch::NORMAL
     };
-    let primary = FontEntry {
-        font,
+    FaceStyle {
         name,
         style,
         variant,
         weight: guess_weight(face),
         stretch,
-    };
-
-    let alternatives =
-        alternative_family_names(&primary.name, |key, name_id| face.name_string(key, name_id));
-    std::iter::once(primary.clone())
-        .chain(alternatives.into_iter().map(|(name, weight)| FontEntry {
-            name,
-            weight,
-            ..primary.clone()
-        }))
-        .collect()
+    }
 }
 
 /// The other family names a face advertises, each with the weight of its

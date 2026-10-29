@@ -15,12 +15,13 @@
 //! matplotlib does.
 
 use pltrs_core::{Affine2D, Path, Point};
-use pltrs_font::ScanOutline;
-use pltrs_raster::CoverageRounding;
+
+use pltrs_raster::{Clip, CoverageRounding, GrayBitmap};
 use pltrs_text::{Hinting, TextEngine, TextRun};
 
 use super::RasterRenderer;
-use super::glyph::{GlyphTransform, freetype_polygon, is_axis_aligned};
+use super::bitmap::{GlyphShape, smooth_bitmap};
+use super::glyph::{GlyphTransform, is_axis_aligned};
 use super::mono;
 use crate::gc::{Dashes, GraphicsContext, SnapMode};
 use crate::renderer::Renderer;
@@ -61,15 +62,6 @@ fn touches_canvas(pen: Point, reach: f64, (width, height): (f64, f64)) -> bool {
         && pen.x - reach <= width
         && pen.y + reach >= 0.0
         && pen.y - reach <= height
-}
-
-/// A glyph's outline as `FreeType` hands it to a rasterizer: the smooth
-/// one (in pixels relative to the pen) or the monochrome one.
-pub(super) enum GlyphShape {
-    /// For anti-aliased text.
-    Smooth(Path),
-    /// For text without anti-aliasing.
-    Mono(ScanOutline),
 }
 
 /// The graphics contexts text is drawn with: rules with a fresh,
@@ -161,24 +153,54 @@ impl RasterRenderer {
         transform: &GlyphTransform,
         pen: Point,
     ) {
-        let polygon = match shape {
+        match shape {
             GlyphShape::Smooth(outline) => {
                 match outline_reach(outline) {
                     Some(reach)
                         if reach <= MAX_GLYPH_REACH && touches_canvas(pen, reach, self.size) => {}
                     _ => return,
                 }
-                freetype_polygon(outline, transform)
+                match smooth_bitmap(outline, transform) {
+                    Ok(Some(bitmap)) => self.blit_bitmap(glyph_gc, &bitmap),
+                    Ok(None) => {}
+                    Err(err) => self.record(Err(err)),
+                }
             }
             GlyphShape::Mono(outline) => {
                 let Some(bitmap) = mono::render(outline, transform) else {
                     return;
                 };
-                bitmap.to_path()
+                let color = glyph_gc.stroke_color();
+                self.draw_path(
+                    glyph_gc,
+                    &bitmap.to_path(),
+                    &Affine2D::IDENTITY,
+                    Some(color),
+                );
             }
-        };
+        }
+    }
+
+    /// `draw_text_image` at angle 0: blends a glyph's coverage in the
+    /// colour of `glyph_gc`, clipped to its clip rectangle only.
+    fn blit_bitmap(&mut self, glyph_gc: &GraphicsContext, bitmap: &GrayBitmap) {
         let color = glyph_gc.stroke_color();
-        self.draw_path(glyph_gc, &polygon, &Affine2D::IDENTITY, Some(color));
+        let clip = Clip::rect(self.clip_box(glyph_gc).unwrap_or_else(|| self.full_box()));
+        let Some(top) = i32::try_from(self.height())
+            .ok()
+            .and_then(|height| height.checked_sub(bitmap.top))
+        else {
+            return;
+        };
+        let result = pltrs_raster::draw_coverage(
+            &mut self.pixmap,
+            &bitmap.coverage,
+            bitmap.left,
+            top,
+            color,
+            &clip,
+        );
+        self.record(result);
     }
 
     /// Draws rules `(x, y, width, height)` placed by `placement` as

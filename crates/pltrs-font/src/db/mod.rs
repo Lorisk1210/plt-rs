@@ -12,7 +12,7 @@ mod system;
 mod type1;
 
 pub use afm::{AfmDirectory, AfmFont};
-pub use entry::{FontEntry, FontId, alternative_family_names};
+pub use entry::{FaceStyle, FontEntry, FontId, alternative_family_names, face_style};
 pub use query::{
     FontQuery, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
 };
@@ -48,6 +48,20 @@ pub fn bundled_font_data(file_name: &str) -> Option<&'static [u8]> {
 /// ```
 pub fn bundled_font_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
     BUNDLED_FONTS.iter().copied()
+}
+
+/// The bundled font `path` stands for: a bare bundled file name, or a
+/// file holding exactly a bundled font's bytes under its name (one
+/// written out of the binary).
+fn bundled_name_of(path: &Path) -> Option<&'static str> {
+    let name = path.file_name()?.to_str()?;
+    let &(bundled, data) = BUNDLED_FONTS.iter().find(|(file, _)| *file == name)?;
+    let bare = path.parent().is_none_or(|dir| dir.as_os_str().is_empty());
+    let same = || {
+        fs::metadata(path).is_ok_and(|meta| meta.len() == data.len() as u64)
+            && fs::read(path).is_ok_and(|bytes| bytes == data)
+    };
+    (bare || same()).then_some(bundled)
 }
 
 /// Where a face's bytes come from.
@@ -193,8 +207,7 @@ impl FontDatabase {
     /// bundled font, which has no path on disk.
     pub fn file_faces(&self, path: impl AsRef<Path>) -> Result<Vec<FontId>> {
         let path = path.as_ref();
-        let bare = path.parent().is_none_or(|dir| dir.as_os_str().is_empty());
-        if let Some(name) = path.to_str().filter(|_| bare) {
+        if let Some(name) = bundled_name_of(path) {
             let bundled = self
                 .faces_where(|source| matches!(source, FontSource::Bundled(file) if *file == name));
             if !bundled.is_empty() {

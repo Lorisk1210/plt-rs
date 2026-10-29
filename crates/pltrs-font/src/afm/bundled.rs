@@ -71,6 +71,12 @@ const BUNDLED_AFM: [(&str, &[u8]); 14] = [
 /// The parsed metrics of every bundled file, filled in on first use.
 static PARSED: [OnceLock<Result<AfmMetrics, AfmError>>; 14] = [const { OnceLock::new() }; 14];
 
+/// The file name and contents of every bundled AFM file (for writing them
+/// out where a file path is needed).
+pub fn bundled_afm_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
+    BUNDLED_AFM.iter().copied()
+}
+
 /// The metrics of the bundled AFM file `file`.
 ///
 /// # Errors

@@ -63,6 +63,42 @@ type PropsTuple = (
     (String, Option<PathBuf>),
 );
 
+/// Font properties crossing as the tuple `FontManager._props` makes of a
+/// Python `FontProperties` (see the module documentation), both ways.
+pub(super) struct FontProps(pub(super) FontProperties);
+
+impl FromPy<'_> for FontProps {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        properties(object.extract()?).map(Self)
+    }
+}
+
+/// A weight or stretch as the keyword it was given as, else its number.
+fn scale_value<'py>(py: Python<'py>, name: Option<&str>, value: u16) -> PyResult<Bound<'py>> {
+    match name {
+        Some(name) => name.into_py(py),
+        None => i64::from(value).into_py(py),
+    }
+}
+
+impl IntoPy for FontProps {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        let props = self.0;
+        let file = props.file.map(|file| file.display().to_string());
+        (
+            props.families,
+            (props.style.name(), props.variant.name()),
+            (
+                scale_value(py, props.weight.name(), props.weight.value())?,
+                scale_value(py, props.stretch.name(), props.stretch.value())?,
+                props.size,
+            ),
+            (props.math_fontfamily.name(), file),
+        )
+            .into_py(py)
+    }
+}
+
 /// The font properties a tuple describes.
 fn properties(
     (families, (style, variant), (weight_spec, stretch_spec, size), (math, file)): PropsTuple,
@@ -167,9 +203,9 @@ fn score_weight(wanted: Scale, actual: Scale) -> PyResult<f64> {
 /// `parse_fontconfig_pattern(pattern)`: the pattern's properties, each
 /// with its values, in order.
 fn parse_pattern(pattern: String) -> PyResult<Vec<(String, Vec<String>)>> {
-    let parsed = FontconfigPattern::parse(&pattern).map_err(|err| {
-        PyErr::value_error(format!("Could not parse font string: {pattern:?}\n{err}"))
-    })?;
+    // matplotlib raises pyparsing's explanation of the failure.
+    let parsed = FontconfigPattern::try_parse(&pattern)
+        .map_err(|err| PyErr::value_error(format!("\n{}", err.explanation())))?;
     Ok(parsed.properties().to_vec())
 }
 
@@ -183,8 +219,50 @@ fn escape_value(value: String) -> PyResult<String> {
     Ok(pltrs_text::fontconfig::escape_value(&value))
 }
 
+/// `_get_font_alt_names(font, primary)` over a face's decoded name
+/// records `((platform, encoding, language, name id), string)`: the other
+/// family names it advertises, each with the weight of its subfamily.
+fn alternative_family_names(
+    primary: String,
+    records: Vec<((u16, u16, u16, u16), String)>,
+) -> PyResult<Vec<(String, u16)>> {
+    Ok(pltrs_font::alternative_family_names(
+        &primary,
+        |key, name_id| {
+            records
+                .iter()
+                .find(|((platform, encoding, language, id), _)| {
+                    (*platform, *encoding, *language, *id)
+                        == (key.platform_id, key.encoding_id, key.language_id, name_id)
+                })
+                .map(|(_, name)| name.clone())
+        },
+    ))
+}
+
+/// The Adobe glyph name of the character `c` (`uniXXXX` when it has none),
+/// as AFM metrics name glyphs (matplotlib's `uni2type1` lookups).
+fn type1_name(c: String) -> PyResult<String> {
+    let mut chars = c.chars();
+    match (chars.next(), chars.next()) {
+        (Some(c), None) => Ok(pltrs_font::type1_name(c).into_owned()),
+        _ => Err(PyErr::type_error("type1_name() expects a single character")),
+    }
+}
+
+/// matplotlib's `get_data_path`: the data directory holding the fonts
+/// pltrs bundles as files.
+fn data_path() -> PyResult<String> {
+    pltrs::config::data_dir()
+        .map(|dir| dir.display().to_string())
+        .map_err(|err| PyErr::runtime_error(err.to_string()))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("data_path", data_path)?;
+    module.add("type1_name", type1_name)?;
+    module.add("alternative_family_names", alternative_family_names)?;
     module.add("find_font", find_font)?;
     module.add("find_fonts", find_fonts)?;
     module.add("font_list", font_list)?;

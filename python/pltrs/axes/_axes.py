@@ -20,6 +20,7 @@ from ..lines import Line2D
 from ..patches import Rectangle
 from ..text import Text
 from ._imaging import ImagingMixin
+from .._text_methods import AxesText
 
 
 def _floats(values):
@@ -51,7 +52,7 @@ def _plot_groups(args):
         yield x, y, fmt
 
 
-class Axes(ImagingMixin, Artist):
+class Axes(ImagingMixin, AxesText, Artist):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot
     in a figure.

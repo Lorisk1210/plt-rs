@@ -49,6 +49,10 @@ pub(crate) enum Midpoint {
     Exact,
     /// C integer division `(a + b) / 2`, for FreeType 26.6 outlines.
     Truncated,
+    /// `(a + b) / 2` rounded down: how FreeType's rasterizers see the
+    /// midpoints of a 26.6 outline, which they decompose after moving it
+    /// into their bitmap, where every coordinate is non-negative.
+    Floored,
 }
 
 impl Midpoint {
@@ -56,6 +60,7 @@ impl Midpoint {
         match self {
             Self::Exact => f64::midpoint(a, b),
             Self::Truncated => f64::midpoint(a, b).trunc(),
+            Self::Floored => f64::midpoint(a, b).floor(),
         }
     }
 }

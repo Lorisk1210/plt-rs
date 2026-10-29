@@ -2415,3 +2415,13 @@ def _auto_format_str(fmt, value):
         return fmt % (value,)
     except (TypeError, ValueError):
         return fmt.format(value)
+
+
+def _get_data_path(*args):
+    """
+    Return the `pathlib.Path` to a resource file provided by Matplotlib.
+
+    ``*args`` specify a path relative to the base data path.
+    """
+    from . import get_data_path
+    return Path(get_data_path(), *args)

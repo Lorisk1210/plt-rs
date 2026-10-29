@@ -74,8 +74,7 @@ pub use pltrs_text::{
     BlockLayout, Feature, HAlign, Hinting, Language, LanguageRange, LanguageTag, LineMetrics,
     LinePlacement, LineSpacing, ParseFeatureError, RotationMode, TextError, VAlign,
 };
-pub(crate) use tex::tex_manager;
-pub use tex::{check_usetex, check_usetex_postscript};
+pub use tex::{check_usetex, check_usetex_postscript, tex_manager};
 pub(crate) use text_box::BoxPlacement;
 pub use text_box::{TextBoxPatch, TextBoxProps};
 

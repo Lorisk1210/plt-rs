@@ -16,9 +16,10 @@ from .artist import Artist
 from .axes import Axes
 from .backend_bases import FigureCanvasBase, NonGuiException
 from .text import Text
+from ._text_methods import FigureText
 
 
-class Figure(Artist):
+class Figure(FigureText, Artist):
     """
     The top level container for all the plot elements.
 

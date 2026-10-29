@@ -60,7 +60,9 @@ pub use ps::{
     PsfragFigure, pstoeps,
 };
 pub use quad_mesh::QuadMesh;
-pub use raster::{RasterBackendError, RasterRenderer};
+pub use raster::{
+    GlyphBitmap, GlyphShape, RasterBackendError, RasterRenderer, glyph_axis_aligned, render_glyph,
+};
 pub use renderer::Renderer;
 pub use svg::{ImageFile, SvgFontType, SvgOptions, SvgRenderer, UnknownSvgFontType};
 pub use vector::{

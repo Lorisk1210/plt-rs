@@ -28,6 +28,14 @@ name = "plt-core"
 version = "0.1.0"
 
 [[package]]
+name = "plt-examples"
+version = "0.1.0"
+dependencies = [
+ "plt",
+ "plt-core",
+]
+
+[[package]]
 name = "plt-font"
 version = "0.1.0"
 dependencies = [

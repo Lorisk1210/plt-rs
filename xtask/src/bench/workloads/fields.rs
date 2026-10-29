@@ -15,15 +15,23 @@ use super::{Build, Workload, smooth_field};
 
 /// The workloads of this module.
 pub(super) const WORKLOADS: &[Workload] = &[
-    Workload::new("fields/contour_1000", || contours(false)),
-    Workload::new("fields/contourf_1000", || contours(true)),
-    Workload::new("fields/contourf_labels_1000", contourf_labels),
-    Workload::new("fields/streamplot_100", streamplot),
-    Workload::new("fields/quiver_100", quiver),
-    Workload::new("fields/tricontourf_1e5", tricontourf),
-    Workload::new("3d/plot_surface_200", plot_surface),
-    Workload::new("3d/plot_surface_200_full", plot_surface_full),
-    Workload::new("3d/scatter_1e4", scatter_3d),
+    Workload::new("fields/contour_1000", "contour_1000", || contours(false)),
+    Workload::new("fields/contourf_1000", "contourf_1000", || contours(true)),
+    Workload::new(
+        "fields/contourf_labels_1000",
+        "contourf_labels_1000",
+        contourf_labels,
+    ),
+    Workload::new("fields/streamplot_100", "streamplot_100", streamplot),
+    Workload::new("fields/quiver_100", "quiver_100", quiver),
+    Workload::new("fields/tricontourf_1e5", "tricontourf_1e5", tricontourf),
+    Workload::new("3d/plot_surface_200", "surface_200", plot_surface),
+    Workload::new(
+        "3d/plot_surface_200_full",
+        "surface_200_full",
+        plot_surface_full,
+    ),
+    Workload::new("3d/scatter_1e4", "scatter3d_1e4", scatter_3d),
 ];
 
 /// `contour` (or `contourf`) of a smooth 1000 × 1000 field at 20 levels.

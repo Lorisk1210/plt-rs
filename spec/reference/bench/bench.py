@@ -1,461 +1,207 @@
-"""Time the benchmark workloads of ``cargo xtask bench`` in matplotlib.
+"""The Python side of ``cargo xtask bench``: times the scripts of
+``benchmarks/python`` in matplotlib or pltrs (whichever the interpreter
+and its scripts directory import), renders them for the pixel
+comparison, and times fresh processes.
 
-    .venv/bin/python spec/reference/bench/bench.py [--runs N] NAME ...
+    bench.py warm SCRIPT [--format FMT | --layout] [--option KEY=VALUE]...
+                         [--min-runs N] [--min-seconds S] [--max-runs N]
+    bench.py png SCRIPT OUT [--option KEY=VALUE]...
+    bench.py cold SPEC
+    bench.py versions
 
-Each workload mirrors the plt-rs one of the same name in
-``xtask/src/bench/workloads``: the same data (``spec_support``'s SplitMix64
-stream, vectorised here so that making ten million samples stays quick),
-the same figure, saved to memory at 100 dpi under the reference
-configuration (or only laid out, for workloads without a format). The
-data is made before the clock starts. One line per workload is printed:
-its name, a tab, and its median time in milliseconds.
+``warm`` imports the script (its imports and data, untimed), draws and
+saves its figure once to warm up, then times drawing, saving to memory and
+closing the figure until it has run ``--min-runs`` times and for
+``--min-seconds``, but at most ``--max-runs`` times; the garbage collector
+runs before each run, outside the clock. It prints ``times`` followed by
+the seconds of each run, or ``unsupported`` followed by the exception the
+script raised (pltrs lacking a feature), tab-separated.
+
+``png`` saves the script's figure as a PNG file for the pixel comparison,
+with the same ``savefig`` options; it prints ``ok`` or ``unsupported``.
+
+``cold`` runs commands in fresh processes. SPEC is JSON: ``{"min_runs":
+N, "min_seconds": S, "max_runs": N, "commands": [{"label": L, "argv":
+[...], "env": {...}, "stderr": PATH}]}``. The commands take turns, round
+after round, until each has run as the counts ask; each run is timed from
+``posix_spawn`` to the child's exit, and ``wait4`` reports its peak
+resident memory. One line per run: label, seconds, peak memory in KiB and
+exit code, tab-separated.
+
+``versions`` prints the interpreter's Python, numpy and (where installed)
+matplotlib versions, and today's date.
 """
 
-from __future__ import annotations
-
 import argparse
+import datetime
 import gc
+import importlib.util
 import io
-import math
+import json
+import os
 import pathlib
-import statistics
+import platform
 import sys
 import time
-from typing import Callable, NamedTuple
 
-import numpy as np
 
-REFERENCE = pathlib.Path(__file__).resolve().parent.parent
-DPI = 100
-
-Build = Callable[["matplotlib.figure.Figure"], object]
-
-
-class FastRng:
-    """``spec_support.SpecRng``'s stream, drawn with numpy in bulk."""
-
-    _GOLDEN = np.uint64(0x9E3779B97F4A7C15)
-
-    def __init__(self, seed: int) -> None:
-        self._seed = np.uint64(seed)
-        self._drawn = 0
-
-    def _next_f64(self, n: int) -> np.ndarray:
-        k = np.arange(self._drawn + 1, self._drawn + n + 1, dtype=np.uint64)
-        self._drawn += n
-        z = self._seed + k * self._GOLDEN
-        z = (z ^ (z >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
-        z = (z ^ (z >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
-        z ^= z >> np.uint64(31)
-        return (z >> np.uint64(11)).astype(np.float64) * (1.0 / (1 << 53))
-
-    def uniform(self, n: int, low: float, high: float) -> np.ndarray:
-        return low + (high - low) * self._next_f64(n)
-
-    def normal(self, n: int, loc: float, scale: float) -> np.ndarray:
-        """Box–Muller, two uniforms per sample, as ``SpecRng.normal``."""
-        u = self._next_f64(2 * n)
-        u1, u2 = 1.0 - u[0::2], u[1::2]
-        return loc + scale * np.sqrt(-2.0 * np.log(u1)) * np.cos(2.0 * math.pi * u2)
-
-
-def random_walk(n: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
-    return np.arange(n, dtype=float), np.cumsum(FastRng(seed).normal(n, 0.0, 1.0))
-
-
-def smooth_field(n: int) -> np.ndarray:
-    t = np.linspace(-10.0, 10.0, n)
-    return np.sin(t)[None, :] * np.cos(t)[:, None] + t[None, :] / 10.0
-
-
-def correlated_normals(seed: int) -> tuple[np.ndarray, np.ndarray]:
-    rng = FastRng(seed)
-    x = rng.normal(1_000_000, 0.0, 1.0)
-    return x, 0.5 * x + rng.normal(1_000_000, 0.0, 1.0)
-
-
-def normal_groups(groups: int, seed: int) -> list[np.ndarray]:
-    rng = FastRng(seed)
-    return [rng.normal(1000, g / 10.0, 1.0 + g / 100.0) for g in range(groups)]
-
-
-def swirl(n: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    t = np.linspace(-3.0, 3.0, n)
-    x, y = np.meshgrid(t, t)
-    return t, -1.0 - x * x + y, 1.0 + x - y * y
-
-
-def walk_1e6() -> Build:
-    x, y = random_walk(1_000_000, 1)
-    return lambda fig: fig.subplots().plot(x, y)
-
-
-def many_lines() -> Build:
-    x = np.linspace(0.0, 10.0, 1000)
-    waves = [np.sin(x * (1.0 + k / 1000.0)) + k / 100.0 for k in range(1000)]
-
-    def build(fig):
-        ax = fig.subplots()
-        for wave in waves:
-            ax.plot(x, wave)
-
-    return build
-
-
-def dashed() -> Build:
-    x, y = random_walk(100_000, 2)
-    return lambda fig: fig.subplots().plot(x, y, "--")
-
-
-def markevery() -> Build:
-    x, y = random_walk(100_000, 3)
-    return lambda fig: fig.subplots().plot(x, y, "-o", markevery=100)
-
-
-def fill_between() -> Build:
-    x, y = random_walk(100_000, 14)
-    return lambda fig: fig.subplots().fill_between(x, y, 0.0)
-
-
-def stackplot() -> Build:
-    x = np.linspace(0.0, 100.0, 100_000)
-    layers = [1.5 + np.sin(x * (k + 1) / 7.0 + k) for k in range(5)]
-    return lambda fig: fig.subplots().stackplot(x, layers)
-
-
-def scatter() -> Build:
-    rng = FastRng(4)
-    x, y = rng.uniform(100_000, 0.0, 1.0), rng.uniform(100_000, 0.0, 1.0)
-    sizes, values = rng.uniform(100_000, 5.0, 50.0), rng.uniform(100_000, 0.0, 1.0)
-    return lambda fig: fig.subplots().scatter(x, y, s=sizes, c=values)
-
-
-def plot_markers() -> Build:
-    rng = FastRng(5)
-    x, y = rng.uniform(100_000, 0.0, 1.0), rng.uniform(100_000, 0.0, 1.0)
-    return lambda fig: fig.subplots().plot(x, y, "o")
-
-
-def pcolormesh() -> Build:
-    z = smooth_field(1000)
-    return lambda fig: fig.subplots().pcolormesh(z)
-
-
-def imshow(interpolation: str) -> Callable[[], Build]:
-    def setup() -> Build:
-        z = smooth_field(4000)
-        return lambda fig: fig.subplots().imshow(z, interpolation=interpolation)
-
-    return setup
-
-
-def imshow_colorbar() -> Build:
-    z = smooth_field(2000)
-    return lambda fig: fig.colorbar(fig.subplots().imshow(z, interpolation="bicubic"))
-
-
-def hexbin() -> Build:
-    x, y = correlated_normals(6)
-    return lambda fig: fig.subplots().hexbin(x, y)
-
-
-def hist2d() -> Build:
-    x, y = correlated_normals(7)
-    return lambda fig: fig.subplots().hist2d(x, y, bins=100)
-
-
-def hist() -> Build:
-    values = FastRng(8).normal(10_000_000, 0.0, 1.0)
-    return lambda fig: fig.subplots().hist(values, bins=1000)
-
-
-def hist_auto() -> Build:
-    values = FastRng(15).normal(1_000_000, 0.0, 1.0)
-    return lambda fig: fig.subplots().hist(values, bins="auto")
-
-
-def boxplot() -> Build:
-    groups = normal_groups(100, 9)
-    return lambda fig: fig.subplots().boxplot(groups)
-
-
-def violinplot() -> Build:
-    groups = normal_groups(50, 10)
-    return lambda fig: fig.subplots().violinplot(groups)
-
-
-def contours(filled: bool) -> Callable[[], Build]:
-    def setup() -> Build:
-        z = smooth_field(1000)
-        if filled:
-            return lambda fig: fig.subplots().contourf(z, levels=20)
-        return lambda fig: fig.subplots().contour(z, levels=20)
-
-    return setup
-
-
-def contourf_labels() -> Build:
-    z = smooth_field(1000)
-
-    def build(fig):
-        ax = fig.subplots()
-        filled = ax.contourf(z, levels=20)
-        lines = ax.contour(z, levels=filled.levels, colors="k", linewidths=0.5)
-        ax.clabel(lines, fontsize=8)
-        fig.colorbar(filled)
-
-    return build
-
-
-def streamplot() -> Build:
-    t, u, v = swirl(100)
-    return lambda fig: fig.subplots().streamplot(t, t, u, v)
-
-
-def quiver() -> Build:
-    t, u, v = swirl(100)
-    x, y = np.meshgrid(t, t)
-    return lambda fig: fig.subplots().quiver(x, y, u, v)
-
-
-def tricontourf() -> Build:
-    rng = FastRng(11)
-    x, y = rng.uniform(100_000, -3.0, 3.0), rng.uniform(100_000, -3.0, 3.0)
-    z = np.exp(-x * x - y * y) + 0.3 * np.sin(2.0 * x)
-    return lambda fig: fig.subplots().tricontourf(x, y, z)
-
-
-def plot_surface() -> Build:
-    t = np.linspace(-5.0, 5.0, 200)
-    x, y = np.meshgrid(t, t)
-    z = np.sin(np.hypot(x, y))
-    return lambda fig: fig.add_subplot(projection="3d").plot_surface(x, y, z, cmap="viridis")
-
-
-def plot_surface_full() -> Build:
-    t = np.linspace(-5.0, 5.0, 200)
-    x, y = np.meshgrid(t, t)
-    z = np.sin(np.hypot(x, y))
-    return lambda fig: fig.add_subplot(projection="3d").plot_surface(
-        x, y, z, rstride=1, cstride=1, cmap="coolwarm", linewidth=0, antialiased=False)
-
-
-def scatter_3d() -> Build:
-    rng = FastRng(12)
-    x, y, z = (rng.uniform(10_000, 0.0, 1.0) for _ in range(3))
-    return lambda fig: fig.add_subplot(projection="3d").scatter(x, y, z)
-
-
-def subplots() -> Build:
-    x = np.linspace(0.0, 10.0, 100)
-
-    def build(fig):
-        for k, ax in enumerate(fig.subplots(10, 10).flat):
-            ax.plot(x, np.sin(x + k / 10.0))
-            ax.set_title(f"panel {k}")
-            ax.set_xlabel("x")
-            ax.set_ylabel("y")
-
-    return build
-
-
-def texts() -> Build:
-    def build(fig):
-        ax = fig.subplots()
-        for i in range(2000):
-            ax.text((i % 50) / 50.0, (i // 50) / 40.0, f"t{i}", fontsize=6)
-
-    return build
-
-
-def mathtext() -> Build:
-    def build(fig):
-        ax = fig.subplots()
-        for k in range(50):
-            formula = (rf"$\sum_{{n=1}}^{{{k}}} \frac{{x^{{n}}}}{{n!}} + "
-                       rf"\sqrt{{\alpha_{{{k}}}}} - \int_0^{{{k}}} \beta\,dt$")
-            ax.text((k % 5) / 5.0, (k // 5) / 10.0, formula)
-
-    return build
-
-
-def mixed_text() -> Build:
-    def build(fig):
-        ax = fig.subplots()
-        ax.set_title(r"Mixed text: $\alpha_i + \beta^2 = \gamma$")
-        ax.set_xlabel(r"time $t$ (s)")
-        ax.set_ylabel(r"response $\sigma(t)$")
-        for k in range(300):
-            x, y = (k % 15) / 15.0, (k // 15) / 20.0
-            if k % 3 == 0:
-                ax.text(x, y, f"label {k}\nsecond line", fontsize=7, rotation=k % 90)
-            elif k % 3 == 1:
-                ax.text(x, y, rf"$x_{{{k}}}^{{2}} + \frac{{\pi}}{{{k + 1}}}$", fontsize=8)
-            else:
-                ax.text(x, y, rf"value {k}: $\sqrt{{{k}}} \leq \Omega$", fontsize=7,
-                        ha="center", va="center")
-
-    return build
-
-
-def constrained() -> Build:
-    image = np.fromfunction(lambda i, j: np.sin(i * j / 40.0), (20, 20))
-
-    def build(fig):
-        fig.set_layout_engine("constrained")
-        for k, ax in enumerate(fig.subplots(6, 6).flat):
-            fig.colorbar(ax.imshow(image))
-            ax.set_title(f"image {k}")
-
-    return build
-
-
-def constrained_layout() -> Build:
-    x = np.linspace(0.0, 10.0, 50)
-
-    def build(fig):
-        fig.set_layout_engine("constrained")
-        for k, ax in enumerate(fig.subplots(8, 8).flat):
-            ax.plot(x, np.cos(x + k / 10.0))
-            ax.set_title(f"panel {k}")
-            ax.set_xlabel("x")
-            ax.set_ylabel("y")
-        fig.suptitle("64 panels in constrained layout")
-
-    return build
-
-
-def lissajous() -> Build:
-    t = np.linspace(0.0, 2.0 * math.pi, 100_000)
-    x, y = np.sin(37.0 * t), np.sin(41.0 * t + 0.5)
-    return lambda fig: fig.subplots().plot(x, y, linewidth=0.5)
-
-
-def mid_size() -> Build:
-    rng = FastRng(13)
-    x = np.linspace(0.0, 10.0, 2000)
-    scatter_x, scatter_y = rng.uniform(2000, 0.0, 1.0), rng.uniform(2000, 0.0, 1.0)
-    heights = rng.uniform(30, 1.0, 10.0)
-    sample = rng.normal(10_000, 0.0, 1.0)
-
-    def build(fig):
-        axs = fig.subplots(2, 2)
-        lines = axs[0, 0]
-        for k in range(3):
-            lines.plot(x, np.sin(x + k) * np.exp(-x / 10.0), label=f"phase {k}")
-        lines.set_title("damped waves")
-        lines.set_xlabel("time")
-        lines.set_ylabel("amplitude")
-        lines.legend()
-        axs[0, 1].scatter(scatter_x, scatter_y, c=scatter_y)
-        axs[1, 0].bar(np.arange(len(heights), dtype=float), heights)
-        axs[1, 1].hist(sample, bins=50)
-        axs[1, 1].set_title(r"$\mathcal{N}(0, 1)$: $\frac{1}{\sqrt{2\pi}} e^{-x^2/2}$")
-
-    return build
-
-
-class Workload(NamedTuple):
-    setup: Callable[[], Build]
-    format: str | None = "png"  # None: laid out without drawing
-    figsize: tuple[float, float] = (6.4, 4.8)
-    bbox_inches: str | None = None
-    rc: tuple[tuple[str, object], ...] = ()  # set while building and saving
-
-
-# Every segment of a line reaches the document.
-UNSIMPLIFIED = (("path.simplify", False),)
-
-WORKLOADS = {
-    "lines/plot_1e6_png": Workload(walk_1e6),
-    "lines/plot_1e6_svg": Workload(walk_1e6, "svg"),
-    "lines/plot_1e6_pdf": Workload(walk_1e6, "pdf"),
-    "lines/1000_lines_of_1000": Workload(many_lines),
-    "lines/dashed_1e5": Workload(dashed),
-    "lines/markevery_1e5": Workload(markevery),
-    "lines/fill_between_1e5": Workload(fill_between),
-    "lines/stackplot_5x1e5": Workload(stackplot),
-    "markers/scatter_1e5": Workload(scatter),
-    "markers/plot_o_1e5": Workload(plot_markers),
-    "meshes/pcolormesh_1000": Workload(pcolormesh),
-    "meshes/imshow_4000_antialiased": Workload(imshow("antialiased")),
-    "meshes/imshow_4000_nearest": Workload(imshow("nearest")),
-    "meshes/imshow_2000_bicubic_colorbar": Workload(imshow_colorbar),
-    "meshes/hexbin_1e6": Workload(hexbin),
-    "meshes/hist2d_1e6": Workload(hist2d),
-    "stats/hist_1e7": Workload(hist),
-    "stats/hist_1e6_auto": Workload(hist_auto),
-    "stats/boxplot_100": Workload(boxplot),
-    "stats/violinplot_50": Workload(violinplot),
-    "fields/contour_1000": Workload(contours(False)),
-    "fields/contourf_1000": Workload(contours(True)),
-    "fields/contourf_labels_1000": Workload(contourf_labels),
-    "fields/streamplot_100": Workload(streamplot),
-    "fields/quiver_100": Workload(quiver),
-    "fields/tricontourf_1e5": Workload(tricontourf),
-    "3d/plot_surface_200": Workload(plot_surface),
-    "3d/plot_surface_200_full": Workload(plot_surface_full),
-    "3d/scatter_1e4": Workload(scatter_3d),
-    "text/subplots_10x10": Workload(subplots, figsize=(12.8, 9.6)),
-    "text/text_2000": Workload(texts),
-    "text/mathtext_50": Workload(mathtext),
-    "text/mixed_text_math_300": Workload(mixed_text),
-    "text/constrained_6x6_colorbars": Workload(constrained, figsize=(14.0, 12.0)),
-    "layout/constrained_8x8_no_draw": Workload(constrained_layout, None, (16.0, 12.0)),
-    "output/mid_png": Workload(mid_size),
-    "output/mid_svg": Workload(mid_size, "svg"),
-    "output/mid_pdf": Workload(mid_size, "pdf"),
-    "output/mid_ps": Workload(mid_size, "ps"),
-    "output/mid_pgf": Workload(mid_size, "pgf"),
-    "output/mid_eps": Workload(mid_size, "eps"),
-    "output/mid_png_tight": Workload(mid_size, bbox_inches="tight"),
-    "output/lissajous_1e5_svg": Workload(lissajous, "svg", rc=UNSIMPLIFIED),
-    "output/lissajous_1e5_pdf": Workload(lissajous, "pdf", rc=UNSIMPLIFIED),
-    "output/lissajous_1e5_ps": Workload(lissajous, "ps", rc=UNSIMPLIFIED),
-}
-
-
-def median_ms(workload: Workload, runs: int) -> float:
-    """The median time of ``runs`` builds and saves, in milliseconds."""
-    import matplotlib
-    from matplotlib.figure import Figure
-
-    build = workload.setup()
+def load(script):
+    """Import ``script`` as a module, with its directory (where
+    ``_common`` lives) first on the path."""
+    sys.path.insert(0, str(script.parent))
+    spec = importlib.util.spec_from_file_location(f"bench_{script.stem}", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def savefig_options(pairs):
+    """``KEY=VALUE`` pairs as ``savefig`` keywords."""
+    return dict(pair.split("=", 1) for pair in pairs)
+
+
+def attempt(action):
+    """Run ``action``; print ``unsupported`` and the exception, and return
+    False, if it raises."""
+    try:
+        action()
+    except Exception as err:  # noqa: BLE001  (any failure means unsupported)
+        message = " ".join(f"{type(err).__name__}: {err}".split())
+        print(f"unsupported\t{message}", flush=True)
+        return False
+    return True
+
+
+def warm(args):
+    """The ``warm`` subcommand."""
+    script = pathlib.Path(args.script)
+    state = {}
+
+    def prepare():
+        state["module"] = load(script)
+        from _common import finish
+
+        state["finish"] = finish
+
+    if not attempt(prepare):
+        return
+    module, finish = state["module"], state["finish"]
+    options = savefig_options(args.option)
+    if args.format is not None:
+        options["format"] = args.format
+
+    def once():
+        fig = module.draw()
+        finish(fig, None if args.layout else io.BytesIO(), options)
+        module.plt.close(fig)
+
+    if not attempt(once):
+        return
     times = []
-    for _ in range(runs):
+    while len(times) < args.max_runs and (
+            len(times) < args.min_runs or sum(times) < args.min_seconds):
         gc.collect()
         start = time.perf_counter()
-        with matplotlib.rc_context(dict(workload.rc)):
-            fig = Figure(figsize=workload.figsize, dpi=DPI)
-            build(fig)
-            if workload.format is None:
-                fig.draw_without_rendering()
-            else:
-                fig.savefig(io.BytesIO(), format=workload.format, dpi=DPI,
-                            bbox_inches=workload.bbox_inches)
+        once()
         times.append(time.perf_counter() - start)
-    return statistics.median(times) * 1e3
+    print("times\t" + "\t".join(f"{t:.9f}" for t in times), flush=True)
 
 
-def main() -> None:
+def png(args):
+    """The ``png`` subcommand."""
+    script = pathlib.Path(args.script)
+
+    def render():
+        module = load(script)
+        from _common import finish
+
+        finish(module.draw(), args.out, {**savefig_options(args.option), "format": "png"})
+
+    if attempt(render):
+        print("ok", flush=True)
+
+
+def spawn(command):
+    """Run ``command`` once in a fresh process: its seconds from spawn to
+    exit, its peak resident memory in KiB and its exit code."""
+    argv = command["argv"]
+    env = {**os.environ, **command.get("env", {})}
+    actions = [
+        (os.POSIX_SPAWN_OPEN, 0, os.devnull, os.O_RDONLY, 0),
+        (os.POSIX_SPAWN_OPEN, 1, os.devnull, os.O_WRONLY, 0),
+        (os.POSIX_SPAWN_OPEN, 2, command.get("stderr", os.devnull),
+         os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644),
+    ]
+    start = time.perf_counter()
+    pid = os.posix_spawn(argv[0], argv, env, file_actions=actions)
+    _, status, usage = os.wait4(pid, 0)
+    seconds = time.perf_counter() - start
+    return seconds, usage.ru_maxrss, os.waitstatus_to_exitcode(status)
+
+
+def cold(args):
+    """The ``cold`` subcommand."""
+    spec = json.loads(args.spec)
+    commands = spec["commands"]
+    runs = [0] * len(commands)
+    spent = [0.0] * len(commands)
+
+    def wanted(i):
+        return runs[i] < spec["max_runs"] and (
+            runs[i] < spec["min_runs"] or spent[i] < spec["min_seconds"])
+
+    while pending := [i for i in range(len(commands)) if wanted(i)]:
+        for i in pending:
+            seconds, rss, code = spawn(commands[i])
+            runs[i] += 1
+            spent[i] += seconds
+            print(f"{commands[i]['label']}\t{seconds:.9f}\t{rss}\t{code}", flush=True)
+
+
+def versions(_args):
+    """The ``versions`` subcommand."""
+    import numpy
+
+    print(f"python\t{platform.python_version()}")
+    print(f"numpy\t{numpy.__version__}")
+    try:
+        import matplotlib
+    except ImportError:
+        pass
+    else:
+        print(f"matplotlib\t{matplotlib.__version__}")
+    print(f"date\t{datetime.date.today().isoformat()}")
+
+
+def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("names", nargs="*", help="workloads to time (default: all)")
-    parser.add_argument("--runs", type=int, default=3, help="runs per workload (default: 3)")
+    commands = parser.add_subparsers(required=True)
+
+    timed = commands.add_parser("warm", help="time a script in this process")
+    timed.add_argument("script")
+    output = timed.add_mutually_exclusive_group(required=True)
+    output.add_argument("--format", help="the format saved to memory")
+    output.add_argument("--layout", action="store_true", help="lay out without drawing")
+    timed.add_argument("--option", action="append", default=[], help="a savefig KEY=VALUE")
+    timed.add_argument("--min-runs", type=int, default=5)
+    timed.add_argument("--min-seconds", type=float, default=1.0)
+    timed.add_argument("--max-runs", type=int, default=50)
+    timed.set_defaults(run=warm)
+
+    rendered = commands.add_parser("png", help="save a script's figure as PNG")
+    rendered.add_argument("script")
+    rendered.add_argument("out")
+    rendered.add_argument("--option", action="append", default=[], help="a savefig KEY=VALUE")
+    rendered.set_defaults(run=png)
+
+    spawned = commands.add_parser("cold", help="time commands in fresh processes")
+    spawned.add_argument("spec", help="what to run, as JSON")
+    spawned.set_defaults(run=cold)
+
+    commands.add_parser("versions", help="print the versions").set_defaults(run=versions)
+
     args = parser.parse_args()
-    unknown = [name for name in args.names if name not in WORKLOADS]
-    if unknown:
-        parser.error(f"unknown workloads: {', '.join(unknown)}")
-    sys.path.insert(0, str(REFERENCE))
-    import matplotlib
-
-    matplotlib.use("Agg")
-    from conftest import reference_rc
-    from figures.render_vectors import _measure_pgf_text_like_agg
-
-    reference_rc()
-    _measure_pgf_text_like_agg()
-    for name in args.names or WORKLOADS:
-        print(f"{name}\t{median_ms(WORKLOADS[name], args.runs):.3f}", flush=True)
+    args.run(args)
 
 
 if __name__ == "__main__":

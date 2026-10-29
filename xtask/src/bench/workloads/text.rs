@@ -1,4 +1,8 @@
 //! Text and layout, and one mid-size figure in every output format.
+//!
+//! The PGF document of the mid-size figure is timed in plt-rs only: to
+//! measure text, matplotlib's PGF backend runs LaTeX, which plt-rs does
+//! not, so the two do different work.
 
 use plt::axes::{BarOptions, HistPlotOptions, ImshowOptions};
 use plt::colorbar::ColorbarOptions;
@@ -12,35 +16,58 @@ use plt::text::{HAlign, VAlign};
 use plt_spec::figures::CaseResult;
 use plt_spec::rng::SpecRng;
 
-use super::{Build, Workload};
+use super::{Build, Tier, Workload};
 
 /// The workloads of this module.
 pub(super) const WORKLOADS: &[Workload] = &[
-    Workload::new("text/subplots_10x10", subplots).sized(12.8, 9.6),
-    Workload::new("text/text_2000", texts),
-    Workload::new("text/mathtext_50", mathtext),
-    Workload::new("text/mixed_text_math_300", mixed_text),
-    Workload::new("text/constrained_6x6_colorbars", constrained).sized(14.0, 12.0),
-    Workload::new("layout/constrained_8x8_no_draw", constrained_layout)
-        .sized(16.0, 12.0)
-        .layout_only(),
-    Workload::new("output/mid_png", mid_size),
-    Workload::new("output/mid_svg", mid_size).saved_as(SaveFormat::Svg),
-    Workload::new("output/mid_pdf", mid_size).saved_as(SaveFormat::Pdf),
-    Workload::new("output/mid_ps", mid_size).saved_as(SaveFormat::Ps),
-    Workload::new("output/mid_pgf", mid_size).saved_as(SaveFormat::Pgf),
-    Workload::new("output/mid_eps", mid_size).saved_as(SaveFormat::Eps),
-    Workload::new("output/mid_png_tight", mid_size).tight(),
-    Workload::new("output/lissajous_1e5_svg", lissajous)
+    Workload::new("text/subplots_10x10", "subplots_10x10", subplots).sized(12.8, 9.6),
+    Workload::new("text/text_2000", "text_2000", texts).calls(2000),
+    Workload::new("text/mathtext_50", "mathtext_50", mathtext),
+    Workload::new(
+        "text/mixed_text_math_300",
+        "mixed_text_math_300",
+        mixed_text,
+    ),
+    Workload::new(
+        "text/constrained_6x6_colorbars",
+        "constrained_6x6_colorbars",
+        constrained,
+    )
+    .sized(14.0, 12.0),
+    Workload::new(
+        "layout/constrained_8x8_no_draw",
+        "constrained_8x8",
+        constrained_layout,
+    )
+    .sized(16.0, 12.0)
+    .layout_only(),
+    mid("output/mid_png"),
+    mid("output/mid_svg").saved_as(SaveFormat::Svg),
+    mid("output/mid_pdf").saved_as(SaveFormat::Pdf),
+    mid("output/mid_ps").saved_as(SaveFormat::Ps),
+    mid("output/mid_pgf")
+        .saved_as(SaveFormat::Pgf)
+        .not_comparable(
+            "matplotlib's PGF backend runs LaTeX to measure every text, while plt-rs lays PGF \
+             out with its own font metrics",
+        ),
+    mid("output/mid_eps").saved_as(SaveFormat::Eps),
+    mid("output/mid_png_tight").tight(),
+    Workload::new("output/lissajous_1e5_svg", "lissajous_1e5", lissajous)
         .saved_as(SaveFormat::Svg)
         .with_rc(UNSIMPLIFIED),
-    Workload::new("output/lissajous_1e5_pdf", lissajous)
+    Workload::new("output/lissajous_1e5_pdf", "lissajous_1e5", lissajous)
         .saved_as(SaveFormat::Pdf)
         .with_rc(UNSIMPLIFIED),
-    Workload::new("output/lissajous_1e5_ps", lissajous)
+    Workload::new("output/lissajous_1e5_ps", "lissajous_1e5", lissajous)
         .saved_as(SaveFormat::Ps)
         .with_rc(UNSIMPLIFIED),
 ];
+
+/// The mid-size figure as PNG, a medium workload.
+const fn mid(name: &'static str) -> Workload {
+    Workload::new(name, "mid_size", mid_size).in_tier(Tier::Medium)
+}
 
 /// Every segment of a line reaches the document.
 const UNSIMPLIFIED: &[(&str, &str)] = &[("path.simplify", "False")];

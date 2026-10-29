@@ -9,7 +9,7 @@
 //!   protocol's message formats.
 //! * [`output`], [`connection`]: request numbering and buffering, the
 //!   handshake, and routing of replies, errors and events.
-//! * [`atoms`], [`keymap`], [`keysym`], [`image`], [`cursor`],
+//! * [`atoms`], [`keymap`], [`image`], [`cursor`],
 //!   [`resources`], [`window`]: protocol features built on the connection.
 //! * [`X11Backend`] (with [`dispatch`], [`input`] and [`waker`]): the
 //!   [`Backend`] implementation.
@@ -27,8 +27,6 @@ mod fuzz_tests;
 mod image;
 mod input;
 mod keymap;
-mod keysym;
-mod keysym_table;
 #[cfg(test)]
 mod live_tests;
 mod output;
@@ -48,7 +46,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::backend::{Backend, BackendKind, Waker};
+use crate::backend::{Backend, BackendKind, Wait, Waker};
 use crate::error::Error;
 use crate::event::Event;
 use crate::frame::{Frame, OwnedFrame};
@@ -63,7 +61,6 @@ use input::Input;
 use keymap::Keymap;
 use request::{ImageTarget, NewWindow, WindowAttribute, WindowClass, event_mask};
 use selection::Clipboard;
-use transport::Wait;
 use waker::X11Waker;
 use window::WindowState;
 
@@ -402,12 +399,7 @@ impl Backend for X11Backend {
     }
 
     fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
-        let wait = match deadline {
-            None => Wait::Forever,
-            Some(deadline) if deadline <= Instant::now() => Wait::Poll,
-            Some(deadline) => Wait::Until(deadline),
-        };
-        let raw = self.conn.wait_for_events(wait)?;
+        let raw = self.conn.wait_for_events(Wait::until(deadline))?;
         self.dispatch(&raw, events)?;
         match self.conn.take_async_error() {
             Some(error) => Err(Error::X11(error)),

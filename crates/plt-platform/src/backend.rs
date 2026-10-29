@@ -5,6 +5,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::decoration::DecorationPainter;
 use crate::error::Error;
 use crate::event::Event;
 use crate::frame::{Frame, OwnedFrame};
@@ -17,23 +18,47 @@ use crate::window::{CursorIcon, WindowId, WindowOptions};
 pub enum BackendKind {
     /// The X Window System (also `XWayland`), spoken over its wire protocol.
     X11,
+    /// A Wayland compositor (Linux), spoken over its wire protocol.
+    Wayland,
     /// An in-memory backend for tests: records presented frames and lets
     /// tests inject input (see [`HeadlessHandle`](crate::HeadlessHandle)).
     Headless,
 }
 
 impl BackendKind {
-    /// Picks the best backend for this session, or `None` if no display
-    /// server is reachable: X11 when `$DISPLAY` is set (on Unix).
+    /// Picks the backend for this session, or `None` if no display server
+    /// is reachable:
+    ///
+    /// * the one `$PLT_PLATFORM` names (`x11`, `wayland` or `headless`), if
+    ///   it names one;
+    /// * else Wayland when `$WAYLAND_DISPLAY` is set (on Linux);
+    /// * else X11 when `$DISPLAY` is set (on Unix).
     pub fn detect() -> Option<Self> {
-        let has_display = std::env::var_os("DISPLAY").is_some_and(|name| !name.is_empty());
-        (cfg!(unix) && has_display).then_some(Self::X11)
+        let set = |name: &str| std::env::var_os(name).is_some_and(|value| !value.is_empty());
+        let requested = std::env::var("PLT_PLATFORM").ok();
+        Self::choose(requested.as_deref(), set("WAYLAND_DISPLAY"), set("DISPLAY"))
     }
 
-    /// A short lowercase name (`"x11"`, `"headless"`).
+    /// The backend for a `$PLT_PLATFORM` value and whether
+    /// `$WAYLAND_DISPLAY` and `$DISPLAY` are set.
+    fn choose(requested: Option<&str>, wayland: bool, x11: bool) -> Option<Self> {
+        let named = [Self::X11, Self::Wayland, Self::Headless]
+            .into_iter()
+            .find(|kind| requested.is_some_and(|name| name.eq_ignore_ascii_case(kind.name())));
+        named.or_else(|| {
+            if cfg!(target_os = "linux") && wayland {
+                Some(Self::Wayland)
+            } else {
+                (cfg!(unix) && x11).then_some(Self::X11)
+            }
+        })
+    }
+
+    /// A short lowercase name (`"x11"`, `"wayland"`, `"headless"`).
     pub const fn name(self) -> &'static str {
         match self {
             Self::X11 => "x11",
+            Self::Wayland => "wayland",
             Self::Headless => "headless",
         }
     }
@@ -42,6 +67,29 @@ impl BackendKind {
 impl fmt::Display for BackendKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())
+    }
+}
+
+/// How long a backend may block waiting for its display server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Wait {
+    /// Return at once when no data is available.
+    Poll,
+    /// Block until data arrives or the instant passes.
+    Until(Instant),
+    /// Block until data arrives.
+    Forever,
+}
+
+impl Wait {
+    /// The wait until `deadline` ([`Backend::poll`]'s argument): forever
+    /// without one, not at all once it passed.
+    pub(crate) fn until(deadline: Option<Instant>) -> Self {
+        match deadline {
+            None => Self::Forever,
+            Some(deadline) if deadline <= Instant::now() => Self::Poll,
+            Some(deadline) => Self::Until(deadline),
+        }
     }
 }
 
@@ -128,6 +176,15 @@ pub(crate) trait Backend {
 
     /// A thread-safe handle that interrupts [`Backend::poll`].
     fn waker(&self) -> Arc<dyn Waker>;
+
+    /// Installs the painter of client-side decorations; backends whose
+    /// windows the desktop decorates ignore it.
+    fn set_decoration_painter(
+        &mut self,
+        _painter: Box<dyn DecorationPainter>,
+    ) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -135,8 +192,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn waits_follow_the_deadline() {
+        assert_eq!(Wait::until(None), Wait::Forever);
+        let past = Instant::now();
+        assert_eq!(Wait::until(Some(past)), Wait::Poll);
+        let later = past + std::time::Duration::from_secs(60);
+        assert_eq!(Wait::until(Some(later)), Wait::Until(later));
+    }
+
+    #[test]
     fn names() {
         assert_eq!(BackendKind::X11.to_string(), "x11");
+        assert_eq!(BackendKind::Wayland.to_string(), "wayland");
         assert_eq!(BackendKind::Headless.name(), "headless");
+    }
+
+    #[test]
+    fn detection_prefers_the_request_then_wayland_then_x11() {
+        let choose = BackendKind::choose;
+        assert_eq!(choose(Some("x11"), true, true), Some(BackendKind::X11));
+        assert_eq!(
+            choose(Some("Wayland"), false, false),
+            Some(BackendKind::Wayland)
+        );
+        assert_eq!(
+            choose(Some("headless"), true, true),
+            Some(BackendKind::Headless)
+        );
+        assert_eq!(choose(Some("bogus"), false, true), Some(BackendKind::X11));
+        let wayland = cfg!(target_os = "linux").then_some(BackendKind::Wayland);
+        assert_eq!(choose(None, true, true), wayland.or(Some(BackendKind::X11)));
+        assert_eq!(choose(None, false, true), Some(BackendKind::X11));
+        assert_eq!(choose(None, false, false), None);
     }
 }

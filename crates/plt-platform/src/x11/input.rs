@@ -1,11 +1,11 @@
 //! Translation of X keyboard and pointer events into window events.
 
 use super::keymap::Keymap;
-use super::keysym;
 use super::server_event::PointerInfo;
 use crate::click::ClickCounter;
 use crate::event::{ButtonState, KeyEvent, MouseButton, ScrollDelta, WindowEvent};
 use crate::geometry::PhysicalPosition;
+use crate::keysym;
 
 /// Turns raw key and button codes into events, using the keyboard mapping
 /// and remembering recent clicks.
@@ -33,20 +33,7 @@ impl Input {
     pub(crate) fn key(&self, state: ButtonState, keycode: u8, mask: u16, repeat: bool) -> KeyEvent {
         let keysym = self.keymap.keysym(keycode, mask);
         let modifiers = self.keymap.modifiers(mask);
-        let shortcut = modifiers.control() || modifiers.alt() || modifiers.super_key();
-        let text = (state.is_pressed() && !shortcut)
-            .then(|| keysym::to_char(keysym))
-            .flatten()
-            .filter(|c| !c.is_control())
-            .map(String::from);
-        KeyEvent {
-            key: keysym::key(keysym),
-            state,
-            repeat,
-            text,
-            modifiers,
-            scancode: u32::from(keycode),
-        }
+        keysym::key_event(keysym, state, modifiers, repeat, u32::from(keycode))
     }
 
     /// The event for a button press or release: wheel buttons (4 to 7)

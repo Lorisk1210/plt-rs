@@ -8,11 +8,11 @@
 //! (selected by `ISO_Level3_Shift`, i.e. `AltGr`).
 
 use super::connection::Connection;
-use super::keysym::{self, NO_SYMBOL, names};
 use super::request;
 use super::wire::Reader;
 use crate::error::Error;
 use crate::keyboard::Modifiers;
+use crate::keysym::{self, NO_SYMBOL, names};
 
 /// `Shift` bit of the event state.
 const SHIFT: u16 = 1;

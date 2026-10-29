@@ -7,11 +7,11 @@
 use super::{reply, word};
 use crate::event::ButtonState;
 use crate::fuzz::{Corruption, Gen, fuzz};
+use crate::keysym;
 use crate::x11::connection::RawEvent;
 use crate::x11::fixtures::{self, KEYBOARD_MAPPING, MODIFIER_MAPPING};
 use crate::x11::input::Input;
 use crate::x11::keymap::Keymap;
-use crate::x11::keysym;
 use crate::x11::reply as parse;
 use crate::x11::server_event::ServerEvent;
 

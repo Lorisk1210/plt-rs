@@ -30,6 +30,7 @@ pub use context::Context;
 pub use timers::TimerId;
 
 use crate::backend::{Backend, BackendKind, Waker};
+use crate::decoration::DecorationPainter;
 use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::headless::{HeadlessBackend, HeadlessHandle};
@@ -128,12 +129,24 @@ impl LoopState {
 
 impl EventLoop {
     /// Connects to the best available windowing system (see
-    /// [`BackendKind::detect`]).
+    /// [`BackendKind::detect`]). When the Wayland compositor cannot be
+    /// reached (a stale `$WAYLAND_DISPLAY`) but `$DISPLAY` names an X
+    /// server, it connects to that instead, unless `$PLT_PLATFORM` asked
+    /// for Wayland.
     pub fn new() -> Result<Self, Error> {
         let kind = BackendKind::detect().ok_or_else(|| {
-            Error::BackendUnavailable(String::from("no display server found ($DISPLAY is unset)"))
+            Error::BackendUnavailable(String::from(
+                "no display server found ($WAYLAND_DISPLAY and $DISPLAY are unset)",
+            ))
         })?;
-        Self::with_backend(kind)
+        let connected = Self::with_backend(kind);
+        let wayland_asked_for = std::env::var("PLT_PLATFORM")
+            .is_ok_and(|name| name.eq_ignore_ascii_case(BackendKind::Wayland.name()));
+        let x11 = std::env::var_os("DISPLAY").is_some_and(|name| !name.is_empty());
+        if connected.is_err() && kind == BackendKind::Wayland && x11 && !wayland_asked_for {
+            return Self::with_backend(BackendKind::X11).or(connected);
+        }
+        connected
     }
 
     /// Connects to a specific backend. For [`BackendKind::Headless`] prefer
@@ -141,8 +154,23 @@ impl EventLoop {
     pub fn with_backend(kind: BackendKind) -> Result<Self, Error> {
         match kind {
             BackendKind::X11 => Self::x11(),
+            BackendKind::Wayland => Self::wayland(),
             BackendKind::Headless => Ok(Self::headless().0),
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    fn wayland() -> Result<Self, Error> {
+        Ok(Self::from_backend(Box::new(
+            crate::wayland::WaylandBackend::connect()?,
+        )))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn wayland() -> Result<Self, Error> {
+        Err(Error::BackendUnavailable(String::from(
+            "Wayland is only supported on Linux",
+        )))
     }
 
     #[cfg(unix)]
@@ -180,6 +208,17 @@ impl EventLoop {
     /// an event handler (e.g. from `plt.figure()` in interactive mode).
     pub fn context(&mut self) -> Context<'_> {
         Context::new(&mut *self.backend, &mut self.state)
+    }
+
+    /// Installs the painter of client-side window decorations, which
+    /// Wayland compositors without server-side decorations (GNOME's) leave
+    /// to applications; see [`DecorationPainter`]. Other backends ignore
+    /// it.
+    pub fn set_decoration_painter(
+        &mut self,
+        painter: impl DecorationPainter + 'static,
+    ) -> Result<(), Error> {
+        self.backend.set_decoration_painter(Box::new(painter))
     }
 
     /// A thread-safe handle that wakes this loop.

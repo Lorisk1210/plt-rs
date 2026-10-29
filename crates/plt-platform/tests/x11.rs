@@ -26,7 +26,7 @@ fn x11() -> Option<(MutexGuard<'static, ()>, EventLoop)> {
     // A server resets when its last client disconnects and drops
     // connection attempts until it is done: retry for a while.
     for _ in 0..100 {
-        match EventLoop::new() {
+        match EventLoop::with_backend(BackendKind::X11) {
             Ok(event_loop) => {
                 assert_eq!(event_loop.backend_kind(), BackendKind::X11);
                 return Some((serial, event_loop));

@@ -3,11 +3,13 @@
 //! loader, bytecode interpreter and autohinter) and pltrs-render (its
 //! rasterizers).
 //!
-//! The face's own properties are here; what loads and places glyphs
-//! (`load_char`, `set_text`, the bitmaps) is in [`glyphs`], the sfnt tables
-//! in [`tables`].
+//! The face's own properties are here; glyphs are loaded in [`glyphs`],
+//! text is laid out in [`layout`], bitmaps are drawn in [`bitmaps`], and
+//! the sfnt tables are read in [`tables`].
 
+mod bitmaps;
 mod glyphs;
+mod layout;
 mod tables;
 
 use std::rc::Rc;
@@ -116,6 +118,28 @@ fn open(data: Bytes, face_index: i64, fallbacks: Vec<(Bytes, u32)>) -> PyResult<
         kerning_factor: 0,
         glyphs: glyphs::Glyphs::default(),
     })
+}
+
+/// `_backend_pdf_ps.get_glyphs_subset(fontfile, glyphs)`: face
+/// `face_index` of the font file `data` reduced to `glyphs` and the glyphs
+/// they need, as matplotlib's fontTools subsetting keeps them: the subset
+/// font file, and each kept glyph's index with its index in the subset.
+fn subset_font(
+    data: Bytes,
+    face_index: u32,
+    glyphs: Vec<u16>,
+) -> PyResult<(Bytes, Vec<(u16, u16)>)> {
+    let face = FaceData {
+        data: data.0.into(),
+        index: face_index,
+    };
+    let subset = pltrs_font::subset(&face.face()?, glyphs.into_iter().map(GlyphId))
+        .map_err(|err| ft_error("subset font", &err))?;
+    let kept = (0..)
+        .zip(&subset.glyphs)
+        .map(|(new, old)| (old.0, new))
+        .collect();
+    Ok((Bytes(subset.data), kept))
 }
 
 /// The names of a face: `(postscript_name, family_name, style_name)`.
@@ -395,6 +419,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_sfnt", get_sfnt)?;
     module.add("get_ps_font_info", get_ps_font_info)?;
     module.add("face_properties", face_properties)?;
+    module.add("subset_font", subset_font)?;
     tables::register(module)?;
-    glyphs::register(module)
+    glyphs::register(module)?;
+    layout::register(module)?;
+    bitmaps::register(module)
 }

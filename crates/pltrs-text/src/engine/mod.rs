@@ -11,12 +11,13 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use pltrs_core::Path;
-use pltrs_font::{FontDatabase, FontId};
+use pltrs_font::{FontDatabase, FontEntry, FontId};
 
 use crate::block::FontHeightMetrics;
 use crate::error::TextError;
 use crate::mathtext::MathStyle;
 use crate::memo::{self, Memo};
+use crate::missing::{self, MissingGlyph};
 use crate::run::{GlyphChars, PlacedGlyph, TextRun, TextSource};
 use crate::shaping::Shaping;
 
@@ -98,6 +99,24 @@ impl TextEngine {
         Ok(faces)
     }
 
+    /// Appends `entry` to the catalogue (matplotlib's `ttflist.append`);
+    /// layouts made before are forgotten.
+    pub fn add_font_entry(&self, entry: FontEntry) {
+        self.db.add_entry(entry);
+        self.forget_layouts();
+    }
+
+    /// Removes the first catalogue entry equal to `entry` (matplotlib's
+    /// `ttflist.remove`), forgetting the layouts made before; whether there
+    /// was one.
+    pub fn remove_font_entry(&self, entry: &FontEntry) -> bool {
+        let removed = self.db.remove_entry(entry);
+        if removed {
+            self.forget_layouts();
+        }
+        removed
+    }
+
     /// The faces of the font file `path` (or bundled file name) for text
     /// set in it whatever its query (matplotlib's
     /// `FontProperties(fname=...)`), read on first use.
@@ -156,7 +175,7 @@ impl TextEngine {
             shaping.language.is_some(),
             dpi_bits,
         );
-        self.lines.get_or_compute(
+        let run = self.lines.get_or_compute(
             memo::fingerprint(request, extra),
             |key| {
                 key.dpi_bits == dpi_bits
@@ -171,7 +190,51 @@ impl TextEngine {
                 dpi_bits,
             },
             || self.shape_line(text, request, shaping, dpi),
-        )
+        )?;
+        self.record_missing(&run, text, request)?;
+        Ok(run)
+    }
+
+    /// Records the characters of `run`, laid out from `text`, that no font
+    /// of `request` has: those drawn from the Last Resort font, or as the
+    /// missing-glyph box (matplotlib warns about them at every layout).
+    fn record_missing(
+        &self,
+        run: &TextRun,
+        text: &str,
+        request: &FontRequest,
+    ) -> Result<(), TextError> {
+        let resort = self.db.last_resort();
+        if !run
+            .glyphs
+            .iter()
+            .any(|g| g.glyph.0 == 0 || Some(g.font) == resort)
+        {
+            return Ok(());
+        }
+        let fonts = request.fonts(&self.db)?;
+        let mut families: Vec<String> = Vec::new();
+        for &font in &fonts {
+            if let Some(name) = self.db.face(font)?.family_name()
+                && !families.contains(&name)
+            {
+                families.push(name);
+            }
+        }
+        missing::record(
+            run.glyphs
+                .iter()
+                .filter(|g| g.glyph.0 == 0 || !fonts.contains(&g.font))
+                .filter_map(|g| match g.chars {
+                    GlyphChars::Cluster { start, .. } => text.get(start..)?.chars().next(),
+                    GlyphChars::Unknown | GlyphChars::Code(_) => None,
+                })
+                .map(|character| MissingGlyph {
+                    character,
+                    families: families.clone(),
+                }),
+        );
+        Ok(())
     }
 
     /// [`layout_line_with`](Self::layout_line_with) without the memo.
@@ -362,6 +425,26 @@ mod tests {
         let (font, glyph) = font_of(false);
         assert_ne!(font, resort);
         assert_eq!(glyph.0, 0, "the missing-glyph box of DejaVu Sans");
+    }
+
+    #[test]
+    fn missing_characters_are_recorded_at_every_layout() {
+        let engine = TextEngine::global();
+        let request = FontRequest::dejavu_sans(12.0);
+        crate::take_missing_glyphs();
+        engine.layout_line("ab", &request, 72.0).unwrap();
+        assert_eq!(crate::take_missing_glyphs(), Vec::new());
+        let expected = MissingGlyph {
+            character: '\u{1f643}',
+            families: vec!["DejaVu Sans".to_owned()],
+        };
+        for _ in 0..2 {
+            engine.layout_line("a\u{1f643}b", &request, 72.0).unwrap();
+            assert_eq!(
+                crate::take_missing_glyphs(),
+                std::slice::from_ref(&expected)
+            );
+        }
     }
 
     #[test]

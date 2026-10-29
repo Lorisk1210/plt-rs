@@ -1,0 +1,279 @@
+//! `_native.annotation`: annotations (matplotlib's `text.Annotation`,
+//! `text.OffsetFrom` and `Axes.annotate`), by pltrs (Rust)'s
+//! [`Annotation`].
+//!
+//! An annotation's native object is its [`Text`] handle, so that the text
+//! functions of `_native.text` serve it; the functions here recover the
+//! annotation from it. Coordinates cross in the tagged form the Python
+//! side gives them ([`PyCoords`]), the arrow as a dict of resolved keyword
+//! arguments ([`ArrowKwargs`]).
+
+use pltrs::artist::{ArtistHandle, RawHandle};
+use pltrs::axes::Axes;
+use pltrs::coords::{CoordError, CoordUnit, Coords};
+use pltrs::patches::{ArrowStyle, ConnectionStyle};
+use pltrs::text::{
+    AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps, Text,
+};
+use pltrs::units::{AxisValue, DataPoint};
+use pltrs_core::Point;
+
+use super::patch_styles::style_error;
+use super::patches::PatchKwargs;
+use crate::binding::prelude::*;
+use crate::binding::{dict_items, new_dict};
+
+impl From<CoordError> for PyErr {
+    /// `ValueError` with matplotlib's messages where it has one.
+    fn from(err: CoordError) -> Self {
+        match err {
+            CoordError::NoOffset => PyErr::value_error("xycoords cannot be an offset coordinate"),
+            other => PyErr::value_error(other.to_string()),
+        }
+    }
+}
+
+/// matplotlib's message for a coordinate name it does not know
+/// (`_get_xy_transform`): the name when it is not two words starting with
+/// a known box, else the unit.
+fn coordinate_name_error(name: &str) -> PyErr {
+    let words: Vec<&str> = name.split_whitespace().collect();
+    match words[..] {
+        ["figure" | "subfigure" | "axes" | "offset", unit] => {
+            PyErr::value_error(format!("'{unit}' is not a recognized unit"))
+        }
+        _ => PyErr::value_error(format!("'{name}' is not a valid coordinate")),
+    }
+}
+
+/// The unit of an `OffsetFrom`: `"points"` or `"pixels"`.
+fn offset_unit(unit: &str) -> PyResult<CoordUnit> {
+    match unit {
+        "points" => Ok(CoordUnit::Points),
+        "pixels" => Ok(CoordUnit::Pixels),
+        _ => Err(PyErr::value_error(format!(
+            "{unit:?} is not a valid value for unit; supported values are 'points', 'pixels'"
+        ))),
+    }
+}
+
+/// Coordinates as the Python side gives them: a name (`"data"`, `"axes
+/// fraction"`, ...), `("blended", x, y)`, `("artist", native)` for the
+/// extent of an artist, or `("offset_from", native, (x, y), unit)` for
+/// matplotlib's `OffsetFrom`.
+struct PyCoords(Coords);
+
+impl FromPy<'_> for PyCoords {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        if let Ok(name) = object.extract::<String>() {
+            return name
+                .parse()
+                .map(Self)
+                .map_err(|_| coordinate_name_error(&name));
+        }
+        let tag: String = object
+            .call_method("__getitem__", &[0_i64.into_py(object.py())?])?
+            .extract()?;
+        Ok(Self(match tag.as_str() {
+            "blended" => {
+                let (_, x, y): (String, PyCoords, PyCoords) = object.extract()?;
+                Coords::blended(x.0, y.0)
+            }
+            "artist" => {
+                let (_, artist): (String, RawHandle) = object.extract()?;
+                Coords::Artist(artist.id())
+            }
+            "offset_from" => {
+                let (_, artist, (x, y), unit): (String, RawHandle, (f64, f64), String) =
+                    object.extract()?;
+                Coords::OffsetFrom {
+                    artist: artist.id(),
+                    reference: Point::new(x, y),
+                    unit: offset_unit(&unit)?,
+                }
+            }
+            _ => return Err(PyErr::type_error(format!("unknown coordinates {tag:?}"))),
+        }))
+    }
+}
+
+/// A coordinate of an annotated point as the Python side gives it: a
+/// number, a category name, or `("dates", number)`.
+struct PyAxisValue(AxisValue);
+
+impl FromPy<'_> for PyAxisValue {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        if let Ok(name) = object.extract::<String>() {
+            return Ok(Self(AxisValue::Category(name)));
+        }
+        if let Ok((tag, number)) = object.extract::<(String, f64)>()
+            && tag == "dates"
+        {
+            return Ok(Self(AxisValue::Date { number, tz: None }));
+        }
+        Ok(Self(AxisValue::Number(object.extract()?)))
+    }
+}
+
+/// A point of `annotate`: its two coordinates.
+fn data_point((x, y): (PyAxisValue, PyAxisValue)) -> DataPoint {
+    DataPoint { x: x.0, y: y.0 }
+}
+
+/// The arrow of an annotation from matplotlib's `arrowprops`, aliases
+/// resolved and styles given as their descriptions by the Python side: a
+/// styled arrow when it has an `arrowstyle`, else the legacy arrow.
+struct ArrowKwargs(ArrowProps);
+
+/// What clips an arrow at its ends, from `patchA`/`patchB`: `None` for
+/// nothing, else an artist's native object.
+fn clipping_artist(value: &Bound<'_>) -> PyResult<Option<pltrs::artist::ArtistId>> {
+    if value.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(value.extract::<RawHandle>()?.id()))
+}
+
+impl FromPy<'_> for ArrowKwargs {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let py = object.py();
+        let mut items = Vec::new();
+        let mut arrowstyle = None;
+        for (key, value) in dict_items(object)? {
+            let name: String = key.extract()?;
+            if name == "arrowstyle" {
+                let style = value.extract::<String>()?;
+                arrowstyle = Some(style.parse::<ArrowStyle>().map_err(style_error)?);
+            } else {
+                items.push((name, value));
+            }
+        }
+
+        let mut fancy = arrowstyle.map(FancyArrowProps::new);
+        let mut legacy = LegacyArrowProps::default();
+        let rest = new_dict(py)?;
+        for (name, value) in items {
+            match (fancy.as_mut(), name.as_str()) {
+                (fancy, "connectionstyle") => {
+                    let style = value
+                        .extract::<String>()?
+                        .parse::<ConnectionStyle>()
+                        .map_err(style_error)?;
+                    match fancy {
+                        Some(fancy) => fancy.connectionstyle = style,
+                        None => legacy.connectionstyle = style,
+                    }
+                }
+                (Some(fancy), "relpos") => fancy.relpos = value.extract()?,
+                (Some(fancy), "shrinkA") => fancy.shrink_a = value.extract()?,
+                (Some(fancy), "shrinkB") => fancy.shrink_b = value.extract()?,
+                (Some(fancy), "mutation_scale") => fancy.mutation_scale = value.extract()?,
+                (Some(fancy), "mutation_aspect") => fancy.mutation_aspect = value.extract()?,
+                (Some(fancy), "patchA") => {
+                    fancy.patch_a =
+                        clipping_artist(&value)?.map_or(ArrowStart::Unclipped, ArrowStart::Artist);
+                }
+                (Some(fancy), "patchB") => fancy.patch_b = clipping_artist(&value)?,
+                (None, "width") => legacy.width = value.extract()?,
+                (None, "headwidth") => legacy.headwidth = value.extract()?,
+                (None, "headlength") => legacy.headlength = value.extract()?,
+                (None, "shrink") => legacy.shrink = value.extract()?,
+                _ => rest.set_item(name, value)?,
+            }
+        }
+        let patch = rest.extract::<PatchKwargs>()?.0;
+        Ok(Self(if let Some(mut fancy) = fancy {
+            fancy.patch = patch;
+            ArrowProps::Fancy(fancy)
+        } else {
+            legacy.patch = patch;
+            ArrowProps::Legacy(legacy)
+        }))
+    }
+}
+
+/// The annotation whose text `text` is.
+fn annotation(text: &Text) -> PyResult<Annotation> {
+    text.raw()
+        .downcast::<Annotation>()
+        .ok_or_else(|| PyErr::type_error("the text is not an annotation"))
+}
+
+/// The arguments of `annotate` besides the axes and the text:
+/// `(xy, xytext, xycoords, textcoords, arrowprops, annotation_clip)`.
+type AnnotateArgs = (
+    (PyAxisValue, PyAxisValue),
+    Option<(PyAxisValue, PyAxisValue)>,
+    PyCoords,
+    Option<PyCoords>,
+    Option<ArrowKwargs>,
+    Option<bool>,
+);
+
+/// `Axes.annotate(text, xy, xytext, xycoords, textcoords, arrowprops,
+/// annotation_clip)`: the annotation's text handle.
+fn axes_annotate(axes: Axes, text: String, args: AnnotateArgs) -> PyResult<Text> {
+    let (xy, xytext, xycoords, textcoords, arrowprops, annotation_clip) = args;
+    let options = AnnotateOptions {
+        xytext: xytext.map(data_point),
+        xycoords: xycoords.0,
+        textcoords: textcoords.map(|coords| coords.0),
+        arrowprops: arrowprops.map(|arrow| arrow.0),
+        annotation_clip,
+        clip_on: false,
+    };
+    let note = axes.annotate(text, data_point(xy), options)?;
+    Ok((*note).clone())
+}
+
+/// `Annotation.xy`: the annotated point.
+fn get_xy(text: Text) -> PyResult<(f64, f64)> {
+    let xy = annotation(&text)?.xy();
+    Ok((xy.x, xy.y))
+}
+
+/// Moves the annotated point.
+fn set_xy(text: Text, x: f64, y: f64) -> PyResult<()> {
+    annotation(&text)?.set_xy(Point::new(x, y));
+    Ok(())
+}
+
+/// Sets the coordinates of the annotated point (`xycoords`).
+fn set_xycoords(text: Text, coords: PyCoords) -> PyResult<()> {
+    annotation(&text)?.set_xycoords(coords.0)?;
+    Ok(())
+}
+
+/// Sets the coordinates of the text (`set_anncoords`).
+fn set_textcoords(text: Text, coords: PyCoords) -> PyResult<()> {
+    annotation(&text)?.set_textcoords(coords.0);
+    Ok(())
+}
+
+/// `get_annotation_clip()`.
+fn get_annotation_clip(text: Text) -> PyResult<Option<bool>> {
+    Ok(annotation(&text)?.annotation_clip())
+}
+
+/// `set_annotation_clip(b)`.
+fn set_annotation_clip(text: Text, clip: Option<bool>) -> PyResult<()> {
+    annotation(&text)?.set_annotation_clip(clip);
+    Ok(())
+}
+
+/// Whether the annotation draws an arrow to its point.
+fn has_arrow(text: Text) -> PyResult<bool> {
+    Ok(annotation(&text)?.has_arrow())
+}
+
+/// Registers the module's functions.
+pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("axes_annotate", axes_annotate)?;
+    module.add("get_xy", get_xy)?;
+    module.add("set_xy", set_xy)?;
+    module.add("set_xycoords", set_xycoords)?;
+    module.add("set_textcoords", set_textcoords)?;
+    module.add("get_annotation_clip", get_annotation_clip)?;
+    module.add("set_annotation_clip", set_annotation_clip)?;
+    module.add("has_arrow", has_arrow)
+}

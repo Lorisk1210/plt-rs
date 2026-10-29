@@ -19,6 +19,7 @@
               `PyResult`, the form `Module::add` registers"
 )]
 
+mod annotation;
 mod artist;
 mod axes;
 mod axes_base;
@@ -57,10 +58,12 @@ mod spines;
 mod testing;
 mod texmanager;
 mod text;
+mod text_helpers;
 mod textpath;
 mod ticker;
 mod transforms;
 mod tri;
+mod type1font;
 mod warnings;
 
 use crate::binding::{Module, PyResult};
@@ -71,6 +74,8 @@ use crate::binding::{Module, PyResult};
 /// matplotlib module gets its submodule.
 pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::rc::restore_startup();
+    crate::binding::install_after_call(vec![text_helpers::warn_missing_glyphs]);
+    annotation::register(&module.submodule("annotation")?)?;
     artist::register(&module.submodule("artist")?)?;
     axes::register(&module.submodule("axes")?)?;
     axes_base::register(&module.submodule("axes_base")?)?;
@@ -114,6 +119,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     transforms::register(&module.submodule("transforms")?)?;
     tri::register(&module.submodule("tri")?)?;
     warnings::register(&module.submodule("warnings")?)?;
+    type1font::register(&module.submodule("type1font")?)?;
     Ok(())
 }
 

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use pltrs_text::{
-    AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, TextEngine, Type1Face,
+    AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, Stretch, TextEngine, Type1Face,
 };
 
 use super::{FontProperties, FontStretch, FontWeight};
@@ -82,24 +82,33 @@ impl FontManager {
         }
     }
 
+    /// A catalogued face's entry as matplotlib's `ttflist` holds it.
+    fn list_entry(self, entry: &FontEntry) -> FontListEntry {
+        FontListEntry {
+            file: self.file_name(entry.font),
+            index: self
+                .engine
+                .database()
+                .face_index(entry.font)
+                .unwrap_or_default(),
+            name: entry.name.clone(),
+            style: entry.style,
+            variant: entry.variant,
+            weight: FontWeight::numeric(entry.weight),
+            stretch: stretch_named(entry.stretch.0),
+        }
+    }
+
     /// The font list for `ext`, in matching order (`ttflist`/`afmlist`).
     pub fn font_list(&self, ext: FontExt) -> Vec<FontListEntry> {
         match ext {
-            FontExt::Ttf => {
-                let db = self.engine.database();
-                db.entries()
-                    .iter()
-                    .map(|entry: &FontEntry| FontListEntry {
-                        file: self.file_name(entry.font),
-                        index: db.face_index(entry.font).unwrap_or_default(),
-                        name: entry.name.clone(),
-                        style: entry.style,
-                        variant: entry.variant,
-                        weight: FontWeight::numeric(entry.weight),
-                        stretch: stretch_named(entry.stretch.0),
-                    })
-                    .collect()
-            }
+            FontExt::Ttf => self
+                .engine
+                .database()
+                .entries()
+                .iter()
+                .map(|entry| self.list_entry(entry))
+                .collect(),
             FontExt::Afm => AfmFont::all()
                 .iter()
                 .map(|font| FontListEntry {
@@ -160,6 +169,49 @@ impl FontManager {
         self.engine.add_font_file(path).map(drop)
     }
 
+    /// Appends a TrueType font-list entry (matplotlib's `ttflist.append`):
+    /// the face `entry.index` of the file `entry.file` (a path, or the
+    /// file name of a bundled font) is matched by the entry's name, style,
+    /// weight and stretch from now on.
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or has no such face.
+    pub fn add_entry(self, entry: &FontListEntry) -> Result<(), TextError> {
+        self.engine.add_font_entry(self.catalogue_entry(entry)?);
+        Ok(())
+    }
+
+    /// Removes the first TrueType font-list entry equal to `entry`
+    /// (matplotlib's `ttflist.remove`); whether there was one.
+    ///
+    /// # Errors
+    ///
+    /// When the entry's file cannot be read or has no such face.
+    pub fn remove_entry(self, entry: &FontListEntry) -> Result<bool, TextError> {
+        Ok(self.engine.remove_font_entry(&self.catalogue_entry(entry)?))
+    }
+
+    /// The catalogue entry of a font-list entry: its face found by file
+    /// and index.
+    fn catalogue_entry(self, entry: &FontListEntry) -> Result<FontEntry, TextError> {
+        let faces = self.engine.file_faces(&entry.file)?;
+        let font = usize::try_from(entry.index)
+            .ok()
+            .and_then(|index| faces.get(index).copied())
+            .ok_or_else(|| {
+                TextError::Font(format!("{} has no face {}", entry.file, entry.index))
+            })?;
+        Ok(FontEntry {
+            font,
+            name: entry.name.clone(),
+            style: entry.style,
+            variant: entry.variant,
+            weight: entry.weight.value(),
+            stretch: Stretch(entry.stretch.value()),
+        })
+    }
+
     /// The Type 1 font (`.pfa` or `.pfb`) at `path`, as matplotlib's
     /// `get_font` opens the TeX fonts of `text.usetex` through `FreeType`:
     /// read once and shared.
@@ -205,6 +257,25 @@ impl FontManager {
                 .file
                 .to_owned()),
         }
+    }
+
+    /// The best TrueType entry for `props` among the faces whose source
+    /// `accept` takes, with its score: the loop of matplotlib's
+    /// `_findfont_cached`, which `findfont(directory=...)` restricts and
+    /// whose result decides what `findfont` logs. A score of 10 or more
+    /// means that no family matched; `None` when `accept` takes no face.
+    pub fn best_ttf_entry(
+        &self,
+        props: &FontProperties,
+        rc: &RcParams,
+        accept: impl Fn(&FontSource) -> bool,
+    ) -> Option<(FontListEntry, f64)> {
+        let request = props.request(rc);
+        let db = self.engine.database();
+        db.best_entry(&request.query, &request.generics, |id| {
+            db.source(id).is_some_and(&accept)
+        })
+        .map(|(entry, score)| (self.list_entry(&entry), score))
     }
 
     /// matplotlib's `_find_fonts_by_props`: the best TrueType file for
@@ -293,5 +364,50 @@ mod tests {
             Ok(vec!["cmr10.ttf".to_owned(), "DejaVuSans.ttf".to_owned()])
         );
         assert!(manager.find_fonts(&props(&["Foo"]), &rc, false).is_err());
+    }
+
+    #[test]
+    fn best_entries_within_some_sources() {
+        let manager = FontManager::bundled();
+        let rc = RcParams::matplotlib();
+        let heavy = FontProperties {
+            weight: FontWeight::numeric(750),
+            ..props(&["DejaVu Sans"])
+        };
+        let (entry, score) = manager.best_ttf_entry(&heavy, &rc, |_| true).unwrap();
+        assert_eq!(entry.file, "DejaVuSans-Bold.ttf");
+        assert_eq!(entry.weight, FontWeight::numeric(700));
+        assert!(score < 10.0);
+        let serif_only = |source: &FontSource| {
+            source
+                .file_name()
+                .is_some_and(|name| name.starts_with("DejaVuSerif"))
+        };
+        let (entry, score) = manager.best_ttf_entry(&heavy, &rc, serif_only).unwrap();
+        assert!(entry.file.starts_with("DejaVuSerif") && score >= 10.0);
+        assert!(manager.best_ttf_entry(&heavy, &rc, |_| false).is_none());
+    }
+
+    #[test]
+    fn list_entries_are_appended_and_removed() {
+        // The global engine: other tests count the bundled engine's list.
+        let manager = FontManager::global();
+        let rc = RcParams::matplotlib();
+        let entry = FontListEntry {
+            name: "pltrs test alias".to_owned(),
+            ..manager.font_list(FontExt::Ttf)[0].clone()
+        };
+        let alias = props(&["pltrs test alias"]);
+        assert!(manager.find_font(&alias, &rc, FontExt::Ttf, false).is_err());
+        manager.add_entry(&entry).unwrap();
+        assert_eq!(
+            manager.find_font(&alias, &rc, FontExt::Ttf, false),
+            Ok(entry.file.clone())
+        );
+        assert_eq!(manager.remove_entry(&entry), Ok(true));
+        assert_eq!(manager.remove_entry(&entry), Ok(false));
+        assert!(manager.find_font(&alias, &rc, FontExt::Ttf, false).is_err());
+        let missing = FontListEntry { index: 7, ..entry };
+        assert!(manager.add_entry(&missing).is_err());
     }
 }

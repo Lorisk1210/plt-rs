@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 from . import _api
+from ._native import register as _register
 from .ft2font import FT2Font, CharacterCodeType, LayoutItem, LoadFlags
 
 
@@ -17,6 +18,10 @@ def warn_on_missing_glyph(codepoint: CharacterCodeType, fontnames: str):
         f"Glyph {codepoint} "
         f"({chr(codepoint).encode('ascii', 'namereplace').decode('ascii')}) "
         f"missing from font(s) {fontnames}.")
+
+
+# pltrs (Rust) issues the warning for the texts it lays out while drawing.
+_register("warn_on_missing_glyph", warn_on_missing_glyph)
 
 
 def layout(string: str, font: FT2Font, *,

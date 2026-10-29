@@ -11,7 +11,7 @@ use pltrs_core::Point;
 use pltrs_font::FontSource;
 use pltrs_render::{GlyphBitmap, GlyphShape, render_glyph};
 use pltrs_text::mathtext::{
-    MathGlyph, MathLayout, MathRect, accent_map, unicode_index, wide_accents,
+    MathGlyph, MathLayout, MathNode, MathRect, accent_map, unicode_index, wide_accents,
 };
 use pltrs_text::{GlyphChars, TextEngine};
 
@@ -251,8 +251,47 @@ fn get_wide_accents() -> PyResult<Vec<&'static str>> {
     Ok(wide_accents().to_vec())
 }
 
+/// A node of a box tree as the Python side rebuilds it: `(class name,
+/// payload)`, the payload the symbol of a character, the width of a kern,
+/// `None` for glue, boxes and rules, and `(width, height, depth,
+/// shift_amount, children)` for a list.
+fn box_node<'py>(py: Python<'py>, node: &MathNode) -> PyResult<Bound<'py>> {
+    match node {
+        MathNode::Char(symbol) => ("Char", symbol).into_py(py),
+        MathNode::Kern(width) => ("Kern", *width).into_py(py),
+        MathNode::Glue => ("Glue", Bound::none(py)).into_py(py),
+        MathNode::Leaf(class) => (*class, Bound::none(py)).into_py(py),
+        MathNode::List {
+            class,
+            width,
+            height,
+            depth,
+            shift_amount,
+            children,
+        } => {
+            let children = children
+                .iter()
+                .map(|child| box_node(py, child))
+                .collect::<PyResult<Vec<_>>>()?;
+            (*class, (*width, *height, *depth, *shift_amount, children)).into_py(py)
+        }
+    }
+}
+
+/// `_mathtext.Parser().parse(s, fonts_object, fontsize, dpi)`: the box
+/// tree `s` is typeset into with the font properties `props` (their size
+/// and math font family) at `dpi`.
+fn parse_box_tree(s: String, dpi: f64, props: FontProps) -> PyResult<Owned> {
+    let rc = pltrs::rc::params();
+    let tree = TextEngine::global()
+        .math_box_tree(&s, &math_style(&props.0, dpi, &rc))
+        .map_err(|err| PyErr::value_error(math_message(&err)))?;
+    Python::with_gil(|py| Ok(box_node(py, &tree)?.unbind()))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("parse_box_tree", parse_box_tree)?;
     module.add("parse_path", parse_path)?;
     module.add("parse_raster", parse_raster)?;
     module.add("get_unicode_index", get_unicode_index)?;

@@ -35,6 +35,7 @@ mod parse;
 mod props;
 mod python;
 mod standard;
+mod stream;
 mod subset;
 #[cfg(test)]
 mod test_support;
@@ -49,5 +50,6 @@ pub use face::{Type1Face, Type1Glyph};
 pub use font::Type1Font;
 pub use parse::Abbreviations;
 pub use props::{CharStrings, Program, Type1Encoding, Type1Properties};
+pub use stream::PsTokenStream;
 pub use token::{PsToken, PsTokenKind, ps_tokenize};
 pub use value::{PsNumber, PsValue};

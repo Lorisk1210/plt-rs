@@ -22,6 +22,7 @@
     reason = "the binding core is the safe wrapper around the CPython API"
 )]
 
+mod after_call;
 mod buffer;
 mod callback;
 mod containers;
@@ -37,9 +38,10 @@ mod registry;
 #[cfg(test)]
 pub(crate) mod testing;
 
+pub(crate) use after_call::install as install_after_call;
 pub(crate) use buffer::{Element, NdArray};
 pub(crate) use callback::Callback;
-pub(crate) use containers::{dict_items, dict_value};
+pub(crate) use containers::{dict_items, dict_value, new_dict};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use error::{ExceptionKind, PyErr, PyResult};
 pub(crate) use gil::Python;

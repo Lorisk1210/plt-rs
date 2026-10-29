@@ -9,11 +9,16 @@ aliases and validation, and its keyword handling.
 from collections.abc import Sequence
 from numbers import Real
 
+import numpy as np
+
 from . import _api, cbook
-from ._native import text as _text
+# pltrs (Rust) warns through it about the glyphs no font has.
+from . import _text_helpers  # noqa: F401
+from ._native import annotation as _annotation, text as _text
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
-from .transforms import Bbox
+from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here)
+from .transforms import Bbox, BboxBase, Transform
 
 #: The keywords `Text` takes explicitly, in the order matplotlib's
 #: ``Text._reset_visual_defaults`` applies them, before the other properties.
@@ -63,6 +68,7 @@ class Text(Artist):
     """Handle storing and drawing of text in window or data coordinates."""
 
     zorder = 3
+    _charsize_cache = dict()
 
     def __repr__(self):
         x, y = self.get_position()
@@ -80,6 +86,31 @@ class Text(Artist):
                                  "" if text is None else str(text))
         super().__init__()
         self._init_properties(kwargs)
+
+    def _char_index_at(self, x):
+        """
+        Calculate the index closest to the coordinate x in display space.
+
+        The position of text[index] is assumed to be the sum of the widths
+        of all preceding characters text[:index].
+
+        This works only on single line texts.
+        """
+        text = self.get_text()
+        if not text:
+            return 0
+        fontproperties = str(self.get_fontproperties())
+        charsize_cache = Text._charsize_cache.setdefault(fontproperties, {})
+        for char in set(text):
+            if char not in charsize_cache:
+                self.set_text(char)
+                bb = self.get_window_extent()
+                charsize_cache[char] = bb.x1 - bb.x0
+        self.set_text(text)
+        bb = self.get_window_extent()
+        size_accum = np.cumsum([0] + [charsize_cache[x] for x in text])
+        std_x = x - bb.x0
+        return (np.abs(size_accum - std_x)).argmin()
 
     def _init_properties(self, kwargs):
         """
@@ -756,3 +787,220 @@ class Text(Artist):
         elif 190 < angle < 260 or 10 < angle < 80:
             return 'baseline' if anchor_at_left else 'top'
         return 'top' if anchor_at_left else 'baseline'
+
+
+class OffsetFrom:
+    """Callable helper class for working with `Annotation`."""
+
+    def __init__(self, artist, ref_coord, unit="points"):
+        """
+        Parameters
+        ----------
+        artist : `~matplotlib.artist.Artist`
+            The object to compute the offset from.
+
+        ref_coord : (float, float)
+            The location of the offset origin in fractions of the *artist*
+            bounding box.
+
+        unit : {'points, 'pixels'}, default: 'points'
+            The screen units to use (pixels or points) for the offset input.
+        """
+        self._artist = artist
+        x, y = ref_coord  # Make copy when ref_coord is an array (and check the shape).
+        self._ref_coord = x, y
+        self.set_unit(unit)
+
+    def set_unit(self, unit):
+        """
+        Set the unit for input to the transform used by ``__call__``.
+
+        Parameters
+        ----------
+        unit : {'points', 'pixels'}
+        """
+        _api.check_in_list(["points", "pixels"], unit=unit)
+        self._unit = unit
+
+    def get_unit(self):
+        """Return the unit for input to the transform used by ``__call__``."""
+        return self._unit
+
+    def _native_coords(self):
+        """The coordinates as `_native.annotation` takes them."""
+        if not isinstance(self._artist, Artist):
+            raise NotImplementedError(
+                "pltrs: OffsetFrom of a Bbox or a Transform")
+        return ("offset_from", self._artist._native, self._ref_coord, self._unit)
+
+
+def _native_coords(coords, figure, name="xycoords"):
+    """
+    *coords*, an annotation coordinate system of an annotation in
+    *figure*, in the form `_native.annotation` takes: a name,
+    ``("blended", x, y)``, ``("artist", native)`` or an `OffsetFrom`'s
+    description.
+    """
+    if isinstance(coords, str):
+        return coords
+    if isinstance(coords, tuple):
+        xcoords, ycoords = coords
+        return ("blended", _native_coords(xcoords, figure, name),
+                _native_coords(ycoords, figure, name))
+    if isinstance(coords, OffsetFrom):
+        return coords._native_coords()
+    if isinstance(coords, Artist):
+        return ("artist", coords._native)
+    if callable(coords):
+        get_renderer = getattr(figure.canvas, "get_renderer", None)
+        result = coords(get_renderer() if get_renderer is not None else None)
+        if isinstance(result, (BboxBase, Transform)):
+            raise NotImplementedError(f"pltrs: annotate({name}=<callable>)")
+        raise TypeError(
+            f"xycoords callable must return a BboxBase or Transform, not a "
+            f"{type(result).__name__}")
+    raise TypeError(
+        f"'xycoords' must be an instance of str, tuple[str, str], Artist, "
+        f"Transform, or Callable, not a {type(coords).__name__}")
+
+
+def _is_offset(coords):
+    """Whether *coords* (or one of its components) is an offset."""
+    if isinstance(coords, tuple):
+        return any(map(_is_offset, coords))
+    return isinstance(coords, str) and coords.startswith("offset")
+
+
+def _native_arrowprops(arrowprops):
+    """*arrowprops* as `_native.annotation` takes them: aliases resolved,
+    styles as their descriptions and artists as their native objects."""
+    from .patches import ArrowStyle, ConnectionStyle, FancyArrowPatch
+    from ._patch_styles import _native_spec
+    props = cbook.normalize_kwargs(arrowprops, FancyArrowPatch)
+    props.pop("frac", None)
+    if "arrowstyle" in props:
+        props["arrowstyle"] = _native_spec(props["arrowstyle"], ArrowStyle)
+    if "connectionstyle" in props:
+        props["connectionstyle"] = _native_spec(
+            props["connectionstyle"], ConnectionStyle)
+    for key in ("patchA", "patchB"):
+        if props.get(key) is not None:
+            props[key] = props[key]._native
+    return props
+
+
+class Annotation(Text):
+    """
+    An `.Annotation` is a `.Text` that can refer to a specific position *xy*.
+    Optionally an arrow pointing from the text to *xy* can be drawn.
+
+    Attributes
+    ----------
+    xy
+        The annotated position.
+    xycoords
+        The coordinate system for *xy*.
+    arrow_patch
+        A `.FancyArrowPatch` to point from *xytext* to *xy*.
+    """
+
+    def __str__(self):
+        return f"Annotation({self.xy[0]:g}, {self.xy[1]:g}, {self.get_text()!r})"
+
+    def _init_annotation(self, xycoords, textcoords, arrowprops, kwargs):
+        """Record what the annotation was made with, then apply its text
+        properties *kwargs*, as ``Annotation.__init__`` does."""
+        self._xycoords = xycoords
+        self._textcoords = xycoords if textcoords is None else textcoords
+        self.arrowprops = arrowprops
+        self.arrow_patch = None
+        self._draggable = None
+        self._init_properties(kwargs)
+
+    @property
+    def xy(self):
+        """The annotated position, in `xycoords`."""
+        return _annotation.get_xy(self._native)
+
+    @xy.setter
+    def xy(self, xy):
+        x, y = xy
+        _annotation.set_xy(self._native, float(x), float(y))
+
+    @property
+    def xycoords(self):
+        """The coordinate system of `xy`."""
+        return self._xycoords
+
+    @xycoords.setter
+    def xycoords(self, xycoords):
+        if _is_offset(xycoords):
+            raise ValueError("xycoords cannot be an offset coordinate")
+        _annotation.set_xycoords(self._native,
+                                 _native_coords(xycoords, self.figure))
+        self._xycoords = xycoords
+
+    @property
+    def xyann(self):
+        """
+        The text position.
+
+        See also *xytext* in `.Annotation`.
+        """
+        return self.get_position()
+
+    @xyann.setter
+    def xyann(self, xytext):
+        self.set_position(xytext)
+
+    def get_anncoords(self):
+        """
+        Return the coordinate system to use for `.Annotation.xyann`.
+
+        See also *xycoords* in `.Annotation`.
+        """
+        return self._textcoords
+
+    def set_anncoords(self, coords):
+        """
+        Set the coordinate system to use for `.Annotation.xyann`.
+
+        See also *xycoords* in `.Annotation`.
+        """
+        _annotation.set_textcoords(self._native,
+                                   _native_coords(coords, self.figure, "textcoords"))
+        self._textcoords = coords
+
+    anncoords = property(get_anncoords, set_anncoords, doc="""
+        The coordinate system to use for `.Annotation.xyann`.""")
+
+    def set_annotation_clip(self, b):
+        """
+        Set the annotation's clipping behavior.
+
+        Parameters
+        ----------
+        b : bool or None
+            - True: The annotation will be clipped when ``self.xy`` is
+              outside the Axes.
+            - False: The annotation will always be drawn.
+            - None: The annotation will be clipped when ``self.xy`` is
+              outside the Axes and ``self.xycoords == "data"``.
+        """
+        _annotation.set_annotation_clip(self._native, b)
+
+    def get_annotation_clip(self):
+        """
+        Return the annotation's clipping behavior.
+
+        See `set_annotation_clip` for the meaning of return values.
+        """
+        return _annotation.get_annotation_clip(self._native)
+
+    def update_positions(self, renderer):
+        """
+        Update the pixel positions of the annotation text and the arrow patch.
+
+        pltrs (Rust) places them whenever the annotation is drawn or
+        measured: there is nothing to update.
+        """

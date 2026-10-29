@@ -26,6 +26,7 @@ mod error;
 pub mod fontconfig;
 pub mod mathtext;
 mod memo;
+mod missing;
 mod run;
 mod shaping;
 pub mod tex;
@@ -46,6 +47,7 @@ pub use block::{
 };
 pub use engine::{FontRequest, PathSink, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine};
 pub use error::TextError;
+pub use missing::{MissingGlyph, take_missing_glyphs};
 pub use pltrs_font::{
     AfmDirectory, AfmFont, AfmMetrics, Feature, FontDatabase, FontEntry, FontId, FontQuery,
     FontSource, FontStyle, FontVariant, GenericFamilies, GlyphId, Hinting, LanguageRange,

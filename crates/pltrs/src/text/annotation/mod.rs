@@ -18,7 +18,7 @@ pub(crate) use arrow::{AnnotationArrow, ArrowTarget};
 pub use arrow::{ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps};
 
 use super::{Text, TextArtist, TextDrawError};
-use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle, TypedHandle};
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
 use crate::patches::{ClipRegion, DisplayPath};
@@ -402,6 +402,15 @@ impl Deref for Annotation {
 impl ArtistHandle for Annotation {
     fn raw(&self) -> &RawHandle {
         self.text.raw()
+    }
+}
+
+/// A text handle is an annotation's when the text was made as one
+/// (`Axes::annotate`).
+impl TypedHandle for Annotation {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        (raw.is::<TextArtist>() && raw.with::<TextArtist, _>(|t| t.annotation.is_some()))
+            .then(|| Self::from_raw(raw.clone()))
     }
 }
 

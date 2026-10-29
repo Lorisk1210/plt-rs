@@ -1,7 +1,7 @@
 //! Characters sized to fit: auto-sized delimiters and radicals
 //! (`AutoHeightChar`) and wide accents (`AutoWidthChar`).
 
-use super::{Char, List, Node, State};
+use super::{Char, List, ListClass, Node, State};
 use crate::mathtext::font_name::FontName;
 use crate::mathtext::fonts::{Fonts, GlyphError};
 
@@ -46,6 +46,7 @@ pub(crate) fn auto_height_char(
         shift = depth - c.depth;
     }
     let mut list = List::hlist(vec![Node::Char(c)], fonts)?;
+    list.class = ListClass::AutoHeightChar;
     list.shift_amount = shift;
     Ok(list)
 }
@@ -85,6 +86,7 @@ pub(crate) fn auto_width_char(
     let c = make(sym, &state, fonts)?;
     let char_width = c.width;
     let mut list = List::hlist(vec![Node::Char(c)], fonts)?;
+    list.class = ListClass::AutoWidthChar;
     list.width = char_width;
     Ok(list)
 }

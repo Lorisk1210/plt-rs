@@ -4,6 +4,10 @@ The PDF backend (matplotlib's ``backend_pdf``): `FigureCanvasPdf`, whose
 document of several figures. pltrs (Rust) writes the documents.
 """
 
+import datetime
+import os
+import time
+
 from .. import _api
 from .._native import backends as _backends
 from .._pylab_helpers import Gcf
@@ -138,3 +142,104 @@ FigureManagerPdf = FigureManagerBase
 @_Backend.export
 class _BackendPdf(_Backend):
     FigureCanvas = FigureCanvasPdf
+
+
+def _create_pdf_info_dict(backend, metadata):
+    """
+    Create a PDF infoDict based on user-supplied metadata (matplotlib's
+    helper, which the PGF backend's `PdfPages` uses).
+
+    A default ``Creator``, ``Producer``, and ``CreationDate`` are added, though
+    the user metadata may override it. The date may be the current time, or a
+    time set by the ``SOURCE_DATE_EPOCH`` environment variable.
+
+    Metadata is verified to have the correct keys and their expected types. Any
+    unknown keys/types will raise a warning.
+
+    Parameters
+    ----------
+    backend : str
+        The name of the backend to use in the Producer value.
+
+    metadata : dict[str, Union[str, datetime]]
+        A dictionary of metadata supplied by the user with information
+        following the PDF specification. If any value is *None*, then the key
+        will be removed. This can be used to remove any pre-defined values.
+
+    Returns
+    -------
+    dict[str, Union[str, datetime]]
+        A validated dictionary of metadata.
+    """
+    from .. import __version__
+    source_date_epoch = os.getenv("SOURCE_DATE_EPOCH")
+    if source_date_epoch:
+        source_date = datetime.datetime.fromtimestamp(
+            int(source_date_epoch), datetime.timezone.utc)
+    else:
+        source_date = datetime.datetime.today()
+
+    info = {
+        'Creator': f'Matplotlib v{__version__}, https://matplotlib.org',
+        'Producer': f'Matplotlib {backend} backend v{__version__}',
+        'CreationDate': source_date,
+        **metadata
+    }
+    info = {k: v for (k, v) in info.items() if v is not None}
+
+    def is_string_like(x):
+        return isinstance(x, str)
+    is_string_like.text_for_warning = "an instance of str"
+
+    def is_date(x):
+        return isinstance(x, datetime.datetime)
+    is_date.text_for_warning = "an instance of datetime.datetime"
+
+    def check_trapped(x):
+        return x in ('True', 'False', 'Unknown')
+    check_trapped.text_for_warning = 'one of {"True", "False", "Unknown"}'
+
+    keywords = {
+        'Title': is_string_like,
+        'Author': is_string_like,
+        'Subject': is_string_like,
+        'Keywords': is_string_like,
+        'Creator': is_string_like,
+        'Producer': is_string_like,
+        'CreationDate': is_date,
+        'ModDate': is_date,
+        'Trapped': check_trapped,
+    }
+    for k in info:
+        if k not in keywords:
+            _api.warn_external(f'Unknown infodict keyword: {k!r}. '
+                               f'Must be one of {set(keywords)!r}.')
+        elif not keywords[k](info[k]):
+            _api.warn_external(f'Bad value for infodict keyword {k}. '
+                               f'Got {info[k]!r} which is not '
+                               f'{keywords[k].text_for_warning}.')
+    return info
+
+
+def _datetime_to_pdf(d):
+    """
+    Convert a datetime to a PDF string representing it.
+
+    Used for PDF and PGF.
+    """
+    r = d.strftime('D:%Y%m%d%H%M%S')
+    z = d.utcoffset()
+    if z is not None:
+        z = z.seconds
+    else:
+        if time.daylight:
+            z = time.altzone
+        else:
+            z = time.timezone
+    if z == 0:
+        r += 'Z'
+    elif z < 0:
+        r += "+%02d'%02d'" % ((-z) // 3600, (-z) % 3600)
+    else:
+        r += "-%02d'%02d'" % (z // 3600, z % 3600)
+    return r

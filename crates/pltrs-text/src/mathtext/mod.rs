@@ -25,6 +25,7 @@ mod parser;
 mod pattern;
 mod style;
 
+pub use boxes::MathNode;
 pub use output::{MathGlyph, MathLayout, MathRect, RasterExtents};
 pub use style::{CustomFonts, Fontset, MathFallback, MathFont, MathStyle, PatternDefaults};
 
@@ -76,6 +77,41 @@ impl TextEngine {
     ///
     /// Malformed math yields [`TextError::Math`] with matplotlib's message.
     pub fn typeset_math(&self, source: &str, style: &MathStyle) -> Result<MathLayout, TextError> {
+        self.parse_math(source, style, |root, fonts| {
+            let shipped = boxes::ship(root, fonts)?;
+            Ok(MathLayout::new(
+                root.width,
+                root.height,
+                root.depth,
+                shipped,
+                style.dpi,
+            ))
+        })
+    }
+
+    /// The box tree `source` is typeset into, before it is shipped out
+    /// (matplotlib's `_mathtext.Parser().parse(s, fonts, fontsize, dpi)`).
+    ///
+    /// ```
+    /// use pltrs_text::TextEngine;
+    /// use pltrs_text::mathtext::{MathNode, MathStyle};
+    ///
+    /// let tree = TextEngine::global().math_box_tree(r"$x$", &MathStyle::default())?;
+    /// assert!(matches!(tree, MathNode::List { class: "Hlist", .. }));
+    /// # Ok::<(), pltrs_text::TextError>(())
+    /// ```
+    pub fn math_box_tree(&self, source: &str, style: &MathStyle) -> Result<MathNode, TextError> {
+        self.parse_math(source, style, |root, _| Ok(MathNode::from(root)))
+    }
+
+    /// Parses `source` into its root list and hands it, with the fonts it
+    /// was typeset with, to `then`.
+    fn parse_math<T>(
+        &self,
+        source: &str,
+        style: &MathStyle,
+        then: impl FnOnce(&boxes::List, &mut fonts::Fonts<'_>) -> Result<T, TextError>,
+    ) -> Result<T, TextError> {
         let db = self.database();
         let text_font = style.font.font(db)?;
         let mut fonts = fonts::Fonts::new(db, style, text_font)?;
@@ -85,14 +121,7 @@ impl TextEngine {
             style.font.query.size,
             style.default.into(),
         )?;
-        let shipped = boxes::ship(&root, &mut fonts)?;
-        Ok(MathLayout::new(
-            root.width,
-            root.height,
-            root.depth,
-            shipped,
-            style.dpi,
-        ))
+        then(&root, &mut fonts)
     }
 
     /// Lays out `source` as matplotlib's `MathTextParser("path").parse`

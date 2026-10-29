@@ -849,3 +849,8 @@ def setp(obj, *args, **kwargs):
 from ._pyplot_plotting import *  # noqa: E402,F401,F403
 from ._pyplot_plotting import __all__ as _plotting_all  # noqa: E402
 __all__ += _plotting_all
+
+# The text functions (plt.text, plt.annotate, plt.figtext).
+from ._pyplot_text import *  # noqa: E402,F401,F403
+from ._pyplot_text import __all__ as _text_all  # noqa: E402
+__all__ += _text_all

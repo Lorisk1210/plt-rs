@@ -141,13 +141,36 @@ impl Axes3D {
     }
 
     /// Whether data artists were added (matplotlib's `has_data`).
-    pub(crate) fn has_data(&self) -> bool {
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert!(!ax.has_data());
+    /// ax.plot(&[0.0], &[0.0], &[0.0])?;
+    /// assert!(ax.has_data());
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    pub fn has_data(&self) -> bool {
         self.with(Axes3DState::has_data)
     }
 
-    /// Includes data in the limits and autoscales (matplotlib's
-    /// `auto_scale_xyz`).
-    pub(crate) fn auto_scale_xyz(
+    /// Includes the points `(x, y, z)` in the data limits, which they
+    /// replace unless `had_data`, and autoscales the axes that autoscale
+    /// (matplotlib's `auto_scale_xyz`); values outside an axis' scale are
+    /// ignored, and without `z` the z data limits stay as they are.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.auto_scale_xyz(&[0.0, 10.0], &[0.0, 1.0], None, false)?;
+    /// assert!(ax.xlim().1 >= 10.0);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a locator fails while autoscaling.
+    pub fn auto_scale_xyz(
         &self,
         x: &[f64],
         y: &[f64],
@@ -179,6 +202,24 @@ impl Axes3D {
     /// The grid cell the axes occupies, if it was placed on a grid.
     pub fn subplot_spec(&self) -> Option<SubplotSpec> {
         self.with(|axes| axes.subplot_spec.clone())
+    }
+
+    /// The tight bounding box of the axes in display coordinates, the
+    /// figure brought up to date first: its box, and the lines, ticks,
+    /// tick labels, offset texts and labels of its axes when shown
+    /// (without the labels when `for_layout_only`), and its titles;
+    /// `None` for an invisible axes (matplotlib's `Axes3D.get_tightbbox`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let tight = ax.tight_bbox(false).expect("a visible axes");
+    /// assert!(tight.width() > 0.0 && tight.height() > 0.0);
+    /// ```
+    pub fn tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        super::state::axes3d_fresh_tight_bbox(&mut state, self.id(), for_layout_only)
     }
 
     /// The placement as a fraction of the figure before the box is made
@@ -222,6 +263,40 @@ impl Axes3D {
             state.artist_as::<Axes3DState>(parent).map(|_| parent)
         }?;
         Some(Self::from_raw(RawHandle::new(Rc::clone(figure), parent)))
+    }
+
+    /// The 3-D axes `artist` is drawn in: the axes itself, its projection
+    /// plane or an artist under them; `None` for the artists of 2-D axes
+    /// and of the figure, and for a removed artist (matplotlib's
+    /// `artist.axes` when the axes is an `Axes3D`).
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axes3D;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let line = ax.plot(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])?;
+    /// assert_eq!(Axes3D::of_artist(line.raw()), Some(ax.clone()));
+    /// assert_eq!(Axes3D::of_artist(ax.projection_plane().raw()), Some(ax));
+    /// line.remove();
+    /// assert_eq!(Axes3D::of_artist(line.raw()), None);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    pub fn of_artist(artist: &RawHandle) -> Option<Self> {
+        let figure = artist.figure_state();
+        let id = {
+            let state = figure.borrow();
+            if state.is_removed(artist.id()) {
+                return None;
+            }
+            let mut id = artist.id();
+            while state.artist_as::<Axes3DState>(id).is_none() {
+                id = state.artist(id)?.base().parent?;
+            }
+            id
+        };
+        Some(Self::from_raw(RawHandle::new(Rc::clone(figure), id)))
     }
 
     /// Sets the label of one axis (matplotlib's `set_xlabel`).
@@ -375,6 +450,25 @@ impl Axes3D {
     /// sees them (matplotlib's `_box_aspect` rolled to the vertical axis).
     pub fn box_aspect(&self) -> Vec3 {
         self.with(|axes| axes.camera.box_aspect())
+    }
+
+    /// The box aspect as matplotlib keeps it (`_box_aspect`, which
+    /// `get_box_aspect` returns): [`Axes3D::box_aspect`] rolled back from
+    /// the vertical axis, so that its last entry is that of the vertical
+    /// axis.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_vertical_axis(Axis3::X);
+    /// ax.set_box_aspect(None, 1.0)?;
+    /// let [x, y, z] = ax.box_aspect();
+    /// assert_eq!(ax.stored_box_aspect(), [y, z, x]);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    pub fn stored_box_aspect(&self) -> Vec3 {
+        self.with(|axes| axes.camera.stored_box_aspect())
     }
 
     /// Shows or hides the gridlines on the panes (matplotlib's `grid`).

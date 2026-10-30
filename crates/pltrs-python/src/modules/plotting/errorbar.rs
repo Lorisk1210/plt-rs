@@ -11,7 +11,7 @@ use crate::binding::prelude::*;
 
 /// Error sizes below and above each point, already broadcast by the
 /// Python side.
-pub(super) type Errors = Option<(NdArray, NdArray)>;
+pub(in crate::modules) type Errors = Option<(NdArray, NdArray)>;
 
 /// The styles of the bars and caps: `(ecolor, elinewidth, elinestyle,
 /// capsize, capthick, barsabove)`.
@@ -33,7 +33,7 @@ type Limits = (Vec<bool>, Vec<bool>, Vec<bool>, Vec<bool>);
 pub(super) type ErrorbarArtists = (Container, Option<Line2D>, Vec<Line2D>, Vec<Collection>);
 
 /// Asymmetric error sizes from the lower and upper arrays.
-pub(super) fn error_size(errors: Errors) -> PyResult<Option<ErrorSize>> {
+pub(in crate::modules) fn error_size(errors: Errors) -> PyResult<Option<ErrorSize>> {
     errors
         .map(|(lower, upper)| {
             Ok(ErrorSize::Asymmetric {

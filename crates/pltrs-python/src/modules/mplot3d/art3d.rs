@@ -10,9 +10,12 @@ use pltrs::mplot3d::math::{
     Matrix4, ortho_transformation, persp_transformation, view_axes, view_transformation,
     world_transformation,
 };
-use pltrs::mplot3d::{Axes3D, Geometry3D, Vec3, ZSort, all_points_on_plane};
+use pltrs::mplot3d::{Axes3D, Geometry3D, LightSource, Vec3, ZSort, all_points_on_plane};
 use pltrs::text::Text;
+use pltrs_core::Rgba;
 
+use super::super::path::{PathArrays, PyPath, path_arrays};
+use super::axis3;
 use crate::binding::prelude::*;
 
 /// Three coordinate columns.
@@ -60,6 +63,161 @@ fn get_depthshade(axes: Axes3D, scatter: Collection) -> PyResult<bool> {
 fn set_depthshade(axes: Axes3D, scatter: Collection, depthshade: bool) -> PyResult<()> {
     axes.set_depthshade(&scatter, depthshade)?;
     Ok(())
+}
+
+/// Takes the face (`faces`) and edge (`edges`) colours a polygon
+/// collection of the axes has now as those of its polygons
+/// (`Poly3DCollection.set_facecolor`, `set_edgecolor`, `set_alpha`).
+fn refresh_poly_colors(
+    axes: Axes3D,
+    collection: Collection,
+    faces: bool,
+    edges: bool,
+) -> PyResult<()> {
+    axes.refresh_poly_colors(&collection, faces, edges)?;
+    Ok(())
+}
+
+/// The face and edge colours the polygons of a polygon collection of the
+/// axes are drawn with, as `(N, 4)` arrays (`Poly3DCollection._facecolor3d`
+/// and `_edgecolor3d`).
+fn poly_colors(axes: Axes3D, collection: Collection) -> PyResult<(NdArray, NdArray)> {
+    let (faces, edges) = axes.poly_colors(&collection)?;
+    let array = |colors: Vec<Rgba>| {
+        let n = colors.len();
+        NdArray::with_shape(
+            colors.iter().flat_map(|c| [c.r, c.g, c.b, c.a]).collect(),
+            vec![n, 4],
+        )
+    };
+    Ok((array(faces)?, array(edges)?))
+}
+
+/// Turns the patch `patch` of the axes' projection plane into a flat 3-D
+/// patch following `outline`, an `(N, 3)` array (`patch_2d_to_3d`).
+fn patch_2d_to_3d(
+    axes: Axes3D,
+    patch: RawHandle,
+    outline: NdArray,
+    axlim_clip: bool,
+) -> PyResult<()> {
+    let outline = vertices(std::slice::from_ref(&outline))?.concat();
+    axes.patch_2d_to_3d(&patch, outline, axlim_clip)?;
+    Ok(())
+}
+
+/// Turns the patch `patch` of the axes' projection plane into a 3-D path
+/// patch: its outline `path` in data coordinates, codes kept, with its
+/// vertices at `vertices`, an `(N, 3)` array (`pathpatch_2d_to_3d`).
+fn pathpatch_2d_to_3d(
+    axes: Axes3D,
+    patch: RawHandle,
+    path: PyPath,
+    vertices3d: NdArray,
+) -> PyResult<()> {
+    let vertices3d = vertices(std::slice::from_ref(&vertices3d))?.concat();
+    axes.pathpatch_2d_to_3d(&patch, path.path, vertices3d)?;
+    Ok(())
+}
+
+/// The path a 3-D patch of the axes is drawn with, projected in the
+/// current layout (`Patch3D.get_path`).
+fn patch_path(axes: Axes3D, patch: RawHandle) -> PyResult<PathArrays> {
+    path_arrays(&axes.patch_path(&patch)?, false)
+}
+
+/// Includes the points `(x, y, z)` in the data limits (`z` `None`: the z
+/// limits stay), replacing them unless `had_data`, and autoscales
+/// (`auto_scale_xyz`).
+fn auto_scale_xyz(
+    axes: Axes3D,
+    (x, y, z): (Vec<f64>, Vec<f64>, Option<Vec<f64>>),
+    had_data: bool,
+) -> PyResult<()> {
+    axes.auto_scale_xyz(&x, &y, z.as_deref(), had_data)?;
+    Ok(())
+}
+
+/// Projects a 3-D artist of the axes onto its 2-D artist and returns its
+/// depth (`do_3d_projection`).
+fn do_3d_projection(axes: Axes3D, artist: RawHandle) -> PyResult<f64> {
+    Ok(axes.do_3d_projection(&artist)?)
+}
+
+/// Whether data artists were added to the axes (`has_data`).
+fn has_data(axes: Axes3D) -> PyResult<bool> {
+    Ok(axes.has_data())
+}
+
+/// Turns the text `text` of the axes' projection plane into a 3-D text at
+/// `position`, its baseline along `direction` (`text_2d_to_3d`,
+/// `Text3D.set_3d_properties`).
+fn text_2d_to_3d(
+    axes: Axes3D,
+    text: Text,
+    (position, direction): (Triple, Triple),
+    axlim_clip: bool,
+) -> PyResult<()> {
+    axes.text_2d_to_3d(&text, vec3(position), vec3(direction), axlim_clip)?;
+    Ok(())
+}
+
+/// Moves a 3-D text of the axes to `position`, its baseline along
+/// `direction` if given (`Text3D.set_position_3d`).
+fn set_text_position(
+    axes: Axes3D,
+    text: Text,
+    position: Triple,
+    direction: Option<Triple>,
+) -> PyResult<()> {
+    axes.set_text_position(&text, vec3(position), direction.map(vec3))?;
+    Ok(())
+}
+
+/// Turns the line `line` of the axes' projection plane into a 3-D line
+/// through `(xs, ys, zs)` (`line_2d_to_3d`, `Line3D.set_3d_properties`).
+fn line_2d_to_3d(
+    axes: Axes3D,
+    line: Line2D,
+    coordinates: Columns,
+    axlim_clip: bool,
+) -> PyResult<()> {
+    axes.line_2d_to_3d(&line, points(coordinates), axlim_clip)?;
+    Ok(())
+}
+
+/// `colors` (RGBA rows: one, or one per face) shaded by the normals of
+/// the `faces` (`(N, 3)` arrays) as the light at `(azdeg, altdeg)`
+/// (`None`: mplot3d's) lights them (a shaded `Poly3DCollection`).
+fn shade_faces(
+    faces: Vec<NdArray>,
+    colors: NdArray,
+    light: Option<(f64, f64)>,
+) -> PyResult<NdArray> {
+    let faces = vertices(&faces)?;
+    let colors: Vec<Rgba> = colors
+        .data
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|&[r, g, b, a]| Rgba::new(r, g, b, a))
+        .collect();
+    let light = light.map_or_else(LightSource::mplot3d, |(azdeg, altdeg)| {
+        LightSource::new(azdeg, altdeg)
+    });
+    let shaded = pltrs::mplot3d::shade_faces(&faces, &colors, &light);
+    let n = shaded.len();
+    NdArray::with_shape(
+        shaded.iter().flat_map(|c| [c.r, c.g, c.b, c.a]).collect(),
+        vec![n, 4],
+    )
+}
+
+/// Whether the 3-D artist `artist` of the axes hides its parts outside
+/// the view limits; `None` when it is no 3-D artist of the axes
+/// (`_axlim_clip`).
+fn get_axlim_clip(axes: Axes3D, artist: RawHandle) -> PyResult<Option<bool>> {
+    Ok(axes.axlim_clip(&artist))
 }
 
 /// The 3-D position of a text of the axes (`Text3D.get_position_3d`).
@@ -172,7 +330,7 @@ fn vertices(arrays: &[NdArray]) -> PyResult<Vec<Vec<Vec3>>> {
 
 /// How a polygon's depth is computed from its vertices (`zsort`:
 /// `"average"`, `"min"` or `"max"`).
-fn zsort(name: &str) -> PyResult<ZSort> {
+pub(super) fn zsort(name: &str) -> PyResult<ZSort> {
     match name {
         "average" => Ok(ZSort::Average),
         "min" => Ok(ZSort::Min),
@@ -184,28 +342,58 @@ fn zsort(name: &str) -> PyResult<ZSort> {
     }
 }
 
-/// Adds the loose collection `collection` (a `Poly3DCollection` or
-/// `Line3DCollection` made with its properties) through the 3-D
-/// `verts`: polygons ordered by the depth `zsort` picks, closed or not,
-/// or (`zsort` `None`) polylines (`add_collection3d`).
+/// The 3-D geometry of a collection made outside any figure, as Python
+/// describes it: `("polygons", (verts, zsort, closed))`, `("lines",
+/// (verts,))` or `("patches", (zs, zdir, depthshade, min_alpha))`.
+struct PyGeometry(Geometry3D);
+
+impl FromPy<'_> for PyGeometry {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let (kind, payload): (String, Bound<'_>) = object.extract()?;
+        Ok(Self(match kind.as_str() {
+            "polygons" => {
+                let (verts, zsort_name, closed): (Vec<NdArray>, String, bool) =
+                    payload.extract()?;
+                Geometry3D::Polygons {
+                    faces: vertices(&verts)?,
+                    zsort: zsort(&zsort_name)?,
+                    closed,
+                }
+            }
+            "lines" => {
+                let (verts,): (Vec<NdArray>,) = payload.extract()?;
+                Geometry3D::Lines(vertices(&verts)?)
+            }
+            "patches" => {
+                let (zs, zdir, depthshade, min_alpha): (Vec<f64>, String, bool, f64) =
+                    payload.extract()?;
+                Geometry3D::Patches {
+                    zs,
+                    zdir: axis3(&zdir)?,
+                    depthshade,
+                    min_alpha,
+                }
+            }
+            _ => {
+                return Err(PyErr::value_error(format!(
+                    "no 3-D collection geometry named {kind:?}"
+                )));
+            }
+        }))
+    }
+}
+
+/// Adds the loose collection `collection` (a `Poly3DCollection`,
+/// `Line3DCollection` or `Patch3DCollection` made with its properties)
+/// with its 3-D `geometry` (`add_collection3d`).
 fn adopt_collection3d(
     axes: Axes3D,
     collection: RawHandle,
-    verts: Vec<NdArray>,
-    (zsort_name, closed): (Option<String>, bool),
+    geometry: PyGeometry,
     autolim: bool,
     axlim_clip: bool,
 ) -> PyResult<Collection> {
-    let verts = vertices(&verts)?;
-    let geometry = match zsort_name {
-        Some(name) => Geometry3D::Polygons {
-            faces: verts,
-            zsort: zsort(&name)?,
-            closed,
-        },
-        None => Geometry3D::Lines(verts),
-    };
-    Ok(axes.adopt_collection3d(&collection, geometry, autolim, axlim_clip)?)
+    Ok(axes.adopt_collection3d(&collection, geometry.0, autolim, axlim_clip)?)
 }
 
 /// Registers the functions.
@@ -215,8 +403,21 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("scatter_offsets", scatter_offsets)?;
     module.add("set_scatter_offsets", set_scatter_offsets)?;
     module.add("text_position", text_position)?;
+    module.add("text_2d_to_3d", text_2d_to_3d)?;
+    module.add("line_2d_to_3d", line_2d_to_3d)?;
+    module.add("shade_faces", shade_faces)?;
+    module.add("get_axlim_clip", get_axlim_clip)?;
+    module.add("set_text_position", set_text_position)?;
     module.add("get_depthshade", get_depthshade)?;
     module.add("set_depthshade", set_depthshade)?;
+    module.add("refresh_poly_colors", refresh_poly_colors)?;
+    module.add("poly_colors", poly_colors)?;
+    module.add("patch_2d_to_3d", patch_2d_to_3d)?;
+    module.add("pathpatch_2d_to_3d", pathpatch_2d_to_3d)?;
+    module.add("patch_path", patch_path)?;
+    module.add("auto_scale_xyz", auto_scale_xyz)?;
+    module.add("has_data", has_data)?;
+    module.add("do_3d_projection", do_3d_projection)?;
     module.add("world_transformation", world)?;
     module.add("view_axes", view_frame)?;
     module.add("view_transformation", view_matrix)?;

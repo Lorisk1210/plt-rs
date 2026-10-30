@@ -12,6 +12,8 @@ use pltrs::tri::Triangulation;
 
 use super::super::collections::rgba_rows;
 use super::super::plotting::mapping::{Mapping, colorizer};
+use super::art3d::zsort;
+use super::plotting::{Shading, light};
 use crate::binding::prelude::*;
 
 /// The corners and the sizes of boxes, each one per box or one for all.
@@ -22,13 +24,14 @@ type PyBoxes = (
 
 /// Boxes with corners at `(x, y, z)` and sizes `(dx, dy, dz)` (`bar3d`):
 /// coloured `colors` (RGBA rows: one for all, one per box or per face;
-/// none for the cycle colour), shaded when `shade`, hiding the points
-/// outside the view limits when `axlim_clip`.
+/// none for the cycle colour), their faces ordered by depth as `zsort`
+/// says, shaded when `shade` by the light given (`None`: mplot3d's),
+/// hiding the points outside the view limits when `axlim_clip`.
 fn bar3d(
     axes: Axes3D,
     ((x, y, z), (dx, dy, dz)): PyBoxes,
-    colors: Option<NdArray>,
-    shade: bool,
+    (colors, zsort_name): (Option<NdArray>, String),
+    (shade, lightsource): (bool, Option<(f64, f64)>),
     axlim_clip: bool,
 ) -> PyResult<Collection> {
     let options = Bar3DOptions {
@@ -37,7 +40,9 @@ fn bar3d(
             .map(rgba_rows)
             .transpose()?
             .unwrap_or_default(),
+        zsort: zsort(&zsort_name)?,
         shade,
+        lightsource: lightsource.map(light),
         axlim_clip,
         ..Bar3DOptions::default()
     };
@@ -105,12 +110,13 @@ type PyTriangulation = (
 
 /// The surface of the triangulation lifted to `z` (`plot_trisurf`):
 /// coloured `color`, or its heights through a colormap (`None` for the
-/// cycle colour), shaded when `shade` (`None`: unless colour-mapped).
+/// cycle colour), shaded as `shading` says.
 fn plot_trisurf(
     axes: Axes3D,
     (x, y, triangles, mask): PyTriangulation,
     z: Vec<f64>,
-    (color, mapping, shade): (Option<Color>, Option<Mapping>, Option<bool>),
+    (color, mapping): (Option<Color>, Option<Mapping>),
+    (shade, lightsource): Shading,
     axlim_clip: bool,
 ) -> PyResult<Collection> {
     let mut tri = match triangles {
@@ -134,6 +140,7 @@ fn plot_trisurf(
     let options = TrisurfOptions {
         colors,
         shade,
+        lightsource: lightsource.map(light),
         axlim_clip,
         ..TrisurfOptions::default()
     };

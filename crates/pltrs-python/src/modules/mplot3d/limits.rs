@@ -3,7 +3,7 @@
 //! `autoscale`, `margins`, `set_zscale`, `invert_zaxis`, ...).
 
 use pltrs::mplot3d::{Axes3D, Axis3};
-use pltrs::scale::ScaleOptions;
+use pltrs::scale::{FuncTransform, ScaleOptions};
 
 use super::super::scale::nonpositive;
 use super::axis3;
@@ -46,6 +46,18 @@ fn set_bound(
     view_margin: Option<f64>,
 ) -> PyResult<()> {
     axes.set_bound_with_margin(axis3(&name)?, lower, upper, view_margin)?;
+    Ok(())
+}
+
+/// The padding of autoscaled limits as a fraction of their span
+/// (`_view_margin`).
+fn get_view_margin(axes: Axes3D) -> PyResult<f64> {
+    Ok(axes.view_margin())
+}
+
+/// Sets the padding of autoscaled limits (`_view_margin`).
+fn set_view_margin(axes: Axes3D, margin: f64) -> PyResult<()> {
+    axes.set_view_margin(margin)?;
     Ok(())
 }
 
@@ -110,6 +122,13 @@ fn scale_options(kwargs: &Bound<'_>) -> PyResult<ScaleOptions> {
             "linear_width" => options.linear_width = Some(value.extract()?),
             "one_half" => options.one_half = Some(value.extract()?),
             "use_overline" => options.use_overline = Some(value.extract()?),
+            "functions" => {
+                let (forward, inverse): (Callback, Callback) = value.extract()?;
+                options.functions = Some(FuncTransform::new(
+                    move |v| forward.call::<f64>((v,)).unwrap_or(f64::NAN),
+                    move |v| inverse.call::<f64>((v,)).unwrap_or(f64::NAN),
+                ));
+            }
             _ => {
                 return Err(PyErr::new(
                     ExceptionKind::NotImplementedError,
@@ -151,6 +170,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_lim", set_lim)?;
     module.add("get_bound", get_bound)?;
     module.add("set_bound", set_bound)?;
+    module.add("get_view_margin", get_view_margin)?;
+    module.add("set_view_margin", set_view_margin)?;
     module.add("get_autoscale_on", get_autoscale_on)?;
     module.add("set_autoscale_on", set_autoscale_on)?;
     module.add("autoscale", autoscale)?;

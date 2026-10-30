@@ -37,7 +37,9 @@ pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Ve
             rc.patch_facecolor.clone()
         }]
     });
-    let face_is_none = face_spec.len() == 1 && face_spec[0].is_none();
+    // No colours at all (matplotlib's `'none'` as an empty RGBA array)
+    // count as `'none'`, which leaves the mapping to the edges.
+    let face_is_none = face_spec.is_empty() || (face_spec.len() == 1 && face_spec[0].is_none());
     let edge_default = c.kind == CollectionKind::Line;
 
     let mapped = c.mapping.as_ref().map(|m| m.colors(&alpha)).transpose()?;
@@ -206,6 +208,27 @@ mod tests {
         assert_eq!(widths.len(), 6);
         assert_eq!(widths, [1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
         assert_eq!(dashes[1].lengths(), [3.7 * 2.0, 1.6 * 2.0]);
+    }
+
+    #[test]
+    fn mapped_lines_without_faces_colour_their_edges() {
+        use crate::artist::ArtistHandle;
+        use crate::collections::CollectionSpec;
+        use crate::figure::Figure;
+        use pltrs_core::Point;
+
+        let ax = Figure::new().subplot();
+        let segment = vec![Point::new(0.0, 0.0), Point::new(1.0, 1.0)];
+        let lines = ax.add_collection(CollectionSpec::lines(vec![segment.clone(), segment]));
+        lines.set_facecolors(Vec::new());
+        lines.set_array(vec![Some(0.0), Some(1.0)]).unwrap();
+        let (faces, edges) = lines
+            .raw()
+            .with::<CollectionArtist, _>(CollectionArtist::resolved_colors)
+            .unwrap();
+        assert_eq!(faces.len(), 0, "no faces");
+        assert_eq!(edges.len(), 2, "one mapped colour per line");
+        assert_ne!(edges[0], edges[1]);
     }
 
     #[test]

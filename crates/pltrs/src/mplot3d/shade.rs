@@ -19,6 +19,25 @@ pub(crate) fn polygon_normal(polygon: &[Vec3]) -> Vec3 {
     cross(sub(p1, p2), sub(p2, p3))
 }
 
+/// `colors` (one, or one per face) darkened where their face, a planar
+/// polygon, turns away from `light`, keeping their alpha (matplotlib's
+/// `_shade_colors(colors, _generate_normals(faces), lightsource)`, which
+/// a shaded `Poly3DCollection` applies to the colours it is given).
+///
+/// ```
+/// use pltrs::colors::Rgba;
+/// use pltrs::mplot3d::{LightSource, shade_faces};
+/// let up = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0]];
+/// let down: Vec<_> = up.iter().rev().copied().collect();
+/// let light = LightSource::new(0.0, 90.0);
+/// let shaded = shade_faces(&[up, down], &[Rgba::opaque(1.0, 1.0, 1.0)], &light);
+/// assert!((shaded[0].r - 1.0).abs() < 1e-12 && (shaded[1].r - 0.3).abs() < 1e-12);
+/// ```
+pub fn shade_faces(faces: &[Vec<Vec3>], colors: &[Rgba], light: &LightSource) -> Vec<Rgba> {
+    let normals: Vec<Vec3> = faces.iter().map(|face| polygon_normal(face)).collect();
+    shade_colors(colors, &normals, light)
+}
+
 /// `colors` (one, or one per normal) darkened where their face turns away
 /// from the light, keeping their alpha (matplotlib's `_shade_colors`).
 pub(crate) fn shade_colors(colors: &[Rgba], normals: &[Vec3], light: &LightSource) -> Vec<Rgba> {

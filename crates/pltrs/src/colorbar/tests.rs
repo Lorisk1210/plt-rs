@@ -126,6 +126,33 @@ fn several_parents_share_one_colorbar() {
 }
 
 #[test]
+fn a_projection_plane_given_as_parent_stands_for_its_3d_axes() {
+    let mappable = ScalarMappable::new(colormaps::get("viridis").unwrap());
+    let place = |given: bool| {
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let options = ColorbarOptions {
+            axes: if given {
+                ColorbarAxes::Parents(vec![ax.projection_plane()])
+            } else {
+                ColorbarAxes::Parent(ax.projection_plane())
+            },
+            shrink: 0.5,
+            ..ColorbarOptions::default()
+        };
+        let colorbar = fig.colorbar(&mappable, options).unwrap();
+        (colorbar.ax().position().bounds(), ax.position().bounds())
+    };
+    // matplotlib, with `ax=` the 3-D axes of a 6.4 × 4.8 in figure.
+    let (cax, ax) = place(true);
+    assert!(close(cax, [0.783_75, 0.3025, 0.014_437_5, 0.385]));
+    assert!(close(ax, [0.1675, 0.11, 0.5775, 0.77]));
+    let (one_cax, one_ax) = place(false);
+    assert!(close(one_cax, [cax.0, cax.1, cax.2, cax.3]));
+    assert!(close(one_ax, [ax.0, ax.1, ax.2, ax.3]));
+}
+
+#[test]
 fn a_cax_is_used_as_given() {
     let fig = Figure::new();
     let cax = fig

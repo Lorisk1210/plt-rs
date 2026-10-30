@@ -12,18 +12,24 @@
 //! * [`limits`]: limits, bounds, autoscaling, margins, scales, inversion;
 //! * [`view`]: the camera, the box, the decorations and the readout;
 //! * [`plotting`]: the 3-D plotting methods of lines, points, surfaces and
-//!   texts, and [`solids`] those of boxes, arrows and triangulations;
+//!   texts, [`solids`] those of boxes, arrows and triangulations,
+//!   [`charts`] those of error bars, stems and areas, and [`voxels`] that
+//!   of voxels;
+//! * [`contours`]: contours of grids and triangulations in 3-D;
 //! * [`art3d`]: the 3-D geometry of artists already made, and the
 //!   projection math of matplotlib's `proj3d`;
 //! * [`axis3d`]: the formatters, ticks and edges of the three axes.
 
 mod art3d;
 mod axis3d;
+mod charts;
+mod contours;
 mod create;
 mod limits;
 mod plotting;
 mod solids;
 mod view;
+mod voxels;
 
 use pltrs::mplot3d::{Axes3D, Axes3DError, Axis3};
 
@@ -65,6 +71,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     plotting::register(module)?;
     solids::register(module)?;
     art3d::register(module)?;
+    voxels::register(module)?;
+    contours::register(module)?;
+    charts::register(module)?;
     axis3d::register(module)
 }
 

@@ -3,9 +3,9 @@
 
 use std::cmp::Ordering;
 
-use pltrs_core::{Path, PathCode, Point};
+use pltrs_core::{PathCode, Point};
 
-use super::art3d::{Art3D, ProjectedOutline, ZSort};
+use super::art3d::{ProjectedOutline, ZSort};
 use super::collections3d::{NewPolys, PolyFaces, resolve_all};
 use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
@@ -13,11 +13,11 @@ use super::handle::Axes3D;
 use super::math::Vec3;
 use super::plot::{columns, spread};
 use super::shade::LightSource;
-use crate::artist::{Artist, ArtistHandle};
+use crate::artist::ArtistHandle;
 use crate::axes::BarOptions;
 use crate::collections::{Collection, CollectionProps};
 use crate::colors::Color;
-use crate::patches::{Patch, PatchArtist, PatchShape, Rectangle};
+use crate::patches::{Patch, PatchShape, Rectangle};
 use crate::units::{AxisDeltas, AxisValues, UnitHandle};
 
 /// The faces of the unit cube, each counter-clockwise seen from outside:
@@ -286,28 +286,11 @@ impl Axes3D {
                 .map(|p| zdir.juggle([p.x, p.y, z]))
                 .collect();
             all_points.extend_from_slice(&outline);
-            patches.push(self.lift_patch(rectangle, outline));
+            patches.push(self.patch_2d_to_3d(rectangle.raw(), outline, false)?);
         }
         let [xs, ys, zs] = columns(&all_points);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)?;
         Ok(patches)
-    }
-
-    /// Replaces a 2-D rectangle of the plane by a patch of the same style
-    /// following the 3-D `outline` (matplotlib's `patch_2d_to_3d`).
-    fn lift_patch(
-        &self,
-        rectangle: &Patch<Rectangle>,
-        outline: Vec<Vec3>,
-    ) -> Patch<ProjectedOutline> {
-        let (style, base) = rectangle
-            .raw()
-            .with::<PatchArtist<Rectangle>, _>(|r| (r.style.clone(), r.base().clone()));
-        rectangle.remove();
-        let mut patch = PatchArtist::new(ProjectedOutline(Path::default()), crate::rc::params());
-        patch.style = style;
-        *patch.base_mut() = base;
-        Patch::from_raw(self.add_artist(patch, Art3D::Patch(outline), false))
     }
 }
 

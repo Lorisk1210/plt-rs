@@ -56,7 +56,16 @@ impl Axes3D {
     /// pane is normal to (matplotlib's `_calc_coord`, which works in
     /// transformed coordinates); `None` when the projection cannot be
     /// inverted.
-    pub(crate) fn pane_point(&self, xv: f64, yv: f64) -> Option<(Vec3, Axis3)> {
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// let (point, pane) = ax.pane_point(0.0, 0.0).expect("an invertible view");
+    /// assert_eq!(pane, Axis3::Y);
+    /// assert_eq!(point[1], ax.ylim().1);
+    /// ```
+    pub fn pane_point(&self, xv: f64, yv: f64) -> Option<(Vec3, Axis3)> {
         self.with(|axes| {
             let projection = axes.projection();
             let inverse = projection.matrix.inverse()?;

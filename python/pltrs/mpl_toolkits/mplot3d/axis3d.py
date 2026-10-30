@@ -10,6 +10,44 @@ from pltrs import _api, colors as mcolors, ticker as mticker
 from pltrs._native import mplot3d as _mplot3d
 
 
+class _AxisLine:
+    """
+    The bolded line of a 3-D axis (matplotlib's ``axis.line``): pltrs
+    (Rust) draws it along the edge the tick position names; this reads its
+    projected end points and shows or hides it.
+    """
+
+    def __init__(self, axis):
+        self._axis = axis
+
+    def _args(self):
+        return self._axis.axes._native, self._axis.axis_name
+
+    def get_data(self, orig=True):
+        """Return the x and y data of the line's end points, in projected
+        coordinates."""
+        data = _mplot3d.axis_line_data(*self._args())
+        if data is None:
+            return np.array([]), np.array([])
+        return np.array(data[0]), np.array(data[1])
+
+    def get_xdata(self, orig=True):
+        """Return the x data of the line's end points."""
+        return self.get_data()[0]
+
+    def get_ydata(self, orig=True):
+        """Return the y data of the line's end points."""
+        return self.get_data()[1]
+
+    def get_visible(self):
+        """Return whether the line is drawn."""
+        return _mplot3d.get_line_visible(*self._args())
+
+    def set_visible(self, b):
+        """Set whether the line is drawn."""
+        _mplot3d.set_line_visible(*self._args(), bool(b))
+
+
 class Axis:
     """An Axis class for the 3D plots."""
 
@@ -17,6 +55,33 @@ class Axis:
 
     def __init__(self, axes):
         self.axes = axes
+        self.line = _AxisLine(self)
+        #: The scale object the axis was last given (`get_transform`).
+        self._scale = None
+
+    def get_transform(self):
+        """Return the transform of the axis' scale."""
+        from pltrs import scale as mscale
+        scale = self._scale if self._scale is not None else mscale.LinearScale(self)
+        return scale.get_transform()
+
+    def _get_tickdir(self, position):
+        """
+        Get the direction of the tick.
+
+        Parameters
+        ----------
+        position : str, optional : {'upper', 'lower', 'default'}
+            The position of the axis.
+
+        Returns
+        -------
+        tickdir : int
+            Index which indicates which coordinate the tick line will
+            align with.
+        """
+        _api.check_in_list(('upper', 'lower', 'default'), position=position)
+        return _mplot3d.tick_direction(self.axes._native, self.axis_name, position)
 
     def get_view_interval(self):
         """Return the view limits ``(min, max)`` of this axis."""
@@ -70,6 +135,19 @@ class Axis:
             raise NotImplementedError("pltrs: set_ticks(labels=...) on 3-D axes")
         _mplot3d.set_ticks(self.axes._native, self.axis_name,
                            [float(t) for t in ticks], bool(minor))
+
+    def set_ticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
+        """
+        Set this Axis' tick labels with list of string labels.
+
+        pltrs: the tick labels of a 3-D axis are drawn by pltrs (Rust)
+        rather than kept as `.Text` artists, so nothing is returned.
+        """
+        if fontdict is not None or kwargs:
+            raise NotImplementedError(
+                "pltrs: set_ticklabels(<text properties>) on 3-D axes")
+        _mplot3d.set_ticklabels(self.axes._native, self.axis_name,
+                                [str(label) for label in labels], bool(minor))
 
     def get_ticklocs(self, *, minor=False):
         """Return this Axis' tick locations in data coordinates."""

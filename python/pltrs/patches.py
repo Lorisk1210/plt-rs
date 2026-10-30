@@ -29,6 +29,18 @@ def _rcParams():
     return rcParams
 
 
+def _number_text(value):
+    """
+    *value* as matplotlib's ``%s`` shows the number a patch was made with:
+    pltrs (Rust) keeps floats, so an integral one shows as the integer it
+    most likely was (None stays None).
+    """
+    if value is None:
+        return "None"
+    value = float(value)
+    return str(int(value)) if value.is_integer() and abs(value) < 1e16 else str(value)
+
+
 @_api.define_aliases({
     "antialiased": ["aa"],
     "edgecolor": ["ec"],
@@ -269,7 +281,13 @@ class Patch(Artist):
         """Return the linestyle, as it was set."""
         if "_linestyle" in self.__dict__:
             return self._linestyle
-        return self._get("linestyle")
+        linestyle = self._get("linestyle")
+        if isinstance(linestyle, tuple):
+            # An (offset, on-off sequence) pattern, its sequence a tuple as
+            # matplotlib's dash patterns are.
+            offset, dashes = linestyle
+            return offset, None if dashes is None else tuple(dashes)
+        return linestyle
 
     def set_linestyle(self, ls):
         """
@@ -570,25 +588,29 @@ class RegularPolygon(Patch):
             float(orientation))
         super().__init__(**kwargs)
 
+    def _fields(self):
+        """``(x, y, numvertices, radius, orientation)``."""
+        return _patches.regular_polygon(self._native)
+
     @property
     def xy(self):
         """The center of the polygon."""
-        return _patches.regular_polygon(self._native)[:2]
+        return self._fields()[:2]
 
     @property
     def numvertices(self):
         """The number of vertices."""
-        return _patches.regular_polygon(self._native)[2]
+        return self._fields()[2]
 
     @property
     def radius(self):
         """The distance from the center to each of the vertices."""
-        return _patches.regular_polygon(self._native)[3]
+        return self._fields()[3]
 
     @property
     def orientation(self):
         """The polygon's rotation, in radians."""
-        return _patches.regular_polygon(self._native)[4]
+        return self._fields()[4]
 
 
 class PathPatch(Patch):
@@ -747,7 +769,7 @@ class Wedge(Patch):
         pars = (self.center[0], self.center[1], self.r,
                 self.theta1, self.theta2, self.width)
         fmt = "Wedge(center=(%g, %g), r=%g, theta1=%g, theta2=%g, width=%s)"
-        return fmt % pars
+        return fmt % (*pars[:-1], _number_text(pars[-1]))
 
     def __init__(self, center, r, theta1, theta2, *, width=None, **kwargs):
         """
@@ -837,6 +859,29 @@ class Arrow(Patch):
                                    float(width))
         super().__init__(**kwargs)
 
+    def set_data(self, x=None, y=None, dx=None, dy=None, width=None):
+        """
+        Set `.Arrow` x, y, dx, dy and width.
+        Values left as None will not be updated.
+
+        Parameters
+        ----------
+        x, y : float or None, default: None
+            The x and y coordinates of the arrow base.
+
+        dx, dy : float or None, default: None
+            The length of the arrow along x and y direction.
+
+        width : float or None, default: None
+            Width of full arrow tail.
+        """
+        given = (x, y, dx, dy, width)
+        x, y, dx, dy, width = (float(current if new is None else new)
+                               for new, current in
+                               zip(given, _patches.arrow(self._native)))
+        _patches.set_arrow(self._native, (x, y), (dx, dy), width)
+        self.stale = True
+
 
 class FancyArrow(Polygon):
     """
@@ -884,6 +929,42 @@ class FancyArrow(Polygon):
              bool(head_starts_at_zero)))
         Patch.__init__(self, **kwargs)
 
+    @property
+    def verts(self):
+        """The vertices of the arrow's polygon."""
+        return _patches.fancy_arrow_verts(self._native)
+
+    def set_data(self, *, x=None, y=None, dx=None, dy=None, width=None,
+                 head_width=None, head_length=None):
+        """
+        Set `.FancyArrow` x, y, dx, dy, width, head_with, and head_length.
+        Values left as None will not be updated.
+
+        Parameters
+        ----------
+        x, y : float or None, default: None
+            The x and y coordinates of the arrow base.
+
+        dx, dy : float or None, default: None
+            The length of the arrow along x and y direction.
+
+        width : float or None, default: None
+            Width of full arrow tail.
+
+        head_width : float or None, default: None
+            Total width of the full arrow head.
+
+        head_length : float or None, default: None
+            Length of arrow head.
+        """
+        def given(value):
+            return None if value is None else float(value)
+
+        _patches.set_fancy_arrow(
+            self._native, tuple(map(given, (x, y, dx, dy))),
+            tuple(map(given, (width, head_width, head_length))))
+        self.stale = True
+
     def get_xy(self):
         """Return the vertices of the arrow."""
         return self.get_path().vertices
@@ -913,6 +994,9 @@ class CirclePolygon(RegularPolygon):
             (float(xy[0]), float(xy[1])), float(radius), int(resolution))
         Patch.__init__(self, **kwargs)
 
+    def _fields(self):
+        return _patches.circle_polygon(self._native)
+
 
 class Ellipse(Patch):
     """A scale-free ellipse."""
@@ -921,7 +1005,7 @@ class Ellipse(Patch):
         pars = (self._center[0], self._center[1],
                 self.width, self.height, self.angle)
         fmt = "Ellipse(xy=(%s, %s), width=%s, height=%s, angle=%s)"
-        return fmt % pars
+        return fmt % tuple(map(_number_text, pars))
 
     def __init__(self, xy, width, height, *, angle=0, **kwargs):
         """
@@ -1050,11 +1134,128 @@ class Annulus(Patch):
             Rotation angle in degrees (anti-clockwise from the positive
             x-axis).
         """
-        a, b = (r, r) if np.isscalar(r) else r
         self._native = _patches.new_annulus(
-            (float(xy[0]), float(xy[1])), (float(a), float(b)), float(width),
+            (float(xy[0]), float(xy[1])), _annulus_radii(r), float(width),
             float(angle))
         super().__init__(**kwargs)
+
+    def __str__(self):
+        a, b = self.radii
+        r = (_number_text(a) if a == b
+             else f"({_number_text(a)}, {_number_text(b)})")
+        return "Annulus(xy=(%s, %s), r=%s, width=%s, angle=%s)" % (
+            *map(_number_text, self.center), r, _number_text(self.width),
+            _number_text(self.angle))
+
+    def _set(self, center=None, radii=None, width=None, angle=None):
+        """Change the given parts of the annulus (see `_native.patches`)."""
+        _patches.set_annulus(self._native, center, radii, width, angle)
+        self.stale = True
+
+    def set_center(self, xy):
+        """
+        Set the center of the annulus.
+
+        Parameters
+        ----------
+        xy : (float, float)
+        """
+        self._set(center=(float(xy[0]), float(xy[1])))
+
+    def get_center(self):
+        """Return the center of the annulus."""
+        return _patches.annulus(self._native)[0]
+
+    center = property(get_center, set_center)
+
+    def set_width(self, width):
+        """
+        Set the width (thickness) of the annulus ring.
+
+        The width is measured inwards from the outer ellipse.
+
+        Parameters
+        ----------
+        width : float
+        """
+        self._set(width=float(width))
+
+    def get_width(self):
+        """Return the width (thickness) of the annulus ring."""
+        return _patches.annulus(self._native)[2]
+
+    width = property(get_width, set_width)
+
+    def set_angle(self, angle):
+        """
+        Set the tilt angle of the annulus.
+
+        Parameters
+        ----------
+        angle : float
+        """
+        self._set(angle=float(angle))
+
+    def get_angle(self):
+        """Return the angle of the annulus."""
+        return _patches.annulus(self._native)[3]
+
+    angle = property(get_angle, set_angle)
+
+    def set_semimajor(self, a):
+        """
+        Set the semi-major axis *a* of the annulus.
+
+        Parameters
+        ----------
+        a : float
+        """
+        self._set(radii=(float(a), self.b))
+
+    def set_semiminor(self, b):
+        """
+        Set the semi-minor axis *b* of the annulus.
+
+        Parameters
+        ----------
+        b : float
+        """
+        self._set(radii=(self.a, float(b)))
+
+    def set_radii(self, r):
+        """
+        Set the semi-major (*a*) and semi-minor radii (*b*) of the annulus.
+
+        Parameters
+        ----------
+        r : float or (float, float)
+            The radius, or semi-axes:
+
+            - If float: radius of the outer circle.
+            - If two floats: semi-major and -minor axes of outer ellipse.
+        """
+        self._set(radii=_annulus_radii(r))
+
+    def get_radii(self):
+        """Return the semi-major and semi-minor radii of the annulus."""
+        return _patches.annulus(self._native)[1]
+
+    radii = property(get_radii, set_radii)
+
+    a = property(lambda self: self.get_radii()[0], set_semimajor,
+                 doc="The semi-major axis of the outer ellipse.")
+    b = property(lambda self: self.get_radii()[1], set_semiminor,
+                 doc="The semi-minor axis of the outer ellipse.")
+
+
+def _annulus_radii(r):
+    """The outer semi-axes ``(a, b)`` of an annulus of radius or radii *r*."""
+    if np.shape(r) == (2,):
+        a, b = r
+        return float(a), float(b)
+    if np.shape(r) == ():
+        return float(r), float(r)
+    raise ValueError("Parameter 'r' must be one or two floats.")
 
 
 class Circle(Ellipse):
@@ -1274,6 +1475,13 @@ class FancyArrowPatch(Patch):
 
     _edge_default = True
 
+    def __str__(self):
+        ends, path = _patches.arrow_route(self._native)
+        if ends is not None:
+            (x1, y1), (x2, y2) = ends
+            return f"{type(self).__name__}(({x1:g}, {y1:g})->({x2:g}, {y2:g}))"
+        return f"{type(self).__name__}({Path(*path)})"
+
     def __init__(self, posA=None, posB=None, *,
                  path=None, arrowstyle="simple", connectionstyle="arc3",
                  patchA=None, patchB=None, shrinkA=2, shrinkB=2,
@@ -1316,6 +1524,19 @@ class FancyArrowPatch(Patch):
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
 
+    def get_path(self):
+        """Return the path of the arrow in the data coordinates."""
+        path = Path(*_patches.display_path(self._native))
+        return self.get_transform().inverted().transform_path(path)
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        added = super()._add_to_axes(axes, kind, autolim)
+        if kind == "patch":
+            # ``add_patch`` measures the arrow, which fails for a connection
+            # that cannot be made, as matplotlib's ``_update_patch_limits``.
+            self.get_path()
+        return added
+
     def set_positions(self, posA, posB):
         """
         Set the start and end positions of the connecting path.
@@ -1337,9 +1558,156 @@ class FancyArrowPatch(Patch):
                                  for x, y in positions))
 
 
+def _connection_end(xy, coords, axes):
+    """An end of a `ConnectionPatch` as ``_native.patches`` takes it."""
+    from ._live_transforms import to_native
+    from .text import _native_coords
+    from .transforms import Transform
+    if isinstance(coords, Transform):
+        native_coords = ("transform", to_native(coords))
+    else:
+        native_coords = _native_coords(
+            coords, None if axes is None else axes.figure)
+    return ((float(xy[0]), float(xy[1])), native_coords,
+            None if axes is None else axes._native)
+
+
+def _connection_end_property(index, part, doc):
+    """The property of part *part* (0: point, 1: coordinates, 2: axes) of
+    end *index* of a `ConnectionPatch`."""
+    def get(self):
+        return self._ends()[index][part]
+
+    def set(self, value):
+        end = list(self._ends()[index])
+        end[part] = value
+        _patches.set_connection_end(self._native, bool(index),
+                                    _connection_end(*end))
+        self._given_ends[index] = end[1:]
+        self.stale = True
+
+    return property(get, set, doc=doc)
+
+
 class ConnectionPatch(FancyArrowPatch):
     """A patch that connects two points (possibly in different Axes)."""
 
+    def __str__(self):
+        return "ConnectionPatch((%g, %g), (%g, %g))" % \
+               (self.xy1[0], self.xy1[1], self.xy2[0], self.xy2[1])
+
+    def __init__(self, xyA, xyB, coordsA, coordsB=None, *,
+                 axesA=None, axesB=None,
+                 arrowstyle="-",
+                 connectionstyle="arc3",
+                 patchA=None,
+                 patchB=None,
+                 shrinkA=0.,
+                 shrinkB=0.,
+                 mutation_scale=10.,
+                 mutation_aspect=None,
+                 clip_on=False,
+                 **kwargs):
+        """
+        Connect point *xyA* in *coordsA* with point *xyB* in *coordsB*.
+
+        *coordsA* and *coordsB* are the coordinate systems of annotations
+        ('data', 'axes fraction', 'figure pixels', ...), a `.Transform`,
+        or an `.Artist` whose extent's fractions they are; *coordsB*
+        defaults to *coordsA*. *axesA* and *axesB* are the Axes of data and
+        Axes coordinates (by default the Axes the patch is added to). The
+        arrow is drawn as a `.FancyArrowPatch` with *arrowstyle*,
+        *connectionstyle*, *shrinkA*, *shrinkB*, *mutation_scale* and
+        *mutation_aspect*; it is not clipped unless *clip_on* is set.
+        """
+        if patchA is not None or patchB is not None:
+            raise NotImplementedError(
+                "pltrs: ConnectionPatch(patchA=..., patchB=...)")
+        if coordsB is None:
+            coordsB = coordsA
+        self._given_ends = [[coordsA, axesA], [coordsB, axesB]]
+        self._native = _patches.new_connection_patch(
+            _connection_end(xyA, coordsA, axesA),
+            _connection_end(xyB, coordsB, axesB),
+            (_native_spec(arrowstyle, ArrowStyle),
+             _native_spec(connectionstyle, ConnectionStyle),
+             float(shrinkA), float(shrinkB), float(mutation_scale),
+             1.0 if mutation_aspect is None else float(mutation_aspect)))
+        kwargs.setdefault("joinstyle", JoinStyle.round)
+        kwargs.setdefault("capstyle", CapStyle.round)
+        Patch.__init__(self, clip_on=clip_on, **kwargs)
+
+    def _ends(self):
+        """The two ends, each as ``(xy, coords, axes)``."""
+        return [(xy, *given) for xy, given in
+                zip(_patches.connection_points(self._native), self._given_ends)]
+
+    xy1 = _connection_end_property(0, 0, "The point A, in `coords1`.")
+    xy2 = _connection_end_property(1, 0, "The point B, in `coords2`.")
+    coords1 = _connection_end_property(0, 1, "The coordinates of `xy1`.")
+    coords2 = _connection_end_property(1, 1, "The coordinates of `xy2`.")
+    axesA = _connection_end_property(
+        0, 2, "The Axes of `xy1` in data or axes coordinates.")
+    axesB = _connection_end_property(
+        1, 2, "The Axes of `xy2` in data or axes coordinates.")
+
+    def set_annotation_clip(self, b):
+        """
+        Set the annotation's clipping behavior.
+
+        Parameters
+        ----------
+        b : bool or None
+            - True: The annotation will be clipped when ``self.xy`` is
+              outside the Axes.
+            - False: The annotation will always be drawn.
+            - None: The annotation will be clipped when ``self.xy`` is
+              outside the Axes and ``self.xycoords == "data"``.
+        """
+        _patches.set_connection_clip(self._native, None if b is None else bool(b))
+        self.stale = True
+
+    def get_annotation_clip(self):
+        """
+        Return the clipping behavior.
+
+        See `.set_annotation_clip` for the meaning of the return value.
+        """
+        return _patches.get_connection_clip(self._native)
+
 
 class Shadow(Patch):
-    """A shadow of a patch."""
+    """
+    A shadow of a patch: its outline, offset and painted in a darker shade
+    of its face colour, half transparent, just below it.
+    """
+
+    def __str__(self):
+        return f"Shadow({self.patch})"
+
+    def __init__(self, patch, ox, oy, *, shade=0.7, **kwargs):
+        """
+        Create a shadow of the given *patch*.
+
+        By default, the shadow will have the same face color as the *patch*,
+        but darkened. The darkness can be controlled by *shade*.
+
+        Parameters
+        ----------
+        patch : `~matplotlib.patches.Patch`
+            The patch to create the shadow for.
+        ox, oy : float
+            The shift of the shadow in data coordinates, scaled by a factor
+            of dpi/72.
+        shade : float, default: 0.7
+            How the darkness of the shadow relates to the original color. If 1, the
+            shadow is black, if 0, the shadow has the same color as the *patch*.
+        **kwargs
+            Properties of the shadow patch.
+        """
+        self.patch = patch
+        self._ox, self._oy = ox, oy
+        self._native = _patches.new_shadow(
+            patch._native, (float(ox), float(oy)), float(shade))
+        Artist.__init__(self)
+        self._internal_update(kwargs)

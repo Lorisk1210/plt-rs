@@ -24,6 +24,11 @@ use super::transforms::{affine, matrix};
 use crate::binding::prelude::*;
 use crate::binding::{NdArray, dict_items};
 
+mod axline;
+mod markevery;
+
+pub(super) use markevery::markevery_error;
+
 artist_handle!(Line2D);
 
 impl From<FormatStringError> for PyErr {
@@ -164,25 +169,12 @@ impl FromPy<'_> for PyMarkEvery {
                 step: object.extract()?,
             }));
         }
+        let pair = object.type_name() == "tuple";
         let items: Vec<Bound<'_>> = object.extract().map_err(|_| invalid())?;
         // A pair is a start and a stride only as a tuple; a list of two
         // integers holds indices.
-        let pair = items.len() == 2 && object.type_name() == "tuple";
-        if pair && items.iter().all(is_integer) {
-            return Ok(Self(MarkEvery::Every {
-                start: items[0].extract()?,
-                step: items[1].extract()?,
-            }));
-        }
-        if pair
-            && items
-                .iter()
-                .all(|item| item.type_name().starts_with("float"))
-        {
-            return Ok(Self(MarkEvery::Distance {
-                start: items[0].extract()?,
-                step: items[1].extract()?,
-            }));
+        if pair {
+            return start_and_step(object, &items).map(Self);
         }
         if !items.is_empty()
             && items
@@ -200,6 +192,41 @@ impl FromPy<'_> for PyMarkEvery {
         }
         Err(invalid())
     }
+}
+
+/// A `markevery` tuple `object` of `items`: `(start, step)` integers, or
+/// a start and a float distance step (matplotlib's `_mark_every_path`,
+/// whose messages these are).
+fn start_and_step(object: &Bound<'_>, items: &[Bound<'_>]) -> PyResult<MarkEvery> {
+    let shown = object.repr().unwrap_or_default();
+    let [start, step] = items else {
+        return Err(PyErr::value_error(format!(
+            "`markevery` is a tuple but its len is not 2; markevery={shown}"
+        )));
+    };
+    let is_float = |item: &Bound<'_>| item.type_name().starts_with("float");
+    if is_integer(step) {
+        if !is_integer(start) {
+            return Err(PyErr::value_error(format!(
+                "`markevery` is a tuple with len 2 and second element is an int, but the \
+                 first element is not an int; markevery={shown}"
+            )));
+        }
+        return Ok(MarkEvery::Every {
+            start: start.extract()?,
+            step: step.extract()?,
+        });
+    }
+    if !is_float(step) || !(is_integer(start) || is_float(start)) {
+        return Err(PyErr::value_error(format!(
+            "`markevery` is a tuple with len 2 and second element is a float, but the first \
+             element is not a float or an int; markevery={shown}"
+        )));
+    }
+    Ok(MarkEvery::Distance {
+        start: start.extract()?,
+        step: step.extract()?,
+    })
 }
 
 /// Whether `object` is an integer (Python's or numpy's, not a bool).
@@ -594,5 +621,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("markevery_indices", markevery_indices)?;
     module.add("marker_indices", marker_indices)?;
     module.add("get_rgba", get_rgba)?;
-    module.add("is_attached", is_attached)
+    module.add("is_attached", is_attached)?;
+    axline::register(module)
 }

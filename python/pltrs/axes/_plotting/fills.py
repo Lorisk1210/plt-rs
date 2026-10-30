@@ -20,6 +20,12 @@ def _rcParams():
     return rcParams
 
 
+#: The patch properties a property cycle can give a filled polygon: those
+#: given to `~.Axes.fill` are not taken from the cycle.
+_CYCLED_PATCH_PROPS = ("color", "facecolor", "edgecolor", "linestyle",
+                       "linewidth", "hatch", "alpha")
+
+
 class FillsMixin:
     """`fill`, `fill_between`, `fill_betweenx`, `stairs`, `stackplot`, `step`."""
 
@@ -36,15 +42,16 @@ class FillsMixin:
         self._process_unit_info(kwargs=kwargs)
         patches = []
         for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs)):
-            color = kwargs.get('color', kwargs.get('facecolor'))
-            if fmt is not None and color is None:
-                color = _plotting.format_parts(fmt)[2]
-            native = _plotting.fill(self._native, *line_data(self, x, y),
-                                    color, bool(closed))
+            fmt_color = None if fmt is None else _plotting.format_parts(fmt)[2]
+            props = cbook.normalize_kwargs(
+                {k: v for k, v in kwargs.items()
+                 if k != 'label' and v is not None},
+                mpatches.Patch)
+            native = _plotting.fill(
+                self._native, *line_data(self, x, y), (fmt_color, bool(closed)),
+                {k: v for k, v in props.items() if k in _CYCLED_PATCH_PROPS})
             polygon = wrap(self, native, mpatches.Polygon)
-            props = {k: v for k, v in kwargs.items()
-                     if k not in ('color', 'label') and v is not None}
-            polygon._internal_update(cbook.normalize_kwargs(props, mpatches.Patch))
+            polygon._internal_update(props)
             if label is not None:
                 polygon.set_label(label)
             patches.append(polygon)

@@ -355,8 +355,8 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         if len(args) == 1 and args[0] is None:
             prop_cycle = None
         else:
-            from ..rcsetup import cycler
-            prop_cycle = repr(cycler(*args, **kwargs))
+            from ..rcsetup import _rc_value, cycler
+            prop_cycle = _rc_value(cycler(*args, **kwargs))
         _axes_base.set_prop_cycle(self._native, prop_cycle)
 
     def _make_twin_axes(self, shared, axes_class, delta_zorder, kwargs):

@@ -531,12 +531,23 @@ class TextArea(OffsetBox):
         """
         if textprops is None:
             textprops = {}
-        self._text = mtext.Text(0, 0, s, **textprops)
+        self._init_area(mtext.Text(0, 0, s, **textprops), multilinebaseline)
+
+    def _init_area(self, text, multilinebaseline):
+        """Make the area of the `.Text` *text*."""
+        self._text = text
         super().__init__()
-        self._children = [self._text]
+        self._children = [text]
         self.offset_transform = mtransforms.Affine2D()
         self._baseline_transform = mtransforms.Affine2D()
         self._multilinebaseline = multilinebaseline
+
+    @classmethod
+    def _of_text(cls, text, multilinebaseline):
+        """The area of *text*, a `.Text` pltrs (Rust) laid out in a box."""
+        area = cls.__new__(cls)
+        area._init_area(text, multilinebaseline)
+        return area
 
     def set_text(self, s):
         """Set the text of this area as a string."""
@@ -587,6 +598,37 @@ class TextArea(OffsetBox):
     def get_offset(self):
         """Return offset of the container."""
         return self._offset
+
+
+def _laid_out_box(description, figure, classes):
+    """
+    The offset box of a box pltrs (Rust) laid out (a legend's, described
+    by ``_native.legend.legend_box``), around the artists of *figure* it
+    holds; *classes* maps the kinds of those artists to their classes.
+    """
+    kind, visible, *parts = description
+
+    def artist(item):
+        raw, artist_kind = item
+        return _handles.wrap(raw, classes[artist_kind], figure)
+
+    if kind == "text":
+        text, multilinebaseline = parts
+        box = TextArea._of_text(artist(text), multilinebaseline)
+    elif kind == "drawing":
+        (width, height, xdescent, ydescent), clip, artists = parts
+        box = DrawingArea(width, height, xdescent, ydescent, clip)
+        for child in artists:
+            box.add_artist(artist(child))
+    else:
+        (pad, sep, width, height), (align, mode), children = parts
+        packer = VPacker if kind == "vpacker" else HPacker
+        box = packer(pad=pad, sep=sep, width=width, height=height,
+                     align=align, mode=mode,
+                     children=[_laid_out_box(child, figure, classes)
+                               for child in children])
+    box.set_visible(visible)
+    return box
 
 
 class AuxTransformBox(OffsetBox):

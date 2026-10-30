@@ -157,6 +157,18 @@ def given_to_native(transform):
     return None if transform is None else to_native(transform)
 
 
+def for_axes(transform, axes):
+    """
+    *transform*, or the transform an object of the program that is no
+    `.Transform` gives for *axes* through its ``_as_mpl_transform`` (as
+    matplotlib's ``Artist.get_transform`` asks it).
+    """
+    if (not isinstance(transform, Transform)
+            and hasattr(transform, '_as_mpl_transform')):
+        return transform._as_mpl_transform(axes)
+    return transform
+
+
 def _description(t):
     """The nested tuples describing *t* to pltrs (Rust)."""
     if t is None or isinstance(t, IdentityTransform):

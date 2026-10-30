@@ -39,6 +39,10 @@ from .text import Text
 _ARTIST_CLASSES = {"Line2D": Line2D, "Collection": Collection, "Text": Text,
                    "Rectangle": Rectangle, "Artist": Artist}
 
+#: The Python class of each kind of artist a legend draws: the
+#: collections its handlers make are path collections.
+_DRAWN_CLASSES = {**_ARTIST_CLASSES, "Collection": PathCollection}
+
 
 class Legend(Artist):
     """
@@ -351,9 +355,8 @@ class Legend(Artist):
         the first one each entry's handler draws, None for the entries no
         handler draws.
         """
-        classes = {**_ARTIST_CLASSES, "Collection": PathCollection}
         return [None if handle is None else
-                _handles.wrap(handle[0], classes[handle[1]], self.figure)
+                _handles.wrap(handle[0], _DRAWN_CLASSES[handle[1]], self.figure)
                 for handle in _legend.legend_handles(self._native)]
 
     def get_lines(self):
@@ -363,6 +366,23 @@ class Legend(Artist):
     def get_patches(self):
         r"""Return the list of `~.patches.Patch`\s in the legend."""
         return [h for h in self.legend_handles if isinstance(h, Patch)]
+
+    @property
+    def _legend_box(self):
+        """The `.VPacker` of the title and the columns of entries, as the
+        legend lays them out (made from pltrs (Rust)'s box when first
+        asked for)."""
+        box = self.__dict__.get("_legend_box_object")
+        if box is None:
+            from .offsetbox import _laid_out_box
+            box = _laid_out_box(_legend.legend_box(self._native), self.figure,
+                                _DRAWN_CLASSES)
+            self._legend_box_object = box
+        return box
+
+    def get_children(self):
+        # docstring inherited
+        return [self._legend_box, self.get_frame()]
 
     def get_frame(self):
         """Return the `~.patches.Rectangle` used to frame the legend."""
@@ -424,6 +444,8 @@ class Legend(Artist):
         """
         _api.check_in_list(["center", "left", "right"], alignment=alignment)
         _legend.set_alignment(self._native, alignment)
+        if "_legend_box_object" in self.__dict__:
+            self._legend_box_object.align = alignment
 
     def set_draggable(self, state, use_blit=False, update='loc'):
         """

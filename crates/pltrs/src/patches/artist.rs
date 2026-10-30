@@ -66,14 +66,18 @@ impl<S: PatchShape> PatchParts<'_, S> {
         Ok(())
     }
 
-    /// The extent of the outlines in display space, as measured (see
+    /// The pixels per point the patch is measured at (see
     /// [`DrawnDpiCor`]).
-    pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
-        let dpi_cor = self.drawn.map_or_else(
+    fn measured_dpi_cor(&self, layout: LayoutContext<'_>) -> f64 {
+        self.drawn.map_or_else(
             || layout.measured_dpi_cor(),
             |drawn| drawn.measured(layout, self.base.id()),
-        );
-        self.display_paths(layout, dpi_cor)
+        )
+    }
+
+    /// The extent of the outlines in display space, as measured.
+    pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
+        self.display_paths(layout, self.measured_dpi_cor(layout))
             .ok()?
             .iter()
             .map(|path| path.to_display().extents())
@@ -82,9 +86,20 @@ impl<S: PatchShape> PatchParts<'_, S> {
 
     /// The outline as a clip region.
     pub(crate) fn outline(&self, layout: LayoutContext<'_>) -> Option<ClipPath> {
-        let mut paths = self
-            .display_paths(layout, layout.points_to_pixels(1.0))
-            .ok()?;
+        self.outline_at(layout, layout.points_to_pixels(1.0))
+    }
+
+    /// The outline as measured, which hit tests use (matplotlib's
+    /// `Patch.contains` reads `get_path`, whose arrows keep the size of
+    /// their last draw).
+    pub(crate) fn measured_outline(&self, layout: LayoutContext<'_>) -> Option<ClipPath> {
+        self.outline_at(layout, self.measured_dpi_cor(layout))
+    }
+
+    /// The outline as a clip region, arrow sizes at `dpi_cor` pixels per
+    /// point.
+    fn outline_at(&self, layout: LayoutContext<'_>, dpi_cor: f64) -> Option<ClipPath> {
+        let mut paths = self.display_paths(layout, dpi_cor).ok()?;
         if paths.len() == 1 {
             let only = paths.remove(0);
             return Some(ClipPath {
@@ -152,7 +167,7 @@ impl<S: PatchShape> PatchArtist<S> {
         }
     }
 
-    fn parts(&self) -> PatchParts<'_, S> {
+    pub(super) fn parts(&self) -> PatchParts<'_, S> {
         PatchParts {
             base: &self.base,
             style: &self.style,
@@ -217,9 +232,10 @@ impl<S: PatchShape> PatchArtist<S> {
         }
     }
 
-    /// The outline in display space with tolerance `radius`.
+    /// The outline in display space, as measured, with tolerance
+    /// `radius`.
     fn region(&self, ctx: LayoutContext<'_>, radius: f64) -> Option<ClipRegion> {
-        self.outline(&ctx).map(|clip| ClipRegion {
+        self.parts().measured_outline(ctx).map(|clip| ClipRegion {
             path: clip.path.transformed(&clip.transform),
             radius,
         })

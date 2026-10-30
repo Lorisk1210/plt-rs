@@ -27,6 +27,8 @@ use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
 
+mod legend_box;
+
 artist_handle!(Legend);
 native_value!(LegendHandle);
 
@@ -417,6 +419,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_texts", get_texts)?;
     module.add("legend_handles", legend_handles)?;
     module.add("get_frame", get_frame)?;
+    module.add("legend_box", legend_box::legend_box)?;
     module.add("get_title", get_title)?;
     module.add("set_title", set_title)?;
     module.add("get_frame_on", get_frame_on)?;

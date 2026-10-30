@@ -3,12 +3,12 @@
 
 use std::marker::PhantomData;
 
-use pltrs_core::{Point, Rgba};
+use pltrs_core::{Path, Point, Rgba};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::shape::PatchShape;
 use super::style::PatchStyle;
-use super::{PatchArtist, PatchProps};
+use super::{DisplayPath, PatchArtist, PatchError, PatchProps};
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::{Color, ColorError};
 use crate::lines::LineStyle;
@@ -157,6 +157,42 @@ impl<S: PatchShape> Patch<S> {
                 hatch: resolved.hatch_color,
             })
         })
+    }
+
+    /// The outlines as the patch is drawn now, in display pixels
+    /// (matplotlib's `get_path` of patches placed as they are drawn, such
+    /// as `FancyArrowPatch._get_path_in_displaycoord`).
+    ///
+    /// ```
+    /// use pltrs::patches::{ConnectionStyle, FancyArrowPatch, PatchError};
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let arrow = ax.add_patch(FancyArrowPatch::between((0.2, 0.2), (0.5, 0.5)));
+    /// assert!(!arrow.display_paths()?.is_empty());
+    /// let parallel = ConnectionStyle::Angle3 { angle_a: 20.0, angle_b: 200.0 };
+    /// let crooked = ax.add_patch(
+    ///     FancyArrowPatch::between((0.2, 0.2), (0.5, 0.5)).with_connectionstyle(parallel),
+    /// );
+    /// assert_eq!(crooked.display_paths(), Err(PatchError::ParallelAngles));
+    /// # Ok::<(), PatchError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the patch cannot be placed: it is in no figure, or its shape
+    /// cannot be built there (a connection between parallel angles).
+    pub fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        let patch = layout
+            .store()
+            .get_as::<PatchArtist<S>>(self.raw.id())
+            .ok_or(PatchError::Detached)?;
+        let paths = patch
+            .parts()
+            .display_paths(layout, layout.points_to_pixels(1.0))?;
+        Ok(paths.iter().map(DisplayPath::to_display).collect())
     }
 
     /// Sets every property `props` sets.

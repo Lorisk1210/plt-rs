@@ -7,7 +7,7 @@ aliases, defaults) into the explicit arguments of a native function of
 ``_native.axes``, and wraps the artists it returns (see `.._handles`).
 """
 
-from .. import _handles
+from .. import _handles, cbook
 from .._native import axes as _axes
 from ._artist_list import ArtistList
 from ._base import _AxesBase
@@ -85,6 +85,10 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         """The lines of the Axes."""
         return ArtistList("lines", lambda: _handles.wrap_all(
             _axes.get_lines(self._native), Line2D, self.figure))
+
+    def get_lines(self):
+        """Return a list of lines contained by the Axes."""
+        return cbook.silent_list('Line2D', self.lines)
 
     def get_legend_handles_labels(self, legend_handler_map=None):
         """

@@ -3,12 +3,13 @@
 
 use pltrs::colors::Color;
 use pltrs::figure::{
-    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, SaveFormat, SaveOptions,
-    SvgMetadata,
+    BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, SaveError, SaveFormat,
+    SaveOptions, SvgMetadata,
 };
 use pltrs::transforms::Bbox;
 use pltrs_render::Timestamp;
 
+use super::super::lines::markevery_error;
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
@@ -169,14 +170,21 @@ impl FromPy<'_> for PrintSettings {
 
 /// The figure as a file of `format` (`png`, `pdf`, `svg`, `eps`, `raw`,
 /// ...) with `settings`: the bytes the canvas writes to a path or a file
-/// object.
+/// object. A line whose `markevery` does not fit it raises matplotlib's
+/// `ValueError`.
 fn print_figure(figure: Figure, format: String, settings: PrintSettings) -> PyResult<Bytes> {
     let format: SaveFormat = format.parse()?;
     let options = SaveOptions {
         format: Some(format),
         ..settings.0
     };
-    Ok(Bytes(figure.to_format(format, options)?))
+    match figure.to_format(format, options) {
+        Err(SaveError::Draw(problems)) => {
+            Err(markevery_error(&figure, &problems)
+                .unwrap_or_else(|| SaveError::Draw(problems).into()))
+        }
+        printed => Ok(Bytes(printed?)),
+    }
 }
 
 /// The pixels of the figure printed with `settings` for a raster file:

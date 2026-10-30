@@ -5,6 +5,7 @@ use pltrs::collections::Collection;
 use pltrs::colors::Rgba;
 use pltrs::image::{ImageError, ScalarField};
 use pltrs::numeric::Grid;
+use pltrs::transforms::Transform;
 
 use super::mapping::{Mapping, colorizer};
 use crate::binding::prelude::*;
@@ -52,13 +53,14 @@ fn shading(name: Option<String>) -> PyResult<Option<Shading>> {
 /// The colour-mapped mesh of `values` (`NaN` masked) at the optional
 /// coordinates `x` and `y` (matplotlib's `pcolormesh`, or `pcolor` when
 /// `polygons`), shaded `"flat"`, `"nearest"`, `"gouraud"` or `"auto"`
-/// (`None` for `pcolor.shading`).
+/// (`None` for `pcolor.shading`), in the coordinates `transform` (`None`
+/// for the axes' data coordinates), which the data limits follow.
 pub(super) fn pcolor(
     axes: Axes,
     polygons: bool,
     values: NdArray,
     (x, y): (Option<NdArray>, Option<NdArray>),
-    shading: Option<String>,
+    (shading, transform): (Option<String>, Option<Transform>),
     mapping: Mapping,
 ) -> PyResult<Collection> {
     let values = MeshValues::Scalar(ScalarField::new(grid(&values)?));
@@ -66,11 +68,12 @@ pub(super) fn pcolor(
         (Some(x), Some(y)) => Mesh::from_coords(coords(x)?, coords(y)?, values),
         _ => Mesh::new(values),
     };
-    let options = PcolorOptions {
+    let mut options = PcolorOptions {
         colorizer: colorizer(mapping),
         shading: self::shading(shading)?,
         ..PcolorOptions::default()
     };
+    options.props.base.transform = transform;
     if polygons {
         axes.pcolor(mesh, options)
     } else {
@@ -81,12 +84,12 @@ pub(super) fn pcolor(
 
 /// The mesh painted in the RGBA `colors` (an `(M, N, 4)` array) at the
 /// optional coordinates `x` and `y` (matplotlib's `pcolormesh` of an RGB
-/// or RGBA array), shaded as [`pcolor`] is.
+/// or RGBA array), shaded and placed as [`pcolor`] is.
 pub(super) fn pcolormesh_rgba(
     axes: Axes,
     colors: NdArray,
     (x, y): (Option<NdArray>, Option<NdArray>),
-    shading: Option<String>,
+    (shading, transform): (Option<String>, Option<Transform>),
 ) -> PyResult<Collection> {
     let [rows, cols, 4] = colors.shape[..] else {
         return Err(PyErr::type_error(format!(
@@ -107,9 +110,10 @@ pub(super) fn pcolormesh_rgba(
         (Some(x), Some(y)) => RgbaMesh::from_coords(coords(x)?, coords(y)?, colors),
         _ => RgbaMesh::new(colors),
     };
-    let options = PcolorOptions {
+    let mut options = PcolorOptions {
         shading: self::shading(shading)?,
         ..PcolorOptions::default()
     };
+    options.props.base.transform = transform;
     axes.pcolormesh_rgba(mesh, options).map_err(mesh_error)
 }

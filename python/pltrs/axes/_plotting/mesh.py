@@ -4,7 +4,7 @@ Pseudocolour plots: `~.Axes.pcolor` and `~.Axes.pcolormesh`.
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll
+from ... import _api, _live_transforms, cbook, collections as mcoll
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ._helpers import convert_units, wrap
@@ -51,14 +51,18 @@ class MeshMixin:
             shading = shading.lower()
         C, coords = _mesh_args(self, fn, args)
         made, native_mapping = mapping
+        kwargs = cbook.normalize_kwargs(kwargs, cls)
+        # The data limits cover the mesh in the coordinates it is drawn in.
+        placement = (shading, _live_transforms.given_to_native(
+            kwargs.get("transform")))
         if C.ndim == 3:
-            native = _plotting.pcolormesh_rgba(self._native, C, coords, shading)
+            native = _plotting.pcolormesh_rgba(self._native, C, coords, placement)
         else:
-            native = _plotting.pcolor(self._native, polygons, C, coords, shading,
+            native = _plotting.pcolor(self._native, polygons, C, coords, placement,
                                       native_mapping)
         collection = wrap(self, native, cls)
         collection._attach_native_mapping(colorizer=made)
-        collection._internal_update(cbook.normalize_kwargs(kwargs, cls))
+        collection._internal_update(kwargs)
         return collection
 
     @_preprocess_data()

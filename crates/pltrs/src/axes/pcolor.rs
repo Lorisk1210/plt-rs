@@ -1,7 +1,7 @@
 //! Pseudocolour plots on quadrilateral grids: `pcolor` (one polygon per
 //! cell, matplotlib's `PolyQuadMesh`) and `pcolormesh` (a `QuadMesh`).
 
-use pltrs_core::{Path, Point};
+use pltrs_core::Point;
 
 use super::Axes;
 use super::children::DataUpdate;
@@ -10,7 +10,7 @@ use super::mesh::{Mesh, MeshFunction, MeshValues, PreparedMesh, Shading, pcolor_
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
-    MeshShading,
+    MeshShading, unmasked_cells,
 };
 use crate::colors::{Color, ColorizerOptions, ScalarMappable, impl_colorize};
 use crate::image::{ImageError, MultiField, MultivarColorizerOptions, ScalarField};
@@ -120,23 +120,13 @@ impl Axes {
             return Err(ImageError::MultivariateNotSupported("pcolor"));
         };
         let mappable = mesh_mappable(options.colorizer, options.multivariate.as_ref(), values)?;
-        let (rows, cols) = values.values().shape();
-        let masked = values.masked_values();
-        let (paths, values): (Vec<Path>, Vec<Option<f64>>) = (0..rows)
-            .flat_map(|r| (0..cols).map(move |c| (r, c)))
-            .filter_map(|(r, c)| {
-                let corners = [(r, c), (r + 1, c), (r + 1, c + 1), (r, c + 1), (r, c)]
-                    .map(|(r, c)| mesh.point(r, c));
-                let value = masked[r * cols + c];
-                (value.is_some() && corners.iter().all(|p| p.is_finite()))
-                    .then(|| (Path::polygon(corners), value))
-            })
-            .unzip();
+        let grid = mesh.vertex_grid();
+        let (paths, values) = unmasked_cells(&grid, &values.masked_values());
         let mut props = options.props;
         pcolor_edge_defaults(&mut props);
         let mut collection =
             CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
-        collection.polygon_grid = Some(mesh.vertex_grid());
+        collection.polygon_grid = Some(grid);
         props.apply(&mut collection);
         collection.base_mut().snap = Some(options.snap.unwrap_or(false));
         let handle = self.add_mesh(collection, &mesh);

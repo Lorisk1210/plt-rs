@@ -81,7 +81,7 @@ def _native_kwargs(kwargs):
         elif key == "antialiased":
             native[key] = [bool(a) for a in np.atleast_1d(value)]
         elif key == "alpha" and np.iterable(value):
-            native[key] = [float(a) for a in value]
+            native[key] = np.asarray(value, float).ravel().tolist()
         else:
             native[key] = value
     return native
@@ -105,11 +105,6 @@ class Collection(mcolorizer.ColorizingArtist):
     maps the values with a copy of its colormap and norm, handed over
     whenever it changes (`changed`).
     """
-
-    #: Either a list of 3x3 arrays or an Nx3x3 array (representing N
-    #: transforms), suitable for the `all_transforms` argument to
-    #: `~matplotlib.backend_bases.RendererBase.draw_path_collection`.
-    _transforms = np.empty((0, 3, 3))
 
     # Whether to draw an edge by default.  Set on a
     # subclass-by-subclass basis.
@@ -272,9 +267,24 @@ class Collection(mcolorizer.ColorizingArtist):
         """Set the paths of the items."""
         _collections.set_paths(self._native, list(paths))
 
+    def get_transforms(self):
+        """
+        Return the transforms of the items, as an ``(N, 3, 3)`` array
+        suitable for the *all_transforms* argument of
+        `~matplotlib.backend_bases.RendererBase.draw_path_collection`.
+
+        pltrs: markers are scaled to their areas at the resolution of the
+        collection's figure (72 dpi outside any figure), where matplotlib
+        keeps those of the last draw.
+        """
+        figure = self.get_figure(root=True)
+        return _collections.get_transforms(
+            self._native, 72.0 if figure is None else float(figure.dpi))
+
     def get_offsets(self):
         """Return the offsets for the collection."""
-        return _collections.get_offsets(self._native)
+        offsets, masked = _collections.get_offsets(self._native)
+        return np.ma.masked_invalid(offsets) if masked else offsets
 
     def get_datalim(self, transData):
         """
@@ -300,10 +310,13 @@ class Collection(mcolorizer.ColorizingArtist):
         offsets = np.asanyarray(offsets)
         if offsets.shape == (2,):  # Broadcast (2,) -> (1, 2) but nothing else.
             offsets = offsets[None, :]
+        masked = isinstance(offsets, np.ma.MaskedArray)
+        cstack = np.ma.column_stack if masked else np.column_stack
+        offsets = cstack(
+            (np.asanyarray(self.convert_xunits(offsets[:, 0]), float),
+             np.asanyarray(self.convert_yunits(offsets[:, 1]), float)))
         _collections.set_offsets(
-            self._native, np.column_stack(
-                (np.asarray(offsets[:, 0], dtype=float),
-                 np.asarray(offsets[:, 1], dtype=float))).reshape(-1, 2))
+            self._native, np.ma.filled(offsets, np.nan).reshape(-1, 2), masked)
 
     def get_pickradius(self):
         """Return the pick radius used for containment tests."""
@@ -482,7 +495,7 @@ class Collection(mcolorizer.ColorizingArtist):
             alpha = np.asarray(alpha, dtype=float)
             if ((alpha < 0) | (alpha > 1)).any():
                 raise ValueError("alpha must be between 0 and 1, inclusive")
-            _collections.set_alphas(self._native, list(alpha))
+            _collections.set_alphas(self._native, alpha.ravel().tolist())
         else:
             if alpha is not None and not isinstance(alpha, (int, float)):
                 raise TypeError(
@@ -931,6 +944,32 @@ class LineCollection(Collection):
 
     set_colors = set_color
 
+    def set_gapcolor(self, gapcolor):
+        """
+        Set a color to fill the gaps in the dashed line style.
+
+        .. note::
+
+            Striped lines are created by drawing two interleaved dashed lines.
+            There can be overlaps between those two, which may result in
+            artifacts when using transparency.
+
+            This functionality is experimental and may change.
+
+        Parameters
+        ----------
+        gapcolor : :mpltype:`color` or list of :mpltype:`color` or None
+            The color with which to fill the gaps. If None, the gaps are
+            unfilled.
+        """
+        _collections.set_gapcolors(
+            self._native, None if gapcolor is None else _rgba(gapcolor))
+        self.stale = True
+
+    def get_gapcolor(self):
+        """Return the gap colors, the alpha of the collection applied."""
+        return _collections.get_gapcolors(self._native)
+
     def get_color(self):
         """Return the edge colors of the lines."""
         return self.get_edgecolor()
@@ -1220,6 +1259,56 @@ class _MeshData:
         The last dimension specifies the components (x, y).
         """
         return _collections.get_coordinates(self._native)
+
+    @property
+    def _shading(self):
+        """How the cells are coloured: ``'flat'`` or ``'gouraud'``."""
+        return _collections.get_mesh_shading(self._native)
+
+    def set_array(self, A):
+        """
+        Set the data values.
+
+        Parameters
+        ----------
+        A : array-like
+            The mesh data. Supported array shapes are:
+
+            - (M, N) or (M*N,): a mesh with scalar data. The values are mapped to
+              colors using normalization and a colormap. See parameters *norm*,
+              *cmap*, *vmin*, *vmax*.
+            - (M, N, 3): an image with RGB values (0-1 float or 0-255 int).
+            - (M, N, 4): an image with RGBA values (0-1 float or 0-255 int),
+              i.e. including transparency.
+
+            If the values are provided as a 2D grid, the shape must match the
+            coordinates grid. If the values are 1D, they are reshaped to 2D.
+            M, N follow from the coordinates grid, where the coordinates grid
+            shape is (M, N) for 'gouraud' *shading* and (M+1, N+1) for 'flat'
+            shading.
+        """
+        height, width = self.get_coordinates().shape[0:-1]
+        if self._shading == 'flat':
+            h, w = height - 1, width - 1
+        else:
+            h, w = height, width
+        ok_shapes = [(h, w, 3), (h, w, 4), (h, w), (h * w,)]
+        if A is not None:
+            shape = np.shape(A)
+            if shape not in ok_shapes:
+                raise ValueError(
+                    f"For X ({width}) and Y ({height}) with {self._shading} "
+                    f"shading, A should have shape "
+                    f"{' or '.join(map(str, ok_shapes))}, not {shape}")
+            if len(shape) == 3:
+                # RGB(A) values are the colours of the cells, which
+                # ``to_rgba`` passes through.
+                mcolorizer.ColorizingArtist.set_array(self, A)
+                _collections.set_array(self._native, None)
+                _collections.set_facecolors(
+                    self._native, self.to_rgba(self._A).reshape(-1, 4))
+                return
+        super().set_array(A)
 
 
 class QuadMesh(_MeshData, Collection):

@@ -253,6 +253,9 @@ impl Collection {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
+    /// A mesh drawn cell by cell (`pcolor`'s) given one value per cell
+    /// draws the cells left unmasked.
+    ///
     /// # Errors
     ///
     /// When the collection is a quad mesh and the values do not match its
@@ -268,6 +271,9 @@ impl Collection {
                 actual: values.len(),
             });
         }
+        let values = self
+            .raw
+            .with_mut::<CollectionArtist, _>(|c| c.mask_polygon_cells(values));
         let mappable = match self.raw.with::<CollectionArtist, _>(|c| {
             c.mapping
                 .as_ref()

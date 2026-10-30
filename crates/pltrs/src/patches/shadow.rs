@@ -3,7 +3,9 @@
 use pltrs_core::{Affine2D, Path, Rgba};
 
 use super::shape::ShapeFrame;
-use super::{DisplayPath, Patch, PatchArtist, PatchError, PatchShape, PatchStyle, ShapeError};
+use super::{
+    DisplayPath, Patch, PatchArtist, PatchError, PatchShape, PatchStyle, PathShape, ShapeError,
+};
 use crate::artist::{Artist, ArtistBase, ArtistHandle};
 use crate::colors::ColorError;
 use crate::transforms::{ResolvedTransform, Transform};
@@ -113,6 +115,49 @@ impl<S: PatchShape> Shadow<S> {
     }
 }
 
+impl Shadow<PathShape> {
+    /// [`Shadow::of_shaded`] drawn from a copy of the outline of `patch`
+    /// placed by its patch transform, whatever its shape: the shadow a
+    /// program makes of a patch whose shape it does not know (matplotlib's
+    /// `Shadow(patch, ox, oy, shade=...)`).
+    ///
+    /// ```
+    /// use pltrs::patches::{Patch, PatchProps, PatchShape, Rectangle, Shadow};
+    /// let rect = Patch::loose(Rectangle::new((1.0, 2.0), 3.0, 4.0), PatchProps::default());
+    /// let shadow = Shadow::outline_of(&rect, 1.0, 1.0, 0.7)?;
+    /// assert_eq!(shadow.source().path(), rect.shape().placed_path());
+    /// # Ok::<(), pltrs::patches::ShadowError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `shade` is outside `[0, 1]` or the face colour of `patch` is
+    /// invalid.
+    pub fn outline_of<S: PatchShape>(
+        patch: &Patch<S>,
+        ox: f64,
+        oy: f64,
+        shade: f64,
+    ) -> Result<Self, ShadowError> {
+        let Shadow {
+            source,
+            offset,
+            style,
+            transform,
+            zorder,
+            clip_on,
+        } = Shadow::of_shaded(patch, ox, oy, shade)?;
+        Ok(Self {
+            source: PathShape(source.placed_path()),
+            offset,
+            style,
+            transform,
+            zorder,
+            clip_on,
+        })
+    }
+}
+
 impl<S: PatchShape> PatchShape for Shadow<S> {
     fn path(&self) -> Path {
         self.source.path()
@@ -181,6 +226,22 @@ mod tests {
             ),
             Err(ShadowError::Shape(ShapeError::ShadeOutOfRange))
         ));
+    }
+
+    #[test]
+    fn outline_shadows_take_the_source_placed_and_styled() {
+        let fig = crate::figure::Figure::new();
+        let ax = fig.subplot();
+        let rect = ax.add_patch(Rectangle::new((1.0, 0.0), 2.0, 1.0));
+        let exact = Shadow::of(&rect, 1.0, 1.0).unwrap();
+        let outline = Shadow::outline_of(&rect, 1.0, 1.0, 0.7).unwrap();
+        assert_eq!(outline.style, exact.style);
+        assert_eq!(
+            (outline.zorder, outline.clip_on, outline.offset),
+            (exact.zorder, exact.clip_on, exact.offset)
+        );
+        assert_eq!(outline.patch_transform(), Affine2D::IDENTITY);
+        assert_eq!(outline.path(), exact.source().placed_path());
     }
 
     #[test]

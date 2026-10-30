@@ -230,6 +230,12 @@ impl FromPy<'_> for PyMarker {
 }
 
 impl PyMarker {
+    /// The marker shape, without its fill and line styles (what a
+    /// sparsity plot takes).
+    pub(super) fn marker(&self) -> Marker {
+        self.marker.clone()
+    }
+
     /// The marker as a resolved style (what collections of markers take).
     pub(super) fn style(&self) -> PyResult<MarkerStyle> {
         let style = MarkerStyle::with_styles(
@@ -489,6 +495,20 @@ fn get_path(line: Line2D) -> PyResult<PathArrays> {
     path_arrays(&line.path()?, false)
 }
 
+/// How many pieces each segment of the line is split into before a
+/// curved projection bends it (matplotlib's
+/// `get_path()._interpolation_steps`).
+fn get_interpolation_steps(line: Line2D) -> PyResult<usize> {
+    Ok(line.interpolation_steps())
+}
+
+/// Draws each segment of the line as `steps` segments, which a curved
+/// projection bends.
+fn set_interpolation_steps(line: Line2D, steps: usize) -> PyResult<()> {
+    line.set_interpolation_steps(steps);
+    Ok(())
+}
+
 /// Whether the line is dashed (matplotlib's `is_dashed`).
 fn is_dashed(line: Line2D) -> PyResult<bool> {
     Ok(!matches!(
@@ -523,6 +543,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("update", update)?;
     module.add("get", get)?;
     module.add("get_path", get_path)?;
+    module.add("get_interpolation_steps", get_interpolation_steps)?;
+    module.add("set_interpolation_steps", set_interpolation_steps)?;
     module.add("is_dashed", is_dashed)?;
     module.add("marker_indices", marker_indices)?;
     module.add("get_rgba", get_rgba)?;

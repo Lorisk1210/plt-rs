@@ -1,13 +1,17 @@
-//! Bars: `bar`, `barh` and `broken_barh`.
+//! Bars: `bar`, `barh`, `broken_barh` and `grouped_bar`.
 
-use pltrs::axes::{Axes, BandAlign, BarAlign, BarOptions, ErrorbarFormat, ErrorbarOptions};
+use pltrs::axes::{
+    Axes, BandAlign, BarAlign, BarOptions, ErrorbarFormat, ErrorbarOptions, GroupedBarData,
+    GroupedBarError, GroupedBarOptions,
+};
 use pltrs::collections::Collection;
 use pltrs::colors::Color;
 use pltrs::container::Container;
+use pltrs::orientation::Orientation;
 use pltrs::patches::{Patch, Rectangle};
 use pltrs::units::{AxisDelta, AxisValue};
 
-use super::super::lines::LineKwargs;
+use super::super::lines::{LineKwargs, PyLineStyle};
 use super::errorbar::{BarStyle, ErrorbarArtists, Errors, error_size, errorbar_artists};
 use super::values::{PyAxisDeltas, PyAxisValues};
 use crate::binding::prelude::*;
@@ -118,4 +122,72 @@ pub(super) fn broken_barh(
         _ => BandAlign::Bottom,
     };
     Ok(axes.broken_barh(&ranges, (position, height), align))
+}
+
+impl From<GroupedBarError> for PyErr {
+    /// matplotlib's `ValueError` for datasets, positions and labels that
+    /// do not fit together.
+    fn from(err: GroupedBarError) -> Self {
+        PyErr::value_error(err.to_string())
+    }
+}
+
+/// The per-dataset styles of grouped bars: `(colors, facecolor,
+/// edgecolor, linewidth, linestyle, hatch)`, each empty or cycled over
+/// the datasets.
+type DatasetStyles = (
+    Vec<Color>,
+    Vec<Color>,
+    Vec<Color>,
+    Vec<f64>,
+    Vec<PyLineStyle>,
+    Vec<String>,
+);
+
+/// The bars of one dataset of a grouped bar chart: its container, the
+/// rectangles and the bar values.
+type DatasetBars = (Container, Vec<Patch<Rectangle>>, Vec<f64>);
+
+/// One group of bars per category and one bar per dataset in each group
+/// (matplotlib's `grouped_bar`, whose input forms the Python side reduced
+/// to a list of datasets): at `positions` (default 0, 1, ...), spaced
+/// `(group_spacing, bar_spacing)`, with the category `tick_labels` and
+/// the dataset `labels`, vertical or (`horizontal`) horizontal.
+pub(super) fn grouped_bar(
+    axes: Axes,
+    datasets: Vec<Vec<f64>>,
+    positions: Option<Vec<f64>>,
+    (group_spacing, bar_spacing): (f64, f64),
+    (tick_labels, labels): (Vec<String>, Vec<String>),
+    horizontal: bool,
+    (colors, facecolor, edgecolor, linewidth, linestyle, hatch): DatasetStyles,
+) -> PyResult<Vec<DatasetBars>> {
+    let options = GroupedBarOptions {
+        positions,
+        group_spacing,
+        bar_spacing,
+        tick_labels,
+        labels,
+        orientation: if horizontal {
+            Orientation::Horizontal
+        } else {
+            Orientation::Vertical
+        },
+        colors,
+        facecolor,
+        edgecolor,
+        linewidth,
+        linestyle: linestyle.into_iter().map(|style| style.0).collect(),
+        hatch,
+        ..GroupedBarOptions::default()
+    };
+    Ok(axes
+        .grouped_bar(GroupedBarData::Datasets(datasets), options)?
+        .into_iter()
+        .map(|bars| {
+            let patches = bars.patches.clone();
+            let values = bars.datavalues.clone();
+            (Container::Bar(bars), patches, values)
+        })
+        .collect())
 }

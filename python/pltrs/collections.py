@@ -10,10 +10,12 @@ defaults, the colour mapping and alpha.
 """
 
 import math
+import warnings
 
 import numpy as np
 
-from . import _api, cbook, colors as mcolors, lines as mlines
+from . import (_api, _live_transforms, cbook, colorizer as mcolorizer,
+               colors as mcolors, lines as mlines)
 from ._enums import CapStyle, JoinStyle
 from ._native import collections as _collections
 from .artist import Artist
@@ -91,12 +93,16 @@ def _native_kwargs(kwargs):
     "linestyle": ["linestyles", "dashes", "ls"],
     "linewidth": ["linewidths", "lw"],
 })
-class Collection(Artist):
+class Collection(mcolorizer.ColorizingArtist):
     """
     Base class for Collections. Must be subclassed to be usable.
 
     A Collection represents a sequence of `.Patch`\\es that can be drawn
     more efficiently together than individually.
+
+    pltrs: the colorizer is Python's, as matplotlib's is; pltrs (Rust)
+    maps the values with a copy of its colormap and norm, handed over
+    whenever it changes (`changed`).
     """
 
     #: Either a list of 3x3 arrays or an Nx3x3 array (representing N
@@ -133,12 +139,13 @@ class Collection(Artist):
         collection is outside any figure until an axes or a figure adds it
         (`~.Axes.add_collection`, `.Figure.add_artist`).
         """
-        for name, value in (("offset_transform", offset_transform),
-                            ("norm", norm), ("cmap", cmap),
-                            ("colorizer", colorizer)):
-            if value is not None:
-                raise NotImplementedError(f"pltrs: {type(self).__name__}({name}=...)")
+        if not hasattr(self, "_native"):
+            # The base class made directly: a collection of no paths yet.
+            self._native = _collections.new_path_collection([])
         Artist.__init__(self)
+        self._attach_colorizer(self._get_colorizer(cmap, norm, colorizer))
+        if offset_transform is not None:
+            self.set_offset_transform(offset_transform)
         self.set_facecolor(facecolors)
         self.set_edgecolor(edgecolors)
         self.set_linewidth(linewidths)
@@ -156,6 +163,96 @@ class Collection(Artist):
         if offsets is not None:
             self.set_offsets(offsets)
         self._internal_update(kwargs)
+
+    @classmethod
+    def _from_native(cls, native, figure):
+        collection = super()._from_native(native, figure)
+        collection._attach_native_mapping()
+        return collection
+
+    def _native_clim(self):
+        """The limits of the mapping pltrs (Rust) made."""
+        return _collections.get_clim(self._native)
+
+    def _native_cmap(self):
+        """The colormap of the mapping pltrs (Rust) made, as
+        ``_native.cm`` describes it (see `.cm._from_native`)."""
+        return _collections.get_cmap(self._native)
+
+    def _native_array(self):
+        """The values pltrs (Rust) maps, masked where invalid, or None."""
+        array = _collections.get_array(self._native)
+        return None if array is None else np.ma.masked_invalid(array)
+
+    def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
+        """
+        Give the collection the Python colorizer of the mapping pltrs (Rust)
+        made: *colorizer*, or one of *cmap* (by default the colormap pltrs
+        used) and *norm*, with the limits pltrs found, and the values it
+        maps.
+        """
+        if colorizer is None:
+            if cmap is None:
+                from .cm import _from_native
+                cmap = _from_native(self._native_cmap())
+            colorizer = mcolorizer.Colorizer(cmap, norm)
+        vmin, vmax = self._native_clim()
+        if vmin is not None or vmax is not None:
+            colorizer.set_clim(vmin, vmax)
+        if getattr(self, "_colorizer", None) is not None:
+            self._colorizer.callbacks.disconnect(self._id_colorizer)
+        self._attach_colorizer(colorizer)
+        self._A = self._native_array()
+
+    def changed(self):
+        """
+        Call this whenever the mappable is changed to notify all the
+        callbackSM listeners to the 'changed' signal.
+        """
+        _collections.set_mapping(self._native, self.cmap, self.norm)
+        super().changed()
+
+    def update_scalarmappable(self):
+        """
+        Update colors from the scalar mappable array, if any.
+
+        pltrs (Rust) maps the colours when it reads or draws them; this
+        checks the array and the alphas as matplotlib does.
+        """
+        if self._A is None:
+            return
+        if self._A.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
+            raise ValueError('Collections can only map rank 1 arrays')
+        alpha = self._get("alpha_array")
+        if alpha is not None and len(alpha) > 1 and len(alpha) != self._A.size:
+            alpha = np.asarray(alpha)
+            raise ValueError(f'Data array shape, {self._A.shape} '
+                             'is incompatible with alpha array shape, '
+                             f'{alpha.shape}. '
+                             'This can occur with the deprecated '
+                             'behavior of the "flat" shading option, '
+                             'in which a row and/or column of the data '
+                             'array is dropped.')
+
+    def get_offset_transform(self):
+        """Return the `.Transform` instance used by this artist offset."""
+        given = self.__dict__.get("_offset_transform")
+        if given is not None:
+            return given
+        return _live_transforms.of_artist(
+            self, _collections.get_offset_transform(self._native))
+
+    def set_offset_transform(self, offset_transform):
+        """
+        Set the artist offset transform.
+
+        Parameters
+        ----------
+        offset_transform : `.Transform`
+        """
+        _collections.set_offset_transform(
+            self._native, _live_transforms.to_native(offset_transform))
+        self._offset_transform = offset_transform
 
     def _get(self, name):
         """The native property *name*."""
@@ -362,36 +459,22 @@ class Collection(Artist):
                     f'alpha must be numeric or None, not {type(alpha)}')
             super().set_alpha(alpha)
 
-    def get_array(self):
-        """Return the array of values that are mapped to colors."""
-        array = _collections.get_array(self._native)
-        return None if array is None else np.ma.masked_invalid(array)
-
     def set_array(self, A):
-        """Set the value array from array-like *A* (None: no mapping)."""
+        """
+        Set the value array from array-like *A*.
+
+        Parameters
+        ----------
+        A : array-like or None
+            The values that are mapped to colors.
+        """
+        super().set_array(A)
         if A is None:
             _collections.set_array(self._native, None)
             return
-        A = cbook.safe_masked_invalid(A, copy=True)
-        if not np.can_cast(A.dtype, float, "same_kind"):
-            raise TypeError(f"Image data of dtype {A.dtype} cannot be "
-                            "converted to float")
         _collections.set_array(
-            self._native, np.ma.filled(A.astype(float), np.nan).ravel())
-
-    def get_clim(self):
-        """Return the values (min, max) that are mapped to the colormap limits."""
-        return _collections.get_clim(self._native)
-
-    def set_clim(self, vmin=None, vmax=None):
-        """Set the norm limits for image scaling."""
-        if vmax is None:
-            try:
-                vmin, vmax = vmin
-            except (TypeError, ValueError):
-                pass
-        _collections.set_clim(self._native, None if vmin is None else float(vmin),
-                              None if vmax is None else float(vmax))
+            self._native, np.ma.filled(self._A.astype(float), np.nan).ravel())
+        _collections.set_mapping(self._native, self.cmap, self.norm)
 
 
 class _CollectionWithSizes(Collection):
@@ -435,6 +518,118 @@ class PathCollection(_CollectionWithSizes):
         self._native = _collections.new_path_collection(list(paths))
         super().__init__(**kwargs)
         self.set_sizes(sizes)
+
+    def legend_elements(self, prop="colors", num="auto",
+                        fmt=None, func=lambda x: x, **kwargs):
+        """
+        Create legend handles and labels for a PathCollection.
+
+        Each legend handle is a `.Line2D` representing the Path that was drawn,
+        and each label is a string that represents the Path (from matplotlib
+        3.11.2, under the Matplotlib License).
+
+        Parameters
+        ----------
+        prop : {"colors", "sizes"}, default: "colors"
+            If "colors", the legend handles will show the different colors of
+            the collection. If "sizes", the legend will show the different
+            sizes.
+        num : int, None, "auto" (default), array-like, or `~.ticker.Locator`
+            Target number of elements to create.
+        fmt : str, `~matplotlib.ticker.Formatter`, or None (default)
+            The format or formatter to use for the labels.
+        func : function, default: ``lambda x: x``
+            Function to calculate the labels.
+        **kwargs
+            Allowed keyword arguments are *color* and *size*; any further
+            parameters are passed onto the `.Line2D` instance.
+
+        Returns
+        -------
+        handles : list of `.Line2D`
+            Visual representation of each element of the legend.
+        labels : list of str
+            The string labels for elements of the legend.
+        """
+        from . import rcParams, ticker as mticker
+        handles = []
+        labels = []
+        hasarray = self.get_array() is not None
+        if fmt is None:
+            fmt = mticker.ScalarFormatter(useOffset=False, useMathText=True)
+        elif isinstance(fmt, str):
+            fmt = mticker.StrMethodFormatter(fmt)
+        fmt.create_dummy_axis()
+
+        if prop == "colors":
+            if not hasarray:
+                warnings.warn("Collection without array used. Make sure to "
+                              "specify the values to be colormapped via the "
+                              "`c` argument.")
+                return handles, labels
+            u = np.unique(self.get_array())
+            size = kwargs.pop("size", rcParams["lines.markersize"])
+        elif prop == "sizes":
+            u = np.unique(self.get_sizes())
+            color = kwargs.pop("color", "k")
+        else:
+            raise ValueError("Valid values for `prop` are 'colors' or "
+                             f"'sizes'. You supplied '{prop}' instead.")
+
+        fu = func(u)
+        fmt.axis.set_view_interval(fu.min(), fu.max())
+        fmt.axis.set_data_interval(fu.min(), fu.max())
+        if num == "auto":
+            num = 9
+            if len(u) <= num:
+                num = None
+        if num is None:
+            values = u
+            label_values = func(values)
+        else:
+            if prop == "colors":
+                arr = self.get_array()
+            elif prop == "sizes":
+                arr = self.get_sizes()
+            if isinstance(num, mticker.Locator):
+                loc = num
+            elif np.iterable(num):
+                loc = mticker.FixedLocator(num)
+            else:
+                num = int(num)
+                loc = mticker.MaxNLocator(nbins=num, min_n_ticks=num-1,
+                                          steps=[1, 2, 2.5, 3, 5, 6, 8, 10])
+            label_values = loc.tick_values(func(arr).min(), func(arr).max())
+            cond = ((label_values >= func(arr).min()) &
+                    (label_values <= func(arr).max()))
+            label_values = label_values[cond]
+            yarr = np.linspace(arr.min(), arr.max(), 256)
+            xarr = func(yarr)
+            ix = np.argsort(xarr)
+            values = np.interp(label_values, xarr[ix], yarr[ix])
+
+        kw = {"markeredgewidth": self.get_linewidths()[0],
+              "alpha": self.get_alpha(),
+              **kwargs}
+
+        # Pre-format all labels, passing each formatter call the value alone
+        # (as matplotlib does).
+        fmt.set_locs(label_values)
+        formatted_labels = [fmt(lab) for lab in label_values]
+
+        for val, formatted in zip(values, formatted_labels):
+            if prop == "colors":
+                color = self.cmap(self.norm(val))
+            elif prop == "sizes":
+                size = np.sqrt(val)
+                if np.isclose(size, 0.0):
+                    continue
+            h = mlines.Line2D([0], [0], ls="", color=color, ms=size,
+                              marker=self.get_paths()[0], **kw)
+            handles.append(h)
+            labels.append(formatted)
+
+        return handles, labels
 
 
 class PolyCollection(_CollectionWithSizes):
@@ -491,6 +686,119 @@ class FillBetweenPolyCollection(PolyCollection):
     """
     `.PolyCollection` that fills the area between two x- or y-curves.
     """
+
+    def __init__(
+            self, t_direction, t, f1, f2, *,
+            where=None, interpolate=False, step=None, **kwargs):
+        """
+        Parameters
+        ----------
+        t_direction : {{'x', 'y'}}
+            The axes on which the variable lies.
+
+            - 'x': the curves are ``(t, f1)`` and ``(t, f2)``.
+            - 'y': the curves are ``(f1, t)`` and ``(f2, t)``.
+
+        t : array-like
+            The ``t_direction`` coordinates of the nodes defining the curves.
+
+        f1 : array-like or float
+            The other coordinates of the nodes defining the first curve.
+
+        f2 : array-like or float
+            The other coordinates of the nodes defining the second curve.
+
+        where : array-like of bool, optional
+            Define *where* to exclude some {dir} regions from being filled.
+            The filled regions are defined by the coordinates ``t[where]``.
+
+        interpolate : bool, default: False
+            Whether to extend the filled regions to where the curves cross,
+            when *where* is used.
+
+        step : {{'pre', 'post', 'mid'}}, optional
+            Define *step* if the filling should be a step function,
+            i.e. constant in between *t*.
+
+        **kwargs
+            Forwarded to `.PolyCollection`.
+        """
+        self._f_dir_from_t(t_direction)
+        self.t_direction = t_direction
+        if step is not None:
+            _api.check_in_list(('pre', 'post', 'mid'), step=step)
+        curves, mask = self._checked_data(t, f1, f2, where)
+        self._native = _collections.new_fill_between_collection(
+            t_direction == "y", curves, mask, bool(interpolate), step)
+        Collection.__init__(self, **kwargs)
+
+    @staticmethod
+    def _f_dir_from_t(t_direction):
+        """The direction that is other than `t_direction`."""
+        if t_direction == "x":
+            return "y"
+        elif t_direction == "y":
+            return "x"
+        else:
+            msg = f"t_direction must be 'x' or 'y', got {t_direction!r}"
+            raise ValueError(msg)
+
+    @property
+    def _f_direction(self):
+        """The direction that is other than `self.t_direction`."""
+        return self._f_dir_from_t(self.t_direction)
+
+    def _checked_data(self, t, f1, f2, where):
+        """
+        The curves as float arrays (masked points as NaN, which are not
+        filled) and *where* as a list of flags, checked as matplotlib's
+        ``_validate_shapes`` and ``_get_data_mask`` do.
+        """
+        t, f1, f2 = (np.ma.asarray(v, dtype=float) for v in (t, f1, f2))
+        t_dir, f_dir = self.t_direction, self._f_direction
+        names = (d + s for d, s in zip((t_dir, f_dir, f_dir), ("", "1", "2")))
+        for name, array in zip(names, [t, f1, f2]):
+            if array.ndim > 1:
+                raise ValueError(f"{name!r} is not 1-dimensional")
+            if t.size > 1 and array.size > 1 and t.size != array.size:
+                msg = "{!r} has size {}, but {!r} has an unequal size of {}".format(
+                    t_dir, t.size, name, array.size)
+                raise ValueError(msg)
+        if where is not None:
+            where = np.asarray(where, dtype=bool)
+            if where.size != t.size:
+                msg = "where size ({}) does not match {!r} size ({})".format(
+                    where.size, t_dir, t.size)
+                raise ValueError(msg)
+            where = where.ravel().tolist()
+        curves = tuple(np.atleast_1d(np.ma.filled(v, np.nan)) for v in (t, f1, f2))
+        return curves, where
+
+    def set_data(self, t, f1, f2, *, where=None):
+        """
+        Set new values for the two bounding curves.
+
+        Parameters
+        ----------
+        t : array-like
+            The ``self.t_direction`` coordinates of the nodes defining the curves.
+
+        f1 : array-like or float
+            The other coordinates of the nodes defining the first curve.
+
+        f2 : array-like or float
+            The other coordinates of the nodes defining the second curve.
+
+        where : array-like of bool, optional
+            Define *where* to exclude some {dir} regions from being filled.
+            The filled regions are defined by the coordinates ``t[where]``.
+
+        See Also
+        --------
+        .PolyCollection.set_verts, .Line2D.set_data
+        """
+        curves, mask = self._checked_data(t, f1, f2, where)
+        _collections.set_fill_between_data(self._native, curves, mask)
 
 
 class RegularPolyCollection(_CollectionWithSizes):
@@ -803,16 +1111,45 @@ class TriMesh(Collection):
     """
     Class for the efficient drawing of a triangular mesh using Gouraud
     shading.
+
+    pltrs: pltrs (Rust) maps the mesh's values with the colormap and norm
+    it was made with.
     """
 
+    def _native_clim(self):
+        return (None, None)
 
-class QuadMesh(Collection):
+    def _native_cmap(self):
+        return None
+
+    def _native_array(self):
+        return None
+
+    def changed(self):
+        super(Collection, self).changed()
+
+
+class _MeshData:
+    """The vertex grid of a quadrilateral mesh (`QuadMesh`, `PolyQuadMesh`)."""
+
+    def get_coordinates(self):
+        """
+        Return the vertices of the mesh as an (M+1, N+1, 2) array.
+
+        M, N are the number of quadrilaterals in the rows / columns of the
+        mesh, corresponding to (M+1, N+1) vertices.
+        The last dimension specifies the components (x, y).
+        """
+        return _collections.get_coordinates(self._native)
+
+
+class QuadMesh(_MeshData, Collection):
     """
     Class for the efficient drawing of a quadrilateral mesh.
     """
 
 
-class PolyQuadMesh(PolyCollection):
+class PolyQuadMesh(_MeshData, PolyCollection):
     """
     Class for drawing a quadrilateral mesh as individual Polygons (as
     `~.Axes.pcolor` makes).

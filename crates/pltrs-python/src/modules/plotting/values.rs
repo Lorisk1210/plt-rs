@@ -2,6 +2,7 @@
 //! names or dates (matplotlib's unit-converted data), and the extents
 //! added to them: numbers or durations.
 
+use pltrs::axes::Axes;
 use pltrs::dates::TimeDelta;
 use pltrs::units::{AxisDelta, AxisDeltas, AxisValue, AxisValues};
 
@@ -84,4 +85,16 @@ impl PyAxisDeltas {
             AxisDeltas::Custom(values) => vec![AxisDelta::Custom(values)],
         }
     }
+}
+
+/// `values` as numbers of the axis `"x"` or `"y"` of `axes`, which takes
+/// the units they bring (matplotlib's `_process_unit_info` and
+/// `convert_xunits`).
+pub(super) fn convert_units(axes: Axes, axis: String, values: PyAxisValues) -> PyResult<NdArray> {
+    let axis = if axis == "y" {
+        axes.yaxis()
+    } else {
+        axes.xaxis()
+    };
+    Ok(NdArray::from_vec(axis.convert_units(values.0)))
 }

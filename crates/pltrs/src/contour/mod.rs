@@ -60,6 +60,7 @@ pub use error::ContourError;
 pub use grid::{ContourOrigin, QuadCoords, QuadField};
 pub use handle::ContourSet;
 pub use label::{ClabelFormat, ClabelOptions, ContourLabel, MAX_LABELLED_LEVELS};
+pub use legend::ContourLegendStyle;
 pub use levels::Levels;
 pub use nearest::{NearestContour, NearestIn};
 pub use options::ContourOptions;

@@ -6,9 +6,9 @@ use pltrs_text::HAlign;
 
 use super::TableArtist;
 use super::cell::{Cell, CellEdges};
-use crate::artist::{ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colors::Color;
-use crate::fonts::FontProperties;
+use crate::fonts::{FontProperties, FontSize};
 
 /// A handle to a table (matplotlib's `Table`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -19,6 +19,12 @@ pub struct Table {
 impl ArtistHandle for Table {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for Table {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<TableArtist>().then(|| Self::from_raw(raw.clone()))
     }
 }
 
@@ -112,6 +118,32 @@ impl Table {
         }
     }
 
+    /// Puts a copy of `cell`, a cell of this or any other table (or of a
+    /// table holding cells made outside any, [`Table::loose`]), at `(row,
+    /// column)`, and returns it (matplotlib's `table[row, col] = cell`). A
+    /// cell already at that key is replaced and keeps its place among the
+    /// [`cell_keys`](Self::cell_keys).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::table::{Table, TableLoc};
+    /// let ax = Figure::new().subplot();
+    /// let holder = Table::loose(None, TableLoc::Bottom, None);
+    /// let made = holder.add_cell(0, 0, 1.0, 2.0);
+    /// made.set_text("moved");
+    /// let table = Table::loose(Some(&ax), TableLoc::Bottom, None);
+    /// let put = table.put_cell(2, 1, &made);
+    /// assert_eq!((put.key(), put.text(), put.height()), ((2, 1), "moved".into(), 2.0));
+    /// ```
+    pub fn put_cell(&self, row: i32, column: i32, cell: &TableCell) -> TableCell {
+        let copy = cell.read(Cell::clone);
+        self.update(|t| t.add_cell(row, column, copy));
+        TableCell {
+            table: self.clone(),
+            key: (row, column),
+        }
+    }
+
     /// The cell at `(row, column)`, if there is one (matplotlib's
     /// `table[row, col]`).
     ///
@@ -184,6 +216,19 @@ impl TableCell {
         self.update(|cell| cell.text = text)
     }
 
+    /// The size of the text in points (matplotlib's `get_fontsize`).
+    pub fn fontsize(&self) -> f64 {
+        self.read(|cell| cell.font.size)
+    }
+
+    /// Sets the size of the text in points (matplotlib's `set_fontsize`).
+    pub fn set_fontsize(&self, size: f64) -> &Self {
+        let base = self.table.raw.with::<TableArtist, _>(|t| t.rc.font_size);
+        self.update(|cell| {
+            cell.font.set_size(FontSize::Points(size), base);
+        })
+    }
+
     /// The font of the text.
     pub fn font(&self) -> FontProperties {
         self.read(|cell| cell.font.clone())
@@ -247,6 +292,16 @@ impl TableCell {
     /// [`CellEdges::outline`]).
     pub fn path(&self) -> Path {
         self.visible_edges().outline()
+    }
+
+    /// The width in axes fractions.
+    pub fn width(&self) -> f64 {
+        self.read(|cell| cell.width)
+    }
+
+    /// The height in axes fractions.
+    pub fn height(&self) -> f64 {
+        self.read(|cell| cell.height)
     }
 
     /// Sets the width in axes fractions.

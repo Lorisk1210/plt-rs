@@ -13,7 +13,9 @@ use pltrs_core::bezier::{inside_circle, split_path_inout};
 use pltrs_core::{Affine2D, Path, PathCode, Point};
 use pltrs_render::{CapStyle, JoinStyle};
 
-use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle, TypedHandle,
+};
 use crate::colors::Color;
 use crate::rc::RcParams;
 use crate::transforms::{ResolvedTransform, Transform, TransformContext};
@@ -365,6 +367,13 @@ pub struct StreamArrow {
 impl ArtistHandle for StreamArrow {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for StreamArrow {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<StreamArrowArtist>()
+            .then(|| Self::from_raw(raw.clone()))
     }
 }
 

@@ -20,7 +20,7 @@ from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
     TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN, MarkerStyle)
-from .path import Path
+from .path import Path, _DrawnPath
 
 
 def _rcParams():
@@ -349,7 +349,9 @@ class Line2D(Artist):
 
     def get_path(self):
         """Return the `~matplotlib.path.Path` associated with this line."""
-        return Path(*_lines.get_path(self._native))
+        return _DrawnPath(*_lines.get_path(self._native), (
+            lambda: _lines.get_interpolation_steps(self._native),
+            lambda steps: _lines.set_interpolation_steps(self._native, steps)))
 
     def set_data(self, *args):
         """

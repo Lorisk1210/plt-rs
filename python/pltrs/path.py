@@ -972,3 +972,29 @@ def get_path_collection_extents(
         master_transform, paths, np.atleast_3d(transforms),
         offsets, offset_transform)
     return Bbox.from_extents(*extents, minpos=minpos)
+
+
+class _DrawnPath(Path):
+    """
+    The path an artist draws (`.Line2D.get_path`, `.Patch.get_path`),
+    whose ``_interpolation_steps`` are the artist's: *steps* reads and sets
+    them on the native artist, so that setting them changes how the artist
+    is drawn, as on the path object matplotlib's artists draw.
+    """
+
+    def __init__(self, vertices, codes, steps):
+        self._steps = steps
+        super().__init__(vertices, codes, steps[0]())
+
+    @property
+    def _interpolation_steps(self):
+        return self._steps[0]()
+
+    @_interpolation_steps.setter
+    def _interpolation_steps(self, steps):
+        self._steps[1](int(steps))
+
+    def __deepcopy__(self, memo):
+        """A deep copy, as a `Path` of its own (not the artist's)."""
+        return Path(copy.deepcopy(self.vertices, memo),
+                    copy.deepcopy(self.codes, memo), self._interpolation_steps)

@@ -6,7 +6,7 @@ Filled areas and steps: `~.Axes.fill`, `~.Axes.fill_between`,
 
 import numpy as np
 
-from ... import _api, _style_helpers, cbook, collections as mcoll
+from ... import _api, _live_transforms, _style_helpers, cbook, collections as mcoll
 from ... import lines as mlines, patches as mpatches
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -62,7 +62,7 @@ class FillsMixin:
             *(np.ma.masked_invalid(np.ma.asarray(v, dtype=float)
                                    if not isinstance(v, np.ndarray) or v.dtype != object
                                    else v)
-              for v in (ind, dep1, dep2)))
+              for v in (ind, dep1, dep2)), subok=True)
         for name, array in zip([ind_dir, f"{'y' if ind_dir == 'x' else 'x'}1",
                                 f"{'y' if ind_dir == 'x' else 'x'}2"],
                                [ind, dep1, dep2]):
@@ -78,12 +78,11 @@ class FillsMixin:
             mask = where.tolist()
         native = _plotting.fill_between(
             self._native, ind_dir == "y",
-            (floats(ind), floats(dep1), floats(dep2)), mask, bool(interpolate),
-            step, None if (color is None and facecolor is None)
-            else (facecolor if facecolor is not None else color))
+            (floats(ind), floats(dep1), floats(dep2)), (mask, bool(interpolate), step),
+            (color, facecolor),
+            _live_transforms.given_to_native(kwargs.get("transform")))
         collection = wrap(self, native, mcoll.FillBetweenPolyCollection)
-        if color is not None and facecolor is None:
-            kwargs["edgecolor"] = kwargs.get("edgecolor", color)
+        collection.t_direction = ind_dir
         collection._internal_update(kwargs)
         return collection
 
@@ -162,6 +161,7 @@ class FillsMixin:
         patch._internal_update(kwargs)
         return patch
 
+    @_preprocess_data()
     def stackplot(self, x, *args, labels=(), colors=None, hatch=None,
                   baseline='zero', **kwargs):
         """
@@ -172,13 +172,18 @@ class FillsMixin:
         list of `.PolyCollection`
             A list of `.PolyCollection` instances, one for each element in the
             stacked area plot.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         y = np.vstack(args) if args else np.empty((0, len(np.atleast_1d(x))))
         _api.check_in_list(['zero', 'sym', 'wiggle', 'weighted_wiggle'],
                            baseline=baseline)
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.PolyCollection)
         if colors is not None:
-            kwargs['facecolor'] = colors
+            kwargs.setdefault('facecolor', colors)
         if hatch is not None:
             kwargs['hatch'] = hatch
         kwargs, style_gen = _style_helpers.style_generator(kwargs)

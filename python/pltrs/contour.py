@@ -12,7 +12,7 @@ from numbers import Integral
 import numpy as np
 from numpy import ma
 
-from . import _api, _handles, collections as mcoll
+from . import _api, _handles, collections as mcoll, colors as mcolors
 from ._native import contour as _contour
 from .path import Path
 
@@ -76,7 +76,33 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         collections = _contour.get_collections(contour)
         cs = _handles.wrap(collections[0], cls, axes.figure)
         cs._contour = contour
+        cs._attach_native_mapping()
         return cs
+
+    def _native_clim(self):
+        if not hasattr(self, "_contour"):
+            return (None, None)
+        return _contour.get_clim(self._contour)
+
+    def _native_cmap(self):
+        if not hasattr(self, "_contour"):
+            return None
+        return _contour.get_cmap(self._contour)
+
+    def _native_array(self):
+        if not hasattr(self, "_contour"):
+            return None
+        return _contour.get_cvalues(self._contour)[0]
+
+    def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
+        # Explicit colors are indexed through a NoNorm (matplotlib's
+        # ``_process_colors``).
+        if hasattr(self, "_contour") and _contour.get_cvalues(self._contour)[1]:
+            if colorizer is None:
+                norm = mcolors.NoNorm()
+            else:
+                colorizer.norm = mcolors.NoNorm()
+        super()._attach_native_mapping(cmap, norm, colorizer)
 
     @property
     def levels(self):
@@ -138,20 +164,6 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
     get_edgecolors = get_edgecolor
 
-    def get_clim(self):
-        """Return the values mapped to the colormap limits."""
-        return _contour.get_clim(self._contour)
-
-    def set_clim(self, vmin=None, vmax=None):
-        """Set the norm limits."""
-        if vmax is None:
-            try:
-                vmin, vmax = vmin
-            except (TypeError, ValueError):
-                pass
-        _contour.set_clim(self._contour, None if vmin is None else float(vmin),
-                          None if vmax is None else float(vmax))
-
     def find_nearest_contour(self, x, y, indices=None, pixel=True):
         """
         Find the point in the unfilled contour plot that is closest to
@@ -181,8 +193,48 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         level, segment, index, (xmin, ymin), d2 = nearest
         return (level, segment, index, xmin, ymin, d2)
 
+    def legend_elements(self, variable_name='x', str_format=str):
+        """
+        Return a list of artists and labels suitable for passing through
+        to `~.Axes.legend` which represent this ContourSet.
+
+        The labels have the form "0 < x <= 1" stating the data ranges which
+        the artists represent.
+
+        Parameters
+        ----------
+        variable_name : str
+            The string used inside the inequality used on the labels.
+        str_format : function: float -> str
+            Function used to format the numbers in the labels.
+
+        Returns
+        -------
+        artists : list[`.Artist`]
+            A list of the artists.
+        labels : list[str]
+            A list of the labels.
+        """
+        from .lines import Line2D
+        from .patches import Rectangle
+        entries, labels = _contour.legend_elements(
+            self._contour, str(variable_name), str_format)
+        artists = []
+        for kind, color, *style in entries:
+            if kind == "line":
+                linewidth, dashes = style
+                artists.append(Line2D([], [], color=color, linewidth=linewidth,
+                                      linestyle=dashes))
+            else:
+                (hatch,) = style
+                artists.append(Rectangle((0, 0), 1, 1, facecolor=color, hatch=hatch))
+        return artists, labels
+
     def changed(self):
         """Call this whenever the mappable is changed to notify listeners."""
+        if hasattr(self, "_contour"):
+            _contour.set_mapping(self._contour, self.cmap, self.norm)
+        super(mcoll.Collection, self).changed()
 
     def remove(self):
         """Remove the contour set, its collections and its labels."""

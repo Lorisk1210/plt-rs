@@ -8,14 +8,17 @@
 //! `("data", axes)`, `("axes", axes)`, `("figure", figure)`,
 //! `("blended", x, y)`, `("composite", first, then)`,
 //! `("translation", dx, dy, units)`, `("inverted", t)`,
-//! `("affine_delta", t)`, or `("native", transform)` for a value made
-//! before. [`describe`] gives the same tuples back, with the artist ids of
-//! the figure (`_native.artist.id`) in place of the handles.
+//! `("affine_delta", t)`, `("native", transform)` for a value made
+//! before, or `("python", transform)` for a non-affine Python transform
+//! of another kind (a `Transform` subclass of the program's), which
+//! becomes a map calling it. [`describe`] gives the same tuples back, with
+//! the artist ids of the figure (`_native.artist.id`) in place of the
+//! handles.
 
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
 use pltrs::figure::Figure;
-use pltrs::transforms::{Point, ResolvedTransform, Transform, TransformError};
+use pltrs::transforms::{Point, PointMap, ResolvedTransform, Transform, TransformError};
 
 use super::{affine, matrix, points, points_array};
 use crate::binding::prelude::*;
@@ -66,6 +69,7 @@ impl FromPy<'_> for Description {
             },
             "inverted" => child(1)?.inverted(),
             "affine_delta" => Transform::AffineDelta(Box::new(child(1)?)),
+            "python" => Transform::custom(PyPointMap::new(item(1)?)?),
             other => {
                 return Err(PyErr::value_error(format!(
                     "unknown kind of transform {other:?}"
@@ -73,6 +77,44 @@ impl FromPy<'_> for Description {
             }
         };
         Ok(Self(transform))
+    }
+}
+
+/// A non-affine Python transform as a map of the plane: its `transform`
+/// forward, the `transform` of its inverse back.
+#[derive(Debug)]
+struct PyPointMap {
+    forward: Callback,
+    inverse: Option<Callback>,
+}
+
+impl PyPointMap {
+    /// The map of `transform`; one without an inverse maps back to NaN.
+    fn new(transform: &Bound<'_>) -> PyResult<Self> {
+        let forward = transform.getattr("transform")?.extract()?;
+        let inverse = transform
+            .call_method("inverted", &[])
+            .and_then(|inverted| inverted.getattr("transform")?.extract())
+            .ok();
+        Ok(Self { forward, inverse })
+    }
+
+    /// `p` through `callback`; NaN when it fails (the exception is raised
+    /// when the native call running returns).
+    fn apply(callback: Option<&Callback>, p: Point) -> Point {
+        callback
+            .and_then(|callback| callback.call::<(f64, f64)>(((p.x, p.y),)))
+            .map_or(Point::new(f64::NAN, f64::NAN), |(x, y)| Point::new(x, y))
+    }
+}
+
+impl PointMap for PyPointMap {
+    fn forward(&self, p: Point) -> Point {
+        Self::apply(Some(&self.forward), p)
+    }
+
+    fn inverse(&self, p: Point) -> Point {
+        Self::apply(self.inverse.as_ref(), p)
     }
 }
 
@@ -171,6 +213,16 @@ fn trans_axes(axes: Axes) -> PyResult<Transform> {
     Ok(axes.trans_axes())
 }
 
+/// x in data, y in axes coordinates (`ax.get_xaxis_transform()`).
+fn trans_xaxis(axes: Axes) -> PyResult<Transform> {
+    Ok(axes.trans_xaxis())
+}
+
+/// x in axes, y in data coordinates (`ax.get_yaxis_transform()`).
+fn trans_yaxis(axes: Axes) -> PyResult<Transform> {
+    Ok(axes.trans_yaxis())
+}
+
 /// The fractions of the figure or subfigure (`fig.transFigure`,
 /// `subfig.transSubfigure`).
 fn trans_figure(figure: Figure) -> PyResult<Transform> {
@@ -189,6 +241,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_transform", set_transform)?;
     module.add("trans_data", trans_data)?;
     module.add("trans_axes", trans_axes)?;
+    module.add("trans_xaxis", trans_xaxis)?;
+    module.add("trans_yaxis", trans_yaxis)?;
     module.add("trans_figure", trans_figure)
 }
 
@@ -223,5 +277,55 @@ mod tests {
             let short = eval(py, "", "('blended', ('display',))").extract::<Description>();
             assert!(short.is_err());
         });
+    }
+
+    /// A non-affine transform of the program's and its inverse.
+    const DOUBLE: &str = r"
+class Halve:
+    def transform(self, xy):
+        return (xy[0] / 2, xy[1])
+
+class Double:
+    def transform(self, xy):
+        return (xy[0] * 2, xy[1])
+    def inverted(self):
+        return Halve()
+
+class OneWay:
+    def transform(self, xy):
+        return (xy[0] * 2, xy[1])
+";
+
+    #[test]
+    fn python_transforms_become_maps_calling_them() {
+        with_python(|py| {
+            let description: Description =
+                eval(py, DOUBLE, "('python', Double())").extract().unwrap();
+            let Transform::Custom(map) = description.0 else {
+                panic!("a custom map, not {:?}", description.0);
+            };
+            let map = map.map();
+            assert_eq!(map.forward(Point::new(3.0, 1.0)), Point::new(6.0, 1.0));
+            assert_eq!(map.inverse(Point::new(3.0, 1.0)), Point::new(1.5, 1.0));
+            let one_way: Description = eval(py, DOUBLE, "('python', OneWay())").extract().unwrap();
+            let Transform::Custom(map) = one_way.0 else {
+                panic!("a custom map, not {:?}", one_way.0);
+            };
+            assert!(map.map().inverse(Point::new(1.0, 1.0)).x.is_nan());
+        });
+    }
+
+    #[test]
+    fn axis_transforms_blend_data_and_axes() {
+        let figure = Figure::with_size(4.0, 4.0, 100.0);
+        let axes = figure.add_axes([0.0, 0.0, 1.0, 1.0]).unwrap();
+        axes.set_xlim(0.0, 4.0).unwrap().set_ylim(0.0, 2.0).unwrap();
+        let point = NdArray::with_shape(vec![1.0, 0.5], vec![2]).unwrap();
+        let xaxis = trans_xaxis(axes.clone()).unwrap();
+        let mapped = apply(figure.clone(), xaxis, point.clone(), "all".into()).unwrap();
+        assert_eq!(mapped.data, [100.0, 200.0]);
+        let yaxis = trans_yaxis(axes).unwrap();
+        let mapped = apply(figure, yaxis, point, "all".into()).unwrap();
+        assert_eq!(mapped.data, [400.0, 100.0]);
     }
 }

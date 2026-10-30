@@ -8,7 +8,7 @@ import inspect
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll, lines as mlines
+from ... import _api, _live_transforms, cbook, collections as mcoll, lines as mlines
 from ..._native import axes as _axes, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
@@ -233,8 +233,6 @@ class LinesMixin:
             raise TypeError("'slope' cannot be used with non-linear scales")
         if (xy2 is None) == (slope is None):
             raise TypeError("Exactly one of 'xy2' and 'slope' must be given")
-        if "transform" in kwargs:
-            raise NotImplementedError("pltrs: axline(transform=...)")
         native = _plotting.axline(
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
@@ -281,15 +279,20 @@ class LinesMixin:
         if not np.iterable(high):
             high = [high]
         positions, low, high = cbook._combine_masks(positions, low, high)
+        kwargs = cbook.normalize_kwargs(kwargs, mcoll.LineCollection)
+        transform = kwargs.pop("transform", None)
         native = _plotting.segments(
-            self._native, vertical, axis_values(np.ravel(positions)),
-            axis_values(np.ravel(low)), axis_values(np.ravel(high)))
+            self._native, vertical,
+            tuple(axis_values(np.ravel(v)) for v in (positions, low, high)),
+            _live_transforms.given_to_native(transform))
         lines = wrap(self, native, mcoll.LineCollection)
+        if transform is not None:
+            lines.set_transform(transform)
         props = {"linestyle": linestyles, "label": label}
         if colors is not None:
             props["color"] = colors
         lines._internal_update(props)
-        lines._internal_update(cbook.normalize_kwargs(kwargs, mcoll.LineCollection))
+        lines._internal_update(kwargs)
         return lines
 
     @_preprocess_data(replace_names=["y", "xmin", "xmax", "colors"],

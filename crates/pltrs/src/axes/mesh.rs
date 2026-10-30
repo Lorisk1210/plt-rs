@@ -175,6 +175,12 @@ impl PreparedMesh {
         Point::new(self.x[(r, c)], self.y[(r, c)])
     }
 
+    /// The vertices as a grid.
+    pub(super) fn vertex_grid(&self) -> Grid<Point> {
+        let (rows, cols) = self.x.shape();
+        Grid::from_fn(rows, cols, |r, c| self.point(r, c))
+    }
+
     /// Every finite vertex, row by row.
     pub(super) fn finite_points(&self) -> Vec<Point> {
         let (rows, cols) = self.x.shape();
@@ -186,13 +192,33 @@ impl PreparedMesh {
     }
 }
 
+/// The plotting function a mesh is prepared for, whose name matplotlib's
+/// messages give.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum MeshFunction {
+    /// `pcolor`, which takes non-finite coordinates.
+    Pcolor,
+    /// `pcolormesh`, which rejects them.
+    Pcolormesh,
+}
+
+impl MeshFunction {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Pcolor => "pcolor",
+            Self::Pcolormesh => "pcolormesh",
+        }
+    }
+}
+
 /// matplotlib's `_pcolorargs`: builds the vertex grids, resolves `auto`
-/// shading and turns `nearest` into flat cells around the points;
-/// `pcolormesh` rejects non-finite coordinates.
+/// shading and turns `nearest` into flat cells around the points, warning
+/// when the centres are not monotonic along their axis; `pcolormesh`
+/// rejects non-finite coordinates.
 pub(super) fn pcolor_args(
     mesh: Mesh,
     shading: Shading,
-    finite_coords: bool,
+    function: MeshFunction,
 ) -> Result<PreparedMesh, ImageError> {
     let (nrows, ncols) = mesh.values.shape();
     let (x, y, shading) = match mesh.coords {
@@ -210,7 +236,7 @@ pub(super) fn pcolor_args(
                 MeshCoords::Vector(v) => v.iter().all(|v| v.is_finite()),
                 MeshCoords::Grid(g) => g.as_slice().iter().all(|v| v.is_finite()),
             };
-            if finite_coords && !(finite(&x) && finite(&y)) {
+            if function == MeshFunction::Pcolormesh && !(finite(&x) && finite(&y)) {
                 return Err(ImageError::InvalidCoordinates);
             }
             let (x, y) = full_grids(x, y)?;
@@ -243,9 +269,10 @@ pub(super) fn pcolor_args(
             if shading == Shading::Gouraud {
                 (x, y, MeshShading::Gouraud)
             } else {
-                let (x, y) = (interp_columns(&x), interp_columns(&y));
-                let x = interp_columns(&x.transposed()).transposed();
-                let y = interp_columns(&y.transposed()).transposed();
+                let monotonic = Some(function);
+                let (x, y) = (interp_columns(&x, monotonic), interp_columns(&y, None));
+                let x = interp_columns(&x.transposed(), None).transposed();
+                let y = interp_columns(&y.transposed(), monotonic).transposed();
                 (x, y, MeshShading::Flat)
             }
         }
@@ -288,10 +315,30 @@ fn full_grids(x: MeshCoords, y: MeshCoords) -> Result<(Grid<f64>, Grid<f64>), Im
 
 /// matplotlib's `_interp_grid`: cell edges halfway between the columns,
 /// extrapolated by half a step at both ends (a single column is doubled).
-fn interp_columns(a: &Grid<f64>) -> Grid<f64> {
+/// With the function the centres are given to, it warns, as matplotlib
+/// does, when they neither increase nor decrease along every row (steps
+/// from or to a missing centre, NaN, are left out, as matplotlib leaves
+/// out masked ones).
+fn interp_columns(a: &Grid<f64>, monotonic: Option<MeshFunction>) -> Grid<f64> {
     let (rows, cols) = a.shape();
     if cols <= 1 {
         return Grid::from_fn(rows, 2 * cols, |r, c| a[(r, c % cols.max(1))]);
+    }
+    if let Some(function) = monotonic {
+        let steps: Vec<f64> = (0..rows)
+            .flat_map(|r| (1..cols).map(move |c| (r, c)))
+            .map(|(r, c)| a[(r, c)] - a[(r, c - 1)])
+            .filter(|d| !d.is_nan())
+            .collect();
+        if !(steps.iter().all(|&d| d >= 0.0) || steps.iter().all(|&d| d <= 0.0)) {
+            let name = function.name();
+            crate::warnings::warn(&format!(
+                "The input coordinates to {name} are interpreted as cell centers, but \
+                 are not monotonically increasing or decreasing. This may lead to \
+                 incorrectly calculated cell edges, in which case, please supply explicit \
+                 cell edges to {name}."
+            ));
+        }
     }
     Grid::from_fn(rows, cols + 1, |r, c| {
         let half = |c: usize| (a[(r, c + 1)] - a[(r, c)]) * 0.5;
@@ -313,14 +360,14 @@ mod tests {
         let flat = pcolor_args(
             Mesh::from_coords([0.0, 1.0, 2.0], [0.0, 1.0], counting_field(1, 2)),
             Shading::Auto,
-            true,
+            MeshFunction::Pcolormesh,
         )
         .unwrap();
         assert_eq!(flat.x.shape(), (2, 3));
         let nearest = pcolor_args(
             Mesh::from_coords([1.0, 2.0, 4.0, 8.0], [0.0, 1.0, 3.0], counting_field(3, 4)),
             Shading::Auto,
-            true,
+            MeshFunction::Pcolormesh,
         )
         .unwrap();
         assert_eq!(nearest.shading, MeshShading::Flat);
@@ -333,7 +380,7 @@ mod tests {
         let err = pcolor_args(
             Mesh::from_coords([0.0, 1.0], [0.0, 1.0], counting_field(3, 3)),
             Shading::Flat,
-            true,
+            MeshFunction::Pcolormesh,
         );
         assert!(matches!(
             err,
@@ -351,7 +398,7 @@ mod tests {
         let nan = pcolor_args(
             Mesh::from_coords([0.0, f64::NAN, 2.0], [0.0, 1.0], counting_field(1, 2)),
             Shading::Flat,
-            true,
+            MeshFunction::Pcolormesh,
         );
         assert_eq!(nan.err(), Some(ImageError::InvalidCoordinates));
     }
@@ -359,6 +406,6 @@ mod tests {
     #[test]
     fn single_columns_are_doubled() {
         let a = Grid::from_vec(2, 1, vec![3.0, 4.0]).unwrap();
-        assert_eq!(interp_columns(&a).as_slice(), &[3.0, 3.0, 4.0, 4.0]);
+        assert_eq!(interp_columns(&a, None).as_slice(), &[3.0, 3.0, 4.0, 4.0]);
     }
 }

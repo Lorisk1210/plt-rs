@@ -5,7 +5,7 @@
 use pltrs_core::Rgba;
 
 use super::Axes;
-use super::mesh::{Mesh, MeshCoords, pcolor_args};
+use super::mesh::{Mesh, MeshCoords, MeshFunction, pcolor_args};
 use super::pcolor::{PcolorOptions, default_shading};
 use crate::collections::Collection;
 use crate::colors::Color;
@@ -75,7 +75,11 @@ impl Axes {
             coords: mesh.coords,
             values: ScalarField::new(Grid::from_fn(rows, cols, |_, _| 0.0)).into(),
         };
-        let prepared = pcolor_args(shape_only, default_shading(options.shading), true)?;
+        let prepared = pcolor_args(
+            shape_only,
+            default_shading(options.shading),
+            MeshFunction::Pcolormesh,
+        )?;
         let mut props = options.props;
         props.facecolors = Some(
             mesh.colors

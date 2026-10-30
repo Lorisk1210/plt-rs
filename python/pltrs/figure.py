@@ -199,14 +199,15 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
         if not np.isfinite(rect).all():
             raise ValueError(f'all entries in rect must be finite not {rect}')
         projection_class, pkw = self._process_projection_requirements(**kwargs)
+        rect = tuple(map(float, rect))
         make = getattr(projection_class, "_make_native", None)
         if make is not None:
-            native, pkw = make(self, pkw, rect=tuple(map(float, rect)))
-        elif projection_class.name != "rectilinear":
-            raise NotImplementedError(
-                f"pltrs: add_axes(projection={projection_class.name!r})")
+            native, pkw = make(self, pkw, rect=rect)
+        elif projection_class.name == "rectilinear":
+            native = _figure.add_axes(self._native, rect)
         else:
-            native = _figure.add_axes(self._native, tuple(map(float, rect)))
+            native = _figure.add_axes_projection(self._native, rect,
+                                                 projection_class.name)
         return self._new_axes(native, projection_class, pkw)
 
     def add_subplot(self, *args, **kwargs):

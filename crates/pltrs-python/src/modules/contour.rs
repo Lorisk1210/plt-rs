@@ -4,10 +4,10 @@
 
 use pltrs::axes::Axes;
 use pltrs::collections::Collection;
-use pltrs::colors::{Color, Extend};
+use pltrs::colors::{Color, Colormap, Extend, Norm};
 use pltrs::contour::{
-    ClabelFormat, ClabelOptions, ContourAlgorithm, ContourError, ContourOptions, ContourOrigin,
-    ContourSet, Levels, NearestIn, QuadCoords, QuadField,
+    ClabelFormat, ClabelOptions, ContourAlgorithm, ContourError, ContourLegendStyle,
+    ContourOptions, ContourOrigin, ContourSet, Levels, NearestIn, QuadCoords, QuadField,
 };
 use pltrs::fonts::FontSize;
 use pltrs::numeric::Grid;
@@ -16,6 +16,7 @@ use pltrs::ticker::LabelFormat;
 use pltrs::tri::Triangulation;
 use pltrs_core::Point;
 
+use super::cm::NativeColormap;
 use super::lines::PyLineStyle;
 use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
@@ -72,7 +73,7 @@ type Generation = (Option<bool>, usize, Option<String>);
 /// linestyles, negative_linestyles)`.
 type Look = (
     Option<Vec<Color>>,
-    (Option<String>, Option<String>, Option<f64>, Option<f64>),
+    super::plotting::mapping::Mapping,
     Option<f64>,
     Option<Vec<f64>>,
     Option<Vec<PyLineStyle>>,
@@ -165,7 +166,7 @@ fn contour_options(
             _ => Extend::Neither,
         },
         colors,
-        colorizer: super::plotting::mapping::colorizer(mapping)?,
+        colorizer: super::plotting::mapping::colorizer(mapping),
         alpha,
         linewidths,
         linestyles: linestyles.map(|styles| styles.into_iter().map(|s| s.0).collect()),
@@ -204,6 +205,14 @@ fn get_levels(set: ContourSet) -> PyResult<NdArray> {
 /// The value each level or band is coloured by.
 fn get_layers(set: ContourSet) -> PyResult<NdArray> {
     Ok(NdArray::from_vec(set.layers()))
+}
+
+/// The values the colours are mapped from, and whether they are colour
+/// indices (matplotlib's `cvalues`, mapped through a `NoNorm` with
+/// explicit colours).
+fn get_cvalues(set: ContourSet) -> PyResult<(NdArray, bool)> {
+    let (cvalues, indexed) = set.cvalues();
+    Ok((NdArray::from_vec(cvalues), indexed))
 }
 
 /// `(filled, zmin, zmax, extend)` of the set.
@@ -337,15 +346,60 @@ fn set_linewidths(set: ContourSet, widths: Vec<f64>) -> PyResult<()> {
     Ok(())
 }
 
-/// Sets the colour limits of the set's mapping.
-fn set_clim(set: ContourSet, vmin: Option<f64>, vmax: Option<f64>) -> PyResult<()> {
-    set.set_clim(vmin, vmax);
+/// Maps the levels through `cmap` and `norm` (the Python colorizer's,
+/// handed over when it changes).
+fn set_mapping(set: ContourSet, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
+    set.set_cmap(cmap).set_norm(norm);
     Ok(())
+}
+
+/// The colormap the levels are mapped through.
+fn get_cmap(set: ContourSet) -> PyResult<Option<NativeColormap>> {
+    Ok(set.cmap().map(NativeColormap))
 }
 
 /// The colour limits of the set's mapping.
 fn get_clim(set: ContourSet) -> PyResult<(Option<f64>, Option<f64>)> {
     Ok(set.norm_limits())
+}
+
+/// A legend entry of a contour set as Python makes its artist of it:
+/// `("line", rgba, linewidth, (offset, dashes))`, with `None` dashes for
+/// a solid line as matplotlib's collections give them, or `("band", rgba,
+/// hatch)`.
+struct LegendEntry(ContourLegendStyle);
+
+impl IntoPy for LegendEntry {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        let rgba = |c: pltrs_core::Rgba| (c.r, c.g, c.b, c.a);
+        match self.0 {
+            ContourLegendStyle::Line {
+                color,
+                linewidth,
+                dashes,
+            } => (
+                "line",
+                rgba(color),
+                linewidth,
+                (dashes.offset, dashes.pattern),
+            )
+                .into_py(py),
+            ContourLegendStyle::Band { color, hatch } => ("band", rgba(color), hatch).into_py(py),
+        }
+    }
+}
+
+/// The legend entries describing the set and their labels (matplotlib's
+/// `legend_elements`), its numbers written by `str_format`.
+fn legend_elements(
+    set: ContourSet,
+    variable_name: String,
+    str_format: Callback,
+) -> PyResult<(Vec<LegendEntry>, Vec<String>)> {
+    let (styles, labels) = set.legend_styles(&variable_name, |value| {
+        str_format.call::<String>((value,)).unwrap_or_default()
+    });
+    Ok((styles.into_iter().map(LegendEntry).collect(), labels))
 }
 
 /// Removes the set, its collections and its labels.
@@ -360,6 +414,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tricontour", tricontour)?;
     module.add("get_levels", get_levels)?;
     module.add("get_layers", get_layers)?;
+    module.add("get_cvalues", get_cvalues)?;
     module.add("get_state", get_state)?;
     module.add("get_paths", get_paths)?;
     module.add("get_linewidths", get_linewidths)?;
@@ -369,7 +424,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("clabel", clabel)?;
     module.add("label_texts", label_texts)?;
     module.add("set_linewidths", set_linewidths)?;
-    module.add("set_clim", set_clim)?;
     module.add("get_clim", get_clim)?;
+    module.add("set_mapping", set_mapping)?;
+    module.add("get_cmap", get_cmap)?;
+    module.add("legend_elements", legend_elements)?;
     module.add("remove", remove)
 }

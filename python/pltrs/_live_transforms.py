@@ -10,9 +10,11 @@ they are asked for, so it follows layout, limits and scales without
 invalidation. matplotlib's own transform classes combine with it as with
 any `.Transform`. Between Python and pltrs (Rust) a transform crosses as
 the nested tuples ``_native.transforms.native`` reads: `to_native` writes
-them for matplotlib's classes, `from_native` reads the description of a
-native transform back into the objects matplotlib code compares
-(``line.get_transform() is ax.transData``).
+them for matplotlib's classes (and for transforms of the program's: an
+affine one as its matrix, any other as a map pltrs (Rust) calls back),
+`from_native` reads the description of a native transform back into the
+objects matplotlib code compares (``line.get_transform() is
+ax.transData``).
 """
 
 import numpy as np
@@ -138,6 +140,12 @@ def to_native(transform):
     return _transforms.native(_description(transform))
 
 
+def given_to_native(transform):
+    """`to_native` of *transform*, None when none is given (for the
+    ``transform`` keywords whose default the native function picks)."""
+    return None if transform is None else to_native(transform)
+
+
 def _description(t):
     """The nested tuples describing *t* to pltrs (Rust)."""
     if t is None or isinstance(t, IdentityTransform):
@@ -156,14 +164,23 @@ def _description(t):
                 _description(t._scale_trans))
     if isinstance(t, AffineDeltaTransform):
         return ("affine_delta", _description(t._base_transform))
-    if isinstance(t, Affine2DBase):
+    if isinstance(t, Affine2DBase) or t.is_affine:
         return ("affine", np.asarray(t.get_matrix(), dtype=float))
-    raise NotImplementedError(
-        f"pltrs: a transform of class {type(t).__name__}")
+    return ("python", t)
 
 
 class _Unnamed(Exception):
     """A description names an artist that has no Python object yet."""
+
+
+def of_artist(artist, native):
+    """The matplotlib transform of the native transform *native* set on
+    *artist* (`from_native`): `.IdentityTransform` for none, the display
+    coordinates an artist without a transform is drawn in, and while the
+    artist is outside any figure."""
+    if native is None or artist._figure is None:
+        return IdentityTransform()
+    return from_native(artist._figure, native)
 
 
 def from_native(figure, native):
@@ -186,6 +203,10 @@ def _transform_of(figure, description):
         return {"data": lambda: artist.transData,
                 "axes": lambda: artist.transAxes,
                 "figure": lambda: artist.transSubfigure}[kind]()
+    if kind == "blended":
+        axis = _axis_transform(figure, *args)
+        if axis is not None:
+            return axis
     children = [_transform_of(figure, a) for a in args
                 if isinstance(a, tuple)]
     if kind == "display":
@@ -205,3 +226,17 @@ def _transform_of(figure, description):
     if kind == "affine_delta":
         return AffineDeltaTransform(children[0])
     return LiveTransform(figure, args[0])  # ("native", a custom map)
+
+
+def _axis_transform(figure, x, y):
+    """``ax.get_xaxis_transform()`` or ``ax.get_yaxis_transform()`` when the
+    blend of the descriptions *x* and *y* is one of them, else None."""
+    kinds = (x[0], y[0])
+    if kinds not in (("data", "axes"), ("axes", "data")) or x[1] != y[1]:
+        return None
+    ax = figure._artists.get(x[1])
+    if ax is None:
+        return None
+    if kinds == ("data", "axes"):
+        return ax.get_xaxis_transform()
+    return ax.get_yaxis_transform()

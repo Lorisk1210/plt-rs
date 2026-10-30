@@ -4,7 +4,9 @@
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll, colors as mcolors, lines as mlines
+from ... import (_api, _live_transforms, cbook, collections as mcoll, colors as mcolors,
+                lines as mlines)
+from ... import colorizer as mcolorizer
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...markers import MarkerStyle
@@ -17,29 +19,29 @@ def _rcParams():
     return rcParams
 
 
-#: The norm classes pltrs (Rust) makes by scale name, with their names.
-_NAMED_NORMS = {"Normalize": None, "LogNorm": "log"}
-
-
-def _mapping(cmap, norm, vmin, vmax):
+def _mapping(cmap, norm, vmin, vmax, colorizer=None):
     """
-    The native colour mapping: the colormap and norm by name, the limits;
-    a norm instance gives its name and limits.
+    The colour mapping of a plotting method: ``(colorizer, native)``, the
+    Python `.Colorizer` the artist keeps and the mapping pltrs (Rust) is
+    given, ``(cmap, norm, vmin, vmax)``: the colormap (None for
+    :rc:`image.cmap`), the norm (an instance, a scale name or None) and
+    the limits.
     """
-    if cmap is not None and not isinstance(cmap, str):
-        cmap = cmap.name
-    if norm is not None and not isinstance(norm, str):
-        name = type(norm).__name__
-        if name not in _NAMED_NORMS:
-            raise NotImplementedError(f"pltrs: norm={name}(...)")
-        if vmin is not None or vmax is not None:
-            raise ValueError(
-                "Passing a Normalize instance simultaneously with "
-                "vmin/vmax is not supported.  Please pass vmin/vmax "
-                "directly to the norm when creating it.")
-        vmin, vmax, norm = norm.vmin, norm.vmax, _NAMED_NORMS[name]
-    return (cmap, norm, None if vmin is None else float(vmin),
-            None if vmax is None else float(vmax))
+    mcolorizer._ScalarMappable._check_exclusionary_keywords(
+        colorizer, vmin=vmin, vmax=vmax)
+    made = mcolorizer._ScalarMappable._get_colorizer(cmap, norm, colorizer)
+    if norm is not None and not isinstance(norm, str) and (
+            vmin is not None or vmax is not None):
+        raise ValueError(
+            "Passing a Normalize instance simultaneously with "
+            "vmin/vmax is not supported.  Please pass vmin/vmax "
+            "directly to the norm when creating it.")
+    if colorizer is not None:
+        cmap, norm = made.cmap, made.norm
+    elif cmap is not None:
+        cmap = made.cmap
+    return made, (cmap, norm, None if vmin is None else float(vmin),
+                  None if vmax is None else float(vmax))
 
 
 class ScatterMixin:
@@ -223,8 +225,6 @@ class ScatterMixin:
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
-        if colorizer is not None:
-            raise NotImplementedError("pltrs: scatter(colorizer=...)")
         if edgecolors is not None:
             kwargs.update({'edgecolors': edgecolors})
         if linewidths is not None:
@@ -232,8 +232,7 @@ class ScatterMixin:
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
         linewidths = kwargs.pop('linewidth', None)
         edgecolors = kwargs.pop('edgecolor', None)
-        if "transform" in kwargs:
-            raise NotImplementedError("pltrs: scatter(transform=...)")
+        offset_transform = kwargs.pop('transform', None)
         values = (axis_values(x), axis_values(y))
         x = np.ma.ravel(cbook._unpack_to_numpy(x))
         y = np.ma.ravel(cbook._unpack_to_numpy(y))
@@ -268,9 +267,11 @@ class ScatterMixin:
                 "ignoring the edgecolor in favor of the facecolor.  This "
                 "behavior may change in the future."
             )
+        made = None
         if colors is None:
+            made, mapping = _mapping(cmap, norm, vmin, vmax, colorizer)
             faces = (None, (np.ma.filled(np.ma.asarray(c, dtype=float), np.nan).ravel(),
-                            _mapping(cmap, norm, vmin, vmax)))
+                            mapping))
         else:
             extra_kwargs = {
                 'cmap': cmap, 'norm': norm, 'vmin': vmin, 'vmax': vmax
@@ -296,7 +297,9 @@ class ScatterMixin:
             np.ma.filled(s.astype(float), np.nan), faces,
             mlines._marker_spec(marker_obj), (edgecolors, linewidths),
             (None if alpha is None else float(alpha), alphas),
-            bool(plotnonfinite))
+            (bool(plotnonfinite), _live_transforms.given_to_native(offset_transform)))
         collection = wrap(self, native, mcoll.PathCollection)
+        if made is not None:
+            collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
         return collection

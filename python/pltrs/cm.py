@@ -297,4 +297,22 @@ globals().update(_colormaps)
 
 _multivar_colormaps = ColormapRegistry(_gen_multivar_cmaps())
 
+
+def _from_native(native):
+    """
+    The colormap of a mapping pltrs (Rust) made, given as ``(spec, under,
+    over, bad)`` (``_native.cm``): the registered colormap of its name, or
+    the one its spec describes, with its extreme colours; None for none.
+    """
+    if native is None:
+        return None
+    spec, *extremes = native
+    name = spec['name']
+    cmap = _colormaps[name] if name in _colormaps else _from_spec(spec)
+    own = (cmap.get_under(), cmap.get_over(), cmap.get_bad())
+    if all(np.allclose(a, b) for a, b in zip(own, extremes)):
+        return cmap
+    under, over, bad = extremes
+    return cmap.with_extremes(under=under, over=over, bad=bad)
+
 _bivar_colormaps = ColormapRegistry(_gen_bivar_cmaps())

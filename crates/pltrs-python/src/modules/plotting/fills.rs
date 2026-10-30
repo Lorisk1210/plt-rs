@@ -7,6 +7,7 @@ use pltrs::colors::Color;
 use pltrs::lines::StepWhere;
 use pltrs::orientation::Orientation;
 use pltrs::patches::{Patch, PatchProps, Polygon, StepBaseline, StepPatch};
+use pltrs::transforms::Transform;
 
 use super::values::PyAxisValues;
 use crate::binding::prelude::*;
@@ -40,31 +41,46 @@ pub(super) fn fill(
     Ok(polygon)
 }
 
-/// The area between `y1` and `y2` along `t` (matplotlib's
-/// `fill_between`, or `fill_betweenx` when `horizontal`): where to fill
-/// (`None` everywhere), whether to interpolate the crossings, the step
-/// placement (`None`, `"pre"`, `"mid"` or `"post"`), and the face colour
-/// (`None` for the next of the patch cycle).
-pub(super) fn fill_between(
-    axes: Axes,
-    horizontal: bool,
-    (t, y1, y2): (PyAxisValues, PyAxisValues, PyAxisValues),
+/// The options of a fill between curves: where to fill (`None`
+/// everywhere), whether to interpolate the crossings, and the step
+/// placement (`None`, `"pre"`, `"mid"` or `"post"`).
+pub(in crate::modules) fn fill_between_options(
     mask: Option<Vec<bool>>,
     interpolate: bool,
-    step: Option<String>,
-    color: Option<Color>,
-) -> PyResult<Collection> {
-    let mut options = FillBetweenOptions {
+    step: Option<&str>,
+) -> FillBetweenOptions {
+    FillBetweenOptions {
         mask,
         interpolate,
-        step: step.map(|name| match name.as_str() {
+        step: step.map(|name| match name {
             "mid" => StepWhere::Mid,
             "post" => StepWhere::Post,
             _ => StepWhere::Pre,
         }),
         ..FillBetweenOptions::default()
-    };
+    }
+}
+
+/// The area between `y1` and `y2` along `t` (matplotlib's
+/// `fill_between`, or `fill_betweenx` when `horizontal`): where to fill
+/// (`None` everywhere), whether to interpolate the crossings, the step
+/// placement (`None`, `"pre"`, `"mid"` or `"post"`), the `color` (face
+/// and edges) and `facecolor` given (the next colour of the patch cycle
+/// for the faces without either), and the coordinates of the curves
+/// (`None`: the data coordinates; only the directions that are data
+/// values extend the data limits).
+pub(super) fn fill_between(
+    axes: Axes,
+    horizontal: bool,
+    (t, y1, y2): (PyAxisValues, PyAxisValues, PyAxisValues),
+    (mask, interpolate, step): (Option<Vec<bool>>, bool, Option<String>),
+    (color, facecolor): (Option<Color>, Option<Color>),
+    transform: Option<Transform>,
+) -> PyResult<Collection> {
+    let mut options = fill_between_options(mask, interpolate, step.as_deref());
     options.props.color = color;
+    options.props.facecolors = facecolor.map(|face| vec![face]);
+    options.props.base.transform = transform;
     Ok(if horizontal {
         axes.fill_betweenx(t.0, y1.0, y2.0, options)?
     } else {

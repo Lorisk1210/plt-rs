@@ -7,7 +7,9 @@ use super::broadcast::{broadcast, common_length};
 use super::children::DataUpdate;
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
-use crate::collections::{Collection, CollectionArtist, CollectionKind, CollectionProps};
+use crate::collections::{
+    Collection, CollectionArtist, CollectionKind, CollectionProps, CollectionSpec,
+};
 use crate::lines::{DrawStyle, StepWhere};
 use crate::numeric::{argsort, contiguous_regions};
 use crate::orientation::Orientation;
@@ -116,12 +118,7 @@ impl Axes {
             true,
             true,
         );
-        let mut collection = CollectionArtist::new(
-            CollectionKind::Poly,
-            geometry.polygons(curves),
-            crate::rc::params(),
-        );
-        collection.fill_geometry = Some(geometry);
+        let mut collection = geometry.collection(curves);
         props.apply(&mut collection);
         let transform = collection
             .base_mut()
@@ -155,6 +152,17 @@ impl FillGeometry {
         Point::new(x, y)
     }
 
+    /// The collection filling between `curves`.
+    fn collection(self, curves: &Curves) -> CollectionArtist {
+        let mut collection = CollectionArtist::new(
+            CollectionKind::Poly,
+            self.polygons(curves),
+            crate::rc::params(),
+        );
+        collection.fill_geometry = Some(self);
+        collection
+    }
+
     /// One polygon per contiguous filled region (matplotlib's
     /// `_make_verts`).
     fn polygons(self, curves: &Curves) -> Vec<Path> {
@@ -165,6 +173,51 @@ impl FillGeometry {
                 Path::polygon(outline.into_iter().map(|(t, f)| self.place(t, f)))
             })
             .collect()
+    }
+}
+
+impl CollectionSpec {
+    /// The area between the curves `f1(t)` and `f2(t)` (matplotlib's
+    /// `FillBetweenPolyCollection(t_direction, t, f1, f2, ...)`): along x
+    /// between y values for [`Orientation::Vertical`], along y between x
+    /// values for [`Orientation::Horizontal`], with the `mask`, `step` and
+    /// `interpolate` of `options` and styled by its `props` (the colour
+    /// of the property cycle only comes with [`Axes::fill_between`]).
+    ///
+    /// ```
+    /// use pltrs::axes::FillBetweenOptions;
+    /// use pltrs::collections::{Collection, CollectionSpec};
+    /// use pltrs::orientation::Orientation;
+    /// let spec = CollectionSpec::fill_between(
+    ///     Orientation::Vertical,
+    ///     (&[0.0, 1.0, 2.0], &[0.0], &[1.0, 2.0, 1.0]),
+    ///     FillBetweenOptions::default(),
+    /// )?;
+    /// let fill = Collection::loose(spec);
+    /// assert_eq!(fill.paths().len(), 1);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::fill_between`].
+    pub fn fill_between(
+        orientation: Orientation,
+        (t, f1, f2): (&[f64], &[f64], &[f64]),
+        options: FillBetweenOptions,
+    ) -> Result<Self, PlotError> {
+        let curves = Curves::new(orientation, t, f1, f2, options.mask.as_deref())?;
+        let geometry = FillGeometry {
+            orientation,
+            step: options.step,
+            interpolate: options.interpolate,
+        };
+        let mut artist = geometry.collection(&curves);
+        options.props.apply(&mut artist);
+        Ok(Self {
+            artist,
+            autolim: true,
+        })
     }
 }
 

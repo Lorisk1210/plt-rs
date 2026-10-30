@@ -1,31 +1,39 @@
-//! Colour mapping as plotting methods take it: a colormap and a norm by
-//! name, and the limits.
+//! Colour mapping as plotting methods take it: a colormap, a norm and
+//! the limits.
 
-use pltrs::colors::{ColorizerOptions, NormName, NormSpec, colormaps};
+use pltrs::colors::{ColorizerOptions, Colormap, NormName, NormSpec};
 
 use crate::binding::prelude::*;
 
-/// `(cmap, norm, vmin, vmax)`: the colormap and norm names (`None` for
-/// the defaults) and the limits.
-pub(crate) type Mapping = (Option<String>, Option<String>, Option<f64>, Option<f64>);
+/// `(cmap, norm, vmin, vmax)`: a Python `Colormap` (`None`:
+/// `image.cmap`), a Python norm or the name of a scale (`None`: linear
+/// between the limits), and the limits (`None`: those of the values).
+pub(crate) struct Mapping(ColorizerOptions);
 
-/// The colorizer options of a [`Mapping`]; `ValueError` for an unknown
-/// colormap or norm name.
-pub(crate) fn colorizer((cmap, norm, vmin, vmax): Mapping) -> PyResult<ColorizerOptions> {
-    let cmap = cmap
-        .map(|name| colormaps::get(&name).map_err(|err| PyErr::value_error(err.to_string())))
-        .transpose()?;
-    let norm = norm
-        .map(|name| {
-            name.parse::<NormName>()
-                .map(NormSpec::Name)
-                .map_err(|err| PyErr::value_error(err.to_string()))
-        })
-        .transpose()?;
-    Ok(ColorizerOptions {
-        cmap,
-        norm,
-        vmin,
-        vmax,
-    })
+impl FromPy<'_> for Mapping {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let (cmap, norm, vmin, vmax): (Option<Colormap>, Bound<'_>, Option<f64>, Option<f64>) =
+            object.extract()?;
+        let norm = if norm.is_none() {
+            None
+        } else if let Ok(name) = norm.extract::<String>() {
+            Some(NormSpec::Name(
+                name.parse::<NormName>()
+                    .map_err(|err| PyErr::value_error(err.to_string()))?,
+            ))
+        } else {
+            Some(NormSpec::Norm(norm.extract()?))
+        };
+        Ok(Self(ColorizerOptions {
+            cmap,
+            norm,
+            vmin,
+            vmax,
+        }))
+    }
+}
+
+/// The colorizer options of a [`Mapping`].
+pub(crate) fn colorizer(mapping: Mapping) -> ColorizerOptions {
+    mapping.0
 }

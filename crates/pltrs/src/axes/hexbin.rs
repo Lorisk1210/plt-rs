@@ -1,5 +1,8 @@
 //! Hexagonal binning of scattered points (matplotlib's `hexbin`).
 
+use std::fmt;
+use std::rc::Rc;
+
 use pltrs_core::Point;
 
 use super::children::DataUpdate;
@@ -61,9 +64,13 @@ pub enum HexScale {
     Log,
 }
 
+/// A reduction of the values of the points in one hexagon
+/// ([`HexReduce::Custom`]).
+pub type HexReduceFn = dyn Fn(&[f64]) -> f64;
+
 /// How the values of the points in a hexagon combine (matplotlib's
 /// `reduce_C_function`).
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Default)]
 pub enum HexReduce {
     /// numpy's `mean`.
     #[default]
@@ -76,12 +83,40 @@ pub enum HexReduce {
     Max,
     /// The smallest value.
     Min,
-    /// Any reduction.
-    Custom(fn(&[f64]) -> f64),
+    /// Any reduction ([`HexReduce::custom`]).
+    Custom(Rc<HexReduceFn>),
+}
+
+impl fmt::Debug for HexReduce {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Mean => "Mean",
+            Self::Sum => "Sum",
+            Self::Median => "Median",
+            Self::Max => "Max",
+            Self::Min => "Min",
+            Self::Custom(_) => "Custom(..)",
+        })
+    }
 }
 
 impl HexReduce {
-    pub(super) fn apply(self, values: &[f64]) -> f64 {
+    /// The reduction `reduce` (a function of the values in one hexagon).
+    ///
+    /// ```
+    /// use pltrs::axes::HexReduce;
+    /// let range = HexReduce::custom(|values| {
+    ///     let max = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    ///     let min = values.iter().copied().fold(f64::INFINITY, f64::min);
+    ///     max - min
+    /// });
+    /// assert!(matches!(range, HexReduce::Custom(_)));
+    /// ```
+    pub fn custom(reduce: impl Fn(&[f64]) -> f64 + 'static) -> Self {
+        Self::Custom(Rc::new(reduce))
+    }
+
+    pub(super) fn apply(&self, values: &[f64]) -> f64 {
         match self {
             Self::Mean => crate::stats::mean(values),
             Self::Sum => crate::stats::pairwise_sum(values),
@@ -180,7 +215,7 @@ impl Axes {
             &tx,
             &ty,
             weights.as_deref(),
-            options.reduce,
+            &options.reduce,
             options.mincnt,
         );
         let (offsets, kept): (Vec<Point>, Vec<f64>) = (0..lattice.len())

@@ -12,6 +12,7 @@ use super::shared::{axes_image_contains, draw_rendered, grid_cell, grid_extent, 
 use super::{ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+    TypedHandle,
 };
 use crate::axes::AxesState;
 use crate::colors::ScalarMappable;
@@ -237,6 +238,13 @@ pub struct PcolorImage {
 impl ArtistHandle for PcolorImage {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for PcolorImage {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<PcolorImageArtist>()
+            .then(|| Self::from_raw(raw.clone()))
     }
 }
 

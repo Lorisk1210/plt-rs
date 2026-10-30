@@ -8,7 +8,9 @@ use pltrs_text::{HAlign, VAlign};
 
 use super::Pivot;
 use super::geometry::{AxesFrame, QuiverGeometry};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
+};
 use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
@@ -184,18 +186,17 @@ impl QuiverKeyArtist {
     }
 
     /// The arrow as a one-item collection styled like the quiver
-    /// (matplotlib's `QuiverKey.vector`).
-    fn vector(&self, ctx: &DrawContext<'_>) -> Result<CollectionArtist, String> {
+    /// (matplotlib's `QuiverKey.vector`), in the layout `layout`.
+    fn vector(&self, layout: LayoutContext<'_>) -> Result<CollectionArtist, String> {
         let gone = || "its quiver no longer exists".to_owned();
-        let quiver = ctx
-            .layout()
+        let quiver = layout
             .store()
             .get_as::<CollectionArtist>(self.quiver)
             .ok_or_else(gone)?;
         let geometry = quiver
             .draw_time_state::<QuiverGeometry>()
             .ok_or_else(gone)?;
-        let frame = AxesFrame::new(geometry.axes(), *ctx.layout())?;
+        let frame = AxesFrame::new(geometry.axes(), layout)?;
         let radians = self.vector.angle.to_radians();
         let uv = (
             self.vector.length * radians.cos(),
@@ -237,7 +238,10 @@ impl Artist for QuiverKeyArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        if let Err(problem) = self.vector(ctx).and_then(|vector| vector.render(ctx)) {
+        if let Err(problem) = self
+            .vector(*ctx.layout())
+            .and_then(|vector| vector.render(ctx))
+        {
             ctx.report(self.base.id(), problem);
         }
         ctx.draw_child(self.label);
@@ -260,6 +264,13 @@ impl ArtistHandle for QuiverKey {
     }
 }
 
+impl TypedHandle for QuiverKey {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<QuiverKeyArtist>()
+            .then(|| Self::from_raw(raw.clone()))
+    }
+}
+
 impl QuiverKey {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
@@ -269,6 +280,35 @@ impl QuiverKey {
     pub fn text(&self) -> Text {
         let label = self.raw.with::<QuiverKeyArtist, _>(|key| key.label);
         Text::from_raw(RawHandle::new(Rc::clone(self.raw.figure_state()), label))
+    }
+
+    /// The outline of the key's arrow, in arrow-width units scaled to
+    /// pixels, in the figure's current layout (laid out first): the paths
+    /// of the one-item collection the key draws (matplotlib's
+    /// `QuiverKey.vector.get_paths()` after a draw). Empty once the key or
+    /// its quiver was removed.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::quiver::{Angles, QuiverKeyOptions, QuiverOptions, VectorField};
+    /// let ax = Figure::new().subplot();
+    /// let field = VectorField::new([0.0, 1.0], [0.0, 1.0], [1.0], [1.0]);
+    /// let options = QuiverOptions { angles: Angles::Degrees(vec![1.0]), ..QuiverOptions::default() };
+    /// let q = ax.quiver(field, options)?;
+    /// let key = ax.quiverkey(&q, (1.0, 1.0), 2.0, "Label", QuiverKeyOptions::default());
+    /// assert_eq!(key.vector_paths().len(), 1);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn vector_paths(&self) -> Vec<Path> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        state
+            .store
+            .get_as::<QuiverKeyArtist>(self.raw.id())
+            .and_then(|key| key.vector(layout).ok())
+            .map(|vector| vector.paths)
+            .unwrap_or_default()
     }
 }
 

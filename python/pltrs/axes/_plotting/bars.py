@@ -1,5 +1,6 @@
 """
-Bars: `~.Axes.bar`, `~.Axes.barh` and `~.Axes.broken_barh`.
+Bars: `~.Axes.bar`, `~.Axes.barh`, `~.Axes.broken_barh` and
+`~.Axes.grouped_bar`.
 """
 
 import datetime
@@ -43,6 +44,43 @@ def _errorbar_style(error_kw):
     return (error_kw.pop("ecolor", None), error_kw.pop("elinewidth", None),
             elinestyle, error_kw.pop("capsize", None),
             error_kw.pop("capthick", None), bool(error_kw.pop("barsabove", False)))
+
+
+class _GroupedBarReturn:
+    """
+    A provisional result object for `.Axes.grouped_bar`.
+
+    This is a placeholder for a future better return type. We try to build in
+    backward compatibility / migration possibilities.
+
+    The only public interfaces are the ``bar_containers`` attribute and the
+    ``remove()`` method.
+    """
+    def __init__(self, bar_containers):
+        self.bar_containers = bar_containers
+
+    def remove(self):
+        [b.remove() for b in self.bar_containers]
+
+
+def _dataset_styles(kwargs):
+    """
+    The per-dataset styles of `~.Axes.grouped_bar` popped from *kwargs*
+    (whose aliases are resolved), in native form: ``(facecolor, edgecolor,
+    linewidth, linestyle, hatch)``, each a list cycled over the datasets.
+    """
+    def colors(key):
+        value = kwargs.pop(key, None)
+        return [] if value is None else [tuple(c) for c in mcolors.to_rgba_array(value)]
+
+    linewidth = kwargs.pop('linewidth', None)
+    linestyle = kwargs.pop('linestyle', None)
+    hatch = kwargs.pop('hatch', None)
+    return (colors('facecolor'), colors('edgecolor'),
+            [] if linewidth is None else [float(w) for w in np.atleast_1d(linewidth)],
+            [] if linestyle is None else mcoll._linestyle_specs(linestyle),
+            [] if hatch is None else
+            [hatch] if isinstance(hatch, str) else [str(h) for h in hatch])
 
 
 class BarsMixin:
@@ -145,9 +183,11 @@ class BarsMixin:
 
         edgecolors = ([] if edgecolor is None
                       else [tuple(c) for c in mcolors.to_rgba_array(edgecolor)])
+        # 'none' converts to no colours; the bars then stay transparent
+        # whatever their alpha, as matplotlib's fall back to 'none'.
         if edgecolor is not None and not edgecolors:
-            edgecolors = [(0.0, 0.0, 0.0, 0.0)]
-        facecolors = [tuple(c) for c in facecolor] or [(0.0, 0.0, 0.0, 0.0)]
+            edgecolors = ['none']
+        facecolors = [tuple(c) for c in facecolor] or ['none']
         linewidths = ([] if linewidth is None
                       else [float(lw) for lw in np.atleast_1d(linewidth)])
         hatches = ([] if hatch is None
@@ -246,3 +286,54 @@ class BarsMixin:
         collection = wrap(self, native, mcoll.PolyCollection)
         collection._internal_update(cbook.normalize_kwargs(kwargs, mcoll.PolyCollection))
         return collection
+
+    def grouped_bar(self, heights, *, positions=None, group_spacing=1.5, bar_spacing=0,
+                    tick_labels=None, labels=None, orientation="vertical", colors=None,
+                    **kwargs):
+        """
+        Make a grouped bar plot.
+
+        Returns
+        -------
+        _GroupedBarReturn
+            A provisional result object, whose ``bar_containers`` attribute
+            is a list of `.BarContainer` (one per dataset) and whose
+            ``remove()`` method removes all bars from the Axes.
+        """
+        if cbook._is_pandas_dataframe(heights):
+            if labels is None:
+                labels = heights.columns.tolist()
+            if tick_labels is None:
+                tick_labels = heights.index.tolist()
+            heights = heights.to_numpy().T
+        elif hasattr(heights, 'keys'):  # dict
+            if labels is not None:
+                raise ValueError("'labels' cannot be used if 'heights' is a mapping")
+            labels = heights.keys()
+            heights = list(heights.values())
+        elif hasattr(heights, 'shape'):  # numpy array
+            heights = heights.T
+        _api.check_in_list(["vertical", "horizontal"], orientation=orientation)
+        kwargs = cbook.normalize_kwargs(kwargs, mpatches.Rectangle)
+        facecolor, edgecolor, linewidth, linestyle, hatch = _dataset_styles(kwargs)
+        datasets = [[float(v) for v in dataset] for dataset in heights]
+        bars = _plotting.grouped_bar(
+            self._native, datasets,
+            None if positions is None else [float(p) for p in np.asanyarray(positions)],
+            (float(group_spacing), float(bar_spacing)),
+            ([] if tick_labels is None else [str(t) for t in tick_labels],
+             [] if labels is None else [str(label) for label in labels]),
+            orientation == "horizontal",
+            ([] if colors is None else [tuple(c) for c in mcolors.to_rgba_array(colors)],
+             facecolor, edgecolor, linewidth, linestyle, hatch))
+        containers = []
+        for (native, rectangles, values), label in zip(
+                bars, [None] * len(bars) if labels is None else list(labels)):
+            patches = wrap_all(self, rectangles, mpatches.Rectangle)
+            for patch in patches:
+                patch._internal_update(kwargs)
+            container = BarContainer(patches, None, datavalues=np.asarray(values),
+                                     orientation=orientation,
+                                     label='_nolegend_' if label is None else str(label))
+            containers.append(record_container(self, container, native))
+        return _GroupedBarReturn(containers)

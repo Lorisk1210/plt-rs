@@ -9,6 +9,7 @@ use pltrs_core::Point;
 
 use super::super::patches::collection_patches;
 use super::super::path::PyPath;
+use super::super::plotting::fills::fill_between_options;
 use super::super::transforms::points;
 use crate::binding::prelude::*;
 
@@ -64,6 +65,31 @@ fn patch_collection(patches: Vec<Owned>, match_original: bool) -> PyResult<Colle
     Ok(Collection::loose(spec))
 }
 
+/// A loose collection filling between the curves `f1(t)` and `f2(t)`
+/// (matplotlib's `FillBetweenPolyCollection`): along y when `horizontal`
+/// (`t_direction='y'`), where `mask` allows (`None` everywhere), with
+/// interpolated crossings and steps (`None`, `"pre"`, `"mid"` or
+/// `"post"`).
+fn fill_between_collection(
+    horizontal: bool,
+    (t, f1, f2): (NdArray, NdArray, NdArray),
+    mask: Option<Vec<bool>>,
+    interpolate: bool,
+    step: Option<String>,
+) -> PyResult<Collection> {
+    let orientation = if horizontal {
+        Orientation::Horizontal
+    } else {
+        Orientation::Vertical
+    };
+    let spec = CollectionSpec::fill_between(
+        orientation,
+        (&t.data, &f1.data, &f2.data),
+        fill_between_options(mask, interpolate, step.as_deref()),
+    )?;
+    Ok(Collection::loose(spec))
+}
+
 /// A loose collection of circles of areas `sizes` in points²
 /// (matplotlib's `CircleCollection`).
 fn circle_collection(sizes: NdArray) -> PyResult<Collection> {
@@ -112,6 +138,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_event_collection", event_collection)?;
     module.add("new_patch_collection", patch_collection)?;
     module.add("new_circle_collection", circle_collection)?;
+    module.add("new_fill_between_collection", fill_between_collection)?;
     module.add("new_regular_poly_collection", regular_poly_collection)?;
     module.add("new_ellipse_collection", ellipse_collection)?;
     Ok(())

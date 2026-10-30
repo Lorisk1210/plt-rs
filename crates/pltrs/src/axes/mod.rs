@@ -127,7 +127,9 @@ pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
 pub(crate) use fill_between::FillGeometry;
 pub use grouped_bar::{GroupedBarData, GroupedBarError, GroupedBarOptions};
-pub use hexbin::{HexBins, HexGridSize, HexReduce, HexScale, HexbinOptions, MAX_HEXAGONS};
+pub use hexbin::{
+    HexBins, HexGridSize, HexReduce, HexReduceFn, HexScale, HexbinOptions, MAX_HEXAGONS,
+};
 pub use hist::{HistArtists, HistPlot, HistPlotOptions, MAX_HIST_BARS};
 pub use hist2d::{Hist2d, Hist2dOptions, MAX_HIST2D_CELLS};
 pub use image::{ImshowOptions, NonUniformOptions};

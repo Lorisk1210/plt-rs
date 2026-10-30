@@ -16,6 +16,7 @@ use crate::axes::Axes;
 use crate::collections::{Collection, CollectionArtist, EdgeColors};
 use crate::colorizer::{MappingChange, change_mapping};
 use crate::colors::{Color, Colormap, Extend, Norm};
+use crate::image::ScalarKind;
 use crate::lines::LineStyle;
 use crate::text::Text;
 use crate::transforms::{ResolvedTransform, Transform};
@@ -138,6 +139,17 @@ impl ContourSet {
     /// `±1e250`; geometric when log-scaled).
     pub fn layers(&self) -> Vec<f64> {
         self.read(|state| state.layers.clone())
+    }
+
+    /// The value each colour is mapped from (matplotlib's `cvalues`), and
+    /// whether those are colour indices: the [`layers`](Self::layers), or,
+    /// with explicit `colors`, the indices of the colours (out of range
+    /// for the extended bands), which matplotlib maps through a `NoNorm`.
+    pub fn cvalues(&self) -> (Vec<f64>, bool) {
+        self.read(|state| {
+            let indexed = state.cvalue_kind == ScalarKind::Integer;
+            (state.cvalues.clone(), indexed)
+        })
     }
 
     /// The smallest unmasked z (`None` when all z is masked).

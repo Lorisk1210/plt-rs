@@ -6,7 +6,7 @@ use pltrs_core::{Path, Point};
 use super::Axes;
 use super::children::DataUpdate;
 use super::data_coords::grid_points_in_data;
-use super::mesh::{Mesh, MeshValues, PreparedMesh, Shading, pcolor_args};
+use super::mesh::{Mesh, MeshFunction, MeshValues, PreparedMesh, Shading, pcolor_args};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, ColorMapping, EdgeColors,
@@ -14,7 +14,6 @@ use crate::collections::{
 };
 use crate::colors::{Color, ColorizerOptions, ScalarMappable, impl_colorize};
 use crate::image::{ImageError, MultiField, MultivarColorizerOptions, ScalarField};
-use crate::numeric::Grid;
 
 /// Options of [`Axes::pcolor`] and [`Axes::pcolormesh`].
 #[derive(Debug, Default)]
@@ -113,7 +112,7 @@ impl Axes {
     /// `pcolor` cannot draw), or the colormap options are invalid.
     pub fn pcolor(&self, mesh: Mesh, options: PcolorOptions) -> Result<Collection, ImageError> {
         let shading = default_shading(options.shading);
-        let mesh = pcolor_args(mesh, shading, false)?;
+        let mesh = pcolor_args(mesh, shading, MeshFunction::Pcolor)?;
         if mesh.shading == MeshShading::Gouraud {
             return Err(ImageError::ShadingNotSupported("gouraud"));
         }
@@ -137,6 +136,7 @@ impl Axes {
         pcolor_edge_defaults(&mut props);
         let mut collection =
             CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
+        collection.polygon_grid = Some(mesh.vertex_grid());
         props.apply(&mut collection);
         collection.base_mut().snap = Some(options.snap.unwrap_or(false));
         let handle = self.add_mesh(collection, &mesh);
@@ -180,7 +180,11 @@ impl Axes {
     /// several variates are Gouraud-shaded (which matplotlib 3.11 cannot
     /// draw).
     pub fn pcolormesh(&self, mesh: Mesh, options: PcolorOptions) -> Result<Collection, ImageError> {
-        let mesh = pcolor_args(mesh, default_shading(options.shading), true)?;
+        let mesh = pcolor_args(
+            mesh,
+            default_shading(options.shading),
+            MeshFunction::Pcolormesh,
+        )?;
         match &mesh.values {
             MeshValues::Scalar(values) => {
                 let mappable =
@@ -227,10 +231,8 @@ impl Axes {
         props: CollectionProps,
         snap: Option<bool>,
     ) -> CollectionArtist {
-        let (rows, cols) = mesh.x.shape();
-        let coordinates = Grid::from_fn(rows, cols, |r, c| mesh.point(r, c));
         let mut collection =
-            CollectionArtist::quad_mesh(coordinates, mesh.shading, crate::rc::params());
+            CollectionArtist::quad_mesh(mesh.vertex_grid(), mesh.shading, crate::rc::params());
         props.apply(&mut collection);
         let base = collection.base_mut();
         base.snap = snap;
@@ -288,6 +290,7 @@ mod tests {
     use super::*;
     use crate::artist::ArtistHandle;
     use crate::figure::Figure;
+    use crate::numeric::Grid;
     use crate::testing::counting_field;
     use crate::transforms::Transform;
 

@@ -7,11 +7,13 @@
 
 use pltrs::artist::ArtistHandle;
 use pltrs::collections::{Collection, EdgeColors, EventCollection, HatchColors};
-use pltrs::colors::Color;
+use pltrs::colors::{Color, Colormap, Norm};
 use pltrs::orientation::Orientation;
+use pltrs::transforms::Transform;
 use pltrs_core::Point;
 use pltrs_render::{CapStyle, JoinStyle};
 
+use super::cm::NativeColormap;
 use super::lines::{PyLineStyle, cap_style, join_style};
 use super::path::{PathArrays, PyPath, path_arrays};
 use super::transforms::{points, points_array};
@@ -214,6 +216,42 @@ fn get(collection: Collection, name: String) -> PyResult<Owned> {
     })
 }
 
+/// The coordinates of the offsets, `None` when the items are placed
+/// without offsets.
+fn get_offset_transform(collection: Collection) -> PyResult<Option<Transform>> {
+    Ok(collection.offset_transform())
+}
+
+/// Places the offsets in the coordinates `transform`.
+fn set_offset_transform(collection: Collection, transform: Transform) -> PyResult<()> {
+    collection.set_offset_transform(Some(transform));
+    Ok(())
+}
+
+/// Replaces the curves of a fill between curves, keeping its steps and
+/// interpolation (matplotlib's `FillBetweenPolyCollection.set_data`).
+fn set_fill_between_data(
+    collection: Collection,
+    (t, f1, f2): (NdArray, NdArray, NdArray),
+    mask: Option<Vec<bool>>,
+) -> PyResult<()> {
+    collection.set_fill_between_data(&t.data, &f1.data, &f2.data, mask.as_deref())?;
+    Ok(())
+}
+
+/// The vertex grid of a quad mesh as a `(rows, columns, 2)` array, `None`
+/// for other collections (matplotlib's `get_coordinates`).
+fn get_coordinates(collection: Collection) -> PyResult<Option<NdArray>> {
+    collection
+        .mesh_coordinates()
+        .map(|grid| {
+            let (rows, cols) = grid.shape();
+            let data = grid.as_slice().iter().flat_map(|p| [p.x, p.y]).collect();
+            NdArray::with_shape(data, vec![rows, cols, 2])
+        })
+        .transpose()
+}
+
 /// The positions of the items, as an `(n, 2)` array.
 fn get_offsets(collection: Collection) -> PyResult<NdArray> {
     let offsets = collection.offsets();
@@ -310,15 +348,16 @@ fn get_clim(collection: Collection) -> PyResult<(Option<f64>, Option<f64>)> {
     Ok(collection.clim())
 }
 
-/// Sets the colour limits of the mapping.
-fn set_clim(collection: Collection, vmin: Option<f64>, vmax: Option<f64>) -> PyResult<()> {
-    collection.set_clim(vmin, vmax);
-    Ok(())
+/// The colormap of the mapping, `None` without a colour mapping.
+fn get_cmap(collection: Collection) -> PyResult<Option<NativeColormap>> {
+    Ok(collection.cmap().map(NativeColormap))
 }
 
-/// The name of the colormap, `None` without a colour mapping.
-fn get_cmap_name(collection: Collection) -> PyResult<Option<String>> {
-    Ok(collection.cmap().map(|cmap| cmap.name().to_owned()))
+/// Maps the values of the collection, if it maps any, through `cmap` and
+/// `norm` (the Python colorizer's, handed over when it changes).
+fn set_mapping(collection: Collection, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
+    collection.set_cmap(cmap).set_norm(norm);
+    Ok(())
 }
 
 /// Whether the collection is in its figure.
@@ -393,6 +432,10 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_pickradius", get_pickradius)?;
     module.add("set_urls", set_urls)?;
     module.add("get_urls", get_urls)?;
+    module.add("get_offset_transform", get_offset_transform)?;
+    module.add("set_offset_transform", set_offset_transform)?;
+    module.add("set_fill_between_data", set_fill_between_data)?;
+    module.add("get_coordinates", get_coordinates)?;
     module.add("get_offsets", get_offsets)?;
     module.add("set_offsets", set_offsets)?;
     module.add("get_paths", get_paths)?;
@@ -404,8 +447,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_array", get_array)?;
     module.add("set_array", set_array)?;
     module.add("get_clim", get_clim)?;
-    module.add("set_clim", set_clim)?;
-    module.add("get_cmap_name", get_cmap_name)?;
+    module.add("get_cmap", get_cmap)?;
+    module.add("set_mapping", set_mapping)?;
     module.add("is_attached", is_attached)?;
     module.add("event_positions", event_positions)?;
     module.add("set_event_positions", set_event_positions)?;

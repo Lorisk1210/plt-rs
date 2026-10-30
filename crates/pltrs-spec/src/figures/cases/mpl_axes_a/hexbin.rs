@@ -96,7 +96,7 @@ fn builtin_sum(values: &[f64]) -> f64 {
 fn hexbin_mincnt(fig: &Figure, values: Option<Vec<f64>>) -> CaseResult {
     let ax = fig.subplot();
     let options = HexbinOptions {
-        reduce: HexReduce::Custom(builtin_sum),
+        reduce: HexReduce::custom(builtin_sum),
         values,
         extent: Some(Extent::new(-10.0, 10.0, -10.0, 10.0)),
         gridsize: HexGridSize::Shape(7, 7),

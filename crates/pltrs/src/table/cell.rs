@@ -1,6 +1,7 @@
 //! Table cells (matplotlib's `table.Cell`): a rectangle with some of its
 //! edges drawn and a text inside.
 
+use std::fmt;
 use std::str::FromStr;
 
 use pltrs_core::{Affine2D, Bbox, Path, PathCode, Point};
@@ -141,6 +142,26 @@ impl FromStr for CellEdges {
                 edges
             }
         })
+    }
+}
+
+impl fmt::Display for CellEdges {
+    /// The letters of the visible edges in matplotlib's order, a substring
+    /// of `BRTL` (what matplotlib's `Cell.visible_edges` reads).
+    ///
+    /// ```
+    /// use pltrs::table::CellEdges;
+    /// assert_eq!(CellEdges::CLOSED.to_string(), "BRTL");
+    /// assert_eq!(CellEdges::OPEN.to_string(), "");
+    /// assert_eq!("LT".parse::<CellEdges>()?.to_string(), "TL");
+    /// # Ok::<(), pltrs::table::TableError>(())
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.in_order()
+            .iter()
+            .zip(['B', 'R', 'T', 'L'])
+            .filter(|(visible, _)| **visible)
+            .try_for_each(|(_, letter)| write!(f, "{letter}"))
     }
 }
 

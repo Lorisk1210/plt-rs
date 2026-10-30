@@ -64,6 +64,11 @@ trait PatchOps {
     fn path(&self) -> Path;
     /// The map of the outline into the patch's coordinates.
     fn patch_transform(&self) -> Affine2D;
+    /// How many pieces each segment of the outline is split into before a
+    /// curved projection bends it.
+    fn interpolation_steps(&self) -> usize;
+    /// Sets [`PatchOps::interpolation_steps`].
+    fn set_interpolation_steps(&self, steps: usize);
     /// Whether the patch encloses a display point.
     fn contains_display_point(&self, point: Point) -> bool;
     /// Sets the hatch line width.
@@ -103,6 +108,14 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn patch_transform(&self) -> Affine2D {
         self.shape().patch_transform()
+    }
+
+    fn interpolation_steps(&self) -> usize {
+        Patch::interpolation_steps(self)
+    }
+
+    fn set_interpolation_steps(&self, steps: usize) {
+        Patch::set_interpolation_steps(self, steps);
     }
 
     fn contains_display_point(&self, point: Point) -> bool {
@@ -353,6 +366,19 @@ fn get(patch: AnyPatch, name: String) -> PyResult<Owned> {
 /// (matplotlib's `get_path`).
 fn get_path(patch: AnyPatch) -> PyResult<PathArrays> {
     path_arrays(&patch.0.path(), false)
+}
+
+/// How many pieces each segment of the outline is split into before a
+/// curved projection bends it (matplotlib's
+/// `get_path()._interpolation_steps`).
+fn get_interpolation_steps(patch: AnyPatch) -> PyResult<usize> {
+    Ok(patch.0.interpolation_steps())
+}
+
+/// Sets how many pieces each segment of the outline is split into.
+fn set_interpolation_steps(patch: AnyPatch, steps: usize) -> PyResult<()> {
+    patch.0.set_interpolation_steps(steps);
+    Ok(())
 }
 
 /// The matrix mapping the outline into the patch's coordinates
@@ -636,6 +662,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("update", update)?;
     module.add("get", get)?;
     module.add("get_path", get_path)?;
+    module.add("get_interpolation_steps", get_interpolation_steps)?;
+    module.add("set_interpolation_steps", set_interpolation_steps)?;
     module.add("get_patch_transform", get_patch_transform)?;
     module.add("contains_point", contains_point)?;
     module.add("rectangle", rectangle)?;

@@ -62,6 +62,24 @@ impl IntoPy for ColormapSpec {
     }
 }
 
+/// The colormap of a mapping pltrs (Rust) made (a contour set's levels,
+/// a collection's values), for Python's colorizer of it: `(spec, under,
+/// over, bad)`, the spec as [`ColormapSpec`] gives it and the extreme
+/// colours as RGBA tuples.
+pub(super) struct NativeColormap(pub(super) Colormap);
+
+impl IntoPy for NativeColormap {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        let rgba = |c: Rgba| (c.r, c.g, c.b, c.a);
+        let (under, over, bad) = (
+            rgba(self.0.under()),
+            rgba(self.0.over()),
+            rgba(self.0.bad()),
+        );
+        (ColormapSpec(self.0), under, over, bad).into_py(py)
+    }
+}
+
 /// The colours as rows: RGB when all are opaque (as matplotlib lists its
 /// built-in colours), RGBA otherwise.
 fn colors_array(colors: &[Rgba]) -> PyResult<NdArray> {

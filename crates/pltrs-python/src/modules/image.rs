@@ -17,8 +17,8 @@ mod resample;
 use pltrs::axes::{Axes, ImshowOptions};
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::image::{
-    AxesImage, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
-    Origin, ScalarField, VectorImsaveError,
+    AxesImage, BboxImage, BboxImageOptions, Extent, ImageAlpha, ImageData, ImageError,
+    Interpolation, InterpolationStage, Origin, ScalarField, VectorImsaveError,
 };
 use pltrs::numeric::Grid;
 use pltrs::rc::Aspect;
@@ -28,7 +28,7 @@ use super::transforms::matrix;
 use crate::binding::prelude::*;
 use crate::binding::{Element, dict_value};
 
-artist_handle!(AxesImage);
+artist_handle!(AxesImage, BboxImage);
 
 impl From<ImageError> for PyErr {
     /// matplotlib's `ValueError` for images it cannot make or draw; its
@@ -324,6 +324,53 @@ fn set_resample(image: AxesImage, resample: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// An image of `data` colour-mapped through `cmap` and `norm`, with the
+/// options of the dict `spec` (`interpolation`, `interpolation_stage`,
+/// `origin`, `filternorm`, `filterrad`, `resample`), outside any figure
+/// until an offset box shows it (the `BboxImage` of an `OffsetImage`).
+fn new_bbox_image(
+    data: ImageArray,
+    cmap: Colormap,
+    norm: Box<dyn Norm>,
+    spec: Owned,
+) -> PyResult<BboxImage> {
+    let options = Python::with_gil(|py| -> PyResult<BboxImageOptions> {
+        let spec = spec.bind(py);
+        let named = |key: &str| -> PyResult<Option<String>> { dict_value(&spec, key) };
+        Ok(BboxImageOptions {
+            colorizer: ColorizerOptions {
+                cmap: Some(cmap),
+                norm: Some(NormSpec::Norm(norm)),
+                ..ColorizerOptions::default()
+            },
+            interpolation: named("interpolation")?
+                .as_deref()
+                .map(parse::<Interpolation>)
+                .transpose()?,
+            interpolation_stage: named("interpolation_stage")?
+                .as_deref()
+                .map(parse::<InterpolationStage>)
+                .transpose()?,
+            origin: named("origin")?
+                .as_deref()
+                .map(parse::<Origin>)
+                .transpose()?,
+            filternorm: dict_value(&spec, "filternorm")?,
+            filterrad: dict_value(&spec, "filterrad")?,
+            resample: dict_value(&spec, "resample")?,
+            alpha: None,
+        })
+    })?;
+    Ok(BboxImage::loose(data.0, options)?)
+}
+
+/// The `(row, column)` of the array element under the display point
+/// `(x, y)`, `None` outside the image (matplotlib's
+/// `AxesImage.get_cursor_data`).
+fn cursor_element(image: AxesImage, x: f64, y: f64) -> PyResult<Option<(usize, usize)>> {
+    Ok(image.element_at(pltrs::transforms::Point::new(x, y)))
+}
+
 /// The image resampled for display at `magnification` (matplotlib's
 /// `make_image`): `(pixels, x, y, matrix)`, the pixels an `(M, N, 4)` byte
 /// array with the display's bottom row first (as matplotlib's resampler
@@ -403,6 +450,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_resample", get_resample)?;
     module.add("set_resample", set_resample)?;
     module.add("set_image_alpha", set_image_alpha)?;
+    module.add("cursor_element", cursor_element)?;
+    module.add("new_bbox_image", new_bbox_image)?;
     module.add("make_image", make_image)?;
     module.add("imsave_vector", imsave_vector)
 }

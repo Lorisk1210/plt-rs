@@ -110,8 +110,11 @@ class LiveBbox(BboxBase):
 
     @classmethod
     def spanned(cls, transform):
-        """The box *transform* maps the unit square to."""
-        return cls(lambda: transform.transform([[0.0, 0.0], [1.0, 1.0]]))
+        """The box *transform* maps the unit square to (kept as
+        ``_spanning``, by which an artist clipped to the box follows it)."""
+        box = cls(lambda: transform.transform([[0.0, 0.0], [1.0, 1.0]]))
+        box._spanning = transform
+        return box
 
     def get_points(self):
         return np.asarray(self._points_of(), dtype=float).reshape(2, 2)

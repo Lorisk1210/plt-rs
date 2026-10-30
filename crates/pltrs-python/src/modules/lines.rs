@@ -8,15 +8,18 @@ use std::str::FromStr;
 use pltrs::artist::ArtistHandle;
 use pltrs::colors::Color;
 use pltrs::lines::{
-    DrawStyle, FormatStringError, Line2D, LineProps, LineStyle, MarkEvery, StepError,
+    DrawStyle, FormatStringError, Line2D, LineProps, LineStyle, MarkEvery, MarkEveryError,
+    StepError,
 };
 use pltrs::markers::{FillStyle, Marker, MarkerStyle, MarkerSymbol};
 use pltrs::rc::ColorOrAuto;
 use pltrs::transforms::Transform;
 use pltrs_render::{CapStyle, JoinStyle};
 
+use super::artist::{ClipSpec, PyPicker};
 use super::markers::marker_of_spec;
 use super::path::{PathArrays, path_arrays};
+use super::patheffects::path_effects;
 use super::transforms::{affine, matrix};
 use crate::binding::prelude::*;
 use crate::binding::{NdArray, dict_items};
@@ -40,6 +43,22 @@ impl From<StepError> for PyErr {
     /// matplotlib's `ValueError` for an unknown draw style.
     fn from(err: StepError) -> Self {
         PyErr::value_error(err.to_string())
+    }
+}
+
+impl From<MarkEveryError> for PyErr {
+    /// matplotlib's `ValueError`s of `_mark_every_path`.
+    fn from(err: MarkEveryError) -> Self {
+        match err {
+            MarkEveryError::NonPositiveDistance(step) => PyErr::value_error(format!(
+                "'markevery' step must be positive, but got {step:?}"
+            )),
+            MarkEveryError::NeedsGeometry => PyErr::value_error(
+                "markevery is specified relative to the Axes size, but the line does not \
+                 have an Axes as parent",
+            ),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 
@@ -321,6 +340,15 @@ fn line_prop(props: LineProps, key: &str, value: &Bound<'_>) -> PyResult<LinePro
             None => props,
         },
         "transform" => props.transform(value.extract::<Transform>()?),
+        "picker" => match value.extract::<PyPicker>()?.0 {
+            Some(picker) => props.picker(picker),
+            None => props,
+        },
+        "path_effects" => props.path_effects(path_effects(value)?),
+        "clip_path" => match value.extract::<Option<ClipSpec>>()? {
+            Some(clip) => props.clip_path(clip.0),
+            None => props,
+        },
         _ => {
             return Err(PyErr::new(
                 ExceptionKind::AttributeError,
@@ -509,6 +537,20 @@ fn set_interpolation_steps(line: Line2D, steps: usize) -> PyResult<()> {
     Ok(())
 }
 
+/// The indices of `points` (an `(N, 2)` array of display coordinates) that
+/// get markers with `every` (matplotlib's `_mark_every_path`); a distance
+/// is measured against `diagonal`, the axes' diagonal in pixels (`None`
+/// outside an axes).
+fn markevery_indices(
+    every: PyMarkEvery,
+    points: NdArray,
+    diagonal: Option<f64>,
+) -> PyResult<Vec<usize>> {
+    Ok(every
+        .0
+        .select(&super::transforms::points(&points)?, diagonal)?)
+}
+
 /// Whether the line is dashed (matplotlib's `is_dashed`).
 fn is_dashed(line: Line2D) -> PyResult<bool> {
     Ok(!matches!(
@@ -546,6 +588,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;
     module.add("is_dashed", is_dashed)?;
+    module.add("markevery_indices", markevery_indices)?;
     module.add("marker_indices", marker_indices)?;
     module.add("get_rgba", get_rgba)?;
     module.add("is_attached", is_attached)

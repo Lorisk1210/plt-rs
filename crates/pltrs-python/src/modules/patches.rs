@@ -69,8 +69,6 @@ trait PatchOps {
     fn interpolation_steps(&self) -> usize;
     /// Sets [`PatchOps::interpolation_steps`].
     fn set_interpolation_steps(&self, steps: usize);
-    /// Whether the patch encloses a display point.
-    fn contains_display_point(&self, point: Point) -> bool;
     /// Sets the hatch line width.
     fn set_hatch_linewidth(&self, width: f64);
     /// The patch as an item of a patch collection.
@@ -116,10 +114,6 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn set_interpolation_steps(&self, steps: usize) {
         Patch::set_interpolation_steps(self, steps);
-    }
-
-    fn contains_display_point(&self, point: Point) -> bool {
-        Patch::contains_display_point(self, point)
     }
 
     fn set_hatch_linewidth(&self, width: f64) {
@@ -387,11 +381,6 @@ fn get_patch_transform(patch: AnyPatch) -> PyResult<NdArray> {
     matrix(patch.0.patch_transform())
 }
 
-/// Whether the patch encloses the display point `(x, y)`.
-fn contains_point(patch: AnyPatch, x: f64, y: f64) -> PyResult<bool> {
-    Ok(patch.0.contains_display_point(Point::new(x, y)))
-}
-
 /// `(x, y, width, height, angle, rotation_point)` of a rectangle, the
 /// rotation point `"xy"`, `"center"` or a point.
 type RectangleFields = (f64, f64, f64, f64, f64, Owned);
@@ -474,6 +463,31 @@ fn ellipse(patch: Patch<Ellipse>) -> PyResult<(f64, f64, f64, f64, f64)> {
 /// Sets an ellipse's geometry.
 fn set_ellipse(
     patch: Patch<Ellipse>,
+    (x, y): (f64, f64),
+    width: f64,
+    height: f64,
+    angle: f64,
+) -> PyResult<()> {
+    patch.update_shape(|shape| {
+        shape.center = Point::new(x, y);
+        shape.width = width;
+        shape.height = height;
+        shape.angle = angle;
+    });
+    Ok(())
+}
+
+/// Gives `patch` the edge, face and hatch properties of `other`
+/// (matplotlib's `Patch.update_from`).
+fn update_style_from(patch: AnyPatch, other: AnyPatch) -> PyResult<()> {
+    let style = other.0.style();
+    patch.0.update_style(&mut |own| own.clone_from(&style));
+    Ok(())
+}
+
+/// Sets the geometry of an arc's ellipse, its angles kept.
+fn set_arc(
+    patch: Patch<Arc>,
     (x, y): (f64, f64),
     width: f64,
     height: f64,
@@ -665,11 +679,12 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;
     module.add("get_patch_transform", get_patch_transform)?;
-    module.add("contains_point", contains_point)?;
     module.add("rectangle", rectangle)?;
     module.add("set_rectangle", set_rectangle)?;
     module.add("ellipse", ellipse)?;
     module.add("set_ellipse", set_ellipse)?;
+    module.add("set_arc", set_arc)?;
+    module.add("update_style_from", update_style_from)?;
     module.add("circle", circle)?;
     module.add("set_circle", set_circle)?;
     module.add("polygon", polygon)?;

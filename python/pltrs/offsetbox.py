@@ -30,12 +30,12 @@ import functools
 
 import numpy as np
 
-from . import _api, rcParams
+from . import _api, _handles, _live_transforms, cbook, rcParams
 from . import text as mtext
 from . import transforms as mtransforms
 from ._native import offsetbox as _offsetbox
 from .artist import Artist
-from .font_manager import FontProperties
+from .font_manager import FontManager, FontProperties
 from .transforms import Bbox, BboxBase, TransformedBbox
 
 
@@ -175,6 +175,36 @@ class OffsetBox(Artist):
     def _add_to_figure(self, figure, clip):
         raise NotImplementedError("pltrs: add_artist of an OffsetBox")
 
+    def _native_tree(self):
+        """
+        The description of the box and its children pltrs (Rust) lays out
+        (see ``_native.offsetbox``), its artists as their loose natives;
+        the boxes of this module describe themselves.
+        """
+        raise NotImplementedError(
+            f"pltrs: an offset box of class {type(self).__name__} in a box "
+            "added to a figure")
+
+    def _adopt_tree(self, natives, figure):
+        """
+        Make the artists of the box, in the order of `_native_tree`, the
+        objects of the artists the handles *natives* (an iterator) reach in
+        *figure*, once the box joined it.
+        """
+        for child in self.get_children():
+            _handles.adopt(child, next(natives), figure)
+
+    def draw(self, renderer):
+        """
+        Update the location of children if necessary and draw them
+        to the given *renderer*.
+        """
+        bbox, offsets = self._get_bbox_and_child_offsets(renderer)
+        px, py = self.get_offset(bbox, renderer)
+        for c, (ox, oy) in zip(self.get_visible_children(), offsets):
+            c.set_offset((px + ox, py + oy))
+            c.draw(renderer)
+
     def set_offset(self, xy):
         """
         Set the offset.
@@ -259,6 +289,18 @@ default: 'baseline'
         self.mode = mode
         self.align = align
         self._children = children
+
+    def _native_tree(self):
+        kind = "vpacker" if isinstance(self, VPacker) else "hpacker"
+        return (kind, float(self.pad), float(self.sep),
+                None if self.width is None else float(self.width),
+                None if self.height is None else float(self.height),
+                self.align, self.mode,
+                [child._native_tree() for child in self.get_children()])
+
+    def _adopt_tree(self, natives, figure):
+        for child in self.get_children():
+            child._adopt_tree(natives, figure)
 
 
 class VPacker(PackerBase):
@@ -350,6 +392,17 @@ class PaddedBox(OffsetBox):
         self._draw_frame = draw_frame
         self._patch_attrs = dict(patch_attrs or {})
 
+    def _native_tree(self):
+        from .patches import FancyBboxPatch
+        return ("padded", float(self.pad), self._children[0]._native_tree(),
+                bool(self._draw_frame),
+                cbook.normalize_kwargs(self._patch_attrs, FancyBboxPatch))
+
+    def _adopt_tree(self, natives, figure):
+        from .patches import FancyBboxPatch
+        self.patch = _handles.wrap(next(natives), FancyBboxPatch, figure)
+        self._children[0]._adopt_tree(natives, figure)
+
     def _get_bbox_and_child_offsets(self, renderer):
         """The bbox of the box and the offset of its child."""
         pad = self.pad * renderer.points_to_pixels(1.)
@@ -435,6 +488,20 @@ class DrawingArea(OffsetBox):
         """Add an `.Artist` to the container box."""
         self._children.append(a)
 
+    def _native_tree(self):
+        return ("drawing", float(self.width), float(self.height),
+                float(self.xdescent), float(self.ydescent),
+                bool(self._clip_children),
+                [child._native for child in self._children])
+
+    def draw(self, renderer):
+        # docstring inherited
+        dpi_cor = renderer.points_to_pixels(1.)
+        self.dpi_transform.clear()
+        self.dpi_transform.scale(dpi_cor)
+        for c in self._children:
+            c.draw(renderer)
+
 
 class TextArea(OffsetBox):
     """
@@ -496,6 +563,9 @@ class TextArea(OffsetBox):
         """
         return self._multilinebaseline
 
+    def _native_tree(self):
+        return ("text", self._text._native, bool(self._multilinebaseline))
+
     def set_transform(self, t):
         """
         set_transform is ignored.
@@ -539,6 +609,10 @@ class AuxTransformBox(OffsetBox):
     def add_artist(self, a):
         """Add an `.Artist` to the container box."""
         self._children.append(a)
+
+    def _native_tree(self):
+        return ("aux", _live_transforms.to_native(self.aux_transform),
+                [child._native for child in self._children])
 
     def get_transform(self):
         """Return the `.Transform` applied to the children."""
@@ -642,6 +716,49 @@ class AnchoredOffsetbox(OffsetBox):
             if isinstance(prop, dict) and "size" not in prop:
                 self.prop.set_size(rcParams["legend.fontsize"])
 
+    def _add_to_axes(self, axes, kind, autolim=True):
+        return self._join(axes)
+
+    def _add_to_figure(self, figure, clip):
+        return self._join(figure)
+
+    def _native_anchor(self):
+        """``bbox_to_anchor`` and ``bbox_transform`` as pltrs (Rust) takes
+        them: the bounds of the box (a point for a box of no size) and the
+        native transform of its coordinates (None: display pixels)."""
+        bbox, transform = self._bbox_to_anchor, self._bbox_to_anchor_transform
+        if bbox is None:
+            return None, (None if transform is None
+                          else _live_transforms.to_native(transform))
+        spanning = getattr(bbox, "_spanning", None)
+        if spanning is not None:
+            bbox, transform = Bbox.unit(), spanning
+        elif isinstance(bbox, TransformedBbox):
+            bbox, transform = bbox._bbox, bbox._transform
+        elif not isinstance(bbox, Bbox):
+            bbox, transform = Bbox(bbox.get_points()), None
+        x0, y0, width, height = bbox.bounds
+        bounds = [x0, y0] if width == height == 0 else [x0, y0, width, height]
+        return bounds, (None if transform is None
+                        else _live_transforms.to_native(transform))
+
+    def _join(self, parent):
+        """Join *parent*, an axes or a figure, with the child tree: pltrs
+        (Rust) anchors the box there; return self."""
+        from .patches import FancyBboxPatch
+        bounds, transform = self._native_anchor()
+        native, parts, frame = _offsetbox.add_anchored(
+            parent._native, self._native, self.get_child()._native_tree(), {
+                "loc": self.loc, "pad": float(self.pad),
+                "borderpad": self.borderpad,
+                "prop": FontManager._props(self.prop),
+                "frameon": bool(self.frameon), "bbox_to_anchor": bounds,
+                "bbox_transform": transform})
+        figure = parent.figure
+        self.get_child()._adopt_tree(iter(parts), figure)
+        self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
+        return _handles.adopt(self, native, figure)
+
     def set_child(self, child):
         """Set the child to be anchored."""
         self._child = child
@@ -737,15 +854,44 @@ class OffsetImage(OffsetBox):
     times *zoom* shows.
     """
 
-    def __init__(self, arr, *, zoom=1, dpi_cor=True, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, arr, *,
+                 zoom=1,
+                 cmap=None,
+                 norm=None,
+                 interpolation=None,
+                 origin=None,
+                 filternorm=True,
+                 filterrad=4.0,
+                 resample=False,
+                 dpi_cor=True,
+                 **kwargs
+                 ):
+        super().__init__()
         self._dpi_cor = dpi_cor
+        self._image_options = dict(
+            cmap=cmap, norm=norm, interpolation=interpolation, origin=origin,
+            filternorm=filternorm, filterrad=filterrad, resample=resample,
+            **kwargs)
         self.set_zoom(zoom)
         self.set_data(arr)
 
     def set_data(self, arr):
-        """Set the image data."""
+        """
+        Set the image data: the box's image is made of it, before the box
+        joins a figure.
+        """
+        from .image import BboxImage
+        if getattr(self, "image", None) is not None and \
+                self.image.figure is not None:
+            raise NotImplementedError(
+                "pltrs: OffsetImage.set_data once the box is added")
         self._data = np.asarray(arr)
+        self.image = BboxImage._loose(self._data, **self._image_options)
+        self._children = [self.image]
+
+    def _native_tree(self):
+        return ("image", self.image._native, float(self.get_zoom()),
+                bool(self._dpi_cor))
 
     def get_data(self):
         """Return the image data."""
@@ -852,10 +998,41 @@ or callable, default: value of *xycoords*
         self._internal_update(kwargs)
 
     def _add_to_axes(self, axes, kind, autolim=True):
-        raise NotImplementedError("pltrs: add_artist of an AnnotationBbox")
+        return self._join(axes)
 
     def _add_to_figure(self, figure, clip):
-        raise NotImplementedError("pltrs: add_artist of an AnnotationBbox")
+        return self._join(figure)
+
+    def _join(self, parent):
+        """Join *parent*, an axes or a figure, with the offset box: pltrs
+        (Rust) places it at *xybox* and draws the arrow; return self."""
+        from ._patch_styles import _native_spec
+        from .patches import BoxStyle, FancyBboxPatch
+        from .text import _native_arrowprops, _native_coords
+        figure = parent.figure
+        bboxprops = cbook.normalize_kwargs(self._bboxprops, FancyBboxPatch)
+        boxstyle = bboxprops.pop("boxstyle", None)
+        arrowprops = None
+        if self.arrowprops is not None:
+            arrowprops = _native_arrowprops(
+                {"arrowstyle": "simple", **self.arrowprops})
+        native, parts, frame = _offsetbox.add_annotation_bbox(
+            parent._native, self._native, self.offsetbox._native_tree(),
+            tuple(map(float, self.xy)), {
+                "xybox": tuple(map(float, self.xybox)),
+                "xycoords": _native_coords(self.xycoords, figure),
+                "boxcoords": _native_coords(self.boxcoords, figure,
+                                            "boxcoords"),
+                "frameon": bool(self._frameon), "pad": float(self._pad),
+                "annotation_clip": self._annotation_clip,
+                "box_alignment": tuple(map(float, self._box_alignment)),
+                "boxstyle": (None if boxstyle is None
+                             else _native_spec(boxstyle, BoxStyle)),
+                "bboxprops": bboxprops, "arrowprops": arrowprops,
+                "fontsize": float(self.get_fontsize())})
+        self.offsetbox._adopt_tree(iter(parts), figure)
+        self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
+        return _handles.adopt(self, native, figure)
 
     @property
     def xyann(self):
@@ -892,3 +1069,161 @@ or callable, default: value of *xycoords*
     def get_fontsize(self):
         """Return the fontsize in points."""
         return self.prop.get_size_in_points()
+
+
+class DraggableBase:
+    """
+    Helper base class for a draggable artist (legend, offsetbox).
+
+    Derived classes must override the following methods::
+
+        def save_offset(self):
+            '''
+            Called when the object is picked for dragging; should save the
+            reference position of the artist.
+            '''
+
+        def update_offset(self, dx, dy):
+            '''
+            Called during the dragging; (*dx*, *dy*) is the pixel offset from
+            the point where the mouse drag started.
+            '''
+
+    Optionally, you may override the following method::
+
+        def finalize_offset(self):
+            '''Called when the mouse is released.'''
+    """
+
+    def __init__(self, ref_artist, use_blit=False):
+        self.ref_artist = ref_artist
+        if not ref_artist.pickable():
+            ref_artist.set_picker(self._picker)
+        self.got_artist = False
+        self._use_blit = use_blit and self.canvas.supports_blit
+        callbacks = self.canvas.callbacks
+        self._disconnectors = [
+            functools.partial(
+                callbacks.disconnect, callbacks._connect_picklable(name, func))
+            for name, func in [
+                ("pick_event", self.on_pick),
+                ("button_release_event", self.on_release),
+                ("motion_notify_event", self.on_motion),
+            ]
+        ]
+
+    @staticmethod
+    def _picker(artist, mouseevent):
+        # A custom picker to prevent dragging on mouse scroll events
+        if mouseevent.name == "scroll_event":
+            return False, {}
+        return artist.contains(mouseevent)
+
+    # A property, not an attribute, to maintain picklability.
+    canvas = property(lambda self: self.ref_artist.get_figure(root=True).canvas)
+    cids = property(lambda self: [
+        disconnect.args[0] for disconnect in self._disconnectors[:2]])
+
+    def on_motion(self, evt):
+        if self._check_still_parented() and self.got_artist:
+            dx = evt.x - self.mouse_x
+            dy = evt.y - self.mouse_y
+            self.update_offset(dx, dy)
+            if self._use_blit:
+                self.canvas.restore_region(self.background)
+                self.ref_artist.draw(
+                    self.ref_artist.get_figure(root=True)._get_renderer())
+                self.canvas.blit()
+            else:
+                self.canvas.draw()
+
+    def on_pick(self, evt):
+        if self._check_still_parented():
+            if evt.artist == self.ref_artist:
+                self.mouse_x = evt.mouseevent.x
+                self.mouse_y = evt.mouseevent.y
+                self.save_offset()
+                self.got_artist = True
+            if self.got_artist and self._use_blit:
+                self.ref_artist.set_animated(True)
+                self.canvas.draw()
+                fig = self.ref_artist.get_figure(root=False)
+                self.background = self.canvas.copy_from_bbox(fig.bbox)
+                self.ref_artist.draw(fig._get_renderer())
+                self.canvas.blit()
+
+    def on_release(self, event):
+        if self._check_still_parented() and self.got_artist:
+            self.finalize_offset()
+            self.got_artist = False
+            if self._use_blit:
+                self.canvas.restore_region(self.background)
+                self.ref_artist.draw(self.ref_artist.figure._get_renderer())
+                self.canvas.blit()
+                self.ref_artist.set_animated(False)
+
+    def _check_still_parented(self):
+        if self.ref_artist.get_figure(root=False) is None:
+            self.disconnect()
+            return False
+        else:
+            return True
+
+    def disconnect(self):
+        """Disconnect the callbacks."""
+        for disconnector in self._disconnectors:
+            disconnector()
+
+    def save_offset(self):
+        """Save the reference position of the artist (on a pick)."""
+
+    def update_offset(self, dx, dy):
+        """Move the artist by *dx*, *dy* pixels from where the drag started."""
+
+    def finalize_offset(self):
+        """Settle the artist where it was dropped (on the release)."""
+
+
+class DraggableOffsetBox(DraggableBase):
+    """Drag an offset box: its offset follows the mouse."""
+
+    def __init__(self, ref_artist, offsetbox, use_blit=False):
+        super().__init__(ref_artist, use_blit=use_blit)
+        self.offsetbox = offsetbox
+
+    def save_offset(self):
+        offsetbox = self.offsetbox
+        renderer = offsetbox.get_figure(root=True)._get_renderer()
+        offset = offsetbox.get_offset(offsetbox.get_bbox(renderer), renderer)
+        self.offsetbox_x, self.offsetbox_y = offset
+        self.offsetbox.set_offset(offset)
+
+    def update_offset(self, dx, dy):
+        loc_in_canvas = self.offsetbox_x + dx, self.offsetbox_y + dy
+        self.offsetbox.set_offset(loc_in_canvas)
+
+    def get_loc_in_canvas(self):
+        """The lower-left corner of the box on the canvas."""
+        offsetbox = self.offsetbox
+        renderer = offsetbox.get_figure(root=True)._get_renderer()
+        bbox = offsetbox.get_bbox(renderer)
+        ox, oy = offsetbox._offset
+        loc_in_canvas = (ox + bbox.x0, oy + bbox.y0)
+        return loc_in_canvas
+
+
+class DraggableAnnotation(DraggableBase):
+    """Drag an annotation: its text position follows the mouse."""
+
+    def __init__(self, annotation, use_blit=False):
+        super().__init__(annotation, use_blit=use_blit)
+        self.annotation = annotation
+
+    def save_offset(self):
+        ann = self.annotation
+        self.ox, self.oy = ann.get_transform().transform(ann.xyann)
+
+    def update_offset(self, dx, dy):
+        ann = self.annotation
+        ann.xyann = ann.get_transform().inverted().transform(
+            (self.ox + dx, self.oy + dy))

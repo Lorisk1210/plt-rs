@@ -1,0 +1,185 @@
+//! Offset boxes joining an axes or a figure (matplotlib's `add_artist` of
+//! an `AnchoredOffsetbox` or an `AnnotationBbox`): the Python box is a
+//! plain loose artist until then, whose common properties the native box
+//! takes, and the artists of its tree move in with it. Each function
+//! returns the box, the artists of its tree in drawing order (frames
+//! before what they frame) and its frame, for the Python objects to
+//! follow them.
+
+use pltrs::artist::{ArtistHandle, RawHandle, TypedHandle};
+use pltrs::axes::Axes;
+use pltrs::figure::Figure;
+use pltrs::fonts::FontSize;
+use pltrs::offsetbox::{
+    AnchorLoc, AnchoredBox, AnchoredOptions, AnnotationBboxOptions, BboxToAnchor,
+};
+use pltrs::patches::{BoxStyle, FancyBboxPatch, Patch};
+use pltrs::text::ArrowProps;
+use pltrs::transforms::Point;
+
+use super::super::annotation::{ArrowKwargs, PyCoords};
+use super::super::font_manager::FontProps;
+use super::super::patches::PatchKwargs;
+use super::tree::PyOffsetBox;
+use crate::binding::dict_value;
+use crate::binding::prelude::*;
+
+/// A box added: its handle, the artists of its tree and its frame.
+type Added = (RawHandle, Vec<RawHandle>, Patch<FancyBboxPatch>);
+
+/// Gives `to` the properties every artist has that were set on `from`,
+/// the plain artist an offset box was before it was added.
+fn carry_over(from: &RawHandle, to: &RawHandle) {
+    to.set_visible(from.visible())
+        .set_zorder(from.zorder())
+        .set_alpha(from.alpha())
+        .set_label(from.label())
+        .set_picker(from.picker())
+        .set_clip_on(from.clip_on())
+        .set_animated(from.animated())
+        .set_rasterized(from.rasterized())
+        .set_in_layout(from.in_layout())
+        .set_mouseover(from.mouseover())
+        .set_snap(from.snap())
+        .set_sketch_params(from.sketch_params())
+        .set_path_effects(from.path_effects())
+        .set_agg_filter(from.agg_filter());
+    match from.gid() {
+        Some(gid) => to.set_gid(gid),
+        None => to.clear_gid(),
+    };
+    match from.url() {
+        Some(url) => to.set_url(url),
+        None => to.clear_url(),
+    };
+}
+
+/// A location code of `AnchoredOffsetbox.codes` (1 to 10).
+fn anchor_loc(code: usize) -> PyResult<AnchorLoc> {
+    code.checked_sub(1)
+        .and_then(|index| AnchorLoc::ALL.get(index).copied())
+        .ok_or_else(|| PyErr::value_error(format!("{code} is not a valid location code")))
+}
+
+/// The box an offset box is anchored to: `None`, a point `(x, y)` or a
+/// box `(x, y, width, height)`.
+fn bbox_to_anchor(value: Option<Vec<f64>>) -> PyResult<Option<BboxToAnchor>> {
+    Ok(match value.as_deref() {
+        None => None,
+        Some(&[x, y]) => Some(BboxToAnchor::Point(x, y)),
+        Some(&[x, y, width, height]) => Some(BboxToAnchor::Bounds(x, y, width, height)),
+        Some(other) => {
+            return Err(PyErr::value_error(format!("Invalid bbox: {other:?}")));
+        }
+    })
+}
+
+/// The settings of an `AnchoredOffsetbox` as a dict: `loc` (a code),
+/// `pad`, `borderpad` (one or two numbers), `prop` (a `FontProperties`),
+/// `frameon`, `bbox_to_anchor` (bounds or a point) and `bbox_transform`.
+struct PyAnchoredOptions(AnchoredOptions);
+
+impl FromPy<'_> for PyAnchoredOptions {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let borderpad: Bound<'_> = dict_value(object, "borderpad")?;
+        let borderpad = match borderpad.extract::<f64>() {
+            Ok(pad) => (pad, pad),
+            Err(_) => borderpad.extract()?,
+        };
+        Ok(Self(AnchoredOptions {
+            loc: anchor_loc(dict_value(object, "loc")?)?,
+            pad: dict_value(object, "pad")?,
+            borderpad,
+            prop: dict_value::<Option<FontProps>>(object, "prop")?.map(|prop| prop.0),
+            frameon: dict_value(object, "frameon")?,
+            bbox_to_anchor: bbox_to_anchor(dict_value(object, "bbox_to_anchor")?)?,
+            bbox_transform: dict_value(object, "bbox_transform")?,
+        }))
+    }
+}
+
+/// Adds the box `child` anchored as `options` say to `owner`, an axes or a
+/// (sub)figure, taking the common properties of `plain`.
+fn add_anchored(
+    owner: RawHandle,
+    plain: RawHandle,
+    child: PyOffsetBox,
+    options: PyAnchoredOptions,
+) -> PyResult<Added> {
+    let spec = AnchoredBox::new(child.0, options.0);
+    let anchored = match Axes::from_raw_handle(&owner) {
+        Some(axes) => axes.add_anchored_box(spec),
+        None => owner
+            .downcast::<Figure>()
+            .ok_or_else(|| PyErr::type_error("an offset box joins an axes or a figure"))?
+            .add_anchored_box(spec),
+    };
+    carry_over(&plain, anchored.raw());
+    Ok((anchored.raw().clone(), anchored.artists(), anchored.patch()))
+}
+
+/// The options of an `AnnotationBbox` as a dict: `xybox`, `xycoords`,
+/// `boxcoords`, `frameon`, `pad`, `annotation_clip`, `box_alignment`,
+/// `boxstyle` (a description), `bboxprops` (patch properties),
+/// `arrowprops` (with an arrow style) and `fontsize` (in points).
+struct PyAnnotationBboxOptions(AnnotationBboxOptions);
+
+impl FromPy<'_> for PyAnnotationBboxOptions {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let boxstyle = dict_value::<Option<String>>(object, "boxstyle")?
+            .map(|spec| {
+                spec.parse::<BoxStyle>()
+                    .map_err(|err| PyErr::value_error(err.to_string()))
+            })
+            .transpose()?;
+        let arrowprops = match dict_value::<Option<ArrowKwargs>>(object, "arrowprops")? {
+            None => None,
+            Some(ArrowKwargs(ArrowProps::Fancy(fancy))) => Some(fancy),
+            Some(ArrowKwargs(ArrowProps::Legacy(_))) => {
+                return Err(PyErr::value_error(
+                    "the arrow of an AnnotationBbox needs an arrowstyle",
+                ));
+            }
+        };
+        Ok(Self(AnnotationBboxOptions {
+            xybox: Some(Point::from(dict_value::<(f64, f64)>(object, "xybox")?)),
+            xycoords: dict_value::<PyCoords>(object, "xycoords")?.0,
+            boxcoords: Some(dict_value::<PyCoords>(object, "boxcoords")?.0),
+            frameon: dict_value(object, "frameon")?,
+            pad: dict_value(object, "pad")?,
+            annotation_clip: dict_value(object, "annotation_clip")?,
+            box_alignment: dict_value(object, "box_alignment")?,
+            boxstyle,
+            bboxprops: dict_value::<PatchKwargs>(object, "bboxprops")?.0,
+            arrowprops,
+            fontsize: Some(FontSize::Points(dict_value(object, "fontsize")?)),
+        }))
+    }
+}
+
+/// Adds the box `child` annotating `xy` as `options` say to `owner`, an
+/// axes or a (sub)figure, taking the common properties of `plain`.
+fn add_annotation_bbox(
+    owner: RawHandle,
+    plain: RawHandle,
+    child: PyOffsetBox,
+    xy: (f64, f64),
+    options: PyAnnotationBboxOptions,
+) -> PyResult<Added> {
+    let added = match Axes::from_raw_handle(&owner) {
+        Some(axes) => axes.add_annotation_bbox(child.0, xy, options.0),
+        None => owner
+            .downcast::<Figure>()
+            .ok_or_else(|| PyErr::type_error("an offset box joins an axes or a figure"))?
+            .add_annotation_bbox(child.0, xy, options.0),
+    }
+    .map_err(|err| PyErr::value_error(err.to_string()))?;
+    carry_over(&plain, added.raw());
+    Ok((added.raw().clone(), added.artists(), added.patch()))
+}
+
+/// Registers the module's functions.
+pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("add_anchored", add_anchored)?;
+    module.add("add_annotation_bbox", add_annotation_bbox)
+}

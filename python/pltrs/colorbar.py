@@ -231,6 +231,76 @@ class Colorbar:
         """The value at the middle of each colour block."""
         return _colorbar.values(self._native)
 
+    @property
+    def outline(self):
+        """The patch outlining the colours and the extensions."""
+        from .patches import PathPatch
+        return _handles.wrap(_colorbar.outline(self._native), PathPatch,
+                             self._figure)
+
+    @property
+    def solids(self):
+        """The `.QuadMesh` of the colour blocks, None when they are the
+        hatched patches of a hatched contour set."""
+        from .collections import QuadMesh
+        return _handles.wrap(_colorbar.solids(self._native), QuadMesh,
+                             self._figure)
+
+    @property
+    def _extend_patches(self):
+        """The patches filling the extensions, the one at the lower end of
+        the long axis first."""
+        from .patches import PathPatch
+        return _handles.wrap_all(_colorbar.extend_patches(self._native),
+                                 PathPatch, self._figure)
+
+    @property
+    def dividers(self):
+        """The lines between the colours drawn with *drawedges*."""
+        return _Dividers(self)
+
+    def _long_axis(self):
+        """Return the long axis."""
+        if self.orientation == 'vertical':
+            return self.ax.yaxis
+        return self.ax.xaxis
+
+    @property
+    def locator(self):
+        """Major tick `.Locator` for the colorbar."""
+        return self._long_axis().get_major_locator()
+
+    @locator.setter
+    def locator(self, loc):
+        self._long_axis().set_major_locator(loc)
+
+    @property
+    def minorlocator(self):
+        """Minor tick `.Locator` for the colorbar."""
+        return self._long_axis().get_minor_locator()
+
+    @minorlocator.setter
+    def minorlocator(self, loc):
+        self._long_axis().set_minor_locator(loc)
+
+    @property
+    def formatter(self):
+        """Major tick label `.Formatter` for the colorbar."""
+        return self._long_axis().get_major_formatter()
+
+    @formatter.setter
+    def formatter(self, fmt):
+        self._long_axis().set_major_formatter(fmt)
+
+    @property
+    def minorformatter(self):
+        """Minor tick `.Formatter` for the colorbar."""
+        return self._long_axis().get_minor_formatter()
+
+    @minorformatter.setter
+    def minorformatter(self, fmt):
+        self._long_axis().set_minor_formatter(fmt)
+
     def update_normal(self, mappable=None):
         """
         Update solid patches, lines, etc.
@@ -325,6 +395,21 @@ class Colorbar:
         self.mappable.colorbar = None
         self.mappable.colorbar_cid = None
         _colorbar.remove(self._native)
+
+
+class _Dividers:
+    """
+    The lines between the colours of a colorbar drawn with *drawedges*
+    (matplotlib's ``Colorbar.dividers``): pltrs (Rust) draws them with the
+    colorbar, for its current view.
+    """
+
+    def __init__(self, colorbar):
+        self._colorbar = colorbar
+
+    def get_segments(self):
+        """The segments, as ``(2, 2)`` arrays of their ends."""
+        return _colorbar.divider_segments(self._colorbar._native)
 
 
 ColorbarBase = Colorbar  # Backcompat API

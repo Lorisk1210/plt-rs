@@ -1,7 +1,7 @@
 //! Generation of property accessors on artist handles and of the property
 //! sets passed when creating artists (matplotlib's `**kwargs`).
 
-use super::{ArtistBase, ClipPathSpec};
+use super::{ArtistBase, ClipPathSpec, Picker};
 use crate::patheffects::PathEffect;
 use crate::transforms::Transform;
 
@@ -36,6 +36,8 @@ pub struct BaseProps {
     pub clip_path: Option<ClipPathSpec>,
     /// Effects the artist is drawn through (matplotlib's `path_effects`).
     pub path_effects: Option<Vec<PathEffect>>,
+    /// How mouse presses pick the artist (matplotlib's `picker`).
+    pub picker: Option<Picker>,
 }
 
 impl BaseProps {
@@ -55,6 +57,7 @@ impl BaseProps {
             transform: overrides.transform.or(self.transform),
             clip_path: overrides.clip_path.or(self.clip_path),
             path_effects: overrides.path_effects.or(self.path_effects),
+            picker: overrides.picker.or(self.picker),
         }
     }
 
@@ -95,6 +98,9 @@ impl BaseProps {
         }
         if let Some(effects) = self.path_effects {
             base.path_effects = effects;
+        }
+        if self.picker.is_some() {
+            base.picker = self.picker;
         }
     }
 }
@@ -190,6 +196,13 @@ macro_rules! base_prop_builders {
         #[must_use]
         pub fn path_effects(mut self, effects: Vec<$crate::patheffects::PathEffect>) -> Self {
             self.base.path_effects = Some(effects);
+            self
+        }
+
+        /// How mouse presses pick the artist (matplotlib's `picker`).
+        #[must_use]
+        pub fn picker(mut self, picker: $crate::artist::Picker) -> Self {
+            self.base.picker = Some(picker);
             self
         }
     };

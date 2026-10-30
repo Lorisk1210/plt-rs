@@ -384,6 +384,21 @@ class AxesImage(_ImageBase):
         """Return the image extent as tuple (left, right, bottom, top)."""
         return _native_image.get_extent(self._native)
 
+    def get_cursor_data(self, event):
+        """
+        Return the image value at the event position or *None* if the event is
+        outside the image.
+
+        See Also
+        --------
+        matplotlib.artist.Artist.get_cursor_data
+        """
+        if self._figure is None or event.x is None or event.y is None:
+            return None
+        element = _native_image.cursor_element(
+            self._native, float(event.x), float(event.y))
+        return None if element is None else self.get_array()[element]
+
     def set_extent(self, extent, **kwargs):
         """
         Set the image extent.
@@ -724,3 +739,25 @@ class FigureImage(_ImageBase):
 
 class BboxImage(_ImageBase):
     """The Image class whose size is determined by the given bbox."""
+
+    @classmethod
+    def _loose(cls, A, *, cmap=None, norm=None, interpolation=None,
+               origin=None, filternorm=True, filterrad=4.0, resample=False,
+               **kwargs):
+        """
+        The image of the array *A* outside any figure, until the offset box
+        holding it joins one (the image of an `.OffsetImage`).
+        """
+        A = cls._normalize_image_array(A)
+        colorizer = mcolorizer._ScalarMappable._get_colorizer(cmap, norm, None)
+        image = cls.__new__(cls)
+        image._native = _native_image.new_bbox_image(
+            _native_data(A), colorizer.cmap, colorizer.norm, {
+                'interpolation': interpolation, 'interpolation_stage': None,
+                'origin': origin,
+                'filternorm': bool(filternorm), 'filterrad': float(filterrad),
+                'resample': bool(resample)})
+        mcolorizer.artist.Artist.__init__(image)
+        image._set_mapped_data(colorizer, A)
+        image._internal_update(kwargs)
+        return image

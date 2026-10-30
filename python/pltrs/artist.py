@@ -16,13 +16,22 @@ its figure and gives the object the new handle (`._handles.adopt`).
 
 from numbers import Real
 
+import numpy as np
+
 from . import _handles, cbook
 from . import _live_transforms
+from ._artist_callbacks import CallbacksMixin
+from ._artist_clipping import ClippingMixin
+from ._artist_effects import EffectsMixin
+from ._artist_extent import ExtentMixin
+from ._artist_picking import PickingMixin
+from ._artist_subclassing import SubclassingMixin
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 
 
-class Artist:
+class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
+             EffectsMixin, ExtentMixin):
     """
     Abstract base class for objects that render into a FigureCanvas.
 
@@ -101,6 +110,7 @@ class Artist:
         """
         _transforms.set_transform(self._native, _live_transforms.to_native(t))
         self._transform = t
+        self.pchanged()
 
     def is_transform_set(self):
         """
@@ -127,15 +137,27 @@ class Artist:
     def set_visible(self, b):
         """Set the artist's visibility."""
         _artist.set_visible(self._native, bool(b))
+        self.pchanged()
 
     def get_zorder(self):
         """Return the artist's zorder."""
         return _artist.get_zorder(self._native)
 
     def set_zorder(self, level):
-        """Set the zorder for the artist.  Artists with lower zorder values
-        are drawn first."""
+        """
+        Set the zorder for the artist.  Artists with lower zorder
+        values are drawn first.
+
+        Parameters
+        ----------
+        level : float
+        """
+        if level is None:
+            # The class' default; `Artist.zorder` itself reads the artist's.
+            default = type(self).zorder
+            level = default if isinstance(default, Real) else 0
         _artist.set_zorder(self._native, level)
+        self.pchanged()
 
     @property
     def zorder(self):
@@ -162,6 +184,29 @@ class Artist:
         if alpha is not None and not (0 <= alpha <= 1):
             raise ValueError(f'alpha ({alpha}) is outside 0-1 range')
         _artist.set_alpha(self._native, alpha)
+        self.pchanged()
+
+    def _set_alpha_for_array(self, alpha):
+        """
+        Set the alpha value used for blending - not supported on all backends.
+
+        Parameters
+        ----------
+        alpha : array-like or float or None
+            All values must be within the 0-1 range, inclusive.
+            Masked values and nans are not supported. Only artists of many
+            items (collections, images) take an array.
+        """
+        if isinstance(alpha, str):
+            raise TypeError("alpha must be numeric or None, not a string")
+        if not np.iterable(alpha):
+            Artist.set_alpha(self, alpha)
+            return
+        alpha = np.asarray(alpha)
+        if not (0 <= alpha.min() and alpha.max() <= 1):
+            raise ValueError('alpha must be between 0 and 1, inclusive, '
+                             f'but min is {alpha.min()}, max is {alpha.max()}')
+        self.set_alpha(alpha)
 
     def get_clip_on(self):
         """Return whether the artist uses clipping."""
@@ -382,16 +427,24 @@ class Artist:
         This has no effect if the artist is not visible. pltrs (Rust) draws
         figures itself: the renderer it hands to the program's replacement
         of `.Text.draw` draws the artist where pltrs is drawing the text.
+        An artist with no pltrs (Rust) counterpart draws nothing, as
+        matplotlib's base `Artist.draw` does; subclasses override it.
         """
         if not self.get_visible():
             return
         draw_artist = getattr(renderer, "_draw_artist", None)
-        if draw_artist is None:
+        if draw_artist is not None:
+            draw_artist(self)
+        elif getattr(self, "_native", None) is not None:
             raise NotImplementedError(
                 "pltrs: Artist.draw(renderer) with a renderer pltrs (Rust) is "
                 "not drawing with")
-        draw_artist(self)
+        self.stale = False
 
 
 # The introspection of artist properties, which needs `Artist` defined.
 from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: E402, F401
+
+# The signature and docstring of `Artist.set`, which subclasses get theirs
+# from as they are defined (`._artist_subclassing`).
+Artist._update_set_signature_and_docstring()

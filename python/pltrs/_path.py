@@ -125,6 +125,13 @@ def convert_to_string(path, trans, clip_rect, simplify, sketch, precision,
 
 
 def is_sorted_and_has_non_nan(array):
-    """Whether the non-NaN values of *array* are increasing, and there is at
-    least one."""
-    return _path.is_sorted_and_has_non_nan(np.asarray(array, float).ravel())
+    """Whether the non-NaN values of *array*, a 1D array of numbers, are
+    increasing, and there is at least one."""
+    array = np.asarray(array)
+    if array.ndim != 1:
+        raise ValueError("array must be 1D")
+    try:
+        array = array.astype(float)
+    except (TypeError, ValueError) as err:
+        raise ValueError(f"array of type {array.dtype} is not numeric") from err
+    return _path.is_sorted_and_has_non_nan(array)

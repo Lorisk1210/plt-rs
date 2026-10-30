@@ -6,7 +6,7 @@
 //! colour `"face"`. Widths and line styles cross as lists.
 
 use pltrs::artist::ArtistHandle;
-use pltrs::collections::{Collection, EdgeColors, EventCollection, HatchColors};
+use pltrs::collections::{Collection, EdgeColors, EllipseCollection, EventCollection, HatchColors};
 use pltrs::colors::{Color, Colormap, Norm};
 use pltrs::orientation::Orientation;
 use pltrs::transforms::Transform;
@@ -21,7 +21,7 @@ use crate::binding::prelude::*;
 
 mod new;
 
-artist_handle!(Collection, EventCollection);
+artist_handle!(Collection, EllipseCollection, EventCollection);
 
 /// Colours as an `(N, 4)` RGBA array.
 pub(super) fn rgba_rows(array: &NdArray) -> PyResult<Vec<Color>> {
@@ -414,8 +414,39 @@ fn set_event_lines(
     Ok(())
 }
 
+/// The full widths, the full heights and the angles (degrees) of the
+/// ellipses of an ellipse collection (matplotlib's `get_widths`,
+/// `get_heights` and `get_angles`).
+fn ellipse_sizes(ellipses: EllipseCollection) -> PyResult<(NdArray, NdArray, NdArray)> {
+    Ok((
+        NdArray::from_vec(ellipses.widths()),
+        NdArray::from_vec(ellipses.heights()),
+        NdArray::from_vec(ellipses.angles()),
+    ))
+}
+
+/// Sets those of the full widths, full heights and angles (degrees) of the
+/// ellipses of an ellipse collection that are given.
+fn set_ellipse_sizes(
+    ellipses: EllipseCollection,
+    (widths, heights, angles): (Option<NdArray>, Option<NdArray>, Option<NdArray>),
+) -> PyResult<()> {
+    if let Some(widths) = widths {
+        ellipses.set_widths(&widths.into_vec()?);
+    }
+    if let Some(heights) = heights {
+        ellipses.set_heights(&heights.into_vec()?);
+    }
+    if let Some(angles) = angles {
+        ellipses.set_angles(&angles.into_vec()?);
+    }
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("ellipse_sizes", ellipse_sizes)?;
+    module.add("set_ellipse_sizes", set_ellipse_sizes)?;
     module.add("get", get)?;
     module.add("set_facecolors", set_facecolors)?;
     module.add("set_edgecolors", set_edgecolors)?;

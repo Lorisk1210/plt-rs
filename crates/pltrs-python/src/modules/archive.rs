@@ -21,6 +21,7 @@ use std::any::{Any, TypeId};
 use std::rc::Rc;
 
 use pltrs::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, FigureRef, RawHandle};
+use pltrs::axes_grid1::Divider;
 use pltrs::colorbar::Colorbar;
 use pltrs::colors::Norm;
 use pltrs::container::Container;
@@ -439,6 +440,7 @@ native_values! {
     "gridspec" => GridSpec,
     "subplotspec" => SubplotSpec,
     "colorbar" => Colorbar,
+    "divider" => Divider,
     "container" => Container,
     "legend-handle" => LegendHandle,
     "rcparams" => RcParams,

@@ -8,8 +8,10 @@
 //! class.
 
 use pltrs::artist::{ArtistHandle, RawHandle};
+use pltrs::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use pltrs::collections::CollectionPatch;
 use pltrs::colors::{Color, ColorError};
+use pltrs::inset::InsetIndicator;
 use pltrs::patches::{
     Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
     FancyArrowPatch, FancyBboxPatch, Patch, PatchColors, PatchProps, PatchShape, PatchStyle,
@@ -159,6 +161,7 @@ impl FromPy<'_> for AnyPatch {
             Rectangle, Ellipse, Circle, Polygon, Wedge, PathShape, RegularPolygon,
             CirclePolygon, StepPatch, FancyArrow, Arrow, Arc, Annulus, FancyBboxPatch,
             FancyArrowPatch, ConnectionPatch,
+            BboxPatch, BboxConnector, BboxConnectorPatch, InsetIndicator,
         )
         .map(Self)
         .ok_or_else(|| PyErr::type_error("expected a native patch handle"))

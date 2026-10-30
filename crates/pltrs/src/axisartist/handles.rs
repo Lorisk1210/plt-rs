@@ -6,9 +6,10 @@ use super::artist::{AxisArtistState, Level};
 use super::axes::adopt_axis_artist;
 use super::helper::AxisHelper;
 use super::line::{AxislineStyle, LineState};
-use crate::artist::{ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
+use crate::transforms::Bbox;
 
 mod parts;
 
@@ -75,6 +76,13 @@ impl ArtistHandle for AxisArtist {
     }
 }
 
+impl TypedHandle for AxisArtist {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<AxisArtistState>()
+            .then(|| Self::from_raw(raw.clone()))
+    }
+}
+
 impl AxisArtist {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
@@ -113,6 +121,23 @@ impl AxisArtist {
     /// Its key in the axis dictionary.
     pub fn name(&self) -> String {
         self.get(|state| state.name.clone())
+    }
+
+    /// The extent of what the axis artist draws (its line, ticks, tick
+    /// labels and label) in display pixels, in the figure's current layout
+    /// (matplotlib's `AxisArtist.get_tightbbox`); `None` when it draws
+    /// nothing or was removed.
+    pub fn tight_bbox(&self) -> Option<Bbox> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        state.store.get(self.raw.id())?.tight_extent(&layout)
+    }
+
+    /// Renames the axis artist (matplotlib's `ax.axis[name] = artist`).
+    pub fn set_name(&self, name: impl Into<String>) -> &Self {
+        let name = name.into();
+        self.update(|state| state.name = name)
     }
 
     /// Adjusts the side, angle and alignment of the major tick labels and
@@ -278,6 +303,20 @@ mod tests {
     use crate::axes::TickDirection;
     use crate::axisartist::AxisArtistAxes;
     use crate::figure::Figure;
+
+    #[test]
+    fn artists_are_renamed_and_measured() {
+        let fig = Figure::new();
+        let ax = AxisArtistAxes::new(fig.subplot());
+        let bottom = ax.axis("bottom").expect("an edge");
+        let extent = bottom.tight_bbox().expect("the bottom axis draws");
+        let frame = ax.ax().window_extent().expect("drawn");
+        assert!(extent.y0() < frame.y0(), "tick labels below the frame");
+        bottom.set_name("base");
+        assert_eq!(ax.axis("base"), Some(bottom.clone()));
+        assert_eq!(AxisArtist::from_raw_handle(bottom.raw()), Some(bottom));
+        assert_eq!(AxisArtist::from_raw_handle(ax.ax().raw()), None);
+    }
 
     #[test]
     fn directions_turn_labels_to_the_other_side() {

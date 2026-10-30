@@ -12,10 +12,11 @@ use super::grid_helper_curvelinear::{FloatingLine, GridHelperCurveLinear};
 use super::gridlines::{Gridlines, SharedGridHelper};
 use super::handles::{AxisArtist, Toggle};
 use super::helper::AxisHelper;
-use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, ArtistLookup, AttachError, RawHandle};
 use crate::axes::{AxesState, GridOptions};
 use crate::axes_grid1::{HostAxes, ParasiteAxes, ParasiteLink};
 use crate::collections::{Collection, CollectionArtist};
+use crate::figure::attach;
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
 
@@ -129,6 +130,13 @@ impl AxisArtistAxes {
                 });
             }
         }
+    }
+
+    /// A handle to `ax`, already made an axes drawn by axis artists (by
+    /// [`AxisArtistAxes::new`], [`AxisArtistAxes::with_grid_helper`] or
+    /// [`AxisArtistAxes::zero`]), to reach its axis artists again.
+    pub fn of(ax: crate::axes::Axes) -> Self {
+        Self { ax }
     }
 
     /// [`AxisArtistAxes::new`] plus hidden axis lines through the data origin, `xzero`
@@ -316,24 +324,69 @@ impl AxisArtistAxes {
         helper: AxisHelper,
         (direction, offset): (SpineSide, (f64, f64)),
     ) -> AxisArtist {
-        let existing = self.axis(name);
-        let rank = existing.as_ref().and_then(|artist| {
-            self.children()
-                .iter()
-                .position(|&id| id == artist.raw().id())
-        });
-        if let Some(existing) = existing {
-            existing.remove();
-        }
+        let rank = self.release(name, None);
         let artist = adopt_axis_artist(&self.ax, name, helper, (direction, offset));
         if let Some(rank) = rank {
-            let id = artist.raw().id();
-            self.ax.raw().with_mut::<AxesState, _>(|state| {
-                state.children.retain(|&child| child != id);
-                state.children.insert(rank.min(state.children.len()), id);
-            });
+            self.move_to(&artist, rank);
         }
         artist
+    }
+
+    /// Puts `artist`, an axis artist of this axes, in it or removed from
+    /// it, under `name` (matplotlib's `ax.axis[name] = artist`): an artist
+    /// already under `name` is removed and `artist` takes its rank in the
+    /// axis dictionary; otherwise a removed `artist` comes back last.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axisartist::AxisArtistAxes;
+    /// use pltrs::axes::AxisName;
+    /// use pltrs::prelude::*;
+    /// let ax = AxisArtistAxes::new(Figure::new().subplot());
+    /// let line = ax.new_floating_axis("draft", AxisName::Y, 0.5);
+    /// line.remove();
+    /// ax.assign("top", &line)?;
+    /// assert_eq!(ax.axis("top"), Some(line));
+    /// assert_eq!(ax.axis_artists().len(), 4, "the old top axis is gone");
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `artist` belongs to another figure or is owned by a removed
+    /// artist.
+    pub fn assign(&self, name: &str, artist: &AxisArtist) -> Result<&Self, AttachError> {
+        let rank = self.release(name, Some(artist));
+        let figure = self.ax.raw().figure_state();
+        if figure.borrow().is_removed(artist.raw().id()) {
+            attach(figure, self.ax.id(), artist.raw())?;
+        }
+        artist.set_name(name);
+        if let Some(rank) = rank {
+            self.move_to(artist, rank);
+        }
+        Ok(self)
+    }
+
+    /// Removes the axis artist under `name`, unless it is `keep`, and
+    /// returns its rank among the axes' children.
+    fn release(&self, name: &str, keep: Option<&AxisArtist>) -> Option<usize> {
+        let existing = self.axis(name).filter(|artist| Some(artist) != keep)?;
+        let rank = self
+            .children()
+            .iter()
+            .position(|&id| id == existing.raw().id());
+        existing.remove();
+        rank
+    }
+
+    /// Moves `artist` to `rank` among the axes' children.
+    fn move_to(&self, artist: &AxisArtist, rank: usize) {
+        let id = artist.raw().id();
+        self.ax.raw().with_mut::<AxesState, _>(|state| {
+            state.children.retain(|&child| child != id);
+            state.children.insert(rank.min(state.children.len()), id);
+        });
     }
 }
 

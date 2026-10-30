@@ -17,11 +17,12 @@ from ..legend import Legend
 from ..lines import Line2D
 from ..text import Text
 from ._imaging import ImagingMixin
+from ._insets import InsetsMixin
 from ._plotting import PlottingMixin
 from .._text_methods import AxesText
 
 
-class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
+class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, _AxesBase):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot
     in a figure.
@@ -36,10 +37,13 @@ class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
     @classmethod
     def _from_native(cls, native, figure):
         ax = super()._from_native(native, figure)
-        ax.xaxis = XAxis(ax)
-        ax.yaxis = YAxis(ax)
-        ax.child_axes = []
+        ax._init_axes_state()
         return ax
+
+    def _init_axes_state(self):
+        super()._init_axes_state()
+        self.xaxis = XAxis(self)
+        self.yaxis = YAxis(self)
 
     def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
                   **kwargs):

@@ -1,13 +1,15 @@
-//! Adding ready-made artists to a figure (`Figure.add_artist`), and
-//! removed artists back.
+//! Adding ready-made artists to a figure (`Figure.add_artist`), removed
+//! artists back, and axes made outside the figure until it adds them
+//! (matplotlib's `Axes(fig, rect)`).
 
 use std::any::Any;
 use std::rc::Rc;
 
 use super::frame::FigureFrame;
-use super::{Figure, attach};
+use super::{AxesRectError, Figure, attach, axes_bounds, make_axes};
 use crate::artist::{Artist, ArtistHandle, ArtistLookup, AttachError, Custom, RawHandle, take_in};
-use crate::axes::AxesState;
+use crate::axes::{Axes, AxesState};
+use crate::gridspec::{GridSpecError, SubplotSpec};
 use crate::image::FigureImageArtist;
 use crate::legend::LegendArtist;
 use crate::mplot3d::Axes3DState;
@@ -70,6 +72,42 @@ impl Figure {
         }
         self.adopt_artist(artist.raw(), false)?;
         Ok(self)
+    }
+
+    /// An axes of this figure (or subfigure) at `[left, bottom, width,
+    /// height]` in its fractions, made outside it as a removed axes
+    /// (matplotlib's `Axes(fig, rect)`, which leaves adding the axes to
+    /// `fig.add_axes(ax)`): [`Figure::attach`] adds it. It does not become
+    /// the current axes until then.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.removed_axes([0.1, 0.1, 0.5, 0.5])?;
+    /// assert!(fig.axes().is_empty());
+    /// fig.attach(&ax)?;
+    /// assert_eq!(fig.axes(), [ax]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes`].
+    pub fn removed_axes(&self, rect: [f64; 4]) -> Result<Axes, AxesRectError> {
+        let position = axes_bounds(rect)?;
+        Ok(make_axes(&self.state, None, position, None))
+    }
+
+    /// An axes of this figure (or subfigure) covering the grid cells of
+    /// `spec`, made outside it as a removed axes (matplotlib's `Axes(fig,
+    /// subplotspec)`); [`Figure::attach`] adds it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_subplot_spec`].
+    pub fn removed_subplot(&self, spec: &SubplotSpec) -> Result<Axes, GridSpecError> {
+        let position = spec.position(&self.subplot_params())?;
+        Ok(make_axes(&self.state, None, position, Some(spec.clone())))
     }
 
     /// Adds a ready-made artist to this figure (or subfigure) and returns

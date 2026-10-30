@@ -1,0 +1,90 @@
+//! Host axes and their parasites (matplotlib's
+//! `axes_grid1.parasite_axes`): the parasites pltrs (Rust) makes on a
+//! host, which draws them.
+
+use pltrs::axes::Axes;
+use pltrs::axes_grid1::{HostAxes, ParasiteAxes, ParasiteError, ParasiteLink};
+
+use super::super::transforms::affine;
+use crate::binding::prelude::*;
+
+impl From<ParasiteError> for PyErr {
+    /// matplotlib's `ValueError` for an aux transform pltrs cannot follow.
+    fn from(err: ParasiteError) -> Self {
+        PyErr::value_error(err.to_string())
+    }
+}
+
+/// How a parasite relates to its host, as the Python side gives it:
+/// `"independent"`, `"equal"`, or the 3×3 matrix of an affine aux
+/// transform.
+struct PyLink(ParasiteLink);
+
+impl FromPy<'_> for PyLink {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        if let Ok(name) = object.extract::<String>() {
+            return match name.as_str() {
+                "independent" => Ok(Self(ParasiteLink::Independent)),
+                "equal" => Ok(Self(ParasiteLink::Equal)),
+                _ => Err(PyErr::value_error(format!("no parasite link {name:?}"))),
+            };
+        }
+        Ok(Self(ParasiteLink::Transform(affine(&object.extract()?)?)))
+    }
+}
+
+/// The parasite's axes.
+fn parasite_axes(parasite: ParasiteAxes) -> Axes {
+    parasite.axes().clone()
+}
+
+/// A parasite of `host` linked as `link` says, every decoration hidden
+/// (`get_aux_axes`).
+fn aux_axes(host: Axes, link: PyLink) -> PyResult<Axes> {
+    Ok(parasite_axes(HostAxes::new(host).aux_axes(link.0)?))
+}
+
+/// A twin of `host`: sharing the x axis (`"x"`, `twinx`), the y axis
+/// (`"y"`, `twiny`), or none, mapped by the affine `aux` matrix (`"both"`,
+/// `twin`).
+fn twin(host: Axes, kind: String, aux: Option<NdArray>) -> PyResult<Axes> {
+    let host = HostAxes::new(host);
+    let made = match kind.as_str() {
+        "x" => host.twinx(),
+        "y" => host.twiny(),
+        "both" => host.twin(aux.as_ref().map(affine).transpose()?)?,
+        _ => return Err(PyErr::value_error(format!("no twin {kind:?}"))),
+    };
+    Ok(parasite_axes(made))
+}
+
+/// The parasites of `host`, in creation order (`parasites`).
+fn parasites(host: Axes) -> PyResult<Vec<Axes>> {
+    Ok(HostAxes::new(host)
+        .parasites()
+        .into_iter()
+        .map(parasite_axes)
+        .collect())
+}
+
+/// Removes the parasite among the parasites of `host` whose axes is
+/// `parasite`, showing the host's far sides again for a twin
+/// (`_remove_any_twin`).
+fn remove_parasite(host: Axes, parasite: Axes) -> PyResult<()> {
+    if let Some(found) = HostAxes::new(host)
+        .parasites()
+        .into_iter()
+        .find(|candidate| *candidate.axes() == parasite)
+    {
+        found.remove();
+    }
+    Ok(())
+}
+
+/// Registers the module's functions.
+pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("aux_axes", aux_axes)?;
+    module.add("twin", twin)?;
+    module.add("parasites", parasites)?;
+    module.add("remove_parasite", remove_parasite)
+}

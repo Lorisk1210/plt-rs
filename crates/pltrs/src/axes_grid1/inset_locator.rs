@@ -125,9 +125,49 @@ pub fn zoomed_inset_axes(parent: &Axes, zoom: f64, options: InsetOptions) -> Axe
     add_inset(parent, InsetExtent::Zoomed { zoom }, &options)
 }
 
-/// Adds the axes of an inset of `parent`, placed by a new locator
-/// (matplotlib's `_add_inset_axes`).
-fn add_inset(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> Axes {
+/// Places `inset`, an axes of `parent`'s figure, as [`inset_axes`] places
+/// its insets: `width` × `height` anchored in `parent` as `options` say,
+/// anew at every layout pass (matplotlib's
+/// `inset.set_axes_locator(AnchoredSizeLocator(...))`).
+///
+/// ```
+/// use pltrs::axes_grid1::{InsetOptions, SizeSpec, place_sized_inset};
+/// use pltrs::prelude::*;
+/// let fig = Figure::with_size(6.4, 4.8, 100.0);
+/// let ax = fig.subplot();
+/// let inset = fig.add_axes([0.0, 0.0, 0.1, 0.1])?;
+/// place_sized_inset(&ax, &inset, SizeSpec::Percent(50.0), 1.0.into(), InsetOptions::default());
+/// let (_, _, width, _) = inset.position().bounds();
+/// let (_, _, parent_width, _) = ax.position().bounds();
+/// assert!((width - 0.5 * parent_width).abs() < 1e-12);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn place_sized_inset(
+    parent: &Axes,
+    inset: &Axes,
+    width: SizeSpec,
+    height: SizeSpec,
+    options: InsetOptions,
+) {
+    register(
+        inset,
+        inset_locator(parent, InsetExtent::Sized { width, height }, &options),
+    );
+}
+
+/// Places `inset`, an axes of `parent`'s figure, as [`zoomed_inset_axes`]
+/// places its insets (matplotlib's
+/// `inset.set_axes_locator(AnchoredZoomLocator(...))`).
+pub fn place_zoomed_inset(parent: &Axes, inset: &Axes, zoom: f64, options: InsetOptions) {
+    register(
+        inset,
+        inset_locator(parent, InsetExtent::Zoomed { zoom }, &options),
+    );
+}
+
+/// The locator of an inset of `parent` of `extent`, anchored as
+/// `options` say.
+fn inset_locator(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> InsetLocator {
     let rc = crate::rc::params();
     let anchor = match (options.bbox_to_anchor, &options.bbox_transform) {
         (None, None) => None,
@@ -136,14 +176,20 @@ fn add_inset(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> Axes
             transform.clone().unwrap_or(Transform::Display),
         )),
     };
-    let locator = InsetLocator {
+    InsetLocator {
         extent,
         loc: options.loc,
         parent: parent.id(),
         anchor,
         borderpad: options.borderpad,
         fontsize: rc.legend_fontsize.to_points(rc.font_size),
-    };
+    }
+}
+
+/// Adds the axes of an inset of `parent`, placed by a new locator
+/// (matplotlib's `_add_inset_axes`).
+fn add_inset(parent: &Axes, extent: InsetExtent, options: &InsetOptions) -> Axes {
+    let locator = inset_locator(parent, extent, options);
     let figure = parent.raw().figure_state();
     let position = parent.position();
     // The inset of a removed axes is removed too.

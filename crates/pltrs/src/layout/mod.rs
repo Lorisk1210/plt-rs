@@ -20,6 +20,7 @@
 //! fig.set_layout_engine(LayoutEngine::constrained())?;
 //! let ax = fig.subplot();
 //! ax.set_title("title");
+//! fig.layout(); // the engine places the axes when the figure is laid out
 //! let (x, _, w, _) = ax.position().bounds();
 //! assert!(x < 0.125 && x + w > 0.9, "tighter than the default margins");
 //! # Ok::<(), pltrs::layout::LayoutEngineError>(())

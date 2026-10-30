@@ -4,7 +4,8 @@
 //! (`"double"`, `"single"`, `"integer"`, `"boolean"` scalars to be colour
 //! mapped, or `"float128"` and the like for floats wider than double
 //! precision, narrowed to it by Python; `"rgb"`/`"rgba"` colours as
-//! fractions, `"rgb8"`/`"rgba8"` as
+//! fractions, `"rgb32"`/`"rgba32"` as single-precision fractions,
+//! `"rgb8"`/`"rgba8"` as
 //! bytes), the values as an array of shape `(M, N)` or `(M, N, 3|4)`, and
 //! the mask of a scalar array. The Python image keeps its colorizer and
 //! hands pltrs (Rust) a copy of its colormap and norm (see
@@ -79,6 +80,17 @@ fn pixels<T: Element, const N: usize>(array: &NdArray<T>) -> PyResult<Grid<[T; N
     Grid::from_vec(rows, cols, cells).map_err(|err| PyErr::value_error(err.to_string()))
 }
 
+/// The pixels of a 3-D array of single-precision data, which numpy
+/// widened to double precision, as a grid of `[f32; N]`.
+fn single_pixels<const N: usize>(array: &NdArray) -> PyResult<Grid<[f32; N]>> {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "single-precision data, widened by numpy, narrows back exactly"
+    )]
+    let narrow = |v: f64| v as f32;
+    Ok(pixels::<f64, N>(array)?.map(|pixel| pixel.map(narrow)))
+}
+
 /// Image data as Python hands it over (see the module documentation).
 pub(super) struct ImageArray(pub(super) ImageData);
 
@@ -120,6 +132,8 @@ impl FromPy<'_> for ImageArray {
             }
             "rgb" => ImageData::Rgb(pixels(&values.extract::<NdArray>()?)?),
             "rgba" => ImageData::Rgba(pixels(&values.extract::<NdArray>()?)?),
+            "rgb32" => ImageData::RgbF32(single_pixels(&values.extract::<NdArray>()?)?),
+            "rgba32" => ImageData::RgbaF32(single_pixels(&values.extract::<NdArray>()?)?),
             "rgb8" => ImageData::RgbBytes(pixels(&values.extract::<NdArray<u8>>()?)?),
             "rgba8" => ImageData::RgbaBytes(pixels(&values.extract::<NdArray<u8>>()?)?),
             other => {

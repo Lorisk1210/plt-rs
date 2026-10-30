@@ -165,6 +165,7 @@ impl Figure {
     /// let ax = fig.subplot();
     /// ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
     /// fig.tight_layout(TightLayout::default())?;
+    /// fig.layout(); // where the modern looks keep constrained layout instead
     /// let (x, _, w, _) = ax.position().bounds();
     /// assert!(x < 0.125 && x + w > 0.9);
     /// # Ok::<(), Box<dyn std::error::Error>>(())

@@ -167,7 +167,7 @@ fn describe(transform: Transform) -> PyResult<Described> {
 
 /// `transform` resolved in `figure`'s current layout.
 fn resolved(figure: &Figure, transform: &Transform) -> PyResult<ResolvedTransform> {
-    Ok(figure.resolve_transform(transform)?)
+    Ok(figure.resolve_transform_as_is(transform)?)
 }
 
 /// The points of `values` (`(2,)` or `(N, 2)`) mapped by `transform` in

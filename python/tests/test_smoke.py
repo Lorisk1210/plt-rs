@@ -484,3 +484,57 @@ def test_units_convert_before_reaching_pltrs():
     fruit.bar(["a", "b"], [1, 2])
     fig.canvas.draw()
     assert [t.get_text() for t in fruit.get_xticklabels()] == ["a", "b"]
+
+
+def test_navigation_sees_the_figure_as_matplotlib_leaves_it():
+    from pltrs.backend_bases import MouseButton, MouseEvent, NavigationToolbar2
+    fig, ax = plt.subplots()
+    ax.plot(np.arange(10))
+    ax.set_aspect("equal")
+    # Before a draw, transData maps the view of a fresh axes, (0, 1), onto
+    # the position the aspect has not adjusted yet.
+    x0, y0, width, height = ax.bbox.bounds
+    assert ax.transData.transform((0.5, 0.5)) == pytest.approx(
+        (x0 + width / 2, y0 + height / 2))
+    start = ax.transData.transform((0.5, 0.5)).astype(int)
+    stop = ax.transData.transform((0.2, 0.5)).astype(int)
+    left = MouseButton.LEFT
+    events = [
+        MouseEvent("button_press_event", fig.canvas, *start, button=left),
+        MouseEvent("motion_notify_event", fig.canvas, *stop, button=left,
+                   buttons={left}),
+        MouseEvent("button_release_event", fig.canvas, *stop, button=left)]
+    toolbar = NavigationToolbar2(fig.canvas)
+    toolbar.pan()
+    toolbar.press_pan(events[0])
+    toolbar.drag_pan(events[1])
+    toolbar.release_pan(events[2])
+    assert ax.get_xlim()[0] > 3, "the pan moves the laid out axes"
+    seen = []
+    fig.add_axobserver(seen.append)
+    fig.canvas.grab_mouse(ax)
+    ax.remove()
+    assert seen == [fig] and fig.canvas.mouse_grabber is None
+
+
+def test_blitting_draws_single_artists_onto_the_canvas():
+    fig, ax = plt.subplots(figsize=(2, 2), dpi=50)
+    fig.canvas.draw()
+    background = fig.canvas.copy_from_bbox(ax.bbox)
+    line, = ax.plot([0, 1], [0, 1], color="red", lw=5, animated=True)
+    before = np.asarray(fig.canvas.buffer_rgba()).copy()
+    ax.draw_artist(line)
+    assert (np.asarray(fig.canvas.buffer_rgba()) != before).any()
+    fig.canvas.restore_region(background)
+    assert (np.asarray(fig.canvas.buffer_rgba()) == before).all()
+
+
+def test_pillow_writes_the_formats_matplotlib_writes_with_it():
+    from PIL import Image
+    fig = plt.figure(figsize=(1, 1), dpi=20)
+    gif = io.BytesIO()
+    fig.savefig(gif, format="gif")
+    assert Image.open(gif).mode == "P"
+    tiff = io.BytesIO()
+    fig.savefig(tiff, format="tiff", pil_kwargs={"description": "smoke"})
+    assert Image.open(tiff).tag_v2[270] == "smoke"

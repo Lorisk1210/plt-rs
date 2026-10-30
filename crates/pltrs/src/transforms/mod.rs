@@ -297,6 +297,19 @@ impl crate::figure::Figure {
         state.prepare();
         transform.resolve(&*state)
     }
+
+    /// `transform` as it maps points in the figure's state of now, without
+    /// laying the figure out first.
+    ///
+    /// # Errors
+    ///
+    /// When the transform refers to a removed artist.
+    pub fn resolve_transform_as_is(
+        &self,
+        transform: &Transform,
+    ) -> Result<ResolvedTransform, TransformError> {
+        transform.resolve(&*self.state())
+    }
 }
 
 #[cfg(test)]

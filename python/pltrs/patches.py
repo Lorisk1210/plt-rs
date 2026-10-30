@@ -114,13 +114,38 @@ class Patch(Artist):
 
     def get_verts(self):
         """
-        Return a copy of the vertices used in this patch, in the patch's
-        data coordinates (the patch transform applied).
+        Return a copy of the vertices used in this patch.
+
+        If the patch contains Bézier curves, the curves will be interpolated by
+        line segments.  To access the curves as curves, use `get_path`.
         """
-        polygons = self.get_path().to_polygons(self.get_patch_transform())
+        trans = self.get_transform()
+        path = self.get_path()
+        polygons = path.to_polygons(trans)
         if len(polygons):
             return polygons[0]
         return []
+
+    def contains(self, mouseevent, radius=None):
+        """
+        Test whether the mouse event occurred in the patch.
+
+        Parameters
+        ----------
+        mouseevent : `~matplotlib.backend_bases.MouseEvent`
+            Where the user clicked.
+
+        radius : float, optional
+            Additional margin on the patch in target coordinates of
+            `.Patch.get_transform`. If `None`, the picker if it is a number,
+            else the edge's line width (0 for an invisible edge).
+
+        Returns
+        -------
+        (bool, empty dict)
+        """
+        return self._contains_within(mouseevent,
+                                     float(self._process_radius(radius)))
 
     def _set_native(self, **kwargs):
         """Set native properties by their resolved names, in order."""

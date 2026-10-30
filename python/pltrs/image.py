@@ -75,6 +75,10 @@ def _native_data(A):
         depth = 'rgb' if A.shape[-1] == 3 else 'rgba'
         if A.dtype == np.uint8:
             return depth + '8', np.ma.getdata(A), None
+        if A.dtype == np.float32:
+            # matplotlib resamples single-precision colours in single
+            # precision.
+            return depth + '32', np.ma.getdata(A), None
         return depth, np.ma.getdata(A).astype(float), None
     values = np.ma.getdata(A)
     mask = np.ma.getmaskarray(A) if np.ma.is_masked(A) else None

@@ -98,11 +98,20 @@ __version_info__ = _parse_to_version_info(__version__)
 #: Set by the test configuration (``testing.conftest``) while pytest runs.
 _called_from_pytest = False
 
-#: rcParams pltrs keeps in Python: the backend is chosen by Python code.
-_PYTHON_PARAMS = {"backend": "agg"}
+#: rcParams pltrs keeps in Python: the backend is chosen by Python code,
+#: by pyplot the first time it needs one unless one is set (matplotlib's
+#: ``rcsetup._auto_backend_sentinel``).
+_PYTHON_PARAMS = {"backend": rcsetup._auto_backend_sentinel}
 
 #: The rcParams pltrs (Rust) keeps (matplotlib's, without pltrs (Rust)'s own).
 _NATIVE_KEYS = frozenset(_rcsetup.keys())
+
+#: rcParams whose matplotlib validators warn about a valid value (``toolbar
+#: = 'toolmanager'``): pltrs (Rust) validates every value, and these
+#: validators run again on assignment for their warnings, but not on
+#: reading (they choose among keywords, which pltrs (Rust) keeps in
+#: matplotlib's spelling).
+_WARNING_VALIDATORS = frozenset({"toolbar"})
 
 #: rcParams that ``rcdefaults`` and styles leave alone (matplotlib's
 #: ``style.core.STYLE_BLACKLIST``).
@@ -179,18 +188,37 @@ class RcParams(MutableMapping, dict):
         if validator is None:
             return _rcsetup.get(self._store, key)
         text = _rcsetup.text(self._store, key)
+        if key in _WARNING_VALIDATORS:
+            return text
         given, held = self._given.get(key, (text, text))
         return validator(given if held == text else text)
 
     def __setitem__(self, key, val):
+        if (key == "backend" and val is rcsetup._auto_backend_sentinel
+                and "backend" in self):
+            return
         if key not in _PYTHON_PARAMS and not key.startswith("pltrs."):
             _api.getitem_checked(self.validate, rcParam=key, _error_cls=KeyError)
         self._set(key, val)
+        if key in _WARNING_VALIDATORS:
+            self.validate[key](val)
         if key in {"text.hinting_factor", "text.kerning_factor"} and val is not None:
             _api.warn_deprecated("3.11", name=key, obj_type="rcParam")
 
     def __getitem__(self, key):
+        # In theory, this should only ever be used after the global rcParams
+        # has been set up, but better be safe e.g. in presence of breakpoints.
+        if key == "backend" and self is globals().get("rcParams"):
+            val = self._get(key)
+            if val is rcsetup._auto_backend_sentinel:
+                from . import pyplot as plt
+                plt.switch_backend(rcsetup._auto_backend_sentinel)
         return self._get(key)
+
+    def _get_backend_or_none(self):
+        """Get the requested backend, if any, without triggering resolution."""
+        backend = self._get("backend")
+        return None if backend is rcsetup._auto_backend_sentinel else backend
 
     def __delitem__(self, key):
         if self._keys is None or key not in self._keys:
@@ -535,9 +563,25 @@ def use(backend, *, force=True):
     Parameters
     ----------
     backend : str
-        The backend to switch to: one of the standard backend names, which
-        are case-insensitive, or a string of the form
-        ``module://my.module.name``.
+        The backend to switch to.  This can either be one of the standard
+        backend names, which are case-insensitive:
+
+        - interactive backends:
+          GTK3Agg, GTK3Cairo, GTK4Agg, GTK4Cairo, MacOSX, nbAgg, notebook, QtAgg,
+          QtCairo, TkAgg, TkCairo, WebAgg, WX, WXAgg, WXCairo, Qt5Agg, Qt5Cairo
+
+        - non-interactive backends:
+          agg, cairo, pdf, pgf, ps, svg, template
+
+        or a string of the form: ``module://my.module.name``.
+
+        notebook is a synonym for nbAgg.
+
+        Switching to an interactive backend is not possible if an unrelated
+        event loop has already been started (e.g., switching to GTK3Agg if a
+        TkAgg window has already been opened).  Switching to a non-interactive
+        backend is always possible.
+
     force : bool, default: True
         If True (the default), raise an `ImportError` if the backend cannot be
         set up (either because it fails to import, or because an incompatible
@@ -575,8 +619,23 @@ def use(backend, *, force=True):
 
 
 def get_backend(*, auto_select=True):
-    """Return the name of the current backend."""
-    return rcParams['backend']
+    """
+    Return the name of the current backend.
+
+    Parameters
+    ----------
+    auto_select : bool, default: True
+        Whether to trigger backend resolution if no backend has been
+        selected so far. If True, this ensures that a valid backend
+        is returned. If False, this returns None if no backend has been
+        selected so far.
+    """
+    if auto_select:
+        return rcParams['backend']
+    backend = rcParams._get('backend')
+    if backend is rcsetup._auto_backend_sentinel:
+        return None
+    return backend
 
 
 def _val_or_rc(val, rc_name):

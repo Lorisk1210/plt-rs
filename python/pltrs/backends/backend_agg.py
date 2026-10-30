@@ -11,10 +11,17 @@ from contextlib import nullcontext
 
 import numpy as np
 
+from .. import rc_context
 from .._native import backends as _backends
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
+from ..image import imsave
 from ..transforms import BboxBase
+
+#: The raster formats written by Pillow, as matplotlib writes them: GIF,
+#: whose palette and transparency are Pillow's choice, and AVIF, which
+#: pltrs (Rust) does not encode.
+_PILLOW_FORMATS = frozenset({"gif", "avif"})
 
 
 class BufferRegion:
@@ -75,6 +82,12 @@ class RendererAgg(RendererBase):
 
     def clear(self):
         """Clear the canvas (pltrs (Rust) clears it at every draw)."""
+
+    def _draw_artist(self, artist):
+        """Draw *artist* onto the canvas, over what it holds, placed and
+        clipped as the figure was last laid out (`.Artist.draw` with this
+        renderer, as ``draw_artist`` calls it)."""
+        _backends.draw_artist(self._canvas_figure(), artist._native)
 
     def buffer_rgba(self):
         """The pixels, as a ``memoryview`` of RGBA rows from the top."""
@@ -183,17 +196,39 @@ class FigureCanvasAgg(FigureCanvasBase):
 
     def _print_raster(self, filename_or_obj, fmt, metadata, pil_kwargs,
                       **kwargs):
-        """Write the figure as the raster format *fmt*, after the checks of
-        matplotlib's ``_print_pil``; pltrs (Rust) refuses *metadata* for
-        the formats other than PNG, as matplotlib does."""
+        """
+        Write the figure as the raster format *fmt*. pltrs (Rust) encodes
+        it, refusing *metadata* for the formats other than PNG as
+        matplotlib does, but for what only matplotlib's own writer, Pillow,
+        does: the formats of `_PILLOW_FORMATS`, and *pil_kwargs* other
+        than a JPEG quality.
+        """
         settings = {"metadata": metadata}
-        for key, value in (pil_kwargs or {}).items():
-            if fmt == "jpeg" and key == "quality":
-                settings["jpeg_quality"] = int(value)
-            else:
-                raise NotImplementedError(
-                    f"pltrs: print_{fmt}(pil_kwargs={{{key!r}: ...}})")
+        if fmt == "jpeg" and pil_kwargs is not None and set(pil_kwargs) == {"quality"}:
+            settings["jpeg_quality"] = int(pil_kwargs["quality"])
+        elif fmt in _PILLOW_FORMATS or pil_kwargs:
+            self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata,
+                            **kwargs)
+            return
         self._print_native(fmt, filename_or_obj, **kwargs, **settings)
+
+    def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata,
+                   **kwargs):
+        """
+        Draw the figure with the print settings *kwargs*, then save its
+        pixels using `.image.imsave` (to which *pil_kwargs* and *metadata*
+        are forwarded), as matplotlib's ``_print_pil`` does.
+        """
+        rgba = _backends.print_rgba(self.figure._native,
+                                    self._print_settings(**kwargs))
+        DrawEvent("draw_event", self, None)._process()
+        # savefig() has already applied savefig.facecolor; imsave() blends
+        # semi-transparent JPEG figures against an assumed white background.
+        with (rc_context({"savefig.facecolor": "white"}) if fmt == "jpeg"
+              else nullcontext()):
+            imsave(filename_or_obj, rgba, format=fmt, origin="upper",
+                   dpi=self.figure.dpi, metadata=metadata,
+                   pil_kwargs=pil_kwargs)
 
     def print_raw(self, filename_or_obj, *, metadata=None,
                   bbox_inches_restore=None, facecolor=None, edgecolor=None):
@@ -264,10 +299,17 @@ class FigureCanvasAgg(FigureCanvasBase):
                            bbox_inches_restore=bbox_inches_restore,
                            facecolor=facecolor, edgecolor=edgecolor)
 
+    def print_avif(self, filename_or_obj, *, metadata=None, pil_kwargs=None,
+                   bbox_inches_restore=None, facecolor=None, edgecolor=None):
+        self._print_raster(filename_or_obj, "avif", metadata, pil_kwargs,
+                           bbox_inches_restore=bbox_inches_restore,
+                           facecolor=facecolor, edgecolor=edgecolor)
+
     (print_gif.__doc__,
      print_jpg.__doc__,
      print_tif.__doc__,
-     print_webp.__doc__) = map(
+     print_webp.__doc__,
+     print_avif.__doc__) = map(
         """
         Write the figure to a {} file.
 
@@ -281,7 +323,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         pil_kwargs : dict, optional
             Additional keyword arguments that are passed to
             `PIL.Image.Image.save` when saving the figure.
-        """.format, ["GIF", "JPEG", "TIFF", "WebP"])
+        """.format, ["GIF", "JPEG", "TIFF", "WebP", "AVIF"])
 
 
 @_Backend.export

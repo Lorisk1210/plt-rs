@@ -300,12 +300,26 @@ names itself among the artists to order; the pick then calls it.
 `fig.transFigure`, `subfig.transSubfigure`, `fig.dpi_scale_trans`) are
 `_live_transforms.LiveTransform`s: each holds a pltrs (Rust) `Transform`
 (`Transform::Data(axes)`, ...) that the figure resolves in its current
-layout whenever points go through it, so they follow limits, scales and
+state whenever points go through it, so they follow limits, scales and
 layout engines without matplotlib's invalidation; `ax.bbox` and
 `fig.bbox` are the boxes they map the unit square to. An axes or figure
 makes each once (`_live_transforms.cached`), so `line.get_transform() is
 ax.transData` holds. matplotlib's classes compose with them as with any
 transform.
+
+A live transform resolves the state as it is, without laying the figure
+out (`Figure::resolve_transform_as_is`), because matplotlib's
+transforms read the deferred state too, and its tests compute mouse
+positions with them: before a draw, `ax.transData` still maps the view
+limits autoscaling has not computed yet (`(0, 1)` for a fresh axes), the
+position an aspect has not adjusted yet, and the positions a layout
+engine has not set yet. What matplotlib brings up to date brings pltrs
+(Rust)'s state up to date at the same moments: reading the limits
+autoscales, `get_position()` applies the aspect (`Axes::apply_aspect`,
+which leaves the layout engine to the next draw) and a draw lays the
+whole figure out. `canvas.inaxes` and `Axes.contains_point` test the
+axes where it is now, as matplotlib's patch test does. A removed axes
+keeps its transforms, at its last position in the figure.
 
 `_live_transforms` is the one bridge between the two trees, both ways:
 
@@ -524,7 +538,10 @@ Backends are matplotlib's: `backends.backend_registry` names them,
 `new_figure_manager` and `show` from its `FigureCanvas` (the `_Backend`
 export machinery), and `pyplot.figure` makes managers through it. The
 GUI-toolkit backends (Qt, GTK, Tk, wx, macOS) are not there: loading one
-raises `ImportError`, as matplotlib does without the toolkit.
+raises `ImportError`, as matplotlib does without the toolkit. As in
+matplotlib, `rcParams['backend']` starts as `rcsetup._auto_backend_sentinel`,
+which pyplot resolves the first time it needs a backend (trying the GUI
+backends, then `agg`).
 
 A canvas draws and prints through the figure's native handle
 (`_native.backends`):
@@ -532,7 +549,10 @@ A canvas draws and prints through the figure's native handle
 * `FigureCanvasAgg.draw` draws the figure onto the raster canvas pltrs
   (Rust) keeps per figure; `buffer_rgba`, `copy_from_bbox`,
   `restore_region` and `blit` work on it, and `RendererAgg` stands for
-  it.
+  it: `Artist.draw` with it draws the artist onto that canvas, which is
+  how `Axes.draw_artist` and `Figure.draw_artist` blit (`axes/_blitting.py`,
+  `_figure_interaction.py`). The vector canvases' `draw` lays the figure
+  out without output, as matplotlib's `draw_without_rendering`.
 * `Figure.savefig` hands over to `FigureCanvasBase.print_figure`, which
   resolves the keywords (format, dpi, colours, `bbox_inches`), switches
   to the canvas of the format or of `backend=`, and calls its
@@ -543,6 +563,12 @@ A canvas draws and prints through the figure's native handle
   `transparent` as the canvas's `_transparent` while saving. A print
   method's `metadata` goes to pltrs (Rust) with the other settings, which
   refuses it for the formats that cannot hold it, as matplotlib does.
+  matplotlib writes its raster formats other than PNG and raw RGBA with
+  Pillow; pltrs (Rust) encodes them, except GIF (whose palette and
+  transparency are Pillow's), AVIF (which pltrs (Rust) does not encode)
+  and any `pil_kwargs` but a JPEG `quality`: those are drawn by pltrs
+  (Rust) (`_native.backends.print_rgba`) and saved by `image.imsave`
+  through Pillow, as matplotlib's `_print_pil` saves them.
 * Canvas callbacks belong to the figure (`figure._canvas_callbacks`), so
   that they survive a change of canvas.
 

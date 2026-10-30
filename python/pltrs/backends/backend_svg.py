@@ -130,6 +130,10 @@ class FigureCanvasSVG(FigureCanvasBase):
     def get_default_filetype(self):
         return 'svg'
 
+    def draw(self):
+        self.figure.draw_without_rendering()
+        return super().draw()
+
 
 FigureManagerSVG = FigureManagerBase
 

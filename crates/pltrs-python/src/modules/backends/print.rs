@@ -179,6 +179,16 @@ fn print_figure(figure: Figure, format: String, settings: PrintSettings) -> PyRe
     Ok(Bytes(figure.to_format(format, options)?))
 }
 
+/// The pixels of the figure printed with `settings` for a raster file:
+/// straight-alpha RGBA rows from the top, as a `height × width × 4`
+/// array, for the formats the program's image writer encodes
+/// (`FigureCanvasAgg._print_pil`).
+fn print_rgba(figure: Figure, settings: PrintSettings) -> PyResult<NdArray<u8>> {
+    let image = figure.render_raster_with(settings.0)?.to_image();
+    let shape = vec![image.height(), image.width(), 4];
+    NdArray::with_shape(image.into_data(), shape)
+}
+
 /// The creator pltrs (Rust) records in the documents it writes
 /// (`pltrs v0.1.0`).
 fn default_creator() -> PyResult<Option<String>> {
@@ -188,6 +198,7 @@ fn default_creator() -> PyResult<Option<String>> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("print_figure", print_figure)?;
+    module.add("print_rgba", print_rgba)?;
     module.add("default_creator", default_creator)
 }
 
@@ -244,6 +255,20 @@ mod tests {
             let svg = print(&native, "svg", svg).unwrap().repr().unwrap();
             assert!(svg.contains("<dc:title>b</dc:title>") && !svg.contains("dc:format"));
         });
+    }
+
+    #[test]
+    fn the_printed_pixels_come_as_an_array() {
+        use pltrs::figure::Figure;
+
+        let figure = Figure::with_size(2.0, 1.0, 50.0);
+        let settings = super::PrintSettings(pltrs::figure::SaveOptions {
+            dpi: Some(10.0),
+            ..pltrs::figure::SaveOptions::default()
+        });
+        let pixels = super::print_rgba(figure, settings).unwrap();
+        assert_eq!(pixels.shape, [10, 20, 4]);
+        assert_eq!(pixels.data[..4], [255, 255, 255, 255], "a white figure");
     }
 
     #[test]

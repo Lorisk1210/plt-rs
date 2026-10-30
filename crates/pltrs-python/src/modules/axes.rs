@@ -135,7 +135,7 @@ fn axspan(
 fn display_to_data(axes: Axes, x: f64, y: f64) -> PyResult<(f64, f64)> {
     let figure = axes.figure();
     let to_display = figure
-        .resolve_transform(&axes.trans_data())
+        .resolve_transform_as_is(&axes.trans_data())
         .map_err(|err| PyErr::value_error(err.to_string()))?;
     let to_data = to_display
         .inverted()

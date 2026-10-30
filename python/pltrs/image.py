@@ -24,7 +24,7 @@ from . import _api, _image, cbook, colorizer as mcolorizer, colors as mcolors
 # the image namespace
 from ._image import *  # noqa: F401, F403
 from ._native import image as _native_image
-from .transforms import Affine2D
+from .transforms import Affine2D, BboxBase, TransformedBbox
 
 _log = logging.getLogger(__name__)
 
@@ -152,6 +152,53 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     zorder = 0
 
+    def __init__(self, ax,
+                 cmap=None,
+                 norm=None,
+                 colorizer=None,
+                 interpolation=None,
+                 origin=None,
+                 filternorm=True,
+                 filterrad=4.0,
+                 resample=False,
+                 *,
+                 interpolation_stage=None,
+                 **kwargs
+                 ):
+        # pltrs: the image's settings are checked as matplotlib's setters
+        # check them and given to the native image each class makes
+        # (``_new_native(colorizer, spec)``), loose until an axes or figure
+        # adopts it.
+        colorizer = self._get_colorizer(cmap, norm, colorizer)
+        origin = _val_or_rc(origin, 'image.origin')
+        _api.check_in_list(["upper", "lower"], origin=origin)
+        interpolation = _val_or_rc(interpolation, 'image.interpolation').lower()
+        _api.check_in_list(interpolations_names, interpolation=interpolation)
+        interpolation_stage = _val_or_rc(interpolation_stage,
+                                         'image.interpolation_stage')
+        _api.check_in_list(['data', 'rgba', 'auto'], s=interpolation_stage)
+        filterrad = float(filterrad)
+        if filterrad <= 0:
+            raise ValueError("The filter radius must be a positive number")
+        self._native = self._new_native(colorizer, {
+            'interpolation': interpolation,
+            'interpolation_stage': interpolation_stage,
+            'origin': origin,
+            'filternorm': bool(filternorm),
+            'filterrad': filterrad,
+            'resample': bool(_val_or_rc(resample, 'image.resample')),
+        })
+        super().__init__(colorizer)
+        self.axes = ax
+        self._internal_update(kwargs)
+
+    def __str__(self):
+        try:
+            shape = self.get_shape()
+            return f"{type(self).__name__}(shape={shape!r})"
+        except RuntimeError:
+            return type(self).__name__
+
     def _set_mapped_data(self, colorizer, A):
         """Attach the image pltrs (Rust) made to its *colorizer* and its
         data *A*."""
@@ -162,7 +209,8 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         Call this whenever the mappable is changed so observers can update.
         """
-        _native_image.set_mapping(self._native, self.cmap, self.norm)
+        _native_image.set_mapping(self._native, self.cmap, self.norm,
+                                  self._norm_replaced())
         super().changed()
 
     def get_size(self):
@@ -374,10 +422,73 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
 class AxesImage(_ImageBase):
     """
-    An image attached to an Axes.
+    An image with pixels on a regular grid, attached to an Axes.
 
-    pltrs makes them with `~.Axes.imshow`.
+    Parameters
+    ----------
+    ax : `~matplotlib.axes.Axes`
+        The Axes the image will belong to.
+    cmap : str or `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
+        The Colormap instance or registered colormap name used to map scalar
+        data to colors.
+    norm : str or `~matplotlib.colors.Normalize`
+        Maps luminance to 0-1.
+    interpolation : str, default: :rc:`image.interpolation`
+        The interpolation used when resampling.
+    interpolation_stage : {'data', 'rgba'}, default: 'data'
+        Whether to interpolate the data or the colors.
+    origin : {'upper', 'lower'}, default: :rc:`image.origin`
+        Place the [0, 0] index of the array in the upper left or lower left
+        corner of the Axes.
+    extent : tuple, optional
+        The data axes (left, right, bottom, top) for making image plots
+        registered with data plots.  Default is to label the pixel
+        centers with the zero-based row and column indices.
+    filternorm : bool, default: True
+        A parameter for the antigrain image resize filter.
+    filterrad : float > 0, default: 4
+        The filter radius for filters that have a radius parameter.
+    resample : bool, default: False
+        When True, use a full resampling method. When False, only resample
+        when the output image is larger than the input image.
+    **kwargs : `~matplotlib.artist.Artist` properties
     """
+
+    def __init__(self, ax,
+                 *,
+                 cmap=None,
+                 norm=None,
+                 colorizer=None,
+                 interpolation=None,
+                 origin=None,
+                 extent=None,
+                 filternorm=True,
+                 filterrad=4.0,
+                 resample=False,
+                 interpolation_stage=None,
+                 **kwargs
+                 ):
+        self._extent_given = extent  # for _new_native
+        super().__init__(
+            ax,
+            cmap=cmap,
+            norm=norm,
+            colorizer=colorizer,
+            interpolation=interpolation,
+            origin=origin,
+            filternorm=filternorm,
+            filterrad=filterrad,
+            resample=resample,
+            interpolation_stage=interpolation_stage,
+            **kwargs
+        )
+        del self._extent_given
+
+    def _new_native(self, colorizer, spec):
+        extent = self._extent_given
+        return _native_image.new_axes_image(colorizer.cmap, colorizer.norm, {
+            **spec,
+            'extent': None if extent is None else tuple(map(float, extent))})
 
     @property
     def origin(self):
@@ -726,19 +837,243 @@ def _pil_png_to_float_array(pil_png):
     raise ValueError(f"Unknown PIL rawmode: {rawmode}")
 
 
+def _grid_cursor_data(image, event):
+    """The value of the cell of *image* (with cell boundaries or pixel
+    centres ``_Ax`` and ``_Ay``) under *event*, None outside the grid
+    (matplotlib's ``get_cursor_data`` of the images on grids)."""
+    x, y = event.xdata, event.ydata
+    if (x < image._Ax[0] or x > image._Ax[-1] or
+            y < image._Ay[0] or y > image._Ay[-1]):
+        return None
+    j = np.searchsorted(image._Ax, x) - 1
+    i = np.searchsorted(image._Ay, y) - 1
+    return image._A[i, j]
+
+
 class NonUniformImage(AxesImage):
-    """An image with pixels on a rectilinear, non-uniform grid."""
+    """
+    An image with pixels on a rectilinear grid.
+
+    In contrast to `.AxesImage`, where pixels are on a regular grid,
+    NonUniformImage allows rows and columns with individual heights / widths.
+    """
+
+    def __init__(self, ax, *, interpolation='nearest', **kwargs):
+        """
+        Parameters
+        ----------
+        ax : `~matplotlib.axes.Axes`
+            The Axes the image will belong to.
+        interpolation : {'nearest', 'bilinear'}, default: 'nearest'
+            The interpolation scheme used in the resampling.
+        **kwargs
+            All other keyword arguments are identical to those of `.AxesImage`.
+        """
+        super().__init__(ax, **kwargs)
+        self.set_interpolation(interpolation)
+
+    def _new_native(self, colorizer, spec):
+        return _native_image.new_nonuniform_image(
+            colorizer.cmap, colorizer.norm, 'nearest')
+
+    def set_data(self, x, y, A):
+        """
+        Set the grid for the pixel centers, and the pixel values.
+
+        Parameters
+        ----------
+        x, y : 1D array-like
+            Monotonic arrays of shapes (N,) and (M,), respectively, specifying
+            pixel centers.
+        A : array-like
+            (M, N) `~numpy.ndarray` or masked array of values to be
+            colormapped, or (M, N, 3) RGB array, or (M, N, 4) RGBA array.
+        """
+        A = self._normalize_image_array(A)
+        x = np.array(x, np.float32)
+        y = np.array(y, np.float32)
+        if not (x.ndim == y.ndim == 1 and A.shape[:2] == y.shape + x.shape):
+            raise TypeError("Axes don't match array shape")
+        self._A = A
+        self._Ax = x
+        self._Ay = y
+        _native_image.set_grid_data(self._native, x.astype(float).tolist(),
+                                    y.astype(float).tolist(), _native_data(A))
+
+    def set_array(self, *args):
+        raise NotImplementedError('Method not supported')
+
+    def get_interpolation(self):
+        """Return the interpolation: 'nearest' or 'bilinear'."""
+        return _native_image.get_nonuniform_interpolation(self._native)
+
+    def set_interpolation(self, s):
+        """
+        Parameters
+        ----------
+        s : {'nearest', 'bilinear'} or None
+            If None, use :rc:`image.interpolation`.
+        """
+        if s is not None and s not in ('nearest', 'bilinear'):
+            raise NotImplementedError('Only nearest neighbor and '
+                                      'bilinear interpolations are supported')
+        # matplotlib draws any interpolation but 'nearest' bilinearly.
+        s = _val_or_rc(s, 'image.interpolation')
+        _native_image.set_nonuniform_interpolation(
+            self._native, 'nearest' if s == 'nearest' else 'bilinear')
+
+    def get_extent(self):
+        if self._A is None:
+            raise RuntimeError('Must set data first')
+        return self._Ax[0], self._Ax[-1], self._Ay[0], self._Ay[-1]
+
+    def set_filternorm(self, filternorm):
+        pass
+
+    def set_filterrad(self, filterrad):
+        pass
+
+    def set_norm(self, norm):
+        if self._A is not None:
+            raise RuntimeError('Cannot change colors after loading data')
+        super().set_norm(norm)
+
+    def set_cmap(self, cmap):
+        if self._A is not None:
+            raise RuntimeError('Cannot change colors after loading data')
+        super().set_cmap(cmap)
+
+    def get_cursor_data(self, event):
+        # docstring inherited
+        return _grid_cursor_data(self, event)
 
 
 class PcolorImage(AxesImage):
     """
-    Make a pcolor-style plot with an irregular rectangular grid (as
-    `~.Axes.pcolorfast` makes).
+    Make a pcolor-style plot with an irregular rectangular grid.
+
+    This uses a variation of the original irregular image code,
+    and it is used by pcolorfast for the corresponding grid type.
     """
+
+    def __init__(self, ax,
+                 x=None,
+                 y=None,
+                 A=None,
+                 *,
+                 cmap=None,
+                 norm=None,
+                 colorizer=None,
+                 **kwargs
+                 ):
+        """
+        Parameters
+        ----------
+        ax : `~matplotlib.axes.Axes`
+            The Axes the image will belong to.
+        x, y : 1D array-like, optional
+            Monotonic arrays of length N+1 and M+1, respectively, specifying
+            rectangle boundaries.  If not given, will default to
+            ``range(N + 1)`` and ``range(M + 1)``, respectively.
+        A : array-like
+            The data to be color-coded: (M, N) values to be colormapped, or
+            (M, N, 3) RGB, or (M, N, 4) RGBA.
+        cmap : str or `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
+            The Colormap instance or registered colormap name used to map
+            scalar data to colors.
+        norm : str or `~matplotlib.colors.Normalize`
+            Maps luminance to 0-1.
+        **kwargs : `~matplotlib.artist.Artist` properties
+        """
+        super().__init__(ax, norm=norm, cmap=cmap, colorizer=colorizer)
+        self._internal_update(kwargs)
+        if A is not None:
+            self.set_data(x, y, A)
+
+    def _new_native(self, colorizer, spec):
+        return _native_image.new_pcolor_image(colorizer.cmap, colorizer.norm)
+
+    def set_data(self, x, y, A):
+        """
+        Set the grid for the rectangle boundaries, and the data values.
+
+        Parameters
+        ----------
+        x, y : 1D array-like, optional
+            Monotonic arrays of length N+1 and M+1, respectively, specifying
+            rectangle boundaries.  If not given, will default to
+            ``range(N + 1)`` and ``range(M + 1)``, respectively.
+        A : array-like
+            The data to be color-coded: (M, N) values to be colormapped, or
+            (M, N, 3) RGB, or (M, N, 4) RGBA.
+        """
+        A = self._normalize_image_array(A)
+        x = np.arange(0., A.shape[1] + 1) if x is None else np.array(x, float).ravel()
+        y = np.arange(0., A.shape[0] + 1) if y is None else np.array(y, float).ravel()
+        if A.shape[:2] != (y.size - 1, x.size - 1):
+            raise ValueError(
+                "Axes don't match array shape. Got %s, expected %s." %
+                (A.shape[:2], (y.size - 1, x.size - 1)))
+        # For efficient cursor readout, ensure x and y are increasing.
+        if x[-1] < x[0]:
+            x = x[::-1]
+            A = A[:, ::-1]
+        if y[-1] < y[0]:
+            y = y[::-1]
+            A = A[::-1]
+        self._A = A
+        self._Ax = x
+        self._Ay = y
+        _native_image.set_grid_data(self._native, x.tolist(), y.tolist(),
+                                    _native_data(A))
+
+    def set_array(self, *args):
+        raise NotImplementedError('Method not supported')
+
+    def get_cursor_data(self, event):
+        # docstring inherited
+        return _grid_cursor_data(self, event)
 
 
 class FigureImage(_ImageBase):
-    """An image attached to a figure (as `~.Figure.figimage` makes)."""
+    """An image attached to a figure."""
+
+    zorder = 0
+
+    _interpolation = 'nearest'
+
+    def __init__(self, fig,
+                 *,
+                 cmap=None,
+                 norm=None,
+                 colorizer=None,
+                 offsetx=0,
+                 offsety=0,
+                 origin=None,
+                 **kwargs
+                 ):
+        """
+        cmap is a colors.Colormap instance
+        norm is a colors.Normalize instance to map luminance to 0-1
+
+        kwargs are an optional list of Artist keyword args
+        """
+        self.ox = offsetx
+        self.oy = offsety
+        super().__init__(
+            None,
+            norm=norm,
+            cmap=cmap,
+            colorizer=colorizer,
+            origin=origin
+        )
+        self._internal_update(kwargs)
+        self.magnification = 1.0
+
+    def _new_native(self, colorizer, spec):
+        return _native_image.new_figure_image(
+            colorizer.cmap, colorizer.norm, spec['origin'],
+            (float(self.ox), float(self.oy)))
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
@@ -746,7 +1081,104 @@ class FigureImage(_ImageBase):
 
 
 class BboxImage(_ImageBase):
-    """The Image class whose size is determined by the given bbox."""
+    """
+    The Image class whose size is determined by the given bbox.
+
+    Parameters
+    ----------
+    bbox : BboxBase or Callable[RendererBase, BboxBase]
+        The bbox or a function to generate the bbox
+    cmap : str or `~matplotlib.colors.Colormap`, default: :rc:`image.cmap`
+        The Colormap instance or registered colormap name used to map scalar
+        data to colors. This parameter is ignored if X is RGB(A).
+    norm : str or `~matplotlib.colors.Normalize`
+        Maps luminance to 0-1. This parameter is ignored if X is RGB(A).
+    interpolation : str, default: :rc:`image.interpolation`
+        The interpolation used when resampling.
+    origin : {'upper', 'lower'}, default: :rc:`image.origin`
+        Place the [0, 0] index of the array in the upper left or lower left
+        corner of the Axes.
+    filternorm : bool, default: True
+        A parameter for the antigrain image resize filter.
+    filterrad : float > 0, default: 4
+        The filter radius for filters that have a radius parameter.
+    resample : bool, default: False
+        When True, use a full resampling method. When False, only resample
+        when the output image is larger than the input image.
+    **kwargs : `~matplotlib.artist.Artist` properties
+    """
+
+    def __init__(self, bbox,
+                 *,
+                 cmap=None,
+                 norm=None,
+                 colorizer=None,
+                 interpolation=None,
+                 origin=None,
+                 filternorm=True,
+                 filterrad=4.0,
+                 resample=False,
+                 **kwargs
+                 ):
+        super().__init__(
+            None,
+            cmap=cmap,
+            norm=norm,
+            colorizer=colorizer,
+            interpolation=interpolation,
+            origin=origin,
+            filternorm=filternorm,
+            filterrad=filterrad,
+            resample=resample,
+            **kwargs
+        )
+        self.bbox = bbox
+
+    def _new_native(self, colorizer, spec):
+        return _native_image.new_bbox_image(
+            _native_data(np.zeros((0, 0))), colorizer.cmap, colorizer.norm,
+            spec)
+
+    @property
+    def bbox(self):
+        """The bbox the image fills, or the function giving it (None for
+        the image of an `.OffsetImage`, which its box places)."""
+        return self.__dict__.get('_bbox')
+
+    @bbox.setter
+    def bbox(self, bbox):
+        from . import _live_transforms
+        if isinstance(bbox, TransformedBbox):
+            _native_image.set_bbox(
+                self._native, tuple(map(float, bbox._bbox.extents)),
+                _live_transforms.to_native(bbox._transform))
+        elif isinstance(bbox, BboxBase):
+            _native_image.set_bbox(
+                self._native, tuple(map(float, bbox.extents)), None)
+        elif callable(bbox):
+            raise NotImplementedError("pltrs: BboxImage(bbox=<callable>)")
+        self._bbox = bbox
+
+    def get_window_extent(self, renderer=None):
+        if self.bbox is None:
+            # The image of an offset box: where the box placed it.
+            return super().get_window_extent(renderer)
+        if isinstance(self.bbox, BboxBase):
+            return self.bbox
+        elif callable(self.bbox):
+            if renderer is None:
+                renderer = self.get_figure()._get_renderer()
+            return self.bbox(renderer)
+        else:
+            raise ValueError("Unknown type of bbox")
+
+    def contains(self, mouseevent):
+        """Test whether the mouse event occurred within the image."""
+        if self._different_canvas(mouseevent) or not self.get_visible():
+            return False, {}
+        x, y = mouseevent.x, mouseevent.y
+        inside = self.get_window_extent().contains(x, y)
+        return inside, {}
 
     @classmethod
     def _loose(cls, A, *, cmap=None, norm=None, interpolation=None,

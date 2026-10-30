@@ -274,7 +274,11 @@ impl ContourSet {
     fn label_indices(&self, requested: Option<&[f64]>) -> Result<Vec<usize>, ContourError> {
         let levels = self.levels();
         let Some(requested) = requested else {
-            return Ok((0..levels.len()).collect());
+            // matplotlib zips the levels with the indices of the coloured
+            // values: one per band of a filled set, one fewer than its
+            // levels when not extended.
+            let values = self.read(|state| state.cvalues.len());
+            return Ok((0..levels.len().min(values)).collect());
         };
         let indices: Vec<usize> = (0..levels.len())
             .filter(|&i| requested.contains(&levels[i]))
@@ -437,18 +441,20 @@ mod tests {
             ..ContourOptions::default()
         };
         let cs = ax.contourf(&QuadField::new(z), options).unwrap();
+        // By default, as in matplotlib, the bands are labelled with their
+        // lower levels.
+        assert!(cs.clabel(ClabelOptions::default()).is_ok());
+        let highest = ClabelOptions {
+            levels: Some(vec![4.0]),
+            ..ClabelOptions::default()
+        };
         assert_eq!(
-            cs.clabel(ClabelOptions::default()).unwrap_err(),
+            cs.clabel(highest).unwrap_err(),
             ContourError::LevelIndex {
                 index: 1,
                 levels: 1
             }
         );
-        let lowest = ClabelOptions {
-            levels: Some(vec![1.0]),
-            ..ClabelOptions::default()
-        };
-        assert!(cs.clabel(lowest).is_ok());
     }
 
     #[test]

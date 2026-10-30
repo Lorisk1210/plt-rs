@@ -9,7 +9,8 @@ makes the image (``_native.image``).
 
 import PIL.Image
 
-from .. import _api, _handles, cbook, colorizer as mcolorizer, image as mimage
+from .. import _api, _handles, _live_transforms, cbook, colorizer as mcolorizer
+from .. import image as mimage
 from .._native import image as _native_image
 from .._preprocess import _preprocess_data
 from ._artist_list import ArtistList
@@ -75,6 +76,9 @@ class ImagingMixin:
             'filternorm': bool(filternorm),
             'filterrad': filterrad,
             'resample': None if resample is None else bool(resample),
+            # Which coordinates the image is in decides whether imshow sets
+            # the aspect (the transform itself is set with the properties).
+            'transform': _live_transforms.given_to_native(kwargs.get('transform')),
         }
         native = _native_image.imshow(self._native, mimage._native_data(A),
                                       colorizer.cmap, colorizer.norm, spec)

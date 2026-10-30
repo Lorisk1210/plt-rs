@@ -46,19 +46,57 @@ class TriInterpolator:
         _api.check_isinstance((TriFinder, None), trifinder=trifinder)
         self._trifinder = trifinder or self._triangulation.get_trifinder()
 
-    def _interpolate(self, x, y):
-        """The values and gradients at *x*, *y*, masked outside the grid."""
+    def _interpolate_multikeys(self, x, y, tri_index=None,
+                               return_keys=('z',)):
+        """
+        Versatile (private) method defined for all TriInterpolators: the
+        interpolated values and derivatives *return_keys* names at the
+        points *x*, *y* (of any shape), masked outside the grid. pltrs
+        (Rust) interpolates.
+
+        Parameters
+        ----------
+        x, y : array-like
+            x and y coordinates where interpolated values are requested.
+        tri_index : array-like of int, optional
+            Array of the containing triangle indices, same shape as
+            *x* and *y*. Defaults to None. If None, these indices
+            will be computed by a TriFinder instance.
+            (Note: For point outside the grid, tri_index[ipt] shall be -1).
+        return_keys : tuple of keys from {'z', 'dzdx', 'dzdy'}
+            Defines the interpolation arrays to return, and in which order.
+
+        Returns
+        -------
+        list of arrays
+            Each array-like contains the expected interpolated values in the
+            order defined by *return_keys* parameter.
+        """
         x = np.asarray(x, dtype=np.float64)
         y = np.asarray(y, dtype=np.float64)
         sh_ret = x.shape
         if x.shape != y.shape:
             raise ValueError("x and y shall have same shapes."
                              f" Given: {x.shape} and {y.shape}")
-        z, dzdx, dzdy = _tri.interpolate(
+        if tri_index is not None:
+            if tri_index.shape != sh_ret:
+                raise ValueError(
+                    "tri_index array is provided and shall"
+                    " have same shape as x and y. Given: "
+                    f"{tri_index.shape} and {sh_ret}")
+            tri_index = np.ravel(tri_index).astype(np.int64)
+        indices = []
+        for return_key in return_keys:
+            try:
+                indices.append({'z': 0, 'dzdx': 1, 'dzdy': 2}[return_key])
+            except KeyError as err:
+                raise ValueError("return_keys items shall take values in"
+                                 " {'z', 'dzdx', 'dzdy'}") from err
+        computed = _tri.interpolate(
             self._triangulation._native, self._z.astype(float), self._native_kind,
-            (np.ravel(x), np.ravel(y)))
-        return [np.ma.masked_invalid(values.reshape(sh_ret), copy=False)
-                for values in (z, dzdx, dzdy)]
+            (np.ravel(x), np.ravel(y)), tri_index)
+        return [np.ma.masked_invalid(computed[index].reshape(sh_ret), copy=False)
+                for index in indices]
 
     def __call__(self, x, y):
         """
@@ -78,7 +116,8 @@ class TriInterpolator:
             corresponding to (*x*, *y*) points outside of the triangulation
             are masked out.
         """
-        return self._interpolate(x, y)[0]
+        return self._interpolate_multikeys(x, y, tri_index=None,
+                                           return_keys=('z',))[0]
 
     def gradient(self, x, y):
         r"""
@@ -101,7 +140,8 @@ class TriInterpolator:
             :math:`\frac{\partial z}{\partial x}` and the second those of
             :math:`\frac{\partial z}{\partial y}`.
         """
-        return self._interpolate(x, y)[1:]
+        return self._interpolate_multikeys(
+            x, y, tri_index=None, return_keys=('dzdx', 'dzdy'))
 
 
 class LinearTriInterpolator(TriInterpolator):

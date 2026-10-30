@@ -3,9 +3,9 @@
 use pltrs::artist::ArtistHandle;
 use pltrs::axes::Axes;
 use pltrs::colors::Color;
-use pltrs::lines::LineStyle;
 use pltrs::spines::{Spine, SpinePosition, SpineSide};
 
+use super::lines::PyLineStyle;
 use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 
@@ -106,15 +106,10 @@ fn set_linewidth(spine: Spine, width: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// Sets the spine's line style from its name or short form.
-fn set_linestyle(spine: Spine, style: String) -> PyResult<()> {
-    let style: LineStyle =
-        style
-            .parse()
-            .map_err(|err: <LineStyle as std::str::FromStr>::Err| {
-                PyErr::value_error(err.to_string())
-            })?;
-    spine.set_linestyle(style);
+/// Sets the spine's line style: a name, a short form or an
+/// `(offset, dashes)` tuple.
+fn set_linestyle(spine: Spine, style: PyLineStyle) -> PyResult<()> {
+    spine.set_linestyle(style.0);
     Ok(())
 }
 

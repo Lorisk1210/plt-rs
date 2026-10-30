@@ -33,6 +33,16 @@ class ContourLabeler:
             A list of `.Text` instances for the labels.
         """
         from .text import Text
+        if self.filled:
+            _api.warn_deprecated(
+                "3.11",
+                message="clabel() is not designed to be used with filled contours and "
+                        "may result in inconsistent plots. Applying clabel() to filled "
+                        "contours is thus deprecated since %(since)s. If you need "
+                        "labels with filled contours, instead draw contour lines "
+                        "using contour() in addition to contourf() and add the labels "
+                        "to the contour lines."
+            )
         if fmt is not None and isinstance(fmt, dict):
             fmt = [(float(level), str(text)) for level, text in fmt.items()]
         elif fmt is not None and not isinstance(fmt, str) and not callable(fmt):
@@ -57,6 +67,36 @@ class ContourLabeler:
                   bool(use_clabeltext)))
         return _handles.wrap_all(texts, Text, self.figure)
 
+    def add_label_near(self, x, y, inline=True, inline_spacing=5,
+                       transform=None):
+        """
+        Add a label near the point ``(x, y)``.
+
+        Parameters
+        ----------
+        x, y : float
+            The approximate location of the label.
+        inline : bool, default: True
+            If *True* remove the segment of the contour beneath the label.
+        inline_spacing : int, default: 5
+            Space in pixels to leave on each side of label when placing
+            inline. This spacing will be exact for labels at locations where
+            the contour is straight, less so for labels on curved contours.
+        transform : `.Transform` or `False`, default: ``self.axes.transData``
+            A transform applied to ``(x, y)`` before labeling.  The default
+            causes ``(x, y)`` to be interpreted as data coordinates.  `False`
+            is a synonym for `.IdentityTransform`; i.e. ``(x, y)`` should be
+            interpreted as display coordinates.
+        """
+        from .text import Text
+        if transform is None:
+            transform = self.axes.transData
+        if transform:
+            x, y = transform.transform((x, y))
+        text = _contour.add_label_near(self._contour, (float(x), float(y)),
+                                       bool(inline), float(inline_spacing))
+        return _handles.wrap(text, Text, self.figure)
+
     @property
     def labelTexts(self):
         """The label `.Text` instances."""
@@ -71,6 +111,58 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
     User-callable method: `~.Axes.clabel`
     """
+
+    def __init__(self, ax, *args, levels=None, filled=False, **kwargs):
+        """
+        Draw contour lines or filled regions, depending on whether keyword
+        arg *filled* is ``False`` (default) or ``True``.
+
+        Call signature::
+
+            ContourSet(ax, levels, allsegs, [allkinds], **kwargs)
+
+        Parameters
+        ----------
+        ax : `~matplotlib.axes.Axes`
+            The `~.axes.Axes` object to draw on.
+        levels : [level0, level1, ..., leveln]
+            A list of floating point numbers indicating the contour levels.
+        allsegs : [level0segs, level1segs, ...]
+            List of all the polygon segments for all the *levels*.
+            For contour lines ``len(allsegs) == len(levels)``, and for
+            filled contour regions ``len(allsegs) = len(levels)-1``.
+        allkinds : ``None`` or [level0kinds, level1kinds, ...]
+            Optional list of all the polygon vertex kinds (code types), as
+            described and used in Path.
+        **kwargs
+            Keyword arguments are as described in the docstring of
+            `~.Axes.contour`.
+        """
+        from .axes._plotting.contours import _contour_look, _style
+        levels, allsegs, *rest = args
+        allkinds = rest[0] if rest else None
+        if allkinds is None:
+            allkinds = [[None] * len(segs) for segs in allsegs]
+        # Check lengths of levels and allsegs.
+        if filled:
+            if len(allsegs) != len(levels) - 1:
+                raise ValueError('must be one less number of segments as '
+                                 'levels')
+        else:
+            if len(allsegs) != len(levels):
+                raise ValueError('must be same number of segments as levels')
+        # Check length of allkinds.
+        if len(allkinds) != len(allsegs):
+            raise ValueError('allkinds has different length to allsegs')
+        segments = [[Path(seg, kind) for seg, kind in zip(segs, kinds)]
+                    for segs, kinds in zip(allsegs, allkinds)]
+        look = _contour_look('contourf' if filled else 'contour', kwargs)
+        native = _contour.contour_segments(
+            ax._native, bool(filled), [float(level) for level in levels],
+            segments, *look[:2])
+        _handles.adopt(self, _contour.get_collections(native)[0], ax.figure)
+        self._contour = native
+        _style(self, look, kwargs)
 
     @classmethod
     def _from_contour(cls, contour, axes):
@@ -115,6 +207,12 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def layers(self):
         """The values the levels or bands are coloured by."""
         return _contour.get_layers(self._contour)
+
+    @property
+    def cvalues(self):
+        """The values the levels or bands are mapped to colours by: the
+        layers, or indices into explicitly given colours."""
+        return _contour.get_cvalues(self._contour)[0]
 
     @property
     def filled(self):
@@ -165,6 +263,20 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         return _contour.get_colors(self._contour)
 
     get_edgecolors = get_edgecolor
+
+    def set_edgecolor(self, c):
+        """
+        Set the edge color(s) of the contours: a color or a sequence of
+        colors, cycled over the paths of the levels or bands; ``'none'``,
+        ``'face'`` or None as for any `.Collection`.
+        """
+        if c is None or isinstance(c, str) and c.lower() in ("none", "face"):
+            super().set_edgecolor(c)
+            return
+        _contour.set_edgecolors(
+            self._contour, [tuple(rgba) for rgba in mcolors.to_rgba_array(c)])
+
+    set_edgecolors = set_edgecolor
 
     def find_nearest_contour(self, x, y, indices=None, pixel=True):
         """
@@ -235,13 +347,27 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def changed(self):
         """Call this whenever the mappable is changed to notify listeners."""
         if hasattr(self, "_contour"):
-            _contour.set_mapping(self._contour, self.cmap, self.norm)
+            _contour.set_mapping(self._contour, self.cmap, self.norm,
+                                 self._norm_replaced())
         super(mcoll.Collection, self).changed()
 
     def remove(self):
         """Remove the contour set, its collections and its labels."""
         _contour.remove(self._contour)
         _handles.forget(self)
+
+
+class _ContourGenerator:
+    """
+    What a contour set was generated from (matplotlib keeps a contourpy
+    generator as ``_contour_generator``): the *field* pltrs (Rust) contours
+    again, at other levels, when the contour set is passed to ``contour``,
+    ``contourf`` (the arguments of the native ``contour`` before the levels)
+    or ``tricontour`` and ``tricontourf`` (the triangulation and z).
+    """
+
+    def __init__(self, *field):
+        self.field = field
 
 
 class QuadContourSet(ContourSet):

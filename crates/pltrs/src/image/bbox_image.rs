@@ -16,8 +16,10 @@ use crate::rc::RcParams;
 use crate::transforms::Transform;
 
 /// Options of an image drawn into a box of the canvas (matplotlib's
-/// `BboxImage` keyword arguments, as `OffsetImage` passes them on); unset
-/// ones follow the `image.*` rc parameters.
+/// `BboxImage` keyword arguments, as `OffsetImage` passes them on), which
+/// are also those of an image made for an axes outside any figure
+/// ([`AxesImage::loose`](super::AxesImage::loose)); unset ones follow the
+/// `image.*` rc parameters.
 #[derive(Debug, Default)]
 pub struct BboxImageOptions {
     /// Colormap, norm and limits for scalar data.
@@ -41,6 +43,22 @@ pub struct BboxImageOptions {
 }
 
 impl_colorize!(BboxImageOptions);
+
+impl BboxImageOptions {
+    /// The settings of the image core these options make.
+    pub(super) fn core_settings(self) -> CoreSettings {
+        CoreSettings {
+            colorizer: self.colorizer,
+            interpolation: self.interpolation,
+            stage: self.interpolation_stage,
+            origin: self.origin,
+            filternorm: self.filternorm,
+            filterrad: self.filterrad,
+            resample: self.resample,
+            alpha: self.alpha,
+        }
+    }
+}
 
 /// State of an image filling a box given in display pixels.
 #[derive(Debug)]
@@ -83,17 +101,7 @@ impl BboxImageArtist {
         options: BboxImageOptions,
         rc: &RcParams,
     ) -> Result<Self, ImageError> {
-        let settings = CoreSettings {
-            colorizer: options.colorizer,
-            interpolation: options.interpolation,
-            stage: options.interpolation_stage,
-            origin: options.origin,
-            filternorm: options.filternorm,
-            filterrad: options.filterrad,
-            resample: options.resample,
-            alpha: options.alpha,
-        };
-        let (core, uniform) = ImageCore::build(data, settings, rc)?;
+        let (core, uniform) = ImageCore::build(data, options.core_settings(), rc)?;
         let mut base = ArtistBase::with_zorder(0.0);
         base.alpha = uniform;
         Ok(Self {
@@ -235,7 +243,39 @@ impl BboxImage {
     pub fn shape(&self) -> (usize, usize) {
         self.raw.with::<BboxImageArtist, _>(BboxImageArtist::shape)
     }
+
+    /// Replaces the image array; unset limits of the norm come from new
+    /// scalar data (matplotlib's `set_data`).
+    ///
+    /// ```
+    /// use pltrs::image::{BboxImage, BboxImageOptions, ImageData};
+    /// use pltrs::numeric::Grid;
+    /// let image = BboxImage::loose(ImageData::empty(), BboxImageOptions::default())?;
+    /// image.set_data(Grid::filled(4, 5, 0.5));
+    /// assert_eq!(image.shape(), (4, 5));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    pub fn set_data(&self, data: impl Into<ImageData>) -> &Self {
+        let data = data.into().normalized();
+        self.raw
+            .with_mut::<BboxImageArtist, _>(|image| image.core.replace_data(data));
+        self
+    }
+
+    /// Stretches the image over `bbox`, a box in the coordinates of
+    /// `coords`, found again whenever the image is drawn (matplotlib's
+    /// `BboxImage(TransformedBbox(bbox, coords))`); the image is flipped
+    /// along the directions in which the box is inverted.
+    pub fn set_bbox(&self, bbox: Bbox, coords: Transform) -> &Self {
+        self.raw.with_mut::<BboxImageArtist, _>(|image| {
+            image.region = Some(Region::Transformed(bbox, coords));
+        });
+        self
+    }
 }
+
+super::impl_mapping_changes!(BboxImage, BboxImageArtist);
+super::impl_color_mapped!(BboxImageArtist, core.data, core.mappable);
 
 #[cfg(test)]
 mod tests {

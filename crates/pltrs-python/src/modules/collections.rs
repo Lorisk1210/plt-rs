@@ -369,9 +369,20 @@ fn get_cmap(collection: Collection) -> PyResult<Option<NativeColormap>> {
 }
 
 /// Maps the values of the collection, if it maps any, through `cmap` and
-/// `norm` (the Python colorizer's, handed over when it changes).
-fn set_mapping(collection: Collection, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
-    collection.set_cmap(cmap).set_norm(norm);
+/// `norm` (the Python colorizer's, handed over when it changes): a new
+/// norm when `replaced`, else the collection's norm with new parameters.
+fn set_mapping(
+    collection: Collection,
+    cmap: Colormap,
+    norm: Box<dyn Norm>,
+    replaced: bool,
+) -> PyResult<()> {
+    collection.set_cmap(cmap);
+    if replaced {
+        collection.set_norm(norm);
+    } else {
+        collection.retune_norm(norm);
+    }
     Ok(())
 }
 

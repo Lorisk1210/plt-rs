@@ -15,7 +15,7 @@ use crate::artist::{
     TypedHandle,
 };
 use crate::axes::AxesState;
-use crate::colors::ScalarMappable;
+use crate::colors::{ColorizerOptions, ScalarMappable};
 use crate::numeric::{Grid, linspace};
 
 /// State of an image whose cells have individual widths and heights.
@@ -256,9 +256,36 @@ impl TypedHandle for PcolorImage {
     }
 }
 
+super::impl_mapping_changes!(PcolorImage, PcolorImageArtist);
+super::impl_color_mapped!(PcolorImageArtist, data, mappable);
+
 impl PcolorImage {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
+    }
+
+    /// An image without cells, colour-mapped as `colorizer` says, outside
+    /// any figure until an axes adopts it (matplotlib's `PcolorImage(ax)`
+    /// before `set_data` and `ax.add_image`; see
+    /// [`Axes::adopt_artist`](crate::axes::Axes::adopt_artist)).
+    ///
+    /// ```
+    /// use pltrs::colors::ColorizerOptions;
+    /// use pltrs::image::PcolorImage;
+    /// use pltrs::numeric::Grid;
+    /// let image = PcolorImage::loose(ColorizerOptions::default())?;
+    /// image.set_data(vec![0.0, 1.0, 3.0], vec![0.0, 2.0], Grid::filled(1, 2, 1.0))?;
+    /// assert_eq!(image.edges(), (vec![0.0, 1.0, 3.0], vec![0.0, 2.0]));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap options are invalid.
+    pub fn loose(colorizer: ColorizerOptions) -> Result<Self, ImageError> {
+        let mappable = colorizer.into_mappable(&crate::rc::params())?;
+        let artist = PcolorImageArtist::new(ImageData::empty(), mappable, vec![0.0], vec![0.0]);
+        Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
     }
 
     /// The increasing cell edges `(x, y)`.

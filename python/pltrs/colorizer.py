@@ -578,6 +578,7 @@ class _ScalarMappable(_ColorizerInterface):
         """
         self._A = None
         self._colorizer = colorizer
+        self._handed_norm = colorizer.norm  # see _norm_replaced
 
         self.colorbar = None
         self._id_colorizer = self._colorizer.callbacks.connect('changed', self.changed)
@@ -632,6 +633,17 @@ class _ScalarMappable(_ColorizerInterface):
         """
         self.callbacks.process('changed', self)
         self.stale = True
+
+    def _norm_replaced(self):
+        """
+        Whether the norm is another object than the one last handed to
+        pltrs (Rust), which then resets the tickers of the colorbars, as
+        matplotlib's ``Colorbar.update_normal`` does for a new norm (pltrs:
+        the norm's parameters reach pltrs (Rust) as copies); remembers it.
+        """
+        replaced = self.norm is not self.__dict__.get("_handed_norm")
+        self._handed_norm = self.norm
+        return replaced
 
     @staticmethod
     def _check_exclusionary_keywords(colorizer, **kwargs):

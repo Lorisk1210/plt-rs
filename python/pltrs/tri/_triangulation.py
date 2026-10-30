@@ -202,5 +202,6 @@ class Triangulation:
             if self.mask.shape != (self.triangles.shape[0],):
                 raise ValueError('mask array must have same length as '
                                  'triangles array')
+        # The trifinder, which locates points natively on the current
+        # triangles, stays the same object (matplotlib reinitialises it).
         _tri.set_mask(self._native, None if self.mask is None else self.mask.tolist())
-        self._trifinder = None

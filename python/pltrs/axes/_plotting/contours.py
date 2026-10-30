@@ -4,7 +4,8 @@ Contours: `~.Axes.contour`, `~.Axes.contourf` and `~.Axes.clabel`.
 
 import numpy as np
 
-from ... import _api, collections as mcoll, colors as mcolors, contour as mcontour
+from ... import _api, _tick_helpers, collections as mcoll, colors as mcolors
+from ... import contour as mcontour
 from ..._native import contour as _contour
 from ..._preprocess import _preprocess_data
 from .scatter import _mapping
@@ -30,6 +31,9 @@ def _contour_look(fn, kwargs):
     and whether its colormap is the one pltrs (Rust) makes (no *cmap* is
     given: the default one, or the listed colormap of *colors*).
     """
+    if "color" in kwargs:
+        raise _api.kwarg_error("ContourSet.__init__", "color")
+    locator = kwargs.pop("locator", None)
     for name in ("locator", "transform", "xunits", "yunits"):
         if kwargs.get(name) is not None:
             raise NotImplementedError(f"pltrs: {fn}({name}=...)")
@@ -37,6 +41,8 @@ def _contour_look(fn, kwargs):
     cmap = kwargs.pop("cmap", None)
     if colors is not None and cmap is not None:
         raise ValueError('Either colors or cmap must be None')
+    if colors is not None and mcolors.is_color_like(colors):
+        colors = [colors]  # one colour, 'none' included
     extend = kwargs.pop("extend", "neither")
     _api.check_in_list(['neither', 'both', 'min', 'max'], extend=extend)
     hatches = kwargs.pop("hatches", [None])
@@ -58,7 +64,9 @@ def _contour_look(fn, kwargs):
             [float(w) for w in np.atleast_1d(linewidths)],
             _linestyles(linestyles), _linestyles(negative_linestyles)[0])
     extras = (extend, [None if h is None else str(h) for h in hatches],
-              None if antialiased is None else bool(antialiased))
+              None if antialiased is None else bool(antialiased),
+              None if locator is None
+              else _tick_helpers._description("locator", locator))
     attributes = {"linestyles": linestyles,
                   "negative_linestyles": negative_linestyles}
     return look, extras, attributes, made, cmap is None
@@ -73,9 +81,15 @@ def _finish(cls, native, axes, look, kwargs):
     """The *cls* contour set of *native*, mapping its levels through the
     colorizer of *look* (`_contour_look`), its attributes and remaining
     *kwargs* set."""
+    return _style(cls._from_contour(native, axes), look, kwargs)
+
+
+def _style(contours, look, kwargs):
+    """Map the levels of *contours* through the colorizer of *look*
+    (`_contour_look`) and set its attributes and remaining *kwargs*;
+    return it."""
     from ...cm import _from_native
     _, _, attributes, colorizer, native_cmap = look
-    contours = cls._from_contour(native, axes)
     if native_cmap:
         colorizer.cmap = _from_native(contours._native_cmap())
     contours._attach_native_mapping(colorizer=colorizer)
@@ -91,50 +105,74 @@ class ContoursMixin:
     def _contour(self, filled, args, kwargs):
         """The `.QuadContourSet` of ``contour`` (or, *filled*, ``contourf``)."""
         fn = 'contourf' if filled else 'contour'
-        if 2 < len(args) <= 4:
-            x, y, *rest = args
-            args = (*self._process_unit_info([("x", x), ("y", y)], kwargs), *rest)
-        z, mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
         origin = kwargs.pop("origin", None)
         extent = kwargs.pop("extent", None)
         if origin is not None:
             _api.check_in_list([None, 'lower', 'upper', 'image'], origin=origin)
         generation = (kwargs.pop("corner_mask", None), int(kwargs.pop("nchunk", 0)),
                       kwargs.pop("algorithm", None))
+        if args and isinstance(args[0], mcontour.QuadContourSet):
+            # The field of that contour set is contoured again, at its
+            # levels unless others are given (matplotlib's _process_args).
+            generator = args[0]._contour_generator
+            levels = kwargs.pop("levels", None)
+            if levels is None:
+                levels = args[0].levels
+        else:
+            if 2 < len(args) <= 4:
+                x, y, *rest = args
+                args = (*self._process_unit_info([("x", x), ("y", y)], kwargs), *rest)
+            z, mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
+            generator = mcontour._ContourGenerator(
+                (z, mask, x, y,
+                 (origin, None if extent is None else tuple(map(float, extent)))),
+                generation)
         look = _contour_look(fn, kwargs)
-        native = _contour.contour(
-            self._native, bool(filled),
-            (z, mask, x, y,
-             (origin, None if extent is None else tuple(map(float, extent)))),
-            generation, _levels(levels), *look[:2])
-        return _finish(mcontour.QuadContourSet, native, self, look, kwargs)
+        native = _contour.contour(self._native, bool(filled), *generator.field,
+                                  _levels(levels), *look[:2])
+        contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs)
+        contours._contour_generator = generator
+        return contours
 
     def _tricontour(self, filled, args, kwargs):
         """The `.TriContourSet` of ``tricontour`` (or, *filled*,
         ``tricontourf``)."""
         from ...tri import Triangulation, TriContourSet
         fn = 'tricontourf' if filled else 'tricontour'
-        tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
-        z, *args = args
-        z = np.ma.asarray(z)
-        if z.shape != tri.x.shape:
-            raise ValueError('z array must have same length as triangulation x'
-                             ' and y arrays')
-        z_check = z[np.unique(tri.get_masked_triangles())]
-        if np.ma.is_masked(z_check):
-            raise ValueError('z must not contain masked points within the '
-                             'triangulation')
-        if not np.isfinite(z_check).all():
-            raise ValueError('z array must not contain non-finite values '
-                             'within the triangulation')
         levels = kwargs.pop("levels", None)
-        if levels is None and args:
-            levels = args[0]
+        if args and isinstance(args[0], TriContourSet):
+            # The field of that contour set is contoured again, at its
+            # levels unless others are given (matplotlib's _process_args).
+            generator = args[0]._contour_generator
+            if levels is None:
+                levels = args[0].levels
+        else:
+            tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
+            z, *args = args
+            z = np.ma.asarray(z)
+            if z.shape != tri.x.shape:
+                raise ValueError('z array must have same length as triangulation x'
+                                 ' and y arrays')
+            z_check = z[np.unique(tri.get_masked_triangles())]
+            if np.ma.is_masked(z_check):
+                raise ValueError('z must not contain masked points within the '
+                                 'triangulation')
+            if not np.isfinite(z_check).all():
+                raise ValueError('z array must not contain non-finite values '
+                                 'within the triangulation')
+            if levels is None and args:
+                levels = args[0]
+            if levels is None and np.issubdtype(z.dtype, bool):
+                levels = [0, .5, 1] if filled else [.5]
+            generator = mcontour._ContourGenerator(
+                tri, np.ma.filled(z.astype(float), np.nan))
+        tri, z = generator.field
         look = _contour_look(fn, kwargs)
-        native = _contour.tricontour(
-            self._native, bool(filled), tri._native,
-            np.ma.filled(z.astype(float), np.nan), _levels(levels), *look[:2])
-        return _finish(TriContourSet, native, self, look, kwargs)
+        native = _contour.tricontour(self._native, bool(filled), tri._native, z,
+                                     _levels(levels), *look[:2])
+        contours = _finish(TriContourSet, native, self, look, kwargs)
+        contours._contour_generator = generator
+        return contours
 
     def tricontour(self, *args, **kwargs):
         """

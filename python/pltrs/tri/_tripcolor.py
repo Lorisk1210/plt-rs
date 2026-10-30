@@ -61,6 +61,26 @@ def tripcolor(ax, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
             "shading='gouraud' can only be used when the colors "
             "are specified at the points, not at the faces.")
 
+    if shading == 'flat':
+        # Handling of linewidths, shading, edgecolors and antialiased as
+        # in Axes.pcolor (a Gouraud-shaded mesh draws no edges).
+        linewidths = (0.25,)
+        if 'linewidth' in kwargs:
+            kwargs['linewidths'] = kwargs.pop('linewidth')
+        kwargs.setdefault('linewidths', linewidths)
+
+        edgecolors = 'none'
+        if 'edgecolor' in kwargs:
+            kwargs['edgecolors'] = kwargs.pop('edgecolor')
+        ec = kwargs.setdefault('edgecolors', edgecolors)
+
+        if 'antialiased' in kwargs:
+            kwargs['antialiaseds'] = kwargs.pop('antialiased')
+        if 'antialiaseds' not in kwargs:
+            # pltrs: the antialiasing pltrs (Rust) gave the edges it made
+            # without colour is reset when they are given one.
+            kwargs['antialiaseds'] = False if ec.lower() == "none" else None
+
     made, mapping = _mapping(cmap, norm, vmin, vmax, kwargs.pop('colorizer', None))
     polygons, mesh = _plotting.tripcolor(
         ax._native, tri._native,

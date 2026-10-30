@@ -2,6 +2,8 @@
 //! subplots only (matplotlib's `label_outer`).
 
 use super::{Axes, AxesState, AxisName};
+use crate::artist::ArtistHandle;
+use crate::gridspec::SubplotSpec;
 use crate::spines::SpineSide;
 
 impl Axes {
@@ -44,13 +46,32 @@ impl Axes {
         }
     }
 
+    /// The grid cell the axes counts as in: its own, or, when a colorbar
+    /// took a cell of a grid nested in it, the cell of that grid
+    /// (matplotlib's `_get_subplotspec_with_optional_colorbar`).
+    fn outer_spec(&self) -> Option<SubplotSpec> {
+        let spec = self.subplot_spec()?;
+        let figure = self.raw.figure_state().borrow();
+        let beside_colorbar = figure.layout.colorbars.iter().any(|colorbar| {
+            colorbar.parents.contains(&self.id())
+                && figure
+                    .store
+                    .get_as::<AxesState>(colorbar.cax)
+                    .is_some_and(|cax| cax.subplot_spec.is_some())
+        });
+        let enclosing = beside_colorbar
+            .then(|| spec.gridspec().parent().cloned())
+            .flatten();
+        Some(enclosing.unwrap_or(spec))
+    }
+
     /// matplotlib's `_label_outer_xaxis` / `_label_outer_yaxis`; with
     /// `remove_inner_ticks` the inner tick marks go too.
     fn label_outer_axis(&self, name: AxisName, remove_inner_ticks: bool) {
+        let Some(spec) = self.outer_spec() else {
+            return;
+        };
         self.raw.with_mut::<AxesState, _>(|axes| {
-            let Some(spec) = axes.subplot_spec.clone() else {
-                return;
-            };
             let (inner_low, inner_high) = match name {
                 AxisName::X => (!spec.is_last_row(), !spec.is_first_row()),
                 AxisName::Y => (!spec.is_first_col(), !spec.is_last_col()),
@@ -110,6 +131,20 @@ mod tests {
         assert_eq!(labels(0, 0), (String::new(), "y".into(), (false, true)));
         assert_eq!(labels(1, 1), ("x".into(), String::new(), (true, false)));
         assert_eq!(labels(0, 1), (String::new(), String::new(), (false, false)));
+    }
+
+    #[test]
+    fn label_outer_judges_axes_beside_a_colorbar_by_their_cell() {
+        use crate::colorbar::ColorbarOptions;
+        use crate::colors::{ScalarMappable, colormaps};
+        let fig = Figure::new();
+        let axs = fig.subplots(2, 1).unwrap();
+        let bottom = &axs[(1, 0)];
+        let mapping = ScalarMappable::new(colormaps::get("viridis").unwrap());
+        fig.colorbar(&mapping, ColorbarOptions::beside(bottom))
+            .unwrap();
+        bottom.set_xlabel("x").label_outer();
+        assert_eq!(bottom.label(AxisName::X), "x", "still on the last row");
     }
 
     #[test]

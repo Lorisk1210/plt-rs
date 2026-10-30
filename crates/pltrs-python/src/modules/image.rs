@@ -14,13 +14,14 @@
 //! resampler itself, matplotlib's `_image.resample`, is in [`resample`].
 
 mod figure;
+mod kinds;
 mod resample;
 
 use pltrs::axes::{Axes, ImshowOptions};
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::image::{
-    AxesImage, BboxImage, BboxImageOptions, Extent, FigureImage, ImageAlpha, ImageData, ImageError,
-    Interpolation, InterpolationStage, Origin, ScalarField, VectorImsaveError,
+    AxesImage, BboxImage, Extent, FigureImage, ImageAlpha, ImageData, ImageError, Interpolation,
+    InterpolationStage, Origin, ScalarField, VectorImsaveError,
 };
 use pltrs::numeric::Grid;
 use pltrs::rc::Aspect;
@@ -218,6 +219,7 @@ fn imshow_options(
         filternorm: dict_value(spec, "filternorm")?,
         filterrad: dict_value(spec, "filterrad")?,
         resample: dict_value(spec, "resample")?,
+        transform: dict_value(spec, "transform")?,
         ..ImshowOptions::default()
     })
 }
@@ -247,18 +249,6 @@ fn autoscale_on(axes: Axes) -> PyResult<(bool, bool)> {
 /// The images of `axes`, in the order they were added.
 fn get_images(axes: Axes) -> PyResult<Vec<AxesImage>> {
     Ok(axes.images())
-}
-
-/// Replaces the image's data.
-fn set_data(image: AnyImage, data: ImageArray) -> PyResult<()> {
-    image.set_data(data.0);
-    Ok(())
-}
-
-/// Maps the image through `cmap` and `norm` from now on.
-fn set_mapping(image: AnyImage, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
-    image.set_mapping(cmap, norm);
-    Ok(())
 }
 
 /// The extent `(left, right, bottom, top)` of the image in data
@@ -342,40 +332,15 @@ fn set_resample(image: AxesImage, resample: bool) -> PyResult<()> {
 /// An image of `data` colour-mapped through `cmap` and `norm`, with the
 /// options of the dict `spec` (`interpolation`, `interpolation_stage`,
 /// `origin`, `filternorm`, `filterrad`, `resample`), outside any figure
-/// until an offset box shows it (the `BboxImage` of an `OffsetImage`).
+/// until an offset box shows it (the `BboxImage` of an `OffsetImage`) or
+/// an axes or figure adopts it (`BboxImage(bbox)`).
 fn new_bbox_image(
     data: ImageArray,
     cmap: Colormap,
     norm: Box<dyn Norm>,
     spec: Owned,
 ) -> PyResult<BboxImage> {
-    let options = Python::with_gil(|py| -> PyResult<BboxImageOptions> {
-        let spec = spec.bind(py);
-        let named = |key: &str| -> PyResult<Option<String>> { dict_value(&spec, key) };
-        Ok(BboxImageOptions {
-            colorizer: ColorizerOptions {
-                cmap: Some(cmap),
-                norm: Some(NormSpec::Norm(norm)),
-                ..ColorizerOptions::default()
-            },
-            interpolation: named("interpolation")?
-                .as_deref()
-                .map(parse::<Interpolation>)
-                .transpose()?,
-            interpolation_stage: named("interpolation_stage")?
-                .as_deref()
-                .map(parse::<InterpolationStage>)
-                .transpose()?,
-            origin: named("origin")?
-                .as_deref()
-                .map(parse::<Origin>)
-                .transpose()?,
-            filternorm: dict_value(&spec, "filternorm")?,
-            filterrad: dict_value(&spec, "filterrad")?,
-            resample: dict_value(&spec, "resample")?,
-            alpha: None,
-        })
-    })?;
+    let options = Python::with_gil(|py| kinds::image_options(cmap, norm, &spec.bind(py)))?;
     Ok(BboxImage::loose(data.0, options)?)
 }
 
@@ -446,11 +411,10 @@ fn set_image_alpha(image: AnyImage, alpha: Option<Alpha>) -> PyResult<()> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     resample::register(module)?;
+    kinds::register(module)?;
     module.add("imshow", imshow)?;
     module.add("get_images", get_images)?;
     module.add("autoscale_on", autoscale_on)?;
-    module.add("set_data", set_data)?;
-    module.add("set_mapping", set_mapping)?;
     module.add("get_extent", get_extent)?;
     module.add("set_extent", set_extent)?;
     module.add("get_interpolation", get_interpolation)?;

@@ -91,6 +91,89 @@ pub use vector_save::{VectorImsaveError, imsave_vector};
 
 use crate::rc::RcParams;
 
+/// Gives an image handle type the changes of its colour mapping
+/// (matplotlib's `set_cmap`, `set_norm` and `set_clim`, and the norm
+/// changed in place), through the [`ColorMapped`](crate::colorizer::ColorMapped)
+/// artist state behind it: the image is recoloured and its colorbars
+/// follow.
+macro_rules! impl_mapping_changes {
+    ($handle:ty, $artist:ty) => {
+        impl $handle {
+            /// Replaces the colormap; the image's colorbars follow.
+            pub fn set_cmap(&self, cmap: $crate::colors::Colormap) -> &Self {
+                $crate::colorizer::change_mapping::<$artist>(
+                    &self.raw,
+                    $crate::colorizer::MappingChange::Cmap(Box::new(cmap)),
+                );
+                self
+            }
+
+            /// Replaces the norm, whose unset limits come from the data;
+            /// the image's colorbars follow with the norm's scale and
+            /// ticks.
+            pub fn set_norm(&self, norm: Box<dyn $crate::colors::Norm>) -> &Self {
+                $crate::colorizer::change_mapping::<$artist>(
+                    &self.raw,
+                    $crate::colorizer::MappingChange::Norm(norm),
+                );
+                self
+            }
+
+            /// Gives the norm new parameters, `norm` standing for the
+            /// same norm changed in place (matplotlib setting `vmin`,
+            /// `vmax`, ... of the norm object an image keeps): unlike
+            /// `set_norm`, the image's colorbars keep their tickers and
+            /// scale.
+            pub fn retune_norm(&self, norm: Box<dyn $crate::colors::Norm>) -> &Self {
+                $crate::colorizer::change_mapping::<$artist>(
+                    &self.raw,
+                    $crate::colorizer::MappingChange::Retune(norm),
+                );
+                self
+            }
+
+            /// Sets the data values mapped to the ends of the colormap
+            /// (matplotlib's `set_clim`); `None` leaves a limit unchanged.
+            /// The image's colorbars follow.
+            pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
+                $crate::colorizer::change_mapping::<$artist>(
+                    &self.raw,
+                    $crate::colorizer::MappingChange::Clim(vmin, vmax),
+                );
+                self
+            }
+        }
+    };
+}
+
+use impl_mapping_changes;
+
+/// Implements [`ColorMapped`](crate::colorizer::ColorMapped) for an image
+/// artist state, given the paths of its data and of its mapping fields:
+/// images map their data when drawn, so a new norm only takes its unset
+/// limits from the whole array, as matplotlib's `_make_image` does.
+macro_rules! impl_color_mapped {
+    ($artist:ty, $($data:ident).+, $($mappable:ident).+) => {
+        impl $crate::colorizer::ColorMapped for $artist {
+            fn mapping_mut(&mut self) -> Option<&mut $crate::colors::ScalarMappable> {
+                Some(self.$($mappable).+.get_mut())
+            }
+
+            fn remap(
+                &mut self,
+                _others: &mut $crate::artist::ArtistStore,
+            ) -> Result<(), $crate::colors::NormError> {
+                if let Some(field) = self.$($data).+.scalars() {
+                    field.autoscale(self.$($mappable).+.get_mut().norm_mut());
+                }
+                Ok(())
+            }
+        }
+    };
+}
+
+use impl_color_mapped;
+
 /// The rc defaults of new images: `image.interpolation` (which rc takes
 /// as any text, like matplotlib, so unknown names fall back to
 /// matplotlib's default), `image.interpolation_stage` and `image.origin`.

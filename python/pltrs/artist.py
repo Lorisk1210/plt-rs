@@ -240,6 +240,9 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """Return whether the artist is to be rasterized."""
         return _artist.get_rasterized(self._native)
 
+    _rasterized = property(get_rasterized,
+                           doc="Whether the artist is to be rasterized.")
+
     def set_rasterized(self, rasterized):
         """
         Force rasterized (bitmap) drawing for vector graphics output.
@@ -392,6 +395,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """Remove the artist from the figure if possible."""
         if self._figure is None:
             raise NotImplementedError('cannot remove artist')
+        # An owner removing the artist its own way (a colorbar its Axes).
+        remove_method = self.__dict__.get("_remove_method")
+        if remove_method is not None:
+            remove_method(self)
+            return
         _artist.remove(self._native)
         _handles.forget(self)
 

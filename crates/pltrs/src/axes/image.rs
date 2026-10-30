@@ -344,7 +344,7 @@ impl Axes {
     /// `add_image`): the extent extends the data limits and becomes the
     /// sticky edges, and each autoscaled axis is fitted to it.
     pub(crate) fn add_image(&self, mut artist: AxesImageArtist) -> AxesImage {
-        let extent = artist.extent;
+        let extent = artist.extent();
         artist.base_mut().transform = Some(self.trans_data());
         let image = AxesImage::from_raw(self.adopt_in_autoscale(artist, &DataUpdate::default()));
         self.fit_image(&image, extent);
@@ -371,7 +371,7 @@ impl Axes {
             top,
         } = extent;
         image.raw().with_mut::<AxesImageArtist, _>(|artist| {
-            artist.extent = extent;
+            artist.extent = Some(extent);
             artist.base_mut().sticky_edges = (vec![left, right], vec![bottom, top]);
         });
         self.update_datalim(

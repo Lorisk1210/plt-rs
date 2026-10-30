@@ -8,14 +8,16 @@ use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::shared::{axes_image_contains, canvas_bbox, draw_rendered, split_alpha};
 use super::unsampled::UnsampledImage;
-use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
+use super::{
+    BboxImageOptions, Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage,
+    Origin,
+};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, ClipPathSpec, DrawContext,
-    LayoutContext, LimitPoints, RawHandle, TypedHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, DrawContext, LayoutContext,
+    LimitPoints, RawHandle, TypedHandle,
 };
 use crate::axes::Axes;
-use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
-use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
+use crate::colors::{Colormap, Norm};
 use crate::patches::PatchShape;
 use crate::transforms::{ResolvedTransform, Transform};
 
@@ -24,7 +26,10 @@ use crate::transforms::{ResolvedTransform, Transform};
 pub(crate) struct AxesImageArtist {
     base: ArtistBase,
     pub(crate) core: ImageCore,
-    pub(crate) extent: Extent,
+    /// The data rectangle covered, `None` until one is set: then the
+    /// pixels of the array are centred on their indices (matplotlib's
+    /// `_extent`).
+    pub(crate) extent: Option<Extent>,
 }
 
 pltrs_core::archive_struct!(AxesImageArtist { base, core, extent });
@@ -32,11 +37,25 @@ pltrs_core::archive_struct!(AxesImageArtist { base, core, extent });
 impl AxesImageArtist {
     /// An image at z-order 0 covering `extent`.
     pub(crate) fn new(core: ImageCore, extent: Extent) -> Self {
+        Self::placed(core, Some(extent))
+    }
+
+    /// An image at z-order 0 covering `extent`, or its default extent.
+    fn placed(core: ImageCore, extent: Option<Extent>) -> Self {
         let mut base = ArtistBase::with_zorder(0.0);
         // Status bars show the value under the pointer, as for matplotlib's
         // images.
         base.mouseover = true;
         Self { base, core, extent }
+    }
+
+    /// The data rectangle covered: the one set, else the array's pixels
+    /// centred on their indices (matplotlib's `get_extent`).
+    pub(crate) fn extent(&self) -> Extent {
+        self.extent.unwrap_or_else(|| {
+            let (rows, cols) = self.core.data.shape();
+            Extent::default_for(rows, cols, self.core.resampling.origin)
+        })
     }
 
     /// The `(row, column)` of the array element under display point `at`
@@ -52,7 +71,7 @@ impl AxesImageArtist {
             right,
             mut bottom,
             mut top,
-        } = self.extent;
+        } = self.extent();
         if self.core.resampling.origin == Origin::Upper {
             std::mem::swap(&mut bottom, &mut top);
         }
@@ -75,7 +94,7 @@ impl AxesImageArtist {
             right,
             bottom,
             top,
-        } = self.extent;
+        } = self.extent();
         Some(Bbox::from_points(
             [(left, bottom), (right, bottom), (left, top), (right, top)]
                 .map(|(x, y)| resolved.transform_point(Point::new(x, y))),
@@ -108,7 +127,7 @@ impl AxesImageArtist {
         magnification: f64,
     ) -> Option<Placement> {
         Some(Placement {
-            extent: self.extent,
+            extent: self.extent(),
             transform: Some(PixelMap::from_resolved(layout.resolve(&self.transform())?)),
             out_bbox: self.out_bbox(layout)?,
             clip: self.clip_bbox(layout, canvas),
@@ -147,7 +166,7 @@ impl AxesImageArtist {
         let out_bbox = self.out_bbox(*ctx.layout())?;
         Some(
             self.core
-                .unsampled(self.extent, resolved.affine_part(), out_bbox, clip),
+                .unsampled(self.extent(), resolved.affine_part(), out_bbox, clip),
         )
     }
 }
@@ -201,7 +220,7 @@ impl Artist for AxesImageArtist {
             right,
             bottom,
             top,
-        } = self.extent;
+        } = self.extent();
         Some(LimitPoints {
             points: vec![Point::new(left, bottom), Point::new(right, top)],
             directions: (true, true),
@@ -232,20 +251,7 @@ fn index_below(value: f64, len: usize) -> Option<usize> {
     (0.0..len as f64).contains(&index).then_some(index as usize)
 }
 
-impl ColorMapped for AxesImageArtist {
-    fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
-        Some(self.core.mappable.get_mut())
-    }
-
-    /// Images map their data when drawn; a new norm takes its unset limits
-    /// from the whole array, as matplotlib's `_make_image` does.
-    fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
-        if let Some(field) = self.core.data.scalars() {
-            field.autoscale(self.core.mappable.get_mut().norm_mut());
-        }
-        Ok(())
-    }
-}
+super::impl_color_mapped!(AxesImageArtist, core.data, core.mappable);
 
 /// A handle to an image in an axes (matplotlib's `AxesImage`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -266,9 +272,48 @@ impl TypedHandle for AxesImage {
     }
 }
 
+super::impl_mapping_changes!(AxesImage, AxesImageArtist);
+
 impl AxesImage {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
+    }
+
+    /// An image of `data` made as `options` say, covering `extent` (by
+    /// default its pixels centred on their indices, following the data),
+    /// outside any figure until an axes adopts it (matplotlib's
+    /// `AxesImage(ax, ...)` before `ax.add_image`; see
+    /// [`Axes::adopt_artist`]). Unlike `imshow`, adopting it leaves the
+    /// axes' limits and aspect alone.
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, TypedHandle};
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::image::{AxesImage, BboxImageOptions, Extent, ImageData};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// let image = AxesImage::loose(ImageData::empty(), BboxImageOptions::default(), None)?;
+    /// image.set_data(Grid::filled(2, 3, 1.0));
+    /// assert_eq!(image.extent(), Extent::new(-0.5, 2.5, 1.5, -0.5));
+    /// let ax = Figure::new().subplot();
+    /// let added = ax.adopt_artist(image.raw(), AddAs::Image)?;
+    /// assert_eq!(ax.images(), [AxesImage::from_raw_handle(&added).unwrap()]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap, norm or filter radius of `options` is invalid.
+    pub fn loose(
+        data: impl Into<ImageData>,
+        options: BboxImageOptions,
+        extent: Option<Extent>,
+    ) -> Result<Self, ImageError> {
+        let (core, uniform) =
+            ImageCore::build(data, options.core_settings(), &crate::rc::params())?;
+        let mut artist = AxesImageArtist::placed(core, extent);
+        artist.base_mut().alpha = uniform;
+        Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
     }
 
     fn read<R>(&self, f: impl FnOnce(&AxesImageArtist) -> R) -> R {
@@ -280,9 +325,10 @@ impl AxesImage {
         self
     }
 
-    /// The data rectangle the image covers.
+    /// The data rectangle the image covers: the one set, else its pixels
+    /// centred on their indices.
     pub fn extent(&self) -> Extent {
-        self.read(|image| image.extent)
+        self.read(AxesImageArtist::extent)
     }
 
     /// Moves the image to cover `extent` (matplotlib's `set_extent`): the
@@ -295,7 +341,7 @@ impl AxesImage {
                 Axes::from_raw(RawHandle::new(figure, axes)).fit_image(self, extent);
             }
             None => {
-                self.update(|image| image.extent = extent);
+                self.update(|image| image.extent = Some(extent));
             }
         }
         self
@@ -488,27 +534,6 @@ impl AxesImage {
     /// The norm (matplotlib's `norm`).
     pub fn norm(&self) -> Box<dyn Norm> {
         self.read(|image| image.core.mappable.borrow().norm().clone_box())
-    }
-
-    /// Replaces the colormap; the image's colorbars follow.
-    pub fn set_cmap(&self, cmap: Colormap) -> &Self {
-        change_mapping::<AxesImageArtist>(&self.raw, MappingChange::Cmap(Box::new(cmap)));
-        self
-    }
-
-    /// Replaces the norm, whose unset limits come from the data; the
-    /// image's colorbars follow with the norm's scale and ticks.
-    pub fn set_norm(&self, norm: Box<dyn Norm>) -> &Self {
-        change_mapping::<AxesImageArtist>(&self.raw, MappingChange::Norm(norm));
-        self
-    }
-
-    /// Sets the data values mapped to the ends of the colormap
-    /// (matplotlib's `set_clim`); `None` leaves a limit unchanged. The
-    /// image's colorbars follow.
-    pub fn set_clim(&self, vmin: Option<f64>, vmax: Option<f64>) -> &Self {
-        change_mapping::<AxesImageArtist>(&self.raw, MappingChange::Clim(vmin, vmax));
-        self
     }
 
     /// The data values mapped to the ends of the colormap.

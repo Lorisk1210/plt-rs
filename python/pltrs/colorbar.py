@@ -17,9 +17,12 @@ the helpers resolving *location* and *orientation* are matplotlib's (from
 matplotlib 3.11.2, under the Matplotlib License).
 """
 
+import functools
+
 import numpy as np
 
-from . import _api, _handles, colorizer as mcolorizer, ticker
+from . import _api, _handles, artist as martist, colorizer as mcolorizer, ticker
+from . import transforms as mtransforms
 from ._native import colorbar as _colorbar
 
 
@@ -33,6 +36,17 @@ def _get_ticklocation_from_orientation(orientation):
     return _api.getitem_checked(
         {None: "right", "vertical": "right", "horizontal": "bottom"},
         orientation=orientation)
+
+
+def _remove_cbar_axes(ax, cbar):
+    """
+    Replacement remove method for a colorbar's axes, so that the colorbar is
+    properly removed.
+
+    Note we define this at the module level to preserve pickling. A lambda or
+    local def within the Colorbar.__init__ method will not work.
+    """
+    cbar.remove()
 
 
 #: The keywords of `.Figure.colorbar` that place a new colorbar Axes.
@@ -92,15 +106,16 @@ class Colorbar:
     def _beside(cls, figure, mappable, parents, *, use_gridspec=True,
                 **kwargs):
         """
-        A colorbar in a new Axes taking space from *parents*, as
-        `.Figure.colorbar` makes it (matplotlib's `make_axes` or
-        `make_axes_gridspec`, then `Colorbar`).
+        A colorbar in a new Axes taking space from *parents*, an Axes or a
+        list of them, as `.Figure.colorbar` makes it (matplotlib's
+        `make_axes`, or for one Axes on a grid `make_axes_gridspec`, then
+        `Colorbar`).
         """
         layout = {key: kwargs.pop(key) for key in _LAYOUT_KEYS
                   if key in kwargs and key not in ('location', 'orientation')}
         layout['use_gridspec'] = use_gridspec
         colorbar = cls.__new__(cls)
-        colorbar._make(figure, mappable, cax=None, parents=list(parents),
+        colorbar._make(figure, mappable, cax=None, parents=parents,
                        layout=layout, **kwargs)
         return colorbar
 
@@ -135,7 +150,7 @@ class Colorbar:
             orientation = orientation or location_orientation or "vertical"
 
         self.mappable = mappable
-        self._figure = figure
+        self._figure = figure.figure  # the root figure, holding the artists
         if isinstance(format, str):
             # Check format between FormatStrFormatter and StrMethodFormatter
             try:
@@ -168,21 +183,29 @@ class Colorbar:
                            else [float(b) for b in boundaries]),
             'values': None if values is None else [float(v) for v in values],
         }
-        self._native = _colorbar.new(
-            figure._native, self._shown(),
-            None if cax is None else cax._native,
-            None if parents is None else [ax._native for ax in parents],
-            spec)
         self.spacing = spacing
         self.drawedges = drawedges
         self.extendfrac = extendfrac
         self.extendrect = extendrect
         self.values = values
         self.boundaries = boundaries
+        self.set_alpha(mappable.get_alpha()
+                       if isinstance(mappable, martist.Artist) else None)
+        self._scale_norm()
+        if isinstance(parents, list):
+            parents = [ax._native for ax in parents]
+        elif parents is not None:
+            parents = parents._native
+        self._native = _colorbar.new(
+            figure._native, self._shown(),
+            None if cax is None else cax._native, parents, spec)
         mappable.colorbar = self
         mappable.colorbar_cid = mappable.callbacks.connect(
             'changed', self.update_normal)
         self._link_axes()
+        # Removing the colorbar's Axes removes the colorbar.
+        self.ax._remove_method = functools.partial(_remove_cbar_axes,
+                                                   cbar=self)
 
     def _link_axes(self):
         """
@@ -197,6 +220,34 @@ class Colorbar:
         self.ax._colorbar = self
         if isinstance(self.mappable, ContourSet):
             self.ax.set_navigate(False)
+
+    def set_alpha(self, alpha):
+        """
+        Set the transparency between 0 (transparent) and 1 (opaque).
+
+        If an array is provided, *alpha* will be set to None to use the
+        transparency values associated with the colormap.
+        """
+        self.alpha = None if isinstance(alpha, np.ndarray) else alpha
+
+    def _scale_norm(self):
+        """
+        Give the norm the limits the colorbar shows, as matplotlib's
+        ``_process_values`` does to the norm the colorbar shares with its
+        mappable: unset limits from the mappable's data, else (0, 1),
+        widened when they coincide. pltrs (Rust) settles on the same limits
+        for the copy of the norm it draws.
+        """
+        if self.values is not None:
+            return
+        if self.mappable.get_array() is not None:
+            self.mappable.autoscale_None()
+        if not self.norm.scaled():
+            # If we still aren't scaled after autoscaling, use 0, 1 as default
+            self.norm.vmin = 0
+            self.norm.vmax = 1
+        self.norm.vmin, self.norm.vmax = mtransforms._nonsingular(
+            self.norm.vmin, self.norm.vmax, expander=0.1)
 
     @property
     def ax(self):
@@ -275,8 +326,9 @@ class Colorbar:
         """The lines between the colours drawn with *drawedges*."""
         return _Dividers(self)
 
-    def _long_axis(self):
-        """Return the long axis."""
+    @property
+    def long_axis(self):
+        """Axis that has decorations (ticks, etc) on it."""
         if self.orientation == 'vertical':
             return self.ax.yaxis
         return self.ax.xaxis
@@ -284,38 +336,38 @@ class Colorbar:
     @property
     def locator(self):
         """Major tick `.Locator` for the colorbar."""
-        return self._long_axis().get_major_locator()
+        return self.long_axis.get_major_locator()
 
     @locator.setter
     def locator(self, loc):
-        self._long_axis().set_major_locator(loc)
+        self.long_axis.set_major_locator(loc)
 
     @property
     def minorlocator(self):
         """Minor tick `.Locator` for the colorbar."""
-        return self._long_axis().get_minor_locator()
+        return self.long_axis.get_minor_locator()
 
     @minorlocator.setter
     def minorlocator(self, loc):
-        self._long_axis().set_minor_locator(loc)
+        self.long_axis.set_minor_locator(loc)
 
     @property
     def formatter(self):
         """Major tick label `.Formatter` for the colorbar."""
-        return self._long_axis().get_major_formatter()
+        return self.long_axis.get_major_formatter()
 
     @formatter.setter
     def formatter(self, fmt):
-        self._long_axis().set_major_formatter(fmt)
+        self.long_axis.set_major_formatter(fmt)
 
     @property
     def minorformatter(self):
         """Minor tick `.Formatter` for the colorbar."""
-        return self._long_axis().get_minor_formatter()
+        return self.long_axis.get_minor_formatter()
 
     @minorformatter.setter
     def minorformatter(self, fmt):
-        self._long_axis().set_minor_formatter(fmt)
+        self.long_axis.set_minor_formatter(fmt)
 
     def update_normal(self, mappable=None):
         """
@@ -332,23 +384,28 @@ class Colorbar:
         """
         if mappable is not None:
             self.mappable = mappable
+        self.set_alpha(self.mappable.get_alpha()
+                       if isinstance(self.mappable, martist.Artist) else None)
+        self._scale_norm()
         _colorbar.update_normal(self._native, self._shown())
 
     def _shown(self):
         """
-        What pltrs (Rust) shows: the colormap and norm of the mappable, the
-        image pltrs (Rust) draws, whose opacity the colorbar takes, if the
-        mappable is one, and the native contour set, whose levels the
-        colorbar's blocks follow, if it is one.
+        What pltrs (Rust) shows: the colormap and norm of the mappable, and
+        the artist pltrs (Rust) draws, if the mappable is one the colorbar
+        follows: an image or a collection, whose opacity the colorbar
+        takes, or a contour set, whose levels, lines and hatches it shows.
         """
+        from .collections import Collection
         from .contour import ContourSet
         from .image import AxesImage
-        image = self.mappable if isinstance(self.mappable, AxesImage) else None
-        contours = (self.mappable if isinstance(self.mappable, ContourSet)
-                    else None)
-        return (self.mappable.cmap, self.mappable.norm,
-                None if image is None else image._native,
-                None if contours is None else contours._contour)
+        if isinstance(self.mappable, ContourSet):
+            followed = getattr(self.mappable, "_contour", None)
+        elif isinstance(self.mappable, (AxesImage, Collection)):
+            followed = self.mappable._native
+        else:
+            followed = None
+        return (self.mappable.cmap, self.mappable.norm, followed)
 
     def set_ticks(self, ticks, *, labels=None, minor=False, **kwargs):
         """
@@ -462,7 +519,9 @@ class Colorbar:
         self.mappable.callbacks.disconnect(self.mappable.colorbar_cid)
         self.mappable.colorbar = None
         self.mappable.colorbar_cid = None
+        ax = self.ax
         _colorbar.remove(self._native)
+        _handles.forget(ax)
 
 
 class _Dividers:

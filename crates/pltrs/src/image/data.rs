@@ -249,6 +249,18 @@ pltrs_core::archive_enum!(ImageData {
 });
 
 impl ImageData {
+    /// An image without pixels: what an image made without data holds
+    /// until it is given some (matplotlib's image before `set_data`), and
+    /// draws as nothing.
+    ///
+    /// ```
+    /// use pltrs::image::ImageData;
+    /// assert!(ImageData::empty().is_empty());
+    /// ```
+    pub fn empty() -> Self {
+        Self::Scalar(ScalarField::new(Grid::from_fn(0, 0, |_, _| 0.0)))
+    }
+
     /// `(rows, columns)`.
     pub fn shape(&self) -> (usize, usize) {
         match self {

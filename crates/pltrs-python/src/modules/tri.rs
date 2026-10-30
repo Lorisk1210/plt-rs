@@ -16,9 +16,21 @@ use crate::binding::prelude::*;
 native_value!(Triangulation);
 
 impl From<TriError> for PyErr {
-    /// matplotlib's `ValueError` for invalid triangulations and fields.
+    /// matplotlib's `ValueError` for invalid triangulations and fields,
+    /// and the `RuntimeError`s of its C++ and qhull code: points that
+    /// qhull cannot triangulate, triangles the trifinder cannot search.
     fn from(err: TriError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            TriError::Collinear => PyErr::new(
+                ExceptionKind::RuntimeError,
+                "Error in qhull Delaunay triangulation calculation: singular input data \
+                 (exitcode=2); use python verbose option (-v) to see original qhull error.",
+            ),
+            TriError::InvalidTriangulation => {
+                PyErr::new(ExceptionKind::RuntimeError, "Triangulation is invalid")
+            }
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 
@@ -192,20 +204,50 @@ fn with_interpolator<R>(
 }
 
 /// The interpolated values (`NaN` outside the triangulation) at the points
-/// `(x, y)`, and the gradients `(dz/dx, dz/dy)`.
+/// `(x, y)`, and the gradients `(dz/dx, dz/dy)`: in the triangles holding
+/// the points, or in the triangles `tri_index` given for them (`-1` for
+/// none; matplotlib's `_interpolate_multikeys`).
 fn interpolate(
     tri: Triangulation,
     z: NdArray,
     kind: Kind,
     (x, y): (NdArray, NdArray),
+    tri_index: Option<NdArray<i64>>,
 ) -> PyResult<(NdArray, NdArray, NdArray)> {
     let z = z.into_vec()?;
+    let ntri = tri.triangles().len();
+    let given = tri_index
+        .map(|indices| {
+            indices
+                .data
+                .iter()
+                .map(|&t| match usize::try_from(t) {
+                    Ok(t) if t < ntri => Ok(Some(t)),
+                    Err(_) if t == -1 => Ok(None),
+                    _ => Err(PyErr::new(
+                        ExceptionKind::IndexError,
+                        format!("triangle index {t} is out of bounds for {ntri} triangles"),
+                    )),
+                })
+                .collect::<PyResult<Vec<_>>>()
+        })
+        .transpose()?;
     let (values, dzdx, dzdy) = with_interpolator(&tri, &z, kind, |interp| {
         let mut values = Vec::with_capacity(x.data.len());
         let (mut dzdx, mut dzdy) = (Vec::new(), Vec::new());
-        for (&x, &y) in x.data.iter().zip(&y.data) {
-            values.push(interp.value(x, y).unwrap_or(f64::NAN));
-            let [gx, gy] = interp.gradient(x, y).unwrap_or([f64::NAN; 2]);
+        for (i, (&x, &y)) in x.data.iter().zip(&y.data).enumerate() {
+            let (value, gradient) = match &given {
+                Some(given) => match given.get(i).copied().flatten() {
+                    Some(t) => (
+                        Some(interp.value_in(t, x, y)),
+                        Some(interp.gradient_in(t, x, y)),
+                    ),
+                    None => (None, None),
+                },
+                None => (interp.value(x, y), interp.gradient(x, y)),
+            };
+            values.push(value.unwrap_or(f64::NAN));
+            let [gx, gy] = gradient.unwrap_or([f64::NAN; 2]);
             dzdx.push(gx);
             dzdy.push(gy);
         }

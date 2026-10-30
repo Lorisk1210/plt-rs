@@ -198,7 +198,8 @@ class Collection(mcolorizer.ColorizingArtist):
                 cmap = _from_native(self._native_cmap())
             colorizer = mcolorizer.Colorizer(cmap, norm)
         vmin, vmax = self._native_clim()
-        if vmin is not None or vmax is not None:
+        # A norm with its limits keeps them (it may not let them be set).
+        if (vmin is not None or vmax is not None) and not colorizer.norm.scaled():
             colorizer.set_clim(vmin, vmax)
         if getattr(self, "_colorizer", None) is not None:
             self._colorizer.callbacks.disconnect(self._id_colorizer)
@@ -210,7 +211,8 @@ class Collection(mcolorizer.ColorizingArtist):
         Call this whenever the mappable is changed to notify all the
         callbackSM listeners to the 'changed' signal.
         """
-        _collections.set_mapping(self._native, self.cmap, self.norm)
+        _collections.set_mapping(self._native, self.cmap, self.norm,
+                                 self._norm_replaced())
         super().changed()
 
     def update_scalarmappable(self):
@@ -502,7 +504,8 @@ class Collection(mcolorizer.ColorizingArtist):
             return
         _collections.set_array(
             self._native, np.ma.filled(self._A.astype(float), np.nan).ravel())
-        _collections.set_mapping(self._native, self.cmap, self.norm)
+        _collections.set_mapping(self._native, self.cmap, self.norm,
+                                 self._norm_replaced())
 
 
 class _CollectionWithSizes(Collection):

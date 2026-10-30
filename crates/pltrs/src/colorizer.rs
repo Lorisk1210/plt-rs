@@ -38,6 +38,10 @@ pub(crate) enum MappingChange {
     Clim(Option<f64>, Option<f64>),
     /// A new norm (`set_norm`); its unset limits come from the data.
     Norm(Box<dyn Norm>),
+    /// The norm with new parameters, still the same norm (matplotlib
+    /// changing `vmin`, `vmax`, ... of the norm object the artist keeps);
+    /// its unset limits come from the data.
+    Retune(Box<dyn Norm>),
 }
 
 impl MappingChange {
@@ -52,7 +56,7 @@ impl MappingChange {
         match self {
             Self::Cmap(cmap) => mapping.set_cmap(*cmap),
             Self::Clim(vmin, vmax) => mapping.set_clim(vmin, vmax),
-            Self::Norm(norm) => mapping.set_norm(norm),
+            Self::Norm(norm) | Self::Retune(norm) => mapping.set_norm(norm),
         };
     }
 }

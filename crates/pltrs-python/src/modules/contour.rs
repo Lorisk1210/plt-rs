@@ -12,13 +12,15 @@ use pltrs::contour::{
 use pltrs::fonts::FontSize;
 use pltrs::numeric::Grid;
 use pltrs::text::Text;
-use pltrs::ticker::LabelFormat;
+use pltrs::ticker::{LabelFormat, Locator};
+use pltrs::transforms::Transform;
 use pltrs::tri::Triangulation;
-use pltrs_core::Point;
+use pltrs_core::{Path, Point};
 
+use super::axis::PyLocator;
 use super::cm::NativeColormap;
 use super::lines::PyLineStyle;
-use super::path::{PathArrays, path_arrays};
+use super::path::{PathArrays, PyPath, path_arrays};
 use crate::binding::prelude::*;
 
 artist_handle!(ContourSet);
@@ -148,17 +150,81 @@ fn contour(
     })
 }
 
-/// The extend, hatches and antialiasing of a contour set.
-pub(super) type Extras = (String, Vec<Option<String>>, Option<bool>);
+/// Sets the edge colours of the contours, cycled over the paths of the
+/// levels or bands.
+fn set_edgecolors(set: ContourSet, colors: Vec<Color>) -> PyResult<()> {
+    set.set_edgecolors(colors);
+    Ok(())
+}
+
+/// Labels the labelled line nearest to the display point `(x, y)` the way
+/// the last `clabel` labelled the set, cutting the line under the label
+/// when `inline` (matplotlib's `add_label_near`).
+fn add_label_near(
+    set: ContourSet,
+    (x, y): (f64, f64),
+    inline: bool,
+    inline_spacing: f64,
+) -> PyResult<Text> {
+    Ok(set.add_label_near(
+        Point::new(x, y),
+        &Transform::Display,
+        inline,
+        inline_spacing,
+    )?)
+}
+
+/// Line (or, `filled`, filled) contours of given segments: for each level
+/// (band between consecutive levels), the paths of its segments
+/// (matplotlib's `ContourSet(ax, levels, allsegs, allkinds)`).
+fn contour_segments(
+    axes: Axes,
+    filled: bool,
+    levels: Vec<f64>,
+    segments: Vec<Vec<PyPath>>,
+    look: Look,
+    extras: Extras,
+) -> PyResult<ContourSet> {
+    let segments: Vec<Vec<Path>> = segments
+        .into_iter()
+        .map(|level| level.into_iter().map(|segment| segment.path).collect())
+        .collect();
+    let options = contour_options(None, look, extras)?;
+    Ok(axes.contour_segments(&levels, &segments, filled, options)?)
+}
+
+/// The extend, hatches, antialiasing and level locator of a contour set,
+/// the locator described as `_tick_helpers` describes the helpers it
+/// installs: `(spec, True)` for a locator of `ticker`, `(adapter, False)`
+/// for one of the program's.
+pub(super) type Extras = (
+    String,
+    Vec<Option<String>>,
+    Option<bool>,
+    Option<(Owned, bool)>,
+);
+
+/// The locator a Python locator's description gives (see [`Extras`]).
+fn level_locator((description, native): (Owned, bool)) -> PyResult<Box<dyn Locator>> {
+    Python::with_gil(|py| {
+        let description = description.bind(py);
+        Ok(if native {
+            super::ticker::locator(&description)?
+        } else {
+            Box::new(PyLocator::of(&description)?) as Box<dyn Locator>
+        })
+    })
+}
 
 /// The options of a contour set of the requested levels and look.
 pub(super) fn contour_options(
     requested: Option<NdArray>,
     (colors, mapping, alpha, linewidths, linestyles, negative): Look,
-    (extend, hatches, antialiased): Extras,
+    (extend, hatches, antialiased, locator): Extras,
 ) -> PyResult<ContourOptions> {
     Ok(ContourOptions {
         levels: levels(requested)?,
+        locator: locator.map(level_locator).transpose()?,
         extend: match extend.as_str() {
             "both" => Extend::Both,
             "min" => Extend::Min,
@@ -344,9 +410,20 @@ fn set_linewidths(set: ContourSet, widths: Vec<f64>) -> PyResult<()> {
 }
 
 /// Maps the levels through `cmap` and `norm` (the Python colorizer's,
-/// handed over when it changes).
-fn set_mapping(set: ContourSet, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
-    set.set_cmap(cmap).set_norm(norm);
+/// handed over when it changes): a new norm when `replaced`, else the
+/// set's norm with new parameters.
+fn set_mapping(
+    set: ContourSet,
+    cmap: Colormap,
+    norm: Box<dyn Norm>,
+    replaced: bool,
+) -> PyResult<()> {
+    set.set_cmap(cmap);
+    if replaced {
+        set.set_norm(norm);
+    } else {
+        set.retune_norm(norm);
+    }
     Ok(())
 }
 
@@ -399,9 +476,12 @@ fn legend_elements(
     Ok((styles.into_iter().map(LegendEntry).collect(), labels))
 }
 
-/// Removes the set, its collections and its labels.
+/// Removes the set, its collections and its labels; warns, as matplotlib
+/// does, when some labels had been removed one by one before.
 fn remove(set: ContourSet) -> PyResult<()> {
-    set.remove();
+    if let Some(warning) = set.remove() {
+        pltrs::warnings::warn(&warning.to_string());
+    }
     Ok(())
 }
 
@@ -409,6 +489,9 @@ fn remove(set: ContourSet) -> PyResult<()> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("contour", contour)?;
     module.add("tricontour", tricontour)?;
+    module.add("contour_segments", contour_segments)?;
+    module.add("add_label_near", add_label_near)?;
+    module.add("set_edgecolors", set_edgecolors)?;
     module.add("get_levels", get_levels)?;
     module.add("get_layers", get_layers)?;
     module.add("get_cvalues", get_cvalues)?;

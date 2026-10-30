@@ -4,14 +4,16 @@
 //! mappable's colormap and norm convert to pltrs (Rust)'s (see
 //! `colors::mapping`), and the Python `Colorbar` hands them over again
 //! when the mappable changes (`update_normal`); a colorbar of an image
-//! follows the image pltrs (Rust) draws, its opacity included. pltrs
-//! (Rust) lays the colorbar out, in an axes of its own or in the one
-//! given, and draws it.
+//! follows the image pltrs (Rust) draws, its opacity included, and one of
+//! a contour set the set's levels, line styles and hatches. pltrs (Rust)
+//! lays the colorbar out, in an axes of its own or in the one given, and
+//! draws it.
 
 use std::rc::Rc;
 
+use pltrs::artist::{RawHandle, TypedHandle};
 use pltrs::axes::Axes;
-use pltrs::collections::Collection;
+use pltrs::collections::{Collection, TriMesh};
 use pltrs::colorbar::{
     Colorbar, ColorbarAxes, ColorbarError, ColorbarFormat, ColorbarOptions, ColorbarTicks,
     ExtendFrac, Mappable, ParentAnchor, Spacing,
@@ -33,9 +35,26 @@ use crate::binding::prelude::*;
 native_value!(Colorbar);
 
 impl From<ColorbarError> for PyErr {
-    /// matplotlib's `ValueError` for colorbars it cannot make.
+    /// matplotlib's `ValueError` for colorbars it cannot make; a tick
+    /// location across the colorbar has the message of the long axis'
+    /// `set_label_position`, which refuses it there.
     fn from(err: ColorbarError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            ColorbarError::TickLocation {
+                ticklocation,
+                orientation,
+            } => {
+                let supported = match orientation {
+                    Orientation::Vertical => "'left', 'right'",
+                    Orientation::Horizontal => "'top', 'bottom'",
+                };
+                PyErr::value_error(format!(
+                    "'{}' is not a valid value for position; supported values are {supported}",
+                    ticklocation.name()
+                ))
+            }
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 
@@ -109,18 +128,36 @@ fn parent_anchor(value: &Bound<'_>) -> PyResult<ParentAnchor> {
     Ok(ParentAnchor::At(anchor(value)?))
 }
 
+/// The axes a new colorbar takes space from: one axes, which may give it
+/// a cell of its grid (matplotlib's `make_axes_gridspec`), or a list of
+/// axes, which only shrink (`make_axes`).
+enum Beside {
+    One(Axes),
+    Many(Vec<Axes>),
+}
+
+impl FromPy<'_> for Beside {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        match object.extract::<Axes>() {
+            Ok(ax) => Ok(Self::One(ax)),
+            Err(_) => Ok(Self::Many(object.extract()?)),
+        }
+    }
+}
+
 /// The options of `Figure.colorbar` given as a dict of matplotlib's
 /// keywords (see `colorbar.py`), drawing in `cax` or beside `parents`.
 fn options(
     cax: Option<Axes>,
-    parents: Option<Vec<Axes>>,
+    parents: Option<Beside>,
     spec: &Bound<'_>,
 ) -> PyResult<ColorbarOptions> {
     let named = |key: &str| -> PyResult<Option<String>> { dict_value(spec, key) };
     Ok(ColorbarOptions {
         axes: match (cax, parents) {
             (Some(cax), _) => ColorbarAxes::Cax(cax),
-            (None, Some(parents)) => ColorbarAxes::Parents(parents),
+            (None, Some(Beside::One(parent))) => ColorbarAxes::Parent(parent),
+            (None, Some(Beside::Many(parents))) => ColorbarAxes::Parents(parents),
             (None, None) => ColorbarAxes::FromMappable,
         },
         use_gridspec: dict_value(spec, "use_gridspec")?,
@@ -159,57 +196,67 @@ fn options(
     })
 }
 
-/// The mappable of a colorbar as Python describes it: its colormap and
-/// norm, the image pltrs (Rust) draws for it if it is one, and its contour
-/// set if it is one.
-type ShownParts = (
-    Colormap,
-    Box<dyn Norm>,
-    Option<AxesImage>,
-    Option<ContourSet>,
-);
+/// The drawn artist a colorbar follows: an image, a collection or a
+/// triangle mesh (their opacity included), or a contour set (its levels,
+/// line styles and hatches).
+enum Followed {
+    Image(AxesImage),
+    Collection(Collection),
+    TriMesh(TriMesh),
+    Contour(ContourSet),
+}
+
+impl Followed {
+    /// The artist behind `raw` if it is one a colorbar follows.
+    fn of(raw: &RawHandle) -> Option<Self> {
+        AxesImage::from_raw_handle(raw)
+            .map(Self::Image)
+            .or_else(|| Collection::from_raw_handle(raw).map(Self::Collection))
+            .or_else(|| TriMesh::from_raw_handle(raw).map(Self::TriMesh))
+            .or_else(|| ContourSet::from_raw_handle(raw).map(Self::Contour))
+    }
+}
 
 /// What a colorbar shows: the mapping through `cmap` and `norm`, which it
-/// follows as the image `image` (its opacity included) when the mappable
-/// is one, or the levels of the contour set `contours` (its blocks and
-/// extensions) when it is one.
+/// follows as the artist `followed` when the mappable is one pltrs (Rust)
+/// links colorbars to.
 struct Shown {
     mapping: ScalarMappable,
-    image: Option<AxesImage>,
-    contours: Option<ContourSet>,
+    followed: Option<Followed>,
 }
 
 impl Shown {
-    fn new((cmap, norm, image, contours): ShownParts) -> Self {
+    fn new(cmap: Colormap, norm: Box<dyn Norm>, artist: Option<&RawHandle>) -> Self {
         Self {
             mapping: ScalarMappable::with_norm(cmap, norm),
-            image,
-            contours,
+            followed: artist.and_then(Followed::of),
         }
     }
 
     fn mappable(&self) -> Mappable<'_> {
-        match (&self.contours, &self.image) {
-            (Some(contours), _) => Mappable::from(contours),
-            (None, Some(image)) => Mappable::from(image),
-            (None, None) => Mappable::from(&self.mapping),
+        match &self.followed {
+            Some(Followed::Image(image)) => Mappable::from(image),
+            Some(Followed::Collection(collection)) => Mappable::from(collection),
+            Some(Followed::TriMesh(mesh)) => Mappable::from(mesh),
+            Some(Followed::Contour(contours)) => Mappable::from(contours),
+            None => Mappable::from(&self.mapping),
         }
     }
 }
 
-/// A colorbar in `figure` showing the mappable `shown` describes (see
-/// [`ShownParts`]), drawn in `cax` or in a
-/// new axes taking space from `parents`, with the options of the dict
-/// `spec`.
+/// A colorbar in `figure` showing the mapping through `cmap` and `norm`
+/// (of the drawn `artist`, followed if it is a kind colorbars follow),
+/// drawn in `cax` or in a new axes taking space from `parents` (an axes or
+/// a list of them), with the options of the dict `spec`.
 fn new(
     figure: Figure,
-    shown: ShownParts,
+    (cmap, norm, artist): (Colormap, Box<dyn Norm>, Option<RawHandle>),
     cax: Option<Axes>,
-    parents: Option<Vec<Axes>>,
+    parents: Option<Beside>,
     spec: Owned,
 ) -> PyResult<Colorbar> {
     let options = Python::with_gil(|py| options(cax, parents, &spec.bind(py)))?;
-    let shown = Shown::new(shown);
+    let shown = Shown::new(cmap, norm, artist.as_ref());
     Ok(figure.colorbar(shown.mappable(), options)?)
 }
 
@@ -295,10 +342,13 @@ fn set_minorticks(colorbar: Colorbar, on: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// Shows the mappable `shown` describes again (see [`ShownParts`]; the
-/// mappable changed).
-fn update_normal(colorbar: Colorbar, shown: ShownParts) -> PyResult<()> {
-    colorbar.update_normal(Shown::new(shown).mappable())?;
+/// Shows the mapping through `cmap` and `norm`, of the drawn `artist` if
+/// the mappable is one (the mappable changed).
+fn update_normal(
+    colorbar: Colorbar,
+    (cmap, norm, artist): (Colormap, Box<dyn Norm>, Option<RawHandle>),
+) -> PyResult<()> {
+    colorbar.update_normal(Shown::new(cmap, norm, artist.as_ref()).mappable())?;
     Ok(())
 }
 

@@ -19,7 +19,9 @@ use super::shared::{
 use super::{Extent, ImageData, ImageError};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, LimitPoints, RawHandle,
+    TypedHandle,
 };
+use crate::axes::NonUniformOptions;
 use crate::colors::ScalarMappable;
 use crate::numeric::{Grid, linspace};
 use crate::transforms::ResolvedTransform;
@@ -300,9 +302,50 @@ impl ArtistHandle for NonUniformImage {
     }
 }
 
+impl TypedHandle for NonUniformImage {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<NonUniformImageArtist>()
+            .then(|| Self::from_raw(raw.clone()))
+    }
+}
+
+super::impl_mapping_changes!(NonUniformImage, NonUniformImageArtist);
+super::impl_color_mapped!(NonUniformImageArtist, data, mappable);
+
 impl NonUniformImage {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
+    }
+
+    /// An image without data, colour-mapped and interpolated as `options`
+    /// say, outside any figure until an axes adopts it (matplotlib's
+    /// `NonUniformImage(ax, ...)` before `set_data` and `ax.add_image`;
+    /// see [`Axes::adopt_artist`](crate::axes::Axes::adopt_artist)).
+    ///
+    /// ```
+    /// use pltrs::axes::NonUniformOptions;
+    /// use pltrs::image::NonUniformImage;
+    /// use pltrs::numeric::Grid;
+    /// let image = NonUniformImage::loose(NonUniformOptions::default())?;
+    /// assert_eq!(image.extent(), None);
+    /// image.set_data(&[0.0, 1.0, 4.0], &[0.0, 2.0], Grid::filled(2, 3, 1.0))?;
+    /// assert!(image.extent().is_some());
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap options are invalid.
+    pub fn loose(options: NonUniformOptions) -> Result<Self, ImageError> {
+        let mappable = options.colorizer.into_mappable(&crate::rc::params())?;
+        let artist = NonUniformImageArtist::new(
+            ImageData::empty(),
+            mappable,
+            options.interpolation,
+            &[],
+            &[],
+        )?;
+        Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
     }
 
     /// The pixel centres `(x, y)`, rounded to single precision.

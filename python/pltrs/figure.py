@@ -584,7 +584,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         elif np.iterable(ax):
             parents = list(ax)
         else:
-            parents = [ax]
+            parents = ax  # which may give the colorbar a cell of its grid
         return Colorbar._beside(self, mappable, parents,
                                 use_gridspec=use_gridspec, **kwargs)
 

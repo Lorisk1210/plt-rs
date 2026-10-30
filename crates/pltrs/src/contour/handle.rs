@@ -274,6 +274,16 @@ impl ContourSet {
         self
     }
 
+    /// Gives the norm new parameters, `norm` standing for the same norm
+    /// changed in place (matplotlib setting `vmin`, `vmax`, ... of the
+    /// norm object a contour set keeps), and recolours: unlike
+    /// [`set_norm`](Self::set_norm), the set's colorbars keep their
+    /// tickers and scale.
+    pub fn retune_norm(&self, norm: Box<dyn Norm>) -> &Self {
+        change_mapping::<ContourSetArtist>(&self.raw, MappingChange::Retune(norm));
+        self
+    }
+
     /// Sets the data values mapped to the ends of the colormap
     /// (matplotlib's `set_clim`); `None` leaves a limit unchanged. Explicit
     /// `colors`, indexed through `NoNorm`, stay as they are.

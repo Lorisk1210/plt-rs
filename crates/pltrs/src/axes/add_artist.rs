@@ -27,8 +27,9 @@ pub enum AddAs {
     /// `add_patch`: extends the data limits and counts in
     /// [`relim`](Axes::relim).
     Patch,
-    /// `add_image`: counts in [`relim`](Axes::relim) and labels an
-    /// unlabelled image.
+    /// `add_image`: counts in [`relim`](Axes::relim), labels an
+    /// unlabelled image and, unlike the others, does not clip it to the
+    /// axes (images clip themselves to the axes box when drawn).
     Image,
     /// `add_collection`: labels an unlabelled collection; with `autolim`,
     /// extends the data limits, autoscales the view and counts in
@@ -132,7 +133,7 @@ impl Axes {
     /// axes' data coordinates (`ax.transData`) unless it was given a
     /// transform, while an artist removed from this figure comes back
     /// under its own id, keeping its coordinates. Without a clip path the
-    /// artist is clipped to the axes, it
+    /// artist is clipped to the axes (but for images), it
     /// is drawn above the children of equal z-order, and lines, images and
     /// collections without a label are labelled `_child<n>`, `n` counting
     /// the children before them.
@@ -180,7 +181,7 @@ impl Axes {
                 if fresh {
                     base.transform.get_or_insert(data);
                 }
-                if base.clip_path.is_none() {
+                if base.clip_path.is_none() && add_as != AddAs::Image {
                     base.clip_box = Some(self.id());
                 }
                 if labelled && base.label.is_empty() {

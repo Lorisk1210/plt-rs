@@ -1,6 +1,7 @@
 """
 Tools for triangular grids (matplotlib's ``tri._tritools``); pltrs
-(Rust) measures.
+(Rust) measures. The renumbering of a compressed triangulation is
+matplotlib's (from matplotlib 3.11.2, under the Matplotlib License).
 """
 
 import numpy as np
@@ -106,3 +107,76 @@ class TriAnalyzer:
         return np.asarray(_tri.flat_tri_mask(
             self._triangulation._native, float(min_circle_ratio), bool(rescale)),
             dtype=bool)
+
+    def _get_compressed_triangulation(self):
+        """
+        Compress (if masked) the encapsulated triangulation.
+
+        Returns minimal-length triangles array (*compressed_triangles*) and
+        coordinates arrays (*compressed_x*, *compressed_y*) that can still
+        describe the unmasked triangles of the encapsulated triangulation.
+
+        Returns
+        -------
+        compressed_triangles : array-like
+            the returned compressed triangulation triangles
+        compressed_x : array-like
+            the returned compressed triangulation 1st coordinate
+        compressed_y : array-like
+            the returned compressed triangulation 2nd coordinate
+        tri_renum : int array
+            renumbering table to translate the triangle numbers from the
+            encapsulated triangulation into the new (compressed) renumbering.
+            -1 for masked triangles (deleted from *compressed_triangles*).
+        node_renum : int array
+            renumbering table to translate the point numbers from the
+            encapsulated triangulation into the new (compressed) renumbering.
+            -1 for unused points (i.e. those deleted from *compressed_x* and
+            *compressed_y*).
+
+        """
+        # Valid triangles and renumbering
+        tri_mask = self._triangulation.mask
+        compressed_triangles = self._triangulation.get_masked_triangles()
+        ntri = self._triangulation.triangles.shape[0]
+        if tri_mask is not None:
+            tri_renum = self._total_to_compress_renum(~tri_mask)
+        else:
+            tri_renum = np.arange(ntri, dtype=np.int32)
+
+        # Valid nodes and renumbering
+        valid_node = (np.bincount(np.ravel(compressed_triangles),
+                                  minlength=self._triangulation.x.size) != 0)
+        compressed_x = self._triangulation.x[valid_node]
+        compressed_y = self._triangulation.y[valid_node]
+        node_renum = self._total_to_compress_renum(valid_node)
+
+        # Now renumbering the valid triangles nodes
+        compressed_triangles = node_renum[compressed_triangles]
+
+        return (compressed_triangles, compressed_x, compressed_y, tri_renum,
+                node_renum)
+
+    @staticmethod
+    def _total_to_compress_renum(valid):
+        """
+        Parameters
+        ----------
+        valid : 1D bool array
+            Validity mask.
+
+        Returns
+        -------
+        int array
+            Array so that (`valid_array` being a compressed array
+            based on a `masked_array` with mask ~*valid*):
+
+            - For all i with valid[i] = True:
+              valid_array[renum[i]] = masked_array[i]
+            - For all i with valid[i] = False:
+              renum[i] = -1 (invalid value)
+        """
+        renum = np.full(np.size(valid), -1, dtype=np.int32)
+        n_valid = np.sum(valid)
+        renum[valid] = np.arange(n_valid, dtype=np.int32)
+        return renum

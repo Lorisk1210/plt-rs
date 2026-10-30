@@ -11,12 +11,10 @@ use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::Resampling;
 use super::shared::{canvas_bbox, draw_rendered, split_alpha};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
-use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, RawHandle, TypedHandle,
-};
-use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
-use crate::colors::{ColorizerOptions, Colormap, Norm, NormError, ScalarMappable, impl_colorize};
+use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle, TypedHandle};
+use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::figure::Figure;
+use crate::rc::RcParams;
 
 /// Options of [`Figure::figimage`].
 #[derive(Debug, Default)]
@@ -64,22 +62,37 @@ impl Artist for FigureImageArtist {
     }
 }
 
-impl ColorMapped for FigureImageArtist {
-    fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
-        Some(self.core.mappable.get_mut())
-    }
-
-    /// Images map their data when drawn; a new norm takes its unset limits
-    /// from the whole array, as matplotlib's `_make_image` does.
-    fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
-        if let Some(field) = self.core.data.scalars() {
-            field.autoscale(self.core.mappable.get_mut().norm_mut());
-        }
-        Ok(())
-    }
-}
+super::impl_color_mapped!(FigureImageArtist, core.data, core.mappable);
 
 impl FigureImageArtist {
+    /// An image of `data` (normalized) placed and colour-mapped as
+    /// `options` say, resampled as the rc parameters say.
+    fn new(data: ImageData, options: FigimageOptions, rc: &RcParams) -> Result<Self, ImageError> {
+        let (interpolation, stage, rc_origin) = rc_defaults(rc);
+        let resampling = Resampling {
+            interpolation,
+            resample: rc.image_resample,
+            filternorm: true,
+            filterrad: 4.0,
+            origin: options.origin.unwrap_or(rc_origin),
+        };
+        let (uniform, alpha_grid) = split_alpha(options.alpha);
+        let core = ImageCore {
+            data,
+            mappable: RefCell::new(options.colorizer.into_mappable(rc)?),
+            alpha_grid,
+            stage,
+            resampling,
+        };
+        let mut base = ArtistBase::with_zorder(0.0);
+        base.alpha = uniform;
+        Ok(Self {
+            base,
+            core,
+            offset: (options.xo, options.yo),
+        })
+    }
+
     /// matplotlib's `FigureImage.make_image` at `magnification`: one
     /// image pixel per figure pixel at the figure's resolution, scaled for
     /// other resolutions.
@@ -129,18 +142,32 @@ impl TypedHandle for FigureImage {
     }
 }
 
-impl FigureImage {
-    /// Replaces the colormap; the image's colorbars follow.
-    pub fn set_cmap(&self, cmap: Colormap) -> &Self {
-        change_mapping::<FigureImageArtist>(&self.raw, MappingChange::Cmap(Box::new(cmap)));
-        self
-    }
+super::impl_mapping_changes!(FigureImage, FigureImageArtist);
 
-    /// Replaces the norm, whose unset limits come from the data; the
-    /// image's colorbars follow.
-    pub fn set_norm(&self, norm: Box<dyn Norm>) -> &Self {
-        change_mapping::<FigureImageArtist>(&self.raw, MappingChange::Norm(norm));
-        self
+impl FigureImage {
+    /// An image of `data` placed and colour-mapped as `options` say (but
+    /// for `resize`, which only `figimage` does), outside any figure until
+    /// a figure adopts it (matplotlib's `FigureImage(fig, ...)`; see
+    /// [`Figure::adopt_artist`]).
+    ///
+    /// ```
+    /// use pltrs::image::{FigimageOptions, FigureImage, ImageData};
+    /// use pltrs::numeric::Grid;
+    /// let image = FigureImage::loose(ImageData::empty(), FigimageOptions::default())?;
+    /// image.set_data(Grid::filled(4, 3, 0.0));
+    /// assert_eq!(image.shape(), (4, 3));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap or norm options are invalid.
+    pub fn loose(data: impl Into<ImageData>, options: FigimageOptions) -> Result<Self, ImageError> {
+        let artist =
+            FigureImageArtist::new(data.into().normalized(), options, &crate::rc::params())?;
+        Ok(Self {
+            raw: RawHandle::loose(Box::new(artist)),
+        })
     }
 
     /// Changes the opacity: uniform, or one value per pixel.
@@ -266,29 +293,7 @@ impl Figure {
             // keeps its size.
             let _ = self.set_size_inches(cols as f64 / dpi, rows as f64 / dpi);
         }
-        let (interpolation, stage, rc_origin) = rc_defaults(&rc);
-        let resampling = Resampling {
-            interpolation,
-            resample: rc.image_resample,
-            filternorm: true,
-            filterrad: 4.0,
-            origin: options.origin.unwrap_or(rc_origin),
-        };
-        let (uniform, alpha_grid) = split_alpha(options.alpha);
-        let core = ImageCore {
-            data,
-            mappable: RefCell::new(options.colorizer.into_mappable(&rc)?),
-            alpha_grid,
-            stage,
-            resampling,
-        };
-        let mut base = ArtistBase::with_zorder(0.0);
-        base.alpha = uniform;
-        let artist = FigureImageArtist {
-            base,
-            core,
-            offset: (options.xo, options.yo),
-        };
+        let artist = FigureImageArtist::new(data, options, &rc)?;
         let figure = self.raw().figure_state();
         let id = figure.borrow_mut().adopt(self.id(), Box::new(artist));
         Ok(FigureImage {

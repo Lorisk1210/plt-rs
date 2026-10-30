@@ -4,7 +4,7 @@
 
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::figure::Figure;
-use pltrs::image::{AxesImage, FigimageOptions, FigureImage, ImageAlpha, ImageData};
+use pltrs::image::{AxesImage, FigimageOptions, FigureImage, ImageAlpha};
 
 use super::{ImageArray, parse};
 use crate::binding::prelude::*;
@@ -30,30 +30,6 @@ impl FromPy<'_> for AnyImage {
 }
 
 impl AnyImage {
-    /// Replaces the image's data.
-    pub(super) fn set_data(&self, data: ImageData) {
-        match self {
-            Self::Axes(image) => {
-                image.set_data(data);
-            }
-            Self::Figure(image) => {
-                image.set_data(data);
-            }
-        }
-    }
-
-    /// Maps the image through `cmap` and `norm` from now on.
-    pub(super) fn set_mapping(&self, cmap: Colormap, norm: Box<dyn Norm>) {
-        match self {
-            Self::Axes(image) => {
-                image.set_cmap(cmap).set_norm(norm);
-            }
-            Self::Figure(image) => {
-                image.set_cmap(cmap).set_norm(norm);
-            }
-        }
-    }
-
     /// Sets the image's opacity.
     pub(super) fn set_image_alpha(&self, alpha: Option<ImageAlpha>) {
         match self {
@@ -119,6 +95,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
 mod tests {
     use super::*;
     use pltrs::colors::Normalize;
+    use pltrs::image::ImageData;
     use pltrs::numeric::Grid;
 
     #[test]

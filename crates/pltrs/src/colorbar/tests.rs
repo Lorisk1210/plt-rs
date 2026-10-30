@@ -266,6 +266,18 @@ fn a_new_norm_brings_its_scale() {
 }
 
 #[test]
+fn a_retuned_norm_keeps_the_ticks_a_replaced_one_resets() {
+    let (fig, _, image) = image_figure();
+    let colorbar = fig.colorbar(&image, ColorbarOptions::default()).unwrap();
+    colorbar.set_ticks(vec![-0.25, 0.25]);
+    image.retune_norm(Box::new(Normalize::new(-1.0, 1.0)));
+    assert_eq!(colorbar.ax().ylim(), (-1.0, 1.0), "the new limits show");
+    assert_eq!(colorbar.long_axis().ticklocs(false).unwrap(), [-0.25, 0.25]);
+    image.set_norm(Box::new(Normalize::new(-1.0, 1.0)));
+    assert_ne!(colorbar.long_axis().ticklocs(false).unwrap(), [-0.25, 0.25]);
+}
+
+#[test]
 fn contour_colorbars_follow_recolouring() {
     let fig = Figure::new();
     let ax = fig.subplot();

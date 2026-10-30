@@ -344,6 +344,16 @@ impl Collection {
         self
     }
 
+    /// Gives the norm of the colour mapping, if the collection has one,
+    /// new parameters, `norm` standing for the same norm changed in place
+    /// (matplotlib setting `vmin`, `vmax`, ... of the norm object a
+    /// collection keeps): unlike [`set_norm`](Self::set_norm), its
+    /// colorbars keep their tickers and scale.
+    pub fn retune_norm(&self, norm: Box<dyn Norm>) -> &Self {
+        change_mapping::<CollectionArtist>(&self.raw, MappingChange::Retune(norm));
+        self
+    }
+
     /// Sets the data values mapped to the ends of the colormap, if the
     /// collection has a colour mapping (matplotlib's `set_clim`); `None`
     /// leaves a limit unchanged. Its colorbars follow.

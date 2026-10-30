@@ -19,7 +19,7 @@ import numpy as np
 
 from . import _api, _pylab_helpers, rcParams
 from ._api import UNSET as _UNSET
-from ._native import gridspec as _gridspec
+from ._native import figure_layout as _figure_layout, gridspec as _gridspec
 from .transforms import Bbox
 
 #: The margin and spacing names of a grid, in the order they cross to
@@ -327,6 +327,9 @@ class GridSpec(GridSpecBase):
             [float(r) for r in self._col_width_ratios],
             [float(r) for r in self._row_height_ratios],
             (left, bottom, right, top, wspace, hspace)))
+        if figure is None:
+            # Constrained layout only places the grids of a figure.
+            _gridspec.set_in_layout(self._native, False)
 
     @classmethod
     def _from_native(cls, native, figure):
@@ -408,6 +411,35 @@ class GridSpec(GridSpecBase):
         This is a subset of the attributes of `.SubplotParams`.
         """
         return [k for k in self._AllowedKeys if getattr(self, k)]
+
+    def tight_layout(self, figure, renderer=None,
+                     pad=1.08, h_pad=None, w_pad=None, rect=None):
+        """
+        Adjust subplot parameters to give specified padding.
+
+        Parameters
+        ----------
+        figure : `.Figure`
+            The figure.
+        renderer :  `.RendererBase` subclass, optional
+            The renderer to be used (pltrs (Rust) measures the figure
+            itself).
+        pad : float
+            Padding between the figure edge and the edges of subplots, as a
+            fraction of the font-size.
+        h_pad, w_pad : float, optional
+            Padding (height/width) between edges of adjacent subplots.
+            Defaults to *pad*.
+        rect : tuple (left, bottom, right, top), default: None
+            (left, bottom, right, top) rectangle in normalized figure
+            coordinates that the whole subplots area (including labels) will
+            fit into. Default (None) is the whole figure.
+        """
+        not_applied = _figure_layout.grid_tight_layout(
+            self._native, figure._native, float(pad), h_pad, w_pad,
+            None if rect is None else tuple(rect))
+        if not_applied is not None:
+            _api.warn_external(not_applied)
 
 
 class GridSpecFromSubplotSpec(GridSpecBase):

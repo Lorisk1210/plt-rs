@@ -116,6 +116,13 @@ fn locally_modified(grid: GridSpec) -> PyResult<bool> {
     Ok(grid.locally_modified())
 }
 
+/// Sets whether constrained layout places the axes on the grid (not for
+/// a grid made without a figure).
+fn set_in_layout(grid: GridSpec, in_layout: bool) -> PyResult<()> {
+    grid.set_in_layout(in_layout);
+    Ok(())
+}
+
 /// `repr` of the grid: `GridSpec(2, 2, height_ratios=(3, 1))`.
 fn repr(grid: GridSpec) -> PyResult<String> {
     Ok(grid.to_string())
@@ -216,6 +223,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("overrides", overrides)?;
     module.add("set_overrides", set_overrides)?;
     module.add("locally_modified", locally_modified)?;
+    module.add("set_in_layout", set_in_layout)?;
     module.add("repr", repr)?;
     module.add("same", same)?;
     module.add("parent", parent)?;

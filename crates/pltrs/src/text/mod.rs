@@ -37,6 +37,7 @@ mod layout;
 mod math;
 mod math_image;
 mod metrics;
+mod overrides;
 mod tex;
 mod text_box;
 mod wrap;
@@ -69,10 +70,13 @@ pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
+pub use overrides::{
+    LineKind, LineMeasurer, TextPainter, measure_line, set_line_measurer, set_text_painter,
+};
 pub use pltrs_text::tex::{TexEngine, TexError};
 pub use pltrs_text::{
-    BlockLayout, Feature, HAlign, Hinting, Language, LanguageRange, LanguageTag, LineMetrics,
-    LinePlacement, LineSpacing, ParseFeatureError, RotationMode, TextError, VAlign,
+    BlockLayout, Feature, FontHeightMetrics, HAlign, Hinting, Language, LanguageRange, LanguageTag,
+    LineMetrics, LinePlacement, LineSpacing, ParseFeatureError, RotationMode, TextError, VAlign,
 };
 pub use tex::{check_usetex, check_usetex_postscript, tex_manager};
 pub(crate) use text_box::BoxPlacement;
@@ -391,9 +395,16 @@ impl TextArtist {
         drawn
     }
 
-    /// Draws the text's box and lines at `anchor`.
+    /// Draws the text's box and lines at `anchor`; the thread's
+    /// [`TextPainter`], if it has one, draws the whole text instead.
     fn draw_block_at(&self, ctx: &mut DrawContext<'_>, anchor: Point) -> Result<(), TextDrawError> {
         let layout = *ctx.layout();
+        if let Some(painter) = overrides::painter() {
+            let laid_out = self.layout_at(layout, anchor)?;
+            let color = self.color.resolve_alpha(self.base.alpha)?;
+            overrides::paint(&*painter, ctx, &laid_out, anchor, color);
+            return Ok(());
+        }
         if let Some((bbox, placement)) = self.box_placement(layout, anchor)? {
             bbox.draw(ctx, &self.base, &self.rc, &placement)
                 .map_err(TextDrawError::Box)?;
@@ -505,7 +516,8 @@ impl Artist for TextArtist {
 /// (display coordinates), rotated by `angle` degrees. A single line tells
 /// the renderer where and how the text is anchored, as matplotlib passes
 /// the text artist along with single-line texts. TeX lines go to the
-/// renderer's `draw_tex`, other lines to its `draw_text`.
+/// renderer's `draw_tex`, other lines to its `draw_text`. The thread's
+/// [`TextPainter`], if it has one, draws the block instead.
 ///
 /// # Errors
 ///
@@ -517,6 +529,10 @@ pub(crate) fn draw_laid_out(
     anchor: Point,
     angle: f64,
 ) -> Result<(), TextError> {
+    if let Some(painter) = overrides::painter() {
+        overrides::paint(&*painter, ctx, laid_out, anchor, gc.foreground);
+        return Ok(());
+    }
     let single = laid_out.runs.len() == 1;
     let mut result = Ok(());
     for (line, run) in laid_out.block.lines.iter().zip(&laid_out.runs) {

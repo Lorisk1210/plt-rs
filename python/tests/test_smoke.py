@@ -305,3 +305,38 @@ def test_wide_floats_warn_when_drawn():
     if np.dtype(np.longdouble).itemsize > 8:
         with pytest.warns(UserWarning, match="Casting input data from"):
             fig.canvas.draw()
+
+
+def test_replaced_text_measurement_and_drawing_take_effect(monkeypatch):
+    from pltrs import text
+    from pltrs.patches import Rectangle
+
+    def measure(renderer, s, fontprop, ismath, dpi):
+        return 10.0 * len(s), fontprop.get_size(), 0.0
+
+    def draw(self, renderer):
+        bbox = self.get_window_extent()
+        Rectangle(bbox.p0, bbox.width, bbox.height, facecolor="red",
+                  edgecolor="none").draw(renderer)
+
+    fig = plt.figure(figsize=(2, 1), dpi=100)
+    label = fig.text(0.1, 0.5, "abcd", fontsize=20)
+    measured = label.get_window_extent().width
+    monkeypatch.setattr(text, "_get_text_metrics_with_cache", measure)
+    monkeypatch.setattr(text.Text, "draw", draw)
+    assert label.get_window_extent().width == 40.0
+    fig.canvas.draw()
+    pixels = np.asarray(fig.canvas.buffer_rgba())
+    assert (pixels[45, 30] == [255, 0, 0, 255]).all(), "a box, not glyphs"
+    monkeypatch.undo()
+    assert label.get_window_extent().width == measured
+
+
+def test_tight_layout_warns_as_matplotlib_does():
+    fig, axs = plt.subplots(1, 2)
+    fig.add_axes([0.9, 0.1, 0.02, 0.8])
+    with pytest.warns(UserWarning, match="not compatible with tight_layout"):
+        fig.tight_layout()
+    fig, ax = plt.subplots(layout="constrained")
+    with pytest.warns(UserWarning, match="layout has changed to tight"):
+        fig.tight_layout()

@@ -375,6 +375,23 @@ class Artist:
             ret.append(func(v))
         return ret
 
+    def draw(self, renderer):
+        """
+        Draw the Artist (and its children) using the given renderer.
+
+        This has no effect if the artist is not visible. pltrs (Rust) draws
+        figures itself: the renderer it hands to the program's replacement
+        of `.Text.draw` draws the artist where pltrs is drawing the text.
+        """
+        if not self.get_visible():
+            return
+        draw_artist = getattr(renderer, "_draw_artist", None)
+        if draw_artist is None:
+            raise NotImplementedError(
+                "pltrs: Artist.draw(renderer) with a renderer pltrs (Rust) is "
+                "not drawing with")
+        draw_artist(self)
+
 
 # The introspection of artist properties, which needs `Artist` defined.
 from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: E402, F401

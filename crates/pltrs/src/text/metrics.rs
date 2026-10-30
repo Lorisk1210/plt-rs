@@ -79,6 +79,12 @@ pub(crate) fn with_afm_metrics<R>(directory: Option<AfmDirectory>, f: impl FnOnc
     with_mode(&AFM_METRICS, directory, f)
 }
 
+/// Whether text that is not mathtext is measured with AFM fonts (inside
+/// [`with_afm_metrics`] with a directory).
+pub(super) fn measures_afm() -> bool {
+    AFM_METRICS.get().is_some()
+}
+
 /// The hinting text is laid out and rasterized with: `text.hinting` as
 /// matplotlib's Agg backend maps it (`get_hinting_flag`), or none inside
 /// [`without_hinting`].

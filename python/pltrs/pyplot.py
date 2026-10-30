@@ -20,6 +20,7 @@ from .backend_bases import _Backend, FigureManagerBase
 from .backends import backend_registry
 from .figure import Figure, FigureBase, figaspect  # noqa: F401  (pyplot exports figaspect)
 from .lines import Line2D  # noqa: F401  (pyplot exports it)
+from .patches import Arrow, Circle, Polygon, Rectangle  # noqa: F401  (pyplot exports them)
 from .gridspec import GridSpec, SubplotSpec
 
 _log = logging.getLogger(__name__)
@@ -869,3 +870,8 @@ __all__ += _plotting_all
 from ._pyplot_text import *  # noqa: E402,F401,F403
 from ._pyplot_text import __all__ as _text_all  # noqa: E402
 __all__ += _text_all
+
+# The layout functions (plt.tight_layout, plt.supxlabel, plt.supylabel).
+from ._pyplot_layout import *  # noqa: E402,F401,F403
+from ._pyplot_layout import __all__ as _layout_all  # noqa: E402
+__all__ += _layout_all

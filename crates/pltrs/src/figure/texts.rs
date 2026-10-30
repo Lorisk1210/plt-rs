@@ -134,11 +134,33 @@ impl Figure {
             .collect()
     }
 
-    /// The text of the figure-wide text `kind`, empty when there is none.
-    fn super_text_of(&self, kind: SuperKind) -> String {
+    /// The figure title, x label and y label of this figure (or
+    /// subfigure), those it has (matplotlib's `_suptitle`, `_supxlabel`
+    /// and `_supylabel`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// fig.supylabel("y");
+    /// let [title, xlabel, ylabel] = fig.super_text_artists();
+    /// assert!(title.is_none() && xlabel.is_none());
+    /// assert_eq!(ylabel.map(|label| label.text()).as_deref(), Some("y"));
+    /// ```
+    pub fn super_text_artists(&self) -> [Option<Text>; 3] {
+        [SuperKind::Title, SuperKind::XLabel, SuperKind::YLabel].map(|kind| self.super_artist(kind))
+    }
+
+    /// The figure-wide text `kind`, if there is one.
+    fn super_artist(&self, kind: SuperKind) -> Option<Text> {
         self.root
             .with::<FigureFrame, _>(|frame| kind.slot(frame))
-            .map(|known| Text::from_raw(RawHandle::new(Rc::clone(&self.state), known.id)).text())
+            .map(|known| Text::from_raw(RawHandle::new(Rc::clone(&self.state), known.id)))
+    }
+
+    /// The text of the figure-wide text `kind`, empty when there is none.
+    fn super_text_of(&self, kind: SuperKind) -> String {
+        self.super_artist(kind)
+            .map(|text| text.text())
             .unwrap_or_default()
     }
 

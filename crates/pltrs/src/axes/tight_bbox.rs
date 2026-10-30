@@ -35,6 +35,40 @@ impl Axes {
         state.prepare();
         state.axes_tight_bbox(self.id(), for_layout_only)
     }
+
+    /// [`Axes::tight_bbox`] without the axes' children (its spines, inset
+    /// axes and other artists): the box with the tick labels, axis labels,
+    /// offset texts and titles only (matplotlib's
+    /// `get_tightbbox(bbox_extra_artists=[])`). `None` for invisible axes
+    /// and for 3-D axes.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::with_size(4.0, 3.0, 100.0).subplot();
+    /// ax.set_xlim(0.0, 1.0)?;
+    /// ax.text(1.0, 0.5, "This dangles over the end");
+    /// let decorated = ax.decorations_tight_bbox(false).unwrap();
+    /// assert!(decorated.x1() < ax.tight_bbox(false).unwrap().x1());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn decorations_tight_bbox(&self, for_layout_only: bool) -> Option<Bbox> {
+        let mut state = self.raw().figure_state().borrow_mut();
+        state.prepare();
+        if crate::mplot3d::is_axes3d(&state.store, self.id()) {
+            return None;
+        }
+        state.axes_tight_bbox_at(self.id(), for_layout_only, Placement::Located, Extras::None)
+    }
+}
+
+/// Which children of an axes its tight box takes in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Extras {
+    /// Its inset axes, spines and the artists not clipped to it
+    /// (matplotlib's `get_default_bbox_extra_artists`).
+    Children,
+    /// None of them.
+    None,
 }
 
 impl Axis {
@@ -96,7 +130,7 @@ impl FigureState {
         if crate::mplot3d::is_axes3d(&self.store, axes) {
             return crate::mplot3d::axes3d_fresh_tight_bbox(self, axes, for_layout_only);
         }
-        self.axes_tight_bbox_at(axes, for_layout_only, Placement::Located)
+        self.axes_tight_bbox_at(axes, for_layout_only, Placement::Located, Extras::Children)
     }
 
     /// The box of `axes` and its tight box (with full decorations) at its
@@ -112,7 +146,7 @@ impl FigureState {
             state.axis(AxisName::X).ticks.clone(),
             state.axis(AxisName::Y).ticks.clone(),
         );
-        let tight = self.axes_tight_bbox_at(axes, false, Placement::Original);
+        let tight = self.axes_tight_bbox_at(axes, false, Placement::Original, Extras::Children);
         let extent = self.axes_bbox(axes);
         let state = self.store.get_as_mut::<AxesState>(axes)?;
         let (aspect, x_ticks, y_ticks) = placed;
@@ -123,12 +157,13 @@ impl FigureState {
     }
 
     /// [`axes_tight_bbox`](Self::axes_tight_bbox) with the axes placed by
-    /// `placement`.
+    /// `placement`, taking in the children `extras` says.
     fn axes_tight_bbox_at(
         &mut self,
         axes: ArtistId,
         for_layout_only: bool,
         placement: Placement,
+        extras: Extras,
     ) -> Option<Bbox> {
         if !self.store.get_as::<AxesState>(axes)?.base().visible {
             return None;
@@ -144,6 +179,7 @@ impl FigureState {
         self.update_title_position(axes);
         let insets: Vec<ArtistId> = children
             .into_iter()
+            .filter(|_| extras == Extras::Children)
             .filter(|&child| self.store.get_as::<AxesState>(child).is_some())
             .collect();
         let mut boxes: Vec<Bbox> = insets
@@ -176,6 +212,7 @@ impl FigureState {
             state
                 .children
                 .iter()
+                .filter(|_| extras == Extras::Children)
                 .filter(|child| !state.titles.contains(child))
                 .filter_map(|&child| child_tight_bbox(layout, state, axes, child))
                 .filter(has_area),

@@ -8,13 +8,15 @@ aliases and validation, and its keyword handling.
 
 from collections.abc import Sequence
 from numbers import Real
+import sys
 
 import numpy as np
 
-from . import _api, cbook
+from . import _api, _text_overrides, cbook
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
 from ._native import annotation as _annotation, text as _text
+from ._native import text_overrides as _native_overrides
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
 from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here)
@@ -50,6 +52,20 @@ def _rc(name):
     return rcParams[name]
 
 
+def _get_text_metrics_with_cache(renderer, text, fontprop, ismath, dpi):
+    """
+    Return the width, height and descent of *text* in *fontprop* at *dpi*,
+    as ``renderer.get_text_width_height_descent`` gives them: pltrs (Rust)
+    measures the text as the Agg canvas does (*ismath*: False, True or
+    ``"TeX"``).
+
+    pltrs (Rust) measures every line it lays out through this function
+    while the program replaces it (see `._text_overrides`).
+    """
+    return _native_overrides.measure(text, FontManager._props(fontprop),
+                                     ismath, dpi)
+
+
 @_api.define_aliases({
     "color": ["c"],
     "fontproperties": ["font", "font_properties"],
@@ -64,7 +80,7 @@ def _rc(name):
     "verticalalignment": ["va"],
     "multialignment": ["ma"],
 })
-class Text(Artist):
+class Text(Artist, metaclass=_text_overrides.WatchesDraw):
     """Handle storing and drawing of text in window or data coordinates."""
 
     zorder = 3
@@ -1004,3 +1020,8 @@ class Annotation(Text):
         pltrs (Rust) places them whenever the annotation is drawn or
         measured: there is nothing to update.
         """
+
+
+# pltrs (Rust) measures and draws texts through the replacements of
+# _get_text_metrics_with_cache and Text.draw the program makes.
+_text_overrides.watch(sys.modules[__name__], Text)

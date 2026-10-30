@@ -2,7 +2,9 @@
 //! the grid's own margins and spacing are fitted to its axes, so several
 //! grids can share a figure, each in a part of it.
 
-use super::tight::{Measured, TightLayout, TightLayoutError, adjusted_params};
+use super::tight::{
+    Measured, TightLayout, TightLayoutError, adjusted_params, warn_about_left_out_axes,
+};
 use crate::artist::{ArtistHandle, ArtistId};
 use crate::figure::Figure;
 use crate::gridspec::GridSpec;
@@ -17,6 +19,8 @@ impl GridSpec {
     /// # Errors
     ///
     /// When the decorations cannot fit; the grid is then left unchanged.
+    /// Axes of other grids, or off grids, make it warn (through
+    /// [`crate::warnings`]).
     ///
     /// ```
     /// use pltrs::gridspec::GridSpec;
@@ -42,6 +46,7 @@ impl GridSpec {
         let Some(subplot_params) = state.subplot_params_of(frame) else {
             return Ok(self);
         };
+        warn_about_left_out_axes(&state, &axes, Some(self));
         let measured = Measured::new(&mut state, &axes, &subplot_params, Some(self))?;
         if let Some(overrides) = adjusted_params(&state, &measured, &params)? {
             self.merge_overrides(&overrides);

@@ -21,6 +21,7 @@ from .axes import Axes
 from .axes._base import _AxesBase
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec
+from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
@@ -31,7 +32,7 @@ from ._text_methods import FigureText
 _log = logging.getLogger(__name__)
 
 
-class FigureBase(FigureText, _MosaicMixin, Artist):
+class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin, Artist):
     """
     Base class for `.Figure` and `.SubFigure` containing the methods that add
     artists to the figure or subfigure, create Axes, etc.
@@ -67,7 +68,8 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
 
     def get_facecolor(self):
         """Get the face color of the Figure rectangle."""
-        return _figure.get_facecolor(self._native)
+        from .colors import to_rgba
+        return to_rgba(_figure.get_facecolor(self._native))
 
     def set_facecolor(self, color):
         """Set the face color of the Figure rectangle."""
@@ -136,6 +138,9 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
                 projection = 'polar'
             if isinstance(projection, str) or projection is None:
                 projection_class = get_projection_class(projection)
+            elif hasattr(projection, '_as_mpl_axes'):
+                projection_class, extra_kwargs = projection._as_mpl_axes()
+                kwargs.update(**extra_kwargs)
             else:
                 raise TypeError(
                     f"projection must be a string, None or implement a "
@@ -268,6 +273,9 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
             if ax.get_figure(root=False) is not self:
                 raise ValueError("The Axes must have been created in "
                                  "the present figure")
+            if ax in self.axes:  # already here: it becomes the current axes
+                self.sca(ax)
+                return ax
             return ax._add_to_figure(self, False)
         if not args:
             args = (1, 1, 1)
@@ -531,6 +539,12 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
         *mappable*). See `.colorbar.Colorbar` for the keyword arguments.
         """
         from .colorbar import Colorbar
+        host = getattr(mappable, "get_figure", None)
+        host = None if host is None else host(root=True)
+        if host is not None and host is not self.figure:
+            _api.warn_external(
+                f'Adding colorbar to a different Figure {host!r} than '
+                f'{self.figure!r} which fig.colorbar is called on.')
         if ax is None:
             ax = getattr(mappable, "axes", None)
         if cax is not None:
@@ -624,6 +638,30 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
             a gui widget is tracking the Axes in the figure.
         """
         _figure.clear(self._native)
+        self.subfigs = []
+
+    def delaxes(self, ax):
+        """
+        Remove the `~.axes.Axes` *ax* from the figure; update the current Axes.
+        """
+        ax.remove()
+
+    def set_figure(self, fig):
+        """
+        .. deprecated:: 3.10
+            Currently this method will raise an exception if *fig* is anything other
+            than the root `.Figure` this (Sub)Figure is on.  In future it will always
+            raise an exception.
+        """
+        no_switch = ("The parent and root figures of a (Sub)Figure are set at "
+                     "instantiation and cannot be changed.")
+        if fig is self.figure:
+            _api.warn_deprecated(
+                "3.10",
+                message=(f"{no_switch} From Matplotlib 3.12 this operation will raise "
+                         "an exception."))
+            return
+        raise ValueError(no_switch)
 
     def clf(self, keep_observers=False):
         """[*Discouraged*] Clear the figure (an alias of `clear`)."""
@@ -634,6 +672,7 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
         Draw the figure with no output.  Useful to get the final size of
         artists that require a draw before their size is known (e.g. text).
         """
+        self._get_renderer()  # The canvas's renderer follows the figure.
         _figure.layout(self._native)
 
     def _get_renderer(self):
@@ -734,6 +773,11 @@ class SubFigure(FigureBase):
         """Get the SubplotSpec instance."""
         return self._subplotspec
 
+    def remove(self):
+        """Remove the subfigure, and its artists, from its parent."""
+        super().remove()
+        self._parent.subfigs.remove(self)
+
     def get_constrained_layout(self):
         """
         Return whether constrained layout is being used.
@@ -771,7 +815,7 @@ class SubFigure(FigureBase):
         self._parent.dpi = val
 
 
-class Figure(FigureBase):
+class Figure(FigureLayout, FigureBase):
     """
     The top level container for all the plot elements.
 
@@ -837,9 +881,9 @@ class Figure(FigureBase):
                 self.get_layout_engine().set(**tight_layout)
         elif constrained_layout is not None:
             if isinstance(constrained_layout, dict):
-                self.set_layout_engine(layout='constrained',
-                                       **constrained_layout)
-            else:
+                self.set_layout_engine(layout='constrained')
+                self.get_layout_engine().set(**constrained_layout)
+            elif constrained_layout:
                 self.set_layout_engine(layout='constrained')
         else:
             # everything is None, so use default:
@@ -1011,36 +1055,6 @@ class Figure(FigureBase):
         """Set the current Axes to be *a* and return *a*."""
         _figure.sca(self._native, a._native)
         return a
-
-    def suptitle(self, t, **kwargs):
-        """Add a centered super title to the figure."""
-        text = _handles.wrap(_figure.suptitle(self._native, str(t)), Text, self)
-        text._internal_update(kwargs)
-        return text
-
-    def supxlabel(self, t, **kwargs):
-        """Add a centered super xlabel to the figure."""
-        text = _handles.wrap(_figure.supxlabel(self._native, str(t)), Text, self)
-        text._internal_update(kwargs)
-        return text
-
-    def supylabel(self, t, **kwargs):
-        """Add a centered super ylabel to the figure."""
-        text = _handles.wrap(_figure.supylabel(self._native, str(t)), Text, self)
-        text._internal_update(kwargs)
-        return text
-
-    def get_suptitle(self):
-        """Return the suptitle as string or an empty string if not set."""
-        return _figure.super_texts(self._native)[0]
-
-    def get_supxlabel(self):
-        """Return the supxlabel as string or an empty string if not set."""
-        return _figure.super_texts(self._native)[1]
-
-    def get_supylabel(self):
-        """Return the supylabel as string or an empty string if not set."""
-        return _figure.super_texts(self._native)[2]
 
     @property
     def texts(self):

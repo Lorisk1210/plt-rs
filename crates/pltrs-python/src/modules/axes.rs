@@ -2,14 +2,17 @@
 //! `axes`).
 
 use pltrs::artist::ArtistHandle;
-use pltrs::axes::{Axes, PlotError, TitleLocation};
+use pltrs::axes::{Axes, AxisName, Limits, PlotError};
 use pltrs::lines::Line2D;
 use pltrs::patches::{Patch, Rectangle};
-use pltrs::text::Text;
 
 use super::lines::LineKwargs;
 use crate::binding::prelude::*;
 use crate::binding::{retyped, wrap_artist};
+
+mod callbacks;
+mod children;
+mod titles;
 
 /// The native object of any axes converts to it, and that of a 3-D axes
 /// to its projection plane: matplotlib's `Axes3D` is an `Axes` whose 2-D
@@ -39,27 +42,6 @@ impl From<PlotError> for PyErr {
     }
 }
 
-/// Sets the title at the location `axes.titlelocation` names.
-fn set_title(axes: Axes, text: String) -> PyResult<Text> {
-    Ok(axes.set_title(text))
-}
-
-/// The title at `loc` (`"center"`, `"left"` or `"right"`).
-fn get_title(axes: Axes, loc: String) -> PyResult<String> {
-    let location = match loc.as_str() {
-        "left" => TitleLocation::Left,
-        "right" => TitleLocation::Right,
-        "center" => TitleLocation::Center,
-        _ => {
-            return Err(PyErr::value_error(format!(
-                "{loc:?} is not a valid value for loc; supported values are 'left', 'center', \
-                 'right'"
-            )));
-        }
-    };
-    Ok(axes.title(location))
-}
-
 /// The x-axis label.
 fn get_xlabel(axes: Axes) -> PyResult<String> {
     Ok(axes.xaxis().label_text())
@@ -75,21 +57,41 @@ fn get_xlim(axes: Axes) -> PyResult<(f64, f64)> {
     Ok(axes.xlim())
 }
 
-/// Sets the x limits.
-fn set_xlim(axes: Axes, left: f64, right: f64) -> PyResult<()> {
-    axes.set_xlim(left, right)?;
-    Ok(())
+/// Sets the view limits of the axis `name` (`"x"` or `"y"`) to `(low,
+/// high)`, switching its autoscaling to `auto` when given; with `emit`,
+/// the axes sharing the axis follow and the limit callbacks run
+/// (matplotlib's `Axis._set_lim`). Returns the limits as set.
+fn set_lim(
+    axes: Axes,
+    name: String,
+    (low, high): (f64, f64),
+    auto: Option<bool>,
+    emit: bool,
+) -> PyResult<(f64, f64)> {
+    let axis = match name.as_str() {
+        "x" => AxisName::X,
+        "y" => AxisName::Y,
+        _ => {
+            return Err(PyErr::value_error(format!(
+                "{name:?} is not a valid value for name; supported values are 'x', 'y'"
+            )));
+        }
+    };
+    let limits = Limits {
+        low: Some(low),
+        high: Some(high),
+        auto,
+    };
+    Ok(if emit {
+        axes.set_limits_with(axis, limits)?
+    } else {
+        axes.set_limits_quietly(axis, limits)?
+    })
 }
 
 /// The y limits.
 fn get_ylim(axes: Axes) -> PyResult<(f64, f64)> {
     Ok(axes.ylim())
-}
-
-/// Sets the y limits.
-fn set_ylim(axes: Axes, bottom: f64, top: f64) -> PyResult<()> {
-    axes.set_ylim(bottom, top)?;
-    Ok(())
 }
 
 /// The lines of the axes (`ax.lines`).
@@ -146,16 +148,16 @@ fn display_to_data(axes: Axes, x: f64, y: f64) -> PyResult<(f64, f64)> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    titles::register(module)?;
+    children::register(module)?;
+    callbacks::register(module)?;
     module.add("display_to_data", display_to_data)?;
     module.add("axline", axline)?;
     module.add("axspan", axspan)?;
-    module.add("set_title", set_title)?;
-    module.add("get_title", get_title)?;
     module.add("get_xlabel", get_xlabel)?;
     module.add("get_ylabel", get_ylabel)?;
     module.add("get_xlim", get_xlim)?;
-    module.add("set_xlim", set_xlim)?;
+    module.add("set_lim", set_lim)?;
     module.add("get_ylim", get_ylim)?;
-    module.add("set_ylim", set_ylim)?;
     module.add("get_lines", get_lines)
 }

@@ -7,8 +7,8 @@ use pltrs_core::{Path, Point, Rgba};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use super::{
-    ArrayError, CollectionArtist, CollectionStyle, ColorMapping, EdgeColors, HatchColors, Mapped,
-    style,
+    ArrayError, CollectionArtist, CollectionKind, CollectionStyle, ColorMapping, EdgeColors,
+    HatchColors, Mapped, style,
 };
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::colorizer::{self, MappingChange, change_mapping};
@@ -65,6 +65,11 @@ impl TypedHandle for Collection {
 impl Collection {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
+    }
+
+    /// The kind of collection (matplotlib's subclass of `Collection`).
+    pub fn kind(&self) -> CollectionKind {
+        self.raw.with::<CollectionArtist, _>(|c| c.kind)
     }
 
     /// Changes the collection artist.

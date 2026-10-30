@@ -120,6 +120,43 @@ impl Axes {
         Ok(twin)
     }
 
+    /// Makes `twin`, an axes made on its own at this axes' place and
+    /// sharing axis `shared` with it, its twin drawn `delta_zorder` above
+    /// it, as [`twin_with`](Self::twin_with) sets up the axes it makes
+    /// (matplotlib's `_make_twin_axes` for `twinx(axes_class=...)`, whose
+    /// axes the class' constructor makes).
+    ///
+    /// ```
+    /// use pltrs::axes::AxisName;
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
+    /// let other = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
+    /// other.share_x(&ax)?;
+    /// ax.adopt_twin(&other, AxisName::X, -1.0)?;
+    /// assert_eq!(ax.twins(), [ax.clone(), other.clone()]);
+    /// assert!(other.patch_visible() && !ax.patch_visible());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AspectError::FixedDataRatio`] when either axes fixes its data
+    /// ratio; then nothing changes.
+    pub fn adopt_twin(
+        &self,
+        twin: &Self,
+        shared: AxisName,
+        delta_zorder: f64,
+    ) -> Result<&Self, AspectError> {
+        for axes in [self, twin] {
+            axes.raw
+                .with::<AxesState, _>(|state| check_adjustable(state, Adjustable::Datalim))?;
+        }
+        self.join_twin(twin, shared, delta_zorder);
+        Ok(self)
+    }
+
     /// A new axes on top of this one sharing axis `shared` (the
     /// `add_subplot(spec, sharex=self)` of matplotlib's
     /// `_make_twin_axes`), not yet set up as a twin.
@@ -176,8 +213,9 @@ impl Axes {
     /// Shows the background patch of the bottom-most axes of a group of
     /// twinned axes only (the lowest z-order, the first added among
     /// equals), and only if it draws its frame (matplotlib's
-    /// `_update_twinned_axes_patch_visibility`).
-    pub(crate) fn update_twinned_patch_visibility(&self) {
+    /// `_update_twinned_axes_patch_visibility`, which matplotlib's
+    /// `set_zorder` of an axes runs).
+    pub fn update_twinned_patch_visibility(&self) {
         let figure = self.raw().figure_state();
         let twins = figure.borrow().shared.twins(self.id());
         if twins.len() < 2 {

@@ -265,6 +265,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """Return whether antialiased rendering is used."""
         return _text.get_antialiased(self._native)
 
+    @property
+    def _antialiased(self):
+        return self.get_antialiased()
+
     def get_wrap(self):
         """Return whether the text can be wrapped."""
         return _text.get_wrap(self._native)
@@ -384,7 +388,14 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         return Bbox([[x0, y0], [x1, y1]])
 
     def get_tightbbox(self, renderer=None):
-        """Like `get_window_extent`: a text's tight box is its extent."""
+        """
+        Like `get_window_extent`: a text's tight box is its extent, null
+        for a hidden or empty text and for one placed in data coordinates
+        outside the domain of its axes' scales.
+        """
+        if (not self.get_visible() or self.get_text() == ""
+                or not _text.in_data_domain(self._native)):
+            return Bbox.null()
         return self.get_window_extent(renderer)
 
     def set_color(self, color):
@@ -741,7 +752,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 
     def get_language(self):
         """Return the language this Text is in."""
-        return getattr(self, "_language", _rc('text.language'))
+        tag, ranges = _text.get_language(self._native)
+        return tuple(ranges) if ranges else tag
 
     def set_language(self, language):
         """
@@ -776,7 +788,6 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             _text.set_language(self._native, None, list(language))
         else:
             _text.set_language(self._native, language, [])
-        self._language = language
 
     def _ha_for_angle(self, angle):
         """

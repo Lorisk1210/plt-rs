@@ -10,13 +10,14 @@
 
 use std::rc::Rc;
 
-use pltrs::axes::{Axes, LabelLoc};
+use pltrs::axes::Axes;
 use pltrs::collections::Collection;
 use pltrs::colorbar::{
     Colorbar, ColorbarAxes, ColorbarError, ColorbarFormat, ColorbarOptions, ColorbarTicks,
     ExtendFrac, Mappable, ParentAnchor, Spacing,
 };
-use pltrs::colors::{Colormap, Extend, Norm, ScalarMappable};
+use pltrs::colors::{Color, Colormap, Extend, Norm, ScalarMappable};
+use pltrs::contour::ContourSet;
 use pltrs::figure::Figure;
 use pltrs::image::AxesImage;
 use pltrs::orientation::Orientation;
@@ -158,42 +159,57 @@ fn options(
     })
 }
 
+/// The mappable of a colorbar as Python describes it: its colormap and
+/// norm, the image pltrs (Rust) draws for it if it is one, and its contour
+/// set if it is one.
+type ShownParts = (
+    Colormap,
+    Box<dyn Norm>,
+    Option<AxesImage>,
+    Option<ContourSet>,
+);
+
 /// What a colorbar shows: the mapping through `cmap` and `norm`, which it
 /// follows as the image `image` (its opacity included) when the mappable
-/// is one.
+/// is one, or the levels of the contour set `contours` (its blocks and
+/// extensions) when it is one.
 struct Shown {
     mapping: ScalarMappable,
     image: Option<AxesImage>,
+    contours: Option<ContourSet>,
 }
 
 impl Shown {
-    fn new(cmap: Colormap, norm: Box<dyn Norm>, image: Option<AxesImage>) -> Self {
+    fn new((cmap, norm, image, contours): ShownParts) -> Self {
         Self {
             mapping: ScalarMappable::with_norm(cmap, norm),
             image,
+            contours,
         }
     }
 
     fn mappable(&self) -> Mappable<'_> {
-        self.image
-            .as_ref()
-            .map_or_else(|| Mappable::from(&self.mapping), Mappable::from)
+        match (&self.contours, &self.image) {
+            (Some(contours), _) => Mappable::from(contours),
+            (None, Some(image)) => Mappable::from(image),
+            (None, None) => Mappable::from(&self.mapping),
+        }
     }
 }
 
-/// A colorbar in `figure` showing the mapping through `cmap` and `norm`
-/// (of the image `image`, if the mappable is one), drawn in `cax` or in a
+/// A colorbar in `figure` showing the mappable `shown` describes (see
+/// [`ShownParts`]), drawn in `cax` or in a
 /// new axes taking space from `parents`, with the options of the dict
 /// `spec`.
 fn new(
     figure: Figure,
-    (cmap, norm, image): (Colormap, Box<dyn Norm>, Option<AxesImage>),
+    shown: ShownParts,
     cax: Option<Axes>,
     parents: Option<Vec<Axes>>,
     spec: Owned,
 ) -> PyResult<Colorbar> {
     let options = Python::with_gil(|py| options(cax, parents, &spec.bind(py)))?;
-    let shown = Shown::new(cmap, norm, image);
+    let shown = Shown::new(shown);
     Ok(figure.colorbar(shown.mappable(), options)?)
 }
 
@@ -235,21 +251,26 @@ fn limits(colorbar: Colorbar) -> PyResult<(f64, f64)> {
     Ok((colorbar.vmin(), colorbar.vmax()))
 }
 
-/// Labels the long axis at `loc` (`'left'`/`'bottom'`, `'center'`,
-/// `'right'`/`'top'`; `None` for the rc default).
-fn set_label(colorbar: Colorbar, label: String, loc: Option<String>) -> PyResult<()> {
-    let loc = match loc.as_deref() {
-        None => None,
-        Some("left" | "bottom") => Some(LabelLoc::Start),
-        Some("center") => Some(LabelLoc::Center),
-        Some("right" | "top") => Some(LabelLoc::End),
-        Some(other) => {
-            return Err(PyErr::value_error(format!(
-                "{other:?} is not a valid value for loc"
-            )));
-        }
-    };
-    colorbar.set_label(label, loc);
+/// Draws the levels of the line contours `contours` across the colorbar
+/// in their colours and widths; `erase` removes the lines added before
+/// (`add_lines(contour_set)`).
+fn add_contour_lines(colorbar: Colorbar, contours: ContourSet, erase: bool) -> PyResult<()> {
+    colorbar.add_lines(&contours, erase)?;
+    Ok(())
+}
+
+/// Draws lines across the colorbar at the data values `levels`, with the
+/// colours `colors` and widths `linewidths` (one per level, or cycled);
+/// `erase` removes the lines added before (`add_lines(levels, colors,
+/// linewidths)`).
+fn add_level_lines(
+    colorbar: Colorbar,
+    levels: Vec<f64>,
+    colors: Vec<Color>,
+    linewidths: Vec<f64>,
+    erase: bool,
+) -> PyResult<()> {
+    colorbar.add_level_lines(&levels, colors, linewidths, erase)?;
     Ok(())
 }
 
@@ -274,13 +295,10 @@ fn set_minorticks(colorbar: Colorbar, on: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// Shows the mapping through `cmap` and `norm`, of the image `image` if
-/// the mappable is one (the mappable changed).
-fn update_normal(
-    colorbar: Colorbar,
-    (cmap, norm, image): (Colormap, Box<dyn Norm>, Option<AxesImage>),
-) -> PyResult<()> {
-    colorbar.update_normal(Shown::new(cmap, norm, image).mappable())?;
+/// Shows the mappable `shown` describes again (see [`ShownParts`]; the
+/// mappable changed).
+fn update_normal(colorbar: Colorbar, shown: ShownParts) -> PyResult<()> {
+    colorbar.update_normal(Shown::new(shown).mappable())?;
     Ok(())
 }
 
@@ -330,7 +348,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("boundaries", boundaries)?;
     module.add("values", values)?;
     module.add("limits", limits)?;
-    module.add("set_label", set_label)?;
+    module.add("add_contour_lines", add_contour_lines)?;
+    module.add("add_level_lines", add_level_lines)?;
     module.add("set_ticks", set_ticks)?;
     module.add("get_ticks", get_ticks)?;
     module.add("set_minorticks", set_minorticks)?;

@@ -227,7 +227,7 @@ impl FromPy<'_> for EngineSpec {
                     pad,
                     h_pad,
                     w_pad,
-                    rect: Some([rect.0, rect.1, rect.2, rect.3]),
+                    rect: Some([rect.0, rect.1, rect.2, rect.3].map(Some)),
                 })
             }
             "placeholder" => {

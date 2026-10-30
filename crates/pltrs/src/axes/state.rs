@@ -108,6 +108,9 @@ pub(crate) struct AxesState {
     pub(crate) fmt_data: DataFormatters,
     /// How the titles' height is chosen (matplotlib's `_autotitlepos`).
     pub(crate) title_placement: TitlePlacement,
+    /// The gap between the axes top and its titles in points (matplotlib's
+    /// `titleOffsetTrans`).
+    pub(crate) title_pad: f64,
     /// Where the axis artists sit in the z-order (`axes.axisbelow`).
     pub(crate) axisbelow: AxisBelow,
     /// Children at or below this z-order are rasterized together in
@@ -153,6 +156,7 @@ pltrs_core::archive_struct!(AxesState {
     forward_navigation,
     fmt_data,
     title_placement,
+    title_pad,
     axisbelow,
     rasterization_zorder,
     current_image,
@@ -290,6 +294,7 @@ impl AxesState {
             } else {
                 TitlePlacement::Auto
             },
+            title_pad: rc.axes_titlepad,
             axisbelow: rc.axes_axisbelow,
             rasterization_zorder: None,
             current_image: None,

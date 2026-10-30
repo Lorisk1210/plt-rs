@@ -4,6 +4,7 @@
 //! `get_segments`, `get_datalim`, `get_linewidth`, `get_linestyle`,
 //! `get_coordinates` and `get_cursor_data`).
 
+use pltrs_core::path::DataLimits;
 use pltrs_core::{Bbox, Point};
 use pltrs_render::Dashes;
 
@@ -49,11 +50,27 @@ impl Collection {
     /// assert_eq!((limits.x0(), limits.y0(), limits.x1(), limits.y1()), (1.0, 0.0, 3.0, 2.0));
     /// ```
     pub fn datalim(&self) -> Bbox {
+        self.data_limits().bbox
+    }
+
+    /// [`Collection::datalim`] with the smallest positive coordinates of
+    /// the collection, which logarithmic axes autoscale from (the
+    /// `minpos` of matplotlib's `get_datalim` box).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let dots = ax.scatter(vec![-1.0, 0.5, 2.0], vec![3.0, -2.0, 4.0])?;
+    /// let limits = dots.data_limits();
+    /// assert_eq!((limits.minpos.x, limits.minpos.y), (0.5, 3.0));
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn data_limits(&self) -> DataLimits {
         let Some(axes) = self.raw().with_base(|base| base.parent) else {
-            return Bbox::NULL;
+            return DataLimits::NULL;
         };
         self.raw()
-            .with::<CollectionArtist, _>(|c| c.data_limits(axes).0.bbox)
+            .with::<CollectionArtist, _>(|c| c.data_limits(axes).0)
     }
 
     /// The edge widths as drawn (matplotlib's `get_linewidth`): the widths

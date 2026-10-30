@@ -136,7 +136,7 @@ fn tight_column(
         .collect::<Result<Vec<_>, _>>()?;
     tight_plots(&axes, calls_before);
     let params = TightLayout {
-        rect: Some(rect),
+        rect: Some(rect.map(Some)),
         ..TightLayout::default()
     };
     grid.tight_layout(fig, params)?;

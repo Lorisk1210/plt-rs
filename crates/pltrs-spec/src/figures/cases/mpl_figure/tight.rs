@@ -83,7 +83,7 @@ pub(super) const CASES: &[FigureCase] = &[
 /// Tight layout fitting `rect` with rows `h_pad` font sizes apart.
 fn fitting(rect: [f64; 4], h_pad: Option<f64>) -> TightLayout {
     TightLayout {
-        rect: Some(rect),
+        rect: Some(rect.map(Some)),
         h_pad,
         ..TightLayout::default()
     }

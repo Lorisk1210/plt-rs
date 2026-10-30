@@ -21,6 +21,7 @@ import numpy as np
 from . import _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms
 from ._artist_callbacks import CallbacksMixin
+from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
 from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
@@ -32,7 +33,7 @@ from ._native import transforms as _transforms
 
 
 class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
-             EffectsMixin, ExtentMixin, UnitsMixin):
+             EffectsMixin, ExtentMixin, UnitsMixin, ChildrenSearchMixin):
     """
     Abstract base class for objects that render into a FigureCanvas.
 
@@ -100,11 +101,19 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_transform(self):
         """Return the `.Transform` instance used by this artist."""
-        given = self.__dict__.get("_transform")
+        given = self.__dict__.get("_given_transform")
         if given is not None:
             return given
         return _live_transforms.of_artist(
             self, _transforms.get_transform(self._native))
+
+    @property
+    def _transform(self):
+        """The transform the artist has: the one it was given, or the one
+        an axes or a figure gave it when it was added; None before it has
+        one (matplotlib's ``_transform``, which a patch, say, composes
+        with a transform of its own)."""
+        return Artist.get_transform(self) if self.is_transform_set() else None
 
     def set_transform(self, t):
         """
@@ -115,7 +124,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         t : `~matplotlib.transforms.Transform`
         """
         _transforms.set_transform(self._native, _live_transforms.to_native(t))
-        self._transform = t
+        self._given_transform = t
         self.pchanged()
 
     def is_transform_set(self):

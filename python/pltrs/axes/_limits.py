@@ -18,8 +18,90 @@ def _check_margin(m):
     return float(m)
 
 
+def _limit_args(name, low, high, low_alias, high_alias):
+    """matplotlib's normalization of the arguments of ``set_xlim`` and
+    ``set_ylim``: a ``(low, high)`` pair, and the ``xmin``/``xmax`` aliases."""
+    if high is None and np.iterable(low):
+        low, high = low
+    for value, alias, alias_name, arg_name in (
+            (low, low_alias, f"{name}min", "left" if name == "x" else "bottom"),
+            (high, high_alias, f"{name}max", "right" if name == "x" else "top")):
+        if alias is not None and value is not None:
+            raise TypeError(f"Cannot pass both '{arg_name}' and '{alias_name}'")
+    return (low if low_alias is None else low_alias,
+            high if high_alias is None else high_alias)
+
+
 class LimitsMixin:
-    """The bound and autoscaling methods of `~.axes.Axes`."""
+    """The limit, bound and autoscaling methods of `~.axes.Axes`."""
+
+    def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
+                 xmin=None, xmax=None):
+        """
+        Set the x-axis view limits.
+
+        Parameters
+        ----------
+        left : float, optional
+            The left xlim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+            The left and right xlims may also be passed as the tuple
+            (*left*, *right*) as the first positional argument (or as
+            the *left* keyword argument).
+        right : float, optional
+            The right xlim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+        emit : bool, default: True
+            Whether to notify observers of limit change.
+        auto : bool or None, default: False
+            Whether to turn on autoscaling of the x-axis. True turns on,
+            False turns off, None leaves unchanged.
+        xmin, xmax : float, optional
+            They are equivalent to left and right respectively, and it is an
+            error to pass both *xmin* and *left* or *xmax* and *right*.
+
+        Returns
+        -------
+        left, right : (float, float)
+            The new x-axis limits in data coordinates.
+        """
+        left, right = _limit_args("x", left, right, xmin, xmax)
+        return self.xaxis._set_lim(left, right, emit=emit, auto=auto)
+
+    def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
+                 ymin=None, ymax=None):
+        """
+        Set the y-axis view limits.
+
+        Parameters
+        ----------
+        bottom : float, optional
+            The bottom ylim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+
+            The bottom and top ylims may also be passed as the tuple
+            (*bottom*, *top*) as the first positional argument (or as
+            the *bottom* keyword argument).
+        top : float, optional
+            The top ylim in data coordinates. Passing *None* leaves the
+            limit unchanged.
+        emit : bool, default: True
+            Whether to notify observers of limit change.
+        auto : bool or None, default: False
+            Whether to turn on autoscaling of the y-axis. *True* turns on,
+            *False* turns off, *None* leaves unchanged.
+        ymin, ymax : float, optional
+            They are equivalent to bottom and top respectively, and it is an
+            error to pass both *ymin* and *bottom* or *ymax* and *top*.
+
+        Returns
+        -------
+        bottom, top : (float, float)
+            The new y-axis limits in data coordinates.
+        """
+        bottom, top = _limit_args("y", bottom, top, ymin, ymax)
+        return self.yaxis._set_lim(bottom, top, emit=emit, auto=auto)
 
     def _set_bound(self, name, lower, upper):
         if upper is None and np.iterable(lower):
@@ -170,6 +252,14 @@ class LimitsMixin:
     def get_ymargin(self):
         """Retrieve autoscaling margin of the y-axis."""
         return _axes_base.get_margin(self._native, "y")
+
+    @property
+    def _xmargin(self):
+        return self.get_xmargin()
+
+    @property
+    def _ymargin(self):
+        return self.get_ymargin()
 
     def set_xmargin(self, m):
         """

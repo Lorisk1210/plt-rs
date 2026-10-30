@@ -119,6 +119,14 @@ class LiveBbox(BboxBase):
     def get_points(self):
         return np.asarray(self._points_of(), dtype=float).reshape(2, 2)
 
+    def frozen(self):
+        """A frozen copy of the box, with its smallest positive coordinates
+        when it has them (``dataLim``)."""
+        bbox = super().frozen()
+        if self._minpos_of is not None:
+            bbox._minpos = self.minpos.copy()
+        return bbox
+
     @property
     def minpos(self):
         """The smallest positive coordinates of the data (``dataLim``)."""

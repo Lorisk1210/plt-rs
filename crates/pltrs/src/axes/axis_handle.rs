@@ -44,6 +44,21 @@ impl Axis {
         &self.axes
     }
 
+    /// Whether LaTeX typesets the axis's tick labels: `text.usetex` as it
+    /// was when the axes was made (matplotlib copies it to every tick
+    /// label of the axis).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let plain = Figure::new().subplot();
+    /// assert!(!plain.xaxis().usetex());
+    /// ```
+    pub fn usetex(&self) -> bool {
+        self.axes
+            .raw()
+            .with::<AxesState, _>(|axes| axes.rc.text_usetex)
+    }
+
     /// Reads this axis's state.
     pub(super) fn read<R>(&self, f: impl FnOnce(&AxisState) -> R) -> R {
         self.axes

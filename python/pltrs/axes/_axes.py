@@ -7,31 +7,23 @@ aliases, defaults) into the explicit arguments of a native function of
 ``_native.axes``, and wraps the artists it returns (see `.._handles`).
 """
 
-import numpy as np
-
 from .. import _handles
 from .._native import axes as _axes
+from ._artist_list import ArtistList
 from ._base import _AxesBase
+from ._clear import ClearMixin
 from ..axis import XAxis, YAxis
 from ..legend import Legend
 from ..lines import Line2D
-from ..text import Text
 from ._imaging import ImagingMixin
 from ._insets import InsetsMixin
 from ._plotting import PlottingMixin
+from ._titles import TitlesMixin
 from .._text_methods import AxesText
 
 
-def _limit_alias(value, alias, name, alias_name):
-    """A view limit given as *value* or as its keyword alias *alias*."""
-    if alias is None:
-        return value
-    if value is not None:
-        raise TypeError(f"Cannot pass both '{name}' and '{alias_name}'")
-    return alias
-
-
-class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, _AxesBase):
+class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
+           ClearMixin, _AxesBase):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot
     in a figure.
@@ -53,20 +45,6 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, _AxesBase):
         super()._init_axes_state()
         self.xaxis = XAxis(self)
         self.yaxis = YAxis(self)
-
-    def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
-                  **kwargs):
-        """Set a title for the Axes."""
-        if loc not in (None, "center") or pad is not None or y is not None:
-            raise NotImplementedError("pltrs: set_title(loc=..., pad=..., y=...)")
-        title = _handles.wrap(_axes.set_title(self._native, str(label)),
-                              Text, self.figure)
-        title._internal_update({**(fontdict or {}), **kwargs})
-        return title
-
-    def get_title(self, loc="center"):
-        """Get an Axes title."""
-        return _axes.get_title(self._native, loc)
 
     def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
@@ -98,55 +76,15 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, _AxesBase):
         """Return the x-axis view limits."""
         return _axes.get_xlim(self._native)
 
-    def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
-                 xmin=None, xmax=None):
-        """Set the x-axis view limits."""
-        if right is None and np.iterable(left):
-            left, right = left
-        left = _limit_alias(left, xmin, "left", "xmin")
-        right = _limit_alias(right, xmax, "right", "xmax")
-        return self._set_view_limits("x", left, right, emit, auto)
-
     def get_ylim(self):
         """Return the y-axis view limits."""
         return _axes.get_ylim(self._native)
 
-    def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
-                 ymin=None, ymax=None):
-        """Set the y-axis view limits."""
-        if top is None and np.iterable(bottom):
-            bottom, top = bottom
-        bottom = _limit_alias(bottom, ymin, "bottom", "ymin")
-        top = _limit_alias(top, ymax, "top", "ymax")
-        return self._set_view_limits("y", bottom, top, emit, auto)
-
-    def _set_view_limits(self, name, low, high, emit, auto):
-        """
-        Set the view limits of the axis *name* to *low*, *high* (None keeps
-        the current one), which may be in units; *auto* turns autoscaling
-        on (True), off (False) or leaves it (None) (matplotlib's
-        ``Axis._set_lim``).
-        """
-        if not emit:
-            raise NotImplementedError(f"pltrs: set_{name}lim(emit=False)")
-        axis = getattr(self, f"{name}axis")
-        self._process_unit_info([(name, (low, high))], convert=False)
-        current = getattr(self, f"get_{name}lim")()
-        low = current[0] if low is None else low
-        high = current[1] if high is None else high
-        low, high = axis._checked_limits(low, high)
-        autoscale_on = getattr(self, f"get_autoscale{name}_on")()
-        getattr(_axes, f"set_{name}lim")(self._native, low, high)
-        if auto or auto is None:
-            # Setting limits turned autoscaling off.
-            getattr(self, f"set_autoscale{name}_on")(
-                autoscale_on if auto is None else True)
-        return low, high
-
     @property
     def lines(self):
         """The lines of the Axes."""
-        return _handles.wrap_all(_axes.get_lines(self._native), Line2D, self.figure)
+        return ArtistList("lines", lambda: _handles.wrap_all(
+            _axes.get_lines(self._native), Line2D, self.figure))
 
     def get_legend_handles_labels(self, legend_handler_map=None):
         """

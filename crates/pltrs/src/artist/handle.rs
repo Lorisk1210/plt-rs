@@ -81,6 +81,26 @@ pub trait ArtistHandle {
         self.raw().owning_axes()
     }
 
+    /// Whether the artist is clipped to exactly its axes, which tight
+    /// boxes then leave it out for (matplotlib's `_fully_clipped_to_axes`):
+    /// clipping is on and it is clipped to its axes' box only.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// assert!(line.fully_clipped_to_axes());
+    /// line.set_clip_on(false);
+    /// assert!(!line.fully_clipped_to_axes());
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    fn fully_clipped_to_axes(&self) -> bool {
+        self.axes().is_some_and(|axes| {
+            self.raw()
+                .with_base(|base| crate::axes::fully_clipped(base, axes.id()))
+        })
+    }
+
     /// The artist and the artists it owns for which `matches` holds, each
     /// after the artists it owns (matplotlib's `Artist.findobj(match)`).
     ///

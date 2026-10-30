@@ -60,17 +60,19 @@ fn on_side(name: AxisName, loc: f64, first_side: bool) -> Point {
     }
 }
 
-/// Fills the label `text` on the first or second side of a tick at `loc`
-/// labelled `label` and styled `style`.
+/// Fills the label `text` on the first or second side of a tick of
+/// `axis` at `loc` labelled `label` and styled `style`.
 fn sync_label(
     text: &Text,
-    name: AxisName,
+    axis: &Axis,
     loc: f64,
     label: String,
     style: &TickStyle,
     first_side: bool,
 ) {
+    let name = axis.name();
     let (halign, valign) = default_alignment(name, first_side);
+    text.set_usetex(axis.usetex());
     text.set_text(label)
         .set_position(on_side(name, loc, first_side))
         .set_color(style.label_color.clone())
@@ -170,8 +172,8 @@ fn sync_tick(
     let (loc, label) = located(&axis, minor, index)?;
     let style = axis.tick_style_at(minor, index);
     let name = axis.name();
-    sync_label(&label1, name, loc, label.clone(), &style, true);
-    sync_label(&label2, name, loc, label, &style, false);
+    sync_label(&label1, &axis, loc, label.clone(), &style, true);
+    sync_label(&label2, &axis, loc, label, &style, false);
     sync_mark(&tick1, name, loc, &style, true);
     sync_mark(&tick2, name, loc, &style, false);
     sync_gridline(&grid, name, loc, &style);

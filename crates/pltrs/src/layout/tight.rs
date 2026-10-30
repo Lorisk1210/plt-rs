@@ -37,8 +37,9 @@ pub struct TightLayout {
     /// `pad`).
     pub w_pad: Option<f64>,
     /// `[left, bottom, right, top]` in figure fractions that the grid and
-    /// its decorations fit into (`None` = the whole figure).
-    pub rect: Option<[f64; 4]>,
+    /// its decorations fit into (`None` = the whole figure); a side left
+    /// `None` (or zero) gets the margin its decorations call for.
+    pub rect: Option<[Option<f64>; 4]>,
 }
 
 pltrs_core::archive_struct!(TightLayout {

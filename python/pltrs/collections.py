@@ -20,6 +20,7 @@ from ._enums import CapStyle, JoinStyle
 from ._native import collections as _collections
 from .artist import Artist
 from .path import Path
+from .transforms import Bbox
 
 
 def _rcParams():
@@ -272,6 +273,19 @@ class Collection(mcolorizer.ColorizingArtist):
     def get_offsets(self):
         """Return the offsets for the collection."""
         return _collections.get_offsets(self._native)
+
+    def get_datalim(self, transData):
+        """
+        Return the data limits the collection adds to its Axes, with the
+        smallest positive coordinates as the box's ``minpos``: its shapes
+        at their offsets where they are in data coordinates (*transData*,
+        the Axes' ``transData``), else its offsets where those are; a null
+        box otherwise.
+        """
+        (x0, y0, x1, y1), minpos = _collections.get_datalim(self._native)
+        bbox = Bbox([[x0, y0], [x1, y1]])
+        bbox._minpos = np.array(minpos, dtype=float)
+        return bbox
 
     def set_offsets(self, offsets):
         """

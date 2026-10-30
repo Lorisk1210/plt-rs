@@ -41,6 +41,30 @@ def _converted_stats(axes, axis_name, stats, keys):
     return converted
 
 
+#: The patch properties pltrs (Rust) takes as it makes a patch.
+_NATIVE_PATCH_PROPS = frozenset([
+    "color", "facecolor", "edgecolor", "linewidth", "linestyle", "fill",
+    "hatch", "hatchcolor", "antialiased", "capstyle", "joinstyle", "alpha",
+    "zorder", "label", "visible", "clip_on"])
+
+
+def _native_patch_props(props, cls):
+    """
+    The properties *props* of patches of class *cls* (aliases resolved)
+    split into those pltrs (Rust) takes as it makes them, in native form,
+    and the others, which the patches are set afterwards.
+    """
+    props = cbook.normalize_kwargs(props or {}, cls)
+    native = {k: v for k, v in props.items() if k in _NATIVE_PATCH_PROPS}
+    for key in ("facecolor", "edgecolor", "color"):
+        if native.get(key) is not None:
+            native[key] = mcolors.to_rgba(native[key])
+    if isinstance(native.get("linestyle"), tuple):
+        offset, seq = native["linestyle"]
+        native["linestyle"] = (offset, tuple(seq))
+    return native, {k: v for k, v in props.items() if k not in native}
+
+
 def _colors_or_empty(color):
     """*color* (one or a sequence) as RGBA tuples, empty for None."""
     if color is None:
@@ -212,22 +236,16 @@ class StatsMixin:
             "med", "q1", "q3", "whislo", "whishi", "mean", "cilo", "cihi",
             "fliers")) for stats in bxpstats]
         meanprops_given = meanprops or {}
+        box_rest = {}
         if patch_artist:
-            boxkw = cbook.normalize_kwargs(boxprops or {}, mpatches.PathPatch)
-            boxkw = {k: v for k, v in boxkw.items()}
-            for key in ("facecolor", "edgecolor", "color"):
-                if key in boxkw and boxkw[key] is not None:
-                    boxkw[key] = mcolors.to_rgba(boxkw[key])
-            if isinstance(boxkw.get("linestyle"), tuple):
-                offset, seq = boxkw["linestyle"]
-                boxkw["linestyle"] = (offset, tuple(seq))
+            boxkw, box_rest = _native_patch_props(boxprops, mpatches.PathPatch)
         else:
             boxkw = _native_lineprops(boxprops)
         mean_kw = _native_lineprops(meanprops_given)
         whiskers, caps, box_lines, box_patches, medians, fliers, means = _plotting.bxp(
             self._native, list(bxpstats),
             (list(map(float, positions)), list(map(float, widths)),
-             list(map(float, capwidths))),
+             list(map(float, capwidths)), positions.dtype.kind in "iu"),
             orientation,
             (bool(shownotches), bool(showmeans), bool(showcaps), bool(showbox),
              bool(showfliers), bool(meanline)),
@@ -237,6 +255,8 @@ class StatsMixin:
             (bool(manage_ticks), None if zorder is None else float(zorder), label))
         boxes = (wrap_all(self, box_patches, mpatches.PathPatch) if patch_artist
                  else wrap_all(self, box_lines, mlines.Line2D))
+        for box in boxes if box_rest else ():
+            box.set(**box_rest)
         return dict(whiskers=wrap_all(self, whiskers, mlines.Line2D),
                     caps=wrap_all(self, caps, mlines.Line2D), boxes=boxes,
                     medians=wrap_all(self, medians, mlines.Line2D),
@@ -384,21 +404,25 @@ class StatsMixin:
             spec = {'ox': -0.02, 'oy': -0.02, 'shade': 0.7}
             if isinstance(shadow, dict):
                 spec.update(shadow)
-            shadow_spec = (float(spec['ox']), float(spec['oy']), float(spec['shade']))
+            ox, oy, shade = (float(spec.pop(key)) for key in ('ox', 'oy', 'shade'))
+            shadow_native, _ = _native_patch_props(spec, mpatches.Shadow)
+            shadow_spec = (ox, oy, shade, shadow_native)
         hatches = [] if hatch is None else [str(h) for h in np.atleast_1d(hatch)]
+        # The wedges take their properties before the shadows copy them.
+        wedge_native, wedge_rest = _native_patch_props(wedgeprops, mpatches.Wedge)
         wedges, label_texts, pct_texts = _plotting.pie(
             self._native, [float(v) for v in x],
             ([float(e) for e in explode], float(radius), float(startangle),
              bool(counterclock), None, tuple(map(float, center))),
             ([str(lbl) for lbl in labels], autopct, float(pctdistance),
              None if labeldistance is None else float(labeldistance),
-             bool(rotatelabels), (None, None)),
-            (_colors_or_empty(colors), hatches, {}, shadow_spec, bool(frame),
-             bool(normalize)))
+             bool(rotatelabels), (None, None, textprops.get('usetex'))),
+            (_colors_or_empty(colors), hatches, wedge_native, shadow_spec,
+             bool(frame), bool(normalize)))
         from ...text import Text
         wedges = wrap_all(self, wedges, mpatches.Wedge)
-        for wedge in wedges:
-            wedge.set(**(wedgeprops or {}))
+        for wedge in wedges if wedge_rest else ():
+            wedge.set(**wedge_rest)
         container = PieContainer(wedges, x, normalize)
         label_texts = wrap_all(self, label_texts, Text)
         pct_texts = wrap_all(self, pct_texts, Text)

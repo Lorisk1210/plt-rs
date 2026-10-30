@@ -64,19 +64,48 @@ impl Axes {
     ///
     /// When a limit is NaN or infinite.
     pub fn set_limits_with(&self, axis: AxisName, limits: Limits) -> Result<(f64, f64), PlotError> {
-        let set = self.set_limits_unobserved(axis, limits)?;
+        let set = self.set_limits_unobserved(axis, limits, true)?;
         // matplotlib's `xlim_changed`/`ylim_changed` observers.
         crate::colorbar::follow_view(self);
         super::run_limit_callbacks(self.raw.figure_state());
         Ok(set)
     }
 
+    /// Sets the view limits of one axis as [`Axes::set_limits_with`] does,
+    /// but of this axes alone and without telling anyone (matplotlib's
+    /// `set_xlim(..., emit=False)`): the axes sharing the axis keep their
+    /// limits and no limit callback runs.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::{AxisName, Limits};
+    /// let fig = Figure::new();
+    /// let (top, bottom) = (fig.add_subplot(2, 1, 1)?, fig.add_subplot(2, 1, 2)?);
+    /// bottom.share_x(&top)?;
+    /// top.set_limits_quietly(AxisName::X, Limits::new(2.0, 3.0))?;
+    /// assert_eq!((top.xlim(), bottom.xlim()), ((2.0, 3.0), (0.0, 1.0)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a limit is NaN or infinite.
+    pub fn set_limits_quietly(
+        &self,
+        axis: AxisName,
+        limits: Limits,
+    ) -> Result<(f64, f64), PlotError> {
+        self.set_limits_unobserved(axis, limits, false)
+    }
+
     /// [`Axes::set_limits_with`] without telling the colorbar drawn in
-    /// this axes, which sets its own limits this way.
+    /// this axes, which sets its own limits this way; with `emit`, the
+    /// axes sharing the axis follow and the limit callbacks are queued.
     fn set_limits_unobserved(
         &self,
         axis: AxisName,
         limits: Limits,
+        emit: bool,
     ) -> Result<(f64, f64), PlotError> {
         if [limits.low, limits.high]
             .into_iter()
@@ -104,7 +133,7 @@ impl Axes {
             axis,
             requested,
             limits.auto,
-            true,
+            emit,
         );
         Ok(self.raw.with::<AxesState, _>(|a| a.view_interval(axis)))
     }
@@ -129,7 +158,7 @@ impl Axes {
         low: f64,
         high: f64,
     ) -> Result<&Self, PlotError> {
-        self.set_limits_unobserved(axis, Limits::new(low, high))?;
+        self.set_limits_unobserved(axis, Limits::new(low, high), true)?;
         Ok(self)
     }
 

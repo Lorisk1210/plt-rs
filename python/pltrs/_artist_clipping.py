@@ -160,3 +160,11 @@ class ClippingMixin:
     def get_clip_path(self):
         """Return the clip path."""
         return self.__dict__.get("_clippath")
+
+    def _fully_clipped_to_axes(self):
+        """
+        Return a boolean flag, ``True`` if the artist is clipped to the Axes
+        and can thus be skipped in layout calculations.
+        """
+        return (self._figure is not None
+                and _artist.fully_clipped_to_axes(self._native))

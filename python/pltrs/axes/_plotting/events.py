@@ -58,8 +58,12 @@ class EventsMixin:
             positions = [np.asanyarray(position) for position in positions]
         else:
             positions = [np.asanyarray(positions)]
-        positions = [floats(self._process_unit_info([("x", position)], kwargs)[0])
+        positions = [self._process_unit_info([("x", position)], kwargs)[0]
                      for position in positions]
+        # Each row makes an `EventCollection`, which takes 1D positions.
+        if any(np.ndim(position) != 1 for position in positions):
+            raise ValueError('positions must be one-dimensional')
+        positions = [floats(position) for position in positions]
         colors = cbook._local_over_kwdict(colors, kwargs, 'color')
         linewidths = cbook._local_over_kwdict(linewidths, kwargs, 'linewidth')
         linestyles = cbook._local_over_kwdict(linestyles, kwargs, 'linestyle')

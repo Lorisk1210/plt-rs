@@ -16,6 +16,7 @@ use pltrs::transforms::{
 use crate::binding::prelude::*;
 use crate::binding::registered_error;
 
+mod geo;
 mod live;
 pub(crate) use live::PyPointMap;
 
@@ -300,6 +301,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("shrunk_to_aspect", shrunk_to_aspect)?;
     module.add("nonsingular", nonsingular_interval)?;
     module.add("interval_contains", contains_value)?;
+    geo::register(module)?;
     live::register(module)
 }
 

@@ -1,0 +1,121 @@
+"""
+The titles of an Axes (matplotlib's ``set_title``, ``get_title``,
+``title``, ``_left_title``, ``_right_title``, ``titleOffsetTrans`` and
+``_update_title_position``).
+
+pltrs (Rust) keeps the three titles of each axes and lifts them above
+the decorations on top of it as it lays the figure out. The argument
+handling of ``set_title`` and ``get_title`` is matplotlib 3.11.2's,
+under the Matplotlib License.
+"""
+
+from .. import _api, _handles
+from .._native import axes as _axes
+from ..text import Text
+from ..transforms import ScaledTranslation
+
+#: The title locations, as ``loc`` names them.
+_LOCATIONS = {"left": "left", "center": "center", "right": "right"}
+
+
+class TitlesMixin:
+    """The title methods of `~.axes.Axes`."""
+
+    def _title_at(self, loc):
+        return _handles.wrap(_axes.title_text(self._native, loc), Text,
+                             self.figure)
+
+    @property
+    def title(self):
+        """The centre title (a `.Text`)."""
+        return self._title_at("center")
+
+    @property
+    def _left_title(self):
+        return self._title_at("left")
+
+    @property
+    def _right_title(self):
+        return self._title_at("right")
+
+    @property
+    def titleOffsetTrans(self):
+        """The offset of the titles above the top of the Axes, in points of
+        the figure (a `.ScaledTranslation`)."""
+        pad = _axes.get_title_pad(self._native)
+        return ScaledTranslation(0.0, pad / 72,
+                                 self.get_figure(root=False).dpi_scale_trans)
+
+    def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
+                  **kwargs):
+        """
+        Set a title for the Axes.
+
+        Set one of the three available Axes titles. The available titles
+        are positioned above the Axes in the center, flush with the left
+        edge, and flush with the right edge.
+
+        Parameters
+        ----------
+        label : str
+            Text to use for the title
+        fontdict : dict
+            A dictionary controlling the appearance of the title text
+            (discouraged: pass the properties as keyword arguments).
+        loc : {'center', 'left', 'right'}, default: :rc:`axes.titlelocation`
+            Which title to set.
+        y : float, default: :rc:`axes.titley`
+            Vertical Axes location for the title (1.0 is the top).  If
+            None (the default) and :rc:`axes.titley` is also None, y is
+            determined automatically to avoid decorators on the Axes.
+        pad : float, default: :rc:`axes.titlepad`
+            The offset of the title from the top of the Axes, in points.
+        **kwargs : `~matplotlib.text.Text` properties
+
+        Returns
+        -------
+        `.Text`
+            The matplotlib text instance representing the title
+        """
+        if loc is None:
+            from .. import rcParams
+            loc = rcParams['axes.titlelocation']
+        loc = _api.getitem_checked(_LOCATIONS, loc=loc.lower())
+        title = _handles.wrap(
+            _axes.set_title(self._native, loc, "",
+                            None if pad is None else float(pad),
+                            None if y is None else float(y)),
+            Text, self.figure)
+        title.set_text(label)
+        if fontdict is not None:
+            title.update(fontdict)
+        title._internal_update(kwargs)
+        return title
+
+    def get_title(self, loc="center"):
+        """
+        Get an Axes title.
+
+        Get one of the three available Axes titles. The available titles
+        are positioned above the Axes in the center, flush with the left
+        edge, and flush with the right edge.
+
+        Parameters
+        ----------
+        loc : {'center', 'left', 'right'}, str, default: 'center'
+            Which title to return.
+
+        Returns
+        -------
+        str
+            The title text string.
+        """
+        loc = _api.getitem_checked(_LOCATIONS, loc=loc.lower())
+        return self._title_at(loc).get_text()
+
+    def _update_title_position(self, renderer):
+        """
+        Update the title position based on the bounding box enclosing
+        all the ticklabels and x-axis spine and xlabel...
+        """
+        _axes.update_title_position(self._native)

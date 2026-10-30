@@ -264,6 +264,21 @@ fn set_offsets(collection: Collection, offsets: NdArray) -> PyResult<()> {
     Ok(())
 }
 
+/// A box `(x0, y0, x1, y1)` with its smallest positive coordinates
+/// `(minposx, minposy)`.
+type BoxWithMinpos = ((f64, f64, f64, f64), (f64, f64));
+
+/// What the collection adds to its axes' data limits (matplotlib's
+/// `get_datalim(ax.transData)`).
+fn get_datalim(collection: Collection) -> PyResult<BoxWithMinpos> {
+    let limits = collection.data_limits();
+    let bbox = limits.bbox;
+    Ok((
+        (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1()),
+        (limits.minpos.x, limits.minpos.y),
+    ))
+}
+
 /// The item shapes, as `(vertices, codes)` pairs.
 fn get_paths(collection: Collection) -> PyResult<Vec<PathArrays>> {
     collection
@@ -448,6 +463,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("ellipse_sizes", ellipse_sizes)?;
     module.add("set_ellipse_sizes", set_ellipse_sizes)?;
     module.add("get", get)?;
+    module.add("get_datalim", get_datalim)?;
     module.add("set_facecolors", set_facecolors)?;
     module.add("set_edgecolors", set_edgecolors)?;
     module.add("set_hatchcolors", set_hatchcolors)?;

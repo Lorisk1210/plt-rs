@@ -6,10 +6,11 @@ keeps them (``_native.axes_base``).
 """
 
 from .. import _api, cbook
+from .._artist_children import ChildrenSearchMixin
 from .._native import axes_base as _axes_base
 
 
-class AxesPatch:
+class AxesPatch(ChildrenSearchMixin):
     """
     The background of an Axes (matplotlib's ``Axes.patch``, a unit
     `.Rectangle` in axes coordinates): pltrs (Rust) draws it as part of the
@@ -51,6 +52,11 @@ class AxesPatch:
         """Set the edge color of the background."""
         _axes_base.set_patch_edgecolor(self.axes._native,
                                        "none" if color is None else color)
+
+    def set_color(self, c):
+        """Set both the edgecolor and the facecolor of the background."""
+        self.set_facecolor(c)
+        self.set_edgecolor(c)
 
     def get_linewidth(self):
         """Return the line width of the background's edge in points."""
@@ -95,6 +101,10 @@ class AxesPatch:
         """Return whether the mouse event occurred in the background."""
         return self.axes.contains(mouseevent)
 
+    def remove(self):
+        """The background is part of its Axes, which cannot lose it."""
+        raise NotImplementedError('cannot remove artist')
+
 
 class DecorationsMixin:
     """The decoration methods of `~.axes.Axes`."""
@@ -135,6 +145,28 @@ class DecorationsMixin:
         This is on by default.
         """
         _axes_base.set_axis_on(self._native, True)
+
+    def set_rasterization_zorder(self, z):
+        """
+        Set the zorder threshold for rasterization for vector graphics output.
+
+        All artists with a zorder below the given value will be rasterized if
+        they support rasterization.
+
+        This setting is ignored for pixel-based output.
+
+        Parameters
+        ----------
+        z : float or None
+            The zorder below which artists are rasterized.
+            If ``None`` rasterization based on zorder is deactivated.
+        """
+        _axes_base.set_rasterization_zorder(
+            self._native, None if z is None else float(z))
+
+    def get_rasterization_zorder(self):
+        """Return the zorder value below which artists will be rasterized."""
+        return _axes_base.get_rasterization_zorder(self._native)
 
     def get_frame_on(self):
         """Get whether the Axes rectangle patch is drawn."""
@@ -213,10 +245,6 @@ class DecorationsMixin:
         for name in self._axis_names:
             lims += tuple(getattr(self, f'get_{name}lim')())
         return lims
-
-    def cla(self):
-        """Clear the Axes (an alias of ``clear``)."""
-        return self.clear()
 
     def _set_position(self, pos, which='both'):
         """

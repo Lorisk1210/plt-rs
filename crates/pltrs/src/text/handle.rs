@@ -80,6 +80,45 @@ impl Text {
         self
     }
 
+    /// The rotation the text is drawn at in degrees (matplotlib's
+    /// `get_rotation`): its rotation, turned by its transform at its
+    /// position when [`transform_rotates_text`](Self::transform_rotates_text),
+    /// reduced to `[0, 360)`.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::{Affine2D, Transform};
+    /// let ax = Figure::new().subplot();
+    /// let text = ax.text(0.0, 0.0, "turned");
+    /// text.set_transform(Transform::Affine(Affine2D::IDENTITY.rotate_deg(30.0)));
+    /// text.set_transform_rotates_text(true);
+    /// assert!((text.drawn_rotation() - 30.0).abs() < 1e-9);
+    /// ```
+    pub fn drawn_rotation(&self) -> f64 {
+        let state = self.raw.figure_state().borrow();
+        self.raw
+            .with::<TextArtist, _>(|t| t.drawn_rotation(LayoutContext::new(&state)))
+    }
+
+    /// Whether the text is where its axes can show it: anywhere unless it
+    /// is placed in data coordinates outside the domain of the axes'
+    /// scales, a negative position on a log axis say (matplotlib's
+    /// `_point_in_data_domain`). Such a text takes no space in tight boxes.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_yscale("log")?;
+    /// assert!(ax.text(0.0, 5.0, "shown").in_data_domain());
+    /// assert!(!ax.text(0.0, -5.0, "lost").in_data_domain());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn in_data_domain(&self) -> bool {
+        let state = self.raw.figure_state().borrow();
+        self.raw
+            .with::<TextArtist, _>(|t| t.in_data_domain(LayoutContext::new(&state).store()))
+    }
+
     /// The layout matplotlib's `Text._get_layout` computes: the (wrapped)
     /// lines, their placement relative to the anchor and the bounds of the
     /// rotated block. Fails for malformed math.

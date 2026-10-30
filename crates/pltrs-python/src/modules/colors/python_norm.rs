@@ -14,7 +14,9 @@ use crate::binding::prelude::*;
 
 /// A Python norm, with the limits and clipping it had when it was read.
 #[derive(Clone, Debug)]
-pub(super) struct PythonNorm {
+pub(crate) struct PythonNorm {
+    /// The Python norm (what an archive holds in place of this copy).
+    object: Owned,
     vmin: Option<f64>,
     vmax: Option<f64>,
     clip: bool,
@@ -37,7 +39,7 @@ struct Hooks {
 impl PythonNorm {
     /// The norm `norm`, through the callables the package's
     /// `native_norm` gives for it.
-    pub(super) fn of(norm: &Bound<'_>) -> PyResult<Self> {
+    pub(crate) fn of(norm: &Bound<'_>) -> PyResult<Self> {
         let py = norm.py();
         let (normalize, autoscale_none, inverse, set_limits, state): (
             Bound<'_>,
@@ -51,6 +53,7 @@ impl PythonNorm {
         let (vmin, vmax, clip): (Option<f64>, Option<f64>, bool) =
             state.call(&[], &[])?.extract()?;
         Ok(Self {
+            object: norm.clone().unbind(),
             vmin,
             vmax,
             clip,
@@ -61,6 +64,11 @@ impl PythonNorm {
                 set_limits: set_limits.extract()?,
             },
         })
+    }
+
+    /// The Python norm.
+    pub(crate) fn object(&self) -> &Owned {
+        &self.object
     }
 
     /// Hands the limits to the Python norm, as matplotlib's mappables set

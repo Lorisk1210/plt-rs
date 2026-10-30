@@ -28,6 +28,11 @@ pub enum ContourWarning {
     LabelsRemoved,
 }
 
+pltrs_core::archive_enum!(ContourWarning {
+    NonPositiveMasked,
+    LabelsRemoved,
+});
+
 impl fmt::Display for ContourWarning {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -111,6 +116,31 @@ pub(crate) struct ContourState {
     pub(crate) label_setup: Option<LabelSetup>,
     pub(crate) rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(ContourState {
+    filled,
+    levels,
+    extended,
+    layers,
+    zmin,
+    zmax,
+    logscale,
+    extend,
+    norm_limits,
+    colors,
+    mapping,
+    cvalues,
+    cvalue_kind,
+    alpha,
+    linewidths,
+    linestyles,
+    negative_linestyle,
+    hatches,
+    warnings,
+    labels,
+    label_setup,
+    rc
+});
 
 /// A contour set computed but not yet added to an axes.
 #[derive(Debug)]

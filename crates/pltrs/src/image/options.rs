@@ -62,6 +62,29 @@ pub enum Interpolation {
     Blackman,
 }
 
+pltrs_core::archive_enum!(Interpolation {
+    Auto,
+    Antialiased,
+    None,
+    Nearest,
+    Bilinear,
+    Bicubic,
+    Spline16,
+    Spline36,
+    Hanning,
+    Hamming,
+    Hermite,
+    Kaiser,
+    Quadric,
+    Catrom,
+    Gaussian,
+    Bessel,
+    Mitchell,
+    Sinc,
+    Lanczos,
+    Blackman,
+});
+
 impl Interpolation {
     /// Every interpolation, in matplotlib's documentation order.
     pub const ALL: [Self; 20] = [
@@ -164,6 +187,8 @@ pub enum InterpolationStage {
     Rgba,
 }
 
+pltrs_core::archive_enum!(InterpolationStage { Auto, Data, Rgba });
+
 impl FromStr for InterpolationStage {
     type Err = UnknownName;
 
@@ -202,6 +227,8 @@ pub enum Origin {
     Lower,
 }
 
+pltrs_core::archive_enum!(Origin { Upper, Lower });
+
 impl Origin {
     const ALL: [Self; 2] = [Self::Upper, Self::Lower];
 
@@ -230,6 +257,13 @@ pub struct Extent {
     /// Data y of the top edge.
     pub top: f64,
 }
+
+pltrs_core::archive_struct!(Extent {
+    left,
+    right,
+    bottom,
+    top
+});
 
 impl Extent {
     /// The extent `(left, right, bottom, top)`.

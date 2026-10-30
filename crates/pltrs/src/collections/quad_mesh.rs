@@ -21,6 +21,8 @@ pub enum MeshShading {
     Gouraud,
 }
 
+pltrs_core::archive_enum!(MeshShading { Flat, Gouraud });
+
 /// The vertex grid of a quad mesh.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MeshGeometry {
@@ -29,6 +31,11 @@ pub(crate) struct MeshGeometry {
     /// Flat or Gouraud shading.
     pub(crate) shading: MeshShading,
 }
+
+pltrs_core::archive_struct!(MeshGeometry {
+    coordinates,
+    shading
+});
 
 impl CollectionArtist {
     /// A quad mesh over `coordinates` (matplotlib's `QuadMesh`): the

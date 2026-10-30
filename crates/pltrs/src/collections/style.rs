@@ -115,6 +115,11 @@ pub enum HatchColors {
     Colors(Vec<Color>),
 }
 
+pltrs_core::archive_enum!(HatchColors {
+    Edge,
+    Colors(v0),
+});
+
 impl HatchColors {
     /// `hatch.color` as a collection takes it when it is made.
     pub(super) fn from_rc(rc: &RcParams) -> Self {

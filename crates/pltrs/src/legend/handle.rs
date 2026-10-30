@@ -1,6 +1,7 @@
 //! What a legend can list, and how the entries of `legend()` are found
 //! (matplotlib's `_get_legend_handles` and `_parse_legend_args`).
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 use std::any::Any;
 use std::fmt;
 use std::rc::Rc;
@@ -38,6 +39,8 @@ use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Rectangle};
 #[derive(Clone, Debug, PartialEq)]
 pub struct LegendHandle(pub(crate) Source);
 
+pltrs_core::archive_struct!(LegendHandle(v0));
+
 /// How the handles of a tuple share the handle box of their entry
 /// (matplotlib's `HandlerTuple`).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -50,6 +53,8 @@ pub struct HandlerTuple {
     /// legend's `borderpad`).
     pub pad: Option<f64>,
 }
+
+pltrs_core::archive_struct!(HandlerTuple { ndivide, pad });
 
 impl Default for HandlerTuple {
     fn default() -> Self {
@@ -83,9 +88,21 @@ pub(crate) enum Source {
     Object(LegendObject),
 }
 
+pltrs_core::archive_enum!(Source {
+    Artist(v0),
+    Container(v0),
+    Proxy(v0),
+    Tuple(v0),
+    Npoints(v0, v1),
+    Handled(v0, v1),
+    Object(v0),
+});
+
 /// The handler of one entry; entries compare equal when they share it.
 #[derive(Clone)]
 pub(crate) struct OwnHandler(pub(crate) Rc<dyn LegendHandler>);
+
+pltrs_core::archive_struct!(OwnHandler(v0));
 
 impl fmt::Debug for OwnHandler {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -105,6 +122,20 @@ impl PartialEq for OwnHandler {
 pub(crate) struct LegendObject {
     pub(crate) value: Rc<dyn Any>,
     pub(crate) key: TypeKey,
+}
+
+/// The object is a value of the program's, which cannot be archived.
+impl Archive for LegendObject {
+    fn encode(&self, _encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        Err(ArchiveError::unsupported(format!(
+            "a legend handle of type {}",
+            self.key.name()
+        )))
+    }
+
+    fn decode(_decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        Err(ArchiveError::invalid("a legend handle of a program's type"))
+    }
 }
 
 impl fmt::Debug for LegendObject {
@@ -130,6 +161,11 @@ pub(crate) enum Proxy {
     /// A patch (matplotlib's `Patch(...)` proxies).
     Patch(Rc<PatchArtist<Rectangle>>),
 }
+
+pltrs_core::archive_enum!(Proxy {
+    Line(v0),
+    Patch(v0),
+});
 
 impl Proxy {
     fn base(&self) -> &ArtistBase {

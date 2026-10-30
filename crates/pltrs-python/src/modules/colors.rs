@@ -7,6 +7,7 @@
 
 pub(crate) mod mapping;
 mod python_norm;
+pub(crate) use python_norm::PythonNorm;
 
 use pltrs::colors::multivar::{BivarColormap, BivarShape, MultivarError};
 use pltrs::colors::{

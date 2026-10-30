@@ -25,6 +25,13 @@ pub struct TwoSlopeNorm {
     clip: bool,
 }
 
+pltrs_core::archive_struct!(TwoSlopeNorm {
+    vcenter,
+    vmin,
+    vmax,
+    clip
+});
+
 impl TwoSlopeNorm {
     /// A norm centred on `vcenter`; unset limits autoscale. Given limits
     /// must lie strictly on either side of the centre.
@@ -141,6 +148,8 @@ pub struct CenteredNorm {
     vcenter: f64,
     limits: Limits,
 }
+
+pltrs_core::archive_struct!(CenteredNorm { vcenter, limits });
 
 impl CenteredNorm {
     /// A norm centred on `vcenter`; `halfrange` (its absolute value) sets

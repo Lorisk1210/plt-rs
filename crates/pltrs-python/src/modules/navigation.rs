@@ -12,7 +12,6 @@ use pltrs::axes::{Axes, AxisName};
 use pltrs::navigation::{
     AxesPan, AxesZoom, DragKey, PanLimits, PointerButton, ZoomDirection, ZoomTarget,
 };
-use pltrs::ticker::FuncFormatter;
 use pltrs_core::{Bbox, Point};
 
 use crate::binding::prelude::*;
@@ -230,12 +229,13 @@ fn format_data(axes: Axes, name: String, value: f64) -> PyResult<Option<String>>
 /// Formats the coordinates along axis `name` with the Python function
 /// `function`, called with the value, or with the axis' major formatter
 /// again for `None` (`fmt_xdata`, `fmt_ydata`).
-fn set_fmt_data(axes: Axes, name: String, function: Option<Callback>) -> PyResult<()> {
-    let formatter = function.map(|function| {
-        Rc::new(FuncFormatter::new(move |value, _| {
-            function.call::<String>((value,)).unwrap_or_default()
-        })) as Rc<dyn pltrs::ticker::Formatter>
-    });
+fn set_fmt_data(axes: Axes, name: String, function: Option<Owned>) -> PyResult<()> {
+    let formatter = function
+        .map(|function| {
+            Python::with_gil(|py| super::archive::data_formatter(&function.bind(py)))
+                .map(|formatter| Rc::new(formatter) as Rc<dyn pltrs::ticker::Formatter>)
+        })
+        .transpose()?;
     axes.set_fmt_data(axis_name(&name)?, formatter);
     Ok(())
 }

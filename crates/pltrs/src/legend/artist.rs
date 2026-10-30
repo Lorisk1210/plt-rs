@@ -23,6 +23,11 @@ pub(crate) enum LegendParent {
     Figure(ArtistId),
 }
 
+pltrs_core::archive_enum!(LegendParent {
+    Axes(v0),
+    Figure(v0),
+});
+
 impl LegendParent {
     /// The parent's id.
     pub(crate) fn id(self) -> ArtistId {
@@ -48,6 +53,8 @@ pub(crate) struct HandleRef {
     pub(crate) id: ArtistId,
     pub(crate) attach: Attach,
 }
+
+pltrs_core::archive_struct!(HandleRef { id, attach });
 
 impl HandleRef {
     /// A text of the legend, which the box moves by its anchor.
@@ -124,6 +131,27 @@ pub(crate) struct LegendArtist {
     /// (matplotlib's `_custom_handler_map`).
     pub(crate) handler_map: HandlerMap,
 }
+
+pltrs_core::archive_struct!(LegendArtist {
+    base,
+    parent,
+    settings,
+    location,
+    outside,
+    mode,
+    anchor,
+    legend_box,
+    alignment,
+    frame,
+    shadow,
+    title,
+    texts,
+    handles,
+    parts,
+    kept,
+    dragger,
+    handler_map
+});
 
 impl LegendArtist {
     /// The frame's shadow, if any.

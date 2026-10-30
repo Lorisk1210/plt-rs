@@ -24,6 +24,8 @@ pub struct Shadow<S> {
     clip_on: bool,
 }
 
+pltrs_core::archive_struct!(Shadow<S> { source, offset, style, transform, zorder, clip_on });
+
 /// Why a shadow cannot be made.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ShadowError {

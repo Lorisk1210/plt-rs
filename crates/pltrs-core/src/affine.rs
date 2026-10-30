@@ -32,6 +32,8 @@ pub struct Affine2D {
     f: f64,
 }
 
+crate::archive_struct!(Affine2D { a, b, c, d, e, f });
+
 impl Default for Affine2D {
     fn default() -> Self {
         Self::IDENTITY

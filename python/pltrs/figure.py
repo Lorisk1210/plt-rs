@@ -1201,6 +1201,76 @@ class Figure(FigureLayout, FigureBase):
                 return im
         return None
 
+    def __reduce__(self):
+        # Made around the native state of the pickle (see `._pickling`),
+        # which the figure's handles reach before it is read back.
+        from . import _pickling
+        return (_pickling.restore_figure,
+                (type(self), _pickling.state_of(self._native)),
+                self.__getstate__())
+
+    def __getstate__(self):
+        state = super().__getstate__()
+
+        # The canvas cannot currently be pickled, but this has the benefit
+        # of meaning that a figure can be detached from one canvas, and
+        # re-attached to another.
+        state.pop("canvas")
+
+        # The tick helpers, by axis: the tokens of their registry do not
+        # pickle.
+        from . import _tick_helpers
+        state.pop("_tick_helpers", None)
+        state["_tick_helper_uses"] = _tick_helpers.pickled(self)
+
+        # add version information to the state
+        from . import __version__
+        state['__mpl_version__'] = __version__
+
+        # check whether the figure manager (if any) is registered with pyplot
+        from . import _pylab_helpers
+        if self.canvas.manager in _pylab_helpers.Gcf.figs.values():
+            state['_restore_to_pylab'] = True
+        return state
+
+    def __setstate__(self, state):
+        from . import __version__
+        version = state.pop('__mpl_version__')
+        restore_to_pylab = state.pop('_restore_to_pylab', False)
+
+        if version != __version__:
+            _api.warn_external(
+                f"This figure was saved with matplotlib version {version} and "
+                f"loaded with {__version__} so may not function correctly."
+            )
+        native_state = self.__dict__.pop('_unpickling_state')
+        tick_helper_uses = state.pop('_tick_helper_uses')
+        self.__dict__.update(state)
+        native_state.when_restored(
+            lambda: self._restore_unpickled(restore_to_pylab, tick_helper_uses))
+
+    def _restore_unpickled(self, restore_to_pylab, tick_helper_uses):
+        """Re-initialise the state not pickled, once the native figure is
+        read back (matplotlib's end of ``Figure.__setstate__``)."""
+        from . import _tick_helpers
+        _tick_helpers.unpickled(self, tick_helper_uses)
+        # discard any changes to the dpi due to pixel ratio changes
+        if '_original_dpi' in self.__dict__:
+            self.dpi = self._original_dpi
+        FigureCanvasBase(self)  # Set self.canvas.
+
+        if restore_to_pylab:
+            # lazy import to avoid circularity
+            from . import pyplot as plt, _pylab_helpers as pylab_helpers
+            allnums = plt.get_fignums()
+            num = max(allnums) + 1 if allnums else 1
+            backend = plt._get_backend_mod()
+            mgr = backend.new_figure_manager_given_figure(num, self)
+            pylab_helpers.Gcf._set_new_active_manager(mgr)
+            plt.draw_if_interactive()
+
+        self.stale = True
+
 
 def figaspect(arg):
     """

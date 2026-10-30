@@ -99,6 +99,29 @@ pub trait Locator: fmt::Debug + Any {
     }
 }
 
+pltrs_core::archive_kinds!(dyn Locator {
+    "null" => NullLocator,
+    "auto" => AutoLocator,
+    "maxn" => MaxNLocator,
+    "fixed" => FixedLocator,
+    "index" => IndexLocator,
+    "linear" => LinearLocator,
+    "multiple" => MultipleLocator,
+    "logit" => LogitLocator,
+    "auto-minor" => AutoMinorLocator,
+    "symlog" => SymmetricalLogLocator,
+    "log" => LogLocator,
+    "asinh" => AsinhLocator,
+    "category" => crate::units::CategoryLocator,
+    "theta" => crate::polar::ThetaLocator,
+    "radial" => crate::polar::RadialLocator,
+    "auto-date" => crate::dates::AutoDateLocator,
+    "chosen-date" => crate::dates::ChosenLocator,
+    "microsecond" => crate::dates::MicrosecondLocator,
+    "rrule" => crate::dates::RRuleLocator,
+    "year" => crate::dates::YearLocator,
+});
+
 #[cfg(test)]
 mod tests {
     use super::*;

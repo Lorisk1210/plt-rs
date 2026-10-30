@@ -2,14 +2,19 @@
 //! closures and Python format strings.
 
 use std::fmt;
+use std::rc::Rc;
+
+use pltrs_core::archive::{External, ProgramFn};
 
 use super::{FormattedTicks, Formatter};
 use crate::ticker::pyfmt::{PrintfFormat, StrTemplate};
-use crate::ticker::{TickContext, TickerError};
+use crate::ticker::{TickContext, TickerError, ValueFn};
 
 /// Labels every tick with the empty string (matplotlib's `NullFormatter`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NullFormatter;
+
+pltrs_core::archive_struct!(NullFormatter);
 
 impl Formatter for NullFormatter {
     fn format_ticks(
@@ -35,6 +40,8 @@ pub struct FixedFormatter {
     seq: Vec<String>,
     offset: String,
 }
+
+pltrs_core::archive_struct!(FixedFormatter { seq, offset });
 
 impl FixedFormatter {
     /// Labels taken from `seq` by position.
@@ -82,12 +89,59 @@ impl Formatter for FixedFormatter {
 /// The signature of a [`FuncFormatter`] callback: `(value, position)`.
 type FormatFn = dyn Fn(f64, Option<usize>) -> String;
 
+/// The function of a [`FuncFormatter`].
+#[derive(Clone, Debug)]
+enum LabelFn {
+    /// A function of the value and the tick index.
+    Ticks(ProgramFn<FormatFn>),
+    /// A function of the value alone (a
+    /// [`LabelFormat::Func`](crate::ticker::LabelFormat::Func)).
+    Values(ProgramFn<ValueFn>),
+    /// The label of each tick position, and nothing elsewhere (matplotlib's
+    /// `Axis._format_with_dict`, which `set_ticklabels` formats with).
+    Table(Vec<(f64, String)>),
+}
+
+pltrs_core::archive_enum!(LabelFn {
+    Ticks(function),
+    Values(function),
+    Table(labels),
+});
+
+impl LabelFn {
+    /// The label of `value` at tick `position`.
+    fn label(&self, value: f64, position: Option<usize>) -> String {
+        match self {
+            Self::Ticks(function) => (function.get())(value, position),
+            Self::Values(function) => (function.get())(value),
+            Self::Table(labels) => label_at(labels, value),
+        }
+    }
+}
+
+/// The label of the tick exactly at `value`, or nothing (matplotlib's
+/// `_format_with_dict`).
+#[expect(
+    clippy::float_cmp,
+    reason = "labels belong to exact tick positions, as in matplotlib's dict lookup"
+)]
+fn label_at(table: &[(f64, String)], value: f64) -> String {
+    table
+        .iter()
+        .find(|(loc, _)| *loc == value)
+        .map(|(_, label)| label.clone())
+        .unwrap_or_default()
+}
+
 /// Labels produced by a user function of the value and the tick index
-/// (matplotlib's `FuncFormatter`).
+/// (matplotlib's `FuncFormatter`). A figure with one is archived only if
+/// the function has an origin ([`FuncFormatter::with_origin`]).
 pub struct FuncFormatter {
-    func: Box<FormatFn>,
+    func: LabelFn,
     offset: String,
 }
+
+pltrs_core::archive_struct!(FuncFormatter { func, offset });
 
 impl FuncFormatter {
     /// Formats each tick with `func(value, Some(index))`. `func` runs
@@ -114,14 +168,38 @@ impl FuncFormatter {
     /// let labels = FuncFormatter::new(move |x, _| format!("{x} of {:?}", other.xlim()));
     /// ```
     pub fn new(func: impl Fn(f64, Option<usize>) -> String + Send + 'static) -> Self {
-        Self::from_fn(func)
+        Self::labelling(LabelFn::Ticks(ProgramFn::new(Rc::new(func))))
     }
 
-    /// A formatter running pltrs' own function, which never uses a
-    /// figure's handles, or a function a public constructor already took.
-    pub(crate) fn from_fn(func: impl Fn(f64, Option<usize>) -> String + 'static) -> Self {
+    /// A formatter calling `func` as [`new`](Self::new) does, archived as
+    /// `origin`, what the program made it from (see [`ProgramFn`]).
+    pub fn with_origin(
+        func: impl Fn(f64, Option<usize>) -> String + Send + 'static,
+        origin: External,
+    ) -> Self {
+        Self::labelling(LabelFn::Ticks(ProgramFn::with_origin(
+            Rc::new(func),
+            origin,
+        )))
+    }
+
+    /// A formatter labelling each tick with `func(value)`, the function of
+    /// a [`LabelFormat::Func`](crate::ticker::LabelFormat::Func).
+    pub(crate) fn of_values(func: ProgramFn<ValueFn>) -> Self {
+        Self::labelling(LabelFn::Values(func))
+    }
+
+    /// A formatter labelling the ticks at the positions of `labels` with
+    /// their texts, and nothing elsewhere (matplotlib's
+    /// `FuncFormatter(partial(axis._format_with_dict, tickd))`).
+    pub(crate) fn of_table(labels: Vec<(f64, String)>) -> Self {
+        Self::labelling(LabelFn::Table(labels))
+    }
+
+    /// A formatter labelling with `func`, without offset text.
+    fn labelling(func: LabelFn) -> Self {
         Self {
-            func: Box::new(func),
+            func,
             offset: String::new(),
         }
     }
@@ -152,14 +230,14 @@ impl Formatter for FuncFormatter {
             labels: locs
                 .iter()
                 .enumerate()
-                .map(|(pos, &x)| (self.func)(x, Some(pos)))
+                .map(|(pos, &x)| self.func.label(x, Some(pos)))
                 .collect(),
             offset: self.offset.clone(),
         })
     }
 
     fn format_data(&self, value: f64, _: &TickContext<'_>) -> Result<String, TickerError> {
-        Ok((self.func)(value, None))
+        Ok(self.func.label(value, None))
     }
 }
 
@@ -169,6 +247,8 @@ impl Formatter for FuncFormatter {
 pub struct FormatStrFormatter {
     format: PrintfFormat,
 }
+
+pltrs_core::archive_struct!(FormatStrFormatter { format });
 
 impl FormatStrFormatter {
     /// Parses `fmt`, which must hold exactly one float-compatible
@@ -206,6 +286,8 @@ impl Formatter for FormatStrFormatter {
 pub struct StrMethodFormatter {
     template: StrTemplate,
 }
+
+pltrs_core::archive_struct!(StrMethodFormatter { template });
 
 impl StrMethodFormatter {
     /// Parses and validates `fmt`.

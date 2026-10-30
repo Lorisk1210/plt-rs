@@ -13,6 +13,7 @@ mod intervals;
 mod mirrors;
 mod params;
 mod python_helpers;
+pub(crate) use python_helpers::{PyFormatter, PyLocator};
 mod settings;
 
 use pltrs::axes::{Axes, Axis, TickPosition};

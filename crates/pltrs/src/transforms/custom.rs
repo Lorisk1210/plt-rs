@@ -12,6 +12,8 @@ use super::PointMap;
 #[derive(Clone)]
 pub struct CustomMap(Rc<dyn PointMap>);
 
+pltrs_core::archive_struct!(CustomMap(v0));
+
 impl CustomMap {
     /// Shares `map`.
     pub fn new(map: impl PointMap + 'static) -> Self {

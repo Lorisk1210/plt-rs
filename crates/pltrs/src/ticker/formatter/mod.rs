@@ -107,6 +107,25 @@ pub fn strip_math(text: &str) -> String {
     out
 }
 
+pltrs_core::archive_kinds!(dyn Formatter {
+    "scalar" => ScalarFormatter,
+    "eng" => EngFormatter,
+    "logit" => LogitFormatter,
+    "percent" => PercentFormatter,
+    "null" => NullFormatter,
+    "fixed" => FixedFormatter,
+    "func" => FuncFormatter,
+    "format-str" => FormatStrFormatter,
+    "str-method" => StrMethodFormatter,
+    "log" => LogFormatter,
+    "theta" => crate::polar::ThetaFormatter,
+    "category" => crate::units::CategoryFormatter,
+    "geo-theta" => crate::geo::GeoThetaFormatter,
+    "concise-date" => crate::dates::ConciseDateFormatter,
+    "date" => crate::dates::DateFormatter,
+    "auto-date" => crate::dates::AutoDateFormatter,
+});
+
 #[cfg(test)]
 mod tests {
     use super::*;

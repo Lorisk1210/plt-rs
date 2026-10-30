@@ -57,6 +57,23 @@ pub(crate) struct AxisLabel {
     pub(crate) bbox: Option<TextBoxPatch>,
 }
 
+pltrs_core::archive_struct!(AxisLabel {
+    text,
+    is_default,
+    font,
+    color,
+    pad,
+    side,
+    loc,
+    halign,
+    multialign,
+    visible,
+    rotation,
+    valign,
+    coords,
+    bbox
+});
+
 impl AxisLabel {
     /// Sets the text, which unit converters then leave alone
     /// (matplotlib's `set_label_text`).

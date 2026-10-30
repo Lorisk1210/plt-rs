@@ -18,6 +18,12 @@ pub enum StepBaseline {
     PerStep(Vec<f64>),
 }
 
+pltrs_core::archive_enum!(StepBaseline {
+    None,
+    Value(v0),
+    PerStep(v0),
+});
+
 /// Why a [`StepPatch`] cannot be built.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StepPatchError {
@@ -71,6 +77,13 @@ pub struct StepPatch {
     baseline: StepBaseline,
     orientation: Orientation,
 }
+
+pltrs_core::archive_struct!(StepPatch {
+    values,
+    edges,
+    baseline,
+    orientation
+});
 
 impl StepPatch {
     /// Steps of height `values[i]` between `edges[i]` and `edges[i + 1]`,

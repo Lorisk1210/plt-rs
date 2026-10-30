@@ -107,6 +107,13 @@ pub(crate) enum CurrentImage {
     Contour(ArtistId),
 }
 
+pltrs_core::archive_enum!(CurrentImage {
+    Image(v0),
+    Collection(v0),
+    TriMesh(v0),
+    Contour(v0),
+});
+
 impl ColorizingArtist {
     /// The colorbar made last for the artist, while it shows the artist
     /// (matplotlib's `mappable.colorbar`).

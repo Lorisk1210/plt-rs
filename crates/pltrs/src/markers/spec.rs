@@ -86,6 +86,47 @@ pub enum MarkerSymbol {
     Nothing,
 }
 
+pltrs_core::archive_enum!(MarkerSymbol {
+    Point,
+    Pixel,
+    Circle,
+    TriangleDown,
+    TriangleUp,
+    TriangleLeft,
+    TriangleRight,
+    TriDown,
+    TriUp,
+    TriLeft,
+    TriRight,
+    Octagon,
+    Square,
+    Pentagon,
+    Star,
+    Hexagon1,
+    Hexagon2,
+    Plus,
+    X,
+    Diamond,
+    ThinDiamond,
+    VLine,
+    HLine,
+    PlusFilled,
+    XFilled,
+    TickLeft,
+    TickRight,
+    TickUp,
+    TickDown,
+    CaretLeft,
+    CaretRight,
+    CaretUp,
+    CaretDown,
+    CaretLeftBase,
+    CaretRightBase,
+    CaretUpBase,
+    CaretDownBase,
+    Nothing,
+});
+
 /// Character codes in matplotlib's `MarkerStyle.markers` order.
 const CHAR_CODES: [(&str, MarkerSymbol, &str); 25] = [
     (".", MarkerSymbol::Point, "point"),
@@ -191,6 +232,12 @@ pub enum PolygonStyle {
     Asterisk,
 }
 
+pltrs_core::archive_enum!(PolygonStyle {
+    Regular,
+    Star,
+    Asterisk,
+});
+
 impl PolygonStyle {
     /// Parses the numeric style code used in marker tuples.
     pub fn from_code(code: i64) -> Option<Self> {
@@ -226,6 +273,14 @@ pub enum Marker {
     /// scaled to fit.
     Math(String),
 }
+
+pltrs_core::archive_enum!(Marker {
+    Symbol(v0),
+    Polygon { sides, style, angle },
+    Vertices(v0),
+    Path(v0),
+    Math(v0),
+});
 
 impl Default for Marker {
     fn default() -> Self {
@@ -337,6 +392,15 @@ pub enum FillStyle {
     /// No fill: only the outline is drawn.
     None,
 }
+
+pltrs_core::archive_enum!(FillStyle {
+    Full,
+    Left,
+    Right,
+    Bottom,
+    Top,
+    None,
+});
 
 impl FillStyle {
     /// matplotlib's name for the fill style.

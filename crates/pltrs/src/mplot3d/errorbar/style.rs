@@ -24,6 +24,16 @@ pub(super) struct CapStyle {
     pub(super) axlim_clip: bool,
 }
 
+pltrs_core::archive_struct!(CapStyle {
+    base,
+    ecolor,
+    capsize,
+    capthick,
+    bar_width,
+    arrow_length,
+    axlim_clip
+});
+
 impl CapStyle {
     /// The marker size of the caps, which also sizes the arrows.
     pub(super) fn markersize(&self) -> f64 {

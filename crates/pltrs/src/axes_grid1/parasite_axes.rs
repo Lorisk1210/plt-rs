@@ -37,6 +37,12 @@ pub enum ParasiteLink {
     Transform(Affine2D),
 }
 
+pltrs_core::archive_enum!(ParasiteLink {
+    Independent,
+    Equal,
+    Transform(v0),
+});
+
 impl ParasiteLink {
     /// The map from the host's view limits to the parasite's, if they
     /// follow the host.
@@ -90,6 +96,13 @@ pub(crate) struct Parasite {
     /// shows the host's far sides again).
     twin: bool,
 }
+
+pltrs_core::archive_struct!(Parasite {
+    host,
+    link,
+    view_map,
+    twin
+});
 
 /// An axes that can carry parasite axes (matplotlib's `HostAxes`, made by
 /// `host_subplot` and `host_axes`). It dereferences to [`Axes`].

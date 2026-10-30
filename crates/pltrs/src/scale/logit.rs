@@ -15,6 +15,12 @@ pub struct LogitScale {
     use_overline: bool,
 }
 
+pltrs_core::archive_struct!(LogitScale {
+    transform,
+    one_half,
+    use_overline
+});
+
 impl Default for LogitScale {
     /// Masks values outside `(0, 1)`.
     fn default() -> Self {

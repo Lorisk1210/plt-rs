@@ -26,6 +26,12 @@ pub enum PgfTexSystem {
     PdfLaTeX,
 }
 
+pltrs_core::archive_enum!(PgfTexSystem {
+    XeLaTeX,
+    LuaLaTeX,
+    PdfLaTeX,
+});
+
 impl PgfTexSystem {
     const ALL: [Self; 3] = [Self::XeLaTeX, Self::LuaLaTeX, Self::PdfLaTeX];
 

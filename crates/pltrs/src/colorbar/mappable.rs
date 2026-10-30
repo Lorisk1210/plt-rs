@@ -118,6 +118,18 @@ pub(crate) struct ContourLevels {
     pub(crate) hatches: Vec<Option<String>>,
 }
 
+pltrs_core::archive_struct!(ContourLevels {
+    levels,
+    extended,
+    cvalues,
+    cvalue_kind,
+    extend,
+    filled,
+    colors,
+    linewidths,
+    hatches
+});
+
 impl ContourLevels {
     /// Whether the colorbar draws hatched patches instead of a mesh.
     pub(crate) fn hatched(&self) -> bool {
@@ -135,6 +147,13 @@ pub(crate) enum MappableLink {
     /// The artist keeping a contour set's state.
     Contour(ArtistId),
 }
+
+pltrs_core::archive_enum!(MappableLink {
+    Image(v0),
+    Collection(v0),
+    TriMesh(v0),
+    Contour(v0),
+});
 
 impl MappableLink {
     /// The artist followed.

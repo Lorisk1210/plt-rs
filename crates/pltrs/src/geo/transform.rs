@@ -18,7 +18,9 @@ const RESOLUTION: usize = 75;
 /// A map projection as a plane map that subdivides paths (matplotlib's
 /// `_GeoTransform`).
 #[derive(Debug)]
-struct GeoMap(GeoProjection);
+pub(crate) struct GeoMap(GeoProjection);
+
+pltrs_core::archive_struct!(GeoMap(v0));
 
 impl PointMap for GeoMap {
     fn forward(&self, point: Point) -> Point {

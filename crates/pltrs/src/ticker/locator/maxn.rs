@@ -17,6 +17,11 @@ pub enum Nbins {
     Fixed(usize),
 }
 
+pltrs_core::archive_enum!(Nbins {
+    Auto,
+    Fixed(v0),
+});
+
 /// Which edge ticks [`MaxNLocator`] drops.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Prune {
@@ -27,6 +32,8 @@ pub enum Prune {
     /// Both edge ticks.
     Both,
 }
+
+pltrs_core::archive_enum!(Prune { Lower, Upper, Both });
 
 /// `scale_range`: the power of ten close to `|vmax - vmin| / n` and an
 /// offset (a power of ten with the sign of the mean) when the mean is
@@ -50,6 +57,8 @@ pub(crate) struct EdgeInteger {
     step: f64,
     offset: f64,
 }
+
+pltrs_core::archive_struct!(EdgeInteger { step, offset });
 
 impl EdgeInteger {
     /// Multiples of `step > 0` after subtracting `offset`.
@@ -120,6 +129,16 @@ pub struct MaxNLocator {
     prune: Option<Prune>,
     min_n_ticks: usize,
 }
+
+pltrs_core::archive_struct!(MaxNLocator {
+    nbins,
+    steps,
+    extended_steps,
+    integer,
+    symmetric,
+    prune,
+    min_n_ticks
+});
 
 impl MaxNLocator {
     /// The steps used when none are given.
@@ -377,6 +396,8 @@ impl Locator for MaxNLocator {
 /// locator of linear axes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AutoLocator(MaxNLocator);
+
+pltrs_core::archive_struct!(AutoLocator(v0));
 
 impl AutoLocator {
     /// An `AutoLocator` for matplotlib's default rcParams.

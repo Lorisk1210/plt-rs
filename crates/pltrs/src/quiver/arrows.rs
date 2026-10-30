@@ -17,6 +17,8 @@ pub enum Pivot {
     Tip,
 }
 
+pltrs_core::archive_enum!(Pivot { Tail, Middle, Tip });
+
 /// Head proportions and the treatment of short arrows, all in arrow-width
 /// units except the multiples `minshaft` (matplotlib's `headwidth`,
 /// `headlength`, `headaxislength`, `minshaft` and `minlength`).
@@ -36,6 +38,14 @@ pub struct QuiverArrowShape {
     /// of this diameter.
     pub min_length: f64,
 }
+
+pltrs_core::archive_struct!(QuiverArrowShape {
+    head_width,
+    head_length,
+    head_axis_length,
+    min_shaft,
+    min_length
+});
 
 impl Default for QuiverArrowShape {
     fn default() -> Self {

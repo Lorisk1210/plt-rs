@@ -10,6 +10,8 @@ use crate::transforms::AxisMap;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LinearScale;
 
+pltrs_core::archive_struct!(LinearScale);
+
 impl Scale for LinearScale {
     fn name(&self) -> ScaleName {
         ScaleName::Linear
@@ -41,6 +43,8 @@ impl Scale for LinearScale {
 pub struct FuncScale {
     transform: FuncTransform,
 }
+
+pltrs_core::archive_struct!(FuncScale { transform });
 
 impl FuncScale {
     /// `forward` must be monotonic and `inverse` its inverse (see

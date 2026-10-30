@@ -35,6 +35,8 @@ pub enum Adjustable {
     Datalim,
 }
 
+pltrs_core::archive_enum!(Adjustable { Box, Datalim });
+
 /// An aspect setting an axes refuses.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AspectError {
@@ -96,6 +98,17 @@ pub(crate) struct AspectState {
     /// The active position and the original position it derives from.
     active: Option<(Bbox, Bbox)>,
 }
+
+pltrs_core::archive_struct!(AspectState {
+    ratio,
+    adjustable,
+    anchor,
+    box_aspect,
+    divider,
+    inset,
+    locator,
+    active
+});
 
 impl AspectState {
     /// The position the axes is drawn at: the one computed by the last

@@ -191,6 +191,8 @@ pub struct Axes {
     raw: RawHandle,
 }
 
+pltrs_core::archive_struct!(Axes { raw });
+
 impl TypedHandle for Axes {
     fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
         raw.is::<AxesState>().then(|| Self::from_raw(raw.clone()))

@@ -25,6 +25,13 @@ pub enum ScalarKind {
     Boolean,
 }
 
+pltrs_core::archive_enum!(ScalarKind {
+    Float,
+    Float32,
+    Integer,
+    Boolean,
+});
+
 /// The precision numpy computes in: `float64` or `float32` arrays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Precision {
@@ -46,6 +53,13 @@ pub struct ScalarField {
     /// The bits of the wider floats the values were narrowed from.
     narrowed_from: Option<u16>,
 }
+
+pltrs_core::archive_struct!(ScalarField {
+    values,
+    masked,
+    kind,
+    narrowed_from
+});
 
 impl ScalarField {
     /// Floating-point data; NaN and infinite values are masked.
@@ -223,6 +237,16 @@ pub enum ImageData {
     /// RGBA colours with 8-bit channels.
     RgbaBytes(Grid<[u8; 4]>),
 }
+
+pltrs_core::archive_enum!(ImageData {
+    Scalar(v0),
+    Rgb(v0),
+    Rgba(v0),
+    RgbF32(v0),
+    RgbaF32(v0),
+    RgbBytes(v0),
+    RgbaBytes(v0),
+});
 
 impl ImageData {
     /// `(rows, columns)`.

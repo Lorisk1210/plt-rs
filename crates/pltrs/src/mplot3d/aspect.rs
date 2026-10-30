@@ -29,6 +29,14 @@ pub enum Aspect3D {
     EqualYZ,
 }
 
+pltrs_core::archive_enum!(Aspect3D {
+    Auto,
+    Equal,
+    EqualXY,
+    EqualXZ,
+    EqualYZ,
+});
+
 impl Aspect3D {
     /// The axes constrained to equal scales (matplotlib's
     /// `_equal_aspect_axis_indices`).
@@ -68,6 +76,12 @@ pub(crate) struct AspectSettings {
     /// set since is `None` (matplotlib's `_auto_aspect_restore_limits`).
     restore: Option<[Option<(f64, f64)>; 3]>,
 }
+
+pltrs_core::archive_struct!(AspectSettings {
+    aspect,
+    adjustable,
+    restore
+});
 
 impl AspectSettings {
     /// Forgets the limits to restore along `axis`, which were replaced.

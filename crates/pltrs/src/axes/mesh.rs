@@ -26,6 +26,13 @@ pub enum Shading {
     Gouraud,
 }
 
+pltrs_core::archive_enum!(Shading {
+    Auto,
+    Flat,
+    Nearest,
+    Gouraud,
+});
+
 impl Shading {
     const fn name(self) -> &'static str {
         match self {

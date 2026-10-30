@@ -25,6 +25,13 @@ pub enum LogLabelStyle {
     SciNotation,
 }
 
+pltrs_core::archive_enum!(LogLabelStyle {
+    Plain,
+    Exponent,
+    Mathtext,
+    SciNotation,
+});
+
 /// Labels for logarithmic axes: all decades, plus a subset of the ticks
 /// in between when few decades are visible (matplotlib's `LogFormatter`
 /// family, selected by [`LogLabelStyle`]).
@@ -36,6 +43,14 @@ pub struct LogFormatter {
     minor_thresholds: (f64, f64),
     linthresh: Option<f64>,
 }
+
+pltrs_core::archive_struct!(LogFormatter {
+    style,
+    base,
+    label_only_base,
+    minor_thresholds,
+    linthresh
+});
 
 impl LogFormatter {
     /// A formatter for powers of `base`, configured from matplotlib's

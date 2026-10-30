@@ -29,6 +29,13 @@ pub struct BoundaryNorm {
     limits: Limits,
 }
 
+pltrs_core::archive_struct!(BoundaryNorm {
+    boundaries,
+    ncolors,
+    extend,
+    limits
+});
+
 impl BoundaryNorm {
     /// A norm with the given bin edges (at least two, non-decreasing) for a
     /// colormap of `ncolors` colours; `extend` adds bins below and/or above.

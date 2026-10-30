@@ -17,6 +17,14 @@ pub struct AsinhLocator {
     subs: Option<Vec<f64>>,
 }
 
+pltrs_core::archive_struct!(AsinhLocator {
+    linear_width,
+    numticks,
+    symthresh,
+    base,
+    subs
+});
+
 impl AsinhLocator {
     /// Ticks for an asinh axis whose quasi-linear region has width
     /// `linear_width`; 11 ticks, base 10, no sub-multiples.

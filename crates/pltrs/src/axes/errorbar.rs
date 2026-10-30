@@ -129,6 +129,15 @@ pub struct ErrorbarContainer {
     pub label: Option<String>,
 }
 
+pltrs_core::archive_struct!(ErrorbarContainer {
+    data_line,
+    caplines,
+    barlinecols,
+    has_xerr,
+    has_yerr,
+    label
+});
+
 /// Styles shared by the bars and caps of one errorbar call.
 struct BarStyle {
     /// The data line's style without its marker and line-style parts

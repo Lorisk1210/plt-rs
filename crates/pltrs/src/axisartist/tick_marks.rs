@@ -36,6 +36,15 @@ pub struct TickMarks {
     pub width: Option<f64>,
 }
 
+pltrs_core::archive_struct!(TickMarks {
+    locs_angles,
+    size,
+    direction,
+    axis,
+    color,
+    width
+});
+
 impl TickMarks {
     /// Marks `size` points long at `locs_angles`, running along their
     /// angles and styled like the major ticks of `axis` (matplotlib's
@@ -67,11 +76,13 @@ impl ArtistHandle for TickMarksArtist {
 
 /// Tick marks of an axes (matplotlib's `Ticks`).
 #[derive(Debug)]
-struct TickMarksState {
+pub(crate) struct TickMarksState {
     base: ArtistBase,
     axes: ArtistId,
     marks: TickMarks,
 }
+
+pltrs_core::archive_struct!(TickMarksState { base, axes, marks });
 
 impl TickMarksState {
     /// The pen of the marks: their colour and width, or those of the

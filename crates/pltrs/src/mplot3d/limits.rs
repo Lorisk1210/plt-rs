@@ -30,6 +30,8 @@ struct DataBox {
     minpos: [f64; 2],
 }
 
+pltrs_core::archive_struct!(DataBox { lo, hi, minpos });
+
 impl DataBox {
     fn new(lo: f64, hi: f64) -> Self {
         Self {
@@ -90,6 +92,16 @@ pub(crate) struct Limits3D {
     /// Whether explicit limits get the view margin (`axes3d.automargin`).
     pub(crate) automargin: bool,
 }
+
+pltrs_core::archive_struct!(Limits3D {
+    xy,
+    zz,
+    view,
+    autoscale,
+    margins,
+    tight,
+    automargin
+});
 
 impl Limits3D {
     /// The initial limits; `zmargin` is the z autoscaling margin.

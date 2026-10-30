@@ -2,7 +2,6 @@
 //! their formatters, ticks, and the edges their ticks and labels go to.
 
 use pltrs::mplot3d::{Axes3D, AxisPosition};
-use pltrs::ticker::FuncFormatter;
 
 use super::axis3;
 use crate::binding::prelude::*;
@@ -10,13 +9,10 @@ use crate::binding::prelude::*;
 /// Labels the `level` (`"major"` or `"minor"`) ticks of axis `name` with
 /// the Python formatter `formatter`, called as `formatter(value,
 /// position)` (`set_major_formatter`, `set_minor_formatter`).
-fn set_formatter(axes: Axes3D, name: String, level: String, formatter: Callback) -> PyResult<()> {
+fn set_formatter(axes: Axes3D, name: String, level: String, formatter: Owned) -> PyResult<()> {
     let axis = axes.axis(axis3(&name)?);
-    let formatter = FuncFormatter::new(move |value, position| {
-        formatter
-            .call::<String>((value, position))
-            .unwrap_or_default()
-    });
+    let formatter =
+        Python::with_gil(|py| crate::modules::archive::tick_formatter(&formatter.bind(py)))?;
     match level.as_str() {
         "major" => axis.set_major_formatter(formatter),
         "minor" => axis.set_minor_formatter(formatter),

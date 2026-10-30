@@ -28,9 +28,9 @@ fn method(adapter: &Bound<'_>, name: &str) -> PyResult<Callback> {
 /// `view_limits(dmin, dmax, info)` and `date_unit(info)` (the days per
 /// tick unit of a date locator, `None` for others).
 #[derive(Debug)]
-pub(super) struct PyLocator {
+pub(crate) struct PyLocator {
     /// The adapter, which also gives the helper back (`helper()`).
-    pub(super) adapter: Owned,
+    pub(crate) adapter: Owned,
     locate: Callback,
     tick_values: Callback,
     nonsingular: Callback,
@@ -40,7 +40,7 @@ pub(super) struct PyLocator {
 
 impl PyLocator {
     /// The locator behind `adapter`.
-    pub(super) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
+    pub(crate) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
         Ok(Self {
             adapter: adapter.clone().unbind(),
             locate: method(adapter, "locate")?,
@@ -96,9 +96,9 @@ impl Locator for PyLocator {
 /// `label_axis(locs, info)` (the labels and the offset text),
 /// `format_data(value)` and `format_data_short(value)`.
 #[derive(Debug)]
-pub(super) struct PyFormatter {
+pub(crate) struct PyFormatter {
     /// The adapter, which also gives the helper back (`helper()`).
-    pub(super) adapter: Owned,
+    pub(crate) adapter: Owned,
     label_axis: Callback,
     format_data: Callback,
     format_data_short: Callback,
@@ -106,7 +106,7 @@ pub(super) struct PyFormatter {
 
 impl PyFormatter {
     /// The formatter behind `adapter`.
-    pub(super) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
+    pub(crate) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
         Ok(Self {
             adapter: adapter.clone().unbind(),
             label_axis: method(adapter, "label_axis")?,

@@ -73,6 +73,12 @@ pub enum ArrowStart {
     Artist(ArtistId),
 }
 
+pltrs_core::archive_enum!(ArrowStart {
+    TextBox,
+    Unclipped,
+    Artist(v0),
+});
+
 impl FromStr for FancyArrowProps {
     type Err = StyleError;
 
@@ -188,6 +194,11 @@ enum Placement {
     },
 }
 
+pltrs_core::archive_enum!(Placement {
+    Fancy { relpos, mutation_scale },
+    Legacy { width, headwidth, headlength, shrink },
+});
+
 /// What an annotation needs to place its arrow.
 #[derive(Clone, Debug)]
 pub(crate) struct ArrowTarget {
@@ -225,6 +236,17 @@ pub(crate) struct AnnotationArrow {
     /// The resolution of the arrow's last draw.
     dpi_cor: DrawnDpiCor,
 }
+
+pltrs_core::archive_struct!(AnnotationArrow {
+    placement,
+    spec,
+    patch_a,
+    patch_b,
+    style,
+    alpha,
+    path_effects,
+    dpi_cor
+});
 
 impl AnnotationArrow {
     /// The arrow `props` describe, styled from `rc`.

@@ -7,7 +7,7 @@ use std::rc::{Rc, Weak};
 
 use pltrs_core::Point;
 
-use super::{ConnectionId, Event, EventKind, MouseEvent};
+use super::{ConnectionId, Event, EventKind};
 use crate::artist::{ArtistHandle, ArtistId, Picker, RawHandle};
 use crate::figure::{Figure, FigureState};
 
@@ -30,6 +30,8 @@ pub(crate) trait DragTarget {
 pub(crate) struct Dragger {
     connections: [ConnectionId; 3],
 }
+
+pltrs_core::archive_struct!(Dragger { connections });
 
 /// A drag in progress, or waiting for one.
 struct Drag {
@@ -55,12 +57,7 @@ impl Dragger {
     /// `DraggableBase._picker`).
     pub(crate) fn connect(artist: &RawHandle, target: impl DragTarget + 'static) -> Self {
         if !artist.pickable() {
-            artist.set_picker(Some(Picker::custom(|artist, mouse: &MouseEvent| {
-                let at = Point::new(mouse.location.x, mouse.location.y);
-                (mouse.step == 0.0)
-                    .then(|| artist.hit_test(at, None))
-                    .flatten()
-            })));
+            artist.set_picker(Some(Picker::Press));
         }
         let drag = Rc::new(RefCell::new(Drag {
             target: Box::new(target),

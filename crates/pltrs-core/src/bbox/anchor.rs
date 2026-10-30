@@ -26,6 +26,19 @@ pub enum Anchor {
     Fraction(f64, f64),
 }
 
+crate::archive_enum!(Anchor {
+    C,
+    SW,
+    S,
+    SE,
+    E,
+    NE,
+    N,
+    NW,
+    W,
+    Fraction(cx, cy),
+});
+
 impl Anchor {
     /// The fractional `(cx, cy)` position this anchor stands for
     /// (matplotlib's `Bbox.coefs`).

@@ -3,6 +3,8 @@
 use std::any::Any;
 use std::fmt;
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
+
 use super::Artist;
 
 /// Identifies an artist within its figure's [`ArtistStore`].
@@ -17,12 +19,20 @@ pub struct ArtistId {
     index: u32,
 }
 
+pltrs_core::archive_struct!(ArtistId { index });
+
 impl ArtistId {
     /// The id as a number: how many artists the figure made before this
     /// one. Bindings that keep one object per artist, such as pltrs's
     /// Python classes, look their objects up by it.
     pub fn index(self) -> u32 {
         self.index
+    }
+
+    /// The id whose [`index`](Self::index) is `index`, as a binding
+    /// spells it back (an artist read back from an archive keeps its id).
+    pub fn from_index(index: u32) -> Self {
+        Self { index }
     }
 }
 
@@ -39,6 +49,24 @@ impl fmt::Display for ArtistId {
 #[derive(Debug, Default)]
 pub struct ArtistStore {
     slots: Vec<Option<Box<dyn Artist>>>,
+}
+
+/// Archived slot by slot; each artist read back takes the id of its
+/// slot, as [`ArtistStore::insert`] gives it.
+impl Archive for ArtistStore {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        self.slots.encode(encoder)
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        let mut slots: Vec<Option<Box<dyn Artist>>> = Archive::decode(decoder)?;
+        for (index, slot) in (0..).zip(&mut slots) {
+            if let Some(artist) = slot {
+                artist.base_mut().assign_id(ArtistId { index });
+            }
+        }
+        Ok(Self { slots })
+    }
 }
 
 impl ArtistStore {

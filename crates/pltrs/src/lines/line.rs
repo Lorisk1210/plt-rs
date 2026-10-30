@@ -34,6 +34,8 @@ pub(crate) struct PolarMarkerRotation {
     pub(crate) extra: f64,
 }
 
+pltrs_core::archive_struct!(PolarMarkerRotation { theta, extra });
+
 impl PolarMarkerRotation {
     /// The rotation in radians inside axes `parent`: θ times the θ
     /// direction plus the θ offset when they are polar, plus the extra
@@ -100,6 +102,40 @@ pub(crate) struct LineArtist {
     /// rc snapshot used to resolve named dash patterns.
     rc: std::rc::Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(LineArtist {
+    base,
+    xdata,
+    ydata,
+    path,
+    color,
+    linewidth,
+    linestyle,
+    drawstyle,
+    gapcolor,
+    marker,
+    fillstyle,
+    marker_transform,
+    marker_capstyle,
+    marker_joinstyle,
+    markersize,
+    markeredgewidth,
+    markeredgecolor,
+    markerfacecolor,
+    markerfacecoloralt,
+    markevery,
+    interpolation_steps,
+    antialiased,
+    pickradius,
+    solid_capstyle,
+    solid_joinstyle,
+    dash_capstyle,
+    dash_joinstyle,
+    infinite,
+    marker_rotation,
+    unit_sources,
+    rc
+});
 
 impl LineArtist {
     /// A line through `(x, y)` with defaults from `rc`.

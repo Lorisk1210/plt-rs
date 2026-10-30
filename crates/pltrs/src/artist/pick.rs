@@ -6,6 +6,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::Point;
+use pltrs_core::archive::{External, ProgramFn};
 
 use super::RawHandle;
 use crate::events::MouseEvent;
@@ -29,21 +30,42 @@ pub enum Picker {
     /// points for lines, in pixels for collections and patches, as in
     /// matplotlib.
     Radius(f64),
-    /// A function decides (`picker=callable`).
-    Custom(Rc<PickFn>),
+    /// A function decides (`picker=callable`); a figure with one is
+    /// archived only if the function has an origin (see [`ProgramFn`]).
+    Custom(ProgramFn<PickFn>),
+    /// The artist's own hit test for button presses only, not the wheel:
+    /// the picker artists made draggable without one get (matplotlib's
+    /// `DraggableBase._picker`).
+    Press,
 }
+
+pltrs_core::archive_enum!(Picker {
+    Default,
+    Radius(radius),
+    Custom(test),
+    Press,
+});
 
 impl Picker {
     /// A picker deciding with `test`.
     pub fn custom(test: impl Fn(&RawHandle, &MouseEvent) -> Option<Vec<usize>> + 'static) -> Self {
-        Self::Custom(Rc::new(test))
+        Self::Custom(ProgramFn::new(Rc::new(test)))
+    }
+
+    /// A picker deciding with `test`, archived as `origin`, what the
+    /// program made it from.
+    pub fn custom_with_origin(
+        test: impl Fn(&RawHandle, &MouseEvent) -> Option<Vec<usize>> + 'static,
+        origin: External,
+    ) -> Self {
+        Self::Custom(ProgramFn::with_origin(Rc::new(test), origin))
     }
 
     /// The tolerance the picker gives, if any.
     pub(crate) fn radius(&self) -> Option<f64> {
         match self {
             Self::Radius(radius) => Some(*radius),
-            Self::Default | Self::Custom(_) => None,
+            Self::Default | Self::Custom(_) | Self::Press => None,
         }
     }
 }
@@ -54,6 +76,7 @@ impl fmt::Debug for Picker {
             Self::Default => f.write_str("Default"),
             Self::Radius(radius) => f.debug_tuple("Radius").field(radius).finish(),
             Self::Custom(_) => f.write_str("Custom(..)"),
+            Self::Press => f.write_str("Press"),
         }
     }
 }
@@ -61,9 +84,9 @@ impl fmt::Debug for Picker {
 impl PartialEq for Picker {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Default, Self::Default) => true,
+            (Self::Default, Self::Default) | (Self::Press, Self::Press) => true,
             (Self::Radius(a), Self::Radius(b)) => a == b,
-            (Self::Custom(a), Self::Custom(b)) => Rc::ptr_eq(a, b),
+            (Self::Custom(a), Self::Custom(b)) => std::ptr::addr_eq(a.get(), b.get()),
             _ => false,
         }
     }

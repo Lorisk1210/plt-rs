@@ -34,6 +34,13 @@ pub enum LabelPosition {
     West,
 }
 
+pltrs_core::archive_enum!(LabelPosition {
+    North,
+    South,
+    East,
+    West,
+});
+
 impl LabelPosition {
     /// The arrow point on the key position.
     fn pivot(self) -> Pivot {
@@ -127,6 +134,12 @@ pub(crate) struct KeyVector {
     pub(crate) angle: f64,
 }
 
+pltrs_core::archive_struct!(KeyVector {
+    position,
+    length,
+    angle
+});
+
 /// State of a quiver key: the reference arrow drawn with the quiver's
 /// current scale and style, and its label (a child text artist).
 #[derive(Debug)]
@@ -141,6 +154,17 @@ pub(crate) struct QuiverKeyArtist {
     label: ArtistId,
     rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(QuiverKeyArtist {
+    base,
+    quiver,
+    vector,
+    transform,
+    color,
+    labelpos,
+    label,
+    rc
+});
 
 impl QuiverKeyArtist {
     /// The key of the quiver `quiver`, labelled by the text artist

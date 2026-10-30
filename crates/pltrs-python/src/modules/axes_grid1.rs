@@ -1,10 +1,14 @@
 //! `_native.axes_grid1`: axes placed by pltrs (Rust)'s
 //! [`pltrs::axes_grid1`] (matplotlib's `mpl_toolkits.axes_grid1`): inset
-//! axes anchored in a box of their parent (`inset_locator`).
+//! axes anchored in a box of their parent (`inset_locator`), and axes
+//! padded for their decorations (`axes_divider`).
 
 use pltrs::axes::Axes;
-use pltrs::axes_grid1::{InsetOptions, SizeSpec, inset_axes, zoomed_inset_axes};
+use pltrs::axes_grid1::{
+    InsetOptions, SizeSpec, inset_axes, make_axes_area_auto_adjustable, zoomed_inset_axes,
+};
 use pltrs::offsetbox::{AnchorLoc, BboxToAnchor};
+use pltrs::spines::SpineSide;
 use pltrs::transforms::Transform;
 
 use crate::binding::prelude::*;
@@ -74,8 +78,25 @@ fn zoomed_inset(parent: Axes, zoom: f64, placement: Placement) -> PyResult<Axes>
     Ok(zoomed_inset_axes(&parent, zoom, options(placement)?))
 }
 
+/// Pads the area of `axes` on each of `sides` by how far the decorations
+/// of `use_axes` reach past it, plus `pad` inches, at every layout
+/// (`make_axes_area_auto_adjustable`).
+fn auto_adjustable(axes: Axes, use_axes: Vec<Axes>, pad: f64, sides: Vec<String>) -> PyResult<()> {
+    let sides = sides
+        .iter()
+        .map(|name| {
+            SpineSide::from_name(name)
+                .ok_or_else(|| PyErr::value_error(format!("no side {name:?}")))
+        })
+        .collect::<PyResult<Vec<_>>>()?;
+    let use_axes: Vec<&Axes> = use_axes.iter().collect();
+    make_axes_area_auto_adjustable(&axes, &use_axes, pad, &sides);
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("make_axes_area_auto_adjustable", auto_adjustable)?;
     module.add("inset_axes", inset)?;
     module.add("zoomed_inset_axes", zoomed_inset)
 }

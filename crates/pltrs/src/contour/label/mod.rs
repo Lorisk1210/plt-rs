@@ -134,6 +134,17 @@ pub(crate) struct LabelRecord {
     pub(crate) follows: bool,
 }
 
+pltrs_core::archive_struct!(LabelRecord {
+    level,
+    text,
+    position,
+    rotation,
+    color,
+    artist,
+    index,
+    follows
+});
+
 impl LabelRecord {
     /// The public view of the label, with `artist` the handle to its text.
     pub(crate) fn label(&self, artist: Text) -> ContourLabel {
@@ -161,6 +172,15 @@ struct LevelLabel {
     /// Whether the colour is that of the level.
     follows: bool,
 }
+
+pltrs_core::archive_struct!(LevelLabel {
+    index,
+    level,
+    text,
+    width,
+    color,
+    follows
+});
 
 /// The most levels labelled at once, matplotlib's
 /// [`MAXTICKS`](crate::ticker::MAXTICKS): like matplotlib, which formats

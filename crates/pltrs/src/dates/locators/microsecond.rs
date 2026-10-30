@@ -19,6 +19,12 @@ pub struct MicrosecondLocator {
     tz: TickZone,
 }
 
+pltrs_core::archive_struct!(MicrosecondLocator {
+    interval,
+    multiples,
+    tz
+});
+
 impl MicrosecondLocator {
     /// Ticks every `interval` microseconds (at least 1), in the zone of
     /// the `timezone` rcParam.

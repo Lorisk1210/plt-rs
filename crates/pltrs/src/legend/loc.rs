@@ -23,6 +23,14 @@ pub enum OutsideEdge {
     Center,
 }
 
+pltrs_core::archive_enum!(OutsideEdge {
+    Upper,
+    Lower,
+    Left,
+    Right,
+    Center,
+});
+
 impl OutsideEdge {
     /// The edge named by the first word of `words`.
     fn from_word(words: &str) -> Self {
@@ -94,6 +102,13 @@ pub enum LegendLoc {
     /// by `bbox_to_anchor` (by default the parent axes or figure).
     Point(f64, f64),
 }
+
+pltrs_core::archive_enum!(LegendLoc {
+    Best,
+    Anchored(v0),
+    Outside { edge, loc },
+    Point(v0, v1),
+});
 
 impl LegendLoc {
     /// The location with matplotlib's numeric `code`: `0` is `"best"`,

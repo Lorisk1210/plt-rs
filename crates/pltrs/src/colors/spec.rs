@@ -29,6 +29,11 @@ pub enum Color {
     Spec(String),
 }
 
+pltrs_core::archive_enum!(Color {
+    Rgba(v0),
+    Spec(v0),
+});
+
 impl Color {
     /// matplotlib's `"none"`: draw nothing.
     pub fn none() -> Self {

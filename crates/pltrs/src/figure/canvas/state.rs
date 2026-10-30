@@ -88,6 +88,12 @@ pub(crate) enum Presentation {
     Whole,
 }
 
+pltrs_core::archive_enum!(Presentation {
+    Nothing,
+    Regions(v0),
+    Whole,
+});
+
 impl Presentation {
     /// More blitted regions than this are presented as one box around
     /// them, so that a program blitting without returning to the window's

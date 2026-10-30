@@ -137,6 +137,14 @@ pub struct BarContainer {
     pub label: Option<String>,
 }
 
+pltrs_core::archive_struct!(BarContainer {
+    patches,
+    errorbar,
+    datavalues,
+    orientation,
+    label
+});
+
 impl BarContainer {
     /// Each bar's start and extent along its position and its value
     /// direction: `((x, width), (y, height))` of vertical bars swapped for

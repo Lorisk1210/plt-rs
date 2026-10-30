@@ -6,6 +6,8 @@ use std::fmt;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Tag(pub [u8; 4]);
 
+pltrs_core::archive_struct!(Tag(v0));
+
 impl Tag {
     /// Builds a tag from its four ASCII bytes.
     pub const fn new(bytes: &[u8; 4]) -> Self {

@@ -47,6 +47,14 @@ pub(crate) struct TriMeshArtist {
     rc: Rc<RcParams>,
 }
 
+pltrs_core::archive_struct!(TriMeshArtist {
+    base,
+    points,
+    triangles,
+    mapping,
+    rc
+});
+
 impl TriMeshArtist {
     /// The norm and colormap.
     pub(crate) fn mappable(&self) -> &ScalarMappable {

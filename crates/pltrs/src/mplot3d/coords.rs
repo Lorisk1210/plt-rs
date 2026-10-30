@@ -17,6 +17,8 @@ pub enum Axis3 {
     Z,
 }
 
+pltrs_core::archive_enum!(Axis3 { X, Y, Z });
+
 impl Axis3 {
     /// The three axes in order.
     pub const ALL: [Self; 3] = [Self::X, Self::Y, Self::Z];

@@ -24,6 +24,13 @@ pub struct Feature {
     pub end: u32,
 }
 
+pltrs_core::archive_struct!(Feature {
+    tag,
+    value,
+    start,
+    end
+});
+
 impl Feature {
     /// The start of a setting for the whole text.
     pub const GLOBAL_START: u32 = 0;

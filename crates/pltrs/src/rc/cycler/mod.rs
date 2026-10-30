@@ -33,6 +33,16 @@ pub enum CycleValue {
     Text(String),
 }
 
+pltrs_core::archive_enum!(CycleValue {
+    Color(v0),
+    Number(v0),
+    LineStyle(v0),
+    Marker(v0),
+    Dashes(v0),
+    MarkEvery(v0),
+    Text(v0),
+});
+
 /// A sequence of property sets that artists cycle through, e.g. the
 /// default `cycler(color='tab10')`.
 ///
@@ -44,6 +54,8 @@ pub struct Cycler {
     keys: Vec<String>,
     rows: Vec<Vec<CycleValue>>,
 }
+
+pltrs_core::archive_struct!(Cycler { keys, rows });
 
 /// matplotlib's short property names.
 const ALIASES: [(&str, &str); 9] = [

@@ -17,6 +17,8 @@ pub enum AxisName {
     Y,
 }
 
+pltrs_core::archive_enum!(AxisName { X, Y });
+
 impl AxisName {
     /// matplotlib's name for the axis (`"x"` or `"y"`).
     pub const fn name(self) -> &'static str {

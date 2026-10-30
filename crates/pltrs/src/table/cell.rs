@@ -38,6 +38,13 @@ pub struct CellEdges {
     pub left: bool,
 }
 
+pltrs_core::archive_struct!(CellEdges {
+    bottom,
+    right,
+    top,
+    left
+});
+
 impl CellEdges {
     /// Every edge (`"closed"`).
     pub const CLOSED: Self = Self {
@@ -174,6 +181,8 @@ pub(crate) struct CellShape {
     pub(crate) edges: CellEdges,
 }
 
+pltrs_core::archive_struct!(CellShape { bbox, edges });
+
 impl PatchShape for CellShape {
     fn path(&self) -> Path {
         self.edges.outline()
@@ -204,6 +213,20 @@ pub(crate) struct Cell {
     pub(crate) font: FontProperties,
     pub(crate) text_color: Color,
 }
+
+pltrs_core::archive_struct!(Cell {
+    width,
+    height,
+    text,
+    facecolor,
+    edgecolor,
+    linewidth,
+    alpha,
+    loc,
+    edges,
+    font,
+    text_color
+});
 
 impl Cell {
     /// A `width` × `height` cell with matplotlib's defaults: no text

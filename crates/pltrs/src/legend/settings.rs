@@ -17,6 +17,12 @@ pub(crate) enum Location {
     Point(f64, f64),
 }
 
+pltrs_core::archive_enum!(Location {
+    Best,
+    Anchored(v0),
+    Point(v0, v1),
+});
+
 /// A `loc` checked against the parent: where the legend goes and, for
 /// the `"outside ..."` locations of figure legends, the edge it makes
 /// room at.
@@ -99,6 +105,22 @@ pub(crate) struct Settings {
     pub(crate) borderaxespad: f64,
     pub(crate) columnspacing: f64,
 }
+
+pltrs_core::archive_struct!(Settings {
+    prop,
+    fontsize,
+    numpoints,
+    markerscale,
+    scatterpoints,
+    scatteryoffsets,
+    borderpad,
+    labelspacing,
+    handlelength,
+    handleheight,
+    handletextpad,
+    borderaxespad,
+    columnspacing
+});
 
 impl Settings {
     /// The settings of a legend made with `options` under `rc`.

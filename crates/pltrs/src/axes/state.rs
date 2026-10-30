@@ -120,6 +120,45 @@ pub(crate) struct AxesState {
     pub(crate) rc: Rc<RcParams>,
 }
 
+pltrs_core::archive_struct!(AxesState {
+    base,
+    position,
+    aspect,
+    axes_locator,
+    subplot_spec,
+    projection,
+    projection_options,
+    view_lim,
+    view_mutated,
+    data_lim,
+    xaxis,
+    yaxis,
+    use_sticky_edges,
+    tight,
+    patch,
+    decorations,
+    shares,
+    secondary,
+    parasite,
+    aux_transform,
+    patch_outline,
+    prop_cycle,
+    line_cycle,
+    patch_cycle,
+    children,
+    containers,
+    spines,
+    titles,
+    navigate,
+    forward_navigation,
+    fmt_data,
+    title_placement,
+    axisbelow,
+    rasterization_zorder,
+    current_image,
+    rc
+});
+
 /// How the height of an axes' titles is chosen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TitlePlacement {
@@ -128,6 +167,8 @@ pub(crate) enum TitlePlacement {
     /// Where `axes.titley` or `Axes::set_title_y` put them.
     Fixed,
 }
+
+pltrs_core::archive_enum!(TitlePlacement { Auto, Fixed });
 
 /// Which decorations an axes draws (matplotlib's `axison` and
 /// `_frameon`).
@@ -138,6 +179,8 @@ pub(crate) struct Decorations {
     /// The patch and the spines.
     pub(crate) frame_on: bool,
 }
+
+pltrs_core::archive_struct!(Decorations { axis_on, frame_on });
 
 impl Decorations {
     /// Whether the patch and spines are drawn.
@@ -165,6 +208,15 @@ pub(crate) struct AxesPatch {
     /// parasite's children.
     pub(crate) host_owned: bool,
 }
+
+pltrs_core::archive_struct!(AxesPatch {
+    facecolor,
+    edgecolor,
+    linewidth,
+    visible,
+    zorder,
+    host_owned
+});
 
 /// What the axes sharing one axis contribute to its autoscaling.
 #[derive(Clone, Debug, Default, PartialEq)]

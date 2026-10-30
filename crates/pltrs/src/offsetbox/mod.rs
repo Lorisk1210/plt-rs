@@ -49,6 +49,7 @@ mod annotation_bbox;
 mod apply;
 mod boxes;
 mod drag;
+pub(crate) use drag::reconnect_drag;
 mod leaves;
 mod pack;
 mod pending;

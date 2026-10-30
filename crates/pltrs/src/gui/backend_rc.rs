@@ -16,6 +16,12 @@ pub enum ToolbarKind {
     ToolManager,
 }
 
+pltrs_core::archive_enum!(ToolbarKind {
+    None,
+    Toolbar2,
+    ToolManager,
+});
+
 impl ToolbarKind {
     /// matplotlib's name (`None`, `toolbar2` or `toolmanager`).
     pub const fn name(self) -> &'static str {
@@ -46,6 +52,12 @@ pub enum MacosxWindowMode {
     /// `window`: as separate windows.
     Window,
 }
+
+pltrs_core::archive_enum!(MacosxWindowMode {
+    System,
+    Tab,
+    Window,
+});
 
 impl MacosxWindowMode {
     /// matplotlib's name (`system`, `tab` or `window`).

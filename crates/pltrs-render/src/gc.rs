@@ -15,6 +15,12 @@ pub enum CapStyle {
     Round,
 }
 
+pltrs_core::archive_enum!(CapStyle {
+    Butt,
+    Projecting,
+    Round,
+});
+
 /// How stroke segments are joined at corners.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum JoinStyle {
@@ -26,6 +32,12 @@ pub enum JoinStyle {
     /// Cut-off corner.
     Bevel,
 }
+
+pltrs_core::archive_enum!(JoinStyle {
+    Miter,
+    Round,
+    Bevel,
+});
 
 impl CapStyle {
     /// Parses matplotlib's names (`"butt"`, `"projecting"`, `"round"`).
@@ -90,6 +102,8 @@ pub struct Dashes {
     pub pattern: Option<Vec<f64>>,
 }
 
+pltrs_core::archive_struct!(Dashes { offset, pattern });
+
 impl Dashes {
     /// A solid line: no dash list.
     pub const fn solid() -> Self {
@@ -130,6 +144,12 @@ pub struct Hatch {
     pub linewidth: f64,
 }
 
+pltrs_core::archive_struct!(Hatch {
+    pattern,
+    color,
+    linewidth
+});
+
 /// Parameters of the hand-drawn "sketch" path filter.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sketch {
@@ -140,6 +160,12 @@ pub struct Sketch {
     /// Factor by which the length is randomly shrunk or expanded.
     pub randomness: f64,
 }
+
+pltrs_core::archive_struct!(Sketch {
+    scale,
+    length,
+    randomness
+});
 
 impl Sketch {
     /// The path converters' sketch filter settings.
@@ -168,6 +194,12 @@ pub enum SnapMode {
     /// Never snap.
     Never,
 }
+
+pltrs_core::archive_enum!(SnapMode {
+    Auto,
+    Always,
+    Never,
+});
 
 /// Everything about *how* a primitive is drawn, mirroring matplotlib's
 /// `GraphicsContextBase`. Lengths are in points unless stated otherwise;

@@ -32,6 +32,17 @@ pub struct ArrowSpec {
     pub patch_b: Option<ClipRegion>,
 }
 
+pltrs_core::archive_struct!(ArrowSpec {
+    arrowstyle,
+    connectionstyle,
+    shrink_a,
+    shrink_b,
+    mutation_scale,
+    mutation_aspect,
+    patch_a,
+    patch_b
+});
+
 impl Default for ArrowSpec {
     /// matplotlib's `FancyArrowPatch` defaults: a `simple` arrow on a
     /// straight `arc3` connection, shrunk by 2 points at both ends.
@@ -92,6 +103,11 @@ pub enum ArrowRoute {
     Along(Path),
 }
 
+pltrs_core::archive_enum!(ArrowRoute {
+    Between(v0, v1),
+    Along(v0),
+});
+
 /// An arrow whose ends are fixed in data (or any) coordinates but whose
 /// head and body are sized in display space (matplotlib's
 /// `FancyArrowPatch`); draws an edge with round caps and joins by default.
@@ -106,6 +122,12 @@ pub struct FancyArrowPatch {
     /// precedence over the fixed regions of [`ArrowSpec`].
     pub patches: (Option<ArtistId>, Option<ArtistId>),
 }
+
+pltrs_core::archive_struct!(FancyArrowPatch {
+    route,
+    spec,
+    patches
+});
 
 impl FancyArrowPatch {
     /// A default (`simple`) arrow from `a` to `b`.

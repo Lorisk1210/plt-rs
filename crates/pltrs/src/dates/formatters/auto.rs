@@ -43,6 +43,14 @@ pub struct AutoDateFormatter {
     usetex: Option<bool>,
 }
 
+pltrs_core::archive_struct!(AutoDateFormatter {
+    locator,
+    tz,
+    defaultfmt,
+    scaled,
+    usetex
+});
+
 impl AutoDateFormatter {
     /// A formatter following `locator`'s unit, in the zone of the
     /// `timezone` rcParam, with the formats of the `date.autoformatter.*`

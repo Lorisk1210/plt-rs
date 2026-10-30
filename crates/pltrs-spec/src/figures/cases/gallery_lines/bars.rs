@@ -2,8 +2,6 @@
 //! stacked and broken bars, categorical plotting, gradient bars, a hat
 //! graph and a horizontal distribution chart.
 
-use std::rc::Rc;
-
 use pltrs::axes::{
     Axes, BandAlign, BarContainer, BarLabelOptions, BarLabelType, BarOptions, ErrorbarOptions,
     GroupedBarData, GroupedBarOptions, ImshowOptions,
@@ -224,7 +222,7 @@ fn bar_label_demo_5(fig: &Figure) -> CaseResult {
         &["Lion", "Gazelle", "Cheetah"],
         &[50.0, 60.0, 75.0],
         ("speed in MPH", "Running speeds", 80.0),
-        LabelFormat::Func(Rc::new(|x| format!("{:.1} km/h", x * 1.61))),
+        LabelFormat::func(|x| format!("{:.1} km/h", x * 1.61)),
     )
 }
 

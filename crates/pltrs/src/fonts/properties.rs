@@ -42,6 +42,17 @@ pub struct FontProperties {
     pub file: Option<PathBuf>,
 }
 
+pltrs_core::archive_struct!(FontProperties {
+    families,
+    style,
+    variant,
+    weight,
+    stretch,
+    size,
+    math_fontfamily,
+    file
+});
+
 /// Parses a font style name exactly as `FontProperties.set_style` accepts
 /// it (`normal`, `italic`, `oblique`).
 pub fn parse_style(text: &str) -> Result<FontStyle, FontPropertyError> {

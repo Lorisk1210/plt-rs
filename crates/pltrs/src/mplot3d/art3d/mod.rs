@@ -38,6 +38,8 @@ use crate::text::{AngleReduction, TextArtist};
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ProjectedOutline(pub Path);
 
+pltrs_core::archive_struct!(ProjectedOutline(v0));
+
 impl PatchShape for ProjectedOutline {
     fn path(&self) -> Path {
         self.0.clone()
@@ -49,6 +51,8 @@ impl PatchShape for ProjectedOutline {
 /// draws an edge by default).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ProjectedPath(pub Path);
+
+pltrs_core::archive_struct!(ProjectedPath(v0));
 
 impl PatchShape for ProjectedPath {
     const EDGE_DEFAULT: bool = true;
@@ -78,6 +82,8 @@ pub(crate) struct Path3D {
     vertices: Vec<Vec3>,
 }
 
+pltrs_core::archive_struct!(Path3D { template, vertices });
+
 impl Path3D {
     /// `template` with its vertices replaced by `vertices`.
     pub(crate) fn new(template: Path, vertices: Vec<Vec3>) -> Self {
@@ -101,6 +107,13 @@ pub(crate) struct Artist3D {
     pub(crate) sources: Sources3D,
 }
 
+pltrs_core::archive_struct!(Artist3D {
+    id,
+    art,
+    axlim_clip,
+    sources
+});
+
 /// The polylines of a line collection (matplotlib's `Line3DCollection`).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Segments3D {
@@ -110,6 +123,8 @@ pub(crate) struct Segments3D {
     /// collections keep without ordering by it (`_sort_zpos`).
     pub(crate) sort_zpos: Option<f64>,
 }
+
+pltrs_core::archive_struct!(Segments3D { lines, sort_zpos });
 
 impl Segments3D {
     /// `lines` without a sort position.
@@ -147,6 +162,17 @@ pub(crate) enum Art3D {
     /// The path of a patch, codes kept (`PathPatch3D`).
     PathPatch(Path3D),
 }
+
+pltrs_core::archive_enum!(Art3D {
+    Line(v0),
+    Text { position, direction },
+    Paths(v0),
+    Segments(v0),
+    Points(v0),
+    Polys(v0),
+    Patch(v0),
+    PathPatch(v0),
+});
 
 impl Art3D {
     /// Whether the artist counts as data (matplotlib's `has_data`).

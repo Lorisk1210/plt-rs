@@ -43,6 +43,15 @@ pub struct ConstrainedLayout {
     pub compress: bool,
 }
 
+pltrs_core::archive_struct!(ConstrainedLayout {
+    w_pad,
+    h_pad,
+    wspace,
+    hspace,
+    rect,
+    compress
+});
+
 impl ConstrainedLayout {
     /// The `figure.constrained_layout.*` rc parameters over the whole
     /// figure.

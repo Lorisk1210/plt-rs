@@ -4,6 +4,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
+
 /// matplotlib's paper sizes in inches (`backend_ps.papersize`).
 const PAPER_SIZES: [(&str, f64, f64); 25] = [
     ("letter", 8.5, 11.0),
@@ -48,6 +50,19 @@ pub enum Paper {
         /// Height in inches.
         height: f64,
     },
+}
+
+/// Archived as its name.
+impl Archive for Paper {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        encoder.write_str(&self.to_string());
+        Ok(())
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        let name = decoder.read_str()?;
+        Self::from_name(&name).ok_or_else(|| ArchiveError::invalid(format!("no paper {name:?}")))
+    }
 }
 
 impl Paper {
@@ -104,6 +119,11 @@ pub enum PageOrientation {
     /// Rotated by 90°.
     Landscape,
 }
+
+pltrs_core::archive_enum!(PageOrientation {
+    Portrait,
+    Landscape,
+});
 
 impl PageOrientation {
     /// matplotlib's name of the orientation.

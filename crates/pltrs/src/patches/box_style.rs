@@ -4,6 +4,7 @@
 use std::str::FromStr;
 
 use pltrs_core::Path;
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 
 use self::outlines::Padded;
 use super::StyleError;
@@ -56,6 +57,20 @@ pub enum BoxShape {
     Custom(CustomBox),
 }
 
+pltrs_core::archive_enum!(BoxShape {
+    Square,
+    Circle,
+    Ellipse,
+    RArrow(v0),
+    LArrow(v0),
+    DArrow(v0),
+    Round { rounding_size },
+    Round4 { rounding_size },
+    Sawtooth { tooth_size },
+    Roundtooth { tooth_size },
+    Custom(v0),
+});
+
 /// The outline of a [`CustomBox`]: from the boxed rectangle `x0, y0,
 /// width, height` and the padding `pad` (the style's padding times the
 /// mutation size), all in the same units, the closed path around it.
@@ -81,6 +96,20 @@ pub type BoxOutline = fn(x0: f64, y0: f64, width: f64, height: f64, pad: f64) ->
 pub struct CustomBox {
     name: &'static str,
     outline: BoxOutline,
+}
+
+/// A custom shape is drawn by a function, which cannot be archived.
+impl Archive for CustomBox {
+    fn encode(&self, _encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        Err(ArchiveError::unsupported(format!(
+            "the custom box shape {:?}",
+            self.name
+        )))
+    }
+
+    fn decode(_decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        Err(ArchiveError::invalid("a custom box shape"))
+    }
 }
 
 impl CustomBox {
@@ -118,6 +147,11 @@ pub struct ArrowHead {
     pub head_angle: f64,
 }
 
+pltrs_core::archive_struct!(ArrowHead {
+    head_width,
+    head_angle
+});
+
 impl Default for ArrowHead {
     fn default() -> Self {
         Self {
@@ -148,6 +182,8 @@ pub struct BoxStyle {
     /// Padding as a fraction of the mutation size.
     pub pad: Option<f64>,
 }
+
+pltrs_core::archive_struct!(BoxStyle { shape, pad });
 
 impl BoxStyle {
     /// A style of `shape` with the default padding.

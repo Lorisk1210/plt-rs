@@ -36,6 +36,14 @@ pub struct LogitFormatter {
     minor_number: usize,
 }
 
+pltrs_core::archive_struct!(LogitFormatter {
+    use_overline,
+    one_half,
+    minor,
+    minor_threshold,
+    minor_number
+});
+
 impl Default for LogitFormatter {
     fn default() -> Self {
         Self::new()

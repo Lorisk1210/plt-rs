@@ -69,6 +69,8 @@ macro_rules! color_with_keywords {
             Color(Color),
         }
 
+        pltrs_core::archive_enum!($name { $($variant,)+ Color(color) });
+
         impl RcValue for $name {
             /// The keywords exactly as spelled (matplotlib's `_str_equal`),
             /// otherwise a colour.
@@ -148,6 +150,14 @@ pub enum LabelColor {
     Color(Color),
 }
 
+pltrs_core::archive_enum!(LabelColor {
+    Unset,
+    LineColor,
+    MarkerFaceColor,
+    MarkerEdgeColor,
+    Color(v0),
+});
+
 impl RcValue for LabelColor {
     /// matplotlib's `_validate_color_or_linecolor`: the keywords exactly
     /// as spelled, otherwise a colour by name or hex code (tuple strings
@@ -188,6 +198,8 @@ pub enum SavefigBbox {
     Tight,
 }
 
+pltrs_core::archive_enum!(SavefigBbox { Standard, Tight });
+
 impl RcValue for SavefigBbox {
     /// matplotlib's `validate_bbox`: `tight` or `standard`, in any case.
     fn parse_rc(text: &str) -> Result<Self, String> {
@@ -219,6 +231,8 @@ pub struct LegendLocParam {
     /// `"upper left"`).
     pub by_code: bool,
 }
+
+pltrs_core::archive_struct!(LegendLocParam { loc, by_code });
 
 impl From<LegendLoc> for LegendLocParam {
     fn from(loc: LegendLoc) -> Self {
@@ -296,6 +310,8 @@ pub enum FontType {
     TrueType,
 }
 
+pltrs_core::archive_enum!(FontType { Type3, TrueType });
+
 impl RcValue for FontType {
     fn parse_rc(text: &str) -> Result<Self, String> {
         match text.to_ascii_lowercase().as_str() {
@@ -325,6 +341,12 @@ pub enum Distiller {
     /// xpdf.
     Xpdf,
 }
+
+pltrs_core::archive_enum!(Distiller {
+    Off,
+    Ghostscript,
+    Xpdf,
+});
 
 impl RcValue for Distiller {
     fn parse_rc(text: &str) -> Result<Self, String> {
@@ -357,6 +379,11 @@ pub enum Dpi {
     Value(f64),
 }
 
+pltrs_core::archive_enum!(Dpi {
+    Figure,
+    Value(v0),
+});
+
 impl RcValue for Dpi {
     fn parse_rc(text: &str) -> Result<Self, String> {
         if text == "figure" {
@@ -385,6 +412,12 @@ pub enum Aspect {
     /// A fixed height/width ratio of data units.
     Ratio(f64),
 }
+
+pltrs_core::archive_enum!(Aspect {
+    Equal,
+    Auto,
+    Ratio(v0),
+});
 
 impl RcValue for Aspect {
     fn parse_rc(text: &str) -> Result<Self, String> {
@@ -415,6 +448,8 @@ pub enum AxisBelow {
     /// Above everything (`False`, z-order 2.5).
     Above,
 }
+
+pltrs_core::archive_enum!(AxisBelow { Below, Line, Above });
 
 impl AxisBelow {
     /// The z-order matplotlib assigns to axis artists.
@@ -459,6 +494,12 @@ pub enum HistBins {
     Edges(Vec<f64>),
 }
 
+pltrs_core::archive_enum!(HistBins {
+    Count(v0),
+    Rule(v0),
+    Edges(v0),
+});
+
 impl RcValue for HistBins {
     fn parse_rc(text: &str) -> Result<Self, String> {
         const RULES: [&str; 7] = ["auto", "sturges", "fd", "doane", "scott", "rice", "sqrt"];
@@ -489,6 +530,11 @@ pub enum Whiskers {
     /// Whiskers at these lower/upper percentiles.
     Percentiles(f64, f64),
 }
+
+pltrs_core::archive_enum!(Whiskers {
+    Factor(v0),
+    Percentiles(v0, v1),
+});
 
 impl From<Whiskers> for crate::stats::Whis {
     fn from(whiskers: Whiskers) -> Self {

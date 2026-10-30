@@ -29,6 +29,8 @@ pub enum StreamArrowHead {
     Filled,
 }
 
+pltrs_core::archive_enum!(StreamArrowHead { Open, Filled });
+
 /// The heads of streamplot arrows: matplotlib's line-like arrow styles
 /// `"-"`, `"->"`, `"-|>"`, `"<-"`, `"<|-"`, `"<->"` and `"<|-|>"`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -38,6 +40,8 @@ pub struct StreamArrowStyle {
     /// The head at the tip end.
     pub end: Option<StreamArrowHead>,
 }
+
+pltrs_core::archive_struct!(StreamArrowStyle { begin, end });
 
 impl Default for StreamArrowStyle {
     /// `"-|>"`.
@@ -104,6 +108,13 @@ pub(crate) struct ArrowLook {
     pub(crate) color: Color,
 }
 
+pltrs_core::archive_struct!(ArrowLook {
+    style,
+    mutation_scale,
+    linewidth,
+    color
+});
+
 /// State of one streamplot arrow from `tail` to `head` (in the artist
 /// transform's coordinates).
 #[derive(Debug)]
@@ -114,6 +125,14 @@ pub(crate) struct StreamArrowArtist {
     look: ArrowLook,
     rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(StreamArrowArtist {
+    base,
+    tail,
+    head,
+    look,
+    rc
+});
 
 impl StreamArrowArtist {
     pub(crate) fn new(

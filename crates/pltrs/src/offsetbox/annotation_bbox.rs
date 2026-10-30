@@ -116,6 +116,24 @@ pub(crate) struct AnnotationBboxArtist {
     pub(crate) dragger: Option<Dragger>,
 }
 
+pltrs_core::archive_struct!(AnnotationBboxArtist {
+    base,
+    child,
+    xy,
+    xybox,
+    xycoords,
+    boxcoords,
+    box_alignment,
+    annotation_clip,
+    fontsize,
+    arrow,
+    axes,
+    frame,
+    parts,
+    rc,
+    dragger
+});
+
 impl AnnotationBboxArtist {
     fn coord_frame<'a>(
         &self,

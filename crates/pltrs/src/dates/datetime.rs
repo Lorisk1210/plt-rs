@@ -21,6 +21,8 @@ pub struct Date {
     day: u8,
 }
 
+pltrs_core::archive_struct!(Date { year, month, day });
+
 impl Date {
     /// The earliest date, 0001-01-01.
     pub const MIN: Self = Self {
@@ -133,6 +135,13 @@ pub struct Time {
     microsecond: u32,
 }
 
+pltrs_core::archive_struct!(Time {
+    hour,
+    minute,
+    second,
+    microsecond
+});
+
 impl Time {
     /// Midnight, 00:00:00.
     pub const MIDNIGHT: Self = Self {
@@ -224,6 +233,8 @@ pub struct DateTime {
     date: Date,
     time: Time,
 }
+
+pltrs_core::archive_struct!(DateTime { date, time });
 
 impl DateTime {
     /// Combines a date and a time of day.

@@ -16,6 +16,7 @@
 //! [`GraphicsContext`] ([`DrawContext::base_gc`] starts one from the
 //! artist's common properties).
 
+mod archive;
 mod attach;
 mod base;
 mod context;
@@ -44,6 +45,8 @@ use crate::ticker::AxisName;
 use crate::transforms::Transform;
 use crate::units::CustomValues;
 
+pub use archive::FigureRef;
+pub(crate) use archive::reconnect_drags;
 pub use attach::AttachError;
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};

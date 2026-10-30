@@ -33,6 +33,7 @@ mod artist;
 mod best;
 mod build;
 mod drag;
+pub(crate) use drag::reconnect_drag;
 mod error;
 mod handle;
 mod handlers;

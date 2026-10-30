@@ -29,6 +29,13 @@ pub(crate) struct TextStyle {
     pub(super) rc: Rc<crate::rc::RcParams>,
 }
 
+pltrs_core::archive_struct!(TextStyle {
+    font,
+    zorder,
+    rotates_with_data,
+    rc
+});
+
 /// How the last `clabel` call labels the set, which later labels added
 /// near a point follow (matplotlib's `labelIndiceList`, `labelFmt`,
 /// `labelMappable` and friends).
@@ -40,6 +47,12 @@ pub(crate) struct LabelSetup {
     /// Keep labels upright.
     pub(super) rightside_up: bool,
 }
+
+pltrs_core::archive_struct!(LabelSetup {
+    labels,
+    style,
+    rightside_up
+});
 
 impl LabelSetup {
     /// The label widths in pixels, per labelled level.

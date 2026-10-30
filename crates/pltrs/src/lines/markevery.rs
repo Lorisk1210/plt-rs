@@ -40,6 +40,14 @@ pub enum MarkEvery {
     },
 }
 
+pltrs_core::archive_enum!(MarkEvery {
+    Every { start, step },
+    Slice { start, stop, step },
+    Indices(v0),
+    Mask(v0),
+    Distance { start, step },
+});
+
 /// An unusable `markevery` value for the line it is applied to.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MarkEveryError {

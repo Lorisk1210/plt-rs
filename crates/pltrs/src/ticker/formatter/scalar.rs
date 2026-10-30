@@ -20,6 +20,12 @@ pub enum OffsetMode {
     Fixed(f64),
 }
 
+pltrs_core::archive_enum!(OffsetMode {
+    Auto,
+    Off,
+    Fixed(v0),
+});
+
 impl OffsetMode {
     /// matplotlib's `useOffset` attribute: `true` only in automatic mode.
     pub fn is_auto(self) -> bool {
@@ -202,6 +208,15 @@ pub struct ScalarFormatter {
     powerlimits: (i32, i32),
     offset_threshold: i32,
 }
+
+pltrs_core::archive_struct!(ScalarFormatter {
+    use_offset,
+    use_mathtext,
+    usetex,
+    scientific,
+    powerlimits,
+    offset_threshold
+});
 
 impl ScalarFormatter {
     /// A formatter configured from matplotlib's default rcParams.

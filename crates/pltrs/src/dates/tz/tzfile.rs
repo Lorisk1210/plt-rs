@@ -32,6 +32,12 @@ struct LocalTimeType {
     abbreviation: String,
 }
 
+pltrs_core::archive_struct!(LocalTimeType {
+    offset,
+    is_dst,
+    abbreviation
+});
+
 /// A time zone loaded from a `TZif` file (`dateutil.tz.tzfile`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TzFile {
@@ -49,6 +55,16 @@ pub struct TzFile {
     /// The type used before the first transition (`ttinfo_before`).
     before: Option<usize>,
 }
+
+pltrs_core::archive_struct!(TzFile {
+    name,
+    transitions_utc,
+    transitions_local,
+    transition_types,
+    types,
+    standard,
+    before
+});
 
 impl TzFile {
     /// Loads the zone `name` from the system zoneinfo directories (or the

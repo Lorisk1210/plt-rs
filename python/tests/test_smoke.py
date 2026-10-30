@@ -371,3 +371,70 @@ def test_ticks_and_axis_texts_mirror_the_axis():
     ax.set_ylabel("height", loc="top")
     assert ax.yaxis.label.get_text() == "height"
     assert ax.yaxis.label.get_horizontalalignment() == "right"
+
+def _pixels(fig):
+    fig.canvas.draw()
+    return np.asarray(fig.canvas.buffer_rgba()).copy()
+
+
+class _Halving(pltrs.colors.Normalize):
+    """A norm of a class of the program's (pickled by reference)."""
+
+    def __call__(self, value, clip=None):
+        return np.ma.asarray(value) / 2
+
+
+def test_figures_pickle_with_their_python_objects():
+    import pickle
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 2, 1)
+    polar = fig.add_subplot(1, 2, 2, projection="polar")
+    polar.plot([0, 1, 2], [1, 2, 3])
+    im = ax.imshow([[0.2, 1.6]], norm=_Halving(0, 1), cmap="gray")
+    ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useOffset=True))
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter("{:.1f}".format))
+    fig.colorbar(im, ax=ax)
+    back = pickle.loads(pickle.dumps(fig))
+    assert type(back.axes[0].images[0].norm) is _Halving
+    assert (_pixels(back) == _pixels(fig)).all()
+
+
+def test_loose_artists_and_native_values_pickle():
+    import copy
+    import pickle
+    from pltrs.lines import Line2D
+
+    line = pickle.loads(pickle.dumps(Line2D([0, 1], [2, 3], color="r")))
+    assert line.figure is None and list(line.get_ydata()) == [2, 3]
+    fig, ax = plt.subplots()
+    ax.plot([0, 1])
+    twin = copy.deepcopy(fig)
+    assert twin.axes[0] is not ax and twin.axes[0].lines[0].get_xydata().shape == (2, 2)
+    transform = pickle.loads(pickle.dumps(ax.transData))
+    assert (transform.transform([[0, 0]]) == ax.transData.transform([[0, 0]])).all()
+
+
+def test_closures_of_rust_code_refuse_to_pickle_as_lambdas_do():
+    import pickle
+
+    fig, ax = plt.subplots()
+    ax.xaxis.set_major_formatter(lambda x, pos: str(x))
+    with pytest.raises((pickle.PicklingError, AttributeError, TypeError)):
+        pickle.dumps(fig)
+
+
+def test_date_and_category_axes_pickle_with_their_helpers():
+    import datetime
+    import gc
+    import pickle
+
+    fig, (dates, fruit) = plt.subplots(1, 2)
+    dates.plot([datetime.datetime(2020, 1, d) for d in range(1, 10)], range(9))
+    fruit.bar(["apple", "pear", "fig"], [1, 3, 2])
+    expected = _pixels(fig)
+    back = pickle.loads(pickle.dumps(fig))
+    gc.collect()  # the helpers stay alive with the figure read back
+    assert (_pixels(back) == expected).all()
+    assert [t.get_text() for t in back.axes[1].get_xticklabels()] == [
+        "apple", "pear", "fig"]

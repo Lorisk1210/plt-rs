@@ -41,8 +41,8 @@ impl From<AttachError> for PyErr {
 /// The artist of a bare `matplotlib.artist.Artist()`: the common
 /// properties, drawing nothing.
 #[derive(Clone, Debug, Default)]
-struct PlainArtist {
-    base: ArtistBase,
+pub(crate) struct PlainArtist {
+    pub(crate) base: ArtistBase,
 }
 
 impl Artist for PlainArtist {

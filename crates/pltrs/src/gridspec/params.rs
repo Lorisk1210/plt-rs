@@ -23,6 +23,15 @@ pub struct SubplotParams {
     pub hspace: f64,
 }
 
+pltrs_core::archive_struct!(SubplotParams {
+    left,
+    bottom,
+    right,
+    top,
+    wspace,
+    hspace
+});
+
 impl SubplotParams {
     /// The defaults from `figure.subplot.*`.
     pub fn from_rc(rc: &RcParams) -> Self {
@@ -73,6 +82,15 @@ pub struct SubplotOverrides {
     /// Row spacing.
     pub hspace: Option<f64>,
 }
+
+pltrs_core::archive_struct!(SubplotOverrides {
+    left,
+    bottom,
+    right,
+    top,
+    wspace,
+    hspace
+});
 
 /// An invalid grid definition or cell selection.
 #[derive(Clone, Debug, PartialEq, Eq)]

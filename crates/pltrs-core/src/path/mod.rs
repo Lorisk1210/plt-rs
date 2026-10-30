@@ -20,6 +20,7 @@
 //! * data limits with `minpos` ([`DataLimits`]), path collections
 //!   ([`CollectionGeometry`]) and [`count_overlapping`].
 
+mod archive;
 mod builder;
 mod collection;
 mod contains;

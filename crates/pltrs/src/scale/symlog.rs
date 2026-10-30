@@ -17,6 +17,8 @@ pub struct SymmetricalLogScale {
     subs: Option<Vec<f64>>,
 }
 
+pltrs_core::archive_struct!(SymmetricalLogScale { transform, subs });
+
 impl SymmetricalLogScale {
     /// A symlog scale; `base > 1`, `linthresh > 0`, and `linscale > 0`
     /// decades for each half of the linear region.

@@ -24,6 +24,13 @@ pub struct PercentFormatter {
     is_latex: bool,
 }
 
+pltrs_core::archive_struct!(PercentFormatter {
+    xmax,
+    decimals,
+    symbol,
+    is_latex
+});
+
 impl Default for PercentFormatter {
     /// Data already in percent (`xmax = 100`).
     fn default() -> Self {

@@ -209,6 +209,8 @@ macro_rules! angle_locator {
             include_last: bool,
         }
 
+        pltrs_core::archive_struct!($name { nbins, include_last });
+
         impl $name {
             /// A locator aiming at `nbins` intervals; over a full turn the
             /// level closing the turn is included.
@@ -307,6 +309,15 @@ pub struct ExtremeFinderCycle {
     /// The range the second coordinate is clipped to.
     pub lat_minmax: Option<(f64, f64)>,
 }
+
+pltrs_core::archive_struct!(ExtremeFinderCycle {
+    nx,
+    ny,
+    lon_cycle,
+    lat_cycle,
+    lon_minmax,
+    lat_minmax
+});
 
 impl ExtremeFinderCycle {
     /// matplotlib's defaults: longitudes cycle over 360, latitudes are

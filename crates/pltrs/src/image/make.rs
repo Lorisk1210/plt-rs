@@ -79,6 +79,14 @@ pub(crate) struct ImageCore {
     pub(crate) resampling: Resampling,
 }
 
+pltrs_core::archive_struct!(ImageCore {
+    data,
+    mappable,
+    alpha_grid,
+    stage,
+    resampling
+});
+
 /// Where an image goes: its data extent, the map from data to display
 /// (`None` = the identity), its display box and the clip box.
 #[derive(Clone, Debug)]

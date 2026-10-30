@@ -22,6 +22,8 @@ pub struct AutoMinorLocator {
     ndivs: Option<MinorDivisions>,
 }
 
+pltrs_core::archive_struct!(AutoMinorLocator { ndivs });
+
 impl AutoMinorLocator {
     /// Subdivides major intervals into `ndivs` parts; `None` reads
     /// `xtick.minor.ndivs`/`ytick.minor.ndivs` when ticks are located.

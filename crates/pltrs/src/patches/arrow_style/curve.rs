@@ -21,6 +21,13 @@ pub enum CurveEnd {
     Bracket,
 }
 
+pltrs_core::archive_enum!(CurveEnd {
+    Plain,
+    Head,
+    FilledHead,
+    Bracket,
+});
+
 /// The size and orientation of the bracket at one end.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Bracket {
@@ -33,6 +40,13 @@ pub struct Bracket {
     /// Scale of width and length; `None` uses the mutation size.
     pub scale: Option<f64>,
 }
+
+pltrs_core::archive_struct!(Bracket {
+    width,
+    length,
+    angle,
+    scale
+});
 
 impl Default for Bracket {
     fn default() -> Self {
@@ -61,6 +75,15 @@ pub struct CurveArrow {
     /// The bracket at the end.
     pub bracket_b: Bracket,
 }
+
+pltrs_core::archive_struct!(CurveArrow {
+    begin,
+    end,
+    head_length,
+    head_width,
+    bracket_a,
+    bracket_b
+});
 
 impl CurveArrow {
     /// An arrow with the given ends and matplotlib's default sizes.

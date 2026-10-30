@@ -17,6 +17,12 @@ pub enum RotationPoint {
     At(Point),
 }
 
+pltrs_core::archive_enum!(RotationPoint {
+    Xy,
+    Center,
+    At(v0),
+});
+
 /// An axis-aligned (optionally rotated) rectangle anchored at `xy`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Rectangle {
@@ -35,6 +41,15 @@ pub struct Rectangle {
     /// `_aspect_ratio_correction`, set by the rectangle selector).
     pub aspect_ratio_correction: f64,
 }
+
+pltrs_core::archive_struct!(Rectangle {
+    xy,
+    width,
+    height,
+    angle,
+    rotation_point,
+    aspect_ratio_correction
+});
 
 impl Rectangle {
     /// A rectangle from `xy` spanning `width × height`.
@@ -133,6 +148,14 @@ pub struct Ellipse {
     pub aspect_ratio_correction: f64,
 }
 
+pltrs_core::archive_struct!(Ellipse {
+    center,
+    width,
+    height,
+    angle,
+    aspect_ratio_correction
+});
+
 impl Ellipse {
     /// An ellipse centred on `center`.
     pub fn new(center: impl Into<Point>, width: f64, height: f64) -> Self {
@@ -196,6 +219,8 @@ pub struct Circle {
     pub radius: f64,
 }
 
+pltrs_core::archive_struct!(Circle { center, radius });
+
 impl Circle {
     /// A circle of `radius` around `center`.
     pub fn new(center: impl Into<Point>, radius: f64) -> Self {
@@ -222,6 +247,8 @@ pub struct Polygon {
     vertices: Vec<Point>,
     closed: bool,
 }
+
+pltrs_core::archive_struct!(Polygon { vertices, closed });
 
 impl Polygon {
     /// A polygon through `vertices`. Closed polygons gain a closing vertex
@@ -275,6 +302,14 @@ pub struct Wedge {
     /// Ring width for annular sectors; `None` draws a full wedge.
     pub width: Option<f64>,
 }
+
+pltrs_core::archive_struct!(Wedge {
+    center,
+    r,
+    theta1,
+    theta2,
+    width
+});
 
 impl Wedge {
     /// A wedge of radius `r` from `theta1` to `theta2` degrees.
@@ -357,6 +392,13 @@ pub struct RegularPolygon {
     pub orientation: f64,
 }
 
+pltrs_core::archive_struct!(RegularPolygon {
+    center,
+    sides,
+    radius,
+    orientation
+});
+
 impl RegularPolygon {
     /// A regular polygon pointing up.
     pub fn new(center: impl Into<Point>, sides: usize, radius: f64) -> Self {
@@ -393,6 +435,12 @@ pub struct CirclePolygon {
     pub resolution: usize,
 }
 
+pltrs_core::archive_struct!(CirclePolygon {
+    center,
+    radius,
+    resolution
+});
+
 impl CirclePolygon {
     /// A 20-gon of `radius` around `center`.
     pub fn new(center: impl Into<Point>, radius: f64) -> Self {
@@ -427,6 +475,8 @@ impl PatchShape for CirclePolygon {
 /// An arbitrary path (matplotlib's `PathPatch`); draws an edge by default.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathShape(pub Path);
+
+pltrs_core::archive_struct!(PathShape(v0));
 
 impl PatchShape for PathShape {
     const EDGE_DEFAULT: bool = true;

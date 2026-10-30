@@ -39,6 +39,18 @@ pub enum RelativeSize {
     Smaller,
 }
 
+pltrs_core::archive_enum!(RelativeSize {
+    XxSmall,
+    XSmall,
+    Small,
+    Medium,
+    Large,
+    XLarge,
+    XxLarge,
+    Larger,
+    Smaller,
+});
+
 const RELATIVE_SIZES: [(&str, RelativeSize, f64); 9] = [
     ("xx-small", RelativeSize::XxSmall, 0.579),
     ("x-small", RelativeSize::XSmall, 0.694),
@@ -79,6 +91,11 @@ pub enum FontSize {
     /// An absolute size in points.
     Points(f64),
 }
+
+pltrs_core::archive_enum!(FontSize {
+    Relative(v0),
+    Points(v0),
+});
 
 impl FontSize {
     /// The size in points given the base size (`font.size`).
@@ -195,6 +212,25 @@ macro_rules! named_scale {
                     Some(keyword) => f.write_str(keyword),
                     None => write!(f, "{}", self.value),
                 }
+            }
+        }
+
+        /// Archived as its keyword or number.
+        impl pltrs_core::archive::Archive for $name {
+            fn encode(
+                &self,
+                encoder: &mut pltrs_core::archive::Encoder<'_>,
+            ) -> Result<(), pltrs_core::archive::ArchiveError> {
+                encoder.write_str(&self.to_string());
+                Ok(())
+            }
+
+            fn decode(
+                decoder: &mut pltrs_core::archive::Decoder<'_>,
+            ) -> Result<Self, pltrs_core::archive::ArchiveError> {
+                let text = decoder.read_str()?;
+                text.parse()
+                    .map_err(|err: FontPropertyError| pltrs_core::archive::ArchiveError::invalid(err.to_string()))
             }
         }
     };

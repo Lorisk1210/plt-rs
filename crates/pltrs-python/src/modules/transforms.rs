@@ -17,6 +17,7 @@ use crate::binding::prelude::*;
 use crate::binding::registered_error;
 
 mod live;
+pub(crate) use live::PyPointMap;
 
 /// The affine map of a 3×3 matrix (its last row is taken as `0 0 1`).
 pub(super) fn affine(matrix: &NdArray) -> PyResult<Affine2D> {

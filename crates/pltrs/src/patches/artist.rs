@@ -132,6 +132,8 @@ pub(crate) struct PatchArtist<S: PatchShape> {
     dpi_cor: DrawnDpiCor,
 }
 
+pltrs_core::archive_struct!(PatchArtist<S: PatchShape> { base, style, shape, interpolation_steps, unit_source, rc, dpi_cor });
+
 impl<S: PatchShape> PatchArtist<S> {
     /// A patch with matplotlib's defaults under `rc` (z-order 1), adjusted
     /// by the shape.
@@ -211,7 +213,7 @@ impl<S: PatchShape> PatchArtist<S> {
         match &self.base.picker {
             Some(Picker::Radius(radius)) => *radius,
             Some(Picker::Default) => 1.0,
-            Some(Picker::Custom(_)) | None => self.edge_radius(),
+            Some(Picker::Custom(_) | Picker::Press) | None => self.edge_radius(),
         }
     }
 

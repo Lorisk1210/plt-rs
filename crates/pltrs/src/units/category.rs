@@ -9,6 +9,8 @@ pub struct Categories {
     names: Vec<String>,
 }
 
+pltrs_core::archive_struct!(Categories { names });
+
 impl Categories {
     /// The names, in position order.
     pub fn names(&self) -> &[String] {
@@ -41,6 +43,8 @@ pub struct CategoryLocator {
     count: usize,
 }
 
+pltrs_core::archive_struct!(CategoryLocator { count });
+
 impl CategoryLocator {
     /// Ticks for the current `categories`.
     pub fn new(categories: &Categories) -> Self {
@@ -62,6 +66,8 @@ impl Locator for CategoryLocator {
 pub struct CategoryFormatter {
     names: Vec<String>,
 }
+
+pltrs_core::archive_struct!(CategoryFormatter { names });
 
 impl CategoryFormatter {
     /// Labels for the current `categories`.

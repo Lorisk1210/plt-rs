@@ -34,6 +34,16 @@ pub enum QuiverUnits {
     Xy,
 }
 
+pltrs_core::archive_enum!(QuiverUnits {
+    Width,
+    Height,
+    Dots,
+    Inches,
+    X,
+    Y,
+    Xy,
+});
+
 /// How arrow directions are computed (matplotlib's `angles`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum Angles {
@@ -46,6 +56,12 @@ pub enum Angles {
     /// per arrow or one for all.
     Degrees(Vec<f64>),
 }
+
+pltrs_core::archive_enum!(Angles {
+    Uv,
+    Xy,
+    Degrees(v0),
+});
 
 /// The arrows of one quiver plot, rebuilt at every draw.
 #[derive(Debug)]
@@ -61,6 +77,16 @@ pub(crate) struct QuiverGeometry {
     scalar_components: bool,
 }
 
+pltrs_core::archive_struct!(QuiverGeometry {
+    axes,
+    xy,
+    u,
+    v,
+    mask,
+    sizing,
+    scalar_components
+});
+
 /// Everything that sizes and orients the arrows of a quiver plot.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ArrowSizing {
@@ -72,6 +98,16 @@ pub(crate) struct ArrowSizing {
     pub(crate) shape: QuiverArrowShape,
     pub(crate) pivot: Pivot,
 }
+
+pltrs_core::archive_struct!(ArrowSizing {
+    scale,
+    scale_units,
+    units,
+    angles,
+    width,
+    shape,
+    pivot
+});
 
 /// The arrow sizes for one draw: pixels per width unit, the shaft width
 /// and the scale (matplotlib's `_trans_scale`, `width` and `scale` after

@@ -19,6 +19,8 @@ pub struct PowerNorm {
     limits: Limits,
 }
 
+pltrs_core::archive_struct!(PowerNorm { gamma, limits });
+
 impl PowerNorm {
     /// An autoscaling power norm with exponent `gamma`.
     pub fn new(gamma: f64) -> Self {

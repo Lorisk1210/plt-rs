@@ -45,6 +45,13 @@ pub enum AxisValue {
     Custom(CustomValues),
 }
 
+pltrs_core::archive_enum!(AxisValue {
+    Number(v0),
+    Category(v0),
+    Date { number, tz },
+    Custom(v0),
+});
+
 impl AxisValue {
     /// The user value, if the value is one of type `T` (as
     /// [`AxisDelta::downcast_ref`] for extents).
@@ -192,6 +199,8 @@ pub struct DataPoint {
     /// The y value.
     pub y: AxisValue,
 }
+
+pltrs_core::archive_struct!(DataPoint { x, y });
 
 impl<X: Into<AxisValue>, Y: Into<AxisValue>> From<(X, Y)> for DataPoint {
     fn from((x, y): (X, Y)) -> Self {

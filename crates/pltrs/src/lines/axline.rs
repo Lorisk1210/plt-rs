@@ -17,6 +17,11 @@ pub enum AxLineThrough {
     Slope(f64),
 }
 
+pltrs_core::archive_enum!(AxLineThrough {
+    Point(v0),
+    Slope(v0),
+});
+
 /// Why the points or slope of an infinite line cannot be changed as asked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AxLineError {
@@ -151,6 +156,8 @@ pub(crate) struct InfiniteLine {
     pub(crate) xy1: Point,
     pub(crate) through: AxLineThrough,
 }
+
+pltrs_core::archive_struct!(InfiniteLine { xy1, through });
 
 impl InfiniteLine {
     /// The part of the line inside the axes, in display coordinates

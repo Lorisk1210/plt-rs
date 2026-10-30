@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
+
 use super::LegendHandler;
 use super::builtin::{
     HandlerErrorbar, HandlerLine2D, HandlerLineCollection, HandlerPatch, HandlerPathCollection,
@@ -30,6 +32,66 @@ use crate::patches::StepPatch;
 pub struct TypeKey {
     id: TypeId,
     name: &'static str,
+}
+
+/// The types an archived handler map may be keyed by: pltrs's patch
+/// shapes. A key of the program's own type is not archived.
+fn archivable_keys() -> [TypeKey; 23] {
+    use crate::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
+    use crate::inset::InsetIndicator;
+    use crate::mplot3d::{ProjectedOutline, ProjectedPath};
+    use crate::patches::{
+        Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
+        FancyArrowPatch, FancyBboxPatch, PathShape, Polygon, Rectangle, RegularPolygon, Wedge,
+    };
+    use crate::table::CellShape;
+    [
+        TypeKey::of::<Rectangle>(),
+        TypeKey::of::<Ellipse>(),
+        TypeKey::of::<Circle>(),
+        TypeKey::of::<Polygon>(),
+        TypeKey::of::<Wedge>(),
+        TypeKey::of::<RegularPolygon>(),
+        TypeKey::of::<CirclePolygon>(),
+        TypeKey::of::<PathShape>(),
+        TypeKey::of::<Arc>(),
+        TypeKey::of::<Annulus>(),
+        TypeKey::of::<Arrow>(),
+        TypeKey::of::<FancyArrow>(),
+        TypeKey::of::<FancyArrowPatch>(),
+        TypeKey::of::<ConnectionPatch>(),
+        TypeKey::of::<FancyBboxPatch>(),
+        TypeKey::of::<StepPatch>(),
+        TypeKey::of::<BboxPatch>(),
+        TypeKey::of::<BboxConnector>(),
+        TypeKey::of::<BboxConnectorPatch>(),
+        TypeKey::of::<InsetIndicator>(),
+        TypeKey::of::<CellShape>(),
+        TypeKey::of::<ProjectedOutline>(),
+        TypeKey::of::<ProjectedPath>(),
+    ]
+}
+
+/// Archived as the name of its type, one of pltrs's patch shapes.
+impl Archive for TypeKey {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        let known = archivable_keys()
+            .into_iter()
+            .find(|key| key == self)
+            .ok_or_else(|| {
+                ArchiveError::unsupported(format!("a legend handler for {}", self.name))
+            })?;
+        encoder.write_str(known.name);
+        Ok(())
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        let name = decoder.read_str()?;
+        archivable_keys()
+            .into_iter()
+            .find(|key| key.name == name)
+            .ok_or_else(|| ArchiveError::invalid(format!("no handler key for {name}")))
+    }
 }
 
 impl TypeKey {
@@ -103,6 +165,20 @@ pub enum HandlerKey {
     Type(TypeKey),
 }
 
+pltrs_core::archive_enum!(HandlerKey {
+    Line,
+    Patch,
+    LineCollection,
+    PathCollection,
+    PolyCollection,
+    PatchCollection,
+    BarContainer,
+    ErrorbarContainer,
+    StemContainer,
+    Tuple,
+    Type(v0),
+});
+
 impl HandlerKey {
     /// The key of the Rust type `T`, such as a patch shape
     /// (`HandlerKey::of::<Circle>()`) or the type of custom handle
@@ -149,6 +225,8 @@ impl HandlerKey {
 pub struct HandlerMap {
     handlers: HashMap<HandlerKey, Rc<dyn LegendHandler>>,
 }
+
+pltrs_core::archive_struct!(HandlerMap { handlers });
 
 impl HandlerMap {
     /// An empty map.

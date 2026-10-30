@@ -31,6 +31,7 @@ import weakref
 import numpy as np
 
 from ._native import axis as _axis
+from ._native import register as _register
 
 
 def _registry(figure):
@@ -399,3 +400,39 @@ _FORMATTERS = {
     "date_concise": _date_formatter("ConciseDateFormatter"),
     "date": _date,
 }
+
+
+# --- Pickling ----------------------------------------------------------------
+
+#: The adapter pltrs (Rust) calls a Python helper through, which unpickling
+#: makes again for the helper read back (see `._pickling`).
+_register("tick_helper_adapter", _adapter)
+
+
+def pickled(figure):
+    """
+    The tick helpers of *figure* as a pickle keeps them, since the tokens
+    of its registry do not pickle: ``[(axis, kind, minor, helper)]`` for
+    each helper in use, by an axis it is the major or minor helper of.
+    """
+    uses = []
+    for helper_id, (_, helper, axis) in _registry(figure).items():
+        kind = "locator" if _is_locator(helper) else "formatter"
+        for minor in (False, True):
+            in_use, _ = _axis.helper(axis.axes._native, axis.axis_name, kind,
+                                     minor)
+            if in_use == helper_id:
+                uses.append((axis, kind, minor, helper))
+                break
+    return uses
+
+
+def unpickled(figure, uses):
+    """Register the tick helpers *uses* of *figure*, read back from a pickle
+    (`pickled`), with the tokens of its axes: an axis gives back the same
+    objects, which keep the helpers its adapters hold weakly alive."""
+    registry = _registry(figure)
+    for axis, kind, minor, helper in uses:
+        helper_id, token = _axis.helper(axis.axes._native, axis.axis_name,
+                                        kind, minor)
+        registry[helper_id] = (token, helper, axis)

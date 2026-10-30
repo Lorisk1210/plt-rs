@@ -56,6 +56,15 @@ pub(crate) struct AxisLabel3D {
     pub(crate) is_default: bool,
 }
 
+pltrs_core::archive_struct!(AxisLabel3D {
+    text,
+    font,
+    color,
+    pad,
+    rotate,
+    is_default
+});
+
 impl AxisLabel3D {
     /// Whether the label is drawn parallel to its axis (matplotlib's
     /// `get_rotate_label`).
@@ -85,6 +94,16 @@ pub(crate) struct AxisStyle {
     /// and z, `ytick.minor.width` for y).
     pub(crate) minor_tick_width: f64,
 }
+
+pltrs_core::archive_struct!(AxisStyle {
+    line_width,
+    line_color,
+    grid_color,
+    grid_width,
+    grid_style,
+    major_tick_width,
+    minor_tick_width
+});
 
 impl AxisStyle {
     /// matplotlib's defaults for axis `dir` under `rc`.
@@ -155,6 +174,14 @@ pub(crate) struct Tickers3D {
     pub(crate) defaults: TickerDefaults,
 }
 
+pltrs_core::archive_struct!(Tickers3D {
+    major_locator,
+    major_formatter,
+    minor_locator,
+    minor_formatter,
+    defaults
+});
+
 impl Tickers3D {
     /// The default tick helpers of `scale` on axis `dir` (matplotlib's
     /// `set_default_locators_and_formatters`; its linear scale only turns
@@ -224,6 +251,26 @@ pub(crate) struct Axis3DState {
     /// every major tick has the pad of [`Self::major_style`].
     pub(crate) major_pads: Vec<f64>,
 }
+
+pltrs_core::archive_struct!(Axis3DState {
+    dir,
+    scale,
+    tickers,
+    settings,
+    units,
+    categories,
+    label,
+    pane_color,
+    style,
+    major_style,
+    minor_style,
+    offset_color,
+    ticks,
+    line_visible,
+    tick_position,
+    label_position,
+    major_pads
+});
 
 impl Axis3DState {
     /// A linear axis configured from `rc`.

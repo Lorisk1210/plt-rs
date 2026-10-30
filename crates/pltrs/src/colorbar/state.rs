@@ -38,6 +38,16 @@ pub(crate) struct BlockSettings {
     pub(crate) aspect: Option<f64>,
 }
 
+pltrs_core::archive_struct!(BlockSettings {
+    boundaries,
+    values,
+    spacing,
+    extendfrac,
+    extendrect,
+    drawedges,
+    aspect
+});
+
 /// The artists a colorbar drew in its axes, replaced when it is redrawn.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Drawn {
@@ -49,6 +59,15 @@ pub(crate) struct Drawn {
     pub(crate) dividers: Option<ArtistId>,
     pub(crate) lines: Vec<ArtistId>,
 }
+
+pltrs_core::archive_struct!(Drawn {
+    outline,
+    extensions,
+    solids,
+    solids_patches,
+    dividers,
+    lines
+});
 
 /// Everything a colorbar needs to redraw itself.
 #[derive(Clone, Debug)]
@@ -72,6 +91,20 @@ pub(crate) struct ColorbarState {
     pub(crate) edges: Vec<f64>,
     pub(crate) drawn: Drawn,
 }
+
+pltrs_core::archive_struct!(ColorbarState {
+    link,
+    orientation,
+    ticklocation,
+    extend,
+    mapping,
+    alpha,
+    contours,
+    settings,
+    blocks,
+    edges,
+    drawn
+});
 
 impl BlockSettings {
     /// matplotlib's `_process_values` for `mapping`: contour levels, or
@@ -174,6 +207,8 @@ pub(crate) struct ColorbarArtist {
     base: ArtistBase,
     pub(crate) state: ColorbarState,
 }
+
+pltrs_core::archive_struct!(ColorbarArtist { base, state });
 
 impl ColorbarArtist {
     pub(crate) fn new(state: ColorbarState) -> Self {

@@ -47,6 +47,13 @@ pub enum ArrowStyle {
     },
 }
 
+pltrs_core::archive_enum!(ArrowStyle {
+    Curve(v0),
+    Simple { head_length, head_width, tail_width },
+    Fancy { head_length, head_width, tail_width },
+    Wedge { tail_width, shrink_factor },
+});
+
 /// The outcome of a transmutation: one fillable outline (the quadratic
 /// styles) or several paths, each fillable or not (the curve styles).
 pub(crate) enum StyledPath {

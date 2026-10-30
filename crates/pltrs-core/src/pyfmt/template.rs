@@ -57,11 +57,23 @@ struct Field {
     spec_is_empty: bool,
 }
 
+crate::archive_struct!(Field {
+    arg,
+    as_text,
+    spec,
+    spec_is_empty
+});
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Part {
     Literal(String),
     Field(Field),
 }
+
+crate::archive_enum!(Part {
+    Literal(v0),
+    Field(v0),
+});
 
 /// A parsed `str.format` template whose fields may only name `x` and
 /// `pos` (matplotlib's `StrMethodFormatter` convention).
@@ -76,6 +88,8 @@ pub struct StrTemplate {
     template: String,
     parts: Vec<Part>,
 }
+
+crate::archive_struct!(StrTemplate { template, parts });
 
 impl StrTemplate {
     /// Parses and validates `template`, whose fields may name `x` and

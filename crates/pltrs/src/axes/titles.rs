@@ -24,6 +24,12 @@ pub enum TitleLocation {
     Right,
 }
 
+pltrs_core::archive_enum!(TitleLocation {
+    Left,
+    Center,
+    Right,
+});
+
 impl TitleLocation {
     /// Every location, in the order of the axes' titles.
     const ALL: [Self; 3] = [Self::Left, Self::Center, Self::Right];

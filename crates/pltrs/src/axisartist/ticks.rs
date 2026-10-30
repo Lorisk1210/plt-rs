@@ -28,6 +28,15 @@ pub(crate) struct TicksState {
     pub(crate) alpha: Option<f64>,
 }
 
+pltrs_core::archive_struct!(TicksState {
+    size,
+    direction,
+    visible,
+    color,
+    width,
+    alpha
+});
+
 impl TicksState {
     /// Visible marks of `size` points pointing `direction`.
     pub(crate) fn new(size: f64, direction: TickDirection) -> Self {

@@ -30,6 +30,7 @@
 //! ([`check_usetex_postscript`] for PostScript).
 
 mod annotation;
+pub(crate) use annotation::reconnect_drag;
 mod error;
 mod handle;
 mod hinting;
@@ -92,6 +93,8 @@ pub(crate) enum AngleReduction {
     AsIs,
 }
 
+pltrs_core::archive_enum!(AngleReduction { Modulo360, AsIs });
+
 /// State of a text artist (matplotlib's `Text`, and `Annotation` when
 /// `annotation` is set).
 #[derive(Debug)]
@@ -139,6 +142,32 @@ pub(crate) struct TextArtist {
     pub(crate) unit_sources: UnitSources,
     pub(crate) rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(TextArtist {
+    base,
+    text,
+    position,
+    color,
+    font,
+    rotation,
+    rotation_reduction,
+    transform_rotates_text,
+    halign,
+    valign,
+    multialign,
+    rotation_mode,
+    linespacing,
+    antialiased,
+    wrap,
+    parse_math,
+    usetex,
+    fontfeatures,
+    language,
+    bbox,
+    annotation,
+    unit_sources,
+    rc
+});
 
 impl TextArtist {
     /// Text at `position` with matplotlib's defaults under `rc`

@@ -37,6 +37,14 @@ pub(crate) struct Points3D {
     pub(crate) sort_zpos: Option<f64>,
 }
 
+pltrs_core::archive_struct!(Points3D {
+    positions,
+    depthshade,
+    min_alpha,
+    depth_sorted,
+    sort_zpos
+});
+
 impl Points3D {
     /// Writes the projected markers into `collection`, depth-sorted with
     /// their styles for a scatter plot, and returns the depth of the

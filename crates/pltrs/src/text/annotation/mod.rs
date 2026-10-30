@@ -9,6 +9,7 @@
 
 mod arrow;
 mod drag;
+pub(crate) use drag::reconnect_drag;
 
 use std::ops::Deref;
 
@@ -63,6 +64,16 @@ pub(crate) struct AnnotationState {
     /// The callbacks dragging the annotation, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
 }
+
+pltrs_core::archive_struct!(AnnotationState {
+    xy,
+    unit_sources,
+    xycoords,
+    textcoords,
+    arrow,
+    annotation_clip,
+    dragger
+});
 
 impl AnnotationState {
     /// The annotation state `options` describe; fails when the annotated

@@ -17,6 +17,11 @@ pub enum Language {
     Ranges(Vec<LanguageRange>),
 }
 
+pltrs_core::archive_enum!(Language {
+    Tag(v0),
+    Ranges(v0),
+});
+
 impl Language {
     /// The ranges libraqm is given for `text`: matplotlib's `ft2font`
     /// wrapper gives a tag the whole text, and ranges go as they are.

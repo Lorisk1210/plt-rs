@@ -47,6 +47,8 @@ pub struct Collection {
     raw: RawHandle,
 }
 
+pltrs_core::archive_struct!(Collection { raw });
+
 impl ArtistHandle for Collection {
     fn raw(&self) -> &RawHandle {
         &self.raw

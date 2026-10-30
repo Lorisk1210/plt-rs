@@ -26,6 +26,8 @@ pub struct PixelBox {
     pub y1: i64,
 }
 
+pltrs_core::archive_struct!(PixelBox { x0, y0, x1, y1 });
+
 impl PixelBox {
     /// The box from `(x0, y0)` to `(x1, y1)`.
     pub const fn new(x0: i64, y0: i64, x1: i64, y1: i64) -> Self {

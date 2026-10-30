@@ -413,23 +413,7 @@ pub(crate) fn tick_label_formatter(
         });
     }
     let table: Vec<(f64, String)> = fixed.locs().iter().copied().zip(labels).collect();
-    Ok(Rc::new(FuncFormatter::new(move |value, _| {
-        label_at(&table, value)
-    })))
-}
-
-/// The label of the tick exactly at `value`, or nothing (matplotlib's
-/// `_format_with_dict`).
-#[expect(
-    clippy::float_cmp,
-    reason = "labels belong to exact tick positions, as in matplotlib's dict lookup"
-)]
-fn label_at(table: &[(f64, String)], value: f64) -> String {
-    table
-        .iter()
-        .find(|(loc, _)| *loc == value)
-        .map(|(_, label)| label.clone())
-        .unwrap_or_default()
+    Ok(Rc::new(FuncFormatter::of_table(table)))
 }
 
 impl Axes {

@@ -11,6 +11,8 @@ pub(crate) struct Grouper {
     groups: Vec<Vec<ArtistId>>,
 }
 
+pltrs_core::archive_struct!(Grouper { groups });
+
 impl Grouper {
     /// Puts `a` and `b`, and everything already joined with either, in
     /// one group.
@@ -57,6 +59,8 @@ pub(crate) struct ShareGroups {
     y: Grouper,
     twins: Grouper,
 }
+
+pltrs_core::archive_struct!(ShareGroups { x, y, twins });
 
 impl ShareGroups {
     fn axis(&mut self, name: AxisName) -> &mut Grouper {

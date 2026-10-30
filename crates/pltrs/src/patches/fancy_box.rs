@@ -25,6 +25,15 @@ pub struct FancyBboxPatch {
     pub mutation_aspect: f64,
 }
 
+pltrs_core::archive_struct!(FancyBboxPatch {
+    xy,
+    width,
+    height,
+    boxstyle,
+    mutation_scale,
+    mutation_aspect
+});
+
 impl FancyBboxPatch {
     /// A `boxstyle` box around the rectangle at `xy`, with unit mutation
     /// scale and aspect.

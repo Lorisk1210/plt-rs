@@ -34,6 +34,8 @@ pub enum NonUniformInterpolation {
     Bilinear,
 }
 
+pltrs_core::archive_enum!(NonUniformInterpolation { Nearest, Bilinear });
+
 /// State of an image with pixel centres on a rectilinear grid.
 #[derive(Debug)]
 pub(crate) struct NonUniformImageArtist {
@@ -46,6 +48,15 @@ pub(crate) struct NonUniformImageArtist {
     /// Pixel centres along y, rounded to single precision.
     y: Vec<f64>,
 }
+
+pltrs_core::archive_struct!(NonUniformImageArtist {
+    base,
+    data,
+    mappable,
+    interpolation,
+    x,
+    y
+});
 
 impl NonUniformImageArtist {
     /// An image with column centres `x` and row centres `y` (matplotlib's

@@ -32,6 +32,8 @@ pub struct Patch<S> {
     shape: PhantomData<fn() -> S>,
 }
 
+pltrs_core::archive_struct!(Patch<S> { raw, shape });
+
 impl<S> Clone for Patch<S> {
     fn clone(&self) -> Self {
         Self {

@@ -20,6 +20,7 @@
 )]
 
 mod annotation;
+mod archive;
 mod artist;
 mod axes;
 mod axes_base;
@@ -84,6 +85,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::rc::restore_startup();
     crate::binding::install_after_call(vec![text_helpers::warn_missing_glyphs]);
     annotation::register(&module.submodule("annotation")?)?;
+    archive::register(&module.submodule("archive")?)?;
     artist::register(&module.submodule("artist")?)?;
     axes::register(&module.submodule("axes")?)?;
     axes_base::register(&module.submodule("axes_base")?)?;

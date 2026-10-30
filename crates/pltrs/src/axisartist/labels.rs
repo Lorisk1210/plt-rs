@@ -26,6 +26,11 @@ pub(crate) enum LabelKind {
     AxisLabel,
 }
 
+pltrs_core::archive_enum!(LabelKind {
+    TickLabels,
+    AxisLabel,
+});
+
 impl LabelKind {
     /// The default vertical and horizontal alignment for an axis
     /// direction (matplotlib's `_default_alignments`).
@@ -80,6 +85,19 @@ pub(crate) struct LabelState {
     /// extent is measured on.
     pub(crate) direction: SpineSide,
 }
+
+pltrs_core::archive_struct!(LabelState {
+    kind,
+    visible,
+    pad,
+    color,
+    size,
+    weight,
+    rotation,
+    valign,
+    halign,
+    direction
+});
 
 impl LabelState {
     /// Labels of `kind` facing `direction`, `pad` points away, in a font

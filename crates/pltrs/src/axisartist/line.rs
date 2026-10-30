@@ -29,6 +29,14 @@ pub(crate) struct LineState {
     pub(crate) linewidth: Option<f64>,
 }
 
+pltrs_core::archive_struct!(LineState {
+    style,
+    clipped,
+    visible,
+    color,
+    linewidth
+});
+
 impl Default for LineState {
     /// A visible plain line, unclipped.
     fn default() -> Self {
@@ -118,6 +126,11 @@ pub enum AxislineStyle {
         facecolor: Option<Color>,
     },
 }
+
+pltrs_core::archive_enum!(AxislineStyle {
+    SimpleArrow { size },
+    FilledArrow { size, facecolor },
+});
 
 /// A malformed axis line style.
 #[derive(Clone, Debug, PartialEq, Eq)]

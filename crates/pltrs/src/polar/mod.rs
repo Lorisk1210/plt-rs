@@ -43,6 +43,11 @@ pub enum ThetaDirection {
     Clockwise,
 }
 
+pltrs_core::archive_enum!(ThetaDirection {
+    Counterclockwise,
+    Clockwise,
+});
+
 impl ThetaDirection {
     /// `1` or `-1`, the factor applied to θ.
     pub const fn sign(self) -> f64 {
@@ -105,6 +110,11 @@ pub enum PolarFrame {
     Polygon(usize),
 }
 
+pltrs_core::archive_enum!(PolarFrame {
+    Circle,
+    Polygon(v0),
+});
+
 /// The polar settings of an axes besides its view limits.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PolarState {
@@ -120,6 +130,14 @@ pub(crate) struct PolarState {
     /// The outline of the axes.
     pub(crate) frame: PolarFrame,
 }
+
+pltrs_core::archive_struct!(PolarState {
+    theta_offset,
+    direction,
+    rorigin,
+    rlabel_position,
+    frame
+});
 
 impl Default for PolarState {
     /// matplotlib's defaults: θ = 0 east, anticlockwise, radial labels

@@ -33,6 +33,12 @@ pub enum ClipPathSpec {
     },
 }
 
+pltrs_core::archive_enum!(ClipPathSpec {
+    Path { path, transform },
+    Artist(v0),
+    BoundingBox { path, transform },
+});
+
 /// The state matplotlib's `Artist` base class carries.
 #[derive(Clone, Debug, PartialEq)]
 #[expect(
@@ -97,6 +103,32 @@ pub struct ArtistBase {
     /// The artist's own id, assigned when it is inserted into a store.
     id: Option<ArtistId>,
 }
+
+pltrs_core::archive_struct!(ArtistBase {
+    visible,
+    alpha,
+    zorder,
+    label,
+    transform,
+    clip_on,
+    clip_box,
+    clip_path,
+    rasterized,
+    animated,
+    in_layout,
+    snap,
+    sketch,
+    path_effects,
+    gid,
+    url,
+    picker,
+    mouseover,
+    agg_filter,
+    sticky_edges,
+    in_autoscale,
+    parent,
+    id
+});
 
 impl ArtistBase {
     /// Defaults for an artist drawn at `zorder`.

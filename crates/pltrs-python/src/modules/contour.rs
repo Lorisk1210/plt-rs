@@ -295,10 +295,7 @@ fn clabel_format(fmt: Option<Owned>) -> PyResult<ClabelFormat> {
         if let Ok(pairs) = fmt.extract::<Vec<(f64, String)>>() {
             return Ok(ClabelFormat::Map(pairs));
         }
-        let callback: Callback = fmt.extract()?;
-        Ok(ClabelFormat::Label(LabelFormat::func(move |level| {
-            callback.call::<String>((level,)).unwrap_or_default()
-        })))
+        Ok(ClabelFormat::Label(super::archive::label_format(&fmt)?))
     })
 }
 

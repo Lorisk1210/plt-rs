@@ -5,6 +5,8 @@
 use std::fmt;
 use std::rc::Rc;
 
+use pltrs_core::archive::{External, ProgramFn};
+
 use super::pyfmt::{FormatError, PrintfFormat, auto_format_value};
 use super::{FormatStrFormatter, Formatter, FuncFormatter, StrMethodFormatter, TickerError};
 
@@ -25,15 +27,30 @@ pub enum LabelFormat {
     /// A printf-style template such as `"%1.1f%%"`, or where matplotlib
     /// accepts one, a `str.format` template such as `"{:.0%}"`.
     Template(String),
-    /// A function of the value.
-    Func(Rc<dyn Fn(f64) -> String>),
+    /// A function of the value; a figure labelled by one is archived only
+    /// if the function has an origin (see [`ProgramFn`]).
+    Func(ProgramFn<ValueFn>),
 }
+
+/// A function turning a value into its label.
+pub type ValueFn = dyn Fn(f64) -> String;
+
+pltrs_core::archive_enum!(LabelFormat {
+    Template(template),
+    Func(function),
+});
 
 impl LabelFormat {
     /// The labels `f` writes. Colorbars run `f` while their figure is
     /// laid out: it is `Send`, so it cannot use the figure's handles.
     pub fn func(f: impl Fn(f64) -> String + Send + 'static) -> Self {
-        Self::Func(Rc::new(f))
+        Self::Func(ProgramFn::new(Rc::new(f)))
+    }
+
+    /// The labels `f` writes, archived as `origin`, what the program made
+    /// `f` from.
+    pub fn func_with_origin(f: impl Fn(f64) -> String + Send + 'static, origin: External) -> Self {
+        Self::Func(ProgramFn::with_origin(Rc::new(f), origin))
     }
 
     /// The label of `value`: the template as a printf-style template only
@@ -41,7 +58,7 @@ impl LabelFormat {
     pub(crate) fn printf(&self, value: f64) -> Result<String, FormatError> {
         match self {
             Self::Template(template) => PrintfFormat::parse(template)?.format(value),
-            Self::Func(f) => Ok(f(value)),
+            Self::Func(f) => Ok((f.get())(value)),
         }
     }
 
@@ -56,7 +73,7 @@ impl LabelFormat {
     ) -> Result<String, FormatError> {
         match self {
             Self::Template(template) => auto_format_value(template, value, integer),
-            Self::Func(f) => Ok(f(value)),
+            Self::Func(f) => Ok((f.get())(value)),
         }
     }
 
@@ -70,10 +87,7 @@ impl LabelFormat {
                 Ok(printf) => Rc::new(printf),
                 Err(_) => Rc::new(StrMethodFormatter::new(template)?),
             },
-            Self::Func(f) => {
-                let f = Rc::clone(f);
-                Rc::new(FuncFormatter::from_fn(move |value, _| f(value)))
-            }
+            Self::Func(f) => Rc::new(FuncFormatter::of_values(f.clone())),
         })
     }
 }

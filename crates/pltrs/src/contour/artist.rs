@@ -22,6 +22,12 @@ pub(crate) struct ContourSetArtist {
     pub(crate) collections: Vec<ArtistId>,
 }
 
+pltrs_core::archive_struct!(ContourSetArtist {
+    base,
+    state,
+    collections
+});
+
 impl ContourSetArtist {
     /// The artist remembering `state` for `collections`.
     pub(crate) fn new(state: ContourState, collections: Vec<ArtistId>) -> Self {

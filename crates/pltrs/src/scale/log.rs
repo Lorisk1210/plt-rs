@@ -42,6 +42,8 @@ pub struct LogScale {
     subs: Option<Vec<f64>>,
 }
 
+pltrs_core::archive_struct!(LogScale { transform, subs });
+
 impl LogScale {
     /// A log scale with `base` (positive, not 1) that clips non-positive
     /// values.
@@ -127,6 +129,8 @@ impl Scale for LogScale {
 pub struct FuncScaleLog {
     transform: FuncLogTransform,
 }
+
+pltrs_core::archive_struct!(FuncScaleLog { transform });
 
 impl FuncScaleLog {
     /// `log_base(func(x))`; `base` must be positive and not 1.

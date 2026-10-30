@@ -31,6 +31,13 @@ pub enum ContourAlgorithm {
     Threaded,
 }
 
+pltrs_core::archive_enum!(ContourAlgorithm {
+    Mpl2005,
+    Mpl2014,
+    Serial,
+    Threaded,
+});
+
 impl ContourAlgorithm {
     /// matplotlib's name for the algorithm.
     pub fn name(self) -> &'static str {

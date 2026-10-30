@@ -40,6 +40,16 @@ pub enum Frequency {
     Secondly,
 }
 
+pltrs_core::archive_enum!(Frequency {
+    Yearly,
+    Monthly,
+    Weekly,
+    Daily,
+    Hourly,
+    Minutely,
+    Secondly,
+});
+
 impl Frequency {
     /// All frequencies, coarsest first.
     pub const ALL: [Self; 7] = [
@@ -95,6 +105,8 @@ pub struct NthWeekday {
     pub nth: Option<i32>,
 }
 
+pltrs_core::archive_struct!(NthWeekday { weekday, nth });
+
 impl From<Weekday> for NthWeekday {
     fn from(weekday: Weekday) -> Self {
         Self { weekday, nth: None }
@@ -139,6 +151,24 @@ pub struct RRuleSpec {
     /// = Easter Monday; dateutil's `byeaster`).
     pub byeaster: Vec<i32>,
 }
+
+pltrs_core::archive_struct!(RRuleSpec {
+    freq,
+    interval,
+    dtstart,
+    until,
+    count,
+    wkst,
+    bysetpos,
+    bymonth,
+    bymonthday,
+    byyearday,
+    byweekday,
+    byhour,
+    byminute,
+    bysecond,
+    byeaster
+});
 
 impl RRuleSpec {
     /// A rule recurring every period of `freq`, with nothing else set.

@@ -18,8 +18,8 @@ use pltrs::ticker::LabelFormat;
 use super::super::lines::LineKwargs;
 use super::super::patches::PatchKwargs;
 use super::fills::orientation;
+use crate::binding::dict_value;
 use crate::binding::prelude::*;
-use crate::binding::{Callback, dict_value};
 
 /// The entry `key` of a statistics dict, `None` when absent or `None`.
 fn entry<'py>(dict: &Bound<'py>, key: &str) -> PyResult<Option<Bound<'py>>> {
@@ -285,10 +285,7 @@ pub(super) fn pie(
                 if let Ok(template) = format.extract::<String>() {
                     return Ok(LabelFormat::Template(template));
                 }
-                let callback: Callback = format.extract()?;
-                Ok::<_, PyErr>(LabelFormat::func(move |value| {
-                    callback.call::<String>((value,)).unwrap_or_default()
-                }))
+                crate::modules::archive::label_format(&format)
             })
         })
         .transpose()?;

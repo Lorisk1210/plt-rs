@@ -29,6 +29,8 @@ pub struct ExtremeFinderFixed {
     extremes: Bbox,
 }
 
+pltrs_core::archive_struct!(ExtremeFinderFixed { extremes });
+
 impl ExtremeFinderFixed {
     /// The range `(x0, x1, y0, y1)` of curvilinear coordinates.
     pub const fn new((x0, x1, y0, y1): (f64, f64, f64, f64)) -> Self {
@@ -53,6 +55,8 @@ pub struct FloatingGridHelper {
     grid: Rc<curvelinear::GridHelperCurveLinear>,
     extremes: (f64, f64, f64, f64),
 }
+
+pltrs_core::archive_struct!(FloatingGridHelper { grid, extremes });
 
 /// The grid of floating axes over the view (matplotlib's `_grid_info` of
 /// `floating_axes.GridHelperCurveLinear`).

@@ -43,6 +43,8 @@ pub(crate) struct FigureImageArtist {
     offset: (f64, f64),
 }
 
+pltrs_core::archive_struct!(FigureImageArtist { base, core, offset });
+
 impl Artist for FigureImageArtist {
     fn base(&self) -> &ArtistBase {
         &self.base

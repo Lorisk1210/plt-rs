@@ -62,6 +62,12 @@ pub enum LayoutEngine {
     PlaceHolder(PlaceHolderLayout),
 }
 
+pltrs_core::archive_enum!(LayoutEngine {
+    Constrained(v0),
+    Tight(v0),
+    PlaceHolder(v0),
+});
+
 /// An engine that places nothing but keeps the colorbar placement and
 /// the subplot-parameter compatibility of the engine it replaced, so that
 /// an engine placing colorbars differently cannot be set once a colorbar
@@ -75,6 +81,11 @@ pub struct PlaceHolderLayout {
     /// axes' grid cell (matplotlib's `colorbar_gridspec`).
     pub colorbar_gridspec: bool,
 }
+
+pltrs_core::archive_struct!(PlaceHolderLayout {
+    adjust_compatible,
+    colorbar_gridspec
+});
 
 impl LayoutEngine {
     /// Constrained layout with its defaults (`layout="constrained"`).
@@ -208,6 +219,17 @@ pub(crate) struct ColorbarLayout {
     pub(crate) anchor: Anchor,
 }
 
+pltrs_core::archive_struct!(ColorbarLayout {
+    cax,
+    parents,
+    location,
+    fraction,
+    shrink,
+    aspect,
+    pad,
+    anchor
+});
+
 /// What a figure keeps for its layout engine.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LayoutState {
@@ -226,6 +248,15 @@ pub(crate) struct LayoutState {
     /// indexed by their ids.
     pub(crate) insets: Vec<InsetLocator>,
 }
+
+pltrs_core::archive_struct!(LayoutState {
+    engine,
+    colorbars,
+    pending,
+    label_groups,
+    dividers,
+    insets
+});
 
 impl LayoutState {
     /// No colorbars, and the engine the rc parameters ask for:

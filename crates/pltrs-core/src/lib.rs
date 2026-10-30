@@ -16,6 +16,8 @@
 //!   the conditioning pipeline every backend runs before drawing
 //!   (NaN removal, clipping, snapping, simplification, curve flattening,
 //!   sketching).
+//! * [`archive`] — values written to bytes and read back exactly (what
+//!   pickling a figure rests on).
 //! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
 //! * [`hatch`] — matplotlib's hatch patterns.
 //! * [`json`] — JSON values, read as Python's `json` module writes them
@@ -33,6 +35,7 @@
 #![forbid(unsafe_code)]
 
 mod affine;
+pub mod archive;
 mod bbox;
 pub mod bezier;
 mod color;

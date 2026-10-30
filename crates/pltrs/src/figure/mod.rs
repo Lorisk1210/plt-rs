@@ -1,5 +1,6 @@
 //! Figures: the top-level container of everything drawn (matplotlib.figure).
 
+mod archive;
 mod artists;
 mod autofmt;
 mod canvas;

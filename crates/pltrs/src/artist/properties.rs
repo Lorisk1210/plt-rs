@@ -40,6 +40,22 @@ pub struct BaseProps {
     pub picker: Option<Picker>,
 }
 
+pltrs_core::archive_struct!(BaseProps {
+    alpha,
+    zorder,
+    label,
+    visible,
+    clip_on,
+    animated,
+    rasterized,
+    gid,
+    url,
+    transform,
+    clip_path,
+    path_effects,
+    picker
+});
+
 impl BaseProps {
     /// `self` with every property set in `overrides` replaced.
     #[must_use]
@@ -270,6 +286,8 @@ macro_rules! artist_properties {
                 pub $field: Option<$ty>,
             )*
         }
+
+        pltrs_core::archive_struct!($props { base, $($field),* });
 
         impl $props {
             $(

@@ -37,8 +37,8 @@ use crate::rc::keyword_names;
 pub use error::{ColormapError, SegmentProblem};
 pub use lookup::Normalized;
 pub(crate) use lookup::truncate_byte;
-pub(crate) use segment::cubehelix_channel;
 pub use segment::{Segment, SegmentData, SegmentFn, create_lookup_table};
+pub(crate) use segment::{SegmentRecipe, cubehelix_channel};
 
 /// A colour channel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -86,6 +86,13 @@ pub enum Extend {
     Max,
 }
 
+pltrs_core::archive_enum!(Extend {
+    Neither,
+    Both,
+    Min,
+    Max,
+});
+
 impl Extend {
     const ALL: [Self; 4] = [Self::Neither, Self::Both, Self::Min, Self::Max];
 
@@ -127,6 +134,11 @@ enum Source {
     Segmented { data: SegmentData, gamma: f64 },
 }
 
+pltrs_core::archive_enum!(Source {
+    Listed(v0),
+    Segmented { data, gamma },
+});
+
 /// The user-set colours for out-of-range and missing values.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Extremes {
@@ -134,6 +146,8 @@ struct Extremes {
     under: Option<Rgba>,
     over: Option<Rgba>,
 }
+
+pltrs_core::archive_struct!(Extremes { bad, under, over });
 
 impl Default for Extremes {
     fn default() -> Self {
@@ -170,6 +184,14 @@ pub struct Colormap {
     /// The `N` colours followed by the under, over and bad colours.
     lut: Vec<Rgba>,
 }
+
+pltrs_core::archive_struct!(Colormap {
+    name,
+    source,
+    extremes,
+    colorbar_extend,
+    lut
+});
 
 impl Colormap {
     /// A colormap of explicit colours (matplotlib's `ListedColormap`).

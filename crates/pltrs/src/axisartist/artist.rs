@@ -81,6 +81,27 @@ pub(crate) struct AxisArtistState {
     rc: Rc<RcParams>,
 }
 
+pltrs_core::archive_struct!(AxisArtistState {
+    base,
+    name,
+    axes,
+    helper,
+    style_axis,
+    offset_side,
+    offset,
+    ticklabel_direction,
+    axislabel_direction,
+    line,
+    major_ticks,
+    minor_ticks,
+    major_ticklabels,
+    minor_ticklabels,
+    label,
+    label_text,
+    tick_labels_gap,
+    rc
+});
+
 /// Which gap left by the tick labels places the label.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LabelGap {

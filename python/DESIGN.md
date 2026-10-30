@@ -39,6 +39,7 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     init.rs                     the module definition
   src/modules/                  one file per matplotlib module
     mod.rs                      registration list (shared, see below)
+    archive.rs                  archives of figures and values (pickling)
     artist.rs axes.rs colors.rs figure.rs lines.rs rcsetup.rs ticker.rs ...
 python/
   pltrs/                        the package; mirrors matplotlib's module tree
@@ -46,6 +47,7 @@ python/
     _native.abi3.so             built by `cargo xtask python` (gitignored)
     _api/                       matplotlib's _api, kept as it is
     _handles.py                 one Python object per pltrs (Rust) artist
+    _pickling.py                how figures and native objects pickle
     _pylab_helpers.py           pyplot's figure registry (Gcf)
     artist.py figure.py axes/ axis.py lines.py text.py patches.py
     collections.py container.py legend.py colors.py ticker.py units.py
@@ -600,23 +602,54 @@ layout, or the native handle of a container found on the axes
 
 ### Pickling
 
-Decided, not done yet: a figure pickles as a serialisation of its native
-state, since pltrs (Rust) holds everything drawn and pickles must load in
-another process (`test_pickle_load_from_subprocess`). pltrs (Rust) will
-get a versioned binary archive of a figure (`pltrs::figure::archive`):
-every artist type encodes and decodes its state, artist ids included, so
-that the tree, the transforms and the shared axes come back as they were.
-`Figure.__reduce__` then returns `(_figure_from_archive, (bytes, state))`,
-where `state` holds the Python side the archive cannot: the `__dict__`
-of each artist object (without `_native` and `_figure`) by artist id and
-the figure's own attributes. Unpickling rebuilds the native figure from
-the bytes, wraps every artist id with the class it had, restores the
-attributes, and re-registers the figure with pyplot as matplotlib's
-`Figure.__setstate__` does (`restore_to_pylab`). Axes and other artists
-pickle through their figure (`(_artist_of_figure, (figure, id))`).
-Recording the calls that built a figure and replaying them was ruled
-out: it cannot capture changes pltrs (Rust) makes itself (layout,
-autoscaling) nor artists changed through their natives.
+A figure pickles as an archive of its native state, since pltrs (Rust)
+holds everything drawn and pickles load in other processes
+(`test_pickle_load_from_subprocess`); the Python objects around it pickle
+as they always do. Recording the calls that built a figure and replaying
+them was ruled out: it cannot capture what pltrs (Rust) changes itself
+(layout, autoscaling) nor artists changed through their natives.
+
+* **pltrs (Rust)'s archive** (`pltrs_core::archive`): a type implements
+  `Archive` (`encode`, `decode`) with `archive_struct!` or
+  `archive_enum!` next to its definition, which list its fields, so that
+  a field added later does not compile until it is archived too (a
+  proc-macro derive was ruled out: proc macros need a host C toolchain,
+  which the musl build avoids). Trait objects archive the concrete type
+  behind them under a tag (`archive_kinds!(dyn Locator { "auto" =>
+  AutoLocator, ... })`, next to the trait); an `Rc` reached twice reads
+  back as one value. A figure archives whole (`Figure::to_archive`,
+  `RawHandle::archive_figure`), removed artists included, under their
+  ids, without what only lives while it is shown (canvas, callbacks,
+  timers; draggable artists are connected again to the callbacks of the
+  figure read back). Reading never panics on malformed bytes. The spec's
+  `figure_archive` test archives every figure case before drawing it and
+  checks that the figure read back draws the same pixels.
+* **What an archive cannot hold** it refers to as *externals*, which the
+  program archives beside the bytes. The binding's `ProgramKinds`
+  (`modules/archive.rs`) archives its own types behind pltrs (Rust)'s
+  traits as their Python objects (a Python `Formatter`, a `Norm`
+  subclass, a transform, `Artist()`'s bare artist). A closure is
+  archived as its origin (`ProgramFn`): the binding makes the closures
+  of Python callables through `archive::tick_formatter`, `data_formatter`
+  and `label_format`, which record the callable and how it is called, so
+  that reading makes the closure again. A Rust closure without an origin
+  is not archived (`TypeError: cannot pickle ...`, as for a lambda in
+  matplotlib); functions pltrs makes itself are data (tick labels set by
+  text, the spacing of a colorbar's blocks, colormap functions).
+* **The package** (`pltrs/_pickling.py`): every native object pickles
+  through `copyreg`. An artist's handle pickles as the `_FigureState` of
+  its figure and its artist's id; a native value (a transform, a grid, a
+  colorbar, a container) as an archive of its own, the handles inside it
+  as the `_FigureState`s of their figures. A `_FigureState` carries the
+  figure's archive: unpickled, it is first an empty native figure, which
+  the handles of the pickle reach, then filled in place
+  (`RawHandle::restore_figure`), so that the objects of a pickle may
+  refer to each other in any order. Artists pickle their `__dict__`;
+  `Figure` is matplotlib's `__getstate__` and `__setstate__` (no canvas,
+  back into pyplot with `_restore_to_pylab`), its unpickled state made
+  by `_pickling.restore_figure` and finished once its native state is
+  read (`_FigureState.when_restored`). `copy.deepcopy` takes the same
+  path.
 
 ### Imports inside the package
 

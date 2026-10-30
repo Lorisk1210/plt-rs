@@ -22,6 +22,8 @@ pub enum ZSort {
     Max,
 }
 
+pltrs_core::archive_enum!(ZSort { Average, Min, Max });
+
 /// numpy's default fill value for floats (`np.ma.default_fill_value(1.0)`),
 /// which its masked `min` and `max` leave in the data of a fully masked row.
 const MASKED_FILL: f64 = 1e20;
@@ -86,6 +88,16 @@ pub(crate) struct Polys3D {
     /// edge.
     pub(crate) closed: bool,
 }
+
+pltrs_core::archive_struct!(Polys3D {
+    faces,
+    zsort,
+    sort_zpos,
+    facecolors,
+    edgecolors,
+    templates,
+    closed
+});
 
 impl Polys3D {
     /// Writes the projected polygons, deepest first, and their colours

@@ -69,6 +69,14 @@ pub enum ConnectionStyle {
     },
 }
 
+pltrs_core::archive_enum!(ConnectionStyle {
+    Arc3 { rad },
+    Angle3 { angle_a, angle_b },
+    Angle { angle_a, angle_b, rad },
+    Arc { angle_a, angle_b, arm_a, arm_b, rad },
+    Bar { arm_a, arm_b, fraction, angle },
+});
+
 impl Default for ConnectionStyle {
     /// A straight line (`arc3` with zero curvature).
     fn default() -> Self {
@@ -86,6 +94,8 @@ pub struct ClipRegion {
     /// pixels, when the edge is visible).
     pub radius: f64,
 }
+
+pltrs_core::archive_struct!(ClipRegion { path, radius });
 
 impl ClipRegion {
     /// Whether `point` lies in any sub-path of the region

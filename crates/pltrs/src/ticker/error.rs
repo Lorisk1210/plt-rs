@@ -30,6 +30,16 @@ pub enum TickerError {
     Format(FormatError),
 }
 
+pltrs_core::archive_enum!(TickerError {
+    InvalidParameter { name, reason },
+    NonPositiveLogData,
+    NonFinite(v0),
+    Domain(v0),
+    TooManyTicks(v0),
+    Unsupported(v0),
+    Format(v0),
+});
+
 impl TickerError {
     /// Shorthand for [`TickerError::InvalidParameter`].
     pub(crate) fn invalid(name: &'static str, reason: impl Into<String>) -> Self {

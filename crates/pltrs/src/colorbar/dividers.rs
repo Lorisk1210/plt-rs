@@ -29,6 +29,14 @@ pub(crate) struct Dividers {
     pub(crate) upper: bool,
 }
 
+pltrs_core::archive_struct!(Dividers {
+    axes,
+    orientation,
+    edges,
+    lower,
+    upper
+});
+
 impl Dividers {
     /// The positions along the long axis for the view `(lo, hi)`, in the
     /// axis' order: the edges strictly inside, then the view's ends where

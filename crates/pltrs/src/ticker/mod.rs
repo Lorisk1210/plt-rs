@@ -46,7 +46,7 @@ pub use formatter::{
     LogFormatter, LogLabelStyle, LogitFormatter, NullFormatter, OffsetMode, PercentFormatter,
     SI_PREFIXES, ScalarFormatter, StrMethodFormatter, strip_math,
 };
-pub use label_format::LabelFormat;
+pub use label_format::{LabelFormat, ValueFn};
 pub(crate) use locator::drawable_ticks;
 pub use locator::{
     AsinhLocator, AutoLocator, AutoMinorLocator, FixedLocator, IndexLocator, LinearLocator,

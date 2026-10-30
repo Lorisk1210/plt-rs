@@ -24,6 +24,8 @@ pub struct RRuleLocator {
     tz: TickZone,
 }
 
+pltrs_core::archive_struct!(RRuleLocator { rule, tz });
+
 /// The `byhour=0, byminute=0, bysecond=0` of matplotlib's `hms0d`.
 fn at_midnight(mut rule: RRuleSpec) -> RRuleSpec {
     rule.byhour = vec![0];
@@ -211,6 +213,13 @@ pub struct YearLocator {
     day: u32,
     tz: TickZone,
 }
+
+pltrs_core::archive_struct!(YearLocator {
+    base,
+    month,
+    day,
+    tz
+});
 
 impl YearLocator {
     /// Ticks on `month`/`day` of every `base`-th year, in the zone of the

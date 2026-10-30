@@ -22,6 +22,13 @@ pub(super) enum Presentation {
     Repr,
 }
 
+crate::archive_enum!(Presentation {
+    Exponent,
+    Fixed,
+    General,
+    Repr,
+});
+
 /// Everything `PyOS_double_to_string` takes besides the value.
 #[expect(
     clippy::struct_excessive_bools,

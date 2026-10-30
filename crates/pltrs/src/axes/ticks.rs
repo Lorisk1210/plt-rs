@@ -23,6 +23,8 @@ pub enum TickDirection {
     InOut,
 }
 
+pltrs_core::archive_enum!(TickDirection { In, Out, InOut });
+
 impl TickDirection {
     const ALL: [Self; 3] = [Self::In, Self::Out, Self::InOut];
 
@@ -57,6 +59,8 @@ pub struct Sides {
     /// Top or right.
     pub second: bool,
 }
+
+pltrs_core::archive_struct!(Sides { first, second });
 
 impl Sides {
     /// Both sides.
@@ -94,6 +98,14 @@ pub struct GridStyle {
     /// default, as for any line).
     pub path_effects: Vec<PathEffect>,
 }
+
+pltrs_core::archive_struct!(GridStyle {
+    color,
+    alpha,
+    linewidth,
+    linestyle,
+    path_effects
+});
 
 impl GridStyle {
     /// The rc style of major (`major = true`) or minor gridlines.
@@ -239,6 +251,32 @@ pub struct TickStyle {
     /// matplotlib's `grid_*` tick parameters.
     pub grid: GridStyle,
 }
+
+pltrs_core::archive_struct!(TickStyle {
+    size,
+    width,
+    pad,
+    color,
+    edgecolor,
+    label_color,
+    label_size,
+    direction,
+    ticks,
+    labels,
+    label_rotation,
+    label_rotation_auto,
+    label_rotation_mode,
+    label_halign,
+    label_valign,
+    label_multialign,
+    label_family,
+    label_weight,
+    label_style,
+    label_in_layout,
+    label_url,
+    grid_on,
+    grid
+});
 
 impl TickStyle {
     /// The rc defaults for the major (`major = true`) or minor ticks of

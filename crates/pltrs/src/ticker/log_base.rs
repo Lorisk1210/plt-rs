@@ -14,6 +14,8 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LogBase(f64);
 
+pltrs_core::archive_struct!(LogBase(v0));
+
 impl LogBase {
     /// Base 10, matplotlib's default.
     pub const TEN: Self = Self(10.0);

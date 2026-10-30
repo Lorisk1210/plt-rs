@@ -67,6 +67,8 @@ pub struct DataRectangle {
     far_corner: DataPoint,
 }
 
+pltrs_core::archive_struct!(DataRectangle { corner, far_corner });
+
 impl DataRectangle {
     /// The rectangle from `xy` spanning `width` along x and `height`
     /// along y.

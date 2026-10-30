@@ -71,6 +71,8 @@ pub(crate) enum Attach {
     Offsets,
 }
 
+pltrs_core::archive_enum!(Attach { Transform, Offsets });
+
 /// One artist of a legend handle, in points in the handle box (matplotlib's
 /// artists of `create_artists`, drawn with the handle box's transform).
 #[derive(Debug)]
@@ -147,7 +149,7 @@ impl HandlerArtist {
 /// )?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub trait LegendHandler: std::fmt::Debug + Send {
+pub trait LegendHandler: std::fmt::Debug + Send + Any {
     /// The artists drawing the handle of `entry` in its handle box
     /// (matplotlib's `create_artists`); none leaves the entry out of the
     /// legend.
@@ -348,6 +350,18 @@ fn copy_collection(dst: &mut CollectionArtist, src: &CollectionArtist) -> Result
     dst.hatch.clone_from(&src.hatch);
     Ok(())
 }
+
+pltrs_core::archive_kinds!(dyn LegendHandler {
+    "line" => HandlerLine2D,
+    "patch" => HandlerPatch,
+    "step-patch" => HandlerStepPatch,
+    "line-collection" => HandlerLineCollection,
+    "path-collection" => HandlerPathCollection,
+    "poly-collection" => HandlerPolyCollection,
+    "errorbar" => HandlerErrorbar,
+    "stem" => HandlerStem,
+    "tuple" => crate::legend::HandlerTuple,
+});
 
 #[cfg(test)]
 mod tests;

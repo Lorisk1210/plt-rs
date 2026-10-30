@@ -26,6 +26,13 @@ pub(crate) struct PolarMap {
     pub(super) polygon: Option<usize>,
 }
 
+pltrs_core::archive_struct!(PolarMap {
+    scaled_origin,
+    origin,
+    sign,
+    polygon
+});
+
 impl PolarMap {
     /// matplotlib's `PolarTransform()` without an axis: radii are drawn
     /// as they are, from the origin.

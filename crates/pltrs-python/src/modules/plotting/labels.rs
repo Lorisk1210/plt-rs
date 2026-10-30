@@ -28,10 +28,7 @@ impl FromPy<'_> for PyLabelFormat {
         if let Ok(template) = object.extract::<String>() {
             return Ok(Self(LabelFormat::Template(template)));
         }
-        let callback: Callback = object.extract()?;
-        Ok(Self(LabelFormat::func(move |value| {
-            callback.call::<String>((value,)).unwrap_or_default()
-        })))
+        Ok(Self(crate::modules::archive::label_format(object)?))
     }
 }
 

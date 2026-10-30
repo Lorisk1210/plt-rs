@@ -5,6 +5,8 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
+
 /// A BCP 47 language tag (`"sr"`, `"tr-TR"`, `"zh-Hant-HK"`).
 ///
 /// Tags compare as HarfBuzz interns them: ASCII letters in either case,
@@ -16,6 +18,17 @@ use std::hash::{Hash, Hasher};
 pub struct LanguageTag {
     text: Box<str>,
     canonical: Box<str>,
+}
+
+impl Archive for LanguageTag {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        encoder.write_str(&self.text);
+        Ok(())
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        Ok(Self::new(&decoder.read_str()?))
+    }
 }
 
 impl LanguageTag {
@@ -98,6 +111,8 @@ pub struct LanguageRange {
     /// start is empty).
     pub end: usize,
 }
+
+pltrs_core::archive_struct!(LanguageRange { tag, start, end });
 
 impl LanguageRange {
     /// `tag` for characters `start..end`.

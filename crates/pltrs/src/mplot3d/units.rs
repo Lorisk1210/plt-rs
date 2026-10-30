@@ -29,6 +29,8 @@ use crate::units::{
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Sources3D([Option<CustomValues>; 3]);
 
+pltrs_core::archive_struct!(Sources3D(v0));
+
 impl Sources3D {
     /// The user values among `values`, given along x, y and z.
     pub(crate) fn of(values: [&AxisValues; 3]) -> Self {

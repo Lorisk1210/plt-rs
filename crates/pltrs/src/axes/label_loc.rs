@@ -25,6 +25,8 @@ pub enum LabelLoc {
     End,
 }
 
+pltrs_core::archive_enum!(LabelLoc { Start, Center, End });
+
 impl LabelLoc {
     /// The position along the axis as a fraction of its length.
     pub fn fraction(self) -> f64 {
@@ -57,6 +59,12 @@ pub enum XLabelLoc {
     /// At the right end.
     Right,
 }
+
+pltrs_core::archive_enum!(XLabelLoc {
+    Left,
+    Center,
+    Right,
+});
 
 impl XLabelLoc {
     const ALL: [Self; 3] = [Self::Left, Self::Center, Self::Right];
@@ -94,6 +102,12 @@ pub enum YLabelLoc {
     /// At the top end.
     Top,
 }
+
+pltrs_core::archive_enum!(YLabelLoc {
+    Bottom,
+    Center,
+    Top,
+});
 
 impl YLabelLoc {
     const ALL: [Self; 3] = [Self::Bottom, Self::Center, Self::Top];

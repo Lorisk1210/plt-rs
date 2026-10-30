@@ -52,6 +52,8 @@ pub struct ThetaLocator {
     base: Rc<dyn Locator>,
 }
 
+pltrs_core::archive_struct!(ThetaLocator { base });
+
 impl ThetaLocator {
     /// The θ locator around `base`, which works in degrees.
     pub fn wrapping(base: Rc<dyn Locator>) -> Self {
@@ -121,6 +123,8 @@ impl Locator for ThetaLocator {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ThetaFormatter;
 
+pltrs_core::archive_struct!(ThetaFormatter);
+
 impl ThetaFormatter {
     /// The number of decimals for a view `span` radians wide.
     fn digits(span: f64) -> Result<usize, TickerError> {
@@ -170,6 +174,11 @@ pub struct RadialLocator {
     /// Whether zero is a valid radius under the axis scale.
     zero_in_bounds: bool,
 }
+
+pltrs_core::archive_struct!(RadialLocator {
+    base,
+    zero_in_bounds
+});
 
 impl RadialLocator {
     /// `locator` wrapped for a radial axis under `scale`; an already

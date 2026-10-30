@@ -152,6 +152,8 @@ enum Pad {
     None,
 }
 
+pltrs_core::archive_enum!(Pad { Zero, Space, None });
+
 /// One parsed glibc conversion: flags, width, modifier and specifier.
 #[derive(Clone, Copy, Debug)]
 struct Conversion {
@@ -163,6 +165,15 @@ struct Conversion {
     /// Bytes consumed after the `%`.
     len: usize,
 }
+
+pltrs_core::archive_struct!(Conversion {
+    pad,
+    upper,
+    swap_case,
+    width,
+    spec,
+    len
+});
 
 impl Conversion {
     /// Parses the sequence following a `%`; `None` if glibc would reject it.

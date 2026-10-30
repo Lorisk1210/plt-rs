@@ -128,12 +128,14 @@ mod tests {
             .expect("valid scatter");
         ax.set_xlim(-1.0, 1.0).expect("valid limits");
         fig.to_png().expect("drawable");
-        let offsets = points
+        let (offsets, drawn) = points
             .raw()
-            .with::<CollectionArtist, _>(|c| c.offsets.clone());
-        // Hidden markers come first, like matplotlib's masked depths.
-        assert!(offsets[0].x.is_nan());
-        assert!(offsets[1..].iter().all(|o| o.is_finite()));
+            .with::<CollectionArtist, _>(|c| (c.offsets.clone(), c.drawn_offsets().to_vec()));
+        // Hidden markers are drawn first, like matplotlib's masked depths,
+        // and keep their place in the data.
+        assert!(drawn[0].x.is_nan());
+        assert!(drawn[1..].iter().all(|o| o.is_finite()));
+        assert!(offsets[2].x.is_nan() && offsets[..2].iter().all(|o| o.is_finite()));
     }
 
     #[test]

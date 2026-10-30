@@ -7,7 +7,7 @@
 //! Like matplotlib's, the new geometry is shown from the next draw on and
 //! leaves the limits alone.
 
-use pltrs_core::{Path, PathCode, Point};
+use pltrs_core::{Path, PathCode, Point, Rgba};
 
 use super::art3d::{Art3D, ZSort};
 use super::error::{Axes3DError, check_len};
@@ -183,6 +183,83 @@ impl Axes3D {
     /// When `collection` is not a polygon collection of these axes, or its
     /// colours cannot be resolved.
     pub fn set_poly_3d_properties(&self, collection: &Collection) -> Result<&Self, Axes3DError> {
+        self.refresh_poly_colors(collection, true, true)?;
+        self.edit_art(collection, |art| {
+            let Art3D::Polys(polys) = art else {
+                return None;
+            };
+            polys.zsort = ZSort::Average;
+            polys.sort_zpos = None;
+            Some(())
+        })?;
+        Ok(self)
+    }
+
+    /// The face and edge colours the polygons of a polygon collection of
+    /// these axes are drawn with, in polygon order (matplotlib's
+    /// `_facecolor3d` and `_edgecolor3d`); colour-mapped polygons are
+    /// mapped afresh at every draw instead.
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionProps;
+    /// use pltrs::colors::Rgba;
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let props = CollectionProps {
+    ///     facecolors: Some(vec!["red".into()]),
+    ///     ..CollectionProps::default()
+    /// };
+    /// let triangle = vec![vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]];
+    /// let polys = ax.add_poly_collection3d(triangle, props, true)?;
+    /// assert_eq!(ax.poly_colors(&polys)?.0, [Rgba::opaque(1.0, 0.0, 0.0)]);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `collection` is not a polygon collection of these axes.
+    pub fn poly_colors(
+        &self,
+        collection: &Collection,
+    ) -> Result<(Vec<Rgba>, Vec<Rgba>), Axes3DError> {
+        self.read_art(collection, |art| match art {
+            Art3D::Polys(polys) => Some((polys.facecolors.clone(), polys.edgecolors.clone())),
+            _ => None,
+        })
+    }
+
+    /// Takes the face colours (with `faces`) and the edge colours (with
+    /// `edges`) of a polygon collection of these axes as they are now as
+    /// the colours its polygons are drawn with (matplotlib's
+    /// `Poly3DCollection.set_facecolor` and `set_edgecolor` updating
+    /// `_facecolor3d` and `_edgecolor3d`, and `set_alpha` updating the
+    /// face colours only).
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionProps;
+    /// use pltrs::colors::Rgba;
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// let triangle = vec![vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]];
+    /// let polys = ax.add_poly_collection3d(triangle, CollectionProps::default(), true)?;
+    /// polys.set_edgecolor("red");
+    /// ax.refresh_poly_colors(&polys, false, true)?;
+    /// fig.layout();
+    /// assert_eq!(polys.colors().expect("colours").edges[0], Rgba::opaque(1.0, 0.0, 0.0));
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `collection` is not a polygon collection of these axes, or its
+    /// colours cannot be resolved.
+    pub fn refresh_poly_colors(
+        &self,
+        collection: &Collection,
+        faces: bool,
+        edges: bool,
+    ) -> Result<&Self, Axes3DError> {
         self.read_art(collection, |art| {
             matches!(art, Art3D::Polys(_)).then_some(())
         })?;
@@ -194,10 +271,12 @@ impl Axes3D {
             let Art3D::Polys(polys) = art else {
                 return None;
             };
-            polys.facecolors = facecolors;
-            polys.edgecolors = edgecolors;
-            polys.zsort = ZSort::Average;
-            polys.sort_zpos = None;
+            if faces {
+                polys.facecolors = facecolors;
+            }
+            if edges {
+                polys.edgecolors = edgecolors;
+            }
             Some(())
         })?;
         Ok(self)

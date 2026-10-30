@@ -1,13 +1,15 @@
 //! Lines and texts in 3-D (matplotlib's `Axes3D.plot`, `text` and
 //! `text2D`).
 
+use std::rc::Rc;
+
 use super::art3d::Art3D;
 use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::units::Sources3D;
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, ArtistLookup, RawHandle};
 use crate::lines::{Line2D, LineProps};
 use crate::text::Text;
 use crate::units::{AxisValue, AxisValues};
@@ -205,6 +207,86 @@ impl Axes3D {
             Some(())
         });
         found.map(|()| self).ok_or(Axes3DError::Not3DArtist)
+    }
+
+    /// Turns `line`, a line of the projection plane, into a 3-D line
+    /// through `points` (axis numbers); `axlim_clip` hides the points
+    /// outside the view limits (matplotlib's `line_2d_to_3d`, and a
+    /// `Line3D` added to a 3-D axes). The limits stay as they are.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let line = ax.projection_plane().plot([0.0, 1.0], [0.0, 1.0])?;
+    /// ax.line_2d_to_3d(&line, vec![[0.0, 0.0, 1.0], [1.0, 1.0, 2.0]], false)?;
+    /// assert_eq!(ax.line_data(&line)?[2], [1.0, 2.0]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `line` is not a line of the axes' projection plane.
+    pub fn line_2d_to_3d(
+        &self,
+        line: &Line2D,
+        points: Vec<Vec3>,
+        axlim_clip: bool,
+    ) -> Result<&Self, Axes3DError> {
+        self.lift_in_plane(line.raw(), Art3D::Line(points), axlim_clip)
+    }
+
+    /// Turns `text`, a text of the projection plane, into a 3-D text
+    /// anchored at `position` (axis numbers) whose baseline follows
+    /// `direction` as seen on screen (a zero direction keeps it
+    /// horizontal); `axlim_clip` hides it while its anchor is outside the
+    /// view limits (matplotlib's `text_2d_to_3d`, and `Text3D` added to a
+    /// 3-D axes).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let label = ax.projection_plane().text(0.5, 0.5, "lifted");
+    /// ax.text_2d_to_3d(&label, [0.5, 0.5, 1.0], [0.0; 3], false)?;
+    /// assert_eq!(ax.text_position(&label)?, [0.5, 0.5, 1.0]);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `text` is not a text of the axes' projection plane.
+    pub fn text_2d_to_3d(
+        &self,
+        text: &Text,
+        position: Vec3,
+        direction: Vec3,
+        axlim_clip: bool,
+    ) -> Result<&Self, Axes3DError> {
+        let art = Art3D::Text {
+            position,
+            direction,
+        };
+        self.lift_in_plane(text.raw(), art, axlim_clip)
+    }
+
+    /// Gives `artist`, an artist of the projection plane, the 3-D
+    /// geometry `art` in place of any it had.
+    fn lift_in_plane(
+        &self,
+        artist: &RawHandle,
+        art: Art3D,
+        axlim_clip: bool,
+    ) -> Result<&Self, Axes3DError> {
+        let figure = self.raw().figure_state();
+        let in_plane = Rc::ptr_eq(figure, artist.figure_state())
+            && figure.borrow().artist(artist.id()).map(|a| a.base().parent)
+                == Some(Some(self.plane().id()));
+        if !in_plane {
+            return Err(Axes3DError::Not3DArtist);
+        }
+        let id = artist.id();
+        self.with_mut(|axes| axes.artists.retain(|entry| entry.id != id));
+        self.register(id, art, axlim_clip);
+        Ok(self)
     }
 
     /// Adds text at `(x, y)` in axes coordinates, over the 3-D scene

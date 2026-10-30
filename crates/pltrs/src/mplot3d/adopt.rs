@@ -2,13 +2,15 @@
 //! `Poly3DCollection` and `Line3DCollection` made with their properties
 //! before `add_collection3d` adds them).
 
-use super::art3d::{Art3D, Segments3D, ZSort};
+use super::art3d::{Art3D, Points3D, Segments3D, ZSort};
+use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::handle::Axes3D;
+use super::lift::patch_positions;
 use super::math::Vec3;
 use crate::artist::RawHandle;
 use crate::axes::AddAs;
-use crate::collections::Collection;
+use crate::collections::{Collection, CollectionArtist};
 
 /// The 3-D geometry a collection made outside any figure is added with.
 #[derive(Clone, Debug, PartialEq)]
@@ -25,6 +27,19 @@ pub enum Geometry3D {
     },
     /// Polylines through 3-D points (matplotlib's `Line3DCollection`).
     Lines(Vec<Vec<Vec3>>),
+    /// Patches drawn at their offsets placed in 3-D, which leave the
+    /// data limits alone (matplotlib's `Patch3DCollection`).
+    Patches {
+        /// The positions of the offsets along `zdir`: one for all or one
+        /// per offset.
+        zs: Vec<f64>,
+        /// The axis the positions lie along.
+        zdir: Axis3,
+        /// Whether the patches fade with depth.
+        depthshade: bool,
+        /// The alpha factor of the deepest patches.
+        min_alpha: f64,
+    },
 }
 
 impl Geometry3D {
@@ -33,6 +48,7 @@ impl Geometry3D {
         match self {
             Self::Polygons { faces, .. } => faces.iter().flatten().copied().collect(),
             Self::Lines(lines) => lines.iter().flatten().copied().collect(),
+            Self::Patches { .. } => Vec::new(),
         }
     }
 }
@@ -72,6 +88,8 @@ impl Axes3D {
     ) -> Result<Collection, Axes3DError> {
         let had_data = self.has_data();
         let points = geometry.points();
+        // matplotlib leaves the limits alone for patch collections.
+        let scales = !matches!(geometry, Geometry3D::Patches { .. });
         let raw = self
             .plane()
             .adopt_artist(collection, AddAs::Collection { autolim: false })?;
@@ -93,8 +111,25 @@ impl Axes3D {
                     axlim_clip,
                 );
             }
+            Geometry3D::Patches {
+                zs,
+                zdir,
+                depthshade,
+                min_alpha,
+            } => {
+                let positions =
+                    raw.with_mut::<CollectionArtist, _>(|c| patch_positions(c, &zs, zdir))?;
+                let points = Points3D {
+                    positions,
+                    depthshade,
+                    min_alpha,
+                    depth_sorted: false,
+                    sort_zpos: None,
+                };
+                self.register(raw.id(), Art3D::Points(points), axlim_clip);
+            }
         }
-        if autolim {
+        if autolim && scales {
             self.scale_to(&points, had_data)?;
         }
         Ok(Collection::from_raw(raw))
@@ -125,6 +160,20 @@ mod tests {
             .unwrap();
         assert_eq!(adopted.alpha(), Some(0.5));
         assert!(ax.xlim().1 > 4.0);
+        let patches = Collection::loose(CollectionSpec::patches(&[], false).unwrap());
+        let before = ax.xlim();
+        let offsets = Geometry3D::Patches {
+            zs: vec![5.0],
+            zdir: Axis3::Z,
+            depthshade: false,
+            min_alpha: 0.3,
+        };
+        let lifted = ax
+            .adopt_collection3d(patches.raw(), offsets, true, false)
+            .unwrap();
+        assert_eq!(ax.xlim(), before, "patches leave the limits alone");
+        assert_eq!(ax.scatter_offsets(&lifted).unwrap()[2], [5.0]);
+        assert!(!ax.depthshade(&lifted).unwrap());
         let again = Geometry3D::Lines(Vec::new());
         assert!(
             ax.adopt_collection3d(adopted.raw(), again, false, false)

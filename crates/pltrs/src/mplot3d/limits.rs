@@ -14,7 +14,8 @@ use crate::rc::RcParams;
 use crate::scale::ScaleName;
 
 /// Padding added on both sides of autoscaled limits, as a fraction of
-/// their span (matplotlib's `_view_margin`, matching matplotlib 3.8).
+/// their span, unless changed (matplotlib's default `_view_margin`,
+/// matching matplotlib 3.8).
 const VIEW_MARGIN: f64 = 1.0 / 48.0;
 
 /// Initial x and y data limits, inset so that the default view matches
@@ -89,8 +90,10 @@ pub(crate) struct Limits3D {
     pub(crate) margins: [f64; 3],
     /// Whether autoscaling skips the locators' view-limit rounding.
     pub(crate) tight: bool,
-    /// Whether explicit limits get the view margin (`axes3d.automargin`).
-    pub(crate) automargin: bool,
+    /// The padding added on both sides of autoscaled limits, and of
+    /// explicit ones under `axes3d.automargin`, as a fraction of their
+    /// span (matplotlib's `_view_margin`).
+    pub(crate) view_margin: f64,
 }
 
 pltrs_core::archive_struct!(Limits3D {
@@ -100,7 +103,7 @@ pltrs_core::archive_struct!(Limits3D {
     autoscale,
     margins,
     tight,
-    automargin
+    view_margin
 });
 
 impl Limits3D {
@@ -113,7 +116,7 @@ impl Limits3D {
             autoscale: [true; 3],
             margins: [rc.axes_xmargin, rc.axes_ymargin, zmargin],
             tight: false,
-            automargin: rc.axes3d_automargin,
+            view_margin: VIEW_MARGIN,
         }
     }
 
@@ -286,7 +289,7 @@ impl Axes3DState {
                 .view_limits(&span, v0, v1)
                 .map_err(Axes3DError::Ticker)?;
         }
-        self.set_bound(axis, v0, v1, Some(VIEW_MARGIN))
+        self.set_bound(axis, v0, v1, Some(self.limits.view_margin))
     }
 
     /// Sets the bounds of one axis keeping its orientation and its
@@ -338,8 +341,9 @@ impl Axes3DState {
         if !(lower.is_finite() && upper.is_finite()) {
             return Err(Axes3DError::NonFiniteLimits(lower, upper));
         }
-        let margin = view_margin.unwrap_or(if self.limits.automargin {
-            VIEW_MARGIN
+        // matplotlib reads `axes3d.automargin` when the limits are set.
+        let margin = view_margin.unwrap_or(if crate::rc::params().axes3d_automargin {
+            self.limits.view_margin
         } else {
             0.0
         });

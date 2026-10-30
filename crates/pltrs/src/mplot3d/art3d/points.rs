@@ -60,17 +60,19 @@ impl Points3D {
             .iter()
             .map(|p| p.map_or(f64::NAN, |p| p[2]))
             .collect();
-        let order = if self.depth_sorted {
-            self.sort_styles(collection, &projected, &depths)
-        } else {
-            (0..projected.len()).collect()
-        };
-        collection.offsets = order
+        let offsets: Vec<Point> = projected
             .iter()
-            .map(|&i| {
-                projected[i].map_or(Point::new(f64::NAN, f64::NAN), |p| Point::new(p[0], p[1]))
-            })
+            .map(|p| p.map_or(Point::new(f64::NAN, f64::NAN), |p| Point::new(p[0], p[1])))
             .collect();
+        if self.depth_sorted {
+            // matplotlib keeps the offsets in data order and draws them
+            // sorted (`_offset_zordered`).
+            let order = self.sort_styles(collection, &projected, &depths);
+            if let Some(sorted) = &mut collection.depth_sorted {
+                sorted.offsets = Some(order.iter().map(|&i| offsets[i]).collect());
+            }
+        }
+        collection.offsets = offsets;
         depths
             .iter()
             .copied()
@@ -113,6 +115,7 @@ impl Points3D {
                 .map(|(faces, edges)| (shade(&faces), shade(&edges))),
             sizes: collection.sizes.as_deref().map(reorder),
             linewidths: collection.linewidths.as_deref().map(reorder),
+            offsets: None,
         });
         order
     }

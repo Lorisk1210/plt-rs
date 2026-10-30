@@ -17,7 +17,7 @@
 mod bars;
 mod bins2d;
 mod ecdf;
-mod errorbar;
+pub(super) mod errorbar;
 mod events;
 mod fields;
 pub(super) mod fills;

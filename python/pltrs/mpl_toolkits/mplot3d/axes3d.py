@@ -15,8 +15,8 @@ import warnings
 
 import numpy as np
 
-from pltrs import _api, _handles, cbook, rcParams
-from pltrs import collections as mcoll, lines as mlines
+from pltrs import _api, cbook, rcParams
+from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
 from pltrs.axes import Axes
 from pltrs.axes._plotting._helpers import wrap
@@ -24,6 +24,9 @@ from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
 
 from . import art3d, axis3d
+from ._charts import ChartsMixin
+from ._contours import ContoursMixin
+from ._voxels import VoxelsMixin
 
 
 def _check_margin(m):
@@ -39,6 +42,23 @@ def _floats(*arrays):
     arrays = np.broadcast_arrays(*[np.ma.filled(np.ma.asarray(a, dtype=float),
                                                 np.nan) for a in arrays])
     return tuple(np.ascontiguousarray(a, dtype=float).ravel() for a in arrays)
+
+
+def _shading(shade, lightsource):
+    """The native shading: whether to shade (None: the method's default)
+    and the light of a `~matplotlib.colors.LightSource` (None: mplot3d's)."""
+    return (None if shade is None else bool(shade),
+            None if lightsource is None
+            else (float(lightsource.azdeg), float(lightsource.altdeg)))
+
+
+def _surface_mapping(cmap, norm, vmin, vmax):
+    """The colour mapping of a surface, ``(colorizer, native)`` as
+    `._mapping` gives it, or ``(None, None)`` for a surface coloured
+    without one (no *cmap* nor *norm*)."""
+    if cmap is None and norm is None:
+        return None, None
+    return _mapping(cmap, norm, vmin, vmax)
 
 
 def _sampling(rstride, cstride, rcount, ccount):
@@ -57,7 +77,7 @@ def _sampling(rstride, cstride, rcount, ccount):
     return None
 
 
-class Axes3D(Axes):
+class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     """
     3D Axes object.
 
@@ -135,7 +155,21 @@ class Axes3D(Axes):
         return None
 
     def __repr__(self):
-        return f"<{type(self).__name__}: >"
+        fields = []
+        if self.get_label():
+            fields += [f"label={self.get_label()!r}"]
+        titles = {}
+        for loc in ["left", "center", "right"]:
+            title = self.get_title(loc=loc)
+            if title:
+                titles[loc] = title
+        if titles:
+            fields += [f"title={titles}"]
+        for name in self._axis_names:
+            label = _mplot3d.get_label(self._native, name)
+            if label:
+                fields += [f"{name}label={label!r}"]
+        return f"<{self.__class__.__name__}: " + ", ".join(fields) + ">"
 
     # -- axes --------------------------------------------------------------
 
@@ -146,6 +180,8 @@ class Axes3D(Axes):
     def clear(self):
         # docstring inherited.
         _mplot3d.clear(self._native)
+        for axis in (self.xaxis, self.yaxis, self.zaxis):
+            axis._scale = None
 
     def get_zticks(self, *, minor=False):
         """Return the zaxis' tick locations in data coordinates."""
@@ -155,9 +191,25 @@ class Axes3D(Axes):
         """Set the zaxis' tick locations (`.Axis.set_ticks`)."""
         return self.zaxis.set_ticks(ticks, labels, minor=minor, **kwargs)
 
+    def set_zticklabels(self, labels, *, minor=False, **kwargs):
+        """Set the zaxis' tick labels (`.Axis.set_ticklabels`)."""
+        return self.zaxis.set_ticklabels(labels, minor=minor, **kwargs)
+
     def has_data(self):
         """Return whether any artists have been added to the Axes."""
-        return bool(self.lines or self.collections or self.patches)
+        return _mplot3d.has_data(self._native)
+
+    def auto_scale_xyz(self, X, Y, Z=None, had_data=None):
+        """
+        Include the data *X*, *Y* (and *Z*) in the data limits, replacing
+        them unless *had_data*, and autoscale the view.
+        """
+        def values(data):
+            return np.ma.filled(np.ma.asarray(data, dtype=float), np.nan).ravel()
+        _mplot3d.auto_scale_xyz(
+            self._native,
+            (values(X), values(Y), None if Z is None else values(Z)),
+            bool(had_data))
 
     # -- limits ------------------------------------------------------------
 
@@ -304,6 +356,16 @@ class Axes3D(Axes):
 
     # -- autoscaling -------------------------------------------------------
 
+    @property
+    def _view_margin(self):
+        """The padding of autoscaled limits, and of limits set under
+        :rc:`axes3d.automargin`, as a fraction of their span."""
+        return _mplot3d.get_view_margin(self._native)
+
+    @_view_margin.setter
+    def _view_margin(self, margin):
+        _mplot3d.set_view_margin(self._native, float(margin))
+
     def get_autoscale_on(self):
         """Return True if each axis is autoscaled, False otherwise."""
         return all(_mplot3d.get_autoscale_on(self._native, name)
@@ -414,8 +476,10 @@ class Axes3D(Axes):
         if isinstance(value, mscale.ScaleBase):
             raise NotImplementedError("pltrs: a scale object on 3-D axes")
         scale_cls = _api.getitem_checked(mscale._scale_mapping, scale=value)
-        scale_cls(None, **kwargs)
+        axis = getattr(self, f'{name}axis')
+        scale = scale_cls(axis, **kwargs)
         _mplot3d.set_scale(self._native, name, value, kwargs)
+        axis._scale = scale
 
     def set_xscale(self, value, **kwargs):
         """Set the x-axis scale."""
@@ -532,6 +596,8 @@ class Axes3D(Axes):
         """The x:y:z ratio of the box edges (matplotlib's attribute)."""
         return self.get_box_aspect()
 
+    @_api.delete_parameter("3.11", "share")
+    @_api.delete_parameter("3.11", "anchor")
     def set_aspect(self, aspect, adjustable=None, anchor=None, share=False):
         """
         Set the aspect ratios.
@@ -540,18 +606,29 @@ class Axes3D(Axes):
         ----------
         aspect : {'auto', 'equal', 'equalxy', 'equalxz', 'equalyz'}
         adjustable : {'box', 'datalim'}, default: 'box'
+        anchor : None or str or 2-tuple of float, optional
+            .. deprecated:: 3.11
+                This parameter has no effect.
+        share : bool, default: False
+            .. deprecated:: 3.11
+                This parameter has no effect.
         """
-        if anchor is not None or share:
-            _api.warn_deprecated(
-                "3.11", name="anchor and share",
-                message="The 'anchor' and 'share' parameters of "
-                        "Axes3D.set_aspect have no effect and are deprecated.")
-        _api.check_in_list(('auto', 'equal', 'equalxy', 'equalyz', 'equalxz'),
-                           aspect=aspect)
         if adjustable is None:
             adjustable = 'box'
         _api.check_in_list(['box', 'datalim'], adjustable=adjustable)
+        _api.check_in_list(('auto', 'equal', 'equalxy', 'equalyz', 'equalxz'),
+                           aspect=aspect)
         _mplot3d.set_aspect(self._native, aspect, adjustable)
+
+    def get_aspect(self):
+        """Return the aspect: 'auto', 'equal', 'equalxy', 'equalxz' or
+        'equalyz'."""
+        return _mplot3d.get_aspect(self._native)[0]
+
+    def get_adjustable(self):
+        """Return whether the box ('box') or the data limits ('datalim')
+        keep the aspect."""
+        return _mplot3d.get_aspect(self._native)[1]
 
     def get_proj(self):
         """Create the projection matrix from the current viewing position."""
@@ -571,6 +648,62 @@ class Axes3D(Axes):
     def computed_zorder(self, computed):
         self._computed_zorder = bool(computed)
         _mplot3d.set_computed_zorder(self._native, bool(computed))
+
+    def sharez(self, other):
+        """
+        Share the z-axis with *other*.
+
+        This is equivalent to passing ``sharez=other`` when constructing the
+        Axes, and cannot be used if the z-axis is already being shared with
+        another Axes.  Note that it is not possible to unshare axes.
+        """
+        _api.check_isinstance(Axes3D, other=other)
+        _mplot3d.share(self._native, 'z', other._native)
+
+    def shareview(self, other):
+        """
+        Share the view angles with *other*.
+
+        This is equivalent to passing ``shareview=other`` when constructing the
+        Axes, and cannot be used if the view angles are already being shared
+        with another Axes.  Note that it is not possible to unshare axes.
+        """
+        _api.check_isinstance(Axes3D, other=other)
+        _mplot3d.share(self._native, 'view', other._native)
+        self.__dict__['_vertical_axis_name'] = other._axis_names[
+            other._vertical_axis]
+
+    def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
+                      bbox_extra_artists=None, for_layout_only=False):
+        # docstring inherited
+        from pltrs.transforms import Bbox
+        extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
+        if extent is None:
+            return None
+        x0, y0, x1, y1 = extent
+        boxes = [Bbox([[x0, y0], [x1, y1]])]
+        for artist in bbox_extra_artists or ():
+            bbox = artist.get_tightbbox(renderer)
+            if (bbox is not None and 0 < bbox.width < np.inf
+                    and 0 < bbox.height < np.inf):
+                boxes.append(bbox)
+        return Bbox.union(boxes)
+
+    def get_axis_position(self):
+        """Return whether the x, y and z axes are drawn on their high side."""
+        return _mplot3d.get_axis_position(self._native)
+
+    def _calc_coord(self, xv, yv, renderer=None):
+        """
+        Given the 2D view coordinates, find the point on the nearest axis pane
+        that lies directly below those coordinates. Returns a 3D point in data
+        coordinates.
+        """
+        found = _mplot3d.calc_coord(self._native, float(xv), float(yv))
+        if found is None:
+            raise np.linalg.LinAlgError("Singular matrix")
+        point, pane_idx = found
+        return np.array(point), pane_idx
 
     def disable_mouse_rotation(self):
         """Disable mouse buttons for 3D rotation, panning, and zooming."""
@@ -597,6 +730,17 @@ class Axes3D(Axes):
         return _mplot3d.format_data(self._native, 'z', float(z)) or ""
 
     # -- decorations -------------------------------------------------------
+
+    def axis(self, arg=None, /, *, emit=True, **kwargs):
+        # docstring inherited
+        if isinstance(arg, (str, bool)) and str(arg).lower() in (
+                'on', 'off', 'true', 'false'):
+            if str(arg).lower() in ('on', 'true'):
+                self.set_axis_on()
+            else:
+                self.set_axis_off()
+            arg = None
+        return super().axis(arg, emit=emit, **kwargs)
 
     def set_axis_off(self):
         """Hide the panes, axis lines, ticks and gridlines."""
@@ -814,30 +958,18 @@ class Axes3D(Axes):
             Whether to hide the scatter points outside the axes view limits.
         """
         if not isinstance(col, art3d._Loose3D):
-            self._lift_collection(col, zs, zdir)
+            _api.check_in_list(self._axis_names, zdir=zdir)
+            zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan)
+            if isinstance(col, mcoll.PolyCollection):
+                art3d.poly_collection_2d_to_3d(col, zs=zs, zdir=zdir)
+            elif isinstance(col, mcoll.LineCollection):
+                art3d.line_collection_2d_to_3d(col, zs=zs, zdir=zdir)
+            elif isinstance(col, mcoll.PatchCollection):
+                art3d.patch_collection_2d_to_3d(col, zs=zs, zdir=zdir)
+            else:
+                raise NotImplementedError(
+                    f"pltrs: add_collection3d of a {type(col).__name__}")
         return col._adopt_into(self, autolim, axlim_clip)
-
-    def _lift_collection(self, col, zs, zdir):
-        """Give the loose 2-D polygon or line collection *col* 3-D
-        vertices: its paths in the plane at *zs* along *zdir*
-        (matplotlib's ``poly_collection_2d_to_3d`` and
-        ``line_collection_2d_to_3d``)."""
-        _api.check_in_list(self._axis_names, zdir=zdir)
-        paths = col.get_paths()
-        zs = np.broadcast_to(np.asarray(zs, dtype=float), (len(paths),))
-        lifted = [np.column_stack(art3d.juggle_axes(
-            path.vertices[:, 0], path.vertices[:, 1],
-            np.full(len(path.vertices), z), zdir)) for path, z in zip(paths, zs)]
-        if isinstance(col, mcoll.PolyCollection):
-            col.__class__ = art3d.Poly3DCollection
-            col._zsort = 'average'
-        elif isinstance(col, mcoll.LineCollection):
-            col.__class__ = art3d.Line3DCollection
-        else:
-            raise NotImplementedError(
-                f"pltrs: add_collection3d of a {type(col).__name__}")
-        col._verts3d_pending = lifted
-        col._axlim_clip = False
 
     def add_collection(self, collection, autolim=True):
         # docstring inherited
@@ -883,14 +1015,7 @@ class Axes3D(Axes):
         _api.check_in_list(self._axis_names, zdir=zdir)
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         props = {k: v for k, v in kwargs.items() if v is not None}
-        xs, ys, zs = (np.asarray(a) for a in (xs, ys, zs))
-        if xs.ndim > 1 or ys.ndim > 1:
-            columns = np.broadcast_arrays(*(np.atleast_2d(a.T).T
-                                            for a in (xs, ys, zs)))
-            return [line for i in range(columns[0].shape[1])
-                    for line in self.plot(*(c[:, i] for c in columns), fmt,
-                                          zdir=zdir, axlim_clip=axlim_clip,
-                                          **props)]
+        xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
         native = _mplot3d.plot(self._native, _floats(xs, ys, zs), zdir, fmt,
                                mlines._native_kwargs(props), bool(axlim_clip))
         return [wrap(self, native, art3d.Line3D)]
@@ -946,14 +1071,14 @@ class Axes3D(Axes):
             c, edgecolors, kwargs, xs.size,
             get_next_color_func=self._next_patch_color)
         marker_obj = marker if isinstance(marker, MarkerStyle) else MarkerStyle(marker)
+        made = None
         if colors is None:
+            made, mapping = _mapping(cmap, norm, vmin, vmax)
             faces = (None, (np.ma.filled(np.ma.asarray(c, dtype=float),
-                                         np.nan).ravel(),
-                            _mapping(cmap, norm, vmin, vmax)))
+                                         np.nan).ravel(), mapping))
         else:
             faces = (np.asarray(colors, dtype=float).reshape(-1, 4), None)
         if edgecolors is not None and not cbook._str_equal(edgecolors, 'face'):
-            from pltrs import colors as mcolors
             edgecolors = mcolors.to_rgba_array(edgecolors)
         if linewidths is not None:
             linewidths = [float(lw) for lw in np.atleast_1d(linewidths)]
@@ -971,6 +1096,8 @@ class Axes3D(Axes):
              None if depthshade_minalpha is None
              else float(depthshade_minalpha), bool(axlim_clip)))
         collection = wrap(self, native, art3d.Path3DCollection)
+        if made is not None:
+            collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
         return collection
 
@@ -1009,8 +1136,7 @@ class Axes3D(Axes):
         """
         if Z.ndim != 2:
             raise ValueError("Argument Z must be 2-dimensional.")
-        if lightsource is not None:
-            raise NotImplementedError("pltrs: plot_surface(lightsource=...)")
+        Z = cbook._to_unmasked_float_array(Z)
         X, Y, Z = np.broadcast_arrays(X, Y, Z)
         sampling = _sampling(kwargs.pop('rstride', None),
                              kwargs.pop('cstride', None),
@@ -1018,18 +1144,23 @@ class Axes3D(Axes):
                              kwargs.pop('ccount', None))
         color = kwargs.pop('color', None)
         cmap = kwargs.pop('cmap', None)
+        fcolors = kwargs.pop('facecolors', None)
+        if 'shade' in kwargs and kwargs['shade'] is None:
+            raise ValueError("shade cannot be None.")
         shade = kwargs.pop('shade', None)
-        if kwargs.get('facecolors') is not None:
-            raise NotImplementedError("pltrs: plot_surface(facecolors=...)")
-        mapping = (None if cmap is None and norm is None
-                   else _mapping(cmap, norm, vmin, vmax))
+        if fcolors is not None:
+            fcolors = mcolors.to_rgba_array(
+                np.reshape(fcolors, (-1,) + np.shape(fcolors)[2:])
+            ).reshape(Z.shape + (4,))
+        made, mapping = _surface_mapping(cmap, norm, vmin, vmax)
         grids = tuple(np.ascontiguousarray(np.ma.filled(
             np.ma.asarray(a, dtype=float), np.nan)) for a in (X, Y, Z))
         native = _mplot3d.plot_surface(
-            self._native, grids, sampling,
-            (color, mapping, None if shade is None else bool(shade)),
-            bool(axlim_clip))
+            self._native, grids, sampling, (color, mapping, fcolors),
+            _shading(shade, lightsource), bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
+        if made is not None:
+            collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
         return collection
 
@@ -1093,10 +1224,9 @@ class Axes3D(Axes):
         -------
         `.Text3D`
         """
-        if zdir is not None and not isinstance(zdir, str):
-            raise NotImplementedError("pltrs: text(zdir=<a vector>)")
+        direction = tuple(map(float, art3d.get_dir_vector(zdir)))
         native = _mplot3d.text(self._native, (float(x), float(y), float(z)),
-                               str(s), zdir)
+                               str(s), direction, bool(axlim_clip))
         text = wrap(self, native, art3d.Text3D)
         text._internal_update(kwargs)
         return text
@@ -1138,15 +1268,14 @@ class Axes3D(Axes):
         if args:
             raise NotImplementedError("pltrs: positional arguments after "
                                       "lightsource in Axes3D.bar3d")
-        if zsort != 'average' or lightsource is not None:
-            raise NotImplementedError(
-                "pltrs: bar3d(zsort=..., lightsource=...)")
-        from pltrs import colors as mcolors
+        _api.check_in_list(['average', 'min', 'max'], zsort=zsort)
         columns = tuple(np.atleast_1d(np.asarray(v, dtype=float)).ravel().tolist()
                         for v in (x, y, z, dx, dy, dz))
         colors = None if color is None else mcolors.to_rgba_array(color)
         native = _mplot3d.bar3d(self._native, (columns[:3], columns[3:]),
-                                colors, bool(shade), bool(axlim_clip))
+                                (colors, zsort),
+                                _shading(bool(shade), lightsource),
+                                bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
         collection._internal_update(kwargs)
         return collection
@@ -1178,17 +1307,20 @@ class Axes3D(Axes):
             :class:`.LineCollection`
         """
         _api.check_in_list(['tail', 'middle', 'tip'], pivot=pivot)
-        arrays = np.broadcast_arrays(*(np.ma.asarray(a, dtype=float)
-                                       for a in (X, Y, Z, U, V, W)))
-        arrays = [np.ma.ravel(a) for a in arrays]
-        keep = ~np.any([np.ma.getmaskarray(a) for a in arrays], axis=0)
-        x, y, z, u, v, w = (np.asarray(a)[keep] for a in arrays)
+        input_args = [X, Y, Z, U, V, W]
+        masks = [np.ma.getmaskarray(a) for a in input_args
+                 if isinstance(a, np.ma.MaskedArray)]
+        broadcast = np.broadcast_arrays(*input_args, *masks)
+        arrays = [np.asarray(a, dtype=float).ravel() for a in broadcast[:6]]
+        keep = np.ones(arrays[0].size, dtype=bool)
+        for mask in broadcast[6:]:
+            keep &= ~mask.ravel()
+        x, y, z, u, v, w = (a[keep] for a in arrays)
         kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
         color = kwargs.pop('color', None)
         colors = kwargs.pop('colors', None)
         if colors is None and color is not None and np.ndim(color) == 2:
             color, colors = None, color
-        from pltrs import colors as mcolors
         native = _mplot3d.quiver(
             self._native,
             (np.column_stack([x, y, z]), np.column_stack([u, v, w])),
@@ -1228,8 +1360,6 @@ class Axes3D(Axes):
         `.Poly3DCollection`
         """
         from pltrs.tri._triangulation import Triangulation
-        if lightsource is not None:
-            raise NotImplementedError("pltrs: plot_trisurf(lightsource=...)")
         tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
         try:
             z = kwargs.pop('Z')
@@ -1238,18 +1368,18 @@ class Axes3D(Axes):
             z, *args = args
         cmap = kwargs.pop('cmap', None)
         shade = kwargs.pop('shade', None)
-        mapping = (None if cmap is None and norm is None
-                   else _mapping(cmap, norm, vmin, vmax))
+        made, mapping = _surface_mapping(cmap, norm, vmin, vmax)
         native = _mplot3d.plot_trisurf(
             self._native,
             (np.asarray(tri.x, dtype=float).tolist(),
              np.asarray(tri.y, dtype=float).tolist(),
              [tuple(map(int, t)) for t in tri.triangles],
              None if tri.mask is None else tri.mask.tolist()),
-            np.asarray(z, dtype=float).ravel().tolist(),
-            (color, mapping, None if shade is None else bool(shade)),
-            bool(axlim_clip))
+            np.asarray(z, dtype=float).ravel().tolist(), (color, mapping),
+            _shading(shade, lightsource), bool(axlim_clip))
         collection = wrap(self, native, art3d.Poly3DCollection)
+        if made is not None:
+            collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
         return collection
 

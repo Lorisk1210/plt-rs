@@ -124,10 +124,10 @@ impl Figure {
             ColorbarAxes::FromMappable => {
                 Parents::One(Parent::of(mappable.axes().ok_or(ColorbarError::NoAxes)?))
             }
-            ColorbarAxes::Parent(ax) => Parents::One(Parent::Axes(ax)),
+            ColorbarAxes::Parent(ax) => Parents::One(Parent::of(ax)),
             ColorbarAxes::Parents(axes) if axes.is_empty() => return Err(ColorbarError::NoAxes),
             ColorbarAxes::Parents(axes) => {
-                Parents::Many(axes.into_iter().map(Parent::Axes).collect())
+                Parents::Many(axes.into_iter().map(Parent::of).collect())
             }
         };
         // matplotlib makes room in the figure of the (first) parent, even

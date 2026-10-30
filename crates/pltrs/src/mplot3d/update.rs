@@ -7,10 +7,12 @@
 //! leaves the limits alone.
 
 use super::art3d::{Art3D, Artist3D};
+use super::coords::Axis3;
 use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::plot::columns;
+use super::state::Axes3DState;
 use super::units::Sources3D;
 use crate::artist::ArtistHandle;
 use crate::collections::Collection;
@@ -166,6 +168,38 @@ impl Axes3D {
             Art3D::Text { position, .. } => Some(*position),
             _ => None,
         })
+    }
+
+    /// Projects a 3-D artist of these axes onto its 2-D artist in the
+    /// current view and returns its depth, the projected z of its nearest
+    /// point (NaN without points, and for lines and texts, which keep
+    /// their own z-order; matplotlib's `do_3d_projection`).
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionProps;
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let empty = ax.add_poly_collection3d(Vec::new(), CollectionProps::default(), false)?;
+    /// assert!(ax.do_3d_projection(&empty)?.is_nan());
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `artist` is not a 3-D artist of these axes.
+    pub fn do_3d_projection(&self, artist: &impl ArtistHandle) -> Result<f64, Axes3DError> {
+        let id = self.own_id(artist).ok_or(Axes3DError::Not3DArtist)?;
+        let depth = self.raw().with_others::<Axes3DState, _>(|axes, store| {
+            let entry = axes.artists.iter().find(|a| a.id == id)?;
+            let projection = axes.projection();
+            let projection = if entry.axlim_clip {
+                projection.hiding_outside(Axis3::ALL.map(|axis| axes.limits.bound(axis)))
+            } else {
+                projection
+            };
+            entry.art.project(id, store, &projection)
+        });
+        depth.ok_or(Axes3DError::Not3DArtist)
     }
 
     /// Reads the 3-D geometry of `artist` with `read`.

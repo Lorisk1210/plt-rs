@@ -178,9 +178,11 @@ impl Axes3DState {
     pub(crate) fn prepare(&mut self, store: &mut ArtistStore, extent: &Bbox, dpi: f64) {
         self.artists.retain(|artist| store.contains(artist.id));
         let width_points = extent.width().abs() / dpi * 72.0;
+        // matplotlib reads `axes3d.automargin` when the ticks are drawn.
+        let automargin = crate::rc::params().axes3d_automargin;
         for dir in Axis3::ALL {
             let span = self.limits.span(dir);
-            self.axes[dir.index()].update_ticks(&span, width_points, self.limits.automargin);
+            self.axes[dir.index()].update_ticks(&span, width_points, automargin);
         }
         let projection = self.projection();
         let hiding = projection

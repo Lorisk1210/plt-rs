@@ -3,6 +3,7 @@
 //! `_get_coord_info`, `_calc_centers_deltas`, `_get_axis_line_edge_points`,
 //! `_get_tickdir` and `get_axis_position`).
 
+use super::axis_handle::Axis3D;
 use super::camera::{Camera, Projection};
 use super::coords::{Axis3, roll};
 use super::handle::Axes3D;
@@ -241,6 +242,48 @@ impl Axes3D {
             let deeper = |k: usize| corners[k][2] > corners[2][2];
             [deeper(1), deeper(3), deeper(0)]
         })
+    }
+}
+
+impl Axis3D {
+    /// The end points of the axis line in projected coordinates, as their
+    /// x and y coordinates, along the last edge the tick position names in
+    /// the current view (matplotlib's `axis.line.get_data()` once drawn);
+    /// `None` when the tick position is `none`.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.view_init(0.0, 0.0, 0.0);
+    /// let (xs, ys) = ax.zaxis().line_data().expect("a line");
+    /// // matplotlib: ([-0.06329114, -0.06329114], [-0.04746835, 0.04746835]).
+    /// assert!((xs[0] + 0.063_291_14).abs() < 1e-8 && (xs[1] - xs[0]).abs() < 1e-12);
+    /// assert!((ys[0] + 0.047_468_35).abs() < 1e-8 && (ys[1] - 0.047_468_35).abs() < 1e-8);
+    /// ```
+    pub fn line_data(&self) -> Option<([f64; 2], [f64; 2])> {
+        self.axes.with(|axes| {
+            let position = *axes.axis(self.dir).tick_position.edges().last()?;
+            let projection = axes.projection();
+            let geometry = BoxGeometry::new(axes.scaled_limits(), &projection);
+            let ends = geometry.axis_line(self.dir, axes.camera.vertical, position);
+            let q = projection.project_transformed_all(&ends);
+            Some(([q[0][0], q[1][0]], [q[0][1], q[1][1]]))
+        })
+    }
+
+    /// The coordinate (0 for x, 1 for y, 2 for z) the tick marks extend
+    /// along on the edge `position` in the current view (matplotlib's
+    /// `_get_tickdir`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::AxisPosition;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert_eq!(ax.xaxis().tick_direction(AxisPosition::Default), 1);
+    /// ```
+    pub fn tick_direction(&self, position: AxisPosition) -> usize {
+        self.axes
+            .with(|axes| tick_direction(self.dir, &axes.camera, position))
     }
 }
 

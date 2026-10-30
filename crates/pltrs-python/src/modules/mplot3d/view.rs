@@ -51,10 +51,50 @@ fn set_box_aspect(axes: Axes3D, aspect: Option<(f64, f64, f64)>, zoom: f64) -> P
     Ok(())
 }
 
-/// The x:y:z ratio of the box edges (`get_box_aspect`).
+/// The ratio of the box edges as matplotlib keeps it, the vertical axis
+/// last (`get_box_aspect`, `_box_aspect`).
 fn get_box_aspect(axes: Axes3D) -> PyResult<(f64, f64, f64)> {
-    let [x, y, z] = axes.box_aspect();
+    let [x, y, z] = axes.stored_box_aspect();
     Ok((x, y, z))
+}
+
+/// Whether the x, y and z axes are drawn on their high side in the
+/// current view (`get_axis_position`).
+fn get_axis_position(axes: Axes3D) -> PyResult<(bool, bool, bool)> {
+    let [x, y, z] = axes.axis_highs();
+    Ok((x, y, z))
+}
+
+/// A point of a pane in data coordinates and the index of the axis the
+/// pane is normal to.
+type PanePoint = ((f64, f64, f64), usize);
+
+/// The point of the pane under projected point `(xv, yv)`, in data
+/// coordinates, and the index of the axis the pane is normal to
+/// (`_calc_coord`); `None` when the view cannot be inverted.
+fn calc_coord(axes: Axes3D, xv: f64, yv: f64) -> PyResult<Option<PanePoint>> {
+    Ok(axes
+        .pane_point(xv, yv)
+        .map(|([x, y, z], pane)| ((x, y, z), pane.index())))
+}
+
+/// The tight bounding box of the axes in display coordinates, `(x0, y0,
+/// x1, y1)`, or `None` for an invisible axes (`get_tightbbox`).
+fn tightbbox(axes: Axes3D, for_layout_only: bool) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(axes
+        .tight_bbox(for_layout_only)
+        .map(|b| (b.x0(), b.y0(), b.x1(), b.y1())))
+}
+
+/// Shares axis `name` (`"x"`, `"y"`, `"z"`) or, for `"view"`, the view
+/// angles with `other` (`sharex`, `sharey`, `sharez`, `shareview`).
+fn share(axes: Axes3D, name: String, other: Axes3D) -> PyResult<()> {
+    if name == "view" {
+        axes.share_view(&other)?;
+    } else {
+        axes.share_axis(axis3(&name)?, &other)?;
+    }
+    Ok(())
 }
 
 /// Sets the aspect (`"auto"`, `"equal"`, `"equalxy"`, `"equalxz"`,
@@ -73,6 +113,24 @@ fn set_aspect(axes: Axes3D, aspect: String, adjustable: String) -> PyResult<()> 
     };
     axes.set_aspect(aspect.parse::<Aspect3D>()?, adjustable)?;
     Ok(())
+}
+
+/// The aspect (`"auto"`, `"equal"`, `"equalxy"`, `"equalxz"` or
+/// `"equalyz"`) and what keeps it (`"box"` or `"datalim"`; `get_aspect`,
+/// `get_adjustable`).
+fn get_aspect(axes: Axes3D) -> PyResult<(&'static str, &'static str)> {
+    let aspect = match axes.aspect() {
+        Aspect3D::Auto => "auto",
+        Aspect3D::Equal => "equal",
+        Aspect3D::EqualXY => "equalxy",
+        Aspect3D::EqualXZ => "equalxz",
+        Aspect3D::EqualYZ => "equalyz",
+    };
+    let adjustable = match axes.adjustable() {
+        Adjustable::Box => "box",
+        Adjustable::Datalim => "datalim",
+    };
+    Ok((aspect, adjustable))
 }
 
 /// The label of axis `name` (`get_zlabel`, ...).
@@ -202,7 +260,12 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_proj_type", set_proj_type)?;
     module.add("set_box_aspect", set_box_aspect)?;
     module.add("get_box_aspect", get_box_aspect)?;
+    module.add("get_axis_position", get_axis_position)?;
+    module.add("calc_coord", calc_coord)?;
+    module.add("share", share)?;
+    module.add("tightbbox", tightbbox)?;
     module.add("set_aspect", set_aspect)?;
+    module.add("get_aspect", get_aspect)?;
     module.add("get_label", get_label)?;
     module.add("set_label", set_label)?;
     module.add("set_axis_on", set_axis_on)?;

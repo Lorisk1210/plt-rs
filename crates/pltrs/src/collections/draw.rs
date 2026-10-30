@@ -25,11 +25,14 @@ pub(super) struct Geometry {
 }
 
 impl Geometry {
+    /// The geometry of `shapes` in the coordinates of `transform`, placed
+    /// at `offsets` (in data order for picking, in drawing order for a
+    /// draw).
     pub(super) fn new(
         c: &CollectionArtist,
         layout: LayoutContext<'_>,
-        shapes: &[Path],
-        transform: &Transform,
+        (shapes, transform): (&[Path], &Transform),
+        offsets: &[Point],
     ) -> Result<Self, String> {
         let resolved = layout
             .resolve(transform)
@@ -74,7 +77,7 @@ impl Geometry {
                 } else {
                     ResolvedTransform::transform_point
                 };
-                c.offsets.iter().map(|&p| place(&r, p)).collect()
+                offsets.iter().map(|&p| place(&r, p)).collect()
             }
             None => vec![Point::ORIGIN],
         };
@@ -142,7 +145,7 @@ impl Batch {
             master,
             transforms,
             offsets,
-        } = Geometry::new(c, *ctx.layout(), shapes, transform)?;
+        } = Geometry::new(c, *ctx.layout(), (shapes, transform), c.drawn_offsets())?;
         let (faces, edges) = resolve_colors(c)?;
         let gaps = resolve_gap_colors(c)?;
         let rc = c.rc();

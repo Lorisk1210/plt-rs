@@ -12,6 +12,7 @@ use pltrs::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use pltrs::collections::CollectionPatch;
 use pltrs::colors::{Color, ColorError};
 use pltrs::inset::InsetIndicator;
+use pltrs::mplot3d::{ProjectedOutline, ProjectedPath};
 use pltrs::patches::{
     Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
     FancyArrowPatch, FancyBboxPatch, Patch, PatchColors, PatchProps, PatchShape, PatchStyle,
@@ -46,6 +47,8 @@ artist_handle!(
     Patch<FancyBboxPatch>,
     Patch<FancyArrowPatch>,
     Patch<ConnectionPatch>,
+    Patch<ProjectedOutline>,
+    Patch<ProjectedPath>,
 );
 
 /// What every patch handle does, whatever its shape (matplotlib's `Patch`
@@ -163,6 +166,7 @@ impl FromPy<'_> for AnyPatch {
             CirclePolygon, StepPatch, FancyArrow, Arrow, Arc, Annulus, FancyBboxPatch,
             FancyArrowPatch, ConnectionPatch,
             BboxPatch, BboxConnector, BboxConnectorPatch, InsetIndicator,
+            ProjectedOutline, ProjectedPath,
         )
         .map(Self)
         .ok_or_else(|| PyErr::type_error("expected a native patch handle"))

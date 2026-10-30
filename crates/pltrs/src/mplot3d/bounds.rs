@@ -32,8 +32,8 @@ impl Axes3D {
     /// Sets the view limits of one axis, in axis numbers, and turns its
     /// autoscaling off; `low > high` inverts the axis, and the axes
     /// sharing it follow (matplotlib's `set_xlim`). With
-    /// `axes3d.automargin` (set when the axes were made) the limits are
-    /// widened by 1/48 of their span on either side.
+    /// `axes3d.automargin` set at the time, the limits are widened by the
+    /// [view margin](Axes3D::view_margin) on either side.
     ///
     /// # Errors
     ///
@@ -285,6 +285,36 @@ impl Axes3D {
     pub fn set_axis_autoscale_on(&self, axis: Axis3, on: bool) -> &Self {
         self.with_mut(|axes| axes.limits.autoscale[axis.index()] = on);
         self
+    }
+
+    /// The padding added on both sides of autoscaled limits, and of
+    /// explicit limits under `axes3d.automargin`, as a fraction of their
+    /// span: 1/48 unless changed (matplotlib's `_view_margin`).
+    pub fn view_margin(&self) -> f64 {
+        self.with(|axes| axes.limits.view_margin)
+    }
+
+    /// Sets the [view margin](Axes3D::view_margin); it applies from the
+    /// next autoscaling or setting of limits on.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_view_margin(0.0)?;
+    /// ax.set_margins([Some(0.0); 3], None)?;
+    /// ax.plot(&[0.0, 1.0], &[0.0, 2.0], &[0.0, 3.0])?;
+    /// assert_eq!(ax.view_margin(), 0.0);
+    /// assert_eq!(ax.zlim(), (0.0, 3.0));
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the margin is infinite or NaN.
+    pub fn set_view_margin(&self, margin: f64) -> Result<&Self, Axes3DError> {
+        check_view_margin(Some(margin))?;
+        self.with_mut(|axes| axes.limits.view_margin = margin);
+        Ok(self)
     }
 
     /// Sets the autoscaling margin of one axis as a fraction of the data

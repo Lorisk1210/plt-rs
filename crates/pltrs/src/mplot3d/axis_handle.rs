@@ -365,6 +365,12 @@ impl Axis3D {
         self
     }
 
+    /// Whether the axis line is drawn (matplotlib's
+    /// `axis.line.get_visible`).
+    pub fn line_visible(&self) -> bool {
+        self.axes.with(|axes| axes.axis(self.dir).line_visible)
+    }
+
     /// Chooses the box edges carrying the axis line, tick marks, tick
     /// labels and offset text (matplotlib's `set_ticks_position`).
     ///
@@ -499,7 +505,7 @@ mod tests {
         }
         assert_eq!(ax.zaxis().ticks_position(), AxisPosition::None);
         assert_eq!(ax.zaxis().label_position(), AxisPosition::Upper);
-        assert!(!ax.with(|axes| axes.axis(Axis3::Z).line_visible));
+        assert!(!ax.zaxis().line_visible());
         // Without tick labels the axes take less room.
         let hidden = fig.tight_bbox();
         assert!(hidden.width() < shown.width(), "{hidden:?} vs {shown:?}");

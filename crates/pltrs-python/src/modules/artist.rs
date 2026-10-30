@@ -8,6 +8,7 @@ use pltrs::artist::{
 };
 use pltrs::axes::{AddAs, Axes};
 use pltrs::figure::Figure;
+use pltrs::mplot3d::Axes3D;
 use pltrs_render::Sketch;
 
 use crate::binding::prelude::*;
@@ -99,9 +100,13 @@ fn parent_figure(artist: RawHandle) -> PyResult<Figure> {
     Ok(artist.parent_figure())
 }
 
-/// The axes the artist is drawn in, if any (`artist.axes`).
+/// The axes the artist is drawn in, if any (`artist.axes`): for the
+/// artists of a 3-D axes, its projection plane, which stands for the
+/// `Axes3D` in Python.
 fn axes(artist: RawHandle) -> PyResult<Option<Axes>> {
-    Ok(artist.axes())
+    Ok(artist
+        .axes()
+        .or_else(|| Axes3D::of_artist(&artist).map(|ax| ax.projection_plane())))
 }
 
 /// The artist's id in its figure: how pltrs's Python classes find the

@@ -151,25 +151,7 @@ impl Axes3D {
         zdir: Axis3,
         sort_zpos: f64,
     ) -> Result<Collection, Axes3DError> {
-        if artist.offset_transform.is_none() {
-            artist.offsets = vec![Point::ORIGIN];
-            artist.offset_transform = Some(Transform::Display);
-        }
-        let offsets = &artist.offsets;
-        let n = match (offsets.len(), zs.len()) {
-            (1, count) | (count, 1) => count,
-            (count, z_count) => {
-                check_len("zs", count, z_count)?;
-                count
-            }
-        };
-        let pick = |len: usize, i: usize| if len == 1 { 0 } else { i };
-        let positions = (0..n)
-            .map(|i| {
-                let offset = offsets[pick(offsets.len(), i)];
-                zdir.juggle([offset.x, offset.y, zs[pick(zs.len(), i)]])
-            })
-            .collect();
+        let positions = patch_positions(&mut artist, zs, zdir)?;
         let rc = crate::rc::params();
         let raw = self.adopt_projected(artist);
         let points = Points3D {
@@ -286,6 +268,36 @@ impl Axes3D {
         let [xs, ys, zs] = columns(points);
         self.auto_scale_xyz(&xs, &ys, Some(&zs), had_data)
     }
+}
+
+/// The 3-D positions of the patches of a patch collection: its offsets
+/// (the origin of the display when it has none, as matplotlib's identity
+/// offset transform) placed at `zs` along `zdir`, the two broadcast as
+/// numpy arrays do (matplotlib's `Patch3DCollection.set_3d_properties`).
+pub(crate) fn patch_positions(
+    artist: &mut CollectionArtist,
+    zs: &[f64],
+    zdir: Axis3,
+) -> Result<Vec<Vec3>, Axes3DError> {
+    if artist.offset_transform.is_none() {
+        artist.offsets = vec![Point::ORIGIN];
+        artist.offset_transform = Some(Transform::Display);
+    }
+    let offsets = &artist.offsets;
+    let n = match (offsets.len(), zs.len()) {
+        (1, count) | (count, 1) => count,
+        (count, z_count) => {
+            check_len("zs", count, z_count)?;
+            count
+        }
+    };
+    let pick = |len: usize, i: usize| if len == 1 { 0 } else { i };
+    Ok((0..n)
+        .map(|i| {
+            let offset = offsets[pick(offsets.len(), i)];
+            zdir.juggle([offset.x, offset.y, zs[pick(zs.len(), i)]])
+        })
+        .collect())
 }
 
 #[cfg(test)]

@@ -92,6 +92,47 @@ fn get_label_position(axes: Axes3D, name: String) -> PyResult<&'static str> {
     Ok(position_name(axes.axis(axis3(&name)?).label_position()))
 }
 
+/// The x and y coordinates of the two ends of a line.
+type LineEnds = ((f64, f64), (f64, f64));
+
+/// The projected end points of the line of axis `name`, as x and y
+/// coordinates; `None` for the tick position `none` (`axis.line`).
+fn axis_line_data(axes: Axes3D, name: String) -> PyResult<Option<LineEnds>> {
+    Ok(axes
+        .axis(axis3(&name)?)
+        .line_data()
+        .map(|([x0, x1], [y0, y1])| ((x0, x1), (y0, y1))))
+}
+
+/// Shows or hides the line of axis `name` (`axis.line.set_visible`).
+fn set_line_visible(axes: Axes3D, name: String, visible: bool) -> PyResult<()> {
+    axes.axis(axis3(&name)?).set_line_visible(visible);
+    Ok(())
+}
+
+/// Whether the line of axis `name` is drawn (`axis.line.get_visible`).
+fn get_line_visible(axes: Axes3D, name: String) -> PyResult<bool> {
+    Ok(axes.axis(axis3(&name)?).line_visible())
+}
+
+/// The coordinate the tick marks of axis `name` extend along on the edge
+/// called `edge` (`_get_tickdir`).
+fn tick_direction(axes: Axes3D, name: String, edge: String) -> PyResult<usize> {
+    Ok(axes.axis(axis3(&name)?).tick_direction(position(&edge)?))
+}
+
+/// Labels the major (or `minor`) ticks of axis `name` with `labels`
+/// (`set_ticklabels`).
+fn set_ticklabels(axes: Axes3D, name: String, labels: Vec<String>, minor: bool) -> PyResult<()> {
+    let axis = axes.axis(axis3(&name)?);
+    if minor {
+        axis.set_minor_ticklabels(labels)?;
+    } else {
+        axis.set_ticklabels(labels)?;
+    }
+    Ok(())
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_formatter", set_formatter)?;
@@ -100,7 +141,12 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_ticks_position", set_ticks_position)?;
     module.add("get_ticks_position", get_ticks_position)?;
     module.add("set_label_position", set_label_position)?;
-    module.add("get_label_position", get_label_position)
+    module.add("get_label_position", get_label_position)?;
+    module.add("axis_line_data", axis_line_data)?;
+    module.add("set_line_visible", set_line_visible)?;
+    module.add("get_line_visible", get_line_visible)?;
+    module.add("tick_direction", tick_direction)?;
+    module.add("set_ticklabels", set_ticklabels)
 }
 
 #[cfg(test)]

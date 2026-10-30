@@ -71,7 +71,7 @@ type Generation = (Option<bool>, usize, Option<String>);
 
 /// The look: `(colors, (cmap, norm, vmin, vmax), alpha, linewidths,
 /// linestyles, negative_linestyles)`.
-type Look = (
+pub(super) type Look = (
     Option<Vec<Color>>,
     super::plotting::mapping::Mapping,
     Option<f64>,
@@ -149,10 +149,10 @@ fn contour(
 }
 
 /// The extend, hatches and antialiasing of a contour set.
-type Extras = (String, Vec<Option<String>>, Option<bool>);
+pub(super) type Extras = (String, Vec<Option<String>>, Option<bool>);
 
 /// The options of a contour set of the requested levels and look.
-fn contour_options(
+pub(super) fn contour_options(
     requested: Option<NdArray>,
     (colors, mapping, alpha, linewidths, linestyles, negative): Look,
     (extend, hatches, antialiased): Extras,

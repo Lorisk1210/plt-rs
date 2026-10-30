@@ -4,7 +4,7 @@
 
 use pltrs::axes::{MappedColors, ScatterColors, ScatterOptions};
 use pltrs::collections::{Collection, CollectionProps};
-use pltrs::colors::{Alpha, Color};
+use pltrs::colors::{Alpha, Color, LightSource};
 use pltrs::lines::{Line2D, LineProps};
 use pltrs::mplot3d::{
     Axes3D, FaceColors, Sampling, Scatter3DOptions, SurfaceOptions, WireframeOptions,
@@ -19,7 +19,7 @@ use super::axis3;
 use crate::binding::prelude::*;
 
 /// A 2-D float array as a grid; `name` names it in the error.
-fn grid(array: &NdArray, name: &str) -> PyResult<Grid<f64>> {
+pub(super) fn grid(array: &NdArray, name: &str) -> PyResult<Grid<f64>> {
     match array.shape[..] {
         [rows, cols] => Grid::from_vec(rows, cols, array.data.clone())
             .map_err(|err| PyErr::value_error(err.to_string())),
@@ -142,18 +142,40 @@ fn sampling(spec: PySampling) -> PyResult<Sampling> {
 }
 
 /// How a surface is coloured: one colour, or its heights through a
-/// colormap (`None` for the next colour of the cycle), and whether it is
-/// shaded (`None`: unless colour-mapped).
-type SurfaceColors = (Option<Color>, Option<Mapping>, Option<bool>);
+/// colormap (`None` for the next colour of the cycle), or one colour per
+/// grid point (RGBA rows shaped like the grid, matplotlib's
+/// `facecolors`).
+type SurfaceColors = (Option<Color>, Option<Mapping>, Option<NdArray>);
+
+/// Whether a surface is shaded (`None`: unless colour-mapped) and the
+/// light at `(azdeg, altdeg)` shading it (`None`: mplot3d's).
+pub(super) type Shading = (Option<bool>, Option<(f64, f64)>);
+
+/// The light at `(azdeg, altdeg)` of a [`Shading`].
+pub(super) fn light((azdeg, altdeg): (f64, f64)) -> LightSource {
+    LightSource::new(azdeg, altdeg)
+}
+
+/// One colour per grid point from RGBA rows of shape `(rows, cols, 4)`.
+fn grid_colors(array: &NdArray) -> PyResult<Grid<Color>> {
+    let [rows, cols, 4] = array.shape[..] else {
+        return Err(PyErr::value_error(
+            "facecolors must be one RGBA colour per grid point",
+        ));
+    };
+    let flat = NdArray::with_shape(array.data.clone(), vec![rows * cols, 4])?;
+    Grid::from_vec(rows, cols, rgba_rows(&flat)?).map_err(|err| PyErr::value_error(err.to_string()))
+}
 
 /// A surface through the grids `(x, y, z)` (`plot_surface`), sampled as
-/// `spec` says and coloured as `colors` says; `axlim_clip` hides the
-/// points outside the view limits.
+/// `spec` says, coloured and shaded as `colors` and `shading` say;
+/// `axlim_clip` hides the points outside the view limits.
 fn plot_surface(
     axes: Axes3D,
     (x, y, z): (NdArray, NdArray, NdArray),
     spec: PySampling,
-    (color, mapping, shade): SurfaceColors,
+    (color, mapping, cell_colors): SurfaceColors,
+    (shade, lightsource): Shading,
     axlim_clip: bool,
 ) -> PyResult<Collection> {
     let colors = match (mapping, color) {
@@ -164,7 +186,9 @@ fn plot_surface(
     let options = SurfaceOptions {
         sampling: sampling(spec)?,
         colors,
+        cell_colors: cell_colors.as_ref().map(grid_colors).transpose()?,
         shade,
+        lightsource: lightsource.map(light),
         axlim_clip,
         ..SurfaceOptions::default()
     };
@@ -191,16 +215,21 @@ fn plot_wireframe(
     Ok(axes.plot_wireframe(&grid(&x, "X")?, &grid(&y, "Y")?, &grid(&z, "Z")?, options)?)
 }
 
-/// The text `text` at `(x, y, z)`, its baseline along `zdir` (`None`:
-/// facing the viewer; `text`).
+/// The text `text` at `(x, y, z)`, its baseline along `(dx, dy, dz)` as
+/// seen on screen (zero: horizontal), hidden outside the view limits with
+/// `axlim_clip` (`text`).
 fn text(
     axes: Axes3D,
     (x, y, z): (f64, f64, f64),
     text: String,
-    zdir: Option<String>,
+    (dx, dy, dz): (f64, f64, f64),
+    axlim_clip: bool,
 ) -> PyResult<Text> {
-    let zdir = zdir.as_deref().map(axis3).transpose()?;
-    Ok(axes.text(x, y, z, text, zdir))
+    let text = axes.text_along(x, y, z, text, [dx, dy, dz]);
+    if axlim_clip {
+        axes.set_axlim_clip(&text, true)?;
+    }
+    Ok(text)
 }
 
 /// matplotlib's test data set, `(X, Y, Z)` grids sampled every `delta`

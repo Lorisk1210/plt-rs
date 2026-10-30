@@ -124,12 +124,16 @@ pub(crate) struct DepthSorted {
     pub(crate) sizes: Option<Vec<f64>>,
     /// Edge widths (`None`: the collection's own).
     pub(crate) linewidths: Option<Vec<f64>>,
+    /// The offsets in drawing order (`None`: the collection's own, which
+    /// keep the order of the data, as picking reports it).
+    pub(crate) offsets: Option<Vec<Point>>,
 }
 
 pltrs_core::archive_struct!(DepthSorted {
     colors,
     sizes,
-    linewidths
+    linewidths,
+    offsets
 });
 
 /// Values mapped to colours through a norm and colormap.
@@ -398,6 +402,15 @@ impl CollectionArtist {
             .unwrap_or_else(|| self.linewidths_or_default())
     }
 
+    /// The offsets to draw at: those of the last 3-D projection in their
+    /// drawing order, or else the collection's own.
+    pub(crate) fn drawn_offsets(&self) -> &[Point] {
+        self.depth_sorted
+            .as_ref()
+            .and_then(|sorted| sorted.offsets.as_deref())
+            .unwrap_or(&self.offsets)
+    }
+
     /// The marker areas to draw: those of the last 3-D projection, or
     /// else the collection's own.
     pub(crate) fn drawn_sizes(&self) -> Option<&[f64]> {
@@ -519,7 +532,8 @@ impl Artist for CollectionArtist {
         }
         let radius = radius.unwrap_or(self.pickradius);
         let (shapes, transform) = self.current_shapes(*ctx).ok()?;
-        let geometry = draw::Geometry::new(self, *ctx, &shapes, &transform).ok()?;
+        let geometry =
+            draw::Geometry::new(self, *ctx, (&shapes, &transform), &self.offsets).ok()?;
         let hits = geometry.hits(at, radius, radius <= 0.0);
         (!hits.is_empty()).then_some(hits)
     }

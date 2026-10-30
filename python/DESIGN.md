@@ -262,12 +262,33 @@ Artists that own others are made in their figure instead, as removed
 artists, since matplotlib's constructors take their parent (`Axes(fig,
 rect)`, `Legend(ax, ...)`): `fig.add_axes(ax)` then adds them back.
 
+Offset boxes are the exception: their constructors take no parent, so
+an `AnchoredOffsetbox` or an `AnnotationBbox` is a plain loose artist
+until it is added, and the artists of its tree (the texts of text
+areas, the patches and lines of drawing areas, the image of an
+`OffsetImage`) are loose artists. Adding the box describes its tree to
+pltrs (Rust) (`OffsetBox._native_tree`, `_native.offsetbox`), whose
+`BoxItem::from_loose` moves each artist out of its holder into the box;
+the box takes the common properties of the plain artist, and
+`OffsetBox._adopt_tree` gives every Python artist of the tree its handle
+in the figure.
+
 A table's cells are no artists of their own in pltrs (Rust): they are
 part of the table's native state, and a Python `Cell` is the cell at its
 `(row, column)` key in its table. A cell made by its constructor
 (`Cell(xy, width, height)`) lives in a loose table without an axes,
 until `table[row, col] = cell` copies it into a table and makes the
 object that table's cell.
+
+### Picking
+
+`Figure.pick` runs on button presses and scrolls, as in matplotlib
+(`backend_bases._pick_handler`). pltrs (Rust) keeps the pickers it decides
+with (`True` and a tolerance, `Picker`), orders the pickable artists as
+matplotlib's recursion over the children does (`Figure::pick_order`) and
+hit-tests them (`contains`, with the tolerance a class gives,
+`_pick_radius`). A callable picker stays with the Python artist, which
+names itself among the artists to order; the pick then calls it.
 
 ### Transforms
 

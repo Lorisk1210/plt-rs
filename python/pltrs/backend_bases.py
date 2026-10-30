@@ -22,6 +22,7 @@ import logging
 import os
 import pathlib
 import sys
+import threading
 import time
 import weakref
 from weakref import WeakKeyDictionary
@@ -1585,12 +1586,26 @@ def _mouse_handler(event):
             weakref.ref(event.inaxes) if event.inaxes else None)
 
 
+def _pick_handler(event):
+    """
+    Pick the artists under a button press or scroll (matplotlib's
+    ``Figure.pick``), unless a widget holds the canvas' lock. pltrs (Rust)
+    keeps a figure's artists on the thread that made it: an event
+    processed on another thread picks nothing.
+    """
+    figure = event.canvas.figure
+    if (threading.get_ident() == figure._pick_thread
+            and not event.canvas.widgetlock.locked()):
+        figure.pick(event)
+
+
 def _canvas_callbacks(figure):
     """
     Give *figure* the callback registry its canvases share (matplotlib's
     ``Figure._canvas_callbacks``), with the default key and mouse
-    handlers connected, unless it has one: callbacks belong to the figure,
-    so that they survive a change of canvas.
+    handlers connected, and the picking of artists, unless it has one:
+    callbacks belong to the figure, so that they survive a change of
+    canvas.
     """
     if hasattr(figure, "_canvas_callbacks"):
         return
@@ -1604,6 +1619,9 @@ def _canvas_callbacks(figure):
         connect('scroll_event', _mouse_handler),
         connect('motion_notify_event', _mouse_handler),
     ]
+    figure._button_pick_id = connect('button_press_event', _pick_handler)
+    figure._scroll_pick_id = connect('scroll_event', _pick_handler)
+    figure._pick_thread = threading.get_ident()
     figure._canvas_callbacks = callbacks
 
 

@@ -12,6 +12,14 @@ use pltrs_render::Sketch;
 
 use crate::binding::prelude::*;
 
+mod clip;
+mod extent;
+mod filter;
+mod picking;
+
+pub(super) use clip::ClipSpec;
+pub(super) use picking::PyPicker;
+
 impl From<AttachError> for PyErr {
     /// matplotlib's `RuntimeError` for an artist of another figure
     /// (`Artist.set_figure`), its `ValueError` for one already in an axes
@@ -275,7 +283,11 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_url", set_url)?;
     module.add("get_sketch_params", get_sketch_params)?;
     module.add("set_sketch_params", set_sketch_params)?;
-    module.add("remove", remove)
+    module.add("remove", remove)?;
+    clip::register(module)?;
+    extent::register(module)?;
+    filter::register(module)?;
+    picking::register(module)
 }
 
 #[cfg(test)]

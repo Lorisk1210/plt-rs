@@ -9,6 +9,8 @@ and each subclass reads and writes its geometry through the native
 functions of its shape.
 """
 
+from numbers import Number
+
 import numpy as np
 
 from . import _api, colors as mcolors
@@ -137,6 +139,51 @@ class Patch(Artist):
         """
         return Affine2D(_patches.get_patch_transform(self._native))
 
+    def get_transform(self):
+        """Return the `~.transforms.Transform` applied to the `Patch`."""
+        return self.get_patch_transform() + Artist.get_transform(self)
+
+    def get_data_transform(self):
+        """
+        Return the `~.transforms.Transform` mapping data coordinates to
+        physical coordinates.
+        """
+        return Artist.get_transform(self)
+
+    def get_extents(self):
+        """
+        Return the `Patch`'s axis-aligned extents as a `~.transforms.Bbox`.
+        """
+        return self.get_path().get_extents(self.get_transform())
+
+    def update_from(self, other):
+        """Copy properties from *other* to *self*."""
+        _patches.update_style_from(self._native, other._native)
+        self.set_visible(other.get_visible())
+        self.set_alpha(other.get_alpha())
+        self.set_clip_on(other.get_clip_on())
+        self.set_label(other.get_label())
+        if other.is_transform_set():
+            self.set_transform(other.get_data_transform())
+        if "_linestyle" in other.__dict__:
+            self._linestyle = other._linestyle
+
+    def _process_radius(self, radius):
+        """The tolerance of a containment test: *radius*, else a number
+        given as the picker, else the edge's line width (0 without an
+        edge)."""
+        if radius is not None:
+            return radius
+        picker = self.get_picker()
+        if isinstance(picker, Number):
+            return picker
+        if self.get_edgecolor()[3] == 0:
+            return 0
+        return self.get_linewidth()
+
+    def _pick_radius(self):
+        return float(self._process_radius(None))
+
     def get_antialiased(self):
         """Return whether antialiasing is used for drawing."""
         antialiased = self._get("antialiased")
@@ -194,7 +241,9 @@ class Patch(Artist):
         self._set_native(linewidth=None if w is None else float(w))
 
     def get_linestyle(self):
-        """Return the linestyle."""
+        """Return the linestyle, as it was set."""
+        if "_linestyle" in self.__dict__:
+            return self._linestyle
         return self._get("linestyle")
 
     def set_linestyle(self, ls):
@@ -207,10 +256,20 @@ class Patch(Artist):
             ls = "solid"
         if ls in [' ', '', 'none']:
             ls = 'None'
+        self._linestyle = ls
         if isinstance(ls, tuple):
             offset, seq = ls
             ls = (offset, None if seq is None else tuple(seq))
         self._set_native(linestyle=ls)
+
+    def _has_dashed_edge(self):
+        """
+        Return whether the patch edge has a dashed linestyle.
+
+        A custom linestyle is assumed to be dashed, we do not inspect the
+        ``onoffseq`` directly.
+        """
+        return self.get_linestyle() not in ('solid', '-')
 
     def get_fill(self):
         """Return whether the patch is filled."""
@@ -258,10 +317,41 @@ class Patch(Artist):
 
     def contains_point(self, point, radius=None):
         """
-        Return whether the given point, in display coordinates, is inside
-        the patch.
+        Return whether the given point is inside the patch.
+
+        Parameters
+        ----------
+        point : (float, float)
+            The point (x, y) to check, in target coordinates of
+            ``.Patch.get_transform()``. These are display coordinates for patches
+            that are added to a figure or Axes.
+        radius : float, optional
+            Additional margin on the patch in target coordinates of
+            `.Patch.get_transform`. See `.Path.contains_point` for further
+            details.
         """
-        return _patches.contains_point(self._native, *map(float, point))
+        radius = self._process_radius(radius)
+        return self.get_path().contains_point(point, self.get_transform(),
+                                              radius)
+
+    def contains_points(self, points, radius=None):
+        """
+        Return whether the given points are inside the patch.
+
+        Parameters
+        ----------
+        points : (N, 2) array
+            The points to check, in target coordinates of
+            ``self.get_transform()``. These are display coordinates for patches
+            that are added to a figure or Axes. Columns contain x and y values.
+        radius : float, optional
+            Additional margin on the patch in target coordinates of
+            `.Patch.get_transform`. See `.Path.contains_point` for further
+            details.
+        """
+        radius = self._process_radius(radius)
+        return self.get_path().contains_points(points, self.get_transform(),
+                                               radius)
 
 
 class Rectangle(Patch):
@@ -1003,6 +1093,14 @@ class Arc(Ellipse):
     def _fields(self):
         (x, y, w, h), (angle, _, _) = _patches.arc(self._native)
         return x, y, w, h, angle
+
+    def _set_fields(self, center=None, width=None, height=None, angle=None):
+        x, y, w, h, a = self._fields()
+        center = (x, y) if center is None else center
+        _patches.set_arc(self._native, (float(center[0]), float(center[1])),
+                         float(w if width is None else width),
+                         float(h if height is None else height),
+                         float(a if angle is None else angle))
 
     @property
     def theta1(self):

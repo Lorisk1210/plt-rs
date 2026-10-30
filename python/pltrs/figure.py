@@ -613,6 +613,8 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin, Artist):
             *args,
             **kwargs
         )
+        # explicitly set the bbox transform if the user hasn't.
+        kwargs.setdefault("bbox_transform", self.transSubfigure)
         return mlegend.Legend(self, handles, labels, **kwargs)
 
     @property

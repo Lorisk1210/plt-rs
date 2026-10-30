@@ -15,16 +15,23 @@ import numbers
 
 import numpy as np
 
-from . import _api, _handles, colors, rcParams
+from . import _api, _handles, _live_transforms, colors, rcParams
 from ._native import legend as _legend
+from ._native import text as _text
 from .artist import Artist
-from .collections import Collection, LineCollection, PathCollection, PolyCollection
-from .container import BarContainer, Container
-from .legend_handler import (HandlerLine2D, HandlerLineCollection, HandlerPatch,
+from .collections import (CircleCollection, Collection, LineCollection,
+                          PatchCollection, PathCollection, PolyCollection,
+                          RegularPolyCollection)
+from .container import BarContainer, Container, ErrorbarContainer, StemContainer
+from .font_manager import FontProperties
+from .legend_handler import (HandlerCircleCollection, HandlerErrorbar,
+                             HandlerLine2D, HandlerLineCollection, HandlerPatch,
                              HandlerPathCollection, HandlerPolyCollection,
-                             HandlerTuple, update_from_first_child)
+                             HandlerRegularPolyCollection, HandlerStem,
+                             HandlerStepPatch, HandlerTuple,
+                             update_from_first_child)
 from .lines import Line2D
-from .patches import Patch, Rectangle
+from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
 
 #: The Python class of each kind of artist a legend can show
@@ -53,11 +60,17 @@ class Legend(Artist):
     }}
 
     _default_handler_map = {
+        StemContainer: HandlerStem(),
+        ErrorbarContainer: HandlerErrorbar(),
         Line2D: HandlerLine2D(),
         Patch: HandlerPatch(),
+        StepPatch: HandlerStepPatch(),
         LineCollection: HandlerLineCollection(),
+        RegularPolyCollection: HandlerRegularPolyCollection(),
+        CircleCollection: HandlerCircleCollection(),
         BarContainer: HandlerPatch(update_func=update_from_first_child),
         tuple: HandlerTuple(),
+        PatchCollection: HandlerPolyCollection(),
         PathCollection: HandlerPathCollection(),
         PolyCollection: HandlerPolyCollection(),
     }
@@ -119,11 +132,20 @@ class Legend(Artist):
         """
         from .axes._base import _AxesBase
         from .figure import FigureBase
-        unsupported = {"prop": prop, "bbox_transform": bbox_transform,
-                       "title_fontproperties": title_fontproperties}
-        for name, value in unsupported.items():
-            if value is not None:
-                raise NotImplementedError(f"pltrs: Legend({name}=...)")
+        if prop is not None:
+            raise NotImplementedError("pltrs: Legend(prop=...)")
+        if shadow is None:
+            shadow = rcParams["legend.shadow"]
+        if not isinstance(shadow, dict):
+            if shadow not in (0, 1, True, False):
+                raise ValueError(
+                    'Legend shadow must be a dict or bool, not '
+                    f'{shadow!r} of type {type(shadow)}.')
+            shadow = bool(shadow)
+        if title_fontsize is not None and title_fontproperties is not None:
+            raise ValueError(
+                "title_fontsize and title_fontproperties can't be specified "
+                "at the same time. Only use one of them. ")
         if isinstance(parent, _AxesBase):
             self.isaxes = True
         elif isinstance(parent, FigureBase):
@@ -157,7 +179,8 @@ class Legend(Artist):
         ncols = ncols if ncols != 1 else ncol
         if (labelcolor is not None and not isinstance(labelcolor, str)
                 and colors.is_color_like(labelcolor)):
-            labelcolor = colors.to_hex(labelcolor, keep_alpha=True)
+            # One colour, as the cycle of one that gives it to every label.
+            labelcolor = [colors.to_rgba(labelcolor)]
         kwargs = dict(
             # Entries of fewer than two points show one marker.
             loc=loc, numpoints=max(1, int(self.numpoints)),
@@ -173,10 +196,17 @@ class Legend(Artist):
             title=title, title_fontsize=title_fontsize,
             framealpha=framealpha, edgecolor=edgecolor, facecolor=facecolor,
             linewidth=linewidth, bbox_to_anchor=bbox_to_anchor,
+            bbox_transform=_live_transforms.given_to_native(bbox_transform),
             frameon=frameon, alignment=alignment, draggable=draggable)
         _api.check_in_list(["center", "left", "right"], alignment=alignment)
         native = _legend.new(parent._native, entries, kept, kwargs)
         _handles.adopt(self, native, parent.figure)
+        if title_fontproperties is not None:
+            title_prop_fp = FontProperties._from_any(title_fontproperties)
+            if (isinstance(title_fontproperties, dict)
+                    and "size" not in title_fontproperties):
+                title_prop_fp.set_size(rcParams["legend.title_fontsize"])
+            self.get_title().set_fontproperties(title_prop_fp)
 
     def _add_to_axes(self, axes, kind, autolim=True):
         """Keep the legend of *axes* as an ordinary artist of it
@@ -310,9 +340,36 @@ class Legend(Artist):
         prop : `.font_manager.FontProperties` or `str` or `pathlib.Path`
             The font properties of the legend title.
         """
-        if prop is not None:
-            raise NotImplementedError("pltrs: Legend.set_title(prop=...)")
         _legend.set_title(self._native, str(title))
+        if prop is not None:
+            self.get_title().set_fontproperties(FontProperties._from_any(prop))
+
+    @property
+    def legend_handles(self):
+        """
+        The artists drawn as the handles of the entries, in their order:
+        the first one each entry's handler draws, None for the entries no
+        handler draws.
+        """
+        classes = {**_ARTIST_CLASSES, "Collection": PathCollection}
+        return [None if handle is None else
+                _handles.wrap(handle[0], classes[handle[1]], self.figure)
+                for handle in _legend.legend_handles(self._native)]
+
+    def get_lines(self):
+        r"""Return the list of `~.lines.Line2D`\s in the legend."""
+        return [h for h in self.legend_handles if isinstance(h, Line2D)]
+
+    def get_patches(self):
+        r"""Return the list of `~.patches.Patch`\s in the legend."""
+        return [h for h in self.legend_handles if isinstance(h, Patch)]
+
+    def get_frame(self):
+        """Return the `~.patches.Rectangle` used to frame the legend."""
+        return _handles.wrap(_legend.get_frame(self._native), FancyBboxPatch,
+                             self.figure)
+
+    legendPatch = property(get_frame, doc="The `.FancyBboxPatch` framing the legend.")
 
     def get_frame_on(self):
         """Get whether the legend box patch is drawn."""
@@ -401,16 +458,27 @@ def _get_legend_handles(axs, legend_handler_map=None):
                 yield container
                 continue
             raw, kind = artist
-            handle = _handles.wrap(raw, _ARTIST_CLASSES[kind], ax.figure)
-            if Legend.get_legend_handler(handler_map, handle) is not None:
-                yield handle
-            elif label and not label.startswith('_'):
-                _api.warn_external(
-                    "Legend does not support handles for "
-                    f"{type(handle).__name__} "
-                    "instances.\nSee: https://matplotlib.org/stable/"
-                    "tutorials/intermediate/legend_guide.html"
-                    "#implementing-a-custom-legend-handler")
+            yield from _handled(
+                _handles.wrap(raw, _ARTIST_CLASSES[kind], ax.figure), label,
+                handler_map)
+        # Texts are candidates too, which no default handler draws.
+        for raw in _text.axes_texts(ax._native):
+            text = _handles.wrap(raw, Text, ax.figure)
+            yield from _handled(text, text.get_label(), handler_map)
+
+
+def _handled(handle, label, handler_map):
+    """Yield *handle*, labelled *label*, if *handler_map* has a handler for
+    it; else warn that a shown label cannot have an entry."""
+    if Legend.get_legend_handler(handler_map, handle) is not None:
+        yield handle
+    elif label and not label.startswith('_'):
+        _api.warn_external(
+            "Legend does not support handles for "
+            f"{type(handle).__name__} "
+            "instances.\nSee: https://matplotlib.org/stable/"
+            "tutorials/intermediate/legend_guide.html"
+            "#implementing-a-custom-legend-handler")
 
 
 def _get_legend_handles_labels(axs, legend_handler_map=None):

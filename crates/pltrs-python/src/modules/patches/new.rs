@@ -140,7 +140,9 @@ fn fancy_arrow(
             "right" => ArrowShape::Right,
             "full" => ArrowShape::Full,
             other => {
-                return Err(PyErr::value_error(format!("Got unknown shape: {other:?}")));
+                // Quoted as Python's `repr` does, as matplotlib's message.
+                let quoted = Python::with_gil(|py| other.into_py(py)?.repr())?;
+                return Err(PyErr::value_error(format!("Got unknown shape: {quoted}")));
             }
         },
         overhang,

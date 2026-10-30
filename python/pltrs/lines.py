@@ -13,6 +13,7 @@ import copy
 import numpy as np
 
 from . import _api, _live_transforms, cbook
+from ._artist_kwargs import native_artist_kwargs
 from ._native import lines as _lines
 from .artist import Artist
 from .cbook import ls_mapper
@@ -131,6 +132,24 @@ def segment_hits(cx, cy, x, y, radius):
     return np.concatenate((points, lines))
 
 
+def _mark_every_path(markevery, tpath, affine, ax):
+    """
+    Helper function that sorts out how to deal the input
+    `markevery` and returns the points where markers should be drawn.
+
+    Takes in the `markevery` value and the line path and returns the
+    sub-sampled path; pltrs (Rust) selects the vertices.
+    """
+    codes, verts = tpath.codes, tpath.vertices
+    diagonal = None
+    if ax is not None:
+        (x0, y0), (x1, y1) = ax.transAxes.transform([[0, 0], [1, 1]])
+        diagonal = float(np.hypot(x1 - x0, y1 - y0))
+    inds = _lines.markevery_indices(
+        markevery, np.asarray(affine.transform(verts), dtype=float), diagonal)
+    return Path(verts[inds], None if codes is None else codes[inds])
+
+
 def _marker_spec(marker, fillstyle=None):
     """
     The native form of a marker: the `.MarkerStyle` spec of *marker*, its
@@ -151,9 +170,10 @@ def _native_kwargs(kwargs):
     *kwargs*, whose aliases are resolved, in the form the native line
     properties take: markers as `_marker_spec`, ``dashes`` as a line style,
     a transform as its native transform, ``data``/``xdata``/``ydata`` left
-    to the caller.
+    to the caller, the properties of every artist as
+    `._artist_kwargs.native_artist_kwargs` makes them.
     """
-    kwargs = dict(kwargs)
+    kwargs = native_artist_kwargs(kwargs)
     if "transform" in kwargs:
         kwargs["transform"] = _live_transforms.to_native(kwargs["transform"])
     fillstyle = kwargs.get("fillstyle")
@@ -224,6 +244,10 @@ class Line2D(Artist):
     fillStyles = MarkerStyle.fillstyles
 
     zorder = 2
+
+    #: The number of points above which pltrs (Rust) draws only the part
+    #: of a line with sorted x in the view (``pltrs::lines``' subslicing).
+    _subslice_optim_min_size = 1000
 
     def __str__(self):
         label = self.get_label()
@@ -418,6 +442,8 @@ class Line2D(Artist):
 
     def set_color(self, color):
         """Set the color of the line."""
+        from . import colors as mcolors
+        mcolors._check_color_like(color=color)
         self._set_native(color=color)
 
     def get_drawstyle(self):
@@ -457,6 +483,14 @@ class Line2D(Artist):
                 ls = 'None'
             _api.check_in_list([*self._lineStyles, *cbook.ls_mapper_r], ls=ls)
         self._set_native(linestyle=ls)
+
+    @property
+    def _dash_pattern(self):
+        """The ``(offset, dashes)`` the line is drawn with, scaled by its
+        width as :rc:`lines.scale_dashes` says."""
+        offset, dashes = _get_dash_pattern(self._get("dash_pattern"))
+        return _scale_dashes(offset, None if dashes is None else tuple(dashes),
+                             self.get_linewidth())
 
     def set_dashes(self, seq):
         """
@@ -567,6 +601,23 @@ class Line2D(Artist):
         self._set_native(pickradius=float(pickradius))
 
     pickradius = property(get_pickradius, set_pickradius)
+
+    def set_picker(self, p):
+        """
+        Set the event picker details for the line.
+
+        Parameters
+        ----------
+        p : float or callable[[Artist, Event], tuple[bool, dict]]
+            If a float, it is used as the pick radius in points.
+        """
+        if not callable(p):
+            self.set_pickradius(p)
+        super().set_picker(p)
+
+    def _contains_details(self, ind):
+        """The indices of the points and segments hit."""
+        return dict(ind=ind)
 
     def get_dash_capstyle(self):
         """Return the `.CapStyle` for dashed lines."""

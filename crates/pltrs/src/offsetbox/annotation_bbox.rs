@@ -401,6 +401,15 @@ impl AnnotationBbox {
         self.raw
             .with::<AnnotationBboxArtist, _>(|ab| ab.child.artists().into_iter().copied().collect())
     }
+
+    /// Handles to the artists of [`artist_ids`](Self::artist_ids), in the
+    /// same order.
+    pub fn artists(&self) -> Vec<RawHandle> {
+        self.artist_ids()
+            .into_iter()
+            .map(|id| part(&self.raw, id))
+            .collect()
+    }
 }
 
 impl Axes {

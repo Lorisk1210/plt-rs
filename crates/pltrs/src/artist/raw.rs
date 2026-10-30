@@ -172,13 +172,14 @@ impl RawHandle {
     }
 
     /// Whether display point `at` hits the artist in the figure's current
-    /// layout, and which of its items (matplotlib's `contains`); `None`
+    /// layout within the tolerance `radius` (the artist's own with
+    /// `None`), and which of its items (matplotlib's `contains`); `None`
     /// when it misses or the artist was removed.
-    pub(crate) fn hit_test(&self, at: Point) -> Option<Vec<usize>> {
+    pub(crate) fn hit_test(&self, at: Point, radius: Option<f64>) -> Option<Vec<usize>> {
         let mut state = self.figure.borrow_mut();
         state.prepare();
         let layout = LayoutContext::new(&state);
-        layout.store().get(self.id)?.pick_hit(&layout, at, None)
+        layout.store().get(self.id)?.pick_hit(&layout, at, radius)
     }
 
     /// Reports a handle that does not match its artist: missing from the

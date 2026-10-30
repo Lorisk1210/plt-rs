@@ -304,6 +304,34 @@ impl AxesImage {
         self.read(|image| image.core.data.shape())
     }
 
+    /// The `(row, column)` of the array element under display point `at`
+    /// in the figure's current layout (laid out first), `None` outside the
+    /// image (matplotlib's `AxesImage.get_cursor_data`, which truncates
+    /// the indices towards zero: less than an element before the first
+    /// row or column still gives it).
+    ///
+    /// ```
+    /// use pltrs::axes::ImshowOptions;
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::Point;
+    /// let fig = Figure::with_size(2.0, 2.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// let image = ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?;
+    /// // Row 0 is drawn at the top, column 1 on the right.
+    /// assert_eq!(image.element_at(Point::new(150.0, 150.0)), Some((0, 1)));
+    /// assert_eq!(image.element_at(Point::new(-150.0, 150.0)), None);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn element_at(&self, at: Point) -> Option<(usize, usize)> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let ctx = LayoutContext::new(&state);
+        ctx.store()
+            .get_as::<AxesImageArtist>(self.raw.id())?
+            .element_at(ctx, at)
+    }
+
     /// Where row 0 of the array is drawn.
     pub fn origin(&self) -> Origin {
         self.read(|image| image.core.resampling.origin)

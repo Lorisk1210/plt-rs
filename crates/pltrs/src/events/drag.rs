@@ -57,7 +57,9 @@ impl Dragger {
         if !artist.pickable() {
             artist.set_picker(Some(Picker::custom(|artist, mouse: &MouseEvent| {
                 let at = Point::new(mouse.location.x, mouse.location.y);
-                (mouse.step == 0.0).then(|| artist.hit_test(at)).flatten()
+                (mouse.step == 0.0)
+                    .then(|| artist.hit_test(at, None))
+                    .flatten()
             })));
         }
         let drag = Rc::new(RefCell::new(Drag {

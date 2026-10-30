@@ -302,10 +302,23 @@ impl AnchoredOffsetbox {
 
     /// The texts of the box's text areas, in box order.
     pub fn texts(&self) -> Vec<Text> {
-        let artists = self.raw.with::<AnchoredBoxArtist, _>(|anchored| {
+        texts_of(&self.raw, self.artist_ids())
+    }
+
+    /// The artists the box draws (the texts of text areas, the artists of
+    /// drawing areas, images, the frames of padded boxes) in drawing
+    /// order, frames before what they frame.
+    pub fn artists(&self) -> Vec<RawHandle> {
+        self.artist_ids()
+            .into_iter()
+            .map(|id| part(&self.raw, id))
+            .collect()
+    }
+
+    fn artist_ids(&self) -> Vec<ArtistId> {
+        self.raw.with::<AnchoredBoxArtist, _>(|anchored| {
             anchored.child.artists().into_iter().copied().collect()
-        });
-        texts_of(&self.raw, artists)
+        })
     }
 }
 

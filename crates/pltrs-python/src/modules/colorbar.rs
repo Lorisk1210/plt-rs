@@ -11,6 +11,7 @@
 use std::rc::Rc;
 
 use pltrs::axes::{Axes, LabelLoc};
+use pltrs::collections::Collection;
 use pltrs::colorbar::{
     Colorbar, ColorbarAxes, ColorbarError, ColorbarFormat, ColorbarOptions, ColorbarTicks,
     ExtendFrac, Mappable, ParentAnchor, Spacing,
@@ -19,6 +20,7 @@ use pltrs::colors::{Colormap, Extend, Norm, ScalarMappable};
 use pltrs::figure::Figure;
 use pltrs::image::AxesImage;
 use pltrs::orientation::Orientation;
+use pltrs::patches::{Patch, PathShape};
 use pltrs::spines::SpineSide;
 use pltrs::ticker::{FuncFormatter, LabelFormat};
 
@@ -293,6 +295,37 @@ fn remove(colorbar: Colorbar) -> PyResult<()> {
     Ok(())
 }
 
+/// The outline around the colours and the extensions (matplotlib's
+/// `outline`).
+fn outline(colorbar: Colorbar) -> PyResult<Patch<PathShape>> {
+    Ok(colorbar.outline())
+}
+
+/// The mesh of colour blocks (matplotlib's `solids`), `None` when the
+/// blocks are hatched patches.
+fn solids(colorbar: Colorbar) -> PyResult<Option<Collection>> {
+    Ok(colorbar.solids())
+}
+
+/// The patches filling the extensions, the one at the lower end of the
+/// long axis first (matplotlib's `_extend_patches`).
+fn extend_patches(colorbar: Colorbar) -> PyResult<Vec<Patch<PathShape>>> {
+    Ok(colorbar.extend_patches())
+}
+
+/// With `drawedges`, the lines between the colours in the current view, as
+/// `(2, 2)` arrays of their ends (matplotlib's `dividers.get_segments()`).
+fn divider_segments(colorbar: Colorbar) -> PyResult<Vec<NdArray>> {
+    colorbar
+        .divider_segments()
+        .iter()
+        .map(|path| {
+            let data = path.vertices().iter().flat_map(|p| [p.x, p.y]).collect();
+            NdArray::with_shape(data, vec![path.vertices().len(), 2])
+        })
+        .collect()
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
@@ -307,5 +340,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_ticks", get_ticks)?;
     module.add("set_minorticks", set_minorticks)?;
     module.add("update_normal", update_normal)?;
-    module.add("remove", remove)
+    module.add("remove", remove)?;
+    module.add("outline", outline)?;
+    module.add("solids", solids)?;
+    module.add("extend_patches", extend_patches)?;
+    module.add("divider_segments", divider_segments)
 }

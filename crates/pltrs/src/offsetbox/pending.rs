@@ -8,7 +8,7 @@ use std::rc::Rc;
 use pltrs_core::Point;
 
 use super::{OffsetBox, OffsetImage, PaddedBox, TextArea};
-use crate::artist::{Artist, ArtistId, ArtistStore};
+use crate::artist::{Artist, ArtistId, ArtistStore, AttachError, RawHandle};
 use crate::axes::PlotError;
 use crate::figure::FigureState;
 use crate::image::{BboxImageArtist, BboxImageOptions, ImageData, ImageError};
@@ -52,6 +52,39 @@ impl BoxItem {
         Ok(Self {
             artist: Box::new(line),
         })
+    }
+
+    /// The artist of the loose handle `artist` (made outside any figure,
+    /// see [`RawHandle::is_loose`]) as an item of a box, moved out of its
+    /// holder, which is empty afterwards: matplotlib makes the artists of
+    /// a box before the box joins a figure.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::lines::{Line2D, LineProps};
+    /// use pltrs::offsetbox::{BoxItem, DrawingArea};
+    /// let line = Line2D::loose(vec![0.0, 10.0], vec![5.0, 5.0], LineProps::default());
+    /// let area = DrawingArea::new(10.0, 10.0, 0.0, 0.0).with_artist(BoxItem::from_loose(line.raw())?);
+    /// assert_eq!(area.artists.len(), 1);
+    /// assert!(BoxItem::from_loose(line.raw()).is_err(), "moved once");
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError::OtherFigure`] when the artist is not loose: it is in
+    /// a figure, or was moved out of its holder before.
+    pub fn from_loose(artist: &RawHandle) -> Result<Self, AttachError> {
+        if !artist.is_loose() {
+            return Err(AttachError::OtherFigure);
+        }
+        let artist = artist
+            .figure_state()
+            .borrow_mut()
+            .detached
+            .take(artist.id())
+            .ok_or(AttachError::OtherFigure)?;
+        Ok(Self { artist })
     }
 
     /// Moves the artist into `store` (unclipped, its transform to be set

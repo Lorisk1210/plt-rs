@@ -451,7 +451,14 @@ pub trait ArtistHandle {
     /// `contains`): the indices of the items hit (empty for artists hit as
     /// a whole), or `None` when the point misses or the artist was removed.
     fn contains(&self, at: Point) -> Option<Vec<usize>> {
-        self.raw().hit_test(at)
+        self.raw().hit_test(at, None)
+    }
+
+    /// [`contains`](Self::contains) within the tolerance `radius` that a
+    /// [`Picker::Radius`] gives (in points for lines, in pixels for
+    /// collections and patches), or the artist's own with `None`.
+    fn contains_within(&self, at: Point, radius: Option<f64>) -> Option<Vec<usize>> {
+        self.raw().hit_test(at, radius)
     }
 
     /// Removes the artist, with everything it owns, from the figure

@@ -118,7 +118,7 @@ impl Figure {
         let candidates = {
             let mut state = self.state_mut();
             state.prepare();
-            pickable_artists(&state, self.raw().id(), inaxes)
+            pickable_artists(&state, self.raw().id(), inaxes, &|_| false)
         };
         let at = Point::new(mouse.location.x, mouse.location.y);
         for candidate in candidates {
@@ -170,20 +170,62 @@ impl Figure {
         }
     }
 
+    /// The artists under `root` (an artist of the figure, or the figure
+    /// itself) that a press over `inaxes` (the axes under the pointer)
+    /// asks, in the order [`pick`](Self::pick) asks them: those with a
+    /// [`Picker`] and those of `also` (artists whose program decides their
+    /// picks itself, with a Python callable say), parents before children,
+    /// leaving out the children of other axes than `inaxes`.
+    ///
+    /// ```
+    /// use pltrs::artist::{ArtistHandle, Picker};
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let first = ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// let second = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// second.set_picker(Some(Picker::Default));
+    /// let order = fig.pick_order(fig.raw(), Some(&ax), &[first.raw().clone()]);
+    /// assert_eq!(order, [first.raw().clone(), second.raw().clone()]);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn pick_order(
+        &self,
+        root: &RawHandle,
+        inaxes: Option<&Axes>,
+        also: &[RawHandle],
+    ) -> Vec<RawHandle> {
+        let ids: Vec<ArtistId> = also.iter().map(RawHandle::id).collect();
+        let inaxes = inaxes.map(ArtistHandle::id);
+        let candidates = {
+            let mut state = self.state_mut();
+            state.prepare();
+            pickable_artists(&state, root.id(), inaxes, &|id| ids.contains(&id))
+        };
+        candidates
+            .into_iter()
+            .filter_map(|candidate| match candidate {
+                Candidate::Artist(id) => Some(self.handle(id)),
+                Candidate::Axis(..) => None,
+            })
+            .collect()
+    }
+
     fn handle(&self, id: ArtistId) -> RawHandle {
         RawHandle::new(Rc::clone(self.raw().figure_state()), id)
     }
 }
 
-/// The pickable artists under `root`, parents before children, and the
-/// pickable axes of each axes after its children (matplotlib's
-/// `Artist.pick` recursion): children belonging to another axes than
-/// `inaxes`, the axes under the pointer, are skipped with their own
-/// children.
+/// The pickable artists under `root` (those with a picker, and those
+/// `also` accepts), parents before children, and the pickable axes of each
+/// axes after its children (matplotlib's `Artist.pick` recursion):
+/// children belonging to another axes than `inaxes`, the axes under the
+/// pointer, are skipped with their own children.
 fn pickable_artists(
     state: &FigureState,
     root: ArtistId,
     inaxes: Option<ArtistId>,
+    also: &dyn Fn(ArtistId) -> bool,
 ) -> Vec<Candidate> {
     let layout = LayoutContext::new(state);
     let mut found = Vec::new();
@@ -196,7 +238,7 @@ fn pickable_artists(
         let Some(artist) = layout.store().get(id) else {
             continue;
         };
-        if artist.base().picker.is_some() {
+        if artist.base().picker.is_some() || also(id) {
             found.push(candidate);
         }
         // Pushed before the children, the axes' axes are asked after them.

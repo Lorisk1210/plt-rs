@@ -263,6 +263,8 @@ class Collection(mcolorizer.ColorizingArtist):
         return [Path(vertices, codes)
                 for vertices, codes in _collections.get_paths(self._native)]
 
+    _paths = property(get_paths, doc="The paths of the items.")
+
     def set_paths(self, paths):
         """Set the paths of the items."""
         _collections.set_paths(self._native, list(paths))
@@ -299,6 +301,10 @@ class Collection(mcolorizer.ColorizingArtist):
         _collections.set_pickradius(self._native, float(pickradius))
 
     pickradius = property(get_pickradius, set_pickradius)
+
+    def _contains_details(self, ind):
+        """The indices of the items hit."""
+        return dict(ind=ind)
 
     def get_urls(self):
         """Return a list of URLs, one for each element of the collection."""
@@ -396,6 +402,14 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def _get_default_linewidth(self):
         return _rcParams()['patch.linewidth']
+
+    def _get_default_facecolor(self):
+        """The face colour of the collection when none is set."""
+        return _rcParams()['patch.facecolor']
+
+    def _get_default_edgecolor(self):
+        """The edge colour of the collection when none is set."""
+        return _rcParams()['patch.edgecolor']
 
     def get_antialiased(self):
         """Get the antialiasing state for rendering."""
@@ -882,6 +896,12 @@ class LineCollection(Collection):
     def _get_default_linewidth(self):
         return _rcParams()['lines.linewidth']
 
+    def _get_default_edgecolor(self):
+        return _rcParams()['lines.color']
+
+    def _get_default_facecolor(self):
+        return 'none'
+
     def get_antialiased(self):
         antialiased = self._get("antialiased")
         if antialiased is None:
@@ -1069,6 +1089,48 @@ class EllipseCollection(Collection):
         self._native = _collections.new_ellipse_collection((widths, heights, angles), units)
         super().__init__(**kwargs)
 
+    @property
+    def _widths(self):
+        """The half widths of the ellipses."""
+        return 0.5 * self.get_widths()
+
+    @property
+    def _heights(self):
+        """The half heights of the ellipses."""
+        return 0.5 * self.get_heights()
+
+    @property
+    def _angles(self):
+        """The angles of the ellipses, in radians."""
+        return np.deg2rad(self.get_angles())
+
+    def set_widths(self, widths):
+        """Set the lengths of the first axes (e.g., major axis)."""
+        _collections.set_ellipse_sizes(
+            self._native, (np.ravel(widths).astype(float), None, None))
+
+    def set_heights(self, heights):
+        """Set the lengths of second axes (e.g., minor axes)."""
+        _collections.set_ellipse_sizes(
+            self._native, (None, np.ravel(heights).astype(float), None))
+
+    def set_angles(self, angles):
+        """Set the angles of the first axes, degrees CCW from the x-axis."""
+        _collections.set_ellipse_sizes(
+            self._native, (None, None, np.ravel(angles).astype(float)))
+
+    def get_widths(self):
+        """Get the lengths of the first axes (e.g., major axis)."""
+        return _collections.ellipse_sizes(self._native)[0]
+
+    def get_heights(self):
+        """Set the lengths of second axes (e.g., minor axes)."""
+        return _collections.ellipse_sizes(self._native)[1]
+
+    def get_angles(self):
+        """Get the angles of the first axes, degrees CCW from the x-axis."""
+        return _collections.ellipse_sizes(self._native)[2]
+
 
 class PatchCollection(Collection):
     """
@@ -1147,6 +1209,14 @@ class QuadMesh(_MeshData, Collection):
     """
     Class for the efficient drawing of a quadrilateral mesh.
     """
+
+    def get_cursor_data(self, event):
+        """The values of the cells under the event position, None outside
+        the mesh or when it maps no values."""
+        contained, info = self.contains(event)
+        if contained and self.get_array() is not None:
+            return self.get_array().ravel()[info["ind"]]
+        return None
 
 
 class PolyQuadMesh(_MeshData, PolyCollection):

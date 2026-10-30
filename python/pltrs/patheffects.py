@@ -7,17 +7,34 @@ Defines classes for path effects. The path effects are supported in `.Text`,
 
 pltrs keeps matplotlib's path effects (from matplotlib 3.11.2, under the
 Matplotlib License): renderer wrappers that redraw paths with changed
-graphics contexts. The ticks of `TickedStroke` are pltrs (Rust)'s
-(``pltrs::patheffects``).
+graphics contexts. pltrs (Rust) draws the artists given them
+(``pltrs::patheffects``): each effect describes itself to it
+(``_native_spec``), and the ticks of `TickedStroke` are its own.
 """
 
 import math
 
+import numpy as np
+
 from .backend_bases import RendererBase
 from . import colors as mcolors
 from . import transforms as mtransforms
+from ._enums import CapStyle, JoinStyle
 from ._native import patheffects as _patheffects
 from .path import Path
+
+
+def _native_gc(gc):
+    """The graphics context properties *gc* an effect sets, as pltrs (Rust)
+    takes them: colours as RGBA, cap and join styles by name."""
+    native = dict(gc)
+    if "foreground" in native:
+        native["foreground"] = mcolors.to_rgba(native["foreground"])
+    if "capstyle" in native:
+        native["capstyle"] = CapStyle(native["capstyle"]).name
+    if "joinstyle" in native:
+        native["joinstyle"] = JoinStyle(native["joinstyle"]).name
+    return native
 
 
 class AbstractPathEffect:
@@ -27,6 +44,20 @@ class AbstractPathEffect:
     Subclasses should override the ``draw_path`` method to add effect
     functionality.
     """
+
+    #: Whether the path is drawn as it is after the effect (the
+    #: ``with...`` classes).
+    _then_normal = False
+
+    def _native_spec(self):
+        """
+        The description pltrs (Rust) draws the effect from (see
+        ``_native.patheffects``). pltrs draws the effects of this module;
+        the drawing of a class of the program's (its ``draw_path``) is not
+        supported.
+        """
+        raise NotImplementedError(
+            f"pltrs: path effects of class {type(self).__name__}")
 
     def __init__(self, offset=(0., 0.)):
         """
@@ -165,6 +196,9 @@ class Normal(AbstractPathEffect):
     no special path effect.
     """
 
+    def _native_spec(self):
+        return ("normal",)
+
 
 def _subclass_with_normal(effect_class):
     """
@@ -172,6 +206,8 @@ def _subclass_with_normal(effect_class):
     """
 
     class withEffect(effect_class):
+        _then_normal = True
+
         def draw_path(self, renderer, gc, tpath, affine, rgbFace):
             super().draw_path(renderer, gc, tpath, affine, rgbFace)
             renderer.draw_path(gc, tpath, affine, rgbFace)
@@ -207,6 +243,10 @@ class Stroke(AbstractPathEffect):
         """
         super().__init__(offset)
         self._gc = kwargs
+
+    def _native_spec(self):
+        return ("stroke", self._then_normal, tuple(map(float, self._offset)),
+                _native_gc(self._gc))
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
         """Draw the path with updated gc."""
@@ -259,6 +299,11 @@ class SimplePatchShadow(AbstractPathEffect):
 
         #: The dictionary of keywords to update the graphics collection with.
         self._gc = kwargs
+
+    def _native_spec(self):
+        return ("patch_shadow", self._then_normal,
+                tuple(map(float, self._offset)), self._shadow_rgbFace,
+                float(self._alpha), float(self._rho), _native_gc(self._gc))
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
         """
@@ -322,6 +367,11 @@ class SimpleLineShadow(AbstractPathEffect):
         #: The dictionary of keywords to update the graphics collection with.
         self._gc = kwargs
 
+    def _native_spec(self):
+        return ("line_shadow", self._then_normal,
+                tuple(map(float, self._offset)), self._shadow_color,
+                float(self._alpha), float(self._rho), _native_gc(self._gc))
+
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
         """
         Overrides the standard draw_path to add the shadow offset and
@@ -365,8 +415,13 @@ class PathPatchEffect(AbstractPathEffect):
             "transform" and "clip_path".
         """
         super().__init__(offset=offset)
-        from . import patches as mpatches
-        self.patch = mpatches.PathPatch([], **kwargs)
+        from . import cbook, patches as mpatches
+        self.patch = mpatches.PathPatch(Path(np.empty((0, 2))), **kwargs)
+        self._patch_kwargs = cbook.normalize_kwargs(kwargs, mpatches.PathPatch)
+
+    def _native_spec(self):
+        return ("path_patch", tuple(map(float, self._offset)),
+                self._patch_kwargs)
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
         self.patch._path = tpath
@@ -428,6 +483,11 @@ class TickedStroke(AbstractPathEffect):
         self._angle = angle
         self._length = length
         self._gc = kwargs
+
+    def _native_spec(self):
+        return ("ticked", self._then_normal, tuple(map(float, self._offset)),
+                float(self._spacing), float(self._angle), float(self._length),
+                _native_gc(self._gc))
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
         """Draw the path with updated gc."""

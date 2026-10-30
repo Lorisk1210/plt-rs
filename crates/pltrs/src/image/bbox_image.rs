@@ -8,7 +8,7 @@ use super::resample::PixelMap;
 use super::shared::{canvas_bbox, draw_rendered};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
 use crate::colors::{ColorizerOptions, impl_colorize};
 use crate::offsetbox::transformed_bbox;
@@ -183,9 +183,40 @@ impl ArtistHandle for BboxImage {
     }
 }
 
+impl TypedHandle for BboxImage {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<BboxImageArtist>()
+            .then(|| Self::from_raw(raw.clone()))
+    }
+}
+
 impl BboxImage {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
+    }
+
+    /// An image of `data` made as `options` say, outside any figure until
+    /// an offset box shows it (the `BboxImage` of matplotlib's
+    /// `OffsetImage`; see
+    /// [`BoxItem::from_loose`](crate::offsetbox::BoxItem::from_loose)).
+    ///
+    /// ```
+    /// use pltrs::image::{BboxImage, BboxImageOptions};
+    /// use pltrs::numeric::Grid;
+    /// let image = BboxImage::loose(Grid::filled(2, 3, 0.5), BboxImageOptions::default())?;
+    /// assert_eq!(image.shape(), (2, 3));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the colormap, norm or filter radius of `options` is invalid.
+    pub fn loose(
+        data: impl Into<ImageData>,
+        options: BboxImageOptions,
+    ) -> Result<Self, ImageError> {
+        let artist = BboxImageArtist::new(data, options, &crate::rc::params())?;
+        Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
     }
 
     /// The array's rows and columns.

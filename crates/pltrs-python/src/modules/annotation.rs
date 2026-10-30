@@ -61,7 +61,7 @@ fn offset_unit(unit: &str) -> PyResult<CoordUnit> {
 /// fraction"`, ...), `("blended", x, y)`, `("artist", native)` for the
 /// extent of an artist, or `("offset_from", native, (x, y), unit)` for
 /// matplotlib's `OffsetFrom`.
-struct PyCoords(Coords);
+pub(super) struct PyCoords(pub(super) Coords);
 
 impl FromPy<'_> for PyCoords {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
@@ -123,7 +123,7 @@ fn data_point((x, y): (PyAxisValue, PyAxisValue)) -> DataPoint {
 /// The arrow of an annotation from matplotlib's `arrowprops`, aliases
 /// resolved and styles given as their descriptions by the Python side: a
 /// styled arrow when it has an `arrowstyle`, else the legacy arrow.
-struct ArrowKwargs(ArrowProps);
+pub(super) struct ArrowKwargs(pub(super) ArrowProps);
 
 /// What clips an arrow at its ends, from `patchA`/`patchB`: `None` for
 /// nothing, else an artist's native object.

@@ -14,16 +14,18 @@ use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
 use pltrs::legend::{
     HandlerTuple, Legend, LegendAlignment, LegendError, LegendHandle, LegendLabelColor, LegendLoc,
-    LegendMode, LegendOptions,
+    LegendMode, LegendOptions, LegendShadow, LegendShadowStyle,
 };
 use pltrs::lines::Line2D;
 use pltrs::offsetbox::BboxToAnchor;
-use pltrs::patches::{Patch, Rectangle};
+use pltrs::patches::{FancyBboxPatch, Patch, Rectangle};
 use pltrs::rc::LabelColor;
 use pltrs::text::Text;
+use pltrs::transforms::Transform;
 
-use crate::binding::dict_items;
+use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
+use crate::binding::{dict_items, new_dict};
 
 artist_handle!(Legend);
 native_value!(LegendHandle);
@@ -90,6 +92,26 @@ fn bbox_to_anchor(object: &Bound<'_>) -> PyResult<BboxToAnchor> {
     }
 }
 
+/// A legend's shadow: a bool, or a dict of `Shadow` arguments (`ox`,
+/// `oy`, `shade` and the shadow patch's properties), which turns it on.
+fn legend_shadow(object: &Bound<'_>) -> PyResult<LegendShadow> {
+    if object.type_name() != "dict" {
+        return Ok(object.extract::<bool>()?.into());
+    }
+    let mut style = LegendShadowStyle::default();
+    let props = new_dict(object.py())?;
+    for (key, value) in dict_items(object)? {
+        match key.extract::<String>()?.as_str() {
+            "ox" => style.ox = value.extract()?,
+            "oy" => style.oy = value.extract()?,
+            "shade" => style.shade = value.extract()?,
+            _ => props.set_item(key, value)?,
+        }
+    }
+    style.props = props.extract::<PatchKwargs>()?.0;
+    Ok(style.into())
+}
+
 /// The options of a dict of `Legend` keyword arguments, aliases resolved.
 struct LegendKwargs(LegendOptions);
 
@@ -124,7 +146,7 @@ impl FromPy<'_> for LegendKwargs {
                 "reverse" => options.reverse(value.extract::<bool>()?),
                 "frameon" => options.frameon(value.extract::<bool>()?),
                 "fancybox" => options.fancybox(value.extract::<bool>()?),
-                "shadow" => options.shadow(value.extract::<bool>()?),
+                "shadow" => options.shadow(legend_shadow(&value)?),
                 "framealpha" => options.framealpha(value.extract::<f64>()?),
                 "facecolor" => options.facecolor(value.extract::<Color>()?),
                 "edgecolor" => options.edgecolor(value.extract::<Color>()?),
@@ -158,6 +180,7 @@ impl FromPy<'_> for LegendKwargs {
                 "borderaxespad" => options.borderaxespad(value.extract::<f64>()?),
                 "columnspacing" => options.columnspacing(value.extract::<f64>()?),
                 "bbox_to_anchor" => options.bbox_to_anchor(bbox_to_anchor(&value)?),
+                "bbox_transform" => options.bbox_transform(value.extract::<Transform>()?),
                 "draggable" => LegendOptions {
                     draggable: value.extract::<bool>()?,
                     ..options
@@ -276,6 +299,27 @@ fn get_texts(legend: Legend) -> PyResult<Vec<Text>> {
     Ok(legend.texts())
 }
 
+/// The artist drawn for each listed handle, with its kind (see
+/// [`artist_kind`]), or `None` for a handle no handler draws
+/// (matplotlib's `legend_handles`).
+fn legend_handles(legend: Legend) -> PyResult<Vec<Option<(RawHandle, &'static str)>>> {
+    Ok(legend
+        .handles()
+        .into_iter()
+        .map(|handle| {
+            handle.map(|raw| {
+                let kind = artist_kind(&raw);
+                (raw, kind)
+            })
+        })
+        .collect())
+}
+
+/// The frame (matplotlib's `get_frame` and `legendPatch`).
+fn get_frame(legend: Legend) -> PyResult<Patch<FancyBboxPatch>> {
+    Ok(legend.frame())
+}
+
 /// The title text.
 fn get_title(legend: Legend) -> PyResult<Text> {
     Ok(legend.title())
@@ -371,6 +415,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
     module.add("candidates", candidates)?;
     module.add("get_texts", get_texts)?;
+    module.add("legend_handles", legend_handles)?;
+    module.add("get_frame", get_frame)?;
     module.add("get_title", get_title)?;
     module.add("set_title", set_title)?;
     module.add("get_frame_on", get_frame_on)?;

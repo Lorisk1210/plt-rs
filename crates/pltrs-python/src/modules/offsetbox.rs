@@ -6,6 +6,9 @@ use pltrs::offsetbox::{PackAlign, PackMode, aligned_offsets, packed_offsets};
 
 use crate::binding::prelude::*;
 
+mod add;
+mod tree;
+
 /// The packing mode called `name` (`"fixed"`, `"expand"`, `"equal"`).
 fn pack_mode(name: &str) -> PyResult<PackMode> {
     match name {
@@ -63,7 +66,8 @@ fn aligned(
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("packed", packed)?;
-    module.add("aligned", aligned)
+    module.add("aligned", aligned)?;
+    add::register(module)
 }
 
 #[cfg(test)]

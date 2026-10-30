@@ -13,7 +13,7 @@ use super::math::{Matrix4, Vec3};
 use super::share::replay;
 use super::state::Axes3DState;
 use super::units::Sources3D;
-use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle, TypedHandle};
 use crate::axes::Axes;
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
@@ -42,6 +42,12 @@ impl ArtistHandle for Axes3D {
     }
 }
 
+impl TypedHandle for Axes3D {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<Axes3DState>().then(|| Self::from_raw(raw.clone()))
+    }
+}
+
 impl Axes3D {
     pub(crate) fn from_raw(raw: RawHandle) -> Self {
         Self { raw }
@@ -62,6 +68,22 @@ impl Axes3D {
             replay(&mut self.raw.figure_state().borrow_mut(), &changes);
         }
         result
+    }
+
+    /// The 2-D axes whose data coordinates are the projected coordinates
+    /// (what matplotlib's `Axes3D` is as an `Axes`): titles, 2-D texts and
+    /// artists added in projected coordinates belong to it.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// assert_ne!(ax.projection_plane().id(), ax.id());
+    /// assert_eq!(fig.gca(), ax.projection_plane(), "a new 3-D axes is current");
+    /// ```
+    pub fn projection_plane(&self) -> Axes {
+        self.plane()
     }
 
     /// The 2-D axes whose data coordinates are the projected coordinates.

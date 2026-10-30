@@ -402,6 +402,24 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.gid.clone())
     }
 
+    /// Removes the group id (matplotlib's `set_gid(None)`).
+    fn clear_gid(&self) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.gid = None);
+        self
+    }
+
+    /// Removes the hyperlink (matplotlib's `set_url(None)`).
+    fn clear_url(&self) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().with_base_mut(|b| b.url = None);
+        self
+    }
+
     /// Sets the hyperlink used in vector output.
     fn set_url(&self, url: impl Into<String>) -> &Self
     where

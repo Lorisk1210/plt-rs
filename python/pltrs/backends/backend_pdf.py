@@ -2,6 +2,10 @@
 The PDF backend (matplotlib's ``backend_pdf``): `FigureCanvasPdf`, whose
 ``print_pdf`` writes the figure as a PDF document, and `PdfPages`, a
 document of several figures. pltrs (Rust) writes the documents.
+
+The document information helpers (`_create_pdf_info_dict`,
+`_datetime_to_pdf`), which the PGF backend shares, are matplotlib's (from
+matplotlib 3.11.2, under the Matplotlib License).
 """
 
 import datetime
@@ -14,6 +18,141 @@ from .._pylab_helpers import Gcf
 from ..backend_bases import (
     _Backend, _write_bytes, DrawEvent, FigureCanvasBase, FigureManagerBase)
 from ..figure import Figure
+
+
+def _create_pdf_info_dict(backend, metadata):
+    """
+    Create a PDF infoDict based on user-supplied metadata.
+
+    A default ``Creator``, ``Producer``, and ``CreationDate`` are added, though
+    the user metadata may override it. The date may be the current time, or a
+    time set by the ``SOURCE_DATE_EPOCH`` environment variable.
+
+    Metadata is verified to have the correct keys and their expected types. Any
+    unknown keys/types will raise a warning.
+
+    Parameters
+    ----------
+    backend : str
+        The name of the backend to use in the Producer value.
+
+    metadata : dict[str, Union[str, datetime]]
+        A dictionary of metadata supplied by the user with information
+        following the PDF specification. If any value is *None*, then the key
+        will be removed. This can be used to remove any pre-defined values.
+
+    Returns
+    -------
+    dict[str, Union[str, datetime]]
+        A validated dictionary of metadata.
+    """
+    source_date_epoch = os.getenv("SOURCE_DATE_EPOCH")
+    if source_date_epoch:
+        source_date = datetime.datetime.fromtimestamp(
+            int(source_date_epoch), datetime.timezone.utc)
+    else:
+        source_date = datetime.datetime.today()
+
+    creator = _backends.default_creator()
+    info = {
+        'Creator': f'{creator}, matplotlib {__version__} API',
+        'Producer': f'{creator} {backend} backend',
+        'CreationDate': source_date,
+        **metadata
+    }
+    info = {k: v for (k, v) in info.items() if v is not None}
+    _check_info(info)
+    return info
+
+
+def _is_string_like(x):
+    return isinstance(x, str)
+
+
+_is_string_like.text_for_warning = "an instance of str"
+
+
+def _is_date(x):
+    return isinstance(x, datetime)
+
+
+_is_date.text_for_warning = "an instance of datetime.datetime"
+
+
+def _check_trapped(x):
+    return x in ('True', 'False', 'Unknown')
+
+
+_check_trapped.text_for_warning = 'one of {"True", "False", "Unknown"}'
+
+#: The checks of the keys of a document information dictionary.
+_INFO_CHECKS = {
+    'Title': _is_string_like,
+    'Author': _is_string_like,
+    'Subject': _is_string_like,
+    'Keywords': _is_string_like,
+    'Creator': _is_string_like,
+    'Producer': _is_string_like,
+    'CreationDate': _is_date,
+    'ModDate': _is_date,
+    'Trapped': _check_trapped,
+}
+
+
+def _check_info(info):
+    """Warn about the unknown keys and the values of the wrong type of the
+    information dictionary *info*; return the keys that pass."""
+    valid = []
+    for k in info:
+        if k not in _INFO_CHECKS:
+            _api.warn_external(f'Unknown infodict keyword: {k!r}. '
+                               f'Must be one of {set(_INFO_CHECKS)!r}.')
+        elif not _INFO_CHECKS[k](info[k]):
+            _api.warn_external(f'Bad value for infodict keyword {k}. '
+                               f'Got {info[k]!r} which is not '
+                               f'{_INFO_CHECKS[k].text_for_warning}.')
+        else:
+            valid.append(k)
+    return valid
+
+
+def _native_info(metadata):
+    """The document *metadata* of a PDF document for pltrs (Rust), checked
+    as matplotlib checks it: the entries it warns about are left out, dates
+    are seconds since the epoch and None removes an entry."""
+    if metadata is None:
+        return None
+    given = {k: v for k, v in metadata.items() if v is not None}
+    native = {k: None for k, v in metadata.items() if v is None}
+    for key in _check_info(given):
+        value = given[key]
+        native[key] = (int(value.timestamp()) if isinstance(value, datetime)
+                       else value)
+    return native
+
+
+def _datetime_to_pdf(d):
+    """
+    Convert a datetime to a PDF string representing it.
+
+    Used for PDF and PGF.
+    """
+    r = d.strftime('D:%Y%m%d%H%M%S')
+    z = d.utcoffset()
+    if z is not None:
+        z = z.seconds
+    else:
+        if time.daylight:
+            z = time.altzone
+        else:
+            z = time.timezone
+    if z == 0:
+        r += 'Z'
+    elif z < 0:
+        r += "+%02d'%02d'" % ((-z) // 3600, (-z) % 3600)
+    else:
+        r += "-%02d'%02d'" % (z // 3600, z % 3600)
+    return r
 
 
 class PdfPages:
@@ -133,7 +272,8 @@ class FigureCanvasPdf(FigureCanvasBase):
                 self._print_settings(**settings))
             DrawEvent("draw_event", self, None)._process()
         else:
-            self._print_native("pdf", filename, metadata=metadata, **settings)
+            self._print_native("pdf", filename, metadata=_native_info(metadata),
+                               **settings)
 
 
 FigureManagerPdf = FigureManagerBase
@@ -144,102 +284,5 @@ class _BackendPdf(_Backend):
     FigureCanvas = FigureCanvasPdf
 
 
-def _create_pdf_info_dict(backend, metadata):
-    """
-    Create a PDF infoDict based on user-supplied metadata (matplotlib's
-    helper, which the PGF backend's `PdfPages` uses).
-
-    A default ``Creator``, ``Producer``, and ``CreationDate`` are added, though
-    the user metadata may override it. The date may be the current time, or a
-    time set by the ``SOURCE_DATE_EPOCH`` environment variable.
-
-    Metadata is verified to have the correct keys and their expected types. Any
-    unknown keys/types will raise a warning.
-
-    Parameters
-    ----------
-    backend : str
-        The name of the backend to use in the Producer value.
-
-    metadata : dict[str, Union[str, datetime]]
-        A dictionary of metadata supplied by the user with information
-        following the PDF specification. If any value is *None*, then the key
-        will be removed. This can be used to remove any pre-defined values.
-
-    Returns
-    -------
-    dict[str, Union[str, datetime]]
-        A validated dictionary of metadata.
-    """
-    from .. import __version__
-    source_date_epoch = os.getenv("SOURCE_DATE_EPOCH")
-    if source_date_epoch:
-        source_date = datetime.datetime.fromtimestamp(
-            int(source_date_epoch), datetime.timezone.utc)
-    else:
-        source_date = datetime.datetime.today()
-
-    info = {
-        'Creator': f'Matplotlib v{__version__}, https://matplotlib.org',
-        'Producer': f'Matplotlib {backend} backend v{__version__}',
-        'CreationDate': source_date,
-        **metadata
-    }
-    info = {k: v for (k, v) in info.items() if v is not None}
-
-    def is_string_like(x):
-        return isinstance(x, str)
-    is_string_like.text_for_warning = "an instance of str"
-
-    def is_date(x):
-        return isinstance(x, datetime.datetime)
-    is_date.text_for_warning = "an instance of datetime.datetime"
-
-    def check_trapped(x):
-        return x in ('True', 'False', 'Unknown')
-    check_trapped.text_for_warning = 'one of {"True", "False", "Unknown"}'
-
-    keywords = {
-        'Title': is_string_like,
-        'Author': is_string_like,
-        'Subject': is_string_like,
-        'Keywords': is_string_like,
-        'Creator': is_string_like,
-        'Producer': is_string_like,
-        'CreationDate': is_date,
-        'ModDate': is_date,
-        'Trapped': check_trapped,
-    }
-    for k in info:
-        if k not in keywords:
-            _api.warn_external(f'Unknown infodict keyword: {k!r}. '
-                               f'Must be one of {set(keywords)!r}.')
-        elif not keywords[k](info[k]):
-            _api.warn_external(f'Bad value for infodict keyword {k}. '
-                               f'Got {info[k]!r} which is not '
-                               f'{keywords[k].text_for_warning}.')
-    return info
 
 
-def _datetime_to_pdf(d):
-    """
-    Convert a datetime to a PDF string representing it.
-
-    Used for PDF and PGF.
-    """
-    r = d.strftime('D:%Y%m%d%H%M%S')
-    z = d.utcoffset()
-    if z is not None:
-        z = z.seconds
-    else:
-        if time.daylight:
-            z = time.altzone
-        else:
-            z = time.timezone
-    if z == 0:
-        r += 'Z'
-    elif z < 0:
-        r += "+%02d'%02d'" % ((-z) // 3600, (-z) % 3600)
-    else:
-        r += "-%02d'%02d'" % (z // 3600, z % 3600)
-    return r

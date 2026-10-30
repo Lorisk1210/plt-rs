@@ -4,8 +4,10 @@
 use pltrs::colors::Color;
 use pltrs::figure::{
     BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, SaveFormat, SaveOptions,
+    SvgMetadata,
 };
 use pltrs::transforms::Bbox;
+use pltrs_render::Timestamp;
 
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
@@ -47,25 +49,23 @@ fn pad_inches(object: &Bound<'_>) -> PyResult<PadInches> {
 /// with the entries given set (a string) or left out (`None`). A PNG file
 /// records every entry as a text chunk; the vector formats record those of
 /// PDF's document information dictionary they hold (`Title`, `Author`,
-/// `Subject`, `Keywords`, `Creator`, `Producer`, and the dates, which
-/// can only be left out).
+/// `Subject`, `Keywords`, `Creator`, `Producer`, and the dates, given as
+/// whole seconds since the Unix epoch).
 fn metadata(object: &Bound<'_>) -> PyResult<Metadata> {
     let mut metadata = Metadata::default();
     for (key, value) in dict_items(object)? {
         let key: String = key.extract()?;
         let date = match key.as_str() {
             "CreationDate" => Some(&mut metadata.date),
+            "Date" if value.is_none() => Some(&mut metadata.date),
             "ModDate" => Some(&mut metadata.modified),
             _ => None,
         };
         if let Some(date) = date {
-            if !value.is_none() {
-                return Err(PyErr::new(
-                    ExceptionKind::NotImplementedError,
-                    format!("pltrs: savefig(metadata={{{key:?}: <a date>}})"),
-                ));
-            }
-            *date = None;
+            *date = value.extract::<Option<i64>>()?.map(Timestamp);
+            continue;
+        }
+        if svg_entry(&mut metadata.svg, &key, &value)? {
             continue;
         }
         let text: Option<String> = value.extract()?;
@@ -87,6 +87,48 @@ fn metadata(object: &Bound<'_>) -> PyResult<Metadata> {
         };
     }
     Ok(metadata)
+}
+
+/// Records the SVG entry `key` of `savefig(metadata=...)` in `svg`, if it
+/// is one only SVG documents hold or a list of values (`Creator`,
+/// `Keywords` and `Date` as lists; `backend_svg` has checked the types
+/// and written dates in ISO 8601); `None` leaves a default entry out.
+/// Returns whether the entry was SVG's.
+fn svg_entry(svg: &mut SvgMetadata, key: &str, value: &Bound<'_>) -> PyResult<bool> {
+    let several = match key {
+        "Creator" => Some(&mut svg.creators),
+        "Keywords" => Some(&mut svg.keywords),
+        "Date" => Some(&mut svg.dates),
+        "Contributor" => Some(&mut svg.contributors),
+        "Publisher" => Some(&mut svg.publishers),
+        "Rights" => Some(&mut svg.rights),
+        _ => None,
+    };
+    if let Some(values) = several {
+        // A single creator or keyword, or none, is the shared entry.
+        let shared = matches!(key, "Creator" | "Keywords");
+        if value.is_none() || (shared && value.extract::<String>().is_ok()) {
+            return Ok(false);
+        }
+        *values = match value.extract::<String>() {
+            Ok(text) => vec![text],
+            Err(_) => value.extract()?,
+        };
+        return Ok(true);
+    }
+    let single = match key {
+        "Type" => &mut svg.resource_type,
+        "Format" => &mut svg.format,
+        "Coverage" => &mut svg.coverage,
+        "Description" => &mut svg.description,
+        "Identifier" => &mut svg.identifier,
+        "Language" => &mut svg.language,
+        "Relation" => &mut svg.relation,
+        "Source" => &mut svg.source,
+        _ => return Ok(false),
+    };
+    *single = value.extract()?;
+    Ok(true)
 }
 
 /// The save options of a dict of `print_figure`'s resolved keywords:
@@ -137,9 +179,16 @@ fn print_figure(figure: Figure, format: String, settings: PrintSettings) -> PyRe
     Ok(Bytes(figure.to_format(format, options)?))
 }
 
+/// The creator pltrs (Rust) records in the documents it writes
+/// (`pltrs v0.1.0`).
+fn default_creator() -> PyResult<Option<String>> {
+    Ok(Metadata::default().creator)
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("print_figure", print_figure)
+    module.add("print_figure", print_figure)?;
+    module.add("default_creator", default_creator)
 }
 
 #[cfg(test)]
@@ -189,8 +238,11 @@ mod tests {
             let err = print(&native, "jpeg", "{'metadata': {}}").unwrap_err();
             assert!(err.message(py).contains("metadata not supported"));
             let dated = "{'metadata': {'ModDate': 1}}";
-            let err = print(&native, "pdf", dated).unwrap_err();
-            assert_eq!(err.class_name(py), "NotImplementedError");
+            let pdf = print(&native, "pdf", dated).unwrap().repr().unwrap();
+            assert!(pdf.contains("/ModDate (D:19700101000001Z)"));
+            let svg = "{'metadata': {'Creator': ['a', 'b'], 'Format': None}}";
+            let svg = print(&native, "svg", svg).unwrap().repr().unwrap();
+            assert!(svg.contains("<dc:title>b</dc:title>") && !svg.contains("dc:format"));
         });
     }
 

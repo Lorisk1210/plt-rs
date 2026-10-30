@@ -49,6 +49,62 @@ pub(super) enum PanState {
     Projection(PanStart),
 }
 
+/// A pan of one axes in progress, from [`Axes::start_pan`] (matplotlib's
+/// `_pan_start`): the axes as it was when the button went down.
+#[derive(Debug)]
+pub struct AxesPan(PanState);
+
+/// The limits a pan gives (matplotlib's `_get_pan_points`): the x and the
+/// y interval, each end `None` where it would not be finite.
+pub type PanLimits = ((Option<f64>, Option<f64>), (Option<f64>, Option<f64>));
+
+impl Axes {
+    /// Starts panning the axes from display point `at` with `button`
+    /// (matplotlib's `start_pan`); `None` if the axes is not laid out.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::navigation::{DragKey, PointerButton};
+    /// use pltrs_core::Point;
+    /// let ax = Figure::new().subplot();
+    /// let pan = ax.start_pan(Point::new(300.0, 200.0), PointerButton::Left).unwrap();
+    /// pan.drag(&ax, PointerButton::Left, DragKey::None, Point::new(310.0, 200.0));
+    /// pan.end(&ax);
+    /// assert!(ax.xlim().0 < 0.0);
+    /// ```
+    pub fn start_pan(&self, at: Point, button: PointerButton) -> Option<AxesPan> {
+        PanState::new(self, at, button).map(AxesPan)
+    }
+}
+
+impl AxesPan {
+    /// The limits of `ax` with the pointer moved to `at`, `key` held and
+    /// `button` down (matplotlib's `_get_pan_points`): `None` when the
+    /// pointer has not moved, for a button that does not pan, and on axes
+    /// that pan otherwise (polar axes, projections defined by the
+    /// program).
+    pub fn limits(
+        &self,
+        ax: &Axes,
+        button: PointerButton,
+        key: DragKey,
+        at: Point,
+    ) -> Option<PanLimits> {
+        self.0.cartesian_points(ax, button, key, at)
+    }
+
+    /// The pointer moved to `at` with `key` held while `button` is down:
+    /// `ax` follows (matplotlib's `drag_pan`).
+    pub fn drag(&self, ax: &Axes, button: PointerButton, key: DragKey, at: Point) {
+        self.0.drag(ax, button, key, at);
+    }
+
+    /// The pan of `ax` ended (matplotlib's `end_pan`).
+    pub fn end(&self, ax: &Axes) {
+        self.0.end(ax);
+    }
+}
+
 /// What dragging polar axes does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum PolarPan {
@@ -191,17 +247,13 @@ impl PanState {
 
     /// matplotlib's `_get_pan_points`: the new x and y limits, each end
     /// `None` when it would not be finite.
-    #[expect(
-        clippy::type_complexity,
-        reason = "two (low, high) pairs of optional limits, as matplotlib returns them"
-    )]
     fn cartesian_points(
         &self,
         ax: &Axes,
         button: PointerButton,
         key: DragKey,
         at: Point,
-    ) -> Option<((Option<f64>, Option<f64>), (Option<f64>, Option<f64>))> {
+    ) -> Option<PanLimits> {
         let Self::Cartesian {
             lim,
             trans,

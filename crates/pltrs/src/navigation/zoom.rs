@@ -184,30 +184,199 @@ pub(super) fn zoom_to_rect(
 /// Zooms `axes` by `scale` (> 1 zooms in) around display point `at`
 /// (matplotlib's `_set_view_from_bbox((x, y, scale))`).
 pub(super) fn zoom_around(figure: &Figure, axes: &[Axes], at: Point, scale: f64) {
+    for (ax, change) in axes.iter().zip(changes(figure, axes, DragKey::None)) {
+        if let Some((corners, direction)) = box_around(ax, at, scale) {
+            set_view_from_bbox(ax, corners, Some((at, scale)), direction, change);
+        }
+    }
+}
+
+/// The box in display coordinates that zooming `ax` by `scale` around
+/// `at` shows, and whether that zooms in (`scale > 1`) or out
+/// (matplotlib's `_prepare_view_from_bbox` of a 3-tuple).
+fn box_around(ax: &Axes, at: Point, scale: f64) -> Option<(Bbox, ZoomDirection)> {
     let (direction, factor) = if scale > 1.0 {
         (ZoomDirection::In, scale)
     } else {
         (ZoomDirection::Out, 1.0 / scale)
     };
-    for (ax, change) in axes.iter().zip(changes(figure, axes, DragKey::None)) {
-        let Some((_, trans)) = geometry(ax) else {
-            continue;
+    let (_, trans) = geometry(ax)?;
+    let limits = ax.raw().with::<AxesState, _>(|state| state.view_lim);
+    let view = bbox_through(&limits, &trans);
+    let (center, half) = (view.center(), (view.width() / 2.0, view.height() / 2.0));
+    let focus = Point::new(
+        (at.x * (factor - 1.0) + center.x) / factor,
+        (at.y * (factor - 1.0) + center.y) / factor,
+    );
+    let corners = Bbox::from_extents(
+        focus.x - half.0 / factor,
+        focus.y - half.1 / factor,
+        focus.x + half.0 / factor,
+        focus.y + half.1 / factor,
+    );
+    Some((corners, direction))
+}
+
+/// What a zoom of one axes goes to (the `bbox` of matplotlib's
+/// `_set_view_from_bbox`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ZoomTarget {
+    /// A box in display coordinates, its corners in any order (a 4-tuple).
+    Box(Bbox),
+    /// The view scaled by `scale` around display point `at`, zooming in
+    /// when `scale` is above 1 and out otherwise, whatever the direction
+    /// given (a 3-tuple `(x, y, scale)`).
+    Around {
+        /// The point that stays put, in display coordinates.
+        at: Point,
+        /// The zoom factor.
+        scale: f64,
+    },
+}
+
+/// A zoom of one axes: the arguments of matplotlib's
+/// `_set_view_from_bbox`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AxesZoom {
+    /// Where the view goes.
+    pub target: ZoomTarget,
+    /// Whether the box becomes the view or the view shrinks into it.
+    pub direction: ZoomDirection,
+    /// [`DragKey::X`] or [`DragKey::Y`] zoom along that axis alone
+    /// (matplotlib's `mode`); other keys zoom along both.
+    pub mode: DragKey,
+    /// Whether the x limits stay, as those of an axes twinned in x with
+    /// one already zoomed.
+    pub twinx: bool,
+    /// Whether the y limits stay, as those of an axes twinned in y with
+    /// one already zoomed.
+    pub twiny: bool,
+}
+
+/// An [`AxesZoom`] worked out for one axes.
+struct Resolved {
+    /// The box in display coordinates.
+    corners: Bbox,
+    /// The point and factor of a zoom around a point.
+    wheel: Option<(Point, f64)>,
+    /// Whether the view zooms into the box or out of it.
+    direction: ZoomDirection,
+    /// Which limits change.
+    change: Changes,
+}
+
+impl AxesZoom {
+    /// The box, the wheel point and factor, the direction and which
+    /// limits change, for `ax`.
+    fn resolve(&self, ax: &Axes) -> Option<Resolved> {
+        let change = Changes {
+            x: !self.twinx && self.mode != DragKey::Y,
+            y: !self.twiny && self.mode != DragKey::X,
         };
-        let limits = ax.raw().with::<AxesState, _>(|state| state.view_lim);
-        let view = bbox_through(&limits, &trans);
-        let (center, half) = (view.center(), (view.width() / 2.0, view.height() / 2.0));
-        let focus = Point::new(
-            (at.x * (factor - 1.0) + center.x) / factor,
-            (at.y * (factor - 1.0) + center.y) / factor,
-        );
-        let corners = Bbox::from_extents(
-            focus.x - half.0 / factor,
-            focus.y - half.1 / factor,
-            focus.x + half.0 / factor,
-            focus.y + half.1 / factor,
-        );
-        set_view_from_bbox(ax, corners, Some((at, scale)), direction, change);
+        Some(match self.target {
+            ZoomTarget::Box(corners) => Resolved {
+                corners,
+                wheel: None,
+                direction: self.direction,
+                change,
+            },
+            ZoomTarget::Around { at, scale } => {
+                let scale = if scale == 0.0 { 1.0 } else { scale };
+                let (corners, direction) = box_around(ax, at, scale)?;
+                Resolved {
+                    corners,
+                    wheel: Some((at, scale)),
+                    direction,
+                    change,
+                }
+            }
+        })
     }
+}
+
+impl Axes {
+    /// The x and y bounds (each increasing) that `zoom` would give the
+    /// axes, the bounds of the limits it keeps unchanged (matplotlib's
+    /// `_prepare_view_from_bbox`); `None` if the axes is not laid out.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::navigation::{AxesZoom, DragKey, ZoomDirection, ZoomTarget};
+    /// use pltrs_core::{Bbox, Point};
+    /// let ax = Figure::new().subplot();
+    /// let zoom = AxesZoom {
+    ///     target: ZoomTarget::Around { at: Point::new(0.0, 0.0), scale: 1.0 },
+    ///     direction: ZoomDirection::In,
+    ///     mode: DragKey::None,
+    ///     twinx: false,
+    ///     twiny: false,
+    /// };
+    /// let (x, y) = ax.zoomed_bounds(&zoom).unwrap();
+    /// assert!((x.0 - 0.0).abs() < 1e-9 && (y.1 - 1.0).abs() < 1e-9);
+    /// ```
+    pub fn zoomed_bounds(&self, zoom: &AxesZoom) -> Option<((f64, f64), (f64, f64))> {
+        let resolved = zoom.resolve(self)?;
+        let (bbox, trans) = geometry(self)?;
+        let inverse = trans.inverted()?;
+        let limits = self.raw().with::<AxesState, _>(|state| state.view_lim);
+        let view = FrozenView::new(limits, bbox, trans, inverse);
+        let [x, y] = zoomed(
+            self,
+            resolved.corners,
+            resolved.direction,
+            resolved.change,
+            &view,
+        )
+        .map(|(name, bounds)| bounds.unwrap_or_else(|| bound(self, name)));
+        Some((x, y))
+    }
+
+    /// Zooms the axes as `zoom` says (matplotlib's `_set_view_from_bbox`):
+    /// sets the bounds [`Axes::zoomed_bounds`] gives and turns
+    /// autoscaling off for the limits it changes. A projection defined by
+    /// the program may zoom its axes itself, and the zoom of a colorbar
+    /// sets the limits of its norm.
+    pub fn zoom_view(&self, zoom: &AxesZoom) {
+        if let Some(resolved) = zoom.resolve(self) {
+            set_view_from_bbox(
+                self,
+                resolved.corners,
+                resolved.wheel,
+                resolved.direction,
+                resolved.change,
+            );
+        }
+    }
+}
+
+/// The new bounds of each axis of `ax` for the box `corners` in display
+/// coordinates zoomed in `direction` (matplotlib's
+/// `_prepare_view_from_bbox`), `None` for the axes the zoom leaves.
+fn zoomed(
+    ax: &Axes,
+    corners: Bbox,
+    direction: ZoomDirection,
+    change: Changes,
+    view: &FrozenView,
+) -> [(AxisName, Option<(f64, f64)>); 2] {
+    let inverse = view.to_data();
+    let start = inverse.transform_point(Point::new(corners.x0(), corners.y0()));
+    let stop = inverse.transform_point(Point::new(corners.x1(), corners.y1()));
+    [
+        (AxisName::X, (start.x, stop.x), change.x),
+        (AxisName::Y, (start.y, stop.y), change.y),
+    ]
+    .map(|(name, (a, b), changes)| {
+        let bounds = changes.then(|| {
+            let (low0, high0) = bound(ax, name);
+            let (low, high) = (a.min(b).clamp(low0, high0), a.max(b).clamp(low0, high0));
+            match direction {
+                ZoomDirection::In => (low, high),
+                ZoomDirection::Out => unzoom(ax, name, (low0, high0), (low, high)),
+            }
+        });
+        (name, bounds)
+    })
 }
 
 /// matplotlib's `_prepare_view_from_bbox` + `_set_view_from_bbox` for the
@@ -239,21 +408,9 @@ fn set_view_from_bbox(
         return;
     }
     let colorbar = Colorbar::in_axes(ax);
-    let inverse = zoom.view().to_data();
-    let start = inverse.transform_point(Point::new(corners.x0(), corners.y0()));
-    let stop = inverse.transform_point(Point::new(corners.x1(), corners.y1()));
-    for (name, (a, b)) in [
-        (AxisName::X, (start.x, stop.x)),
-        (AxisName::Y, (start.y, stop.y)),
-    ] {
-        if !zoom.changes(name) {
+    for (name, bounds) in zoomed(ax, corners, direction, change, zoom.view()) {
+        let Some(bounds) = bounds else {
             continue;
-        }
-        let (low0, high0) = bound(ax, name);
-        let (low, high) = (a.min(b).clamp(low0, high0), a.max(b).clamp(low0, high0));
-        let bounds = match direction {
-            ZoomDirection::In => (low, high),
-            ZoomDirection::Out => unzoom(ax, name, (low0, high0), (low, high)),
         };
         match &colorbar {
             Some(colorbar) if colorbar.long_axis().name() == name => colorbar.set_view(bounds),

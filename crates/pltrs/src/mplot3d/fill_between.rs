@@ -220,7 +220,7 @@ fn unique(mut points: Vec<Vec3>) -> Vec<Vec3> {
 
 /// Whether the points, NaN ones ignored, lie on one plane within `atol`
 /// (matplotlib's `art3d._all_points_on_plane`).
-fn all_points_on_plane(points: Vec<Vec3>, atol: f64) -> bool {
+pub fn all_points_on_plane(points: Vec<Vec3>, atol: f64) -> bool {
     let points = unique(
         points
             .into_iter()

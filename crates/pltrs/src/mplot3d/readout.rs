@@ -34,6 +34,23 @@ impl Axes3D {
         )
     }
 
+    /// The status-bar text for projected point `(xv, yv)` (matplotlib's
+    /// `format_coord` outside a rotation): the coordinates of the point
+    /// of the nearest pane under it, naming that pane, each formatted as
+    /// [`Axes3D::format_data`] does; empty when the projection cannot be
+    /// inverted or a formatter fails.
+    pub fn format_coord(&self, xv: f64, yv: f64) -> String {
+        self.pane_point(xv, yv)
+            .and_then(|(point, pane)| {
+                let formatted = Axis3::ALL.map(|axis| self.format_data(axis, point[axis.index()]));
+                let [Some(x), Some(y), Some(z)] = formatted else {
+                    return None;
+                };
+                Some(location_coords(pane, [x, y, z]))
+            })
+            .unwrap_or_default()
+    }
+
     /// The point (in data coordinates) of the pane nearest to the camera's
     /// line of sight through projected point `(xv, yv)`, and the axis that
     /// pane is normal to (matplotlib's `_calc_coord`, which works in
@@ -151,7 +168,7 @@ impl Axes3D {
 /// The location text for a pane point whose coordinates are already
 /// formatted, naming the pane the point lies on (matplotlib's
 /// `_location_coords`).
-pub(crate) fn location_coords(pane: Axis3, [x, y, z]: [String; 3]) -> String {
+fn location_coords(pane: Axis3, [x, y, z]: [String; 3]) -> String {
     match pane {
         Axis3::X => format!("x pane={x}, y={y}, z={z}"),
         Axis3::Y => format!("x={x}, y pane={y}, z={z}"),

@@ -9,8 +9,28 @@ use pltrs::text::Text;
 
 use super::lines::LineKwargs;
 use crate::binding::prelude::*;
+use crate::binding::{retyped, wrap_artist};
 
-artist_handle!(Axes);
+/// The native object of any axes converts to it, and that of a 3-D axes
+/// to its projection plane: matplotlib's `Axes3D` is an `Axes` whose 2-D
+/// side draws in projected coordinates (`artist_handle!` otherwise).
+impl FromPy<'_> for Axes {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        match object.extract::<Native<Axes>>() {
+            Ok(native) => Ok(native.borrow().clone()),
+            Err(mismatch) => match object.extract::<pltrs::mplot3d::Axes3D>() {
+                Ok(axes3d) => Ok(axes3d.projection_plane()),
+                Err(_) => retyped(object, mismatch),
+            },
+        }
+    }
+}
+
+impl IntoPy for Axes {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        wrap_artist(py, self)
+    }
+}
 
 impl From<PlotError> for PyErr {
     /// matplotlib's `ValueError` for data it cannot plot.

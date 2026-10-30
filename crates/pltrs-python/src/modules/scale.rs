@@ -19,7 +19,7 @@ impl From<ScaleError> for PyErr {
 }
 
 /// matplotlib's `nonpositive`: `"clip"` or `"mask"`.
-fn nonpositive(name: &str) -> PyResult<NonPositive> {
+pub(super) fn nonpositive(name: &str) -> PyResult<NonPositive> {
     match name {
         "clip" => Ok(NonPositive::Clip),
         "mask" => Ok(NonPositive::Mask),

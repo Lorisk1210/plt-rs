@@ -215,7 +215,11 @@ fn new(
         .0
         .handles(entries.into_iter().map(|entry| entry.0))
         .labels(labels);
-    if let Some(axes) = Axes::from_raw_handle(&parent) {
+    // A 3-D axes places its legend on its projection plane.
+    let axes = Axes::from_raw_handle(&parent).or_else(|| {
+        pltrs::mplot3d::Axes3D::from_raw_handle(&parent).map(|axes| axes.projection_plane())
+    });
+    if let Some(axes) = axes {
         return Ok(axes.legend(options)?);
     }
     match Figure::from_raw_handle(&parent) {

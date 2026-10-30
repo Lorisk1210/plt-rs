@@ -18,6 +18,9 @@ pub struct BaseProps {
     pub visible: Option<bool>,
     /// Whether the artist is clipped to its axes.
     pub clip_on: Option<bool>,
+    /// Whether the artist is left out of normal draws, to be drawn by
+    /// blitting (matplotlib's `animated`).
+    pub animated: Option<bool>,
     /// Rasterize even in vector output.
     pub rasterized: Option<bool>,
     /// Group id for vector output.
@@ -45,6 +48,7 @@ impl BaseProps {
             label: overrides.label.or(self.label),
             visible: overrides.visible.or(self.visible),
             clip_on: overrides.clip_on.or(self.clip_on),
+            animated: overrides.animated.or(self.animated),
             rasterized: overrides.rasterized.or(self.rasterized),
             gid: overrides.gid.or(self.gid),
             url: overrides.url.or(self.url),
@@ -70,6 +74,9 @@ impl BaseProps {
         }
         if let Some(clip_on) = self.clip_on {
             base.clip_on = clip_on;
+        }
+        if let Some(animated) = self.animated {
+            base.animated = animated;
         }
         if let Some(rasterized) = self.rasterized {
             base.rasterized = rasterized;
@@ -128,6 +135,38 @@ macro_rules! base_prop_builders {
         #[must_use]
         pub fn clip_on(mut self, clip_on: bool) -> Self {
             self.base.clip_on = Some(clip_on);
+            self
+        }
+
+        /// Whether the artist is rasterized in vector output (matplotlib's
+        /// `rasterized`).
+        #[must_use]
+        pub fn rasterized(mut self, rasterized: bool) -> Self {
+            self.base.rasterized = Some(rasterized);
+            self
+        }
+
+        /// The group id of the artist in vector output (matplotlib's
+        /// `gid`).
+        #[must_use]
+        pub fn gid(mut self, gid: impl Into<String>) -> Self {
+            self.base.gid = Some(gid.into());
+            self
+        }
+
+        /// The hyperlink of the artist in vector output (matplotlib's
+        /// `url`).
+        #[must_use]
+        pub fn url(mut self, url: impl Into<String>) -> Self {
+            self.base.url = Some(url.into());
+            self
+        }
+
+        /// Whether the artist is left out of normal draws, to be drawn by
+        /// blitting (matplotlib's `animated`).
+        #[must_use]
+        pub fn animated(mut self, animated: bool) -> Self {
+            self.base.animated = Some(animated);
             self
         }
 

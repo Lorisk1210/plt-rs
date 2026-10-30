@@ -46,6 +46,12 @@ projection_registry.register(
 )
 
 
+# The 3-D axes, whose toolkit imports the axes defined above.
+from ..mpl_toolkits.mplot3d import Axes3D  # noqa: E402
+projection_registry.register(Axes3D)
+del Axes3D
+
+
 def register_projection(cls):
     """Register the projection class *cls* under its ``name``."""
     projection_registry.register(cls)

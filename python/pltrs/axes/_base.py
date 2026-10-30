@@ -13,6 +13,9 @@ from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._native import transforms as _transforms
 from ..artist import Artist
 from ._aspect import AspectMixin
+from ._decorations import DecorationsMixin
+from ._limits import LimitsMixin
+from ._navigation import NavigationMixin
 from ..transforms import Bbox
 
 
@@ -38,7 +41,7 @@ class _SharedAxes:
         return self._siblings(a)
 
 
-class _AxesBase(AspectMixin, Artist):
+class _AxesBase(NavigationMixin, LimitsMixin, DecorationsMixin, AspectMixin, Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 

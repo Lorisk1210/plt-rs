@@ -2,6 +2,7 @@
 //! package do with a figure: drawing it onto the raster canvas it keeps
 //! (`FigureCanvasAgg`, with blitting), printing it in a file format
 //! (`print_png`, `print_pdf`, ...) and collecting pages (`PdfPages`).
+//! `ft2font` subsets the fonts the documents embed (`_backend_pdf_ps`).
 
 mod canvas;
 mod pdf_pages;

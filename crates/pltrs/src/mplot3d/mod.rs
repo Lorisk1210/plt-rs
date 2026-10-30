@@ -53,6 +53,7 @@
 //!
 //! [`Figure::subplot_3d`]: crate::figure::Figure::subplot_3d
 
+mod adopt;
 mod art3d;
 mod aspect;
 mod axis3d;
@@ -102,6 +103,7 @@ mod voxels;
 
 pub(crate) use state::Axes3DState;
 
+pub use adopt::Geometry3D;
 pub use art3d::{ProjectedOutline, ProjectedPath, ZSort};
 pub use aspect::Aspect3D;
 pub use axis_draw::{GridLine3D, TickLine3D};
@@ -114,7 +116,7 @@ pub use coords::Axis3;
 pub use create::Axes3DOptions;
 pub use error::Axes3DError;
 pub use errorbar::{Errorbar3D, Errorbar3DOptions};
-pub use fill_between::{Curve3D, FillBetween3DOptions, FillMode};
+pub use fill_between::{Curve3D, FillBetween3DOptions, FillMode, all_points_on_plane};
 pub use geometry::AxisPosition;
 pub use handle::Axes3D;
 pub use lift::Poly3DOptions;
@@ -122,7 +124,6 @@ pub use math::Vec3;
 pub(crate) use mouse::MouseAction;
 pub use mouse::{MouseButtons, RotationStyle};
 pub use quiver::Quiver3DOptions;
-pub(crate) use readout::location_coords;
 pub use scatter::Scatter3DOptions;
 pub use shade::LightSource;
 pub(crate) use share::leave_shares;

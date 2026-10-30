@@ -75,7 +75,10 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
 
     def get_axes(self):
         """List of Axes in the Figure."""
-        return _handles.wrap_all(_figure.axes(self._native), Axes, self.figure)
+        from ._native import mplot3d as _mplot3d
+        from .mpl_toolkits.mplot3d import Axes3D
+        return [_handles.wrap(native, Axes3D if is_3d else Axes, self.figure)
+                for native, is_3d in _mplot3d.figure_axes(self._native)]
 
     axes = property(get_axes, doc="List of Axes in the Figure.")
 
@@ -196,10 +199,14 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
         if not np.isfinite(rect).all():
             raise ValueError(f'all entries in rect must be finite not {rect}')
         projection_class, pkw = self._process_projection_requirements(**kwargs)
-        if projection_class.name != "rectilinear":
+        make = getattr(projection_class, "_make_native", None)
+        if make is not None:
+            native, pkw = make(self, pkw, rect=tuple(map(float, rect)))
+        elif projection_class.name != "rectilinear":
             raise NotImplementedError(
                 f"pltrs: add_axes(projection={projection_class.name!r})")
-        native = _figure.add_axes(self._native, tuple(map(float, rect)))
+        else:
+            native = _figure.add_axes(self._native, tuple(map(float, rect)))
         return self._new_axes(native, projection_class, pkw)
 
     def add_subplot(self, *args, **kwargs):
@@ -271,7 +278,10 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
             args = tuple(map(int, str(args[0])))
         projection_class, pkw = self._process_projection_requirements(**kwargs)
         spec = SubplotSpec._from_subplot_args(self, args)._native_spec()
-        if projection_class.name == "rectilinear":
+        make = getattr(projection_class, "_make_native", None)
+        if make is not None:
+            native, pkw = make(self, pkw, spec=spec)
+        elif projection_class.name == "rectilinear":
             native = _gridspec.add_subplot(self._native, spec)
         else:
             native = _figure.add_subplot_spec_projection(
@@ -624,6 +634,19 @@ class FigureBase(FigureText, _MosaicMixin, Artist):
         artists that require a draw before their size is known (e.g. text).
         """
         _figure.layout(self._native)
+
+    def _get_renderer(self):
+        """The renderer of the root figure's canvas: the canvas' own, or the
+        Agg renderer of the figure for a canvas without one."""
+        figure = self.get_figure(root=True)
+        canvas = figure.canvas
+        if hasattr(canvas, 'get_renderer'):
+            return canvas.get_renderer()
+        from .backends.backend_agg import RendererAgg
+        renderer = RendererAgg(*canvas.get_width_height(physical=True),
+                               figure.dpi)
+        renderer._figure = figure
+        return renderer
 
 
 class SubFigure(FigureBase):

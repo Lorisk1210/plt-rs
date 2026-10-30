@@ -9,6 +9,8 @@ use pltrs::rc::{Cycler, CyclerError};
 use crate::binding::prelude::*;
 
 mod aspect;
+mod decorations;
+mod limits;
 
 impl From<CyclerError> for PyErr {
     fn from(err: CyclerError) -> Self {
@@ -161,6 +163,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_scale", get_scale)?;
     module.add("set_facecolor", set_facecolor)?;
     module.add("get_facecolor", get_facecolor)?;
+    decorations::register(module)?;
+    limits::register(module)?;
     aspect::register(module)
 }
 

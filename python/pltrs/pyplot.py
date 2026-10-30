@@ -845,6 +845,21 @@ def setp(obj, *args, **kwargs):
     return artist.setp(obj, *args, **kwargs)
 
 
+def suptitle(t, **kwargs):
+    """Add a centered super title to the current figure (`.Figure.suptitle`)."""
+    return gcf().suptitle(t, **kwargs)
+
+
+def figtext(x, y, s, fontdict=None, **kwargs):
+    """Add text to the current figure (`.Figure.text`)."""
+    return gcf().text(x, y, s, fontdict=fontdict, **kwargs)
+
+
+def axis(arg=None, /, *, emit=True, **kwargs):
+    """Get or set some axis properties of the current Axes (`.Axes.axis`)."""
+    return gca().axis(arg, emit=emit, **kwargs)
+
+
 # The wrappers of the plotting methods (plt.hist, plt.errorbar, ...).
 from ._pyplot_plotting import *  # noqa: E402,F401,F403
 from ._pyplot_plotting import __all__ as _plotting_all  # noqa: E402

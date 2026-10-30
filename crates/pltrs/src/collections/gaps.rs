@@ -2,10 +2,12 @@
 //! collections): before the edges, each dashed item is stroked once more
 //! with the inverse of its dash pattern in its gap colour.
 
-use pltrs_core::{Path, Point};
+use pltrs_core::{Path, Point, Rgba};
 use pltrs_render::Dashes;
 
-use super::Collection;
+use super::style::resolve_gap_colors;
+use super::{Collection, CollectionArtist, CollectionColorError};
+use crate::artist::ArtistHandle;
 use crate::colors::Color;
 use crate::lines::inverse_dashes;
 
@@ -24,6 +26,30 @@ impl Collection {
     /// ```
     pub fn set_gapcolors(&self, colors: Option<Vec<Color>>) -> &Self {
         self.update(|c| c.gapcolors = colors)
+    }
+
+    /// The colours drawn in the gaps of dashed edges, the collection's
+    /// alpha applied (matplotlib's `get_gapcolor`); `None` when the gaps
+    /// stay empty.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let lines = ax.vlines([1.0], [0.0], [1.0])?;
+    /// assert_eq!(lines.gapcolors()?, None);
+    /// lines.set_gapcolors(Some(vec!["red".into()])).raw().set_alpha(Some(0.5));
+    /// let gaps = lines.gapcolors()?.expect("gap colours");
+    /// assert_eq!((gaps[0].r, gaps[0].a), (1.0, 0.5));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a gap colour is invalid.
+    pub fn gapcolors(&self) -> Result<Option<Vec<Rgba>>, CollectionColorError> {
+        self.raw()
+            .with::<CollectionArtist, _>(resolve_gap_colors)
+            .map_err(CollectionColorError)
     }
 }
 

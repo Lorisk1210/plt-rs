@@ -179,6 +179,9 @@ class LinesMixin:
         lines = []
         for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs)):
             props = {k: v for k, v in kwargs.items() if v is not None}
+            if "transform" in props:
+                props["transform"] = _live_transforms.for_axes(
+                    props["transform"], self)
             if label is not None:
                 props["label"] = label
             else:
@@ -242,7 +245,7 @@ class LinesMixin:
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
             None if slope is None else float(slope), line_kwargs(kwargs))
-        return wrap(self, native, mlines.Line2D)
+        return wrap(self, native, mlines.AxLine)
 
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
         """

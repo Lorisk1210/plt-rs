@@ -151,10 +151,13 @@ pub(super) fn poly_collection(
         !matches!(&source.facecolors, Some(colors) if colors.len() == 1 && colors[0].is_none());
     style.hatch.clone_from(&source.hatch);
     style.linewidth = Some(first_width(source));
-    style.linestyle = source
-        .linestyles
-        .first()
-        .cloned()
-        .unwrap_or(LineStyle::Solid);
+    // The first of the collection's dash patterns as drawn, which the
+    // rectangle scales by its own width again, as matplotlib's does.
+    style.linestyle = match source.drawn_widths_and_dashes().1.first() {
+        Some(dashes) if !dashes.lengths().is_empty() => {
+            LineStyle::dashes(dashes.offset, dashes.lengths().to_vec())
+        }
+        _ => LineStyle::Solid,
+    };
     Ok(vec![HandlerArtist::placed(rect)])
 }

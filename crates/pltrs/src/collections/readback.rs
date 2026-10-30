@@ -89,9 +89,8 @@ impl Collection {
     }
 
     fn broadcast(&self) -> (Vec<f64>, Vec<Dashes>) {
-        self.raw().with::<CollectionArtist, _>(|c| {
-            broadcast_widths_and_dashes(&c.linewidths_or_default(), &c.linestyles, c.rc())
-        })
+        self.raw()
+            .with::<CollectionArtist, _>(CollectionArtist::drawn_widths_and_dashes)
     }
 
     /// The vertex grid of a quad mesh, drawn as a mesh or as polygons, one
@@ -124,6 +123,12 @@ impl Collection {
 }
 
 impl CollectionArtist {
+    /// The line widths and the dash patterns scaled by them, as drawn
+    /// (matplotlib's `get_linewidth` and `get_linestyle`).
+    pub(crate) fn drawn_widths_and_dashes(&self) -> (Vec<f64>, Vec<Dashes>) {
+        broadcast_widths_and_dashes(&self.linewidths_or_default(), &self.linestyles, self.rc())
+    }
+
     /// The mapped values of the mesh cells under `at`.
     pub(super) fn cursor_values(
         &self,

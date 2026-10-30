@@ -642,7 +642,9 @@ pltrs (Rust) explicitly: an artist's handle (a loose line or rectangle
 becomes a proxy drawn as it is now), a tuple with its `HandlerTuple`
 layout, or the native handle of a container found on the axes
 (`_native.legend.candidates`, which lists what matplotlib's
-`_get_legend_handles` lists).
+`_get_legend_handles` lists). Its `_legend_box`, the first of its
+children, is made of `offsetbox` objects around the legend's artists
+from the box pltrs (Rust) lays them out in (`_native.legend.legend_box`).
 
 ### Pickling
 

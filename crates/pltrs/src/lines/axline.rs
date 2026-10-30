@@ -103,6 +103,25 @@ impl Line2D {
         }
     }
 
+    /// The part of an infinite line inside its axes, from start to stop, in
+    /// display pixels in the figure's current layout (matplotlib's
+    /// `AxLine.get_transform` maps the diagonal of the unit square onto
+    /// it); `None` for other lines, or when the line cannot be placed.
+    pub fn axline_display_segment(&self) -> Option<(Point, Point)> {
+        self.infinite()?;
+        let mut state = self.raw().figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        let points = layout
+            .store()
+            .get_as::<LineArtist>(self.raw().id())?
+            .display_points(layout)?;
+        match points[..] {
+            [start, stop] => Some((start, stop)),
+            _ => None,
+        }
+    }
+
     /// Moves the first point of an infinite line (matplotlib's
     /// `set_xy1`).
     ///
@@ -259,11 +278,18 @@ mod tests {
             Some(Bbox::from_extents(0.0, 0.0, 144.0, 72.0))
         );
         assert_eq!(
+            line.axline_display_segment(),
+            Some((Point::ORIGIN, Point::new(144.0, 72.0)))
+        );
+        assert_eq!(
             line.set_axline_slope(1.0).err(),
             Some(AxLineError::PointIsSet)
         );
         let plain = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
-        assert_eq!(plain.axline_xy1(), None);
+        assert_eq!(
+            (plain.axline_xy1(), plain.axline_display_segment()),
+            (None, None)
+        );
         assert_eq!(
             plain.set_axline_xy1(Point::ORIGIN).err(),
             Some(AxLineError::NotInfinite)

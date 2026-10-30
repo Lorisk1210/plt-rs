@@ -53,19 +53,7 @@ impl Geometry {
                 }
                 ellipse_transforms(ellipses, scales.scale)
             }
-            (None, Some(sizes)) => sizes
-                .iter()
-                .map(|area| {
-                    let scale = area.sqrt() * dpi / 72.0 * c.size_factor;
-                    let scaled = Affine2D::scaling(scale, scale);
-                    if c.size_rotation == 0.0 {
-                        scaled
-                    } else {
-                        scaled.rotate(-c.size_rotation)
-                    }
-                })
-                .collect(),
-            (None, None) => c.transforms.clone(),
+            (None, sizes) => c.item_transforms(sizes, dpi),
         };
         let offsets = match &c.offset_transform {
             Some(t) => {

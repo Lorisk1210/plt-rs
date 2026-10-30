@@ -75,6 +75,7 @@ use crate::artist::{
 };
 use crate::axes::{Axes, AxesState};
 use crate::figure::{Figure, FigureFrame, FigureState};
+use crate::offsetbox::OffsetBox;
 use crate::patches::{FancyBboxPatch, Patch};
 use crate::text::{Text, TextArtist};
 use crate::transforms::Transform;
@@ -153,6 +154,27 @@ impl Legend {
     /// The frame (matplotlib's `get_frame`).
     pub fn frame(&self) -> Patch<FancyBboxPatch> {
         Patch::from_raw(self.handle(self.read(|legend| legend.frame)))
+    }
+
+    /// The title and the columns of entries as the legend lays them out,
+    /// its artists as their handles (matplotlib's `_legend_box`, the first
+    /// of the legend's children).
+    ///
+    /// ```
+    /// use pltrs::offsetbox::OffsetBox;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("line"))?;
+    /// let legend = ax.legend(Default::default())?;
+    /// let OffsetBox::VPacker(packer) = legend.legend_box() else {
+    ///     panic!("the title above the entries");
+    /// };
+    /// assert_eq!(packer.children.len(), 2);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn legend_box(&self) -> OffsetBox<RawHandle> {
+        self.read(|legend| legend.legend_box.clone())
+            .map(&mut |part| self.handle(part.id))
     }
 
     /// Whether the frame is drawn (matplotlib's `get_frame_on`).
@@ -365,10 +387,32 @@ impl Axes {
     /// [`Axes::legend`] adds a legend beside it instead of replacing it
     /// (matplotlib's `ax.add_artist(legend)` for showing several legends).
     /// The kept legend is no longer the one [`Axes::current_legend`] returns.
+    /// A legend of the axes that a newer one replaced comes back on it.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("line"))?;
+    /// let first = ax.legend(Default::default())?;
+    /// let second = ax.legend(Default::default())?;
+    /// assert!(!first.raw().is_attached(), "replaced");
+    /// ax.keep_legend(&first);
+    /// assert!(first.raw().is_attached() && second.raw().is_attached());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn keep_legend(&self, legend: &Legend) {
-        legend
-            .raw
-            .with_mut::<LegendArtist, _>(|legend| legend.kept = true);
+        let own = legend.raw.with_mut::<LegendArtist, _>(|kept| {
+            kept.kept = true;
+            kept.parent == LegendParent::Axes(self.id())
+        });
+        let id = legend.raw.id();
+        let mut state = self.raw().figure_state().borrow_mut();
+        if own && state.is_removed(id) {
+            state
+                .attach_artist(self.id(), id)
+                .expect("an axes takes back its own removed legend");
+        }
     }
 
     /// The artists and containers a legend of the axes can show, with

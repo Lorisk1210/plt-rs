@@ -588,7 +588,9 @@ class Line2D(Artist):
         self._set_native(markerfacecoloralt=fc)
 
     def get_markevery(self):
-        """Return the markevery setting for marker subsampling."""
+        """Return the markevery setting for marker subsampling, as it was set."""
+        if "_markevery" in self.__dict__:
+            return self._markevery
         return self._get("markevery")
 
     def set_markevery(self, every):
@@ -598,6 +600,7 @@ class Line2D(Artist):
         indices or of bools, a float or a pair of floats.
         """
         self._set_native(markevery=every)
+        self._markevery = every
 
     def get_pickradius(self):
         """Return the pick radius used for containment tests."""
@@ -695,6 +698,108 @@ def _joinstyle_name(s):
     """The name of the join style *s* (a `.JoinStyle` or its name)."""
     from ._enums import JoinStyle
     return JoinStyle(s).name
+
+
+class AxLine(Line2D):
+    """
+    A helper class that implements `~.Axes.axline`, by recomputing the artist
+    transform at draw time.
+
+    pltrs: pltrs (Rust) places the line in the view each time it is laid
+    out; `get_transform` maps the diagonal of the unit square onto the part
+    of the line the view shows now.
+    """
+
+    def get_transform(self):
+        # docstring inherited
+        from .transforms import Bbox, BboxTransformTo
+        segment = _lines.axline_segment(self._native)
+        if segment is None:
+            return super().get_transform()
+        return BboxTransformTo(Bbox(segment))
+
+    def get_xy1(self):
+        """Return the *xy1* value of the line."""
+        return _lines.axline(self._native)[0]
+
+    def get_xy2(self):
+        """Return the *xy2* value of the line."""
+        return _lines.axline(self._native)[1]
+
+    def get_slope(self):
+        """Return the *slope* value of the line."""
+        return _lines.axline(self._native)[2]
+
+    def set_xy1(self, *args, **kwargs):
+        """
+        Set the *xy1* value of the line.
+
+        Parameters
+        ----------
+        xy1 : tuple[float, float]
+            Points for the line to pass through.
+        """
+        params = _api.select_matching_signature([
+            lambda self, x, y: locals(), lambda self, xy1: locals(),
+        ], self, *args, **kwargs)
+        if "x" in params:
+            _api.warn_deprecated("3.10", message=(
+                "Passing x and y separately to AxLine.set_xy1 is deprecated since "
+                "%(since)s; pass them as a single tuple instead."))
+            xy1 = params["x"], params["y"]
+        else:
+            xy1 = params["xy1"]
+        _lines.set_axline_xy1(self._native, tuple(map(float, xy1)))
+        self.stale = True
+
+    def set_xy2(self, *args, **kwargs):
+        """
+        Set the *xy2* value of the line.
+
+        .. note::
+
+            You can only set *xy2* if the line was created using the *xy2*
+            parameter. If the line was created using *slope*, please use
+            `~.AxLine.set_slope`.
+
+        Parameters
+        ----------
+        xy2 : tuple[float, float]
+            Points for the line to pass through.
+        """
+        if self.get_slope() is not None:
+            raise ValueError("Cannot set an 'xy2' value while 'slope' is set;"
+                             " they differ but their functionalities overlap")
+        params = _api.select_matching_signature([
+            lambda self, x, y: locals(), lambda self, xy2: locals(),
+        ], self, *args, **kwargs)
+        if "x" in params:
+            _api.warn_deprecated("3.10", message=(
+                "Passing x and y separately to AxLine.set_xy2 is deprecated since "
+                "%(since)s; pass them as a single tuple instead."))
+            xy2 = params["x"], params["y"]
+        else:
+            xy2 = params["xy2"]
+        _lines.set_axline_xy2(self._native, tuple(map(float, xy2)))
+        self.stale = True
+
+    def set_slope(self, slope):
+        """
+        Set the *slope* value of the line.
+
+        .. note::
+
+            You can only set *slope* if the line was created using the *slope*
+            parameter. If the line was created using *xy2*, please use
+            `~.AxLine.set_xy2`.
+
+        Parameters
+        ----------
+        slope : float
+            The slope of the line.
+        """
+        _lines.set_axline_slope(self._native, float(slope))
+        self.stale = True
 
 
 class VertexSelector:

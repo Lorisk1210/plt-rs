@@ -15,6 +15,7 @@ use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::patheffects::{
     Effect, GcUpdate, LineShadow, PatchEffect, PatchShadow, PathEffect, Stroke, TickedStroke,
 };
+use pltrs::rc::RcParams;
 
 use super::lines::{cap_style, join_style};
 use super::patches::PatchKwargs;
@@ -135,6 +136,18 @@ fn set_path_effects(artist: RawHandle, effects: Owned) -> PyResult<()> {
     Ok(())
 }
 
+/// Sets the `path.effects` rcParam of `store` (the current parameters for
+/// `None`) to the effects `descriptions` describe: matplotlib's holds the
+/// effect objects, which rc text cannot spell.
+fn set_rc_path_effects(store: Option<Native<RcParams>>, descriptions: Owned) -> PyResult<()> {
+    let effects = Python::with_gil(|py| path_effects(&descriptions.bind(py)))?;
+    match store {
+        Some(params) => params.borrow_mut().path_effects = effects,
+        None => pltrs::rc::update(|params| params.path_effects = effects),
+    }
+    Ok(())
+}
+
 /// The ticks `TickedStroke` draws along a polyline (display pixels):
 /// `spacing` points apart (`spacing_px` pixels), at `angle` degrees to the
 /// line, `length` times the spacing long; `None` for a single point.
@@ -158,6 +171,7 @@ fn ticks(
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_path_effects", set_path_effects)?;
+    module.add("set_rc_path_effects", set_rc_path_effects)?;
     module.add("ticks", ticks)
 }
 

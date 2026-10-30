@@ -6,7 +6,9 @@
 //! colour `"face"`. Widths and line styles cross as lists.
 
 use pltrs::artist::ArtistHandle;
-use pltrs::collections::{Collection, EdgeColors, EllipseCollection, EventCollection, HatchColors};
+use pltrs::collections::{
+    Collection, EdgeColors, EllipseCollection, EventCollection, HatchColors, MeshShading,
+};
 use pltrs::colors::{Color, Colormap, Norm};
 use pltrs::orientation::Orientation;
 use pltrs::transforms::Transform;
@@ -252,15 +254,29 @@ fn get_coordinates(collection: Collection) -> PyResult<Option<NdArray>> {
         .transpose()
 }
 
-/// The positions of the items, as an `(n, 2)` array.
-fn get_offsets(collection: Collection) -> PyResult<NdArray> {
-    let offsets = collection.offsets();
-    points_array(&offsets, vec![offsets.len(), 2])
+/// How the cells of a mesh are coloured, `"flat"` or `"gouraud"`; `None`
+/// for other collections.
+fn get_mesh_shading(collection: Collection) -> PyResult<Option<&'static str>> {
+    Ok(collection.mesh_shading().map(|shading| match shading {
+        MeshShading::Flat => "flat",
+        MeshShading::Gouraud => "gouraud",
+    }))
 }
 
-/// Moves the items to `offsets` (an `(n, 2)` array).
-fn set_offsets(collection: Collection, offsets: NdArray) -> PyResult<()> {
-    collection.set_offsets(points(&offsets)?);
+/// The positions of the items, as an `(n, 2)` array (NaN where masked),
+/// and whether they are a masked array.
+fn get_offsets(collection: Collection) -> PyResult<(NdArray, bool)> {
+    let offsets = collection.offsets();
+    Ok((
+        points_array(&offsets, vec![offsets.len(), 2])?,
+        collection.offsets_masked(),
+    ))
+}
+
+/// Moves the items to `offsets` (an `(n, 2)` array, NaN where masked);
+/// `masked` tells whether they are a masked array.
+fn set_offsets(collection: Collection, offsets: NdArray, masked: bool) -> PyResult<()> {
+    collection.set_offsets_masked(points(&offsets)?, masked);
     Ok(())
 }
 
@@ -277,6 +293,34 @@ fn get_datalim(collection: Collection) -> PyResult<BoxWithMinpos> {
         (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1()),
         (limits.minpos.x, limits.minpos.y),
     ))
+}
+
+/// The shape transform of each item drawn at `dpi`, as an `(n, 3, 3)`
+/// array (matplotlib's `get_transforms`).
+fn get_transforms(collection: Collection, dpi: f64) -> PyResult<NdArray> {
+    let transforms = collection.item_transforms(dpi);
+    let data = transforms
+        .iter()
+        .flat_map(|t| t.matrix().concat())
+        .collect();
+    NdArray::with_shape(data, vec![transforms.len(), 3, 3])
+}
+
+/// Sets the colours drawn in the gaps of dashed edges (an `(N, 4)` RGBA
+/// array), or leaves the gaps empty with `None`.
+fn set_gapcolors(collection: Collection, colors: Option<NdArray>) -> PyResult<()> {
+    collection.set_gapcolors(colors.map(|colors| rgba_rows(&colors)).transpose()?);
+    Ok(())
+}
+
+/// The colours drawn in the gaps, the collection's alpha applied, as an
+/// `(N, 4)` RGBA array; `None` when the gaps stay empty.
+fn get_gapcolors(collection: Collection) -> PyResult<Option<NdArray>> {
+    collection
+        .gapcolors()
+        .map_err(|err| PyErr::value_error(err.to_string()))?
+        .map(|colors| rgba_array(&colors))
+        .transpose()
 }
 
 /// The item shapes, as `(vertices, codes)` pairs.
@@ -494,8 +538,12 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_offset_transform", set_offset_transform)?;
     module.add("set_fill_between_data", set_fill_between_data)?;
     module.add("get_coordinates", get_coordinates)?;
+    module.add("get_mesh_shading", get_mesh_shading)?;
     module.add("get_offsets", get_offsets)?;
     module.add("set_offsets", set_offsets)?;
+    module.add("get_transforms", get_transforms)?;
+    module.add("set_gapcolors", set_gapcolors)?;
+    module.add("get_gapcolors", get_gapcolors)?;
     module.add("get_paths", get_paths)?;
     module.add("set_paths", set_paths)?;
     module.add("set_segments", set_segments)?;

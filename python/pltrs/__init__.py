@@ -39,6 +39,7 @@ from ._api import MatplotlibDeprecationWarning  # noqa: F401  (matplotlib export
 from ._executables import ExecutableNotFoundError, _get_executable_info  # noqa: F401
 from ._preprocess import _preprocess_data  # noqa: F401
 from ._native import cbook as _cbook
+from ._native import patheffects as _patheffects
 from ._native import rcsetup as _rcsetup
 from ._native import register as _register
 from . import rcsetup
@@ -171,7 +172,12 @@ class RcParams(MutableMapping, dict):
         if key in _PYTHON_PARAMS:
             self._python[key] = val
             return
-        _rcsetup.set(self._store, key, val)
+        if key == "path.effects":
+            # Path effect objects, which rc text cannot spell.
+            _patheffects.set_rc_path_effects(
+                self._store, [effect._native_spec() for effect in val])
+        else:
+            _rcsetup.set(self._store, key, rcsetup._rc_value(val))
         self._given[key] = (val, _rcsetup.text(self._store, key))
         if self._keys is not None:
             self._keys.add(key)

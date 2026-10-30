@@ -6,9 +6,10 @@ use pltrs::collections::Collection;
 use pltrs::colors::Color;
 use pltrs::lines::StepWhere;
 use pltrs::orientation::Orientation;
-use pltrs::patches::{Patch, PatchProps, Polygon, StepBaseline, StepPatch};
+use pltrs::patches::{Patch, Polygon, StepBaseline, StepPatch};
 use pltrs::transforms::Transform;
 
+use super::super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 
 /// The orientation `"vertical"` or `"horizontal"`.
@@ -20,19 +21,19 @@ pub(super) fn orientation(name: &str) -> Orientation {
 }
 
 /// A filled polygon through `(x, y)` (one dataset of matplotlib's
-/// `fill`), in `color` or the next colour of the patch cycle.
+/// `fill`), in the colour of its format string or the next colour of the
+/// patch cycle, with the patch properties `given` (aliases resolved),
+/// which the cycle does not set (nor advance for, when it cycles nothing
+/// else).
 pub(super) fn fill(
     axes: Axes,
     x: NdArray,
     y: NdArray,
-    color: Option<Color>,
-    closed: bool,
+    (format_color, closed): (Option<Color>, bool),
+    given: PatchKwargs,
 ) -> PyResult<Patch<Polygon>> {
-    let props = PatchProps {
-        facecolor: color,
-        ..PatchProps::default()
-    };
-    let polygon = axes.fill(x.into_vec()?, y.into_vec()?, props)?;
+    let polygon =
+        axes.fill_with_format_color(x.into_vec()?, y.into_vec()?, format_color, given.0)?;
     if !closed {
         let shape = polygon.shape();
         polygon.set_shape(Polygon::new(shape.vertices().to_vec(), false));

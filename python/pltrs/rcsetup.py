@@ -822,6 +822,32 @@ def cycler(*args, **kwargs):
     return reduce(operator.add, (ccycler(k, v) for k, v in validated))
 
 
+def _python_value(value):
+    """*value* with its numpy arrays and scalars as Python lists and numbers."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, (list, tuple)):
+        return type(value)(map(_python_value, value))
+    return value
+
+
+def _rc_value(value):
+    """
+    *value* as pltrs (Rust) reads it (``_native.rcsetup`` spells values as
+    rc text): a `~cycler.Cycler` as the text of the cycler adding one
+    cycler per property over its values as Python's lists and numbers,
+    whose reprs rc text parses where those of numpy's arrays and scalars
+    do not; any other value as it is.
+    """
+    if not isinstance(value, Cycler) or not value.keys:
+        return value
+    return repr(reduce(operator.add, (
+        ccycler(key, [_python_value(v) for v in values])
+        for key, values in value.by_key().items())))
+
+
 def _parse_cycler_string(s):
     """
     Parse a string representation of a cycler into a Cycler object safely,

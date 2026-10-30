@@ -4,9 +4,10 @@
 
 use pltrs::artist::RawHandle;
 use pltrs::axes::Axes;
-use pltrs::figure::{BufferRegion, Figure, PixelBox};
+use pltrs::figure::{BufferRegion, CanvasError, Figure, PixelBox};
 use pltrs::transforms::{Bbox, Point};
 
+use super::super::lines::markevery_error;
 use crate::binding::prelude::*;
 
 native_value!(BufferRegion);
@@ -30,9 +31,14 @@ fn rgba_array(width: usize, height: usize, data: Vec<u8>) -> PyResult<NdArray<u8
 }
 
 /// Draws the whole figure onto its canvas, leaving out animated artists
-/// (`FigureCanvasAgg.draw`).
+/// (`FigureCanvasAgg.draw`); a line whose `markevery` does not fit it
+/// raises matplotlib's `ValueError`.
 fn draw(figure: Figure) -> PyResult<()> {
-    Ok(figure.canvas().draw()?)
+    match figure.canvas().draw() {
+        Err(CanvasError::Draw(problems)) => Err(markevery_error(&figure, &problems)
+            .unwrap_or_else(|| CanvasError::Draw(problems).into())),
+        drawn => Ok(drawn?),
+    }
 }
 
 /// The canvas's pixels: straight-alpha RGBA rows from the top, as a

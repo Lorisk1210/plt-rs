@@ -7,12 +7,14 @@ use pltrs::orientation::Orientation;
 use pltrs::patches::{
     Annulus, Arc, Arrow, ArrowShape, ArrowStyle, BoxStyle, Circle, CirclePolygon, ConnectionStyle,
     Ellipse, FancyArrow, FancyArrowPatch, FancyBboxPatch, Patch, PatchProps, PathShape, Polygon,
-    Rectangle, RegularPolygon, StepBaseline, StepPatch, Wedge,
+    Rectangle, RegularPolygon, Shadow, ShadowError, StepBaseline, StepPatch, Wedge,
 };
 
 use super::super::patch_styles::style_error;
 use super::super::path::PyPath;
 use super::super::transforms::points;
+use super::AnyPatch;
+use super::geometry::annulus_too_wide;
 use crate::binding::prelude::*;
 
 /// A loose rectangle (matplotlib's `Rectangle(xy, width, height, angle=)`).
@@ -107,9 +109,7 @@ fn annulus(
     width: f64,
     angle: f64,
 ) -> PyResult<Patch<Annulus>> {
-    let shape = Annulus::elliptical(xy, semi_axes, width, angle).map_err(|_| {
-        PyErr::value_error("Width of annulus must be less than or equal to semi-minor axis")
-    })?;
+    let shape = Annulus::elliptical(xy, semi_axes, width, angle).map_err(|_| annulus_too_wide())?;
     Ok(Patch::loose(shape, PatchProps::default()))
 }
 
@@ -118,6 +118,17 @@ fn arrow((x, y): (f64, f64), (dx, dy): (f64, f64), width: f64) -> PyResult<Patch
     let mut shape = Arrow::new(x, y, dx, dy);
     shape.width = width;
     Ok(Patch::loose(shape, PatchProps::default()))
+}
+
+/// A loose shadow of `patch`, a patch of any shape, offset by `(ox, oy)`
+/// points and darkened by `shade` (matplotlib's `Shadow(patch, ox, oy,
+/// shade=)`).
+fn shadow(patch: AnyPatch, (ox, oy): (f64, f64), shade: f64) -> PyResult<Patch<Shadow<PathShape>>> {
+    let shadow = patch.0.shadow(ox, oy, shade).map_err(|err| match err {
+        ShadowError::Shape(_) => PyErr::value_error("shade must be between 0 and 1."),
+        ShadowError::Color(err) => PyErr::value_error(err.to_string()),
+    })?;
+    Ok(Patch::loose(shadow, PatchProps::default()))
 }
 
 /// The head of a fancy arrow: `(head_width, head_length, shape, overhang,
@@ -247,5 +258,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_step_patch", step_patch)?;
     module.add("new_fancy_bbox", fancy_bbox)?;
     module.add("new_fancy_arrow_patch", fancy_arrow_patch)?;
+    module.add("new_shadow", shadow)?;
     Ok(())
 }

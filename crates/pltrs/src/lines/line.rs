@@ -293,7 +293,7 @@ impl LineArtist {
 
     /// The drawn vertices in display space: the visible segment of an
     /// infinite line.
-    fn display_points(&self, layout: LayoutContext<'_>) -> Option<Vec<Point>> {
+    pub(super) fn display_points(&self, layout: LayoutContext<'_>) -> Option<Vec<Point>> {
         let resolved = layout.resolve(&self.transform())?;
         let drawn = match &self.infinite {
             Some(infinite) => infinite

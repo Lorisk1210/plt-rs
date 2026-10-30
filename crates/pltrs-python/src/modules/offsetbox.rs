@@ -10,7 +10,7 @@ mod add;
 mod tree;
 
 /// The packing mode called `name` (`"fixed"`, `"expand"`, `"equal"`).
-fn pack_mode(name: &str) -> PyResult<PackMode> {
+pub(super) fn pack_mode(name: &str) -> PyResult<PackMode> {
     match name {
         "fixed" => Ok(PackMode::Fixed),
         "expand" => Ok(PackMode::Expand),
@@ -24,7 +24,7 @@ fn pack_mode(name: &str) -> PyResult<PackMode> {
 
 /// The alignment called `name` (`"baseline"`, `"left"`, `"top"`,
 /// `"right"`, `"bottom"`, `"center"`).
-fn pack_align(name: &str) -> PyResult<PackAlign> {
+pub(super) fn pack_align(name: &str) -> PyResult<PackAlign> {
     match name {
         "baseline" => Ok(PackAlign::Baseline),
         "left" => Ok(PackAlign::Left),

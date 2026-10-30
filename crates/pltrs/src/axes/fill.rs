@@ -5,6 +5,7 @@ use pltrs_core::Point;
 use super::children::DataUpdate;
 use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
+use crate::colors::Color;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Polygon};
 use crate::rc::CycleValue;
 use crate::units::{AxisValues, UnitHandle};
@@ -40,6 +41,37 @@ impl Axes {
         y: impl Into<AxisValues>,
         props: PatchProps,
     ) -> Result<Patch<Polygon>, PlotError> {
+        self.fill_with_format_color(x, y, None, props)
+    }
+
+    /// [`Axes::fill`] with the colour of a format string, if any
+    /// (matplotlib's `fill(x, y, "r")`): it fills the polygon in place of
+    /// the cycle's colour, so the property cycle does not advance unless
+    /// it cycles other properties `props` does not set.
+    ///
+    /// ```
+    /// use pltrs::colors::Rgba;
+    /// use pltrs::prelude::*;
+    /// let (x, y) = ([0.0, 1.0, 0.5], [0.0, 0.0, 1.0]);
+    /// let ax = Figure::new().subplot();
+    /// let red = ax.fill_with_format_color(x, y, Some("r".into()), PatchProps::default())?;
+    /// let next = ax.fill(x, y, PatchProps::default())?;
+    /// let first = Figure::new().subplot().fill(x, y, PatchProps::default())?;
+    /// assert_eq!(red.colors()?.face, Rgba::opaque(1.0, 0.0, 0.0));
+    /// assert_eq!(next.colors()?.face, first.colors()?.face, "the cycle did not advance");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `x` and `y` differ in length.
+    pub fn fill_with_format_color(
+        &self,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        format_color: Option<Color>,
+        props: PatchProps,
+    ) -> Result<Patch<Polygon>, PlotError> {
         let (x, y) = (
             self.xaxis().convert_plot_units(x.into()),
             self.yaxis().convert_plot_units(y.into()),
@@ -52,15 +84,30 @@ impl Axes {
             });
         }
         let vertices = x.iter().zip(y).map(|(&x, &y)| Point::new(x, y));
-        Ok(self.add_polygon(Polygon::new(vertices, true), props))
+        Ok(self.add_formatted_polygon(Polygon::new(vertices, true), format_color, props))
     }
 
     /// Adds `polygon` styled by the property cycle and `props`, extending
     /// the data limits and autoscaling (matplotlib's `_make_polygon`
     /// followed by `add_patch` in `fill`).
     pub(crate) fn add_polygon(&self, polygon: Polygon, props: PatchProps) -> Patch<Polygon> {
+        self.add_formatted_polygon(polygon, None, props)
+    }
+
+    /// [`Axes::add_polygon`] filled with the colour of a format string, if
+    /// any, which the cycle's colour does not replace.
+    fn add_formatted_polygon(
+        &self,
+        polygon: Polygon,
+        format_color: Option<Color>,
+        props: PatchProps,
+    ) -> Patch<Polygon> {
         let mut patch = PatchArtist::new(polygon, crate::rc::params());
-        for (key, value) in self.polygon_cycle_entry(&props) {
+        let color_given = format_color.is_some();
+        if color_given {
+            patch.style.facecolor = format_color;
+        }
+        for (key, value) in self.polygon_cycle_entry(&props, color_given) {
             apply_cycle(&mut patch, &key, value);
         }
         props.apply(&mut patch);
@@ -73,11 +120,18 @@ impl Axes {
     }
 
     /// The next patch property-cycle entry without the properties `props`
-    /// sets, or nothing when `props` sets every cycled property
-    /// (matplotlib's `_getdefaults` with `fill`'s ignored keys).
-    fn polygon_cycle_entry(&self, props: &PatchProps) -> Vec<(String, CycleValue)> {
+    /// sets (and the colour, when `color_given`), or nothing when they
+    /// cover every cycled property (matplotlib's `_getdefaults` with
+    /// `fill`'s ignored keys).
+    fn polygon_cycle_entry(
+        &self,
+        props: &PatchProps,
+        color_given: bool,
+    ) -> Vec<(String, CycleValue)> {
         self.raw().with_mut::<AxesState, _>(|axes| {
-            let ignored = |key: &str| MARKER_KEYS.contains(&key) || props.is_set(key);
+            let ignored = |key: &str| {
+                MARKER_KEYS.contains(&key) || props.is_set(key) || (color_given && key == "color")
+            };
             let entry: Vec<(String, CycleValue)> = axes
                 .prop_cycle
                 .entry(axes.patch_cycle)

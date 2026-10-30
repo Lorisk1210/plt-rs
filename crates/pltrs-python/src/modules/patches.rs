@@ -15,8 +15,9 @@ use pltrs::inset::InsetIndicator;
 use pltrs::mplot3d::{ProjectedOutline, ProjectedPath};
 use pltrs::patches::{
     Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
-    FancyArrowPatch, FancyBboxPatch, Patch, PatchColors, PatchProps, PatchShape, PatchStyle,
-    PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint, StepBaseline, StepPatch, Wedge,
+    FancyArrowPatch, FancyBboxPatch, Patch, PatchColors, PatchError, PatchProps, PatchShape,
+    PatchStyle, PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint, Shadow, ShadowError,
+    StepBaseline, StepPatch, Wedge,
 };
 use pltrs::rc::ColorOrEdge;
 use pltrs_core::{Affine2D, Path, Point};
@@ -28,6 +29,8 @@ use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
 mod arrow_route;
+mod connection;
+mod geometry;
 mod new;
 
 artist_handle!(
@@ -49,6 +52,7 @@ artist_handle!(
     Patch<ConnectionPatch>,
     Patch<ProjectedOutline>,
     Patch<ProjectedPath>,
+    Patch<Shadow<PathShape>>,
 );
 
 /// What every patch handle does, whatever its shape (matplotlib's `Patch`
@@ -79,6 +83,11 @@ trait PatchOps {
     fn set_hatch_linewidth(&self, width: f64);
     /// The patch as an item of a patch collection.
     fn collection_patch(&self) -> CollectionPatch;
+    /// The patch's shadow, offset by `(ox, oy)` points and darkened by
+    /// `shade` (see [`Shadow::outline_of`]).
+    fn shadow(&self, ox: f64, oy: f64, shade: f64) -> Result<Shadow<PathShape>, ShadowError>;
+    /// The outlines as drawn now, in display pixels.
+    fn display_paths(&self) -> Result<Vec<Path>, PatchError>;
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
@@ -134,6 +143,14 @@ impl<S: PatchShape> PatchOps for Patch<S> {
             edge_default: S::EDGE_DEFAULT,
         }
     }
+
+    fn shadow(&self, ox: f64, oy: f64, shade: f64) -> Result<Shadow<PathShape>, ShadowError> {
+        Shadow::outline_of(self, ox, oy, shade)
+    }
+
+    fn display_paths(&self) -> Result<Vec<Path>, PatchError> {
+        Patch::display_paths(self)
+    }
 }
 
 /// The patches of `objects` (native patch objects of any shape) as the
@@ -166,7 +183,7 @@ impl FromPy<'_> for AnyPatch {
             CirclePolygon, StepPatch, FancyArrow, Arrow, Arc, Annulus, FancyBboxPatch,
             FancyArrowPatch, ConnectionPatch,
             BboxPatch, BboxConnector, BboxConnectorPatch, InsetIndicator,
-            ProjectedOutline, ProjectedPath,
+            ProjectedOutline, ProjectedPath, Shadow<PathShape>,
         )
         .map(Self)
         .ok_or_else(|| PyErr::type_error("expected a native patch handle"))
@@ -368,6 +385,17 @@ fn get(patch: AnyPatch, name: String) -> PyResult<Owned> {
 /// (matplotlib's `get_path`).
 fn get_path(patch: AnyPatch) -> PyResult<PathArrays> {
     path_arrays(&patch.0.path(), false)
+}
+
+/// The outlines as the patch is drawn now, in display pixels, as one path
+/// (matplotlib's `FancyArrowPatch._get_path_in_displaycoord`); a patch
+/// that cannot be placed raises `ValueError`.
+fn display_path(patch: AnyPatch) -> PyResult<PathArrays> {
+    let paths = patch
+        .0
+        .display_paths()
+        .map_err(|err| PyErr::value_error(err.to_string()))?;
+    path_arrays(&Path::compound(&paths), false)
 }
 
 /// How many pieces each segment of the outline is split into before a
@@ -684,6 +712,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("update", update)?;
     module.add("get", get)?;
     module.add("get_path", get_path)?;
+    module.add("display_path", display_path)?;
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;
     module.add("get_patch_transform", get_patch_transform)?;
@@ -707,5 +736,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("fancy_bbox", fancy_bbox)?;
     module.add("set_fancy_bbox", set_fancy_bbox)?;
     arrow_route::register(module)?;
+    connection::register(module)?;
+    geometry::register(module)?;
     new::register(module)
 }

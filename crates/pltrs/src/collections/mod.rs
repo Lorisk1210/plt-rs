@@ -18,7 +18,9 @@ mod ellipses;
 mod events;
 mod gaps;
 mod handle;
+mod items;
 mod legend_elements;
+mod mesh_cells;
 mod props;
 mod quad_mesh;
 mod readback;
@@ -34,6 +36,7 @@ pub use handle::{Collection, CollectionColorError, CollectionColors};
 pub use legend_elements::{
     ElementCount, LegendElements, LegendElementsOptions, LegendProperty, LegendValueFn,
 };
+pub(crate) use mesh_cells::unmasked_cells;
 pub use props::{CollectionProps, CollectionStyle};
 use quad_mesh::MeshGeometry;
 pub use quad_mesh::MeshShading;
@@ -418,6 +421,28 @@ impl CollectionArtist {
             .as_ref()
             .and_then(|sorted| sorted.sizes.as_deref())
             .or(self.sizes.as_deref())
+    }
+
+    /// The shape transforms of the items at `dpi`: those scaling markers
+    /// of the areas `sizes` (points²), else the collection's own
+    /// (matplotlib's `_CollectionWithSizes.set_sizes(sizes, dpi)`, then
+    /// `get_transforms`).
+    pub(crate) fn item_transforms(&self, sizes: Option<&[f64]>, dpi: f64) -> Vec<Affine2D> {
+        let Some(sizes) = sizes else {
+            return self.transforms.clone();
+        };
+        sizes
+            .iter()
+            .map(|area| {
+                let scale = area.sqrt() * dpi / 72.0 * self.size_factor;
+                let scaled = Affine2D::scaling(scale, scale);
+                if self.size_rotation == 0.0 {
+                    scaled
+                } else {
+                    scaled.rotate(-self.size_rotation)
+                }
+            })
+            .collect()
     }
 
     /// The face and edge colours after defaults, colour mapping and alpha

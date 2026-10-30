@@ -107,3 +107,87 @@ fn colorbars_of_contours_do_not_navigate() {
     let colorbar = fig.colorbar(&contours, ColorbarOptions::default()).unwrap();
     assert!(!colorbar.ax().navigate());
 }
+
+/// A subplot showing `0..10` with an equal aspect, never laid out.
+fn equal_aspect_plot() -> (Figure, Axes) {
+    use crate::axes::Aspect;
+
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    ax.plot_y((0..10).map(f64::from));
+    ax.set_aspect(Aspect::Equal).unwrap();
+    (fig, ax)
+}
+
+/// The centre, in display pixels of the default 640 × 480 canvas, of a box
+/// in figure fractions.
+fn centre_pixels(fraction: Bbox) -> Point {
+    Point::new(
+        (fraction.x0() + fraction.width() / 2.0) * 640.0,
+        (fraction.y0() + fraction.height() / 2.0) * 480.0,
+    )
+}
+
+/// Whether two display points are the same up to rounding.
+fn close(a: Point, b: Point) -> bool {
+    (a.x - b.x).abs() < 1e-9 && (a.y - b.y).abs() < 1e-9
+}
+
+#[test]
+fn transforms_resolved_as_is_wait_for_autoscaling_and_the_aspect() {
+    let (fig, ax) = equal_aspect_plot();
+    let to_display = || fig.resolve_transform_as_is(&ax.trans_data()).unwrap();
+    let at = to_display().transform_point(Point::new(0.5, 0.5));
+    assert!(
+        close(at, centre_pixels(ax.original_position())),
+        "the view of a fresh axes on its original position"
+    );
+    let active = ax.position();
+    assert!(
+        active.width() < ax.original_position().width(),
+        "reading the position applies the aspect"
+    );
+    let middle = Point::new(4.5, 4.5);
+    let at = to_display().transform_point(middle);
+    assert!(close(at, centre_pixels(active)), "the autoscaled view");
+    let laid_out = fig.resolve_transform(&ax.trans_data()).unwrap();
+    assert!(close(laid_out.transform_point(middle), at));
+}
+
+#[test]
+fn the_axes_under_the_pointer_is_where_it_is_now() {
+    let (fig, ax) = equal_aspect_plot();
+    let near_left = Point::new((ax.original_position().x0() + 0.01) * 640.0, 240.0);
+    assert!(
+        ax.contains_point(near_left),
+        "the aspect is not applied yet"
+    );
+    fig.layout();
+    assert!(
+        !ax.contains_point(near_left),
+        "the box narrowed to the aspect"
+    );
+}
+
+#[test]
+fn applying_the_aspect_leaves_the_layout_engine_to_the_next_layout() {
+    use crate::layout::LayoutEngine;
+
+    let fig = Figure::new();
+    fig.set_layout_engine(LayoutEngine::constrained()).unwrap();
+    let ax = fig.subplot();
+    let before = ax.position();
+    assert_eq!(before, ax.original_position());
+    fig.layout();
+    assert_ne!(ax.position(), before, "constrained layout placed the axes");
+}
+
+#[test]
+fn removed_axes_keep_their_transforms() {
+    let (fig, ax) = equal_aspect_plot();
+    fig.layout();
+    let before = fig.resolve_transform_as_is(&ax.trans_axes()).unwrap();
+    ax.remove();
+    let after = fig.resolve_transform_as_is(&ax.trans_axes()).unwrap();
+    assert_eq!(before.affine_part(), after.affine_part());
+}

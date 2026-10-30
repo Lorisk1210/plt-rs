@@ -16,6 +16,7 @@ from . import _api, cbook, interactive, is_interactive, set_loglevel  # noqa: F4
 from . import (rc, rc_context, rcdefaults, rcParamsDefault,  # noqa: F401  (pyplot exports them)
                rc_file_defaults)
 from . import image  # noqa: F401  (matplotlib.image, as pyplot imports it)
+from . import rcParamsOrig, rcsetup
 from .backend_bases import _Backend, FigureManagerBase
 from .backends import backend_registry
 from .figure import Figure, FigureBase, figaspect  # noqa: F401  (pyplot exports figaspect)
@@ -65,6 +66,36 @@ def switch_backend(newbackend):
     global _backend_mod
     # make sure the init is pulled up so we can assign to it later
     from . import backends
+
+    if newbackend is rcsetup._auto_backend_sentinel:
+        current_framework = cbook._get_running_interactive_framework()
+
+        if (current_framework and
+                (backend := backend_registry.backend_for_gui_framework(
+                    current_framework))):
+            candidates = [backend]
+        else:
+            candidates = []
+        candidates += [
+            "macosx", "qtagg", "gtk4agg", "gtk3agg", "tkagg", "wxagg"]
+
+        # Don't try to fallback on the cairo-based backends as they each have
+        # an additional dependency (pycairo) over the agg-based backend, and
+        # are of worse quality.
+        for candidate in candidates:
+            try:
+                switch_backend(candidate)
+            except ImportError:
+                continue
+            else:
+                rcParamsOrig['backend'] = candidate
+                return
+        else:
+            # Switching to Agg should always succeed; if it doesn't, let the
+            # exception propagate out.
+            switch_backend("agg")
+            rcParamsOrig["backend"] = "agg"
+            return
 
     module = backend_registry.load_backend_module(newbackend)
     canvas_class = module.FigureCanvas

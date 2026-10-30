@@ -259,6 +259,10 @@ class FigureCanvasPdf(FigureCanvasBase):
     def get_default_filetype(self):
         return 'pdf'
 
+    def draw(self):
+        self.figure.draw_without_rendering()
+        return super().draw()
+
     def print_pdf(self, filename, *, bbox_inches_restore=None, metadata=None,
                   facecolor=None, edgecolor=None):
         """Write the figure as a PDF document to *filename*, with the

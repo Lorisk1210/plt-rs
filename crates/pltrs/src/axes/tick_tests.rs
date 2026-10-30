@@ -423,6 +423,7 @@ fn constrained_position(labels: [&str; 2], out_of_layout: bool) -> pltrs_core::B
             ..TickLabelProps::default()
         };
         ax.xaxis().set_major_ticklabel_props(1, props);
+        fig.layout();
     }
     ax.position()
 }

@@ -61,11 +61,16 @@ class PickingMixin:
             An artist-specific dictionary of details of the event context,
             such as which points are contained in the pick radius.
         """
+        return self._contains_within(mouseevent, self._pick_radius())
+
+    def _contains_within(self, mouseevent, radius):
+        """`contains`, hit-testing with the tolerance *radius* (None: the
+        artist's own)."""
         if (self._different_canvas(mouseevent) or self._figure is None
                 or mouseevent.x is None or mouseevent.y is None):
             return False, {}
         ind = _artist.contains(self._native, float(mouseevent.x),
-                               float(mouseevent.y), self._pick_radius())
+                               float(mouseevent.y), radius)
         if ind is None:
             return False, {}
         return True, self._contains_details(np.asarray(ind, dtype=int))

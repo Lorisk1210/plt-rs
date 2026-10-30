@@ -42,6 +42,16 @@ class NavigationMixin:
 
     _twinned_axes = _TwinnedAxes()
 
+    def remove(self):
+        """
+        Remove the Axes from its figure, whose Axes observers learn it, and
+        release the mouse if the Axes grabs it.
+        """
+        figure = self.get_figure(root=False)
+        super().remove()
+        if figure is not None:
+            figure._axes_removed(self)
+
     def _different_canvas(self, event):
         """Whether *event* happened on another canvas than the Axes'."""
         return (getattr(event, "canvas", None) is not None

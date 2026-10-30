@@ -46,11 +46,13 @@ impl Axes {
 }
 
 /// Whether the background of `ax` contains display point `at`
-/// (matplotlib's `in_axes`): its box, or the wedge of polar axes.
+/// (matplotlib's `in_axes`): its box, or the wedge of polar axes, where
+/// they are now. As matplotlib's test of the axes patch, it lays nothing
+/// out: between draws, a pending aspect or layout-engine pass has not
+/// moved the axes yet.
 pub(super) fn contains(ax: &Axes, at: Point) -> bool {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.borrow();
     LayoutContext::new(&state).axes_contains(ax.id(), at)
 }
 
@@ -85,19 +87,20 @@ pub(super) fn cursor_text(ax: &Axes, at: Point) -> Option<String> {
     (!text.is_empty()).then(|| text.to_owned())
 }
 
-/// The display box of `ax`, brought up to date.
+/// The display box of `ax` now. As matplotlib's `ax.bbox`, it lays
+/// nothing out: between draws, a pending aspect or layout-engine pass has
+/// not moved the axes yet.
 pub(super) fn display_bbox(ax: &Axes) -> Option<Bbox> {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.borrow();
     state.axes_bbox(ax.id())
 }
 
-/// The data → display transform of `ax`, brought up to date.
+/// The data → display transform of `ax` now, laying nothing out (as
+/// matplotlib's `ax.transData`, see [`display_bbox`]).
 pub(super) fn data_transform(ax: &Axes) -> Option<ResolvedTransform> {
     let figure = ax.raw().figure_state();
-    let mut state = figure.borrow_mut();
-    state.prepare();
+    let state = figure.borrow();
     let state: &FigureState = &state;
     state.data_transform(ax.id())
 }
@@ -172,14 +175,17 @@ impl Axes {
     /// The data size of a screen pixel along axis `name` around `value`:
     /// the farthest the values one pixel to either side lie from it
     /// (matplotlib's `format_data_short`, which measures the pixel in the
-    /// axis transform). The figure is laid out first; `None` when the
+    /// axis transform), in the figure as it is now; `None` when the
     /// axes has no extent.
     pub fn pixel_resolution(&self, name: AxisName, value: f64) -> Option<f64> {
         let axis_transform = match name {
             AxisName::X => self.trans_xaxis(),
             AxisName::Y => self.trans_yaxis(),
         };
-        let trans = self.figure().resolve_transform(&axis_transform).ok()?;
+        let trans = self
+            .figure()
+            .resolve_transform_as_is(&axis_transform)
+            .ok()?;
         let inverse = trans.inverted()?;
         let (along, step) = match name {
             AxisName::X => (Point::new(value, 0.0), Point::new(1.0, 0.0)),
@@ -203,7 +209,7 @@ impl Axes {
     /// 3-D axes): in the short form of the formatter set with
     /// [`set_fmt_data`](Self::set_fmt_data), else of the axis' major
     /// formatter, which for a `ScalarFormatter` has as many digits as a
-    /// screen pixel resolves. The figure is laid out first; `None` when the
+    /// screen pixel resolves, in the figure as it is now; `None` when the
     /// formatter fails or the axes has no extent.
     ///
     /// ```

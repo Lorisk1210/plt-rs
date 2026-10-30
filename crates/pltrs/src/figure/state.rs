@@ -9,7 +9,9 @@ use pltrs_render::{ClipPath, Renderer};
 
 use super::CanvasState;
 use super::frame::FigureFrame;
-use crate::artist::{Artist, ArtistId, ArtistStore, DetachedArtists, DrawContext, DrawError};
+use crate::artist::{
+    Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawContext, DrawError,
+};
 use crate::axes::{AxesState, LimitCallbacks, ShareGroups};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
@@ -335,12 +337,14 @@ impl TransformContext for FigureState {
     }
 
     /// Axes are placed in a figure frame, or (secondary axes and the
-    /// projection planes of 3-D axes) in their host axes.
+    /// projection planes of 3-D axes) in their host axes. A removed axes,
+    /// owned by none, keeps its position in the figure, as matplotlib's
+    /// keeps its transforms.
     fn axes_bbox(&self, axes: ArtistId) -> Option<Bbox> {
-        let Some(state) = self.store.get_as::<AxesState>(axes) else {
+        let Some(state) = self.artist_as::<AxesState>(axes) else {
             return crate::mplot3d::axes3d_bbox(self, axes);
         };
-        let parent = state.base().parent?;
+        let parent = state.base().parent.unwrap_or(self.root);
         let container = self.frame_bbox(parent).or_else(|| self.axes_bbox(parent))?;
         Some(fraction_of(
             &container,
@@ -351,7 +355,7 @@ impl TransformContext for FigureState {
     /// Auxiliary axes map their data through their transform into the
     /// data of their host.
     fn data_transform(&self, axes: ArtistId) -> Option<ResolvedTransform> {
-        let state = self.store.get_as::<AxesState>(axes)?;
+        let state = self.artist_as::<AxesState>(axes)?;
         if let Some(aux) = &state.aux_transform {
             return Some(aux.clone().then(self.data_transform(state.base().parent?)?));
         }

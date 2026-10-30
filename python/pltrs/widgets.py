@@ -871,6 +871,8 @@ class RangeSlider(SliderBase):
             verts[1] = vmin, .75
             verts[2] = vmax, .75
             verts[3] = vmax, .25
+        # The vertices are a copy of pltrs (Rust)'s.
+        self.poly.set_xy(verts)
 
     def _min_in_bounds(self, min):
         """Ensure the new min value is between valmin and self.val[1]."""

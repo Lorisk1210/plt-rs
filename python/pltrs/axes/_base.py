@@ -13,6 +13,7 @@ from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._native import transforms as _transforms
 from ..artist import Artist
 from ._aspect import AspectMixin
+from ._blitting import BlittingMixin
 from ._construction import ConstructionMixin
 from ._decorations import DecorationsMixin
 from ._layout import LayoutMixin
@@ -46,7 +47,8 @@ class _SharedAxes:
 
 
 class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
-                DecorationsMixin, AspectMixin, LayoutMixin, UnitsMixin, Artist):
+                DecorationsMixin, AspectMixin, LayoutMixin, UnitsMixin,
+                BlittingMixin, Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 

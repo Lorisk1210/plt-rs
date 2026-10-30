@@ -63,6 +63,20 @@ impl FigureState {
         self.apply_aspect_at(axes, Placement::Located);
     }
 
+    /// matplotlib's `apply_aspect` called on its own, between draws: no
+    /// layout-engine pass, and pending autoscaling only when a fixed
+    /// aspect reads the view limits (through `get_data_ratio`).
+    pub(crate) fn apply_aspect_now(&mut self, axes: ArtistId) {
+        let fixed = self
+            .store
+            .get_as::<AxesState>(axes)
+            .is_some_and(|state| state.aspect.ratio.is_some());
+        if fixed {
+            self.unstale_axes(axes);
+        }
+        self.apply_aspect(axes);
+    }
+
     /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
     /// `placement`.
     fn apply_aspect_at(&mut self, axes: ArtistId, placement: Placement) {

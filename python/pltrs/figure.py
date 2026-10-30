@@ -23,6 +23,7 @@ from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
+from ._figure_interaction import InteractionMixin
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
@@ -32,7 +33,8 @@ from ._text_methods import FigureText
 _log = logging.getLogger(__name__)
 
 
-class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin, Artist):
+class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
+                 InteractionMixin, Artist):
     """
     Base class for `.Figure` and `.SubFigure` containing the methods that add
     artists to the figure or subfigure, create Axes, etc.
@@ -639,8 +641,12 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin, Artist):
             Set *keep_observers* to True if, for example,
             a gui widget is tracking the Axes in the figure.
         """
+        for ax in self.axes:
+            self._axes_removed(ax)
         _figure.clear(self._native)
         self.subfigs = []
+        if not keep_observers:
+            self._forget_axobservers()
 
     def delaxes(self, ax):
         """
@@ -1056,6 +1062,7 @@ class Figure(FigureLayout, FigureBase):
     def sca(self, a):
         """Set the current Axes to be *a* and return *a*."""
         _figure.sca(self._native, a._native)
+        self._axes_changed()
         return a
 
     @property

@@ -182,12 +182,28 @@ class Colorbar:
         mappable.colorbar = self
         mappable.colorbar_cid = mappable.callbacks.connect(
             'changed', self.update_normal)
+        self._link_axes()
+
+    def _link_axes(self):
+        """
+        Link the Axes and the colorbar for interactive use: the toolbar
+        zooms a colorbar along its long axis only, and pltrs (Rust) pans
+        and zooms its norm. pltrs (Rust) stops the Axes of a colorbar of a
+        `.BoundaryNorm` or a `.NoNorm` from navigating; it does not know
+        when the mappable is a contour set, whose colorbar does not
+        navigate either.
+        """
+        from .contour import ContourSet
+        self.ax._colorbar = self
+        if isinstance(self.mappable, ContourSet):
+            self.ax.set_navigate(False)
 
     @property
     def ax(self):
         """The `~.axes.Axes` the colorbar is drawn in."""
         from .axes import Axes
-        return _handles.wrap(_colorbar.ax(self._native), Axes, self._figure)
+        return _handles.wrap(_colorbar.ax(self._native), Axes,
+                             self._figure.get_figure(root=True))
 
     @property
     def cmap(self):

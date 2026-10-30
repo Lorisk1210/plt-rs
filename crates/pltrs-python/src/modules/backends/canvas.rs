@@ -3,6 +3,7 @@
 //! blitting through saved regions.
 
 use pltrs::artist::RawHandle;
+use pltrs::axes::Axes;
 use pltrs::figure::{BufferRegion, Figure, PixelBox};
 use pltrs::transforms::{Bbox, Point};
 
@@ -75,6 +76,12 @@ fn draw_artist(figure: Figure, artist: RawHandle) -> PyResult<()> {
     Ok(figure.draw_artist(&artist)?)
 }
 
+/// Draws the axes onto its figure's canvas without its x and y axes and
+/// titles, its animated artists left out (`Axes.redraw_in_frame`).
+fn redraw_in_frame(axes: Axes) -> PyResult<()> {
+    Ok(axes.redraw_in_frame()?)
+}
+
 /// Marks the part of the canvas inside `extents` (all of it with
 /// `None`) as changed for what shows the figure (`blit`).
 fn blit(figure: Figure, extents: Option<Extents>) -> PyResult<()> {
@@ -106,6 +113,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("restore_region", restore_region)?;
     module.add("region_extents", region_extents)?;
     module.add("draw_artist", draw_artist)?;
+    module.add("redraw_in_frame", redraw_in_frame)?;
     module.add("blit", blit)?;
     module.add("get_device_pixel_ratio", get_device_pixel_ratio)?;
     module.add("set_device_pixel_ratio", set_device_pixel_ratio)?;
@@ -115,6 +123,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pltrs::artist::ArtistHandle;
 
     #[test]
     fn the_canvas_draws_and_restores_regions() {
@@ -133,5 +142,22 @@ mod tests {
         assert!(set_device_pixel_ratio(figure.clone(), 2.0).unwrap());
         assert_eq!(get_device_pixel_ratio(figure.clone()).unwrap(), 2.0);
         assert!(set_device_pixel_ratio(figure, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn single_artists_draw_over_the_canvas() {
+        let figure = Figure::with_size(2.0, 1.0, 50.0);
+        let ax = figure.subplot();
+        draw(figure.clone()).unwrap();
+        let before = buffer_rgba(figure.clone()).unwrap().data;
+        let line = ax.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
+        draw_artist(figure.clone(), line.raw().clone()).unwrap();
+        assert_ne!(buffer_rgba(figure.clone()).unwrap().data, before);
+        redraw_in_frame(ax).unwrap();
+        let other = Figure::new();
+        assert!(
+            draw_artist(other, line.raw().clone()).is_err(),
+            "another figure's"
+        );
     }
 }

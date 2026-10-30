@@ -335,9 +335,14 @@ impl Axes {
     }
 
     /// Adjusts the position or the view limits for the aspect now rather
-    /// than at the next layout (matplotlib's `apply_aspect`).
+    /// than at the next layout (matplotlib's `apply_aspect`). A pending
+    /// layout-engine pass waits for the next layout, as in matplotlib,
+    /// where layout engines run when the figure is drawn.
     pub fn apply_aspect(&self) -> &Self {
-        self.raw.figure_state().borrow_mut().lay_out_axes(self.id());
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .apply_aspect_now(self.id());
         self
     }
 }

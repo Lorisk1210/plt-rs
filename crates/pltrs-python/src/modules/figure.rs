@@ -10,6 +10,7 @@ use pltrs::layout::{
     ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, TightLayout,
 };
 use pltrs::text::Text;
+use pltrs_render::RasterBackendError;
 
 use super::gridspec::Overrides;
 use crate::binding::prelude::*;
@@ -47,14 +48,14 @@ impl From<SizeError> for PyErr {
 }
 
 impl From<SaveError> for PyErr {
-    /// matplotlib's `ValueError` for unknown formats, `OSError` for files
-    /// that cannot be written.
+    /// matplotlib's `ValueError` for unknown formats and canvases too large
+    /// to make (Agg's limit), `OSError` for files that cannot be written.
     fn from(err: SaveError) -> Self {
         let kind = match err {
             SaveError::Io(_) => ExceptionKind::OSError,
-            SaveError::UnsupportedFormat(_) | SaveError::MetadataUnsupported(_) => {
-                ExceptionKind::ValueError
-            }
+            SaveError::UnsupportedFormat(_)
+            | SaveError::MetadataUnsupported(_)
+            | SaveError::Backend(RasterBackendError::Canvas(_)) => ExceptionKind::ValueError,
             _ => ExceptionKind::RuntimeError,
         };
         PyErr::new(kind, err.to_string())

@@ -18,6 +18,13 @@ pub struct SymmetricalLogLocator {
     numticks: usize,
 }
 
+pltrs_core::archive_struct!(SymmetricalLogLocator {
+    base,
+    linthresh,
+    subs,
+    numticks
+});
+
 impl SymmetricalLogLocator {
     /// Ticks for a symlog axis with the given `base` and `linthresh`.
     pub fn new(base: f64, linthresh: f64) -> Self {

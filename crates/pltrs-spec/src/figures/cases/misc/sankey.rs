@@ -1,7 +1,5 @@
 //! Sankey cases of `figures/cases_axes_misc.py`.
 
-use std::rc::Rc;
-
 use pltrs::axes::Axes;
 use pltrs::figure::Figure;
 use pltrs::fonts::FontWeight;
@@ -205,7 +203,7 @@ fn three_chained(fig: &Figure) -> CaseResult {
 fn zero_and_unbalanced(fig: &Figure) -> CaseResult {
     let ax = bare_axes(fig);
     let options = SankeyOptions {
-        format: LabelFormat::Func(Rc::new(|q| format!("{q:+.2}"))),
+        format: LabelFormat::func(|q| format!("{q:+.2}")),
         tolerance: 0.01,
         ..SankeyOptions::default()
     };

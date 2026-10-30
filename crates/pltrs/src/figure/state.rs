@@ -1,5 +1,7 @@
 //! The shared, mutable state behind a [`Figure`](super::Figure) handle.
 
+mod archive;
+
 use std::cell::Cell;
 
 use pltrs_core::{Affine2D, Bbox};

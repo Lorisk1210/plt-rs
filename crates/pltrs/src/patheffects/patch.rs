@@ -20,6 +20,13 @@ pub struct PatchEffect {
     sketch: Option<Sketch>,
 }
 
+pltrs_core::archive_struct!(PatchEffect {
+    offset,
+    paint,
+    snap,
+    sketch
+});
+
 impl PatchEffect {
     /// A patch styled by `props` over matplotlib's patch defaults under
     /// the current rcParams, `offset` points away (`PathPatchEffect(offset,

@@ -74,6 +74,14 @@ pub enum PointerButton {
     Forward,
 }
 
+pltrs_core::archive_enum!(PointerButton {
+    Left,
+    Middle,
+    Right,
+    Back,
+    Forward,
+});
+
 impl PointerButton {
     /// Every button, in the order of matplotlib's `MouseButton`.
     pub const ALL: [Self; 5] = [

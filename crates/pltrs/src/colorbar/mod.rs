@@ -37,6 +37,7 @@ mod artists;
 mod blocks;
 mod build;
 mod dividers;
+pub(crate) use dividers::Dividers;
 mod error;
 mod mappable;
 mod navigation;
@@ -45,6 +46,7 @@ mod placement;
 mod remove;
 mod state;
 mod ticking;
+pub(crate) use ticking::{BoundarySpacing, NormSpacing};
 
 pub use error::ColorbarError;
 pub use mappable::Mappable;
@@ -81,6 +83,8 @@ pub struct Colorbar {
     ax: Axes,
     raw: RawHandle,
 }
+
+pltrs_core::archive_struct!(Colorbar { ax, raw });
 
 /// The axes a colorbar takes space from.
 enum Parents {

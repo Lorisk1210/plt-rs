@@ -3,6 +3,8 @@
 
 use std::collections::BTreeMap;
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
+
 use super::store::take_tree;
 use super::{Artist, ArtistId};
 
@@ -18,6 +20,22 @@ use super::{Artist, ArtistId};
 #[derive(Debug, Default)]
 pub(crate) struct DetachedArtists {
     artists: BTreeMap<ArtistId, Box<dyn Artist>>,
+}
+
+/// Archived artist by artist; each artist read back takes the id it is
+/// kept under.
+impl Archive for DetachedArtists {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        self.artists.encode(encoder)
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        let mut artists: BTreeMap<ArtistId, Box<dyn Artist>> = Archive::decode(decoder)?;
+        for (&id, artist) in &mut artists {
+            artist.base_mut().assign_id(id);
+        }
+        Ok(Self { artists })
+    }
 }
 
 impl DetachedArtists {
@@ -50,5 +68,11 @@ impl DetachedArtists {
     /// owns out, the artist first.
     pub(crate) fn take_tree(&mut self, id: ArtistId) -> Vec<(ArtistId, Box<dyn Artist>)> {
         take_tree(id, |id| self.take(id))
+    }
+
+    /// Whether some removed artist has an id `live` (the figure's store)
+    /// also holds (checked on artists read back from an archive).
+    pub(crate) fn overlaps(&self, live: &super::ArtistStore) -> bool {
+        self.artists.keys().any(|&id| live.contains(id))
     }
 }

@@ -119,6 +119,11 @@ enum PadFont {
     Text(ArtistId),
 }
 
+pltrs_core::archive_enum!(PadFont {
+    Points(v0),
+    Text(v0),
+});
+
 /// Where an owner box and its parts go.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BoxLayout {
@@ -156,6 +161,21 @@ pub(crate) struct AnchoredBoxArtist {
     /// The callbacks dragging the box, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
 }
+
+pltrs_core::archive_struct!(AnchoredBoxArtist {
+    base,
+    child,
+    loc,
+    pad,
+    borderpad,
+    font,
+    anchor,
+    owner,
+    frame,
+    parts,
+    pinned,
+    dragger
+});
 
 impl AnchoredBoxArtist {
     /// The font size the paddings are fractions of, in points.

@@ -39,6 +39,8 @@ pub(crate) struct LabelGroups {
     frames: Vec<(ArtistId, [Grouper; 3])>,
 }
 
+pltrs_core::archive_struct!(LabelGroups { frames });
+
 impl LabelGroups {
     /// Aligns the `aligned` texts of `a` and `b`, and of everything aligned
     /// with either, in the figure `frame` (matplotlib's `Grouper.join`).

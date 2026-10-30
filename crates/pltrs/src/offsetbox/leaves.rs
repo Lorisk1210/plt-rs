@@ -34,6 +34,8 @@ pub struct DrawingArea<A> {
     pub visible: bool,
 }
 
+pltrs_core::archive_struct!(DrawingArea<A> { width, height, xdescent, ydescent, clip, artists, visible });
+
 impl<A> DrawingArea<A> {
     /// A visible, unclipped area of the given size in points, with no
     /// artists yet.
@@ -107,6 +109,8 @@ pub struct TextArea<A> {
     pub visible: bool,
 }
 
+pltrs_core::archive_struct!(TextArea<A> { text, multilinebaseline, visible });
+
 /// The extent of a text area and how far its text is shifted up from the
 /// area's origin.
 pub(super) struct TextExtent {
@@ -176,6 +180,8 @@ pub struct AuxTransformBox<A> {
     pub(super) extent: Option<Bbox>,
 }
 
+pltrs_core::archive_struct!(AuxTransformBox<A> { aux_transform, artists, visible, extent });
+
 impl<A> AuxTransformBox<A> {
     /// A visible, empty box whose artists are in `aux_transform`
     /// coordinates.
@@ -244,6 +250,8 @@ pub struct OffsetImage<A> {
     pub visible: bool,
 }
 
+pltrs_core::archive_struct!(OffsetImage<A> { image, zoom, dpi_cor, visible });
+
 impl<A: ArtistRef> OffsetImage<A> {
     /// matplotlib's `OffsetImage.get_bbox`: the array's columns and rows,
     /// scaled by the zoom (and the resolution), from the origin.
@@ -281,3 +289,5 @@ pub struct PaddedBox<A> {
     /// Whether the box takes part in its parent's layout.
     pub visible: bool,
 }
+
+pltrs_core::archive_struct!(PaddedBox<A> { pad, child, frame, visible });

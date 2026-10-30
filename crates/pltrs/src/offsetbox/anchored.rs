@@ -35,6 +35,19 @@ pub enum AnchorLoc {
     Center,
 }
 
+pltrs_core::archive_enum!(AnchorLoc {
+    UpperRight,
+    UpperLeft,
+    LowerLeft,
+    LowerRight,
+    Right,
+    CenterLeft,
+    CenterRight,
+    LowerCenter,
+    UpperCenter,
+    Center,
+});
+
 impl AnchorLoc {
     /// Every location in code order.
     pub const ALL: [Self; 10] = [

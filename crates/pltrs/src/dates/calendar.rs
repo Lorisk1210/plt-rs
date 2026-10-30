@@ -117,6 +117,16 @@ pub enum Weekday {
     Sunday,
 }
 
+pltrs_core::archive_enum!(Weekday {
+    Monday,
+    Tuesday,
+    Wednesday,
+    Thursday,
+    Friday,
+    Saturday,
+    Sunday,
+});
+
 impl Weekday {
     /// All weekdays, Monday first.
     pub const ALL: [Self; 7] = [

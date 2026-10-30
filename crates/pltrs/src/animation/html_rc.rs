@@ -18,6 +18,12 @@ pub enum HtmlRepr {
     None,
 }
 
+pltrs_core::archive_enum!(HtmlRepr {
+    Html5,
+    JsHtml,
+    None,
+});
+
 impl HtmlRepr {
     /// matplotlib's name (`html5`, `jshtml` or `none`).
     pub const fn name(self) -> &'static str {
@@ -62,6 +68,19 @@ pub enum FrameFormat {
     /// `svg`.
     Svg,
 }
+
+pltrs_core::archive_enum!(FrameFormat {
+    Png,
+    Jpeg,
+    Tiff,
+    Raw,
+    Rgba,
+    Ppm,
+    Sgi,
+    Bmp,
+    Pbm,
+    Svg,
+});
 
 impl FrameFormat {
     const ALL: [Self; 10] = [

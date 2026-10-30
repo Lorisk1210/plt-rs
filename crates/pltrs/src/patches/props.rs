@@ -38,6 +38,21 @@ pub struct PatchProps {
     pub joinstyle: Option<JoinStyle>,
 }
 
+pltrs_core::archive_struct!(PatchProps {
+    base,
+    color,
+    facecolor,
+    edgecolor,
+    linewidth,
+    linestyle,
+    fill,
+    hatch,
+    hatchcolor,
+    antialiased,
+    capstyle,
+    joinstyle
+});
+
 /// Chainable setters for the optional fields of [`PatchProps`].
 macro_rules! patch_prop_builders {
     ($( $(#[$doc:meta])* $field:ident: $ty:ty; )*) => {

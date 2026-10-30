@@ -5,7 +5,7 @@ use std::f64::consts::PI;
 
 use pltrs_core::Rgba;
 
-use crate::colors::colormap::cubehelix_channel;
+use crate::colors::colormap::{SegmentRecipe, cubehelix_channel};
 use crate::colors::{
     Color, Colormap, ColormapError, Segment, SegmentData, SegmentFn, color_sequence,
 };
@@ -38,7 +38,7 @@ pub(super) enum ChannelDef {
 
 /// The segment functions defined in `_cm.py`.
 #[derive(Clone, Copy, Debug)]
-pub(super) enum BuiltinFn {
+pub(crate) enum BuiltinFn {
     /// gnuplot's palette formula `_g<n>` (n in 0..=36).
     Gnuplot(u8),
     /// `_flag_red`.
@@ -65,11 +65,26 @@ pub(super) enum BuiltinFn {
     Cubehelix([f64; 6]),
 }
 
+pltrs_core::archive_enum!(BuiltinFn {
+    Gnuplot(v0),
+    FlagRed,
+    FlagGreen,
+    FlagBlue,
+    PrismRed,
+    PrismGreen,
+    PrismBlue,
+    GistHeatRed,
+    GistHeatGreen,
+    GistHeatBlue,
+    GistYarg,
+    Cubehelix(v0),
+});
+
 impl BuiltinFn {
     /// The function, named like its Python counterpart.
-    fn segment_fn(self) -> SegmentFn {
+    pub(crate) fn segment_fn(self) -> SegmentFn {
         let named = |name: &'static str, f: fn(f64) -> f64| SegmentFn::new(name, f);
-        match self {
+        let function = match self {
             Self::Gnuplot(n) => SegmentFn::new(format!("_g{n}"), gnuplot(n)),
             Self::FlagRed => named("_flag_red", |x| 0.75 * ((x * 31.5 + 0.25) * PI).sin() + 0.5),
             Self::FlagGreen => named("_flag_green", |x| (x * 31.5 * PI).sin()),
@@ -88,7 +103,8 @@ impl BuiltinFn {
             Self::GistHeatBlue => named("_gist_heat_blue", |x| 4.0 * x - 3.0),
             Self::GistYarg => named("_gist_yarg", |x| 1.0 - x),
             Self::Cubehelix(params) => cubehelix_channel(params),
-        }
+        };
+        function.with_recipe(SegmentRecipe::Builtin(self))
     }
 }
 

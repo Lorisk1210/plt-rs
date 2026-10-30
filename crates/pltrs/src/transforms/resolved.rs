@@ -9,7 +9,7 @@ use pltrs_core::{Affine2D, Bbox, Path, Point};
 use super::blend::blend_rows;
 
 /// An invertible map of one coordinate (e.g. a log scale).
-pub trait AxisMap: fmt::Debug {
+pub trait AxisMap: fmt::Debug + std::any::Any {
     /// Forward map.
     fn forward(&self, value: f64) -> f64;
     /// Inverse map.
@@ -26,7 +26,7 @@ pub trait AxisMap: fmt::Debug {
 }
 
 /// An invertible map of the plane (e.g. a polar projection).
-pub trait PointMap: fmt::Debug {
+pub trait PointMap: fmt::Debug + std::any::Any {
     /// Forward map.
     fn forward(&self, point: Point) -> Point;
     /// Inverse map.
@@ -56,6 +56,13 @@ pub enum Step {
     /// x taken from one transform and y from another.
     Blend(Rc<ResolvedTransform>, Rc<ResolvedTransform>),
 }
+
+pltrs_core::archive_enum!(Step {
+    Affine(v0),
+    Separable(v0, v1),
+    Plane(v0),
+    Blend(v0, v1),
+});
 
 impl Step {
     fn apply(&self, p: Point) -> Point {
@@ -121,6 +128,8 @@ impl Step {
 #[derive(Debug)]
 struct InverseAxis(Rc<dyn AxisMap>);
 
+pltrs_core::archive_struct!(InverseAxis(v0));
+
 impl AxisMap for InverseAxis {
     fn forward(&self, value: f64) -> f64 {
         self.0.inverse(value)
@@ -132,6 +141,8 @@ impl AxisMap for InverseAxis {
 
 #[derive(Debug)]
 struct InversePlane(Rc<dyn PointMap>);
+
+pltrs_core::archive_struct!(InversePlane(v0));
 
 impl PointMap for InversePlane {
     fn forward(&self, point: Point) -> Point {
@@ -151,6 +162,8 @@ pub struct ResolvedTransform {
     steps: Vec<Step>,
     affine: Affine2D,
 }
+
+pltrs_core::archive_struct!(ResolvedTransform { steps, affine });
 
 impl ResolvedTransform {
     /// The identity.
@@ -336,6 +349,27 @@ impl ResolvedTransform {
         partial.transformed(&affine)
     }
 }
+
+pltrs_core::archive_kinds!(dyn AxisMap {
+    "inverse" => InverseAxis,
+    "log" => crate::scale::LogTransform,
+    "symlog" => crate::scale::SymmetricalLogTransform,
+    "logit" => crate::scale::LogitTransform,
+    "asinh" => crate::scale::AsinhTransform,
+    "func" => crate::scale::FuncTransform,
+    "func-log" => crate::scale::FuncLogTransform,
+    "linear" => crate::colors::LinearTransform,
+});
+
+pltrs_core::archive_kinds!(dyn PointMap {
+    "inverse-plane" => InversePlane,
+    "polar-to-cartesian" => crate::coords::PolarToCartesian,
+    "geo" => crate::geo::GeoMap,
+    "polar" => crate::polar::PolarMap,
+    "aux-inverse" => crate::axisartist::AuxInverse,
+    "aux-polar" => crate::axisartist::AuxPolar,
+    "aux-functions" => crate::axisartist::AuxFunctions,
+});
 
 #[cfg(test)]
 mod tests {

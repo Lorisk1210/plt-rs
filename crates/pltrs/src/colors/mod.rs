@@ -62,6 +62,7 @@ pub use light::{
 };
 pub use mappable::ScalarMappable;
 pub use named::{ColorTable, NamedColor, named_color_table, named_colors};
+pub(crate) use norm::LinearTransform;
 pub use norm::{
     AsinhNorm, BoundaryNorm, CenteredNorm, FuncNorm, LogNorm, MultiNorm, NoNorm, Norm, NormClone,
     NormError, NormKind, NormName, NormSpec, NormTransform, Normalize, PowerNorm, ScaleNorm,

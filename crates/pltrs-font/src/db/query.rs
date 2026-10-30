@@ -25,6 +25,12 @@ pub enum FontStyle {
     Oblique,
 }
 
+pltrs_core::archive_enum!(FontStyle {
+    Normal,
+    Italic,
+    Oblique,
+});
+
 impl FontStyle {
     /// matplotlib's (and CSS's) name of the slant: `normal`, `italic` or
     /// `oblique`.
@@ -61,6 +67,8 @@ pub enum FontVariant {
     /// Small capitals.
     SmallCaps,
 }
+
+pltrs_core::archive_enum!(FontVariant { Normal, SmallCaps });
 
 impl FontVariant {
     /// matplotlib's (and CSS's) name of the variant: `normal` or

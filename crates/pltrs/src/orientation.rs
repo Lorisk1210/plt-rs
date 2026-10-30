@@ -14,6 +14,11 @@ pub enum Orientation {
     Horizontal,
 }
 
+pltrs_core::archive_enum!(Orientation {
+    Vertical,
+    Horizontal,
+});
+
 impl Orientation {
     /// `(position, value)` laid out as `(x, y)` for this orientation.
     pub fn place(self, position: f64, value: f64) -> (f64, f64) {

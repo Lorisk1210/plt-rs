@@ -118,6 +118,14 @@ pub struct AutoDateLocator {
     intervals: [Vec<u32>; 7],
 }
 
+pltrs_core::archive_struct!(AutoDateLocator {
+    tz,
+    minticks,
+    maxticks,
+    interval_multiples,
+    intervals
+});
+
 impl Default for AutoDateLocator {
     fn default() -> Self {
         Self::new()
@@ -135,6 +143,12 @@ pub enum ChosenLocator {
     /// Sub-second ticks.
     Microsecond(MicrosecondLocator),
 }
+
+pltrs_core::archive_enum!(ChosenLocator {
+    Year(v0),
+    RRule(v0),
+    Microsecond(v0),
+});
 
 /// The outcome of [`AutoDateLocator::get_locator`].
 #[derive(Clone, Debug, PartialEq)]

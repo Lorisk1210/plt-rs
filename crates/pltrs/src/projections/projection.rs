@@ -263,3 +263,7 @@ pub struct TickLabelPlacement {
     /// set one.
     pub valign: VAlign,
 }
+
+pltrs_core::archive_kinds!(dyn Projection {
+    "geo" => crate::geo::GeoState,
+});

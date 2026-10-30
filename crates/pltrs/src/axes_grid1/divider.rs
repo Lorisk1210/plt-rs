@@ -17,6 +17,8 @@ use crate::transforms::TransformContext;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct DividerId(pub(crate) usize);
 
+pltrs_core::archive_struct!(DividerId(v0));
+
 /// The rectangle a divider splits, in fractions of its frame.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum DividerRect {
@@ -29,6 +31,12 @@ pub(crate) enum DividerRect {
     Axes(ArtistId),
 }
 
+pltrs_core::archive_enum!(DividerRect {
+    Fixed(v0),
+    Subplot(v0),
+    Axes(v0),
+});
+
 /// Whether the cells keep the proportions of their relative sizes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DividerAspect {
@@ -37,6 +45,11 @@ pub(crate) enum DividerAspect {
     /// When the axes has a fixed aspect (`AxesDivider`'s default).
     OfAxes(ArtistId),
 }
+
+pltrs_core::archive_enum!(DividerAspect {
+    Fixed(v0),
+    OfAxes(v0),
+});
 
 /// How a divider sizes its cells.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -51,6 +64,8 @@ pub(crate) enum DividerKind {
     /// giving the width of the n-th row (`VBoxDivider`).
     VBox,
 }
+
+pltrs_core::archive_enum!(DividerKind { Grid, HBox, VBox });
 
 /// A rectangle split by sizes (matplotlib's `Divider` and subclasses).
 #[derive(Clone, Debug, PartialEq)]
@@ -72,6 +87,18 @@ pub(crate) struct DividerState {
     pub(crate) y_ref: usize,
 }
 
+pltrs_core::archive_struct!(DividerState {
+    frame,
+    rect,
+    horizontal,
+    vertical,
+    aspect,
+    kind,
+    anchor,
+    x_ref,
+    y_ref
+});
+
 /// Where a divided axes sits: a block of cells of a divider, given as
 /// offset indices that may count from the end like Python's (matplotlib's
 /// `new_locator`).
@@ -87,6 +114,14 @@ pub(crate) struct DividerCell {
     /// Row after the last.
     pub(crate) ny1: isize,
 }
+
+pltrs_core::archive_struct!(DividerCell {
+    divider,
+    nx,
+    nx1,
+    ny,
+    ny1
+});
 
 impl DividerState {
     /// A grid divider of `rect` in `frame`, without sizes yet.

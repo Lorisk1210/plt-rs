@@ -36,6 +36,7 @@ pub use centered::{CenteredNorm, TwoSlopeNorm};
 pub use linear::{NoNorm, Normalize};
 pub use multi::{MultiNorm, NormName, NormSpec};
 pub use power::PowerNorm;
+pub(crate) use scaled::LinearTransform;
 pub use scaled::{AsinhNorm, FuncNorm, LogNorm, NormTransform, ScaleNorm, SymLogNorm};
 
 use pltrs_core::numeric::np_clip;
@@ -80,7 +81,7 @@ impl Clone for Box<dyn Norm> {
 }
 
 /// A mapping from data values to colormap positions (matplotlib's `Norm`).
-pub trait Norm: fmt::Debug + NormClone {
+pub trait Norm: fmt::Debug + NormClone + std::any::Any {
     /// The data value mapped to 0, once known.
     fn vmin(&self) -> Option<f64>;
 
@@ -275,6 +276,8 @@ struct Limits {
     clip: bool,
 }
 
+pltrs_core::archive_struct!(Limits { vmin, vmax, clip });
+
 impl Limits {
     fn new(vmin: Option<f64>, vmax: Option<f64>) -> Self {
         Self {
@@ -371,6 +374,21 @@ fn map_unmasked(data: &[Option<f64>], f: impl Fn(f64) -> Normalized) -> Vec<Norm
         .map(|v| v.map_or(Normalized::Masked, &f))
         .collect()
 }
+
+pltrs_core::archive_kinds!(dyn Norm {
+    "linear" => Normalize,
+    "none" => NoNorm,
+    "boundary" => BoundaryNorm,
+    "two-slope" => TwoSlopeNorm,
+    "centered" => CenteredNorm,
+    "power" => PowerNorm,
+    "log" => ScaleNorm<crate::scale::LogTransform>,
+    "symlog" => ScaleNorm<crate::scale::SymmetricalLogTransform>,
+    "asinh" => ScaleNorm<crate::scale::AsinhTransform>,
+    "logit" => ScaleNorm<crate::scale::LogitTransform>,
+    "func" => ScaleNorm<crate::scale::FuncTransform>,
+    "scaled-linear" => ScaleNorm<LinearTransform>,
+});
 
 #[cfg(test)]
 mod tests {

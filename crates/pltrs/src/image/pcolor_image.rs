@@ -30,6 +30,14 @@ pub(crate) struct PcolorImageArtist {
     y: Vec<f64>,
 }
 
+pltrs_core::archive_struct!(PcolorImageArtist {
+    base,
+    data,
+    mappable,
+    x,
+    y
+});
+
 impl PcolorImageArtist {
     /// An image with cell edges `x` and `y` (one more than the columns and
     /// rows of `data`); decreasing edges flip the data, as matplotlib does.

@@ -27,6 +27,14 @@ pub(crate) enum NormClass {
     Other,
 }
 
+pltrs_core::archive_enum!(NormClass {
+    Linear,
+    Boundary,
+    Identity,
+    Scaled,
+    Other,
+});
+
 impl NormClass {
     /// The class of `norm`.
     pub(crate) fn of(norm: &dyn Norm) -> Self {
@@ -85,6 +93,19 @@ pub(crate) struct Blocks {
     spacing: Spacing,
     extendfrac: ExtendFrac,
 }
+
+pltrs_core::archive_struct!(Blocks {
+    boundaries,
+    values,
+    kind,
+    inside,
+    lower,
+    upper,
+    class,
+    explicit,
+    spacing,
+    extendfrac
+});
 
 impl Blocks {
     /// matplotlib's `_process_values`: the blocks, with the limits of

@@ -83,20 +83,31 @@ impl FromPy<'_> for Description {
 /// A non-affine Python transform as a map of the plane: its `transform`
 /// forward, the `transform` of its inverse back.
 #[derive(Debug)]
-struct PyPointMap {
+pub(crate) struct PyPointMap {
+    /// The Python transform (what an archive holds in place of the map).
+    object: Owned,
     forward: Callback,
     inverse: Option<Callback>,
 }
 
 impl PyPointMap {
     /// The map of `transform`; one without an inverse maps back to NaN.
-    fn new(transform: &Bound<'_>) -> PyResult<Self> {
+    pub(crate) fn new(transform: &Bound<'_>) -> PyResult<Self> {
         let forward = transform.getattr("transform")?.extract()?;
         let inverse = transform
             .call_method("inverted", &[])
             .and_then(|inverted| inverted.getattr("transform")?.extract())
             .ok();
-        Ok(Self { forward, inverse })
+        Ok(Self {
+            object: transform.clone().unbind(),
+            forward,
+            inverse,
+        })
+    }
+
+    /// The Python transform.
+    pub(crate) fn object(&self) -> &Owned {
+        &self.object
     }
 
     /// `p` through `callback`; NaN when it fails (the exception is raised

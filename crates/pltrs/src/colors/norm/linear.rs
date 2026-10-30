@@ -18,6 +18,8 @@ pub struct Normalize {
     limits: Limits,
 }
 
+pltrs_core::archive_struct!(Normalize { limits });
+
 impl Normalize {
     /// A norm with both limits set; [`Normalize::default`] autoscales.
     pub fn new(vmin: f64, vmax: f64) -> Self {
@@ -67,6 +69,8 @@ impl Norm for Normalize {
 pub struct NoNorm {
     limits: Limits,
 }
+
+pltrs_core::archive_struct!(NoNorm { limits });
 
 limit_builders!(NoNorm);
 

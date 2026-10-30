@@ -16,6 +16,8 @@ use crate::transforms::{Transform, TransformContext};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct InsetLocatorId(pub(crate) usize);
 
+pltrs_core::archive_struct!(InsetLocatorId(v0));
+
 /// How big an inset is.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum InsetExtent {
@@ -28,6 +30,12 @@ enum InsetExtent {
     /// The anchor box itself (matplotlib's `_TransformedBoundsLocator`).
     Bounds,
 }
+
+pltrs_core::archive_enum!(InsetExtent {
+    Sized { width, height },
+    Zoomed { zoom },
+    Bounds,
+});
 
 /// Where an inset axes goes at every layout pass (matplotlib's
 /// `AnchoredLocatorBase` subclasses).
@@ -47,6 +55,15 @@ pub(crate) struct InsetLocator {
     /// (`legend.fontsize` when the inset was made).
     fontsize: f64,
 }
+
+pltrs_core::archive_struct!(InsetLocator {
+    extent,
+    loc,
+    parent,
+    anchor,
+    borderpad,
+    fontsize
+});
 
 /// Where [`inset_axes`] and [`zoomed_inset_axes`] put an inset (their
 /// keyword arguments).

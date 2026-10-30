@@ -6,6 +6,7 @@ use std::f64::consts::TAU;
 use std::fmt;
 use std::rc::Rc;
 
+use pltrs_core::archive::ProgramFn;
 use pltrs_core::numeric::remainder;
 use pltrs_core::{Affine2D, Path, Point};
 
@@ -38,12 +39,19 @@ pub struct AuxTransform {
     stages: Vec<Stage>,
 }
 
+pltrs_core::archive_struct!(AuxTransform { stages });
+
 /// One stage of an [`AuxTransform`].
 #[derive(Clone, Debug)]
 enum Stage {
     Affine(Affine2D),
     Map(Rc<dyn PointMap>),
 }
+
+pltrs_core::archive_enum!(Stage {
+    Affine(v0),
+    Map(v0),
+});
 
 impl Stage {
     fn apply(&self, point: Point) -> Point {
@@ -90,8 +98,8 @@ impl AuxTransform {
         inverse: impl Fn(f64, f64) -> (f64, f64) + 'static,
     ) -> Self {
         Self::map(Rc::new(Functions {
-            forward: Rc::new(forward),
-            inverse: Rc::new(inverse),
+            forward: ProgramFn::new(Rc::new(forward)),
+            inverse: ProgramFn::new(Rc::new(inverse)),
         }))
     }
 
@@ -156,7 +164,9 @@ impl AuxTransform {
 
 /// The inverse of a map of the plane.
 #[derive(Debug)]
-struct Inverse(Rc<dyn PointMap>);
+pub(crate) struct Inverse(Rc<dyn PointMap>);
+
+pltrs_core::archive_struct!(Inverse(v0));
 
 impl PointMap for Inverse {
     fn forward(&self, point: Point) -> Point {
@@ -170,7 +180,9 @@ impl PointMap for Inverse {
 
 /// matplotlib's `PolarTransform()` and its inverse without an axis.
 #[derive(Debug)]
-struct Polar;
+pub(crate) struct Polar;
+
+pltrs_core::archive_struct!(Polar);
 
 impl PointMap for Polar {
     fn forward(&self, point: Point) -> Point {
@@ -189,14 +201,17 @@ impl PointMap for Polar {
     }
 }
 
-/// A user-supplied function of `(x, y)`.
-type PointFn = Rc<dyn Fn(f64, f64) -> (f64, f64)>;
+/// A user-supplied function of `(x, y)`, archived only if it has an
+/// origin (see [`ProgramFn`]).
+type PointFn = ProgramFn<dyn Fn(f64, f64) -> (f64, f64)>;
 
 /// A transform given by two functions (matplotlib's `_User2DTransform`).
-struct Functions {
+pub(crate) struct Functions {
     forward: PointFn,
     inverse: PointFn,
 }
+
+pltrs_core::archive_struct!(Functions { forward, inverse });
 
 impl fmt::Debug for Functions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -206,12 +221,12 @@ impl fmt::Debug for Functions {
 
 impl PointMap for Functions {
     fn forward(&self, point: Point) -> Point {
-        let (x, y) = (self.forward)(point.x, point.y);
+        let (x, y) = (self.forward.get())(point.x, point.y);
         Point::new(x, y)
     }
 
     fn inverse(&self, point: Point) -> Point {
-        let (x, y) = (self.inverse)(point.x, point.y);
+        let (x, y) = (self.inverse.get())(point.x, point.y);
         Point::new(x, y)
     }
 }

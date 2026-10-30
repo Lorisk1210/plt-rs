@@ -38,6 +38,8 @@ pub struct DateFormatter {
     usetex: Option<bool>,
 }
 
+pltrs_core::archive_struct!(DateFormatter { format, tz, usetex });
+
 impl DateFormatter {
     /// A formatter writing ticks with `format`, in the zone the
     /// `timezone` rcParam names now (matplotlib's `DateFormatter(fmt)`).

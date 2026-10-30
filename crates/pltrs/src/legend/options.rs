@@ -24,6 +24,8 @@ pub enum LegendMode {
     Expand,
 }
 
+pltrs_core::archive_enum!(LegendMode { Fit, Expand });
+
 /// How the title and the block of entries line up (matplotlib's
 /// `alignment`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -36,6 +38,12 @@ pub enum LegendAlignment {
     /// Flush right.
     Right,
 }
+
+pltrs_core::archive_enum!(LegendAlignment {
+    Center,
+    Left,
+    Right,
+});
 
 impl From<LegendAlignment> for PackAlign {
     fn from(alignment: LegendAlignment) -> Self {
@@ -102,6 +110,13 @@ pub struct LegendShadowStyle {
     /// such as `color` or `alpha`).
     pub props: PatchProps,
 }
+
+pltrs_core::archive_struct!(LegendShadowStyle {
+    ox,
+    oy,
+    shade,
+    props
+});
 
 impl Default for LegendShadowStyle {
     /// matplotlib's legend shadow: 2 points right and down, shade 0.7.

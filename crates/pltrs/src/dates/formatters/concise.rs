@@ -44,6 +44,15 @@ pub struct ConciseDateFormatter {
     usetex: Option<bool>,
 }
 
+pltrs_core::archive_struct!(ConciseDateFormatter {
+    tz,
+    formats,
+    zero_formats,
+    offset_formats,
+    show_offset,
+    usetex
+});
+
 impl Default for ConciseDateFormatter {
     fn default() -> Self {
         Self::new()

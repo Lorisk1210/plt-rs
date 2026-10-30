@@ -51,6 +51,14 @@ pub struct GcUpdate {
     pub joinstyle: Option<JoinStyle>,
 }
 
+pltrs_core::archive_struct!(GcUpdate {
+    linewidth,
+    foreground,
+    alpha,
+    capstyle,
+    joinstyle
+});
+
 impl GcUpdate {
     /// Sets the line width in points.
     #[must_use]
@@ -128,6 +136,8 @@ pub struct Stroke {
     pub gc: GcUpdate,
 }
 
+pltrs_core::archive_struct!(Stroke { offset, gc });
+
 impl Stroke {
     /// A stroke with the graphics state changes `gc`, not offset.
     pub fn new(gc: GcUpdate) -> Self {
@@ -152,6 +162,14 @@ pub struct PatchShadow {
     /// Further graphics state changes.
     pub gc: GcUpdate,
 }
+
+pltrs_core::archive_struct!(PatchShadow {
+    offset,
+    color,
+    alpha,
+    rho,
+    gc
+});
 
 impl Default for PatchShadow {
     fn default() -> Self {
@@ -191,6 +209,14 @@ pub struct LineShadow {
     pub gc: GcUpdate,
 }
 
+pltrs_core::archive_struct!(LineShadow {
+    offset,
+    color,
+    alpha,
+    rho,
+    gc
+});
+
 impl Default for LineShadow {
     fn default() -> Self {
         Self {
@@ -229,6 +255,15 @@ pub enum Effect {
     PathPatch(PatchEffect),
 }
 
+pltrs_core::archive_enum!(Effect {
+    Normal,
+    Stroke(v0),
+    PatchShadow(v0),
+    LineShadow(v0),
+    TickedStroke(v0),
+    PathPatch(v0),
+});
+
 /// One path effect: an [`Effect`], optionally followed by the unchanged
 /// path (matplotlib's `with...` variants such as `withStroke`).
 #[derive(Clone, Debug, PartialEq)]
@@ -238,6 +273,11 @@ pub struct PathEffect {
     /// Whether the original path is drawn afterwards.
     pub then_normal: bool,
 }
+
+pltrs_core::archive_struct!(PathEffect {
+    effect,
+    then_normal
+});
 
 impl PathEffect {
     const fn of(effect: Effect, then_normal: bool) -> Self {

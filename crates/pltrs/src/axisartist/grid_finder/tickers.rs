@@ -44,6 +44,8 @@ pub struct ExtremeFinderSimple {
     pub ny: usize,
 }
 
+pltrs_core::archive_struct!(ExtremeFinderSimple { nx, ny });
+
 impl ExtremeFinderSimple {
     /// A finder sampling `nx × ny` points.
     pub const fn new(nx: usize, ny: usize) -> Self {
@@ -68,6 +70,8 @@ impl ExtremeFinder for ExtremeFinderSimple {
 pub struct GridMaxNLocator {
     locator: crate::ticker::MaxNLocator,
 }
+
+pltrs_core::archive_struct!(GridMaxNLocator { locator });
 
 impl GridMaxNLocator {
     /// At most `nbins` intervals with the default steps.
@@ -110,6 +114,8 @@ pub struct GridFixedLocator {
     locs: Vec<f64>,
 }
 
+pltrs_core::archive_struct!(GridFixedLocator { locs });
+
 impl GridFixedLocator {
     /// Levels at `locs`.
     pub fn new(locs: impl IntoIterator<Item: Number>) -> Self {
@@ -142,6 +148,8 @@ impl GridLocator for GridFixedLocator {
 pub struct FormatterPrettyPrint {
     use_math_text: bool,
 }
+
+pltrs_core::archive_struct!(FormatterPrettyPrint { use_math_text });
 
 impl FormatterPrettyPrint {
     /// A formatter writing mathtext labels when `use_math_text`.
@@ -176,6 +184,11 @@ pub struct DictFormatter {
     format_dict: Vec<(f64, String)>,
     fallback: Option<Box<dyn GridFormatter>>,
 }
+
+pltrs_core::archive_struct!(DictFormatter {
+    format_dict,
+    fallback
+});
 
 impl DictFormatter {
     /// Labels `format_dict[value]` and, for values not in the table, the

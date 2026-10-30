@@ -94,6 +94,8 @@ impl Batch {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Matrix4([[f64; 4]; 4]);
 
+pltrs_core::archive_struct!(Matrix4(v0));
+
 impl Matrix4 {
     /// The identity.
     pub const IDENTITY: Self = Self([

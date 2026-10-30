@@ -46,9 +46,14 @@ mod ticks;
 
 pub(crate) use artist::AxisArtistState;
 pub use aux_transform::AuxTransform;
+pub(crate) use aux_transform::{
+    Functions as AuxFunctions, Inverse as AuxInverse, Polar as AuxPolar,
+};
 pub use axes::{AxisArtistAxes, GridHelper};
+pub(crate) use gridlines::Gridlines;
 pub use handles::{
     AxisArtist, AxisLabel, AxisLine, LabelBase, LabelDirection, TickLabels, Ticks, Toggle,
 };
 pub use line::{AxislineStyle, AxislineStyleError};
+pub(crate) use tick_marks::TickMarksState;
 pub use tick_marks::{TickMarks, TickMarksArtist};

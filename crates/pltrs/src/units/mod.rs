@@ -212,6 +212,13 @@ pub enum UnitConverter {
     Custom(CustomConverter),
 }
 
+pltrs_core::archive_enum!(UnitConverter {
+    Dates,
+    DatesBy(v0),
+    Categories,
+    Custom(v0),
+});
+
 impl UnitConverter {
     /// The converter of user values, if it is one.
     pub fn custom(&self) -> Option<&CustomConverter> {

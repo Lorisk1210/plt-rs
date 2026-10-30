@@ -42,6 +42,13 @@ pub enum ExtendFrac {
     Each(f64, f64),
 }
 
+pltrs_core::archive_enum!(ExtendFrac {
+    Default,
+    Auto,
+    Both(v0),
+    Each(v0, v1),
+});
+
 /// How discrete colorbars (boundary norms, contours) space their colours
 /// (matplotlib's `spacing`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -52,6 +59,11 @@ pub enum Spacing {
     /// Lengths proportional to the data intervals.
     Proportional,
 }
+
+pltrs_core::archive_enum!(Spacing {
+    Uniform,
+    Proportional,
+});
 
 /// The major ticks of a colorbar (matplotlib's `ticks`).
 #[derive(Clone, Debug)]

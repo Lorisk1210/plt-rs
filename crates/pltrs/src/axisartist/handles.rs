@@ -27,6 +27,8 @@ pub enum LabelDirection {
     Minus,
 }
 
+pltrs_core::archive_enum!(LabelDirection { Plus, Minus });
+
 impl LabelDirection {
     /// The turn from the right of the line, in degrees.
     pub(crate) fn add_angle(self) -> f64 {

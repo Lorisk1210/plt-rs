@@ -12,6 +12,8 @@ pub enum AutolimitMode {
     RoundNumbers,
 }
 
+pltrs_core::archive_enum!(AutolimitMode { Data, RoundNumbers });
+
 impl AutolimitMode {
     /// matplotlib's name (`data` or `round_numbers`).
     pub const fn name(self) -> &'static str {
@@ -38,6 +40,11 @@ pub enum MinorDivisions {
     /// A fixed number of subdivisions.
     Count(u32),
 }
+
+pltrs_core::archive_enum!(MinorDivisions {
+    Auto,
+    Count(v0),
+});
 
 /// The subset of rcParams that influences tick placement and labelling.
 ///
@@ -81,6 +88,22 @@ pub struct TickerSettings {
     /// `ytick.minor.visible`: linear y axes get an `AutoMinorLocator`.
     pub ytick_minor_visible: bool,
 }
+
+pltrs_core::archive_struct!(TickerSettings {
+    axes_unicode_minus,
+    axes_formatter_limits,
+    axes_formatter_offset_threshold,
+    axes_formatter_useoffset,
+    axes_formatter_use_mathtext,
+    axes_formatter_min_exponent,
+    text_usetex,
+    axes_autolimit_mode,
+    classic_mode,
+    xtick_minor_ndivs,
+    ytick_minor_ndivs,
+    xtick_minor_visible,
+    ytick_minor_visible
+});
 
 impl TickerSettings {
     /// matplotlib's default rcParams.

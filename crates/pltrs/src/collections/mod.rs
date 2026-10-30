@@ -83,6 +83,15 @@ pub enum CollectionKind {
     QuadMesh,
 }
 
+pltrs_core::archive_enum!(CollectionKind {
+    Generic,
+    Patch,
+    Path,
+    Poly,
+    Line,
+    QuadMesh,
+});
+
 /// The edge colours of a collection.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum EdgeColors {
@@ -95,6 +104,12 @@ pub enum EdgeColors {
     /// Explicit colours, cycled over the items.
     Colors(Vec<Color>),
 }
+
+pltrs_core::archive_enum!(EdgeColors {
+    Default,
+    Face,
+    Colors(v0),
+});
 
 /// The item styles of a collection worked out by a 3-D projection, in
 /// depth order (matplotlib's `Path3DCollection` sorting its colours, sizes
@@ -111,6 +126,12 @@ pub(crate) struct DepthSorted {
     pub(crate) linewidths: Option<Vec<f64>>,
 }
 
+pltrs_core::archive_struct!(DepthSorted {
+    colors,
+    sizes,
+    linewidths
+});
+
 /// Values mapped to colours through a norm and colormap.
 #[derive(Debug)]
 pub struct ColorMapping {
@@ -120,10 +141,12 @@ pub struct ColorMapping {
     pub mappable: ScalarMappable,
 }
 
+pltrs_core::archive_struct!(ColorMapping { values, mappable });
+
 /// Shapes recomputed from the figure geometry at every draw, for
 /// collections whose paths depend on the axes size or the resolution
 /// (matplotlib's `Quiver`, which builds its arrows in `draw`).
-pub(crate) trait DrawTimeShapes: Debug {
+pub(crate) trait DrawTimeShapes: Debug + Any {
     /// The shapes for the current geometry and the transform from their
     /// coordinates to display space.
     fn shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String>;
@@ -139,6 +162,8 @@ pub(crate) struct Mapped {
     pub(crate) source: ColorMapping,
     pub(crate) normalized: Result<Vec<Normalized>, String>,
 }
+
+pltrs_core::archive_struct!(Mapped { source, normalized });
 
 impl Mapped {
     fn new(source: ColorMapping) -> Self {
@@ -241,6 +266,43 @@ pub(crate) struct CollectionArtist {
     pub(crate) draw_time: Option<Box<dyn DrawTimeShapes>>,
     rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(CollectionArtist {
+    base,
+    kind,
+    paths,
+    transforms,
+    sizes,
+    size_factor,
+    size_rotation,
+    ellipses,
+    events,
+    offsets,
+    offset_transform,
+    offsets_masked,
+    facecolors,
+    edgecolors,
+    linewidths,
+    linestyles,
+    alphas,
+    antialiased,
+    hatch,
+    hatchcolors,
+    hatch_linewidth,
+    capstyle,
+    joinstyle,
+    gapcolors,
+    urls,
+    fill_geometry,
+    depth_sorted,
+    mapping,
+    parked_mappable,
+    pickradius,
+    mesh,
+    polygon_grid,
+    draw_time,
+    rc
+});
 
 impl CollectionArtist {
     /// An empty collection of the given kind with rc defaults.
@@ -475,3 +537,9 @@ impl Artist for CollectionArtist {
         Some(format_values(values.into_iter().flatten()))
     }
 }
+
+pltrs_core::archive_kinds!(dyn DrawTimeShapes {
+    "colorbar-dividers" => crate::colorbar::Dividers,
+    "quiver" => crate::quiver::QuiverGeometry,
+    "axis-artist-gridlines" => crate::axisartist::Gridlines,
+});

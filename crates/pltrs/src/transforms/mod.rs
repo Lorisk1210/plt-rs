@@ -88,6 +88,21 @@ pub enum Transform {
     Custom(CustomMap),
 }
 
+pltrs_core::archive_enum!(Transform {
+    Display,
+    Affine(v0),
+    Figure(v0),
+    Inches,
+    Axes(v0),
+    Data(v0),
+    Blended(v0, v1),
+    Composite(v0, v1),
+    Translation { dx, dy, units },
+    Inverted(v0),
+    AffineDelta(v0),
+    Custom(v0),
+});
+
 impl Transform {
     /// `x` in `x_coords`, `y` in `y_coords`.
     pub fn blended(x_coords: Self, y_coords: Self) -> Self {

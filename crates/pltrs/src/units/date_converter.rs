@@ -22,6 +22,8 @@ pub enum DateConverter {
     Concise,
 }
 
+pltrs_core::archive_enum!(DateConverter { Auto, Concise });
+
 impl DateConverter {
     /// matplotlib's name (`auto` or `concise`).
     pub const fn name(self) -> &'static str {

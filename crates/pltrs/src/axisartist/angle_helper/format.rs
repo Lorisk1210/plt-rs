@@ -161,6 +161,8 @@ fn angle_labels(marks: &Marks, factor: f64, values: &[f64]) -> Result<Vec<String
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FormatterDms;
 
+pltrs_core::archive_struct!(FormatterDms);
+
 impl GridFormatter for FormatterDms {
     fn labels(&self, _: SpineSide, factor: f64, values: &[f64]) -> Result<Vec<String>, GridError> {
         angle_labels(&DMS, factor, values)
@@ -171,6 +173,8 @@ impl GridFormatter for FormatterDms {
 /// mathtext (matplotlib's `FormatterHMS`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FormatterHms;
+
+pltrs_core::archive_struct!(FormatterHms);
 
 impl GridFormatter for FormatterHms {
     fn labels(&self, _: SpineSide, factor: f64, values: &[f64]) -> Result<Vec<String>, GridError> {

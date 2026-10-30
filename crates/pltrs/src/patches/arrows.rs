@@ -17,6 +17,8 @@ pub struct Arrow {
     pub width: f64,
 }
 
+pltrs_core::archive_struct!(Arrow { tail, delta, width });
+
 impl Arrow {
     /// An arrow of unit width from `(x, y)` to `(x + dx, y + dy)`.
     pub fn new(x: f64, y: f64, dx: f64, dy: f64) -> Self {
@@ -67,6 +69,8 @@ pub enum ArrowShape {
     Right,
 }
 
+pltrs_core::archive_enum!(ArrowShape { Full, Left, Right });
+
 /// An arrow polygon with independent head and tail sizes (matplotlib's
 /// `FancyArrow`); draws an edge by default.
 #[derive(Clone, Debug, PartialEq)]
@@ -91,6 +95,18 @@ pub struct FancyArrow {
     /// Whether the head starts at the end of `delta` instead of ending there.
     pub head_starts_at_zero: bool,
 }
+
+pltrs_core::archive_struct!(FancyArrow {
+    tail,
+    delta,
+    width,
+    length_includes_head,
+    head_width,
+    head_length,
+    shape,
+    overhang,
+    head_starts_at_zero
+});
 
 impl FancyArrow {
     /// matplotlib's default arrow (stem width 0.001) from `(x, y)` along

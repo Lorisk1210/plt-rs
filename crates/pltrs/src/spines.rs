@@ -31,6 +31,13 @@ pub enum SpineSide {
     Top,
 }
 
+pltrs_core::archive_enum!(SpineSide {
+    Left,
+    Right,
+    Bottom,
+    Top,
+});
+
 impl SpineSide {
     /// All four sides in matplotlib's order.
     pub const ALL: [Self; 4] = [Self::Left, Self::Right, Self::Bottom, Self::Top];
@@ -105,6 +112,12 @@ pub enum SpinePosition {
     Data(f64),
 }
 
+pltrs_core::archive_enum!(SpinePosition {
+    Outward(v0),
+    Axes(v0),
+    Data(v0),
+});
+
 impl Default for SpinePosition {
     fn default() -> Self {
         Self::Outward(0.0)
@@ -122,6 +135,15 @@ pub(crate) struct SpineArtist {
     pub(crate) bounds: Option<(f64, f64)>,
     rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(SpineArtist {
+    base,
+    side,
+    style,
+    position,
+    bounds,
+    rc
+});
 
 impl SpineArtist {
     /// A spine styled from `rc` (`axes.edgecolor`, `axes.linewidth`,

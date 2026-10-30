@@ -54,6 +54,17 @@ pub struct EngFormatter {
     prefixes: BTreeMap<i64, String>,
 }
 
+pltrs_core::archive_struct!(EngFormatter {
+    unit,
+    places,
+    sep,
+    use_mathtext,
+    usetex,
+    use_offset,
+    offset_threshold,
+    prefixes
+});
+
 impl EngFormatter {
     /// No unit, `%g`-style mantissas, a space separator and no offset;
     /// other settings from matplotlib's default rcParams.

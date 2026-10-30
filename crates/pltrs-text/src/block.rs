@@ -43,6 +43,12 @@ pub enum HAlign {
     Right,
 }
 
+pltrs_core::archive_enum!(HAlign {
+    Left,
+    Center,
+    Right,
+});
+
 /// Vertical alignment of a text block.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum VAlign {
@@ -58,6 +64,14 @@ pub enum VAlign {
     /// Anchor halfway up the first line, from its baseline.
     CenterBaseline,
 }
+
+pltrs_core::archive_enum!(VAlign {
+    Top,
+    Bottom,
+    Center,
+    Baseline,
+    CenterBaseline,
+});
 
 /// How rotation interacts with alignment.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -75,6 +89,13 @@ pub enum RotationMode {
     YTick,
 }
 
+pltrs_core::archive_enum!(RotationMode {
+    Default,
+    Anchor,
+    XTick,
+    YTick,
+});
+
 /// Line spacing of multi-line text.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum LineSpacing {
@@ -84,6 +105,11 @@ pub enum LineSpacing {
     /// A multiple of the font's ascent + descent.
     Factor(f64),
 }
+
+pltrs_core::archive_enum!(LineSpacing {
+    Normal,
+    Factor(v0),
+});
 
 /// Alignment and rotation of a text block.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

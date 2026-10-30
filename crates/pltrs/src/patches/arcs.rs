@@ -28,6 +28,15 @@ pub struct Arc {
     pub theta2: f64,
 }
 
+pltrs_core::archive_struct!(Arc {
+    center,
+    width,
+    height,
+    angle,
+    theta1,
+    theta2
+});
+
 impl Arc {
     /// The whole ellipse of `width × height` around `center`.
     pub fn new(center: impl Into<Point>, width: f64, height: f64) -> Self {
@@ -211,6 +220,13 @@ pub struct Annulus {
     width: f64,
     angle: f64,
 }
+
+pltrs_core::archive_struct!(Annulus {
+    center,
+    semi_axes,
+    width,
+    angle
+});
 
 impl Annulus {
     /// A circular ring of outer `radius` and thickness `width`, measured

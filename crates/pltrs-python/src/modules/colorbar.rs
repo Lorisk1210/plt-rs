@@ -22,7 +22,7 @@ use pltrs::image::AxesImage;
 use pltrs::orientation::Orientation;
 use pltrs::patches::{Patch, PathShape};
 use pltrs::spines::SpineSide;
-use pltrs::ticker::{FuncFormatter, LabelFormat};
+use pltrs::ticker::LabelFormat;
 
 use super::colors::mapping::extend;
 use super::transforms::anchor;
@@ -91,13 +91,8 @@ fn format(value: &Bound<'_>) -> PyResult<Option<ColorbarFormat>> {
     if let Ok(template) = value.extract::<String>() {
         return Ok(Some(ColorbarFormat::Label(LabelFormat::from(template))));
     }
-    let formatter: Callback = value.extract()?;
     Ok(Some(ColorbarFormat::Formatter(Rc::new(
-        FuncFormatter::new(move |value, position| {
-            formatter
-                .call::<String>((value, position))
-                .unwrap_or_default()
-        }),
+        super::archive::tick_formatter(value)?,
     ))))
 }
 

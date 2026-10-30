@@ -71,6 +71,28 @@ pub(crate) struct Axes3DState {
     rc: Rc<RcParams>,
 }
 
+pltrs_core::archive_struct!(Axes3DState {
+    base,
+    position,
+    anchor,
+    subplot_spec,
+    plane,
+    camera,
+    limits,
+    aspect,
+    shares,
+    emitted,
+    axes,
+    grid_on,
+    axis_on,
+    computed_zorder,
+    facecolor,
+    artists,
+    mouse,
+    axis_zorder,
+    rc
+});
+
 impl Axes3DState {
     /// A 3-D axes at `position` (frame fractions) drawing into `plane`.
     pub(crate) fn new(position: Bbox, plane: ArtistId, camera: Camera, rc: Rc<RcParams>) -> Self {

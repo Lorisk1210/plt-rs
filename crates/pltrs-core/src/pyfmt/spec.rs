@@ -16,6 +16,13 @@ enum Align {
     AfterSign,
 }
 
+crate::archive_enum!(Align {
+    Left,
+    Right,
+    Center,
+    AfterSign,
+});
+
 impl Align {
     fn from_char(c: char) -> Option<Self> {
         match c {
@@ -40,6 +47,12 @@ enum SignMode {
     Space,
 }
 
+crate::archive_enum!(SignMode {
+    Negative,
+    Always,
+    Space,
+});
+
 /// A parsed format specification such as `>8.3f`, `+.1e` or `,.0f`.
 ///
 /// ```
@@ -60,6 +73,19 @@ pub struct FormatSpec {
     precision: Option<usize>,
     ty: Option<char>,
 }
+
+crate::archive_struct!(FormatSpec {
+    fill,
+    align,
+    sign,
+    no_negative_zero,
+    alternate,
+    zero_pad,
+    width,
+    grouping,
+    precision,
+    ty
+});
 
 impl FormatSpec {
     /// Parses a format specification (the part after `:` in a

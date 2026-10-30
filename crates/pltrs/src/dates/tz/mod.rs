@@ -23,6 +23,8 @@ pub struct UtcOffset {
     micros: i64,
 }
 
+pltrs_core::archive_struct!(UtcOffset { micros });
+
 impl UtcOffset {
     /// The zero offset.
     pub const UTC: Self = Self { micros: 0 };
@@ -84,6 +86,12 @@ pub enum TimeZone {
     /// An IANA zone with historical transitions (`dateutil.tz.tzfile`).
     Zone(Arc<TzFile>),
 }
+
+pltrs_core::archive_enum!(TimeZone {
+    Utc,
+    Fixed(v0),
+    Zone(v0),
+});
 
 impl TimeZone {
     /// Resolves a zone name the way matplotlib's `_get_tzinfo` does:
@@ -160,6 +168,8 @@ impl TimeZone {
 /// fail and a zone given later replaces it.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TickZone(Result<TimeZone, DateError>);
+
+pltrs_core::archive_struct!(TickZone(v0));
 
 impl TickZone {
     /// The zone the `timezone` rcParam names now.

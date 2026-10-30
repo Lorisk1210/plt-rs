@@ -5,18 +5,65 @@ use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 use pltrs_core::numeric::np_clip;
 
 use super::{Channel, ColormapError, SegmentProblem};
+use crate::colors::colormaps::BuiltinFn;
 use crate::colors::npmath::{np_less, np_power};
 use crate::numeric::linspace;
 
 /// A scalar function of `x ∈ [0, 1]` defining one colour channel, with a
 /// name for display (matplotlib accepts any callable as segment data).
+///
+/// A colormap with a function of its own is archived only if it is one of
+/// matplotlib's built-in functions (or their reverse).
 #[derive(Clone)]
 pub struct SegmentFn {
     name: Cow<'static, str>,
     func: Arc<dyn Fn(f64) -> f64 + Send + Sync>,
+    /// How the function is made again when read back from an archive.
+    recipe: Option<Box<SegmentRecipe>>,
+}
+
+/// How a [`SegmentFn`] of pltrs's own is made.
+#[derive(Clone, Debug)]
+pub(crate) enum SegmentRecipe {
+    /// One of matplotlib's built-in functions.
+    Builtin(BuiltinFn),
+    /// The reverse of a function.
+    Reversed(Box<SegmentRecipe>),
+}
+
+pltrs_core::archive_enum!(SegmentRecipe {
+    Builtin(function),
+    Reversed(recipe),
+});
+
+impl SegmentRecipe {
+    /// The function the recipe makes.
+    fn make(&self) -> SegmentFn {
+        match self {
+            Self::Builtin(function) => function.segment_fn(),
+            Self::Reversed(recipe) => recipe.make().reversed(),
+        }
+    }
+}
+
+/// Archived as its recipe.
+impl Archive for SegmentFn {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        self.recipe
+            .as_ref()
+            .ok_or_else(|| {
+                ArchiveError::unsupported(format!("the colormap function {}", self.name))
+            })?
+            .encode(encoder)
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        SegmentRecipe::decode(decoder).map(|recipe| recipe.make())
+    }
 }
 
 impl SegmentFn {
@@ -28,7 +75,15 @@ impl SegmentFn {
         Self {
             name: name.into(),
             func: Arc::new(func),
+            recipe: None,
         }
+    }
+
+    /// The function made by `recipe`, which an archive holds in its place.
+    #[must_use]
+    pub(crate) fn with_recipe(mut self, recipe: SegmentRecipe) -> Self {
+        self.recipe = Some(Box::new(recipe));
+        self
     }
 
     /// The function's name.
@@ -45,7 +100,13 @@ impl SegmentFn {
     #[must_use]
     pub fn reversed(&self) -> Self {
         let func = Arc::clone(&self.func);
-        Self::new(format!("reversed({})", self.name), move |x| func(1.0 - x))
+        Self {
+            recipe: self
+                .recipe
+                .clone()
+                .map(|recipe| Box::new(SegmentRecipe::Reversed(recipe))),
+            ..Self::new(format!("reversed({})", self.name), move |x| func(1.0 - x))
+        }
     }
 }
 
@@ -67,6 +128,11 @@ pub enum Segment {
     /// An arbitrary function of `x`.
     Func(SegmentFn),
 }
+
+pltrs_core::archive_enum!(Segment {
+    Anchors(v0),
+    Func(v0),
+});
 
 impl Segment {
     /// The channel of the reversed colormap: anchors mirrored to `1 - x`
@@ -98,6 +164,13 @@ pub struct SegmentData {
     /// Optional alpha channel (opaque when absent).
     pub alpha: Option<Segment>,
 }
+
+pltrs_core::archive_struct!(SegmentData {
+    red,
+    green,
+    blue,
+    alpha
+});
 
 impl SegmentData {
     /// Opaque segment data from the three colour channels.
@@ -168,6 +241,7 @@ pub(crate) fn cubehelix_channel(params: [f64; 6]) -> SegmentFn {
         let phi = 2.0 * std::f64::consts::PI * (s / 3.0 + r * x);
         xg + a * (p0 * phi.cos() + p1 * phi.sin())
     })
+    .with_recipe(SegmentRecipe::Builtin(BuiltinFn::Cubehelix(params)))
 }
 
 /// matplotlib's `_create_lookup_table(N, data, gamma)`: the channel sampled

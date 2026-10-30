@@ -55,6 +55,8 @@ pub(crate) struct LimitChange {
     pub(crate) auto: Option<bool>,
 }
 
+pltrs_core::archive_struct!(LimitChange { axis, view, auto });
+
 /// The groups an axes belongs to.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Shares {
@@ -65,6 +67,8 @@ pub(crate) struct Shares {
     /// `_sharey`, `_sharez` and `_shareview`).
     targets: [Option<ArtistId>; 4],
 }
+
+pltrs_core::archive_struct!(Shares { groups, targets });
 
 impl Shares {
     /// The members of the group of `key`, `me` included.

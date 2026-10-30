@@ -24,6 +24,8 @@ use super::{
 #[derive(Clone)]
 pub struct Unit(Rc<dyn AnyUnit>);
 
+pltrs_core::archive_struct!(Unit(v0));
+
 /// What a [`Unit`] needs of the value it holds.
 trait AnyUnit: Any + fmt::Debug {
     /// Whether `other` is of the same type and equal.
@@ -90,6 +92,8 @@ impl fmt::Debug for Unit {
 /// ```
 #[derive(Clone)]
 pub struct CustomConverter(Rc<dyn AnyConverter>);
+
+pltrs_core::archive_struct!(CustomConverter(v0));
 
 /// What a [`CustomConverter`] needs of the converter it holds.
 trait AnyConverter: Any {
@@ -198,6 +202,8 @@ impl fmt::Debug for CustomConverter {
 /// ```
 #[derive(Clone)]
 pub struct CustomValues(Rc<dyn AnyValues>);
+
+pltrs_core::archive_struct!(CustomValues(v0));
 
 /// What [`CustomValues`] needs of the values it holds.
 trait AnyValues: Any + fmt::Debug {
@@ -423,6 +429,10 @@ impl<T: Convertible> From<Vec<T>> for CustomValues {
         Self::new(values)
     }
 }
+
+pltrs_core::archive_kinds!(dyn AnyUnit {});
+pltrs_core::archive_kinds!(dyn AnyConverter {});
+pltrs_core::archive_kinds!(dyn AnyValues {});
 
 #[cfg(test)]
 mod tests {

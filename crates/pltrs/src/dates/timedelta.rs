@@ -40,6 +40,8 @@ pub struct TimeDelta {
     micros: i64,
 }
 
+pltrs_core::archive_struct!(TimeDelta { micros });
+
 impl TimeDelta {
     /// The zero duration.
     pub const ZERO: Self = Self { micros: 0 };

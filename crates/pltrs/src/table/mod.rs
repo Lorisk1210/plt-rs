@@ -38,6 +38,7 @@ use crate::fonts::FontSize;
 use crate::rc::RcParams;
 use crate::transforms::unit_to_bbox;
 use cell::Cell;
+pub(crate) use cell::CellShape;
 
 /// Where a table goes relative to its axes (matplotlib's `Table.codes`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -80,6 +81,27 @@ pub enum TableLoc {
     #[default]
     Bottom,
 }
+
+pltrs_core::archive_enum!(TableLoc {
+    Best,
+    UpperRight,
+    UpperLeft,
+    LowerLeft,
+    LowerRight,
+    CenterLeft,
+    CenterRight,
+    LowerCenter,
+    UpperCenter,
+    Center,
+    TopRight,
+    TopLeft,
+    BottomLeft,
+    BottomRight,
+    Right,
+    Left,
+    Top,
+    Bottom,
+});
 
 impl FromStr for TableLoc {
     type Err = TableError;
@@ -202,6 +224,17 @@ pub(crate) struct TableArtist {
     auto_fontsize: bool,
     rc: Rc<RcParams>,
 }
+
+pltrs_core::archive_struct!(TableArtist {
+    base,
+    axes,
+    loc,
+    bbox,
+    cells,
+    auto_columns,
+    auto_fontsize,
+    rc
+});
 
 /// Matplotlib's `Table.FONTSIZE`, used to size the rows.
 const FONTSIZE: f64 = 10.0;

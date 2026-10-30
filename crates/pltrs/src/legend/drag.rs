@@ -89,3 +89,13 @@ impl Legend {
         self.read(|legend| legend.dragger.is_some())
     }
 }
+
+/// Connects the drag of `artist`, if it is a legend read back draggable from
+/// an archive, to the callbacks of its figure: an archive keeps that the
+/// artist is draggable, not the callbacks dragging it.
+pub(crate) fn reconnect_drag(artist: &RawHandle) {
+    if artist.is::<LegendArtist>() && artist.with::<LegendArtist, _>(|l| l.dragger.is_some()) {
+        let dragger = Dragger::connect(artist, LegendDrag::default());
+        artist.with_mut::<LegendArtist, _>(|legend| legend.dragger = Some(dragger));
+    }
+}

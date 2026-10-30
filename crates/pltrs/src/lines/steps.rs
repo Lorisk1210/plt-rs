@@ -20,6 +20,14 @@ pub enum DrawStyle {
     StepsPost,
 }
 
+pltrs_core::archive_enum!(DrawStyle {
+    Default,
+    Steps,
+    StepsPre,
+    StepsMid,
+    StepsPost,
+});
+
 /// Where the step of a step plot happens (matplotlib's `step(where=...)`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum StepWhere {
@@ -31,6 +39,8 @@ pub enum StepWhere {
     /// At the end of each interval: `y[i]` holds on `[x[i], x[i+1])`.
     Post,
 }
+
+pltrs_core::archive_enum!(StepWhere { Pre, Mid, Post });
 
 impl From<StepWhere> for DrawStyle {
     fn from(step: StepWhere) -> Self {
@@ -158,6 +168,12 @@ pub enum StepError {
     /// At least one y series is required for non-empty x.
     NoSeries,
 }
+
+pltrs_core::archive_enum!(StepError {
+    UnknownStyle(v0),
+    LengthMismatch { x, y },
+    NoSeries,
+});
 
 impl fmt::Display for StepError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

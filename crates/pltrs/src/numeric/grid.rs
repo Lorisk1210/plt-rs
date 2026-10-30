@@ -12,6 +12,8 @@ pub struct Grid<T> {
     data: Vec<T>,
 }
 
+pltrs_core::archive_struct!(Grid<T> { rows, cols, data });
+
 /// A shape inconsistency when building a [`Grid`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GridShapeError {

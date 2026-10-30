@@ -29,6 +29,13 @@ pub enum Corner {
     LowerRight,
 }
 
+pltrs_core::archive_enum!(Corner {
+    UpperRight,
+    UpperLeft,
+    LowerLeft,
+    LowerRight,
+});
+
 impl Corner {
     /// The corner with matplotlib's code `1` to `4`.
     pub fn from_code(code: u8) -> Option<Self> {
@@ -67,6 +74,12 @@ pub enum BboxSource {
     /// as another axes' data (`TransformedBbox(ax.viewLim, transform)`).
     ViewLimits(ArtistId, Transform),
 }
+
+pltrs_core::archive_enum!(BboxSource {
+    Axes(v0),
+    Transformed(v0, v1),
+    ViewLimits(v0, v1),
+});
 
 impl BboxSource {
     /// The box of `axes` (`ax.bbox`).
@@ -143,6 +156,8 @@ pub struct BboxPatch {
     pub bbox: BboxSource,
 }
 
+pltrs_core::archive_struct!(BboxPatch { bbox });
+
 impl BboxPatch {
     /// The outline of `bbox`.
     pub fn new(bbox: BboxSource) -> Self {
@@ -193,6 +208,13 @@ pub struct BboxConnector {
     /// The corner of `bbox2`.
     pub loc2: Corner,
 }
+
+pltrs_core::archive_struct!(BboxConnector {
+    bbox1,
+    bbox2,
+    loc1,
+    loc2
+});
 
 impl BboxConnector {
     /// The line from corner `loc1` of `bbox1` to corner `loc2` of `bbox2`
@@ -272,6 +294,15 @@ pub struct BboxConnectorPatch {
     /// The corner of `bbox2` the second line starts from.
     pub loc2b: Corner,
 }
+
+pltrs_core::archive_struct!(BboxConnectorPatch {
+    bbox1,
+    bbox2,
+    loc1a,
+    loc2a,
+    loc1b,
+    loc2b
+});
 
 impl PatchShape for BboxConnectorPatch {
     fn path(&self) -> Path {

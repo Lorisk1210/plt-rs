@@ -48,8 +48,9 @@ pub use logit::LogitScale;
 pub use name::ScaleName;
 pub use registry::{ScaleConstructor, ScaleOptions, ScaleRegistry, scale_factory, scale_names};
 pub use symlog::SymmetricalLogScale;
+pub(crate) use transforms::ScaleFunction;
 pub use transforms::{
-    AsinhTransform, FuncLogTransform, FuncTransform, LogTransform, LogitTransform, ScaleFn,
+    AsinhTransform, FuncLogTransform, FuncTransform, LogTransform, LogitTransform,
     SymmetricalLogTransform,
 };
 
@@ -67,6 +68,8 @@ pub enum NonPositive {
     /// Map them to NaN/infinity so they are not drawn.
     Mask,
 }
+
+pltrs_core::archive_enum!(NonPositive { Clip, Mask });
 
 /// The tick helpers a scale installs on an axis
 /// (matplotlib's `set_default_locators_and_formatters`).
@@ -200,3 +203,13 @@ fn linear_tickers(axis: AxisName, settings: &TickerSettings) -> AxisTickers {
         minor_formatter: Box::new(NullFormatter),
     }
 }
+
+pltrs_core::archive_kinds!(dyn Scale {
+    "linear" => LinearScale,
+    "func" => FuncScale,
+    "log" => LogScale,
+    "func-log" => FuncScaleLog,
+    "symlog" => SymmetricalLogScale,
+    "logit" => LogitScale,
+    "asinh" => AsinhScale,
+});

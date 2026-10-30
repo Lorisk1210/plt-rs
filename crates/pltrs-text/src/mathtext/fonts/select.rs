@@ -36,6 +36,13 @@ enum Kind {
     Stix { sans: bool },
 }
 
+pltrs_core::archive_enum!(Kind {
+    Bakoma,
+    Custom,
+    DejaVu,
+    Stix { sans },
+});
+
 /// One of matplotlib's `Fonts` objects: a font map plus fallbacks.
 #[derive(Clone, Debug)]
 pub(crate) struct GlyphSet {

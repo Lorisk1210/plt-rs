@@ -41,6 +41,13 @@ pub struct TightLayout {
     pub rect: Option<[f64; 4]>,
 }
 
+pltrs_core::archive_struct!(TightLayout {
+    pad,
+    h_pad,
+    w_pad,
+    rect
+});
+
 impl Default for TightLayout {
     /// matplotlib's defaults: a padding of 1.08 font sizes everywhere.
     fn default() -> Self {

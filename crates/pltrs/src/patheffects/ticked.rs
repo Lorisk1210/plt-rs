@@ -24,6 +24,14 @@ pub struct TickedStroke {
     pub gc: GcUpdate,
 }
 
+pltrs_core::archive_struct!(TickedStroke {
+    offset,
+    spacing,
+    angle,
+    length,
+    gc
+});
+
 impl Default for TickedStroke {
     fn default() -> Self {
         Self {

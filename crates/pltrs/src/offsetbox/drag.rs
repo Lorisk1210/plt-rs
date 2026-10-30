@@ -148,3 +148,20 @@ impl AnchoredOffsetbox {
             .with::<AnchoredBoxArtist, _>(|anchored| anchored.dragger.is_some())
     }
 }
+
+/// Connects the drag of `artist`, if it is an annotation box or an anchored box read back draggable from
+/// an archive, to the callbacks of its figure: an archive keeps that the
+/// artist is draggable, not the callbacks dragging it.
+pub(crate) fn reconnect_drag(artist: &RawHandle) {
+    if artist.is::<AnnotationBboxArtist>()
+        && artist.with::<AnnotationBboxArtist, _>(|annotation| annotation.dragger.is_some())
+    {
+        let dragger = Dragger::connect(artist, BoxDrag::default());
+        artist.with_mut::<AnnotationBboxArtist, _>(|annotation| annotation.dragger = Some(dragger));
+    } else if artist.is::<AnchoredBoxArtist>()
+        && artist.with::<AnchoredBoxArtist, _>(|anchored| anchored.dragger.is_some())
+    {
+        let dragger = Dragger::connect(artist, PinDrag::default());
+        artist.with_mut::<AnchoredBoxArtist, _>(|anchored| anchored.dragger = Some(dragger));
+    }
+}

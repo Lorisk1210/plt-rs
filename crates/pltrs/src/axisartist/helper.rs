@@ -68,6 +68,14 @@ pub(crate) enum AxisHelper {
     },
 }
 
+pltrs_core::archive_enum!(AxisHelper {
+    Fixed(v0),
+    Floating { nth, value },
+    CurveFixed { grid, side, nth_ticks },
+    CurveFloating { grid, line },
+    FloatingFixed { grid, side },
+});
+
 /// A tick of an axis artist: its location in the tick coordinates, the
 /// angles (degrees) normal and tangent to the line, and its label.
 #[derive(Clone, Debug, PartialEq)]

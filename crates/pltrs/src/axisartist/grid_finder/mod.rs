@@ -97,14 +97,14 @@ impl GridLevels {
 
 /// Chooses the grid levels of one curvilinear coordinate between `v1`
 /// and `v2` (matplotlib's grid locator protocol, `locator(v1, v2)`).
-pub trait GridLocator: fmt::Debug {
+pub trait GridLocator: fmt::Debug + std::any::Any {
     /// The levels spanning `v1..v2`.
     fn levels(&self, v1: f64, v2: f64) -> Result<GridLevels, GridError>;
 }
 
 /// Labels grid levels (matplotlib's grid formatter protocol,
 /// `formatter(direction, factor, values)`).
-pub trait GridFormatter: fmt::Debug {
+pub trait GridFormatter: fmt::Debug + std::any::Any {
     /// One label per level of `values` (scaled by `factor`) ticked on the
     /// `direction` side.
     fn labels(
@@ -117,7 +117,7 @@ pub trait GridFormatter: fmt::Debug {
 
 /// Approximates the range of curvilinear coordinates covering a box
 /// (matplotlib's extreme finders).
-pub trait ExtremeFinder: fmt::Debug {
+pub trait ExtremeFinder: fmt::Debug + std::any::Any {
     /// The bounding box of `bbox` mapped by `transform`, padded for the
     /// sampling (matplotlib's `_find_transformed_bbox`).
     fn find_transformed_bbox(&self, transform: &AuxTransform, bbox: Bbox) -> Bbox;
@@ -212,6 +212,15 @@ pub struct GridFinder {
     tick_formatter1: Box<dyn GridFormatter>,
     tick_formatter2: Box<dyn GridFormatter>,
 }
+
+pltrs_core::archive_struct!(GridFinder {
+    transform,
+    extreme_finder,
+    grid_locator1,
+    grid_locator2,
+    tick_formatter1,
+    tick_formatter2
+});
 
 /// The number of points of each raw grid line.
 const LINE_POINTS: usize = 100;
@@ -393,6 +402,30 @@ pub fn line_box_crossings(xys: &[Point], bbox: Bbox) -> [Vec<(Point, f64)>; 4] {
         crossings(&along_y, ymax, &|u| u < ymax, (xmin, xmax), &on_y),
     ]
 }
+
+pltrs_core::archive_kinds!(dyn GridLocator {
+    "max-n" => GridMaxNLocator,
+    "fixed" => GridFixedLocator,
+    "dms" => super::angle_helper::LocatorDms,
+    "dm" => super::angle_helper::LocatorDm,
+    "d" => super::angle_helper::LocatorD,
+    "hms" => super::angle_helper::LocatorHms,
+    "hm" => super::angle_helper::LocatorHm,
+    "h" => super::angle_helper::LocatorH,
+});
+
+pltrs_core::archive_kinds!(dyn GridFormatter {
+    "pretty-print" => FormatterPrettyPrint,
+    "dict" => DictFormatter,
+    "dms" => super::angle_helper::FormatterDms,
+    "hms" => super::angle_helper::FormatterHms,
+});
+
+pltrs_core::archive_kinds!(dyn ExtremeFinder {
+    "simple" => ExtremeFinderSimple,
+    "cycle" => super::angle_helper::ExtremeFinderCycle,
+    "fixed" => super::floating_axes::ExtremeFinderFixed,
+});
 
 #[cfg(test)]
 mod tests {

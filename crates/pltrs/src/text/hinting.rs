@@ -29,6 +29,17 @@ pub enum TextHinting {
     None,
 }
 
+pltrs_core::archive_enum!(TextHinting {
+    Default,
+    NoAutohint,
+    ForceAutohint,
+    NoHinting,
+    Auto,
+    Native,
+    Either,
+    None,
+});
+
 impl TextHinting {
     const ALL: [Self; 8] = [
         Self::Default,

@@ -33,6 +33,13 @@ pub enum RotationStyle {
     Arcball,
 }
 
+pltrs_core::archive_enum!(RotationStyle {
+    Azel,
+    Trackball,
+    Sphere,
+    Arcball,
+});
+
 impl RotationStyle {
     /// matplotlib's name (`azel`, `trackball`, `sphere` or `arcball`).
     pub const fn name(self) -> &'static str {
@@ -109,6 +116,8 @@ pub struct MouseButtons {
     /// The buttons zooming (the right one by default).
     pub zoom: Vec<PointerButton>,
 }
+
+pltrs_core::archive_struct!(MouseButtons { rotate, pan, zoom });
 
 impl Default for MouseButtons {
     fn default() -> Self {

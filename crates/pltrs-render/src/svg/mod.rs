@@ -52,6 +52,8 @@ pub enum SvgFontType {
     None,
 }
 
+pltrs_core::archive_enum!(SvgFontType { Path, None });
+
 impl SvgFontType {
     /// matplotlib's name (`path` or `none`).
     pub const fn name(self) -> &'static str {

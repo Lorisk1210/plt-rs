@@ -17,6 +17,8 @@ pub enum TickLevel {
     Both,
 }
 
+pltrs_core::archive_enum!(TickLevel { Major, Minor, Both });
+
 impl TickLevel {
     const ALL: [Self; 3] = [Self::Major, Self::Minor, Self::Both];
 
@@ -58,6 +60,8 @@ pub enum WhichAxis {
     /// The y axis only.
     Y,
 }
+
+pltrs_core::archive_enum!(WhichAxis { Both, X, Y });
 
 impl WhichAxis {
     const ALL: [Self; 3] = [Self::Both, Self::X, Self::Y];

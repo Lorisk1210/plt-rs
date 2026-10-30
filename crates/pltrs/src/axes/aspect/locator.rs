@@ -6,6 +6,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::Bbox;
+use pltrs_core::archive::{External, ProgramFn};
 
 use crate::axes::{Axes, AxesState};
 
@@ -22,6 +23,12 @@ pub(crate) struct AxesLocator {
     /// The box aspect to use instead of the axes' own.
     pub(crate) box_aspect: Option<f64>,
 }
+
+pltrs_core::archive_struct!(AxesLocator {
+    shrink,
+    offset,
+    box_aspect
+});
 
 impl AxesLocator {
     /// The part of `original` used, computed exactly as matplotlib's
@@ -43,19 +50,29 @@ impl AxesLocator {
 /// was given, in fractions of its figure, it returns the position to
 /// place the axes at before its aspect is applied. It runs inside the
 /// layout pass and gets what it needs as its argument: it is `Send`, so
-/// it cannot use the figure's handles. Clones share the function.
+/// it cannot use the figure's handles. Clones share the function. A
+/// figure with one is archived only if the function has an origin
+/// ([`AxesLocatorFn::with_origin`]).
 #[derive(Clone)]
-pub struct AxesLocatorFn(Rc<dyn Fn(Bbox) -> Bbox>);
+pub struct AxesLocatorFn(ProgramFn<dyn Fn(Bbox) -> Bbox>);
+
+pltrs_core::archive_struct!(AxesLocatorFn(v0));
 
 impl AxesLocatorFn {
     /// A locator calling `locate`.
     pub fn new(locate: impl Fn(Bbox) -> Bbox + Send + 'static) -> Self {
-        Self(Rc::new(locate))
+        Self(ProgramFn::new(Rc::new(locate)))
+    }
+
+    /// A locator calling `locate`, archived as `origin`, what the program
+    /// made it from (see [`ProgramFn`]).
+    pub fn with_origin(locate: impl Fn(Bbox) -> Bbox + Send + 'static, origin: External) -> Self {
+        Self(ProgramFn::with_origin(Rc::new(locate), origin))
     }
 
     /// Where the locator places an axes given `original`.
     pub fn locate(&self, original: Bbox) -> Bbox {
-        (self.0)(original)
+        (self.0.get())(original)
     }
 }
 
@@ -68,7 +85,7 @@ impl fmt::Debug for AxesLocatorFn {
 impl PartialEq for AxesLocatorFn {
     /// Locators are equal when they share the function.
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        std::ptr::addr_eq(self.0.get(), other.0.get())
     }
 }
 

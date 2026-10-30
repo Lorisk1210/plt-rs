@@ -51,6 +51,14 @@ pub enum FormatError {
     Unsupported(String),
 }
 
+crate::archive_enum!(FormatError {
+    Value(v0),
+    Type(v0),
+    Key(v0),
+    Index(v0),
+    Unsupported(v0),
+});
+
 impl fmt::Display for FormatError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

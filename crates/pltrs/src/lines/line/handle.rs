@@ -28,6 +28,8 @@ pub struct Line2D {
     raw: RawHandle,
 }
 
+pltrs_core::archive_struct!(Line2D { raw });
+
 impl ArtistHandle for Line2D {
     fn raw(&self) -> &RawHandle {
         &self.raw

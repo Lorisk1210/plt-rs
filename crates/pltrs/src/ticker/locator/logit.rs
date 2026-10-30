@@ -18,6 +18,8 @@ pub struct LogitLocator {
     minor: bool,
 }
 
+pltrs_core::archive_struct!(LogitLocator { max_n, minor });
+
 /// The `index`-th "ideal" logit tick: `10^index` below one half,
 /// `1 - 10^-index` above.
 fn ideal_tick(index: i64) -> f64 {

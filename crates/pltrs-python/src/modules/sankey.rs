@@ -35,10 +35,7 @@ fn label_format(format: &Bound<'_>) -> PyResult<LabelFormat> {
     if let Ok(template) = format.extract::<String>() {
         return Ok(LabelFormat::Template(template));
     }
-    let callback: Callback = format.extract()?;
-    Ok(LabelFormat::func(move |value| {
-        callback.call::<String>((value,)).unwrap_or_default()
-    }))
+    super::archive::label_format(format)
 }
 
 /// The labels: `(scale, unit, format)`.

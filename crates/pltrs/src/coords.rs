@@ -39,6 +39,13 @@ pub enum CoordOrigin {
     Offset,
 }
 
+pltrs_core::archive_enum!(CoordOrigin {
+    Figure,
+    Subfigure,
+    Axes,
+    Offset,
+});
+
 /// The unit of a [`Coords::Relative`] system.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CoordUnit {
@@ -51,6 +58,13 @@ pub enum CoordUnit {
     /// Fractions of the origin's box (not with [`CoordOrigin::Offset`]).
     Fraction,
 }
+
+pltrs_core::archive_enum!(CoordUnit {
+    Points,
+    Pixels,
+    Fontsize,
+    Fraction,
+});
 
 /// What the coordinates of a point mean.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -90,6 +104,17 @@ pub enum Coords {
     /// x in the first system, y in the second.
     Blended(Box<Coords>, Box<Coords>),
 }
+
+pltrs_core::archive_enum!(Coords {
+    Data,
+    Polar,
+    Relative { origin, unit },
+    Transform(v0),
+    Artist(v0),
+    OffsetFrom { artist, reference, unit },
+    ClippedArtist(v0),
+    Blended(v0, v1),
+});
 
 impl Coords {
     /// `x` in `x_coords` and `y` in `y_coords` (matplotlib's tuple form).
@@ -235,7 +260,9 @@ fn corner_of(bbox: Bbox) -> (Point, Option<(f64, f64)>) {
 /// matplotlib's `PolarAxes.PolarTransform()` without an axes: `(theta, r)`
 /// to `(r cos theta, r sin theta)`.
 #[derive(Debug)]
-struct PolarToCartesian;
+pub(crate) struct PolarToCartesian;
+
+pltrs_core::archive_struct!(PolarToCartesian);
 
 impl PointMap for PolarToCartesian {
     fn forward(&self, point: Point) -> Point {

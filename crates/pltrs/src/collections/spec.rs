@@ -38,6 +38,17 @@ pub enum EllipseUnits {
     Dots,
 }
 
+pltrs_core::archive_enum!(EllipseUnits {
+    Xy,
+    X,
+    Y,
+    Inches,
+    Points,
+    Width,
+    Height,
+    Dots,
+});
+
 /// The ellipses of an ellipse collection: half axes and angles, scaled at
 /// draw time according to their units.
 #[derive(Clone, Debug, PartialEq)]
@@ -48,6 +59,13 @@ pub(crate) struct Ellipses {
     pub(crate) angles: Vec<f64>,
     pub(crate) units: EllipseUnits,
 }
+
+pltrs_core::archive_struct!(Ellipses {
+    half_widths,
+    half_heights,
+    angles,
+    units
+});
 
 /// One member of a patch collection: an outline in data coordinates and
 /// the properties of the patch it came from.

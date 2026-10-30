@@ -22,6 +22,8 @@ pub(crate) struct AxisPicking {
     pub(crate) radius: f64,
 }
 
+pltrs_core::archive_struct!(AxisPicking { picker, radius });
+
 impl Default for AxisPicking {
     fn default() -> Self {
         Self {

@@ -34,6 +34,16 @@ pub enum OffsetBox<A> {
     PaddedBox(PaddedBox<A>),
 }
 
+pltrs_core::archive_enum!(OffsetBox<A> {
+    HPacker(v0),
+    VPacker(v0),
+    DrawingArea(v0),
+    TextArea(v0),
+    AuxTransformBox(v0),
+    Image(v0),
+    PaddedBox(v0),
+});
+
 /// The settings and children of an [`OffsetBox::HPacker`] or
 /// [`OffsetBox::VPacker`] (matplotlib's `PackerBase`).
 #[derive(Clone, Debug, PartialEq)]
@@ -55,6 +65,8 @@ pub struct Packer<A> {
     /// Whether the packer takes part in its parent's layout.
     pub visible: bool,
 }
+
+pltrs_core::archive_struct!(Packer<A> { pad, sep, width, height, align, mode, children, visible });
 
 impl<A> Packer<A> {
     /// A visible packer fitting `children` with the given pad, separation

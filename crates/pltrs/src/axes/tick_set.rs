@@ -12,6 +12,8 @@ pub struct Tick {
     pub label: String,
 }
 
+pltrs_core::archive_struct!(Tick { loc, label });
+
 /// The ticks an axis draws in the current view.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickSet {
@@ -43,6 +45,19 @@ pub struct TickSet {
     /// Offset or scale text shown at the end of the axis (e.g. `1e6`).
     pub offset: String,
 }
+
+pltrs_core::archive_struct!(TickSet {
+    major,
+    minor,
+    minor_all,
+    major_locs,
+    minor_locs,
+    major_unclipped,
+    major_index,
+    minor_unclipped,
+    minor_index,
+    offset
+});
 
 impl TickSet {
     /// The major (or minor) ticks of the view, inside it or not.

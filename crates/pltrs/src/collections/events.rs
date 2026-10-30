@@ -22,6 +22,12 @@ pub(crate) struct EventLines {
     pub(crate) linelength: f64,
 }
 
+pltrs_core::archive_struct!(EventLines {
+    orientation,
+    lineoffset,
+    linelength
+});
+
 impl EventLines {
     /// The ends of a line, from `lineoffset + linelength / 2` to
     /// `lineoffset - linelength / 2`.

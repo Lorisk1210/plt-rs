@@ -10,7 +10,8 @@ use super::{Colorbar, ColorbarError, ColorbarFormat, ColorbarTicks, Spacing};
 use crate::axes::Axis;
 use crate::colors::{Norm, NormKind, Normalized};
 use crate::scale::{
-    FuncScale, FuncTransform, LinearScale, Scale, ScaleName, ScaleOptions, scale_factory,
+    FuncScale, FuncTransform, LinearScale, Scale, ScaleFunction, ScaleName, ScaleOptions,
+    scale_factory,
 };
 use crate::ticker::{FixedLocator, Formatter, IndexLocator, Locator, NullLocator};
 
@@ -31,10 +32,15 @@ pub(crate) fn long_axis_scale(
         return match spacing {
             Spacing::Uniform => {
                 let boundaries: Rc<[f64]> = Rc::from(blocks.boundaries.as_slice());
-                let inverse = Rc::clone(&boundaries);
-                Box::new(FuncScale::from_transform(FuncTransform::from_fns(
-                    move |x| forward_boundaries(&boundaries, &[x])[0],
-                    move |y| inverse_boundaries(&inverse, y),
+                Box::new(FuncScale::from_transform(FuncTransform::from_functions(
+                    Rc::new(BoundarySpacing {
+                        boundaries: Rc::clone(&boundaries),
+                        inverse: false,
+                    }),
+                    Rc::new(BoundarySpacing {
+                        boundaries,
+                        inverse: true,
+                    }),
                 )))
             }
             Spacing::Proportional => Box::new(LinearScale),
@@ -55,25 +61,73 @@ pub(crate) fn scale_follows_limits(blocks: &Blocks, norm: &dyn Norm) -> bool {
 
 /// A function scale through the norm and its inverse.
 fn norm_scale(norm: &dyn Norm) -> Box<dyn Scale> {
-    let forward = RefCell::new(norm.clone_box());
-    let inverse = norm.clone_box();
-    Box::new(FuncScale::from_transform(FuncTransform::from_fns(
-        move |x| {
-            let mapped = forward.borrow_mut().normalize(&[x]);
-            match mapped.as_deref() {
-                Ok([Normalized::Fraction(v)]) => *v,
-                Ok([Normalized::Index(i)]) => *i as f64,
-                _ => f64::NAN,
-            }
-        },
-        move |y| {
-            inverse
-                .inverse(&[y])
+    Box::new(FuncScale::from_transform(FuncTransform::from_functions(
+        Rc::new(NormSpacing {
+            norm: RefCell::new(norm.clone_box()),
+            inverse: false,
+        }),
+        Rc::new(NormSpacing {
+            norm: RefCell::new(norm.clone_box()),
+            inverse: true,
+        }),
+    )))
+}
+
+/// The positions of values spread evenly between a colorbar's block
+/// boundaries (matplotlib's `_forward_boundaries`), or with `inverse`,
+/// the values at positions (`_inverse_boundaries`).
+#[derive(Debug)]
+pub(crate) struct BoundarySpacing {
+    boundaries: Rc<[f64]>,
+    inverse: bool,
+}
+
+pltrs_core::archive_struct!(BoundarySpacing {
+    boundaries,
+    inverse
+});
+
+impl ScaleFunction for BoundarySpacing {
+    fn call(&self, value: f64) -> f64 {
+        if self.boundaries.is_empty() {
+            f64::NAN
+        } else if self.inverse {
+            inverse_boundaries(&self.boundaries, value)
+        } else {
+            forward_boundaries(&self.boundaries, &[value])[0]
+        }
+    }
+}
+
+/// A value mapped through a norm, or with `inverse`, the value a norm
+/// maps to a fraction: the long axis of a colorbar whose norm has no
+/// scale of its own.
+#[derive(Debug)]
+pub(crate) struct NormSpacing {
+    norm: RefCell<Box<dyn Norm>>,
+    inverse: bool,
+}
+
+pltrs_core::archive_struct!(NormSpacing { norm, inverse });
+
+impl ScaleFunction for NormSpacing {
+    fn call(&self, value: f64) -> f64 {
+        if self.inverse {
+            return self
+                .norm
+                .borrow()
+                .inverse(&[value])
                 .ok()
                 .and_then(|v| v.first().copied().flatten())
-                .unwrap_or(f64::NAN)
-        },
-    )))
+                .unwrap_or(f64::NAN);
+        }
+        let mapped = self.norm.borrow_mut().normalize(&[value]);
+        match mapped.as_deref() {
+            Ok([Normalized::Fraction(v)]) => *v,
+            Ok([Normalized::Index(i)]) => *i as f64,
+            _ => f64::NAN,
+        }
+    }
 }
 
 /// The tick helpers a colorbar installs on its long axis; `None` keeps the

@@ -18,6 +18,8 @@ pub struct Rgba {
     pub a: f64,
 }
 
+crate::archive_struct!(Rgba { r, g, b, a });
+
 impl Rgba {
     /// Opaque black.
     pub const BLACK: Self = Self::new(0.0, 0.0, 0.0, 1.0);

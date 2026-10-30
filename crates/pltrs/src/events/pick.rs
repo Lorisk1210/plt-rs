@@ -5,6 +5,7 @@
 use std::rc::Rc;
 
 use pltrs_core::Point;
+use pltrs_core::archive::ProgramFn;
 
 use super::{Event, MouseEvent};
 use crate::artist::{ArtistHandle, ArtistId, LayoutContext, PickFn, Picker, RawHandle};
@@ -73,7 +74,9 @@ enum Answer {
     /// Its own hit test found these items.
     Hit(Vec<usize>),
     /// A custom picker decides.
-    Ask(Rc<PickFn>),
+    Ask(ProgramFn<PickFn>),
+    /// Hit, if the mouse event is a button press rather than a scroll.
+    Press(Vec<usize>),
 }
 
 impl Figure {
@@ -127,11 +130,12 @@ impl Figure {
             let artist = self.handle(candidate.artist());
             let ind = match self.answer(candidate, at) {
                 Some(Answer::Hit(ind)) => ind,
-                Some(Answer::Ask(test)) => match test(&artist, mouse) {
+                Some(Answer::Ask(test)) => match (test.get())(&artist, mouse) {
                     Some(ind) => ind,
                     None => continue,
                 },
-                None => continue,
+                Some(Answer::Press(ind)) if mouse.step == 0.0 => ind,
+                Some(Answer::Press(_)) | None => continue,
             };
             self.process_event(&Event::Pick(PickEvent {
                 mouse: mouse.clone(),
@@ -152,7 +156,8 @@ impl Figure {
             Candidate::Artist(id) => {
                 let artist = layout.store().get(id)?;
                 match artist.base().picker.as_ref()? {
-                    Picker::Custom(test) => Some(Answer::Ask(Rc::clone(test))),
+                    Picker::Custom(test) => Some(Answer::Ask(test.clone())),
+                    Picker::Press => artist.pick_hit(&layout, at, None).map(Answer::Press),
                     picker => artist
                         .pick_hit(&layout, at, picker.radius())
                         .map(Answer::Hit),
@@ -161,8 +166,8 @@ impl Figure {
             Candidate::Axis(axes, name) => {
                 let picking = &layout.store().get_as::<AxesState>(axes)?.axis(name).picking;
                 match picking.picker.as_ref()? {
-                    Picker::Custom(test) => Some(Answer::Ask(Rc::clone(test))),
-                    Picker::Default | Picker::Radius(_) => picking
+                    Picker::Custom(test) => Some(Answer::Ask(test.clone())),
+                    Picker::Default | Picker::Radius(_) | Picker::Press => picking
                         .hits(&layout.axes_extent(axes)?, name, at)
                         .then(|| Answer::Hit(Vec::new())),
                 }

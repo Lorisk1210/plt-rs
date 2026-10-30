@@ -5,9 +5,11 @@
 //! operation by operation, so results agree to the last bit wherever the
 //! underlying `libm` functions do.
 
+use std::any::Any;
 use std::fmt;
 use std::rc::Rc;
 
+use pltrs_core::archive::{External, ProgramFn};
 use pltrs_core::numeric::np_sign;
 
 use super::{NonPositive, ScaleError};
@@ -25,6 +27,8 @@ pub struct LogTransform {
     base: LogBase,
     nonpositive: NonPositive,
 }
+
+pltrs_core::archive_struct!(LogTransform { base, nonpositive });
 
 impl LogTransform {
     /// A log map; `base` must be positive and not 1.
@@ -104,6 +108,12 @@ pub struct SymmetricalLogTransform {
     linscale: f64,
 }
 
+pltrs_core::archive_struct!(SymmetricalLogTransform {
+    base,
+    linthresh,
+    linscale
+});
+
 impl SymmetricalLogTransform {
     /// A symlog map; `base > 1`, `linthresh > 0` and `linscale > 0`.
     pub fn new(base: f64, linthresh: f64, linscale: f64) -> Result<Self, ScaleError> {
@@ -173,6 +183,8 @@ pub struct LogitTransform {
     nonpositive: NonPositive,
 }
 
+pltrs_core::archive_struct!(LogitTransform { nonpositive });
+
 impl LogitTransform {
     /// A logit map.
     pub fn new(nonpositive: NonPositive) -> Self {
@@ -215,6 +227,8 @@ pub struct AsinhTransform {
     linear_width: f64,
 }
 
+pltrs_core::archive_struct!(AsinhTransform { linear_width });
+
 impl AsinhTransform {
     /// An asinh map; `linear_width` must be positive.
     pub fn new(linear_width: f64) -> Result<Self, ScaleError> {
@@ -244,15 +258,49 @@ impl AxisMap for AsinhTransform {
     }
 }
 
-/// A scalar function used by function scales.
-pub type ScaleFn = Rc<dyn Fn(f64) -> f64>;
+/// One direction of a function scale: a function the program gave, or
+/// one pltrs makes itself (the spacing of a colorbar's blocks).
+pub(crate) trait ScaleFunction: fmt::Debug + Any {
+    /// The function's value at `value`.
+    fn call(&self, value: f64) -> f64;
+}
 
-/// A user-supplied forward/inverse pair (matplotlib's `FuncTransform`).
+/// The function `x ↦ x`.
+#[derive(Debug)]
+pub(crate) struct Identity;
+
+pltrs_core::archive_struct!(Identity);
+
+impl ScaleFunction for Identity {
+    fn call(&self, value: f64) -> f64 {
+        value
+    }
+}
+
+/// A function the program gave.
+impl ScaleFunction for ProgramFn<dyn Fn(f64) -> f64> {
+    fn call(&self, value: f64) -> f64 {
+        (self.get())(value)
+    }
+}
+
+pltrs_core::archive_kinds!(dyn ScaleFunction {
+    "identity" => Identity,
+    "program" => ProgramFn<dyn Fn(f64) -> f64>,
+    "boundaries" => crate::colorbar::BoundarySpacing,
+    "norm" => crate::colorbar::NormSpacing,
+});
+
+/// A user-supplied forward/inverse pair (matplotlib's `FuncTransform`). A
+/// figure with one is archived only if its functions have origins
+/// ([`FuncTransform::with_origins`]).
 #[derive(Clone)]
 pub struct FuncTransform {
-    forward: ScaleFn,
-    inverse: ScaleFn,
+    forward: Rc<dyn ScaleFunction>,
+    inverse: Rc<dyn ScaleFunction>,
 }
+
+pltrs_core::archive_struct!(FuncTransform { forward, inverse });
 
 impl FuncTransform {
     /// `forward` must be monotonic and `inverse` its inverse. Both run
@@ -262,24 +310,43 @@ impl FuncTransform {
         forward: impl Fn(f64) -> f64 + Send + 'static,
         inverse: impl Fn(f64) -> f64 + Send + 'static,
     ) -> Self {
-        Self::from_fns(forward, inverse)
+        Self::from_functions(
+            Rc::new(ProgramFn::<dyn Fn(f64) -> f64>::new(Rc::new(forward))),
+            Rc::new(ProgramFn::<dyn Fn(f64) -> f64>::new(Rc::new(inverse))),
+        )
     }
 
-    /// A pair of pltrs' own functions, which never use a figure's
-    /// handles, or of functions [`new`](Self::new) already took.
-    pub(crate) fn from_fns(
-        forward: impl Fn(f64) -> f64 + 'static,
-        inverse: impl Fn(f64) -> f64 + 'static,
+    /// The pair [`new`](Self::new) makes, archived as `origins`, what the
+    /// program made `forward` and `inverse` from (see [`ProgramFn`]).
+    pub fn with_origins(
+        forward: impl Fn(f64) -> f64 + Send + 'static,
+        inverse: impl Fn(f64) -> f64 + Send + 'static,
+        origins: (External, External),
     ) -> Self {
-        Self {
-            forward: Rc::new(forward),
-            inverse: Rc::new(inverse),
-        }
+        let (forward_origin, inverse_origin) = origins;
+        Self::from_functions(
+            Rc::new(ProgramFn::<dyn Fn(f64) -> f64>::with_origin(
+                Rc::new(forward),
+                forward_origin,
+            )),
+            Rc::new(ProgramFn::<dyn Fn(f64) -> f64>::with_origin(
+                Rc::new(inverse),
+                inverse_origin,
+            )),
+        )
+    }
+
+    /// The pair `forward`, `inverse`.
+    pub(crate) fn from_functions(
+        forward: Rc<dyn ScaleFunction>,
+        inverse: Rc<dyn ScaleFunction>,
+    ) -> Self {
+        Self { forward, inverse }
     }
 
     /// The identity.
     pub fn identity() -> Self {
-        Self::new(|x| x, |x| x)
+        Self::from_functions(Rc::new(Identity), Rc::new(Identity))
     }
 
     /// The same pair with forward and inverse swapped.
@@ -300,11 +367,11 @@ impl fmt::Debug for FuncTransform {
 
 impl AxisMap for FuncTransform {
     fn forward(&self, value: f64) -> f64 {
-        (self.forward)(value)
+        self.forward.call(value)
     }
 
     fn inverse(&self, value: f64) -> f64 {
-        (self.inverse)(value)
+        self.inverse.call(value)
     }
 }
 
@@ -314,6 +381,8 @@ pub struct FuncLogTransform {
     func: FuncTransform,
     log: LogTransform,
 }
+
+pltrs_core::archive_struct!(FuncLogTransform { func, log });
 
 impl FuncLogTransform {
     /// `log_base(func(x))`.

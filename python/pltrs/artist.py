@@ -18,7 +18,7 @@ from numbers import Real
 
 import numpy as np
 
-from . import _handles, cbook
+from . import _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms
 from ._artist_callbacks import CallbacksMixin
 from ._artist_clipping import ClippingMixin
@@ -52,6 +52,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         artist._native = native
         artist._figure = figure
         return artist
+
+    def __getstate__(self):
+        # The native handle pickles as its figure's state and the artist's
+        # id (`._pickling`).
+        return self.__dict__.copy()
 
     @property
     def figure(self):

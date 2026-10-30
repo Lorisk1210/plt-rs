@@ -22,6 +22,14 @@ struct Flags {
     zero: bool,
 }
 
+crate::archive_struct!(Flags {
+    left,
+    sign,
+    space,
+    alternate,
+    zero
+});
+
 /// What a conversion does with its (floating-point) argument.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
@@ -33,6 +41,12 @@ enum Kind {
     Text,
 }
 
+crate::archive_enum!(Kind {
+    Integer,
+    Float(v0, v1),
+    Text,
+});
+
 /// One `%` conversion specification.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Conversion {
@@ -41,6 +55,13 @@ struct Conversion {
     precision: Option<usize>,
     kind: Kind,
 }
+
+crate::archive_struct!(Conversion {
+    flags,
+    width,
+    precision,
+    kind
+});
 
 /// A parsed printf-style template with exactly one conversion, applied to
 /// a float like Python's `template % value`.
@@ -57,6 +78,13 @@ pub struct PrintfFormat {
     conversion: Conversion,
     suffix: String,
 }
+
+crate::archive_struct!(PrintfFormat {
+    template,
+    prefix,
+    conversion,
+    suffix
+});
 
 impl PrintfFormat {
     /// Parses `template`, which must contain exactly one conversion that

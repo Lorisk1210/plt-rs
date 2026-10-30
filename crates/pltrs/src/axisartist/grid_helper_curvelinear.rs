@@ -42,6 +42,8 @@ pub struct GridHelperCurveLinear {
     grid_finder: GridFinder,
 }
 
+pltrs_core::archive_struct!(GridHelperCurveLinear { grid_finder });
+
 impl GridHelperCurveLinear {
     /// A grid whose curvilinear coordinates map to data coordinates by
     /// `aux_trans`, located and labelled as `options` says.
@@ -164,6 +166,12 @@ pub(crate) struct FloatingLine {
     /// The range of the varying coordinate (`-inf..inf` = unlimited).
     pub(crate) extremes: (f64, f64),
 }
+
+pltrs_core::archive_struct!(FloatingLine {
+    nth,
+    value,
+    extremes
+});
 
 impl FloatingLine {
     /// The constant coordinate of the line as a point with `along`.

@@ -36,7 +36,9 @@ impl NormTransform for LogTransform {
 /// values and leaves them out of autoscaling (matplotlib's norm for the
 /// scale name `"linear"`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) struct LinearTransform;
+pub(crate) struct LinearTransform;
+
+pltrs_core::archive_struct!(LinearTransform);
 
 impl AxisMap for LinearTransform {
     fn forward(&self, value: f64) -> f64 {
@@ -98,6 +100,8 @@ pub struct ScaleNorm<T> {
     transform: T,
     limits: Limits,
 }
+
+pltrs_core::archive_struct!(ScaleNorm<T> { transform, limits });
 
 /// Logarithmic normalisation (base 10); non-positive values are masked.
 ///

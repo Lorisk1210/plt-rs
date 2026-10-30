@@ -36,6 +36,12 @@ pub(crate) struct AxisUnits {
     pub(crate) unit: Option<Unit>,
 }
 
+pltrs_core::archive_struct!(AxisUnits {
+    converter,
+    explicit,
+    unit
+});
+
 impl AxisUnits {
     /// Takes `converter` unless another one was set explicitly
     /// (matplotlib's `_set_converter` from `update_units`); returns whether

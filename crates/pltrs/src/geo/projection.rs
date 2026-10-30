@@ -45,6 +45,13 @@ pub enum GeoProjection {
     Mollweide,
 }
 
+pltrs_core::archive_enum!(GeoProjection {
+    Aitoff,
+    Hammer,
+    Lambert { center_longitude, center_latitude },
+    Mollweide,
+});
+
 impl GeoProjection {
     /// The Lambert projection centred at longitude and latitude 0.
     pub const LAMBERT: Self = Self::Lambert {

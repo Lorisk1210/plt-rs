@@ -4,6 +4,7 @@
 use std::fmt;
 use std::rc::Rc;
 
+use pltrs_core::archive::{External, ProgramFn};
 use pltrs_render::{FilterFn, FilterImage, Filtered};
 
 use super::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
@@ -28,19 +29,33 @@ use super::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
 /// fig.to_png()?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+///
+/// A figure with a filter is archived only if the filter has an origin
+/// ([`AggFilter::with_origin`]).
 #[derive(Clone)]
-pub struct AggFilter(Rc<FilterFn<'static>>);
+pub struct AggFilter(ProgramFn<FilterFn<'static>>);
+
+pltrs_core::archive_struct!(AggFilter(filter));
 
 impl AggFilter {
     /// A filter running `filter`, which runs while the figure is drawn:
     /// it is `Send`, so it cannot use the figure's handles.
     pub fn new(filter: impl Fn(&FilterImage, f64) -> Filtered + Send + 'static) -> Self {
-        Self(Rc::new(filter))
+        Self(ProgramFn::new(Rc::new(filter)))
+    }
+
+    /// A filter running `filter`, archived as `origin`, what the program
+    /// made it from (see [`ProgramFn`]).
+    pub fn with_origin(
+        filter: impl Fn(&FilterImage, f64) -> Filtered + Send + 'static,
+        origin: External,
+    ) -> Self {
+        Self(ProgramFn::with_origin(Rc::new(filter), origin))
     }
 
     /// The filter function.
     pub(crate) fn function(&self) -> &FilterFn<'static> {
-        &*self.0
+        self.0.get()
     }
 }
 
@@ -53,7 +68,7 @@ impl fmt::Debug for AggFilter {
 impl PartialEq for AggFilter {
     /// Filters are equal when they are the same function.
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        std::ptr::addr_eq(self.0.get(), other.0.get())
     }
 }
 
@@ -67,6 +82,12 @@ pub(crate) struct FilteredGroupArtist {
     members: Vec<ArtistId>,
     filter: AggFilter,
 }
+
+pltrs_core::archive_struct!(FilteredGroupArtist {
+    base,
+    members,
+    filter
+});
 
 impl FilteredGroupArtist {
     /// `members` drawn through `filter`, rasterized, at z-order 0.

@@ -13,6 +13,8 @@ pub struct FixedLocator {
     nbins: Option<usize>,
 }
 
+pltrs_core::archive_struct!(FixedLocator { locs, nbins });
+
 impl FixedLocator {
     /// Ticks exactly at `locs`.
     pub fn new(locs: Vec<f64>) -> Self {
@@ -70,6 +72,8 @@ impl Locator for FixedLocator {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NullLocator;
 
+pltrs_core::archive_struct!(NullLocator);
+
 impl Locator for NullLocator {
     fn tick_values(&self, _: f64, _: f64, _: &TickContext<'_>) -> Result<Vec<f64>, TickerError> {
         Ok(Vec::new())
@@ -87,6 +91,8 @@ pub struct IndexLocator {
     base: f64,
     offset: f64,
 }
+
+pltrs_core::archive_struct!(IndexLocator { base, offset });
 
 impl IndexLocator {
     /// Ticks at `vmin + offset + k * base`.

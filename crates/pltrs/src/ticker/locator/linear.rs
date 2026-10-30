@@ -17,6 +17,8 @@ pub struct LinearLocator {
     presets: Vec<((f64, f64), Vec<f64>)>,
 }
 
+pltrs_core::archive_struct!(LinearLocator { numticks, presets });
+
 impl LinearLocator {
     /// A locator with `numticks` ticks (`None` means 11).
     pub fn new(numticks: Option<usize>) -> Self {
@@ -97,6 +99,8 @@ pub struct MultipleLocator {
     edge: EdgeInteger,
     offset: f64,
 }
+
+pltrs_core::archive_struct!(MultipleLocator { edge, offset });
 
 impl MultipleLocator {
     /// Ticks at multiples of `base`, which must be positive.

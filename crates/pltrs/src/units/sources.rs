@@ -20,6 +20,8 @@ pub(crate) struct UnitSources {
     pub(crate) y: Option<CustomValues>,
 }
 
+pltrs_core::archive_struct!(UnitSources { x, y });
+
 impl UnitSources {
     /// The user values among `x` and `y`.
     pub(crate) fn of(x: &AxisValues, y: &AxisValues) -> Self {

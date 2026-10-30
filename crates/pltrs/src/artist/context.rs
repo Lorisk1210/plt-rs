@@ -421,6 +421,8 @@ impl<'a> DrawContext<'a> {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct DrawnDpiCor(std::cell::Cell<Option<f64>>);
 
+pltrs_core::archive_struct!(DrawnDpiCor(v0));
+
 impl DrawnDpiCor {
     /// Records a draw at `dpi_cor` pixels per point.
     pub(crate) fn record(&self, dpi_cor: f64) {

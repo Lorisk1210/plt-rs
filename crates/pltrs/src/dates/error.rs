@@ -51,6 +51,21 @@ pub enum DateError {
     TooManyRangeDates(u64),
 }
 
+pltrs_core::archive_enum!(DateError {
+    FieldOutOfRange { field, value },
+    Overflow,
+    DateNumberOutOfRange(v0),
+    NonFinite(v0),
+    Parse { input, reason },
+    EpochAlreadySet,
+    UnknownTimeZone(v0),
+    InvalidTimeZoneData(v0),
+    EmptyRule(v0),
+    InvalidArgument(v0),
+    NonPositiveStep(v0),
+    TooManyRangeDates(v0),
+});
+
 impl fmt::Display for DateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

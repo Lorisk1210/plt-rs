@@ -18,6 +18,8 @@ pub(crate) struct AxisScale {
     map: Option<Rc<dyn AxisMap>>,
 }
 
+pltrs_core::archive_struct!(AxisScale { scale, map });
+
 impl Default for AxisScale {
     /// The linear scale.
     fn default() -> Self {

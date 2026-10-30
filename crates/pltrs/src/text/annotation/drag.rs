@@ -82,3 +82,22 @@ impl Annotation {
         self.state(|a| a.dragger.is_some())
     }
 }
+
+/// Connects the drag of `artist`, if it is an annotation read back draggable from
+/// an archive, to the callbacks of its figure: an archive keeps that the
+/// artist is draggable, not the callbacks dragging it.
+pub(crate) fn reconnect_drag(artist: &RawHandle) {
+    let draggable = |text: &TextArtist| {
+        text.annotation
+            .as_ref()
+            .is_some_and(|annotation| annotation.dragger.is_some())
+    };
+    if artist.is::<TextArtist>() && artist.with(draggable) {
+        let dragger = Dragger::connect(artist, AnnotationDrag::default());
+        artist.with_mut::<TextArtist, _>(|text| {
+            if let Some(annotation) = text.annotation.as_deref_mut() {
+                annotation.dragger = Some(dragger);
+            }
+        });
+    }
+}

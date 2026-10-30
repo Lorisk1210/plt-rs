@@ -29,6 +29,8 @@ pub enum TexEngine {
     LatexDvipng,
 }
 
+pltrs_core::archive_enum!(TexEngine { Latex, LatexDvipng });
+
 impl TexEngine {
     /// The engine's `text.latex.engine` name.
     pub const fn name(self) -> &'static str {

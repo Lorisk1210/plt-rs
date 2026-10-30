@@ -28,6 +28,12 @@ pub(crate) enum SharedGridHelper {
     Floating(Rc<floating_axes::FloatingGridHelper>),
 }
 
+pltrs_core::archive_enum!(SharedGridHelper {
+    Rectilinear,
+    CurveLinear(v0),
+    Floating(v0),
+});
+
 /// The segments of the gridlines: which levels and axes they show
 /// (matplotlib's `GridlinesCollection` `which` and `axis`).
 #[derive(Clone, Debug)]
@@ -37,6 +43,13 @@ pub(crate) struct Gridlines {
     which: TickLevel,
     axis: Option<AxisName>,
 }
+
+pltrs_core::archive_struct!(Gridlines {
+    axes,
+    helper,
+    which,
+    axis
+});
 
 impl Gridlines {
     /// The gridlines collection of `axes` through `helper`, hidden, styled

@@ -145,6 +145,12 @@ pub(crate) struct FillGeometry {
     interpolate: bool,
 }
 
+pltrs_core::archive_struct!(FillGeometry {
+    orientation,
+    step,
+    interpolate
+});
+
 impl FillGeometry {
     /// The point at parameter `t` with value `f`.
     fn place(self, t: f64, f: f64) -> Point {

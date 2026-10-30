@@ -20,6 +20,8 @@ pub struct ConnectionEnd {
     pub axes: Option<ArtistId>,
 }
 
+pltrs_core::archive_struct!(ConnectionEnd { xy, coords, axes });
+
 impl ConnectionEnd {
     /// `xy` in `coords`, relative to `axes`.
     pub fn new(xy: impl Into<Point>, coords: Coords, axes: Option<ArtistId>) -> Self {
@@ -49,6 +51,13 @@ pub struct ConnectionPatch {
     /// coordinates (`None`).
     pub annotation_clip: Option<bool>,
 }
+
+pltrs_core::archive_struct!(ConnectionPatch {
+    a,
+    b,
+    spec,
+    annotation_clip
+});
 
 impl ConnectionPatch {
     /// A plain line from `a` to `b`.

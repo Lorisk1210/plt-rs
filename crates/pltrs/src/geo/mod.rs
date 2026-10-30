@@ -25,6 +25,7 @@ mod placement;
 mod projection;
 mod ticker;
 mod transform;
+pub(crate) use transform::GeoMap;
 
 pub use api::{GeoAxes, GeoError};
 pub use projection::GeoProjection;
@@ -57,6 +58,11 @@ pub(crate) struct GeoState {
     /// drawn (matplotlib's `_longitude_cap`).
     pub(crate) longitude_cap: f64,
 }
+
+pltrs_core::archive_struct!(GeoState {
+    projection,
+    longitude_cap
+});
 
 impl GeoState {
     /// Settings of fresh axes drawn through `projection`.

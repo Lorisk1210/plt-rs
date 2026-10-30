@@ -19,6 +19,12 @@ pub enum Normalized {
     Masked,
 }
 
+pltrs_core::archive_enum!(Normalized {
+    Fraction(v0),
+    Index(v0),
+    Masked,
+});
+
 impl From<f64> for Normalized {
     fn from(x: f64) -> Self {
         Self::Fraction(x)

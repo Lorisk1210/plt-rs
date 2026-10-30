@@ -35,7 +35,7 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 
 | crate            | responsibility                                                       |
 |------------------|----------------------------------------------------------------------|
-| `pltrs-core`     | `Point`, `Affine2D`, `Bbox`, `Path` (+ path conditioning), `Rgba`    |
+| `pltrs-core`     | `Point`, `Affine2D`, `Bbox`, `Path` (+ path conditioning), `Rgba`, archives (pickling) |
 | `pltrs-codec`    | CRC32/Adler32, SHA-1/SHA-256, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, WebP, base64 |
 | `pltrs-font`     | TrueType/OpenType and Type 1 parsing, outlines, metrics, kerning, font manager |
 | `pltrs-raster`   | AA scanline rasterizer, stroker, dashes, clipping, compositing       |

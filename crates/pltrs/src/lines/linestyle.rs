@@ -36,6 +36,15 @@ pub enum LineStyle {
     },
 }
 
+pltrs_core::archive_enum!(LineStyle {
+    Solid,
+    Dashed,
+    DashDot,
+    Dotted,
+    None,
+    Dashes { offset, pattern },
+});
+
 const NAMED: [(&str, &str, LineStyle); 4] = [
     ("-", "solid", LineStyle::Solid),
     ("--", "dashed", LineStyle::Dashed),

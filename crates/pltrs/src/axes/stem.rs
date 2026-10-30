@@ -74,6 +74,13 @@ pub struct StemContainer {
     pub label: Option<String>,
 }
 
+pltrs_core::archive_struct!(StemContainer {
+    markerline,
+    stemlines,
+    baseline,
+    label
+});
+
 impl Axes {
     /// Draws a stem from `options.bottom` to each of `heads` at `locs`
     /// (matplotlib's `stem`). `locs` go along x (along y for horizontal

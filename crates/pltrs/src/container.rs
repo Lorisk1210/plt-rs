@@ -26,6 +26,12 @@ pub enum Container {
     Stem(StemContainer),
 }
 
+pltrs_core::archive_enum!(Container {
+    Bar(v0),
+    Errorbar(v0),
+    Stem(v0),
+});
+
 impl Container {
     /// The legend label; `None` and labels starting with `_` keep the
     /// container out of legends.
@@ -150,6 +156,15 @@ pub(crate) struct ErrorbarIds {
     pub(crate) label: Option<String>,
 }
 
+pltrs_core::archive_struct!(ErrorbarIds {
+    data_line,
+    caplines,
+    barlinecols,
+    has_xerr,
+    has_yerr,
+    label
+});
+
 /// A [`Container`] as its axes records it: by artist id.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ContainerIds {
@@ -171,6 +186,12 @@ pub(crate) enum ContainerIds {
         label: Option<String>,
     },
 }
+
+pltrs_core::archive_enum!(ContainerIds {
+    Bar { patches, errorbar, datavalues, orientation, label },
+    Errorbar(v0),
+    Stem { markerline, stemlines, baseline, label },
+});
 
 impl ContainerIds {
     /// The legend label.

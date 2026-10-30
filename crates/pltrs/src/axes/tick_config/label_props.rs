@@ -51,6 +51,23 @@ pub struct TickLabelProps {
     pub label2_visible: Option<bool>,
 }
 
+pltrs_core::archive_struct!(TickLabelProps {
+    rotation,
+    rotation_mode,
+    halign,
+    valign,
+    multialign,
+    color,
+    fontsize,
+    fontweight,
+    fontstyle,
+    in_layout,
+    url,
+    family,
+    label1_visible,
+    label2_visible
+});
+
 impl TickLabelProps {
     /// The same properties with a relative font size turned into points
     /// against `base_size` (font sizes are resolved when they are set).

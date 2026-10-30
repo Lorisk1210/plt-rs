@@ -135,6 +135,8 @@ impl ProjectionKind {
     }
 }
 
+pltrs_core::archive_kinds!(dyn AnyOptions {});
+
 #[cfg(test)]
 mod tests {
     use super::*;

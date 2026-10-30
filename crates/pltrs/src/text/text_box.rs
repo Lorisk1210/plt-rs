@@ -70,6 +70,13 @@ pub struct TextBoxPatch {
     path_effects: Vec<PathEffect>,
 }
 
+pltrs_core::archive_struct!(TextBoxPatch {
+    boxstyle,
+    style,
+    alpha,
+    path_effects
+});
+
 impl TextBoxPatch {
     /// The box `props` describe for text of `fontsize` points: the padding
     /// is fixed now, rounded to two decimals as matplotlib's `"%0.2f"`

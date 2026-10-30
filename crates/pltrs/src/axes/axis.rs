@@ -29,6 +29,12 @@ pub(crate) struct AutoscaleState {
     pub(crate) stale: bool,
 }
 
+pltrs_core::archive_struct!(AutoscaleState {
+    enabled,
+    margin,
+    stale
+});
+
 /// The geometry an axis needs to place its ticks.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct AxisGeometry {
@@ -63,6 +69,12 @@ pub(crate) enum AxisRole {
     Radius,
 }
 
+pltrs_core::archive_enum!(AxisRole {
+    Cartesian,
+    Theta,
+    Radius,
+});
+
 /// The tick helpers of an axis, shared by axes sharing that axis.
 #[derive(Clone, Debug)]
 pub(crate) struct Tickers {
@@ -84,6 +96,8 @@ pub(crate) struct TickerDefaults {
     pub(crate) minor: LevelDefaults,
 }
 
+pltrs_core::archive_struct!(TickerDefaults { major, minor });
+
 /// Whether the locator and the formatter of one tick level are still the
 /// scale's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,6 +107,8 @@ pub(crate) struct LevelDefaults {
     /// The formatter.
     pub(crate) formatter: bool,
 }
+
+pltrs_core::archive_struct!(LevelDefaults { locator, formatter });
 
 impl Default for LevelDefaults {
     fn default() -> Self {
@@ -113,6 +129,8 @@ pub(crate) struct TickOverrides {
     /// Mark and gridline properties.
     pub(crate) lines: Vec<TickLineProps>,
 }
+
+pltrs_core::archive_struct!(TickOverrides { labels, lines });
 
 /// State of one axis.
 ///
@@ -178,6 +196,36 @@ pub(crate) struct AxisState {
     /// Whether, and how, presses pick the axis.
     pub(crate) picking: AxisPicking,
 }
+
+pltrs_core::archive_struct!(AxisState {
+    name,
+    role,
+    scale,
+    map,
+    major_locator,
+    major_formatter,
+    minor_locator,
+    minor_formatter,
+    ticker_owner,
+    defaults,
+    categories,
+    units,
+    settings,
+    autoscale,
+    label_size,
+    ticks,
+    major_style,
+    minor_style,
+    major_overrides,
+    minor_overrides,
+    label,
+    visible,
+    in_layout,
+    offset_side,
+    offset_visible,
+    remove_overlapping_locs,
+    picking
+});
 
 impl AxisState {
     /// A linear axis configured from `rc`.

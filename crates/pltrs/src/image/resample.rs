@@ -174,6 +174,14 @@ pub(crate) struct Resampling {
     pub(crate) origin: Origin,
 }
 
+pltrs_core::archive_struct!(Resampling {
+    interpolation,
+    resample,
+    filternorm,
+    filterrad,
+    origin
+});
+
 /// The map from array indices (column, row) to output pixels: affine, or
 /// passing through a non-affine data transform.
 #[derive(Clone, Debug)]

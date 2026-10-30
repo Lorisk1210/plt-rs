@@ -42,6 +42,21 @@ pub struct PatchStyle {
     pub joinstyle: JoinStyle,
 }
 
+pltrs_core::archive_struct!(PatchStyle {
+    edgecolor,
+    facecolor,
+    fill,
+    linewidth,
+    linestyle,
+    edgegapcolor,
+    antialiased,
+    hatch,
+    hatchcolor,
+    hatch_linewidth,
+    capstyle,
+    joinstyle
+});
+
 impl PatchStyle {
     /// matplotlib's patch defaults under `rc`.
     pub fn from_rc(rc: &RcParams) -> Self {
@@ -191,6 +206,19 @@ pub(crate) struct PatchPaint {
     antialiased: bool,
     hatch: Option<Hatch>,
 }
+
+pltrs_core::archive_struct!(PatchPaint {
+    face,
+    edge,
+    gap,
+    linewidth,
+    dashes,
+    dashed,
+    cap,
+    join,
+    antialiased,
+    hatch
+});
 
 impl PatchPaint {
     /// `style` resolved against `rc` and the artist's `alpha`.

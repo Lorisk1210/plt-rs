@@ -82,6 +82,20 @@ pub struct TickLineProps {
     pub grid_alpha: Option<f64>,
 }
 
+pltrs_core::archive_struct!(TickLineProps {
+    markeredgecolor,
+    color,
+    size,
+    width,
+    tick1_visible,
+    tick2_visible,
+    grid_visible,
+    grid_color,
+    grid_linewidth,
+    grid_linestyle,
+    grid_alpha
+});
+
 impl TickLineProps {
     /// `self` with every property set in `newer` replaced.
     fn overlay(&self, newer: &Self) -> Self {

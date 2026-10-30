@@ -16,6 +16,8 @@ pub struct DataLimits {
     pub minpos: Point,
 }
 
+crate::archive_struct!(DataLimits { bbox, minpos });
+
 impl Default for DataLimits {
     fn default() -> Self {
         Self::NULL

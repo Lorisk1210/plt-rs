@@ -19,6 +19,12 @@ pub enum PackMode {
     Equal,
 }
 
+pltrs_core::archive_enum!(PackMode {
+    Fixed,
+    Expand,
+    Equal,
+});
+
 /// Where children sit across the packing direction (matplotlib's `align`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum PackAlign {
@@ -36,6 +42,15 @@ pub enum PackAlign {
     /// Centred.
     Center,
 }
+
+pltrs_core::archive_enum!(PackAlign {
+    Baseline,
+    Left,
+    Top,
+    Right,
+    Bottom,
+    Center,
+});
 
 /// Offsets of boxes of the given `widths` packed with `mode`, and the total
 /// length they need (matplotlib's `_get_packed_offsets`).

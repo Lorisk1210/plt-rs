@@ -21,6 +21,8 @@ pub struct GeoThetaFormatter {
     round_to: f64,
 }
 
+pltrs_core::archive_struct!(GeoThetaFormatter { round_to });
+
 impl Default for GeoThetaFormatter {
     /// Rounding to whole degrees, matplotlib's default.
     fn default() -> Self {

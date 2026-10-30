@@ -23,6 +23,8 @@ use crate::patches::{PatchView, StepPatch};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerLine2D;
 
+pltrs_core::archive_struct!(HandlerLine2D);
+
 impl LegendHandler for HandlerLine2D {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
         let line = match entry.source {
@@ -44,6 +46,8 @@ impl LegendHandler for HandlerLine2D {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerPatch;
 
+pltrs_core::archive_struct!(HandlerPatch);
+
 impl LegendHandler for HandlerPatch {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
         let original = patch::original_patch(entry.ctx.store, entry.source);
@@ -62,6 +66,8 @@ impl LegendHandler for HandlerPatch {
 /// `HandlerStepPatch`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerStepPatch;
+
+pltrs_core::archive_struct!(HandlerStepPatch);
 
 impl LegendHandler for HandlerStepPatch {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
@@ -99,6 +105,8 @@ fn collection_of<'a>(entry: &HandlerEntry<'a>) -> Option<&'a CollectionArtist> {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerLineCollection;
 
+pltrs_core::archive_struct!(HandlerLineCollection);
+
 impl LegendHandler for HandlerLineCollection {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
         match collection_of(entry) {
@@ -113,6 +121,8 @@ impl LegendHandler for HandlerLineCollection {
 /// (matplotlib's `HandlerPathCollection`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerPathCollection;
+
+pltrs_core::archive_struct!(HandlerPathCollection);
 
 impl LegendHandler for HandlerPathCollection {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
@@ -129,6 +139,8 @@ impl LegendHandler for HandlerPathCollection {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerPolyCollection;
 
+pltrs_core::archive_struct!(HandlerPolyCollection);
+
 impl LegendHandler for HandlerPolyCollection {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
         match collection_of(entry) {
@@ -142,6 +154,8 @@ impl LegendHandler for HandlerPolyCollection {
 /// bars and caps (matplotlib's `HandlerErrorbar`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerErrorbar;
+
+pltrs_core::archive_struct!(HandlerErrorbar);
 
 impl LegendHandler for HandlerErrorbar {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {
@@ -158,6 +172,8 @@ impl LegendHandler for HandlerErrorbar {
 /// (matplotlib's `HandlerStem`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HandlerStem;
+
+pltrs_core::archive_struct!(HandlerStem);
 
 impl LegendHandler for HandlerStem {
     fn create_artists(&self, entry: &HandlerEntry<'_>) -> Result<Vec<HandlerArtist>, LegendError> {

@@ -42,6 +42,14 @@ pub(crate) struct Secondary {
     host_scale: Option<ScaleName>,
 }
 
+pltrs_core::archive_struct!(Secondary {
+    host,
+    orientation,
+    data_location,
+    functions,
+    host_scale
+});
+
 impl Axes {
     /// Adds a secondary x axis showing this axes' x range converted by
     /// `functions` (host units to secondary units, and back; `None` is the

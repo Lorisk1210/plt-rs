@@ -33,6 +33,8 @@ macro_rules! rc_params {
             $( $(#[$doc])* pub $field: $ty, )*
         }
 
+        pltrs_core::archive_struct!(RcParams { $($field),* });
+
         impl RcParams {
             /// Every parameter name, in matplotlib's order.
             pub const KEYS: &'static [&'static str] = &[$($key),*];

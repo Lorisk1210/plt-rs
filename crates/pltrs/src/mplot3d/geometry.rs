@@ -41,6 +41,14 @@ pub enum AxisPosition {
     None,
 }
 
+pltrs_core::archive_enum!(AxisPosition {
+    Default,
+    Lower,
+    Upper,
+    Both,
+    None,
+});
+
 impl AxisPosition {
     /// The edges drawn, each named by its own position (matplotlib's
     /// `_get_all_axis_line_edge_points`).

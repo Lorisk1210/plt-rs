@@ -53,6 +53,13 @@ pub(crate) struct BboxImageArtist {
     pub(crate) region: Option<Region>,
 }
 
+pltrs_core::archive_struct!(BboxImageArtist {
+    base,
+    core,
+    bbox,
+    region
+});
+
 /// A box an image added to an axes fills, found when the image is drawn.
 #[derive(Debug)]
 pub(crate) enum Region {
@@ -62,6 +69,11 @@ pub(crate) enum Region {
     /// artist's `get_window_extent`).
     ExtentOf(ArtistId),
 }
+
+pltrs_core::archive_enum!(Region {
+    Transformed(v0, v1),
+    ExtentOf(v0),
+});
 
 impl BboxImageArtist {
     /// An image of `data` made as `options` say, at z-order 0 and not

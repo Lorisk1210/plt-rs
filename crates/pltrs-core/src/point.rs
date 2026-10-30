@@ -11,6 +11,8 @@ pub struct Point {
     pub y: f64,
 }
 
+crate::archive_struct!(Point { x, y });
+
 impl Point {
     /// The origin `(0, 0)`.
     pub const ORIGIN: Self = Self::new(0.0, 0.0);

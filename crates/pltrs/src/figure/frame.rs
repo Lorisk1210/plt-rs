@@ -41,6 +41,19 @@ pub(crate) struct FigureFrame {
     pub(crate) subplot_spec: Option<SubplotSpec>,
 }
 
+pltrs_core::archive_struct!(FigureFrame {
+    base,
+    facecolor,
+    edgecolor,
+    linewidth,
+    frameon,
+    relative_extent,
+    children,
+    subplot_params,
+    super_texts,
+    subplot_spec
+});
+
 /// The texts spanning a whole figure (matplotlib's `_suptitle`,
 /// `_supxlabel`, `_supylabel`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -49,6 +62,12 @@ pub(crate) struct SuperTexts {
     pub(crate) xlabel: Option<SuperText>,
     pub(crate) ylabel: Option<SuperText>,
 }
+
+pltrs_core::archive_struct!(SuperTexts {
+    title,
+    xlabel,
+    ylabel
+});
 
 /// A figure-wide text and how it is placed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,6 +79,8 @@ pub(crate) struct SuperText {
     /// across that edge (matplotlib's `_autopos`).
     pub(crate) auto_placed: bool,
 }
+
+pltrs_core::archive_struct!(SuperText { id, auto_placed });
 
 impl SuperTexts {
     /// Forgets `text` if it is one of the figure-wide texts (it was

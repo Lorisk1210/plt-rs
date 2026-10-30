@@ -33,6 +33,12 @@ pub struct AsinhScale {
     subs: Vec<f64>,
 }
 
+pltrs_core::archive_struct!(AsinhScale {
+    transform,
+    base,
+    subs
+});
+
 impl AsinhScale {
     /// An asinh scale with quasi-linear width `linear_width > 0`, ticks
     /// rounded to powers of `base` (truncated to an integer; `<= 1` rounds

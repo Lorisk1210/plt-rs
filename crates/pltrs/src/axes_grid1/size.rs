@@ -23,6 +23,11 @@ pub enum SizeAspect {
     RelativeTo(ArtistId),
 }
 
+pltrs_core::archive_enum!(SizeAspect {
+    Factor(v0),
+    RelativeTo(v0),
+});
+
 /// A width or height in a divider (matplotlib's `axes_size` classes).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Size {
@@ -54,6 +59,18 @@ pub enum Size {
     /// `_AxesDecorationsSize`, made by `add_auto_adjustable_area`).
     AxesDecorations(Vec<ArtistId>, SpineSide),
 }
+
+pltrs_core::archive_enum!(Size {
+    Fixed(v0),
+    Scaled(v0),
+    AxesX(v0, v1),
+    AxesY(v0, v1),
+    Fraction(v0, v1),
+    Sum(v0),
+    MaxWidth(v0),
+    MaxHeight(v0),
+    AxesDecorations(v0, v1),
+});
 
 impl Size {
     /// The width of `axes`' view limits (`Size.AxesX(axes)`).
@@ -122,6 +139,11 @@ pub enum SizeSpec {
     /// A percentage of a reference size.
     Percent(f64),
 }
+
+pltrs_core::archive_enum!(SizeSpec {
+    Inches(v0),
+    Percent(v0),
+});
 
 impl SizeSpec {
     /// The size, with percentages taken of `reference`.

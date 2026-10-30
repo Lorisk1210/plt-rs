@@ -33,11 +33,23 @@ struct GridData {
     in_layout: Cell<bool>,
 }
 
+pltrs_core::archive_struct!(GridData {
+    nrows,
+    ncols,
+    width_ratios,
+    height_ratios,
+    overrides,
+    parent,
+    in_layout
+});
+
 /// A grid of `nrows × ncols` cells (cheap to clone; clones are the same grid).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GridSpec {
     data: Rc<GridData>,
 }
+
+pltrs_core::archive_struct!(GridSpec { data });
 
 impl GridSpec {
     /// A grid with equal cells.
@@ -436,6 +448,12 @@ pub struct SubplotSpec {
     rows: Range<usize>,
     cols: Range<usize>,
 }
+
+pltrs_core::archive_struct!(SubplotSpec {
+    gridspec,
+    rows,
+    cols
+});
 
 impl SubplotSpec {
     /// The grid this block belongs to.

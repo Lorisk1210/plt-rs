@@ -43,6 +43,17 @@ pub enum ScaleName {
     Custom(String),
 }
 
+pltrs_core::archive_enum!(ScaleName {
+    Linear,
+    Log,
+    Symlog,
+    Logit,
+    Asinh,
+    Function,
+    FunctionLog,
+    Custom(v0),
+});
+
 impl ScaleName {
     /// The built-in names, sorted (matplotlib's `get_scale_names`).
     pub const BUILT_IN: [Self; 7] = [

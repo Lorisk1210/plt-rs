@@ -13,6 +13,8 @@ use crate::figure::Figure;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ConnectionId(u64);
 
+pltrs_core::archive_struct!(ConnectionId(v0));
+
 /// A callback, shared so that it can run while the registry is borrowed
 /// for something else.
 type Callback = Rc<RefCell<dyn FnMut(&Event)>>;

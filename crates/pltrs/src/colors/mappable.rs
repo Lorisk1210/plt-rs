@@ -22,6 +22,8 @@ pub struct ScalarMappable {
     cmap: Colormap,
 }
 
+pltrs_core::archive_struct!(ScalarMappable { norm, cmap });
+
 impl ScalarMappable {
     /// A mappable with an autoscaling linear [`Normalize`].
     pub fn new(cmap: Colormap) -> Self {

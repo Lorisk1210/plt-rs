@@ -80,6 +80,12 @@ pub(crate) enum ProjectionState {
     Custom(Box<dyn Projection>),
 }
 
+pltrs_core::archive_enum!(ProjectionState {
+    Rectilinear,
+    Polar(v0),
+    Custom(v0),
+});
+
 impl ProjectionState {
     /// The kind of projection.
     pub(crate) fn kind(&self) -> ProjectionKind {

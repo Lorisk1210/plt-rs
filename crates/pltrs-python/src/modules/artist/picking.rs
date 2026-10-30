@@ -42,7 +42,7 @@ fn get_picker(artist: RawHandle) -> PyResult<Owned> {
         let picker = match artist.picker() {
             None => Bound::none(py),
             Some(Picker::Radius(radius)) => radius.into_py(py)?,
-            Some(Picker::Default | Picker::Custom(_)) => true.into_py(py)?,
+            Some(Picker::Default | Picker::Custom(_) | Picker::Press) => true.into_py(py)?,
         };
         Ok(picker.unbind())
     })

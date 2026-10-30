@@ -18,6 +18,12 @@ pub enum LogSubs {
     Explicit(Vec<f64>),
 }
 
+pltrs_core::archive_enum!(LogSubs {
+    Auto,
+    All,
+    Explicit(v0),
+});
+
 /// Explicit multiples given as a list, as matplotlib's `subs=[2, 5]`.
 impl From<Vec<f64>> for LogSubs {
     fn from(subs: Vec<f64>) -> Self {
@@ -42,6 +48,11 @@ pub enum NumTicks {
     Fixed(usize),
 }
 
+pltrs_core::archive_enum!(NumTicks {
+    Auto,
+    Fixed(v0),
+});
+
 /// Ticks at `subs[j] * base**i` (matplotlib's `LogLocator`).
 ///
 /// ```
@@ -56,6 +67,12 @@ pub struct LogLocator {
     subs: LogSubs,
     numticks: NumTicks,
 }
+
+pltrs_core::archive_struct!(LogLocator {
+    base,
+    subs,
+    numticks
+});
 
 impl LogLocator {
     /// Major ticks at powers of `base` (positive and not 1).

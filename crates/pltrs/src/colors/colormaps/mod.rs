@@ -21,6 +21,7 @@ mod listed_data;
 use std::cell::RefCell;
 use std::sync::OnceLock;
 
+pub(crate) use builtin::BuiltinFn;
 use builtin_data::BUILTINS;
 
 use super::{Colormap, ColormapError};

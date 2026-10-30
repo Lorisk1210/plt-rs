@@ -38,6 +38,8 @@ pub struct InsetIndicator {
     inset: Option<ArtistId>,
 }
 
+pltrs_core::archive_struct!(InsetIndicator { bounds, inset });
+
 impl InsetIndicator {
     /// The rectangle `[x0, y0, width, height]` in data coordinates
     /// (matplotlib's `_bounds_from_inset_ax` when following the inset).

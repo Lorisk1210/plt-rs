@@ -28,6 +28,15 @@ pub enum Fontset {
     Custom,
 }
 
+pltrs_core::archive_enum!(Fontset {
+    DejaVuSans,
+    DejaVuSerif,
+    Cm,
+    Stix,
+    StixSans,
+    Custom,
+});
+
 impl FromStr for Fontset {
     type Err = TextError;
 
@@ -97,6 +106,22 @@ pub enum MathFont {
     Scr,
 }
 
+pltrs_core::archive_enum!(MathFont {
+    Rm,
+    It,
+    Bf,
+    Bfit,
+    Sf,
+    Tt,
+    Cal,
+    Default,
+    Regular,
+    Normal,
+    Bb,
+    Frak,
+    Scr,
+});
+
 impl MathFont {
     const ALL: [Self; 13] = [
         Self::Rm,
@@ -164,6 +189,8 @@ pub enum MathFallback {
     /// STIX with sans-serif letters.
     StixSans,
 }
+
+pltrs_core::archive_enum!(MathFallback { Cm, Stix, StixSans });
 
 impl MathFallback {
     /// The `mathtext.fallback` value naming these fonts.

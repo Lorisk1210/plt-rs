@@ -63,6 +63,8 @@ pub struct ViewAngles {
     pub roll: f64,
 }
 
+pltrs_core::archive_struct!(ViewAngles { elev, azim, roll });
+
 impl Default for ViewAngles {
     /// matplotlib's default view: `elev=30, azim=-60, roll=0`.
     fn default() -> Self {
@@ -87,6 +89,13 @@ pub(crate) struct Camera {
     box_aspect: Vec3,
 }
 
+pltrs_core::archive_struct!(Camera {
+    angles,
+    vertical,
+    focal_length,
+    box_aspect
+});
+
 /// The projection of one draw (matplotlib's `M` preceded by the axis
 /// scale transforms).
 #[derive(Clone, Debug)]
@@ -101,6 +110,13 @@ pub(crate) struct Projection {
     /// outside which points are hidden, for the artists clipped to them.
     view: Option<[(f64, f64); 3]>,
 }
+
+pltrs_core::archive_struct!(Projection {
+    matrix,
+    perspective,
+    scales,
+    view
+});
 
 impl Projection {
     /// The same projection applied after the scale transforms of the

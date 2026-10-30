@@ -22,6 +22,8 @@ pub struct Bbox {
     pub p1: Point,
 }
 
+crate::archive_struct!(Bbox { p0, p1 });
+
 impl Bbox {
     /// The unit box from `(0, 0)` to `(1, 1)`.
     pub const UNIT: Self = Self::from_extents(0.0, 0.0, 1.0, 1.0);

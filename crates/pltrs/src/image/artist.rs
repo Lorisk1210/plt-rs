@@ -27,6 +27,8 @@ pub(crate) struct AxesImageArtist {
     pub(crate) extent: Extent,
 }
 
+pltrs_core::archive_struct!(AxesImageArtist { base, core, extent });
+
 impl AxesImageArtist {
     /// An image at z-order 0 covering `extent`.
     pub(crate) fn new(core: ImageCore, extent: Extent) -> Self {

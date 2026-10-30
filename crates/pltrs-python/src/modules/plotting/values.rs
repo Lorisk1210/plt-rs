@@ -10,7 +10,7 @@ use crate::binding::prelude::*;
 
 /// Values along an axis: a float array, a list of category names, or
 /// `("dates", numbers)` for dates as matplotlib's date numbers.
-pub(super) struct PyAxisValues(pub(super) AxisValues);
+pub(crate) struct PyAxisValues(pub(crate) AxisValues);
 
 impl FromPy<'_> for PyAxisValues {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {

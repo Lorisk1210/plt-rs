@@ -9,26 +9,23 @@
 //! by an *axis info* dict (view and data intervals, smallest positive
 //! datum, tick space, major ticks), or a dummy axis.
 //!
-//! Formatters also show how Python code runs inside a pltrs (Rust) draw: the
-//! Python formatter of an axis (a `Formatter` subclass, a `FuncFormatter`)
-//! becomes a pltrs (Rust) formatter holding its methods as [`Callback`]s,
-//! which pltrs (Rust) calls with the GIL each time it labels ticks
-//! ([`axis_formatter`]); an exception the formatter raises surfaces from
-//! the native call that drew (`savefig`), and the tick labels of that draw
-//! stay empty.
+//! The specs of the helpers pltrs (Rust) installs on axes by itself go
+//! the other way ([`describe`]), so that Python makes the matching
+//! objects; installing helpers on an axis is `_native.axis`'s.
 
-mod axis_formatter;
+pub(super) mod describe;
 
-use pltrs::axes::{Axes, Axis};
+use std::rc::Rc;
+
+use pltrs::polar::ThetaLocator;
 use pltrs::ticker::{
-    AsinhLocator, AutoLocator, AutoMinorLocator, AxisInfo, EngFormatter, FixedLocator, Formatter,
-    FuncFormatter, IndexLocator, LinearLocator, Locator, LogBase, LogFormatter, LogLabelStyle,
-    LogLocator, LogSubs, LogitFormatter, LogitLocator, MaxNLocator, MinorDivisions,
-    MultipleLocator, Nbins, NullLocator, NumTicks, OffsetMode, PercentFormatter, Prune,
-    ScalarFormatter, ScaleHint, SymmetricalLogLocator, TickContext, TickerError, TickerSettings,
+    AsinhLocator, AutoLocator, AutoMinorLocator, AxisInfo, EngFormatter, FixedFormatter,
+    FixedLocator, FormatStrFormatter, Formatter, IndexLocator, LinearLocator, Locator, LogBase,
+    LogFormatter, LogLabelStyle, LogLocator, LogSubs, LogitFormatter, LogitLocator, MaxNLocator,
+    MinorDivisions, MultipleLocator, Nbins, NullFormatter, NullLocator, NumTicks, OffsetMode,
+    PercentFormatter, Prune, ScalarFormatter, ScaleHint, StrMethodFormatter, SymmetricalLogLocator,
+    TickContext, TickerError, TickerSettings,
 };
-
-use axis_formatter::AxisFormatter;
 
 use crate::binding::dict_value;
 use crate::binding::prelude::*;
@@ -38,44 +35,6 @@ impl From<TickerError> for PyErr {
     fn from(err: TickerError) -> Self {
         PyErr::value_error(err.to_string())
     }
-}
-
-/// The axis `name` (`"x"` or `"y"`) of `axes`.
-fn axis(axes: &Axes, name: &str) -> PyResult<Axis> {
-    match name {
-        "x" => Ok(axes.xaxis()),
-        "y" => Ok(axes.yaxis()),
-        _ => Err(PyErr::value_error(format!("no axis named {name:?}"))),
-    }
-}
-
-/// Formats the `level` (`"major"` or `"minor"`) ticks of the axis `name`
-/// with the Python `Formatter` `formatter`, or with any callable called as
-/// `formatter(value, position)` (`set_major_formatter` and
-/// `set_minor_formatter`).
-fn set_formatter(axes: Axes, name: String, level: String, formatter: Owned) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
-    if let Ok(methods) = Python::with_gil(|py| AxisFormatter::of(&formatter.bind(py))) {
-        return install_formatter(&axis, &level, methods);
-    }
-    let callback: Callback = Python::with_gil(|py| formatter.bind(py).extract())?;
-    let formatter = FuncFormatter::new(move |value, position| {
-        callback
-            .call::<String>((value, position))
-            .unwrap_or_default()
-    });
-    install_formatter(&axis, &level, formatter)
-}
-
-/// Labels the `level` (`"major"` or `"minor"`) ticks of `axis` with
-/// `formatter`.
-fn install_formatter(axis: &Axis, level: &str, formatter: impl Formatter) -> PyResult<()> {
-    match level {
-        "major" => axis.set_major_formatter(formatter),
-        "minor" => axis.set_minor_formatter(formatter),
-        _ => return Err(PyErr::value_error(format!("no tick level named {level:?}"))),
-    };
-    Ok(())
 }
 
 /// The rcParams in effect, as the ticker reads them.
@@ -120,10 +79,14 @@ fn auto_or<'py, T: FromPy<'py>>(spec: &Bound<'py>, key: &str) -> PyResult<Option
 }
 
 /// The locator a spec describes.
-fn locator(spec: &Bound<'_>) -> PyResult<Box<dyn Locator>> {
+pub(super) fn locator(spec: &Bound<'_>) -> PyResult<Box<dyn Locator>> {
     let kind: String = dict_value(spec, "kind")?;
     Ok(match kind.as_str() {
         "null" => Box::new(NullLocator),
+        "theta" => {
+            let base: Bound<'_> = dict_value(spec, "base")?;
+            Box::new(ThetaLocator::wrapping(Rc::from(locator(&base)?)))
+        }
         "auto" => Box::new(AutoLocator::from_settings(&settings())),
         "maxn" => {
             let mut locator =
@@ -227,7 +190,7 @@ fn log_locator(spec: &Bound<'_>) -> PyResult<LogLocator> {
 }
 
 /// Runs `f` with the context of the axis `info` describes.
-fn with_context<R>(
+pub(super) fn with_context<R>(
     info: Option<Owned>,
     f: impl FnOnce(&TickContext<'_>) -> PyResult<R>,
 ) -> PyResult<R> {
@@ -299,29 +262,21 @@ fn percent_formatter(spec: &Bound<'_>) -> PyResult<PercentFormatter> {
 }
 
 /// The formatter a spec describes.
-fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
+pub(super) fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
     let kind: String = dict_value(spec, "kind")?;
-    let settings = settings();
     if log_style(&kind).is_some() {
         return Ok(Box::new(log_formatter(spec)?));
     }
     Ok(match kind.as_str() {
-        "scalar" => {
-            let use_offset: Bound<'_> = dict_value(spec, "use_offset")?;
-            let use_offset = match use_offset.extract::<bool>() {
-                Ok(true) if use_offset.type_name() == "bool" => OffsetMode::Auto,
-                Ok(false) if use_offset.type_name() == "bool" => OffsetMode::Off,
-                _ => OffsetMode::Fixed(use_offset.extract()?),
-            };
-            Box::new(
-                ScalarFormatter::from_settings(&settings)
-                    .with_use_offset(use_offset)
-                    .with_use_mathtext(dict_value(spec, "use_mathtext")?)
-                    .with_usetex(dict_value(spec, "usetex")?)
-                    .with_scientific(dict_value(spec, "scientific")?)
-                    .with_powerlimits(dict_value(spec, "powerlimits")?),
-            )
-        }
+        "null" => Box::new(NullFormatter),
+        "fixed" => Box::new(FixedFormatter::new(dict_value(spec, "seq")?)),
+        "format_str" => Box::new(FormatStrFormatter::new(&dict_value::<String>(
+            spec, "fmt",
+        )?)?),
+        "str_method" => Box::new(StrMethodFormatter::new(&dict_value::<String>(
+            spec, "fmt",
+        )?)?),
+        "scalar" => Box::new(scalar_formatter(spec)?),
         "logit" => Box::new(
             LogitFormatter::new()
                 .with_use_overline(dict_value(spec, "use_overline")?)
@@ -330,29 +285,74 @@ fn formatter(spec: &Bound<'_>) -> PyResult<Box<dyn Formatter>> {
                 .with_minor_threshold(dict_value(spec, "minor_threshold")?)
                 .with_minor_number(dict_value(spec, "minor_number")?),
         ),
-        "eng" => {
-            let use_offset: bool = dict_value(spec, "use_offset")?;
-            Box::new(
-                EngFormatter::new()
-                    .with_unit(dict_value::<String>(spec, "unit")?)
-                    .with_places(dict_value(spec, "places")?)
-                    .with_sep(dict_value::<String>(spec, "sep")?)
-                    .with_usetex(dict_value(spec, "usetex")?)
-                    .with_use_mathtext(dict_value(spec, "use_mathtext")?)
-                    .with_prefixes(
-                        dict_value::<Vec<(i64, String)>>(spec, "prefixes")?
-                            .into_iter()
-                            .collect(),
-                    )
-                    .with_use_offset(if use_offset {
-                        OffsetMode::Auto
-                    } else {
-                        OffsetMode::Off
-                    }),
-            )
-        }
+        "eng" => Box::new(eng_formatter(spec)?),
         "percent" => Box::new(percent_formatter(spec)?),
         _ => return Err(PyErr::value_error(format!("no formatter kind {kind:?}"))),
+    })
+}
+
+/// The scalar formatter a `"scalar"` spec describes.
+fn scalar_formatter(spec: &Bound<'_>) -> PyResult<ScalarFormatter> {
+    let use_offset: Bound<'_> = dict_value(spec, "use_offset")?;
+    let use_offset = match use_offset.extract::<bool>() {
+        Ok(true) if use_offset.type_name() == "bool" => OffsetMode::Auto,
+        Ok(false) if use_offset.type_name() == "bool" => OffsetMode::Off,
+        _ => OffsetMode::Fixed(use_offset.extract()?),
+    };
+    Ok(ScalarFormatter::from_settings(&settings())
+        .with_use_offset(use_offset)
+        .with_use_mathtext(dict_value(spec, "use_mathtext")?)
+        .with_usetex(dict_value(spec, "usetex")?)
+        .with_scientific(dict_value(spec, "scientific")?)
+        .with_powerlimits(dict_value(spec, "powerlimits")?))
+}
+
+/// The engineering formatter an `"eng"` spec describes.
+fn eng_formatter(spec: &Bound<'_>) -> PyResult<EngFormatter> {
+    let use_offset: bool = dict_value(spec, "use_offset")?;
+    Ok(EngFormatter::from_settings(&settings())
+        .with_unit(dict_value::<String>(spec, "unit")?)
+        .with_places(dict_value(spec, "places")?)
+        .with_sep(dict_value::<String>(spec, "sep")?)
+        .with_usetex(dict_value(spec, "usetex")?)
+        .with_use_mathtext(dict_value(spec, "use_mathtext")?)
+        .with_prefixes(
+            dict_value::<Vec<(i64, String)>>(spec, "prefixes")?
+                .into_iter()
+                .collect(),
+        )
+        .with_use_offset(if use_offset {
+            OffsetMode::Auto
+        } else {
+            OffsetMode::Off
+        }))
+}
+
+/// A formatter writing ticks with an offset and an order of magnitude.
+enum OffsetFormatter {
+    /// matplotlib's `ScalarFormatter`.
+    Scalar(ScalarFormatter),
+    /// matplotlib's `EngFormatter`, whose orders are multiples of three.
+    Eng(EngFormatter),
+}
+
+/// The offset and order of magnitude the scalar (or engineering)
+/// formatter `spec` gives the ticks `values` on the axis `info`
+/// (`ScalarFormatter.set_locs`).
+fn scalar_offset(spec: Owned, values: NdArray, info: Option<Owned>) -> PyResult<(f64, i32)> {
+    let formatter = Python::with_gil(|py| -> PyResult<_> {
+        let spec = spec.bind(py);
+        Ok(if dict_value::<String>(&spec, "kind")? == "eng" {
+            OffsetFormatter::Eng(eng_formatter(&spec)?)
+        } else {
+            OffsetFormatter::Scalar(scalar_formatter(&spec)?)
+        })
+    })?;
+    with_context(info, |ctx| {
+        Ok(match &formatter {
+            OffsetFormatter::Scalar(scalar) => scalar.offset_and_order(&values.data, ctx)?,
+            OffsetFormatter::Eng(eng) => eng.offset_and_order(&values.data, ctx)?,
+        })
     })
 }
 
@@ -429,12 +429,12 @@ fn is_log_base(base: f64) -> PyResult<bool> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("set_formatter", set_formatter)?;
     module.add("tick_values", tick_values)?;
     module.add("locate", locate)?;
     module.add("view_limits", view_limits)?;
     module.add("nonsingular", nonsingular)?;
     module.add("format_ticks", format_ticks)?;
+    module.add("scalar_offset", scalar_offset)?;
     module.add("format_data", format_data)?;
     module.add("log_sublabels", log_sublabels)?;
     module.add("log_label", log_label)?;

@@ -2,7 +2,10 @@
 //! `scale`), computed by `pltrs::scale`.
 //!
 //! A map is named by its kind and parameters; values cross as an array of
-//! any shape, mapped element by element, forwards or back.
+//! any shape, mapped element by element, forwards or back. Setting the
+//! scale of an axis is in [`axis_scale`].
+
+mod axis_scale;
 
 use pltrs::scale::{
     AsinhTransform, LogTransform, LogitTransform, NonPositive, ScaleError, SymmetricalLogTransform,
@@ -73,5 +76,6 @@ fn transform(kind: String, params: Owned, values: NdArray, inverse: bool) -> PyR
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("transform", transform)
+    module.add("transform", transform)?;
+    axis_scale::register(module)
 }

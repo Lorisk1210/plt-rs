@@ -6,6 +6,7 @@ mod aspect;
 pub(crate) mod axis;
 pub(crate) mod axis_draw;
 mod axis_handle;
+mod axis_intervals;
 pub(crate) mod axis_label;
 mod axis_label_layout;
 mod axis_layout;

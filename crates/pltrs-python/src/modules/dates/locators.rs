@@ -37,7 +37,7 @@ pub(super) fn parts(dt: DateTime) -> Parts {
 }
 
 /// A time zone: its name, or its offset from UTC in seconds.
-struct Zone(TimeZone);
+pub(crate) struct Zone(pub(crate) TimeZone);
 
 impl FromPy<'_> for Zone {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {

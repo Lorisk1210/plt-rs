@@ -1,10 +1,24 @@
 //! `_native.axis`: the x and y axes of an axes (matplotlib's `axis`):
 //! their ticks, tick labels, label and direction. A Python `Axis` reaches
 //! its pltrs (Rust) axis through its axes and its name (`"x"`, `"y"`).
+//!
+//! The locators and formatters of an axis are in [`helpers`], the Python
+//! ones driving pltrs (Rust)'s ticks in [`python_helpers`], the intervals
+//! of the axis in [`intervals`], the artists mirroring its ticks and texts
+//! in [`mirrors`], tick parameters in [`params`] and the rest of what an
+//! axis is in [`settings`].
+
+mod helpers;
+mod intervals;
+mod mirrors;
+mod params;
+mod python_helpers;
+mod settings;
 
 use pltrs::axes::{Axes, Axis, TickPosition};
 use pltrs::spines::SpineSide;
 
+use super::plotting::values::PyAxisValues;
 use super::spines::side_name;
 use crate::binding::prelude::*;
 
@@ -27,30 +41,14 @@ fn get_ticklocs(axes: Axes, name: String, minor: bool) -> PyResult<NdArray> {
     Ok(NdArray::from_vec(axis(&axes, &name)?.ticklocs(minor)?))
 }
 
-/// Puts the major or `minor` ticks at `ticks`, widening the view to show
-/// them (`set_ticks`).
-fn set_ticks(axes: Axes, name: String, ticks: Vec<f64>, minor: bool) -> PyResult<()> {
+/// Puts the major or `minor` ticks at `ticks` (numbers, dates or
+/// categories), widening the view to show them (`set_ticks`).
+fn set_ticks(axes: Axes, name: String, ticks: PyAxisValues, minor: bool) -> PyResult<()> {
     let axis = axis(&axes, &name)?;
     if minor {
-        axis.set_minor_ticks(ticks);
+        axis.set_minor_ticks(ticks.0);
     } else {
-        axis.set_ticks(ticks);
-    }
-    Ok(())
-}
-
-/// The tick label strings, major or `minor`.
-fn get_ticklabel_texts(axes: Axes, name: String, minor: bool) -> PyResult<Vec<String>> {
-    Ok(axis(&axes, &name)?.ticklabels(minor)?)
-}
-
-/// Labels the major or `minor` ticks with `labels` (`set_ticklabels`).
-fn set_ticklabels(axes: Axes, name: String, labels: Vec<String>, minor: bool) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
-    if minor {
-        axis.set_minor_ticklabels(labels)?;
-    } else {
-        axis.set_ticklabels(labels)?;
+        axis.set_ticks(ticks.0);
     }
     Ok(())
 }
@@ -89,11 +87,6 @@ fn set_label_position(axes: Axes, name: String, position: String) -> PyResult<()
     Ok(())
 }
 
-/// Whether the axis runs from high to low values (`get_inverted`).
-fn get_inverted(axes: Axes, name: String) -> PyResult<bool> {
-    Ok(axis(&axes, &name)?.inverted())
-}
-
 /// Turns the axis around (`set_inverted`).
 fn set_inverted(axes: Axes, name: String, inverted: bool) -> PyResult<()> {
     axis(&axes, &name)?.set_inverted(inverted);
@@ -121,15 +114,17 @@ fn tick_switches(
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_ticklocs", get_ticklocs)?;
     module.add("set_ticks", set_ticks)?;
-    module.add("get_ticklabel_texts", get_ticklabel_texts)?;
-    module.add("set_ticklabels", set_ticklabels)?;
     module.add("get_ticks_position", get_ticks_position)?;
     module.add("set_ticks_position", set_ticks_position)?;
     module.add("get_label_position", get_label_position)?;
     module.add("set_label_position", set_label_position)?;
-    module.add("get_inverted", get_inverted)?;
     module.add("set_inverted", set_inverted)?;
-    module.add("tick_switches", tick_switches)
+    module.add("tick_switches", tick_switches)?;
+    helpers::register(module)?;
+    intervals::register(module)?;
+    mirrors::register(module)?;
+    params::register(module)?;
+    settings::register(module)
 }
 
 #[cfg(test)]
@@ -140,7 +135,8 @@ mod tests {
     #[test]
     fn ticks_and_sides_cross_by_name() {
         let ax = Figure::new().subplot();
-        set_ticks(ax.clone(), "x".into(), vec![0.0, 0.5, 2.0], false).unwrap();
+        let ticks = PyAxisValues(vec![0.0, 0.5, 2.0].into());
+        set_ticks(ax.clone(), "x".into(), ticks, false).unwrap();
         let locs = get_ticklocs(ax.clone(), "x".into(), false).unwrap();
         assert_eq!(locs.into_vec().unwrap(), [0.0, 0.5, 2.0]);
         set_ticks_position(ax.clone(), "x".into(), "top".into()).unwrap();
@@ -149,7 +145,7 @@ mod tests {
         set_label_position(ax.clone(), "y".into(), "right".into()).unwrap();
         assert_eq!(get_label_position(ax.clone(), "y".into()).unwrap(), "right");
         set_inverted(ax.clone(), "y".into(), true).unwrap();
-        assert!(get_inverted(ax, "y".into()).unwrap());
+        assert!(ax.yaxis().inverted());
         assert!(side("middle").is_err());
     }
 }

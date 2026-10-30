@@ -250,17 +250,11 @@ impl Default for EngFormatter {
     }
 }
 
-impl Formatter for EngFormatter {
-    fn format_ticks(
-        &self,
-        locs: &[f64],
-        ctx: &TickContext<'_>,
-    ) -> Result<FormattedTicks, TickerError> {
-        if locs.is_empty() {
-            return Ok(FormattedTicks::default());
-        }
-        let settings = ctx.settings();
-        let view = ctx.view_interval();
+impl EngFormatter {
+    /// How the ticks at `locs` are written in the view `view`: an offset
+    /// rounded to the view centre when one is worth it, and an order of
+    /// magnitude that is a multiple of three.
+    fn layout(&self, locs: &[f64], view: (f64, f64)) -> Result<ScalarLayout, TickerError> {
         let (vmin, vmax) = if view.1 < view.0 {
             (view.1, view.0)
         } else {
@@ -282,15 +276,48 @@ impl Formatter for EngFormatter {
         }
         let oom = i32::try_from(floor_int(log_base(span, 1000.0), "view span")? * 3)
             .map_err(|_| TickerError::NonFinite("order of magnitude"))?;
-        let layout = ScalarLayout {
+        Ok(ScalarLayout {
             offset,
             oom,
             decimals: decimals(locs, view, offset, oom)?,
-        };
+        })
+    }
+
+    /// The offset subtracted from the labels of the ticks at `locs` and
+    /// their order of magnitude (matplotlib's `offset` and
+    /// `orderOfMagnitude`, which `EngFormatter.set_locs` computes).
+    ///
+    /// # Errors
+    ///
+    /// When the view is empty.
+    pub fn offset_and_order(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<(f64, i32), TickerError> {
+        if locs.is_empty() {
+            return Ok((self.use_offset.fixed_offset(), 0));
+        }
+        let layout = self.layout(locs, ctx.view_interval())?;
+        Ok((layout.offset, layout.oom))
+    }
+}
+
+impl Formatter for EngFormatter {
+    fn format_ticks(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<FormattedTicks, TickerError> {
+        if locs.is_empty() {
+            return Ok(FormattedTicks::default());
+        }
+        let settings = ctx.settings();
+        let layout = self.layout(locs, ctx.view_interval())?;
         let labels = locs
             .iter()
             .map(|&x| {
-                if offset == 0.0 {
+                if layout.offset == 0.0 {
                     Ok(settings.fix_minus(&self.format_eng(x)?))
                 } else {
                     Ok(layout.label(x, self.math(), settings))

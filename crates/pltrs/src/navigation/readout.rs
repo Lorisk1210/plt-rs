@@ -174,7 +174,7 @@ impl Axes {
     /// (matplotlib's `format_data_short`, which measures the pixel in the
     /// axis transform). The figure is laid out first; `None` when the
     /// axes has no extent.
-    pub(crate) fn pixel_resolution(&self, name: AxisName, value: f64) -> Option<f64> {
+    pub fn pixel_resolution(&self, name: AxisName, value: f64) -> Option<f64> {
         let axis_transform = match name {
             AxisName::X => self.trans_xaxis(),
             AxisName::Y => self.trans_yaxis(),

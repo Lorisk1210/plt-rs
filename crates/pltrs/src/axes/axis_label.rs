@@ -298,6 +298,17 @@ impl Axis {
         self
     }
 
+    /// Shows or hides the axis label (matplotlib's `label.set_visible`).
+    pub fn set_label_visible(&self, visible: bool) -> &Self {
+        self.update(|axis| axis.label.visible = visible);
+        self
+    }
+
+    /// Whether the axis label is drawn when it has text.
+    pub fn label_visible(&self) -> bool {
+        self.read(|axis| axis.label.visible)
+    }
+
     /// The box behind the axis label, if any (matplotlib's
     /// `label.get_bbox_patch()`).
     pub fn label_bbox(&self) -> Option<TextBoxPatch> {
@@ -318,6 +329,14 @@ impl Axis {
     pub fn offset_text_extent(&self) -> Option<Bbox> {
         self.with_texts(|texts, _| texts.offset.as_ref().map(PlacedText::bbox))
             .flatten()
+    }
+
+    /// Where the offset (or scale) text is anchored in display pixels in
+    /// the figure's current layout (laid out first), whether or not there
+    /// is one: beyond the tick labels at the end of the axis (matplotlib's
+    /// `offsetText.get_position()`, in display units across the axis).
+    pub fn offset_text_anchor(&self) -> Option<Point> {
+        self.with_texts(|texts, _| texts.offset_anchor).flatten()
     }
 
     /// The side the offset (or scale) text sits on: the side of the ticks

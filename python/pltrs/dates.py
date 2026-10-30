@@ -150,7 +150,8 @@ def date2num(d):
     # make an iterable, but save state to unpack later:
     iterable = np.iterable(d)
     if not iterable:
-        d = [d]
+        # A 0-d array keeps its element (not wrapped in an object array).
+        d = np.atleast_1d(d) if isinstance(d, np.ndarray) else [d]
 
     masked = np.ma.is_masked(d)
     mask = np.ma.getmask(d)

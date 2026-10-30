@@ -8,7 +8,7 @@
 
 mod locators;
 
-pub(super) use locators::date_locator;
+pub(super) use locators::{Zone, date_locator};
 use pltrs::dates::{
     Date, DateError, Datetime64, TimeZone, datestr2num, datestr2num_with_default,
     datetime64_to_num, get_epoch, num2date, num2timedelta, reset_epoch, set_epoch, wrap_in_tex,

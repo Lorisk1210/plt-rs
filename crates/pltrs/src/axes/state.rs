@@ -420,6 +420,17 @@ impl AxesState {
         };
     }
 
+    /// Replaces the data limits of one axis with `low..=high`, keeping the
+    /// smallest positive datum (matplotlib's `Axis.set_data_interval` with
+    /// `ignore=True`).
+    pub(crate) fn set_data_interval(&mut self, name: AxisName, low: f64, high: f64) {
+        let b = self.data_lim.bbox;
+        self.data_lim.bbox = match name {
+            AxisName::X => Bbox::from_extents(low, b.y0(), high, b.y1()),
+            AxisName::Y => Bbox::from_extents(b.x0(), low, b.x1(), high),
+        };
+    }
+
     /// Whether the margins of one axis stop at sticky edges.
     pub(crate) fn uses_stickies(&self, name: AxisName) -> bool {
         let autoscale = self.axis(name).autoscale;

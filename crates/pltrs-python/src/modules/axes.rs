@@ -60,21 +60,9 @@ fn get_title(axes: Axes, loc: String) -> PyResult<String> {
     Ok(axes.title(location))
 }
 
-/// Sets the x-axis label.
-fn set_xlabel(axes: Axes, text: String) -> PyResult<()> {
-    axes.set_xlabel(text);
-    Ok(())
-}
-
 /// The x-axis label.
 fn get_xlabel(axes: Axes) -> PyResult<String> {
     Ok(axes.xaxis().label_text())
-}
-
-/// Sets the y-axis label.
-fn set_ylabel(axes: Axes, text: String) -> PyResult<()> {
-    axes.set_ylabel(text);
-    Ok(())
 }
 
 /// The y-axis label.
@@ -163,9 +151,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axspan", axspan)?;
     module.add("set_title", set_title)?;
     module.add("get_title", get_title)?;
-    module.add("set_xlabel", set_xlabel)?;
     module.add("get_xlabel", get_xlabel)?;
-    module.add("set_ylabel", set_ylabel)?;
     module.add("get_ylabel", get_ylabel)?;
     module.add("get_xlim", get_xlim)?;
     module.add("set_xlim", set_xlim)?;

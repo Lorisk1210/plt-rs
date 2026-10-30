@@ -8,8 +8,12 @@ License with `SpinesProxy`.
 from collections.abc import MutableMapping
 import functools
 
+import numpy as np
+
 from ._native import spines as _spines
 from .patches import Patch
+from .path import Path
+from .transforms import Bbox, IdentityTransform
 
 
 class Spine(Patch):
@@ -77,18 +81,64 @@ class Spine(Patch):
         high : float or None, optional
             The higher spine bound. Passing *None* leaves the limit unchanged.
         """
-        if high is None and isinstance(low, tuple):
+        if self.spine_type == 'circle':
+            raise ValueError(
+                'set_bounds() method incompatible with circular spines')
+        if high is None and np.iterable(low):
             low, high = low
-        old_low, old_high = self.get_bounds() or (None, None)
-        if low is None:
-            low = old_low
-        if high is None:
-            high = old_high
-        _spines.set_bounds(self._native, (float(low), float(high)))
+        _spines.set_bound_ends(self._native,
+                               None if low is None else float(low),
+                               None if high is None else float(high))
 
     def get_bounds(self):
         """Get the bounds of the spine."""
         return _spines.get_bounds(self._native)
+
+    @property
+    def axis(self):
+        """The `.Axis` the spine belongs to (see `register_axis`)."""
+        if "_axis" in self.__dict__:
+            return self._axis
+        name = {"left": "y", "right": "y", "bottom": "x", "top": "x",
+                "polar": "y"}.get(self.spine_type)
+        return None if name is None else getattr(self.axes, f"{name}axis")
+
+    def register_axis(self, axis):
+        """
+        Register an axis.
+
+        An axis should be registered with its corresponding spine from
+        the Axes instance. This allows the spine to clear any axis
+        properties when needed.
+        """
+        self._axis = axis
+
+    def get_window_extent(self, renderer=None):
+        """
+        Return the window extent of the spines in display space, including
+        padding for ticks (but not their labels)
+        """
+        extent = _spines.window_extent(self._native)
+        if extent is None:
+            return Bbox.null()
+        x0, y0, x1, y1 = extent
+        return Bbox([[x0, y0], [x1, y1]])
+
+    def get_tightbbox(self, renderer=None):
+        """Like `get_window_extent`: a spine is not clipped."""
+        return self.get_window_extent(renderer)
+
+    def get_path(self):
+        """
+        Return the path of the spine, in display coordinates: pltrs (Rust)
+        lays the spine out, and its `get_transform` is the identity.
+        """
+        arrays = _spines.display_path(self._native)
+        return Path([[0, 0]]) if arrays is None else Path(*arrays)
+
+    def get_transform(self):
+        """Return the identity: `get_path` is in display coordinates."""
+        return IdentityTransform()
 
     def set_color(self, c):
         """

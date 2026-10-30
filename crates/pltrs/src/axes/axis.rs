@@ -103,6 +103,17 @@ impl Default for LevelDefaults {
     }
 }
 
+/// The properties single ticks of one level have of their own, on top
+/// of the style of their level, by tick index (matplotlib's `Tick`
+/// artists changed one by one).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct TickOverrides {
+    /// Label properties.
+    pub(crate) labels: Vec<TickLabelProps>,
+    /// Mark and gridline properties.
+    pub(crate) lines: Vec<TickLineProps>,
+}
+
 /// State of one axis.
 ///
 /// The scale and tick helpers are reference counted because axes sharing
@@ -146,12 +157,10 @@ pub(crate) struct AxisState {
     pub(crate) major_style: TickStyle,
     /// Appearance of the minor ticks.
     pub(crate) minor_style: TickStyle,
-    /// Label properties of single major ticks, by tick index, on top of
-    /// `major_style`.
-    pub(crate) major_label_overrides: Vec<TickLabelProps>,
-    /// Mark and gridline properties of single major ticks, by tick index,
-    /// on top of `major_style`.
-    pub(crate) major_line_overrides: Vec<TickLineProps>,
+    /// Properties of single major ticks, on top of `major_style`.
+    pub(crate) major_overrides: TickOverrides,
+    /// Properties of single minor ticks, on top of `minor_style`.
+    pub(crate) minor_overrides: TickOverrides,
     /// The axis label.
     pub(crate) label: AxisLabel,
     /// Whether ticks, tick labels, the label and the offset text are drawn.
@@ -203,8 +212,8 @@ impl AxisState {
             ticks: Ok(TickSet::default()),
             major_style: TickStyle::from_rc(name, true, rc),
             minor_style: TickStyle::from_rc(name, false, rc),
-            major_label_overrides: Vec::new(),
-            major_line_overrides: Vec::new(),
+            major_overrides: TickOverrides::default(),
+            minor_overrides: TickOverrides::default(),
             label: AxisLabel {
                 text: String::new(),
                 is_default: true,
@@ -230,6 +239,25 @@ impl AxisState {
             offset_visible: true,
             remove_overlapping_locs: true,
             picking: AxisPicking::default(),
+        }
+    }
+
+    /// The properties single major (or `minor`) ticks have of their own.
+    pub(crate) fn overrides(&self, minor: bool) -> &TickOverrides {
+        if minor {
+            &self.minor_overrides
+        } else {
+            &self.major_overrides
+        }
+    }
+
+    /// The properties single major (or `minor`) ticks have of their own,
+    /// to change.
+    pub(crate) fn overrides_mut(&mut self, minor: bool) -> &mut TickOverrides {
+        if minor {
+            &mut self.minor_overrides
+        } else {
+            &mut self.major_overrides
         }
     }
 
@@ -275,7 +303,7 @@ impl AxisState {
 
     /// `locator` as this axis uses it: wrapped in a [`RadialLocator`] on
     /// a radial axis (matplotlib's `RadialAxis.set_major_locator`).
-    fn for_role(&self, locator: Rc<dyn Locator>) -> Rc<dyn Locator> {
+    pub(super) fn for_role(&self, locator: Rc<dyn Locator>) -> Rc<dyn Locator> {
         match self.role {
             AxisRole::Radius => RadialLocator::wrap(locator, self.scale.as_ref()),
             AxisRole::Cartesian | AxisRole::Theta => locator,

@@ -378,11 +378,39 @@ side a new copy from `changed()`.
 Python code runs inside pltrs (Rust) through `Callback`: the native function
 takes the callable, and the pltrs (Rust) closure or trait object holds it
 (`Callback` is `Send`, as pltrs (Rust) requires of what runs during layout and
-drawing). `ticker.rs` shows the pattern: the Python formatter of an axis
-becomes a pltrs (Rust) formatter calling its methods as matplotlib's
-`Axis` does (`Formatter._label_axis`: `format_ticks`, then `get_offset`),
-handing it pltrs (Rust)'s description of the axis being drawn, which its
-`_axis_info()` returns meanwhile.
+drawing). `axis/python_helpers.rs` shows the pattern: the Python formatter
+of an axis becomes a pltrs (Rust) formatter calling its methods as
+matplotlib's `Axis` does (`format_ticks`, then `get_offset`, through the
+adapter `_tick_helpers` makes), handing it pltrs (Rust)'s description of
+the axis being drawn, which its `_axis_info()` and its `Axis` answer from
+meanwhile.
+
+### Axes' axes: tick helpers, ticks and texts
+
+An `Axis` (`ax.xaxis`) reaches its pltrs (Rust) axis through its axes and
+its name; pltrs (Rust) keeps everything about it. Two mechanisms give it
+matplotlib's objects:
+
+* **Tick helpers** (`_tick_helpers`, `_native.axis` `helpers`): Python
+  refers to the locators and formatters pltrs (Rust) uses through tokens
+  whose identity stays unique while held; each root figure keeps
+  `{identity: (token, helper object, axis)}` (`figure._tick_helpers`), so
+  `ax.xaxis.get_major_locator()` is the same object each time, and the
+  same for the axes sharing the axis. A locator of `ticker` (or of polar
+  axes) set from Python is installed natively from its spec and installed
+  again in place when changing one of its attributes changes its spec
+  (`TickHelper.__setattr__`); any other helper, formatters included (they
+  keep what they computed for the ticks drawn last), is installed through
+  an adapter pltrs (Rust) calls. A helper pltrs (Rust) installed itself is
+  described by its spec (`ticker/describe.rs`) and becomes the object of
+  matplotlib's class.
+* **Mirrors** (`_axis_artists`, `_native.axis` `mirrors`): the ticks
+  (`Tick` with `label1`, `label2`, `tick1line`, `tick2line`, `gridline`),
+  the axis label and the offset text are loose `Text` and `Line2D`
+  artists that a native `sync` fills from the axis when they are handed
+  out and that every setter pushes back (`push`): what one tick has of its
+  own is what differs from the style of its level, kept as pltrs (Rust)'s
+  per-tick properties (`Axis::set_tick_label_props`).
 
 pltrs (Rust)'s callback traits cannot fail the Python way, so when the callable
 raises, the exception is kept in the frame of the native call that is

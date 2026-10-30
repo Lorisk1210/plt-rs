@@ -57,8 +57,9 @@ class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
 
     def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
-        """Set the label for the x-axis."""
-        _axes.set_xlabel(self._native, str(xlabel))
+        """Set the label for the x-axis (see `.Axis.set_label_text`)."""
+        return self.xaxis._set_axes_label(xlabel, fontdict, labelpad, loc,
+                                          kwargs)
 
     def get_xlabel(self):
         """Get the xlabel text string."""
@@ -66,8 +67,9 @@ class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
 
     def set_ylabel(self, ylabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
-        """Set the label for the y-axis."""
-        _axes.set_ylabel(self._native, str(ylabel))
+        """Set the label for the y-axis (see `.Axis.set_label_text`)."""
+        return self.yaxis._set_axes_label(ylabel, fontdict, labelpad, loc,
+                                          kwargs)
 
     def get_ylabel(self):
         """Get the ylabel text string."""
@@ -90,7 +92,8 @@ class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
         current = self.get_xlim()
         left = current[0] if left is None else left
         right = current[1] if right is None else right
-        _axes.set_xlim(self._native, float(left), float(right))
+        left, right = self.xaxis._checked_limits(left, right)
+        _axes.set_xlim(self._native, left, right)
         return left, right
 
     def get_ylim(self):
@@ -104,7 +107,8 @@ class Axes(PlottingMixin, ImagingMixin, AxesText, _AxesBase):
         current = self.get_ylim()
         bottom = current[0] if bottom is None else bottom
         top = current[1] if top is None else top
-        _axes.set_ylim(self._native, float(bottom), float(top))
+        bottom, top = self.yaxis._checked_limits(bottom, top)
+        _axes.set_ylim(self._native, bottom, top)
         return bottom, top
 
     @property

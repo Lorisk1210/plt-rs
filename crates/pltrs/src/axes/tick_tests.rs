@@ -379,8 +379,8 @@ fn single_tick_label_properties_accumulate_on_the_major_style() {
     let (base, own, other) = ax.raw().with::<AxesState, _>(|a| {
         (
             a.xaxis.major_style.clone(),
-            a.xaxis.major_tick_style(1).into_owned(),
-            a.xaxis.major_tick_style(0).into_owned(),
+            a.xaxis.tick_style_at(false, 1).into_owned(),
+            a.xaxis.tick_style_at(false, 0).into_owned(),
         )
     });
     assert_eq!(own.label_color, Color::from("red"));

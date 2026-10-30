@@ -155,6 +155,7 @@ fn axes_ticks_6(fig: &Figure) -> CaseResult {
             grid_linestyle: Some(LineStyle::Dotted),
             grid_linewidth: Some(1.5),
             grid_color: red(),
+            ..TickLineProps::default()
         },
     );
     Ok(())

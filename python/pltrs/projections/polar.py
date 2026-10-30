@@ -11,9 +11,10 @@ License).
 
 import numpy as np
 
-from .. import _api, ticker as mticker, transforms as mtransforms
+from .. import _api, _tick_helpers, ticker as mticker, transforms as mtransforms
 from .._native import polar as _polar
 from ..axes import Axes
+from ..axis import XAxis, YAxis
 
 
 def _is_full_circle_deg(thetamin, thetamax):
@@ -98,6 +99,12 @@ class ThetaLocator(mticker.Locator):
         vmin, vmax = np.rad2deg((vmin, vmax))
         return np.deg2rad(self.base.view_limits(vmin, vmax))
 
+    def _spec(self):
+        """The native description of the locator (that of its base, in
+        degrees), None when the base computes in Python."""
+        base = _tick_helpers._spec_of(self.base)
+        return None if base is None else {"kind": "theta", "base": base}
+
 
 class RadialLocator(mticker.Locator):
     """
@@ -148,6 +155,37 @@ class RadialLocator(mticker.Locator):
             vmin = min(0, vmin)
         return mtransforms._nonsingular(vmin, vmax)
 
+    def _spec(self):
+        """The native description of the locator: that of its base, which
+        pltrs (Rust) wraps on the radial axis; None when the base computes
+        in Python."""
+        return _tick_helpers._spec_of(self.base)
+
+
+class ThetaAxis(XAxis):
+    """
+    A theta Axis.
+
+    pltrs (Rust) wraps its default locator and formatter for angles
+    (`ThetaLocator`, `ThetaFormatter`).
+    """
+    __name__ = 'thetaaxis'
+
+
+class RadialAxis(YAxis):
+    """
+    A radial Axis.
+
+    Its major locators are always wrapped in a `RadialLocator`.
+    """
+    __name__ = 'radialaxis'
+
+    def set_major_locator(self, locator):
+        # docstring inherited
+        if not isinstance(locator, RadialLocator):
+            locator = RadialLocator(locator)
+        super().set_major_locator(locator)
+
 
 class PolarAxes(Axes):
     """
@@ -156,6 +194,13 @@ class PolarAxes(Axes):
     Theta starts pointing east and goes anti-clockwise.
     """
     name = 'polar'
+
+    @classmethod
+    def _from_native(cls, native, figure):
+        ax = super()._from_native(native, figure)
+        ax.xaxis = ThetaAxis(ax)
+        ax.yaxis = RadialAxis(ax)
+        return ax
 
     def set_thetamax(self, thetamax):
         """Set the maximum theta limit in degrees."""

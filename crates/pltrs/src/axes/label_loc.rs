@@ -27,7 +27,7 @@ pub enum LabelLoc {
 
 impl LabelLoc {
     /// The position along the axis as a fraction of its length.
-    pub(crate) fn fraction(self) -> f64 {
+    pub fn fraction(self) -> f64 {
         match self {
             Self::Start => 0.0,
             Self::Center => 0.5,

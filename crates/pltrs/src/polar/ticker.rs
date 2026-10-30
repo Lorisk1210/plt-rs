@@ -48,19 +48,19 @@ fn in_degrees(axis: &AxisInfo) -> AxisInfo {
 /// θ ticks every 45° on a full circle, else the base locator's ticks
 /// computed in degrees (matplotlib's `ThetaLocator`).
 #[derive(Debug)]
-pub(crate) struct ThetaLocator {
+pub struct ThetaLocator {
     base: Rc<dyn Locator>,
 }
 
 impl ThetaLocator {
     /// The θ locator around `base`, which works in degrees.
-    pub(crate) fn wrapping(base: Rc<dyn Locator>) -> Self {
+    pub fn wrapping(base: Rc<dyn Locator>) -> Self {
         Self { base }
     }
 
     /// The locator placing the ticks of sectors, in degrees (matplotlib's
     /// `ThetaLocator.base`).
-    pub(crate) fn base(&self) -> &dyn Locator {
+    pub fn base(&self) -> &dyn Locator {
         self.base.as_ref()
     }
 }
@@ -165,7 +165,7 @@ impl Formatter for ThetaFormatter {
 /// (matplotlib's `RadialLocator`). Ticks inside the origin of full
 /// circles are dropped by the axis, which knows the polar geometry.
 #[derive(Debug)]
-pub(crate) struct RadialLocator {
+pub struct RadialLocator {
     base: Rc<dyn Locator>,
     /// Whether zero is a valid radius under the axis scale.
     zero_in_bounds: bool,
@@ -186,8 +186,8 @@ impl RadialLocator {
         })
     }
 
-    /// The wrapped locator.
-    pub(crate) fn base(&self) -> &dyn Locator {
+    /// The wrapped locator (matplotlib's `RadialLocator.base`).
+    pub fn base(&self) -> &dyn Locator {
         self.base.as_ref()
     }
 }

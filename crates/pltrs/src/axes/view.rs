@@ -53,7 +53,7 @@ impl FigureState {
 
     /// The length of axis `name` of `axes` in points, once the axes has a
     /// box.
-    fn axis_length_points(&self, axes: ArtistId, name: AxisName) -> Option<f64> {
+    pub(crate) fn axis_length_points(&self, axes: ArtistId, name: AxisName) -> Option<f64> {
         let extent = self.axes_bbox(axes)?;
         let pixels = match name {
             AxisName::X => extent.width(),

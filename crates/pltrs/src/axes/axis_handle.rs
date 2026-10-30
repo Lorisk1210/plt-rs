@@ -5,11 +5,11 @@
 
 use std::rc::Rc;
 
-use super::axis::AxisState;
+use super::axis::{AxisState, TickerDefaults};
 use super::{Axes, AxesState, TickParams};
 use crate::artist::ArtistHandle;
 use crate::colors::Color;
-use crate::ticker::{AxisName, Formatter, Locator};
+use crate::ticker::{AxisName, Formatter, Locator, TickerError};
 
 /// One axis of an axes, from [`Axes::xaxis`], [`Axes::yaxis`] or
 /// [`Axes::axis_of`].
@@ -81,8 +81,9 @@ impl Axis {
         self.set_shared_major_locator(&(Rc::new(locator) as Rc<dyn Locator>))
     }
 
-    /// Places the major ticks with a locator that may be shared.
-    pub(crate) fn set_shared_major_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
+    /// Places the major ticks with a locator that may be shared, the one
+    /// [`major_locator`](Self::major_locator) then returns.
+    pub fn set_shared_major_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
         let owner = self.axes.id();
         self.update_shared(|axis| {
             axis.set_major_locator(Rc::clone(locator));
@@ -117,8 +118,9 @@ impl Axis {
         self.set_shared_minor_locator(&(Rc::new(locator) as Rc<dyn Locator>))
     }
 
-    /// Places the minor ticks with a locator that may be shared.
-    pub(crate) fn set_shared_minor_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
+    /// Places the minor ticks with a locator that may be shared, the one
+    /// [`minor_locator`](Self::minor_locator) then returns.
+    pub fn set_shared_minor_locator(&self, locator: &Rc<dyn Locator>) -> &Self {
         let owner = self.axes.id();
         self.update_shared(|axis| {
             axis.set_minor_locator(Rc::clone(locator));
@@ -138,8 +140,9 @@ impl Axis {
         self.set_shared_major_formatter(&(Rc::new(formatter) as Rc<dyn Formatter>))
     }
 
-    /// Labels the major ticks with a formatter that may be shared.
-    pub(crate) fn set_shared_major_formatter(&self, formatter: &Rc<dyn Formatter>) -> &Self {
+    /// Labels the major ticks with a formatter that may be shared, the one
+    /// [`major_formatter`](Self::major_formatter) then returns.
+    pub fn set_shared_major_formatter(&self, formatter: &Rc<dyn Formatter>) -> &Self {
         self.update_shared(|axis| axis.set_major_formatter(Rc::clone(formatter)));
         self
     }
@@ -153,9 +156,69 @@ impl Axis {
 
     /// Labels the minor ticks with `formatter`.
     pub fn set_minor_formatter(&self, formatter: impl Formatter) -> &Self {
-        let formatter: Rc<dyn Formatter> = Rc::new(formatter);
-        self.update_shared(|axis| axis.set_minor_formatter(Rc::clone(&formatter)));
+        self.set_shared_minor_formatter(&(Rc::new(formatter) as Rc<dyn Formatter>))
+    }
+
+    /// Labels the minor ticks with a formatter that may be shared, the one
+    /// [`minor_formatter`](Self::minor_formatter) then returns.
+    pub fn set_shared_minor_formatter(&self, formatter: &Rc<dyn Formatter>) -> &Self {
+        self.update_shared(|axis| axis.set_minor_formatter(Rc::clone(formatter)));
         self
+    }
+
+    /// Puts `new` in place of the locator `old` wherever this axis and the
+    /// axes sharing it use `old`, major or minor, leaving whether it counts
+    /// as the scale's default alone: matplotlib's tick helpers change in
+    /// place (`axis.get_major_locator().set_params(...)`). Returns the
+    /// locator now in use where `old` was (on a radial axis, `new` wrapped
+    /// as a major locator is), `None` when `old` was nowhere in use.
+    ///
+    /// ```
+    /// use std::rc::Rc;
+    /// use pltrs::prelude::*;
+    /// use pltrs::ticker::{Locator, MaxNLocator, Nbins};
+    /// let ax = Figure::new().subplot();
+    /// let old = ax.xaxis().major_locator();
+    /// let new: Rc<dyn Locator> = Rc::new(MaxNLocator::new(Nbins::Fixed(3)));
+    /// let installed = ax.xaxis().replace_locator(&old, &new).expect("in use");
+    /// assert!(Rc::ptr_eq(&ax.xaxis().major_locator(), &installed));
+    /// assert!(ax.xaxis().is_default_major_locator());
+    /// assert!(ax.xaxis().replace_locator(&old, &new).is_none());
+    /// ```
+    pub fn replace_locator(
+        &self,
+        old: &Rc<dyn Locator>,
+        new: &Rc<dyn Locator>,
+    ) -> Option<Rc<dyn Locator>> {
+        let mut installed = None;
+        self.update_shared(|axis| {
+            if Rc::ptr_eq(&axis.major_locator, old) {
+                axis.major_locator = axis.for_role(Rc::clone(new));
+                installed = Some(Rc::clone(&axis.major_locator));
+            }
+            if Rc::ptr_eq(&axis.minor_locator, old) {
+                axis.minor_locator = Rc::clone(new);
+                installed = Some(Rc::clone(new));
+            }
+        });
+        installed
+    }
+
+    /// Puts `new` in place of the formatter `old` wherever this axis and
+    /// the axes sharing it use `old`, as
+    /// [`replace_locator`](Self::replace_locator) does for locators;
+    /// returns whether `old` was in use.
+    pub fn replace_formatter(&self, old: &Rc<dyn Formatter>, new: &Rc<dyn Formatter>) -> bool {
+        let mut found = false;
+        self.update_shared(|axis| {
+            for slot in [&mut axis.major_formatter, &mut axis.minor_formatter] {
+                if Rc::ptr_eq(slot, old) {
+                    *slot = Rc::clone(new);
+                    found = true;
+                }
+            }
+        });
+        found
     }
 
     /// The formatter labelling the minor ticks (matplotlib's
@@ -184,6 +247,13 @@ impl Axis {
         self.read(|axis| axis.defaults.major.locator)
     }
 
+    /// Counts the tick helpers in use as the scale's own (matplotlib's
+    /// `_set_axes_scale` once a scale installed its helpers).
+    pub fn mark_default_tick_helpers(&self) -> &Self {
+        self.update_shared(|axis| axis.defaults = TickerDefaults::default());
+        self
+    }
+
     /// Whether the major formatter is still the one the scale installed
     /// (matplotlib's `isDefault_majfmt`); see
     /// [`is_default_major_locator`](Self::is_default_major_locator).
@@ -203,6 +273,23 @@ impl Axis {
     /// [`is_default_major_locator`](Self::is_default_major_locator).
     pub fn is_default_minor_formatter(&self) -> bool {
         self.read(|axis| axis.defaults.minor.formatter)
+    }
+
+    /// The offset (or scale) text of the major ticks in the current view,
+    /// empty when there is none (matplotlib's `offsetText.get_text()`).
+    ///
+    /// # Errors
+    ///
+    /// When the locator or the formatter fails.
+    pub fn offset_text(&self) -> Result<String, TickerError> {
+        Ok(self.axes.ticks(self.name)?.offset)
+    }
+
+    /// Shows or hides the offset (or scale) text (matplotlib's
+    /// `offsetText.set_visible`).
+    pub fn set_offset_text_visible(&self, visible: bool) -> &Self {
+        self.update(|axis| axis.offset_visible = visible);
+        self
     }
 
     /// Whether the offset (or scale) text is shown (matplotlib's

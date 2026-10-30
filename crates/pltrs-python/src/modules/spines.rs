@@ -1,10 +1,12 @@
 //! `_native.spines`: the spines framing an axes (matplotlib's `spines`).
 
+use pltrs::artist::ArtistHandle;
 use pltrs::axes::Axes;
 use pltrs::colors::Color;
 use pltrs::lines::LineStyle;
 use pltrs::spines::{Spine, SpinePosition, SpineSide};
 
+use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 
 artist_handle!(Spine);
@@ -19,19 +21,32 @@ pub(super) fn side_name(side: SpineSide) -> &'static str {
     }
 }
 
-/// The spines of an axes with their names, in matplotlib's order (left,
-/// right, bottom, top).
+/// The spines of an axes with their names, in matplotlib's order: left,
+/// right, bottom, top; for polar axes the outer arc (`polar`), the start
+/// and the end of the sector, and the inner arc, which pltrs (Rust) keeps
+/// as the top, left, right and bottom spines.
 fn axes_spines(axes: Axes) -> PyResult<Vec<(&'static str, Spine)>> {
     let spines = axes.spines();
-    Ok([
-        SpineSide::Left,
-        SpineSide::Right,
-        SpineSide::Bottom,
-        SpineSide::Top,
-    ]
-    .into_iter()
-    .map(|side| (side_name(side), spines.get(side).clone()))
-    .collect())
+    let named: [(&'static str, SpineSide); 4] = if axes.as_polar().is_some() {
+        [
+            ("polar", SpineSide::Top),
+            ("start", SpineSide::Left),
+            ("end", SpineSide::Right),
+            ("inner", SpineSide::Bottom),
+        ]
+    } else {
+        [
+            SpineSide::Left,
+            SpineSide::Right,
+            SpineSide::Bottom,
+            SpineSide::Top,
+        ]
+        .map(|side| (side_name(side), side))
+    };
+    Ok(named
+        .into_iter()
+        .map(|(name, side)| (name, spines.get(side).clone()))
+        .collect())
 }
 
 /// The side the spine frames (`spine_type`).
@@ -63,13 +78,6 @@ fn get_position(spine: Spine) -> PyResult<(&'static str, f64)> {
         SpinePosition::Axes(fraction) => ("axes", fraction),
         SpinePosition::Data(value) => ("data", value),
     })
-}
-
-/// Limits the spine to the data interval `bounds` (`None` follows the view
-/// limits; `set_bounds`).
-fn set_bounds(spine: Spine, bounds: Option<(f64, f64)>) -> PyResult<()> {
-    spine.set_bounds(bounds);
-    Ok(())
 }
 
 /// The data interval the spine is limited to, if any.
@@ -110,13 +118,39 @@ fn set_linestyle(spine: Spine, style: String) -> PyResult<()> {
     Ok(())
 }
 
+/// Limits the spine to the data interval from `low` to `high`, an end
+/// given as `None` keeping the bound set before or else the view limit
+/// (`set_bounds`).
+fn set_bound_ends(spine: Spine, low: Option<f64>, high: Option<f64>) -> PyResult<()> {
+    spine.set_bound_ends(low, high);
+    Ok(())
+}
+
+/// The spine's display box with the tick marks drawn on it
+/// (`get_window_extent`).
+fn window_extent(spine: Spine) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(spine
+        .window_extent()
+        .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
+}
+
+/// The spine line in display pixels, if drawn.
+fn display_path(spine: Spine) -> PyResult<Option<PathArrays>> {
+    spine
+        .display_path()
+        .map(|path| path_arrays(&path, false))
+        .transpose()
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axes_spines", axes_spines)?;
     module.add("side", side)?;
     module.add("set_position", set_position)?;
     module.add("get_position", get_position)?;
-    module.add("set_bounds", set_bounds)?;
+    module.add("set_bound_ends", set_bound_ends)?;
+    module.add("window_extent", window_extent)?;
+    module.add("display_path", display_path)?;
     module.add("get_bounds", get_bounds)?;
     module.add("set_color", set_color)?;
     module.add("get_edgecolor", get_edgecolor)?;
@@ -139,7 +173,21 @@ mod tests {
         set_position(left.clone(), ("outward".into(), 10.0)).unwrap();
         assert_eq!(get_position(left.clone()).unwrap(), ("outward", 10.0));
         assert!(set_position(left.clone(), ("inward".into(), 1.0)).is_err());
-        set_bounds(left.clone(), Some((0.0, 1.0))).unwrap();
-        assert_eq!(get_bounds(left).unwrap(), Some((0.0, 1.0)));
+        set_bound_ends(left.clone(), Some(0.25), None).unwrap();
+        assert_eq!(get_bounds(left.clone()).unwrap(), Some((0.25, 1.0)));
+        assert!(window_extent(left.clone()).unwrap().is_some());
+        let path = display_path(left).unwrap().expect("a drawn spine");
+        assert_eq!(path.0.shape, [2, 2]);
+    }
+
+    #[test]
+    fn polar_spines_take_matplotlibs_names() {
+        let ax = Figure::new().polar_subplot().axes().clone();
+        let names: Vec<&str> = axes_spines(ax)
+            .unwrap()
+            .iter()
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(names, ["polar", "start", "end", "inner"]);
     }
 }

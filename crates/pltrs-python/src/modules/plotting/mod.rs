@@ -31,7 +31,7 @@ mod scatter;
 mod spectral;
 mod stats;
 mod tripcolor;
-mod values;
+pub(super) mod values;
 
 use pltrs::artist::RawHandle;
 use pltrs::axes::Axes;

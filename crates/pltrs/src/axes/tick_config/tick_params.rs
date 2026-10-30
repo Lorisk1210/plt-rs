@@ -1,6 +1,7 @@
 //! Tick parameters (matplotlib's `tick_params`): direction, size, colour,
 //! label and gridline style, and the sides ticks and labels are drawn on.
 
+use crate::axes::axis::TickOverrides;
 use crate::axes::ticks::{GridOptions, TickDirection, TickStyle};
 use crate::axes::{Axes, Axis, AxisName, TickLevel};
 use crate::colors::Color;
@@ -141,14 +142,63 @@ impl TickParams {
     }
 }
 
+impl TickParams {
+    /// Drops what single ticks have of their own among the properties
+    /// these parameters set, all of it on a reset: matplotlib applies tick
+    /// parameters to every existing tick (`Tick._apply_params`).
+    fn clear_overridden(&self, name: AxisName, overrides: &mut TickOverrides) {
+        if self.reset {
+            *overrides = TickOverrides::default();
+            return;
+        }
+        let colors = self.colors.is_some();
+        let (low, high, label_low, label_high) = match name {
+            AxisName::X => (self.bottom, self.top, self.labelbottom, self.labeltop),
+            AxisName::Y => (self.left, self.right, self.labelleft, self.labelright),
+        };
+        for label in &mut overrides.labels {
+            clear_if(&mut label.rotation, self.labelrotation.is_some());
+            clear_if(&mut label.rotation_mode, self.labelrotation_mode.is_some());
+            clear_if(&mut label.color, colors || self.labelcolor.is_some());
+            clear_if(&mut label.fontsize, self.labelsize.is_some());
+            clear_if(&mut label.family, self.labelfontfamily.is_some());
+            clear_if(&mut label.label1_visible, label_low.is_some());
+            clear_if(&mut label.label2_visible, label_high.is_some());
+        }
+        for line in &mut overrides.lines {
+            let color = colors || self.color.is_some();
+            clear_if(&mut line.color, color);
+            clear_if(&mut line.markeredgecolor, color);
+            clear_if(&mut line.size, self.length.is_some());
+            clear_if(&mut line.width, self.width.is_some());
+            clear_if(&mut line.tick1_visible, low.is_some());
+            clear_if(&mut line.tick2_visible, high.is_some());
+            clear_if(&mut line.grid_color, self.grid_color.is_some());
+            clear_if(&mut line.grid_alpha, self.grid_alpha.is_some());
+            clear_if(&mut line.grid_linewidth, self.grid_linewidth.is_some());
+            clear_if(&mut line.grid_linestyle, self.grid_linestyle.is_some());
+        }
+    }
+}
+
+/// Empties `slot` when `set`.
+fn clear_if<T>(slot: &mut Option<T>, set: bool) {
+    if set {
+        *slot = None;
+    }
+}
+
 impl Axis {
     /// Changes the tick parameters of this axis (matplotlib's
-    /// `Axis.set_tick_params`); `params.axis` is ignored.
+    /// `Axis.set_tick_params`); `params.axis` is ignored. The properties
+    /// set apply to every tick of the levels changed, those of single
+    /// ticks included.
     pub fn set_tick_params(&self, params: TickParams) -> &Self {
         let rc = crate::rc::params();
         let name = self.name();
         self.update(|axis| {
             if params.which.major() {
+                params.clear_overridden(name, &mut axis.major_overrides);
                 params.apply(name, true, &mut axis.major_style, &rc);
                 // The tick-space heuristic follows the major label size of
                 // the tick parameters (matplotlib's `_get_tick_label_size`).
@@ -160,6 +210,7 @@ impl Axis {
                 }
             }
             if params.which.minor() {
+                params.clear_overridden(name, &mut axis.minor_overrides);
                 params.apply(name, false, &mut axis.minor_style, &rc);
             }
         });

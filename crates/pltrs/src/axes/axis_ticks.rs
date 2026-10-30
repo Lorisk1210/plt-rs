@@ -117,12 +117,7 @@ impl Axis {
     /// [`set_major_ticklabel_props`](Self::set_major_ticklabel_props),
     /// unset fields following the major tick labels.
     pub fn major_ticklabel_props(&self, index: usize) -> TickLabelProps {
-        self.read(|axis| {
-            axis.major_label_overrides
-                .get(index)
-                .cloned()
-                .unwrap_or_default()
-        })
+        self.tick_label_props(false, index)
     }
 
     /// Shows (`visible`) or hides the gridlines of `options.which`,
@@ -172,6 +167,44 @@ impl Axis {
             }
         });
         Ok(ticks.unclipped_labels(minor, sides))
+    }
+
+    /// The appearance of the major (or `minor`) tick at `index` among
+    /// those the locator places: the style of its level with what that
+    /// tick has of its own on top (matplotlib's `Tick` artists, changed one
+    /// by one).
+    ///
+    /// ```
+    /// use pltrs::axes::TickLabelProps;
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.set_xticks([0.0, 0.5, 1.0]);
+    /// let red = TickLabelProps { color: Some("red".into()), ..TickLabelProps::default() };
+    /// ax.xaxis().set_major_ticklabel_props(1, red);
+    /// assert_eq!(ax.xaxis().tick_style_at(false, 1).label_color, "red".into());
+    /// assert_eq!(ax.xaxis().tick_style_at(false, 0), ax.xaxis().tick_style(false));
+    /// ```
+    pub fn tick_style_at(&self, minor: bool, index: usize) -> TickStyle {
+        self.read(|axis| axis.tick_style_at(minor, index).into_owned())
+    }
+
+    /// The display box of the label on the first (bottom or left) or the
+    /// second side of the major (or `minor`) tick at `index` among those
+    /// the locator places, in the figure's current layout (laid out
+    /// first), if it is drawn (matplotlib's `tick.label1.get_window_extent()`).
+    pub fn tick_label_extent(&self, minor: bool, index: usize, first_side: bool) -> Option<Bbox> {
+        self.with_texts(|texts, axis| {
+            let ticks = axis.ticks.as_ref().ok()?;
+            let position = if minor {
+                let in_view = ticks.minor_index.iter().position(|&i| i == index)?;
+                ticks.major.len() + in_view
+            } else {
+                ticks.major_index.iter().position(|&i| i == index)?
+            };
+            (texts.tick_labels.iter())
+                .find(|label| label.tick == position && label.first_side == first_side)
+                .map(|label| label.text.bbox())
+        })
+        .flatten()
     }
 
     /// The appearance of the major (or minor) ticks: sides with marks and

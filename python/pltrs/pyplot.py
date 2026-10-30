@@ -875,3 +875,8 @@ __all__ += _text_all
 from ._pyplot_layout import *  # noqa: E402,F401,F403
 from ._pyplot_layout import __all__ as _layout_all  # noqa: E402
 __all__ += _layout_all
+
+# The tick and scale functions (plt.xticks, plt.grid, plt.xscale, ...).
+from ._pyplot_ticks import *  # noqa: E402,F401,F403
+from ._pyplot_ticks import __all__ as _ticks_all  # noqa: E402
+__all__ += _ticks_all

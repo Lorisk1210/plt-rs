@@ -340,3 +340,34 @@ def test_tight_layout_warns_as_matplotlib_does():
     fig, ax = plt.subplots(layout="constrained")
     with pytest.warns(UserWarning, match="layout has changed to tight"):
         fig.tight_layout()
+
+
+def test_tick_helpers_keep_their_identity_and_drive_the_ticks():
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 1)
+    assert ax.xaxis.get_major_locator() is ax.xaxis.major.locator
+    assert isinstance(ax.xaxis.get_major_formatter(), ticker.ScalarFormatter)
+    locator = ticker.MultipleLocator(0.5)
+    ax.xaxis.set_major_locator(locator)
+    assert ax.xaxis.get_major_locator() is locator
+    assert not ax.xaxis.isDefault_majloc
+    # One tick beyond each end of the view, as matplotlib's locator gives.
+    np.testing.assert_allclose(ax.get_xticks(), np.arange(-0.5, 1.6, 0.5))
+    locator.set_params(base=0.25)
+    np.testing.assert_allclose(ax.get_xticks(), np.arange(-0.25, 1.3, 0.25))
+
+
+def test_ticks_and_axis_texts_mirror_the_axis():
+    fig, ax = plt.subplots()
+    ax.set_xticks([0, 0.5, 1])
+    assert [label.get_text() for label in ax.get_xticklabels()] == [
+        "0.0", "0.5", "1.0"]
+    ax.tick_params(labelsize=20, labelcolor="red")
+    tick = ax.xaxis.get_major_ticks()[1]
+    assert (tick.label1.get_fontsize(), tick.label1.get_color()) == (20, "red")
+    tick.label1.set_rotation(30)
+    assert ax.xaxis.get_major_ticks()[1].label1.get_rotation() == 30
+    assert ax.xaxis.get_major_ticks()[0].label1.get_rotation() == 0
+    ax.set_ylabel("height", loc="top")
+    assert ax.yaxis.label.get_text() == "height"
+    assert ax.yaxis.label.get_horizontalalignment() == "right"

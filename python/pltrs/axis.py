@@ -1,30 +1,642 @@
 """
-The x and y axes of an Axes (matplotlib's ``axis``): ticks, their labels
-and formatters.
+Classes for the ticks and x- and y-axis (matplotlib's ``axis``).
+
+pltrs (Rust) keeps every axis of an axes, ticks and tick helpers
+included, and draws it. An `Axis` reaches its pltrs (Rust) axis through
+its axes and its name: its locators and formatters are matplotlib's
+objects kept by `._tick_helpers`, and its ticks, label and offset text are
+artists mirroring what pltrs (Rust) draws (`._axis_artists`).
 """
+
+import functools
 
 import numpy as np
 
-from . import _api
-from ._native import axis as _axis, ticker as _ticker
+from . import _api, _tick_helpers, cbook, units as munits
+from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
+from ._native import axis as _axis, axes_base as _axes_base
+from ._native import scale as _native_scale
+from .artist import Artist
+
+__all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
+
+# The Line2D properties gridlines take as ``grid_<name>`` tick parameters.
+_gridline_param_names = [
+    'grid_' + name for name in (
+        "agg_filter", "alpha", "animated", "antialiased", "clip_box",
+        "clip_on", "clip_path", "color", "dash_capstyle", "dash_joinstyle",
+        "dashes", "data", "drawstyle", "figure", "fillstyle", "gapcolor",
+        "gid", "in_layout", "label", "linestyle", "linewidth", "marker",
+        "markeredgecolor", "markeredgewidth", "markerfacecolor",
+        "markerfacecoloralt", "markersize", "markevery", "mouseover",
+        "path_effects", "picker", "pickradius", "rasterized", "sketch_params",
+        "snap", "solid_capstyle", "solid_joinstyle", "transform", "url",
+        "visible", "xdata", "ydata", "zorder",
+        "aa", "c", "ds", "ls", "lw", "mec", "mew", "mfc", "mfcalt", "ms")]
 
 
-class Axis:
+def _native_scale_of(scale):
+    """The name and options of pltrs (Rust)'s scale matching the scale
+    object *scale*, None for a scale of the program's."""
+    from . import scale as mscale
+    kind = type(scale)
+    if kind is mscale.LinearScale:
+        return "linear", {}
+    if kind is mscale.LogScale:
+        nonpositive = "clip" if scale._transform._clip else "mask"
+        return "log", {"base": scale.base, "subs": _floats(scale.subs),
+                       "nonpositive": nonpositive}
+    if kind is mscale.SymmetricalLogScale:
+        transform = scale._transform
+        return "symlog", {"base": transform.base,
+                          "linthresh": transform.linthresh,
+                          "linscale": transform.linscale,
+                          "subs": _floats(scale.subs)}
+    if kind is mscale.LogitScale:
+        return "logit", {"nonpositive": scale._transform._nonpositive,
+                         "one_half": scale._one_half,
+                         "use_overline": scale._use_overline}
+    if kind is mscale.AsinhScale:
+        return "asinh", {"linear_width": scale.linear_width,
+                         "base": scale._base, "subs": _floats(scale._subs)}
+    if kind is mscale.FuncScale:
+        transform = scale._transform
+        return "function", {"functions": _scalar_functions(transform)}
+    if kind is mscale.FuncScaleLog:
+        return "functionlog", {"functions": _scalar_functions(scale._transform._a),
+                               "base": scale.base}
+    return None
+
+
+def _native_converter_kind(converter):
+    """The kind of pltrs (Rust)'s converter *converter* is: dates with
+    ``"auto"`` or ``"concise"`` ticks, ``"category"`` names, or None for a
+    converter of the program's."""
+    from . import category, dates
+    if isinstance(converter, dates.ConciseDateConverter):
+        return "concise"
+    if isinstance(converter, dates.DateConverter):
+        return "auto"
+    if isinstance(converter, category.StrCategoryConverter):
+        return "category"
+    return None
+
+
+def _floats(values):
+    """*values* as a list of floats, None staying None."""
+    return None if values is None else [float(v) for v in np.ravel(values)]
+
+
+def _scalar_functions(transform):
+    """The forward and inverse functions of a `.scale.FuncTransform`, value
+    by value."""
+    return (lambda x: float(transform._forward(np.array(x))),
+            lambda x: float(transform._inverse(np.array(x))))
+
+
+class Ticker:
+    """
+    A container for the objects defining tick position and format.
+
+    Here the locator and the formatter of one tick level of an axis, which
+    pltrs (Rust) keeps.
+
+    Attributes
+    ----------
+    locator : `~matplotlib.ticker.Locator` subclass
+        Determines the positions of the ticks.
+    formatter : `~matplotlib.ticker.Formatter` subclass
+        Determines the format of the tick labels.
+    """
+
+    def __init__(self, axis, minor):
+        self._axis = axis
+        self._minor = minor
+
+    def _replace(self, kind, helper):
+        """Put *helper* in place of the current helper of its kind."""
+        _, token = _axis.helper(self._axis.axes._native, self._axis.axis_name,
+                                kind, self._minor)
+        _tick_helpers._install(self._axis, kind, self._minor, helper, token)
+
+    @property
+    def locator(self):
+        return _tick_helpers.get(self._axis, "locator", self._minor)
+
+    @locator.setter
+    def locator(self, locator):
+        from .ticker import Locator
+        if not isinstance(locator, Locator):
+            raise TypeError('locator must be a subclass of '
+                            'matplotlib.ticker.Locator')
+        self._replace("locator", locator)
+
+    @property
+    def formatter(self):
+        return _tick_helpers.get(self._axis, "formatter", self._minor)
+
+    @formatter.setter
+    def formatter(self, formatter):
+        from .ticker import Formatter
+        if not isinstance(formatter, Formatter):
+            raise TypeError('formatter must be a subclass of '
+                            'matplotlib.ticker.Formatter')
+        self._replace("formatter", formatter)
+
+
+class Axis(Artist):
     """
     Base class for `.XAxis` and `.YAxis`.
 
-    An Axis belongs to an `~.axes.Axes` (``axis.axes``); pltrs (Rust) reaches it
-    through the axes and the axis name.
+    Attributes
+    ----------
+    axes : `~matplotlib.axes.Axes`
+        The `~.axes.Axes` to which the Axis belongs.
+    major : `~matplotlib.axis.Ticker`
+        Determines the major tick positions and their label format.
+    minor : `~matplotlib.axis.Ticker`
+        Determines the minor tick positions and their label format.
+    callbacks : `~matplotlib.cbook.CallbackRegistry`
+    label : `~matplotlib.text.Text`
+        The axis label.
+    labelpad : float
+        The distance between the axis label and the tick labels.
+    offsetText : `~matplotlib.text.Text`
+        A `.Text` object containing the data offset of the ticks (if any).
+    majorTicks : list of `.Tick`
+        The major ticks.
+    minorTicks : list of `.Tick`
+        The minor ticks.
     """
 
+    OFFSETTEXTPAD = 3
     axis_name = None
+    _tick_class = None
 
-    def __init__(self, axes):
-        self.axes = axes
+    def __str__(self):
+        return "{}({},{})".format(
+            type(self).__name__, *self.axes.transAxes.transform((0, 0)))
+
+    def __init__(self, axes, *, pickradius=15, clear=True):
+        """
+        Parameters
+        ----------
+        axes : `~matplotlib.axes.Axes`
+            The `~.axes.Axes` to which the created Axis belongs.
+        pickradius : float
+            The acceptance radius for containment tests.
+        clear : bool, default: True
+            Whether matplotlib clears the Axis on creation; the axis of a
+            pltrs (Rust) axes is in its default state when the axes is made,
+            either way.
+        """
+        super().__init__()
+        self._axes = axes
+        self.major = Ticker(self, minor=False)
+        self.minor = Ticker(self, minor=True)
+        self.callbacks = cbook.CallbackRegistry(signals=["units"])
+        self.pickradius = pickradius
+        #: The description pltrs (Rust) gave of the axis while its tick
+        #: helpers tick it (see `._tick_helpers.drawing`).
+        self._drawn_info = None
+        self._ticks = {False: [], True: []}
+        self._tick_kw = {False: {}, True: {}}
+        self._label = AxisLabel(self)
+        self._offset_text = OffsetText(self)
+        self._units = None
+        self._category_units = None
+        #: The scale object the axis was last given (see `_scale`).
+        self._given_scale = None
+        self._converter = None
+        self._converter_is_explicit = False
+
+    @property
+    def axes(self):
+        """The `~.axes.Axes` the axis belongs to."""
+        return self._axes
+
+    @axes.setter
+    def axes(self, axes):
+        self._axes = axes
+
+    @property
+    def figure(self):
+        """The root `.Figure` of the axis' axes."""
+        return self.axes.figure
+
+    def get_figure(self, root=False):
+        """Return the `.Figure` or `.SubFigure` the axis is on."""
+        return self.axes.get_figure(root=root)
+
+    def _args(self):
+        """The native axes and the axis name."""
+        return self.axes._native, self.axis_name
+
+    # --- Tick helpers --------------------------------------------------------
+
+    def _default(self, minor, kind):
+        return _axis.is_default_helper(*self._args(), kind, bool(minor))
+
+    @property
+    def isDefault_majloc(self):
+        return self._default(False, "locator")
+
+    @property
+    def isDefault_majfmt(self):
+        return self._default(False, "formatter")
+
+    @property
+    def isDefault_minloc(self):
+        return self._default(True, "locator")
+
+    @property
+    def isDefault_minfmt(self):
+        return self._default(True, "formatter")
+
+    def get_major_locator(self):
+        """Get the locator of the major ticker."""
+        return self.major.locator
+
+    def get_minor_locator(self):
+        """Get the locator of the minor ticker."""
+        return self.minor.locator
+
+    def get_major_formatter(self):
+        """Get the formatter of the major ticker."""
+        return self.major.formatter
+
+    def get_minor_formatter(self):
+        """Get the formatter of the minor ticker."""
+        return self.minor.formatter
+
+    def set_major_formatter(self, formatter):
+        """
+        Set the formatter of the major ticker.
+
+        In addition to a `~matplotlib.ticker.Formatter` instance,
+        this also accepts a ``str`` or function.
+
+        For a ``str`` a `~matplotlib.ticker.StrMethodFormatter` is used.
+        The field used for the value must be labeled ``'x'`` and the field used
+        for the position must be labeled ``'pos'``.
+
+        For a function, a `~matplotlib.ticker.FuncFormatter` is used.
+        The function must take two inputs (a tick value ``x`` and a
+        position ``pos``), and return a string containing the corresponding
+        tick label.
+
+        Parameters
+        ----------
+        formatter : `~matplotlib.ticker.Formatter`, ``str``, or function
+        """
+        self._set_formatter(formatter, minor=False)
+
+    def set_minor_formatter(self, formatter):
+        """
+        Set the formatter of the minor ticker.
+
+        In addition to a `~matplotlib.ticker.Formatter` instance,
+        this also accepts a ``str`` or function.
+        See `.Axis.set_major_formatter` for more information.
+
+        Parameters
+        ----------
+        formatter : `~matplotlib.ticker.Formatter`, ``str``, or function
+        """
+        self._set_formatter(formatter, minor=True)
+
+    def _set_formatter(self, formatter, minor):
+        from . import ticker as mticker
+        if isinstance(formatter, str):
+            formatter = mticker.StrMethodFormatter(formatter)
+        # Don't allow any other TickHelper to avoid easy-to-make errors,
+        # like using a Locator instead of a Formatter.
+        elif (callable(formatter) and
+              not isinstance(formatter, mticker.TickHelper)):
+            formatter = mticker.FuncFormatter(formatter)
+        else:
+            _api.check_isinstance(mticker.Formatter, formatter=formatter)
+        formatter.set_axis(self)
+        _tick_helpers.install(self, "formatter", minor, formatter)
+
+    def set_major_locator(self, locator):
+        """
+        Set the locator of the major ticker.
+
+        Parameters
+        ----------
+        locator : `~matplotlib.ticker.Locator`
+        """
+        self._set_locator(locator, minor=False)
+
+    def set_minor_locator(self, locator):
+        """
+        Set the locator of the minor ticker.
+
+        Parameters
+        ----------
+        locator : `~matplotlib.ticker.Locator`
+        """
+        self._set_locator(locator, minor=True)
+
+    def _set_locator(self, locator, minor):
+        from . import ticker as mticker
+        _api.check_isinstance(mticker.Locator, locator=locator)
+        locator.set_axis(self)
+        _tick_helpers.install(self, "locator", minor, locator)
+        formatter = self.minor.formatter if minor else self.major.formatter
+        formatter._set_locator(locator)
+
+    def minorticks_on(self):
+        """
+        Display default minor ticks on the Axis, depending on the scale
+        (`~.axis.Axis.get_scale`).
+
+        Scales use specific minor locators:
+
+        - log: `~.LogLocator`
+        - symlog: `~.SymmetricalLogLocator`
+        - asinh: `~.AsinhLocator`
+        - logit: `~.LogitLocator`
+        - default: `~.AutoMinorLocator`
+
+        Displaying minor ticks may reduce performance; you may turn them off
+        using `minorticks_off()` if drawing speed is a problem.
+        """
+        _axis.minorticks(*self._args(), True)
+
+    def minorticks_off(self):
+        """Remove minor ticks from the Axis."""
+        _axis.minorticks(*self._args(), False)
+
+    def get_remove_overlapping_locs(self):
+        return _axis.get_remove_overlapping_locs(*self._args())
+
+    def set_remove_overlapping_locs(self, val):
+        _axis.set_remove_overlapping_locs(*self._args(), bool(val))
+
+    remove_overlapping_locs = property(
+        get_remove_overlapping_locs, set_remove_overlapping_locs,
+        doc=('If minor ticker locations that overlap with major '
+             'ticker locations should be trimmed.'))
+
+    # --- Intervals -----------------------------------------------------------
+
+    def _drawn_fields(self):
+        """The fields of the description pltrs (Rust) is drawing the axis
+        with, or None outside a draw."""
+        if self._drawn_info is None:
+            return None
+        return _axis.info_fields(self._drawn_info)
+
+    def _native_info(self):
+        """What the axis' tick helpers know of it (an `AxisInfo`)."""
+        if self._drawn_info is not None:
+            return self._drawn_info
+        return _axis.axis_info(*self._args())
+
+    def get_view_interval(self):
+        """Return the ``(min, max)`` view limits of this axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return np.array(fields[0])
+        return np.array(_axis.get_view_interval(*self._args()))
+
+    def set_view_interval(self, vmin, vmax, ignore=False):
+        """
+        Set the axis view limits.  This method is for internal use; Matplotlib
+        users should typically use e.g. `~.Axes.set_xlim` or `~.Axes.set_ylim`.
+
+        If *ignore* is False (the default), this method will never reduce the
+        preexisting view limits, only expand them if *vmin* or *vmax* are not
+        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
+        the orientation of the axis will not change.
+
+        If *ignore* is True, the view limits will be set exactly to ``(vmin,
+        vmax)`` in that order.
+        """
+        _axis.set_view_interval(*self._args(), float(vmin), float(vmax),
+                                bool(ignore))
+
+    def get_data_interval(self):
+        """Return the ``(min, max)`` data limits of this axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return np.array(fields[1])
+        return np.array(_axis.get_data_interval(*self._args()))
+
+    def set_data_interval(self, vmin, vmax, ignore=False):
+        """
+        Set the axis data limits.  This method is for internal use.
+
+        If *ignore* is False (the default), this method will never reduce the
+        preexisting data limits, only expand them if *vmin* or *vmax* are not
+        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
+        the orientation of the axis will not change.
+
+        If *ignore* is True, the data limits will be set exactly to ``(vmin,
+        vmax)`` in that order.
+        """
+        _axis.set_data_interval(*self._args(), float(vmin), float(vmax),
+                                bool(ignore))
+
+    def get_minpos(self):
+        """Return the smallest positive datum along the axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return fields[2]
+        return _axis.get_minpos(*self._args())
+
+    def get_tick_space(self):
+        """Return the estimated number of ticks that can fit on the axis."""
+        fields = self._drawn_fields()
+        if fields is not None:
+            return fields[3]
+        return _axis.get_tick_space(*self._args())
+
+    def get_inverted(self):
+        """
+        Return whether this Axis is oriented in the "inverse" direction.
+
+        The "normal" direction is increasing to the right for the x-axis and to
+        the top for the y-axis; the "inverse" direction is increasing to the
+        left for the x-axis and to the bottom for the y-axis.
+        """
+        low, high = self.get_view_interval()
+        return high < low
+
+    def set_inverted(self, inverted):
+        """
+        Set whether this Axis is oriented in the "inverse" direction.
+
+        The "normal" direction is increasing to the right for the x-axis and to
+        the top for the y-axis; the "inverse" direction is increasing to the
+        left for the x-axis and to the bottom for the y-axis.
+        """
+        _axis.set_inverted(*self._args(), bool(inverted))
+
+    def _checked_limits(self, v0, v1):
+        """
+        The view limits *v0*, *v1* as numbers of the axis, warning as
+        matplotlib's ``Axis._set_lim`` does about the ones it cannot take
+        (non-positive limits on a log axis keep the current ones).
+        """
+        v0, v1 = (float(np.asarray(self.convert_units(v), dtype=float))
+                  for v in (v0, v1))
+        name = self.axis_name
+        if self.get_scale() == 'log' and (v0 <= 0 or v1 <= 0):
+            old0, old1 = self.get_view_interval()
+            if v0 <= 0:
+                _api.warn_external(f"Attempt to set non-positive {name}lim on "
+                                   f"a log-scaled axis will be ignored.")
+                v0 = old0
+            if v1 <= 0:
+                _api.warn_external(f"Attempt to set non-positive {name}lim on "
+                                   f"a log-scaled axis will be ignored.")
+                v1 = old1
+        if v0 == v1:
+            _api.warn_external(
+                f"Attempting to set identical low and high {name}lims "
+                f"makes transformation singular; automatically expanding.")
+        return v0, v1
+
+    def get_scale(self):
+        """Return this Axis' scale (as a str)."""
+        return _axes_base.get_scale(*self._args())
+
+    @property
+    def _scale(self):
+        """The axis' scale as an object of `.scale`: the one it was set
+        with, or one with the default options of the scale in use."""
+        from . import scale as mscale
+        name = self.get_scale()
+        given = self._given_scale
+        if given is not None and given.name == name:
+            return given
+        return mscale.scale_factory(name, self)
+
+    def _set_axes_scale(self, value, **kwargs):
+        """
+        Set this Axis' scale.
+
+        Parameters
+        ----------
+        value : str or `.ScaleBase`
+            The axis scale type to apply.  Valid string values are the names of
+            scale classes ("linear", "log", "function",...).  These may be the
+            names of any of the :ref:`built-in scales<builtin_scales>` or of any
+            custom scales registered using `matplotlib.scale.register_scale`.
+
+        **kwargs
+            If *value* is a string, keywords are passed to the instantiation
+            method of the respective class.
+        """
+        from . import scale as mscale
+        if isinstance(value, mscale.ScaleBase):
+            scale = value
+        else:
+            scale = mscale.scale_factory(value, self, **kwargs)
+        native = _native_scale_of(scale)
+        if native is None:
+            transform = scale.get_transform()
+            inverse = transform.inverted()
+            _native_scale.set_python_scale(
+                *self._args(), scale.name,
+                (lambda x: float(transform.transform(x)),
+                 lambda x: float(inverse.transform(x))),
+                lambda vmin, vmax, minpos: tuple(
+                    map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
+            scale.set_default_locators_and_formatters(self)
+            _axis.mark_default_helpers(*self._args())
+        else:
+            _native_scale.set_scale(*self._args(), *native)
+        for axis in self._get_shared_axis():
+            axis._given_scale = scale
+
+    def get_transform(self):
+        """Return the transform used in the Axis' scale."""
+        return self._scale.get_transform()
+
+    def limit_range_for_scale(self, vmin, vmax):
+        """
+        Return the range *vmin*, *vmax*, restricted to the domain supported by
+        the current scale.
+        """
+        return self._scale.limit_range_for_scale(vmin, vmax, self.get_minpos())
+
+    # --- Ticks ---------------------------------------------------------------
+
+    def _tick_objects(self, minor, count):
+        """The first *count* (at least one) ticks of a level, synced."""
+        ticks = self._ticks[minor]
+        while len(ticks) < max(count, 1):
+            ticks.append(self._get_tick(major=not minor, index=len(ticks)))
+        for tick in ticks:
+            tick._sync()
+        return ticks
+
+    def _get_tick(self, major, index=0):
+        """The tick at *index* among the major (or minor) ticks."""
+        tick_class = self._tick_class or Tick
+        return tick_class._of_axis(self, major, index)
+
+    @property
+    def majorTicks(self):
+        """The major ticks (see `get_major_ticks`)."""
+        return self._tick_objects(False, len(self.get_majorticklocs()))
+
+    @property
+    def minorTicks(self):
+        """The minor ticks (see `get_minor_ticks`)."""
+        return self._tick_objects(True, len(self.get_minorticklocs()))
+
+    def get_major_ticks(self, numticks=None):
+        r"""Return the list of major `.Tick`\s."""
+        if numticks is None:
+            numticks = len(self.get_majorticklocs())
+        return self._tick_objects(False, numticks)[:numticks]
+
+    def get_minor_ticks(self, numticks=None):
+        r"""Return the list of minor `.Tick`\s."""
+        if numticks is None:
+            numticks = len(self.get_minorticklocs())
+        return self._tick_objects(True, numticks)[:numticks]
+
+    def reset_ticks(self):
+        """
+        Re-initialize the major and minor Tick lists.
+
+        Each list starts with a single fresh Tick.
+        """
+        self._ticks = {False: [], True: []}
+
+    def _update_ticks(self):
+        """
+        Update ticks (position and labels) using the current data interval of
+        the axes.  Return the list of ticks that will be drawn.
+        """
+        ticks = []
+        for minor in (False, True):
+            locs = self.get_ticklocs(minor=minor)
+            if not len(locs):
+                continue
+            ticker = self.minor if minor else self.major
+            ticker.formatter.format_ticks(locs)
+            ticks += self._tick_objects(minor, len(locs))[:len(locs)]
+        view_low, view_high = sorted(self.get_view_interval())
+        return [tick for tick in ticks if view_low <= tick.get_loc() <= view_high
+                or np.isclose(tick.get_loc(), (view_low, view_high)).any()]
 
     def get_ticklocs(self, *, minor=False):
-        """Return this Axis' tick locations in data coordinates."""
-        return _axis.get_ticklocs(self.axes._native, self.axis_name, bool(minor))
+        """
+        Return this Axis' tick locations in data coordinates.
+
+        The locations are not clipped to the current axis limits and hence
+        may contain locations that are not visible in the output.
+        """
+        if self._drawn_info is not None and not minor:
+            return self._drawn_fields()[4]
+        return _axis.get_ticklocs(*self._args(), bool(minor))
 
     def get_majorticklocs(self):
         """Return this Axis' major tick locations in data coordinates."""
@@ -33,6 +645,112 @@ class Axis:
     def get_minorticklocs(self):
         """Return this Axis' minor tick locations in data coordinates."""
         return self.get_ticklocs(minor=True)
+
+    def get_majorticklabels(self):
+        """Return this Axis' major tick labels, as a list of `~.text.Text`."""
+        return self._ticklabels(minor=False)
+
+    def get_minorticklabels(self):
+        """Return this Axis' minor tick labels, as a list of `~.text.Text`."""
+        return self._ticklabels(minor=True)
+
+    def _ticklabels(self, minor):
+        ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
+        labels1 = [tick.label1 for tick in ticks if tick.label1.get_visible()]
+        labels2 = [tick.label2 for tick in ticks if tick.label2.get_visible()]
+        return labels1 + labels2
+
+    def get_ticklabels(self, minor=False, which=None):
+        """
+        Get this Axis' tick labels.
+
+        Parameters
+        ----------
+        minor : bool
+           Whether to return the minor or the major ticklabels.
+
+        which : None, ('minor', 'major', 'both')
+           Overrides *minor*.
+
+           Selects which ticklabels to return
+
+        Returns
+        -------
+        list of `~matplotlib.text.Text`
+        """
+        if which is not None:
+            if which == 'minor':
+                return self.get_minorticklabels()
+            elif which == 'major':
+                return self.get_majorticklabels()
+            elif which == 'both':
+                return self.get_majorticklabels() + self.get_minorticklabels()
+            else:
+                _api.check_in_list(['major', 'minor', 'both'], which=which)
+        if minor:
+            return self.get_minorticklabels()
+        return self.get_majorticklabels()
+
+    def get_majorticklines(self):
+        """Return this Axis' major tick lines as a list of `.Line2D`."""
+        return self._ticklines(self.get_major_ticks())
+
+    def get_minorticklines(self):
+        """Return this Axis' minor tick lines as a list of `.Line2D`."""
+        return self._ticklines(self.get_minor_ticks())
+
+    @staticmethod
+    def _ticklines(ticks):
+        lines = []
+        for tick in ticks:
+            lines.append(tick.tick1line)
+            lines.append(tick.tick2line)
+        return cbook.silent_list('Line2D ticklines', lines)
+
+    def get_ticklines(self, minor=False):
+        """Return this Axis' tick lines as a list of `.Line2D`."""
+        if minor:
+            return self.get_minorticklines()
+        return self.get_majorticklines()
+
+    def get_gridlines(self):
+        """Return this Axis' grid lines as a list of `.Line2D`."""
+        ticks = self.get_major_ticks()
+        return cbook.silent_list('Line2D gridline',
+                                 [tick.gridline for tick in ticks])
+
+    def get_ticks_direction(self, minor=False):
+        """
+        Return an array of this Axis' tick directions.
+
+        Parameters
+        ----------
+        minor : bool, default: False
+            True to return the minor tick directions,
+            False to return the major tick directions.
+
+        Returns
+        -------
+        array of tick directions
+        """
+        ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
+        return np.array([tick._tickdir for tick in ticks])
+
+    def get_tick_padding(self):
+        """The tick marks' reach out of the axes, in points."""
+        return _axis.get_tick_padding(*self._args())
+
+    def _get_tick_label_size(self, axis_name):
+        """Return the text size of tick labels for this Axis."""
+        from .font_manager import FontProperties
+        size = self._tick_kw[False].get(
+            'labelsize', self._rc(f'{axis_name}tick.labelsize'))
+        return FontProperties(size=size).get_size_in_points()
+
+    @staticmethod
+    def _rc(key):
+        from . import rcParams
+        return rcParams[key]
 
     def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
         """
@@ -44,17 +762,30 @@ class Axis:
         Parameters
         ----------
         ticks : 1D array-like
-            Array of tick locations (either floats or in axis units).
+            Array of tick locations (either floats or in axis units). The axis
+            `.Locator` is replaced by a `~.ticker.FixedLocator`.
+
+            Pass an empty list (``set_ticks([])``) to remove all ticks.
+
+            Some tick formatters will not label arbitrary tick positions;
+            e.g. log formatters only label decade ticks by default. In
+            such a case you can set a formatter explicitly on the axis
+            using `.Axis.set_major_formatter` or provide formatted
+            *labels* yourself.
+
         labels : list of str, optional
             Tick labels for each location in *ticks*; must have the same length
             as *ticks*. If set, the labels are used as is, via a
-            `.FixedFormatter`.
+            `.FixedFormatter`. If not set, the labels are generated using the
+            axis tick `.Formatter`.
+
         minor : bool, default: False
             If ``False``, set only the major ticks; if ``True``, only the minor
             ticks.
+
         **kwargs
             `.Text` properties for the labels. Using these is only allowed if
-            you pass *labels*.
+            you pass *labels*. In other cases, please use `~.Axes.tick_params`.
         """
         if labels is None and kwargs:
             first_key = next(iter(kwargs))
@@ -62,125 +793,603 @@ class Axis:
                 f"Incorrect use of keyword argument {first_key!r}. Keyword arguments "
                 "other than 'minor' modify the text labels and can only be used if "
                 "'labels' are passed as well.")
-        if kwargs:
-            raise NotImplementedError(
-                f"pltrs: set_ticks({next(iter(kwargs))}=...)")
-        _axis.set_ticks(self.axes._native, self.axis_name,
-                        np.asarray(ticks, dtype=float).ravel().tolist(),
-                        bool(minor))
+        if not np.iterable(ticks) or isinstance(ticks, str):
+            raise TypeError(
+                f"ticks must be a sequence, not {type(ticks).__name__}")
+        values = np.asarray(ticks)
+        # matplotlib's FixedLocator takes the locations.
+        _api.check_shape((None,), locs=values)
+        if values.dtype.kind in "fiub" or not values.size:
+            native = values.astype(float)
+        else:
+            from .axes._plotting._helpers import axis_values
+            native = axis_values(ticks)
+        _axis.set_ticks(*self._args(), native, bool(minor))
         if labels is not None:
-            self.set_ticklabels(labels, minor=minor)
+            self.set_ticklabels(labels, minor=minor, **kwargs)
         return self.get_ticklocs(minor=minor)
 
-    def set_ticklabels(self, labels, *, minor=False, **kwargs):
+    @staticmethod
+    def _format_with_dict(tickd, x, pos):
+        return tickd.get(x, "")
+
+    def set_ticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
         r"""
         [*Discouraged*] Set this Axis' tick labels with list of string labels.
 
         Parameters
         ----------
-        labels : sequence of str
+        labels : sequence of str or of `.Text`\s
             Texts for labeling each tick location in the sequence set by
-            `.Axis.set_ticks`.
+            `.Axis.set_ticks`; the number of labels must match the number of
+            locations.
+
         minor : bool
             If True, set minor ticks instead of major ticks.
+
+        fontdict : dict, optional
+            A dictionary controlling the appearance of the ticklabels.
+
         **kwargs
             Text properties.
+
+        Returns
+        -------
+        list of `.Text`\s
+            For each tick, includes ``tick.label1`` if it is visible, then
+            ``tick.label2`` if it is visible, in that order.
+        """
+        from . import ticker as mticker
+        try:
+            labels = [t.get_text() if hasattr(t, 'get_text') else t
+                      for t in labels]
+        except TypeError:
+            raise TypeError(f"{labels=!r} must be a sequence") from None
+        locator = (self.get_minor_locator() if minor
+                   else self.get_major_locator())
+        if not labels:
+            formatter = mticker.NullFormatter()
+        elif isinstance(getattr(locator, "base", locator), mticker.FixedLocator):
+            fixed = getattr(locator, "base", locator)
+            # Passing [] as a list of labels is often used as a way to
+            # remove all tick labels, so only error for > 0 labels
+            if len(fixed.locs) != len(labels) and len(labels) != 0:
+                raise ValueError(
+                    "The number of FixedLocator locations"
+                    f" ({len(fixed.locs)}), usually from a call to"
+                    " set_ticks, does not match"
+                    f" the number of labels ({len(labels)}).")
+            tickd = {loc: lab for loc, lab in zip(fixed.locs, labels)}
+            func = functools.partial(self._format_with_dict, tickd)
+            formatter = mticker.FuncFormatter(func)
+        else:
+            _api.warn_external(
+                "set_ticklabels() should only be used with a fixed number of "
+                "ticks, i.e. after set_ticks() or using a FixedLocator.")
+            formatter = mticker.FixedFormatter(labels)
+        self._set_formatter(formatter, minor=minor)
+        ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
+        kwargs = {**(fontdict or {}), **kwargs}
+        ret = []
+        for tick in ticks:
+            if kwargs:
+                tick.label1._internal_update(kwargs)
+                tick.label2._internal_update(kwargs)
+            if tick.label1.get_visible():
+                ret.append(tick.label1)
+            if tick.label2.get_visible():
+                ret.append(tick.label2)
+        return ret
+
+    def set_tick_params(self, which='major', reset=False, **kwargs):
+        """
+        Set appearance parameters for ticks, ticklabels, and gridlines.
+
+        For documentation of keyword arguments, see
+        :meth:`matplotlib.axes.Axes.tick_params`.
+        """
+        _api.check_in_list(['major', 'minor', 'both'], which=which)
+        kwtrans = self._translate_tick_params(kwargs)
+        for minor in (False, True):
+            if which in ('minor' if minor else 'major', 'both'):
+                if reset:
+                    self._tick_kw[minor] = {}
+                self._tick_kw[minor].update(kwtrans)
+        # The ticks are drawn with their axis, as a unit, so that their
+        # zorder only orders them among themselves: it is kept, not drawn.
+        native = {k: v for k, v in kwtrans.items() if k != 'zorder'}
+        _axis.set_tick_params(*self._args(), which, bool(reset), native)
+        if not reset:
+            # labelOn and labelcolor also apply to the offset text.
+            if 'label1On' in kwtrans or 'label2On' in kwtrans:
+                major = self._major_tick_kw
+                self.offsetText.set_visible(major.get('label1On', False)
+                                            or major.get('label2On', False))
+
+    def get_tick_params(self, which='major'):
+        """
+        Get appearance parameters for ticks, ticklabels, and gridlines.
+
+        Parameters
+        ----------
+        which : {'major', 'minor'}, default: 'major'
+            The group of ticks for which the parameters are retrieved.
+
+        Returns
+        -------
+        dict
+            Properties for styling tick elements added to the axis.
+        """
+        _api.check_in_list(['major', 'minor'], which=which)
+        kw = self._major_tick_kw if which == 'major' else self._minor_tick_kw
+        return self._translate_tick_params(kw, reverse=True)
+
+    @property
+    def _major_tick_kw(self):
+        """The keyword state of the major ticks: the sides with marks and
+        labels and the grid, and the tick parameters set."""
+        return self._tick_kw_of(minor=False)
+
+    @property
+    def _minor_tick_kw(self):
+        """The keyword state of the minor ticks (see `_major_tick_kw`)."""
+        return self._tick_kw_of(minor=True)
+
+    def _tick_kw_of(self, minor):
+        keys = ("tick1On", "tick2On", "label1On", "label2On", "gridOn")
+        switches = dict(zip(keys, _axis.tick_switches(*self._args(), minor)))
+        return {**self._tick_kw[minor], **switches}
+
+    @classmethod
+    def _translate_tick_params(cls, kw, reverse=False):
+        """
+        Translate the kwargs supported by `.Axis.set_tick_params` to kwargs
+        supported by `.Tick._apply_params`.
+
+        In particular, this maps axis specific names like 'top', 'left'
+        to the generic tick1, tick2 logic of the axis. Additionally, there
+        are some other name translations.
+
+        Returns a new dict of translated kwargs.
+
+        Note: Use reverse=True to translate from those supported by
+        `.Tick._apply_params` back to those supported by
+        `.Axis.set_tick_params`.
+        """
+        kw_ = {**kw}
+
+        allowed_keys = [
+            'size', 'width', 'color', 'tickdir', 'pad',
+            'labelsize', 'labelcolor', 'labelfontfamily', 'zorder', 'gridOn',
+            'tick1On', 'tick2On', 'label1On', 'label2On',
+            'length', 'direction', 'left', 'bottom', 'right', 'top',
+            'labelleft', 'labelbottom', 'labelright', 'labeltop',
+            'labelrotation', 'labelrotation_mode',
+            *_gridline_param_names]
+
+        keymap = {
+            # tick_params key -> axis key
+            'length': 'size',
+            'direction': 'tickdir',
+            'rotation': 'labelrotation',
+            'rotation_mode': 'labelrotation_mode',
+            'left': 'tick1On',
+            'bottom': 'tick1On',
+            'right': 'tick2On',
+            'top': 'tick2On',
+            'labelleft': 'label1On',
+            'labelbottom': 'label1On',
+            'labelright': 'label2On',
+            'labeltop': 'label2On',
+        }
+        if reverse:
+            kwtrans = {}
+            is_x_axis = cls.axis_name == 'x'
+            y_axis_keys = ['left', 'right', 'labelleft', 'labelright']
+            for oldkey, newkey in keymap.items():
+                if newkey in kw_:
+                    if is_x_axis and oldkey in y_axis_keys:
+                        continue
+                    else:
+                        kwtrans[oldkey] = kw_.pop(newkey)
+        else:
+            kwtrans = {
+                newkey: kw_.pop(oldkey)
+                for oldkey, newkey in keymap.items() if oldkey in kw_
+            }
+        if 'colors' in kw_:
+            c = kw_.pop('colors')
+            kwtrans['color'] = c
+            kwtrans['labelcolor'] = c
+        # Maybe move the checking up to the caller of this method.
+        for key in kw_:
+            if key not in allowed_keys:
+                raise ValueError(
+                    "keyword %s is not recognized; valid keywords are %s"
+                    % (key, allowed_keys))
+        kwtrans.update(kw_)
+        return kwtrans
+
+    def grid(self, visible=None, which='major', **kwargs):
+        """
+        Configure the grid lines.
+
+        Parameters
+        ----------
+        visible : bool or None
+            Whether to show the grid lines.  If any *kwargs* are supplied, it
+            is assumed you want the grid on and *visible* will be set to True.
+
+            If *visible* is *None* and there are no *kwargs*, this toggles the
+            visibility of the lines.
+
+        which : {'major', 'minor', 'both'}
+            The grid lines to apply the changes on.
+
+        **kwargs : `~matplotlib.lines.Line2D` properties
+            Define the line properties of the grid, e.g.::
+
+                grid(color='r', linestyle='-', linewidth=2)
         """
         if kwargs:
-            raise NotImplementedError(
-                f"pltrs: set_ticklabels({next(iter(kwargs))}=...)")
-        _axis.set_ticklabels(self.axes._native, self.axis_name,
-                             [str(label) for label in labels], bool(minor))
-
-    def get_inverted(self):
-        """
-        Return whether this Axis is oriented in the "inverse" direction.
-
-        The "normal" direction is increasing to the right for the x-axis and to
-        the top for the y-axis; the "inverse" direction is increasing to the
-        left for the x-axis and to the bottom for the y-axis.
-        """
-        return _axis.get_inverted(self.axes._native, self.axis_name)
-
-    def set_inverted(self, inverted):
-        """
-        Set whether this Axis is oriented in the "inverse" direction.
-
-        The "normal" direction is increasing to the right for the x-axis and to
-        the top for the y-axis; the "inverse" direction is increasing to the
-        left for the x-axis and to the bottom for the y-axis.
-        """
-        _axis.set_inverted(self.axes._native, self.axis_name, bool(inverted))
+            if visible is None:
+                visible = True
+            elif not visible:  # something false-like but not None
+                _api.warn_external('First parameter to grid() is false, '
+                                   'but line properties are supplied. The '
+                                   'grid will be enabled.')
+                visible = True
+        which = which.lower()
+        _api.check_in_list(['major', 'minor', 'both'], which=which)
+        gridkw = {f'grid_{name}': value for name, value in kwargs.items()}
+        if which in ['minor', 'both']:
+            gridkw['gridOn'] = (not self._minor_tick_kw['gridOn']
+                                if visible is None else visible)
+            self.set_tick_params(which='minor', **gridkw)
+        if which in ['major', 'both']:
+            gridkw['gridOn'] = (not self._major_tick_kw['gridOn']
+                                if visible is None else visible)
+            self.set_tick_params(which='major', **gridkw)
 
     def get_ticks_position(self):
         """
         Return the ticks position ("top", "bottom", "left", "right",
         "default" or "unknown").
         """
-        return _axis.get_ticks_position(self.axes._native, self.axis_name)
+        return _axis.get_ticks_position(*self._args())
 
     def _set_ticks_position(self, position):
         """Put the ticks where *position* says (natively checked)."""
-        _axis.set_ticks_position(self.axes._native, self.axis_name, position)
+        _axis.set_ticks_position(*self._args(), position)
+
+    # --- Label and offset text -----------------------------------------------
+
+    @property
+    def label(self):
+        """The `.Text` object of the axis label."""
+        return self._label._synced()
+
+    @property
+    def offsetText(self):
+        """The `.Text` object of the offset (or scale) of the ticks."""
+        return self._offset_text._synced()
+
+    def get_label(self):
+        """
+        [*Discouraged*] Return the axis label as a Text instance.
+
+        .. admonition:: Discouraged
+
+           This overrides `.Artist.get_label`, which is for legend labels, with
+           a new semantic. It is recommended to use the attribute
+           ``Axis.label`` instead.
+        """
+        return self.label
+
+    def set_label(self, s):
+        """Assigning legend labels is not supported. Raises RuntimeError."""
+        raise RuntimeError(
+            "A legend label cannot be assigned to an Axis. Did you mean to "
+            "set the axis label via set_label_text()?")
+
+    def get_offset_text(self):
+        """Return the axis offsetText as a Text instance."""
+        return self.offsetText
+
+    def get_label_text(self):
+        """Get the text of the label."""
+        return self.label.get_text()
+
+    def set_label_text(self, label, fontdict=None, **kwargs):
+        """
+        Set the text value of the axis label.
+
+        Parameters
+        ----------
+        label : str
+            Text string.
+        fontdict : dict
+            Text properties.
+
+            .. admonition:: Discouraged
+
+               The use of *fontdict* is discouraged. Parameters should be passed
+               as individual keyword arguments or using dictionary-unpacking
+               ``set_label_text(..., **fontdict)``.
+
+        **kwargs
+            Merged into fontdict.
+        """
+        text = self.label
+        text.set_text(label)
+        if fontdict is not None:
+            text.update(fontdict)
+        text.update(kwargs)
+        return text
+
+    def _set_axes_label(self, label, fontdict, labelpad, loc, kwargs):
+        """
+        Label the axis as `.Axes.set_xlabel` and `.Axes.set_ylabel` do:
+        *loc* places the label along the axis unless the keywords place it.
+        """
+        if labelpad is not None:
+            self.labelpad = labelpad
+        along = self.axis_name
+        protected_kw = [along, 'horizontalalignment', 'ha']
+        if {*kwargs} & {*protected_kw}:
+            if loc is not None:
+                raise TypeError(f"Specifying 'loc' is disallowed when any of "
+                                f"its corresponding low level keyword "
+                                f"arguments ({protected_kw}) are also "
+                                f"supplied")
+        else:
+            names = (('left', 'center', 'right') if along == 'x'
+                     else ('bottom', 'center', 'top'))
+            loc = loc if loc is not None else self._rc(f'{along}axis.labellocation')
+            _api.check_in_list(names, loc=loc)
+            fraction = names.index(loc) / 2
+            ha = ('left', 'center', 'right')[names.index(loc)]
+            kwargs = {**kwargs, along: fraction, 'horizontalalignment': ha}
+        return self.set_label_text(label, fontdict, **kwargs)
+
+    @property
+    def labelpad(self):
+        """The distance between the axis label and the tick labels, in
+        points."""
+        return _axis.get_labelpad(*self._args())
+
+    @labelpad.setter
+    def labelpad(self, pad):
+        _axis.set_labelpad(*self._args(), float(pad))
+
+    def set_label_coords(self, x, y, transform=None):
+        """
+        Set the coordinates of the label.
+
+        By default, the x coordinate of the y label and the y coordinate of the
+        x label are determined by the tick label bounding boxes, but this can
+        lead to poor alignment of multiple labels if there are multiple Axes.
+
+        You can also specify the coordinate system of the label with the
+        transform.  If None, the default coordinate system will be the axes
+        coordinate system: (0, 0) is bottom left, (0.5, 0.5) is center, etc.
+        """
+        if transform is not None:
+            x, y = (transform - self.axes.transAxes).transform((x, y))
+        _axis.set_label_coords(*self._args(), float(x), float(y))
 
     def get_label_position(self):
         """
         Return the label position (top, bottom, left or right).
         """
-        return _axis.get_label_position(self.axes._native, self.axis_name)
+        return _axis.get_label_position(*self._args())
+
+    def set_label_position(self, position):
+        """Set the label position (a side of the axes)."""
+        _axis.set_label_position(*self._args(), position)
+
+    # --- Visibility and layout -----------------------------------------------
+
+    def get_visible(self):
+        """Return whether the axis is drawn."""
+        return _axis.get_visible(*self._args())
+
+    def set_visible(self, b):
+        """Set whether the axis is drawn: its ticks, labels and offset text."""
+        _axis.set_visible(*self._args(), bool(b))
+
+    def get_in_layout(self):
+        """Return whether layouts make room for the axis' texts."""
+        return _axis.get_in_layout(*self._args())
+
+    def set_in_layout(self, in_layout):
+        """Set whether layouts make room for the axis' texts."""
+        _axis.set_in_layout(*self._args(), bool(in_layout))
+
+    def get_children(self):
+        return [self.label, self.offsetText,
+                *self.get_major_ticks(), *self.get_minor_ticks()]
+
+    def get_tightbbox(self, renderer=None, *, for_layout_only=False):
+        """
+        Return a bounding box that encloses the axis. It only accounts
+        tick labels, axis label, and offsetText.
+
+        If *for_layout_only* is True, then the width of the label (if this
+        is an x-axis) or the height of the label (if this is a y-axis) is
+        collapsed to near zero.  This allows tight/constrained_layout to ignore
+        too-long labels when doing their layout.
+        """
+        from .transforms import Bbox
+        if for_layout_only:
+            raise NotImplementedError(
+                "pltrs: Axis.get_tightbbox(for_layout_only=True)")
+        extent = _axis.get_tightbbox(*self._args())
+        if extent is None:
+            return None
+        x0, y0, x1, y1 = extent
+        return Bbox([[x0, y0], [x1, y1]])
+
+    def get_pickradius(self):
+        """Return the depth of the axis used by the picker."""
+        return self._pickradius
+
+    def set_pickradius(self, pickradius):
+        """
+        Set the depth of the axis used by the picker.
+
+        Parameters
+        ----------
+        pickradius : float
+            The acceptance radius for containment tests.
+            See also `.Axis.contains`.
+        """
+        from numbers import Real
+        if not isinstance(pickradius, Real) or pickradius < 0:
+            raise ValueError("pick radius should be a distance")
+        self._pickradius = pickradius
+
+    pickradius = property(
+        get_pickradius, set_pickradius, doc="The acceptance radius for "
+        "containment tests. See also `.Axis.contains`.")
+
+    # --- Units ---------------------------------------------------------------
 
     @property
-    def _major_tick_kw(self):
-        """The keyword state of the major ticks (``tick1On``, ``tick2On``,
-        ``label1On``, ``label2On``, ``gridOn``)."""
-        return self._tick_kw(minor=False)
+    def units(self):
+        """The units of the axis: the category data of a categorical axis,
+        else what `set_units` set."""
+        if not _axis.has_categories(*self._args()):
+            return self._units
+        if self._category_units is None:
+            # The axes sharing the axis share its units, as in matplotlib.
+            from .category import UnitData
+            shared = self._get_shared_axis()
+            units = next((axis._category_units for axis in shared
+                          if axis._category_units is not None), UnitData())
+            for axis in shared:
+                axis._category_units = units
+        self._category_units._mapping.clear()
+        names = _axis.category_names(*self._args())
+        self._category_units._mapping.update(
+            (name, index) for index, name in enumerate(names))
+        return self._category_units
 
-    @property
-    def _minor_tick_kw(self):
-        """The keyword state of the minor ticks (see `_major_tick_kw`)."""
-        return self._tick_kw(minor=True)
+    @units.setter
+    def units(self, units):
+        self._units = units
 
-    def _tick_kw(self, minor):
-        """The keyword state of the major or *minor* ticks."""
-        keys = ("tick1On", "tick2On", "label1On", "label2On", "gridOn")
-        return dict(zip(keys, _axis.tick_switches(
-            self.axes._native, self.axis_name, minor)))
+    def have_units(self):
+        """Return whether the axis converts units."""
+        return (self._units is not None
+                or _axis.have_units(*self._args()))
 
-    def get_label_text(self):
-        """Get the text of the label."""
-        if self.axis_name == "x":
-            return self.axes.get_xlabel()
-        return self.axes.get_ylabel()
+    def get_units(self):
+        """Return the units for axis."""
+        return self.units
 
-    def set_major_formatter(self, formatter):
+    def set_units(self, u):
         """
-        Set the formatter of the major ticker: a `.ticker.Formatter`, or a
-        function ``f(x, pos)`` (made a `.ticker.FuncFormatter`).
+        Set the units for axis.
 
-        pltrs (Rust) calls the formatter (any callable taking ``(x, pos)``) each
-        time it labels the ticks.
+        Parameters
+        ----------
+        u : units tag
+
+        Notes
+        -----
+        The units of any shared axis will also be updated.
         """
-        self._set_formatter("major", formatter)
+        if u == self._units:
+            return
+        for axis in self._get_shared_axis():
+            axis._units = u
+            axis.callbacks.process('units')
 
-    def set_minor_formatter(self, formatter):
-        """Set the formatter of the minor ticker (see `set_major_formatter`)."""
-        self._set_formatter("minor", formatter)
+    def _get_shared_axis(self):
+        """Return list of shared axis for current axis."""
+        name = self.axis_name
+        return [getattr(ax, f"{name}axis")
+                for ax in self.axes._shared_axes[name].get_siblings(self.axes)]
 
-    def _set_formatter(self, level, formatter):
-        from .ticker import Formatter, FuncFormatter
-        if not isinstance(formatter, Formatter) and callable(formatter):
-            formatter = FuncFormatter(formatter)
-        if not isinstance(formatter, Formatter):
-            raise TypeError("formatter argument should be instance of "
-                            "matplotlib.ticker.Formatter")
-        formatter.axis = self
-        _ticker.set_formatter(self.axes._native, self.axis_name, level, formatter)
+    def update_units(self, data):
+        """
+        Introspect *data* for units converter and update the
+        ``axis.get_converter`` instance if necessary. Return *True*
+        if *data* is registered for unit conversion.
+        """
+        if munits._is_natively_supported(data):
+            return False
+        from .axes._plotting._helpers import axis_values
+        return _axis.update_units(*self._args(), axis_values(data))
+
+    def convert_units(self, x):
+        """Convert *x* to the numbers of the axis, which takes the units
+        it brings."""
+        if munits._is_natively_supported(x):
+            return x
+        from .axes._plotting._helpers import convert_units
+        return convert_units(self.axes, self.axis_name, x)
+
+    def get_converter(self):
+        """Get the unit converter for axis."""
+        if self._converter is not None:
+            return self._converter
+        kind = _axis.converter_kind(*self._args())
+        if kind is None:
+            return None
+        return munits.registry.get_converter(
+            ["a"] if kind == "category" else [np.datetime64("2000-01-01")])
+
+    def set_converter(self, converter):
+        """
+        Set the unit converter for axis.
+
+        Parameters
+        ----------
+        converter : `~matplotlib.units.ConversionInterface`
+        """
+        self._set_converter(converter)
+        self._converter_is_explicit = True
+
+    def _set_converter(self, converter):
+        current = self.get_converter()
+        if current is converter or current == converter:
+            return
+        if self._converter_is_explicit:
+            raise RuntimeError("Axis already has an explicit converter set")
+        elif (current is not None and
+              not isinstance(converter, type(current)) and
+              not isinstance(current, type(converter))):
+            _api.warn_external(
+                "This axis already has a converter set and "
+                "is updating to a potentially incompatible converter"
+            )
+        kind = _native_converter_kind(converter)
+        if kind is not None:
+            _axis.set_converter(*self._args(), kind)
+        self._converter = converter
+
+    def axis_date(self, tz=None):
+        """
+        Set up axis ticks and labels to treat data along this Axis as dates.
+
+        Parameters
+        ----------
+        tz : str or `datetime.tzinfo`, default: :rc:`timezone`
+            The timezone used to create date labels.
+        """
+        from ._date_locators import _native_tz
+        from .dates import _get_tzinfo
+        _axis.axis_date(*self._args(), _native_tz(_get_tzinfo(tz)))
 
 
 class XAxis(Axis):
     """The x-axis of an Axes."""
 
-    axis_name = "x"
+    __name__ = 'xaxis'
+    axis_name = 'x'  #: Read-only name identifying the axis.
+    _tick_class = XTick
 
     def set_label_position(self, position):
         """
@@ -191,7 +1400,7 @@ class XAxis(Axis):
         position : {'top', 'bottom'}
         """
         _api.check_in_list(['top', 'bottom'], position=position)
-        _axis.set_label_position(self.axes._native, self.axis_name, position)
+        super().set_label_position(position)
 
     def set_ticks_position(self, position):
         """
@@ -214,19 +1423,21 @@ class XAxis(Axis):
         """
         Move ticks and ticklabels (if present) to the top of the Axes.
         """
-        self.set_ticks_position('top')
+        _axis.tick_to(*self._args(), "top")
 
     def tick_bottom(self):
         """
         Move ticks and ticklabels (if present) to the bottom of the Axes.
         """
-        self.set_ticks_position('bottom')
+        _axis.tick_to(*self._args(), "bottom")
 
 
 class YAxis(Axis):
     """The y-axis of an Axes."""
 
-    axis_name = "y"
+    __name__ = 'yaxis'
+    axis_name = 'y'  #: Read-only name identifying the axis.
+    _tick_class = YTick
 
     def set_label_position(self, position):
         """
@@ -237,7 +1448,16 @@ class YAxis(Axis):
         position : {'left', 'right'}
         """
         _api.check_in_list(['left', 'right'], position=position)
-        _axis.set_label_position(self.axes._native, self.axis_name, position)
+        super().set_label_position(position)
+
+    def set_offset_position(self, position):
+        """
+        Parameters
+        ----------
+        position : {'left', 'right'}
+        """
+        _api.check_in_list(['left', 'right'], position=position)
+        _axis.set_offset_position(*self._args(), position)
 
     def set_ticks_position(self, position):
         """
@@ -260,10 +1480,10 @@ class YAxis(Axis):
         """
         Move ticks and ticklabels (if present) to the right of the Axes.
         """
-        self.set_ticks_position('right')
+        _axis.tick_to(*self._args(), "right")
 
     def tick_left(self):
         """
         Move ticks and ticklabels (if present) to the left of the Axes.
         """
-        self.set_ticks_position('left')
+        _axis.tick_to(*self._args(), "left")

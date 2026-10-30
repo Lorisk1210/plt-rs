@@ -115,16 +115,6 @@ fn set_prop_cycle(axes: Axes, cycle: Option<String>) -> PyResult<()> {
     Ok(())
 }
 
-/// Gives axis `name` the built-in scale called `scale` with its default
-/// options (`set_xscale`, `set_yscale`).
-fn set_scale(axes: Axes, name: String, scale: String) -> PyResult<()> {
-    match axis_name(&name)? {
-        AxisName::X => axes.set_xscale(scale.as_str())?,
-        AxisName::Y => axes.set_yscale(scale.as_str())?,
-    };
-    Ok(())
-}
-
 /// The name of the scale of axis `name` (`get_xscale`, `get_yscale`).
 fn get_scale(axes: Axes, name: String) -> PyResult<String> {
     Ok(match axis_name(&name)? {
@@ -159,7 +149,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("label_outer", label_outer)?;
     module.add("label_outer_shared", label_outer_shared)?;
     module.add("set_prop_cycle", set_prop_cycle)?;
-    module.add("set_scale", set_scale)?;
     module.add("get_scale", get_scale)?;
     module.add("set_facecolor", set_facecolor)?;
     module.add("get_facecolor", get_facecolor)?;

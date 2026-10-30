@@ -80,6 +80,9 @@ pub(crate) struct AxisTexts {
     pub(crate) label: Option<PlacedText>,
     /// The offset text, if shown.
     pub(crate) offset: Option<PlacedText>,
+    /// Where the offset text is anchored in display coordinates, shown or
+    /// not.
+    pub(crate) offset_anchor: Option<Point>,
     /// The anchors of the shown tick labels without text, each with
     /// whether it is on the first side: matplotlib counts them as empty
     /// boxes there when it places the axis label and the offset text.
@@ -113,10 +116,13 @@ impl<'a> AxisPainter<'a> {
         let Ok(ticks) = &self.axis.ticks else {
             return Vec::new();
         };
-        let major = (ticks.major.iter())
-            .zip(&ticks.major_index)
-            .map(|(tick, &index)| (tick, self.axis.major_tick_style(index)));
-        let minor = (ticks.minor.iter()).map(|tick| (tick, Cow::Borrowed(&self.axis.minor_style)));
+        let level = |ticks: &'a [Tick], indices: &'a [usize], minor: bool| {
+            (ticks.iter())
+                .zip(indices)
+                .map(move |(tick, &index)| (tick, self.axis.tick_style_at(minor, index)))
+        };
+        let major = level(&ticks.major, &ticks.major_index, false);
+        let minor = level(&ticks.minor, &ticks.minor_index, true);
         major.chain(minor).collect()
     }
 
@@ -126,6 +132,9 @@ impl<'a> AxisPainter<'a> {
         let mut texts = AxisTexts::default();
         self.lay_out_tick_labels(layout, rc, &mut texts);
         let boxes = label_boxes(&texts);
+        texts.offset_anchor = self
+            .offset_placement(layout, &boxes)
+            .map(|(anchor, _)| anchor);
         let aligned = self.aligned_label_boxes(layout, &boxes);
         for (slot, placed) in [
             (&mut texts.label, self.axis_label(layout, rc, &aligned)),

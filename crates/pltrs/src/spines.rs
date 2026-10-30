@@ -388,13 +388,28 @@ impl Spine {
     /// layout (laid out first), without its ticks (matplotlib's
     /// `get_transform().transform_path(get_path()).get_extents()`).
     pub fn line_extent(&self) -> Option<Bbox> {
+        Some(self.display_path()?.extents())
+    }
+
+    /// The spine line in display pixels in the figure's current layout
+    /// (laid out first), `None` where the geometry hides it (matplotlib's
+    /// `get_transform().transform_path(get_path())`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::with_size(4.0, 3.0, 100.0);
+    /// let ax = fig.subplot();
+    /// let left = ax.spines().left.display_path().expect("a drawn spine");
+    /// let frame = ax.window_extent().expect("an extent");
+    /// assert!((left.extents().x0() - frame.x0()).abs() < 1e-9);
+    /// ```
+    pub fn display_path(&self) -> Option<Path> {
         let mut state = self.raw.figure_state().borrow_mut();
         state.prepare();
         let ctx = LayoutContext::new(&state);
-        state
-            .store
-            .get_as::<SpineArtist>(self.raw.id())?
-            .line_extent(ctx)
+        let spine = state.store.get_as::<SpineArtist>(self.raw.id())?;
+        let (path, affine) = spine.display_path(ctx)?;
+        Some(path.transformed(&affine))
     }
 
     /// Sets the spine colour.

@@ -3,7 +3,7 @@
 //! on the spine of that side and on what the x or y axis draws there.
 
 use crate::artist::ArtistHandle;
-use crate::axes::{Axes, AxesState, AxisName, TickLevel, TickParams};
+use crate::axes::{Axes, AxisName, TickLevel, TickParams};
 use crate::axisartist::Toggle;
 use crate::spines::{Spine, SpineSide};
 
@@ -107,10 +107,9 @@ impl SimpleAxisArtist {
     /// Shows or hides the label of this side's axis, wherever it is
     /// (matplotlib's `label.set_visible`).
     pub fn set_label_visible(&self, visible: bool) -> &Self {
-        let name = self.side.axis();
         self.axes
-            .raw()
-            .with_mut::<AxesState, _>(|state| state.axis_mut(name).label.visible = visible);
+            .axis_of(self.side.axis())
+            .set_label_visible(visible);
         self
     }
 
@@ -184,10 +183,7 @@ mod tests {
     #[test]
     fn hiding_the_label_elsewhere_leaves_it() {
         let ax = Figure::new().subplot();
-        let label_visible = |ax: &Axes| {
-            ax.raw()
-                .with::<AxesState, _>(|state| state.yaxis.label.visible)
-        };
+        let label_visible = |ax: &Axes| ax.yaxis().label_visible();
         SimpleAxisArtist::new(&ax, SpineSide::Right).toggle(Toggle {
             label: Some(false),
             ..Toggle::default()

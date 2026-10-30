@@ -104,15 +104,35 @@ impl AxisPainter<'_> {
         if text.is_empty() || !self.axis.offset_visible {
             return None;
         }
-        let extent = layout.axes_extent(self.axes_id)?;
-        let pad = layout.points_to_pixels(OFFSET_TEXT_PAD);
+        let (anchor, block) = self.offset_placement(layout, label_boxes)?;
         let style = &self.axis.major_style;
         let font = FontProperties {
             size: style.label_size,
             ..FontProperties::from_rc(rc)
         };
+        Some(place_text(
+            layout,
+            text,
+            &font,
+            &style.label_color,
+            &block,
+            anchor,
+            rc,
+        ))
+    }
+
+    /// Where the offset text goes, shown or not: its anchor in display
+    /// coordinates, beyond the tick labels `label_boxes`, and its
+    /// alignment (matplotlib's `_update_offset_text_position`).
+    pub(super) fn offset_placement(
+        &self,
+        layout: LayoutContext<'_>,
+        label_boxes: &[(bool, Bbox)],
+    ) -> Option<(Point, BlockStyle)> {
+        let extent = layout.axes_extent(self.axes_id)?;
+        let pad = layout.points_to_pixels(OFFSET_TEXT_PAD);
         let high = self.axis.offset_side.is_high();
-        let (anchor, block) = match self.name {
+        Some(match self.name {
             AxisName::X => {
                 let side_boxes = label_boxes.iter().filter(|(first, _)| *first != high);
                 let (y, valign) = if high {
@@ -160,16 +180,7 @@ impl AxisPainter<'_> {
                     },
                 )
             }
-        };
-        Some(place_text(
-            layout,
-            text,
-            &font,
-            &style.label_color,
-            &block,
-            anchor,
-            rc,
-        ))
+        })
     }
 }
 

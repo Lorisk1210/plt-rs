@@ -17,6 +17,7 @@ from ._decorations import DecorationsMixin
 from ._layout import LayoutMixin
 from ._limits import LimitsMixin
 from ._navigation import NavigationMixin
+from ._ticks import TicksMixin
 from ..transforms import Bbox
 
 
@@ -42,8 +43,8 @@ class _SharedAxes:
         return self._siblings(a)
 
 
-class _AxesBase(NavigationMixin, LimitsMixin, DecorationsMixin, AspectMixin,
-                LayoutMixin, Artist):
+class _AxesBase(TicksMixin, NavigationMixin, LimitsMixin, DecorationsMixin,
+                AspectMixin, LayoutMixin, Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 
@@ -238,9 +239,7 @@ class _AxesBase(NavigationMixin, LimitsMixin, DecorationsMixin, AspectMixin,
         **kwargs
             Keyword arguments of the scale class.
         """
-        if kwargs:
-            raise NotImplementedError(f"pltrs: set_xscale({next(iter(kwargs))}=...)")
-        _axes_base.set_scale(self._native, "x", value)
+        self.xaxis._set_axes_scale(value, **kwargs)
 
     def get_xscale(self):
         """Return the xaxis' scale (as a str)."""
@@ -258,9 +257,7 @@ class _AxesBase(NavigationMixin, LimitsMixin, DecorationsMixin, AspectMixin,
         **kwargs
             Keyword arguments of the scale class.
         """
-        if kwargs:
-            raise NotImplementedError(f"pltrs: set_yscale({next(iter(kwargs))}=...)")
-        _axes_base.set_scale(self._native, "y", value)
+        self.yaxis._set_axes_scale(value, **kwargs)
 
     def get_yscale(self):
         """Return the yaxis' scale (as a str)."""

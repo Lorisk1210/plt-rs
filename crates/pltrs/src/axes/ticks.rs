@@ -303,7 +303,7 @@ impl TickStyle {
 
     /// The font of the labels: `rc`'s, at the label size and with the
     /// label family, weight and style when set.
-    pub(crate) fn label_font(&self, rc: &RcParams) -> FontProperties {
+    pub fn label_font(&self, rc: &RcParams) -> FontProperties {
         let font = FontProperties::from_rc(rc);
         FontProperties {
             size: self.label_size,

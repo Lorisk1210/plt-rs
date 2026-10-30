@@ -1,5 +1,5 @@
 //! Text properties of tick labels (the keyword arguments of matplotlib's
-//! `set_ticklabels`), for a whole tick level or for single major ticks.
+//! `set_ticklabels`), for a whole tick level or for single ticks.
 
 use std::borrow::Cow;
 
@@ -40,6 +40,15 @@ pub struct TickLabelProps {
     /// The hyperlink of the labels in vector output (matplotlib's
     /// `set_url` on a tick or its labels).
     pub url: Option<String>,
+    /// Font family in place of `font.family` (matplotlib's
+    /// `labelfontfamily`).
+    pub family: Option<String>,
+    /// Whether the label on the first side (bottom or left) is drawn
+    /// (matplotlib's `label1.set_visible`, `label1On`).
+    pub label1_visible: Option<bool>,
+    /// Whether the label on the second side (top or right) is drawn
+    /// (matplotlib's `label2.set_visible`, `label2On`).
+    pub label2_visible: Option<bool>,
 }
 
 impl TickLabelProps {
@@ -66,6 +75,9 @@ impl TickLabelProps {
             fontstyle: newer.fontstyle.or(self.fontstyle),
             in_layout: newer.in_layout.or(self.in_layout),
             url: newer.url.clone().or_else(|| self.url.clone()),
+            family: newer.family.clone().or_else(|| self.family.clone()),
+            label1_visible: newer.label1_visible.or(self.label1_visible),
+            label2_visible: newer.label2_visible.or(self.label2_visible),
         }
     }
 
@@ -105,22 +117,35 @@ impl TickLabelProps {
         if self.url.is_some() {
             style.label_url.clone_from(&self.url);
         }
+        if self.family.is_some() {
+            style.label_family.clone_from(&self.family);
+        }
+        if let Some(visible) = self.label1_visible {
+            style.labels.first = visible;
+        }
+        if let Some(visible) = self.label2_visible {
+            style.labels.second = visible;
+        }
     }
 }
 
 impl AxisState {
-    /// The style of the major tick at `index` (counting every tick the
-    /// major locator places): the major style with that tick's label,
-    /// mark and gridline properties on top.
-    pub(crate) fn major_tick_style(&self, index: usize) -> Cow<'_, TickStyle> {
-        let label = (self.major_label_overrides.get(index))
-            .filter(|props| **props != TickLabelProps::default());
-        let line = (self.major_line_overrides.get(index))
-            .filter(|props| **props != TickLineProps::default());
+    /// The style of the major (or `minor`) tick at `index`, counting every
+    /// tick the locator places: the style of its level with that tick's
+    /// label, mark and gridline properties on top.
+    pub(crate) fn tick_style_at(&self, minor: bool, index: usize) -> Cow<'_, TickStyle> {
+        let (level, overrides) = if minor {
+            (&self.minor_style, &self.minor_overrides)
+        } else {
+            (&self.major_style, &self.major_overrides)
+        };
+        let label =
+            (overrides.labels.get(index)).filter(|props| **props != TickLabelProps::default());
+        let line = (overrides.lines.get(index)).filter(|props| **props != TickLineProps::default());
         if label.is_none() && line.is_none() {
-            return Cow::Borrowed(&self.major_style);
+            return Cow::Borrowed(level);
         }
-        let mut style = self.major_style.clone();
+        let mut style = level.clone();
         if let Some(props) = label {
             props.apply(&mut style);
         }
@@ -161,14 +186,56 @@ impl Axis {
     /// ax.xaxis().set_major_ticklabel_props(1, tilted);
     /// ```
     pub fn set_major_ticklabel_props(&self, index: usize, props: TickLabelProps) -> &Self {
+        self.change_tick_label_props(false, index, TickLabelProps::overlay, props)
+    }
+
+    /// Replaces the text properties of the labels of the major (or
+    /// `minor`) tick at `index` with `props`, unset fields following the
+    /// labels of its level (what matplotlib's `Tick.label1` and `label2`
+    /// keep of their own once changed one by one).
+    ///
+    /// ```
+    /// use pltrs::axes::TickLabelProps;
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot();
+    /// ax.xaxis().set_ticks([0.0, 0.5]).set_minor_ticks([0.25]);
+    /// let hidden = TickLabelProps { label1_visible: Some(false), ..TickLabelProps::default() };
+    /// ax.xaxis().set_tick_label_props(true, 0, hidden.clone());
+    /// assert_eq!(ax.xaxis().tick_label_props(true, 0), hidden);
+    /// assert_eq!(ax.xaxis().tick_label_props(false, 0), TickLabelProps::default());
+    /// ```
+    pub fn set_tick_label_props(&self, minor: bool, index: usize, props: TickLabelProps) -> &Self {
+        self.change_tick_label_props(minor, index, |_, new| new.clone(), props)
+    }
+
+    /// Sets the label properties of the major (or `minor`) tick at
+    /// `index` to `change(old, props)`.
+    fn change_tick_label_props(
+        &self,
+        minor: bool,
+        index: usize,
+        change: impl FnOnce(&TickLabelProps, &TickLabelProps) -> TickLabelProps,
+        props: TickLabelProps,
+    ) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
         self.update_labels(|axis| {
-            let overrides = &mut axis.major_label_overrides;
+            let overrides = &mut axis.overrides_mut(minor).labels;
             if overrides.len() <= index {
                 overrides.resize_with(index + 1, TickLabelProps::default);
             }
-            overrides[index] = overrides[index].overlay(&props);
+            overrides[index] = change(&overrides[index], &props);
         });
         self
+    }
+
+    /// The text properties of the labels of the major (or `minor`) tick at
+    /// `index` of their own (see
+    /// [`set_tick_label_props`](Self::set_tick_label_props)).
+    pub fn tick_label_props(&self, minor: bool, index: usize) -> TickLabelProps {
+        self.read(|axis| {
+            (axis.overrides(minor).labels.get(index))
+                .cloned()
+                .unwrap_or_default()
+        })
     }
 }

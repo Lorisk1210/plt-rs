@@ -14,15 +14,20 @@ matplotlib's, kept as they are (from matplotlib 3.11.2, under the
 Matplotlib License). Any formatter is a Python callable
 ``formatter(x, pos)``: pltrs (Rust) calls it each time it labels the ticks of the
 axis it was given to.
+
+A helper given to an axis is installed there by `._tick_helpers`: from its
+spec when pltrs (Rust) can compute in its place, and installed again when
+one of its attributes changes the spec (`TickHelper.__setattr__`).
 """
 
 import logging
+from numbers import Integral
 import string
 
 import numpy as np
 
-from . import _api, cbook
-from ._native import ticker as _ticker
+from . import _api, _tick_helpers, cbook
+from ._native import axis as _axis, ticker as _ticker
 
 _log = logging.getLogger(__name__)
 
@@ -90,6 +95,10 @@ class TickHelper:
 
     axis = None
 
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        _tick_helpers.check_native(self)
+
     def set_axis(self, axis):
         """Attach the helper to *axis*."""
         self.axis = axis
@@ -110,6 +119,9 @@ class TickHelper:
         axis = self.axis
         if axis is None:
             return None
+        native_info = getattr(axis, "_native_info", None)
+        if native_info is not None:
+            return native_info()
         scale = axis.get_scale() if hasattr(axis, "get_scale") else "linear"
         transform = getattr(getattr(axis, "_scale", None), "_transform", None)
         major = (axis.get_majorticklocs()
@@ -145,23 +157,6 @@ class Formatter(TickHelper):
         """Return the tick labels for all the ticks at once."""
         self.set_locs(values)
         return [self(value, i) for i, value in enumerate(values)]
-
-    def _label_axis(self, locs, axis):
-        """
-        The labels of the ticks at *locs* and the offset text, which pltrs
-        (Rust) asks for as matplotlib's Axis does while drawing
-        (`format_ticks`, then `get_offset`), describing the axis it draws
-        with *axis*.
-        """
-        self._drawn_axis = axis
-        try:
-            labels = self.format_ticks(locs)
-            offset = self.get_offset()
-        finally:
-            self._drawn_axis = None
-        # Tick labels take any object, as Text.set_text does.
-        return (['' if label is None else str(label) for label in labels],
-                str(offset))
 
     def format_data(self, value):
         """
@@ -210,6 +205,9 @@ class Formatter(TickHelper):
 
 class NullFormatter(Formatter):
     """Always return the empty string."""
+
+    def _spec(self):
+        return {"kind": "null"}
 
     def __call__(self, x, pos=None):
         # docstring inherited
@@ -416,10 +414,13 @@ class ScalarFormatter(_NativeFormatter):
         numbers in the formatter.
     """
 
+    orderOfMagnitude = _api.deprecate_privatize_attribute("3.11")
+
     def __init__(self, useOffset=None, useMathText=None, useLocale=None, *,
                  usetex=None):
         useOffset = _val_or_rc(useOffset, 'axes.formatter.useoffset')
         self._offset_threshold = _rc('axes.formatter.offset_threshold')
+        self._orderOfMagnitude = 0
         self.set_useOffset(useOffset)
         self.set_usetex(usetex)
         self.set_useMathText(useMathText)
@@ -542,6 +543,27 @@ class ScalarFormatter(_NativeFormatter):
         if len(self._locs) == 0:
             return ''
         return super().__call__(x, pos)
+
+    def set_locs(self, locs):
+        # docstring inherited
+        super().set_locs(locs)
+        offset, self._orderOfMagnitude = _ticker.scalar_offset(
+            self._spec(), np.asarray(self._locs, dtype=float),
+            self._axis_info())
+        if self._useOffset:
+            self.offset = offset
+
+    def format_data_short(self, value):
+        # docstring inherited
+        if value is np.ma.masked:
+            return ""
+        if isinstance(value, Integral):
+            return self.fix_minus("%d" % value)
+        if getattr(self.axis, "__name__", "") in ("xaxis", "yaxis"):
+            text = _axis.format_data_short(*self.axis._args(), float(value))
+            if text is not None:
+                return text
+        return super().format_data_short(value)
 
 
 class LogFormatter(Formatter):
@@ -1134,6 +1156,9 @@ class NullLocator(Locator):
     No ticks
     """
 
+    def _spec(self):
+        return {"kind": "null"}
+
     def __call__(self):
         return self.tick_values(None, None)
 
@@ -1654,6 +1679,18 @@ class AutoLocator(MaxNLocator):
             nbins = 'auto'
             steps = [1, 2, 2.5, 5, 10]
         super().__init__(nbins=nbins, steps=steps)
+        self._defaults = (nbins, steps)
+
+    def _spec(self):
+        # An AutoLocator left as made is pltrs (Rust)'s, which follows
+        # the classic mode it is used in.
+        spec = super()._spec()
+        nbins, steps = self._defaults
+        if (spec["nbins"] == nbins and spec["steps"] == steps
+                and not spec["integer"] and not spec["symmetric"]
+                and spec["prune"] is None and spec["min_n_ticks"] == 2):
+            return {"kind": "auto"}
+        return spec
 
 
 class AutoMinorLocator(_NativeLocator):
@@ -1689,3 +1726,55 @@ class AutoMinorLocator(_NativeLocator):
     def tick_values(self, vmin, vmax):
         raise NotImplementedError(
             f"Cannot get tick locations for a {type(self).__name__}")
+
+
+class _NativeLocatorView(Locator):
+    """
+    A locator pltrs (Rust) installed on an axis that has no class of its
+    own here: it locates ticks through its token (see `._tick_helpers`).
+    """
+
+    def __init__(self, token):
+        self._token = token
+
+    def __call__(self):
+        return _axis.helper_locate(self._token, self._axis_info())
+
+    def tick_values(self, vmin, vmax):
+        return _axis.helper_tick_values(self._token, float(vmin), float(vmax),
+                                        self._axis_info())
+
+
+class _NativeFormatterView(Formatter):
+    """
+    A formatter pltrs (Rust) installed on an axis that has no class of its
+    own here: it labels ticks through its token (see `._tick_helpers`).
+    """
+
+    _offset = ''
+
+    def __init__(self, token):
+        self._token = token
+
+    def format_ticks(self, values):
+        # docstring inherited
+        labels, self._offset = _axis.helper_format_ticks(
+            self._token, np.asarray(values, dtype=float), self._axis_info())
+        return labels
+
+    def __call__(self, x, pos=None):
+        return self.format_ticks([x])[0]
+
+    def get_offset(self):
+        # docstring inherited
+        return self._offset
+
+    def format_data(self, value):
+        # docstring inherited
+        return _axis.helper_format_data(self._token, float(value), False,
+                                        self._axis_info())
+
+    def format_data_short(self, value):
+        # docstring inherited
+        return _axis.helper_format_data(self._token, float(value), True,
+                                        self._axis_info())

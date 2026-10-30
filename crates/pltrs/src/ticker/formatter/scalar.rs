@@ -473,6 +473,38 @@ impl Formatter for ScalarFormatter {
 }
 
 impl ScalarFormatter {
+    /// The offset subtracted from the labels of the ticks at `locs` and
+    /// their order of magnitude, the power of ten they are divided by
+    /// (matplotlib's `offset` and `orderOfMagnitude`, which `set_locs`
+    /// computes).
+    ///
+    /// ```
+    /// use pltrs::ticker::{AxisInfo, ScalarFormatter, TickContext, TickerSettings};
+    /// let axis = AxisInfo::with_view(100_000.0, 100_010.0);
+    /// let settings = TickerSettings::DEFAULT;
+    /// let ctx = TickContext::new(&axis, &settings);
+    /// let locs = [100_000.0, 100_005.0, 100_010.0];
+    /// let formatter = ScalarFormatter::from_settings(&settings);
+    /// assert_eq!(formatter.offset_and_order(&locs, &ctx)?, (100_000.0, 0));
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the order of magnitude cannot be computed (an empty view with
+    /// an offset).
+    pub fn offset_and_order(
+        &self,
+        locs: &[f64],
+        ctx: &TickContext<'_>,
+    ) -> Result<(f64, i32), TickerError> {
+        if locs.is_empty() {
+            return Ok((self.use_offset.fixed_offset(), 0));
+        }
+        let layout = self.layout(locs, ctx.view_interval())?;
+        Ok((layout.offset, layout.oom))
+    }
+
     /// The value with as many significant digits as needed to tell it
     /// from values `resolution` away (`%-#.<n>g`; matplotlib's
     /// `format_data_short` with an axis attached, where the resolution is

@@ -1,6 +1,6 @@
 //! The marks and gridlines of the ticks of an axis (matplotlib's
 //! `tick1line`, `tick2line` and `gridline` of the ticks, `get_ticklines`
-//! and `get_gridlines`), and the look of those of a single major tick.
+//! and `get_gridlines`), and the look of those of a single tick.
 
 use std::borrow::Cow;
 
@@ -50,13 +50,26 @@ pub struct GridLine {
     pub style: GridStyle,
 }
 
-/// The look of one major tick's marks and gridline on top of the style of
-/// the major ticks; unset fields keep it.
+/// The look of one tick's marks and gridline on top of the style of its
+/// level; unset fields keep it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TickLineProps {
     /// Edge colour of the tick marks, the colour of matplotlib's line-like
     /// tick markers (`tick1line.set_markeredgecolor(...)`).
     pub markeredgecolor: Option<Color>,
+    /// Colour of the tick marks (`tick1line.set_color(...)`), which fills
+    /// them and edges them unless `markeredgecolor` is set.
+    pub color: Option<Color>,
+    /// Length of the tick marks in points (`set_markersize`).
+    pub size: Option<f64>,
+    /// Line width of the tick marks in points (`set_markeredgewidth`).
+    pub width: Option<f64>,
+    /// Whether the mark on the first side (bottom or left) is drawn
+    /// (`tick1line.set_visible(...)`, `tick1On`).
+    pub tick1_visible: Option<bool>,
+    /// Whether the mark on the second side (top or right) is drawn
+    /// (`tick2line.set_visible(...)`, `tick2On`).
+    pub tick2_visible: Option<bool>,
     /// Whether the gridline is drawn (`gridline.set_visible(...)`).
     pub grid_visible: Option<bool>,
     /// Gridline colour.
@@ -65,6 +78,8 @@ pub struct TickLineProps {
     pub grid_linewidth: Option<f64>,
     /// Gridline style.
     pub grid_linestyle: Option<LineStyle>,
+    /// Gridline opacity.
+    pub grid_alpha: Option<f64>,
 }
 
 impl TickLineProps {
@@ -75,6 +90,11 @@ impl TickLineProps {
                 .markeredgecolor
                 .clone()
                 .or_else(|| self.markeredgecolor.clone()),
+            color: newer.color.clone().or_else(|| self.color.clone()),
+            size: newer.size.or(self.size),
+            width: newer.width.or(self.width),
+            tick1_visible: newer.tick1_visible.or(self.tick1_visible),
+            tick2_visible: newer.tick2_visible.or(self.tick2_visible),
             grid_visible: newer.grid_visible.or(self.grid_visible),
             grid_color: newer.grid_color.clone().or_else(|| self.grid_color.clone()),
             grid_linewidth: newer.grid_linewidth.or(self.grid_linewidth),
@@ -82,13 +102,29 @@ impl TickLineProps {
                 .grid_linestyle
                 .clone()
                 .or_else(|| self.grid_linestyle.clone()),
+            grid_alpha: newer.grid_alpha.or(self.grid_alpha),
         }
     }
 
     /// Sets the mark and gridline properties of `style` that are set here.
     pub(crate) fn apply(&self, style: &mut TickStyle) {
+        if let Some(color) = &self.color {
+            style.color = color.clone();
+        }
         if self.markeredgecolor.is_some() {
             style.edgecolor.clone_from(&self.markeredgecolor);
+        }
+        if let Some(size) = self.size {
+            style.size = size;
+        }
+        if let Some(width) = self.width {
+            style.width = width;
+        }
+        if let Some(visible) = self.tick1_visible {
+            style.ticks.first = visible;
+        }
+        if let Some(visible) = self.tick2_visible {
+            style.ticks.second = visible;
         }
         if let Some(visible) = self.grid_visible {
             style.grid_on = visible;
@@ -101,6 +137,9 @@ impl TickLineProps {
         }
         if let Some(linestyle) = &self.grid_linestyle {
             style.grid.linestyle = linestyle.clone();
+        }
+        if let Some(alpha) = self.grid_alpha {
+            style.grid.alpha = alpha;
         }
     }
 }
@@ -214,12 +253,31 @@ impl Axis {
     /// ax.xaxis().set_major_tick_line_props(1, dotted);
     /// ```
     pub fn set_major_tick_line_props(&self, index: usize, props: TickLineProps) -> &Self {
+        self.change_tick_line_props(false, index, |old| old.overlay(&props))
+    }
+
+    /// Replaces the look of the marks and gridline of the major (or
+    /// `minor`) tick at `index` with `props`, unset fields following the
+    /// style of its level (what matplotlib's `tick1line`, `tick2line` and
+    /// `gridline` keep of their own once changed one by one).
+    pub fn set_tick_line_props(&self, minor: bool, index: usize, props: TickLineProps) -> &Self {
+        self.change_tick_line_props(minor, index, |_| props)
+    }
+
+    /// Sets the mark and gridline properties of the major (or `minor`)
+    /// tick at `index` to `change(old)`.
+    fn change_tick_line_props(
+        &self,
+        minor: bool,
+        index: usize,
+        change: impl FnOnce(&TickLineProps) -> TickLineProps,
+    ) -> &Self {
         self.update(|axis| {
-            let overrides = &mut axis.major_line_overrides;
+            let overrides = &mut axis.overrides_mut(minor).lines;
             if overrides.len() <= index {
                 overrides.resize_with(index + 1, TickLineProps::default);
             }
-            overrides[index] = overrides[index].overlay(&props);
+            overrides[index] = change(&overrides[index]);
         });
         self
     }
@@ -228,9 +286,15 @@ impl Axis {
     /// `index` with [`set_major_tick_line_props`](Self::set_major_tick_line_props),
     /// unset fields following the style of the major ticks.
     pub fn major_tick_line_props(&self, index: usize) -> TickLineProps {
+        self.tick_line_props(false, index)
+    }
+
+    /// The look of the marks and gridline of the major (or `minor`) tick
+    /// at `index` of their own (see
+    /// [`set_tick_line_props`](Self::set_tick_line_props)).
+    pub fn tick_line_props(&self, minor: bool, index: usize) -> TickLineProps {
         self.read(|axis| {
-            axis.major_line_overrides
-                .get(index)
+            (axis.overrides(minor).lines.get(index))
                 .cloned()
                 .unwrap_or_default()
         })
@@ -239,7 +303,7 @@ impl Axis {
 
 /// Each of `ticks` with whether it is in view (its index is among
 /// `in_view`) and its style: that of its level, with the overrides of its
-/// index for major ticks.
+/// index.
 fn styled<'a>(
     axis: &'a AxisState,
     ticks: &'a [Tick],
@@ -247,11 +311,7 @@ fn styled<'a>(
     minor: bool,
 ) -> impl Iterator<Item = (&'a Tick, bool, Cow<'a, TickStyle>)> {
     ticks.iter().enumerate().map(move |(index, tick)| {
-        let style = if minor {
-            Cow::Borrowed(&axis.minor_style)
-        } else {
-            axis.major_tick_style(index)
-        };
+        let style = axis.tick_style_at(minor, index);
         (tick, in_view.contains(&index), style)
     })
 }
@@ -323,8 +383,8 @@ mod tests {
         );
         let (plain, styled) = ax.raw().with::<AxesState, _>(|axes| {
             (
-                axes.xaxis.major_tick_style(0).into_owned(),
-                axes.xaxis.major_tick_style(1).into_owned(),
+                axes.xaxis.tick_style_at(false, 0).into_owned(),
+                axes.xaxis.tick_style_at(false, 1).into_owned(),
             )
         });
         assert_eq!(

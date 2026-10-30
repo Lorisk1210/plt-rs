@@ -54,16 +54,24 @@ impl Default for TightLayout {
 }
 
 /// Why tight layout left the figure unchanged (matplotlib warns instead,
-/// except for an incompatible layout engine).
+/// with the messages of [`Display`](fmt::Display), except for an
+/// incompatible layout engine).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TightLayoutError {
-    /// The decorations take more than the figure's width.
-    TooWide,
-    /// The decorations take more than the figure's height.
-    TooTall,
-    /// The row or column counts of the grids are not multiples of one
-    /// another.
-    IncompatibleGrids,
+    /// The left and right margins the decorations need take the figure's
+    /// whole width.
+    MarginsTooWide,
+    /// The bottom and top margins the decorations need take the figure's
+    /// whole height.
+    MarginsTooTall,
+    /// The decorations between columns leave the axes no width.
+    AxesTooWide,
+    /// The decorations between rows leave the axes no height.
+    AxesTooTall,
+    /// The row counts of the grids are not multiples of one another.
+    IncompatibleRows,
+    /// The column counts of the grids are not multiples of one another.
+    IncompatibleColumns,
     /// The resulting subplot parameters are invalid.
     Grid(GridSpecError),
     /// The figure refuses tight layout as its engine (a colorbar was made
@@ -73,14 +81,32 @@ pub enum TightLayoutError {
 
 impl fmt::Display for TightLayoutError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("tight layout not applied: ")?;
         match self {
-            Self::TooWide => f.write_str("the axes decorations do not fit the figure width"),
-            Self::TooTall => f.write_str("the axes decorations do not fit the figure height"),
-            Self::IncompatibleGrids => f.write_str(
-                "the numbers of rows and columns of the grids must be multiples of one another",
+            Self::MarginsTooWide => f.write_str(
+                "Tight layout not applied. The left and right margins cannot be made large \
+                 enough to accommodate all Axes decorations.",
             ),
-            Self::Grid(err) => err.fmt(f),
+            Self::MarginsTooTall => f.write_str(
+                "Tight layout not applied. The bottom and top margins cannot be made large \
+                 enough to accommodate all Axes decorations.",
+            ),
+            Self::AxesTooWide => f.write_str(
+                "Tight layout not applied. tight_layout cannot make Axes width small enough \
+                 to accommodate all Axes decorations",
+            ),
+            Self::AxesTooTall => f.write_str(
+                "Tight layout not applied. tight_layout cannot make Axes height small enough \
+                 to accommodate all Axes decorations.",
+            ),
+            Self::IncompatibleRows => f.write_str(
+                "tight_layout not applied: number of rows in subplot specifications must be \
+                 multiples of one another.",
+            ),
+            Self::IncompatibleColumns => f.write_str(
+                "tight_layout not applied: number of columns in subplot specifications must \
+                 be multiples of one another.",
+            ),
+            Self::Grid(err) => write!(f, "tight layout not applied: {err}"),
             Self::Engine(err) => err.fmt(f),
         }
     }
@@ -115,7 +141,8 @@ impl Figure {
     /// # Errors
     ///
     /// When the decorations cannot fit, or the grids cannot be combined;
-    /// the subplot parameters are then left unchanged. When a colorbar was
+    /// the subplot parameters are then left unchanged. Axes it leaves out
+    /// make it warn (through [`crate::warnings`]). When a colorbar was
     /// made under an engine placing colorbars differently, such as
     /// constrained layout; the figure is then left with a placeholder for
     /// that engine.
@@ -152,6 +179,7 @@ impl Figure {
         // The pass runs once, by hand: the engine left behind places nothing.
         state.layout.remove_engine();
         swapped?;
+        warn_about_left_out_axes(&state, &axes, None);
         state.tight_layout_pass(self.raw().id(), &axes, &params)?;
         Ok(self)
     }
@@ -221,8 +249,11 @@ impl Measured {
         let mut cells = Vec::with_capacity(blocks.len());
         for (spec, ids) in blocks {
             let (rows, cols) = spec.gridspec().shape();
-            if max_rows % rows != 0 || max_cols % cols != 0 {
-                return Err(TightLayoutError::IncompatibleGrids);
+            if max_rows % rows != 0 {
+                return Err(TightLayoutError::IncompatibleRows);
+            }
+            if max_cols % cols != 0 {
+                return Err(TightLayoutError::IncompatibleColumns);
             }
             cells.push(Cell {
                 rows: scale(spec.rows(), max_rows / rows),
@@ -253,22 +284,8 @@ fn blocks(
     grid: Option<&GridSpec>,
 ) -> Vec<(SubplotSpec, Vec<ArtistId>)> {
     let mut blocks: Vec<(SubplotSpec, Vec<ArtistId>)> = Vec::new();
-    let included = |spec: &&SubplotSpec| match grid {
-        Some(grid) => spec.gridspec().is_same(grid),
-        None => !spec.gridspec().locally_modified(),
-    };
     for &id in axes {
-        let Some(spec) = fig
-            .divider_subplot_spec(id)
-            .or_else(|| {
-                fig.store
-                    .get_as::<AxesState>(id)
-                    .and_then(|state| state.subplot_spec.as_ref())
-            })
-            .or_else(|| crate::mplot3d::axes3d_subplot_spec(&fig.store, id))
-            .map(topmost)
-            .filter(included)
-        else {
+        let Some(spec) = block_of(fig, id, grid) else {
             continue;
         };
         match blocks.iter_mut().find(|(known, _)| same_block(known, spec)) {
@@ -277,6 +294,44 @@ fn blocks(
         }
     }
     blocks
+}
+
+/// The topmost block of cells of axes `id` as [`blocks`] counts it, or
+/// `None` when tight layout leaves the axes out.
+fn block_of<'a>(
+    fig: &'a FigureState,
+    id: ArtistId,
+    grid: Option<&GridSpec>,
+) -> Option<&'a SubplotSpec> {
+    let included = |spec: &&SubplotSpec| match grid {
+        Some(grid) => spec.gridspec().is_same(grid),
+        None => !spec.gridspec().locally_modified(),
+    };
+    fig.divider_subplot_spec(id)
+        .or_else(|| {
+            fig.store
+                .get_as::<AxesState>(id)
+                .and_then(|state| state.subplot_spec.as_ref())
+        })
+        .or_else(|| crate::mplot3d::axes3d_subplot_spec(&fig.store, id))
+        .map(topmost)
+        .filter(included)
+}
+
+/// Warns, as matplotlib's `get_tight_layout_figure` does, when tight
+/// layout leaves some of `axes` out (off grids, or on other grids than
+/// `grid` when given).
+pub(super) fn warn_about_left_out_axes(
+    fig: &FigureState,
+    axes: &[ArtistId],
+    grid: Option<&GridSpec>,
+) {
+    if axes.iter().any(|&id| block_of(fig, id, grid).is_none()) {
+        crate::warnings::warn(
+            "This figure includes Axes that are not compatible with tight_layout, so results \
+             might be incorrect.",
+        );
+    }
 }
 
 /// The block of the figure-level grid that `spec` lies in (matplotlib's
@@ -344,7 +399,10 @@ mod tests {
             pad: 4.0,
             ..TightLayout::default()
         };
-        assert_eq!(fig.tight_layout(params), Err(TightLayoutError::TooWide));
+        assert_eq!(
+            fig.tight_layout(params),
+            Err(TightLayoutError::MarginsTooWide)
+        );
         assert_eq!(ax.position().bounds().0, 0.125);
     }
 

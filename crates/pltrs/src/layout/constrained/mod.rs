@@ -84,6 +84,12 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
         hspace: params.hspace,
     };
     let Some(mut tree) = LayoutTree::new(fig, params.rect) else {
+        if !fig.all_axes().is_empty() {
+            crate::warnings::warn(
+                "There are no gridspecs with layoutgrids. Possibly did not call parent \
+                 GridSpec with the \"figure\" keyword",
+            );
+        }
         return;
     };
     for _ in 0..2 {

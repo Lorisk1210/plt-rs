@@ -29,6 +29,8 @@ struct GridData {
     overrides: Cell<SubplotOverrides>,
     /// For nested grids: the cell block this grid subdivides.
     parent: Option<SubplotSpec>,
+    /// Whether constrained layout places the axes on the grid.
+    in_layout: Cell<bool>,
 }
 
 /// A grid of `nrows × ncols` cells (cheap to clone; clones are the same grid).
@@ -81,8 +83,38 @@ impl GridSpec {
                 height_ratios: ratios(height_ratios, nrows)?,
                 overrides: Cell::new(overrides),
                 parent,
+                in_layout: Cell::new(true),
             }),
         })
+    }
+
+    /// Sets whether constrained layout places the axes on the grid, as it
+    /// does by default; matplotlib leaves out the grids made without a
+    /// figure (`GridSpec(nrows, ncols)` with no `figure`).
+    pub fn set_in_layout(&self, in_layout: bool) {
+        self.data.in_layout.set(in_layout);
+    }
+
+    /// Whether constrained layout places the axes on the grid: unless it
+    /// or, for a nested grid, the grid it subdivides was taken out
+    /// ([`GridSpec::set_in_layout`]).
+    ///
+    /// ```
+    /// use pltrs::gridspec::GridSpec;
+    /// let outer = GridSpec::new(1, 2)?;
+    /// let inner = GridSpec::nested(&outer.cell(0, 0)?, 2, 2, None, None, (None, None))?;
+    /// assert!(inner.in_layout());
+    /// outer.set_in_layout(false);
+    /// assert!(!inner.in_layout());
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    pub fn in_layout(&self) -> bool {
+        self.data.in_layout.get()
+            && self
+                .data
+                .parent
+                .as_ref()
+                .is_none_or(|cell| cell.gridspec().in_layout())
     }
 
     /// `(nrows, ncols)`.

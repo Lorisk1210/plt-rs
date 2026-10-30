@@ -178,6 +178,7 @@ call_args! {
     (a: A);
     (a: A, b: B);
     (a: A, b: B, c: C);
+    (a: A, b: B, c: C, d: D);
 }
 
 #[cfg(test)]
@@ -207,6 +208,10 @@ mod tests {
                 callback.call::<String>((1.5, Some(2_usize))).unwrap(),
                 "1.5:2"
             );
+            let four: Callback = eval(py, "", "lambda a, b, c, d: a + b + c + d")
+                .extract()
+                .unwrap();
+            assert_eq!(four.call::<i64>((1, 2, 3, 4)).unwrap(), 10);
             assert!(
                 eval(py, "", "3").extract::<Callback>().is_err(),
                 "not callable"

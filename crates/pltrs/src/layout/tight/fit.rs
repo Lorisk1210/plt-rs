@@ -169,10 +169,10 @@ impl Grid<'_> {
                 + texts.xlabel.map_or(0.0, |x| x.height() + pad_h)
         });
         if left + right >= 1.0 {
-            return Err(TightLayoutError::TooWide);
+            return Err(TightLayoutError::MarginsTooWide);
         }
         if bottom + top >= 1.0 {
-            return Err(TightLayoutError::TooTall);
+            return Err(TightLayoutError::MarginsTooTall);
         }
         let mut overrides = SubplotOverrides {
             left: Some(left),
@@ -185,7 +185,7 @@ impl Grid<'_> {
             let hspace = self.spaces.between_columns() + w_pad;
             let axes_width = (1.0 - right - left - hspace * (cols - 1) as f64) / cols as f64;
             if axes_width < 0.0 {
-                return Err(TightLayoutError::TooWide);
+                return Err(TightLayoutError::AxesTooWide);
             }
             overrides.wspace = Some(hspace / axes_width);
         }
@@ -193,7 +193,7 @@ impl Grid<'_> {
             let vspace = self.spaces.between_rows() + h_pad;
             let axes_height = (1.0 - top - bottom - vspace * (rows - 1) as f64) / rows as f64;
             if axes_height < 0.0 {
-                return Err(TightLayoutError::TooTall);
+                return Err(TightLayoutError::AxesTooTall);
             }
             overrides.hspace = Some(vspace / axes_height);
         }

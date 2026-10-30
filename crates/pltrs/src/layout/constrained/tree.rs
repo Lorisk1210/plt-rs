@@ -176,13 +176,15 @@ impl LayoutTree {
     }
 }
 
-/// The grid cell of the 2-D or 3-D axes `id` and whether it takes part in
-/// the layout; `None` for other artists.
+/// The grid cell of the 2-D or 3-D axes `id`, on a grid the layout
+/// places (none otherwise), and whether the axes takes part in the
+/// layout; `None` for other artists.
 fn placement(fig: &FigureState, id: ArtistId) -> Option<(Option<SubplotSpec>, bool)> {
-    match fig.store.get_as::<AxesState>(id) {
-        Some(axes) => Some((axes.subplot_spec.clone(), axes.base().in_layout)),
-        None => crate::mplot3d::axes3d_placement(&fig.store, id),
-    }
+    let (spec, in_layout) = match fig.store.get_as::<AxesState>(id) {
+        Some(axes) => (axes.subplot_spec.clone(), axes.base().in_layout),
+        None => crate::mplot3d::axes3d_placement(&fig.store, id)?,
+    };
+    Some((spec.filter(|spec| spec.gridspec().in_layout()), in_layout))
 }
 
 /// The grid cell of the 2-D or 3-D axes `id`, if it has one.

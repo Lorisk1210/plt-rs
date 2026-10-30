@@ -8,12 +8,14 @@
 
 use pltrs_core::{Affine2D, Path, Point};
 use pltrs_text::{
-    BlockLayout, BlockStyle, Language, LineMetrics, LineSpacing, PlacedGlyph, Shaping,
-    TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine, TextError, TextRun, TextSource, layout_block,
+    BlockLayout, BlockStyle, FontHeightMetrics, Language, LineMetrics, LineSpacing, PlacedGlyph,
+    Shaping, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine, TextError, TextRun, TextSource,
+    layout_block,
 };
 
 use super::math::{Line, math_style};
 use super::metrics::without_hinting;
+use super::overrides::{self, LineKind};
 use super::tex::{tex_height_metrics, tex_line, tex_manager, tex_run};
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -63,6 +65,10 @@ pub struct LaidOutText {
     pub runs: Vec<TextRun>,
     /// The alignment and rotation the block was laid out with.
     pub style: BlockStyle,
+    /// The font the block was laid out in.
+    pub font: FontProperties,
+    /// How its lines were typeset.
+    pub(crate) typesetting: Typesetting,
 }
 
 /// matplotlib's `get_text_width_height_descent` for one line: with `math`
@@ -211,10 +217,8 @@ impl LaidOutText {
             })
             .collect::<Result<Vec<_>, TextError>>()?;
         Ok(Self {
-            lines: self.lines.clone(),
-            block: self.block.clone(),
             runs,
-            style: self.style,
+            ..self.clone()
         })
     }
 }
@@ -257,7 +261,8 @@ fn metrics(run: &TextRun) -> LineMetrics {
     }
 }
 
-/// Lays out one (non-empty) line.
+/// Lays out one (non-empty) line, measured by the thread's
+/// [`LineMeasurer`](super::LineMeasurer) if it has one.
 fn line_run(
     line: &Line<'_>,
     font: &FontProperties,
@@ -265,11 +270,33 @@ fn line_run(
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
     let engine = TextEngine::global();
-    let run = match line {
-        Line::Plain(text) => engine.layout_line(text, &font.request(rc), dpi),
-        Line::Math(source) => engine.layout_math(source, &math_style(font, dpi, rc)),
-    }?;
-    super::metrics::measured(run, dpi)
+    let (run, text, kind) = match line {
+        Line::Plain(text) => (
+            engine.layout_line(text, &font.request(rc), dpi),
+            text.as_ref(),
+            LineKind::Plain,
+        ),
+        Line::Math(source) => (
+            engine.layout_math(source, &math_style(font, dpi, rc)),
+            *source,
+            LineKind::Math,
+        ),
+    };
+    let run = run?;
+    match overrides::measure(text, font, kind, dpi) {
+        Some(metrics) => Ok(with_metrics(run, metrics)),
+        None => super::metrics::measured(run, dpi),
+    }
+}
+
+/// `run` with the width, height and descent of `metrics`.
+fn with_metrics(run: TextRun, metrics: LineMetrics) -> TextRun {
+    TextRun {
+        width: metrics.width,
+        height: metrics.height,
+        descent: metrics.descent,
+        ..run
+    }
 }
 
 /// Lays out `text` (lines separated by `\n`) at `dpi` with matplotlib's
@@ -331,23 +358,45 @@ pub(crate) fn lay_out_with(
     let line_metrics: Vec<LineMetrics> = runs.iter().map(metrics).collect();
     let (font_metrics, style) = match typesetting {
         Typesetting::Tex => (
-            tex_height_metrics(font, dpi, rc)?,
+            match overrides::font_height(font, typesetting, dpi) {
+                Some(measured) => measured,
+                None => tex_height_metrics(font, dpi, rc)?,
+            },
             BlockStyle {
                 linespacing: LineSpacing::Normal,
                 ..*style
             },
         ),
-        Typesetting::Mathtext { .. } => (
-            super::metrics::font_height_metrics(&font.request(rc), dpi)?,
-            *style,
-        ),
+        Typesetting::Mathtext { .. } => {
+            (mathtext_height_metrics(font, typesetting, dpi, rc)?, *style)
+        }
     };
     Ok(LaidOutText {
         lines,
         block: layout_block(&line_metrics, font_metrics, &style),
         runs,
         style,
+        font: font.clone(),
+        typesetting,
     })
+}
+
+/// The font height metrics of lines that are not typeset by TeX: those of
+/// the PDF and PostScript backends' AFM fonts while they measure with
+/// them, else those of the thread's measurer if it has one, else the
+/// font's own (matplotlib's `Text._get_layout`).
+fn mathtext_height_metrics(
+    font: &FontProperties,
+    typesetting: Typesetting,
+    dpi: f64,
+    rc: &RcParams,
+) -> Result<FontHeightMetrics, TextError> {
+    if !super::metrics::measures_afm()
+        && let Some(measured) = overrides::font_height(font, typesetting, dpi)
+    {
+        return Ok(measured);
+    }
+    super::metrics::font_height_metrics(&font.request(rc), dpi)
 }
 
 #[cfg(test)]

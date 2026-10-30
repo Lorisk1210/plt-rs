@@ -7,6 +7,7 @@
 use pltrs_text::tex::{TexError, TexFonts, TexManager, TexText};
 use pltrs_text::{FontHeightMetrics, TextError, TextRun, TextSource};
 
+use super::overrides::LineKind;
 use crate::fonts::FontProperties;
 use crate::rc::{Distiller, RcParams};
 
@@ -88,11 +89,17 @@ pub(crate) fn tex_run(
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
     let tex = TexText::new(tex_line(line), font.request(rc), tex_manager(rc)?);
-    let (width, height, descent) = if tex.tex.is_empty() {
-        (0.0, 0.0, 0.0)
+    let measured = if tex.tex.is_empty() {
+        None
     } else {
-        tex.manager
-            .text_width_height_descent(&tex.tex, font.size, dpi / 72.0)?
+        super::overrides::measure(&tex.tex, font, LineKind::Tex, dpi)
+    };
+    let (width, height, descent) = match measured {
+        Some(metrics) => (metrics.width, metrics.height, metrics.descent),
+        None if tex.tex.is_empty() => (0.0, 0.0, 0.0),
+        None => tex
+            .manager
+            .text_width_height_descent(&tex.tex, font.size, dpi / 72.0)?,
     };
     Ok(TextRun {
         width,

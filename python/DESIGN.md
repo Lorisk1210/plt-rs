@@ -422,6 +422,23 @@ here `_text_helpers.warn_on_missing_glyph`, which calls
 `_api.warn_external`). A warning turned into an error by the warning
 filters is raised in place of the call's result.
 
+### Text measured and drawn by the program
+
+matplotlib measures every line of text through the module function
+`text._get_text_metrics_with_cache` and draws every text through
+`Text.draw`; its tests replace both (`monkeypatch.setattr`, the
+`text_placeholders` fixture) to turn texts into boxes. `_text_overrides`
+makes such replacements take effect: the `text` module's class and
+`Text`'s metaclass notice when either attribute is replaced or restored,
+and hand pltrs (Rust) a `pltrs::text::LineMeasurer` (every line it lays
+out, tick labels included, is measured by calling the module function;
+the font height metrics come from `FT2Font.get_sfnt_table` as in
+`Text._get_layout`) or a `pltrs::text::TextPainter` (every text it draws
+is drawn by calling `Text.draw` on a stand-in `Text` in display
+coordinates, with a renderer whose `Artist.draw` queues artists that
+pltrs (Rust) then draws in the text's place). Without replacements pltrs
+(Rust) never calls Python for text.
+
 ### pyplot's state
 
 pyplot's figure registry is Python state: `_pylab_helpers.Gcf` maps
@@ -517,7 +534,11 @@ native block; `subplot_mosaic` is matplotlib's, placing each label with
 Layout engines (`layout_engine`) are matplotlib's classes holding their
 parameters; a figure gives pltrs (Rust) the description of its engine
 (`_native_spec`) when the engine is set or one of its parameters
-changes (an engine knows the figures it is set on).
+changes (an engine knows the figures it is set on). The layout methods of
+figures (`tight_layout`, the `align_*` methods, `suptitle` and the
+super-labels, `get_tightbbox`) are the mixins of `_figure_layout`, over
+`_native.figure_layout`. A `GridSpec` made without a figure is left out
+of constrained layout, as matplotlib leaves it.
 
 A `Legend(parent, handles, labels, **kwargs)` makes the native legend of
 its parent at once: matplotlib's argument handling (`_parse_legend_args`,

@@ -9,7 +9,6 @@ use pltrs::orientation::Orientation;
 use pltrs::patches::{Patch, PatchProps, Polygon, StepBaseline, StepPatch};
 use pltrs::transforms::Transform;
 
-use super::values::PyAxisValues;
 use crate::binding::prelude::*;
 
 /// The orientation `"vertical"` or `"horizontal"`.
@@ -24,8 +23,8 @@ pub(super) fn orientation(name: &str) -> Orientation {
 /// `fill`), in `color` or the next colour of the patch cycle.
 pub(super) fn fill(
     axes: Axes,
-    x: PyAxisValues,
-    y: PyAxisValues,
+    x: NdArray,
+    y: NdArray,
     color: Option<Color>,
     closed: bool,
 ) -> PyResult<Patch<Polygon>> {
@@ -33,7 +32,7 @@ pub(super) fn fill(
         facecolor: color,
         ..PatchProps::default()
     };
-    let polygon = axes.fill(x.0, y.0, props)?;
+    let polygon = axes.fill(x.into_vec()?, y.into_vec()?, props)?;
     if !closed {
         let shape = polygon.shape();
         polygon.set_shape(Polygon::new(shape.vertices().to_vec(), false));
@@ -72,7 +71,7 @@ pub(in crate::modules) fn fill_between_options(
 pub(super) fn fill_between(
     axes: Axes,
     horizontal: bool,
-    (t, y1, y2): (PyAxisValues, PyAxisValues, PyAxisValues),
+    (t, y1, y2): (NdArray, NdArray, NdArray),
     (mask, interpolate, step): (Option<Vec<bool>>, bool, Option<String>),
     (color, facecolor): (Option<Color>, Option<Color>),
     transform: Option<Transform>,
@@ -82,9 +81,9 @@ pub(super) fn fill_between(
     options.props.facecolors = facecolor.map(|face| vec![face]);
     options.props.base.transform = transform;
     Ok(if horizontal {
-        axes.fill_betweenx(t.0, y1.0, y2.0, options)?
+        axes.fill_betweenx(t.into_vec()?, y1.into_vec()?, y2.into_vec()?, options)?
     } else {
-        axes.fill_between(t.0, y1.0, y2.0, options)?
+        axes.fill_between(t.into_vec()?, y1.into_vec()?, y2.into_vec()?, options)?
     })
 }
 
@@ -118,7 +117,7 @@ pub(super) fn stairs(
 /// `colors` (cycled; empty for the property cycle).
 pub(super) fn stackplot(
     axes: Axes,
-    x: PyAxisValues,
+    x: NdArray,
     ys: Vec<Vec<f64>>,
     baseline: String,
     colors: Vec<Color>,
@@ -133,5 +132,5 @@ pub(super) fn stackplot(
         colors,
         ..StackplotOptions::default()
     };
-    Ok(axes.stackplot(x.0, &ys, options)?)
+    Ok(axes.stackplot(x.into_vec()?, &ys, options)?)
 }

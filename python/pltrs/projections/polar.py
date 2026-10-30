@@ -516,3 +516,8 @@ class PolarAxes(Axes):
         in azimuth while zooming is done along the radial.
         """
         return True
+
+
+PolarAxes.ThetaFormatter = ThetaFormatter
+PolarAxes.RadialLocator = RadialLocator
+PolarAxes.ThetaLocator = ThetaLocator

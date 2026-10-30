@@ -135,10 +135,11 @@ impl RasterRenderer {
             if !within_reach(pen) {
                 return Ok(());
             }
+            let outline = scan_outline(glyph, self.dpi, hinting)?;
             let shape = if gc.antialiased {
-                GlyphShape::Smooth(glyph.outline(self.dpi, hinting)?)
+                GlyphShape::Smooth(outline)
             } else {
-                GlyphShape::Mono(scan_outline(glyph, self.dpi, hinting)?)
+                GlyphShape::Mono(outline)
             };
             let transform = GlyphTransform::with_effects(
                 angle,

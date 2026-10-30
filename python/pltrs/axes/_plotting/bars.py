@@ -3,16 +3,14 @@ Bars: `~.Axes.bar`, `~.Axes.barh`, `~.Axes.broken_barh` and
 `~.Axes.grouped_bar`.
 """
 
-import datetime
-
 import numpy as np
 
 from ... import _api, cbook, collections as mcoll, colors as mcolors, lines as mlines
-from ... import patches as mpatches
+from ... import patches as mpatches, units as munits
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer, ErrorbarContainer
-from ._helpers import axis_values, record_container, wrap, wrap_all
+from ._helpers import floats, record_container, wrap, wrap_all
 from .errorbar import _error_bounds
 
 
@@ -22,17 +20,16 @@ def _rcParams():
     return rcParams
 
 
-def _axis_deltas(values):
-    """Extents in native form: floats, or ``("durations", microseconds)``."""
-    array = np.atleast_1d(np.asarray(values))
-    if np.issubdtype(array.dtype, np.timedelta64):
-        return ("durations", array.astype("timedelta64[us]").astype(np.int64).ravel())
-    if array.dtype == object and array.size and all(
-            isinstance(v, datetime.timedelta) for v in array.ravel()):
-        return ("durations", np.array(
-            [v // datetime.timedelta(microseconds=1) for v in array.ravel()],
-            dtype=np.int64))
-    return np.atleast_1d(array.astype(float)).ravel()
+def _converted_span(convert, start, extent):
+    """
+    *start* and the *extent* from it as axis numbers, through *convert*:
+    numbers stay as they are, values in units convert through the end
+    they reach (matplotlib's ``convert((x0, x0 + dx))``).
+    """
+    if all(munits._is_natively_supported(v) for v in (start, extent)):
+        return start, extent
+    low, high = convert((start, start + extent))
+    return low, high - low
 
 
 def _errorbar_style(error_kw):
@@ -152,11 +149,35 @@ class BarsMixin:
         tick_labels = kwargs.pop('tick_label', None)
         _api.check_in_list(['center', 'edge'], align=align)
 
-        position, value = (x, height) if orientation == 'vertical' else (bottom, width)
-        thickness, base = (width, bottom) if orientation == 'vertical' else (height, x)
-        if orientation == 'horizontal' and position is None:
-            position = 0
-        positions = axis_values(position)
+        y = bottom  # Matches barh call signature.
+        if orientation == 'vertical':
+            has_base = y is not None
+            if y is None:
+                y = 0
+            # It is possible for y (bottom) to contain unit information.
+            # However, it is also possible for y=0 for the default and height
+            # to contain unit information.  This will prioritize the units of y.
+            self._process_unit_info(
+                [("x", x), ("y", y), ("y", height)], kwargs, convert=False)
+        else:  # horizontal
+            has_base = x is not None
+            if x is None:
+                x = 0
+            self._process_unit_info(
+                [("x", x), ("x", width), ("y", y)], kwargs, convert=False)
+        # Convert now, since some types cannot be subtracted uniformly.
+        x0, y0 = x, y
+        x = np.asarray(self.convert_xunits(x))
+        width = self._convert_dx(width, x0, x, self.convert_xunits)
+        if xerr is not None:
+            xerr = self._convert_dx(xerr, x0, x, self.convert_xunits)
+        y = np.asarray(self.convert_yunits(y))
+        height = self._convert_dx(height, y0, y, self.convert_yunits)
+        if yerr is not None:
+            yerr = self._convert_dx(yerr, y0, y, self.convert_yunits)
+
+        position, value = (x, height) if orientation == 'vertical' else (y, width)
+        thickness, base = (width, y) if orientation == 'vertical' else (height, x)
         position = np.atleast_1d(cbook._unpack_to_numpy(position))
         try:
             n = np.broadcast_shapes(position.shape, np.shape(value),
@@ -210,8 +231,8 @@ class BarsMixin:
 
         native, rectangles, errorbar, values = _plotting.bar(
             self._native, orientation == 'horizontal',
-            (positions, _axis_deltas(value)),
-            (_axis_deltas(thickness), None if base is None else axis_values(base)),
+            (floats(position), floats(value)),
+            (floats(thickness), floats(base) if has_base else None),
             align, (facecolors, edgecolors, linewidths, hatches),
             # The container's label as text, as `.Container` keeps it.
             ('' if bar_container_label is None else str(bar_container_label),
@@ -265,24 +286,31 @@ class BarsMixin:
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
+        # process the unit information
+        xdata = cbook._safe_first_finite(xranges) if len(xranges) else None
+        ydata = cbook._safe_first_finite(yrange) if len(yrange) else None
+        self._process_unit_info(
+            [("x", xdata), ("y", ydata)], kwargs, convert=False)
         _api.check_in_list(['bottom', 'center', 'top'], align=align)
         starts, widths = [], []
-        for xr in xranges:
+        for xr in xranges:  # convert the absolute values, not the x and dx
             try:
                 x0, dx = xr
             except Exception:
                 raise ValueError(
                     "each range in xrange must be a sequence with two "
                     "elements (i.e. xrange must be an (N, 2) array)") from None
+            x0, dx = _converted_span(self.convert_xunits, x0, dx)
             starts.append(x0)
             widths.append(dx)
         ypos, height = yrange
+        # The height converts as bar widths do (`_convert_dx`, whose
+        # fallback hands a scalar back in a list).
+        y0 = self.convert_yunits(ypos)
+        dy = self._convert_dx(height, ypos, np.array(y0), self.convert_yunits)
         native = _plotting.broken_barh(
-            self._native,
-            (axis_values(np.asarray(starts, dtype=object if starts and isinstance(
-                starts[0], (datetime.date, np.datetime64)) else None)),
-             _axis_deltas(widths)),
-            (axis_values([ypos]), _axis_deltas([height])), align)
+            self._native, (floats(starts), floats(widths)),
+            (float(y0), float(np.ravel(dy)[0])), align)
         collection = wrap(self, native, mcoll.PolyCollection)
         collection._internal_update(cbook.normalize_kwargs(kwargs, mcoll.PolyCollection))
         return collection

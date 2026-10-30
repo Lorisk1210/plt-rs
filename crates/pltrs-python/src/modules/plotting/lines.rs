@@ -7,7 +7,6 @@ use pltrs::lines::{AxLineThrough, FormatString, Line2D, LineProps};
 use pltrs::transforms::{Point, Transform};
 
 use super::super::lines::LineKwargs;
-use super::values::PyAxisValues;
 use crate::binding::prelude::*;
 
 /// The single-letter colours a format string keeps as given; matplotlib
@@ -56,8 +55,8 @@ pub(super) fn format_parts(fmt: String) -> PyResult<(String, Option<String>, Opt
 /// format string and the keyword arguments on top.
 pub(super) fn plot(
     axes: Axes,
-    x: PyAxisValues,
-    y: PyAxisValues,
+    x: NdArray,
+    y: NdArray,
     fmt: Option<String>,
     kwargs: LineKwargs,
 ) -> PyResult<Line2D> {
@@ -65,7 +64,7 @@ pub(super) fn plot(
         Some(fmt) => format_props(&fmt)?,
         None => LineProps::default(),
     };
-    Ok(axes.plot_with(x.0, y.0, base.overlay(kwargs.0))?)
+    Ok(axes.plot_with(x.into_vec()?, y.into_vec()?, base.overlay(kwargs.0))?)
 }
 
 /// An infinite line through `xy1` and `xy2`, or through `xy1` with
@@ -95,13 +94,23 @@ pub(super) fn axline(
 pub(super) fn segments(
     axes: Axes,
     vertical: bool,
-    (positions, low, high): (PyAxisValues, PyAxisValues, PyAxisValues),
+    (positions, low, high): (NdArray, NdArray, NdArray),
     transform: Option<Transform>,
 ) -> PyResult<Collection> {
     let transform = transform.unwrap_or_else(|| axes.trans_data());
     Ok(if vertical {
-        axes.vlines_in(positions.0, low.0, high.0, transform)?
+        axes.vlines_in(
+            positions.into_vec()?,
+            low.into_vec()?,
+            high.into_vec()?,
+            transform,
+        )?
     } else {
-        axes.hlines_in(positions.0, low.0, high.0, transform)?
+        axes.hlines_in(
+            positions.into_vec()?,
+            low.into_vec()?,
+            high.into_vec()?,
+            transform,
+        )?
     })
 }

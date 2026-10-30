@@ -10,7 +10,7 @@ from ... import colorizer as mcolorizer
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...markers import MarkerStyle
-from ._helpers import axis_values, wrap
+from ._helpers import floats, wrap
 
 
 def _rcParams():
@@ -233,7 +233,7 @@ class ScatterMixin:
         linewidths = kwargs.pop('linewidth', None)
         edgecolors = kwargs.pop('edgecolor', None)
         offset_transform = kwargs.pop('transform', None)
-        values = (axis_values(x), axis_values(y))
+        x, y = self._process_unit_info([("x", x), ("y", y)], kwargs)
         x = np.ma.ravel(cbook._unpack_to_numpy(x))
         y = np.ma.ravel(cbook._unpack_to_numpy(y))
         if x.size != y.size:
@@ -293,7 +293,7 @@ class ScatterMixin:
         if np.iterable(alpha):
             alphas, alpha = [float(a) for a in alpha], None
         native = _plotting.scatter(
-            self._native, values,
+            self._native, (floats(x), floats(y)),
             np.ma.filled(s.astype(float), np.nan), faces,
             mlines._marker_spec(marker_obj), (edgecolors, linewidths),
             (None if alpha is None else float(alpha), alphas),

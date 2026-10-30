@@ -30,6 +30,17 @@ def _native_lineprops(props):
     return mlines._native_kwargs(cbook.normalize_kwargs(props or {}, mlines.Line2D))
 
 
+def _converted_stats(axes, axis_name, stats, keys):
+    """The statistics *stats* (a dict) with the values of *keys* in the
+    numbers of the axis *axis_name* of *axes*, which takes their units (as
+    matplotlib's `~.Axes.bxp` and `~.Axes.violin` plot them)."""
+    converted = dict(stats)
+    for key in keys:
+        if key in converted:
+            converted[key], = axes._process_unit_info([(axis_name, converted[key])])
+    return converted
+
+
 def _colors_or_empty(color):
     """*color* (one or a sequence) as RGBA tuples, empty for None."""
     if color is None:
@@ -196,6 +207,10 @@ class StatsMixin:
                 raise ValueError(datashape_message.format("label"))
         elif label is not None:
             label = [label]
+        value_axis = "y" if orientation == "vertical" else "x"
+        bxpstats = [_converted_stats(self, value_axis, stats, (
+            "med", "q1", "q3", "whislo", "whishi", "mean", "cilo", "cihi",
+            "fliers")) for stats in bxpstats]
         meanprops_given = meanprops or {}
         if patch_artist:
             boxkw = cbook.normalize_kwargs(boxprops or {}, mpatches.PathPatch)
@@ -302,6 +317,10 @@ class StatsMixin:
                 raise TypeError(
                     "np.datetime64 'position' values require np.timedelta64 'widths'")
         _api.check_in_list(["both", "low", "high"], side=side)
+        value_axis = "y" if orientation == "vertical" else "x"
+        vpstats = [_converted_stats(self, value_axis, stats, (
+            "coords", "mean", "median", "min", "max", "quantiles"))
+            for stats in vpstats]
         parts = _plotting.violin(
             self._native, list(vpstats),
             (list(map(float, positions)), list(map(float, widths))),

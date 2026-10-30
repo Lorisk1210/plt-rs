@@ -22,6 +22,15 @@ from ._plotting import PlottingMixin
 from .._text_methods import AxesText
 
 
+def _limit_alias(value, alias, name, alias_name):
+    """A view limit given as *value* or as its keyword alias *alias*."""
+    if alias is None:
+        return value
+    if value is not None:
+        raise TypeError(f"Cannot pass both '{name}' and '{alias_name}'")
+    return alias
+
+
 class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, _AxesBase):
     """
     An Axes object encapsulates all the elements of an individual (sub-)plot
@@ -89,31 +98,50 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, _AxesBase):
         """Return the x-axis view limits."""
         return _axes.get_xlim(self._native)
 
-    def set_xlim(self, left=None, right=None):
+    def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
+                 xmin=None, xmax=None):
         """Set the x-axis view limits."""
         if right is None and np.iterable(left):
             left, right = left
-        current = self.get_xlim()
-        left = current[0] if left is None else left
-        right = current[1] if right is None else right
-        left, right = self.xaxis._checked_limits(left, right)
-        _axes.set_xlim(self._native, left, right)
-        return left, right
+        left = _limit_alias(left, xmin, "left", "xmin")
+        right = _limit_alias(right, xmax, "right", "xmax")
+        return self._set_view_limits("x", left, right, emit, auto)
 
     def get_ylim(self):
         """Return the y-axis view limits."""
         return _axes.get_ylim(self._native)
 
-    def set_ylim(self, bottom=None, top=None):
+    def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
+                 ymin=None, ymax=None):
         """Set the y-axis view limits."""
         if top is None and np.iterable(bottom):
             bottom, top = bottom
-        current = self.get_ylim()
-        bottom = current[0] if bottom is None else bottom
-        top = current[1] if top is None else top
-        bottom, top = self.yaxis._checked_limits(bottom, top)
-        _axes.set_ylim(self._native, bottom, top)
-        return bottom, top
+        bottom = _limit_alias(bottom, ymin, "bottom", "ymin")
+        top = _limit_alias(top, ymax, "top", "ymax")
+        return self._set_view_limits("y", bottom, top, emit, auto)
+
+    def _set_view_limits(self, name, low, high, emit, auto):
+        """
+        Set the view limits of the axis *name* to *low*, *high* (None keeps
+        the current one), which may be in units; *auto* turns autoscaling
+        on (True), off (False) or leaves it (None) (matplotlib's
+        ``Axis._set_lim``).
+        """
+        if not emit:
+            raise NotImplementedError(f"pltrs: set_{name}lim(emit=False)")
+        axis = getattr(self, f"{name}axis")
+        self._process_unit_info([(name, (low, high))], convert=False)
+        current = getattr(self, f"get_{name}lim")()
+        low = current[0] if low is None else low
+        high = current[1] if high is None else high
+        low, high = axis._checked_limits(low, high)
+        autoscale_on = getattr(self, f"get_autoscale{name}_on")()
+        getattr(_axes, f"set_{name}lim")(self._native, low, high)
+        if auto or auto is None:
+            # Setting limits turned autoscaling off.
+            getattr(self, f"set_autoscale{name}_on")(
+                autoscale_on if auto is None else True)
+        return low, high
 
     @property
     def lines(self):

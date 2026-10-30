@@ -438,3 +438,49 @@ def test_date_and_category_axes_pickle_with_their_helpers():
     assert (_pixels(back) == expected).all()
     assert [t.get_text() for t in back.axes[1].get_xticklabels()] == [
         "apple", "pear", "fig"]
+
+
+def test_units_convert_before_reaching_pltrs():
+    import datetime
+
+    from pltrs import units
+
+    class Miles:
+        """A distance, which its converter plots in miles or feet."""
+
+        def __init__(self, value):
+            self.value = value
+
+    class MilesConverter(units.ConversionInterface):
+        @staticmethod
+        def convert(value, unit, axis):
+            factor = 5280 if unit == "feet" else 1
+            if np.iterable(value):
+                return [v.value * factor for v in value]
+            return value.value * factor
+
+        @staticmethod
+        def default_units(value, axis):
+            return "miles"
+
+        @staticmethod
+        def axisinfo(unit, axis):
+            return units.AxisInfo(label=unit)
+
+    units.registry[Miles] = MilesConverter()
+    try:
+        fig, ax = plt.subplots()
+        line, = ax.plot([Miles(1), Miles(2)], [1, 2])
+        assert ax.xaxis.get_units() == "miles" and ax.get_xlabel() == "miles"
+        ax.xaxis.set_units("feet")
+        assert list(line.get_xdata(orig=False)) == [5280, 10560]
+        assert ax.get_xlabel() == "feet"
+    finally:
+        del units.registry[Miles]
+    fig, (dates, fruit) = plt.subplots(1, 2)
+    dates.axvline(datetime.datetime(2020, 1, 2))
+    dates.set_xlim(datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 3))
+    assert dates.get_xlim() == (18262.0, 18264.0)
+    fruit.bar(["a", "b"], [1, 2])
+    fig.canvas.draw()
+    assert [t.get_text() for t in fruit.get_xticklabels()] == ["a", "b"]

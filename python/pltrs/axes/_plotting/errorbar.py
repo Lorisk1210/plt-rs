@@ -2,7 +2,7 @@
 `~.Axes.errorbar`: lines and markers with error bars.
 """
 
-from numbers import Integral
+from numbers import Integral, Number
 
 import numpy as np
 
@@ -10,7 +10,8 @@ from ... import cbook, collections as mcoll, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import ErrorbarContainer
-from ._helpers import axis_values, line_kwargs, record_container, wrap, wrap_all
+from ._helpers import (keep_unit_data, line_data, line_kwargs, record_container, wrap,
+                       wrap_all)
 
 
 def _errorevery_to_mask(x, errorevery):
@@ -56,10 +57,21 @@ def _upcast_err(err):
     return np.asarray(err, dtype=object)
 
 
-def _error_bounds(dep_axis, dep, err):
+def _in_units(err):
+    """Whether the errors *err* are values in units rather than numbers."""
+    flat = np.ravel(err)
+    return flat.size > 0 and not isinstance(cbook._safe_first_finite(flat), Number)
+
+
+def _error_bounds(dep_axis, dep, err, convert=None, depconv=None):
     """
     The errors below and above each point of *dep*, broadcast to
     ``(2, n)`` float arrays, checked as matplotlib checks them.
+
+    Errors in units (``timedelta`` errors of dates, say) take *convert*,
+    which converts values along the axis of *dep*, and *depconv*, *dep*
+    converted: they become the distances, in axis numbers, from the
+    points to the ends of their error bars.
     """
     try:
         np.broadcast_to(err, (2, len(dep)))
@@ -75,6 +87,11 @@ def _error_bounds(dep_axis, dep, err):
     if np.any((check := err[err == err]) < -check):
         raise ValueError(
             f"'{dep_axis}err' must not contain negative values")
+    if convert is not None and _in_units(err):
+        lower, upper = err if np.ndim(err) == 2 else (err, err)
+        depconv = np.asarray(depconv, dtype=float)
+        return (depconv - np.asarray(convert(dep - lower), dtype=float),
+                np.asarray(convert(dep + upper), dtype=float) - depconv)
     # Masked errors are skipped as NaN ones are.
     err = np.ma.filled(np.ma.asarray(err, dtype=float), np.nan)
     lower, upper = np.broadcast_to(err, (2, len(dep)))
@@ -132,10 +149,13 @@ class ErrorbarMixin:
             raise ValueError("'x' and 'y' must have the same size")
         everymask = _errorevery_to_mask(x, errorevery)
         n = len(x)
+        xconv, yconv = line_data(self, x, y)
         bounds = {}
-        for dep_axis, dep, err in [("x", x, xerr), ("y", y, yerr)]:
+        for dep_axis, dep, depconv, err, convert in [
+                ("x", x, xconv, xerr, self.convert_xunits),
+                ("y", y, yconv, yerr, self.convert_yunits)]:
             if err is not None:
-                bounds[dep_axis] = _error_bounds(dep_axis, dep, err)
+                bounds[dep_axis] = _error_bounds(dep_axis, dep, err, convert, depconv)
         flags = [np.broadcast_to(lims, n).astype(bool).tolist()
                  for lims in (lolims, uplims, xlolims, xuplims)]
         if elinestyle is not None and isinstance(elinestyle, tuple):
@@ -145,7 +165,7 @@ class ErrorbarMixin:
         # ``eb_lines_style`` gives them.
         widths = None if np.ndim(elinewidth) == 0 else elinewidth
         native, data_line, caplines, barcols = _plotting.errorbar(
-            self._native, (axis_values(x), axis_values(y)),
+            self._native, (xconv, yconv),
             (bounds.get("x"), bounds.get("y")),
             fmt, line_kwargs(kwargs),
             (ecolor, None if widths is not None else elinewidth, elinestyle, capsize,
@@ -156,7 +176,7 @@ class ErrorbarMixin:
             for barcol in barcols:
                 barcol.set_linewidth(widths)
         container = ErrorbarContainer(
-            (wrap(self, data_line, mlines.Line2D),
+            (keep_unit_data(wrap(self, data_line, mlines.Line2D), x, y),
              tuple(wrap_all(self, caplines, mlines.Line2D)),
              tuple(barcols)),
             has_xerr=xerr is not None, has_yerr=yerr is not None,

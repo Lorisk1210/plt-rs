@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 use pltrs_core::Path;
-use pltrs_font::{FontDatabase, FontEntry, FontId};
+use pltrs_font::{FontDatabase, FontEntry, FontId, ScanOutline};
 
 use crate::block::FontHeightMetrics;
 use crate::error::TextError;
@@ -27,6 +27,7 @@ use crate::shaping::Shaping;
 pub struct TextEngine {
     db: FontDatabase,
     outlines: Mutex<HashMap<outline::OutlineKey, Path>>,
+    scan_outlines: Mutex<HashMap<outline::OutlineKey, ScanOutline>>,
     lines: Memo<LineKey, TextRun>,
     pub(crate) formulas: Memo<FormulaKey, TextRun>,
     heights: Memo<(FontRequest, u64), FontHeightMetrics>,
@@ -54,6 +55,7 @@ impl TextEngine {
         Self {
             db,
             outlines: Mutex::new(HashMap::new()),
+            scan_outlines: Mutex::new(HashMap::new()),
             lines: Memo::new(),
             formulas: Memo::new(),
             heights: Memo::new(),

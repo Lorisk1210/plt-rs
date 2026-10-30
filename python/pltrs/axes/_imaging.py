@@ -63,7 +63,7 @@ class ImagingMixin:
             'interpolation': interpolation,
             'interpolation_stage': interpolation_stage,
             'origin': origin,
-            'extent': None if extent is None else tuple(map(float, extent)),
+            'extent': None if extent is None else self._converted_extent(extent),
             'filternorm': bool(filternorm),
             'filterrad': filterrad,
             'resample': None if resample is None else bool(resample),

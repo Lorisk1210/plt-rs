@@ -115,7 +115,8 @@ class AxesText:
         **kwargs : `~matplotlib.text.Text` properties.
             Other miscellaneous text parameters.
         """
-        native = _text.axes_text(self._native, float(x), float(y),
+        native = _text.axes_text(self._native, float(self.convert_xunits(x)),
+                                 float(self.convert_yunits(y)),
                                  '' if s is None else str(s))
         text = _handles.wrap(native, Text, self.figure)
         text._init_properties(_text_kwargs(fontdict, kwargs))

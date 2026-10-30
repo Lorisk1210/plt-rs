@@ -8,7 +8,7 @@ from ... import _api, cbook, collections as mcoll, colors as mcolors, lines as m
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
-from ._helpers import axis_values, floats, record_container, wrap, wrap_all
+from ._helpers import floats, record_container, wrap, wrap_all
 
 
 def _rcParams():
@@ -50,12 +50,16 @@ class EventsMixin:
             DATA_PARAMETER_PLACEHOLDER
         """
         _api.check_in_list(['horizontal', 'vertical'], orientation=orientation)
+        lineoffsets, linelengths = self._process_unit_info(
+            [("y", lineoffsets), ("y", linelengths)], kwargs)
         if not np.iterable(positions):
             positions = [positions]
         elif any(np.iterable(position) for position in positions):
             positions = [np.asanyarray(position) for position in positions]
         else:
             positions = [np.asanyarray(positions)]
+        positions = [floats(self._process_unit_info([("x", position)], kwargs)[0])
+                     for position in positions]
         colors = cbook._local_over_kwdict(colors, kwargs, 'color')
         linewidths = cbook._local_over_kwdict(linewidths, kwargs, 'linewidth')
         linestyles = cbook._local_over_kwdict(linestyles, kwargs, 'linestyle')
@@ -100,7 +104,7 @@ class EventsMixin:
                                                 if c is None else c))
                           for c in colors])
         native = _plotting.eventplot(
-            self._native, [axis_values(p) for p in positions],
+            self._native, positions,
             "horizontal" if orientation == "horizontal" else "vertical",
             ([float(v) for v in lineoffsets], linelengths,
              None if all(w is None for w in linewidths) else
@@ -138,6 +142,12 @@ class EventsMixin:
             locs = np.arange(len(heads))
         else:
             locs, heads, *args = args
+        if orientation == 'vertical':
+            locs, heads = self._process_unit_info([("x", locs), ("y", heads)])
+            bottom = self.convert_yunits(bottom)
+        else:
+            heads, locs = self._process_unit_info([("x", heads), ("y", locs)])
+            bottom = self.convert_xunits(bottom)
         heads = cbook._check_1d(heads)
         locs = cbook._check_1d(locs)
         if np.ndim(heads) != 1 or np.shape(heads) != np.shape(locs):
@@ -154,7 +164,7 @@ class EventsMixin:
             basefmt = ("C2-" if _rcParams()["_internal.classic_mode"] else
                        "C3-")
         native, markerline, stemlines, baseline = _plotting.stem(
-            self._native, (axis_values(locs), axis_values(heads)),
+            self._native, (floats(locs), floats(heads)),
             (linefmt, markerfmt, basefmt), float(bottom), orientation,
             None if label is None else str(label))
         container = StemContainer(

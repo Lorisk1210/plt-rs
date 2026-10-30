@@ -7,7 +7,7 @@ import datetime
 
 import numpy as np
 
-from ... import _api, _handles, cbook, collections as mcoll, lines as mlines
+from ... import _api, _handles, cbook, collections as mcoll, lines as mlines, units
 from ..._native import plotting as _plotting
 
 
@@ -70,6 +70,30 @@ def convert_units(axes, name, values):
         return values
     return _plotting.convert_units(axes._native, name,
                                    axis_values(values)).reshape(array.shape)
+
+
+def line_data(axes, x, y):
+    """
+    The data *x*, *y* of a line on *axes* as pltrs (Rust) takes it: 1D
+    float arrays, masked values as NaN, the axes taking the units of the
+    data first (matplotlib's ``_plot_args`` and ``Line2D.recache``).
+    """
+    for name, values in (("x", x), ("y", y)):
+        axis = axes._axis_map[name]
+        if axis is not None:
+            axis.update_units(values)
+    return tuple(cbook._to_unmasked_float_array(values).ravel()
+                 for values in (axes.convert_xunits(x), axes.convert_yunits(y)))
+
+
+def keep_unit_data(line, x, y):
+    """Have *line*, made from *x* and *y*, keep them as its original data
+    if they are in units, so that it converts them again when the units
+    of its axes change (matplotlib's lines convert their data when drawn).
+    Returns *line*."""
+    if not (units._is_natively_supported(x) and units._is_natively_supported(y)):
+        line._xorig, line._yorig = x, y
+    return line
 
 
 def floats(values):

@@ -13,7 +13,7 @@ from numbers import Number
 
 import numpy as np
 
-from . import _api, colors as mcolors
+from . import _api, colors as mcolors, units
 from ._enums import CapStyle, JoinStyle
 from ._native import patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
@@ -385,11 +385,28 @@ class Rectangle(Patch):
             rotate around the center. If 2-tuple of number, rotate around
             this coordinate.
         """
-        self._native = _patches.new_rectangle(
-            (float(xy[0]), float(xy[1])), (float(width), float(height)),
-            float(angle))
+        x0, y0 = xy
+        if all(units._is_natively_supported(v) for v in (x0, y0, width, height)):
+            self._native = _patches.new_rectangle(
+                (float(x0), float(y0)), (float(width), float(height)),
+                float(angle))
+        else:
+            # Values in units convert once the rectangle joins an axes; the
+            # far corner is summed now, which checks that the units add up,
+            # as matplotlib's constructor does.
+            self._unit_bounds = (x0, y0, x0 + width, y0 + height)
+            self._native = _patches.new_rectangle((0., 0.), (0., 0.), float(angle))
         self.rotation_point = rotation_point
         super().__init__(**kwargs)
+
+    def _convert_units_for(self, axes):
+        bounds = self.__dict__.pop("_unit_bounds", None)
+        if bounds is None:
+            return
+        x0, y0, x1, y1 = bounds
+        x0, x1 = (float(axes.convert_xunits(x)) for x in (x0, x1))
+        y0, y1 = (float(axes.convert_yunits(y)) for y in (y0, y1))
+        self._set_fields(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
     def _fields(self):
         """``(x, y, width, height, angle, rotation_point)``."""
@@ -1254,7 +1271,12 @@ class FancyArrowPatch(Patch):
         if patchA is not None or patchB is not None:
             raise NotImplementedError("pltrs: FancyArrowPatch(patchA=..., patchB=...)")
         if posA is not None and posB is not None and path is None:
-            ends = (tuple(map(float, posA)), tuple(map(float, posB)))
+            if all(units._is_natively_supported(v) for v in (*posA, *posB)):
+                ends = (tuple(map(float, posA)), tuple(map(float, posB)))
+            else:
+                # Positions in units convert once the arrow joins an axes.
+                self._unit_positions = (posA, posB)
+                ends = ((0., 0.), (0., 0.))
         elif posA is None and posB is None and path is not None:
             ends = None
         else:
@@ -1268,6 +1290,26 @@ class FancyArrowPatch(Patch):
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
+
+    def set_positions(self, posA, posB):
+        """
+        Set the start and end positions of the connecting path.
+
+        Parameters
+        ----------
+        posA, posB : None, tuple
+            (x, y) coordinates of arrow tail and arrow head respectively. If
+            `None` use current value.
+        """
+        _patches.set_arrow_positions(
+            self._native, *(None if pos is None else tuple(map(float, pos))
+                            for pos in (posA, posB)))
+
+    def _convert_units_for(self, axes):
+        positions = self.__dict__.pop("_unit_positions", None)
+        if positions is not None:
+            self.set_positions(*((axes.convert_xunits(x), axes.convert_yunits(y))
+                                 for x, y in positions))
 
 
 class ConnectionPatch(FancyArrowPatch):

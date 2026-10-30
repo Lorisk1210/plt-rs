@@ -1,5 +1,5 @@
-//! Glyph outlines: unhinted, hinted as the raster backend renders them,
-//! and as scan outlines, cached by font, glyph, size and resolution.
+//! Glyph outlines: unhinted, and tagged as the raster backend renders
+//! them, cached by font, glyph, size and resolution.
 
 use std::sync::PoisonError;
 
@@ -27,7 +27,7 @@ pub(super) struct OutlineKey {
     size_bits: u64,
     dpi_bits: u64,
     /// For the raster backend: the hinting asked for and whether the glyph
-    /// is axis-aligned; `None` for the unhinted outline.
+    /// is axis-aligned; `None` for the unhinted outline (`get_path`).
     raster: Option<(Hinting, bool)>,
 }
 
@@ -42,33 +42,34 @@ impl TextEngine {
         size: f64,
         dpi: f64,
     ) -> Result<Path, TextError> {
-        self.outline(font, glyph, size, dpi, None)
+        let key = OutlineKey {
+            font,
+            glyph,
+            size_bits: size.to_bits(),
+            dpi_bits: dpi.to_bits(),
+            raster: None,
+        };
+        let mut cache = self.outlines.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(path) = cache.get(&key) {
+            return Ok(path.clone());
+        }
+        let face = self.db.face(font)?;
+        let size = Size::new(&face, size, dpi);
+        let mut sink = PathSink::default();
+        size.outline(&face, glyph, &mut sink)?;
+        let path = sink.finish();
+        cache.insert(key, path.clone());
+        Ok(path)
     }
 
     /// The outline of a glyph as matplotlib's Agg backend renders it with
-    /// `hinting` (`FT2Font._render_glyph`): grid-fitted by the font's
-    /// bytecode or by the autohinter, as `FreeType` would hint it, or
-    /// unhinted. `axis_aligned` tells whether the glyph is drawn at a
+    /// `hinting` (`FT2Font._render_glyph`), as `FreeType`'s rasterizers
+    /// receive it: tagged points in 26.6 pixels with the drop-out rules
+    /// the loader set (for `text.antialiased: False`), grid-fitted by the
+    /// font's bytecode or by the autohinter, as `FreeType` would hint it,
+    /// or unhinted. `axis_aligned` tells whether the glyph is drawn at a
     /// rotation by a multiple of 90 degrees (only such glyphs get
     /// `FreeType`'s autohinter). Outlines are cached.
-    pub fn raster_glyph_outline(
-        &self,
-        font: FontId,
-        glyph: GlyphId,
-        size: f64,
-        dpi: f64,
-        hinting: Hinting,
-        axis_aligned: bool,
-    ) -> Result<Path, TextError> {
-        self.outline(font, glyph, size, dpi, Some((hinting, axis_aligned)))
-    }
-
-    /// The outline of a glyph loaded as [`raster_glyph_outline`] loads it,
-    /// as `FreeType`'s monochrome rasterizer receives it: tagged points in
-    /// 26.6 pixels with the drop-out rules the loader set (matplotlib's
-    /// `text.antialiased: False`).
-    ///
-    /// [`raster_glyph_outline`]: Self::raster_glyph_outline
     ///
     /// # Errors
     ///
@@ -82,14 +83,25 @@ impl TextEngine {
         hinting: Hinting,
         axis_aligned: bool,
     ) -> Result<ScanOutline, TextError> {
+        let key = OutlineKey {
+            font,
+            glyph,
+            size_bits: size.to_bits(),
+            dpi_bits: dpi.to_bits(),
+            raster: Some((hinting, axis_aligned)),
+        };
+        let mut cache = (self.scan_outlines.lock()).unwrap_or_else(PoisonError::into_inner);
+        if let Some(outline) = cache.get(&key) {
+            return Ok(outline.clone());
+        }
         let face = self.db.face(font)?;
         let size = Size::new(&face, size, dpi);
-        Ok(
-            match self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)? {
-                Some(hinted) => hinted.scan_outline(),
-                None => size.scan_outline(&face, glyph)?,
-            },
-        )
+        let outline = match self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)? {
+            Some(hinted) => hinted.scan_outline(),
+            None => size.scan_outline(&face, glyph)?,
+        };
+        cache.insert(key, outline.clone());
+        Ok(outline)
     }
 
     /// `glyph` loaded with the hinter `hinting` picks for it, or `None`
@@ -113,46 +125,6 @@ impl TextEngine {
             )?),
             Hinter::Unhinted => None,
         })
-    }
-
-    /// A glyph outline in pixels, unhinted or as the raster backend loads
-    /// it, from the cache when possible.
-    fn outline(
-        &self,
-        font: FontId,
-        glyph: GlyphId,
-        size: f64,
-        dpi: f64,
-        raster: Option<(Hinting, bool)>,
-    ) -> Result<Path, TextError> {
-        let key = OutlineKey {
-            font,
-            glyph,
-            size_bits: size.to_bits(),
-            dpi_bits: dpi.to_bits(),
-            raster,
-        };
-        let mut cache = self.outlines.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(path) = cache.get(&key) {
-            return Ok(path.clone());
-        }
-        let face = self.db.face(font)?;
-        let size = Size::new(&face, size, dpi);
-        let mut sink = PathSink::default();
-        // The rasterizer decomposes outlines with their implied points
-        // rounded down; `get_path` truncates them.
-        match raster {
-            Some((hinting, axis_aligned)) => {
-                match self.hinted_glyph(&face, &size, font, glyph, hinting, axis_aligned)? {
-                    Some(hinted) => hinted.raster_outline(&mut sink),
-                    None => size.raster_outline(&face, glyph, &mut sink)?,
-                }
-            }
-            None => size.outline(&face, glyph, &mut sink)?,
-        }
-        let path = sink.finish();
-        cache.insert(key, path.clone());
-        Ok(path)
     }
 }
 
@@ -219,13 +191,11 @@ mod tests {
         let glyph = run.glyphs[0];
         let outline = |hinting, axis_aligned| {
             engine
-                .raster_glyph_outline(glyph.font, glyph.glyph, 10.0, 100.0, hinting, axis_aligned)
+                .scan_glyph_outline(glyph.font, glyph.glyph, 10.0, 100.0, hinting, axis_aligned)
                 .expect("bundled font")
         };
-        let unhinted = engine
-            .glyph_outline(glyph.font, glyph.glyph, 10.0, 100.0)
-            .expect("bundled font");
-        assert_eq!(outline(Hinting::None, true), unhinted);
+        let unhinted = outline(Hinting::None, true);
+        assert_eq!(unhinted, outline(Hinting::None, false));
         assert_ne!(outline(Hinting::Default, true), unhinted);
         // FORCE_AUTOHINT gives axis-aligned glyphs to the autohinter and
         // rotated ones to the bytecode, as FreeType does.

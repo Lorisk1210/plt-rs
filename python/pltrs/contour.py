@@ -50,7 +50,9 @@ class ContourLabeler:
             (None if levels is None else [float(lev) for lev in levels],
              None if fontsize is None else float(fontsize), bool(inline),
              float(inline_spacing), colors,
-             None if manual is False else [tuple(map(float, xy)) for xy in manual]),
+             None if manual is False else
+             [(float(self.axes.convert_xunits(x)), float(self.axes.convert_yunits(y)))
+              for x, y in manual]),
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
                   bool(use_clabeltext)))
         return _handles.wrap_all(texts, Text, self.figure)

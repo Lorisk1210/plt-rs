@@ -7,7 +7,6 @@ use pltrs::container::Container;
 use pltrs::lines::{Line2D, MarkEvery};
 
 use super::super::lines::{LineKwargs, PyLineStyle};
-use super::values::PyAxisValues;
 use crate::binding::prelude::*;
 
 /// Error sizes below and above each point, already broadcast by the
@@ -59,7 +58,7 @@ pub(super) fn errorbar_artists(container: ErrorbarContainer) -> ErrorbarArtists 
 /// handling and input checks the Python side did).
 pub(super) fn errorbar(
     axes: Axes,
-    (x, y): (PyAxisValues, PyAxisValues),
+    (x, y): (NdArray, NdArray),
     (xerr, yerr): (Errors, Errors),
     fmt: String,
     kwargs: LineKwargs,
@@ -84,5 +83,9 @@ pub(super) fn errorbar(
         xuplims,
         errorevery: every.map(MarkEvery::Mask),
     };
-    Ok(errorbar_artists(axes.errorbar(x.0, y.0, options)?))
+    Ok(errorbar_artists(axes.errorbar(
+        x.into_vec()?,
+        y.into_vec()?,
+        options,
+    )?))
 }

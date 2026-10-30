@@ -8,7 +8,6 @@ use pltrs::transforms::Transform;
 use super::super::collections::{edge_colors, rgba_rows};
 use super::super::lines::PyMarker;
 use super::mapping::{Mapping, colorizer};
-use super::values::PyAxisValues;
 use crate::binding::prelude::*;
 
 /// The face colours: RGBA rows, or values mapped through a colormap.
@@ -32,7 +31,7 @@ pub(super) fn next_patch_color(axes: Axes) -> PyResult<Color> {
 /// (`None`: the data coordinates).
 pub(super) fn scatter(
     axes: Axes,
-    (x, y): (PyAxisValues, PyAxisValues),
+    (x, y): (NdArray, NdArray),
     sizes: NdArray,
     (rgba, mapped): Faces,
     marker: PyMarker,
@@ -71,5 +70,5 @@ pub(super) fn scatter(
         plot_nonfinite,
         offset_transform,
     };
-    Ok(axes.scatter_with(x.0, y.0, options)?)
+    Ok(axes.scatter_with(x.into_vec()?, y.into_vec()?, options)?)
 }

@@ -26,6 +26,7 @@ use super::transforms::{matrix, points, points_array};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
+mod arrow_route;
 mod new;
 
 artist_handle!(
@@ -701,5 +702,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_step_patch", set_step_patch)?;
     module.add("fancy_bbox", fancy_bbox)?;
     module.add("set_fancy_bbox", set_fancy_bbox)?;
+    arrow_route::register(module)?;
     new::register(module)
 }

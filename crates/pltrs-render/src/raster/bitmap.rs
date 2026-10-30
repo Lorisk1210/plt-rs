@@ -2,19 +2,20 @@
 //! matplotlib's `FT2Font._render_glyph` (and the bitmaps of its
 //! `draw_glyph_to_bitmap` and mathtext's raster output).
 
-use pltrs_core::{Path, Point};
+use pltrs_core::Point;
 use pltrs_font::ScanOutline;
 use pltrs_raster::{GrayBitmap, RasterError};
 
 use super::glyph::{GlyphTransform, freetype_contours, is_axis_aligned};
 use super::mono::{self, MonoBitmap};
 
-/// A glyph's outline as `FreeType` hands it to a rasterizer.
+/// A glyph's tagged outline (26.6, origin at the pen) as `FreeType` hands
+/// it to a rasterizer.
 #[derive(Clone, Debug, PartialEq)]
 pub enum GlyphShape {
-    /// The outline in pixels relative to the pen, for anti-aliased text.
-    Smooth(Path),
-    /// The tagged outline, for text without anti-aliasing.
+    /// For anti-aliased text.
+    Smooth(ScanOutline),
+    /// For text without anti-aliasing.
     Mono(ScanOutline),
 }
 
@@ -60,14 +61,17 @@ impl From<MonoBitmap> for GlyphBitmap {
     }
 }
 
-/// The anti-aliased bitmap of a glyph `outline` (pixels, origin at the
-/// pen) placed by `transform`, as `FT_Render_Glyph` renders it; `None` for
-/// an outline without area.
+/// The anti-aliased bitmap of a tagged glyph `outline` placed by
+/// `transform`, as `FT_Render_Glyph` renders it; `None` for an outline
+/// without area or a malformed one.
 pub(super) fn smooth_bitmap(
-    outline: &Path,
+    outline: &ScanOutline,
     transform: &GlyphTransform,
 ) -> Result<Option<GrayBitmap>, RasterError> {
-    pltrs_raster::render_glyph(&freetype_contours(outline, transform), false)
+    match freetype_contours(outline, transform) {
+        Some(contours) => pltrs_raster::render_glyph(&contours, false),
+        None => Ok(None),
+    }
 }
 
 /// Whether `FreeType` sees the glyph matrix matplotlib sets for `angle`

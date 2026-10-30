@@ -379,6 +379,9 @@ class _NativeFormatter(Formatter):
     def format_ticks(self, values):
         # docstring inherited
         self.set_locs(values)
+        if type(self).__call__.__module__ != __name__:
+            # A subclass of the program's labels each tick itself.
+            return [self(value, i) for i, value in enumerate(values)]
         return list(self._labels)
 
     def get_offset(self):

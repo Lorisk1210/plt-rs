@@ -82,6 +82,28 @@ def _native_converter_kind(converter):
     return None
 
 
+def _is_native_converter(converter):
+    """Whether pltrs (Rust) converts what *converter* converts (dates and
+    category names), which None, no converter, stands for too."""
+    from . import category, dates
+    return converter is None or isinstance(
+        converter, (dates.DateConverter, dates._SwitchableDateConverter,
+                    category.StrCategoryConverter))
+
+
+def _first_value(data):
+    """The first finite value of *data* as a list of one, or *data* itself
+    when it is an empty array (whose type says what it holds)."""
+    data = cbook._unpack_to_numpy(data)
+    if not np.iterable(data):
+        return [data]
+    if isinstance(data, np.ndarray):
+        if not data.size:
+            return data
+        data = data.ravel()
+    return [cbook._safe_first_finite(data)]
+
+
 def _floats(values):
     """*values* as a list of floats, None staying None."""
     return None if values is None else [float(v) for v in np.ravel(values)]
@@ -1261,27 +1283,46 @@ class Axis(Artist):
         else what `set_units` set."""
         if not _axis.has_categories(*self._args()):
             return self._units
+        units = self._shared_category_units()
+        keys = self._shared_category_keys()
+        names = _axis.category_names(*self._args())
+        units._mapping.clear()
+        units._mapping.update((keys.get(name, name), index)
+                              for index, name in enumerate(names))
+        return units
+
+    @units.setter
+    def units(self, units):
+        self._units = units
+
+    def _shared_category_units(self):
+        """The category data of the axis, which the axes sharing it share,
+        as in matplotlib."""
         if self._category_units is None:
-            # The axes sharing the axis share its units, as in matplotlib.
             from .category import UnitData
             shared = self._get_shared_axis()
             units = next((axis._category_units for axis in shared
                           if axis._category_units is not None), UnitData())
             for axis in shared:
                 axis._category_units = units
-        self._category_units._mapping.clear()
-        names = _axis.category_names(*self._args())
-        self._category_units._mapping.update(
-            (name, index) for index, name in enumerate(names))
         return self._category_units
 
-    @units.setter
-    def units(self, units):
-        self._units = units
+    def _shared_category_keys(self):
+        """The category names given as bytes, by the name pltrs (Rust) keeps
+        for them, so that they stay bytes; the axes sharing the axis share
+        them."""
+        keys = vars(self).get("_category_keys")
+        if keys is None:
+            shared = self._get_shared_axis()
+            keys = next((vars(axis)["_category_keys"] for axis in shared
+                         if "_category_keys" in vars(axis)), {})
+            for axis in shared:
+                axis._category_keys = keys
+        return keys
 
     def have_units(self):
         """Return whether the axis converts units."""
-        return (self._units is not None
+        return (self._converter is not None or self._units is not None
                 or _axis.have_units(*self._args()))
 
     def get_units(self):
@@ -1300,10 +1341,16 @@ class Axis(Artist):
         -----
         The units of any shared axis will also be updated.
         """
-        if u == self._units:
+        if u == self.units:
             return
+        from .category import UnitData
+        if isinstance(u, UnitData):
+            # pltrs (Rust) keeps the names of a categorical axis.
+            self._update_native_units(list(u._mapping))
         for axis in self._get_shared_axis():
             axis._units = u
+            axis._update_axisinfo()
+            axis.axes._unit_change_handler(axis.axis_name)
             axis.callbacks.process('units')
 
     def _get_shared_axis(self):
@@ -1318,18 +1365,82 @@ class Axis(Artist):
         ``axis.get_converter`` instance if necessary. Return *True*
         if *data* is registered for unit conversion.
         """
-        if munits._is_natively_supported(data):
+        if self._converter_is_explicit:
+            converter = self._converter
+        else:
+            converter = munits.registry.get_converter(data)
+        if converter is None:
             return False
+        if _is_native_converter(converter):
+            if not _is_native_converter(self._converter):
+                self._set_converter(converter)
+            from .category import StrCategoryConverter
+            if not isinstance(converter, StrCategoryConverter):
+                # The first date tells pltrs (Rust) all it needs: that the
+                # axis shows dates (the others may be no dates at all, as
+                # the timedeltas of a bar's (start, width) pair).
+                data = _first_value(data)
+            return self._update_native_units(data)
+        neednew = self._converter != converter
+        self._set_converter(converter)
+        default = self._converter.default_units(data, self)
+        if default is not None and self.units is None:
+            self.set_units(default)
+        elif neednew:
+            self._update_axisinfo()
+        return True
+
+    def _update_native_units(self, data):
+        """Have pltrs (Rust), which converts dates and category names,
+        take the units of *data*; whether *data* has units."""
         from .axes._plotting._helpers import axis_values
-        return _axis.update_units(*self._args(), axis_values(data))
+        values = axis_values(data)
+        if isinstance(values, list):
+            # Category names keep the type they were given in.
+            keys = self._shared_category_keys()
+            for value in np.atleast_1d(np.array(data, dtype=object)).ravel():
+                if isinstance(value, bytes):
+                    keys.setdefault(value.decode(), value)
+        return _axis.update_units(*self._args(), values)
+
+    def _update_axisinfo(self):
+        """Give the axis the tick helpers, label and default limits its
+        converter gives for its units, when the converter is one of the
+        program's (pltrs (Rust) gives dates and categories theirs)."""
+        if _is_native_converter(self._converter):
+            return
+        info = self._converter.axisinfo(self.units, self)
+        if info is not None:
+            _tick_helpers.use_axis_info(self, info, self._default_limits(info))
+
+    def _default_limits(self, info):
+        """The default limits of the converter's axis info *info*, in axis
+        numbers, or None."""
+        if info.default_limits is None:
+            return None
+        low, high = self.convert_units(info.default_limits)
+        return float(low), float(high)
 
     def convert_units(self, x):
         """Convert *x* to the numbers of the axis, which takes the units
         it brings."""
         if munits._is_natively_supported(x):
             return x
-        from .axes._plotting._helpers import convert_units
-        return convert_units(self.axes, self.axis_name, x)
+        converter = self._converter
+        if converter is None and _axis.converter_kind(*self._args()) is None:
+            converter = munits.registry.get_converter(x)
+            if converter is None:
+                return x
+            if not _is_native_converter(converter):
+                self._set_converter(converter)
+        if _is_native_converter(converter):
+            from .axes._plotting._helpers import convert_units
+            return convert_units(self.axes, self.axis_name, x)
+        try:
+            return converter.convert(x, self.units, self)
+        except Exception as e:
+            raise munits.ConversionError('Failed to convert value(s) to axis '
+                                         f'units: {x!r}') from e
 
     def get_converter(self):
         """Get the unit converter for axis."""

@@ -10,8 +10,8 @@ mod locators;
 
 pub(super) use locators::{Zone, date_locator};
 use pltrs::dates::{
-    Date, DateError, Datetime64, TimeZone, datestr2num, datestr2num_with_default,
-    datetime64_to_num, get_epoch, num2date, num2timedelta, reset_epoch, set_epoch, wrap_in_tex,
+    DateError, Datetime64, TimeZone, datetime64_to_num, get_epoch, num2date, num2timedelta,
+    reset_epoch, set_epoch, wrap_in_tex,
 };
 
 use crate::binding::prelude::*;
@@ -94,20 +94,6 @@ fn num_to_timedelta(numbers: NdArray) -> PyResult<NdArray<i64>> {
     NdArray::with_shape(micros, numbers.shape)
 }
 
-/// `datestr2num(text)` for an ISO 8601 date string.
-fn datestr_to_num(text: String) -> PyResult<f64> {
-    Ok(datestr2num(&text)?)
-}
-
-/// `datestr2num(text, default=date)`: the day or month a reduced ISO 8601
-/// date leaves out comes from `(year, month, day)`.
-fn datestr_to_num_with_default(text: String, (year, month, day): (i32, u32, u32)) -> PyResult<f64> {
-    Ok(datestr2num_with_default(
-        &text,
-        Date::new(year, month, day)?,
-    )?)
-}
-
 /// The epoch, as given (`get_epoch`).
 fn epoch() -> PyResult<String> {
     Ok(get_epoch().to_string())
@@ -136,8 +122,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("micros_to_num", micros_to_num)?;
     module.add("num_to_utc", num_to_utc)?;
     module.add("num_to_timedelta", num_to_timedelta)?;
-    module.add("datestr2num", datestr_to_num)?;
-    module.add("datestr2num_with_default", datestr_to_num_with_default)?;
     module.add("get_epoch", epoch)?;
     module.add("set_epoch", change_epoch)?;
     module.add("reset_epoch", restore_epoch)?;

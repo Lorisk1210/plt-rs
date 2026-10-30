@@ -95,23 +95,73 @@ impl Axes {
         self.secondary(AxisName::Y, location, functions)
     }
 
+    /// Converts the host's range with `functions` from now on (`None` is
+    /// the identity), keeping the axis' side (matplotlib's
+    /// `SecondaryAxis.set_functions`); does nothing to an axes that is no
+    /// secondary axis.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::SecondaryLocation;
+    /// use pltrs::scale::FuncTransform;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xlim(1.0, 2.0)?;
+    /// let sec = ax.secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), None)?;
+    /// sec.set_secondary_functions(Some(FuncTransform::new(|x| 10.0 * x, |x| x / 10.0)));
+    /// assert_eq!(sec.xlim(), (10.0, 20.0));
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn set_secondary_functions(&self, functions: Option<FuncTransform>) -> &Self {
+        self.update_secondary(|link| {
+            link.functions = functions.unwrap_or_else(FuncTransform::identity);
+            link.host_scale = None;
+        })
+    }
+
+    /// Moves this secondary axis to `location` across its host, keeping
+    /// the side its spine, ticks and label face (matplotlib's
+    /// `SecondaryAxis.set_location`); does nothing to an axes that is no
+    /// secondary axis.
+    ///
+    /// # Errors
+    ///
+    /// When `location` is a side of the other axis.
+    pub fn set_secondary_location(&self, location: SecondaryLocation) -> Result<&Self, PlotError> {
+        let Some(orientation) = self
+            .raw
+            .with::<AxesState, _>(|axes| axes.secondary.as_ref().map(|link| link.orientation))
+        else {
+            return Ok(self);
+        };
+        let pos = location_fraction(orientation, location)?;
+        self.raw
+            .with_mut::<AxesState, _>(|axes| axes.position = secondary_bounds(orientation, pos));
+        Ok(self.update_secondary(|link| link.data_location = data_location(location)))
+    }
+
+    /// Changes the link of this secondary axis to its host with `change`,
+    /// then brings the axis up to date with its host.
+    fn update_secondary(&self, change: impl FnOnce(&mut Secondary)) -> &Self {
+        let linked = self
+            .raw
+            .with_mut::<AxesState, _>(|axes| axes.secondary.as_mut().map(change).is_some());
+        if linked {
+            self.raw
+                .figure_state()
+                .borrow_mut()
+                .sync_secondary(self.id());
+        }
+        self
+    }
+
     fn secondary(
         &self,
         orientation: AxisName,
         location: SecondaryLocation,
         functions: Option<FuncTransform>,
     ) -> Result<Self, PlotError> {
-        let pos = match location {
-            SecondaryLocation::Side(side) if side.axis() != orientation => {
-                return Err(PlotError::WrongSide {
-                    axis: orientation,
-                    side,
-                });
-            }
-            SecondaryLocation::Side(side) => f64::from(u8::from(side.is_high())),
-            // Placed at the host's data value when synchronised below.
-            SecondaryLocation::Fraction(pos) | SecondaryLocation::Data(pos) => pos,
-        };
+        let pos = location_fraction(orientation, location)?;
         let figure = self.raw().figure_state();
         let secondary = insert_axes(figure, self.id(), secondary_bounds(orientation, pos), None);
         let other = across(orientation);
@@ -133,10 +183,7 @@ impl Axes {
             axes.secondary = Some(Secondary {
                 host: self.id(),
                 orientation,
-                data_location: match location {
-                    SecondaryLocation::Data(value) => Some(value),
-                    SecondaryLocation::Side(_) | SecondaryLocation::Fraction(_) => None,
-                },
+                data_location: data_location(location),
                 functions: functions.unwrap_or_else(FuncTransform::identity),
                 host_scale: None,
             });
@@ -202,6 +249,28 @@ impl FigureState {
     }
 }
 
+/// The fraction of the host across `orientation` at which a secondary
+/// axis at `location` starts out (a data location is placed when the axis
+/// is synchronised with its host).
+fn location_fraction(orientation: AxisName, location: SecondaryLocation) -> Result<f64, PlotError> {
+    match location {
+        SecondaryLocation::Side(side) if side.axis() != orientation => Err(PlotError::WrongSide {
+            axis: orientation,
+            side,
+        }),
+        SecondaryLocation::Side(side) => Ok(f64::from(u8::from(side.is_high()))),
+        SecondaryLocation::Fraction(pos) | SecondaryLocation::Data(pos) => Ok(pos),
+    }
+}
+
+/// The host data value a secondary axis at `location` follows, if any.
+const fn data_location(location: SecondaryLocation) -> Option<f64> {
+    match location {
+        SecondaryLocation::Data(value) => Some(value),
+        SecondaryLocation::Side(_) | SecondaryLocation::Fraction(_) => None,
+    }
+}
+
 /// The axis across `orientation`.
 const fn across(orientation: AxisName) -> AxisName {
     match orientation {
@@ -251,6 +320,32 @@ mod tests {
         let placed = sec.raw.with::<AxesState, _>(|a| a.position);
         assert_eq!(placed.x0(), 0.3);
         assert!(host.width() > 0.0);
+    }
+
+    #[test]
+    fn locations_and_functions_change_after_creation() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        ax.set_xlim(1.0, 2.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
+        let sec = ax
+            .secondary_xaxis(SecondaryLocation::Side(SpineSide::Top), None)
+            .unwrap();
+        sec.set_secondary_functions(Some(FuncTransform::new(|x| -x, |x| -x)));
+        assert_eq!(sec.xlim(), (-2.0, -1.0), "flipped to keep the order");
+        sec.set_secondary_location(SecondaryLocation::Data(5.0))
+            .unwrap();
+        fig.layout();
+        let placed = sec.raw.with::<AxesState, _>(|a| a.position.y0());
+        assert_eq!(placed, 0.5);
+        let wrong = sec.set_secondary_location(SecondaryLocation::Side(SpineSide::Left));
+        assert!(matches!(wrong, Err(PlotError::WrongSide { .. })));
+        assert!(
+            ax.set_secondary_location(SecondaryLocation::Fraction(0.5))
+                .is_ok(),
+            "a host is no secondary axis: nothing changes"
+        );
     }
 
     #[test]

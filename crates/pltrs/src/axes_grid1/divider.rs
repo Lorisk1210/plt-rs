@@ -485,10 +485,11 @@ impl FigureState {
             .expect("dividers are never removed from their figure")
     }
 
-    /// Places `axes` in `cell` of its divider from the next layout pass
-    /// on (matplotlib's `set_axes_locator`).
+    /// Places `axes`, in the figure or removed from it, in `cell` of its
+    /// divider from the next layout pass on (matplotlib's
+    /// `set_axes_locator`).
     pub(crate) fn set_divider_cell(&mut self, axes: ArtistId, cell: DividerCell) {
-        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+        if let Some(state) = self.artist_as_mut::<AxesState>(axes) {
             state.aspect.divider = Some(cell);
         }
         self.stale = true;

@@ -74,14 +74,36 @@ impl Axes {
     #[must_use]
     pub fn inset_axes_in(&self, bounds: [f64; 4], transform: Transform) -> Self {
         let inset = self.inset_axes(bounds);
+        self.place_inset(&inset, bounds, transform);
+        inset
+    }
+
+    /// Places `inset`, an axes inside this one, on `[left, bottom, width,
+    /// height]` in the coordinates of `transform` anew at every layout
+    /// pass, as [`Axes::inset_axes_in`] places its insets (matplotlib's
+    /// `inset.set_axes_locator(_TransformedBoundsLocator(bounds,
+    /// transform))`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_xlim(0.0, 10.0)?.set_ylim(0.0, 10.0)?;
+    /// let inset = ax.inset_axes([0.0, 0.0, 0.1, 0.1]);
+    /// ax.place_inset(&inset, [5.0, 5.0, 5.0, 5.0], ax.trans_data());
+    /// let (x, _, width, _) = inset.position().bounds();
+    /// let (px, _, pwidth, _) = ax.position().bounds();
+    /// assert!((x - (px + 0.5 * pwidth)).abs() < 1e-12 && (width - 0.5 * pwidth).abs() < 1e-12);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn place_inset(&self, inset: &Self, bounds: [f64; 4], transform: Transform) {
         let [left, bottom, width, height] = bounds;
         locate_on_bounds(
             self,
-            &inset,
+            inset,
             Bbox::from_bounds(left, bottom, width, height),
             transform,
         );
-        inset
     }
 
     /// The axes placed inside this one, in creation order: its insets and

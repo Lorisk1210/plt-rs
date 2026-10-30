@@ -241,6 +241,14 @@ impl FloatingAxes {
         Ok(floating)
     }
 
+    /// A handle to `ax`, already made floating axes by
+    /// [`FloatingAxes::new`], to clear it again.
+    pub fn of(ax: crate::axes::Axes) -> Self {
+        Self {
+            axes: AxisArtistAxes::of(ax),
+        }
+    }
+
     /// Removes everything drawn in the axes and gives it new axis artists
     /// along the edges of the range, as
     /// [`axisartist::AxisArtistAxes::clear`](AxisArtistAxes::clear) does, then outlines the

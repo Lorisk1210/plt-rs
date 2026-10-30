@@ -64,16 +64,7 @@ impl RgbAxes {
         let [r, g, b] = make_rgb_axes(&rgb, pad);
         let all = Self { rgb, r, g, b };
         for axes in all.axes() {
-            for spine in axes.spines().iter() {
-                spine.set_color("w");
-            }
-            // Only the edges of the major tick marks turn white
-            // (matplotlib's `major_ticks.set_markeredgecolor("w")`).
-            axes.raw().with_mut::<AxesState, _>(|state| {
-                for name in [AxisName::X, AxisName::Y] {
-                    state.axis_mut(name).major_style.edgecolor = Some(Color::from("w"));
-                }
-            });
+            whiten_frame(axes);
         }
         Ok(all)
     }
@@ -185,13 +176,33 @@ pub fn make_rgb_axes(ax: &Axes, pad: f64) -> [Axes; 3] {
         // Sharing with a fresh axes cannot form a cycle.
         axes.share_x(ax).expect("a fresh axes shares freely");
         axes.share_y(ax).expect("a fresh axes shares freely");
-        axes.tick_params(TickParams {
-            labelbottom: Some(false),
-            labelleft: Some(false),
-            ..TickParams::default()
-        });
+        hide_channel_ticklabels(&axes);
         axes
     })
+}
+
+/// Draws the spines of `axes` and the edges of its major tick marks in
+/// white, as matplotlib's `RGBAxes` does to its four axes
+/// (`line.set_color("w")` and `major_ticks.set_markeredgecolor("w")`).
+pub fn whiten_frame(axes: &Axes) {
+    for spine in axes.spines().iter() {
+        spine.set_color("w");
+    }
+    axes.raw().with_mut::<AxesState, _>(|state| {
+        for name in [AxisName::X, AxisName::Y] {
+            state.axis_mut(name).major_style.edgecolor = Some(Color::from("w"));
+        }
+    });
+}
+
+/// Hides the tick labels of `axes`, a channel axes of [`make_rgb_axes`]
+/// (matplotlib hides them one by one).
+pub fn hide_channel_ticklabels(axes: &Axes) {
+    axes.tick_params(TickParams {
+        labelbottom: Some(false),
+        labelleft: Some(false),
+        ..TickParams::default()
+    });
 }
 
 #[cfg(test)]

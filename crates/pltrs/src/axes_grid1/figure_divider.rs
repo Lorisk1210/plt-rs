@@ -6,11 +6,12 @@ use std::fmt;
 use std::ops::Range;
 use std::rc::Rc;
 
+use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 use pltrs_core::{Anchor, Bbox};
 
 use super::divider::{DividerAspect, DividerId, DividerKind, DividerRect, DividerState};
 use super::size::Size;
-use crate::artist::ArtistHandle;
+use crate::artist::{ArtistHandle, RawHandle};
 use crate::axes::Axes;
 use crate::figure::{Figure, FigureState};
 use crate::gridspec::SubplotSpec;
@@ -59,6 +60,24 @@ impl std::error::Error for DividerError {}
 pub struct Divider {
     figure: Figure,
     id: DividerId,
+}
+
+/// A divider is archived as a handle of its figure and its index among
+/// the figure's dividers, which the figure's archive holds.
+impl Archive for Divider {
+    fn encode(&self, encoder: &mut Encoder<'_>) -> Result<(), ArchiveError> {
+        self.figure.raw().encode(encoder)?;
+        self.id.encode(encoder)
+    }
+
+    fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
+        let raw = RawHandle::decode(decoder)?;
+        let id = DividerId::decode(decoder)?;
+        Ok(Self {
+            figure: Figure::root_of(raw.figure_state()),
+            id,
+        })
+    }
 }
 
 impl Divider {
@@ -229,6 +248,48 @@ impl Divider {
         self.read(|_, divider| divider.anchor)
     }
 
+    /// Divides `[left, bottom, width, height]` (fractions of the figure)
+    /// from now on, in place of the rectangle it divided (matplotlib's
+    /// `set_position`).
+    pub fn set_position(&self, rect: [f64; 4]) -> &Self {
+        self.update(|divider| divider.rect = DividerRect::Fixed(rect))
+    }
+
+    /// Divides the cells `spec` covers in the subplot grid of the figure
+    /// from now on, in place of the rectangle it divided (matplotlib's
+    /// `SubplotDivider.set_subplotspec`).
+    pub fn set_subplot_spec(&self, spec: &SubplotSpec) -> &Self {
+        self.update(|divider| divider.rect = DividerRect::Subplot(spec.clone()))
+    }
+
+    /// Where an axes placed over the block of cells of `columns` and
+    /// `rows` goes in the current layout, in fractions of the figure
+    /// (matplotlib's `divider.new_locator(nx, ny, nx1, ny1)(ax, renderer)`;
+    /// the ranges count from the reference cell as
+    /// [`place_spanning`](Self::place_spanning)'s do); `None` when the
+    /// block is outside the divider.
+    ///
+    /// ```
+    /// use pltrs::axes_grid1::{Divider, Size};
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::with_size(4.0, 4.0, 100.0);
+    /// let horizontal = vec![Size::Fixed(1.0), Size::Scaled(1.0)];
+    /// let divider = Divider::new(&fig, [0.0, 0.0, 1.0, 1.0], horizontal, vec![Size::Scaled(1.0)], false);
+    /// let cell = divider.locate(1..2, 0..1).unwrap();
+    /// assert_eq!(cell.bounds(), (0.25, 0.0, 0.75, 1.0));
+    /// assert_eq!(divider.locate(5..6, 0..1), None);
+    /// ```
+    pub fn locate(&self, columns: Range<isize>, rows: Range<isize>) -> Option<Bbox> {
+        let figure = self.figure.raw().figure_state();
+        let mut state = figure.borrow_mut();
+        let cell = state.divider(self.id).cell(
+            self.id,
+            (columns.start, columns.end),
+            (rows.start, rows.end),
+        );
+        state.locate_in_divider(cell)
+    }
+
     /// The divided rectangle in fractions of the figure (matplotlib's
     /// `get_position`).
     pub fn position(&self) -> Bbox {
@@ -314,6 +375,37 @@ mod tests {
         divider.place_spanning(&wide, 2..4, 0..1).unwrap();
         assert_close(bounds(&corner), [0.1, 0.47, 0.358_333, 0.43]);
         assert_close(bounds(&wide), [0.541_667, 0.1, 0.358_333, 0.286_667]);
+    }
+
+    #[test]
+    fn rectangles_change_and_removed_axes_keep_their_cell() {
+        let fig = Figure::with_size(4.0, 4.0, 100.0);
+        let divider = Divider::new(
+            &fig,
+            [0.0, 0.0, 1.0, 1.0],
+            vec![Size::Scaled(1.0)],
+            vec![Size::Scaled(1.0)],
+            false,
+        );
+        divider.set_position([0.5, 0.5, 0.5, 0.5]);
+        assert_close(
+            {
+                let (x, y, w, h) = divider.locate(0..1, 0..1).unwrap().bounds();
+                [x, y, w, h]
+            },
+            [0.5, 0.5, 0.5, 0.5],
+        );
+        let spec = GridSpec::new(2, 1).unwrap().cell(1, 0).unwrap();
+        divider.set_subplot_spec(&spec);
+        let lower = divider.position();
+        assert!(lower.y1() < 0.5, "{lower:?}");
+        let ax = fig.removed_axes([0.0, 0.0, 1.0, 1.0]).unwrap();
+        divider.place(&ax, 0, 0).unwrap();
+        fig.attach(&ax).unwrap();
+        assert_close(bounds(&ax), {
+            let (x, y, w, h) = lower.bounds();
+            [x, y, w, h]
+        });
     }
 
     #[test]

@@ -40,27 +40,14 @@ pub struct AxesDivider {
 /// assert!(side.position().bounds().0 > x + w);
 /// ```
 pub fn make_axes_locatable(axes: &Axes) -> AxesDivider {
+    let divider = AxesDivider::new(axes);
     let mut state = axes.raw().figure_state().borrow_mut();
-    let frame = state
-        .store
-        .get_as::<AxesState>(axes.id())
-        .and_then(|a| a.base().parent)
-        .unwrap_or(state.root);
-    let mut divider = DividerState::new(
-        frame,
-        DividerRect::Axes(axes.id()),
-        DividerAspect::OfAxes(axes.id()),
-    );
-    divider.horizontal.push(Size::axes_x(axes.id()));
-    divider.vertical.push(Size::axes_y(axes.id()));
-    let id = DividerId(state.layout.dividers.len());
-    let cell = divider.cell(id, (0, 1), (0, 1));
-    state.add_divider(divider);
+    let cell = state
+        .divider(divider.divider)
+        .cell(divider.divider, (0, 1), (0, 1));
     state.set_divider_cell(axes.id(), cell);
-    AxesDivider {
-        axes: axes.clone(),
-        divider: id,
-    }
+    drop(state);
+    divider
 }
 
 /// Makes `axes` divisible and pads it on each of `sides` so that the
@@ -91,6 +78,40 @@ pub fn make_axes_area_auto_adjustable(
 }
 
 impl AxesDivider {
+    /// A divider of the original position of `axes`, one column as wide
+    /// as its data and one row as tall, keeping the axes' aspect when it
+    /// has a fixed one (matplotlib's `AxesDivider(axes)`). Unlike
+    /// [`make_axes_locatable`], it does not place `axes` in its cell.
+    ///
+    /// ```
+    /// use pltrs::axes_grid1::{AxesDivider, Size};
+    /// use pltrs::prelude::*;
+    /// use pltrs::artist::ArtistHandle;
+    /// let ax = Figure::new().subplot();
+    /// let divider = AxesDivider::new(&ax);
+    /// assert_eq!(divider.divider().horizontal(), [Size::axes_x(ax.id())]);
+    /// ```
+    pub fn new(axes: &Axes) -> Self {
+        let mut state = axes.raw().figure_state().borrow_mut();
+        let frame = state
+            .store
+            .get_as::<AxesState>(axes.id())
+            .and_then(|a| a.base().parent)
+            .unwrap_or(state.root);
+        let mut divider = DividerState::new(
+            frame,
+            DividerRect::Axes(axes.id()),
+            DividerAspect::OfAxes(axes.id()),
+        );
+        divider.horizontal.push(Size::axes_x(axes.id()));
+        divider.vertical.push(Size::axes_y(axes.id()));
+        let id = state.add_divider(divider);
+        Self {
+            axes: axes.clone(),
+            divider: id,
+        }
+    }
+
     /// Pads the divided area on each of `sides` by how far the decorations
     /// of `use_axes` (tick labels, axis labels, titles) reach past that
     /// side, plus `pad` inches (matplotlib's `add_auto_adjustable_area`).

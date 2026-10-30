@@ -53,7 +53,9 @@ pub use image_grid::{
     ImageGridOptions,
 };
 pub(crate) use inset_locator::{InsetLocator, InsetLocatorId, locate_on_bounds};
-pub use inset_locator::{InsetOptions, inset_axes, zoomed_inset_axes};
+pub use inset_locator::{
+    InsetOptions, inset_axes, place_sized_inset, place_zoomed_inset, zoomed_inset_axes,
+};
 pub use inset_marks::{InsetMarks, mark_inset};
 pub use labels::LabelMode;
 pub use mpl_axes::SimpleAxisArtist;
@@ -61,5 +63,5 @@ pub use parasite_axes::{
     HostAxes, ParasiteAxes, ParasiteError, ParasiteLink, host_axes, host_subplot,
 };
 pub(crate) use parasite_axes::{Parasite, is_parasite, parasites_of};
-pub use rgb_axes::{RgbAxes, make_rgb_axes};
+pub use rgb_axes::{RgbAxes, hide_channel_ticklabels, make_rgb_axes, whiten_frame};
 pub use size::{Size, SizeAspect, SizeSpec};

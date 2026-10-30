@@ -44,6 +44,7 @@ mod font_manager;
 mod ft2font;
 mod gridspec;
 mod image;
+mod insets;
 mod legend;
 mod lines;
 mod markers;
@@ -109,6 +110,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     ft2font::register(&module.submodule("ft2font")?)?;
     gridspec::register(&module.submodule("gridspec")?)?;
     image::register(&module.submodule("image")?)?;
+    insets::register(&module.submodule("insets")?)?;
     legend::register(&module.submodule("legend")?)?;
     lines::register(&module.submodule("lines")?)?;
     markers::register(&module.submodule("markers")?)?;

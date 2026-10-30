@@ -170,7 +170,7 @@ fn artists(figure: Figure) -> PyResult<Vec<RawHandle>> {
 }
 
 /// The built-in projection named `name` (`"polar"`, `"hammer"`...).
-fn projection_kind(name: &str) -> PyResult<ProjectionKind> {
+pub(super) fn projection_kind(name: &str) -> PyResult<ProjectionKind> {
     ProjectionKind::BUILTIN
         .into_iter()
         .find(|kind| kind.name() == name)
@@ -261,6 +261,22 @@ fn add_axes(figure: Figure, (left, bottom, width, height): (f64, f64, f64, f64))
     Ok(figure.add_axes([left, bottom, width, height])?)
 }
 
+/// An axes of `figure` at `[left, bottom, width, height]` in its
+/// fractions, made outside it until `add_axes(ax)` adds it (matplotlib's
+/// `Axes(fig, rect)`).
+fn removed_axes(
+    figure: Figure,
+    (left, bottom, width, height): (f64, f64, f64, f64),
+) -> PyResult<Axes> {
+    Ok(figure.removed_axes([left, bottom, width, height])?)
+}
+
+/// An axes of `figure` on the block `spec`, made outside it until
+/// `add_subplot(ax)` adds it (matplotlib's `Axes(fig, subplotspec)`).
+fn removed_subplot(figure: Figure, spec: SubplotSpec) -> PyResult<Axes> {
+    Ok(figure.removed_subplot(&spec)?)
+}
+
 /// Axes with the projection `projection` at `[left, bottom, width,
 /// height]` in figure fractions (`add_axes(rect, projection=...)`).
 fn add_axes_projection(
@@ -344,6 +360,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_layout_engine", set_layout_engine)?;
     module.add("execute_layout", execute_layout)?;
     module.add("add_axes", add_axes)?;
+    module.add("removed_axes", removed_axes)?;
+    module.add("removed_subplot", removed_subplot)?;
     module.add("add_subplot_spec_projection", add_subplot_spec_projection)?;
     module.add("add_axes_projection", add_axes_projection)?;
     module.add("subplots_adjust", subplots_adjust)?;

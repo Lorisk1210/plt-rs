@@ -1,7 +1,6 @@
-//! `_native.axisartist`: the numeric helpers of the `axisartist` toolkit
-//! (matplotlib's `mpl_toolkits.axisartist.angle_helper` and
-//! `grid_finder`): angular grid steps, angle labels and where grid lines
-//! cross a box.
+//! The numeric helpers of the `axisartist` toolkit (matplotlib's
+//! `mpl_toolkits.axisartist.angle_helper` and `grid_finder`): angular grid
+//! steps, angle labels and where grid lines cross a box.
 
 use pltrs::axisartist::angle_helper::{
     self, AngleUnit, ExtremeFinderCycle, FormatterDms, FormatterHms, select_step_degree,

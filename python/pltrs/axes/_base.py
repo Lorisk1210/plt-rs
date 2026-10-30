@@ -55,6 +55,23 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}
 
+    def __repr__(self):
+        fields = []
+        if self.get_label():
+            fields += [f"label={self.get_label()!r}"]
+        if hasattr(self, "get_title"):
+            titles = {}
+            for k in ["left", "center", "right"]:
+                title = self.get_title(loc=k)
+                if title:
+                    titles[k] = title
+            if titles:
+                fields += [f"title={titles}"]
+        for name, axis in self._axis_map.items():
+            if axis is not None and axis.get_label().get_text():
+                fields += [f"{name}label={axis.get_label().get_text()!r}"]
+        return f"<{self.__class__.__name__}: " + ", ".join(fields) + ">"
+
     @property
     def transData(self):
         """The transform from data coordinates to display coordinates."""
@@ -72,7 +89,8 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         and gridlines.  The x-direction is in data coordinates and the
         y-direction is in axis coordinates.
         """
-        _api.check_in_list(['grid', 'tick1', 'tick2'], which=which)
+        if which not in ('grid', 'tick1', 'tick2'):
+            raise ValueError(f'unknown value for which: {which!r}')
         return _live_transforms.cached(self, "xaxis_transform",
                                        _transforms.trans_xaxis)
 
@@ -82,7 +100,8 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         and gridlines.  The x-direction is in axis coordinates and the
         y-direction is in data coordinates.
         """
-        _api.check_in_list(['grid', 'tick1', 'tick2'], which=which)
+        if which not in ('grid', 'tick1', 'tick2'):
+            raise ValueError(f'unknown value for which: {which!r}')
         return _live_transforms.cached(self, "yaxis_transform",
                                        _transforms.trans_yaxis)
 
@@ -340,7 +359,29 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
             prop_cycle = repr(cycler(*args, **kwargs))
         _axes_base.set_prop_cycle(self._native, prop_cycle)
 
-    def twinx(self):
+    def _make_twin_axes(self, shared, axes_class, delta_zorder, kwargs):
+        """
+        Make a twin of the Axes sharing the axis *shared* (``"x"`` or
+        ``"y"``), drawn *delta_zorder* above it: pltrs (Rust)'s own, or for
+        an *axes_class* or keywords of `.Figure.add_subplot`, the Axes they
+        make at its place, which becomes its twin.
+        """
+        if axes_class is None and not kwargs:
+            from ._axes import Axes
+            native = _axes_base.twin(self._native, shared, float(delta_zorder))
+            return _handles.wrap(native, Axes, self.figure)
+        if axes_class is not None:
+            kwargs["axes_class"] = axes_class
+        kwargs[f"share{shared}"] = self
+        fig = self.get_figure(root=False)
+        spec = self.get_subplotspec()
+        twin = (fig.add_subplot(spec, **kwargs) if spec is not None
+                else fig.add_axes(self.get_position(True), **kwargs))
+        _axes_base.join_twin(self._native, twin._native, shared,
+                             float(delta_zorder))
+        return twin
+
+    def twinx(self, axes_class=None, *, delta_zorder=0.0, **kwargs):
         """
         Create a twin Axes sharing the xaxis.
 
@@ -349,15 +390,28 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         x-axis autoscale setting will be inherited from the original
         Axes.
 
+        Parameters
+        ----------
+        axes_class : subclass type of `~.axes.Axes`, optional
+            The `.axes.Axes` subclass that is instantiated.  This parameter
+            is incompatible with *projection* and *polar*.
+
+            By default, `~.axes.Axes` is used.
+        delta_zorder : float, default: 0
+            A zorder offset for the twin Axes, relative to the original Axes.
+            The twin's zorder is set to ``self.get_zorder() + delta_zorder``.
+        kwargs : dict
+            The keyword arguments passed to `.Figure.add_subplot` or
+            `.Figure.add_axes`.
+
         Returns
         -------
         Axes
             The newly created Axes instance
         """
-        return _handles.wrap(_axes_base.twin(self._native, "x"), type(self),
-                             self.figure)
+        return self._make_twin_axes("x", axes_class, delta_zorder, kwargs)
 
-    def twiny(self):
+    def twiny(self, axes_class=None, *, delta_zorder=0.0, **kwargs):
         """
         Create a twin Axes sharing the yaxis.
 
@@ -365,13 +419,35 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         x-axis positioned opposite to the original one (i.e. at top). The
         y-axis autoscale setting will be inherited from the original Axes.
 
+        Parameters
+        ----------
+        axes_class : subclass type of `~.axes.Axes`, optional
+            The `.axes.Axes` subclass that is instantiated.  This parameter
+            is incompatible with *projection* and *polar*.
+
+            By default, `~.axes.Axes` is used.
+        delta_zorder : float, default: 0
+            A zorder offset for the twin Axes, relative to the original Axes.
+            The twin's zorder is set to ``self.get_zorder() + delta_zorder``.
+        kwargs : dict
+            The keyword arguments passed to `.Figure.add_subplot` or
+            `.Figure.add_axes`.
+
         Returns
         -------
         Axes
             The newly created Axes instance
         """
-        return _handles.wrap(_axes_base.twin(self._native, "y"), type(self),
-                             self.figure)
+        return self._make_twin_axes("y", axes_class, delta_zorder, kwargs)
+
+    def set_zorder(self, level):
+        """
+        Set the zorder for the artist.  Artists with lower zorder
+        values are drawn first; of twinned Axes, the bottom-most draws the
+        background.
+        """
+        super().set_zorder(level)
+        _axes_base.update_twinned_patch_visibility(self._native)
 
     def add_artist(self, a):
         """

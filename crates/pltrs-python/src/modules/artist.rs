@@ -13,6 +13,7 @@ use pltrs_render::Sketch;
 
 use crate::binding::prelude::*;
 
+mod classes;
 mod clip;
 mod extent;
 mod filter;
@@ -289,6 +290,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_sketch_params", get_sketch_params)?;
     module.add("set_sketch_params", set_sketch_params)?;
     module.add("remove", remove)?;
+    classes::register(module)?;
     clip::register(module)?;
     extent::register(module)?;
     filter::register(module)?;

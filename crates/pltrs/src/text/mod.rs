@@ -48,7 +48,8 @@ use std::rc::Rc;
 use pltrs_core::{Bbox, Point};
 use pltrs_text::{BlockStyle, Shaping, TextAnchor, TextRun, TextSource};
 
-use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
+use crate::artist::{Artist, ArtistBase, ArtistStore, DrawContext, LayoutContext};
+use crate::axes::AxesState;
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::patches::ClipRegion;
@@ -261,6 +262,26 @@ impl TextArtist {
 
     fn transform(&self) -> Transform {
         self.base.transform.clone().unwrap_or(Transform::Display)
+    }
+
+    /// Whether the text is where it can be shown: anywhere unless it is
+    /// placed in the data coordinates of an axes, whose scales must take
+    /// its position (matplotlib's `_point_in_data_domain`, which leaves
+    /// text at a negative position on a log axis out of tight boxes).
+    pub(crate) fn in_data_domain(&self, store: &ArtistStore) -> bool {
+        let Transform::Data(axes) = self.transform() else {
+            return true;
+        };
+        store.get_as::<AxesState>(axes).is_none_or(|state| {
+            state
+                .axis(AxisName::X)
+                .scale()
+                .val_in_range(self.position.x)
+                && state
+                    .axis(AxisName::Y)
+                    .scale()
+                    .val_in_range(self.position.y)
+        })
     }
 
     /// The anchor of a plain text in display coordinates, if it is finite.

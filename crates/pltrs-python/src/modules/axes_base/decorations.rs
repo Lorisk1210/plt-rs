@@ -37,7 +37,7 @@ fn axis_mode(axes: Axes, mode: String) -> PyResult<()> {
         "square" => AxisMode::Square,
         _ => {
             return Err(PyErr::value_error(format!(
-                "Unrecognized string {mode:?} to axis; try 'on' or 'off'"
+                "Unrecognized string '{mode}' to axis; try 'on' or 'off'"
             )));
         }
     };
@@ -105,8 +105,23 @@ fn get_patch_zorder(axes: Axes) -> PyResult<f64> {
     Ok(axes.patch_zorder())
 }
 
+/// Rasterizes the children at or below `zorder` together in vector
+/// output; `None` keeps them vector (`set_rasterization_zorder`).
+fn set_rasterization_zorder(axes: Axes, zorder: Option<f64>) -> PyResult<()> {
+    axes.set_rasterization_zorder(zorder);
+    Ok(())
+}
+
+/// The z-order up to which children are rasterized together, if any
+/// (`get_rasterization_zorder`).
+fn get_rasterization_zorder(axes: Axes) -> PyResult<Option<f64>> {
+    Ok(axes.rasterization_zorder())
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("set_rasterization_zorder", set_rasterization_zorder)?;
+    module.add("get_rasterization_zorder", get_rasterization_zorder)?;
     module.add("set_axis_on", set_axis_on)?;
     module.add("get_axis_on", get_axis_on)?;
     module.add("axis_mode", axis_mode)?;

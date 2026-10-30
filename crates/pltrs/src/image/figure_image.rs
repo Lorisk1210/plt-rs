@@ -11,8 +11,11 @@ use super::make::{ImageCore, Placement, RenderedImage};
 use super::resample::Resampling;
 use super::shared::{canvas_bbox, draw_rendered, split_alpha};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, DrawContext, RawHandle};
-use crate::colors::{ColorizerOptions, impl_colorize};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistStore, DrawContext, RawHandle, TypedHandle,
+};
+use crate::colorizer::{ColorMapped, MappingChange, change_mapping};
+use crate::colors::{ColorizerOptions, Colormap, Norm, NormError, ScalarMappable, impl_colorize};
 use crate::figure::Figure;
 
 /// Options of [`Figure::figimage`].
@@ -61,6 +64,21 @@ impl Artist for FigureImageArtist {
     }
 }
 
+impl ColorMapped for FigureImageArtist {
+    fn mapping_mut(&mut self) -> Option<&mut ScalarMappable> {
+        Some(self.core.mappable.get_mut())
+    }
+
+    /// Images map their data when drawn; a new norm takes its unset limits
+    /// from the whole array, as matplotlib's `_make_image` does.
+    fn remap(&mut self, _others: &mut ArtistStore) -> Result<(), NormError> {
+        if let Some(field) = self.core.data.scalars() {
+            field.autoscale(self.core.mappable.get_mut().norm_mut());
+        }
+        Ok(())
+    }
+}
+
 impl FigureImageArtist {
     /// matplotlib's `FigureImage.make_image` at `magnification`: one
     /// image pixel per figure pixel at the figure's resolution, scaled for
@@ -104,7 +122,54 @@ impl ArtistHandle for FigureImage {
     }
 }
 
+impl TypedHandle for FigureImage {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<FigureImageArtist>()
+            .then(|| Self { raw: raw.clone() })
+    }
+}
+
 impl FigureImage {
+    /// Replaces the colormap; the image's colorbars follow.
+    pub fn set_cmap(&self, cmap: Colormap) -> &Self {
+        change_mapping::<FigureImageArtist>(&self.raw, MappingChange::Cmap(Box::new(cmap)));
+        self
+    }
+
+    /// Replaces the norm, whose unset limits come from the data; the
+    /// image's colorbars follow.
+    pub fn set_norm(&self, norm: Box<dyn Norm>) -> &Self {
+        change_mapping::<FigureImageArtist>(&self.raw, MappingChange::Norm(norm));
+        self
+    }
+
+    /// Changes the opacity: uniform, or one value per pixel.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::image::{FigimageOptions, ImageAlpha};
+    /// use pltrs::numeric::Grid;
+    /// let fig = Figure::new();
+    /// let image = fig.figimage(Grid::filled(2, 2, 1.0), FigimageOptions::default())?;
+    /// image.set_image_alpha(Some(ImageAlpha::Uniform(0.5)));
+    /// assert_eq!(image.image_alpha(), Some(ImageAlpha::Uniform(0.5)));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    pub fn set_image_alpha(&self, alpha: Option<ImageAlpha>) -> &Self {
+        self.raw.with_mut::<FigureImageArtist, _>(|image| {
+            let (uniform, grid) = split_alpha(alpha);
+            image.base.alpha = uniform;
+            image.core.alpha_grid = grid;
+        });
+        self
+    }
+
+    /// The opacity: uniform, one value per pixel, or none.
+    pub fn image_alpha(&self) -> Option<ImageAlpha> {
+        self.raw
+            .with::<FigureImageArtist, _>(|image| image.core.alpha(image.base.alpha))
+    }
+
     /// The pixel offset of the image's bottom-left corner.
     pub fn offset(&self) -> (f64, f64) {
         self.raw.with::<FigureImageArtist, _>(|image| image.offset)

@@ -145,6 +145,25 @@ impl Axes {
             self.title_text(location)
                 .set_transform(Transform::Axes(self.id()).offset_points(0.0, pad));
         }
+        self.raw
+            .with_mut::<AxesState, _>(|axes| axes.title_pad = pad);
+        self
+    }
+
+    /// The gap between the axes top and its titles in points, as
+    /// [`Axes::set_title_pad`] or `axes.titlepad` set it (the offset of
+    /// matplotlib's `titleOffsetTrans`).
+    pub fn title_pad(&self) -> f64 {
+        self.raw.with::<AxesState, _>(|axes| axes.title_pad)
+    }
+
+    /// Lifts the titles above what rises over the top of the axes
+    /// (matplotlib's `_update_title_position`): tick labels or an axis
+    /// label on top, a y offset text in the way. Titles placed at a fixed
+    /// height stay put. This lays the figure out as drawing does, which
+    /// places the titles of every axes once their ticks are known.
+    pub fn update_title_position(&self) -> &Self {
+        self.figure().prepare_layout();
         self
     }
 }
@@ -159,5 +178,19 @@ mod tests {
             assert_eq!(location.to_string().parse(), Ok(location));
         }
         assert!("top".parse::<TitleLocation>().is_err());
+    }
+
+    #[test]
+    fn the_title_pad_follows_the_rc_and_set_title_pad() {
+        let ax = crate::figure::Figure::new().subplot();
+        assert_eq!(ax.title_pad(), crate::rc::params().axes_titlepad);
+        ax.set_title_pad(30.0);
+        assert_eq!(ax.title_pad(), 30.0);
+        assert_eq!(
+            ax.title_text(TitleLocation::Left).transform(),
+            Some(Transform::Axes(ax.id()).offset_points(0.0, 30.0))
+        );
+        ax.set_title("again");
+        assert_eq!(ax.title_pad(), crate::rc::params().axes_titlepad);
     }
 }

@@ -14,7 +14,7 @@ import numpy as np
 
 from . import _api, _tick_helpers, cbook, units as munits
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
-from ._native import axis as _axis, axes_base as _axes_base
+from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
 from .artist import Artist
 
@@ -521,6 +521,35 @@ class Axis(Artist):
                 f"Attempting to set identical low and high {name}lims "
                 f"makes transformation singular; automatically expanding.")
         return v0, v1
+
+    def _set_lim(self, v0, v1, *, emit=True, auto):
+        """
+        Set view limits.
+
+        This method is a helper for the Axes ``set_xlim``, ``set_ylim``, and
+        ``set_zlim`` methods.
+
+        Parameters
+        ----------
+        v0, v1 : float
+            The view limits.  (Passing *v0* as a (low, high) pair is not
+            supported; normalization must occur in the Axes setters.)
+        emit : bool, default: True
+            Whether to notify observers of limit change.
+        auto : bool or None, default: False
+            Whether to turn on autoscaling of the x-axis. True turns on, False
+            turns off, None leaves unchanged.
+        """
+        # Limits given in units set the axis' units first.
+        self.axes._process_unit_info([(self.axis_name, (v0, v1))], convert=False)
+        if v0 is None or v1 is None:
+            # The view as it is now, autoscaled first.
+            old0, old1 = getattr(self.axes, f"get_{self.axis_name}lim")()
+            v0 = old0 if v0 is None else v0
+            v1 = old1 if v1 is None else v1
+        v0, v1 = self._checked_limits(v0, v1)
+        return _axes.set_lim(self.axes._native, self.axis_name, (v0, v1),
+                             None if auto is None else bool(auto), bool(emit))
 
     def get_scale(self):
         """Return this Axis' scale (as a str)."""

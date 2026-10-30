@@ -241,16 +241,16 @@ def test_artists_made_before_they_are_added():
     line = Line2D([0, 2], [1, 3], linewidth=3)
     assert line.figure is None and line.axes is None
     assert ax.add_line(line) is line
-    assert line.figure is fig and line.axes is ax and ax.lines == [line]
+    assert line.figure is fig and line.axes is ax and list(ax.lines) == [line]
     assert line.get_linewidth() == 3 and line.get_label() == "_child0"
     from pltrs.collections import LineCollection
     from pltrs.patches import Rectangle
     rect = Rectangle((0, 0), 4, 2, facecolor="red")
-    assert ax.add_patch(rect) is rect and ax.patches == [rect]
+    assert ax.add_patch(rect) is rect and list(ax.patches) == [rect]
     assert rect.get_facecolor() == (1, 0, 0, 1) and rect.axes is ax
     segments = LineCollection([[(0, 0), (5, 5)]])
     assert ax.add_collection(segments) is segments
-    assert ax.collections == [segments] and ax.get_xlim()[1] >= 5
+    assert list(ax.collections) == [segments] and ax.get_xlim()[1] >= 5
     with pytest.raises(ValueError, match="Can not reset the Axes"):
         fig.add_subplot(212).add_line(line)
     with pytest.raises(RuntimeError, match="more than one figure"):

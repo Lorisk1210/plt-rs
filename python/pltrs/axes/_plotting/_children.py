@@ -7,6 +7,7 @@ Ready-made artists are added by `~.axes._base._AxesBase` (``add_line``,
 
 from ... import collections as mcoll, patches as mpatches
 from ..._native import plotting as _plotting
+from .._artist_list import ArtistList
 from ._helpers import wrap_all
 
 
@@ -16,13 +17,14 @@ class ChildrenMixin:
     @property
     def collections(self):
         """The collections of the Axes, in the order they were added."""
-        return wrap_all(self, _plotting.get_collections(self._native),
-                        mcoll.Collection)
+        return ArtistList("collections", lambda: wrap_all(
+            self, _plotting.get_collections(self._native), mcoll.Collection))
 
     @property
     def patches(self):
         """The patches of the Axes, in the order they were added."""
-        return wrap_all(self, _plotting.get_patches(self._native), mpatches.Patch)
+        return ArtistList("patches", lambda: wrap_all(
+            self, _plotting.get_patches(self._native), mpatches.Patch))
 
     @property
     def containers(self):

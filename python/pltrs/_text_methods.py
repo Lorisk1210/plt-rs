@@ -80,8 +80,9 @@ class AxesText:
     @property
     def texts(self):
         """The texts placed in the Axes with `text` and `annotate`."""
-        return _handles.wrap_all(_text.axes_texts(self._native), Text,
-                                 self.figure)
+        from .axes._artist_list import ArtistList
+        return ArtistList("texts", lambda: _handles.wrap_all(
+            _text.axes_texts(self._native), Text, self.figure))
 
     def text(self, x, y, s, fontdict=None, **kwargs):
         """

@@ -12,7 +12,7 @@ use pltrs::fonts::FontSize;
 use pltrs::lines::Line2D;
 use pltrs::patches::{Patch, PathShape, Wedge};
 use pltrs::stats::{BoxStats, ViolinStats};
-use pltrs::text::Text;
+use pltrs::text::{Text, TextProps};
 use pltrs::ticker::LabelFormat;
 
 use super::super::lines::LineKwargs;
@@ -64,8 +64,10 @@ impl FromPy<'_> for PyBoxStats {
     }
 }
 
-/// `(positions, widths, capwidths)`, the last two one per box.
-pub(super) type BoxSizes = (Option<Vec<f64>>, Vec<f64>, Vec<f64>);
+/// `(positions, widths, capwidths, integer_positions)`: widths and cap
+/// widths one per box, and whether the positions were given as integers
+/// (whose tick labels read `2` rather than `2.0`).
+pub(super) type BoxSizes = (Option<Vec<f64>>, Vec<f64>, Vec<f64>, bool);
 
 /// `(shownotches, showmeans, showcaps, showbox, showfliers, meanline)`.
 pub(super) type BoxFlags = (bool, bool, bool, bool, bool, bool);
@@ -95,7 +97,7 @@ pub(super) type BoxArtists = (
 pub(super) fn bxp(
     axes: Axes,
     stats: Vec<PyBoxStats>,
-    (positions, widths, capwidths): BoxSizes,
+    (positions, widths, capwidths, integer_positions): BoxSizes,
     orient: String,
     (shownotches, showmeans, showcaps, showbox, showfliers, meanline): BoxFlags,
     (patch_artist, boxprops): (bool, Owned),
@@ -119,7 +121,7 @@ pub(super) fn bxp(
     });
     let options = BxpOptions {
         positions,
-        integer_positions: false,
+        integer_positions,
         widths,
         orientation: orientation(&orient),
         boxes: Some(boxes),
@@ -244,24 +246,26 @@ pub(super) fn violin(
 pub(super) type PieLayout = (Vec<f64>, f64, f64, bool, Option<f64>, (f64, f64));
 
 /// The labels of a pie: `(labels, autopct, pctdistance, labeldistance,
-/// rotatelabels, text size, text colour)`; `autopct` is a template or a
-/// callable.
+/// rotatelabels, (text size, text colour, usetex))`; `autopct` is a
+/// template or a callable, whose percent signs are escaped when TeX
+/// typesets the labels.
 pub(super) type PieLabels = (
     Vec<String>,
     Option<Owned>,
     f64,
     Option<f64>,
     bool,
-    (Option<f64>, Option<Color>),
+    (Option<f64>, Option<Color>, Option<bool>),
 );
 
 /// The look of a pie: `(colors, hatches, wedgeprops, shadow, frame,
-/// normalize)`; the shadow is `None` or `(ox, oy, shade)`.
+/// normalize)`; the shadow is `None` or `(ox, oy, shade, props)`, its
+/// `props` overriding those it copies from its wedge.
 pub(super) type PieLook = (
     Vec<Color>,
     Vec<String>,
     PatchKwargs,
-    Option<(f64, f64, f64)>,
+    Option<(f64, f64, f64, PatchKwargs)>,
     bool,
     bool,
 );
@@ -275,7 +279,7 @@ pub(super) fn pie(
     axes: Axes,
     values: Vec<f64>,
     (explode, radius, startangle, counterclock, wedge_width, center): PieLayout,
-    (labels, autopct, pctdistance, labeldistance, rotatelabels, (size, color)): PieLabels,
+    (labels, autopct, pctdistance, labeldistance, rotatelabels, (size, color, usetex)): PieLabels,
     (colors, hatches, wedgeprops, shadow, frame, normalize): PieLook,
 ) -> PyResult<PieArtists> {
     let autopct = autopct
@@ -307,18 +311,21 @@ pub(super) fn pie(
         wedgeprops: wedgeprops.0,
         text_size: size.map(FontSize::Points),
         text_color: color,
+        textprops: TextProps {
+            usetex,
+            ..TextProps::default()
+        },
         center,
         frame,
         rotatelabels,
         normalize,
         hatches,
-        shadow: shadow.map(|(ox, oy, shade)| PieShadow {
+        shadow: shadow.map(|(ox, oy, shade, props)| PieShadow {
             ox,
             oy,
             shade,
-            ..PieShadow::default()
+            props: props.0,
         }),
-        ..PieOptions::default()
     };
     let pie = axes.pie(values, options)?;
     Ok((pie.wedges, pie.labels, pie.pct_labels))

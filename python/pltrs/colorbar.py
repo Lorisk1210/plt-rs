@@ -336,14 +336,19 @@ class Colorbar:
 
     def _shown(self):
         """
-        What pltrs (Rust) shows: the colormap and norm of the mappable, and
-        the image pltrs (Rust) draws, whose opacity the colorbar takes, if
-        the mappable is one.
+        What pltrs (Rust) shows: the colormap and norm of the mappable, the
+        image pltrs (Rust) draws, whose opacity the colorbar takes, if the
+        mappable is one, and the native contour set, whose levels the
+        colorbar's blocks follow, if it is one.
         """
+        from .contour import ContourSet
         from .image import AxesImage
         image = self.mappable if isinstance(self.mappable, AxesImage) else None
+        contours = (self.mappable if isinstance(self.mappable, ContourSet)
+                    else None)
         return (self.mappable.cmap, self.mappable.norm,
-                None if image is None else image._native)
+                None if image is None else image._native,
+                None if contours is None else contours._contour)
 
     def set_ticks(self, ticks, *, labels=None, minor=False, **kwargs):
         """
@@ -394,11 +399,58 @@ class Colorbar:
 
             Defaults to :rc:`xaxis.labellocation` or :rc:`yaxis.labellocation`
             depending on the orientation.
+        **kwargs
+            Keyword arguments are passed to `~.Axes.set_xlabel` /
+            `~.Axes.set_ylabel`.
+            Supported keywords are *labelpad* and `.Text` properties.
         """
-        if kwargs:
-            raise NotImplementedError("pltrs: Colorbar.set_label(**kwargs)")
-        _colorbar.set_label(self._native, '' if label is None else str(label),
-                            loc)
+        if self.orientation == "vertical":
+            self.ax.set_ylabel(label, loc=loc, **kwargs)
+        else:
+            self.ax.set_xlabel(label, loc=loc, **kwargs)
+
+    def add_lines(self, *args, **kwargs):
+        """
+        Draw lines on the colorbar.
+
+        Parameters
+        ----------
+        levels : array-like
+            The positions of the lines.
+        colors : :mpltype:`color` or list of :mpltype:`color`
+            Either a single color applying to all lines or one color value for
+            each line.
+        linewidths : float or array-like
+            Either a single linewidth applying to all lines or one linewidth
+            for each line.
+        erase : bool, default: True
+            Whether to remove any previously added lines.
+
+        Notes
+        -----
+        Alternatively, this method can also be called with the signature
+        ``colorbar.add_lines(contour_set, erase=True)``, in which case
+        *levels*, *colors*, and *linewidths* are taken from *contour_set*.
+        """
+        from . import colors as mcolors, contour
+        params = _api.select_matching_signature(
+            [lambda self, CS, erase=True: locals(),
+             lambda self, levels, colors, linewidths, erase=True: locals()],
+            self, *args, **kwargs)
+        if "CS" in params:
+            cs = params["CS"]
+            if not isinstance(cs, contour.ContourSet) or cs.filled:
+                raise ValueError("If a single artist is passed to add_lines, "
+                                 "it must be a ContourSet of lines")
+            _colorbar.add_contour_lines(self._native, cs._contour,
+                                        bool(params["erase"]))
+            return
+        _colorbar.add_level_lines(
+            self._native,
+            [float(level) for level in np.atleast_1d(params["levels"])],
+            [tuple(rgba) for rgba in mcolors.to_rgba_array(params["colors"])],
+            [float(width) for width in np.atleast_1d(params["linewidths"])],
+            bool(params["erase"]))
 
     def remove(self):
         """

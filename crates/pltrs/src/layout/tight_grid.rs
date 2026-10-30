@@ -29,7 +29,10 @@ impl GridSpec {
     /// let fig = Figure::new();
     /// let grid = GridSpec::new(2, 1)?;
     /// let ax = fig.add_subplot_spec(&grid.cell(0, 0)?)?;
-    /// let left_half = TightLayout { rect: Some([0.0, 0.0, 0.5, 1.0]), ..TightLayout::default() };
+    /// let left_half = TightLayout {
+    ///     rect: Some([None, None, Some(0.5), Some(1.0)]),
+    ///     ..TightLayout::default()
+    /// };
     /// grid.tight_layout(&fig, left_half)?;
     /// let (x, _, w, _) = ax.position().bounds();
     /// assert!(x + w < 0.5);
@@ -70,7 +73,7 @@ mod tests {
         ax.set_title("title");
         let before = other.position();
         let half = TightLayout {
-            rect: Some([0.0, 0.0, 0.5, 1.0]),
+            rect: Some([None, None, Some(0.5), Some(1.0)]),
             ..TightLayout::default()
         };
         left.tight_layout(&fig, half).unwrap();

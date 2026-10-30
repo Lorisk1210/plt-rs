@@ -77,6 +77,8 @@ class ChartsMixin:
             Draws error bars on a subset of the data.
         axlim_clip : bool, default: False
             Whether to hide error bars that are outside the axes limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
 
         Returns
         -------
@@ -147,6 +149,8 @@ class ChartsMixin:
             The direction along which stems are drawn.
         axlim_clip : bool, default: False
             Whether to hide stems that are outside the axes limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
 
         Returns
         -------
@@ -185,6 +189,8 @@ class ChartsMixin:
             When plotting 2D data, the direction to use as z ('x', 'y' or 'z').
         axlim_clip : bool, default: False
             Whether to hide bars with points outside the axes view limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         **kwargs
             Other keyword arguments are forwarded to
             `matplotlib.axes.Axes.bar`.

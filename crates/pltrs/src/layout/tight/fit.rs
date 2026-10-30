@@ -109,10 +109,10 @@ pub(in crate::layout) fn adjusted_params(
     };
     let set = |value: Option<f64>| value.unwrap_or_default();
     let rect = [
-        left + set(first.left),
-        bottom + set(first.bottom),
-        right - (1.0 - set(first.right)),
-        top - (1.0 - set(first.top)),
+        left.map(|left| left + set(first.left)),
+        bottom.map(|bottom| bottom + set(first.bottom)),
+        right.map(|right| right - (1.0 - set(first.right))),
+        top.map(|top| top - (1.0 - set(first.top))),
     ];
     grid.subplot_params(params, Some(rect)).map(Some)
 }
@@ -128,12 +128,13 @@ impl Grid<'_> {
     /// matplotlib's `_auto_adjust_subplotpars`: margins as large as the
     /// decorations along the grid's edges (plus the figure's title and
     /// labels) and spacings as large as those between cells, each with
-    /// padding. The non-zero margins of `rect` (`[left, bottom, right,
-    /// top]`) are kept as they are, as in matplotlib's truthiness tests.
+    /// padding. The set, non-zero margins of `rect` (`[left, bottom,
+    /// right, top]`) are kept as they are, as in matplotlib's truthiness
+    /// tests.
     fn subplot_params(
         &self,
         params: &TightLayout,
-        rect: Option<[f64; 4]>,
+        rect: Option<[Option<f64>; 4]>,
     ) -> Result<SubplotOverrides, TightLayoutError> {
         let (rows, cols) = self.shape;
         let (fig_width, fig_height) = self.fig.size_inches;
@@ -142,13 +143,13 @@ impl Grid<'_> {
         let w_pad = params.w_pad.map_or(pad, |p| p * font_size_inch) / fig_width;
         let h_pad = params.h_pad.map_or(pad, |p| p * font_size_inch) / fig_height;
         let (pad_w, pad_h) = (pad / fig_width, pad / fig_height);
-        let given = |value: f64| (value != 0.0).then_some(value);
+        let given = |value: Option<f64>| value.filter(|&v| v != 0.0);
         let [left, bottom, right, top] = rect.map_or([None; 4], |[l, b, r, t]| {
             [
                 given(l),
                 given(b),
-                given(r).map(|r| 1.0 - r).and_then(given),
-                given(t).map(|t| 1.0 - t).and_then(given),
+                given(given(r).map(|r| 1.0 - r)),
+                given(given(t).map(|t| 1.0 - t)),
             ]
         });
         let texts = self.super_text_extents();

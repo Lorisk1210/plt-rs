@@ -13,6 +13,8 @@ artist object refers to its figure, so an artist's object lives as long as
 its figure and the figure as long as any of its artists' objects.
 """
 
+import importlib
+
 from ._native import artist as _artist
 
 
@@ -36,6 +38,47 @@ def wrap(native, cls, figure):
 def wrap_all(natives, cls, figure):
     """`wrap` for each handle of *natives*, as a list."""
     return [wrap(native, cls, figure) for native in natives]
+
+
+#: The module of the package defining each class `_native.artist.class_name`
+#: names (`artist` for the others).
+_CLASS_MODULES = {
+    "Line2D": "lines",
+    "Text": "text", "Annotation": "text",
+    "AxesImage": "image", "PcolorImage": "image", "BboxImage": "image",
+    "Collection": "collections", "PatchCollection": "collections",
+    "PathCollection": "collections", "PolyCollection": "collections",
+    "LineCollection": "collections", "QuadMesh": "collections",
+    "EventCollection": "collections", "EllipseCollection": "collections",
+    "TriMesh": "collections",
+    "Quiver": "quiver", "QuiverKey": "quiver",
+    "QuadContourSet": "contour",
+    "Legend": "legend",
+    "Table": "table",
+    "Spine": "spines",
+    "Axes": "axes",
+    **dict.fromkeys(
+        ["Rectangle", "Ellipse", "Circle", "Polygon", "Wedge", "PathPatch",
+         "RegularPolygon", "CirclePolygon", "StepPatch", "FancyArrow", "Arrow",
+         "Arc", "Annulus", "FancyBboxPatch", "FancyArrowPatch",
+         "ConnectionPatch"], "patches"),
+}
+
+
+def wrap_any(native, figure):
+    """
+    `wrap` for a handle of an artist of any kind: the object made before,
+    or a new object of matplotlib's class for the artist's kind.
+    """
+    if native is None:
+        return None
+    obj = figure._artists.get(_artist.id(native))
+    if obj is not None:
+        return obj
+    name = _artist.class_name(native)
+    module = importlib.import_module(
+        f".{_CLASS_MODULES.get(name, 'artist')}", __package__)
+    return wrap(native, getattr(module, name), figure)
 
 
 def adopt(artist, native, figure):

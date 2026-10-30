@@ -5,6 +5,7 @@ method, and ``ax.tables``.
 
 from ... import table as mtable
 from ..._native import table as _table
+from .._artist_list import ArtistList
 from ._helpers import wrap_all
 
 
@@ -16,4 +17,5 @@ class TablesMixin:
     @property
     def tables(self):
         """The tables of the Axes, in the order they were added."""
-        return wrap_all(self, _table.axes_tables(self._native), mtable.Table)
+        return ArtistList("tables", lambda: wrap_all(
+            self, _table.axes_tables(self._native), mtable.Table))

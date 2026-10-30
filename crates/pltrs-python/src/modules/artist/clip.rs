@@ -86,7 +86,14 @@ fn get_clip_box(artist: RawHandle) -> PyResult<Option<Transform>> {
 }
 
 /// Registers the module's functions.
+/// Whether the artist is clipped to exactly its axes
+/// (`_fully_clipped_to_axes`).
+fn fully_clipped_to_axes(artist: RawHandle) -> PyResult<bool> {
+    Ok(artist.fully_clipped_to_axes())
+}
+
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("fully_clipped_to_axes", fully_clipped_to_axes)?;
     module.add("set_clip_path", set_clip_path)?;
     module.add("clips_to_artist", clips_to_artist)?;
     module.add("set_clip_box", set_clip_box)?;

@@ -18,12 +18,11 @@ type Rect = Option<(Option<f64>, Option<f64>, Option<f64>, Option<f64>)>;
 
 /// The parameters of a tight layout pass.
 fn params(pad: f64, h_pad: Option<f64>, w_pad: Option<f64>, rect: Rect) -> TightLayout {
-    let side = |value: Option<f64>| value.unwrap_or(0.0);
     TightLayout {
         pad,
         h_pad,
         w_pad,
-        rect: rect.map(|(l, b, r, t)| [side(l), side(b), side(r), side(t)]),
+        rect: rect.map(|(l, b, r, t)| [l, b, r, t]),
     }
 }
 

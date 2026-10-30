@@ -104,7 +104,7 @@ fn gridspec_column(fig: &Figure, rect: Option<[f64; 4]>) -> CaseResult {
         example_plot(&fig.add_subplot_spec(&gs1.cell(row, 0)?)?, 12.0, false)?;
     }
     let params = TightLayout {
-        rect,
+        rect: rect.map(|rect| rect.map(Some)),
         ..TightLayout::default()
     };
     gs1.tight_layout(fig, params)?;

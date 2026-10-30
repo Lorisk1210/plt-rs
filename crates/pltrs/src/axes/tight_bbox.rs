@@ -12,7 +12,7 @@ use crate::figure::FigureState;
 use crate::spines::SpineArtist;
 use crate::text::TextArtist;
 use crate::ticker::AxisName;
-use crate::transforms::{Transform, TransformContext};
+use crate::transforms::TransformContext;
 
 impl Axes {
     /// The extent of the axes with its decorations in display pixels, the
@@ -277,29 +277,11 @@ fn child_tight_bbox(
         return None;
     }
     if let Some(text) = layout.store().get_as::<TextArtist>(child)
-        && !in_data_domain(state, axes, text)
+        && !text.in_data_domain(layout.store())
     {
         return None;
     }
     clipped_extent(layout, base, artist.tight_extent(&layout)?)
-}
-
-/// Whether a text sits where its axes can show it: texts placed in the
-/// axes' data coordinates must lie in the domain of both scales (finite,
-/// and positive on a log axis), as matplotlib's `Text.get_tightbbox` asks
-/// `_point_in_data_domain`. Other texts always do.
-fn in_data_domain(state: &AxesState, axes: ArtistId, text: &TextArtist) -> bool {
-    if text.base().transform != Some(Transform::Data(axes)) {
-        return true;
-    }
-    state
-        .axis(AxisName::X)
-        .scale()
-        .val_in_range(text.position.x)
-        && state
-            .axis(AxisName::Y)
-            .scale()
-            .val_in_range(text.position.y)
 }
 
 /// A spine's extent widened by the ticks of the visible axis drawn on
@@ -320,7 +302,7 @@ pub(crate) fn spine_extent_with_ticks(
 
 /// Whether an artist is clipped to exactly its axes (matplotlib's
 /// `_fully_clipped_to_axes`).
-fn fully_clipped(base: &ArtistBase, axes: ArtistId) -> bool {
+pub(crate) fn fully_clipped(base: &ArtistBase, axes: ArtistId) -> bool {
     base.clip_on && base.clip_path.is_none() && base.clip_box == Some(axes)
 }
 

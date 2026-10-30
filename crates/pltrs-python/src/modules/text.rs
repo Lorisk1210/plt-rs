@@ -87,9 +87,14 @@ fn set_color(text: Text, color: Color) -> PyResult<()> {
     Ok(())
 }
 
-/// The rotation as set, in degrees.
+/// The rotation in degrees: as set, or as drawn when the transform
+/// rotates the text (matplotlib's `get_rotation`).
 fn get_rotation(text: Text) -> PyResult<f64> {
-    Ok(text.rotation())
+    Ok(if text.transform_rotates_text() {
+        text.drawn_rotation()
+    } else {
+        text.rotation()
+    })
 }
 
 /// Sets the rotation in degrees.
@@ -323,6 +328,31 @@ fn set_language(
     Ok(())
 }
 
+/// Whether the text is where its axes' scales can show it
+/// (matplotlib's `_point_in_data_domain` of its position).
+fn in_data_domain(text: Text) -> PyResult<bool> {
+    Ok(text.in_data_domain())
+}
+
+/// A language tag with the characters `[start, end)` it covers.
+type LanguageSpan = (String, usize, usize);
+
+/// The text's language as `(tag, ranges)`: one BCP 47 tag for the whole
+/// text, or its `(tag, start, end)` ranges, or neither (`get_language`).
+fn get_language(text: Text) -> PyResult<(Option<String>, Vec<LanguageSpan>)> {
+    Ok(match text.language() {
+        Some(Language::Tag(tag)) => (Some(tag.as_str().to_owned()), Vec::new()),
+        Some(Language::Ranges(ranges)) => (
+            None,
+            ranges
+                .into_iter()
+                .map(|range| (range.tag.as_str().to_owned(), range.start, range.end))
+                .collect(),
+        ),
+        None => (None, Vec::new()),
+    })
+}
+
 /// The text's extent on the canvas as `(x0, y0, x1, y1)` in pixels, `None`
 /// when it has none (matplotlib's `get_window_extent`).
 fn get_window_extent(text: Text) -> PyResult<Option<(f64, f64, f64, f64)>> {
@@ -384,5 +414,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_backgroundcolor", set_backgroundcolor)?;
     module.add("set_fontfeatures", set_fontfeatures)?;
     module.add("set_language", set_language)?;
+    module.add("get_language", get_language)?;
+    module.add("in_data_domain", in_data_domain)?;
     module.add("get_wrapped_text", get_wrapped_text)
 }

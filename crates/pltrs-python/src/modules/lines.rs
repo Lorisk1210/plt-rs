@@ -165,13 +165,16 @@ impl FromPy<'_> for PyMarkEvery {
             }));
         }
         let items: Vec<Bound<'_>> = object.extract().map_err(|_| invalid())?;
-        if items.len() == 2 && items.iter().all(is_integer) {
+        // A pair is a start and a stride only as a tuple; a list of two
+        // integers holds indices.
+        let pair = items.len() == 2 && object.type_name() == "tuple";
+        if pair && items.iter().all(is_integer) {
             return Ok(Self(MarkEvery::Every {
                 start: items[0].extract()?,
                 step: items[1].extract()?,
             }));
         }
-        if items.len() == 2
+        if pair
             && items
                 .iter()
                 .all(|item| item.type_name().starts_with("float"))

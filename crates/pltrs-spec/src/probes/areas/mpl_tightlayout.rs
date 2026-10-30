@@ -95,7 +95,7 @@ fn collapsed() -> Outcome {
     let mut warned = Vec::new();
     for rect in [None, Some([0.0, 0.0, 0.8, 0.8])] {
         let params = TightLayout {
-            rect,
+            rect: rect.map(|rect: [f64; 4]| rect.map(Some)),
             ..TightLayout::default()
         };
         warned.push(Json::from(fig.tight_layout(params).is_err()));

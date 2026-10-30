@@ -10,6 +10,7 @@ artists it returns (see `.._handles`).
 """
 
 from ._children import ChildrenMixin
+from .arrows import ArrowsMixin
 from .bars import BarsMixin
 from .bins2d import Bins2dMixin
 from .contours import ContoursMixin
@@ -33,7 +34,7 @@ class PlottingMixin(ChildrenMixin, LinesMixin, ScatterMixin, BarsMixin,
                     ErrorbarMixin, HistMixin, FillsMixin, EventsMixin, StatsMixin,
                     ContoursMixin, MeshMixin, FieldsMixin, LabelsMixin,
                     Bins2dMixin, ImagesMixin, SpectralMixin, EcdfMixin,
-                    TablesMixin):
+                    TablesMixin, ArrowsMixin):
     """The plotting methods of `~.axes.Axes`."""
 
 

@@ -196,6 +196,39 @@ impl Axes {
         self.children_where(|artist| !listed_by_kind(artist))
     }
 
+    /// Every artist added to the axes, in the order they were added
+    /// (matplotlib's `ax._children`): what [`lines`](Self::lines),
+    /// [`patches`](Self::patches), [`collections`](Self::collections),
+    /// [`texts`](Self::texts), [`images`](Self::images),
+    /// [`tables`](Self::tables) and [`artists`](Self::artists) list. The
+    /// spines, the titles, the legend and the child axes are parts of the
+    /// axes, not among them.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_title("title");
+    /// let note = ax.text(0.5, 0.5, "note");
+    /// let line = ax.plot([0.0, 1.0], [0.0, 1.0])?;
+    /// assert_eq!(ax.added_children(), [note.raw().clone(), line.raw().clone()]);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn added_children(&self) -> Vec<RawHandle> {
+        let parts = self
+            .raw()
+            .with::<AxesState, _>(|axes| [axes.spines.clone(), axes.titles.clone()].concat());
+        self.children_where(|artist| {
+            let any = artist as &dyn Any;
+            !(any.is::<AxesState>()
+                || any.is::<LegendArtist>()
+                || any.is::<ColorbarArtist>()
+                || any.is::<AxisArtistState>())
+        })
+        .into_iter()
+        .filter(|child| !parts.contains(&child.id()))
+        .collect()
+    }
+
     /// Whether a line, patch, collection or image was added to the axes
     /// (matplotlib's `has_data`); texts, tables and the other artists do
     /// not count, nor do removed artists.

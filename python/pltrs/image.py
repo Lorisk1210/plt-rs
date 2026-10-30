@@ -740,6 +740,10 @@ class PcolorImage(AxesImage):
 class FigureImage(_ImageBase):
     """An image attached to a figure (as `~.Figure.figimage` makes)."""
 
+    def get_extent(self):
+        """Return the image extent as tuple (left, right, bottom, top)."""
+        return _native_image.figure_image_extent(self._native)
+
 
 class BboxImage(_ImageBase):
     """The Image class whose size is determined by the given bbox."""

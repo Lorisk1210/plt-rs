@@ -11,6 +11,8 @@ import PIL.Image
 
 from .. import _api, _handles, cbook, colorizer as mcolorizer, image as mimage
 from .._native import image as _native_image
+from .._preprocess import _preprocess_data
+from ._artist_list import ArtistList
 
 
 def _rc(key):
@@ -22,6 +24,7 @@ def _rc(key):
 class ImagingMixin:
     """The image methods of `~.axes.Axes`."""
 
+    @_preprocess_data()
     def imshow(self, X, cmap=None, norm=None, *, aspect=None,
                interpolation=None, alpha=None,
                vmin=None, vmax=None, colorizer=None, origin=None, extent=None,
@@ -36,6 +39,11 @@ class ImagingMixin:
         ``cmap='gray', vmin=0, vmax=255``.
 
         See matplotlib's documentation of `matplotlib.axes.Axes.imshow`.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         if url is not None:
             raise NotImplementedError("pltrs: imshow(url=...)")
@@ -85,8 +93,9 @@ class ImagingMixin:
     @property
     def images(self):
         """The `.AxesImage`\\s of the Axes, in the order they were added."""
-        return _handles.wrap_all(_native_image.get_images(self._native),
-                                 mimage.AxesImage, self.figure)
+        return ArtistList("images", lambda: _handles.wrap_all(
+            _native_image.get_images(self._native), mimage.AxesImage,
+            self.figure))
 
     def _sci(self, im):
         """

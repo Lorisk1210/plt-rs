@@ -13,7 +13,7 @@ import math
 import numpy as np
 
 from . import _api, _blocking_input, _handles, _live_transforms, cbook, rcParams
-from ._native import artist as _artist, axes_base as _axes_base
+from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from ._native import transforms as _transforms
 from .artist import Artist
@@ -21,6 +21,7 @@ from .axes import Axes
 from .axes._base import _AxesBase
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
 from .gridspec import GridSpec, SubplotParams, SubplotSpec
+from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from ._figure_interaction import InteractionMixin
@@ -28,9 +29,25 @@ from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
 from .text import Text
+from .transforms import Bbox, BboxBase
 from ._text_methods import FigureText
 
 _log = logging.getLogger(__name__)
+
+
+def _native_maker(projection_class):
+    """
+    How the native axes of a new *projection_class* is made: by the class'
+    own ``_make_native``; by its constructor for a subclass of `.Axes`
+    with a constructor of its own, which matplotlib calls with the
+    keywords of ``add_subplot``; else None, for pltrs (Rust)'s axes of the
+    projection.
+    """
+    make = getattr(projection_class, "_make_native", None)
+    if (make is None and projection_class.name == "rectilinear"
+            and projection_class.__init__ is not Axes.__init__):
+        make = projection_class._constructed_native
+    return make
 
 
 class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
@@ -158,7 +175,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         for name in ("x", "y"):
             other = kwargs.pop(f"share{name}", None)
             if other is not None:
-                _axes_base.share(ax._native, name, other._native)
+                getattr(ax, f"share{name}")(other)
         ax._internal_update(kwargs)
         return ax
 
@@ -203,11 +220,13 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
                 return a
             return a._add_to_figure(self, False)
         rect, = args
+        if isinstance(rect, BboxBase):
+            rect = rect.bounds
         if not np.isfinite(rect).all():
             raise ValueError(f'all entries in rect must be finite not {rect}')
         projection_class, pkw = self._process_projection_requirements(**kwargs)
         rect = tuple(map(float, rect))
-        make = getattr(projection_class, "_make_native", None)
+        make = _native_maker(projection_class)
         if make is not None:
             native, pkw = make(self, pkw, rect=rect)
         elif projection_class.name == "rectilinear":
@@ -289,7 +308,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
             args = tuple(map(int, str(args[0])))
         projection_class, pkw = self._process_projection_requirements(**kwargs)
         spec = SubplotSpec._from_subplot_args(self, args)._native_spec()
-        make = getattr(projection_class, "_make_native", None)
+        make = _native_maker(projection_class)
         if make is not None:
             native, pkw = make(self, pkw, spec=spec)
         elif projection_class.name == "rectilinear":
@@ -641,7 +660,8 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
             Set *keep_observers* to True if, for example,
             a gui widget is tracking the Axes in the figure.
         """
-        for ax in self.axes:
+        for ax in tuple(self.axes):
+            ax.clear()
             self._axes_removed(ax)
         _figure.clear(self._native)
         self.subfigs = []
@@ -774,12 +794,36 @@ class SubFigure(FigureBase):
         root : bool, default=True
             If False, return the (Sub)Figure this artist is on.  If True,
             return the root Figure for a nested tree of SubFigures.
+
+            .. deprecated:: 3.10
+
+                From version 3.12 *root* will default to False.
         """
-        return self._figure if root or root is None else self._parent
+        if self._parent is self._figure:
+            # Return early to prevent the deprecation warning when *root* does
+            # not matter
+            return self._parent
+        if root is None:
+            _api.warn_deprecated(
+                '3.10',
+                message='From Matplotlib 3.12 SubFigure.get_figure will by '
+                'default return the direct parent figure, which may be a '
+                'SubFigure. To suppress this warning, pass the root parameter.  '
+                'Pass `True` to maintain the old behavior and `False` to opt-in '
+                'to the future behavior.')
+            root = True
+        return self._figure if root else self._parent
 
     def get_subplotspec(self):
         """Get the SubplotSpec instance."""
         return self._subplotspec
+
+    def sca(self, a):
+        """
+        Set the current Axes to be *a* and return *a*: the current Axes of
+        the root figure, whose stack of Axes subfigures share.
+        """
+        return self.figure.sca(a)
 
     def remove(self):
         """Remove the subfigure, and its artists, from its parent."""
@@ -823,7 +867,7 @@ class SubFigure(FigureBase):
         self._parent.dpi = val
 
 
-class Figure(FigureLayout, FigureBase):
+class Figure(FigureLayout, FigureImagesMixin, FigureBase):
     """
     The top level container for all the plot elements.
 
@@ -1033,6 +1077,11 @@ class Figure(FigureLayout, FigureBase):
     def get_size_inches(self):
         """Return the current size of the figure in inches."""
         return np.array(_figure.get_size_inches(self._native))
+
+    @property
+    def bbox_inches(self):
+        """The box of the figure in inches, from ``(0, 0)`` to its size."""
+        return Bbox.from_bounds(0, 0, *self.get_size_inches())
 
     def set_size_inches(self, w, h=None, forward=True):
         """Set the figure size in inches."""

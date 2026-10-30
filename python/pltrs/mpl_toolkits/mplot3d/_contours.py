@@ -77,6 +77,8 @@ class ContoursMixin:
             position in a plane normal to *zdir*.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs
             Other arguments are forwarded to `matplotlib.axes.Axes.contour`.
 
@@ -107,6 +109,8 @@ class ContoursMixin:
             position in a plane normal to *zdir*.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs
             Other arguments are forwarded to `matplotlib.axes.Axes.contourf`.
 
@@ -141,6 +145,8 @@ class ContoursMixin:
             position in a plane normal to *zdir*.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs
             Other arguments are forwarded to `matplotlib.axes.Axes.tricontour`.
 
@@ -168,6 +174,8 @@ class ContoursMixin:
             position in a plane normal to zdir.
         axlim_clip : bool, default: False
             Whether to hide lines with a vertex outside the axes view limits.
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         *args, **kwargs
             Other arguments are forwarded to
             `matplotlib.axes.Axes.tricontourf`.

@@ -13,12 +13,13 @@
 //! colour-maps the image as matplotlib's `_make_image` does. Agg's
 //! resampler itself, matplotlib's `_image.resample`, is in [`resample`].
 
+mod figure;
 mod resample;
 
 use pltrs::axes::{Axes, ImshowOptions};
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::image::{
-    AxesImage, BboxImage, BboxImageOptions, Extent, ImageAlpha, ImageData, ImageError,
+    AxesImage, BboxImage, BboxImageOptions, Extent, FigureImage, ImageAlpha, ImageData, ImageError,
     Interpolation, InterpolationStage, Origin, ScalarField, VectorImsaveError,
 };
 use pltrs::numeric::Grid;
@@ -28,8 +29,9 @@ use pltrs::ticker::AxisName;
 use super::transforms::matrix;
 use crate::binding::prelude::*;
 use crate::binding::{Element, dict_value};
+use figure::AnyImage;
 
-artist_handle!(AxesImage, BboxImage);
+artist_handle!(AxesImage, BboxImage, FigureImage);
 
 impl From<ImageError> for PyErr {
     /// matplotlib's `ValueError` for images it cannot make or draw; its
@@ -248,15 +250,14 @@ fn get_images(axes: Axes) -> PyResult<Vec<AxesImage>> {
 }
 
 /// Replaces the image's data.
-fn set_data(image: AxesImage, data: ImageArray) -> PyResult<()> {
+fn set_data(image: AnyImage, data: ImageArray) -> PyResult<()> {
     image.set_data(data.0);
     Ok(())
 }
 
 /// Maps the image through `cmap` and `norm` from now on.
-fn set_mapping(image: AxesImage, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
-    image.set_cmap(cmap);
-    image.set_norm(norm);
+fn set_mapping(image: AnyImage, cmap: Colormap, norm: Box<dyn Norm>) -> PyResult<()> {
+    image.set_mapping(cmap, norm);
     Ok(())
 }
 
@@ -437,7 +438,7 @@ impl From<VectorImsaveError> for PyErr {
 type MadeImageParts = (NdArray<u8>, f64, f64, Option<NdArray>);
 
 /// Sets the image's opacity: one value, one per pixel, or `None`.
-fn set_image_alpha(image: AxesImage, alpha: Option<Alpha>) -> PyResult<()> {
+fn set_image_alpha(image: AnyImage, alpha: Option<Alpha>) -> PyResult<()> {
     image.set_image_alpha(alpha.map(|Alpha(alpha)| alpha));
     Ok(())
 }
@@ -467,5 +468,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("cursor_element", cursor_element)?;
     module.add("new_bbox_image", new_bbox_image)?;
     module.add("make_image", make_image)?;
-    module.add("imsave_vector", imsave_vector)
+    module.add("imsave_vector", imsave_vector)?;
+    figure::register(module)
 }

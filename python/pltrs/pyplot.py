@@ -911,3 +911,28 @@ __all__ += _layout_all
 from ._pyplot_ticks import *  # noqa: E402,F401,F403
 from ._pyplot_ticks import __all__ as _ticks_all  # noqa: E402
 __all__ += _ticks_all
+
+# The functions on the current Axes (plt.xlim, plt.cla, plt.matshow, ...).
+from ._pyplot_axes import *  # noqa: E402,F401,F403
+from ._pyplot_axes import __all__ as _axes_all  # noqa: E402
+__all__ += _axes_all
+
+# The functions on the current Figure and pyplot's state (plt.clf,
+# plt.figimage, plt.xkcd, the colormap functions, ...).
+from ._pyplot_figure import *  # noqa: E402,F401,F403
+from ._pyplot_figure import __all__ as _figure_all  # noqa: E402
+from ._pyplot_figure import _copy_docstring_and_deprecators  # noqa: E402,F401
+__all__ += _figure_all
+
+# What matplotlib's pyplot imports and so exports.
+from cycler import cycler  # noqa: E402,F401
+from . import mlab, rcsetup, rcParamsOrig  # noqa: E402,F401
+from .artist import Artist  # noqa: E402,F401
+from .axes import Axes, Subplot  # noqa: E402,F401
+from .backend_bases import FigureCanvasBase, MouseButton  # noqa: E402,F401
+from .backends import BackendFilter  # noqa: E402,F401
+from .colorizer import Colorizer, ColorizingArtist  # noqa: E402,F401
+from .projections import PolarAxes  # noqa: E402,F401
+from .scale import get_scale_names  # noqa: E402,F401
+from .text import Annotation, Text  # noqa: E402,F401
+from .widgets import Button, Slider, Widget  # noqa: E402,F401

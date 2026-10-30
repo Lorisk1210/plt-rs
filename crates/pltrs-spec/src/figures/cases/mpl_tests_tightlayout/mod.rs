@@ -79,7 +79,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
             // declines both times (matplotlib warns).
             let _ = fig.tight_layout(TightLayout::default());
             let _ = fig.tight_layout(TightLayout {
-                rect: Some([0.0, 0.0, 0.8, 0.8]),
+                rect: Some([0.0, 0.0, 0.8, 0.8].map(Some)),
                 ..TightLayout::default()
             });
             Ok(())

@@ -13,6 +13,32 @@ from .._native import axes_base as _axes_base
 from ..transforms import Bbox
 
 
+class _ViewLimits(_live_transforms.LiveBbox):
+    """
+    The view limits of an Axes (matplotlib's ``viewLim``): read from
+    pltrs (Rust) whenever they are, and set as they are by `set`, without
+    the autoscaling switch, the axes sharing them or the callbacks
+    ``set_xlim`` involves (matplotlib assigns the box's points).
+    """
+
+    def __init__(self, axes):
+        def points():
+            (x0, x1), (y0, y1) = axes.get_xlim(), axes.get_ylim()
+            return (x0, y0, x1, y1)
+        super().__init__(points)
+        self._axes = axes
+
+    def set(self, other):
+        """Set this bounding box from the "frozen" bounds of another `Bbox`."""
+        # Reading the limits applies pending autoscaling first, as
+        # matplotlib's ``viewLim`` property does, so that it does not
+        # replace the limits set here.
+        self.get_points()
+        (x0, y0), (x1, y1) = other.get_points()
+        self._axes.xaxis.set_view_interval(x0, x1, ignore=True)
+        self._axes.yaxis.set_view_interval(y0, y1, ignore=True)
+
+
 class AspectMixin:
     """The aspect methods of `~.axes._base._AxesBase`."""
 
@@ -184,11 +210,8 @@ class AspectMixin:
     @property
     def viewLim(self):
         """The view limits of the Axes, ``(x0, y0), (x1, y1)`` in data
-        coordinates (read-only here)."""
-        def points():
-            (x0, x1), (y0, y1) = self.get_xlim(), self.get_ylim()
-            return (x0, y0, x1, y1)
-        return _live_transforms.LiveBbox(points)
+        coordinates, which `~.Bbox.set` sets as they are."""
+        return _ViewLimits(self)
 
     def apply_aspect(self, position=None):
         """

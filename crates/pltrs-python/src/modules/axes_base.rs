@@ -11,6 +11,7 @@ use crate::binding::prelude::*;
 mod aspect;
 mod decorations;
 mod limits;
+mod twins;
 
 impl From<CyclerError> for PyErr {
     fn from(err: CyclerError) -> Self {
@@ -82,15 +83,6 @@ fn shared(axes: Axes, name: String) -> PyResult<Vec<Axes>> {
     Ok(axes.shared_axes(axis_name(&name)?))
 }
 
-/// A twin of `axes` sharing axis `name`, the other axis on the far side
-/// (`twinx` for `"x"`, `twiny` for `"y"`).
-fn twin(axes: Axes, name: String) -> PyResult<Axes> {
-    Ok(match axis_name(&name)? {
-        AxisName::X => axes.twinx()?,
-        AxisName::Y => axes.twiny()?,
-    })
-}
-
 /// Only shows the outer labels and tick labels of the axes' grid, and the
 /// outer ticks too unless `remove_inner_ticks` is false (`label_outer`).
 fn label_outer(axes: Axes, remove_inner_ticks: bool) -> PyResult<()> {
@@ -145,7 +137,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_position", set_position)?;
     module.add("share", share)?;
     module.add("shared", shared)?;
-    module.add("twin", twin)?;
     module.add("label_outer", label_outer)?;
     module.add("label_outer_shared", label_outer_shared)?;
     module.add("set_prop_cycle", set_prop_cycle)?;
@@ -154,6 +145,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_facecolor", get_facecolor)?;
     decorations::register(module)?;
     limits::register(module)?;
+    twins::register(module)?;
     aspect::register(module)
 }
 
@@ -175,7 +167,7 @@ mod tests {
             shared(left.clone(), "x".into()).unwrap(),
             std::slice::from_ref(&left)
         );
-        let twin = twin(left.clone(), "x".into()).unwrap();
+        let twin = left.twinx().unwrap();
         assert!(shared(left.clone(), "x".into()).unwrap().contains(&twin));
         assert!(axis_name("z").is_err());
         set_position(left.clone(), (0.1, 0.2, 0.3, 0.4), "both".into()).unwrap();

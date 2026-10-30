@@ -8,6 +8,7 @@ use pltrs::artist::{
 };
 use pltrs::axes::{AddAs, Axes};
 use pltrs::figure::Figure;
+use pltrs_render::Sketch;
 
 use crate::binding::prelude::*;
 
@@ -186,6 +187,53 @@ fn set_snap(artist: RawHandle, snap: Option<bool>) -> PyResult<()> {
     Ok(())
 }
 
+/// The group id used in vector output (`get_gid`).
+fn get_gid(artist: RawHandle) -> PyResult<Option<String>> {
+    Ok(artist.gid())
+}
+
+/// Sets the group id used in vector output, `None` removing it.
+fn set_gid(artist: RawHandle, gid: Option<String>) -> PyResult<()> {
+    match gid {
+        Some(gid) => artist.set_gid(gid),
+        None => artist.clear_gid(),
+    };
+    Ok(())
+}
+
+/// The hyperlink used in vector output (`get_url`).
+fn get_url(artist: RawHandle) -> PyResult<Option<String>> {
+    Ok(artist.url())
+}
+
+/// Sets the hyperlink used in vector output, `None` removing it.
+fn set_url(artist: RawHandle, url: Option<String>) -> PyResult<()> {
+    match url {
+        Some(url) => artist.set_url(url),
+        None => artist.clear_url(),
+    };
+    Ok(())
+}
+
+/// The sketch parameters `(scale, length, randomness)`, if any
+/// (`get_sketch_params`).
+fn get_sketch_params(artist: RawHandle) -> PyResult<Option<(f64, f64, f64)>> {
+    Ok(artist
+        .sketch_params()
+        .map(|sketch| (sketch.scale, sketch.length, sketch.randomness)))
+}
+
+/// Draws the artist's lines wiggled with `(scale, length, randomness)`,
+/// or straight for `None` (`set_sketch_params`).
+fn set_sketch_params(artist: RawHandle, sketch: Option<(f64, f64, f64)>) -> PyResult<()> {
+    artist.set_sketch_params(sketch.map(|(scale, length, randomness)| Sketch {
+        scale,
+        length,
+        randomness,
+    }));
+    Ok(())
+}
+
 /// Removes the artist from its figure.
 fn remove(artist: RawHandle) -> PyResult<()> {
     artist.remove();
@@ -221,6 +269,12 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_alpha", set_alpha)?;
     module.add("get_label", get_label)?;
     module.add("set_label", set_label)?;
+    module.add("get_gid", get_gid)?;
+    module.add("set_gid", set_gid)?;
+    module.add("get_url", get_url)?;
+    module.add("set_url", set_url)?;
+    module.add("get_sketch_params", get_sketch_params)?;
+    module.add("set_sketch_params", set_sketch_params)?;
     module.add("remove", remove)
 }
 

@@ -4,6 +4,7 @@ use std::fmt;
 
 use super::coords::Axis3;
 use super::math::Vec3;
+use crate::artist::AttachError;
 use crate::axes::PlotError;
 use crate::colors::ColorError;
 use crate::contour::ContourError;
@@ -84,6 +85,8 @@ pub enum Axes3DError {
     /// which do not add to the numbers 3-D axes plot (matplotlib's
     /// `TypeError` from `data - err`).
     UnaddableErrors(Axis3),
+    /// A collection made outside any figure that cannot join the axes.
+    Attach(AttachError),
 }
 
 impl fmt::Display for Axes3DError {
@@ -149,6 +152,7 @@ impl fmt::Display for Axes3DError {
             Self::Grid(err) => err.fmt(f),
             Self::Rect(err) => err.fmt(f),
             Self::Path(err) => err.fmt(f),
+            Self::Attach(err) => err.fmt(f),
         }
     }
 }
@@ -165,8 +169,15 @@ impl std::error::Error for Axes3DError {
             Self::Path(err) => Some(err),
             Self::Scale(err) => Some(err),
             Self::Ticker(err) => Some(err),
+            Self::Attach(err) => Some(err),
             _ => None,
         }
+    }
+}
+
+impl From<AttachError> for Axes3DError {
+    fn from(err: AttachError) -> Self {
+        Self::Attach(err)
     }
 }
 

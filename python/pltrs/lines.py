@@ -8,6 +8,8 @@ write them through ``_native.lines.update``, which validates them as
 matplotlib does. The module-level dash helpers are matplotlib's.
 """
 
+import copy
+
 import numpy as np
 
 from . import _api, _live_transforms, cbook
@@ -227,7 +229,7 @@ class Line2D(Artist):
         label = self.get_label()
         if label:
             return f"Line2D({label})"
-        x, y = self.get_xdata(), self.get_ydata()
+        x, y = self.get_xdata(orig=False), self.get_ydata(orig=False)
         if len(x) > 3:
             return "Line2D(({:g},{:g}),({:g},{:g}),...,({:g},{:g}))".format(
                 x[0], y[0], x[1], y[1], x[-1], y[-1])
@@ -294,6 +296,7 @@ class Line2D(Artist):
             cbook._to_unmasked_float_array(xdata).ravel(),
             cbook._to_unmasked_float_array(ydata).ravel(), _native_kwargs(props))
         super().__init__()
+        self._xorig, self._yorig = copy.copy(xdata), copy.copy(ydata)
         if markevery is not None:
             self.set_markevery(markevery)
         self._internal_update(kwargs)
@@ -312,18 +315,22 @@ class Line2D(Artist):
         """
         Return the xdata.
 
-        If *orig* is *True*, return the original data, else the
-        processed data.
+        If *orig* is *True*, return the original data (as it was given to
+        the line), else the processed data.
         """
+        if orig and "_xorig" in self.__dict__:
+            return self._xorig
         return _lines.get_xdata(self._native)
 
     def get_ydata(self, orig=True):
         """
         Return the ydata.
 
-        If *orig* is *True*, return the original data, else the
-        processed data.
+        If *orig* is *True*, return the original data (as it was given to
+        the line), else the processed data.
         """
+        if orig and "_yorig" in self.__dict__:
+            return self._yorig
         return _lines.get_ydata(self._native)
 
     def get_data(self, orig=True):
@@ -336,7 +343,8 @@ class Line2D(Artist):
 
     def get_xydata(self):
         """Return the *xy* data as a (N, 2) array."""
-        x, y = np.broadcast_arrays(self.get_xdata(), self.get_ydata())
+        x, y = np.broadcast_arrays(self.get_xdata(orig=False),
+                                   self.get_ydata(orig=False))
         return np.column_stack([x, y]).astype(float)
 
     def get_path(self):
@@ -366,6 +374,7 @@ class Line2D(Artist):
             raise RuntimeError('y must be a sequence')
         _lines.set_data(self._native, cbook._to_unmasked_float_array(x).ravel(),
                         cbook._to_unmasked_float_array(y).ravel())
+        self._xorig, self._yorig = copy.copy(x), copy.copy(y)
 
     def set_xdata(self, x):
         """
@@ -377,7 +386,7 @@ class Line2D(Artist):
         """
         if not np.iterable(x):
             raise RuntimeError('x must be a sequence')
-        self.set_data(x, self.get_ydata())
+        self.set_data(x, self.get_ydata(orig=True))
 
     def set_ydata(self, y):
         """
@@ -389,7 +398,7 @@ class Line2D(Artist):
         """
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
-        self.set_data(self.get_xdata(), y)
+        self.set_data(self.get_xdata(orig=True), y)
 
     # -- style ------------------------------------------------------------
 
@@ -605,6 +614,13 @@ class Line2D(Artist):
             solid_joinstyle=other.get_solid_joinstyle(),
             marker=other.get_marker(), fillstyle=other.get_fillstyle(),
             drawstyle=other.get_drawstyle())
+
+    def get_bbox(self):
+        """Get the bounding box of this line."""
+        from .transforms import Bbox
+        bbox = Bbox([[0, 0], [0, 0]])
+        bbox.update_from_data_xy(self.get_xydata())
+        return bbox
 
 
 def _capstyle_name(s):

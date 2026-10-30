@@ -1,0 +1,134 @@
+//! Adding to a 3-D axes collections made outside any figure (matplotlib's
+//! `Poly3DCollection` and `Line3DCollection` made with their properties
+//! before `add_collection3d` adds them).
+
+use super::art3d::{Art3D, Segments3D, ZSort};
+use super::error::Axes3DError;
+use super::handle::Axes3D;
+use super::math::Vec3;
+use crate::artist::RawHandle;
+use crate::axes::AddAs;
+use crate::collections::Collection;
+
+/// The 3-D geometry a collection made outside any figure is added with.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Geometry3D {
+    /// Polygons through 3-D vertices (matplotlib's `Poly3DCollection`).
+    Polygons {
+        /// The vertices of each polygon.
+        faces: Vec<Vec<Vec3>>,
+        /// How the depth of a polygon is computed from its vertices.
+        zsort: ZSort,
+        /// Whether the outlines are closed; open polygons are not stroked
+        /// along their last edge.
+        closed: bool,
+    },
+    /// Polylines through 3-D points (matplotlib's `Line3DCollection`).
+    Lines(Vec<Vec<Vec3>>),
+}
+
+impl Geometry3D {
+    /// Every vertex.
+    fn points(&self) -> Vec<Vec3> {
+        match self {
+            Self::Polygons { faces, .. } => faces.iter().flatten().copied().collect(),
+            Self::Lines(lines) => lines.iter().flatten().copied().collect(),
+        }
+    }
+}
+
+impl Axes3D {
+    /// Adds the collection `collection`, made outside any figure (a loose
+    /// polygon or line collection, its colours and widths set), with the
+    /// 3-D geometry `geometry`, projected at every draw and ordered by
+    /// depth among the other collections; with `autolim` the data limits
+    /// extend to every vertex, and `axlim_clip` hides the vertices outside
+    /// the view limits. Returns the collection's handle in the figure.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::collections::{Collection, CollectionSpec};
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Geometry3D;
+    /// let ax = Figure::new().subplot_3d();
+    /// let loose = Collection::loose(CollectionSpec::lines(Vec::new()));
+    /// let lines = Geometry3D::Lines(vec![vec![[0.0, 0.0, 0.0], [1.0, 2.0, 3.0]]]);
+    /// ax.adopt_collection3d(loose.raw(), lines, true, false)?;
+    /// assert!(ax.zlim().1 > 3.0);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the collection cannot join the axes (it belongs to another
+    /// figure, or is in one already), a colour cannot be resolved or
+    /// autoscaling fails.
+    pub fn adopt_collection3d(
+        &self,
+        collection: &RawHandle,
+        geometry: Geometry3D,
+        autolim: bool,
+        axlim_clip: bool,
+    ) -> Result<Collection, Axes3DError> {
+        let had_data = self.has_data();
+        let points = geometry.points();
+        let raw = self
+            .plane()
+            .adopt_artist(collection, AddAs::Collection { autolim: false })?;
+        match geometry {
+            Geometry3D::Polygons {
+                faces,
+                zsort,
+                closed,
+            } => {
+                self.register_polys(&raw, faces, zsort, None, axlim_clip)?;
+                if !closed {
+                    self.open_polygons(&raw);
+                }
+            }
+            Geometry3D::Lines(lines) => {
+                self.register(
+                    raw.id(),
+                    Art3D::Segments(Segments3D::new(lines)),
+                    axlim_clip,
+                );
+            }
+        }
+        if autolim {
+            self.scale_to(&points, had_data)?;
+        }
+        Ok(Collection::from_raw(raw))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::artist::ArtistHandle;
+    use crate::collections::CollectionSpec;
+    use crate::figure::Figure;
+
+    #[test]
+    fn adopted_polygons_keep_their_properties_and_extend_the_limits() {
+        let fig = Figure::new();
+        let ax = fig.subplot_3d();
+        let loose = Collection::loose(CollectionSpec::polygons(Vec::new()));
+        loose.set_alpha(Some(0.5));
+        let faces = vec![vec![[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [4.0, 4.0, 2.0]]];
+        let geometry = Geometry3D::Polygons {
+            faces,
+            zsort: ZSort::Average,
+            closed: false,
+        };
+        let adopted = ax
+            .adopt_collection3d(loose.raw(), geometry, true, false)
+            .unwrap();
+        assert_eq!(adopted.alpha(), Some(0.5));
+        assert!(ax.xlim().1 > 4.0);
+        let again = Geometry3D::Lines(Vec::new());
+        assert!(
+            ax.adopt_collection3d(adopted.raw(), again, false, false)
+                .is_err()
+        );
+    }
+}

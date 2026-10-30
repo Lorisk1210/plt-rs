@@ -299,6 +299,48 @@ impl Axes3D {
         self.set_margins(margins, None)
     }
 
+    /// matplotlib's `autoscale(enable, axis, tight)`: `enable` turns
+    /// autoscaling of the axes `selected` (indexed x, y, z) on or off and
+    /// those that autoscale fit their data; `None` leaves the switches
+    /// alone and fits every axis that autoscales. `tight` replaces the
+    /// tight setting, which skips rounding the view out to ticks.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.autoscale(Some(false), [false, false, true], None)?;
+    /// assert!(!ax.autoscale_on(Axis3::Z) && ax.autoscale_on(Axis3::X));
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a locator fails while autoscaling.
+    pub fn autoscale(
+        &self,
+        enable: Option<bool>,
+        selected: [bool; 3],
+        tight: Option<bool>,
+    ) -> Result<&Self, Axes3DError> {
+        self.with_mut(|axes| {
+            let mut fit = [true; 3];
+            if let Some(on) = enable {
+                for (i, chosen) in selected.into_iter().enumerate() {
+                    if chosen {
+                        axes.limits.autoscale[i] = on;
+                    }
+                    fit[i] = chosen && axes.limits.autoscale[i];
+                }
+            }
+            if let Some(tight) = tight {
+                axes.limits.tight = tight;
+            }
+            axes.autoscale_axes(fit)
+        })?;
+        Ok(self)
+    }
+
     /// The autoscaling margin of one axis.
     pub fn margin(&self, axis: Axis3) -> f64 {
         self.with(|axes| axes.limits.margins[axis.index()])

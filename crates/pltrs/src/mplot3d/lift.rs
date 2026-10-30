@@ -12,6 +12,7 @@ use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::math::Vec3;
 use super::plot::{broadcast, columns};
+use crate::artist::RawHandle;
 use crate::collections::{
     Collection, CollectionArtist, CollectionKind, CollectionProps, CollectionSpec,
 };
@@ -258,12 +259,7 @@ impl Axes3D {
         let raw = self.adopt_projected(artist);
         self.register_polys(&raw, polygons, options.zsort, None, options.axlim_clip)?;
         if !options.closed {
-            self.with_mut(|axes| {
-                let entry = axes.artists.iter_mut().find(|a| a.id == raw.id());
-                if let Some(Art3D::Polys(polys)) = entry.map(|a| &mut a.art) {
-                    polys.closed = false;
-                }
-            });
+            self.open_polygons(&raw);
         }
         if options.autolim {
             self.scale_to(&points, had_data)?;
@@ -271,8 +267,19 @@ impl Axes3D {
         Ok(Collection::from_raw(raw))
     }
 
+    /// Leaves the last edge of the polygons of collection `raw` unstroked
+    /// (matplotlib's `closed=False`).
+    pub(super) fn open_polygons(&self, raw: &RawHandle) {
+        self.with_mut(|axes| {
+            let entry = axes.artists.iter_mut().find(|a| a.id == raw.id());
+            if let Some(Art3D::Polys(polys)) = entry.map(|a| &mut a.art) {
+                polys.closed = false;
+            }
+        });
+    }
+
     /// Extends the data limits to `points` and autoscales.
-    fn scale_to(&self, points: &[Vec3], had_data: bool) -> Result<(), Axes3DError> {
+    pub(super) fn scale_to(&self, points: &[Vec3], had_data: bool) -> Result<(), Axes3DError> {
         if points.is_empty() {
             return Ok(());
         }

@@ -304,6 +304,16 @@ fn line_prop(props: LineProps, key: &str, value: &Bound<'_>) -> PyResult<LinePro
         "zorder" => props.zorder(value.extract::<f64>()?),
         "visible" => props.visible(value.extract::<bool>()?),
         "clip_on" => props.clip_on(value.extract::<bool>()?),
+        "animated" => props.animated(value.extract::<bool>()?),
+        "rasterized" => props.rasterized(value.extract::<bool>()?),
+        "gid" => match value.extract::<Option<String>>()? {
+            Some(gid) => props.gid(gid),
+            None => props,
+        },
+        "url" => match value.extract::<Option<String>>()? {
+            Some(url) => props.url(url),
+            None => props,
+        },
         "transform" => props.transform(value.extract::<Transform>()?),
         _ => {
             return Err(PyErr::new(

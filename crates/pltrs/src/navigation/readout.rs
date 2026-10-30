@@ -34,6 +34,15 @@ impl Axes {
     pub fn contains_point(&self, at: Point) -> bool {
         contains(self, at)
     }
+
+    /// What a status bar shows of the data under display point `at`: the
+    /// cursor data of the topmost visible artist of the axes that has
+    /// `mouseover` set and contains the point, as `[0.532]` for an image;
+    /// `None` without one (the second line of matplotlib's
+    /// `_mouse_event_to_message`).
+    pub fn cursor_text(&self, at: Point) -> Option<String> {
+        cursor_text(self, at)
+    }
 }
 
 /// Whether the background of `ax` contains display point `at`

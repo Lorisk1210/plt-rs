@@ -40,7 +40,9 @@ use crate::events::{LockError, LockOwner};
 use crate::figure::Figure;
 use crate::mplot3d::Axes3D;
 
+pub use self::pan::{AxesPan, PanLimits};
 pub use self::readout::axes_at;
+pub use self::zoom::{AxesZoom, ZoomTarget};
 
 /// What dragging with the pointer does (matplotlib's toolbar mode).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

@@ -1,0 +1,1380 @@
+"""
+`Axes3D`, the 3-D axes (matplotlib's ``mpl_toolkits.mplot3d.axes3d``):
+pltrs (Rust)'s 3-D axes, with matplotlib's signatures.
+
+An `Axes3D` is an `~.axes.Axes` whose 2-D side is its projection plane:
+the 2-D methods it inherits (titles, 2-D texts, legends, the position)
+act on the plane, whose data coordinates are the projected coordinates,
+and the 3-D methods here on the 3-D axes (``_native.mplot3d``).
+
+`_Quaternion` is matplotlib's (from matplotlib 3.11.2, under the
+Matplotlib License, kept as it is).
+"""
+
+import warnings
+
+import numpy as np
+
+from pltrs import _api, _handles, cbook, rcParams
+from pltrs import collections as mcoll, lines as mlines
+from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
+from pltrs.axes import Axes
+from pltrs.axes._plotting._helpers import wrap
+from pltrs.axes._plotting.scatter import _mapping
+from pltrs.markers import MarkerStyle
+
+from . import art3d, axis3d
+
+
+def _check_margin(m):
+    """matplotlib's check of a margin."""
+    if m <= -0.5:
+        raise ValueError("margin must be greater than -0.5")
+    return float(m)
+
+
+def _floats(*arrays):
+    """The arrays broadcast together and flattened to floats, masked values
+    as NaN."""
+    arrays = np.broadcast_arrays(*[np.ma.filled(np.ma.asarray(a, dtype=float),
+                                                np.nan) for a in arrays])
+    return tuple(np.ascontiguousarray(a, dtype=float).ravel() for a in arrays)
+
+
+def _sampling(rstride, cstride, rcount, ccount):
+    """The native sampling of a surface or wireframe (strides or counts,
+    which matplotlib refuses together)."""
+    has_stride = rstride is not None or cstride is not None
+    has_count = rcount is not None or ccount is not None
+    if has_stride and has_count:
+        raise ValueError("Cannot specify both stride and count arguments")
+    if has_stride:
+        return ("stride", 10 if rstride is None else int(rstride),
+                10 if cstride is None else int(cstride))
+    if has_count:
+        return ("count", 50 if rcount is None else int(rcount),
+                50 if ccount is None else int(ccount))
+    return None
+
+
+class Axes3D(Axes):
+    """
+    3D Axes object.
+
+    .. note::
+
+        As a user, you do not instantiate Axes directly, but use Axes creation
+        methods instead; e.g. from `.pyplot` or `.Figure`:
+        `~.pyplot.subplots`, `~.pyplot.subplot_mosaic` or `.Figure.add_axes`.
+    """
+    name = '3d'
+
+    _axis_names = ("x", "y", "z")
+
+    @classmethod
+    def _make_native(cls, figure, kwargs, *, spec=None, rect=None):
+        """
+        The native 3-D axes ``fig.add_subplot`` (on the grid block *spec*)
+        or ``fig.add_axes`` (at *rect*) makes, with matplotlib's `Axes3D`
+        keyword arguments taken from *kwargs*; return it and the other
+        keyword arguments.
+        """
+        kwargs = dict(kwargs)
+        initial = (float(kwargs.pop('elev', 30)), float(kwargs.pop('azim', -60)),
+                   float(kwargs.pop('roll', 0)))
+        proj_type = kwargs.pop('proj_type', 'persp')
+        focal_length = cls._checked_focal_length(
+            proj_type, kwargs.pop('focal_length', None))
+        box_aspect = kwargs.pop('box_aspect', None)
+        computed_zorder = bool(kwargs.pop('computed_zorder', True))
+        shares = tuple(
+            None if other is None else other._native
+            for other in (kwargs.pop('sharex', None), kwargs.pop('sharey', None),
+                          kwargs.pop('sharez', None), kwargs.pop('shareview', None)))
+        options = ((initial, 'z', proj_type, focal_length),
+                   None if box_aspect is None
+                   else tuple(map(float, box_aspect)),
+                   computed_zorder, shares)
+        if spec is not None:
+            native = _mplot3d.add_subplot(figure._native, spec, options)
+        else:
+            native = _mplot3d.add_axes(figure._native, rect, options)
+        return native, kwargs
+
+    @classmethod
+    def _from_native(cls, native, figure):
+        ax = super()._from_native(native, figure)
+        ax.xaxis = axis3d.XAxis(ax)
+        ax.yaxis = axis3d.YAxis(ax)
+        ax.zaxis = axis3d.ZAxis(ax)
+        # A new axes looks from its initial view.
+        ax.initial_elev, ax.initial_azim, ax.initial_roll = _mplot3d.get_view(native)
+        ax.button_pressed = None
+        ax.mouse_init()
+        canvas = figure.canvas
+        canvas.mpl_connect('motion_notify_event', ax._on_move)
+        canvas.mpl_connect('button_press_event', ax._button_press)
+        canvas.mpl_connect('button_release_event', ax._button_release)
+        # The projection plane stands for the axes where an artist's parent
+        # or the current axes is asked for.
+        figure._artists[_artist.id(_mplot3d.plane(native))] = ax
+        return ax
+
+    @staticmethod
+    def _checked_focal_length(proj_type, focal_length):
+        """matplotlib's checks of the focal length of *proj_type*."""
+        _api.check_in_list(['persp', 'ortho'], proj_type=proj_type)
+        if proj_type == 'persp':
+            if focal_length is not None and focal_length <= 0:
+                raise ValueError(f"focal_length = {focal_length} must be "
+                                 "greater than 0")
+            return None if focal_length is None else float(focal_length)
+        if focal_length not in (None, np.inf):
+            raise ValueError(f"focal_length = {focal_length} must be "
+                             f"None for proj_type = {proj_type}")
+        return None
+
+    def __repr__(self):
+        return f"<{type(self).__name__}: >"
+
+    # -- axes --------------------------------------------------------------
+
+    def get_zaxis(self):
+        """Return the ``ZAxis`` (`~.axis3d.Axis`) instance."""
+        return self.zaxis
+
+    def clear(self):
+        # docstring inherited.
+        _mplot3d.clear(self._native)
+
+    def get_zticks(self, *, minor=False):
+        """Return the zaxis' tick locations in data coordinates."""
+        return self.zaxis.get_ticklocs(minor=minor)
+
+    def set_zticks(self, ticks, labels=None, *, minor=False, **kwargs):
+        """Set the zaxis' tick locations (`.Axis.set_ticks`)."""
+        return self.zaxis.set_ticks(ticks, labels, minor=minor, **kwargs)
+
+    def has_data(self):
+        """Return whether any artists have been added to the Axes."""
+        return bool(self.lines or self.collections or self.patches)
+
+    # -- limits ------------------------------------------------------------
+
+    def _set_lim3d(self, name, lower=None, upper=None, *, emit=True,
+                   auto=False, view_margin=None, axmin=None, axmax=None):
+        """Set the view limits of axis *name* (matplotlib's ``_set_lim3d``)."""
+        current = _mplot3d.get_lim(self._native, name)
+        if upper is None:
+            if np.iterable(lower):
+                lower, upper = lower
+            elif axmax is None:
+                upper = current[1]
+        if lower is None and axmin is None:
+            lower = current[0]
+        if axmin is not None:
+            if lower is not None:
+                raise TypeError("Cannot pass both 'lower' and 'min'")
+            lower = axmin
+        if axmax is not None:
+            if upper is not None:
+                raise TypeError("Cannot pass both 'upper' and 'max'")
+            upper = axmax
+        lower, upper = float(lower), float(upper)
+        if np.isinf(lower) or np.isinf(upper):
+            raise ValueError(f"Axis limits {lower}, {upper} cannot be infinite")
+        if np.isnan(lower) or np.isnan(upper):
+            raise ValueError("Axis limits cannot be NaN or Inf")
+        if _mplot3d.get_scale(self._native, name) == 'log':
+            if lower <= 0:
+                _api.warn_external(
+                    f"Attempt to set non-positive {name}lim on a log-scaled "
+                    "axis will be ignored.")
+                lower = current[0]
+            if upper <= 0:
+                _api.warn_external(
+                    f"Attempt to set non-positive {name}lim on a log-scaled "
+                    "axis will be ignored.")
+                upper = current[1]
+        _mplot3d.set_lim(self._native, name, (lower, upper),
+                         None if view_margin is None else float(view_margin),
+                         None if auto is None else bool(auto))
+        return _mplot3d.get_lim(self._native, name)
+
+    def set_xlim(self, left=None, right=None, *, emit=True, auto=False,
+                 view_margin=None, xmin=None, xmax=None):
+        """Set the 3D x-axis view limits."""
+        return self._set_lim3d('x', left, right, emit=emit, auto=auto,
+                               view_margin=view_margin, axmin=xmin, axmax=xmax)
+
+    def set_ylim(self, bottom=None, top=None, *, emit=True, auto=False,
+                 view_margin=None, ymin=None, ymax=None):
+        """Set the 3D y-axis view limits."""
+        return self._set_lim3d('y', bottom, top, emit=emit, auto=auto,
+                               view_margin=view_margin, axmin=ymin, axmax=ymax)
+
+    def set_zlim(self, bottom=None, top=None, *, emit=True, auto=False,
+                 view_margin=None, zmin=None, zmax=None):
+        """Set the 3D z-axis view limits."""
+        return self._set_lim3d('z', bottom, top, emit=emit, auto=auto,
+                               view_margin=view_margin, axmin=zmin, axmax=zmax)
+
+    set_xlim3d = set_xlim
+    set_ylim3d = set_ylim
+    set_zlim3d = set_zlim
+
+    def get_xlim(self):
+        # docstring inherited
+        return _mplot3d.get_lim(self._native, 'x')
+
+    def get_ylim(self):
+        # docstring inherited
+        return _mplot3d.get_lim(self._native, 'y')
+
+    def get_zlim(self):
+        """Return the 3D z-axis view limits."""
+        return _mplot3d.get_lim(self._native, 'z')
+
+    get_xlim3d = get_xlim
+    get_ylim3d = get_ylim
+    get_zlim3d = get_zlim
+
+    def get_w_lims(self):
+        """Get 3D world limits."""
+        minx, maxx = self.get_xlim3d()
+        miny, maxy = self.get_ylim3d()
+        minz, maxz = self.get_zlim3d()
+        return minx, maxx, miny, maxy, minz, maxz
+
+    def _set_bound3d(self, name, lower, upper, view_margin):
+        if upper is None and np.iterable(lower):
+            lower, upper = lower
+        _mplot3d.set_bound(self._native, name,
+                           (None if lower is None else float(lower),
+                            None if upper is None else float(upper)),
+                           None if view_margin is None else float(view_margin))
+
+    def set_xbound(self, lower=None, upper=None, view_margin=None):
+        """Set the lower and upper numerical bounds of the x-axis."""
+        self._set_bound3d('x', lower, upper, view_margin)
+
+    def set_ybound(self, lower=None, upper=None, view_margin=None):
+        """Set the lower and upper numerical bounds of the y-axis."""
+        self._set_bound3d('y', lower, upper, view_margin)
+
+    def set_zbound(self, lower=None, upper=None, view_margin=None):
+        """Set the lower and upper numerical bounds of the z-axis."""
+        self._set_bound3d('z', lower, upper, view_margin)
+
+    def get_xbound(self):
+        """Return the lower and upper x-axis bounds, in increasing order."""
+        return _mplot3d.get_bound(self._native, 'x')
+
+    def get_ybound(self):
+        """Return the lower and upper y-axis bounds, in increasing order."""
+        return _mplot3d.get_bound(self._native, 'y')
+
+    def get_zbound(self):
+        """Return the lower and upper z-axis bounds, in increasing order."""
+        return _mplot3d.get_bound(self._native, 'z')
+
+    def invert_xaxis(self):
+        """[*Discouraged*] Invert the x-axis."""
+        _mplot3d.set_inverted(self._native, 'x', not self.xaxis_inverted())
+
+    def invert_yaxis(self):
+        """[*Discouraged*] Invert the y-axis."""
+        _mplot3d.set_inverted(self._native, 'y', not self.yaxis_inverted())
+
+    def invert_zaxis(self):
+        """[*Discouraged*] Invert the z-axis."""
+        _mplot3d.set_inverted(self._native, 'z', not self.zaxis_inverted())
+
+    def xaxis_inverted(self):
+        """Return whether the xaxis is oriented in the "inverse" direction."""
+        return _mplot3d.get_inverted(self._native, 'x')
+
+    def yaxis_inverted(self):
+        """Return whether the yaxis is oriented in the "inverse" direction."""
+        return _mplot3d.get_inverted(self._native, 'y')
+
+    def zaxis_inverted(self):
+        """Return whether the zaxis is oriented in the "inverse" direction."""
+        return _mplot3d.get_inverted(self._native, 'z')
+
+    # -- autoscaling -------------------------------------------------------
+
+    def get_autoscale_on(self):
+        """Return True if each axis is autoscaled, False otherwise."""
+        return all(_mplot3d.get_autoscale_on(self._native, name)
+                   for name in self._axis_names)
+
+    def set_autoscale_on(self, b):
+        """Set whether autoscaling is applied to each axis on the next draw."""
+        for name in self._axis_names:
+            _mplot3d.set_autoscale_on(self._native, name, bool(b))
+
+    def get_autoscalex_on(self):
+        """Return whether the xaxis is autoscaled."""
+        return _mplot3d.get_autoscale_on(self._native, 'x')
+
+    def get_autoscaley_on(self):
+        """Return whether the yaxis is autoscaled."""
+        return _mplot3d.get_autoscale_on(self._native, 'y')
+
+    def get_autoscalez_on(self):
+        """Return whether the zaxis is autoscaled."""
+        return _mplot3d.get_autoscale_on(self._native, 'z')
+
+    def set_autoscalex_on(self, b):
+        """Set whether the xaxis is autoscaled."""
+        _mplot3d.set_autoscale_on(self._native, 'x', bool(b))
+
+    def set_autoscaley_on(self, b):
+        """Set whether the yaxis is autoscaled."""
+        _mplot3d.set_autoscale_on(self._native, 'y', bool(b))
+
+    def set_autoscalez_on(self, b):
+        """Set whether the zaxis is autoscaled."""
+        _mplot3d.set_autoscale_on(self._native, 'z', bool(b))
+
+    def autoscale(self, enable=True, axis='both', tight=None):
+        """
+        Convenience method for simple axis view autoscaling.
+
+        See `.Axes.autoscale` for full documentation.  Because this function
+        applies to 3D Axes, *axis* can also be set to 'z', and setting *axis*
+        to 'both' autoscales all three axes.
+        """
+        _api.check_in_list(['both', 'x', 'y', 'z'], axis=axis)
+        _mplot3d.autoscale(self._native,
+                           None if enable is None else bool(enable),
+                           None if axis == 'both' else axis,
+                           None if tight is None else bool(tight))
+
+    def get_xmargin(self):
+        """Retrieve autoscaling margin of the x-axis."""
+        return _mplot3d.get_margin(self._native, 'x')
+
+    def get_ymargin(self):
+        """Retrieve autoscaling margin of the y-axis."""
+        return _mplot3d.get_margin(self._native, 'y')
+
+    def get_zmargin(self):
+        """Retrieve autoscaling margin of the z-axis."""
+        return _mplot3d.get_margin(self._native, 'z')
+
+    def set_xmargin(self, m):
+        """Set padding of X data limits prior to autoscaling."""
+        _mplot3d.set_margins(self._native, (_check_margin(m), None, None), None)
+
+    def set_ymargin(self, m):
+        """Set padding of Y data limits prior to autoscaling."""
+        _mplot3d.set_margins(self._native, (None, _check_margin(m), None), None)
+
+    def set_zmargin(self, m):
+        """Set padding of Z data limits prior to autoscaling."""
+        _mplot3d.set_margins(self._native, (None, None, _check_margin(m)), None)
+
+    def margins(self, *margins, x=None, y=None, z=None, tight=True):
+        """
+        Set or retrieve autoscaling margins.
+
+        See `.Axes.margins` for full documentation.  Because this function
+        applies to 3D Axes, it also takes a *z* argument, and returns
+        ``(xmargin, ymargin, zmargin)``.
+        """
+        if margins and (x is not None or y is not None or z is not None):
+            raise TypeError('Cannot pass both positional and keyword '
+                            'arguments for x, y, and/or z.')
+        elif len(margins) == 1:
+            x = y = z = margins[0]
+        elif len(margins) == 3:
+            x, y, z = margins
+        elif margins:
+            raise TypeError('Must pass a single positional argument for all '
+                            'margins, or one for each margin (x, y, z).')
+
+        if x is None and y is None and z is None:
+            if tight is not True:
+                _api.warn_external(f'ignoring tight={tight!r} in get mode')
+            return self.get_xmargin(), self.get_ymargin(), self.get_zmargin()
+
+        _mplot3d.set_margins(
+            self._native,
+            tuple(None if m is None else _check_margin(m) for m in (x, y, z)),
+            None if tight is None else bool(tight))
+
+    # -- scales ------------------------------------------------------------
+
+    def _set_axis_scale(self, name, value, **kwargs):
+        """Set the scale of axis *name*, the keyword arguments checked by
+        the scale's class as matplotlib's ``scale_factory`` does."""
+        from pltrs import scale as mscale
+        if isinstance(value, mscale.ScaleBase):
+            raise NotImplementedError("pltrs: a scale object on 3-D axes")
+        scale_cls = _api.getitem_checked(mscale._scale_mapping, scale=value)
+        scale_cls(None, **kwargs)
+        _mplot3d.set_scale(self._native, name, value, kwargs)
+
+    def set_xscale(self, value, **kwargs):
+        """Set the x-axis scale."""
+        self._set_axis_scale('x', value, **kwargs)
+
+    def set_yscale(self, value, **kwargs):
+        """Set the y-axis scale."""
+        self._set_axis_scale('y', value, **kwargs)
+
+    def set_zscale(self, value, **kwargs):
+        """Set the z-axis scale."""
+        self._set_axis_scale('z', value, **kwargs)
+
+    def get_xscale(self):
+        """Return the xaxis' scale (as a str)."""
+        return _mplot3d.get_scale(self._native, 'x')
+
+    def get_yscale(self):
+        """Return the yaxis' scale (as a str)."""
+        return _mplot3d.get_scale(self._native, 'y')
+
+    def get_zscale(self):
+        """Return the zaxis' scale (as a str)."""
+        return _mplot3d.get_scale(self._native, 'z')
+
+    # -- the camera and the box --------------------------------------------
+
+    def view_init(self, elev=None, azim=None, roll=None, vertical_axis="z",
+                  share=False):
+        """
+        Set the elevation and azimuth of the Axes in degrees (not radians).
+
+        Parameters
+        ----------
+        elev, azim, roll : float, default: None
+            The elevation, azimuth and roll angles in degrees; None takes the
+            initial value given to the `Axes3D` constructor.
+        vertical_axis : {"z", "x", "y"}, default: "z"
+            The axis to align vertically. *azim* rotates about this axis.
+        share : bool, default: False
+            If ``True``, apply the settings to all Axes with shared views.
+        """
+        _api.check_in_list(self._axis_names, vertical_axis=vertical_axis)
+        self.__dict__['_vertical_axis_name'] = vertical_axis
+        view = (float(self.initial_elev if elev is None else elev),
+                float(self.initial_azim if azim is None else azim),
+                float(self.initial_roll if roll is None else roll))
+        _mplot3d.view_init(self._native, view, vertical_axis, bool(share))
+
+    def _view_angle(index):
+        """The property of one of the view angles."""
+        def get(self):
+            return _mplot3d.get_view(self._native)[index]
+
+        def set(self, value):
+            view = list(_mplot3d.get_view(self._native))
+            view[index] = float(value)
+            _mplot3d.view_init(self._native, tuple(view),
+                               self._axis_names[self._vertical_axis], False)
+        return property(get, set)
+
+    elev = _view_angle(0)
+    azim = _view_angle(1)
+    roll = _view_angle(2)
+    del _view_angle
+
+    @property
+    def _vertical_axis(self):
+        """The index of the vertical axis in ``_axis_names``."""
+        return self._axis_names.index(
+            self.__dict__.get('_vertical_axis_name', 'z'))
+
+    def set_proj_type(self, proj_type, focal_length=None):
+        """
+        Set the projection type.
+
+        Parameters
+        ----------
+        proj_type : {'persp', 'ortho'}
+            The projection type.
+        focal_length : float, default: None
+            For a projection type of 'persp', the focal length of the virtual
+            camera. Must be > 0. If None, defaults to 1.
+        """
+        focal_length = self._checked_focal_length(proj_type, focal_length)
+        _mplot3d.set_proj_type(self._native, proj_type, focal_length)
+
+    def set_box_aspect(self, aspect, *, zoom=1):
+        """
+        Set the Axes box aspect.
+
+        Parameters
+        ----------
+        aspect : 3-tuple of floats or None
+            Changes the physical dimensions of the Axes3D, such that the ratio
+            of the axis lengths in display units is x:y:z.
+            If None, defaults to (4, 4, 3).
+        zoom : float, default: 1
+            Control overall size of the Axes3D in the figure. Must be > 0.
+        """
+        if zoom <= 0:
+            raise ValueError(f'Argument zoom = {zoom} must be > 0')
+        _mplot3d.set_box_aspect(
+            self._native,
+            None if aspect is None else tuple(map(float, aspect)),
+            float(zoom))
+
+    def get_box_aspect(self):
+        """The x:y:z ratio of the box edges."""
+        return np.array(_mplot3d.get_box_aspect(self._native))
+
+    @property
+    def _box_aspect(self):
+        """The x:y:z ratio of the box edges (matplotlib's attribute)."""
+        return self.get_box_aspect()
+
+    def set_aspect(self, aspect, adjustable=None, anchor=None, share=False):
+        """
+        Set the aspect ratios.
+
+        Parameters
+        ----------
+        aspect : {'auto', 'equal', 'equalxy', 'equalxz', 'equalyz'}
+        adjustable : {'box', 'datalim'}, default: 'box'
+        """
+        if anchor is not None or share:
+            _api.warn_deprecated(
+                "3.11", name="anchor and share",
+                message="The 'anchor' and 'share' parameters of "
+                        "Axes3D.set_aspect have no effect and are deprecated.")
+        _api.check_in_list(('auto', 'equal', 'equalxy', 'equalyz', 'equalxz'),
+                           aspect=aspect)
+        if adjustable is None:
+            adjustable = 'box'
+        _api.check_in_list(['box', 'datalim'], adjustable=adjustable)
+        _mplot3d.set_aspect(self._native, aspect, adjustable)
+
+    def get_proj(self):
+        """Create the projection matrix from the current viewing position."""
+        return _mplot3d.get_proj(self._native)
+
+    @property
+    def M(self):
+        """The projection matrix of the current view."""
+        return self.get_proj()
+
+    @property
+    def computed_zorder(self):
+        """Whether collections and patches are drawn in depth order."""
+        return self.__dict__.get('_computed_zorder', True)
+
+    @computed_zorder.setter
+    def computed_zorder(self, computed):
+        self._computed_zorder = bool(computed)
+        _mplot3d.set_computed_zorder(self._native, bool(computed))
+
+    def disable_mouse_rotation(self):
+        """Disable mouse buttons for 3D rotation, panning, and zooming."""
+        _mplot3d.disable_mouse_rotation(self._native)
+
+    def format_coord(self, xv, yv, renderer=None):
+        """
+        Return a string giving the current view rotation angles, or the x, y, z
+        coordinates of the point on the nearest axis pane underneath the mouse
+        cursor, depending on the mouse button pressed.
+        """
+        return _mplot3d.format_coord(self._native, float(xv), float(yv))
+
+    def _rotation_coords(self):
+        """Return the rotation angles as a string."""
+        return _mplot3d.rotation_coords(self._native)
+
+    def format_zdata(self, z):
+        """
+        Return *z* string formatted.  This function will use the
+        :attr:`!fmt_zdata` attribute if it is callable, else will fall back
+        on the zaxis major formatter
+        """
+        return _mplot3d.format_data(self._native, 'z', float(z)) or ""
+
+    # -- decorations -------------------------------------------------------
+
+    def set_axis_off(self):
+        """Hide the panes, axis lines, ticks and gridlines."""
+        _mplot3d.set_axis_on(self._native, False)
+
+    def set_axis_on(self):
+        """Show the panes, axis lines, ticks and gridlines again."""
+        _mplot3d.set_axis_on(self._native, True)
+
+    @property
+    def axison(self):
+        """Whether the panes, axes and gridlines are drawn."""
+        return _mplot3d.get_axis_on(self._native)
+
+    def grid(self, visible=True, **kwargs):
+        """
+        Set / unset 3D grid.
+
+        .. note::
+
+            Currently, this function does not behave the same as
+            `.axes.Axes.grid`, but it is intended to eventually support that
+            behavior.
+        """
+        if len(kwargs):
+            visible = True
+        _mplot3d.grid(self._native, bool(visible))
+
+    def _set_axis_label(self, name, label, kwargs):
+        _mplot3d.set_label(self._native, name, str(label))
+        if kwargs:
+            raise NotImplementedError(
+                f"pltrs: set_{name}label({next(iter(kwargs))}=...) on 3-D axes")
+
+    def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
+                   **kwargs):
+        """Set the label for the x-axis."""
+        self._set_axis_label('x', xlabel, {**(fontdict or {}), **kwargs})
+
+    def set_ylabel(self, ylabel, fontdict=None, labelpad=None, *, loc=None,
+                   **kwargs):
+        """Set the label for the y-axis."""
+        self._set_axis_label('y', ylabel, {**(fontdict or {}), **kwargs})
+
+    def set_zlabel(self, zlabel, fontdict=None, labelpad=None, **kwargs):
+        """Set zlabel.  See doc for `.set_ylabel` for description."""
+        self._set_axis_label('z', zlabel, {**(fontdict or {}), **kwargs})
+
+    def get_xlabel(self):
+        """Get the xlabel text string."""
+        return _mplot3d.get_label(self._native, 'x')
+
+    def get_ylabel(self):
+        """Get the ylabel text string."""
+        return _mplot3d.get_label(self._native, 'y')
+
+    def get_zlabel(self):
+        """Get the zlabel text string."""
+        return _mplot3d.get_label(self._native, 'z')
+
+    # -- navigation --------------------------------------------------------
+
+    @property
+    def _pseudo_w(self):
+        """The width of the view window in projected coordinates."""
+        lo, hi = _axes.get_xlim(self._native)
+        return hi - lo
+
+    @property
+    def _pseudo_h(self):
+        """The height of the view window in projected coordinates."""
+        lo, hi = _axes.get_ylim(self._native)
+        return hi - lo
+
+    def mouse_init(self, rotate_btn=1, pan_btn=2, zoom_btn=3):
+        """
+        Set the mouse buttons for 3D rotation and zooming.
+
+        Parameters
+        ----------
+        rotate_btn : int or list of int, default: 1
+            The mouse button or buttons to use for 3D rotation of the Axes.
+        pan_btn : int or list of int, default: 2
+            The mouse button or buttons to use to pan the 3D Axes.
+        zoom_btn : int or list of int, default: 3
+            The mouse button or buttons to use to zoom the 3D Axes.
+        """
+        self.button_pressed = None
+        # coerce scalars into array-like, then convert into
+        # a regular list to avoid comparisons against None
+        # which breaks in recent versions of numpy.
+        self._rotate_btn = np.atleast_1d(rotate_btn).tolist()
+        self._pan_btn = np.atleast_1d(pan_btn).tolist()
+        self._zoom_btn = np.atleast_1d(zoom_btn).tolist()
+
+    def _button_press(self, event):
+        if event.inaxes == self:
+            self.button_pressed = event.button
+            self._sx, self._sy = event.xdata, event.ydata
+            toolbar = self.get_figure(root=True).canvas.toolbar
+            if toolbar and toolbar._nav_stack() is None:
+                toolbar.push_current()
+            if toolbar:
+                toolbar.set_message(toolbar._mouse_event_to_message(event))
+
+    def _button_release(self, event):
+        self.button_pressed = None
+        toolbar = self.get_figure(root=True).canvas.toolbar
+        # backend_bases.release_zoom and backend_bases.release_pan call
+        # push_current, so check the navigation mode so we don't call it twice
+        if toolbar and self.get_navigate_mode() is None:
+            toolbar.push_current()
+        if toolbar:
+            toolbar.set_message(toolbar._mouse_event_to_message(event))
+
+    def _on_move(self, event):
+        """
+        Mouse moving.
+
+        By default, button-1 rotates, button-2 pans, and button-3 zooms;
+        these buttons can be modified via `mouse_init`.
+        """
+        if not self.button_pressed or self.get_navigate_mode() is not None:
+            return
+        x, y = event.xdata, event.ydata
+        # In case the mouse is out of bounds.
+        if x is None or event.inaxes != self:
+            return
+        if self.button_pressed in self._rotate_btn:
+            if x == self._sx and y == self._sy:
+                return
+            _mplot3d.drag_rotate(self._native, (float(self._sx), float(self._sy)),
+                                 (float(x), float(y)),
+                                 getattr(event, "key", None) == "control")
+        elif self.button_pressed in self._pan_btn:
+            px, py = self.transData.transform([self._sx, self._sy])
+            self.start_pan(px, py, 2)
+            self.drag_pan(2, None, event.x, event.y)
+            self.end_pan()
+        elif self.button_pressed in self._zoom_btn:
+            _mplot3d.drag_zoom(self._native, float(self._sy), float(y))
+        self._sx, self._sy = x, y
+        self.get_figure(root=True).canvas.draw_idle()
+
+    def start_pan(self, x, y, button):
+        # docstring inherited
+        self._pan_start = (x, y, self.transData.inverted().frozen())
+
+    def end_pan(self):
+        # docstring inherited
+        del self._pan_start
+
+    def drag_pan(self, button, key, x, y):
+        # docstring inherited
+        px, py, inverse = self._pan_start
+        (xdata, ydata), (xdata_start, ydata_start) = inverse.transform(
+            [(x, y), (px, py)])
+        self._sx, self._sy = xdata, ydata
+        self.start_pan(x, y, button)
+        du, dv = xdata - xdata_start, ydata - ydata_start
+        if key == 'x':
+            dv = 0
+        elif key == 'y':
+            du = 0
+        _mplot3d.pan_view(self._native, float(du), float(dv))
+
+    def _set_view_from_bbox(self, bbox, direction='in',
+                            mode=None, twinx=False, twiny=False):
+        # docstring inherited
+        _mplot3d.zoom_to_rect(self._native, tuple(map(float, bbox)),
+                              direction == 'out', mode)
+
+    def _get_view(self):
+        # docstring inherited
+        return {
+            "xlim": self.get_xlim(), "autoscalex_on": self.get_autoscalex_on(),
+            "ylim": self.get_ylim(), "autoscaley_on": self.get_autoscaley_on(),
+            "zlim": self.get_zlim(), "autoscalez_on": self.get_autoscalez_on(),
+        }, (self.elev, self.azim, self.roll)
+
+    def _set_view(self, view):
+        # docstring inherited
+        props, (elev, azim, roll) = view
+        self.set(**props)
+        _mplot3d.view_init(self._native, (elev, azim, roll),
+                           self._axis_names[self._vertical_axis], False)
+
+    # -- collections -------------------------------------------------------
+
+    def add_collection3d(self, col, zs=0, zdir='z', autolim=True, *,
+                         axlim_clip=False):
+        """
+        Add a 3D collection object to the plot.
+
+        2D collection types are converted to a 3D version by
+        modifying the object and adding z coordinate information,
+        *zs* and *zdir*.
+
+        Supported 2D collection types are:
+
+        - `.PolyCollection`
+        - `.LineCollection`
+
+        Parameters
+        ----------
+        col : `.Collection`
+            A 2D collection object.
+        zs : float or array-like, default: 0
+            The z-positions to be used for the 2D objects.
+        zdir : {'x', 'y', 'z'}, default: 'z'
+            The direction to use for the z-positions.
+        autolim : bool, default: True
+            Whether to update the data limits.
+        axlim_clip : bool, default: False
+            Whether to hide the scatter points outside the axes view limits.
+        """
+        if not isinstance(col, art3d._Loose3D):
+            self._lift_collection(col, zs, zdir)
+        return col._adopt_into(self, autolim, axlim_clip)
+
+    def _lift_collection(self, col, zs, zdir):
+        """Give the loose 2-D polygon or line collection *col* 3-D
+        vertices: its paths in the plane at *zs* along *zdir*
+        (matplotlib's ``poly_collection_2d_to_3d`` and
+        ``line_collection_2d_to_3d``)."""
+        _api.check_in_list(self._axis_names, zdir=zdir)
+        paths = col.get_paths()
+        zs = np.broadcast_to(np.asarray(zs, dtype=float), (len(paths),))
+        lifted = [np.column_stack(art3d.juggle_axes(
+            path.vertices[:, 0], path.vertices[:, 1],
+            np.full(len(path.vertices), z), zdir)) for path, z in zip(paths, zs)]
+        if isinstance(col, mcoll.PolyCollection):
+            col.__class__ = art3d.Poly3DCollection
+            col._zsort = 'average'
+        elif isinstance(col, mcoll.LineCollection):
+            col.__class__ = art3d.Line3DCollection
+        else:
+            raise NotImplementedError(
+                f"pltrs: add_collection3d of a {type(col).__name__}")
+        col._verts3d_pending = lifted
+        col._axlim_clip = False
+
+    def add_collection(self, collection, autolim=True):
+        # docstring inherited
+        if isinstance(collection, art3d._Loose3D):
+            return collection._adopt_into(self, bool(autolim), False)
+        return super().add_collection(collection, autolim)
+
+    # -- plotting ----------------------------------------------------------
+
+    def plot(self, xs, ys, *args, zdir='z', axlim_clip=False, **kwargs):
+        """
+        Plot 2D or 3D data.
+
+        Parameters
+        ----------
+        xs : 1D array-like
+            x coordinates of vertices.
+        ys : 1D array-like
+            y coordinates of vertices.
+        zs : float or 1D array-like
+            z coordinates of vertices; either one for all points or one for
+            each point.
+        zdir : {'x', 'y', 'z'}, default: 'z'
+            When plotting 2D data, the direction to use as z.
+        axlim_clip : bool, default: False
+            Whether to hide data that is outside the axes view limits.
+        **kwargs
+            Other arguments are forwarded to `matplotlib.axes.Axes.plot`.
+        """
+        # `zs` can be passed positionally or as keyword; checking whether
+        # args[0] is a string matches the behavior of 2D `plot`.
+        if args and not isinstance(args[0], str):
+            zs, *args = args
+            if 'zs' in kwargs:
+                raise TypeError("plot() for multiple values for argument 'zs'")
+        else:
+            zs = kwargs.pop('zs', 0)
+        fmt = None
+        if args:
+            fmt, *args = args
+        if args:
+            raise NotImplementedError("pltrs: several datasets in Axes3D.plot")
+        _api.check_in_list(self._axis_names, zdir=zdir)
+        kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
+        props = {k: v for k, v in kwargs.items() if v is not None}
+        xs, ys, zs = (np.asarray(a) for a in (xs, ys, zs))
+        if xs.ndim > 1 or ys.ndim > 1:
+            columns = np.broadcast_arrays(*(np.atleast_2d(a.T).T
+                                            for a in (xs, ys, zs)))
+            return [line for i in range(columns[0].shape[1])
+                    for line in self.plot(*(c[:, i] for c in columns), fmt,
+                                          zdir=zdir, axlim_clip=axlim_clip,
+                                          **props)]
+        native = _mplot3d.plot(self._native, _floats(xs, ys, zs), zdir, fmt,
+                               mlines._native_kwargs(props), bool(axlim_clip))
+        return [wrap(self, native, art3d.Line3D)]
+
+    plot3D = plot
+
+    def scatter(self, xs, ys, zs=0, zdir='z', s=20, c=None, depthshade=None,
+                *args, depthshade_minalpha=None, axlim_clip=False, **kwargs):
+        """
+        Create a scatter plot.
+
+        Parameters
+        ----------
+        xs, ys : array-like
+            The data positions.
+        zs : float or array-like, default: 0
+            The z-positions.
+        zdir : {'x', 'y', 'z', '-x', '-y', '-z'}, default: 'z'
+            The axis direction for the *zs*.
+        s : float or array-like, default: 20
+            The marker size in points**2.
+        c : :mpltype:`color`, sequence, or sequence of colors, optional
+            The marker color.
+        depthshade : bool, default: :rc:`axes3d.depthshade`
+            Whether to shade the scatter markers to give the appearance of
+            depth.
+        depthshade_minalpha : float, default: :rc:`axes3d.depthshade_minalpha`
+            The lowest alpha value applied by depth-shading.
+        axlim_clip : bool, default: False
+            Whether to hide the scatter points outside the axes view limits.
+
+        Returns
+        -------
+        paths : `~matplotlib.collections.PathCollection`
+        """
+        if args:
+            raise NotImplementedError("pltrs: positional arguments after "
+                                      "depthshade in Axes3D.scatter")
+        xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
+        s = np.ma.ravel(s)
+        xs, ys, zs, s, c, color = cbook.delete_masked_points(
+            xs, ys, zs, s, c, kwargs.get('color', None))
+        if kwargs.get("color") is not None:
+            kwargs['color'] = color
+        kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
+        linewidths = kwargs.pop('linewidth', None)
+        edgecolors = kwargs.pop('edgecolor', None)
+        marker = kwargs.pop('marker', None) or rcParams['scatter.marker']
+        cmap, norm = kwargs.pop('cmap', None), kwargs.pop('norm', None)
+        vmin, vmax = kwargs.pop('vmin', None), kwargs.pop('vmax', None)
+        alpha = kwargs.pop('alpha', None)
+        c, colors, edgecolors = self._parse_scatter_color_args(
+            c, edgecolors, kwargs, xs.size,
+            get_next_color_func=self._next_patch_color)
+        marker_obj = marker if isinstance(marker, MarkerStyle) else MarkerStyle(marker)
+        if colors is None:
+            faces = (None, (np.ma.filled(np.ma.asarray(c, dtype=float),
+                                         np.nan).ravel(),
+                            _mapping(cmap, norm, vmin, vmax)))
+        else:
+            faces = (np.asarray(colors, dtype=float).reshape(-1, 4), None)
+        if edgecolors is not None and not cbook._str_equal(edgecolors, 'face'):
+            from pltrs import colors as mcolors
+            edgecolors = mcolors.to_rgba_array(edgecolors)
+        if linewidths is not None:
+            linewidths = [float(lw) for lw in np.atleast_1d(linewidths)]
+        alphas = None
+        if np.iterable(alpha):
+            alphas, alpha = [float(a) for a in alpha], None
+        s = np.broadcast_to(np.ma.filled(np.asarray(s, dtype=float), np.nan),
+                            xs.shape if s.size != 1 else (1,))
+        native = _mplot3d.scatter(
+            self._native, _floats(xs, ys, zs),
+            (np.ascontiguousarray(s, dtype=float).ravel(),
+             mlines._marker_spec(marker_obj)), faces, (edgecolors, linewidths),
+            (None if alpha is None else float(alpha), alphas),
+            (zdir, None if depthshade is None else bool(depthshade),
+             None if depthshade_minalpha is None
+             else float(depthshade_minalpha), bool(axlim_clip)))
+        collection = wrap(self, native, art3d.Path3DCollection)
+        collection._internal_update(kwargs)
+        return collection
+
+    scatter3D = scatter
+
+    def _next_patch_color(self):
+        """The next colour of the patch property cycle."""
+        from pltrs._native import plotting as _plotting
+        return _plotting.next_patch_color(self._native)
+
+    def plot_surface(self, X, Y, Z, *, norm=None, vmin=None,
+                     vmax=None, lightsource=None, axlim_clip=False, **kwargs):
+        """
+        Create a surface plot.
+
+        Parameters
+        ----------
+        X, Y, Z : 2D arrays
+            Data values.
+        rcount, ccount : int
+            Maximum number of samples used in each direction.
+        rstride, cstride : int
+            Downsampling stride in each direction.
+        color : :mpltype:`color`
+            Color of the surface patches.
+        cmap : Colormap, optional
+            Colormap of the surface patches.
+        shade : bool, default: True
+            Whether to shade the facecolors.
+        axlim_clip : bool, default: False
+            Whether to hide patches with a vertex outside the axes view limits.
+
+        Returns
+        -------
+        `.Poly3DCollection`
+        """
+        if Z.ndim != 2:
+            raise ValueError("Argument Z must be 2-dimensional.")
+        if lightsource is not None:
+            raise NotImplementedError("pltrs: plot_surface(lightsource=...)")
+        X, Y, Z = np.broadcast_arrays(X, Y, Z)
+        sampling = _sampling(kwargs.pop('rstride', None),
+                             kwargs.pop('cstride', None),
+                             kwargs.pop('rcount', None),
+                             kwargs.pop('ccount', None))
+        color = kwargs.pop('color', None)
+        cmap = kwargs.pop('cmap', None)
+        shade = kwargs.pop('shade', None)
+        if kwargs.get('facecolors') is not None:
+            raise NotImplementedError("pltrs: plot_surface(facecolors=...)")
+        mapping = (None if cmap is None and norm is None
+                   else _mapping(cmap, norm, vmin, vmax))
+        grids = tuple(np.ascontiguousarray(np.ma.filled(
+            np.ma.asarray(a, dtype=float), np.nan)) for a in (X, Y, Z))
+        native = _mplot3d.plot_surface(
+            self._native, grids, sampling,
+            (color, mapping, None if shade is None else bool(shade)),
+            bool(axlim_clip))
+        collection = wrap(self, native, art3d.Poly3DCollection)
+        collection._internal_update(kwargs)
+        return collection
+
+    def plot_wireframe(self, X, Y, Z, *, axlim_clip=False, **kwargs):
+        """
+        Plot a 3D wireframe.
+
+        Parameters
+        ----------
+        X, Y, Z : 2D arrays
+            Data values.
+        rcount, ccount : int
+            Maximum number of samples used in each direction.
+        rstride, cstride : int
+            Downsampling stride in each direction.
+        axlim_clip : bool, default: False
+            Whether to hide lines and patches with vertices outside the axes
+            view limits.
+
+        Returns
+        -------
+        `.Line3DCollection`
+        """
+        if Z.ndim != 2:
+            raise ValueError("Argument Z must be 2-dimensional.")
+        X, Y, Z = np.broadcast_arrays(X, Y, Z)
+        rstride, cstride = kwargs.pop('rstride', None), kwargs.pop('cstride', None)
+        rcount, ccount = kwargs.pop('rcount', None), kwargs.pop('ccount', None)
+        if (rstride == 0 and cstride == 0) or (rcount == 0 and ccount == 0):
+            raise ValueError("Either rstride or cstride must be non zero")
+        sampling = _sampling(rstride, cstride, rcount, ccount)
+        if sampling is None and rcParams['_internal.classic_mode']:
+            sampling = ("stride", 1, 1)
+        kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
+        color = kwargs.pop('color', None)
+        grids = tuple(np.ascontiguousarray(np.ma.filled(
+            np.ma.asarray(a, dtype=float), np.nan)) for a in (X, Y, Z))
+        native = _mplot3d.plot_wireframe(self._native, grids, sampling, color,
+                                         bool(axlim_clip))
+        collection = wrap(self, native, art3d.Line3DCollection)
+        collection._internal_update(kwargs)
+        return collection
+
+    def text(self, x, y, z, s, zdir=None, *, axlim_clip=False, **kwargs):
+        """
+        Add the text *s* to the 3D Axes at location *x*, *y*, *z* in data
+        coordinates.
+
+        Parameters
+        ----------
+        x, y, z : float
+            The position to place the text.
+        s : str
+            The text.
+        zdir : {'x', 'y', 'z', 3-tuple}, optional
+            The direction to be used as the z-direction.
+        axlim_clip : bool, default: False
+            Whether to hide text that is outside the axes view limits.
+
+        Returns
+        -------
+        `.Text3D`
+        """
+        if zdir is not None and not isinstance(zdir, str):
+            raise NotImplementedError("pltrs: text(zdir=<a vector>)")
+        native = _mplot3d.text(self._native, (float(x), float(y), float(z)),
+                               str(s), zdir)
+        text = wrap(self, native, art3d.Text3D)
+        text._internal_update(kwargs)
+        return text
+
+    text3D = text
+    text2D = Axes.text
+
+    def bar3d(self, x, y, z, dx, dy, dz, color=None,
+              zsort='average', shade=True, lightsource=None, *args,
+              axlim_clip=False, **kwargs):
+        """
+        Generate a 3D barplot.
+
+        Parameters
+        ----------
+        x, y, z : array-like
+            The coordinates of the anchor point of the bars.
+        dx, dy, dz : float or array-like
+            The width, depth, and height of the bars, respectively.
+        color : sequence of colors, optional
+            The color of the bars can be specified globally or
+            individually.
+        zsort : {'average', 'min', 'max'}, default: 'average'
+            The z-axis sorting scheme.
+        shade : bool, default: True
+            When true, this shades the dark sides of the bars (relative
+            to the plot's source of light).
+        axlim_clip : bool, default: False
+            Whether to hide the bars with points outside the axes view limits.
+        **kwargs
+            Any additional keyword arguments are passed onto
+            `~.art3d.Poly3DCollection`.
+
+        Returns
+        -------
+        collection : `~.art3d.Poly3DCollection`
+            A collection of three-dimensional polygons representing the bars.
+        """
+        if args:
+            raise NotImplementedError("pltrs: positional arguments after "
+                                      "lightsource in Axes3D.bar3d")
+        if zsort != 'average' or lightsource is not None:
+            raise NotImplementedError(
+                "pltrs: bar3d(zsort=..., lightsource=...)")
+        from pltrs import colors as mcolors
+        columns = tuple(np.atleast_1d(np.asarray(v, dtype=float)).ravel().tolist()
+                        for v in (x, y, z, dx, dy, dz))
+        colors = None if color is None else mcolors.to_rgba_array(color)
+        native = _mplot3d.bar3d(self._native, (columns[:3], columns[3:]),
+                                colors, bool(shade), bool(axlim_clip))
+        collection = wrap(self, native, art3d.Poly3DCollection)
+        collection._internal_update(kwargs)
+        return collection
+
+    def quiver(self, X, Y, Z, U, V, W, *,
+               length=1, arrow_length_ratio=.3, pivot='tail', normalize=False,
+               axlim_clip=False, **kwargs):
+        """
+        Plot a 3D field of arrows.
+
+        Parameters
+        ----------
+        X, Y, Z : array-like
+            The x, y and z coordinates of the arrow locations.
+        U, V, W : array-like
+            The x, y and z components of the arrow vectors.
+        length : float, default: 1
+            The length of each quiver.
+        arrow_length_ratio : float, default: 0.3
+            The ratio of the arrow head with respect to the quiver.
+        pivot : {'tail', 'middle', 'tip'}, default: 'tail'
+            The part of the arrow that is at the grid point.
+        normalize : bool, default: False
+            Whether all arrows are normalized to have the same length.
+        axlim_clip : bool, default: False
+            Whether to hide arrows with points outside the axes view limits.
+        **kwargs
+            Any additional keyword arguments are delegated to
+            :class:`.LineCollection`
+        """
+        _api.check_in_list(['tail', 'middle', 'tip'], pivot=pivot)
+        arrays = np.broadcast_arrays(*(np.ma.asarray(a, dtype=float)
+                                       for a in (X, Y, Z, U, V, W)))
+        arrays = [np.ma.ravel(a) for a in arrays]
+        keep = ~np.any([np.ma.getmaskarray(a) for a in arrays], axis=0)
+        x, y, z, u, v, w = (np.asarray(a)[keep] for a in arrays)
+        kwargs = cbook.normalize_kwargs(kwargs, mcoll.Collection)
+        color = kwargs.pop('color', None)
+        colors = kwargs.pop('colors', None)
+        if colors is None and color is not None and np.ndim(color) == 2:
+            color, colors = None, color
+        from pltrs import colors as mcolors
+        native = _mplot3d.quiver(
+            self._native,
+            (np.column_stack([x, y, z]), np.column_stack([u, v, w])),
+            (float(length), float(arrow_length_ratio), pivot, bool(normalize)),
+            (color, None if colors is None else mcolors.to_rgba_array(colors)),
+            bool(axlim_clip))
+        collection = wrap(self, native, art3d.Line3DCollection)
+        collection._internal_update(kwargs)
+        return collection
+
+    quiver3D = quiver
+
+    def plot_trisurf(self, *args, color=None, norm=None, vmin=None, vmax=None,
+                     lightsource=None, axlim_clip=False, **kwargs):
+        """
+        Plot a triangulated surface.
+
+        Parameters
+        ----------
+        X, Y, Z : array-like
+            Data values as 1D arrays.
+        color
+            Color of the surface patches.
+        cmap
+            A colormap for the surface patches.
+        norm : `~matplotlib.colors.Normalize`, optional
+            An instance of Normalize to map values to colors.
+        vmin, vmax : float, optional
+            Minimum and maximum value to map.
+        shade : bool, default: True
+            Whether to shade the facecolors.
+        axlim_clip : bool, default: False
+            Whether to hide patches with a vertex outside the axes view limits.
+
+        Returns
+        -------
+        `.Poly3DCollection`
+        """
+        from pltrs.tri._triangulation import Triangulation
+        if lightsource is not None:
+            raise NotImplementedError("pltrs: plot_trisurf(lightsource=...)")
+        tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
+        try:
+            z = kwargs.pop('Z')
+        except KeyError:
+            # We do this so Z doesn't get passed as an arg to PolyCollection
+            z, *args = args
+        cmap = kwargs.pop('cmap', None)
+        shade = kwargs.pop('shade', None)
+        mapping = (None if cmap is None and norm is None
+                   else _mapping(cmap, norm, vmin, vmax))
+        native = _mplot3d.plot_trisurf(
+            self._native,
+            (np.asarray(tri.x, dtype=float).tolist(),
+             np.asarray(tri.y, dtype=float).tolist(),
+             [tuple(map(int, t)) for t in tri.triangles],
+             None if tri.mask is None else tri.mask.tolist()),
+            np.asarray(z, dtype=float).ravel().tolist(),
+            (color, mapping, None if shade is None else bool(shade)),
+            bool(axlim_clip))
+        collection = wrap(self, native, art3d.Poly3DCollection)
+        collection._internal_update(kwargs)
+        return collection
+
+
+def get_test_data(delta=0.05):
+    """Return a tuple X, Y, Z with a test data set."""
+    return _mplot3d.test_data(float(delta))
+
+
+class _Quaternion:
+    """
+    Quaternions
+    consisting of scalar, along 1, and vector, with components along i, j, k
+    """
+
+    def __init__(self, scalar, vector):
+        self.scalar = scalar
+        self.vector = np.array(vector)
+
+    def __neg__(self):
+        return self.__class__(-self.scalar, -self.vector)
+
+    def __mul__(self, other):
+        """
+        Product of two quaternions
+        i*i = j*j = k*k = i*j*k = -1
+        Quaternion multiplication can be expressed concisely
+        using scalar and vector parts,
+        see <https://en.wikipedia.org/wiki/Quaternion#Scalar_and_vector_parts>
+        """
+        return self.__class__(
+            self.scalar*other.scalar - np.dot(self.vector, other.vector),
+            self.scalar*other.vector + self.vector*other.scalar
+            + np.cross(self.vector, other.vector))
+
+    def conjugate(self):
+        """The conjugate quaternion -(1/2)*(q+i*q*i+j*q*j+k*q*k)"""
+        return self.__class__(self.scalar, -self.vector)
+
+    @property
+    def norm(self):
+        """The 2-norm, q*q', a scalar"""
+        return self.scalar*self.scalar + np.dot(self.vector, self.vector)
+
+    def normalize(self):
+        """Scaling such that norm equals 1"""
+        n = np.sqrt(self.norm)
+        return self.__class__(self.scalar/n, self.vector/n)
+
+    def reciprocal(self):
+        """The reciprocal, 1/q = q'/(q*q') = q' / norm(q)"""
+        n = self.norm
+        return self.__class__(self.scalar/n, -self.vector/n)
+
+    def __div__(self, other):
+        return self*other.reciprocal()
+
+    __truediv__ = __div__
+
+    def rotate(self, v):
+        # Rotate the vector v by the quaternion q, i.e.,
+        # calculate (the vector part of) q*v/q
+        v = self.__class__(0, v)
+        v = self*v/self
+        return v.vector
+
+    def __eq__(self, other):
+        return (self.scalar == other.scalar) and (self.vector == other.vector).all
+
+    def __repr__(self):
+        return "_Quaternion({}, {})".format(repr(self.scalar), repr(self.vector))
+
+    @classmethod
+    def rotate_from_to(cls, r1, r2):
+        """
+        The quaternion for the shortest rotation from vector r1 to vector r2
+        i.e., q = sqrt(r2*r1'), normalized.
+        If r1 and r2 are antiparallel, then the result is ambiguous;
+        a normal vector will be returned, and a warning will be issued.
+        """
+        k = np.cross(r1, r2)
+        nk = np.linalg.norm(k)
+        th = np.arctan2(nk, np.dot(r1, r2))
+        th /= 2
+        if nk == 0:  # r1 and r2 are parallel or anti-parallel
+            if np.dot(r1, r2) < 0:
+                warnings.warn("Rotation defined by anti-parallel vectors is ambiguous")
+                k = np.zeros(3)
+                k[np.argmin(r1*r1)] = 1  # basis vector most perpendicular to r1-r2
+                k = np.cross(r1, k)
+                k = k / np.linalg.norm(k)  # unit vector normal to r1-r2
+                q = cls(0, k)
+            else:
+                q = cls(1, [0, 0, 0])  # = 1, no rotation
+        else:
+            q = cls(np.cos(th), k*np.sin(th)/nk)
+        return q
+
+    @classmethod
+    def from_cardan_angles(cls, elev, azim, roll):
+        """
+        Converts the angles to a quaternion
+            q = exp((roll/2)*e_x)*exp((elev/2)*e_y)*exp((-azim/2)*e_z)
+        i.e., the angles are a kind of Tait-Bryan angles, -z,y',x".
+        The angles should be given in radians, not degrees.
+        """
+        ca, sa = np.cos(azim/2), np.sin(azim/2)
+        ce, se = np.cos(elev/2), np.sin(elev/2)
+        cr, sr = np.cos(roll/2), np.sin(roll/2)
+
+        qw = ca*ce*cr + sa*se*sr
+        qx = ca*ce*sr - sa*se*cr
+        qy = ca*se*cr + sa*ce*sr
+        qz = ca*se*sr - sa*ce*cr
+        return cls(qw, [qx, qy, qz])
+
+    def as_cardan_angles(self):
+        """
+        The inverse of `from_cardan_angles()`.
+        Note that the angles returned are in radians, not degrees.
+        The angles are not sensitive to the quaternion's norm().
+        """
+        qw = self.scalar
+        qx, qy, qz = self.vector[..., :]
+        azim = np.arctan2(2*(-qw*qz+qx*qy), qw*qw+qx*qx-qy*qy-qz*qz)
+        elev = np.arcsin(np.clip(2*(qw*qy+qz*qx)/(qw*qw+qx*qx+qy*qy+qz*qz), -1, 1))
+        roll = np.arctan2(2*(qw*qx-qy*qz), qw*qw-qx*qx-qy*qy+qz*qz)
+        return elev, azim, roll

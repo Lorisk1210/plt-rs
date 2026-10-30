@@ -24,6 +24,7 @@ import pathlib
 import sys
 import time
 import weakref
+from weakref import WeakKeyDictionary
 
 import numpy as np
 
@@ -2786,16 +2787,11 @@ class NavigationToolbar2:
                 pass
             else:
                 s = s.rstrip()
-                artists = [a for a in event.inaxes._mouseover_set
-                           if a.contains(event)[0] and a.get_visible()]
-                if artists:
-                    a = cbook._topmost_artist(artists)
-                    if a is not event.inaxes.patch:
-                        data = a.get_cursor_data(event)
-                        if data is not None:
-                            data_str = a.format_cursor_data(data).rstrip()
-                            if data_str:
-                                s = s + '\n' + data_str
+                # pltrs (Rust) finds the topmost visible artist with
+                # mouseover set under the pointer and formats its data.
+                data_str = event.inaxes._cursor_text(event)
+                if data_str:
+                    s = s + '\n' + data_str.rstrip()
                 return s
         return ""
 

@@ -9,8 +9,8 @@ use super::readout::{contains, data_transform, display_bbox};
 use super::{DragKey, PointerButton};
 use crate::artist::ArtistHandle;
 use crate::figure::Figure;
-use crate::mplot3d::{Axes3D, Axis3};
-use crate::mplot3d::{MouseAction, location_coords};
+use crate::mplot3d::Axes3D;
+use crate::mplot3d::MouseAction;
 
 /// The topmost visible 3-D axes under display point `at`.
 pub(super) fn axes3d_at(figure: &Figure, at: Point) -> Option<Axes3D> {
@@ -150,6 +150,18 @@ pub(super) fn zoom_to_rect(ax: &Axes3D, start: Point, end: Point, out: bool, key
     let _ = ax.zoom_data_limits(scale, scale, scale);
 }
 
+impl Axes3D {
+    /// Zooms into (or, with `out`, out of) the display rectangle from
+    /// `start` to `end`, as the zoom-to-rectangle tool does (matplotlib's
+    /// `Axes3D._set_view_from_bbox`): the rectangle's centre moves to the
+    /// axes' centre and the limits scale by the larger of its relative
+    /// sides; [`DragKey::X`] and [`DragKey::Y`] keep the full height or
+    /// width.
+    pub fn zoom_to_rect(&self, start: Point, end: Point, out: bool, key: DragKey) {
+        zoom_to_rect(self, start, end, out, key);
+    }
+}
+
 /// The status-bar text over `ax` at display point `at`: the view angles
 /// while rotating, otherwise the point of the nearest pane under the
 /// pointer (matplotlib's `Axes3D.format_coord`).
@@ -157,17 +169,9 @@ pub(super) fn readout(ax: &Axes3D, at: Point, rotating: bool) -> String {
     if rotating {
         return ax.rotation_coords();
     }
-    pane_readout(ax, at).unwrap_or_default()
-}
-
-fn pane_readout(ax: &Axes3D, at: Point) -> Option<String> {
-    let projected = projected(ax, at)?;
-    let (point, pane) = ax.pane_point(projected.x, projected.y)?;
-    let formatted = Axis3::ALL.map(|axis| ax.format_data(axis, point[axis.index()]));
-    let [Some(x), Some(y), Some(z)] = formatted else {
-        return None;
-    };
-    Some(location_coords(pane, [x, y, z]))
+    projected(ax, at).map_or_else(String::new, |projected| {
+        ax.format_coord(projected.x, projected.y)
+    })
 }
 
 #[cfg(test)]

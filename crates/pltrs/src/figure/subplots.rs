@@ -86,13 +86,24 @@ impl Figure {
 
     /// The current axes, `None` when the figure has none (matplotlib's
     /// `_axstack.current()`).
+    ///
+    /// A 3-D axes is current through its projection plane, which comes
+    /// back for it (see [`Axes3D::projection_plane`]).
+    ///
+    /// [`Axes3D::projection_plane`]: crate::mplot3d::Axes3D::projection_plane
     pub(crate) fn current_axes(&self) -> Option<Axes> {
         let mut axes = self.axes();
         let current = self.state.borrow().current_axes;
-        match current.and_then(|id| axes.iter().position(|ax| ax.id() == id)) {
-            Some(index) => Some(axes.swap_remove(index)),
-            None => axes.pop(),
+        if let Some(index) = current.and_then(|id| axes.iter().position(|ax| ax.id() == id)) {
+            return Some(axes.swap_remove(index));
         }
+        let plane = current.and_then(|id| {
+            self.axes3d()
+                .iter()
+                .map(crate::mplot3d::Axes3D::projection_plane)
+                .find(|plane| plane.id() == id)
+        });
+        plane.or_else(|| axes.pop())
     }
 
     /// Makes `ax` the current axes (matplotlib's `sca`).

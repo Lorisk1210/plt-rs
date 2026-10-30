@@ -268,6 +268,51 @@ class Artist:
         """Set a label that will be displayed in the legend."""
         _artist.set_label(self._native, str(s) if s is not None else "")
 
+    def get_gid(self):
+        """Return the group id."""
+        return _artist.get_gid(self._native)
+
+    def set_gid(self, gid):
+        """Set the (group) id for the artist."""
+        _artist.set_gid(self._native, None if gid is None else str(gid))
+
+    def get_url(self):
+        """Return the url."""
+        return _artist.get_url(self._native)
+
+    def set_url(self, url):
+        """Set the url for the artist."""
+        _artist.set_url(self._native, None if url is None else str(url))
+
+    def get_sketch_params(self):
+        """
+        Return the sketch parameters for the artist: ``(scale, length,
+        randomness)``, or None if no sketch parameters were set.
+        """
+        return _artist.get_sketch_params(self._native)
+
+    def set_sketch_params(self, scale=None, length=None, randomness=None):
+        """
+        Set the sketch parameters.
+
+        Parameters
+        ----------
+        scale : float, optional
+            The amplitude of the wiggle perpendicular to the source
+            line, in pixels.  If scale is `None`, or not provided, no
+            sketch filter will be provided.
+        length : float, optional
+             The length of the wiggle along the line, in pixels
+             (default 128.0)
+        randomness : float, optional
+            The scale factor by which the length is shrunken or
+            expanded (default 16.0)
+        """
+        _artist.set_sketch_params(
+            self._native, None if scale is None
+            else (float(scale), float(length or 128.0),
+                  float(randomness or 16.0)))
+
     def _add_to_axes(self, axes, kind, autolim=True):
         """
         Join *axes* as its ``add_<kind>`` method adds an artist (``kind`` is

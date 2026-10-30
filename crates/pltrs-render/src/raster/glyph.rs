@@ -1,14 +1,18 @@
 //! Glyph outlines flattened exactly as `FreeType`'s smooth rasterizer
 //! (`ftgrays.c`) flattens them before matplotlib blits the glyph bitmap.
 //!
-//! Control points are taken to 26.6 fixed point and upscaled to the
-//! rasterizer's 24.8 units; conic arcs are split into `2^n` segments by
-//! integer forward differencing until their deviation is within a quarter
-//! pixel (`gray_render_conic`), cubic arcs are bisected until flat enough
-//! (`gray_render_cubic`). The contours are returned in those 24.8 units,
-//! for `pltrs_raster::render_glyph`, `FreeType`'s rasterizer.
+//! The tagged 26.6 outline is transformed first (`FT_Load_Glyph` under
+//! `FT_Set_Transform`), then decomposed (`FT_Outline_Decompose`), so the
+//! points a run of conic control points implies lie between transformed
+//! points; they are upscaled to the rasterizer's 24.8 units; conic arcs
+//! are split into `2^n` segments by integer forward differencing until
+//! their deviation is within a quarter pixel (`gray_render_conic`), cubic
+//! arcs are bisected until flat enough (`gray_render_cubic`). The contours
+//! are returned in those 24.8 units, for `pltrs_raster::render_glyph`,
+//! `FreeType`'s rasterizer.
 
-use pltrs_core::{Path, Point, Segment};
+use pltrs_core::Point;
+use pltrs_font::{ScanOutline, ScanPointKind};
 
 use super::mono::split_cubic as split_coordinate;
 
@@ -74,13 +78,6 @@ impl GlyphTransform {
             mul_fix(x, self.xx) + mul_fix(y, self.xy) + self.dx,
             mul_fix(x, self.yx) + mul_fix(y, self.yy) + self.dy,
         )
-    }
-
-    /// An outline point (pixels, a multiple of 1/64) transformed and
-    /// upscaled to 24.8 (`UPSCALE`).
-    fn apply(&self, p: Point) -> Fixed {
-        let (x, y) = self.transform((p.x * 64.0).round() as i64, (p.y * 64.0).round() as i64);
-        Fixed { x: x * 4, y: y * 4 }
     }
 }
 
@@ -195,34 +192,155 @@ fn split_cubic(arc: [Fixed; 4]) -> ([Fixed; 4], [Fixed; 4]) {
     ([at(0), at(1), at(2), at(3)], [at(3), at(4), at(5), at(6)])
 }
 
-/// The glyph `outline` (pixels, origin at the pen) placed by `transform`
-/// (display pixels, y up), flattened as `FreeType` flattens it: one
-/// polygon per contour, in 24.8 units.
-pub(super) fn freetype_contours(
-    outline: &Path,
-    transform: &GlyphTransform,
-) -> Vec<Vec<(i64, i64)>> {
-    let place = |p: Point| transform.apply(p);
-    let mut flattener = Flattener::default();
-    for segment in outline.segments() {
-        match segment {
-            Segment::MoveTo(p) => flattener.move_to(place(p)),
-            Segment::LineTo(p) => flattener.line_to(place(p)),
-            Segment::QuadTo(c, p) => flattener.conic_to(place(c), place(p)),
-            Segment::CubicTo(c1, c2, p) => flattener.cubic_to(place(c1), place(c2), place(p)),
-            Segment::Close => {}
+/// A transformed outline point in 26.6 with its role.
+#[derive(Clone, Copy)]
+struct Tagged {
+    x: i64,
+    y: i64,
+    kind: ScanPointKind,
+}
+
+impl Tagged {
+    /// The point upscaled to 24.8 (`UPSCALE`).
+    fn upscaled(self) -> Fixed {
+        Fixed {
+            x: left_shift(self.x, 2),
+            y: left_shift(self.y, 2),
         }
     }
-    flattener.contours
+
+    /// The point halfway to `other`, rounded down as the rasterizer sees
+    /// it: `FT_Outline_Decompose`'s `(a + b) / 2`, taken in the glyph's
+    /// bitmap, where no coordinate is negative.
+    fn halfway(self, other: Self) -> Self {
+        Self {
+            x: (self.x + other.x) >> 1,
+            y: (self.y + other.y) >> 1,
+            kind: ScanPointKind::On,
+        }
+    }
+}
+
+/// The tagged glyph `outline` (26.6, origin at the pen) placed by
+/// `transform` (display pixels, y up), flattened as `FreeType` flattens
+/// it: one polygon per contour, in 24.8 units. `None` for a malformed
+/// outline, which `FreeType` refuses (`Invalid_Outline`).
+pub(super) fn freetype_contours(
+    outline: &ScanOutline,
+    transform: &GlyphTransform,
+) -> Option<Vec<Vec<(i64, i64)>>> {
+    let points: Vec<Tagged> = outline
+        .points
+        .iter()
+        .map(|point| {
+            let (x, y) = transform.transform(point.x, point.y);
+            Tagged {
+                x,
+                y,
+                kind: point.kind,
+            }
+        })
+        .collect();
+    let mut flattener = Flattener::default();
+    let mut start = 0;
+    for &end in &outline.contour_ends {
+        decompose(points.get(start..end)?, &mut flattener)?;
+        start = end;
+    }
+    Some(flattener.contours)
+}
+
+/// `FT_Outline_Decompose` of one contour into `flattener`, closed back to
+/// its start; `None` for a malformed contour.
+fn decompose(contour: &[Tagged], flattener: &mut Flattener) -> Option<()> {
+    let (&first, &last) = (contour.first()?, contour.last()?);
+    let mut limit = contour.len() - 1;
+    // The index of the next point to read.
+    let mut next = 1;
+    let start = match first.kind {
+        ScanPointKind::Cubic => return None,
+        ScanPointKind::Conic => {
+            next = 0;
+            if last.kind == ScanPointKind::On {
+                limit -= 1;
+                last
+            } else {
+                first.halfway(last)
+            }
+        }
+        ScanPointKind::On => first,
+    };
+    flattener.move_to(start.upscaled());
+    while next <= limit {
+        let point = contour[next];
+        next += 1;
+        match point.kind {
+            ScanPointKind::On => flattener.line_to(point.upscaled()),
+            ScanPointKind::Conic => {
+                let mut control = point;
+                loop {
+                    let Some(&to) = contour.get(next).filter(|_| next <= limit) else {
+                        flattener.conic_to(control.upscaled(), start.upscaled());
+                        return Some(());
+                    };
+                    next += 1;
+                    match to.kind {
+                        ScanPointKind::On => {
+                            flattener.conic_to(control.upscaled(), to.upscaled());
+                            break;
+                        }
+                        ScanPointKind::Conic => {
+                            flattener.conic_to(control.upscaled(), control.halfway(to).upscaled());
+                            control = to;
+                        }
+                        ScanPointKind::Cubic => return None,
+                    }
+                }
+            }
+            ScanPointKind::Cubic => {
+                let second = contour.get(next).filter(|p| p.kind == ScanPointKind::Cubic);
+                let second = *second.filter(|_| next <= limit)?;
+                next += 1;
+                let to = if next <= limit { contour[next] } else { start };
+                flattener.cubic_to(point.upscaled(), second.upscaled(), to.upscaled());
+                if next > limit {
+                    return Some(());
+                }
+                next += 1;
+            }
+        }
+    }
+    flattener.line_to(start.upscaled());
+    Some(())
 }
 
 #[cfg(test)]
 mod tests {
+    use pltrs_font::{Dropouts, ScanPoint, ScanRules};
+
     use super::*;
 
-    fn conic(p0: Point, c: Point, p2: Point) -> Path {
-        Path::builder().move_to(p0).quad_to(c, p2).build()
+    /// A one-contour outline of `points` (26.6, with their roles).
+    fn outline(points: &[(i64, i64, ScanPointKind)]) -> ScanOutline {
+        ScanOutline {
+            points: points
+                .iter()
+                .map(|&(x, y, kind)| ScanPoint { x, y, kind })
+                .collect(),
+            contour_ends: vec![points.len()],
+            rules: ScanRules {
+                high_precision: false,
+                dropouts: Dropouts::Simple { stubs: false },
+            },
+        }
     }
+
+    fn contours(points: &[(i64, i64, ScanPointKind)], angle: f64) -> Vec<Vec<(i64, i64)>> {
+        freetype_contours(&outline(points), &GlyphTransform::new(angle, Point::ORIGIN))
+            .expect("a valid outline")
+    }
+
+    use ScanPointKind::{Conic, Cubic, On};
 
     #[test]
     fn quarter_turns_are_axis_aligned() {
@@ -246,54 +364,66 @@ mod tests {
 
     #[test]
     fn flat_conics_are_lines() {
-        let contours = freetype_contours(
-            &conic(
-                Point::new(0.0, 0.0),
-                Point::new(1.0, 0.1),
-                Point::new(2.0, 0.0),
-            ),
-            &GlyphTransform::new(0.0, Point::ORIGIN),
-        );
-        assert_eq!(contours, [vec![(0, 0), (512, 0)]]);
+        let contours = contours(&[(0, 0, On), (64, 6, Conic), (128, 0, On)], 0.0);
+        assert_eq!(contours, [vec![(0, 0), (512, 0), (0, 0)]]);
     }
 
     #[test]
     fn curved_conics_end_exactly_on_their_end_point() {
-        let contours = freetype_contours(
-            &conic(
-                Point::new(0.0, 0.0),
-                Point::new(10.0, 20.0),
-                Point::new(20.0, 0.0),
-            ),
-            &GlyphTransform::new(0.0, Point::ORIGIN),
-        );
+        let contours = contours(&[(0, 0, On), (640, 1280, Conic), (1280, 0, On)], 0.0);
         // A deviation of 40 px (10240 units) falls within a quarter pixel
-        // after four four-fold reductions: 2^4 = 16 segments.
+        // after four four-fold reductions: 2^4 = 16 segments, then the
+        // closing line.
         let [contour] = contours.as_slice() else {
             panic!("one contour, got {contours:?}");
         };
-        assert_eq!(contour.len(), 1 + 16);
+        assert_eq!(contour.len(), 1 + 16 + 1);
         assert_eq!(contour[16], (20 * 256, 0));
     }
 
     #[test]
+    fn implied_points_lie_between_transformed_control_points() {
+        // Two conic controls imply an on-curve point halfway between them,
+        // at y = 1/128 px: rounded down after a half turn (FreeType), not
+        // turned after rounding.
+        let points = [(0, 0, On), (64, 1, Conic), (128, 0, Conic), (192, 0, On)];
+        let turned = contours(&points, 180.0);
+        let upright = contours(&points, 0.0);
+        let mirrored: Vec<(i64, i64)> = upright[0].iter().map(|&(x, y)| (-x, -y)).collect();
+        assert_ne!(turned[0], mirrored);
+        assert!(turned[0].contains(&(-96 * 4, -4)), "{:?}", turned[0]);
+    }
+
+    #[test]
+    fn contours_may_start_at_a_control_point() {
+        let starts_off = contours(&[(64, 64, Conic), (128, 0, On), (0, 0, On)], 0.0);
+        let starts_on = contours(&[(0, 0, On), (64, 64, Conic), (128, 0, On)], 0.0);
+        assert_eq!(starts_off[0][0], (0, 0));
+        assert_eq!(starts_off[0].last(), starts_on[0].last());
+    }
+
+    #[test]
     fn cubics_are_bisected() {
-        let path = Path::builder()
-            .move_to(Point::new(0.0, 0.0))
-            .cubic_to(
-                Point::new(0.0, 10.0),
-                Point::new(10.0, 10.0),
-                Point::new(10.0, 0.0),
-            )
-            .build();
-        let contours = freetype_contours(&path, &GlyphTransform::new(0.0, Point::ORIGIN));
+        let contours = contours(
+            &[(0, 0, On), (0, 640, Cubic), (640, 640, Cubic), (640, 0, On)],
+            0.0,
+        );
         let contour = &contours[0];
         assert!(contour.len() > 8);
-        assert_eq!(contour[contour.len() - 1], (10 * 256, 0));
+        assert_eq!(contour[contour.len() - 2], (10 * 256, 0));
         assert!(
             contour
                 .iter()
                 .all(|&(_, y)| (0..=7 * 256 + 128).contains(&y))
         );
+    }
+
+    #[test]
+    fn malformed_contours_are_refused() {
+        let transform = GlyphTransform::new(0.0, Point::ORIGIN);
+        let lone_cubic = outline(&[(0, 0, On), (64, 64, Cubic), (128, 0, On)]);
+        assert!(freetype_contours(&lone_cubic, &transform).is_none());
+        let cubic_start = outline(&[(0, 0, Cubic), (64, 64, Cubic), (128, 0, On)]);
+        assert!(freetype_contours(&cubic_start, &transform).is_none());
     }
 }

@@ -53,15 +53,15 @@ def _get_tzinfo(tz=None):
     If None, retrieve the preferred timezone from the rcParams dictionary.
     """
     tz = _rc('timezone') if tz is None else tz
+    if tz == 'UTC':
+        return UTC
     if isinstance(tz, str):
-        if tz == 'UTC':
-            return UTC
-        import zoneinfo
-        try:
-            return zoneinfo.ZoneInfo(tz)
-        except (zoneinfo.ZoneInfoNotFoundError, ValueError) as err:
+        import dateutil.tz
+        tzinfo = dateutil.tz.gettz(tz)
+        if tzinfo is None:
             raise ValueError(f"{tz} is not a valid timezone as parsed by"
-                             " zoneinfo.ZoneInfo") from err
+                             " dateutil.tz.gettz.")
+        return tzinfo
     if isinstance(tz, datetime.tzinfo):
         return tz
     raise TypeError(f"tz must be string or tzinfo subclass, not {tz!r}.")
@@ -223,31 +223,29 @@ def num2timedelta(x):
 
 def datestr2num(d, default=None):
     """
-    Convert a date string to a datenum.
+    Convert a date string to a datenum using `dateutil.parser.parse`.
 
     Parameters
     ----------
     d : str or sequence of str
-        The dates to convert, as ISO 8601 strings.
+        The dates to convert.
 
-    default : datetime.date or datetime.datetime, optional
-        The day and month a date leaving them out (``'2022'``,
-        ``'2022-01'``) takes.
+    default : datetime.datetime, optional
+        The default date to use when fields are missing in *d*.
     """
-    if default is None:
-        convert = _dates.datestr2num
-    else:
-        if (isinstance(default, datetime.datetime)
-                and default.time() != datetime.time()):
-            raise NotImplementedError(
-                "pltrs: datestr2num(default=<datetime with a time of day>)")
-        day = (default.year, default.month, default.day)
-
-        def convert(s):
-            return _dates.datestr2num_with_default(s, day)
+    import dateutil.parser
     if isinstance(d, str):
-        return convert(d)
-    return np.asarray([convert(s) for s in d], dtype=float)
+        dt = dateutil.parser.parse(d, default=default)
+        return date2num(dt)
+    else:
+        if default is not None:
+            d = [date2num(dateutil.parser.parse(s, default=default))
+                 for s in d]
+            return np.asarray(d)
+        d = np.asarray(d)
+        if not d.size:
+            return d
+        return date2num(np.vectorize(dateutil.parser.parse)(d))
 
 
 def drange(dstart, dend, delta):

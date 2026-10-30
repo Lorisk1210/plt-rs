@@ -10,7 +10,6 @@ use pltrs::lines::{FormatString, Line2D};
 
 use super::super::lines::PyLineStyle;
 use super::fills::orientation;
-use super::values::PyAxisValues;
 use crate::binding::prelude::*;
 
 /// The per-row styles of an event plot: `(lineoffsets, linelengths,
@@ -28,11 +27,13 @@ type EventStyles = (
 /// `eventplot`), each style one per row or one for all.
 pub(super) fn eventplot(
     axes: Axes,
-    positions: Vec<PyAxisValues>,
+    positions: Vec<NdArray>,
     orient: String,
     (lineoffsets, linelengths, linewidths, colors, alpha, linestyles): EventStyles,
 ) -> PyResult<Vec<Collection>> {
-    let positions: Vec<_> = positions.into_iter().map(|values| values.0).collect();
+    let positions = (positions.into_iter())
+        .map(NdArray::into_vec)
+        .collect::<PyResult<Vec<_>>>()?;
     let options = EventplotOptions {
         orientation: orientation(&orient),
         lineoffsets,
@@ -60,7 +61,7 @@ type StemArtists = (Container, Line2D, Collection, Line2D);
 /// format defaults the Python side resolved).
 pub(super) fn stem(
     axes: Axes,
-    (locs, heads): (PyAxisValues, PyAxisValues),
+    (locs, heads): (NdArray, NdArray),
     (linefmt, markerfmt, basefmt): StemFormats,
     bottom: f64,
     orient: String,
@@ -74,7 +75,7 @@ pub(super) fn stem(
         orientation: orientation(&orient),
         label,
     };
-    let stems = axes.stem(locs.0, heads.0, options)?;
+    let stems = axes.stem(locs.into_vec()?, heads.into_vec()?, options)?;
     Ok((
         Container::Stem(stems.clone()),
         stems.markerline,

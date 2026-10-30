@@ -15,6 +15,7 @@
 //! matplotlib does.
 
 use pltrs_core::{Affine2D, Path, Point};
+use pltrs_font::ScanOutline;
 
 use pltrs_raster::{Clip, CoverageRounding, GrayBitmap};
 use pltrs_text::{Hinting, TextEngine, TextRun};
@@ -44,12 +45,14 @@ pub(super) fn within_reach(p: Point) -> bool {
     p.x.abs() <= MAX_GLYPH_REACH && p.y.abs() <= MAX_GLYPH_REACH
 }
 
-/// The farthest any vertex of `outline` lies from the glyph origin along
-/// either axis, or `None` when a vertex is not finite.
-fn outline_reach(outline: &Path) -> Option<f64> {
-    outline.vertices().iter().try_fold(0.0_f64, |reach, p| {
-        p.is_finite().then(|| reach.max(p.x.abs()).max(p.y.abs()))
-    })
+/// The farthest, in pixels, any point of the tagged `outline` lies from
+/// the glyph origin along either axis.
+fn outline_reach(outline: &ScanOutline) -> f64 {
+    let reach = (outline.points.iter())
+        .map(|p| p.x.unsigned_abs().max(p.y.unsigned_abs()))
+        .max()
+        .unwrap_or(0);
+    reach as f64 / 64.0
 }
 
 /// Whether a glyph reaching `reach` pixels from its pen at `pen`, at any
@@ -110,30 +113,20 @@ impl RasterRenderer {
             if !within_reach(pen) {
                 continue;
             }
-            let shape = if gc.antialiased {
-                engine
-                    .raster_glyph_outline(
-                        glyph.font,
-                        glyph.glyph,
-                        glyph.size,
-                        run.dpi,
-                        hinting,
-                        axis_aligned,
-                    )
-                    .map(GlyphShape::Smooth)
-            } else {
-                engine
-                    .scan_glyph_outline(
-                        glyph.font,
-                        glyph.glyph,
-                        glyph.size,
-                        run.dpi,
-                        hinting,
-                        axis_aligned,
-                    )
-                    .map(GlyphShape::Mono)
-            };
-            if let Ok(shape) = shape {
+            let outline = engine.scan_glyph_outline(
+                glyph.font,
+                glyph.glyph,
+                glyph.size,
+                run.dpi,
+                hinting,
+                axis_aligned,
+            );
+            if let Ok(outline) = outline {
+                let shape = if gc.antialiased {
+                    GlyphShape::Smooth(outline)
+                } else {
+                    GlyphShape::Mono(outline)
+                };
                 self.blit_glyph(&glyph_gc, &shape, &GlyphTransform::new(angle, pen), pen);
             }
         }
@@ -155,10 +148,9 @@ impl RasterRenderer {
     ) {
         match shape {
             GlyphShape::Smooth(outline) => {
-                match outline_reach(outline) {
-                    Some(reach)
-                        if reach <= MAX_GLYPH_REACH && touches_canvas(pen, reach, self.size) => {}
-                    _ => return,
+                let reach = outline_reach(outline);
+                if reach > MAX_GLYPH_REACH || !touches_canvas(pen, reach, self.size) {
+                    return;
                 }
                 match smooth_bitmap(outline, transform) {
                     Ok(Some(bitmap)) => self.blit_bitmap(glyph_gc, &bitmap),

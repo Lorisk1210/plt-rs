@@ -14,8 +14,9 @@
 
 use std::rc::Rc;
 
-use pltrs::axes::Axes;
+use pltrs::axes::{Axes, Axis};
 use pltrs::ticker::{Formatter, Locator, ScalarFormatter, TickerSettings};
+use pltrs::units::UnitAxisInfo;
 
 use super::axis;
 use super::python_helpers::{PyFormatter, PyLocator};
@@ -195,6 +196,70 @@ fn install_formatter(
     Ok(installed.map(|formatter| identified(TickHelper::Formatter(formatter))))
 }
 
+/// The four tick helpers of `axis`: the major and minor locators, then
+/// the major and minor formatters.
+fn tick_helpers(axis: &Axis) -> [TickHelper; 4] {
+    [
+        TickHelper::Locator(axis.major_locator()),
+        TickHelper::Locator(axis.minor_locator()),
+        TickHelper::Formatter(axis.major_formatter()),
+        TickHelper::Formatter(axis.minor_formatter()),
+    ]
+}
+
+/// Takes the tick helpers, label and default view a unit converter of
+/// the program's gives axis `name` (matplotlib's `_update_axisinfo`, see
+/// `Axis::take_axis_info`). `helpers` holds a description for each of
+/// the four helpers of [`tick_helpers`], as [`install_locator`] takes
+/// them, or `None`. Returns, for each helper given, the identity of the
+/// helper in use if it was installed, `None` where the axis kept its own.
+fn use_axis_info(
+    axes: Axes,
+    name: String,
+    helpers: Vec<Option<(Owned, bool)>>,
+    label: Option<String>,
+    default_limits: Option<(f64, f64)>,
+) -> PyResult<Vec<Option<Identified>>> {
+    let [majloc, minloc, majfmt, minfmt] = <[_; 4]>::try_from(helpers).map_err(|helpers| {
+        PyErr::value_error(format!("expected 4 tick helpers, got {}", helpers.len()))
+    })?;
+    let locator = |helper: Option<(Owned, bool)>| {
+        helper
+            .map(|(description, native)| new_locator(&description, native))
+            .transpose()
+    };
+    let formatter = |helper: Option<(Owned, bool)>| {
+        helper
+            .map(|(description, native)| new_formatter(&description, native))
+            .transpose()
+    };
+    let info = UnitAxisInfo {
+        majloc: locator(majloc)?,
+        minloc: locator(minloc)?,
+        majfmt: formatter(majfmt)?,
+        minfmt: formatter(minfmt)?,
+        label,
+        default_limits,
+    };
+    let given = [
+        info.majloc.is_some(),
+        info.minloc.is_some(),
+        info.majfmt.is_some(),
+        info.minfmt.is_some(),
+    ];
+    let axis = axis(&axes, &name)?;
+    let before = tick_helpers(&axis);
+    axis.take_axis_info(&info);
+    Ok(tick_helpers(&axis)
+        .into_iter()
+        .zip(before)
+        .zip(given)
+        .map(|((after, before), given)| {
+            (given && after.id() != before.id()).then(|| identified(after))
+        })
+        .collect())
+}
+
 /// The ticks of the locator `helper` on the axis `info` (`__call__`).
 fn helper_locate(helper: TickHelper, info: Option<Owned>) -> PyResult<NdArray> {
     let locator = Rc::clone(helper.locator()?);
@@ -266,6 +331,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("describe_helper", describe)?;
     module.add("install_locator", install_locator)?;
     module.add("install_formatter", install_formatter)?;
+    module.add("use_axis_info", use_axis_info)?;
     module.add("helper_locate", helper_locate)?;
     module.add("helper_tick_values", helper_tick_values)?;
     module.add("helper_format_ticks", helper_format_ticks)?;

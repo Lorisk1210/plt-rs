@@ -398,9 +398,18 @@ class Line2D(Artist):
             raise RuntimeError('x must be a sequence')
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
-        _lines.set_data(self._native, cbook._to_unmasked_float_array(x).ravel(),
-                        cbook._to_unmasked_float_array(y).ravel())
         self._xorig, self._yorig = copy.copy(x), copy.copy(y)
+        self.recache_always()
+
+    def recache_always(self):
+        """Convert the original data through the units of the line's axes
+        again, and hand the numbers to pltrs (Rust)."""
+        if "_xorig" not in self.__dict__:
+            return
+        _lines.set_data(
+            self._native,
+            cbook._to_unmasked_float_array(self.convert_xunits(self._xorig)).ravel(),
+            cbook._to_unmasked_float_array(self.convert_yunits(self._yorig)).ravel())
 
     def set_xdata(self, x):
         """

@@ -136,14 +136,6 @@ impl HintedGlyph {
             .decompose(&mut PixelSink(sink), Midpoint::Truncated);
     }
 
-    /// Emits the outline in pixels as FreeType's smooth rasterizer
-    /// decomposes it: implied on-curve points rounded down, where
-    /// [`outline`](Self::outline) truncates them as `get_path` does.
-    pub fn raster_outline(&self, sink: &mut impl OutlineSink) {
-        self.outline
-            .decompose(&mut PixelSink(sink), Midpoint::Floored);
-    }
-
     /// The outline with the rules its loader set, for monochrome
     /// rendering.
     pub fn scan_outline(&self) -> ScanOutline {

@@ -12,7 +12,7 @@ from ... import _api, _live_transforms, cbook, collections as mcoll, lines as ml
 from ..._native import axes as _axes, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
-from ._helpers import axis_values, line_kwargs, wrap
+from ._helpers import floats, keep_unit_data, line_data, line_kwargs, wrap
 
 
 def _check_no_units(vals, names):
@@ -173,6 +173,7 @@ class LinesMixin:
         for pos_only in "xy":
             if pos_only in kwargs:
                 raise _api.kwarg_error(inspect.stack()[1].function, pos_only)
+        self._process_unit_info(kwargs=kwargs)
         if not args:
             return []
         lines = []
@@ -182,9 +183,9 @@ class LinesMixin:
                 props["label"] = label
             else:
                 props.pop("label", None)
-            native = _plotting.plot(self._native, axis_values(x), axis_values(y),
-                                    fmt, mlines._native_kwargs(props))
-            lines.append(wrap(self, native, mlines.Line2D))
+            native = _plotting.plot(self._native, *line_data(self, x, y), fmt,
+                                    mlines._native_kwargs(props))
+            lines.append(keep_unit_data(wrap(self, native, mlines.Line2D), x, y))
         return lines
 
     def axhline(self, y=0, xmin=0, xmax=1, **kwargs):
@@ -199,9 +200,11 @@ class LinesMixin:
         if "transform" in kwargs:
             raise ValueError("'transform' is not allowed as a keyword "
                              "argument; axhline generates its own transform.")
-        native = _axes.axline(self._native, "h", y, (xmin, xmax),
+        yy, = self._process_unit_info([("y", y)], kwargs)
+        native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
                               line_kwargs(kwargs))
-        return wrap(self, native, mlines.Line2D)
+        return keep_unit_data(wrap(self, native, mlines.Line2D),
+                              [xmin, xmax], [y, y])
 
     def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
         """
@@ -215,9 +218,11 @@ class LinesMixin:
         if "transform" in kwargs:
             raise ValueError("'transform' is not allowed as a keyword "
                              "argument; axvline generates its own transform.")
-        native = _axes.axline(self._native, "v", x, (ymin, ymax),
+        xx, = self._process_unit_info([("x", x)], kwargs)
+        native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
                               line_kwargs(kwargs))
-        return wrap(self, native, mlines.Line2D)
+        return keep_unit_data(wrap(self, native, mlines.Line2D),
+                              [x, x], [ymin, ymax])
 
     def axline(self, xy1, xy2=None, *, slope=None, **kwargs):
         """
@@ -249,6 +254,7 @@ class LinesMixin:
             Horizontal span (rectangle) from (xmin, ymin) to (xmax, ymax).
         """
         _check_no_units([xmin, xmax], ['xmin', 'xmax'])
+        (ymin, ymax), = self._process_unit_info([("y", [ymin, ymax])], kwargs)
         native = _axes.axspan(self._native, "h", (ymin, ymax), (xmin, xmax))
         patch = wrap(self, native, Rectangle)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
@@ -264,6 +270,7 @@ class LinesMixin:
             Vertical span (rectangle) from (xmin, ymin) to (xmax, ymax).
         """
         _check_no_units([ymin, ymax], ['ymin', 'ymax'])
+        (xmin, xmax), = self._process_unit_info([("x", [xmin, xmax])], kwargs)
         native = _axes.axspan(self._native, "v", (xmin, xmax), (ymin, ymax))
         patch = wrap(self, native, Rectangle)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
@@ -272,6 +279,13 @@ class LinesMixin:
     def _segments(self, vertical, positions, low, high, colors, linestyles,
                   label, kwargs):
         """The segment collection of `hlines` (*vertical* false) or `vlines`."""
+        # We do the conversion first since not all unitized data is uniform.
+        if vertical:
+            positions, low, high = self._process_unit_info(
+                [("x", positions), ("y", low), ("y", high)], kwargs)
+        else:
+            low, high, positions = self._process_unit_info(
+                [("x", low), ("x", high), ("y", positions)], kwargs)
         if not np.iterable(positions):
             positions = [positions]
         if not np.iterable(low):
@@ -283,7 +297,7 @@ class LinesMixin:
         transform = kwargs.pop("transform", None)
         native = _plotting.segments(
             self._native, vertical,
-            tuple(axis_values(np.ravel(v)) for v in (positions, low, high)),
+            tuple(floats(np.ravel(v)) for v in (positions, low, high)),
             _live_transforms.given_to_native(transform))
         lines = wrap(self, native, mcoll.LineCollection)
         if transform is not None:

@@ -7,7 +7,6 @@
 use pltrs_core::Point;
 use pltrs_font::GlyphId;
 use pltrs_render::{GlyphBitmap, GlyphShape, render_glyph};
-use pltrs_text::PathSink;
 
 use super::glyphs::{Loaded, hinting, load_hinted};
 use super::{Ft2Font, ft_error};
@@ -21,23 +20,16 @@ fn glyph_bitmap(
 ) -> PyResult<Option<GlyphBitmap>> {
     let face = font.chain_face(glyph.face)?;
     let size = font.size_of(&face);
-    let hinted = load_hinted(&face, &size, glyph.glyph, glyph.hinting)?;
+    let outline = match load_hinted(&face, &size, glyph.glyph, glyph.hinting)? {
+        Some(hinted) => hinted.scan_outline(),
+        None => size
+            .scan_outline(&face, glyph.glyph)
+            .map_err(|err| ft_error("load glyph", &err))?,
+    };
     let shape = if antialiased {
-        let mut sink = PathSink::default();
-        match &hinted {
-            Some(hinted) => hinted.raster_outline(&mut sink),
-            None => size
-                .raster_outline(&face, glyph.glyph, &mut sink)
-                .map_err(|err| ft_error("load glyph", &err))?,
-        }
-        GlyphShape::Smooth(sink.finish())
+        GlyphShape::Smooth(outline)
     } else {
-        GlyphShape::Mono(match &hinted {
-            Some(hinted) => hinted.scan_outline(),
-            None => size
-                .scan_outline(&face, glyph.glyph)
-                .map_err(|err| ft_error("load glyph", &err))?,
-        })
+        GlyphShape::Mono(outline)
     };
     let pen = Point::new(glyph.pen.0 as f64 / 64.0, glyph.pen.1 as f64 / 64.0);
     render_glyph(&shape, glyph.angle, pen).map_err(|err| PyErr::runtime_error(err.to_string()))

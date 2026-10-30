@@ -414,9 +414,9 @@ class AxesImage(_ImageBase):
         This updates `.Axes.dataLim`, and, if autoscaling, sets `.Axes.viewLim`
         to tightly fit the image, regardless of `~.Axes.dataLim`.
         """
+        extent = self.axes._converted_extent(extent, kwargs)
         if kwargs:
             raise _api.kwarg_error("set_extent", kwargs)
-        extent = tuple(map(float, extent))
         _warn_identical_limits(self.axes, extent)
         _native_image.set_extent(self._native, extent)
 

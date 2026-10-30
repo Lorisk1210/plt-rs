@@ -78,6 +78,21 @@ class HistMixin:
                     "Axes.hist does not currently support timedelta inputs. "
                     "Convert to numeric values  (e.g., .total_seconds()) first."
                 )
+        # Process unit information.  _process_unit_info sets the unit and
+        # converts the first dataset; then we convert each following dataset
+        # one at a time.
+        if orientation == "vertical":
+            convert_units = self.convert_xunits
+            x = [*self._process_unit_info([("x", x[0])], kwargs),
+                 *map(convert_units, x[1:])]
+        else:  # horizontal
+            convert_units = self.convert_yunits
+            x = [*self._process_unit_info([("y", x[0])], kwargs),
+                 *map(convert_units, x[1:])]
+        if bin_range is not None:
+            bin_range = convert_units(bin_range)
+        if not cbook.is_scalar_or_string(bins):
+            bins = convert_units(bins)
         x = [floats(xi) for xi in x]
         if weights is not None:
             w = cbook._reshape_2D(weights, 'weights')

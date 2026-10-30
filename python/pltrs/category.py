@@ -11,7 +11,8 @@ strings to integers and provides a tick locator, a tick formatter, and the
 
 Kept from matplotlib 3.11.2 (under the Matplotlib License): the mapping is
 Python bookkeeping. Whether a string reads as a date is pltrs (Rust)'s
-(``pltrs::dates``) where matplotlib asks dateutil.
+(``pltrs::dates``) where matplotlib asks dateutil. `.UnitData` pickles,
+which an ``itertools.count`` no longer does.
 """
 
 from collections import OrderedDict
@@ -184,6 +185,16 @@ class UnitData:
         self._counter = itertools.count()
         if data is not None:
             self.update(data)
+
+    def __getstate__(self):
+        # The counter does not pickle (Python 3.14): it restarts after the
+        # ids given out.
+        return {key: value for key, value in vars(self).items()
+                if key != '_counter'}
+
+    def __setstate__(self, state):
+        vars(self).update(state)
+        self._counter = itertools.count(max(self._mapping.values(), default=-1) + 1)
 
     @staticmethod
     def _str_is_convertible(val):

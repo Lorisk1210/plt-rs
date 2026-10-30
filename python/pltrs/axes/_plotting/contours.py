@@ -91,6 +91,9 @@ class ContoursMixin:
     def _contour(self, filled, args, kwargs):
         """The `.QuadContourSet` of ``contour`` (or, *filled*, ``contourf``)."""
         fn = 'contourf' if filled else 'contour'
+        if 2 < len(args) <= 4:
+            x, y, *rest = args
+            args = (*self._process_unit_info([("x", x), ("y", y)], kwargs), *rest)
         z, mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
         origin = kwargs.pop("origin", None)
         extent = kwargs.pop("extent", None)

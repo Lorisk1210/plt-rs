@@ -103,20 +103,52 @@ def _install(axis, kind, minor, helper, replacing):
     """Install *helper* on *axis*, in place of the helper of the token
     *replacing* when given (nothing happens when that one is in use
     nowhere), and register it."""
-    spec = _spec_of(helper)
-    native = spec is not None
-    description = spec if native else _adapter(kind, helper)
     install_native = (_axis.install_locator if kind == "locator"
                       else _axis.install_formatter)
     installed = install_native(axis.axes._native, axis.axis_name, bool(minor),
-                               description, native, replacing)
-    if installed is None:
-        return
+                               *_description(kind, helper), replacing)
+    if installed is not None:
+        _keep(axis, helper, installed)
+
+
+def _description(kind, helper):
+    """How pltrs (Rust) installs *helper*: from its spec (``(spec, True)``)
+    or through an adapter (``(adapter, False)``)."""
+    spec = _spec_of(helper)
+    return (spec, True) if spec is not None else (_adapter(kind, helper), False)
+
+
+def _keep(axis, helper, installed):
+    """Register *helper*, installed on *axis* with the identity and token
+    *installed*."""
     _watch(helper, axis)
     registry = _registry(axis.axes.figure)
     _prune(registry)
     helper_id, token = installed
     registry[helper_id] = (token, helper, axis)
+
+
+def use_axis_info(axis, info, default_limits):
+    """
+    Give *axis* the tick helpers and label of the `.units.AxisInfo` *info*
+    of a unit converter of the program's, and its *default_limits* (in
+    axis numbers, or None), as matplotlib's ``Axis._update_axisinfo``
+    does: helpers replace only those still the defaults, and stay counted
+    as defaults.
+    """
+    slots = ((info.majloc, "locator"), (info.minloc, "locator"),
+             (info.majfmt, "formatter"), (info.minfmt, "formatter"))
+    for helper, _ in slots:
+        if helper is not None:
+            helper.set_axis(axis)
+    installed = _axis.use_axis_info(
+        axis.axes._native, axis.axis_name,
+        [None if helper is None else _description(kind, helper)
+         for helper, kind in slots],
+        None if info.label is None else str(info.label), default_limits)
+    for (helper, _), identity in zip(slots, installed):
+        if identity is not None:
+            _keep(axis, helper, identity)
 
 
 def _parts(helper):

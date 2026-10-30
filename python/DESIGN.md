@@ -359,6 +359,24 @@ method), and passes arrays to native functions, which take `NdArray`.
 Results that matplotlib returns as arrays come back as `NdArray` (numpy
 arrays); lists come back as `Vec`.
 
+### Units
+
+Plotting methods convert values in units (dates, categories, the
+quantities of a converter in `units.registry`) before they reach pltrs
+(Rust), which only ever sees numbers from them: matplotlib's pipeline is
+in Python (`axes/_units.py`: `_process_unit_info`, `_convert_dx`,
+`_unit_change_handler`; `Artist.convert_xunits`; `Axis.update_units`,
+`convert_units`, `set_units`). The converters pltrs (Rust) has, those of
+dates and category names, keep their state in the native axis (its
+converter, unit and category names): `Axis.update_units` and
+`convert_units` hand their values to it (`axis_values`), and it installs
+their tick helpers. Any other converter is the program's: its axis keeps
+it in Python, `_update_axisinfo` installs its `AxisInfo` natively
+(`_tick_helpers.use_axis_info`, `Axis::take_axis_info`), and lines made
+from its values keep them (`_xorig`) to convert them again when the unit
+changes. An artist made outside any axes with values in units converts
+them when it joins one (`_convert_units_for`).
+
 ### Colour mapping
 
 Colormaps and norms are matplotlib's Python classes (`colors`, with the
@@ -808,8 +826,9 @@ additive:
   (`LICENSES/matplotlib.txt`, `THIRD_PARTY.md`).
 * pltrs imports numpy, `cycler` (in `rcsetup`, whose validators return
   `Cycler` objects as matplotlib's do) and, where matplotlib does,
-  Pillow, nothing else. The pltrs venv also holds what matplotlib's *test
-  files* import at module level (`packaging`, `pyparsing`,
-  `python-dateutil`, `contourpy`), so that those files can be collected;
+  Pillow and `python-dateutil` (`dates` parses date strings and resolves
+  time zone names with it), nothing else. The pltrs venv also holds what
+  matplotlib's *test files* import at module level (`packaging`,
+  `pyparsing`, `contourpy`), so that those files can be collected;
   pltrs itself does not import them.
 * Unimplemented keywords raise `NotImplementedError("pltrs: ...")`.

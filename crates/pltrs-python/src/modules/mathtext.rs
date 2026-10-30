@@ -94,18 +94,13 @@ fn parse_raster(
     let glyph_error = |err: &dyn std::fmt::Display| PyErr::value_error(err.to_string());
     for glyph in &layout.glyphs {
         let (font, id, size) = (glyph.font, glyph.glyph, glyph.size);
+        let outline = engine
+            .scan_glyph_outline(font, id, size, dpi, hinting, true)
+            .map_err(|err| glyph_error(&err))?;
         let shape = if antialiased {
-            GlyphShape::Smooth(
-                engine
-                    .raster_glyph_outline(font, id, size, dpi, hinting, true)
-                    .map_err(|err| glyph_error(&err))?,
-            )
+            GlyphShape::Smooth(outline)
         } else {
-            GlyphShape::Mono(
-                engine
-                    .scan_glyph_outline(font, id, size, dpi, hinting, true)
-                    .map_err(|err| glyph_error(&err))?,
-            )
+            GlyphShape::Mono(outline)
         };
         let bitmap = render_glyph(&shape, 0.0, Point::ORIGIN).map_err(|err| glyph_error(&err))?;
         if let Some(bitmap) = bitmap {

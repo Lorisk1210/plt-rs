@@ -26,12 +26,13 @@ from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
 from ._artist_subclassing import SubclassingMixin
+from ._artist_units import UnitsMixin
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 
 
 class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
-             EffectsMixin, ExtentMixin):
+             EffectsMixin, ExtentMixin, UnitsMixin):
     """
     Abstract base class for objects that render into a FigureCanvas.
 
@@ -366,6 +367,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ``"artist"``, ``"line"``, ``"patch"``, ``"image"`` or
         ``"collection"``, the last with *autolim*); return self.
         """
+        self._convert_units_for(axes)
         native = _artist.adopt_into_axes(axes._native, self._native, kind,
                                          bool(autolim))
         return _handles.adopt(self, native, axes.figure)

@@ -11,7 +11,7 @@ use super::axis_handle::Axis;
 use super::{Axes, AxesState};
 use crate::artist::{ArtistHandle, ArtistLookup};
 use crate::ticker::AxisName;
-use crate::units::{AxisValues, Unit, UnitHandle};
+use crate::units::{AxisValues, Unit, UnitAxisInfo, UnitHandle};
 
 impl Axis {
     /// Lets the axis pick its converter and unit from `values`
@@ -63,6 +63,28 @@ impl Axis {
     /// (matplotlib's `get_units`).
     pub fn units(&self) -> Option<Unit> {
         self.unit()
+    }
+
+    /// Takes the tick helpers, label and default view `info` gives, as
+    /// the axis takes those of its converter when its unit changes
+    /// (matplotlib's `_update_axisinfo`): for converters the axis does
+    /// not hold, whose values reach it as numbers (those of a Python
+    /// program, say). The tick helpers replace only those still the
+    /// scale's, on the axes sharing the axis too, and count as the
+    /// scale's; the label replaces only one never set; the default view
+    /// applies while the axis has neither data nor a view of its own.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::units::UnitAxisInfo;
+    /// let ax = Figure::new().subplot();
+    /// ax.xaxis().take_axis_info(&UnitAxisInfo::default().label("miles").default_limits(0.0, 100.0));
+    /// assert_eq!(ax.xlim(), (0.0, 100.0));
+    /// assert_eq!(ax.xaxis().label_text(), "miles");
+    /// ```
+    pub fn take_axis_info(&self, info: &UnitAxisInfo) -> &Self {
+        self.use_axis_info(info);
+        self
     }
 }
 

@@ -10,7 +10,7 @@ from ... import _api, _live_transforms, _style_helpers, cbook, collections as mc
 from ... import lines as mlines, patches as mpatches
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
-from ._helpers import axis_values, floats, wrap, wrap_all
+from ._helpers import floats, line_data, wrap, wrap_all
 from .lines import _plot_datasets
 
 
@@ -33,12 +33,13 @@ class FillsMixin:
         """
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         closed = kwargs.pop('closed', True)
+        self._process_unit_info(kwargs=kwargs)
         patches = []
         for x, y, fmt, label in list(_plot_datasets(list(args), data, kwargs)):
             color = kwargs.get('color', kwargs.get('facecolor'))
             if fmt is not None and color is None:
                 color = _plotting.format_parts(fmt)[2]
-            native = _plotting.fill(self._native, axis_values(x), axis_values(y),
+            native = _plotting.fill(self._native, *line_data(self, x, y),
                                     color, bool(closed))
             polygon = wrap(self, native, mpatches.Polygon)
             props = {k: v for k, v in kwargs.items()
@@ -58,11 +59,11 @@ class FillsMixin:
         facecolor = kwargs.pop("facecolor", None)
         if step is not None:
             _api.check_in_list(('pre', 'post', 'mid'), step=step)
+        dep_dir = "y" if ind_dir == "x" else "x"
         ind, dep1, dep2 = np.broadcast_arrays(
-            *(np.ma.masked_invalid(np.ma.asarray(v, dtype=float)
-                                   if not isinstance(v, np.ndarray) or v.dtype != object
-                                   else v)
-              for v in (ind, dep1, dep2)), subok=True)
+            *map(np.ma.masked_invalid, self._process_unit_info(
+                [(ind_dir, ind), (dep_dir, dep1), (dep_dir, dep2)], kwargs)),
+            subok=True)
         for name, array in zip([ind_dir, f"{'y' if ind_dir == 'x' else 'x'}1",
                                 f"{'y' if ind_dir == 'x' else 'x'}2"],
                                [ind, dep1, dep2]):
@@ -152,9 +153,12 @@ class FillsMixin:
                 "very likely that the resulting fill patterns is not the desired "
                 "result."
             )
-        values = floats(values)
+        edge_axis, value_axis = ("x", "y") if orientation == "vertical" else ("y", "x")
+        edges, values, baseline = self._process_unit_info(
+            [(edge_axis, edges), (value_axis, values), (value_axis, baseline)],
+            kwargs)
         native = _plotting.stairs(
-            self._native, values, None if edges is None else floats(edges),
+            self._native, floats(values), None if edges is None else floats(edges),
             None if baseline is None else np.asarray(baseline, dtype=float),
             (orientation, bool(fill)), color)
         patch = wrap(self, native, mpatches.StepPatch)
@@ -187,7 +191,8 @@ class FillsMixin:
         if hatch is not None:
             kwargs['hatch'] = hatch
         kwargs, style_gen = _style_helpers.style_generator(kwargs)
-        natives = _plotting.stackplot(self._native, axis_values(x),
+        x, = self._process_unit_info([("x", x)])
+        natives = _plotting.stackplot(self._native, floats(x),
                                       [list(floats(row)) for row in y], baseline, [])
         collections = wrap_all(self, natives, mcoll.FillBetweenPolyCollection)
         labels = iter(labels)

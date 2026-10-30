@@ -58,7 +58,7 @@ impl From<StatsError> for PyErr {
 }
 
 /// A signal, real or complex.
-enum Samples {
+pub(super) enum Samples {
     Real(Vec<f64>),
     Complex(Vec<Complex>),
 }
@@ -86,10 +86,10 @@ impl FromPy<'_> for Samples {
 }
 
 /// The real and imaginary parts of complex values, as arrays of `shape`.
-type ComplexArrays = (NdArray, NdArray);
+pub(super) type ComplexArrays = (NdArray, NdArray);
 
 /// Splits complex values into their parts, shaped `shape`.
-fn complex_arrays(values: Vec<Complex>, shape: Vec<usize>) -> PyResult<ComplexArrays> {
+pub(super) fn complex_arrays(values: Vec<Complex>, shape: Vec<usize>) -> PyResult<ComplexArrays> {
     let (re, im): (Vec<f64>, Vec<f64>) = values.into_iter().map(|z| (z.re, z.im)).unzip();
     Ok((
         NdArray::with_shape(re, shape.clone())?,
@@ -99,7 +99,7 @@ fn complex_arrays(values: Vec<Complex>, shape: Vec<usize>) -> PyResult<ComplexAr
 
 /// A detrend method: `"none"`, `"mean"`, `"linear"`, or a Python function
 /// of one segment.
-fn detrend(object: &Bound<'_>) -> PyResult<Detrend> {
+pub(super) fn detrend(object: &Bound<'_>) -> PyResult<Detrend> {
     if let Ok(name) = object.extract::<String>() {
         return named_detrend(&name);
     }
@@ -126,7 +126,7 @@ fn named_detrend(name: &str) -> PyResult<Detrend> {
 }
 
 /// A window: `"hanning"`, `"none"`, or its values.
-fn window(object: &Bound<'_>) -> PyResult<Window> {
+pub(super) fn window(object: &Bound<'_>) -> PyResult<Window> {
     match object.extract::<String>().ok().as_deref() {
         Some("hanning") => Ok(Window::Hanning),
         Some("none") => Ok(Window::Rectangular),
@@ -136,7 +136,7 @@ fn window(object: &Bound<'_>) -> PyResult<Window> {
 }
 
 /// The sides of a spectrum: `"default"`, `"onesided"` or `"twosided"`.
-fn sides(name: &str) -> PyResult<SpectrumSides> {
+pub(super) fn sides(name: &str) -> PyResult<SpectrumSides> {
     match name {
         "default" => Ok(SpectrumSides::Default),
         "onesided" => Ok(SpectrumSides::OneSided),
@@ -164,7 +164,7 @@ fn mode(name: &str) -> PyResult<SpectralMode> {
 }
 
 /// The spectral options of the dict `options`.
-fn spectral_options(options: &Bound<'_>) -> PyResult<SpectralOptions> {
+pub(super) fn spectral_options(options: &Bound<'_>) -> PyResult<SpectralOptions> {
     Ok(SpectralOptions {
         nfft: dict_value(options, "NFFT")?,
         fs: dict_value(options, "Fs")?,

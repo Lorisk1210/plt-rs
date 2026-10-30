@@ -311,8 +311,17 @@ impl Axes {
 
     /// The axis styling `matshow` and `spy` share: the title nudged up,
     /// x ticks labelled on `x_side` with marks on both sides, and integer
-    /// tick locators.
-    pub(crate) fn style_matrix_axes(&self, x_side: SpineSide) {
+    /// tick locators (what matplotlib's `matshow` does after its
+    /// `imshow`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// ax.style_matrix_axes(SpineSide::Top);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn style_matrix_axes(&self, x_side: SpineSide) {
         let title = self.raw().with::<AxesState, _>(|axes| axes.titles[1]);
         let title = Text::from_raw(RawHandle::new(Rc::clone(self.raw().figure_state()), title));
         let x = title.position().x;

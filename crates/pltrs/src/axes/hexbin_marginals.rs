@@ -91,7 +91,7 @@ impl Marginal<'_> {
     /// a NaN result). A point belongs to the bin whose lower edge it
     /// exceeds and whose upper edge it does not (matplotlib's
     /// `np.searchsorted(edges, z) - 1`).
-    fn reduced(&self, edges: &[f64], weights: &[f64], reduce: HexReduce) -> Vec<Option<f64>> {
+    fn reduced(&self, edges: &[f64], weights: &[f64], reduce: &HexReduce) -> Vec<Option<f64>> {
         let mut members = vec![Vec::new(); self.nbins];
         for (&z, &weight) in self.coords.iter().zip(weights) {
             let bin = edges.partition_point(|&edge| edge < z).checked_sub(1);
@@ -110,7 +110,7 @@ impl Marginal<'_> {
     }
 
     /// The bars of the bins with a value, and those values.
-    fn bars(&self, weights: &[f64], reduce: HexReduce) -> (Vec<Path>, Vec<Option<f64>>) {
+    fn bars(&self, weights: &[f64], reduce: &HexReduce) -> (Vec<Path>, Vec<Option<f64>>) {
         let edges = self.edges();
         self.reduced(&edges, weights, reduce)
             .into_iter()
@@ -154,7 +154,7 @@ impl Axes {
             ..props.clone()
         };
         for marginal in marginals.bins() {
-            let (paths, values) = marginal.bars(&weights, marginals.reduce);
+            let (paths, values) = marginal.bars(&weights, &marginals.reduce);
             let cmap = mappable.cmap().clone();
             let mut mappable = match &norm {
                 Some(NormSpec::Norm(_)) => mappable.clone(),
@@ -205,7 +205,7 @@ mod tests {
     fn points_on_an_edge_belong_to_the_bin_below_it() {
         let coords = [1.0, 2.0, 10.0, 10.5, 100.0, 500.0];
         let log = marginal(&coords, HexScale::Log);
-        let sums = log.reduced(&log.edges(), &[1.0; 6], HexReduce::Sum);
+        let sums = log.reduced(&log.edges(), &[1.0; 6], &HexReduce::Sum);
         // 1.0 sits on the lowest edge and 500.0 beyond the highest.
         assert_eq!(sums, vec![Some(2.0), Some(2.0)]);
     }
@@ -214,9 +214,9 @@ mod tests {
     fn empty_bins_have_no_bar() {
         let coords = [60.0, 70.0];
         let linear = marginal(&coords, HexScale::Linear);
-        let means = linear.reduced(&linear.edges(), &[2.0, 4.0], HexReduce::Mean);
+        let means = linear.reduced(&linear.edges(), &[2.0, 4.0], &HexReduce::Mean);
         assert_eq!(means, vec![None, Some(3.0)]);
-        let (bars, values) = linear.bars(&[2.0, 4.0], HexReduce::Mean);
+        let (bars, values) = linear.bars(&[2.0, 4.0], &HexReduce::Mean);
         assert_eq!((bars.len(), values), (1, vec![Some(3.0)]));
     }
 

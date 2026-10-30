@@ -60,6 +60,7 @@ use crate::axes::FillGeometry;
 use crate::colorizer::ColorMapped;
 use crate::colors::{Alpha, Color, NormError, Normalized, ScalarMappable};
 use crate::lines::LineStyle;
+use crate::numeric::Grid;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
 
@@ -233,6 +234,9 @@ pub(crate) struct CollectionArtist {
     pickradius: f64,
     /// The vertex grid of a quad mesh, drawn as a mesh.
     mesh: Option<MeshGeometry>,
+    /// The vertex grid of a quad mesh drawn as polygons (`pcolor`'s
+    /// `PolyQuadMesh`), which its coordinates are read from.
+    pub(crate) polygon_grid: Option<Grid<Point>>,
     /// Replaces `paths` and the artist transform when drawing.
     pub(crate) draw_time: Option<Box<dyn DrawTimeShapes>>,
     rc: Rc<RcParams>,
@@ -278,6 +282,7 @@ impl CollectionArtist {
             parked_mappable: None,
             pickradius: 5.0,
             mesh: None,
+            polygon_grid: None,
             draw_time: None,
             rc,
         }

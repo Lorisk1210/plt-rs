@@ -4,7 +4,7 @@ use pltrs::axes::Axes;
 use pltrs::collections::Collection;
 use pltrs::colors::Color;
 use pltrs::lines::{AxLineThrough, FormatString, Line2D, LineProps};
-use pltrs::transforms::Point;
+use pltrs::transforms::{Point, Transform};
 
 use super::super::lines::LineKwargs;
 use super::values::PyAxisValues;
@@ -90,17 +90,18 @@ pub(super) fn axline(
 }
 
 /// Horizontal (`vertical` false) or vertical segments at `positions`
-/// from `low` to `high` (matplotlib's `hlines` and `vlines`).
+/// from `low` to `high` (matplotlib's `hlines` and `vlines`), in
+/// `transform` coordinates (`None`: the data coordinates).
 pub(super) fn segments(
     axes: Axes,
     vertical: bool,
-    positions: PyAxisValues,
-    low: PyAxisValues,
-    high: PyAxisValues,
+    (positions, low, high): (PyAxisValues, PyAxisValues, PyAxisValues),
+    transform: Option<Transform>,
 ) -> PyResult<Collection> {
+    let transform = transform.unwrap_or_else(|| axes.trans_data());
     Ok(if vertical {
-        axes.vlines(positions.0, low.0, high.0)?
+        axes.vlines_in(positions.0, low.0, high.0, transform)?
     } else {
-        axes.hlines(positions.0, low.0, high.0)?
+        axes.hlines_in(positions.0, low.0, high.0, transform)?
     })
 }

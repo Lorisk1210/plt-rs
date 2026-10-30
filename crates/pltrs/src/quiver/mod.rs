@@ -46,7 +46,7 @@ pub(crate) use field::retained;
 pub(crate) use geometry::{ArrowSizing, QuiverGeometry};
 pub(crate) use key::{KeyVector, QuiverKeyArtist};
 
-use crate::artist::{ArtistHandle, RawHandle};
+use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::axes::PlotError;
 use crate::collections::{Collection, CollectionArtist, CollectionProps};
 use crate::colors::Color;
@@ -112,6 +112,14 @@ pub struct Quiver {
 impl ArtistHandle for Quiver {
     fn raw(&self) -> &RawHandle {
         self.collection.raw()
+    }
+}
+
+impl TypedHandle for Quiver {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        let is_quiver = raw.is::<CollectionArtist>()
+            && raw.with::<CollectionArtist, _>(|c| c.draw_time_state::<QuiverGeometry>().is_some());
+        is_quiver.then(|| Self::new(Collection::from_raw(raw.clone())))
     }
 }
 

@@ -11,19 +11,21 @@
 //! that figure under a new id, and the handle the adoption returns
 //! replaces the loose one, whose holder is left empty. A loose artist owns
 //! no other artist: the typed constructors (`Line2D::loose`,
-//! `Patch::loose`, `Collection::loose`, `Text::loose`, `Custom::loose`)
-//! only make artists without children.
+//! `Patch::loose`, `Collection::loose`, `Text::loose`, `Table::loose`,
+//! `Custom::loose`) only make artists without children.
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use pltrs_core::Point;
+use pltrs_core::{Bbox, Point};
 
-use super::{Artist, AttachError, Custom, RawHandle};
+use super::{Artist, ArtistHandle, AttachError, Custom, RawHandle};
+use crate::axes::Axes;
 use crate::collections::{Collection, CollectionSpec};
 use crate::figure::{FigureState, StateRole};
 use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
+use crate::table::{Table, TableArtist, TableLoc};
 use crate::text::{Text, TextArtist};
 
 impl RawHandle {
@@ -100,6 +102,33 @@ impl Text {
     pub fn loose(x: f64, y: f64, text: impl Into<String>) -> Self {
         let artist = TextArtist::new(Point::new(x, y), text, crate::rc::params());
         Self::from_raw(RawHandle::loose(Box::new(artist)))
+    }
+}
+
+impl Table {
+    /// A table without cells for `axes`, placed at `loc` or stretched into
+    /// `bbox` (in its axes fractions), outside any figure (matplotlib's
+    /// `Table(ax, loc, bbox)`); add it to `axes` with
+    /// [`Axes::adopt_artist`](crate::axes::Axes::adopt_artist) and
+    /// [`AddAs::Artist`](crate::axes::AddAs::Artist) (matplotlib's
+    /// `add_table`). Without an axes it only holds cells made outside any
+    /// table until they are put in one ([`Table::put_cell`]).
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::prelude::*;
+    /// use pltrs::table::{Table, TableLoc};
+    /// let ax = Figure::new().subplot();
+    /// let table = Table::loose(Some(&ax), TableLoc::Center, None);
+    /// table.add_cell(0, 0, 0.5, 0.1).set_text("total");
+    /// let added = ax.adopt_artist(table.raw(), AddAs::Artist)?;
+    /// assert_eq!(ax.tables()[0].raw(), &added);
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    pub fn loose(axes: Option<&Axes>, loc: TableLoc, bbox: Option<Bbox>) -> Self {
+        let table = TableArtist::empty(axes.map(Axes::id), loc, bbox, crate::rc::params());
+        Self::from_raw(RawHandle::loose(Box::new(table)))
     }
 }
 

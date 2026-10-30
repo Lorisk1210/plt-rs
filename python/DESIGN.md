@@ -228,11 +228,11 @@ matplotlib code makes artists with their constructors and adds them
 later: `line = Line2D(x, y)`, then `ax.add_line(line)` (or `add_patch`,
 `add_collection`, `add_image`, `add_artist`, `fig.add_artist`). pltrs
 (Rust) supports this for every artist that owns no other (lines, patches,
-collections, texts, images, custom artists): a *loose* artist
+collections, texts, images, tables, custom artists): a *loose* artist
 (`Line2D::loose`, `Patch::loose`, `Collection::loose`, `Text::loose`,
-`Custom::loose`) lives in a holder of its own, a figure state that is no
-figure, so that its handle works as any handle does and its properties
-can be read and set before it is added. `Axes::adopt_artist(artist,
+`Table::loose`, `Custom::loose`) lives in a holder of its own, a figure
+state that is no figure, so that its handle works as any handle does and
+its properties can be read and set before it is added. `Axes::adopt_artist(artist,
 AddAs::Line)` (matplotlib's `add_line`; `AddAs` names the `add_*`
 method, which decides the data limits and the `_child<n>` label) and
 `Figure::adopt_artist(artist, clip)` move it into the figure under a new
@@ -244,8 +244,9 @@ In Python, a constructor makes the native loose artist with the `new`
 functions of its module (`_lines.new(x, y, kwargs)`, `_text.new(x, y,
 text)`, `_patches.new_rectangle(...)` and a `new_<shape>` per patch
 class, `_collections.new_line_collection(...)` and a `new_<kind>` per
-collection class; `Artist()` itself makes a plain artist that draws
-nothing, `_artist.new()`) and calls `Artist.__init__`, which sets
+collection class, `_table.new(ax, loc, bbox)` for `Table(ax)`; `Artist()`
+itself makes a plain artist that draws nothing, `_artist.new()`) and
+calls `Artist.__init__`, which sets
 `_figure` to None. Its getters and setters are then those of an added
 artist. The `add_*` methods (`axes/_base.py`, `Figure.add_artist`) call
 `_native.artist.adopt_into_axes` / `adopt_into_figure` (through
@@ -261,26 +262,49 @@ Artists that own others are made in their figure instead, as removed
 artists, since matplotlib's constructors take their parent (`Axes(fig,
 rect)`, `Legend(ax, ...)`): `fig.add_axes(ax)` then adds them back.
 
+A table's cells are no artists of their own in pltrs (Rust): they are
+part of the table's native state, and a Python `Cell` is the cell at its
+`(row, column)` key in its table. A cell made by its constructor
+(`Cell(xy, width, height)`) lives in a loose table without an axes,
+until `table[row, col] = cell` copies it into a table and makes the
+object that table's cell.
+
 ### Transforms
 
 `transforms` is matplotlib's Python transform tree, computing with
 `_native.transforms`. The transforms of the layout (`ax.transData`,
-`ax.transAxes`, `fig.transFigure`, `subfig.transSubfigure`,
-`fig.dpi_scale_trans`) are `_live_transforms.LiveTransform`s: each holds
-a pltrs (Rust) `Transform` (`Transform::Data(axes)`, ...) that the figure
-resolves in its current layout whenever points go through it, so they
-follow limits, scales and layout engines without matplotlib's
-invalidation; `ax.bbox` and `fig.bbox` are the boxes they map the unit
-square to. An axes or figure makes each once, so `line.get_transform() is
+`ax.transAxes`, `ax.get_xaxis_transform()`, `ax.get_yaxis_transform()`,
+`fig.transFigure`, `subfig.transSubfigure`, `fig.dpi_scale_trans`) are
+`_live_transforms.LiveTransform`s: each holds a pltrs (Rust) `Transform`
+(`Transform::Data(axes)`, ...) that the figure resolves in its current
+layout whenever points go through it, so they follow limits, scales and
+layout engines without matplotlib's invalidation; `ax.bbox` and
+`fig.bbox` are the boxes they map the unit square to. An axes or figure
+makes each once (`_live_transforms.cached`), so `line.get_transform() is
 ax.transData` holds. matplotlib's classes compose with them as with any
-transform. A transform crosses to pltrs (Rust) (`Artist.set_transform`,
-the `transform` keyword of the line properties) as the nested tuples of
-`_native.transforms.native` (`_live_transforms.to_native`: composites,
-blends, `ScaledTranslation`s and affine maps around live transforms),
-and comes back from `describe` as matplotlib's objects around the live
-transforms of the axes and figures it names (`from_native`). Python
-transforms of other kinds (non-affine ones of their own) raise
-`NotImplementedError`.
+transform.
+
+`_live_transforms` is the one bridge between the two trees, both ways:
+
+* **To pltrs (Rust).** A transform crosses as the nested tuples of
+  `_native.transforms.native` (`to_native`): composites, blends,
+  `ScaledTranslation`s and affine maps around live transforms. A
+  transform of the program's crosses too: an affine one as its matrix,
+  any other as `("python", t)`, a pltrs (Rust) map calling its
+  `transform` (and its inverse's) back. Everything that gives pltrs (Rust)
+  a transform goes through it: `Artist.set_transform`, the `transform`
+  keyword of the line properties, `Collection.set_offset_transform`, and
+  the `transform=` keywords of plotting functions (`scatter`, `quiver`,
+  `barbs`, `streamplot`), which pass `given_to_native(t)`, None when
+  absent so that the native function picks its default.
+* **Back to Python.** A native transform comes back from `describe` as
+  matplotlib's objects around the live transforms of the axes and
+  figures it names (`from_native`): `ax.transData`, a blend of an axes'
+  data and fractions as its `get_xaxis_transform()`, a composite as a
+  composite. `of_artist(artist, native)` gives an artist's transform or
+  offset transform (`IdentityTransform` for none), so that
+  `Artist.get_transform` and `Collection.get_offset_transform` return
+  the object they were given, or the one pltrs (Rust) has.
 
 ### Keyword arguments and aliases
 

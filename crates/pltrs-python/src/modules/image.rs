@@ -31,9 +31,26 @@ use crate::binding::{Element, dict_value};
 artist_handle!(AxesImage);
 
 impl From<ImageError> for PyErr {
-    /// matplotlib's `ValueError` for images it cannot make or draw.
+    /// matplotlib's `ValueError` for images it cannot make or draw; its
+    /// `TypeError`s and messages for the meshes `pcolor` and `pcolormesh`
+    /// cannot fit to their colours (`_pcolorargs`).
     fn from(err: ImageError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            ImageError::MeshShape {
+                shading: "flat",
+                values,
+                nx,
+                ny,
+            } => PyErr::type_error(format!(
+                "Dimensions of C {values:?} should be one smaller than X({nx}) and Y({ny}) \
+                 while using shading='flat'"
+            )),
+            ImageError::MeshShape { values, nx, ny, .. } => PyErr::type_error(format!(
+                "Dimensions of C {values:?} are incompatible with X ({nx}) and/or Y ({ny})"
+            )),
+            ImageError::IncompatibleCoordinates => PyErr::type_error("Incompatible X, Y inputs"),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 
@@ -63,7 +80,7 @@ fn pixels<T: Element, const N: usize>(array: &NdArray<T>) -> PyResult<Grid<[T; N
 }
 
 /// Image data as Python hands it over (see the module documentation).
-struct ImageArray(ImageData);
+pub(super) struct ImageArray(pub(super) ImageData);
 
 impl FromPy<'_> for ImageArray {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {

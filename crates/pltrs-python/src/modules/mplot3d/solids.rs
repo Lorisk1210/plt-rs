@@ -127,7 +127,7 @@ fn plot_trisurf(
             .map_err(|err| PyErr::value_error(err.to_string()))?;
     }
     let colors = match (mapping, color) {
-        (Some(mapping), _) => FaceColors::from(colorizer(mapping)?),
+        (Some(mapping), _) => FaceColors::from(colorizer(mapping)),
         (None, Some(color)) => FaceColors::Single(color),
         (None, None) => FaceColors::Cycle,
     };

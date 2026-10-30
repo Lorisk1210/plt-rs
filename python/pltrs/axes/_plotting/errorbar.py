@@ -75,7 +75,9 @@ def _error_bounds(dep_axis, dep, err):
     if np.any((check := err[err == err]) < -check):
         raise ValueError(
             f"'{dep_axis}err' must not contain negative values")
-    lower, upper = np.broadcast_to(np.asarray(err, dtype=float), (2, len(dep)))
+    # Masked errors are skipped as NaN ones are.
+    err = np.ma.filled(np.ma.asarray(err, dtype=float), np.nan)
+    lower, upper = np.broadcast_to(err, (2, len(dep)))
     return lower.copy(), upper.copy()
 
 
@@ -139,16 +141,24 @@ class ErrorbarMixin:
         if elinestyle is not None and isinstance(elinestyle, tuple):
             offset, seq = elinestyle
             elinestyle = (offset, None if seq is None else tuple(seq))
+        # Several widths go to the bar collections, as matplotlib's
+        # ``eb_lines_style`` gives them.
+        widths = None if np.ndim(elinewidth) == 0 else elinewidth
         native, data_line, caplines, barcols = _plotting.errorbar(
             self._native, (axis_values(x), axis_values(y)),
             (bounds.get("x"), bounds.get("y")),
             fmt, line_kwargs(kwargs),
-            (ecolor, elinewidth, elinestyle, capsize, capthick, bool(barsabove)),
+            (ecolor, None if widths is not None else elinewidth, elinestyle, capsize,
+             capthick, bool(barsabove)),
             tuple(flags), everymask.tolist())
+        barcols = wrap_all(self, barcols, mcoll.LineCollection)
+        if widths is not None:
+            for barcol in barcols:
+                barcol.set_linewidth(widths)
         container = ErrorbarContainer(
             (wrap(self, data_line, mlines.Line2D),
              tuple(wrap_all(self, caplines, mlines.Line2D)),
-             tuple(wrap_all(self, barcols, mcoll.LineCollection))),
+             tuple(barcols)),
             has_xerr=xerr is not None, has_yerr=yerr is not None,
             label=kwargs.get("label"))
         return record_container(self, container, native)

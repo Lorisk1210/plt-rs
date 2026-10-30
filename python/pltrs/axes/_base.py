@@ -59,6 +59,26 @@ class _AxesBase(NavigationMixin, LimitsMixin, DecorationsMixin, AspectMixin, Art
         coordinates."""
         return _live_transforms.cached(self, "transAxes", _transforms.trans_axes)
 
+    def get_xaxis_transform(self, which='grid'):
+        """
+        Get the transformation used for drawing x-axis labels, ticks
+        and gridlines.  The x-direction is in data coordinates and the
+        y-direction is in axis coordinates.
+        """
+        _api.check_in_list(['grid', 'tick1', 'tick2'], which=which)
+        return _live_transforms.cached(self, "xaxis_transform",
+                                       _transforms.trans_xaxis)
+
+    def get_yaxis_transform(self, which='grid'):
+        """
+        Get the transformation used for drawing y-axis labels, ticks
+        and gridlines.  The x-direction is in axis coordinates and the
+        y-direction is in data coordinates.
+        """
+        _api.check_in_list(['grid', 'tick1', 'tick2'], which=which)
+        return _live_transforms.cached(self, "yaxis_transform",
+                                       _transforms.trans_yaxis)
+
     @property
     def bbox(self):
         """The Axes' box in display coordinates."""
@@ -398,3 +418,9 @@ class _AxesBase(NavigationMixin, LimitsMixin, DecorationsMixin, AspectMixin, Art
         from ..patches import Patch
         _api.check_isinstance(Patch, p=p)
         return p._add_to_axes(self, "patch")
+
+    def add_table(self, tab):
+        """Add a `.Table` to the Axes; return the table."""
+        from ..table import Table
+        _api.check_isinstance(Table, tab=tab)
+        return tab._add_to_axes(self, "artist")

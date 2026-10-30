@@ -7,7 +7,6 @@ keeps them (``_native.axes_base``).
 
 from .. import _api, cbook
 from .._native import axes_base as _axes_base
-from ..transforms import blended_transform_factory
 
 
 class AxesPatch:
@@ -234,43 +233,3 @@ class DecorationsMixin:
     def get_yaxis(self):
         """[*Discouraged*] Return the YAxis instance (``ax.yaxis``)."""
         return self.yaxis
-
-    def _axis_transform(self, name, which):
-        """The transform of the x-axis (``name`` "x") or the y-axis
-        gridlines: data along the axis, axes coordinates across it."""
-        if which != 'grid':
-            if which in ('tick1', 'tick2'):
-                raise NotImplementedError(
-                    f"pltrs: get_{name}axis_transform(which={which!r})")
-            raise ValueError(f'unknown value for which: {which!r}')
-        key = f"_{name}axis_transform"
-        transform = self.__dict__.get(key)
-        if transform is None:
-            pair = ((self.transData, self.transAxes) if name == "x"
-                    else (self.transAxes, self.transData))
-            transform = self.__dict__[key] = blended_transform_factory(*pair)
-        return transform
-
-    def get_xaxis_transform(self, which='grid'):
-        """
-        Get the transformation used for drawing x-axis labels, ticks
-        and gridlines.  The x-direction is in data coordinates and the
-        y-direction is in axis coordinates.
-
-        Parameters
-        ----------
-        which : {'grid', 'tick1', 'tick2'}
-        """
-        return self._axis_transform("x", which)
-
-    def get_yaxis_transform(self, which='grid'):
-        """
-        Get the transformation used for drawing y-axis labels, ticks
-        and gridlines.  The x-direction is in axis coordinates and the
-        y-direction is in data coordinates.
-
-        Parameters
-        ----------
-        which : {'grid', 'tick1', 'tick2'}
-        """
-        return self._axis_transform("y", which)

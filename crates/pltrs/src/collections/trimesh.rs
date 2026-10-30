@@ -8,7 +8,7 @@ use pltrs_core::{Bbox, Point, Rgba};
 use super::{ColorMapping, Mapped};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistStore, DrawContext, LayoutContext,
-    LimitPoints, RawHandle,
+    LimitPoints, RawHandle, TypedHandle,
 };
 use crate::colorizer::{self, ColorMapped, MappingChange, change_mapping};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
@@ -180,6 +180,13 @@ pub struct TriMesh {
 impl ArtistHandle for TriMesh {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for TriMesh {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<TriMeshArtist>()
+            .then(|| Self::from_raw(raw.clone()))
     }
 }
 

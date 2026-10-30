@@ -15,15 +15,22 @@
 )]
 
 mod bars;
+mod bins2d;
+mod ecdf;
 mod errorbar;
 mod events;
-mod fills;
+mod fields;
+pub(super) mod fills;
 mod hist;
+mod images;
+mod labels;
 mod lines;
 pub(super) mod mapping;
 mod mesh;
 mod scatter;
+mod spectral;
 mod stats;
+mod tripcolor;
 mod values;
 
 use pltrs::artist::RawHandle;
@@ -66,6 +73,22 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("scatter", scatter::scatter)?;
     module.add("bar", bars::bar)?;
     module.add("broken_barh", bars::broken_barh)?;
+    module.add("grouped_bar", bars::grouped_bar)?;
+    module.add("bar_label", labels::bar_label)?;
+    module.add("pie_label", labels::pie_label)?;
+    module.add("pcolorfast", images::pcolorfast)?;
+    module.add("spy", images::spy)?;
+    module.add("style_matrix_axes", images::style_matrix_axes)?;
+    module.add("hexbin", bins2d::hexbin)?;
+    module.add("hist2d", bins2d::hist2d)?;
+    module.add("psd", spectral::psd)?;
+    module.add("csd", spectral::csd)?;
+    module.add("cohere", spectral::cohere)?;
+    module.add("single_spectrum", spectral::single_spectrum)?;
+    module.add("specgram", spectral::specgram)?;
+    module.add("xcorr", spectral::xcorr)?;
+    module.add("ecdf", ecdf::ecdf)?;
+    module.add("tripcolor", tripcolor::tripcolor)?;
     module.add("hist", hist::hist)?;
     module.add("fill", fills::fill)?;
     module.add("fill_between", fills::fill_between)?;
@@ -76,5 +99,14 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("bxp", stats::bxp)?;
     module.add("violin", stats::violin)?;
     module.add("pie", stats::pie)?;
-    module.add("pcolor", mesh::pcolor)
+    module.add("pcolor", mesh::pcolor)?;
+    module.add("pcolormesh_rgba", mesh::pcolormesh_rgba)?;
+    module.add("convert_units", values::convert_units)?;
+    module.add("quiver", fields::quiver)?;
+    module.add("quiver_set_uvc", fields::quiver_set_uvc)?;
+    module.add("quiverkey", fields::quiverkey)?;
+    module.add("quiverkey_text", fields::quiverkey_text)?;
+    module.add("quiverkey_paths", fields::quiverkey_paths)?;
+    module.add("barbs", fields::barbs)?;
+    module.add("streamplot", fields::streamplot)
 }

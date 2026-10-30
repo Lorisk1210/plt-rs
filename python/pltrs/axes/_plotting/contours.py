@@ -24,10 +24,13 @@ def _linestyles(styles):
 def _contour_look(fn, kwargs):
     """
     The look of a contour set popped from *kwargs*: ``(look, extras,
-    attributes)``, the native look and extras tuples and the attributes the
-    set keeps (``linestyles``, ``negative_linestyles``).
+    attributes, colorizer, native_cmap)``, the native look and extras
+    tuples, the attributes the set keeps (``linestyles``,
+    ``negative_linestyles``), the Python `.Colorizer` of its colour mapping,
+    and whether its colormap is the one pltrs (Rust) makes (no *cmap* is
+    given: the default one, or the listed colormap of *colors*).
     """
-    for name in ("locator", "transform", "colorizer", "xunits", "yunits"):
+    for name in ("locator", "transform", "xunits", "yunits"):
         if kwargs.get(name) is not None:
             raise NotImplementedError(f"pltrs: {fn}({name}=...)")
     colors = kwargs.pop("colors", None)
@@ -45,10 +48,11 @@ def _contour_look(fn, kwargs):
     if negative_linestyles is None:
         from ... import rcParams
         negative_linestyles = rcParams['contour.negative_linestyle']
+    made, mapping = _mapping(cmap, kwargs.pop("norm", None), kwargs.pop("vmin", None),
+                             kwargs.pop("vmax", None), kwargs.pop("colorizer", None))
     look = (None if colors is None else
             [tuple(c) for c in mcolors.to_rgba_array(colors)],
-            _mapping(cmap, kwargs.pop("norm", None), kwargs.pop("vmin", None),
-                     kwargs.pop("vmax", None)),
+            mapping,
             None if alpha is None else float(alpha),
             None if linewidths is None else
             [float(w) for w in np.atleast_1d(linewidths)],
@@ -57,7 +61,7 @@ def _contour_look(fn, kwargs):
               None if antialiased is None else bool(antialiased))
     attributes = {"linestyles": linestyles,
                   "negative_linestyles": negative_linestyles}
-    return look, extras, attributes
+    return look, extras, attributes, made, cmap is None
 
 
 def _levels(levels):
@@ -65,10 +69,16 @@ def _levels(levels):
     return None if levels is None else np.asarray(levels, dtype=float)
 
 
-def _finish(cls, native, axes, attributes, kwargs):
-    """The *cls* contour set of *native*, its *attributes* and remaining
+def _finish(cls, native, axes, look, kwargs):
+    """The *cls* contour set of *native*, mapping its levels through the
+    colorizer of *look* (`_contour_look`), its attributes and remaining
     *kwargs* set."""
+    from ...cm import _from_native
+    _, _, attributes, colorizer, native_cmap = look
     contours = cls._from_contour(native, axes)
+    if native_cmap:
+        colorizer.cmap = _from_native(contours._native_cmap())
+    contours._attach_native_mapping(colorizer=colorizer)
     for name, value in attributes.items():
         setattr(contours, name, value)
     contours._internal_update(kwargs)
@@ -88,13 +98,13 @@ class ContoursMixin:
             _api.check_in_list([None, 'lower', 'upper', 'image'], origin=origin)
         generation = (kwargs.pop("corner_mask", None), int(kwargs.pop("nchunk", 0)),
                       kwargs.pop("algorithm", None))
-        look, extras, attributes = _contour_look(fn, kwargs)
+        look = _contour_look(fn, kwargs)
         native = _contour.contour(
             self._native, bool(filled),
             (z, mask, x, y,
              (origin, None if extent is None else tuple(map(float, extent)))),
-            generation, _levels(levels), look, extras)
-        return _finish(mcontour.QuadContourSet, native, self, attributes, kwargs)
+            generation, _levels(levels), *look[:2])
+        return _finish(mcontour.QuadContourSet, native, self, look, kwargs)
 
     def _tricontour(self, filled, args, kwargs):
         """The `.TriContourSet` of ``tricontour`` (or, *filled*,
@@ -117,11 +127,11 @@ class ContoursMixin:
         levels = kwargs.pop("levels", None)
         if levels is None and args:
             levels = args[0]
-        look, extras, attributes = _contour_look(fn, kwargs)
+        look = _contour_look(fn, kwargs)
         native = _contour.tricontour(
             self._native, bool(filled), tri._native,
-            np.ma.filled(z.astype(float), np.nan), _levels(levels), look, extras)
-        return _finish(TriContourSet, native, self, attributes, kwargs)
+            np.ma.filled(z.astype(float), np.nan), _levels(levels), *look[:2])
+        return _finish(TriContourSet, native, self, look, kwargs)
 
     def tricontour(self, *args, **kwargs):
         """
@@ -156,6 +166,23 @@ class ContoursMixin:
         """
         from ...tri import triplot
         return triplot(self, *args, **kwargs)
+
+    @_preprocess_data()
+    def tripcolor(self, *args, **kwargs):
+        """
+        Create a pseudocolor plot of an unstructured triangular grid.
+
+        Returns
+        -------
+        `~matplotlib.collections.PolyCollection` or `~matplotlib.collections.TriMesh`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
+        """
+        from ...tri import tripcolor
+        return tripcolor(self, *args, **kwargs)
 
     @_preprocess_data()
     def contour(self, *args, **kwargs):

@@ -20,7 +20,6 @@ from . import _handles, cbook
 from . import _live_transforms
 from ._native import artist as _artist
 from ._native import transforms as _transforms
-from .transforms import IdentityTransform
 
 
 class Artist:
@@ -89,10 +88,8 @@ class Artist:
         given = self.__dict__.get("_transform")
         if given is not None:
             return given
-        native = _transforms.get_transform(self._native)
-        if native is None or self._figure is None:
-            return IdentityTransform()
-        return _live_transforms.from_native(self._figure, native)
+        return _live_transforms.of_artist(
+            self, _transforms.get_transform(self._native))
 
     def set_transform(self, t):
         """

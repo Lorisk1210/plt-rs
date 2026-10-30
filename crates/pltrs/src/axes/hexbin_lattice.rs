@@ -150,7 +150,7 @@ pub(super) fn accumulate(
     tx: &[f64],
     ty: &[f64],
     values: Option<&[f64]>,
-    reduce: HexReduce,
+    reduce: &HexReduce,
     mincnt: Option<usize>,
 ) -> Vec<f64> {
     let mut members: Vec<Vec<f64>> = vec![Vec::new(); lattice.len()];
@@ -222,17 +222,17 @@ mod tests {
         let lattice = unit_lattice();
         let x = [0.0, 0.1, 0.5];
         let y = [0.0, 0.0, 0.5];
-        let counts = accumulate(&lattice, &x, &y, None, HexReduce::Mean, None);
+        let counts = accumulate(&lattice, &x, &y, None, &HexReduce::Mean, None);
         assert_eq!(counts[0], 2.0);
         assert_eq!(counts[1], 0.0, "empty hexagons are kept without mincnt");
-        let sparse = accumulate(&lattice, &x, &y, None, HexReduce::Mean, Some(2));
+        let sparse = accumulate(&lattice, &x, &y, None, &HexReduce::Mean, Some(2));
         assert!(sparse[6].is_nan());
         let means = accumulate(
             &lattice,
             &x,
             &y,
             Some(&[1.0, 3.0, 5.0]),
-            HexReduce::Mean,
+            &HexReduce::Mean,
             None,
         );
         assert_eq!((means[0], means[6]), (2.0, 5.0));

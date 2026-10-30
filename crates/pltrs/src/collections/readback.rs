@@ -77,12 +77,17 @@ impl Collection {
         })
     }
 
-    /// The vertex grid of a quad mesh, one row of points per row of
-    /// vertices (matplotlib's `QuadMesh.get_coordinates`); `None` for
-    /// other collections.
+    /// The vertex grid of a quad mesh, drawn as a mesh or as polygons, one
+    /// row of points per row of vertices (matplotlib's
+    /// `QuadMesh.get_coordinates` and `PolyQuadMesh.get_coordinates`);
+    /// `None` for other collections.
     pub fn mesh_coordinates(&self) -> Option<Grid<Point>> {
-        self.raw()
-            .with::<CollectionArtist, _>(|c| c.mesh.as_ref().map(|m| m.coordinates.clone()))
+        self.raw().with::<CollectionArtist, _>(|c| {
+            c.mesh
+                .as_ref()
+                .map(|m| m.coordinates.clone())
+                .or_else(|| c.polygon_grid.clone())
+        })
     }
 
     /// The values mapped to colours of the cells of a quad mesh under

@@ -261,6 +261,19 @@ fn add_axes(figure: Figure, (left, bottom, width, height): (f64, f64, f64, f64))
     Ok(figure.add_axes([left, bottom, width, height])?)
 }
 
+/// Axes with the projection `projection` at `[left, bottom, width,
+/// height]` in figure fractions (`add_axes(rect, projection=...)`).
+fn add_axes_projection(
+    figure: Figure,
+    (left, bottom, width, height): (f64, f64, f64, f64),
+    projection: String,
+) -> PyResult<Axes> {
+    let kind = projection_kind(&projection)?;
+    figure
+        .add_axes_with_projection([left, bottom, width, height], kind)
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
 /// Axes with the projection `projection` on the block `spec`
 /// (`add_subplot(gs[...], projection=...)`).
 fn add_subplot_spec_projection(
@@ -332,6 +345,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("execute_layout", execute_layout)?;
     module.add("add_axes", add_axes)?;
     module.add("add_subplot_spec_projection", add_subplot_spec_projection)?;
+    module.add("add_axes_projection", add_axes_projection)?;
     module.add("subplots_adjust", subplots_adjust)?;
     module.add("layout", layout)?;
     module.add("clear", clear)?;

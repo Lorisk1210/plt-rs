@@ -1,6 +1,9 @@
 //! Legend entries describing a contour set (matplotlib's
 //! `ContourSet.legend_elements`).
 
+use pltrs_core::Rgba;
+use pltrs_render::Dashes;
+
 use super::ContourSet;
 use crate::artist::ArtistHandle;
 use crate::collections::CollectionArtist;
@@ -9,25 +12,83 @@ use crate::legend::LegendHandle;
 use crate::lines::{LineProps, LineStyle};
 use crate::patches::PatchProps;
 
+/// How a legend entry of a contour set is drawn
+/// ([`ContourSet::legend_styles`]).
+#[derive(Clone, Debug, PartialEq)]
+pub enum ContourLegendStyle {
+    /// A level of line contours: a line of its colour, width and dashes.
+    Line {
+        /// The colour of the level.
+        color: Rgba,
+        /// Its line width in points.
+        linewidth: f64,
+        /// Its dashes, as the collection draws them.
+        dashes: Dashes,
+    },
+    /// A band of filled contours: a rectangle of its colour and hatch.
+    Band {
+        /// The colour of the band.
+        color: Rgba,
+        /// Its hatch, if it is hatched.
+        hatch: Option<String>,
+    },
+}
+
 impl ContourSet {
     /// Proxy artists and labels for a legend describing the contour set
-    /// (matplotlib's `legend_elements`): for filled contours a rectangle
-    /// per band with its colour and hatch, labelled with the band's data
-    /// range such as `$0.5 < x \leq 1.0$`; for line contours a line per
-    /// level with its colour, width and style, labelled `$x = 0.5$`. As in
-    /// matplotlib, the lines get the collection's dash tuples, so they are
-    /// drawn as dashed lines (butt caps, dashes scaled once more by the
-    /// line width) even when solid.
-    /// `str_format` writes the numbers (matplotlib's default is `str`,
-    /// [`pyfmt::repr`](crate::ticker::pyfmt::repr)).
-    ///
-    /// The labels of extended bands keep matplotlib's stray `s`
-    /// (`$x \leq -1e+250s$`) and the extension sentinels as their bounds.
+    /// (matplotlib's `legend_elements`), drawn as
+    /// [`legend_styles`](Self::legend_styles) describes them: for filled
+    /// contours a rectangle per band, for line contours a line per level.
+    /// As in matplotlib, the lines get the collection's dash tuples, so
+    /// they are drawn as dashed lines (butt caps, dashes scaled once more
+    /// by the line width) even when solid.
     pub fn legend_elements(
         &self,
         variable_name: &str,
         str_format: impl Fn(f64) -> String,
     ) -> (Vec<LegendHandle>, Vec<String>) {
+        let (styles, labels) = self.legend_styles(variable_name, str_format);
+        let handles = styles
+            .into_iter()
+            .map(|style| match style {
+                ContourLegendStyle::Line {
+                    color,
+                    linewidth,
+                    dashes,
+                } => LegendHandle::line(
+                    LineProps::default()
+                        .color(Color::from(color))
+                        .linewidth(linewidth)
+                        .linestyle(LineStyle::Dashes {
+                            offset: dashes.offset,
+                            pattern: dashes.pattern,
+                        }),
+                ),
+                ContourLegendStyle::Band { color, hatch } => LegendHandle::patch(PatchProps {
+                    facecolor: Some(Color::from(color)),
+                    hatch,
+                    ..PatchProps::default()
+                }),
+            })
+            .collect();
+        (handles, labels)
+    }
+
+    /// How each entry of a legend describing the contour set is drawn,
+    /// and its label (what matplotlib's `legend_elements` makes its
+    /// artists of): for filled contours each band's colour and hatch,
+    /// labelled with the band's data range such as `$0.5 < x \leq 1.0$`;
+    /// for line contours each level's colour, width and dashes, labelled
+    /// `$x = 0.5$`. `str_format` writes the numbers (matplotlib's default
+    /// is `str`, [`pyfmt::repr`](crate::ticker::pyfmt::repr)).
+    ///
+    /// The labels of extended bands keep matplotlib's stray `s`
+    /// (`$x \leq -1e+250s$`) and the extension sentinels as their bounds.
+    pub fn legend_styles(
+        &self,
+        variable_name: &str,
+        str_format: impl Fn(f64) -> String,
+    ) -> (Vec<ContourLegendStyle>, Vec<String>) {
         let colors = self.colors();
         if !self.filled() {
             let (widths, dashes) = (self.linewidths(), self.dash_patterns());
@@ -36,18 +97,13 @@ impl ContourSet {
                 .into_iter()
                 .enumerate()
                 .map(|(i, level)| {
-                    let props = LineProps::default()
-                        .color(Color::from(colors[i % colors.len()]))
-                        .linewidth(widths[i % widths.len()])
-                        .linestyle({
-                            let dash = &dashes[i % dashes.len()];
-                            LineStyle::Dashes {
-                                offset: dash.offset,
-                                pattern: dash.pattern.clone(),
-                            }
-                        });
+                    let style = ContourLegendStyle::Line {
+                        color: colors[i % colors.len()],
+                        linewidth: widths[i % widths.len()],
+                        dashes: dashes[i % dashes.len()].clone(),
+                    };
                     let label = format!("${variable_name} = {}$", str_format(level));
-                    (LegendHandle::line(props), label)
+                    (style, label)
                 })
                 .unzip();
         }
@@ -67,12 +123,11 @@ impl ContourSet {
                 } else {
                     format!(r"${lower} < {variable_name} \leq {upper}$")
                 };
-                let props = PatchProps {
-                    facecolor: Some(Color::from(colors[i % colors.len()])),
+                let style = ContourLegendStyle::Band {
+                    color: colors[i % colors.len()],
                     hatch: hatches.get(i).cloned().flatten(),
-                    ..PatchProps::default()
                 };
-                (LegendHandle::patch(props), label)
+                (style, label)
             })
             .unzip()
     }

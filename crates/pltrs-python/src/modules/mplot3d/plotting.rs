@@ -89,7 +89,7 @@ fn scatter(
         (Some(rgba), _) => ScatterColors::PerPoint(rgba_rows(&rgba)?),
         (None, Some((values, mapping))) => MappedColors {
             values: values.into_vec()?,
-            colorizer: colorizer(mapping)?,
+            colorizer: colorizer(mapping),
         }
         .into(),
         (None, None) => ScatterColors::Cycle,
@@ -157,7 +157,7 @@ fn plot_surface(
     axlim_clip: bool,
 ) -> PyResult<Collection> {
     let colors = match (mapping, color) {
-        (Some(mapping), _) => FaceColors::from(colorizer(mapping)?),
+        (Some(mapping), _) => FaceColors::from(colorizer(mapping)),
         (None, Some(color)) => FaceColors::Single(color),
         (None, None) => FaceColors::Cycle,
     };

@@ -140,6 +140,10 @@ class EventsMixin:
             locs, heads, *args = args
         heads = cbook._check_1d(heads)
         locs = cbook._check_1d(locs)
+        if np.ndim(heads) != 1 or np.shape(heads) != np.shape(locs):
+            raise ValueError(f"could not broadcast the heads of shape "
+                             f"{np.shape(heads)} to the locations of shape "
+                             f"{np.shape(locs)}")
         if linefmt is None:
             linefmt = args[0] if len(args) > 0 else "C0-"
         if markerfmt is None:

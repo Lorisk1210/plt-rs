@@ -191,7 +191,9 @@ impl TableOptions {
 #[derive(Debug)]
 pub(crate) struct TableArtist {
     base: ArtistBase,
-    axes: ArtistId,
+    /// The axes the table is laid out in; `None` for the holder of a cell
+    /// made outside any table, which is never drawn.
+    axes: Option<ArtistId>,
     loc: TableLoc,
     bbox: Option<Bbox>,
     /// The cells keyed by `(row, column)`, in insertion order.
@@ -215,23 +217,36 @@ impl TableArtist {
     ) -> Result<Self, TableError> {
         let builder = TableBuilder::new(options)?;
         let height = FONTSIZE / 72.0 * dpi / axes_height * 1.2;
-        let mut table = Self {
-            base: ArtistBase::with_zorder(0.0),
-            axes,
-            loc: options.loc,
-            bbox: options.bbox,
-            cells: Vec::new(),
-            auto_columns: Vec::new(),
-            auto_fontsize: true,
-            rc,
-        };
-        table.base.clip_on = false;
-        table.base.transform = Some(crate::transforms::Transform::Axes(axes));
+        let mut table = Self::empty(Some(axes), options.loc, options.bbox, rc);
         builder.fill(&mut table, options, height);
         if let Some(size) = options.fontsize {
             table.set_fontsize(size);
         }
         Ok(table)
+    }
+
+    /// A table without cells in `axes` (in its axes fractions, unclipped),
+    /// placed at `loc` or stretched into `bbox` (matplotlib's `Table(ax,
+    /// loc, bbox)`).
+    pub(crate) fn empty(
+        axes: Option<ArtistId>,
+        loc: TableLoc,
+        bbox: Option<Bbox>,
+        rc: Rc<RcParams>,
+    ) -> Self {
+        let mut base = ArtistBase::with_zorder(0.0);
+        base.clip_on = false;
+        base.transform = axes.map(crate::transforms::Transform::Axes);
+        Self {
+            base,
+            axes,
+            loc,
+            bbox,
+            cells: Vec::new(),
+            auto_columns: Vec::new(),
+            auto_fontsize: true,
+            rc,
+        }
     }
 
     /// Puts `cell` at `(row, col)`; a cell replacing another keeps its
@@ -252,7 +267,7 @@ impl TableArtist {
 
     /// The axes box in display pixels.
     fn axes_box(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
-        layout.axes_extent(self.axes)
+        layout.axes_extent(self.axes?)
     }
 }
 

@@ -8,6 +8,7 @@ import datetime
 import numpy as np
 
 from ... import _api, _handles, cbook, collections as mcoll, lines as mlines
+from ..._native import plotting as _plotting
 
 
 def wrap(axes, native, cls):
@@ -38,6 +39,8 @@ def axis_values(values):
     values = cbook._unpack_to_numpy(values)
     if isinstance(values, str):
         return [values]
+    if np.ma.isMaskedArray(values) and values.dtype.kind in "biuf":
+        return np.ma.filled(values.astype(float), np.nan).ravel()
     if np.iterable(values) and len(values) and isinstance(
             cbook._safe_first_finite(values), (str, bytes)):
         # Category names: matplotlib's string category converter refuses
@@ -57,6 +60,16 @@ def axis_values(values):
         from ... import dates
         return ("dates", np.atleast_1d(np.asarray(dates.date2num(array), float)).ravel())
     return np.atleast_1d(array.astype(float)).ravel()
+
+
+def convert_units(axes, name, values):
+    """*values* as numbers of the axis *name* of *axes*, which takes the
+    units they bring (matplotlib's ``_process_unit_info``); numbers stay."""
+    array = np.asanyarray(values)
+    if array.dtype.kind in "fiub":
+        return values
+    return _plotting.convert_units(axes._native, name,
+                                   axis_values(values)).reshape(array.shape)
 
 
 def floats(values):

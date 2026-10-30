@@ -17,7 +17,7 @@ from ._native import patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
 from .artist import Artist
-from .path import Path
+from .path import Path, _DrawnPath
 from .transforms import Affine2D
 
 
@@ -126,7 +126,9 @@ class Patch(Artist):
 
     def get_path(self):
         """Return the path of this patch."""
-        return Path(*_patches.get_path(self._native))
+        return _DrawnPath(*_patches.get_path(self._native), (
+            lambda: _patches.get_interpolation_steps(self._native),
+            lambda steps: _patches.set_interpolation_steps(self._native, steps)))
 
     def get_patch_transform(self):
         """

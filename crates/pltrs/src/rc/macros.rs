@@ -85,6 +85,19 @@ macro_rules! rc_params {
                     _ => None,
                 }
             }
+
+            /// The parameter `key` as a mutable value of its field's type,
+            /// if it exists: what bindings set from values of their own
+            /// language that rc text cannot spell (a colour as a tuple of
+            /// floats, which matplotlib's validators of some parameters
+            /// take from Python but not from rc files), once they have
+            /// validated them as matplotlib does.
+            pub fn value_mut(&mut self, key: &str) -> Option<&mut dyn std::any::Any> {
+                match key {
+                    $( $key => Some(&mut self.$field), )*
+                    _ => None,
+                }
+            }
         }
     };
 }

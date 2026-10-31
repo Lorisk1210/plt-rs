@@ -55,6 +55,10 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}
 
+    def __str__(self):
+        return "{0}({1[0]:g},{1[1]:g};{1[2]:g}x{1[3]:g})".format(
+            type(self).__name__, self.get_position(original=True).bounds)
+
     def __repr__(self):
         fields = []
         if self.get_label():
@@ -115,9 +119,14 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         """The `.Spines` of the Axes: its `.Spine` objects by side."""
         from .._native import spines as _spines
         from ..spines import Spine, Spines
-        return Spines(**{
-            name: _handles.wrap(native, Spine, self.figure)
-            for name, native in _spines.axes_spines(self._native)})
+        spines = {name: _handles.wrap(native, Spine, self.figure)
+                  for name, native in _spines.axes_spines(self._native)}
+        colorbar = self.__dict__.get("_colorbar")
+        if colorbar is not None:
+            # A colorbar's outline is a spine of its Axes, as matplotlib's
+            # Colorbar makes it (``_ColorbarSpine``).
+            spines["outline"] = colorbar.outline
+        return Spines(**spines)
 
     def get_subplotspec(self):
         """Return the `.SubplotSpec` associated with the subplot, or None."""

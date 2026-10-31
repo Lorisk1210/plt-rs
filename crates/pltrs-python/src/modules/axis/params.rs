@@ -9,6 +9,7 @@ use super::axis;
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 use crate::modules::lines::{PyLineStyle, parse};
+use crate::modules::patheffects::path_effects;
 
 /// A font size given as points or as a keyword (`"large"`).
 fn font_size(value: &Bound<'_>) -> PyResult<FontSize> {
@@ -86,6 +87,7 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
             "grid_linestyle" | "grid_ls" => {
                 params.grid_linestyle = Some(value.extract::<PyLineStyle>()?.0);
             }
+            "grid_path_effects" => params.grid_path_effects = Some(path_effects(&value)?),
             _ => {
                 return Err(PyErr::new(
                     ExceptionKind::NotImplementedError,

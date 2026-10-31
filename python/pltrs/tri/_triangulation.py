@@ -94,6 +94,20 @@ class Triangulation:
         """
         return _tri.plane_coefficients(self._native, np.asarray(z, dtype=float))
 
+    def get_cpp_triangulation(self):
+        """
+        Return the underlying C++ Triangulation object (of the ``_tri``
+        extension), creating it if necessary.
+        """
+        from .. import _tri
+        if getattr(self, "_cpp_triangulation", None) is None:
+            self._cpp_triangulation = _tri.Triangulation(
+                # For unset arrays use empty tuple which has size of zero.
+                self.x, self.y, self.triangles,
+                self.mask if self.mask is not None else (),
+                (), (), not self.is_delaunay)
+        return self._cpp_triangulation
+
     @property
     def edges(self):
         """
@@ -205,3 +219,6 @@ class Triangulation:
         # The trifinder, which locates points natively on the current
         # triangles, stays the same object (matplotlib reinitialises it).
         _tri.set_mask(self._native, None if self.mask is None else self.mask.tolist())
+        if getattr(self, "_cpp_triangulation", None) is not None:
+            self._cpp_triangulation.set_mask(
+                self.mask if self.mask is not None else ())

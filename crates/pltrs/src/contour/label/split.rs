@@ -4,8 +4,35 @@
 use pltrs_core::numeric::remainder;
 use pltrs_core::{Path, PathCode, Point};
 
+use crate::contour::{ContourError, ContourSet};
 use crate::numeric::interp;
-use crate::transforms::ResolvedTransform;
+use crate::transforms::{ResolvedTransform, TransformError};
+
+/// A label to cut out of a contour line, as matplotlib's
+/// `_split_path_and_get_label_rotation` takes it.
+#[derive(Clone, Copy, Debug)]
+pub struct LabelCut<'a> {
+    /// The line: a connected component of a level's path when labels are
+    /// placed automatically, the level's whole path for a label added
+    /// near a point.
+    pub path: &'a Path,
+    /// The vertex of `path` the label is placed at (or just before).
+    pub index: usize,
+    /// The label's centre in display pixels.
+    pub position: Point,
+    /// The label's width in pixels.
+    pub width: f64,
+    /// The pixels left free on each side of the label.
+    pub spacing: f64,
+}
+
+/// What finds the rotations of labels and cuts lines under them in place
+/// of pltrs (matplotlib's overridable
+/// `ContourLabeler._split_path_and_get_label_rotation`): called for each
+/// label placed, it returns the label's rotation in degrees and the line
+/// cut around the label. [`ContourSet::split_path_at_label`] is pltrs'
+/// own.
+pub type LabelSplitter<'a> = dyn FnMut(LabelCut<'_>) -> (f64, Path) + 'a;
 
 /// The display geometry shared by all labels of a `clabel` call.
 #[derive(Clone, Debug)]
@@ -19,18 +46,58 @@ pub(super) struct LabelGeometry {
     pub(super) rightside_up: bool,
 }
 
-/// Where a label of `width` pixels goes on `path` after vertex `index`,
-/// at display position `screen`: its rotation in degrees and the path cut
-/// around it, leaving `spacing` pixels on each side. A closed loop is
-/// opened at the label. The angle comes from the points half a label width
-/// before and after the label, measured along the line.
-pub(super) fn split_path(
-    geometry: &LabelGeometry,
-    path: &Path,
-    index: usize,
-    screen: Point,
-    (width, spacing): (f64, f64),
-) -> (f64, Path) {
+impl LabelGeometry {
+    /// The geometry of the labels of `set` in the axes' current state.
+    pub(super) fn of(set: &ContourSet, rightside_up: bool) -> Result<Self, ContourError> {
+        let to_display = set.display_transform()?;
+        let to_data = to_display.inverted().ok_or(TransformError::Singular)?;
+        Ok(Self {
+            to_display,
+            to_data,
+            rightside_up,
+        })
+    }
+}
+
+impl ContourSet {
+    /// The rotation in degrees of a label placed as `cut` says and its
+    /// line cut around it, with the closed loops opened at the label, as
+    /// the labels of the last [`ContourSet::clabel`] call are placed
+    /// (matplotlib's `_split_path_and_get_label_rotation`). The angle
+    /// comes from the points half a label width before and after the
+    /// label, measured along the line in the axes' current geometry.
+    ///
+    /// # Errors
+    ///
+    /// When the set has not been labelled yet, its transform cannot be
+    /// resolved or inverted, or `cut.index` is not a vertex of `cut.path`.
+    pub fn split_path_at_label(&self, cut: LabelCut<'_>) -> Result<(f64, Path), ContourError> {
+        let setup = self.label_setup()?;
+        if cut.index >= cut.path.vertices().len() {
+            return Err(ContourError::VertexIndex {
+                index: cut.index,
+                vertices: cut.path.vertices().len(),
+            });
+        }
+        let geometry = LabelGeometry::of(self, setup.rightside_up)?;
+        Ok(split_path(&geometry, &cut))
+    }
+}
+
+/// Where the label of `cut` goes (`cut.width` pixels wide, on `cut.path`
+/// after vertex `cut.index`, at display position `cut.position`): its
+/// rotation in degrees and the path cut around it, leaving `cut.spacing`
+/// pixels on each side. A closed loop is opened at the label. The angle
+/// comes from the points half a label width before and after the label,
+/// measured along the line.
+pub(super) fn split_path(geometry: &LabelGeometry, cut: &LabelCut<'_>) -> (f64, Path) {
+    let LabelCut {
+        path,
+        index,
+        position: screen,
+        width,
+        spacing,
+    } = *cut;
     let mut xys = path.vertices().to_vec();
     let mut codes = path.resolved_codes();
     let mut idx = index;
@@ -180,11 +247,29 @@ mod tests {
         }
     }
 
+    fn cut(
+        path: &Path,
+        index: usize,
+        position: Point,
+        (width, spacing): (f64, f64),
+    ) -> LabelCut<'_> {
+        LabelCut {
+            path,
+            index,
+            position,
+            width,
+            spacing,
+        }
+    }
+
     #[test]
     fn open_line_is_cut_around_the_label() {
         let points: Vec<Point> = (0..11).map(|i| Point::new(f64::from(i), 0.0)).collect();
         let path = Path::polyline(points);
-        let (angle, cut) = split_path(&identity(), &path, 5, Point::new(5.0, 0.0), (4.0, 1.0));
+        let (angle, cut) = split_path(
+            &identity(),
+            &cut(&path, 5, Point::new(5.0, 0.0), (4.0, 1.0)),
+        );
         assert_eq!(angle, 0.0);
         let parts = cut.subpaths();
         assert_eq!(parts.len(), 2);
@@ -201,7 +286,10 @@ mod tests {
             Point::new(-10.0, 0.0),
             Point::new(0.0, 0.0),
         ]);
-        let (angle, cut) = split_path(&identity(), &square, 1, Point::new(0.0, 10.0), (4.0, 0.0));
+        let (angle, cut) = split_path(
+            &identity(),
+            &cut(&square, 1, Point::new(0.0, 10.0), (4.0, 0.0)),
+        );
         assert!((angle - 45.0).abs() < 1e-12 || (angle + 45.0).abs() < 1e-12);
         let parts = cut.subpaths();
         assert_eq!(parts.len(), 1);

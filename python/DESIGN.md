@@ -355,6 +355,30 @@ keeps its transforms, at its last position in the figure.
   `Artist.get_transform` and `Collection.get_offset_transform` return
   the object they were given, or the one pltrs (Rust) has.
 
+A non-affine transform of the program's crosses wrapped in
+`_live_transforms._ProgramMap`: pltrs (Rust) maps points through its
+`transform`, and whole paths through a matplotlib `TransformedPath`,
+which keeps the path the transform last gave until the transform is
+invalidated, so that a draw after an affine change (`transAxes`
+invalidated) does not call the program's transform again, as in
+matplotlib.
+
+Two things matplotlib evaluates at draw time follow it there:
+
+* **Transforms a subclass computes.** matplotlib reads an artist's
+  `get_transform()` in its `draw`. An artist whose class takes
+  `get_transform` from outside the package is kept for its figure
+  (`_computed_transforms`, from `_handles.adopt`); the figure's draw
+  hook (`Figure::set_draw_hook`, set through
+  `_native.transforms.set_draw_hook`), which pltrs (Rust) runs once the
+  figure is laid out and before its artists are drawn, sets each such
+  artist's native transform from its `get_transform()`.
+* **What `str` shows.** A live transform shows matplotlib's tree of it
+  (`_transform_trees`: `transData`, `transAxes`, `transFigure`,
+  `dpi_scale_trans`, and polar axes' `transData` through
+  `PolarAxes._transform_tree`), built of matplotlib's classes around the
+  values the figure has now.
+
 ### Keyword arguments and aliases
 
 * Aliases are declared on the class, as in matplotlib:
@@ -480,6 +504,23 @@ use the figure's handles (it would re-borrow the figure) applies to
 Python callbacks too: a native call made from such a callback that touches
 the same figure panics, which arrives as the `RuntimeError` above.
 
+Some parts matplotlib keeps as artists of their own are drawn by pltrs
+(Rust) as parts of their artist: a text's box (`Text.get_bbox_patch()`)
+and an annotation's arrow (`Annotation.arrow_patch`). Those are mirrors,
+as the ticks of an axis are (`_text_box`, `_annotation_arrow`): loose
+`FancyBboxPatch` and `FancyArrowPatch` objects filled from the part's look
+(`_native.text.bbox_patch`, `_native.annotation.arrow_patch`) whose
+setters give the part their changes (`restyle_bbox`, `restyle_arrow`);
+the arrow's `get_window_extent` is where the annotation draws it, and
+`Text.get_window_extent(annotation)` the text alone.
+
+`ContourLabeler.clabel` and `add_label_near` place every label through
+the Python method `_split_path_and_get_label_rotation`, as matplotlib's
+`labels` loop does: pltrs (Rust) places the labels and calls it (through
+the callable the Python side hands `_native.contour.clabel`) with each
+line, vertex index, position, width and spacing; the method returns the
+rotation and the cut line pltrs (Rust) computes (`_native.contour.split_path`).
+
 ### Warnings
 
 pltrs (Rust) issues its warnings through `pltrs::warnings` (data cast to
@@ -601,6 +642,12 @@ A canvas draws and prints through the figure's native handle
   through Pillow, as matplotlib's `_print_pil` saves them.
 * Canvas callbacks belong to the figure (`figure._canvas_callbacks`), so
   that they survive a change of canvas.
+* The renderer pltrs hands Python (`RendererAgg`, also what
+  `fig._get_renderer()` gives under the vector backends) draws onto the
+  figure's raster canvas: its `draw_path` takes matplotlib's graphics
+  context (`backend_agg._native_gc`) to `_native.backends.draw_path`,
+  and `RendererBase`'s fallbacks (`draw_markers`, `draw_path_collection`)
+  draw through it.
 
 ### rcParams
 
@@ -902,5 +949,14 @@ additive:
   time zone names with it), nothing else. The pltrs venv also holds what
   matplotlib's *test files* import at module level (`packaging`,
   `pyparsing`, `contourpy`), so that those files can be collected;
-  pltrs itself does not import them.
+  pltrs itself does not import them, but for one optional import:
+  where contourpy is importable, a contour set's `_contour_generator` is
+  the contourpy generator matplotlib would make, with the same arguments
+  (`_native.contour.generator_arguments`), made when first asked for and
+  shared with the contour sets made from it (`contour(cs, ...)`); pltrs
+  (Rust) still computes and draws every contour. Without contourpy it is
+  pltrs' own `contour._ContourGenerator`, which holds the field pltrs
+  (Rust) contours again. A `TriContourSet`'s is the `_tri` module's
+  generator (pltrs' `_tri`, matplotlib's C++ extension over pltrs (Rust)'s
+  triangulation).
 * Unimplemented keywords raise `NotImplementedError("pltrs: ...")`.

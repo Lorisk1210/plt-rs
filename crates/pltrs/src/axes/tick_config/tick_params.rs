@@ -7,6 +7,7 @@ use crate::axes::{Axes, Axis, AxisName, TickLevel};
 use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::lines::LineStyle;
+use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 use crate::text::RotationMode;
 
@@ -74,6 +75,8 @@ pub struct TickParams {
     pub grid_linewidth: Option<f64>,
     /// Gridline style (`grid_linestyle`).
     pub grid_linestyle: Option<LineStyle>,
+    /// Effects the gridlines are drawn through (`grid_path_effects`).
+    pub grid_path_effects: Option<Vec<PathEffect>>,
 }
 
 impl TickParams {
@@ -122,6 +125,7 @@ impl TickParams {
             alpha: self.grid_alpha,
             linewidth: self.grid_linewidth,
             linestyle: self.grid_linestyle.clone(),
+            path_effects: self.grid_path_effects.clone(),
             ..GridOptions::default()
         }
         .restyle(&mut style.grid);

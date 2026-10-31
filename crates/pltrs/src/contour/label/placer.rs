@@ -8,7 +8,7 @@ use pltrs_core::{Path, Point};
 use pltrs_text::{HAlign, VAlign};
 
 use super::place;
-use super::split::{LabelGeometry, split_path};
+use super::split::{LabelCut, LabelGeometry, LabelSplitter, split_path};
 use super::{LabelRecord, LevelLabel};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::colors::Color;
@@ -78,8 +78,8 @@ impl<'s> Placer<'s> {
     /// A placer labelling `set` as `setup` says, in the axes' current
     /// geometry.
     pub(super) fn new(set: &'s ContourSet, setup: &'s LabelSetup) -> Result<Self, ContourError> {
-        let to_display = set.display_transform()?;
-        let to_data = to_display.inverted().ok_or(TransformError::Singular)?;
+        // The geometry first: it brings the view limits up to date.
+        let geometry = LabelGeometry::of(set, setup.rightside_up)?;
         let data_to_display = {
             let figure = set.axes().raw().figure_state().borrow();
             Transform::Data(set.axes().id()).resolve(&*figure)?
@@ -87,11 +87,7 @@ impl<'s> Placer<'s> {
         Ok(Self {
             set,
             setup,
-            geometry: LabelGeometry {
-                to_display,
-                to_data,
-                rightside_up: setup.rightside_up,
-            },
+            geometry,
             display_to_data: data_to_display.inverted().ok_or(TransformError::Singular)?,
             positions: Vec::new(),
             created: Vec::new(),
@@ -108,8 +104,23 @@ impl<'s> Placer<'s> {
         self.created
     }
 
-    /// Automatic placement (matplotlib's `labels`).
-    pub(super) fn label_all(&mut self, inline: bool, spacing: f64) {
+    /// The rotation of the label of `cut` and its line cut around it: by
+    /// `splitter`, else by pltrs.
+    fn split(&self, cut: &LabelCut<'_>, splitter: Option<&mut LabelSplitter<'_>>) -> (f64, Path) {
+        match splitter {
+            Some(split) => split(*cut),
+            None => split_path(&self.geometry, cut),
+        }
+    }
+
+    /// Automatic placement (matplotlib's `labels`), the lines cut by
+    /// `splitter` when given.
+    pub(super) fn label_all(
+        &mut self,
+        inline: bool,
+        spacing: f64,
+        mut splitter: Option<&mut LabelSplitter<'_>>,
+    ) {
         let mut paths = self.set.paths();
         for label in &self.setup.labels {
             let mut additions = Vec::new();
@@ -124,8 +135,14 @@ impl<'s> Placer<'s> {
                     continue;
                 }
                 let (at, index) = place::locate(&screen, label.width, &self.positions);
-                let (rotation, cut) =
-                    split_path(&self.geometry, &subpath, index, at, (label.width, spacing));
+                let request = LabelCut {
+                    path: &subpath,
+                    index,
+                    position: at,
+                    width: label.width,
+                    spacing,
+                };
+                let (rotation, cut) = self.split(&request, splitter.as_deref_mut());
                 self.add(label, at, rotation);
                 additions.push(if inline { cut } else { subpath });
             }
@@ -139,12 +156,14 @@ impl<'s> Placer<'s> {
     }
 
     /// Labels the labelled line nearest to display point `target` and
-    /// returns the new text (matplotlib's `add_label_near`).
+    /// returns the new text (matplotlib's `add_label_near`), the line cut
+    /// by `splitter` when given.
     pub(super) fn label_near(
         &mut self,
         target: Point,
         inline: bool,
         spacing: f64,
+        splitter: Option<&mut LabelSplitter<'_>>,
     ) -> Result<Text, ContourError> {
         let mut paths = self.set.paths();
         let setup = self.setup;
@@ -156,13 +175,14 @@ impl<'s> Placer<'s> {
         let closest = closest_on_lines(labelled, |p| self.to_display(p), target)
             .ok_or(ContourError::NoContourToLabel)?;
         let label = &setup.labels[closest.key];
-        let (rotation, cut) = split_path(
-            &self.geometry,
-            &paths[label.index],
-            closest.vertex,
-            closest.point,
-            (label.width, spacing),
-        );
+        let request = LabelCut {
+            path: &paths[label.index],
+            index: closest.vertex,
+            position: closest.point,
+            width: label.width,
+            spacing,
+        };
+        let (rotation, cut) = self.split(&request, splitter);
         let text = self.add(label, closest.point, rotation);
         if inline {
             paths[label.index] = cut;

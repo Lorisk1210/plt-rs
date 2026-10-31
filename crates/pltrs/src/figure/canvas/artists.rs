@@ -3,7 +3,8 @@
 
 use std::rc::Rc;
 
-use pltrs_core::Bbox;
+use pltrs_core::{Affine2D, Bbox, Path, Rgba};
+use pltrs_render::{GraphicsContext, Renderer};
 
 use super::{CanvasError, FigureCanvas};
 use crate::artist::{ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle};
@@ -32,6 +33,45 @@ impl FigureCanvas {
         } else {
             Err(CanvasError::Draw(DrawErrors(errors)))
         }
+    }
+}
+
+impl FigureCanvas {
+    /// Draws `path`, mapped into display pixels by `transform`, onto the
+    /// canvas over what it holds: stroked as `gc` says and filled with
+    /// `fill` if given (matplotlib's `RendererAgg.draw_path`, through
+    /// which a program draws on the canvas). Show the result with
+    /// [`FigureCanvas::blit`].
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs_core::{Affine2D, Path, Point, Rgba};
+    /// use pltrs_render::GraphicsContext;
+    /// let fig = Figure::with_size(1.0, 1.0, 10.0);
+    /// let corners = [(2.0, 2.0), (8.0, 2.0), (8.0, 8.0), (2.0, 8.0)];
+    /// let square = Path::polygon(corners.map(|(x, y)| Point::new(x, y)));
+    /// let canvas = fig.canvas();
+    /// let gc = GraphicsContext::default();
+    /// canvas.draw_path(&gc, &square, &Affine2D::IDENTITY, Some(Rgba::BLACK))?;
+    /// let centre = canvas.buffer_rgba()?.pixel(5, 5);
+    /// assert_eq!(centre, Some([0, 0, 0, 255]));
+    /// # Ok::<(), pltrs::figure::CanvasError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the canvas cannot be made.
+    pub fn draw_path(
+        &self,
+        gc: &GraphicsContext,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) -> Result<(), CanvasError> {
+        let mut kept = self.take()?;
+        kept.renderer.draw_path(gc, path, transform, fill);
+        self.keep(kept);
+        Ok(())
     }
 }
 

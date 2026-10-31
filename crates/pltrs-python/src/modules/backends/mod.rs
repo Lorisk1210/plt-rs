@@ -5,6 +5,7 @@
 //! `ft2font` subsets the fonts the documents embed (`_backend_pdf_ps`).
 
 mod canvas;
+mod gc;
 mod pdf_pages;
 mod print;
 

@@ -11,7 +11,8 @@
 
 use std::path::PathBuf;
 
-use pltrs::rc::{RcError, RcFile, RcParams, RcWarningKind};
+use pltrs::colors::Color;
+use pltrs::rc::{LabelColor, RcError, RcFile, RcParams, RcWarningKind};
 
 use crate::binding::prelude::*;
 
@@ -181,6 +182,32 @@ fn set(store: Option<Native<RcParams>>, key: String, value: RcText) -> PyResult<
     Ok(())
 }
 
+/// `rcParams[key] = color` for a colour rc text cannot spell, a tuple
+/// matplotlib's validator of `key` took (`legend.labelcolor`'s, which
+/// rejects tuple strings from rc files).
+fn set_color(store: Option<Native<RcParams>>, key: String, color: Color) -> PyResult<()> {
+    let assign = |params: &mut RcParams| {
+        let field = params
+            .value_mut(&key)
+            .ok_or_else(|| PyErr::from(RcError::UnknownKey(key.clone())))?;
+        if let Some(field) = field.downcast_mut::<Color>() {
+            *field = color.clone();
+        } else if let Some(field) = field.downcast_mut::<LabelColor>() {
+            *field = LabelColor::Color(color.clone());
+        } else {
+            return Err(PyErr::value_error(format!("Key {key}: not a colour")));
+        }
+        Ok(())
+    };
+    if let Some(params) = store {
+        assign(&mut params.borrow_mut())
+    } else {
+        let mut assigned = Ok(());
+        pltrs::rc::update(|params| assigned = assign(params));
+        assigned
+    }
+}
+
 /// Every rcParam's name, in matplotlib's order: pltrs (Rust)'s own (`pltrs.*`)
 /// are left out, as matplotlib code iterating over rcParams expects only
 /// matplotlib's, but they can still be read and set by name.
@@ -307,6 +334,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get", get)?;
     module.add("text", text)?;
     module.add("set", set)?;
+    module.add("set_color", set_color)?;
     module.add("copy", copy)?;
     module.add("defaults", defaults)?;
     module.add("replace", replace)?;

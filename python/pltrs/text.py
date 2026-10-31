@@ -177,6 +177,18 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
                 "pltrs: set_bbox(boxstyle=...) takes a box style name")
         _text.set_bbox(self._native, props)
 
+    def get_bbox_patch(self):
+        """
+        Return the bbox Patch, or None if the `.patches.FancyBboxPatch`
+        is not made.
+
+        pltrs: the patch has the box's look (box style, colours, hatch,
+        alpha, path effects), and its setters change the box; the text
+        places it when drawn, so it stays on the unit square.
+        """
+        from ._text_box import mirror
+        return mirror(self)
+
     def set_backgroundcolor(self, color):
         """
         Set the background color of the text.
@@ -377,14 +389,23 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         if not self.get_visible():
             return Bbox.unit()
+        return self._native_extent(self._text_extent, dpi)
+
+    def _text_extent(self):
+        """The display box of the text, as ``(x0, y0, x1, y1)`` or None."""
+        return _text.get_window_extent(self._native)
+
+    def _native_extent(self, measure, dpi=None):
+        """The box *measure* gives, measured at *dpi* (default: the
+        figure's), the unit box when it gives none."""
         figure = self.get_figure(root=True)
         if dpi is None or dpi == figure.dpi:
-            extent = _text.get_window_extent(self._native)
+            extent = measure()
         else:
             old_dpi = figure.dpi
             figure.dpi = dpi
             try:
-                extent = _text.get_window_extent(self._native)
+                extent = measure()
             finally:
                 figure.dpi = old_dpi
         if extent is None:
@@ -998,9 +1019,35 @@ class Annotation(Text):
         self._xycoords = xycoords
         self._textcoords = xycoords if textcoords is None else textcoords
         self.arrowprops = arrowprops
-        self.arrow_patch = None
         self._draggable = None
         self._init_properties(kwargs)
+
+    def get_window_extent(self, renderer=None):
+        """
+        Return the `.Bbox` bounding the text and the arrow, in display
+        units. The renderer is not used: pltrs (Rust) measures them.
+        """
+        if not self.get_visible():
+            return Bbox.unit()
+        return self._native_extent(lambda: _text.get_window_extent(self._native))
+
+    def _text_extent(self):
+        # The text alone, without the arrow (``Text.get_window_extent``).
+        return _annotation.text_extent(self._native)
+
+    @property
+    def arrow_patch(self):
+        """
+        A `.FancyArrowPatch` to point from *xytext* to *xy*, None without
+        *arrowprops*.
+
+        pltrs: the patch has the arrow's look (styles, colours, alpha,
+        path effects), and its setters change the arrow; the annotation
+        places it when drawn (its `~.Artist.get_window_extent` is where the
+        arrow is drawn).
+        """
+        from ._annotation_arrow import mirror
+        return mirror(self)
 
     def draggable(self, state=None, use_blit=False):
         """

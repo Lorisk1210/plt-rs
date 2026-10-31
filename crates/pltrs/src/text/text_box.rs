@@ -2,10 +2,10 @@
 
 use pltrs_core::{Affine2D, Point};
 
-use crate::artist::{ArtistBase, DrawContext};
+use crate::artist::{ArtistBase, ArtistHandle, DrawContext};
 use crate::colors::Color;
 use crate::patches::{
-    BoxShape, BoxStyle, ClipRegion, DEFAULT_PAD, FancyBboxPatch, PatchError, PatchParts,
+    BoxShape, BoxStyle, ClipRegion, DEFAULT_PAD, FancyBboxPatch, Patch, PatchError, PatchParts,
     PatchProps, PatchShape, PatchStyle,
 };
 use crate::patheffects::PathEffect;
@@ -147,6 +147,33 @@ impl TextBoxPatch {
         &self.path_effects
     }
 
+    /// A loose fancy box patch with the box's look (box style, face,
+    /// edge, hatch, alpha and path effects) on the unit square: what a
+    /// program reads and changes of the box as the patch matplotlib's
+    /// `get_bbox_patch` returns, the text placing it when drawn. Changes
+    /// come back with [`TextBoxPatch::restyle_from`].
+    pub fn to_patch(&self) -> Patch<FancyBboxPatch> {
+        let patch = Patch::loose(
+            FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, self.boxstyle),
+            PatchProps::default(),
+        );
+        patch.update_style(|style| style.clone_from(&self.style));
+        patch
+            .raw()
+            .set_alpha(self.alpha)
+            .set_path_effects(self.path_effects.clone());
+        patch
+    }
+
+    /// Takes the look of `patch` (made by [`TextBoxPatch::to_patch`]): its
+    /// box style, face, edge, hatch, alpha and path effects.
+    pub fn restyle_from(&mut self, patch: &Patch<FancyBboxPatch>) {
+        self.boxstyle = patch.shape().boxstyle;
+        self.style = patch.style();
+        self.alpha = patch.raw().alpha();
+        self.path_effects = patch.raw().path_effects();
+    }
+
     /// The box shape and its placement (`update_bbox_position_size`).
     fn shape(&self, placement: &BoxPlacement) -> (FancyBboxPatch, Affine2D) {
         let (width, height) = placement.size;
@@ -258,6 +285,20 @@ mod tests {
                 .pad,
             Some(0.123)
         );
+    }
+
+    #[test]
+    fn boxes_come_back_from_their_patches() {
+        let round: BoxStyle = "round".parse().expect("valid style");
+        let mut text_box = TextBoxPatch::new(TextBoxProps::new(round), 10.0, &rc());
+        let patch = text_box.to_patch();
+        assert_eq!(patch.shape().boxstyle, text_box.boxstyle);
+        patch.set_alpha(Some(0.25));
+        patch.update_style(|style| style.facecolor = Some(Color::from("red")));
+        text_box.restyle_from(&patch);
+        assert_eq!(text_box.alpha(), Some(0.25));
+        assert_eq!(text_box.style().facecolor, Some(Color::from("red")));
+        assert_eq!(text_box.boxstyle(), round.with_pad(0.3));
     }
 
     #[test]

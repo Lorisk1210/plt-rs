@@ -40,6 +40,26 @@ class BufferRegion:
         return _backends.region_extents(self._native)
 
 
+def _native_gc(gc):
+    """The graphics context *gc* as pltrs (Rust) takes it (see
+    ``_native.backends.draw_path``)."""
+    offset, dashes = gc.get_dashes()
+    clip = gc.get_clip_rectangle()
+    clip_path, clip_transform = gc.get_clip_path()
+    hatch_color = gc.get_hatch_color()
+    return (
+        (tuple(gc.get_rgb()), gc.get_alpha() if gc.get_forced_alpha() else None,
+         bool(gc.get_antialiased()), gc.get_capstyle(), gc.get_joinstyle(),
+         float(gc.get_linewidth())),
+        (float(offset or 0), None if dashes is None else [float(d) for d in dashes]),
+        (None if clip is None else tuple(map(float, clip.extents)),
+         None if clip_path is None
+         else (clip_path, np.asarray(clip_transform.get_matrix(), dtype=float))),
+        (gc.get_hatch(), None if hatch_color is None else tuple(hatch_color),
+         float(gc.get_hatch_linewidth())),
+        (gc.get_snap(), gc.get_sketch_params(), gc.get_url(), gc.get_gid()))
+
+
 class RendererAgg(RendererBase):
     """
     The renderer of the Agg canvas: the pixels pltrs (Rust) drew for a
@@ -95,6 +115,13 @@ class RendererAgg(RendererBase):
 
     def clear(self):
         """Clear the canvas (pltrs (Rust) clears it at every draw)."""
+
+    def draw_path(self, gc, path, transform, rgbFace=None):
+        # docstring inherited
+        _backends.draw_path(
+            self._canvas_figure(), _native_gc(gc), path,
+            np.asarray(transform.get_matrix(), dtype=float),
+            None if rgbFace is None else tuple(rgbFace))
 
     def _draw_artist(self, artist):
         """Draw *artist* onto the canvas, over what it holds, placed and

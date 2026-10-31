@@ -6,6 +6,7 @@ mod autofmt;
 mod canvas;
 mod clear;
 mod detach;
+mod draw_hook;
 mod draw_order;
 mod frame;
 mod mosaic;
@@ -37,6 +38,7 @@ use pltrs_render::Renderer;
 pub use canvas::{BufferRegion, CanvasError, FigureCanvas, PixelBox};
 pub(crate) use canvas::{CanvasState, Presentation, Presenting};
 pub(crate) use detach::attach;
+pub use draw_hook::DrawHook;
 pub(crate) use draw_order::draws_before;
 pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
@@ -380,6 +382,7 @@ impl Figure {
     pub(crate) fn draw_without_event(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         self.prepare_layout();
         crate::inset::choose_connectors(&mut self.state.borrow_mut());
+        self.run_draw_hook();
         let errors = self.state.borrow().draw(renderer);
         let mut state = self.state.borrow_mut();
         state.stale = false;

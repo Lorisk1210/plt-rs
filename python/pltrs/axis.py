@@ -949,6 +949,9 @@ class Axis(Artist):
         # The ticks are drawn with their axis, as a unit, so that their
         # zorder only orders them among themselves: it is kept, not drawn.
         native = {k: v for k, v in kwtrans.items() if k != 'zorder'}
+        if 'grid_path_effects' in native:
+            native['grid_path_effects'] = [
+                effect._native_spec() for effect in native['grid_path_effects']]
         _axis.set_tick_params(*self._args(), which, bool(reset), native)
         if not reset:
             # labelOn and labelcolor also apply to the offset text.

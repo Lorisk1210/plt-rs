@@ -2,7 +2,8 @@
 Contours on triangular grids (matplotlib's ``tri._tricontour``).
 """
 
-from ..contour import ContourSet
+from .. import _tri
+from ..contour import ContourSet, _ContourGenerator
 
 
 class TriContourSet(ContourSet):
@@ -13,6 +14,18 @@ class TriContourSet(ContourSet):
     This class is typically not instantiated directly by the user but by
     `~.Axes.tricontour` and `~.Axes.tricontourf`.
     """
+
+
+
+class _TriContourGenerator(_ContourGenerator):
+    """
+    What a `TriContourSet` was generated from: the triangulation and z,
+    with matplotlib's generator of the ``_tri`` extension for them.
+    """
+
+    def _make_matplotlib(self):
+        tri, z = self.field
+        return _tri.TriContourGenerator(tri.get_cpp_triangulation(), z)
 
 
 def tricontour(ax, *args, **kwargs):

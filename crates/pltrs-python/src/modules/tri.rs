@@ -7,10 +7,11 @@
 //! makes the one it needs from the triangulation the Python object keeps.
 
 use pltrs::tri::{
-    CubicKind, CubicTriInterpolator, LinearTriInterpolator, TriAnalyzer, TriError, TriFinder,
-    TriInterpolator, Triangulation, UniformTriRefiner,
+    CubicKind, CubicTriInterpolator, LinearTriInterpolator, TriAnalyzer, TriContourGenerator,
+    TriError, TriFinder, TriInterpolator, Triangulation, UniformTriRefiner,
 };
 
+use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 
 native_value!(Triangulation);
@@ -100,6 +101,11 @@ fn points(tri: Triangulation) -> PyResult<(NdArray, NdArray)> {
 /// Every triangle, masked or not, in the vertex order given.
 fn triangles(tri: Triangulation) -> PyResult<NdArray<i64>> {
     triangles_array(tri.given_triangles())
+}
+
+/// Every triangle, masked or not, its vertices turned anticlockwise.
+fn oriented_triangles(tri: Triangulation) -> PyResult<NdArray<i64>> {
+    triangles_array(tri.triangles())
 }
 
 /// The unmasked triangles, in the vertex order given.
@@ -315,11 +321,27 @@ fn flat_tri_mask(tri: Triangulation, min_circle_ratio: f64, rescale: bool) -> Py
     Ok(TriAnalyzer::new(&tri).flat_tri_mask(min_circle_ratio, rescale))
 }
 
+/// The contour lines of `z` (one value per point) at `level`, as one
+/// compound path whose loops end with a CLOSEPOLY (matplotlib's C++
+/// `TriContourGenerator.create_contour`, its lines concatenated).
+fn contour_lines(tri: Triangulation, z: NdArray, level: f64) -> PyResult<PathArrays> {
+    let mut generator = TriContourGenerator::new(&tri, &z.into_vec()?)?;
+    path_arrays(&generator.lines(level), false)
+}
+
+/// The region `lower <= z < upper` as one compound path of rings
+/// (matplotlib's C++ `TriContourGenerator.create_filled_contour`).
+fn filled_contour(tri: Triangulation, z: NdArray, lower: f64, upper: f64) -> PyResult<PathArrays> {
+    let mut generator = TriContourGenerator::new(&tri, &z.into_vec()?)?;
+    path_arrays(&generator.filled(lower, upper)?, false)
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
     module.add("points", points)?;
     module.add("triangles", triangles)?;
+    module.add("oriented_triangles", oriented_triangles)?;
     module.add("masked_triangles", masked_triangles)?;
     module.add("mask", mask)?;
     module.add("set_mask", set_mask)?;
@@ -333,5 +355,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("refine_field", refine_field)?;
     module.add("scale_factors", scale_factors)?;
     module.add("circle_ratios", circle_ratios)?;
-    module.add("flat_tri_mask", flat_tri_mask)
+    module.add("flat_tri_mask", flat_tri_mask)?;
+    module.add("contour_lines", contour_lines)?;
+    module.add("filled_contour", filled_contour)
 }

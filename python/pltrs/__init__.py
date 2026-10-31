@@ -188,11 +188,35 @@ class RcParams(MutableMapping, dict):
             # Path effect objects, which rc text cannot spell.
             _patheffects.set_rc_path_effects(
                 self._store, [effect._native_spec() for effect in val])
+        elif self._typed_color(key, val):
+            # A colour as a tuple, which matplotlib's validator of the key
+            # takes from Python but not as rc text (``legend.labelcolor``).
+            _rcsetup.set_color(self._store, key, self.validate[key](val))
         else:
             _rcsetup.set(self._store, key, rcsetup._rc_value(val))
         self._given[key] = (val, _rcsetup.text(self._store, key))
         if self._keys is not None:
             self._keys.add(key)
+
+    def _typed_color(self, key, val):
+        """Whether *val* is a colour that is no string, for a key whose
+        matplotlib validator takes it but whose rc text parser (in pltrs
+        (Rust), as matplotlib's for rc files) refuses its spelling."""
+        if isinstance(val, str) or not _np.iterable(val):
+            return False
+        from .colors import is_color_like
+        validator = self.validate.get(key)
+        if validator is None or not is_color_like(val):
+            return False
+        try:
+            validator(val)
+        except ValueError:
+            return False  # refused as rc text too, with matplotlib's message
+        try:
+            _rcsetup.set(_rcsetup.copy(self._store), key, rcsetup._rc_value(val))
+        except ValueError:
+            return True
+        return False
 
     def _get(self, key):
         """Get *key* without the deprecation checks (matplotlib's ``_get``)."""

@@ -7,6 +7,7 @@ use std::rc::Rc;
 use pltrs_core::Point;
 
 use super::placer::{LabelSetup, Placer};
+use super::split::LabelSplitter;
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::contour::{ContourError, ContourSet};
 use crate::text::Text;
@@ -31,9 +32,27 @@ impl ContourSet {
         inline: bool,
         inline_spacing: f64,
     ) -> Result<Text, ContourError> {
+        self.add_label_near_split_by(point, transform, (inline, inline_spacing), None)
+    }
+
+    /// [`ContourSet::add_label_near`] with `(inline, inline_spacing)`,
+    /// the label's rotation and the line cut under it by `splitter` when
+    /// given (matplotlib's `add_label_near` with an overridden
+    /// `_split_path_and_get_label_rotation`).
+    ///
+    /// # Errors
+    ///
+    /// As [`ContourSet::add_label_near`].
+    pub fn add_label_near_split_by(
+        &self,
+        point: Point,
+        transform: &Transform,
+        (inline, inline_spacing): (bool, f64),
+        splitter: Option<&mut LabelSplitter<'_>>,
+    ) -> Result<Text, ContourError> {
         let setup = self.label_setup()?;
         let target = self.to_display(point, transform)?;
-        Placer::new(self, &setup)?.label_near(target, inline, inline_spacing)
+        Placer::new(self, &setup)?.label_near(target, inline, inline_spacing, splitter)
     }
 
     /// Adds a label of the level at index `level`, centred at `point` in

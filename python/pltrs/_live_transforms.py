@@ -17,6 +17,8 @@ objects matplotlib code compares (``line.get_transform() is
 ax.transData``).
 """
 
+import functools
+
 import numpy as np
 
 from ._native import transforms as _transforms
@@ -24,8 +26,9 @@ from .transforms import (
     Affine2D, Affine2DBase, AffineDeltaTransform, BboxBase,
     BlendedAffine2D, BlendedGenericTransform, CompositeAffine2D,
     CompositeGenericTransform, IdentityTransform, ScaledTranslation,
-    Transform, TransformWrapper, blended_transform_factory,
+    Transform, TransformedPath, TransformWrapper, blended_transform_factory,
     composite_transform_factory)
+from .path import Path
 
 
 class LiveTransform(Transform):
@@ -35,10 +38,16 @@ class LiveTransform(Transform):
     output_dims = 2
     has_inverse = True
 
-    def __init__(self, figure, native, shorthand_name=None):
+    def __init__(self, figure, native, shorthand_name=None, tree=None):
         super().__init__(shorthand_name=shorthand_name)
         self._root = figure
         self._native = native
+        self._tree = tree
+
+    def __str__(self):
+        # matplotlib's tree of the transform, as the figure is now.
+        tree = None if self._tree is None else self._tree()
+        return super().__str__() if tree is None else str(tree)
 
     def _apply(self, values, part):
         values = np.asanyarray(values, dtype=float)
@@ -84,8 +93,10 @@ def cached(owner, name, native):
     key = f"_live_{name}"
     transform = owner.__dict__.get(key)
     if transform is None:
+        from ._transform_trees import tree
         transform = LiveTransform(owner.figure, native(owner._native),
-                                  shorthand_name=name)
+                                  shorthand_name=name,
+                                  tree=functools.partial(tree, owner, name))
         owner.__dict__[key] = transform
     return transform
 
@@ -189,7 +200,40 @@ def _description(t):
         return ("affine_delta", _description(t._base_transform))
     if isinstance(t, Affine2DBase) or t.is_affine:
         return ("affine", np.asarray(t.get_matrix(), dtype=float))
-    return ("python", t)
+    return ("python", _ProgramMap(t))
+
+
+class _ProgramMap:
+    """
+    A non-affine transform of the program's as pltrs (Rust) maps through
+    it: points one by one through its ``transform``, and paths as
+    matplotlib's artists map theirs, through a `.TransformedPath`, which
+    keeps the path the transform last gave until the transform is
+    invalidated.
+    """
+
+    def __init__(self, transform):
+        self._transform = transform
+        self._cached = None
+
+    def __getstate__(self):
+        return {"_transform": self._transform, "_cached": None}
+
+    def transform(self, values):
+        """*values* through the transform."""
+        return self._transform.transform(values)
+
+    def inverted(self):
+        """The inverse of the transform."""
+        return self._transform.inverted()
+
+    def transform_path(self, vertices, codes):
+        """The `.Path` of *vertices* and *codes* through the transform: the
+        one computed last while the path and the transform stay the same."""
+        key = (vertices.tobytes(), None if codes is None else codes.tobytes())
+        if self._cached is None or self._cached[0] != key:
+            self._cached = (key, TransformedPath(Path(vertices, codes), self._transform))
+        return self._cached[1].get_fully_transformed_path()
 
 
 class _Unnamed(Exception):

@@ -191,6 +191,9 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
             other = kwargs.pop(f"share{name}", None)
             if other is not None:
                 getattr(ax, f"share{name}")(other)
+        # The one keyword of Axes.__init__ whose setter has another name.
+        if not kwargs.pop("frameon", True):
+            ax.set_frame_on(False)
         ax._internal_update(kwargs)
         return ax
 

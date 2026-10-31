@@ -49,6 +49,7 @@ impl Archive for FigureState {
             suppress_composite,
             last_draw_dpi,
             canvas: _,
+            draw_hook: _,
             role,
         } = self;
         store.encode(encoder)?;
@@ -96,6 +97,7 @@ impl Archive for FigureState {
             suppress_composite: Archive::decode(decoder)?,
             last_draw_dpi: Archive::decode(decoder)?,
             canvas: CanvasState::default(),
+            draw_hook: None,
             role: StateRole::decode(decoder)?,
         };
         if state.detached.overlaps(&state.store) {

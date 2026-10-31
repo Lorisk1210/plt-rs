@@ -89,10 +89,12 @@ def adopt(artist, native, figure):
     of the artist the handle *native* reaches in *figure*, once an axes or
     the figure adopted it (``_native.artist.adopt_into_axes``); return it.
     """
+    from ._computed_transforms import track
     figure = figure._figure  # The root keeps the registry.
     artist._native = native
     artist._figure = figure
     figure._artists[_artist.id(native)] = artist
+    track(artist, figure)
     return artist
 
 

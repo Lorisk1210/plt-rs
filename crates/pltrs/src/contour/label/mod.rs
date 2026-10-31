@@ -29,6 +29,7 @@ use crate::ticker::{
 };
 
 pub(crate) use placer::LabelSetup;
+pub use split::{LabelCut, LabelSplitter};
 
 /// How label texts are made from levels (matplotlib's `fmt` of `clabel`).
 #[derive(Clone, Debug, Default)]
@@ -198,6 +199,21 @@ impl ContourSet {
     /// [`MAX_LABELLED_LEVELS`], a format fails, label text cannot be laid
     /// out, or a manual position has no labelled line to snap to.
     pub fn clabel(&self, options: ClabelOptions) -> Result<Vec<Text>, ContourError> {
+        self.clabel_split_by(options, None)
+    }
+
+    /// [`ContourSet::clabel`], with the rotations of the labels and the
+    /// lines cut under them by `splitter` when given (matplotlib's
+    /// `clabel` with an overridden `_split_path_and_get_label_rotation`).
+    ///
+    /// # Errors
+    ///
+    /// As [`ContourSet::clabel`].
+    pub fn clabel_split_by(
+        &self,
+        options: ClabelOptions,
+        mut splitter: Option<&mut LabelSplitter<'_>>,
+    ) -> Result<Vec<Text>, ContourError> {
         let rc = crate::rc::params();
         let indices = self.label_indices(options.levels.as_deref())?;
         // A filled set has a path per band, one fewer than its levels:
@@ -250,10 +266,10 @@ impl ContourSet {
                 let data = self.axes().trans_data();
                 for &(x, y) in points {
                     let target = self.to_display(Point::new(x, y), &data)?;
-                    placer.label_near(target, options.inline, spacing)?;
+                    placer.label_near(target, options.inline, spacing, splitter.as_deref_mut())?;
                 }
             }
-            None => placer.label_all(options.inline, spacing),
+            None => placer.label_all(options.inline, spacing, splitter),
         }
         Ok(placer.into_created())
     }
@@ -401,6 +417,57 @@ mod tests {
 
     fn subpath_count(cs: &ContourSet) -> usize {
         cs.paths().iter().map(|p| p.subpaths().len()).sum()
+    }
+
+    #[test]
+    fn a_splitter_places_every_label_as_pltrs_would() {
+        let plain = bowl(&[0.5, 1.0]);
+        plain.clabel(ClabelOptions::default()).unwrap();
+        let split = bowl(&[0.5, 1.0]);
+        let mut cuts = Vec::new();
+        let mut splitter = |cut: LabelCut<'_>| {
+            let placed = split.split_path_at_label(cut).unwrap();
+            cuts.push(cut.index);
+            placed
+        };
+        let texts = split
+            .clabel_split_by(ClabelOptions::default(), Some(&mut splitter))
+            .unwrap();
+        assert_eq!(cuts.len(), texts.len());
+        let placed = |cs: &ContourSet| {
+            cs.labels()
+                .into_iter()
+                .map(|l| (l.text, l.position, l.rotation))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(placed(&split), placed(&plain));
+        assert_eq!(split.paths(), plain.paths());
+    }
+
+    #[test]
+    fn labels_cut_out_of_a_vertex_the_line_lacks_fail() {
+        let cs = bowl(&[0.5]);
+        let line = pltrs_core::Path::polyline(vec![Point::new(0.0, 0.0), Point::new(1.0, 0.0)]);
+        let cut = LabelCut {
+            path: &line,
+            index: 0,
+            position: Point::new(0.0, 0.0),
+            width: 1.0,
+            spacing: 0.0,
+        };
+        assert!(
+            matches!(cs.split_path_at_label(cut), Err(ContourError::Unlabelled)),
+            "before clabel"
+        );
+        cs.clabel(ClabelOptions::default()).unwrap();
+        let beyond = LabelCut { index: 5, ..cut };
+        assert!(matches!(
+            cs.split_path_at_label(beyond),
+            Err(ContourError::VertexIndex {
+                index: 5,
+                vertices: 2
+            })
+        ));
     }
 
     #[test]

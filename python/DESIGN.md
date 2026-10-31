@@ -244,7 +244,7 @@ figure comes back under its own id.
 
 In Python, a constructor makes the native loose artist with the `new`
 functions of its module (`_lines.new(x, y, kwargs)`, `_text.new(x, y,
-text)`, `_patches.new_rectangle(...)` and a `new_<shape>` per patch
+text)`, `_annotation.new(text, ...)`, `_patches.new_rectangle(...)` and a `new_<shape>` per patch
 class, `_collections.new_line_collection(...)` and a `new_<kind>` per
 collection class, `_table.new(ax, loc, bbox)` for `Table(ax)`; `Artist()`
 itself makes a plain artist that draws nothing, `_artist.new()`) and
@@ -258,11 +258,23 @@ handle and registers it in the figure. The returned handle is untyped (a
 `RawHandle` native object), which the `artist_handle!` conversions accept
 (see "The native object and its threads"). The loose handle is not used
 again: its holder is empty. An artist's `axes` is the one pltrs (Rust)
-has it in.
+has it in. `artist.set_figure(fig)` alone moves a loose artist into the
+figure as a removed artist (`Figure::take_artist`), which the figure does
+not draw but measures (`RawHandle::measured_extent`) and draws where the
+program asks (`RawHandle::draw_onto`, a `RendererAgg` of no figure
+drawing onto pixels of its own), as matplotlib's do.
+
+An artist's `figure` is the (sub)figure it is on, a `(Sub)Figure`'s its
+root, as in matplotlib; `_figure` is always the root, which keeps the
+registry (`_handles` reaches it through `figure._figure`).
 
 Artists that own others are made in their figure instead, as removed
 artists, since matplotlib's constructors take their parent (`Axes(fig,
 rect)`, `Legend(ax, ...)`): `fig.add_axes(ax)` then adds them back.
+
+An `InsetIndicator` is a plain loose artist with a loose `Rectangle`
+until an axes adds it: `Axes::adopt_indicator` then makes the rectangle
+its frame and gives it its four `ConnectionPatch`es (`_native.insets`).
 
 Offset boxes are the exception: their constructors take no parent, so
 an `AnchoredOffsetbox` or an `AnnotationBbox` is a plain loose artist
@@ -490,6 +502,24 @@ impl, or in pltrs (Rust) when its own message is the problem. Exceptions that
 matplotlib defines in Python, such as `ImageComparisonFailure`, are
 registered by the package (`_native.register`) and raised through
 `binding::registered_error`.
+
+Problems met while drawing are not raised by the artist meeting them:
+pltrs (Rust) draws the rest and returns them all (`DrawErrors`), each with
+the kind of exception matplotlib raises for it (`DrawErrorKind`). The
+binding raises the first one as matplotlib would have, stopping there: a
+`ValueError` with its message for a value of the program's that cannot be
+drawn (malformed mathtext, an infinite line through two identical
+points), else a `RuntimeError` naming them all. `draw_without_rendering`
+draws with a renderer that paints nothing, so it raises them too.
+
+### Staleness
+
+pltrs (Rust) keeps whether each artist changed since it was last drawn
+(`ArtistHandle::stale`): drawing an artist makes it fresh, and any change
+through its handle, or adding or removing one of its children, makes it
+stale again together with the artists containing it and the figure,
+unless it is animated (`figure/stale.rs`). `Artist.stale` reads and sets
+it, so matplotlib's propagation through `stale_callback` needs no Python.
 
 ### Warnings issued while pltrs (Rust) works
 

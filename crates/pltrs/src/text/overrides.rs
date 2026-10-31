@@ -202,7 +202,7 @@ fn draw_artist_of(ctx: &mut DrawContext<'_>, artist: &RawHandle) {
     let mut inner = DrawContext::new(&state, ctx.renderer());
     drawn.draw(&mut inner);
     for error in inner.into_errors() {
-        ctx.report(error.artist, error.message);
+        ctx.report_kind(error.artist, error.kind, error.message);
     }
 }
 

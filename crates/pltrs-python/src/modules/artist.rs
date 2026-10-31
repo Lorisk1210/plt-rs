@@ -18,6 +18,7 @@ mod clip;
 mod extent;
 mod filter;
 mod picking;
+mod stale;
 
 pub(super) use clip::ClipSpec;
 pub(super) use picking::PyPicker;
@@ -93,6 +94,12 @@ fn adopt_into_axes(
 /// `Figure.add_artist(artist, clip)`), returning its handle there.
 fn adopt_into_figure(figure: Figure, artist: RawHandle, clip: bool) -> PyResult<RawHandle> {
     Ok(figure.adopt_artist(&artist, clip)?)
+}
+
+/// Makes an artist made outside any figure an artist of `figure` that the
+/// figure does not draw (`set_figure`), returning its handle there.
+fn take_into_figure(figure: Figure, artist: RawHandle) -> PyResult<RawHandle> {
+    Ok(figure.take_artist(&artist)?)
 }
 
 /// The figure or subfigure the artist is directly in
@@ -260,6 +267,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("is_loose", is_loose)?;
     module.add("adopt_into_axes", adopt_into_axes)?;
     module.add("adopt_into_figure", adopt_into_figure)?;
+    module.add("take_into_figure", take_into_figure)?;
     module.add("axes", axes)?;
     module.add("parent_figure", parent_figure)?;
     module.add("id", id)?;
@@ -294,7 +302,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     clip::register(module)?;
     extent::register(module)?;
     filter::register(module)?;
-    picking::register(module)
+    picking::register(module)?;
+    stale::register(module)
 }
 
 #[cfg(test)]

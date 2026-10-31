@@ -16,6 +16,7 @@
 //! [`GraphicsContext`] ([`DrawContext::base_gc`] starts one from the
 //! artist's common properties).
 
+mod apart;
 mod archive;
 mod attach;
 mod base;
@@ -51,7 +52,7 @@ pub use attach::AttachError;
 pub(crate) use base::rc_sketch;
 pub use base::{ArtistBase, ClipPathSpec, is_hidden_label};
 pub(crate) use context::DrawnDpiCor;
-pub use context::{DrawContext, DrawError, LayoutContext};
+pub use context::{DrawContext, DrawError, DrawErrorKind, LayoutContext};
 pub(crate) use cursor::format_values;
 pub use custom::Custom;
 pub(crate) use detached::DetachedArtists;

@@ -518,7 +518,7 @@ impl Artist for TextArtist {
             },
         };
         if let Err(err) = drawn {
-            ctx.report(self.base.id(), err);
+            ctx.report_kind(self.base.id(), err.kind(), err);
         }
     }
 

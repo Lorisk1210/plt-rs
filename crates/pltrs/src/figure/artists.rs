@@ -158,6 +158,34 @@ impl Figure {
         Ok(artist)
     }
 
+    /// Makes `artist`, made outside any figure, an artist of this figure
+    /// that the figure does not draw (matplotlib's `artist.set_figure(fig)`
+    /// on an artist no axes or figure added): it moves in under a new id,
+    /// which the returned handle refers to, as a removed artist, measured
+    /// and drawn in the figure's geometry
+    /// ([`RawHandle::measured_extent`], [`RawHandle::draw_onto`]) until
+    /// the figure or one of its axes adopts it. An artist of this figure
+    /// stays as it is.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::Text;
+    /// let fig = Figure::new();
+    /// let note = fig.take_artist(Text::loose(0.0, 0.0, "note").raw())?;
+    /// assert!(!note.is_loose() && !note.is_attached());
+    /// assert!(note.measured_extent().is_some());
+    /// # Ok::<(), pltrs::artist::AttachError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError::OtherFigure`] when the artist belongs to another
+    /// figure.
+    pub fn take_artist(&self, artist: &RawHandle) -> Result<RawHandle, AttachError> {
+        take_in(&self.state, artist)
+    }
+
     /// The artists added to this figure (or subfigure) itself, in the
     /// order they were added: patches, lines, anchored and annotation
     /// boxes and custom artists (matplotlib's `Figure.artists`, which

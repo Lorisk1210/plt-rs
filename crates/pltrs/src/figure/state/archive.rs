@@ -12,7 +12,7 @@ use super::{FigureState, StateRole};
 use crate::artist::{ArtistId, ArtistStore, DetachedArtists};
 use crate::axes::{LimitCallbacks, ShareGroups};
 use crate::events::{CallbackRegistry, CursorShape, TimerRegistry};
-use crate::figure::{CanvasState, FigureFrame};
+use crate::figure::{CanvasState, FigureFrame, FreshArtists};
 use crate::gui::tools::ToolRegistry;
 use crate::layout::LayoutState;
 
@@ -31,6 +31,7 @@ impl Archive for FigureState {
             original_dpi,
             size_inches,
             stale: _,
+            fresh: _,
             pending_errors: _,
             shared,
             layout,
@@ -77,6 +78,7 @@ impl Archive for FigureState {
             original_dpi: Archive::decode(decoder)?,
             size_inches: Archive::decode(decoder)?,
             stale: true,
+            fresh: FreshArtists::default(),
             pending_errors: Vec::new(),
             shared: ShareGroups::decode(decoder)?,
             layout: LayoutState::decode(decoder)?,

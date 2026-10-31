@@ -31,6 +31,26 @@ def _native_bins(bins):
     return floats(bins)
 
 
+def _narrow_edges(x, bins, bin_range, weights):
+    """
+    The edges of *bins* (a count or a strategy name) for the datasets *x*
+    when their values are floats narrower than ``float64``, which numpy's
+    `~numpy.histogram` computes in their type (matplotlib then makes them
+    floats); None otherwise, for pltrs (Rust) to compute in ``float64``.
+    """
+    arrays = [np.asarray(xi) for xi in x]
+    dtype = np.result_type(*[a.dtype for a in arrays]) if arrays else None
+    if (dtype is None or dtype.kind != "f" or dtype.itemsize >= 8
+            or np.iterable(bins) and not isinstance(bins, str)):
+        return None
+    data = np.concatenate([a.ravel() for a in arrays])
+    if bin_range is None and np.isfinite(data).any():
+        bin_range = (np.nanmin(data), np.nanmax(data))
+    if weights is not None:
+        weights = np.concatenate([np.asarray(wi, float) for wi in weights])
+    return np.histogram_bin_edges(data, _native_bins(bins), bin_range, weights)
+
+
 class HistMixin:
     """`hist`."""
 
@@ -93,7 +113,6 @@ class HistMixin:
             bin_range = convert_units(bin_range)
         if not cbook.is_scalar_or_string(bins):
             bins = convert_units(bins)
-        x = [floats(xi) for xi in x]
         if weights is not None:
             w = cbook._reshape_2D(weights, 'weights')
         else:
@@ -103,6 +122,11 @@ class HistMixin:
         for xi, wi in zip(x, w):
             if wi is not None and len(wi) != len(xi):
                 raise ValueError('weights should have the same shape as x')
+        edges = _narrow_edges(x, bins, bin_range,
+                              None if weights is None else w)
+        if edges is not None:
+            bins = edges
+        x = [floats(xi) for xi in x]
         if color is None:
             colors = []
         else:

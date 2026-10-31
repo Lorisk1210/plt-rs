@@ -11,10 +11,11 @@ from contextlib import nullcontext
 
 import numpy as np
 
-from .. import rc_context
-from .._native import backends as _backends
+from .. import _api, rc_context
+from .._native import backends as _backends, text_overrides as _text_overrides
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
+from ..font_manager import FontManager
 from ..image import imsave
 from ..transforms import BboxBase
 
@@ -43,6 +44,9 @@ class RendererAgg(RendererBase):
     """
     The renderer of the Agg canvas: the pixels pltrs (Rust) drew for a
     figure of *width* × *height* pixels at *dpi*.
+
+    A renderer the program makes, behind no figure's canvas, draws the
+    artists given to it (``artist.draw(renderer)``) onto pixels of its own.
     """
 
     def __init__(self, width, height, dpi):
@@ -51,6 +55,9 @@ class RendererAgg(RendererBase):
         self.width = width
         self.height = height
         self._figure = None
+        # The pixels of a renderer behind no figure's canvas, made when it
+        # first draws.
+        self._raster = None
 
     def _canvas_figure(self):
         """The figure whose canvas this renderer is."""
@@ -67,6 +74,12 @@ class RendererAgg(RendererBase):
     def points_to_pixels(self, points):
         # docstring inherited
         return points * self.dpi / 72
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        # docstring inherited
+        _api.check_in_list(["TeX", True, False], ismath=ismath)
+        return _text_overrides.measure(s, FontManager._props(prop), ismath,
+                                       float(self.dpi))
 
     def option_image_nocomposite(self):
         # docstring inherited
@@ -87,10 +100,22 @@ class RendererAgg(RendererBase):
         """Draw *artist* onto the canvas, over what it holds, placed and
         clipped as the figure was last laid out (`.Artist.draw` with this
         renderer, as ``draw_artist`` calls it)."""
-        _backends.draw_artist(self._canvas_figure(), artist._native)
+        if self._figure is None:
+            _backends.draw_onto_raster(self._own_raster(), artist._native)
+        else:
+            _backends.draw_artist(self._canvas_figure(), artist._native)
+
+    def _own_raster(self):
+        """The pixels of a renderer behind no figure's canvas."""
+        if self._raster is None:
+            self._raster = _backends.new_raster(
+                float(self.width), float(self.height), float(self.dpi))
+        return self._raster
 
     def buffer_rgba(self):
         """The pixels, as a ``memoryview`` of RGBA rows from the top."""
+        if self._figure is None:
+            return memoryview(_backends.raster_rgba(self._own_raster()))
         return memoryview(_backends.buffer_rgba(self._canvas_figure()))
 
     def tostring_argb(self):
@@ -156,7 +181,6 @@ class FigureCanvasAgg(FigureCanvasBase):
         with (self.toolbar._wait_cursor_for_draw_cm() if self.toolbar
               else nullcontext()):
             _backends.draw(self.figure._native)
-            self.figure._set_drawn()
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so
             # don't forget to call the superclass.
@@ -222,7 +246,6 @@ class FigureCanvasAgg(FigureCanvasBase):
         """
         rgba = _backends.print_rgba(self.figure._native,
                                     self._print_settings(**kwargs))
-        self.figure._set_drawn()
         DrawEvent("draw_event", self, None)._process()
         # savefig() has already applied savefig.facecolor; imsave() blends
         # semi-transparent JPEG figures against an assumed white background.

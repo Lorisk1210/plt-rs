@@ -10,6 +10,7 @@ mod draw_order;
 mod frame;
 mod mosaic;
 mod mosaic_axes;
+mod no_output;
 mod pdf_pages;
 mod pgf;
 mod postscript;
@@ -17,6 +18,7 @@ mod print;
 mod rect;
 mod save;
 mod size;
+mod stale;
 mod state;
 mod subfigure;
 mod subplots;
@@ -52,6 +54,7 @@ pub(crate) use rect::axes_bounds;
 use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
 pub use size::{FigSize, SizeError, SizeUnit};
+pub(crate) use stale::FreshArtists;
 pub(crate) use state::{FigureState, StateRole};
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
@@ -376,6 +379,7 @@ impl Figure {
     /// themselves once they are done.
     pub(crate) fn draw_without_event(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
         self.prepare_layout();
+        crate::inset::choose_connectors(&mut self.state.borrow_mut());
         let errors = self.state.borrow().draw(renderer);
         let mut state = self.state.borrow_mut();
         state.stale = false;

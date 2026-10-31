@@ -62,8 +62,35 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     @property
     def figure(self):
-        """The (root) `.Figure` the artist belongs to."""
-        return self._figure
+        """The `.Figure` or `.SubFigure` the artist is on (for a (Sub)Figure,
+        the root `.Figure`)."""
+        return self.get_figure(root=False)
+
+    @figure.setter
+    def figure(self, fig):
+        self.set_figure(fig)
+
+    def set_figure(self, fig):
+        """
+        Set the `.Figure` or `.SubFigure` instance the artist belongs to.
+
+        An artist made by its constructor joins *fig* without being drawn
+        by it, until an axes or a figure adds it; it is then measured and
+        drawn in the figure's geometry.
+
+        Parameters
+        ----------
+        fig : `~matplotlib.figure.Figure` or `~matplotlib.figure.SubFigure`
+        """
+        if fig is self.get_figure(root=False):
+            return
+        if self._figure is not None:
+            raise RuntimeError("Can not put single artist in "
+                               "more than one figure")
+        _handles.adopt(self, _artist.take_into_figure(fig._native, self._native),
+                       fig.get_figure(root=True))
+        self.pchanged()
+        self.stale = True
 
     def get_figure(self, root=False):
         """
@@ -75,7 +102,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             If False, return the (Sub)Figure this artist is on.  If True,
             return the root Figure for a nested tree of SubFigures.
         """
-        if root or self._figure is None:
+        if root or self._figure is None or not self._figure.subfigs:
             return self._figure
         from .figure import Figure
         return _handles.wrap(_artist.parent_figure(self._native), Figure,
@@ -137,13 +164,17 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     @property
     def stale(self):
-        """Whether the artist needs drawing: pltrs (Rust) draws from scratch
-        every time, so never."""
-        return False
+        """
+        Whether the artist is 'stale' and needs to be re-drawn for the output
+        to match the internal state of the artist.
+        """
+        return _artist.get_stale(self._native)
 
     @stale.setter
-    def stale(self, value):
-        pass
+    def stale(self, val):
+        # pltrs (Rust) marks what contains the artist stale too, unless
+        # the artist is animated.
+        _artist.set_stale(self._native, bool(val))
 
     def get_visible(self):
         """Return the visibility."""
@@ -402,6 +433,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             return
         _artist.remove(self._native)
         _handles.forget(self)
+        # Decoupled from its figure, as matplotlib's `remove` leaves it.
+        self._figure = None
 
     def properties(self):
         """Return a dictionary of all the properties of the artist."""

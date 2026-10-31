@@ -36,9 +36,8 @@ pub struct TypeKey {
 
 /// The types an archived handler map may be keyed by: pltrs's patch
 /// shapes. A key of the program's own type is not archived.
-fn archivable_keys() -> [TypeKey; 23] {
+fn archivable_keys() -> [TypeKey; 22] {
     use crate::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
-    use crate::inset::InsetIndicator;
     use crate::mplot3d::{ProjectedOutline, ProjectedPath};
     use crate::patches::{
         Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
@@ -65,7 +64,6 @@ fn archivable_keys() -> [TypeKey; 23] {
         TypeKey::of::<BboxPatch>(),
         TypeKey::of::<BboxConnector>(),
         TypeKey::of::<BboxConnectorPatch>(),
-        TypeKey::of::<InsetIndicator>(),
         TypeKey::of::<CellShape>(),
         TypeKey::of::<ProjectedOutline>(),
         TypeKey::of::<ProjectedPath>(),

@@ -117,10 +117,7 @@ pub(crate) fn reinstall(axes: &Axes, projection: Box<dyn Projection>) {
             .figure_state()
             .borrow_mut()
             .pending_errors
-            .push(DrawError {
-                artist: axes.id(),
-                message: err.to_string(),
-            });
+            .push(DrawError::new(axes.id(), err.to_string()));
     }
 }
 

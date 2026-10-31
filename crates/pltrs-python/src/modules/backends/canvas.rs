@@ -1,16 +1,25 @@
 //! The raster canvas a figure keeps between draws (matplotlib's
 //! `FigureCanvasAgg` and its `RendererAgg`): drawing, its pixels, and
-//! blitting through saved regions.
+//! blitting through saved regions; and the raster canvas of a
+//! `RendererAgg` the program makes, behind no figure's canvas.
 
 use pltrs::artist::RawHandle;
 use pltrs::axes::Axes;
 use pltrs::figure::{BufferRegion, CanvasError, Figure, PixelBox};
 use pltrs::transforms::{Bbox, Point};
+use pltrs_render::RasterRenderer;
 
 use super::super::lines::markevery_error;
 use crate::binding::prelude::*;
+use crate::binding::wrap_native;
 
 native_value!(BufferRegion);
+
+impl IntoPy for RasterRenderer {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        wrap_native(py, self)
+    }
+}
 
 /// A box `(x0, y0, x1, y1)` in display pixels.
 type Extents = (f64, f64, f64, f64);
@@ -95,6 +104,25 @@ fn blit(figure: Figure, extents: Option<Extents>) -> PyResult<()> {
     Ok(figure.canvas().blit(bbox.as_ref())?)
 }
 
+/// A raster canvas of `width × height` pixels at `dpi` behind no
+/// figure's canvas (a `RendererAgg` the program makes).
+fn new_raster(width: f64, height: f64, dpi: f64) -> PyResult<RasterRenderer> {
+    RasterRenderer::new(width, height, dpi).map_err(|err| PyErr::value_error(err.to_string()))
+}
+
+/// Draws `artist`, of a figure or of none, onto the raster canvas
+/// `raster` (`Artist.draw` with a `RendererAgg` the program made).
+fn draw_onto_raster(raster: Native<RasterRenderer>, artist: RawHandle) -> PyResult<()> {
+    Ok(artist.draw_onto(&mut *raster.borrow_mut())?)
+}
+
+/// The pixels of the raster canvas `raster`, as `buffer_rgba` gives them.
+fn raster_rgba(raster: Native<RasterRenderer>) -> PyResult<NdArray<u8>> {
+    let image = raster.borrow().to_image();
+    let (width, height) = (image.width(), image.height());
+    rgba_array(width, height, image.into_data())
+}
+
 /// The canvas's physical pixels per logical pixel.
 fn get_device_pixel_ratio(figure: Figure) -> PyResult<f64> {
     Ok(figure.canvas().device_pixel_ratio())
@@ -123,7 +151,10 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("blit", blit)?;
     module.add("get_device_pixel_ratio", get_device_pixel_ratio)?;
     module.add("set_device_pixel_ratio", set_device_pixel_ratio)?;
-    module.add("width_height", width_height)
+    module.add("width_height", width_height)?;
+    module.add("new_raster", new_raster)?;
+    module.add("draw_onto_raster", draw_onto_raster)?;
+    module.add("raster_rgba", raster_rgba)
 }
 
 #[cfg(test)]

@@ -380,10 +380,7 @@ pub(crate) trait UnitHandle: Sized {
         raw.figure_state()
             .borrow_mut()
             .pending_errors
-            .push(DrawError {
-                artist: raw.id(),
-                message: error.to_string(),
-            });
+            .push(DrawError::new(raw.id(), error.to_string()));
     }
 
     /// Sets the unit of the axis and of the axes sharing it (matplotlib's

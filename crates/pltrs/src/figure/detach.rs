@@ -82,6 +82,7 @@ impl FigureState {
                 self.detached.insert(id, artist);
             }
         } else {
+            self.mark_stale(parent);
             self.stale = true;
             self.layout.pending = true;
         }
@@ -116,6 +117,9 @@ impl FigureState {
             owner.remove_child(id);
         }
         if self.is_attached(id) {
+            if let Some(parent) = parent {
+                self.mark_stale(parent);
+            }
             for (id, artist) in self.store.take_tree(id) {
                 self.detached.insert(id, artist);
             }
@@ -153,6 +157,7 @@ impl FigureState {
             for (id, artist) in self.detached.take_tree(id) {
                 self.store.put_back(id, artist);
             }
+            self.mark_stale(parent);
             self.stale = true;
             self.layout.pending = true;
         }

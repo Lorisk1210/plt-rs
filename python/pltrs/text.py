@@ -7,12 +7,13 @@ aliases and validation, and its keyword handling.
 """
 
 from collections.abc import Sequence
+import datetime
 from numbers import Real
 import sys
 
 import numpy as np
 
-from . import _api, _text_overrides, cbook
+from . import _api, _live_transforms, _text_overrides, cbook
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
 from ._native import annotation as _annotation, text as _text
@@ -301,6 +302,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """Return the `.font_manager.FontProperties`."""
         return FontProperties._from_native(
             _text.get_fontproperties(self._native))
+
+    @property
+    def _fontproperties(self):
+        return self.get_fontproperties()
 
     def get_fontfamily(self):
         """Return the list of font families used for font lookup."""
@@ -864,8 +869,9 @@ class OffsetFrom:
 def _native_coords(coords, figure, name="xycoords"):
     """
     *coords*, an annotation coordinate system of an annotation in
-    *figure*, in the form `_native.annotation` takes: a name,
-    ``("blended", x, y)``, ``("artist", native)`` or an `OffsetFrom`'s
+    *figure* (None for one outside any figure), in the form
+    `_native.annotation` takes: a name, ``("blended", x, y)``,
+    ``("artist", native)``, ``("transform", native)`` or an `OffsetFrom`'s
     description.
     """
     if isinstance(coords, str):
@@ -878,8 +884,11 @@ def _native_coords(coords, figure, name="xycoords"):
         return coords._native_coords()
     if isinstance(coords, Artist):
         return ("artist", coords._native)
+    if isinstance(coords, Transform):
+        return ("transform", _live_transforms.to_native(coords))
     if callable(coords):
-        get_renderer = getattr(figure.canvas, "get_renderer", None)
+        get_renderer = getattr(getattr(figure, "canvas", None),
+                               "get_renderer", None)
         result = coords(get_renderer() if get_renderer is not None else None)
         if isinstance(result, (BboxBase, Transform)):
             raise NotImplementedError(f"pltrs: annotate({name}=<callable>)")
@@ -889,6 +898,23 @@ def _native_coords(coords, figure, name="xycoords"):
     raise TypeError(
         f"'xycoords' must be an instance of str, tuple[str, str], Artist, "
         f"Transform, or Callable, not a {type(coords).__name__}")
+
+
+def _coordinate(value):
+    """A coordinate of an annotated point as `_native.annotation` takes
+    it: a number, a category name, or ``("dates", number)`` for a date."""
+    if isinstance(value, (str, bytes)):
+        return value.decode() if isinstance(value, bytes) else value
+    if isinstance(value, (datetime.date, np.datetime64)):
+        from . import dates
+        return ("dates", float(dates.date2num(value)))
+    return float(value)
+
+
+def _point(xy):
+    """The point *xy* of an annotation, coordinate by coordinate."""
+    x, y = xy
+    return (_coordinate(x), _coordinate(y))
 
 
 def _is_offset(coords):
@@ -933,6 +959,38 @@ class Annotation(Text):
 
     def __str__(self):
         return f"Annotation({self.xy[0]:g}, {self.xy[1]:g}, {self.get_text()!r})"
+
+    def __init__(self, text, xy,
+                 xytext=None,
+                 xycoords='data',
+                 textcoords=None,
+                 arrowprops=None,
+                 annotation_clip=None,
+                 **kwargs):
+        """
+        Annotate the point *xy* with text *text*.
+
+        In the simplest form, the text is placed at *xy*. Optionally, the
+        text can be displayed in another position *xytext*, and an arrow
+        pointing from the text to the annotated point *xy* can be added by
+        defining *arrowprops*; the parameters are those of `.Axes.annotate`.
+        The annotation is outside any figure until an axes or a figure adds
+        it (`~.Axes.add_artist`, `.Figure.add_artist`); its points are then
+        numbers or dates, which no axis converts yet.
+        """
+        if _is_offset(xycoords):
+            raise ValueError("xycoords cannot be an offset coordinate")
+        self._native = _annotation.new(
+            '' if text is None else str(text),
+            (_point(xy),
+             None if xytext is None else _point(xytext),
+             _native_coords(xycoords, None),
+             None if textcoords is None
+             else _native_coords(textcoords, None, "textcoords"),
+             None if arrowprops is None else _native_arrowprops(arrowprops),
+             annotation_clip))
+        Artist.__init__(self)
+        self._init_annotation(xycoords, textcoords, arrowprops, kwargs)
 
     def _init_annotation(self, xycoords, textcoords, arrowprops, kwargs):
         """Record what the annotation was made with, then apply its text

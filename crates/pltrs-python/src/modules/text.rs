@@ -357,7 +357,8 @@ fn get_language(text: Text) -> PyResult<(Option<String>, Vec<LanguageSpan>)> {
 /// when it has none (matplotlib's `get_window_extent`).
 fn get_window_extent(text: Text) -> PyResult<Option<(f64, f64, f64, f64)>> {
     Ok(text
-        .window_extent()
+        .raw()
+        .measured_extent()
         .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
 }
 

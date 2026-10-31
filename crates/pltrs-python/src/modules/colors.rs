@@ -32,12 +32,24 @@ impl From<ColorError> for PyErr {
     }
 }
 
+/// `object` with a one-row 2D array flattened, as matplotlib's `to_rgba`
+/// takes an array of shape `(1, 3)` or `(1, 4)` for its row.
+fn single_row<'py>(object: &Bound<'py>) -> PyResult<Bound<'py>> {
+    let shape = object
+        .getattr("shape")
+        .and_then(|shape| shape.extract::<Vec<i64>>());
+    match shape.as_deref() {
+        Ok([1, _]) => object.call_method("reshape", &[(-1_i64).into_py(object.py())?]),
+        _ => Ok(object.clone()),
+    }
+}
+
 impl FromPy<'_> for Color {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         if let Ok(spec) = object.extract::<String>() {
             return Ok(Color::from(spec));
         }
-        let components: Vec<f64> = object.extract().map_err(|_| {
+        let components: Vec<f64> = single_row(object)?.extract().map_err(|_| {
             PyErr::value_error(format!(
                 "{} is not a valid color value.",
                 object.repr().unwrap_or_default()

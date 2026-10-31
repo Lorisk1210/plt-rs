@@ -377,8 +377,8 @@ pub(super) fn colorbar_id(store: &ArtistStore, axes: ArtistId) -> Option<ArtistI
 
 /// Reports a problem of the colorbar `artist` with the next draw.
 fn report(figure: &Rc<RefCell<FigureState>>, artist: ArtistId, err: &ColorbarError) {
-    figure.borrow_mut().pending_errors.push(DrawError {
-        artist,
-        message: err.to_string(),
-    });
+    figure
+        .borrow_mut()
+        .pending_errors
+        .push(DrawError::new(artist, err.to_string()));
 }

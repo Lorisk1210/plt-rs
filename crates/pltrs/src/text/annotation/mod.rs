@@ -116,7 +116,9 @@ impl AnnotationState {
         CoordFrame {
             layout,
             axes: Self::axes(text, layout),
-            owner: text.base().parent,
+            // An annotation in no container, only given its figure, is
+            // placed in that figure (matplotlib's `get_figure(root=False)`).
+            owner: Some(text.base().parent.unwrap_or_else(|| layout.root())),
             offset_origin,
             fontsize: text.font.size,
         }

@@ -27,6 +27,7 @@ def wrap(native, cls, figure):
     """
     if native is None:
         return None
+    figure = figure._figure  # The root keeps the registry.
     key = _artist.id(native)
     obj = figure._artists.get(key)
     if obj is None:
@@ -57,6 +58,7 @@ _CLASS_MODULES = {
     "Table": "table",
     "Spine": "spines",
     "Axes": "axes",
+    "InsetIndicator": "inset",
     **dict.fromkeys(
         ["Rectangle", "Ellipse", "Circle", "Polygon", "Wedge", "PathPatch",
          "RegularPolygon", "CirclePolygon", "StepPatch", "FancyArrow", "Arrow",
@@ -87,6 +89,7 @@ def adopt(artist, native, figure):
     of the artist the handle *native* reaches in *figure*, once an axes or
     the figure adopted it (``_native.artist.adopt_into_axes``); return it.
     """
+    figure = figure._figure  # The root keeps the registry.
     artist._native = native
     artist._figure = figure
     figure._artists[_artist.id(native)] = artist
@@ -95,4 +98,4 @@ def adopt(artist, native, figure):
 
 def forget(artist):
     """Drop *artist* from its figure's registry (once it is removed)."""
-    artist.figure._artists.pop(_artist.id(artist._native), None)
+    artist._figure._artists.pop(_artist.id(artist._native), None)

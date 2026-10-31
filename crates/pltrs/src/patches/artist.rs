@@ -13,6 +13,7 @@ use super::{ClipRegion, DataRectangle, PatchError, Rectangle};
 use crate::artist::{
     Artist, ArtistBase, ArtistId, DrawContext, DrawnDpiCor, LayoutContext, LimitPoints, Picker,
 };
+use crate::colors::ColorError;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
@@ -176,6 +177,50 @@ impl<S: PatchShape> PatchArtist<S> {
             interpolation_steps: self.interpolation_steps,
             drawn: Some(&self.dpi_cor),
         }
+    }
+
+    /// The outlines in display space, with arrow sizes at `dpi_cor` pixels
+    /// per point, for an artist drawing the patch as part of itself.
+    pub(crate) fn display_paths_at(
+        &self,
+        layout: LayoutContext<'_>,
+        dpi_cor: f64,
+    ) -> Result<Vec<DisplayPath>, PatchError> {
+        self.parts().display_paths(layout, dpi_cor)
+    }
+
+    /// Paints `paths`, in display space, in the patch's style, as a patch
+    /// updated from this one paints them (matplotlib's
+    /// `PathPatch(path).update_from(patch)`).
+    pub(crate) fn paint_display_paths(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        paths: &[DisplayPath],
+    ) -> Result<(), ColorError> {
+        paint_paths(
+            ctx,
+            &self.base,
+            &self.style,
+            &self.rc,
+            S::EDGE_DEFAULT,
+            paths,
+        )
+    }
+
+    /// Whether the patch's edge looks like `other`'s: the same alpha, edge
+    /// colour, line style and width (what matplotlib compares with
+    /// `get_alpha`, `get_edgecolor`, `get_linestyle` and `get_linewidth`).
+    pub(crate) fn shares_edge_style<T: PatchShape>(&self, other: &PatchArtist<T>) -> bool {
+        let edge = |style: &PatchStyle, rc: &RcParams, alpha: Option<f64>, default: bool| {
+            style
+                .resolve(rc, alpha, default)
+                .ok()
+                .map(|resolved| (resolved.edge, resolved.linewidth))
+        };
+        self.base.alpha == other.base.alpha
+            && self.style.linestyle == other.style.linestyle
+            && edge(&self.style, &self.rc, self.base.alpha, S::EDGE_DEFAULT)
+                == edge(&other.style, &other.rc, other.base.alpha, T::EDGE_DEFAULT)
     }
 
     /// Points bounding the outline (ends and axis extrema of every curve),

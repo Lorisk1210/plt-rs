@@ -351,10 +351,7 @@ impl FigureCanvas {
         let problems = match outcome {
             Ok(()) => return,
             Err(CanvasError::Draw(DrawErrors(errors))) => errors,
-            Err(err) => vec![DrawError {
-                artist: self.figure.id(),
-                message: err.to_string(),
-            }],
+            Err(err) => vec![DrawError::new(self.figure.id(), err.to_string())],
         };
         self.figure.state_mut().pending_errors.extend(problems);
     }

@@ -164,10 +164,7 @@ pub(crate) fn lay_out_legends(state: &mut FigureState) {
             None => Ok(()),
         };
         if let Err(message) = applied {
-            state.pending_errors.push(DrawError {
-                artist: id,
-                message,
-            });
+            state.pending_errors.push(DrawError::new(id, message));
         }
     }
 }

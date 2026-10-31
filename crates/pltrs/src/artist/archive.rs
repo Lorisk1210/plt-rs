@@ -25,7 +25,7 @@ use crate::figure::{FigureFrame, FigureState};
 use crate::image::{
     AxesImageArtist, BboxImageArtist, FigureImageArtist, NonUniformImageArtist, PcolorImageArtist,
 };
-use crate::inset::InsetIndicator;
+use crate::inset::IndicatorArtist;
 use crate::legend::LegendArtist;
 use crate::lines::LineArtist;
 use crate::mplot3d::{Axes3DState, ProjectedOutline, ProjectedPath};
@@ -66,6 +66,7 @@ pltrs_core::archive_kinds!(dyn Artist {
     "axis-artist" => AxisArtistState,
     "tick-marks" => TickMarksState,
     "filtered-group" => FilteredGroupArtist,
+    "inset-indicator" => IndicatorArtist,
     "rectangle" => PatchArtist<Rectangle>,
     "ellipse" => PatchArtist<Ellipse>,
     "circle" => PatchArtist<Circle>,
@@ -85,7 +86,6 @@ pltrs_core::archive_kinds!(dyn Artist {
     "bbox-patch" => PatchArtist<BboxPatch>,
     "bbox-connector" => PatchArtist<BboxConnector>,
     "bbox-connector-patch" => PatchArtist<BboxConnectorPatch>,
-    "inset-indicator" => PatchArtist<InsetIndicator>,
     "table-cell" => PatchArtist<CellShape>,
     "projected-outline" => PatchArtist<ProjectedOutline>,
     "projected-path" => PatchArtist<ProjectedPath>,
@@ -108,7 +108,6 @@ pltrs_core::archive_kinds!(dyn Artist {
     "shadow:bbox-patch" => PatchArtist<Shadow<BboxPatch>>,
     "shadow:bbox-connector" => PatchArtist<Shadow<BboxConnector>>,
     "shadow:bbox-connector-patch" => PatchArtist<Shadow<BboxConnectorPatch>>,
-    "shadow:inset-indicator" => PatchArtist<Shadow<InsetIndicator>>,
     "shadow:table-cell" => PatchArtist<Shadow<CellShape>>,
     "shadow:projected-outline" => PatchArtist<Shadow<ProjectedOutline>>,
     "shadow:projected-path" => PatchArtist<Shadow<ProjectedPath>>,

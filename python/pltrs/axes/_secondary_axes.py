@@ -16,13 +16,16 @@ from ._axes import Axes
 from ._insets import _TransformedBoundsLocator
 
 
-def _scalar_function(function):
+class _ScalarFunction:
     """*function*, which takes arrays as matplotlib calls it, called on one
-    value as pltrs (Rust) calls it."""
-    def call(value):
+    value as pltrs (Rust) calls it; it pickles as *function* does."""
+
+    def __init__(self, function):
+        self._function = function
+
+    def __call__(self, value):
         with np.errstate(all="ignore"):
-            return float(np.asarray(function(np.float64(value))))
-    return call
+            return float(np.asarray(self._function(np.float64(value))))
 
 
 class SecondaryAxis(Axes):
@@ -184,7 +187,7 @@ class SecondaryAxis(Axes):
     def _native_functions(self):
         """The functions as pltrs (Rust) calls them, value by value."""
         forward, inverse = self._functions
-        return (_scalar_function(forward), _scalar_function(inverse))
+        return (_ScalarFunction(forward), _ScalarFunction(inverse))
 
     def set_functions(self, functions):
         """

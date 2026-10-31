@@ -15,6 +15,7 @@ use pltrs::patches::{ArrowStyle, ConnectionStyle};
 use pltrs::text::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps, Text,
 };
+use pltrs::transforms::Transform;
 use pltrs::units::{AxisValue, DataPoint};
 use pltrs_core::Point;
 
@@ -59,8 +60,8 @@ fn offset_unit(unit: &str) -> PyResult<CoordUnit> {
 
 /// Coordinates as the Python side gives them: a name (`"data"`, `"axes
 /// fraction"`, ...), `("blended", x, y)`, `("artist", native)` for the
-/// extent of an artist, or `("offset_from", native, (x, y), unit)` for
-/// matplotlib's `OffsetFrom`.
+/// extent of an artist, `("transform", native)` for a transform, or
+/// `("offset_from", native, (x, y), unit)` for matplotlib's `OffsetFrom`.
 pub(super) struct PyCoords(pub(super) Coords);
 
 impl FromPy<'_> for PyCoords {
@@ -82,6 +83,10 @@ impl FromPy<'_> for PyCoords {
             "artist" => {
                 let (_, artist): (String, RawHandle) = object.extract()?;
                 Coords::Artist(artist.id())
+            }
+            "transform" => {
+                let (_, transform): (String, Transform) = object.extract()?;
+                Coords::Transform(transform)
             }
             "offset_from" => {
                 let (_, artist, (x, y), unit): (String, RawHandle, (f64, f64), String) =
@@ -199,8 +204,9 @@ fn annotation(text: &Text) -> PyResult<Annotation> {
         .ok_or_else(|| PyErr::type_error("the text is not an annotation"))
 }
 
-/// The arguments of `annotate` besides the axes and the text:
-/// `(xy, xytext, xycoords, textcoords, arrowprops, annotation_clip)`.
+/// The arguments of `annotate` and `Annotation` besides the axes and the
+/// text: `(xy, xytext, xycoords, textcoords, arrowprops,
+/// annotation_clip)`.
 type AnnotateArgs = (
     (PyAxisValue, PyAxisValue),
     Option<(PyAxisValue, PyAxisValue)>,
@@ -210,9 +216,8 @@ type AnnotateArgs = (
     Option<bool>,
 );
 
-/// `Axes.annotate(text, xy, xytext, xycoords, textcoords, arrowprops,
-/// annotation_clip)`: the annotation's text handle.
-fn axes_annotate(axes: Axes, text: String, args: AnnotateArgs) -> PyResult<Text> {
+/// The annotated point and the options `args` give.
+fn annotate_options(args: AnnotateArgs) -> (DataPoint, AnnotateOptions) {
     let (xy, xytext, xycoords, textcoords, arrowprops, annotation_clip) = args;
     let options = AnnotateOptions {
         xytext: xytext.map(data_point),
@@ -222,7 +227,23 @@ fn axes_annotate(axes: Axes, text: String, args: AnnotateArgs) -> PyResult<Text>
         annotation_clip,
         clip_on: false,
     };
-    let note = axes.annotate(text, data_point(xy), options)?;
+    (data_point(xy), options)
+}
+
+/// `Axes.annotate(text, xy, xytext, xycoords, textcoords, arrowprops,
+/// annotation_clip)`: the annotation's text handle.
+fn axes_annotate(axes: Axes, text: String, args: AnnotateArgs) -> PyResult<Text> {
+    let (xy, options) = annotate_options(args);
+    let note = axes.annotate(text, xy, options)?;
+    Ok((*note).clone())
+}
+
+/// `Annotation(text, xy, xytext, xycoords, textcoords, arrowprops,
+/// annotation_clip)`: the text handle of an annotation outside any
+/// figure.
+fn new(text: String, args: AnnotateArgs) -> PyResult<Text> {
+    let (xy, options) = annotate_options(args);
+    let note = Annotation::loose(text, xy, options)?;
     Ok((*note).clone())
 }
 
@@ -269,6 +290,7 @@ fn has_arrow(text: Text) -> PyResult<bool> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axes_annotate", axes_annotate)?;
+    module.add("new", new)?;
     module.add("get_xy", get_xy)?;
     module.add("set_xy", set_xy)?;
     module.add("set_xycoords", set_xycoords)?;

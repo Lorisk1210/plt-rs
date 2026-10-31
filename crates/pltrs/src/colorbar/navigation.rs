@@ -62,10 +62,10 @@ impl Colorbar {
             state.follow(&self.ax, source, false)
         });
         if let Err(err) = redrawn {
-            figure.borrow_mut().pending_errors.push(DrawError {
-                artist: self.raw.id(),
-                message: err.to_string(),
-            });
+            figure
+                .borrow_mut()
+                .pending_errors
+                .push(DrawError::new(self.raw.id(), err.to_string()));
         }
     }
 }

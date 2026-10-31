@@ -1,10 +1,10 @@
 //! `_native.figure`: figures, subfigures, their subplots and layout
 //! engines (matplotlib's `figure`); `_native.backends` prints them.
 
-use pltrs::artist::RawHandle;
+use pltrs::artist::{DrawErrorKind, RawHandle};
 use pltrs::axes::{Axes, ProjectionKind};
 use pltrs::colors::Color;
-use pltrs::figure::{AxesRectError, Figure, SaveError, SizeError, SubfigureOptions};
+use pltrs::figure::{AxesRectError, DrawErrors, Figure, SaveError, SizeError, SubfigureOptions};
 use pltrs::gridspec::{GridSpecError, SubplotOverrides, SubplotSpec};
 use pltrs::layout::{
     ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, TightLayout,
@@ -47,11 +47,28 @@ impl From<SizeError> for PyErr {
     }
 }
 
+impl From<DrawErrors> for PyErr {
+    /// The first problem as matplotlib raises it, drawing stopping there:
+    /// a `ValueError` with its message for a value of the program's that
+    /// cannot be drawn (malformed mathtext, ...), else a `RuntimeError`
+    /// naming every problem.
+    fn from(errors: DrawErrors) -> Self {
+        match errors.0.first() {
+            Some(first) if first.kind == DrawErrorKind::InvalidValue => {
+                PyErr::value_error(first.message.clone())
+            }
+            _ => PyErr::runtime_error(errors.to_string()),
+        }
+    }
+}
+
 impl From<SaveError> for PyErr {
     /// matplotlib's `ValueError` for unknown formats and canvases too large
-    /// to make (Agg's limit), `OSError` for files that cannot be written.
+    /// to make (Agg's limit), `OSError` for files that cannot be written,
+    /// and the problems drawing met as [`DrawErrors`] raise them.
     fn from(err: SaveError) -> Self {
         let kind = match err {
+            SaveError::Draw(errors) => return errors.into(),
             SaveError::Io(_) => ExceptionKind::OSError,
             SaveError::UnsupportedFormat(_)
             | SaveError::MetadataUnsupported(_)
@@ -349,10 +366,9 @@ fn clear(figure: Figure) -> PyResult<()> {
     Ok(())
 }
 
-/// Lays the figure out without drawing it (`draw_without_rendering`).
-fn layout(figure: Figure) -> PyResult<()> {
-    figure.layout();
-    Ok(())
+/// Draws the figure without output (`draw_without_rendering`).
+fn draw_without_rendering(figure: Figure) -> PyResult<()> {
+    Ok(figure.draw_without_rendering()?)
 }
 
 /// Registers the module's functions.
@@ -366,7 +382,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_subplot_spec_projection", add_subplot_spec_projection)?;
     module.add("add_axes_projection", add_axes_projection)?;
     module.add("subplots_adjust", subplots_adjust)?;
-    module.add("layout", layout)?;
+    module.add("draw_without_rendering", draw_without_rendering)?;
     module.add("clear", clear)?;
     module.add("subfigures", subfigures)?;
     module.add("add_subfigure", add_subfigure)?;

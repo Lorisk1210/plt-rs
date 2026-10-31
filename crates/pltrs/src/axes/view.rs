@@ -100,10 +100,10 @@ impl FigureState {
             }
         });
         if let Some(axis) = linear_only.filter(|_| scale.name() != ScaleName::Linear) {
-            self.pending_errors.push(DrawError {
-                artist: axes,
-                message: format!("{axis} must stay linear, not {:?}", scale.name().as_str()),
-            });
+            self.pending_errors.push(DrawError::new(
+                axes,
+                format!("{axis} must stay linear, not {:?}", scale.name().as_str()),
+            ));
             return;
         }
         let default_limits = |state: &Self| {
@@ -166,10 +166,9 @@ impl FigureState {
                 self.set_axis_limits(axes, name, (v0, v1), None, true);
             }
             Ok(None) => {}
-            Err(err) => self.pending_errors.push(DrawError {
-                artist: axes,
-                message: err.to_string(),
-            }),
+            Err(err) => self
+                .pending_errors
+                .push(DrawError::new(axes, err.to_string())),
         }
     }
 
@@ -252,10 +251,7 @@ impl FigureState {
                     "changing the limits of {} axes is not supported",
                     projection_noun(state)
                 );
-                self.pending_errors.push(DrawError {
-                    artist: axes,
-                    message,
-                });
+                self.pending_errors.push(DrawError::new(axes, message));
             }
             return;
         }

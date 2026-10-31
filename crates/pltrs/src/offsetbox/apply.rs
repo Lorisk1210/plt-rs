@@ -152,10 +152,7 @@ pub(crate) fn lay_out_boxes(state: &mut FigureState) {
         }
         match placements(state, id) {
             Some(Ok(placements)) => apply_placements(&mut state.store, placements),
-            Some(Err(message)) => state.pending_errors.push(DrawError {
-                artist: id,
-                message,
-            }),
+            Some(Err(message)) => state.pending_errors.push(DrawError::new(id, message)),
             None => {}
         }
     }

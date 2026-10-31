@@ -219,7 +219,6 @@ pub(crate) struct Axis3DState {
     pub(crate) dir: Axis3,
     pub(crate) scale: AxisScale,
     pub(crate) tickers: Tickers3D,
-    pub(crate) settings: TickerSettings,
     /// The unit converter, how it was chosen, and the unit.
     pub(crate) units: AxisUnits,
     /// Category names, once categorical values were plotted.
@@ -256,7 +255,6 @@ pltrs_core::archive_struct!(Axis3DState {
     dir,
     scale,
     tickers,
-    settings,
     units,
     categories,
     label,
@@ -275,7 +273,6 @@ pltrs_core::archive_struct!(Axis3DState {
 impl Axis3DState {
     /// A linear axis configured from `rc`.
     pub(crate) fn new(dir: Axis3, rc: &RcParams) -> Self {
-        let settings = TickerSettings::from(rc);
         let scale = AxisScale::default();
         let pane_color = match dir {
             Axis3::X => &rc.axes3d_xaxis_panecolor,
@@ -284,9 +281,8 @@ impl Axis3DState {
         };
         Self {
             dir,
-            tickers: Tickers3D::defaults(scale.scale().as_ref(), dir, &settings),
+            tickers: Tickers3D::defaults(scale.scale().as_ref(), dir, &TickerSettings::from(rc)),
             scale,
-            settings,
             units: AxisUnits::default(),
             categories: None,
             label: AxisLabel3D {
@@ -317,10 +313,11 @@ impl Axis3DState {
         self.major_style.labels.first || self.major_style.labels.second
     }
 
-    /// Replaces the scale and installs its default tick helpers
-    /// (matplotlib's `Axis._set_scale`).
+    /// Replaces the scale and installs its default tick helpers, made
+    /// under the current rcParams (matplotlib's `Axis._set_scale`).
     pub(crate) fn set_scale(&mut self, scale: AxisScale) {
-        self.tickers = Tickers3D::defaults(scale.scale().as_ref(), self.dir, &self.settings);
+        let settings = TickerSettings::current();
+        self.tickers = Tickers3D::defaults(scale.scale().as_ref(), self.dir, &settings);
         self.scale = scale;
     }
 
@@ -352,7 +349,8 @@ impl Axis3DState {
     /// `(v0, v1)` expanded when singular by the major locator.
     pub(crate) fn nonsingular(&self, span: &AxisSpan, v0: f64, v1: f64) -> (f64, f64) {
         let info = self.info(span, 0.0);
-        let ctx = TickContext::new(&info, &self.settings);
+        let settings = TickerSettings::current();
+        let ctx = TickContext::new(&info, &settings);
         self.tickers.major_locator.nonsingular(v0, v1, &ctx)
     }
 
@@ -364,7 +362,8 @@ impl Axis3DState {
         v1: f64,
     ) -> Result<(f64, f64), TickerError> {
         let info = self.info(span, 0.0);
-        let ctx = TickContext::new(&info, &self.settings);
+        let settings = TickerSettings::current();
+        let ctx = TickContext::new(&info, &settings);
         self.tickers.major_locator.view_limits(v0, v1, &ctx)
     }
 
@@ -403,12 +402,13 @@ impl Axis3DState {
         automargin: bool,
     ) -> Result<TickSet, TickerError> {
         let mut info = self.info(span, length_points);
+        let settings = TickerSettings::current();
         let major_locs = {
-            let ctx = TickContext::new(&info, &self.settings);
+            let ctx = TickContext::new(&info, &settings);
             drawable_ticks(self.tickers.major_locator.locate(&ctx)?)?
         };
         info.major_ticks.clone_from(&major_locs);
-        let ctx = TickContext::new(&info, &self.settings);
+        let ctx = TickContext::new(&info, &settings);
         let visible = self.visibility(span.view, automargin);
         let unclipped = |locs: &[f64], labels: Vec<String>| -> Vec<Tick> {
             locs.iter()

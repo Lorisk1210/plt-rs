@@ -11,7 +11,7 @@ use super::{Axes, AxesState, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineProps, LineStyle};
-use crate::markers::Marker;
+use crate::markers::{Marker, NoMarker};
 use crate::orientation::Orientation;
 use crate::patches::{Patch, PatchArtist, PatchProps, PathShape};
 use crate::rc::{ColorOrAuto, RcParams};
@@ -157,7 +157,7 @@ impl PartStyles {
                 .linewidth(width)
                 .linestyle(style.clone())
                 .zorder(zorder)
-                .marker(Marker::default())
+                .marker(Marker::nothing(NoMarker::Empty))
         };
         let butt = |props: LineProps| {
             props
@@ -211,7 +211,7 @@ impl PartStyles {
         // unless the caller styles that part explicitly.
         if options.meanline.unwrap_or(false) {
             if !options.meanprops.is_set("marker") {
-                mean = mean.marker(Marker::default());
+                mean = mean.marker(Marker::nothing(NoMarker::Empty));
             }
         } else if !options.meanprops.is_set("linestyle") {
             mean = mean.linestyle(LineStyle::None);
@@ -254,7 +254,7 @@ impl PartStyles {
             .linewidth(rc.boxplot_boxprops_linewidth)
             .linestyle(rc.boxplot_boxprops_linestyle.clone())
             .zorder(zorder)
-            .marker(Marker::default())
+            .marker(Marker::nothing(NoMarker::Empty))
             .overlay(props.clone())
     }
 }

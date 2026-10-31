@@ -4,7 +4,7 @@ use super::bxp::{BoxProps, BoxplotArtists, BxpOptions};
 use super::{Axes, PlotError};
 use crate::colors::Color;
 use crate::lines::{FormatString, LineStyle};
-use crate::markers::Marker;
+use crate::markers::{Marker, NoMarker};
 use crate::rc::{ColorOrAuto, RcParams};
 use crate::stats::{Bootstrap, BoxStats, Whis, boxplot_stats};
 
@@ -144,7 +144,7 @@ fn resolved_draw_options(options: &BoxplotOptions, rc: &RcParams) -> Result<BxpO
             draw.flierprops = draw
                 .flierprops
                 .linestyle(LineStyle::None)
-                .marker(Marker::default())
+                .marker(Marker::nothing(NoMarker::Empty))
                 .color(Color::none());
             draw.showfliers = Some(false);
         }

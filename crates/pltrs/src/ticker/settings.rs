@@ -123,6 +123,12 @@ impl TickerSettings {
         ytick_minor_visible: false,
     };
 
+    /// The subset of the thread's current rcParams, which matplotlib reads
+    /// when its locators and formatters run.
+    pub fn current() -> Self {
+        Self::from(&*crate::rc::params())
+    }
+
     /// Replaces `-` by U+2212 MINUS SIGN when `axes.unicode_minus` is on
     /// (matplotlib's `Formatter.fix_minus`).
     pub fn fix_minus(&self, text: &str) -> String {

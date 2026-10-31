@@ -53,6 +53,18 @@ impl Complex {
         self.im.atan2(self.re)
     }
 
+    /// The product as numpy multiplies `complex128` arrays: its SIMD loop
+    /// (`fmaddsub` on x86-64, the fused multiply-add of `AArch64`) rounds
+    /// each part once after adding the product of the real parts to the
+    /// rounded cross term.
+    #[must_use]
+    pub fn mul_fused(self, rhs: Self) -> Self {
+        Self::new(
+            self.re.mul_add(rhs.re, -(self.im * rhs.im)),
+            self.re.mul_add(rhs.im, self.im * rhs.re),
+        )
+    }
+
     /// Multiplies both parts by a real factor.
     #[must_use]
     pub fn scale(self, factor: f64) -> Self {
@@ -217,5 +229,19 @@ mod tests {
         let q = Complex::ONE / Complex::I;
         assert_eq!(q, Complex::new(0.0, -1.0));
         assert!((Complex::ONE / Complex::ZERO).re.is_infinite());
+    }
+
+    #[test]
+    fn fused_products_round_as_numpy_arrays() {
+        // numpy 2.5: `a * b` for arrays of `13/7 + i/3` and `1.3 + 13i/9`,
+        // one ulp below the separately rounded parts in both.
+        let (a, b) = (
+            Complex::new(13.0 / 7.0, 1.0 / 3.0),
+            Complex::new(0.1 * 13.0, 13.0 / 9.0),
+        );
+        let fused = a.mul_fused(b);
+        assert_eq!(fused.re.to_bits(), 0x3FFE_ECC4_2197_6ECD);
+        assert_eq!(fused.im.to_bits(), 0x4008_ED4E_D4ED_4ED5);
+        assert_eq!((a * b).re.to_bits(), 0x3FFE_ECC4_2197_6ECE);
     }
 }

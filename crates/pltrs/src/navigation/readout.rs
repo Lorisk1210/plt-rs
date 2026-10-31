@@ -153,8 +153,9 @@ fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
             AxisName::Y => state.fmt_data.1.as_ref(),
         };
         let formatter = custom.unwrap_or(&axis.major_formatter);
+        let settings = axis.settings();
         if (formatter.as_ref() as &dyn Any).is::<ScalarFormatter>() {
-            return ScalarFormatter::format_data_resolved(value, resolution, &axis.settings).ok();
+            return ScalarFormatter::format_data_resolved(value, resolution, &settings).ok();
         }
         let ((low, high), minpos) = state.data_interval(name);
         let info = axis.info(&crate::axes::axis::AxisGeometry {
@@ -166,7 +167,7 @@ fn format_data(ax: &Axes, name: AxisName, value: f64) -> Option<String> {
             tick_floor: None,
         });
         formatter
-            .format_data_short(value, &TickContext::new(&info, &axis.settings))
+            .format_data_short(value, &TickContext::new(&info, &settings))
             .ok()
     })
 }

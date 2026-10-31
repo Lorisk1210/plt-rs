@@ -516,11 +516,11 @@ fn gap_color(color: Color) -> Option<Color> {
 }
 
 /// A marker as matplotlib spells it: a named marker by its key (`"o"`,
-/// an integer code), `(sides, style, angle)` for polygons, the vertices,
-/// `("path", (vertices, codes))` for a path, or the mathtext.
+/// an integer code, "no marker" as the program spelled it), `(sides,
+/// style, angle)` for polygons, the vertices, `("path", (vertices,
+/// codes))` for a path, or the mathtext.
 fn marker_object(py: Python<'_>, marker: Marker) -> PyResult<Bound<'_>> {
     match marker {
-        Marker::Symbol(MarkerSymbol::Nothing) => "None".into_py(py),
         Marker::Symbol(symbol) => match MarkerSymbol::all().find(|(_, s)| *s == symbol) {
             Some((pltrs::markers::MarkerKey::Char(key), _)) => key.into_py(py),
             Some((pltrs::markers::MarkerKey::Code(code), _)) => code.into_py(py),

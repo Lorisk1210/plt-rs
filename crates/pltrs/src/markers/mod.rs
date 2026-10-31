@@ -10,7 +10,7 @@ mod shapes;
 mod spec;
 mod style;
 
-pub use spec::{FillStyle, Marker, MarkerError, MarkerKey, MarkerSymbol, PolygonStyle};
+pub use spec::{FillStyle, Marker, MarkerError, MarkerKey, MarkerSymbol, NoMarker, PolygonStyle};
 pub use style::MarkerStyle;
 
 use pltrs_render::Sketch;

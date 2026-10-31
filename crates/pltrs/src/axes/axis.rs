@@ -14,7 +14,7 @@ use crate::polar::{RadialLocator, theta_tickers};
 use crate::rc::RcParams;
 use crate::scale::{AxisTickers, LinearScale, Scale};
 use crate::spines::SpineSide;
-use crate::ticker::{AxisName, Formatter, Locator, TickerError, TickerSettings};
+use crate::ticker::{AutolimitMode, AxisName, Formatter, Locator, TickerError, TickerSettings};
 use crate::transforms::AxisMap;
 use crate::units::{AxisUnits, Categories, UnitAxisInfo, UnitData, UnitState};
 
@@ -162,7 +162,11 @@ pub(crate) struct AxisState {
     categories: Option<Categories>,
     /// The unit converter and how it was chosen.
     pub(crate) units: AxisUnits,
-    pub(crate) settings: TickerSettings,
+    /// The `axes.autolimit_mode` set on the axes
+    /// ([`Axes::set_autolimit_mode`](super::Axes::set_autolimit_mode));
+    /// `None` reads the rcParam whenever the axis autoscales, as
+    /// matplotlib does.
+    pub(crate) autolimit_mode: Option<AutolimitMode>,
     pub(crate) autoscale: AutoscaleState,
     /// Size of the major tick labels in points as set by the tick
     /// parameters (matplotlib's `_major_tick_kw['labelsize']`), which
@@ -210,7 +214,7 @@ pltrs_core::archive_struct!(AxisState {
     defaults,
     categories,
     units,
-    settings,
+    autolimit_mode,
     autoscale,
     label_size,
     ticks,
@@ -230,13 +234,12 @@ pltrs_core::archive_struct!(AxisState {
 impl AxisState {
     /// A linear axis configured from `rc`.
     pub(crate) fn new(name: AxisName, rc: &RcParams) -> Self {
-        let settings = TickerSettings::from(rc);
         let margin = match name {
             AxisName::X => rc.axes_xmargin,
             AxisName::Y => rc.axes_ymargin,
         };
         let scale: Rc<dyn Scale> = Rc::new(LinearScale);
-        let tickers = scale.default_tickers(name, &settings);
+        let tickers = scale.default_tickers(name, &TickerSettings::from(rc));
         Self {
             name,
             role: AxisRole::Cartesian,
@@ -256,7 +259,7 @@ impl AxisState {
                 stale: false,
             },
             label_size: None,
-            settings,
+            autolimit_mode: None,
             ticks: Ok(TickSet::default()),
             major_style: TickStyle::from_rc(name, true, rc),
             minor_style: TickStyle::from_rc(name, false, rc),
@@ -314,15 +317,28 @@ impl AxisState {
         self.scale.as_ref()
     }
 
-    /// Replaces the scale and installs its default tick helpers
-    /// (matplotlib's `Axis._set_scale`).
+    /// The rcParams the tick helpers read now: the current ones, since
+    /// matplotlib reads them when it makes its locators and formatters
+    /// and whenever it autoscales and places ticks, with the autolimit
+    /// mode set on the axes.
+    pub(crate) fn settings(&self) -> TickerSettings {
+        let mut settings = TickerSettings::current();
+        if let Some(mode) = self.autolimit_mode {
+            settings.axes_autolimit_mode = mode;
+        }
+        settings
+    }
+
+    /// Replaces the scale and installs its default tick helpers, made
+    /// under the current rcParams (matplotlib's `Axis._set_scale`).
     pub(crate) fn set_scale(&mut self, scale: Rc<dyn Scale>) {
+        let settings = self.settings();
         let AxisTickers {
             major_locator,
             minor_locator,
             major_formatter,
             minor_formatter,
-        } = scale.default_tickers(self.name, &self.settings);
+        } = scale.default_tickers(self.name, &settings);
         self.major_locator = Rc::from(major_locator);
         self.major_formatter = Rc::from(major_formatter);
         self.minor_locator = Rc::from(minor_locator);
@@ -332,7 +348,7 @@ impl AxisState {
         match self.role {
             AxisRole::Cartesian => {}
             AxisRole::Theta => {
-                (self.major_locator, self.major_formatter) = theta_tickers(&self.settings);
+                (self.major_locator, self.major_formatter) = theta_tickers(&settings);
             }
             AxisRole::Radius => {
                 self.major_locator = self.for_role(Rc::clone(&self.major_locator));

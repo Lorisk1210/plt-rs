@@ -24,7 +24,8 @@ pub(crate) struct AxisAutoscale<'a> {
 /// `(lower, upper)` view interval for one axis.
 pub(crate) fn autoscale_axis(request: &AxisAutoscale<'_>) -> Result<(f64, f64), TickerError> {
     let axis = request.axis;
-    let ctx = TickContext::new(request.info, &axis.settings);
+    let settings = axis.settings();
+    let ctx = TickContext::new(request.info, &settings);
     let (data0, data1) = request.info.data_interval;
     let (mut x0, mut x1) = axis.major_locator.nonsingular(data0, data1, &ctx);
 

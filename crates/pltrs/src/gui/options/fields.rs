@@ -211,7 +211,7 @@ pub(super) fn parse_color(name: &str, text: &str) -> Result<crate::colors::Color
 /// empty text for markers without one.
 pub(super) fn marker_text(marker: &Marker) -> String {
     match marker {
-        Marker::Symbol(MarkerSymbol::Nothing) => "None".to_owned(),
+        Marker::Symbol(MarkerSymbol::Nothing(_)) => "None".to_owned(),
         Marker::Symbol(symbol) => {
             MarkerSymbol::all()
                 .find(|(_, s)| s == symbol)
@@ -269,7 +269,7 @@ mod tests {
         assert_eq!(swatch_color("nope"), None);
         assert_eq!(marker_text(&Marker::Symbol(MarkerSymbol::Circle)), "o");
         assert_eq!(marker_text(&Marker::Symbol(MarkerSymbol::CaretDown)), "7");
-        assert_eq!(marker_text(&Marker::Symbol(MarkerSymbol::Nothing)), "None");
+        assert_eq!(marker_text(&Marker::default()), "None");
         assert_eq!(
             parse_marker("Style", "4"),
             Ok(Marker::Symbol(MarkerSymbol::CaretLeft))

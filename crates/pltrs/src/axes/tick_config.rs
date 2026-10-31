@@ -70,7 +70,7 @@ impl Axis {
             axis.scale()
                 .name()
                 .has_own_minor_locator()
-                .then(|| axis.scale().default_tickers(axis.name, &axis.settings))
+                .then(|| axis.scale().default_tickers(axis.name, &axis.settings()))
         });
         let locator: Rc<dyn Locator> = match scale_minor {
             Some(tickers) => Rc::from(tickers.minor_locator),

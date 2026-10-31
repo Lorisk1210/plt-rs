@@ -145,7 +145,7 @@ fn sync_gridline(line: &Line2D, name: AxisName, loc: f64, style: &TickStyle) {
     line.set_color(style.grid.color.clone())
         .set_linewidth(style.grid.linewidth)
         .set_linestyle(style.grid.linestyle.clone())
-        .set_marker(Marker::from(MarkerSymbol::Nothing));
+        .set_marker(Marker::default());
     line.set_alpha(Some(style.grid.alpha))
         .set_visible(style.grid_on);
 }

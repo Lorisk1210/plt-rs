@@ -255,7 +255,10 @@ def _spectral_helper(x, y=None, NFFT=None, Fs=None, detrend_func=None,
     (re, im), freqs, t = _mlab.spectral_helper(
         _signal(x), None if same_data else _signal(np.asarray(y)), options, mode)
     result = re + 1j * im if mode in ('psd', 'complex') else re
-    return result, freqs, t
+    # matplotlib's spectra are laid out frequency first (its transform keeps
+    # the Fortran order of the segment view), which decides how numpy sums
+    # them, as in the segment mean of `csd`.
+    return np.asfortranarray(result), freqs, t
 
 
 def _single_spectrum_helper(

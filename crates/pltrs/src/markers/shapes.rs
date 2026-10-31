@@ -116,7 +116,7 @@ impl Shape {
     ) {
         use MarkerSymbol as S;
         match symbol {
-            S::Nothing => self.filled = false,
+            S::Nothing(_) => self.filled = false,
             S::Circle => self.circle(1.0, fill),
             S::Point => self.circle(0.5, fill),
             S::Pixel => {

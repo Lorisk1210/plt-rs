@@ -1,6 +1,8 @@
 //! The warnings pltrs (Rust) issues while it works (`pltrs::warnings`),
 //! issued as matplotlib issues its own: through `_api.warn_external`,
-//! which the package registers (`_native.register("warn_external", ...)`).
+//! which the package registers (`_native.register("warn_external", ...)`),
+//! and the warnings it logs, through the package's `log_warning`, which
+//! logs them with the logger of the module of matplotlib's that logs them.
 //!
 //! A warning that the warning filters turn into an exception raises from
 //! the native call that issued it, as an exception of a callback does
@@ -9,10 +11,31 @@
 use crate::binding::lookup;
 use crate::binding::prelude::*;
 
-/// Sends pltrs (Rust)'s warnings to `_api.warn_external` from now on.
+/// Sends pltrs (Rust)'s warnings to `_api.warn_external` and its log
+/// messages to the package's `log_warning` from now on.
 pub(super) fn register(_module: &Module<'_>) -> PyResult<()> {
     pltrs::warnings::set_handler(warn);
+    pltrs::warnings::set_log_handler(log);
     Ok(())
+}
+
+/// Logs `message` as a warning of the package's module `module` through
+/// the registered `log_warning`; before the package registered it, to
+/// standard error.
+#[expect(
+    clippy::print_stderr,
+    reason = "before the package registers log_warning, messages go to standard error"
+)]
+fn log(module: &str, message: &str) {
+    let log_warning =
+        Python::with_gil(|py| lookup(py, "log_warning").and_then(|log| log.extract::<Callback>()));
+    match log_warning {
+        Ok(log_warning) => {
+            // An exception goes to the native call running, which raises it.
+            let _: Option<Owned> = log_warning.call((module.to_owned(), message.to_owned()));
+        }
+        Err(_) => eprintln!("{message}"),
+    }
 }
 
 /// Issues `message` through the registered `warn_external`; before the

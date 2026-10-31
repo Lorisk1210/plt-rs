@@ -264,7 +264,8 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             stage.to_string(),
-            r#"key "image.interpolation_stage": "antialiased" is not one of ["auto", "data", "rgba"] (value "antialiased")"#,
+            "key \"image.interpolation_stage\": 'antialiased' is not a valid value; supported \
+             values are ['auto', 'data', 'rgba'] (value \"antialiased\")",
             "the stage parses more names than matplotlib's rc allows"
         );
     }

@@ -12,7 +12,8 @@
 //! [`AxisArtistAxes::zero`]), lines can end in arrow heads ([`AxislineStyle`]), and
 //! [`AxisArtistAxes::grid`] draws gridlines through the grid helper. Outside such
 //! axes, [`AxisArtist::add_fixed`] puts an axis artist on an edge of any
-//! axes, and [`TickMarks`] are tick marks drawn on their own.
+//! axes, [`TickMarks`] are tick marks drawn on their own, and
+//! [`AxisTexts`] texts placed as an axis artist places its labels.
 //!
 //! A grid helper can make the grid curvilinear: with a
 //! [`grid_helper_curvelinear::GridHelperCurveLinear`] the grid lines,
@@ -32,6 +33,7 @@ pub mod angle_helper;
 mod artist;
 mod aux_transform;
 mod axes;
+mod axis_texts;
 pub mod floating_axes;
 pub mod grid_finder;
 pub mod grid_helper_curvelinear;
@@ -50,6 +52,8 @@ pub(crate) use aux_transform::{
     Functions as AuxFunctions, Inverse as AuxInverse, Polar as AuxPolar,
 };
 pub use axes::{AxisArtistAxes, GridHelper};
+pub(crate) use axis_texts::AxisTextsState;
+pub use axis_texts::{AxisTexts, AxisTextsArtist, AxisTextsKind};
 pub(crate) use gridlines::Gridlines;
 pub use handles::{
     AxisArtist, AxisLabel, AxisLine, LabelBase, LabelDirection, TickLabels, Ticks, Toggle,

@@ -34,7 +34,7 @@ pltrs_core::archive_enum!(LabelKind {
 impl LabelKind {
     /// The default vertical and horizontal alignment for an axis
     /// direction (matplotlib's `_default_alignments`).
-    fn alignment(self, direction: SpineSide) -> (VAlign, HAlign) {
+    pub(crate) fn alignment(self, direction: SpineSide) -> (VAlign, HAlign) {
         match (self, direction) {
             (Self::TickLabels, SpineSide::Left) => (VAlign::Center, HAlign::Right),
             (Self::TickLabels, SpineSide::Right) => (VAlign::Center, HAlign::Left),
@@ -50,7 +50,7 @@ impl LabelKind {
 
     /// The default text angle for an axis direction, relative to 90° plus
     /// the direction to the label (matplotlib's `_default_angles`).
-    fn angle(self, direction: SpineSide) -> f64 {
+    pub(crate) fn angle(self, direction: SpineSide) -> f64 {
         match (self, direction) {
             (Self::TickLabels, SpineSide::Left) => 90.0,
             (Self::TickLabels, SpineSide::Right) => -90.0,

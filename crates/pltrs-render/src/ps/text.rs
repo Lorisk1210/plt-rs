@@ -139,6 +139,7 @@ impl PsRenderer {
         if self.options.usetex {
             return self.psfrag_mark(gc, tex, origin, angle);
         }
+        self.tex_drawn_as_plain = true;
         let plain = TextSource::Plain {
             text: tex.tex.clone(),
             font: tex.font.clone(),

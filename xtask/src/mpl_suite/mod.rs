@@ -42,6 +42,11 @@ const TEST_TIMEOUT: &str = "600";
 /// tests expect matplotlib's defaults (matplotlib itself ignores it).
 const LOOK_VARIABLE: &str = "PLTRS_LOOK";
 
+/// pltrs' own variable naming its configuration directory, which cargo
+/// sets for what it runs (`.cargo/config.toml`) and the suite must not
+/// pass on: pltrs (Python) then reads matplotlib's `MPLCONFIGDIR`.
+const CONFIG_DIR_VARIABLE: &str = "PLTRSCONFIGDIR";
+
 /// What runs the suite.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Mode {
@@ -162,7 +167,7 @@ fn import_gaps(python: &Path, site: &Path) -> Result<(), String> {
             .current_dir(site)
             .env("PYTHONPATH", site)
             .env("MPLCONFIGDIR", site.join("../mplconfig"))
-            .env("PLTRSCONFIGDIR", site.join("../pltrsconfig")),
+            .env_remove(CONFIG_DIR_VARIABLE),
     )
 }
 
@@ -237,11 +242,13 @@ fn pytest(
         .env("PYTHONPATH", python_path)
         .env(LOOK_VARIABLE, "matplotlib")
         .env("MPL_SUITE_RESULTS", results)
+        // The suite's own configuration directory, which pltrs reads from
+        // `MPLCONFIGDIR` as matplotlib does: some of matplotlib's tests
+        // make theirs unwritable, which must not reach the one cargo's
+        // tests share (`target/pltrs-config`), and expect the warning to
+        // name `MPLCONFIGDIR`.
         .env("MPLCONFIGDIR", dir.join("mplconfig"))
-        // The suite's own configuration directory: some of matplotlib's
-        // tests make theirs unwritable, which must not reach the one
-        // cargo's tests share (`target/pltrs-config`).
-        .env("PLTRSCONFIGDIR", dir.join("pltrsconfig"))
+        .env_remove(CONFIG_DIR_VARIABLE)
         .stdin(Stdio::null())
         .stdout(log)
         .stderr(stderr)

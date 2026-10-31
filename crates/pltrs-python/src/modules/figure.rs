@@ -135,6 +135,21 @@ fn set_frameon(figure: Figure, frameon: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// The frame's colour (`Figure.patch.get_edgecolor`).
+fn get_edgecolor(figure: Figure) -> PyResult<Color> {
+    Ok(figure.edgecolor())
+}
+
+/// The frame's width in points (`Figure.patch.get_linewidth`).
+fn get_linewidth(figure: Figure) -> PyResult<f64> {
+    Ok(figure.linewidth())
+}
+
+/// Whether the figure's background patch is drawn (`get_frameon`).
+fn get_frameon(figure: Figure) -> PyResult<bool> {
+    Ok(figure.frameon())
+}
+
 /// The current axes, made if there are none.
 fn gca(figure: Figure) -> PyResult<Axes> {
     Ok(figure.gca())
@@ -404,5 +419,24 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("supylabel", supylabel)?;
     module.add("super_texts", super_texts)?;
     module.add("texts", texts)?;
-    module.add("artists", artists)
+    module.add("artists", artists)?;
+    module.add("get_edgecolor", get_edgecolor)?;
+    module.add("get_linewidth", get_linewidth)?;
+    module.add("get_frameon", get_frameon)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_background_reads_back_as_set() {
+        let fig = Figure::new();
+        set_edgecolor(fig.clone(), Color::from("red")).unwrap();
+        set_linewidth(fig.clone(), 2.5).unwrap();
+        set_frameon(fig.clone(), false).unwrap();
+        assert_eq!(get_edgecolor(fig.clone()).unwrap(), Color::from("red"));
+        assert_eq!(get_linewidth(fig.clone()).unwrap(), 2.5);
+        assert!(!get_frameon(fig).unwrap());
+    }
 }

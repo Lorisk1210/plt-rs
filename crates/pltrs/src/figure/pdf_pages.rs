@@ -86,6 +86,13 @@ impl PdfPages {
         self.document.page_count()
     }
 
+    /// The names of the images the pages saved so far hold, one per image
+    /// written: one per image drawn, or per group of images composited
+    /// into one (`image.composite_image`).
+    pub fn image_names(&self) -> Vec<String> {
+        self.document.image_names()
+    }
+
     /// Attaches a text note to the next page saved, off the page
     /// (matplotlib's `attach_note`).
     pub fn attach_note(&mut self, text: &str) {
@@ -168,6 +175,34 @@ mod tests {
             "the pages share the font"
         );
         assert_eq!(count(&pdf, "/Title (Two pages) /Author (pltrs)"), 1);
+    }
+
+    #[test]
+    fn images_are_counted_as_written() {
+        use crate::axes::ImshowOptions;
+        use crate::image::Extent;
+        use crate::numeric::Grid;
+        let images = |composite: &str| {
+            let mut pages = crate::rc::context(|| {
+                crate::rc::set("image.composite_image", composite).unwrap();
+                PdfPages::new().unwrap()
+            });
+            let fig = Figure::with_size(2.0, 1.0, 50.0);
+            let ax = fig.subplot();
+            for left in [0.0, 2.0] {
+                let options = ImshowOptions {
+                    extent: Some(Extent::new(left, left + 1.0, 0.0, 1.0)),
+                    ..ImshowOptions::default()
+                };
+                ax.imshow(Grid::filled(2, 2, left), options).unwrap();
+            }
+            ax.set_xlim(0.0, 3.0).expect("finite limits");
+            assert_eq!(pages.image_names(), Vec::<String>::new());
+            pages.savefig(&fig).unwrap();
+            pages.image_names()
+        };
+        assert_eq!(images("True"), ["I1"]);
+        assert_eq!(images("False"), ["I1", "I2"]);
     }
 
     #[test]

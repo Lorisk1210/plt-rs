@@ -493,8 +493,13 @@ def plot(*args, scalex=True, scaley=True, data=None, **kwargs):
 
 
 def scatter(x, y, s=None, c=None, **kwargs):
-    """A scatter plot of *y* vs. *x* (`.Axes.scatter`)."""
-    return gca().scatter(x, y, s=s, c=c, **kwargs)
+    """
+    A scatter plot of *y* vs. *x* (`.Axes.scatter`), which becomes the
+    current image (`sci`).
+    """
+    ret = gca().scatter(x, y, s=s, c=c, **kwargs)
+    sci(ret)
+    return ret
 
 
 def bar(x, height, width=0.8, bottom=None, *, align='center', data=None,

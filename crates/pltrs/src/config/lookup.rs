@@ -8,7 +8,9 @@ use std::hash::{BuildHasher, RandomState};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use super::{CONFIG_DIR_VAR, ConfigError, DirProblem, RC_FILE_NAME, RC_FILE_VAR};
+use super::{
+    CONFIG_DIR_VAR, ConfigError, DirProblem, MATPLOTLIB_CONFIG_DIR_VAR, RC_FILE_NAME, RC_FILE_VAR,
+};
 
 /// The name of pltrs' directories in the XDG base directories and of its
 /// temporary directories.
@@ -21,6 +23,12 @@ const VARIABLES: [&str; 4] = [
     "XDG_CONFIG_HOME",
     "XDG_CACHE_HOME",
 ];
+
+/// The variables naming the configuration and cache directory, in the
+/// order they are read: matplotlib's counts only when the process
+/// [honours](super::honour_matplotlib_config_dir) it, which
+/// [`Environment::process`] decides.
+const CONFIG_DIR_VARS: [&str; 2] = [CONFIG_DIR_VAR, MATPLOTLIB_CONFIG_DIR_VAR];
 
 /// How many names [`make_temp_dir`] tries before giving up.
 const TEMP_DIR_ATTEMPTS: u32 = 100;
@@ -42,12 +50,17 @@ pub(crate) struct Environment {
 }
 
 impl Environment {
-    /// The process's environment.
+    /// The process's environment: `MPLCONFIGDIR` among its variables only
+    /// when the process [honours](super::honour_matplotlib_config_dir) it.
     pub(crate) fn process() -> Self {
+        let matplotlib =
+            super::matplotlib_config_dir_honoured().then_some(MATPLOTLIB_CONFIG_DIR_VAR);
         Self {
             vars: VARIABLES
                 .iter()
-                .filter_map(|&name| Some((name.to_owned(), std::env::var_os(name)?)))
+                .copied()
+                .chain(matplotlib)
+                .filter_map(|name| Some((name.to_owned(), std::env::var_os(name)?)))
                 .collect(),
             home: std::env::home_dir(),
             current_dir: PathBuf::new(),
@@ -85,39 +98,46 @@ impl DirKind {
     }
 }
 
-/// The directory to use: `$PLTRSCONFIGDIR`, else `pltrs` in the XDG base
-/// directory; `None` without a home directory to find that in.
-fn preferred_dir(env: &Environment, kind: DirKind) -> Option<PathBuf> {
-    if let Some(dir) = env.path_var(CONFIG_DIR_VAR) {
-        return Some(dir);
+/// The directory to use, with the variable that named it: the first of
+/// `$PLTRSCONFIGDIR` and `$MPLCONFIGDIR` set, else `pltrs` in the XDG base
+/// directory (named by no variable); `None` without a home directory to
+/// find that in.
+fn preferred_dir(env: &Environment, kind: DirKind) -> Option<(PathBuf, Option<&'static str>)> {
+    if let Some(named) = CONFIG_DIR_VARS
+        .iter()
+        .find_map(|&name| Some((env.path_var(name)?, Some(name))))
+    {
+        return Some(named);
     }
     let (variable, default) = kind.xdg_base();
     let base = env
         .path_var(variable)
         .or_else(|| env.home.as_ref().map(|home| home.join(default)))?;
-    Some(base.join(DIR_NAME))
+    Some((base.join(DIR_NAME), None))
 }
 
 /// The configuration or cache directory in `env` (matplotlib's
 /// `_get_config_or_cache_dir`): the preferred directory, made if missing,
-/// when it is a writable directory, else the directory `fallback` makes.
+/// when it is a writable directory, else the directory `fallback` makes,
+/// told why the preferred one is not used.
 pub(crate) fn find_dir(
     env: &Environment,
     kind: DirKind,
-    fallback: impl FnOnce() -> Result<PathBuf, String>,
+    fallback: impl FnOnce(&DirProblem) -> Result<PathBuf, String>,
 ) -> Result<PathBuf, ConfigError> {
     let problem = match preferred_dir(env, kind) {
         None => DirProblem::NoHome,
-        Some(dir) => match usable_dir(&dir) {
+        Some((dir, variable)) => match usable_dir(&dir) {
             Ok(dir) => return Ok(dir),
             Err(err) => DirProblem::Unusable {
-                dir,
-                from_variable: env.path_var(CONFIG_DIR_VAR).is_some(),
+                // As matplotlib resolves it, as far as it exists.
+                dir: fs::canonicalize(&dir).unwrap_or(dir),
+                variable,
                 reason: err.to_string(),
             },
         },
     };
-    fallback().map_err(|reason| ConfigError { problem, reason })
+    fallback(&problem).map_err(|reason| ConfigError { problem, reason })
 }
 
 /// `dir`, made if missing, as an absolute path without symbolic links,
@@ -245,7 +265,7 @@ mod tests {
         }
     }
 
-    fn no_fallback() -> Result<PathBuf, String> {
+    fn no_fallback(_: &DirProblem) -> Result<PathBuf, String> {
         Err("no temporary directory".to_owned())
     }
 
@@ -284,6 +304,28 @@ mod tests {
     }
 
     #[test]
+    fn matplotlibs_variable_comes_after_pltrs_own() {
+        let scratch = Scratch::new("matplotlib");
+        let env = scratch.env(&[("MPLCONFIGDIR", "theirs")]);
+        assert_eq!(lookup(&env, DirKind::Config), scratch.path("theirs"));
+        assert_eq!(lookup(&env, DirKind::Cache), scratch.path("theirs"));
+        let env = scratch.env(&[("MPLCONFIGDIR", "theirs"), ("PLTRSCONFIGDIR", "mine")]);
+        assert_eq!(lookup(&env, DirKind::Config), scratch.path("mine"));
+
+        fs::write(scratch.path("file"), "not a directory").unwrap();
+        let env = scratch.env(&[("MPLCONFIGDIR", "file")]);
+        let message = find_dir(&env, DirKind::Config, no_fallback)
+            .unwrap_err()
+            .to_string();
+        let named = format!("MPLCONFIGDIR ({})", scratch.path("file").display());
+        assert!(message.contains(&named), "{message}");
+        assert!(
+            message.ends_with("set the MPLCONFIGDIR environment variable to a writable directory"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn empty_variables_count_as_unset() {
         let scratch = Scratch::new("empty");
         let mut env = scratch.env(&[]);
@@ -310,7 +352,15 @@ mod tests {
         let scratch = Scratch::new("fallback");
         fs::write(scratch.path("file"), "not a directory").unwrap();
         let env = scratch.env(&[("PLTRSCONFIGDIR", "file")]);
-        let dir = find_dir(&env, DirKind::Config, || {
+        let dir = find_dir(&env, DirKind::Config, |problem| {
+            assert!(
+                matches!(
+                    problem,
+                    DirProblem::Unusable { dir, variable: Some("PLTRSCONFIGDIR"), .. }
+                        if *dir == scratch.path("file")
+                ),
+                "{problem:?}"
+            );
             make_temp_dir(&env).map_err(|err| err.to_string())
         })
         .unwrap();

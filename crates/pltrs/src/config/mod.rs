@@ -7,13 +7,18 @@
 //! |-----------------------------|----------------------------------------------------------------|--------------------------|
 //! | [`config_dir`]              | `$PLTRSCONFIGDIR`, `$XDG_CONFIG_HOME/pltrs`, `~/.config/pltrs` | `MPLCONFIGDIR`, `~/.config/matplotlib` |
 //! | [`cache_dir`]               | `$PLTRSCONFIGDIR`, `$XDG_CACHE_HOME/pltrs`, `~/.cache/pltrs`   | `MPLCONFIGDIR`, `~/.cache/matplotlib` |
+//!
+//! A process may also [honour](honour_matplotlib_config_dir) matplotlib's
+//! `MPLCONFIGDIR`, read when `PLTRSCONFIGDIR` is unset: pltrs (Python)
+//! does, so that it works in matplotlib's environment unchanged.
 //! | [`rc_file_path`]            | `./pltrsrc`, `$PLTRSRC` (a file, or a directory holding `pltrsrc`), `pltrsrc` in the configuration directory | `matplotlibrc`, `MATPLOTLIBRC` |
 //! | the user style library      | the `*.mplstyle` files of `stylelib` in the configuration directory | `stylelib`         |
 //!
 //! Like matplotlib, pltrs makes the configuration and cache directories
 //! when they are missing; when one cannot be made or written to, a new
 //! private directory in the temporary directory takes its place for the
-//! rest of the process. Empty variables count as unset.
+//! rest of the process, and [`temp_dir_notice`] says so in matplotlib's
+//! words. Empty variables count as unset.
 //!
 //! The rc file has matplotlib's `matplotlibrc` syntax (`key: value  #
 //! comment`, see [`RcFile`]). Threads start from the parameters of the
@@ -67,6 +72,11 @@ use crate::rc::{RcError, RcFile, RcParams};
 /// (matplotlib's `MPLCONFIGDIR`).
 pub const CONFIG_DIR_VAR: &str = "PLTRSCONFIGDIR";
 
+/// matplotlib's environment variable naming its configuration and cache
+/// directory, which a process [honouring](honour_matplotlib_config_dir) it
+/// reads when [`CONFIG_DIR_VAR`] is unset.
+pub const MATPLOTLIB_CONFIG_DIR_VAR: &str = "MPLCONFIGDIR";
+
 /// The environment variable naming the rc file, or a directory holding
 /// one (matplotlib's `MATPLOTLIBRC`).
 pub const RC_FILE_VAR: &str = "PLTRSRC";
@@ -80,6 +90,12 @@ const STYLE_LIBRARY_DIR: &str = "stylelib";
 /// Whether the process ignores the user configuration: from the start in
 /// this crate's unit tests, which must not depend on the developer's.
 static IGNORED: AtomicBool = AtomicBool::new(cfg!(test));
+
+/// Whether the lookups read [`MATPLOTLIB_CONFIG_DIR_VAR`] too.
+static MATPLOTLIB_VAR: AtomicBool = AtomicBool::new(false);
+
+/// What the temporary directory stands in for, once it was made.
+static TEMP_DIR_NOTICE: OnceLock<TempDirNotice> = OnceLock::new();
 
 /// The configuration directory, once looked up.
 static CONFIG_DIR: OnceLock<Result<PathBuf, ConfigError>> = OnceLock::new();
@@ -109,6 +125,27 @@ pub fn config_dir() -> Result<PathBuf, ConfigError> {
         .clone()
 }
 
+/// Makes the process read matplotlib's `MPLCONFIGDIR` when
+/// `PLTRSCONFIGDIR` is unset, in the lookups of [`config_dir`] and
+/// [`cache_dir`] not made yet: what pltrs (Python) does, so that it works
+/// in matplotlib's environment unchanged.
+pub fn honour_matplotlib_config_dir() {
+    MATPLOTLIB_VAR.store(true, Ordering::Relaxed);
+}
+
+/// Whether the process reads `MPLCONFIGDIR` (see
+/// [`honour_matplotlib_config_dir`]).
+fn matplotlib_config_dir_honoured() -> bool {
+    MATPLOTLIB_VAR.load(Ordering::Relaxed)
+}
+
+/// Why a temporary directory stands in for the configuration or cache
+/// directory, when one does: what matplotlib logs as a warning when it
+/// makes one.
+pub fn temp_dir_notice() -> Option<&'static TempDirNotice> {
+    TEMP_DIR_NOTICE.get()
+}
+
 /// The cache directory (matplotlib's `get_cachedir`), looked up as
 /// [`config_dir`] is with `$XDG_CACHE_HOME` (by default `~/.cache`) in
 /// place of `$XDG_CONFIG_HOME`. pltrs keeps there what `text.usetex`
@@ -125,12 +162,19 @@ pub fn cache_dir() -> Result<PathBuf, ConfigError> {
 }
 
 /// The private temporary directory standing in for both directories,
-/// made the first time one of them needs it (matplotlib then points
-/// `MPLCONFIGDIR` at it).
-fn temp_dir() -> Result<PathBuf, String> {
+/// made the first time one of them needs it because of `problem`
+/// (matplotlib then points `MPLCONFIGDIR` at it); [`temp_dir_notice`]
+/// tells why.
+fn temp_dir(problem: &DirProblem) -> Result<PathBuf, String> {
     TEMP_DIR
         .get_or_init(|| {
-            lookup::make_temp_dir(&Environment::process()).map_err(|err| err.to_string())
+            let dir =
+                lookup::make_temp_dir(&Environment::process()).map_err(|err| err.to_string())?;
+            TEMP_DIR_NOTICE.get_or_init(|| TempDirNotice {
+                dir: dir.clone(),
+                problem: problem.clone(),
+            });
+            Ok(dir)
         })
         .clone()
 }
@@ -221,11 +265,26 @@ pub(crate) enum DirProblem {
     Unusable {
         /// The directory.
         dir: PathBuf,
-        /// Whether `PLTRSCONFIGDIR` named it.
-        from_variable: bool,
+        /// The variable that named it (`PLTRSCONFIGDIR` or
+        /// `MPLCONFIGDIR`), if one did.
+        variable: Option<&'static str>,
         /// Why it cannot be used.
         reason: String,
     },
+}
+
+impl DirProblem {
+    /// The variable to set to a writable directory: the one that named
+    /// the unusable directory, else [`CONFIG_DIR_VAR`].
+    fn variable_to_set(&self) -> &'static str {
+        match self {
+            Self::Unusable {
+                variable: Some(variable),
+                ..
+            } => variable,
+            _ => CONFIG_DIR_VAR,
+        }
+    }
 }
 
 impl fmt::Display for DirProblem {
@@ -234,17 +293,47 @@ impl fmt::Display for DirProblem {
             Self::NoHome => f.write_str("resolving the home directory"),
             Self::Unusable {
                 dir,
-                from_variable,
+                variable,
                 reason,
             } => {
-                let source = if *from_variable {
-                    CONFIG_DIR_VAR
-                } else {
-                    "the default path"
-                };
+                let source = variable.unwrap_or("the default path");
                 write!(f, "{source} ({}): {reason}", dir.display())
             }
         }
+    }
+}
+
+/// A temporary directory standing in for the configuration or cache
+/// directory, and why ([`temp_dir_notice`]); it displays as the warning
+/// matplotlib logs then.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TempDirNotice {
+    /// The temporary directory.
+    dir: PathBuf,
+    /// Why the directory to use was not used.
+    problem: DirProblem,
+}
+
+impl TempDirNotice {
+    /// The temporary directory.
+    pub fn dir(&self) -> &std::path::Path {
+        &self.dir
+    }
+}
+
+impl fmt::Display for TempDirNotice {
+    /// matplotlib's message.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "pltrs created a temporary cache directory at {} because there was an issue \
+             with {}; it is highly recommended to set the {} environment variable to a \
+             writable directory, in particular to speed up the import of pltrs and to \
+             better support multiprocessing.",
+            self.dir.display(),
+            self.problem,
+            self.problem.variable_to_set()
+        )
     }
 }
 
@@ -264,9 +353,11 @@ impl fmt::Display for ConfigError {
         write!(
             f,
             "pltrs requires access to a writable cache directory, but there was an issue \
-             with {}, and a temporary directory could not be created ({}); set the \
-             {CONFIG_DIR_VAR} environment variable to a writable directory",
-            self.problem, self.reason
+             with {}, and a temporary directory could not be created ({}); set the {} \
+             environment variable to a writable directory",
+            self.problem,
+            self.reason,
+            self.problem.variable_to_set()
         )
     }
 }
@@ -320,7 +411,7 @@ mod tests {
         let err = ConfigError {
             problem: DirProblem::Unusable {
                 dir: PathBuf::from("/nowhere"),
-                from_variable: false,
+                variable: None,
                 reason: "read-only".to_owned(),
             },
             reason: "disk full".to_owned(),
@@ -331,6 +422,36 @@ mod tests {
              with the default path (/nowhere): read-only, and a temporary directory could \
              not be created (disk full); set the PLTRSCONFIGDIR environment variable to a \
              writable directory"
+        );
+    }
+
+    #[test]
+    fn notices_name_the_variable_that_named_the_directory() {
+        let notice = TempDirNotice {
+            dir: PathBuf::from("/tmp/pltrs-1"),
+            problem: DirProblem::Unusable {
+                dir: PathBuf::from("/locked"),
+                variable: Some(MATPLOTLIB_CONFIG_DIR_VAR),
+                reason: "not a writable directory".to_owned(),
+            },
+        };
+        assert_eq!(notice.dir(), std::path::Path::new("/tmp/pltrs-1"));
+        assert_eq!(
+            notice.to_string(),
+            "pltrs created a temporary cache directory at /tmp/pltrs-1 because there was an \
+             issue with MPLCONFIGDIR (/locked): not a writable directory; it is highly \
+             recommended to set the MPLCONFIGDIR environment variable to a writable \
+             directory, in particular to speed up the import of pltrs and to better support \
+             multiprocessing."
+        );
+        let homeless = TempDirNotice {
+            dir: PathBuf::from("/tmp/pltrs-2"),
+            problem: DirProblem::NoHome,
+        };
+        assert!(
+            homeless
+                .to_string()
+                .contains("set the PLTRSCONFIGDIR environment")
         );
     }
 }

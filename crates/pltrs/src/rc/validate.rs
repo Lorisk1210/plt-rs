@@ -4,9 +4,41 @@ use std::str::FromStr;
 
 use pltrs_text::mathtext::MathFallback;
 
-/// matplotlib's complaint about `text` not being one of `allowed`.
+/// matplotlib's complaint about `text` not being one of `allowed`
+/// (`ValidateInStrings`, quoting as Python's `repr` does).
 fn not_one_of(text: &str, allowed: &[&str]) -> String {
-    format!("{text:?} is not one of {allowed:?}")
+    let allowed: Vec<String> = allowed.iter().map(|a| python_repr(a)).collect();
+    format!(
+        "{} is not a valid value; supported values are [{}]",
+        python_repr(text),
+        allowed.join(", ")
+    )
+}
+
+/// `text` as Python's `repr` writes a string: in single quotes, or in
+/// double quotes when it holds a single quote and no double quote.
+fn python_repr(text: &str) -> String {
+    let quote = if text.contains('\'') && !text.contains('"') {
+        '"'
+    } else {
+        '\''
+    };
+    let mut repr = String::from(quote);
+    for c in text.chars() {
+        match c {
+            '\\' => repr.push_str("\\\\"),
+            '\n' => repr.push_str("\\n"),
+            '\r' => repr.push_str("\\r"),
+            '\t' => repr.push_str("\\t"),
+            c if c == quote => {
+                repr.push('\\');
+                repr.push(c);
+            }
+            c => repr.push(c),
+        }
+    }
+    repr.push(quote);
+    repr
 }
 
 /// Parses exactly one of `allowed` into the keyword type `T` (matplotlib's
@@ -99,12 +131,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn values_are_quoted_as_python_quotes_them() {
+        assert_eq!(python_repr("auto"), "'auto'");
+        assert_eq!(python_repr("it's"), "\"it's\"");
+        assert_eq!(python_repr("'\""), "'\\'\"'");
+        assert_eq!(python_repr("a\\b\n"), "'a\\\\b\\n'");
+        assert_eq!(python_repr(""), "''");
+    }
+
+    #[test]
     fn choices_parse_matplotlib_spellings_only() {
         let stages = choice::<crate::image::InterpolationStage>(&["auto", "data", "rgba"]);
         assert_eq!(stages("rgba"), Ok(crate::image::InterpolationStage::Rgba));
         assert_eq!(
             stages("antialiased"),
-            Err(r#""antialiased" is not one of ["auto", "data", "rgba"]"#.to_owned()),
+            Err(
+                "'antialiased' is not a valid value; supported values are ['auto', 'data', 'rgba']"
+                    .to_owned()
+            ),
             "the type parses more names than matplotlib allows here"
         );
         let papers = choice_ignore_case::<pltrs_render::Paper>(&["a0", "letter"]);

@@ -9,7 +9,7 @@ use super::line::{AxislineStyle, LineState};
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
-use crate::transforms::Bbox;
+use crate::transforms::{Bbox, Point};
 
 mod parts;
 
@@ -132,6 +132,19 @@ impl AxisArtist {
         state.prepare();
         let layout = LayoutContext::new(&state);
         state.store.get(self.raw.id())?.tight_extent(&layout)
+    }
+
+    /// The tick marks of `level` in the figure's current layout (see
+    /// [`Ticks::locs_angles`]).
+    fn locs_angles(&self, level: Level) -> Vec<(Point, f64)> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        state
+            .store
+            .get_as::<AxisArtistState>(self.raw.id())
+            .and_then(|artist| artist.tick_locs_angles(layout, level).ok())
+            .unwrap_or_default()
     }
 
     /// Renames the axis artist (matplotlib's `ax.axis[name] = artist`).

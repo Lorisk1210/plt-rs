@@ -4,6 +4,8 @@
 
 use std::ops::Deref;
 
+use pltrs_core::Point;
+
 use super::{AxisArtist, opposite};
 use crate::axes::TickDirection;
 use crate::axisartist::artist::Level;
@@ -94,6 +96,24 @@ impl Ticks {
     /// Sets the opacity of the marks.
     pub fn set_alpha(&self, alpha: Option<f64>) -> &Self {
         self.update(|ticks| ticks.alpha = alpha)
+    }
+
+    /// Where the marks are in the figure's current layout (laid out
+    /// first): their locations in the coordinates of the helper's tick
+    /// transform and their angles in degrees (matplotlib's `locs_angles`
+    /// after a draw); empty once the artist was removed.
+    ///
+    /// ```
+    /// use pltrs::axisartist::AxisArtist;
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let bottom = AxisArtist::add_fixed(&ax, SpineSide::Bottom);
+    /// let marks = bottom.major_ticks().locs_angles();
+    /// assert!(!marks.is_empty() && marks.iter().all(|&(_, angle)| angle == 90.0));
+    /// ```
+    pub fn locs_angles(&self) -> Vec<(Point, f64)> {
+        self.artist.locs_angles(self.level)
     }
 }
 

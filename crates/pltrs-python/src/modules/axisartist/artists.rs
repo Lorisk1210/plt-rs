@@ -2,10 +2,10 @@
 //! `axis_artist`): the axis artists of an axes, the parts of each (ticks,
 //! tick labels, label, line) and tick marks drawn on their own.
 
-use pltrs::artist::RawHandle;
 use pltrs::axes::{Axes, AxisName, GridOptions, TickDirection, TickLevel};
 use pltrs::axisartist::{
-    AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, LabelBase, TickMarks, Toggle,
+    AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, LabelBase, TickMarks,
+    TickMarksArtist, Toggle,
 };
 use pltrs::colors::Color;
 use pltrs::text::{HAlign, VAlign};
@@ -16,6 +16,7 @@ use super::super::lines::PyLineStyle;
 use crate::binding::prelude::*;
 
 artist_handle!(AxisArtist);
+artist_handle!(TickMarksArtist);
 
 impl From<AxislineStyleError> for PyErr {
     /// matplotlib's `ValueError` for an unknown style or attribute.
@@ -219,6 +220,16 @@ fn get_ticks(artist: AxisArtist, level: String) -> PyResult<(f64, String, bool)>
     ))
 }
 
+/// Where the tick marks of `level` are now: their locations and angles
+/// in degrees (`Ticks.locs_angles`).
+fn get_tick_locs_angles(artist: AxisArtist, level: String) -> PyResult<Vec<((f64, f64), f64)>> {
+    Ok(ticks(&artist, &level)
+        .locs_angles()
+        .into_iter()
+        .map(|(loc, angle)| ((loc.x, loc.y), angle))
+        .collect())
+}
+
 /// The text part `part` (`"major_ticklabels"`, `"minor_ticklabels"` or
 /// `"label"`) of the axis artist.
 fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase> {
@@ -351,28 +362,47 @@ fn set_labelpad(artist: AxisArtist, pad: f64) -> PyResult<()> {
 /// color, width)`.
 type MarkStyle = (f64, String, Option<Color>, Option<f64>);
 
-/// Adds tick marks at `locs_angles` (data coordinates, angles in degrees)
-/// to `axes`, styled like the major ticks of `axis` unless `style` says
-/// otherwise (`ax.add_artist(Ticks(...))`).
-fn add_tick_marks(
-    axes: Axes,
-    axis: String,
+/// Tick marks at `locs_angles` (data coordinates, angles in degrees),
+/// styled like the major ticks of `axis` unless `style` says otherwise.
+fn tick_marks(
+    axis: &str,
     locs_angles: Vec<((f64, f64), f64)>,
     (size, direction, color, width): MarkStyle,
-) -> PyResult<RawHandle> {
+) -> PyResult<TickMarks> {
     let locs_angles = locs_angles
         .into_iter()
         .map(|((x, y), angle)| (Point::new(x, y), angle))
         .collect();
-    let marks = TickMarks {
+    Ok(TickMarks {
         direction: direction
             .parse()
             .map_err(|_| PyErr::value_error(format!("no tick direction {direction:?}")))?,
         color,
         width,
-        ..TickMarks::new(size, axis_named(&axis)?, locs_angles)
-    };
-    Ok(pltrs::artist::ArtistHandle::raw(&axes.add_tick_marks(marks)).clone())
+        ..TickMarks::new(size, axis_named(axis)?, locs_angles)
+    })
+}
+
+/// Adds tick marks to `axes` (`ax.add_artist(Ticks(...))`; see
+/// [`tick_marks`]).
+fn add_tick_marks(
+    axes: Axes,
+    axis: String,
+    locs_angles: Vec<((f64, f64), f64)>,
+    style: MarkStyle,
+) -> PyResult<TickMarksArtist> {
+    Ok(axes.add_tick_marks(tick_marks(&axis, locs_angles, style)?))
+}
+
+/// Replaces added tick marks after a property of their `Ticks` changed.
+fn set_tick_marks(
+    artist: TickMarksArtist,
+    axis: String,
+    locs_angles: Vec<((f64, f64), f64)>,
+    style: MarkStyle,
+) -> PyResult<()> {
+    artist.set_marks(tick_marks(&axis, locs_angles, style)?);
+    Ok(())
 }
 
 /// Registers the module's functions.
@@ -389,6 +419,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_axisline_style", set_axisline_style)?;
     module.add("set_ticks", set_ticks)?;
     module.add("get_ticks", get_ticks)?;
+    module.add("get_tick_locs_angles", get_tick_locs_angles)?;
     module.add("set_label", set_label)?;
     module.add("get_label", get_label)?;
     module.add("set_line", set_line)?;
@@ -396,5 +427,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tight_bbox", tight_bbox)?;
     module.add("get_labelpad", get_labelpad)?;
     module.add("set_labelpad", set_labelpad)?;
-    module.add("add_tick_marks", add_tick_marks)
+    module.add("add_tick_marks", add_tick_marks)?;
+    module.add("set_tick_marks", set_tick_marks)
 }

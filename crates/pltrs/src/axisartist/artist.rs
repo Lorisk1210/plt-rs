@@ -225,6 +225,29 @@ impl AxisArtistState {
         }
     }
 
+    /// The locations (in the coordinates of the helper's tick transform)
+    /// and angles in degrees of the tick marks of `level`, as drawing
+    /// them now places them (matplotlib's `Ticks.locs_angles` after
+    /// `_update_ticks`).
+    pub(crate) fn tick_locs_angles(
+        &self,
+        layout: LayoutContext<'_>,
+        level: Level,
+    ) -> Result<Vec<(Point, f64)>, String> {
+        let axes = layout.store().get_as::<AxesState>(self.axes).ok_or(GONE)?;
+        let ctx = HelperContext {
+            layout,
+            axes,
+            id: self.axes,
+        };
+        let (major, minor) = self.helper.ticks(ctx)?;
+        let ticks = match level {
+            Level::Major => major,
+            Level::Minor => minor,
+        };
+        Ok(tick_info(&ticks, self.ticklabel_direction.add_angle()).0)
+    }
+
     /// Lays out everything the artist draws (matplotlib's `_draw_ticks`,
     /// `_draw_line` and `_draw_label`), an arrowed line at `dpi_cor`
     /// pixels per point and the label clear of the tick labels by the gap

@@ -8,7 +8,7 @@ mod canvas;
 mod pdf_pages;
 mod print;
 
-use pltrs::figure::CanvasError;
+use pltrs::figure::{CanvasError, Figure};
 
 use crate::binding::prelude::*;
 
@@ -34,10 +34,38 @@ fn client_script() -> PyResult<&'static str> {
     Ok(pltrs::web::client_script())
 }
 
+/// Whether the figure keeps images and rasterized artists apart instead
+/// of compositing them (`Figure.suppressComposite`; `None`: as the
+/// renderer prefers).
+fn get_suppress_composite(figure: Figure) -> PyResult<Option<bool>> {
+    Ok(figure.suppress_composite())
+}
+
+/// Sets `Figure.suppressComposite`.
+fn set_suppress_composite(figure: Figure, suppress: Option<bool>) -> PyResult<()> {
+    figure.set_suppress_composite(suppress);
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("client_script", client_script)?;
+    module.add("get_suppress_composite", get_suppress_composite)?;
+    module.add("set_suppress_composite", set_suppress_composite)?;
     canvas::register(module)?;
     print::register(module)?;
     pdf_pages::register(module)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compositing_is_the_renderers_choice_until_set() {
+        let fig = Figure::new();
+        assert_eq!(get_suppress_composite(fig.clone()).unwrap(), None);
+        set_suppress_composite(fig.clone(), Some(true)).unwrap();
+        assert_eq!(get_suppress_composite(fig).unwrap(), Some(true));
+    }
 }

@@ -5,7 +5,9 @@ use pltrs_core::{Bbox, Point};
 use pltrs_render::GraphicsContext;
 
 use super::ticks::TicksState;
-use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle, TypedHandle,
+};
 use crate::axes::{Axes, AxesState, DataUpdate, TickDirection};
 use crate::colors::Color;
 use crate::ticker::AxisName;
@@ -71,6 +73,29 @@ pub struct TickMarksArtist {
 impl ArtistHandle for TickMarksArtist {
     fn raw(&self) -> &RawHandle {
         &self.raw
+    }
+}
+
+impl TypedHandle for TickMarksArtist {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<TickMarksState>()
+            .then(|| Self { raw: raw.clone() })
+    }
+}
+
+impl TickMarksArtist {
+    /// Replaces the marks (matplotlib's `set_locs_angles`, `set_ticksize`,
+    /// ... on `Ticks` an axes added already).
+    pub fn set_marks(&self, marks: TickMarks) -> &Self {
+        self.raw
+            .with_mut::<TickMarksState, _>(|state| state.marks = marks);
+        self
+    }
+
+    /// The marks.
+    pub fn marks(&self) -> TickMarks {
+        self.raw
+            .with::<TickMarksState, _>(|state| state.marks.clone())
     }
 }
 
@@ -208,6 +233,20 @@ mod tests {
         assert_eq!(starts, [0.0, 50.0, 100.0], "the view edges included");
         // 7.2 points at 100 dpi, pointing up the angle.
         assert!((marks[1][1].y - 10.0).abs() < 1e-9, "{marks:?}");
+    }
+
+    #[test]
+    fn marks_set_after_adding_replace_the_old_ones() {
+        let (_fig, ax) = bare_axes();
+        let artist = ax.add_tick_marks(TickMarks::new(5.0, AxisName::X, Vec::new()));
+        let marks = TickMarks::new(5.0, AxisName::X, vec![(Point::new(0.5, 0.0), 90.0)]);
+        artist.set_marks(marks.clone());
+        assert_eq!(artist.marks(), marks);
+        assert_eq!(
+            TickMarksArtist::from_raw_handle(artist.raw()),
+            Some(artist.clone())
+        );
+        assert_eq!(TickMarksArtist::from_raw_handle(ax.raw()), None);
     }
 
     #[test]

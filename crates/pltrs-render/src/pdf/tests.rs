@@ -191,3 +191,29 @@ fn images_and_shadings() {
     assert!(pdf.contains("q /SM1 gs /GT0 sh Q"));
     assert!(pdf.contains("/ShadingType 4"));
 }
+
+#[test]
+fn type42_subsets_follow_the_subset_fonttype() {
+    let fonts = |subset_fonttype: FontType| {
+        let mut r = PdfRenderer::new(
+            2.0,
+            1.0,
+            72.0,
+            PdfOptions {
+                compression: 0,
+                metadata: Metadata::none(),
+                fonttype: FontType::Type42,
+                subset_fonttype,
+                ..PdfOptions::default()
+            },
+        )
+        .expect("valid page");
+        let run = plain_run("a\u{100}", &["DejaVu Sans"]);
+        r.draw_text(&GraphicsContext::default(), &run, Point::new(3.0, 4.0), 0.0);
+        text(&r.finish().expect("document"))
+            .matches("/Subtype /Type0")
+            .count()
+    };
+    assert_eq!(fonts(FontType::Type42), 1, "one subset holds the plane");
+    assert_eq!(fonts(FontType::Type3), 2, "codes from 256 on start another");
+}

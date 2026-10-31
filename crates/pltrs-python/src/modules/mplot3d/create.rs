@@ -84,6 +84,12 @@ fn plane(axes: Axes3D) -> PyResult<Axes> {
     Ok(axes.projection_plane())
 }
 
+/// The grid block the 3-D axes is on, if it was placed on a grid
+/// (`get_subplotspec`).
+fn subplot_spec(axes: Axes3D) -> PyResult<Option<SubplotSpec>> {
+    Ok(axes.subplot_spec())
+}
+
 /// Every axes of the figure, 2-D and 3-D, in the order they were made,
 /// each with whether it is a 3-D axes (`fig.axes`).
 fn figure_axes(figure: Figure) -> PyResult<Vec<(RawHandle, bool)>> {
@@ -102,6 +108,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_subplot", add_subplot)?;
     module.add("add_axes", add_axes)?;
     module.add("plane", plane)?;
+    module.add("subplot_spec", subplot_spec)?;
     module.add("figure_axes", figure_axes)
 }
 
@@ -121,6 +128,11 @@ mod tests {
         assert_eq!((axes[0].0.id(), axes[0].1), (flat.id(), false));
         assert_eq!((axes[1].0.id(), axes[1].1), (deep.id(), true));
         assert_eq!(plane(deep.clone()).unwrap(), deep.projection_plane());
+        assert_eq!(subplot_spec(deep).unwrap(), None);
+        let gridded = fig
+            .add_subplot_3d(1, 2, 2, Axes3DOptions::default())
+            .unwrap();
+        assert!(subplot_spec(gridded).unwrap().is_some());
         assert!(proj_type_of("fisheye", None).is_err());
         assert_eq!(proj_type_of("ortho", None).unwrap(), ProjType::Ortho);
     }

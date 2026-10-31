@@ -82,6 +82,18 @@ class ParasiteAxesBase:
     def get_axes_locator(self):
         return self._parent_axes.get_axes_locator()
 
+    def pick(self, mouseevent):
+        # This most likely goes to Artist.pick (depending on axes_class given
+        # to the factory), which only handles pick events registered on the
+        # axes associated with each child:
+        super().pick(mouseevent)
+        # But parasite axes are additionally given pick events from their host
+        # axes (cf. HostAxesBase.pick), which we handle here:
+        for a in self.get_children():
+            if (hasattr(mouseevent.inaxes, "parasites")
+                    and self in mouseevent.inaxes.parasites):
+                a.pick(mouseevent)
+
     def remove(self):
         """Remove the parasite from its host (for a twin, the host's far
         sides come back)."""
@@ -149,6 +161,13 @@ class HostAxesBase:
         super().clear()
         for ax in self.parasites:
             ax.clear()
+
+    def pick(self, mouseevent):
+        super().pick(mouseevent)
+        # Also pass pick events on to parasite axes and, in turn, their
+        # children (cf. ParasiteAxesBase.pick)
+        for a in self.parasites:
+            a.pick(mouseevent)
 
     def twinx(self, axes_class=None):
         """

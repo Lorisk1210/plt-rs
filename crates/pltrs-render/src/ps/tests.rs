@@ -274,3 +274,42 @@ fn usetex_texts_are_psfrag_tags_in_a_figure_without_fonts() {
     assert_eq!((figure.width, figure.height), (3.2, 2.0));
     assert_eq!(figure.bbox, Bbox::from_extents(0.0, 0.0, 144.0, 3.2 * 72.0));
 }
+
+#[test]
+fn usetex_texts_without_usetex_are_drawn_plain_and_said_so() {
+    let manager = TexManager::new(
+        &std::env::temp_dir(),
+        TexFonts::default(),
+        "",
+        TexEngine::Latex,
+    );
+    let font = FontRequest::new(FontQuery {
+        size: 12.0,
+        ..FontQuery::families(["DejaVu Sans"])
+    });
+    let tex = TexText::new("foo", font, manager);
+    let run = TextRun::default();
+    let clear = GraphicsContext {
+        alpha: Some(0.0),
+        ..GraphicsContext::default()
+    };
+    let mut r = renderer(false);
+    r.draw_tex(&clear, &run, &tex, Point::new(1.0, 2.0), 0.0)
+        .expect("not drawn");
+    assert!(
+        !document(r).tex_drawn_as_plain,
+        "transparent text is skipped"
+    );
+    let mut r = renderer(false);
+    r.draw_tex(
+        &GraphicsContext::default(),
+        &run,
+        &tex,
+        Point::new(1.0, 2.0),
+        0.0,
+    )
+    .expect("drawn");
+    let plain = document(r);
+    assert!(plain.tex_drawn_as_plain);
+    assert!(plain.text.contains("0 0 m /f glyphshow"), "{}", plain.text);
+}

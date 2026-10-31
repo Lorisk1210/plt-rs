@@ -17,6 +17,8 @@ from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from ._native import transforms as _transforms
 from .artist import Artist
+from ._background_patch import FigurePatch
+from ._figure_artists import FigureArtists
 from .axes import Axes
 from .axes._base import _AxesBase
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
@@ -97,7 +99,15 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
 
     def set_facecolor(self, color):
         """Set the face color of the Figure rectangle."""
-        _figure.set_facecolor(self._native, color)
+        self.patch.set_facecolor(color)
+
+    @property
+    def patch(self):
+        """The background of the (sub)figure (a `.FigurePatch`)."""
+        patch = self.__dict__.get("_patch")
+        if patch is None:
+            patch = self.__dict__["_patch"] = FigurePatch(self)
+        return patch
 
     def get_axes(self):
         """List of Axes in the Figure."""
@@ -614,9 +624,10 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
 
     @property
     def artists(self):
-        """The artists added to the figure itself (`add_artist`)."""
-        return _handles.wrap_all(_figure.artists(self._native), Artist,
-                                 self.figure)
+        """The artists added to the figure itself (`add_artist`), in a list
+        that adds those appended to it."""
+        return FigureArtists(self, _handles.wrap_all(
+            _figure.artists(self._native), Artist, self.figure))
 
     def legend(self, *args, **kwargs):
         """

@@ -14,6 +14,7 @@ and its ``figure`` is None. An axes or a figure adopting it
 its figure and gives the object the new handle (`._handles.adopt`).
 """
 
+import contextlib
 from numbers import Real
 
 import numpy as np
@@ -476,6 +477,21 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
                     errfmt.format(cls=type(self), prop_name=k), name=k)
             ret.append(func(v))
         return ret
+
+    @contextlib.contextmanager
+    def _cm_set(self, **kwargs):
+        """
+        A context manager to temporarily set artist properties.
+
+        In contrast to `.Artist.set` and for performance, this skips the
+        `normalize_kwargs` check.
+        """
+        orig_vals = {k: getattr(self, f"get_{k}")() for k in kwargs}
+        try:
+            self._internal_update({k: kwargs[k] for k in orig_vals})
+            yield
+        finally:
+            self._internal_update(orig_vals)
 
     def draw(self, renderer):
         """

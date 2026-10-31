@@ -5,12 +5,12 @@ blended transforms of its axes (``get_xaxis_transform``): pltrs (Rust)
 keeps them (``_native.axes_base``).
 """
 
-from .. import _api, cbook
-from .._artist_children import ChildrenSearchMixin
+from .. import _api
+from .._background_patch import BackgroundPatch
 from .._native import axes_base as _axes_base
 
 
-class AxesPatch(ChildrenSearchMixin):
+class AxesPatch(BackgroundPatch):
     """
     The background of an Axes (matplotlib's ``Axes.patch``, a unit
     `.Rectangle` in axes coordinates): pltrs (Rust) draws it as part of the
@@ -18,6 +18,7 @@ class AxesPatch(ChildrenSearchMixin):
     """
 
     def __init__(self, axes):
+        super().__init__()
         self.axes = axes
 
     def get_figure(self, root=False):
@@ -40,23 +41,15 @@ class AxesPatch(ChildrenSearchMixin):
         """Return the face color of the background."""
         return self.axes.get_facecolor()
 
-    def set_facecolor(self, color):
-        """Set the face color of the background."""
+    def _set_facecolor(self, color):
         self.axes.set_facecolor(color)
 
     def get_edgecolor(self):
         """Return the edge color of the background."""
         return _axes_base.get_patch_edgecolor(self.axes._native)
 
-    def set_edgecolor(self, color):
-        """Set the edge color of the background."""
-        _axes_base.set_patch_edgecolor(self.axes._native,
-                                       "none" if color is None else color)
-
-    def set_color(self, c):
-        """Set both the edgecolor and the facecolor of the background."""
-        self.set_facecolor(c)
-        self.set_edgecolor(c)
+    def _set_edgecolor(self, color):
+        _axes_base.set_patch_edgecolor(self.axes._native, color)
 
     def get_linewidth(self):
         """Return the line width of the background's edge in points."""
@@ -75,23 +68,6 @@ class AxesPatch(ChildrenSearchMixin):
         _axes_base.set_patch_zorder(self.axes._native, float(level))
 
     zorder = property(get_zorder, set_zorder)
-    set_fc = set_facecolor
-    get_fc = get_facecolor
-    set_ec = set_edgecolor
-    get_ec = get_edgecolor
-    set_lw = set_linewidth
-    get_lw = get_linewidth
-
-    def set(self, **kwargs):
-        """Set several properties at once (``set_<name>(value)`` each)."""
-        for name, value in cbook.normalize_kwargs(
-                kwargs, {"facecolor": ["fc"], "edgecolor": ["ec"],
-                         "linewidth": ["lw"]}).items():
-            setter = getattr(self, f"set_{name}", None)
-            if setter is None:
-                raise AttributeError(
-                    f"Rectangle.set() got an unexpected keyword argument {name!r}")
-            setter(value)
 
     def contains_point(self, point, radius=None):
         """Return whether the display point *point* is in the background."""
@@ -101,9 +77,10 @@ class AxesPatch(ChildrenSearchMixin):
         """Return whether the mouse event occurred in the background."""
         return self.axes.contains(mouseevent)
 
-    def remove(self):
-        """The background is part of its Axes, which cannot lose it."""
-        raise NotImplementedError('cannot remove artist')
+    def _clip_spec(self):
+        """The native clip path of artists clipped to the background: the
+        outline of the axes' patch, followed as the axes changes."""
+        return ("artist", self.axes._native)
 
 
 class DecorationsMixin:

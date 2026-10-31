@@ -83,6 +83,7 @@ use crate::binding::{Module, PyResult};
 /// `PLTRS_FIGURE_LOOK` chooses another, as in pltrs (Rust)), then each
 /// matplotlib module gets its submodule.
 pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
+    pltrs::config::honour_matplotlib_config_dir();
     pltrs::rc::restore_startup();
     crate::binding::install_after_call(vec![text_helpers::warn_missing_glyphs]);
     annotation::register(&module.submodule("annotation")?)?;

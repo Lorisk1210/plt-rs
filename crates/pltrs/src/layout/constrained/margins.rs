@@ -7,10 +7,12 @@
 use std::ops::Range;
 
 use super::super::grid::{CellMargins, Margin, Margins};
+use super::super::kiwi::SolverError;
 use super::Pads;
 use super::colorbars::parent_spans;
+use super::frames::{FrameMap, pixels_to_figure};
 use super::reposition::pos_and_bbox;
-use super::tree::{LayoutTree, frame_extent};
+use super::tree::{FIGURE, LayoutTree};
 use crate::artist::{Artist, ArtistId, LayoutContext};
 use crate::figure::{FigureFrame, FigureState};
 use crate::gridspec::SubplotSpec;
@@ -23,9 +25,14 @@ impl LayoutTree {
     /// subfigures: each subfigure raises the margins of its cells to the
     /// grid spacing, each grid-placed axes to its decorations plus
     /// padding, with room for its colorbars.
-    pub(super) fn make_layout_margins(&mut self, fig: &mut FigureState, frame: usize, pads: &Pads) {
+    pub(super) fn make_layout_margins(
+        &mut self,
+        fig: &mut FigureState,
+        frame: usize,
+        pads: &Pads,
+    ) -> Result<(), SolverError> {
         for sub in self.frames[frame].subfigs.clone() {
-            self.make_layout_margins(fig, sub, pads);
+            self.make_layout_margins(fig, sub, pads)?;
             let Some(spec) = self.frames[sub].spec.clone() else {
                 continue;
             };
@@ -40,30 +47,35 @@ impl LayoutTree {
             let margin = margin_from_padding(&spec, &no_pad);
             self.grids
                 .get_mut(grid)
-                .edit_outer_margin_mins(&margin, &spec.rows(), &spec.cols());
+                .edit_outer_margin_mins(&margin, &spec.rows(), &spec.cols())?;
         }
         for ax in self.frames[frame].axes.clone() {
             let Some(spec) = ax.cells() else { continue };
             let Some(grid) = self.grid_of(spec.gridspec()) else {
-                return;
+                return Ok(());
             };
             let Some(margin) = self.axes_margin(fig, ax.id, spec, pads) else {
                 continue;
             };
             self.grids
                 .get_mut(grid)
-                .edit_outer_margin_mins(&margin, &spec.rows(), &spec.cols());
+                .edit_outer_margin_mins(&margin, &spec.rows(), &spec.cols())?;
         }
-        self.make_legend_margins(fig, frame, pads);
+        self.make_legend_margins(fig, frame, pads)
     }
 
     /// Room at the frame's edges for its `"outside ..."` legends.
-    fn make_legend_margins(&mut self, fig: &FigureState, frame: usize, pads: &Pads) {
-        let (width, height) = fig.size_pixels();
+    fn make_legend_margins(
+        &mut self,
+        fig: &FigureState,
+        frame: usize,
+        pads: &Pads,
+    ) -> Result<(), SolverError> {
         let (id, grid) = (self.frames[frame].id, self.frames[frame].grid);
         for (edge, bbox) in outside_legends(fig, id) {
-            let w = bbox.width() / width + 2.0 * pads.w_pad;
-            let h = bbox.height() / height + 2.0 * pads.h_pad;
+            let bbox = pixels_to_figure(fig, &bbox);
+            let w = bbox.width() + 2.0 * pads.w_pad;
+            let h = bbox.height() + 2.0 * pads.h_pad;
             let (margin, size) = match edge {
                 OutsideEdge::Upper => (Margin::Top, h),
                 OutsideEdge::Lower => (Margin::Bottom, h),
@@ -71,8 +83,9 @@ impl LayoutTree {
                 OutsideEdge::Right => (Margin::Right, w),
                 OutsideEdge::Center => continue,
             };
-            self.grids.get_mut(grid).edit_margin_min(margin, size, 0);
+            self.grids.get_mut(grid).edit_margin_min(margin, size, 0)?;
         }
+        Ok(())
     }
 
     /// The margins an axes on `spec` needs: the padding, its decorations
@@ -142,23 +155,21 @@ impl LayoutTree {
         fig: &mut FigureState,
         frame: usize,
         pads: &Pads,
-    ) {
+    ) -> Result<(), SolverError> {
         for sub in self.frames[frame].subfigs.clone() {
-            self.make_margin_suptitles(fig, sub, pads);
+            self.make_margin_suptitles(fig, sub, pads)?;
         }
         let (id, grid) = (self.frames[frame].id, self.frames[frame].grid);
-        let (Some(texts), Some(extent)) = (
+        let (Some(texts), Some(map)) = (
             fig.store
                 .get_as::<FigureFrame>(id)
                 .map(|frame| frame.super_texts),
-            frame_extent(fig, id),
+            FrameMap::of(fig, id),
         ) else {
-            return;
+            return Ok(());
         };
         // The paddings in the frame's own fractions.
-        let w_pad_local = pads.w_pad / extent.width();
-        let h_pad_local = pads.h_pad / extent.height();
-        let (width, height) = fig.size_pixels();
+        let (w_pad_local, h_pad_local) = map.local_pads(pads.w_pad, pads.h_pad);
         let placements = [
             (texts.title, Margin::Top),
             (texts.xlabel, Margin::Bottom),
@@ -193,21 +204,23 @@ impl LayoutTree {
             else {
                 continue;
             };
+            let bbox = pixels_to_figure(fig, &bbox);
             let size = match margin {
-                Margin::Left => bbox.width() / width + 2.0 * pads.w_pad,
-                _ => bbox.height() / height + 2.0 * pads.h_pad,
+                Margin::Left => bbox.width() + 2.0 * pads.w_pad,
+                _ => bbox.height() + 2.0 * pads.h_pad,
             };
-            self.grids.get_mut(grid).edit_margin_min(margin, size, 0);
+            self.grids.get_mut(grid).edit_margin_min(margin, size, 0)?;
         }
+        Ok(())
     }
 
     /// matplotlib's `match_submerged_margins`, frame by frame: the
     /// margins inside axes spanning several columns (rows) match the
     /// largest such margins among the frame's axes, so that offset spans
     /// line up.
-    pub(super) fn match_submerged_margins(&mut self, frame: usize) {
+    pub(super) fn match_submerged_margins(&mut self, frame: usize) -> Result<(), SolverError> {
         for sub in self.frames[frame].subfigs.clone() {
-            self.match_submerged_margins(sub);
+            self.match_submerged_margins(sub)?;
         }
         let spans: Vec<(usize, Range<usize>, Range<usize>)> = self.frames[frame]
             .axes
@@ -226,7 +239,7 @@ impl LayoutTree {
                     all_cols.collect(),
                     [Margin::Left, Margin::LeftCb],
                     [Margin::Right, Margin::RightCb],
-                );
+                )?;
             }
             if rows.len() > 1 {
                 let all_rows = spans.iter().map(|(g, r, _)| (*g, r.clone()));
@@ -236,9 +249,10 @@ impl LayoutTree {
                     all_rows.collect(),
                     [Margin::Top, Margin::TopCb],
                     [Margin::Bottom, Margin::BottomCb],
-                );
+                )?;
             }
         }
+        Ok(())
     }
 
     /// Raises the interior `first` margins (`[inner, outer]`, on cells
@@ -252,7 +266,7 @@ impl LayoutTree {
         others: Vec<(usize, Range<usize>)>,
         first: [Margin; 2],
         last: [Margin; 2],
-    ) {
+    ) -> Result<(), SolverError> {
         let after_first = |s: &Range<usize>| s.start + 1..s.end;
         let before_last = |s: &Range<usize>| s.start..s.end - 1;
         let margins = self.grids.get(grid).margins();
@@ -265,26 +279,44 @@ impl LayoutTree {
             max_first = max_first.max(max_sum(margins, first, after_first(&other_span)));
             max_last = max_last.max(max_sum(margins, last, before_last(&other_span)));
         }
-        let grid = self.grids.get_mut(grid);
+        let mut grid = self.grids.get_mut(grid);
         for (cell, outer) in after_first(span).zip(first_outer) {
-            grid.edit_margin_min(first[0], max_first - outer, cell);
+            grid.edit_margin_min(first[0], max_first - outer, cell)?;
         }
         for (cell, outer) in before_last(span).zip(last_outer) {
-            grid.edit_margin_min(last[0], max_last - outer, cell);
+            grid.edit_margin_min(last[0], max_last - outer, cell)?;
         }
+        Ok(())
     }
 
-    /// matplotlib's `reset_margins`: the grids of the axes taking part,
-    /// then those of the frames.
-    pub(super) fn reset_margins(&mut self) {
-        let grids: Vec<usize> = self
-            .all_axes()
+    /// matplotlib's `reset_margins`: frame by frame, depth first, the
+    /// grids of the axes taking part, then the frame's own.
+    pub(super) fn reset_margins(&mut self) -> Result<(), SolverError> {
+        let mut order = Vec::new();
+        self.reset_order(FIGURE, &mut order);
+        for grid in order {
+            self.grids.get_mut(grid).reset_margins()?;
+        }
+        Ok(())
+    }
+
+    /// Appends the grids `reset_margins` resets for the frame `frame` to
+    /// `order`. matplotlib resets a grid once per axes on it (and those
+    /// of subfigures again from the figure): resetting margins already
+    /// zero changes nothing, so each grid comes once.
+    fn reset_order(&self, frame: usize, order: &mut Vec<usize>) {
+        for &sub in &self.frames[frame].subfigs {
+            self.reset_order(sub, order);
+        }
+        let axes_grids = self.frames[frame]
+            .axes
+            .iter()
             .filter(|ax| ax.in_layout)
-            .filter_map(|ax| self.grid_of(ax.spec.as_ref()?.gridspec()))
-            .chain(self.frames.iter().map(|frame| frame.grid))
-            .collect();
-        for grid in grids {
-            self.grids.get_mut(grid).reset_margins();
+            .filter_map(|ax| self.grid_of(ax.spec.as_ref()?.gridspec()));
+        for grid in axes_grids.chain([self.frames[frame].grid]) {
+            if !order.contains(&grid) {
+                order.push(grid);
+            }
         }
     }
 }

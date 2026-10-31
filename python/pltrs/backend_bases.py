@@ -2090,6 +2090,7 @@ class FigureCanvasBase:
         """
         data = _backends.print_figure(
             self.figure._native, fmt, self._print_settings(**kwargs))
+        self.figure._set_drawn()
         DrawEvent("draw_event", self, None)._process()
         _write_bytes(data, filename_or_obj)
 

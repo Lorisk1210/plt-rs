@@ -29,6 +29,7 @@
 mod align;
 mod constrained;
 mod grid;
+mod kiwi;
 mod tight;
 mod tight_grid;
 

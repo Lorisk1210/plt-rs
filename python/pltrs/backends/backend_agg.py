@@ -156,6 +156,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         with (self.toolbar._wait_cursor_for_draw_cm() if self.toolbar
               else nullcontext()):
             _backends.draw(self.figure._native)
+            self.figure._set_drawn()
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so
             # don't forget to call the superclass.
@@ -221,6 +222,7 @@ class FigureCanvasAgg(FigureCanvasBase):
         """
         rgba = _backends.print_rgba(self.figure._native,
                                     self._print_settings(**kwargs))
+        self.figure._set_drawn()
         DrawEvent("draw_event", self, None)._process()
         # savefig() has already applied savefig.facecolor; imsave() blends
         # semi-transparent JPEG figures against an assumed white background.

@@ -5,6 +5,7 @@
 use pltrs_core::Bbox;
 
 use super::super::grid::Margin;
+use super::super::kiwi::SolverError;
 use super::tree::{FIGURE, LayoutTree};
 use crate::artist::Artist;
 use crate::axes::AxesState;
@@ -20,7 +21,10 @@ impl LayoutTree {
     /// `false`, leaving the margins alone, when the axes do not all come
     /// from one grid specification or none does (where matplotlib raises
     /// a `ValueError` that ends the layout).
-    pub(super) fn compress_fixed_aspect(&mut self, fig: &mut FigureState) -> bool {
+    pub(super) fn compress_fixed_aspect(
+        &mut self,
+        fig: &mut FigureState,
+    ) -> Result<bool, SolverError> {
         let placed: Vec<_> = self
             .all_axes()
             .filter_map(|ax| Some((ax.id, ax.spec.clone()?)))
@@ -36,7 +40,7 @@ impl LayoutTree {
             let actual = state.aspect.active_position(&original);
             let (_, extra_w, extra_h) = match &mut shared {
                 Some(entry) if entry.0.is_same(spec.gridspec()) => entry,
-                Some(_) => return false,
+                Some(_) => return Ok(false),
                 None => {
                     let (nrows, ncols) = spec.gridspec().shape();
                     shared.insert((spec.gridspec().clone(), vec![0.0; ncols], vec![0.0; nrows]))
@@ -46,20 +50,20 @@ impl LayoutTree {
             widen(extra_h, spec.rows(), original.height() - actual.height());
         }
         let Some((_, extra_w, extra_h)) = shared else {
-            return false;
+            return Ok(false);
         };
         let w = extra_w.iter().sum::<f64>() / 2.0;
         let h = extra_h.iter().sum::<f64>() / 2.0;
-        let figure = self.grids.get_mut(self.frames[FIGURE].grid);
+        let mut figure = self.grids.get_mut(self.frames[FIGURE].grid);
         for (margin, size) in [
             (Margin::Left, w),
             (Margin::Right, w),
             (Margin::Top, h),
             (Margin::Bottom, h),
         ] {
-            figure.edit_margin_min(margin, size, 0);
+            figure.edit_margin_min(margin, size, 0)?;
         }
-        true
+        Ok(true)
     }
 
     /// Puts the figure's suptitle just above the compressed layout,
@@ -104,11 +108,7 @@ pub(super) fn actual_parent_position(
     fig.apply_aspect(parent);
     let state = fig.store.get_as::<AxesState>(parent)?;
     let actual = state.aspect.active_position(&state.position);
-    let frame = state.base().parent?;
-    Some(super::tree::from_frame(
-        &actual,
-        &super::tree::frame_extent(fig, frame)?,
-    ))
+    Some(super::frames::FrameMap::of_axes(fig, parent)?.to_figure(&actual))
 }
 
 #[cfg(test)]

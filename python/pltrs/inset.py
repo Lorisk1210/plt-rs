@@ -3,14 +3,16 @@ The inset module defines the InsetIndicator class, which draws the rectangle and
 connectors required for `.Axes.indicate_inset` and `.Axes.indicate_inset_zoom`.
 
 matplotlib's ``inset`` (from matplotlib 3.11.2, under the Matplotlib
-License): pltrs (Rust) draws the indicator (``_native.insets``), following
-the view limits of the inset Axes it indicates and choosing the connectors
-that do not cross the rectangle at every draw.
+License): once an Axes adds it, pltrs (Rust) keeps the indicator with its
+rectangle and its four connectors (``_native.insets``), places them as the
+view limits of the inset Axes change, chooses which connectors are visible
+when it is first drawn (or its connectors first asked for), and draws them
+as matplotlib's `InsetIndicator.draw` does.
 """
 
 from . import _api, _handles, artist
-from ._native import insets as _insets, patches as _patches
-from .patches import Rectangle
+from ._native import insets as _insets
+from .patches import ConnectionPatch, Rectangle
 
 
 class InsetIndicator(artist.Artist):
@@ -53,41 +55,61 @@ class InsetIndicator(artist.Artist):
         self._auto_update_bounds = bounds is None
         if bounds is None:
             bounds = self._bounds_from_inset_ax()
-        self._bounds = tuple(map(float, bounds))
         x, y, width, height = bounds
+        # A transform needing the Axes (Cartopy's) resolves once one adds
+        # the indicator.
         self._transform_given = kwargs.pop("transform", None)
-        self._props = kwargs
         self._rectangle = Rectangle((x, y), width, height, clip_on=False,
                                     **kwargs)
         super().__init__()
-        self._zorder_given = zorder
+        self.set_zorder(zorder)
+        # Initial style properties for the artist should match the
+        # rectangle: its alpha, and the line style the connectors are made
+        # with (pltrs (Rust) gives them the rest).
+        artist.Artist.set_alpha(self, self._rectangle.get_alpha())
+        self._linestyle = self._rectangle.get_linestyle()
 
     def _add_to_axes(self, axes, kind, autolim=True):
-        props = {key: value for key, value in self._props.items()
-                 if key != "label"}
-        native = _insets.indicate_inset(
-            axes._native, None if self._auto_update_bounds else self._bounds,
-            None if self._inset_ax is None else self._inset_ax._native,
-            {"label": self._props.get("label", "_indicate_inset"), **props})
-        _handles.adopt(self, native, axes.figure)
         transform = self._transform_given
         if transform is not None:
             if hasattr(transform, "_as_mpl_transform"):
                 transform = transform._as_mpl_transform(axes)
-            self.set_transform(transform)
             self._rectangle.set_transform(transform)
-        if self._zorder_given is not None:
-            self.set_zorder(self._zorder_given)
+        native = _insets.adopt_indicator(
+            axes._native, self._native, self._rectangle._native,
+            self._auto_update_bounds,
+            None if self._inset_ax is None else self._inset_ax._native)
+        _handles.adopt(self, native, axes.figure)
+        _handles.adopt(self._rectangle, _insets.indicator_rectangle(native),
+                       axes.figure)
         return self
 
     def _shared_setter(self, prop, val):
         """
         Helper function to set the same style property on the artist and its children.
         """
-        if self._figure is not None:
-            _patches.update(self._native, {prop: val})
-        self._props[prop] = val
-        getattr(self._rectangle, f"set_{prop}")(val)
+        if prop == "alpha":
+            artist.Artist.set_alpha(self, val)
+        elif prop == "linestyle":
+            self._linestyle = val
+        connectors = (() if self._figure is None else self._connector_objects(
+            _insets.indicator_parts(self._native)))
+        artist.setp([self.rectangle, *connectors], prop, val)
+
+    def _connector_objects(self, natives):
+        """The `.ConnectionPatch` objects of the connectors *natives*,
+        made as matplotlib's `_update_connectors` makes them."""
+        connectors = tuple(_handles.wrap(native, ConnectionPatch, self._figure)
+                           for native in natives)
+        for connector in connectors:
+            if "_given_ends" not in connector.__dict__:
+                # pltrs (Rust) places them, and gave them the rest of the
+                # indicator's style.
+                connector._given_ends = [
+                    [self._inset_ax.transAxes, None],
+                    [self.rectangle.get_data_transform(), None]]
+                connector._linestyle = self._linestyle
+        return connectors
 
     def set_alpha(self, alpha):
         # docstring inherited
@@ -143,9 +165,10 @@ class InsetIndicator(artist.Artist):
     @property
     def rectangle(self):
         """`.Rectangle`: the indicator frame."""
-        if self._auto_update_bounds:
-            self._rectangle.set_bounds(self._bounds_from_inset_ax())
-        return self._rectangle
+        if self._figure is None:
+            return self._rectangle
+        return _handles.wrap(_insets.indicator_rectangle(self._native),
+                             Rectangle, self._figure)
 
     @property
     def connectors(self):
@@ -156,11 +179,10 @@ class InsetIndicator(artist.Artist):
             set with visibility to *False*,  but the user can set the
             visibility to True if the automatic choice is not deemed correct.
         """
-        if self._inset_ax is None:
-            return
-        raise NotImplementedError(
-            "pltrs: InsetIndicator.connectors (pltrs draws the connectors "
-            "with the rectangle)")
+        natives = _insets.indicator_connectors(self._native)
+        if natives is None:
+            return None
+        return self._connector_objects(natives)
 
     @_api.deprecated(
         '3.10',
@@ -169,4 +191,4 @@ class InsetIndicator(artist.Artist):
                  'property.  From 3.12 it will no longer be possible to unpack the '
                  'return value into two elements.'))
     def __getitem__(self, key):
-        return [self._rectangle, self.connectors][key]
+        return [self.rectangle, self.connectors][key]

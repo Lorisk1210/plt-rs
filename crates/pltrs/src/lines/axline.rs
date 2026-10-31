@@ -5,7 +5,7 @@ use std::fmt;
 use pltrs_core::{Bbox, Path, Point};
 
 use super::{Line2D, LineArtist};
-use crate::artist::{ArtistHandle, ArtistId, LayoutContext};
+use crate::artist::{ArtistHandle, ArtistId, DrawErrorKind, LayoutContext};
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// What fixes an infinite line besides its first point.
@@ -169,6 +169,41 @@ impl Line2D {
     }
 }
 
+/// Why an infinite line has no segment to draw.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SegmentError {
+    /// The line is in no axes.
+    NoAxes,
+    /// The data coordinates of its axes are unavailable.
+    NoDataCoordinates,
+    /// The data coordinates of its axes are singular.
+    SingularDataCoordinates,
+    /// Its two points coincide on the screen.
+    IdenticalPoints,
+}
+
+impl SegmentError {
+    /// The kind of draw error it makes: matplotlib refuses a line
+    /// through two identical points with a `ValueError` when drawing it.
+    pub(crate) fn kind(self) -> DrawErrorKind {
+        match self {
+            Self::IdenticalPoints => DrawErrorKind::InvalidValue,
+            _ => DrawErrorKind::Other,
+        }
+    }
+}
+
+impl fmt::Display for SegmentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::NoAxes => "an infinite line needs an axes",
+            Self::NoDataCoordinates => "the axes' data coordinates are unavailable",
+            Self::SingularDataCoordinates => "the axes' data coordinates are singular",
+            Self::IdenticalPoints => "cannot draw a line through two identical points",
+        })
+    }
+}
+
 /// An infinite line through `xy1` (in the line's coordinates).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct InfiniteLine {
@@ -189,11 +224,9 @@ impl InfiniteLine {
         layout: LayoutContext<'_>,
         resolved: &ResolvedTransform,
         axes: Option<ArtistId>,
-    ) -> Result<Path, String> {
-        let axes = axes.ok_or("an infinite line needs an axes")?;
-        let view = layout
-            .axes_extent(axes)
-            .ok_or("an infinite line needs an axes")?;
+    ) -> Result<Path, SegmentError> {
+        let axes = axes.ok_or(SegmentError::NoAxes)?;
+        let view = layout.axes_extent(axes).ok_or(SegmentError::NoAxes)?;
         let (p1, p2) = match self.through {
             AxLineThrough::Point(xy2) => (
                 resolved.transform_point(self.xy1),
@@ -204,11 +237,11 @@ impl InfiniteLine {
                 // data transform (matplotlib's `transLimits + transAxes`).
                 let scaled_to_display = layout
                     .resolve(&Transform::Data(axes))
-                    .ok_or("the axes' data coordinates are unavailable")?
+                    .ok_or(SegmentError::NoDataCoordinates)?
                     .affine_part();
                 let to_scaled = scaled_to_display
                     .inverted()
-                    .ok_or("the axes' data coordinates are singular")?;
+                    .ok_or(SegmentError::SingularDataCoordinates)?;
                 let scaled = to_scaled.transform_point(resolved.transform_point(self.xy1));
                 let step = if slope.is_infinite() {
                     Point::new(0.0, 1.0)
@@ -221,8 +254,7 @@ impl InfiniteLine {
                 )
             }
         };
-        let [start, stop] =
-            clip_to_view(p1, p2, &view).ok_or("cannot draw a line through two identical points")?;
+        let [start, stop] = clip_to_view(p1, p2, &view).ok_or(SegmentError::IdenticalPoints)?;
         Ok(Path::polyline(vec![start, stop]))
     }
 }

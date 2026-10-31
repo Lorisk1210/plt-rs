@@ -7,8 +7,8 @@ use std::cell::Cell;
 use pltrs_core::{Affine2D, Bbox};
 use pltrs_render::{ClipPath, Renderer};
 
-use super::CanvasState;
 use super::frame::FigureFrame;
+use super::{CanvasState, FreshArtists};
 use crate::artist::{
     Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawContext, DrawError,
 };
@@ -42,6 +42,9 @@ pub(crate) struct FigureState {
     pub(crate) size_inches: (f64, f64),
     /// Set whenever something changed since the last draw.
     pub(crate) stale: bool,
+    /// The artists drawn since they last changed (see
+    /// [`FigureState::is_stale`]).
+    pub(crate) fresh: FreshArtists,
     /// Problems found outside drawing (e.g. while autoscaling), reported
     /// with the next draw.
     pub(crate) pending_errors: Vec<DrawError>,
@@ -171,6 +174,7 @@ impl FigureState {
             original_dpi: dpi,
             size_inches,
             stale: true,
+            fresh: FreshArtists::default(),
             pending_errors: Vec::new(),
             shared: ShareGroups::default(),
             layout: LayoutState::from_rc(&rc),
@@ -255,6 +259,7 @@ impl FigureState {
         }
         crate::legend::lay_out_legends(self);
         crate::offsetbox::lay_out_boxes(self);
+        crate::inset::place_indicators(self);
     }
 
     /// Renders the whole figure, returning the problems encountered.
@@ -267,10 +272,7 @@ impl FigureState {
         // leave no room; pltrs reports them whenever the figure draws.
         let params = self.subplot_params_of(self.root);
         if let Some(Err(err)) = params.map(|p| p.updated(SubplotOverrides::default())) {
-            errors.push(DrawError {
-                artist: self.root,
-                message: err.to_string(),
-            });
+            errors.push(DrawError::new(self.root, err.to_string()));
         }
         errors.extend(ctx.into_errors());
         errors

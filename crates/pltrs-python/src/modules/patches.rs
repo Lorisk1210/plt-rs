@@ -11,7 +11,6 @@ use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use pltrs::collections::CollectionPatch;
 use pltrs::colors::{Color, ColorError};
-use pltrs::inset::InsetIndicator;
 use pltrs::mplot3d::{ProjectedOutline, ProjectedPath};
 use pltrs::patches::{
     Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
@@ -182,7 +181,7 @@ impl FromPy<'_> for AnyPatch {
             Rectangle, Ellipse, Circle, Polygon, Wedge, PathShape, RegularPolygon,
             CirclePolygon, StepPatch, FancyArrow, Arrow, Arc, Annulus, FancyBboxPatch,
             FancyArrowPatch, ConnectionPatch,
-            BboxPatch, BboxConnector, BboxConnectorPatch, InsetIndicator,
+            BboxPatch, BboxConnector, BboxConnectorPatch,
             ProjectedOutline, ProjectedPath, Shadow<PathShape>,
         )
         .map(Self)

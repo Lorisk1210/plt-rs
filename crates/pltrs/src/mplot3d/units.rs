@@ -148,10 +148,9 @@ impl UnitHandle for Axis3D {
         let mut state = figure.borrow_mut();
         state.stale = true;
         if let Err(error) = autoscaled {
-            state.pending_errors.push(DrawError {
-                artist: self.axes.id(),
-                message: error.to_string(),
-            });
+            state
+                .pending_errors
+                .push(DrawError::new(self.axes.id(), error.to_string()));
         }
     }
 

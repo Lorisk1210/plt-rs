@@ -322,6 +322,12 @@ class NavigationMixin:
             return self.fmt_ydata(y)
         return _navigation.format_data(self._native, "y", float(y)) or ""
 
+    @property
+    def _mouseover_set(self):
+        """The artists of the Axes whose data a status bar shows when the
+        mouse is over them (matplotlib's ordered set of them)."""
+        return tuple(a for a in self._children if a.get_mouseover())
+
     def _cursor_text(self, event):
         """The data of the topmost visible artist with mouseover set under
         the mouse *event*, as a status bar shows it, or None."""

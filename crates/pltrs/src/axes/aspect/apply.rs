@@ -174,12 +174,11 @@ impl FigureState {
         let shared_x = self.siblings(AxisName::X, axes).len() > 1;
         let shared_y = self.siblings(AxisName::Y, axes).len() > 1;
         if shared_x && shared_y {
-            self.pending_errors.push(DrawError {
-                artist: axes,
-                message: "set_aspect(..., adjustable='datalim') is not allowed when both axes \
-                          are shared; use adjustable='box'"
-                    .to_owned(),
-            });
+            self.pending_errors.push(DrawError::new(
+                axes,
+                "set_aspect(..., adjustable='datalim') is not allowed when both axes are \
+                 shared; use adjustable='box'",
+            ));
             return;
         }
         let adjust_y = !shared_y && {

@@ -360,6 +360,38 @@ pub trait ArtistHandle {
         self.raw().with_base(|b| b.animated)
     }
 
+    /// Whether the artist changed since it was last drawn (matplotlib's
+    /// `stale`): an artist never drawn is stale, drawing it makes it
+    /// fresh, and a change to it, or to an artist it contains, makes it
+    /// stale again. For a figure, whether anything in it changed since
+    /// it was last drawn.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// fig.canvas().draw()?;
+    /// assert!(!ax.stale());
+    /// ax.set_title("changed");
+    /// assert!(ax.stale() && fig.stale());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    fn stale(&self) -> bool {
+        self.raw().is_stale()
+    }
+
+    /// Marks the artist as changed since it was last drawn, together
+    /// with the artists containing it and the figure unless it is
+    /// animated or removed (`true`), or as drawn as it is (`false`;
+    /// matplotlib's `stale` setter).
+    fn set_stale(&self, stale: bool) -> &Self
+    where
+        Self: Sized,
+    {
+        self.raw().set_stale(stale);
+        self
+    }
+
     /// Includes or excludes the artist from layout computations.
     fn set_in_layout(&self, in_layout: bool) -> &Self
     where

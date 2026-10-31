@@ -79,10 +79,7 @@ pub(crate) fn change_mapping<T: ColorMapped>(raw: &RawHandle, change: MappingCha
             .figure_state()
             .borrow_mut()
             .pending_errors
-            .push(DrawError {
-                artist: raw.id(),
-                message: err.to_string(),
-            }),
+            .push(DrawError::new(raw.id(), err.to_string())),
     }
 }
 

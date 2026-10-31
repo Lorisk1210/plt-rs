@@ -29,6 +29,7 @@ use pltrs::figure::Figure;
 use pltrs::gridspec::{GridSpec, SubplotSpec};
 use pltrs::legend::LegendHandle;
 use pltrs::rc::RcParams;
+use pltrs::scale::FuncTransform;
 use pltrs::ticker::{FuncFormatter, LabelFormat};
 use pltrs::transforms::{PointMap, Transform};
 use pltrs_core::archive::{
@@ -65,11 +66,14 @@ enum Call {
     /// `f(value)` as a label format (`bar_label`, `clabel`, `pie`'s
     /// `autopct`, `Sankey`).
     Values,
+    /// `f(value)` as a number, the functions converting the values of a
+    /// secondary axis.
+    Numbers,
 }
 
 impl Call {
     /// Every way of calling.
-    const ALL: [Self; 3] = [Self::Ticks, Self::Coordinates, Self::Values];
+    const ALL: [Self; 4] = [Self::Ticks, Self::Coordinates, Self::Values, Self::Numbers];
 
     /// The name of the way of calling, the role of its externals.
     fn name(self) -> &'static str {
@@ -77,6 +81,7 @@ impl Call {
             Self::Ticks => "tick-labels",
             Self::Coordinates => "data-labels",
             Self::Values => "value-labels",
+            Self::Numbers => "numbers",
         }
     }
 
@@ -85,6 +90,7 @@ impl Call {
     fn function(self, callback: Callback) -> (TypeId, Box<dyn Any>) {
         type Labels = Rc<dyn Fn(f64, Option<usize>) -> String>;
         type Label = Rc<dyn Fn(f64) -> String>;
+        type Number = Rc<dyn Fn(f64) -> f64>;
         match self {
             Self::Ticks => {
                 let function: Labels = Rc::new(tick_labels(callback));
@@ -97,6 +103,10 @@ impl Call {
             Self::Values => {
                 let function: Label = Rc::new(value_label(callback));
                 (TypeId::of::<Label>(), Box::new(function))
+            }
+            Self::Numbers => {
+                let function: Number = Rc::new(number(callback));
+                (TypeId::of::<Number>(), Box::new(function))
             }
         }
     }
@@ -119,6 +129,12 @@ fn data_labels(callback: Callback) -> impl Fn(f64, Option<usize>) -> String + Se
 /// `f(value)`, empty when it raised.
 fn value_label(callback: Callback) -> impl Fn(f64) -> String + Send + 'static {
     move |value| callback.call::<String>((value,)).unwrap_or_default()
+}
+
+/// `f(value)` as a number, NaN when it raised (its exception goes to the
+/// native call running).
+fn number(callback: Callback) -> impl Fn(f64) -> f64 + Send + 'static {
+    move |value| callback.call::<f64>((value,)).unwrap_or(f64::NAN)
 }
 
 /// A Python object an archive refers to, and for a callable the binding
@@ -172,6 +188,20 @@ pub(crate) fn label_format(callable: &Bound<'_>) -> PyResult<LabelFormat> {
     Ok(LabelFormat::func_with_origin(
         value_label(callback),
         function_external(callable, Call::Values),
+    ))
+}
+
+/// The conversion of values by the callables `forward` and `inverse`,
+/// each called with one value (the functions of a secondary axis),
+/// archived as the callables.
+pub(crate) fn func_transform(forward: &Bound<'_>, inverse: &Bound<'_>) -> PyResult<FuncTransform> {
+    Ok(FuncTransform::with_origins(
+        number(forward.extract()?),
+        number(inverse.extract()?),
+        (
+            function_external(forward, Call::Numbers),
+            function_external(inverse, Call::Numbers),
+        ),
     ))
 }
 

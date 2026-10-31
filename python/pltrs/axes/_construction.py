@@ -77,6 +77,9 @@ class ConstructionMixin:
             args = (rect,)
         _handles.adopt(self, _removed_native(fig, args), fig.figure)
         self._init_axes_state()
+        # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
+        # overrides take part in.
+        self.clear()
         for name, other in (("x", sharex), ("y", sharey)):
             if other is not None:
                 getattr(self, f"share{name}")(other)

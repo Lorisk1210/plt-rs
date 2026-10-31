@@ -25,7 +25,6 @@ from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from ._figure_interaction import InteractionMixin
-from ._figure_stale import StaleMixin, _stale_figure_callback
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
@@ -52,11 +51,16 @@ def _native_maker(projection_class):
 
 
 class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
-                 InteractionMixin, StaleMixin, Artist):
+                 InteractionMixin, Artist):
     """
     Base class for `.Figure` and `.SubFigure` containing the methods that add
     artists to the figure or subfigure, create Axes, etc.
     """
+
+    @property
+    def figure(self):
+        """The root `.Figure` (also of a `.SubFigure`)."""
+        return self._figure
 
     @property
     def transSubfigure(self):
@@ -704,8 +708,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         artists that require a draw before their size is known (e.g. text).
         """
         self._get_renderer()  # The canvas's renderer follows the figure.
-        _figure.layout(self._native)
-        self._set_drawn()
+        _figure.draw_without_rendering(self._native)
 
     def _get_renderer(self):
         """The renderer of the root figure's canvas: the canvas' own, or the
@@ -778,7 +781,6 @@ class SubFigure(FigureBase):
         self._parent = parent
         self._subplotspec = subplotspec
         self.subfigs = []
-        self.stale_callback = _stale_figure_callback
         _handles.adopt(self, native, parent.figure)
         if facecolor is not None:
             _figure.set_facecolor(native, facecolor)
@@ -822,6 +824,11 @@ class SubFigure(FigureBase):
     def get_subplotspec(self):
         """Get the SubplotSpec instance."""
         return self._subplotspec
+
+    @property
+    def _artists(self):
+        # The root figure keeps the objects of all artists (`._handles`).
+        return self._figure._artists
 
     def sca(self, a):
         """

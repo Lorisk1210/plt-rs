@@ -4,36 +4,25 @@ The methods placing text on a figure or an axes (matplotlib's
 classes include.
 """
 
-import datetime
-
 import numpy as np
 
 from . import _handles
 from ._native import annotation as _annotation, text as _text
 from .text import (
-    Annotation, Text, _is_offset, _native_arrowprops, _native_coords)
+    Annotation, Text, _is_offset, _native_arrowprops, _native_coords, _point)
+
+
+def _coordinate_number(value):
+    """A coordinate of a text, converted from its units, as a number: a
+    sequence of one value (one category name, say) stands for its value."""
+    if np.ndim(value) and np.size(value) == 1:
+        return float(np.ravel(value)[0])
+    return float(value)
 
 
 def _text_kwargs(fontdict, kwargs):
     """The properties of a new text: *fontdict* overridden by *kwargs*."""
     return {**(fontdict if fontdict is not None else {}), **kwargs}
-
-
-def _coordinate(value):
-    """A coordinate of an annotated point as `_native.annotation` takes
-    it: a number, a category name, or ``("dates", number)`` for a date."""
-    if isinstance(value, (str, bytes)):
-        return value.decode() if isinstance(value, bytes) else value
-    if isinstance(value, (datetime.date, np.datetime64)):
-        from . import dates
-        return ("dates", float(dates.date2num(value)))
-    return float(value)
-
-
-def _point(xy):
-    """The point *xy* of an annotation, coordinate by coordinate."""
-    x, y = xy
-    return (_coordinate(x), _coordinate(y))
 
 
 class FigureText:
@@ -116,8 +105,9 @@ class AxesText:
         **kwargs : `~matplotlib.text.Text` properties.
             Other miscellaneous text parameters.
         """
-        native = _text.axes_text(self._native, float(self.convert_xunits(x)),
-                                 float(self.convert_yunits(y)),
+        native = _text.axes_text(self._native,
+                                 _coordinate_number(self.convert_xunits(x)),
+                                 _coordinate_number(self.convert_yunits(y)),
                                  '' if s is None else str(s))
         text = _handles.wrap(native, Text, self.figure)
         text._init_properties(_text_kwargs(fontdict, kwargs))

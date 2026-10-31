@@ -14,9 +14,11 @@ use crate::binding::prelude::*;
 
 impl From<CanvasError> for PyErr {
     /// matplotlib's `ValueError` for boxes and pixel ratios it refuses,
-    /// `RuntimeError` for what the canvas cannot do now.
+    /// `RuntimeError` for what the canvas cannot do now, and the problems
+    /// drawing met as `DrawErrors` raise them.
     fn from(err: CanvasError) -> Self {
         let kind = match err {
+            CanvasError::Draw(errors) => return errors.into(),
             CanvasError::InvalidBox(_) | CanvasError::InvalidPixelRatio(_) => {
                 ExceptionKind::ValueError
             }

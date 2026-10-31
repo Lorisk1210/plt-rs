@@ -138,15 +138,30 @@ impl RawHandle {
         result
     }
 
-    /// Marks the figure stale after a change to the artist, unless the
-    /// artist is animated or was removed: figures leave animated artists
-    /// out of their draws, so a change to one only shows once the program
-    /// draws it (matplotlib's `Artist.stale` reaches the figure neither
-    /// from an animated artist nor from a removed one).
+    /// Marks the artist stale after a change to it and, unless it is
+    /// animated or was removed, the artists containing it and the
+    /// figure: figures leave animated artists out of their draws, so a
+    /// change to one only shows once the program draws it (matplotlib's
+    /// `Artist.stale` reaches the figure neither from an animated artist
+    /// nor from a removed one).
     fn mark_changed(&self, state: &mut FigureState) {
-        let drawn = state.store.get(self.id).is_some_and(|a| !a.base().animated);
-        if drawn {
-            state.stale = true;
+        state.mark_stale(self.id);
+    }
+
+    /// Whether the artist changed since it was last drawn (see
+    /// [`ArtistHandle::stale`](super::ArtistHandle::stale)).
+    pub fn is_stale(&self) -> bool {
+        self.figure.borrow().is_stale(self.id)
+    }
+
+    /// Marks the artist as changed since it was last drawn, or as drawn
+    /// (see [`ArtistHandle::set_stale`](super::ArtistHandle::set_stale)).
+    pub fn set_stale(&self, stale: bool) {
+        let mut state = self.figure.borrow_mut();
+        if stale {
+            state.mark_stale(self.id);
+        } else {
+            state.mark_fresh(self.id);
         }
     }
 

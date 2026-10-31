@@ -7,6 +7,7 @@ use pltrs::axes::Axes;
 use pltrs::collections::{Collection, CollectionKind, EllipseCollection, EventCollection, TriMesh};
 use pltrs::contour::ContourSet;
 use pltrs::image::{AxesImage, BboxImage, PcolorImage};
+use pltrs::inset::InsetIndicator;
 use pltrs::legend::Legend;
 use pltrs::lines::Line2D;
 use pltrs::patches::{
@@ -74,7 +75,7 @@ fn patch_class(raw: &RawHandle) -> Option<&'static str> {
 fn class_name(raw: &RawHandle) -> &'static str {
     // The collections of a class of their own come before the others,
     // which are told apart by their kind.
-    let classes: [ClassTest; 15] = [
+    let classes: [ClassTest; 16] = [
         (is::<Line2D>, "Line2D"),
         (is::<Annotation>, "Annotation"),
         (is::<Text>, "Text"),
@@ -90,6 +91,7 @@ fn class_name(raw: &RawHandle) -> &'static str {
         (is::<Legend>, "Legend"),
         (is::<Table>, "Table"),
         (is::<Spine>, "Spine"),
+        (is::<InsetIndicator>, "InsetIndicator"),
     ];
     classes
         .into_iter()

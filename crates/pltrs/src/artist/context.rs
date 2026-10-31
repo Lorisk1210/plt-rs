@@ -35,6 +35,11 @@ impl<'a> LayoutContext<'a> {
         &self.figure.store
     }
 
+    /// The frame of the root figure.
+    pub(crate) fn root(&self) -> ArtistId {
+        self.figure.root
+    }
+
     /// Canvas resolution.
     pub fn dpi(&self) -> f64 {
         self.figure.dpi()
@@ -148,6 +153,19 @@ impl<'a> LayoutContext<'a> {
     }
 }
 
+/// What kind of problem a [`DrawError`] is, after the exception
+/// matplotlib raises for it, so that a binding can raise it the same way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DrawErrorKind {
+    /// A value the program gave that cannot be drawn, such as malformed
+    /// mathtext or a line through two identical points (matplotlib's
+    /// `ValueError`).
+    InvalidValue,
+    /// Any other problem (matplotlib's `RuntimeError`).
+    #[default]
+    Other,
+}
+
 /// A problem that kept (part of) an artist from being drawn, such as an
 /// invalid colour string given to a setter.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -156,6 +174,19 @@ pub struct DrawError {
     pub artist: ArtistId,
     /// What went wrong.
     pub message: String,
+    /// What kind of problem it is.
+    pub kind: DrawErrorKind,
+}
+
+impl DrawError {
+    /// A problem of [`DrawErrorKind::Other`] with `artist`.
+    pub fn new(artist: ArtistId, message: impl Into<String>) -> Self {
+        Self {
+            artist,
+            message: message.into(),
+            kind: DrawErrorKind::Other,
+        }
+    }
 }
 
 impl std::fmt::Display for DrawError {
@@ -209,9 +240,21 @@ impl<'a> DrawContext<'a> {
 
     /// Records a problem; drawing continues with the remaining artists.
     pub fn report(&mut self, artist: ArtistId, problem: impl std::fmt::Display) {
+        self.report_kind(artist, DrawErrorKind::Other, problem);
+    }
+
+    /// Records a problem of `kind`; drawing continues with the remaining
+    /// artists.
+    pub fn report_kind(
+        &mut self,
+        artist: ArtistId,
+        kind: DrawErrorKind,
+        problem: impl std::fmt::Display,
+    ) {
         self.errors.push(DrawError {
             artist,
             message: problem.to_string(),
+            kind,
         });
     }
 
@@ -334,12 +377,15 @@ impl<'a> DrawContext<'a> {
             if !base.visible {
                 return;
             }
-            let Some(filter) = &base.agg_filter else {
-                return artist.draw(ctx);
-            };
-            ctx.renderer().start_filter();
-            artist.draw(ctx);
-            ctx.renderer().stop_filter(filter.function());
+            match &base.agg_filter {
+                Some(filter) => {
+                    ctx.renderer().start_filter();
+                    artist.draw(ctx);
+                    ctx.renderer().stop_filter(filter.function());
+                }
+                None => artist.draw(ctx),
+            }
+            ctx.layout.figure.mark_drawn(id);
         });
     }
 

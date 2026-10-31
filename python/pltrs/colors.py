@@ -504,7 +504,9 @@ def _to_rgba_rows(c):
         # (color, alpha) pairs and masked entries, which to_rgba resolves
         # one at a time.
         return np.array([to_rgba(cc) for cc in c], float)
-    colors = [tuple(cc) if isinstance(cc, np.ndarray) else cc for cc in c]
+    # A one-row 2D array stands for its row, as to_rgba takes it.
+    colors = [tuple(cc.reshape(-1) if cc.ndim == 2 and len(cc) == 1 else cc)
+              if isinstance(cc, np.ndarray) else cc for cc in c]
     try:
         return _colors.to_rgba_array(colors, None)
     except (ValueError, TypeError) as err:

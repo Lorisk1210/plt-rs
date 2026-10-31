@@ -4,6 +4,7 @@ use std::fmt;
 
 use pltrs_text::TextError;
 
+use crate::artist::DrawErrorKind;
 use crate::colors::ColorError;
 use crate::coords::CoordError;
 use crate::patches::PatchError;
@@ -19,6 +20,24 @@ pub enum TextDrawError {
     Box(PatchError),
     /// An annotation coordinate cannot be resolved.
     Coords(CoordError),
+}
+
+impl TextDrawError {
+    /// The kind of draw error it makes: malformed mathtext, an unknown
+    /// property name, a language range outside the text and an invalid
+    /// colour are values of the program's that matplotlib refuses with a
+    /// `ValueError` while drawing.
+    pub fn kind(&self) -> DrawErrorKind {
+        match self {
+            Self::Layout(
+                TextError::Math(_)
+                | TextError::UnknownName { .. }
+                | TextError::LanguageRange { .. },
+            )
+            | Self::Color(_) => DrawErrorKind::InvalidValue,
+            _ => DrawErrorKind::Other,
+        }
+    }
 }
 
 impl fmt::Display for TextDrawError {

@@ -11,8 +11,9 @@
 //! that figure under a new id, and the handle the adoption returns
 //! replaces the loose one, whose holder is left empty. A loose artist owns
 //! no other artist: the typed constructors (`Line2D::loose`,
-//! `Patch::loose`, `Collection::loose`, `Text::loose`, `Table::loose`,
-//! `Custom::loose`) only make artists without children.
+//! `Patch::loose`, `Collection::loose`, `Text::loose`,
+//! `Annotation::loose`, `Table::loose`, `Custom::loose`) only make
+//! artists without children.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,11 +23,14 @@ use pltrs_core::{Bbox, Point};
 use super::{Artist, ArtistHandle, AttachError, Custom, RawHandle};
 use crate::axes::Axes;
 use crate::collections::{Collection, CollectionSpec};
+use crate::coords::CoordError;
 use crate::figure::{FigureState, StateRole};
 use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
 use crate::table::{Table, TableArtist, TableLoc};
-use crate::text::{Text, TextArtist};
+use crate::text::{AnnotateOptions, Annotation, AnnotationState, Text, TextArtist};
+use crate::transforms::Transform;
+use crate::units::{AxisValue, DataPoint};
 
 impl RawHandle {
     /// A handle to `artist`, made outside any figure: it lives in a holder
@@ -102,6 +106,64 @@ impl Text {
     pub fn loose(x: f64, y: f64, text: impl Into<String>) -> Self {
         let artist = TextArtist::new(Point::new(x, y), text, crate::rc::params());
         Self::from_raw(RawHandle::loose(Box::new(artist)))
+    }
+}
+
+impl Annotation {
+    /// The text `text` annotating the point `xy`, outside any figure
+    /// (matplotlib's `Annotation(text, xy, ...)`); add it with
+    /// [`Axes::adopt_artist`](crate::axes::Axes::adopt_artist) or
+    /// [`Figure::adopt_artist`](crate::figure::Figure::adopt_artist).
+    /// With no axis to convert them, the coordinates of `xy` and of the
+    /// text position `options.xytext` are numbers, a date standing for its
+    /// date number.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::{AnnotateOptions, Annotation};
+    /// let ax = Figure::new().subplot();
+    /// let note = Annotation::loose("peak", (1.0, 2.0), AnnotateOptions::default())?;
+    /// assert_eq!(note.xy(), (1.0, 2.0).into());
+    /// ax.adopt_artist(note.raw(), AddAs::Artist)?;
+    /// assert_eq!(ax.texts().len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`CoordError::NoOffset`] when `options.xycoords` is an offset, and
+    /// [`CoordError::NoAxes`] when a coordinate is a category or a value of
+    /// a user type, which only an axis converts.
+    pub fn loose(
+        text: impl Into<String>,
+        xy: impl Into<DataPoint>,
+        options: AnnotateOptions,
+    ) -> Result<Self, CoordError> {
+        let numbers =
+            |at: &DataPoint| Ok::<_, CoordError>(Point::new(number(&at.x)?, number(&at.y)?));
+        let xy = numbers(&xy.into())?;
+        let position = match &options.xytext {
+            Some(at) => numbers(at)?,
+            None => xy,
+        };
+        let rc = crate::rc::params();
+        let state = AnnotationState::new(xy, options, &rc)?;
+        let mut artist = TextArtist::new(position, text, rc);
+        artist.annotation = Some(Box::new(state));
+        artist.base_mut().transform = Some(Transform::Display);
+        Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
+    }
+}
+
+/// The number a coordinate of a loose annotation stands for: a number, or
+/// a date's date number; [`CoordError::NoAxes`] for what only an axis
+/// converts.
+fn number(value: &AxisValue) -> Result<f64, CoordError> {
+    match value {
+        AxisValue::Number(number) | AxisValue::Date { number, .. } => Ok(*number),
+        AxisValue::Category(_) | AxisValue::Custom(_) => Err(CoordError::NoAxes),
     }
 }
 

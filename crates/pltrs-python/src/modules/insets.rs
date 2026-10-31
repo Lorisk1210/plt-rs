@@ -1,20 +1,21 @@
 //! `_native.insets`: axes inside axes and their placement (matplotlib's
 //! `Axes.inset_axes`, `secondary_xaxis`/`secondary_yaxis`, `child_axes`
 //! and `set_axes_locator`), by pltrs (Rust)'s inset and secondary axes,
-//! and the indicators of the area an inset shows (`indicate_inset`).
+//! and the indicators of the area an inset shows (matplotlib's
+//! `InsetIndicator`, its rectangle and its connectors).
 
+use pltrs::artist::RawHandle;
 use pltrs::axes::{Axes, SecondaryLocation};
 use pltrs::inset::InsetIndicator;
-use pltrs::patches::Patch;
+use pltrs::patches::{ConnectionPatch, Patch, Rectangle};
 use pltrs::scale::FuncTransform;
 use pltrs::transforms::Transform;
 
 use super::axes_grid1::side_named;
 use super::figure::projection_kind;
-use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 
-artist_handle!(Patch<InsetIndicator>);
+artist_handle!(InsetIndicator);
 
 /// Lets the axes keep its original position: no divider, inset locator
 /// or colorbar places it any more (`set_axes_locator(None)`).
@@ -77,13 +78,11 @@ impl FromPy<'_> for PyLocation {
 /// The conversion of host values by the Python functions `(forward,
 /// inverse)`, each called with one value; a value a function fails on
 /// becomes NaN (its exception goes to the native call running).
-fn functions(pair: Option<(Callback, Callback)>) -> Option<FuncTransform> {
+fn functions(pair: Option<(Owned, Owned)>) -> PyResult<Option<FuncTransform>> {
     pair.map(|(forward, inverse)| {
-        FuncTransform::new(
-            move |x| forward.call((x,)).unwrap_or(f64::NAN),
-            move |x| inverse.call((x,)).unwrap_or(f64::NAN),
-        )
+        Python::with_gil(|py| super::archive::func_transform(&forward.bind(py), &inverse.bind(py)))
     })
+    .transpose()
 }
 
 /// A secondary axis of `parent` mirroring its `orientation` axis (`"x"`
@@ -93,11 +92,11 @@ fn secondary_axis(
     parent: Axes,
     orientation: String,
     location: PyLocation,
-    pair: Option<(Callback, Callback)>,
+    pair: Option<(Owned, Owned)>,
 ) -> PyResult<Axes> {
     let made = match orientation.as_str() {
-        "x" => parent.secondary_xaxis(location.0, functions(pair)),
-        "y" => parent.secondary_yaxis(location.0, functions(pair)),
+        "x" => parent.secondary_xaxis(location.0, functions(pair)?),
+        "y" => parent.secondary_yaxis(location.0, functions(pair)?),
         _ => return Err(PyErr::value_error(format!("no axis {orientation:?}"))),
     };
     Ok(made?)
@@ -105,8 +104,8 @@ fn secondary_axis(
 
 /// Converts the parent's range with `functions` from now on
 /// (`SecondaryAxis.set_functions`).
-fn set_secondary_functions(axes: Axes, pair: Option<(Callback, Callback)>) -> PyResult<()> {
-    axes.set_secondary_functions(functions(pair));
+fn set_secondary_functions(axes: Axes, pair: Option<(Owned, Owned)>) -> PyResult<()> {
+    axes.set_secondary_functions(functions(pair)?);
     Ok(())
 }
 
@@ -116,25 +115,37 @@ fn set_secondary_location(axes: Axes, location: PyLocation) -> PyResult<()> {
     Ok(())
 }
 
-/// Marks the area `bounds` of `parent` (data coordinates), or the area
-/// `inset` shows when no bounds are given, joined to the corners of
-/// `inset` if given, styled by `props` (`indicate_inset`,
-/// `indicate_inset_zoom`).
-fn indicate_inset(
-    parent: Axes,
-    bounds: Option<(f64, f64, f64, f64)>,
+/// Adds the indicator made outside any figure to `axes`
+/// (`add_artist(InsetIndicator(...))`): `artist` gives its common
+/// properties and `rectangle` becomes its frame, following the view limits
+/// of `inset` when `follows_inset`.
+fn adopt_indicator(
+    axes: Axes,
+    artist: RawHandle,
+    rectangle: RawHandle,
+    follows_inset: bool,
     inset: Option<Axes>,
-    props: PatchKwargs,
-) -> PyResult<Patch<InsetIndicator>> {
-    match (bounds, inset) {
-        (Some((x, y, width, height)), inset) => {
-            Ok(parent.indicate_inset([x, y, width, height], inset.as_ref(), props.0))
-        }
-        (None, Some(inset)) => Ok(parent.indicate_inset_zoom(&inset, props.0)),
-        (None, None) => Err(PyErr::value_error(
-            "At least one of bounds or inset_ax must be supplied",
-        )),
-    }
+) -> PyResult<InsetIndicator> {
+    Ok(axes.adopt_indicator(&artist, &rectangle, follows_inset, inset.as_ref())?)
+}
+
+/// The indicator's frame (`rectangle`).
+fn indicator_rectangle(indicator: InsetIndicator) -> PyResult<Patch<Rectangle>> {
+    Ok(indicator.rectangle())
+}
+
+/// The indicator's connectors, their visibility chosen if it was not yet
+/// (`connectors`); `None` without an inset.
+fn indicator_connectors(
+    indicator: InsetIndicator,
+) -> PyResult<Option<Vec<Patch<ConnectionPatch>>>> {
+    Ok(indicator.connectors())
+}
+
+/// The indicator's connectors as they are, their visibility not chosen
+/// (the connectors `InsetIndicator._shared_setter` styles).
+fn indicator_parts(indicator: InsetIndicator) -> PyResult<Vec<Patch<ConnectionPatch>>> {
+    Ok(indicator.connector_patches())
 }
 
 /// Registers the module's functions.
@@ -146,5 +157,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("secondary_axis", secondary_axis)?;
     module.add("set_secondary_functions", set_secondary_functions)?;
     module.add("set_secondary_location", set_secondary_location)?;
-    module.add("indicate_inset", indicate_inset)
+    module.add("adopt_indicator", adopt_indicator)?;
+    module.add("indicator_rectangle", indicator_rectangle)?;
+    module.add("indicator_connectors", indicator_connectors)?;
+    module.add("indicator_parts", indicator_parts)
 }

@@ -343,7 +343,7 @@ impl Artist for LineArtist {
                 Ok(segment) => {
                     self.draw_paths(ctx, &ResolvedTransform::identity(), &segment, &segment);
                 }
-                Err(problem) => ctx.report(self.base.id(), problem),
+                Err(problem) => ctx.report_kind(self.base.id(), problem.kind(), problem),
             }
             return;
         }

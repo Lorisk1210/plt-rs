@@ -182,10 +182,9 @@ mod tests {
         };
         let eps = fig.to_eps_with(tight).unwrap();
         assert!(eps.contains("%%BoundingBox: 0 0 72 36\n"));
-        let dir = std::env::temp_dir().join("pltrs-postscript");
-        std::fs::create_dir_all(&dir).unwrap();
-        fig.savefig(dir.join("figure.eps")).unwrap();
-        let saved = std::fs::read_to_string(dir.join("figure.eps")).unwrap();
+        let scratch = crate::scratch::Scratch::new("postscript");
+        fig.savefig(scratch.path("figure.eps")).unwrap();
+        let saved = std::fs::read_to_string(scratch.path("figure.eps")).unwrap();
         assert!(saved.contains("%%Title: figure.eps\n"));
     }
 

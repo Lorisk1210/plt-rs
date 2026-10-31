@@ -361,10 +361,9 @@ mod tests {
         };
         let cropped = String::from_utf8_lossy(&fig.to_pdf_with(tight).unwrap()).into_owned();
         assert!(cropped.contains("/MediaBox [ 0 0 72 36 ]"));
-        let dir = std::env::temp_dir().join("pltrs-save-formats");
-        std::fs::create_dir_all(&dir).unwrap();
+        let scratch = crate::scratch::Scratch::new("save-formats");
         assert!(matches!(
-            fig.savefig(dir.join("figure.avif")),
+            fig.savefig(scratch.path("figure.avif")),
             Err(SaveError::UnsupportedFormat(_))
         ));
     }

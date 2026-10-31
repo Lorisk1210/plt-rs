@@ -19,6 +19,7 @@ use pltrs_font::{
 use pltrs_text::{FontDatabase, FontQuery, FontRequest, TextEngine, bundled_font_data};
 
 use crate::harness::{Corruption, Gen, fuzz};
+use crate::scratch::Scratch;
 use crate::support::{FORMATS, render};
 
 /// The text shaped and drawn: kerning pairs, ligatures, accents,
@@ -144,14 +145,13 @@ fn exercise_face(data: &[u8]) {
     }
 }
 
-/// A unique file for a corrupted font: its faces are cached by path.
-fn font_file(seed_text: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pltrs-fuzz-fonts-{}", std::process::id()));
-    let _ = std::fs::create_dir_all(&dir);
+/// A unique file in `scratch` for a corrupted font: its faces are cached
+/// by path.
+fn font_file(scratch: &Scratch, seed_text: &str) -> PathBuf {
     let hash = seed_text.bytes().fold(0xCBF2_9CE4_8422_2325_u64, |h, b| {
         (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01B3)
     });
-    dir.join(format!("{hash:016x}.ttf"))
+    scratch.path(&format!("{hash:016x}.ttf"))
 }
 
 /// Draws text in the font at `path`, through a private engine and through
@@ -196,6 +196,7 @@ fn corrupted_fonts() {
 #[test]
 fn drawing_with_corrupted_fonts() {
     let corpus = corpus();
+    let scratch = Scratch::new("fuzz-fonts");
     fuzz(
         "font drawing",
         200,
@@ -206,7 +207,7 @@ fn drawing_with_corrupted_fonts() {
         },
         |input| {
             let (_, font, corruption, format) = input;
-            let path = font_file(&format!("{input:?}"));
+            let path = font_file(&scratch, &format!("{input:?}"));
             if std::fs::write(&path, corruption.apply(&corpus[*font].1)).is_ok() {
                 draw_with(&path, *format);
                 let _ = std::fs::remove_file(&path);
@@ -258,6 +259,7 @@ fn adding_corrupted_fonts_to_the_catalogue() {
         return;
     }
     let corpus = corpus();
+    let scratch = Scratch::new("fuzz-font-catalogue");
     fuzz(
         "font catalogue",
         100,
@@ -269,7 +271,7 @@ fn adding_corrupted_fonts_to_the_catalogue() {
         |input| {
             let (_, font, corruption, format) = input;
             let bytes = corruption.apply(&corpus[*font].1);
-            let path = font_file(&format!("catalogue {input:?}"));
+            let path = font_file(&scratch, &format!("catalogue {input:?}"));
             if std::fs::write(&path, &bytes).is_ok() {
                 add_and_draw(&path, &bytes, *format);
             }

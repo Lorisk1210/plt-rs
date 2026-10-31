@@ -145,7 +145,12 @@ impl QuadField {
         if rows < 2 || cols < 2 {
             return Err(ContourError::GridTooSmall { rows, cols });
         }
-        let (x, y) = self.coordinates(rc)?;
+        let GeneratorArguments {
+            x,
+            y,
+            algorithm,
+            corner_mask,
+        } = self.generator_arguments(rc)?;
         let mut mask: Vec<bool> = self.z.as_slice().iter().map(|v| !v.is_finite()).collect();
         if let Some(user) = &self.mask {
             if user.shape() != (rows, cols) {
@@ -169,14 +174,13 @@ impl QuadField {
         }
         let mask = Grid::from_vec(rows, cols, mask).expect("the mask has the shape of z");
         let chunk = (self.nchunk, self.nchunk);
-        let algorithm = self.effective_algorithm(rc);
         let generator = QuadContourGenerator::with_algorithm(
             algorithm,
             &x,
             &y,
             &self.z,
             Some(&mask),
-            self.effective_corner_mask(algorithm, rc),
+            corner_mask,
             chunk,
         )?;
         Ok(ContourSource {
@@ -186,6 +190,36 @@ impl QuadField {
             data_lim: data_lim(&x, &y, to_data),
             boolean: self.boolean,
             warnings,
+        })
+    }
+
+    /// What the field's contour generator is made from, the defaults
+    /// resolved with `rc` (matplotlib's arguments to
+    /// `contourpy.contour_generator`).
+    ///
+    /// ```
+    /// use pltrs::contour::{ContourAlgorithm, QuadField};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::rc::RcParams;
+    /// let field = QuadField::new(Grid::from_vec(2, 3, vec![0.0; 6]).unwrap())
+    ///     .with_algorithm(ContourAlgorithm::Mpl2005);
+    /// let arguments = field.generator_arguments(&RcParams::default())?;
+    /// assert_eq!(arguments.x.row(1), [0.0, 1.0, 2.0]);
+    /// assert!(!arguments.corner_mask);
+    /// # Ok::<(), pltrs::contour::ContourError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the coordinates do not fit z.
+    pub fn generator_arguments(&self, rc: &RcParams) -> Result<GeneratorArguments, ContourError> {
+        let (x, y) = self.coordinates(rc)?;
+        let algorithm = self.effective_algorithm(rc);
+        Ok(GeneratorArguments {
+            x,
+            y,
+            algorithm,
+            corner_mask: self.effective_corner_mask(algorithm, rc),
         })
     }
 
@@ -223,6 +257,20 @@ impl QuadField {
             }
         }
     }
+}
+
+/// What the contour generator of a [`QuadField`] is made from
+/// ([`QuadField::generator_arguments`]).
+#[derive(Clone, Debug, PartialEq)]
+pub struct GeneratorArguments {
+    /// The x of every point, shaped like z.
+    pub x: Grid<f64>,
+    /// The y of every point, shaped like z.
+    pub y: Grid<f64>,
+    /// The contouring algorithm.
+    pub algorithm: ContourAlgorithm,
+    /// Whether a quad with one masked point keeps the triangle opposite it.
+    pub corner_mask: bool,
 }
 
 /// matplotlib's `_initialize_x_y`.

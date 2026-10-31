@@ -5,11 +5,15 @@
 
 use pltrs::artist::RawHandle;
 use pltrs::axes::Axes;
+use pltrs::colors::Color;
 use pltrs::figure::{BufferRegion, CanvasError, Figure, PixelBox};
 use pltrs::transforms::{Bbox, Point};
 use pltrs_render::RasterRenderer;
 
 use super::super::lines::markevery_error;
+use super::super::path::PyPath;
+use super::super::transforms::affine;
+use super::gc::PyGc;
 use crate::binding::prelude::*;
 use crate::binding::wrap_native;
 
@@ -139,6 +143,28 @@ fn width_height(figure: Figure) -> PyResult<(u32, u32)> {
     Ok(figure.width_height())
 }
 
+/// Draws `path`, mapped into display pixels by the affine `matrix`, onto
+/// the figure's canvas with the graphics context `gc`, filled with
+/// `fill` if given (matplotlib's `RendererAgg.draw_path`).
+fn draw_path(
+    figure: Figure,
+    gc: PyGc,
+    path: PyPath,
+    matrix: NdArray,
+    fill: Option<Color>,
+) -> PyResult<()> {
+    let fill = fill
+        .map(|color| {
+            color
+                .resolve()
+                .map_err(|err| PyErr::value_error(err.to_string()))
+        })
+        .transpose()?;
+    Ok(figure
+        .canvas()
+        .draw_path(&gc.0, &path.path, &affine(&matrix)?, fill)?)
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("draw", draw)?;
@@ -147,6 +173,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("restore_region", restore_region)?;
     module.add("region_extents", region_extents)?;
     module.add("draw_artist", draw_artist)?;
+    module.add("draw_path", draw_path)?;
     module.add("redraw_in_frame", redraw_in_frame)?;
     module.add("blit", blit)?;
     module.add("get_device_pixel_ratio", get_device_pixel_ratio)?;

@@ -37,9 +37,12 @@ fn side(name: &str) -> PyResult<SpineSide> {
     SpineSide::from_name(name).ok_or_else(|| PyErr::value_error(format!("no side {name:?}")))
 }
 
-/// The tick locations, major or `minor` (`get_ticklocs`).
+/// The tick locations, major or `minor`, in the axes' geometry as it is
+/// (`get_ticklocs`, which lays nothing out).
 fn get_ticklocs(axes: Axes, name: String, minor: bool) -> PyResult<NdArray> {
-    Ok(NdArray::from_vec(axis(&axes, &name)?.ticklocs(minor)?))
+    Ok(NdArray::from_vec(
+        axis(&axes, &name)?.ticklocs_as_is(minor)?,
+    ))
 }
 
 /// Puts the major or `minor` ticks at `ticks` (numbers, dates or

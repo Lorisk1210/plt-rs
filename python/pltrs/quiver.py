@@ -23,7 +23,7 @@ import numpy as np
 from numpy import ma
 
 from . import (_api, _handles, _live_transforms, cbook, collections as mcollections,
-               colors as mcolors)
+               colors as mcolors, transforms)
 from . import artist as martist
 from ._native import plotting as _plotting
 
@@ -318,6 +318,16 @@ class Quiver(mcollections.PolyCollection):
         self.V = V.filled(1)
         self.Umask = ma.getmask(U)
         self._C = C
+
+    def get_datalim(self, transData):
+        # docstring inherited
+        trans = self.get_transform()
+        offset_trf = self.get_offset_transform()
+        full_transform = (trans - transData) + (offset_trf - trans)
+        XY = full_transform.transform(self.XY)
+        bbox = transforms.Bbox.null()
+        bbox.update_from_data_xy(XY, ignore=True)
+        return bbox
 
     def set_UVC(self, U, V, C=None):
         """Set the components *U*, *V* of the arrows, and their colour

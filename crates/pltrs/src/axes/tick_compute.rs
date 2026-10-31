@@ -3,10 +3,54 @@
 //! the formatters' labels, and the minor ticks that do not fall on major
 //! ones.
 
+use super::AxesState;
 use super::axis::{AxisGeometry, AxisState};
+use super::axis_handle::Axis;
 use super::tick_set::{Tick, TickSet};
+use crate::artist::ArtistHandle;
 use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError, drawable_ticks};
-use crate::transforms::interval_contains_close;
+use crate::transforms::{TransformContext, interval_contains_close};
+
+impl Axis {
+    /// Every major (or minor) tick location of the current view, as
+    /// matplotlib computes them on demand: in the axes' geometry as it
+    /// is, without laying the figure out (no aspect or axes locator
+    /// applied, no layout engine), the view limits autoscaled first
+    /// (matplotlib's `Axis.get_ticklocs` read before a draw; after one, the
+    /// geometry is the drawn one). [`Axis::ticklocs`] lays the figure out.
+    ///
+    /// ```
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.set_xlim(0.0, 1.0)?;
+    /// assert_eq!(ax.xaxis().ticklocs_as_is(false)?, ax.xaxis().ticklocs(false)?);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the locator fails.
+    pub fn ticklocs_as_is(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
+        let ticks = {
+            let mut state = self.axes().raw().figure_state().borrow_mut();
+            let id = self.axes().id();
+            state.sync_secondary(id);
+            state.unstale_axes(id);
+            let extent = state.axes_bbox(id);
+            let tick_space = state.shared_tick_spaces(id)[usize::from(self.name() == AxisName::Y)];
+            let dpi = state.dpi();
+            extent.and_then(|extent| {
+                state
+                    .store
+                    .get_as::<AxesState>(id)
+                    .map(|axes| axes.ticks_for(self.name(), &extent, dpi, tick_space))
+            })
+        };
+        match ticks {
+            Some(ticks) => Ok(ticks?.unclipped_locs(minor)),
+            None => self.ticklocs(minor),
+        }
+    }
+}
 
 impl AxisState {
     /// What tick helpers know about this axis.
@@ -57,7 +101,8 @@ impl AxisState {
         self.ticks = self.compute_ticks(geometry);
     }
 
-    fn compute_ticks(&self, geometry: &AxisGeometry) -> Result<TickSet, TickerError> {
+    /// The ticks to draw for the view of `geometry`.
+    pub(crate) fn compute_ticks(&self, geometry: &AxisGeometry) -> Result<TickSet, TickerError> {
         let mut info = self.info(geometry);
         let mut major_locs = {
             let ctx = TickContext::new(&info, &self.settings);

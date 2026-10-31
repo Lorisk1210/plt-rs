@@ -12,7 +12,7 @@ use pltrs::axes::Axes;
 use pltrs::colors::Color;
 use pltrs::figure::Figure;
 use pltrs::lines::LineStyle;
-use pltrs::patches::BoxStyle;
+use pltrs::patches::{BoxStyle, FancyBboxPatch, Patch};
 use pltrs::text::{
     Feature, HAlign, Language, LanguageRange, LineSpacing, RotationMode, Text, TextBoxProps, VAlign,
 };
@@ -283,6 +283,20 @@ fn set_bbox(text: Text, props: Option<BoxKwargs>) -> PyResult<()> {
     Ok(())
 }
 
+/// The box of the text as a loose fancy box patch of its look, `None`
+/// without a box (matplotlib's `get_bbox_patch`; see
+/// `TextBoxPatch::to_patch`).
+fn bbox_patch(text: Text) -> PyResult<Option<Patch<FancyBboxPatch>>> {
+    Ok(text.bbox_patch().map(|bbox| bbox.to_patch()))
+}
+
+/// Gives the box of the text the look of `patch`, a patch `bbox_patch`
+/// made and the program changed.
+fn restyle_bbox(text: Text, patch: Patch<FancyBboxPatch>) -> PyResult<()> {
+    text.restyle_bbox(&patch);
+    Ok(())
+}
+
 /// Whether the text has a box.
 fn has_bbox(text: Text) -> PyResult<bool> {
     Ok(text.has_bbox())
@@ -412,6 +426,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("contains", contains)?;
     module.add("set_bbox", set_bbox)?;
     module.add("has_bbox", has_bbox)?;
+    module.add("bbox_patch", bbox_patch)?;
+    module.add("restyle_bbox", restyle_bbox)?;
     module.add("set_backgroundcolor", set_backgroundcolor)?;
     module.add("set_fontfeatures", set_fontfeatures)?;
     module.add("set_language", set_language)?;

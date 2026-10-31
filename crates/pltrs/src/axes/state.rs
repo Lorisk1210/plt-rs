@@ -13,6 +13,7 @@ use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::ProjectionState;
 use super::secondary::Secondary;
+use super::tick_set::TickSet;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::axes_grid1::Parasite;
 use crate::colors::Color;
@@ -549,20 +550,45 @@ impl AxesState {
     /// pixels at `dpi`.
     pub(crate) fn update_ticks(&mut self, extent: &Bbox, dpi: f64, shared: [Option<usize>; 2]) {
         for (name, tick_space) in [AxisName::X, AxisName::Y].into_iter().zip(shared) {
-            let ((lo, hi), minpos) = self.data_interval(name);
-            let length_pixels = match name {
-                AxisName::X => extent.width().abs(),
-                AxisName::Y => extent.height().abs(),
-            };
-            let geometry = AxisGeometry {
-                view: self.tick_interval(name),
-                data: (lo, hi),
-                minpos,
-                length_points: length_pixels / dpi * 72.0,
-                tick_space,
-                tick_floor: self.tick_floor(name),
-            };
+            let geometry = self.axis_geometry(name, extent, dpi, tick_space);
             self.axis_mut(name).update_ticks(&geometry);
+        }
+    }
+
+    /// The ticks of axis `name` for an axes `extent` in display pixels at
+    /// `dpi`, without keeping them.
+    pub(crate) fn ticks_for(
+        &self,
+        name: AxisName,
+        extent: &Bbox,
+        dpi: f64,
+        tick_space: Option<usize>,
+    ) -> Result<TickSet, TickerError> {
+        self.axis(name)
+            .compute_ticks(&self.axis_geometry(name, extent, dpi, tick_space))
+    }
+
+    /// What the ticks of axis `name` are computed from for an axes
+    /// `extent` in display pixels at `dpi`.
+    fn axis_geometry(
+        &self,
+        name: AxisName,
+        extent: &Bbox,
+        dpi: f64,
+        tick_space: Option<usize>,
+    ) -> AxisGeometry {
+        let ((lo, hi), minpos) = self.data_interval(name);
+        let length_pixels = match name {
+            AxisName::X => extent.width().abs(),
+            AxisName::Y => extent.height().abs(),
+        };
+        AxisGeometry {
+            view: self.tick_interval(name),
+            data: (lo, hi),
+            minpos,
+            length_points: length_pixels / dpi * 72.0,
+            tick_space,
+            tick_floor: self.tick_floor(name),
         }
     }
 }

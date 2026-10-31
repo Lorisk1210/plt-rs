@@ -6,13 +6,11 @@ use pltrs::axes::Axes;
 use pltrs::collections::Collection;
 use pltrs::colors::{Color, Colormap, Extend, Norm};
 use pltrs::contour::{
-    ClabelFormat, ClabelOptions, ContourAlgorithm, ContourError, ContourLegendStyle,
-    ContourOptions, ContourOrigin, ContourSet, Levels, NearestIn, QuadCoords, QuadField,
+    ContourAlgorithm, ContourError, ContourLegendStyle, ContourOptions, ContourOrigin, ContourSet,
+    GeneratorArguments, Levels, NearestIn, QuadCoords, QuadField,
 };
-use pltrs::fonts::FontSize;
 use pltrs::numeric::Grid;
-use pltrs::text::Text;
-use pltrs::ticker::{LabelFormat, Locator};
+use pltrs::ticker::Locator;
 use pltrs::transforms::Transform;
 use pltrs::tri::Triangulation;
 use pltrs_core::{Path, Point};
@@ -22,6 +20,8 @@ use super::cm::NativeColormap;
 use super::lines::PyLineStyle;
 use super::path::{PathArrays, PyPath, path_arrays};
 use crate::binding::prelude::*;
+
+mod labels;
 
 artist_handle!(ContourSet);
 
@@ -36,7 +36,9 @@ impl From<ContourError> for PyErr {
             | ContourError::ShapeMismatch { .. }
             | ContourError::XLength { .. }
             | ContourError::YLength { .. } => PyErr::type_error(message),
-            ContourError::LevelIndex { .. } => PyErr::new(ExceptionKind::IndexError, message),
+            ContourError::LevelIndex { .. } | ContourError::VertexIndex { .. } => {
+                PyErr::new(ExceptionKind::IndexError, message)
+            }
             _ => PyErr::value_error(message),
         }
     }
@@ -96,17 +98,11 @@ fn levels(levels: Option<NdArray>) -> PyResult<Levels> {
     })
 }
 
-/// Line (or, `filled`, filled) contours of the field (matplotlib's
-/// `contour` and `contourf`, whose arguments the Python side sorted out).
-fn contour(
-    axes: Axes,
-    filled: bool,
+/// The quad field of a [`Field`] generated as a [`Generation`] says.
+fn quad_field(
     (z, mask, x, y, (origin, extent)): Field,
     (corner_mask, nchunk, algorithm): Generation,
-    requested: Option<NdArray>,
-    look: Look,
-    extras: Extras,
-) -> PyResult<ContourSet> {
+) -> PyResult<QuadField> {
     let mut field = QuadField::new(grid(&z)?);
     if let Some(mask) = mask {
         let (rows, cols) = (mask.shape[0], mask.shape.get(1).copied().unwrap_or(0));
@@ -142,6 +138,21 @@ fn contour(
                 .map_err(|err| PyErr::value_error(err.to_string()))?,
         );
     }
+    Ok(field)
+}
+
+/// Line (or, `filled`, filled) contours of the field (matplotlib's
+/// `contour` and `contourf`, whose arguments the Python side sorted out).
+fn contour(
+    axes: Axes,
+    filled: bool,
+    field: Field,
+    generation: Generation,
+    requested: Option<NdArray>,
+    look: Look,
+    extras: Extras,
+) -> PyResult<ContourSet> {
+    let field = quad_field(field, generation)?;
     let options = contour_options(requested, look, extras)?;
     Ok(if filled {
         axes.contourf(&field, options)?
@@ -150,28 +161,37 @@ fn contour(
     })
 }
 
+/// What the contour generator of the field is made from, the defaults
+/// resolved with the current rcParams: `(x, y, algorithm, corner_mask)`,
+/// the coordinates of every point shaped like z (the arguments matplotlib
+/// gives `contourpy.contour_generator`).
+fn generator_arguments(
+    field: Field,
+    generation: Generation,
+) -> PyResult<(NdArray, NdArray, String, bool)> {
+    let GeneratorArguments {
+        x,
+        y,
+        algorithm,
+        corner_mask,
+    } = quad_field(field, generation)?.generator_arguments(&pltrs::rc::params())?;
+    let array = |grid: Grid<f64>| {
+        let (rows, cols) = grid.shape();
+        NdArray::with_shape(grid.into_vec(), vec![rows, cols])
+    };
+    Ok((
+        array(x)?,
+        array(y)?,
+        algorithm.name().to_owned(),
+        corner_mask,
+    ))
+}
+
 /// Sets the edge colours of the contours, cycled over the paths of the
 /// levels or bands.
 fn set_edgecolors(set: ContourSet, colors: Vec<Color>) -> PyResult<()> {
     set.set_edgecolors(colors);
     Ok(())
-}
-
-/// Labels the labelled line nearest to the display point `(x, y)` the way
-/// the last `clabel` labelled the set, cutting the line under the label
-/// when `inline` (matplotlib's `add_label_near`).
-fn add_label_near(
-    set: ContourSet,
-    (x, y): (f64, f64),
-    inline: bool,
-    inline_spacing: f64,
-) -> PyResult<Text> {
-    Ok(set.add_label_near(
-        Point::new(x, y),
-        &Transform::Display,
-        inline,
-        inline_spacing,
-    )?)
 }
 
 /// Line (or, `filled`, filled) contours of given segments: for each level
@@ -193,15 +213,17 @@ fn contour_segments(
     Ok(axes.contour_segments(&levels, &segments, filled, options)?)
 }
 
-/// The extend, hatches, antialiasing and level locator of a contour set,
-/// the locator described as `_tick_helpers` describes the helpers it
-/// installs: `(spec, True)` for a locator of `ticker`, `(adapter, False)`
-/// for one of the program's.
+/// The extend, hatches, antialiasing, level locator and transform of a
+/// contour set, the locator described as `_tick_helpers` describes the
+/// helpers it installs: `(spec, True)` for a locator of `ticker`,
+/// `(adapter, False)` for one of the program's; the transform `None` for
+/// the axes' data coordinates.
 pub(super) type Extras = (
     String,
     Vec<Option<String>>,
     Option<bool>,
     Option<(Owned, bool)>,
+    Option<Transform>,
 );
 
 /// The locator a Python locator's description gives (see [`Extras`]).
@@ -220,7 +242,7 @@ fn level_locator((description, native): (Owned, bool)) -> PyResult<Box<dyn Locat
 pub(super) fn contour_options(
     requested: Option<NdArray>,
     (colors, mapping, alpha, linewidths, linestyles, negative): Look,
-    (extend, hatches, antialiased, locator): Extras,
+    (extend, hatches, antialiased, locator, transform): Extras,
 ) -> PyResult<ContourOptions> {
     Ok(ContourOptions {
         levels: levels(requested)?,
@@ -239,7 +261,7 @@ pub(super) fn contour_options(
         negative_linestyles: negative.map(|style| style.0),
         antialiased,
         hatches,
-        ..ContourOptions::default()
+        transform,
     })
 }
 
@@ -347,62 +369,6 @@ fn find_nearest_contour(
         }))
 }
 
-/// How labels are written: a template or callable, or `{level: text}`
-/// pairs, or `None` for matplotlib's default formatter.
-fn clabel_format(fmt: Option<Owned>) -> PyResult<ClabelFormat> {
-    let Some(fmt) = fmt else {
-        return Ok(ClabelFormat::Scalar);
-    };
-    Python::with_gil(|py| {
-        let fmt = fmt.bind(py);
-        if let Ok(template) = fmt.extract::<String>() {
-            return Ok(ClabelFormat::Label(LabelFormat::Template(template)));
-        }
-        if let Ok(pairs) = fmt.extract::<Vec<(f64, String)>>() {
-            return Ok(ClabelFormat::Map(pairs));
-        }
-        Ok(ClabelFormat::Label(super::archive::label_format(&fmt)?))
-    })
-}
-
-/// The label options: `(levels, fontsize, inline, inline_spacing,
-/// colors, manual positions)`.
-type ClabelLayout = (
-    Option<Vec<f64>>,
-    Option<f64>,
-    bool,
-    f64,
-    Option<Vec<Color>>,
-    Option<Vec<(f64, f64)>>,
-);
-
-/// Labels the contour lines (matplotlib's `clabel`): the label texts.
-fn clabel(
-    set: ContourSet,
-    (levels, fontsize, inline, inline_spacing, colors, manual): ClabelLayout,
-    fmt: Option<Owned>,
-    (rightside_up, zorder, use_clabeltext): (bool, Option<f64>, bool),
-) -> PyResult<Vec<Text>> {
-    let options = ClabelOptions {
-        levels,
-        fontsize: fontsize.map(FontSize::Points),
-        inline,
-        inline_spacing,
-        fmt: clabel_format(fmt)?,
-        colors,
-        manual,
-        rightside_up,
-        zorder,
-        use_clabeltext,
-    };
-    Ok(set.clabel(options)?)
-}
-
-/// The texts of the set's labels.
-fn label_texts(set: ContourSet) -> PyResult<Vec<Text>> {
-    Ok(set.labels().into_iter().map(|label| label.artist).collect())
-}
-
 /// Sets the line widths of the levels.
 fn set_linewidths(set: ContourSet, widths: Vec<f64>) -> PyResult<()> {
     set.set_linewidths(&widths);
@@ -487,11 +453,12 @@ fn remove(set: ContourSet) -> PyResult<()> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    labels::register(module)?;
     module.add("contour", contour)?;
     module.add("tricontour", tricontour)?;
     module.add("contour_segments", contour_segments)?;
-    module.add("add_label_near", add_label_near)?;
     module.add("set_edgecolors", set_edgecolors)?;
+    module.add("generator_arguments", generator_arguments)?;
     module.add("get_levels", get_levels)?;
     module.add("get_layers", get_layers)?;
     module.add("get_cvalues", get_cvalues)?;
@@ -501,8 +468,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_colors", get_colors)?;
     module.add("get_collections", get_collections)?;
     module.add("find_nearest_contour", find_nearest_contour)?;
-    module.add("clabel", clabel)?;
-    module.add("label_texts", label_texts)?;
     module.add("set_linewidths", set_linewidths)?;
     module.add("get_clim", get_clim)?;
     module.add("set_mapping", set_mapping)?;

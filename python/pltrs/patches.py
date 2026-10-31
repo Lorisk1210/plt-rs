@@ -921,6 +921,10 @@ class FancyArrow(Polygon):
             If True, the head starts being drawn at coordinate 0
             instead of ending at coordinate 0.
         """
+        if np.size(np.hypot(dx, dy)) == 0:
+            # An arrow of empty data displays nothing: pltrs (Rust) gives
+            # an arrow of non-finite coordinates no vertices.
+            x = y = dx = dy = np.nan
         self._native = _patches.new_fancy_arrow(
             (float(x), float(y)), (float(dx), float(dy)), float(width),
             (None if head_width is None else float(head_width),

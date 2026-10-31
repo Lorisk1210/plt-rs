@@ -87,6 +87,13 @@ pub enum ContourError {
         /// How many levels there are.
         levels: usize,
     },
+    /// A label was to be placed at a vertex a line does not have.
+    VertexIndex {
+        /// The index given.
+        index: usize,
+        /// How many vertices the line has.
+        vertices: usize,
+    },
     /// There is no label to remove: none at the index given, or none at
     /// all (`None`).
     NoLabel(Option<usize>),
@@ -187,6 +194,10 @@ impl fmt::Display for ContourError {
             Self::LevelIndex { index, levels } => {
                 write!(f, "level index {index} is out of range for {levels} levels")
             }
+            Self::VertexIndex { index, vertices } => write!(
+                f,
+                "index {index} is out of bounds for a line of {vertices} vertices"
+            ),
             Self::NoLabel(Some(index)) => write!(f, "the contour set has no label {index}"),
             Self::NoLabel(None) => f.write_str("the contour set has no labels"),
             Self::TooManyLabelledLevels(count) => write!(

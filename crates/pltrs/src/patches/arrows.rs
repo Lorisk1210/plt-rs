@@ -125,8 +125,13 @@ impl FancyArrow {
         }
     }
 
-    /// The polygon vertices (`FancyArrow._make_verts`).
+    /// The polygon vertices (`FancyArrow._make_verts`). An arrow whose tail
+    /// or extent is not finite has none: it stands for matplotlib's arrow
+    /// of empty data (`ax.arrow([], [], [], [])`), which displays nothing.
     pub fn vertices(&self) -> Vec<Point> {
+        if !(self.tail.is_finite() && self.delta.is_finite()) {
+            return Vec::new();
+        }
         let head_width = self.head_width.unwrap_or(3.0 * self.width);
         let head_length = self.head_length.unwrap_or(1.5 * head_width);
         let distance = self.delta.x.hypot(self.delta.y);
@@ -228,5 +233,15 @@ mod tests {
     fn zero_length_arrows_point_up() {
         let tip = FancyArrow::new(1.0, 1.0, 0.0, 0.0).vertices()[0];
         assert!(close(tip, Point::new(1.0, 1.0045)));
+    }
+
+    #[test]
+    fn arrows_of_no_data_have_no_vertices() {
+        let none: [Point; 0] = [];
+        let empty = FancyArrow::new(f64::NAN, f64::NAN, f64::NAN, f64::NAN);
+        assert_eq!(empty.vertices(), none);
+        assert_eq!(empty.path().vertices(), none);
+        let endless = FancyArrow::new(0.0, 0.0, f64::INFINITY, 1.0);
+        assert_eq!(endless.vertices(), none);
     }
 }

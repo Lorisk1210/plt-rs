@@ -64,8 +64,49 @@ class ContourLabeler:
              [(float(self.axes.convert_xunits(x)), float(self.axes.convert_yunits(y)))
               for x, y in manual]),
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
-                  bool(use_clabeltext)))
+                  bool(use_clabeltext)), self._native_splitter)
         return _handles.wrap_all(texts, Text, self.figure)
+
+    def _native_splitter(self, vertices, codes, idx, screen_pos, lw, spacing):
+        """What pltrs (Rust) calls for each label it places: matplotlib's
+        `_split_path_and_get_label_rotation` on the line as a `.Path`."""
+        return self._split_path_and_get_label_rotation(
+            Path(vertices, codes), idx, screen_pos, lw, spacing)
+
+    def _split_path_and_get_label_rotation(self, path, idx, screen_pos, lw, spacing=5):
+        """
+        Prepare for insertion of a label at index *idx* of *path*.
+
+        Parameters
+        ----------
+        path : Path
+            The path where the label will be inserted, in data space.
+        idx : int
+            The vertex index after which the label will be inserted.
+        screen_pos : (float, float)
+            The position where the label will be inserted, in screen space.
+        lw : float
+            The label width, in screen space.
+        spacing : float
+            Extra spacing around the label, in screen space.
+
+        Returns
+        -------
+        path : Path
+            The path, broken so that the label can be drawn over it.
+        angle : float
+            The rotation of the label.
+
+        Notes
+        -----
+        Both tasks are done together to avoid calculating path lengths
+        multiple times, which is relatively costly. pltrs (Rust) computes
+        them.
+        """
+        rotation, (vertices, codes) = _contour.split_path(
+            self._contour, path, int(idx), tuple(map(float, screen_pos)),
+            (float(lw), float(spacing)))
+        return rotation, Path(vertices, codes)
 
     def add_label_near(self, x, y, inline=True, inline_spacing=5,
                        transform=None):
@@ -94,7 +135,8 @@ class ContourLabeler:
         if transform:
             x, y = transform.transform((x, y))
         text = _contour.add_label_near(self._contour, (float(x), float(y)),
-                                       bool(inline), float(inline_spacing))
+                                       bool(inline), float(inline_spacing),
+                                       self._native_splitter)
         return _handles.wrap(text, Text, self.figure)
 
     @property
@@ -234,6 +276,16 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """Which ends the colors extend: 'neither', 'both', 'min' or 'max'."""
         return _contour.get_state(self._contour)[3]
 
+    @property
+    def _contour_generator(self):
+        """
+        The contour generator matplotlib keeps, shared with the contour
+        sets made from this one: contourpy's for a `QuadContourSet` (where
+        contourpy is importable), the ``_tri`` extension's for a
+        `.TriContourSet`.
+        """
+        return self._generator._matplotlib_generator()
+
     def get_paths(self):
         """Return the paths: one compound path per level or band."""
         return [Path(vertices, codes)
@@ -359,15 +411,49 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
 class _ContourGenerator:
     """
-    What a contour set was generated from (matplotlib keeps a contourpy
-    generator as ``_contour_generator``): the *field* pltrs (Rust) contours
-    again, at other levels, when the contour set is passed to ``contour``,
-    ``contourf`` (the arguments of the native ``contour`` before the levels)
-    or ``tricontour`` and ``tricontourf`` (the triangulation and z).
+    What a contour set was generated from, kept as ``_generator``: the
+    *field* pltrs (Rust) contours again, at other levels, when the contour
+    set is passed to ``contour`` or ``contourf`` (the arguments of the
+    native ``contour`` before the levels), and the generator matplotlib
+    keeps for it (``_contour_generator``), made when first asked for.
     """
 
     def __init__(self, *field):
         self.field = field
+        self._matplotlib = None
+
+    def _make_matplotlib(self):
+        """
+        The contourpy generator matplotlib makes for the field, with the
+        same arguments, or None where contourpy is not importable. pltrs
+        (Rust) still computes and draws the contours.
+        """
+        try:
+            import contourpy
+        except ImportError:
+            return None
+        field, generation = self.field
+        z, mask = field[:2]
+        x, y, algorithm, corner_mask = _contour.generator_arguments(field, generation)
+        z = ma.masked_invalid(z, copy=False)
+        if mask is not None:
+            z[mask] = ma.masked
+        return contourpy.contour_generator(
+            x, y, z, name=algorithm, corner_mask=corner_mask,
+            line_type=contourpy.LineType.SeparateCode,
+            fill_type=contourpy.FillType.OuterCode,
+            chunk_size=generation[1])
+
+    def _matplotlib_generator(self):
+        """matplotlib's generator for the field, made the first time; this
+        generator where none can be made."""
+        if self._matplotlib is None:
+            self._matplotlib = self._make_matplotlib() or self
+        return self._matplotlib
+
+    def __getstate__(self):
+        # matplotlib's generators cannot be pickled: they are made again.
+        return {**self.__dict__, "_matplotlib": None}
 
 
 class QuadContourSet(ContourSet):

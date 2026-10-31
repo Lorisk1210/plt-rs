@@ -9,6 +9,7 @@ use super::{
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
+use crate::patches::{FancyBboxPatch, Patch};
 use crate::ticker::AxisName;
 
 /// A handle to a text artist (matplotlib's `Text`).
@@ -203,6 +204,17 @@ impl Text {
     /// The box behind the text, if any (matplotlib's `get_bbox_patch`).
     pub fn bbox_patch(&self) -> Option<TextBoxPatch> {
         self.raw.with::<TextArtist, _>(|t| t.bbox.clone())
+    }
+
+    /// Gives the box behind the text the look of `patch` (see
+    /// [`TextBoxPatch::to_patch`]); without a box, nothing changes.
+    pub fn restyle_bbox(&self, patch: &Patch<FancyBboxPatch>) -> &Self {
+        self.raw.with_mut::<TextArtist, _>(|t| {
+            if let Some(bbox) = &mut t.bbox {
+                bbox.restyle_from(patch);
+            }
+        });
+        self
     }
 }
 

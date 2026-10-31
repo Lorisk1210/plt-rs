@@ -11,7 +11,7 @@
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
 use pltrs::coords::{CoordError, CoordUnit, Coords};
-use pltrs::patches::{ArrowStyle, ConnectionStyle};
+use pltrs::patches::{ArrowStyle, ConnectionStyle, FancyArrowPatch, Patch};
 use pltrs::text::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps, Text,
 };
@@ -287,6 +287,35 @@ fn has_arrow(text: Text) -> PyResult<bool> {
     Ok(annotation(&text)?.has_arrow())
 }
 
+/// The arrow as a loose fancy arrow patch of its look, `None` without an
+/// arrow (matplotlib's `arrow_patch`; see `Annotation::arrow_patch`).
+fn arrow_patch(text: Text) -> PyResult<Option<Patch<FancyArrowPatch>>> {
+    Ok(annotation(&text)?.arrow_patch())
+}
+
+/// Gives the arrow the look of `patch`, a patch `arrow_patch` made and the
+/// program changed.
+fn restyle_arrow(text: Text, patch: Patch<FancyArrowPatch>) -> PyResult<()> {
+    annotation(&text)?.restyle_arrow(&patch);
+    Ok(())
+}
+
+/// The display box `(x0, y0, x1, y1)` of the arrow as drawn, `None`
+/// without an arrow or while the annotation is hidden.
+fn arrow_extent(text: Text) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(annotation(&text)?
+        .arrow_extent()
+        .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
+}
+
+/// The display box `(x0, y0, x1, y1)` of the text alone, without the
+/// arrow (`Text.get_window_extent(annotation)`).
+fn text_extent(text: Text) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(annotation(&text)?
+        .text_extent()
+        .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axes_annotate", axes_annotate)?;
@@ -297,5 +326,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_textcoords", set_textcoords)?;
     module.add("get_annotation_clip", get_annotation_clip)?;
     module.add("set_annotation_clip", set_annotation_clip)?;
-    module.add("has_arrow", has_arrow)
+    module.add("has_arrow", has_arrow)?;
+    module.add("arrow_patch", arrow_patch)?;
+    module.add("restyle_arrow", restyle_arrow)?;
+    module.add("arrow_extent", arrow_extent)?;
+    module.add("text_extent", text_extent)
 }

@@ -89,6 +89,8 @@ pub(crate) struct FigureState {
     /// The raster canvas kept between draws, and what the windows showing
     /// the figure have to present of it.
     pub(crate) canvas: CanvasState,
+    /// What the program runs at every draw (`Figure::set_draw_hook`).
+    pub(crate) draw_hook: Option<super::DrawHook>,
     /// A figure, or the holder of an artist made outside any figure.
     pub(crate) role: StateRole,
 }
@@ -192,6 +194,7 @@ impl FigureState {
             suppress_composite: None,
             last_draw_dpi: None,
             canvas: CanvasState::default(),
+            draw_hook: None,
             role: StateRole::Figure,
         }
     }

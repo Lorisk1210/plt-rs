@@ -119,6 +119,12 @@ fn get_rorigin(axes: Axes) -> PyResult<f64> {
     Ok(polar(&axes)?.rorigin())
 }
 
+/// The radius set to be drawn at the centre, `None` when it follows
+/// `rmin`.
+fn get_rorigin_set(axes: Axes) -> PyResult<Option<f64>> {
+    Ok(polar(&axes)?.rorigin_set())
+}
+
 /// Sets the radius drawn at the centre (`None`: `rmin`).
 fn set_rorigin(axes: Axes, rorigin: Option<f64>) -> PyResult<()> {
     polar(&axes)?.set_rorigin(rorigin);
@@ -177,6 +183,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_rmax", set_rmax)?;
     module.add("get_rorigin", get_rorigin)?;
     module.add("set_rorigin", set_rorigin)?;
+    module.add("get_rorigin_set", get_rorigin_set)?;
     module.add("get_rlabel_position", get_rlabel_position)?;
     module.add("set_rlabel_position", set_rlabel_position)?;
     module.add("set_rscale", set_rscale)?;

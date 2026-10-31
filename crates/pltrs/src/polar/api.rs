@@ -299,6 +299,13 @@ impl PolarAxes {
         self.settings(|settings| settings.rorigin.unwrap_or(view.y0()))
     }
 
+    /// The radius set to be drawn at the centre, `None` when it follows
+    /// the inner radial limit (matplotlib's locked `y0` of the view limits
+    /// it keeps for the origin).
+    pub fn rorigin_set(&self) -> Option<f64> {
+        self.settings(|settings| settings.rorigin)
+    }
+
     /// Sets the angle of the radial tick labels in degrees.
     pub fn set_rlabel_position(&self, degrees: f64) -> &Self {
         self.update(|settings| settings.rlabel_position = degrees.to_radians())

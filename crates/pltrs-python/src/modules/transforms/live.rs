@@ -19,7 +19,9 @@ use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
 use pltrs::figure::Figure;
 use pltrs::transforms::{Point, PointMap, ResolvedTransform, Transform, TransformError};
+use pltrs_core::Path;
 
+use super::super::path::{PyPath, path_arrays};
 use super::{affine, matrix, points, points_array};
 use crate::binding::prelude::*;
 use crate::binding::registered_error;
@@ -80,28 +82,36 @@ impl FromPy<'_> for Description {
     }
 }
 
-/// A non-affine Python transform as a map of the plane: its `transform`
-/// forward, the `transform` of its inverse back.
+/// A non-affine Python transform as a map of the plane (the
+/// `_ProgramMap` of `_live_transforms` around it): its `transform`
+/// forward, the `transform` of its inverse back, and its `transform_path`,
+/// if any, for whole paths, which matplotlib's caching keeps until the
+/// transform is invalidated.
 #[derive(Debug)]
 pub(crate) struct PyPointMap {
-    /// The Python transform (what an archive holds in place of the map).
+    /// The Python map (what an archive holds in place of the map).
     object: Owned,
     forward: Callback,
     inverse: Option<Callback>,
+    path: Option<Callback>,
 }
 
 impl PyPointMap {
-    /// The map of `transform`; one without an inverse maps back to NaN.
-    pub(crate) fn new(transform: &Bound<'_>) -> PyResult<Self> {
-        let forward = transform.getattr("transform")?.extract()?;
-        let inverse = transform
+    /// The map `map`; one without an inverse maps back to NaN.
+    pub(crate) fn new(map: &Bound<'_>) -> PyResult<Self> {
+        let forward = map.getattr("transform")?.extract()?;
+        let inverse = map
             .call_method("inverted", &[])
             .and_then(|inverted| inverted.getattr("transform")?.extract())
             .ok();
         Ok(Self {
-            object: transform.clone().unbind(),
+            object: map.clone().unbind(),
             forward,
             inverse,
+            path: map
+                .getattr("transform_path")
+                .and_then(|method| method.extract())
+                .ok(),
         })
     }
 
@@ -126,6 +136,30 @@ impl PointMap for PyPointMap {
 
     fn inverse(&self, p: Point) -> Point {
         Self::apply(self.inverse.as_ref(), p)
+    }
+
+    /// The path through the Python map's `transform_path`, else vertex by
+    /// vertex; NaN vertices when it fails (the exception is raised when the
+    /// native call running returns).
+    fn transform_path(&self, path: &Path) -> Path {
+        let Some(path_map) = &self.path else {
+            let mut mapped = path.clone();
+            for p in mapped.vertices_mut() {
+                *p = self.forward(*p);
+            }
+            return mapped;
+        };
+        path_arrays(path, false)
+            .ok()
+            .and_then(|arrays| path_map.call::<PyPath>(arrays))
+            .map_or_else(
+                || {
+                    let mut failed = path.clone();
+                    failed.vertices_mut().fill(Point::new(f64::NAN, f64::NAN));
+                    failed
+                },
+                |mapped| mapped.path,
+            )
     }
 }
 
@@ -323,6 +357,12 @@ class OneWay:
                 panic!("a custom map, not {:?}", one_way.0);
             };
             assert!(map.map().inverse(Point::new(1.0, 1.0)).x.is_nan());
+            let line = Path::polyline(vec![Point::new(1.0, 2.0), Point::new(3.0, 4.0)]);
+            assert_eq!(
+                map.map().transform_path(&line).vertices(),
+                [Point::new(2.0, 2.0), Point::new(6.0, 4.0)],
+                "point by point without transform_path"
+            );
         });
     }
 

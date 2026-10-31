@@ -4,10 +4,10 @@ use std::str::FromStr;
 
 use pltrs_core::{Bbox, Path, Point};
 
-use crate::artist::{ArtistBase, ArtistId, DrawContext, DrawnDpiCor, LayoutContext};
+use crate::artist::{ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext};
 use crate::patches::{
-    ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, PatchError, PatchProps,
-    PatchStyle, StyleError, paint_paths, round_ends,
+    ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, FancyArrowPatch, Patch,
+    PatchError, PatchProps, PatchStyle, StyleError, paint_paths, round_ends,
 };
 use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
@@ -249,6 +249,37 @@ pltrs_core::archive_struct!(AnnotationArrow {
 });
 
 impl AnnotationArrow {
+    /// A loose fancy arrow patch with the arrow's look (its arrow and
+    /// connection styles, shrinking, face, edge, alpha and path effects)
+    /// from `(0, 0)` to `(1, 1)` (see `Annotation::arrow_patch`).
+    pub(crate) fn to_patch(&self) -> Patch<FancyArrowPatch> {
+        let mut shape = FancyArrowPatch::between((0.0, 0.0), (1.0, 1.0));
+        shape.spec = self.spec.clone();
+        let patch = Patch::loose(shape, PatchProps::default());
+        patch.update_style(|style| style.clone_from(&self.style));
+        patch
+            .raw()
+            .set_alpha(self.alpha)
+            .set_path_effects(self.path_effects.clone());
+        patch
+    }
+
+    /// Takes the look of `patch` (made by [`AnnotationArrow::to_patch`]):
+    /// face, edge, alpha and path effects, and the arrow's build but for
+    /// what the annotation sets anew at every draw, as matplotlib's
+    /// `update_positions` does (the whole simple arrow of the legacy
+    /// `arrowprops`, but its connection style).
+    pub(crate) fn restyle_from(&mut self, patch: &Patch<FancyArrowPatch>) {
+        let spec = patch.shape().spec;
+        match self.placement {
+            Placement::Fancy { .. } => self.spec = spec,
+            Placement::Legacy { .. } => self.spec.connectionstyle = spec.connectionstyle,
+        }
+        self.style = patch.style();
+        self.alpha = patch.raw().alpha();
+        self.path_effects = patch.raw().path_effects();
+    }
+
     /// The arrow `props` describe, styled from `rc`.
     pub(crate) fn new(props: ArrowProps, rc: &RcParams) -> Self {
         let mut style = PatchStyle::from_rc(rc);

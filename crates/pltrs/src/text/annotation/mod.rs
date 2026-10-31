@@ -22,7 +22,7 @@ use super::{Text, TextArtist, TextDrawError};
 use crate::artist::{Artist, ArtistHandle, DrawContext, LayoutContext, RawHandle, TypedHandle};
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
 use crate::events::Dragger;
-use crate::patches::{ClipRegion, DisplayPath};
+use crate::patches::{ClipRegion, DisplayPath, FancyArrowPatch, Patch};
 use crate::units::{DataPoint, UnitSources};
 
 /// The options of [`Axes::annotate`](crate::axes::Axes::annotate)
@@ -271,6 +271,41 @@ impl AnnotationState {
             })
     }
 
+    /// The extent of the text alone, where the annotation places it
+    /// (`Text.get_window_extent` of an annotation).
+    fn text_extent(
+        &self,
+        text: &TextArtist,
+        layout: LayoutContext<'_>,
+    ) -> Result<Bbox, TextDrawError> {
+        let point = self.point(text, layout)?;
+        let anchor = self.anchor(text, layout, point)?;
+        text.extent_at(layout, anchor)
+    }
+
+    /// The extent of the arrow as drawn, `None` without an arrow or while
+    /// the annotation is hidden.
+    fn arrow_extent(
+        &self,
+        text: &TextArtist,
+        layout: LayoutContext<'_>,
+    ) -> Result<Option<Bbox>, TextDrawError> {
+        let Some(arrow) = &self.arrow else {
+            return Ok(None);
+        };
+        let point = self.point(text, layout)?;
+        if !self.shown(text, layout, point) {
+            return Ok(None);
+        }
+        let anchor = self.anchor(text, layout, point)?;
+        let target = Self::target(text, layout, point, anchor)?;
+        let paths = arrow
+            .measured_paths(layout, &text.rc, target)
+            .map_err(TextDrawError::Box)?;
+        let displayed: Vec<pltrs_core::Path> = paths.iter().map(DisplayPath::to_display).collect();
+        Ok(Some(pltrs_core::Path::compound(&displayed).extents()))
+    }
+
     /// The extent of the text and arrow (`Annotation.get_window_extent`;
     /// the unit box when the annotation is hidden).
     pub(crate) fn extent(
@@ -401,6 +436,69 @@ impl Annotation {
     /// ```
     pub fn has_arrow(&self) -> bool {
         self.state(|a| a.arrow.is_some())
+    }
+
+    /// The arrow as a loose fancy arrow patch of its look, `None` without
+    /// an arrow: what a program reads and changes of the arrow as the
+    /// patch matplotlib keeps as `arrow_patch`, the annotation placing it
+    /// when drawn. Changes come back with [`Annotation::restyle_arrow`];
+    /// [`Annotation::arrow_extent`] is where the arrow is drawn.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::{AnnotateOptions, ArrowProps, LegacyArrowProps};
+    /// let ax = Figure::new().subplot();
+    /// let arrowprops = Some(ArrowProps::Legacy(LegacyArrowProps::default()));
+    /// let options = AnnotateOptions { arrowprops, ..Default::default() };
+    /// let annotation = ax.annotate("foo", (0.0, 1.0), options)?;
+    /// let arrow = annotation.arrow_patch().expect("an arrow");
+    /// arrow.set_alpha(Some(0.5));
+    /// annotation.restyle_arrow(&arrow);
+    /// assert_eq!(annotation.arrow_patch().map(|a| a.alpha()), Some(Some(0.5)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn arrow_patch(&self) -> Option<Patch<FancyArrowPatch>> {
+        self.state(|a| a.arrow.as_ref().map(AnnotationArrow::to_patch))
+    }
+
+    /// Gives the arrow the look of `patch` (see
+    /// [`Annotation::arrow_patch`]); without an arrow, nothing changes.
+    pub fn restyle_arrow(&self, patch: &Patch<FancyArrowPatch>) -> &Self {
+        self.update(|a| {
+            if let Some(arrow) = &mut a.arrow {
+                arrow.restyle_from(patch);
+            }
+        })
+    }
+
+    /// The display box of the arrow in the figure's current layout (laid
+    /// out first), `None` without an arrow or while the annotation is
+    /// hidden (matplotlib's `arrow_patch.get_window_extent()`).
+    pub fn arrow_extent(&self) -> Option<Bbox> {
+        self.laid_out(|annotation, text, layout| {
+            annotation.arrow_extent(text, layout).ok().flatten()
+        })
+    }
+
+    /// The display box of the text alone, without the arrow, in the
+    /// figure's current layout (laid out first; matplotlib's
+    /// `Text.get_window_extent(annotation)`).
+    pub fn text_extent(&self) -> Option<Bbox> {
+        self.laid_out(|annotation, text, layout| annotation.text_extent(text, layout).ok())
+    }
+
+    /// `f` of the annotation's state and text in the figure's current
+    /// layout, laid out first; `None` once the annotation is removed.
+    fn laid_out<R>(
+        &self,
+        f: impl FnOnce(&AnnotationState, &TextArtist, LayoutContext<'_>) -> Option<R>,
+    ) -> Option<R> {
+        let raw = self.text.raw();
+        let mut state = raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        let text = state.store.get_as::<TextArtist>(raw.id())?;
+        f(text.annotation.as_deref()?, text, layout)
     }
 }
 

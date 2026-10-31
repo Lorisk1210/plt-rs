@@ -15,12 +15,12 @@ import warnings
 import numpy as np
 
 from . import (_api, _live_transforms, cbook, colorizer as mcolorizer,
-               colors as mcolors, lines as mlines)
+               colors as mcolors, lines as mlines, path as mpath,
+               transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
 from ._native import collections as _collections
 from .artist import Artist
 from .path import Path
-from .transforms import Bbox
 
 
 def _rcParams():
@@ -283,21 +283,87 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_offsets(self):
         """Return the offsets for the collection."""
+        if not self._has_offsets():
+            return np.zeros((1, 2))
         offsets, masked = _collections.get_offsets(self._native)
         return np.ma.masked_invalid(offsets) if masked else offsets
 
+    def _has_offsets(self):
+        """Whether the items are placed at offsets (matplotlib's ``_offsets
+        is not None``)."""
+        return _collections.get_offset_transform(self._native) is not None
+
     def get_datalim(self, transData):
         """
-        Return the data limits the collection adds to its Axes, with the
-        smallest positive coordinates as the box's ``minpos``: its shapes
-        at their offsets where they are in data coordinates (*transData*,
-        the Axes' ``transData``), else its offsets where those are; a null
-        box otherwise.
+        Return the data limits of the collection in the coordinates of
+        *transData*: its shapes at their offsets where its transform
+        contains *transData*, else its offsets where those are in
+        coordinates *transData* reaches; a null box otherwise.
         """
-        (x0, y0, x1, y1), minpos = _collections.get_datalim(self._native)
-        bbox = Bbox([[x0, y0], [x1, y1]])
-        bbox._minpos = np.array(minpos, dtype=float)
-        return bbox
+        # This operation depends on the transforms for the data in the
+        # collection and whether the collection has offsets:
+        #
+        # 1. offsets = None, transform child of transData: use the paths for
+        # the automatic limits (i.e. for LineCollection in streamline).
+        # 2. offsets != None: offset_transform is child of transData:
+        #
+        #    a. transform is child of transData: use the path + offset for
+        #       limits (i.e for bar).
+        #    b. transform is not a child of transData: just use the offsets
+        #       for the limits (i.e. for scatter)
+        #
+        # 3. otherwise return a null Bbox.
+
+        transform = self.get_transform()
+        offset_trf = self.get_offset_transform()
+        if not (isinstance(offset_trf, mtransforms.IdentityTransform)
+                or offset_trf.contains_branch(transData)):
+            # if the offsets are in some coords other than data,
+            # then don't use them for autoscaling.
+            return mtransforms.Bbox.null()
+
+        paths = self.get_paths()
+        if not len(paths):
+            # No paths to transform
+            return mtransforms.Bbox.null()
+
+        if not transform.is_affine:
+            paths = [transform.transform_path_non_affine(p) for p in paths]
+            # Don't convert transform to transform.get_affine() here because
+            # we may have transform.contains_branch(transData) but not
+            # transforms.get_affine().contains_branch(transData).  But later,
+            # be careful to only apply the affine part that remains.
+
+        offsets = self.get_offsets()
+
+        if any(transform.contains_branch_separately(transData)):
+            # collections that are just in data units (like quiver)
+            # can properly have the axes limits set by their shape +
+            # offset.  LineCollections that have no offsets can
+            # also use this algorithm (like streamplot).
+            if isinstance(offsets, np.ma.MaskedArray):
+                offsets = offsets.filled(np.nan)
+                # get_path_collection_extents handles nan but not masked arrays
+            return mpath.get_path_collection_extents(
+                transform.get_affine() - transData, paths,
+                self.get_transforms(),
+                offset_trf.transform_non_affine(offsets),
+                offset_trf.get_affine().frozen())
+
+        if self._has_offsets():
+            # this is for collections that have their paths (shapes)
+            # in physical, axes-relative, or figure-relative units
+            # (i.e. like scatter). We can't uniquely set limits based on
+            # those shapes, so we just set the limits based on their
+            # location.
+            offsets = (offset_trf - transData).transform(offsets)
+            # note A-B means A B^{-1}
+            offsets = np.ma.masked_invalid(offsets)
+            if not offsets.mask.all():
+                bbox = mtransforms.Bbox.null()
+                bbox.update_from_data_xy(offsets.compressed().reshape(-1, 2))
+                return bbox
+        return mtransforms.Bbox.null()
 
     def set_offsets(self, offsets):
         """
@@ -496,11 +562,20 @@ class Collection(mcolorizer.ColorizingArtist):
             if ((alpha < 0) | (alpha > 1)).any():
                 raise ValueError("alpha must be between 0 and 1, inclusive")
             _collections.set_alphas(self._native, alpha.ravel().tolist())
+            # The array itself comes back, as matplotlib keeps it.
+            self._array_alpha = alpha
         else:
             if alpha is not None and not isinstance(alpha, (int, float)):
                 raise TypeError(
                     f'alpha must be numeric or None, not {type(alpha)}')
+            self._array_alpha = None
             super().set_alpha(alpha)
+
+    def get_alpha(self):
+        """Return the transparency: a float, the array of one per element
+        it was set to, or None."""
+        array = self.__dict__.get("_array_alpha")
+        return super().get_alpha() if array is None else array
 
     def set_array(self, A):
         """

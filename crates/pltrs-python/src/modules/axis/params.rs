@@ -2,10 +2,11 @@
 //! `Axis._translate_tick_params` gives (`size`, `tickdir`, `tick1On`,
 //! `labelrotation`, `grid_color`, ...) as pltrs (Rust)'s [`TickParams`].
 
-use pltrs::axes::{Axes, AxisName, GridOptions, TickLevel, TickParams};
+use pltrs::axes::{AxisName, GridOptions, TickLevel, TickParams};
 use pltrs::fonts::FontSize;
+use pltrs::mplot3d::{Axis3, Axis3D};
 
-use super::axis;
+use super::owner::{AnyAxis, AxisOwner, not_on_3d};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 use crate::modules::lines::{PyLineStyle, parse};
@@ -103,19 +104,22 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
 /// minor or both (`which`) tick levels of axis `name`, after restoring
 /// the rc defaults when `reset` (`Axis.set_tick_params`).
 fn set_tick_params(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     which: String,
     reset: bool,
     kwargs: Owned,
 ) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
     let which: TickLevel =
         which
             .parse()
             .map_err(|err: <TickLevel as std::str::FromStr>::Err| {
                 PyErr::value_error(err.to_string())
             })?;
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return set_deep_tick_params(&axis, which, reset, &kwargs),
+    };
     let (params, grid_on) = Python::with_gil(|py| tick_params(axis.name(), &kwargs.bind(py)))?;
     axis.set_tick_params(TickParams {
         which,
@@ -131,6 +135,32 @@ fn set_tick_params(
             },
         );
     }
+    Ok(())
+}
+
+/// [`set_tick_params`] on an axis of a 3-D axes, whose x axis takes the
+/// switches of an x axis and whose y and z axes those of a y axis, as
+/// `Axes3D.tick_params` routes them; its gridlines are the axes' own.
+fn set_deep_tick_params(
+    axis: &Axis3D,
+    which: TickLevel,
+    reset: bool,
+    kwargs: &Owned,
+) -> PyResult<()> {
+    let sides = if axis.dir() == Axis3::X {
+        AxisName::X
+    } else {
+        AxisName::Y
+    };
+    let (params, grid_on) = Python::with_gil(|py| tick_params(sides, &kwargs.bind(py)))?;
+    if grid_on.is_some() {
+        return Err(not_on_3d("tick_params(gridOn=...)"));
+    }
+    axis.set_tick_params(TickParams {
+        which,
+        reset,
+        ..params
+    });
     Ok(())
 }
 
@@ -156,7 +186,14 @@ mod tests {
             kwargs.set_item("gridOn", true).unwrap();
             kwargs.unbind()
         });
-        set_tick_params(ax.clone(), "x".into(), "major".into(), false, kwargs).unwrap();
+        set_tick_params(
+            AxisOwner::Flat(ax.clone()),
+            "x".into(),
+            "major".into(),
+            false,
+            kwargs,
+        )
+        .unwrap();
         let style = ax.xaxis().tick_style(false);
         assert_eq!(style.size, 7.0);
         assert!(style.ticks.second && style.grid_on);
@@ -165,6 +202,15 @@ mod tests {
             kwargs.set_item("zorder", 3.0).unwrap();
             kwargs.unbind()
         });
-        assert!(set_tick_params(ax, "y".into(), "both".into(), false, unknown).is_err());
+        assert!(
+            set_tick_params(
+                AxisOwner::Flat(ax),
+                "y".into(),
+                "both".into(),
+                false,
+                unknown
+            )
+            .is_err()
+        );
     }
 }

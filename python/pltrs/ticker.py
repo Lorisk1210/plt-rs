@@ -20,6 +20,7 @@ spec when pltrs (Rust) can compute in its place, and installed again when
 one of its attributes changes the spec (`TickHelper.__setattr__`).
 """
 
+import locale
 import logging
 from numbers import Integral
 import string
@@ -135,6 +136,16 @@ class TickHelper:
             "scale": scale,
             "linthresh": getattr(transform, "linthresh", None),
         }
+
+
+def _numeric_locale():
+    """How the current locale writes numbers (``locale.localeconv()``), as
+    pltrs (Rust) writes the labels of a `ScalarFormatter` with
+    ``useLocale``."""
+    conv = locale.localeconv()
+    return {"decimal_point": conv["decimal_point"],
+            "thousands_sep": conv["thousands_sep"],
+            "grouping": list(conv["grouping"])}
 
 
 class Formatter(TickHelper):
@@ -359,10 +370,18 @@ class _NativeFormatter(Formatter):
 
     def set_locs(self, locs):
         # docstring inherited
+        self._set_locs_on(locs, self._axis_info())
+
+    def _set_locs_on(self, locs, info):
+        """
+        Take the tick locations *locs* and their labels on the axis *info*
+        describes. The axis is described first: describing it may have
+        pltrs (Rust) label its ticks with this very formatter.
+        """
         self._locs = list(locs)
         values = np.asarray(self._locs, dtype=float)
         self._labels, self._offset = _ticker.format_ticks(
-            self._spec(), values, self._axis_info())
+            self._spec(), values, info)
 
     def __call__(self, x, pos=None):
         """Return the label of tick value *x*, formatted with the others set
@@ -437,7 +456,8 @@ class ScalarFormatter(_NativeFormatter):
         return {"kind": "scalar", "use_offset": use_offset,
                 "use_mathtext": self._useMathText, "usetex": self._usetex,
                 "scientific": self._scientific,
-                "powerlimits": tuple(self._powerlimits)}
+                "powerlimits": tuple(self._powerlimits),
+                "locale": _numeric_locale() if self._useLocale else None}
 
     def get_usetex(self):
         """Return whether TeX's math mode is enabled for rendering."""
@@ -489,12 +509,12 @@ class ScalarFormatter(_NativeFormatter):
         """
         Set whether to use locale settings for decimal sign and positive sign.
 
-        pltrs formats numbers as the C locale does.
+        Parameters
+        ----------
+        val : bool or None
+            *None* resets to :rc:`axes.formatter.use_locale`.
         """
-        val = _val_or_rc(val, 'axes.formatter.use_locale')
-        if val:
-            raise NotImplementedError("pltrs: ScalarFormatter(useLocale=True)")
-        self._useLocale = bool(val)
+        self._useLocale = bool(_val_or_rc(val, 'axes.formatter.use_locale'))
 
     useLocale = property(fget=get_useLocale, fset=set_useLocale)
 
@@ -549,10 +569,10 @@ class ScalarFormatter(_NativeFormatter):
 
     def set_locs(self, locs):
         # docstring inherited
-        super().set_locs(locs)
+        info = self._axis_info()
+        self._set_locs_on(locs, info)
         offset, self._orderOfMagnitude = _ticker.scalar_offset(
-            self._spec(), np.asarray(self._locs, dtype=float),
-            self._axis_info())
+            self._spec(), np.asarray(self._locs, dtype=float), info)
         if self._useOffset:
             self.offset = offset
 

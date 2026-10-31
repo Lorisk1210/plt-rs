@@ -9,6 +9,7 @@ use pltrs::axes::{Axes, AxisBelow};
 use pltrs::spines::SpineSide;
 use pltrs::units::{DateConverter, UnitConverter};
 
+use super::owner::{AnyAxis, AxisOwner};
 use super::{axis, side};
 use crate::binding::prelude::*;
 use crate::modules::dates::Zone;
@@ -16,13 +17,14 @@ use crate::modules::plotting::values::PyAxisValues;
 
 /// Whether the major or `minor` locator (`kind` `"locator"`) or formatter
 /// (`"formatter"`) is still the one the scale installed.
-fn is_default_helper(axes: Axes, name: String, kind: String, minor: bool) -> PyResult<bool> {
-    let axis = axis(&axes, &name)?;
-    Ok(match (kind.as_str(), minor) {
-        ("locator", false) => axis.is_default_major_locator(),
-        ("locator", true) => axis.is_default_minor_locator(),
-        ("formatter", false) => axis.is_default_major_formatter(),
-        ("formatter", true) => axis.is_default_minor_formatter(),
+fn is_default_helper(owner: AxisOwner, name: String, kind: String, minor: bool) -> PyResult<bool> {
+    Ok(match (kind.as_str(), minor, owner.axis(&name)?) {
+        ("locator", false, AnyAxis::Flat(axis)) => axis.is_default_major_locator(),
+        ("locator", true, AnyAxis::Flat(axis)) => axis.is_default_minor_locator(),
+        ("formatter", false, AnyAxis::Flat(axis)) => axis.is_default_major_formatter(),
+        ("formatter", true, AnyAxis::Flat(axis)) => axis.is_default_minor_formatter(),
+        ("locator", _, AnyAxis::Deep(axis)) => axis.is_default_locator(minor),
+        ("formatter", _, AnyAxis::Deep(axis)) => axis.is_default_formatter(minor),
         _ => return Err(PyErr::value_error(format!("no tick helper kind {kind:?}"))),
     })
 }
@@ -56,13 +58,23 @@ fn get_tick_padding(axes: Axes, name: String) -> PyResult<f64> {
 }
 
 /// The gap between the axis label and the tick labels, in points.
-fn get_labelpad(axes: Axes, name: String) -> PyResult<f64> {
-    Ok(axis(&axes, &name)?.label_pad())
+fn get_labelpad(owner: AxisOwner, name: String) -> PyResult<f64> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.label_pad(),
+        AnyAxis::Deep(axis) => axis.label_pad(),
+    })
 }
 
 /// Sets the gap between the axis label and the tick labels.
-fn set_labelpad(axes: Axes, name: String, pad: f64) -> PyResult<()> {
-    axis(&axes, &name)?.set_label_pad(pad);
+fn set_labelpad(owner: AxisOwner, name: String, pad: f64) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_label_pad(pad);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.set_label_pad(pad);
+        }
+    }
     Ok(())
 }
 
@@ -95,10 +107,14 @@ fn set_in_layout(axes: Axes, name: String, in_layout: bool) -> PyResult<()> {
 }
 
 /// The extent of the axis' texts in display pixels (`get_tightbbox`).
-fn get_tightbbox(axes: Axes, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
-    Ok(axis(&axes, &name)?
-        .tight_bbox()
-        .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
+fn get_tightbbox(owner: AxisOwner, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    let bbox = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.tight_bbox(),
+        AnyAxis::Deep(axis) => axis
+            .tight_bbox(false)
+            .map_err(|err| PyErr::value_error(err.to_string()))?,
+    };
+    Ok(bbox.map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
 }
 
 /// Moves the ticks, and their labels unless both were hidden, to the side
@@ -252,12 +268,13 @@ mod tests {
     fn settings_read_back_by_axis_name() {
         let ax = Figure::new().subplot();
         let x = || "x".to_owned();
-        assert!(is_default_helper(ax.clone(), x(), "locator".into(), false).unwrap());
+        let owner = || AxisOwner::Flat(ax.clone());
+        assert!(is_default_helper(owner(), x(), "locator".into(), false).unwrap());
         minorticks(ax.clone(), x(), true).unwrap();
-        assert!(!is_default_helper(ax.clone(), x(), "locator".into(), true).unwrap());
-        assert!(is_default_helper(ax.clone(), x(), "artist".into(), true).is_err());
-        set_labelpad(ax.clone(), "y".into(), 9.0).unwrap();
-        assert_eq!(get_labelpad(ax.clone(), "y".into()).unwrap(), 9.0);
+        assert!(!is_default_helper(owner(), x(), "locator".into(), true).unwrap());
+        assert!(is_default_helper(owner(), x(), "artist".into(), true).is_err());
+        set_labelpad(owner(), "y".into(), 9.0).unwrap();
+        assert_eq!(get_labelpad(owner(), "y".into()).unwrap(), 9.0);
         set_visible(ax.clone(), "y".into(), false).unwrap();
         assert!(!get_visible(ax.clone(), "y".into()).unwrap());
         assert!(tick_to(ax.clone(), x(), "left".into()).is_err());

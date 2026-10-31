@@ -56,8 +56,8 @@ use pltrs_core::{Affine2D, Bbox, Path, Point, Rgba};
 use pltrs_render::{CapStyle, JoinStyle};
 
 use crate::artist::{
-    Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext, LimitPoints,
-    format_values,
+    Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, DrawErrorKind, LayoutContext,
+    LimitPoints, format_values,
 };
 use crate::axes::FillGeometry;
 use crate::colorizer::ColorMapped;
@@ -205,6 +205,10 @@ pub(crate) struct CollectionArtist {
     base: ArtistBase,
     pub(crate) kind: CollectionKind,
     pub(crate) paths: Vec<Path>,
+    /// Whether `paths` holds the one path the program gave where a
+    /// sequence of paths is expected ([`Collection::set_single_path`]),
+    /// which drawing refuses.
+    single_path: bool,
     /// Explicit per-item transforms (cycled); see also `sizes`.
     pub(crate) transforms: Vec<Affine2D>,
     /// Marker areas in points² (cycled); scale each item at draw time.
@@ -278,6 +282,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     base,
     kind,
     paths,
+    single_path,
     transforms,
     sizes,
     size_factor,
@@ -323,6 +328,7 @@ impl CollectionArtist {
             base: ArtistBase::with_zorder(zorder),
             kind,
             paths,
+            single_path: false,
             transforms: Vec::new(),
             sizes: None,
             size_factor: 1.0,
@@ -359,6 +365,12 @@ impl CollectionArtist {
 
     fn transform(&self) -> Transform {
         self.base.transform.clone().unwrap_or(Transform::Display)
+    }
+
+    /// Replaces the item shapes with a sequence of paths.
+    pub(crate) fn replace_paths(&mut self, paths: Vec<Path>) {
+        self.paths = paths;
+        self.single_path = false;
     }
 
     /// The extent of the shapes placed at their offsets, all in data
@@ -518,7 +530,14 @@ impl Artist for CollectionArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        if let Err(problem) = self.render(ctx) {
+        if self.single_path {
+            // matplotlib's renderers index the paths as a sequence.
+            ctx.report_kind(
+                self.base.id(),
+                DrawErrorKind::InvalidType,
+                "Object of type 'Path' is not an instance of 'sequence'",
+            );
+        } else if let Err(problem) = self.render(ctx) {
             ctx.report(self.base.id(), problem);
         }
     }

@@ -305,7 +305,8 @@ class _Loose3D:
         verts = self.__dict__.pop('_verts3d_pending')
         if self._zsort is None:
             return ("lines", (verts,))
-        return ("polygons", (verts, self._zsort, bool(self._closed)))
+        return ("polygons", (verts, self._zsort, bool(self._closed),
+                             self.__dict__.pop('_lifted_from_2d', False)))
 
     def _adopt_into(self, axes, autolim, axlim_clip):
         """Join *axes* (a 3-D axes) with the 3-D geometry; return self."""
@@ -653,6 +654,8 @@ def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """
     col.__class__ = Poly3DCollection
     col._verts3d_pending = _lifted_paths(col, zs, zdir)
+    # Its alpha has faded its edges, as that of a 2-D collection does.
+    col._lifted_from_2d = True
     col._zsort = 'average'
     col._closed = True
     col._axlim_clip = axlim_clip

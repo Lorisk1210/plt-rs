@@ -331,7 +331,7 @@ impl Formatter for EngFormatter {
                 if layout.offset == 0.0 {
                     Ok(settings.fix_minus(&self.format_eng(x)?))
                 } else {
-                    Ok(layout.label(x, self.math(), settings))
+                    Ok(layout.label(x, self.math(), None, settings))
                 }
             })
             .collect::<Result<_, TickerError>>()?;

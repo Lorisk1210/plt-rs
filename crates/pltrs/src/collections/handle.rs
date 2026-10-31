@@ -459,7 +459,7 @@ impl Collection {
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
     pub fn set_segments(&self, segments: Vec<Vec<Point>>) -> &Self {
-        self.update(|c| c.paths = segments.into_iter().map(Path::polyline).collect())
+        self.update(|c| c.replace_paths(segments.into_iter().map(Path::polyline).collect()))
     }
 
     /// Replaces the items with closed polygons through the points of each
@@ -476,7 +476,7 @@ impl Collection {
     /// assert_eq!(polys.paths()[0].vertices()[1], Point::new(2.0, 0.0));
     /// ```
     pub fn set_verts(&self, polygons: Vec<Vec<Point>>) -> &Self {
-        self.update(|c| c.paths = polygons.into_iter().map(Path::polygon).collect())
+        self.update(|c| c.replace_paths(polygons.into_iter().map(Path::polygon).collect()))
     }
 
     /// Replaces the item shapes (matplotlib's `Collection.set_paths`).
@@ -492,7 +492,40 @@ impl Collection {
     /// # Ok::<(), pltrs::axes::PlotError>(())
     /// ```
     pub fn set_paths(&self, paths: Vec<Path>) -> &Self {
-        self.update(|c| c.paths = paths)
+        self.update(|c| c.replace_paths(paths))
+    }
+
+    /// Gives the collection the one path `path` where a sequence of paths
+    /// is expected, as matplotlib's `set_paths(path)` accepts:
+    /// [`Collection::paths`] holds it, and drawing the collection fails
+    /// with [`DrawErrorKind::InvalidType`](crate::artist::DrawErrorKind)
+    /// (matplotlib's renderers index the paths as a sequence) until its
+    /// paths are set again.
+    ///
+    /// ```
+    /// use pltrs::artist::DrawErrorKind;
+    /// use pltrs::prelude::*;
+    /// use pltrs::path::Path;
+    /// use pltrs::transforms::Point;
+    /// let fig = Figure::new();
+    /// let points = fig.subplot().scatter(vec![1.0], vec![1.0])?;
+    /// points.set_single_path(Path::polyline(vec![Point::new(0.0, 1.0), Point::new(2.0, 3.0)]));
+    /// assert!(points.has_single_path());
+    /// let errors = fig.draw_without_rendering().unwrap_err();
+    /// assert_eq!(errors.0[0].kind, DrawErrorKind::InvalidType);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn set_single_path(&self, path: Path) -> &Self {
+        self.update(|c| {
+            c.replace_paths(vec![path]);
+            c.single_path = true;
+        })
+    }
+
+    /// Whether the paths are the one path given by
+    /// [`Collection::set_single_path`].
+    pub fn has_single_path(&self) -> bool {
+        self.raw.with::<CollectionArtist, _>(|c| c.single_path)
     }
 }
 

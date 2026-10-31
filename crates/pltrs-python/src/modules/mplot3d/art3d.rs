@@ -352,12 +352,13 @@ impl FromPy<'_> for PyGeometry {
         let (kind, payload): (String, Bound<'_>) = object.extract()?;
         Ok(Self(match kind.as_str() {
             "polygons" => {
-                let (verts, zsort_name, closed): (Vec<NdArray>, String, bool) =
+                let (verts, zsort_name, closed, from_2d): (Vec<NdArray>, String, bool, bool) =
                     payload.extract()?;
                 Geometry3D::Polygons {
                     faces: vertices(&verts)?,
                     zsort: zsort(&zsort_name)?,
                     closed,
+                    from_2d,
                 }
             }
             "lines" => {

@@ -126,6 +126,7 @@ impl Axes3D {
                 lifted,
                 ZSort::Average,
                 Some((paths, sort_zpos)),
+                true,
                 false,
             )?;
         } else {
@@ -239,7 +240,14 @@ impl Axes3D {
             CollectionArtist::new(CollectionKind::Poly, Vec::new(), crate::rc::params());
         options.props.apply(&mut artist);
         let raw = self.adopt_projected(artist);
-        self.register_polys(&raw, polygons, options.zsort, None, options.axlim_clip)?;
+        self.register_polys(
+            &raw,
+            polygons,
+            options.zsort,
+            None,
+            false,
+            options.axlim_clip,
+        )?;
         if !options.closed {
             self.open_polygons(&raw);
         }

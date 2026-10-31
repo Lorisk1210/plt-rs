@@ -6,25 +6,37 @@
 //! ones driving pltrs (Rust)'s ticks in [`python_helpers`], the intervals
 //! of the axis in [`intervals`], the artists mirroring its ticks and texts
 //! in [`mirrors`], tick parameters in [`params`] and the rest of what an
-//! axis is in [`settings`].
+//! axis is in [`settings`]. The axes of 3-D axes take part in the tick
+//! helpers, the mirrors, the tick parameters, the label pad and the
+//! tight box ([`owner`], [`deep`]).
 
+mod deep;
 mod helpers;
 mod intervals;
 mod mirrors;
+mod owner;
 mod params;
 mod python_helpers;
 pub(crate) use python_helpers::{PyFormatter, PyLocator};
 mod settings;
 
+use owner::{AnyAxis, AxisOwner};
 use pltrs::axes::{Axes, Axis, TickPosition};
+use pltrs::mplot3d::Axes3D;
 use pltrs::spines::SpineSide;
 
 use super::plotting::values::PyAxisValues;
 use super::spines::side_name;
 use crate::binding::prelude::*;
 
-/// The axis `name` (`"x"` or `"y"`) of `axes`.
+/// The axis `name` (`"x"` or `"y"`) of `axes`. The native object of a
+/// 3-D axes converts to its projection plane, whose axes are not those of
+/// the 3-D axes: functions serving these take an [`owner::AxisOwner`],
+/// and the others refuse the plane.
 fn axis(axes: &Axes, name: &str) -> PyResult<Axis> {
+    if Axes3D::of_plane(axes).is_some() {
+        return Err(owner::not_on_3d("this method of Axis"));
+    }
     match name {
         "x" => Ok(axes.xaxis()),
         "y" => Ok(axes.yaxis()),
@@ -100,11 +112,14 @@ fn set_inverted(axes: Axes, name: String, inverted: bool) -> PyResult<()> {
 /// The tick keywords matplotlib keeps per tick level (`_major_tick_kw`):
 /// `(tick1On, tick2On, label1On, label2On, gridOn)`.
 fn tick_switches(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
 ) -> PyResult<(bool, bool, bool, bool, bool)> {
-    let style = axis(&axes, &name)?.tick_style(minor);
+    let style = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.tick_style(minor),
+        AnyAxis::Deep(axis) => axis.tick_style(minor),
+    };
     Ok((
         style.ticks.first,
         style.ticks.second,

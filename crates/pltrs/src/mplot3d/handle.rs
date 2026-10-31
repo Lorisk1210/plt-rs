@@ -255,7 +255,16 @@ impl Axes3D {
     }
 
     /// The 3-D axes whose projection plane `ax` is, if any.
-    pub(crate) fn of_plane(ax: &Axes) -> Option<Self> {
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axes3D;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot_3d();
+    /// assert_eq!(Axes3D::of_plane(&ax.projection_plane()), Some(ax));
+    /// assert_eq!(Axes3D::of_plane(&fig.subplot()), None);
+    /// ```
+    pub fn of_plane(ax: &Axes) -> Option<Self> {
         let figure = ax.raw().figure_state();
         let parent = {
             let state = figure.borrow();

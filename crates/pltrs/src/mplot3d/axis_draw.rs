@@ -60,15 +60,16 @@ pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &
     }
 }
 
-/// The display extents of the axes of a 3-D axes: their lines, offset
-/// texts, tick labels and, unless `for_layout_only`, labels, empty tick
-/// labels counting as boxes of no size at their anchors (matplotlib's
+/// The display extents of the axes `dirs` of a 3-D axes: their lines,
+/// offset texts, tick labels and, unless `for_layout_only`, labels, empty
+/// tick labels counting as boxes of no size at their anchors (matplotlib's
 /// `Axis3D.get_tightbbox`).
 pub(crate) fn axis_extents(
     axes: &Axes3DState,
     layout: LayoutContext<'_>,
     extent: &Bbox,
     for_layout_only: bool,
+    dirs: &[Axis3],
 ) -> Vec<Bbox> {
     let Some(painter) = Painter::new(axes, layout, extent) else {
         return Vec::new();
@@ -78,10 +79,60 @@ pub(crate) fn axis_extents(
         labels: !for_layout_only,
         boxes: Vec::new(),
     };
-    for dir in Axis3::ALL {
+    for &dir in dirs {
         painter.draw_axis(&mut extents, dir);
     }
     extents.boxes
+}
+
+/// The texts of the axis `dir` of a 3-D axes as the axes draw them: each
+/// tick label, the offset text and the label, once per edge carrying
+/// them, empty ones included.
+pub(crate) fn axis_texts(
+    axes: &Axes3DState,
+    layout: LayoutContext<'_>,
+    extent: &Bbox,
+    dir: Axis3,
+) -> Vec<AxisText3D> {
+    let Some(painter) = Painter::new(axes, layout, extent) else {
+        return Vec::new();
+    };
+    let mut texts = Texts {
+        layout,
+        found: Vec::new(),
+    };
+    painter.draw_axis(&mut texts, dir);
+    texts.found
+}
+
+/// Which text of a 3-D axis an [`AxisText3D`] is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AxisTextPart {
+    /// The label of the tick at `index` among the major (or `minor`)
+    /// ticks the locator places, inside the view or not.
+    TickLabel {
+        /// Whether the tick is a minor one.
+        minor: bool,
+        /// Its position among the ticks of its level.
+        index: usize,
+    },
+    /// The offset (or scale) text.
+    Offset,
+    /// The axis label.
+    Label,
+}
+
+/// A text of a 3-D axis where the axes draw it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AxisText3D {
+    /// Which text it is.
+    pub part: AxisTextPart,
+    /// Its anchor in projected coordinates (the data coordinates of the
+    /// projection plane, where matplotlib moves the text).
+    pub position: Point,
+    /// Its extent in display pixels, a box of no size at its anchor when
+    /// it is empty.
+    pub extent: Bbox,
 }
 
 /// What the parts of an axis go to: a renderer drawing them, or
@@ -153,22 +204,32 @@ impl Sink for Extents<'_> {
     fn tick_mark(&mut self, _painter: &Painter<'_>, _path: &Path, _width: f64, _color: &Color) {}
 
     fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>) {
-        let anchor = painter.plane.transform_point(text.position);
-        if !anchor.is_finite() {
-            return;
-        }
-        if text.text.is_empty() {
-            self.boxes
-                .push(Bbox::from_extents(anchor.x, anchor.y, anchor.x, anchor.y));
-        } else if let Ok(laid_out) = lay_out(
-            text.text,
-            text.font,
-            &text.block,
-            self.dpi(),
-            painter.axes.rc(),
-        ) {
-            self.boxes
-                .push(laid_out.block.bbox.translated(anchor.x, anchor.y));
+        self.boxes.extend(painter.text_extent(text, self.dpi()));
+    }
+}
+
+/// The texts of an axis, with where they are drawn.
+struct Texts<'a> {
+    layout: LayoutContext<'a>,
+    found: Vec<AxisText3D>,
+}
+
+impl Sink for Texts<'_> {
+    fn dpi(&self) -> f64 {
+        self.layout.dpi()
+    }
+
+    fn axis_line(&mut self, _painter: &Painter<'_>, _path: &Path, _width: f64, _color: &Color) {}
+
+    fn tick_mark(&mut self, _painter: &Painter<'_>, _path: &Path, _width: f64, _color: &Color) {}
+
+    fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>) {
+        if let Some(extent) = painter.text_extent(text, self.dpi()) {
+            self.found.push(AxisText3D {
+                part: text.part,
+                position: text.position,
+                extent,
+            });
         }
     }
 }
@@ -205,6 +266,7 @@ impl AxisEdge {
 
 /// A text placed in projected coordinates.
 struct PlacedText<'t> {
+    part: AxisTextPart,
     text: &'t str,
     font: &'t FontProperties,
     color: &'t Color,
@@ -225,6 +287,20 @@ impl<'a> Painter<'a> {
             plane,
             extent: *extent,
         })
+    }
+
+    /// The display extent of `text`, a box of no size at its anchor when
+    /// it is empty; `None` when it lands nowhere or cannot be laid out.
+    fn text_extent(&self, text: &PlacedText<'_>, dpi: f64) -> Option<Bbox> {
+        let anchor = self.plane.transform_point(text.position);
+        if !anchor.is_finite() {
+            return None;
+        }
+        if text.text.is_empty() {
+            return Some(Bbox::from_extents(anchor.x, anchor.y, anchor.x, anchor.y));
+        }
+        let laid_out = lay_out(text.text, text.font, &text.block, dpi, self.axes.rc()).ok()?;
+        Some(laid_out.block.bbox.translated(anchor.x, anchor.y))
     }
 
     fn report(&self, ctx: &mut DrawContext<'_>, problem: impl std::fmt::Display) {
@@ -330,6 +406,7 @@ impl<'a> Painter<'a> {
             sink.text(
                 self,
                 &PlacedText {
+                    part: AxisTextPart::Label,
                     text: &axis.label.text,
                     font: &axis.label.font,
                     color: &axis.label.color,

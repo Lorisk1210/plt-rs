@@ -63,7 +63,7 @@ pub use subplots::Share;
 pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes, make_axes};
 
 use crate::artist::{
-    Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, RawHandle, TypedHandle,
+    Artist, ArtistHandle, ArtistId, ArtistLookup, DrawError, RawHandle, TypedHandle, downcast_ref,
 };
 use crate::axes::{Axes, AxesState, PlotError};
 use crate::colors::Color;
@@ -432,7 +432,12 @@ impl Figure {
         let frame = {
             let figure = state.borrow();
             let parent_of = |id| figure.store.get(id).and_then(|a| a.base().parent);
-            let mut ancestor = parent_of(artist.id());
+            // An axes made outside its figure is for the (sub)figure it was
+            // made for.
+            let home = (figure.detached.get(artist.id()))
+                .and_then(downcast_ref::<AxesState>)
+                .and_then(|axes| axes.home);
+            let mut ancestor = home.or_else(|| parent_of(artist.id()));
             loop {
                 match ancestor {
                     Some(id) if figure.store.get_as::<FigureFrame>(id).is_some() => break id,

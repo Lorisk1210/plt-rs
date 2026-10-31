@@ -28,6 +28,7 @@ use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
 
 mod legend_box;
+mod perf_counter;
 
 artist_handle!(Legend);
 native_value!(LegendHandle);
@@ -344,9 +345,13 @@ fn set_frame_on(legend: Legend, on: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// Moves the legend.
-fn set_loc(legend: Legend, loc: Loc) -> PyResult<()> {
-    legend.set_loc(loc.0)?;
+/// Moves the legend to `loc`, or back to the default location with
+/// `None`.
+fn set_loc(legend: Legend, loc: Option<Loc>) -> PyResult<()> {
+    match loc {
+        Some(loc) => legend.set_loc(loc.0)?,
+        None => legend.reset_loc()?,
+    };
     Ok(())
 }
 
@@ -414,6 +419,7 @@ fn figure_legends(figure: Figure) -> PyResult<Vec<Legend>> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    perf_counter::register();
     module.add("new", new)?;
     module.add("candidates", candidates)?;
     module.add("get_texts", get_texts)?;

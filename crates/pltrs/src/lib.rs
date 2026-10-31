@@ -116,6 +116,8 @@
 //!   their configuration, image comparison by RMS and figure comparison.
 //! * [`warnings`] — the warnings pltrs issues while it works, where
 //!   matplotlib warns, and where they go.
+//! * [`clock`] — the performance counter pltrs times slow work with, where
+//!   matplotlib reads `time.perf_counter`.
 #![forbid(unsafe_code)]
 #![expect(
     clippy::needless_pass_by_value,
@@ -129,6 +131,7 @@ pub mod artist;
 pub mod axes;
 pub mod axes_grid1;
 pub mod axisartist;
+pub mod clock;
 pub mod collections;
 pub mod colorbar;
 mod colorizer;

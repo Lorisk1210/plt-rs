@@ -24,6 +24,10 @@ pub enum Geometry3D {
         /// Whether the outlines are closed; open polygons are not stroked
         /// along their last edge.
         closed: bool,
+        /// Whether the polygons are those of a 2-D collection lifted into
+        /// 3-D (matplotlib's `poly_collection_2d_to_3d`), whose alpha has
+        /// faded its edges, rather than made as 3-D polygons.
+        from_2d: bool,
     },
     /// Polylines through 3-D points (matplotlib's `Line3DCollection`).
     Lines(Vec<Vec<Vec3>>),
@@ -98,8 +102,9 @@ impl Axes3D {
                 faces,
                 zsort,
                 closed,
+                from_2d,
             } => {
-                self.register_polys(&raw, faces, zsort, None, axlim_clip)?;
+                self.register_polys(&raw, faces, zsort, None, from_2d, axlim_clip)?;
                 if !closed {
                     self.open_polygons(&raw);
                 }
@@ -154,6 +159,7 @@ mod tests {
             faces,
             zsort: ZSort::Average,
             closed: false,
+            from_2d: false,
         };
         let adopted = ax
             .adopt_collection3d(loose.raw(), geometry, true, false)

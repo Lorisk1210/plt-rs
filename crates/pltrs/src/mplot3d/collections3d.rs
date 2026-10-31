@@ -133,7 +133,14 @@ impl Axes3D {
         if let Some(mapping) = mapping {
             handle.set_mapping(*mapping);
         }
-        self.register_polys(&raw, polys.faces, polys.zsort, None, polys.axlim_clip)?;
+        self.register_polys(
+            &raw,
+            polys.faces,
+            polys.zsort,
+            None,
+            false,
+            polys.axlim_clip,
+        )?;
         Ok(handle)
     }
 
@@ -148,23 +155,20 @@ impl Axes3D {
     /// The collection's alpha fades the faces; the edges keep their own
     /// alpha, as matplotlib's `Poly3DCollection.set_alpha` leaves
     /// `_edgecolor3d` alone, unless they were lifted from a 2-D
-    /// collection, whose `set_alpha` faded them already.
+    /// collection (`from_2d`), whose `set_alpha` faded them already.
     pub(crate) fn register_polys(
         &self,
         raw: &RawHandle,
         faces: Vec<Vec<Vec3>>,
         zsort: ZSort,
         lifted: Option<(Vec<Path>, f64)>,
+        from_2d: bool,
         axlim_clip: bool,
     ) -> Result<(), Axes3DError> {
         let (facecolors, edgecolors) = raw
             .with_mut::<CollectionArtist, _>(|c| {
                 let (faces, edges) = c.resolved_colors()?;
-                let edges = if lifted.is_some() {
-                    edges
-                } else {
-                    unfaded_edges(c)?
-                };
+                let edges = if from_2d { edges } else { unfaded_edges(c)? };
                 Ok((faces, edges))
             })
             .map_err(Axes3DError::Style)?;

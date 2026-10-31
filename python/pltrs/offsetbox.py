@@ -257,6 +257,19 @@ class OffsetBox(Artist):
         bbox, offsets = self._get_bbox_and_child_offsets(renderer)
         return bbox
 
+    def _drawing_areas(self):
+        r"""The `DrawingArea`\s of the box's tree, in the order of
+        `_native_tree`."""
+        for child in self.get_children():
+            if isinstance(child, OffsetBox):
+                yield from child._drawing_areas()
+
+    def _joined(self, owner):
+        """Have the drawing areas of the child tree reach their native
+        state through *owner*, the box added with the tree."""
+        for index, area in enumerate(self._drawing_areas()):
+            area._owner_box = (owner, index)
+
 
 class PackerBase(OffsetBox):
     """The base of `VPacker` and `HPacker`."""
@@ -436,6 +449,9 @@ class DrawingArea(OffsetBox):
         self._clip_children = clip
         self.offset_transform = mtransforms.Affine2D()
         self.dpi_transform = mtransforms.Affine2D()
+        #: The added box whose tree holds the area and the area's index
+        #: there (None before the box is added).
+        self._owner_box = None
 
     @property
     def clip_children(self):
@@ -448,6 +464,13 @@ class DrawingArea(OffsetBox):
     @clip_children.setter
     def clip_children(self, val):
         self._clip_children = bool(val)
+        if self._owner_box is not None:
+            owner, index = self._owner_box
+            _offsetbox.set_clip_children(owner._native, index,
+                                         self._clip_children)
+
+    def _drawing_areas(self):
+        yield self
 
     def get_transform(self):
         """
@@ -799,6 +822,7 @@ class AnchoredOffsetbox(OffsetBox):
         figure = parent.figure
         self.get_child()._adopt_tree(iter(parts), figure)
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
+        self.get_child()._joined(self)
         return _handles.adopt(self, native, figure)
 
     def set_child(self, child):
@@ -1074,6 +1098,7 @@ or callable, default: value of *xycoords*
                 "fontsize": float(self.get_fontsize())})
         self.offsetbox._adopt_tree(iter(parts), figure)
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
+        self.offsetbox._joined(self)
         return _handles.adopt(self, native, figure)
 
     @property

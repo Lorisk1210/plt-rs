@@ -449,6 +449,12 @@ class Line2D(Artist):
         """Return the line color."""
         return self._get("color")
 
+    @property
+    def _color(self):
+        """The line color (matplotlib's attribute, which programs read
+        directly)."""
+        return self.get_color()
+
     def set_color(self, color):
         """Set the color of the line."""
         from . import colors as mcolors

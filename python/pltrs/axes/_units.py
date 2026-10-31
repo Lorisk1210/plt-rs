@@ -25,7 +25,8 @@ class UnitsMixin:
         as they are).
         """
         from ..axis import Axis
-        return {name: axis if isinstance(axis, Axis) else None
+        return {name: (axis if isinstance(axis, Axis) and not axis._native_units
+                       else None)
                 for name in self._axis_names
                 for axis in [getattr(self, f"{name}axis")]}
 

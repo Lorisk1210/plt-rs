@@ -194,6 +194,9 @@ class Axis(Artist):
     OFFSETTEXTPAD = 3
     axis_name = None
     _tick_class = None
+    #: Whether pltrs (Rust) converts the values in units plotted along the
+    #: axis itself, so that they pass as they are (the axes of 3-D axes).
+    _native_units = False
 
     def __str__(self):
         return "{}({},{})".format(

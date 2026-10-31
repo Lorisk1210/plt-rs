@@ -81,12 +81,17 @@ impl Figure {
     /// the current axes until then.
     ///
     /// ```
+    /// use pltrs::figure::SubfigureOptions;
     /// use pltrs::prelude::*;
     /// let fig = Figure::new();
     /// let ax = fig.removed_axes([0.1, 0.1, 0.5, 0.5])?;
     /// assert!(fig.axes().is_empty());
     /// fig.attach(&ax)?;
     /// assert_eq!(fig.axes(), [ax]);
+    /// let parts = fig.subfigures(2, 1, SubfigureOptions::default())?;
+    /// let sub = parts.get(0, 0).expect("a subfigure");
+    /// let inner = sub.removed_axes([0.1, 0.1, 0.5, 0.5])?;
+    /// assert_eq!(inner.parent_figure().id(), sub.id(), "for the subfigure");
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
@@ -95,7 +100,20 @@ impl Figure {
     /// As [`Figure::add_axes`].
     pub fn removed_axes(&self, rect: [f64; 4]) -> Result<Axes, AxesRectError> {
         let position = axes_bounds(rect)?;
-        Ok(make_axes(&self.state, None, position, None))
+        Ok(self.homed(make_axes(&self.state, None, position, None)))
+    }
+
+    /// `axes`, made outside this (sub)figure, as an axes for it (see
+    /// [`Figure::removed_axes`]).
+    fn homed(&self, axes: Axes) -> Axes {
+        if let Some(state) = self
+            .state
+            .borrow_mut()
+            .artist_as_mut::<AxesState>(axes.id())
+        {
+            state.home = Some(self.id());
+        }
+        axes
     }
 
     /// An axes of this figure (or subfigure) covering the grid cells of
@@ -107,7 +125,7 @@ impl Figure {
     /// As [`Figure::add_subplot_spec`].
     pub fn removed_subplot(&self, spec: &SubplotSpec) -> Result<Axes, GridSpecError> {
         let position = spec.position(&self.subplot_params())?;
-        Ok(make_axes(&self.state, None, position, Some(spec.clone())))
+        Ok(self.homed(make_axes(&self.state, None, position, Some(spec.clone()))))
     }
 
     /// Adds a ready-made artist to this figure (or subfigure) and returns
@@ -154,6 +172,9 @@ impl Figure {
         }
         if state.store.get_as::<AxesState>(artist.id()).is_some() {
             state.current_axes = Some(artist.id());
+        } else if let Some(axes3d) = state.store.get_as::<Axes3DState>(artist.id()) {
+            // A 3-D axes is current through its projection plane.
+            state.current_axes = Some(axes3d.plane);
         }
         Ok(artist)
     }

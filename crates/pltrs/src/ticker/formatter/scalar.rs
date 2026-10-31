@@ -3,7 +3,7 @@
 
 use pltrs_core::numeric::{floor_div, remainder};
 
-use super::{FormattedTicks, Formatter};
+use super::{FormattedTicks, Formatter, NumericLocale};
 use crate::ticker::pyfmt::{fixed, general, general_alternate, integer};
 use crate::ticker::pymath::{floor_int, np_round, pow10, pow10_int, py_round, spacing};
 use crate::ticker::{TickContext, TickerError, TickerSettings};
@@ -51,18 +51,36 @@ pub(super) struct ScalarLayout {
 }
 
 impl ScalarLayout {
-    /// One tick label (matplotlib's `ScalarFormatter.__call__`).
-    pub(super) fn label(&self, x: f64, math: bool, settings: &TickerSettings) -> String {
+    /// One tick label (matplotlib's `ScalarFormatter.__call__`), written
+    /// with the conventions of `locale` if given.
+    pub(super) fn label(
+        &self,
+        x: f64,
+        math: bool,
+        locale: Option<&NumericLocale>,
+        settings: &TickerSettings,
+    ) -> String {
         let mut xp = (x - self.offset) / pow10(f64::from(self.oom));
         if xp.abs() < 1e-8 {
             xp = 0.0;
         }
-        let text = fixed(xp, self.decimals);
+        let text = localized(locale, math, fixed(xp, self.decimals));
         settings.fix_minus(&if math {
             format!("$\\mathdefault{{{text}}}$")
         } else {
             text
         })
+    }
+}
+
+/// `text` written with the conventions of `locale` if given; in math
+/// text, the commas the locale adds are escaped (matplotlib's
+/// `_format_maybe_minus_and_locale`).
+fn localized(locale: Option<&NumericLocale>, math: bool, text: String) -> String {
+    match locale {
+        None => text,
+        Some(locale) if math => locale.localize(&text).replace(',', "{,}"),
+        Some(locale) => locale.localize(&text),
     }
 }
 
@@ -207,6 +225,7 @@ pub struct ScalarFormatter {
     scientific: bool,
     powerlimits: (i32, i32),
     offset_threshold: i32,
+    locale: Option<NumericLocale>,
 }
 
 pltrs_core::archive_struct!(ScalarFormatter {
@@ -215,7 +234,8 @@ pltrs_core::archive_struct!(ScalarFormatter {
     usetex,
     scientific,
     powerlimits,
-    offset_threshold
+    offset_threshold,
+    locale
 });
 
 impl ScalarFormatter {
@@ -238,7 +258,38 @@ impl ScalarFormatter {
             scientific: true,
             powerlimits: settings.axes_formatter_limits,
             offset_threshold: settings.axes_formatter_offset_threshold,
+            locale: None,
         }
+    }
+
+    /// Writes numbers with the conventions of `locale` (matplotlib's
+    /// `useLocale`, with the program's locale); `None` writes them as
+    /// the C locale does. pltrs has no locale of its own.
+    ///
+    /// ```
+    /// use pltrs::ticker::{AxisInfo, Formatter, Grouping, NumericLocale};
+    /// use pltrs::ticker::{ScalarFormatter, TickContext, TickerSettings};
+    /// let comma = NumericLocale {
+    ///     decimal_point: ",".into(),
+    ///     thousands_sep: ".".into(),
+    ///     grouping: vec![Grouping::Size(3), Grouping::RepeatLast],
+    /// };
+    /// let formatter = ScalarFormatter::new().with_locale(Some(comma));
+    /// let axis = AxisInfo::with_view(0.0, 1.0);
+    /// let settings = TickerSettings::default();
+    /// let ticks = formatter.format_ticks(&[0.0, 0.5, 1.0], &TickContext::new(&axis, &settings))?;
+    /// assert_eq!(ticks.labels, ["0,0", "0,5", "1,0"]);
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
+    #[must_use]
+    pub fn with_locale(mut self, locale: Option<NumericLocale>) -> Self {
+        self.locale = locale;
+        self
+    }
+
+    /// The conventions numbers are written with, if not the C locale's.
+    pub fn locale(&self) -> Option<&NumericLocale> {
+        self.locale.as_ref()
     }
 
     /// Offset notation mode.
@@ -401,15 +452,20 @@ impl ScalarFormatter {
         let e = floor_int(value.abs().log10(), "value")?;
         let e = i32::try_from(e).map_err(|_| TickerError::NonFinite("exponent"))?;
         let s = py_round(value / pow10_int(e), 10);
-        let significand = settings.fix_minus(&if remainder(s, 1.0) == 0.0 {
-            integer(s)
-        } else {
-            general(s, 10)
-        });
+        let locale = self.locale.as_ref();
+        let significand = settings.fix_minus(&localized(
+            locale,
+            self.math(),
+            if remainder(s, 1.0) == 0.0 {
+                integer(s)
+            } else {
+                general(s, 10)
+            },
+        ));
         if e == 0 {
             return Ok(significand);
         }
-        let exponent = settings.fix_minus(&e.to_string());
+        let exponent = settings.fix_minus(&localized(locale, self.math(), e.to_string()));
         Ok(if self.math() {
             let power = format!("10^{{{exponent}}}");
             if s == 1.0 {
@@ -469,7 +525,7 @@ impl Formatter for ScalarFormatter {
         Ok(FormattedTicks {
             labels: locs
                 .iter()
-                .map(|&x| layout.label(x, self.math(), settings))
+                .map(|&x| layout.label(x, self.math(), self.locale.as_ref(), settings))
                 .collect(),
             offset: self.offset_text(&layout, settings)?,
         })

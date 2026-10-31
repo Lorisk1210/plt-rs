@@ -19,6 +19,7 @@ use pltrs::ticker::{Formatter, Locator, ScalarFormatter, TickerSettings};
 use pltrs::units::UnitAxisInfo;
 
 use super::axis;
+use super::owner::{AnyAxis, AxisOwner};
 use super::python_helpers::{PyFormatter, PyLocator};
 use crate::binding::prelude::*;
 use crate::modules::ticker;
@@ -70,13 +71,17 @@ fn identified(helper: TickHelper) -> Identified {
 
 /// The locator (`kind` `"locator"`) or formatter (`"formatter"`) of the
 /// major or `minor` ticks of axis `name`, with its identity.
-fn helper(axes: Axes, name: String, kind: String, minor: bool) -> PyResult<Identified> {
-    let axis = axis(&axes, &name)?;
-    let helper = match (kind.as_str(), minor) {
-        ("locator", false) => TickHelper::Locator(axis.major_locator()),
-        ("locator", true) => TickHelper::Locator(axis.minor_locator()),
-        ("formatter", false) => TickHelper::Formatter(axis.major_formatter()),
-        ("formatter", true) => TickHelper::Formatter(axis.minor_formatter()),
+fn helper(owner: AxisOwner, name: String, kind: String, minor: bool) -> PyResult<Identified> {
+    let axis = owner.axis(&name)?;
+    let helper = match (kind.as_str(), minor, axis) {
+        ("locator", false, AnyAxis::Flat(axis)) => TickHelper::Locator(axis.major_locator()),
+        ("locator", true, AnyAxis::Flat(axis)) => TickHelper::Locator(axis.minor_locator()),
+        ("formatter", false, AnyAxis::Flat(axis)) => TickHelper::Formatter(axis.major_formatter()),
+        ("formatter", true, AnyAxis::Flat(axis)) => TickHelper::Formatter(axis.minor_formatter()),
+        ("locator", false, AnyAxis::Deep(axis)) => TickHelper::Locator(axis.major_locator()),
+        ("locator", true, AnyAxis::Deep(axis)) => TickHelper::Locator(axis.minor_locator()),
+        ("formatter", false, AnyAxis::Deep(axis)) => TickHelper::Formatter(axis.major_formatter()),
+        ("formatter", true, AnyAxis::Deep(axis)) => TickHelper::Formatter(axis.minor_formatter()),
         _ => return Err(PyErr::value_error(format!("no tick helper kind {kind:?}"))),
     };
     Ok(identified(helper))
@@ -151,19 +156,30 @@ fn new_formatter(description: &Owned, native: bool) -> PyResult<Rc<dyn Formatter
 /// the locator in use and its identity, `None` when `replacing` was in
 /// use nowhere.
 fn install_locator(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
     description: Owned,
     native: bool,
     replacing: Option<TickHelper>,
 ) -> PyResult<Option<Identified>> {
-    let axis = axis(&axes, &name)?;
+    let axis = owner.axis(&name)?;
     let locator = new_locator(&description, native)?;
-    let installed = match replacing {
-        Some(old) => axis.replace_locator(old.locator()?, &locator),
-        None if minor => Some(axis.set_shared_minor_locator(&locator).minor_locator()),
-        None => Some(axis.set_shared_major_locator(&locator).major_locator()),
+    let installed = match (replacing, axis) {
+        (Some(old), AnyAxis::Flat(axis)) => axis.replace_locator(old.locator()?, &locator),
+        (Some(old), AnyAxis::Deep(axis)) => axis.replace_locator(old.locator()?, &locator),
+        (None, AnyAxis::Flat(axis)) if minor => {
+            Some(axis.set_shared_minor_locator(&locator).minor_locator())
+        }
+        (None, AnyAxis::Flat(axis)) => {
+            Some(axis.set_shared_major_locator(&locator).major_locator())
+        }
+        (None, AnyAxis::Deep(axis)) if minor => {
+            Some(axis.set_shared_locator(true, &locator).minor_locator())
+        }
+        (None, AnyAxis::Deep(axis)) => {
+            Some(axis.set_shared_locator(false, &locator).major_locator())
+        }
     };
     Ok(installed.map(|locator| identified(TickHelper::Locator(locator))))
 }
@@ -171,25 +187,36 @@ fn install_locator(
 /// Installs the formatter `description` describes, as [`install_locator`]
 /// does locators.
 fn install_formatter(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
     description: Owned,
     native: bool,
     replacing: Option<TickHelper>,
 ) -> PyResult<Option<Identified>> {
-    let axis = axis(&axes, &name)?;
+    let axis = owner.axis(&name)?;
     let formatter = new_formatter(&description, native)?;
-    let installed = match replacing {
-        Some(old) => axis
+    let installed = match (replacing, axis) {
+        (Some(old), AnyAxis::Flat(axis)) => axis
             .replace_formatter(old.formatter()?, &formatter)
             .then_some(formatter),
-        None if minor => Some(
+        (Some(old), AnyAxis::Deep(axis)) => axis
+            .replace_formatter(old.formatter()?, &formatter)
+            .then_some(formatter),
+        (None, AnyAxis::Flat(axis)) if minor => Some(
             axis.set_shared_minor_formatter(&formatter)
                 .minor_formatter(),
         ),
-        None => Some(
+        (None, AnyAxis::Flat(axis)) => Some(
             axis.set_shared_major_formatter(&formatter)
+                .major_formatter(),
+        ),
+        (None, AnyAxis::Deep(axis)) if minor => Some(
+            axis.set_shared_formatter(true, &formatter)
+                .minor_formatter(),
+        ),
+        (None, AnyAxis::Deep(axis)) => Some(
+            axis.set_shared_formatter(false, &formatter)
                 .major_formatter(),
         ),
     };
@@ -348,8 +375,9 @@ mod tests {
     #[test]
     fn helpers_keep_their_identity_until_replaced() {
         let ax = Figure::new().subplot();
-        let (id, token) = helper(ax.clone(), "x".into(), "locator".into(), false).unwrap();
-        let (again, _) = helper(ax.clone(), "x".into(), "locator".into(), false).unwrap();
+        let owner = || AxisOwner::Flat(ax.clone());
+        let (id, token) = helper(owner(), "x".into(), "locator".into(), false).unwrap();
+        let (again, _) = helper(owner(), "x".into(), "locator".into(), false).unwrap();
         assert_eq!(id, again);
         assert!(in_use(token.clone()).unwrap());
         let spec = with_python(|py| {
@@ -357,12 +385,12 @@ mod tests {
             spec.set_item("kind", "null").unwrap();
             spec.unbind()
         });
-        let (new_id, _) = install_locator(ax.clone(), "x".into(), false, spec, true, Some(token))
+        let (new_id, _) = install_locator(owner(), "x".into(), false, spec, true, Some(token))
             .unwrap()
             .expect("the default locator was in use");
         assert_ne!(new_id, id);
         assert!(ax.xaxis().is_default_major_locator());
         assert_eq!(ax.xaxis().ticklocs(false).unwrap(), Vec::<f64>::new());
-        assert!(helper(ax, "x".into(), "artist".into(), false).is_err());
+        assert!(helper(owner(), "x".into(), "artist".into(), false).is_err());
     }
 }

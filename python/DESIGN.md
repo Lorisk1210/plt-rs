@@ -493,7 +493,10 @@ matplotlib's objects:
   keep what they computed for the ticks drawn last), is installed through
   an adapter pltrs (Rust) calls. A helper pltrs (Rust) installed itself is
   described by its spec (`ticker/describe.rs`) and becomes the object of
-  matplotlib's class.
+  matplotlib's class; a formatter of those is installed through an
+  adapter in place of pltrs (Rust)'s the first time one of its attributes
+  changes its spec (`ticklabel_format`, `set_useOffset`), since
+  matplotlib's formatters change in place.
 * **Mirrors** (`_axis_artists`, `_native.axis` `mirrors`): the ticks
   (`Tick` with `label1`, `label2`, `tick1line`, `tick2line`, `gridline`),
   the axis label and the offset text are loose `Text` and `Line2D`
@@ -501,6 +504,20 @@ matplotlib's objects:
   out and that every setter pushes back (`push`): what one tick has of its
   own is what differs from the style of its level, kept as pltrs (Rust)'s
   per-tick properties (`Axis::set_tick_label_props`).
+
+The axes of a 3-D axes (`axis3d.Axis`) are `XAxis` objects, as in
+matplotlib: `_native.axis` routes the functions of the tick helpers, the
+mirrors, the tick parameters, the label pad and the tight box to the
+3-D axis an `Axes3D` native object and a name (`"z"` too) designate
+(`axis/owner.rs`, `axis/deep.rs`), and refuses the others
+(`NotImplementedError`) rather than act on the projection plane the
+object otherwise converts to. A 3-D axis draws every tick with the style
+of its level but for the label pad of each major tick, and moves its
+texts at every draw, so its mirrors are filled with where the last
+layout placed them, positions set on them are not read back (matplotlib's
+draw overwrites them too), and what a single tick would keep of its own
+is refused. Values in units plotted on 3-D axes pass as they are
+(`Axis._native_units`): pltrs (Rust) converts them.
 
 pltrs (Rust)'s callback traits cannot fail the Python way, so when the callable
 raises, the exception is kept in the frame of the native call that is
@@ -633,7 +650,9 @@ GUI-toolkit backends, Tk is there (`backends/_backend_tk.py`,
 canvas blits the Agg pixels into its Tk `PhotoImage` with Tk's photo
 commands, as PNG data, where matplotlib's C helper `_tkagg` calls Tk's C
 API. The others (Qt, GTK, wx, macOS) are not there: loading one raises
-`ImportError`, as matplotlib does without the toolkit. As in
+`ImportError`, as matplotlib does without the toolkit (the Qt backends
+after matplotlib's binding selection, `backends.qt_compat`, whose message
+names the bindings tried). As in
 matplotlib, `rcParams['backend']` starts as `rcsetup._auto_backend_sentinel`,
 which pyplot resolves the first time it needs a backend (trying the GUI
 backends, then `agg`).

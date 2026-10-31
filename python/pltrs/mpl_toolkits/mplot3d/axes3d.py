@@ -15,13 +15,14 @@ import warnings
 
 import numpy as np
 
-from pltrs import _api, cbook, rcParams
+from pltrs import _api, _handles, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
 from pltrs.axes import Axes
 from pltrs.axes._plotting._helpers import wrap
 from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
+from pltrs.transforms import Bbox
 
 from . import art3d, axis3d
 from ._charts import ChartsMixin
@@ -91,13 +92,67 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
 
     _axis_names = ("x", "y", "z")
 
-    @classmethod
-    def _make_native(cls, figure, kwargs, *, spec=None, rect=None):
+    def __init__(self, fig, rect=None, *args, elev=30, azim=-60, roll=0,
+                 shareview=None, sharez=None, proj_type='persp',
+                 focal_length=None, box_aspect=None, computed_zorder=True,
+                 **kwargs):
         """
-        The native 3-D axes ``fig.add_subplot`` (on the grid block *spec*)
-        or ``fig.add_axes`` (at *rect*) makes, with matplotlib's `Axes3D`
-        keyword arguments taken from *kwargs*; return it and the other
-        keyword arguments.
+        Build a 3D Axes in a figure, outside it until ``fig.add_axes(ax)``
+        adds it, as an `~.axes.Axes` made by its constructor is.
+
+        Parameters
+        ----------
+        fig : Figure
+            The parent figure.
+        rect : tuple (left, bottom, width, height), default: None.
+            The ``(left, bottom, width, height)`` Axes position, or the
+            ``(nrows, ncols, index)`` of a subplot (a `.SubplotSpec`, or
+            numbers with *args*).
+        elev, azim, roll : float, default: 30, -60, 0
+            The initial view angles, in degrees.
+        shareview, sharez : Axes3D, optional
+            Other Axes to share the view angles or the z limits with.
+        proj_type : {'persp', 'ortho'}
+            The projection type, default 'persp'.
+        focal_length : float, default: None
+            For a projection type of 'persp', the focal length of the
+            virtual camera.
+        box_aspect : 3-tuple of floats, default: None
+            Changes the physical dimensions of the Axes3D.
+        computed_zorder : bool, default: True
+            If True, the draw order is computed based on the average
+            position of the `.Artist`\\s along the view direction.
+        **kwargs
+            Other optional keyword arguments are Axes properties
+            (*sharex* and *sharey* included).
+        """
+        if rect is None:
+            rect = [0.0, 0.0, 1.0, 1.0]
+        options, kwargs = self._native_options({
+            **kwargs, 'elev': elev, 'azim': azim, 'roll': roll,
+            'shareview': shareview, 'sharez': sharez, 'proj_type': proj_type,
+            'focal_length': focal_length, 'box_aspect': box_aspect,
+            'computed_zorder': computed_zorder})
+        args = (rect, *args)
+        if len(args) == 1 and (isinstance(rect, Bbox) or np.iterable(rect)):
+            bounds = (rect.bounds if isinstance(rect, Bbox)
+                      else Bbox.from_bounds(*rect).bounds)
+            native = _mplot3d.removed_axes(fig._native, tuple(map(float, bounds)),
+                                           options)
+        else:
+            from pltrs.gridspec import SubplotSpec
+            spec = SubplotSpec._from_subplot_args(fig, args)
+            native = _mplot3d.removed_subplot(fig._native, spec._native_spec(),
+                                              options)
+        _handles.adopt(self, native, fig.figure)
+        self._init_3d_state(fig.figure)
+        self._internal_update(kwargs)
+
+    @classmethod
+    def _native_options(cls, kwargs):
+        """
+        The native options of a new 3-D axes from matplotlib's `Axes3D`
+        keyword arguments in *kwargs*, and the other keyword arguments.
         """
         kwargs = dict(kwargs)
         initial = (float(kwargs.pop('elev', 30)), float(kwargs.pop('azim', -60)),
@@ -115,6 +170,17 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
                    None if box_aspect is None
                    else tuple(map(float, box_aspect)),
                    computed_zorder, shares)
+        return options, kwargs
+
+    @classmethod
+    def _make_native(cls, figure, kwargs, *, spec=None, rect=None):
+        """
+        The native 3-D axes ``fig.add_subplot`` (on the grid block *spec*)
+        or ``fig.add_axes`` (at *rect*) makes, with matplotlib's `Axes3D`
+        keyword arguments taken from *kwargs*; return it and the other
+        keyword arguments.
+        """
+        options, kwargs = cls._native_options(kwargs)
         if spec is not None:
             native = _mplot3d.add_subplot(figure._native, spec, options)
         else:
@@ -124,21 +190,27 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     @classmethod
     def _from_native(cls, native, figure):
         ax = super()._from_native(native, figure)
-        ax.xaxis = axis3d.XAxis(ax)
-        ax.yaxis = axis3d.YAxis(ax)
-        ax.zaxis = axis3d.ZAxis(ax)
+        ax._init_3d_state(figure)
+        return ax
+
+    def _init_3d_state(self, figure):
+        """Set up the Python state of the axes around its native handle in
+        the root *figure*."""
+        self.xaxis = axis3d.XAxis(self)
+        self.yaxis = axis3d.YAxis(self)
+        self.zaxis = axis3d.ZAxis(self)
         # A new axes looks from its initial view.
-        ax.initial_elev, ax.initial_azim, ax.initial_roll = _mplot3d.get_view(native)
-        ax.button_pressed = None
-        ax.mouse_init()
+        self.initial_elev, self.initial_azim, self.initial_roll = (
+            _mplot3d.get_view(self._native))
+        self.button_pressed = None
+        self.mouse_init()
         canvas = figure.canvas
-        canvas.mpl_connect('motion_notify_event', ax._on_move)
-        canvas.mpl_connect('button_press_event', ax._button_press)
-        canvas.mpl_connect('button_release_event', ax._button_release)
+        canvas.mpl_connect('motion_notify_event', self._on_move)
+        canvas.mpl_connect('button_press_event', self._button_press)
+        canvas.mpl_connect('button_release_event', self._button_release)
         # The projection plane stands for the axes where an artist's parent
         # or the current axes is asked for.
-        figure._artists[_artist.id(_mplot3d.plane(native))] = ax
-        return ax
+        figure._artists[_artist.id(_mplot3d.plane(self._native))] = self
 
     @staticmethod
     def _checked_focal_length(proj_type, focal_length):
@@ -188,7 +260,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         # docstring inherited.
         _mplot3d.clear(self._native)
         for axis in (self.xaxis, self.yaxis, self.zaxis):
-            axis._scale = None
+            axis._given_scale = None
 
     def get_zticks(self, *, minor=False):
         """Return the zaxis' tick locations in data coordinates."""
@@ -486,7 +558,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         axis = getattr(self, f'{name}axis')
         scale = scale_cls(axis, **kwargs)
         _mplot3d.set_scale(self._native, name, value, kwargs)
-        axis._scale = scale
+        axis._given_scale = scale
 
     def set_xscale(self, value, **kwargs):
         """Set the x-axis scale."""
@@ -683,7 +755,6 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None, for_layout_only=False):
         # docstring inherited
-        from pltrs.transforms import Bbox
         extent = _mplot3d.tightbbox(self._native, bool(for_layout_only))
         if extent is None:
             return None
@@ -776,25 +847,55 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
             visible = True
         _mplot3d.grid(self._native, bool(visible))
 
-    def _set_axis_label(self, name, label, kwargs):
-        _mplot3d.set_label(self._native, name, str(label))
-        if kwargs:
-            raise NotImplementedError(
-                f"pltrs: set_{name}label({next(iter(kwargs))}=...) on 3-D axes")
+    def _set_axis_label(self, name, label, fontdict, labelpad, kwargs):
+        """Label the axis *name* (3-D axes place their labels themselves, so
+        no *loc* applies)."""
+        axis = getattr(self, f'{name}axis')
+        if labelpad is not None:
+            axis.labelpad = labelpad
+        return axis.set_label_text(label, fontdict, **kwargs)
 
     def set_xlabel(self, xlabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
         """Set the label for the x-axis."""
-        self._set_axis_label('x', xlabel, {**(fontdict or {}), **kwargs})
+        return self._set_axis_label('x', xlabel, fontdict, labelpad, kwargs)
 
     def set_ylabel(self, ylabel, fontdict=None, labelpad=None, *, loc=None,
                    **kwargs):
         """Set the label for the y-axis."""
-        self._set_axis_label('y', ylabel, {**(fontdict or {}), **kwargs})
+        return self._set_axis_label('y', ylabel, fontdict, labelpad, kwargs)
 
     def set_zlabel(self, zlabel, fontdict=None, labelpad=None, **kwargs):
         """Set zlabel.  See doc for `.set_ylabel` for description."""
-        self._set_axis_label('z', zlabel, {**(fontdict or {}), **kwargs})
+        return self._set_axis_label('z', zlabel, fontdict, labelpad, kwargs)
+
+    def tick_params(self, axis='both', **kwargs):
+        """
+        Convenience method for changing the appearance of ticks and
+        tick labels.
+
+        See `.Axes.tick_params` for full documentation.  Because this function
+        applies to 3D Axes, *axis* can also be set to 'z', and setting *axis*
+        to 'both' autoscales all three axes.
+
+        Also, because of how Axes3D objects are drawn very differently
+        from regular 2D Axes, some of these settings may have
+        ambiguous meaning.  For simplicity, the 'z' axis will
+        accept settings as if it was like the 'y' axis.
+
+        .. note::
+           Axes3D currently ignores some of these settings.
+        """
+        _api.check_in_list(['x', 'y', 'z', 'both'], axis=axis)
+        if axis in ['x', 'y', 'both']:
+            super().tick_params(axis, **kwargs)
+        if axis in ['z', 'both']:
+            zkw = dict(kwargs)
+            zkw.pop('top', None)
+            zkw.pop('bottom', None)
+            zkw.pop('labeltop', None)
+            zkw.pop('labelbottom', None)
+            self.zaxis.set_tick_params(**zkw)
 
     def get_xlabel(self):
         """Get the xlabel text string."""

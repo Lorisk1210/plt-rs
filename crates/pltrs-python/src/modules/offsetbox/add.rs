@@ -4,14 +4,16 @@
 //! takes, and the artists of its tree move in with it. Each function
 //! returns the box, the artists of its tree in drawing order (frames
 //! before what they frame) and its frame, for the Python objects to
-//! follow them.
+//! follow them. The drawing areas of an added box are reached through it
+//! and their index in its tree.
 
 use pltrs::artist::{ArtistHandle, RawHandle, TypedHandle};
 use pltrs::axes::Axes;
 use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
 use pltrs::offsetbox::{
-    AnchorLoc, AnchoredBox, AnchoredOptions, AnnotationBboxOptions, BboxToAnchor,
+    AnchorLoc, AnchoredBox, AnchoredOffsetbox, AnchoredOptions, AnnotationBbox,
+    AnnotationBboxOptions, BboxToAnchor,
 };
 use pltrs::patches::{BoxStyle, FancyBboxPatch, Patch};
 use pltrs::text::ArrowProps;
@@ -178,8 +180,31 @@ fn add_annotation_bbox(
     Ok((added.raw().clone(), added.artists(), added.patch()))
 }
 
+/// Clips the artists of the drawing area at `area` (in tree order) of the
+/// added box `owner`, an anchored or an annotation box, or stops clipping
+/// them (`DrawingArea.clip_children`).
+fn set_clip_children(owner: RawHandle, area: usize, clip: bool) -> PyResult<()> {
+    let found = if let Some(anchored) = owner.downcast::<AnchoredOffsetbox>() {
+        anchored.set_clip_children(area, clip)
+    } else if let Some(annotation) = owner.downcast::<AnnotationBbox>() {
+        annotation.set_clip_children(area, clip)
+    } else {
+        return Err(PyErr::type_error(
+            "a drawing area belongs to an added offset box",
+        ));
+    };
+    if found {
+        Ok(())
+    } else {
+        Err(PyErr::value_error(format!(
+            "the box has no drawing area {area}"
+        )))
+    }
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_anchored", add_anchored)?;
-    module.add("add_annotation_bbox", add_annotation_bbox)
+    module.add("add_annotation_bbox", add_annotation_bbox)?;
+    module.add("set_clip_children", set_clip_children)
 }

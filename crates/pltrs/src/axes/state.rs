@@ -45,6 +45,11 @@ pub(crate) struct AxesState {
     pub(crate) axes_locator: Option<AxesLocatorFn>,
     /// The grid cell the axes occupies, if placed on a grid.
     pub(crate) subplot_spec: Option<SubplotSpec>,
+    /// The (sub)figure an axes made outside its figure is for, until the
+    /// (sub)figure adds it (matplotlib's `_parent_figure` of an
+    /// `Axes(fig, rect)`): its position is in that (sub)figure's
+    /// fractions, and only it can add the axes.
+    pub(crate) home: Option<ArtistId>,
     /// The coordinate system.
     pub(crate) projection: ProjectionState,
     /// The options a registered projection was made with, if any
@@ -131,6 +136,7 @@ pltrs_core::archive_struct!(AxesState {
     aspect,
     axes_locator,
     subplot_spec,
+    home,
     projection,
     projection_options,
     view_lim,
@@ -255,6 +261,7 @@ impl AxesState {
             aspect: AspectState::default(),
             axes_locator: None,
             subplot_spec: None,
+            home: None,
             projection: ProjectionState::Rectilinear,
             projection_options: None,
             view_lim: Bbox::UNIT,

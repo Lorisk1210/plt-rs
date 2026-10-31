@@ -6,7 +6,8 @@ use pltrs_core::{Path, Point};
 use pltrs_text::{BlockStyle, HAlign, VAlign};
 
 use super::{
-    AxisEdge, Painter, PlacedText, Sink, TICK_INWARD, TICK_LABEL_OFFSET, TICK_OUTWARD, anchored,
+    AxisEdge, AxisTextPart, Painter, PlacedText, Sink, TICK_INWARD, TICK_LABEL_OFFSET,
+    TICK_OUTWARD, anchored,
 };
 use crate::fonts::FontProperties;
 use crate::mplot3d::axis3d::{Axis3DState, DrawnTick};
@@ -80,6 +81,8 @@ impl Painter<'_> {
         let points = scaled(self.geometry.deltas, deltas_per_point);
         for DrawnTick {
             tick,
+            minor,
+            slot,
             style,
             width,
             pad,
@@ -115,6 +118,7 @@ impl Painter<'_> {
             sink.text(
                 self,
                 &PlacedText {
+                    part: AxisTextPart::TickLabel { minor, index: slot },
                     text: &tick.label,
                     font: &font,
                     color: &style.label_color,
@@ -181,6 +185,7 @@ impl Painter<'_> {
         sink.text(
             self,
             &PlacedText {
+                part: AxisTextPart::Offset,
                 text: &ticks.offset,
                 font: &font,
                 color: &axis.offset_color,

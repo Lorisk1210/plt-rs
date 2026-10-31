@@ -12,11 +12,13 @@ legend receives its entries and keyword arguments explicitly.
 """
 
 import numbers
+import time
 
 import numpy as np
 
 from . import _api, _handles, _live_transforms, colors, rcParams
 from ._native import legend as _legend
+from ._native import register as _register
 from ._native import text as _text
 from .artist import Artist
 from .collections import (CircleCollection, Collection, LineCollection,
@@ -33,6 +35,11 @@ from .legend_handler import (HandlerCircleCollection, HandlerErrorbar,
 from .lines import Line2D
 from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
+
+# pltrs (Rust) times the search for the best location with Python's
+# performance counter, looked up at every reading as matplotlib's
+# ``_find_best_position`` does.
+_register("perf_counter", lambda: time.perf_counter())
 
 #: The Python class of each kind of artist a legend can show
 #: (``_native.legend.candidates``).
@@ -416,9 +423,7 @@ class Legend(Artist):
         loc : str or pair of floats, default: :rc:`legend.loc`
             The location of the legend.
         """
-        loc = self._validated_loc(loc)
-        _legend.set_loc(self._native,
-                        rcParams["legend.loc"] if loc is None else loc)
+        _legend.set_loc(self._native, self._validated_loc(loc))
 
     def _get_loc(self):
         """The location code, or the point the legend is placed at."""

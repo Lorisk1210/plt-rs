@@ -1,6 +1,6 @@
 //! Making 3-D axes in a figure (`add_subplot(projection='3d')`,
-//! `add_axes(rect, projection='3d')`) and listing them with the figure's
-//! other axes (`fig.axes`).
+//! `add_axes(rect, projection='3d')`) or outside it (`Axes3D(fig, rect)`),
+//! and listing them with the figure's other axes (`fig.axes`).
 
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
@@ -79,6 +79,19 @@ fn add_axes(figure: Figure, rect: (f64, f64, f64, f64), options: Options) -> PyR
     Ok(figure.add_axes_3d([left, bottom, width, height], options.0)?)
 }
 
+/// A 3-D axes at `rect` made outside the figure, until `fig.add_axes(ax)`
+/// adds it (`Axes3D(fig, rect)`).
+fn removed_axes(figure: Figure, rect: (f64, f64, f64, f64), options: Options) -> PyResult<Axes3D> {
+    let (left, bottom, width, height) = rect;
+    Ok(figure.removed_axes_3d([left, bottom, width, height], options.0)?)
+}
+
+/// A 3-D axes on the grid block `spec` made outside the figure
+/// (`Axes3D(fig, subplotspec)`).
+fn removed_subplot(figure: Figure, spec: SubplotSpec, options: Options) -> PyResult<Axes3D> {
+    Ok(figure.removed_subplot_3d(&spec, options.0)?)
+}
+
 /// The projection plane of the 3-D axes: the 2-D axes it is as an `Axes`.
 fn plane(axes: Axes3D) -> PyResult<Axes> {
     Ok(axes.projection_plane())
@@ -107,6 +120,8 @@ fn figure_axes(figure: Figure) -> PyResult<Vec<(RawHandle, bool)>> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_subplot", add_subplot)?;
     module.add("add_axes", add_axes)?;
+    module.add("removed_axes", removed_axes)?;
+    module.add("removed_subplot", removed_subplot)?;
     module.add("plane", plane)?;
     module.add("subplot_spec", subplot_spec)?;
     module.add("figure_axes", figure_axes)

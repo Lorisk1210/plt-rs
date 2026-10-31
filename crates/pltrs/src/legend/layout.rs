@@ -15,7 +15,7 @@ use super::{LegendError, LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistId, ArtistStore, DrawError, LayoutContext};
 use crate::figure::FigureState;
 use crate::offsetbox::{
-    OffsetBoxError, Placement, anchored_bbox, apply_placements, transformed_bbox,
+    OffsetBox, OffsetBoxError, Placement, anchored_bbox, apply_placements, transformed_bbox,
 };
 use crate::patches::{FancyBboxPatch, PatchArtist, PatchShape, PatchStyle, Shadow, ShadowError};
 use crate::transforms::Transform;
@@ -102,21 +102,68 @@ impl LegendArtist {
         }
     }
 
-    /// Lays the legend out for the current figure geometry.
+    /// The legend box in display pixels (matplotlib's
+    /// `_legend_box.get_window_extent`, which locates the legend).
+    pub(crate) fn extent(&self, ctx: LayoutContext<'_>) -> Result<Bbox, LayoutError> {
+        let (legend_box, fontsize_px) = self.sized_box(ctx)?;
+        let bbox = legend_box.bbox(ctx)?;
+        let offset = self.offset(ctx, &bbox, fontsize_px)?;
+        Ok(bbox.translated(offset.x, offset.y))
+    }
+
+    /// Lays the legend out for the current figure geometry. As
+    /// matplotlib's `Legend.draw` does, the legend is located twice: for
+    /// its frame (`_legend_box.get_window_extent`) and for its parts
+    /// (`_legend_box.draw`).
     pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<LegendLayout, LayoutError> {
+        let extent = self.extent(ctx)?;
+        let (legend_box, fontsize_px) = self.sized_box(ctx)?;
+        let bbox = legend_box.bbox(ctx)?;
+        let offset = self.offset(ctx, &bbox, fontsize_px)?;
+        Ok(LegendLayout {
+            extent,
+            fontsize_px,
+            placements: legend_box.place(ctx, offset)?,
+        })
+    }
+
+    /// The legend box, as wide as its anchor in the `"expand"` mode, and
+    /// the legend font size in pixels.
+    fn sized_box(
+        &self,
+        ctx: LayoutContext<'_>,
+    ) -> Result<(Cow<'_, OffsetBox<HandleRef>>, f64), LayoutError> {
         let settings = &self.settings;
         let fontsize_px = ctx.points_to_pixels(settings.fontsize);
-        let anchor = self.anchor_box(ctx).ok_or(LayoutError::Detached)?;
         let mut legend_box = Cow::Borrowed(&self.legend_box);
         if self.mode == LegendMode::Expand {
+            let anchor = self.anchor_box(ctx).ok_or(LayoutError::Detached)?;
             let pad = 2.0 * (settings.borderaxespad + settings.borderpad) * fontsize_px;
             legend_box.to_mut().set_width(Some(anchor.width() - pad));
         }
-        let bbox = legend_box.bbox(ctx)?;
+        Ok((legend_box, fontsize_px))
+    }
+
+    /// Where the origin of the legend box `bbox` goes (matplotlib's
+    /// `_findoffset`, through `_legend_box.get_offset`).
+    fn offset(
+        &self,
+        ctx: LayoutContext<'_>,
+        bbox: &Bbox,
+        fontsize_px: f64,
+    ) -> Result<Point, LayoutError> {
+        let anchor = self.anchor_box(ctx).ok_or(LayoutError::Detached)?;
         let (width, height) = (bbox.width(), bbox.height());
-        let pad = settings.borderaxespad * fontsize_px;
+        let pad = self.settings.borderaxespad * fontsize_px;
         let corner = match self.location {
-            Location::Best => best_position(ctx, self.parent, &anchor, pad, (width, height)),
+            Location::Best => best_position(
+                ctx,
+                self.parent,
+                &anchor,
+                pad,
+                (width, height),
+                self.loc_used_default,
+            ),
             Location::Anchored(loc) => anchored_bbox(
                 loc,
                 &Bbox::from_bounds(0.0, 0.0, width, height),
@@ -129,12 +176,7 @@ impl LegendArtist {
                 anchor.y0() + anchor.height() * fy,
             ),
         };
-        let offset = corner - bbox.p0;
-        Ok(LegendLayout {
-            extent: bbox.translated(offset.x, offset.y),
-            fontsize_px,
-            placements: legend_box.place(ctx, offset)?,
-        })
+        Ok(corner - bbox.p0)
     }
 }
 
@@ -147,26 +189,36 @@ pub(crate) fn lay_out_legends(state: &mut FigureState) {
         .filter(|&id| state.store.get_as::<LegendArtist>(id).is_some())
         .collect();
     for id in legends {
-        let outcome = {
-            let ctx = LayoutContext::new(state);
-            state.store.get_as::<LegendArtist>(id).map(|legend| {
-                legend
-                    .layout(ctx)
-                    .map_err(|err| err.to_string())
-                    .map(|layout| (layout, legend.frame, legend.shadow.clone()))
-            })
-        };
-        let applied = match outcome {
-            Some(Ok((layout, frame, shadow))) => {
-                apply(&mut state.store, layout, frame, shadow).map_err(|err| err.to_string())
-            }
-            Some(Err(message)) => Err(message),
-            None => Ok(()),
-        };
-        if let Err(message) = applied {
-            state.pending_errors.push(DrawError::new(id, message));
+        if let Err(err) = lay_out_legend(state, id) {
+            state.pending_errors.push(err);
         }
     }
+}
+
+/// Lays out the legend `id` (if it is one) and moves its parts into place,
+/// as matplotlib's `Legend.draw` does before drawing them.
+///
+/// # Errors
+///
+/// When the legend cannot be laid out.
+pub(crate) fn lay_out_legend(state: &mut FigureState, id: ArtistId) -> Result<(), DrawError> {
+    let outcome = {
+        let ctx = LayoutContext::new(state);
+        state.store.get_as::<LegendArtist>(id).map(|legend| {
+            legend
+                .layout(ctx)
+                .map_err(|err| err.to_string())
+                .map(|layout| (layout, legend.frame, legend.shadow.clone()))
+        })
+    };
+    let applied = match outcome {
+        Some(Ok((layout, frame, shadow))) => {
+            apply(&mut state.store, layout, frame, shadow).map_err(|err| err.to_string())
+        }
+        Some(Err(message)) => Err(message),
+        None => Ok(()),
+    };
+    applied.map_err(|message| DrawError::new(id, message))
 }
 
 /// Moves the frame, its shadow, the texts and the handles of a legend to

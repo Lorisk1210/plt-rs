@@ -166,6 +166,10 @@ pub enum DrawErrorKind {
     /// mathtext or a line through two identical points (matplotlib's
     /// `ValueError`).
     InvalidValue,
+    /// A value of the wrong type the program gave, which matplotlib's
+    /// renderers refuse when they draw it, such as a single path given to a
+    /// collection as its paths (matplotlib's `TypeError`).
+    InvalidType,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,

@@ -26,6 +26,7 @@ impl AxesState {
         fresh.aspect = self.aspect;
         fresh.axes_locator.clone_from(&self.axes_locator);
         fresh.subplot_spec.clone_from(&self.subplot_spec);
+        fresh.home = self.home;
         fresh.shares = self.shares;
         fresh.secondary.clone_from(&self.secondary);
         fresh.spines.clone_from(&self.spines);

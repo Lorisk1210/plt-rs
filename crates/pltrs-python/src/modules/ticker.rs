@@ -14,6 +14,7 @@
 //! objects; installing helpers on an axis is `_native.axis`'s.
 
 pub(super) mod describe;
+mod locale;
 
 use std::rc::Rc;
 
@@ -304,7 +305,8 @@ fn scalar_formatter(spec: &Bound<'_>) -> PyResult<ScalarFormatter> {
         .with_use_mathtext(dict_value(spec, "use_mathtext")?)
         .with_usetex(dict_value(spec, "usetex")?)
         .with_scientific(dict_value(spec, "scientific")?)
-        .with_powerlimits(dict_value(spec, "powerlimits")?))
+        .with_powerlimits(dict_value(spec, "powerlimits")?)
+        .with_locale(dict_value::<Option<locale::PyLocale>>(spec, "locale")?.map(|conv| conv.0)))
 }
 
 /// The engineering formatter an `"eng"` spec describes.

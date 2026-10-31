@@ -193,8 +193,10 @@ class TicksMixin:
         STYLES = {'sci': True, 'scientific': True, 'plain': False, '': None,
                   None: None}
         is_sci_style = _api.getitem_checked(STYLES, style=style)
-        axis_map = {'x': [self.xaxis], 'y': [self.yaxis],
-                    'both': [self.xaxis, self.yaxis]}
+        axises_of = {name: getattr(self, f"{name}axis")
+                     for name in self._axis_names}
+        axis_map = {**{k: [v] for k, v in axises_of.items()},
+                    'both': list(axises_of.values())}
         axises = _api.getitem_checked(axis_map, axis=axis)
         try:
             for axis in axises:

@@ -8,7 +8,7 @@
 use std::borrow::Cow;
 
 use pltrs_core::{Bbox, Point, Rgba};
-use pltrs_text::{BlockStyle, HAlign, RotationMode, VAlign};
+use pltrs_text::{BlockStyle, HAlign, RotationMode, TextError, VAlign};
 
 use super::axis::AxisState;
 use super::state::AxesState;
@@ -20,7 +20,7 @@ use crate::fonts::FontProperties;
 use crate::polar;
 use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
-use crate::text::{LaidOutText, lay_out};
+use crate::text::{LaidOutText, lay_out, metrics_cache_installed};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
 
@@ -48,6 +48,35 @@ pub(crate) struct PlacedText {
 }
 
 impl PlacedText {
+    /// The text as it is drawn. matplotlib's `Text.draw` lays a tick label
+    /// out again where it draws it, measuring its lines a second time
+    /// through the renderer's text metrics cache; so does pltrs while such
+    /// a cache is installed, which then sees the same lookups. Without
+    /// one, the layout made when placing the text, which a second layout
+    /// would give again, is drawn as it is.
+    ///
+    /// # Errors
+    ///
+    /// When the text cannot be laid out.
+    pub(crate) fn laid_out_again(
+        &self,
+        dpi: f64,
+        rc: &RcParams,
+    ) -> Result<Cow<'_, LaidOutText>, TextError> {
+        let laid_out = &self.laid_out;
+        if !metrics_cache_installed() {
+            return Ok(Cow::Borrowed(laid_out));
+        }
+        lay_out_axis_text(
+            &laid_out.lines.join("\n"),
+            &laid_out.font,
+            &laid_out.style,
+            dpi,
+            rc,
+        )
+        .map(Cow::Owned)
+    }
+
     /// The extent of the text in display coordinates.
     pub(crate) fn bbox(&self) -> Bbox {
         self.laid_out
@@ -432,6 +461,22 @@ fn label_boxes(texts: &AxisTexts) -> Vec<(bool, Bbox)> {
         .collect()
 }
 
+/// `text` laid out at `dpi` with `font` and `block`, its glyphs placed as
+/// the rc path effects draw them (the axis texts are drawn through them).
+fn lay_out_axis_text(
+    text: &str,
+    font: &FontProperties,
+    block: &BlockStyle,
+    dpi: f64,
+    rc: &RcParams,
+) -> Result<LaidOutText, TextError> {
+    let laid_out = lay_out(text, font, block, dpi, rc)?;
+    if rc.path_effects.is_empty() {
+        return Ok(laid_out);
+    }
+    laid_out.as_text_paths(font, rc.text_parse_math, dpi, rc)
+}
+
 /// `text` laid out at `anchor` with `font`, `block` and `color`.
 pub(crate) fn place_text(
     layout: LayoutContext<'_>,
@@ -442,13 +487,8 @@ pub(crate) fn place_text(
     anchor: Point,
     rc: &RcParams,
 ) -> Result<PlacedText, String> {
-    let mut laid_out = lay_out(text, font, block, layout.dpi(), rc).map_err(|e| e.to_string())?;
-    // The axis texts are drawn through the rc path effects.
-    if !rc.path_effects.is_empty() {
-        laid_out = laid_out
-            .as_text_paths(font, rc.text_parse_math, layout.dpi(), rc)
-            .map_err(|e| e.to_string())?;
-    }
+    let laid_out =
+        lay_out_axis_text(text, font, block, layout.dpi(), rc).map_err(|e| e.to_string())?;
     let color = color.resolve().map_err(|e| e.to_string())?;
     Ok(PlacedText {
         laid_out,

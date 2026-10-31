@@ -1,7 +1,8 @@
 """
 The PDF backend (matplotlib's ``backend_pdf``): `FigureCanvasPdf`, whose
-``print_pdf`` writes the figure as a PDF document, and `PdfPages`, a
-document of several figures. pltrs (Rust) writes the documents.
+``print_pdf`` writes the figure as a PDF document, `PdfPages`, a document
+of several figures, and `RendererPdf`, with which the figure is laid out
+for its document. pltrs (Rust) writes the documents.
 
 The document information helpers (`_create_pdf_info_dict`,
 `_datetime_to_pdf`), which the PGF backend shares, are matplotlib's (from
@@ -13,11 +14,14 @@ import os
 import time
 
 from .. import _api
-from .._native import backends as _backends
+from .._native import backends as _backends, text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
 from ..backend_bases import (
     _Backend, _write_bytes, DrawEvent, FigureCanvasBase, FigureManagerBase)
 from ..figure import Figure
+from ..font_manager import FontManager
+from ..text import _measuring_with
+from ._backend_pdf_ps import RendererPDFPSBase
 
 
 def _create_pdf_info_dict(backend, metadata):
@@ -267,6 +271,33 @@ class PdfPages:
         _backends.pdf_pages_attach_note(self._ensure_file()._native, str(text))
 
 
+class RendererPdf(RendererPDFPSBase):
+    """
+    The renderer of a PDF page of *width* × *height* inches, drawn in
+    points, its images at *image_dpi*, into the `PdfFile` *file*.
+
+    pltrs (Rust) writes the documents itself: the renderer pltrs hands
+    Python is the one the figure is laid out with for its document (the
+    renderer text measurement receives while a figure under the PDF canvas
+    is laid out or saved), which measures text as the PDF backend does and
+    draws into no file (*file* is None).
+    """
+
+    _use_afm_rc_name = "pdf.use14corefonts"
+
+    def __init__(self, file, image_dpi, height, width):
+        super().__init__(width, height)
+        self.file = file
+        self.gc = self.new_gc()
+        self.image_dpi = image_dpi
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        # docstring inherited
+        _api.check_in_list(["TeX", True, False], ismath=ismath)
+        return _text_overrides.measure_pdf(s, FontManager._props(prop), ismath,
+                                           72.0)
+
+
 class FigureCanvasPdf(FigureCanvasBase):
     # docstring inherited
 
@@ -275,6 +306,12 @@ class FigureCanvasPdf(FigureCanvasBase):
 
     def get_default_filetype(self):
         return 'pdf'
+
+    def _print_renderer(self):
+        """The renderer the figure is laid out with for its PDF document
+        (the one matplotlib's ``print_pdf`` draws with)."""
+        width, height = self.figure.get_size_inches()
+        return RendererPdf(None, self.figure.dpi, height, width)
 
     def draw(self):
         self.figure.draw_without_rendering()
@@ -287,14 +324,16 @@ class FigureCanvasPdf(FigureCanvasBase):
         (whose document has its own metadata)."""
         settings = dict(bbox_inches_restore=bbox_inches_restore,
                         facecolor=facecolor, edgecolor=edgecolor)
+        with _measuring_with(self._print_renderer()):
+            if isinstance(filename, PdfPages):
+                _backends.pdf_pages_savefig(
+                    filename._ensure_file()._native, self.figure._native,
+                    self._print_settings(**settings))
+            else:
+                self._print_native("pdf", filename,
+                                   metadata=_native_info(metadata), **settings)
         if isinstance(filename, PdfPages):
-            _backends.pdf_pages_savefig(
-                filename._ensure_file()._native, self.figure._native,
-                self._print_settings(**settings))
             DrawEvent("draw_event", self, None)._process()
-        else:
-            self._print_native("pdf", filename, metadata=_native_info(metadata),
-                               **settings)
 
 
 FigureManagerPdf = FigureManagerBase

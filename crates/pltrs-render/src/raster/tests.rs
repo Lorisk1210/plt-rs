@@ -22,6 +22,32 @@ fn alpha_at(r: &RasterRenderer, x: u32, y: u32) -> u8 {
 }
 
 #[test]
+fn text_is_drawn_as_paths_while_the_thread_asks() {
+    use pltrs_text::{FontQuery, FontRequest, TextEngine};
+
+    let request = FontRequest::new(FontQuery {
+        size: 20.0,
+        ..FontQuery::families(["DejaVu Sans"])
+    });
+    let run = TextEngine::global()
+        .layout_line("fi", &request, 72.0)
+        .expect("bundled font");
+    let gc = GraphicsContext::default();
+    let origin = Point::new(5.0, 8.0);
+    set_texts_as_paths(true);
+    let mut paths = RasterRenderer::new(40.0, 30.0, 72.0).unwrap();
+    paths.draw_text(&gc, &run, origin, 0.0);
+    set_texts_as_paths(false);
+    let mut expected = RasterRenderer::new(40.0, 30.0, 72.0).unwrap();
+    crate::renderer::draw_text_as_path(&mut expected, &gc, &run, origin, 0.0);
+    assert_eq!(paths.pixmap(), expected.pixmap());
+    assert!(paths.pixmap().data().iter().any(|&byte| byte != 0));
+    let mut glyphs = RasterRenderer::new(40.0, 30.0, 72.0).unwrap();
+    glyphs.draw_text(&gc, &run, origin, 0.0);
+    assert!(glyphs.pixmap().data().iter().any(|&byte| byte != 0));
+}
+
+#[test]
 fn construction_validates_and_truncates() {
     assert!(matches!(
         RasterRenderer::new(10.0, 10.0, 0.0),

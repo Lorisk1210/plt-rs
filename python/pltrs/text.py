@@ -10,14 +10,15 @@ from collections.abc import Sequence
 import datetime
 from numbers import Real
 import sys
+import weakref
 
 import numpy as np
 
 from . import _api, _live_transforms, _text_overrides, cbook
+from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
 from ._native import annotation as _annotation, text as _text
-from ._native import text_overrides as _native_overrides
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
 from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here)
@@ -55,16 +56,93 @@ def _rc(name):
 
 def _get_text_metrics_with_cache(renderer, text, fontprop, ismath, dpi):
     """
-    Return the width, height and descent of *text* in *fontprop* at *dpi*,
-    as ``renderer.get_text_width_height_descent`` gives them: pltrs (Rust)
-    measures the text as the Agg canvas does (*ismath*: False, True or
-    ``"TeX"``).
+    Call ``renderer.get_text_width_height_descent``, caching the results.
 
     pltrs (Rust) measures every line it lays out through this function
-    while the program replaces it (see `._text_overrides`).
+    while the program replaces it (see `._text_overrides`), and through the
+    renderer's cache otherwise (see `._text_metrics`).
     """
-    return _native_overrides.measure(text, FontManager._props(fontprop),
-                                     ismath, dpi)
+    # hit the outer cache layer and get the function to compute the metrics
+    # for this renderer instance
+    get_text_metrics = _get_text_metrics_function(renderer)
+    # call the function to compute the metrics and return
+    #
+    # We pass a copy of the fontprop because FontProperties is both mutable and
+    # has a `__hash__` that depends on that mutable state.  This is not ideal
+    # as it means the hash of an object is not stable over time which leads to
+    # very confusing behavior when used as keys in dictionaries or hashes.
+    return get_text_metrics(text, fontprop.copy(), ismath, dpi)
+
+
+def _get_text_metrics_function(input_renderer, _cache=weakref.WeakKeyDictionary()):
+    """
+    Helper function to provide a two-layered cache for font metrics
+
+
+    To get the rendered size of a size of string we need to know:
+      - what renderer we are using
+      - the current dpi of the renderer
+      - the string
+      - the font properties
+      - is it math text or not
+
+    We do this as a two-layer cache with the outer layer being tied to a
+    renderer instance and the inner layer handling everything else.
+
+    The outer layer is implemented as `.WeakKeyDictionary` keyed on the
+    renderer.  As long as someone else is holding a hard ref to the renderer
+    we will keep the cache alive, but it will be automatically dropped when
+    the renderer is garbage collected.
+
+    The inner layer is a least-recently-used cache with a large maximum size
+    (such that we expect very few cache misses in actual use cases), kept by
+    pltrs (Rust), which measures the lines it lays out with the renderer
+    through it (see `._text_metrics`).  As the dpi is mutable on the
+    renderer, it is part of the cache key on the inner layer.
+
+    This function takes a renderer and returns a function that can be used to
+    get the font metrics.
+
+    Parameters
+    ----------
+    input_renderer : maplotlib.backend_bases.RendererBase
+        The renderer to set the cache up for.
+
+    _cache : dict, optional
+        We are using the mutable default value to attach the cache to the function.
+
+        In principle you could pass a different dict-like to this function to inject
+        a different cache, but please don't.  This is an internal function not meant to
+        be reused outside of the narrow context we need it for.
+
+        There is a possible race condition here between threads, we may need to drop the
+        mutable default and switch to a threadlocal variable in the future.
+
+    """
+    if (_text_metrics := _cache.get(input_renderer, None)) is None:
+        # The cache refers to its renderer weakly: closing over a hard-ref
+        # would create an unbreakable reference cycle.
+        _text_metrics = _text_metrics_module.TextMetrics(weakref.ref(input_renderer))
+        _cache[input_renderer] = _text_metrics
+    return _text_metrics
+
+
+def _layout_renderer(figure):
+    """The renderer *figure* is laid out with, whose text metrics cache
+    measures its texts: the one its canvas prints with where that is not
+    the canvas' own (`.backend_pdf.RendererPdf` under the PDF canvas), else
+    the figure's (`.Figure._get_renderer`)."""
+    canvas = figure.get_figure(root=True).canvas
+    if hasattr(canvas, "_print_renderer"):
+        return canvas._print_renderer()
+    return figure._get_renderer()
+
+
+def _measuring_with(renderer):
+    """Lay out and draw with *renderer*'s text metrics cache installed, so
+    that the lines pltrs (Rust) measures meanwhile go through it."""
+    return _text_metrics_module.measuring_with(
+        renderer, _get_text_metrics_function(renderer))
 
 
 @_api.define_aliases({
@@ -380,7 +458,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         Parameters
         ----------
         renderer : Renderer, optional
-            pltrs (Rust) measures the text itself: the renderer is not used.
+            pltrs (Rust) measures the text itself, through the text metrics
+            cache of the renderer (default: the figure's).
 
         dpi : float, optional
             The dpi value for computing the bbox, defaults to the figure's
@@ -389,7 +468,13 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         """
         if not self.get_visible():
             return Bbox.unit()
-        return self._native_extent(self._text_extent, dpi)
+        figure = self.get_figure(root=True)
+        if renderer is None and figure is not None:
+            renderer = _layout_renderer(figure)
+        if renderer is None:
+            return self._native_extent(self._text_extent, dpi)
+        with _measuring_with(renderer):
+            return self._native_extent(self._text_extent, dpi)
 
     def _text_extent(self):
         """The display box of the text, as ``(x0, y0, x1, y1)`` or None."""

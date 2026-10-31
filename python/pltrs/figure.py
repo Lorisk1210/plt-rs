@@ -30,7 +30,7 @@ from ._figure_interaction import InteractionMixin
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
-from .text import Text
+from .text import Text, _layout_renderer, _measuring_with
 from .transforms import Bbox, BboxBase
 from ._text_methods import FigureText
 
@@ -729,7 +729,8 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         artists that require a draw before their size is known (e.g. text).
         """
         self._get_renderer()  # The canvas's renderer follows the figure.
-        _figure.draw_without_rendering(self._native)
+        with _measuring_with(_layout_renderer(self)):
+            _figure.draw_without_rendering(self._native)
 
     def _get_renderer(self):
         """The renderer of the root figure's canvas: the canvas' own, or the

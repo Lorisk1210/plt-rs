@@ -3,20 +3,23 @@
 //! matplotlib measures every line of text through one module function,
 //! `matplotlib.text._get_text_metrics_with_cache`, and draws every text
 //! (titles, tick and axis labels, legend and table texts, annotations)
-//! through `Text.draw`. Its tests replace both, so that texts become
-//! boxes whose size depends only on the font size and the number of
-//! characters (the `text_placeholders` fixture). pltrs (Python) hands such
-//! replacements to pltrs (Rust) for the thread, as a [`LineMeasurer`] and a
-//! [`TextPainter`]: while a measurer is set, every line pltrs lays out is
-//! measured by it, and while a painter is set, every text pltrs draws is
-//! drawn by it instead. Without them, laying out a line or drawing a text
-//! costs one thread-local read more.
+//! through `Text.draw`, which hands TeX lines to the renderer's
+//! `draw_tex`. Its tests replace them, so that texts become boxes whose
+//! size depends only on the font size and the number of characters (the
+//! `text_placeholders` fixture), or to see where TeX lines are drawn.
+//! pltrs (Python) hands such replacements to pltrs (Rust) for the thread,
+//! as a [`LineMeasurer`], a [`TextPainter`] and a [`TexPainter`]: while a
+//! measurer is set, every line pltrs lays out is measured by it, while a
+//! painter is set, every text pltrs draws is drawn by it instead, and
+//! while a TeX painter is set, every TeX line. Without them, laying out a
+//! line or drawing a text costs one thread-local read more.
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use pltrs_core::{Point, Rgba};
-use pltrs_text::{FontHeightMetrics, LineMetrics, TextError};
+use pltrs_core::{Affine2D, Path, Point, Rgba};
+use pltrs_render::GraphicsContext;
+use pltrs_text::{AfmDirectory, FontHeightMetrics, LineMetrics, TextError};
 
 use super::layout::{LaidOutText, Typesetting};
 use super::{Text, TextArtist};
@@ -69,11 +72,45 @@ pub trait TextPainter {
     fn paint(&self, stand_in: &Text, dpi: f64) -> Vec<RawHandle>;
 }
 
+/// A path the program drew in place of a TeX line: stroked as `gc` says
+/// and filled with `fill`, mapped into display pixels by `transform`
+/// (matplotlib's `draw_path(gc, path, transform, rgbFace)`).
+#[derive(Clone, Debug)]
+pub struct DrawnPath {
+    /// How the path is stroked.
+    pub gc: GraphicsContext,
+    /// The path.
+    pub path: Path,
+    /// Its transform into display pixels.
+    pub transform: Affine2D,
+    /// Its fill.
+    pub fill: Option<Rgba>,
+}
+
+/// Draws TeX lines in place of the renderer (matplotlib's `draw_tex`,
+/// replaced).
+pub trait TexPainter {
+    /// Draws `line`, typeset by TeX in `font`, with the left end of its
+    /// baseline at `origin` (display pixels) and rotated by `angle`
+    /// degrees counter-clockwise, as `gc` says: the paths to draw in its
+    /// place.
+    fn paint(
+        &self,
+        gc: &GraphicsContext,
+        line: &str,
+        font: &FontProperties,
+        origin: Point,
+        angle: f64,
+    ) -> Vec<DrawnPath>;
+}
+
 thread_local! {
     /// The measurer of the thread's lines, if the program set one.
     static MEASURER: RefCell<Option<Rc<dyn LineMeasurer>>> = const { RefCell::new(None) };
     /// The painter of the thread's texts, if the program set one.
     static PAINTER: RefCell<Option<Rc<dyn TextPainter>>> = const { RefCell::new(None) };
+    /// The painter of the thread's TeX lines, if the program set one.
+    static TEX_PAINTER: RefCell<Option<Rc<dyn TexPainter>>> = const { RefCell::new(None) };
 }
 
 /// Sets (or, with `None`, removes) what measures the lines of text laid
@@ -86,6 +123,17 @@ pub fn set_line_measurer(measurer: Option<Rc<dyn LineMeasurer>>) {
 /// thread.
 pub fn set_text_painter(painter: Option<Rc<dyn TextPainter>>) {
     PAINTER.set(painter);
+}
+
+/// Sets (or, with `None`, removes) what draws the TeX lines drawn on
+/// this thread.
+pub fn set_tex_painter(painter: Option<Rc<dyn TexPainter>>) {
+    TEX_PAINTER.set(painter);
+}
+
+/// The thread's TeX painter.
+pub(super) fn tex_painter() -> Option<Rc<dyn TexPainter>> {
+    TEX_PAINTER.with_borrow(Clone::clone)
 }
 
 /// The thread's measurer.
@@ -232,6 +280,26 @@ pub fn measure_line(
     })
 }
 
+/// [`measure_line`] as the PDF backend measures the text it draws, at
+/// `dpi` (72 for a document): with the AFM metrics of the PDF core fonts
+/// while `pdf.use14corefonts` is set (matplotlib's
+/// `RendererPdf.get_text_width_height_descent`).
+///
+/// # Errors
+///
+/// As [`measure_line`].
+pub fn measure_line_pdf(
+    line: &str,
+    font: &FontProperties,
+    kind: LineKind,
+    dpi: f64,
+) -> Result<LineMetrics, TextError> {
+    let core_fonts = crate::rc::params()
+        .pdf_use14corefonts
+        .then_some(AfmDirectory::PdfCore);
+    super::metrics::with_afm_metrics(core_fonts, || measure_line(line, font, kind, dpi))
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
@@ -311,6 +379,21 @@ mod tests {
         assert!((bbox.width() - 4.0 * size / 1.618).abs() < 1e-9);
         let spaced = lay_out(LineSpacing::Factor(1.2)).block.bbox;
         assert!((spaced.height() - 2.0 * 1.2 * size).abs() < 1e-9);
+    }
+
+    #[test]
+    fn the_pdf_backend_measures_in_its_core_fonts_when_asked() {
+        crate::rc::context(|| {
+            let font = FontProperties::from_rc(&crate::rc::params());
+            let measure = || measure_line_pdf("Wg", &font, LineKind::Plain, 72.0).expect("bundled");
+            let embedded = measure();
+            assert_eq!(
+                embedded,
+                measure_line("Wg", &font, LineKind::Plain, 72.0).expect("bundled")
+            );
+            crate::rc::set("pdf.use14corefonts", "True").expect("a valid rcParam");
+            assert_ne!(measure(), embedded, "Helvetica's metrics");
+        });
     }
 
     #[test]

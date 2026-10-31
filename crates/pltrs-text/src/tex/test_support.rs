@@ -5,6 +5,12 @@ use std::collections::HashMap;
 use super::files::{MemoryFinder, TexFiles};
 use super::tfm::tests::tfm_bytes;
 
+/// A TrueType font on disk, for the native fonts of XeTeX and LuaTeX.
+pub(crate) const DEJAVU_SANS: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../pltrs-font/fonts/DejaVuSans.ttf"
+);
+
 /// Writes DVI opcodes.
 #[derive(Debug, Default)]
 pub(crate) struct DviWriter(pub(crate) Vec<u8>);
@@ -37,6 +43,11 @@ impl DviWriter {
 
     pub(crate) fn u1(&mut self, value: u8) -> &mut Self {
         self.0.push(value);
+        self
+    }
+
+    pub(crate) fn u2(&mut self, value: u16) -> &mut Self {
+        self.0.extend_from_slice(&value.to_be_bytes());
         self
     }
 

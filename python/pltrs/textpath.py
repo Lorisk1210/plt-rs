@@ -5,10 +5,19 @@ pltrs (Rust) typesets and outlines the text (``pltrs::text::text_path``, and
 ``text_path_tex`` for TeX); this module keeps matplotlib's classes.
 """
 
+from collections import OrderedDict
+import urllib.parse
+
 from .font_manager import FontManager, FontProperties
 from .path import Path
 from .transforms import Affine2D
 from ._native import textpath as _textpath
+
+
+def _glyph_repr(psname, glyph):
+    """Return a unique id for the glyph index *glyph* of the font whose
+    PostScript name is *psname* (matplotlib's ``_get_glyph_repr``)."""
+    return urllib.parse.quote(f"{psname}-{glyph:x}")
 
 
 class TextToPath:
@@ -17,7 +26,7 @@ class TextToPath:
     FONT_SCALE = 100.
     DPI = 72
 
-    def get_text_path(self, prop, s, ismath=False):
+    def get_text_path(self, prop, s, ismath=False, *, features=None, language=None):
         """
         Convert text *s* to path (a tuple of vertices and codes for
         matplotlib.path.Path).
@@ -30,6 +39,12 @@ class TextToPath:
             The text to be converted.
         ismath : {False, True, "TeX"}
             If True, use mathtext parser.  If "TeX", use tex for rendering.
+        features : sequence of str, optional
+            The OpenType features of the text, in HarfBuzz's syntax.
+        language : str or sequence of (str, int, int), optional
+            The language of the text in a format accepted by libraqm, namely `a BCP47
+            language code <https://www.w3.org/International/articles/language-tags/>`_,
+            or such codes for ranges of the text.
 
         Returns
         -------
@@ -39,8 +54,54 @@ class TextToPath:
         codes : list
             A list of path codes.
         """
-        return _textpath.get_text_path(s, FontManager._props(prop),
-                                       ismath == "TeX")
+        if language is None or isinstance(language, str):
+            language = (language, [])
+        else:
+            language = (None, list(language))
+        return _textpath.get_text_path(
+            s, FontManager._props(prop), ismath == "TeX",
+            None if features is None else list(features), language)
+
+    def get_glyphs_tex(self, prop, s, glyph_map=None,
+                       return_new_glyphs_only=False):
+        """Convert the string *s* to vertices and codes using usetex mode."""
+        glyphs, paths, boxes = _textpath.get_glyphs_tex(
+            s, FontManager._props(prop))
+        paths = {_glyph_repr(psname, index): (vertices, codes)
+                 for psname, index, vertices, codes in paths}
+
+        if glyph_map is None:
+            glyph_map = OrderedDict()
+
+        if return_new_glyphs_only:
+            glyph_map_new = OrderedDict()
+        else:
+            glyph_map_new = glyph_map
+
+        glyph_reprs, xpositions, ypositions, sizes = [], [], [], []
+
+        for psname, index, x, y, size in glyphs:
+            glyph_repr = _glyph_repr(psname, index)
+            if glyph_repr not in glyph_map:
+                glyph_map_new[glyph_repr] = paths[glyph_repr]
+
+            glyph_reprs.append(glyph_repr)
+            xpositions.append(x)
+            ypositions.append(y)
+            sizes.append(size)
+
+        myrects = []
+
+        for ox, oy, h, w in boxes:
+            vert1 = [(ox, oy), (ox + w, oy), (ox + w, oy + h),
+                     (ox, oy + h), (ox, oy), (0, 0)]
+            code1 = [Path.MOVETO,
+                     Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO,
+                     Path.CLOSEPOLY]
+            myrects.append((vert1, code1))
+
+        return (list(zip(glyph_reprs, xpositions, ypositions, sizes)),
+                glyph_map_new, myrects)
 
 
 text_to_path = TextToPath()

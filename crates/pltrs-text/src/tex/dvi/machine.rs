@@ -9,6 +9,7 @@ use super::{DviFont, RawGlyph, RawRule};
 use crate::tex::bytes::Bytes;
 use crate::tex::error::{TexError, TexFile, bytes_repr};
 use crate::tex::files::FontSource;
+use crate::tex::native::{LUATEX_CHECKSUM, NativeFont};
 
 /// `_dvistate`: what the reader expects next.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -199,9 +200,8 @@ impl<'a> Machine<'a> {
                 self.state = State::PostPost;
             }
             249..=251 => return Err(self.error(format!("opcode {byte} is not implemented"))),
-            252..=254 => {
-                return Err(TexError::XetexNativeFonts);
-            }
+            252 => self.define_native_font()?,
+            253 | 254 => self.set_glyphs(byte == 254)?,
             255 => return Err(self.error("unknown command: byte 255")),
         }
         Ok(Executed::Other)
@@ -370,6 +370,61 @@ impl<'a> Machine<'a> {
         Ok(())
     }
 
+    /// XeTeX's `define_native_font` (opcode 252): defines a font by its
+    /// file, face and effects.
+    fn define_native_font(&mut self) -> Result<(), TexError> {
+        let k = self.arg(4, false) as i64;
+        let scale = self.arg(4, false);
+        let flags = self.arg(2, false) as u16;
+        let length = self.arg(1, false) as usize;
+        let name = self.read(length);
+        let index = self.arg(4, false) as u32;
+        let native = NativeFont::xetex(name, index, flags, |n, signed| self.input.arg(n, signed));
+        let metrics = self.files.native_face(&native.path, native.subfont)?;
+        let mut texname = Vec::with_capacity(name.len() + 2);
+        texname.push(b'[');
+        texname.extend_from_slice(name);
+        texname.push(b']');
+        self.fonts.insert(
+            k,
+            FontSlot::Loaded(Arc::new(DviFont::native(scale, texname, native, metrics))),
+        );
+        Ok(())
+    }
+
+    /// XeTeX's `set_glyphs` (opcode 253) and `set_text_and_glyphs` (254,
+    /// whose UTF-16 text comes first and is skipped): glyphs of the current
+    /// font at offsets from the current position, then a move right by
+    /// their total width.
+    fn set_glyphs(&mut self, with_text: bool) -> Result<(), TexError> {
+        self.require(State::InPage)?;
+        if with_text {
+            let length = self.arg(2, false) as usize;
+            self.read(2 * length);
+        }
+        let width = self.arg(4, false);
+        let count = self.arg(2, false) as usize;
+        let offsets: Vec<(i128, i128)> = (0..count)
+            .map(|_| (self.arg(4, true), self.arg(4, true)))
+            .collect();
+        let glyphs: Vec<i128> = (0..count).map(|_| self.arg(2, false)).collect();
+        let FontSlot::Loaded(font) = self.slot()? else {
+            return Err(self.error("glyphs set in a missing font"));
+        };
+        let font = Arc::clone(font);
+        for ((dx, dy), glyph) in offsets.into_iter().zip(glyphs) {
+            self.text.push(RawGlyph {
+                x: self.add(self.regs.h, dx)?,
+                y: self.add(self.regs.v, dy)?,
+                font: Arc::clone(&font),
+                glyph,
+                width: font.width_of(glyph)?,
+            });
+        }
+        self.regs.h = self.add(self.regs.h, width)?;
+        Ok(())
+    }
+
     /// `_set_char`: sets the character and moves right by its width.
     fn set_char(&mut self, code: i128) -> Result<(), TexError> {
         self.require(State::InPage)?;
@@ -437,12 +492,7 @@ impl<'a> Machine<'a> {
         if let Some(scaled) = self.scaled.get(&key) {
             return Ok(Arc::clone(scaled));
         }
-        let scaled = Arc::new(DviFont::new(
-            mul1220(scale, font.scale())?,
-            Arc::clone(font.metrics()),
-            font.texname().to_vec(),
-            font.vf().cloned(),
-        ));
+        let scaled = Arc::new(font.rescaled(mul1220(scale, font.scale())?));
         self.scaled.insert(key, Arc::clone(&scaled));
         Ok(scaled)
     }
@@ -476,8 +526,14 @@ impl<'a> Machine<'a> {
         } else {
             &texname[texname.len() - l..]
         };
-        if name.starts_with(b"[") && checksum == 0x4c75_6146 {
-            return Err(TexError::LuatexNativeFonts);
+        if name.starts_with(b"[") && checksum == LUATEX_CHECKSUM {
+            let native = NativeFont::luatex(&texname)?;
+            let metrics = self.files.native_face(&native.path, native.subfont)?;
+            self.fonts.insert(
+                k,
+                FontSlot::Loaded(Arc::new(DviFont::native(scale, texname, native, metrics))),
+            );
+            return Ok(());
         }
         let name = std::str::from_utf8(name)
             .ok()

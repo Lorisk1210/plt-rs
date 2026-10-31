@@ -38,6 +38,7 @@ mod layout;
 mod math;
 mod math_image;
 mod metrics;
+mod metrics_cache;
 mod overrides;
 mod tex;
 mod text_box;
@@ -67,20 +68,24 @@ pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
 pub use hinting::TextHinting;
 use layout::rc_language;
-pub use layout::{LaidOutText, measure_text, text_path, text_path_tex};
+pub(crate) use layout::typeset_line;
+pub use layout::{LaidOutText, measure_text, text_path, text_path_shaped, text_path_tex};
 pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
 pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image};
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
+pub(crate) use metrics_cache::installed as metrics_cache_installed;
+pub use metrics_cache::{METRICS_CACHE_SIZE, MetricsCache, MetricsCacheInfo, set_metrics_cache};
 pub use overrides::{
-    LineKind, LineMeasurer, TextPainter, measure_line, set_line_measurer, set_text_painter,
+    DrawnPath, LineKind, LineMeasurer, TexPainter, TextPainter, measure_line, measure_line_pdf,
+    set_line_measurer, set_tex_painter, set_text_painter,
 };
 pub use pltrs_text::tex::{TexEngine, TexError};
 pub use pltrs_text::{
     BlockLayout, Feature, FontHeightMetrics, HAlign, Hinting, Language, LanguageRange, LanguageTag,
     LineMetrics, LinePlacement, LineSpacing, ParseFeatureError, RotationMode, TextError, VAlign,
 };
-pub use tex::{check_usetex, check_usetex_postscript, tex_manager};
+pub use tex::{check_usetex, check_usetex_postscript, tex_glyphs, tex_manager};
 pub(crate) use text_box::BoxPlacement;
 pub use text_box::{TextBoxPatch, TextBoxProps};
 
@@ -566,8 +571,9 @@ impl Artist for TextArtist {
 /// (display coordinates), rotated by `angle` degrees. A single line tells
 /// the renderer where and how the text is anchored, as matplotlib passes
 /// the text artist along with single-line texts. TeX lines go to the
-/// renderer's `draw_tex`, other lines to its `draw_text`. The thread's
-/// [`TextPainter`], if it has one, draws the block instead.
+/// renderer's `draw_tex` (or the thread's [`TexPainter`], if it has one),
+/// other lines to its `draw_text`. The thread's [`TextPainter`], if it
+/// has one, draws the block instead.
 ///
 /// # Errors
 ///
@@ -603,7 +609,12 @@ pub(crate) fn draw_laid_out(
         };
         let origin = anchor + line.origin;
         if let Some(TextSource::Tex(tex)) = &run.source {
-            if let Err(err) = ctx.renderer().draw_tex(gc, run, tex, origin, angle) {
+            if let Some(painter) = overrides::tex_painter() {
+                for drawn in painter.paint(gc, &tex.tex, &laid_out.font, origin, angle) {
+                    ctx.renderer()
+                        .draw_path(&drawn.gc, &drawn.path, &drawn.transform, drawn.fill);
+                }
+            } else if let Err(err) = ctx.renderer().draw_tex(gc, run, tex, origin, angle) {
                 result = result.and(Err(TextError::Tex(err)));
             }
         } else {

@@ -4,9 +4,13 @@
 //! DVI file, and handed to the backend as a TeX run, which each backend
 //! draws as matplotlib's `draw_tex` does.
 
-use pltrs_text::tex::{TexError, TexFonts, TexManager, TexText};
-use pltrs_text::{FontHeightMetrics, TextError, TextRun, TextSource};
+use pltrs_text::tex::{DviBox, TexError, TexFonts, TexGlyph, TexManager, TexText};
+use pltrs_text::{
+    FontHeightMetrics, LineMetrics, TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextError, TextRun,
+    TextSource,
+};
 
+use super::metrics_cache;
 use super::overrides::LineKind;
 use crate::fonts::FontProperties;
 use crate::rc::{Distiller, RcParams};
@@ -97,9 +101,19 @@ pub(crate) fn tex_run(
     let (width, height, descent) = match measured {
         Some(metrics) => (metrics.width, metrics.height, metrics.descent),
         None if tex.tex.is_empty() => (0.0, 0.0, 0.0),
-        None => tex
-            .manager
-            .text_width_height_descent(&tex.tex, font.size, dpi / 72.0)?,
+        None => {
+            let metrics = metrics_cache::cached(&tex.tex, font, LineKind::Tex, dpi, || {
+                let (width, height, descent) =
+                    tex.manager
+                        .text_width_height_descent(&tex.tex, font.size, dpi / 72.0)?;
+                Ok(LineMetrics {
+                    width,
+                    height,
+                    descent,
+                })
+            })?;
+            (metrics.width, metrics.height, metrics.descent)
+        }
     };
     Ok(TextRun {
         width,
@@ -111,6 +125,27 @@ pub(crate) fn tex_run(
     })
 }
 
+/// The glyphs and rules of `text` typeset by LaTeX at
+/// [`TEXT_PATH_FONT_SCALE`] points, in points from the page's bottom-left
+/// corner (matplotlib's `TextToPath.get_glyphs_tex`): each glyph resolved
+/// to its Type 1 font, whose outline [`TexGlyph::path_outline`] gives.
+/// Only the size of `font` matters to TeX; the fonts come from the
+/// rcParams.
+///
+/// # Errors
+///
+/// When TeX is missing or fails on the text, or a font it uses has no
+/// Type 1 version.
+pub fn tex_glyphs(
+    text: &str,
+    font: &FontProperties,
+) -> Result<(Vec<TexGlyph>, Vec<DviBox>), TextError> {
+    let rc = crate::rc::params();
+    let tex = TexText::new(text, font.request(&rc), tex_manager(&rc)?);
+    let page = tex.page(TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)?;
+    Ok((tex.glyphs(&page)?, page.boxes))
+}
+
 /// The smallest ascent and descent of a TeX line (`Text._get_layout`
 /// measures `"lp"` with TeX for usetex texts), with no line gap.
 pub(crate) fn tex_height_metrics(
@@ -118,11 +153,18 @@ pub(crate) fn tex_height_metrics(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<FontHeightMetrics, TextError> {
-    let (_, height, descent) =
-        tex_manager(rc)?.text_width_height_descent("lp", font.size, dpi / 72.0)?;
+    let lp = metrics_cache::cached("lp", font, LineKind::Tex, dpi, || {
+        let (width, height, descent) =
+            tex_manager(rc)?.text_width_height_descent("lp", font.size, dpi / 72.0)?;
+        Ok(LineMetrics {
+            width,
+            height,
+            descent,
+        })
+    })?;
     Ok(FontHeightMetrics {
-        ascent: height - descent,
-        descent,
+        ascent: lp.height - lp.descent,
+        descent: lp.descent,
         line_gap: 0.0,
     })
 }
@@ -208,5 +250,85 @@ mod tests {
         let run = tex_run("", &FontProperties::from_rc(&rc), 100.0, &rc).expect("not typeset");
         assert_eq!((run.width, run.height, run.descent), (0.0, 0.0, 0.0));
         assert!(run.source.as_ref().is_some_and(TextSource::is_tex));
+    }
+
+    /// Records the TeX lines it is given to draw, and draws nothing.
+    #[derive(Default)]
+    struct Recorder {
+        lines: std::cell::RefCell<Vec<(String, f64)>>,
+    }
+
+    impl crate::text::TexPainter for Recorder {
+        fn paint(
+            &self,
+            _: &pltrs_render::GraphicsContext,
+            line: &str,
+            _: &FontProperties,
+            origin: pltrs_core::Point,
+            _: f64,
+        ) -> Vec<crate::text::DrawnPath> {
+            self.lines.borrow_mut().push((line.to_owned(), origin.y));
+            Vec::new()
+        }
+    }
+
+    /// matplotlib's `test_text.py::test_metrics_cache`: the lines of TeX
+    /// texts go to the replaced `draw_tex` one by one, those of texts at
+    /// the same height at the same height, and the renderer's cache finds
+    /// the lines measured before.
+    #[test]
+    fn tex_lines_go_to_the_painter_and_through_the_cache() {
+        use std::rc::Rc;
+
+        use crate::text::{MetricsCache, set_metrics_cache, set_tex_painter};
+
+        if check_usetex().is_err() {
+            return;
+        }
+        let fig = crate::figure::Figure::with_size(2.0, 2.0, 100.0);
+        fig.text(0.3, 0.5, "foo\nbar");
+        fig.text(0.3, 0.5, "foo\nbar").set_usetex(true);
+        fig.text(0.5, 0.5, "foo\nbar").set_usetex(true);
+        let cache = Rc::new(MetricsCache::new());
+        let recorder = Rc::new(Recorder::default());
+        let before = set_metrics_cache(Some(Rc::clone(&cache)));
+        let first = fig.render_raster();
+        set_tex_painter(Some(Rc::clone(&recorder) as Rc<dyn crate::text::TexPainter>));
+        let second = fig.render_raster();
+        set_tex_painter(None);
+        set_metrics_cache(before);
+        assert!(first.is_ok() && second.is_ok());
+        let lines = recorder.lines.borrow();
+        let heights = |line: &str| {
+            let mut heights: Vec<u64> = lines
+                .iter()
+                .filter(|(drawn, _)| drawn == line)
+                .map(|(_, y)| y.to_bits())
+                .collect();
+            heights.dedup();
+            heights
+        };
+        assert_eq!(lines.len(), 4);
+        assert_eq!((heights("foo").len(), heights("bar").len()), (1, 1));
+        let info = cache.info();
+        assert!(info.hits > info.misses, "{info:?}");
+    }
+
+    #[test]
+    fn tex_glyphs_are_those_of_the_text_path() {
+        if check_usetex().is_err() {
+            return;
+        }
+        let font = FontProperties::from_rc(&RcParams::matplotlib());
+        let (glyphs, rules) = tex_glyphs("W", &font).expect("typeset");
+        let [w] = glyphs.as_slice() else {
+            panic!("one glyph")
+        };
+        // Set at 100 TeX points, a little smaller in PostScript points.
+        let size = TEXT_PATH_FONT_SCALE * 72.0 / 72.27;
+        assert!((w.size - size).abs() < 1e-9, "{}", w.size);
+        assert_eq!(rules.len(), 0);
+        let (_, fraction) = tex_glyphs(r"$\frac{1}{2}$", &font).expect("typeset");
+        assert_eq!(fraction.len(), 1, "the fraction bar");
     }
 }

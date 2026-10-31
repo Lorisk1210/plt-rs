@@ -15,6 +15,7 @@ use pltrs_text::{
 
 use super::math::{Line, math_style};
 use super::metrics::without_hinting;
+use super::metrics_cache;
 use super::overrides::{self, LineKind};
 use super::tex::{tex_height_metrics, tex_line, tex_manager, tex_run};
 use crate::fonts::FontProperties;
@@ -104,17 +105,37 @@ pub fn text_path(
     size: Option<f64>,
     font: &FontProperties,
 ) -> Result<Path, TextError> {
+    text_path_shaped(xy, text, size, font, &Shaping::default())
+}
+
+/// [`text_path`] with the OpenType features and language of `shaping`
+/// for a line that is not math (matplotlib's `TextToPath.get_text_path`
+/// with its `features` and `language`).
+///
+/// # Errors
+///
+/// When the math cannot be typeset, no font is found, or a language
+/// range reaches outside the line.
+pub fn text_path_shaped(
+    xy: Point,
+    text: &str,
+    size: Option<f64>,
+    font: &FontProperties,
+    shaping: &Shaping,
+) -> Result<Path, TextError> {
     let rc = crate::rc::params();
     let mut typeset = font.clone();
     typeset.size = TEXT_PATH_FONT_SCALE;
-    let run = without_hinting(|| {
-        line_run(
-            &Line::classify(text, rc.text_parse_math),
-            &typeset,
-            TEXT_PATH_DPI,
-            &rc,
-        )
-    })?;
+    let line = Line::classify(text, rc.text_parse_math);
+    let run = match &line {
+        Line::Plain(plain) if !shaping.is_default() => TextSource::Plain {
+            text: plain.to_string(),
+            font: typeset.request(&rc),
+            shaping: shaping.clone(),
+        }
+        .layout(TextEngine::global(), TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI),
+        _ => without_hinting(|| line_run(&line, &typeset, TEXT_PATH_DPI, &rc)),
+    }?;
     let scale = size.unwrap_or(font.size) / TEXT_PATH_FONT_SCALE;
     Ok(run
         .outline(TextEngine::global())
@@ -262,7 +283,8 @@ fn metrics(run: &TextRun) -> LineMetrics {
 }
 
 /// Lays out one (non-empty) line, measured by the thread's
-/// [`LineMeasurer`](super::LineMeasurer) if it has one.
+/// [`LineMeasurer`](super::LineMeasurer) if it has one, else through the
+/// thread's [`MetricsCache`](super::MetricsCache) if one is installed.
 fn line_run(
     line: &Line<'_>,
     font: &FontProperties,
@@ -283,9 +305,41 @@ fn line_run(
         ),
     };
     let run = run?;
-    match overrides::measure(text, font, kind, dpi) {
-        Some(metrics) => Ok(with_metrics(run, metrics)),
-        None => super::metrics::measured(run, dpi),
+    if let Some(metrics) = overrides::measure(text, font, kind, dpi) {
+        return Ok(with_metrics(run, metrics));
+    }
+    // The run measured on a miss of the renderer's cache comes back to
+    // its slot; on a hit, the run takes the cached metrics.
+    let mut slot = Some(run);
+    let metrics = metrics_cache::cached(text, font, kind, dpi, || {
+        let run = slot.take().expect("measured at most once");
+        let run = super::metrics::measured(run, dpi)?;
+        let measured = metrics(&run);
+        slot = Some(run);
+        Ok(measured)
+    })?;
+    let run = slot.expect("the run is back in its slot");
+    Ok(with_metrics(run, metrics))
+}
+
+/// One line of `text` typeset as `kind` in `font` at `dpi`, as a
+/// renderer's `draw_text` and `draw_tex` receive it (their `s`, `prop` and
+/// `ismath`).
+///
+/// # Errors
+///
+/// When the math is malformed, no font is found or TeX fails.
+pub(crate) fn typeset_line(
+    text: &str,
+    font: &FontProperties,
+    kind: LineKind,
+    dpi: f64,
+    rc: &RcParams,
+) -> Result<TextRun, TextError> {
+    match kind {
+        LineKind::Plain => line_run(&Line::Plain(text.into()), font, dpi, rc),
+        LineKind::Math => line_run(&Line::Math(text), font, dpi, rc),
+        LineKind::Tex => tex_run(text, font, dpi, rc),
     }
 }
 
@@ -401,6 +455,8 @@ fn mathtext_height_metrics(
 
 #[cfg(test)]
 mod tests {
+    use pltrs_text::Feature;
+
     use super::*;
     use crate::text::TextHinting;
 
@@ -501,6 +557,25 @@ mod tests {
         assert!((large.x0() - (5.0 + 3.0 * small.x0())).abs() < 1e-9);
         assert!(small.y0() < 0.0, "the g descends below the baseline");
         assert!(text_path(Point::ORIGIN, r"$\frac$", None, &font).is_err());
+    }
+
+    #[test]
+    fn text_paths_follow_their_features() {
+        let font = FontProperties::from_rc(&reference());
+        let path = |features: Vec<Feature>| {
+            let shaping = Shaping {
+                features,
+                language: None,
+            };
+            text_path_shaped(Point::ORIGIN, "fi", None, &font, &shaping).expect("plain text")
+        };
+        let ligature = path(Vec::new());
+        assert_eq!(
+            ligature,
+            text_path(Point::ORIGIN, "fi", None, &font).expect("plain text")
+        );
+        let no_ligature: Feature = "-liga".parse().expect("a feature");
+        assert_ne!(path(vec![no_ligature]), ligature);
     }
 
     #[test]

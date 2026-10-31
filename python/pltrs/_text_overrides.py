@@ -27,6 +27,7 @@ import functools
 import types
 
 from ._native import text_overrides as _native
+from ._text_metrics import current_renderer
 from .font_manager import FontProperties, fontManager, get_font
 
 #: The tables ``Text._get_layout`` reads the font height metrics from:
@@ -77,11 +78,13 @@ def _stand_in_renderer_class():
 
 
 def _measure_line(s, props, ismath, dpi):
-    """Measure a line pltrs (Rust) lays out with the replaced function."""
+    """Measure a line pltrs (Rust) lays out with the replaced function,
+    handing it the renderer pltrs lays out with (a stand-in when no
+    renderer is laying out)."""
     module = _watched["module"]
+    renderer = current_renderer() or stand_in_renderer(dpi)
     return module._get_text_metrics_with_cache(
-        stand_in_renderer(dpi), s, FontProperties._from_native(props), ismath,
-        dpi)
+        renderer, s, FontProperties._from_native(props), ismath, dpi)
 
 
 def _font_height(props, dpi):

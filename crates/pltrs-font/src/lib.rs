@@ -29,6 +29,8 @@
 //! * [`AfmFont`] / [`AfmMetrics`] — matplotlib's catalogue of Adobe Font
 //!   Metrics and its AFM parser, with the bundled metrics of the 14 PDF
 //!   core fonts, for text measured and drawn in standard PostScript fonts.
+//! * [`glyph_name_to_unicode`] — the characters a glyph name stands for,
+//!   by the Adobe Glyph List.
 //! * [`Type1Font`] / [`Type1Face`] — PostScript Type 1 fonts
 //!   (`.pfa`/`.pfb`), the fonts of TeX and `text.usetex`: matplotlib's
 //!   `_type1font` (parsing, slanting, extending, re-encoding and subsetting
@@ -38,6 +40,7 @@
 #![forbid(unsafe_code)]
 
 mod afm;
+mod agl;
 mod autofit;
 mod cff;
 mod db;
@@ -61,6 +64,7 @@ pub use afm::{
     AfmError, AfmMetrics, AfmSection, CharMetrics, CompositePart, StrBbox, bundled_afm_files,
     bundled_metrics, type1_name,
 };
+pub use agl::glyph_name_to_unicode;
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
     AfmDirectory, AfmFont, FaceStyle, FontDatabase, FontEntry, FontId, FontQuery, FontSource,

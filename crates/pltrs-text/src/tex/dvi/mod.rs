@@ -11,7 +11,8 @@ pub(crate) use machine::{Machine, Registers, State, mul1220};
 
 use super::error::{TexError, TexFile};
 use super::files::FontSource;
-use super::tfm::Tfm;
+use super::native::{NativeFace, NativeFont};
+use super::tfm::{TexMetrics, Tfm};
 use super::vf::Vf;
 use machine::Executed;
 
@@ -19,14 +20,26 @@ use machine::Executed;
 /// multiplied by `dpi / SCALED_POINTS_PER_INCH` (`72.27 * 2**16`).
 const SCALED_POINTS_PER_INCH: f64 = 72.27 * 65536.0;
 
+/// Where a DVI font's glyph metrics come from: TeX font metrics, or the
+/// OpenType or TrueType font of a native font.
+#[derive(Clone, Debug)]
+pub enum DviMetrics {
+    /// A TFM file.
+    Tfm(Arc<Tfm>),
+    /// The font file of a native font.
+    Native(Arc<NativeFace>),
+}
+
 /// A font a DVI file sets glyphs in (matplotlib's `DviFont`): its TeX name,
-/// scale and metrics, and the virtual font it is, if it is one.
+/// scale and metrics, the virtual font it is, if it is one, and its font
+/// file, if it is a native font of XeTeX or LuaTeX.
 #[derive(Clone, Debug)]
 pub struct DviFont {
     texname: Vec<u8>,
     scale: i128,
-    metrics: Arc<Tfm>,
+    metrics: DviMetrics,
     vf: Option<Arc<Vf>>,
+    native: Option<NativeFont>,
 }
 
 impl PartialEq for DviFont {
@@ -37,6 +50,7 @@ impl PartialEq for DviFont {
 }
 
 impl DviFont {
+    /// A font with TeX font metrics.
     pub(crate) fn new(
         scale: i128,
         metrics: Arc<Tfm>,
@@ -46,13 +60,40 @@ impl DviFont {
         Self {
             texname,
             scale,
-            metrics,
+            metrics: DviMetrics::Tfm(metrics),
             vf,
+            native: None,
+        }
+    }
+
+    /// A native font, its metrics read from its font file.
+    pub(crate) fn native(
+        scale: i128,
+        texname: Vec<u8>,
+        font: NativeFont,
+        metrics: Arc<NativeFace>,
+    ) -> Self {
+        Self {
+            texname,
+            scale,
+            metrics: DviMetrics::Native(metrics),
+            vf: None,
+            native: Some(font),
+        }
+    }
+
+    /// The same font at another `scale` (a font of a virtual font's
+    /// packets as the virtual font scales it).
+    pub(crate) fn rescaled(&self, scale: i128) -> Self {
+        Self {
+            scale,
+            ..self.clone()
         }
     }
 
     /// The name TeX knows the font by (`texname`), usually ASCII; the
-    /// font map gives its PostScript font.
+    /// font map gives its PostScript font. A native font's is its file in
+    /// brackets (with LuaTeX's options after them).
     pub fn texname(&self) -> &[u8] {
         &self.texname
     }
@@ -74,8 +115,8 @@ impl DviFont {
         self.scale as f64 * (72.0 / SCALED_POINTS_PER_INCH)
     }
 
-    /// The font's metrics.
-    pub fn metrics(&self) -> &Arc<Tfm> {
+    /// Where the font's metrics come from.
+    pub fn metrics(&self) -> &DviMetrics {
         &self.metrics
     }
 
@@ -84,13 +125,34 @@ impl DviFont {
         self.vf.as_ref()
     }
 
+    /// The font file, face and effects of a native font of XeTeX or
+    /// LuaTeX, whose character codes are glyph indices.
+    pub fn native_font(&self) -> Option<&NativeFont> {
+        self.native.as_ref()
+    }
+
+    /// The metrics of character `code` relative to the design size
+    /// (`_metrics.get_metrics`), `None` for a character the TFM file has
+    /// no metrics for.
+    ///
+    /// # Errors
+    ///
+    /// When a native font has no such glyph.
+    pub fn char_metrics(&self, code: i128) -> Result<Option<TexMetrics>, TexError> {
+        match &self.metrics {
+            DviMetrics::Tfm(tfm) => Ok(i64::try_from(code).ok().and_then(|c| tfm.metrics(c))),
+            DviMetrics::Native(native) => native.metrics(code).map(Some),
+        }
+    }
+
     /// `_width_of`: the width of character `code` in DVI units (0 for a
     /// character the font has no metrics for).
+    ///
+    /// # Errors
+    ///
+    /// When the width overflows or a native font has no such glyph.
     pub fn width_of(&self, code: i128) -> Result<i128, TexError> {
-        match i64::try_from(code)
-            .ok()
-            .and_then(|c| self.metrics.metrics(c))
-        {
+        match self.char_metrics(code)? {
             Some(metrics) => mul1220(i128::from(metrics.width), self.scale),
             None => Ok(0),
         }
@@ -99,11 +161,12 @@ impl DviFont {
     /// `_height_depth_of`: the height and depth of character `code` in DVI
     /// units. The minus sign of the `cmsy` fonts (character 0) gets no
     /// depth, as matplotlib aligns `dvipng` images by the ink.
+    ///
+    /// # Errors
+    ///
+    /// When the extent overflows or a native font has no such glyph.
     pub fn height_depth_of(&self, code: i128) -> Result<(i128, i128), TexError> {
-        let Some(metrics) = i64::try_from(code)
-            .ok()
-            .and_then(|c| self.metrics.metrics(c))
-        else {
+        let Some(metrics) = self.char_metrics(code)? else {
             return Ok((0, 0));
         };
         let height = mul1220(i128::from(metrics.height), self.scale)?;

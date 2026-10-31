@@ -13,7 +13,7 @@
 mod setup;
 
 use std::env;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -114,10 +114,19 @@ fn smoke_test() -> Result<(), String> {
     let mut command = Command::new(pltrs_python()?);
     command
         .args([OsStr::new("-m"), OsStr::new("pytest"), OsStr::new("-q")])
+        .arg(basetemp(&scratch.join("pytest-tmp")))
         .arg(root.join("python/tests"))
         .env("PYTHONPATH", root.join("python"))
         .current_dir(&scratch);
     run_checked(&mut command)
+}
+
+/// pytest's option putting its temporary directories (`tmp_path`) in
+/// `dir` rather than in the system's temporary directory.
+pub(crate) fn basetemp(dir: &Path) -> OsString {
+    let mut option = OsString::from("--basetemp=");
+    option.push(dir);
+    option
 }
 
 /// Runs `command`, failing unless it exits successfully.

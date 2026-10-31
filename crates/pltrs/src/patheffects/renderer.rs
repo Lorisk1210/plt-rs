@@ -2,8 +2,10 @@
 //! `PathEffectRenderer`).
 
 use pltrs_core::{Affine2D, Path, Point, Rgba};
-use pltrs_render::{FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage};
-use pltrs_text::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE, TextEngine, TextRun};
+use pltrs_render::{
+    FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage, draw_text_as_path,
+};
+use pltrs_text::TextRun;
 
 use super::{EffectColors, PathEffect};
 use crate::colors::ColorError;
@@ -143,23 +145,7 @@ impl Renderer for PathEffectRenderer<'_> {
     /// 100 points and 72 dpi (`TextToPath.get_text_path`), scaled to the
     /// text size; runs without a source keep their own outlines.
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
-        let engine = TextEngine::global();
-        let scaled = run.source.as_ref().and_then(|source| {
-            let laid_out = source
-                .layout(engine, TEXT_PATH_FONT_SCALE, TEXT_PATH_DPI)
-                .ok()?;
-            let scale = self.points_to_pixels(source.size()) / TEXT_PATH_FONT_SCALE;
-            Some((laid_out.outline(engine), scale))
-        });
-        let (outline, scale) = scaled.unwrap_or_else(|| (run.outline(engine), 1.0));
-        let placement = Affine2D::scaling(scale, scale)
-            .rotate_deg(angle)
-            .translate(origin.x, origin.y);
-        let gc = GraphicsContext {
-            linewidth: 0.0,
-            ..gc.clone()
-        };
-        self.draw_path(&gc, &outline, &placement, Some(gc.foreground));
+        draw_text_as_path(self, gc, run, origin, angle);
     }
 
     fn open_group(&mut self, name: &str, gid: Option<&str>) {

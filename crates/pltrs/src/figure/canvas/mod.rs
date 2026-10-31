@@ -42,6 +42,7 @@ use std::fmt;
 use pltrs_core::{Bbox, Point};
 use pltrs_raster::{Pixmap, RasterError};
 use pltrs_render::{RasterBackendError, RgbaImage};
+use pltrs_text::TextError;
 
 use super::{DrawErrors, Figure};
 use crate::artist::{ArtistHandle, DrawError};
@@ -72,6 +73,8 @@ pub enum CanvasError {
     InvalidPixelRatio(f64),
     /// Some artists could not be drawn; the others were.
     Draw(DrawErrors),
+    /// A line of text could not be typeset.
+    Text(TextError),
 }
 
 impl fmt::Display for CanvasError {
@@ -97,6 +100,7 @@ impl fmt::Display for CanvasError {
                 "the device pixel ratio must be finite and positive, not {ratio}"
             ),
             Self::Draw(err) => err.fmt(f),
+            Self::Text(err) => err.fmt(f),
         }
     }
 }
@@ -107,6 +111,7 @@ impl std::error::Error for CanvasError {
             Self::Backend(err) => Some(err),
             Self::Pixels(err) => Some(err),
             Self::Draw(err) => Some(err),
+            Self::Text(err) => Some(err),
             Self::InvalidBox(_)
             | Self::StaleRegion
             | Self::NotDrawn

@@ -211,6 +211,39 @@ pub(crate) fn fill_tex<R: Renderer + ?Sized>(
     Ok(())
 }
 
+/// Fills `run` as one path in the colour of `gc`, laid out again from its
+/// source (matplotlib's `RendererBase._draw_text_as_path`, how path
+/// effects and Agg without its own `draw_text` draw text): typeset by
+/// `TextToPath` at [`TEXT_PATH_FONT_SCALE`] points and
+/// [`TEXT_PATH_DPI`](pltrs_text::TEXT_PATH_DPI), unhinted, then scaled to
+/// the text's size in pixels, rotated by `angle` degrees about `origin`
+/// and placed there. A run without a source is filled as it is.
+pub fn draw_text_as_path<R: Renderer + ?Sized>(
+    renderer: &mut R,
+    gc: &GraphicsContext,
+    run: &TextRun,
+    origin: Point,
+    angle: f64,
+) {
+    let engine = TextEngine::global();
+    let scaled = run.source.as_ref().and_then(|source| {
+        let laid_out = source
+            .layout(engine, TEXT_PATH_FONT_SCALE, pltrs_text::TEXT_PATH_DPI)
+            .ok()?;
+        let scale = renderer.points_to_pixels(source.size()) / TEXT_PATH_FONT_SCALE;
+        Some((laid_out.outline(engine), scale))
+    });
+    let (outline, scale) = scaled.unwrap_or_else(|| (run.outline(engine), 1.0));
+    let placement = Affine2D::scaling(scale, scale)
+        .rotate_deg(angle)
+        .translate(origin.x, origin.y);
+    let gc = GraphicsContext {
+        linewidth: 0.0,
+        ..gc.clone()
+    };
+    renderer.draw_path(&gc, &outline, &placement, Some(gc.foreground));
+}
+
 /// The transform placing text drawn at `origin`, rotated by `angle`
 /// degrees counter-clockwise about it.
 pub(crate) fn text_placement(origin: Point, angle: f64) -> Affine2D {

@@ -135,6 +135,20 @@ impl<'a> Face<'a> {
         Ok(control_rect(&self.load_outline(glyph, Scaling::Units)?))
     }
 
+    /// The advance width and control box of `glyph` in font units, as
+    /// FreeType's `FT_Load_Glyph` with `FT_LOAD_NO_SCALE` gives them (the
+    /// `horiAdvance`, and the box of `horiBearingX`, `horiBearingY`,
+    /// `width` and `height`); the box is `None` for empty glyphs.
+    ///
+    /// # Errors
+    ///
+    /// When the glyph is beyond the face's glyphs or its outline is
+    /// malformed.
+    pub fn unscaled_metrics(&self, glyph: GlyphId) -> Result<(i64, Option<Rect>)> {
+        let (outline, advance) = self.load_unscaled(glyph)?;
+        Ok((advance, control_rect(&outline)))
+    }
+
     /// The top side bearing and advance height of `glyph`, in font units,
     /// that FreeType's TrueType loader makes up for a face without
     /// vertical metrics (`compute_glyph_metrics`): an advance of the
@@ -165,4 +179,31 @@ fn control_rect(outline: &Outline) -> Option<Rect> {
         x_max: x1.ceil() as i32,
         y_max: y1.ceil() as i32,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Face, GlyphId, bundled_font_data};
+
+    #[test]
+    fn unscaled_metrics_are_those_of_freetype_without_scaling() {
+        let data = bundled_font_data("DejaVuSans.ttf").expect("bundled");
+        let face = Face::parse(data, 0).expect("parsed");
+        // `FT2Font.load_glyph(index, LoadFlags.NO_SCALE)`: `horiAdvance`,
+        // `horiBearingY` and `height`.
+        for (glyph, expected) in [
+            (10, (563, 1493, 555)),
+            (36, (1401, 1493, 1493)),
+            (70, (1126, 1147, 1176)),
+            (200, (1430, 1899, 1928)),
+        ] {
+            let (advance, bbox) = face.unscaled_metrics(GlyphId(glyph)).expect("glyph");
+            let bbox = bbox.expect("ink");
+            let metrics = (advance, bbox.y_max, bbox.y_max - bbox.y_min);
+            assert_eq!(metrics, expected, "glyph {glyph}");
+        }
+        let (advance, bbox) = face.unscaled_metrics(GlyphId(3)).expect("space");
+        assert_eq!((advance, bbox), (651, None));
+        assert!(face.unscaled_metrics(GlyphId(face.num_glyphs())).is_err());
+    }
 }

@@ -267,6 +267,34 @@ fn blits_are_recorded_for_presenters_only() {
 }
 
 #[test]
+fn lines_of_text_are_drawn_onto_the_canvas() {
+    use crate::fonts::FontProperties;
+    use crate::text::LineKind;
+
+    let fig = Figure::with_size(1.0, 1.0, 50.0);
+    let canvas = fig.canvas();
+    canvas.draw().unwrap();
+    let blank = pixels(&fig);
+    let font = FontProperties::from_rc(&crate::rc::params());
+    let gc = pltrs_render::GraphicsContext::default();
+    let at = Point::new(5.0, 20.0);
+    canvas
+        .draw_text(&gc, "Wg", &font, LineKind::Plain, at, 0.0)
+        .unwrap();
+    let plain = pixels(&fig);
+    assert_ne!(plain, blank);
+    canvas.draw().unwrap();
+    canvas
+        .draw_text(&gc, "$W^2$", &font, LineKind::Math, at, 30.0)
+        .unwrap();
+    assert_ne!(pixels(&fig), plain);
+    assert!(matches!(
+        canvas.draw_text(&gc, r"$\frac$", &font, LineKind::Math, at, 0.0),
+        Err(CanvasError::Text(_))
+    ));
+}
+
+#[test]
 fn idle_draws_wait_for_presenters() {
     let (fig, _, _) = figure_with_line(0.5);
     let draws = Rc::new(Cell::new(0));

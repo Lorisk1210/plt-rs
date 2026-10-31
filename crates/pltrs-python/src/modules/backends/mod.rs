@@ -4,6 +4,7 @@
 //! (`print_png`, `print_pdf`, ...) and collecting pages (`PdfPages`).
 //! `ft2font` subsets the fonts the documents embed (`_backend_pdf_ps`).
 
+mod agg_text;
 mod canvas;
 mod gc;
 mod pdf_pages;
@@ -20,6 +21,7 @@ impl From<CanvasError> for PyErr {
     fn from(err: CanvasError) -> Self {
         let kind = match err {
             CanvasError::Draw(errors) => return errors.into(),
+            CanvasError::Text(err) => return err.into(),
             CanvasError::InvalidBox(_) | CanvasError::InvalidPixelRatio(_) => {
                 ExceptionKind::ValueError
             }
@@ -54,6 +56,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_suppress_composite", get_suppress_composite)?;
     module.add("set_suppress_composite", set_suppress_composite)?;
     canvas::register(module)?;
+    agg_text::register(module)?;
     print::register(module)?;
     pdf_pages::register(module)
 }

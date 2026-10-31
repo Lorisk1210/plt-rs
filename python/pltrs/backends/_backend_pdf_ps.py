@@ -1,7 +1,7 @@
 """
 Common functionality between the PDF and PS backends (matplotlib's
 ``backends._backend_pdf_ps``): the subsetting of the TrueType fonts they
-embed.
+embed, and the base class of their renderers.
 
 pltrs (Rust) writes the documents and subsets the fonts itself
 (pltrs-font's ``subset``, which keeps the glyphs matplotlib's fontTools
@@ -13,7 +13,9 @@ from contextlib import contextmanager
 from io import BytesIO
 import typing
 
+from .. import rcParams
 from .._native import ft2font as _ft2font
+from ..backend_bases import RendererBase
 
 
 class _SubsetFont:
@@ -73,6 +75,38 @@ def get_glyphs_subset(fontfile, glyphs):
     subset, kept = _ft2font.subset_font(
         data, fontfile.face_index, sorted(int(glyph) for glyph in glyphs))
     return SubsetResults(_SubsetFont(subset), dict(kept))._as_cm()
+
+
+class RendererPDFPSBase(RendererBase):
+    """
+    The base of the renderers of the PDF and PostScript backends, for a
+    page of *width* × *height* inches drawn in points.
+
+    Subclasses define ``_use_afm_rc_name``, the rcParam choosing their
+    AFM fonts, and measure text as their backend does.
+    """
+
+    def __init__(self, width, height):
+        super().__init__()
+        self.width = width
+        self.height = height
+
+    def flipy(self):
+        # docstring inherited
+        return False  # y increases from bottom to top.
+
+    def option_scale_image(self):
+        # docstring inherited
+        return True  # PDF and PS support arbitrary image scaling.
+
+    def option_image_nocomposite(self):
+        # docstring inherited
+        # Decide whether to composite image based on rcParam value.
+        return not rcParams["image.composite_image"]
+
+    def get_canvas_width_height(self):
+        # docstring inherited
+        return self.width * 72.0, self.height * 72.0
 
 
 def font_as_file(font):

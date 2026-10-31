@@ -14,10 +14,12 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use pltrs_font::{GlyphId, Type1Effects, Type1Face};
 
-use super::dvi::{DviFont, RawPage, read_dvi};
+use super::dvi::{DviFont, DviMetrics, RawPage, read_dvi};
 use super::error::{TexError, TexFile};
 use super::font_file::TexFontFile;
 use super::kpathsea::Kpathsea;
+use super::map_override::font_map_lookup;
+use super::native::NativeFace;
 use super::psfonts::{PsFont, PsfontsMap, parse_enc};
 use super::tfm::Tfm;
 use super::vf::Vf;
@@ -65,6 +67,14 @@ pub trait FontSource {
     ///
     /// When the virtual font is malformed.
     fn vf(&self, name: &str) -> Result<Option<Arc<Vf>>, TexError>;
+
+    /// The glyph metrics of face `subfont` of the font file at `path`, a
+    /// native font of XeTeX or LuaTeX.
+    ///
+    /// # Errors
+    ///
+    /// When the file cannot be read or has no such face.
+    fn native_face(&self, path: &Path, subfont: u32) -> Result<Arc<NativeFace>, TexError>;
 }
 
 thread_local! {
@@ -112,6 +122,7 @@ pub struct TexFiles {
     maps: Cache<PathBuf, Arc<PsfontsMap>>,
     encodings: Cache<PathBuf, Arc<Vec<String>>>,
     font_files: Cache<Vec<u8>, Arc<TexFontFile>>,
+    natives: Cache<(PathBuf, u32), Arc<NativeFace>>,
     pages: Cache<PathBuf, Arc<Vec<RawPage>>>,
 }
 
@@ -125,6 +136,7 @@ impl TexFiles {
             maps: Cache::new(),
             encodings: Cache::new(),
             font_files: Cache::new(),
+            natives: Cache::new(),
             pages: Cache::new(),
         }
     }
@@ -172,14 +184,19 @@ impl TexFiles {
         Ok(self.maps.insert(path, map))
     }
 
-    /// The PostScript font `pdftex.map` gives for TeX font `texname`.
+    /// The PostScript font `pdftex.map` gives for TeX font `texname`, or
+    /// the replacement of the font map the program set on this thread
+    /// gives (see [`set_font_map_lookup`](super::set_font_map_lookup)).
     ///
     /// # Errors
     ///
     /// When the map cannot be found, has no usable entry for the font, or
     /// the files its entry names cannot be found.
     pub fn psfont(&self, texname: &[u8]) -> Result<PsFont, TexError> {
-        self.font_map()?.get(texname, self.finder.as_ref())
+        match font_map_lookup() {
+            Some(lookup) => lookup.lookup(texname),
+            None => self.font_map()?.get(texname, self.finder.as_ref()),
+        }
     }
 
     /// The glyph names of the encoding file at `path` (`_parse_enc`).
@@ -196,15 +213,18 @@ impl TexFiles {
         Ok(self.encodings.insert(path.to_path_buf(), names))
     }
 
-    /// The font file of `font` (`DviFont.resolve_path`): its Type 1 file
-    /// from the font map, or the PK bitmap kpathsea makes for a Metafont
-    /// font the map does not know.
+    /// The font file of `font` (`DviFont.resolve_path`): the file of a
+    /// native font, the Type 1 file the font map gives, or the PK bitmap
+    /// kpathsea makes for a Metafont font the map does not know.
     ///
     /// # Errors
     ///
     /// When the map does not know the font and it is not a Metafont font,
     /// or the map names no Type 1 file for it.
     pub fn font_path(&self, font: &DviFont) -> Result<PathBuf, TexError> {
+        if let Some(native) = font.native_font() {
+            return Ok(native.path.clone());
+        }
         match self.psfont(font.texname()) {
             Ok(psfont) => psfont.type1_file().map(Path::to_path_buf),
             Err(unmapped @ TexError::UnmappedFont { .. }) => {
@@ -218,8 +238,9 @@ impl TexFiles {
         }
     }
 
-    /// The `SlantFont` and `ExtendFont` effects of `font` (none for PK
-    /// fonts).
+    /// The `SlantFont` and `ExtendFont` effects the font map gives `font`
+    /// (none for PK fonts; a native font has its own,
+    /// [`NativeFont::effects`](super::NativeFont::effects)).
     ///
     /// # Errors
     ///
@@ -236,7 +257,9 @@ impl TexFiles {
     /// ([`font_path`](Self::font_path)), its face as FreeType opens it,
     /// the effects of the font map, and the glyph each character code
     /// shows, through the encoding the font map gives, else the font's own
-    /// encoding vector.
+    /// encoding vector. While the program replaces the font map, the font
+    /// is looked up again every time, as matplotlib looks it up for every
+    /// DVI file it reads.
     ///
     /// # Errors
     ///
@@ -244,7 +267,8 @@ impl TexFiles {
     /// font (PK bitmaps cannot be drawn), or when the encoding cannot be
     /// read.
     pub fn font_file(&self, font: &DviFont) -> Result<Arc<TexFontFile>, TexError> {
-        if let Some(file) = self.font_files.get(font.texname()) {
+        let replaced = font_map_lookup().is_some();
+        if !replaced && let Some(file) = self.font_files.get(font.texname()) {
             return Ok(file);
         }
         let path = self.font_path(font)?;
@@ -258,22 +282,45 @@ impl TexFiles {
                 .collect(),
             None => face.encoding_vector().to_vec(),
         };
-        let file = TexFontFile::new(path, face, psfont.effects, glyphs);
-        Ok(self
-            .font_files
-            .insert(font.texname().to_vec(), Arc::new(file)))
+        let file = Arc::new(TexFontFile::new(path, face, psfont.effects, glyphs));
+        if replaced {
+            return Ok(file);
+        }
+        Ok(self.font_files.insert(font.texname().to_vec(), file))
     }
 
-    /// The glyph of `font`'s Type 1 face that character `code` of a DVI
-    /// file shows (`_index_dvi_to_freetype`); see
-    /// [`font_file`](Self::font_file).
+    /// The glyph that character `code` of a DVI file shows in `font`'s
+    /// font file (`_index_dvi_to_freetype`): the glyph of that index in a
+    /// native font, else the glyph of `font`'s Type 1 face (see
+    /// [`font_file`](Self::font_file)).
     ///
     /// # Errors
     ///
     /// As [`font_file`](Self::font_file), and when `code` is beyond the
-    /// encoding.
+    /// encoding or the glyphs of a native font.
     pub fn glyph_index(&self, font: &DviFont, code: i64) -> Result<GlyphId, TexError> {
+        if font.native_font().is_some() {
+            return u16::try_from(code)
+                .map(GlyphId)
+                .map_err(|_| TexError::malformed(TexFile::NativeFont, format!("no glyph {code}")));
+        }
         self.font_file(font)?.glyph(font, code)
+    }
+
+    /// The name of the glyph that character `code` of a DVI file shows in
+    /// `font`'s font file (`get_glyph_name(text.index)` of the font
+    /// `dviread` opens), empty for a glyph without one.
+    ///
+    /// # Errors
+    ///
+    /// As [`glyph_index`](Self::glyph_index).
+    pub fn glyph_name(&self, font: &DviFont, code: i64) -> Result<String, TexError> {
+        if let DviMetrics::Native(face) = font.metrics() {
+            return face.glyph_name(i128::from(code));
+        }
+        let file = self.font_file(font)?;
+        let glyph = file.glyph(font, code)?;
+        Ok(file.face.glyph_name(glyph).unwrap_or_default().to_owned())
     }
 }
 
@@ -330,6 +377,15 @@ impl FontSource for TexFiles {
         let vf = Vf::parse(&data, self);
         LOADING_VF.with_borrow_mut(Vec::pop);
         Ok(self.vfs.insert(name, Some(Arc::new(vf?))))
+    }
+
+    fn native_face(&self, path: &Path, subfont: u32) -> Result<Arc<NativeFace>, TexError> {
+        let key = (path.to_path_buf(), subfont);
+        if let Some(metrics) = self.natives.get(&key) {
+            return Ok(metrics);
+        }
+        let metrics = Arc::new(NativeFace::open(path, subfont)?);
+        Ok(self.natives.insert(key, metrics))
     }
 }
 

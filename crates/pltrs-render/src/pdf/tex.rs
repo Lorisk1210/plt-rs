@@ -11,9 +11,7 @@ use std::sync::Arc;
 
 use pltrs_core::{Affine2D, Path, PathCode, Point};
 use pltrs_font::{GlyphId, PsNumber, PsValue, Type1Encoding, Type1Font};
-use pltrs_text::tex::{
-    DviBox, DviFont, DviPage, PsFont, TexError, TexFile, TexFiles, TexText, Tfm,
-};
+use pltrs_text::tex::{DviBox, DviFont, DviPage, PsFont, TexError, TexFile, TexFiles, TexText};
 
 use super::PdfRenderer;
 use super::fonts::subset_prefix;
@@ -319,7 +317,7 @@ fn embed_font(
     let widths_id = writer.reserve();
     writer.write_object(
         widths_id,
-        &Obj::Array(tfm_widths(used.font.metrics(), first..=last)),
+        &Obj::Array(tfm_widths(&used.font, first..=last)?),
     )?;
     writer.write_object(
         dict_id,
@@ -391,16 +389,15 @@ fn differences(encoding: &[(i64, String)]) -> Vec<Obj> {
     differences
 }
 
-/// The widths of characters `codes` in thousandths of the font size, from
-/// the TeX font metrics (0 for characters the font has none for).
-fn tfm_widths(metrics: &Tfm, codes: RangeInclusive<i64>) -> Vec<Obj> {
+/// The widths of characters `codes` of `font` in thousandths of the font
+/// size, from its metrics (0 for characters it has none for).
+fn tfm_widths(font: &DviFont, codes: RangeInclusive<i64>) -> Result<Vec<Obj>, TexError> {
     codes
         .map(|code| {
-            Obj::Int(
-                metrics
-                    .metrics(code)
-                    .map_or(0, |m| (1000 * i64::from(m.width)) >> 20),
-            )
+            let metrics = font.char_metrics(i128::from(code))?;
+            Ok(Obj::Int(
+                metrics.map_or(0, |m| (1000 * i64::from(m.width)) >> 20),
+            ))
         })
         .collect()
 }

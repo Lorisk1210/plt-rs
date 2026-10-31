@@ -3,6 +3,7 @@
 use std::fmt;
 
 use pltrs_text::TextError;
+use pltrs_text::tex::TexError;
 
 use crate::artist::DrawErrorKind;
 use crate::colors::ColorError;
@@ -26,13 +27,15 @@ impl TextDrawError {
     /// The kind of draw error it makes: malformed mathtext, an unknown
     /// property name, a language range outside the text and an invalid
     /// colour are values of the program's that matplotlib refuses with a
-    /// `ValueError` while drawing.
+    /// `ValueError` while drawing, as it refuses a TeX font without a
+    /// Type 1 file (`DviFont.resolve_path`).
     pub fn kind(&self) -> DrawErrorKind {
         match self {
             Self::Layout(
                 TextError::Math(_)
                 | TextError::UnknownName { .. }
-                | TextError::LanguageRange { .. },
+                | TextError::LanguageRange { .. }
+                | TextError::Tex(TexError::NoType1Font { .. }),
             )
             | Self::Color(_) => DrawErrorKind::InvalidValue,
             _ => DrawErrorKind::Other,

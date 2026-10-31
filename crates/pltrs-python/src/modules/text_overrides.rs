@@ -1,5 +1,6 @@
 //! `_native.text_overrides`: matplotlib's measurement of text
-//! (`text._get_text_metrics_with_cache`), and the program's replacements
+//! (`text._get_text_metrics_with_cache`, through the metrics cache of each
+//! renderer, `pltrs::text::MetricsCache`), and the program's replacements
 //! of it and of `Text.draw`, handed to pltrs (Rust) so that it measures
 //! and draws every text through them (`pltrs::text::set_line_measurer`,
 //! `pltrs::text::set_text_painter`).
@@ -7,20 +8,25 @@
 //! The package installs a replacement when the program assigns one
 //! (`monkeypatch.setattr(text, "_get_text_metrics_with_cache", ...)`) and
 //! removes it when the original comes back, so that pltrs (Rust) only
-//! calls Python while there is one.
+//! calls Python while there is one. A renderer's metrics cache is
+//! installed while pltrs lays out or draws with the renderer
+//! (`set_metrics_cache`), which costs no call into Python per text.
 
 use std::rc::Rc;
 
 use pltrs::artist::RawHandle;
 use pltrs::fonts::FontProperties;
-use pltrs::text::{FontHeightMetrics, LineKind, LineMeasurer, LineMetrics, Text, TextPainter};
+use pltrs::text::{
+    FontHeightMetrics, LineKind, LineMeasurer, LineMetrics, METRICS_CACHE_SIZE, MetricsCache, Text,
+    TextError, TextPainter, set_metrics_cache as install_metrics_cache,
+};
 
 use super::font_manager::FontProps;
 use crate::binding::prelude::*;
 
 /// A line's typesetting as matplotlib's `ismath` gives it: `False`,
 /// `True` or `"TeX"`.
-struct IsMath(LineKind);
+pub(super) struct IsMath(pub(super) LineKind);
 
 impl FromPy<'_> for IsMath {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
@@ -55,6 +61,18 @@ impl IntoPy for IsMath {
 /// pixels.
 fn measure(text: String, props: FontProps, ismath: IsMath, dpi: f64) -> PyResult<(f64, f64, f64)> {
     let metrics = pltrs::text::measure_line(&text, &props.0, ismath.0, dpi)?;
+    Ok((metrics.width, metrics.height, metrics.descent))
+}
+
+/// `RendererPdf.get_text_width_height_descent(text, prop, ismath)` at
+/// `dpi`: the line measured as the PDF backend measures it.
+fn measure_pdf(
+    text: String,
+    props: FontProps,
+    ismath: IsMath,
+    dpi: f64,
+) -> PyResult<(f64, f64, f64)> {
+    let metrics = pltrs::text::measure_line_pdf(&text, &props.0, ismath.0, dpi)?;
     Ok((metrics.width, metrics.height, metrics.descent))
 }
 
@@ -141,9 +159,66 @@ fn set_painter(paint: Option<Callback>) -> PyResult<()> {
     Ok(())
 }
 
+native_value!(Rc<MetricsCache>);
+
+/// A new, empty metrics cache for a renderer.
+fn new_metrics_cache() -> PyResult<Rc<MetricsCache>> {
+    Ok(Rc::new(MetricsCache::new()))
+}
+
+/// Calling a renderer's metrics cache with `(text, prop, ismath, dpi)`:
+/// the cached `(width, height, descent)`, else those `measure()` gives
+/// (the renderer's `get_text_width_height_descent`), cached.
+fn metrics_cache_call(
+    cache: Rc<MetricsCache>,
+    text: String,
+    props: FontProps,
+    ismath: IsMath,
+    dpi: f64,
+    measure: Callback,
+) -> PyResult<(f64, f64, f64)> {
+    let metrics = cache.get_or_measure(&text, &props.0, ismath.0, dpi, || {
+        // A failing measurement raises its own exception when this call
+        // returns; the error only stops the caching.
+        let (width, height, descent) = measure
+            .call::<(f64, f64, f64)>(())
+            .ok_or_else(|| TextError::Font("the renderer could not measure the text".into()))?;
+        Ok(LineMetrics {
+            width,
+            height,
+            descent,
+        })
+    })?;
+    Ok((metrics.width, metrics.height, metrics.descent))
+}
+
+/// A metrics cache's `cache_info()`: `(hits, misses, maxsize, currsize)`.
+fn metrics_cache_info(cache: Rc<MetricsCache>) -> PyResult<(u64, u64, usize, usize)> {
+    let info = cache.info();
+    Ok((info.hits, info.misses, METRICS_CACHE_SIZE, info.size))
+}
+
+/// A metrics cache's `cache_clear()`.
+fn metrics_cache_clear(cache: Rc<MetricsCache>) -> PyResult<()> {
+    cache.clear();
+    Ok(())
+}
+
+/// Installs `cache` (or none) as the cache of the lines pltrs measures on
+/// this thread; returns the cache installed before.
+fn set_metrics_cache(cache: Option<Rc<MetricsCache>>) -> PyResult<Option<Rc<MetricsCache>>> {
+    Ok(install_metrics_cache(cache))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("new_metrics_cache", new_metrics_cache)?;
+    module.add("metrics_cache_call", metrics_cache_call)?;
+    module.add("metrics_cache_info", metrics_cache_info)?;
+    module.add("metrics_cache_clear", metrics_cache_clear)?;
+    module.add("set_metrics_cache", set_metrics_cache)?;
     module.add("measure", measure)?;
+    module.add("measure_pdf", measure_pdf)?;
     module.add("set_measurer", set_measurer)?;
     module.add("set_painter", set_painter)?;
     Ok(())

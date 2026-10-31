@@ -14,6 +14,7 @@ mod mono;
 mod tex;
 mod text;
 
+use std::cell::Cell;
 use std::fmt;
 
 use pltrs_codec::png::{self, EncodeError, ImageRef};
@@ -26,6 +27,24 @@ use crate::image::RgbaImage;
 use crate::vector::PngMetadata;
 
 pub use self::bitmap::{GlyphBitmap, GlyphShape, glyph_axis_aligned, render_glyph};
+
+thread_local! {
+    /// Whether the thread's raster canvases draw text as paths.
+    static TEXTS_AS_PATHS: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Makes the raster canvases of this thread draw text as paths (or as
+/// glyphs again, with `false`), as matplotlib's Agg renderer does without
+/// its own `draw_text`: `RendererBase.draw_text` fills the outlines
+/// `TextToPath` makes of the text (`_draw_text_as_path`).
+pub fn set_texts_as_paths(as_paths: bool) {
+    TEXTS_AS_PATHS.set(as_paths);
+}
+
+/// Whether the thread's raster canvases draw text as paths.
+fn texts_as_paths() -> bool {
+    TEXTS_AS_PATHS.get()
+}
 
 /// Why a raster canvas could not be created or encoded.
 #[derive(Debug)]

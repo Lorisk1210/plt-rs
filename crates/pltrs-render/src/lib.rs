@@ -62,8 +62,9 @@ pub use ps::{
 pub use quad_mesh::QuadMesh;
 pub use raster::{
     GlyphBitmap, GlyphShape, RasterBackendError, RasterRenderer, glyph_axis_aligned, render_glyph,
+    set_texts_as_paths,
 };
-pub use renderer::Renderer;
+pub use renderer::{Renderer, draw_text_as_path};
 pub use svg::{ImageFile, SvgFontType, SvgOptions, SvgRenderer, UnknownSvgFontType};
 pub use vector::{
     FontType, Metadata, PNG_SOFTWARE, PngMetadata, SvgMetadata, Timestamp, Trapped, VectorError,

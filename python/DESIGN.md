@@ -630,6 +630,39 @@ coordinates, with a renderer whose `Artist.draw` queues artists that
 pltrs (Rust) then draws in the text's place). Without replacements pltrs
 (Rust) never calls Python for text.
 
+matplotlib caches the metrics of the lines it measures per renderer
+(`text._get_text_metrics_function`, a `WeakKeyDictionary` of
+`lru_cache`s), and its tests read the caches. pltrs keeps them natively
+(`pltrs::text::MetricsCache`, `_text_metrics`): the cache of a renderer is
+installed on the thread while pltrs (Rust) lays out or draws with that
+renderer (`text._measuring_with`: the canvas's draws and prints,
+`draw_without_rendering`, `tight_layout`, `Text.get_window_extent`), so
+every line it measures meanwhile is found in or added to it without a call
+into Python, and measuring from Python goes through the same cache. The
+renderer installed is also the one a replaced `_get_text_metrics_with_cache`
+receives (a stand-in only when none is installed), as matplotlib hands it
+the renderer laying out (`text._layout_renderer`): under the PDF canvas that
+is a `RendererPdf` (`FigureCanvasPdf._print_renderer`), which measures as
+the PDF backend does but draws nothing, so `fig._get_renderer()` stays the
+Agg renderer drawing onto the raster canvas. While a cache is installed,
+pltrs (Rust) draws tick labels as matplotlib's `Text.draw` draws them, laid
+out again where they are drawn, so the cache sees the same lookups.
+
+The renderer's text drawing can be replaced too. `RendererAgg.draw_text`
+and `draw_tex` draw a line onto the canvas (`_native.backends.draw_text`).
+While a canvas's renderer has a `draw_tex` other than its own (assigned to
+the instance, or `RendererBase.draw_tex`), its draws hand pltrs (Rust) a
+`pltrs::text::TexPainter`: every TeX line is drawn by calling it, and the
+paths it draws with `draw_path` are queued and drawn by pltrs in the
+line's place. While `RendererAgg.draw_text` is `RendererBase.draw_text`
+(the class watches it), raster canvases draw text as paths
+(`pltrs_render::set_texts_as_paths`), as `_draw_text_as_path` does.
+
+usetex looks TeX fonts up through `dviread.PsfontsMap.__getitem__`, which
+tests replace: `PsfontsMap`'s metaclass notices it, and pltrs-text's font
+map lookups (`pltrs_text::tex::set_font_map_lookup`) call the replacement
+while it is in force.
+
 ### pyplot's state
 
 pyplot's figure registry is Python state: `_pylab_helpers.Gcf` maps

@@ -3,14 +3,17 @@
 
 use std::rc::Rc;
 
-use pltrs_core::{Affine2D, Bbox, Path, Rgba};
+use pltrs_core::{Affine2D, Bbox, Path, Point, Rgba};
 use pltrs_render::{GraphicsContext, Renderer};
+use pltrs_text::TextSource;
 
 use super::{CanvasError, FigureCanvas};
 use crate::artist::{ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{DrawErrors, Figure};
+use crate::fonts::FontProperties;
 use crate::legend::{LegendArtist, lay_out_legend};
+use crate::text::{LineKind, typeset_line};
 use crate::ticker::AxisName;
 
 impl FigureCanvas {
@@ -78,6 +81,43 @@ impl FigureCanvas {
         kept.renderer.draw_path(gc, path, transform, fill);
         self.keep(kept);
         Ok(())
+    }
+}
+
+impl FigureCanvas {
+    /// Draws the line `text`, typeset as `kind` in `font` at the canvas's
+    /// resolution, onto the canvas over what it holds, with the left end
+    /// of its baseline at `origin` (display pixels) and rotated by `angle`
+    /// degrees counter-clockwise (matplotlib's `RendererAgg.draw_text`
+    /// and `draw_tex`, through which a program draws text on the canvas).
+    ///
+    /// # Errors
+    ///
+    /// When the canvas cannot be made, or the line cannot be typeset or
+    /// its TeX fonts cannot be drawn.
+    pub fn draw_text(
+        &self,
+        gc: &GraphicsContext,
+        text: &str,
+        font: &FontProperties,
+        kind: LineKind,
+        origin: Point,
+        angle: f64,
+    ) -> Result<(), CanvasError> {
+        let dpi = self.figure.dpi();
+        let run =
+            typeset_line(text, font, kind, dpi, &crate::rc::params()).map_err(CanvasError::Text)?;
+        let mut kept = self.take()?;
+        let drawn = if let Some(TextSource::Tex(tex)) = &run.source {
+            kept.renderer
+                .draw_tex(gc, &run, tex, origin, angle)
+                .map_err(|err| CanvasError::Text(err.into()))
+        } else {
+            kept.renderer.draw_text(gc, &run, origin, angle);
+            Ok(())
+        };
+        self.keep(kept);
+        drawn
     }
 }
 

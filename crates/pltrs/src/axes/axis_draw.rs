@@ -16,7 +16,7 @@ use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
 use crate::rc::{ColorOrAuto, RcParams};
-use crate::text::{BoxPlacement, draw_laid_out};
+use crate::text::{BoxPlacement, TextDrawError, draw_laid_out};
 use crate::ticker::AxisName;
 
 impl AxisPainter<'_> {
@@ -300,7 +300,8 @@ pub(crate) fn grid_gc(
     Ok(gc)
 }
 
-/// Draws a laid-out axis text, reporting a TeX failure on `owner`.
+/// Draws an axis text, laid out again where it is drawn as matplotlib's
+/// `Text.draw` does, reporting a failure on `owner`.
 pub(crate) fn draw_text(
     ctx: &mut DrawContext<'_>,
     owner: ArtistId,
@@ -313,8 +314,12 @@ pub(crate) fn draw_text(
         url: text.url.clone(),
         ..GraphicsContext::default()
     };
-    if let Err(err) = draw_laid_out(ctx, &gc, &text.laid_out, text.anchor, text.rotation) {
-        ctx.report(owner, err);
+    let drawn = text
+        .laid_out_again(ctx.layout().dpi(), rc)
+        .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation));
+    if let Err(err) = drawn {
+        let err = TextDrawError::from(err);
+        ctx.report_kind(owner, err.kind(), err);
     }
 }
 

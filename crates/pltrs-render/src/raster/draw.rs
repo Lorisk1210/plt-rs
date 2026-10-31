@@ -17,7 +17,7 @@ use crate::filter::FilterFn;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, draw_text_as_path};
 
 /// Whether an 8-bit colour would draw anything.
 fn visible(color: Rgba) -> bool {
@@ -305,9 +305,15 @@ impl Renderer for RasterRenderer {
     }
 
     /// Glyph outlines filled at `FreeType`'s pen positions, unsnapped; see
-    /// the `text` module.
+    /// the `text` module. While the thread draws text as paths
+    /// ([`set_texts_as_paths`](super::set_texts_as_paths)), the outlines
+    /// `TextToPath` makes are filled as paths instead.
     fn draw_text(&mut self, gc: &GraphicsContext, run: &TextRun, origin: Point, angle: f64) {
-        self.draw_text_run(gc, run, origin, angle);
+        if super::texts_as_paths() {
+            draw_text_as_path(self, gc, run, origin, angle);
+        } else {
+            self.draw_text_run(gc, run, origin, angle);
+        }
     }
 
     /// TeX text from its DVI glyphs or `dvipng`'s image; see the `tex`

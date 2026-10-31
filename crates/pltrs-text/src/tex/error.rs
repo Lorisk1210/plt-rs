@@ -19,6 +19,8 @@ pub enum TexFile {
     Png,
     /// A Type 1 font a DVI file uses.
     Type1,
+    /// An OpenType or TrueType font XeTeX or LuaTeX set glyphs in.
+    NativeFont,
 }
 
 impl fmt::Display for TexFile {
@@ -31,6 +33,7 @@ impl fmt::Display for TexFile {
             Self::Encoding => "encoding file",
             Self::Png => "dvipng image",
             Self::Type1 => "Type 1 font",
+            Self::NativeFont => "native font",
         })
     }
 }
@@ -103,12 +106,6 @@ pub enum TexError {
         /// The font file.
         path: String,
     },
-    /// A DVI file uses XeTeX's native fonts, which matplotlib's `dviread`
-    /// does not read either.
-    XetexNativeFonts,
-    /// A DVI file uses LuaTeX's native fonts, which matplotlib's `dviread`
-    /// does not read either.
-    LuatexNativeFonts,
 }
 
 impl TexError {
@@ -219,12 +216,6 @@ impl fmt::Display for TexError {
             Self::NotInstalled { program } => write!(f, "usetex mode requires {program}."),
             Self::PkFont { path } => {
                 write!(f, "{path} is a PK bitmap font, which cannot be drawn")
-            }
-            Self::XetexNativeFonts => {
-                f.write_str("DVI files with XeTeX native fonts are not supported")
-            }
-            Self::LuatexNativeFonts => {
-                f.write_str("DVI files with LuaTeX native fonts are not supported")
             }
         }
     }

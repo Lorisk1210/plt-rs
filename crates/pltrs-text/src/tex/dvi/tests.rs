@@ -1,5 +1,5 @@
 use super::*;
-use crate::tex::test_support::{DviWriter, files, sample_dvi};
+use crate::tex::test_support::{DEJAVU_SANS, DviWriter, files, sample_dvi};
 use crate::tex::tfm::tests::tfm_bytes;
 
 #[test]
@@ -111,6 +111,98 @@ fn malformed_files_are_errors() {
     let mut pop_empty = DviWriter::dvi();
     pop_empty.bop().op(142).end();
     assert!(read_dvi(&pop_empty.0, &files).is_err());
+}
+
+/// The advance of glyph `units` wide in a 2048-unit em at 10 pt, in DVI
+/// units.
+fn ten_point(units: i128) -> i128 {
+    mul1220(units << 9, 10 << 16).unwrap()
+}
+
+#[test]
+fn xetex_native_fonts_set_glyphs_at_their_offsets() {
+    let mut dvi = DviWriter::dvi();
+    dvi.bop();
+    // `define_native_font` 5 at 10 pt: face 0 of DejaVu Sans, slanted.
+    let name = DEJAVU_SANS.as_bytes();
+    dvi.op(252).u4(5).u4(10 << 16).u2(0x2000);
+    dvi.u1(u8::try_from(name.len()).expect("a short path"));
+    dvi.0.extend_from_slice(name);
+    dvi.u4(0).s4(16384);
+    dvi.op(235).u1(5);
+    // `set_glyphs`: A and g, 1000 units in all.
+    dvi.op(253).u4(1000).u2(2);
+    dvi.s4(0).s4(0).s4(500).s4(-7).u2(36).u2(74);
+    // `set_text_and_glyphs`: the text "A", then A 300 units wide.
+    dvi.op(254).u2(1).u2(0x41).u4(300).u2(1).s4(10).s4(0).u2(36);
+    dvi.end();
+    let pages = read_dvi(&dvi.0, &files(&[])).unwrap();
+    let text: Vec<(i128, i128, i128, i128)> = pages[0]
+        .text
+        .iter()
+        .map(|t| (t.x, t.y, t.glyph, t.width))
+        .collect();
+    let (a, g) = (ten_point(1401), ten_point(1300));
+    assert_eq!(text, [(0, 0, 36, a), (500, -7, 74, g), (1010, 0, 36, a)]);
+    let font = &pages[0].text[0].font;
+    assert_eq!(font.texname(), format!("[{DEJAVU_SANS}]").as_bytes());
+    assert_eq!(font.size(), 10.0 * 72.0 / 72.27);
+    let native = font.native_font().expect("a native font");
+    assert_eq!(native.effects.slant, Some(0.25));
+    assert_eq!(font.height_depth_of(74).unwrap().1, ten_point(426));
+}
+
+#[test]
+fn xetex_glyphs_are_set_in_the_current_font() {
+    let mut dvi = DviWriter::dvi();
+    dvi.font_def(0, "test", 10 << 16).bop().op(171);
+    dvi.op(253).u4(0).u2(1).s4(0).s4(0).u2(65).end();
+    // A TFM font measures the glyph as its character.
+    let pages = read_dvi(&dvi.0, &files(&[])).unwrap();
+    assert_eq!(pages[0].text[0].width, ((1_i128 << 19) * (10 << 16)) >> 20);
+    let mut undefined = DviWriter::dvi();
+    undefined.bop().op(253).u4(0).u2(0).end();
+    assert!(read_dvi(&undefined.0, &files(&[])).is_err());
+    let mut missing_file = DviWriter::dvi();
+    missing_file.bop().op(252).u4(1).u4(10 << 16).u2(0).u1(8);
+    missing_file.0.extend_from_slice(b"none.ttf");
+    missing_file.u4(0).end();
+    assert!(matches!(
+        read_dvi(&missing_file.0, &files(&[])),
+        Err(TexError::Io { .. })
+    ));
+}
+
+#[test]
+fn luatex_native_fonts_are_defined_by_their_names() {
+    let name = format!("[{DEJAVU_SANS}]:embolden=16384");
+    let mut dvi = DviWriter::dvi();
+    dvi.op(243).u1(3).u4(0x4c75_6146).u4(10 << 16).u4(10 << 16);
+    dvi.u1(0)
+        .u1(u8::try_from(name.len()).expect("a short path"));
+    dvi.0.extend_from_slice(name.as_bytes());
+    dvi.bop().op(171 + 3).op(36).op(36).end();
+    let pages = read_dvi(&dvi.0, &files(&[])).unwrap();
+    let text: Vec<(i128, i128)> = pages[0].text.iter().map(|t| (t.x, t.glyph)).collect();
+    assert_eq!(text, [(0, 36), (ten_point(1401), 36)]);
+    let font = &pages[0].text[0].font;
+    assert_eq!(font.texname(), name.as_bytes());
+    let native = font.native_font().expect("a native font");
+    assert_eq!(native.effects.embolden, Some(0.25));
+    // A bracketed name without LuaTeX's checksum is the name of a TFM file.
+    let mut tfm_named = DviWriter::dvi();
+    tfm_named
+        .font_def(0, "[x]", 10 << 16)
+        .bop()
+        .op(171)
+        .op(65)
+        .end();
+    assert_eq!(
+        read_dvi(&tfm_named.0, &files(&[])).unwrap_err(),
+        TexError::NotFound {
+            name: "[x].tfm".into()
+        }
+    );
 }
 
 #[test]

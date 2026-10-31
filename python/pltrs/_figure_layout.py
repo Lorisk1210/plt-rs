@@ -7,7 +7,7 @@ classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 
 from . import _api, _handles
 from ._native import figure as _figure, figure_layout as _figure_layout
-from .text import Text
+from .text import Text, _layout_renderer, _measuring_with
 from .transforms import Bbox
 
 #: The native function making each figure-wide text, and whether its
@@ -222,9 +222,10 @@ class FigureLayout:
         from .layout_engine import PlaceHolderLayoutEngine, TightLayoutEngine
         previous_engine = self.get_layout_engine()
         try:
-            replaced, not_applied = _figure_layout.tight_layout(
-                self._native, float(pad), h_pad, w_pad,
-                None if rect is None else tuple(rect))
+            with _measuring_with(_layout_renderer(self)):
+                replaced, not_applied = _figure_layout.tight_layout(
+                    self._native, float(pad), h_pad, w_pad,
+                    None if rect is None else tuple(rect))
         except RuntimeError:
             # The colorbars refused tight layout; the engine is removed
             # all the same.

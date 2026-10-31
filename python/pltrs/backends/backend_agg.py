@@ -5,9 +5,16 @@ pltrs (Rust) keeps a raster canvas per figure, drawn by its port of Agg:
 `FigureCanvasAgg.draw` draws the figure onto it, `buffer_rgba` gives its
 pixels, `copy_from_bbox` and `restore_region` blit, and the ``print_*``
 methods write the figure as PNG, JPEG, TIFF, GIF, WebP or raw RGBA.
+
+While the canvas draws, its renderer's text metrics cache measures the
+texts (see `.text._get_text_metrics_function`), and the program's
+replacements of the renderer's text drawing take effect: a replaced
+``draw_tex`` draws the TeX lines, and without its own ``draw_text``
+(``RendererBase.draw_text``) the canvas draws text as paths, as
+matplotlib's ``RendererBase._draw_text_as_path`` does.
 """
 
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 
 import numpy as np
 
@@ -15,8 +22,9 @@ from .. import _api, rc_context
 from .._native import backends as _backends, text_overrides as _text_overrides
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
-from ..font_manager import FontManager
+from ..font_manager import FontManager, FontProperties
 from ..image import imsave
+from ..text import _measuring_with
 from ..transforms import BboxBase
 
 #: The raster formats written by Pillow, as matplotlib writes them: GIF,
@@ -60,7 +68,29 @@ def _native_gc(gc):
         (gc.get_snap(), gc.get_sketch_params(), gc.get_url(), gc.get_gid()))
 
 
-class RendererAgg(RendererBase):
+class _WatchesTextDrawing(type):
+    """The metaclass of `RendererAgg`: it tells pltrs (Rust) when
+    ``RendererAgg.draw_text`` is taken away or given back, so that raster
+    canvases draw text as paths while it is `RendererBase.draw_text`."""
+
+    def __setattr__(cls, name, value):
+        super().__setattr__(name, value)
+        if name == "draw_text":
+            _sync_texts_as_paths()
+
+    def __delattr__(cls, name):
+        super().__delattr__(name)
+        if name == "draw_text":
+            _sync_texts_as_paths()
+
+
+def _sync_texts_as_paths():
+    """Hand pltrs (Rust) whether Agg draws text through
+    `RendererBase.draw_text`, as paths."""
+    _backends.set_texts_as_paths(RendererAgg.draw_text is RendererBase.draw_text)
+
+
+class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
     """
     The renderer of the Agg canvas: the pixels pltrs (Rust) drew for a
     figure of *width* × *height* pixels at *dpi*.
@@ -78,6 +108,9 @@ class RendererAgg(RendererBase):
         # The pixels of a renderer behind no figure's canvas, made when it
         # first draws.
         self._raster = None
+        # The paths `draw_path` keeps while the program's `draw_tex` draws
+        # a TeX line pltrs (Rust) is drawing (see `_paint_tex`).
+        self._queued = None
 
     def _canvas_figure(self):
         """The figure whose canvas this renderer is."""
@@ -118,10 +151,71 @@ class RendererAgg(RendererBase):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
-        _backends.draw_path(
-            self._canvas_figure(), _native_gc(gc), path,
-            np.asarray(transform.get_matrix(), dtype=float),
-            None if rgbFace is None else tuple(rgbFace))
+        drawn = (_native_gc(gc), path,
+                 np.asarray(transform.get_matrix(), dtype=float),
+                 None if rgbFace is None else tuple(rgbFace))
+        if self._queued is not None:
+            self._queued.append(drawn)
+        else:
+            _backends.draw_path(self._canvas_figure(), *drawn)
+
+    def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
+        # docstring inherited
+        self._draw_line(gc, x, y, s, prop, angle, ismath)
+
+    def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
+        # docstring inherited
+        self._draw_line(gc, x, y, s, prop, angle, "TeX")
+
+    def _draw_line(self, gc, x, y, s, prop, angle, ismath):
+        """Draw the line *s* typeset as *ismath* says onto the canvas, the
+        left end of its baseline at *x*, *y* (from the top, as `.Text.draw`
+        gives it to a renderer that flips y), rotated by *angle* degrees.
+        pltrs (Rust) lays the line out without the features and language
+        of the text it may belong to."""
+        _backends.draw_text(
+            self._canvas_figure(), _native_gc(gc),
+            (float(x), float(self.height - y)), s, FontManager._props(prop),
+            float(angle), ismath)
+
+    def _paint_tex(self, gc_spec, line, props, placement):
+        """
+        Draw a TeX line pltrs (Rust) is drawing with the program's
+        ``draw_tex``, called as `.Text.draw` calls it (*gc_spec*: the
+        colour, antialiasing and url of the text; *placement*: the left
+        end of the baseline in display coordinates and the rotation), and
+        return the paths it drew (`draw_path`), which pltrs then draws.
+        The text object is not passed (``mtext=None``).
+        """
+        rgba, antialiased, url = gc_spec
+        x, y, angle = placement
+        gc = self.new_gc()
+        gc.set_foreground(rgba, isRGBA=True)
+        gc.set_antialiased(antialiased)
+        gc.set_url(url)
+        if self.flipy():
+            y = self.height - y
+        self._queued = []
+        try:
+            self.draw_tex(gc, x, y, line, FontProperties._from_native(props),
+                          angle, mtext=None)
+            return self._queued
+        finally:
+            self._queued = None
+
+    @contextmanager
+    def _drawing(self):
+        """Draw with this renderer: its text metrics cache measures the
+        texts, and a replaced ``draw_tex`` draws the TeX lines."""
+        replaced = getattr(self.draw_tex, "__func__", None) is not _OWN_DRAW_TEX
+        with _measuring_with(self):
+            if replaced:
+                _backends.set_tex_painter(self._paint_tex)
+            try:
+                yield
+            finally:
+                if replaced:
+                    _backends.set_tex_painter(None)
 
     def _draw_artist(self, artist):
         """Draw *artist* onto the canvas, over what it holds, placed and
@@ -188,6 +282,10 @@ class RendererAgg(RendererBase):
                 self._canvas_figure(), region._native, None, None)
 
 
+#: The ``draw_tex`` of `RendererAgg`, which pltrs (Rust) draws TeX with.
+_OWN_DRAW_TEX = RendererAgg.draw_tex
+
+
 class FigureCanvasAgg(FigureCanvasBase):
     # docstring inherited
 
@@ -207,7 +305,8 @@ class FigureCanvasAgg(FigureCanvasBase):
         self.renderer.clear()
         with (self.toolbar._wait_cursor_for_draw_cm() if self.toolbar
               else nullcontext()):
-            _backends.draw(self.figure._native)
+            with self.renderer._drawing():
+                _backends.draw(self.figure._native)
             DrawEvent("draw_event", self, self.renderer)._process()
             # A GUI class may be need to update a window using this draw, so
             # don't forget to call the superclass.
@@ -262,7 +361,8 @@ class FigureCanvasAgg(FigureCanvasBase):
             self._print_pil(filename_or_obj, fmt, pil_kwargs, metadata,
                             **kwargs)
             return
-        self._print_native(fmt, filename_or_obj, **kwargs, **settings)
+        with self.get_renderer()._drawing():
+            self._print_native(fmt, filename_or_obj, **kwargs, **settings)
 
     def _print_pil(self, filename_or_obj, fmt, pil_kwargs, metadata,
                    **kwargs):
@@ -271,8 +371,9 @@ class FigureCanvasAgg(FigureCanvasBase):
         pixels using `.image.imsave` (to which *pil_kwargs* and *metadata*
         are forwarded), as matplotlib's ``_print_pil`` does.
         """
-        rgba = _backends.print_rgba(self.figure._native,
-                                    self._print_settings(**kwargs))
+        with self.get_renderer()._drawing():
+            rgba = _backends.print_rgba(self.figure._native,
+                                        self._print_settings(**kwargs))
         DrawEvent("draw_event", self, None)._process()
         # savefig() has already applied savefig.facecolor; imsave() blends
         # semi-transparent JPEG figures against an assumed white background.
@@ -286,9 +387,10 @@ class FigureCanvasAgg(FigureCanvasBase):
                   bbox_inches_restore=None, facecolor=None, edgecolor=None):
         if metadata is not None:
             raise ValueError("metadata not supported for raw/rgba")
-        self._print_native("raw", filename_or_obj,
-                           bbox_inches_restore=bbox_inches_restore,
-                           facecolor=facecolor, edgecolor=edgecolor)
+        with self.get_renderer()._drawing():
+            self._print_native("raw", filename_or_obj,
+                               bbox_inches_restore=bbox_inches_restore,
+                               facecolor=facecolor, edgecolor=edgecolor)
 
     print_rgba = print_raw
 

@@ -177,6 +177,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         """Return the ``ZAxis`` (`~.axis3d.Axis`) instance."""
         return self.zaxis
 
+    def get_subplotspec(self):
+        """Return the `.SubplotSpec` associated with the subplot, or None."""
+        from pltrs.gridspec import SubplotSpec
+        native = _mplot3d.subplot_spec(self._native)
+        return None if native is None else SubplotSpec._from_native(
+            native, self.get_figure(root=False))
+
     def clear(self):
         # docstring inherited.
         _mplot3d.clear(self._native)

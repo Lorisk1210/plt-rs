@@ -4,6 +4,7 @@ use std::any::Any;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path, Point};
+use pltrs_render::ClipPath;
 
 use super::DataLimits;
 use super::aspect::{AspectState, AxesLocatorFn};
@@ -638,6 +639,14 @@ impl Artist for AxesState {
     /// matplotlib's `Axes.contains`: over the background patch.
     fn contains(&self, ctx: &LayoutContext<'_>, point: Point) -> bool {
         ctx.axes_contains(self.base.id(), point)
+    }
+
+    /// The outline of the background patch when it is no rectangle (the
+    /// wedge of polar axes, the outline of floating axes), which artists
+    /// clipped to the patch (`set_clip_path(ax.patch)`) are clipped to; a
+    /// rectangular patch clips as the clip box of the axes, which it is.
+    fn outline(&self, ctx: &LayoutContext<'_>) -> Option<ClipPath> {
+        ctx.clip_outline(self.base.id())
     }
 }
 

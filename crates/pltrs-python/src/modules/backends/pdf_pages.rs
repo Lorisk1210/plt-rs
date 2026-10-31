@@ -47,6 +47,12 @@ fn pdf_pages_count(document: Native<PdfDocument>) -> PyResult<usize> {
     Ok(document.borrow_mut().pages()?.page_count())
 }
 
+/// The names of the images the document holds so far
+/// (`PdfFile._images`).
+fn pdf_pages_images(document: Native<PdfDocument>) -> PyResult<Vec<String>> {
+    Ok(document.borrow_mut().pages()?.image_names())
+}
+
 /// Attaches a text note to the next page saved.
 fn pdf_pages_attach_note(document: Native<PdfDocument>, text: String) -> PyResult<()> {
     document.borrow_mut().pages()?.attach_note(&text);
@@ -69,6 +75,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_pages_new", pdf_pages_new)?;
     module.add("pdf_pages_savefig", pdf_pages_savefig)?;
     module.add("pdf_pages_count", pdf_pages_count)?;
+    module.add("pdf_pages_images", pdf_pages_images)?;
     module.add("pdf_pages_attach_note", pdf_pages_attach_note)?;
     module.add("pdf_pages_finish", pdf_pages_finish)
 }

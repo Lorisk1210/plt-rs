@@ -120,6 +120,10 @@ pub struct PsDocument {
     /// The figure's bounding box on the page in points, turned with the
     /// page in landscape (the `bbox` of `_print_figure`).
     pub bbox: Bbox,
+    /// Whether some usetex text was drawn as plain text, since without
+    /// [`PsOptions::usetex`] the backend runs no TeX (what matplotlib's
+    /// `draw_tex` warns about, once per document).
+    pub tex_drawn_as_plain: bool,
 }
 
 /// What a [`PsRenderer`] made of a figure.
@@ -161,6 +165,8 @@ pub struct PsRenderer {
     options: PsOptions,
     /// The `\psfrag` commands of the usetex texts tagged so far.
     psfrags: Vec<String>,
+    /// Whether usetex text was drawn as plain text.
+    tex_drawn_as_plain: bool,
     problems: Problems,
 }
 
@@ -187,6 +193,7 @@ impl PsRenderer {
             fonts: FontCache::default(),
             options,
             psfrags: Vec::new(),
+            tex_drawn_as_plain: false,
             problems: Problems::default(),
         })
     }
@@ -311,7 +318,11 @@ impl PsRenderer {
         if !self.options.eps {
             out.push_str("%%EOF\n");
         }
-        self.problems.into_result(PsDocument { text: out, bbox })
+        self.problems.into_result(PsDocument {
+            text: out,
+            bbox,
+            tex_drawn_as_plain: self.tex_drawn_as_plain,
+        })
     }
 }
 

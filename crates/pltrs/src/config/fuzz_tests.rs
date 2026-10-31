@@ -218,7 +218,7 @@ fn configuration_lookups() {
         let env = lookup.environment(&scratch);
         let mut config = None;
         for kind in [DirKind::Config, DirKind::Cache] {
-            match find_dir(&env, kind, || {
+            match find_dir(&env, kind, |_| {
                 make_temp_dir(&env).map_err(|e| e.to_string())
             }) {
                 Ok(dir) => {

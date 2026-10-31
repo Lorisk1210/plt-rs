@@ -67,6 +67,11 @@ pub struct PdfOptions {
     pub composite_images: bool,
     /// `pdf.fonttype`: how TrueType fonts are embedded.
     pub fonttype: FontType,
+    /// The font type whose subset size groups the character codes of the
+    /// embedded fonts: `ps.fonttype`, which matplotlib's PDF writer reads
+    /// for it (`PdfFile._character_tracker`), whatever `pdf.fonttype`
+    /// says.
+    pub subset_fonttype: FontType,
     /// `pdf.use14corefonts`: text that is not mathtext is drawn in the 14
     /// PDF core fonts, measured with their metrics.
     pub core_fonts: bool,
@@ -81,6 +86,7 @@ impl Default for PdfOptions {
             simplify: SimplifySettings::default(),
             composite_images: true,
             fonttype: FontType::Type3,
+            subset_fonttype: FontType::Type3,
             core_fonts: false,
         }
     }
@@ -229,7 +235,7 @@ impl PdfRenderer {
             states,
             font_names: FontNames::default(),
             dvi_fonts: DviFonts::default(),
-            tracker: CharacterTracker::new(options.fonttype.subset_size()),
+            tracker: CharacterTracker::new(options.subset_fonttype.subset_size()),
             fonts: FontCache::default(),
             options,
             generation: 0,
@@ -281,6 +287,13 @@ impl PdfRenderer {
     /// How many pages the document has.
     pub fn page_count(&self) -> usize {
         self.pages.len()
+    }
+
+    /// The names of the images the document holds so far (`I1`, `I2`,
+    /// ...), one per image `XObject` written (matplotlib's
+    /// `PdfFile._images`).
+    pub fn image_names(&self) -> Vec<String> {
+        self.resources.image_names().map(str::to_owned).collect()
     }
 
     /// The document information written when the document is finished

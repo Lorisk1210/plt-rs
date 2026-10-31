@@ -18,6 +18,7 @@ pub(in crate::figure) fn pdf_options(metadata: Metadata) -> PdfOptions {
         simplify: simplify_settings(),
         composite_images: rc.image_composite_image,
         fonttype: embedding(rc.pdf_fonttype),
+        subset_fonttype: embedding(rc.ps_fonttype),
         core_fonts: rc.pdf_use14corefonts,
     }
 }

@@ -24,12 +24,14 @@ helpers (``rc``, ``rc_context``, ``rcdefaults``), backend selection
 """
 
 from collections import namedtuple
+import atexit
 import contextlib
 import functools
 import logging
 import os
 import pprint
 import re
+import shutil
 import subprocess  # noqa: F401  (matplotlib.subprocess, which tests mock)
 import sys
 from collections.abc import MutableMapping
@@ -49,6 +51,16 @@ import numpy as _np
 # The exceptions of numpy's linear algebra (singular matrices), which
 # pltrs (Rust) raises where matplotlib calls numpy.
 _register("LinAlgError", _np.linalg.LinAlgError)
+
+
+def _log_warning(module, message):
+    """Log *message* as a warning of the package's module *module*
+    (``"backends.backend_ps"``), where matplotlib's module logs it: pltrs
+    (Rust) logs through this."""
+    logging.getLogger(f"{__name__}.{module}").warning(message)
+
+
+_register("log_warning", _log_warning)
 
 _log = logging.getLogger(__name__)
 
@@ -668,9 +680,10 @@ def _init_tests():
 def get_configdir():
     """
     Return the string path of the configuration directory: the one
-    ``PLTRSCONFIGDIR`` names, else ``$XDG_CONFIG_HOME/pltrs`` (by default
-    ``~/.config/pltrs``), made if missing; a temporary directory when it
-    cannot be made or written to.
+    ``PLTRSCONFIGDIR`` names, else the one matplotlib's ``MPLCONFIGDIR``
+    names, else ``$XDG_CONFIG_HOME/pltrs`` (by default ``~/.config/pltrs``),
+    made if missing; a temporary directory when it cannot be made or written
+    to.
     """
     return _cbook.config_dir()
 
@@ -682,6 +695,24 @@ def get_cachedir():
     ``$XDG_CACHE_HOME`` (by default ``~/.cache``).
     """
     return _cbook.cache_dir()
+
+
+def _log_temporary_config_dir():
+    """
+    Log, as matplotlib does on import, why a temporary directory stands in
+    for the configuration directory, if one does: the directory
+    ``PLTRSCONFIGDIR`` names, else the one matplotlib's ``MPLCONFIGDIR``
+    names, else the default one cannot be made or written to. As
+    matplotlib's, the temporary directory is removed when Python exits.
+    """
+    notice = _cbook.temp_dir_notice()
+    if notice is not None:
+        tmpdir, message = notice
+        atexit.register(shutil.rmtree, tmpdir, ignore_errors=True)
+        _log.warning(message)
+
+
+_log_temporary_config_dir()
 
 
 # The colormap and colour sequence registries, as matplotlib exports them.

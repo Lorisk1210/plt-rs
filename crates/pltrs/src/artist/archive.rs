@@ -17,7 +17,7 @@ use pltrs_core::archive::{self, Archive, ArchiveError, Decoder, Encoder, Externa
 use super::{Artist, ArtistId, FilteredGroupArtist, RawHandle};
 use crate::axes::AxesState;
 use crate::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
-use crate::axisartist::{AxisArtistState, TickMarksState};
+use crate::axisartist::{AxisArtistState, AxisTextsState, TickMarksState};
 use crate::collections::{CollectionArtist, TriMeshArtist};
 use crate::colorbar::ColorbarArtist;
 use crate::contour::ContourSetArtist;
@@ -65,6 +65,7 @@ pltrs_core::archive_kinds!(dyn Artist {
     "annotation-bbox" => AnnotationBboxArtist,
     "axis-artist" => AxisArtistState,
     "tick-marks" => TickMarksState,
+    "axis-texts" => AxisTextsState,
     "filtered-group" => FilteredGroupArtist,
     "inset-indicator" => IndicatorArtist,
     "rectangle" => PatchArtist<Rectangle>,

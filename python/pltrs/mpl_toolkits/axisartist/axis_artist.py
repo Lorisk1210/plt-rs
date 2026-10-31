@@ -7,13 +7,15 @@ An `AxisArtist` is a pltrs (Rust) axis artist of its axes, drawing its line,
 ticks, tick labels and label: ``axis.major_ticks``, ``axis.major_ticklabels``,
 ``axis.label`` and ``axis.line`` act on those parts of it
 (``_native.axisartist``). `Ticks` made on their own are tick marks an axes
-draws once ``ax.add_artist(ticks)`` adds them.
+draws once ``ax.add_artist(ticks)`` adds them, and texts made on their own
+(`LabelBase`, `AxisLabel`, `TickLabels`) likewise (`._own_texts`).
 """
 
 from pltrs import _api, _handles
 import pltrs.artist as martist
 from pltrs.collections import LineCollection
 from pltrs._native import artist as _artist, axisartist as _axisartist
+from ._own_texts import OwnTexts
 
 
 class _Part:
@@ -83,6 +85,7 @@ class Ticks(martist.Artist):
         _api.check_in_list(["in", "out", "inout"], direction=direction)
         if self._part is None:
             self._tick_direction = direction
+            self._push()
         else:
             self._set_native("tick_direction", direction)
 
@@ -96,6 +99,7 @@ class Ticks(martist.Artist):
         """Set length of the ticks in points."""
         if self._part is None:
             self._ticksize = ticksize
+            self._push()
         else:
             self._set_native("ticksize", float(ticksize))
 
@@ -110,6 +114,7 @@ class Ticks(martist.Artist):
         color = None if color == "auto" else color
         if self._part is None:
             self._color = color
+            self._push()
         else:
             self._set_native("color", color)
 
@@ -118,6 +123,7 @@ class Ticks(martist.Artist):
         width = None if width == "auto" else width
         if self._part is None:
             self._markeredgewidth = width
+            self._push()
         else:
             self._set_native("markeredgewidth", width)
 
@@ -147,17 +153,36 @@ class Ticks(martist.Artist):
         """Set the locations (in data coordinates) and angles (in degrees)
         of the ticks."""
         self._locs_angles = locs_angles
+        self._push()
+
+    @property
+    def locs_angles(self):
+        """The locations and angles (in degrees) of the ticks: those set,
+        or for the ticks of an `AxisArtist`, those it draws now."""
+        if self._part is None:
+            return self._locs_angles
+        return [[loc, angle] for loc, angle in _axisartist.get_tick_locs_angles(
+            self._part._native, self._part._name)]
+
+    def _marks(self):
+        """The native description of ticks made on their own: their axis,
+        locations and angles, and style."""
+        return ("x" if self._axis is None else self._axis.axis_name,
+                [((float(x), float(y)), float(angle))
+                 for (x, y), angle in self._locs_angles],
+                (float(self._ticksize), self._tick_direction, self._color,
+                 self._markeredgewidth))
+
+    def _push(self):
+        """Hand pltrs (Rust) ticks made on their own again, once an axes
+        added them."""
+        if self._figure is not None:
+            _axisartist.set_tick_marks(self._native, *self._marks())
 
     def _add_to_axes(self, axes, kind, autolim=True):
         if self._part is not None:
             raise ValueError("the ticks of an axis artist are drawn by it")
-        axis_name = "x" if self._axis is None else self._axis.axis_name
-        native = _axisartist.add_tick_marks(
-            axes._native, axis_name,
-            [((float(x), float(y)), float(angle))
-             for (x, y), angle in self._locs_angles],
-            (float(self._ticksize), self._tick_direction, self._color,
-             self._markeredgewidth))
+        native = _axisartist.add_tick_marks(axes._native, *self._marks())
         return _handles.adopt(self, native, axes.figure)
 
 
@@ -166,20 +191,32 @@ class LabelBase(martist.Artist):
     A base class for `.AxisLabel` and `.TickLabels`: the texts of an
     axis artist, placed at a distance from their reference point.
 
-    pltrs draws these texts as parts of an `AxisArtist`
-    (``axis.label``, ``axis.major_ticklabels``).
+    The texts of an `AxisArtist` (``axis.label``, ``axis.major_ticklabels``)
+    are those it draws. Texts made on their own are drawn once an axes adds
+    them (``ax.add_artist(label)``): a `LabelBase` ``_offset_radius``
+    pixels from its point towards ``_ref_angle`` degrees, turned by that
+    direction.
     """
+
+    #: The kind of texts made on their own (see `._own_texts.OwnTexts`).
+    _KIND = "label"
+    #: Where the native getter of the texts of an axis artist puts each
+    #: property.
+    _GETTERS = {"axis_direction": 0, "pad": 1, "visible": 2, "rotation": 3,
+                "size": 4, "text": 5}
 
     def __init__(self, *args, **kwargs):
         super().__init__()
         self._part = None
-        self._args = args
+        self._own = OwnTexts(self._KIND, *args)
         self._internal_update(kwargs)
 
     def _add_to_axes(self, axes, kind, autolim=True):
-        raise NotImplementedError(
-            f"pltrs: add_artist of a {type(self).__name__} made on its own "
-            "(pltrs draws axis texts as parts of an AxisArtist)")
+        if self._part is not None:
+            raise ValueError("the texts of an axis artist are drawn by it")
+        native = _axisartist.add_axis_texts(axes._native,
+                                            self._own.description())
+        return _handles.adopt(self, native, axes.figure)
 
     @classmethod
     def _of(cls, axis_artist, part):
@@ -188,11 +225,56 @@ class LabelBase(martist.Artist):
         label._part = _Part(axis_artist, part)
         return label
 
-    def _set_native(self, key, value):
-        _axisartist.set_label(self._part._native, self._part._name, key, value)
+    def _set(self, key, value):
+        """Set the property *key* of the texts: in the axis artist they are
+        a part of, or kept, and handed to pltrs (Rust) again once an axes
+        added them, for texts made on their own."""
+        if self._part is not None:
+            _axisartist.set_label(self._part._native, self._part._name, key,
+                                  value)
+            return
+        self._own.props[key] = value
+        self._push()
 
-    def _get_native(self):
-        return _axisartist.get_label(self._part._native, self._part._name)
+    def _push(self):
+        """Hand pltrs (Rust) the texts made on their own again, once an
+        axes added them."""
+        if self._figure is not None:
+            _axisartist.set_axis_texts(self._native, self._own.description())
+
+    def _get(self, key):
+        """Return the property *key* of the texts."""
+        if self._part is not None:
+            return _axisartist.get_label(
+                self._part._native, self._part._name)[self._GETTERS[key]]
+        return self._own.props[key]
+
+    def _own_props(self):
+        """The properties of texts made on their own."""
+        if self._part is not None:
+            raise AttributeError(
+                "the texts of an axis artist are placed by it")
+        return self._own.props
+
+    @property
+    def _ref_angle(self):
+        """The direction from the point to the text, in degrees."""
+        return self._own_props()["ref_angle"]
+
+    @_ref_angle.setter
+    def _ref_angle(self, angle):
+        self._own_props()["ref_angle"] = angle
+        self._push()
+
+    @property
+    def _offset_radius(self):
+        """The distance from the point to the text, in pixels."""
+        return self._own_props()["offset_radius"]
+
+    @_offset_radius.setter
+    def _offset_radius(self, radius):
+        self._own_props()["offset_radius"] = radius
+        self._push()
 
     def set_axis_direction(self, d):
         """
@@ -205,11 +287,15 @@ class LabelBase(martist.Artist):
         """
         _api.check_in_list(["left", "right", "bottom", "top"],
                            axis_direction=d)
-        self._set_native("axis_direction", d)
+        if self._part is not None:
+            self._set("axis_direction", d)
+        else:
+            self._own.set_axis_direction(d)
+            self._push()
 
     def get_axis_direction(self):
         """Return the side whose conventions the texts follow."""
-        return self._get_native()[0]
+        return self._get("axis_direction")
 
     def set_pad(self, pad):
         """
@@ -223,82 +309,118 @@ class LabelBase(martist.Artist):
         pad : float
             The internal pad in points.
         """
-        self._set_native("pad", float(pad))
+        self._set("pad", float(pad))
 
     def get_pad(self):
         """Return the internal pad in points."""
-        return self._get_native()[1]
+        return self._get("pad")
 
     def set_visible(self, b):
         # docstring inherited
-        self._set_native("visible", bool(b))
+        if self._part is None:
+            super().set_visible(b)
+        else:
+            self._set("visible", bool(b))
 
     def get_visible(self):
         # docstring inherited
-        return self._get_native()[2]
+        if self._part is None:
+            return super().get_visible()
+        return self._get("visible")
 
     def set_color(self, color):
         """Set the color of the texts."""
-        self._set_native("color", color)
+        self._set("color", color)
 
     def set_rotation(self, s):
         """Set the rotation of the texts in degrees."""
-        self._set_native("rotation", float(s))
+        self._set("rotation", float(s))
 
     def get_rotation(self):
         """Return the rotation of the texts in degrees."""
-        return self._get_native()[3]
+        return self._get("rotation")
 
     def set_ha(self, align):
         """Set the horizontal alignment of the texts."""
-        self._set_native("ha", align)
+        self._set("ha", align)
 
     def set_va(self, align):
         """Set the vertical alignment of the texts."""
-        self._set_native("va", align)
+        self._set("va", align)
 
     set_horizontalalignment = set_ha
     set_verticalalignment = set_va
 
     def set_size(self, size):
         """Set the font size of the texts in points."""
-        self._set_native("size", float(size))
+        self._set("size", float(size))
 
     def get_size(self):
         """Return the font size of the texts in points."""
-        return self._get_native()[4]
+        return self._get("size")
 
     set_fontsize = set_size
     get_fontsize = get_size
 
+    def set_text(self, s):
+        """Set the text."""
+        self._set("text", "" if s is None else str(s))
+
+    def get_text(self):
+        """Return the text."""
+        return self._get("text") or ""
+
 
 class AxisLabel(LabelBase):
     """
-    Axis label of an `AxisArtist`.
-
-    pltrs draws the label as part of its `AxisArtist` (``axis.label``).
+    Axis label of an `AxisArtist`, or made on its own: its pad away from
+    its point, aligned and turned for the axis direction.
     """
 
-    def set_text(self, s):
-        """Set the text of the label."""
-        self._set_native("text", s)
+    _KIND = "axislabel"
 
-    def get_text(self):
-        """Return the text of the label."""
-        return self._get_native()[5] or ""
+    def __init__(self, *args, axis_direction="bottom", axis=None, **kwargs):
+        self._axis = axis
+        super().__init__(*args, **kwargs)
+        self.set_axis_direction(axis_direction)
 
 
-class TickLabels(LabelBase):
+class TickLabels(AxisLabel):
     """
-    Tick labels of an `AxisArtist`.
-
-    pltrs draws the tick labels as part of their `AxisArtist`
-    (``axis.major_ticklabels``).
+    Tick labels of an `AxisArtist`, or made on its own: one text per
+    location, angle and label of ``_locs_angles_labels``, each its pad
+    beyond the room the alignment of the labels leaves.
     """
+
+    _KIND = "ticklabels"
+
+    def __init__(self, *, axis_direction="bottom", **kwargs):
+        super().__init__(**kwargs)
+        self.set_axis_direction(axis_direction)
+
+    @property
+    def _locs_angles_labels(self):
+        """The locations (in data coordinates), angles (in degrees) and
+        labels of the texts."""
+        return self._own_props()["locs_angles_labels"]
+
+    @_locs_angles_labels.setter
+    def _locs_angles_labels(self, locs_angles_labels):
+        self._own_props()["locs_angles_labels"] = list(locs_angles_labels)
+        self._push()
+
+    def set_locs_angles_labels(self, locs_angles_labels):
+        """Set the locations, angles and labels of the texts."""
+        self._locs_angles_labels = locs_angles_labels
 
     def invert_axis_direction(self):
         """Turn the tick labels to the other side of the axis."""
-        self._set_native("invert", True)
+        if self._part is not None:
+            self._set("invert", True)
+        else:
+            opposite = {"left": "right", "right": "left",
+                        "top": "bottom", "bottom": "top"}
+            self.set_axis_direction(opposite[self.get_axis_direction()])
 
 
 class _AxisLine(_Part):

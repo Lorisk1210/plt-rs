@@ -44,6 +44,12 @@ pub fn check_distiller(distiller: Distiller) -> Result<(), ProgramError> {
     }
 }
 
+/// matplotlib's warning for usetex text in a document made without
+/// `text.usetex`, logged once per document.
+const PARTIAL_USETEX: &str = "The PS backend determines usetex status solely based on \
+     rcParams['text.usetex'] and does not support having usetex=True only for some \
+     elements; this element will thus be rendered as if usetex=False.";
+
 /// A document's bytes as text: matplotlib writes PostScript in Latin-1,
 /// whose characters are bytes (pltrs' documents and the distillers' are
 /// ASCII).
@@ -96,6 +102,9 @@ impl Figure {
             }
             PsOutput::Document(document) => document,
         };
+        if document.tex_drawn_as_plain {
+            crate::warnings::log("backends.backend_ps", PARTIAL_USETEX);
+        }
         if rc.ps_usedistiller == Distiller::Off {
             return Ok(document.text.into_bytes());
         }

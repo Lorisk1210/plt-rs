@@ -73,7 +73,7 @@ _is_string_like.text_for_warning = "an instance of str"
 
 
 def _is_date(x):
-    return isinstance(x, datetime)
+    return isinstance(x, datetime.datetime)
 
 
 _is_date.text_for_warning = "an instance of datetime.datetime"
@@ -126,7 +126,8 @@ def _native_info(metadata):
     native = {k: None for k, v in metadata.items() if v is None}
     for key in _check_info(given):
         value = given[key]
-        native[key] = (int(value.timestamp()) if isinstance(value, datetime)
+        native[key] = (int(value.timestamp())
+                       if isinstance(value, datetime.datetime)
                        else value)
     return native
 
@@ -153,6 +154,22 @@ def _datetime_to_pdf(d):
     else:
         r += "-%02d'%02d'" % (z // 3600, z % 3600)
     return r
+
+
+class PdfFile:
+    """
+    The PDF document a `PdfPages` writes (matplotlib's ``PdfFile``): pltrs
+    (Rust) writes it page by page until it is finished.
+    """
+
+    def __init__(self):
+        self._native = _backends.pdf_pages_new()
+
+    @property
+    def _images(self):
+        """The names of the images the document holds so far, one per
+        image written (matplotlib keeps them by the images drawn)."""
+        return _backends.pdf_pages_images(self._native)
 
 
 class PdfPages:
@@ -199,9 +216,9 @@ class PdfPages:
         self.close()
 
     def _ensure_file(self):
-        """The native document, started on first use."""
+        """The document, started on first use."""
         if self._file is None:
-            self._file = _backends.pdf_pages_new()
+            self._file = PdfFile()
         return self._file
 
     def close(self):
@@ -210,7 +227,7 @@ class PdfPages:
         PDF file.
         """
         if self._file is not None:
-            data = _backends.pdf_pages_finish(self._file)
+            data = _backends.pdf_pages_finish(self._file._native)
             self._file = None
             _write_bytes(data, self._filename)
 
@@ -238,7 +255,7 @@ class PdfPages:
 
     def get_pagecount(self):
         """Return the current number of pages in the multipage pdf file."""
-        return _backends.pdf_pages_count(self._ensure_file())
+        return _backends.pdf_pages_count(self._ensure_file()._native)
 
     def attach_note(self, text, positionRect=[-100, -100, 0, 0]):
         """
@@ -247,7 +264,7 @@ class PdfPages:
         """
         if list(positionRect) != [-100, -100, 0, 0]:
             raise NotImplementedError("pltrs: attach_note(positionRect=...)")
-        _backends.pdf_pages_attach_note(self._ensure_file(), str(text))
+        _backends.pdf_pages_attach_note(self._ensure_file()._native, str(text))
 
 
 class FigureCanvasPdf(FigureCanvasBase):
@@ -272,7 +289,7 @@ class FigureCanvasPdf(FigureCanvasBase):
                         facecolor=facecolor, edgecolor=edgecolor)
         if isinstance(filename, PdfPages):
             _backends.pdf_pages_savefig(
-                filename._ensure_file(), self.figure._native,
+                filename._ensure_file()._native, self.figure._native,
                 self._print_settings(**settings))
             DrawEvent("draw_event", self, None)._process()
         else:

@@ -92,9 +92,19 @@ fn cache_dir() -> PyResult<String> {
     Ok(config::cache_dir()?.display().to_string())
 }
 
+/// The temporary directory standing in for the configuration directory,
+/// looked up first, if one does, with the warning matplotlib logs on
+/// import then: `(directory, message)`.
+fn temp_dir_notice() -> PyResult<Option<(String, String)>> {
+    config::config_dir()?;
+    Ok(config::temp_dir_notice()
+        .map(|notice| (notice.dir().display().to_string(), notice.to_string())))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("config_dir", config_dir)?;
+    module.add("temp_dir_notice", temp_dir_notice)?;
     module.add("cache_dir", cache_dir)?;
     module.add("strip_math", strip_math)?;
     module.add("box_stats", box_stats)

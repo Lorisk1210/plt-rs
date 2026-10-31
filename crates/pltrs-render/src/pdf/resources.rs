@@ -193,6 +193,11 @@ impl Resources {
         (name, id)
     }
 
+    /// The names of the image `XObject`s registered so far, in order.
+    pub(super) fn image_names(&self) -> impl Iterator<Item = &str> {
+        self.images.iter().map(|(_, name, _)| name.as_str())
+    }
+
     /// `imageObject`: every drawn image is a new `XObject`.
     pub(super) fn image(&mut self, writer: &mut PdfWriter, image: &RgbaImage) -> String {
         let name = format!("I{}", self.images.len() + 1);

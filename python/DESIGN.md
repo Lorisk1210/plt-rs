@@ -643,6 +643,19 @@ copies its rc text natively (`RcParams._update_from`, no Python round
 trip). rc files are read by pltrs (Rust) (`_native.rcsetup.read_file`),
 which reports the lines matplotlib logs.
 
+### The configuration directory
+
+pltrs (Rust) looks the configuration and cache directories up
+(`pltrs::config`): `PLTRSCONFIGDIR`, else the XDG directories. pltrs
+(Python) also reads matplotlib's own `MPLCONFIGDIR` when `PLTRSCONFIGDIR`
+is unset (`config::honour_matplotlib_config_dir`, which `modules::register`
+calls before anything looks the directories up), so that it works in
+matplotlib's environment unchanged. When the directory cannot be made or
+written to, a temporary one stands in, and importing the package logs
+matplotlib's warning (`_log_temporary_config_dir`), naming the variable
+that named the directory. The suite runner sets `MPLCONFIGDIR` and
+removes the `PLTRSCONFIGDIR` cargo sets.
+
 ### Grids, layout engines, legends
 
 A `GridSpec` holds its native grid for its whole life: pltrs (Rust) and
@@ -817,7 +830,8 @@ cargo xtask mpl-suite --imports          # every missing import of each test fil
   pltrs lacks gets a placeholder `__init__.py` so that test modules keep
   their package names.
 * **Environment.** pytest-xdist with 8 workers, pytest-timeout at 600 s a
-  test, `MPLCONFIGDIR` under the mode's directory, matplotlib's pytest
+  test, `MPLCONFIGDIR` under the mode's directory (and no
+  `PLTRSCONFIGDIR`, so that pltrs reads `MPLCONFIGDIR`), matplotlib's pytest
   options (`--import-mode=importlib`). The committed outcomes were
   recorded with TinyTeX on `PATH`
   (`export PATH="$HOME/.TinyTeX/bin/x86_64-linux:$PATH"`), which runs the

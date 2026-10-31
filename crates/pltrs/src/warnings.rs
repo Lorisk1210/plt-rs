@@ -7,6 +7,12 @@
 //! without one they are written to standard error, as Python prints
 //! warnings nobody filters.
 //!
+//! Where matplotlib logs a warning instead (`_log.warning`), pltrs
+//! [`log`]s it, naming the module of matplotlib's that logs it: the
+//! thread's log handler ([`set_log_handler`]) receives it, and without one
+//! it is written to standard error, as Python's unconfigured logging
+//! writes it.
+//!
 //! ```
 //! use std::cell::RefCell;
 //! use std::rc::Rc;
@@ -25,9 +31,15 @@ use std::rc::Rc;
 /// A function receiving the warnings of its thread.
 type Handler = Rc<dyn Fn(&str)>;
 
+/// A function receiving the log messages of its thread: the module of
+/// matplotlib's logging it (`backends.backend_ps`) and the message.
+type LogHandler = Rc<dyn Fn(&str, &str)>;
+
 thread_local! {
     /// The thread's handler; `None` writes warnings to standard error.
     static HANDLER: RefCell<Option<Handler>> = const { RefCell::new(None) };
+    /// The thread's log handler; `None` writes messages to standard error.
+    static LOG_HANDLER: RefCell<Option<LogHandler>> = const { RefCell::new(None) };
 }
 
 /// Sends the warnings of this thread to `handler` from now on.
@@ -54,6 +66,30 @@ pub fn warn(message: &str) {
     }
 }
 
+/// Sends the log messages of this thread to `handler` from now on.
+pub fn set_log_handler(handler: impl Fn(&str, &str) + 'static) {
+    LOG_HANDLER.with(|slot| *slot.borrow_mut() = Some(Rc::new(handler)));
+}
+
+/// Writes the log messages of this thread to standard error again.
+pub fn clear_log_handler() {
+    LOG_HANDLER.with(|slot| *slot.borrow_mut() = None);
+}
+
+/// Logs `message` as a warning of matplotlib's module `module` (relative
+/// to the package: `backends.backend_ps`), where matplotlib logs it with
+/// `_log.warning`.
+#[expect(
+    clippy::print_stderr,
+    reason = "without a handler, messages go where Python's unconfigured logging writes them"
+)]
+pub fn log(module: &str, message: &str) {
+    match LOG_HANDLER.with(|slot| slot.borrow().clone()) {
+        Some(handler) => handler(module, message),
+        None => eprintln!("{message}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -67,6 +103,25 @@ mod tests {
         warn("second");
         clear_handler();
         assert_eq!(*seen.borrow(), ["first", "second"]);
+    }
+
+    #[test]
+    fn log_handlers_receive_the_module_and_message() {
+        let seen = Rc::new(RefCell::new(Vec::<(String, String)>::new()));
+        let sink = Rc::clone(&seen);
+        set_log_handler(move |module, message| {
+            sink.borrow_mut()
+                .push((module.to_owned(), message.to_owned()));
+        });
+        log("backends.backend_ps", "as if usetex=False");
+        clear_log_handler();
+        assert_eq!(
+            *seen.borrow(),
+            [(
+                "backends.backend_ps".to_owned(),
+                "as if usetex=False".to_owned()
+            )]
+        );
     }
 
     #[test]

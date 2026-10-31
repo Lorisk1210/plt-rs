@@ -632,6 +632,13 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         return FigureArtists(self, _handles.wrap_all(
             _figure.artists(self._native), Artist, self.figure))
 
+    @property
+    def patches(self):
+        """The patches appended to the figure's list, drawn on it as they
+        are (see `._figure_patches`)."""
+        from ._figure_patches import FigurePatches
+        return vars(self).setdefault("_patches", FigurePatches(self))
+
     def legend(self, *args, **kwargs):
         """
         Place a legend on the figure.

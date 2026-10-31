@@ -32,6 +32,8 @@ import numpy as np
 from . import _api, _docstring, backend_tools as tools, cbook, colors, transforms
 from . import _val_or_rc, rcParams
 from ._enums import JoinStyle, CapStyle
+from .colors import to_rgba
+from ._native import call_on_thread_of, run_queued_calls, serve_threads
 from ._pylab_helpers import Gcf
 from .backend_managers import ToolManager
 from .cbook import _setattr_cm
@@ -1192,7 +1194,20 @@ class Event:
         self.guiEvent = guiEvent
 
     def _process(self):
-        """Process this event on ``self.canvas``, then unset ``guiEvent``."""
+        """
+        Process this event on ``self.canvas``, then unset ``guiEvent``.
+
+        The callbacks run on the thread of the canvas' figure: an event
+        sent from another thread (a timer's) is handed to that thread, as
+        GUI toolkits hand events to their main loop.
+        """
+        figure = getattr(self.canvas, 'figure', None)
+        if figure is None:
+            self._process_here()
+        else:
+            call_on_thread_of(figure._native, self._process_here)
+
+    def _process_here(self):
         self.canvas.callbacks.process(self.name, self)
         self.guiEvent = None
 
@@ -2033,8 +2048,12 @@ class FigureCanvasBase:
         dpi = _val_or_rc(dpi, 'savefig.dpi')
         if dpi == 'figure':
             dpi = getattr(self.figure, '_original_dpi', self.figure.dpi)
+        # As matplotlib sets them on the figure's patch for the print, the
+        # colors take the alpha the patch was given.
+        alpha = self.figure.patch.get_alpha()
         colors = {
-            prop: None if cbook._str_equal(color, "auto") else color
+            prop: None if cbook._str_equal(color, "auto")
+            else color if alpha is None else to_rgba(color, alpha)
             for prop, color in [
                 ("facecolor", _val_or_rc(facecolor, "savefig.facecolor")),
                 ("edgecolor", _val_or_rc(edgecolor, "savefig.edgecolor"))]}
@@ -2211,16 +2230,24 @@ class FigureCanvasBase:
         `stop_event_loop`, or *timeout* is reached.
 
         If *timeout* is 0 or negative, never timeout.
+
+        Meanwhile, the main thread runs the calls other threads make on its
+        figures (events sent from a timer thread, say) at each step.
         """
         if timeout <= 0:
             timeout = np.inf
         timestep = 0.01
         counter = 0
         self._looping = True
-        while self._looping and counter * timestep < timeout:
-            self.flush_events()
-            time.sleep(timestep)
-            counter += 1
+        serve_threads(True)
+        try:
+            while self._looping and counter * timestep < timeout:
+                self.flush_events()
+                run_queued_calls()
+                time.sleep(timestep)
+                counter += 1
+        finally:
+            serve_threads(False)
 
     def stop_event_loop(self):
         """

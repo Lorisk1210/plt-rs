@@ -137,6 +137,20 @@ mod tests {
     use crate::transforms::TransformContext;
 
     #[test]
+    fn insets_are_placed_through_figure_fractions_as_in_matplotlib() {
+        let fig = Figure::with_size(10.0, 5.0, 100.0);
+        let axs = fig.subplots(1, 3).unwrap();
+        let inset = axs.as_slice()[0].inset_axes([0.0, -0.15, 1.0, 0.1]);
+        let extent = inset.window_extent().unwrap();
+        // matplotlib 3.11: below its host, through `transAxes -
+        // transSubfigure` then `transSubfigure` (straight through the
+        // host's `transAxes`, the bottom would be 0xC006_0000_0000_0010).
+        assert_eq!(extent.y0().to_bits(), 0xC006_0000_0000_0006);
+        assert_eq!(extent.y1().to_bits(), 0x4041_E000_0000_0000);
+        assert_eq!(extent.x1().to_bits(), 0x4076_0F0F_0F0F_0F0E);
+    }
+
+    #[test]
     fn insets_follow_the_parent_box() {
         let fig = Figure::with_size(4.0, 4.0, 100.0);
         let ax = fig.subplot();

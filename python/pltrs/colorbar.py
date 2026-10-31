@@ -131,8 +131,10 @@ class Colorbar:
                 colorizer=mcolorizer.Colorizer(norm=norm, cmap=cmap))
         if alpha is not None:
             raise NotImplementedError("pltrs: Colorbar(alpha=...)")
+        # A locator places the ticks of the long axis once it exists.
+        locator = None
         if ticks is not None and not np.iterable(ticks):
-            raise NotImplementedError("pltrs: Colorbar(ticks=<Locator>)")
+            locator, ticks = ticks, None
 
         location_orientation = _get_orientation_from_location(location)
         _api.check_in_list(
@@ -199,6 +201,8 @@ class Colorbar:
         self._native = _colorbar.new(
             figure._native, self._shown(),
             None if cax is None else cax._native, parents, spec)
+        if locator is not None:
+            self.locator = locator
         mappable.colorbar = self
         mappable.colorbar_cid = mappable.callbacks.connect(
             'changed', self.update_normal)

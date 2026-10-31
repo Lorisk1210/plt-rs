@@ -3,7 +3,7 @@
 //! strengths and its expressions.
 
 use super::super::kiwi::{Constraint, Expression, Relation, SolverError, Variable, strength};
-use super::{LayoutGrid, LayoutGrids, Margin, Parent};
+use super::{GridParent, LayoutGrid, LayoutGrids, Margin};
 
 /// The edges of one cell, outer and margins, along one direction: left
 /// and right of a column, or bottom and top of a row, with the margins
@@ -65,14 +65,8 @@ impl Span {
 
 impl LayoutGrids {
     /// matplotlib's `add_constraints` for the grid `index`: its hard
-    /// constraints, those tying it to `parent`, then those of its cells.
-    pub(super) fn add_constraints(
-        &mut self,
-        index: usize,
-        parent: &Parent,
-        width_ratios: &[f64],
-        height_ratios: &[f64],
-    ) -> Result<(), SolverError> {
+    /// constraints, those tying it to its parent, then those of its cells.
+    pub(super) fn add_constraints(&mut self, index: usize) -> Result<(), SolverError> {
         let grid = &self.grids[index];
         let (ncols, nrows) = (grid.lefts.len(), grid.bottoms.len());
         let columns: Vec<Span> = (0..ncols).map(|c| Span::column(grid, c)).collect();
@@ -82,13 +76,17 @@ impl LayoutGrids {
             .chain(&rows)
             .flat_map(Span::hard_constraints)
             .collect();
-        constraints.extend(self.parent_constraints(grid, parent));
-        constraints.extend(cell_constraints(&columns, width_ratios, |prev, next| {
-            (prev.high, next.low)
-        }));
-        constraints.extend(cell_constraints(&rows, height_ratios, |prev, next| {
-            (prev.low, next.high)
-        }));
+        constraints.extend(self.parent_constraints(grid, &grid.parent));
+        constraints.extend(cell_constraints(
+            &columns,
+            &grid.width_ratios,
+            |prev, next| (prev.high, next.low),
+        ));
+        constraints.extend(cell_constraints(
+            &rows,
+            &grid.height_ratios,
+            |prev, next| (prev.low, next.high),
+        ));
         constraints
             .iter()
             .try_for_each(|constraint| self.solver.add_constraint(constraint))
@@ -97,20 +95,20 @@ impl LayoutGrids {
     /// matplotlib's `parent_constraints`: the outer edges of `grid` are
     /// those of the parent's rectangle, or of the parent's cells (inside
     /// their margins when the grid sits inside them).
-    fn parent_constraints(&self, grid: &LayoutGrid, parent: &Parent) -> [Constraint; 4] {
+    fn parent_constraints(&self, grid: &LayoutGrid, parent: &GridParent) -> [Constraint; 4] {
         let (left, right) = (grid.lefts[0], grid.rights[grid.rights.len() - 1]);
         let (top, bottom) = (grid.tops[0], grid.bottoms[grid.bottoms.len() - 1]);
         let eq = |lhs, rhs| Constraint::new(lhs, Relation::Eq, rhs, strength::REQUIRED);
         let eq_expr =
             |lhs, rhs: Expression| Constraint::new(lhs, Relation::Eq, rhs, strength::REQUIRED);
         match parent {
-            Parent::Rect([x, y, width, height]) => [
+            GridParent::Rect([x, y, width, height]) => [
                 Constraint::new(left, Relation::Eq, *x, strength::REQUIRED),
                 Constraint::new(right, Relation::Eq, x + width, strength::REQUIRED),
                 Constraint::new(top, Relation::Eq, y + height, strength::REQUIRED),
                 Constraint::new(bottom, Relation::Eq, *y, strength::REQUIRED),
             ],
-            Parent::Cells {
+            GridParent::Cells {
                 grid: outer,
                 rows,
                 cols,

@@ -164,9 +164,29 @@ pltrs (Rust) handles share their figure through an `Rc`, so they are not
 native object therefore refuses use from a thread other than its maker's
 (`RuntimeError: this pltrs object belongs to another thread`), and one
 deallocated on another thread leaks its value rather than dropping it
-there. pltrs (Rust)'s rcParams are per thread too. pltrs is used from one
-thread, as matplotlib's GUI backends already require; the handful of
-matplotlib tests using threads with figures will need a plan of their own.
+there. pltrs (Rust)'s rcParams are per thread too.
+
+Holding the GIL is not enough to share them: pltrs (Rust) keeps state per
+thread (rcParams, registries, caches holding `Rc`s), which another thread
+would read instead of the figure's, and which is dropped without the GIL
+when that thread ends. So calls from other threads are queued to the
+thread the objects belong to (`binding/home.rs`). The main thread (the
+thread that imported pltrs) serves other threads while it runs an event
+loop: `FigureCanvasBase.start_event_loop` (behind `ginput`,
+`waitforbuttonpress` and `pause`) brackets its loop with
+`_native.serve_threads(True)` / `(False)` and runs `_native.run_queued_calls()`
+at each step. A native function called on another thread with an
+argument made on the main thread is then queued (`dispatch` checks the
+arguments' owners), the caller waits without the GIL, and the main thread
+runs the call and hands back its result or exception; stopping to serve
+runs what is still queued. A call made while the main thread does not
+serve waits up to a second for it to start (as tkinter waits for its main
+loop), then runs where it is made, where the objects refuse it, so a main
+thread blocked on the caller (`future.result()`) gets the error, not a
+deadlock. `Event._process` hands the figure's callbacks to its thread the
+same way (`_native.call_on_thread_of(figure._native, callable)`), so that
+events a timer thread sends are processed where the figure lives. Objects
+a thread makes for itself stay usable on that thread.
 
 ## The Python package
 
@@ -607,9 +627,13 @@ pltrs (Rust)'s (`Figure.gca` calls `_figure.gca`).
 Backends are matplotlib's: `backends.backend_registry` names them,
 `pyplot.switch_backend` loads `backends/backend_<name>.py` and builds
 `new_figure_manager` and `show` from its `FigureCanvas` (the `_Backend`
-export machinery), and `pyplot.figure` makes managers through it. The
-GUI-toolkit backends (Qt, GTK, Tk, wx, macOS) are not there: loading one
-raises `ImportError`, as matplotlib does without the toolkit. As in
+export machinery), and `pyplot.figure` makes managers through it. Of the
+GUI-toolkit backends, Tk is there (`backends/_backend_tk.py`,
+`backend_tkagg.py`, matplotlib's, needing only tkinter and Pillow): its
+canvas blits the Agg pixels into its Tk `PhotoImage` with Tk's photo
+commands, as PNG data, where matplotlib's C helper `_tkagg` calls Tk's C
+API. The others (Qt, GTK, wx, macOS) are not there: loading one raises
+`ImportError`, as matplotlib does without the toolkit. As in
 matplotlib, `rcParams['backend']` starts as `rcsetup._auto_backend_sentinel`,
 which pyplot resolves the first time it needs a backend (trying the GUI
 backends, then `agg`).
@@ -723,7 +747,14 @@ changes (an engine knows the figures it is set on). The layout methods of
 figures (`tight_layout`, the `align_*` methods, `suptitle` and the
 super-labels, `get_tightbbox`) are the mixins of `_figure_layout`, over
 `_native.figure_layout`. A `GridSpec` made without a figure is left out
-of constrained layout, as matplotlib leaves it.
+of constrained layout, as matplotlib leaves it. pltrs (Rust) lays out
+and solves constrained layout's grids; `ConstrainedLayoutEngine.execute`
+returns them as matplotlib's does, its private `layoutgrids`, mirrored
+as `_layoutgrid.LayoutGrid`s of the values solved (`Figure::execute_layout`,
+`pltrs::layout::SolvedGrid`), which hold nothing alive. Ticks read
+between draws (`get_ticklocs`, `get_ticklabels`) are computed where the
+axes are, without running the layout engine, as matplotlib computes them
+(`Axes::ticks`).
 
 A `Legend(parent, handles, labels, **kwargs)` makes the native legend of
 its parent at once: matplotlib's argument handling (`_parse_legend_args`,

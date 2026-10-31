@@ -232,6 +232,22 @@ impl FigureState {
         (self.size_inches.0 * dpi, self.size_inches.1 * dpi)
     }
 
+    /// The box of the (sub)figure `artist` is in, or is.
+    fn figure_bbox_of(&self, artist: ArtistId) -> Option<Bbox> {
+        self.frame_bbox(artist)
+            .or_else(|| self.figure_bbox_of(self.store.get(artist)?.base().parent?))
+    }
+
+    /// [`prepare`](Self::prepare) without the layout engine: the figure
+    /// as it is now, its axes where they are until the next draw or
+    /// layout pass places them (matplotlib computes ticks between draws
+    /// without its layout engine). A due layout pass stays due.
+    pub(crate) fn prepare_as_is(&mut self) {
+        let pending = std::mem::take(&mut self.layout.pending);
+        self.prepare();
+        self.layout.pending |= pending;
+    }
+
     /// The mutable pass before drawing: a due layout-engine pass, then
     /// autoscaling, aspect and ticks of every axes.
     pub(crate) fn prepare(&mut self) {
@@ -341,19 +357,28 @@ impl TransformContext for FigureState {
         Some(fraction_of(&parent, &node.relative_extent))
     }
 
-    /// Axes are placed in a figure frame, or (secondary axes and the
-    /// projection planes of 3-D axes) in their host axes. A removed axes,
-    /// owned by none, keeps its position in the figure, as matplotlib's
-    /// keeps its transforms.
+    /// Axes are placed in a figure frame, or (insets, secondary axes,
+    /// parasite axes and the projection planes of 3-D axes) in their host
+    /// axes. A removed axes, owned by none, keeps its position in the
+    /// figure, as matplotlib's keeps its transforms.
     fn axes_bbox(&self, axes: ArtistId) -> Option<Bbox> {
         let Some(state) = self.artist_as::<AxesState>(axes) else {
             return crate::mplot3d::axes3d_bbox(self, axes);
         };
         let parent = state.base().parent.unwrap_or(self.root);
-        let container = self.frame_bbox(parent).or_else(|| self.axes_bbox(parent))?;
-        Some(fraction_of(
-            &container,
-            &state.aspect.active_position(&state.position),
+        let position = state.aspect.active_position(&state.position);
+        if let Some(frame) = self.frame_bbox(parent) {
+            return Some(fraction_of(&frame, &position));
+        }
+        let host = self.axes_bbox(parent)?;
+        if position == Bbox::UNIT {
+            // Covering its host (parasite axes, 3-D planes).
+            return Some(host);
+        }
+        Some(part_of_host(
+            &host,
+            &self.figure_bbox_of(parent)?,
+            &position,
         ))
     }
 
@@ -389,4 +414,21 @@ impl TransformContext for FigureState {
 /// The part of `outer` described by `fraction` (a box in `outer`'s unit square).
 fn fraction_of(outer: &Bbox, fraction: &Bbox) -> Bbox {
     fraction.transformed(&crate::transforms::unit_to_bbox(outer))
+}
+
+/// The part `fraction` of the box `host` of an axes, for an axes placed
+/// inside it (an inset, a secondary axes), with matplotlib's arithmetic:
+/// its `_TransformedBoundsLocator` maps the fraction into the fractions of
+/// the (sub)figure `figure` (`transAxes - transSubfigure`, numpy's inverse
+/// of the figure's box transform times the host's), and the axes' box is
+/// that position through `transSubfigure`.
+fn part_of_host(host: &Bbox, figure: &Bbox, fraction: &Bbox) -> Bbox {
+    let (fx, fy, fw, fh) = figure.bounds();
+    let (hx, hy, hw, hh) = host.bounds();
+    // The inverse of [[fw, 0, fx], [0, fh, fy]] by back substitution, as
+    // LAPACK solves for numpy's `inv`.
+    let (ia, ie, id, iff) = (1.0 / fw, -fx / fw, 1.0 / fh, -fy / fh);
+    let to_figure = Affine2D::from_values(ia * hw, 0.0, 0.0, id * hh, ia * hx + ie, id * hy + iff);
+    let position = fraction.transformed(&to_figure);
+    position.transformed(&Affine2D::from_values(fw, 0.0, 0.0, fh, fx, fy))
 }

@@ -1,7 +1,7 @@
 //! The layout grids of a figure, its subfigures and their grid
 //! specifications (matplotlib's `make_layoutgrids`).
 
-use super::super::grid::{LayoutGrids, Parent};
+use super::super::grid::{GridOwner, GridParent, LayoutGrids, SolvedGrid};
 use super::super::kiwi::SolverError;
 use crate::artist::{Artist, ArtistId};
 use crate::axes::AxesState;
@@ -45,8 +45,10 @@ pub(super) struct Frame {
 /// The layout grids of the figure, its subfigures and every grid
 /// specification in use (matplotlib's `layoutgrids` dictionary).
 #[derive(Debug)]
-pub(super) struct LayoutTree {
+pub(crate) struct LayoutTree {
     pub(super) grids: LayoutGrids,
+    /// What each grid lays out, by grid index.
+    owners: Vec<GridOwner>,
     /// The grid of each grid specification, matched by identity.
     specs: Vec<(GridSpec, usize)>,
     /// The figure first, then its subfigures depth first.
@@ -59,12 +61,29 @@ impl LayoutTree {
     pub(super) fn new(fig: &FigureState, rect: [f64; 4]) -> Result<Option<Self>, SolverError> {
         let mut tree = Self {
             grids: LayoutGrids::default(),
+            owners: Vec::new(),
             specs: Vec::new(),
             frames: Vec::new(),
         };
-        let grid = tree.grids.push_single(&Parent::Rect(rect))?;
+        let grid = tree.push_frame_grid(fig.root, &GridParent::Rect(rect))?;
         tree.add_frame(fig, fig.root, grid, None)?;
         Ok((!tree.specs.is_empty()).then_some(tree))
+    }
+
+    /// Every grid as solved last, the figure's first and every other
+    /// after its parent.
+    pub(crate) fn solved_grids(&self) -> Vec<SolvedGrid> {
+        self.owners
+            .iter()
+            .enumerate()
+            .map(|(index, owner)| self.grids.solved(index, owner.clone()))
+            .collect()
+    }
+
+    /// Adds the one-cell grid of the (sub)figure frame `id` in `parent`.
+    fn push_frame_grid(&mut self, id: ArtistId, parent: &GridParent) -> Result<usize, SolverError> {
+        self.owners.push(GridOwner::Frame(id));
+        self.grids.push_single(parent)
     }
 
     /// Adds the frame `id` with its grid, then, as matplotlib does, its
@@ -99,12 +118,15 @@ impl LayoutTree {
                 continue;
             };
             let outer = self.add_gridspec(spec.gridspec(), grid)?;
-            let sub_grid = self.grids.push_single(&Parent::Cells {
-                grid: outer,
-                rows: spec.rows(),
-                cols: spec.cols(),
-                inner: true,
-            })?;
+            let sub_grid = self.push_frame_grid(
+                child,
+                &GridParent::Cells {
+                    grid: outer,
+                    rows: spec.rows(),
+                    cols: spec.cols(),
+                    inner: true,
+                },
+            )?;
             let sub = self.add_frame(fig, child, sub_grid, Some(spec))?;
             self.frames[index].subfigs.push(sub);
         }
@@ -131,9 +153,8 @@ impl LayoutTree {
         if let Some(index) = self.grid_of(gridspec) {
             return Ok(index);
         }
-        let (nrows, ncols) = gridspec.shape();
         let parent = match gridspec.parent() {
-            None => Parent::Cells {
+            None => GridParent::Cells {
                 grid: owner,
                 rows: 0..1,
                 cols: 0..1,
@@ -141,13 +162,14 @@ impl LayoutTree {
             },
             Some(cell) => {
                 let outer = self.add_gridspec(cell.gridspec(), owner)?;
-                let top = self.grids.push_single(&Parent::Cells {
+                self.owners.push(GridOwner::Nested(gridspec.clone()));
+                let top = self.grids.push_single(&GridParent::Cells {
                     grid: outer,
                     rows: cell.rows(),
                     cols: cell.cols(),
                     inner: false,
                 })?;
-                Parent::Cells {
+                GridParent::Cells {
                     grid: top,
                     rows: 0..1,
                     cols: 0..1,
@@ -155,13 +177,10 @@ impl LayoutTree {
                 }
             }
         };
-        let index = self.grids.push(
-            &parent,
-            nrows,
-            ncols,
-            gridspec.width_ratios(),
-            gridspec.height_ratios(),
-        )?;
+        self.owners.push(GridOwner::GridSpec(gridspec.clone()));
+        let index = self
+            .grids
+            .push(&parent, gridspec.width_ratios(), gridspec.height_ratios())?;
         self.specs.push((gridspec.clone(), index));
         Ok(index)
     }

@@ -538,3 +538,51 @@ def test_pillow_writes_the_formats_matplotlib_writes_with_it():
     tiff = io.BytesIO()
     fig.savefig(tiff, format="tiff", pil_kwargs={"description": "smoke"})
     assert Image.open(tiff).tag_v2[270] == "smoke"
+
+
+def test_the_main_thread_runs_other_threads_calls_in_its_event_loop():
+    import threading
+    from pltrs.backend_bases import MouseEvent
+    fig, ax = plt.subplots()
+    xy = ax.transData.transform((0.25, 0.5))
+
+    def press():
+        MouseEvent("button_press_event", fig.canvas, *xy, 1)._process()
+
+    threading.Timer(0.05, press).start()
+    (clicked,) = fig.ginput(timeout=10)
+    assert clicked == pytest.approx((0.25, 0.5))
+    assert not ax.lines, "the clicks shown are removed"
+
+
+def test_constrained_layout_returns_the_grids_it_solved():
+    from pltrs import _layoutgrid
+    fig, axs = plt.subplots(1, 2, layout="constrained")
+    axs[0].set_title("title")
+    grids = fig.get_layout_engine().execute(fig)
+    assert grids["hasgrids"] and isinstance(grids[fig], _layoutgrid.LayoutGrid)
+    spec = grids[axs[0].get_gridspec()]
+    assert spec.name.startswith(grids[fig].name + ".gridspec")
+    assert spec.get_inner_bbox(0, 0).bounds == pytest.approx(
+        axs[0].get_position().bounds)
+    assert spec.get_outer_bbox(0, 0).x1 == spec.get_outer_bbox(0, 1).x0
+    _layoutgrid.plot_children(fig)
+    assert len(fig.artists) == 6 * 3, "six boxes per cell of each grid"
+
+
+def test_bbox_images_fill_the_box_their_callable_gives():
+    from pltrs.image import BboxImage
+    from pltrs.transforms import Bbox
+    fig, ax = plt.subplots()
+    text = ax.text(0.5, 0.5, "backed")
+    behind = BboxImage(text.get_window_extent)
+    behind.set_data(np.arange(4.0).reshape(2, 2))
+    ax.add_artist(behind)
+    corner = BboxImage(lambda renderer: Bbox.from_bounds(
+        10, 10, renderer.points_to_pixels(36), 30))
+    corner.set_data(np.arange(4.0).reshape(2, 2))
+    ax.add_artist(corner)
+    fig.canvas.draw()
+    assert behind.get_window_extent().bounds == text.get_window_extent().bounds
+    assert corner.get_window_extent().bounds == pytest.approx(
+        (10, 10, fig.dpi / 2, 30))

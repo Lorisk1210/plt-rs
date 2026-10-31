@@ -13,6 +13,9 @@
 //! negative and the layout counts as collapsed, as in matplotlib.
 
 mod constraints;
+mod solved;
+
+pub use solved::{GridOwner, MarginValues, SolvedGrid};
 
 use std::ops::Range;
 
@@ -20,10 +23,10 @@ use pltrs_core::Bbox;
 
 use super::kiwi::{Solver, SolverError, Variable, strength};
 
-/// The margins of a cell side: the inner one holds axes decorations, the
-/// outer one (`cb`) padding and colorbars.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Margin {
+/// The margins of a cell side of a layout grid: the inner one holds axes
+/// decorations, the outer one (`cb`) padding and colorbars.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Margin {
     /// Decorations on the left.
     Left,
     /// Decorations on the right.
@@ -44,7 +47,7 @@ pub(crate) enum Margin {
 
 impl Margin {
     /// Every margin, in the order matplotlib resets them.
-    pub(crate) const ALL: [Self; 8] = [
+    pub const ALL: [Self; 8] = [
         Self::Left,
         Self::Right,
         Self::Bottom,
@@ -62,8 +65,22 @@ impl Margin {
     const VERTICAL: [Self; 4] = [Self::Bottom, Self::Top, Self::BottomCb, Self::TopCb];
 
     /// Whether the margin belongs to columns (rather than rows).
-    fn horizontal(self) -> bool {
+    pub fn horizontal(self) -> bool {
         Self::HORIZONTAL.contains(&self)
+    }
+
+    /// matplotlib's key for the margin (`"left"`, `"leftcb"`, ...).
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+            Self::Bottom => "bottom",
+            Self::Top => "top",
+            Self::LeftCb => "leftcb",
+            Self::RightCb => "rightcb",
+            Self::BottomCb => "bottomcb",
+            Self::TopCb => "topcb",
+        }
     }
 }
 
@@ -110,25 +127,33 @@ pub(crate) struct CellMargins {
     pub(crate) topcb: f64,
 }
 
-/// What a layout grid sits in.
+/// What a layout grid sits in (matplotlib's `parent`, `parent_pos` and
+/// `parent_inner`).
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Parent {
-    /// A rectangle `[left, bottom, width, height]` in figure fractions.
+pub enum GridParent {
+    /// A rectangle `[left, bottom, width, height]` in figure fractions:
+    /// the figure's grid.
     Rect([f64; 4]),
-    /// A block of cells of another grid (by index), inside its margins
-    /// when `inner`.
+    /// A block of cells of another grid.
     Cells {
+        /// The other grid's index among the grids of the figure.
         grid: usize,
+        /// The rows of the block, from the top.
         rows: Range<usize>,
+        /// The columns of the block.
         cols: Range<usize>,
+        /// Whether the grid sits inside the margins of the block.
         inner: bool,
     },
 }
 
 /// The solver variables of a grid of cells with margins (matplotlib's
-/// `LayoutGrid`).
+/// `LayoutGrid`), with what it sits in and its ratios.
 #[derive(Clone, Debug, PartialEq)]
 struct LayoutGrid {
+    parent: GridParent,
+    width_ratios: Vec<f64>,
+    height_ratios: Vec<f64>,
     lefts: Vec<Variable>,
     rights: Vec<Variable>,
     bottoms: Vec<Variable>,
@@ -140,9 +165,16 @@ struct LayoutGrid {
 }
 
 impl LayoutGrid {
-    /// The variables of an `nrows × ncols` grid with its margins made
-    /// edit variables, in matplotlib's order.
-    fn new(solver: &mut Solver, nrows: usize, ncols: usize) -> Result<Self, SolverError> {
+    /// The variables of a grid of `width_ratios.len()` columns and
+    /// `height_ratios.len()` rows in `parent`, with its margins made edit
+    /// variables, in matplotlib's order.
+    fn new(
+        solver: &mut Solver,
+        parent: &GridParent,
+        width_ratios: &[f64],
+        height_ratios: &[f64],
+    ) -> Result<Self, SolverError> {
+        let (nrows, ncols) = (height_ratios.len(), width_ratios.len());
         let lefts = variables(solver, ncols);
         let rights = variables(solver, ncols);
         let mut margins: [Vec<Variable>; 8] = Default::default();
@@ -155,6 +187,9 @@ impl LayoutGrid {
             margins[kind as usize] = edit_variables(solver, nrows)?;
         }
         Ok(Self {
+            parent: parent.clone(),
+            width_ratios: width_ratios.to_vec(),
+            height_ratios: height_ratios.to_vec(),
             lefts,
             rights,
             bottoms,
@@ -190,28 +225,26 @@ pub(crate) struct LayoutGrids {
 }
 
 impl LayoutGrids {
-    /// Adds an `nrows × ncols` grid in `parent`, which must already be
-    /// present, sized by the ratios, and returns its index (matplotlib's
-    /// `LayoutGrid(...)`).
+    /// Adds a grid of a column per width ratio and a row per height ratio
+    /// in `parent`, which must already be present, and returns its index
+    /// (matplotlib's `LayoutGrid(...)`).
     pub(crate) fn push(
         &mut self,
-        parent: &Parent,
-        nrows: usize,
-        ncols: usize,
+        parent: &GridParent,
         width_ratios: &[f64],
         height_ratios: &[f64],
     ) -> Result<usize, SolverError> {
-        let grid = LayoutGrid::new(&mut self.solver, nrows, ncols)?;
+        let grid = LayoutGrid::new(&mut self.solver, parent, width_ratios, height_ratios)?;
         self.grids.push(grid);
         let index = self.grids.len() - 1;
         self.get_mut(index).reset_margins()?;
-        self.add_constraints(index, parent, width_ratios, height_ratios)?;
+        self.add_constraints(index)?;
         Ok(index)
     }
 
     /// Adds a single-cell grid in `parent` and returns its index.
-    pub(crate) fn push_single(&mut self, parent: &Parent) -> Result<usize, SolverError> {
-        self.push(parent, 1, 1, &[1.0], &[1.0])
+    pub(crate) fn push_single(&mut self, parent: &GridParent) -> Result<usize, SolverError> {
+        self.push(parent, &[1.0], &[1.0])
     }
 
     /// The grid at `index`.
@@ -385,16 +418,16 @@ mod tests {
     fn figure_and_grid(nrows: usize, ncols: usize) -> LayoutGrids {
         let mut grids = LayoutGrids::default();
         grids
-            .push_single(&Parent::Rect([0.0, 0.0, 1.0, 1.0]))
+            .push_single(&GridParent::Rect([0.0, 0.0, 1.0, 1.0]))
             .unwrap();
-        let parent = Parent::Cells {
+        let parent = GridParent::Cells {
             grid: 0,
             rows: 0..1,
             cols: 0..1,
             inner: true,
         };
         grids
-            .push(&parent, nrows, ncols, &vec![1.0; ncols], &vec![1.0; nrows])
+            .push(&parent, &vec![1.0; ncols], &vec![1.0; nrows])
             .unwrap();
         grids
     }
@@ -461,8 +494,8 @@ mod tests {
     #[test]
     fn ratios_size_the_inner_boxes() {
         let mut grids = LayoutGrids::default();
-        let figure = Parent::Rect([0.0, 0.0, 1.0, 1.0]);
-        grids.push(&figure, 1, 2, &[1.0, 3.0], &[1.0]).unwrap();
+        let figure = GridParent::Rect([0.0, 0.0, 1.0, 1.0]);
+        grids.push(&figure, &[1.0, 3.0], &[1.0]).unwrap();
         grids
             .get_mut(0)
             .edit_margin_min(Margin::Left, 0.2, 1)

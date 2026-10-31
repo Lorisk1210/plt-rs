@@ -1,6 +1,9 @@
 //! Images stretched over a box of the canvas (matplotlib's `BboxImage`),
 //! as offset boxes draw them or as added to an axes.
 
+use std::rc::Rc;
+
+use pltrs_core::archive::{External, ProgramFn};
 use pltrs_core::{Affine2D, Bbox, Point};
 
 use super::make::{CoreSettings, ImageCore, Placement, RenderedImage};
@@ -86,12 +89,32 @@ pub(crate) enum Region {
     /// The display box of another artist (a `BboxImage` given that
     /// artist's `get_window_extent`).
     ExtentOf(ArtistId),
+    /// The display box a function gives for the canvas.
+    Function(ProgramFn<BboxFn>),
 }
 
 pltrs_core::archive_enum!(Region {
     Transformed(v0, v1),
     ExtentOf(v0),
+    Function(v0),
 });
+
+/// What a box function of a [`BboxImage`] is told of the canvas the image
+/// is drawn on or measured for, as matplotlib's renderer tells it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Canvas {
+    /// The width in pixels.
+    pub width: f64,
+    /// The height in pixels.
+    pub height: f64,
+    /// The resolution, in dots per inch.
+    pub dpi: f64,
+}
+
+/// A function giving the display box a [`BboxImage`] fills on a canvas,
+/// `None` to leave the image out (matplotlib's `BboxImage(bbox)` with a
+/// callable of the renderer).
+pub type BboxFn = dyn Fn(Canvas) -> Option<Bbox>;
 
 impl BboxImageArtist {
     /// An image of `data` made as `options` say, at z-order 0 and not
@@ -125,6 +148,14 @@ impl BboxImageArtist {
                 Some(transformed_bbox(bbox, &ctx.resolve(transform)?))
             }
             Some(Region::ExtentOf(id)) => ctx.store().get(*id)?.window_extent(&ctx),
+            Some(Region::Function(bbox)) => {
+                let (width, height) = ctx.canvas_size();
+                bbox.get()(Canvas {
+                    width,
+                    height,
+                    dpi: ctx.dpi(),
+                })
+            }
             None => self.bbox,
         }
     }
@@ -267,9 +298,63 @@ impl BboxImage {
     /// `BboxImage(TransformedBbox(bbox, coords))`); the image is flipped
     /// along the directions in which the box is inverted.
     pub fn set_bbox(&self, bbox: Bbox, coords: Transform) -> &Self {
-        self.raw.with_mut::<BboxImageArtist, _>(|image| {
-            image.region = Some(Region::Transformed(bbox, coords));
-        });
+        self.set_region(Region::Transformed(bbox, coords))
+    }
+
+    /// Stretches the image over the display box `bbox` gives for the
+    /// canvas, asked again whenever the image is drawn or measured; the
+    /// image is left out while it gives `None` (matplotlib's
+    /// `BboxImage(bbox)` with a function of the renderer). It runs while
+    /// the figure is drawn or laid out: it is `Send`, so it cannot use
+    /// the figure's handles. A figure with such an image is archived only
+    /// if the function has an origin ([`set_bbox_fn_with_origin`](Self::set_bbox_fn_with_origin)).
+    ///
+    /// ```
+    /// use pltrs::axes::AddAs;
+    /// use pltrs::image::{BboxImage, BboxImageOptions};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::Bbox;
+    /// let ax = Figure::with_size(4.0, 3.0, 100.0).subplot();
+    /// let image = BboxImage::loose(Grid::filled(2, 2, 0.5), BboxImageOptions::default())?;
+    /// // The upper right quarter of the canvas, whatever its size.
+    /// image.set_bbox_fn(|canvas| {
+    ///     let (w, h) = (canvas.width, canvas.height);
+    ///     Some(Bbox::from_extents(w / 2.0, h / 2.0, w, h))
+    /// });
+    /// let image = ax.adopt_artist(image.raw(), AddAs::Artist)?;
+    /// assert_eq!(image.window_extent(), Some(Bbox::from_extents(200.0, 150.0, 400.0, 300.0)));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_bbox_fn(&self, bbox: impl Fn(Canvas) -> Option<Bbox> + Send + 'static) -> &Self {
+        self.set_region(Region::Function(ProgramFn::new(Rc::new(bbox))))
+    }
+
+    /// [`set_bbox_fn`](Self::set_bbox_fn), archived as `origin`, what the
+    /// program made `bbox` from (see [`ProgramFn`]).
+    pub fn set_bbox_fn_with_origin(
+        &self,
+        bbox: impl Fn(Canvas) -> Option<Bbox> + Send + 'static,
+        origin: External,
+    ) -> &Self {
+        self.set_region(Region::Function(ProgramFn::with_origin(
+            Rc::new(bbox),
+            origin,
+        )))
+    }
+
+    /// Stretches the image over the display box of `artist`, an artist of
+    /// the same figure, wherever it is when the image is drawn
+    /// (matplotlib's `BboxImage(artist.get_window_extent)`); the image is
+    /// left out once `artist` is removed.
+    pub fn set_bbox_extent_of(&self, artist: &impl ArtistHandle) -> &Self {
+        self.set_region(Region::ExtentOf(artist.id()))
+    }
+
+    /// Fills `region` from now on.
+    fn set_region(&self, region: Region) -> &Self {
+        self.raw
+            .with_mut::<BboxImageArtist, _>(|image| image.region = Some(region));
         self
     }
 }
@@ -299,5 +384,31 @@ mod tests {
         assert_ne!(image.window_extent(), before, "the image moved along");
         text.remove();
         assert_eq!(image.window_extent(), None);
+    }
+
+    #[test]
+    fn box_functions_are_asked_for_the_canvas_each_time() {
+        let fig = Figure::with_size(2.0, 1.0, 100.0);
+        let ax = fig.subplot();
+        let image = BboxImage::loose(Grid::filled(1, 1, 0.5), BboxImageOptions::default()).unwrap();
+        image.set_bbox_fn(|canvas| {
+            (canvas.dpi > 50.0)
+                .then(|| Bbox::from_extents(0.0, 0.0, canvas.width / 2.0, canvas.height))
+        });
+        let image = ax
+            .adopt_artist(image.raw(), crate::axes::AddAs::Artist)
+            .unwrap();
+        assert_eq!(
+            image.window_extent(),
+            Some(Bbox::from_extents(0.0, 0.0, 100.0, 100.0))
+        );
+        fig.set_dpi(200.0);
+        assert_eq!(
+            image.window_extent(),
+            Some(Bbox::from_extents(0.0, 0.0, 200.0, 200.0))
+        );
+        fig.set_dpi(40.0);
+        assert_eq!(image.window_extent(), None, "the function left it out");
+        fig.to_png().unwrap();
     }
 }

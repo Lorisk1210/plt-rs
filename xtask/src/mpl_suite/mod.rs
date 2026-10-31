@@ -237,6 +237,9 @@ fn pytest(
         ])
         .args(["-n", WORKERS, "--timeout", TEST_TIMEOUT])
         .args(["--continue-on-collection-errors", "-q", "-rN"])
+        // pytest's temporary directories (`tmp_path`) under the run's own
+        // directory, not in the system's temporary directory.
+        .arg(crate::python::basetemp(&dir.join("pytest-tmp")))
         .args(targets)
         .current_dir(site)
         .env("PYTHONPATH", python_path)

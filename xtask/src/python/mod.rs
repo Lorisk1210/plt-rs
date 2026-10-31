@@ -14,6 +14,7 @@ mod setup;
 
 use std::env;
 use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -102,15 +103,20 @@ fn target_dir() -> PathBuf {
     }
 }
 
-/// Runs pltrs's own tests (`python/tests`) in the pltrs venv.
+/// Runs pltrs's own tests (`python/tests`) in the pltrs venv, from a
+/// directory under the target directory, so the images the tests write
+/// (`result_images/` in the working directory) stay out of the sources.
 fn smoke_test() -> Result<(), String> {
     let root = root();
+    let scratch = target_dir().join("python-tests");
+    fs::create_dir_all(&scratch)
+        .map_err(|err| format!("cannot create {}: {err}", scratch.display()))?;
     let mut command = Command::new(pltrs_python()?);
     command
         .args([OsStr::new("-m"), OsStr::new("pytest"), OsStr::new("-q")])
         .arg(root.join("python/tests"))
         .env("PYTHONPATH", root.join("python"))
-        .current_dir(&root);
+        .current_dir(&scratch);
     run_checked(&mut command)
 }
 

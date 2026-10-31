@@ -174,7 +174,7 @@ mod tests {
     use super::*;
     use pltrs_core::Point;
 
-    use crate::markers::{MarkerSymbol, PolygonStyle};
+    use crate::markers::{MarkerSymbol, NoMarker, PolygonStyle};
 
     fn style(marker: MarkerSymbol, fill: FillStyle) -> MarkerStyle {
         MarkerStyle::new(marker, fill).expect("valid marker")
@@ -238,7 +238,7 @@ mod tests {
         ] {
             assert!(!style(symbol, FillStyle::Full).is_filled(), "{symbol:?}");
         }
-        assert!(!style(MarkerSymbol::Nothing, FillStyle::Full).is_visible());
+        assert!(!style(MarkerSymbol::Nothing(NoMarker::None), FillStyle::Full).is_visible());
     }
 
     #[test]

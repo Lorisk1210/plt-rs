@@ -104,15 +104,16 @@ impl AxisState {
     /// The ticks to draw for the view of `geometry`.
     pub(crate) fn compute_ticks(&self, geometry: &AxisGeometry) -> Result<TickSet, TickerError> {
         let mut info = self.info(geometry);
+        let settings = self.settings();
         let mut major_locs = {
-            let ctx = TickContext::new(&info, &self.settings);
+            let ctx = TickContext::new(&info, &settings);
             drawable_ticks(self.major_locator.locate(&ctx)?)?
         };
         if let Some(floor) = geometry.tick_floor {
             major_locs.retain(|&loc| loc > floor);
         }
         info.major_ticks.clone_from(&major_locs);
-        let ctx = TickContext::new(&info, &self.settings);
+        let ctx = TickContext::new(&info, &settings);
         let (lo, hi) = (self.forward(geometry.view.0), self.forward(geometry.view.1));
         let visible = |loc: f64| interval_contains_close((lo, hi), self.forward(loc), 1e-10);
         let unclipped = |locs: &[f64], labels: Vec<String>| -> Vec<Tick> {

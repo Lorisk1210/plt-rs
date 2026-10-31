@@ -183,7 +183,7 @@ impl Canon for FontStretch {
 impl Canon for Marker {
     fn canon(&self) -> Json {
         match self {
-            Self::Symbol(MarkerSymbol::Nothing) => text("None"),
+            Self::Symbol(MarkerSymbol::Nothing(_)) => text("None"),
             Self::Symbol(symbol) => {
                 MarkerSymbol::all()
                     .find(|(_, s)| s == symbol)

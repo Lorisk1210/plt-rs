@@ -82,8 +82,9 @@ pub enum MarkerSymbol {
     CaretUpBase,
     /// `11`
     CaretDownBase,
-    /// `"None"`, `"none"`, `" "`, `""` — no marker.
-    Nothing,
+    /// `"None"`, `"none"`, `" "`, `""` — no marker, spelled as the
+    /// program spelled it.
+    Nothing(NoMarker),
 }
 
 pltrs_core::archive_enum!(MarkerSymbol {
@@ -124,8 +125,52 @@ pltrs_core::archive_enum!(MarkerSymbol {
     CaretRightBase,
     CaretUpBase,
     CaretDownBase,
-    Nothing,
+    Nothing(v0),
 });
+
+/// How a program spelled "no marker". matplotlib's `MarkerStyle` keeps
+/// the marker as it was given, and `get_marker()` returns that spelling.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum NoMarker {
+    /// `"None"`, the default (`lines.marker`).
+    #[default]
+    None,
+    /// `"none"`.
+    Lowercase,
+    /// `" "`.
+    Space,
+    /// `""`, what matplotlib's box plots give the lines of their boxes.
+    Empty,
+}
+
+pltrs_core::archive_enum!(NoMarker {
+    None,
+    Lowercase,
+    Space,
+    Empty,
+});
+
+impl NoMarker {
+    /// Every spelling, in matplotlib's `MarkerStyle.markers` order.
+    pub const ALL: [Self; 4] = [Self::None, Self::Lowercase, Self::Space, Self::Empty];
+
+    /// The marker code.
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::None => "None",
+            Self::Lowercase => "none",
+            Self::Space => " ",
+            Self::Empty => "",
+        }
+    }
+
+    /// The spelling `code` is, if it is one.
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|spelling| spelling.code() == code)
+    }
+}
 
 /// Character codes in matplotlib's `MarkerStyle.markers` order.
 const CHAR_CODES: [(&str, MarkerSymbol, &str); 25] = [
@@ -172,9 +217,6 @@ const INT_CODES: [(MarkerSymbol, &str); 12] = [
     (MarkerSymbol::CaretDownBase, "caretdownbase"),
 ];
 
-/// The spellings of "no marker".
-const NOTHING_CODES: [&str; 4] = ["None", "none", " ", ""];
-
 impl MarkerSymbol {
     /// The symbol for matplotlib's integer marker codes `0..=11`.
     pub fn from_code(code: i64) -> Option<Self> {
@@ -186,7 +228,7 @@ impl MarkerSymbol {
 
     /// matplotlib's descriptive name (`"circle"`, `"caretdown"`, ...).
     pub fn name(self) -> &'static str {
-        if self == Self::Nothing {
+        if matches!(self, Self::Nothing(_)) {
             return "nothing";
         }
         CHAR_CODES
@@ -205,9 +247,9 @@ impl MarkerSymbol {
             .iter()
             .zip(0..)
             .map(|((s, _), i)| (MarkerKey::Code(i), *s));
-        let nothing = NOTHING_CODES
-            .iter()
-            .map(|c| (MarkerKey::Char(c), Self::Nothing));
+        let nothing = NoMarker::ALL
+            .into_iter()
+            .map(|spelling| (MarkerKey::Char(spelling.code()), Self::Nothing(spelling)));
         chars.chain(ints).chain(nothing)
     }
 }
@@ -283,8 +325,9 @@ pltrs_core::archive_enum!(Marker {
 });
 
 impl Default for Marker {
+    /// No marker, spelled `"None"`.
     fn default() -> Self {
-        Self::Symbol(MarkerSymbol::Nothing)
+        Self::nothing(NoMarker::None)
     }
 }
 
@@ -317,9 +360,14 @@ impl Marker {
         }
     }
 
-    /// Whether this is the "no marker" marker.
+    /// No marker, spelled `spelling`.
+    pub const fn nothing(spelling: NoMarker) -> Self {
+        Self::Symbol(MarkerSymbol::Nothing(spelling))
+    }
+
+    /// Whether this is the "no marker" marker, however it is spelled.
     pub fn is_nothing(&self) -> bool {
-        matches!(self, Self::Symbol(MarkerSymbol::Nothing))
+        matches!(self, Self::Symbol(MarkerSymbol::Nothing(_)))
     }
 }
 
@@ -329,8 +377,8 @@ impl FromStr for Marker {
     /// Parses matplotlib's string marker codes (`"o"`, `"^"`, `"None"`,
     /// ...) and mathtext markers (`"$f$"`).
     fn from_str(code: &str) -> Result<Self, MarkerError> {
-        if NOTHING_CODES.contains(&code) {
-            return Ok(Self::Symbol(MarkerSymbol::Nothing));
+        if let Some(spelling) = NoMarker::from_code(code) {
+            return Ok(Self::nothing(spelling));
         }
         if pltrs_text::mathtext::is_math_text(code) {
             return Ok(Self::Math(code.to_owned()));
@@ -451,7 +499,7 @@ mod tests {
     #[test]
     fn parses_character_and_integer_codes() {
         assert_eq!("o".parse(), Ok(Marker::Symbol(MarkerSymbol::Circle)));
-        assert_eq!("None".parse(), Ok(Marker::Symbol(MarkerSymbol::Nothing)));
+        assert_eq!("None".parse(), Ok(Marker::default()));
         assert_eq!(
             Marker::from_code(7),
             Ok(Marker::Symbol(MarkerSymbol::CaretDown))
@@ -466,10 +514,24 @@ mod tests {
     }
 
     #[test]
+    fn no_marker_keeps_its_spelling() {
+        for spelling in NoMarker::ALL {
+            let marker: Marker = spelling.code().parse().expect("a marker code");
+            assert_eq!(marker, Marker::nothing(spelling));
+            assert!(marker.is_nothing());
+            let key = MarkerSymbol::all()
+                .find(|(_, symbol)| *symbol == MarkerSymbol::Nothing(spelling))
+                .map(|(key, _)| key);
+            assert_eq!(key, Some(MarkerKey::Char(spelling.code())));
+        }
+        assert_eq!(NoMarker::from_code("nothing"), None);
+    }
+
+    #[test]
     fn names_follow_matplotlib() {
         assert_eq!(MarkerSymbol::ThinDiamond.name(), "thin_diamond");
         assert_eq!(MarkerSymbol::CaretUpBase.name(), "caretupbase");
-        assert_eq!(MarkerSymbol::Nothing.name(), "nothing");
+        assert_eq!(MarkerSymbol::Nothing(NoMarker::Empty).name(), "nothing");
         assert_eq!(MarkerSymbol::all().count(), 41);
     }
 

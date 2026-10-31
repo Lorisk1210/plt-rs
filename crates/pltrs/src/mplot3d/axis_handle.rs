@@ -15,7 +15,7 @@ use super::state::Axes3DState;
 use crate::axes::{TickParams, TickStyle, TicklabelFormat, tick_label_formatter};
 use crate::ticker::{
     AutoMinorLocator, AxisName, FixedLocator, Formatter, Locator, NullLocator, ScalarFormatter,
-    TickerError,
+    TickerError, TickerSettings,
 };
 use crate::units::AxisValues;
 
@@ -339,7 +339,7 @@ impl Axis3D {
             scale.name().has_own_minor_locator().then(|| {
                 Rc::<dyn Locator>::from(
                     scale
-                        .default_tickers(AxisName::X, &axis.settings)
+                        .default_tickers(AxisName::X, &TickerSettings::current())
                         .minor_locator,
                 )
             })

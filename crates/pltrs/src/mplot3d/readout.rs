@@ -12,7 +12,7 @@ use super::geometry::BoxGeometry;
 use super::handle::Axes3D;
 use super::math::Vec3;
 use crate::artist::ArtistHandle;
-use crate::ticker::{AxisInfo, ScalarFormatter, TickContext};
+use crate::ticker::{AxisInfo, ScalarFormatter, TickContext, TickerSettings};
 use crate::transforms::TransformContext;
 
 /// The focal length standing in for an orthographic camera's infinite one
@@ -160,15 +160,15 @@ impl Axes3D {
         self.with(|axes| {
             let axis3d = axes.axis(axis);
             let formatter = &axis3d.tickers.major_formatter;
+            let settings = TickerSettings::current();
             let any: &dyn Any = formatter.as_ref();
             if any.is::<ScalarFormatter>() {
-                return ScalarFormatter::format_data_resolved(value, resolution, &axis3d.settings)
-                    .ok();
+                return ScalarFormatter::format_data_resolved(value, resolution, &settings).ok();
             }
             let (lo, hi) = axes.limits.view(axis);
             let info = AxisInfo::with_view(lo, hi);
             formatter
-                .format_data_short(value, &TickContext::new(&info, &axis3d.settings))
+                .format_data_short(value, &TickContext::new(&info, &settings))
                 .ok()
         })
     }

@@ -8,7 +8,6 @@ use helper::{Mode, Raw, Signal, spectral_helper};
 
 use super::{Complex, Detrend, MlabError, Window};
 use crate::numeric::Grid;
-use crate::stats::pairwise;
 
 /// A sample type spectral estimates accept: real (`f64`) or complex.
 ///
@@ -364,7 +363,10 @@ fn real_parts(spectrum: Spectrum<Complex>) -> Spectrum {
     }
 }
 
-/// The segment average (matplotlib `Pxy.mean(axis=1)`).
+/// The segment average (matplotlib `Pxy.mean(axis=1)`). numpy adds the
+/// segments one after the other into zero, as matplotlib's spectra are
+/// laid out frequency first (the transform keeps the Fortran order of
+/// the segment view), then divides by their count.
 fn average_segments(raw: Raw) -> Spectrum<Complex> {
     let count = Complex::real(raw.values.cols() as f64);
     let values = raw
@@ -374,7 +376,7 @@ fn average_segments(raw: Raw) -> Spectrum<Complex> {
             if row.len() == 1 {
                 row[0]
             } else {
-                pairwise(row, Complex::ZERO) / count
+                row.iter().fold(Complex::ZERO, |sum, &value| sum + value) / count
             }
         })
         .collect();

@@ -288,20 +288,23 @@ impl Axes {
     }
 
     /// Whether autoscaling rounds the view of the x and y axes out to
-    /// ticks (the `axes.autolimit_mode` the axes was created under).
+    /// ticks: the mode set with
+    /// [`set_autolimit_mode`](Self::set_autolimit_mode), else the current
+    /// `axes.autolimit_mode`, which matplotlib reads whenever it
+    /// autoscales.
     pub fn autolimit_mode(&self) -> (AutolimitMode, AutolimitMode) {
         self.raw.with::<AxesState, _>(|a| {
             (
-                a.xaxis.settings.axes_autolimit_mode,
-                a.yaxis.settings.axes_autolimit_mode,
+                a.xaxis.settings().axes_autolimit_mode,
+                a.yaxis.settings().axes_autolimit_mode,
             )
         })
     }
 
-    /// Rounds the autoscaled view of both axes out to ticks or not, and
-    /// autoscales them again: matplotlib's `axes.autolimit_mode`, which it
-    /// reads whenever it autoscales, as when `ax.autoscale_view()` runs
-    /// under `rc_context({'axes.autolimit_mode': ...})`.
+    /// Rounds the autoscaled view of both axes out to ticks or not, from
+    /// now on whatever `axes.autolimit_mode` says, and autoscales them
+    /// again: what matplotlib does when `ax.autoscale_view()` runs under
+    /// `rc_context({'axes.autolimit_mode': ...})`.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -315,7 +318,7 @@ impl Axes {
     pub fn set_autolimit_mode(&self, mode: AutolimitMode) -> &Self {
         self.raw.with_mut::<AxesState, _>(|a| {
             for name in [AxisName::X, AxisName::Y] {
-                a.axis_mut(name).settings.axes_autolimit_mode = mode;
+                a.axis_mut(name).autolimit_mode = Some(mode);
             }
             a.request_autoscale(true, true);
         });
@@ -515,5 +518,30 @@ mod tests {
         assert_eq!(ax.ylim().0, 0.0);
         ax.set_use_sticky_edges(false).autoscale(None, None);
         assert!(ax.ylim().0 < 0.0 && !ax.use_sticky_edges());
+    }
+
+    #[test]
+    fn the_autolimit_mode_is_read_when_autoscaling() {
+        // matplotlib's test_auto_numticks_log changes the rcParam after
+        // making the axes.
+        crate::rc::context(|| {
+            let ax = Figure::new().subplot();
+            crate::rc::set("axes.autolimit_mode", "round_numbers").expect("a valid mode");
+            ax.plot([0.3, 4.7], [0.3, 4.7]).expect("valid data");
+            assert_eq!(ax.xlim(), (0.0, 5.0));
+            assert_eq!(ax.autolimit_mode().1, AutolimitMode::RoundNumbers);
+        });
+    }
+
+    #[test]
+    fn an_autolimit_mode_set_on_the_axes_outlasts_the_rcparam() {
+        let ax = Figure::new().subplot();
+        ax.plot([0.3, 4.7], [0.3, 4.7]).expect("valid data");
+        ax.set_autolimit_mode(AutolimitMode::RoundNumbers);
+        crate::rc::context(|| {
+            crate::rc::set("axes.autolimit_mode", "data").expect("a valid mode");
+            ax.plot([0.3, 5.7], [0.3, 4.7]).expect("valid data");
+            assert_eq!(ax.xlim(), (0.0, 6.0));
+        });
     }
 }

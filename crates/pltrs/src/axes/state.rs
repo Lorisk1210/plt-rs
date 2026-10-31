@@ -418,7 +418,8 @@ impl AxesState {
             tick_space: None,
             tick_floor: None,
         });
-        let ctx = TickContext::new(&info, &axis.settings);
+        let settings = axis.settings();
+        let ctx = TickContext::new(&info, &settings);
         axis.major_locator.nonsingular(v0, v1, &ctx)
     }
 

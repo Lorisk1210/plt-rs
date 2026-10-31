@@ -93,7 +93,7 @@ pub(super) fn spectral_helper(
             let y_spec = segment.transform(&zero_padded(&y.samples, nfft), y.complex)?;
             values = cross(&values, &y_spec)?;
         }
-        (None, Mode::Psd) => values = values.map(|&z| z.conj() * z),
+        (None, Mode::Psd) => values = values.map(|&z| z.conj().mul_fused(z)),
         (None, Mode::Magnitude) => {
             let sum = pairwise(&window, 0.0);
             values = values.map(|z| Complex::real(z.abs() / sum));
@@ -184,7 +184,8 @@ fn zero_padded(x: &[Complex], len: usize) -> Vec<Complex> {
     padded
 }
 
-/// `conj(X)·Y`, broadcasting a single segment against several.
+/// `conj(X)·Y` as numpy multiplies the arrays, broadcasting a single
+/// segment against several.
 fn cross(x: &Grid<Complex>, y: &Grid<Complex>) -> Result<Grid<Complex>, MlabError> {
     let (nx, ny) = (x.cols(), y.cols());
     if nx != ny && nx != 1 && ny != 1 {
@@ -192,7 +193,7 @@ fn cross(x: &Grid<Complex>, y: &Grid<Complex>) -> Result<Grid<Complex>, MlabErro
     }
     let pick = |n: usize, s: usize| if n == 1 { 0 } else { s };
     Ok(Grid::from_fn(x.rows(), nx.max(ny), |f, s| {
-        x[(f, pick(nx, s))].conj() * y[(f, pick(ny, s))]
+        x[(f, pick(nx, s))].conj().mul_fused(y[(f, pick(ny, s))])
     }))
 }
 

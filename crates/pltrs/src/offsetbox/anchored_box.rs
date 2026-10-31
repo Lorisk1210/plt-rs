@@ -11,7 +11,8 @@ use super::{
     anchored_bbox, transformed_bbox,
 };
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext,
+    RawHandle, TypedHandle,
 };
 use crate::axes::Axes;
 use crate::events::Dragger;
@@ -291,6 +292,13 @@ pub struct AnchoredOffsetbox {
     raw: RawHandle,
 }
 
+impl TypedHandle for AnchoredOffsetbox {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<AnchoredBoxArtist>()
+            .then(|| Self { raw: raw.clone() })
+    }
+}
+
 impl ArtistHandle for AnchoredOffsetbox {
     fn raw(&self) -> &RawHandle {
         &self.raw
@@ -338,6 +346,35 @@ impl AnchoredOffsetbox {
     fn artist_ids(&self) -> Vec<ArtistId> {
         self.raw.with::<AnchoredBoxArtist, _>(|anchored| {
             anchored.child.artists().into_iter().copied().collect()
+        })
+    }
+
+    /// Clips the artists of the drawing area at `area` among those of the
+    /// box (see [`OffsetBox::drawing_area_mut`]) to its bounds, or stops
+    /// clipping them (matplotlib's `DrawingArea.clip_children`); the box
+    /// and its figure become stale.
+    ///
+    /// ```
+    /// use pltrs::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions, DrawingArea};
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let area = DrawingArea::new(10.0, 10.0, 0.0, 0.0);
+    /// let options = AnchoredOptions::new(AnchorLoc::Center);
+    /// let anchored = fig.subplot().add_anchored_box(AnchoredBox::new(area, options));
+    /// fig.draw_without_rendering()?;
+    /// assert!(anchored.set_clip_children(0, true));
+    /// assert!(fig.is_stale() && !anchored.set_clip_children(1, true));
+    /// # Ok::<(), pltrs::figure::DrawErrors>(())
+    /// ```
+    ///
+    /// Returns whether the box has such an area.
+    pub fn set_clip_children(&self, area: usize, clip: bool) -> bool {
+        self.raw.with_mut::<AnchoredBoxArtist, _>(|anchored| {
+            anchored
+                .child
+                .drawing_area_mut(area)
+                .map(|found| found.clip = clip)
+                .is_some()
         })
     }
 }

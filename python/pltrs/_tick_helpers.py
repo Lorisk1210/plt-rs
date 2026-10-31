@@ -49,9 +49,12 @@ def get(axis, kind, minor):
     entry = registry.get(helper_id)
     if entry is not None:
         return entry[1]
-    helper = _from_spec(_axis.describe_helper(token), token, axis, kind)
+    spec = _axis.describe_helper(token)
+    helper = _from_spec(spec, token, axis, kind)
     helper.set_axis(axis)
     _watch(helper, axis)
+    if kind == "formatter" and spec is not None and spec["kind"] != "python":
+        _watch_native_formatter(helper, axis)
     registry[helper_id] = (token, helper, axis)
     return helper
 
@@ -85,6 +88,21 @@ def _watch(helper, axis):
     object.__setattr__(helper, "_native_axis", axis)
     for part in _parts(helper):
         object.__setattr__(part, "_native_root", helper)
+
+
+def _watch_native_formatter(helper, axis):
+    """
+    Have the first change to *helper*, the object of a formatter pltrs
+    (Rust) installed on *axis*, install it in place of that formatter
+    (see `check_native`), as matplotlib's formatters change in place:
+    through an adapter, which follows its later changes.
+    """
+    spec = getattr(helper, "_spec", None)
+    if spec is None:
+        return
+    object.__setattr__(helper, "_native_spec", spec())
+    object.__setattr__(helper, "_native_axis", axis)
+    object.__setattr__(helper, "_native_root", helper)
 
 
 #: The modules whose helpers pltrs (Rust) has: those of the others (dates,
@@ -190,7 +208,15 @@ def check_native(helper):
     if root is None:
         return
     installed = root.__dict__.get("_native_spec")
-    if installed is not None and _spec_of(root) != installed:
+    if installed is None:
+        return
+    if _is_locator(root):
+        if _spec_of(root) != installed:
+            changed(root)
+    elif root._spec() != installed:
+        # A formatter is installed through an adapter from now on.
+        for name in ("_native_spec", "_native_root"):
+            object.__delattr__(root, name)
         changed(root)
 
 
@@ -388,7 +414,7 @@ _LOCATORS = {
 def _scalar_formatter(spec, axis):
     formatter = _ticker().ScalarFormatter(
         useOffset=spec["use_offset"], useMathText=spec["use_mathtext"],
-        usetex=spec["usetex"])
+        usetex=spec["usetex"], useLocale=spec["locale"] is not None)
     formatter.set_scientific(spec["scientific"])
     formatter.set_powerlimits(spec["powerlimits"])
     return formatter

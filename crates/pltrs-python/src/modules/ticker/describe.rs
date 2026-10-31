@@ -239,7 +239,11 @@ fn scalar_formatter<'py>(py: Python<'py>, scalar: &ScalarFormatter) -> PyResult<
         .with("use_mathtext", scalar.use_mathtext())?
         .with("usetex", scalar.usetex())?
         .with("scientific", scalar.scientific())?
-        .with("powerlimits", scalar.powerlimits())
+        .with("powerlimits", scalar.powerlimits())?
+        .with(
+            "locale",
+            scalar.locale().cloned().map(super::locale::PyLocale),
+        )
 }
 
 #[cfg(test)]

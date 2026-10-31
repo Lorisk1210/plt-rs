@@ -323,6 +323,19 @@ fn set_paths(collection: Collection, paths: Vec<PyPath>) -> PyResult<()> {
     Ok(())
 }
 
+/// Gives the collection one path where a sequence of paths is expected
+/// (matplotlib's `set_paths(path)`), which drawing refuses.
+fn set_single_path(collection: Collection, path: PyPath) -> PyResult<()> {
+    collection.set_single_path(path.path);
+    Ok(())
+}
+
+/// Whether the collection's paths are one path given in place of a
+/// sequence.
+fn has_single_path(collection: Collection) -> PyResult<bool> {
+    Ok(collection.has_single_path())
+}
+
 /// Replaces the items with polylines through each segment's points.
 fn set_segments(collection: Collection, segments: Vec<NdArray>) -> PyResult<()> {
     let segments = segments
@@ -530,6 +543,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_gapcolors", get_gapcolors)?;
     module.add("get_paths", get_paths)?;
     module.add("set_paths", set_paths)?;
+    module.add("set_single_path", set_single_path)?;
+    module.add("has_single_path", has_single_path)?;
     module.add("set_segments", set_segments)?;
     module.add("set_verts", set_verts)?;
     module.add("get_sizes", get_sizes)?;

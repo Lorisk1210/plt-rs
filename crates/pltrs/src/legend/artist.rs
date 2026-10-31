@@ -97,6 +97,10 @@ pub(crate) struct LegendArtist {
     pub(crate) parent: LegendParent,
     pub(crate) settings: Settings,
     pub(crate) location: Location,
+    /// Whether the location is the default `legend.loc` rather than one
+    /// the program chose (matplotlib's `_loc_used_default`): only then
+    /// does a slow search for the best location warn.
+    pub(crate) loc_used_default: bool,
     /// The edge an `"outside ..."` figure legend makes room at.
     pub(crate) outside: Option<OutsideEdge>,
     pub(crate) mode: LegendMode,
@@ -137,6 +141,7 @@ pltrs_core::archive_struct!(LegendArtist {
     parent,
     settings,
     location,
+    loc_used_default,
     outside,
     mode,
     anchor,
@@ -210,7 +215,7 @@ impl Artist for LegendArtist {
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        self.layout(*ctx).ok().map(|layout| layout.extent)
+        self.extent(*ctx).ok()
     }
 
     /// matplotlib's `Legend.contains`: on the frame.

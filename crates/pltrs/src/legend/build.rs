@@ -155,6 +155,7 @@ pub(crate) fn build(
         base: ArtistBase::with_zorder(LEGEND_ZORDER),
         parent,
         location: placement.location,
+        loc_used_default: options.loc.is_none(),
         outside: placement.outside,
         mode: options.mode,
         anchor: anchor(options, parent),
@@ -224,19 +225,28 @@ fn title_text(options: &LegendOptions, rc: &Rc<RcParams>) -> Result<TextArtist, 
     Ok(title)
 }
 
-/// The validated placement: the option, else `legend.loc`, which figure
-/// legends take as `"upper right"` when it asks for `"best"`.
+/// The validated placement: the option, else the default location.
 fn placement(
     options: &LegendOptions,
     parent: LegendParent,
     rc: &RcParams,
 ) -> Result<Placement, LegendError> {
     let figure = matches!(parent, LegendParent::Figure(_));
-    let loc = options.loc.unwrap_or(match rc.legend_loc.loc {
-        LegendLoc::Best if figure => LegendLoc::Anchored(AnchorLoc::UpperRight),
+    Placement::of(
+        options.loc.unwrap_or_else(|| default_loc(parent, rc)),
+        figure,
+    )
+}
+
+/// The location of a legend of `parent` given none: `legend.loc`, which
+/// figure legends take as `"upper right"` when it asks for `"best"`.
+pub(super) fn default_loc(parent: LegendParent, rc: &RcParams) -> LegendLoc {
+    match rc.legend_loc.loc {
+        LegendLoc::Best if matches!(parent, LegendParent::Figure(_)) => {
+            LegendLoc::Anchored(AnchorLoc::UpperRight)
+        }
         loc => loc,
-    });
-    Placement::of(loc, figure)
+    }
 }
 
 /// The title font: `title_fontproperties`, else the rc font at

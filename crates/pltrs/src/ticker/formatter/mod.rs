@@ -1,6 +1,7 @@
 //! Tick formatters: what tick labels say.
 
 mod eng;
+mod locale;
 mod log;
 mod logit;
 mod percent;
@@ -12,6 +13,7 @@ use std::fmt;
 use std::rc::Rc;
 
 pub use eng::{EngFormatter, SI_PREFIXES};
+pub use locale::{Grouping, NumericLocale};
 pub use log::{LogFormatter, LogLabelStyle};
 pub use logit::LogitFormatter;
 pub use percent::PercentFormatter;

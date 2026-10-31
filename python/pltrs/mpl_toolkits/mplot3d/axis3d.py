@@ -1,12 +1,18 @@
-"""
+r"""
 The axes of a 3-D axes (matplotlib's ``mpl_toolkits.mplot3d.axis3d``):
 `XAxis`, `YAxis` and `ZAxis`, each reaching pltrs (Rust)'s axis through its
 `.Axes3D` and its name.
+
+As in matplotlib, a 3-D axis is an `.axis.XAxis`: its tick helpers, its
+`.Tick`\s, ``label``, ``offsetText`` and ``labelpad``, its tick parameters
+and its tight box are those of a 2-D axis, which ``_native.axis`` routes to
+the 3-D axis its axes and name designate. What only 3-D axes have (edges,
+panes, the axis line) is ``_native.mplot3d``'s.
 """
 
 import numpy as np
 
-from pltrs import _api, colors as mcolors, ticker as mticker
+from pltrs import _api, axis as maxis, colors as mcolors
 from pltrs._native import mplot3d as _mplot3d
 
 
@@ -48,22 +54,15 @@ class _AxisLine:
         _mplot3d.set_line_visible(*self._args(), bool(b))
 
 
-class Axis:
+class Axis(maxis.XAxis):
     """An Axis class for the 3D plots."""
 
-    axis_name = None
+    # pltrs (Rust) converts the values in units of 3-D axes.
+    _native_units = True
 
     def __init__(self, axes):
-        self.axes = axes
+        super().__init__(axes)
         self.line = _AxisLine(self)
-        #: The scale object the axis was last given (`get_transform`).
-        self._scale = None
-
-    def get_transform(self):
-        """Return the transform of the axis' scale."""
-        from pltrs import scale as mscale
-        scale = self._scale if self._scale is not None else mscale.LinearScale(self)
-        return scale.get_transform()
 
     def _get_tickdir(self, position):
         """
@@ -98,36 +97,6 @@ class Axis:
     def set_inverted(self, inverted):
         """Set whether this Axis is oriented in the "inverse" direction."""
         _mplot3d.set_inverted(self.axes._native, self.axis_name, bool(inverted))
-
-    def get_label_text(self):
-        """Get the text of the label."""
-        return _mplot3d.get_label(self.axes._native, self.axis_name)
-
-    def set_label_text(self, label, fontdict=None, **kwargs):
-        """Set the text value of the axis label."""
-        self.axes._set_axis_label(self.axis_name, label,
-                                  {**(fontdict or {}), **kwargs})
-
-    def set_major_formatter(self, formatter):
-        """
-        Set the formatter of the major ticker: a `.ticker.Formatter`, or a
-        function ``f(x, pos)`` (made a `.ticker.FuncFormatter`).
-        """
-        self._set_formatter("major", formatter)
-
-    def set_minor_formatter(self, formatter):
-        """Set the formatter of the minor ticker (see `set_major_formatter`)."""
-        self._set_formatter("minor", formatter)
-
-    def _set_formatter(self, level, formatter):
-        if not isinstance(formatter, mticker.Formatter) and callable(formatter):
-            formatter = mticker.FuncFormatter(formatter)
-        if not isinstance(formatter, mticker.Formatter):
-            raise TypeError("formatter argument should be instance of "
-                            "matplotlib.ticker.Formatter")
-        formatter.axis = self
-        _mplot3d.set_formatter(self.axes._native, self.axis_name, level,
-                               formatter)
 
     def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
         """Set this Axis' tick locations."""

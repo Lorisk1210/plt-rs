@@ -153,6 +153,11 @@ pub(crate) struct AxisSpan {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DrawnTick<'a> {
     pub(crate) tick: &'a Tick,
+    /// Whether it is a minor tick.
+    pub(crate) minor: bool,
+    /// Its position among the ticks of its level, inside the view or not
+    /// (the index of its `Tick` object in matplotlib's `majorTicks`).
+    pub(crate) slot: usize,
     /// The tick parameters of its level (colour, label font).
     pub(crate) style: &'a TickStyle,
     /// The width of its mark in points.
@@ -375,7 +380,7 @@ impl Axis3DState {
     }
 
     /// The label pad of the major tick at `slot` in the locator's order.
-    fn major_pad(&self, slot: usize) -> f64 {
+    pub(crate) fn major_pad(&self, slot: usize) -> f64 {
         (self.major_pads.get(slot))
             .or(self.major_pads.first())
             .copied()
@@ -491,24 +496,36 @@ impl Axis3DState {
     /// The ticks drawn, major ones first; none when they could not be
     /// computed.
     pub(crate) fn drawn_ticks(&self) -> impl Iterator<Item = DrawnTick<'_>> {
-        let (major, slots, minor): (&[Tick], &[usize], &[Tick]) = match &self.ticks {
-            Ok(ticks) => (&ticks.major, &ticks.major_index, &ticks.minor),
-            Err(_) => (&[], &[], &[]),
-        };
+        let (major, major_slots, minor, minor_slots): (&[Tick], &[usize], &[Tick], &[usize]) =
+            match &self.ticks {
+                Ok(ticks) => (
+                    &ticks.major,
+                    &ticks.major_index,
+                    &ticks.minor,
+                    &ticks.minor_index,
+                ),
+                Err(_) => (&[], &[], &[], &[]),
+            };
         let (style, width) = (&self.major_style, self.style.major_tick_width);
-        let majors = (major.iter().zip(slots)).map(move |(tick, &slot)| DrawnTick {
+        let majors = (major.iter().zip(major_slots)).map(move |(tick, &slot)| DrawnTick {
             tick,
+            minor: false,
+            slot,
             style,
             width,
             pad: self.major_pad(slot),
         });
         let (style, width) = (&self.minor_style, self.style.minor_tick_width);
-        majors.chain(minor.iter().map(move |tick| DrawnTick {
-            tick,
-            style,
-            width,
-            pad: style.pad,
-        }))
+        majors.chain(
+            (minor.iter().zip(minor_slots)).map(move |(tick, &slot)| DrawnTick {
+                tick,
+                minor: true,
+                slot,
+                style,
+                width,
+                pad: style.pad,
+            }),
+        )
     }
 }
 

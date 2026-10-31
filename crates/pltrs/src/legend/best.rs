@@ -14,6 +14,7 @@ use crate::offsetbox::{AnchorLoc, anchored_bbox};
 use crate::patches::Rectangle;
 use crate::text::TextArtist;
 use crate::transforms::Transform;
+use crate::{clock, warnings};
 
 /// What a legend should avoid, in display pixels.
 #[derive(Debug, Default)]
@@ -144,18 +145,28 @@ fn rectangle_extent(ctx: LayoutContext<'_>, artist: &dyn Artist, rect: &Rectangl
     ))
 }
 
+/// How long a search for the best location may take, in seconds, before
+/// it warns (matplotlib's `_find_best_position`).
+const SLOW_SEARCH: f64 = 1.0;
+
 /// The lower-left corner of the least crowded anchored position of a
 /// `size` legend in `anchor` (matplotlib's `_find_best_position`): the
 /// first position covering nothing, else the one covering least, earlier
 /// location codes winning ties. Figure legends have nothing to avoid
 /// (and never ask: `"best"` is rejected for them).
+///
+/// As matplotlib does, the search times itself on [`clock`] and warns
+/// when it took longer than a second for a legend at the default location
+/// (`warn_if_slow`), reading the clock at the end only then.
 pub(crate) fn best_position(
     ctx: LayoutContext<'_>,
     parent: LegendParent,
     anchor: &Bbox,
     pad: f64,
     (width, height): (f64, f64),
+    warn_if_slow: bool,
 ) -> Point {
+    let start = clock::perf_counter();
     let obstacles = match parent {
         LegendParent::Axes(axes) => Obstacles::of_axes(ctx, axes),
         LegendParent::Figure(_) => Obstacles::default(),
@@ -171,6 +182,9 @@ pub(crate) fn best_position(
         if badness == 0 {
             break;
         }
+    }
+    if warn_if_slow && clock::perf_counter() - start > SLOW_SEARCH {
+        warnings::warn("Creating legend with loc=\"best\" can be slow with large amounts of data.");
     }
     best.map_or(anchor.p0, |(_, corner)| corner)
 }

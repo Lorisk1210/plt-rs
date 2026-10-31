@@ -258,14 +258,25 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_paths(self):
         """Return the paths of the items."""
-        return [Path(vertices, codes)
-                for vertices, codes in _collections.get_paths(self._native)]
+        paths = [Path(vertices, codes)
+                 for vertices, codes in _collections.get_paths(self._native)]
+        if _collections.has_single_path(self._native):
+            return paths[0]
+        return paths
 
     _paths = property(get_paths, doc="The paths of the items.")
 
     def set_paths(self, paths):
-        """Set the paths of the items."""
-        _collections.set_paths(self._native, list(paths))
+        """
+        Set the paths of the items.
+
+        A single `.Path` is kept as it is given, as matplotlib keeps it:
+        drawing the collection then raises matplotlib's `TypeError`.
+        """
+        if isinstance(paths, Path):
+            _collections.set_single_path(self._native, paths)
+        else:
+            _collections.set_paths(self._native, list(paths))
 
     def get_transforms(self):
         """

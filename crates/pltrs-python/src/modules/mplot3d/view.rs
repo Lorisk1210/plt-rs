@@ -138,12 +138,6 @@ fn get_label(axes: Axes3D, name: String) -> PyResult<String> {
     Ok(axes.label(axis3(&name)?))
 }
 
-/// Sets the label of axis `name` (`set_zlabel`, ...).
-fn set_label(axes: Axes3D, name: String, text: String) -> PyResult<()> {
-    axes.set_label(axis3(&name)?, text);
-    Ok(())
-}
-
 /// Shows (`on`) or hides the panes, axes and gridlines (`set_axis_on`,
 /// `set_axis_off`).
 fn set_axis_on(axes: Axes3D, on: bool) -> PyResult<()> {
@@ -267,7 +261,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_aspect", set_aspect)?;
     module.add("get_aspect", get_aspect)?;
     module.add("get_label", get_label)?;
-    module.add("set_label", set_label)?;
     module.add("set_axis_on", set_axis_on)?;
     module.add("get_axis_on", get_axis_on)?;
     module.add("grid", grid)?;
@@ -295,7 +288,7 @@ mod tests {
         let ax = Figure::new().subplot_3d();
         view_init(ax.clone(), (10.0, 20.0, 30.0), "y".into(), false).unwrap();
         assert_eq!(get_view(ax.clone()).unwrap(), (10.0, 20.0, 30.0));
-        set_label(ax.clone(), "z".into(), "depth".into()).unwrap();
+        ax.set_label(pltrs::mplot3d::Axis3::Z, "depth");
         assert_eq!(get_label(ax.clone(), "z".into()).unwrap(), "depth");
         assert!(set_proj_type(ax.clone(), "persp".into(), Some(0.0)).is_err());
         assert!(set_aspect(ax.clone(), "equal".into(), "sideways".into()).is_err());

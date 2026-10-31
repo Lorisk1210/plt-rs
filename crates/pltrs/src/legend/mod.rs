@@ -57,7 +57,7 @@ pub use handlers::{
     HandlerLineCollection, HandlerMap, HandlerPatch, HandlerPathCollection, HandlerPolyCollection,
     HandlerStem, HandlerStepPatch, LegendHandler, TypeKey,
 };
-pub(crate) use layout::lay_out_legends;
+pub(crate) use layout::{lay_out_legend, lay_out_legends};
 pub use loc::{LegendLoc, OutsideEdge};
 pub use options::{
     BboxToAnchor, LegendAlignment, LegendLabelColor, LegendMode, LegendOptions, LegendShadow,
@@ -199,10 +199,42 @@ impl Legend {
     /// When `loc` is `"best"` for a figure legend or `"outside ..."` for
     /// an axes legend.
     pub fn set_loc(&self, loc: impl Into<LegendLoc>) -> Result<&Self, LegendError> {
+        self.place(loc.into(), false)
+    }
+
+    /// Moves the legend back to the default location, `legend.loc` (or
+    /// `"upper right"` for a figure legend when it asks for `"best"`),
+    /// which counts as no choice of the program's: a slow search for the
+    /// best location then warns (matplotlib's `set_loc(None)`).
+    ///
+    /// ```
+    /// use pltrs::legend::LegendOptions;
+    /// use pltrs::lines::LineProps;
+    /// use pltrs::offsetbox::AnchorLoc;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("line"))?;
+    /// let legend = ax.legend(LegendOptions::default().loc(AnchorLoc::LowerLeft))?;
+    /// legend.reset_loc()?;
+    /// assert_eq!(legend.loc(), pltrs::rc::params().legend_loc.loc);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Legend::set_loc`].
+    pub fn reset_loc(&self) -> Result<&Self, LegendError> {
         let parent = self.read(|legend| legend.parent);
-        let placement = Placement::of(loc.into(), matches!(parent, LegendParent::Figure(_)))?;
+        self.place(build::default_loc(parent, &crate::rc::params()), true)
+    }
+
+    /// Places the legend at `loc`, the default location or not.
+    fn place(&self, loc: LegendLoc, used_default: bool) -> Result<&Self, LegendError> {
+        let parent = self.read(|legend| legend.parent);
+        let placement = Placement::of(loc, matches!(parent, LegendParent::Figure(_)))?;
         self.raw.with_mut::<LegendArtist, _>(|legend| {
             legend.location = placement.location;
+            legend.loc_used_default = used_default;
             legend.outside = placement.outside;
         });
         Ok(self)

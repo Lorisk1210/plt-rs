@@ -6,7 +6,7 @@
 
 use super::axis_draw::{GridLine3D, TickLine3D, grid_lines, tick_lines};
 use super::axis_handle::Axis3D;
-use super::state::Axes3DState;
+use super::state::{Axes3DState, prepare_one};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::axes::TickSet;
 use crate::dates::TimeZone;
@@ -16,13 +16,20 @@ use crate::units::UnitHandle;
 
 impl Axis3D {
     /// The ticks the axis draws in the current view, after a layout pass
-    /// (matplotlib's visible ticks of `_update_ticks`).
+    /// (matplotlib's visible ticks of `_update_ticks`); a removed axes is
+    /// ticked where it was in its figure.
     ///
     /// # Errors
     ///
     /// When a locator or formatter fails.
     pub fn ticks(&self) -> Result<TickSet, TickerError> {
-        self.axes.raw().figure_state().borrow_mut().prepare();
+        {
+            let mut figure = self.axes.raw().figure_state().borrow_mut();
+            figure.prepare();
+            if !figure.is_attached(self.axes.id()) {
+                prepare_one(&mut figure, self.axes.id());
+            }
+        }
         let dir = self.dir;
         self.axes.with(|axes| axes.axis(dir).ticks.clone())
     }

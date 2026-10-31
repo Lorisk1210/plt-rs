@@ -15,7 +15,9 @@ use super::coords::Axis3;
 use super::limits::Limits3D;
 use super::mouse::MouseButtons;
 use super::share::{LimitChange, Shares};
-use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
+use crate::artist::{
+    Artist, ArtistBase, ArtistId, ArtistLookup, ArtistStore, DrawContext, LayoutContext,
+};
 use crate::axes::{AxesState, collapse_x};
 use crate::colors::Color;
 use crate::figure::FigureState;
@@ -300,8 +302,9 @@ impl Axes3DState {
 /// The display extent of a 3-D axes, for [`FigureState`]'s
 /// `axes_bbox`.
 pub(crate) fn axes3d_bbox(figure: &FigureState, id: ArtistId) -> Option<Bbox> {
-    let axes = figure.store.get_as::<Axes3DState>(id)?;
-    let frame = figure.frame_bbox(axes.base().parent?)?;
+    let axes = figure.artist_as::<Axes3DState>(id)?;
+    // A removed axes is placed in the figure, as a removed 2-D axes is.
+    let frame = figure.frame_bbox(axes.base().parent.unwrap_or(figure.root))?;
     Some(
         axes.active_position(&frame)
             .transformed(&unit_to_bbox(&frame)),
@@ -355,7 +358,13 @@ pub(crate) fn axes3d_tight_bbox(
     let layout = LayoutContext::new(figure);
     let mut boxes = vec![extent];
     if axes.axis_on {
-        boxes.extend(axis_extents(axes, layout, &extent, for_layout_only));
+        boxes.extend(axis_extents(
+            axes,
+            layout,
+            &extent,
+            for_layout_only,
+            &Axis3::ALL,
+        ));
     }
     if let Some(plane) = figure.store.get_as::<AxesState>(axes.plane) {
         let narrowed = |bbox: Bbox| {
@@ -398,15 +407,13 @@ pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
     }
 }
 
-/// The layout pass of the 3-D axes `id`.
-fn prepare_one(figure: &mut FigureState, id: ArtistId) {
+/// The layout pass of the 3-D axes `id`, in the figure or removed from it.
+pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId) {
     let Some(extent) = figure.axes_bbox(id) else {
         return;
     };
     let dpi = figure.dpi();
-    figure
-        .store
-        .with_others::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
+    figure.with_others::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
 }
 
 #[cfg(test)]

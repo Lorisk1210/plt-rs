@@ -9,7 +9,7 @@ use super::anchored_box::{part, texts_of};
 use super::pending::{Parts, adopt_box, frame_patch};
 use super::{BoxItem, OffsetBox, OffsetBoxError, Placement};
 use crate::artist::{
-    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle,
+    Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
 use crate::axes::Axes;
 use crate::coords::{CoordError, CoordFrame, Coords, annotation_shown};
@@ -359,6 +359,13 @@ pub struct AnnotationBbox {
     raw: RawHandle,
 }
 
+impl TypedHandle for AnnotationBbox {
+    fn from_raw_handle(raw: &RawHandle) -> Option<Self> {
+        raw.is::<AnnotationBboxArtist>()
+            .then(|| Self { raw: raw.clone() })
+    }
+}
+
 impl ArtistHandle for AnnotationBbox {
     fn raw(&self) -> &RawHandle {
         &self.raw
@@ -427,6 +434,21 @@ impl AnnotationBbox {
             .into_iter()
             .map(|id| part(&self.raw, id))
             .collect()
+    }
+
+    /// Clips the artists of the drawing area at `area` among those of the
+    /// box to its bounds, or stops clipping them, as
+    /// [`AnchoredOffsetbox::set_clip_children`] does; returns whether the
+    /// box has such an area.
+    ///
+    /// [`AnchoredOffsetbox::set_clip_children`]: super::AnchoredOffsetbox::set_clip_children
+    pub fn set_clip_children(&self, area: usize, clip: bool) -> bool {
+        self.raw.with_mut::<AnnotationBboxArtist, _>(|ab| {
+            ab.child
+                .drawing_area_mut(area)
+                .map(|found| found.clip = clip)
+                .is_some()
+        })
     }
 }
 

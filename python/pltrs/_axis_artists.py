@@ -344,6 +344,10 @@ class Tick(Artist):
         val : float
         """
         self._apply_params(pad=val)
+        axis = self.axis
+        if axis is not None:
+            _axis.push_tick_pad(axis.axes._native, axis.axis_name,
+                                not self._major, self._index, float(val))
 
     def get_pad(self):
         """Get the value of the tick label pad in points."""

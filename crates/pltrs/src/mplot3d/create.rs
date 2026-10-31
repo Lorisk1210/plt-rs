@@ -13,7 +13,7 @@ use super::math::Vec3;
 use super::state::Axes3DState;
 use crate::artist::{ArtistHandle, RawHandle};
 use crate::axes::{Axes, AxisName};
-use crate::figure::{Figure, axes_bounds, insert_axes};
+use crate::figure::{Figure, axes_bounds, insert_axes, make_axes};
 use crate::gridspec::SubplotSpec;
 
 /// How a new 3-D axes is set up (matplotlib's `Axes3D` keyword
@@ -118,7 +118,13 @@ impl Figure {
         options: Axes3DOptions,
     ) -> Result<Axes3D, Axes3DError> {
         let position = spec.position(&self.subplot_params())?;
-        insert_axes3d(self, position, Some(spec.clone()), options)
+        insert_axes3d(
+            self,
+            position,
+            Some(spec.clone()),
+            options,
+            Placing::InFigure,
+        )
     }
 
     /// A 3-D axes at `[left, bottom, width, height]` in figure fractions
@@ -133,7 +139,59 @@ impl Figure {
         rect: [f64; 4],
         options: Axes3DOptions,
     ) -> Result<Axes3D, Axes3DError> {
-        insert_axes3d(self, axes_bounds(rect)?, None, options)
+        insert_axes3d(self, axes_bounds(rect)?, None, options, Placing::InFigure)
+    }
+
+    /// A 3-D axes of this figure at `[left, bottom, width, height]` in
+    /// figure fractions, made outside it as a removed axes (matplotlib's
+    /// `Axes3D(fig, rect)`, which leaves adding the axes to
+    /// `fig.add_axes(ax)`): [`Figure::attach`] adds it, and it becomes the
+    /// current axes then.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axes3DOptions;
+    /// let fig = Figure::new();
+    /// let ax = fig.removed_axes_3d([0.0, 0.0, 1.0, 1.0], Axes3DOptions::default())?;
+    /// assert!(fig.axes3d().is_empty());
+    /// assert!(ax.zaxis().ticklocs(false)?.len() > 2, "ticked all the same");
+    /// fig.attach(&ax)?;
+    /// assert_eq!(fig.axes3d(), [ax.clone()]);
+    /// assert_eq!(fig.gca(), ax.projection_plane());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_axes_3d`].
+    pub fn removed_axes_3d(
+        &self,
+        rect: [f64; 4],
+        options: Axes3DOptions,
+    ) -> Result<Axes3D, Axes3DError> {
+        insert_axes3d(self, axes_bounds(rect)?, None, options, Placing::Removed)
+    }
+
+    /// A 3-D axes of this figure covering the grid cells of `spec`, made
+    /// outside it as a removed axes (matplotlib's `Axes3D(fig,
+    /// subplotspec)`); [`Figure::attach`] adds it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::add_subplot_spec_3d`].
+    pub fn removed_subplot_3d(
+        &self,
+        spec: &SubplotSpec,
+        options: Axes3DOptions,
+    ) -> Result<Axes3D, Axes3DError> {
+        let position = spec.position(&self.subplot_params())?;
+        insert_axes3d(
+            self,
+            position,
+            Some(spec.clone()),
+            options,
+            Placing::Removed,
+        )
     }
 
     /// Every 3-D axes of the figure (and of its subfigures), in creation
@@ -159,12 +217,22 @@ pub(super) fn show_view_window(plane: &Axes) {
     }
 }
 
-/// Creates a 3-D axes and its projection plane in `figure`.
+/// Where a new 3-D axes goes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Placing {
+    /// Into the figure, as its current axes.
+    InFigure,
+    /// Outside it, as a removed axes.
+    Removed,
+}
+
+/// Creates a 3-D axes and its projection plane in `figure`, or outside it.
 fn insert_axes3d(
     figure: &Figure,
     position: Bbox,
     spec: Option<SubplotSpec>,
     options: Axes3DOptions,
+    placing: Placing,
 ) -> Result<Axes3D, Axes3DError> {
     let mut camera = Camera::new(options.proj_type)?;
     camera.angles = options.view;
@@ -172,7 +240,10 @@ fn insert_axes3d(
     camera.set_box_aspect(options.box_aspect, 1.0)?;
     let state = figure.raw().figure_state();
     let frame = figure.raw().id();
-    let plane = insert_axes(state, frame, Bbox::UNIT, None);
+    let plane = match placing {
+        Placing::InFigure => insert_axes(state, frame, Bbox::UNIT, None),
+        Placing::Removed => make_axes(state, None, Bbox::UNIT, None),
+    };
     show_view_window(&plane);
     // mplot3d draws its own frame: matplotlib hides the axes' spines.
     for spine in plane.spines().iter() {
@@ -182,7 +253,10 @@ fn insert_axes3d(
     axes.subplot_spec = spec;
     axes.computed_zorder = options.computed_zorder;
     let mut figure_state = state.borrow_mut();
-    let id = figure_state.adopt(frame, Box::new(axes));
+    let id = match placing {
+        Placing::InFigure => figure_state.adopt(frame, Box::new(axes)),
+        Placing::Removed => figure_state.insert_removed(Box::new(axes)),
+    };
     // The plane is drawn by the 3-D axes, not by the frame.
     if let Some(owner) = figure_state.artist_mut(frame) {
         owner.remove_child(plane.id());

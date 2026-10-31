@@ -365,7 +365,7 @@ impl TransformContext for FigureState {
         let Some(state) = self.artist_as::<AxesState>(axes) else {
             return crate::mplot3d::axes3d_bbox(self, axes);
         };
-        let parent = state.base().parent.unwrap_or(self.root);
+        let parent = state.base().parent.or(state.home).unwrap_or(self.root);
         let position = state.aspect.active_position(&state.position);
         if let Some(frame) = self.frame_bbox(parent) {
             return Some(fraction_of(&frame, &position));

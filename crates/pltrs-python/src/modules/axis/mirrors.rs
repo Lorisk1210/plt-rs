@@ -12,7 +12,7 @@
 //! [`pltrs::axes::Axis::set_tick_label_props`]).
 
 use pltrs::artist::ArtistHandle;
-use pltrs::axes::{Axes, Axis, LabelLoc, TickDirection, TickLabelProps, TickLineProps, TickStyle};
+use pltrs::axes::{Axis, LabelLoc, TickDirection, TickLabelProps, TickLineProps, TickStyle};
 use pltrs::lines::Line2D;
 use pltrs::markers::{Marker, MarkerSymbol};
 use pltrs::rc::ColorOrAuto;
@@ -21,7 +21,8 @@ use pltrs::ticker::AxisName;
 use pltrs::transforms::Bbox;
 use pltrs_core::Point;
 
-use super::axis;
+use super::deep;
+use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::prelude::*;
 
 /// The location and label of the major (or `minor`) tick at `index`
@@ -152,28 +153,40 @@ fn sync_gridline(line: &Line2D, name: AxisName, loc: f64, style: &TickStyle) {
 
 /// The artists mirroring one tick: its two labels, two marks and
 /// gridline.
-type TickMirrors = (Text, Text, Line2D, Line2D, Line2D);
+pub(super) type TickMirrors = (Text, Text, Line2D, Line2D, Line2D);
 
 /// What a tick keeps besides its artists: its location, mark length and
 /// width, label pad, direction and label rotation (`"auto"` or
 /// `"default"`, and an angle).
-type TickState = (f64, f64, f64, f64, &'static str, (&'static str, f64));
+pub(super) type TickState = (f64, f64, f64, f64, &'static str, (&'static str, f64));
 
 /// Fills the mirrors of the major (or `minor`) tick at `index` of axis
 /// `name` from the axis; returns the rest of the tick's state.
 fn sync_tick(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
+    minor: bool,
+    index: usize,
+    mirrors: TickMirrors,
+) -> PyResult<TickState> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => sync_flat_tick(&axis, minor, index, mirrors),
+        AnyAxis::Deep(axis) => deep::sync_tick(&axis, minor, index, mirrors),
+    }
+}
+
+/// [`sync_tick`] on an axis of a 2-D axes.
+fn sync_flat_tick(
+    axis: &Axis,
     minor: bool,
     index: usize,
     (label1, label2, tick1, tick2, grid): TickMirrors,
 ) -> PyResult<TickState> {
-    let axis = axis(&axes, &name)?;
-    let (loc, label) = located(&axis, minor, index)?;
+    let (loc, label) = located(axis, minor, index)?;
     let style = axis.tick_style_at(minor, index);
     let name = axis.name();
-    sync_label(&label1, &axis, loc, label.clone(), &style, true);
-    sync_label(&label2, &axis, loc, label, &style, false);
+    sync_label(&label1, axis, loc, label.clone(), &style, true);
+    sync_label(&label2, axis, loc, label, &style, false);
     sync_mark(&tick1, name, loc, &style, true);
     sync_mark(&tick2, name, loc, &style, false);
     sync_gridline(&grid, name, loc, &style);
@@ -201,14 +214,17 @@ fn own<T: PartialEq>(value: T, current: &T) -> Option<T> {
 /// Reads the label mirror `text` on the first or `second` side of the
 /// major (or `minor`) tick at `index` back into the axis.
 fn push_tick_label(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
     index: usize,
     second: bool,
     text: Text,
 ) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return deep::push_tick_label(&axis, minor, second, &text),
+    };
     let level = axis.tick_style(minor);
     let rc = pltrs::rc::params();
     let level_font = level.label_font(&rc);
@@ -245,14 +261,17 @@ fn push_tick_label(
 /// Reads the mark mirror `line` on the first or `second` side of the
 /// major (or `minor`) tick at `index` back into the axis.
 fn push_tick_mark(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
     index: usize,
     second: bool,
     line: Line2D,
 ) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return deep::push_tick_mark(&axis, minor, second, &line),
+    };
     let level = axis.tick_style(minor);
     let previous = axis.tick_line_props(minor, index);
     let visible = line.visible();
@@ -281,13 +300,16 @@ fn push_tick_mark(
 /// Reads the gridline mirror `line` of the major (or `minor`) tick at
 /// `index` back into the axis.
 fn push_gridline(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
     index: usize,
     line: Line2D,
 ) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return deep::push_gridline(&axis, minor, &line),
+    };
     let level = axis.tick_style(minor);
     let props = TickLineProps {
         grid_visible: own(line.visible(), &level.grid_on),
@@ -301,18 +323,40 @@ fn push_gridline(
     Ok(())
 }
 
+/// Gives the major (or `minor`) tick at `index` the label pad `pad`, in
+/// points (`Tick.set_pad`): ticks of 3-D axes keep pads of their own,
+/// those of 2-D axes only that of their level.
+fn push_tick_pad(
+    owner: AxisOwner,
+    name: String,
+    minor: bool,
+    index: usize,
+    pad: f64,
+) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Deep(axis) => deep::push_tick_pad(&axis, minor, index, pad),
+        AnyAxis::Flat(axis) if own(pad, &axis.tick_style_at(minor, index).pad).is_none() => Ok(()),
+        AnyAxis::Flat(_) => Err(PyErr::new(
+            ExceptionKind::NotImplementedError,
+            "pltrs: the pad of a single tick of a 2-D axis",
+        )),
+    }
+}
+
 /// The display box of the label on the first or `second` side of the
 /// major (or `minor`) tick at `index`, if it is drawn.
 fn tick_label_extent(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     minor: bool,
     index: usize,
     second: bool,
 ) -> PyResult<Option<(f64, f64, f64, f64)>> {
-    Ok(axis(&axes, &name)?
-        .tick_label_extent(minor, index, !second)
-        .map(extents))
+    let extent = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.tick_label_extent(minor, index, !second),
+        AnyAxis::Deep(axis) => deep::tick_label_extent(&axis, minor, index, second)?,
+    };
+    Ok(extent.map(extents))
 }
 
 /// `(x0, y0, x1, y1)` of `bbox`.
@@ -321,8 +365,11 @@ fn extents(bbox: Bbox) -> (f64, f64, f64, f64) {
 }
 
 /// Fills the mirror `text` of the label of axis `name` from the axis.
-fn sync_axis_label(axes: Axes, name: String, text: Text) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
+fn sync_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return deep::sync_axis_label(&axis, &text),
+    };
     let along = axis.label_loc().fraction();
     let position = axis.label_coords().unwrap_or(match axis.name() {
         AxisName::X => Point::new(along, 0.0),
@@ -349,8 +396,11 @@ fn label_loc(along: f64) -> Option<LabelLoc> {
 }
 
 /// Reads the mirror `text` of the label of axis `name` back into the axis.
-fn push_axis_label(axes: Axes, name: String, text: Text) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
+fn push_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return deep::push_axis_label(&axis, &text),
+    };
     let position = text.position();
     let along = match axis.name() {
         AxisName::X => position.x,
@@ -379,14 +429,21 @@ fn push_axis_label(axes: Axes, name: String, text: Text) -> PyResult<()> {
 }
 
 /// The display box of the label of axis `name`, if it is drawn.
-fn axis_label_extent(axes: Axes, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
-    Ok(axis(&axes, &name)?.label_extent().map(extents))
+fn axis_label_extent(owner: AxisOwner, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    let extent = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.label_extent(),
+        AnyAxis::Deep(axis) => deep::axis_label_extent(&axis)?,
+    };
+    Ok(extent.map(extents))
 }
 
 /// Fills the mirror `text` of the offset text of axis `name` from the
 /// axis.
-fn sync_offset_text(axes: Axes, name: String, text: Text) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
+fn sync_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
+    let axis = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis,
+        AnyAxis::Deep(axis) => return deep::sync_offset_text(&axis, &text),
+    };
     let style = axis.tick_style(false);
     let high = axis.offset_position().is_high();
     // At an end of the axis in axes fractions, beyond the tick labels in
@@ -414,14 +471,23 @@ fn sync_offset_text(axes: Axes, name: String, text: Text) -> PyResult<()> {
 
 /// Reads the visibility of the mirror `text` of the offset text of axis
 /// `name` back into the axis.
-fn push_offset_text(axes: Axes, name: String, text: Text) -> PyResult<()> {
-    axis(&axes, &name)?.set_offset_text_visible(text.visible());
-    Ok(())
+fn push_offset_text(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_offset_text_visible(text.visible());
+            Ok(())
+        }
+        AnyAxis::Deep(axis) => deep::push_offset_text(&axis, &text),
+    }
 }
 
 /// The display box of the offset text of axis `name`, if it is drawn.
-fn offset_text_extent(axes: Axes, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
-    Ok(axis(&axes, &name)?.offset_text_extent().map(extents))
+fn offset_text_extent(owner: AxisOwner, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    let extent = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.offset_text_extent(),
+        AnyAxis::Deep(axis) => deep::offset_text_extent(&axis)?,
+    };
+    Ok(extent.map(extents))
 }
 
 /// Registers the module's functions.
@@ -430,6 +496,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("push_tick_label", push_tick_label)?;
     module.add("push_tick_mark", push_tick_mark)?;
     module.add("push_gridline", push_gridline)?;
+    module.add("push_tick_pad", push_tick_pad)?;
     module.add("tick_label_extent", tick_label_extent)?;
     module.add("sync_axis_label", sync_axis_label)?;
     module.add("push_axis_label", push_axis_label)?;
@@ -463,7 +530,7 @@ mod tests {
         ax.set_xticks([0.0, 0.5, 1.0]);
         let parts = mirrors();
         let (label1, label2, tick1, _, grid) = parts.clone();
-        let state = sync_tick(ax.clone(), "x".into(), false, 1, parts).unwrap();
+        let state = sync_tick(AxisOwner::Flat(ax.clone()), "x".into(), false, 1, parts).unwrap();
         assert_eq!(state.0, 0.5);
         assert_eq!(label1.text(), "0.5");
         assert_eq!(label1.position(), Point::new(0.5, 0.0));
@@ -482,13 +549,21 @@ mod tests {
         );
         label1.set_rotation(45.0);
         label1.set_visible(false);
-        push_tick_label(ax.clone(), "x".into(), false, 1, false, label1).unwrap();
+        push_tick_label(
+            AxisOwner::Flat(ax.clone()),
+            "x".into(),
+            false,
+            1,
+            false,
+            label1,
+        )
+        .unwrap();
         let style = ax.xaxis().tick_style_at(false, 1);
         assert_eq!(style.label_rotation, 45.0);
         assert!(!style.labels.first);
         assert_eq!(ax.xaxis().tick_style_at(false, 0).label_rotation, 0.0);
         grid.set_visible(!level.grid_on);
-        push_gridline(ax.clone(), "x".into(), false, 2, grid).unwrap();
+        push_gridline(AxisOwner::Flat(ax.clone()), "x".into(), false, 2, grid).unwrap();
         assert_eq!(ax.xaxis().tick_style_at(false, 2).grid_on, !level.grid_on);
         assert_eq!(ax.xaxis().tick_style_at(false, 1).grid_on, level.grid_on);
     }
@@ -498,17 +573,17 @@ mod tests {
         let ax = Figure::new().subplot();
         ax.set_ylabel("height");
         let text = Text::loose(0.0, 0.0, "");
-        sync_axis_label(ax.clone(), "y".into(), text.clone()).unwrap();
+        sync_axis_label(AxisOwner::Flat(ax.clone()), "y".into(), text.clone()).unwrap();
         assert_eq!(text.text(), "height");
         assert_eq!(text.rotation(), 90.0);
         text.set_position(Point::new(0.0, 1.0));
-        push_axis_label(ax.clone(), "y".into(), text).unwrap();
+        push_axis_label(AxisOwner::Flat(ax.clone()), "y".into(), text).unwrap();
         assert_eq!(ax.yaxis().label_loc(), LabelLoc::End);
         let offset = Text::loose(0.0, 0.0, "");
-        sync_offset_text(ax.clone(), "x".into(), offset.clone()).unwrap();
+        sync_offset_text(AxisOwner::Flat(ax.clone()), "x".into(), offset.clone()).unwrap();
         assert_eq!(offset.text(), "");
         offset.set_visible(false);
-        push_offset_text(ax.clone(), "x".into(), offset).unwrap();
+        push_offset_text(AxisOwner::Flat(ax.clone()), "x".into(), offset).unwrap();
         assert!(!ax.xaxis().offset_text_visible());
     }
 

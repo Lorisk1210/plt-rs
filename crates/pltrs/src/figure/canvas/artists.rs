@@ -10,14 +10,20 @@ use super::{CanvasError, FigureCanvas};
 use crate::artist::{ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{DrawErrors, Figure};
+use crate::legend::{LegendArtist, lay_out_legend};
 use crate::ticker::AxisName;
 
 impl FigureCanvas {
     /// Draws `artist` of this canvas's figure onto the canvas, as the
-    /// figure's last layout places and clips it.
+    /// figure's last layout places and clips it (a legend is placed anew).
     fn draw_one(&self, artist: &RawHandle) -> Result<(), CanvasError> {
         if !Rc::ptr_eq(&self.figure.state, artist.figure_state()) {
             return Err(CanvasError::ForeignArtist);
+        }
+        if artist.is::<LegendArtist>() {
+            // matplotlib's `Legend.draw` places the legend before drawing it.
+            lay_out_legend(&mut self.figure.state.borrow_mut(), artist.id())
+                .map_err(|err| CanvasError::Draw(DrawErrors(vec![err])))?;
         }
         let mut kept = self.take()?;
         let errors = {
@@ -77,7 +83,8 @@ impl FigureCanvas {
 
 impl Figure {
     /// Draws `artist`, animated or not, onto the figure's canvas over what
-    /// it holds, placed and clipped as the figure was last laid out
+    /// it holds, placed and clipped as the figure was last laid out, but
+    /// for a legend, placed anew as matplotlib's `Legend.draw` places it
     /// (matplotlib's `Figure.draw_artist`); show the result with
     /// [`FigureCanvas::blit`]. An invisible artist draws nothing.
     ///

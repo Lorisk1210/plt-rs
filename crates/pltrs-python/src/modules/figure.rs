@@ -50,12 +50,15 @@ impl From<SizeError> for PyErr {
 impl From<DrawErrors> for PyErr {
     /// The first problem as matplotlib raises it, drawing stopping there:
     /// a `ValueError` with its message for a value of the program's that
-    /// cannot be drawn (malformed mathtext, ...), else a `RuntimeError`
-    /// naming every problem.
+    /// cannot be drawn (malformed mathtext, ...), a `TypeError` for one of
+    /// the wrong type, else a `RuntimeError` naming every problem.
     fn from(errors: DrawErrors) -> Self {
         match errors.0.first() {
             Some(first) if first.kind == DrawErrorKind::InvalidValue => {
                 PyErr::value_error(first.message.clone())
+            }
+            Some(first) if first.kind == DrawErrorKind::InvalidType => {
+                PyErr::new(ExceptionKind::TypeError, first.message.clone())
             }
             _ => PyErr::runtime_error(errors.to_string()),
         }

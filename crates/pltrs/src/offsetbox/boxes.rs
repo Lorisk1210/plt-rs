@@ -244,6 +244,27 @@ impl<A> OffsetBox<A> {
         }
     }
 
+    /// The drawing area at `index` among those of the tree, visible or not,
+    /// in tree order: a packer's children in order, a padded box's child.
+    pub fn drawing_area_mut(&mut self, index: usize) -> Option<&mut DrawingArea<A>> {
+        let mut areas = Vec::new();
+        self.collect_drawing_areas(&mut areas);
+        areas.into_iter().nth(index)
+    }
+
+    fn collect_drawing_areas<'a>(&'a mut self, areas: &mut Vec<&'a mut DrawingArea<A>>) {
+        match self {
+            Self::HPacker(packer) | Self::VPacker(packer) => {
+                for child in &mut packer.children {
+                    child.collect_drawing_areas(areas);
+                }
+            }
+            Self::DrawingArea(area) => areas.push(area),
+            Self::PaddedBox(padded) => padded.child.collect_drawing_areas(areas),
+            Self::TextArea(_) | Self::AuxTransformBox(_) | Self::Image(_) => {}
+        }
+    }
+
     /// Calls `f` on every aux-transform box of the tree.
     pub(crate) fn for_each_aux_mut(&mut self, f: &mut impl FnMut(&mut AuxTransformBox<A>)) {
         match self {

@@ -52,7 +52,7 @@ impl From<Axes3DError> for PyErr {
 }
 
 /// The axis called `name` (`"x"`, `"y"` or `"z"`).
-fn axis3(name: &str) -> PyResult<Axis3> {
+pub(in crate::modules) fn axis3(name: &str) -> PyResult<Axis3> {
     match name {
         "x" => Ok(Axis3::X),
         "y" => Ok(Axis3::Y),

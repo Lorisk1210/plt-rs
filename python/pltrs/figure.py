@@ -25,6 +25,7 @@ from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
 from ._figure_interaction import InteractionMixin
+from ._figure_stale import StaleMixin, _stale_figure_callback
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
@@ -51,7 +52,7 @@ def _native_maker(projection_class):
 
 
 class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
-                 InteractionMixin, Artist):
+                 InteractionMixin, StaleMixin, Artist):
     """
     Base class for `.Figure` and `.SubFigure` containing the methods that add
     artists to the figure or subfigure, create Axes, etc.
@@ -413,6 +414,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
             sfarr[row, col] = SubFigure._from_native(self, native, gs[row, col],
                                                      **kwargs)
             self.subfigs.append(sfarr[row, col])
+        self.stale = True
 
         if squeeze:
             # Discarding unneeded dimensions that equal 1.  If we only have one
@@ -443,6 +445,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         """
         sf = SubFigure(self, subplotspec, **kwargs)
         self.subfigs.append(sf)
+        self.stale = True
         return sf
 
     @property
@@ -702,6 +705,7 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         """
         self._get_renderer()  # The canvas's renderer follows the figure.
         _figure.layout(self._native)
+        self._set_drawn()
 
     def _get_renderer(self):
         """The renderer of the root figure's canvas: the canvas' own, or the
@@ -774,6 +778,7 @@ class SubFigure(FigureBase):
         self._parent = parent
         self._subplotspec = subplotspec
         self.subfigs = []
+        self.stale_callback = _stale_figure_callback
         _handles.adopt(self, native, parent.figure)
         if facecolor is not None:
             _figure.set_facecolor(native, facecolor)

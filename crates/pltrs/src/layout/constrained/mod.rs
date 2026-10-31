@@ -14,10 +14,12 @@
 
 mod colorbars;
 mod compress;
+mod frames;
 mod margins;
 mod reposition;
 mod tree;
 
+use super::kiwi::SolverError;
 use crate::figure::FigureState;
 use crate::rc::RcParams;
 use tree::{FIGURE, LayoutTree};
@@ -92,19 +94,36 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
         wspace: params.wspace,
         hspace: params.hspace,
     };
-    let Some(mut tree) = LayoutTree::new(fig, params.rect) else {
+    let solved = LayoutTree::new(fig, params.rect).and_then(|tree| {
+        if let Some(mut tree) = tree {
+            return lay_out(&mut tree, fig, params, &pads);
+        }
         if !fig.all_axes().is_empty() {
             crate::warnings::warn(
                 "There are no gridspecs with layoutgrids. Possibly did not call parent \
                  GridSpec with the \"figure\" keyword",
             );
         }
-        return;
-    };
+        Ok(())
+    });
+    // kiwisolver's exceptions end matplotlib's layout, out of its draw.
+    if let Err(error) = solved {
+        crate::warnings::warn(&format!("constrained_layout not applied: {error}"));
+    }
+}
+
+/// The two rounds of margins, solution and placement of
+/// `do_constrained_layout`.
+fn lay_out(
+    tree: &mut LayoutTree,
+    fig: &mut FigureState,
+    params: &ConstrainedLayout,
+    pads: &Pads,
+) -> Result<(), SolverError> {
     for _ in 0..2 {
-        tree.make_layout_margins(fig, FIGURE, &pads);
-        tree.make_margin_suptitles(fig, FIGURE, &pads);
-        tree.match_submerged_margins(FIGURE);
+        tree.make_layout_margins(fig, FIGURE, pads)?;
+        tree.make_margin_suptitles(fig, FIGURE, pads)?;
+        tree.match_submerged_margins(FIGURE)?;
         tree.grids.solve();
         if tree.no_collapsed_axes() {
             tree.reposition_axes(fig, FIGURE, false);
@@ -112,18 +131,31 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
                 // matplotlib raises when the axes do not share one grid
                 // specification, and its draw swallows the error: the
                 // layout ends with this first placement.
-                if !tree.compress_fixed_aspect(fig) {
-                    return;
+                if !tree.compress_fixed_aspect(fig)? {
+                    return Ok(());
                 }
                 tree.grids.solve();
                 if tree.no_collapsed_axes() {
                     tree.reposition_axes(fig, FIGURE, true);
+                } else {
+                    warn_collapsed();
                 }
                 tree.place_suptitle(fig, pads.h_pad);
             }
+        } else {
+            warn_collapsed();
         }
-        tree.reset_margins();
+        tree.reset_margins()?;
     }
+    Ok(())
+}
+
+/// matplotlib's warning when cells left no room for their axes.
+fn warn_collapsed() {
+    crate::warnings::warn(
+        "constrained_layout not applied because axes sizes collapsed to zero.  Try making \
+         figure larger or Axes decorations smaller.",
+    );
 }
 
 #[cfg(test)]

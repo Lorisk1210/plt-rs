@@ -5,7 +5,8 @@
 use pltrs_core::Bbox;
 
 use super::colorbars::Offsets;
-use super::tree::{LayoutTree, frame_extent, from_frame, to_frame};
+use super::frames::{FrameMap, pixels_to_figure};
+use super::tree::LayoutTree;
 use crate::artist::ArtistId;
 use crate::axes::AxesState;
 use crate::figure::{FigureFrame, FigureState};
@@ -34,7 +35,7 @@ impl LayoutTree {
     /// cells and its colorbars follow (sized to their parent's actual box
     /// in a `compress`ed layout).
     pub(super) fn reposition_axes(&self, fig: &mut FigureState, frame: usize, compress: bool) {
-        let Some(extent) = frame_extent(fig, self.frames[frame].id) else {
+        let Some(map) = FrameMap::of(fig, self.frames[frame].id) else {
             return;
         };
         for &sub in &self.frames[frame].subfigs {
@@ -43,7 +44,7 @@ impl LayoutTree {
                 .get(self.frames[sub].grid)
                 .outer_bbox(&(0..1), &(0..1));
             if let Some(subfig) = fig.store.get_as_mut::<FigureFrame>(self.frames[sub].id) {
-                subfig.relative_extent = to_frame(&bbox, &extent);
+                subfig.relative_extent = map.to_frame(&bbox);
             }
             self.reposition_axes(fig, sub, compress);
         }
@@ -64,12 +65,6 @@ impl LayoutTree {
     }
 }
 
-/// The extent of the frame holding `axes`, in figure fractions.
-fn axes_frame_extent(fig: &FigureState, axes: ArtistId) -> Option<Bbox> {
-    let frame = fig.store.get(axes)?.base().parent?;
-    frame_extent(fig, frame)
-}
-
 /// matplotlib's `get_pos_and_bbox`: an axes' (2-D or 3-D) original
 /// position and its extent with decorations, both in figure fractions.
 pub(super) fn pos_and_bbox(fig: &mut FigureState, axes: ArtistId) -> Option<(Bbox, Bbox)> {
@@ -77,26 +72,18 @@ pub(super) fn pos_and_bbox(fig: &mut FigureState, axes: ArtistId) -> Option<(Bbo
         Some(state) => (state.position, fig.axes_tight_bbox(axes, true)),
         None => crate::mplot3d::axes3d_layout_extents(fig, axes)?,
     };
-    let position = from_frame(&local, &axes_frame_extent(fig, axes)?);
-    let (width, height) = fig.size_pixels();
-    let bbox = tight.map_or(position, |tight| {
-        Bbox::from_extents(
-            tight.x0() / width,
-            tight.y0() / height,
-            tight.x1() / width,
-            tight.y1() / height,
-        )
-    });
+    let position = FrameMap::of_axes(fig, axes)?.to_figure(&local);
+    let bbox = tight.map_or(position, |tight| pixels_to_figure(fig, &tight));
     Some((position, bbox))
 }
 
 /// Moves an axes and its twins to `position` in figure fractions
 /// (matplotlib's `_set_position` after `trans_fig_to_subfig`).
 pub(super) fn place(fig: &mut FigureState, axes: ArtistId, position: &Bbox) {
-    let Some(frame) = axes_frame_extent(fig, axes) else {
+    let Some(map) = FrameMap::of_axes(fig, axes) else {
         return;
     };
-    let local = to_frame(position, &frame);
+    let local = map.to_frame(position);
     if crate::mplot3d::set_axes3d_position(fig, axes, local) {
         return;
     }

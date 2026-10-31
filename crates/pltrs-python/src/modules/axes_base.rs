@@ -36,16 +36,17 @@ fn axis_name(name: &str) -> PyResult<AxisName> {
     }
 }
 
-/// `(left, bottom, width, height)` of the axes in figure fractions: as
+/// `(left, bottom, right, top)` of the axes in figure fractions: as
 /// drawn, or before any aspect adjustment when `original`
-/// (`get_position`).
+/// (`get_position`, which keeps the edges as they are, as matplotlib's
+/// `Bbox` does).
 fn position(axes: Axes, original: bool) -> PyResult<(f64, f64, f64, f64)> {
     let bbox = if original {
         axes.original_position()
     } else {
         axes.position()
     };
-    Ok(bbox.bounds())
+    Ok(bbox.extents())
 }
 
 /// Moves the axes to `rect`, `[left, bottom, width, height]` in figure
@@ -171,7 +172,7 @@ mod tests {
         assert!(shared(left.clone(), "x".into()).unwrap().contains(&twin));
         assert!(axis_name("z").is_err());
         set_position(left.clone(), (0.1, 0.2, 0.3, 0.4), "both".into()).unwrap();
-        let (x, y, w, h) = position(left, true).unwrap();
-        assert!((x - 0.1).abs() + (y - 0.2).abs() + (w - 0.3).abs() + (h - 0.4).abs() < 1e-12);
+        let (x0, y0, x1, y1) = position(left, true).unwrap();
+        assert!((x0 - 0.1).abs() + (y0 - 0.2).abs() + (x1 - 0.4).abs() + (y1 - 0.6).abs() < 1e-12);
     }
 }

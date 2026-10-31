@@ -274,6 +274,7 @@ class FigureCanvasPdf(FigureCanvasBase):
             _backends.pdf_pages_savefig(
                 filename._ensure_file(), self.figure._native,
                 self._print_settings(**settings))
+            self.figure._set_drawn()
             DrawEvent("draw_event", self, None)._process()
         else:
             self._print_native("pdf", filename, metadata=_native_info(metadata),

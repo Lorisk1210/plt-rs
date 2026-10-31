@@ -2417,11 +2417,47 @@ def _auto_format_str(fmt, value):
         return fmt.format(value)
 
 
+def get_sample_data(fname, asfileobj=True):
+    """
+    Return a sample data file.  *fname* is a path relative to the
+    :file:`mpl-data/sample_data` directory.  If *asfileobj* is `True`
+    return a file object, otherwise just a file path.
+
+    Sample data files are stored in the 'mpl-data/sample_data' directory within
+    the Matplotlib package.
+
+    If the filename ends in .gz, the file is implicitly ungzipped.  If the
+    filename ends with .npy or .npz, and *asfileobj* is `True`, the file is
+    loaded with `numpy.load`.
+    """
+    path = _get_data_path('sample_data', fname)
+    if asfileobj:
+        suffix = path.suffix.lower()
+        if suffix == '.gz':
+            return gzip.open(path)
+        elif suffix in ['.npy', '.npz']:
+            return np.load(path)
+        elif suffix in ['.csv', '.xrc', '.txt']:
+            return path.open('r')
+        else:
+            return path.open('rb')
+    else:
+        return str(path)
+
+
 def _get_data_path(*args):
     """
     Return the `pathlib.Path` to a resource file provided by Matplotlib.
 
     ``*args`` specify a path relative to the base data path.
+
+    pltrs ships the files of matplotlib's ``mpl-data`` that it does not
+    bundle itself (the sample data) in its package's ``mpl-data``; the
+    fonts pltrs (Rust) bundles are in the data directory `.get_data_path`
+    names.
     """
+    shipped = Path(__file__).with_name('mpl-data').joinpath(*args)
+    if shipped.exists():
+        return shipped
     from . import get_data_path
     return Path(get_data_path(), *args)

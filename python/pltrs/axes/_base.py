@@ -150,8 +150,8 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         -------
         `.Bbox`
         """
-        return Bbox.from_bounds(*_axes_base.position(self._native,
-                                                     bool(original)))
+        return Bbox.from_extents(*_axes_base.position(self._native,
+                                                      bool(original)))
 
     def set_position(self, pos, which='both'):
         """

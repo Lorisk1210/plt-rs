@@ -1,15 +1,12 @@
 //! The layout grids of a figure, its subfigures and their grid
-//! specifications (matplotlib's `make_layoutgrids`), and the conversions
-//! between figure fractions and the fractions of a (sub)figure.
+//! specifications (matplotlib's `make_layoutgrids`).
 
-use pltrs_core::Bbox;
-
-use super::super::grid::{LayoutGrid, LayoutGrids, Parent};
+use super::super::grid::{LayoutGrids, Parent};
+use super::super::kiwi::SolverError;
 use crate::artist::{Artist, ArtistId};
 use crate::axes::AxesState;
 use crate::figure::{FigureFrame, FigureState};
 use crate::gridspec::{GridSpec, SubplotSpec};
-use crate::transforms::TransformContext;
 
 /// The index of the figure's own grid.
 pub(super) const FIGURE: usize = 0;
@@ -59,26 +56,27 @@ pub(super) struct LayoutTree {
 impl LayoutTree {
     /// matplotlib's `make_layoutgrids` over the figure laid out in
     /// `rect`; `None` when no axes or subfigure is on a grid.
-    pub(super) fn new(fig: &FigureState, rect: [f64; 4]) -> Option<Self> {
+    pub(super) fn new(fig: &FigureState, rect: [f64; 4]) -> Result<Option<Self>, SolverError> {
         let mut tree = Self {
             grids: LayoutGrids::default(),
             specs: Vec::new(),
             frames: Vec::new(),
         };
-        let grid = tree.grids.push(LayoutGrid::single(Parent::Rect(rect)));
-        tree.add_frame(fig, fig.root, grid, None);
-        (!tree.specs.is_empty()).then_some(tree)
+        let grid = tree.grids.push_single(&Parent::Rect(rect))?;
+        tree.add_frame(fig, fig.root, grid, None)?;
+        Ok((!tree.specs.is_empty()).then_some(tree))
     }
 
-    /// Adds the frame `id` with its grid, then its subfigures and the
-    /// grids of its axes; returns the frame's index.
+    /// Adds the frame `id` with its grid, then, as matplotlib does, its
+    /// subfigures and after them the grids of its axes; returns the
+    /// frame's index.
     fn add_frame(
         &mut self,
         fig: &FigureState,
         id: ArtistId,
         grid: usize,
         spec: Option<SubplotSpec>,
-    ) -> usize {
+    ) -> Result<usize, SolverError> {
         let index = self.frames.len();
         self.frames.push(Frame {
             id,
@@ -92,40 +90,46 @@ impl LayoutTree {
             .get_as::<FigureFrame>(id)
             .map(|frame| frame.children.clone())
             .unwrap_or_default();
-        for child in children {
-            if let Some(subfig) = fig.store.get_as::<FigureFrame>(child) {
-                let Some(spec) = subfig.subplot_spec.clone() else {
-                    continue;
-                };
-                let outer = self.add_gridspec(spec.gridspec(), grid);
-                let sub_grid = self.grids.push(LayoutGrid::single(Parent::Cells {
-                    grid: outer,
-                    rows: spec.rows(),
-                    cols: spec.cols(),
-                    inner: true,
-                }));
-                let sub = self.add_frame(fig, child, sub_grid, Some(spec));
-                self.frames[index].subfigs.push(sub);
-            } else if let Some((spec, in_layout)) = placement(fig, child) {
-                if let Some(spec) = &spec {
-                    self.add_gridspec(spec.gridspec(), grid);
-                }
-                self.frames[index].axes.push(Placed {
-                    id: child,
-                    spec,
-                    in_layout,
-                });
-            }
+        for &child in &children {
+            let Some(spec) = fig
+                .store
+                .get_as::<FigureFrame>(child)
+                .and_then(|subfig| subfig.subplot_spec.clone())
+            else {
+                continue;
+            };
+            let outer = self.add_gridspec(spec.gridspec(), grid)?;
+            let sub_grid = self.grids.push_single(&Parent::Cells {
+                grid: outer,
+                rows: spec.rows(),
+                cols: spec.cols(),
+                inner: true,
+            })?;
+            let sub = self.add_frame(fig, child, sub_grid, Some(spec))?;
+            self.frames[index].subfigs.push(sub);
         }
-        index
+        for child in children {
+            let Some((spec, in_layout)) = placement(fig, child) else {
+                continue;
+            };
+            if let Some(spec) = &spec {
+                self.add_gridspec(spec.gridspec(), grid)?;
+            }
+            self.frames[index].axes.push(Placed {
+                id: child,
+                spec,
+                in_layout,
+            });
+        }
+        Ok(index)
     }
 
     /// matplotlib's `make_layoutgrids_gs`: the grid of `gridspec`, inside
     /// the frame grid `owner` or, when the specification subdivides a
     /// cell, in an outer one-cell grid over that cell.
-    fn add_gridspec(&mut self, gridspec: &GridSpec, owner: usize) -> usize {
+    fn add_gridspec(&mut self, gridspec: &GridSpec, owner: usize) -> Result<usize, SolverError> {
         if let Some(index) = self.grid_of(gridspec) {
-            return index;
+            return Ok(index);
         }
         let (nrows, ncols) = gridspec.shape();
         let parent = match gridspec.parent() {
@@ -136,13 +140,13 @@ impl LayoutTree {
                 inner: true,
             },
             Some(cell) => {
-                let outer = self.add_gridspec(cell.gridspec(), owner);
-                let top = self.grids.push(LayoutGrid::single(Parent::Cells {
+                let outer = self.add_gridspec(cell.gridspec(), owner)?;
+                let top = self.grids.push_single(&Parent::Cells {
                     grid: outer,
                     rows: cell.rows(),
                     cols: cell.cols(),
                     inner: false,
-                }));
+                })?;
                 Parent::Cells {
                     grid: top,
                     rows: 0..1,
@@ -151,15 +155,15 @@ impl LayoutTree {
                 }
             }
         };
-        let index = self.grids.push(LayoutGrid::new(
-            parent,
+        let index = self.grids.push(
+            &parent,
             nrows,
             ncols,
-            gridspec.width_ratios().to_vec(),
-            gridspec.height_ratios().to_vec(),
-        ));
+            gridspec.width_ratios(),
+            gridspec.height_ratios(),
+        )?;
         self.specs.push((gridspec.clone(), index));
-        index
+        Ok(index)
     }
 
     /// The grid of `gridspec`, if it has one.
@@ -192,35 +196,6 @@ pub(super) fn subplot_spec(fig: &FigureState, id: ArtistId) -> Option<SubplotSpe
     placement(fig, id)?.0
 }
 
-/// The extent of the frame `id` in figure fractions (the unit box for the
-/// figure itself).
-pub(super) fn frame_extent(fig: &FigureState, id: ArtistId) -> Option<Bbox> {
-    let bbox = fig.frame_bbox(id)?;
-    let (width, height) = fig.size_pixels();
-    Some(Bbox::from_extents(
-        bbox.x0() / width,
-        bbox.y0() / height,
-        bbox.x1() / width,
-        bbox.y1() / height,
-    ))
-}
-
-/// `bbox` (figure fractions) in the fractions of a frame spanning
-/// `frame` (matplotlib's `transFigure - transSubfigure`).
-pub(super) fn to_frame(bbox: &Bbox, frame: &Bbox) -> Bbox {
-    let x = |v: f64| (v - frame.x0()) / frame.width();
-    let y = |v: f64| (v - frame.y0()) / frame.height();
-    Bbox::from_extents(x(bbox.x0()), y(bbox.y0()), x(bbox.x1()), y(bbox.y1()))
-}
-
-/// `bbox` in the fractions of a frame spanning `frame`, in figure
-/// fractions (matplotlib's `transSubfigure - transFigure`).
-pub(super) fn from_frame(bbox: &Bbox, frame: &Bbox) -> Bbox {
-    let x = |v: f64| frame.x0() + v * frame.width();
-    let y = |v: f64| frame.y0() + v * frame.height();
-    Bbox::from_extents(x(bbox.x0()), y(bbox.y0()), x(bbox.x1()), y(bbox.y1()))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,7 +211,9 @@ mod tests {
         fig.add_subplot_spec(&inner.cell(0, 0).unwrap()).unwrap();
         fig.add_subplot_spec(&outer.cell(0, 0).unwrap()).unwrap();
         let state = fig.raw().figure_state().borrow();
-        let mut tree = LayoutTree::new(&state, [0.0, 0.0, 1.0, 1.0]).unwrap();
+        let mut tree = LayoutTree::new(&state, [0.0, 0.0, 1.0, 1.0])
+            .unwrap()
+            .unwrap();
         assert_eq!(tree.specs.len(), 2, "the outer and the nested grid");
         tree.grids.solve();
         let nested = tree.grid_of(&inner).unwrap();
@@ -251,25 +228,19 @@ mod tests {
     fn subfigures_get_frames_in_their_parent_grid() {
         let fig = Figure::new();
         assert!(
-            LayoutTree::new(&fig.raw().figure_state().borrow(), [0.0, 0.0, 1.0, 1.0]).is_none()
+            LayoutTree::new(&fig.raw().figure_state().borrow(), [0.0, 0.0, 1.0, 1.0])
+                .unwrap()
+                .is_none()
         );
         let rows = fig.subfigures(2, 1, SubfigureOptions::default()).unwrap();
         rows[(1, 0)].subplots(1, 2).unwrap();
         let state = fig.raw().figure_state().borrow();
-        let tree = LayoutTree::new(&state, [0.0, 0.0, 1.0, 1.0]).unwrap();
+        let tree = LayoutTree::new(&state, [0.0, 0.0, 1.0, 1.0])
+            .unwrap()
+            .unwrap();
         assert_eq!(tree.frames.len(), 3);
         assert_eq!(tree.frames[0].subfigs, vec![1, 2]);
         assert_eq!(tree.frames[2].axes.len(), 2);
         assert_eq!(tree.all_axes().count(), 2);
-    }
-
-    #[test]
-    fn frame_fractions_round_trip() {
-        let frame = Bbox::from_extents(0.5, 0.0, 1.0, 0.5);
-        let bbox = Bbox::from_extents(0.6, 0.1, 0.9, 0.4);
-        let local = to_frame(&bbox, &frame);
-        assert!((local.x0() - 0.2).abs() < 1e-12 && (local.y1() - 0.8).abs() < 1e-12);
-        let back = from_frame(&local, &frame);
-        assert!((back.x1() - 0.9).abs() < 1e-12);
     }
 }

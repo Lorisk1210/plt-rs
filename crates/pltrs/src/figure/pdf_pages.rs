@@ -236,15 +236,16 @@ mod tests {
     fn documents_are_saved_to_files() {
         let mut pages = PdfPages::new().unwrap();
         pages.savefig(&Figure::with_size(1.0, 1.0, 72.0)).unwrap();
-        let path = std::env::temp_dir().join("pltrs-pdf-pages.pdf");
+        let scratch = crate::scratch::Scratch::new("pdf-pages");
+        let path = scratch.path("pages.pdf");
         pages.save(&path).unwrap();
         assert!(std::fs::read(&path).unwrap().starts_with(b"%PDF-1.4"));
     }
 
     #[test]
     fn documents_without_pages_write_no_file() {
-        let path = std::env::temp_dir().join("pltrs-pdf-pages-empty.pdf");
-        let _ = std::fs::remove_file(&path);
+        let scratch = crate::scratch::Scratch::new("pdf-pages-empty");
+        let path = scratch.path("empty.pdf");
         PdfPages::new().unwrap().save(&path).unwrap();
         assert!(!path.exists());
     }

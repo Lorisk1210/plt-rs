@@ -196,6 +196,10 @@ pub mod widgets;
 #[path = "../tests/fuzz/harness.rs"]
 mod fuzz;
 mod process;
+/// Scratch directories for the unit tests that write files.
+#[cfg(test)]
+#[path = "../tests/support/scratch.rs"]
+mod scratch;
 
 /// The README, whose Rust examples are checked as doctests.
 #[cfg(doctest)]

@@ -15,28 +15,7 @@ use pltrs::style::{self, Style};
 
 use crate::harness::{Corruption, Gen, fuzz};
 use crate::rc::{draw_standard_figure, rc_text};
-
-/// A directory of its own for a target, removed when dropped.
-struct Scratch(PathBuf);
-
-impl Scratch {
-    fn new(name: &str) -> Self {
-        let dir = std::env::temp_dir().join(format!("pltrs-fuzz-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("a scratch directory");
-        Self(dir)
-    }
-
-    fn path(&self, name: &str) -> PathBuf {
-        self.0.join(name)
-    }
-}
-
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
-}
+use crate::scratch::Scratch;
 
 /// The bytes of a configuration file: rc text, maybe after a byte-order
 /// mark or with Windows line ends, maybe corrupted as bytes.
@@ -232,12 +211,13 @@ fn file_url(path: &Path) -> String {
 #[test]
 fn style_libraries() {
     let scratch = Scratch::new("style-libraries");
+    let root = scratch.path("libraries");
     fuzz("style libraries", 300, Library::generate, |library| {
-        let files = library.write(&scratch.0);
+        let files = library.write(&root);
         let listed = library
             .listed
             .iter()
-            .map(|directory| scratch.0.join(directory.to_string()))
+            .map(|directory| root.join(directory.to_string()))
             .collect();
         style::set_user_library_paths(listed);
         let _ = style::reload_library();

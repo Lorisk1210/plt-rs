@@ -304,16 +304,13 @@ mod tests {
 
     use super::*;
     use crate::animation::{AnimationOptions, Frames};
+    use crate::scratch::Scratch;
 
-    /// A path for a file in the temporary directory.
-    fn temp_path(name: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("pltrs-movie-{}-{name}", std::process::id()))
-    }
-
-    /// A stand-in for ffmpeg: records its arguments and input, writes a
-    /// fake movie to its last argument, and fails when asked.
-    fn fake_ffmpeg(name: &str, fail: bool) -> PathBuf {
-        let script = temp_path(name);
+    /// A stand-in for ffmpeg in `scratch`: records its arguments and
+    /// input, writes a fake movie to its last argument, and fails when
+    /// asked.
+    fn fake_ffmpeg(scratch: &Scratch, fail: bool) -> PathBuf {
+        let script = scratch.path("ffmpeg");
         let body = if fail {
             "cat > /dev/null; echo 'Unknown encoder' >&2; exit 1".to_owned()
         } else {
@@ -343,8 +340,9 @@ mod tests {
 
     #[test]
     fn frames_are_piped_to_ffmpeg() {
-        let script = fake_ffmpeg("ok", false);
-        let out = temp_path("movie.mp4");
+        let scratch = Scratch::new("movie");
+        let script = fake_ffmpeg(&scratch, false);
+        let out = scratch.path("movie.mp4");
         crate::rc::context(|| {
             crate::rc::set("animation.ffmpeg_path", &script.display().to_string()).unwrap();
             animation().save(&out).unwrap();
@@ -366,13 +364,14 @@ mod tests {
 
     #[test]
     fn ffmpeg_failures_are_reported() {
-        let script = fake_ffmpeg("fail", true);
+        let scratch = Scratch::new("movie-failures");
+        let script = fake_ffmpeg(&scratch, true);
         crate::rc::context(|| {
             crate::rc::set("animation.ffmpeg_path", &script.display().to_string()).unwrap();
-            let err = animation().save(temp_path("bad.mp4")).unwrap_err();
+            let err = animation().save(scratch.path("bad.mp4")).unwrap_err();
             assert!(err.to_string().contains("Unknown encoder"), "{err}");
             crate::rc::set("animation.ffmpeg_path", "/nonexistent/ffmpeg").unwrap();
-            let err = animation().save(temp_path("none.mp4")).unwrap_err();
+            let err = animation().save(scratch.path("none.mp4")).unwrap_err();
             assert!(matches!(
                 err,
                 AnimationError::Movie(MovieError::Spawn { .. })

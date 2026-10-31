@@ -8,6 +8,9 @@
 //! `cargo test` stays quick; `PLTRS_FUZZ_SCALE=100` makes a long run, and a
 //! failure names the seed that reproduces it.
 
+#[path = "../support/scratch.rs"]
+mod scratch;
+
 mod config;
 mod dates;
 mod fonts;

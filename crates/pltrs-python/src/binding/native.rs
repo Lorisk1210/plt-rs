@@ -14,7 +14,9 @@
 //! `Rc`), and Python objects may be reached from any thread holding the
 //! GIL. So a native object remembers the thread that made it and refuses
 //! access from any other (`RuntimeError`), and one deallocated on another
-//! thread leaks its value rather than dropping it there.
+//! thread leaks its value rather than dropping it there. Calls on objects
+//! of the main thread made from others are run by the main thread while
+//! it runs an event loop ([`home`](super::home)).
 //!
 //! [`RawHandle`]: pltrs::artist::RawHandle
 
@@ -240,6 +242,19 @@ impl<T: Any> Native<T> {
     }
 }
 
+/// The thread that made `object`, if it is a native object.
+///
+/// # Safety
+///
+/// The GIL is held and `object` is a live Python object.
+pub(super) unsafe fn owner_of(object: *mut ffi::PyObject) -> Option<ThreadId> {
+    let native = NATIVE_TYPE.get()?.0.as_ptr();
+    // SAFETY: (caller) a live object, whose header is readable; the native
+    // type cannot be subclassed, so its instances are those of that exact
+    // type, whose cell is live while the object is.
+    unsafe { ((*object).ob_type == native).then(|| cell(object).owner) }
+}
+
 /// The cell of `object`, if it is a native object of this thread;
 /// `wanted` names what was expected, for messages.
 fn checked_cell<'a>(object: &'a Bound<'_>, wanted: &str) -> PyResult<&'a NativeCell> {
@@ -256,7 +271,8 @@ fn checked_cell<'a>(object: &'a Bound<'_>, wanted: &str) -> PyResult<&'a NativeC
     } else {
         Err(PyErr::runtime_error(
             "this pltrs object belongs to another thread: pltrs (Rust) values are used on the \
-             thread that made them",
+             thread that made them (the main thread runs the calls of other threads while it \
+             runs an event loop)",
         ))
     }
 }

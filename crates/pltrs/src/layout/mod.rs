@@ -34,6 +34,7 @@ mod tight;
 mod tight_grid;
 
 pub use constrained::ConstrainedLayout;
+pub use grid::{GridOwner, GridParent, Margin, MarginValues, SolvedGrid};
 pub use tight::{TightLayout, TightLayoutError};
 
 pub(crate) use align::{Aligned, LabelGroups};
@@ -355,37 +356,48 @@ impl Figure {
 
     /// Lays the figure out once with `engine`, whatever engine the figure
     /// has, which it keeps (matplotlib's `LayoutEngine.execute(fig)`).
+    /// Constrained layout returns its grids as solved (matplotlib's
+    /// `layoutgrids`, a debugging aid): the figure's first, every other
+    /// after its parent; other engines, and constrained layout without
+    /// axes on a grid, return `None`.
     ///
     /// ```
     /// use pltrs::figure::Figure;
-    /// use pltrs::layout::LayoutEngine;
+    /// use pltrs::layout::{GridOwner, LayoutEngine};
     /// let fig = Figure::new();
     /// fig.set_layout_engine(None)?;
     /// fig.subplot().set_title("title");
     /// let (own, params) = (fig.layout_engine(), fig.subplot_params());
-    /// fig.execute_layout(LayoutEngine::tight());
+    /// assert!(fig.execute_layout(LayoutEngine::tight()).is_none());
     /// assert_ne!(fig.subplot_params(), params, "the tight layout moved the grid");
     /// assert_eq!(fig.layout_engine(), own);
+    /// let grids = fig.execute_layout(LayoutEngine::constrained()).unwrap();
+    /// assert!(matches!(grids[0].owner, GridOwner::Frame(_)));
+    /// assert!(matches!(grids[1].owner, GridOwner::GridSpec(_)));
+    /// assert_eq!((grids[0].lefts[0], grids[0].rights[0]), (0.0, 1.0));
     /// # Ok::<(), pltrs::layout::LayoutEngineError>(())
     /// ```
-    pub fn execute_layout(&self, engine: LayoutEngine) {
+    pub fn execute_layout(&self, engine: LayoutEngine) -> Option<Vec<SolvedGrid>> {
         let mut state = self.raw().figure_state().borrow_mut();
         let own = state.layout.engine.replace(engine);
         state.layout.pending = true;
+        let tree = state.run_pending_layout();
         state.prepare();
         state.layout.engine = own;
+        tree.map(|tree| tree.solved_grids())
     }
 }
 
 impl FigureState {
     /// Runs the layout engine if a layout pass is due: after the figure
-    /// changed, and before every draw.
-    pub(crate) fn run_pending_layout(&mut self) {
+    /// changed, and before every draw. Returns the grids constrained
+    /// layout laid out.
+    pub(crate) fn run_pending_layout(&mut self) -> Option<constrained::LayoutTree> {
         // A window of the figure being printed was measured on the last
         // layout, which the print keeps (matplotlib turns the layout
         // engine off while printing).
         if !std::mem::take(&mut self.layout.pending) || self.print_window.is_some() {
-            return;
+            return None;
         }
         match self.layout.engine {
             Some(LayoutEngine::Constrained(params)) => constrained::execute(self, &params),
@@ -395,8 +407,9 @@ impl FigureState {
                 // A figure tight layout cannot fit keeps its parameters,
                 // as matplotlib's engine does (after a warning).
                 let _ = self.tight_layout_pass(self.root, &axes, &params);
+                None
             }
-            Some(LayoutEngine::PlaceHolder(_)) | None => {}
+            Some(LayoutEngine::PlaceHolder(_)) | None => None,
         }
     }
 
@@ -430,6 +443,19 @@ mod tests {
             .unwrap();
         fig.colorbar(&image, ColorbarOptions::default()).unwrap();
         fig
+    }
+
+    #[test]
+    fn ticks_read_between_draws_leave_the_layout_to_the_draw() {
+        let fig = Figure::new();
+        fig.set_layout_engine(LayoutEngine::tight()).unwrap();
+        let ax = fig.subplot();
+        ax.set_title("title");
+        let params = fig.subplot_params();
+        ax.ticks(crate::ticker::AxisName::X).unwrap();
+        assert_eq!(fig.subplot_params(), params, "as matplotlib, no layout yet");
+        fig.layout();
+        assert_ne!(fig.subplot_params(), params, "the layout was still due");
     }
 
     #[test]

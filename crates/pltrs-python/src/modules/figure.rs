@@ -7,7 +7,7 @@ use pltrs::colors::Color;
 use pltrs::figure::{AxesRectError, DrawErrors, Figure, SaveError, SizeError, SubfigureOptions};
 use pltrs::gridspec::{GridSpecError, SubplotOverrides, SubplotSpec};
 use pltrs::layout::{
-    ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, TightLayout,
+    ConstrainedLayout, LayoutEngine, LayoutEngineError, PlaceHolderLayout, SolvedGrid, TightLayout,
 };
 use pltrs::text::Text;
 use pltrs_render::RasterBackendError;
@@ -282,10 +282,11 @@ fn set_layout_engine(figure: Figure, engine: Option<EngineSpec>) -> PyResult<()>
     Ok(())
 }
 
-/// Lays the figure out once with `engine` (`LayoutEngine.execute`).
-fn execute_layout(figure: Figure, engine: EngineSpec) -> PyResult<()> {
-    figure.execute_layout(engine.0);
-    Ok(())
+/// Lays the figure out once with `engine` (`LayoutEngine.execute`),
+/// returning the grids constrained layout solved, if any (see
+/// `layoutgrid`).
+fn execute_layout(figure: Figure, engine: EngineSpec) -> PyResult<Option<Vec<SolvedGrid>>> {
+    Ok(figure.execute_layout(engine.0))
 }
 
 /// Axes at `[left, bottom, width, height]` in figure fractions

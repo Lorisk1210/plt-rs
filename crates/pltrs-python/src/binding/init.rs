@@ -5,7 +5,7 @@ use std::cell::UnsafeCell;
 use super::error::PyResult;
 use super::gil::entry;
 use super::module::Module;
-use super::{native, registry};
+use super::{home, native, registry};
 use crate::ffi;
 
 /// The module definition CPython creates `_native` from.
@@ -36,17 +36,19 @@ static DEFINITION: Definition = Definition(UnsafeCell::new(ffi::PyModuleDef {
     m_free: std::ptr::null_mut(),
 }));
 
-/// Creates the extension module with the native type and `register`,
-/// then lets `fill` add the matplotlib modules: what `PyInit__native`
-/// returns.
+/// Creates the extension module with the native type, `register` and
+/// `call_on_thread_of`, then lets `fill` add the matplotlib modules: what
+/// `PyInit__native` returns.
 pub(crate) fn init_module(fill: fn(&Module<'_>) -> PyResult<()>) -> *mut ffi::PyObject {
     // SAFETY: CPython calls `PyInit__native` with the GIL held; the
     // definition is static.
     unsafe {
         entry(|py| {
+            home::init(py)?;
             let module = Module::create(py, DEFINITION.0.get())?;
             native::add_type(&module)?;
             registry::add_to(&module)?;
+            home::add_to(&module)?;
             fill(&module)?;
             Ok(module.into_object())
         })

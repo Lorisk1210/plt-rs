@@ -25,6 +25,7 @@ use std::ffi::{CStr, CString, c_void};
 use super::convert::{FromPy, IntoPy};
 use super::error::{PyErr, PyResult};
 use super::gil::{Python, entry};
+use super::home;
 use super::object::Bound;
 use crate::ffi;
 
@@ -152,7 +153,9 @@ unsafe extern "C" fn drop_body(capsule: *mut ffi::PyObject) {
 }
 
 /// The C function behind every native function: runs the body in the
-/// capsule bound as `self`.
+/// capsule bound as `self`, on the main thread when the arguments belong
+/// to it, this is another thread and the main thread serves others
+/// ([`home`]).
 unsafe extern "C" fn dispatch(
     capsule: *mut ffi::PyObject,
     args: *const *mut ffi::PyObject,
@@ -162,16 +165,37 @@ unsafe extern "C" fn dispatch(
     // `self` (the capsule `function` bound), and `nargs` live borrowed
     // arguments at `args`.
     unsafe {
+        let count = usize::try_from(nargs).unwrap_or_default();
+        let args = if count == 0 {
+            &[][..]
+        } else {
+            std::slice::from_raw_parts(args, count)
+        };
+        let on_main = if home::belongs_to_main(args) {
+            home::call_on_main(call_here, capsule, args)
+        } else {
+            None
+        };
+        on_main.unwrap_or_else(|| call_here(capsule, args))
+    }
+}
+
+/// Runs the body in `capsule` with `args` on this thread.
+///
+/// # Safety
+///
+/// The GIL is held, `capsule` is a native function's capsule and `args`
+/// are live.
+unsafe fn call_here(
+    capsule: *mut ffi::PyObject,
+    args: &[*mut ffi::PyObject],
+) -> *mut ffi::PyObject {
+    // SAFETY: (caller) the GIL is held and the objects are live.
+    unsafe {
         entry(|py| {
             let body = ffi::PyCapsule_GetPointer(capsule, BODY_CAPSULE.as_ptr()).cast::<Body>();
             let body = body.as_ref().ok_or_else(|| PyErr::fetch(py))?;
-            let count = usize::try_from(nargs).unwrap_or_default();
-            let borrowed = if count == 0 {
-                &[][..]
-            } else {
-                std::slice::from_raw_parts(args, count)
-            };
-            let args: Vec<Bound<'_>> = borrowed
+            let args: Vec<Bound<'_>> = args
                 .iter()
                 .map(|&arg| Bound::from_borrowed_ptr(py, arg))
                 .collect();

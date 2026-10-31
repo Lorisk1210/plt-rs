@@ -1,8 +1,8 @@
 //! The interpreter: the GIL, imports and, for the unit tests, embedding.
 
-use std::ffi::c_char;
 #[cfg(test)]
 use std::ffi::c_int;
+use std::ffi::{c_char, c_void};
 
 use super::PyObject;
 
@@ -18,6 +18,12 @@ unsafe extern "C" {
     pub(crate) fn PyGILState_Release(state: PyGILState_STATE);
     /// `PyImport_ImportModule`: `import name`, a new reference.
     pub(crate) fn PyImport_ImportModule(name: *const c_char) -> *mut PyObject;
+    /// `PyEval_SaveThread`: releases the GIL the current thread holds,
+    /// returning its thread state.
+    pub(crate) fn PyEval_SaveThread() -> *mut c_void;
+    /// `PyEval_RestoreThread`: takes the GIL back for the thread state
+    /// `PyEval_SaveThread` returned.
+    pub(crate) fn PyEval_RestoreThread(state: *mut c_void);
 }
 
 /// `PyInitConfig` (PEP 741, 3.14), opaque.
@@ -50,6 +56,4 @@ unsafe extern "C" {
     pub(crate) fn Py_InitializeFromInitConfig(config: *mut PyInitConfig) -> c_int;
     /// `PyInitConfig_Free`.
     pub(crate) fn PyInitConfig_Free(config: *mut PyInitConfig);
-    /// `PyEval_SaveThread`: releases the GIL the initialising thread holds.
-    pub(crate) fn PyEval_SaveThread() -> *mut std::ffi::c_void;
 }

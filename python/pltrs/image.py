@@ -11,9 +11,11 @@ Images are read and written with Pillow, as matplotlib does (``imread``,
 matplotlib's, from matplotlib 3.11.2, under the Matplotlib License).
 """
 
+import functools
 import logging
 import os
 from pathlib import Path
+import weakref
 
 import numpy as np
 import PIL.Image
@@ -1080,6 +1082,39 @@ class FigureImage(_ImageBase):
         return _native_image.figure_image_extent(self._native)
 
 
+def _native_extent_owner(bbox):
+    """
+    The artist *bbox* is the ``get_window_extent`` method of, if pltrs
+    (Rust) measures that artist itself (a method of pltrs's classes, not a
+    replacement of the program's); None for other callables.
+    """
+    from .artist import Artist
+    owner = getattr(bbox, '__self__', None)
+    function = getattr(bbox, '__func__', None)
+    if (not isinstance(owner, Artist) or function is None
+            or function is not type(owner).get_window_extent):
+        return None
+    package = __name__.rpartition('.')[0]
+    module = function.__module__ or ''
+    return owner if module.partition('.')[0] == package else None
+
+
+def _callable_bbox(image_ref, width, height, dpi):
+    """
+    The display box ``(x0, y0, x1, y1)`` the callable bbox of the
+    `BboxImage` *image_ref* refers to gives for a canvas of *width* ×
+    *height* pixels at *dpi*, which pltrs (Rust) asks for when it draws or
+    measures the image; None once the image is gone.
+    """
+    from .backends.backend_agg import RendererAgg
+    image = image_ref()
+    if image is None or not callable(image.bbox):
+        return None
+    renderer = RendererAgg(width, height, dpi)
+    renderer._figure = image.get_figure(root=True)
+    return tuple(map(float, image.bbox(renderer).extents))
+
+
 class BboxImage(_ImageBase):
     """
     The Image class whose size is determined by the given bbox.
@@ -1147,7 +1182,19 @@ class BboxImage(_ImageBase):
 
     @bbox.setter
     def bbox(self, bbox):
+        self._bbox = bbox
+        self._give_bbox()
+
+    def _give_bbox(self):
+        """
+        Give pltrs (Rust) the box the image fills: a box, a box in other
+        coordinates, or for a callable the box of the artist whose
+        ``get_window_extent`` it is when pltrs (Rust) measures that
+        artist and it is in the image's figure, else the box the callable
+        gives for a renderer of the canvas whenever the image is drawn.
+        """
         from . import _live_transforms
+        bbox = self.bbox
         if isinstance(bbox, TransformedBbox):
             _native_image.set_bbox(
                 self._native, tuple(map(float, bbox._bbox.extents)),
@@ -1156,8 +1203,26 @@ class BboxImage(_ImageBase):
             _native_image.set_bbox(
                 self._native, tuple(map(float, bbox.extents)), None)
         elif callable(bbox):
-            raise NotImplementedError("pltrs: BboxImage(bbox=<callable>)")
-        self._bbox = bbox
+            owner = _native_extent_owner(bbox)
+            if (owner is not None and self._figure is not None
+                    and owner._figure is self._figure):
+                _native_image.set_bbox_extent_of(self._native, owner._native)
+            else:
+                # Weakly: the image's native state must not keep the
+                # image (nor the artists its callable reaches) alive.
+                _native_image.set_bbox_function(
+                    self._native,
+                    functools.partial(_callable_bbox, weakref.ref(self)))
+
+    def _add_to_axes(self, axes, kind, autolim=True):
+        added = super()._add_to_axes(axes, kind, autolim)
+        self._give_bbox()
+        return added
+
+    def _add_to_figure(self, figure, clip):
+        added = super()._add_to_figure(figure, clip)
+        self._give_bbox()
+        return added
 
     def get_window_extent(self, renderer=None):
         if self.bbox is None:

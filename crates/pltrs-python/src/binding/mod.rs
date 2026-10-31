@@ -30,6 +30,7 @@ mod convert;
 mod error;
 mod function;
 mod gil;
+mod home;
 mod init;
 mod module;
 mod native;

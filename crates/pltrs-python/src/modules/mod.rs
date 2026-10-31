@@ -45,6 +45,7 @@ mod ft2font;
 mod gridspec;
 mod image;
 mod insets;
+mod layoutgrid;
 mod legend;
 mod lines;
 mod markers;

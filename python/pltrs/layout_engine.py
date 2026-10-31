@@ -25,7 +25,7 @@ whenever the engine or its parameters change.
 
 import weakref
 
-from . import rcParams
+from . import _layoutgrid, rcParams
 
 
 class LayoutEngine:
@@ -102,9 +102,14 @@ class LayoutEngine:
     def execute(self, fig):
         """
         Execute the layout on the figure given by *fig*.
+
+        Constrained layout returns its layout grids, a private debugging
+        structure (see `._layoutgrid`), or None without grids.
         """
         from ._native import figure as _figure
-        _figure.execute_layout(fig._native, self._native_spec())
+        solved = _figure.execute_layout(fig._native, self._native_spec())
+        if solved is not None:
+            return _layoutgrid._from_native(fig, solved)
 
 
 class PlaceHolderLayoutEngine(LayoutEngine):

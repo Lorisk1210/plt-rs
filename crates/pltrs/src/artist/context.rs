@@ -45,6 +45,11 @@ impl<'a> LayoutContext<'a> {
         self.figure.dpi()
     }
 
+    /// Canvas size in pixels.
+    pub fn canvas_size(&self) -> (f64, f64) {
+        self.figure.size_pixels()
+    }
+
     /// Whether the figure keeps adjacent images apart or composites them
     /// (`None` = as the renderer prefers; matplotlib's `suppressComposite`).
     pub(crate) fn suppress_composite(self) -> Option<bool> {

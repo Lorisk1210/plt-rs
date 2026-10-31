@@ -13,6 +13,7 @@
 //! colour-maps the image as matplotlib's `_make_image` does. Agg's
 //! resampler itself, matplotlib's `_image.resample`, is in [`resample`].
 
+mod bbox;
 mod figure;
 mod kinds;
 mod resample;
@@ -411,6 +412,7 @@ fn set_image_alpha(image: AnyImage, alpha: Option<Alpha>) -> PyResult<()> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     resample::register(module)?;
+    bbox::register(module)?;
     kinds::register(module)?;
     module.add("imshow", imshow)?;
     module.add("get_images", get_images)?;

@@ -22,7 +22,9 @@ mod tree;
 use super::kiwi::SolverError;
 use crate::figure::FigureState;
 use crate::rc::RcParams;
-use tree::{FIGURE, LayoutTree};
+use tree::FIGURE;
+
+pub(super) use tree::LayoutTree;
 
 /// The parameters of constrained layout (matplotlib's
 /// `ConstrainedLayoutEngine`).
@@ -85,8 +87,9 @@ struct Pads {
     hspace: f64,
 }
 
-/// matplotlib's `do_constrained_layout` on the figure.
-pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
+/// matplotlib's `do_constrained_layout` on the figure: the grids laid
+/// out, `None` when no axes is on a grid or the solver failed.
+pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) -> Option<LayoutTree> {
     let (width, height) = fig.size_inches;
     let pads = Pads {
         w_pad: params.w_pad / width,
@@ -95,21 +98,23 @@ pub(super) fn execute(fig: &mut FigureState, params: &ConstrainedLayout) {
         hspace: params.hspace,
     };
     let solved = LayoutTree::new(fig, params.rect).and_then(|tree| {
-        if let Some(mut tree) = tree {
-            return lay_out(&mut tree, fig, params, &pads);
-        }
-        if !fig.all_axes().is_empty() {
-            crate::warnings::warn(
-                "There are no gridspecs with layoutgrids. Possibly did not call parent \
-                 GridSpec with the \"figure\" keyword",
-            );
-        }
-        Ok(())
+        let Some(mut tree) = tree else {
+            if !fig.all_axes().is_empty() {
+                crate::warnings::warn(
+                    "There are no gridspecs with layoutgrids. Possibly did not call parent \
+                     GridSpec with the \"figure\" keyword",
+                );
+            }
+            return Ok(None);
+        };
+        lay_out(&mut tree, fig, params, &pads)?;
+        Ok(Some(tree))
     });
     // kiwisolver's exceptions end matplotlib's layout, out of its draw.
-    if let Err(error) = solved {
+    solved.unwrap_or_else(|error| {
         crate::warnings::warn(&format!("constrained_layout not applied: {error}"));
-    }
+        None
+    })
 }
 
 /// The two rounds of margins, solution and placement of

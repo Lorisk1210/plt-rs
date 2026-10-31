@@ -60,7 +60,7 @@ mod vector_save;
 
 pub use artist::AxesImage;
 pub(crate) use artist::AxesImageArtist;
-pub use bbox_image::{BboxImage, BboxImageOptions};
+pub use bbox_image::{BboxFn, BboxImage, BboxImageOptions, Canvas};
 pub(crate) use bbox_image::{BboxImageArtist, Region};
 pub use bitmap::{BitmapError, BitmapFormat, BitmapSettings};
 pub use color_image::{color_image_bytes, color_image_rgba};

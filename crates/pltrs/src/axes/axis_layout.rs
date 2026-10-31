@@ -295,19 +295,27 @@ impl<'a> AxisPainter<'a> {
         style: &TickStyle,
         first_side: bool,
     ) -> Option<(Point, (HAlign, VAlign))> {
-        let resolved = layout.resolve(&self.side_transform(layout, !first_side))?;
-        let across = if first_side { 0.0 } else { 1.0 };
-        let base = resolved.transform_point(self.tick_point(tick.loc, across));
-        let offset = layout.points_to_pixels(style.label_offset());
+        let pad = style.label_offset();
         // `xtick.alignment` and `ytick.alignment` (matplotlib's
         // `get_xaxis_text1_transform` and friends).
         let (x_align, y_align) = (self.axes.rc.xtick_alignment, self.axes.rc.ytick_alignment);
-        Some(match (self.name, first_side) {
-            (AxisName::X, true) => (base - Point::new(0.0, offset), (x_align, VAlign::Top)),
-            (AxisName::X, false) => (base + Point::new(0.0, offset), (x_align, VAlign::Bottom)),
-            (AxisName::Y, true) => (base - Point::new(offset, 0.0), (HAlign::Right, y_align)),
-            (AxisName::Y, false) => (base + Point::new(offset, 0.0), (HAlign::Left, y_align)),
-        })
+        let ((dx, dy), align) = match (self.name, first_side) {
+            (AxisName::X, true) => ((0.0, -pad), (x_align, VAlign::Top)),
+            (AxisName::X, false) => ((0.0, pad), (x_align, VAlign::Bottom)),
+            (AxisName::Y, true) => ((-pad, 0.0), (HAlign::Right, y_align)),
+            (AxisName::Y, false) => ((pad, 0.0), (HAlign::Left, y_align)),
+        };
+        // The pad joins the side's transform as matplotlib's
+        // `ScaledTranslation` joins it: in inches scaled by the dpi, in one
+        // affine with the side's, so the label lands on matplotlib's bits.
+        let transform = self
+            .side_transform(layout, !first_side)
+            .offset_points(dx, dy);
+        let across = if first_side { 0.0 } else { 1.0 };
+        let anchor = layout
+            .resolve(&transform)?
+            .transform_point(self.tick_point(tick.loc, across));
+        Some((anchor, align))
     }
 
     /// The spine on `side`, if the axes has one (the spines of curved

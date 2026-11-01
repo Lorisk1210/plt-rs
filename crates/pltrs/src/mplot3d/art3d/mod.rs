@@ -27,7 +27,7 @@ use super::coords::Axis3;
 use super::math::{Vec3, add};
 use super::units::Sources3D;
 use crate::artist::{ArtistId, ArtistStore};
-use crate::collections::CollectionArtist;
+use crate::collections::{CollectionArtist, CollectionKind};
 use crate::lines::LineArtist;
 use crate::patches::{PatchArtist, PatchShape};
 use crate::text::{AngleReduction, TextArtist};
@@ -175,6 +175,24 @@ pltrs_core::archive_enum!(Art3D {
 });
 
 impl Art3D {
+    /// matplotlib's class of a collection of `kind` with this geometry,
+    /// which names its SVG group; `None` for the geometries of other
+    /// artists, and for converted collections, whose class matplotlib
+    /// derives from the 2-D one (`Collection3D`).
+    pub(crate) fn collection_class(&self, kind: CollectionKind) -> Option<&'static str> {
+        match self {
+            Self::Segments(_) => Some("Line3DCollection"),
+            Self::Polys(_) => Some("Poly3DCollection"),
+            Self::Points(_) if kind == CollectionKind::Patch => Some("Patch3DCollection"),
+            Self::Points(_) => Some("Path3DCollection"),
+            Self::Line(_)
+            | Self::Text { .. }
+            | Self::Paths(_)
+            | Self::Patch(_)
+            | Self::PathPatch(_) => None,
+        }
+    }
+
     /// Whether the artist counts as data (matplotlib's `has_data`).
     pub(crate) fn is_data(&self) -> bool {
         !matches!(self, Self::Text { .. })

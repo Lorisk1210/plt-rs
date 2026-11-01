@@ -326,6 +326,33 @@ class Tick(Artist):
                     self.gridline, self.label1, self.label2]
         return children
 
+    def _gid_args(self):
+        """The native axes, axis name, level and index of a tick of an
+        axis."""
+        axis = self.axis
+        return axis.axes._native, axis.axis_name, not self._major, self._index
+
+    def get_gid(self):
+        """Return the group id of the tick."""
+        if self.axis is None:
+            return super().get_gid()
+        return _axis.get_tick_gid(*self._gid_args())
+
+    def set_gid(self, gid):
+        """
+        Set the (group) id of the tick: SVG output names the group holding
+        the tick's lines and labels after it.
+
+        Parameters
+        ----------
+        gid : str
+        """
+        if self.axis is None:
+            super().set_gid(gid)
+        else:
+            _axis.set_tick_gid(*self._gid_args(),
+                               None if gid is None else str(gid))
+
     def draw(self, renderer):
         """
         Draw the visible parts of a tick made alone, as matplotlib's does

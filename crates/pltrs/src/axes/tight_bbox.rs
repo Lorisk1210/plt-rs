@@ -247,12 +247,14 @@ impl FigureState {
     }
 }
 
-/// The extent of an axis' texts (matplotlib's `Axis.get_tightbbox`).
+/// The extent of an axis' texts (matplotlib's `Axis.get_tightbbox`,
+/// which places its ticks).
 pub(super) fn axis_tight_bbox(
     layout: LayoutContext<'_>,
     painter: &AxisPainter<'_>,
     for_layout_only: bool,
 ) -> Option<Bbox> {
+    painter.axis.ticks_placed.set(true);
     let texts = painter.texts(layout, &painter.axes.rc);
     let label = texts.label.as_ref().map(|label| {
         let bbox = label.bbox();

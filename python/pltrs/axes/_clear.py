@@ -102,9 +102,12 @@ class ClearMixin:
 
     @property
     def _children(self):
-        """The artists added to the Axes, in the order they were added."""
-        return [_handles.wrap_any(native, self.figure)
-                for native in _axes.children(self._native)]
+        """The artists added to the Axes, in the order they were added; an
+        artist pltrs (Rust) makes of several (a contour set) once."""
+        children = {id(child): child for child in (
+            _handles.wrap_any(native, self.figure)
+            for native in _axes.children(self._native))}
+        return list(children.values())
 
     @property
     def artists(self):
@@ -119,7 +122,7 @@ class ClearMixin:
         return [
             *self._children,
             *self.spines.values(),
-            self.xaxis, self.yaxis,
+            *[getattr(self, f"{name}axis") for name in self._axis_names],
             self.title, self._left_title, self._right_title,
             *self.child_axes,
             *([self.legend_] if self.legend_ is not None else []),

@@ -200,39 +200,52 @@ impl Batch {
     }
 }
 
-/// Draws the collection through its path effects, using `draw_markers`
-/// when every item shares one shape and style (matplotlib's single-path
-/// optimisation). A collection placed at offsets but without any (an
-/// empty scatter plot) only opens and closes its group, as in matplotlib.
+/// Draws the collection in its SVG group, which matplotlib opens for a
+/// collection of no item too (an empty scatter plot, a line collection
+/// without segments).
 pub(super) fn draw_collection(
     c: &CollectionArtist,
     ctx: &mut DrawContext<'_>,
 ) -> Result<(), String> {
     let (shapes, transform) = c.current_shapes(*ctx.layout())?;
-    if shapes.is_empty() {
-        return Ok(());
-    }
-    let batch = Batch::new(c, ctx, &shapes, &transform)?;
-    let hatches = resolve_hatch_colors(c, &batch.edges).map_err(|e| e.to_string())?;
-    let gc = graphics_context(c, ctx, &hatches);
-    let name = match c.kind {
+    let name = c.class_name.unwrap_or(match c.kind {
         CollectionKind::Generic => "Collection",
         CollectionKind::Patch => "PatchCollection",
         CollectionKind::Path => "PathCollection",
         CollectionKind::Poly => "PolyCollection",
         CollectionKind::Line => "LineCollection",
         CollectionKind::QuadMesh => "QuadMesh",
-    };
+    });
     ctx.renderer().open_group(name, c.base().gid.as_deref());
-    let drawn = if batch.offsets.is_empty() {
+    let drawn = if shapes.is_empty() {
         Ok(())
     } else {
-        with_path_effects(ctx, &c.base().path_effects, |ctx| {
-            draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
-        })
+        draw_shapes(c, ctx, &shapes, &transform)
     };
     ctx.renderer().close_group(name);
-    drawn.map_err(|err| err.to_string())
+    drawn
+}
+
+/// Draws the items of `shapes` through the collection's path effects,
+/// using `draw_markers` when every item shares one shape and style
+/// (matplotlib's single-path optimisation); a collection placed at
+/// offsets but without any draws nothing.
+fn draw_shapes(
+    c: &CollectionArtist,
+    ctx: &mut DrawContext<'_>,
+    shapes: &[Path],
+    transform: &Transform,
+) -> Result<(), String> {
+    let batch = Batch::new(c, ctx, shapes, transform)?;
+    let hatches = resolve_hatch_colors(c, &batch.edges).map_err(|e| e.to_string())?;
+    let gc = graphics_context(c, ctx, &hatches);
+    if batch.offsets.is_empty() {
+        return Ok(());
+    }
+    with_path_effects(ctx, &c.base().path_effects, |ctx| {
+        draw_items(ctx, gc, &batch, &hatches, c.hatch.is_some());
+    })
+    .map_err(|err| err.to_string())
 }
 
 /// Draws the items of a collection with at least one offset, each hatched
@@ -446,6 +459,18 @@ mod tests {
         let without = calls(None, "none");
         assert_eq!(calls(Some(LineStyle::Dashed), "blue"), without);
         assert_eq!(calls(Some(LineStyle::Solid), "none"), without);
+    }
+
+    #[test]
+    fn an_empty_collection_still_writes_its_group() {
+        use crate::collections::CollectionSpec;
+        use crate::figure::Figure;
+
+        let fig = Figure::new();
+        fig.subplot()
+            .add_collection(CollectionSpec::lines(Vec::new()));
+        let svg = fig.to_svg().unwrap();
+        assert!(svg.contains("<g id=\"LineCollection_1\"/>"), "{svg}");
     }
 
     #[test]

@@ -14,7 +14,7 @@ import numpy as np
 from numpy import ma
 
 from . import _api, _blocking_input, _handles, collections as mcoll, colors as mcolors
-from ._native import contour as _contour
+from ._native import artist as _artist, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
 
@@ -276,7 +276,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             ax._native, bool(filled), [float(level) for level in levels],
             segments, *look[:2])
         _handles.adopt(self, _contour.get_collections(native)[0], ax.figure)
-        self._contour = native
+        self._set_contour(native, ax.figure)
         _style(self, look, kwargs)
 
     @classmethod
@@ -284,9 +284,16 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         """The object around the native contour set *contour* of *axes*."""
         collections = _contour.get_collections(contour)
         cs = _handles.wrap(collections[0], cls, axes.figure)
-        cs._contour = contour
+        cs._set_contour(contour, axes.figure)
         cs._attach_native_mapping()
         return cs
+
+    def _set_contour(self, contour, figure):
+        """Make the set wrap the native contour set *contour* of
+        *figure*, whose object it then is too (the set is one child of its
+        axes, as in matplotlib)."""
+        self._contour = contour
+        figure._figure._artists[_artist.id(contour)] = self
 
     def _native_clim(self):
         if not hasattr(self, "_contour"):

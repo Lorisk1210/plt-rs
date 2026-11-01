@@ -6,6 +6,7 @@ use pltrs_render::JoinStyle;
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext};
 use crate::axes::AxesState;
 use crate::colors::Color;
+use crate::figure::Figure;
 use crate::gridspec::{SubplotParams, SubplotSpec};
 use crate::image::{Compositor, FigureImageArtist};
 use crate::legend::LegendArtist;
@@ -28,6 +29,9 @@ pub(crate) struct FigureFrame {
     pub(crate) linewidth: f64,
     /// Whether the background and border are drawn.
     pub(crate) frameon: bool,
+    /// The id of the background's group in SVG output (matplotlib's
+    /// `Figure.patch.get_gid`).
+    pub(crate) patch_gid: Option<String>,
     /// Extent as a fraction of the parent frame (the unit box for the root).
     pub(crate) relative_extent: Bbox,
     /// Owned artists in insertion order (axes included).
@@ -47,6 +51,7 @@ pltrs_core::archive_struct!(FigureFrame {
     edgecolor,
     linewidth,
     frameon,
+    patch_gid,
     relative_extent,
     children,
     subplot_params,
@@ -109,6 +114,7 @@ impl FigureFrame {
             edgecolor,
             linewidth: 0.0,
             frameon: true,
+            patch_gid: None,
             relative_extent,
             children: Vec::new(),
             subplot_params,
@@ -191,12 +197,16 @@ impl Artist for FigureFrame {
 }
 
 impl FigureFrame {
-    /// Draws the background, then the children, compositing images.
+    /// Draws the background in its SVG group (matplotlib's `Patch.draw`),
+    /// then the children, compositing images.
     fn draw_contents(&self, ctx: &mut DrawContext<'_>) {
         if self.frameon
             && let Some(extent) = ctx.layout().frame_patch_extent(self.base.id())
         {
+            ctx.renderer()
+                .open_part_group("patch", self.patch_gid.as_deref());
             self.draw_patch(ctx, extent);
+            ctx.renderer().close_part_group("patch");
         }
         let mut children =
             ctx.sorted_children(&listing_order(ctx.layout().store(), &self.children));
@@ -207,6 +217,31 @@ impl FigureFrame {
             compositor.draw(ctx, id);
         }
         compositor.flush(ctx);
+    }
+}
+
+impl Figure {
+    /// Names the SVG group of the background `gid` (matplotlib's
+    /// `fig.patch.set_gid`), or numbers it as a `patch` (`None`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// fig.set_patch_gid(Some("canvas".into()));
+    /// assert_eq!(fig.patch_gid().as_deref(), Some("canvas"));
+    /// assert!(fig.to_svg()?.contains("<g id=\"canvas\">"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_patch_gid(&self, gid: Option<String>) -> &Self {
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.patch_gid = gid);
+        self
+    }
+
+    /// The id of the background's SVG group, if it was given one.
+    pub fn patch_gid(&self) -> Option<String> {
+        self.root
+            .with::<FigureFrame, _>(|frame| frame.patch_gid.clone())
     }
 }
 

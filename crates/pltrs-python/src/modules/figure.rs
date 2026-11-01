@@ -153,6 +153,18 @@ fn get_frameon(figure: Figure) -> PyResult<bool> {
     Ok(figure.frameon())
 }
 
+/// Names the SVG group of the background patch `gid`, or numbers it
+/// (`Figure.patch.set_gid`).
+fn set_patch_gid(figure: Figure, gid: Option<String>) -> PyResult<()> {
+    figure.set_patch_gid(gid);
+    Ok(())
+}
+
+/// The id of the background patch's SVG group, if it was given one.
+fn get_patch_gid(figure: Figure) -> PyResult<Option<String>> {
+    Ok(figure.patch_gid())
+}
+
 /// The current axes, made if there are none.
 fn gca(figure: Figure) -> PyResult<Axes> {
     Ok(figure.gca())
@@ -426,7 +438,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("artists", artists)?;
     module.add("get_edgecolor", get_edgecolor)?;
     module.add("get_linewidth", get_linewidth)?;
-    module.add("get_frameon", get_frameon)
+    module.add("get_frameon", get_frameon)?;
+    module.add("set_patch_gid", set_patch_gid)?;
+    module.add("get_patch_gid", get_patch_gid)
 }
 
 #[cfg(test)]
@@ -441,6 +455,8 @@ mod tests {
         set_frameon(fig.clone(), false).unwrap();
         assert_eq!(get_edgecolor(fig.clone()).unwrap(), Color::from("red"));
         assert_eq!(get_linewidth(fig.clone()).unwrap(), 2.5);
-        assert!(!get_frameon(fig).unwrap());
+        assert!(!get_frameon(fig.clone()).unwrap());
+        set_patch_gid(fig.clone(), Some("canvas".into())).unwrap();
+        assert_eq!(get_patch_gid(fig).unwrap().as_deref(), Some("canvas"));
     }
 }

@@ -215,6 +215,8 @@ pub(crate) struct AxesPatch {
     /// Its z-order where it is drawn among children (a parasite sharing
     /// it); as the background it is always drawn first.
     pub(crate) zorder: f64,
+    /// The id of its group in SVG output (matplotlib's `Patch.get_gid`).
+    pub(crate) gid: Option<String>,
     /// Whether this parasite's patch is its host's (matplotlib's
     /// `aux.patch = ax.patch`), which the host then draws again among the
     /// parasite's children.
@@ -227,6 +229,7 @@ pltrs_core::archive_struct!(AxesPatch {
     linewidth,
     visible,
     zorder,
+    gid,
     host_owned
 });
 
@@ -277,6 +280,7 @@ impl AxesState {
                 linewidth: 0.0,
                 visible: true,
                 zorder: 1.0,
+                gid: None,
                 host_owned: false,
             },
             decorations: Decorations {

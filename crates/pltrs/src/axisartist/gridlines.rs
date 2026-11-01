@@ -60,6 +60,7 @@ impl Gridlines {
         rc: &Rc<RcParams>,
     ) -> CollectionArtist {
         let mut collection = CollectionArtist::new(CollectionKind::Line, Vec::new(), Rc::clone(rc));
+        collection.class_name = Some("GridlinesCollection");
         collection.edgecolors = EdgeColors::Colors(vec![rc.grid_color.clone()]);
         collection.linewidths = Some(vec![rc.grid_linewidth]);
         collection.linestyles = vec![rc.grid_linestyle.clone()];

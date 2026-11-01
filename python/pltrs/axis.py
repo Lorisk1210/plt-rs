@@ -676,6 +676,7 @@ class Axis(Artist):
         Update ticks (position and labels) using the current data interval of
         the axes.  Return the list of ticks that will be drawn.
         """
+        _axis.place_ticks(*self._args())
         ticks = []
         for minor in (False, True):
             locs = self.get_ticklocs(minor=minor)
@@ -716,6 +717,8 @@ class Axis(Artist):
         return self._ticklabels(minor=True)
 
     def _ticklabels(self, minor):
+        # matplotlib places the ticks (`_update_ticks`) to read their labels.
+        _axis.place_ticks(*self._args())
         ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
         labels1 = [tick.label1 for tick in ticks if tick.label1.get_visible()]
         labels2 = [tick.label2 for tick in ticks if tick.label2.get_visible()]
@@ -1273,6 +1276,21 @@ class Axis(Artist):
     def get_children(self):
         return [self.label, self.offsetText,
                 *self.get_major_ticks(), *self.get_minor_ticks()]
+
+    def get_gid(self):
+        """Return the group id of the axis."""
+        return _axis.get_gid(*self._args())
+
+    def set_gid(self, gid):
+        """
+        Set the (group) id of the axis: SVG output names the group holding
+        the axis' ticks and texts after it.
+
+        Parameters
+        ----------
+        gid : str
+        """
+        _axis.set_gid(*self._args(), None if gid is None else str(gid))
 
     def get_tightbbox(self, renderer=None, *, for_layout_only=False):
         """

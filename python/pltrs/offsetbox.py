@@ -1168,8 +1168,13 @@ or callable, default: value of *xycoords*
         self.boxcoords = coords
 
     def get_children(self):
-        """Return the list of children: the offset box."""
-        return [self.offsetbox]
+        """
+        Return the list of children: the offset box and, once the box has
+        joined an axes or a figure, its frame (pltrs (Rust) draws the arrow
+        without an artist of its own).
+        """
+        patch = self.__dict__.get("patch")
+        return [self.offsetbox, *([] if patch is None else [patch])]
 
     def set_fontsize(self, s=None):
         """

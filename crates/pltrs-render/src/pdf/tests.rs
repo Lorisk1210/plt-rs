@@ -55,6 +55,37 @@ fn paths_carry_state_changes_and_clips() {
 }
 
 #[test]
+fn the_parts_of_an_artist_share_its_clip_where_artists_set_theirs_again() {
+    let gc = GraphicsContext {
+        clip_rect: Some(Bbox::from_bounds(1.0, 1.0, 5.0, 5.0)),
+        ..GraphicsContext::default()
+    };
+    let clips = |part: bool| {
+        let mut r = renderer();
+        r.open_group("axis", None);
+        for _ in 0..2 {
+            if part {
+                r.open_part_group("line2d", None);
+            } else {
+                r.open_group("line2d", None);
+            }
+            r.draw_path(&gc, &square(), &Affine2D::IDENTITY, None);
+            if part {
+                r.close_part_group("line2d");
+            } else {
+                r.close_group("line2d");
+            }
+        }
+        r.close_group("axis");
+        text(&r.finish().expect("document"))
+            .matches("re W n")
+            .count()
+    };
+    assert_eq!(clips(true), 1);
+    assert_eq!(clips(false), 2);
+}
+
+#[test]
 fn markers_become_form_xobjects() {
     let mut r = renderer();
     let positions = Path::polyline((0..10).map(|i| Point::new(f64::from(i), 5.0)).collect());

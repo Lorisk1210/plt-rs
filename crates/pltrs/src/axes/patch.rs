@@ -61,6 +61,27 @@ impl Axes {
     pub fn patch_linewidth(&self) -> f64 {
         self.raw.with::<AxesState, _>(|a| a.patch.linewidth)
     }
+
+    /// Names the SVG group of the background patch `gid` (matplotlib's
+    /// `ax.patch.set_gid`), or numbers it as a `patch` (`None`); the
+    /// background of a 3-D axes is that of its projection plane.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// fig.subplot().set_patch_gid(Some("backdrop".into()));
+    /// assert!(fig.to_svg()?.contains("<g id=\"backdrop\">"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_patch_gid(&self, gid: Option<String>) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| a.patch.gid = gid);
+        self
+    }
+
+    /// The id of the background patch's SVG group, if it was given one.
+    pub fn patch_gid(&self) -> Option<String> {
+        self.raw.with::<AxesState, _>(|a| a.patch.gid.clone())
+    }
 }
 
 #[cfg(test)]

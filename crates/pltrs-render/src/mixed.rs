@@ -193,6 +193,14 @@ impl Renderer for MixedModeRenderer<'_> {
         self.active().close_group(name);
     }
 
+    fn open_part_group(&mut self, name: &str, gid: Option<&str>) {
+        self.active().open_part_group(name, gid);
+    }
+
+    fn close_part_group(&mut self, name: &str) {
+        self.active().close_part_group(name);
+    }
+
     /// A raster canvas of the page at the save resolution receives the
     /// drawing from now on.
     fn start_rasterizing(&mut self) {

@@ -12,8 +12,9 @@ use pltrs_text::{HAlign, VAlign};
 
 use super::transform::{PolarView, full_circle_deg};
 use crate::artist::{ArtistId, DrawContext, LayoutContext};
+use crate::axes::axis_artists::TickGroups;
 use crate::axes::axis_draw::{TickMark, grid_gc};
-use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickStyle};
+use crate::axes::{AxisName, GridStyle, Tick, TickDirection, TickPart, TickStyle};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol};
 use crate::patheffects::with_path_effects;
 use crate::rc::RcParams;
@@ -136,7 +137,11 @@ fn polar_tick<'a>(
 }
 
 /// Draws the gridline (clipped to the axes wedge) and the marks of one
-/// tick of axis `name` of polar `axes`.
+/// tick of axis `name` of polar `axes`, each in the group `groups` names.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the tick, its axis and axes, its style and its groups"
+)]
 pub(crate) fn draw_tick_lines(
     ctx: &mut DrawContext<'_>,
     axes: ArtistId,
@@ -145,6 +150,7 @@ pub(crate) fn draw_tick_lines(
     tick: &Tick,
     style: &TickStyle,
     rc: &RcParams,
+    groups: TickGroups<'_>,
 ) {
     let layout = *ctx.layout();
     let (Some(ptick), Some(display)) = (
@@ -158,16 +164,18 @@ pub(crate) fn draw_tick_lines(
             path: polar.patch_path(),
             transform: unit_to_bbox(&display),
         };
-        let drawn = with_path_effects(ctx, &style.grid.path_effects, |ctx| {
-            draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);
+        let drawn = groups.part(ctx, TickPart::Gridline, |ctx| {
+            with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+                draw_gridline(ctx, axes, &ptick, &style.grid, clip, rc);
+            })
         });
         if let Err(err) = drawn {
             ctx.report(axes, err);
         }
     }
     let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| match name {
-        AxisName::X => draw_theta_marks(ctx, axes, &ptick, style),
-        AxisName::Y => draw_radial_marks(ctx, axes, &ptick, style),
+        AxisName::X => draw_theta_marks(ctx, axes, &ptick, style, groups),
+        AxisName::Y => draw_radial_marks(ctx, axes, &ptick, style, groups),
     });
     if let Err(err) = drawn {
         ctx.report(axes, err);
@@ -202,6 +210,7 @@ fn draw_theta_marks(
     axes: ArtistId,
     ptick: &PolarTick<'_>,
     style: &TickStyle,
+    groups: TickGroups<'_>,
 ) {
     let (mark1, mark2) = match style.direction {
         TickDirection::Out => (MarkerSymbol::TickDown, MarkerSymbol::TickUp),
@@ -210,21 +219,23 @@ fn draw_theta_marks(
     };
     let along = ptick.along();
     let rotation = ptick.theta_angle() - FRAC_PI_2;
-    for (on, symbol, across) in [
-        (style.ticks.first, mark1, 0.0),
-        (style.ticks.second, mark2, 1.0),
+    for (on, symbol, across, part) in [
+        (style.ticks.first, mark1, 0.0, TickPart::Tick1Line),
+        (style.ticks.second, mark2, 1.0, TickPart::Tick2Line),
     ] {
         if on {
             let point = Point::new(ptick.loc, across);
-            draw_mark(
-                ctx,
-                axes,
-                &along,
-                point,
-                symbol,
-                theta_mark(symbol, rotation),
-                style,
-            );
+            groups.part(ctx, part, |ctx| {
+                draw_mark(
+                    ctx,
+                    axes,
+                    &along,
+                    point,
+                    symbol,
+                    theta_mark(symbol, rotation),
+                    style,
+                );
+            });
         }
     }
 }
@@ -236,6 +247,7 @@ fn draw_radial_marks(
     axes: ArtistId,
     ptick: &PolarTick<'_>,
     style: &TickStyle,
+    groups: TickGroups<'_>,
 ) {
     let (mark1, mark2) = match style.direction {
         TickDirection::Out => (MarkerSymbol::TickLeft, MarkerSymbol::TickRight),
@@ -249,15 +261,17 @@ fn draw_radial_marks(
         if let Some(side) = ptick.radial_side(first).filter(|_| on) {
             let rotation = ptick.radial_mark_angle(&side);
             let transform = radial_mark(symbol, rotation);
-            draw_mark(
-                ctx,
-                axes,
-                &side.transform,
-                side.point,
-                symbol,
-                transform,
-                style,
-            );
+            groups.part(ctx, TickPart::mark(!first), |ctx| {
+                draw_mark(
+                    ctx,
+                    axes,
+                    &side.transform,
+                    side.point,
+                    symbol,
+                    transform,
+                    style,
+                );
+            });
         }
     }
 }

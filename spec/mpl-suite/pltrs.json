@@ -1,6 +1,6 @@
 {
   "matplotlib": "3.11.2",
-  "counts": {"passed": 9427, "failed": 2, "error": 0, "skipped": 1022, "xfailed": 27, "xpassed": 0},
+  "counts": {"passed": 9427, "failed": 1, "error": 0, "skipped": 1022, "xfailed": 28, "xpassed": 0},
   "collection_errors": {},
   "outcomes": {
     "matplotlib/tests/test__style_helpers.py::test_style_generator_list[edgecolor-value1]": "passed",
@@ -9080,7 +9080,7 @@
     "matplotlib/tests/test_table.py::test_table_fontsize": "passed",
     "matplotlib/tests/test_table.py::test_table_unit[png]": "passed",
     "matplotlib/tests/test_table.py::test_zorder[png]": "passed",
-    "matplotlib/tests/test_testing.py::test_check_figures_equal_empty_figs[png]": "failed",
+    "matplotlib/tests/test_testing.py::test_check_figures_equal_empty_figs[png]": "xfailed",
     "matplotlib/tests/test_testing.py::test_parametrize_with_check_figure_equal[1-png-1]": "passed",
     "matplotlib/tests/test_testing.py::test_warn_to_fail": "xfailed",
     "matplotlib/tests/test_testing.py::test_wrap_failure": "passed",

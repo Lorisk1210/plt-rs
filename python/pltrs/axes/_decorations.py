@@ -69,6 +69,12 @@ class AxesPatch(BackgroundPatch):
 
     zorder = property(get_zorder, set_zorder)
 
+    def _get_gid(self):
+        return _axes_base.get_patch_gid(self.axes._native)
+
+    def _set_gid(self, gid):
+        _axes_base.set_patch_gid(self.axes._native, gid)
+
     def contains_point(self, point, radius=None):
         """Return whether the display point *point* is in the background."""
         return self.axes.contains_point(point)

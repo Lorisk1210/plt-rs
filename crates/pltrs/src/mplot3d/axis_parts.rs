@@ -289,7 +289,7 @@ impl Axis3D {
     /// The box enclosing the line and texts of the axis, without its label
     /// when `for_layout_only`, in display pixels, after a layout pass
     /// (matplotlib's `Axis3D.get_tightbbox`); `None` for an axes with no
-    /// place in its figure or turned off.
+    /// place in its figure or turned off, or an axis hidden.
     ///
     /// # Errors
     ///
@@ -297,7 +297,7 @@ impl Axis3D {
     pub fn tight_bbox(&self, for_layout_only: bool) -> Result<Option<Bbox>, TickerError> {
         self.ticks()?;
         let boxes = self.laid_out(|axes, layout, extent| {
-            if axes.axis_on {
+            if axes.axis_on && axes.axis(self.dir).visible {
                 axis_extents(axes, layout, extent, for_layout_only, &[self.dir])
             } else {
                 Vec::new()

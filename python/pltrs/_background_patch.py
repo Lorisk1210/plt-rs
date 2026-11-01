@@ -17,9 +17,10 @@ from ._native import figure as _figure
 class BackgroundPatch(ChildrenSearchMixin):
     """
     The `.Rectangle` API of a background whose face colour, edge colour,
-    line width and visibility pltrs (Rust) keeps: subclasses read them
-    (``get_facecolor``, ...) and set them as given (``_set_facecolor``,
-    ``_set_edgecolor``), with the patch's alpha already applied.
+    line width, visibility and gid pltrs (Rust) keeps: subclasses read
+    them (``get_facecolor``, ``_get_gid``, ...) and set them as given
+    (``_set_facecolor``, ``_set_edgecolor``, ``_set_gid``), the colours
+    with the patch's alpha already applied.
     """
 
     _ALIASES = {"facecolor": ["fc"], "edgecolor": ["ec"], "linewidth": ["lw"]}
@@ -163,6 +164,21 @@ class BackgroundPatch(ChildrenSearchMixin):
         it."""
         raise NotImplementedError('cannot remove artist')
 
+    def get_gid(self):
+        """Return the group id of the background."""
+        return self._get_gid()
+
+    def set_gid(self, gid):
+        """
+        Set the (group) id of the background: SVG output names the
+        background's group after it.
+
+        Parameters
+        ----------
+        gid : str
+        """
+        self._set_gid(None if gid is None else str(gid))
+
 
 class FigurePatch(BackgroundPatch):
     """
@@ -228,3 +244,9 @@ class FigurePatch(BackgroundPatch):
     def set_linewidth(self, w):
         """Set the line width of the background's edge in points."""
         _figure.set_linewidth(self._parent._native, float(w))
+
+    def _get_gid(self):
+        return _figure.get_patch_gid(self._parent._native)
+
+    def _set_gid(self, gid):
+        _figure.set_patch_gid(self._parent._native, gid)

@@ -57,6 +57,7 @@ mod adopt;
 mod art3d;
 mod aspect;
 mod axis3d;
+mod axis_artist;
 mod axis_draw;
 mod axis_handle;
 mod axis_parts;

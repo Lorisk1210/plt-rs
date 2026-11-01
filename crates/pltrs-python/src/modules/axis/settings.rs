@@ -1,8 +1,8 @@
 //! What an axis is apart from its ticks: whether its tick helpers are the
-//! scale's, minor ticks, its visibility and place in layouts, label pad
-//! and coordinates, the side of its ticks and offset text, its extent, and
-//! its units (matplotlib's `Axis.isDefault_majloc`, `minorticks_on`,
-//! `set_visible`, `labelpad`, `set_label_coords`, `tick_top`,
+//! scale's, minor ticks, its place in layouts, label pad and coordinates,
+//! the side of its ticks and offset text, its extent, and its units
+//! (matplotlib's `Axis.isDefault_majloc`, `minorticks_on`,
+//! `set_in_layout`, `labelpad`, `set_label_coords`, `tick_top`,
 //! `get_tightbbox`, `have_units`, `update_units`, `axis_date`).
 
 use pltrs::axes::{Axes, AxisBelow};
@@ -81,17 +81,6 @@ fn set_labelpad(owner: AxisOwner, name: String, pad: f64) -> PyResult<()> {
 /// Anchors the axis label at `(x, y)` in axes fractions.
 fn set_label_coords(axes: Axes, name: String, x: f64, y: f64) -> PyResult<()> {
     axis(&axes, &name)?.set_label_coords(x, y);
-    Ok(())
-}
-
-/// Whether the axis is drawn.
-fn get_visible(axes: Axes, name: String) -> PyResult<bool> {
-    Ok(axis(&axes, &name)?.visible())
-}
-
-/// Shows or hides the whole axis.
-fn set_visible(axes: Axes, name: String, visible: bool) -> PyResult<()> {
-    axis(&axes, &name)?.set_visible(visible);
     Ok(())
 }
 
@@ -251,8 +240,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_labelpad", get_labelpad)?;
     module.add("set_labelpad", set_labelpad)?;
     module.add("set_label_coords", set_label_coords)?;
-    module.add("get_visible", get_visible)?;
-    module.add("set_visible", set_visible)?;
     module.add("get_in_layout", get_in_layout)?;
     module.add("set_in_layout", set_in_layout)?;
     module.add("get_tightbbox", get_tightbbox)?;
@@ -287,8 +274,6 @@ mod tests {
         assert!(is_default_helper(owner(), x(), "artist".into(), true).is_err());
         set_labelpad(owner(), "y".into(), 9.0).unwrap();
         assert_eq!(get_labelpad(owner(), "y".into()).unwrap(), 9.0);
-        set_visible(ax.clone(), "y".into(), false).unwrap();
-        assert!(!get_visible(ax.clone(), "y".into()).unwrap());
         assert!(tick_to(ax.clone(), x(), "left".into()).is_err());
         set_axisbelow(ax.clone(), "line".into()).unwrap();
         assert_eq!(ax.axisbelow(), AxisBelow::Line);

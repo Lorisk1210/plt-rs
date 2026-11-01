@@ -156,6 +156,14 @@ impl Renderer for PathEffectRenderer<'_> {
         self.inner.close_group(name);
     }
 
+    fn open_part_group(&mut self, name: &str, gid: Option<&str>) {
+        self.inner.open_part_group(name, gid);
+    }
+
+    fn close_part_group(&mut self, name: &str) {
+        self.inner.close_part_group(name);
+    }
+
     fn start_rasterizing(&mut self) {
         self.inner.start_rasterizing();
     }

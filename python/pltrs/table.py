@@ -17,6 +17,7 @@ License).
 import numpy as np
 
 from . import _api, _handles, cbook, colors as mcolors
+from ._artist_children import ChildrenSearchMixin
 from ._native import table as _table
 from .artist import Artist
 from .path import Path
@@ -30,7 +31,7 @@ class _CellHolder:
         self._native = _table.new(None, "bottom", None)
 
 
-class Cell:
+class Cell(ChildrenSearchMixin):
     """
     A cell is a rectangle with some associated text.
 

@@ -540,6 +540,19 @@ draw overwrites them too), and what a single tick would keep of its own
 is refused. Values in units plotted on 3-D axes pass as they are
 (`Axis._native_units`): pltrs (Rust) converts them.
 
+matplotlib's `Tick` objects sit at 0 without a label until
+`Axis._update_ticks` places them, which drawing or measuring a shown
+axis and reading its tick labels do; the ticks of a hidden axis stay
+there. pltrs (Rust) records whether an axis' ticks were ever placed
+(`Axis::ticks_placed`; `_native.axis.place_ticks` for what Python runs),
+and the mirrors of ticks never placed sit at 0 without labels. The gids
+of an axis, of its texts, of its ticks and of their parts (mirrors push
+theirs) are the axis' too (`AxisGroup`), and it draws matplotlib's SVG
+groups with them: `matplotlib.axis`, then `xtick`/`ytick` holding a
+`line2d` per visible line and a `text` per non-empty label, then the
+label and the offset text; a 3-D axes draws its background and the
+`pane3d`, `grid3d` and `axis3d` groups of its axes before its own group.
+
 pltrs (Rust)'s callback traits cannot fail the Python way, so when the callable
 raises, the exception is kept in the frame of the native call that is
 running, the callback returns a fallback (`None` from `call`), later

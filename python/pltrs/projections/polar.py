@@ -16,7 +16,7 @@ from .. import _api, _tick_helpers, cbook, ticker as mticker
 from .. import transforms as mtransforms
 from .._native import polar as _polar
 from ..axes import Axes
-from ..axis import XAxis, YAxis
+from ..axis import XAxis, XTick, YAxis, YTick
 from ..path import Path
 
 
@@ -372,6 +372,21 @@ class RadialLocator(mticker.Locator):
         return _tick_helpers._spec_of(self.base)
 
 
+class ThetaTick(XTick):
+    """
+    A theta-axis tick.
+
+    Its marks are perpendicular to the arc spine and, with 'auto' rotation,
+    its labels parallel to it, padded from the spine: pltrs (Rust) places
+    and turns them as matplotlib's ``ThetaTick.update_position`` does.
+    """
+
+    def __init__(self, axes, *args, **kwargs):
+        super().__init__(axes, *args, **kwargs)
+        self.label1.set_rotation_mode('anchor')
+        self.label2.set_rotation_mode('anchor')
+
+
 class ThetaAxis(XAxis):
     """
     A theta Axis.
@@ -380,6 +395,22 @@ class ThetaAxis(XAxis):
     (`ThetaLocator`, `ThetaFormatter`).
     """
     __name__ = 'thetaaxis'
+    _tick_class = ThetaTick
+
+
+class RadialTick(YTick):
+    """
+    A radial-axis tick.
+
+    Its marks and, with 'auto' rotation, its labels are perpendicular to
+    the spine: pltrs (Rust) places and turns them as matplotlib's
+    ``RadialTick.update_position`` does.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.label1.set_rotation_mode('anchor')
+        self.label2.set_rotation_mode('anchor')
 
 
 class RadialAxis(YAxis):
@@ -389,6 +420,7 @@ class RadialAxis(YAxis):
     Its major locators are always wrapped in a `RadialLocator`.
     """
     __name__ = 'radialaxis'
+    _tick_class = RadialTick
 
     def set_major_locator(self, locator):
         # docstring inherited

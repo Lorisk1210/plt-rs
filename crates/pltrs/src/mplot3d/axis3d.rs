@@ -5,6 +5,7 @@ use std::rc::Rc;
 
 use pltrs_core::Rgba;
 
+use crate::axes::axis_artists::AxisGids;
 use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
@@ -254,6 +255,11 @@ pub(crate) struct Axis3DState {
     /// pads, and the ticks it adds later copy the first one. Empty when
     /// every major tick has the pad of [`Self::major_style`].
     pub(crate) major_pads: Vec<f64>,
+    /// Whether tight boxes count the axis (matplotlib's `Axis.set_visible`,
+    /// which a 3-D axis' draw does not read).
+    pub(crate) visible: bool,
+    /// The gids of the axis, its texts and its ticks in SVG output.
+    pub(crate) gids: AxisGids,
 }
 
 pltrs_core::archive_struct!(Axis3DState {
@@ -272,7 +278,9 @@ pltrs_core::archive_struct!(Axis3DState {
     line_visible,
     tick_position,
     label_position,
-    major_pads
+    major_pads,
+    visible,
+    gids
 });
 
 impl Axis3DState {
@@ -308,6 +316,8 @@ impl Axis3DState {
             tick_position: AxisPosition::Default,
             label_position: AxisPosition::Default,
             major_pads: Vec::new(),
+            visible: true,
+            gids: AxisGids::default(),
         }
     }
 

@@ -12,6 +12,7 @@ use crate::binding::prelude::*;
 use crate::modules::mplot3d::axis3;
 
 /// A 2-D axes or a 3-D axes.
+#[derive(Clone)]
 pub(crate) enum AxisOwner {
     /// A 2-D axes.
     Flat(Axes),

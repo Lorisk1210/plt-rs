@@ -1,10 +1,12 @@
 //! One axis of an axes: its scale, tick helpers and computed ticks
 //! (matplotlib's `Axis`); the tick computation is in `tick_compute`.
 
+use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::artist::ArtistId;
 
+use super::axis_artists::AxisGids;
 use super::axis_label::{AxisLabel, label_font};
 use super::axis_pick::AxisPicking;
 use super::tick_set::TickSet;
@@ -206,6 +208,12 @@ pub(crate) struct AxisState {
     pub(crate) remove_overlapping_locs: bool,
     /// Whether, and how, presses pick the axis.
     pub(crate) picking: AxisPicking,
+    /// The gids of the axis, its texts and its ticks in SVG output.
+    pub(crate) gids: AxisGids,
+    /// Whether the ticks were ever placed (drawn or measured while shown,
+    /// see [`super::Axis::ticks_placed`]); set while drawing, hence a
+    /// cell.
+    pub(crate) ticks_placed: Cell<bool>,
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -235,7 +243,9 @@ pltrs_core::archive_struct!(AxisState {
     offset_side,
     offset_visible,
     remove_overlapping_locs,
-    picking
+    picking,
+    gids,
+    ticks_placed
 });
 
 impl AxisState {
@@ -297,6 +307,8 @@ impl AxisState {
             offset_visible: true,
             remove_overlapping_locs: true,
             picking: AxisPicking::default(),
+            gids: AxisGids::default(),
+            ticks_placed: Cell::new(false),
         }
     }
 

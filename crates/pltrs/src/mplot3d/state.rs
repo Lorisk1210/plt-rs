@@ -248,12 +248,19 @@ impl Artist for Axes3DState {
         &mut self.base
     }
 
+    /// Draws the background and the axes, then the plane's artists in the
+    /// axes' SVG group: matplotlib's `Axes3D.draw` draws the first two
+    /// before the base class opens the group.
     fn draw(&self, ctx: &mut DrawContext<'_>) {
         let Some(extent) = ctx.layout().axes_extent(self.base.id()) else {
             return;
         };
+        self.draw_background(ctx, &extent);
+        if self.axis_on {
+            draw_axes(self, ctx, &extent);
+        }
         ctx.renderer().open_group("axes", self.base.gid.as_deref());
-        self.draw_in_group(ctx, &extent);
+        self.draw_plane_children(ctx);
         ctx.renderer().close_group("axes");
     }
 
@@ -267,9 +274,12 @@ impl Artist for Axes3DState {
 }
 
 impl Axes3DState {
-    /// Draws the background, the axes and the plane's artists inside the
-    /// display box `extent`.
-    fn draw_in_group(&self, ctx: &mut DrawContext<'_>, extent: &Bbox) {
+    /// Draws the background patch over the display box `extent`, in the
+    /// SVG group named after the projection plane's patch gid.
+    fn draw_background(&self, ctx: &mut DrawContext<'_>, extent: &Bbox) {
+        let plane = ctx.layout().store().get_as::<AxesState>(self.plane);
+        let gid = plane.and_then(|plane| plane.patch.gid.clone());
+        ctx.renderer().open_part_group("patch", gid.as_deref());
         match self.facecolor.resolve() {
             Ok(face) => {
                 // The background patch has edge colour 'none' and no width,
@@ -287,9 +297,11 @@ impl Axes3DState {
             }
             Err(err) => ctx.report(self.base.id(), err),
         }
-        if self.axis_on {
-            draw_axes(self, ctx, extent);
-        }
+        ctx.renderer().close_part_group("patch");
+    }
+
+    /// Draws the plane's artists sorted by z-order.
+    fn draw_plane_children(&self, ctx: &mut DrawContext<'_>) {
         let Some(plane) = ctx.layout().store().get_as::<AxesState>(self.plane) else {
             return;
         };
@@ -342,7 +354,7 @@ pub(crate) fn axes3d_ids(store: &ArtistStore) -> Vec<ArtistId> {
 }
 
 /// The extent of a visible 3-D axes for tight boxes: its box, the lines
-/// and texts of its axes when shown (without their labels when
+/// and texts of its visible axes when shown (without their labels when
 /// `for_layout_only`), and its titles (matplotlib's
 /// `Axes3D.get_tightbbox`).
 pub(crate) fn axes3d_tight_bbox(
@@ -358,13 +370,10 @@ pub(crate) fn axes3d_tight_bbox(
     let layout = LayoutContext::new(figure);
     let mut boxes = vec![extent];
     if axes.axis_on {
-        boxes.extend(axis_extents(
-            axes,
-            layout,
-            &extent,
-            for_layout_only,
-            &Axis3::ALL,
-        ));
+        let shown: Vec<Axis3> = (Axis3::ALL.into_iter())
+            .filter(|&dir| axes.axis(dir).visible)
+            .collect();
+        boxes.extend(axis_extents(axes, layout, &extent, for_layout_only, &shown));
     }
     if let Some(plane) = figure.store.get_as::<AxesState>(axes.plane) {
         let narrowed = |bbox: Bbox| {

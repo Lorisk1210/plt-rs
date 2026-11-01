@@ -15,8 +15,8 @@ use super::geometry::{AxisPosition, BoxGeometry};
 use super::math::{Vec3, add, scaled};
 use super::state::Axes3DState;
 use crate::artist::{Artist, ArtistBase, DrawContext, LayoutContext};
-use crate::axes::GridStyle;
 use crate::axes::axis_draw::grid_gc;
+use crate::axes::{AxisGroup, GridStyle};
 use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
@@ -42,22 +42,31 @@ const TICK_LABEL_OFFSET: f64 = 8.0;
 const AXIS_LABEL_OFFSET: f64 = 21.0;
 
 /// Draws the panes, then the gridlines, then the axes (matplotlib's
-/// order in `Axes3D.draw`).
+/// order in `Axes3D.draw`), each in an SVG group named after its axis'
+/// gid (`pane3d`, `grid3d`, `axis3d`).
 pub(crate) fn draw_axes(axes: &Axes3DState, ctx: &mut DrawContext<'_>, extent: &Bbox) {
     let Some(painter) = Painter::new(axes, *ctx.layout(), extent) else {
         return;
     };
+    let gid = |dir: Axis3| axes.axis(dir).gids.get(AxisGroup::Axis);
     for dir in Axis3::ALL {
-        painter.draw_pane(ctx, dir);
+        grouped(ctx, "pane3d", gid(dir), |ctx| painter.draw_pane(ctx, dir));
     }
     if axes.grid_on {
         for dir in Axis3::ALL {
-            painter.draw_grid(ctx, dir);
+            grouped(ctx, "grid3d", gid(dir), |ctx| painter.draw_grid(ctx, dir));
         }
     }
     for dir in Axis3::ALL {
-        painter.draw_axis(ctx, dir);
+        grouped(ctx, "axis3d", gid(dir), |ctx| painter.draw_axis(ctx, dir));
     }
+}
+
+/// Draws `draw` into `sink` inside the SVG group `name` with id `gid`.
+fn grouped<S: Sink>(sink: &mut S, name: &str, gid: Option<&str>, draw: impl FnOnce(&mut S)) {
+    sink.open_group(name, gid);
+    draw(sink);
+    sink.close_group(name);
 }
 
 /// The display extents of the axes `dirs` of a 3-D axes: their lines,
@@ -153,6 +162,10 @@ trait Sink {
     fn takes_labels(&self) -> bool {
         true
     }
+    /// Opens the SVG group `name` with id `gid`; nothing by default.
+    fn open_group(&mut self, _name: &str, _gid: Option<&str>) {}
+    /// Closes the SVG group `name`; nothing by default.
+    fn close_group(&mut self, _name: &str) {}
 }
 
 impl Sink for DrawContext<'_> {
@@ -174,6 +187,14 @@ impl Sink for DrawContext<'_> {
 
     fn text(&mut self, painter: &Painter<'_>, text: &PlacedText<'_>) {
         painter.draw_text(self, text);
+    }
+
+    fn open_group(&mut self, name: &str, gid: Option<&str>) {
+        self.renderer().open_group(name, gid);
+    }
+
+    fn close_group(&mut self, name: &str) {
+        self.renderer().close_group(name);
     }
 }
 
@@ -267,6 +288,8 @@ impl AxisEdge {
 /// A text placed in projected coordinates.
 struct PlacedText<'t> {
     part: AxisTextPart,
+    /// The id of its SVG group.
+    gid: Option<&'t str>,
     text: &'t str,
     font: &'t FontProperties,
     color: &'t Color,
@@ -357,6 +380,7 @@ impl<'a> Painter<'a> {
         let style = &axis.style;
         let mut grid =
             CollectionArtist::new(CollectionKind::Line, paths, Rc::clone(self.axes.rc()));
+        grid.class_name = Some("Line3DCollection");
         grid.edgecolors = EdgeColors::Colors(vec![style.grid_color.clone()]);
         grid.linewidths = Some(vec![style.grid_width]);
         grid.linestyles = vec![style.grid_style.clone()];
@@ -368,7 +392,8 @@ impl<'a> Painter<'a> {
 
     /// Draws the line, tick marks, tick labels and offset text of `dir`
     /// along each edge its tick position names, then its label along each
-    /// edge its label position names (matplotlib's `Axis.draw`).
+    /// edge its label position names, each in its SVG group (matplotlib's
+    /// `Axis.draw`).
     fn draw_axis(&self, sink: &mut impl Sink, dir: Axis3) {
         let axis = self.axes.axis(dir);
         let (width, height) = (self.extent.width(), self.extent.height());
@@ -386,7 +411,9 @@ impl<'a> Painter<'a> {
             if axis.line_visible {
                 let line =
                     Path::polyline(edge.ends.iter().map(|q| Point::new(q[0], q[1])).collect());
-                sink.axis_line(self, &line, axis.style.line_width, &axis.style.line_color);
+                grouped(sink, "line2d", None, |sink| {
+                    sink.axis_line(self, &line, axis.style.line_width, &axis.style.line_color);
+                });
             }
             self.draw_ticks(sink, axis, edge.points[0], deltas_per_point, position);
             self.draw_offset_text(sink, axis, &edge, label_deltas);
@@ -403,10 +430,11 @@ impl<'a> Painter<'a> {
             } else {
                 0.0
             };
-            sink.text(
-                self,
+            self.text_in_group(
+                sink,
                 &PlacedText {
                     part: AxisTextPart::Label,
+                    gid: axis.gids.get(AxisGroup::Label),
                     text: &axis.label.text,
                     font: &axis.label.font,
                     color: &axis.label.color,
@@ -505,6 +533,16 @@ impl<'a> Painter<'a> {
         };
         let (path, affine) = self.plane.split_path(path);
         ctx.renderer().draw_path(&gc, &path, &affine, None);
+    }
+
+    /// Gives `text` to `sink`, in its SVG group when it is not empty
+    /// (matplotlib's `Text.draw` opens none for an empty text).
+    fn text_in_group(&self, sink: &mut impl Sink, text: &PlacedText<'_>) {
+        if text.text.is_empty() {
+            sink.text(self, text);
+        } else {
+            grouped(sink, "text", text.gid, |sink| sink.text(self, text));
+        }
     }
 
     /// Draws a text anchored at a projected position.

@@ -7,8 +7,9 @@ use pltrs_text::{BlockStyle, HAlign, VAlign};
 
 use super::{
     AxisEdge, AxisTextPart, Painter, PlacedText, Sink, TICK_INWARD, TICK_LABEL_OFFSET,
-    TICK_OUTWARD, anchored,
+    TICK_OUTWARD, anchored, grouped,
 };
+use crate::axes::{AxisGroup, TickPart};
 use crate::fonts::FontProperties;
 use crate::mplot3d::axis3d::{Axis3DState, DrawnTick};
 use crate::mplot3d::coords::Axis3;
@@ -66,8 +67,8 @@ impl Painter<'_> {
             .map(|at| self.project(span.point(axis.dir.index(), coordinate, at)))
     }
 
-    /// Draws each tick mark and its label (matplotlib's
-    /// `_get_updated_ticks` followed by `Tick.draw`).
+    /// Draws each tick mark and its label, each tick in its SVG group
+    /// (matplotlib's `_get_updated_ticks` followed by `Tick.draw`).
     pub(super) fn draw_ticks(
         &self,
         sink: &mut impl Sink,
@@ -79,61 +80,88 @@ impl Painter<'_> {
         let dir = axis.dir;
         let span = self.mark_span(dir, position, origin);
         let points = scaled(self.geometry.deltas, deltas_per_point);
-        for DrawnTick {
+        for drawn in axis.drawn_ticks() {
+            let mark = self.mark(&span, axis, drawn.tick.loc);
+            let p = span.point(
+                dir.index(),
+                axis.scale.masked_forward(drawn.tick.loc),
+                origin[span.tickdir],
+            );
+            let label_deltas = scaled(points, drawn.pad + TICK_LABEL_OFFSET);
+            let label_at = self.geometry.move_from_center(p, label_deltas, dir);
+            let group = AxisGroup::Tick {
+                minor: drawn.minor,
+                index: drawn.slot,
+            };
+            grouped(sink, "xtick", axis.gids.get(group), |sink| {
+                self.draw_tick(sink, axis, &drawn, mark, self.project(label_at));
+            });
+        }
+    }
+
+    /// Draws the parts of one tick, each in its SVG group: its gridline,
+    /// its mark from `mark[0]` to `mark[1]` and its label at `label_at`, in
+    /// projected coordinates (matplotlib's `Tick.draw`).
+    fn draw_tick(
+        &self,
+        sink: &mut impl Sink,
+        axis: &Axis3DState,
+        drawn: &DrawnTick<'_>,
+        mark: [Point; 2],
+        label_at: Point,
+    ) {
+        let DrawnTick {
             tick,
             minor,
             slot,
             style,
             width,
-            pad,
-        } in axis.drawn_ticks()
-        {
-            let [out_end, in_end] = self.mark(&span, axis, tick.loc);
-            let p = span.point(
-                dir.index(),
-                axis.scale.masked_forward(tick.loc),
-                origin[span.tickdir],
-            );
-            let label_deltas = scaled(points, pad + TICK_LABEL_OFFSET);
-            let label_at = self.geometry.move_from_center(p, label_deltas, dir);
-            if style.grid_on {
-                sink.tick_gridline(self, dir, &style.grid);
-            }
-            // The marks are always drawn, as wide as the axis says
-            // (matplotlib's `_tick_update_position`).
-            sink.tick_mark(
-                self,
-                &Path::polyline(vec![out_end, in_end]),
-                width,
-                &style.color,
-            );
-            if !style.labels.first {
-                continue;
-            }
-            let font = FontProperties {
-                size: style.label_size,
-                ..FontProperties::from_rc(self.axes.rc())
-            };
-            let halign = style.label_halign.unwrap_or(HAlign::Center);
-            sink.text(
-                self,
-                &PlacedText {
-                    part: AxisTextPart::TickLabel { minor, index: slot },
-                    text: &tick.label,
-                    font: &font,
-                    color: &style.label_color,
-                    block: BlockStyle {
-                        halign,
-                        valign: style.label_valign.unwrap_or(VAlign::Top),
-                        multialign: halign,
-                        rotation: style.label_rotation.rem_euclid(360.0),
-                        rotation_mode: style.label_rotation_mode,
-                        ..BlockStyle::default()
-                    },
-                    position: self.project(label_at),
-                },
-            );
+            ..
+        } = *drawn;
+        let gid = |part| {
+            (axis.gids).get(AxisGroup::TickPart {
+                minor,
+                index: slot,
+                part,
+            })
+        };
+        if style.grid_on {
+            grouped(sink, "line2d", gid(TickPart::Gridline), |sink| {
+                sink.tick_gridline(self, axis.dir, &style.grid);
+            });
         }
+        // The marks are always drawn, as wide as the axis says
+        // (matplotlib's `_tick_update_position`).
+        grouped(sink, "line2d", gid(TickPart::Tick1Line), |sink| {
+            sink.tick_mark(self, &Path::polyline(mark.to_vec()), width, &style.color);
+        });
+        if !style.labels.first {
+            return;
+        }
+        let font = FontProperties {
+            size: style.label_size,
+            ..FontProperties::from_rc(self.axes.rc())
+        };
+        let halign = style.label_halign.unwrap_or(HAlign::Center);
+        self.text_in_group(
+            sink,
+            &PlacedText {
+                part: AxisTextPart::TickLabel { minor, index: slot },
+                gid: gid(TickPart::Label1),
+                text: &tick.label,
+                font: &font,
+                color: &style.label_color,
+                block: BlockStyle {
+                    halign,
+                    valign: style.label_valign.unwrap_or(VAlign::Top),
+                    multialign: halign,
+                    rotation: style.label_rotation.rem_euclid(360.0),
+                    rotation_mode: style.label_rotation_mode,
+                    ..BlockStyle::default()
+                },
+                position: label_at,
+            },
+        );
     }
 
     /// Draws the offset text at the end of the axis, aligned by
@@ -182,10 +210,11 @@ impl Painter<'_> {
         };
         let rc = self.axes.rc();
         let font = FontProperties::from_rc(rc).with_size(rc.xtick_labelsize, rc.font_size);
-        sink.text(
-            self,
+        self.text_in_group(
+            sink,
             &PlacedText {
                 part: AxisTextPart::Offset,
+                gid: axis.gids.get(AxisGroup::OffsetText),
                 text: &ticks.offset,
                 font: &font,
                 color: &axis.offset_color,

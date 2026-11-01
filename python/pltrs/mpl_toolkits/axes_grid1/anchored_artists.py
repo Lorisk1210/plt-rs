@@ -36,6 +36,14 @@ class _NativeAnchoredBox(AnchoredOffsetbox):
         """The paddings and frame of the box, as pltrs (Rust) takes them."""
         return (float(self.pad), float(self.borderpad), bool(self.frameon))
 
+    def get_children(self):
+        """
+        Return the list of children: the child box, which a size bar and
+        direction arrows do not have (pltrs (Rust) builds and draws their
+        boxes whole).
+        """
+        return [] if self._child is None else [self._child]
+
 
 class AnchoredDrawingArea(_NativeAnchoredBox):
     def __init__(self, width, height, xdescent, ydescent,

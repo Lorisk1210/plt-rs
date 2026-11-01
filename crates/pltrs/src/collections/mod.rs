@@ -275,6 +275,10 @@ pub(crate) struct CollectionArtist {
     pub(crate) polygon_grid: Option<Grid<Point>>,
     /// Replaces `paths` and the artist transform when drawing.
     pub(crate) draw_time: Option<Box<dyn DrawTimeShapes>>,
+    /// matplotlib's class of the collection where it is not the one of
+    /// its kind (`Line3DCollection`, `GridlinesCollection`), which names
+    /// its group in SVG output.
+    pub(crate) class_name: Option<&'static str>,
     rc: Rc<RcParams>,
 }
 
@@ -313,6 +317,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     mesh,
     polygon_grid,
     draw_time,
+    class_name,
     rc
 });
 
@@ -359,6 +364,7 @@ impl CollectionArtist {
             mesh: None,
             polygon_grid: None,
             draw_time: None,
+            class_name: None,
             rc,
         }
     }

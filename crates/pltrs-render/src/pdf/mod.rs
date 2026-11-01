@@ -478,6 +478,15 @@ impl Renderer for PdfRenderer {
         self.generation += 1;
     }
 
+    /// The parts of an artist draw in its generation.
+    fn open_part_group(&mut self, _name: &str, _gid: Option<&str>) {
+        self.group_depth += 1;
+    }
+
+    fn close_part_group(&mut self, _name: &str) {
+        self.group_depth = self.group_depth.saturating_sub(1);
+    }
+
     fn option_image_nocomposite(&self) -> bool {
         !self.options.composite_images
     }

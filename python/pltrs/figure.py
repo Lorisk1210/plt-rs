@@ -124,6 +124,28 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
 
     axes = property(get_axes, doc="List of Axes in the Figure.")
 
+    @property
+    def _localaxes(self):
+        """The Axes placed on this (sub)figure itself, not on a subfigure
+        of it."""
+        return [ax for ax in self.axes if ax.get_figure(root=False) is self]
+
+    @property
+    def texts(self):
+        """The `.Text` instances added to the (sub)figure itself."""
+        return _handles.wrap_all(_figure.texts(self._native), Text, self)
+
+    def get_children(self):
+        """Get a list of artists contained in the figure."""
+        return [self.patch,
+                *self.artists,
+                *self._localaxes,
+                *self.patches,
+                *self.texts,
+                *self.images,
+                *self.legends,
+                *self.subfigs]
+
     def add_gridspec(self, nrows=1, ncols=1, **kwargs):
         """
         Low-level API for creating a `.GridSpec` that has this figure as a parent.
@@ -762,6 +784,12 @@ class SubFigure(FigureBase):
     or dpi of the figure, and is confined to a prescribed region of the figure.
     """
 
+    @property
+    def images(self):
+        """The figure images of the subfigure: none (`~.Figure.figimage`
+        places images on the root figure)."""
+        return []
+
     def __init__(self, parent, subplotspec, *,
                  facecolor=None,
                  edgecolor=None,
@@ -1153,11 +1181,6 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         _figure.sca(self._native, a._native)
         self._axes_changed()
         return a
-
-    @property
-    def texts(self):
-        """The `.Text` instances added to the figure itself."""
-        return _handles.wrap_all(_figure.texts(self._native), Text, self)
 
     def show(self, warn=True):
         """

@@ -4,11 +4,15 @@
 //! [`crate::polar`]; geographic axes draw theirs here, in the coordinates
 //! [`crate::geo`] gives them.
 
+use std::borrow::Cow;
+
 use pltrs_core::{Affine2D, Path, Rgba};
 use pltrs_render::{GraphicsContext, SnapMode};
 
 use super::AxesState;
-use super::axis_layout::{AxisPainter, PlacedText};
+use super::axis_artists::{AxisGroup, TickGroups, TickPart, tick_group_name};
+use super::axis_layout::{AxisPainter, PlacedText, TickLabel};
+use super::tick_set::Tick;
 use super::ticks::{GridStyle, TickDirection, TickStyle};
 use crate::artist::{ArtistBase, ArtistId, DrawContext, rc_sketch};
 use crate::colors::{Color, ColorError};
@@ -21,59 +25,109 @@ use crate::ticker::AxisName;
 
 impl AxisPainter<'_> {
     /// Draws the axis tick by tick (gridline, marks, labels), then the
-    /// axis label and the offset text; problems are reported on the axes.
-    pub(crate) fn draw(&self, ctx: &mut DrawContext<'_>, rc: &crate::rc::RcParams) {
+    /// axis label and the offset text, each in its SVG group inside the
+    /// axis' (matplotlib's `Axis.draw`); problems are reported on the axes.
+    pub(crate) fn draw(&self, ctx: &mut DrawContext<'_>, rc: &RcParams) {
         if !self.axis.visible {
             return;
         }
-        if let Err(message) = &self.axis.ticks {
-            return ctx.report(self.axes_id, message);
-        }
+        self.axis.ticks_placed.set(true);
+        (self.axis.gids).grouped(ctx, "matplotlib.axis", AxisGroup::Axis, |ctx| {
+            self.draw_contents(ctx, rc);
+        });
+    }
+
+    /// The body of [`AxisPainter::draw`], inside the axis' group.
+    fn draw_contents(&self, ctx: &mut DrawContext<'_>, rc: &RcParams) {
+        let ticks = match &self.axis.ticks {
+            Ok(ticks) => ticks,
+            Err(message) => return ctx.report(self.axes_id, message),
+        };
         let texts = self.texts(*ctx.layout(), rc);
         for problem in &texts.problems {
             ctx.report(self.axes_id, problem);
         }
-        let polar = self.axes.polar_view();
-        // Tick marks and texts are artists made with the rc path effects
-        // in matplotlib; gridlines take those of their style.
+        let gids = &self.axis.gids;
         let mut labels = texts.tick_labels.iter().peekable();
-        for (index, (tick, mut style)) in self.styled_ticks().into_iter().enumerate() {
-            // A custom projection may hide a side of the tick while drawing.
-            let sides = self.axes.drawn_tick_sides(self.name, tick.loc);
-            if !(sides.first && sides.second) {
-                let marks = &mut style.to_mut().ticks;
-                marks.first &= sides.first;
-                marks.second &= sides.second;
-            }
-            match &polar {
-                Some(polar) => {
-                    polar::draw_tick_lines(ctx, self.axes_id, polar, self.name, tick, &style, rc);
-                }
-                None => self.draw_tick_lines(ctx, tick.loc, &style, rc),
-            }
-            let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
-                while let Some(label) = labels.next_if(|label| label.tick == index) {
-                    let shown = if label.first_side {
-                        sides.first
-                    } else {
-                        sides.second
-                    };
-                    if shown {
-                        draw_text(ctx, self.axes_id, &label.text, rc);
-                    }
-                }
+        for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
+            let key = ticks
+                .drawn_key(index)
+                .expect("the styled ticks are the ticks in view");
+            let name = tick_group_name(self.name);
+            gids.tick(ctx, name, key, |ctx, groups| {
+                let tick_labels = std::iter::from_fn(|| labels.next_if(|l| l.tick == index));
+                self.draw_tick(ctx, groups, tick, style, tick_labels, rc);
             });
-            if let Err(err) = drawn {
-                ctx.report(self.axes_id, err);
-            }
         }
         if let Some(label) = &texts.label {
-            self.draw_label_box(ctx, label, rc);
+            gids.part_grouped(ctx, "text", AxisGroup::Label, |ctx| {
+                self.draw_label_box(ctx, label, rc);
+                self.draw_text_with_effects(ctx, label, rc);
+            });
+        }
+        if let Some(offset) = &texts.offset {
+            gids.part_grouped(ctx, "text", AxisGroup::OffsetText, |ctx| {
+                self.draw_text_with_effects(ctx, offset, rc);
+            });
+        }
+    }
+
+    /// Draws one tick: its gridline, its marks and its `labels`, each in
+    /// its group of `groups` (matplotlib's `Tick.draw`). Tick marks and
+    /// texts are artists made with the rc path effects in matplotlib;
+    /// gridlines take those of their style.
+    fn draw_tick<'t>(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        groups: TickGroups<'_>,
+        tick: &Tick,
+        mut style: Cow<'_, TickStyle>,
+        labels: impl Iterator<Item = &'t TickLabel>,
+        rc: &RcParams,
+    ) {
+        // A custom projection may hide a side of the tick while drawing.
+        let sides = self.axes.drawn_tick_sides(self.name, tick.loc);
+        if !(sides.first && sides.second) {
+            let marks = &mut style.to_mut().ticks;
+            marks.first &= sides.first;
+            marks.second &= sides.second;
+        }
+        match &self.axes.polar_view() {
+            Some(polar) => polar::draw_tick_lines(
+                ctx,
+                self.axes_id,
+                polar,
+                self.name,
+                tick,
+                &style,
+                rc,
+                groups,
+            ),
+            None => self.draw_tick_lines(ctx, tick.loc, &style, rc, groups),
         }
         let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
-            for text in [&texts.label, &texts.offset].into_iter().flatten() {
-                draw_text(ctx, self.axes_id, text, rc);
+            for label in labels {
+                let shown = if label.first_side {
+                    sides.first
+                } else {
+                    sides.second
+                };
+                if shown {
+                    groups.part(ctx, TickPart::label(!label.first_side), |ctx| {
+                        draw_text(ctx, self.axes_id, &label.text, rc);
+                    });
+                }
             }
+        });
+        if let Err(err) = drawn {
+            ctx.report(self.axes_id, err);
+        }
+    }
+
+    /// Draws the axis text `text` with the rc path effects.
+    fn draw_text_with_effects(&self, ctx: &mut DrawContext<'_>, text: &PlacedText, rc: &RcParams) {
+        let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
+            draw_text(ctx, self.axes_id, text, rc);
         });
         if let Err(err) = drawn {
             ctx.report(self.axes_id, err);
@@ -103,17 +157,21 @@ impl AxisPainter<'_> {
         }
     }
 
-    /// The gridline and the tick marks of the tick at `loc`.
+    /// The gridline and the tick marks of the tick at `loc`, each in its
+    /// group of `groups`.
     fn draw_tick_lines(
         &self,
         ctx: &mut DrawContext<'_>,
         loc: f64,
         style: &TickStyle,
-        rc: &crate::rc::RcParams,
+        rc: &RcParams,
+        groups: TickGroups<'_>,
     ) {
         if style.grid_on {
-            let drawn = with_path_effects(ctx, &style.grid.path_effects, |ctx| {
-                self.draw_gridline(ctx, loc, &style.grid, rc);
+            let drawn = groups.part(ctx, TickPart::Gridline, |ctx| {
+                with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+                    self.draw_gridline(ctx, loc, &style.grid, rc);
+                })
             });
             if let Err(err) = drawn {
                 ctx.report(self.axes_id, err);
@@ -121,11 +179,15 @@ impl AxisPainter<'_> {
         }
         let (mark1, mark2) = tick_markers(self.name, style.direction);
         let drawn = with_path_effects(ctx, &rc.path_effects, |ctx| {
-            if style.ticks.first {
-                self.draw_tick_mark(ctx, loc, false, mark1, style);
-            }
-            if style.ticks.second {
-                self.draw_tick_mark(ctx, loc, true, mark2, style);
+            for (on, second, mark) in [
+                (style.ticks.first, false, mark1),
+                (style.ticks.second, true, mark2),
+            ] {
+                if on {
+                    groups.part(ctx, TickPart::mark(second), |ctx| {
+                        self.draw_tick_mark(ctx, loc, second, mark, style);
+                    });
+                }
             }
         });
         if let Err(err) = drawn {

@@ -140,6 +140,21 @@ pub trait Renderer {
     /// Ends the most recently opened group.
     fn close_group(&mut self, _name: &str) {}
 
+    /// Starts a named group of the draw calls of a part of the artist
+    /// being drawn, which draws with that artist's clip regions (the
+    /// background of a figure or an axes; an axis' ticks and their lines
+    /// and labels, whose gridlines matplotlib clips to one box): a group as
+    /// [`open_group`](Self::open_group) starts, but the PDF backend does
+    /// not set the clip regions again for the parts.
+    fn open_part_group(&mut self, name: &str, gid: Option<&str>) {
+        self.open_group(name, gid);
+    }
+
+    /// Ends the most recently opened group of a part.
+    fn close_part_group(&mut self, name: &str) {
+        self.close_group(name);
+    }
+
     /// Sends the following drawing to a raster canvas until
     /// [`stop_rasterizing`](Self::stop_rasterizing) (matplotlib's
     /// `start_rasterizing`); only vector output distinguishes the modes.

@@ -161,7 +161,8 @@ impl AxesState {
         }
     }
 
-    /// Draws the background patch, if visible, along its outline.
+    /// Draws the background patch, if visible, along its outline, in its
+    /// SVG group (matplotlib's `Patch.draw`).
     fn draw_patch(&self, ctx: &mut DrawContext<'_>) {
         let base = self.base();
         let Some(extent) = ctx.layout().axes_extent(base.id()) else {
@@ -170,6 +171,8 @@ impl AxesState {
         if !self.patch.visible {
             return;
         }
+        ctx.renderer()
+            .open_part_group("patch", self.patch.gid.as_deref());
         match (
             self.patch.facecolor.resolve(),
             self.patch.edgecolor.resolve(),
@@ -210,6 +213,7 @@ impl AxesState {
             }
             (Err(err), _) | (_, Err(err)) => ctx.report(base.id(), err),
         }
+        ctx.renderer().close_part_group("patch");
     }
 
     /// Draws one item on its own.

@@ -15,6 +15,7 @@ use super::state::Axes3DState;
 use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle, TypedHandle};
 use crate::axes::Axes;
+use crate::collections::CollectionArtist;
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
 use crate::text::Text;
@@ -118,8 +119,13 @@ impl Axes3D {
     }
 
     /// Gives an artist already added to the plane its 3-D geometry,
-    /// hiding the points outside the view limits with `axlim_clip`.
+    /// hiding the points outside the view limits with `axlim_clip`; a
+    /// collection takes the name of matplotlib's 3-D class for it.
     pub(crate) fn register(&self, id: ArtistId, art: Art3D, axlim_clip: bool) {
+        let raw = RawHandle::new(Rc::clone(self.raw.figure_state()), id);
+        if raw.is::<CollectionArtist>() {
+            raw.with_mut::<CollectionArtist, _>(|c| c.class_name = art.collection_class(c.kind));
+        }
         self.with_mut(|axes| {
             axes.artists.push(Artist3D {
                 id,

@@ -5,11 +5,13 @@
 //! The locators and formatters of an axis are in [`helpers`], the Python
 //! ones driving pltrs (Rust)'s ticks in [`python_helpers`], the intervals
 //! of the axis in [`intervals`], the artists mirroring its ticks and texts
-//! in [`mirrors`], tick parameters in [`params`] and the rest of what an
-//! axis is in [`settings`]. The axes of 3-D axes take part in the tick
-//! helpers, the mirrors, the tick parameters, the label pad and the
-//! tight box ([`owner`], [`deep`]).
+//! in [`mirrors`], tick parameters in [`params`], its visibility, SVG
+//! group ids and the placing of its ticks in [`artist`] and the rest of
+//! what an axis is in [`settings`]. The axes of 3-D axes take part in
+//! the tick helpers, the mirrors, the tick parameters, the label pad, the
+//! tight box, the visibility and the group ids ([`owner`], [`deep`]).
 
+mod artist;
 mod deep;
 mod helpers;
 mod intervals;
@@ -139,6 +141,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_label_position", set_label_position)?;
     module.add("set_inverted", set_inverted)?;
     module.add("tick_switches", tick_switches)?;
+    artist::register(module)?;
     helpers::register(module)?;
     intervals::register(module)?;
     mirrors::register(module)?;

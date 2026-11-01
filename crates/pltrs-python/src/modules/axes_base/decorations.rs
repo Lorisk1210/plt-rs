@@ -1,6 +1,6 @@
 //! What an axes draws around its data (matplotlib's `set_axis_off`,
 //! `axis('equal')` and the other presets, `set_frame_on`) and its
-//! background patch (`Axes.patch`: visibility, edge, z-order).
+//! background patch (`Axes.patch`: visibility, edge, z-order, gid).
 
 use pltrs::axes::{Axes, AxisMode};
 use pltrs::colors::Color;
@@ -105,6 +105,18 @@ fn get_patch_zorder(axes: Axes) -> PyResult<f64> {
     Ok(axes.patch_zorder())
 }
 
+/// Names the SVG group of the background patch `gid`, or numbers it
+/// (`ax.patch.set_gid`).
+fn set_patch_gid(axes: Axes, gid: Option<String>) -> PyResult<()> {
+    axes.set_patch_gid(gid);
+    Ok(())
+}
+
+/// The id of the background patch's SVG group, if it was given one.
+fn get_patch_gid(axes: Axes) -> PyResult<Option<String>> {
+    Ok(axes.patch_gid())
+}
+
 /// Rasterizes the children at or below `zorder` together in vector
 /// output; `None` keeps them vector (`set_rasterization_zorder`).
 fn set_rasterization_zorder(axes: Axes, zorder: Option<f64>) -> PyResult<()> {
@@ -134,7 +146,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_patch_linewidth", set_patch_linewidth)?;
     module.add("get_patch_linewidth", get_patch_linewidth)?;
     module.add("set_patch_zorder", set_patch_zorder)?;
-    module.add("get_patch_zorder", get_patch_zorder)
+    module.add("get_patch_zorder", get_patch_zorder)?;
+    module.add("set_patch_gid", set_patch_gid)?;
+    module.add("get_patch_gid", get_patch_gid)
 }
 
 #[cfg(test)]
@@ -151,6 +165,8 @@ mod tests {
         assert!(get_axis_on(ax.clone()).unwrap());
         assert!(axis_mode(ax.clone(), "sideways".into()).is_err());
         set_patch_visible(ax.clone(), false).unwrap();
-        assert!(!get_patch_visible(ax).unwrap());
+        assert!(!get_patch_visible(ax.clone()).unwrap());
+        set_patch_gid(ax.clone(), Some("backdrop".into())).unwrap();
+        assert_eq!(get_patch_gid(ax).unwrap().as_deref(), Some("backdrop"));
     }
 }

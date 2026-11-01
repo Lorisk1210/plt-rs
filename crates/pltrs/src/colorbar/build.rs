@@ -44,6 +44,7 @@ impl Colorbar {
             alpha,
             contours,
         } = source;
+        let alpha = if link.is_some() { alpha } else { options.alpha };
         let extend = match (&contours, options.extend) {
             (Some(levels), _) => levels.extend,
             (None, Some(extend)) => extend,

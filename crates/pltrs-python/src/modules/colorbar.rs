@@ -193,6 +193,7 @@ fn options(
         },
         boundaries: dict_value(spec, "boundaries")?,
         values: dict_value(spec, "values")?,
+        alpha: dict_value(spec, "alpha")?,
     })
 }
 
@@ -321,12 +322,6 @@ fn add_level_lines(
     Ok(())
 }
 
-/// Puts the major ticks at `ticks`.
-fn set_ticks(colorbar: Colorbar, ticks: Vec<f64>) -> PyResult<()> {
-    colorbar.set_ticks(ticks);
-    Ok(())
-}
-
 /// The major (or, `minor`, minor) tick locations along the colorbar.
 fn get_ticks(colorbar: Colorbar, minor: bool) -> PyResult<NdArray> {
     Ok(NdArray::from_vec(colorbar.long_axis().ticklocs(minor)?))
@@ -400,7 +395,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("limits", limits)?;
     module.add("add_contour_lines", add_contour_lines)?;
     module.add("add_level_lines", add_level_lines)?;
-    module.add("set_ticks", set_ticks)?;
     module.add("get_ticks", get_ticks)?;
     module.add("set_minorticks", set_minorticks)?;
     module.add("update_normal", update_normal)?;

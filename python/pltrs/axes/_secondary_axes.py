@@ -12,6 +12,7 @@ import numpy as np
 
 from .. import _api, _handles, transforms
 from .._native import insets as _insets
+from . import _program_locators
 from ._axes import Axes
 from ._insets import _TransformedBoundsLocator
 
@@ -131,19 +132,44 @@ class SecondaryAxis(Axes):
         else:
             bounds = [self._pos, 0, 1e-10, 1]
         parent = self._parent
+        _program_locators.forget(self, parent._figure)
         if transform is None or transform is parent.transAxes:
             self._axes_locator = _TransformedBoundsLocator(
                 bounds, parent.transAxes)
             return location if isinstance(location, str) else float(location)
-        if transform is not parent.transData:
-            raise NotImplementedError(
-                "pltrs: secondary axes located by a transform other than "
-                "the parent's transData or transAxes")
-        blend = (transforms.blended_transform_factory(parent.transAxes, transform)
-                 if self._orientation == 'x' else
-                 transforms.blended_transform_factory(transform, parent.transAxes))
-        self._axes_locator = _TransformedBoundsLocator(bounds, blend)
-        return ("data", float(location))
+        self._axes_locator = _TransformedBoundsLocator(
+            bounds, self._located_blend(transform))
+        if transform is parent.transData:
+            return ("data", float(location))
+        # Any other transform is followed at every draw, where it is
+        # evaluated, as the parent's fraction it puts the axis at.
+        self._location_transform = transform
+        _program_locators.follow(self, parent._figure)
+        return self._parent_fraction(transform)
+
+    def _locate_by_program(self, renderer):
+        """Put the axis where its locating transform says now (see
+        `._program_locators`)."""
+        _insets.set_secondary_location(
+            self._native, self._parent_fraction(self._location_transform))
+
+    def _located_blend(self, transform):
+        """The parent's axes fractions across the axis, *transform* along
+        it (matplotlib's blend of the locating transform)."""
+        if self._orientation == 'x':
+            return transforms.blended_transform_factory(
+                self._parent.transAxes, transform)
+        return transforms.blended_transform_factory(
+            transform, self._parent.transAxes)
+
+    def _parent_fraction(self, transform):
+        """Where *transform* puts the axis now, as a fraction of the
+        parent (the blend is made anew: the figure's live transforms do
+        not invalidate the matrices transforms keep)."""
+        point = (0, self._pos) if self._orientation == 'x' else (self._pos, 0)
+        fraction = self._parent.transAxes.inverted().transform(
+            self._located_blend(transform).transform(point))
+        return float(fraction[1] if self._orientation == 'x' else fraction[0])
 
     @functools.wraps(Axes.set_xticks)
     def set_xticks(self, *args, **kwargs):

@@ -50,10 +50,10 @@ fn autoscale(
     Ok(())
 }
 
-/// Autoscales both axes now (`autoscale_view`), `tight` replacing the
-/// tight setting when given.
-fn autoscale_view(axes: Axes, tight: Option<bool>) -> PyResult<()> {
-    axes.autoscale_view(tight);
+/// Autoscales the axes `scalex` and `scaley` ask for now
+/// (`autoscale_view`), `tight` replacing the tight setting when given.
+fn autoscale_view(axes: Axes, tight: Option<bool>, scalex: bool, scaley: bool) -> PyResult<()> {
+    axes.autoscale_view_along(tight, (scalex, scaley));
     Ok(())
 }
 
@@ -62,10 +62,10 @@ fn get_margin(axes: Axes, name: String) -> PyResult<f64> {
     Ok(axes.margin(axis_name(&name)?))
 }
 
-/// Sets the margins given, `None` keeping one (`margins`,
-/// `set_xmargin`, `set_ymargin`).
-fn set_margins(axes: Axes, x: Option<f64>, y: Option<f64>) -> PyResult<()> {
-    axes.set_margins(x, y)?;
+/// Sets the margins given, `None` keeping one, and the tight setting
+/// when `tight` is given (`margins`, `set_xmargin`, `set_ymargin`).
+fn set_margins(axes: Axes, x: Option<f64>, y: Option<f64>, tight: Option<bool>) -> PyResult<()> {
+    axes.set_margins_with(x, y, tight)?;
     Ok(())
 }
 
@@ -116,8 +116,8 @@ mod tests {
         set_autoscale_on(ax.clone(), Some("y".into()), false).unwrap();
         assert!(!get_autoscale_on(ax.clone(), Some("y".into())).unwrap());
         assert!(!get_autoscale_on(ax.clone(), None).unwrap());
-        assert!(set_margins(ax.clone(), Some(-1.0), None).is_err());
-        set_margins(ax.clone(), None, Some(0.25)).unwrap();
+        assert!(set_margins(ax.clone(), Some(-1.0), None, None).is_err());
+        set_margins(ax.clone(), None, Some(0.25), Some(false)).unwrap();
         assert_eq!(get_margin(ax, "y".into()).unwrap(), 0.25);
     }
 }

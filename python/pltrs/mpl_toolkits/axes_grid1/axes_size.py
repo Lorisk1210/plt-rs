@@ -60,9 +60,13 @@ class _Base:
         raise NotImplementedError("Subclasses must implement")
 
     def _to_native(self):
-        """The description of the size pltrs (Rust) evaluates."""
-        raise NotImplementedError(
-            f"pltrs: dividers with sizes of class {type(self).__name__}")
+        """
+        The description of the size pltrs (Rust) evaluates: for a size of
+        the program's, the size itself, whose ``get_size`` pltrs (Rust)
+        calls at every layout, with no renderer (None), since none is at
+        hand while it lays the figure out.
+        """
+        return ("python", self)
 
 
 class Add(_Base):

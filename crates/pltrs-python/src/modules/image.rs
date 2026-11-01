@@ -28,6 +28,7 @@ use pltrs::numeric::Grid;
 use pltrs::rc::Aspect;
 use pltrs::ticker::AxisName;
 
+use super::backends::DocumentMetadata;
 use super::transforms::matrix;
 use crate::binding::prelude::*;
 use crate::binding::{Element, dict_value};
@@ -54,6 +55,11 @@ impl From<ImageError> for PyErr {
                 "Dimensions of C {values:?} are incompatible with X ({nx}) and/or Y ({ny})"
             )),
             ImageError::IncompatibleCoordinates => PyErr::type_error("Incompatible X, Y inputs"),
+            ImageError::UnsampledNotAffine => PyErr::new(
+                ExceptionKind::NotImplementedError,
+                "pltrs: make_image(unsampled=True) of an image whose transform is not \
+                 affine (pltrs subsets the array through the affine map)",
+            ),
             other => PyErr::value_error(other.to_string()),
         }
     }
@@ -352,14 +358,24 @@ fn cursor_element(image: AxesImage, x: f64, y: f64) -> PyResult<Option<(usize, u
     Ok(image.element_at(pltrs::transforms::Point::new(x, y)))
 }
 
-/// The image resampled for display at `magnification` (matplotlib's
-/// `make_image`): `(pixels, x, y, matrix)`, the pixels an `(M, N, 4)` byte
-/// array with the display's bottom row first (as matplotlib's resampler
-/// writes it), `(x, y)` their bottom-left display corner and the 3×3
-/// matrix of the map from array indices to them (`None` when not affine);
-/// `None` when nothing is visible.
-fn make_image(image: AxesImage, magnification: f64) -> PyResult<Option<MadeImageParts>> {
-    let Some(made) = image.make_image(magnification)? else {
+/// The image resampled for display at `magnification`, or colour-mapped
+/// at its own resolution when `unsampled` (matplotlib's `make_image`):
+/// `(pixels, x, y, matrix)`, the pixels an `(M, N, 4)` byte array with the
+/// display's bottom row first (as matplotlib's resampler writes it, and
+/// as its unsampled array is), `(x, y)` their bottom-left display corner
+/// and the 3×3 matrix of the map from array indices to them (`None` when
+/// not affine); `None` when nothing is visible.
+fn make_image(
+    image: AxesImage,
+    magnification: f64,
+    unsampled: bool,
+) -> PyResult<Option<MadeImageParts>> {
+    let made = if unsampled {
+        image.make_image_unsampled(magnification)?
+    } else {
+        image.make_image(magnification)?
+    };
+    let Some(made) = made else {
         return Ok(None);
     };
     let (width, height) = (made.pixels.width(), made.pixels.height());
@@ -378,14 +394,20 @@ fn make_image(image: AxesImage, magnification: f64) -> PyResult<Option<MadeImage
 
 /// `imsave` to a vector format: the document of `format` (`'pdf'`,
 /// `'ps'`, `'eps'` or `'svg'`) showing the `(M, N, 4)` byte array `rgba`,
-/// top row first, at `dpi`.
-fn imsave_vector(rgba: NdArray<u8>, format: String, dpi: f64) -> PyResult<Bytes> {
+/// top row first, at `dpi`, with the document `metadata` (checked by the
+/// format's writer in Python, as `savefig` checks it).
+fn imsave_vector(
+    rgba: NdArray<u8>,
+    format: String,
+    dpi: f64,
+    metadata: Option<DocumentMetadata>,
+) -> PyResult<Bytes> {
     let pixels = pixels::<u8, 4>(&rgba)?;
     Ok(Bytes(pltrs::image::imsave_vector(
         pixels,
         format.parse()?,
         dpi,
-        None,
+        metadata.map(|metadata| metadata.0),
     )?))
 }
 

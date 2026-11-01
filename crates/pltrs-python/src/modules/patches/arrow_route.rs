@@ -1,8 +1,10 @@
 //! The route of a fancy arrow patch: its ends or its path (matplotlib's
 //! `FancyArrowPatch` `_posA_posB`, `_path_original` and
-//! `set_positions`).
+//! `set_positions`), and the patches clipping its ends (`patchA`,
+//! `patchB`).
 
-use pltrs::patches::{ArrowRoute, FancyArrowPatch, Patch};
+use pltrs::artist::{RawHandle, TypedHandle};
+use pltrs::patches::{ArrowRoute, ConnectionPatch, FancyArrowPatch, Patch};
 use pltrs_core::Point;
 
 use super::super::path::{PathArrays, path_arrays};
@@ -41,8 +43,35 @@ fn set_arrow_positions(
     Ok(())
 }
 
+/// Clips the start of the arrow `patch` (a `FancyArrowPatch` or a
+/// `ConnectionPatch`) to the outline of the artist `a` and its end to that
+/// of `b` (matplotlib's `patchA` and `patchB`), each as drawn in the
+/// arrow's figure. An artist outside that figure (one not added yet)
+/// clips nothing; the flags tell which of the two clip.
+fn set_arrow_patches(
+    patch: RawHandle,
+    a: Option<RawHandle>,
+    b: Option<RawHandle>,
+) -> PyResult<(bool, bool)> {
+    let in_figure = |artist: Option<RawHandle>| {
+        artist
+            .filter(|artist| artist.shares_figure(&patch))
+            .map(|artist| artist.id())
+    };
+    let (a, b) = (in_figure(a), in_figure(b));
+    if let Some(arrow) = Patch::<FancyArrowPatch>::from_raw_handle(&patch) {
+        arrow.update_shape(|shape| shape.patches = (a, b));
+    } else if let Some(link) = Patch::<ConnectionPatch>::from_raw_handle(&patch) {
+        link.update_shape(|shape| shape.patches = (a, b));
+    } else {
+        return Err(PyErr::type_error("the artist is no FancyArrowPatch"));
+    }
+    Ok((a.is_some(), b.is_some()))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("arrow_route", arrow_route)?;
-    module.add("set_arrow_positions", set_arrow_positions)
+    module.add("set_arrow_positions", set_arrow_positions)?;
+    module.add("set_arrow_patches", set_arrow_patches)
 }

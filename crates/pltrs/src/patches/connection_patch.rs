@@ -3,7 +3,7 @@
 
 use pltrs_core::{Path, Point};
 
-use super::fancy_arrow::{ArrowSpec, round_ends};
+use super::fancy_arrow::{ArrowPatches, ArrowSpec, round_ends};
 use super::{ArrowStyle, CurveEnd, DisplayPath, PatchError, PatchShape, PatchStyle, ShapeFrame};
 use crate::artist::{ArtistBase, ArtistId, LayoutContext};
 use crate::coords::{CoordFrame, CoordOrigin, CoordUnit, Coords, axes_contains_point};
@@ -50,13 +50,17 @@ pub struct ConnectionPatch {
     /// (`Some(true)`), never (`Some(false)`), or for ends in data
     /// coordinates (`None`).
     pub annotation_clip: Option<bool>,
+    /// The patches whose outlines, as drawn, clip the start and the end
+    /// (matplotlib's `patchA` and `patchB`).
+    pub patches: ArrowPatches,
 }
 
 pltrs_core::archive_struct!(ConnectionPatch {
     a,
     b,
     spec,
-    annotation_clip
+    annotation_clip,
+    patches
 });
 
 impl ConnectionPatch {
@@ -73,7 +77,17 @@ impl ConnectionPatch {
                 ..ArrowSpec::default()
             },
             annotation_clip: None,
+            patches: (None, None),
         }
+    }
+
+    /// The same patch clipped to the outlines of the patches (or the
+    /// boxes of the texts) `a` at its start and `b` at its end
+    /// (matplotlib's `patchA` and `patchB`).
+    #[must_use]
+    pub fn with_patches(mut self, a: Option<ArtistId>, b: Option<ArtistId>) -> Self {
+        self.patches = (a, b);
+        self
     }
 
     /// The display position of `end` (`ConnectionPatch._get_xy`: unlike
@@ -181,7 +195,10 @@ impl PatchShape for ConnectionPatch {
             return Ok(Vec::new());
         }
         let dpi_cor = frame.dpi_cor;
-        let path = self.spec.route(pos_a, pos_b, dpi_cor)?;
+        let path = self
+            .spec
+            .clipped_to(&layout, self.patches)
+            .route(pos_a, pos_b, dpi_cor)?;
         self.spec.display_paths(&path, dpi_cor, frame.linewidth)
     }
 }
@@ -240,5 +257,28 @@ mod tests {
         );
         let bounds = fig.add_artist(link).window_extent().expect("drawn");
         assert!((bounds.x1() - 630.0).abs() < 1e-9 && (bounds.y1() - 470.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn patches_clip_the_ends_where_they_are_drawn() {
+        // A 1000 px square axes over (0, 10)²: circles of radius 1 are
+        // 100 px wide.
+        let fig = Figure::with_size(1000.0 / 72.0, 1000.0 / 72.0, 72.0);
+        let ax = fig
+            .add_axes([0.0, 0.0, 1.0, 1.0])
+            .expect("a valid rectangle");
+        ax.set_xlim(0.0, 10.0)
+            .and_then(|ax| ax.set_ylim(0.0, 10.0))
+            .expect("finite limits");
+        let start = ax.add_patch(crate::patches::Circle::new((1.0, 5.0), 1.0));
+        let end = ax.add_patch(crate::patches::Circle::new((9.0, 5.0), 1.0));
+        let link = ConnectionPatch::new(
+            ConnectionEnd::new((1.0, 5.0), Coords::Data, None),
+            ConnectionEnd::new((9.0, 5.0), Coords::Data, None),
+        )
+        .with_patches(Some(start.id()), Some(end.id()));
+        let bounds = ax.add_artist(link).window_extent().expect("drawn");
+        assert!((bounds.x0() - 200.0).abs() < 1.0, "{bounds:?}");
+        assert!((bounds.x1() - 800.0).abs() < 1.0, "{bounds:?}");
     }
 }

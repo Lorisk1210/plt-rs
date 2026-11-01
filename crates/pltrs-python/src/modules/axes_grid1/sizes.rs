@@ -3,7 +3,7 @@
 
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
-use pltrs::axes_grid1::{Size, SizeAspect};
+use pltrs::axes_grid1::{Size, SizeAspect, SizeFn};
 use pltrs::spines::SpineSide;
 
 use crate::binding::prelude::*;
@@ -11,8 +11,10 @@ use crate::binding::prelude::*;
 /// A [`Size`] from its description: `("fixed", inches)`, `("scaled",
 /// factor)`, `("axes_x" | "axes_y", axes, aspect)` with `aspect` a number
 /// or `("axes", reference_axes)`, `("fraction", fraction, size or None)`,
-/// `("sum", [sizes])`, `("max_width" | "max_height", [artists])` or
-/// `("decorations", [axes], side)`.
+/// `("sum", [sizes])`, `("max_width" | "max_height", [artists])`,
+/// `("decorations", [axes], side)` or `("python", size)` for a size of
+/// the program's, asked `get_size(None)` at every layout (no renderer is
+/// at hand while pltrs (Rust) lays the figure out).
 pub(super) struct PySize(pub(super) Size);
 
 impl FromPy<'_> for PySize {
@@ -56,6 +58,15 @@ impl FromPy<'_> for PySize {
             "decorations" => {
                 let (_, axes, side): (String, Vec<Axes>, String) = object.extract()?;
                 Size::AxesDecorations(axes.iter().map(Axes::id).collect(), side_named(&side)?)
+            }
+            "python" => {
+                let (_, size): (String, Bound<'_>) = object.extract()?;
+                let get_size: Callback = size.getattr("get_size")?.extract()?;
+                Size::Program(SizeFn::new(move || {
+                    get_size
+                        .call::<(f64, f64)>((None::<f64>,))
+                        .unwrap_or((0.0, 0.0))
+                }))
             }
             _ => return Err(PyErr::type_error(format!("unknown size {tag:?}"))),
         };

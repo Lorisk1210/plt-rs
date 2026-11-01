@@ -5,10 +5,12 @@ methods, ``get_tightbbox`` and ``Figure.tight_layout``), as mixins the
 classes include. pltrs (Rust) lays the figures out (``pltrs::layout``).
 """
 
+import numpy as np
+
 from . import _api, _handles
 from ._native import figure as _figure, figure_layout as _figure_layout
 from .text import Text, _layout_renderer, _measuring_with
-from .transforms import Bbox
+from .transforms import Bbox, TransformedBbox
 
 #: The native function making each figure-wide text, and whether its
 #: position across its edge is its y (else its x).
@@ -179,16 +181,55 @@ class FigureBaseLayout:
 
     def get_tightbbox(self, renderer=None, *, bbox_extra_artists=None):
         """
-        Return a (tight) bounding box of the figure *in inches*: the area
-        everything visible is drawn in. pltrs (Rust) measures every artist
-        taking part in the layout; *bbox_extra_artists* other than None
-        are not supported.
+        Return a (tight) bounding box of the figure *in inches*.
+
+        Note that `.FigureBase` differs from all other artists, which return
+        their `.Bbox` in pixels.
+
+        Artists that have ``artist.set_in_layout(False)`` are not included
+        in the bbox.
+
+        Parameters
+        ----------
+        renderer : `.RendererBase` subclass
+            The renderer (pltrs (Rust) measures the figure itself).
+        bbox_extra_artists : list of `.Artist` or ``None``
+            List of artists to include in the tight bounding box.  If
+            ``None`` (default), then all artist children of each Axes are
+            included in the tight bounding box.
+
+        Returns
+        -------
+        `.BboxBase`
+            containing the bounding box (in figure inches).
         """
-        if bbox_extra_artists is not None:
-            raise NotImplementedError(
-                "pltrs: Figure.get_tightbbox(bbox_extra_artists=...)")
-        x0, y0, x1, y1 = _figure_layout.figure_tightbbox(self._native)
-        return Bbox([[x0, y0], [x1, y1]])
+        if bbox_extra_artists is None:
+            x0, y0, x1, y1 = _figure_layout.figure_tightbbox(self._native)
+            return Bbox([[x0, y0], [x1, y1]])
+        boxes = [artist.get_tightbbox(renderer) for artist in bbox_extra_artists]
+        for ax in self.axes:
+            if ax.get_visible():
+                # Some Axes don't take the bbox_extra_artists keyword.
+                try:
+                    boxes.append(ax.get_tightbbox(
+                        renderer, bbox_extra_artists=bbox_extra_artists))
+                except TypeError:
+                    boxes.append(ax.get_tightbbox(renderer))
+        boxes = [box for box in boxes
+                 if box is not None and np.isfinite(box.width)
+                 and np.isfinite(box.height)
+                 and (box.width != 0 or box.height != 0)]
+        isfigure = hasattr(self, 'bbox_inches')
+        if not boxes:
+            if isfigure:
+                return self.bbox_inches
+            # Subfigures do not have bbox_inches, but do have a bbox.
+            boxes = [self.bbox]
+        bbox = Bbox.union(boxes)
+        if isfigure:
+            # Transform from pixels to inches.
+            bbox = TransformedBbox(bbox, self.dpi_scale_trans.inverted())
+        return bbox
 
 
 class FigureLayout:

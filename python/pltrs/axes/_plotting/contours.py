@@ -23,7 +23,7 @@ def _linestyles(styles):
     return [mcoll._native_style(style) for style in styles]
 
 
-def _contour_look(fn, kwargs):
+def _contour_look(kwargs):
     """
     The look of a contour set popped from *kwargs*: ``(look, extras,
     attributes, colorizer, native_cmap)``, the native look and extras
@@ -35,9 +35,6 @@ def _contour_look(fn, kwargs):
     if "color" in kwargs:
         raise _api.kwarg_error("ContourSet.__init__", "color")
     locator = kwargs.pop("locator", None)
-    for name in ("xunits", "yunits"):
-        if kwargs.get(name) is not None:
-            raise NotImplementedError(f"pltrs: {fn}({name}=...)")
     colors = kwargs.pop("colors", None)
     cmap = kwargs.pop("cmap", None)
     if colors is not None and cmap is not None:
@@ -129,7 +126,7 @@ class ContoursMixin:
                 (z, mask, x, y,
                  (origin, None if extent is None else tuple(map(float, extent)))),
                 generation)
-        look = _contour_look(fn, kwargs)
+        look = _contour_look(kwargs)
         native = _contour.contour(self._native, bool(filled), *generator.field,
                                   _levels(levels), *look[:2])
         contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs)
@@ -141,7 +138,6 @@ class ContoursMixin:
         ``tricontourf``)."""
         from ...tri import Triangulation, TriContourSet
         from ...tri._tricontour import _TriContourGenerator
-        fn = 'tricontourf' if filled else 'tricontour'
         levels = kwargs.pop("levels", None)
         if args and isinstance(args[0], TriContourSet):
             # The field of that contour set is contoured again, at its
@@ -170,7 +166,7 @@ class ContoursMixin:
             generator = _TriContourGenerator(
                 tri, np.ma.filled(z.astype(float), np.nan))
         tri, z = generator.field
-        look = _contour_look(fn, kwargs)
+        look = _contour_look(kwargs)
         native = _contour.tricontour(self._native, bool(filled), tri._native, z,
                                      _levels(levels), *look[:2])
         contours = _finish(TriContourSet, native, self, look, kwargs)

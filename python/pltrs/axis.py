@@ -1278,10 +1278,7 @@ class Axis(Artist):
         too-long labels when doing their layout.
         """
         from .transforms import Bbox
-        if for_layout_only:
-            raise NotImplementedError(
-                "pltrs: Axis.get_tightbbox(for_layout_only=True)")
-        extent = _axis.get_tightbbox(*self._args())
+        extent = _axis.get_tightbbox(*self._args(), bool(for_layout_only))
         if extent is None:
             return None
         x0, y0, x1, y1 = extent

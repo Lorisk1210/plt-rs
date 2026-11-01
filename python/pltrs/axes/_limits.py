@@ -239,11 +239,9 @@ class LimitsMixin:
         scaley : bool, default: True
             Whether to autoscale the y-axis.
         """
-        if not (scalex and scaley):
-            raise NotImplementedError(
-                "pltrs: autoscale_view(scalex=False or scaley=False)")
         _axes_base.autoscale_view(self._native,
-                                  None if tight is None else bool(tight))
+                                  None if tight is None else bool(tight),
+                                  bool(scalex), bool(scaley))
 
     def get_xmargin(self):
         """Retrieve autoscaling margin of the x-axis."""
@@ -269,7 +267,7 @@ class LimitsMixin:
         ----------
         m : float greater than -0.5
         """
-        _axes_base.set_margins(self._native, _check_margin(m), None)
+        _axes_base.set_margins(self._native, _check_margin(m), None, None)
 
     def set_ymargin(self, m):
         """
@@ -279,7 +277,7 @@ class LimitsMixin:
         ----------
         m : float greater than -0.5
         """
-        _axes_base.set_margins(self._native, None, _check_margin(m))
+        _axes_base.set_margins(self._native, None, _check_margin(m), None)
 
     def margins(self, *margins, x=None, y=None, tight=True):
         """
@@ -324,11 +322,10 @@ class LimitsMixin:
             if tight is not True:
                 _api.warn_external(f'ignoring tight={tight!r} in get mode')
             return self.get_xmargin(), self.get_ymargin()
-        if tight is not True:
-            raise NotImplementedError(f"pltrs: margins(tight={tight!r})")
         _axes_base.set_margins(self._native,
                                None if x is None else _check_margin(x),
-                               None if y is None else _check_margin(y))
+                               None if y is None else _check_margin(y),
+                               None if tight is None else bool(tight))
 
     def relim(self, visible_only=False):
         """

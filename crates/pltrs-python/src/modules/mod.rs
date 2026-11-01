@@ -209,11 +209,12 @@ mod tests {
             let axes = call(&native, "figure", "gca", std::slice::from_ref(&figure)).unwrap();
             let x = eval(py, "", "[0.0, 1.0, 2.0]");
             let kwargs = eval(py, "", "{'linewidth': 2.0, 'label': 'line'}");
+            let rescale = eval(py, "", "(True, True)");
             let line = call(
                 &native,
                 "plotting",
                 "plot",
-                &[axes, x.clone(), x, Bound::none(py), kwargs],
+                &[axes, x.clone(), x, Bound::none(py), kwargs, rescale],
             )
             .unwrap();
             let name = "linewidth".into_py(py).unwrap();

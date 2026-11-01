@@ -14,7 +14,7 @@ use super::axis_handle::Axis3D;
 use super::handle::Axes3D;
 use super::state::Axes3DState;
 use crate::artist::{ArtistHandle, ArtistLookup, LayoutContext};
-use crate::axes::TickStyle;
+use crate::axes::{TickStyle, TickerDefaults};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::ticker::{Formatter, Locator, TickerError};
@@ -125,6 +125,12 @@ impl Axis3D {
             }
         });
         found.get()
+    }
+
+    /// Counts the tick helpers in use as the scale's own (matplotlib's
+    /// `_set_axes_scale` once a scale of the program's installed them).
+    pub fn mark_default_tick_helpers(&self) -> &Self {
+        self.set_tickers(|t| t.defaults = TickerDefaults::default())
     }
 
     /// Whether the major (or `minor`) locator is still the one the scale

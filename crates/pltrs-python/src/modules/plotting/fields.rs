@@ -1,7 +1,7 @@
 //! Vector fields: `quiver`, `quiverkey`, `barbs` and `streamplot`.
 
 use pltrs::axes::{Axes, MappedColors};
-use pltrs::collections::Collection;
+use pltrs::collections::{Collection, CollectionProps};
 use pltrs::colors::Color;
 use pltrs::numeric::Grid;
 use pltrs::quiver::{
@@ -16,9 +16,12 @@ use pltrs::streamplot::{
 use pltrs::text::Text;
 use pltrs::transforms::{Point, Transform};
 
+use super::super::collections::{edge_colors, rgba_rows};
 use super::super::font_manager::FontProps;
+use super::super::lines::PyLineStyle;
 use super::super::path::{PathArrays, path_arrays};
 use super::mapping::{Mapping, colorizer};
+use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
 artist_handle!(Quiver, QuiverKey, StreamArrow);
@@ -157,8 +160,48 @@ type KeyArrow = (f64, String, Option<Rgba>, Option<f64>);
 /// The key's label: `(labelsep, labelpos, labelcolor, font)`.
 type KeyLabel = (f64, String, Option<Rgba>, Option<FontProps>);
 
+/// The properties of a quiver key's arrow, from its `PolyCollection`
+/// keyword arguments as `collections._native_kwargs` writes them: colours
+/// as RGBA arrays, widths, styles and anti-aliasing as lists, `alpha` one
+/// value or one per item, `hatch`.
+pub(super) struct KeyArrowProps(CollectionProps);
+
+impl FromPy<'_> for KeyArrowProps {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let mut props = CollectionProps::default();
+        for (key, value) in dict_items(object)? {
+            let key: String = key.extract()?;
+            match key.as_str() {
+                "color" | "facecolor" if value.is_none() => {}
+                "color" => props.color = rgba_rows(&value.extract()?)?.into_iter().next(),
+                "facecolor" => props.facecolors = Some(rgba_rows(&value.extract()?)?),
+                "edgecolor" => props.edgecolors = Some(edge_colors(&value)?),
+                "linewidth" => props.linewidths = Some(value.extract()?),
+                "linestyle" => {
+                    let styles: Vec<PyLineStyle> = value.extract()?;
+                    props.linestyles = Some(styles.into_iter().map(|style| style.0).collect());
+                }
+                "antialiased" => props.antialiased = Some(value.extract()?),
+                "alpha" => match value.extract::<Option<f64>>() {
+                    Ok(alpha) => props.base.alpha = alpha,
+                    Err(_) => props.alphas = Some(value.extract()?),
+                },
+                "hatch" => props.hatch = value.extract()?,
+                _ => {
+                    return Err(PyErr::new(
+                        ExceptionKind::AttributeError,
+                        format!("PolyCollection.set() got an unexpected keyword argument '{key}'"),
+                    ));
+                }
+            }
+        }
+        Ok(Self(props))
+    }
+}
+
 /// A key of `quiver` on `axes`: an arrow of `length` at `position`
-/// labelled `label` (matplotlib's `quiverkey`).
+/// labelled `label`, its arrow given the properties `arrow` (matplotlib's
+/// `quiverkey`).
 pub(super) fn quiverkey(
     axes: Axes,
     quiver: Quiver,
@@ -167,6 +210,7 @@ pub(super) fn quiverkey(
     label: String,
     (angle, coordinates, key_color, zorder): KeyArrow,
     (labelsep, labelpos, labelcolor, font): KeyLabel,
+    arrow: KeyArrowProps,
 ) -> PyResult<QuiverKey> {
     let options = QuiverKeyOptions {
         angle,
@@ -187,6 +231,7 @@ pub(super) fn quiverkey(
         labelcolor: labelcolor.map(color),
         font: font.map(|font| font.0),
         zorder,
+        props: arrow.0,
     };
     Ok(axes.quiverkey(&quiver, position, length, label, options))
 }

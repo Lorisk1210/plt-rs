@@ -4,7 +4,8 @@
 //! Python checks the arrays as matplotlib's wrapper does, computes the
 //! lookup mesh of a non-affine transform through the transform object,
 //! and writes the result back into the output array; the arrays cross as
-//! `(M, N)` scalars or `(M, N, 4)` RGBA pixels, of bytes or floats.
+//! `(M, N)` scalars or `(M, N, 4)` RGBA pixels, of bytes, 16-bit integers
+//! or floats.
 
 use pltrs::image::{Pixel, PixelMapping, ResampleOptions, resample_pixels};
 use pltrs::numeric::Grid;
@@ -121,6 +122,38 @@ fn resample_bytes(
     NdArray::with_shape(cells, out.shape)
 }
 
+/// The 16-bit values of an array of them (Agg reads signed ones as
+/// unsigned, so Python hands them over as unsigned).
+fn shorts(values: &[i64]) -> PyResult<Vec<u16>> {
+    values
+        .iter()
+        .map(|&v| {
+            u16::try_from(v)
+                .map_err(|_| PyErr::value_error(format!("{v} is not a 16-bit unsigned value")))
+        })
+        .collect()
+}
+
+/// `data` resampled into a copy of `out`, both scalars (2-D) or RGBA
+/// pixels (3-D) of 16-bit unsigned integers (matplotlib's `gray16` and
+/// `rgba16`).
+fn resample_shorts(
+    data: NdArray<i64>,
+    out: NdArray<i64>,
+    mapping: Mapping,
+    settings: Settings,
+) -> PyResult<NdArray<i64>> {
+    let (shape, out_shape) = (plane(&data)?, plane(&out)?);
+    let (source, target) = (shorts(&data.data)?, shorts(&out.data)?);
+    let cells = if data.shape.len() == 2 {
+        resample_cells((shape, source), (out_shape, target), &mapping, &settings)?
+    } else {
+        let source = (shape, quads(&source));
+        resample_cells(source, (out_shape, quads(&target)), &mapping, &settings)?.concat()
+    };
+    NdArray::with_shape(cells.into_iter().map(i64::from).collect(), out.shape)
+}
+
 /// `data` resampled into a copy of `out`, both scalars (2-D) or RGBA
 /// pixels (3-D) of floats, in single precision when `single`.
 fn resample_floats(
@@ -166,6 +199,7 @@ fn resample_floats(
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("resample_bytes", resample_bytes)?;
+    module.add("resample_shorts", resample_shorts)?;
     module.add("resample_floats", resample_floats)
 }
 

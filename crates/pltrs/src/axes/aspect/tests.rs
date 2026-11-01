@@ -25,6 +25,25 @@ fn box_adjustable_shrinks_and_centres_the_axes() {
 }
 
 #[test]
+fn a_given_position_replaces_the_located_one() {
+    // matplotlib's `apply_aspect(position)`: a square on a 2:1 figure
+    // spanning its height, centred.
+    let fig = Figure::with_size(4.0, 2.0, 100.0);
+    let ax = fig.subplot();
+    ax.set_aspect(Aspect::Equal).unwrap();
+    ax.apply_aspect_at(Bbox::from_bounds(0.0, 0.0, 1.0, 1.0));
+    let active = ax
+        .raw()
+        .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
+    assert_eq!(active.bounds(), (0.25, 0.0, 0.5, 1.0));
+    ax.apply_aspect();
+    let active = ax
+        .raw()
+        .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));
+    assert!(active.y0() > 0.1, "back in the subplot: {active:?}");
+}
+
+#[test]
 fn locators_shrink_and_shift_with_matplotlibs_arithmetic() {
     // A horizontal colorbar of a 5-inch figure with 5% extensions:
     // matplotlib's `shrunk(...).translated(...)` puts the extension tip

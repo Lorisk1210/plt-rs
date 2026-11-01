@@ -70,13 +70,14 @@ pub(super) fn bar_label(
 type Pie = (Vec<Patch<Wedge>>, Vec<f64>, Vec<f64>);
 
 /// Labels the wedges of a pie (matplotlib's `pie_label`): one text per
-/// wedge, or a template of `absval` and `frac` when `template`, at
-/// `distance` radii, turned to the wedges when `rotate`, aligned
-/// `"center"`, `"outer"` or `"auto"`.
+/// wedge, or a template of `absval` and `frac` when `template` (typeset
+/// with TeX when `usetex`, `None` for `text.usetex`), at `distance`
+/// radii, turned to the wedges when `rotate`, aligned `"center"`,
+/// `"outer"` or `"auto"`.
 pub(super) fn pie_label(
     axes: Axes,
     (wedges, values, fracs): Pie,
-    (labels, template): (Vec<String>, bool),
+    (labels, template, usetex): (Vec<String>, bool, Option<bool>),
     distance: f64,
     rotate: bool,
     alignment: String,
@@ -101,6 +102,7 @@ pub(super) fn pie_label(
             "outer" => PieLabelAlignment::Outer,
             _ => PieLabelAlignment::Auto,
         },
+        usetex,
         ..PieLabelOptions::default()
     };
     Ok(axes.pie_label(&mut pie, labels, options)?)

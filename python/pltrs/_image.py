@@ -194,7 +194,10 @@ def resample(input_array, output_array, transform, interpolation=NEAREST,
         output_array[...] = _native_image.resample_floats(
             input_array, output_array, dtype == np.float32, mapping, settings)
     elif dtype in (np.uint16, np.int16):
-        raise NotImplementedError("pltrs: _image.resample of 16-bit arrays")
+        # Agg reads signed shorts as unsigned ones, as for bytes.
+        target = output_array.view(np.uint16)
+        target[...] = _native_image.resample_shorts(
+            input_array.view(np.uint16), target, mapping, settings)
     else:
         raise ValueError("arrays must be of dtype byte, short, float32 or "
                          "float64")

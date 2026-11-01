@@ -90,6 +90,7 @@ impl FromPy<'_> for Rule {
         spec.bymonth = dict_value::<Option<Vec<u32>>>(object, "bymonth")?.unwrap_or_default();
         spec.bymonthday = dict_value::<Option<Vec<i32>>>(object, "bymonthday")?.unwrap_or_default();
         spec.byyearday = dict_value::<Option<Vec<i32>>>(object, "byyearday")?.unwrap_or_default();
+        spec.byweekno = dict_value::<Option<Vec<i32>>>(object, "byweekno")?.unwrap_or_default();
         spec.byhour = dict_value::<Option<Vec<u32>>>(object, "byhour")?.unwrap_or_default();
         spec.byminute = dict_value::<Option<Vec<u32>>>(object, "byminute")?.unwrap_or_default();
         spec.bysecond = dict_value::<Option<Vec<u32>>>(object, "bysecond")?.unwrap_or_default();
@@ -131,6 +132,7 @@ impl IntoPy for Rule {
         put("bymonth", listed(&spec.bymonth)?.into_py(py)?);
         put("bymonthday", listed(&spec.bymonthday)?.into_py(py)?);
         put("byyearday", listed(&spec.byyearday)?.into_py(py)?);
+        put("byweekno", listed(&spec.byweekno)?.into_py(py)?);
         put("byhour", listed(&spec.byhour)?.into_py(py)?);
         put("byminute", listed(&spec.byminute)?.into_py(py)?);
         put("bysecond", listed(&spec.bysecond)?.into_py(py)?);

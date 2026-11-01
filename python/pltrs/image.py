@@ -556,15 +556,14 @@ class AxesImage(_ImageBase):
             The affine transformation from image to pixel space (None, in
             pltrs, for an image on non-affine axes).
         """
-        if unsampled:
-            raise NotImplementedError("pltrs: make_image(unsampled=True)")
         if self._A is None:
             raise RuntimeError('You must first set the image array')
         if self._A.size == 0:
             raise RuntimeError("_make_image must get a non-empty image. "
                                "Your Artist's draw method must filter before "
                                "this method is called.")
-        made = _native_image.make_image(self._native, float(magnification))
+        made = _native_image.make_image(self._native, float(magnification),
+                                        bool(unsampled))
         if made is None:
             return None, 0, 0, None
         pixels, x, y, matrix = made
@@ -634,6 +633,20 @@ def imread(fname, format=None):
                 pil_to_array(image))
 
 
+def _vector_metadata(fname, format, metadata):
+    """*metadata* of a document of the vector *format* written to *fname*,
+    as the canvas of the format takes it from `.Figure.savefig`, which
+    matplotlib's `imsave` calls."""
+    if format == "pdf":
+        from .backends.backend_pdf import _native_info
+        return _native_info(metadata)
+    if format == "svg":
+        from .backends.backend_svg import _svg_metadata
+        return _svg_metadata(metadata)
+    from .backends.backend_ps import _dsc_metadata
+    return _dsc_metadata(fname, metadata)
+
+
 def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
            origin=None, dpi=100, *, metadata=None, pil_kwargs=None):
     """
@@ -700,9 +713,6 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
         if pil_kwargs is not None:
             raise ValueError(
                 f"Cannot use 'pil_kwargs' when saving to {format}")
-        if metadata is not None:
-            raise NotImplementedError(
-                f"pltrs: imsave(format={format!r}, metadata=...)")
     # Don't bother creating an image; this avoids rounding errors on the
     # size when dividing and then multiplying by dpi.
     origin = _val_or_rc(origin, "image.origin")
@@ -724,7 +734,8 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
         # matplotlib draws the image with figimage on a frameless,
         # transparent figure of its size; so does pltrs (Rust).
         document = _native_image.imsave_vector(
-            np.asarray(rgba, dtype=np.uint8), format, float(dpi))
+            np.asarray(rgba, dtype=np.uint8), format, float(dpi),
+            _vector_metadata(fname, format, metadata))
         if hasattr(fname, "write"):
             fname.write(document)
         else:

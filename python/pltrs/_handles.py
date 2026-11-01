@@ -95,6 +95,9 @@ def adopt(artist, native, figure):
     artist._figure = figure
     figure._artists[_artist.id(native)] = artist
     track(artist, figure)
+    # What waited for the artist to be in a figure (an arrow clipped to it).
+    for callback in artist.__dict__.pop("_on_adopt", ()):
+        callback()
     return artist
 
 

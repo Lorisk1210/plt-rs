@@ -64,4 +64,4 @@ pub use parasite_axes::{
 };
 pub(crate) use parasite_axes::{Parasite, is_parasite, parasites_of};
 pub use rgb_axes::{RgbAxes, hide_channel_ticklabels, make_rgb_axes, whiten_frame};
-pub use size::{Size, SizeAspect, SizeSpec};
+pub use size::{Size, SizeAspect, SizeFn, SizeSpec};

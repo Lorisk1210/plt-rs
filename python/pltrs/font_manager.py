@@ -957,6 +957,26 @@ def _data_font_path(fname, fontext='ttf'):
     return str(cbook._get_data_path('fonts', subdir, fname))
 
 
+def _afm_directory(directory):
+    """
+    Which of matplotlib's AFM font directories the fonts under *directory*
+    are in, as ``_native.font_manager.best_afm_font`` names them:
+    ``"pdfcorefonts"`` or ``"afm"``, None for both (all fonts, *directory*
+    holding the data's ``fonts``, or no directory), or False for neither
+    (no AFM font is under *directory*).
+    """
+    if directory is None:
+        return None
+    fonts = Path(cbook._get_data_path('fonts')).resolve()
+    directory = Path(directory).resolve()
+    if directory == fonts or directory in fonts.parents:
+        return None
+    for name in ('pdfcorefonts', 'afm'):
+        if directory == fonts / name:
+            return name
+    return False
+
+
 def _entries(fontext):
     """The `FontEntry` of every font pltrs (Rust) has in the list *fontext*."""
     return [FontEntry(fname=_data_font_path(fname, fontext), index=index,
@@ -1209,14 +1229,12 @@ class FontManager:
         if fname is not None:
             return fname
         if fontext == 'afm':
-            if directory is not None:
-                raise NotImplementedError(
-                    "pltrs: findfont(fontext='afm', directory=...)")
-            fname = _data_font_path(_font_manager.find_font(
-                self._props(prop), fontext, fallback_to_default), fontext)
-            return FontPath(fname, 0)
-        best = _font_manager.best_font(
-            self._props(prop), directory, cbook._get_data_path('fonts', 'ttf'))
+            afm_directory = _afm_directory(directory)
+            best = (None if afm_directory is False else
+                    _font_manager.best_afm_font(self._props(prop), afm_directory))
+        else:
+            best = _font_manager.best_font(
+                self._props(prop), directory, cbook._get_data_path('fonts', 'ttf'))
         if best is not None:
             (fname, index, name, (_, _, weight, _)), score = best
             weight = int(weight) if weight.isdigit() else weight
@@ -1244,7 +1262,7 @@ class FontManager:
                 ValueError,
                 f"Failed to find font {prop}, and fallback to the default font was "
                 f"disabled")
-        return FontPath(_data_font_path(fname), index)
+        return FontPath(_data_font_path(fname, fontext), index)
 
     @staticmethod
     def _expand_aliases(family):
@@ -1262,16 +1280,53 @@ class FontManager:
         """
         Find the paths to the font files most closely matching the given
         properties: the best file of each family of *prop* that has one, in
-        family order.
+        family order. pltrs (Rust) finds the TrueType fonts of all
+        directories; the others are found family by family with
+        `findfont`, as matplotlib finds them all.
         """
-        if fontext != 'ttf':
-            raise NotImplementedError(
-                f"pltrs: _find_fonts_by_props(fontext={fontext!r})")
-        if directory is not None:
-            raise NotImplementedError("pltrs: _find_fonts_by_props(directory=...)")
-        return [FontPath(_data_font_path(fname), 0)
-                for fname in _font_manager.find_fonts(
-                    self._props(prop), fallback_to_default)]
+        if fontext == 'ttf' and directory is None:
+            return [FontPath(_data_font_path(fname), 0)
+                    for fname in _font_manager.find_fonts(
+                        self._props(prop), fallback_to_default)]
+        prop = FontProperties._from_any(prop)
+        fpaths = []
+        for family in prop.get_family():
+            cprop = prop.copy()
+            cprop.set_family(family)  # set current prop's family
+            try:
+                fpaths.append(
+                    self.findfont(
+                        cprop, fontext, directory,
+                        fallback_to_default=False,  # don't fallback to default
+                        rebuild_if_missing=rebuild_if_missing,
+                    )
+                )
+            except ValueError:
+                if family in font_family_aliases:
+                    _log.warning(
+                        "findfont: Generic family %r not found because "
+                        "none of the following families were found: %s",
+                        family, ", ".join(self._expand_aliases(family))
+                    )
+                else:
+                    _log.warning("findfont: Font family %r not found.", family)
+        # only add default family if no other font was found and
+        # fallback_to_default is enabled
+        if not fpaths:
+            if not fallback_to_default:
+                raise ValueError("Failed to find any font, and fallback "
+                                 "to the default font was disabled")
+            dfamily = self.defaultFamily[fontext]
+            cprop = prop.copy()
+            cprop.set_family(dfamily)
+            fpaths.append(
+                self.findfont(
+                    cprop, fontext, directory,
+                    fallback_to_default=True,
+                    rebuild_if_missing=rebuild_if_missing,
+                )
+            )
+        return fpaths
 
     def _family_name(self, fpath):
         """The family name of the font at *fpath*."""

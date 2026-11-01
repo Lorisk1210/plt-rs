@@ -502,6 +502,64 @@ impl AxesImage {
         })
     }
 
+    /// The image colour-mapped at its own resolution, as renderers that
+    /// scale images themselves receive it (matplotlib's `make_image(...,
+    /// unsampled=True)`): the visible part of the coloured array, top row
+    /// first, the display position of its bottom-left corner, and the map
+    /// from its cells (column, row) to the display, counted from that
+    /// corner and magnified by `magnification`; `None` when nothing of it
+    /// is visible.
+    ///
+    /// ```
+    /// use pltrs::axes::ImshowOptions;
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::with_size(2.0, 2.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// let image = ax.imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())?;
+    /// let made = image.make_image_unsampled(1.0)?.expect("the image is visible");
+    /// assert_eq!((made.pixels.width(), made.pixels.height()), (2, 2));
+    /// let cell = made.transform.expect("an affine map").transform_point((1.0, 1.0).into());
+    /// assert_eq!((cell.x, cell.y), (100.0, 100.0));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the image's transform is not affine, or its colormap or norm
+    /// cannot map its data.
+    pub fn make_image_unsampled(
+        &self,
+        magnification: f64,
+    ) -> Result<Option<MadeImage>, ImageError> {
+        let state = self.raw.figure_state().borrow();
+        let layout = LayoutContext::new(&state);
+        let (width, height) = state.size_pixels();
+        let canvas = Bbox::from_extents(0.0, 0.0, width, height);
+        self.read(|image| {
+            let resolved = layout
+                .resolve(&image.transform())
+                .filter(ResolvedTransform::is_affine)
+                .ok_or(ImageError::UnsampledNotAffine)?;
+            let Some(out_bbox) = image.out_bbox(layout) else {
+                return Ok(None);
+            };
+            let clip = image.clip_bbox(layout, canvas);
+            let made =
+                image
+                    .core
+                    .unsampled(image.extent(), resolved.affine_part(), out_bbox, clip)?;
+            Ok(made.map(|made| MadeImage {
+                transform: Some(made.cells.scale(magnification, magnification).translate(
+                    -made.origin.x * magnification,
+                    -made.origin.y * magnification,
+                )),
+                pixels: made.pixels,
+                origin: made.origin,
+            }))
+        })
+    }
+
     /// The image array (matplotlib's `get_array`).
     pub fn array(&self) -> ImageData {
         self.read(|image| image.core.data.clone())

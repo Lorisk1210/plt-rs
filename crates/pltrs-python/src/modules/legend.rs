@@ -23,6 +23,7 @@ use pltrs::rc::LabelColor;
 use pltrs::text::Text;
 use pltrs::transforms::Transform;
 
+use super::font_manager::FontProps;
 use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
@@ -132,6 +133,7 @@ impl FromPy<'_> for LegendKwargs {
                     ..options
                 },
                 "ncols" => options.ncols(value.extract::<usize>()?),
+                "prop" => options.prop(value.extract::<FontProps>()?.0),
                 "fontsize" => options.fontsize(font_size(&value)?),
                 "title_fontsize" => options.title_fontsize(font_size(&value)?),
                 "labelcolor" => LegendOptions {

@@ -9,6 +9,7 @@ import inspect
 import numpy as np
 
 from ... import _api, _live_transforms, cbook, collections as mcoll, lines as mlines
+from ..._artist_kwargs import keep_program_picker
 from ..._native import axes as _axes, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
@@ -167,8 +168,6 @@ class LinesMixin:
         list of `.Line2D`
             A list of lines representing the plotted data.
         """
-        if not (scalex and scaley):
-            raise NotImplementedError("pltrs: plot(scalex=False, scaley=False)")
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
         for pos_only in "xy":
             if pos_only in kwargs:
@@ -187,8 +186,10 @@ class LinesMixin:
             else:
                 props.pop("label", None)
             native = _plotting.plot(self._native, *line_data(self, x, y), fmt,
-                                    mlines._native_kwargs(props))
-            lines.append(keep_unit_data(wrap(self, native, mlines.Line2D), x, y))
+                                    mlines._native_kwargs(props),
+                                    (bool(scalex), bool(scaley)))
+            line = keep_program_picker(wrap(self, native, mlines.Line2D), props)
+            lines.append(keep_unit_data(line, x, y))
         return lines
 
     def axhline(self, y=0, xmin=0, xmax=1, **kwargs):
@@ -206,8 +207,8 @@ class LinesMixin:
         yy, = self._process_unit_info([("y", y)], kwargs)
         native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
                               line_kwargs(kwargs))
-        return keep_unit_data(wrap(self, native, mlines.Line2D),
-                              [xmin, xmax], [y, y])
+        line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
+        return keep_unit_data(line, [xmin, xmax], [y, y])
 
     def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
         """
@@ -224,8 +225,8 @@ class LinesMixin:
         xx, = self._process_unit_info([("x", x)], kwargs)
         native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
                               line_kwargs(kwargs))
-        return keep_unit_data(wrap(self, native, mlines.Line2D),
-                              [x, x], [ymin, ymax])
+        line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
+        return keep_unit_data(line, [x, x], [ymin, ymax])
 
     def axline(self, xy1, xy2=None, *, slope=None, **kwargs):
         """
@@ -245,7 +246,7 @@ class LinesMixin:
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
             None if slope is None else float(slope), line_kwargs(kwargs))
-        return wrap(self, native, mlines.AxLine)
+        return keep_program_picker(wrap(self, native, mlines.AxLine), kwargs)
 
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
         """

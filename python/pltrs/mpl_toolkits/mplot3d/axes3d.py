@@ -19,7 +19,9 @@ from pltrs import _api, _handles, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
 from pltrs.axes import Axes
+from pltrs._artist_kwargs import keep_program_picker
 from pltrs.axes._plotting._helpers import wrap
+from pltrs.axes._plotting.lines import _plot_datasets
 from pltrs.axes._plotting.scatter import _mapping
 from pltrs.markers import MarkerStyle
 from pltrs.transforms import Bbox
@@ -549,15 +551,37 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     # -- scales ------------------------------------------------------------
 
     def _set_axis_scale(self, name, value, **kwargs):
-        """Set the scale of axis *name*, the keyword arguments checked by
-        the scale's class as matplotlib's ``scale_factory`` does."""
+        """
+        Set the scale of axis *name*: a scale object, or the name of a
+        scale class with its keyword arguments, checked by the class as
+        matplotlib's ``scale_factory`` does. pltrs (Rust) maps through a
+        scale of the program's, calling its transform and range limits.
+        """
         from pltrs import scale as mscale
-        if isinstance(value, mscale.ScaleBase):
-            raise NotImplementedError("pltrs: a scale object on 3-D axes")
-        scale_cls = _api.getitem_checked(mscale._scale_mapping, scale=value)
+        from pltrs._native import axis as _axis
+        from pltrs.axis import _native_scale_of
         axis = getattr(self, f'{name}axis')
-        scale = scale_cls(axis, **kwargs)
-        _mplot3d.set_scale(self._native, name, value, kwargs)
+        if isinstance(value, mscale.ScaleBase):
+            scale = value
+            native = _native_scale_of(scale)
+        else:
+            scale_cls = _api.getitem_checked(mscale._scale_mapping, scale=value)
+            scale = scale_cls(axis, **kwargs)
+            native = (None if _native_scale_of(scale) is None
+                      else (value, kwargs))
+        if native is None:
+            transform = scale.get_transform()
+            inverse = transform.inverted()
+            _mplot3d.set_python_scale(
+                self._native, name, scale.name,
+                (lambda x: float(transform.transform(x)),
+                 lambda x: float(inverse.transform(x))),
+                lambda vmin, vmax, minpos: tuple(
+                    map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
+            scale.set_default_locators_and_formatters(axis)
+            _axis.mark_default_helpers(self._native, name)
+        else:
+            _mplot3d.set_scale(self._native, name, *native)
         axis._given_scale = scale
 
     def set_xscale(self, value, **kwargs):
@@ -1075,8 +1099,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
             elif isinstance(col, mcoll.PatchCollection):
                 art3d.patch_collection_2d_to_3d(col, zs=zs, zdir=zdir)
             else:
-                raise NotImplementedError(
-                    f"pltrs: add_collection3d of a {type(col).__name__}")
+                # Any other collection is added as it is, as matplotlib
+                # adds it.
+                return self.add_collection(col)
         return col._adopt_into(self, autolim, axlim_clip)
 
     def add_collection(self, collection, autolim=True):
@@ -1115,18 +1140,31 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
                 raise TypeError("plot() for multiple values for argument 'zs'")
         else:
             zs = kwargs.pop('zs', 0)
-        fmt = None
-        if args:
-            fmt, *args = args
-        if args:
-            raise NotImplementedError("pltrs: several datasets in Axes3D.plot")
         _api.check_in_list(self._axis_names, zdir=zdir)
         kwargs = cbook.normalize_kwargs(kwargs, mlines.Line2D)
-        props = {k: v for k, v in kwargs.items() if v is not None}
         xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
-        native = _mplot3d.plot(self._native, _floats(xs, ys, zs), zdir, fmt,
-                               mlines._native_kwargs(props), bool(axlim_clip))
-        return [wrap(self, native, art3d.Line3D)]
+        if len(args) > 1 or args and not isinstance(args[0], str):
+            # Several datasets, as 2D `plot` splits them, each at *zs*
+            # (matplotlib's `line_2d_to_3d` of every line).
+            zs = np.ma.filled(np.ma.asarray(zs, dtype=float), np.nan).ravel()
+            datasets = [
+                (x, y, np.broadcast_to(zs, len(x)), fmt, label)
+                for x, y, fmt, label in _plot_datasets([xs, ys, *args], None,
+                                                       kwargs)]
+        else:
+            datasets = [(xs, ys, zs, args[0] if args else None,
+                         kwargs.get("label"))]
+        lines = []
+        for x, y, z, fmt, label in datasets:
+            props = {k: v for k, v in kwargs.items() if v is not None}
+            if label is not None:
+                props["label"] = label
+            native = _mplot3d.plot(self._native, _floats(x, y, z), zdir, fmt,
+                                   mlines._native_kwargs(props),
+                                   bool(axlim_clip))
+            lines.append(keep_program_picker(wrap(self, native, art3d.Line3D),
+                                             props))
+        return lines
 
     plot3D = plot
 
@@ -1160,8 +1198,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         paths : `~matplotlib.collections.PathCollection`
         """
         if args:
-            raise NotImplementedError("pltrs: positional arguments after "
-                                      "depthshade in Axes3D.scatter")
+            # matplotlib hands them to 2D `scatter` after *s*, given as a
+            # keyword.
+            raise TypeError("Axes.scatter() got multiple values for argument 's'")
         xs, ys, zs = cbook._broadcast_with_masks(xs, ys, zs)
         s = np.ma.ravel(s)
         xs, ys, zs, s, c, color = cbook.delete_masked_points(
@@ -1373,9 +1412,17 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         collection : `~.art3d.Poly3DCollection`
             A collection of three-dimensional polygons representing the bars.
         """
+        # The positional arguments go to the `.Poly3DCollection` after its
+        # vertices: its *sizes*.
+        if len(args) > 1:
+            raise TypeError(f"PolyCollection.__init__() takes from 2 to 3 "
+                            f"positional arguments but {len(args) + 2} were "
+                            f"given")
         if args:
-            raise NotImplementedError("pltrs: positional arguments after "
-                                      "lightsource in Axes3D.bar3d")
+            if 'sizes' in kwargs:
+                raise TypeError("PolyCollection.__init__() got multiple "
+                                "values for argument 'sizes'")
+            kwargs['sizes'] = args[0]
         _api.check_in_list(['average', 'min', 'max'], zsort=zsort)
         columns = tuple(np.atleast_1d(np.asarray(v, dtype=float)).ravel().tolist()
                         for v in (x, y, z, dx, dy, dz))

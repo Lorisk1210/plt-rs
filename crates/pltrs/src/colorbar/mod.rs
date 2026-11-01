@@ -264,7 +264,8 @@ impl Colorbar {
     }
 
     /// The opacity of the colours: the mappable's, unless it has none or
-    /// one per item (matplotlib's `alpha`).
+    /// one per item, or for a bare norm and colormap
+    /// [`ColorbarOptions::alpha`] (matplotlib's `alpha`).
     pub fn alpha(&self) -> Option<f64> {
         self.read(|state| state.alpha)
     }

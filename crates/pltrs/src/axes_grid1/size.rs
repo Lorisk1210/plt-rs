@@ -2,9 +2,12 @@
 //! `axes_grid1.axes_size`): each has a relative part, scaled to fill the
 //! rectangle, and an absolute part in inches.
 
+use std::fmt;
 use std::ops::Add;
+use std::rc::Rc;
 
 use pltrs_core::Bbox;
+use pltrs_core::archive::{External, ProgramFn};
 
 use crate::artist::{ArtistId, LayoutContext};
 use crate::axes::AxesState;
@@ -27,6 +30,48 @@ pltrs_core::archive_enum!(SizeAspect {
     Factor(v0),
     RelativeTo(v0),
 });
+
+/// A size the program computes (matplotlib's `axes_size` classes of the
+/// program's, asked `get_size`): a function returning the `(relative,
+/// absolute)` parts, called at every layout. It runs inside the layout
+/// pass, so it is `Send` and cannot use the figure's handles. Clones share
+/// the function; a figure with one is archived only if the function has
+/// an origin ([`SizeFn::with_origin`]).
+#[derive(Clone)]
+pub struct SizeFn(ProgramFn<dyn Fn() -> (f64, f64)>);
+
+pltrs_core::archive_struct!(SizeFn(v0));
+
+impl SizeFn {
+    /// A size computed by `size`.
+    pub fn new(size: impl Fn() -> (f64, f64) + Send + 'static) -> Self {
+        Self(ProgramFn::new(Rc::new(size)))
+    }
+
+    /// A size computed by `size`, archived as `origin`, what the program
+    /// made it from (see [`ProgramFn`]).
+    pub fn with_origin(size: impl Fn() -> (f64, f64) + Send + 'static, origin: External) -> Self {
+        Self(ProgramFn::with_origin(Rc::new(size), origin))
+    }
+
+    /// The `(relative, absolute)` parts now.
+    pub fn parts(&self) -> (f64, f64) {
+        (self.0.get())()
+    }
+}
+
+impl fmt::Debug for SizeFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SizeFn").finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for SizeFn {
+    /// Sizes are equal when they share the function.
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::addr_eq(self.0.get(), other.0.get())
+    }
+}
 
 /// A width or height in a divider (matplotlib's `axes_size` classes).
 #[derive(Clone, Debug, PartialEq)]
@@ -58,6 +103,9 @@ pub enum Size {
     /// that its own divider can use the size (matplotlib's
     /// `_AxesDecorationsSize`, made by `add_auto_adjustable_area`).
     AxesDecorations(Vec<ArtistId>, SpineSide),
+    /// A size the program computes (an `axes_size` class of the
+    /// program's).
+    Program(SizeFn),
 }
 
 pltrs_core::archive_enum!(Size {
@@ -70,6 +118,7 @@ pltrs_core::archive_enum!(Size {
     MaxWidth(v0),
     MaxHeight(v0),
     AxesDecorations(v0, v1),
+    Program(v0),
 });
 
 impl Size {
@@ -108,6 +157,7 @@ impl Size {
             Self::MaxWidth(artists) => (0.0, max_extent(fig, artists, Bbox::width)),
             Self::MaxHeight(artists) => (0.0, max_extent(fig, artists, Bbox::height)),
             Self::AxesDecorations(axes, side) => (0.0, decorations_extent(fig, axes, *side)),
+            Self::Program(size) => size.parts(),
         }
     }
 }
@@ -243,6 +293,10 @@ mod tests {
             SizeSpec::from(0.1).resolve(&Size::Scaled(1.0)),
             Size::Fixed(0.1)
         );
+        let program = Size::Program(SizeFn::new(|| (0.5, 0.25)));
+        assert_eq!(program.clone().times(2.0).evaluate(&mut state), (1.0, 0.5));
+        assert_eq!(program, program.clone(), "clones share the function");
+        assert_ne!(program, Size::Program(SizeFn::new(|| (0.5, 0.25))));
     }
 
     #[test]

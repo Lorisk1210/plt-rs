@@ -5,7 +5,7 @@
 use pltrs::mplot3d::{Axes3D, Axis3};
 use pltrs::scale::{FuncTransform, ScaleOptions};
 
-use super::super::scale::nonpositive;
+use super::super::scale::{nonpositive, python_scale};
 use super::axis3;
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
@@ -148,6 +148,21 @@ fn set_scale(axes: Axes3D, name: String, scale: String, kwargs: Owned) -> PyResu
     Ok(())
 }
 
+/// Gives axis `name` the scale of the program's called `scale`, mapping
+/// through `forward` and `inverse` and limiting ranges with
+/// `limit_range(vmin, vmax, minpos)` (`set_xscale` of a `ScaleBase` of
+/// the program's).
+fn set_python_scale(
+    axes: Axes3D,
+    name: String,
+    scale: String,
+    functions: (Callback, Callback),
+    limit_range: Callback,
+) -> PyResult<()> {
+    axes.set_scale(axis3(&name)?, python_scale(scale, functions, limit_range))?;
+    Ok(())
+}
+
 /// The name of the scale of axis `name` (`get_zscale`, ...).
 fn get_scale(axes: Axes3D, name: String) -> PyResult<String> {
     Ok(axes.scale(axis3(&name)?).to_string())
@@ -178,6 +193,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_margin", get_margin)?;
     module.add("set_margins", set_margins)?;
     module.add("set_scale", set_scale)?;
+    module.add("set_python_scale", set_python_scale)?;
     module.add("get_scale", get_scale)?;
     module.add("get_inverted", get_inverted)?;
     module.add("set_inverted", set_inverted)

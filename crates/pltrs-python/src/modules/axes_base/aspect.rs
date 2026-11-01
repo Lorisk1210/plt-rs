@@ -5,7 +5,7 @@
 //! methods have checked matplotlib's arguments and handle `share`.
 
 use pltrs::axes::{Adjustable, Aspect, AspectError, Axes};
-use pltrs::transforms::Anchor;
+use pltrs::transforms::{Anchor, Bbox};
 
 use crate::binding::prelude::*;
 
@@ -116,9 +116,15 @@ fn data_lim(axes: Axes) -> PyResult<Limits> {
     ))
 }
 
-/// Lays the axes out now, applying its aspect.
-fn apply_aspect(axes: Axes) -> PyResult<()> {
-    axes.apply_aspect();
+/// Applies the aspect now, with the axes where its locators put it or,
+/// given, at `position` (`(x0, y0, width, height)` in figure fractions).
+fn apply_aspect(axes: Axes, position: Option<(f64, f64, f64, f64)>) -> PyResult<()> {
+    match position {
+        Some((x0, y0, width, height)) => {
+            axes.apply_aspect_at(Bbox::from_bounds(x0, y0, width, height))
+        }
+        None => axes.apply_aspect(),
+    };
     Ok(())
 }
 
@@ -158,7 +164,8 @@ mod tests {
         assert!(set_anchor(ax.clone(), Some("middle".into()), (0.0, 0.0)).is_err());
         set_box_aspect(ax.clone(), Some(1.0)).unwrap();
         assert_eq!(get_box_aspect(ax.clone()).unwrap(), Some(1.0));
-        apply_aspect(ax.clone()).unwrap();
+        apply_aspect(ax.clone(), None).unwrap();
+        apply_aspect(ax.clone(), Some((0.0, 0.0, 1.0, 1.0))).unwrap();
         assert!(get_data_ratio(ax.clone()).unwrap() > 0.0);
         let (_, minpos) = data_lim(ax).unwrap();
         assert_eq!(minpos, (f64::INFINITY, f64::INFINITY), "no data");

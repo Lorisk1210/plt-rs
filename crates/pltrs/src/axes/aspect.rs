@@ -342,7 +342,20 @@ impl Axes {
         self.raw
             .figure_state()
             .borrow_mut()
-            .apply_aspect_now(self.id());
+            .apply_aspect_now(self.id(), Placement::Located);
+        self
+    }
+
+    /// [`Axes::apply_aspect`] with the axes placed at `position`, in
+    /// figure fractions, instead of where its locators put it
+    /// (matplotlib's `apply_aspect(position)`): the axes is drawn at
+    /// `position` adjusted for the aspect until the aspect is applied
+    /// again (as [`Axes::position`] and every layout do).
+    pub fn apply_aspect_at(&self, position: Bbox) -> &Self {
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .apply_aspect_now(self.id(), Placement::Given(position));
         self
     }
 }

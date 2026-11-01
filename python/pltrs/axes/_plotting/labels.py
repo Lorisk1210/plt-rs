@@ -102,11 +102,8 @@ class LabelsMixin:
         _api.check_in_list(['center', 'outer', 'auto'], alignment=alignment)
         textprops = {} if textprops is None else dict(textprops)
         template = isinstance(labels, str)
+        usetex = textprops.get("usetex")
         if template:
-            usetex = textprops.get("usetex")
-            from ... import rcParams
-            if usetex is not None and usetex != rcParams["text.usetex"]:
-                raise NotImplementedError("pltrs: pie_label(textprops={'usetex': ...})")
             labels = [labels]
         else:
             labels = [str(label) for label in labels]
@@ -114,7 +111,8 @@ class LabelsMixin:
             self._native,
             ([wedge._native for wedge in container.wedges],
              [float(v) for v in container.values], [float(f) for f in container.fracs]),
-            (labels, template), float(distance), bool(rotate), alignment)
+            (labels, template, None if usetex is None else bool(usetex)),
+            float(distance), bool(rotate), alignment)
         texts = [wrap(self, native, Text) for native in natives]
         for text in texts:
             text._internal_update(textprops)

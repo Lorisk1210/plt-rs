@@ -17,6 +17,7 @@ from pltrs import _api
 from pltrs.gridspec import SubplotSpec
 import pltrs.transforms as mtransforms
 from pltrs._native import axes_grid1 as _axes_grid1
+from pltrs.axes import _program_locators
 from . import axes_size as Size
 
 
@@ -180,10 +181,28 @@ class Divider:
         return self._aspect
 
     def set_locator(self, _locator):
+        """
+        Place the divided rectangle where ``_locator(ax, renderer)`` says
+        whenever the figure is drawn (None: at `get_position`), *ax* being
+        an Axes the divider places.
+        """
+        root = self._fig.get_figure(root=True)
+        _program_locators.forget(self, root)
+        located, self._locator = self._locator, _locator
         if _locator is not None:
-            raise NotImplementedError(
-                "pltrs: Divider.set_locator with a locator")
-        self._locator = _locator
+            _program_locators.follow(self, root)
+        elif located is not None:
+            _axes_grid1.divider_set_position(
+                self._native, tuple(map(float, self.get_position())))
+
+    def _locate_by_program(self, renderer):
+        """Divide the rectangle the locator gives now, if the divider
+        places an Axes to ask it with (see `.axes._program_locators`)."""
+        placed = self.__dict__.get("_placed")
+        if placed:
+            _axes_grid1.divider_set_position(
+                self._native, tuple(map(float, self.get_position_runtime(
+                    placed[0], renderer))))
 
     def get_locator(self):
         return self._locator
@@ -250,6 +269,9 @@ class Divider:
         (``axes.set_axes_locator(locator)``)."""
         _axes_grid1.divider_place(self._native, axes._native,
                                   *self._cells(nx, ny, nx1, ny1))
+        placed = self.__dict__.setdefault("_placed", [])
+        if axes not in placed:
+            placed.append(axes)
 
     def append_size(self, position, size):
         _api.check_in_list(["left", "right", "bottom", "top"],

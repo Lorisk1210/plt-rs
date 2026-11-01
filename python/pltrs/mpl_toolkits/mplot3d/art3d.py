@@ -109,6 +109,14 @@ def _axes3d(artist):
     return axes if getattr(axes, 'name', None) == '3d' else None
 
 
+def _depthshade_minalpha(minalpha):
+    """The lowest opacity of depth shading: *minalpha*, or
+    :rc:`axes3d.depthshade_minalpha` for None."""
+    from pltrs import rcParams
+    return float(rcParams['axes3d.depthshade_minalpha']
+                 if minalpha is None else minalpha)
+
+
 def _lifted(artist):
     """The 3-D axes in which *artist* has its 3-D geometry, or None (an
     artist outside any 3-D axes, or a 2-D one of its projection plane)."""
@@ -368,25 +376,29 @@ def _lifted_paths(col, zs, zdir, finite=False):
     return lifted
 
 
-class Patch3DCollection(_Loose3D, mcoll.PatchCollection):
+class _Lifted3DOffsets(_Loose3D):
     """
-    A collection of 3D patches.
+    What places the members of a 2-D collection at 3-D positions, its
+    offsets lifted along an axis (matplotlib's `Patch3DCollection` and
+    `Path3DCollection`): pltrs (Rust) projects the positions and shades
+    the members with depth.
     """
 
     def __init__(self, *args, zs=0, zdir="z", depthshade=None,
                  depthshade_minalpha=None, axlim_clip=False, **kwargs):
         """
-        Create a collection of flat 3D patches with its normal vector
-        pointed in *zdir* direction, and located at *zs* on the *zdir*
-        axis. 'zs' can be a scalar or an array-like of the same length as
-        the number of patches in the collection.
+        Create a collection of flat 3D patches (or paths) with its normal
+        vector pointed in *zdir* direction, and located at *zs* on the
+        *zdir* axis. 'zs' can be a scalar or an array-like of the same
+        length as the number of members in the collection.
 
         Constructor arguments are the same as for
-        :class:`~matplotlib.collections.PatchCollection`. In addition,
+        :class:`~matplotlib.collections.PatchCollection` (or
+        :class:`~matplotlib.collections.PathCollection`). In addition,
         keywords *zs=0* and *zdir='z'* are available.
 
         The keyword argument *depthshade* is available to indicate whether
-        or not to shade the patches in order to give the appearance of
+        or not to shade the members in order to give the appearance of
         depth (default is *True*). *depthshade_minalpha* sets the minimum
         alpha value applied by depth-shading.
         """
@@ -404,22 +416,21 @@ class Patch3DCollection(_Loose3D, mcoll.PatchCollection):
             np.atleast_1d(np.asarray(zs, dtype=float)).ravel().tolist(), zdir,
             bool(rcParams['axes3d.depthshade'] if depthshade is None
                  else depthshade),
-            float(rcParams['axes3d.depthshade_minalpha']
-                  if minalpha is None else minalpha)))
+            _depthshade_minalpha(minalpha)))
 
     def set_3d_properties(self, zs, zdir, axlim_clip=False):
         """
-        Set the *z* positions and direction of the patches.
+        Set the *z* positions and direction of the members.
 
         Parameters
         ----------
         zs : float or array of floats
-            The location or locations to place the patches in the collection
+            The location or locations to place the members in the collection
             along the *zdir* axis.
         zdir : {'x', 'y', 'z'}
-            Plane to plot patches orthogonal to.
+            Plane to plot the members orthogonal to.
         axlim_clip : bool, default: False
-            Whether to hide patches with a vertex outside the axes view limits.
+            Whether to hide members with a vertex outside the axes view limits.
         """
         self._axlim_clip = axlim_clip
         axes = _lifted(self)
@@ -433,7 +444,7 @@ class Patch3DCollection(_Loose3D, mcoll.PatchCollection):
 
     @property
     def _offsets3d(self):
-        """The 3-D positions of the patches."""
+        """The 3-D positions of the members."""
         return tuple(np.array(c) for c in
                      _mplot3d.scatter_offsets(self.axes._native, self._native))
 
@@ -444,7 +455,7 @@ class Patch3DCollection(_Loose3D, mcoll.PatchCollection):
         self.stale = True
 
     def get_depthshade(self):
-        """Return whether the patches fade with depth."""
+        """Return whether the members fade with depth."""
         axes = _lifted(self)
         if axes is None:
             from pltrs import rcParams
@@ -460,7 +471,7 @@ class Patch3DCollection(_Loose3D, mcoll.PatchCollection):
         Parameters
         ----------
         depthshade : bool
-            Whether to shade the patches in order to give the appearance of
+            Whether to shade the members in order to give the appearance of
             depth.
         depthshade_minalpha : float, default: :rc:`axes3d.depthshade_minalpha`
             Sets the minimum alpha value used by depth-shading.
@@ -469,22 +480,28 @@ class Patch3DCollection(_Loose3D, mcoll.PatchCollection):
         if axes is None:
             self._depthshade_pending = (depthshade, depthshade_minalpha)
         else:
-            if depthshade_minalpha is not None:
-                raise NotImplementedError(
-                    "pltrs: set_depthshade(depthshade_minalpha=...) once added")
             _mplot3d.set_depthshade(axes._native, self._native,
-                                    bool(depthshade))
+                                    bool(depthshade),
+                                    _depthshade_minalpha(depthshade_minalpha))
         self.stale = True
+
+
+class Patch3DCollection(_Lifted3DOffsets, mcoll.PatchCollection):
+    """
+    A collection of 3D patches.
+    """
 
 
 def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
                               axlim_clip=False, *args, depthshade_minalpha=None):
     """
-    Convert a `.PatchCollection` into a `.Patch3DCollection` object.
+    Convert a `.PatchCollection` into a `.Patch3DCollection` object
+    (or a `.PathCollection` into a `.Path3DCollection` object).
 
     Parameters
     ----------
-    col : `~matplotlib.collections.PatchCollection`
+    col : `~matplotlib.collections.PatchCollection` or \
+`~matplotlib.collections.PathCollection`
         The collection to convert.
     zs : float or array of floats
         The location or locations to place the patches in the collection
@@ -499,50 +516,15 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
         Sets the minimum alpha value used by depth-shading.
     """
     if isinstance(col, mcoll.PathCollection):
-        raise NotImplementedError(
-            "pltrs: patch_collection_2d_to_3d of a PathCollection")
-    col.__class__ = Patch3DCollection
+        col.__class__ = Path3DCollection
+    elif isinstance(col, mcoll.PatchCollection):
+        col.__class__ = Patch3DCollection
     col._depthshade_pending = (depthshade, depthshade_minalpha)
     col.set_3d_properties(zs, zdir, axlim_clip)
 
 
-class Path3DCollection(mcoll.PathCollection):
+class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
     """A collection of 3D paths: the markers of a 3-D scatter plot."""
-
-    @property
-    def _offsets3d(self):
-        """The 3-D positions of the markers."""
-        return tuple(np.array(c) for c in
-                     _mplot3d.scatter_offsets(self.axes._native, self._native))
-
-    @_offsets3d.setter
-    def _offsets3d(self, offsets):
-        _mplot3d.set_scatter_offsets(self.axes._native, self._native,
-                                     _columns(offsets))
-        self.stale = True
-
-    def get_depthshade(self):
-        """Return whether the markers fade with depth."""
-        return _mplot3d.get_depthshade(self.axes._native, self._native)
-
-    def set_depthshade(self, depthshade, depthshade_minalpha=None):
-        """
-        Set whether depth shading is performed on collection members.
-
-        Parameters
-        ----------
-        depthshade : bool
-            Whether to shade the patches in order to give the appearance of
-            depth.
-        depthshade_minalpha : float, default: None
-            Sets the minimum alpha value used by depth-shading.
-        """
-        if depthshade_minalpha is not None:
-            raise NotImplementedError(
-                "pltrs: set_depthshade(depthshade_minalpha=...)")
-        _mplot3d.set_depthshade(self.axes._native, self._native,
-                                bool(depthshade))
-        self.stale = True
 
 
 class Poly3DCollection(_Loose3D, mcoll.PolyCollection):

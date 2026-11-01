@@ -681,10 +681,7 @@ class PolarAxes(Axes):
             else:
                 raise ValueError('Cannot supply both positional "top"'
                                  'argument and kwarg "rmax"')
-        if kwargs or not emit or auto:
-            raise NotImplementedError(
-                "pltrs: set_rlim(emit=..., auto=..., ymin/ymax=...)")
-        return self.set_ylim(bottom, top)
+        return self.set_ylim(bottom, top, emit=emit, auto=auto, **kwargs)
 
     def get_rlabel_position(self):
         """
@@ -706,11 +703,9 @@ class PolarAxes(Axes):
         """
         _polar.set_rlabel_position(self._native, float(value))
 
-    def set_rscale(self, value, **kwargs):
+    def set_rscale(self, *args, **kwargs):
         """Set the scale of the radial axis (`.Axes.set_yscale`)."""
-        if kwargs:
-            raise NotImplementedError("pltrs: set_rscale(**kwargs)")
-        _polar.set_rscale(self._native, value)
+        return Axes.set_yscale(self, *args, **kwargs)
 
     def set_rticks(self, ticks, labels=None, *, minor=False, **kwargs):
         """Set the radial ticks (`.Axes.set_yticks`)."""

@@ -11,7 +11,7 @@ use super::geometry::{AxesFrame, QuiverGeometry};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
-use crate::collections::{CollectionArtist, CollectionKind, EdgeColors};
+use crate::collections::{CollectionArtist, CollectionKind, CollectionProps, EdgeColors};
 use crate::colors::Color;
 use crate::fonts::FontProperties;
 use crate::rc::RcParams;
@@ -106,6 +106,10 @@ pub struct QuiverKeyOptions {
     pub font: Option<FontProperties>,
     /// Drawing order (`None` = 0.1 above the quiver).
     pub zorder: Option<f64>,
+    /// Properties of the arrow's polygon collection in place of the
+    /// quiver's (matplotlib's `**kwargs` of `quiverkey`), `color` still
+    /// overriding its colours.
+    pub props: CollectionProps,
 }
 
 impl Default for QuiverKeyOptions {
@@ -119,6 +123,7 @@ impl Default for QuiverKeyOptions {
             labelcolor: None,
             font: None,
             zorder: None,
+            props: CollectionProps::default(),
         }
     }
 }
@@ -150,6 +155,8 @@ pub(crate) struct QuiverKeyArtist {
     /// Coordinates of the key position.
     transform: Transform,
     color: Option<Color>,
+    /// The arrow's own properties (see [`QuiverKeyOptions::props`]).
+    props: CollectionProps,
     labelpos: LabelPosition,
     label: ArtistId,
     rc: Rc<RcParams>,
@@ -161,6 +168,7 @@ pltrs_core::archive_struct!(QuiverKeyArtist {
     vector,
     transform,
     color,
+    props,
     labelpos,
     label,
     rc
@@ -182,6 +190,7 @@ impl QuiverKeyArtist {
             vector,
             transform,
             color: options.color.clone(),
+            props: options.props.clone(),
             labelpos: options.labelpos,
             label,
             rc: crate::rc::params(),
@@ -238,6 +247,7 @@ impl QuiverKeyArtist {
         vector.antialiased.clone_from(&quiver.antialiased);
         vector.hatch.clone_from(&quiver.hatch);
         vector.base_mut().alpha = quiver.base().alpha;
+        self.props.clone().apply(&mut vector);
         if let Some(color) = &self.color {
             vector.facecolors = Some(vec![color.clone()]);
             vector.edgecolors = EdgeColors::Colors(vec![color.clone()]);

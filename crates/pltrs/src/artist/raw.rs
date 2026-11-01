@@ -53,6 +53,24 @@ impl RawHandle {
         &self.figure
     }
 
+    /// Whether `other` is an artist of the same figure, which ids of
+    /// artists refer to (a loose artist is alone in a holder of its own).
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::lines::{Line2D, LineProps};
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot([0.0, 1.0], [1.0, 0.0])?;
+    /// assert!(line.raw().shares_figure(ax.raw()));
+    /// let loose = Line2D::loose(vec![0.0, 1.0], vec![0.0, 1.0], LineProps::default());
+    /// assert!(!loose.raw().shares_figure(ax.raw()));
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn shares_figure(&self, other: &RawHandle) -> bool {
+        Rc::ptr_eq(&self.figure, &other.figure)
+    }
+
     /// Whether the artist is in its figure: `false` once it, or an artist
     /// owning it, was removed
     /// ([`ArtistHandle::remove`](super::ArtistHandle::remove)).

@@ -105,13 +105,41 @@ impl Axes {
     /// (matplotlib's `autoscale_view`); `tight` replaces the tight
     /// setting when given.
     pub fn autoscale_view(&self, tight: Option<bool>) -> &Self {
+        self.autoscale_view_along(tight, (true, true))
+    }
+
+    /// [`Axes::autoscale_view`] along the axes `(scalex, scaley)` asks for
+    /// (matplotlib's `autoscale_view(tight, scalex, scaley)`). An axis
+    /// still waiting to be rescaled is rescaled with them, as
+    /// matplotlib's view limits bring themselves up to date when
+    /// `autoscale_view` sets them; with neither axis asked only `tight`
+    /// changes.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.0, 10.0], [0.0, 5.0])?;
+    /// ax.set_xlim(0.0, 1.0)?.set_ylim(0.0, 1.0)?;
+    /// ax.set_autoscale_on(true);
+    /// ax.autoscale_view_along(None, (false, true));
+    /// assert_eq!(ax.xlim(), (0.0, 1.0));
+    /// assert_eq!(ax.ylim(), (-0.25, 5.25));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn autoscale_view_along(
+        &self,
+        tight: Option<bool>,
+        (scalex, scaley): (bool, bool),
+    ) -> &Self {
         self.raw.with_mut::<AxesState, _>(|axes| {
             if let Some(tight) = tight {
                 axes.tight = tight;
             }
-            axes.request_autoscale(true, true);
+            axes.request_autoscale(scalex, scaley);
         });
-        self.unstale_view();
+        if scalex || scaley {
+            self.unstale_view();
+        }
         self
     }
 

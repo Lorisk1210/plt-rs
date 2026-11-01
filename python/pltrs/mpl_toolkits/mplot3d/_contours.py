@@ -30,7 +30,7 @@ class ContoursMixin:
         z, _mask, x, y, levels = mcontour._contour_args(fn, args, kwargs)
         if x.ndim == 1:
             x, y = np.meshgrid(x, y)
-        look = _contour_look(fn, kwargs)
+        look = _contour_look(kwargs)
         grids = tuple(np.ascontiguousarray(a, dtype=float) for a in (x, y, z))
         native = _mplot3d.contour(self._native, bool(filled), grids, placement,
                                   _levels(levels), *look[:2])
@@ -40,7 +40,6 @@ class ContoursMixin:
         """The `.TriContourSet` of ``tricontour`` (or, *filled*,
         ``tricontourf``)."""
         from pltrs.tri import Triangulation, TriContourSet
-        fn = 'tricontourf' if filled else 'tricontour'
         tri, args, kwargs = Triangulation.get_from_args_and_kwargs(*args, **kwargs)
         if 'Z' in kwargs:
             z = kwargs.pop('Z')
@@ -49,7 +48,7 @@ class ContoursMixin:
         levels = kwargs.pop("levels", None)
         if levels is None and args:
             levels = args[0]
-        look = _contour_look(fn, kwargs)
+        look = _contour_look(kwargs)
         z = np.ma.filled(np.ma.asarray(z, dtype=float), np.nan).ravel()
         native = _mplot3d.tricontour(self._native, bool(filled), (tri._native, z),
                                      placement, _levels(levels), *look[:2])

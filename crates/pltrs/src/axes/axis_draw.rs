@@ -362,8 +362,8 @@ pub(crate) fn grid_gc(
     Ok(gc)
 }
 
-/// Draws an axis text, laid out again where it is drawn as matplotlib's
-/// `Text.draw` does, reporting a failure on `owner`.
+/// Draws an axis text as matplotlib's `Text.draw` draws it (see
+/// [`PlacedText::as_drawn`]), reporting a failure on `owner`.
 pub(crate) fn draw_text(
     ctx: &mut DrawContext<'_>,
     owner: ArtistId,
@@ -377,7 +377,7 @@ pub(crate) fn draw_text(
         ..GraphicsContext::default()
     };
     let drawn = text
-        .laid_out_again(ctx.layout().dpi(), rc)
+        .as_drawn(ctx.layout().dpi(), rc)
         .and_then(|laid_out| draw_laid_out(ctx, &gc, &laid_out, text.anchor, text.rotation));
     if let Err(err) = drawn {
         let err = TextDrawError::from(err);
@@ -433,6 +433,34 @@ mod tests {
         let around = boxes[0];
         assert!(around.x0() < label.x0() && around.x1() > label.x1());
         assert!(around.y0() < label.y0() && around.y1() > label.y1());
+    }
+
+    /// matplotlib's `Text.draw` lays a tick label out again where it draws
+    /// it, so the renderer's text metrics cache sees its lines once more
+    /// (`test_text.py::test_metrics_cache2` counts on it): pltrs looks them
+    /// up again, and draws what it draws without a cache.
+    #[test]
+    fn drawn_tick_labels_are_looked_up_again_in_the_metrics_cache() {
+        use std::rc::Rc;
+
+        use crate::text::{MetricsCache, set_metrics_cache};
+
+        let fig = Figure::with_size(2.0, 2.0, 100.0);
+        let ax = fig.subplot();
+        ax.set_xticks([0.0, 1.0]);
+        ax.set_xticklabels(["a", "b\nc"])
+            .expect("one label per tick");
+        ax.set_yticks(Vec::<f64>::new());
+        let uncached = fig.to_png().expect("drawn");
+        let cache = Rc::new(MetricsCache::new());
+        let before = set_metrics_cache(Some(Rc::clone(&cache)));
+        let cached = fig.to_png();
+        set_metrics_cache(before);
+        assert!(cached.expect("drawn") == uncached, "the same pixels");
+        // Each line is measured where the labels are placed, then found
+        // where they are drawn.
+        let info = cache.info();
+        assert_eq!((info.misses, info.hits, info.size), (3, 3, 3), "{info:?}");
     }
 
     #[test]

@@ -5,68 +5,28 @@
 //! keeps such a cache with each renderer it hands out and installs it on
 //! the thread while pltrs lays out or draws a figure with that renderer,
 //! so that the lines pltrs measures meanwhile go through it, and the
-//! program sees the cache matplotlib's would have filled.
+//! program sees the cache matplotlib's would have filled. Where matplotlib
+//! lays a text out again only to draw it, pltrs looks its lines up again
+//! without laying it out ([`LaidOutText::measure_again`]).
+
+mod lru;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 
 use pltrs_text::{LineMetrics, TextError};
 
+use self::lru::Lines;
+use super::layout::{LaidOutText, Typesetting, measure_uncached, measured_as};
+use super::math::Line;
 use super::overrides::LineKind;
+use super::tex::{measure_tex_again, tex_height_metrics};
 use crate::fonts::FontProperties;
+use crate::rc::RcParams;
 
 /// How many lines a cache holds before it forgets the least recently used
 /// (matplotlib's `lru_cache(4096)`).
 pub const METRICS_CACHE_SIZE: usize = 4096;
-
-/// What a line is measured by: the line, its font (by its index among the
-/// fonts of the cache), how it is typeset and the resolution.
-#[derive(Debug)]
-struct Key {
-    line: String,
-    font: usize,
-    kind: LineKind,
-    dpi: u64,
-}
-
-impl Key {
-    /// Whether the key is that of `line` in font `font` typeset as `kind`
-    /// at the resolution whose bits are `dpi`.
-    fn is(&self, line: &str, font: usize, kind: LineKind, dpi: u64) -> bool {
-        self.line == line && self.font == font && self.kind == kind && self.dpi == dpi
-    }
-}
-
-/// A fingerprint of `line` and the rest of its key, under which keys are
-/// filed.
-fn fingerprint(line: &str, font: usize, kind: LineKind, dpi: u64) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    line.hash(&mut hasher);
-    (font, kind as u8, dpi).hash(&mut hasher);
-    hasher.finish()
-}
-
-/// A cached line: its key, metrics and when it was last used.
-#[derive(Debug)]
-struct Entry {
-    key: Key,
-    metrics: LineMetrics,
-    used: u64,
-}
-
-/// The lines of a cache, the fonts they are set in and its statistics.
-#[derive(Debug, Default)]
-struct Lines {
-    /// The fonts of the lines, each once, which keys refer to by index.
-    fonts: Vec<FontProperties>,
-    by_fingerprint: HashMap<u64, Vec<Entry>>,
-    len: usize,
-    hits: u64,
-    misses: u64,
-    clock: u64,
-}
 
 /// What a cache has done: matplotlib's `cache_info()`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -107,133 +67,24 @@ impl MetricsCache {
         measure: impl FnOnce() -> Result<LineMetrics, TextError>,
     ) -> Result<LineMetrics, TextError> {
         let dpi = dpi.to_bits();
-        if let Some(metrics) = self.find(line, font, kind, dpi) {
+        if let Some(metrics) = self.lines.borrow_mut().find(line, font, kind, dpi) {
             return Ok(metrics);
         }
         let metrics = measure()?;
-        self.insert(line, font, kind, dpi, metrics);
+        self.lines
+            .borrow_mut()
+            .insert(line, font, kind, dpi, metrics);
         Ok(metrics)
-    }
-
-    /// The cached metrics of `line` in `font` as `kind` at the resolution
-    /// whose bits are `dpi`, counting a hit or a miss.
-    fn find(
-        &self,
-        line: &str,
-        font: &FontProperties,
-        kind: LineKind,
-        dpi: u64,
-    ) -> Option<LineMetrics> {
-        let mut lines = self.lines.borrow_mut();
-        lines.clock += 1;
-        let clock = lines.clock;
-        let found = lines.font_index(font).and_then(|font| {
-            let entry = lines
-                .by_fingerprint
-                .get_mut(&fingerprint(line, font, kind, dpi))?
-                .iter_mut()
-                .find(|entry| entry.key.is(line, font, kind, dpi))?;
-            entry.used = clock;
-            Some(entry.metrics)
-        });
-        if found.is_some() {
-            lines.hits += 1;
-        } else {
-            lines.misses += 1;
-        }
-        found
-    }
-
-    /// Caches `metrics` for `line` in `font` as `kind` at `dpi`,
-    /// forgetting the least recently used line when the cache is full.
-    fn insert(
-        &self,
-        line: &str,
-        font: &FontProperties,
-        kind: LineKind,
-        dpi: u64,
-        metrics: LineMetrics,
-    ) {
-        let mut lines = self.lines.borrow_mut();
-        if lines.len >= METRICS_CACHE_SIZE {
-            lines.forget_least_recent();
-        }
-        let font = lines.intern(font);
-        let used = lines.clock;
-        let key = Key {
-            line: line.to_owned(),
-            font,
-            kind,
-            dpi,
-        };
-        lines
-            .by_fingerprint
-            .entry(fingerprint(line, font, kind, dpi))
-            .or_default()
-            .push(Entry { key, metrics, used });
-        lines.len += 1;
     }
 
     /// What the cache has done so far.
     pub fn info(&self) -> MetricsCacheInfo {
-        let lines = self.lines.borrow();
-        MetricsCacheInfo {
-            hits: lines.hits,
-            misses: lines.misses,
-            size: lines.len,
-        }
+        self.lines.borrow().info()
     }
 
     /// Forgets every line and the statistics (`cache_clear()`).
     pub fn clear(&self) {
-        *self.lines.borrow_mut() = Lines::default();
-    }
-}
-
-impl Lines {
-    /// The index of `font` among the fonts of the lines, if it is one.
-    fn font_index(&self, font: &FontProperties) -> Option<usize> {
-        self.fonts.iter().position(|known| known == font)
-    }
-
-    /// The index of `font` among the fonts of the lines, added when it is
-    /// new. A cache whose lines were set in as many fonts as it holds
-    /// lines starts afresh.
-    fn intern(&mut self, font: &FontProperties) -> usize {
-        if let Some(index) = self.font_index(font) {
-            return index;
-        }
-        if self.fonts.len() >= METRICS_CACHE_SIZE {
-            self.fonts.clear();
-            self.by_fingerprint.clear();
-            self.len = 0;
-        }
-        self.fonts.push(font.clone());
-        self.fonts.len() - 1
-    }
-
-    /// Forgets the line used least recently.
-    fn forget_least_recent(&mut self) {
-        let oldest = self
-            .by_fingerprint
-            .iter()
-            .flat_map(|(fingerprint, bucket)| {
-                bucket
-                    .iter()
-                    .enumerate()
-                    .map(move |(index, entry)| (entry.used, *fingerprint, index))
-            })
-            .min();
-        let Some((_, fingerprint, index)) = oldest else {
-            return;
-        };
-        if let Some(bucket) = self.by_fingerprint.get_mut(&fingerprint) {
-            bucket.swap_remove(index);
-            if bucket.is_empty() {
-                self.by_fingerprint.remove(&fingerprint);
-            }
-            self.len -= 1;
-        }
+        self.lines.borrow_mut().clear();
     }
 }
 
@@ -269,10 +120,45 @@ pub(super) fn cached(
     }
 }
 
+impl LaidOutText {
+    /// Looks the lines up again in the thread's cache, if one is
+    /// installed, as laying the text out again at `dpi` would, without
+    /// laying them out: a line still cached counts a hit, a line no longer
+    /// cached is measured again, and a text typeset by TeX has TeX's `"lp"`
+    /// looked up after its lines, as its layout measures it. matplotlib's
+    /// `Text.draw` lays out the text it draws, so the renderer's cache sees
+    /// every line once more; the layout it makes is this one.
+    ///
+    /// # Errors
+    ///
+    /// When a line no longer cached cannot be measured.
+    pub(crate) fn measure_again(&self, dpi: f64, rc: &RcParams) -> Result<(), TextError> {
+        if !installed() {
+            return Ok(());
+        }
+        for line in &self.lines {
+            match self.typesetting {
+                Typesetting::Tex => measure_tex_again(line, &self.font, dpi, rc)?,
+                Typesetting::Mathtext { .. } if line.is_empty() => {}
+                Typesetting::Mathtext { parse_math } => {
+                    let line = Line::classify(line, parse_math);
+                    let (text, kind) = measured_as(&line);
+                    cached(text, &self.font, kind, dpi, || {
+                        measure_uncached(&line, &self.font, dpi, rc)
+                    })?;
+                }
+            }
+        }
+        if self.typesetting == Typesetting::Tex {
+            tex_height_metrics(&self.font, dpi, rc)?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rc::RcParams;
 
     fn metrics(width: f64) -> LineMetrics {
         LineMetrics {
@@ -369,6 +255,61 @@ mod tests {
         // Two lines measured, then found; the empty line is not measured.
         let info = cache.info();
         assert_eq!((info.hits, info.misses, info.size), (2, 2, 2));
+    }
+
+    /// Measuring `text`, laid out with `typesetting`, again looks the same
+    /// lines up as laying it out again, and measures those no longer cached
+    /// as laying it out measured them.
+    fn assert_measured_again_as_laid_out_again(text: &str, typesetting: Typesetting) {
+        let rc = RcParams::matplotlib();
+        let font = font();
+        let style = pltrs_text::BlockStyle::default();
+        let lay_out = || {
+            super::super::lay_out_with(text, &font, &style, 100.0, &rc, typesetting)
+                .expect("laid out")
+        };
+        let cache = Rc::new(MetricsCache::new());
+        let before = set_metrics_cache(Some(Rc::clone(&cache)));
+        lay_out();
+        lay_out();
+        let laid_out_again = cache.info();
+        cache.clear();
+        let laid_out = lay_out();
+        laid_out.measure_again(100.0, &rc).expect("measured");
+        assert_eq!(cache.info(), laid_out_again);
+        cache.clear();
+        laid_out.measure_again(100.0, &rc).expect("measured");
+        set_metrics_cache(before);
+        assert_eq!(cache.info().size, laid_out_again.size);
+        for (line, run) in laid_out.lines.iter().zip(&laid_out.runs) {
+            let kind = match typesetting {
+                _ if line.is_empty() => continue,
+                Typesetting::Tex => LineKind::Tex,
+                Typesetting::Mathtext { .. } if line.contains('$') => LineKind::Math,
+                Typesetting::Mathtext { .. } => LineKind::Plain,
+            };
+            let found = cache
+                .get_or_measure(line, &font, kind, 100.0, || {
+                    Err(TextError::Font("not cached".to_owned()))
+                })
+                .expect("cached");
+            assert_eq!(
+                (found.width, found.height, found.descent),
+                (run.width, run.height, run.descent),
+                "{line}"
+            );
+        }
+    }
+
+    #[test]
+    fn measuring_again_looks_lines_up_as_laying_out_again_does() {
+        assert_measured_again_as_laid_out_again(
+            "ab\n$x^2$\n\ncd",
+            Typesetting::Mathtext { parse_math: true },
+        );
+        if super::super::check_usetex().is_ok() {
+            assert_measured_again_as_laid_out_again("ab\n\ncd", Typesetting::Tex);
+        }
     }
 
     #[test]

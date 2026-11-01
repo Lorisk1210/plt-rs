@@ -282,6 +282,47 @@ fn metrics(run: &TextRun) -> LineMetrics {
     }
 }
 
+/// One (non-empty) line typeset in `font` at `dpi`, with the extents the
+/// engine gives it.
+fn typeset(
+    line: &Line<'_>,
+    font: &FontProperties,
+    dpi: f64,
+    rc: &RcParams,
+) -> Result<TextRun, TextError> {
+    let engine = TextEngine::global();
+    match line {
+        Line::Plain(text) => engine.layout_line(text, &font.request(rc), dpi),
+        Line::Math(source) => engine.layout_math(source, &math_style(font, dpi, rc)),
+    }
+}
+
+/// A line as it is measured: the string a renderer's
+/// `get_text_width_height_descent` receives and how it is typeset.
+pub(super) fn measured_as<'a>(line: &'a Line<'_>) -> (&'a str, LineKind) {
+    match line {
+        Line::Plain(text) => (text, LineKind::Plain),
+        Line::Math(source) => (source, LineKind::Math),
+    }
+}
+
+/// The extent of one (non-empty) line as pltrs measures it in the
+/// thread's measuring mode, without the thread's measurer or metrics
+/// cache: what a miss of the cache measures.
+///
+/// # Errors
+///
+/// When the math is malformed or no font is found.
+pub(super) fn measure_uncached(
+    line: &Line<'_>,
+    font: &FontProperties,
+    dpi: f64,
+    rc: &RcParams,
+) -> Result<LineMetrics, TextError> {
+    let run = super::metrics::measured(typeset(line, font, dpi, rc)?, dpi)?;
+    Ok(metrics(&run))
+}
+
 /// Lays out one (non-empty) line, measured by the thread's
 /// [`LineMeasurer`](super::LineMeasurer) if it has one, else through the
 /// thread's [`MetricsCache`](super::MetricsCache) if one is installed.
@@ -291,20 +332,8 @@ fn line_run(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
-    let engine = TextEngine::global();
-    let (run, text, kind) = match line {
-        Line::Plain(text) => (
-            engine.layout_line(text, &font.request(rc), dpi),
-            text.as_ref(),
-            LineKind::Plain,
-        ),
-        Line::Math(source) => (
-            engine.layout_math(source, &math_style(font, dpi, rc)),
-            *source,
-            LineKind::Math,
-        ),
-    };
-    let run = run?;
+    let run = typeset(line, font, dpi, rc)?;
+    let (text, kind) = measured_as(line);
     if let Some(metrics) = overrides::measure(text, font, kind, dpi) {
         return Ok(with_metrics(run, metrics));
     }

@@ -76,6 +76,7 @@ pub use math_image::{MathImage, MathImageError, MathImageOptions, math_to_image}
 pub(crate) use metrics::{hinting, with_afm_metrics, with_text_path_metrics, without_hinting};
 pub(crate) use metrics_cache::installed as metrics_cache_installed;
 pub use metrics_cache::{METRICS_CACHE_SIZE, MetricsCache, MetricsCacheInfo, set_metrics_cache};
+pub(crate) use overrides::has_line_measurer;
 pub use overrides::{
     DrawnPath, LineKind, LineMeasurer, TexPainter, TextPainter, measure_line, measure_line_pdf,
     set_line_measurer, set_tex_painter, set_text_painter,

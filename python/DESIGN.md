@@ -678,9 +678,11 @@ receives (a stand-in only when none is installed), as matplotlib hands it
 the renderer laying out (`text._layout_renderer`): under the PDF canvas that
 is a `RendererPdf` (`FigureCanvasPdf._print_renderer`), which measures as
 the PDF backend does but draws nothing, so `fig._get_renderer()` stays the
-Agg renderer drawing onto the raster canvas. While a cache is installed,
-pltrs (Rust) draws tick labels as matplotlib's `Text.draw` draws them, laid
-out again where they are drawn, so the cache sees the same lookups.
+Agg renderer drawing onto the raster canvas. matplotlib's `Text.draw` lays
+a tick label out again where it draws it; while a cache is installed, pltrs
+(Rust) looks the label's lines up in it again where it draws the label
+(`LaidOutText::measure_again`), so the cache sees the same lookups without
+the cost of a second layout.
 
 The renderer's text drawing can be replaced too. `RendererAgg.draw_text`
 and `draw_tex` draw a line onto the canvas (`_native.backends.draw_text`).

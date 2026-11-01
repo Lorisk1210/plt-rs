@@ -54,12 +54,24 @@ pub(super) type HistResult = (
 /// dataset).
 pub(super) fn hist(
     axes: Axes,
-    datasets: Vec<Vec<f64>>,
-    weights: Option<Vec<Vec<f64>>>,
+    datasets: Vec<NdArray>,
+    weights: Option<Vec<NdArray>>,
     (bins, range, density, cumulative, stacked): Binning,
     (histtype, align, orientation, rwidth, bottom, log): Layout,
     colors: Vec<Color>,
 ) -> PyResult<HistResult> {
+    let datasets = datasets
+        .into_iter()
+        .map(NdArray::into_vec)
+        .collect::<PyResult<Vec<_>>>()?;
+    let weights = weights
+        .map(|weights| {
+            weights
+                .into_iter()
+                .map(NdArray::into_vec)
+                .collect::<PyResult<Vec<_>>>()
+        })
+        .transpose()?;
     let options = HistPlotOptions {
         bins: Some(bins.0),
         range,

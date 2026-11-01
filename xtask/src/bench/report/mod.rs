@@ -184,6 +184,15 @@ pub(super) struct Report {
     pub(super) measurements: Vec<Measurement>,
 }
 
+impl Report {
+    /// Whether some workload could not run under pltrs (Python).
+    pub(super) fn has_unsupported(&self) -> bool {
+        self.measurements
+            .iter()
+            .any(|m| matches!(m.warm.python, Column::NotSupported(_)))
+    }
+}
+
 /// The two Python columns, and where the files of a run go.
 struct Bench {
     /// matplotlib.

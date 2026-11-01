@@ -142,8 +142,8 @@ class HistMixin:
         else:
             cumulative = -1 if cumulative < 0 else (1 if cumulative else 0)
         tops, edges, bar_groups, steps = _plotting.hist(
-            self._native, [list(xi) for xi in x],
-            None if weights is None else [list(floats(wi)) for wi in w],
+            self._native, x,
+            None if weights is None else [floats(wi) for wi in w],
             (_native_bins(bins),
              None if bin_range is None else tuple(map(float, bin_range)),
              bool(density), cumulative, bool(stacked)),

@@ -310,13 +310,20 @@ fn coverage(out: &mut String, report: &Report) {
         .iter()
         .filter(|m| matches!(m.warm.python, Column::NotSupported(_)))
         .count();
-    let _ = writeln!(
-        out,
-        "{PYTHON} runs {} of the {comparable} workloads matplotlib runs. The other \
-         {unsupported} need parts of matplotlib's API it does not have yet, which [Not \
-         supported yet](#not-supported-yet-by-pltrs-python) lists.\n",
-        comparable - unsupported,
-    );
+    if report.has_unsupported() {
+        let _ = writeln!(
+            out,
+            "{PYTHON} runs {} of the {comparable} workloads matplotlib runs. The other \
+             {unsupported} need parts of matplotlib's API it does not have yet, which [Not \
+             supported yet](#not-supported-yet-by-pltrs-python) lists.\n",
+            comparable - unsupported,
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "{PYTHON} runs all {comparable} workloads matplotlib runs.\n"
+        );
+    }
     let divergent: Vec<String> = report
         .measurements
         .iter()

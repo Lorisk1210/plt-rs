@@ -933,6 +933,14 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         """Get the zlabel text string."""
         return _mplot3d.get_label(self._native, 'z')
 
+    def set_title(self, label, fontdict=None, loc='center', **kwargs):
+        # docstring inherited
+        # Centred whatever axes.titlelocation says, as matplotlib's is.
+        # matplotlib also lowers the title to 0.92 of its height, which
+        # its first draw replaces with the automatic position; pltrs
+        # (Rust) places 3-D titles automatically from the start.
+        return super().set_title(label, fontdict=fontdict, loc=loc, **kwargs)
+
     # -- navigation --------------------------------------------------------
 
     @property

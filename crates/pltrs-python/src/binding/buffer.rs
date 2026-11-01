@@ -38,6 +38,9 @@ pub(crate) trait Element: Copy + 'static {
     fn from_object(object: &Bound<'_>) -> PyResult<Self>;
     /// Appends the value's little-endian bytes (numpy's layout here).
     fn write_le(self, bytes: &mut Vec<u8>);
+    /// The value of its own little-endian bytes (`DTYPE`'s layout), as
+    /// many as it takes.
+    fn read_le(bytes: &[u8]) -> Self;
 }
 
 impl Element for f64 {
@@ -58,6 +61,10 @@ impl Element for f64 {
 
     fn write_le(self, bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&self.to_le_bytes());
+    }
+
+    fn read_le(bytes: &[u8]) -> Self {
+        Self::from_le_bytes(bytes.try_into().expect("an item of eight bytes"))
     }
 }
 
@@ -80,6 +87,10 @@ impl Element for i64 {
     fn write_le(self, bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&self.to_le_bytes());
     }
+
+    fn read_le(bytes: &[u8]) -> Self {
+        Self::from_le_bytes(bytes.try_into().expect("an item of eight bytes"))
+    }
 }
 
 impl Element for u8 {
@@ -101,6 +112,10 @@ impl Element for u8 {
     fn write_le(self, bytes: &mut Vec<u8>) {
         bytes.push(self);
     }
+
+    fn read_le(bytes: &[u8]) -> Self {
+        bytes[0]
+    }
 }
 
 impl Element for bool {
@@ -121,6 +136,10 @@ impl Element for bool {
 
     fn write_le(self, bytes: &mut Vec<u8>) {
         bytes.push(u8::from(self));
+    }
+
+    fn read_le(bytes: &[u8]) -> Self {
+        bytes[0] != 0
     }
 }
 
@@ -264,6 +283,17 @@ impl Layout {
         })
     }
 
+    /// numpy's dtype of the items, for those an [`Element`] is.
+    fn dtype(self) -> Option<&'static str> {
+        match (self.kind, self.size, self.big_endian) {
+            (Kind::Float, 8, false) => Some(f64::DTYPE),
+            (Kind::Signed, 8, false) => Some(i64::DTYPE),
+            (Kind::Unsigned, 1, _) => Some(u8::DTYPE),
+            (Kind::Bool, 1, _) => Some(bool::DTYPE),
+            _ => None,
+        }
+    }
+
     /// Decodes one item from its bytes.
     fn decode(self, raw: &[u8]) -> Scalar {
         let mut bytes = [0_u8; 8];
@@ -357,6 +387,27 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
         .map(|&extent| usize::try_from(extent).unwrap_or_default())
         .collect();
     let count = shape.iter().product::<usize>();
+    let item = |bytes: &[u8]| {
+        let scalar = layout.decode(bytes);
+        T::from_scalar(scalar).ok_or_else(|| {
+            PyErr::value_error(format!("{scalar:?} does not fit an array of {}", T::DTYPE))
+        })
+    };
+    if is_row_major(&shape, &strides, size) {
+        // SAFETY: a row-major buffer holds its `count` items of `size`
+        // bytes one after another from `buf`, valid until the view is
+        // released (when this function returns).
+        let bytes = unsafe { std::slice::from_raw_parts(raw.buf.cast::<u8>(), count * size) };
+        let data = if layout.dtype() == Some(T::DTYPE) {
+            bytes.chunks_exact(size).map(T::read_le).collect()
+        } else {
+            bytes
+                .chunks_exact(size)
+                .map(item)
+                .collect::<PyResult<_>>()?
+        };
+        return Ok(Some(NdArray { data, shape }));
+    }
     let mut data = Vec::with_capacity(count);
     let mut index = vec![0_usize; shape.len()];
     for _ in 0..count {
@@ -370,13 +421,23 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
         // until the view is released (after this loop).
         let bytes =
             unsafe { std::slice::from_raw_parts(raw.buf.cast::<u8>().offset(offset), size) };
-        let scalar = layout.decode(bytes);
-        data.push(T::from_scalar(scalar).ok_or_else(|| {
-            PyErr::value_error(format!("{scalar:?} does not fit an array of {}", T::DTYPE))
-        })?);
+        data.push(item(bytes)?);
         advance(&mut index, &shape);
     }
     Ok(Some(NdArray { data, shape }))
+}
+
+/// Whether `strides` lay out items of `size` bytes in row-major order,
+/// one after another (extents of one or zero allow any stride).
+fn is_row_major(shape: &[usize], strides: &[isize], size: usize) -> bool {
+    let mut expected = size;
+    for (&extent, &stride) in shape.iter().zip(strides).rev() {
+        if extent > 1 && usize::try_from(stride).ok() != Some(expected) {
+            return false;
+        }
+        expected *= extent;
+    }
+    true
 }
 
 /// Moves a row-major multi-index to the next position.
@@ -441,6 +502,30 @@ mod tests {
         assert!(half_to_f64(0x7e00).is_nan());
         assert!(Layout::parse("T{d:x:}", 8).is_none(), "structured items");
         assert!(Layout::parse("d", 3).is_none(), "a size no number has");
+    }
+
+    #[test]
+    fn items_in_an_elements_own_layout_read_as_it() {
+        assert_eq!(Layout::parse("<d", 8).unwrap().dtype(), Some("<f8"));
+        assert_eq!(Layout::parse(">d", 8).unwrap().dtype(), None, "swapped");
+        assert_eq!(Layout::parse("f", 4).unwrap().dtype(), None, "single");
+        assert_eq!(Layout::parse("q", 8).unwrap().dtype(), Some("<i8"));
+        assert_eq!(Layout::parse("?", 1).unwrap().dtype(), Some("|b1"));
+        assert_eq!(f64::read_le(&2.5_f64.to_le_bytes()), 2.5);
+        assert_eq!(i64::read_le(&(-3_i64).to_le_bytes()), -3);
+        assert!(bool::read_le(&[1]));
+        assert_eq!(u8::read_le(&[7]), 7);
+    }
+
+    #[test]
+    fn only_items_one_after_another_count_as_row_major() {
+        assert!(is_row_major(&[2, 3], &[24, 8], 8));
+        assert!(is_row_major(&[], &[], 8), "a scalar");
+        assert!(is_row_major(&[1, 3], &[0, 8], 8), "an extent of one");
+        assert!(is_row_major(&[0], &[16], 8), "no items");
+        assert!(!is_row_major(&[3], &[16], 8), "every other item");
+        assert!(!is_row_major(&[3], &[-8], 8), "reversed");
+        assert!(!is_row_major(&[2, 3], &[8, 16], 8), "column-major");
     }
 
     #[test]

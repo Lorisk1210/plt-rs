@@ -77,10 +77,9 @@ fn rows_cols<T: Element>(array: &NdArray<T>, depth: Option<usize>) -> PyResult<(
 }
 
 /// The cells of a 2-D array as a grid.
-fn grid<T: Element>(array: &NdArray<T>) -> PyResult<Grid<T>> {
-    let (rows, cols) = rows_cols(array, None)?;
-    Grid::from_vec(rows, cols, array.data.clone())
-        .map_err(|err| PyErr::value_error(err.to_string()))
+fn grid<T: Element>(array: NdArray<T>) -> PyResult<Grid<T>> {
+    let (rows, cols) = rows_cols(&array, None)?;
+    Grid::from_vec(rows, cols, array.data).map_err(|err| PyErr::value_error(err.to_string()))
 }
 
 /// The pixels of a 3-D array of depth `N` as a grid of `[T; N]`.
@@ -107,17 +106,18 @@ pub(super) struct ImageArray(pub(super) ImageData);
 impl FromPy<'_> for ImageArray {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         let (kind, values, mask): (String, Bound<'_>, Option<NdArray<bool>>) = object.extract()?;
+        let mask = mask.map(grid).transpose()?;
         let scalars = |field: ScalarField| -> PyResult<ImageData> {
             let field = match &mask {
-                Some(mask) => field.with_mask(&grid(mask)?)?,
+                Some(mask) => field.with_mask(mask)?,
                 None => field,
             };
             Ok(ImageData::Scalar(field))
         };
         let data = match kind.as_str() {
-            "double" => scalars(ScalarField::new(grid(&values.extract::<NdArray>()?)?))?,
+            "double" => scalars(ScalarField::new(grid(values.extract::<NdArray>()?)?))?,
             "single" => {
-                let values = grid(&values.extract::<NdArray>()?)?;
+                let values = grid(values.extract::<NdArray>()?)?;
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "single-precision data, widened by numpy, narrows back exactly"
@@ -126,17 +126,17 @@ impl FromPy<'_> for ImageArray {
                 scalars(ScalarField::single(&single))?
             }
             "integer" => scalars(ScalarField::integers(&grid(
-                &values.extract::<NdArray<i64>>()?,
+                values.extract::<NdArray<i64>>()?,
             )?))?,
             "boolean" => scalars(ScalarField::booleans(&grid(
-                &values.extract::<NdArray<bool>>()?,
+                values.extract::<NdArray<bool>>()?,
             )?))?,
             wide if wide.starts_with("float") => {
                 let bits = wide["float".len()..]
                     .parse()
                     .map_err(|_| PyErr::value_error(format!("no image data kind {wide:?}")))?;
                 scalars(ScalarField::narrowed(
-                    grid(&values.extract::<NdArray>()?)?,
+                    grid(values.extract::<NdArray>()?)?,
                     bits,
                 ))?
             }
@@ -162,7 +162,7 @@ impl FromPy<'_> for Alpha {
         if let Ok(alpha) = object.extract::<f64>() {
             return Ok(Self(ImageAlpha::Uniform(alpha)));
         }
-        Ok(Self(ImageAlpha::Each(grid(&object.extract::<NdArray>()?)?)))
+        Ok(Self(ImageAlpha::Each(grid(object.extract::<NdArray>()?)?)))
     }
 }
 

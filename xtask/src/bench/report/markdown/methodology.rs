@@ -12,7 +12,7 @@ pub(super) fn write(out: &mut String, report: &Report) {
     out.push_str("## Methodology\n\n");
     workloads(out, report);
     timing(out, report);
-    comparability(out);
+    comparability(out, report);
     machine(out, report);
 }
 
@@ -109,17 +109,25 @@ fn runs(sampling: &Sampling) -> String {
 
 /// What is left out of the comparison, and where the implementations do
 /// the same work by construction.
-fn comparability(out: &mut String) {
-    let _ = write!(
+fn comparability(out: &mut String, report: &Report) {
+    let _ = writeln!(
         out,
         "### What is not compared\n\n\
          * PGF output. matplotlib's PGF backend runs LaTeX to measure every text, while \
          pltrs lays PGF out with its own font metrics, so the PGF time of {RUST} stands \
-         alone.\n\
-         * Workloads {PYTHON} cannot run yet. They show *not supported yet*, and [Not \
-         supported yet](#not-supported-yet-by-pltrs-python) lists the exception each script \
-         raised.\n\
-         * Metadata. {RUST} saves its documents without metadata, so that two builds can be \
+         alone.",
+    );
+    if report.has_unsupported() {
+        let _ = writeln!(
+            out,
+            "* Workloads {PYTHON} cannot run yet. They show *not supported yet*, and [Not \
+             supported yet](#not-supported-yet-by-pltrs-python) lists the exception each \
+             script raised.",
+        );
+    }
+    let _ = write!(
+        out,
+        "* Metadata. {RUST} saves its documents without metadata, so that two builds can be \
          compared byte for byte. matplotlib and {PYTHON} write their few default metadata \
          fields.\n\n\
          ### Where the work is the same by construction\n\n\

@@ -20,7 +20,7 @@ use crate::fonts::FontProperties;
 use crate::polar;
 use crate::rc::RcParams;
 use crate::spines::{SpineArtist, SpineSide};
-use crate::text::{LaidOutText, lay_out, metrics_cache_installed};
+use crate::text::{LaidOutText, has_line_measurer, lay_out, metrics_cache_installed};
 use crate::ticker::AxisName;
 use crate::transforms::Transform;
 
@@ -50,21 +50,30 @@ pub(crate) struct PlacedText {
 impl PlacedText {
     /// The text as it is drawn. matplotlib's `Text.draw` lays a tick label
     /// out again where it draws it, measuring its lines a second time
-    /// through the renderer's text metrics cache; so does pltrs while such
-    /// a cache is installed, which then sees the same lookups. Without
-    /// one, the layout made when placing the text, which a second layout
-    /// would give again, is drawn as it is.
+    /// through the renderer's text metrics cache. That layout is the one
+    /// made when placing the text, which is drawn; while such a cache is
+    /// installed, its lines are looked up again
+    /// ([`LaidOutText::measure_again`]), so that the cache sees the same
+    /// lookups. The text is laid out again only where a second layout
+    /// does more than look its lines up: while the program measures them
+    /// (a [`LineMeasurer`](crate::text::LineMeasurer), which matplotlib
+    /// calls again too), and under the rc path effects, whose glyphs are
+    /// placed from text paths measured through the cache as well.
     ///
     /// # Errors
     ///
-    /// When the text cannot be laid out.
-    pub(crate) fn laid_out_again(
+    /// When the text cannot be measured or laid out again.
+    pub(crate) fn as_drawn(
         &self,
         dpi: f64,
         rc: &RcParams,
     ) -> Result<Cow<'_, LaidOutText>, TextError> {
         let laid_out = &self.laid_out;
         if !metrics_cache_installed() {
+            return Ok(Cow::Borrowed(laid_out));
+        }
+        if rc.path_effects.is_empty() && !has_line_measurer() {
+            laid_out.measure_again(dpi, rc)?;
             return Ok(Cow::Borrowed(laid_out));
         }
         lay_out_axis_text(

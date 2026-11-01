@@ -103,14 +103,7 @@ pub(crate) fn tex_run(
         None if tex.tex.is_empty() => (0.0, 0.0, 0.0),
         None => {
             let metrics = metrics_cache::cached(&tex.tex, font, LineKind::Tex, dpi, || {
-                let (width, height, descent) =
-                    tex.manager
-                        .text_width_height_descent(&tex.tex, font.size, dpi / 72.0)?;
-                Ok(LineMetrics {
-                    width,
-                    height,
-                    descent,
-                })
+                tex_metrics(&tex.manager, &tex.tex, font, dpi)
             })?;
             (metrics.width, metrics.height, metrics.descent)
         }
@@ -123,6 +116,46 @@ pub(crate) fn tex_run(
         source: Some(TextSource::Tex(tex)),
         ..TextRun::default()
     })
+}
+
+/// The extent of the TeX line `tex` in `font` at `dpi`, typeset by
+/// `manager`.
+fn tex_metrics(
+    manager: &TexManager,
+    tex: &str,
+    font: &FontProperties,
+    dpi: f64,
+) -> Result<LineMetrics, TextError> {
+    let (width, height, descent) = manager.text_width_height_descent(tex, font.size, dpi / 72.0)?;
+    Ok(LineMetrics {
+        width,
+        height,
+        descent,
+    })
+}
+
+/// Looks the line `line`, typeset by TeX in `font` at `dpi`, up again in
+/// the thread's metrics cache as [`tex_run`] does, measuring it again if
+/// the cache no longer holds it (see
+/// [`LaidOutText::measure_again`](super::LaidOutText::measure_again)).
+///
+/// # Errors
+///
+/// When the line is measured again and TeX fails.
+pub(super) fn measure_tex_again(
+    line: &str,
+    font: &FontProperties,
+    dpi: f64,
+    rc: &RcParams,
+) -> Result<(), TextError> {
+    let tex = tex_line(line);
+    if tex.is_empty() {
+        return Ok(());
+    }
+    metrics_cache::cached(tex, font, LineKind::Tex, dpi, || {
+        tex_metrics(&tex_manager(rc)?, tex, font, dpi)
+    })?;
+    Ok(())
 }
 
 /// The glyphs and rules of `text` typeset by LaTeX at
@@ -154,13 +187,7 @@ pub(crate) fn tex_height_metrics(
     rc: &RcParams,
 ) -> Result<FontHeightMetrics, TextError> {
     let lp = metrics_cache::cached("lp", font, LineKind::Tex, dpi, || {
-        let (width, height, descent) =
-            tex_manager(rc)?.text_width_height_descent("lp", font.size, dpi / 72.0)?;
-        Ok(LineMetrics {
-            width,
-            height,
-            descent,
-        })
+        tex_metrics(&tex_manager(rc)?, "lp", font, dpi)
     })?;
     Ok(FontHeightMetrics {
         ascent: lp.height - lp.descent,

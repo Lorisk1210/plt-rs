@@ -141,6 +141,12 @@ fn measurer() -> Option<Rc<dyn LineMeasurer>> {
     MEASURER.with_borrow(Clone::clone)
 }
 
+/// Whether the program measures the lines laid out on this thread (a
+/// [`LineMeasurer`] is set).
+pub(crate) fn has_line_measurer() -> bool {
+    MEASURER.with_borrow(Option::is_some)
+}
+
 /// The thread's painter.
 pub(super) fn painter() -> Option<Rc<dyn TextPainter>> {
     PAINTER.with_borrow(Clone::clone)

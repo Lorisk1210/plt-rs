@@ -186,26 +186,56 @@ impl Affine2D {
         self.a * self.d - self.b * self.c
     }
 
-    /// The inverse transformation, or `None` when the determinant is
-    /// exactly zero. Non-finite matrices invert to non-finite results, as
-    /// with numpy's `linalg.inv`.
+    /// The inverse transformation, or `None` when it is singular.
+    ///
+    /// It is computed as numpy's `linalg.inv` computes it, which
+    /// matplotlib's `Affine2D.inverted` calls, so that points mapped back
+    /// land on matplotlib's bits: LAPACK's LU decomposition of the 3×3
+    /// matrix with partial pivoting, then the triangular solves, with the
+    /// reciprocals of the pivots multiplied in and the back substitution
+    /// fused (`OpenBLAS`'s kernels). Non-finite matrices invert to
+    /// non-finite results, as with numpy.
+    ///
+    /// ```
+    /// use pltrs_core::{Affine2D, Point};
+    /// let to_display = Affine2D::from_values(496.0, 0.0, 0.0, 369.6, 80.0, 52.8);
+    /// let back = to_display.inverted().expect("invertible");
+    /// assert_eq!(back.transform_point(Point::new(80.0, 52.8)), Point::new(0.0, 0.0));
+    /// assert!(Affine2D::scaling(0.0, 1.0).inverted().is_none());
+    /// ```
     pub fn inverted(&self) -> Option<Self> {
-        let det = self.determinant();
-        if det == 0.0 {
+        // The rows of [[a, c, e], [b, d, f], [0, 0, 1]], the one with the
+        // larger first entry on top; the third row of the factors stays
+        // that of the identity.
+        let swapped = self.b.abs() > self.a.abs();
+        let (top, bottom) = if swapped {
+            ([self.b, self.d, self.f], [self.a, self.c, self.e])
+        } else {
+            ([self.a, self.c, self.e], [self.b, self.d, self.f])
+        };
+        if top[0] == 0.0 {
             return None;
         }
-        let a = self.d / det;
-        let b = -self.b / det;
-        let c = -self.c / det;
-        let d = self.a / det;
-        Some(Self::from_values(
-            a,
-            b,
-            c,
-            d,
-            -(a * self.e + c * self.f),
-            -(b * self.e + d * self.f),
-        ))
+        let multiplier = bottom[0] * (1.0 / top[0]);
+        let u11 = bottom[1] - multiplier * top[1];
+        let u12 = bottom[2] - multiplier * top[2];
+        if u11 == 0.0 {
+            return None;
+        }
+        // Column `j` of the inverse solves `L U x = P e_j`; only its first
+        // two entries are kept (the third is that of the identity).
+        let solve = |p0: f64, p1: f64, p2: f64| {
+            let b1 = p1 - multiplier * p0;
+            let b0 = (-p2).mul_add(top[2], p0);
+            let b1 = (-p2).mul_add(u12, b1) * (1.0 / u11);
+            let b0 = (-b1).mul_add(top[1], b0) * (1.0 / top[0]);
+            (b0, b1)
+        };
+        let (first, second) = if swapped { (0.0, 1.0) } else { (1.0, 0.0) };
+        let (a, b) = solve(first, second, 0.0);
+        let (c, d) = solve(second, first, 0.0);
+        let (e, f) = solve(0.0, 0.0, 1.0);
+        Some(Self::from_values(a, b, c, d, e, f))
     }
 
     /// Returns `true` for the exact identity.
@@ -290,6 +320,79 @@ mod tests {
         for (x, y) in built.values().into_iter().zip(composed.values()) {
             assert!((x - y).abs() < 1e-12);
         }
+    }
+
+    /// numpy's inverses of a display transform, of a matrix it pivots
+    /// and of a rotation, bit for bit.
+    #[test]
+    fn inverses_are_numpys() {
+        let bits = |values: [u64; 6]| {
+            let [a, b, c, d, e, f] = values.map(f64::from_bits);
+            Affine2D::from_values(a, b, c, d, e, f)
+        };
+        let cases = [
+            (
+                [
+                    0x407f_0000_0000_0000,
+                    0,
+                    0,
+                    0x4077_1999_9999_999a,
+                    0x4054_0000_0000_0000,
+                    0x404a_6666_6666_6666,
+                ],
+                [
+                    0x3f60_8421_0842_1084,
+                    0,
+                    0,
+                    0x3f66_2a1c_d058_a873,
+                    0xbfc4_a529_4a52_94a5,
+                    0xbfc2_4924_9249_2492,
+                ],
+            ),
+            (
+                [
+                    0x3fd3_3333_3333_3333,
+                    0x4000_0000_0000_0000,
+                    0xbff8_0000_0000_0000,
+                    0x3fe6_6666_6666_6666,
+                    0x4024_0000_0000_0000,
+                    0xc010_0000_0000_0000,
+                ],
+                [
+                    0x3fcb_e9ab_76d4_2316,
+                    0xbfe3_f00c_c297_86c7,
+                    0x3fdd_e813_23e3_4a2b,
+                    0x3fb7_ecdc_1cb5_d4ef,
+                    0xbfd3_f00c_c297_86be,
+                    0x401a_6add_b508_c5c7,
+                ],
+            ),
+            (
+                [
+                    0x4006_1aff_ade4_ba3a,
+                    0x3ff2_b12c_2ee0_8d90,
+                    0xbfe8_ec3a_e92b_676b,
+                    0x3ffd_7954_e7db_a2f8,
+                    0x405e_d999_9999_999a,
+                    0xc04c_5999_9999_999a,
+                ],
+                [
+                    0x3fd3_a638_9a92_6ca5,
+                    0xbfc8_ec3a_e92b_676a,
+                    0x3fc0_9d7c_9b72_44f1,
+                    0x3fdd_7954_e7db_a2f8,
+                    0xc03e_86bb_bdf9_e823,
+                    0x4049_11d1_01e6_9d3d,
+                ],
+            ),
+        ];
+        for (matrix, inverse) in cases {
+            assert_eq!(bits(matrix).inverted(), Some(bits(inverse)));
+        }
+        let singular = Affine2D::from_values(1.0, 2.0, 2.0, 4.0, 0.0, 0.0);
+        assert!(singular.inverted().is_none());
+        let nan = Affine2D::from_values(f64::NAN, 0.0, 0.0, 1.0, 0.0, 0.0).inverted();
+        assert!(nan.is_some_and(|inv| inv.values()[0].is_nan()));
     }
 
     #[test]

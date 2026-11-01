@@ -94,11 +94,15 @@ class InsetsMixin:
         kwargs.setdefault('label', 'inset_axes')
         fig = self.get_figure(root=False)
         projection_class, pkw = fig._process_projection_requirements(**kwargs)
+        from ..projections import _program
+        program = _program.is_program_class(projection_class)
         name = getattr(projection_class, "name", "rectilinear")
         bounds = tuple(map(float, bounds))
         native = _insets.inset_axes(
-            self._native, bounds, None if name == "rectilinear" else name)
+            self._native, bounds,
+            None if name == "rectilinear" or program else name)
         inset_ax = _handles.wrap(native, projection_class, self.figure)
+        inset_ax._init_projection()
         locator = _TransformedBoundsLocator(
             bounds, self.transAxes if transform is None else transform)
         locator._parent = self

@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use super::{Archive, ArchiveError, ArchiveRc, Decoder, Encoder};
 
@@ -131,15 +131,7 @@ impl Archive for &'static str {
     }
 
     fn decode(decoder: &mut Decoder<'_>) -> Result<Self, ArchiveError> {
-        static INTERNED: Mutex<BTreeSet<&'static str>> = Mutex::new(BTreeSet::new());
-        let text = decoder.read_str()?;
-        let mut interned = INTERNED.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(&known) = interned.get(text.as_str()) {
-            return Ok(known);
-        }
-        let leaked: &'static str = Box::leak(text.into_boxed_str());
-        interned.insert(leaked);
-        Ok(leaked)
+        Ok(crate::interned(&decoder.read_str()?))
     }
 }
 

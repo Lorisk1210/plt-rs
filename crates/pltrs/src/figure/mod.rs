@@ -57,7 +57,7 @@ use save::whole_pixels;
 pub use save::{SaveError, SaveFormat};
 pub use size::{FigSize, SizeError, SizeUnit};
 pub(crate) use stale::FreshArtists;
-pub(crate) use state::{FigureState, StateRole};
+pub(crate) use state::{FigureState, StateRole, host_to_figure};
 pub use subfigure::SubfigureOptions;
 pub use subplots::Share;
 pub(crate) use subplots::{TITLE_PLACES, axes_title, insert_axes, make_axes};

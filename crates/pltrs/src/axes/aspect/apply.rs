@@ -7,7 +7,7 @@ use pltrs_core::Bbox;
 use super::Adjustable;
 use crate::artist::{Artist, ArtistId, DrawError};
 use crate::axes::AxesState;
-use crate::figure::FigureState;
+use crate::figure::{FigureState, host_to_figure};
 use crate::ticker::AxisName;
 use crate::transforms::TransformContext;
 
@@ -114,11 +114,28 @@ impl FigureState {
             .and_then(|locator| locator.box_aspect)
             .or(settings.box_aspect);
         let data_ratio = state.data_ratio();
-        // Insets and secondary axes are placed in their host axes.
-        let frame = state
-            .base()
-            .parent
-            .and_then(|f| self.frame_bbox(f).or_else(|| self.axes_bbox(f)));
+        let parent = state.base().parent;
+        // Insets and secondary axes are placed in their host axes, in the
+        // fractions of the host's figure, as matplotlib's locator places
+        // them there before it applies the aspect; axes covering their host
+        // stay in its fractions.
+        let hosted = parent
+            .filter(|&p| original != Bbox::UNIT && self.store.get_as::<AxesState>(p).is_some())
+            .and_then(|p| {
+                let (host, figure) = (self.axes_bbox(p)?, self.figure_bbox_of(p)?);
+                Some(((host, figure), host_to_figure(&host, &figure)?))
+            });
+        let (located, frame) = match hosted {
+            // A position the program gives is in figure fractions already.
+            Some(((_, figure), _)) if matches!(placement, Placement::Given(_)) => {
+                (located, Some(figure))
+            }
+            Some(((_, figure), to_figure)) => (located.transformed(&to_figure), Some(figure)),
+            None => (
+                located,
+                parent.and_then(|f| self.frame_bbox(f).or_else(|| self.axes_bbox(f))),
+            ),
+        };
         let active = if settings.ratio.is_none() && box_aspect.is_none() {
             Some(located)
         } else if let Some(frame) = frame {
@@ -142,8 +159,24 @@ impl FigureState {
         } else {
             None
         };
-        if let (Some(active), Some(state)) = (active, self.store.get_as_mut::<AxesState>(axes)) {
-            state.aspect.active = Some((original, active));
+        let Some(active) = active else {
+            return;
+        };
+        let in_host = hosted.map(|(boxes, to_figure)| {
+            let in_host = to_figure
+                .inverted()
+                .map_or(active, |back| active.transformed(&back));
+            (boxes, in_host)
+        });
+        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            match in_host {
+                Some((boxes, in_host)) => {
+                    state
+                        .aspect
+                        .set_active_in_figure(original, boxes, active, in_host);
+                }
+                None => state.aspect.set_active(original, active),
+            }
         }
     }
 

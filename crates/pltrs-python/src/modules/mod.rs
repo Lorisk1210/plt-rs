@@ -60,6 +60,7 @@ mod path;
 mod patheffects;
 mod plotting;
 mod polar;
+mod projections;
 mod rcsetup;
 mod sankey;
 mod scale;
@@ -126,6 +127,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     path::register(&module.submodule("path")?)?;
     plotting::register(&module.submodule("plotting")?)?;
     polar::register(&module.submodule("polar")?)?;
+    projections::register(&module.submodule("projections")?)?;
     patheffects::register(&module.submodule("patheffects")?)?;
     rcsetup::register(&module.submodule("rcsetup")?)?;
     sankey::register(&module.submodule("sankey")?)?;

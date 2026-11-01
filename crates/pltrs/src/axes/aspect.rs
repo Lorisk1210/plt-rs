@@ -97,6 +97,9 @@ pub(crate) struct AspectState {
     pub(crate) locator: Option<AxesLocator>,
     /// The active position and the original position it derives from.
     active: Option<(Bbox, Bbox)>,
+    /// The active position of an axes placed in a host axes, in the
+    /// fractions of the host's (sub)figure, where matplotlib computes it.
+    in_figure: Option<InFigure>,
 }
 
 pltrs_core::archive_struct!(AspectState {
@@ -107,6 +110,26 @@ pltrs_core::archive_struct!(AspectState {
     divider,
     inset,
     locator,
+    active,
+    in_figure
+});
+
+/// The active position of an axes placed in a host axes (an inset, a
+/// secondary axes) in the fractions of the host's (sub)figure, with what
+/// it was computed from: the axes' original position (in the host's
+/// fractions) and the display boxes of the host and of the figure.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct InFigure {
+    original: Bbox,
+    host: Bbox,
+    figure: Bbox,
+    active: Bbox,
+}
+
+pltrs_core::archive_struct!(InFigure {
+    original,
+    host,
+    figure,
     active
 });
 
@@ -125,6 +148,43 @@ impl AspectState {
     /// `original` position.
     pub(crate) fn set_active(&mut self, original: Bbox, active: Bbox) {
         self.active = Some((original, active));
+        self.in_figure = None;
+    }
+
+    /// Draws the axes, placed in its host, at `active` (in the fractions of
+    /// the host's figure) while it keeps its `original` position and its
+    /// host and figure stay at `host` and `figure`; `in_host` is the same
+    /// position in the host's fractions.
+    pub(crate) fn set_active_in_figure(
+        &mut self,
+        original: Bbox,
+        (host, figure): (Bbox, Bbox),
+        active: Bbox,
+        in_host: Bbox,
+    ) {
+        self.active = Some((original, in_host));
+        self.in_figure = Some(InFigure {
+            original,
+            host,
+            figure,
+            active,
+        });
+    }
+
+    /// The active position of an axes placed in its host, in the fractions
+    /// of the host's figure, if it was computed for the `original`
+    /// position with the host and the figure at `host` and `figure`.
+    pub(crate) fn active_in_figure(
+        &self,
+        original: &Bbox,
+        host: &Bbox,
+        figure: &Bbox,
+    ) -> Option<Bbox> {
+        self.in_figure
+            .filter(|placed| {
+                placed.original == *original && placed.host == *host && placed.figure == *figure
+            })
+            .map(|placed| placed.active)
     }
 
     fn anchor(&self) -> Anchor {

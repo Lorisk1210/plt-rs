@@ -606,6 +606,7 @@ class Axis(Artist):
             _native_scale.set_scale(*self._args(), *native)
         for axis in self._get_shared_axis():
             axis._given_scale = scale
+            axis.axes._update_transScale()
 
     def get_transform(self):
         """Return the transform used in the Axis' scale."""
@@ -623,16 +624,22 @@ class Axis(Artist):
     def _tick_objects(self, minor, count):
         """The first *count* (at least one) ticks of a level, synced."""
         ticks = self._ticks[minor]
+        tick_class = self._tick_class or Tick
         while len(ticks) < max(count, 1):
-            ticks.append(self._get_tick(major=not minor, index=len(ticks)))
+            ticks.append(tick_class._of_axis(self, not minor, len(ticks)))
         for tick in ticks:
             tick._sync()
         return ticks
 
-    def _get_tick(self, major, index=0):
-        """The tick at *index* among the major (or minor) ticks."""
-        tick_class = self._tick_class or Tick
-        return tick_class._of_axis(self, major, index)
+    def _get_tick(self, major):
+        """Return the default tick instance (a new tick of the axis' class
+        at 0, outside the ticks the axis draws)."""
+        if self._tick_class is None:
+            raise NotImplementedError(
+                f"The Axis subclass {self.__class__.__name__} must define "
+                "_tick_class or reimplement _get_tick()")
+        tick_kw = self._major_tick_kw if major else self._minor_tick_kw
+        return self._tick_class(self.axes, 0, major=major, **tick_kw)
 
     @property
     def majorTicks(self):

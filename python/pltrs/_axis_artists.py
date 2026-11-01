@@ -326,6 +326,21 @@ class Tick(Artist):
                     self.gridline, self.label1, self.label2]
         return children
 
+    def draw(self, renderer):
+        """
+        Draw the visible parts of a tick made alone, as matplotlib's does
+        (how the projection of a program's class sees the parts its ticks
+        draw). The ticks of an axis are drawn by pltrs (Rust) with their
+        axis.
+        """
+        if self.get_visible() and self.axis is None:
+            renderer.open_group(self.__name__, gid=self.get_gid())
+            for artist in [self.gridline, self.tick1line, self.tick2line,
+                           self.label1, self.label2]:
+                artist.draw(renderer)
+            renderer.close_group(self.__name__)
+        self.stale = False
+
     def contains(self, mouseevent):
         """
         Test whether the mouse event occurred in the Tick marks.
@@ -416,13 +431,15 @@ class XTick(Tick):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # x in data coords, y in axes coords
-        self.tick1line.set_data([self._loc], [0])
-        self.tick2line.set_data([self._loc], [1])
-        self.gridline.set_data([self._loc, self._loc], [0, 1])
-        self.label1.set(x=self._loc, y=0, verticalalignment="top",
+        # x in data coords, y in axes coords; a tick of no location yet
+        # (``loc=None``) is at NaN.
+        loc = np.nan if self._loc is None else self._loc
+        self.tick1line.set_data([loc], [0])
+        self.tick2line.set_data([loc], [1])
+        self.gridline.set_data([loc, loc], [0, 1])
+        self.label1.set(x=loc, y=0, verticalalignment="top",
                         horizontalalignment="center")
-        self.label2.set(x=self._loc, y=1, verticalalignment="bottom",
+        self.label2.set(x=loc, y=1, verticalalignment="bottom",
                         horizontalalignment="center")
 
     def update_position(self, loc):
@@ -460,13 +477,15 @@ class YTick(Tick):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # x in axes coords, y in data coords
-        self.tick1line.set_data([0], [self._loc])
-        self.tick2line.set_data([1], [self._loc])
-        self.gridline.set_data([0, 1], [self._loc, self._loc])
-        self.label1.set(x=0, y=self._loc, verticalalignment="center_baseline",
+        # x in axes coords, y in data coords; a tick of no location yet
+        # (``loc=None``) is at NaN.
+        loc = np.nan if self._loc is None else self._loc
+        self.tick1line.set_data([0], [loc])
+        self.tick2line.set_data([1], [loc])
+        self.gridline.set_data([0, 1], [loc, loc])
+        self.label1.set(x=0, y=loc, verticalalignment="center_baseline",
                         horizontalalignment="right")
-        self.label2.set(x=1, y=self._loc, verticalalignment="center_baseline",
+        self.label2.set(x=1, y=loc, verticalalignment="center_baseline",
                         horizontalalignment="left")
 
     def update_position(self, loc):

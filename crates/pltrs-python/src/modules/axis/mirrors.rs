@@ -324,8 +324,8 @@ fn push_gridline(
 }
 
 /// Gives the major (or `minor`) tick at `index` the label pad `pad`, in
-/// points (`Tick.set_pad`): ticks of 3-D axes keep pads of their own,
-/// those of 2-D axes only that of their level.
+/// points (`Tick.set_pad`); a minor tick of a 3-D axis only keeps the pad
+/// of its level.
 fn push_tick_pad(
     owner: AxisOwner,
     name: String,
@@ -335,11 +335,12 @@ fn push_tick_pad(
 ) -> PyResult<()> {
     match owner.axis(&name)? {
         AnyAxis::Deep(axis) => deep::push_tick_pad(&axis, minor, index, pad),
-        AnyAxis::Flat(axis) if own(pad, &axis.tick_style_at(minor, index).pad).is_none() => Ok(()),
-        AnyAxis::Flat(_) => Err(PyErr::new(
-            ExceptionKind::NotImplementedError,
-            "pltrs: the pad of a single tick of a 2-D axis",
-        )),
+        AnyAxis::Flat(axis) => {
+            if own(pad, &axis.tick_style_at(minor, index).pad).is_some() {
+                axis.set_tick_pad(minor, index, pad);
+            }
+            Ok(())
+        }
     }
 }
 

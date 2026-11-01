@@ -77,9 +77,12 @@ fn describe<'py>(py: Python<'py>, tree: &OffsetBox<RawHandle>) -> PyResult<Bound
             area.artists.iter().map(artist).collect::<Vec<_>>(),
         )
             .into_py(py),
-        OffsetBox::AuxTransformBox(_) | OffsetBox::Image(_) | OffsetBox::PaddedBox(_) => Err(
-            PyErr::value_error("a legend's box holds packers, text areas and drawing areas"),
-        ),
+        OffsetBox::AuxTransformBox(_)
+        | OffsetBox::Image(_)
+        | OffsetBox::PaddedBox(_)
+        | OffsetBox::Anchored(_) => Err(PyErr::value_error(
+            "a legend's box holds packers, text areas and drawing areas",
+        )),
     }
 }
 

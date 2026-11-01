@@ -98,7 +98,7 @@ impl RasterRenderer {
         angle: f64,
     ) {
         let engine = TextEngine::global();
-        let placement = text_placement(origin, angle);
+        let placement = self.glyph_placement(origin, angle);
         let (fill_gc, glyph_gc) = text_contexts(gc);
         let hinting = run
             .source
@@ -133,6 +133,16 @@ impl RasterRenderer {
         self.painter.set_coverage_rounding(CoverageRounding::Agg);
         let rules = run.rects.iter().map(pltrs_core::Bbox::bounds);
         self.draw_rules(gc, &fill_gc, rules, &placement);
+    }
+
+    /// Where the glyphs and rules of a text anchored at `origin` (display
+    /// pixels) and turned by `angle` go: matplotlib flips the anchor
+    /// downwards in `Text.draw` (`canvash - y`) and back up in
+    /// `_draw_text_glyphs_and_boxes` (`self.height - y`), which lands it on
+    /// the bits of the flipped value.
+    pub(super) fn glyph_placement(&self, origin: Point, angle: f64) -> Affine2D {
+        let height = f64::from(self.height());
+        text_placement(Point::new(origin.x, height - (height - origin.y)), angle)
     }
 
     /// Blits one glyph whose pen is at `pen` (display pixels, on the 26.6
@@ -225,11 +235,16 @@ impl RasterRenderer {
     }
 }
 
-/// The pen of a glyph at `(x, y)` in a text placed by `placement`, on
-/// `FreeType`'s 26.6 grid.
+/// The pen of a glyph at `(x, y)` in a text placed by `placement` (see
+/// [`RasterRenderer::glyph_placement`]), on `FreeType`'s 26.6 grid, summed
+/// as matplotlib sums it: `x + dx * cos - dy * sin` and
+/// `y + dx * sin + dy * cos`.
 pub(super) fn pen_position(placement: &Affine2D, x: f64, y: f64) -> Point {
-    let pen = placement.transform_point(Point::new(x, y));
-    Point::new(quantize(pen.x), quantize(pen.y))
+    let [cos, sin, minus_sin, _, origin_x, origin_y] = placement.values();
+    Point::new(
+        quantize(origin_x + x * cos + y * minus_sin),
+        quantize(origin_y + x * sin + y * cos),
+    )
 }
 
 #[cfg(test)]
@@ -299,5 +314,18 @@ mod tests {
         assert_eq!(quantize(1.0 / 128.0), 0.0);
         assert_eq!(quantize(3.0 / 128.0), 2.0 / 64.0);
         assert_eq!(quantize(10.3), 659.0 / 64.0);
+    }
+
+    /// An anchor just below a tie of the 26.6 grid lands on the tie once
+    /// flipped down and up on a 600-pixel canvas, as in matplotlib, and
+    /// rounds to even.
+    #[test]
+    fn anchors_are_flipped_down_and_up() {
+        let renderer = RasterRenderer::new(800.0, 600.0, 100.0).expect("valid canvas");
+        let below_tie = 215.835_937_499_999_97;
+        assert!(below_tie < 215.835_937_5);
+        let placement = renderer.glyph_placement(Point::new(87.5, below_tie), 0.0);
+        let pen = pen_position(&placement, 0.0, 0.0);
+        assert_eq!(pen, Point::new(87.5, 13814.0 / 64.0));
     }
 }

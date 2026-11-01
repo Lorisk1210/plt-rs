@@ -182,6 +182,9 @@ impl TickParams {
             clear_if(&mut line.grid_linewidth, self.grid_linewidth.is_some());
             clear_if(&mut line.grid_linestyle, self.grid_linestyle.is_some());
         }
+        for pad in &mut overrides.pads {
+            clear_if(pad, self.pad.is_some());
+        }
     }
 }
 

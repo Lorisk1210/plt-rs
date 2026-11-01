@@ -1,11 +1,12 @@
 //! Offset boxes joining an axes or a figure (matplotlib's `add_artist` of
-//! an `AnchoredOffsetbox` or an `AnnotationBbox`): the Python box is a
-//! plain loose artist until then, whose common properties the native box
-//! takes, and the artists of its tree move in with it. Each function
-//! returns the box, the artists of its tree in drawing order (frames
-//! before what they frame) and its frame, for the Python objects to
-//! follow them. The drawing areas of an added box are reached through it
-//! and their index in its tree.
+//! an `AnchoredOffsetbox`, an `AnnotationBbox` or a plain `OffsetBox`):
+//! the Python box is a plain loose artist until then, whose common
+//! properties the native box takes, and the artists of its tree move in
+//! with it. Each function returns the box, the artists of its tree in
+//! drawing order (frames before what they frame) and, but for a plain
+//! box, its frame, for the Python objects to follow them. The drawing
+//! areas of an added box are reached through it and their index in its
+//! tree.
 
 use pltrs::artist::{ArtistHandle, RawHandle, TypedHandle};
 use pltrs::axes::Axes;
@@ -13,7 +14,7 @@ use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
 use pltrs::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOffsetbox, AnchoredOptions, AnnotationBbox,
-    AnnotationBboxOptions, BboxToAnchor,
+    AnnotationBboxOptions, BboxToAnchor, PlacedOffsetBox,
 };
 use pltrs::patches::{BoxStyle, FancyBboxPatch, Patch};
 use pltrs::text::ArrowProps;
@@ -79,7 +80,7 @@ fn bbox_to_anchor(value: Option<Vec<f64>>) -> PyResult<Option<BboxToAnchor>> {
 /// The settings of an `AnchoredOffsetbox` as a dict: `loc` (a code),
 /// `pad`, `borderpad` (one or two numbers), `prop` (a `FontProperties`),
 /// `frameon`, `bbox_to_anchor` (bounds or a point) and `bbox_transform`.
-struct PyAnchoredOptions(AnchoredOptions);
+pub(super) struct PyAnchoredOptions(pub(super) AnchoredOptions);
 
 impl FromPy<'_> for PyAnchoredOptions {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
@@ -180,14 +181,46 @@ fn add_annotation_bbox(
     Ok((added.raw().clone(), added.artists(), added.patch()))
 }
 
+/// Adds the box `child` with its origin at the display point `offset` to
+/// `owner`, an axes or a (sub)figure, taking the common properties of
+/// `plain`; returns the box and the artists of its tree.
+fn add_placed(
+    owner: RawHandle,
+    plain: RawHandle,
+    child: PyOffsetBox,
+    offset: (f64, f64),
+) -> PyResult<(RawHandle, Vec<RawHandle>)> {
+    let placed = match Axes::from_raw_handle(&owner) {
+        Some(axes) => axes.add_offset_box(child.0, offset),
+        None => owner
+            .downcast::<Figure>()
+            .ok_or_else(|| PyErr::type_error("an offset box joins an axes or a figure"))?
+            .add_offset_box(child.0, offset),
+    };
+    carry_over(&plain, placed.raw());
+    Ok((placed.raw().clone(), placed.artists()))
+}
+
+/// Moves the origin of the added plain box `placed` to the display point
+/// `offset` (`OffsetBox.set_offset`).
+fn set_placed_offset(placed: RawHandle, offset: (f64, f64)) -> PyResult<()> {
+    placed
+        .downcast::<PlacedOffsetBox>()
+        .ok_or_else(|| PyErr::type_error("not an offset box added at an offset"))?
+        .set_offset(offset);
+    Ok(())
+}
+
 /// Clips the artists of the drawing area at `area` (in tree order) of the
-/// added box `owner`, an anchored or an annotation box, or stops clipping
-/// them (`DrawingArea.clip_children`).
+/// added box `owner`, an anchored, annotation or plain box, or stops
+/// clipping them (`DrawingArea.clip_children`).
 fn set_clip_children(owner: RawHandle, area: usize, clip: bool) -> PyResult<()> {
     let found = if let Some(anchored) = owner.downcast::<AnchoredOffsetbox>() {
         anchored.set_clip_children(area, clip)
     } else if let Some(annotation) = owner.downcast::<AnnotationBbox>() {
         annotation.set_clip_children(area, clip)
+    } else if let Some(placed) = owner.downcast::<PlacedOffsetBox>() {
+        placed.set_clip_children(area, clip)
     } else {
         return Err(PyErr::type_error(
             "a drawing area belongs to an added offset box",
@@ -206,5 +239,7 @@ fn set_clip_children(owner: RawHandle, area: usize, clip: bool) -> PyResult<()> 
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_anchored", add_anchored)?;
     module.add("add_annotation_bbox", add_annotation_bbox)?;
+    module.add("add_placed", add_placed)?;
+    module.add("set_placed_offset", set_placed_offset)?;
     module.add("set_clip_children", set_clip_children)
 }

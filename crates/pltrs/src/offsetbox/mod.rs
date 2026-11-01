@@ -12,7 +12,7 @@
 //! this way.
 //!
 //! Users build trees whose artists are [`BoxItem`]s and add them to an
-//! axes in one of two ways:
+//! axes in one of three ways:
 //!
 //! * anchored at one of nine positions of the axes ([`AnchoredBox`],
 //!   matplotlib's `AnchoredOffsetbox` and `AnchoredText`), see
@@ -21,7 +21,14 @@
 //!   arrow pointing to it ([`AnnotationBbox`]), see
 //!   [`Axes::add_annotation_bbox`](crate::axes::Axes::add_annotation_bbox)
 //!   (or [`Figure::add_annotation_bbox`](crate::figure::Figure::add_annotation_bbox)
-//!   for a box of the figure).
+//!   for a box of the figure);
+//! * with its origin at a display point ([`PlacedOffsetBox`], matplotlib's
+//!   plain `OffsetBox` such as a `PaddedBox`), see
+//!   [`Axes::add_offset_box`](crate::axes::Axes::add_offset_box).
+//!
+//! An [`AnchoredBox`] can also be a node of another box's tree
+//! ([`AnchoredNode`]): its parent lays it out, but it is drawn at its
+//! anchor, as matplotlib's anchored boxes are.
 //!
 //! ```
 //! use pltrs::prelude::*;
@@ -45,6 +52,7 @@
 
 mod anchored;
 mod anchored_box;
+mod anchored_node;
 mod annotation_bbox;
 mod apply;
 mod boxes;
@@ -53,6 +61,7 @@ pub(crate) use drag::reconnect_drag;
 mod leaves;
 mod pack;
 mod pending;
+mod placed_box;
 #[cfg(test)]
 mod tests;
 
@@ -62,6 +71,7 @@ pub(crate) use anchored::transformed_bbox;
 pub use anchored::{AnchorLoc, BboxToAnchor, UnknownLocation, anchored_bbox};
 pub(crate) use anchored_box::AnchoredBoxArtist;
 pub use anchored_box::{AnchoredBox, AnchoredOffsetbox, AnchoredOptions};
+pub use anchored_node::AnchoredNode;
 pub(crate) use annotation_bbox::AnnotationBboxArtist;
 pub use annotation_bbox::{AnnotationBbox, AnnotationBboxOptions};
 pub(crate) use apply::{apply_placements, lay_out_boxes};
@@ -69,6 +79,8 @@ pub use boxes::{OffsetBox, Packer, Placement};
 pub use leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
 pub use pack::{PackAlign, PackMode, aligned_offsets, packed_offsets};
 pub use pending::BoxItem;
+pub(crate) use placed_box::PlacedBoxArtist;
+pub use placed_box::PlacedOffsetBox;
 
 use crate::artist::{ArtistId, ArtistStore};
 use crate::coords::CoordError;

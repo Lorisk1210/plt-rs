@@ -270,24 +270,23 @@ impl Cell {
     }
 
     /// The width the text needs at `fontsize` with its padding, in axes
-    /// fractions of an axes `axes_width` pixels wide
-    /// (`Cell.get_required_width`).
+    /// fractions of the axes `to_axes` maps display pixels to
+    /// (`Cell.get_required_width`: the text's box where it starts, at the
+    /// origin, mapped back to axes fractions).
     pub(crate) fn required_width(
         &self,
         fontsize: f64,
         layout: LayoutContext<'_>,
         rc: &RcParams,
-        axes_width: f64,
+        to_axes: &Affine2D,
     ) -> Result<f64, TextDrawError> {
         let width = if self.text.is_empty() {
             0.0
         } else {
-            self.laid_out(fontsize, layout.dpi(), rc)?
-                .block
-                .bbox
-                .width()
+            let text = self.laid_out(fontsize, layout.dpi(), rc)?.block.bbox;
+            text.transformed(to_axes).width()
         };
-        Ok(width / axes_width * (1.0 + 2.0 * PAD))
+        Ok(width * (1.0 + 2.0 * PAD))
     }
 
     /// Draws the cell placed at `placed` (in the table's axes fractions,
@@ -329,7 +328,7 @@ impl Cell {
         if self.text.is_empty() {
             return Ok(());
         }
-        let display = placed.bbox.transformed(to_display);
+        let display = PlacedCell::display_box(&placed.bbox, to_display);
         let y = display.y0() + display.height() / 2.0;
         let x = match self.loc {
             HAlign::Center => display.x0() + display.width() / 2.0,
@@ -353,6 +352,31 @@ pub(crate) struct PlacedCell {
     pub(crate) bbox: Bbox,
     /// The text size in points.
     pub(crate) fontsize: f64,
+}
+
+impl PlacedCell {
+    /// The display box of a cell at `bbox` in axes fractions mapped by
+    /// `to_display` (matplotlib's `Cell.get_window_extent`: the corners of
+    /// the unit square through the cell's patch transform, then the
+    /// axes').
+    pub(crate) fn display_box(bbox: &Bbox, to_display: &Affine2D) -> Bbox {
+        let to_pixels = unit_to_bbox(bbox).then(*to_display);
+        let corners = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+            .map(|(x, y)| to_pixels.transform_point(Point::new(x, y)));
+        let (mut x0, mut y0, mut x1, mut y1) = (
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        );
+        for corner in corners {
+            x0 = x0.min(corner.x);
+            y0 = y0.min(corner.y);
+            x1 = x1.max(corner.x);
+            y1 = y1.max(corner.y);
+        }
+        Bbox::from_extents(x0, y0, x1, y1)
+    }
 }
 
 #[cfg(test)]

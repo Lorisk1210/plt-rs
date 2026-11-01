@@ -15,7 +15,6 @@ use super::bitmap::GlyphShape;
 use super::glyph::GlyphTransform;
 use super::text::{pen_position, text_contexts, within_reach};
 use crate::gc::GraphicsContext;
-use crate::renderer::text_placement;
 
 /// How `FreeType` loads a Type 1 glyph for `text.hinting`: the Adobe
 /// engine hints it unless hinting is off (`FreeType` has no autohinting
@@ -126,7 +125,7 @@ impl RasterRenderer {
         let page = tex.page(tex.size(), self.dpi)?;
         let glyphs = tex.glyphs(&page)?;
         let hinting = type1_hinting(tex.font.hinting);
-        let placement = text_placement(origin, angle);
+        let placement = self.glyph_placement(origin, angle);
         let (fill_gc, glyph_gc) = text_contexts(gc);
         self.painter
             .set_coverage_rounding(CoverageRounding::FreeType);

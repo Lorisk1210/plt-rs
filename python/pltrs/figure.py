@@ -49,6 +49,12 @@ def _native_maker(projection_class):
     if (make is None and projection_class.name == "rectilinear"
             and projection_class.__init__ is not Axes.__init__):
         make = projection_class._constructed_native
+    if make is None:
+        from .projections import _program
+        if _program.is_program_class(projection_class):
+            make = (projection_class._constructed_native
+                    if projection_class.__init__ is not Axes.__init__
+                    else _program.maker(projection_class))
     return make
 
 

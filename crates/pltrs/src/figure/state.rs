@@ -237,7 +237,7 @@ impl FigureState {
     }
 
     /// The box of the (sub)figure `artist` is in, or is.
-    fn figure_bbox_of(&self, artist: ArtistId) -> Option<Bbox> {
+    pub(crate) fn figure_bbox_of(&self, artist: ArtistId) -> Option<Bbox> {
         self.frame_bbox(artist)
             .or_else(|| self.figure_bbox_of(self.store.get(artist)?.base().parent?))
     }
@@ -379,11 +379,15 @@ impl TransformContext for FigureState {
             // Covering its host (parasite axes, 3-D planes).
             return Some(host);
         }
-        Some(part_of_host(
-            &host,
-            &self.figure_bbox_of(parent)?,
-            &position,
-        ))
+        let figure = self.figure_bbox_of(parent)?;
+        if let Some(active) = state
+            .aspect
+            .active_in_figure(&state.position, &host, &figure)
+        {
+            return Some(fraction_of(&figure, &active));
+        }
+        let to_figure = host_to_figure(&host, &figure)?;
+        Some(fraction_of(&figure, &position.transformed(&to_figure)))
     }
 
     /// Auxiliary axes map their data through their transform into the
@@ -420,19 +424,13 @@ fn fraction_of(outer: &Bbox, fraction: &Bbox) -> Bbox {
     fraction.transformed(&crate::transforms::unit_to_bbox(outer))
 }
 
-/// The part `fraction` of the box `host` of an axes, for an axes placed
-/// inside it (an inset, a secondary axes), with matplotlib's arithmetic:
-/// its `_TransformedBoundsLocator` maps the fraction into the fractions of
-/// the (sub)figure `figure` (`transAxes - transSubfigure`, numpy's inverse
-/// of the figure's box transform times the host's), and the axes' box is
-/// that position through `transSubfigure`.
-fn part_of_host(host: &Bbox, figure: &Bbox, fraction: &Bbox) -> Bbox {
-    let (fx, fy, fw, fh) = figure.bounds();
-    let (hx, hy, hw, hh) = host.bounds();
-    // The inverse of [[fw, 0, fx], [0, fh, fy]] by back substitution, as
-    // LAPACK solves for numpy's `inv`.
-    let (ia, ie, id, iff) = (1.0 / fw, -fx / fw, 1.0 / fh, -fy / fh);
-    let to_figure = Affine2D::from_values(ia * hw, 0.0, 0.0, id * hh, ia * hx + ie, id * hy + iff);
-    let position = fraction.transformed(&to_figure);
-    position.transformed(&Affine2D::from_values(fw, 0.0, 0.0, fh, fx, fy))
+/// The map from the fractions of the box `host` of an axes to those of
+/// the (sub)figure `figure` (at `figure` in display pixels), for an axes
+/// placed inside it (an inset, a secondary axes), with matplotlib's
+/// arithmetic: its `_TransformedBoundsLocator` maps the axes' bounds
+/// through `transAxes - transSubfigure`, the host's box transform followed
+/// by numpy's inverse of the figure's; the axes' box is then its position
+/// through `transSubfigure`. `None` for a figure of no area.
+pub(crate) fn host_to_figure(host: &Bbox, figure: &Bbox) -> Option<Affine2D> {
+    Some(unit_to_bbox(host).then(unit_to_bbox(figure).inverted()?))
 }

@@ -128,9 +128,16 @@ pub(crate) struct TickOverrides {
     pub(crate) labels: Vec<TickLabelProps>,
     /// Mark and gridline properties.
     pub(crate) lines: Vec<TickLineProps>,
+    /// Gaps between the marks and the labels, in points (matplotlib's
+    /// `Tick.set_pad`).
+    pub(crate) pads: Vec<Option<f64>>,
 }
 
-pltrs_core::archive_struct!(TickOverrides { labels, lines });
+pltrs_core::archive_struct!(TickOverrides {
+    labels,
+    lines,
+    pads
+});
 
 /// State of one axis.
 ///

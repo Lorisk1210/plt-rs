@@ -36,9 +36,9 @@ use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::FontSize;
 use crate::rc::RcParams;
-use crate::transforms::unit_to_bbox;
-use cell::Cell;
 pub(crate) use cell::CellShape;
+use cell::{Cell, PlacedCell};
+use layout::AxesMaps;
 
 /// Where a table goes relative to its axes (matplotlib's `Table.codes`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -471,11 +471,13 @@ impl Artist for TableArtist {
         let Some(axes) = self.axes_box(layout) else {
             return ctx.report(self.base.id(), "its axes no longer exist");
         };
-        let placed = match self.place(layout, axes.width()) {
+        let Some(maps) = AxesMaps::of(&axes) else {
+            return ctx.report(self.base.id(), "its axes has no area");
+        };
+        let placed = match self.place(layout, &maps) {
             Ok(placed) => placed,
             Err(err) => return ctx.report(self.base.id(), err),
         };
-        let to_display = unit_to_bbox(&axes);
         let mut order: Vec<usize> = (0..self.cells.len()).collect();
         order.sort_by_key(|&i| self.cells[i].0);
         ctx.renderer().open_group("table", self.base.gid.as_deref());
@@ -483,7 +485,7 @@ impl Artist for TableArtist {
             if let Err(err) =
                 self.cells[i]
                     .1
-                    .draw(ctx, &self.base, &self.rc, &placed[i], &to_display)
+                    .draw(ctx, &self.base, &self.rc, &placed[i], &maps.to_display)
             {
                 ctx.report(self.base.id(), err);
             }
@@ -492,12 +494,11 @@ impl Artist for TableArtist {
     }
 
     fn window_extent(&self, ctx: &LayoutContext<'_>) -> Option<Bbox> {
-        let axes = self.axes_box(*ctx)?;
-        let to_display = unit_to_bbox(&axes);
-        self.place(*ctx, axes.width())
+        let maps = AxesMaps::of(&self.axes_box(*ctx)?)?;
+        self.place(*ctx, &maps)
             .ok()?
             .iter()
-            .map(|cell| cell.bbox.transformed(&to_display))
+            .map(|cell| PlacedCell::display_box(&cell.bbox, &maps.to_display))
             .reduce(|a, b| a.union(&b))
     }
 }

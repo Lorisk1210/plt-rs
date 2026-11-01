@@ -5,11 +5,9 @@ use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
 
+use super::anchored_node::{AnchoredLayout, Anchoring, pad_font_points};
 use super::pending::{Parts, adopt_box, frame_patch};
-use super::{
-    AnchorLoc, BboxToAnchor, BoxItem, OffsetBox, OffsetBoxError, Placement, TextArea,
-    anchored_bbox, transformed_bbox,
-};
+use super::{AnchorLoc, BboxToAnchor, BoxItem, OffsetBox, OffsetBoxError, TextArea};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext,
     RawHandle, TypedHandle,
@@ -77,6 +75,14 @@ pub struct AnchoredBox {
 }
 
 impl AnchoredBox {
+    /// The child tree, the settings and whether the paddings follow the
+    /// font of the child text.
+    pub(super) fn into_parts(self) -> (OffsetBox<BoxItem>, AnchoredOptions, bool) {
+        (self.child, self.options, self.follows_text)
+    }
+}
+
+impl AnchoredBox {
     /// `child` anchored as `options` say (matplotlib's
     /// `AnchoredOffsetbox(loc, child=child, ...)`).
     pub fn new(child: impl Into<OffsetBox<BoxItem>>, options: AnchoredOptions) -> Self {
@@ -125,17 +131,6 @@ pltrs_core::archive_enum!(PadFont {
     Text(v0),
 });
 
-/// Where an owner box and its parts go.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct BoxLayout {
-    /// The framed box, in display pixels.
-    pub(crate) extent: Bbox,
-    /// Where the child box's origin goes (matplotlib's `get_offset`).
-    pub(crate) offset: Point,
-    /// Where the frame, the texts, the artists and the images go.
-    pub(crate) placements: Vec<Placement<ArtistId>>,
-}
-
 /// State of an anchored box: its frame and child tree are artists of the
 /// figure owned by the box; the layout pass places them.
 #[derive(Debug)]
@@ -143,12 +138,9 @@ pub(crate) struct AnchoredBoxArtist {
     base: ArtistBase,
     /// The child tree (matplotlib's `get_child()`).
     pub(crate) child: OffsetBox<ArtistId>,
-    loc: AnchorLoc,
-    pad: f64,
-    borderpad: (f64, f64),
+    /// Where the box goes in its anchor.
+    anchoring: Anchoring,
     font: PadFont,
-    /// `bbox_to_anchor` with its coordinates; `None` anchors in `owner`.
-    anchor: Option<(Bbox, Transform)>,
     /// The axes or (sub)figure the box was added to.
     owner: ArtistId,
     /// The frame (matplotlib's `patch`).
@@ -166,11 +158,8 @@ pub(crate) struct AnchoredBoxArtist {
 pltrs_core::archive_struct!(AnchoredBoxArtist {
     base,
     child,
-    loc,
-    pad,
-    borderpad,
+    anchoring,
     font,
-    anchor,
     owner,
     frame,
     parts,
@@ -191,58 +180,21 @@ impl AnchoredBoxArtist {
         }
     }
 
-    /// The display box the box is anchored in (matplotlib's
-    /// `get_bbox_to_anchor`): `bbox_to_anchor`, else the box of its axes or
-    /// figure (where matplotlib requires `bbox_to_anchor`).
-    fn anchor_box(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
-        match &self.anchor {
-            None => ctx
-                .axes_extent(self.owner)
-                .or_else(|| ctx.frame_extent(self.owner)),
-            Some((bbox, transform)) => Some(transformed_bbox(bbox, &ctx.resolve(transform)?)),
-        }
-    }
-
-    /// Where the padded child box `bbox`'s origin goes for the box to sit
-    /// at `loc` in its anchor (matplotlib's `get_offset`).
-    fn anchored_offset(
-        &self,
-        ctx: LayoutContext<'_>,
-        bbox: &Bbox,
-        fontsize: f64,
-    ) -> Result<Point, OffsetBoxError> {
-        let anchor = self.anchor_box(ctx).ok_or(OffsetBoxError::Detached)?;
-        let corner = anchored_bbox(
-            self.loc,
-            &Bbox::from_bounds(0.0, 0.0, bbox.width(), bbox.height()),
-            &anchor,
-            self.borderpad.0 * fontsize,
-            self.borderpad.1 * fontsize,
-        );
-        Ok(corner - bbox.p0)
-    }
-
     /// Lays the box out for the current figure geometry (matplotlib's
     /// `AnchoredOffsetbox.draw`).
-    pub(crate) fn layout(&self, ctx: LayoutContext<'_>) -> Result<BoxLayout, OffsetBoxError> {
+    pub(crate) fn layout(
+        &self,
+        ctx: LayoutContext<'_>,
+    ) -> Result<AnchoredLayout<ArtistId>, OffsetBoxError> {
         let fontsize = ctx.points_to_pixels(self.font_size(ctx)?);
-        let pad = self.pad * fontsize;
-        let bbox = self.child.bbox(ctx)?.padded(pad, pad);
-        let offset = self
-            .pinned
-            .map_or_else(|| self.anchored_offset(ctx, &bbox, fontsize), Ok)?;
-        let extent = bbox.translated(offset.x, offset.y);
-        let mut placements = vec![Placement::Frame {
-            frame: self.frame,
-            bbox: extent,
-            mutation_scale: Some(fontsize),
-        }];
-        placements.extend(self.child.place(ctx, offset)?);
-        Ok(BoxLayout {
-            extent,
-            offset,
-            placements,
-        })
+        self.anchoring.lay_out(
+            ctx,
+            self.owner,
+            &self.child,
+            &self.frame,
+            fontsize,
+            self.pinned,
+        )
     }
 }
 
@@ -309,13 +261,13 @@ impl AnchoredOffsetbox {
     /// Where the box goes within its anchor.
     pub fn loc(&self) -> AnchorLoc {
         self.raw
-            .with::<AnchoredBoxArtist, _>(|anchored| anchored.loc)
+            .with::<AnchoredBoxArtist, _>(|anchored| anchored.anchoring.loc)
     }
 
     /// Moves the box to another position of its anchor.
     pub fn set_loc(&self, loc: AnchorLoc) -> &Self {
         self.raw
-            .with_mut::<AnchoredBoxArtist, _>(|anchored| anchored.loc = loc);
+            .with_mut::<AnchoredBoxArtist, _>(|anchored| anchored.anchoring.loc = loc);
         self
     }
 
@@ -448,34 +400,23 @@ fn add_anchored(owner: &RawHandle, spec: AnchoredBox) -> AnchoredOffsetbox {
         options,
         follows_text,
     } = spec;
-    let rc = crate::rc::params();
-    let points = options.prop.as_ref().map_or_else(
-        || rc.legend_fontsize.to_points(rc.font_size),
-        |prop| prop.size,
-    );
+    let points = pad_font_points(options.prop.as_ref());
     let square = BoxStyle::new(BoxShape::Square).with_pad(0.0);
     let figure = owner.figure_state();
     let mut state = figure.borrow_mut();
     let mut parts = Parts::new(&mut state.store);
     let frame = parts.insert(frame_patch(square, options.frameon, PatchProps::default()));
-    let child = parts.insert_tree(child);
+    let child = parts.insert_tree(child, owner.id());
     let parts = parts.into_ids();
     let font = match &child {
         OffsetBox::TextArea(area) if follows_text => PadFont::Text(area.text),
         _ => PadFont::Points(points),
     };
-    let anchor = options.bbox_to_anchor.map(|anchor| {
-        let transform = options.bbox_transform.clone().unwrap_or(Transform::Display);
-        (anchor.bbox(), transform)
-    });
     let artist = AnchoredBoxArtist {
         base: ArtistBase::with_zorder(ANCHORED_ZORDER),
         child,
-        loc: options.loc,
-        pad: options.pad,
-        borderpad: options.borderpad,
+        anchoring: Anchoring::from(&options),
         font,
-        anchor,
         owner: owner.id(),
         frame,
         parts: parts.clone(),

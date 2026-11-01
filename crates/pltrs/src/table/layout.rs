@@ -1,13 +1,19 @@
 //! Placing the cells of a table (matplotlib's `Table._update_positions`).
+//!
+//! matplotlib measures the grid of cells in display pixels and maps the
+//! box back to axes fractions through the inverse of `transAxes` before
+//! it moves the cells; the layout follows the same round trip, so that
+//! the cells land on matplotlib's bits.
 
 use std::collections::BTreeMap;
 
-use pltrs_core::{Bbox, Point};
+use pltrs_core::{Affine2D, Bbox, Point};
 
 use super::cell::{Cell, PlacedCell};
 use super::{TableArtist, TableLoc};
 use crate::artist::LayoutContext;
 use crate::text::TextDrawError;
+use crate::transforms::unit_to_bbox;
 
 /// The gap between the axes and a table placed inside them, in axes
 /// fractions.
@@ -18,6 +24,27 @@ const AXES_PAD: f64 = 0.02;
 /// sizes so large that a point less is the same size, or infinite ones.
 const MAX_AUTO_FONTSIZE: f64 = 1000.0;
 
+/// The maps between the axes fractions of a table's axes and display
+/// pixels (matplotlib's `transAxes` and its inverse).
+pub(crate) struct AxesMaps {
+    /// Axes fractions to display pixels.
+    pub(crate) to_display: Affine2D,
+    /// Display pixels to axes fractions, as numpy inverts `transAxes`.
+    pub(crate) to_axes: Affine2D,
+}
+
+impl AxesMaps {
+    /// The maps of an axes at `axes` in display pixels; `None` for an axes
+    /// of no area, whose fractions cannot be found again.
+    pub(crate) fn of(axes: &Bbox) -> Option<Self> {
+        let to_display = unit_to_bbox(axes);
+        Some(Self {
+            to_display,
+            to_axes: to_display.inverted()?,
+        })
+    }
+}
+
 /// The size of every cell while the table is laid out.
 struct Sizes {
     width: Vec<f64>,
@@ -26,12 +53,12 @@ struct Sizes {
 }
 
 impl TableArtist {
-    /// Every cell with its place and font size for a table in an axes
-    /// `axes_width` pixels wide.
+    /// Every cell with its place and font size for a table in the axes
+    /// `maps` give.
     pub(crate) fn place(
         &self,
         layout: LayoutContext<'_>,
-        axes_width: f64,
+        maps: &AxesMaps,
     ) -> Result<Vec<PlacedCell>, TextDrawError> {
         let cells = &self.cells;
         let mut sizes = Sizes {
@@ -40,7 +67,7 @@ impl TableArtist {
             fontsize: cells.iter().map(|(_, c)| c.font.size).collect(),
         };
         let required = |cell: &Cell, fontsize: f64| {
-            cell.required_width(fontsize, layout, &self.rc, axes_width)
+            cell.required_width(fontsize, layout, &self.rc, &maps.to_axes)
         };
         for &column in &self.auto_columns {
             let members: Vec<usize> = (0..cells.len())
@@ -75,7 +102,7 @@ impl TableArtist {
             sizes.fontsize.fill(fontsize.max(1.0));
         }
         let mut origins = self.align(&sizes);
-        let grid = self.grid_box(&sizes, &origins);
+        let grid = self.grid_box(&sizes, &origins, maps);
         let (l, b, w, h) = grid.bounds();
         let (ox, oy) = match self.bbox {
             Some(target) => {
@@ -131,18 +158,21 @@ impl TableArtist {
             .collect()
     }
 
-    /// The box around the cells of non-negative rows and columns
+    /// The box around the cells of non-negative rows and columns, in axes
+    /// fractions: the union of their display boxes mapped back
     /// (`Table._get_grid_bbox`).
-    fn grid_box(&self, sizes: &Sizes, origins: &[Point]) -> Bbox {
+    fn grid_box(&self, sizes: &Sizes, origins: &[Point], maps: &AxesMaps) -> Bbox {
         self.cells
             .iter()
             .enumerate()
             .filter(|(_, ((row, col), _))| *row >= 0 && *col >= 0)
             .map(|(i, _)| {
-                Bbox::from_bounds(origins[i].x, origins[i].y, sizes.width[i], sizes.height[i])
+                let bbox =
+                    Bbox::from_bounds(origins[i].x, origins[i].y, sizes.width[i], sizes.height[i]);
+                PlacedCell::display_box(&bbox, &maps.to_display)
             })
             .reduce(|a, b| a.union(&b))
-            .unwrap_or(Bbox::NULL)
+            .map_or(Bbox::NULL, |display| display.transformed(&maps.to_axes))
     }
 }
 
@@ -211,7 +241,9 @@ mod tests {
             .store
             .get_as::<TableArtist>(table.id())
             .expect("a table");
-        artist.place(layout, 496.0).expect("placeable")
+        let axes = Bbox::from_bounds(80.0, 52.8, 496.0, 369.6);
+        let maps = AxesMaps::of(&axes).expect("an axes of some area");
+        artist.place(layout, &maps).expect("placeable")
     }
 
     fn texts(rows: &[&[&str]]) -> Vec<Vec<String>> {

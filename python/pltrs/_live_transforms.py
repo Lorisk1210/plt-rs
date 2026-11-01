@@ -182,6 +182,9 @@ def for_axes(transform, axes):
 
 def _description(t):
     """The nested tuples describing *t* to pltrs (Rust)."""
+    live = getattr(t, "_live", None)
+    if live is not None:  # The transform of an axes of a program's projection.
+        return ("native", live)
     if t is None or isinstance(t, IdentityTransform):
         return ("display",)
     if isinstance(t, LiveTransform):

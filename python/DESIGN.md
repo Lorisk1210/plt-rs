@@ -383,6 +383,27 @@ invalidated, so that a draw after an affine change (`transAxes`
 invalidated) does not call the program's transform again, as in
 matplotlib.
 
+An `Axes` subclass the program registers with `register_projection`
+(the SkewT-logP example's `SkewXAxes`) is a projection pltrs (Rust)
+does not know (`projections/_program.py`): its Axes is a rectilinear
+pltrs (Rust) axes that `set_up` builds as matplotlib's `__init__` does
+(`_set_lim_and_transforms`, `_gen_axes_spines`, `_init_axis`, from the
+mixin `axes/_projection.py`), then hands over to a pltrs (Rust)
+`Projection` asking the Axes through an adapter (`_native.projections`,
+`Axes::install_projection`): the data transform is `transData` up to its
+final `transAxes`, the gridlines' and ticks' transforms those of
+`get_xaxis_transform` where the class gives its own, the tick interval
+that of an overridden `Axis.get_view_interval`, the sides a tick draws
+those an overridden `Tick.draw` leaves visible on a tick made alone, and
+the interval of a spine that of an overridden `Spine._adjust_location`.
+pltrs (Rust) asks while it lays the figure out or draws it, when the
+figure cannot be asked about itself, so each hook passes the view limits
+it works with and the Axes' `viewLim` (a `_ViewedLimits`, on which the
+class' `transLimits` is built) answers with them meanwhile; the class'
+transforms are matplotlib's Python classes and compute as matplotlib's
+do. The Axes' `transData` and axis transforms reach pltrs (Rust) as the
+Axes' own (`_live`).
+
 Two things matplotlib evaluates at draw time follow it there:
 
 * **Transforms a subclass computes.** matplotlib reads an artist's

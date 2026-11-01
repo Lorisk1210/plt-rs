@@ -183,9 +183,17 @@ impl<'a> Parts<'a> {
         id
     }
 
-    /// Moves every artist of `tree` into the figure.
-    pub(crate) fn insert_tree(&mut self, tree: OffsetBox<BoxItem>) -> OffsetBox<ArtistId> {
-        tree.map(&mut |item| self.insert(item))
+    /// Moves every artist of `tree` into the figure; the anchored boxes
+    /// of the tree are anchored in `owner`, the axes or figure the tree
+    /// joins.
+    pub(crate) fn insert_tree(
+        &mut self,
+        tree: OffsetBox<BoxItem>,
+        owner: ArtistId,
+    ) -> OffsetBox<ArtistId> {
+        let mut tree = tree.map(&mut |item| self.insert(item));
+        tree.join_owner(owner);
+        tree
     }
 
     /// The ids of the parts, in insertion order.

@@ -43,6 +43,9 @@ pub enum ProjectionError {
     /// as the geographic projections do (matplotlib's `TypeError` from
     /// `sharex`).
     Share(PlotError),
+    /// A projection was handed axes that already are drawn through another
+    /// projection, named here.
+    NotRectilinear(&'static str),
 }
 
 impl fmt::Display for ProjectionError {
@@ -70,6 +73,10 @@ impl fmt::Display for ProjectionError {
             Self::Rect(err) => err.fmt(f),
             Self::Aspect(err) => err.fmt(f),
             Self::Share(err) => err.fmt(f),
+            Self::NotRectilinear(name) => write!(
+                f,
+                "only rectilinear axes can take a projection, not {name:?} ones"
+            ),
         }
     }
 }
@@ -81,7 +88,11 @@ impl std::error::Error for ProjectionError {
             Self::Rect(err) => Some(err),
             Self::Aspect(err) => Some(err),
             Self::Share(err) => Some(err),
-            Self::Unknown(_) | Self::Builtin(_) | Self::Options { .. } | Self::SetUp { .. } => None,
+            Self::Unknown(_)
+            | Self::Builtin(_)
+            | Self::Options { .. }
+            | Self::SetUp { .. }
+            | Self::NotRectilinear(_) => None,
         }
     }
 }
@@ -137,5 +148,10 @@ mod tests {
         assert!(std::error::Error::source(&grid).is_some());
         let aspect = ProjectionError::from(AspectError::FixedDataRatio(ProjectionKind::Polar));
         assert!(aspect.to_string().contains("polar"));
+        assert!(
+            ProjectionError::NotRectilinear("polar")
+                .to_string()
+                .ends_with("not \"polar\" ones")
+        );
     }
 }

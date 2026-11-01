@@ -558,7 +558,7 @@ fn add_annotation_bbox(
     let mut state = figure.borrow_mut();
     let mut parts = Parts::new(&mut state.store);
     let frame = parts.insert(frame_patch(boxstyle, options.frameon, options.bboxprops));
-    let child = parts.insert_tree(child);
+    let child = parts.insert_tree(child, owner.id());
     let parts = parts.into_ids();
     let artist = AnnotationBboxArtist {
         base: ArtistBase::with_zorder(ANNOTATION_BBOX_ZORDER),

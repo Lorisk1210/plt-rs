@@ -10,7 +10,9 @@ import functools
 
 import numpy as np
 
+from . import _handles
 from ._native import spines as _spines
+from .artist import Artist
 from .patches import Patch
 from .path import Path
 from .transforms import Bbox, IdentityTransform
@@ -28,10 +30,49 @@ class Spine(Patch):
     def __str__(self):
         return "Spine"
 
+    @classmethod
+    def linear_spine(cls, axes, spine_type, **kwargs):
+        """Create and return a linear `Spine`: the spine of *axes* on the
+        side *spine_type*, as an object of *cls*."""
+        natives = dict(_spines.axes_spines(axes._native))
+        if spine_type not in natives:
+            raise ValueError(f'unable to make path for spine "{spine_type}"')
+        spine = _handles.wrap(natives[spine_type], cls, axes.figure)
+        # Known without asking pltrs (Rust), which the projection of a
+        # program's class cannot while it draws.
+        spine.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
+        spine.set(**kwargs)
+        return spine
+
+    @property
+    def axes(self):
+        """The Axes the spine frames."""
+        axes = self.__dict__.get("_spine_axes")
+        return Artist.axes.fget(self) if axes is None else axes
+
+    @axes.setter
+    def axes(self, new_axes):
+        Artist.axes.fset(self, new_axes)
+
     @property
     def spine_type(self):
         """The side the spine frames: 'left', 'right', 'bottom' or 'top'."""
-        return _spines.side(self._native)
+        side = self.__dict__.get("_spine_type")
+        return _spines.side(self._native) if side is None else side
+
+    def _adjust_location(self):
+        """
+        Have the spine's path (``_path``: two points in data coordinates
+        along its axis and axes fractions across it) span its axis' view
+        interval, as matplotlib's linear spines do; what the projection of
+        a program's class asks of a spine class overriding it (bounds set
+        on the spine are taken by pltrs (Rust) first).
+        """
+        vertices = self._path.vertices
+        if self.spine_type in ('left', 'right'):
+            vertices[:, 1] = self.axes.viewLim.intervaly
+        else:
+            vertices[:, 0] = self.axes.viewLim.intervalx
 
     def set_position(self, position):
         """

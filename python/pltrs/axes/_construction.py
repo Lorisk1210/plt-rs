@@ -77,6 +77,7 @@ class ConstructionMixin:
             args = (rect,)
         _handles.adopt(self, _removed_native(fig, args), fig.figure)
         self._init_axes_state()
+        self._init_projection()
         # As matplotlib's `__init__`, which subclasses' `clear` (or `cla`)
         # overrides take part in.
         self.clear()

@@ -6,16 +6,20 @@
 //! `("text", text, multilinebaseline)`, `("drawing", width, height,
 //! xdescent, ydescent, clip, artists)`, `("aux", transform, artists)`,
 //! `("hpacker" | "vpacker", pad, sep, width, height, align, mode,
-//! children)`, `("padded", pad, child, draw_frame, patch_kwargs)` and
-//! `("image", image, zoom, dpi_cor)`.
+//! children)`, `("padded", pad, child, draw_frame, patch_kwargs)`,
+//! `("image", image, zoom, dpi_cor)` and `("anchored", child, options)`
+//! (an `AnchoredOffsetbox` inside another box, its options as
+//! `add_anchored` takes them).
 
 use pltrs::artist::RawHandle;
 use pltrs::offsetbox::{
-    AuxTransformBox, BoxItem, DrawingArea, OffsetBox, OffsetImage, Packer, PaddedBox, TextArea,
+    AnchoredBox, AuxTransformBox, BoxItem, DrawingArea, OffsetBox, OffsetImage, Packer, PaddedBox,
+    TextArea,
 };
 use pltrs::transforms::Transform;
 
 use super::super::patches::PatchKwargs;
+use super::add::PyAnchoredOptions;
 use super::{pack_align, pack_mode};
 use crate::binding::prelude::*;
 
@@ -88,6 +92,10 @@ impl FromPy<'_> for PyOffsetBox {
                     patch_kwargs.extract::<PatchKwargs>()?.0,
                 ))
             }
+            ("anchored", [child, options]) => OffsetBox::from(AnchoredBox::new(
+                child.extract::<PyOffsetBox>()?.0,
+                options.extract::<PyAnchoredOptions>()?.0,
+            )),
             ("image", [image, zoom, dpi_cor]) => OffsetBox::Image(OffsetImage {
                 image: BoxItem::from_loose(&image.extract::<RawHandle>()?)?,
                 zoom: zoom.extract()?,

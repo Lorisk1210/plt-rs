@@ -211,7 +211,9 @@ class AspectMixin:
     def viewLim(self):
         """The view limits of the Axes, ``(x0, y0), (x1, y1)`` in data
         coordinates, which `~.Bbox.set` sets as they are."""
-        return _ViewLimits(self)
+        # The box the transforms of a program's projection class are built on.
+        built = self.__dict__.get("_viewLim")
+        return _ViewLimits(self) if built is None else built
 
     def apply_aspect(self, position=None):
         """

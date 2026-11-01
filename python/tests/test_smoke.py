@@ -372,6 +372,55 @@ def test_ticks_and_axis_texts_mirror_the_axis():
     assert ax.yaxis.label.get_text() == "height"
     assert ax.yaxis.label.get_horizontalalignment() == "right"
 
+
+def test_projection_classes_of_the_program_draw_through_their_transforms():
+    from pltrs import axis as maxis, transforms
+    from pltrs.axes import Axes
+    from pltrs.projections import register_projection
+
+    class WideXAxis(maxis.XAxis):
+        def get_view_interval(self):
+            return -1.0, self.axes.viewLim.intervalx[1]
+
+    class LeaningAxes(Axes):
+        name = "pltrs-smoke-leaning"
+
+        def _init_axis(self):
+            self.xaxis = WideXAxis(self)
+            self.yaxis = maxis.YAxis(self)
+
+        def _set_lim_and_transforms(self):
+            super()._set_lim_and_transforms()
+            self.transData = (self.transScale + (
+                self.transLimits + transforms.Affine2D().skew_deg(45, 0))
+                + self.transAxes)
+
+    register_projection(LeaningAxes)
+    fig = plt.figure(figsize=(4, 4), dpi=100)
+    ax = fig.add_axes([0, 0, 1, 1], projection="pltrs-smoke-leaning")
+    assert isinstance(ax, LeaningAxes) and ax.name == "pltrs-smoke-leaning"
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.plot([0, 0], [0, 1], color="k")
+    np.testing.assert_allclose(ax.transData.transform((0, 1)), (400, 400))
+    assert min(ax.get_xticks()) < 0, "ticked over the axis' own interval"
+    pixels = _pixels(fig)
+    assert pixels[200, 200, 0] < 128 and pixels[200, 50, 0] == 255, "the line leans"
+
+
+def test_a_single_tick_takes_a_pad_of_its_own():
+    fig, ax = plt.subplots()
+    ax.set_xticks([0, 0.5, 1])
+    fig.canvas.draw()
+    labels = ax.xaxis.get_major_ticks()
+    before = [tick.label1.get_window_extent().y1 for tick in labels]
+    labels[1].set_pad(labels[1].get_pad() + 10)
+    assert ax.xaxis.get_major_ticks()[1].get_pad() == labels[0].get_pad() + 10
+    fig.canvas.draw()
+    after = [tick.label1.get_window_extent().y1 for tick in labels]
+    assert after[1] == pytest.approx(before[1] - 10 / 72 * fig.dpi)
+    assert (after[0], after[2]) == (before[0], before[2])
+
 def _pixels(fig):
     fig.canvas.draw()
     return np.asarray(fig.canvas.buffer_rgba()).copy()

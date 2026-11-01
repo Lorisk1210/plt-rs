@@ -149,7 +149,7 @@ impl TickLabelProps {
 impl AxisState {
     /// The style of the major (or `minor`) tick at `index`, counting every
     /// tick the locator places: the style of its level with that tick's
-    /// label, mark and gridline properties on top.
+    /// label, mark and gridline properties and its pad on top.
     pub(crate) fn tick_style_at(&self, minor: bool, index: usize) -> Cow<'_, TickStyle> {
         let (level, overrides) = if minor {
             (&self.minor_style, &self.minor_overrides)
@@ -159,7 +159,8 @@ impl AxisState {
         let label =
             (overrides.labels.get(index)).filter(|props| **props != TickLabelProps::default());
         let line = (overrides.lines.get(index)).filter(|props| **props != TickLineProps::default());
-        if label.is_none() && line.is_none() {
+        let pad = overrides.pads.get(index).copied().flatten();
+        if label.is_none() && line.is_none() && pad.is_none() {
             return Cow::Borrowed(level);
         }
         let mut style = level.clone();
@@ -168,6 +169,9 @@ impl AxisState {
         }
         if let Some(props) = line {
             props.apply(&mut style);
+        }
+        if let Some(pad) = pad {
+            style.pad = pad;
         }
         Cow::Owned(style)
     }

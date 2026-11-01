@@ -170,10 +170,26 @@ class OffsetBox(Artist):
         self._offset = (0, 0)
 
     def _add_to_axes(self, axes, kind, autolim=True):
-        raise NotImplementedError("pltrs: add_artist of an OffsetBox")
+        return self._join_at_offset(axes)
 
     def _add_to_figure(self, figure, clip):
-        raise NotImplementedError("pltrs: add_artist of an OffsetBox")
+        return self._join_at_offset(figure)
+
+    def _join_at_offset(self, parent):
+        """Join *parent*, an axes or a figure, as a box pltrs (Rust) draws
+        with its origin at the box's offset in display pixels (a plain
+        offset box given to ``add_artist``); return self."""
+        if callable(self._offset):
+            raise NotImplementedError(
+                "pltrs: an offset box added with a callable offset")
+        native, parts = _offsetbox.add_placed(
+            parent._native, self._native, self._native_tree(),
+            tuple(map(float, self._offset)))
+        figure = parent.figure
+        self._adopt_tree(iter(parts), figure)
+        self._joined(self)
+        self._placed = True
+        return _handles.adopt(self, native, figure)
 
     def _native_tree(self):
         """
@@ -221,6 +237,13 @@ class OffsetBox(Artist):
 -> (float, float)
         """
         self._offset = xy
+        self._move_placed(xy)
+
+    def _move_placed(self, xy):
+        """Move the box to the offset *xy* where pltrs (Rust) draws it, for
+        a box added to an axes or a figure itself."""
+        if self.__dict__.get("_placed") and not callable(xy):
+            _offsetbox.set_placed_offset(self._native, tuple(map(float, xy)))
 
     @_compat_get_offset
     def get_offset(self, bbox, renderer):
@@ -495,6 +518,7 @@ class DrawingArea(OffsetBox):
         self._offset = xy
         self.offset_transform.clear()
         self.offset_transform.translate(xy[0], xy[1])
+        self._move_placed(xy)
 
     def get_offset(self):
         """Return offset of the container."""
@@ -617,6 +641,7 @@ class TextArea(OffsetBox):
         self._offset = xy
         self.offset_transform.clear()
         self.offset_transform.translate(xy[0], xy[1])
+        self._move_placed(xy)
 
     def get_offset(self):
         """Return offset of the container."""
@@ -702,6 +727,7 @@ class AuxTransformBox(OffsetBox):
         self._offset = xy
         self.offset_transform.clear()
         self.offset_transform.translate(xy[0], xy[1])
+        self._move_placed(xy)
 
     def get_offset(self):
         """Return offset of the container."""
@@ -807,18 +833,40 @@ class AnchoredOffsetbox(OffsetBox):
         return bounds, (None if transform is None
                         else _live_transforms.to_native(transform))
 
+    def _native_options(self):
+        """The settings of the box as pltrs (Rust) takes them."""
+        bounds, transform = self._native_anchor()
+        return {"loc": self.loc, "pad": float(self.pad),
+                "borderpad": self.borderpad,
+                "prop": FontManager._props(self.prop),
+                "frameon": bool(self.frameon), "bbox_to_anchor": bounds,
+                "bbox_transform": transform}
+
+    def _native_tree(self):
+        # The box inside another box: drawn at its anchor all the same.
+        return ("anchored", self.get_child()._native_tree(),
+                self._native_options())
+
+    def _adopt_tree(self, natives, figure):
+        from .patches import FancyBboxPatch
+        self.patch = _handles.wrap(next(natives), FancyBboxPatch, figure)
+        self.get_child()._adopt_tree(natives, figure)
+        self._in_tree = True
+
+    def get_window_extent(self, renderer=None):
+        """Return the box's extent in display space (for a box inside
+        another box's tree, its frame's: the box drawn at its anchor)."""
+        if self.__dict__.get("_in_tree"):
+            return self.patch.get_window_extent(renderer)
+        return super().get_window_extent(renderer)
+
     def _join(self, parent):
         """Join *parent*, an axes or a figure, with the child tree: pltrs
         (Rust) anchors the box there; return self."""
         from .patches import FancyBboxPatch
-        bounds, transform = self._native_anchor()
         native, parts, frame = _offsetbox.add_anchored(
-            parent._native, self._native, self.get_child()._native_tree(), {
-                "loc": self.loc, "pad": float(self.pad),
-                "borderpad": self.borderpad,
-                "prop": FontManager._props(self.prop),
-                "frameon": bool(self.frameon), "bbox_to_anchor": bounds,
-                "bbox_transform": transform})
+            parent._native, self._native, self.get_child()._native_tree(),
+            self._native_options())
         figure = parent.figure
         self.get_child()._adopt_tree(iter(parts), figure)
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)

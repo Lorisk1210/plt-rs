@@ -1,9 +1,11 @@
 //! Moving the artists of laid-out offset-box trees into place, and the
-//! figure's layout pass over the anchored and annotation boxes.
+//! figure's layout pass over the anchored, annotation and placed boxes.
 
 use pltrs_core::Bbox;
 
-use super::{AnchoredBoxArtist, AnnotationBboxArtist, ArtistRef, OffsetBox, Placement};
+use super::{
+    AnchoredBoxArtist, AnnotationBboxArtist, ArtistRef, OffsetBox, PlacedBoxArtist, Placement,
+};
 use crate::artist::{Artist, ArtistId, ArtistStore, ClipPathSpec, DrawError, LayoutContext};
 use crate::figure::{FigureState, draws_before};
 use crate::image::BboxImageArtist;
@@ -87,12 +89,17 @@ fn measure_aux_boxes(state: &mut FigureState, tree: &mut OffsetBox<ArtistId>) {
     });
 }
 
-/// The tree of the anchored or annotation box `id`, if it is one.
+/// The tree of the anchored, annotation or placed box `id`, if it is one.
 fn tree_mut(store: &mut ArtistStore, id: ArtistId) -> Option<&mut OffsetBox<ArtistId>> {
     if store.get_as::<AnchoredBoxArtist>(id).is_some() {
         return store
             .get_as_mut::<AnchoredBoxArtist>(id)
             .map(|anchored| &mut anchored.child);
+    }
+    if store.get_as::<PlacedBoxArtist>(id).is_some() {
+        return store
+            .get_as_mut::<PlacedBoxArtist>(id)
+            .map(|placed| &mut placed.child);
     }
     store
         .get_as_mut::<AnnotationBboxArtist>(id)
@@ -115,7 +122,7 @@ fn drawn_before(state: &FigureState, id: ArtistId) -> Vec<ArtistId> {
         .collect()
 }
 
-/// Where the parts of the anchored or annotation box `id` go.
+/// Where the parts of the anchored, annotation or placed box `id` go.
 fn placements(
     state: &FigureState,
     id: ArtistId,
@@ -123,16 +130,19 @@ fn placements(
     let drawn = drawn_before(state, id);
     let ctx = LayoutContext::new(state).with_drawn(&drawn);
     let store = &state.store;
-    let laid_out = match store.get_as::<AnchoredBoxArtist>(id) {
-        Some(anchored) => anchored.layout(ctx).map(|layout| layout.placements),
-        None => store.get_as::<AnnotationBboxArtist>(id)?.placements(ctx),
+    let laid_out = if let Some(anchored) = store.get_as::<AnchoredBoxArtist>(id) {
+        anchored.layout(ctx).map(|layout| layout.placements)
+    } else if let Some(placed) = store.get_as::<PlacedBoxArtist>(id) {
+        placed.placements(ctx)
+    } else {
+        store.get_as::<AnnotationBboxArtist>(id)?.placements(ctx)
     };
     Some(laid_out.map_err(|err| err.to_string()))
 }
 
-/// Lays out every anchored and annotation box of the figure and moves its
-/// parts into place; boxes that cannot be laid out are reported with the
-/// next draw.
+/// Lays out every anchored, annotation and placed box of the figure and
+/// moves its parts into place; boxes that cannot be laid out are reported
+/// with the next draw.
 pub(crate) fn lay_out_boxes(state: &mut FigureState) {
     let boxes: Vec<ArtistId> = state
         .store
@@ -140,6 +150,7 @@ pub(crate) fn lay_out_boxes(state: &mut FigureState) {
         .filter(|&id| {
             state.store.get_as::<AnchoredBoxArtist>(id).is_some()
                 || state.store.get_as::<AnnotationBboxArtist>(id).is_some()
+                || state.store.get_as::<PlacedBoxArtist>(id).is_some()
         })
         .collect();
     for id in boxes {

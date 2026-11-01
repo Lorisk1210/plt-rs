@@ -233,6 +233,52 @@ impl Axes {
         projector.apply(self.inset_axes(bounds))
     }
 
+    /// Hands this rectilinear axes over to `projection`, a projection made
+    /// for this axes alone, which sets it up first (matplotlib's
+    /// `__init__` of a projection's class; a binding gives axes of a
+    /// program's projection class a projection asking the program).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::projections::{Projection, ProjectionView};
+    /// use pltrs::transforms::ResolvedTransform;
+    ///
+    /// #[derive(Debug)]
+    /// struct Plain;
+    ///
+    /// impl Projection for Plain {
+    ///     fn name(&self) -> &'static str {
+    ///         "plain"
+    ///     }
+    ///     fn data_to_axes(&self, view: &ProjectionView<'_>) -> ResolvedTransform {
+    ///         view.rectilinear()
+    ///     }
+    /// }
+    ///
+    /// let ax = Figure::new().subplot();
+    /// ax.install_projection(Plain)?;
+    /// assert_eq!(ax.projection().name(), "plain");
+    /// assert!(ax.install_projection(Plain).is_err(), "it has one");
+    /// # Ok::<(), pltrs::projections::ProjectionError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`ProjectionError::NotRectilinear`] when the axes already is drawn
+    /// through a projection, [`ProjectionError::SetUp`] when `projection`
+    /// fails to set it up; the axes stays as it was either way.
+    pub fn install_projection(
+        &self,
+        projection: impl Projection,
+    ) -> Result<&Self, ProjectionError> {
+        let current = self.projection();
+        if current != ProjectionKind::Rectilinear {
+            return Err(ProjectionError::NotRectilinear(current.name()));
+        }
+        install(self, Box::new(projection))?;
+        Ok(self)
+    }
+
     /// The projection this axes was made with, with its options
     /// (matplotlib's `_projection_init`).
     pub(crate) fn made_with(&self) -> ProjectionSpec {

@@ -20,6 +20,7 @@
 //!   pickling a figure rests on).
 //! * [`bezier`] — evaluation, subdivision and extrema of Bézier curves.
 //! * [`hatch`] — matplotlib's hatch patterns.
+//! * [`interned`] — run-time strings kept as `&'static str`.
 //! * [`json`] — JSON values, read as Python's `json` module writes them
 //!   (the spec's goldens) or strictly by RFC 8259 (untrusted messages),
 //!   and written back.
@@ -40,6 +41,7 @@ mod bbox;
 pub mod bezier;
 mod color;
 pub mod hatch;
+mod intern;
 pub mod json;
 pub mod numeric;
 pub mod path;
@@ -50,5 +52,6 @@ pub mod rng;
 pub use affine::Affine2D;
 pub use bbox::{Anchor, Bbox};
 pub use color::Rgba;
+pub use intern::interned;
 pub use path::{Path, PathBuilder, PathCode, PathError, Segment};
 pub use point::Point;

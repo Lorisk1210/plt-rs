@@ -10,6 +10,7 @@
 
 use pltrs_core::{Bbox, Path, Point};
 
+use super::anchored_node::AnchoredNode;
 use super::leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
 use super::{ArtistRef, OffsetBoxError, PackAlign, PackMode, aligned_offsets, packed_offsets};
 use crate::artist::LayoutContext;
@@ -32,6 +33,9 @@ pub enum OffsetBox<A> {
     Image(OffsetImage<A>),
     /// A child with padding and a frame (matplotlib's `PaddedBox`).
     PaddedBox(PaddedBox<A>),
+    /// A box drawn at its anchor, laid out by its parent with its padded
+    /// extent (matplotlib's `AnchoredOffsetbox` as a child).
+    Anchored(AnchoredNode<A>),
 }
 
 pltrs_core::archive_enum!(OffsetBox<A> {
@@ -42,6 +46,7 @@ pltrs_core::archive_enum!(OffsetBox<A> {
     AuxTransformBox(v0),
     Image(v0),
     PaddedBox(v0),
+    Anchored(v0),
 });
 
 /// The settings and children of an [`OffsetBox::HPacker`] or
@@ -147,6 +152,7 @@ impl<A> OffsetBox<A> {
             Self::AuxTransformBox(aux) => aux.visible,
             Self::Image(image) => image.visible,
             Self::PaddedBox(padded) => padded.visible,
+            Self::Anchored(anchored) => anchored.visible,
         }
     }
 
@@ -159,6 +165,7 @@ impl<A> OffsetBox<A> {
             Self::AuxTransformBox(aux) => aux.visible = visible,
             Self::Image(image) => image.visible = visible,
             Self::PaddedBox(padded) => padded.visible = visible,
+            Self::Anchored(anchored) => anchored.visible = visible,
         }
         self
     }
@@ -195,6 +202,12 @@ impl<A> OffsetBox<A> {
                 artists.push(&padded.frame);
                 if padded.child.is_visible() {
                     padded.child.collect_artists(artists);
+                }
+            }
+            Self::Anchored(anchored) => {
+                artists.push(&anchored.frame);
+                if anchored.child.is_visible() {
+                    anchored.child.collect_artists(artists);
                 }
             }
         }
@@ -241,6 +254,29 @@ impl<A> OffsetBox<A> {
                     visible: padded.visible,
                 })
             }
+            Self::Anchored(anchored) => OffsetBox::Anchored(anchored.map(f)),
+        }
+    }
+
+    /// Anchors the anchored boxes of the tree in `owner`, the axes or
+    /// figure the tree joined (matplotlib's `OffsetBox.axes` setter,
+    /// which gives the box's axes to its children).
+    pub(crate) fn join_owner(&mut self, owner: crate::artist::ArtistId) {
+        match self {
+            Self::HPacker(packer) | Self::VPacker(packer) => {
+                for child in &mut packer.children {
+                    child.join_owner(owner);
+                }
+            }
+            Self::PaddedBox(padded) => padded.child.join_owner(owner),
+            Self::Anchored(anchored) => {
+                anchored.owner = Some(owner);
+                anchored.child.join_owner(owner);
+            }
+            Self::DrawingArea(_)
+            | Self::TextArea(_)
+            | Self::AuxTransformBox(_)
+            | Self::Image(_) => {}
         }
     }
 
@@ -261,6 +297,7 @@ impl<A> OffsetBox<A> {
             }
             Self::DrawingArea(area) => areas.push(area),
             Self::PaddedBox(padded) => padded.child.collect_drawing_areas(areas),
+            Self::Anchored(anchored) => anchored.child.collect_drawing_areas(areas),
             Self::TextArea(_) | Self::AuxTransformBox(_) | Self::Image(_) => {}
         }
     }
@@ -275,6 +312,7 @@ impl<A> OffsetBox<A> {
             }
             Self::AuxTransformBox(aux) => f(aux),
             Self::PaddedBox(padded) => padded.child.for_each_aux_mut(f),
+            Self::Anchored(anchored) => anchored.child.for_each_aux_mut(f),
             Self::DrawingArea(_) | Self::TextArea(_) | Self::Image(_) => {}
         }
     }
@@ -332,6 +370,7 @@ impl<A: ArtistRef> OffsetBox<A> {
                 let pad = padded.pad * ctx.points_to_pixels(1.0);
                 Ok(padded.child.bbox(ctx)?.padded(pad, pad))
             }
+            Self::Anchored(anchored) => anchored.bbox(ctx),
         }
     }
 
@@ -375,6 +414,7 @@ impl<A: ArtistRef> OffsetBox<A> {
                     padded.child.place_into(ctx, offset, None, placements)?;
                 }
             }
+            Self::Anchored(anchored) => placements.extend(anchored.place(ctx)?),
         }
         Ok(())
     }
@@ -498,4 +538,5 @@ box_from! {
     AuxTransformBox => AuxTransformBox,
     OffsetImage => Image,
     PaddedBox => PaddedBox,
+    AnchoredNode => Anchored,
 }

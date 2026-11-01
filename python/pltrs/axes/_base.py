@@ -19,6 +19,7 @@ from ._decorations import DecorationsMixin
 from ._layout import LayoutMixin
 from ._limits import LimitsMixin
 from ._navigation import NavigationMixin
+from ._projection import ProjectionMixin
 from ._ticks import TicksMixin
 from ._units import UnitsMixin
 from ..transforms import Bbox
@@ -48,7 +49,7 @@ class _SharedAxes:
 
 class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
                 DecorationsMixin, AspectMixin, LayoutMixin, UnitsMixin,
-                BlittingMixin, Artist):
+                BlittingMixin, ProjectionMixin, Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 
@@ -79,13 +80,27 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
     @property
     def transData(self):
         """The transform from data coordinates to display coordinates."""
+        built = self.__dict__.get("_transData")
+        if built is not None:  # By a projection class of the program's.
+            return built
         return _live_transforms.cached(self, "transData", _transforms.trans_data)
+
+    @transData.setter
+    def transData(self, transform):
+        self.__dict__["_transData"] = transform
 
     @property
     def transAxes(self):
         """The transform from axes coordinates (0 to 1) to display
         coordinates."""
+        built = self.__dict__.get("_transAxes")
+        if built is not None:  # By a projection class of the program's.
+            return built
         return _live_transforms.cached(self, "transAxes", _transforms.trans_axes)
+
+    @transAxes.setter
+    def transAxes(self, transform):
+        self.__dict__["_transAxes"] = transform
 
     def get_xaxis_transform(self, which='grid'):
         """
@@ -95,6 +110,9 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         """
         if which not in ('grid', 'tick1', 'tick2'):
             raise ValueError(f'unknown value for which: {which!r}')
+        built = self.__dict__.get("_xaxis_transform")
+        if built is not None:  # By a projection class of the program's.
+            return built
         return _live_transforms.cached(self, "xaxis_transform",
                                        _transforms.trans_xaxis)
 
@@ -106,6 +124,9 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         """
         if which not in ('grid', 'tick1', 'tick2'):
             raise ValueError(f'unknown value for which: {which!r}')
+        built = self.__dict__.get("_yaxis_transform")
+        if built is not None:  # By a projection class of the program's.
+            return built
         return _live_transforms.cached(self, "yaxis_transform",
                                        _transforms.trans_yaxis)
 

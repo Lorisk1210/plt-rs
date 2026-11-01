@@ -1,13 +1,15 @@
-//! The program's work at every draw, once the figure is laid out and
-//! before its artists are drawn ([`Figure::set_draw_hook`]).
+//! The program's work at every draw: before the figure is laid out
+//! ([`Figure::set_layout_hook`]), and once it is laid out, before its
+//! artists are drawn ([`Figure::set_draw_hook`]).
 
 use std::fmt;
 use std::rc::Rc;
 
 use super::Figure;
 
-/// A function run whenever a figure is drawn, after its layout and before
-/// its artists (see [`Figure::set_draw_hook`]).
+/// A function run whenever a figure is drawn, before its layout (see
+/// [`Figure::set_layout_hook`]) or after it, before its artists (see
+/// [`Figure::set_draw_hook`]).
 #[derive(Clone)]
 pub struct DrawHook(Rc<dyn Fn(&Figure)>);
 
@@ -52,8 +54,44 @@ impl Figure {
     /// Runs the draw hook, if any, with no borrow of the figure held.
     pub(crate) fn run_draw_hook(&self) {
         let hook = self.state().draw_hook.clone();
+        self.run_hook(hook);
+    }
+
+    /// Runs `hook`, if any, on the figure.
+    fn run_hook(&self, hook: Option<DrawHook>) {
         if let Some(DrawHook(hook)) = hook {
             hook(self);
         }
+    }
+
+    /// Runs `hook` whenever the figure is laid out to be drawn (drawn,
+    /// saved, or laid out without drawing), before its layout; `None`
+    /// removes the hook. This is where a program brings into its figure
+    /// what the layout depends on and only the program computes, as
+    /// matplotlib calls the axes locators of the program's when it draws
+    /// (pltrs's Python package places there the axes such locators
+    /// place). The hook may change the figure; it lives only while the
+    /// figure does, and is not archived.
+    ///
+    /// ```
+    /// use pltrs::figure::{DrawHook, Figure};
+    /// use pltrs::transforms::Bbox;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let placed = ax.clone();
+    /// fig.set_layout_hook(Some(DrawHook::new(move |_| {
+    ///     placed.set_position([0.25, 0.25, 0.5, 0.5]);
+    /// })));
+    /// fig.layout();
+    /// assert_eq!(ax.position(), Bbox::from_bounds(0.25, 0.25, 0.5, 0.5));
+    /// ```
+    pub fn set_layout_hook(&self, hook: Option<DrawHook>) {
+        self.state_mut().layout_hook = hook;
+    }
+
+    /// Runs the layout hook, if any, with no borrow of the figure held.
+    pub(crate) fn run_layout_hook(&self) {
+        let hook = self.state().layout_hook.clone();
+        self.run_hook(hook);
     }
 }

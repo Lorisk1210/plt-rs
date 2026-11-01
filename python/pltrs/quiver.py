@@ -169,11 +169,10 @@ class QuiverKey(martist.Artist):
             *family*, *style*, *variant*, *size*, *weight*.
         zorder : float
             The zorder of the key. The default is 0.1 above *Q*.
+        **kwargs
+            Any additional keyword arguments are used to override vector
+            properties taken from *Q*.
         """
-        if kwargs:
-            raise NotImplementedError(
-                f"pltrs: quiverkey({', '.join(kwargs)}=...): vector properties "
-                "other than color")
         _api.check_in_list(['axes', 'figure', 'data', 'inches'],
                            coordinates=coordinates)
         _api.check_in_list(['N', 'S', 'E', 'W'], labelpos=labelpos)
@@ -195,7 +194,9 @@ class QuiverKey(martist.Artist):
             Q.axes._native, Q._native, (float(X), float(Y)), float(U), str(label),
             (float(angle), coordinates, _rgba(color),
              None if zorder is None else float(zorder)),
-            (float(labelsep), labelpos, _rgba(labelcolor), font))
+            (float(labelsep), labelpos, _rgba(labelcolor), font),
+            mcollections._native_kwargs(
+                cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)))
         _handles.adopt(self, native, Q.figure)
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,

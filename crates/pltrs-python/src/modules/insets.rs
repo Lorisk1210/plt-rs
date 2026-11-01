@@ -15,6 +15,8 @@ use super::axes_grid1::side_named;
 use super::figure::projection_kind;
 use crate::binding::prelude::*;
 
+mod program_locators;
+
 artist_handle!(InsetIndicator);
 
 /// Lets the axes keep its original position: no divider, inset locator
@@ -150,6 +152,7 @@ fn indicator_parts(indicator: InsetIndicator) -> PyResult<Vec<Patch<ConnectionPa
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    program_locators::register(module)?;
     module.add("clear_axes_locator", clear_axes_locator)?;
     module.add("child_axes", child_axes)?;
     module.add("inset_axes", inset_axes)?;

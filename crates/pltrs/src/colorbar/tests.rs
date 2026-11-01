@@ -389,6 +389,36 @@ fn limits_opacity_and_dividers_read_back() {
 }
 
 #[test]
+fn only_a_colorbar_of_a_bare_mapping_takes_the_alpha_option() {
+    // matplotlib's Colorbar(alpha=...): kept for a bare ScalarMappable,
+    // replaced by the opacity of a drawn mappable.
+    let fig = Figure::new();
+    let ax = fig.subplot();
+    let mappable = ScalarMappable::with_norm(
+        colormaps::get("viridis").unwrap(),
+        Box::new(Normalize::new(0.0, 1.0)),
+    );
+    let options = ColorbarOptions {
+        alpha: Some(0.5),
+        ..ColorbarOptions::beside(&ax)
+    };
+    let bare = fig.colorbar(&mappable, options).unwrap();
+    assert_eq!(bare.alpha(), Some(0.5));
+    assert_eq!(bare.solids().unwrap().alpha(), Some(0.5));
+    let (fig, ax, image) = image_figure();
+    let drawn = fig
+        .colorbar(
+            &image,
+            ColorbarOptions {
+                alpha: Some(0.5),
+                ..ColorbarOptions::beside(&ax)
+            },
+        )
+        .unwrap();
+    assert_eq!(drawn.alpha(), None);
+}
+
+#[test]
 fn hatched_contours_get_hatched_blocks_and_extensions() {
     let fig = Figure::new();
     let ax = fig.subplot();

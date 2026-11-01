@@ -149,13 +149,46 @@ impl Axes3D {
         scatter: &Collection,
         depthshade: bool,
     ) -> Result<&Self, Axes3DError> {
+        self.update_points(scatter, |points| points.depthshade = depthshade)
+    }
+
+    /// Sets the lowest opacity the depth shading of a scatter plot (or of
+    /// lifted patches) of this axes gives its farthest markers
+    /// (matplotlib's `set_depthshade(..., depthshade_minalpha=...)`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let points = ax.scatter(&[0.0, 1.0], &[0.0, 1.0], &[0.0, 1.0])?;
+    /// ax.set_depthshade_minalpha(&points, 0.1)?;
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `scatter` is not a scatter plot (or lifted patches) of this
+    /// axes.
+    pub fn set_depthshade_minalpha(
+        &self,
+        scatter: &Collection,
+        min_alpha: f64,
+    ) -> Result<&Self, Axes3DError> {
+        self.update_points(scatter, |points| points.min_alpha = min_alpha)
+    }
+
+    /// Changes the 3-D points of `scatter` with `change`.
+    fn update_points(
+        &self,
+        scatter: &Collection,
+        change: impl FnOnce(&mut Points3D),
+    ) -> Result<&Self, Axes3DError> {
         let id = self.own_id(scatter);
         let found = self.with_mut(|axes| {
             let entry = axes.artists.iter_mut().find(|a| Some(a.id) == id)?;
             let Art3D::Points(points) = &mut entry.art else {
                 return None;
             };
-            points.depthshade = depthshade;
+            change(points);
             Some(())
         });
         found.map(|()| self).ok_or(Axes3DError::Not3DArtist)

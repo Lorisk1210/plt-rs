@@ -166,8 +166,8 @@ class PdfFile:
     (Rust) writes it page by page until it is finished.
     """
 
-    def __init__(self):
-        self._native = _backends.pdf_pages_new()
+    def __init__(self, metadata=None):
+        self._native = _backends.pdf_pages_new(_native_info(metadata))
 
     @property
     def _images(self):
@@ -208,9 +208,8 @@ class PdfPages:
             Information dictionary object (see PDF reference section 10.2.1
             'Document Information Dictionary').
         """
-        if metadata is not None:
-            raise NotImplementedError("pltrs: PdfPages(metadata=...)")
         self._filename = filename
+        self._metadata = (metadata or {}).copy()
         self._file = None
 
     def __enter__(self):
@@ -222,7 +221,7 @@ class PdfPages:
     def _ensure_file(self):
         """The document, started on first use."""
         if self._file is None:
-            self._file = PdfFile()
+            self._file = PdfFile(metadata=self._metadata)
         return self._file
 
     def close(self):
@@ -266,9 +265,9 @@ class PdfPages:
         Add a new text note to the page to be saved next. The note is
         placed outside the page, so that it is invisible on printouts.
         """
-        if list(positionRect) != [-100, -100, 0, 0]:
-            raise NotImplementedError("pltrs: attach_note(positionRect=...)")
-        _backends.pdf_pages_attach_note(self._ensure_file()._native, str(text))
+        x0, y0, x1, y1 = map(float, positionRect)
+        _backends.pdf_pages_attach_note(self._ensure_file()._native, str(text),
+                                        (x0, y0, x1, y1))
 
 
 class RendererPdf(RendererPDFPSBase):

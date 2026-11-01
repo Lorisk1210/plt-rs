@@ -2031,8 +2031,6 @@ class FigureCanvasBase:
             pdf file with the "pgf" backend rather than the default "pdf".
             Custom backends can be referenced as "module://...".
         """
-        if bbox_extra_artists is not None:
-            raise NotImplementedError("pltrs: savefig(bbox_extra_artists=...)")
         if format is None:
             # get format from filename, or from backend's default filetype
             if isinstance(filename, os.PathLike):
@@ -2072,12 +2070,36 @@ class FigureCanvasBase:
               cbook._setattr_cm(self.figure, dpi=dpi),
               cbook._setattr_cm(self.figure.canvas, _device_pixel_ratio=1),
               cbook._setattr_cm(self.figure.canvas, _is_saving=True)):
+            if (area is not None and bbox_extra_artists is not None
+                    and cbook._str_equal(bbox_inches, "tight")):
+                area = self._tight_area(bbox_extra_artists, area["pad_inches"])
             return print_method(
                 filename,
                 orientation=orientation,
                 bbox_inches_restore=area,
                 **colors,
                 **kwargs)
+
+    def _tight_area(self, bbox_extra_artists, pad_inches):
+        """
+        The area ``bbox_inches="tight"`` saves when *bbox_extra_artists*
+        are given: the tight box of those artists and of the Axes, padded
+        by *pad_inches* (the constrained layout's paddings for
+        ``"layout"``), as matplotlib's ``print_figure`` computes it.
+        """
+        from .layout_engine import ConstrainedLayoutEngine
+        bbox = self.figure.get_tightbbox(bbox_extra_artists=bbox_extra_artists)
+        layout_engine = self.figure.get_layout_engine()
+        if (isinstance(layout_engine, ConstrainedLayoutEngine)
+                and pad_inches == "layout"):
+            h_pad = layout_engine.get()["h_pad"]
+            w_pad = layout_engine.get()["w_pad"]
+        else:
+            if pad_inches in [None, "layout"]:
+                pad_inches = rcParams['savefig.pad_inches']
+            h_pad = w_pad = pad_inches
+        return {"bbox_inches": tuple(bbox.padded(w_pad, h_pad).extents),
+                "pad_inches": 0}
 
     def _print_settings(self, *, facecolor=None, edgecolor=None,
                         orientation=None, bbox_inches_restore=None,

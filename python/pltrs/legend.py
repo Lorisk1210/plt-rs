@@ -17,6 +17,7 @@ import time
 import numpy as np
 
 from . import _api, _handles, _live_transforms, colors, rcParams
+from . import _val_or_rc
 from ._native import legend as _legend
 from ._native import register as _register
 from ._native import text as _text
@@ -25,7 +26,7 @@ from .collections import (CircleCollection, Collection, LineCollection,
                           PatchCollection, PathCollection, PolyCollection,
                           RegularPolyCollection)
 from .container import BarContainer, Container, ErrorbarContainer, StemContainer
-from .font_manager import FontProperties
+from .font_manager import FontManager, FontProperties
 from .legend_handler import (HandlerCircleCollection, HandlerErrorbar,
                              HandlerLine2D, HandlerLineCollection, HandlerPatch,
                              HandlerPathCollection, HandlerPolyCollection,
@@ -143,8 +144,6 @@ class Legend(Artist):
         """
         from .axes._base import _AxesBase
         from .figure import FigureBase
-        if prop is not None:
-            raise NotImplementedError("pltrs: Legend(prop=...)")
         if shadow is None:
             shadow = rcParams["legend.shadow"]
         if not isinstance(shadow, dict):
@@ -186,6 +185,13 @@ class Legend(Artist):
                 continue
             entries.append(self._entry(handle, handler_map))
             kept.append(str(label))
+        if prop is None:
+            self.prop = FontProperties(size=_val_or_rc(fontsize, "legend.fontsize"))
+        else:
+            self.prop = FontProperties._from_any(prop)
+            if isinstance(prop, dict) and "size" not in prop:
+                self.prop.set_size(rcParams["legend.fontsize"])
+        self._fontsize = self.prop.get_size_in_points()
         loc = self._validated_loc(loc)
         ncols = ncols if ncols != 1 else ncol
         if (labelcolor is not None and not isinstance(labelcolor, str)
@@ -198,6 +204,7 @@ class Legend(Artist):
             markerscale=self.markerscale,
             markerfirst=markerfirst, reverse=reverse,
             scatterpoints=self.scatterpoints, scatteryoffsets=scatteryoffsets,
+            prop=None if prop is None else FontManager._props(self.prop),
             fontsize=fontsize, labelcolor=labelcolor, borderpad=borderpad,
             labelspacing=labelspacing, handlelength=handlelength,
             handleheight=handleheight, handletextpad=handletextpad,

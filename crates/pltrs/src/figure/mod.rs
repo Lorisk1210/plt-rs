@@ -408,6 +408,7 @@ impl Figure {
     /// The layout pass of [`Figure::layout`], before a draw, then the
     /// limit callbacks its autoscaling queued.
     pub(crate) fn prepare_layout(&self) {
+        self.run_layout_hook();
         {
             let mut state = self.state.borrow_mut();
             state.layout.pending = true;

@@ -85,16 +85,39 @@ impl Axis {
     /// assert_eq!(ax.xaxis().tight_bbox(), None);
     /// ```
     pub fn tight_bbox(&self) -> Option<Bbox> {
+        self.tight_bbox_with(false)
+    }
+
+    /// [`Axis::tight_bbox`], the axis label collapsed along the axis when
+    /// `for_layout_only` (matplotlib's `get_tightbbox(for_layout_only=
+    /// True)`, which lets layout engines ignore labels longer than their
+    /// axis).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::with_size(4.0, 3.0, 100.0).subplot();
+    /// ax.set_xlabel("a label much, much, much, much longer than its axis");
+    /// let full = ax.xaxis().tight_bbox_with(false).unwrap();
+    /// let layout = ax.xaxis().tight_bbox_with(true).unwrap();
+    /// assert!(layout.width() < full.width());
+    /// assert_eq!(layout.y0(), full.y0());
+    /// ```
+    pub fn tight_bbox_with(&self, for_layout_only: bool) -> Option<Bbox> {
         let mut state = self.axes.raw().figure_state().borrow_mut();
         state.prepare();
-        state.tight_bbox_of_axis(self.axes.id(), self.name)
+        state.tight_bbox_of_axis(self.axes.id(), self.name, for_layout_only)
     }
 }
 
 impl FigureState {
-    /// [`Axis::tight_bbox`] of axis `name` of `axes`, its ticks brought up
-    /// to date.
-    fn tight_bbox_of_axis(&mut self, axes: ArtistId, name: AxisName) -> Option<Bbox> {
+    /// [`Axis::tight_bbox_with`] of axis `name` of `axes`, its ticks
+    /// brought up to date.
+    fn tight_bbox_of_axis(
+        &mut self,
+        axes: ArtistId,
+        name: AxisName,
+        for_layout_only: bool,
+    ) -> Option<Bbox> {
         self.lay_out_axes(axes);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
@@ -107,7 +130,7 @@ impl FigureState {
             return None;
         }
         let painter = AxisPainter::new(axes, state, name);
-        axis_tight_bbox(LayoutContext::new(self), &painter, false)
+        axis_tight_bbox(LayoutContext::new(self), &painter, for_layout_only)
     }
 
     /// matplotlib's `ax.get_tightbbox(for_layout_only=...)` in display

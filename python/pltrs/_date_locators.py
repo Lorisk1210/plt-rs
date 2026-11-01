@@ -147,15 +147,13 @@ def _weekdays(values):
 #: The keywords of a dateutil ``rrule`` pltrs (Rust) takes.
 _RULE_KEYWORDS = {'freq', 'dtstart', 'interval', 'wkst', 'count', 'until',
                   'bysetpos', 'bymonth', 'bymonthday', 'byyearday',
-                  'byweekday', 'byhour', 'byminute', 'bysecond', 'byeaster',
-                  'cache'}
+                  'byweekno', 'byweekday', 'byhour', 'byminute', 'bysecond',
+                  'byeaster', 'cache'}
 
 
 def _rule(construct):
     """The native description of the rule of dateutil's keywords."""
     unknown = set(construct) - _RULE_KEYWORDS
-    if 'byweekno' in unknown:
-        raise NotImplementedError("pltrs: rrulewrapper(byweekno=...)")
     if unknown:
         raise TypeError(f"rrule got an unexpected keyword argument "
                         f"{unknown.pop()!r}")
@@ -175,7 +173,8 @@ def _rule(construct):
         'byweekday': _weekdays(construct.get('byweekday')),
         **{key: _int_list(construct.get(key))
            for key in ('bysetpos', 'bymonth', 'bymonthday', 'byyearday',
-                       'byhour', 'byminute', 'bysecond', 'byeaster')},
+                       'byweekno', 'byhour', 'byminute', 'bysecond',
+                       'byeaster')},
     }
 
 

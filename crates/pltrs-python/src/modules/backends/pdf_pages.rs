@@ -2,7 +2,7 @@
 
 use pltrs::figure::{Figure, PdfPages};
 
-use super::print::PrintSettings;
+use super::print::{DocumentMetadata, PrintSettings};
 use crate::binding::prelude::*;
 
 /// A PDF document collecting pages, until it is finished.
@@ -24,9 +24,11 @@ impl IntoPy for PdfDocument {
     }
 }
 
-/// An empty document.
-fn pdf_pages_new() -> PyResult<PdfDocument> {
-    Ok(PdfDocument(Some(PdfPages::new()?)))
+/// An empty document with the information `metadata` (pltrs' defaults
+/// for `None`).
+fn pdf_pages_new(metadata: Option<DocumentMetadata>) -> PyResult<PdfDocument> {
+    let metadata = metadata.map(|metadata| metadata.0).unwrap_or_default();
+    Ok(PdfDocument(Some(PdfPages::with_metadata(metadata)?)))
 }
 
 /// Adds `figure` as a new page, saved with `settings` (those of
@@ -53,9 +55,17 @@ fn pdf_pages_images(document: Native<PdfDocument>) -> PyResult<Vec<String>> {
     Ok(document.borrow_mut().pages()?.image_names())
 }
 
-/// Attaches a text note to the next page saved.
-fn pdf_pages_attach_note(document: Native<PdfDocument>, text: String) -> PyResult<()> {
-    document.borrow_mut().pages()?.attach_note(&text);
+/// Attaches a text note shown at `(x0, y0, x1, y1)` (points) to the
+/// next page saved.
+fn pdf_pages_attach_note(
+    document: Native<PdfDocument>,
+    text: String,
+    (x0, y0, x1, y1): (f64, f64, f64, f64),
+) -> PyResult<()> {
+    document
+        .borrow_mut()
+        .pages()?
+        .attach_note_at(&text, [x0, y0, x1, y1]);
     Ok(())
 }
 

@@ -7,6 +7,8 @@ writes the documents.
 
 from enum import Enum
 import functools
+import os
+import pathlib
 
 from .. import _api, rcParams
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
@@ -28,6 +30,21 @@ class _Orientation(Enum):
 
     def swap_if_landscape(self, shape):
         return shape[::-1] if self.name == "landscape" else shape
+
+
+def _dsc_metadata(outfile, metadata):
+    """
+    The document metadata of a PostScript file written to *outfile* as
+    matplotlib writes its DSC comments: the file's name as title and the
+    creator of *metadata*, whose other entries are not written.
+    """
+    dsc_comments = {}
+    if isinstance(outfile, (str, os.PathLike)):
+        dsc_comments["Title"] = pathlib.Path(outfile).name.encode(
+            "ascii", "replace").decode("ascii")
+    if metadata is not None and "Creator" in metadata:
+        dsc_comments["Creator"] = metadata["Creator"]
+    return dsc_comments
 
 
 class FigureCanvasPS(FigureCanvasBase):
@@ -55,7 +72,7 @@ class FigureCanvasPS(FigureCanvasBase):
         orientation = _api.getitem_checked(
             _Orientation, orientation=orientation.lower())
         self._print_native(
-            fmt, outfile, metadata=metadata,
+            fmt, outfile, metadata=_dsc_metadata(outfile, metadata),
             bbox_inches_restore=bbox_inches_restore,
             facecolor=facecolor, edgecolor=edgecolor,
             orientation=orientation.name, papertype=papertype)

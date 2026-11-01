@@ -48,8 +48,13 @@ class MixedModeRenderer:
 
         """
         if bbox_inches_restore is not None:
+            # matplotlib's value is the state `_tight_bbox.adjust_bbox`
+            # returns when it moves the figure's artists to crop it; pltrs
+            # (Rust) crops a saved figure itself and keeps no such state.
             raise NotImplementedError(
-                "pltrs: MixedModeRenderer(bbox_inches_restore=...)")
+                "pltrs: MixedModeRenderer(bbox_inches_restore=...): pltrs "
+                "crops saved figures natively, without matplotlib's "
+                "_tight_bbox state to restore")
         if raster_renderer_class is None:
             raster_renderer_class = RendererAgg
 

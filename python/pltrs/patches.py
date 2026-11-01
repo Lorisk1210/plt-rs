@@ -1478,6 +1478,9 @@ class FancyArrowPatch(Patch):
     """
 
     _edge_default = True
+    #: The patches clipping the start and the end (none for an arrow made
+    #: by pltrs (Rust), such as the arrow of an annotation).
+    patchA = patchB = None
 
     def __str__(self):
         ends, path = _patches.arrow_route(self._native)
@@ -1505,8 +1508,6 @@ class FancyArrowPatch(Patch):
         shaft; *shrinkA* and *shrinkB* shorten the path at its ends, in
         points, and *mutation_scale* scales the style.
         """
-        if patchA is not None or patchB is not None:
-            raise NotImplementedError("pltrs: FancyArrowPatch(patchA=..., patchB=...)")
         if posA is not None and posB is not None and path is None:
             if all(units._is_natively_supported(v) for v in (*posA, *posB)):
                 ends = (tuple(map(float, posA)), tuple(map(float, posB)))
@@ -1527,6 +1528,51 @@ class FancyArrowPatch(Patch):
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
+        self.patchA = patchA
+        self.patchB = patchB
+        self._link_patches()
+
+    def _link_patches(self):
+        """
+        Clip the ends to `patchA` and `patchB` as pltrs (Rust) draws them,
+        which it can once they are in the arrow's figure: the arrow or
+        patch added later links them when it is added.
+        """
+        patches = (self.patchA, self.patchB)
+        linked = _patches.set_arrow_patches(
+            self._native, *(None if patch is None else patch._native
+                            for patch in patches))
+        for patch, done in zip(patches, linked):
+            if patch is None or done:
+                continue
+            for artist in (self, patch):
+                waiting = artist.__dict__.setdefault("_on_adopt", [])
+                if self._link_patches not in waiting:
+                    waiting.append(self._link_patches)
+
+    def set_patchA(self, patchA):
+        """
+        Set the tail patch.
+
+        Parameters
+        ----------
+        patchA : `.patches.Patch`
+        """
+        self.patchA = patchA
+        self._link_patches()
+        self.stale = True
+
+    def set_patchB(self, patchB):
+        """
+        Set the head patch.
+
+        Parameters
+        ----------
+        patchB : `.patches.Patch`
+        """
+        self.patchB = patchB
+        self._link_patches()
+        self.stale = True
 
     def get_path(self):
         """Return the path of the arrow in the data coordinates."""
@@ -1624,9 +1670,6 @@ class ConnectionPatch(FancyArrowPatch):
         *connectionstyle*, *shrinkA*, *shrinkB*, *mutation_scale* and
         *mutation_aspect*; it is not clipped unless *clip_on* is set.
         """
-        if patchA is not None or patchB is not None:
-            raise NotImplementedError(
-                "pltrs: ConnectionPatch(patchA=..., patchB=...)")
         if coordsB is None:
             coordsB = coordsA
         self._given_ends = [[coordsA, axesA], [coordsB, axesB]]
@@ -1640,6 +1683,9 @@ class ConnectionPatch(FancyArrowPatch):
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         Patch.__init__(self, clip_on=clip_on, **kwargs)
+        self.patchA = patchA
+        self.patchB = patchB
+        self._link_patches()
 
     def _ends(self):
         """The two ends, each as ``(xy, coords, axes)``."""

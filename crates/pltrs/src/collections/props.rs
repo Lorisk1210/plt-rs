@@ -93,6 +93,21 @@ pub struct CollectionProps {
     pub joinstyle: Option<JoinStyle>,
 }
 
+pltrs_core::archive_struct!(CollectionProps {
+    base,
+    color,
+    facecolors,
+    edgecolors,
+    linewidths,
+    linestyles,
+    hatch,
+    hatchcolors,
+    antialiased,
+    alphas,
+    capstyle,
+    joinstyle
+});
+
 impl CollectionProps {
     /// Face and edge colour (only the edge colour of line collections).
     #[must_use]

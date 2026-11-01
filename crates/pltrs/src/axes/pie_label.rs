@@ -66,6 +66,10 @@ pub struct PieLabelOptions {
     pub size: Option<FontSize>,
     /// Colour of the labels (from `textprops`).
     pub color: Option<Color>,
+    /// Whether the labels are typeset with TeX (from `textprops`), which
+    /// makes a format escape the percent signs it writes (`None`:
+    /// `text.usetex`).
+    pub usetex: Option<bool>,
 }
 
 impl Default for PieLabelOptions {
@@ -77,6 +81,7 @@ impl Default for PieLabelOptions {
             alignment: PieLabelAlignment::Auto,
             size: None,
             color: None,
+            usetex: None,
         }
     }
 }
@@ -156,7 +161,7 @@ impl Axes {
         let texts = match labels.into() {
             PieLabels::Format(template) => {
                 let texts = formatted(&template, container).map_err(PlotError::Pie)?;
-                if crate::rc::params().text_usetex {
+                if options.usetex.unwrap_or(crate::rc::params().text_usetex) {
                     texts.iter().map(|text| escape_tex_percents(text)).collect()
                 } else {
                     texts

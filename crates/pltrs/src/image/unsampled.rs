@@ -11,13 +11,15 @@ use super::pcolor_image::cell_colors;
 use super::{Extent, ImageError, Origin};
 
 /// The visible part of an image's coloured array (first row at the top,
-/// as every [`RgbaImage`]), the lower left corner it is drawn from and the
-/// map of its unit square relative to that corner.
+/// as every [`RgbaImage`]), the lower left corner it is drawn from, the
+/// map of its unit square relative to that corner, and the map of its
+/// cells (column and row indices of the visible part) to the display.
 #[derive(Debug)]
 pub(crate) struct UnsampledImage {
     pub(crate) pixels: RgbaImage,
     pub(crate) origin: Point,
     pub(crate) transform: Affine2D,
+    pub(crate) cells: Affine2D,
 }
 
 impl ImageCore {
@@ -81,10 +83,13 @@ impl ImageCore {
             .translate(first_col as f64, first_row as f64)
             .then(array_to_display)
             .translate(-clipped.x0(), -clipped.y0());
+        let cells =
+            Affine2D::translation(first_col as f64, first_row as f64).then(array_to_display);
         Ok(Some(UnsampledImage {
             pixels,
             origin: Point::new(clipped.x0(), clipped.y0()),
             transform,
+            cells,
         }))
     }
 }

@@ -116,13 +116,26 @@ fn set_python_scale(
     (forward, inverse): (Callback, Callback),
     limit_range: Callback,
 ) -> PyResult<()> {
-    let scale = PyScale {
+    axes.set_scale(
+        axis_name(&name)?,
+        python_scale(scale, (forward, inverse), limit_range),
+    );
+    Ok(())
+}
+
+/// The scale of the program's called `scale`, mapping through `forward`
+/// and `inverse` and limiting ranges with `limit_range(vmin, vmax,
+/// minpos)`.
+pub(crate) fn python_scale(
+    scale: String,
+    (forward, inverse): (Callback, Callback),
+    limit_range: Callback,
+) -> Box<dyn Scale> {
+    Box::new(PyScale {
         name: scale,
         map: Rc::new(functions(forward, inverse)),
         limit_range,
-    };
-    axes.set_scale(axis_name(&name)?, Box::new(scale));
-    Ok(())
+    })
 }
 
 /// Registers the module's functions.

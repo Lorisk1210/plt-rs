@@ -12,8 +12,14 @@ panes, the axis line) is ``_native.mplot3d``'s.
 
 import numpy as np
 
-from pltrs import _api, axis as maxis, colors as mcolors
+from pltrs import _api, axis as maxis, cbook, colors as mcolors
 from pltrs._native import mplot3d as _mplot3d
+
+
+#: The `.Text` properties of tick labels a 3-D axis draws, as the tick
+#: parameters setting them for a whole tick level.
+_LABEL_PARAMS = {"color": "labelcolor", "fontsize": "labelsize",
+                 "rotation": "labelrotation", "fontfamily": "labelfontfamily"}
 
 
 class _AxisLine:
@@ -99,24 +105,50 @@ class Axis(maxis.XAxis):
         _mplot3d.set_inverted(self.axes._native, self.axis_name, bool(inverted))
 
     def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
-        """Set this Axis' tick locations."""
-        if labels is not None or kwargs:
-            raise NotImplementedError("pltrs: set_ticks(labels=...) on 3-D axes")
+        """
+        Set this Axis' tick locations and optionally tick labels.
+
+        *kwargs* are `.Text` properties for the labels, allowed only with
+        *labels* (see `set_ticklabels`).
+        """
+        if labels is None and kwargs:
+            first_key = next(iter(kwargs))
+            raise ValueError(
+                f"Incorrect use of keyword argument {first_key!r}. Keyword "
+                "arguments other than 'minor' modify the text labels and can "
+                "only be used if 'labels' are passed as well.")
         _mplot3d.set_ticks(self.axes._native, self.axis_name,
                            [float(t) for t in ticks], bool(minor))
+        if labels is not None:
+            self.set_ticklabels(labels, minor=minor, **kwargs)
 
     def set_ticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
         """
         Set this Axis' tick labels with list of string labels.
 
+        *fontdict* and *kwargs* are `.Text` properties for the labels. A
+        3-D axis draws the labels of a tick level in one style, so those
+        `~.Axis.set_tick_params` sets for its labels (``color``,
+        ``fontsize``, ``rotation``, ``fontfamily``) apply to the level.
+
         pltrs: the tick labels of a 3-D axis are drawn by pltrs (Rust)
         rather than kept as `.Text` artists, so nothing is returned.
         """
-        if fontdict is not None or kwargs:
-            raise NotImplementedError(
-                "pltrs: set_ticklabels(<text properties>) on 3-D axes")
+        from pltrs.text import Text
+        if fontdict is not None:
+            kwargs.update(fontdict)
+        params = {}
+        for key, value in cbook.normalize_kwargs(kwargs, Text).items():
+            if key not in _LABEL_PARAMS:
+                raise NotImplementedError(
+                    f"pltrs: set_ticklabels({key}=...) on 3-D axes: a 3-D "
+                    f"axis draws the labels of a tick level in one style, "
+                    f"of the properties tick_params sets")
+            params[_LABEL_PARAMS[key]] = value
         _mplot3d.set_ticklabels(self.axes._native, self.axis_name,
                                 [str(label) for label in labels], bool(minor))
+        if params:
+            self.set_tick_params(which="minor" if minor else "major", **params)
 
     def get_ticklocs(self, *, minor=False):
         """Return this Axis' tick locations in data coordinates."""

@@ -153,21 +153,37 @@ fn best_match(
     generics: &GenericFamilies,
     directory: Option<AfmDirectory>,
 ) -> Option<&'static AfmFont> {
-    let mut best: Option<(f64, &'static AfmFont)> = None;
-    let candidates = AFM_FONTS
-        .iter()
-        .filter(|font| directory.is_none_or(|d| font.directory == d));
-    for font in candidates {
-        let score = font.score(query, generics);
-        if best.is_none_or(|(best_score, _)| score < best_score) {
-            best = Some((score, font));
+    AfmFont::best_scored(query, generics, directory)
+        .filter(|&(_, score)| score < 10.0)
+        .map(|(font, _)| font)
+}
+
+impl AfmFont {
+    /// The first font of `directory` (all fonts for `None`) with the
+    /// lowest `findfont` score for `query`, with that score (10 or more
+    /// when no family matched): the loop of matplotlib's
+    /// `_findfont_cached` over `afmlist`, whose result decides what
+    /// `findfont` logs and whether it falls back.
+    pub fn best_scored(
+        query: &FontQuery,
+        generics: &GenericFamilies,
+        directory: Option<AfmDirectory>,
+    ) -> Option<(&'static Self, f64)> {
+        let mut best: Option<(&'static Self, f64)> = None;
+        let candidates = AFM_FONTS
+            .iter()
+            .filter(|font| directory.is_none_or(|d| font.directory == d));
+        for font in candidates {
+            let score = font.score(query, generics);
+            if best.is_none_or(|(_, best_score)| score < best_score) {
+                best = Some((font, score));
+            }
+            if score == 0.0 {
+                break;
+            }
         }
-        if score == 0.0 {
-            break;
-        }
+        best
     }
-    best.filter(|&(score, _)| score < 10.0)
-        .map(|(_, font)| font)
 }
 
 #[cfg(test)]

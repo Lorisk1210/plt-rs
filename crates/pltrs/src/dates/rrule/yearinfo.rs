@@ -94,6 +94,76 @@ impl YearInfo {
     pub(super) fn weekday(&self, i: i64) -> Weekday {
         Weekday::from_index(self.first_weekday + i)
     }
+
+    /// dateutil's `wnomask`: which days of the year (and of the next
+    /// seven) fall in the weeks numbered `byweekno`, weeks starting on
+    /// `wkst` and week 1 being the first with at least four days in the
+    /// year; negative numbers count from the year's last week.
+    pub(super) fn week_number_mask(&self, byweekno: &[i32], wkst: Weekday) -> Vec<bool> {
+        let wkst = i64::from(wkst.index());
+        let mut mask = vec![false; (self.len + 7) as usize];
+        let first_wkst = (7 - self.first_weekday + wkst).rem_euclid(7);
+        let (no1wkst, week_year_len) = if first_wkst >= 4 {
+            // Week 1 starts last year: count the days taken from it.
+            (0, self.len + (self.first_weekday - wkst).rem_euclid(7))
+        } else {
+            // The days before week 1 belong to last year's last week.
+            (first_wkst, self.len - first_wkst)
+        };
+        let weeks = week_year_len / 7 + week_year_len % 7 / 4;
+        let week_start = |n: i64| {
+            let mut i = no1wkst + (n - 1) * 7;
+            if no1wkst != first_wkst {
+                i -= 7 - first_wkst;
+            }
+            i
+        };
+        let mut mark_week = |mut i: i64| {
+            for _ in 0..7 {
+                mask[i as usize] = true;
+                i += 1;
+                if i64::from(self.weekday(i).index()) == wkst {
+                    break;
+                }
+            }
+        };
+        for &n in byweekno {
+            let n = if n < 0 {
+                i64::from(n) + weeks + 1
+            } else {
+                i64::from(n)
+            };
+            if 0 < n && n <= weeks {
+                mark_week(if n > 1 { week_start(n) } else { no1wkst });
+            }
+        }
+        if byweekno.contains(&1) {
+            // Week 1 of next year may start in this one.
+            let i = week_start(weeks + 1);
+            if i < self.len {
+                mark_week(i);
+            }
+        }
+        if no1wkst != 0 {
+            // The days of last year's last week in this year.
+            let last_weeks = if byweekno.contains(&-1) {
+                -1
+            } else {
+                let last_len = i64::from(calendar::days_in_year(self.year - 1));
+                let last_first_weekday = (self.first_weekday - last_len).rem_euclid(7);
+                if (7 - last_first_weekday + wkst).rem_euclid(7) >= 4 {
+                    52 + (last_len + (last_first_weekday - wkst).rem_euclid(7)) % 7 / 4
+                } else {
+                    // dateutil counts with this year's length here.
+                    52 + (self.len - no1wkst) % 7 / 4
+                }
+            };
+            if byweekno.iter().any(|&n| i64::from(n) == last_weeks) {
+                mask[..no1wkst as usize].fill(true);
+            }
+        }
+        mask
+    }
 }
 
 #[cfg(test)]
@@ -126,5 +196,48 @@ mod tests {
         assert_eq!(info.weekday(-1), Weekday::Tuesday);
         let info = YearInfo::new(2021);
         assert_eq!(info.month_range(3), (59, 90));
+    }
+
+    /// The day indices `mask` marks.
+    fn marked(mask: &[bool]) -> Vec<usize> {
+        mask.iter()
+            .enumerate()
+            .filter_map(|(i, &on)| on.then_some(i))
+            .collect()
+    }
+
+    #[test]
+    fn week_numbers_follow_iso_8601() {
+        // 2021 starts on a Friday: its days up to Sunday 3 January are in
+        // week 53 of 2020, and week 1 runs from Monday 4 January.
+        let info = YearInfo::new(2021);
+        let monday = Weekday::Monday;
+        assert_eq!(
+            marked(&info.week_number_mask(&[1], monday)),
+            (3..10).collect::<Vec<_>>()
+        );
+        assert_eq!(marked(&info.week_number_mask(&[53], monday)), [0, 1, 2]);
+        // Week 52 is the last of 2021, from Monday 27 December; dateutil
+        // also counts the days of last year's week as week -1.
+        assert_eq!(
+            marked(&info.week_number_mask(&[-1], monday)),
+            [0, 1, 2].into_iter().chain(360..367).collect::<Vec<_>>()
+        );
+        // 2020 starts on a Wednesday: week 1 starts on 30 December 2019,
+        // and its 53 weeks end with the first three days of 2021.
+        let info = YearInfo::new(2020);
+        assert_eq!(
+            marked(&info.week_number_mask(&[1], monday)),
+            [0, 1, 2, 3, 4]
+        );
+        assert_eq!(
+            marked(&info.week_number_mask(&[53], monday)),
+            (362..369).collect::<Vec<_>>()
+        );
+        // Weeks starting on Sunday move week 1 of 2020 to 29 December 2019.
+        assert_eq!(
+            marked(&info.week_number_mask(&[1], Weekday::Sunday)),
+            [0, 1, 2, 3]
+        );
     }
 }

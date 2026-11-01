@@ -156,6 +156,10 @@ pub struct ColorbarOptions {
     pub boundaries: Option<Vec<f64>>,
     /// The value coloured in each block (one fewer than `boundaries`).
     pub values: Option<Vec<f64>>,
+    /// The opacity of a colorbar of a bare norm and colormap
+    /// ([`Mappable::Scalar`](super::Mappable::Scalar)); a colorbar of a
+    /// drawn artist takes the artist's opacity instead, as in matplotlib.
+    pub alpha: Option<f64>,
 }
 
 impl ColorbarOptions {
@@ -205,6 +209,7 @@ impl Default for ColorbarOptions {
             spacing: Spacing::default(),
             boundaries: None,
             values: None,
+            alpha: None,
         }
     }
 }

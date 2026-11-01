@@ -1,7 +1,8 @@
 //! Pixel formats and Agg's per-format arithmetic.
 //!
 //! matplotlib instantiates its resampler for Agg colour types `gray8`,
-//! `gray32`, `gray64` (single-channel data) and `rgba8`, `rgba32`, `rgba64`.
+//! `gray16`, `gray32`, `gray64` (single-channel data) and `rgba8`,
+//! `rgba16`, `rgba32`, `rgba64`.
 //! Each type has its own accumulator width, clamping and blending rules;
 //! [`ops::Channel`] captures the scalar arithmetic and [`ops::PixelOps`]
 //! the gray/RGBA layouts built on it.
@@ -13,11 +14,12 @@ use crate::color::multiply;
 
 /// A pixel format accepted by [`resample`](super::resample).
 ///
-/// Implemented for single-channel data — `f32`, `f64` (and `u8`), as used
-/// by matplotlib's `interpolation_stage='data'` — and for RGBA pixels
-/// `[u8; 4]`, `[f32; 4]` and `[f64; 4]` (`interpolation_stage='rgba'`).
-/// RGBA channels are in R, G, B, A order; float channels are nominally in
-/// `[0, 1]` and `u8` channels in `[0, 255]`. The trait is sealed.
+/// Implemented for single-channel data — `f32`, `f64` (and `u8`, `u16`),
+/// as used by matplotlib's `interpolation_stage='data'` — and for RGBA
+/// pixels `[u8; 4]`, `[u16; 4]`, `[f32; 4]` and `[f64; 4]`
+/// (`interpolation_stage='rgba'`). RGBA channels are in R, G, B, A order;
+/// float channels are nominally in `[0, 1]`, `u8` channels in `[0, 255]`
+/// and `u16` channels in `[0, 65535]`. The trait is sealed.
 pub trait Pixel: Copy + Default + Send + Sync + 'static + ops::PixelOps {}
 
 impl<T: ops::Channel + Send + Sync + 'static> Pixel for T {}
@@ -270,6 +272,83 @@ impl ops::Channel for u8 {
     }
 }
 
+/// Agg's 16-bit fixed-point multiply (`gray16::multiply`), with the
+/// wrapping 32-bit arithmetic of its `calc_type`.
+fn multiply_u16(a: u16, b: u16) -> u16 {
+    let t = u32::from(a)
+        .wrapping_mul(u32::from(b))
+        .wrapping_add(1 << 15);
+    (((t >> 16).wrapping_add(t)) >> 16) as u16
+}
+
+impl ops::Channel for u16 {
+    type Acc = i64;
+    const ZERO: Self = 0;
+    const FULL: Self = u16::MAX;
+    const ACC_ZERO: i64 = 0;
+    const ACC_FULL: i64 = 65535;
+
+    /// `int16u * int`, evaluated as an `int`, then widened to the `int64`
+    /// accumulator.
+    fn weighted(self, weight: i32) -> i64 {
+        i64::from(i32::from(self).wrapping_mul(weight))
+    }
+
+    fn add(acc: i64, term: i64) -> i64 {
+        acc.wrapping_add(term)
+    }
+
+    fn downshift(acc: i64) -> i64 {
+        acc >> FILTER_SHIFT
+    }
+
+    fn divide(acc: i64, total_weight: i32) -> i64 {
+        // Agg would fault on a zero total; it cannot occur for real kernels.
+        acc.checked_div(i64::from(total_weight)).unwrap_or(0)
+    }
+
+    fn from_acc(acc: i64) -> Self {
+        acc as u16
+    }
+
+    fn is_transparent(self) -> bool {
+        self == 0
+    }
+
+    fn is_opaque(self) -> bool {
+        self == u16::MAX
+    }
+
+    fn scale(self, alpha: f64) -> Self {
+        (f64::from(self) * alpha) as u16
+    }
+
+    /// `multiply(a, cover << 8 | cover)`.
+    fn mult_cover(self, cover: u8) -> Self {
+        multiply_u16(self, u16::from(cover) << 8 | u16::from(cover))
+    }
+
+    /// Agg's `int` arithmetic, which wraps for the widest steps.
+    fn lerp(p: Self, q: Self, a: Self) -> Self {
+        let (p, q) = (i32::from(p), i32::from(q));
+        let t = (q - p)
+            .wrapping_mul(i32::from(a))
+            .wrapping_add(1 << 15)
+            .wrapping_sub(i32::from(p > q));
+        p.wrapping_add(((t >> 16).wrapping_add(t)) >> 16) as u16
+    }
+
+    /// Agg's `blender_rgba_pre`, which matplotlib uses for `rgba16`:
+    /// `prelerp` of every channel by the covered alpha.
+    fn blend_rgba(dst: &mut [Self; 4], src: [Self; 4], cover: u8) {
+        let src = src.map(|c| c.mult_cover(cover));
+        let alpha = src[3];
+        for (d, s) in dst.iter_mut().zip(src) {
+            *d = d.wrapping_add(s).wrapping_sub(multiply_u16(*d, alpha));
+        }
+    }
+}
+
 impl ops::Channel for f32 {
     type Acc = f64;
     const ZERO: Self = 0.0;
@@ -407,6 +486,26 @@ mod tests {
         assert_eq!(u8::lerp(0, 255, 128), 128);
         assert_eq!(u8::lerp(200, 100, 255), 100);
         assert_eq!(u8::scale(255, 0.5), 127);
+    }
+
+    #[test]
+    fn u16_fixed_point_matches_agg() {
+        // Agg's gray16/rgba16 arithmetic, computed in C.
+        assert_eq!(u16::mult_cover(65535, 255), 65535);
+        assert_eq!(u16::mult_cover(65535, 128), 32896);
+        assert_eq!(u16::lerp(0, 65535, 32768), 32767);
+        assert_eq!(u16::lerp(60000, 1000, 65535), 1001);
+        assert_eq!(u16::scale(65535, 0.5), 32767);
+        let mut gray = 7_u16;
+        gray.blend(u16::filtered(-3 << 14), 255);
+        assert_eq!(gray, 65533, "gray is not clamped");
+        assert_eq!(
+            <[u16; 4]>::filtered([70000 << 14, -5 << 14, 100 << 14, 70000 << 14]),
+            [65535, 0, 100, 65535]
+        );
+        let mut px = [1000_u16, 2000, 3000, 65535];
+        px.blend([0, 0, 0, 32768], 255);
+        assert_eq!(px, [500, 1000, 1500, 65535]);
     }
 
     #[test]

@@ -165,10 +165,17 @@ fn label_texts(set: ContourSet) -> PyResult<Vec<Text>> {
     Ok(set.labels().into_iter().map(|label| label.artist).collect())
 }
 
+/// Removes the label at `index` among the set's labels, with its text
+/// (matplotlib's `pop_label`; Python checks the index).
+fn pop_label(set: ContourSet, index: usize) -> PyResult<()> {
+    Ok(set.pop_label(Some(index))?)
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("clabel", clabel)?;
     module.add("add_label_near", add_label_near)?;
     module.add("split_path", split_path)?;
-    module.add("label_texts", label_texts)
+    module.add("label_texts", label_texts)?;
+    module.add("pop_label", pop_label)
 }

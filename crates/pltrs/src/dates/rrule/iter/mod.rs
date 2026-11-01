@@ -25,6 +25,9 @@ pub struct RRuleIter<'a> {
     info: YearInfo,
     /// dateutil's `nwdaymask` for the current period, if any.
     nth_mask: Option<Vec<bool>>,
+    /// dateutil's `wnomask` for the current year, when the rule has
+    /// `byweekno`.
+    week_mask: Option<Vec<bool>>,
     nth_key: Option<(i64, u32)>,
     year: i64,
     month: u32,
@@ -47,6 +50,7 @@ impl<'a> RRuleIter<'a> {
             rule,
             info: YearInfo::new(i64::from(start.year())),
             nth_mask: None,
+            week_mask: None,
             nth_key: None,
             year: i64::from(start.year()),
             month: start.month(),
@@ -73,10 +77,14 @@ impl<'a> RRuleIter<'a> {
 
     /// dateutil's `_iterinfo.rebuild` for the current year and month.
     fn rebuild(&mut self) {
+        let rule = self.rule;
         if self.info.year != self.year {
             self.info = YearInfo::new(self.year);
+            self.week_mask = None;
         }
-        let rule = self.rule;
+        if self.week_mask.is_none() && !rule.byweekno.is_empty() {
+            self.week_mask = Some(self.info.week_number_mask(&rule.byweekno, rule.wkst));
+        }
         if rule.bynweekday.is_empty() || self.nth_key == Some((self.year, self.month)) {
             return;
         }
@@ -147,6 +155,10 @@ impl<'a> RRuleIter<'a> {
             !rule.byyearday.contains(&(day as i32)) && !rule.byyearday.contains(&(from_end as i32))
         };
         (!rule.bymonth.is_empty() && !rule.bymonth.contains(&info.month_of(i)))
+            || self
+                .week_mask
+                .as_ref()
+                .is_some_and(|mask| !mask.get(i as usize).copied().unwrap_or(false))
             || (!rule.byweekday.is_empty() && !rule.byweekday.contains(&info.weekday(i)))
             || self
                 .nth_mask
@@ -489,6 +501,54 @@ mod tests {
                 "2021-01-03T00:00:00",
                 "2021-01-08T00:00:00"
             ]
+        );
+    }
+
+    #[test]
+    fn week_numbers() {
+        // dateutil's occurrences of these rules.
+        let mut rule = spec(Frequency::Yearly, dt(2020, 1, 1, 0, 0, 0));
+        rule.byweekno = vec![1];
+        rule.byweekday = vec![Weekday::Monday.into()];
+        assert_eq!(
+            occurrences(&rule, 3),
+            [
+                "2021-01-04T00:00:00",
+                "2022-01-03T00:00:00",
+                "2023-01-02T00:00:00"
+            ]
+        );
+        let mut rule = spec(Frequency::Daily, dt(2020, 12, 25, 0, 0, 0));
+        rule.byweekno = vec![53];
+        assert_eq!(
+            occurrences(&rule, 4),
+            [
+                "2020-12-28T00:00:00",
+                "2020-12-29T00:00:00",
+                "2020-12-30T00:00:00",
+                "2020-12-31T00:00:00"
+            ]
+        );
+        let mut rule = spec(Frequency::Daily, dt(2021, 1, 1, 0, 0, 0));
+        rule.byweekno = vec![-1];
+        let found = occurrences(&rule, 10);
+        assert_eq!(
+            found[..4],
+            [
+                "2021-01-01T00:00:00",
+                "2021-01-02T00:00:00",
+                "2021-01-03T00:00:00",
+                "2021-12-27T00:00:00"
+            ]
+        );
+        assert_eq!(found[8..], ["2022-01-01T00:00:00", "2022-01-02T00:00:00"]);
+        let mut rule = spec(Frequency::Daily, dt(2019, 12, 1, 0, 0, 0));
+        rule.byweekno = vec![1];
+        rule.wkst = Weekday::Sunday;
+        let found = occurrences(&rule, 7);
+        assert_eq!(
+            (found[0].as_str(), found[6].as_str()),
+            ("2019-12-29T00:00:00", "2020-01-04T00:00:00")
         );
     }
 

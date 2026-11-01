@@ -215,8 +215,18 @@ class AspectMixin:
 
     def apply_aspect(self, position=None):
         """
-        Adjust the Axes for a specified data aspect ratio, as drawing does.
+        Adjust the Axes for a specified data aspect ratio.
+
+        Depending on `.get_adjustable` this will modify either the
+        Axes box (position) or the view limits. In the former case,
+        `~matplotlib.axes.Axes.get_anchor` will affect the position.
+
+        Parameters
+        ----------
+        position : None or .Bbox
+            If not ``None``, this defines the position of the
+            Axes within the figure as a Bbox.
         """
-        if position is not None:
-            raise NotImplementedError("pltrs: apply_aspect(position=...)")
-        _axes_base.apply_aspect(self._native)
+        _axes_base.apply_aspect(
+            self._native, None if position is None
+            else tuple(map(float, position.bounds)))

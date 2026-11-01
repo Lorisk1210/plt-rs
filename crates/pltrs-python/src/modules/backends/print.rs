@@ -90,6 +90,16 @@ fn metadata(object: &Bound<'_>) -> PyResult<Metadata> {
     Ok(metadata)
 }
 
+/// Document metadata as native functions take it: a dict of
+/// `savefig(metadata=...)` entries (see [`metadata`]).
+pub(crate) struct DocumentMetadata(pub(crate) Metadata);
+
+impl FromPy<'_> for DocumentMetadata {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        metadata(object).map(Self)
+    }
+}
+
 /// Records the SVG entry `key` of `savefig(metadata=...)` in `svg`, if it
 /// is one only SVG documents hold or a list of values (`Creator`,
 /// `Keywords` and `Date` as lists; `backend_svg` has checked the types
@@ -156,7 +166,7 @@ impl FromPy<'_> for PrintSettings {
                 "orientation" => options.orientation = Some(parse::<PageOrientation>(&value)?),
                 "papertype" => options.papertype = Some(parse::<Paper>(&value)?),
                 "jpeg_quality" => options.jpeg_quality = Some(value.extract()?),
-                "metadata" => options.metadata = Some(metadata(&value)?),
+                "metadata" => options.metadata = Some(value.extract::<DocumentMetadata>()?.0),
                 _ => {
                     return Err(PyErr::type_error(format!(
                         "print_figure() got an unexpected setting '{key}'"

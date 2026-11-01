@@ -9,8 +9,9 @@
 //! Supported: every frequency from yearly to secondly, `interval`,
 //! `dtstart`, `until`, `count`, `wkst`, `bysetpos`, `bymonth`,
 //! `bymonthday` (negative days count from the month's end), `byyearday`,
+//! `byweekno` (ISO 8601 week numbers, weeks starting on `wkst`),
 //! `byweekday` (with optional `n`-th occurrence), `byhour`, `byminute`,
-//! `bysecond` and dateutil's `byeaster`. Not supported: `byweekno`.
+//! `bysecond` and dateutil's `byeaster`.
 
 mod iter;
 mod yearinfo;
@@ -139,6 +140,10 @@ pub struct RRuleSpec {
     pub bymonthday: Vec<i32>,
     /// Days of the year; negative values count from the end.
     pub byyearday: Vec<i32>,
+    /// Week numbers (ISO 8601: week 1 is the first week with at least
+    /// four days in the year, weeks starting on `wkst`); negative values
+    /// count from the year's last week.
+    pub byweekno: Vec<i32>,
     /// Weekdays.
     pub byweekday: Vec<NthWeekday>,
     /// Hours, 0-23.
@@ -163,6 +168,7 @@ pltrs_core::archive_struct!(RRuleSpec {
     bymonth,
     bymonthday,
     byyearday,
+    byweekno,
     byweekday,
     byhour,
     byminute,
@@ -184,6 +190,7 @@ impl RRuleSpec {
             bymonth: Vec::new(),
             bymonthday: Vec::new(),
             byyearday: Vec::new(),
+            byweekno: Vec::new(),
             byweekday: Vec::new(),
             byhour: Vec::new(),
             byminute: Vec::new(),
@@ -207,6 +214,7 @@ pub struct RRule {
     pub(crate) byyearday: Vec<i32>,
     pub(crate) bymonthday: Vec<i32>,
     pub(crate) bynmonthday: Vec<i32>,
+    pub(crate) byweekno: Vec<i32>,
     pub(crate) byweekday: Vec<Weekday>,
     pub(crate) bynweekday: Vec<(Weekday, i32)>,
     pub(crate) byhour: Vec<u32>,
@@ -233,6 +241,7 @@ impl RRule {
         let mut bymonthday = spec.bymonthday.clone();
         let mut byweekday_spec = spec.byweekday.clone();
         if spec.byyearday.is_empty()
+            && spec.byweekno.is_empty()
             && bymonthday.is_empty()
             && byweekday_spec.is_empty()
             && spec.byeaster.is_empty()
@@ -293,6 +302,7 @@ impl RRule {
             byyearday: sorted_unique(spec.byyearday.clone()),
             bymonthday: positive,
             bynmonthday: negative,
+            byweekno: sorted_unique(spec.byweekno.clone()),
             byweekday: sorted_unique(byweekday),
             bynweekday: sorted_unique(bynweekday),
             byhour,

@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use pltrs_text::{
-    AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, Stretch, TextEngine, Type1Face,
+    AfmDirectory, AfmFont, FontEntry, FontId, FontSource, FontStyle, FontVariant, Stretch,
+    TextEngine, Type1Face,
 };
 
 use super::{FontProperties, FontStretch, FontWeight};
@@ -109,19 +110,7 @@ impl FontManager {
                 .iter()
                 .map(|entry| self.list_entry(entry))
                 .collect(),
-            FontExt::Afm => AfmFont::all()
-                .iter()
-                .map(|font| FontListEntry {
-                    file: font.file.to_owned(),
-                    index: 0,
-                    name: font.name.to_owned(),
-                    style: font.style,
-                    variant: FontVariant::Normal,
-                    weight: FontWeight::from_name(font.weight)
-                        .unwrap_or(FontWeight::numeric(font.weight_value().0)),
-                    stretch: stretch_named(font.stretch.0),
-                })
-                .collect(),
+            FontExt::Afm => AfmFont::all().iter().map(afm_entry).collect(),
         }
     }
 
@@ -278,6 +267,23 @@ impl FontManager {
         .map(|(entry, score)| (self.list_entry(&entry), score))
     }
 
+    /// The best AFM entry for `props` among the fonts of `directory` (all
+    /// of them for `None`), with its score: [`best_ttf_entry`]'s
+    /// counterpart for `afmlist` (`findfont(prop, fontext="afm",
+    /// directory=...)`).
+    ///
+    /// [`best_ttf_entry`]: Self::best_ttf_entry
+    pub fn best_afm_entry(
+        &self,
+        props: &FontProperties,
+        rc: &RcParams,
+        directory: Option<AfmDirectory>,
+    ) -> Option<(FontListEntry, f64)> {
+        let request = props.request(rc);
+        AfmFont::best_scored(&request.query, &request.generics, directory)
+            .map(|(font, score)| (afm_entry(font), score))
+    }
+
     /// matplotlib's `_find_fonts_by_props`: the best TrueType file for
     /// every family of `props` that matches, in family order; if none does,
     /// the default family's best file (or an error without
@@ -296,6 +302,20 @@ impl FontManager {
             db.find_fonts_exact_with(&request.query, &request.generics)?
         };
         Ok(ids.into_iter().map(|id| self.file_name(id)).collect())
+    }
+}
+
+/// An AFM font as an entry of `afmlist` (matplotlib's `afmFontProperty`).
+fn afm_entry(font: &AfmFont) -> FontListEntry {
+    FontListEntry {
+        file: font.file.to_owned(),
+        index: 0,
+        name: font.name.to_owned(),
+        style: font.style,
+        variant: FontVariant::Normal,
+        weight: FontWeight::from_name(font.weight)
+            .unwrap_or(FontWeight::numeric(font.weight_value().0)),
+        stretch: stretch_named(font.stretch.0),
     }
 }
 
@@ -324,6 +344,30 @@ mod tests {
         // Five faces; SemiBold is also listed under its legacy family name.
         assert_eq!((inter.len(), names), (6, vec!["Inter", "Inter SemiBold"]));
         assert_eq!(manager.font_list(FontExt::Afm).len(), 61);
+    }
+
+    #[test]
+    fn best_afm_entries_within_a_directory() {
+        let manager = FontManager::bundled();
+        let rc = RcParams::matplotlib();
+        let serif = props(&["serif"]);
+        let best = |directory| {
+            manager
+                .best_afm_entry(&serif, &rc, directory)
+                .map(|(entry, score)| (entry.file, score < 10.0))
+        };
+        assert_eq!(
+            best(Some(AfmDirectory::PdfCore)),
+            Some(("Times-Roman.afm".to_owned(), true))
+        );
+        assert_eq!(
+            best(Some(AfmDirectory::PostScript)),
+            Some(("pncr8a.afm".to_owned(), true))
+        );
+        let (_, unknown) = manager
+            .best_afm_entry(&props(&["No Such Font"]), &rc, None)
+            .expect("fonts to score");
+        assert!(unknown >= 10.0);
     }
 
     #[test]

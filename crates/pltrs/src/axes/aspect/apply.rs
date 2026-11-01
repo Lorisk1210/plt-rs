@@ -2,6 +2,8 @@
 //! active position of an axes, or the view interval widened for
 //! [`Adjustable::Datalim`], from its data ratio.
 
+use pltrs_core::Bbox;
+
 use super::Adjustable;
 use crate::artist::{Artist, ArtistId, DrawError};
 use crate::axes::AxesState;
@@ -32,7 +34,7 @@ impl AxesState {
 }
 
 /// Where an axes is placed before its aspect is applied.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum Placement {
     /// Where its divider, inset locator or axes locator puts it.
     Located,
@@ -40,6 +42,9 @@ pub(crate) enum Placement {
     /// (matplotlib's `get_tightbbox(call_axes_locator=False)`, which
     /// sizes measuring the axes for its own divider use).
     Original,
+    /// At a position the program gives, in figure fractions
+    /// (matplotlib's `apply_aspect(position)`).
+    Given(Bbox),
 }
 
 impl FigureState {
@@ -66,7 +71,7 @@ impl FigureState {
     /// matplotlib's `apply_aspect` called on its own, between draws: no
     /// layout-engine pass, and pending autoscaling only when a fixed
     /// aspect reads the view limits (through `get_data_ratio`).
-    pub(crate) fn apply_aspect_now(&mut self, axes: ArtistId) {
+    pub(crate) fn apply_aspect_now(&mut self, axes: ArtistId, placement: Placement) {
         let fixed = self
             .store
             .get_as::<AxesState>(axes)
@@ -74,7 +79,7 @@ impl FigureState {
         if fixed {
             self.unstale_axes(axes);
         }
-        self.apply_aspect(axes);
+        self.apply_aspect_at(axes, placement);
     }
 
     /// [`apply_aspect`](Self::apply_aspect) with the axes placed by
@@ -99,6 +104,7 @@ impl FigureState {
                     .map_or(divided, |locator| locator.locate(&divided))
             }
             (Placement::Original, _) => original,
+            (Placement::Given(position), _) => position,
         };
         let Some(state) = self.store.get_as::<AxesState>(axes) else {
             return;

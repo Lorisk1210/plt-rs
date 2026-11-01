@@ -379,6 +379,38 @@ impl Axes {
         x: impl Into<Option<f64>>,
         y: impl Into<Option<f64>>,
     ) -> Result<&Self, PlotError> {
+        self.set_margins_with(x, y, Some(true))
+    }
+
+    /// Sets the margins of the axes given (`None` keeps one) and, when
+    /// `tight` is given, whether autoscaling skips rounding the view out
+    /// to ticks (matplotlib's `margins(x, y, tight=...)`, whose `tight`
+    /// is `True` unless given).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::ticker::AutolimitMode;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot([0.3, 4.7], [0.3, 4.7])?;
+    /// ax.set_autolimit_mode(AutolimitMode::RoundNumbers);
+    /// ax.set_margins_with(0.0, None, Some(false))?;
+    /// assert_eq!(ax.xlim(), (0.0, 5.0));
+    /// ax.set_margins_with(0.0, None, None)?;
+    /// assert_eq!(ax.xlim(), (0.0, 5.0), "the tight setting is kept");
+    /// ax.set_margins_with(0.0, None, Some(true))?;
+    /// assert_eq!(ax.xlim(), (0.3, 4.7));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::set_margins`].
+    pub fn set_margins_with(
+        &self,
+        x: impl Into<Option<f64>>,
+        y: impl Into<Option<f64>>,
+        tight: Option<bool>,
+    ) -> Result<&Self, PlotError> {
         let margins = [(AxisName::X, x.into()), (AxisName::Y, y.into())];
         if let Some(bad) = margins
             .iter()
@@ -392,7 +424,9 @@ impl Axes {
                 self.set_margin(axis, margin)?;
             }
         }
-        self.raw.with_mut::<AxesState, _>(|a| a.tight = true);
+        if let Some(tight) = tight {
+            self.raw.with_mut::<AxesState, _>(|a| a.tight = tight);
+        }
         Ok(self)
     }
 }

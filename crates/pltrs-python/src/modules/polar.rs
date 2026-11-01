@@ -8,7 +8,6 @@
 
 use pltrs::axes::Axes;
 use pltrs::polar::{Compass, PolarAxes, PolarError, ThetaDirection};
-use pltrs::scale::ScaleName;
 use pltrs::units::AxisValues;
 
 use crate::binding::prelude::*;
@@ -142,12 +141,6 @@ fn set_rlabel_position(axes: Axes, degrees: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// Sets the scale of the radial axis by name.
-fn set_rscale(axes: Axes, name: String) -> PyResult<()> {
-    polar(&axes)?.set_rscale(ScaleName::from(name.as_str()))?;
-    Ok(())
-}
-
 /// Puts the radial ticks at `radii`.
 fn set_rticks(axes: Axes, radii: Vec<f64>) -> PyResult<()> {
     polar(&axes)?.set_rticks(AxisValues::Numbers(radii));
@@ -186,7 +179,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_rorigin_set", get_rorigin_set)?;
     module.add("get_rlabel_position", get_rlabel_position)?;
     module.add("set_rlabel_position", set_rlabel_position)?;
-    module.add("set_rscale", set_rscale)?;
     module.add("set_rticks", set_rticks)?;
     module.add("set_thetagrids", set_thetagrids)?;
     module.add("set_rgrids", set_rgrids)

@@ -135,17 +135,23 @@ class ConstructionMixin:
         ----------
         locator : Callable[[Axes, Renderer], Bbox]
         """
-        if locator is None:
-            _insets.clear_axes_locator(self._native)
-        else:
+        from . import _program_locators
+        _program_locators.forget(self, self._figure)
+        _insets.clear_axes_locator(self._native)
+        self._axes_locator = locator
+        if locator is not None:
             place = getattr(locator, "_place", None)
             if place is None:
-                raise NotImplementedError(
-                    "pltrs: set_axes_locator(locator) with a locator other "
-                    "than those of axes_grid1, inset_axes and colorbars")
-            _insets.clear_axes_locator(self._native)
-            place(self)
-        self._axes_locator = locator
+                _program_locators.follow(self, self._figure)
+            else:
+                place(self)
+
+    def _locate_by_program(self, renderer):
+        """Place the Axes where its locator of the program's says now
+        (see `._program_locators`)."""
+        bbox = self._axes_locator(self, renderer)
+        _insets.set_located_position(
+            self._native, None if bbox is None else tuple(map(float, bbox.bounds)))
 
     def get_axes_locator(self):
         """Return the axes_locator."""

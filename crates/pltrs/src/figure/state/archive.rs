@@ -50,6 +50,7 @@ impl Archive for FigureState {
             last_draw_dpi,
             canvas: _,
             draw_hook: _,
+            layout_hook: _,
             role,
         } = self;
         store.encode(encoder)?;
@@ -98,6 +99,7 @@ impl Archive for FigureState {
             last_draw_dpi: Archive::decode(decoder)?,
             canvas: CanvasState::default(),
             draw_hook: None,
+            layout_hook: None,
             role: StateRole::decode(decoder)?,
         };
         if state.detached.overlaps(&state.store) {

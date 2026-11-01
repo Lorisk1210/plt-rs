@@ -7,7 +7,7 @@ use pltrs_render::{CapStyle, JoinStyle};
 use super::arrow_style::ArrowStyle;
 use super::connection_style::{ClipRegion, ConnectionStyle};
 use super::{DisplayPath, PatchError, PatchShape, PatchStyle, ShapeFrame};
-use crate::artist::{ArtistBase, ArtistId};
+use crate::artist::{ArtistBase, ArtistId, LayoutContext};
 
 /// How an arrow is built between its ends: the shared part of
 /// [`FancyArrowPatch`], [`ConnectionPatch`](super::ConnectionPatch) and
@@ -61,6 +61,21 @@ impl Default for ArrowSpec {
 }
 
 impl ArrowSpec {
+    /// The spec with its start and end clipped to the outlines, as drawn,
+    /// of the artists `patches` (matplotlib's `patchA` and `patchB`),
+    /// which take precedence over the fixed regions.
+    pub(crate) fn clipped_to(&self, layout: &LayoutContext<'_>, patches: ArrowPatches) -> Self {
+        let region = |patch: Option<ArtistId>| {
+            let artist = layout.store().get(patch?)?;
+            artist.connection_region(layout)
+        };
+        Self {
+            patch_a: region(patches.0).or_else(|| self.patch_a.clone()),
+            patch_b: region(patches.1).or_else(|| self.patch_b.clone()),
+            ..self.clone()
+        }
+    }
+
     /// The connection from `a` to `b` (display pixels), clipped and shrunk;
     /// `dpi_cor` converts points to pixels.
     pub fn route(&self, a: Point, b: Point, dpi_cor: f64) -> Result<Path, PatchError> {
@@ -94,6 +109,10 @@ impl ArrowSpec {
     }
 }
 
+/// The artists whose outlines clip the start and the end of an arrow
+/// (matplotlib's `patchA` and `patchB`), by id in the arrow's figure.
+pub type ArrowPatches = (Option<ArtistId>, Option<ArtistId>);
+
 /// Where a [`FancyArrowPatch`] runs, in the coordinates of its transform.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArrowRoute {
@@ -120,7 +139,7 @@ pub struct FancyArrowPatch {
     /// The patches whose outlines, as drawn, clip the start and the end
     /// of the connection (matplotlib's `patchA` and `patchB`); they take
     /// precedence over the fixed regions of [`ArrowSpec`].
-    pub patches: (Option<ArtistId>, Option<ArtistId>),
+    pub patches: ArrowPatches,
 }
 
 pltrs_core::archive_struct!(FancyArrowPatch {
@@ -213,22 +232,11 @@ impl PatchShape for FancyArrowPatch {
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
         let dpi_cor = frame.dpi_cor;
         let path = match &self.route {
-            ArrowRoute::Between(a, b) => {
-                let region = |patch: Option<ArtistId>| {
-                    let artist = frame.layout.store().get(patch?)?;
-                    artist.connection_region(&frame.layout)
-                };
-                let spec = ArrowSpec {
-                    patch_a: region(self.patches.0).or_else(|| self.spec.patch_a.clone()),
-                    patch_b: region(self.patches.1).or_else(|| self.spec.patch_b.clone()),
-                    ..self.spec.clone()
-                };
-                spec.route(
-                    frame.transform.transform_point(*a),
-                    frame.transform.transform_point(*b),
-                    dpi_cor,
-                )?
-            }
+            ArrowRoute::Between(a, b) => self.spec.clipped_to(&frame.layout, self.patches).route(
+                frame.transform.transform_point(*a),
+                frame.transform.transform_point(*b),
+                dpi_cor,
+            )?,
             ArrowRoute::Along(path) => frame.transform.transform_path(path),
         };
         self.spec.display_paths(&path, dpi_cor, frame.linewidth)

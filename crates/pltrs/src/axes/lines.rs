@@ -60,6 +60,34 @@ impl Axes {
         y: impl Into<AxisValues>,
         props: LineProps,
     ) -> Result<Line2D, PlotError> {
+        self.plot_scaled(x, y, props, (true, true))
+    }
+
+    /// [`Axes::plot_with`], rescaling the view to the data at the next
+    /// layout only along the axes `(scalex, scaley)` asks for; the line
+    /// extends the data limits either way (matplotlib's `plot(...,
+    /// scalex=..., scaley=...)`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_scaled([0.0, 10.0], [0.0, 5.0], LineProps::default(), (false, true))?;
+    /// assert_eq!(ax.xlim(), (0.0, 1.0));
+    /// assert_eq!(ax.ylim(), (-0.25, 5.25));
+    /// assert_eq!(ax.data_lim().bbox.p1.x, 10.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `x` and `y` differ in length.
+    pub fn plot_scaled(
+        &self,
+        x: impl Into<AxisValues>,
+        y: impl Into<AxisValues>,
+        props: LineProps,
+        rescale: (bool, bool),
+    ) -> Result<Line2D, PlotError> {
         let (x, y) = (x.into(), y.into());
         if x.len() != y.len() {
             return Err(PlotError::LengthMismatch {
@@ -70,7 +98,7 @@ impl Axes {
         let sources = UnitSources::of(&x, &y);
         let x = self.xaxis().convert_plot_units(x);
         let y = self.yaxis().convert_plot_units(y);
-        let line = self.add_cycled_line(x, y, props);
+        let line = self.add_cycled_line(x, y, props, rescale);
         line.set_unit_sources(sources);
         Ok(line)
     }
@@ -136,7 +164,7 @@ impl Axes {
     pub fn plot_y(&self, y: impl IntoIterator<Item: Number>) -> Line2D {
         let y = to_f64s(y);
         let x = (0..y.len()).map(|i| i as f64).collect();
-        self.add_cycled_line(x, y, LineProps::default())
+        self.add_cycled_line(x, y, LineProps::default(), (true, true))
     }
 
     /// Plots on logarithmic x and y axes (matplotlib's `ax.loglog`).
@@ -180,12 +208,18 @@ impl Axes {
     }
 
     /// Adds a data line styled by `props` and the property cycle and
-    /// autoscales the view (matplotlib's `plot`, which requests
-    /// autoscaling after `add_line`).
-    fn add_cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> Line2D {
+    /// autoscales the view along the axes `(scalex, scaley)` asks for
+    /// (matplotlib's `plot`, which requests autoscaling after `add_line`).
+    fn add_cycled_line(
+        &self,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        props: LineProps,
+        (scalex, scaley): (bool, bool),
+    ) -> Line2D {
         let line = self.add_line_artist(self.cycled_line(x, y, props));
         self.raw()
-            .with_mut::<AxesState, _>(|axes| axes.request_autoscale(true, true));
+            .with_mut::<AxesState, _>(|axes| axes.request_autoscale(scalex, scaley));
         line
     }
 

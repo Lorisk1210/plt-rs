@@ -51,7 +51,7 @@ pub use connection_style::{ClipRegion, ConnectionStyle};
 pub use data_shapes::{DataRectangle, IntoPatchShape};
 pub use error::{PatchError, ShapeError, StyleError};
 pub(crate) use fancy_arrow::round_ends;
-pub use fancy_arrow::{ArrowRoute, ArrowSpec, FancyArrowPatch};
+pub use fancy_arrow::{ArrowPatches, ArrowRoute, ArrowSpec, FancyArrowPatch};
 pub use fancy_box::FancyBboxPatch;
 pub use handle::{Patch, PatchColors};
 pub use props::PatchProps;

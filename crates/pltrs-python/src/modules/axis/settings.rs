@@ -106,12 +106,17 @@ fn set_in_layout(axes: Axes, name: String, in_layout: bool) -> PyResult<()> {
     Ok(())
 }
 
-/// The extent of the axis' texts in display pixels (`get_tightbbox`).
-fn get_tightbbox(owner: AxisOwner, name: String) -> PyResult<Option<(f64, f64, f64, f64)>> {
+/// The extent of the axis' texts in display pixels, the axis label
+/// collapsed along the axis when `for_layout_only` (`get_tightbbox`).
+fn get_tightbbox(
+    owner: AxisOwner,
+    name: String,
+    for_layout_only: bool,
+) -> PyResult<Option<(f64, f64, f64, f64)>> {
     let bbox = match owner.axis(&name)? {
-        AnyAxis::Flat(axis) => axis.tight_bbox(),
+        AnyAxis::Flat(axis) => axis.tight_bbox_with(for_layout_only),
         AnyAxis::Deep(axis) => axis
-            .tight_bbox(false)
+            .tight_bbox(for_layout_only)
             .map_err(|err| PyErr::value_error(err.to_string()))?,
     };
     Ok(bbox.map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
@@ -164,8 +169,15 @@ fn set_axisbelow(axes: Axes, below: String) -> PyResult<()> {
 
 /// Counts the tick helpers in use as the scale's own, as after a scale of
 /// the program's installed them.
-fn mark_default_helpers(axes: Axes, name: String) -> PyResult<()> {
-    axis(&axes, &name)?.mark_default_tick_helpers();
+fn mark_default_helpers(owner: AxisOwner, name: String) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.mark_default_tick_helpers();
+        }
+        AnyAxis::Deep(axis) => {
+            axis.mark_default_tick_helpers();
+        }
+    }
     Ok(())
 }
 

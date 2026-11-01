@@ -129,8 +129,9 @@ class Colorbar:
         if mappable is None:
             mappable = mcolorizer._ScalarMappable(
                 colorizer=mcolorizer.Colorizer(norm=norm, cmap=cmap))
-        if alpha is not None:
-            raise NotImplementedError("pltrs: Colorbar(alpha=...)")
+        # A drawn mappable's opacity replaces *alpha*, as in matplotlib.
+        if isinstance(mappable, martist.Artist):
+            alpha = mappable.get_alpha()
         # A locator places the ticks of the long axis once it exists.
         locator = None
         if ticks is not None and not np.iterable(ticks):
@@ -191,8 +192,8 @@ class Colorbar:
         self.extendrect = extendrect
         self.values = values
         self.boundaries = boundaries
-        self.set_alpha(mappable.get_alpha()
-                       if isinstance(mappable, martist.Artist) else None)
+        self.set_alpha(alpha)
+        spec['alpha'] = None if self.alpha is None else float(self.alpha)
         self._scale_norm()
         if isinstance(parents, list):
             parents = [ax._native for ax in parents]
@@ -388,8 +389,7 @@ class Colorbar:
         """
         if mappable is not None:
             self.mappable = mappable
-        self.set_alpha(self.mappable.get_alpha()
-                       if isinstance(self.mappable, martist.Artist) else None)
+        self.set_alpha(self.mappable.get_alpha())
         self._scale_norm()
         _colorbar.update_normal(self._native, self._shown())
 
@@ -419,11 +419,42 @@ class Colorbar:
         ----------
         ticks : 1D array-like
             List of tick locations.
+        labels : list of str, optional
+            List of tick labels. If not set, the labels show the data value.
+        minor : bool, default: False
+            If ``False``, set the major ticks; if ``True``, the minor ticks.
+        **kwargs
+            `.Text` properties for the labels. These take effect only if you
+            pass *labels*. In other cases, please use `~.Axes.tick_params`.
         """
-        if labels is not None or minor or kwargs:
-            raise NotImplementedError(
-                "pltrs: Colorbar.set_ticks(labels=..., minor=..., **kwargs)")
-        _colorbar.set_ticks(self._native, [float(t) for t in ticks])
+        if np.iterable(ticks):
+            self.long_axis.set_ticks(ticks, labels=labels, minor=minor,
+                                     **kwargs)
+        else:
+            self.long_axis.set_major_locator(ticks)
+
+    def set_ticklabels(self, ticklabels, *, minor=False, **kwargs):
+        """
+        [*Discouraged*] Set tick labels.
+
+        .. admonition:: Discouraged
+
+            The use of this method is discouraged, because of the dependency
+            on tick positions. In most cases, you'll want to use
+            ``set_ticks(positions, labels=labels)`` instead.
+
+        Parameters
+        ----------
+        ticklabels : sequence of str or of `.Text`
+            Texts for labeling each tick location in the sequence set by
+            `.Colorbar.set_ticks`; the number of labels must match the number
+            of locations.
+        minor : bool
+            If True, set minor ticks instead of major ticks.
+        **kwargs
+            `.Text` properties for the labels.
+        """
+        self.long_axis.set_ticklabels(ticklabels, minor=minor, **kwargs)
 
     def get_ticks(self, minor=False):
         """

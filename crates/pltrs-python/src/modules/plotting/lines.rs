@@ -52,19 +52,26 @@ pub(super) fn format_parts(fmt: String) -> PyResult<(String, Option<String>, Opt
 }
 
 /// One line of `y` against `x` (one dataset of `plot`), styled by the
-/// format string and the keyword arguments on top.
+/// format string and the keyword arguments on top, rescaling the view
+/// along the axes `rescale` (`(scalex, scaley)`) asks for.
 pub(super) fn plot(
     axes: Axes,
     x: NdArray,
     y: NdArray,
     fmt: Option<String>,
     kwargs: LineKwargs,
+    rescale: (bool, bool),
 ) -> PyResult<Line2D> {
     let base = match fmt {
         Some(fmt) => format_props(&fmt)?,
         None => LineProps::default(),
     };
-    Ok(axes.plot_with(x.into_vec()?, y.into_vec()?, base.overlay(kwargs.0))?)
+    Ok(axes.plot_scaled(
+        x.into_vec()?,
+        y.into_vec()?,
+        base.overlay(kwargs.0),
+        rescale,
+    )?)
 }
 
 /// An infinite line through `xy1` and `xy2`, or through `xy1` with

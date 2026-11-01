@@ -7,14 +7,58 @@ contour set (``self._contour``) and, as the `.Collection` it is in
 matplotlib, the collection drawing its contours (``self._native``).
 """
 
+import functools
 from numbers import Integral
 
 import numpy as np
 from numpy import ma
 
-from . import _api, _handles, collections as mcoll, colors as mcolors
+from . import _api, _blocking_input, _handles, collections as mcoll, colors as mcolors
 from ._native import contour as _contour
+from .backend_bases import MouseButton
 from .path import Path
+
+
+def _contour_labeler_event_handler(cs, inline, inline_spacing, event):
+    """matplotlib's handler of the events of ``clabel(manual=True)``."""
+    canvas = cs.axes.get_figure(root=True).canvas
+    is_button = event.name == "button_press_event"
+    is_key = event.name == "key_press_event"
+    # Quit (even if not in infinite mode; this is consistent with
+    # MATLAB and sometimes quite useful, but will require the user to
+    # test how many points were actually returned before using data).
+    if (is_button and event.button == MouseButton.MIDDLE
+            or is_key and event.key in ["escape", "enter"]):
+        canvas.stop_event_loop()
+    # Pop last click.
+    elif (is_button and event.button == MouseButton.RIGHT
+          or is_key and event.key in ["backspace", "delete"]):
+        # Unfortunately, if one is doing inline labels, then there is currently
+        # no way to fix the broken contour - once humpty-dumpty is broken, he
+        # can't be put back together.  In inline mode, this does nothing.
+        if not inline:
+            cs.pop_label()
+            canvas.draw()
+    # Add new click.
+    elif (is_button and event.button == MouseButton.LEFT
+          # On macOS/gtk, some keys return None.
+          or is_key and event.key is not None):
+        if cs.axes.contains(event)[0]:
+            cs.add_label_near(event.x, event.y, transform=False,
+                              inline=inline, inline_spacing=inline_spacing)
+            canvas.draw()
+
+
+def _label_texts(fmt, levels):
+    """
+    The ``(level, text)`` pairs of the labels of *levels* written with
+    *fmt*, a `.Formatter` (asked as matplotlib's ``get_text`` asks it, with
+    every labelled level) or a ``%`` template object other than a string.
+    """
+    if callable(getattr(fmt, "format_ticks", None)):
+        return [(float(lev), str(fmt.format_ticks([*levels, lev])[-1]))
+                for lev in levels]
+    return [(float(lev), str(fmt % lev)) for lev in levels]
 
 
 class ContourLabeler:
@@ -43,12 +87,23 @@ class ContourLabeler:
                         "using contour() in addition to contourf() and add the labels "
                         "to the contour lines."
             )
-        if fmt is not None and isinstance(fmt, dict):
+        if isinstance(fmt, dict):
             fmt = [(float(level), str(text)) for level, text in fmt.items()]
-        elif fmt is not None and not isinstance(fmt, str) and not callable(fmt):
-            raise NotImplementedError(f"pltrs: clabel(fmt={type(fmt).__name__})")
-        if manual is True:
-            raise NotImplementedError("pltrs: clabel(manual=True)")
+        elif fmt is not None and not isinstance(fmt, str) and (
+                not callable(fmt) or callable(getattr(fmt, "format_ticks", None))):
+            labelled = self.levels if levels is None else [
+                lev for lev in self.levels if lev in list(levels)]
+            fmt = _label_texts(fmt, labelled)
+        # Labels at the positions given, or placed by clicks (none yet), or
+        # wherever they fit (None).
+        interactive = False
+        if np.iterable(manual):
+            positions = [(float(self.axes.convert_xunits(x)),
+                          float(self.axes.convert_yunits(y))) for x, y in manual]
+        elif manual:
+            positions, interactive = [], True
+        else:
+            positions = None
         if isinstance(fontsize, str):
             from .font_manager import FontProperties
             fontsize = FontProperties(size=fontsize).get_size_in_points()
@@ -59,13 +114,22 @@ class ContourLabeler:
             self._contour,
             (None if levels is None else [float(lev) for lev in levels],
              None if fontsize is None else float(fontsize), bool(inline),
-             float(inline_spacing), colors,
-             None if manual is False else
-             [(float(self.axes.convert_xunits(x)), float(self.axes.convert_yunits(y)))
-              for x, y in manual]),
+             float(inline_spacing), colors, positions),
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
                   bool(use_clabeltext)), self._native_splitter)
-        return _handles.wrap_all(texts, Text, self.figure)
+        if not interactive:
+            return _handles.wrap_all(texts, Text, self.figure)
+        print('Select label locations manually using first mouse button.')
+        print('End manual selection with second mouse button.')
+        if not inline:
+            print('Remove last label by clicking third mouse button.')
+        _blocking_input.blocking_input_loop(
+            self.axes.get_figure(root=True),
+            ["button_press_event", "key_press_event"],
+            timeout=-1, handler=functools.partial(
+                _contour_labeler_event_handler,
+                self, inline, inline_spacing))
+        return self.labelTexts
 
     def _native_splitter(self, vertices, codes, idx, screen_pos, lw, spacing):
         """What pltrs (Rust) calls for each label it places: matplotlib's
@@ -139,6 +203,15 @@ class ContourLabeler:
                                        self._native_splitter)
         return _handles.wrap(text, Text, self.figure)
 
+    def pop_label(self, index=-1):
+        """Defaults to removing last label, but any index can be supplied"""
+        count = len(self.labelTexts)
+        if not count:
+            raise IndexError("pop from empty list")
+        if not -count <= index < count:
+            raise IndexError("pop index out of range")
+        _contour.pop_label(self._contour, index % count)
+
     @property
     def labelTexts(self):
         """The label `.Text` instances."""
@@ -198,7 +271,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
             raise ValueError('allkinds has different length to allsegs')
         segments = [[Path(seg, kind) for seg, kind in zip(segs, kinds)]
                     for segs, kinds in zip(allsegs, allkinds)]
-        look = _contour_look('contourf' if filled else 'contour', kwargs)
+        look = _contour_look(kwargs)
         native = _contour.contour_segments(
             ax._native, bool(filled), [float(level) for level in levels],
             segments, *look[:2])

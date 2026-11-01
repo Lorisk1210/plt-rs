@@ -46,8 +46,6 @@ class ImagingMixin:
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
-        if url is not None:
-            raise NotImplementedError("pltrs: imshow(url=...)")
         if isinstance(X, PIL.Image.Image):
             X = mimage.pil_to_array(X)  # Needed e.g. to apply png palette.
         A = mimage._ImageBase._normalize_image_array(X)
@@ -86,6 +84,7 @@ class ImagingMixin:
         mimage._warn_identical_limits(self, im.get_extent())
         im._set_mapped_data(colorizer, A)
         im.set_alpha(alpha)
+        im.set_url(url)
         im._internal_update(kwargs)
         self._sci(im)
         return im

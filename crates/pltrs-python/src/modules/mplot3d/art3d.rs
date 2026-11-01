@@ -58,10 +58,17 @@ fn get_depthshade(axes: Axes3D, scatter: Collection) -> PyResult<bool> {
     Ok(axes.depthshade(&scatter)?)
 }
 
-/// Lets the markers of a scatter plot fade with depth or not
-/// (`Path3DCollection.set_depthshade`).
-fn set_depthshade(axes: Axes3D, scatter: Collection, depthshade: bool) -> PyResult<()> {
-    axes.set_depthshade(&scatter, depthshade)?;
+/// Lets the markers of a scatter plot fade with depth or not, down to the
+/// opacity `min_alpha` (`Path3DCollection.set_depthshade`; Python gives
+/// `axes3d.depthshade_minalpha` when none is given, as matplotlib does).
+fn set_depthshade(
+    axes: Axes3D,
+    scatter: Collection,
+    depthshade: bool,
+    min_alpha: f64,
+) -> PyResult<()> {
+    axes.set_depthshade(&scatter, depthshade)?
+        .set_depthshade_minalpha(&scatter, min_alpha)?;
     Ok(())
 }
 

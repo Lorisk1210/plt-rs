@@ -808,6 +808,18 @@ between draws (`get_ticklocs`, `get_ticklabels`) are computed where the
 axes are, without running the layout engine, as matplotlib computes them
 (`Axes::ticks`).
 
+Axes locators of axes_grid1, insets and colorbars are described to pltrs
+(Rust) (`_place`), which places their axes at every layout. Any other
+callable `locator(ax, renderer)` (and a `Divider.set_locator`, a
+secondary axis located by a transform other than `transData` or
+`transAxes`) is Python that cannot run while pltrs (Rust) lays the
+figure out: the root figure keeps what they place
+(`axes/_program_locators`), and its layout hook
+(`Figure::set_layout_hook`), which pltrs (Rust) runs before every layout
+of a draw with no borrow of the figure held, calls them and places each
+axes where its locator says until the next draw, as matplotlib calls them
+when it draws.
+
 A `Legend(parent, handles, labels, **kwargs)` makes the native legend of
 its parent at once: matplotlib's argument handling (`_parse_legend_args`,
 handler maps by handle and type) runs in Python, and the entries reach

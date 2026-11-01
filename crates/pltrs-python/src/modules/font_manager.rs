@@ -11,7 +11,7 @@ use pltrs::fonts::{
     FontExt, FontListEntry, FontManager, FontProperties, FontStretch, FontWeight,
     FontconfigPattern, parse_math_fontfamily, parse_style, parse_variant,
 };
-use pltrs_text::{FontSource, TextError};
+use pltrs_text::{AfmDirectory, FontSource, TextError};
 
 use crate::binding::prelude::*;
 
@@ -154,18 +154,6 @@ fn font_ext(name: &str) -> PyResult<FontExt> {
     }
 }
 
-/// `findfont(prop, fontext, fallback_to_default)`: the file of the font
-/// that best matches the properties, and its face index.
-fn find_font(props: PropsTuple, fontext: String, fallback: bool) -> PyResult<String> {
-    let props = properties(props)?;
-    Ok(FontManager::global().find_font(
-        &props,
-        &pltrs::rc::params(),
-        font_ext(&fontext)?,
-        fallback,
-    )?)
-}
-
 /// `_find_fonts_by_props(prop, fallback_to_default)`: the best file of
 /// each family that matches, in family order.
 fn find_fonts(props: PropsTuple, fallback: bool) -> PyResult<Vec<String>> {
@@ -266,6 +254,30 @@ fn best_font(
         .map(|(entry, score)| (entry_tuple(entry), score)))
 }
 
+/// The best AFM entry for `props` and its score (10 or more when no
+/// family matched), among the fonts of `directory` (`"pdfcorefonts"` or
+/// `"afm"`, matplotlib's two AFM directories; all fonts for `None`):
+/// `best_font`'s counterpart for `findfont(fontext="afm")`.
+fn best_afm_font(
+    props: PropsTuple,
+    directory: Option<String>,
+) -> PyResult<Option<(EntryTuple, f64)>> {
+    let props = properties(props)?;
+    let directory = match directory.as_deref() {
+        None => None,
+        Some("pdfcorefonts") => Some(AfmDirectory::PdfCore),
+        Some("afm") => Some(AfmDirectory::PostScript),
+        Some(other) => {
+            return Err(PyErr::value_error(format!(
+                "no AFM font directory {other:?}"
+            )));
+        }
+    };
+    Ok(FontManager::global()
+        .best_afm_entry(&props, &pltrs::rc::params(), directory)
+        .map(|(entry, score)| (entry_tuple(entry), score)))
+}
+
 /// The family names of the TrueType fonts.
 fn font_names() -> PyResult<Vec<String>> {
     Ok(FontManager::global().font_names())
@@ -343,9 +355,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("data_path", data_path)?;
     module.add("type1_name", type1_name)?;
     module.add("alternative_family_names", alternative_family_names)?;
-    module.add("find_font", find_font)?;
     module.add("find_fonts", find_fonts)?;
     module.add("best_font", best_font)?;
+    module.add("best_afm_font", best_afm_font)?;
     module.add("font_list", font_list)?;
     module.add("font_names", font_names)?;
     module.add("add_entry", add_entry)?;

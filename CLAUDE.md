@@ -31,6 +31,19 @@ cdylib), needs the gnu target.
 When several people/agents build at once, use a private target directory to
 avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 
+pltrs supports Linux, macOS and Windows. Only Linux can run here, so the
+other two are checked by compiling for them (the targets are installed
+with rustup) before anything platform-specific is handed over:
+
+```sh
+cargo check --workspace --all-targets --target aarch64-apple-darwin
+cargo check --workspace --all-targets --target x86_64-pc-windows-msvc
+cargo clippy --workspace --all-targets --target <target> -- -D warnings
+```
+
+Platform-specific code lives behind `cfg(target_os = ...)` in the crate
+that needs it; nothing assumes Unix outside `cfg(unix)`.
+
 ## Crate map (dependencies only point downwards)
 
 | crate            | responsibility                                                       |
@@ -41,7 +54,7 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
 | `pltrs-raster`   | AA scanline rasterizer, stroker, dashes, clipping, compositing       |
 | `pltrs-text`     | text layout into glyph runs, mathtext parser + typesetter, usetex    |
 | `pltrs-render`   | `Renderer` trait; raster (PNG), SVG, PDF, PS, PGF backends           |
-| `pltrs-platform` | windows, input events, event loop (X11, Wayland; pluggable platforms) |
+| `pltrs-platform` | windows, input events, event loop (X11, Wayland, macOS, Windows; pluggable platforms) |
 | `pltrs-ui`       | retained-mode UI engine: widgets, theme, layout, painting           |
 | `pltrs`          | the matplotlib model: Figure, Axes, artists, ticker, styles, pyplot |
 | `pltrs-spec`     | conformance harness: runs spec cases, compares to goldens           |
@@ -57,8 +70,10 @@ avoid lock contention: `CARGO_TARGET_DIR=target/agents/<name>`.
   with a `// SAFETY:` justification on each `unsafe` block, behind safe
   wrappers:
   - `pltrs-platform` goes to `#![deny(unsafe_code)]` and allows unsafe code
-    in one module, `wayland::sys`: the FFI to `sendmsg`/`recvmsg` (file
-    descriptors over the compositor's socket) and `memfd_create`. X11 is
+    only in its `sys` modules, the FFI to the operating system:
+    `wayland::sys` (`sendmsg`/`recvmsg` to pass file descriptors over the
+    compositor's socket, and `memfd_create`), `macos::sys` (the
+    Objective-C runtime and AppKit) and `windows::sys` (Win32). X11 is
     spoken over a plain socket.
   - `pltrs-python`, the CPython extension, keeps all of its unsafe code in
     its `ffi` (declarations) and `binding` (safe wrappers) modules.

@@ -3,6 +3,8 @@
 //! at given levels (matplotlib's `_add_solids`, `_do_extends`,
 //! `_update_dividers` and `add_lines`).
 
+use std::rc::Rc;
+
 use pltrs_core::{Path, Point, Rgba};
 use pltrs_render::CapStyle;
 
@@ -244,7 +246,7 @@ impl Painter<'_> {
         let mut dividers = CollectionArtist::new(CollectionKind::Line, Vec::new(), rc.clone());
         dividers.edgecolors = EdgeColors::Colors(vec![rc.axes_edgecolor.clone()]);
         dividers.linewidths = Some(vec![0.5 * rc.axes_linewidth]);
-        dividers.draw_time = Some(Box::new(placement));
+        dividers.draw_time = Some(Rc::new(placement));
         let base = dividers.base_mut();
         base.transform = Some(self.ax.trans_data());
         base.clip_on = false;
@@ -256,7 +258,7 @@ impl Painter<'_> {
         let mut figure = self.ax.raw().figure_state().borrow_mut();
         figure.stale = true;
         if let Some(dividers) = figure.artist_as_mut::<CollectionArtist>(dividers) {
-            dividers.draw_time = Some(Box::new(placement));
+            dividers.draw_time = Some(Rc::new(placement));
         }
     }
 

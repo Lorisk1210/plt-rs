@@ -59,8 +59,13 @@ python/
     pltrs_alias.py              sitecustomize: `pltrs` aliases what loads as `matplotlib`
     import_gaps.py              `--imports`: every missing import of each test file
   tests/test_smoke.py           `cargo xtask python test`
+  backend/pltrs_backend/        the PEP 517 build backend (standard library only)
+  alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
+  ecosystem/                    `cargo xtask ecosystem`: pandas and seaborn on pltrs
   requirements-pltrs.txt        the pltrs venv (pinned)
   requirements-reference.txt    what the reference venv gets on top
+  requirements-ecosystem.txt    the ecosystem venv (pandas, scipy; seaborn apart)
+pyproject.toml                  `pip install .`: the backend and the distributions
 spec/mpl-suite/
   reference.json                outcomes under real matplotlib (committed)
   pltrs.json                    outcomes under pltrs (committed)
@@ -995,6 +1000,39 @@ The suite loads `python/pltrs` under the name `matplotlib`, so:
   modules loaded as `matplotlib`;
 * the native module is `from ._native import lines as _lines` (its
   submodules are attributes).
+
+### Distributions
+
+`pyproject.toml` builds pltrs (Python) with the tree's own PEP 517
+backend (`python/backend/pltrs_backend`), written in Python's standard
+library alone so that `pip install .` needs nothing but cargo. It builds
+two distributions:
+
+* `pltrs` (the default): the release build of `pltrs-python` and the
+  package, a wheel tagged `cp312-abi3-<platform>` whose platform the
+  backend reads from the library built (`_tags`: the glibc versions of
+  its ELF symbols on Linux, the deployment target on macOS, the
+  architecture on Windows), never from the Python running the build;
+* `matplotlib` (`-C distribution=matplotlib`): `python/alias`, pure
+  Python. Its modules make `matplotlib`, `mpl_toolkits.<kit>` and
+  `pylab` the modules of pltrs (`_pltrs_matplotlib_alias`: a meta path
+  finder, the reverse of the suite's `pltrs_alias.py`), so that code
+  importing matplotlib by name runs on pltrs. It is named `matplotlib`
+  for pip: what requires matplotlib is satisfied by it, and it replaces
+  a real matplotlib (or is replaced by one) openly.
+
+`cargo xtask ecosystem` runs pandas and seaborn on the tree through the
+alias (`python/ecosystem`), comparing each figure's structure with what
+real matplotlib recorded (`expected.json`, recorded with
+`ECOSYSTEM_RECORD=1` under matplotlib). What they need of matplotlib
+beyond its suite lives where the rest of its kind does: an artist's
+`sticky_edges` (lists whose changes reach pltrs (Rust)), an axes'
+`_get_lines` and `_get_patches_for_fill` (`axes/_prop_cycles.py`: giving
+one axes another's cycle makes both draw from it, `Axes::share_prop_cycle`),
+artists made outside any figure as legend handles (`LegendHandle::of_artist`:
+lines, patches of any shape and collections), and the ticks an axis makes
+taking what its first tick has of its own, as matplotlib's
+`_copy_tick_props` gives it them (`Axis::make_ticks`).
 
 ## Adding a function: a worked example
 

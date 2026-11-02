@@ -5,4 +5,8 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root/spec/reference"
-exec "$root/.venv/bin/python" -m pytest "$@"
+python="$root/.venv/bin/python"
+# A venv on Windows (under MSYS2's or Git for Windows' bash) keeps its
+# interpreter in Scripts.
+[ -e "$python" ] || python="$root/.venv/Scripts/python.exe"
+exec "$python" -m pytest "$@"

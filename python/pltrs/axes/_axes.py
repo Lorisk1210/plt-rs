@@ -133,3 +133,14 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
     def legend_(self):
         """The `.Legend` of the Axes, or None."""
         return self.get_legend()
+
+    @legend_.setter
+    def legend_(self, legend):
+        # matplotlib's attribute: None takes the legend off the Axes.
+        current = self.get_legend()
+        if legend is current:
+            return
+        if legend is not None:
+            raise NotImplementedError(
+                "pltrs: legend_ takes None or the Axes' own legend")
+        current.remove()

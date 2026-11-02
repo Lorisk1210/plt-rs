@@ -229,8 +229,8 @@ PLTRS_LOOK=matplotlib python your_script.py # matplotlib's look
 It is a Python package (`python/pltrs`) whose classes keep matplotlib's
 names and signatures, over a native extension written in Rust against
 CPython's stable ABI, without PyO3 or any crate (`crates/pltrs-python`). It
-needs Python 3.12 or later, numpy and cycler. Build it, and run it from the source
-tree:
+needs Python 3.12 or later, numpy, cycler, Pillow and python-dateutil.
+Build it, and run it from the source tree:
 
 ```sh
 cargo xtask python setup        # the venvs: .venv-pltrs for pltrs, .venv for matplotlib
@@ -239,6 +239,63 @@ PYTHONPATH=python .venv-pltrs/bin/python your_script.py
 cargo xtask python test         # pltrs's smoke tests
 cargo xtask mpl-suite           # matplotlib 3.11's own test suite, run against pltrs
 ```
+
+### Installing
+
+`pip install .` builds and installs pltrs (Python) from the source tree,
+and `pip wheel .` makes a wheel of it. The build backend is the tree's
+own (`python/backend`, Python's standard library only): it needs no
+package, only Python 3.12+ and cargo (the toolchain
+`rust-toolchain.toml` names). It runs `cargo build --release -p
+pltrs-python` (as `cargo rustc`, leaving the debug information out) and
+packs `python/pltrs` with the library as `pltrs/_native.abi3.so`
+(`_native.pyd` on Windows) into a wheel tagged `cp312-abi3-<platform>`:
+one wheel for CPython 3.12 and every later version. The platform comes
+from what the library was built for, never from the Python running the
+build:
+
+| system  | platform tag |
+|---------|--------------|
+| Linux   | `manylinux_2_<N>_<arch>`, `N` the newest glibc the library's symbols need (build in an old distribution, or a manylinux container, for wheels that install widely); `linux_<arch>` if it needs a library manylinux does not allow |
+| macOS   | `macosx_<target>_<arch>` (`arm64`, `x86_64`), the target `MACOSX_DEPLOYMENT_TARGET` or rustc's default (10.12 on x86_64, 11.0 on arm64); `-C target=universal2` builds both architectures and joins them with `lipo` into one `universal2` wheel |
+| Windows | `win_amd64`, `win_arm64`, `win32`; the extension links the stable ABI's `python3.dll` without an import library (`raw-dylib`) |
+
+`-C target=<Rust target>` (or `CARGO_BUILD_TARGET`) cross-builds, when
+the Rust target and its linker are installed. `python -m build` and uv
+work the same way.
+
+### Running pandas, seaborn and other matplotlib code unchanged
+
+Libraries such as pandas and seaborn import `matplotlib` by name. A
+second distribution of the tree, named `matplotlib`, makes that name,
+`mpl_toolkits` (its three toolkits) and `pylab` aliases of pltrs:
+`import matplotlib.pyplot` then gives `pltrs.pyplot` itself.
+
+```sh
+pip install .                               # pltrs
+pip install . -C distribution=matplotlib    # matplotlib, as pltrs
+pip install pandas seaborn                  # they find matplotlib installed
+```
+
+Its version is the matplotlib version pltrs implements with pltrs' own
+as a local label (`3.11.2+pltrs.0.1.0`), so what requires matplotlib
+(`matplotlib>=3.4`, even `matplotlib==3.11.2`) is satisfied by it and
+pip fetches no real matplotlib. Being named `matplotlib`, it never shares
+`site-packages` with a real matplotlib silently: installing one
+uninstalls the other, and pip says so. To go back to the real one,
+`pip install --force-reinstall matplotlib` (or `pip uninstall
+matplotlib` first). It requires the pltrs of the same version, which pip
+finds installed, or among the wheels given with it (`pip install
+dist/pltrs-*.whl dist/matplotlib-*.whl`).
+
+`cargo xtask ecosystem` runs pandas' plotting (line, bar, hist, box,
+kde, area, scatter, hexbin, pie, the `pandas.plotting` functions) and
+seaborn (relplot, displot, catplot, heatmap, clustermap, pairplot,
+lmplot, jointplot, the objects interface) on the source tree's pltrs as
+matplotlib, and checks each figure against what real matplotlib 3.11.2
+draws for the same code (`python/ecosystem`; `cargo xtask ecosystem
+setup` makes their venv, and the tests skip where pandas or seaborn is
+missing).
 
 pltrs (Python) is young: it covers a first slice of pyplot (figures,
 subplots on grids and mosaics, subfigures, layout engines, `plot`,

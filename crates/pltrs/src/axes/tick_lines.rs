@@ -287,11 +287,11 @@ impl Axis {
         change: impl FnOnce(&TickLineProps) -> TickLineProps,
     ) -> &Self {
         self.update(|axis| {
-            let overrides = &mut axis.overrides_mut(minor).lines;
-            if overrides.len() <= index {
-                overrides.resize_with(index + 1, TickLineProps::default);
+            let lines = &mut axis.overrides_mut(minor).lines;
+            if lines.len() <= index {
+                lines.resize_with(index + 1, TickLineProps::default);
             }
-            overrides[index] = change(&overrides[index]);
+            lines[index] = change(&lines[index]);
         });
         self
     }

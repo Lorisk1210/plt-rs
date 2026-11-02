@@ -96,9 +96,14 @@ impl AxisState {
     }
 
     /// Computes the ticks to draw for the current view (matplotlib's
-    /// `Axis._update_ticks`).
+    /// `Axis._update_ticks`), making the ticks of every location.
     pub(crate) fn update_ticks(&mut self, geometry: &AxisGeometry) {
         self.ticks = self.compute_ticks(geometry);
+        if let Ok(ticks) = &self.ticks {
+            let (major, minor) = (ticks.major_unclipped.len(), ticks.minor_unclipped.len());
+            self.overrides_mut(false).make_ticks(major);
+            self.overrides_mut(true).make_ticks(minor);
+        }
     }
 
     /// The ticks to draw for the view of `geometry`.

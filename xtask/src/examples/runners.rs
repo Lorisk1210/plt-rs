@@ -13,6 +13,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+use pltrs_core::os::Os;
+
 use super::catalogue::{self, Layout};
 
 /// The environment variables that would change how pltrs draws.
@@ -114,7 +116,7 @@ fn scripts(layout: &Layout, names: &[String]) -> Vec<PathBuf> {
 /// each failing script and prints its name); returns why each failing
 /// one failed.
 pub(super) fn run_matplotlib(layout: &Layout, names: &[String], out: &Path) -> Vec<String> {
-    let python = layout.root().join(".venv/bin/python");
+    let python = crate::python::reference_python();
     let driver = layout.root().join("xtask/src/examples/run_matplotlib.py");
     let output = Command::new(&python)
         .arg(driver)
@@ -162,7 +164,7 @@ impl Pltrs {
     /// says why pltrs cannot run the examples.
     pub(super) fn find(layout: &Layout) -> Result<Self, String> {
         let python = env::var_os("PLTRS_PYTHON").map_or_else(
-            || layout.root().join(".venv-pltrs/bin/python"),
+            || crate::python::interpreter(&layout.root().join(".venv-pltrs"), Os::CURRENT),
             PathBuf::from,
         );
         if !python.exists() {

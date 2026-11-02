@@ -6,6 +6,7 @@
 
 use std::ffi::OsString;
 
+use pltrs_core::os::Os;
 use pltrs_core::pyfmt;
 use pltrs_render::{PageOrientation, Paper, PsfragFigure};
 use pltrs_text::tex::usepackage_if_not_loaded;
@@ -94,14 +95,12 @@ fn convert_psfrags(
     let mut rc = rc.clone();
     rc.text_latex_preamble = psfrag_preamble(&rc.text_latex_preamble, &width, &height);
     let tex = crate::text::tex_manager(&rc)?;
-    let epsfile = file
-        .path()
-        .canonicalize()
-        .map_err(|err| ProgramError::io(file.path(), &err))?;
+    let epsfile =
+        pltrs_core::os::resolve(file.path()).map_err(|err| ProgramError::io(file.path(), &err))?;
     let body = psfrag_body(
         &figure.psfrags,
         layout.orientation,
-        &epsfile.to_string_lossy(),
+        &Os::CURRENT.as_posix(&epsfile),
     );
     let dvi = tex.make_dvi(&body, 10.0)?;
     let directory = file.workspace().subdirectory()?;

@@ -96,6 +96,7 @@ impl LegendHandler for HandlerStepPatch {
 fn collection_of<'a>(entry: &HandlerEntry<'a>) -> Option<&'a CollectionArtist> {
     match entry.source {
         Source::Artist(id) => entry.ctx.store.get_as::<CollectionArtist>(*id),
+        Source::Proxy(Proxy::Collection(collection)) => Some(collection.as_ref()),
         _ => None,
     }
 }

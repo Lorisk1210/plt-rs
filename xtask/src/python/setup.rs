@@ -11,6 +11,9 @@ use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
+use pltrs_core::os::Os;
+
+use super::venv::{interpreter, reference_python};
 use super::{root, run_checked};
 
 /// The Python version of both venvs (the reference venv's).
@@ -23,7 +26,7 @@ fn pltrs_venv() -> PathBuf {
 
 /// The pltrs venv's interpreter, or why there is none.
 pub(crate) fn pltrs_python() -> Result<PathBuf, String> {
-    let python = pltrs_venv().join("bin/python");
+    let python = interpreter(&pltrs_venv(), Os::CURRENT);
     if python.exists() {
         Ok(python)
     } else {
@@ -36,20 +39,21 @@ pub(crate) fn pltrs_python() -> Result<PathBuf, String> {
 
 /// The uv executable: `UV`, else `~/.local/bin/uv` where the installer
 /// puts it, else `uv` on `PATH`.
-fn uv() -> PathBuf {
+pub(crate) fn uv() -> PathBuf {
     if let Some(uv) = env::var_os("UV") {
         return uv.into();
     }
-    env::var_os("HOME")
-        .map(|home| PathBuf::from(home).join(".local/bin/uv"))
+    let program = format!("uv{}", env::consts::EXE_SUFFIX);
+    env::home_dir()
+        .map(|home| home.join(".local").join("bin").join(&program))
         .filter(|path| path.exists())
-        .unwrap_or_else(|| "uv".into())
+        .unwrap_or_else(|| program.into())
 }
 
 /// Makes (or completes) both venvs.
 pub(super) fn run() -> Result<(), String> {
     let root = root();
-    let reference = root.join(".venv/bin/python");
+    let reference = reference_python();
     if !reference.exists() {
         return Err(format!(
             "the reference venv {} is missing (see spec/mpl-reference)",
@@ -59,7 +63,7 @@ pub(super) fn run() -> Result<(), String> {
     install(&reference, "requirements-reference.txt")?;
 
     let venv = pltrs_venv();
-    if !venv.join("bin/python").exists() {
+    if !interpreter(&venv, Os::CURRENT).exists() {
         run_checked(
             Command::new(uv())
                 .args(["venv", "--python", PYTHON_VERSION])
@@ -88,7 +92,7 @@ pub(super) fn run() -> Result<(), String> {
 }
 
 /// Installs the pinned list `python/<requirements>` into `python`'s venv.
-fn install(python: &std::path::Path, requirements: &str) -> Result<(), String> {
+pub(crate) fn install(python: &std::path::Path, requirements: &str) -> Result<(), String> {
     run_checked(
         Command::new(uv())
             .args(["pip", "install", "--python"])

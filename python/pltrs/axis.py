@@ -124,8 +124,9 @@ class Ticker:
     """
     A container for the objects defining tick position and format.
 
-    Here the locator and the formatter of one tick level of an axis, which
-    pltrs (Rust) keeps.
+    The tickers of an `Axis` stand for the locator and the formatter of one
+    of its tick levels, which pltrs (Rust) keeps; a ticker made alone
+    (``Ticker()``, as seaborn's scales make them) holds its own.
 
     Attributes
     ----------
@@ -135,19 +136,37 @@ class Ticker:
         Determines the format of the tick labels.
     """
 
-    def __init__(self, axis, minor):
-        self._axis = axis
-        self._minor = minor
+    def __init__(self):
+        self._axis = None
+        self._minor = False
+        self._own = {"locator": None, "formatter": None}
+
+    @classmethod
+    def _of_axis(cls, axis, minor):
+        """The ticker of the major (or *minor*) ticks of *axis*."""
+        ticker = cls()
+        ticker._axis = axis
+        ticker._minor = minor
+        return ticker
 
     def _replace(self, kind, helper):
         """Put *helper* in place of the current helper of its kind."""
+        if self._axis is None:
+            self._own[kind] = helper
+            return
         _, token = _axis.helper(self._axis.axes._native, self._axis.axis_name,
                                 kind, self._minor)
         _tick_helpers._install(self._axis, kind, self._minor, helper, token)
 
+    def _current(self, kind):
+        """The helper of *kind* in use."""
+        if self._axis is None:
+            return self._own[kind]
+        return _tick_helpers.get(self._axis, kind, self._minor)
+
     @property
     def locator(self):
-        return _tick_helpers.get(self._axis, "locator", self._minor)
+        return self._current("locator")
 
     @locator.setter
     def locator(self, locator):
@@ -159,7 +178,7 @@ class Ticker:
 
     @property
     def formatter(self):
-        return _tick_helpers.get(self._axis, "formatter", self._minor)
+        return self._current("formatter")
 
     @formatter.setter
     def formatter(self, formatter):
@@ -226,8 +245,8 @@ class Axis(Artist):
         """
         super().__init__()
         self._axes = axes
-        self.major = Ticker(self, minor=False)
-        self.minor = Ticker(self, minor=True)
+        self.major = Ticker._of_axis(self, minor=False)
+        self.minor = Ticker._of_axis(self, minor=True)
         self.callbacks = cbook.CallbackRegistry(signals=["units"])
         self.pickradius = pickradius
         #: The description pltrs (Rust) gave of the axis while its tick
@@ -922,7 +941,8 @@ class Axis(Artist):
         _axis.set_ticks(*self._args(), native, bool(minor))
         if labels is not None:
             self.set_ticklabels(labels, minor=minor, **kwargs)
-        return self.get_ticklocs(minor=minor)
+        get_ticks = self.get_minor_ticks if minor else self.get_major_ticks
+        return get_ticks(len(values))
 
     @staticmethod
     def _format_with_dict(tickd, x, pos):

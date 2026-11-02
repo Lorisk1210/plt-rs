@@ -1,7 +1,8 @@
 """
 The view bounds of an Axes and how it autoscales (matplotlib's
 ``get_xbound``/``set_xbound``, ``get_autoscalex_on``, ``autoscale``,
-``margins``, ``relim``, ``use_sticky_edges``): pltrs (Rust) keeps them
+``margins``, ``relim``, ``update_datalim``, ``use_sticky_edges``): pltrs
+(Rust) keeps them
 (``_native.axes_base``).
 """
 
@@ -337,6 +338,30 @@ class LimitsMixin:
             Whether to exclude invisible artists.
         """
         _axes_base.relim(self._native, bool(visible_only))
+
+    def update_datalim(self, xys, updatex=True, updatey=True):
+        """
+        Extend the `~.Axes.dataLim` Bbox to include the given points.
+
+        If no data is set currently, the Bbox will ignore its limits and set
+        the bound to be the bounds of the xydata (*xys*). Otherwise, it will
+        compute the bounds of the union of its current data and the data in
+        *xys*.
+
+        Parameters
+        ----------
+        xys : 2D array-like
+            The points to include in the data limits Bbox. This can be either
+            a list of (x, y) tuples or a (N, 2) array.
+
+        updatex, updatey : bool, default: True
+            Whether to update the x/y limits.
+        """
+        xys = np.asarray(xys, dtype=float)
+        if not np.any(np.isfinite(xys)):
+            return
+        _axes_base.update_datalim(
+            self._native, xys.reshape(-1, 2), bool(updatex), bool(updatey))
 
     @property
     def use_sticky_edges(self):

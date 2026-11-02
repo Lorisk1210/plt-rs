@@ -123,6 +123,7 @@ pub(crate) struct PyModuleDef {
     pub(crate) m_free: *mut c_void,
 }
 
+#[cfg_attr(windows, link(name = "python3", kind = "raw-dylib"))]
 unsafe extern "C" {
     /// `PyType_FromSpec`: a new heap type.
     pub(crate) fn PyType_FromSpec(spec: *mut PyType_Spec) -> *mut PyObject;

@@ -8,6 +8,8 @@ use std::hash::{BuildHasher, RandomState};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use pltrs_core::os::{self, Os};
+
 use super::{
     CONFIG_DIR_VAR, ConfigError, DirProblem, MATPLOTLIB_CONFIG_DIR_VAR, RC_FILE_NAME, RC_FILE_VAR,
 };
@@ -15,6 +17,10 @@ use super::{
 /// The name of pltrs' directories in the XDG base directories and of its
 /// temporary directories.
 const DIR_NAME: &str = "pltrs";
+
+/// The name of pltrs' directory in the home directory on macOS and
+/// Windows (matplotlib's `.matplotlib`).
+const HOME_DIR_NAME: &str = ".pltrs";
 
 /// The environment variables the lookups read.
 const VARIABLES: [&str; 4] = [
@@ -33,10 +39,12 @@ const CONFIG_DIR_VARS: [&str; 2] = [CONFIG_DIR_VAR, MATPLOTLIB_CONFIG_DIR_VAR];
 /// How many names [`make_temp_dir`] tries before giving up.
 const TEMP_DIR_ATTEMPTS: u32 = 100;
 
-/// What the lookups read from the process: environment variables and the
-/// home, working and temporary directories.
-#[derive(Clone, Debug, Default)]
+/// What the lookups read from the process: the system, environment
+/// variables and the home, working and temporary directories.
+#[derive(Clone, Debug)]
 pub(crate) struct Environment {
+    /// The system, whose conventions place the directories.
+    pub(crate) os: Os,
     /// Environment variables, by name.
     pub(crate) vars: Vec<(String, OsString)>,
     /// The home directory, if there is one.
@@ -56,6 +64,7 @@ impl Environment {
         let matplotlib =
             super::matplotlib_config_dir_honoured().then_some(MATPLOTLIB_CONFIG_DIR_VAR);
         Self {
+            os: Os::CURRENT,
             vars: VARIABLES
                 .iter()
                 .copied()
@@ -99,9 +108,9 @@ impl DirKind {
 }
 
 /// The directory to use, with the variable that named it: the first of
-/// `$PLTRSCONFIGDIR` and `$MPLCONFIGDIR` set, else `pltrs` in the XDG base
-/// directory (named by no variable); `None` without a home directory to
-/// find that in.
+/// `$PLTRSCONFIGDIR` and `$MPLCONFIGDIR` set, else (named by no variable)
+/// `pltrs` in the XDG base directory on Linux, `~/.pltrs` on macOS and
+/// Windows; `None` without a home directory to find that in.
 fn preferred_dir(env: &Environment, kind: DirKind) -> Option<(PathBuf, Option<&'static str>)> {
     if let Some(named) = CONFIG_DIR_VARS
         .iter()
@@ -109,11 +118,16 @@ fn preferred_dir(env: &Environment, kind: DirKind) -> Option<(PathBuf, Option<&'
     {
         return Some(named);
     }
-    let (variable, default) = kind.xdg_base();
-    let base = env
-        .path_var(variable)
-        .or_else(|| env.home.as_ref().map(|home| home.join(default)))?;
-    Some((base.join(DIR_NAME), None))
+    let dir = match env.os {
+        Os::Linux => {
+            let (variable, default) = kind.xdg_base();
+            env.path_var(variable)
+                .or_else(|| env.home.as_ref().map(|home| home.join(default)))?
+                .join(DIR_NAME)
+        }
+        Os::MacOs | Os::Windows => env.home.as_ref()?.join(HOME_DIR_NAME),
+    };
+    Some((dir, None))
 }
 
 /// The configuration or cache directory in `env` (matplotlib's
@@ -131,7 +145,7 @@ pub(crate) fn find_dir(
             Ok(dir) => return Ok(dir),
             Err(err) => DirProblem::Unusable {
                 // As matplotlib resolves it, as far as it exists.
-                dir: fs::canonicalize(&dir).unwrap_or(dir),
+                dir: os::resolve(&dir).unwrap_or(dir),
                 variable,
                 reason: err.to_string(),
             },
@@ -144,7 +158,7 @@ pub(crate) fn find_dir(
 /// when it is a directory pltrs can write to.
 fn usable_dir(dir: &Path) -> io::Result<PathBuf> {
     fs::create_dir_all(dir)?;
-    let dir = fs::canonicalize(dir)?;
+    let dir = os::resolve(dir)?;
     if is_writable(&dir) {
         Ok(dir)
     } else {
@@ -180,9 +194,7 @@ fn unique() -> u64 {
 /// A new directory in the temporary directory that only the user can
 /// enter (Python's `tempfile.mkdtemp(prefix="pltrs-")`).
 pub(crate) fn make_temp_dir(env: &Environment) -> io::Result<PathBuf> {
-    let mut builder = DirBuilder::new();
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    let builder = private_dir_builder();
     (0..TEMP_DIR_ATTEMPTS)
         .map(|_| env.temp_dir.join(format!("{DIR_NAME}-{:016x}", unique())))
         .find_map(|dir| match builder.create(&dir) {
@@ -196,6 +208,23 @@ pub(crate) fn make_temp_dir(env: &Environment) -> io::Result<PathBuf> {
                 "no unused temporary directory name",
             ))
         })
+}
+
+/// A builder of directories only the user can enter: mode 0700 on Unix.
+#[cfg(unix)]
+fn private_dir_builder() -> DirBuilder {
+    use std::os::unix::fs::DirBuilderExt as _;
+    let mut builder = DirBuilder::new();
+    builder.mode(0o700);
+    builder
+}
+
+/// A builder of directories only the user can enter: on Windows a new
+/// directory inherits the permissions of the user's temporary directory,
+/// which only the user can enter.
+#[cfg(not(unix))]
+fn private_dir_builder() -> DirBuilder {
+    DirBuilder::new()
 }
 
 /// The rc file in `env` (matplotlib's `matplotlib_fname`): the first of
@@ -233,21 +262,22 @@ mod tests {
                 .join(format!("pltrs-config-lookup-{name}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&dir);
             fs::create_dir_all(&dir).unwrap();
-            Self(fs::canonicalize(dir).unwrap())
+            Self(os::resolve(&dir).unwrap())
         }
 
         fn path(&self, relative: &str) -> PathBuf {
             self.0.join(relative)
         }
 
-        /// An environment with only `vars` set, the home directory `home`
-        /// and the working and temporary directories `cwd` and `tmp`, all
-        /// inside the scratch directory.
+        /// An environment of Linux with only `vars` set, the home
+        /// directory `home` and the working and temporary directories
+        /// `cwd` and `tmp`, all inside the scratch directory.
         fn env(&self, vars: &[(&str, &str)]) -> Environment {
             for dir in ["cwd", "tmp"] {
                 fs::create_dir_all(self.path(dir)).unwrap();
             }
             Environment {
+                os: Os::Linux,
                 vars: vars
                     .iter()
                     .map(|&(name, value)| (name.to_owned(), self.path(value).into()))
@@ -301,6 +331,24 @@ mod tests {
             scratch.path("mine"),
             "PLTRSCONFIGDIR holds the cache too"
         );
+    }
+
+    #[test]
+    fn macos_and_windows_keep_both_directories_in_the_home_directory() {
+        let scratch = Scratch::new("home-dir");
+        for os in [Os::MacOs, Os::Windows] {
+            let mut env = scratch.env(&[("XDG_CONFIG_HOME", "xdg"), ("XDG_CACHE_HOME", "xdg")]);
+            env.os = os;
+            assert_eq!(lookup(&env, DirKind::Config), scratch.path("home/.pltrs"));
+            assert_eq!(lookup(&env, DirKind::Cache), scratch.path("home/.pltrs"));
+            env.vars
+                .push(("PLTRSCONFIGDIR".to_owned(), scratch.path("mine").into()));
+            assert_eq!(lookup(&env, DirKind::Config), scratch.path("mine"));
+            env.home = None;
+            env.vars.clear();
+            let err = find_dir(&env, DirKind::Cache, no_fallback).unwrap_err();
+            assert_eq!(err.problem, DirProblem::NoHome);
+        }
     }
 
     #[test]

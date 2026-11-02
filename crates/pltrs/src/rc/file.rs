@@ -247,7 +247,7 @@ impl RcFile {
     /// [`RcError::Unreadable`] when the file cannot be read as UTF-8 text,
     /// and the errors of [`RcFile::parse`].
     pub fn read(path: impl AsRef<Path>) -> Result<Self, RcError> {
-        let path = expand_user(path.as_ref());
+        let path = pltrs_core::os::expand_user(path.as_ref());
         let text = std::fs::read_to_string(&path).map_err(|err| RcError::Unreadable {
             path: path.clone(),
             reason: err.to_string(),
@@ -258,15 +258,6 @@ impl RcFile {
         }
         file.path = Some(path);
         Ok(file)
-    }
-}
-
-/// `path` with a leading `~` replaced by the home directory (Python's
-/// `os.path.expanduser`).
-fn expand_user(path: &Path) -> PathBuf {
-    match (path.strip_prefix("~"), std::env::var_os("HOME")) {
-        (Ok(rest), Some(home)) => Path::new(&home).join(rest),
-        _ => path.to_owned(),
     }
 }
 

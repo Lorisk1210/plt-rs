@@ -1,7 +1,7 @@
 //! Line plotting: `plot`.
 
 use super::children::DataUpdate;
-use super::{Axes, AxesState, PlotError};
+use super::{Axes, AxesState, PlotError, PropCycle};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::lines::{Line2D, LineArtist, LineProps};
@@ -260,7 +260,7 @@ impl Axes {
     /// leaves unset (matplotlib's `_makeline`).
     pub(crate) fn cycled_line(&self, x: Vec<f64>, y: Vec<f64>, props: LineProps) -> LineArtist {
         let mut line = LineArtist::new(x, y, crate::rc::params());
-        let owner = self.line_cycle_owner();
+        let owner = self.prop_cycle_owner(PropCycle::Lines);
         let cycled = owner.raw().with_mut::<AxesState, _>(|axes| {
             let entry: Vec<(String, CycleValue)> = axes
                 .prop_cycle
@@ -319,9 +319,15 @@ impl Axes {
     }
 
     /// The next colour of the line property cycle (matplotlib's
-    /// `_get_lines.get_next_color`).
-    pub(crate) fn next_line_color(&self) -> Color {
-        self.line_cycle_owner()
+    /// `_get_lines.get_next_color`), black when the cycle has no colours;
+    /// the cycle advances only when it has.
+    ///
+    /// ```
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// assert_ne!(ax.next_line_color(), ax.next_line_color());
+    /// ```
+    pub fn next_line_color(&self) -> Color {
+        self.prop_cycle_owner(PropCycle::Lines)
             .raw()
             .with_mut::<AxesState, _>(|axes| {
                 let color = cycle_color(&axes.prop_cycle, axes.line_cycle);

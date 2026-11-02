@@ -3,7 +3,7 @@
 use pltrs_core::Point;
 
 use super::children::DataUpdate;
-use super::{Axes, AxesState, PlotError};
+use super::{Axes, AxesState, PlotError, PropCycle};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Polygon};
@@ -128,7 +128,8 @@ impl Axes {
         props: &PatchProps,
         color_given: bool,
     ) -> Vec<(String, CycleValue)> {
-        self.raw().with_mut::<AxesState, _>(|axes| {
+        let owner = self.prop_cycle_owner(PropCycle::Patches);
+        owner.raw().with_mut::<AxesState, _>(|axes| {
             let ignored = |key: &str| {
                 MARKER_KEYS.contains(&key) || props.is_set(key) || (color_given && key == "color")
             };

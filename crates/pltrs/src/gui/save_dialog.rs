@@ -126,12 +126,8 @@ fn with_extension(name: &str, format: SaveFormat) -> String {
 /// home directory) when it exists, else the working directory.
 fn start_directory() -> PathBuf {
     let setting = crate::rc::params().savefig_directory.clone();
-    let expanded = match setting.strip_prefix('~') {
-        Some(rest) => std::env::var_os("HOME")
-            .map(|home| PathBuf::from(home).join(rest.trim_start_matches('/'))),
-        None => (!setting.is_empty()).then(|| PathBuf::from(&setting)),
-    };
-    expanded
+    (!setting.is_empty())
+        .then(|| pltrs_core::os::expand_user(Path::new(&setting)))
         .filter(|dir| dir.is_dir())
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_else(|| PathBuf::from("."))

@@ -126,7 +126,7 @@ fn run_suite(options: &Options) -> Result<(), String> {
         PathBuf::from,
     );
     let python = match options.mode {
-        Mode::Reference => root.join(".venv/bin/python"),
+        Mode::Reference => crate::python::reference_python(),
         Mode::Pltrs => {
             crate::python::build(crate::python::Profile::Release)?;
             crate::python::pltrs_python()?

@@ -187,6 +187,28 @@ impl Axis {
         self.read(|axis| axis.tick_style_at(minor, index).into_owned())
     }
 
+    /// Makes the first `count` major (or `minor`) ticks exist, as
+    /// matplotlib's `get_major_ticks(count)` makes them: those made now
+    /// take what the first tick has of its own (matplotlib's
+    /// `_copy_tick_props`), unless given properties of their own before.
+    /// The axis makes the ticks of every location it places itself.
+    ///
+    /// ```
+    /// use pltrs::axes::TickLabelProps;
+    /// let ax = pltrs::figure::Figure::new().subplot();
+    /// ax.set_xticks([0.0, 0.5]);
+    /// ax.xaxis().make_ticks(false, 2);
+    /// let hidden = TickLabelProps { label1_visible: Some(false), ..TickLabelProps::default() };
+    /// ax.xaxis().set_major_ticklabel_props(0, hidden.clone());
+    /// ax.xaxis().make_ticks(false, 3);
+    /// assert_eq!(ax.xaxis().tick_label_props(false, 1), TickLabelProps::default());
+    /// assert_eq!(ax.xaxis().tick_label_props(false, 2), hidden);
+    /// ```
+    pub fn make_ticks(&self, minor: bool, count: usize) -> &Self {
+        self.update(|axis| axis.overrides_mut(minor).make_ticks(count));
+        self
+    }
+
     /// The display box of the label on the first (bottom or left) or the
     /// second side of the major (or `minor`) tick at `index` among those
     /// the locator places, in the figure's current layout (laid out

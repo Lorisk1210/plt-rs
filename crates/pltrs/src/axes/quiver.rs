@@ -82,7 +82,7 @@ impl Axes {
         let geometry =
             QuiverGeometry::new(self.id(), points.xy, (points.u, points.v), mask, sizing)
                 .with_scalar_components(scalar_components);
-        collection.draw_time = Some(Box::new(geometry));
+        collection.draw_time = Some(Rc::new(geometry));
         let quiver =
             Collection::from_raw(self.adopt_collection(collection, &DataUpdate::limits(limits)));
         if let Some(mapping) = mapping {

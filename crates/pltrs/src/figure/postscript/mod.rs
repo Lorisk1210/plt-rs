@@ -37,10 +37,10 @@ pub use programs::ProgramError;
 pub fn check_distiller(distiller: Distiller) -> Result<(), ProgramError> {
     match distiller {
         Distiller::Off => Ok(()),
-        Distiller::Ghostscript => Executable::Ghostscript.check(),
+        Distiller::Ghostscript => Executable::Ghostscript.check().map(drop),
         Distiller::Xpdf => {
             Executable::Ghostscript.check()?;
-            Executable::Pdftops.check()
+            Executable::Pdftops.check().map(drop)
         }
     }
 }
@@ -448,7 +448,8 @@ mod tests {
             file.path().into(),
         ])
         .collect();
-        file.workspace().run("gs", &args).unwrap();
+        let gs = Executable::Ghostscript.check().unwrap();
+        file.workspace().run(gs, &args).unwrap();
         let image = pltrs_codec::png::decode(&std::fs::read(png).unwrap()).unwrap();
         assert_eq!((image.width(), image.height()), (192, 144));
     }

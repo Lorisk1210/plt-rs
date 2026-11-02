@@ -26,28 +26,6 @@ pub fn format_command(program: &str, args: &[&OsStr]) -> String {
         .join(" ")
 }
 
-/// Whether `program` can be run: an executable file of that name is on
-/// `PATH` (`shutil.which`).
-pub fn on_path(program: &str) -> bool {
-    std::env::var_os("PATH").is_some_and(|paths| {
-        std::env::split_paths(&paths).any(|dir| {
-            let candidate = dir.join(program);
-            std::fs::metadata(&candidate).is_ok_and(|meta| meta.is_file() && is_executable(&meta))
-        })
-    })
-}
-
-#[cfg(unix)]
-fn is_executable(meta: &std::fs::Metadata) -> bool {
-    use std::os::unix::fs::PermissionsExt as _;
-    meta.permissions().mode() & 0o111 != 0
-}
-
-#[cfg(not(unix))]
-fn is_executable(_meta: &std::fs::Metadata) -> bool {
-    true
-}
-
 /// Runs `program` with `args` in `cwd`, its output and errors collected
 /// together, and fails as matplotlib does when it cannot be started or
 /// exits with an error (the message quotes `tex`, the string being
@@ -115,8 +93,7 @@ mod tests {
                 program: "pltrs-no-such-program".into()
             })
         );
-        assert!(!on_path("pltrs-no-such-program"));
-        if on_path("sh") {
+        if pltrs_core::os::which("sh").is_some() {
             let args = [
                 OsStr::new("-c"),
                 OsStr::new("echo out; echo err >&2; exit 3"),

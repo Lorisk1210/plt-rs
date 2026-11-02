@@ -10,6 +10,7 @@ use super::PyObject;
 /// `PyGILState_Release`.
 pub(crate) type PyGILState_STATE = std::ffi::c_int;
 
+#[cfg_attr(windows, link(name = "python3", kind = "raw-dylib"))]
 unsafe extern "C" {
     /// `PyGILState_Ensure`: takes the GIL for the current thread
     /// (re-entrantly), creating its thread state if needed.

@@ -133,13 +133,47 @@ pub(crate) struct TickOverrides {
     /// Gaps between the marks and the labels, in points (matplotlib's
     /// `Tick.set_pad`).
     pub(crate) pads: Vec<Option<f64>>,
+    /// How many ticks of the level exist, as matplotlib's tick lists
+    /// count them: ticks are made when the axis places them or a program
+    /// lists them (`get_major_ticks(n)`), and never unmade but by a reset.
+    made: usize,
 }
 
 pltrs_core::archive_struct!(TickOverrides {
     labels,
     lines,
-    pads
+    pads,
+    made
 });
+
+impl TickOverrides {
+    /// Makes the first `count` ticks of the level exist: those made now
+    /// take what the first tick has of its own, as matplotlib copies the
+    /// first tick's properties to every tick it adds
+    /// (`Axis._copy_tick_props`), unless they were given properties of
+    /// their own before.
+    pub(crate) fn make_ticks(&mut self, count: usize) {
+        if count <= self.made {
+            return;
+        }
+        copy_first(&mut self.labels, self.made, count);
+        copy_first(&mut self.lines, self.made, count);
+        copy_first(&mut self.pads, self.made, count);
+        self.made = count;
+    }
+}
+
+/// Gives the ticks being made (`made..count`) that have no entry of
+/// `list` yet its first entry, when the first tick has one: the ticks
+/// made before, and those given an entry already, keep what they have
+/// (the level's style when they have no entry).
+fn copy_first<T: Clone + Default>(list: &mut Vec<T>, made: usize, count: usize) {
+    let Some(first) = list.first().cloned() else {
+        return;
+    };
+    list.resize_with(made.max(list.len()), T::default);
+    list.resize(count.max(list.len()), first);
+}
 
 /// State of one axis.
 ///

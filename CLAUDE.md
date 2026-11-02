@@ -176,6 +176,8 @@ cargo xtask python [--release]  # build the extension into python/pltrs/_native.
 cargo xtask python test       # the extension plus pltrs's smoke tests (python/tests)
 cargo xtask mpl-suite [PATTERN...] [--failures] [--imports]   # matplotlib's suite on pltrs
 cargo xtask mpl-suite --reference                           # ... on real matplotlib
+cargo xtask ecosystem [setup]   # pandas and seaborn on pltrs as matplotlib
+pip install . [-C distribution=matplotlib]   # pltrs, or matplotlib as pltrs
 ```
 
 * `python/` on `PYTHONPATH` is a working install once the extension is

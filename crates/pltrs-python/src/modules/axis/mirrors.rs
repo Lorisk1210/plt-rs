@@ -179,7 +179,11 @@ fn sync_tick(
     let axis = owner.axis(&name)?;
     sync_part_gids(&axis, minor, index, &mirrors);
     match axis {
-        AnyAxis::Flat(axis) => sync_flat_tick(&axis, minor, index, mirrors),
+        AnyAxis::Flat(axis) => {
+            // A tick of matplotlib's tick list exists once listed.
+            axis.make_ticks(minor, index + 1);
+            sync_flat_tick(&axis, minor, index, mirrors)
+        }
         AnyAxis::Deep(axis) => deep::sync_tick(&axis, minor, index, mirrors),
     }
 }

@@ -262,7 +262,7 @@ class RendererBase:
         then calls `draw_path_collection`.
         """
 
-        from matplotlib.collections import QuadMesh
+        from .collections import QuadMesh
         paths = QuadMesh._convert_mesh_to_paths(coordinates)
 
         if edgecolors is None:
@@ -3173,7 +3173,7 @@ class NavigationToolbar2:
             self.subplot_tool.figure.canvas.manager.show()
             return self.subplot_tool
         # This import needs to happen here due to circular imports.
-        from matplotlib.figure import Figure
+        from .figure import Figure
         with mpl.rc_context({"toolbar": "none"}):  # No navbar for the toolfig.
             manager = type(self.canvas).new_manager(Figure(figsize=(6, 3)), -1)
         manager.set_window_title("Subplot configuration tool")

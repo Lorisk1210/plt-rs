@@ -13,6 +13,7 @@
 //! cargo xtask python [--release] | setup | test   build pltrs (Python)'s extension, make its venvs, smoke-test it
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
 //!                                                 matplotlib's own test suite run against pltrs (or matplotlib)
+//! cargo xtask ecosystem [setup] [PYTEST ARGS...]  pandas and seaborn drawing with pltrs as matplotlib
 //! ```
 #![forbid(unsafe_code)]
 #![expect(
@@ -22,6 +23,7 @@
 )]
 
 mod bench;
+mod ecosystem;
 mod examples;
 mod mpl_suite;
 mod mpl_tests;
@@ -52,6 +54,7 @@ fn main() -> ExitCode {
         Some((command, rest)) if command == "python" => python::run(rest),
         Some((command, rest)) if command == "mpl-suite" => mpl_suite::run(rest),
         Some((command, rest)) if command == "examples" => examples::run(rest),
+        Some((command, rest)) if command == "ecosystem" => ecosystem::run(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
@@ -65,6 +68,7 @@ fn main() -> ExitCode {
             eprintln!(
                 "       cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]"
             );
+            eprintln!("       cargo xtask ecosystem [setup] [PYTEST ARGS...]");
             ExitCode::FAILURE
         }
     }
@@ -78,7 +82,7 @@ fn main() -> ExitCode {
 fn vectors(args: &[String]) -> ExitCode {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let reference = root.join("spec/out/vector-reference");
-    let mut python = std::process::Command::new(root.join(".venv/bin/python"));
+    let mut python = std::process::Command::new(python::reference_python());
     python
         .arg(root.join("spec/reference/figures/render_vectors.py"))
         .arg(&reference);

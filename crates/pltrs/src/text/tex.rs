@@ -67,7 +67,7 @@ pub fn check_usetex_postscript() -> Result<(), TexError> {
     let missing = |program: &str| TexError::NotInstalled {
         program: program.to_owned(),
     };
-    if !pltrs_text::tex::on_path("dvips") {
+    if pltrs_core::os::which("dvips").is_none() {
         return Err(missing("dvips"));
     }
     let rc = crate::rc::params();

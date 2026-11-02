@@ -8,4 +8,6 @@ __pycache__/
 /.venv-pltrs
 /python/pltrs/_native.abi3.so
 /python/pltrs/_native.abi3.so.new
+/python/pltrs/_native.pyd
+/python/pltrs/_native.pyd.new
 result_images/

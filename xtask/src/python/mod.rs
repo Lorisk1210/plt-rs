@@ -2,8 +2,9 @@
 //! (Python).
 //!
 //! * `python [--release]` builds the extension (`crates/pltrs-python`) and
-//!   puts it in the package as `python/pltrs/_native.abi3.so`, so that
-//!   `python/` on `PYTHONPATH` is a working install;
+//!   puts it in the package as `python/pltrs/_native.abi3.so`
+//!   (`_native.pyd` on Windows), so that `python/` on `PYTHONPATH` is a
+//!   working install;
 //! * `python setup` makes the pltrs venv (`.venv-pltrs`, without
 //!   matplotlib) and adds what the suite runner needs to the reference
 //!   venv (`.venv`), from the pinned lists in `python/requirements-*.txt`;
@@ -11,6 +12,7 @@
 //!   (`python/tests`) in the pltrs venv.
 
 mod setup;
+mod venv;
 
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -18,7 +20,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
-pub(crate) use setup::pltrs_python;
+use pltrs_core::os::Os;
+
+pub(crate) use setup::{install, pltrs_python, uv};
+pub(crate) use venv::{interpreter, reference_python, site_packages};
 
 /// The workspace root.
 pub(crate) fn root() -> PathBuf {
@@ -68,7 +73,7 @@ impl Profile {
 }
 
 /// Builds `pltrs-python` and copies the library into the package as
-/// `python/pltrs/_native.abi3.so`.
+/// `python/pltrs/_native.abi3.so` (`_native.pyd` on Windows).
 pub(crate) fn build(profile: Profile) -> Result<(), String> {
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut command = Command::new(cargo);
@@ -77,13 +82,14 @@ pub(crate) fn build(profile: Profile) -> Result<(), String> {
         command.arg("--release");
     }
     run_checked(&mut command)?;
-    let built = target_dir()
-        .join(profile.directory())
-        .join("libpltrs_python.so");
-    let installed = root().join("python/pltrs/_native.abi3.so");
+    let (built, installed) = venv::extension_files(Os::CURRENT);
+    let built = target_dir().join(profile.directory()).join(built);
+    let installed = root().join("python/pltrs").join(installed);
     // Replacing the file (rather than writing over it) keeps a running
     // interpreter that mapped the old library from crashing.
-    let staging = installed.with_extension("so.new");
+    let mut staging = installed.clone().into_os_string();
+    staging.push(".new");
+    let staging = PathBuf::from(staging);
     std::fs::copy(&built, &staging)
         .and_then(|_| std::fs::rename(&staging, &installed))
         .map_err(|err| format!("cannot install {}: {err}", built.display()))?;

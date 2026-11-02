@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use pltrs_codec::sha256::sha256_hex;
 use pltrs_core::pyfmt;
 
-use super::command::{on_path, run_checked};
+use super::command::run_checked;
 use super::dvi::DviPage;
 use super::error::{TexError, TexFile};
 use super::files::TexFiles;
@@ -135,7 +135,7 @@ impl TexManager {
     /// Why not, naming the missing program as matplotlib's warning does.
     pub fn check_installation() -> Result<(), TexError> {
         for (program, needed) in [("tex", "TeX"), ("latex", "LaTeX"), ("dvipng", "dvipng")] {
-            if !on_path(program) {
+            if pltrs_core::os::which(program).is_none() {
                 return Err(TexError::NotInstalled {
                     program: needed.to_owned(),
                 });

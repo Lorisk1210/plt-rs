@@ -87,7 +87,7 @@ impl std::error::Error for ParasiteError {}
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Parasite {
     /// The host axes.
-    host: ArtistId,
+    pub(crate) host: ArtistId,
     /// How its coordinates relate to the host's.
     link: ParasiteLink,
     /// The map from the host's view limits to its own, when they follow.
@@ -429,21 +429,6 @@ pub(crate) fn parasites_of(store: &impl ArtistLookup, axes: ArtistId) -> Vec<Art
                 .collect()
         })
         .unwrap_or_default()
-}
-
-impl Axes {
-    /// The axes whose line property cycle this one draws from: the host
-    /// of a parasite (matplotlib's `_get_lines = parent._get_lines`),
-    /// itself otherwise.
-    pub(crate) fn line_cycle_owner(&self) -> Self {
-        let host = self
-            .raw()
-            .with::<AxesState, _>(|state| state.parasite.map(|parasite| parasite.host));
-        host.map_or_else(
-            || self.clone(),
-            |host| Self::from_raw(RawHandle::new(Rc::clone(self.raw().figure_state()), host)),
-        )
-    }
 }
 
 impl FigureState {

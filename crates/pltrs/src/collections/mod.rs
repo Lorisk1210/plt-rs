@@ -141,7 +141,7 @@ pltrs_core::archive_struct!(DepthSorted {
 });
 
 /// Values mapped to colours through a norm and colormap.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ColorMapping {
     /// One value per item (`None` = masked).
     pub values: Vec<Option<f64>>,
@@ -165,7 +165,7 @@ pub(crate) trait DrawTimeShapes: Debug + Any {
 
 /// A [`ColorMapping`] with its values already normalised (matplotlib
 /// autoscales the norm and normalises when the array is set).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Mapped {
     pub(crate) source: ColorMapping,
     pub(crate) normalized: Result<Vec<Normalized>, String>,
@@ -201,7 +201,7 @@ impl Mapped {
 }
 
 /// State of a collection.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct CollectionArtist {
     base: ArtistBase,
     pub(crate) kind: CollectionKind,
@@ -274,8 +274,9 @@ pub(crate) struct CollectionArtist {
     /// The vertex grid of a quad mesh drawn as polygons (`pcolor`'s
     /// `PolyQuadMesh`), which its coordinates are read from.
     pub(crate) polygon_grid: Option<Grid<Point>>,
-    /// Replaces `paths` and the artist transform when drawing.
-    pub(crate) draw_time: Option<Box<dyn DrawTimeShapes>>,
+    /// Replaces `paths` and the artist transform when drawing (shared by
+    /// copies of the collection: a generator is replaced, never changed).
+    pub(crate) draw_time: Option<Rc<dyn DrawTimeShapes>>,
     /// matplotlib's class of the collection where it is not the one of
     /// its kind (`Line3DCollection`, `GridlinesCollection`), which names
     /// its group in SVG output.

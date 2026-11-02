@@ -414,7 +414,8 @@ class Legend(Artist):
         prop : `.font_manager.FontProperties` or `str` or `pathlib.Path`
             The font properties of the legend title.
         """
-        _legend.set_title(self._native, str(title))
+        # As `Text.set_text` takes it: None is no text.
+        _legend.set_title(self._native, "" if title is None else str(title))
         if prop is not None:
             self.get_title().set_fontproperties(FontProperties._from_any(prop))
 

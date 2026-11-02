@@ -4,6 +4,7 @@ use std::ffi::{c_char, c_int};
 
 use super::{Py_ssize_t, PyObject};
 
+#[cfg_attr(windows, link(name = "python3", kind = "raw-dylib"))]
 unsafe extern "C" {
     /// `PyExc_ValueError`.
     pub(crate) static mut PyExc_ValueError: *mut PyObject;

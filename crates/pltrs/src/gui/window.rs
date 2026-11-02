@@ -24,6 +24,9 @@ use crate::figure::{Figure, Presenting};
 use crate::navigation::{NavMode, Navigation};
 use toolbar::{Tool, Toolbar};
 
+pub(super) use canvas::present_figure;
+pub(super) use toolbar::{button_row, height as toolbar_height, push_status};
+
 /// What the widgets of a figure window report.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Message {
@@ -220,7 +223,7 @@ impl FigureWindow {
         if let Some(dialog) = self.save_dialog.as_mut().filter(|d| d.id() == window) {
             return match dialog.handle(cx, event)? {
                 Outcome::Open => Ok(true),
-                Outcome::Saved(path) => {
+                Outcome::Done(path) => {
                     self.close_save_dialog(cx)?;
                     self.set_status(cx, format!("Saved {}", path.display()))?;
                     Ok(true)

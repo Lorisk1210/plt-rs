@@ -3,7 +3,9 @@ Displays Agg images in the browser, with interactivity.
 
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is: the
 protocol between a figure and the browser client, over the canvas of
-`.backend_agg`; the client script is the one pltrs (Rust) serves.
+`.backend_agg`; the client script and the client's other files
+(`FigureManagerWebAgg.get_static_file_path`) are those pltrs (Rust)
+bundles.
 """
 # The WebAgg backend is divided into two modules:
 #
@@ -19,17 +21,23 @@ import datetime
 from io import BytesIO, StringIO
 import json
 import logging
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from .. import _api, backend_bases, backend_tools
+from .. import _api, backend_bases, backend_tools, get_cachedir
 from .._native import backends as _backends
+from .._native import web as _web
 from . import backend_agg
 from ..backend_bases import (
     _Backend, MouseButton, KeyEvent, LocationEvent, MouseEvent, ResizeEvent)
 
 _log = logging.getLogger(__name__)
+
+#: The directory `FigureManagerWebAgg.get_static_file_path` wrote the
+#: browser client's files into, once it did.
+_static_file_path = None
 
 _SPECIAL_KEYS_LUT = {'Alt': 'alt',
                      'AltGraph': 'alt',
@@ -542,6 +550,25 @@ class FigureManagerWebAgg(backend_bases.FigureManagerBase):
 
         if stream is None:
             return output.getvalue()
+
+    @classmethod
+    def get_static_file_path(cls):
+        """
+        The directory of matplotlib's browser client (its ``web_backend``:
+        the pages, style sheets and scripts), for applications serving
+        them. pltrs (Rust) bundles the files; they are written into pltrs'
+        cache directory when first asked for.
+        """
+        global _static_file_path
+        if _static_file_path is None:
+            directory = Path(get_cachedir(), "web_backend")
+            for name, data in _web.client_files():
+                path = directory / name
+                if not path.is_file() or path.read_bytes() != data:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(data)
+            _static_file_path = str(directory)
+        return _static_file_path
 
     def _send_event(self, event_type, **kwargs):
         payload = {'type': event_type, **kwargs}

@@ -21,7 +21,7 @@ pub(super) enum HelpMessage {
 }
 
 /// A shortcut: what it does and its keys.
-type Shortcut = (String, Vec<String>);
+pub(super) type Shortcut = (String, Vec<String>);
 
 /// The height the help window may take whatever the height of its figure
 /// window, in logical pixels: room for a few groups of shortcuts.
@@ -116,9 +116,26 @@ impl HelpDialog {
         figure: &Figure,
         height: f64,
     ) -> Result<Self, GuiError> {
+        let groups = shortcuts(&crate::rc::params(), &figure.tools());
+        Self::open_listing(cx, figure, height, groups)
+    }
+
+    /// Opens a help window for the window of `figure` as
+    /// [`HelpDialog::open`] does, listing the shortcuts `groups` gives:
+    /// each group's name, then what each shortcut does and its keys.
+    ///
+    /// # Errors
+    ///
+    /// When the window cannot be created.
+    pub(super) fn open_listing<G: AsRef<str>>(
+        cx: &mut Context<'_>,
+        figure: &Figure,
+        height: f64,
+        groups: Vec<(G, Vec<Shortcut>)>,
+    ) -> Result<Self, GuiError> {
         let mut form = Form::new();
-        for (group, rows) in shortcuts(&crate::rc::params(), &figure.tools()) {
-            form.section(group);
+        for (group, rows) in groups {
+            form.section(group.as_ref());
             for (action, keys) in rows {
                 form.row(action, Keycaps::new(keys));
             }

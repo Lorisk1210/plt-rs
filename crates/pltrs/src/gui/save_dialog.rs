@@ -52,10 +52,22 @@ pub(super) enum DialogMessage {
 pub(super) enum Outcome {
     /// Still open.
     Open,
-    /// The figure was written here.
-    Saved(PathBuf),
+    /// The file: written there by a dialog that saves, chosen by one that
+    /// only chooses.
+    Done(PathBuf),
     /// Closed without saving.
     Cancelled,
+}
+
+/// What the dialog does with the file chosen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Purpose {
+    /// Saves the figure there, remembering the directory in
+    /// `savefig.directory`.
+    Save,
+    /// Only hands the file over, for the program to save the figure (as
+    /// matplotlib's file choosers do for `save_figure`).
+    Choose,
 }
 
 /// A row of the listing.
@@ -155,6 +167,13 @@ pub(super) struct SaveDialog {
     format: usize,
     /// The existing file a first Save asked to replace.
     replacing: Option<PathBuf>,
+    purpose: Purpose,
+}
+
+/// The format `savefig.format` names, else PNG.
+fn default_format() -> usize {
+    let rc_format = crate::rc::params().savefig_format.clone();
+    format_of(&format!("x.{rc_format}")).unwrap_or(0)
 }
 
 impl SaveDialog {
@@ -168,10 +187,42 @@ impl SaveDialog {
         figure: &Figure,
         title: &str,
     ) -> Result<Self, GuiError> {
-        let rc_format = crate::rc::params().savefig_format.clone();
-        let format = format_of(&format!("x.{rc_format}")).unwrap_or(0);
+        let format = default_format();
         let name = FORMATS[format].file_name_for(title);
-        let directory = start_directory();
+        Self::build(cx, figure, start_directory(), name, format, Purpose::Save)
+    }
+
+    /// Opens the dialog to choose where to save `figure`, in `directory`
+    /// when it is one (else where [`SaveDialog::open`] starts), proposing
+    /// the file name `name` (whose extension chooses the format, else
+    /// `savefig.format` does): it ends with the file chosen, saving
+    /// nothing.
+    ///
+    /// # Errors
+    ///
+    /// When the window cannot be created.
+    pub(super) fn choose(
+        cx: &mut Context<'_>,
+        figure: &Figure,
+        directory: Option<&Path>,
+        name: &str,
+    ) -> Result<Self, GuiError> {
+        let format = format_of(name).unwrap_or_else(default_format);
+        let directory = directory
+            .filter(|directory| directory.is_dir())
+            .map_or_else(start_directory, Path::to_path_buf);
+        let name = name.to_owned();
+        Self::build(cx, figure, directory, name, format, Purpose::Choose)
+    }
+
+    fn build(
+        cx: &mut Context<'_>,
+        figure: &Figure,
+        directory: PathBuf,
+        name: String,
+        format: usize,
+        purpose: Purpose,
+    ) -> Result<Self, GuiError> {
         let entries = list_directory(&directory);
         let mut content = Flex::column().with_spacing(dialog::GAP);
         let mut place = Form::new();
@@ -218,6 +269,7 @@ impl SaveDialog {
             name,
             format,
             replacing: None,
+            purpose,
         };
         dialog.select_stem(cx)?;
         Ok(dialog)
@@ -392,10 +444,13 @@ impl SaveDialog {
             self.replacing = Some(path);
             return Ok(Outcome::Open);
         }
+        if self.purpose == Purpose::Choose {
+            return Ok(Outcome::Done(path));
+        }
         match self.figure.savefig(&path) {
             Ok(()) => {
                 remember_directory(&self.directory);
-                Ok(Outcome::Saved(path))
+                Ok(Outcome::Done(path))
             }
             Err(err) => {
                 self.set_status(cx, format!("Could not save: {err}"))?;

@@ -1,12 +1,34 @@
 """
-The Qt backend restricted to Qt 5 bindings (matplotlib's
-``backends.backend_qt5``): `.backend_qt` with PyQt5 or PySide2, so that
-importing it raises `ImportError` naming only those bindings when none is
-installed.
+The Qt backend with the Qt 5 bindings only, PyQt5 or PySide2
+(matplotlib's ``backend_qt5``, from matplotlib 3.11.2, under the
+Matplotlib License, kept as it is).
 """
 
 from .. import backends
 
 backends._QT_FORCE_QT5_BINDING = True
 
-from . import backend_qt  # noqa: E402, F401
+
+from .backend_qt import (  # noqa
+    SPECIAL_KEYS,
+    # Public API
+    cursord, _create_qApp, _BackendQT, TimerQT, MainWindow, FigureCanvasQT,
+    FigureManagerQT, ToolbarQt, NavigationToolbar2QT, SubplotToolQt,
+    SaveFigureQt, ConfigureSubplotsQt, RubberbandQt,
+    HelpQt, ToolCopyToClipboardQT,
+    # internal re-exports
+    FigureCanvasBase,  FigureManagerBase, MouseButton, NavigationToolbar2,
+    TimerBase, ToolContainerBase, figureoptions, Gcf
+)
+from . import backend_qt as _backend_qt  # noqa
+
+
+@_BackendQT.export
+class _BackendQT5(_BackendQT):
+    pass
+
+
+def __getattr__(name):
+    if name == 'qApp':
+        return _backend_qt.qApp
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

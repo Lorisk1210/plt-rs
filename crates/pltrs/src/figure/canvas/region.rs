@@ -5,6 +5,7 @@ use std::fmt;
 
 use pltrs_core::{Bbox, Point};
 use pltrs_raster::Pixmap;
+use pltrs_render::RgbaImage;
 
 use super::CanvasError;
 use super::state::{Generation, KeptCanvas};
@@ -186,6 +187,26 @@ impl BufferRegion {
     /// The height of the rectangle in pixels.
     pub fn height(&self) -> u32 {
         self.extents.height()
+    }
+
+    /// The saved pixels as an image of the whole rectangle, straight RGBA
+    /// rows from the top, transparent black where the rectangle leaves the
+    /// canvas (the buffer of matplotlib's `BufferRegion`).
+    ///
+    /// # Errors
+    ///
+    /// [`CanvasError::Pixels`] when the rectangle is too large to hold.
+    pub fn to_image(&self) -> Result<RgbaImage, CanvasError> {
+        let mut image = Pixmap::new(self.width(), self.height()).map_err(CanvasError::Pixels)?;
+        let at = (
+            self.saved.x0 - self.extents.x0,
+            self.saved.y0 - self.extents.y0,
+        );
+        let size = (self.pixels.width(), self.pixels.height());
+        copy_pixels(&self.pixels, (0, 0), &mut image, at, size);
+        let (width, height) = (image.width() as usize, image.height() as usize);
+        Ok(RgbaImage::new(width, height, image.into_vec())
+            .expect("a pixmap holds width × height × 4 bytes"))
     }
 
     /// Saves the pixels of `canvas` in the display box `bbox`

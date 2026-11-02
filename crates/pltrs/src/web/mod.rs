@@ -42,6 +42,13 @@
 //! applications, the `IPython` inline display and `nbagg`, and toolbar
 //! buttons for tools added with `Figure::add_tool` (their keyboard
 //! shortcuts work).
+//!
+//! A [`WebRelay`] is the same server for programs that run matplotlib's
+//! side of the protocol themselves (pltrs (Python)'s `webagg` backend):
+//! it serves the pages and files, and hands over what the WebSocket
+//! connections send and the downloads asked for ([`RelayEvent`]),
+//! sending the clients what the program wants. [`client_files`] gives the files of the
+//! browser client, for programs serving them themselves.
 
 mod assets;
 mod browser;
@@ -54,6 +61,7 @@ mod http;
 mod modern;
 mod net;
 mod protocol;
+mod relay;
 mod routes;
 mod schedule;
 mod server;
@@ -62,6 +70,7 @@ mod websocket;
 use std::fmt;
 use std::io;
 
+pub use relay::{RelayEvent, WebRelay};
 pub use server::WebServer;
 
 use crate::figure::Figure;
@@ -72,6 +81,15 @@ use crate::figure::Figure;
 /// `FigureManagerWebAgg.get_javascript`).
 pub fn client_script() -> &'static str {
     assets::MPL_JS
+}
+
+/// The files of matplotlib's browser client, as matplotlib's
+/// `web_backend` directory holds them (its `get_static_file_path`): the
+/// pages (Tornado templates), the style sheets, `mpl.js`,
+/// `mpl_tornado.js` and the notebook's `nbagg_mpl.js`, each with its path
+/// in the directory (`"js/mpl.js"`), and their license.
+pub fn client_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
+    assets::client_files()
 }
 
 /// Why the web server failed.

@@ -37,11 +37,17 @@
 //! [`FigureWindow::screenshot`] draws such a window off screen, with no
 //! display, and returns what it shows; [`FigureWindow::capture`] reads a
 //! window of a headless event loop driven by synthetic input.
+//!
+//! A [`WindowHost`] shows figures in the same windows for programs that
+//! handle their figures' input themselves, as matplotlib's backends do
+//! (pltrs (Python)'s native backend): it reports input, resizes and
+//! toolbar clicks, and leaves navigation and callbacks to the program.
 
 pub(crate) mod actions;
 mod backend_rc;
 mod dialog;
 mod help_dialog;
+mod host;
 pub(crate) mod icons;
 pub(crate) mod images;
 pub(crate) mod keys;
@@ -49,6 +55,7 @@ mod options;
 mod save_dialog;
 mod session;
 mod subplot_dialog;
+mod tool_icons;
 pub(crate) mod tools;
 mod window;
 
@@ -56,6 +63,10 @@ use std::fmt;
 
 pub use crate::events::GinputOptions;
 pub use backend_rc::{MacosxWindowMode, ToolbarKind};
+pub use host::{
+    CanvasInput, HostEvent, HostTimerId, HostedWindowId, InputKind, ShortcutGroup, ToolImage,
+    ToolItem, WindowHost,
+};
 pub use keys::format_shortcut;
 pub use pltrs_ui::Icon;
 pub use session::Session;

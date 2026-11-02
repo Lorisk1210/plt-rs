@@ -85,7 +85,7 @@ impl WebServer {
     /// cannot be started.
     pub fn bind(options: WebOptions) -> Result<Self, WebError> {
         let script = assets::script(&crate::rc::params().savefig_format);
-        let (listener, inbound) = Listener::start(&options, script)?;
+        let (listener, inbound) = Listener::start(&options, script, false)?;
         Ok(Self {
             listener,
             inbound,
@@ -335,6 +335,8 @@ impl WebServer {
                 }
             },
             Inbound::Message { id, message } => self.message(id, message),
+            // Only a relay's connections pass messages on as they came.
+            Inbound::Text { .. } => {}
             Inbound::Closed { id } => self.peers.retain(|peer| peer.id != id),
             Inbound::Download {
                 figure,

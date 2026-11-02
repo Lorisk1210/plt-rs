@@ -52,6 +52,8 @@ python/
     artist.py figure.py axes/ axis.py lines.py text.py patches.py
     collections.py container.py legend.py colors.py ticker.py units.py
     backend_bases.py cbook.py ft2font.py pyplot.py pylab.py style/
+    backends/                   the backends: registry, canvases, GUI toolkits,
+                                pltrs' own windows (backend_pltrs, _pltrs_loop)
     testing/                    setup, decorators, compare, conftest, exceptions
     mpl_toolkits/               the toolkits (imported as pltrs.mpl_toolkits.*)
   mpl_suite/                    the suite runner's Python side (not in pltrs)
@@ -784,18 +786,52 @@ pltrs (Rust)'s (`Figure.gca` calls `_figure.gca`).
 Backends are matplotlib's: `backends.backend_registry` names them,
 `pyplot.switch_backend` loads `backends/backend_<name>.py` and builds
 `new_figure_manager` and `show` from its `FigureCanvas` (the `_Backend`
-export machinery), and `pyplot.figure` makes managers through it. Of the
-GUI-toolkit backends, Tk is there (`backends/_backend_tk.py`,
-`backend_tkagg.py`, matplotlib's, needing only tkinter and Pillow): its
-canvas blits the Agg pixels into its Tk `PhotoImage` with Tk's photo
-commands, as PNG data, where matplotlib's C helper `_tkagg` calls Tk's C
-API. The others (Qt, GTK, wx, macOS) are not there: loading one raises
-`ImportError`, as matplotlib does without the toolkit (the Qt backends
-after matplotlib's binding selection, `backends.qt_compat`, whose message
-names the bindings tried). As in
-matplotlib, `rcParams['backend']` starts as `rcsetup._auto_backend_sentinel`,
-which pyplot resolves the first time it needs a backend (trying the GUI
-backends, then `agg`).
+export machinery), and `pyplot.figure` makes managers through it. As in
+matplotlib, `rcParams['backend']` starts as `rcsetup._auto_backend_sentinel`
+(or `MPLBACKEND`), which pyplot resolves the first time it needs a
+backend: the framework already running, else pltrs' own windows
+(`macosx` on macOS, `pltrs` elsewhere), then Qt, GTK, Tk and wx, then
+`agg` (no display on Linux makes every interactive one refuse).
+
+* **pltrs' own windows** (`backends/backend_pltrs.py`, the `pltrs`
+  backend, which the registry knows beside matplotlib's built-in names
+  without listing it among them; `backend_macosx` on macOS) are a GUI
+  toolkit backend over pltrs (Rust)'s windows (`_native.gui`, a
+  `pltrs::gui::WindowHost`): a window shows its figure's raster canvas
+  (whatever `FigureCanvasAgg.draw` and `blit` put there) above a toolbar
+  of the backend's buttons, and reports input, resizes, toolbar clicks,
+  close requests, chosen files and timers as tuples, which
+  `backends/_pltrs_loop.py` hands to the canvas (matplotlib's events,
+  in matplotlib's coordinates), the timer or the file chooser waiting.
+  Navigation, keys and callbacks stay matplotlib's (`NavigationToolbar2`
+  or the tool manager over pltrs' toolbar). The loop runs in short
+  slices, between which signals arrive (Ctrl+C) and the calls other
+  threads queued run; its framework counts as running once the host is
+  made (`cbook._get_running_interactive_framework`). A headless host
+  (`_pltrs_loop.connect_headless`) opens windows off screen and takes
+  injected input, for tests.
+* **Tk** (`backends/_backend_tk.py`, `backend_tkagg.py`, matplotlib's)
+  blits through `_tkagg`, pltrs' counterpart of matplotlib's C helper,
+  which hands Tk the pixels with its photo commands, as PNG data; its main
+  loop serves other threads (`_serving_threads`).
+* **Qt, GTK 3 and 4, wx** are matplotlib's modules, kept as they are but
+  for their imports; their canvases paint the Agg canvas' pixels through
+  the buffer of `copy_from_bbox`'s region (`BufferRegion.__buffer__`).
+  Without the toolkit they raise matplotlib's `ImportError` (the Qt
+  backends after its binding selection, `qt_compat`). pltrs has no Cairo:
+  the `*cairo` backends draw with the raster too.
+* **WebAgg** (`backend_webagg.py`) runs pltrs (Rust)'s web server
+  (`_native.web`, a `pltrs::web::WebRelay`) instead of Tornado: it serves
+  matplotlib's pages and files and hands the WebSockets' messages and the
+  downloads to matplotlib's figure managers (`backend_webagg_core`), from
+  an asyncio loop that also runs their timers. **nbAgg** is matplotlib's,
+  over the kernel's comms.
+* **Jupyter's inline backend**: IPython's kernel selects
+  `module://matplotlib_inline.backend_inline`, whose module imports
+  `matplotlib`; unless that gives pltrs (pltrs loaded as `matplotlib`,
+  or its `matplotlib` distribution installed), the registry loads pltrs'
+  port of it instead (`backend_inline.py`), which registers the kernel's
+  formatters for pltrs' figures.
 
 A canvas draws and prints through the figure's native handle
 (`_native.backends`):

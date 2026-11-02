@@ -90,6 +90,29 @@ const SINGLE_FIGURE: &str = include_str!("assets/single_figure.html");
 /// The page showing every figure (a Tornado template).
 const ALL_FIGURES: &str = include_str!("assets/all_figures.html");
 
+/// The files of matplotlib's browser client as its `web_backend`
+/// directory holds them, each with its path there: the static files the
+/// server serves under `/_static/`, the pages, the scripts the server
+/// writes or does not use (the notebook's) and their license.
+pub(crate) fn client_files() -> impl Iterator<Item = (&'static str, &'static [u8])> {
+    let served = STATIC.iter().filter_map(|asset| {
+        let path = asset.path.strip_prefix("/_static/")?;
+        Some((path, asset.bytes))
+    });
+    let others: [(&str, &[u8]); 6] = [
+        ("all_figures.html", ALL_FIGURES.as_bytes()),
+        ("single_figure.html", SINGLE_FIGURE.as_bytes()),
+        (
+            "ipython_inline_figure.html",
+            include_bytes!("assets/ipython_inline_figure.html"),
+        ),
+        ("js/mpl.js", MPL_JS.as_bytes()),
+        ("js/nbagg_mpl.js", include_bytes!("assets/js/nbagg_mpl.js")),
+        ("LICENSE", include_bytes!("assets/LICENSE")),
+    ];
+    served.chain(others)
+}
+
 /// The loop of [`ALL_FIGURES`] over the figures.
 const FIGURE_LOOP: (&str, &str) = ("{% for (fig_id, fig_manager) in figures %}", "{% end %}");
 
@@ -213,6 +236,29 @@ pub(crate) fn all_figures_page(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_client_files_are_matplotlibs_web_backend() {
+        let paths: Vec<&str> = client_files().map(|(path, _)| path).collect();
+        assert_eq!(
+            paths,
+            [
+                "css/page.css",
+                "css/boilerplate.css",
+                "css/fbm.css",
+                "css/mpl.css",
+                "js/mpl_tornado.js",
+                "all_figures.html",
+                "single_figure.html",
+                "ipython_inline_figure.html",
+                "js/mpl.js",
+                "js/nbagg_mpl.js",
+                "LICENSE",
+            ]
+        );
+        let nbagg = client_files().find(|(path, _)| *path == "js/nbagg_mpl.js");
+        assert!(nbagg.is_some_and(|(_, js)| js.starts_with(b"/* global mpl */")));
+    }
 
     #[test]
     fn the_script_ends_with_the_toolbar_and_formats() {

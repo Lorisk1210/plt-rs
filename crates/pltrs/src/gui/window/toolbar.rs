@@ -10,9 +10,8 @@ use pltrs_ui::{
 };
 
 use super::Message;
-use crate::gui::images::{self, ToolbarImage};
 use crate::gui::tools::{ToolKind, ToolSpec};
-use crate::gui::{GuiError, icons};
+use crate::gui::{GuiError, icons, tool_icons};
 use crate::look::ChromeLook;
 use crate::navigation::{NavMode, Navigation};
 
@@ -27,9 +26,31 @@ const STATUS_GAP: Spacing = Spacing::Md;
 
 /// Height of the toolbar in logical pixels, the hairline above it
 /// included.
-pub(super) fn height() -> f64 {
+pub(in crate::gui) fn height() -> f64 {
     let theme = Theme::default();
     theme.tool_button_size + 2.0 * theme.space(PADDING_Y) + 1.0
+}
+
+/// An empty row of toolbar buttons, padded and spaced as toolbars are.
+pub(in crate::gui) fn button_row<M: 'static>() -> Flex<M> {
+    Flex::row()
+        .with_padding_xy(PADDING_X, PADDING_Y)
+        .with_spacing(BUTTON_GAP)
+}
+
+/// Appends the status line to the toolbar `row`, taking the space the
+/// buttons leave, and returns the id of its label.
+pub(in crate::gui) fn push_status<M: 'static>(row: &mut Flex<M>) -> WidgetId {
+    let mut status_area = Flex::row().with_padding_xy(STATUS_GAP, Spacing::None);
+    let status = status_area.push(
+        Label::new("")
+            .with_tone(Tone::Secondary)
+            .with_align(Align::End)
+            .with_overflow(Overflow::ElideEnd),
+        1.0,
+    );
+    row.push(status_area, 1.0);
+    status
 }
 
 /// A toolbar button.
@@ -60,23 +81,20 @@ pub(in crate::gui) enum Tool {
 impl Tool {
     /// A built-in tool's icon in the chrome `look`.
     fn builtin_icon(self, look: ChromeLook) -> ToolIcon {
-        let (line, image): (fn() -> Icon, ToolbarImage) = match self {
-            Self::Home => (icons::home, images::HOME),
-            Self::Back => (icons::back, images::BACK),
-            Self::Forward => (icons::forward, images::FORWARD),
-            Self::Pan => (icons::pan, images::MOVE),
-            Self::Zoom => (icons::zoom, images::ZOOM_TO_RECT),
-            Self::Subplots => (icons::subplots, images::SUBPLOTS),
-            Self::Options => (icons::options, images::FIGURE_OPTIONS),
-            Self::Save => (icons::save, images::FILESAVE),
-            Self::Help => (icons::help, images::HELP),
+        let name = match self {
+            Self::Home => "home",
+            Self::Back => "back",
+            Self::Forward => "forward",
+            Self::Pan => "move",
+            Self::Zoom => "zoom_to_rect",
+            Self::Subplots => "subplots",
+            Self::Options => "qt4_editor_options",
+            Self::Save => "filesave",
+            Self::Help => "help",
             // The figure's tools bring their own icons.
             Self::User(_) => return ToolIcon::Vector(Icon::new(icons::GRID)),
         };
-        match look {
-            ChromeLook::Modern => line().into(),
-            ChromeLook::Matplotlib => image.picture().into(),
-        }
+        tool_icons::named(name, look).expect("pltrs draws matplotlib's toolbar images")
     }
 
     /// A built-in tool's name and shortcut, for its tooltip.
@@ -131,9 +149,7 @@ impl Toolbar {
     /// button order, the figure's `tools` after the built-in buttons, with
     /// the icons of the chrome `look`.
     pub(super) fn build(root: &mut Flex<Message>, tools: Vec<ToolSpec>, look: ChromeLook) -> Self {
-        let mut row = Flex::row()
-            .with_padding_xy(PADDING_X, PADDING_Y)
-            .with_spacing(BUTTON_GAP);
+        let mut row = button_row();
         let button = |row: &mut Flex<Message>, icon: ToolIcon, tool: Tool, tooltip: String| {
             let button = ToolButton::new(icon, Message::Tool(tool))
                 .with_hover_messages(Message::Hint(Some(tool)), Message::Hint(None))
@@ -169,15 +185,7 @@ impl Toolbar {
             .collect();
         row.push(Separator::vertical(), 0.0);
         builtin(&mut row, Tool::Help);
-        let mut status_area = Flex::row().with_padding_xy(STATUS_GAP, Spacing::None);
-        let status = status_area.push(
-            Label::new("")
-                .with_tone(Tone::Secondary)
-                .with_align(Align::End)
-                .with_overflow(Overflow::ElideEnd),
-            1.0,
-        );
-        row.push(status_area, 1.0);
+        let status = push_status(&mut row);
         root.push(Separator::horizontal(), 0.0);
         root.push(row, 0.0);
         Self {

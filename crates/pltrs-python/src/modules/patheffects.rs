@@ -6,10 +6,12 @@
 //! kind: `("normal",)`, `("stroke", then_normal, offset, gc)`,
 //! `("patch_shadow", then_normal, offset, color, alpha, rho, gc)`,
 //! `("line_shadow", then_normal, offset, color, alpha, rho, gc)`,
-//! `("ticked", then_normal, offset, spacing, angle, length, gc)` and
-//! `("path_patch", offset, patch_kwargs)`. `then_normal` is true for the
-//! `with...` classes, which draw the path as it is afterwards; `gc` is the
-//! dict of graphics context properties the effect sets.
+//! `("ticked", then_normal, offset, spacing, angle, length, gc)`,
+//! `("path_patch", offset, patch_kwargs)`, and `("python", effect)` for an
+//! effect of a class of the program's, which pltrs (Rust) calls (see
+//! `_native.drawing`). `then_normal` is true for the `with...` classes,
+//! which draw the path as it is afterwards; `gc` is the dict of graphics
+//! context properties the effect sets.
 
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::patheffects::{
@@ -17,6 +19,7 @@ use pltrs::patheffects::{
 };
 use pltrs::rc::RcParams;
 
+use super::drawing::python_effect;
 use super::lines::{cap_style, join_style};
 use super::patches::PatchKwargs;
 use super::path::{PathArrays, path_arrays};
@@ -108,6 +111,7 @@ impl FromPy<'_> for PyPathEffect {
                     .map_err(|err| PyErr::value_error(err.to_string()))?;
                 (Effect::PathPatch(patch), false)
             }
+            ("python", [effect]) => (python_effect(effect), false),
             _ => {
                 return Err(PyErr::value_error(format!(
                     "a malformed path effect description of kind {kind:?}"

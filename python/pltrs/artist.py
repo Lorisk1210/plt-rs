@@ -21,7 +21,7 @@ from numbers import Real
 import numpy as np
 
 from . import _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
-from . import _live_transforms
+from . import _live_transforms, _program_classes, _python_drawing
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
@@ -94,6 +94,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         if not hasattr(self, "_native"):
             self._native = _artist.new()
         self._figure = None
+        # A subclass of the program's draws at its class' z-order, and
+        # through its own `draw` if it has one.
+        _program_classes.take_class_defaults(self)
+        _python_drawing.attach(self)
 
     @classmethod
     def _from_native(cls, native, figure):
@@ -460,16 +464,22 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         ``"collection"``, the last with *autolim*); return self.
         """
         self._convert_units_for(axes)
+        had_transform = self.is_transform_set()
         native = _artist.adopt_into_axes(axes._native, self._native, kind,
                                          bool(autolim))
-        return _handles.adopt(self, native, axes.figure)
+        _handles.adopt(self, native, axes.figure)
+        _program_classes.set_artist_props(self, had_transform, axes)
+        return self
 
     def _add_to_figure(self, figure, clip):
         """Join *figure* as `.Figure.add_artist` adds an artist; return
         self."""
+        had_transform = self.is_transform_set()
         native = _artist.adopt_into_figure(figure._native, self._native,
                                            bool(clip))
-        return _handles.adopt(self, native, figure.figure)
+        _handles.adopt(self, native, figure.figure)
+        _program_classes.set_artist_props(self, had_transform)
+        return self
 
     def remove(self):
         """Remove the artist from the figure if possible."""
@@ -546,20 +556,23 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Draw the Artist (and its children) using the given renderer.
 
         This has no effect if the artist is not visible. pltrs (Rust) draws
-        figures itself: the renderer it hands to the program's replacement
-        of `.Text.draw` draws the artist where pltrs is drawing the text.
-        An artist with no pltrs (Rust) counterpart draws nothing, as
-        matplotlib's base `Artist.draw` does; subclasses override it.
+        the artist as it draws it in a figure, through *renderer*: where
+        pltrs is drawing with a renderer it handed Python, onto the
+        renderer's canvas, or through the drawing methods of a renderer of
+        the program's (see `._python_drawing`). A bare `Artist` draws
+        nothing, as matplotlib's does; subclasses override it.
         """
         if not self.get_visible():
             return
+        # What matplotlib's draw reads, computed by a class of the program's.
+        push_computed = getattr(self, "_push_computed", None)
+        if push_computed is not None and _python_drawing.figure_changeable():
+            push_computed()
         draw_artist = getattr(renderer, "_draw_artist", None)
         if draw_artist is not None:
             draw_artist(self)
-        elif getattr(self, "_native", None) is not None:
-            raise NotImplementedError(
-                "pltrs: Artist.draw(renderer) with a renderer pltrs (Rust) is "
-                "not drawing with")
+        else:
+            _python_drawing.draw_through(renderer, self)
         self.stale = False
 
 

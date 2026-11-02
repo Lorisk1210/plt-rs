@@ -24,6 +24,39 @@ pub struct QuadMesh<'a> {
     pub antialiased: bool,
 }
 
+/// The fields of a [`QuadMesh`] owned rather than borrowed, for a drawing
+/// kept until it is drawn (what a program drew through a renderer of its
+/// own, see `pltrs::artist::Drawing`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct QuadMeshData {
+    /// Maps the vertices to display coordinates.
+    pub master_transform: Affine2D,
+    /// Cells per row (matplotlib's `meshWidth`).
+    pub columns: usize,
+    /// The `(rows + 1) × (columns + 1)` vertices, row by row.
+    pub coordinates: Vec<Point>,
+    /// Cell colours, row by row; empty = no fills.
+    pub facecolors: Vec<Rgba>,
+    /// Edge colours; empty = no strokes.
+    pub edgecolors: Vec<Rgba>,
+    /// Whether the cells are anti-aliased.
+    pub antialiased: bool,
+}
+
+impl QuadMeshData {
+    /// The mesh these fields describe.
+    pub fn view(&self) -> QuadMesh<'_> {
+        QuadMesh {
+            master_transform: self.master_transform,
+            columns: self.columns,
+            coordinates: &self.coordinates,
+            facecolors: &self.facecolors,
+            edgecolors: &self.edgecolors,
+            antialiased: self.antialiased,
+        }
+    }
+}
+
 /// The corners numpy outlines a cell through (see [`QuadMesh::cell_paths`]).
 const NUMPY_CORNERS: [(usize, usize); 4] = [(0, 0), (0, 1), (1, 1), (1, 0)];
 
@@ -144,5 +177,11 @@ mod tests {
             ..mesh
         };
         assert_eq!(empty.cell_paths(), Vec::<Path>::new());
+        let owned = QuadMeshData {
+            columns: 2,
+            coordinates: coordinates.clone(),
+            ..QuadMeshData::default()
+        };
+        assert_eq!(owned.view().cell_paths(), numpy);
     }
 }

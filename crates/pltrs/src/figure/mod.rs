@@ -383,6 +383,7 @@ impl Figure {
         self.prepare_layout();
         crate::inset::choose_connectors(&mut self.state.borrow_mut());
         self.run_draw_hook();
+        self.root_handle().prepare_painters(&*renderer, true);
         let errors = self.state.borrow().draw(renderer);
         let mut state = self.state.borrow_mut();
         state.stale = false;
@@ -409,12 +410,20 @@ impl Figure {
     /// limit callbacks its autoscaling queued.
     pub(crate) fn prepare_layout(&self) {
         self.run_layout_hook();
+        self.root_handle().measure_painters();
         {
             let mut state = self.state.borrow_mut();
             state.layout.pending = true;
             state.prepare();
         }
         crate::axes::run_limit_callbacks(&self.state);
+    }
+
+    /// The handle of the root figure's frame (a subfigure's handle is
+    /// its own frame's).
+    pub(crate) fn root_handle(&self) -> RawHandle {
+        let root = self.state().root;
+        self.raw().sibling(root)
     }
 
     /// The root figure owning `state`.

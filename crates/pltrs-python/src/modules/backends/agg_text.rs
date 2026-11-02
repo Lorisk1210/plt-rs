@@ -1,13 +1,12 @@
-//! Text on the raster canvas through `RendererAgg`'s methods: drawing a
-//! line on the canvas (`draw_text`, `draw_tex`), and what the canvas does
-//! while the program has replaced them: the TeX lines of a draw go to the
+//! Text on the raster canvas while the program has replaced the text
+//! drawing of `RendererAgg` (whose own `draw_text` and `draw_tex` draw
+//! through `_native.drawing`): the TeX lines of a draw go to the
 //! renderer's replaced `draw_tex`, and without its own `draw_text` texts
 //! are drawn as paths, as `RendererBase.draw_text` draws them.
 
 use std::rc::Rc;
 
 use pltrs::colors::Color;
-use pltrs::figure::Figure;
 use pltrs::fonts::FontProperties;
 use pltrs::text::{DrawnPath, TexPainter, set_tex_painter};
 use pltrs_core::Point;
@@ -15,29 +14,9 @@ use pltrs_render::GraphicsContext;
 
 use super::super::font_manager::FontProps;
 use super::super::path::PyPath;
-use super::super::text_overrides::IsMath;
 use super::super::transforms::affine;
 use super::gc::PyGc;
 use crate::binding::prelude::*;
-
-/// `RendererAgg.draw_text(gc, x, y, s, prop, angle, ismath)`: draws the
-/// line `s` onto the figure's canvas with the left end of its baseline at
-/// `(x, y)` (display pixels, y up), rotated by `angle` degrees, typeset as
-/// `ismath` says (`False`, `True` or `"TeX"`, which `draw_tex` passes).
-fn draw_text(
-    figure: Figure,
-    gc: PyGc,
-    origin: (f64, f64),
-    s: String,
-    props: FontProps,
-    angle: f64,
-    ismath: IsMath,
-) -> PyResult<()> {
-    let (x, y) = origin;
-    Ok(figure
-        .canvas()
-        .draw_text(&gc.0, &s, &props.0, ismath.0, Point::new(x, y), angle)?)
-}
 
 /// Makes the raster canvases draw text as paths while `as_paths` (while
 /// `RendererAgg.draw_text` is `RendererBase.draw_text`).
@@ -108,7 +87,6 @@ fn set_tex_line_painter(paint: Option<Callback>) -> PyResult<()> {
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("draw_text", draw_text)?;
     module.add("set_texts_as_paths", set_texts_as_paths)?;
     module.add("set_tex_painter", set_tex_line_painter)
 }

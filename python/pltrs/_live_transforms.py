@@ -18,6 +18,7 @@ ax.transData``).
 """
 
 import functools
+import weakref
 
 import numpy as np
 
@@ -29,6 +30,25 @@ from .transforms import (
     Transform, TransformedPath, TransformWrapper, blended_transform_factory,
     composite_transform_factory)
 from .path import Path
+
+
+#: Every live transform alive (see `invalidate_all`).
+_alive = weakref.WeakSet()
+
+
+def invalidate_all():
+    """Invalidate every live transform, so that the transforms of
+    matplotlib's classes built on them compute their values again: a live
+    transform follows its figure without invalidation, but what it is part
+    of keeps what it computed (a `.TransformedBbox`'s points) until
+    invalidated, as matplotlib's limits and layout invalidate
+    ``transData``. Done before the program's drawing runs, which reads
+    them as matplotlib's ``draw`` methods do."""
+    for transform in list(_alive):
+        # A live transform is always up to date, so it counts as valid
+        # until it tells what is built on it that it changed.
+        transform._invalid = transform._VALID
+        transform.invalidate()
 
 
 class LiveTransform(Transform):
@@ -43,6 +63,7 @@ class LiveTransform(Transform):
         self._root = figure
         self._native = native
         self._tree = tree
+        _alive.add(self)
 
     def __str__(self):
         # matplotlib's tree of the transform, as the figure is now.

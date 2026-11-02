@@ -8,8 +8,10 @@ Defines classes for path effects. The path effects are supported in `.Text`,
 pltrs keeps matplotlib's path effects (from matplotlib 3.11.2, under the
 Matplotlib License): renderer wrappers that redraw paths with changed
 graphics contexts. pltrs (Rust) draws the artists given them
-(``pltrs::patheffects``): each effect describes itself to it
-(``_native_spec``), and the ticks of `TickedStroke` are its own.
+(``pltrs::patheffects``): each effect of this module describes itself to
+it (``_native_spec``), and the ticks of `TickedStroke` are its own; an
+effect of a class of the program's has its ``draw_path`` called by pltrs
+(Rust) for every path it draws (see `._python_drawing`).
 """
 
 import math
@@ -21,6 +23,7 @@ from . import colors as mcolors
 from . import transforms as mtransforms
 from ._enums import CapStyle, JoinStyle
 from ._native import patheffects as _patheffects
+from ._program_classes import takes_from_program
 from .path import Path
 
 
@@ -49,15 +52,22 @@ class AbstractPathEffect:
     #: ``with...`` classes).
     _then_normal = False
 
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # A class of the program's drawing paths its own way is drawn by its
+        # `draw_path`, even below an effect of this module.
+        if "draw_path" in vars(cls) and takes_from_program(cls, "draw_path"):
+            cls._native_spec = AbstractPathEffect._native_spec
+
     def _native_spec(self):
         """
         The description pltrs (Rust) draws the effect from (see
-        ``_native.patheffects``). pltrs draws the effects of this module;
-        the drawing of a class of the program's (its ``draw_path``) is not
-        supported.
+        ``_native.patheffects``): the effects of this module describe
+        themselves; one of a class of the program's is itself, whose
+        ``draw_path`` pltrs (Rust) calls for every path it draws with it
+        (see `._python_drawing`).
         """
-        raise NotImplementedError(
-            f"pltrs: path effects of class {type(self).__name__}")
+        return ("python", self)
 
     def __init__(self, offset=(0., 0.)):
         """

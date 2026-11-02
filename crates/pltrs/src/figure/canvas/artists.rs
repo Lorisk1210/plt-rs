@@ -8,7 +8,7 @@ use pltrs_render::{GraphicsContext, Renderer};
 use pltrs_text::TextSource;
 
 use super::{CanvasError, FigureCanvas};
-use crate::artist::{ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle};
+use crate::artist::{ArtistHandle, ArtistId, DrawContext, Drawing, LayoutContext, RawHandle};
 use crate::axes::{Axes, AxesState};
 use crate::figure::{DrawErrors, Figure};
 use crate::fonts::FontProperties;
@@ -18,16 +18,25 @@ use crate::ticker::AxisName;
 
 impl FigureCanvas {
     /// Draws `artist` of this canvas's figure onto the canvas, as the
-    /// figure's last layout places and clips it (a legend is placed anew).
-    fn draw_one(&self, artist: &RawHandle) -> Result<(), CanvasError> {
-        self.draw_part(artist, |ctx| ctx.draw_child(artist.id()))
+    /// figure's last layout places and clips it (a legend is placed anew),
+    /// through its painter with `painted`.
+    fn draw_one(&self, artist: &RawHandle, painted: bool) -> Result<(), CanvasError> {
+        self.draw_part(artist, painted, |ctx| {
+            if painted {
+                ctx.draw_child(artist.id());
+            } else {
+                ctx.draw_unpainted(artist.id());
+            }
+        })
     }
 
     /// Draws what `draw` draws of `artist` of this canvas's figure onto
-    /// the canvas, in the figure's last layout (a legend is placed anew).
+    /// the canvas, in the figure's last layout (a legend is placed anew),
+    /// its painters prepared with `painted`.
     pub(crate) fn draw_part(
         &self,
         artist: &RawHandle,
+        painted: bool,
         draw: impl FnOnce(&mut DrawContext<'_>),
     ) -> Result<(), CanvasError> {
         if !Rc::ptr_eq(&self.figure.state, artist.figure_state()) {
@@ -39,6 +48,7 @@ impl FigureCanvas {
                 .map_err(|err| CanvasError::Draw(DrawErrors(vec![err])))?;
         }
         let mut kept = self.take()?;
+        artist.prepare_painters(&kept.renderer, painted);
         let errors = {
             let state = self.figure.state();
             let mut ctx = DrawContext::new(&state, &mut kept.renderer);
@@ -95,6 +105,27 @@ impl FigureCanvas {
 }
 
 impl FigureCanvas {
+    /// Draws `drawing` onto the canvas over what it holds (what a program
+    /// drew through the canvas's renderer, see [`Drawing`]); show the
+    /// result with [`FigureCanvas::blit`].
+    ///
+    /// # Errors
+    ///
+    /// When the canvas cannot be made, or a part of the drawing cannot be
+    /// drawn.
+    pub fn draw_drawing(&self, drawing: &Drawing) -> Result<(), CanvasError> {
+        let mut kept = self.take()?;
+        let problems = drawing.draw_onto(&mut kept.renderer);
+        self.keep(kept);
+        if problems.is_empty() {
+            Ok(())
+        } else {
+            Err(CanvasError::Draw(DrawErrors(problems)))
+        }
+    }
+}
+
+impl FigureCanvas {
     /// Draws the line `text`, typeset as `kind` in `font` at the canvas's
     /// resolution, onto the canvas over what it holds, with the left end
     /// of its baseline at `origin` (display pixels) and rotated by `angle`
@@ -143,7 +174,20 @@ impl Figure {
     /// When the artist belongs to another figure, the canvas cannot be
     /// made, or the artist cannot be drawn.
     pub fn draw_artist(&self, artist: &impl ArtistHandle) -> Result<(), CanvasError> {
-        self.canvas().draw_one(artist.raw())
+        self.canvas().draw_one(artist.raw(), true)
+    }
+
+    /// [`Figure::draw_artist`] with the artist drawn as pltrs draws it, its
+    /// painter left out (see [`ArtistPainter`](crate::artist::ArtistPainter)):
+    /// what the drawing of a painter of the program's draws its artist with
+    /// onto the canvas (matplotlib's `super().draw(renderer)`). The artist
+    /// may have been removed from the figure.
+    ///
+    /// # Errors
+    ///
+    /// As [`Figure::draw_artist`].
+    pub fn draw_artist_unpainted(&self, artist: &impl ArtistHandle) -> Result<(), CanvasError> {
+        self.canvas().draw_one(artist.raw(), false)
     }
 }
 
@@ -156,7 +200,7 @@ impl Axes {
     ///
     /// As [`Figure::draw_artist`].
     pub fn draw_artist(&self, artist: &impl ArtistHandle) -> Result<(), CanvasError> {
-        self.canvas().draw_one(artist.raw())
+        self.canvas().draw_one(artist.raw(), true)
     }
 
     /// Draws the axes onto the figure's canvas without their x and y axes
@@ -168,7 +212,7 @@ impl Axes {
     /// When the canvas cannot be made or an artist cannot be drawn.
     pub fn redraw_in_frame(&self) -> Result<(), CanvasError> {
         let hidden = HiddenDecorations::hide(self);
-        let drawn = self.canvas().draw_one(self.raw());
+        let drawn = self.canvas().draw_one(self.raw(), true);
         hidden.show(self);
         drawn
     }

@@ -36,21 +36,42 @@ impl RawHandle {
 
     /// Draws the artist through `renderer` in its figure's current layout
     /// (matplotlib's `artist.draw(renderer)`), whether the figure draws
-    /// it or not; an invisible artist draws nothing. The artist then
-    /// counts as drawn at the renderer's resolution.
+    /// it or not: through its painter if it has one, else as
+    /// [`RawHandle::draw_unpainted_onto`] draws it.
     ///
     /// # Errors
     ///
     /// The problems met while drawing.
     pub fn draw_onto(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
+        self.draw_apart(renderer, true)
+    }
+
+    /// Draws the artist through `renderer` in its figure's current layout,
+    /// whether the figure draws it or not, as pltrs draws it, its painter
+    /// left out (what a painter of the program's draws its artist with,
+    /// matplotlib's `super().draw(renderer)`): through its image filter
+    /// if it has one; an invisible artist draws nothing. The artist then
+    /// counts as drawn at the renderer's resolution.
+    ///
+    /// # Errors
+    ///
+    /// The problems met while drawing.
+    pub fn draw_unpainted_onto(&self, renderer: &mut dyn Renderer) -> Result<(), DrawErrors> {
+        self.draw_apart(renderer, false)
+    }
+
+    /// Draws the artist through `renderer`, through its painter with
+    /// `painted`.
+    fn draw_apart(&self, renderer: &mut dyn Renderer, painted: bool) -> Result<(), DrawErrors> {
+        self.prepare_painters(renderer, painted);
         let state = self.figure_state().borrow();
         let Some(artist) = state.artist(self.id()) else {
             return Ok(());
         };
         let mut ctx = DrawContext::new(&state, renderer);
-        if artist.base().visible {
-            artist.draw(&mut ctx);
-            state.mark_drawn(self.id());
+        match artist.base().painter.as_ref().filter(|_| painted) {
+            Some(painter) => ctx.draw_painted(self.id(), artist, painter),
+            None => ctx.draw_unpainted(self.id()),
         }
         ctx.finish_rasterizing();
         let errors = ctx.into_errors();

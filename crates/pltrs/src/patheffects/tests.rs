@@ -261,3 +261,39 @@ fn rc_files_can_only_clear_the_path_effects() {
     let shown = rc.get("path.effects").expect("a parameter");
     assert!(shown.contains("Normal"), "{shown}");
 }
+
+/// Draws every path twice, the copy offset by 3 pixels to the right.
+#[derive(Debug)]
+struct Doubled;
+
+impl CustomPathEffect for Doubled {
+    fn draw_path(
+        &self,
+        renderer: &mut dyn Renderer,
+        gc: &mut GraphicsContext,
+        path: &Path,
+        affine: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        renderer.draw_path(gc, path, &affine.translate(3.0, 0.0), fill);
+        renderer.draw_path(gc, path, affine, fill);
+        gc.linewidth *= 2.0;
+    }
+}
+
+#[test]
+fn custom_effects_draw_onto_the_renderer_the_artist_draws_onto() {
+    let custom = PathEffect::custom(CustomEffect::new(Doubled));
+    assert_eq!(custom, custom.clone(), "the same effect");
+    let effects = vec![custom, PathEffect::normal()];
+    let calls = draw(effects, &GraphicsContext::default(), None).calls;
+    assert_eq!(calls.len(), 3);
+    assert_eq!(calls[0].2.translation_part(), Point::new(3.0, 0.0));
+    assert_eq!(calls[1].2, Affine2D::IDENTITY);
+    assert_eq!(
+        calls[2].0.linewidth, 2.0,
+        "the effects after see the change"
+    );
+    let fresh = PathEffect::custom(CustomEffect::new(Doubled));
+    assert_ne!(fresh, PathEffect::custom(CustomEffect::new(Doubled)));
+}

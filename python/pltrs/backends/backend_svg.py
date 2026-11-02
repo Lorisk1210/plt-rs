@@ -11,8 +11,12 @@ import datetime
 
 import numpy as np
 
-from .. import __version__
-from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
+from .. import __version__, _api, rcParams
+from .._native import text_overrides as _text_overrides
+from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
+from ..font_manager import FontManager
+from ._native_drawing import DocumentDrawingMixin
+from .backend_mixed import MixedModeRenderer
 
 #: The metadata keys an SVG document holds.
 _METADATA_KEYS = frozenset([
@@ -92,6 +96,48 @@ def _svg_metadata(metadata):
     return metadata
 
 
+class RendererSVG(DocumentDrawingMixin, RendererBase):
+    """
+    The renderer of an SVG document of *width* × *height* points, its
+    images at *image_dpi*, written to *svgwriter*.
+
+    pltrs (Rust) writes the documents itself: this is the renderer the
+    program's drawing receives while a figure is saved as SVG
+    (`FigureCanvasSVG._program_renderer`), which draws into the document
+    pltrs (Rust) writes.
+    """
+
+    def __init__(self, width, height, svgwriter, basename=None, image_dpi=72,
+                 *, metadata=None):
+        super().__init__()
+        self.width = width
+        self.height = height
+        self.image_dpi = image_dpi
+        self.basename = basename
+
+    def get_canvas_width_height(self):
+        # docstring inherited
+        return self.width, self.height
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        # docstring inherited
+        _api.check_in_list(["TeX", True, False], ismath=ismath)
+        return _text_overrides.measure_svg(s, FontManager._props(prop), ismath,
+                                           72.0)
+
+    def option_image_nocomposite(self):
+        # docstring inherited
+        return not rcParams['image.composite_image']
+
+    def option_scale_image(self):
+        # docstring inherited
+        return True
+
+    def get_image_magnification(self):
+        # docstring inherited
+        return self.image_dpi / 72.0
+
+
 class FigureCanvasSVG(FigureCanvasBase):
     filetypes = {'svg': 'Scalable Vector Graphics',
                  'svgz': 'Scalable Vector Graphics'}
@@ -129,6 +175,17 @@ class FigureCanvasSVG(FigureCanvasBase):
 
     def get_default_filetype(self):
         return 'svg'
+
+    def _program_renderer(self, dpi, bbox_inches_restore):
+        """The renderer the program's drawing receives while the figure is
+        saved at *dpi* (matplotlib's ``print_svg`` draws the figure with it):
+        a `MixedModeRenderer` around a `RendererSVG`, the figure drawn at
+        72 dpi meanwhile."""
+        width, height = self.figure.get_size_inches()
+        return MixedModeRenderer(
+            self.figure, width, height, dpi,
+            RendererSVG(width * 72, height * 72, None, image_dpi=dpi),
+            bbox_inches_restore=bbox_inches_restore)
 
     def draw(self):
         self.figure.draw_without_rendering()

@@ -19,6 +19,7 @@ from ._fancy_styles import FancyStylesMixin, _style_object
 from ._native import patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
+from ._program_classes import takes_from_program
 from .artist import Artist
 from .path import Path, _DrawnPath
 from .transforms import Affine2D, IdentityTransform
@@ -629,6 +630,9 @@ class PathPatch(Patch):
         """Set the path of the patch."""
         _patches.set_path_shape(self._native, path)
 
+    # matplotlib keeps the path as ``_path``, which subclasses read.
+    _path = property(lambda self: self.get_path(), set_path)
+
 
 class StepPatch(PathPatch):
     """
@@ -1037,6 +1041,19 @@ class Ellipse(Patch):
                              float(h if height is None else height),
                              float(a if angle is None else angle))
 
+    #: The attributes matplotlib's ``draw`` reads (its
+    #: ``_recompute_transform``; the size it reads is the one the ellipse
+    #: was made with), which a class of the program's may compute
+    #: (`_push_computed`).
+    _computed = ("_center", "angle")
+
+    def _push_computed(self):
+        """Hand pltrs (Rust) the geometry a class of the program's computes
+        (``_center`` or ``angle`` as properties), as matplotlib's ``draw``
+        reads it."""
+        if any(takes_from_program(type(self), name) for name in self._computed):
+            self._set_fields(center=self._center, angle=self.angle)
+
     @property
     def _center(self):
         return self.get_center()
@@ -1354,6 +1371,15 @@ class Arc(Ellipse):
     def theta2(self):
         """The end angle of the arc in degrees."""
         return _patches.arc(self._native)[1][2]
+
+    _computed = Ellipse._computed + ("theta1", "theta2")
+
+    def _push_computed(self):
+        # docstring inherited
+        super()._push_computed()
+        if any(takes_from_program(type(self), name) for name in self._computed):
+            _patches.set_arc_angles(self._native, float(self.theta1),
+                                    float(self.theta2))
 
 
 class FancyBboxPatch(FancyStylesMixin, Patch):

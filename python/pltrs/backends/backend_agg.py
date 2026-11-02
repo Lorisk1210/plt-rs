@@ -20,13 +20,16 @@ import numpy as np
 
 from .. import _api, rc_context
 from .._native import (
-    backends as _backends, table as _table, text_overrides as _text_overrides)
+    backends as _backends, drawing as _drawing, table as _table,
+    text_overrides as _text_overrides)
+from .._python_drawing import drawing_with
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
 from ..font_manager import FontManager, FontProperties
 from ..image import imsave
 from ..text import _measuring_with
 from ..transforms import BboxBase
+from ._native_drawing import NativeDrawingMixin, native_gc
 
 #: The raster formats written by Pillow, as matplotlib writes them: GIF,
 #: whose palette and transparency are Pillow's choice, and AVIF, which
@@ -47,26 +50,6 @@ class BufferRegion:
         """The saved rectangle ``(x0, y0, x1, y1)``, in canvas pixels from its
         top-left corner."""
         return _backends.region_extents(self._native)
-
-
-def _native_gc(gc):
-    """The graphics context *gc* as pltrs (Rust) takes it (see
-    ``_native.backends.draw_path``)."""
-    offset, dashes = gc.get_dashes()
-    clip = gc.get_clip_rectangle()
-    clip_path, clip_transform = gc.get_clip_path()
-    hatch_color = gc.get_hatch_color()
-    return (
-        (tuple(gc.get_rgb()), gc.get_alpha() if gc.get_forced_alpha() else None,
-         bool(gc.get_antialiased()), gc.get_capstyle(), gc.get_joinstyle(),
-         float(gc.get_linewidth())),
-        (float(offset or 0), None if dashes is None else [float(d) for d in dashes]),
-        (None if clip is None else tuple(map(float, clip.extents)),
-         None if clip_path is None
-         else (clip_path, np.asarray(clip_transform.get_matrix(), dtype=float))),
-        (gc.get_hatch(), None if hatch_color is None else tuple(hatch_color),
-         float(gc.get_hatch_linewidth())),
-        (gc.get_snap(), gc.get_sketch_params(), gc.get_url(), gc.get_gid()))
 
 
 class _WatchesTextDrawing(type):
@@ -91,13 +74,16 @@ def _sync_texts_as_paths():
     _backends.set_texts_as_paths(RendererAgg.draw_text is RendererBase.draw_text)
 
 
-class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
+class RendererAgg(NativeDrawingMixin, RendererBase,
+                  metaclass=_WatchesTextDrawing):
     """
     The renderer of the Agg canvas: the pixels pltrs (Rust) drew for a
     figure of *width* × *height* pixels at *dpi*.
 
-    A renderer the program makes, behind no figure's canvas, draws the
-    artists given to it (``artist.draw(renderer)``) onto pixels of its own.
+    Its drawing methods draw onto the canvas over what it holds, or, while
+    pltrs (Rust) draws the figure, where pltrs is drawing (see
+    `._native_drawing`). A renderer the program makes, behind no figure's
+    canvas, draws onto pixels of its own.
     """
 
     def __init__(self, width, height, dpi):
@@ -152,13 +138,21 @@ class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
 
     def draw_path(self, gc, path, transform, rgbFace=None):
         # docstring inherited
-        drawn = (_native_gc(gc), path,
-                 np.asarray(transform.get_matrix(), dtype=float),
-                 None if rgbFace is None else tuple(rgbFace))
         if self._queued is not None:
-            self._queued.append(drawn)
+            self._queued.append(
+                (native_gc(gc), path,
+                 np.asarray(transform.get_matrix(), dtype=float),
+                 None if rgbFace is None else tuple(rgbFace)))
         else:
-            _backends.draw_path(self._canvas_figure(), *drawn)
+            super().draw_path(gc, path, transform, rgbFace)
+
+    def _draw_now(self, drawing):
+        """Draw *drawing* onto the canvas, or onto the pixels of a renderer
+        behind no figure's canvas."""
+        if self._figure is None:
+            _drawing.draw_onto_raster(self._own_raster(), drawing)
+        else:
+            _drawing.draw_onto_canvas(self._canvas_figure(), drawing)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
@@ -167,17 +161,6 @@ class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
     def draw_tex(self, gc, x, y, s, prop, angle, *, mtext=None):
         # docstring inherited
         self._draw_line(gc, x, y, s, prop, angle, "TeX")
-
-    def _draw_line(self, gc, x, y, s, prop, angle, ismath):
-        """Draw the line *s* typeset as *ismath* says onto the canvas, the
-        left end of its baseline at *x*, *y* (from the top, as `.Text.draw`
-        gives it to a renderer that flips y), rotated by *angle* degrees.
-        pltrs (Rust) lays the line out without the features and language
-        of the text it may belong to."""
-        _backends.draw_text(
-            self._canvas_figure(), _native_gc(gc),
-            (float(x), float(self.height - y)), s, FontManager._props(prop),
-            float(angle), ismath)
 
     def _paint_tex(self, gc_spec, line, props, placement):
         """
@@ -207,9 +190,10 @@ class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
     @contextmanager
     def _drawing(self):
         """Draw with this renderer: its text metrics cache measures the
-        texts, and a replaced ``draw_tex`` draws the TeX lines."""
+        texts, a replaced ``draw_tex`` draws the TeX lines, and the
+        program's drawing receives it."""
         replaced = getattr(self.draw_tex, "__func__", None) is not _OWN_DRAW_TEX
-        with _measuring_with(self):
+        with _measuring_with(self), drawing_with(lambda: self):
             if replaced:
                 _backends.set_tex_painter(self._paint_tex)
             try:
@@ -219,10 +203,13 @@ class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
                     _backends.set_tex_painter(None)
 
     def _draw_artist(self, artist):
-        """Draw *artist* onto the canvas, over what it holds, placed and
-        clipped as the figure was last laid out (`.Artist.draw` with this
-        renderer, as ``draw_artist`` calls it)."""
-        if self._figure is None:
+        """Draw *artist*, as pltrs (Rust) draws it, onto the canvas over
+        what it holds, placed and clipped as the figure was last laid out
+        (`.Artist.draw` with this renderer, as ``draw_artist`` calls it),
+        or where pltrs (Rust) is drawing while it draws the figure."""
+        if self._recording is not None:
+            super()._draw_artist(artist)
+        elif self._figure is None:
             _backends.draw_onto_raster(self._own_raster(), artist._native)
         else:
             _backends.draw_artist(self._canvas_figure(), artist._native)

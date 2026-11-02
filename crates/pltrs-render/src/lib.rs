@@ -48,7 +48,7 @@ mod svg;
 mod testing;
 mod vector;
 
-pub use collection::{CollectionItem, PathCollection};
+pub use collection::{CollectionItem, PathCollection, PathCollectionData};
 pub use filter::{FilterFn, FilterImage, Filtered};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
@@ -59,7 +59,7 @@ pub use ps::{
     PageOrientation, PageSetupError, Paper, PsDocument, PsOptions, PsOutput, PsRenderer,
     PsfragFigure, pstoeps,
 };
-pub use quad_mesh::QuadMesh;
+pub use quad_mesh::{QuadMesh, QuadMeshData};
 pub use raster::{
     GlyphBitmap, GlyphShape, RasterBackendError, RasterRenderer, glyph_axis_aligned, render_glyph,
     set_texts_as_paths,

@@ -492,8 +492,13 @@ pub trait ArtistHandle {
     /// layout (laid out first), if it occupies space (matplotlib's
     /// `get_window_extent`); `None` once it was removed.
     fn window_extent(&self) -> Option<Bbox> {
-        let mut state = self.raw().figure_state().borrow_mut();
-        state.prepare();
+        let figure = self.raw().figure_state();
+        // A figure being drawn, which code run meanwhile measures, is laid
+        // out already (and borrowed).
+        if let Ok(mut state) = figure.try_borrow_mut() {
+            state.prepare();
+        }
+        let state = figure.borrow();
         let ctx = LayoutContext::new(&state);
         state.store.get(self.id())?.window_extent(&ctx)
     }

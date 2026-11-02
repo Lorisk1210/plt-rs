@@ -20,7 +20,9 @@
 use std::any::{Any, TypeId};
 use std::rc::Rc;
 
-use pltrs::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, FigureRef, RawHandle};
+use pltrs::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, ArtistPainter, FigureRef, RawHandle,
+};
 use pltrs::axes_grid1::Divider;
 use pltrs::colorbar::Colorbar;
 use pltrs::colors::Norm;
@@ -28,6 +30,7 @@ use pltrs::container::Container;
 use pltrs::figure::Figure;
 use pltrs::gridspec::{GridSpec, SubplotSpec};
 use pltrs::legend::LegendHandle;
+use pltrs::patheffects::CustomPathEffect;
 use pltrs::rc::RcParams;
 use pltrs::scale::FuncTransform;
 use pltrs::ticker::{FuncFormatter, LabelFormat};
@@ -39,6 +42,7 @@ use pltrs_core::archive::{
 use super::artist::PlainArtist;
 use super::axis::{PyFormatter, PyLocator};
 use super::colors::PythonNorm;
+use super::drawing::{PythonEffect, PythonPainter};
 use super::transforms::PyPointMap;
 use crate::binding::lookup;
 use crate::binding::prelude::*;
@@ -265,6 +269,8 @@ const LOCATOR: &str = "python-locator";
 const FORMATTER: &str = "python-formatter";
 const NORM: &str = "python-norm";
 const POINT_MAP: &str = "python-transform";
+const PAINTER: &str = "python-painter";
+const EFFECT: &str = "python-path-effect";
 
 /// An exception raised while reading an archive, as an archive error.
 fn read_failure(py: Python<'_>, err: &PyErr) -> ArchiveError {
@@ -303,6 +309,15 @@ impl ProgramKinds for PythonProgram {
             encoder.write_str(PLAIN_ARTIST);
             return artist.base.encode(encoder);
         }
+        if let Some(painter) = value.downcast_ref::<PythonPainter>() {
+            let artist =
+                Python::with_gil(|py| painter.artist(py).map(Bound::unbind)).ok_or_else(|| {
+                    ArchiveError::unsupported("the painter of an artist no longer alive")
+                })?;
+            encoder.write_str(PAINTER);
+            encoder.write_external(&object_external(&artist));
+            return painter.flags().encode(encoder);
+        }
         let (tag, object) = if let Some(locator) = value.downcast_ref::<PyLocator>() {
             (LOCATOR, tick_helper(&locator.adapter)?)
         } else if let Some(formatter) = value.downcast_ref::<PyFormatter>() {
@@ -311,6 +326,8 @@ impl ProgramKinds for PythonProgram {
             (NORM, Python::with_gil(|py| norm.object().clone_ref(py)))
         } else if let Some(map) = value.downcast_ref::<PyPointMap>() {
             (POINT_MAP, Python::with_gil(|py| map.object().clone_ref(py)))
+        } else if let Some(effect) = value.downcast_ref::<PythonEffect>() {
+            (EFFECT, Python::with_gil(|py| effect.object().clone_ref(py)))
         } else {
             return Err(ArchiveError::unsupported(format!(
                 "a {} of a type of the program's",
@@ -357,6 +374,11 @@ impl ProgramKinds for PythonProgram {
                     let norm: Box<dyn Norm> = Box::new(norm);
                     Box::new(norm) as Box<dyn Any>
                 }),
+                PAINTER => painter(&object, <(bool, bool)>::decode(decoder)),
+                EFFECT => {
+                    let effect: Box<dyn CustomPathEffect> = Box::new(PythonEffect::of(&object));
+                    Ok(Box::new(effect))
+                }
                 POINT_MAP => PyPointMap::new(&object).map(|map| {
                     let map: Box<dyn PointMap> = Box::new(map);
                     Box::new(map) as Box<dyn Any>
@@ -396,6 +418,21 @@ impl ProgramKinds for PythonProgram {
             )))
         }
     }
+}
+
+/// The painter of the Python artist `artist` read back, whose class'
+/// `draw` lets it be rasterized and which measures it as `flags` say (or
+/// the error reading them).
+fn painter(
+    artist: &Bound<'_>,
+    flags: Result<(bool, bool), ArchiveError>,
+) -> PyResult<Box<dyn Any>> {
+    let (rasterizes, measures) = flags.map_err(|err| PyErr::value_error(err.to_string()))?;
+    let reference =
+        lookup(artist.py(), "artist_reference")?.call(std::slice::from_ref(artist), &[])?;
+    let painter: Box<dyn ArtistPainter> =
+        Box::new(PythonPainter::new(reference.unbind(), rasterizes, measures));
+    Ok(Box::new(painter))
 }
 
 /// A number telling the figure `artist` is in apart from every other

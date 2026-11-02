@@ -538,6 +538,16 @@ fn set_arc(
     Ok(())
 }
 
+/// Sets the start and end angles of an arc, in degrees (what a class of
+/// the program's computes when it is drawn).
+fn set_arc_angles(patch: Patch<Arc>, theta1: f64, theta2: f64) -> PyResult<()> {
+    patch.update_shape(|shape| {
+        shape.theta1 = theta1;
+        shape.theta2 = theta2;
+    });
+    Ok(())
+}
+
 /// `(x, y, radius)` of a circle.
 fn circle(patch: Patch<Circle>) -> PyResult<(f64, f64, f64)> {
     let shape = patch.shape();
@@ -721,6 +731,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("ellipse", ellipse)?;
     module.add("set_ellipse", set_ellipse)?;
     module.add("set_arc", set_arc)?;
+    module.add("set_arc_angles", set_arc_angles)?;
     module.add("update_style_from", update_style_from)?;
     module.add("circle", circle)?;
     module.add("set_circle", set_circle)?;

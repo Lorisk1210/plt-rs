@@ -14,7 +14,10 @@
 //! your own draws paths, markers, text and images with the context's
 //! [`Renderer`], in the colour, width and dashes of a
 //! [`GraphicsContext`] ([`DrawContext::base_gc`] starts one from the
-//! artist's common properties).
+//! artist's common properties). Any artist may instead be drawn by a
+//! [`Painter`] of the program's (matplotlib's `draw` of a subclass), which
+//! is prepared before the draw pass, with the figure free to change, and
+//! may keep what it draws until then as a [`Drawing`].
 
 mod apart;
 mod archive;
@@ -25,9 +28,11 @@ mod copy;
 mod cursor;
 mod custom;
 mod detached;
+mod drawing;
 mod filter;
 mod handle;
 mod loose;
+mod painter;
 mod pick;
 #[macro_use]
 mod properties;
@@ -57,10 +62,13 @@ pub use context::{DrawContext, DrawError, DrawErrorKind, LayoutContext};
 pub(crate) use cursor::format_values;
 pub use custom::Custom;
 pub(crate) use detached::DetachedArtists;
+pub use drawing::{DrawStep, Drawing};
 pub(crate) use filter::FilteredGroupArtist;
 pub use filter::{AggFilter, FilteredGroup};
 pub use handle::{ArtistHandle, TypedHandle};
 pub(crate) use loose::take_in;
+pub(crate) use painter::tight_extent_of;
+pub use painter::{ArtistPainter, DrawTarget, MeasuredExtent, Painter};
 pub(crate) use pick::segment_hits;
 pub use pick::{PickFn, Picker};
 pub use pltrs_render::{FilterImage, Filtered, GraphicsContext, Renderer, Sketch};

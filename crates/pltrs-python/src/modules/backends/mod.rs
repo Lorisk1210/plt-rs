@@ -10,6 +10,7 @@ mod gc;
 mod pdf_pages;
 mod print;
 
+pub(super) use gc::PyGc;
 pub(super) use print::DocumentMetadata;
 
 use pltrs::figure::{CanvasError, Figure};

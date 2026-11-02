@@ -94,6 +94,15 @@ fn keep(py: Python<'_>, err: PyErr) {
     }
 }
 
+/// Raises `err` from the native call running, as a callback raising it
+/// would: it is kept in the call's frame (the first exception of a call
+/// wins), or becomes a `RuntimeWarning` outside any native call. For
+/// problems pltrs (Rust) code met while it ran Python's work (drawing
+/// what a Python path effect drew, say).
+pub(crate) fn report(err: PyErr) {
+    Python::with_gil(|py| keep(py, err));
+}
+
 /// A Python callable that pltrs (Rust) code calls.
 #[derive(Clone, Debug)]
 pub(crate) struct Callback {

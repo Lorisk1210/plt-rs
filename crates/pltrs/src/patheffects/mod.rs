@@ -20,13 +20,17 @@
 //!
 //! [`ArtistHandle::set_path_effects`]: crate::artist::ArtistHandle::set_path_effects
 
+mod custom;
 mod patch;
 mod renderer;
 mod ticked;
 
+use std::borrow::Cow;
+
 use pltrs_core::{Affine2D, Path, Rgba};
 use pltrs_render::{CapStyle, GraphicsContext, JoinStyle, Renderer};
 
+pub use custom::{CustomEffect, CustomPathEffect};
 pub use patch::PatchEffect;
 pub use renderer::PathEffectRenderer;
 pub use ticked::TickedStroke;
@@ -253,6 +257,8 @@ pub enum Effect {
     TickedStroke(TickedStroke),
     /// The path drawn as a patch of its own.
     PathPatch(PatchEffect),
+    /// What an effect of the program's draws.
+    Custom(CustomEffect),
 }
 
 pltrs_core::archive_enum!(Effect {
@@ -262,6 +268,7 @@ pltrs_core::archive_enum!(Effect {
     LineShadow(v0),
     TickedStroke(v0),
     PathPatch(v0),
+    Custom(v0),
 });
 
 /// One path effect: an [`Effect`], optionally followed by the unchanged
@@ -332,6 +339,12 @@ impl PathEffect {
         Self::of(Effect::PathPatch(patch), false)
     }
 
+    /// What an effect of the program's draws (an `AbstractPathEffect`
+    /// subclass; see [`CustomPathEffect`]).
+    pub const fn custom(effect: CustomEffect) -> Self {
+        Self::of(Effect::Custom(effect), false)
+    }
+
     /// The colours of the effect, resolved.
     ///
     /// # Errors
@@ -340,7 +353,9 @@ impl PathEffect {
     fn colors(&self) -> Result<EffectColors, ColorError> {
         let resolve = |color: Option<&Color>| color.map(Color::resolve).transpose();
         let (shadow, gc) = match &self.effect {
-            Effect::Normal | Effect::PathPatch(_) => return Ok(EffectColors::default()),
+            Effect::Normal | Effect::PathPatch(_) | Effect::Custom(_) => {
+                return Ok(EffectColors::default());
+            }
             Effect::Stroke(stroke) => (None, &stroke.gc),
             Effect::PatchShadow(shadow) => (shadow.color.as_ref(), &shadow.gc),
             Effect::LineShadow(shadow) => (shadow.color.as_ref(), &shadow.gc),
@@ -354,10 +369,12 @@ impl PathEffect {
 
     /// Draws `path` (mapped by `affine`) with the effect on `renderer`, in
     /// the effect's resolved `colors`.
+    /// `gc` is shared by the effects of the artist, in turn: an effect of
+    /// the program's may change it for those after it.
     fn draw_path(
         &self,
         renderer: &mut dyn Renderer,
-        gc: &GraphicsContext,
+        gc: &mut Cow<'_, GraphicsContext>,
         path: &Path,
         affine: &Affine2D,
         fill: Option<Rgba>,
@@ -388,12 +405,18 @@ impl Effect {
     fn draw_path(
         &self,
         renderer: &mut dyn Renderer,
-        gc: &GraphicsContext,
+        shared: &mut Cow<'_, GraphicsContext>,
         path: &Path,
         affine: &Affine2D,
         fill: Option<Rgba>,
         colors: EffectColors,
     ) {
+        if let Self::Custom(custom) = self {
+            return custom
+                .get()
+                .draw_path(renderer, shared.to_mut(), path, affine, fill);
+        }
+        let gc: &GraphicsContext = shared;
         match self {
             Self::Normal => renderer.draw_path(gc, path, affine, fill),
             Self::Stroke(stroke) => {
@@ -433,6 +456,7 @@ impl Effect {
                 ticks.draw_path(renderer, gc, path, affine, fill, colors.foreground);
             }
             Self::PathPatch(patch) => patch.draw_path(renderer, gc, path, affine),
+            Self::Custom(_) => {}
         }
     }
 }

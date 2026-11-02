@@ -3,6 +3,13 @@
 //! buttons with keyboard shortcuts that run a callback, once per use or as
 //! an on/off toggle. Toggles may form radio groups, the built-in pan and
 //! zoom tools' among them, show a cursor while on and start on.
+//!
+//! A figure is its own tool manager: it lists its tools
+//! ([`Figure::tools`], [`Figure::tool`]), changes their shortcuts
+//! ([`Figure::set_tool_keys`]), tells which toggle of a radio group is on
+//! ([`Figure::active_toggle`]) and reports every tool added, removed or
+//! used, and the messages tools send, to the callbacks of
+//! [`Figure::on_tool_change`] (matplotlib's `toolmanager_connect`).
 
 use std::cell::RefCell;
 use std::fmt;
@@ -15,6 +22,10 @@ use crate::artist::ArtistHandle;
 use crate::events::CursorShape;
 use crate::figure::Figure;
 use crate::navigation::{NavMode, Navigation, axes_at};
+
+mod changes;
+
+pub use changes::{ToolChange, ToolListenerId};
 
 /// The radio group of the windows' pan and zoom tools (matplotlib's
 /// `"default"`): a toggle of this group switches them off when it goes
@@ -93,7 +104,7 @@ pub(crate) fn navigation_switched(figure: &Figure, navigation: &Navigation) {
 pub(crate) fn yield_navigation(figure: &Figure, navigation: &mut Navigation) -> bool {
     let mode = navigation.mode();
     mode != NavMode::None
-        && figure.toggled_in_group(NAVIGATION_GROUP).is_some()
+        && figure.active_toggle(NAVIGATION_GROUP).is_some()
         && navigation.toggle(figure, mode).is_ok()
 }
 
@@ -166,6 +177,8 @@ pub(crate) struct ToolRegistry {
     tools: Vec<UserTool>,
     /// The toggle with a cursor switched on last, while it is on.
     cursor_tool: Option<String>,
+    /// The callbacks told of every change ([`Figure::on_tool_change`]).
+    listeners: changes::Listeners,
 }
 
 impl ToolRegistry {
@@ -248,15 +261,118 @@ impl Figure {
         if starts_on {
             self.trigger_tool(&name);
         }
+        self.notify_tools(&ToolChange::Added(&name));
         Ok(self)
     }
 
-    /// Removes the tool `name`; returns whether there was one.
+    /// Removes the tool `name`; returns whether there was one (matplotlib's
+    /// `toolmanager.remove_tool`). A toggle that is on is switched off
+    /// first, its callback running, and the callbacks of
+    /// [`Figure::on_tool_change`] are told while the tool is still there.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::gui::{ToolKind, ToolSpec};
+    /// let fig = Figure::new();
+    /// fig.subplot();
+    /// let spec = ToolSpec { name: "grid".into(), kind: ToolKind::Toggle, ..ToolSpec::default() };
+    /// fig.add_tool(spec, |event| {
+    ///     for ax in event.figure.axes() {
+    ///         ax.grid(event.toggled);
+    ///     }
+    /// })?;
+    /// fig.trigger_tool("grid");
+    /// assert!(fig.remove_tool("grid"));
+    /// assert_eq!(fig.tool_toggled("grid"), None);
+    /// assert!(!fig.remove_tool("grid"));
+    /// # Ok::<(), pltrs::gui::ToolError>(())
+    /// ```
     pub fn remove_tool(&self, name: &str) -> bool {
+        match self.tool_toggled(name) {
+            None => return false,
+            Some(true) => {
+                self.trigger_tool(name);
+            }
+            Some(false) => {}
+        }
+        self.notify_tools(&ToolChange::Removed(name));
         let mut state = self.raw().figure_state().borrow_mut();
-        let before = state.tools.tools.len();
-        state.tools.tools.retain(|tool| tool.spec.name != name);
-        state.tools.tools.len() != before
+        let registry = &mut state.tools;
+        registry.tools.retain(|tool| tool.spec.name != name);
+        if registry.cursor_tool.as_deref() == Some(name) {
+            registry.cursor_tool = None;
+        }
+        true
+    }
+
+    /// The tool `name` as it was added, with the shortcuts it has now
+    /// (matplotlib's `toolmanager.get_tool` and `get_tool_keymap`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::gui::ToolSpec;
+    /// let fig = Figure::new();
+    /// let spec = ToolSpec { name: "reset".into(), keys: vec!["ctrl+r".into()], ..ToolSpec::default() };
+    /// fig.add_tool(spec, |_| {})?;
+    /// assert_eq!(fig.tool("reset").map(|tool| tool.keys), Some(vec!["ctrl+r".to_owned()]));
+    /// assert!(fig.tool("missing").is_none());
+    /// # Ok::<(), pltrs::gui::ToolError>(())
+    /// ```
+    pub fn tool(&self, name: &str) -> Option<ToolSpec> {
+        let state = self.raw().figure_state().borrow();
+        state.tools.find(name).map(|tool| tool.spec.clone())
+    }
+
+    /// The figure's tools in toolbar order (matplotlib's
+    /// `toolmanager.tools`), as windows show them.
+    pub fn tools(&self) -> Vec<ToolSpec> {
+        let state = self.raw().figure_state().borrow();
+        state
+            .tools
+            .tools
+            .iter()
+            .map(|tool| tool.spec.clone())
+            .collect()
+    }
+
+    /// Binds the tool `name` to `keys` instead of its own shortcuts
+    /// (matplotlib's `toolmanager.update_keymap`); a key another tool had
+    /// is taken from it, as matplotlib does after warning. Returns whether
+    /// there was such a tool.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::gui::ToolSpec;
+    /// let fig = Figure::new();
+    /// for (name, key) in [("a", "ctrl+a"), ("b", "ctrl+b")] {
+    ///     let spec = ToolSpec { name: name.into(), keys: vec![key.into()], ..ToolSpec::default() };
+    ///     fig.add_tool(spec, |_| {})?;
+    /// }
+    /// assert!(fig.set_tool_keys("a", ["ctrl+b", "A"]));
+    /// assert_eq!(fig.tool("a").unwrap().keys, ["ctrl+b", "A"]);
+    /// assert!(fig.tool("b").unwrap().keys.is_empty(), "the key moved to a");
+    /// assert!(!fig.set_tool_keys("missing", ["x"]));
+    /// # Ok::<(), pltrs::gui::ToolError>(())
+    /// ```
+    pub fn set_tool_keys<K: Into<String>>(
+        &self,
+        name: &str,
+        keys: impl IntoIterator<Item = K>,
+    ) -> bool {
+        let keys: Vec<String> = keys.into_iter().map(Into::into).collect();
+        let mut state = self.raw().figure_state().borrow_mut();
+        let tools = &mut state.tools.tools;
+        if !tools.iter().any(|tool| tool.spec.name == name) {
+            return false;
+        }
+        for tool in tools.iter_mut() {
+            if tool.spec.name == name {
+                tool.spec.keys.clone_from(&keys);
+            } else {
+                tool.spec.keys.retain(|key| !keys.contains(key));
+            }
+        }
+        true
     }
 
     /// The names of the figure's tools, in toolbar order.
@@ -359,11 +475,30 @@ impl Figure {
         if let Ok(mut action) = action.try_borrow_mut() {
             action(&event);
         }
+        self.notify_tools(&ToolChange::Triggered { name, toggled });
         true
     }
 
-    /// The name of the toggle of radio group `group` that is on, if any.
-    pub(crate) fn toggled_in_group(&self, group: &str) -> Option<String> {
+    /// The name of the toggle of radio group `group` that is on, if any
+    /// (matplotlib's `toolmanager.active_toggle[group]`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::gui::{ToolKind, ToolSpec};
+    /// let fig = Figure::new();
+    /// let spec = ToolSpec {
+    ///     name: "lasso".into(),
+    ///     kind: ToolKind::Toggle,
+    ///     radio_group: Some("select".into()),
+    ///     ..ToolSpec::default()
+    /// };
+    /// fig.add_tool(spec, |_| {})?;
+    /// assert_eq!(fig.active_toggle("select"), None);
+    /// fig.trigger_tool("lasso");
+    /// assert_eq!(fig.active_toggle("select").as_deref(), Some("lasso"));
+    /// # Ok::<(), pltrs::gui::ToolError>(())
+    /// ```
+    pub fn active_toggle(&self, group: &str) -> Option<String> {
         let state = self.raw().figure_state().borrow();
         state
             .tools
@@ -374,7 +509,7 @@ impl Figure {
     /// Switches off the toggle of radio group `group` that is on, if any,
     /// running its callback (a window's pan or zoom tool going on).
     pub(crate) fn untoggle_group(&self, group: &str) {
-        if let Some(name) = self.toggled_in_group(group) {
+        if let Some(name) = self.active_toggle(group) {
             self.trigger_tool(&name);
         }
     }
@@ -400,17 +535,6 @@ impl Figure {
             .iter()
             .find(|tool| tool.spec.keys.iter().any(|k| k == key))
             .map(|tool| tool.spec.name.clone())
-    }
-
-    /// The tools as windows show them, in toolbar order.
-    pub(crate) fn tool_specs(&self) -> Vec<ToolSpec> {
-        let state = self.raw().figure_state().borrow();
-        state
-            .tools
-            .tools
-            .iter()
-            .map(|tool| tool.spec.clone())
-            .collect()
     }
 }
 

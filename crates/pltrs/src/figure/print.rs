@@ -95,6 +95,17 @@ fn rc_color(setting: &ColorOrAuto, figure: &Color) -> Color {
 const POINTS_PER_INCH: f64 = 72.0;
 
 impl Figure {
+    /// The resolution the figure is saved at with `options`: theirs, else
+    /// `savefig.dpi` (`figure` being the one the figure was made at).
+    pub(crate) fn save_dpi(&self, options: &SaveOptions) -> f64 {
+        options
+            .dpi
+            .unwrap_or(match crate::rc::params().savefig_dpi {
+                Dpi::Value(dpi) => dpi,
+                Dpi::Figure => self.state().original_dpi,
+            })
+    }
+
     /// Prepares the figure for printing with `options` as matplotlib's
     /// `print_figure` does: resolution (`savefig.dpi: figure` being the
     /// one the figure was made at), background colours and the part
@@ -103,10 +114,7 @@ impl Figure {
     /// the tight box at 72 dpi).
     fn begin_print(&self, options: &SaveOptions, canvas_dpi: Option<f64>) -> (Saving<'_>, Page) {
         let rc = crate::rc::params();
-        let dpi = options.dpi.unwrap_or(match rc.savefig_dpi {
-            Dpi::Value(dpi) => dpi,
-            Dpi::Figure => self.state().original_dpi,
-        });
+        let dpi = self.save_dpi(options);
         let canvas_dpi = canvas_dpi.unwrap_or(dpi);
         let transparent = options.transparent.unwrap_or(rc.savefig_transparent);
         let mut saving = Saving {

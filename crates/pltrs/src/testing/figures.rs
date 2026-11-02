@@ -5,10 +5,13 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use super::compare::{Comparison, ComparisonError, compare_images, is_comparable, test_filename};
+use super::compare::{Comparison, ComparisonError, compare_images, make_test_filename};
+use super::convert::is_comparable;
 use crate::figure::Figure;
 
-/// Builds a test figure and a reference figure, saves both as PNG and
+/// Builds a test figure and a reference figure, saves both in the format
+/// the extension of `path` names (one of
+/// [`comparable_formats`](super::comparable_formats)) and
 /// compares them with [`compare_images`] (matplotlib's
 /// `check_figures_equal` decorator). `test` draws the test figure, saved
 /// at `path`; `reference` draws the reference figure, saved beside it
@@ -48,7 +51,8 @@ use crate::figure::Figure;
 ///
 /// # Errors
 ///
-/// When `path` is not a `.png` file, a figure cannot be built or saved,
+/// When the format of `path` cannot be compared here, a figure cannot be
+/// built or saved,
 /// and as [`compare_images`].
 pub fn check_figures_equal(
     path: impl AsRef<Path>,
@@ -66,7 +70,7 @@ pub fn check_figures_equal(
             reason: err.to_string(),
         })?;
     }
-    let expected = test_filename(path, "expected");
+    let expected = make_test_filename(path, "expected");
     crate::rc::context(|| {
         let (test_figure, reference_figure) = (Figure::new(), Figure::new());
         test(&test_figure).map_err(ComparisonError::Build)?;
@@ -119,9 +123,9 @@ mod tests {
         let fine = |_: &Figure| -> Result<(), Box<dyn Error>> { Ok(()) };
         let err = check_figures_equal(out.join("a.png"), 0.0, fine, fails).unwrap_err();
         assert_eq!(err.to_string(), "cannot build the figure: no figure");
-        let err = check_figures_equal(out.join("a.svg"), 0.0, fine, fine).unwrap_err();
+        let err = check_figures_equal(out.join("a.jpg"), 0.0, fine, fine).unwrap_err();
         assert!(matches!(err, ComparisonError::NotComparable(_)));
-        assert!(!out.join("a.svg").exists(), "nothing is drawn");
+        assert!(!out.join("a.jpg").exists(), "nothing is drawn");
         let _ = fs::remove_dir_all(&out);
     }
 }

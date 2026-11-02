@@ -4,16 +4,19 @@
 //! * [`setup`] puts the process and the current thread in the state
 //!   matplotlib's tests run in: matplotlib's look and defaults, the
 //!   `DejaVu Sans` font, no display, and no user configuration.
-//! * [`compare_images`] compares a PNG with a baseline PNG by matplotlib's
-//!   RMS metric ([`calculate_rms`]) and, when they differ by more than the
-//!   tolerance, writes matplotlib's `-failed-diff` image beside the
-//!   output.
+//! * [`compare_images`] compares an image with a baseline image by
+//!   matplotlib's RMS metric ([`calculate_rms`]) and, when they differ by
+//!   more than the tolerance, writes matplotlib's `-failed-diff` image
+//!   beside the output ([`save_diff_image`] writes one on its own).
 //! * [`check_figures_equal`] builds a test figure and a reference figure,
 //!   saves both and compares them (matplotlib's `@check_figures_equal`).
+//! * [`image_comparison`] compares the figures a test makes with baseline
+//!   images in several formats (matplotlib's `@image_comparison`),
+//!   [`remove_ticks_and_titles`] first if asked.
 //!
-//! Only PNG files can be compared ([`comparable_formats`]): pltrs writes
-//! PDF, SVG and PostScript but cannot rasterise them again, the way
-//! matplotlib needs Ghostscript or Inkscape for them.
+//! PNG and GIF files are compared as they are; PDF and PostScript files
+//! are rasterised with Ghostscript and SVG files with Inkscape when they
+//! are installed, as matplotlib does ([`convert`], [`comparable_formats`]).
 //!
 //! A test in the style of matplotlib's, checking that a line without a
 //! colour takes the first colour of the cycle:
@@ -50,15 +53,21 @@
 //! ```
 
 mod compare;
+mod convert;
+mod decorators;
 mod figures;
+mod images;
 #[cfg(test)]
 mod support;
 
 pub use compare::{
     Comparison, ComparisonError, ImageShapeError, calculate_rms, calculate_rms_and_diff,
-    comparable_formats, compare_images,
+    compare_images, make_test_filename,
 };
+pub use convert::{comparable_formats, convert, get_file_hash};
+pub use decorators::{ImageComparison, image_comparison, remove_ticks_and_titles};
 pub use figures::check_figures_equal;
+pub use images::{crop_to_same, save_diff_image};
 #[cfg(test)]
 pub(crate) use support::*;
 

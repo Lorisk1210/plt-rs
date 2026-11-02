@@ -13,8 +13,9 @@ use crate::rc::{RcParams, keyword_names};
 
 /// The LaTeX program a PGF picture is meant for (`pgf.texsystem`).
 ///
-/// It does not change the picture: matplotlib only runs it to typeset
-/// PGF figures into PDFs, which pltrs writes directly instead.
+/// It does not change the picture: it is the program that typesets PGF
+/// pictures into PDF documents ([`Figure::to_pgf_pdf`],
+/// [`PgfPages`](super::PgfPages)), as matplotlib runs it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum PgfTexSystem {
     /// `xelatex`, matplotlib's default.

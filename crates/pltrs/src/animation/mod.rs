@@ -72,10 +72,12 @@ mod player;
 mod save;
 #[cfg(test)]
 mod tests;
+mod writer;
 
 pub use html::{HtmlOptions, PlayMode};
 pub use html_rc::{FrameFormat, HtmlRepr};
 pub use movie::{MovieError, MovieOptions};
+pub use writer::MovieWriter;
 
 /// Frames saved from an animation without a known length (matplotlib's
 /// default `save_count`).

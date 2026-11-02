@@ -6,23 +6,10 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use pltrs_codec::png::{self, ColorType, ImageRef};
-
-use crate::figure::{SaveError, SaveFormat};
+use super::convert::convert;
+use super::images::{Loaded, crop_loaded, filled_grid, write_png};
+use crate::figure::SaveError;
 use crate::numeric::Grid;
-
-/// The formats [`compare_images`] compares (matplotlib's
-/// `comparable_formats`): PNG only, as for matplotlib without Ghostscript
-/// and Inkscape to rasterise PDF, PostScript and SVG.
-pub fn comparable_formats() -> &'static [SaveFormat] {
-    &[SaveFormat::Png]
-}
-
-/// Whether [`compare_images`] can compare the file `path`: whether its
-/// extension is `png`.
-pub(super) fn is_comparable(path: &Path) -> bool {
-    path.extension().is_some_and(|extension| extension == "png")
-}
 
 /// Two images of different shapes, each given as (rows, columns,
 /// channels).
@@ -99,50 +86,6 @@ where
     Ok((sum / (expected.as_slice().len() * N) as f64).sqrt())
 }
 
-/// An image file as the comparison loads it (matplotlib's `_load_image`):
-/// RGB images as RGB, others as RGBA unless every pixel is opaque.
-#[derive(Clone, Debug, PartialEq)]
-enum Loaded {
-    /// Opaque pixels.
-    Rgb(Grid<[u8; 3]>),
-    /// Pixels with transparency.
-    Rgba(Grid<[u8; 4]>),
-}
-
-impl Loaded {
-    /// Reads the PNG file at `path`.
-    fn read(path: &Path) -> Result<Self, ComparisonError> {
-        let unreadable = |reason: String| ComparisonError::Unreadable {
-            path: path.to_owned(),
-            reason,
-        };
-        let bytes = fs::read(path).map_err(|err| unreadable(err.to_string()))?;
-        let image = png::decode(&bytes).map_err(|err| unreadable(err.to_string()))?;
-        let (rows, cols) = (image.height() as usize, image.width() as usize);
-        let pixels = image.to_rgba8().as_chunks::<4>().0.to_vec();
-        let opaque = pixels.iter().all(|pixel| pixel[3] == u8::MAX);
-        Ok(if image.color_type() == ColorType::Rgb || opaque {
-            let colors = pixels.iter().map(|&[r, g, b, _]| [r, g, b]).collect();
-            Self::Rgb(filled_grid(rows, cols, colors))
-        } else {
-            Self::Rgba(filled_grid(rows, cols, pixels))
-        })
-    }
-
-    /// (rows, columns, channels).
-    fn shape(&self) -> (usize, usize, usize) {
-        match self {
-            Self::Rgb(grid) => (grid.rows(), grid.cols(), 3),
-            Self::Rgba(grid) => (grid.rows(), grid.cols(), 4),
-        }
-    }
-}
-
-/// The grid of `rows × cols` decoded pixels.
-fn filled_grid<T>(rows: usize, cols: usize, pixels: Vec<T>) -> Grid<T> {
-    Grid::from_vec(rows, cols, pixels).expect("a decoded image has a pixel per cell")
-}
-
 /// The RMS of two loaded images and their difference image (matplotlib's
 /// `calculate_rms_and_diff`).
 fn rms_and_diff(
@@ -199,7 +142,14 @@ pub fn calculate_rms_and_diff<const N: usize>(
 
 /// `path` with `-purpose` before its extension (matplotlib's
 /// `make_test_filename`).
-pub(super) fn test_filename(path: &Path, purpose: &str) -> PathBuf {
+///
+/// ```
+/// use std::path::Path;
+/// use pltrs::testing::make_test_filename;
+/// assert_eq!(make_test_filename("out/plot.png", "expected"), Path::new("out/plot-expected.png"));
+/// ```
+pub fn make_test_filename(path: impl AsRef<Path>, purpose: &str) -> PathBuf {
+    let path = path.as_ref();
     let mut name = path.file_stem().unwrap_or_default().to_owned();
     name.push("-");
     name.push(purpose);
@@ -208,23 +158,6 @@ pub(super) fn test_filename(path: &Path, purpose: &str) -> PathBuf {
         name.push(extension);
     }
     path.with_file_name(name)
-}
-
-/// Writes `image` to `path` as an RGB PNG.
-fn write_rgb_png(path: &Path, image: &Grid<[u8; 3]>) -> Result<(), ComparisonError> {
-    let unwritable = |reason: String| ComparisonError::Unwritable {
-        path: path.to_owned(),
-        reason,
-    };
-    let side = |n: usize| u32::try_from(n).map_err(|err| unwritable(err.to_string()));
-    let png = ImageRef::rgb8(
-        side(image.cols())?,
-        side(image.rows())?,
-        image.as_slice().as_flattened(),
-    )
-    .and_then(png::encode)
-    .map_err(|err| unwritable(err.to_string()))?;
-    fs::write(path, png).map_err(|err| unwritable(err.to_string()))
 }
 
 /// How an output image compares with its baseline image.
@@ -283,9 +216,26 @@ pub enum ComparisonError {
     EmptyOutput(PathBuf),
     /// The baseline image does not exist.
     MissingBaseline(PathBuf),
-    /// Images of this file's format cannot be compared (only PNG can, see
-    /// [`comparable_formats`]).
+    /// Images of this file's format cannot be compared here: no converter
+    /// installed rasterises it (see
+    /// [`comparable_formats`](super::comparable_formats)).
     NotComparable(PathBuf),
+    /// The converter rasterising a file for comparison failed (matplotlib's
+    /// `ImageComparisonFailure` with the converter's output).
+    Convert {
+        /// The file converted.
+        path: PathBuf,
+        /// What the converter said.
+        reason: String,
+    },
+    /// An image comparison was given another number of figures than of
+    /// baseline images (see [`image_comparison`](super::image_comparison)).
+    FigureCount {
+        /// The number of baseline images.
+        expected: usize,
+        /// The number of figures made.
+        actual: usize,
+    },
     /// A file cannot be read as a PNG image.
     Unreadable {
         /// The file.
@@ -322,8 +272,15 @@ impl fmt::Display for ComparisonError {
             }
             Self::NotComparable(path) => {
                 let extension = path.extension().unwrap_or_default().display();
-                write!(f, "Don't know how to convert {extension} files to png")
+                write!(f, "Don't know how to convert .{extension} files to png")
             }
+            Self::Convert { path, reason } => {
+                write!(f, "cannot convert {} to png: {reason}", path.display())
+            }
+            Self::FigureCount { expected, actual } => write!(
+                f,
+                "Test generated {actual} images but there are {expected} baseline images"
+            ),
             Self::Unreadable { path, reason } => {
                 write!(f, "cannot read {}: {reason}", path.display())
             }
@@ -354,13 +311,18 @@ impl From<ImageShapeError> for ComparisonError {
     }
 }
 
-/// Compares the PNG image `actual` with the baseline image `expected`
+/// Compares the image `actual` with the baseline image `expected`
 /// (matplotlib's `compare_images`). They match when the RMS of their
 /// channel differences ([`calculate_rms`], with images whose pixels are
 /// all opaque compared as RGB) is at most `tol`, or when `tol` is not
 /// positive and they are identical. Otherwise matplotlib's difference
 /// image is written beside `actual`, named with `-failed-diff` before
 /// the extension: ten times the colour differences.
+///
+/// When `expected` is not a PNG file, both files are rasterised first
+/// with [`convert`](super::convert) (cached), and compared as the PNG
+/// images beside them; an EPS image is cropped to the size of a PDF
+/// baseline ([`crop_to_same`](super::crop_to_same)).
 ///
 /// ```
 /// use pltrs::prelude::*;
@@ -385,8 +347,9 @@ impl From<ImageShapeError> for ComparisonError {
 /// # Errors
 ///
 /// When either file is missing (or `actual` is empty), `expected` is not
-/// a `.png` file, a file cannot be read as a PNG, the images differ in
-/// size or channels, or the difference image cannot be written.
+/// a PNG file and no converter installed here rasterises it, a converter
+/// fails, a file cannot be read as a PNG, the images differ in size or
+/// channels, or the difference image cannot be written.
 pub fn compare_images(
     expected: impl AsRef<Path>,
     actual: impl AsRef<Path>,
@@ -403,16 +366,24 @@ pub fn compare_images(
     if !expected.exists() {
         return Err(ComparisonError::MissingBaseline(expected.to_owned()));
     }
-    if !is_comparable(expected) {
-        return Err(ComparisonError::NotComparable(expected.to_owned()));
-    }
-    let expected_image = Loaded::read(expected)?;
-    let actual_image = Loaded::read(actual)?;
+    let (expected, actual) = if expected.extension().is_some_and(|ext| ext == "png") {
+        (expected.to_owned(), actual.to_owned())
+    } else {
+        let actual = convert(actual, true)?;
+        (convert(expected, true)?, actual)
+    };
+    let (actual_image, expected_image) = crop_loaded(
+        &actual,
+        Loaded::read(&actual)?,
+        &expected,
+        Loaded::read(&expected)?,
+    );
+    let diff_path = make_test_filename(&actual, "failed-diff");
     let mut comparison = Comparison {
         rms: 0.0,
         tol,
-        expected: expected.to_owned(),
-        actual: actual.to_owned(),
+        expected,
+        actual,
         diff: None,
     };
     if tol <= 0.0 && expected_image == actual_image {
@@ -423,14 +394,15 @@ pub fn compare_images(
     if rms <= tol {
         return Ok(comparison);
     }
-    let diff_path = test_filename(actual, "failed-diff");
-    write_rgb_png(&diff_path, &diff)?;
+    write_png(&diff_path, &diff)?;
     comparison.diff = Some(diff_path);
     Ok(comparison)
 }
 
 #[cfg(test)]
 mod tests {
+    use pltrs_codec::png::{self, ColorType, ImageRef};
+
     use super::*;
 
     /// A fresh temporary directory for one test.
@@ -472,11 +444,11 @@ mod tests {
     fn test_filenames_insert_their_purpose() {
         let path = Path::new("out/a.b.png");
         assert_eq!(
-            test_filename(path, "failed-diff"),
+            make_test_filename(path, "failed-diff"),
             Path::new("out/a.b-failed-diff.png")
         );
         assert_eq!(
-            test_filename(Path::new("plain"), "expected"),
+            make_test_filename(Path::new("plain"), "expected"),
             Path::new("plain-expected")
         );
     }
@@ -556,13 +528,12 @@ mod tests {
         let foreign = error(&svg, &png_file);
         assert_eq!(
             foreign.to_string(),
-            "Don't know how to convert svg files to png"
+            "Don't know how to convert .png files to png"
         );
         assert!(matches!(
             error(&png_file, &svg),
             ComparisonError::Unreadable { .. }
         ));
-        assert_eq!(comparable_formats(), [SaveFormat::Png]);
         fs::remove_dir_all(&dir).unwrap();
     }
 }

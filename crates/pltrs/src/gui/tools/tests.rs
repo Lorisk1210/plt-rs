@@ -95,7 +95,7 @@ fn radio_groups_switch_one_toggle_at_a_time() {
         "c is in no group"
     );
     fig.trigger_tool("b");
-    assert_eq!(fig.toggled_in_group("g"), None, "switched off again");
+    assert_eq!(fig.active_toggle("g"), None, "switched off again");
     let log_now = log.borrow();
     let uses: Vec<(&str, bool)> = log_now.iter().map(|(n, t)| (n.as_str(), *t)).collect();
     assert_eq!(
@@ -112,7 +112,7 @@ fn radio_groups_switch_one_toggle_at_a_time() {
     drop(log_now);
     fig.trigger_tool("a");
     fig.untoggle_group("g");
-    assert_eq!(fig.toggled_in_group("g"), None);
+    assert_eq!(fig.active_toggle("g"), None);
     assert_eq!(log.borrow().last(), Some(&("a".to_owned(), false)));
 }
 
@@ -143,10 +143,7 @@ fn toggles_start_on_and_show_their_cursor() {
         ],
         "added on, displacing a"
     );
-    assert_eq!(
-        fig.toggled_in_group(NAVIGATION_GROUP).as_deref(),
-        Some("hand")
-    );
+    assert_eq!(fig.active_toggle(NAVIGATION_GROUP).as_deref(), Some("hand"));
     assert_eq!(fig.tool_cursor(), Some(CursorShape::Hand));
     fig.trigger_tool("hand");
     assert_eq!(fig.tool_cursor(), None);

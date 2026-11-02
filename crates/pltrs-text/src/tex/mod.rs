@@ -59,7 +59,7 @@ pub use dvi::{
 pub use error::{TexError, TexFile};
 pub use files::{FileFinder, FontSource, TexFiles};
 pub use font_file::{TexFontFile, TexHinting};
-pub use manager::{GreyImage, TexEngine, TexManager};
+pub use manager::{GreyImage, TexEngine, TexManager, TexRgba};
 pub use map_override::{FontMapLookup, set_font_map_lookup};
 pub use native::{NativeEffects, NativeFace, NativeFont};
 pub use psfonts::{PsFont, PsfontsMap, parse_enc};

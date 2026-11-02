@@ -59,20 +59,7 @@ impl FuncAnimation {
         let images = self.frame_images()?;
         let millis =
             u16::try_from(self.player.borrow().options.interval.as_millis()).unwrap_or(u16::MAX);
-        let frames = images
-            .iter()
-            .map(|image| {
-                let (width, height) = image_size(image);
-                Ok(Frame {
-                    image: ImageRef::rgba8(width, height, image.data())?,
-                    delay: (millis, 1000),
-                })
-            })
-            .collect::<Result<Vec<_>, EncodeError>>()
-            .map_err(AnimationError::Encode)?;
-        AnimatedEncoder::new()
-            .encode(&frames)
-            .map_err(AnimationError::Encode)
+        encode_apng(&images, millis)
     }
 
     /// Writes [`FuncAnimation::to_apng`] to `path`.
@@ -96,21 +83,10 @@ impl FuncAnimation {
     /// taller than GIF's 65 535 pixels.
     pub fn to_gif(&self) -> Result<Vec<u8>, AnimationError> {
         let images = self.frame_images()?;
-        let delay = gif_delay(interval_millis(self.player.borrow().options.interval));
-        let frames: Vec<GifFrame<'_>> = images
-            .iter()
-            .map(|image| GifFrame {
-                pixels: image.data(),
-                delay,
-            })
-            .collect();
-        let Some(first) = images.first() else {
-            return Err(AnimationError::Gif(GifError::NoFrames));
-        };
-        let (width, height) = image_size(first);
-        GifEncoder::new()
-            .encode(width, height, &frames)
-            .map_err(AnimationError::Gif)
+        encode_gif(
+            &images,
+            interval_millis(self.player.borrow().options.interval),
+        )
     }
 
     /// Writes [`FuncAnimation::to_gif`] to `path`.
@@ -132,19 +108,10 @@ impl FuncAnimation {
     /// When a frame cannot be rendered or the frames cannot be encoded.
     pub fn to_webp(&self) -> Result<Vec<u8>, AnimationError> {
         let images = self.frame_images()?;
-        let interval = interval_millis(self.player.borrow().options.interval);
-        // Whole milliseconds, as WebP stores them.
-        let duration_ms = interval.round().clamp(0.0, f64::from(0xFF_FFFF)) as u32;
-        let frames: Vec<AnimationFrame<'_>> = images
-            .iter()
-            .map(|image| AnimationFrame {
-                pixels: image.data(),
-                duration_ms,
-            })
-            .collect();
-        let (width, height) = images.first().map_or((0, 0), image_size);
-        webp::encode_animation_rgba8(width, height, &frames, LOOP_FOREVER)
-            .map_err(AnimationError::Webp)
+        encode_webp(
+            &images,
+            interval_millis(self.player.borrow().options.interval),
+        )
     }
 
     /// Writes [`FuncAnimation::to_webp`] to `path`.
@@ -165,6 +132,66 @@ impl FuncAnimation {
         })?;
         Ok(images)
     }
+}
+
+/// `images` as an animated PNG showing each for `delay_ms` milliseconds,
+/// looping forever.
+pub(super) fn encode_apng(images: &[RgbaImage], delay_ms: u16) -> Result<Vec<u8>, AnimationError> {
+    let frames = images
+        .iter()
+        .map(|image| {
+            let (width, height) = image_size(image);
+            Ok(Frame {
+                image: ImageRef::rgba8(width, height, image.data())?,
+                delay: (delay_ms, 1000),
+            })
+        })
+        .collect::<Result<Vec<_>, EncodeError>>()
+        .map_err(AnimationError::Encode)?;
+    AnimatedEncoder::new()
+        .encode(&frames)
+        .map_err(AnimationError::Encode)
+}
+
+/// `images` as an animated GIF of one palette, each shown for the
+/// [`gif_delay`] of `interval_ms`, looping forever.
+pub(super) fn encode_gif(
+    images: &[RgbaImage],
+    interval_ms: f64,
+) -> Result<Vec<u8>, AnimationError> {
+    let delay = gif_delay(interval_ms);
+    let frames: Vec<GifFrame<'_>> = images
+        .iter()
+        .map(|image| GifFrame {
+            pixels: image.data(),
+            delay,
+        })
+        .collect();
+    let Some(first) = images.first() else {
+        return Err(AnimationError::Gif(GifError::NoFrames));
+    };
+    let (width, height) = image_size(first);
+    GifEncoder::new()
+        .encode(width, height, &frames)
+        .map_err(AnimationError::Gif)
+}
+
+/// `images` as a lossless animated WebP, each shown for `interval_ms`
+/// rounded to whole milliseconds (as WebP stores them), looping forever.
+pub(super) fn encode_webp(
+    images: &[RgbaImage],
+    interval_ms: f64,
+) -> Result<Vec<u8>, AnimationError> {
+    let duration_ms = interval_ms.round().clamp(0.0, f64::from(0xFF_FFFF)) as u32;
+    let frames: Vec<AnimationFrame<'_>> = images
+        .iter()
+        .map(|image| AnimationFrame {
+            pixels: image.data(),
+            duration_ms,
+        })
+        .collect();
+    let (width, height) = images.first().map_or((0, 0), image_size);
+    webp::encode_animation_rgba8(width, height, &frames, LOOP_FOREVER).map_err(AnimationError::Webp)
 }
 
 /// The size of `image` in pixels, saturated to `u32` (the encoders reject

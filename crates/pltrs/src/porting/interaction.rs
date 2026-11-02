@@ -68,6 +68,11 @@
 //! | `toolmanager.add_tool(name, ToolBase)`          | [`Figure::add_tool`] with a [`ToolSpec`]       |
 //! | `toolmanager.trigger_tool(name)`                | [`Figure::trigger_tool`]                       |
 //! | `ToolToggleBase.radio_group`, `cursor`, `default_toggled` | [`ToolSpec::radio_group`], [`ToolSpec::cursor`], [`ToolSpec::default_toggled`]; pan and zoom are in [`NAVIGATION_GROUP`] |
+//! | `toolmanager.remove_tool(name)`, `get_tool(name)`, `tools` | [`Figure::remove_tool`], [`Figure::tool`], [`Figure::tools`] |
+//! | `toolmanager.get_tool_keymap(name)`, `update_keymap(name, keys)` | [`Figure::tool`]`(name)`'s [`ToolSpec::keys`], [`Figure::set_tool_keys`] |
+//! | `toolmanager.active_toggle[group]`              | [`Figure::active_toggle`]`(group)`             |
+//! | `toolmanager.toolmanager_connect(event, f)`, `toolmanager_disconnect(cid)` | [`Figure::on_tool_change`] (a [`ToolChange`] for every event), [`Figure::disconnect_tool_change`] |
+//! | `toolmanager.message_event(message)`            | [`Figure::tool_message`]: the windows' status line shows it |
 //! | `FuncAnimation(fig, update, frames=n, interval=, blit=)` | [`FuncAnimation::new`] with [`Frames`] and [`AnimationOptions`] |
 //! | `FuncAnimation(..., init_func=init)`            | [`FuncAnimation::with_init`]                   |
 //! | `ArtistAnimation(fig, frames)`                  | [`FuncAnimation::from_artists`]                |
@@ -75,6 +80,8 @@
 //! | `anim.save("a.gif")`, `"a.png"`, `"a.mp4"`      | [`FuncAnimation::save`] (by extension)         |
 //! | `anim.to_jshtml()`, `anim.to_html5_video()`     | [`FuncAnimation::to_jshtml`], [`FuncAnimation::to_html5_video`] |
 //! | `PillowWriter`, `FFMpegWriter(fps=, codec=)`    | [`FuncAnimation::to_gif`], [`FuncAnimation::save_movie`] with [`MovieOptions`] |
+//! | `writer.setup(fig, "out.gif", dpi)`, `with writer.saving(...)` | [`MovieWriter::new`]`(&fig, "out.gif", Some(dpi), options)` |
+//! | `writer.grab_frame()`, `writer.finish()`, `writer.frame_size` | [`MovieWriter::grab_frame`], [`MovieWriter::finish`], [`MovieWriter::frame_size`] |
 //! | `bg = fig.canvas.copy_from_bbox(ax.bbox)`       | [`FigureCanvas::copy_from_bbox`]`(&ax.bbox())` |
 //! | `fig.canvas.restore_region(bg)`                 | [`FigureCanvas::restore_region`]               |
 //! | `ax.draw_artist(line)`, `fig.canvas.blit(ax.bbox)` | [`Axes::draw_artist`], [`FigureCanvas::blit`] |
@@ -259,6 +266,40 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
+//! A figure is its own tool manager. matplotlib's tool manager events
+//! (`tool_added_event`, `tool_trigger_<name>`, `tool_message_event`, ...)
+//! reach one callback as a [`ToolChange`]:
+//!
+//! ```python
+//! tm = fig.canvas.manager.toolmanager
+//! tm.toolmanager_connect("tool_trigger_grid", lambda event: print(event.tool.name))
+//! tm.update_keymap("grid", ["G"])
+//! ```
+//!
+//! ```
+//! use std::cell::RefCell;
+//! use std::rc::Rc;
+//!
+//! use pltrs::gui::{ToolChange, ToolKind, ToolSpec};
+//! use pltrs::prelude::*;
+//!
+//! let fig = Figure::new();
+//! let triggered = Rc::new(RefCell::new(Vec::new()));
+//! let seen = Rc::clone(&triggered);
+//! fig.on_tool_change(move |_, change| {
+//!     if let ToolChange::Triggered { name, .. } = change {
+//!         seen.borrow_mut().push(name.to_string());
+//!     }
+//! });
+//! let spec = ToolSpec { name: "grid".into(), kind: ToolKind::Toggle, ..ToolSpec::default() };
+//! fig.add_tool(spec, |_| {})?;
+//! fig.set_tool_keys("grid", ["G"]);
+//! fig.trigger_tool("grid");
+//! assert_eq!(*triggered.borrow(), ["grid"]);
+//! assert_eq!(fig.tool("grid").map(|tool| tool.keys), Some(vec!["G".to_owned()]));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
 //! # Animation
 //!
 //! ```python
@@ -293,6 +334,36 @@
 //! });
 //! assert!(animation.to_gif()?.starts_with(b"GIF89a")); // `animation.save("rise.gif")?`
 //! assert!(animation.to_jshtml(HtmlOptions::default())?.contains("<script"));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! Without an animation object, a [`MovieWriter`] records the frames the
+//! program draws itself, in any format [`FuncAnimation::save`] writes:
+//!
+//! ```python
+//! writer = PillowWriter(fps=10)
+//! with writer.saving(fig, "rise.gif", dpi=50):
+//!     for i in range(5):
+//!         line.set_data([0, 1], [0, i / 4])
+//!         writer.grab_frame()
+//! ```
+//!
+//! ```
+//! use pltrs::animation::{MovieOptions, MovieWriter};
+//! use pltrs::prelude::*;
+//!
+//! let fig = Figure::with_size(2.0, 2.0, 50.0);
+//! let line = fig.subplot().plot([0.0, 1.0], [0.0, 0.0])?;
+//! let path = std::env::temp_dir().join(format!("pltrs-porting-rise-{}.gif", std::process::id()));
+//! let options = MovieOptions { fps: Some(10.0), ..MovieOptions::default() };
+//! let mut writer = MovieWriter::new(&fig, &path, Some(50.0), options)?;
+//! for i in 0..5 {
+//!     line.set_data([0.0, 1.0], [0.0, f64::from(i) / 4.0]);
+//!     writer.grab_frame()?;
+//! }
+//! writer.finish()?;
+//! assert!(std::fs::read(&path)?.starts_with(b"GIF89a"));
+//! std::fs::remove_file(path)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
@@ -428,3 +499,18 @@
 //! [`MovieOptions`]: crate::animation::MovieOptions
 //! [`Axes::on_limits_changed`]: crate::axes::Axes::on_limits_changed
 //! [`Axes::disconnect_limits_changed`]: crate::axes::Axes::disconnect_limits_changed
+//! [`Figure::remove_tool`]: crate::figure::Figure::remove_tool
+//! [`Figure::tool`]: crate::figure::Figure::tool
+//! [`Figure::tools`]: crate::figure::Figure::tools
+//! [`ToolSpec::keys`]: crate::gui::ToolSpec::keys
+//! [`Figure::set_tool_keys`]: crate::figure::Figure::set_tool_keys
+//! [`Figure::active_toggle`]: crate::figure::Figure::active_toggle
+//! [`Figure::on_tool_change`]: crate::figure::Figure::on_tool_change
+//! [`Figure::disconnect_tool_change`]: crate::figure::Figure::disconnect_tool_change
+//! [`Figure::tool_message`]: crate::figure::Figure::tool_message
+//! [`ToolChange`]: crate::gui::ToolChange
+//! [`MovieWriter`]: crate::animation::MovieWriter
+//! [`MovieWriter::new`]: crate::animation::MovieWriter::new
+//! [`MovieWriter::grab_frame`]: crate::animation::MovieWriter::grab_frame
+//! [`MovieWriter::finish`]: crate::animation::MovieWriter::finish
+//! [`MovieWriter::frame_size`]: crate::animation::MovieWriter::frame_size

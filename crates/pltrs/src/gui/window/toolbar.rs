@@ -245,6 +245,15 @@ impl Toolbar {
         window.update(cx, self.status, |label: &mut Label| label.set_text(text))?;
         Ok(())
     }
+
+    /// The text of the status line.
+    #[cfg(test)]
+    pub(super) fn status(&self, window: &mut UiWindow<Message>, cx: &mut Context<'_>) -> String {
+        window
+            .update(cx, self.status, |label: &mut Label| label.text().to_owned())
+            .expect("the window takes redraws")
+            .expect("the status line is a label")
+    }
 }
 
 /// What a figure's tool does and its shortcuts.

@@ -6,10 +6,12 @@
 use std::fmt;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::thread::JoinHandle;
 
 use pltrs_codec::base64;
+use pltrs_render::RgbaImage;
 
 use super::{AnimationError, FuncAnimation, interval_millis, render_frame};
 use crate::figure::{Figure, SaveError};
@@ -166,6 +168,100 @@ fn ffmpeg_args(
     args
 }
 
+/// ffmpeg encoding the frames piped to it as raw RGBA into a file.
+pub(super) struct FfmpegPipe {
+    program: String,
+    child: Child,
+    stdin: Option<ChildStdin>,
+    /// The encoder's error output, drained on its own thread so that a
+    /// chatty encoder cannot block while its input is still being
+    /// written.
+    stderr: Option<JoinHandle<String>>,
+}
+
+impl FfmpegPipe {
+    /// Starts `animation.ffmpeg_path` encoding frames of `size` pixels at
+    /// `fps` into `path`.
+    pub(super) fn spawn(
+        path: &Path,
+        size: (usize, usize),
+        fps: f64,
+        options: &MovieOptions,
+    ) -> Result<Self, AnimationError> {
+        let program = crate::rc::params().animation_ffmpeg_path.clone();
+        // Without a console window on Windows, as matplotlib starts its
+        // movie writers (`subprocess_creation_flags`).
+        let mut child = crate::process::spawn(pltrs_core::os::hide_console(
+            Command::new(&program)
+                .args(ffmpeg_args(path, size, &pyfmt::repr(fps), options))
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped()),
+        ))
+        .map_err(|error| {
+            AnimationError::Movie(MovieError::Spawn {
+                program: program.clone(),
+                error,
+            })
+        })?;
+        let stderr = child.stderr.take().map(|mut pipe| {
+            std::thread::spawn(move || {
+                let mut text = String::new();
+                let _ = pipe.read_to_string(&mut text);
+                text
+            })
+        });
+        let stdin = child.stdin.take();
+        Ok(Self {
+            program,
+            child,
+            stdin,
+            stderr,
+        })
+    }
+
+    /// Sends one frame to the encoder.
+    pub(super) fn write(&mut self, image: &RgbaImage) -> Result<(), SaveError> {
+        match &mut self.stdin {
+            Some(stdin) => stdin.write_all(image.data()).map_err(SaveError::Io),
+            None => Ok(()),
+        }
+    }
+
+    /// Ends the input and waits for the encoder: `written`, the outcome of
+    /// sending the frames, unless ffmpeg failed, which says why (a broken
+    /// pipe only means it stopped early).
+    pub(super) fn finish(
+        mut self,
+        written: Result<(), AnimationError>,
+    ) -> Result<(), AnimationError> {
+        drop(self.stdin.take());
+        let status = self.child.wait();
+        let stderr = self
+            .stderr
+            .take()
+            .and_then(|thread| thread.join().ok())
+            .unwrap_or_default();
+        match status {
+            Ok(status) if status.success() => written,
+            Ok(_) => Err(AnimationError::Movie(MovieError::Failed {
+                program: std::mem::take(&mut self.program),
+                stderr,
+            })),
+            Err(error) => Err(AnimationError::Save(SaveError::Io(error))),
+        }
+    }
+}
+
+impl Drop for FfmpegPipe {
+    /// Ends the input of an encoder never finished and waits for it, so
+    /// that no process is left behind.
+    fn drop(&mut self) {
+        drop(self.stdin.take());
+        let _ = self.child.wait();
+    }
+}
+
 impl FuncAnimation {
     /// Encodes the animation as a video at `path` with ffmpeg
     /// (matplotlib's `save(..., writer="ffmpeg")`): the frames are rendered
@@ -180,60 +276,12 @@ impl FuncAnimation {
         path: impl AsRef<Path>,
         options: MovieOptions,
     ) -> Result<(), AnimationError> {
-        let path = path.as_ref();
         let fps = options
             .fps
             .unwrap_or_else(|| 1000.0 / interval_millis(self.player.borrow().options.interval));
-        let size = self.frame_size()?;
-        let program = crate::rc::params().animation_ffmpeg_path.clone();
-        let movie = |error| AnimationError::Movie(error);
-        // Without a console window on Windows, as matplotlib starts its
-        // movie writers (`subprocess_creation_flags`).
-        let mut child = crate::process::spawn(pltrs_core::os::hide_console(
-            Command::new(&program)
-                .args(ffmpeg_args(path, size, &pyfmt::repr(fps), &options))
-                .stdin(Stdio::piped())
-                .stdout(Stdio::null())
-                .stderr(Stdio::piped()),
-        ))
-        .map_err(|error| {
-            movie(MovieError::Spawn {
-                program: program.clone(),
-                error,
-            })
-        })?;
-        // Drained on its own thread so that a chatty encoder cannot block
-        // while its input is still being written.
-        let stderr = child.stderr.take().map(|mut pipe| {
-            std::thread::spawn(move || {
-                let mut text = String::new();
-                let _ = pipe.read_to_string(&mut text);
-                text
-            })
-        });
-        let written = child.stdin.take().map_or(Ok(()), |mut stdin| {
-            self.for_each_frame(|figure| {
-                let image = render_frame(figure)?;
-                stdin.write_all(image.data()).map_err(SaveError::Io)
-            })
-        });
-        let status = child.wait();
-        let stderr = stderr
-            .and_then(|thread| thread.join().ok())
-            .unwrap_or_default();
-        let failed = || {
-            movie(MovieError::Failed {
-                program: program.clone(),
-                stderr: stderr.clone(),
-            })
-        };
-        match status {
-            Ok(status) if status.success() => written,
-            // A broken pipe only means the encoder stopped early; its
-            // error output says why.
-            Ok(_) => Err(failed()),
-            Err(error) => Err(AnimationError::Save(SaveError::Io(error))),
-        }
+        let mut pipe = FfmpegPipe::spawn(path.as_ref(), self.frame_size()?, fps, &options)?;
+        let written = self.for_each_frame(|figure| pipe.write(&render_frame(figure)?));
+        pipe.finish(written)
     }
 
     /// The animation as an HTML5 `<video>` element with an h264 video

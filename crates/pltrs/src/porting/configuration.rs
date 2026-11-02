@@ -15,13 +15,12 @@
 //! **Testing.** [`testing`] has the parts of `matplotlib.testing` that
 //! test your own figures: [`testing::setup`] for the configuration
 //! matplotlib's tests run in, [`testing::compare_images`] and
-//! [`testing::calculate_rms`], and [`testing::check_figures_equal`], a
-//! function taking the test and reference figures' drawing as two
-//! closures instead of a decorator. Only PNG files can be compared: pltrs
-//! cannot rasterise PDF, SVG or PostScript again, which matplotlib needs
-//! Ghostscript or Inkscape for. A matplotlib test using
-//! `@image_comparison` saves its figure and calls [`testing::compare_images`]
-//! with its baseline image.
+//! [`testing::calculate_rms`], and [`testing::check_figures_equal`] and
+//! [`testing::image_comparison`], functions taking the figures' drawing
+//! as closures instead of decorators. PNG and GIF files are compared as
+//! they are, PDF and PostScript files once Ghostscript has rasterised
+//! them and SVG files once Inkscape has, as in matplotlib
+//! ([`testing::convert`]).
 //!
 //! # Equivalences
 //!
@@ -42,8 +41,14 @@
 //! | a test environment's own `MPLCONFIGDIR`          | [`config::ignore_user_config`] (which [`testing::setup`] calls) |
 //! | `compare_images(expected, actual, tol)`          | [`testing::compare_images`], returning a [`Comparison`] |
 //! | `calculate_rms(expected, actual)`                | [`testing::calculate_rms`]                     |
-//! | `comparable_formats()`                           | [`testing::comparable_formats`]: PNG           |
+//! | `comparable_formats()`                           | [`testing::comparable_formats`]: PNG, GIF, and PDF, EPS and SVG when their converters are installed |
+//! | `convert(filename, cache)`, `get_file_hash(path)` | [`testing::convert`], [`testing::get_file_hash`] |
+//! | `make_test_filename(fname, purpose)`, `crop_to_same(...)` | [`testing::make_test_filename`], [`testing::crop_to_same`] |
+//! | `save_diff_image(expected, actual, output)`      | [`testing::save_diff_image`]                   |
 //! | `@check_figures_equal(extensions=["png"], tol=0)` | [`testing::check_figures_equal`]`(path, tol, test, reference)` |
+//! | `@image_comparison(baseline_images, extensions=, tol=, remove_text=)` | [`testing::image_comparison`]`(&options, names, build)` with [`ImageComparison`] |
+//! | `remove_ticks_and_titles(fig)`                   | [`testing::remove_ticks_and_titles`]           |
+//! | `set_font_settings_for_testing()`, `set_reproducibility_for_testing()` | [`testing::setup`] does both          |
 //! | `ImageComparisonFailure`                         | a [`Comparison`] that does not match, or a [`ComparisonError`] |
 //!
 //! # Configuration
@@ -149,3 +154,11 @@
 //! [`testing::check_figures_equal`]: crate::testing::check_figures_equal
 //! [`Comparison`]: crate::testing::Comparison
 //! [`ComparisonError`]: crate::testing::ComparisonError
+//! [`testing::image_comparison`]: crate::testing::image_comparison
+//! [`testing::convert`]: crate::testing::convert
+//! [`testing::get_file_hash`]: crate::testing::get_file_hash
+//! [`testing::make_test_filename`]: crate::testing::make_test_filename
+//! [`testing::crop_to_same`]: crate::testing::crop_to_same
+//! [`testing::save_diff_image`]: crate::testing::save_diff_image
+//! [`testing::remove_ticks_and_titles`]: crate::testing::remove_ticks_and_titles
+//! [`ImageComparison`]: crate::testing::ImageComparison

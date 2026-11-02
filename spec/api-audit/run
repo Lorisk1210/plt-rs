@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Audit matplotlib's public API against pltrs (Rust), and write
+# spec/api-audit/coverage.md:
+#   1. enumerate.py lists matplotlib's API in the reference venv (.venv);
+#   2. rustdoc documents the pltrs crates as JSON (an unstable rustdoc
+#      output, hence RUSTC_BOOTSTRAP) into $CARGO_TARGET_DIR/doc;
+#   3. rust_index.py and porting_tables.py index them and the porting
+#      guide's tables, match.py sorts every item with the rules (rules*.py,
+#      classmap.py), report.py writes the report.
+# The intermediate files go to target/api-audit/; look.py, show.py and
+# kwshow.py query them while rules are written.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+here="$root/spec/api-audit"
+data="$root/target/api-audit"
+mkdir -p "$data"
+"$root/.venv/bin/python" -I "$here/enumerate.py" > "$data/mpl-api.jsonl"
+for crate in pltrs pltrs-core pltrs-text pltrs-render pltrs-font pltrs-raster pltrs-codec; do
+    RUSTC_BOOTSTRAP=1 cargo rustdoc --quiet -p "$crate" --lib -- \
+        -Z unstable-options --output-format json
+done
+export API_AUDIT_DOC="${CARGO_TARGET_DIR:-$root/target}/doc"
+python3 "$here/rust_index.py" > "$data/rust-api.jsonl"
+python3 "$here/porting_tables.py" > "$data/porting.jsonl"
+python3 "$here/match.py"
+python3 "$here/report.py"

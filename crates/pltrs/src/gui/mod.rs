@@ -59,7 +59,9 @@ pub use backend_rc::{MacosxWindowMode, ToolbarKind};
 pub use keys::format_shortcut;
 pub use pltrs_ui::Icon;
 pub use session::Session;
-pub use tools::{NAVIGATION_GROUP, ToolError, ToolEvent, ToolKind, ToolSpec};
+pub use tools::{
+    NAVIGATION_GROUP, ToolChange, ToolError, ToolEvent, ToolKind, ToolListenerId, ToolSpec,
+};
 pub use window::FigureWindow;
 
 use crate::figure::{CanvasError, Figure, SaveError};

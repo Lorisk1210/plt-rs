@@ -208,9 +208,14 @@ fn relay_messages(
     loop {
         match next_message(reader, &mut messages)? {
             Message::Text(text) => {
-                let message = ClientMessage::parse(&text)
-                    .map_err(|err| WsError::BadMessage(err.to_string()))?;
-                if shared.send(Inbound::Message { id, message }).is_err() {
+                let inbound = if shared.relay {
+                    Inbound::Text { id, text }
+                } else {
+                    let message = ClientMessage::parse(&text)
+                        .map_err(|err| WsError::BadMessage(err.to_string()))?;
+                    Inbound::Message { id, message }
+                };
+                if shared.send(inbound).is_err() {
                     // The server stopped.
                     return Ok(());
                 }

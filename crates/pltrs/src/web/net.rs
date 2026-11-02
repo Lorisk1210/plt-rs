@@ -69,6 +69,13 @@ pub(crate) enum Inbound {
         /// The message.
         message: ClientMessage,
     },
+    /// A message from the client of a WebSocket of a relay, as it came.
+    Text {
+        /// The connection.
+        id: ConnectionId,
+        /// The message's text.
+        text: String,
+    },
     /// A WebSocket closed.
     Closed {
         /// The connection.
@@ -131,6 +138,10 @@ pub(crate) struct Shared {
     figures: Mutex<Vec<ServedFigure>>,
     /// The client script.
     pub(crate) script: String,
+    /// Whether the messages of WebSocket connections go to the figures'
+    /// thread as they came ([`Inbound::Text`], for a relay) rather than
+    /// parsed.
+    pub(crate) relay: bool,
     /// The address the server listens on.
     pub(crate) local_addr: SocketAddr,
     /// How the pages look.
@@ -282,11 +293,14 @@ pub(crate) struct Listener {
 }
 
 impl Listener {
-    /// Binds as `options` say and starts accepting connections; the
-    /// returned receiver gets what connection threads send.
+    /// Binds as `options` say and starts accepting connections, serving
+    /// `script` as the client script; the returned receiver gets what
+    /// connection threads send, the messages of WebSocket connections as
+    /// they came when `relay`.
     pub(crate) fn start(
         options: &WebOptions,
         script: String,
+        relay: bool,
     ) -> Result<(Self, Receiver<Inbound>), WebError> {
         let listener = bind(options)?;
         let local_addr = listener.local_addr().map_err(|source| WebError::Bind {
@@ -298,6 +312,7 @@ impl Listener {
             inbound,
             figures: Mutex::new(Vec::new()),
             script,
+            relay,
             local_addr,
             chrome: crate::look::appearance().chrome,
             connections: Mutex::new(Connections::default()),

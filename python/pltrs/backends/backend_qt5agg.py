@@ -1,7 +1,16 @@
 """
-The Qt backend drawing with Agg, restricted to Qt 5 bindings (matplotlib's
-``backends.backend_qt5agg``): importing it raises `ImportError`, as
-`.backend_qt5` does.
+Render to qt from agg, with the Qt 5 bindings only (matplotlib's
+``backend_qt5agg``, from matplotlib 3.11.2, under the Matplotlib License,
+kept as it is).
 """
+from .. import backends
 
-from . import backend_qt5  # noqa: F401
+backends._QT_FORCE_QT5_BINDING = True
+from .backend_qtagg import (    # noqa: F401, E402 # pylint: disable=W0611
+    _BackendQTAgg, FigureCanvasQTAgg, FigureManagerQT, NavigationToolbar2QT,
+    FigureCanvasAgg, FigureCanvasQT)
+
+
+@_BackendQTAgg.export
+class _BackendQT5Agg(_BackendQTAgg):
+    pass

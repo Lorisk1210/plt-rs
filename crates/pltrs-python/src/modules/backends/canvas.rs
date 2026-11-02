@@ -85,6 +85,15 @@ fn region_extents(region: BufferRegion) -> PyResult<(i64, i64, i64, i64)> {
     Ok(pixel_extents(region.extents()))
 }
 
+/// The pixels a region saved, as `buffer_rgba` gives a canvas's: the
+/// buffer of matplotlib's `BufferRegion`, transparent where the rectangle
+/// leaves the canvas.
+fn region_rgba(region: BufferRegion) -> PyResult<NdArray<u8>> {
+    let image = region.to_image()?;
+    let (width, height) = (image.width(), image.height());
+    rgba_array(width, height, image.into_data())
+}
+
 /// Draws one artist of the figure onto its canvas, over what it holds,
 /// as pltrs draws it, its painter left out (`Artist.draw` with the
 /// canvas's `RendererAgg`, matplotlib's `draw` of the artist's own class).
@@ -148,6 +157,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("copy_from_bbox", copy_from_bbox)?;
     module.add("restore_region", restore_region)?;
     module.add("region_extents", region_extents)?;
+    module.add("region_rgba", region_rgba)?;
     module.add("draw_artist", draw_artist)?;
     module.add("redraw_in_frame", redraw_in_frame)?;
     module.add("blit", blit)?;
@@ -173,6 +183,7 @@ mod tests {
         assert_eq!(pixels.shape, [50, 100, 4]);
         let region = copy_from_bbox(figure.clone(), (0.0, 0.0, 10.0, 10.0)).unwrap();
         assert_eq!(region_extents(region.clone()).unwrap(), (0, 40, 10, 50));
+        assert_eq!(region_rgba(region.clone()).unwrap().shape, [10, 10, 4]);
         restore_region(figure.clone(), region.clone(), None, None).unwrap();
         let part = Some((0.0, 40.0, 5.0, 45.0));
         restore_region(figure.clone(), region, part, Some((20.0, 20.0))).unwrap();

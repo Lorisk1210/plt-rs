@@ -44,6 +44,7 @@ mod figure_layout;
 mod font_manager;
 mod ft2font;
 mod gridspec;
+mod gui;
 mod hatch;
 mod image;
 mod insets;
@@ -79,6 +80,7 @@ mod transforms;
 mod tri;
 mod type1font;
 mod warnings;
+mod web;
 
 use crate::binding::{Module, PyResult};
 
@@ -114,6 +116,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     font_manager::register(&module.submodule("font_manager")?)?;
     ft2font::register(&module.submodule("ft2font")?)?;
     gridspec::register(&module.submodule("gridspec")?)?;
+    gui::register(&module.submodule("gui")?)?;
     hatch::register(&module.submodule("hatch")?)?;
     image::register(&module.submodule("image")?)?;
     insets::register(&module.submodule("insets")?)?;
@@ -147,6 +150,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     transforms::register(&module.submodule("transforms")?)?;
     tri::register(&module.submodule("tri")?)?;
     warnings::register(&module.submodule("warnings")?)?;
+    web::register(&module.submodule("web")?)?;
     type1font::register(&module.submodule("type1font")?)?;
     Ok(())
 }

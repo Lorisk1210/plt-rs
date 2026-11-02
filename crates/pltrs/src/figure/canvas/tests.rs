@@ -128,6 +128,14 @@ fn boxes_outside_the_canvas_save_what_lies_inside() {
     // x truncated from 30.5; y flipped from the top: 50 - 30 and 50 + 20.
     assert_eq!(partly.extents(), PixelBox::new(-20, 20, 30, 70));
     assert_eq!((partly.width(), partly.height()), (50, 50));
+    // Its image is the whole box, transparent beyond the canvas.
+    let image = partly.to_image().unwrap();
+    assert_eq!((image.width(), image.height()), (50, 50));
+    assert_eq!(image.pixel(0, 0), Some([0, 0, 0, 0]));
+    assert_eq!(image.pixel(20, 49), Some([0, 0, 0, 0]), "below the canvas");
+    let inside = |x: usize, y: usize| clean[(y * 50 + x) * 4..][..4].to_vec();
+    assert_eq!(image.pixel(20, 0).map(Vec::from), Some(inside(0, 20)));
+    assert_eq!(image.pixel(49, 29).map(Vec::from), Some(inside(29, 49)));
     let outside = canvas
         .copy_from_bbox(&Bbox::from_extents(1e6, 1e6, 2e6, 2e6))
         .unwrap();

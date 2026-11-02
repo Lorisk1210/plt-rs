@@ -119,6 +119,40 @@ impl<M: 'static> Flex<M> {
         id
     }
 
+    /// Inserts a child with flex factor `flex` before the child at
+    /// `index` (at the end when `index` is past the last child) and
+    /// returns its id; the owner of the tree lays it out again (see
+    /// [`Ui::widget_mut`](crate::Ui::widget_mut)).
+    pub fn insert(&mut self, index: usize, child: impl Widget<M>, flex: f64) -> WidgetId {
+        let index = index.min(self.children.len());
+        let pod = WidgetPod::new(child);
+        let id = pod.id();
+        self.children.insert(index, pod);
+        self.factors
+            .insert(index, if flex > 0.0 { flex } else { 0.0 });
+        id
+    }
+
+    /// Removes the child `id`; returns whether it was a child.
+    pub fn remove(&mut self, id: WidgetId) -> bool {
+        let Some(index) = self.children.iter().position(|child| child.id() == id) else {
+            return false;
+        };
+        self.children.remove(index);
+        self.factors.remove(index);
+        true
+    }
+
+    /// The number of children.
+    pub fn len(&self) -> usize {
+        self.children.len()
+    }
+
+    /// Whether there are no children.
+    pub fn is_empty(&self) -> bool {
+        self.children.is_empty()
+    }
+
     /// Adds empty space taking a share `flex` of the free space, e.g. to
     /// push the children after it to the end.
     pub fn push_spacer(&mut self, flex: f64) {
@@ -377,5 +411,23 @@ mod tests {
         layout(&mut row, Size::new(100.0, 10.0), 1.0);
         let widths: Vec<f64> = rects(&row).iter().map(|r| r.width).collect();
         assert_eq!(widths, [80.0, 20.0, 0.0]);
+    }
+
+    #[test]
+    fn children_are_inserted_and_removed_in_place() {
+        let mut row: Flex<()> = Flex::row();
+        assert!(row.is_empty());
+        let last = row.push(Fixed(Size::new(30.0, 10.0)), 0.0);
+        let first = row.insert(0, Fixed(Size::new(10.0, 10.0)), 0.0);
+        let beyond = row.insert(99, Fixed(Size::new(20.0, 10.0)), 0.0);
+        layout(&mut row, Size::new(100.0, 10.0), 1.0);
+        let order: Vec<WidgetId> = row.children.iter().map(WidgetPod::id).collect();
+        assert_eq!(order, [first, last, beyond]);
+        assert_eq!(rects(&row)[1], Rect::new(10.0, 0.0, 30.0, 10.0));
+        assert!(row.remove(last));
+        assert!(!row.remove(last), "removed already");
+        layout(&mut row, Size::new(100.0, 10.0), 1.0);
+        assert_eq!(row.len(), 2);
+        assert_eq!(rects(&row)[1], Rect::new(10.0, 0.0, 20.0, 10.0));
     }
 }

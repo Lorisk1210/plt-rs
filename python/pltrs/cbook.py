@@ -72,7 +72,7 @@ def _get_running_interactive_framework():
     -------
     Optional[str]
         One of the following values: "qt", "gtk3", "gtk4", "wx", "tk",
-        "macosx", "headless", ``None``.
+        "macosx", "pltrs" (pltrs' own windows), "headless", ``None``.
     """
     # Use ``sys.modules.get(name)`` rather than ``name in sys.modules`` as
     # entries can also have been explicitly set to None.
@@ -108,6 +108,10 @@ def _get_running_interactive_framework():
     macosx = sys.modules.get("matplotlib.backends._macosx")
     if macosx and macosx.event_loop_is_running():
         return "macosx"
+    # pltrs' own windows run once their host is made (``macosx`` on macOS).
+    pltrs_loop = sys.modules.get(f"{__package__}.backends._pltrs_loop")
+    if pltrs_loop and pltrs_loop.is_connected():
+        return pltrs_loop.FRAMEWORK
     if not _c_internal_utils.display_is_valid():
         return "headless"
     return None

@@ -705,6 +705,10 @@ def use(backend, *, force=True):
     rcParams['backend_fallback'] = False
 
 
+if os.environ.get('MPLBACKEND'):
+    rcParams['backend'] = os.environ.get('MPLBACKEND')
+
+
 def get_backend(*, auto_select=True):
     """
     Return the name of the current backend.

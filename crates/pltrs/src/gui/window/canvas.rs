@@ -3,11 +3,11 @@
 
 use pltrs_platform::{Context, PhysicalRect};
 use pltrs_raster::Pixmap;
-use pltrs_ui::Surface;
+use pltrs_ui::{Surface, UiWindow, WidgetId};
 
-use super::{FigureWindow, Message};
+use super::FigureWindow;
 use crate::events::Event;
-use crate::figure::{CanvasError, PixelBox, Presentation};
+use crate::figure::{CanvasError, Figure, PixelBox, Presentation};
 use crate::gui::GuiError;
 
 impl FigureWindow {
@@ -71,35 +71,42 @@ impl FigureWindow {
     /// all of it after a draw, or only the blitted regions, updating only
     /// those parts of the window (matplotlib's `blit`).
     pub(super) fn present(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
-        let figure_canvas = self.figure.canvas();
-        match figure_canvas.take_presentation() {
-            Presentation::Nothing => Ok(()),
-            Presentation::Whole => {
-                if let Some(image) = figure_canvas.with_pixels(Pixmap::clone) {
-                    self.window
-                        .update(cx, self.canvas, |canvas: &mut Surface<Message>| {
-                            canvas.set_image(image);
-                        })?;
-                }
-                Ok(())
+        present_figure(&self.figure, &mut self.window, self.canvas, cx)
+    }
+}
+
+/// Shows in the surface `canvas` of `window` what changed on the canvas
+/// of `figure` since it was last shown: all of it after a draw, or only
+/// the blitted regions, updating only those parts of the window
+/// (matplotlib's `blit`).
+pub(in crate::gui) fn present_figure<M: 'static>(
+    figure: &Figure,
+    window: &mut UiWindow<M>,
+    canvas: WidgetId,
+    cx: &mut Context<'_>,
+) -> Result<(), GuiError> {
+    let figure_canvas = figure.canvas();
+    match figure_canvas.take_presentation() {
+        Presentation::Nothing => Ok(()),
+        Presentation::Whole => {
+            if let Some(image) = figure_canvas.with_pixels(Pixmap::clone) {
+                window.update(cx, canvas, |surface: &mut Surface<M>| {
+                    surface.set_image(image);
+                })?;
             }
-            Presentation::Regions(regions) => figure_canvas
-                .with_pixels(|pixels| {
-                    regions.into_iter().try_for_each(|region| {
-                        let region = window_rect(region);
-                        self.window.update_region(
-                            cx,
-                            self.canvas,
-                            region,
-                            |canvas: &mut Surface<Message>| {
-                                canvas.blit(pixels, region);
-                            },
-                        )?;
-                        Ok(())
-                    })
-                })
-                .unwrap_or(Ok(())),
+            Ok(())
         }
+        Presentation::Regions(regions) => figure_canvas
+            .with_pixels(|pixels| {
+                regions.into_iter().try_for_each(|region| {
+                    let region = window_rect(region);
+                    window.update_region(cx, canvas, region, |surface: &mut Surface<M>| {
+                        surface.blit(pixels, region);
+                    })?;
+                    Ok(())
+                })
+            })
+            .unwrap_or(Ok(())),
     }
 }
 

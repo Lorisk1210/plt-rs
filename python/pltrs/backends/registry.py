@@ -1,19 +1,57 @@
 """
 The registry of the backends (matplotlib's ``backends.registry``, from
-matplotlib 3.11.2, under the Matplotlib License, kept as it is).
+matplotlib 3.11.2, under the Matplotlib License, kept as it is but for
+pltrs' own backend).
 
 The built-in backends are matplotlib's names; each lives in the module
 ``backend_<name>`` of this package, whatever name the package is imported
 under (``pltrs.backends`` or, in matplotlib's test suite,
-``matplotlib.backends``).
+``matplotlib.backends``). Beside them, the registry knows ``pltrs``, pltrs'
+own windows (`.backend_pltrs`), as a valid backend of the interactive
+framework ``pltrs`` (``macosx`` on macOS, where they stand for matplotlib's
+macOS backend), without listing it among matplotlib's built-in backends
+and frameworks.
 """
 
 from enum import Enum
 import importlib
+import importlib.util
 import re
+import sys
 
 #: The package holding the built-in backend modules.
 _PACKAGE = __name__.rpartition(".")[0]
+
+#: The interactive framework of pltrs' own windows.
+_PLTRS_FRAMEWORK = "macosx" if sys.platform == "darwin" else "pltrs"
+
+#: pltrs' own backends, which matplotlib does not have, and their
+#: frameworks.
+_PLTRS_BACKEND_TO_GUI_FRAMEWORK = {"pltrs": _PLTRS_FRAMEWORK}
+
+#: matplotlib-inline's backend, which IPython's kernel selects.
+_MATPLOTLIB_INLINE = "matplotlib_inline.backend_inline"
+
+
+def _is_matplotlib():
+    """
+    Whether ``import matplotlib`` gives this package: it is loaded as
+    ``matplotlib`` (matplotlib's test suite), or the ``matplotlib``
+    distribution of pltrs installed its aliases (``_pltrs_matplotlib_alias``).
+    """
+    return (_PACKAGE.split(".")[0] == "matplotlib"
+            or importlib.util.find_spec("_pltrs_matplotlib_alias") is not None)
+
+
+def _program_module(name):
+    """
+    The module of the backend of module *name*: itself, but for
+    matplotlib-inline's, which imports ``matplotlib``: where that is not
+    this package, pltrs' port of it serves (`.backend_inline`).
+    """
+    if name == _MATPLOTLIB_INLINE and not _is_matplotlib():
+        return f"{_PACKAGE}.backend_inline"
+    return name
 
 
 def _release(version):
@@ -115,7 +153,7 @@ class BackendRegistry:
 
     def _backend_module_name(self, backend):
         if backend.startswith("module://"):
-            return backend[9:]
+            return _program_module(backend[9:])
 
         # Return name of module containing the specified backend.
         # Does not check if the backend is valid, use is_valid_backend for that.
@@ -124,7 +162,7 @@ class BackendRegistry:
         # Check if have specific name to module mapping.
         backend = self._name_to_module.get(backend, backend)
 
-        return (backend[9:] if backend.startswith("module://")
+        return (_program_module(backend[9:]) if backend.startswith("module://")
                 else f"{_PACKAGE}.backend_{backend}")
 
     def _clear(self):
@@ -217,7 +255,10 @@ class BackendRegistry:
         str or None
             Backend name or None if GUI framework not recognised.
         """
-        return self._GUI_FRAMEWORK_TO_BACKEND.get(framework.lower())
+        framework = framework.lower()
+        if framework == "pltrs":
+            return "pltrs"
+        return self._GUI_FRAMEWORK_TO_BACKEND.get(framework)
 
     def is_valid_backend(self, backend):
         """
@@ -253,6 +294,7 @@ class BackendRegistry:
         backend = backwards_compat.get(backend, backend)
 
         if (backend in self._BUILTIN_BACKEND_TO_GUI_FRAMEWORK or
+                backend in _PLTRS_BACKEND_TO_GUI_FRAMEWORK or
                 backend in self._backend_to_gui_framework):
             return True
 
@@ -282,7 +324,8 @@ class BackendRegistry:
             Backend names.
         """
         self._ensure_entry_points_loaded()
-        return [*self.list_builtin(), *self._backend_to_gui_framework]
+        return [*self.list_builtin(), *_PLTRS_BACKEND_TO_GUI_FRAMEWORK,
+                *self._backend_to_gui_framework]
 
     def list_builtin(self, filter_=None):
         """
@@ -369,6 +412,7 @@ class BackendRegistry:
 
         # Is backend already known (built-in or dynamically loaded)?
         gui = (self._BUILTIN_BACKEND_TO_GUI_FRAMEWORK.get(backend) or
+               _PLTRS_BACKEND_TO_GUI_FRAMEWORK.get(backend) or
                self._backend_to_gui_framework.get(backend))
 
         # Is backend "module://something"?

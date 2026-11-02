@@ -57,6 +57,12 @@ class BufferRegion:
         top-left corner."""
         return _backends.region_extents(self._native)
 
+    def __buffer__(self, flags):
+        """The saved pixels, ``(height, width, 4)`` RGBA bytes rows from the
+        top (matplotlib's region exposes them through the buffer protocol:
+        ``memoryview(region)``, ``np.asarray(region)``)."""
+        return memoryview(_backends.region_rgba(self._native))
+
 
 class _WatchesTextDrawing(type):
     """The metaclass of `RendererAgg`: it tells pltrs (Rust) when

@@ -1162,10 +1162,17 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         return Bbox.from_bounds(0, 0, *self.get_size_inches())
 
     def set_size_inches(self, w, h=None, forward=True):
-        """Set the figure size in inches."""
+        """
+        Set the figure size in inches; with *forward*, the window of the
+        figure's manager, if any, takes the new size.
+        """
         if h is None:
             w, h = w
         _figure.set_size_inches(self._native, float(w), float(h))
+        manager = getattr(self.canvas, "manager", None)
+        if forward and manager is not None:
+            dpi = self.dpi
+            manager.resize(int(float(w) * dpi), int(float(h) * dpi))
 
     def get_dpi(self):
         """Return the resolution in dots per inch as a float."""
@@ -1186,6 +1193,24 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         canvas : FigureCanvas
         """
         self.canvas = canvas
+
+    def _set_base_canvas(self):
+        """
+        Give the figure a `.FigureCanvasBase` again, undoing any high-dpi
+        scaling (what a manager does when it is destroyed).
+        """
+        FigureCanvasBase(self)  # Set self.canvas as a side-effect
+        if self.dpi != self._original_dpi:
+            self.dpi = self._original_dpi
+
+    def _repr_html_(self):
+        """The figure shown inline in a notebook by the WebAgg server, for a
+        figure on a WebAgg canvas (None otherwise, IPython then asking
+        the other formats)."""
+        # Not isinstance, which would import webagg unconditionally.
+        if 'WebAgg' in type(self.canvas).__name__:
+            from .backends import backend_webagg
+            return backend_webagg.ipython_inline_display(self)
 
     @_api.deprecated(
          "3.6", alternative="figure.get_layout_engine().set()",

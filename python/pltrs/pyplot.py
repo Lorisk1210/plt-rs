@@ -80,8 +80,10 @@ def switch_backend(newbackend):
             candidates = [backend]
         else:
             candidates = []
+        # pltrs' own windows come first where they open (``macosx`` stands
+        # for them on macOS).
         candidates += [
-            "macosx", "qtagg", "gtk4agg", "gtk3agg", "tkagg", "wxagg"]
+            "macosx", "pltrs", "qtagg", "gtk4agg", "gtk3agg", "tkagg", "wxagg"]
 
         # Don't try to fallback on the cairo-based backends as they each have
         # an additional dependency (pycairo) over the agg-based backend, and
@@ -945,3 +947,18 @@ from .projections import PolarAxes  # noqa: E402,F401
 from .scale import get_scale_names  # noqa: E402,F401
 from .text import Annotation, Text  # noqa: E402,F401
 from .widgets import Button, Slider, Widget  # noqa: E402,F401
+
+# If rcParams['backend_fallback'] is true, and an interactive backend is
+# requested, ignore rcParams['backend'] and force selection of a backend that
+# is compatible with the current running interactive framework (pltrs' own
+# windows count among the interactive backends).
+if rcParams["backend_fallback"]:
+    requested_backend = rcParams._get_backend_or_none()
+    requested_backend = None if requested_backend is None else requested_backend.lower()
+    available_backends = [
+        *backend_registry.list_builtin(BackendFilter.INTERACTIVE), "pltrs"]
+    if (
+        requested_backend in (set(available_backends) - {'webagg', 'nbagg'})
+        and cbook._get_running_interactive_framework()
+    ):
+        rcParams._set("backend", rcsetup._auto_backend_sentinel)

@@ -78,7 +78,7 @@ class JoinStyle(str, Enum):
     def demo():
         """Demonstrate how each JoinStyle looks for various join angles."""
         import numpy as np
-        import matplotlib.pyplot as plt
+        from . import pyplot as plt
 
         def plot_angle(ax, x, y, angle, style):
             phi = np.radians(angle)
@@ -149,7 +149,7 @@ class CapStyle(str, Enum):
     @staticmethod
     def demo():
         """Demonstrate how each CapStyle looks for a thick line segment."""
-        import matplotlib.pyplot as plt
+        from . import pyplot as plt
 
         fig = plt.figure(figsize=(4, 1.2))
         ax = fig.add_axes((0, 0, 1, 0.8))

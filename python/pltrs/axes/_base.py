@@ -20,6 +20,7 @@ from ._layout import LayoutMixin
 from ._limits import LimitsMixin
 from ._navigation import NavigationMixin
 from ._projection import ProjectionMixin
+from ._prop_cycles import PropCycleMixin
 from ._ticks import TicksMixin
 from ._units import UnitsMixin
 from ..transforms import Bbox
@@ -49,7 +50,7 @@ class _SharedAxes:
 
 class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
                 DecorationsMixin, AspectMixin, LayoutMixin, UnitsMixin,
-                BlittingMixin, ProjectionMixin, Artist):
+                BlittingMixin, ProjectionMixin, PropCycleMixin, Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 

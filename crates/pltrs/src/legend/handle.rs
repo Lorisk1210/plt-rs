@@ -13,10 +13,10 @@ use crate::artist::{
 };
 use crate::axes::{AxesState, BarContainer, ErrorbarContainer, StemContainer};
 use crate::axes_grid1::parasites_of;
-use crate::collections::{Collection, EllipseCollection, EventCollection};
+use crate::collections::{Collection, CollectionArtist, EllipseCollection, EventCollection};
 use crate::container::{Container, ContainerIds};
 use crate::lines::{Line2D, LineArtist, LineProps};
-use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Rectangle};
+use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape, Rectangle, StepPatch};
 
 /// Something a legend can show an entry for: a line, patch or collection,
 /// a bar, error bar or stem container, or any object a
@@ -160,11 +160,15 @@ pub(crate) enum Proxy {
     Line(Rc<LineArtist>),
     /// A patch (matplotlib's `Patch(...)` proxies).
     Patch(Rc<PatchArtist<Rectangle>>),
+    /// A collection (a `PathCollection(...)` made for a legend, as
+    /// seaborn's marks make them).
+    Collection(Rc<CollectionArtist>),
 }
 
 pltrs_core::archive_enum!(Proxy {
     Line(v0),
     Patch(v0),
+    Collection(v0),
 });
 
 impl Proxy {
@@ -172,6 +176,7 @@ impl Proxy {
         match self {
             Self::Line(line) => line.base(),
             Self::Patch(patch) => patch.base(),
+            Self::Collection(collection) => collection.base(),
         }
     }
 }
@@ -181,6 +186,7 @@ impl PartialEq for Proxy {
         match (self, other) {
             (Self::Line(a), Self::Line(b)) => Rc::ptr_eq(a, b),
             (Self::Patch(a), Self::Patch(b)) => Rc::ptr_eq(a, b),
+            (Self::Collection(a), Self::Collection(b)) => Rc::ptr_eq(a, b),
             _ => false,
         }
     }
@@ -307,10 +313,13 @@ impl LegendHandle {
 
 impl LegendHandle {
     /// The handle of `artist`: the artist itself for an artist of a
-    /// figure; for a line or a rectangle made outside any figure
+    /// figure; for a line, a patch or a collection made outside any figure
     /// ([`RawHandle::is_loose`]), a proxy drawn as it is now (matplotlib's
-    /// proxy artists, `Line2D([], [], ...)` and `Patch(...)`). `None` for
-    /// another artist made outside any figure, which no legend can show.
+    /// proxy artists, `Line2D([], [], ...)` and `Patch(...)`): a patch of
+    /// any shape shows as a rectangle in its style, as matplotlib's
+    /// `HandlerPatch` draws it. `None` for another artist made outside any
+    /// figure (a step patch, whose handler draws it otherwise, included),
+    /// which no legend can show.
     pub fn of_artist(artist: &RawHandle) -> Option<Self> {
         if !artist.is_loose() {
             return Some(Self(Source::Artist(artist.id())));
@@ -320,8 +329,23 @@ impl LegendHandle {
         if let Some(line) = downcast_ref::<LineArtist>(loose) {
             return Some(Self::proxy(line.clone()));
         }
-        downcast_ref::<PatchArtist<Rectangle>>(loose)
-            .map(|patch| Self(Source::Proxy(Proxy::Patch(Rc::new(patch.clone())))))
+        if let Some(rectangle) = downcast_ref::<PatchArtist<Rectangle>>(loose) {
+            return Some(Self(Source::Proxy(Proxy::Patch(Rc::new(
+                rectangle.clone(),
+            )))));
+        }
+        if let Some(collection) = downcast_ref::<CollectionArtist>(loose) {
+            let proxy = Proxy::Collection(Rc::new(collection.clone()));
+            return Some(Self(Source::Proxy(proxy)));
+        }
+        let view = loose
+            .as_patch()
+            .filter(|view| !view.shape.is::<StepPatch>())?;
+        let mut rectangle =
+            PatchArtist::new(Rectangle::new((0.0, 0.0), 1.0, 1.0), crate::rc::params());
+        rectangle.base_mut().clone_from(loose.base());
+        rectangle.style.clone_from(view.style);
+        Some(Self(Source::Proxy(Proxy::Patch(Rc::new(rectangle)))))
     }
 
     /// The artist the handle shows, when it shows one artist (not a
@@ -436,6 +460,7 @@ impl Source {
                     HandlerKey::Patch,
                 ]
             }
+            Self::Proxy(Proxy::Collection(collection)) => HandlerKey::of_collection(collection),
             Self::Tuple(_) => vec![HandlerKey::Tuple],
             Self::Object(object) => vec![HandlerKey::Type(object.key)],
             Self::Npoints(source, _) | Self::Handled(source, _) => source.handler_keys(store),

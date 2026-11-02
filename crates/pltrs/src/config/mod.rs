@@ -7,12 +7,15 @@
 //! |-----------------------------|----------------------------------------------------------------|--------------------------|
 //! | [`config_dir`]              | `$PLTRSCONFIGDIR`, `$XDG_CONFIG_HOME/pltrs`, `~/.config/pltrs` | `MPLCONFIGDIR`, `~/.config/matplotlib` |
 //! | [`cache_dir`]               | `$PLTRSCONFIGDIR`, `$XDG_CACHE_HOME/pltrs`, `~/.cache/pltrs`   | `MPLCONFIGDIR`, `~/.cache/matplotlib` |
+//! | [`rc_file_path`]            | `./pltrsrc`, `$PLTRSRC` (a file, or a directory holding `pltrsrc`), `pltrsrc` in the configuration directory | `matplotlibrc`, `MATPLOTLIBRC` |
+//! | the user style library      | the `*.mplstyle` files of `stylelib` in the configuration directory | `stylelib`         |
 //!
+//! The XDG directories are Linux's (and the other Unix systems'): on
+//! macOS and Windows both directories are `~/.pltrs` unless
+//! `PLTRSCONFIGDIR` names one, as matplotlib's are `~/.matplotlib` there.
 //! A process may also [honour](honour_matplotlib_config_dir) matplotlib's
 //! `MPLCONFIGDIR`, read when `PLTRSCONFIGDIR` is unset: pltrs (Python)
 //! does, so that it works in matplotlib's environment unchanged.
-//! | [`rc_file_path`]            | `./pltrsrc`, `$PLTRSRC` (a file, or a directory holding `pltrsrc`), `pltrsrc` in the configuration directory | `matplotlibrc`, `MATPLOTLIBRC` |
-//! | the user style library      | the `*.mplstyle` files of `stylelib` in the configuration directory | `stylelib`         |
 //!
 //! Like matplotlib, pltrs makes the configuration and cache directories
 //! when they are missing; when one cannot be made or written to, a new
@@ -112,7 +115,7 @@ static USER_RC: OnceLock<Result<Option<RcFile>, RcError>> = OnceLock::new();
 
 /// The configuration directory (matplotlib's `get_configdir`): the one
 /// `PLTRSCONFIGDIR` names, else `pltrs` in `$XDG_CONFIG_HOME` (by default
-/// `~/.config`). It is made if missing; when it cannot be made or written
+/// `~/.config`) on Linux and `~/.pltrs` on macOS and Windows. It is made if missing; when it cannot be made or written
 /// to, a new private temporary directory takes its place. Looked up once
 /// per process.
 ///
@@ -147,8 +150,8 @@ pub fn temp_dir_notice() -> Option<&'static TempDirNotice> {
 }
 
 /// The cache directory (matplotlib's `get_cachedir`), looked up as
-/// [`config_dir`] is with `$XDG_CACHE_HOME` (by default `~/.cache`) in
-/// place of `$XDG_CONFIG_HOME`. pltrs keeps there what `text.usetex`
+/// [`config_dir`] is, on Linux with `$XDG_CACHE_HOME` (by default
+/// `~/.cache`) in place of `$XDG_CONFIG_HOME`. pltrs keeps there what `text.usetex`
 /// makes, in `tex.cache` as matplotlib does (and the fonts kpathsea
 /// generates in `vartexfonts`).
 ///

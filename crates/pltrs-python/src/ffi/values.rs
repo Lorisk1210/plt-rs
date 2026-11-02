@@ -15,6 +15,7 @@ pub(crate) const Py_TPFLAGS_DICT_SUBCLASS: std::ffi::c_ulong = 1 << 29;
 /// `PyCapsule_Destructor`.
 pub(crate) type PyCapsule_Destructor = unsafe extern "C" fn(capsule: *mut PyObject);
 
+#[cfg_attr(windows, link(name = "python3", kind = "raw-dylib"))]
 unsafe extern "C" {
     /// `_Py_NoneStruct`: `None` (`Py_None` is its address).
     pub(crate) static mut _Py_NoneStruct: PyObject;

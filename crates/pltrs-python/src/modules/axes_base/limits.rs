@@ -1,7 +1,7 @@
 //! The view bounds of an axes and how it autoscales (matplotlib's
 //! `get_xbound`/`set_xbound`, `get_autoscalex_on`/`set_autoscalex_on`,
-//! `autoscale`, `margins`, `relim`, `use_sticky_edges`), which pltrs
-//! (Rust) keeps.
+//! `autoscale`, `margins`, `relim`, `update_datalim`, `use_sticky_edges`),
+//! which pltrs (Rust) keeps.
 
 use pltrs::axes::Axes;
 
@@ -75,6 +75,13 @@ fn relim(axes: Axes, visible_only: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// Extends the data limits to the points of the `(N, 2)` array `xys`, in
+/// x when `updatex` and in y when `updatey` (`update_datalim`).
+fn update_datalim(axes: Axes, xys: NdArray, updatex: bool, updatey: bool) -> PyResult<()> {
+    axes.update_datalim(&crate::modules::transforms::points(&xys)?, updatex, updatey);
+    Ok(())
+}
+
 /// Whether autoscaling stops at the sticky edges (`use_sticky_edges`).
 fn get_use_sticky_edges(axes: Axes) -> PyResult<bool> {
     Ok(axes.use_sticky_edges())
@@ -97,6 +104,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_margin", get_margin)?;
     module.add("set_margins", set_margins)?;
     module.add("relim", relim)?;
+    module.add("update_datalim", update_datalim)?;
     module.add("get_use_sticky_edges", get_use_sticky_edges)?;
     module.add("set_use_sticky_edges", set_use_sticky_edges)
 }

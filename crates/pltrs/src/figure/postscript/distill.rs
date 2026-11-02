@@ -108,7 +108,7 @@ pub(super) fn gs_distill(
     distillation: &Distillation,
     resolution: i64,
 ) -> Result<(), ProgramError> {
-    Executable::Ghostscript.check()?;
+    let gs = Executable::Ghostscript.check()?;
     let mut psfile = file.path().as_os_str().to_owned();
     psfile.push(".ps");
     let psfile = PathBuf::from(psfile);
@@ -124,7 +124,7 @@ pub(super) fn gs_distill(
     args.extend(distillation.paper_options('=')?);
     args.push(path_argument("-sOutputFile=", &psfile));
     args.push(file.path().into());
-    file.workspace().run("gs", &args)?;
+    file.workspace().run(gs, &args)?;
     file.replace_with(&psfile)?;
     if distillation.eps {
         file.to_eps(distillation.bbox.as_ref(), distillation.rotated)?;

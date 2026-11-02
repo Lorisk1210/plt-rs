@@ -66,7 +66,7 @@ impl Gridlines {
         collection.linestyles = vec![rc.grid_linestyle.clone()];
         collection.base_mut().visible = false;
         collection.base_mut().clip_box = Some(axes);
-        collection.draw_time = Some(Box::new(Self {
+        collection.draw_time = Some(Rc::new(Self {
             axes,
             helper,
             which: TickLevel::Major,
@@ -80,7 +80,7 @@ impl Gridlines {
     /// `axislines.Axes.grid` on the gridlines).
     pub(crate) fn apply(collection: &mut CollectionArtist, visible: bool, options: &GridOptions) {
         if let Some(lines) = collection.draw_time_state::<Self>().cloned() {
-            collection.draw_time = Some(Box::new(Self {
+            collection.draw_time = Some(Rc::new(Self {
                 which: options.which,
                 axis: options.axis,
                 ..lines

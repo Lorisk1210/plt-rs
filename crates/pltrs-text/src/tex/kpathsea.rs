@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Mutex, PoisonError};
 
+use pltrs_core::os::Os;
+
 use super::error::TexError;
 use super::files::FileFinder;
 
@@ -119,21 +121,32 @@ impl Kpathsea {
         }
     }
 
-    /// Runs `kpsewhich -mktex=pk name`.
-    fn kpsewhich(&self, name: &str) -> Option<String> {
-        let output = Command::new("kpsewhich")
+    /// `kpsewhich -mktex=pk name`, as matplotlib runs it on `os`: on
+    /// Windows told to read and write UTF-8 (kpathsea's
+    /// `command_line_encoding`, matplotlib's issue 11848).
+    fn kpsewhich_command(&self, os: Os, name: &str) -> Command {
+        let mut command = Command::new("kpsewhich");
+        command
             .arg("-mktex=pk")
             .arg(name)
             .env("MT_VARTEXFONTS", self.cache_dir.join("vartexfonts"))
             .stdin(Stdio::null())
-            .stderr(Stdio::null())
-            .output()
-            .ok()?;
+            .stderr(Stdio::null());
+        if os == Os::Windows {
+            command.env("command_line_encoding", "utf-8");
+        }
+        command
+    }
+
+    /// Runs `kpsewhich -mktex=pk name`: the path it prints, without the
+    /// line end (`\r\n` on Windows).
+    fn kpsewhich(&self, name: &str) -> Option<String> {
+        let output = self.kpsewhich_command(Os::CURRENT, name).output().ok()?;
         if !output.status.success() {
             return None;
         }
         let text = String::from_utf8_lossy(&output.stdout);
-        let path = text.strip_suffix('\n').unwrap_or(&text);
+        let path = text.trim_end_matches(['\r', '\n']);
         (!path.is_empty()).then(|| path.to_owned())
     }
 
@@ -199,6 +212,23 @@ mod tests {
         assert!(KPSEWHICH_LUA.contains("kpse.init_prog(\"\", 600, \"ljfour\")"));
         assert!(KPSEWHICH_LUA.contains("{mktexpk=true}"));
         assert!(KPSEWHICH_LUA.ends_with("end\n"));
+    }
+
+    #[test]
+    fn kpsewhich_speaks_utf8_on_windows() {
+        let kpathsea = Kpathsea::new("cache");
+        let encoding = |os| {
+            kpathsea
+                .kpsewhich_command(os, "cmr10.tfm")
+                .get_envs()
+                .find(|(key, _)| *key == "command_line_encoding")
+                .and_then(|(_, value)| value.map(ToOwned::to_owned))
+        };
+        assert_eq!(encoding(Os::Windows), Some("utf-8".into()));
+        assert_eq!(encoding(Os::Linux), None);
+        let command = kpathsea.kpsewhich_command(Os::MacOs, "cmr10.tfm");
+        let args: Vec<_> = command.get_args().collect();
+        assert_eq!(args, ["-mktex=pk", "cmr10.tfm"]);
     }
 
     #[test]

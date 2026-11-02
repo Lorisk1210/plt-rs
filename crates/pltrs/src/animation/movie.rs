@@ -187,13 +187,15 @@ impl FuncAnimation {
         let size = self.frame_size()?;
         let program = crate::rc::params().animation_ffmpeg_path.clone();
         let movie = |error| AnimationError::Movie(error);
-        let mut child = crate::process::spawn(
+        // Without a console window on Windows, as matplotlib starts its
+        // movie writers (`subprocess_creation_flags`).
+        let mut child = crate::process::spawn(pltrs_core::os::hide_console(
             Command::new(&program)
                 .args(ffmpeg_args(path, size, &pyfmt::repr(fps), &options))
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .stderr(Stdio::piped()),
-        )
+        ))
         .map_err(|error| {
             movie(MovieError::Spawn {
                 program: program.clone(),

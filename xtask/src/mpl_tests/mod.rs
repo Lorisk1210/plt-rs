@@ -139,13 +139,14 @@ impl Census {
 
 /// `matplotlib/tests` in the reference venv under `root`.
 fn matplotlib_tests_dir(root: &Path) -> Result<PathBuf, String> {
-    let lib = root.join(".venv/lib");
-    let entries = std::fs::read_dir(&lib).map_err(|err| format!("{}: {err}", lib.display()))?;
-    entries
-        .filter_map(Result::ok)
-        .map(|entry| entry.path().join("site-packages/matplotlib/tests"))
-        .find(|dir| dir.is_dir())
-        .ok_or_else(|| format!("no matplotlib/tests under {}", lib.display()))
+    let venv = root.join(".venv");
+    Some(
+        crate::python::site_packages(&venv)?
+            .join("matplotlib")
+            .join("tests"),
+    )
+    .filter(|dir| dir.is_dir())
+    .ok_or_else(|| format!("no matplotlib/tests in {}", venv.display()))
 }
 
 /// Scans the tests, the ledger and the spec, and classifies the tests.

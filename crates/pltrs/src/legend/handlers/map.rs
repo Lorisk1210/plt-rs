@@ -200,12 +200,21 @@ impl HandlerKey {
                 Self::Patch,
             ];
         }
-        match store.get_as::<CollectionArtist>(id).map(|c| c.kind) {
-            Some(CollectionKind::Line) => vec![Self::LineCollection],
-            Some(CollectionKind::Path) => vec![Self::PathCollection],
-            Some(CollectionKind::Poly) => vec![Self::PolyCollection],
-            Some(CollectionKind::Patch) => vec![Self::PatchCollection],
-            Some(CollectionKind::Generic | CollectionKind::QuadMesh) | None => Vec::new(),
+        store
+            .get_as::<CollectionArtist>(id)
+            .map(Self::of_collection)
+            .unwrap_or_default()
+    }
+
+    /// The keys that may hold the handler of `collection`; none for the
+    /// kinds legends cannot show.
+    pub(crate) fn of_collection(collection: &CollectionArtist) -> Vec<Self> {
+        match collection.kind {
+            CollectionKind::Line => vec![Self::LineCollection],
+            CollectionKind::Path => vec![Self::PathCollection],
+            CollectionKind::Poly => vec![Self::PolyCollection],
+            CollectionKind::Patch => vec![Self::PatchCollection],
+            CollectionKind::Generic | CollectionKind::QuadMesh => Vec::new(),
         }
     }
 }

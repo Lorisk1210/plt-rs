@@ -7,7 +7,13 @@
 //! CPython's struct layouts beyond what that API exposes: the object
 //! header (`ob_refcnt`, `ob_type`), `Py_buffer`, and the structs that
 //! describe types, methods and modules. The extension links against no
-//! libpython; the interpreter that imports it provides the symbols.
+//! libpython; the interpreter that imports it provides the symbols. On
+//! Windows, where every symbol must name the library it comes from, the
+//! declarations name the stable ABI's `python3.dll` (`raw-dylib`: rustc
+//! writes the import library itself, so building needs no Python), which
+//! forwards them to the interpreter's `python3XY.dll`; its data symbols
+//! (`_Py_NoneStruct`, the `PyExc_*` exceptions) are reached through their
+//! import addresses, as `dllimport` statics are.
 //!
 //! The rest of the crate never calls these functions directly: the
 //! [`binding`](crate::binding) module wraps them in safe types, each

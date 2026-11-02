@@ -27,6 +27,9 @@
 //! * [`numeric`] — Python's and numpy's float semantics (`divmod`, `%`,
 //!   `min`/`max`, `minimum`/`maximum`, `sign`, `linspace`) that
 //!   matplotlib's results depend on.
+//! * [`os`] — the conventions that differ between Linux, macOS and
+//!   Windows (programs on `PATH`, resolved paths), as functions of the
+//!   system so that each is tested on any.
 //! * [`pyfmt`] — Python's float formatting (`repr`, `%`-formatting and the
 //!   `str.format` mini-language), which matplotlib's labels and documents
 //!   are written with.
@@ -44,6 +47,7 @@ pub mod hatch;
 mod intern;
 pub mod json;
 pub mod numeric;
+pub mod os;
 pub mod path;
 mod point;
 pub mod pyfmt;

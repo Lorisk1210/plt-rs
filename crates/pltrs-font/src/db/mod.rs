@@ -252,19 +252,36 @@ impl FontDatabase {
             .sum()
     }
 
-    /// Adds the fonts of the standard Unix font directories (see
-    /// [`FontDatabase::system_font_directories`]).
+    /// Adds the fonts installed on the system, where matplotlib's
+    /// `findSystemFonts` finds them (see
+    /// [`FontDatabase::system_font_directories`]; on Windows also the
+    /// font files the registry lists elsewhere). Returns the number of
+    /// faces added.
     pub fn add_system_fonts(&self) -> usize {
-        Self::system_font_directories()
+        let fonts = system::SystemFonts::of_this_system();
+        let in_directories: usize = fonts
+            .directories
             .iter()
             .map(|dir| self.add_directory(dir))
-            .sum()
+            .sum();
+        let listed: usize = fonts
+            .files
+            .iter()
+            .filter(|path| system::is_font_file(path))
+            .map(|path| self.add_file(path).map_or(0, |ids| ids.len()))
+            .sum();
+        in_directories + listed
     }
 
-    /// `/usr/share/fonts`, `/usr/local/share/fonts`, `~/.local/share/fonts`
-    /// (or `$XDG_DATA_HOME/fonts`) and `~/.fonts`.
+    /// The directories this system keeps fonts in, as matplotlib searches
+    /// them: on Linux `/usr/share/fonts`, `/usr/local/share/fonts`,
+    /// `$XDG_DATA_HOME/fonts` (`~/.local/share/fonts`), `~/.fonts` and the
+    /// old X11 directories; on macOS those and `/Library/Fonts`,
+    /// `/System/Library/Fonts`, `~/Library/Fonts`; on Windows
+    /// `%WINDIR%\Fonts` (the `Fonts` shell folder) and the user's
+    /// `%LOCALAPPDATA%\Microsoft\Windows\Fonts`.
     pub fn system_font_directories() -> Vec<PathBuf> {
-        system::font_directories()
+        system::SystemFonts::of_this_system().directories
     }
 
     /// All catalogue entries, in insertion order (read-locked while held).

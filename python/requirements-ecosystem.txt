@@ -1,0 +1,15 @@
+# The ecosystem venv (`target/ecosystem/venv`, made by
+# `cargo xtask ecosystem setup`): pandas and seaborn (installed apart,
+# without its dependencies, so that nothing fetches the real matplotlib)
+# drawing with pltrs as matplotlib. matplotlib must never be here.
+#
+# What pltrs itself imports (as requirements-pltrs.txt pins it):
+numpy==2.5.4
+pillow==12.3.0
+cycler==0.12.1
+python-dateutil==2.9.0.post0
+# The libraries under test, and what seaborn needs besides matplotlib:
+pandas==3.1.0
+scipy==1.18.1
+# What running the tests needs:
+pytest==9.1.1

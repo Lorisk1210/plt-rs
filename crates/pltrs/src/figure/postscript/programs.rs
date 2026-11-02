@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+use pltrs_core::os::Os;
 use pltrs_text::tex::{TemporaryDirectory, format_command};
 
 /// Why a program the PostScript backend runs did not do its work, with
@@ -140,29 +141,46 @@ impl fmt::Display for Version {
 /// (`mpl._get_executable_info`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Executable {
-    /// Ghostscript's `gs`, at least version 9.
+    /// Ghostscript, at least version 9.
     Ghostscript,
     /// poppler's (or xpdf's) `pdftops`, at least version 3.0 (or 0.9).
     Pdftops,
 }
 
 impl Executable {
-    /// Whether the program can run here, as `_get_executable_info` finds
-    /// out: it runs `gs --version` or `pdftops -v` and reads the version
-    /// from what the program prints.
+    /// The names the program goes by on `os`, tried in order: Ghostscript
+    /// is `gs`, and on Windows first `gswin32c`, `gswin64c` and `MiKTeX`'s
+    /// `mgs`.
+    pub(crate) fn names(self, os: Os) -> &'static [&'static str] {
+        match (self, os) {
+            (Self::Ghostscript, Os::Windows) => &["gswin32c", "gswin64c", "mgs", "gs"],
+            (Self::Ghostscript, Os::Linux | Os::MacOs) => &["gs"],
+            (Self::Pdftops, _) => &["pdftops"],
+        }
+    }
+
+    /// The program to run, once found to run here as `_get_executable_info`
+    /// finds out: the first of its [names](Executable::names) that prints
+    /// a version recent enough, when run with `--version` (Ghostscript)
+    /// or `-v` (`pdftops`).
     ///
     /// # Errors
     ///
     /// matplotlib's `ExecutableNotFoundError`: for Ghostscript always
     /// "Failed to find a Ghostscript installation"; for `pdftops` why.
-    pub(crate) fn check(self) -> Result<(), ProgramError> {
+    pub(crate) fn check(self) -> Result<&'static str, ProgramError> {
         match self {
-            Self::Ghostscript => printed("gs", "--version")
-                .ok()
-                .filter(|(success, _)| *success)
-                .and_then(|(_, output)| Version::parse(output.lines().next().unwrap_or("")))
-                .filter(|version| version.part(0) >= 9)
-                .map(drop)
+            Self::Ghostscript => self
+                .names(Os::CURRENT)
+                .iter()
+                .copied()
+                .find(|&program| {
+                    printed(program, "--version")
+                        .ok()
+                        .filter(|(success, _)| *success)
+                        .and_then(|(_, output)| Version::parse(output.lines().next().unwrap_or("")))
+                        .is_some_and(|version| version.part(0) >= 9)
+                })
                 .ok_or_else(|| {
                     ProgramError::NotFound("Failed to find a Ghostscript installation".to_owned())
                 }),
@@ -179,7 +197,7 @@ impl Executable {
                     })?;
                 let poppler = version.part(0) == 0 && version.part(1) >= 9;
                 if version.part(0) >= 3 || poppler {
-                    Ok(())
+                    Ok("pdftops")
                 } else {
                     Err(ProgramError::NotFound(format!(
                         "You have pdftops version {version} but the minimum version supported \
@@ -379,7 +397,7 @@ mod tests {
                 if message == "[Errno 2] No such file or directory: 'pltrs-no-such-program'"),
             "{missing:?}"
         );
-        if pltrs_text::tex::on_path("sh") {
+        if pltrs_core::os::which("sh").is_some() {
             let script = |text: &str| [OsString::from("-c"), OsString::from(text)];
             let printed = workspace.run("sh", &script("pwd; echo $SOURCE_DATE_EPOCH"));
             let expected = format!("{}\n0\n", directory.canonicalize().unwrap().display());
@@ -401,9 +419,21 @@ mod tests {
     }
 
     #[test]
+    fn ghostscript_has_more_names_on_windows() {
+        assert_eq!(
+            Executable::Ghostscript.names(Os::Windows),
+            ["gswin32c", "gswin64c", "mgs", "gs"]
+        );
+        for os in [Os::Linux, Os::MacOs] {
+            assert_eq!(Executable::Ghostscript.names(os), ["gs"]);
+        }
+        assert_eq!(Executable::Pdftops.names(Os::Windows), ["pdftops"]);
+    }
+
+    #[test]
     fn executables_are_found_or_named() {
         match Executable::Ghostscript.check() {
-            Ok(()) => assert!(pltrs_text::tex::on_path("gs")),
+            Ok(program) => assert!(pltrs_core::os::which(program).is_some()),
             Err(err) => assert_eq!(err.to_string(), "Failed to find a Ghostscript installation"),
         }
         if let Err(err) = Executable::Pdftops.check() {

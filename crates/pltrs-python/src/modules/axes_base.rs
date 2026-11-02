@@ -2,7 +2,7 @@
 //! (matplotlib's `axes._base`): its position, the axes it shares an axis
 //! with, its twins.
 
-use pltrs::axes::{AspectError, Axes, AxisName, WhichPosition};
+use pltrs::axes::{AspectError, Axes, AxisName, PropCycle, WhichPosition};
 use pltrs::colors::Color;
 use pltrs::rc::{Cycler, CyclerError};
 
@@ -108,6 +108,32 @@ fn set_prop_cycle(axes: Axes, cycle: Option<String>) -> PyResult<()> {
     Ok(())
 }
 
+/// The property cycle called `kind`: `"lines"` (`_get_lines`) or
+/// `"patches"` (`_get_patches_for_fill`).
+fn prop_cycle(kind: &str) -> PyResult<PropCycle> {
+    match kind {
+        "lines" => Ok(PropCycle::Lines),
+        "patches" => Ok(PropCycle::Patches),
+        other => Err(PyErr::value_error(format!("no property cycle {other:?}"))),
+    }
+}
+
+/// Makes `axes` draw from the property cycle `kind` that `other` draws
+/// from (`axes._get_lines = other._get_lines`).
+fn share_prop_cycle(axes: Axes, kind: String, other: Axes) -> PyResult<()> {
+    axes.share_prop_cycle(prop_cycle(&kind)?, &other);
+    Ok(())
+}
+
+/// The next colour of the property cycle `kind`
+/// (`_get_lines.get_next_color()`).
+fn next_cycle_color(axes: Axes, kind: String) -> PyResult<Color> {
+    Ok(match prop_cycle(&kind)? {
+        PropCycle::Lines => axes.next_line_color(),
+        PropCycle::Patches => axes.next_patch_color(),
+    })
+}
+
 /// The name of the scale of axis `name` (`get_xscale`, `get_yscale`).
 fn get_scale(axes: Axes, name: String) -> PyResult<String> {
     Ok(match axis_name(&name)? {
@@ -141,6 +167,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("label_outer", label_outer)?;
     module.add("label_outer_shared", label_outer_shared)?;
     module.add("set_prop_cycle", set_prop_cycle)?;
+    module.add("share_prop_cycle", share_prop_cycle)?;
+    module.add("next_cycle_color", next_cycle_color)?;
     module.add("get_scale", get_scale)?;
     module.add("set_facecolor", set_facecolor)?;
     module.add("get_facecolor", get_facecolor)?;

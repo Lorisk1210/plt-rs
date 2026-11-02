@@ -46,7 +46,7 @@ impl PythonRunner {
     /// (`MPLCONFIGDIR`), so that no `matplotlibrc` of the user's changes its
     /// defaults.
     pub(super) fn matplotlib(root: &Path, config: &Path) -> Result<Self, Box<dyn Error>> {
-        let python = root.join(".venv/bin/python");
+        let python = crate::python::reference_python();
         if !python.exists() {
             return Err(format!(
                 "the reference venv {} is missing (see spec/mpl-reference)",

@@ -95,6 +95,11 @@ pub(crate) struct AxesState {
     pub(crate) line_cycle: usize,
     /// Next property-cycle entry for patches and collections.
     pub(crate) patch_cycle: usize,
+    /// The axes whose line property cycle this one draws from, when a
+    /// program pointed it at another's (see [`PropCycle`](super::PropCycle)).
+    pub(crate) line_cycle_from: Option<ArtistId>,
+    /// The axes whose patch property cycle this one draws from.
+    pub(crate) patch_cycle_from: Option<ArtistId>,
     /// Plotted artists in insertion order.
     pub(crate) children: Vec<ArtistId>,
     /// Containers of the plotting calls that made them (`ax.containers`).
@@ -156,6 +161,8 @@ pltrs_core::archive_struct!(AxesState {
     prop_cycle,
     line_cycle,
     patch_cycle,
+    line_cycle_from,
+    patch_cycle_from,
     children,
     containers,
     spines,
@@ -295,6 +302,8 @@ impl AxesState {
             prop_cycle: rc.axes_prop_cycle.clone(),
             line_cycle: 0,
             patch_cycle: 0,
+            line_cycle_from: None,
+            patch_cycle_from: None,
             children: Vec::new(),
             containers: Vec::new(),
             spines: Vec::new(),

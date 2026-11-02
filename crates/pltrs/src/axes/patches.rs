@@ -2,7 +2,7 @@
 
 use super::children::DataUpdate;
 use super::lines::cycle_color;
-use super::{Axes, AxesState};
+use super::{Axes, AxesState, PropCycle};
 use crate::artist::{Artist, ArtistHandle};
 use crate::colors::Color;
 use crate::patches::{FancyArrow, IntoPatchShape, Patch, PatchArtist, PatchProps};
@@ -75,7 +75,8 @@ impl Axes {
     /// assert_ne!(ax.next_patch_color(), ax.next_patch_color());
     /// ```
     pub fn next_patch_color(&self) -> Color {
-        self.raw().with_mut::<AxesState, _>(|axes| {
+        let owner = self.prop_cycle_owner(PropCycle::Patches);
+        owner.raw().with_mut::<AxesState, _>(|axes| {
             let color = cycle_color(&axes.prop_cycle, axes.patch_cycle);
             // Like matplotlib, only a cycle that provides colours advances.
             if color.is_some() {

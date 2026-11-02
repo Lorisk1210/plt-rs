@@ -46,6 +46,8 @@ pub(crate) use field::{FieldPoints, retained};
 pub(crate) use geometry::{ArrowSizing, QuiverGeometry};
 pub(crate) use key::{KeyVector, QuiverKeyArtist};
 
+use std::rc::Rc;
+
 use crate::artist::{ArtistHandle, RawHandle, TypedHandle};
 use crate::axes::PlotError;
 use crate::collections::{Collection, CollectionArtist, CollectionProps};
@@ -178,7 +180,7 @@ impl Quiver {
                     .draw_time_state::<QuiverGeometry>()
                     .map(|geometry| geometry.with_components(components, scalar));
                 if let Some(geometry) = replaced {
-                    artist.draw_time = Some(Box::new(geometry));
+                    artist.draw_time = Some(Rc::new(geometry));
                 }
             });
         Ok(self)

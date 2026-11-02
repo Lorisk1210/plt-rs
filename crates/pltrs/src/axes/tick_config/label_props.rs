@@ -240,11 +240,11 @@ impl Axis {
     ) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
         self.update_labels(|axis| {
-            let overrides = &mut axis.overrides_mut(minor).labels;
-            if overrides.len() <= index {
-                overrides.resize_with(index + 1, TickLabelProps::default);
+            let labels = &mut axis.overrides_mut(minor).labels;
+            if labels.len() <= index {
+                labels.resize_with(index + 1, TickLabelProps::default);
             }
-            overrides[index] = change(&overrides[index], &props);
+            labels[index] = change(&labels[index], &props);
         });
         self
     }

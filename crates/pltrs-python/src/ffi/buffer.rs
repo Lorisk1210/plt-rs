@@ -42,6 +42,7 @@ pub(crate) struct Py_buffer {
     pub(crate) internal: *mut c_void,
 }
 
+#[cfg_attr(windows, link(name = "python3", kind = "raw-dylib"))]
 unsafe extern "C" {
     /// `PyObject_GetBuffer`: fills `view` from an exporter.
     pub(crate) fn PyObject_GetBuffer(

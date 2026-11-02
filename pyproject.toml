@@ -1,0 +1,31 @@
+# pltrs (Python) as a pip-installable package, built by the in-tree backend
+# in python/backend (Python's standard library only) with cargo:
+#
+#   pip install .                              pltrs
+#   pip install . -C distribution=matplotlib   matplotlib, mpl_toolkits and
+#                                              pylab as aliases of pltrs
+#   pip wheel . [-C target=<Rust target> | -C target=universal2]
+#
+# The distributions' metadata is the backend's ([tool.pltrs-backend]):
+# their versions and source URL come from Cargo.toml and
+# python/pltrs/__init__.py.
+
+[build-system]
+requires = []
+build-backend = "pltrs_backend"
+backend-path = ["python/backend"]
+
+[tool.pltrs-backend.pltrs]
+summary = "matplotlib's Python API over pltrs, matplotlib rebuilt in Rust"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.25",
+    "cycler>=0.10",
+    "pillow>=9",
+    "python-dateutil>=2.7",
+]
+
+[tool.pltrs-backend.matplotlib]
+summary = "matplotlib, mpl_toolkits and pylab as aliases of pltrs"
+requires-python = ">=3.12"

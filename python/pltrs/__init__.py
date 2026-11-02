@@ -750,9 +750,9 @@ def get_configdir():
     """
     Return the string path of the configuration directory: the one
     ``PLTRSCONFIGDIR`` names, else the one matplotlib's ``MPLCONFIGDIR``
-    names, else ``$XDG_CONFIG_HOME/pltrs`` (by default ``~/.config/pltrs``),
-    made if missing; a temporary directory when it cannot be made or written
-    to.
+    names, else on Linux ``$XDG_CONFIG_HOME/pltrs`` (by default
+    ``~/.config/pltrs``) and elsewhere ``~/.pltrs``, made if missing; a
+    temporary directory when it cannot be made or written to.
     """
     return _cbook.config_dir()
 
@@ -760,7 +760,7 @@ def get_configdir():
 def get_cachedir():
     """
     Return the string path of the cache directory, found as the
-    configuration directory is (see `get_configdir`) in
+    configuration directory is (see `get_configdir`), on Linux in
     ``$XDG_CACHE_HOME`` (by default ``~/.cache``).
     """
     return _cbook.cache_dir()

@@ -1,17 +1,18 @@
 //! Randomised robustness tests of the configuration lookup: random
-//! values for `PLTRSCONFIGDIR`, `PLTRSRC`, `XDG_CONFIG_HOME` and
+//! systems, values for `PLTRSCONFIGDIR`, `PLTRSRC`, `XDG_CONFIG_HOME` and
 //! `XDG_CACHE_HOME`, home, working and temporary directories — relative
 //! and absolute, empty, missing, files instead of directories, read-only
-//! and unreadable directories, symbolic link loops, `..`, names too long
-//! for the file system and names holding NUL — all within a scratch
-//! directory. The lookups must find a usable directory or fail with an
+//! and unreadable directories and symbolic link loops (on Unix), `..`,
+//! names too long for the file system and names holding NUL — all within
+//! a scratch directory. The lookups must find a usable directory or fail with an
 //! error, never leave the scratch directory, and the rc file they find
 //! must read or fail cleanly.
 
 use std::ffi::OsString;
 use std::fs;
-use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
+
+use pltrs_core::os::{self, Os};
 
 use super::lookup::{DirKind, Environment, find_dir, find_rc_file, make_temp_dir};
 use super::{CONFIG_DIR_VAR, RC_FILE_NAME, RC_FILE_VAR};
@@ -73,13 +74,8 @@ impl Scratch {
         }
         fs::write(base.join("file"), "not a directory").expect("a fixture file");
         fs::write(base.join("noaccess/pltrsrc"), "lines.linewidth: 2").expect("a fixture file");
-        symlink(base.join("loop2"), base.join("loop")).expect("a link");
-        symlink(base.join("loop"), base.join("loop2")).expect("a link");
-        for (dir, mode) in [("ro", 0o555), ("noaccess", 0o000)] {
-            fs::set_permissions(base.join(dir), fs::Permissions::from_mode(mode))
-                .expect("permissions");
-        }
-        let root = fs::canonicalize(root).expect("the scratch directory");
+        unix_fixtures::make(&base);
+        let root = os::resolve(&root).expect("the scratch directory");
         let base = root.join("a/b/c");
         Self { root, base }
     }
@@ -87,11 +83,44 @@ impl Scratch {
 
 impl Drop for Scratch {
     fn drop(&mut self) {
-        for dir in ["ro", "noaccess"] {
-            let _ = fs::set_permissions(self.base.join(dir), fs::Permissions::from_mode(0o755));
-        }
+        unix_fixtures::unlock(&self.base);
         let _ = fs::remove_dir_all(&self.root);
     }
+}
+
+/// The fixtures only Unix makes without privileges: a loop of symbolic
+/// links, and directories without write or any access.
+#[cfg(unix)]
+mod unix_fixtures {
+    use std::fs;
+    use std::os::unix::fs::{PermissionsExt, symlink};
+    use std::path::Path;
+
+    pub(super) fn make(base: &Path) {
+        symlink(base.join("loop2"), base.join("loop")).expect("a link");
+        symlink(base.join("loop"), base.join("loop2")).expect("a link");
+        for (dir, mode) in [("ro", 0o555), ("noaccess", 0o000)] {
+            fs::set_permissions(base.join(dir), fs::Permissions::from_mode(mode))
+                .expect("permissions");
+        }
+    }
+
+    /// Gives the directories their access back, so that they can go.
+    pub(super) fn unlock(base: &Path) {
+        for dir in ["ro", "noaccess"] {
+            let _ = fs::set_permissions(base.join(dir), fs::Permissions::from_mode(0o755));
+        }
+    }
+}
+
+/// Elsewhere the fixtures are plain directories, and `loop` is missing.
+#[cfg(not(unix))]
+mod unix_fixtures {
+    use std::path::Path;
+
+    pub(super) fn make(_base: &Path) {}
+
+    pub(super) fn unlock(_base: &Path) {}
 }
 
 /// A path of the scratch directory, as names below its base; absolute
@@ -136,6 +165,7 @@ impl Place {
 /// temporary directories, and the contents of an rc file.
 #[derive(Debug)]
 struct Lookup {
+    os: Os,
     vars: Vec<(&'static str, Option<Place>)>,
     home: Option<Place>,
     /// The working directory; `None` for the process's, which only
@@ -162,6 +192,7 @@ impl Lookup {
             }
         }
         Self {
+            os: g.pick(&[Os::Linux, Os::MacOs, Os::Windows]),
             vars,
             home: g.chance(0.9).then(|| Place {
                 absolute: true,
@@ -189,6 +220,7 @@ impl Lookup {
     /// The environment within the scratch directory.
     fn environment(&self, scratch: &Scratch) -> Environment {
         Environment {
+            os: self.os,
             vars: self
                 .vars
                 .iter()

@@ -24,7 +24,6 @@
 //! name `pltrs` itself resolve to the modules loaded as `matplotlib`.
 
 use std::fs;
-use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 
 use super::Mode;
@@ -64,7 +63,7 @@ pub(super) fn site(mode: Mode, suite: &Path, sdist: &Path) -> Result<PathBuf, St
         ));
     }
     let source = match mode {
-        Mode::Reference => site_packages(&root.join(".venv"))?,
+        Mode::Reference => crate::python::site_packages(&root.join(".venv"))?,
         Mode::Pltrs => root.join("python/pltrs"),
     };
     for package in packages() {
@@ -145,17 +144,6 @@ fn copy_tests(from: &Path, dest: &Path) -> Result<(), String> {
     fs::write(&stamp, source).map_err(|err| format!("{}: {err}", stamp.display()))
 }
 
-/// The `site-packages` directory of a venv.
-fn site_packages(venv: &Path) -> Result<PathBuf, String> {
-    let lib = venv.join("lib");
-    fs::read_dir(&lib)
-        .map_err(|err| format!("{}: {err}", lib.display()))?
-        .filter_map(Result::ok)
-        .map(|entry| entry.path().join("site-packages"))
-        .find(|path| path.is_dir())
-        .ok_or_else(|| format!("no site-packages in {}", lib.display()))
-}
-
 /// Replaces the links in the directory `dest` by links to every entry of
 /// `source` but those named in `skip` and byte-code caches (none if
 /// `source` is missing or empty), leaving what is not a link alone.
@@ -193,9 +181,33 @@ fn remove_links(dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Links `link_path` to `target`.
+/// Links `link_path` to `target` with a symbolic link.
 fn link(target: &Path, link_path: &Path) -> Result<(), String> {
     symlink(target, link_path).map_err(|err| format!("{}: {err}", link_path.display()))
+}
+
+/// A symbolic link at `link` to `target`.
+#[cfg(unix)]
+fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, link)
+}
+
+/// A symbolic link at `link` to the file or directory `target`, which
+/// Windows lets users make in Developer Mode (or administrators).
+#[cfg(windows)]
+fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
+    use std::os::windows::fs::{symlink_dir, symlink_file};
+    let made = if target.is_dir() {
+        symlink_dir(target, link)
+    } else {
+        symlink_file(target, link)
+    };
+    made.map_err(|err| {
+        std::io::Error::new(
+            err.kind(),
+            format!("{err} (symbolic links need Developer Mode on Windows)"),
+        )
+    })
 }
 
 /// Removes `path` and everything in it, if it exists.

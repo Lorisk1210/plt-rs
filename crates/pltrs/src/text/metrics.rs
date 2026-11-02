@@ -96,6 +96,15 @@ pub(crate) fn hinting(rc: &RcParams) -> Hinting {
     }
 }
 
+/// Forgets every line, formula and glyph outline pltrs has laid out or
+/// made for the text of any figure; the fonts stay loaded. matplotlib keeps
+/// no such layouts from one figure to the next (its text metrics live with
+/// each figure's renderer), so a benchmark calls this between runs to time
+/// the same work.
+pub fn clear_text_caches() {
+    TextEngine::global().clear_caches();
+}
+
 /// `run` (laid out at `dpi`) with the width, height and descent the
 /// current measuring mode reports.
 pub(super) fn measured(mut run: TextRun, dpi: f64) -> Result<TextRun, TextError> {

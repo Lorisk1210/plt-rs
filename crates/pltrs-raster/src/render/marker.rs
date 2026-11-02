@@ -76,6 +76,8 @@ impl MarkerStamp {
         }
         let face = face.map(Rgba8::from);
         let edge = edge.map(Rgba8::from);
+        // The spans of both coverages, read out of their scanlines once.
+        let layers = [(rows(&self.fill), face), (rows(&self.stroke), edge)];
         for p in positions.iter().filter(|p| p.is_finite()) {
             let (x, y) = (p.x.floor(), p.y.floor());
             // Cull stamps entirely outside the target (as matplotlib does),
@@ -88,21 +90,34 @@ impl MarkerStamp {
                 continue;
             }
             let (dx, dy) = (x as i32, y as i32);
-            for (scanlines, color) in [(&self.fill, face), (&self.stroke, edge)] {
-                let Some(color) = color else { continue };
-                for sl in scanlines {
-                    for span in sl.spans() {
-                        let shifted = Span {
-                            x: span.x + dx,
-                            covers: span.covers,
-                        };
-                        surface.blend_solid(sl.y() + dy, shifted, color, Antialias::On);
+            // A stamp wholly visible and unmasked, the usual case, needs no
+            // clipping span by span.
+            let inside = surface.shows_all_of(min_x + dx, min_y + dy, max_x + dx, max_y + dy);
+            for (spans, color) in &layers {
+                let Some(color) = *color else { continue };
+                for &(row, span) in spans {
+                    let shifted = Span {
+                        x: span.x + dx,
+                        covers: span.covers,
+                    };
+                    if inside {
+                        surface.blend_solid_inside(row + dy, shifted, color);
+                    } else {
+                        surface.blend_solid(row + dy, shifted, color, Antialias::On);
                     }
                 }
             }
         }
         Ok(())
     }
+}
+
+/// The spans of `scanlines` with the row of each, in order.
+fn rows(scanlines: &[Scanline]) -> Vec<(i32, Span<'_>)> {
+    scanlines
+        .iter()
+        .flat_map(|sl| sl.spans().map(move |span| (sl.y(), span)))
+        .collect()
 }
 
 #[cfg(test)]

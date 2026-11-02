@@ -135,6 +135,35 @@ impl<'a> Surface<'a> {
         }
     }
 
+    /// Whether every pixel of the inclusive rectangle `[x0, x1] × [y0,
+    /// y1]` is visible and unmasked, so that spans within it can be
+    /// blended by [`Surface::blend_solid_inside`].
+    pub(crate) fn shows_all_of(&self, x0: i32, y0: i32, x1: i32, y1: i32) -> bool {
+        self.mask.is_none()
+            && self
+                .bounds
+                .is_some_and(|b| x0 >= b.x0() && y0 >= b.y0() && x1 < b.x1() && y1 < b.y1())
+    }
+
+    /// [`Surface::blend_solid`] with anti-aliasing for a span the caller
+    /// knows lies in a rectangle [`Surface::shows_all_of`] accepted: the
+    /// same blends, without clipping each span.
+    pub(crate) fn blend_solid_inside(&mut self, y: i32, span: Span<'_>, color: Rgba8) {
+        if color.a == 0 {
+            return;
+        }
+        let first = y as usize * self.width + span.x as usize;
+        let pixels = &mut self.pixels.as_chunks_mut::<4>().0[first..first + span.len()];
+        match span.covers {
+            Covers::Solid { cover, .. } => blend_run(pixels, color, cover),
+            Covers::Varying(covers) => {
+                for (px, &cover) in pixels.iter_mut().zip(covers) {
+                    blend_pixel(px, color, cover);
+                }
+            }
+        }
+    }
+
     /// Blends per-pixel colours (`colors[i]` belongs to pixel `span.x + i`)
     /// through the span's covers (Agg's `renderer_scanline_aa` with
     /// `copy_or_blend_pix`).
@@ -192,6 +221,42 @@ mod tests {
         s.blend_solid(1, solid, Rgba8::new(1, 2, 3, 255), Antialias::On);
         let alphas: Vec<u8> = p.data().chunks(4).map(|c| c[3]).collect();
         assert_eq!(alphas, vec![0, 255, 255, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn spans_inside_blend_as_clipped_ones_do() {
+        let covers = [0, 37, 128, 255, 200];
+        let solid = Span {
+            x: 1,
+            covers: Covers::Solid { len: 3, cover: 90 },
+        };
+        let color = Rgba8::new(10, 120, 240, 200);
+        let mut drawn = Vec::new();
+        for inside in [false, true] {
+            let mut p = Pixmap::new(6, 2).unwrap();
+            p.fill(Rgba8::new(50, 60, 70, 255));
+            let mut s = Surface::new(&mut p, Some(ClipBox::new(0, 0, 6, 2)), None).unwrap();
+            assert!(s.shows_all_of(0, 0, 5, 1));
+            for _ in 0..2 {
+                if inside {
+                    s.blend_solid_inside(0, span(1, &covers), color);
+                    s.blend_solid_inside(1, solid, color);
+                } else {
+                    s.blend_solid(0, span(1, &covers), color, Antialias::On);
+                    s.blend_solid(1, solid, color, Antialias::On);
+                }
+            }
+            drawn.push(p.data().to_vec());
+        }
+        assert_eq!(drawn[0], drawn[1]);
+        let mut p = Pixmap::new(6, 2).unwrap();
+        let mask = Mask::from_vec(6, 2, vec![255; 12]).unwrap();
+        let clipped = Surface::new(&mut p, Some(ClipBox::new(1, 0, 6, 2)), None).unwrap();
+        assert!(!clipped.shows_all_of(0, 0, 5, 1));
+        assert!(!clipped.shows_all_of(1, 0, 6, 1));
+        assert!(clipped.shows_all_of(1, 0, 5, 1));
+        let masked = Surface::new(&mut p, None, Some(&mask)).unwrap();
+        assert!(!masked.shows_all_of(1, 0, 5, 1));
     }
 
     #[test]

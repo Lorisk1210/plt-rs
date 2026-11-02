@@ -53,6 +53,12 @@ pub(super) const WORKLOADS: &[Workload] = &[
         ),
     mid("output/mid_eps").saved_as(SaveFormat::Eps),
     mid("output/mid_png_tight").tight(),
+    mid("output/mid_svg_tight")
+        .saved_as(SaveFormat::Svg)
+        .tight(),
+    mid("output/mid_pdf_tight")
+        .saved_as(SaveFormat::Pdf)
+        .tight(),
     Workload::new("output/lissajous_1e5_svg", "lissajous_1e5", lissajous)
         .saved_as(SaveFormat::Svg)
         .with_rc(UNSIMPLIFIED),
@@ -75,16 +81,26 @@ const UNSIMPLIFIED: &[(&str, &str)] = &[("path.simplify", "False")];
 /// 100 subplots, each a titled and labelled sine wave.
 fn subplots() -> Build {
     let x = linspace(0.0, 10.0, 100);
+    let curves = shifted(&x, 100, f64::sin);
     Box::new(move |fig| {
         let grid = fig.subplots(10, 10)?;
-        for (k, ax) in grid.as_slice().iter().enumerate() {
-            let shift = k as f64 / 10.0;
-            ax.plot(&x, x.iter().map(|x| (x + shift).sin()).collect::<Vec<_>>())?;
+        for (k, (ax, y)) in grid.as_slice().iter().zip(&curves).enumerate() {
+            ax.plot(&x, y)?;
             ax.set_title(format!("panel {k}"));
             ax.set_xlabel("x").set_ylabel("y");
         }
         Ok(())
     })
+}
+
+/// `count` curves `f(x + k / 10)`, for `k` from 0.
+fn shifted(x: &[f64], count: u32, f: fn(f64) -> f64) -> Vec<Vec<f64>> {
+    (0..count)
+        .map(|k| {
+            let shift = f64::from(k) / 10.0;
+            x.iter().map(|x| f(x + shift)).collect()
+        })
+        .collect()
 }
 
 /// 2000 small labels on a 50 × 40 lattice.
@@ -166,12 +182,12 @@ fn constrained() -> Build {
 /// constrained layout.
 fn constrained_layout() -> Build {
     let x = linspace(0.0, 10.0, 50);
+    let curves = shifted(&x, 64, f64::cos);
     Box::new(move |fig| {
         fig.set_layout_engine(LayoutEngine::constrained())?;
         let grid = fig.subplots(8, 8)?;
-        for (k, ax) in grid.as_slice().iter().enumerate() {
-            let shift = k as f64 / 10.0;
-            ax.plot(&x, x.iter().map(|x| (x + shift).cos()).collect::<Vec<_>>())?;
+        for (k, (ax, y)) in grid.as_slice().iter().zip(&curves).enumerate() {
+            ax.plot(&x, y)?;
             ax.set_title(format!("panel {k}"));
             ax.set_xlabel("x").set_ylabel("y");
         }
@@ -202,15 +218,18 @@ fn mid_size() -> Build {
     let scatter_y = rng.uniform(2000, 0.0, 1.0);
     let heights = rng.uniform(30, 1.0, 10.0);
     let sample = rng.normal(10_000, 0.0, 1.0);
+    let waves: Vec<Vec<f64>> = (0..3)
+        .map(|k| {
+            let k = f64::from(k);
+            x.iter()
+                .map(|x| (x + k).sin() * (-x / 10.0).exp())
+                .collect()
+        })
+        .collect();
     Box::new(move |fig| -> CaseResult {
         let grid = fig.subplots(2, 2)?;
         let lines = &grid[(0, 0)];
-        for k in 0..3 {
-            let k = f64::from(k);
-            let y: Vec<f64> = x
-                .iter()
-                .map(|x| (x + k).sin() * (-x / 10.0).exp())
-                .collect();
+        for (k, y) in waves.iter().enumerate() {
             lines.plot_with(&x, y, LineProps::default().label(format!("phase {k}")))?;
         }
         lines.set_title("damped waves");

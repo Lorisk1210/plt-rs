@@ -1,17 +1,18 @@
 //! Contours, vector fields and triangulations, and 3-D axes.
 
+use pltrs::axes::{TriValues, TripcolorOptions};
 use pltrs::collections::CollectionProps;
 use pltrs::colorbar::ColorbarOptions;
 use pltrs::colors::{Color, Colorize, ColorizerOptions, colormaps};
 use pltrs::contour::{ClabelOptions, ContourOptions, Levels, QuadField};
 use pltrs::mplot3d::{FaceColors, Sampling, SurfaceOptions};
 use pltrs::numeric::{Grid, linspace, meshgrid};
-use pltrs::quiver::{QuiverOptions, VectorField};
+use pltrs::quiver::{BarbsOptions, QuiverOptions, VectorField};
 use pltrs::streamplot::{StreamField, StreamplotOptions};
 use pltrs::tri::Triangulation;
 use pltrs_spec::rng::SpecRng;
 
-use super::{Build, Workload, smooth_field};
+use super::{Build, Tier, Workload, smooth_field};
 
 /// The workloads of this module.
 pub(super) const WORKLOADS: &[Workload] = &[
@@ -25,6 +26,9 @@ pub(super) const WORKLOADS: &[Workload] = &[
     Workload::new("fields/streamplot_100", "streamplot_100", streamplot),
     Workload::new("fields/quiver_100", "quiver_100", quiver),
     Workload::new("fields/tricontourf_1e5", "tricontourf_1e5", tricontourf),
+    Workload::new("fields/tripcolor_1e4", "tripcolor_1e4", tripcolor).in_tier(Tier::Medium),
+    Workload::new("fields/tricontour_1e4", "tricontour_1e4", tricontour).in_tier(Tier::Medium),
+    Workload::new("fields/barbs_30", "barbs_30", barbs).in_tier(Tier::Medium),
     Workload::new("3d/plot_surface_200", "surface_200", plot_surface),
     Workload::new(
         "3d/plot_surface_200_full",
@@ -114,21 +118,75 @@ fn quiver() -> Build {
     })
 }
 
-/// `tricontourf` of a bump over 10⁵ uniform points, triangulated (Delaunay)
-/// as part of the work.
-fn tricontourf() -> Build {
-    let mut rng = SpecRng::new(11);
-    let x = rng.uniform(100_000, -3.0, 3.0);
-    let y = rng.uniform(100_000, -3.0, 3.0);
-    let z: Vec<f64> = x
+/// `n` uniform points over `[-3, 3]²` from the stream `seed`, and a bump
+/// with a ripple over them: the x, y and z values.
+fn bump(n: usize, seed: u64) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let mut rng = SpecRng::new(seed);
+    let x = rng.uniform(n, -3.0, 3.0);
+    let y = rng.uniform(n, -3.0, 3.0);
+    let z = x
         .iter()
         .zip(&y)
         .map(|(x, y)| (-(x * x) - y * y).exp() + 0.3 * (2.0 * x).sin())
         .collect();
+    (x, y, z)
+}
+
+/// `tricontourf` of a bump over 10⁵ uniform points, triangulated (Delaunay)
+/// as part of the work.
+fn tricontourf() -> Build {
+    let (x, y, z) = bump(100_000, 11);
     Box::new(move |fig| {
         let tri = Triangulation::delaunay(&x, &y)?;
         fig.subplot()
             .tricontourf(&tri, &z, ContourOptions::default())?;
+        Ok(())
+    })
+}
+
+/// `tripcolor` of a bump over 10⁴ uniform points, triangulated as part
+/// of the work.
+fn tripcolor() -> Build {
+    let (x, y, z) = bump(10_000, 48);
+    Box::new(move |fig| {
+        let tri = Triangulation::delaunay(&x, &y)?;
+        fig.subplot().tripcolor(
+            &tri,
+            TriValues::Auto(z.clone()),
+            TripcolorOptions::default(),
+        )?;
+        Ok(())
+    })
+}
+
+/// `tricontour` lines of a bump over 10⁴ uniform points at 12 levels,
+/// triangulated as part of the work.
+fn tricontour() -> Build {
+    let (x, y, z) = bump(10_000, 49);
+    Box::new(move |fig| {
+        let tri = Triangulation::delaunay(&x, &y)?;
+        let options = ContourOptions {
+            levels: Levels::Count(12),
+            ..ContourOptions::default()
+        };
+        fig.subplot().tricontour(&tri, &z, options)?;
+        Ok(())
+    })
+}
+
+/// Wind barbs of the swirling field on a 30 × 30 grid, in knots.
+fn barbs() -> Build {
+    let (t, u, v) = swirl(30);
+    let (x, y) = meshgrid(&t, &t);
+    let knots = |grid: &Grid<f64>| Grid::from_fn(30, 30, |i, j| 5.0 * grid[(i, j)]);
+    let (u, v) = (knots(&u), knots(&v));
+    Box::new(move |fig| {
+        let field = VectorField::on_mesh(&x, &y, &u, &v);
+        let options = BarbsOptions {
+            length: 5.0,
+            ..BarbsOptions::default()
+        };
+        fig.subplot().barbs(field, options)?;
         Ok(())
     })
 }

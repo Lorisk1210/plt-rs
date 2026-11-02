@@ -9,11 +9,9 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use super::cold::ColdCommand;
-use super::render::{render, user_configuration};
+use super::implementation::Implementation;
+use super::render::{Documents, render, user_configuration};
 use super::workloads::{self, Output, Workload};
-
-/// The column of pltrs (Rust) in labels and artifact directories.
-pub(super) const LABEL: &str = "pltrs-rust";
 
 /// Runs the child mode `args` asks for.
 pub(super) fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
@@ -32,10 +30,10 @@ pub(super) fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
 /// saves to `out`.
 fn cold(workload: &Workload, out: &Path) -> Result<(), Box<dyn Error>> {
     user_configuration();
-    let build = (workload.setup)();
-    let document = render(workload, &build, workload.output)?;
+    let built = workload.build();
+    let timed = render(workload, &built, workload.output, Documents::AsUsers)?;
     if workload.output != Output::LayoutOnly {
-        std::fs::write(out, document)?;
+        std::fs::write(out, timed.document)?;
     }
     Ok(())
 }
@@ -64,7 +62,7 @@ fn command(args: Vec<OsString>) -> Result<ColdCommand, Box<dyn Error>> {
     ];
     argv.extend(args);
     Ok(ColdCommand {
-        label: LABEL.to_owned(),
+        label: Implementation::Rust.key().to_owned(),
         argv,
         env: Vec::new(),
     })

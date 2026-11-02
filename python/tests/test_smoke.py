@@ -635,3 +635,50 @@ def test_bbox_images_fill_the_box_their_callable_gives():
     assert behind.get_window_extent().bounds == text.get_window_extent().bounds
     assert corner.get_window_extent().bounds == pytest.approx(
         (10, 10, fig.dpi / 2, 30))
+
+
+def test_generated_set_methods_list_the_subclass_properties():
+    # Values recorded from matplotlib 3.11.2.
+    import inspect
+    from pltrs.artist import Artist
+    from pltrs.lines import Line2D
+
+    class MyArtist(Artist):
+        def set_myparam1(self, val):
+            """Set the parameter."""
+            self.myparam1 = val
+
+    class MyLine(Line2D):
+        def set_myparam2(self, val):
+            self.myparam2 = val
+
+    parameters = list(inspect.signature(MyArtist.set).parameters)
+    assert parameters[:6] == ["self", "agg_filter", "alpha", "animated", "clip_box",
+                              "clip_on"]
+    assert len(parameters) == 21
+    assert "myparam1" in MyArtist.set.__doc__
+    assert MyArtist.set.__qualname__ == f"{MyArtist.__qualname__}.set"
+    assert MyArtist.set is MyArtist.set
+    assert "myparam2" in MyLine.set.__doc__ and "myparam1" not in MyLine.set.__doc__
+    assert (set(inspect.signature(MyLine.set).parameters)
+            - set(inspect.signature(Line2D.set).parameters)) == {"myparam2"}
+    artist = MyArtist()
+    artist.set(myparam1=3)
+    assert artist.myparam1 == 3
+
+
+def test_dropping_the_text_caches_draws_the_same():
+    from pltrs import _native
+
+    def drawn():
+        fig, ax = plt.subplots()
+        ax.set_title(r"$\sum_{n=1}^{5} \frac{x^n}{n!}$ and plain text")
+        ax.text(0.5, 0.5, "middle")
+        buffer = io.BytesIO()
+        fig.savefig(buffer, format="png", metadata={"Software": None})
+        plt.close(fig)
+        return buffer.getvalue()
+
+    first = drawn()
+    _native.text_overrides.text_engine_clear_caches()
+    assert drawn() == first

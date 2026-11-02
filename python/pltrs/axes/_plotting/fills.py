@@ -200,7 +200,7 @@ class FillsMixin:
         kwargs, style_gen = _style_helpers.style_generator(kwargs)
         x, = self._process_unit_info([("x", x)])
         natives = _plotting.stackplot(self._native, floats(x),
-                                      [list(floats(row)) for row in y], baseline, [])
+                                      [floats(row) for row in y], baseline, [])
         collections = wrap_all(self, natives, mcoll.FillBetweenPolyCollection)
         labels = iter(labels)
         for collection in collections:

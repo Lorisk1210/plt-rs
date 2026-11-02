@@ -11,7 +11,7 @@ use pltrs::prelude::*;
 use pltrs::stats::{AxisBins, BinEstimator, Bins, Histogram2dOptions};
 use pltrs_spec::rng::SpecRng;
 
-use super::{Build, Workload, random_walk, smooth_field};
+use super::{Build, Tier, Workload, random_walk, smooth_field};
 
 /// The workloads of this module.
 pub(super) const WORKLOADS: &[Workload] = &[
@@ -26,6 +26,24 @@ pub(super) const WORKLOADS: &[Workload] = &[
     Workload::new("markers/scatter_1e5", "scatter_1e5", scatter),
     Workload::new("markers/plot_o_1e5", "plot_o_1e5", plot_markers),
     Workload::new("meshes/pcolormesh_1000", "pcolormesh_1000", pcolormesh),
+    Workload::new("meshes/pcolor_50", "pcolor_50", || pcolor(50)).in_tier(Tier::Medium),
+    Workload::new("meshes/pcolor_200", "pcolor_200", || pcolor(200)),
+    Workload::new("meshes/imshow_60_bilinear", "imshow_60_bilinear", || {
+        enlarged(Interpolation::Bilinear)
+    })
+    .in_tier(Tier::Medium),
+    Workload::new("meshes/imshow_60_bicubic", "imshow_60_bicubic", || {
+        enlarged(Interpolation::Bicubic)
+    })
+    .in_tier(Tier::Medium),
+    Workload::new("meshes/imshow_60_spline36", "imshow_60_spline36", || {
+        enlarged(Interpolation::Spline36)
+    })
+    .in_tier(Tier::Medium),
+    Workload::new("meshes/imshow_60_lanczos", "imshow_60_lanczos", || {
+        enlarged(Interpolation::Lanczos)
+    })
+    .in_tier(Tier::Medium),
     Workload::new(
         "meshes/imshow_4000_antialiased",
         "imshow_4000_antialiased",
@@ -161,6 +179,30 @@ fn pcolormesh() -> Build {
     Box::new(move |fig| {
         fig.subplot()
             .pcolormesh(Mesh::new(z.clone()), PcolorOptions::default())?;
+        Ok(())
+    })
+}
+
+/// `pcolor` of a smooth `n × n` field: one polygon per cell.
+fn pcolor(n: usize) -> Build {
+    let z = smooth_field(n);
+    Box::new(move |fig| {
+        fig.subplot()
+            .pcolor(Mesh::new(z.clone()), PcolorOptions::default())?;
+        Ok(())
+    })
+}
+
+/// `imshow` of a smooth 60 × 60 field enlarged to the axes through
+/// `interpolation`.
+fn enlarged(interpolation: Interpolation) -> Build {
+    let z = smooth_field(60);
+    Box::new(move |fig| {
+        let options = ImshowOptions {
+            interpolation: Some(interpolation),
+            ..ImshowOptions::default()
+        };
+        fig.subplot().imshow(z.clone(), options)?;
         Ok(())
     })
 }

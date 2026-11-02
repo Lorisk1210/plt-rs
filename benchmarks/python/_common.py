@@ -93,24 +93,37 @@ def waves(count, points):
     return x, [np.sin(2.0 * math.pi * (x + k / count)) + k / 50.0 for k in range(count)]
 
 
-def finish(fig, target, options):
-    """Save ``fig`` to ``target`` (a path or a file object) with the
-    ``savefig`` keywords ``options``, or lay it out without drawing it
-    when ``target`` is None."""
+def finish(drawn, target, options):
+    """Save what ``draw()`` made to ``target`` (a path or a file object)
+    with the ``savefig`` keywords ``options``, or lay it out without
+    rendering it when ``target`` is None.
+
+    ``drawn`` is a figure, or an animation, whose frames are rendered into
+    the page of matplotlib's JavaScript player (``to_jshtml``) when the
+    format is ``html``.
+    """
     if target is None:
-        fig.draw_without_rendering()
-    else:
-        fig.savefig(target, **options)
+        drawn.draw_without_rendering()
+        return
+    if options.get("format") == "html" or str(target).endswith(".html"):
+        page = drawn.to_jshtml()
+        if hasattr(target, "write"):
+            target.write(page.encode())
+        else:
+            with open(target, "w", encoding="utf-8") as file:
+                file.write(page)
+        return
+    drawn.savefig(target, **options)
 
 
-def save(fig, args=None):
-    """What a script does last: save ``fig`` as its command line asks
-    (``OUT [KEY=VALUE...]``, or ``--layout``)."""
+def save(drawn, args=None):
+    """What a script does last: save what ``draw()`` made as its command
+    line asks (``OUT [KEY=VALUE...]``, or ``--layout``)."""
     args = sys.argv[1:] if args is None else args
     if args == ["--layout"]:
-        finish(fig, None, {})
+        finish(drawn, None, {})
         return
     if not args:
         sys.exit(f"usage: {sys.argv[0]} OUT [KEY=VALUE...] | --layout")
     out, *options = args
-    finish(fig, out, dict(option.split("=", 1) for option in options))
+    finish(drawn, out, dict(option.split("=", 1) for option in options))

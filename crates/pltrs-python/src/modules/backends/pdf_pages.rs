@@ -1,20 +1,37 @@
 //! Multi-page PDF documents (matplotlib's `backend_pdf.PdfPages`).
 
 use pltrs::figure::{Figure, PdfPages};
+use pltrs_render::PdfRenderer;
 
 use super::print::{DocumentMetadata, PrintSettings};
 use crate::binding::prelude::*;
 
-/// A PDF document collecting pages, until it is finished.
-struct PdfDocument(Option<PdfPages>);
+/// A PDF document collecting pages, until it is closed.
+pub(super) struct PdfDocument(Option<PdfPages>);
 
 impl PdfDocument {
-    /// The document, if it is not finished yet.
+    /// The document, if it is not closed yet.
     fn pages(&mut self) -> PyResult<&mut PdfPages> {
-        self.0
-            .as_mut()
-            .ok_or_else(|| PyErr::value_error("I/O operation on closed file."))
+        self.0.as_mut().ok_or_else(closed)
     }
+
+    /// The PDF file of the document, if it is not closed yet.
+    pub(super) fn file(&mut self) -> PyResult<&mut PdfRenderer> {
+        Ok(self.pages()?.document_mut())
+    }
+
+    /// The PDF file of the document, closing the document.
+    pub(super) fn take(&mut self) -> PyResult<PdfRenderer> {
+        self.0
+            .take()
+            .map(PdfPages::into_document)
+            .ok_or_else(closed)
+    }
+}
+
+/// Python's error for a closed file.
+fn closed() -> PyErr {
+    PyErr::value_error("I/O operation on closed file.")
 }
 
 impl IntoPy for PdfDocument {
@@ -69,23 +86,11 @@ fn pdf_pages_attach_note(
     Ok(())
 }
 
-/// Finishes the document: its bytes (a document without pages is still
-/// a valid PDF file).
-fn pdf_pages_finish(document: Native<PdfDocument>) -> PyResult<Bytes> {
-    let pages = document
-        .borrow_mut()
-        .0
-        .take()
-        .ok_or_else(|| PyErr::value_error("I/O operation on closed file."))?;
-    Ok(Bytes(pages.finish()?))
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("pdf_pages_new", pdf_pages_new)?;
     module.add("pdf_pages_savefig", pdf_pages_savefig)?;
     module.add("pdf_pages_count", pdf_pages_count)?;
     module.add("pdf_pages_images", pdf_pages_images)?;
-    module.add("pdf_pages_attach_note", pdf_pages_attach_note)?;
-    module.add("pdf_pages_finish", pdf_pages_finish)
+    module.add("pdf_pages_attach_note", pdf_pages_attach_note)
 }

@@ -223,10 +223,18 @@ fn set_converter(axes: Axes, name: String, kind: String) -> PyResult<()> {
     Ok(())
 }
 
-/// Ticks the axis as an axis of dates in the time zone `tz`
-/// (`axis_date`).
-fn axis_date(axes: Axes, name: String, tz: Option<Zone>) -> PyResult<()> {
-    axis(&axes, &name)?.axis_date(tz.as_ref().map(|zone| &zone.0));
+/// Ticks the axis, of a 2-D or a 3-D axes, as an axis of dates in the
+/// time zone `tz` (`axis_date`, `zaxis_date`).
+fn axis_date(owner: AxisOwner, name: String, tz: Option<Zone>) -> PyResult<()> {
+    let tz = tz.as_ref().map(|zone| &zone.0);
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.axis_date(tz);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.axis_date(tz);
+        }
+    }
     Ok(())
 }
 

@@ -92,6 +92,14 @@ fn cache_dir() -> PyResult<String> {
     Ok(config::cache_dir()?.display().to_string())
 }
 
+/// The rc file pltrs reads, or the template of the defaults (matplotlib's
+/// `matplotlib_fname`).
+fn rc_file_or_template() -> PyResult<String> {
+    config::rc_file_or_template()
+        .map(|path| path.display().to_string())
+        .map_err(|err| PyErr::runtime_error(err.to_string()))
+}
+
 /// The temporary directory standing in for the configuration directory,
 /// looked up first, if one does, with the warning matplotlib logs on
 /// import then: `(directory, message)`.
@@ -106,6 +114,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("config_dir", config_dir)?;
     module.add("temp_dir_notice", temp_dir_notice)?;
     module.add("cache_dir", cache_dir)?;
+    module.add("rc_file_or_template", rc_file_or_template)?;
     module.add("strip_math", strip_math)?;
     module.add("box_stats", box_stats)
 }

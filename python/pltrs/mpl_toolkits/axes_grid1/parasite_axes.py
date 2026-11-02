@@ -79,6 +79,13 @@ class ParasiteAxesBase:
             return self.transAux + self._parent_axes.transData
         return super().transData
 
+    def clear(self):
+        """Clear the parasite: its host draws the artists added from now
+        on, and the parasite's own decorations stay hidden."""
+        super().clear()
+        for child in self.get_children():
+            child.set_visible(False)
+
     def get_axes_locator(self):
         return self._parent_axes.get_axes_locator()
 
@@ -157,10 +164,39 @@ class HostAxesBase:
         # Anything you draw in ax2 will match the ticks and grids of ax1.
         return ax2
 
+    def draw(self, renderer):
+        """Draw the host and the artists of its parasites, placed by the
+        host's locator and aspect (pltrs (Rust) draws the parasites'
+        artists among the host's)."""
+        locator = self.get_axes_locator()
+        if locator:
+            pos = locator(self, renderer)
+            self.set_position(pos, which="active")
+            self.apply_aspect(pos)
+        else:
+            self.apply_aspect()
+
+        rect = self.get_position()
+        for ax in self.parasites:
+            ax.apply_aspect(rect)
+
+        super().draw(renderer)
+
     def clear(self):
         super().clear()
         for ax in self.parasites:
             ax.clear()
+
+    def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
+                      bbox_extra_artists=None):
+        bbs = [
+            *[ax.get_tightbbox(renderer, call_axes_locator=call_axes_locator)
+              for ax in self.parasites],
+            super().get_tightbbox(renderer,
+                                  call_axes_locator=call_axes_locator,
+                                  bbox_extra_artists=bbox_extra_artists)]
+        return mtransforms.Bbox.union(
+            [b for b in bbs if b is not None and (b.width != 0 or b.height != 0)])
 
     def pick(self, mouseevent):
         super().pick(mouseevent)

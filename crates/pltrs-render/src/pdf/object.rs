@@ -3,9 +3,24 @@
 
 use crate::vector::{VectorError, trimmed};
 
-/// A PDF object, or an operator or verbatim content in a content stream.
+/// A PDF object, or an operator or verbatim content in a content stream
+/// (what matplotlib's `pdfRepr` writes: numbers, names, strings, arrays,
+/// dictionaries, references, `null`, `Op`s and `Verbatim` content).
+///
+/// ```
+/// use pltrs_render::PdfObject;
+/// let page = PdfObject::Dict(vec![
+///     ("Type".to_owned(), PdfObject::name("Page")),
+///     ("Parent".to_owned(), PdfObject::Ref(2)),
+///     ("Rotate".to_owned(), PdfObject::Null),
+/// ]);
+/// assert_eq!(page.repr()?, b"<< /Type /Page /Parent 2 0 R /Rotate null >>");
+/// # Ok::<(), pltrs_render::VectorError>(())
+/// ```
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum Obj {
+pub enum Obj {
+    /// `null`.
+    Null,
     /// `true` / `false`.
     Bool(bool),
     /// An integer.
@@ -31,12 +46,12 @@ pub(super) enum Obj {
 
 impl Obj {
     /// A name object.
-    pub(super) fn name(name: impl Into<String>) -> Self {
+    pub fn name(name: impl Into<String>) -> Self {
         Self::Name(name.into())
     }
 
     /// An operator.
-    pub(super) fn op(op: &str) -> Self {
+    pub fn op(op: &str) -> Self {
         Self::Raw(op.as_bytes().to_vec())
     }
 
@@ -55,9 +70,15 @@ impl Obj {
         Self::Array(values.into_iter().map(Self::Real).collect())
     }
 
-    /// `pdfRepr`.
-    pub(super) fn repr(&self) -> Result<Vec<u8>, VectorError> {
+    /// The object in PDF syntax (matplotlib's `pdfRepr`): reals with up to
+    /// ten decimals, containers filled into lines under 75 columns.
+    ///
+    /// # Errors
+    ///
+    /// When a number is not finite, which PDF cannot write.
+    pub fn repr(&self) -> Result<Vec<u8>, VectorError> {
         Ok(match self {
+            Self::Null => b"null".to_vec(),
             Self::Bool(b) => {
                 if *b {
                     b"true".to_vec()
@@ -133,7 +154,13 @@ fn string_repr(bytes: &[u8]) -> Vec<u8> {
 
 /// A string as `pdfRepr` writes Python text: ASCII as is, anything else
 /// as UTF-16BE with a byte-order mark.
-pub(super) fn text_string(text: &str) -> Obj {
+///
+/// ```
+/// use pltrs_render::{PdfObject, pdf_text_string};
+/// assert_eq!(pdf_text_string("ab"), PdfObject::Str(b"ab".to_vec()));
+/// assert_eq!(pdf_text_string("é"), PdfObject::Str(vec![0xfe, 0xff, 0, 0xe9]));
+/// ```
+pub fn text_string(text: &str) -> Obj {
     if text.is_ascii() {
         Obj::Str(text.as_bytes().to_vec())
     } else {

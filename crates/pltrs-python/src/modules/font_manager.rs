@@ -292,6 +292,69 @@ fn score_weight(wanted: Scale, actual: Scale) -> PyResult<f64> {
     ))
 }
 
+/// matplotlib's `score_family(families, family2)`: where `family2` comes
+/// in `families` (0.0 at the head, 1.0 when it does not come), the generic
+/// families standing for the fonts the current rcParams list for them.
+fn score_family(families: Vec<String>, family: String) -> PyResult<f64> {
+    Ok(FontManager::score_family(
+        &families,
+        &family,
+        &pltrs::rc::params(),
+    ))
+}
+
+/// The score of two values `parse` reads, compared by `score`; values it
+/// cannot read compare as matplotlib compares them, as strings: 0.0 when
+/// equal, else 1.0.
+fn score_parsed<T, E>(
+    wanted: &str,
+    actual: &str,
+    parse: impl Fn(&str) -> Result<T, E>,
+    score: impl Fn(T, T) -> f64,
+) -> f64 {
+    match (parse(wanted), parse(actual)) {
+        (Ok(wanted), Ok(actual)) => score(wanted, actual),
+        _ if wanted == actual => 0.0,
+        _ => 1.0,
+    }
+}
+
+/// matplotlib's `score_style(style1, style2)`.
+fn score_style(wanted: String, actual: String) -> PyResult<f64> {
+    Ok(score_parsed(
+        &wanted,
+        &actual,
+        parse_style,
+        FontManager::score_style,
+    ))
+}
+
+/// matplotlib's `score_variant(variant1, variant2)`.
+fn score_variant(wanted: String, actual: String) -> PyResult<f64> {
+    Ok(score_parsed(
+        &wanted,
+        &actual,
+        parse_variant,
+        FontManager::score_variant,
+    ))
+}
+
+/// matplotlib's `score_stretch(stretch1, stretch2)`: a string that is
+/// neither a keyword nor a number counts as `normal`, as in matplotlib.
+fn score_stretch(wanted: Scale, actual: Scale) -> PyResult<f64> {
+    let value = |scale: &Scale| match scale {
+        Scale::Keyword(text) => Ok(text.parse().unwrap_or(FontStretch::NORMAL)),
+        Scale::Number(_) => stretch(scale),
+    };
+    Ok(FontManager::score_stretch(value(&wanted)?, value(&actual)?))
+}
+
+/// matplotlib's `score_size(size1, size2)` of sizes in points, `actual`
+/// `None` for a scalable font.
+fn score_size(wanted: f64, actual: Option<f64>) -> PyResult<f64> {
+    Ok(FontManager::score_size(wanted, actual))
+}
+
 /// `parse_fontconfig_pattern(pattern)`: the pattern's properties, each
 /// with its values, in order.
 fn parse_pattern(pattern: String) -> PyResult<Vec<(String, Vec<String>)>> {
@@ -342,6 +405,12 @@ fn type1_name(c: String) -> PyResult<String> {
     }
 }
 
+/// matplotlib's `uni2type1`: every character with an Adobe glyph name, by
+/// code point.
+fn uni2type1() -> PyResult<Vec<(u32, &'static str)>> {
+    Ok(pltrs_font::uni2type1().to_vec())
+}
+
 /// matplotlib's `get_data_path`: the data directory holding the fonts
 /// pltrs bundles as files.
 fn data_path() -> PyResult<String> {
@@ -354,6 +423,7 @@ fn data_path() -> PyResult<String> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("data_path", data_path)?;
     module.add("type1_name", type1_name)?;
+    module.add("uni2type1", uni2type1)?;
     module.add("alternative_family_names", alternative_family_names)?;
     module.add("find_fonts", find_fonts)?;
     module.add("best_font", best_font)?;
@@ -363,6 +433,11 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_entry", add_entry)?;
     module.add("remove_entry", remove_entry)?;
     module.add("score_weight", score_weight)?;
+    module.add("score_family", score_family)?;
+    module.add("score_style", score_style)?;
+    module.add("score_variant", score_variant)?;
+    module.add("score_stretch", score_stretch)?;
+    module.add("score_size", score_size)?;
     module.add("parse_pattern", parse_pattern)?;
     module.add("escape_family", escape_family)?;
     module.add("escape_value", escape_value)

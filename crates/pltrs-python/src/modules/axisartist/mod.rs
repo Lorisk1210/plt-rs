@@ -8,6 +8,7 @@ mod artists;
 mod axis_texts;
 mod curvilinear;
 mod helpers;
+mod parts;
 
 use crate::binding::prelude::*;
 
@@ -16,5 +17,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     artists::register(module)?;
     axis_texts::register(module)?;
     curvilinear::register(module)?;
-    helpers::register(module)
+    helpers::register(module)?;
+    parts::register(module)
 }

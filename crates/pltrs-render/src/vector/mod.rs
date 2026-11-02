@@ -80,6 +80,12 @@ pub enum VectorError {
     Unsupported(&'static str),
     /// TeX text could not be typeset or its fonts embedded.
     Tex(TexError),
+    /// A PDF object was reserved but never written before the
+    /// cross-reference table.
+    UnwrittenObject(usize),
+    /// A PDF stream was begun while another is open (matplotlib's
+    /// assertion in `beginStream`).
+    StreamOpen,
 }
 
 impl fmt::Display for VectorError {
@@ -94,6 +100,10 @@ impl fmt::Display for VectorError {
             Self::NonFinite(what) => write!(f, "cannot write a non-finite {what}"),
             Self::Unsupported(what) => f.write_str(what),
             Self::Tex(err) => write!(f, "cannot draw TeX text: {err}"),
+            Self::UnwrittenObject(id) => {
+                write!(f, "PDF object {id} was reserved but never written")
+            }
+            Self::StreamOpen => f.write_str("a PDF stream is open already"),
         }
     }
 }
@@ -104,7 +114,11 @@ impl std::error::Error for VectorError {
             Self::Font(err) => Some(err),
             Self::Image(err) => Some(err),
             Self::Tex(err) => Some(err),
-            Self::InvalidCanvas { .. } | Self::NonFinite(_) | Self::Unsupported(_) => None,
+            Self::InvalidCanvas { .. }
+            | Self::NonFinite(_)
+            | Self::Unsupported(_)
+            | Self::UnwrittenObject(_)
+            | Self::StreamOpen => None,
         }
     }
 }

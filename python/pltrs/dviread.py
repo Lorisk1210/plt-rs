@@ -21,11 +21,13 @@ Interface::
 """
 
 from collections import namedtuple
+import dataclasses
 from functools import cached_property, lru_cache
 import logging
 import os
 from pathlib import Path
 
+from . import _api
 from ._native import dviread as _dviread
 
 _log = logging.getLogger(__name__)
@@ -183,12 +185,22 @@ class DviFont:
     come from TeX font metrics, or from the OpenType and TrueType files of
     the native fonts of XeTeX and LuaTeX.
 
-    Attributes
+    Parameters
     ----------
+    scale : float
+        Factor by which the font is scaled from its natural size.
+    metrics : Tfm | TtfMetrics
+        TeX font metrics for this font
     texname : bytes
        Name of the font as used internally in the DVI file, as an ASCII
        bytestring.  This is usually very different from any external font
        names; `PsfontsMap` can be used to find the external name of the font.
+    vf : Vf
+       A TeX "virtual font" file, or None if this font is not virtual.
+
+    Attributes
+    ----------
+    texname : bytes
     fname : str
        Compatibility shim so that DviFont can be used with
        ``_backend_pdf_ps.CharacterTracker``; not a real filename.
@@ -197,14 +209,51 @@ class DviFont:
        smaller TeX points.
     """
 
+    def __init__(self, scale, metrics, texname, vf):
+        _api.check_isinstance(bytes, texname=texname)
+        self._set_native(_dviread.font_new(
+            scale, metrics._native, texname, None if vf is None else vf._native))
+        self._metrics = metrics
+        self._vf = vf
+
     @classmethod
     def _from_native(cls, native):
         """The font of the native DVI font *native*."""
         self = cls.__new__(cls)
-        self._native = native
-        self.texname, self._scale, self.size = _dviread.font_name_and_size(native)
-        self._path = None
+        self._set_native(native)
         return self
+
+    def _set_native(self, native):
+        """Make the font that of the native DVI font *native*."""
+        self._native = native
+        self.texname, self._scale, self._size = _dviread.font_name_and_size(native)
+        self._path = None
+
+    @classmethod
+    def from_luatex(cls, scale, texname):
+        """
+        The native font of LuaTeX whose *texname* is its font file in
+        brackets, optionally followed by ``:`` and its options (``index``,
+        ``embolden``, ``slant``, ``extend``) joined by ``;``.
+        """
+        return cls._from_native(_dviread.font_from_luatex(scale, texname))
+
+    @classmethod
+    def from_xetex(cls, scale, texname, subfont, effects):
+        """
+        The native font of XeTeX: face *subfont* of the font file
+        *texname*, with the *effects* (``rgba``, ``extend``, ``slant``,
+        ``embolden``) the DVI file gives it.
+        """
+        return cls._from_native(_dviread.font_from_xetex(
+            scale, texname, subfont,
+            tuple(effects.get(key) for key in
+                  ("rgba", "extend", "slant", "embolden"))))
+
+    size = property(lambda self: self._size)
+
+    widths = _api.deprecated("3.11")(property(
+        lambda self: _dviread.font_widths(self._native)))
 
     @property
     def fname(self):
@@ -259,6 +308,128 @@ class DviFont:
     def _index_dvi_to_freetype(self, idx):
         """Convert dvi glyph indices to FreeType ones."""
         return _dviread.font_glyph_index(self._native, idx)
+
+
+class Vf(Dvi):
+    r"""
+    A virtual font (\*.vf file) containing subroutines for dvi files.
+
+    Parameters
+    ----------
+    filename : str or path-like
+
+    Notes
+    -----
+    The virtual font format is a derivative of dvi:
+    http://mirrors.ctan.org/info/knuth/virtual-fonts
+    pltrs (Rust) reads it with its DVI machinery.
+
+    Examples
+    --------
+    ::
+
+        vf = Vf(filename)
+        glyph = vf[code]
+        glyph.text, glyph.boxes, glyph.width
+    """
+
+    def __init__(self, filename):
+        super().__init__(filename, 0)
+        try:
+            self._native = _dviread.vf(self.file.read())
+        finally:
+            self.close()
+
+    def __getitem__(self, code):
+        packet = _dviread.vf_packet(self._native, code)
+        if packet is None:
+            raise KeyError(code)
+        text, boxes, width = packet
+        return Page(
+            text=[Text(x, y, DviFont._from_native(font), glyph, w)
+                  for x, y, font, glyph, w in text],
+            boxes=[Box(*box) for box in boxes],
+            width=width, height=None, descent=None)
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class TexMetrics:
+    """
+    Metrics of a glyph, with TeX semantics.
+
+    TeX metrics have different semantics from FreeType metrics: tex_width
+    corresponds to FreeType's ``advance`` (i.e., including whitespace padding);
+    tex_height to ``bearingY`` (how much the glyph extends over the baseline);
+    tex_depth to ``height - bearingY`` (how much the glyph extends under the
+    baseline, as a positive number).
+    """
+    tex_width: int
+    tex_height: int
+    tex_depth: int
+
+
+def _tex_metrics(fields):
+    """The `TexMetrics` of native ``(width, height, depth)`` fields."""
+    if fields is None:
+        return None
+    width, height, depth = fields
+    return TexMetrics(tex_width=width, tex_height=height, tex_depth=depth)
+
+
+class Tfm:
+    """
+    A TeX Font Metric file.
+
+    This implementation covers only the bare minimum needed by the Dvi class.
+
+    Parameters
+    ----------
+    filename : str or path-like
+
+    Attributes
+    ----------
+    checksum : int
+       Used for verifying against the dvi file.
+    design_size : int
+       Design size of the font (in 12.20 TeX points); unused because it is
+       overridden by the scale factor specified in the dvi file.
+    """
+
+    def __init__(self, filename):
+        _log.debug('opening tfm file %s', filename)
+        with open(filename, 'rb') as file:
+            self._native = _dviread.tfm(file.read())
+        self.checksum, self.design_size = _dviread.tfm_header(self._native)
+
+    def get_metrics(self, idx):
+        """Return a glyph's TexMetrics, or None if unavailable."""
+        return _tex_metrics(_dviread.tfm_metrics(self._native, idx))
+
+    def _metrics_by_code(self, field):
+        """*field* of the metrics of every character, by code."""
+        return {code: getattr(self.get_metrics(code), field)
+                for code in _dviread.tfm_codes(self._native)}
+
+    width = _api.deprecated("3.11", alternative="get_metrics")(
+        property(lambda self: self._metrics_by_code("tex_width")))
+    height = _api.deprecated("3.11", alternative="get_metrics")(
+        property(lambda self: self._metrics_by_code("tex_height")))
+    depth = _api.deprecated("3.11", alternative="get_metrics")(
+        property(lambda self: self._metrics_by_code("tex_depth")))
+
+
+class TtfMetrics:
+    """
+    The metrics of the glyphs of an OpenType or TrueType font file, with
+    TeX semantics (the metrics of the native fonts of XeTeX and LuaTeX).
+    """
+
+    def __init__(self, filename):
+        self._native = _dviread.ttf_metrics(os.fspath(filename))
+
+    def get_metrics(self, idx):
+        """Return the TexMetrics of glyph *idx*."""
+        return _tex_metrics(_dviread.ttf_metrics_get(self._native, idx))
 
 
 def find_tex_file(filename):

@@ -27,6 +27,8 @@ pub(super) struct PdfWriter {
     offsets: Vec<Option<usize>>,
     compression: Option<CompressionLevel>,
     stream: Option<OpenStream>,
+    /// Where the cross-reference table starts, once written.
+    startxref: Option<usize>,
 }
 
 impl PdfWriter {
@@ -42,7 +44,13 @@ impl PdfWriter {
                 .ok()
                 .filter(|level| level.get() > 0),
             stream: None,
+            startxref: None,
         }
+    }
+
+    /// The object of the open stream, if any.
+    pub(super) fn open_stream(&self) -> Option<u32> {
+        self.stream.as_ref().map(|stream| stream.id)
     }
 
     /// Reserves an object number (`reserveObject`).
@@ -51,8 +59,11 @@ impl PdfWriter {
         (self.offsets.len() - 1) as u32
     }
 
-    fn record(&mut self, id: u32) {
-        self.offsets[id as usize] = Some(self.out.len());
+    /// Records that object `id` starts here (`recordXref`).
+    pub(super) fn record(&mut self, id: u32) {
+        if let Some(offset) = self.offsets.get_mut(id as usize) {
+            *offset = Some(self.out.len());
+        }
     }
 
     /// Writes an indirect object (`writeObject`).
@@ -147,17 +158,36 @@ impl PdfWriter {
         self.end_stream()
     }
 
-    /// Writes the cross-reference table and trailer and returns the file.
-    pub(super) fn finish(mut self, root: u32, info: u32) -> Result<Vec<u8>, VectorError> {
-        let start = self.out.len();
-        self.out
-            .extend(format!("xref\n0 {}\n", self.offsets.len()).into_bytes());
-        for (i, offset) in self.offsets.iter().enumerate() {
-            let offset = offset.expect("every reserved PDF object is written before the trailer");
-            let (generation, kind) = if i == 0 { (65535, 'f') } else { (0, 'n') };
-            self.out
-                .extend(format!("{offset:010} {generation:05} {kind} \n").into_bytes());
+    /// The first object reserved but not written yet, if any.
+    pub(super) fn unwritten(&self) -> Option<usize> {
+        self.offsets.iter().position(Option::is_none)
+    }
+
+    /// Writes the cross-reference table (`writeXref`).
+    ///
+    /// # Errors
+    ///
+    /// When an object was reserved but never written.
+    pub(super) fn write_xref(&mut self) -> Result<(), VectorError> {
+        if let Some(id) = self.unwritten() {
+            return Err(VectorError::UnwrittenObject(id));
         }
+        let start = self.out.len();
+        let mut table = format!("xref\n0 {}\n", self.offsets.len()).into_bytes();
+        for (i, offset) in self.offsets.iter().enumerate() {
+            let offset = offset.unwrap_or_default();
+            let (generation, kind) = if i == 0 { (65535, 'f') } else { (0, 'n') };
+            table.extend(format!("{offset:010} {generation:05} {kind} \n").into_bytes());
+        }
+        self.out.extend(table);
+        self.startxref = Some(start);
+        Ok(())
+    }
+
+    /// Writes the trailer naming the catalog `root` and the document
+    /// information `info` (`writeTrailer`), after the cross-reference
+    /// table.
+    pub(super) fn write_trailer(&mut self, root: u32, info: u32) -> Result<(), VectorError> {
         self.out.extend_from_slice(b"trailer\n");
         let trailer = Obj::dict([
             ("Size", Obj::Int(self.offsets.len() as i64)),
@@ -165,9 +195,21 @@ impl PdfWriter {
             ("Info", Obj::Ref(info)),
         ]);
         self.out.extend(trailer.repr()?);
+        let start = self.startxref.unwrap_or(self.out.len());
         self.out
             .extend(format!("\nstartxref\n{start}\n%%EOF\n").into_bytes());
-        Ok(self.out)
+        Ok(())
+    }
+
+    /// The file written so far.
+    #[cfg(test)]
+    pub(super) fn bytes(&self) -> &[u8] {
+        &self.out
+    }
+
+    /// The file written.
+    pub(super) fn into_bytes(self) -> Vec<u8> {
+        self.out
     }
 }
 
@@ -188,7 +230,9 @@ mod tests {
         w.end_stream().unwrap();
         let info = w.reserve();
         w.write_object(info, &Obj::Dict(Vec::new())).unwrap();
-        let file = String::from_utf8_lossy(&w.finish(root, info).unwrap()).into_owned();
+        w.write_xref().unwrap();
+        w.write_trailer(root, info).unwrap();
+        let file = String::from_utf8_lossy(&w.into_bytes()).into_owned();
         assert!(file.contains("2 0 obj\n<< /Length 3 0 R >>\nstream\n1 w\n\nendstream"));
         assert!(file.contains("3 0 obj\n4\nendobj"));
         assert!(file.contains("xref\n0 5\n0000000000 65535 f \n"));

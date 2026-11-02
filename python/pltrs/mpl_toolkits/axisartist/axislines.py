@@ -14,9 +14,12 @@ lines run.
 
 import itertools
 
+import numpy as np
+
 from pltrs import _api
 import pltrs.axes as maxes
-from pltrs.transforms import Bbox
+from pltrs.path import Path
+from pltrs.transforms import Bbox, _interval_contains_close
 from pltrs._native import axisartist as _axisartist
 from ..axes_grid1 import mpl_axes
 from .axis_artist import AxisArtist
@@ -42,6 +45,36 @@ class _AxisArtistHelperBase:
     def get_nth_coord(self):
         return self.nth_coord
 
+    def _to_xy(self, values, const):
+        """
+        Create a (*values.shape, 2)-shape array representing (x, y) pairs.
+
+        The other coordinate is filled with the constant *const*.
+        """
+        if self.nth_coord == 0:
+            return np.stack(np.broadcast_arrays(values, const), axis=-1)
+        elif self.nth_coord == 1:
+            return np.stack(np.broadcast_arrays(const, values), axis=-1)
+        else:
+            raise ValueError("Unexpected nth_coord")
+
+    def _rectilinear_ticks(self, axes, const, inside):
+        """The major and minor ticks of ``self.axis`` on this line at the
+        constant other coordinate *const*, those whose tick coordinates
+        pass *inside*, as matplotlib's rectilinear ``get_tick_iterators``
+        yield them."""
+        angle_normal, angle_tangent = {0: (90, 0), 1: (0, 90)}[self.nth_coord]
+
+        def ticks(level):
+            locs = level.locator()
+            labels = level.formatter.format_ticks(locs)
+            for loc, label in zip(locs, labels):
+                c = self._to_xy(loc, const=const)
+                if inside(c):
+                    yield c, angle_normal, angle_tangent, label
+
+        return ticks(self.axis.major), ticks(self.axis.minor)
+
 
 class _FixedAxisArtistHelperBase(_AxisArtistHelperBase):
     """Helper class for a fixed (in the axes coordinate) axis."""
@@ -51,6 +84,38 @@ class _FixedAxisArtistHelperBase(_AxisArtistHelperBase):
         super().__init__(_api.getitem_checked(
             {"bottom": 0, "top": 0, "left": 1, "right": 1}, loc=loc))
         self._loc = loc
+        self._pos = {"bottom": 0, "top": 1, "left": 0, "right": 1}[loc]
+        # axis line in transAxes
+        self._path = Path(self._to_xy((0, 1), const=self._pos))
+
+    # LINE
+
+    def get_line(self, axes):
+        return self._path
+
+    def get_line_transform(self, axes):
+        return axes.transAxes
+
+    # LABEL
+
+    def get_axislabel_transform(self, axes):
+        return axes.transAxes
+
+    def get_axislabel_pos_angle(self, axes):
+        """
+        Return the label reference position in transAxes.
+
+        get_label_transform() returns a transform of (transAxes+offset)
+        """
+        return dict(left=((0., 0.5), 90),  # (position, angle_tangent)
+                    right=((1., 0.5), 90),
+                    bottom=((0.5, 0.), 0),
+                    top=((0.5, 1.), 0))[self._loc]
+
+    # TICK
+
+    def get_tick_transform(self, axes):
+        return [axes.get_xaxis_transform(), axes.get_yaxis_transform()][self.nth_coord]
 
     def _new_axis(self, axes, offset, axis_direction):
         """The native axis artist of *axes* along this edge."""
@@ -84,6 +149,15 @@ class FixedAxisArtistHelperRectilinear(_FixedAxisArtistHelperBase):
         super().__init__(loc)
         self.axis = [axes.xaxis, axes.yaxis][self.nth_coord]
 
+    # TICK
+
+    def get_tick_iterators(self, axes):
+        """tick_loc, tick_angle, tick_label"""
+        tick_to_axes = self.get_tick_transform(axes) - axes.transAxes
+        return self._rectilinear_ticks(
+            axes, self._pos, lambda c: _interval_contains_close(
+                (0, 1), tick_to_axes.transform(c)[self.nth_coord]))
+
 
 class FloatingAxisArtistHelperRectilinear(_FloatingAxisArtistHelperBase):
 
@@ -92,6 +166,45 @@ class FloatingAxisArtistHelperRectilinear(_FloatingAxisArtistHelperBase):
         super().__init__(nth_coord, passingthrough_point)
         self._axis_direction = axis_direction
         self.axis = [axes.xaxis, axes.yaxis][self.nth_coord]
+
+    def _fixed_axes_coord(self, axes):
+        """Where the line runs across, in axes coordinates."""
+        data_to_axes = axes.transData - axes.transAxes
+        p = data_to_axes.transform([self._value, self._value])
+        return p[1 - self.nth_coord]
+
+    def get_line(self, axes):
+        return Path(self._to_xy((0, 1), const=self._fixed_axes_coord(axes)))
+
+    def get_line_transform(self, axes):
+        return axes.transAxes
+
+    def get_axislabel_transform(self, axes):
+        return axes.transAxes
+
+    def get_axislabel_pos_angle(self, axes):
+        """
+        Return the label reference position in transAxes.
+
+        get_label_transform() returns a transform of (transAxes+offset)
+        """
+        angle = [0, 90][self.nth_coord]
+        verts = self._to_xy(0.5, const=self._fixed_axes_coord(axes))
+        return ((verts, angle) if 0 <= verts[1 - self.nth_coord] <= 1
+                else (None, None))
+
+    def get_tick_transform(self, axes):
+        return axes.transData
+
+    def get_tick_iterators(self, axes):
+        """tick_loc, tick_angle, tick_label"""
+        data_to_axes = axes.transData - axes.transAxes
+
+        def inside(c):
+            c1, c2 = data_to_axes.transform(c)
+            return 0 <= c1 <= 1 and 0 <= c2 <= 1
+
+        return self._rectilinear_ticks(axes, self._value, inside)
 
 
 class AxisArtistHelper:  # Backcompat.

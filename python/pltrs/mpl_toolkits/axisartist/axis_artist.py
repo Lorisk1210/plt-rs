@@ -11,9 +11,12 @@ draws once ``ax.add_artist(ticks)`` adds them, and texts made on their own
 (`LabelBase`, `AxisLabel`, `TickLabels`) likewise (`._own_texts`).
 """
 
+from operator import methodcaller
+
 from pltrs import _api, _handles
 import pltrs.artist as martist
 from pltrs.collections import LineCollection
+from pltrs.transforms import Bbox
 from pltrs._native import artist as _artist, axisartist as _axisartist
 from ._own_texts import OwnTexts
 
@@ -31,7 +34,47 @@ class _Part:
         return self._axis_artist._native
 
 
-class Ticks(martist.Artist):
+class AttributeCopier:
+    def get_ref_artist(self):
+        """
+        Return the underlying artist that actually defines some properties
+        (e.g., color) of this artist.
+        """
+        raise RuntimeError("get_ref_artist must overridden")
+
+    def get_attribute_from_ref_artist(self, attr_name):
+        getter = methodcaller("get_" + attr_name)
+        prop = getter(super())
+        return getter(self.get_ref_artist()) if prop == "auto" else prop
+
+
+def _auto(value):
+    """A colour or width as matplotlib's `AttributeCopier` sees it:
+    ``"auto"`` for one that follows the reference artist (None)."""
+    return "auto" if value is None else value
+
+
+class _TickStyle:
+    """The colour and width the ticks have of their own, ``"auto"`` when
+    they follow the ticks of their axis (what matplotlib's `.Line2D`
+    getters give `Ticks`)."""
+
+    def _own_style(self):
+        if self._part is None:
+            return self._color, self._markeredgewidth
+        return _axisartist.get_tick_style(self._part._native, self._part._name)
+
+    def get_color(self):
+        return _auto(self._own_style()[0])
+
+    def get_markeredgecolor(self):
+        return _auto(self._own_style()[0])
+
+    def get_markeredgewidth(self):
+        return _auto(self._own_style()[1])
+
+
+class Ticks(AttributeCopier, _TickStyle, martist.Artist):
     """
     Ticks are derived from `.Line2D`, and note that ticks themselves
     are markers. Thus, you should use set_mec, set_mew, etc.
@@ -46,11 +89,12 @@ class Ticks(martist.Artist):
     (``axis.major_ticks``) are those it draws.
     """
 
+    locs_angles_labels = _api.deprecated("3.11")(property(lambda self: []))
+
     def __init__(self, ticksize, tick_out=False, *, axis=None, **kwargs):
         super().__init__()
         self._part = None
         self._ticksize = ticksize
-        self.locs_angles_labels = []
         self._locs_angles = []
         self._color = None
         self._markeredgewidth = None
@@ -63,7 +107,21 @@ class Ticks(martist.Artist):
         """The *level* (``"major"`` or ``"minor"``) ticks of *axis_artist*."""
         ticks = cls.__new__(cls)
         ticks._part = _Part(axis_artist, level)
+        ticks._axis = axis_artist.axis
         return ticks
+
+    def get_ref_artist(self):
+        # docstring inherited
+        return self._axis.majorTicks[0].tick1line
+
+    def get_color(self):
+        return self.get_attribute_from_ref_artist("color")
+
+    def get_markeredgecolor(self):
+        return self.get_attribute_from_ref_artist("markeredgecolor")
+
+    def get_markeredgewidth(self):
+        return self.get_attribute_from_ref_artist("markeredgewidth")
 
     def _set_native(self, key, value):
         _axisartist.set_ticks(self._part._native, self._part._name, key, value)
@@ -198,6 +256,8 @@ class LabelBase(martist.Artist):
     direction.
     """
 
+    locs_angles_labels = _api.deprecated("3.11")(property(lambda self: []))
+
     #: The kind of texts made on their own (see `._own_texts.OwnTexts`).
     _KIND = "label"
     #: Where the native getter of the texts of an axis artist puts each
@@ -223,6 +283,7 @@ class LabelBase(martist.Artist):
         """The text part *part* of *axis_artist*."""
         label = cls.__new__(cls)
         label._part = _Part(axis_artist, part)
+        label._axis = axis_artist.axis
         return label
 
     def _set(self, key, value):
@@ -332,6 +393,14 @@ class LabelBase(martist.Artist):
         """Set the color of the texts."""
         self._set("color", color)
 
+    def get_color(self):
+        """Return the color of the texts, ``"auto"`` for an axis artist's
+        texts in its default color."""
+        if self._part is None:
+            return self._own.props["color"]
+        return _auto(_axisartist.get_label_color(self._part._native,
+                                                 self._part._name))
+
     def set_rotation(self, s):
         """Set the rotation of the texts in degrees."""
         self._set("rotation", float(s))
@@ -371,7 +440,7 @@ class LabelBase(martist.Artist):
         return self._get("text") or ""
 
 
-class AxisLabel(LabelBase):
+class AxisLabel(AttributeCopier, LabelBase):
     """
     Axis label of an `AxisArtist`, or made on its own: its pad away from
     its point, aligned and turned for the axis direction.
@@ -383,6 +452,45 @@ class AxisLabel(LabelBase):
         self._axis = axis
         super().__init__(*args, **kwargs)
         self.set_axis_direction(axis_direction)
+
+    def get_ref_artist(self):
+        # docstring inherited
+        return self._axis.label
+
+    _default_alignments = dict(left=("bottom", "center"),
+                               right=("top", "center"),
+                               bottom=("top", "center"),
+                               top=("bottom", "center"))
+
+    def set_default_alignment(self, d):
+        """
+        Set the default alignment. See `set_axis_direction` for details.
+
+        Parameters
+        ----------
+        d : {"left", "bottom", "right", "top"}
+        """
+        va, ha = _api.getitem_checked(self._default_alignments, d=d)
+        self.set_va(va)
+        self.set_ha(ha)
+
+    _default_angles = dict(left=180,
+                           right=0,
+                           bottom=0,
+                           top=180)
+
+    def set_default_angle(self, d):
+        """
+        Set the default angle. See `set_axis_direction` for details.
+
+        Parameters
+        ----------
+        d : {"left", "bottom", "right", "top"}
+        """
+        self.set_rotation(_api.getitem_checked(self._default_angles, d=d))
+
+    def get_color(self):
+        return self.get_attribute_from_ref_artist("color")
 
 
 class TickLabels(AxisLabel):
@@ -412,6 +520,39 @@ class TickLabels(AxisLabel):
     def set_locs_angles_labels(self, locs_angles_labels):
         """Set the locations, angles and labels of the texts."""
         self._locs_angles_labels = locs_angles_labels
+
+    def get_ref_artist(self):
+        # docstring inherited
+        return self._axis.get_ticklabels()[0]
+
+    def _level(self):
+        """The tick level of an axis artist's tick labels."""
+        return self._part._name.split("_")[0]
+
+    def get_window_extents(self, renderer=None):
+        """Return the display boxes of the (non-empty) tick labels."""
+        if not self.get_visible():
+            return []
+        if self._part is None:
+            if self._figure is None:
+                return []
+            extents = _axisartist.axis_text_extents(self._native)
+        else:
+            extents = _axisartist.ticklabel_extents(self._part._native,
+                                                    self._level())
+        return [Bbox.from_extents(*extent) for extent in extents]
+
+    def get_texts_widths_heights_descents(self, renderer):
+        """
+        Return a list of ``(width, height, descent)`` tuples for ticklabels.
+
+        Empty labels are left out.
+        """
+        if self._part is None:
+            if self._figure is None:
+                return []
+            return _axisartist.axis_text_metrics(self._native)
+        return _axisartist.ticklabel_metrics(self._part._native, self._level())
 
     def invert_axis_direction(self):
         """Turn the tick labels to the other side of the axis."""
@@ -544,6 +685,9 @@ class AxisArtist(martist.Artist):
 
     def _init_parts(self, helper, axis_direction):
         self._axis_artist_helper = helper
+        # The axis whose ticks and label the parts follow by default.
+        self.axis = (self._axes_of.yaxis if axis_direction in ["left", "right"]
+                     else self._axes_of.xaxis)
         bind = getattr(helper, "_bind", None)
         if bind is not None:
             bind(self._native)
@@ -575,9 +719,38 @@ class AxisArtist(martist.Artist):
         self._axis_direction = axis_direction
         _axisartist.set_axis_direction(self._native, axis_direction)
 
+    def set_ticklabel_direction(self, tick_direction):
+        r"""
+        Adjust the direction of the tick labels.
+
+        Note that the *tick_direction*\s '+' and '-' are relative to the
+        direction of the increasing coordinate.
+
+        Parameters
+        ----------
+        tick_direction : {"+", "-"}
+        """
+        _api.getitem_checked({"+": 0, "-": 180}, tick_direction=tick_direction)
+        _axisartist.set_ticklabel_direction(self._native, tick_direction)
+
     def invert_ticklabel_direction(self):
         """Turn the tick labels to the other side of the axis line."""
         self.major_ticklabels.invert_axis_direction()
+
+    def set_axislabel_direction(self, label_direction):
+        r"""
+        Adjust the direction of the axis label.
+
+        Note that the *label_direction*\s '+' and '-' are relative to the
+        direction of the increasing coordinate.
+
+        Parameters
+        ----------
+        label_direction : {"+", "-"}
+        """
+        _api.getitem_checked({"+": 0, "-": 180},
+                             label_direction=label_direction)
+        _axisartist.set_axislabel_direction(self._native, label_direction)
 
     def get_helper(self):
         """

@@ -77,13 +77,18 @@ pltrs_core::archive_enum!(AxisHelper {
 });
 
 /// A tick of an axis artist: its location in the tick coordinates, the
-/// angles (degrees) normal and tangent to the line, and its label.
+/// angles (degrees) normal and tangent to the line, and its label (an
+/// item of matplotlib's `get_tick_iterators`).
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct TickInfo {
-    pub(crate) loc: Point,
-    pub(crate) angle_normal: f64,
-    pub(crate) angle_tangent: f64,
-    pub(crate) label: String,
+pub struct TickInfo {
+    /// The location, in the coordinates of the helper's tick transform.
+    pub loc: Point,
+    /// The direction normal to the line, in degrees.
+    pub angle_normal: f64,
+    /// The direction along the line, in degrees.
+    pub angle_tangent: f64,
+    /// The label.
+    pub label: String,
 }
 
 /// The major and minor ticks of an axis artist.

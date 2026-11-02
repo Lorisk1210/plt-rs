@@ -197,13 +197,7 @@ impl FontProperties {
         query.size = self.size;
         pltrs_text::FontRequest {
             query,
-            generics: pltrs_text::GenericFamilies {
-                serif: rc.font_serif.clone(),
-                sans_serif: rc.font_sans_serif.clone(),
-                cursive: rc.font_cursive.clone(),
-                fantasy: rc.font_fantasy.clone(),
-                monospace: rc.font_monospace.clone(),
-            },
+            generics: generic_families(rc),
             last_resort: rc.font_enable_last_resort,
             hinting: crate::text::hinting(rc),
             weight_keyword: self.weight.name(),
@@ -213,6 +207,18 @@ impl FontProperties {
                 .and_then(|path| TextEngine::global().file_faces(path).ok())
                 .and_then(|faces| faces.first().copied()),
         }
+    }
+}
+
+/// The fonts the generic families stand for, in order of preference: the
+/// `font.serif`, `font.sans-serif`, ... lists of `rc`.
+pub(crate) fn generic_families(rc: &RcParams) -> pltrs_text::GenericFamilies {
+    pltrs_text::GenericFamilies {
+        serif: rc.font_serif.clone(),
+        sans_serif: rc.font_sans_serif.clone(),
+        cursive: rc.font_cursive.clone(),
+        fantasy: rc.font_fantasy.clone(),
+        monospace: rc.font_monospace.clone(),
     }
 }
 

@@ -23,7 +23,7 @@ mod parse;
 pub use bundled::{bundled_afm_files, bundled_metrics};
 pub use error::{AfmError, AfmSection};
 pub use metrics::{AfmMetrics, CharMetrics, CompositePart, StrBbox};
-pub use names::type1_name;
+pub use names::{type1_name, uni2type1};
 
 #[cfg(test)]
 mod tests {

@@ -75,6 +75,24 @@ fn set_axis_texts(artist: AxisTextsArtist, texts: PyAxisTexts) -> PyResult<()> {
     Ok(())
 }
 
+/// The display boxes `(x0, y0, x1, y1)` of the non-empty texts
+/// (`TickLabels.get_window_extents` of texts made on their own).
+fn axis_text_extents(artist: AxisTextsArtist) -> PyResult<Vec<(f64, f64, f64, f64)>> {
+    Ok(artist
+        .text_extents()
+        .iter()
+        .map(|b| (b.x0(), b.y0(), b.x1(), b.y1()))
+        .collect())
+}
+
+/// The width, height and descent in pixels of each non-empty text
+/// (`TickLabels.get_texts_widths_heights_descents`).
+fn axis_text_metrics(artist: AxisTextsArtist) -> PyResult<Vec<(f64, f64, f64)>> {
+    artist
+        .texts_widths_heights_descents()
+        .map_err(|err| PyErr::value_error(err.to_string()))
+}
+
 /// The `(va, ha, rotation)` that `set_axis_direction(direction)` gives
 /// an `AxisLabel` (`kind` `"axislabel"`) or `TickLabels`
 /// (`"ticklabels"`).
@@ -98,7 +116,9 @@ fn axis_direction_defaults(kind: String, direction: String) -> PyResult<(String,
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axis_direction_defaults", axis_direction_defaults)?;
     module.add("add_axis_texts", add_axis_texts)?;
-    module.add("set_axis_texts", set_axis_texts)
+    module.add("set_axis_texts", set_axis_texts)?;
+    module.add("axis_text_extents", axis_text_extents)?;
+    module.add("axis_text_metrics", axis_text_metrics)
 }
 
 #[cfg(test)]

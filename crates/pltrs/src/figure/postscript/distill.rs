@@ -11,6 +11,7 @@ use pltrs_core::pyfmt;
 use pltrs_render::{Paper, pstoeps};
 
 use super::programs::{Executable, ProgramError, Workspace, path_argument, read, replace, write};
+use crate::rc::Distiller;
 
 /// A PostScript file being distilled in a workspace (matplotlib's
 /// `tmpfile`, `tmp.ps` in a temporary directory).
@@ -63,8 +64,10 @@ pub(super) struct Distillation {
     pub(super) eps: bool,
     /// The paper (`ptype`).
     pub(super) paper: Paper,
-    /// The figure's bounding box in points.
-    pub(super) bbox: Bbox,
+    /// The figure's bounding box in points: what a page the size of the
+    /// figure spans, and what EPS output declares (`None` keeps what the
+    /// distiller writes).
+    pub(super) bbox: Option<Bbox>,
     /// Whether `dvips` turned the page on its side, which `pstoeps` undoes.
     pub(super) rotated: bool,
 }
@@ -73,25 +76,22 @@ impl Distillation {
     /// The options choosing the page: EPS cropped to its bounding box, a
     /// page the size of the figure (from the origin of the bounding box)
     /// or a named paper size, written `-name<separator>value`.
-    fn paper_options(&self, separator: char) -> Vec<OsString> {
+    fn paper_options(&self, separator: char) -> Result<Vec<OsString>, ProgramError> {
         let options = if self.eps {
             vec!["-dEPSCrop".to_owned()]
         } else {
             match self.paper {
-                Paper::Figure => vec![
-                    format!(
-                        "-dDEVICEWIDTHPOINTS{separator}{}",
-                        pyfmt::repr(self.bbox.x1())
-                    ),
-                    format!(
-                        "-dDEVICEHEIGHTPOINTS{separator}{}",
-                        pyfmt::repr(self.bbox.y1())
-                    ),
-                ],
+                Paper::Figure => {
+                    let bbox = self.bbox.ok_or(ProgramError::MissingBbox)?;
+                    vec![
+                        format!("-dDEVICEWIDTHPOINTS{separator}{}", pyfmt::repr(bbox.x1())),
+                        format!("-dDEVICEHEIGHTPOINTS{separator}{}", pyfmt::repr(bbox.y1())),
+                    ]
+                }
                 Paper::Named { name, .. } => vec![format!("-sPAPERSIZE{separator}{name}")],
             }
         };
-        options.into_iter().map(OsString::from).collect()
+        Ok(options.into_iter().map(OsString::from).collect())
     }
 }
 
@@ -121,13 +121,13 @@ pub(super) fn gs_distill(
     ]
     .map(OsString::from)
     .into();
-    args.extend(distillation.paper_options('='));
+    args.extend(distillation.paper_options('=')?);
     args.push(path_argument("-sOutputFile=", &psfile));
     args.push(file.path().into());
     file.workspace().run("gs", &args)?;
     file.replace_with(&psfile)?;
     if distillation.eps {
-        file.to_eps(Some(&distillation.bbox), distillation.rotated)?;
+        file.to_eps(distillation.bbox.as_ref(), distillation.rotated)?;
     }
     Ok(())
 }
@@ -162,7 +162,7 @@ pub(super) fn xpdf_distill(
     ]
     .map(OsString::from)
     .into();
-    args.extend(distillation.paper_options('#'));
+    args.extend(distillation.paper_options('#')?);
     args.extend([file.path().into(), pdf.clone().into()]);
     file.workspace().run("ps2pdf", &args)?;
     let args = ["-paper", "match", "-level3"]
@@ -178,6 +178,66 @@ pub(super) fn xpdf_distill(
     Ok(())
 }
 
+/// How a PostScript file is distilled (the arguments of matplotlib's
+/// `gs_distill` and `xpdf_distill` but the file).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DistillOptions {
+    /// Encapsulated PostScript, cropped to its bounding box.
+    pub eps: bool,
+    /// The paper (`ptype`).
+    pub paper: Paper,
+    /// The figure's bounding box in points: what a page the size of the
+    /// figure spans, and what Ghostscript's EPS output declares (`None`
+    /// keeps what the distiller writes).
+    pub bbox: Option<Bbox>,
+    /// Whether `dvips` turned the page on its side, which Ghostscript's
+    /// EPS output undoes.
+    pub rotated: bool,
+}
+
+/// Distills the PostScript file at `path` in place with `distiller`
+/// (matplotlib's `gs_distill` and `xpdf_distill`); the programs date what
+/// they write as `SOURCE_DATE_EPOCH` says, else now. `Distiller::Off`
+/// leaves the file as it is.
+///
+/// # Errors
+///
+/// When a program is missing or fails, a page the size of the figure is
+/// asked for without its bounding box, or the file cannot be read or
+/// written.
+pub fn distill_file(
+    path: &Path,
+    distiller: Distiller,
+    options: &DistillOptions,
+) -> Result<(), ProgramError> {
+    if distiller == Distiller::Off {
+        return Ok(());
+    }
+    let source_date = std::env::var("SOURCE_DATE_EPOCH")
+        .ok()
+        .and_then(|epoch| epoch.trim().parse().ok())
+        .unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| {
+                    i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX)
+                })
+        });
+    let file = WorkFile::new(&read(path)?, source_date)?;
+    let distillation = Distillation {
+        eps: options.eps,
+        paper: options.paper,
+        bbox: options.bbox,
+        rotated: options.rotated,
+    };
+    if distiller == Distiller::Xpdf {
+        xpdf_distill(&file, &distillation)?;
+    } else {
+        gs_distill(&file, &distillation, crate::rc::params().ps_distiller_res)?;
+    }
+    write(path, &file.contents()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,7 +246,7 @@ mod tests {
         Distillation {
             eps,
             paper: paper.parse().unwrap(),
-            bbox: Bbox::from_extents(0.0, 0.0, 432.0, 576.0),
+            bbox: Some(Bbox::from_extents(0.0, 0.0, 432.0, 576.0)),
             rotated: false,
         }
     }
@@ -195,6 +255,7 @@ mod tests {
     fn paper_options_follow_matplotlib() {
         let options = |d: Distillation, separator| -> Vec<String> {
             d.paper_options(separator)
+                .unwrap()
                 .into_iter()
                 .map(|o| o.into_string().unwrap())
                 .collect()
@@ -205,6 +266,40 @@ mod tests {
             ["-dDEVICEWIDTHPOINTS=432.0", "-dDEVICEHEIGHTPOINTS=576.0"]
         );
         assert_eq!(options(distillation(false, "a4"), '#'), ["-sPAPERSIZE#a4"]);
+        let no_bbox = Distillation {
+            bbox: None,
+            ..distillation(false, "figure")
+        };
+        assert!(matches!(
+            no_bbox.paper_options('='),
+            Err(ProgramError::MissingBbox)
+        ));
+    }
+
+    /// Files are distilled in place, or left alone without a distiller.
+    #[test]
+    fn files_are_distilled_in_place() {
+        let document = b"%!PS-Adobe-3.0\n%%BoundingBox: 0 0 100 100\n%%EndComments\n\
+                         newpath 10 10 moveto 90 90 lineto stroke showpage\n%%EOF\n";
+        let workspace = Workspace::new(0).unwrap();
+        let path = workspace.path("figure.ps");
+        write(&path, document).unwrap();
+        let options = DistillOptions {
+            eps: true,
+            paper: "letter".parse().unwrap(),
+            bbox: None,
+            rotated: false,
+        };
+        distill_file(&path, Distiller::Off, &options).unwrap();
+        assert_eq!(read(&path).unwrap(), document);
+        match distill_file(&path, Distiller::Ghostscript, &options) {
+            Ok(()) => assert!(
+                read(&path)
+                    .unwrap()
+                    .starts_with(b"%!PS-Adobe-3.0 EPSF-3.0\n")
+            ),
+            Err(err) => assert_eq!(err.to_string(), "Failed to find a Ghostscript installation"),
+        }
     }
 
     /// Distilling a document with Ghostscript where it is installed, and
@@ -215,7 +310,7 @@ mod tests {
                          newpath 10 10 moveto 90 90 lineto stroke showpage\n%%EOF\n";
         let file = WorkFile::new(document, 0).unwrap();
         let eps = Distillation {
-            bbox: Bbox::from_extents(0.0, 0.0, 100.0, 100.0),
+            bbox: Some(Bbox::from_extents(0.0, 0.0, 100.0, 100.0)),
             ..distillation(true, "letter")
         };
         match gs_distill(&file, &eps, 6000) {

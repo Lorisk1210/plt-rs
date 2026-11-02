@@ -35,6 +35,7 @@ from collections.abc import Callable
 import numpy as np
 
 from . import _api, cbook
+from .backends import BackendFilter, backend_registry  # noqa: F401
 from .cbook import ls_mapper
 from .colors import Colormap, is_color_like, _color_sequences
 from ._fontconfig_pattern import parse_fontconfig_pattern
@@ -312,8 +313,6 @@ _auto_backend_sentinel = object()
 
 
 def validate_backend(s):
-    # The backends package imports pyplot's machinery, which needs rcsetup.
-    from .backends import backend_registry
     if s is _auto_backend_sentinel or backend_registry.is_valid_backend(s):
         return s
     else:

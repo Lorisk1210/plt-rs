@@ -160,6 +160,18 @@ fn grid(axes: Axes3D, visible: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// Whether the gridlines on the panes are drawn (`_draw_grid`).
+fn get_grid(axes: Axes3D) -> PyResult<bool> {
+    Ok(axes.grid_on())
+}
+
+/// Shows the window of projected coordinates the axes draws in
+/// (`set_top_view`).
+fn set_top_view(axes: Axes3D) -> PyResult<()> {
+    axes.set_top_view();
+    Ok(())
+}
+
 /// Sets the colour of the pane normal to axis `name` (`set_pane_color`).
 fn set_pane_color(axes: Axes3D, name: String, color: Color) -> PyResult<()> {
     axes.set_pane_color(axis3(&name)?, color);
@@ -264,6 +276,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_axis_on", set_axis_on)?;
     module.add("get_axis_on", get_axis_on)?;
     module.add("grid", grid)?;
+    module.add("get_grid", get_grid)?;
+    module.add("set_top_view", set_top_view)?;
     module.add("set_pane_color", set_pane_color)?;
     module.add("set_computed_zorder", set_computed_zorder)?;
     module.add("get_proj", get_proj)?;

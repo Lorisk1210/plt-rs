@@ -20,12 +20,13 @@ import numpy as np
 
 from .. import _api, rc_context
 from .._native import (
-    backends as _backends, drawing as _drawing, table as _table,
+    backends as _backends, drawing as _drawing, ft2font as _ft2font, table as _table,
     text_overrides as _text_overrides)
 from .._python_drawing import drawing_with
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
 from ..font_manager import FontManager, FontProperties
+from ..ft2font import LoadFlags
 from ..image import imsave
 from ..text import _measuring_with
 from ..transforms import BboxBase
@@ -35,6 +36,11 @@ from ._native_drawing import NativeDrawingMixin, native_gc
 #: whose palette and transparency are Pillow's choice, and AVIF, which
 #: pltrs (Rust) does not encode.
 _PILLOW_FORMATS = frozenset({"gif", "avif"})
+
+
+def get_hinting_flag():
+    """The `.LoadFlags` of the glyph hinting :rc:`text.hinting` names."""
+    return LoadFlags(_ft2font.hinting_flag())
 
 
 class BufferRegion:

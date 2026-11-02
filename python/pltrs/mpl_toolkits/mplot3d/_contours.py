@@ -21,7 +21,37 @@ def _placement(zdir, offset, stride, axlim_clip):
 
 
 class ContoursMixin:
-    """`contour`, `contourf`, `tricontour` and `tricontourf`."""
+    """`contour`, `contourf`, `tricontour` and `tricontourf`, and the
+    contour sets of the projection plane placed in 3-D
+    (`add_contour_set`, `add_contourf_set`)."""
+
+    def add_contour_set(
+            self, cset, extend3d=False, stride=5, zdir='z', offset=None,
+            axlim_clip=False):
+        """Place the line contours *cset*, drawn on this axes, in 3-D: each
+        at its level along *zdir*, or at *offset*, or extended into
+        ribbons every *stride* points with *extend3d*."""
+        _mplot3d.add_contour_set(
+            self._native, cset._contour,
+            (zdir, None if offset is None else float(offset), bool(axlim_clip)),
+            int(stride) if extend3d else None)
+
+    def add_contourf_set(self, cset, zdir='z', offset=None, *, axlim_clip=False):
+        """Place the filled contours *cset*, drawn on this axes, in 3-D at
+        the middles of their bands along *zdir*, or at *offset*."""
+        self._add_contourf_set(cset, zdir=zdir, offset=offset,
+                               axlim_clip=axlim_clip)
+
+    def _add_contourf_set(self, cset, zdir='z', offset=None, axlim_clip=False):
+        """
+        Returns
+        -------
+        levels : `numpy.ndarray`
+            Levels at which the filled contours are added.
+        """
+        return np.array(_mplot3d.add_contourf_set(
+            self._native, cset._contour,
+            (zdir, None if offset is None else float(offset), bool(axlim_clip))))
 
     def _contour3d(self, filled, args, kwargs, placement):
         """The `.QuadContourSet` of ``contour`` (or, *filled*,

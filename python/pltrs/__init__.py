@@ -108,6 +108,22 @@ def _parse_to_version_info(version_str):
 __version__ = "3.11.2"
 __version_info__ = _parse_to_version_info(__version__)
 
+#: The citation of matplotlib, whose API pltrs implements.
+__bibtex__ = r"""@Article{Hunter:2007,
+  Author    = {Hunter, J. D.},
+  Title     = {Matplotlib: A 2D graphics environment},
+  Journal   = {Computing in Science \& Engineering},
+  Volume    = {9},
+  Number    = {3},
+  Pages     = {90--95},
+  abstract  = {Matplotlib is a 2D graphics package used for Python
+  for application development, interactive scripting, and
+  publication-quality image generation across user
+  interfaces and operating systems.},
+  publisher = {IEEE COMPUTER SOC},
+  year      = 2007
+}"""
+
 #: Set by the test configuration (``testing.conftest``) while pytest runs.
 _called_from_pytest = False
 
@@ -379,6 +395,13 @@ rcParamsDefault = _of(_rcsetup.defaults())
 rcParamsDefault._given = _default_spellings()
 rcParams._given = dict(rcParamsDefault._given)
 rcParamsOrig = rcParams.copy()
+with _api.suppress_matplotlib_deprecation_warning():
+    # Assigning to rcsetup.defaultParams is left only for backcompat.
+    defaultParams = rcsetup.defaultParams = {
+        key: [(rcsetup._auto_backend_sentinel if key == "backend" else
+               rcParamsDefault[key]),
+              validator]
+        for key, validator in rcsetup._validators.items()}
 
 
 def rc(group, **kwargs):
@@ -505,6 +528,28 @@ def rc_params_from_file(fname, fail_on_error=False, use_default_template=True):
     config.update(config_from_file)
     _log.debug('loaded rc file %s', fname)
     return config
+
+
+def matplotlib_fname():
+    """
+    Get the location of the config file.
+
+    The file location is determined in the following order
+
+    - ``$PWD/pltrsrc``
+    - ``$PLTRSRC`` if it is not a directory
+    - ``$PLTRSRC/pltrsrc``
+    - ``pltrsrc`` in the configuration directory (`get_configdir`)
+    - Lastly, the template of the defaults in the data directory
+      (`get_data_path`), which pltrs (Rust) writes there, as matplotlib's
+      ``mpl-data/matplotlibrc``.
+    """
+    return _cbook.rc_file_or_template()
+
+
+def rc_params(fail_on_error=False):
+    """Construct a `RcParams` instance from the default Matplotlib rc file."""
+    return rc_params_from_file(matplotlib_fname(), fail_on_error)
 
 
 def rc_file(fname, *, use_default_template=True):

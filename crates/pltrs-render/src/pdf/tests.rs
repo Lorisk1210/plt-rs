@@ -106,6 +106,28 @@ fn markers_become_form_xobjects() {
 }
 
 #[test]
+fn every_marker_call_has_its_own_form() {
+    let mut r = renderer();
+    let positions = Path::polyline((0..10).map(|i| Point::new(f64::from(i), 1.0)).collect());
+    for _ in 0..2 {
+        r.draw_markers(
+            &GraphicsContext::default(),
+            &square(),
+            &Affine2D::IDENTITY,
+            &positions,
+            &Affine2D::IDENTITY,
+            Some(Rgba::BLACK),
+        );
+    }
+    let pdf = text(&r.finish().expect("document"));
+    assert!(pdf.contains("/M0 Do"), "{pdf}");
+    assert!(
+        pdf.contains("/M1 Do"),
+        "matplotlib shares no marker form: {pdf}"
+    );
+}
+
+#[test]
 fn text_uses_type3_fonts() {
     let run = TextEngine::global()
         .layout_line(

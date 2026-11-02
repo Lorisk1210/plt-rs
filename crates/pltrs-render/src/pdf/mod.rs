@@ -20,6 +20,7 @@
 
 mod core_fonts;
 mod draw;
+mod file;
 mod fonts;
 mod image;
 mod object;
@@ -35,6 +36,13 @@ use pltrs_core::path::convert::{SimplifySettings, SketchParams, StringCodes, Str
 use pltrs_core::{Affine2D, Bbox, Path, Point, Rgba};
 use pltrs_text::tex::{TexError, TexText};
 use pltrs_text::{AfmDirectory, TextRun};
+
+pub use self::file::{PdfFont, PdfHatch};
+pub use self::object::{Obj as PdfObject, text_string as pdf_text_string};
+pub use self::resources::{
+    MarkerPaint as PdfMarkerPaint, ShadingColors as PdfShadingColors,
+    TemplatePaint as PdfTemplatePaint,
+};
 
 use self::fonts::FontNames;
 use self::object::Obj;
@@ -160,6 +168,8 @@ pub struct PdfRenderer {
     generation: u64,
     group_depth: usize,
     problems: Problems,
+    /// The document information dictionary, once written.
+    info: Option<u32>,
 }
 
 impl PdfRenderer {
@@ -241,6 +251,7 @@ impl PdfRenderer {
             generation: 0,
             group_depth: 0,
             problems: Problems::default(),
+            info: None,
         })
     }
 
@@ -330,30 +341,8 @@ impl PdfRenderer {
     /// When a font, image or number met while drawing could not be
     /// written.
     pub fn finish(mut self) -> Result<Vec<u8>, VectorError> {
-        self.end_page()?;
-        self.pages.write_annotations(&mut self.writer)?;
-        let tex_fonts = self.dvi_fonts.embed(&mut self.writer)?;
-        fonts::write_fonts(
-            &mut self.writer,
-            tex_fonts,
-            &mut self.fonts,
-            &self.font_names,
-            &self.tracker,
-            self.ids.resources.fonts,
-            self.options.fonttype,
-        )?;
-        self.resources.write(
-            &mut self.writer,
-            self.ids.resources,
-            self.height,
-            self.options.compression > 0,
-        )?;
-        self.pages.write_tree(&mut self.writer, self.ids.pages)?;
-        let info = self.writer.reserve();
-        self.writer
-            .write_object(info, &pages::info_dict(&self.options.metadata))?;
-        let file = self.writer.finish(self.ids.root, info)?;
-        self.problems.into_result(file)
+        self.finalize()?;
+        self.close()
     }
 
     /// Writes `objects` as one content-stream line.

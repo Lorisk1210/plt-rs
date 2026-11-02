@@ -10,13 +10,58 @@ import functools
 import os
 import pathlib
 
-from .. import _api, rcParams
-from .._native import text_overrides as _text_overrides
+from .. import _api, _get_executable_info, rcParams
+from .._native import (
+    backends as _backends, font_manager as _font_manager, text_overrides as _text_overrides)
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
 from ..font_manager import FontManager
 from ._backend_pdf_ps import RendererPDFPSBase
 from ._native_drawing import DocumentDrawingMixin
 from .backend_mixed import MixedModeRenderer
+
+debugPS = False
+
+#: The Adobe glyph names of the characters that have one, by code point
+#: (matplotlib's ``_mathtext_data.uni2type1``).
+uni2type1 = dict(_font_manager.uni2type1())
+
+
+def _bbox_extents(bbox):
+    """A bounding box ``(llx, lly, urx, ury)`` as floats, or None."""
+    return None if bbox is None else tuple(map(float, bbox))
+
+
+def gs_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
+    """
+    Use ghostscript's pswrite or epswrite device to distill a file.
+    This yields smaller files without illegal encapsulated postscript
+    operators. The output is low-level, converting text to outlines.
+    """
+    _get_executable_info("gs")
+    _backends.distill(os.fspath(tmpfile), "ghostscript", bool(eps), ptype,
+                      _bbox_extents(bbox), bool(rotated))
+
+
+def xpdf_distill(tmpfile, eps=False, ptype='letter', bbox=None, rotated=False):
+    """
+    Use ghostscript's ps2pdf and xpdf's/poppler's pdftops to distill a file.
+    This yields smaller files without illegal encapsulated postscript
+    operators. This distiller is preferred, generating high-level postscript
+    output that treats text as text.
+    """
+    _get_executable_info("gs")  # Effectively checks for ps2pdf.
+    _get_executable_info("pdftops")
+    _backends.distill(os.fspath(tmpfile), "xpdf", bool(eps), ptype,
+                      _bbox_extents(bbox), bool(rotated))
+
+
+def pstoeps(tmpfile, bbox=None, rotated=False):
+    """
+    Convert the postscript to encapsulated postscript.  The bbox of
+    the eps file will be replaced with the given *bbox* argument. If
+    None, original bbox will be used.
+    """
+    _backends.pstoeps(os.fspath(tmpfile), _bbox_extents(bbox), bool(rotated))
 
 #: The paper sizes, in inches (portrait), by matplotlib's names.
 papersize = {'letter': (8.5, 11),

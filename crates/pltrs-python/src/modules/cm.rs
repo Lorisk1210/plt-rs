@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 
+use pltrs::colors::colormaps::Definition;
 use pltrs::colors::multivar::{
     BivarDefinition, BivarShape, CombinationMode, bivar_colormap_definition, bivar_colormap_names,
     multivar_colormap, multivar_colormap_names,
@@ -132,6 +133,50 @@ fn builtin_segment(name: String, channel: String, x: NdArray) -> PyResult<NdArra
     NdArray::with_shape(values, x.shape)
 }
 
+/// matplotlib's definition of a built-in base colormap, as `_cm.datad`
+/// and `_cm_listed.cmaps` hold it: `(kind, data)` with the kind
+/// `"listed"` (a `_cm_listed` map: its colours), `"segmented"` (its red,
+/// green and blue channels: anchor rows, or `None` for a function),
+/// `"colors"` (colours spread evenly), `"stops"` (`(value, colour)`
+/// pairs) or `"listed_data"` (a `{'listed': colours}` entry of `datad`).
+struct DefinitionSpec(Definition);
+
+impl IntoPy for DefinitionSpec {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        let rows = |rows: Vec<[f64; 3]>| -> Vec<(f64, f64, f64)> {
+            rows.into_iter().map(|[a, b, c]| (a, b, c)).collect()
+        };
+        match self.0 {
+            Definition::Listed(colors) => ("listed", rows(colors)).into_py(py),
+            Definition::Colors(colors) => ("colors", rows(colors)).into_py(py),
+            Definition::ListedData(colors) => ("listed_data", rows(colors)).into_py(py),
+            Definition::Stops(stops) => {
+                let stops: Vec<(f64, (f64, f64, f64))> = stops
+                    .into_iter()
+                    .map(|(value, [r, g, b])| (value, (r, g, b)))
+                    .collect();
+                ("stops", stops).into_py(py)
+            }
+            Definition::Segmented(channels) => {
+                let channels: Vec<Option<Vec<(f64, f64, f64)>>> = channels
+                    .into_iter()
+                    .map(|segment| match segment {
+                        Segment::Anchors(anchors) => Some(rows(anchors)),
+                        Segment::Func(_) => None,
+                    })
+                    .collect();
+                ("segmented", channels).into_py(py)
+            }
+        }
+    }
+}
+
+/// matplotlib's definition of the built-in base colormap `name`, `None`
+/// for other names.
+fn builtin_definition(name: String) -> PyResult<Option<DefinitionSpec>> {
+    Ok(colormaps::definition(&name).map(DefinitionSpec))
+}
+
 /// The names of the multivariate colormaps.
 fn multivar_names() -> PyResult<Vec<&'static str>> {
     Ok(multivar_colormap_names().to_vec())
@@ -203,6 +248,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("colormap_names", colormap_names)?;
     module.add("builtin_colormap", builtin_colormap)?;
     module.add("builtin_segment", builtin_segment)?;
+    module.add("builtin_definition", builtin_definition)?;
     module.add("multivar_names", multivar_names)?;
     module.add("multivar", multivar)?;
     module.add("bivar_names", bivar_names)?;

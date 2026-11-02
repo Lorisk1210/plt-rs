@@ -2,11 +2,13 @@
 //! the files pltrs bundles in its binary, written out where code needs
 //! them as files.
 
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{fmt, fs, io};
 
-use super::{ConfigError, cache_dir};
+use super::{ConfigError, RC_FILE_NAME, cache_dir};
+use crate::rc::RcParams;
 
 /// The data directory, once written.
 static DATA_DIR: OnceLock<Result<PathBuf, DataDirError>> = OnceLock::new();
@@ -52,14 +54,17 @@ impl std::error::Error for DataDirError {
 /// The data directory (matplotlib's `get_data_path`): `mpl-data` in the
 /// [cache directory](cache_dir), holding matplotlib's fonts as its
 /// `mpl-data` does (`fonts/ttf`, and the AFM metrics of the PDF core
-/// fonts in `fonts/pdfcorefonts`). The files are written from the binary
-/// the first time the directory is asked for in a process, unless they
-/// are there already.
+/// fonts in `fonts/pdfcorefonts`), and the template of the rc file
+/// (`pltrsrc`, matplotlib's `mpl-data/matplotlibrc`: every parameter at
+/// matplotlib's default, commented out). The files are written from the
+/// binary the first time the directory is asked for in a process, unless
+/// they are there already.
 ///
 /// ```
 /// let dir = pltrs::config::data_dir()?;
 /// assert!(dir.join("fonts/ttf/DejaVuSans.ttf").is_file());
 /// assert!(dir.join("fonts/pdfcorefonts/Helvetica.afm").is_file());
+/// assert!(dir.join("pltrsrc").is_file());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
@@ -72,9 +77,13 @@ pub fn data_dir() -> Result<PathBuf, DataDirError> {
         .get_or_init(|| {
             let dir = cache_dir().map_err(DataDirError::Cache)?.join("mpl-data");
             let fonts = dir.join("fonts");
+            let template = rc_template();
             write_files(&fonts.join("ttf"), pltrs_text::bundled_font_files())
                 .and_then(|()| {
                     write_files(&fonts.join("pdfcorefonts"), pltrs_text::bundled_afm_files())
+                })
+                .and_then(|()| {
+                    write_files(&dir, std::iter::once((RC_FILE_NAME, template.as_bytes())))
                 })
                 .map_err(|err| DataDirError::Write {
                     dir: dir.clone(),
@@ -83,6 +92,24 @@ pub fn data_dir() -> Result<PathBuf, DataDirError> {
             Ok(dir)
         })
         .clone()
+}
+
+/// The template of the rc file: every parameter at matplotlib's default,
+/// commented out, as matplotlib's `matplotlibrc` lists them.
+fn rc_template() -> String {
+    let defaults = RcParams::matplotlib();
+    let mut text = String::from(
+        "## pltrs' rc file template: every parameter at matplotlib's default.\n\
+         ## Copy it to the configuration directory and uncomment what to change.\n",
+    );
+    for key in RcParams::KEYS {
+        let value = defaults
+            .get(key)
+            .expect("every key of the parameter table has a value");
+        // Writing into a `String` cannot fail.
+        let _ = writeln!(text, "#{key}: {value}");
+    }
+    text
 }
 
 /// Writes each `(name, contents)` of `files` into `dir` unless a file of
@@ -121,6 +148,16 @@ mod tests {
         write_files(&dir, files.into_iter()).expect("writable");
         assert_eq!(fs::read(dir.join("b.txt")).expect("kept"), b"BETA");
         fs::remove_dir_all(&dir).expect("removable");
+    }
+
+    #[test]
+    fn the_rc_template_lists_every_parameter_commented_out() {
+        let template = rc_template();
+        let entries = crate::rc::parse_rc_text(&template).expect("a valid rc file");
+        assert_eq!(entries.len(), 0);
+        assert!(template.contains("\n#lines.linewidth: 1.5\n"));
+        let lines = template.lines().filter(|line| !line.starts_with("##"));
+        assert_eq!(lines.count(), RcParams::KEYS.len());
     }
 
     #[test]

@@ -112,6 +112,30 @@ impl Figure {
     }
 }
 
+/// The TeX source matplotlib's PGF backend typesets `text` with in the
+/// font `props` describe under `rc` (its `_escape_and_apply_props`; see
+/// [`pltrs_render::pgf_text`]), as `LatexManager` measures it.
+///
+/// ```
+/// use pltrs::fonts::FontProperties;
+/// use pltrs::rc::RcParams;
+/// let rc = RcParams::matplotlib();
+/// let tex = pltrs::figure::pgf_text("x", &FontProperties::from_rc(&rc), &rc);
+/// assert!(tex.starts_with(r"{\sffamily\fontsize{10.000000}{12.000000}\selectfont"));
+/// ```
+pub fn pgf_text(text: &str, props: &FontProperties, rc: &RcParams) -> String {
+    let options = PgfOptions {
+        rcfonts: rc.pgf_rcfonts,
+        font_names: FontManager::global()
+            .font_list(FontExt::Ttf)
+            .into_iter()
+            .map(|entry| entry.name)
+            .collect(),
+        ..PgfOptions::default()
+    };
+    pltrs_render::pgf_text(text, &props.request(rc), &options)
+}
+
 /// The LaTeX preamble a PGF picture assumes (matplotlib's
 /// `_get_preamble()`): `\mathdefault` removed, display-style math, the
 /// normal size at `font.size`, `pgf.preamble`, with `pgf.rcfonts` the
@@ -147,12 +171,26 @@ pub fn pgf_preamble(rc: &RcParams) -> String {
                 families: vec![family.to_owned()],
                 ..FontProperties::from_rc(rc)
             };
-            if let Ok(file) = fonts.find_font(&props, rc, FontExt::Ttf, true) {
-                let path = std::path::Path::new(&file);
+            if let Ok((path, index)) = fonts.find_font_path(&props, rc) {
                 let name = path
                     .file_name()
-                    .map_or(file.as_str(), |name| name.to_str().unwrap_or(file.as_str()));
-                lines.push(format!(r"  \{command}{{{name}}}"));
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                // fontspec wants forward slashes, as `as_posix` gives.
+                let directory = path
+                    .parent()
+                    .map(|parent| parent.to_string_lossy().replace('\\', "/"))
+                    .unwrap_or_default();
+                // A face of a collection is picked by its index (matplotlib
+                // compares the suffix exactly).
+                let face = if path.extension().is_some_and(|ext| ext == "ttc") {
+                    format!(",FontIndex={index}")
+                } else {
+                    String::new()
+                };
+                lines.push(format!(
+                    r"  \{command}{{{name}}}[Path=\detokenize{{{directory}/}}{face}]"
+                ));
             }
         }
         lines.push(r"\fi".to_owned());
@@ -194,6 +232,12 @@ mod tests {
         assert!(preamble.starts_with(r"\def\mathdefault#1{#1}"));
         assert!(preamble.contains("\n\\usepackage{amsmath}\n"));
         assert!(preamble.contains(r"\usepackage[fontsize=10.000000pt]{scrextend}"));
+        // fontspec finds the fonts where they are, as matplotlib tells it.
+        let serif = (preamble.lines())
+            .find(|line| line.contains(r"\setmainfont"))
+            .expect("rcfonts names the fonts");
+        assert!(serif.starts_with(r"  \setmainfont{DejaVuSerif.ttf}[Path=\detokenize{"));
+        assert!(serif.ends_with("/fonts/ttf/}]"));
         assert!(preamble.ends_with(r"{\usepackage[strings]{underscore}}\makeatother"));
     }
 

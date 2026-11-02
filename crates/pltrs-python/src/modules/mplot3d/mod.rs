@@ -25,6 +25,7 @@ mod axis3d;
 mod charts;
 mod contours;
 mod create;
+mod edits;
 mod limits;
 mod plotting;
 mod solids;
@@ -74,6 +75,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     voxels::register(module)?;
     contours::register(module)?;
     charts::register(module)?;
+    edits::register(module)?;
     axis3d::register(module)
 }
 

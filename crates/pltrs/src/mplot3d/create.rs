@@ -205,6 +205,22 @@ impl Figure {
     }
 }
 
+impl Axes3D {
+    /// Shows the window of projected coordinates the axes draws in
+    /// (matplotlib's `set_top_view`, which new and cleared 3-D axes call):
+    /// the view limits of the projection plane return to it.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_top_view();
+    /// ```
+    pub fn set_top_view(&self) -> &Self {
+        show_view_window(&self.plane());
+        self
+    }
+}
+
 /// Sets both view limits of a projection plane to the view window
 /// (matplotlib's `set_xlim(-0.95/dist, 0.9/dist)` and the same for y on a
 /// new or cleared 3-D axes).

@@ -43,7 +43,7 @@ mod tests {
     use pltrs_font::Type1Effects;
 
     use super::*;
-    use crate::tex::dvi::DviFont;
+    use crate::tex::dvi::{DviFont, DviMetrics};
     use crate::tex::test_support::files;
     use crate::tex::tfm::Tfm;
     use crate::tex::tfm::tests::tfm_bytes;
@@ -68,7 +68,7 @@ mod tests {
     fn a_replacement_looks_every_font_up_while_it_is_set() {
         let files = files(&[]);
         let tfm = Arc::new(Tfm::parse(&tfm_bytes(65, 65, &[1], 0)).expect("valid"));
-        let font = DviFont::new(1 << 20, tfm, b"cmr10".to_vec(), None);
+        let font = DviFont::new(1 << 20, DviMetrics::Tfm(tfm), b"cmr10".to_vec(), None);
         // The files of the test hold no font map.
         assert!(matches!(
             files.psfont(b"cmr10"),

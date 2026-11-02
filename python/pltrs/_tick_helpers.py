@@ -365,6 +365,11 @@ def _polar(name):
     return getattr(polar, name)
 
 
+def _geo_theta_formatter(round_to):
+    from .projections import geo
+    return geo.GeoAxes.ThetaFormatter(round_to)
+
+
 def _category(name, axis):
     from . import category
     units = axis.units
@@ -453,6 +458,7 @@ _FORMATTERS = {
     "percent": lambda spec, axis: _ticker().PercentFormatter(
         xmax=spec["xmax"], decimals=spec["decimals"]),
     "theta": lambda spec, axis: _polar("ThetaFormatter")(),
+    "geo_theta": lambda spec, axis: _geo_theta_formatter(spec["round_to"]),
     "category": lambda spec, axis: _category("StrCategoryFormatter", axis),
     "date_auto": _date_formatter("AutoDateFormatter"),
     "date_concise": _date_formatter("ConciseDateFormatter"),

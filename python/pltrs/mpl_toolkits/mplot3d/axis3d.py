@@ -13,6 +13,7 @@ panes, the axis line) is ``_native.mplot3d``'s.
 import numpy as np
 
 from pltrs import _api, axis as maxis, cbook, colors as mcolors
+from pltrs import collections as mcoll, patches as mpatches
 from pltrs._native import mplot3d as _mplot3d
 
 
@@ -66,9 +67,165 @@ class Axis(maxis.XAxis):
     # pltrs (Rust) converts the values in units of 3-D axes.
     _native_units = True
 
-    def __init__(self, axes):
+    def __init__(self, axes, *, rotate_label=None):
         super().__init__(axes)
         self.line = _AxisLine(self)
+        if rotate_label is not None:
+            self.set_rotate_label(rotate_label)
+
+    adir = _api.deprecated("3.6", pending=True)(
+        property(lambda self: self.axis_name))
+
+    @_api.deprecated("3.6", pending=True)
+    def init3d(self):
+        """Make the axis line again, as a new axis has it: shown."""
+        self.line.set_visible(True)
+
+    def _native_args(self):
+        """The native 3-D axes and the axis name."""
+        return self.axes._native, self.axis_name
+
+    def get_data_interval(self):
+        """Return the ``(min, max)`` data limits of this axis."""
+        return np.array(_mplot3d.get_data_interval(*self._native_args()))
+
+    def _set_interval(self, getter, assign, vmin, vmax, ignore):
+        """Set an interval as matplotlib's ``_make_getset_interval`` setters
+        do: to (*vmin*, *vmax*) with *ignore*, else widened to hold the
+        current one, keeping its orientation."""
+        if not ignore:
+            oldmin, oldmax = getter()
+            if oldmin < oldmax:
+                vmin, vmax = min(vmin, vmax, oldmin), max(vmin, vmax, oldmax)
+            else:
+                vmin, vmax = max(vmin, vmax, oldmin), min(vmin, vmax, oldmax)
+        assign(float(vmin), float(vmax))
+        self.stale = True
+
+    def set_data_interval(self, vmin, vmax, ignore=False):
+        """
+        Set the axis data limits.  This method is for internal use.
+
+        If *ignore* is False (the default), this method will never reduce the
+        preexisting data limits, only expand them if *vmin* or *vmax* are not
+        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
+        the orientation of the axis will not change.
+
+        If *ignore* is True, the data limits will be set exactly to ``(vmin,
+        vmax)`` in that order.
+        """
+        self._set_interval(
+            self.get_data_interval,
+            lambda lo, hi: _mplot3d.set_data_interval(
+                *self._native_args(), (lo, hi)),
+            vmin, vmax, ignore)
+
+    def set_view_interval(self, vmin, vmax, ignore=False):
+        """
+        Set the axis view limits.  This method is for internal use; Matplotlib
+        users should typically use e.g. `~.Axes.set_xlim` or `~.Axes.set_ylim`.
+
+        If *ignore* is False (the default), this method will never reduce the
+        preexisting view limits, only expand them if *vmin* or *vmax* are not
+        within them.  Moreover, the order of *vmin* and *vmax* does not matter;
+        the orientation of the axis will not change.
+
+        If *ignore* is True, the view limits will be set exactly to ``(vmin,
+        vmax)`` in that order.
+        """
+        self._set_interval(
+            self.get_view_interval,
+            lambda lo, hi: _mplot3d.set_lim(
+                *self._native_args(), (lo, hi), 0.0, None),
+            vmin, vmax, ignore)
+
+    d_interval = _api.deprecated(
+        "3.6", alternative="get_data_interval", pending=True)(
+            property(lambda self: self.get_data_interval(),
+                     lambda self, minmax: self.set_data_interval(*minmax)))
+    v_interval = _api.deprecated(
+        "3.6", alternative="get_view_interval", pending=True)(
+            property(lambda self: self.get_view_interval(),
+                     lambda self, minmax: self.set_view_interval(*minmax)))
+
+    def set_rotate_label(self, val):
+        """
+        Whether to rotate the axis label: True, False or None.
+        If set to None the label will be rotated if longer than 4 chars.
+        """
+        _mplot3d.set_rotate_label(*self._native_args(),
+                                  None if val is None else bool(val))
+        self.stale = True
+
+    def get_rotate_label(self, text):
+        """Return whether a label *text* of this axis is drawn along the
+        axis: as `set_rotate_label` says, else when longer than 4 chars."""
+        return _mplot3d.get_rotate_label(*self._native_args(), str(text))
+
+    def active_pane(self):
+        """
+        The pane of this axis the view shows, the side of the box farthest
+        from the viewer along the axis: its four corners projected (x and y
+        on the projection plane, then depth), and where it lies along the
+        axis.
+        """
+        corners, loc = _mplot3d.active_pane(*self._native_args())
+        return np.array(corners), loc
+
+    def _pane_artist(self):
+        """The polygon the pane is drawn as (matplotlib's ``axis.pane``),
+        in the axes' figure, coloured as the pane is now."""
+        pane = self.__dict__.get("_pane")
+        if pane is None:
+            pane = self._pane = mpatches.Polygon([[0, 0], [0, 1]], closed=False)
+            pane.set_transform(self.axes.transData)
+            pane.set_figure(self.axes.get_figure(root=True))
+        color = _mplot3d.get_pane_color(*self._native_args())
+        pane.set_edgecolor(color)
+        pane.set_facecolor(color)
+        pane.set_alpha(color[-1])
+        return pane
+
+    def draw_pane(self, renderer):
+        """
+        Draw pane.
+
+        Parameters
+        ----------
+        renderer : `~matplotlib.backend_bases.RendererBase` subclass
+        """
+        renderer.open_group('pane3d', gid=self.get_gid())
+        xys, loc = self.active_pane()
+        pane = self._pane_artist()
+        pane.xy = xys[:, :2]
+        pane.draw(renderer)
+        renderer.close_group('pane3d')
+
+    def _gridline_artist(self):
+        """The collection the gridlines are drawn as (matplotlib's
+        ``axis.gridlines``), in the axes' figure."""
+        gridlines = self.__dict__.get("_gridlines")
+        if gridlines is None:
+            gridlines = self._gridlines = mcoll.LineCollection([])
+            gridlines.set_transform(self.axes.transData)
+            gridlines.set_figure(self.axes.get_figure(root=True))
+        return gridlines
+
+    def draw_grid(self, renderer):
+        """Draw the gridlines of this axis across the panes, as the axes
+        draws them, if its grid is on."""
+        if not _mplot3d.get_grid(self.axes._native):
+            return
+        renderer.open_group("grid3d", gid=self.get_gid())
+        lines = _mplot3d.gridlines(*self._native_args())
+        if lines:
+            gridlines = self._gridline_artist()
+            gridlines.set_segments([points for points, *_ in lines])
+            gridlines.set_color([color for _, color, _, _ in lines])
+            gridlines.set_linewidth([width for _, _, width, _ in lines])
+            gridlines.set_linestyle([style for *_, style in lines])
+            gridlines.draw(renderer)
+        renderer.close_group('grid3d')
 
     def _get_tickdir(self, position):
         """
@@ -90,7 +247,7 @@ class Axis(maxis.XAxis):
 
     def get_view_interval(self):
         """Return the view limits ``(min, max)`` of this axis."""
-        return _mplot3d.get_lim(self.axes._native, self.axis_name)
+        return np.array(_mplot3d.get_lim(self.axes._native, self.axis_name))
 
     def get_scale(self):
         """Return this Axis' scale (as a str)."""

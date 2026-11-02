@@ -371,6 +371,23 @@ impl Axes3D {
         self.with(|axes| axes.axis(axis).label.rotated())
     }
 
+    /// Whether a label `text` of one axis would follow the axis direction:
+    /// as set with [`set_rotate_label`](Self::set_rotate_label), else when
+    /// `text` is longer than four characters (matplotlib's
+    /// `get_rotate_label(text)`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// assert!(ax.rotates_label(Axis3::X, "longer"));
+    /// ax.set_rotate_label(Axis3::X, Some(false));
+    /// assert!(!ax.rotates_label(Axis3::X, "longer"));
+    /// ```
+    pub fn rotates_label(&self, axis: Axis3, text: &str) -> bool {
+        self.with(|axes| axes.axis(axis).label.rotates(text))
+    }
+
     /// Sets the centred title and returns it: like matplotlib's
     /// `Axes3D.set_title`, centred whatever `axes.titlelocation` says.
     pub fn set_title(&self, text: impl Into<String>) -> Text {
@@ -490,6 +507,27 @@ impl Axes3D {
     pub fn grid(&self, visible: bool) -> &Self {
         self.with_mut(|axes| axes.grid_on = visible);
         self
+    }
+
+    /// Whether the gridlines on the panes are drawn (matplotlib's
+    /// `_draw_grid`).
+    pub fn grid_on(&self) -> bool {
+        self.with(|axes| axes.grid_on)
+    }
+
+    /// The colour of the pane normal to `axis` (matplotlib's
+    /// `axis._axinfo['color']`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_pane_color(Axis3::X, "red");
+    /// assert_eq!(ax.pane_color(Axis3::X).resolve()?, pltrs::colors::Rgba::opaque(1.0, 0.0, 0.0));
+    /// # Ok::<(), pltrs::colors::ColorError>(())
+    /// ```
+    pub fn pane_color(&self, axis: Axis3) -> Color {
+        self.with(|axes| axes.axis(axis).pane_color.clone())
     }
 
     /// Hides the panes, gridlines and axes, leaving the background and

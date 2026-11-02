@@ -225,6 +225,18 @@ const UNI2TYPE1: [(u32, &str); 217] = [
     (0x2212, "minus"),
 ];
 
+/// Every character with an Adobe glyph name and that name, in code point
+/// order (matplotlib's `uni2type1`).
+///
+/// ```
+/// let table = pltrs_font::uni2type1();
+/// assert_eq!(table.len(), 217);
+/// assert!(table.contains(&(0x00e5, "aring")));
+/// ```
+pub fn uni2type1() -> &'static [(u32, &'static str)] {
+    &UNI2TYPE1
+}
+
 /// The glyph name AFM metrics know `c` by: its Adobe name, or `uniXXXX`
 /// (upper-case hex, at least four digits) for characters without one, as
 /// matplotlib's AFM text measurement and PostScript backend name them.

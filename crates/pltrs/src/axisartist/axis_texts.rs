@@ -7,6 +7,7 @@
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
+use pltrs_text::mathtext::is_math_text;
 use pltrs_text::{HAlign, VAlign};
 
 use super::labels::{LabelKind, LabelState, PlacedTickLabels, TickLabel, axis_label, tick_labels};
@@ -18,7 +19,7 @@ use crate::colors::Color;
 use crate::fonts::FontWeight;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
-use crate::text::draw_laid_out;
+use crate::text::{TextError, draw_laid_out, measure_text};
 use crate::transforms::Transform;
 
 /// The z-order of the texts (matplotlib's `Text`).
@@ -170,6 +171,46 @@ impl AxisTextsArtist {
     pub fn texts(&self) -> AxisTexts {
         self.raw
             .with::<AxisTextsState, _>(|state| state.texts.clone())
+    }
+
+    /// The display box of each non-empty text in the figure's current
+    /// layout (matplotlib's `TickLabels.get_window_extents` of texts made
+    /// on their own); none when the axes is gone.
+    pub fn text_extents(&self) -> Vec<Bbox> {
+        let mut state = self.raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        state
+            .store
+            .get_as::<AxisTextsState>(self.raw.id())
+            .and_then(|texts| texts.placed(layout).ok())
+            .map(|placed| placed.iter().map(PlacedText::bbox).collect())
+            .unwrap_or_default()
+    }
+
+    /// The width, height and descent in pixels of each non-empty text at
+    /// the figure's resolution (matplotlib's
+    /// `TickLabels.get_texts_widths_heights_descents`).
+    ///
+    /// # Errors
+    ///
+    /// When a text cannot be measured.
+    pub fn texts_widths_heights_descents(&self) -> Result<Vec<(f64, f64, f64)>, TextError> {
+        let dpi = self.parent_figure().dpi();
+        self.raw.with::<AxisTextsState, _>(|state| {
+            let style = state
+                .texts
+                .label_state()
+                .text_style(&state.rc, &state.texts.color);
+            (state.texts.texts.iter())
+                .filter(|(_, _, text)| !text.trim().is_empty())
+                .map(|(_, _, text)| {
+                    let math = state.rc.text_parse_math && is_math_text(text);
+                    measure_text(text, &style.font, math, dpi, &state.rc)
+                        .map(|metrics| (metrics.width, metrics.height, metrics.descent))
+                })
+                .collect()
+        })
     }
 }
 

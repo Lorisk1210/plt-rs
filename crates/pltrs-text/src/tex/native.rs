@@ -71,6 +71,16 @@ fn fixed(value: i128) -> f64 {
 }
 
 impl NativeFont {
+    /// Face `subfont` of the font file `name` (the bytes of its path),
+    /// shown with `effects`.
+    pub(crate) fn from_file_name(name: &[u8], subfont: u32, effects: NativeEffects) -> Self {
+        Self {
+            path: path_of(name),
+            subfont,
+            effects,
+        }
+    }
+
     /// A font of XeTeX's `define_native_font`: the file `name`, face
     /// `index`, and the effects `flags` announces, whose values `read`
     /// gives (`read(bytes, signed)`: four colour bytes, then each factor

@@ -5,6 +5,7 @@
 
 use pltrs_text::tex::TexManager;
 
+use super::font_manager::FontProps;
 use crate::binding::prelude::*;
 
 /// The typesetter of the current rcParams.
@@ -77,6 +78,16 @@ fn pgf_preamble() -> PyResult<String> {
     Ok(pltrs::figure::pgf_preamble(&pltrs::rc::params()))
 }
 
+/// `backend_pgf._escape_and_apply_props(text, prop)`: the TeX source of
+/// `text` in the font `props` under the current rcParams.
+fn pgf_text(text: String, props: FontProps) -> PyResult<String> {
+    Ok(pltrs::figure::pgf_text(
+        &text,
+        &props.0,
+        &pltrs::rc::params(),
+    ))
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("tex_source", tex_source)?;
@@ -87,5 +98,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("make_png", make_png)?;
     module.add("grey", grey)?;
     module.add("text_width_height_descent", text_width_height_descent)?;
-    module.add("pgf_preamble", pgf_preamble)
+    module.add("pgf_preamble", pgf_preamble)?;
+    module.add("pgf_text", pgf_text)
 }

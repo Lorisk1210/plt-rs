@@ -2,6 +2,7 @@
 //! (matplotlib's `dviread`), through pltrs-text's kpathsea, font maps and
 //! DVI reader.
 
+mod fonts;
 mod pages;
 
 use std::collections::BTreeMap;
@@ -19,7 +20,8 @@ use crate::binding::prelude::*;
 impl From<TexError> for PyErr {
     /// `FileNotFoundError` with matplotlib's message for a file kpathsea
     /// cannot find, `OSError` for one that cannot be read, `ValueError`
-    /// for malformed data and for a font without a Type 1 file,
+    /// for malformed data (with matplotlib's message, which does not name
+    /// the kind of file) and for a font without a Type 1 file,
     /// `LookupError` for a font a font map lacks, `RuntimeError`
     /// otherwise.
     fn from(err: TexError) -> Self {
@@ -32,9 +34,8 @@ impl From<TexError> for PyErr {
                 ),
             ),
             TexError::Io { .. } => PyErr::new(ExceptionKind::OSError, err.to_string()),
-            TexError::Malformed { .. } | TexError::NoType1Font { .. } => {
-                PyErr::value_error(err.to_string())
-            }
+            TexError::Malformed { message, .. } => PyErr::value_error(message),
+            TexError::NoType1Font { .. } => PyErr::value_error(err.to_string()),
             TexError::UnmappedFont { .. } => {
                 PyErr::new(ExceptionKind::LookupError, err.to_string())
             }
@@ -50,7 +51,7 @@ impl IntoPy for PsfontsMap {
 }
 
 /// The files of the TeX installation, found through kpathsea.
-fn tex_files() -> PyResult<&'static TexFiles> {
+pub(super) fn tex_files() -> PyResult<&'static TexFiles> {
     let cache = pltrs::config::cache_dir().map_err(|err| PyErr::runtime_error(err.to_string()))?;
     Ok(TexFiles::kpathsea(&cache))
 }
@@ -185,5 +186,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("psfonts_map_get", psfonts_map_get)?;
     module.add("parse_enc", parse_enc)?;
     module.add("set_font_lookup", set_font_lookup)?;
+    fonts::register(module)?;
     pages::register(module)
 }

@@ -163,7 +163,7 @@ fn set_axisline_style(artist: AxisArtist, style: Option<String>) -> PyResult<()>
 }
 
 /// The ticks of `level` (`"major"` or `"minor"`) of the axis artist.
-fn ticks(artist: &AxisArtist, level: &str) -> pltrs::axisartist::Ticks {
+pub(super) fn ticks(artist: &AxisArtist, level: &str) -> pltrs::axisartist::Ticks {
     if level == "minor" {
         artist.minor_ticks()
     } else {
@@ -232,7 +232,7 @@ fn get_tick_locs_angles(artist: AxisArtist, level: String) -> PyResult<Vec<((f64
 
 /// The text part `part` (`"major_ticklabels"`, `"minor_ticklabels"` or
 /// `"label"`) of the axis artist.
-fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase> {
+pub(super) fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase> {
     Ok(match part {
         "major_ticklabels" => (*artist.major_ticklabels()).clone(),
         "minor_ticklabels" => (*artist.minor_ticklabels()).clone(),

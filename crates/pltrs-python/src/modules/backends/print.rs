@@ -53,7 +53,13 @@ fn pad_inches(object: &Bound<'_>) -> PyResult<PadInches> {
 /// `Subject`, `Keywords`, `Creator`, `Producer`, and the dates, given as
 /// whole seconds since the Unix epoch).
 fn metadata(object: &Bound<'_>) -> PyResult<Metadata> {
-    let mut metadata = Metadata::default();
+    metadata_over(Metadata::default(), object)
+}
+
+/// The metadata `base` with the entries of the dict `object` set or left
+/// out (see [`metadata`]).
+fn metadata_over(base: Metadata, object: &Bound<'_>) -> PyResult<Metadata> {
+    let mut metadata = base;
     for (key, value) in dict_items(object)? {
         let key: String = key.extract()?;
         let date = match key.as_str() {
@@ -97,6 +103,16 @@ pub(crate) struct DocumentMetadata(pub(crate) Metadata);
 impl FromPy<'_> for DocumentMetadata {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         metadata(object).map(Self)
+    }
+}
+
+/// A document's whole information, as native functions take it: a dict
+/// of the entries of [`DocumentMetadata`], without pltrs' defaults.
+pub(crate) struct DocumentInfo(pub(crate) Metadata);
+
+impl FromPy<'_> for DocumentInfo {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        metadata_over(Metadata::none(), object).map(Self)
     }
 }
 

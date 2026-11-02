@@ -9,6 +9,7 @@
 use std::any::Any;
 
 use pltrs::dates::{AutoDateFormatter, AutoDateLocator, ConciseDateFormatter, DateFormatter};
+use pltrs::geo::GeoThetaFormatter;
 use pltrs::polar::{RadialLocator, ThetaFormatter, ThetaLocator};
 use pltrs::ticker::{
     AsinhLocator, AutoLocator, AutoMinorLocator, EngFormatter, FixedFormatter, FixedLocator,
@@ -213,6 +214,8 @@ pub(crate) fn formatter<'py>(
             .with("decimals", percent.decimals())?
     } else if any.is::<ThetaFormatter>() {
         Spec::new(py, "theta")?
+    } else if let Some(geo) = any.downcast_ref::<GeoThetaFormatter>() {
+        Spec::new(py, "geo_theta")?.with("round_to", geo.round_to())?
     } else if any.is::<CategoryFormatter>() {
         Spec::new(py, "category")?
     } else if any.is::<AutoDateFormatter>() {

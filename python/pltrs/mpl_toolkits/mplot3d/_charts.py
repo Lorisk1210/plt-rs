@@ -170,6 +170,8 @@ class ChartsMixin:
         self.add_container(container)
         return container
 
+    stem3D = stem
+
     @_preprocess_data()
     def bar(self, left, height, zs=0, zdir='z', *args,
             axlim_clip=False, **kwargs):

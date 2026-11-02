@@ -271,6 +271,33 @@ impl Axis3D {
         })
     }
 
+    /// The pane of the axis the camera sees, the side of the box farthest
+    /// from it along the axis: its four corners projected (x and y in the
+    /// projection plane, then depth), and where it lies along the axis in
+    /// scaled coordinates (matplotlib's `active_pane`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// let (corners, at) = ax.zaxis().active_pane();
+    /// assert_eq!(corners.len(), 4);
+    /// assert_eq!(at, ax.zlim().0);
+    /// ```
+    pub fn active_pane(&self) -> ([Vec3; 4], f64) {
+        self.axes.with(|axes| {
+            let projection = axes.projection();
+            let geometry = BoxGeometry::new(axes.scaled_limits(), &projection);
+            let i = self.dir.index();
+            let corners = geometry.pane(self.dir);
+            let at = if geometry.highs[i] {
+                geometry.maxs[i]
+            } else {
+                geometry.mins[i]
+            };
+            (corners, at)
+        })
+    }
+
     /// The coordinate (0 for x, 1 for y, 2 for z) the tick marks extend
     /// along on the edge `position` in the current view (matplotlib's
     /// `_get_tickdir`).

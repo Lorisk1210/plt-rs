@@ -188,6 +188,24 @@ pub fn rc_file_path() -> Option<PathBuf> {
     lookup::find_rc_file(&Environment::process(), || config_dir().ok())
 }
 
+/// The rc file pltrs reads (matplotlib's `matplotlib_fname`): the
+/// [`rc_file_path`], else the template of the defaults in the
+/// [`data_dir`] (`pltrsrc`, every parameter commented out), as matplotlib
+/// falls back on its `mpl-data/matplotlibrc`.
+///
+/// ```
+/// let path = pltrs::config::rc_file_or_template()?;
+/// assert!(path.is_file());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When there is no rc file and the data directory cannot be written.
+pub fn rc_file_or_template() -> Result<PathBuf, DataDirError> {
+    rc_file_path().map_or_else(|| Ok(data_dir()?.join(RC_FILE_NAME)), Ok)
+}
+
 /// The user rc file threads start from, as read the first time it was
 /// needed, with the lines skipped in [`RcFile::warnings`]. `None` when
 /// there is none or the user configuration is

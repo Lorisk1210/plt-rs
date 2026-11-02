@@ -10,7 +10,9 @@ the range, levels and labels (``_native.axisartist``).
 
 import numpy as np
 
-from pltrs.transforms import Bbox, CompositeGenericTransform
+from pltrs.path import Path
+from pltrs.transforms import (
+    Affine2D, Bbox, CompositeGenericTransform, IdentityTransform)
 from pltrs._native import axisartist as _axisartist
 from .axislines import (
     _FixedAxisArtistHelperBase, _FloatingAxisArtistHelperBase, GridHelperBase)
@@ -48,7 +50,34 @@ def _native_aux(aux_trans):
             _point_function(mapped(inverse)))
 
 
-class FixedAxisArtistHelper(_FixedAxisArtistHelperBase):
+class _NativeHelper:
+    """
+    What the helper of an axis artist says of its ticks, line and label
+    (matplotlib's ``get_tick_iterators``, ``get_line`` and
+    ``get_axislabel_pos_angle``): pltrs (Rust) computes them for the axis
+    artist the helper serves, in its axes' current state.
+    """
+
+    def _served(self):
+        """The native axis artist the helper serves."""
+        if self._artist_native is None:
+            raise RuntimeError(
+                "the helper serves no axis artist yet (new_fixed_axis and "
+                "new_floating_axis make the axis artists of helpers)")
+        return self._artist_native
+
+    def get_tick_iterators(self, axes):
+        """tick_loc, tick_angle, tick_label"""
+        major, minor = _axisartist.helper_ticks(self._served())
+
+        def ticks(level):
+            for xy, normal, tangent, label in level:
+                yield list(xy), normal, tangent, label
+
+        return ticks(major), ticks(minor)
+
+
+class FixedAxisArtistHelper(_NativeHelper, _FixedAxisArtistHelperBase):
     """
     Helper class for a fixed axis.
     """
@@ -82,8 +111,11 @@ class FixedAxisArtistHelper(_FixedAxisArtistHelperBase):
         if self._artist_native is not None:
             _axisartist.set_nth_coord_ticks(self._artist_native, "xy"[nth])
 
+    def get_tick_transform(self, axes):
+        return axes.transData
 
-class FloatingAxisArtistHelper(_FloatingAxisArtistHelperBase):
+
+class FloatingAxisArtistHelper(_NativeHelper, _FloatingAxisArtistHelperBase):
 
     def __init__(self, grid_helper, nth_coord, value, axis_direction=None):
         """
@@ -110,6 +142,29 @@ class FloatingAxisArtistHelper(_FloatingAxisArtistHelperBase):
         self._extremes = e1, e2
         if self._artist_native is not None:
             _axisartist.set_extremes(self._artist_native, (float(e1), float(e2)))
+
+    def get_axislabel_transform(self, axes):
+        return Affine2D()  # axes.transData
+
+    def get_axislabel_pos_angle(self, axes):
+        """The label reference position in display coordinates and the
+        direction of the line there, or ``(None, None)`` outside the
+        axes."""
+        position = _axisartist.helper_label_position(self._served())
+        if position is None:
+            return None, None
+        xy, angle = position
+        return np.array(xy), angle
+
+    def get_tick_transform(self, axes):
+        return IdentityTransform()  # axes.transData
+
+    def get_line_transform(self, axes):
+        return axes.transData
+
+    def get_line(self, axes):
+        vertices, codes = _axisartist.helper_line(self._served())
+        return Path(vertices, codes)
 
 
 class GridHelperCurveLinear(GridHelperBase):

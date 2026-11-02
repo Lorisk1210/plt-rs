@@ -14,6 +14,29 @@ impl Axes3D {
         self.with(|axes| axes.limits.view(axis))
     }
 
+    /// The interval the data of one axis spans (matplotlib's
+    /// `get_data_interval` of the axes of a 3-D axes: `xy_dataLim.intervalx`,
+    /// `xy_dataLim.intervaly` or `zz_dataLim.intervalx`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_data_interval(Axis3::Z, 2.0, 5.0);
+    /// assert_eq!(ax.data_interval(Axis3::Z), (2.0, 5.0));
+    /// ```
+    pub fn data_interval(&self, axis: Axis3) -> (f64, f64) {
+        self.with(|axes| axes.limits.data_interval(axis))
+    }
+
+    /// Replaces the interval the data of one axis spans (matplotlib's
+    /// `set_data_interval(vmin, vmax, ignore=True)`); the view limits stay
+    /// as they are until the axes autoscales.
+    pub fn set_data_interval(&self, axis: Axis3, low: f64, high: f64) -> &Self {
+        self.with_mut(|axes| axes.limits.set_data_interval(axis, (low, high)));
+        self
+    }
+
     /// The x view limits.
     pub fn xlim(&self) -> (f64, f64) {
         self.limits(Axis3::X)

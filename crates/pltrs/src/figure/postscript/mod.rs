@@ -22,6 +22,7 @@ use super::Figure;
 use super::print::SaveOptions;
 use super::save::{SaveError, embedding, simplify_settings};
 use crate::rc::Distiller;
+pub use distill::{DistillOptions, distill_file};
 pub use programs::ProgramError;
 
 /// Whether the distiller `distiller` can run here: Ghostscript for
@@ -112,7 +113,7 @@ impl Figure {
         let distillation = Distillation {
             eps,
             paper: layout.paper,
-            bbox: document.bbox,
+            bbox: Some(document.bbox),
             rotated: false,
         };
         if rc.ps_usedistiller == Distiller::Xpdf {

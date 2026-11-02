@@ -1,9 +1,9 @@
-//! matplotlib's `_XMLWriter`: a streaming XML writer with one space of
+//! matplotlib's `XMLWriter`: a streaming XML writer with one space of
 //! indentation per level, empty elements collapsed to `<tag/>` and
 //! attributes without a value left out.
 
 /// An element attribute: name and value.
-pub(crate) type Attribute<'a> = (&'a str, String);
+pub type Attribute<'a> = (&'a str, String);
 
 /// `_escape_cdata`.
 fn escape_cdata(text: &str) -> String {
@@ -48,9 +48,20 @@ fn quote_attribute(value: &str) -> String {
 /// The deepest indentation written (matplotlib's 64-space buffer).
 const MAX_INDENT: usize = 64;
 
-/// Writes an XML document into a string.
+/// Writes an XML document into a string, which [`take`](Self::take)
+/// hands out as it grows (matplotlib's `backend_svg.XMLWriter`).
+///
+/// ```
+/// use pltrs_render::XmlWriter;
+/// let mut xml = XmlWriter::new("");
+/// let svg = xml.start("svg", &[("width", "10pt".into())]);
+/// xml.element("title", "a < b", &[]);
+/// xml.close(svg);
+/// assert_eq!(xml.take(), "<svg width=\"10pt\">\n <title>a &lt; b</title>\n</svg>\n");
+/// assert_eq!(xml.take(), "");
+/// ```
 #[derive(Debug, Default)]
-pub(crate) struct XmlWriter {
+pub struct XmlWriter {
     out: String,
     tags: Vec<String>,
     /// Whether the last start tag still lacks its closing `>`.
@@ -60,7 +71,7 @@ pub(crate) struct XmlWriter {
 
 impl XmlWriter {
     /// A writer appending to `prolog`.
-    pub(crate) fn new(prolog: &str) -> Self {
+    pub fn new(prolog: &str) -> Self {
         Self {
             out: prolog.to_owned(),
             ..Self::default()
@@ -85,7 +96,7 @@ impl XmlWriter {
     }
 
     /// Opens an element; returns its depth for [`close`](Self::close).
-    pub(crate) fn start(&mut self, tag: &str, attributes: &[Attribute<'_>]) -> usize {
+    pub fn start(&mut self, tag: &str, attributes: &[Attribute<'_>]) -> usize {
         self.flush(true);
         self.data.clear();
         let tag = escape_cdata(tag);
@@ -106,7 +117,7 @@ impl XmlWriter {
     }
 
     /// Writes a comment.
-    pub(crate) fn comment(&mut self, text: &str) {
+    pub fn comment(&mut self, text: &str) {
         self.flush(true);
         self.indent(self.tags.len());
         self.out.push_str("<!-- ");
@@ -115,12 +126,12 @@ impl XmlWriter {
     }
 
     /// Adds character data to the current element.
-    fn push_data(&mut self, text: &str) {
+    pub fn data(&mut self, text: &str) {
         self.data.push_str(text);
     }
 
     /// Closes the current element; `indent` indents the end tag.
-    pub(crate) fn end(&mut self, indent: bool) {
+    pub fn end(&mut self, indent: bool) {
         let Some(tag) = self.tags.pop() else {
             return;
         };
@@ -140,19 +151,35 @@ impl XmlWriter {
     }
 
     /// Closes every element down to and including depth `id`.
-    pub(crate) fn close(&mut self, id: usize) {
+    pub fn close(&mut self, id: usize) {
         while self.tags.len() > id {
             self.end(true);
         }
     }
 
     /// Writes a whole element with optional character data.
-    pub(crate) fn element(&mut self, tag: &str, text: &str, attributes: &[Attribute<'_>]) {
+    pub fn element(&mut self, tag: &str, text: &str, attributes: &[Attribute<'_>]) {
         self.start(tag, attributes);
         if !text.is_empty() {
-            self.push_data(text);
+            self.data(text);
         }
         self.end(false);
+    }
+
+    /// The open elements, outermost first, as their tags were escaped.
+    pub fn open_tags(&self) -> &[String] {
+        &self.tags
+    }
+
+    /// Whether `tag` names the innermost open element (matplotlib's check
+    /// of `end(tag)`).
+    pub fn closes(&self, tag: &str) -> bool {
+        self.tags.last() == Some(&escape_cdata(tag))
+    }
+
+    /// The text written since the last call, which the writer forgets.
+    pub fn take(&mut self) -> String {
+        std::mem::take(&mut self.out)
     }
 
     /// The document written so far.
@@ -181,6 +208,17 @@ mod tests {
             "<svg width=\"10pt\">\n <defs>\n  <style type=\"text/css\">*{a: b}</style>\n \
              </defs>\n <g>\n  <!-- a- -b &lt;c&gt; -->\n  <path d=\"M 0 0 \nz\n\"/>\n </g>\n</svg>\n"
         );
+    }
+
+    #[test]
+    fn end_tags_are_checked_against_the_open_element() {
+        let mut w = XmlWriter::new("");
+        w.start("a&b", &[]);
+        assert!(w.closes("a&b"));
+        assert!(!w.closes("a"));
+        w.end(true);
+        assert!(!w.closes("a&b"));
+        assert_eq!(w.take(), "<a&amp;b/>\n");
     }
 
     #[test]

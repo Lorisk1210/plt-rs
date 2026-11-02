@@ -58,6 +58,7 @@ pub(crate) use gridlines::Gridlines;
 pub use handles::{
     AxisArtist, AxisLabel, AxisLine, LabelBase, LabelDirection, TickLabels, Ticks, Toggle,
 };
+pub use helper::TickInfo;
 pub use line::{AxislineStyle, AxislineStyleError};
 pub(crate) use tick_marks::TickMarksState;
 pub use tick_marks::{TickMarks, TickMarksArtist};

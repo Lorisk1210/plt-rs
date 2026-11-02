@@ -115,6 +115,7 @@ pub use bars::{Bar3DOptions, Boxes};
 pub use camera::{ProjType, ViewAngles};
 pub use collections3d::FaceColors;
 pub use contour::Contour3DOptions;
+pub use contour::ContourPlacement;
 pub use coords::Axis3;
 pub use create::Axes3DOptions;
 pub use error::Axes3DError;

@@ -4,6 +4,7 @@
 
 use pltrs::mplot3d::{Axes3D, AxisPosition};
 
+use super::super::lines::PyLineStyle;
 use super::axis3;
 use crate::binding::prelude::*;
 
@@ -107,6 +108,79 @@ fn tick_direction(axes: Axes3D, name: String, edge: String) -> PyResult<usize> {
     Ok(axes.axis(axis3(&name)?).tick_direction(position(&edge)?))
 }
 
+/// The corners of a pane, projected: x, y and depth each.
+type PaneCorners = Vec<(f64, f64, f64)>;
+
+/// The pane of axis `name` the camera sees: its four corners projected
+/// (x, y and depth) and its position along the axis (`active_pane`).
+fn active_pane(axes: Axes3D, name: String) -> PyResult<(PaneCorners, f64)> {
+    let (corners, at) = axes.axis(axis3(&name)?).active_pane();
+    Ok((corners.iter().map(|&[x, y, z]| (x, y, z)).collect(), at))
+}
+
+/// The colour of the pane normal to axis `name`, as RGBA.
+fn get_pane_color(axes: Axes3D, name: String) -> PyResult<(f64, f64, f64, f64)> {
+    let color = axes
+        .pane_color(axis3(&name)?)
+        .resolve()
+        .map_err(|err| PyErr::value_error(err.to_string()))?;
+    Ok((color.r, color.g, color.b, color.a))
+}
+
+/// A gridline: its three points `((x, y), ...)` in projected
+/// coordinates, its RGBA colour, width in points and line style.
+type Gridline = (Vec<(f64, f64)>, (f64, f64, f64, f64), f64, PyLineStyle);
+
+/// The gridlines of axis `name` the axes draws, in view, as the last
+/// layout placed them (what `draw_grid` draws).
+fn gridlines(axes: Axes3D, name: String) -> PyResult<Vec<Gridline>> {
+    let lines = axes
+        .axis(axis3(&name)?)
+        .gridlines()
+        .map_err(|err| PyErr::value_error(err.to_string()))?;
+    lines
+        .into_iter()
+        .filter(|line| line.in_view && line.visible)
+        .map(|line| {
+            let color = line
+                .color
+                .resolve()
+                .map_err(|err| PyErr::value_error(err.to_string()))?;
+            Ok((
+                line.points.iter().map(|p| (p.x, p.y)).collect(),
+                (color.r, color.g, color.b, color.a),
+                line.width,
+                PyLineStyle(line.linestyle),
+            ))
+        })
+        .collect()
+}
+
+/// Whether the label of axis `name` follows the axis: `True`, `False`, or
+/// `None` for labels longer than four characters (`set_rotate_label`).
+fn set_rotate_label(axes: Axes3D, name: String, rotate: Option<bool>) -> PyResult<()> {
+    axes.set_rotate_label(axis3(&name)?, rotate);
+    Ok(())
+}
+
+/// Whether a label `text` of axis `name` would follow the axis
+/// (`get_rotate_label(text)`).
+fn get_rotate_label(axes: Axes3D, name: String, text: String) -> PyResult<bool> {
+    Ok(axes.rotates_label(axis3(&name)?, &text))
+}
+
+/// The interval the data along axis `name` spans (`get_data_interval`).
+fn get_data_interval(axes: Axes3D, name: String) -> PyResult<(f64, f64)> {
+    Ok(axes.data_interval(axis3(&name)?))
+}
+
+/// Replaces the interval the data along axis `name` spans
+/// (`set_data_interval(..., ignore=True)`).
+fn set_data_interval(axes: Axes3D, name: String, (low, high): (f64, f64)) -> PyResult<()> {
+    axes.set_data_interval(axis3(&name)?, low, high);
+    Ok(())
+}
+
 /// Labels the major (or `minor`) ticks of axis `name` with `labels`
 /// (`set_ticklabels`).
 fn set_ticklabels(axes: Axes3D, name: String, labels: Vec<String>, minor: bool) -> PyResult<()> {
@@ -131,7 +205,14 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_line_visible", set_line_visible)?;
     module.add("get_line_visible", get_line_visible)?;
     module.add("tick_direction", tick_direction)?;
-    module.add("set_ticklabels", set_ticklabels)
+    module.add("set_ticklabels", set_ticklabels)?;
+    module.add("active_pane", active_pane)?;
+    module.add("get_pane_color", get_pane_color)?;
+    module.add("gridlines", gridlines)?;
+    module.add("set_rotate_label", set_rotate_label)?;
+    module.add("get_rotate_label", get_rotate_label)?;
+    module.add("get_data_interval", get_data_interval)?;
+    module.add("set_data_interval", set_data_interval)
 }
 
 #[cfg(test)]

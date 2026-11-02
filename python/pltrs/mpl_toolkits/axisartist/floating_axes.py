@@ -18,6 +18,11 @@ from .grid_finder import ExtremeFinderSimple
 from .grid_helper_curvelinear import _native_aux
 
 
+class FloatingAxisArtistHelper(
+        grid_helper_curvelinear.FloatingAxisArtistHelper):
+    pass
+
+
 class FixedAxisArtistHelper(grid_helper_curvelinear.FloatingAxisArtistHelper):
 
     def __init__(self, grid_helper, side, nth_coord_ticks=None):

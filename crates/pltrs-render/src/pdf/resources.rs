@@ -51,11 +51,14 @@ pub(super) struct HatchStyle {
     pub(super) linewidth: f64,
 }
 
-/// Vertex colours of a Gouraud shading: RGB, or one grey level (alpha
-/// values for a soft mask).
+/// Vertex colours of a Gouraud shading (`addGouraudTriangles`): RGB, or
+/// one grey level (alpha values for a soft mask).
 #[derive(Clone, Debug, PartialEq)]
-pub(super) enum ShadingColors {
+pub enum ShadingColors {
+    /// The colours of the three vertices of every triangle (their alpha
+    /// is not written).
     Rgb(Vec<[Rgba; 3]>),
+    /// The grey levels of the three vertices of every triangle.
     Gray(Vec<[f64; 3]>),
 }
 
@@ -69,14 +72,19 @@ struct Shading {
 }
 
 /// How a marker form paints its path, and the line width it is drawn
-/// with.
+/// with (the arguments of `markerObject`).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct MarkerPaint {
-    pub(super) fill: bool,
-    pub(super) stroke: bool,
-    pub(super) join: JoinStyle,
-    pub(super) cap: CapStyle,
-    pub(super) linewidth: f64,
+pub struct MarkerPaint {
+    /// Whether the path is filled.
+    pub fill: bool,
+    /// Whether the path is stroked.
+    pub stroke: bool,
+    /// The line join.
+    pub join: JoinStyle,
+    /// The line cap.
+    pub cap: CapStyle,
+    /// The widest line the marker is drawn with, which pads its box.
+    pub linewidth: f64,
 }
 
 /// One marker form.
@@ -93,15 +101,20 @@ struct Marker {
     linewidth: f64,
 }
 
-/// How the paths of a collection are painted.
+/// How the paths of a collection are painted (the arguments of
+/// `pathCollectionObject`).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct TemplatePaint {
-    pub(super) join: JoinStyle,
-    pub(super) cap: CapStyle,
+pub struct TemplatePaint {
+    /// The line join.
+    pub join: JoinStyle,
+    /// The line cap.
+    pub cap: CapStyle,
     /// Extra room around the path for the widest edge.
-    pub(super) padding: f64,
-    pub(super) filled: bool,
-    pub(super) stroked: bool,
+    pub padding: f64,
+    /// Whether the paths are filled.
+    pub filled: bool,
+    /// Whether the paths are stroked.
+    pub stroked: bool,
 }
 
 /// One path-collection template.
@@ -174,6 +187,13 @@ impl Resources {
         name
     }
 
+    /// The hatch patterns made so far with their names, in order.
+    pub(super) fn hatch_styles(&self) -> impl Iterator<Item = (&HatchStyle, &str)> {
+        self.hatches
+            .iter()
+            .map(|(style, name)| (style, name.as_str()))
+    }
+
     /// `addGouraudTriangles`: a new shading of `points` (display
     /// coordinates); returns its name and object.
     pub(super) fn gouraud(
@@ -206,8 +226,10 @@ impl Resources {
         name
     }
 
-    /// `markerObject`: a form `XObject` per marker path and paint mode, its
-    /// box padded for the widest line drawing it.
+    /// `markerObject`: a new form `XObject` per call, its box padded for
+    /// the line drawing it. matplotlib keys its markers by their path
+    /// operations, which compare by identity (`Verbatim`), so markers drawn
+    /// alike by different calls do not share a form.
     pub(super) fn marker(
         &mut self,
         writer: &mut PdfWriter,
@@ -223,12 +245,6 @@ impl Resources {
             cap,
             linewidth,
         } = paint;
-        if let Some(marker) = self.markers.iter_mut().find(|m| {
-            m.ops == ops && m.fill == fill && m.stroke == stroke && m.join == join && m.cap == cap
-        }) {
-            marker.linewidth = marker.linewidth.max(linewidth);
-            return marker.name.clone();
-        }
         let name = format!("M{}", self.markers.len());
         let id = writer.reserve();
         self.markers.push(Marker {
@@ -273,6 +289,23 @@ impl Resources {
         page_height: f64,
         compressed: bool,
     ) -> Result<(), VectorError> {
+        self.write_ext_gstates(writer, ids.ext_gstates)?;
+        self.write_soft_mask_groups(writer)?;
+        self.write_hatches(writer, ids.patterns, page_height)?;
+        self.write_shadings(writer, ids.shadings)?;
+        self.write_xobjects(writer, ids.xobjects)?;
+        self.write_images(writer, compressed)?;
+        self.write_markers(writer)?;
+        self.write_path_templates(writer)
+    }
+
+    /// `writeExtGSTates`: the dictionary of the alpha and soft mask
+    /// graphics states, as object `dictionary`.
+    pub(super) fn write_ext_gstates(
+        &self,
+        writer: &mut PdfWriter,
+        dictionary: u32,
+    ) -> Result<(), VectorError> {
         let mut states: Vec<(String, Obj)> = self
             .alpha_states
             .iter()
@@ -299,7 +332,12 @@ impl Resources {
             ]);
             states.push((name.clone(), state));
         }
-        writer.write_object(ids.ext_gstates, &Obj::Dict(states))?;
+        writer.write_object(dictionary, &Obj::Dict(states))
+    }
+
+    /// `_write_soft_mask_groups`: the transparency groups of the soft
+    /// masks.
+    pub(super) fn write_soft_mask_groups(&self, writer: &mut PdfWriter) -> Result<(), VectorError> {
         for (smask, _, group) in &self.soft_masks {
             let form = vec![
                 ("Type".to_owned(), Obj::name("XObject")),
@@ -326,8 +364,16 @@ impl Resources {
             writer.output(&[Obj::name("S"), Obj::op("sh")])?;
             writer.end_stream()?;
         }
-        self.write_hatches(writer, ids.patterns, page_height)?;
-        self.write_shadings(writer, ids.shadings)?;
+        Ok(())
+    }
+
+    /// The dictionary of the images, marker forms and path templates, as
+    /// object `dictionary`.
+    pub(super) fn write_xobjects(
+        &self,
+        writer: &mut PdfWriter,
+        dictionary: u32,
+    ) -> Result<(), VectorError> {
         let mut xobjects: Vec<(String, Obj)> = Vec::new();
         xobjects.extend(
             self.images
@@ -340,15 +386,24 @@ impl Resources {
                 .map(|m| (m.name.clone(), Obj::Ref(m.id))),
         );
         xobjects.extend(self.paths.iter().map(|p| (p.name.clone(), Obj::Ref(p.id))));
-        writer.write_object(ids.xobjects, &Obj::Dict(xobjects))?;
+        writer.write_object(dictionary, &Obj::Dict(xobjects))
+    }
+
+    /// `writeImages`: every image `XObject`, its streams compressed with
+    /// `compressed`.
+    pub(super) fn write_images(
+        &self,
+        writer: &mut PdfWriter,
+        compressed: bool,
+    ) -> Result<(), VectorError> {
         for (image, _, id) in &self.images {
             image::write_image(writer, image, *id, compressed)?;
         }
-        self.write_forms(writer)
+        Ok(())
     }
 
     /// `writeHatches`: 72-point tiles in the page's coordinate origin.
-    fn write_hatches(
+    pub(super) fn write_hatches(
         &self,
         writer: &mut PdfWriter,
         dictionary: u32,
@@ -410,7 +465,11 @@ impl Resources {
 
     /// `writeGouraudTriangles`: free-form triangle meshes (shading type 4)
     /// with 32-bit coordinates and 8-bit colours.
-    fn write_shadings(&self, writer: &mut PdfWriter, dictionary: u32) -> Result<(), VectorError> {
+    pub(super) fn write_shadings(
+        &self,
+        writer: &mut PdfWriter,
+        dictionary: u32,
+    ) -> Result<(), VectorError> {
         let mut entries = Vec::new();
         for shading in &self.shadings {
             entries.push((shading.name.clone(), Obj::Ref(shading.id)));
@@ -472,9 +531,9 @@ impl Resources {
         writer.write_object(dictionary, &Obj::Dict(entries))
     }
 
-    /// `writeMarkers` and `writePathCollectionTemplates`: form `XObject`s
-    /// setting join and cap, then painting their path.
-    fn write_forms(&self, writer: &mut PdfWriter) -> Result<(), VectorError> {
+    /// `writeMarkers`: the form `XObject` of every marker, setting join and
+    /// cap, then painting its path.
+    pub(super) fn write_markers(&self, writer: &mut PdfWriter) -> Result<(), VectorError> {
         for marker in &self.markers {
             // Half a line, plus a miter of up to ten widths, may stick out.
             let bbox = marker
@@ -490,6 +549,12 @@ impl Resources {
                 paint_op(marker.fill, marker.stroke),
             )?;
         }
+        Ok(())
+    }
+
+    /// `writePathCollectionTemplates`: the form `XObject` of every path
+    /// of a collection drawn as a template.
+    pub(super) fn write_path_templates(&self, writer: &mut PdfWriter) -> Result<(), VectorError> {
         for template in &self.paths {
             let ops = path_ops(&template.path, template.transform, None, None, None);
             let bbox = extents(&template.path, template.transform);

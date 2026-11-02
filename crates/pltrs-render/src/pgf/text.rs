@@ -12,7 +12,7 @@ use pltrs_core::Point;
 use pltrs_font::FontStyle;
 use pltrs_text::{FontRequest, HAlign, RotationMode, TextRun, VAlign};
 
-use super::{PgfRenderer, num};
+use super::{PgfOptions, PgfRenderer, num};
 use crate::gc::GraphicsContext;
 use crate::renderer::fill_text;
 
@@ -44,7 +44,7 @@ impl PgfRenderer {
             fill_text(self, gc, run, origin, angle);
             return;
         };
-        let text = escape_and_apply_props(source.text(), &self.font_commands(source.font()));
+        let text = pgf_text(source.text(), source.font(), &self.options);
         self.line(r"\begin{pgfscope}");
         self.clip(gc);
         let alpha = gc.alpha.unwrap_or(1.0);
@@ -95,44 +95,69 @@ impl PgfRenderer {
 
     /// The commands selecting the family, size, style and weight of
     /// `request`.
+    #[cfg(test)]
     fn font_commands(&self, request: &FontRequest) -> String {
-        let font = &request.query;
-        let mut commands = String::new();
-        let family = font.families.first().map_or("sans-serif", String::as_str);
-        match family {
-            "serif" => commands.push_str(r"\rmfamily"),
-            "sans" | "sans-serif" => commands.push_str(r"\sffamily"),
-            "monospace" => commands.push_str(r"\ttfamily"),
-            _ if !self.options.rcfonts => commands.push_str(r"\fontfamily{\familydefault}"),
-            name if self.options.font_names.iter().any(|known| known == name) => {
-                let _ = write!(
-                    commands,
-                    r"\ifdefined\pdftexversion\else\setmainfont{{{name}}}\rmfamily\fi"
-                );
-            }
-            // matplotlib ignores unknown fonts with a warning.
-            _ => {}
-        }
-        let _ = write!(
-            commands,
-            r"\fontsize{{{}}}{{{}}}",
-            num(font.size),
-            num(font.size * 1.2)
-        );
-        commands.push_str(match font.style {
-            FontStyle::Normal => "",
-            FontStyle::Italic => r"\itshape",
-            FontStyle::Oblique => r"\slshape",
-        });
-        if request
-            .weight_keyword
-            .is_some_and(|keyword| BOLD.contains(&keyword))
-        {
-            commands.push_str(r"\bfseries");
-        }
-        commands.push_str(r"\selectfont");
-        commands
+        font_commands(request, &self.options)
     }
+}
+
+/// The TeX source matplotlib's PGF backend typesets `text` with in the
+/// font `request` asks for (its `_escape_and_apply_props`): the commands
+/// selecting the family (a font of `options.font_names` by name with
+/// `options.rcfonts`), size, style and weight, then the text with `^` and
+/// `%` made harmless outside math.
+///
+/// ```
+/// use pltrs_render::{PgfOptions, pgf_text};
+/// use pltrs_text::{FontQuery, FontRequest};
+/// let request = FontRequest::new(FontQuery::families(["serif".to_owned()]));
+/// let tex = pgf_text("50%", &request, &PgfOptions::default());
+/// assert!(tex.starts_with(r"{\rmfamily\fontsize{"));
+/// assert!(tex.ends_with("50%}"));
+/// ```
+pub fn pgf_text(text: &str, request: &FontRequest, options: &PgfOptions) -> String {
+    escape_and_apply_props(text, &font_commands(request, options))
+}
+
+/// The commands selecting the family, size, style and weight of
+/// `request`.
+fn font_commands(request: &FontRequest, options: &PgfOptions) -> String {
+    let font = &request.query;
+    let mut commands = String::new();
+    let family = font.families.first().map_or("sans-serif", String::as_str);
+    match family {
+        "serif" => commands.push_str(r"\rmfamily"),
+        "sans" | "sans-serif" => commands.push_str(r"\sffamily"),
+        "monospace" => commands.push_str(r"\ttfamily"),
+        _ if !options.rcfonts => commands.push_str(r"\fontfamily{\familydefault}"),
+        name if options.font_names.iter().any(|known| known == name) => {
+            let _ = write!(
+                commands,
+                r"\ifdefined\pdftexversion\else\setmainfont{{{name}}}\rmfamily\fi"
+            );
+        }
+        // matplotlib ignores unknown fonts with a warning.
+        _ => {}
+    }
+    let _ = write!(
+        commands,
+        r"\fontsize{{{}}}{{{}}}",
+        num(font.size),
+        num(font.size * 1.2)
+    );
+    commands.push_str(match font.style {
+        FontStyle::Normal => "",
+        FontStyle::Italic => r"\itshape",
+        FontStyle::Oblique => r"\slshape",
+    });
+    if request
+        .weight_keyword
+        .is_some_and(|keyword| BOLD.contains(&keyword))
+    {
+        commands.push_str(r"\bfseries");
+    }
+    commands.push_str(r"\selectfont");
+    commands
 }
 
 /// `text` in braces after the font `commands`, with `^` and `%` made

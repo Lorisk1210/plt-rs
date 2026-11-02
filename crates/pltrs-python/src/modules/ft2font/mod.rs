@@ -171,7 +171,8 @@ fn attributes(font: Native<Ft2Font>) -> PyResult<(Names, Counts, Flags, Metrics)
     let flags = face.face_flags();
     let style = face.style_flags();
     let bit = |on: bool, value: u32| if on { value } else { 0 };
-    // FreeType's FT_FACE_FLAG_* values; every sfnt face has a hinter.
+    // FreeType's FT_FACE_FLAG_* values; every sfnt face has a hinter, and
+    // matplotlib opens every face from a Python stream (EXTERNAL_STREAM).
     let face_flags = bit(flags.scalable, 1)
         | bit(flags.fixed_width, 1 << 2)
         | bit(flags.sfnt, 1 << 3)
@@ -179,6 +180,7 @@ fn attributes(font: Native<Ft2Font>) -> PyResult<(Names, Counts, Flags, Metrics)
         | bit(flags.vertical, 1 << 5)
         | bit(flags.kerning, 1 << 6)
         | bit(flags.glyph_names, 1 << 9)
+        | (1 << 10)
         | (1 << 11);
     let style_flags = bit(style.italic, 1) | bit(style.bold, 2);
     let (position, thickness) = face.underline_metrics().unwrap_or_default();

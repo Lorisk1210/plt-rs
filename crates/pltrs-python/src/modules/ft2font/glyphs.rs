@@ -34,6 +34,22 @@ pub(super) fn hinting(flags: u32) -> Hinting {
     }
 }
 
+/// The load flag selecting `hinting` (the inverse of [`hinting`]).
+const fn load_flag(hinting: Hinting) -> u32 {
+    match hinting {
+        Hinting::None => NO_HINTING,
+        Hinting::Auto => FORCE_AUTOHINT,
+        Hinting::Native => NO_AUTOHINT,
+        Hinting::Default => 0,
+    }
+}
+
+/// The load flag of the hinting `text.hinting` selects (matplotlib's
+/// `backend_agg.get_hinting_flag`).
+fn hinting_flag() -> PyResult<u32> {
+    Ok(load_flag(pltrs::rc::params().text_hinting.hinting()))
+}
+
 /// A glyph loaded into the `FT2Font`'s list.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Loaded {
@@ -315,5 +331,24 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("load_glyph", load_glyph)?;
     module.add("get_num_glyphs", get_num_glyphs)?;
     module.add("clear", clear)?;
-    module.add("get_path", get_path)
+    module.add("get_path", get_path)?;
+    module.add("hinting_flag", hinting_flag)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_flags_select_the_hinting_they_name() {
+        for hinting in [
+            Hinting::None,
+            Hinting::Default,
+            Hinting::Native,
+            Hinting::Auto,
+        ] {
+            assert_eq!(super::hinting(load_flag(hinting)), hinting);
+        }
+        assert_eq!(load_flag(Hinting::Default), 0);
+    }
 }

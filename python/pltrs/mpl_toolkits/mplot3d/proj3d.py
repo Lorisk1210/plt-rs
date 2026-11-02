@@ -6,6 +6,7 @@ pltrs (Rust) computes with numpy's rounding.
 
 import numpy as np
 
+from pltrs import _api
 from pltrs._native import mplot3d as _mplot3d
 
 
@@ -108,3 +109,19 @@ def proj_transform(xs, ys, zs, M):
     Transform the points by the projection matrix *M*.
     """
     return _transform(xs, ys, zs, M)
+
+
+@_api.deprecated("3.10")
+def proj_transform_clip(xs, ys, zs, M):
+    """
+    Transform the points by the projection matrix *M*, as masked arrays,
+    with the mask of which points the projection keeps (an orthographic
+    projection keeps them all, but for masked ones).
+    """
+    txs, tys, tzs = _transform(xs, ys, zs, M)
+    tis = np.ones(txs.shape, dtype=bool)
+    for given in (xs, ys, zs):
+        if np.ma.isMA(given):
+            tis &= ~np.ma.getmaskarray(given).ravel()
+    return (np.ma.masked_array(txs, ~tis), np.ma.masked_array(tys, ~tis),
+            np.ma.masked_array(tzs, ~tis), tis)

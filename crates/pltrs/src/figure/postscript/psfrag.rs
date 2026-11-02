@@ -139,7 +139,7 @@ pub(super) fn print_figure_tex(
     let distillation = Distillation {
         eps: layout.eps,
         paper: layout.paper,
-        bbox: figure.bbox,
+        bbox: Some(figure.bbox),
         rotated,
     };
     gs_distill(&file, &distillation, rc.ps_distiller_res)?;

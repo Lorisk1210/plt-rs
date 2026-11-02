@@ -1,0 +1,62 @@
+"""Rules for text, textpath, offsetbox and lines."""
+from rules_base import cov, diff, na, miss, ALIAS, CHANGE_TRACKING
+
+T = r"matplotlib\.text:"
+O = r"matplotlib\.offsetbox:"
+L = r"matplotlib\.lines:"
+DRAG = diff("set_draggable (Legend, Annotation, AnnotationBbox, AnchoredOffsetbox)", "dragging is built in: set_draggable turns it on")
+FONT = cov("Text::font (FontProperties getters)")
+
+RULES = [
+    (T + r"Text\.update", cov("Text::update_props")),
+    (T + r"Text\.update_from", na("handles share state: there is nothing to copy (conventions)")),
+    (T + r"Text\.update_bbox_position_size", na("internal layout of the text box")),
+    (T + r"Text\.get_(fontfamily|family|name|fontname|fontstyle|style|fontsize|size|fontvariant|variant|fontweight|weight|stretch|font_properties|math_fontfamily)", FONT),
+    (T + r"Text\.get_(horizontalalignment)", cov("Text::halign")),
+    (T + r"Text\.get_(verticalalignment)", cov("Text::valign")),
+    (T + r"Text\.set_horizontalalignment", cov("Text::set_halign")),
+    (T + r"Text\.set_verticalalignment", cov("Text::set_valign")),
+    (T + r"Text\.set_multialignment", cov("Text::set_multialign")),
+    (T + r"Text\.set_(fontfamily|fontname|name)", cov("Text::set_family")),
+    (T + r"Text\.set_fontweight", cov("Text::set_weight")),
+    (T + r"Text\.set_(fontproperties|font_properties)", cov("Text::set_font")),
+    (T + r"Text\.set_size", cov("Text::set_fontsize")),
+    (T + r"Text\.get_unitless_position", cov("Text::position")),
+    (T + r"(Text|Annotation)\.get_tightbbox", diff("ArtistHandle::window_extent, Figure::tight_bbox", "extents in display space")),
+    (T + r"Text\.(set_usetex|get_usetex)", na("usetex: pltrs typesets math itself and runs no TeX")),
+    (T + r"Text\.(get_c|set_c|get_ha|set_ha|get_va|set_va|set_ma)", ALIAS),
+    (T + r"Annotation\.xyann", cov("Text::position / Text::set_position (AnnotateOptions::xytext)")),
+    (T + r"Annotation\.anncoords", cov("Annotation::textcoords / Annotation::set_textcoords")),
+    (T + r"Annotation\.update_positions", na("positions are resolved on every draw")),
+    (T + r"OffsetFrom\.(set_unit|get_unit)", cov("Coords::OffsetFrom (its unit)")),
+    (r"matplotlib\.textpath:TextPath\.(set_size|get_size)", diff("text::layout::text_path", "the size is an argument of text_path")),
+    (r"matplotlib\.textpath:TextToPath\.get_text_width_height_descent", cov("text::layout::measure_text")),
+    (r"matplotlib\.textpath:TextToPath\.get_text_path", cov("text::layout::text_path")),
+    (r"matplotlib\.textpath:TextToPath\.(get_glyphs_with_font|get_glyphs_mathtext)", cov("TextEngine::layout_line / TextEngine::layout_math")),
+    (r"matplotlib\.textpath:TextToPath\.get_glyphs_tex", na("usetex: pltrs runs no TeX")),
+    (O + r"AnchoredOffsetbox\.(set_child|get_child)", diff("AnchoredOffsetbox (OffsetBox child)", "the child box is given when the anchored box is made")),
+    (O + r".*\.get_children", diff("OffsetBox (its children), OffsetBox::artists", "boxes are values holding their children")),
+    (O + r".*\.get_visible_children", cov("OffsetBox::is_visible, OffsetBox::artists")),
+    (O + r"AnchoredOffsetbox\.get_bbox", cov("OffsetBox::bbox")),
+    (O + r".*\.(set_offset|get_offset)", diff("OffsetBox::place", "boxes are placed when laid out")),
+    (O + r".*\.update_frame", na("the frame follows the box on every draw")),
+    (O + r"AnnotationBbox\.xyann", cov("AnnotationBbox::xybox / AnnotationBbox::set_xybox")),
+    (O + r"AnnotationBbox\.get_tightbbox", diff("ArtistHandle::window_extent", "extents in display space")),
+    (O + r"AnnotationBbox\.update_positions", na("positions are resolved on every draw")),
+    (O + r"AuxTransformBox\.(get_transform|set_transform)", cov("AuxTransformBox::aux_transform")),
+    (O + r"(DrawingArea|TextArea)\.(get_transform|set_transform)", na("the transform of a box's children follows its placement")),
+    (O + r"Draggable.*", DRAG),
+    (O + r"DrawingArea\.clip_children", cov("DrawingArea::clip")),
+    (O + r"OffsetBox\.set_figure", na("boxes belong to the figure of the artist holding them")),
+    (O + r"OffsetBox\.axes", cov("ArtistHandle::axes of the holding artist")),
+    (O + r"OffsetBox\.contains", cov("ArtistHandle::contains of the holding artist")),
+    (O + r"OffsetBox\.set_height", diff("DrawingArea::height, OffsetBox::set_width", "heights are fields of the leaf boxes")),
+    (O + r"OffsetImage\.(set_data|get_data)", cov("OffsetImage::image")),
+    (L + r"Line2D\.get_bbox", cov("Line2D::xydata", "the data the box spans")),
+    (L + r"Line2D\.(recache_always|recache)", CHANGE_TRACKING),
+    (L + r"Line2D\.set_dashes", cov("Line2D::set_linestyle(LineStyle::Dashes)")),
+    (L + r"Line2D\.update_from", na("handles share state: there is nothing to copy (conventions)")),
+    (L + r"Line2D\.is_dashed", cov("LineStyle::is_dashed (Line2D::linestyle)")),
+    (L + r"Line2D\.(get|set)_(aa|c|ds|ls|lw|mec|mew|mfc|mfcalt|ms)", ALIAS),
+    (L + r"VertexSelector.*", diff("PickEvent::ind", "pick events carry the indices of the vertices under the pointer")),
+]

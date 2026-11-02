@@ -71,6 +71,17 @@ pub struct GreyImage {
     pub data: Vec<u8>,
 }
 
+/// Text `dvipng` rasterized, in a colour (matplotlib's `get_rgba`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TexRgba {
+    /// Width in pixels.
+    pub width: u32,
+    /// Height in pixels.
+    pub height: u32,
+    /// Red, green, blue and alpha in `[0, 1]`, row by row from the top.
+    pub data: Vec<[f64; 4]>,
+}
+
 /// What [`TexManager`] typesets with.
 #[derive(Debug, PartialEq)]
 struct Settings {
@@ -283,24 +294,14 @@ impl TexManager {
         {
             return Ok(Arc::clone(grey));
         }
-        let path = self.make_png(tex, fontsize, dpi)?;
-        let data = std::fs::read(&path).map_err(|err| TexError::io(&path, &err))?;
-        let image = pltrs_codec::png::decode(&data)
-            .map_err(|err| TexError::malformed(TexFile::Png, err.to_string()))?;
-        let rgba = image.to_rgba8();
-        let data = rgba
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .map(|&[_, _, _, alpha]| {
-                let alpha = f32::from(alpha) / 255.0;
-                (alpha * 255.0) as u8
-            })
-            .collect();
+        let (width, height, alpha) = self.alpha(tex, fontsize, dpi)?;
         let grey = Arc::new(GreyImage {
-            width: image.width(),
-            height: image.height(),
-            data,
+            width,
+            height,
+            data: alpha
+                .into_iter()
+                .map(|alpha| (alpha * 255.0) as u8)
+                .collect(),
         });
         let mut images = cache.lock().unwrap_or_else(PoisonError::into_inner);
         if images.len() >= GREY_CACHE_LIMIT {
@@ -308,6 +309,60 @@ impl TexManager {
         }
         images.insert(key, Arc::clone(&grey));
         Ok(grey)
+    }
+
+    /// `get_rgba`: the image `dvipng` makes of `tex` at `fontsize` and
+    /// `dpi`, in the colour `rgb` (components in `[0, 1]`), as matplotlib
+    /// returns it: every pixel `rgb` with the image's alpha in `[0, 1]`,
+    /// rows from the top.
+    ///
+    /// ```no_run
+    /// use pltrs_text::tex::{TexEngine, TexFonts, TexManager};
+    /// let cache = std::env::temp_dir();
+    /// let manager = TexManager::new(&cache, TexFonts::default(), "", TexEngine::Latex);
+    /// let text = manager.rgba(r"\TeX\ is $\displaystyle\sum_n\frac{-e^{i\pi}}{2^n}$!", 12.0, 80.0, [1.0, 0.0, 0.0])?;
+    /// assert!(text.data.iter().all(|&[r, g, b, _]| [r, g, b] == [1.0, 0.0, 0.0]));
+    /// # Ok::<(), pltrs_text::tex::TexError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`make_png`](Self::make_png), and when the image is malformed.
+    pub fn rgba(
+        &self,
+        tex: &str,
+        fontsize: f64,
+        dpi: f64,
+        rgb: [f64; 3],
+    ) -> Result<TexRgba, TexError> {
+        let (width, height, alpha) = self.alpha(tex, fontsize, dpi)?;
+        let [r, g, b] = rgb;
+        Ok(TexRgba {
+            width,
+            height,
+            data: alpha
+                .into_iter()
+                .map(|alpha| [r, g, b, f64::from(alpha)])
+                .collect(),
+        })
+    }
+
+    /// The width, height and alpha channel of the image `dvipng` makes of
+    /// `tex` at `fontsize` and `dpi`, as matplotlib's `imread` reads it
+    /// (floats in `[0, 1]`, rows from the top).
+    fn alpha(&self, tex: &str, fontsize: f64, dpi: f64) -> Result<(u32, u32, Vec<f32>), TexError> {
+        let path = self.make_png(tex, fontsize, dpi)?;
+        let data = std::fs::read(&path).map_err(|err| TexError::io(&path, &err))?;
+        let image = pltrs_codec::png::decode(&data)
+            .map_err(|err| TexError::malformed(TexFile::Png, err.to_string()))?;
+        let alpha = image
+            .to_rgba8()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|&[_, _, _, alpha]| f32::from(alpha) / 255.0)
+            .collect();
+        Ok((image.width(), image.height(), alpha))
     }
 
     /// The page `latex` typesets `tex` on at `fontsize`, in pixels at
@@ -390,6 +445,26 @@ mod tests {
             tex.text_width_height_descent("  ", 10.0, 1.0),
             Ok((0.0, 0.0, 0.0))
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rgba_colours_the_alpha_the_grey_image_has() {
+        if TexManager::check_installation().is_err() {
+            eprintln!("skipped: usetex needs TeX and dvipng on PATH");
+            return;
+        }
+        let dir = std::env::temp_dir().join(format!("pltrs-texrgba-{}", std::process::id()));
+        let tex = manager(&dir);
+        let grey = tex.grey("$x^2$", 12.0, 80.0).unwrap();
+        let rgba = tex.rgba("$x^2$", 12.0, 80.0, [1.0, 0.5, 0.0]).unwrap();
+        assert_eq!((rgba.width, rgba.height), (grey.width, grey.height));
+        assert_eq!(rgba.data.len(), grey.data.len());
+        for (&[r, g, b, alpha], &coverage) in rgba.data.iter().zip(&grey.data) {
+            assert_eq!([r, g, b], [1.0, 0.5, 0.0]);
+            assert_eq!((alpha as f32 * 255.0) as u8, coverage);
+        }
+        assert!(rgba.data.iter().any(|pixel| pixel[3] > 0.5), "ink");
         let _ = std::fs::remove_dir_all(dir);
     }
 

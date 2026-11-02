@@ -137,14 +137,16 @@ impl fmt::Display for Version {
     }
 }
 
-/// A program the distillers check before running anything
-/// (`mpl._get_executable_info`).
+/// A program checked before anything runs it (`mpl._get_executable_info`):
+/// the distillers' and those of the image comparisons.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Executable {
     /// Ghostscript, at least version 9.
     Ghostscript,
     /// poppler's (or xpdf's) `pdftops`, at least version 3.0 (or 0.9).
     Pdftops,
+    /// Inkscape, which rasterises SVG files for comparisons.
+    Inkscape,
 }
 
 impl Executable {
@@ -156,36 +158,74 @@ impl Executable {
             (Self::Ghostscript, Os::Windows) => &["gswin32c", "gswin64c", "mgs", "gs"],
             (Self::Ghostscript, Os::Linux | Os::MacOs) => &["gs"],
             (Self::Pdftops, _) => &["pdftops"],
+            (Self::Inkscape, _) => &["inkscape"],
         }
     }
 
     /// The program to run, once found to run here as `_get_executable_info`
     /// finds out: the first of its [names](Executable::names) that prints
-    /// a version recent enough, when run with `--version` (Ghostscript)
-    /// or `-v` (`pdftops`).
+    /// a version recent enough, when run with `--version` (Ghostscript),
+    /// `-v` (`pdftops`) or `-V` (Inkscape).
     ///
     /// # Errors
     ///
     /// matplotlib's `ExecutableNotFoundError`: for Ghostscript always
-    /// "Failed to find a Ghostscript installation"; for `pdftops` why.
+    /// "Failed to find a Ghostscript installation"; for the others why.
     pub(crate) fn check(self) -> Result<&'static str, ProgramError> {
+        self.found().map(|(program, _)| program)
+    }
+
+    /// The version of the program, as `packaging` writes it (`gs` 10.05.1
+    /// is `10.5.1`), which matplotlib's comparisons hash with the files
+    /// the program converts.
+    ///
+    /// # Errors
+    ///
+    /// As [`check`](Self::check).
+    pub(crate) fn version(self) -> Result<String, ProgramError> {
+        self.found().map(|(_, version)| version)
+    }
+
+    /// The program to run and its version.
+    fn found(self) -> Result<(&'static str, String), ProgramError> {
         match self {
             Self::Ghostscript => self
                 .names(Os::CURRENT)
                 .iter()
                 .copied()
-                .find(|&program| {
-                    printed(program, "--version")
+                .find_map(|program| {
+                    printed(program, &["--version"])
                         .ok()
                         .filter(|(success, _)| *success)
                         .and_then(|(_, output)| Version::parse(output.lines().next().unwrap_or("")))
-                        .is_some_and(|version| version.part(0) >= 9)
+                        .filter(|version| version.part(0) >= 9)
+                        .map(|version| (program, version.to_string()))
                 })
                 .ok_or_else(|| {
                     ProgramError::NotFound("Failed to find a Ghostscript installation".to_owned())
                 }),
+            Self::Inkscape => {
+                // `--without-gui` first, which Inkscape before 1.0 needs.
+                let (_, output) = printed("inkscape", &["--without-gui", "-V"])
+                    .ok()
+                    .filter(|(success, _)| *success)
+                    .map_or_else(|| printed("inkscape", &["-V"]), Ok)?;
+                let token = output
+                    .split("Inkscape ")
+                    .nth(1)
+                    .and_then(|rest| rest.split([' ', '\n']).next())
+                    .ok_or_else(|| {
+                        ProgramError::NotFound(format!(
+                            "Failed to determine the version of inkscape from inkscape -V, \
+                             which output {output}"
+                        ))
+                    })?;
+                let version =
+                    Version::parse(token).map_or_else(|| token.to_owned(), |v| v.to_string());
+                Ok(("inkscape", version))
+            }
             Self::Pdftops => {
-                let (_, output) = printed("pdftops", "-v")?;
+                let (_, output) = printed("pdftops", &["-v"])?;
                 let version = output
                     .strip_prefix("pdftops version ")
                     .and_then(|rest| Version::parse(rest.lines().next().unwrap_or("")))
@@ -197,7 +237,7 @@ impl Executable {
                     })?;
                 let poppler = version.part(0) == 0 && version.part(1) >= 9;
                 if version.part(0) >= 3 || poppler {
-                    Ok("pdftops")
+                    Ok(("pdftops", version.to_string()))
                 } else {
                     Err(ProgramError::NotFound(format!(
                         "You have pdftops version {version} but the minimum version supported \
@@ -215,7 +255,7 @@ const VERSION_TIMEOUT: Duration = Duration::from_secs(30);
 /// How often a program printing its version is looked in on.
 const VERSION_POLL: Duration = Duration::from_millis(5);
 
-/// What `program` prints when run with `flag`, its errors after its
+/// What `program` prints when run with `args`, its errors after its
 /// output (the programs checked write one or the other), and whether it
 /// succeeded.
 ///
@@ -223,11 +263,11 @@ const VERSION_POLL: Duration = Duration::from_millis(5);
 ///
 /// `ExecutableNotFoundError` with Python's message when it cannot be
 /// started, or when it runs longer than [`VERSION_TIMEOUT`] (killed).
-fn printed(program: &str, flag: &str) -> Result<(bool, String), ProgramError> {
+fn printed(program: &str, args: &[&str]) -> Result<(bool, String), ProgramError> {
     let not_found = |err: &io::Error| ProgramError::NotFound(os_error(program, err));
     let mut child = crate::process::spawn(
         Command::new(program)
-            .arg(flag)
+            .args(args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped()),
@@ -242,7 +282,8 @@ fn printed(program: &str, flag: &str) -> Result<(bool, String), ProgramError> {
             let _ = child.kill();
             let _ = child.wait();
             return Err(ProgramError::NotFound(format!(
-                "Timed out running {program} {flag}"
+                "Timed out running {program} {}",
+                args.join(" ")
             )));
         }
         std::thread::sleep(VERSION_POLL);

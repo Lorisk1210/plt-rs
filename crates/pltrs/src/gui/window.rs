@@ -85,7 +85,7 @@ impl FigureWindow {
         let canvas = Surface::new(|event| Some(Message::Canvas(event))).with_unused_keys();
         let canvas = root.push(canvas, 1.0);
         let look = crate::look::appearance().chrome;
-        let toolbar = Toolbar::build(&mut root, figure.tool_specs(), look);
+        let toolbar = Toolbar::build(&mut root, figure.tools(), look);
         let (width, height) = figure.size_inches();
         // The window is sized in logical pixels.
         let dpi = figure.dpi() / figure.canvas().device_pixel_ratio();
@@ -429,7 +429,8 @@ impl FigureWindow {
     }
 
     /// Updates the toolbar buttons and the cursor, after pan or zoom gave
-    /// way to a tool of their radio group switched on since.
+    /// way to a tool of their radio group switched on since, and shows the
+    /// message a tool sent since ([`Figure::tool_message`]).
     fn refresh_tools(&mut self, cx: &mut Context<'_>) -> Result<(), GuiError> {
         tools::yield_navigation(&self.figure, &mut self.navigation);
         let toggled: Vec<String> = self
@@ -440,6 +441,9 @@ impl FigureWindow {
             .collect();
         self.toolbar
             .refresh(&mut self.window, cx, &self.navigation, &toggled)?;
+        if let Some(message) = self.figure.take_tool_message() {
+            self.set_status(cx, message)?;
+        }
         self.sync_cursor(cx)
     }
 

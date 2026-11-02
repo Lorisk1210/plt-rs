@@ -117,7 +117,7 @@ impl HelpDialog {
         height: f64,
     ) -> Result<Self, GuiError> {
         let mut form = Form::new();
-        for (group, rows) in shortcuts(&crate::rc::params(), &figure.tool_specs()) {
+        for (group, rows) in shortcuts(&crate::rc::params(), &figure.tools()) {
             form.section(group);
             for (action, keys) in rows {
                 form.row(action, Keycaps::new(keys));

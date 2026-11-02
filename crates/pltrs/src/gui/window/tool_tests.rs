@@ -99,3 +99,27 @@ fn tools_starting_on_are_on_in_new_windows() {
     assert_eq!(window.navigation.mode(), NavMode::Pan, "in no radio group");
     assert_eq!(figure.tool_toggled("mark"), Some(true));
 }
+
+#[test]
+fn tool_messages_show_in_the_status_line() {
+    let figure = Figure::with_size(4.0, 3.0, 100.0);
+    figure.subplot();
+    let spec = ToolSpec {
+        name: "note".into(),
+        keys: vec!["m".into()],
+        ..ToolSpec::default()
+    };
+    figure
+        .add_tool(spec, |event| event.figure.tool_message("noted"))
+        .expect("the tool is new");
+    let (mut event_loop, handle) = EventLoop::headless();
+    let mut window = FigureWindow::open(&mut event_loop.context(), &figure, "Figure 1")
+        .expect("the window opens");
+    pump(&mut event_loop, &mut window);
+    key(&handle, window.id(), 'm');
+    pump(&mut event_loop, &mut window);
+    let status = window
+        .toolbar
+        .status(&mut window.window, &mut event_loop.context());
+    assert_eq!(status, "noted");
+}

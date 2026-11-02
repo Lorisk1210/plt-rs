@@ -52,6 +52,15 @@
 //! | `fig.canvas.device_pixel_ratio`, `_set_device_pixel_ratio(2)` | [`FigureCanvas::device_pixel_ratio`], [`FigureCanvas::set_device_pixel_ratio`]; saving keeps the resolution the figure was made at |
 //! | `fig.get_tightbbox()`                              | [`Figure::tight_bbox`]                         |
 //! | `mpl.use("pgf")` and `savefig("fig.pgf")`          | [`Figure::to_pgf`], or a `.pgf` file name      |
+//! | `savefig("fig.pdf", backend="pgf")`, `"fig.png"`   | [`Figure::to_pgf_pdf`], [`Figure::to_pgf_png`]: LaTeX (`pgf.texsystem`) typesets the picture |
+//! | `backend_pgf.PdfPages("doc.pdf")`                  | [`PgfPages::new`], [`PgfPages::savefig`], [`PgfPages::finish`] |
+//! | `backend_pgf.make_pdf_to_png_converter()`          | [`PdfToPng::find`]                             |
+//! | `FigureCanvasAgg.print_to_buffer()`, `print_raw`   | [`Figure::render_raster`], [`Figure::to_format`]`(SaveFormat::Raw, ..)` |
+//! | `RendererAgg`, `RendererPdf`, `RendererSVG`, `RendererPS`, `RendererPgf` | `pltrs_render`'s [`RasterRenderer`], [`PdfRenderer`], [`SvgRenderer`], [`PsRenderer`], [`PgfRenderer`], all [`Renderer`]s |
+//! | `backend_pdf.PdfFile`: `newPage`, `writeObject`, `reserveObject`, ... | [`PdfRenderer`]: [`PdfRenderer::new_page`], [`PdfRenderer::write_object`], [`PdfRenderer::reserve_object`], ... (snake case) |
+//! | `backend_pdf.Name`, `Reference`, `Verbatim`, `pdfRepr` | [`PdfObject`]`::Name`, `::Ref`, `::Raw`, [`PdfObject::repr`] |
+//! | `backend_svg.XMLWriter`                            | `pltrs_render::svg::xml::XmlWriter`            |
+//! | `savefig("fig.avif")`                              | not written by pltrs: matplotlib (and pltrs (Python)) save AVIF through Pillow |
 //! | `rcParams["savefig.dpi"]`, `["pdf.fonttype"]`, ... | [`crate::rc::set`] with the same keys          |
 //! | animations                                         | see [`super::interaction`]                     |
 //!
@@ -187,3 +196,21 @@
 //! [`FigureCanvas::buffer_rgba`]: crate::figure::FigureCanvas::buffer_rgba
 //! [`FigureCanvas::device_pixel_ratio`]: crate::figure::FigureCanvas::device_pixel_ratio
 //! [`FigureCanvas::set_device_pixel_ratio`]: crate::figure::FigureCanvas::set_device_pixel_ratio
+//! [`Figure::to_pgf_pdf`]: crate::figure::Figure::to_pgf_pdf
+//! [`Figure::to_pgf_png`]: crate::figure::Figure::to_pgf_png
+//! [`PgfPages::new`]: crate::figure::PgfPages::new
+//! [`PgfPages::savefig`]: crate::figure::PgfPages::savefig
+//! [`PgfPages::finish`]: crate::figure::PgfPages::finish
+//! [`PdfToPng::find`]: crate::figure::PdfToPng::find
+//! [`Figure::render_raster`]: crate::figure::Figure::render_raster
+//! [`RasterRenderer`]: pltrs_render::RasterRenderer
+//! [`PdfRenderer`]: pltrs_render::PdfRenderer
+//! [`SvgRenderer`]: pltrs_render::SvgRenderer
+//! [`PsRenderer`]: pltrs_render::PsRenderer
+//! [`PgfRenderer`]: pltrs_render::PgfRenderer
+//! [`Renderer`]: pltrs_render::Renderer
+//! [`PdfRenderer::new_page`]: pltrs_render::PdfRenderer::new_page
+//! [`PdfRenderer::write_object`]: pltrs_render::PdfRenderer::write_object
+//! [`PdfRenderer::reserve_object`]: pltrs_render::PdfRenderer::reserve_object
+//! [`PdfObject`]: pltrs_render::PdfObject
+//! [`PdfObject::repr`]: pltrs_render::PdfObject::repr

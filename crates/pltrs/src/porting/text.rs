@@ -82,6 +82,12 @@
 //! | `ann.xy`, `ann.set_anncoords(...)`            | [`Annotation::xy`], [`Annotation::set_textcoords`] |
 //! | `ann.draggable()`                             | [`Annotation::set_draggable`]                     |
 //! | `AnchoredText(s, loc=)`                       | [`AnchoredBox`] with a [`TextArea`] ([`Axes::add_anchored_box`]) |
+//! | `TexManager()` and its `make_dvi`, `make_png`, `get_grey` | [`tex_manager`]`(&rc::params())?` and [`TexManager::make_dvi`], [`TexManager::make_png`], [`TexManager::grey`] |
+//! | `TexManager().get_rgba(tex, fontsize, dpi, rgb)` | [`TexManager::rgba`]                            |
+//! | `dviread.Dvi(path, dpi)`, its pages           | `pltrs_text::tex::read_dvi`, [`TexFiles::dvi_pages`] ([`DviPage`]: `text`, `boxes`) |
+//! | `PsfontsMap(find_tex_file("pdftex.map"))[name]` | [`PsfontsMap::parse`], [`PsfontsMap::get`], [`FileFinder`] |
+//! | `ft2font.FT2Font(path)`, `set_size`, `set_text`, `load_char` | `pltrs_font` (a crate of its own): `Face::parse`, `Size::new`, `FontChain::layout`, `Face::glyph_index` with a `Hinter` |
+//! | `FT2Font.get_sfnt_table("head")`, `get_kerning` | `Face::head`, `Face::os2`, ..., `Size::kerning` |
 //!
 //! # Styling a text
 //!
@@ -311,3 +317,13 @@
 //! [`Fontset`]: crate::fonts::Fontset
 //! [`AnchoredBox`]: crate::offsetbox::AnchoredBox
 //! [`TextArea`]: crate::offsetbox::TextArea
+//! [`tex_manager`]: crate::text::tex_manager
+//! [`TexManager::make_dvi`]: pltrs_text::tex::TexManager::make_dvi
+//! [`TexManager::make_png`]: pltrs_text::tex::TexManager::make_png
+//! [`TexManager::grey`]: pltrs_text::tex::TexManager::grey
+//! [`TexManager::rgba`]: pltrs_text::tex::TexManager::rgba
+//! [`TexFiles::dvi_pages`]: pltrs_text::tex::TexFiles::dvi_pages
+//! [`DviPage`]: pltrs_text::tex::DviPage
+//! [`PsfontsMap::parse`]: pltrs_text::tex::PsfontsMap::parse
+//! [`PsfontsMap::get`]: pltrs_text::tex::PsfontsMap::get
+//! [`FileFinder`]: pltrs_text::tex::FileFinder

@@ -112,6 +112,7 @@
 //! | `matplotlib.text`                            | [`crate::text`]                 |
 //! | `matplotlib.texmanager`, `matplotlib.dviread` | [`crate::text`] ([`check_usetex`](crate::text::check_usetex), [`TexEngine`](crate::text::TexEngine)); the TeX machinery is `pltrs_text::tex` |
 //! | `matplotlib.font_manager`                    | [`crate::fonts`]                |
+//! | `matplotlib.ft2font`                         | the `pltrs_font` crate (`Face`, `Size`, `FontChain`) |
 //! | `matplotlib.colors`, `matplotlib.cm`         | [`crate::colors`]               |
 //! | `matplotlib.colorbar`                        | [`crate::colorbar`]             |
 //! | `matplotlib.ticker`                          | [`crate::ticker`]               |
@@ -140,8 +141,11 @@
 //! | `matplotlib.testing`                         | [`crate::testing`]              |
 //! | `matplotlib.backend_bases` (events)          | [`crate::events`]               |
 //! | `NavigationToolbar2`                         | [`crate::navigation`]           |
+//! | `matplotlib.backend_tools`, `backend_managers` | [`crate::gui`] ([`ToolSpec`](crate::gui::ToolSpec), the tool methods of [`Figure`]) |
 //! | GUI backends, `webagg`                       | [`crate::gui`], [`crate::web`]  |
 //! | `matplotlib.backends.backend_pdf.PdfPages`   | [`crate::figure::PdfPages`]     |
+//! | `matplotlib.backends.backend_pgf.PdfPages`   | [`crate::figure::PgfPages`]     |
+//! | the renderers of `matplotlib.backends`, `PdfFile` | the `pltrs_render` crate ([`Renderer`](pltrs_render::Renderer) and its backends) |
 //! | `matplotlib.widgets`                         | [`crate::widgets`]              |
 //! | `matplotlib.animation`                       | [`crate::animation`]            |
 //! | `matplotlib.mlab`                            | [`crate::mlab`]                 |
@@ -153,6 +157,17 @@
 //!
 //! [`crate::prelude`] imports the names nearly every program uses
 //! ([`Figure`], [`Axes`], [`LineProps`], [`linspace`], ...).
+//!
+//! # Every item of matplotlib's API
+//!
+//! The tables of this guide name the features programs use most. The
+//! audit in the repository's `spec/api-audit` directory goes through all
+//! of matplotlib 3.11's public API (classes, functions, methods,
+//! properties, attributes and the parameters of the plotting methods,
+//! about 6,800 items), and its `coverage.md` gives the pltrs spelling of
+//! each one: the item that covers it, how pltrs does it differently, or
+//! why it does not apply to Rust. `spec/api-audit/run` regenerates it from
+//! matplotlib and from pltrs' rustdoc output.
 //!
 //! # Looks
 //!

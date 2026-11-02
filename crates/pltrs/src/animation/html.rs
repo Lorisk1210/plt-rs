@@ -113,27 +113,15 @@ impl FuncAnimation {
         ) else {
             return Err(AnimationError::NotHtml(path.to_path_buf()));
         };
-        let frame_dir = format!("{stem}_frames");
-        let directory = path.with_file_name(&frame_dir);
-        std::fs::create_dir_all(&directory).map_err(io_error)?;
-        let format = crate::rc::params().animation_frame_format.save_format();
+        let frames = FrameDirectory::new(stem, path)?;
         let mut count = 0;
         self.for_each_frame(|figure| {
-            let name = format!("frame{count:07}.{}", format.extension());
-            let frame = figure.to_format(format, SaveOptions::default())?;
-            std::fs::write(directory.join(name), frame).map_err(SaveError::Io)?;
+            frames.write(figure, count)?;
             count += 1;
             Ok(())
         })?;
-        let fill_frames = fill(
-            INCLUDED_FRAMES,
-            &[
-                ("Nframes", &count.to_string()),
-                ("frame_dir", &frame_dir),
-                ("frame_format", format.extension()),
-            ],
-        );
-        std::fs::write(path, self.page(&fill_frames, count, options)).map_err(io_error)
+        std::fs::write(path, self.page(&frames.fill_frames(count), count, options))
+            .map_err(io_error)
     }
 
     /// The page showing `count` frames that `fill_frames` loads.
@@ -147,21 +135,82 @@ impl FuncAnimation {
         } else {
             PlayMode::Once
         });
-        let checked = |shown: PlayMode| if shown == mode { "checked" } else { "" };
-        let display = fill(
-            DISPLAY_TEMPLATE,
-            &[
-                ("id", &player_id(fill_frames)),
-                ("Nframes", &count.to_string()),
-                ("fill_frames", fill_frames),
-                ("interval", &interval_text(options.fps, interval)),
-                ("once_checked", checked(PlayMode::Once)),
-                ("loop_checked", checked(PlayMode::Loop)),
-                ("reflect_checked", checked(PlayMode::Reflect)),
-            ],
-        );
-        [JS_INCLUDE, STYLE_INCLUDE, &display].concat()
+        player_page(
+            fill_frames,
+            count,
+            &interval_text(options.fps, interval),
+            mode,
+        )
     }
+}
+
+/// The directory `<stem>_frames` beside an HTML page, which holds its
+/// frames as files (matplotlib's `HTMLWriter` without embedded frames).
+pub(super) struct FrameDirectory {
+    name: String,
+    path: std::path::PathBuf,
+    format: SaveFormat,
+}
+
+impl FrameDirectory {
+    /// Makes the directory of the frames of the page `page` named `stem`;
+    /// frames are in `animation.frame_format`.
+    pub(super) fn new(stem: &str, page: &Path) -> Result<Self, AnimationError> {
+        let name = format!("{stem}_frames");
+        let path = page.with_file_name(&name);
+        std::fs::create_dir_all(&path).map_err(io_error)?;
+        let format = crate::rc::params().animation_frame_format.save_format();
+        Ok(Self { name, path, format })
+    }
+
+    /// Saves `figure` as frame `index` (`frame0000000.png` and so on).
+    pub(super) fn write(
+        &self,
+        figure: &crate::figure::Figure,
+        index: usize,
+    ) -> Result<(), SaveError> {
+        let file = format!("frame{index:07}.{}", self.format.extension());
+        let frame = figure.to_format(self.format, SaveOptions::default())?;
+        std::fs::write(self.path.join(file), frame).map_err(SaveError::Io)
+    }
+
+    /// The script loading `count` frames of the directory (matplotlib's
+    /// `_included_frames`).
+    pub(super) fn fill_frames(&self, count: usize) -> String {
+        fill(
+            INCLUDED_FRAMES,
+            &[
+                ("Nframes", &count.to_string()),
+                ("frame_dir", &self.name),
+                ("frame_format", self.format.extension()),
+            ],
+        )
+    }
+}
+
+/// The page of the player showing `count` frames that `fill_frames`
+/// loads, `interval` (the text of the milliseconds between frames)
+/// apart, starting in `mode`.
+pub(super) fn player_page(
+    fill_frames: &str,
+    count: usize,
+    interval: &str,
+    mode: PlayMode,
+) -> String {
+    let checked = |shown: PlayMode| if shown == mode { "checked" } else { "" };
+    let display = fill(
+        DISPLAY_TEMPLATE,
+        &[
+            ("id", &player_id(fill_frames)),
+            ("Nframes", &count.to_string()),
+            ("fill_frames", fill_frames),
+            ("interval", interval),
+            ("once_checked", checked(PlayMode::Once)),
+            ("loop_checked", checked(PlayMode::Loop)),
+            ("reflect_checked", checked(PlayMode::Reflect)),
+        ],
+    );
+    [JS_INCLUDE, STYLE_INCLUDE, &display].concat()
 }
 
 /// An error writing the page or its frame directory.

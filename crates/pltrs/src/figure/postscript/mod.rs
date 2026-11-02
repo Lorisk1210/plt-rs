@@ -16,7 +16,7 @@ mod psfrag;
 use pltrs_render::{PsOptions, PsOutput, PsRenderer};
 
 use self::distill::{Distillation, WorkFile, gs_distill, xpdf_distill};
-use self::programs::Executable;
+pub(crate) use self::programs::{Executable, Workspace};
 use self::psfrag::{Layout, print_figure_tex};
 use super::Figure;
 use super::print::SaveOptions;

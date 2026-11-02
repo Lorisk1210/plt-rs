@@ -14,6 +14,7 @@ mod mosaic_axes;
 mod no_output;
 mod pdf_pages;
 mod pgf;
+mod pgf_latex;
 mod postscript;
 mod print;
 mod rect;
@@ -45,11 +46,13 @@ pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
 pub use mosaic_axes::MosaicAxes;
 pub use pdf_pages::PdfPages;
 pub use pgf::{PgfTexSystem, pgf_preamble, pgf_text};
+pub use pgf_latex::{PdfToPng, PgfPages};
 pub use pltrs_render::{
     Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType, SvgMetadata,
     UnknownSvgFontType,
 };
 pub use postscript::{DistillOptions, ProgramError, check_distiller, distill_file};
+pub(crate) use postscript::{Executable, Workspace};
 pub use print::{BboxInches, PadInches, SaveOptions};
 pub use rect::AxesRectError;
 pub(crate) use rect::axes_bounds;

@@ -1,4 +1,5 @@
-//! The keys of text fields, as in Qt and GTK on Linux.
+//! The keys of text fields, as in Qt and GTK on Linux; on macOS, Command
+//! makes the editing shortcuts too.
 
 use pltrs_platform::{ButtonState, Key, KeyEvent};
 
@@ -49,6 +50,9 @@ pub(super) fn command(key: &KeyEvent) -> Option<Command> {
     if alt {
         return None;
     }
+    // On macOS, Command makes the editing shortcuts (⌘C, ⌘V, ...), and
+    // Control still does.
+    let shortcut = ctrl || (cfg!(target_os = "macos") && key.modifiers.super_key());
     let command = match key.key {
         Key::Left | Key::Right => Command::Step {
             forward: key.key == Key::Right,
@@ -71,7 +75,7 @@ pub(super) fn command(key: &KeyEvent) -> Option<Command> {
         Key::Insert if ctrl => Command::Copy,
         Key::Insert if shift => Command::Paste,
         Key::Enter => Command::Submit,
-        Key::Character(c) if ctrl => match c.to_ascii_lowercase() {
+        Key::Character(c) if shortcut => match c.to_ascii_lowercase() {
             'a' => Command::SelectAll,
             'c' => Command::Copy,
             'x' => Command::Cut,
@@ -81,7 +85,7 @@ pub(super) fn command(key: &KeyEvent) -> Option<Command> {
             'y' => Command::Redo,
             _ => return None,
         },
-        _ if ctrl => return None,
+        _ if shortcut => return None,
         _ => {
             let text = key
                 .text
@@ -158,5 +162,15 @@ mod tests {
             press(Key::Enter, None, Modifiers::NONE),
             Some(Command::Submit)
         );
+    }
+
+    #[test]
+    fn command_edits_on_macos() {
+        let paste = press(Key::Character('v'), None, Modifiers::SUPER);
+        if cfg!(target_os = "macos") {
+            assert_eq!(paste, Some(Command::Paste));
+        } else {
+            assert_eq!(paste, None, "Super+V types nothing elsewhere");
+        }
     }
 }

@@ -8,7 +8,7 @@
 //!
 //! # Windows
 //!
-//! [`gui::show`](crate::gui::show) shows figures in windows (on X11) and
+//! [`gui::show`](crate::gui::show) shows figures in windows and
 //! returns when the user has closed them all. Each window has a toolbar:
 //! home (the original view), back and forward through the views, pan,
 //! zoom to a rectangle, the spacing of the subplots, a dialog editing
@@ -32,8 +32,8 @@
 //! ```
 //!
 //! `gui::show` and [`pyplot::show`], which shows pyplot's figures, use
-//! the current *backend*: windows where there is X11, a web page each
-//! where there is none (macOS, Windows), nothing on a machine without a
+//! the current *backend*: windows by default, a web page each where they
+//! cannot open on macOS and Windows, nothing on a Linux machine without a
 //! display. The `MPLBACKEND` environment variable or
 //! [`pyplot::switch_backend`] choose explicitly. [`pyplot::ion`] turns on interactive mode, where
 //! `show` returns at once and [`pyplot::pause`] lets the windows update

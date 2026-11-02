@@ -14,10 +14,10 @@ use crate::web::{self, WebOptions, WebServer};
 pub(super) type Shown = (u32, Figure, String);
 
 /// What stands in for windows that cannot open (matplotlib's backend
-/// fallback). Where pltrs has a window system (X11), that means a machine
+/// fallback). On Linux and the other Unix systems, that means a machine
 /// without a display, where matplotlib falls back to `agg` and nothing is
-/// shown; elsewhere (macOS, Windows) the browser plays the part of the
-/// native GUI backends matplotlib would use.
+/// shown; macOS and Windows always have a display, so there the browser
+/// takes over.
 fn fallback() -> Backend {
     if cfg!(all(unix, not(target_os = "macos"))) {
         Backend::Agg

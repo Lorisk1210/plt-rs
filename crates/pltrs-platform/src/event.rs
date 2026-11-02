@@ -188,7 +188,9 @@ pub struct KeyEvent {
     /// Modifiers held *before* this event (pressing Shift reports
     /// `Key::Shift` with Shift not yet in the set, as matplotlib expects).
     pub modifiers: Modifiers,
-    /// The platform's raw scan/key code (the X11 keycode on X11).
+    /// The platform's raw scan/key code: the keycode on X11 and Wayland,
+    /// the hardware key code (`kVK_*`) on macOS, the scan code on Windows
+    /// (`0xE0xx` for extended keys).
     pub scancode: u32,
 }
 

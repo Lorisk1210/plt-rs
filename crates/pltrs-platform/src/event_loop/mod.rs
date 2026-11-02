@@ -129,10 +129,12 @@ impl LoopState {
 
 impl EventLoop {
     /// Connects to the best available windowing system (see
-    /// [`BackendKind::detect`]). When the Wayland compositor cannot be
-    /// reached (a stale `$WAYLAND_DISPLAY`) but `$DISPLAY` names an X
-    /// server, it connects to that instead, unless `$PLTRS_PLATFORM` asked
-    /// for Wayland.
+    /// [`BackendKind::detect`]): the native one on macOS and Windows. When
+    /// the Wayland compositor cannot be reached (a stale
+    /// `$WAYLAND_DISPLAY`) but `$DISPLAY` names an X server, it connects to
+    /// that instead, unless `$PLTRS_PLATFORM` asked for Wayland.
+    ///
+    /// On macOS, call it on the main thread, as `AppKit` requires.
     pub fn new() -> Result<Self, Error> {
         let kind = BackendKind::detect().ok_or_else(|| {
             Error::BackendUnavailable(String::from(
@@ -151,12 +153,45 @@ impl EventLoop {
 
     /// Connects to a specific backend. For [`BackendKind::Headless`] prefer
     /// [`EventLoop::headless`], which also returns the test handle.
+    ///
+    /// The macOS backend must be created on the main thread, as `AppKit`
+    /// requires.
     pub fn with_backend(kind: BackendKind) -> Result<Self, Error> {
         match kind {
             BackendKind::X11 => Self::x11(),
             BackendKind::Wayland => Self::wayland(),
+            BackendKind::MacOs => Self::macos(),
+            BackendKind::Windows => Self::windows(),
             BackendKind::Headless => Ok(Self::headless().0),
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn macos() -> Result<Self, Error> {
+        Ok(Self::from_backend(Box::new(
+            crate::macos::MacBackend::connect()?,
+        )))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn macos() -> Result<Self, Error> {
+        Err(Error::BackendUnavailable(String::from(
+            "AppKit is only available on macOS",
+        )))
+    }
+
+    #[cfg(windows)]
+    fn windows() -> Result<Self, Error> {
+        Ok(Self::from_backend(Box::new(
+            crate::windows::WindowsBackend::connect()?,
+        )))
+    }
+
+    #[cfg(not(windows))]
+    fn windows() -> Result<Self, Error> {
+        Err(Error::BackendUnavailable(String::from(
+            "Win32 is only available on Windows",
+        )))
     }
 
     #[cfg(target_os = "linux")]

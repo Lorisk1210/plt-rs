@@ -19,10 +19,8 @@ use crate::error::Error;
 use crate::event::{Event, WindowEvent};
 use crate::frame::{Frame, OwnedFrame};
 use crate::geometry::{PhysicalRect, PhysicalSize, Size};
+use crate::surface::{ChannelOrder, Surface};
 use crate::window::{CursorIcon, Icon, WindowId, WindowOptions};
-
-/// What a new window's surface is filled with before the first present.
-const INITIAL_PIXEL: [u8; 4] = [0, 0, 0, 255];
 
 /// A frame recorded by the headless backend.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,15 +57,13 @@ pub struct WindowSnapshot {
 #[derive(Debug)]
 struct HeadlessWindow {
     snapshot: WindowSnapshot,
-    surface: OwnedFrame,
+    /// The window's contents: opaque black until the first present.
+    surface: Surface,
 }
 
 impl HeadlessWindow {
     fn resize(&mut self, size: PhysicalSize) -> Result<(), Error> {
-        let mut surface = OwnedFrame::filled(size, INITIAL_PIXEL)?;
-        let overlap = PhysicalRect::from_size(self.surface.size()).clip_to(size);
-        copy_opaque(&self.surface.as_frame(), overlap, &mut surface);
-        self.surface = surface;
+        self.surface.resize(size)?;
         self.snapshot.size = size;
         Ok(())
     }
@@ -198,7 +194,7 @@ impl HeadlessHandle {
     /// The current contents of an open window.
     pub fn surface(&self, window: WindowId) -> Option<OwnedFrame> {
         let state = self.shared.lock();
-        state.windows.get(&window).map(|w| w.surface.clone())
+        state.windows.get(&window).map(|w| w.surface.to_rgba())
     }
 
     /// Removes and returns every frame presented so far, oldest first.
@@ -286,7 +282,7 @@ impl Backend for HeadlessBackend {
             icon: options.icon.clone(),
             fullscreen: false,
         };
-        let surface = OwnedFrame::filled(size, INITIAL_PIXEL)?;
+        let surface = Surface::new(size, ChannelOrder::Rgba)?;
         state
             .windows
             .insert(window, HeadlessWindow { snapshot, surface });
@@ -315,7 +311,7 @@ impl Backend for HeadlessBackend {
     }
 
     fn inner_size(&self, window: WindowId) -> Result<PhysicalSize, Error> {
-        self.with_window(window, |w| Ok(w.snapshot.size))
+        self.with_window(window, |w| Ok(w.surface.size()))
     }
 
     fn scale_factor(&self, window: WindowId) -> Result<f64, Error> {
@@ -401,9 +397,8 @@ impl Backend for HeadlessBackend {
             .windows
             .get_mut(&window)
             .ok_or(Error::UnknownWindow(window))?;
-        let region = region.clip_to(target.surface.size());
-        copy_opaque(frame, region, &mut target.surface);
-        let image = target.surface.clone();
+        let region = target.surface.blit(frame, region);
+        let image = target.surface.to_rgba();
         state.frames.push(PresentedFrame {
             window,
             region,
@@ -413,7 +408,7 @@ impl Backend for HeadlessBackend {
     }
 
     fn read_pixels(&mut self, window: WindowId) -> Result<OwnedFrame, Error> {
-        self.with_window(window, |w| Ok(w.surface.clone()))
+        self.with_window(window, |w| Ok(w.surface.to_rgba()))
     }
 
     fn poll(&mut self, deadline: Option<Instant>, events: &mut Vec<Event>) -> Result<(), Error> {
@@ -468,44 +463,9 @@ impl Waker for HeadlessWaker {
     }
 }
 
-/// Copies `region` (inside both images) of `src` into `dst` at the same
-/// position, forcing alpha to 255 as an opaque window would.
-fn copy_opaque(src: &Frame<'_>, region: PhysicalRect, dst: &mut OwnedFrame) {
-    let region = region.clip_to(src.size()).clip_to(dst.size());
-    let dst_stride = dst.size().width as usize * 4;
-    let (x0, x1) = (
-        region.x as usize * 4,
-        (region.x + region.width) as usize * 4,
-    );
-    for y in region.y..region.y + region.height {
-        let src_row = &src.row(y)[x0..x1];
-        let start = y as usize * dst_stride;
-        let dst_row = &mut dst.pixels_mut()[start + x0..start + x1];
-        for (d, s) in dst_row
-            .as_chunks_mut::<4>()
-            .0
-            .iter_mut()
-            .zip(src_row.as_chunks::<4>().0)
-        {
-            d.copy_from_slice(&[s[0], s[1], s[2], 255]);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn copy_opaque_respects_region_and_forces_alpha() {
-        let src = OwnedFrame::filled(PhysicalSize::new(4, 4), [10, 20, 30, 0]).unwrap();
-        let mut dst = OwnedFrame::filled(PhysicalSize::new(3, 3), [0, 0, 0, 255]).unwrap();
-        copy_opaque(&src.as_frame(), PhysicalRect::new(1, 1, 10, 10), &mut dst);
-        assert_eq!(dst.pixel(0, 0), Some([0, 0, 0, 255]));
-        assert_eq!(dst.pixel(1, 0), Some([0, 0, 0, 255]));
-        assert_eq!(dst.pixel(1, 1), Some([10, 20, 30, 255]));
-        assert_eq!(dst.pixel(2, 2), Some([10, 20, 30, 255]));
-    }
 
     #[test]
     fn resize_keeps_overlapping_content() {
@@ -522,7 +482,7 @@ mod tests {
         let surface = backend.read_pixels(window).unwrap();
         assert_eq!(surface.size(), PhysicalSize::new(3, 1));
         assert_eq!(surface.pixel(1, 0), Some([255; 4]));
-        assert_eq!(surface.pixel(2, 0), Some(INITIAL_PIXEL));
+        assert_eq!(surface.pixel(2, 0), Some([0, 0, 0, 255]));
     }
 
     #[test]

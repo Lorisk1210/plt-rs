@@ -3,8 +3,8 @@
 use crate::event::MouseButton;
 use crate::geometry::PhysicalPosition;
 
-/// Longest gap between two presses of a multi-click, in milliseconds
-/// (GTK's default double-click time).
+/// Longest gap between two presses of a multi-click, in milliseconds,
+/// unless the desktop says otherwise (GTK's default double-click time).
 const MAX_INTERVAL_MS: u32 = 400;
 /// Farthest the pointer may travel between two presses of a multi-click,
 /// in physical pixels.
@@ -21,14 +21,31 @@ struct LastPress {
 /// Counts consecutive presses of the same button that are close in time
 /// and space (1 = single click, 2 = double click, ...).
 ///
-/// Timestamps are platform millisecond counters that wrap around, as X11
-/// and Wayland deliver them.
-#[derive(Debug, Default)]
+/// Timestamps are platform millisecond counters that wrap around, as X11,
+/// Wayland and Windows deliver them.
+#[derive(Debug)]
 pub(crate) struct ClickCounter {
+    /// Longest gap between two presses of a multi-click, in milliseconds.
+    max_interval_ms: u32,
     last: Option<LastPress>,
 }
 
+impl Default for ClickCounter {
+    fn default() -> Self {
+        Self::new(MAX_INTERVAL_MS)
+    }
+}
+
 impl ClickCounter {
+    /// A counter taking presses at most `max_interval_ms` milliseconds
+    /// apart for multi-clicks (the desktop's double-click time).
+    pub(crate) const fn new(max_interval_ms: u32) -> Self {
+        Self {
+            max_interval_ms,
+            last: None,
+        }
+    }
+
     /// Records a press and returns its click count.
     pub(crate) fn press(
         &mut self,
@@ -39,7 +56,7 @@ impl ClickCounter {
         let count = match self.last {
             Some(last)
                 if last.button == button
-                    && time_ms.wrapping_sub(last.time_ms) <= MAX_INTERVAL_MS
+                    && time_ms.wrapping_sub(last.time_ms) <= self.max_interval_ms
                     && (position.x - last.position.x).hypot(position.y - last.position.y)
                         <= MAX_DISTANCE =>
             {
@@ -83,6 +100,14 @@ mod tests {
             1,
             "other button"
         );
+    }
+
+    #[test]
+    fn the_interval_follows_the_desktop() {
+        let mut clicks = ClickCounter::new(500);
+        clicks.press(MouseButton::Left, 0, ORIGIN);
+        assert_eq!(clicks.press(MouseButton::Left, 500, ORIGIN), 2);
+        assert_eq!(clicks.press(MouseButton::Left, 1001, ORIGIN), 1);
     }
 
     #[test]

@@ -290,7 +290,7 @@ impl Colorbar {
         let Some(link) = self.read(|state| state.link) else {
             return Ok(());
         };
-        let source = link.source(&self.raw.figure_state().borrow().store);
+        let source = link.source(&*self.raw.figure_state().borrow());
         match source {
             None => Ok(()),
             Some(source) => {

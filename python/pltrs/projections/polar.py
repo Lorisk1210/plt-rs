@@ -767,7 +767,9 @@ class PolarAxes(PolarTextTransforms, Axes):
         """Set the radial ticks (`.Axes.set_yticks`)."""
         if labels is not None or minor or kwargs:
             return self.set_yticks(ticks, labels, minor=minor, **kwargs)
-        _polar.set_rticks(self._native, [float(t) for t in np.atleast_1d(ticks)])
+        ticks = np.atleast_1d(ticks)
+        _polar.set_rticks(self._native, [float(t) for t in ticks])
+        return self.yaxis.get_major_ticks(len(ticks))
 
     def set_thetagrids(self, angles, labels=None, fmt=None, **kwargs):
         """

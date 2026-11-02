@@ -99,7 +99,8 @@ class ArtistInspector:
 
         # Much faster than list(inspect.signature(func).parameters)[1],
         # although barely relevant wrt. matplotlib's total import time.
-        param_name = func.__code__.co_varnames[1]
+        # (pltrs: the setters of mirrorable classes are wrapped.)
+        param_name = inspect.unwrap(func).__code__.co_varnames[1]
         # We could set the presence * based on whether the parameter is a
         # varargs (it can't be a varkwargs) but it's not really worth it.
         match = re.search(fr"(?m)^ *\*?{param_name} : (.+)", docstring)

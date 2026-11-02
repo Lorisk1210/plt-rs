@@ -117,6 +117,4 @@ def record_container(axes, container, native):
     """Record *container*, made with the native container *native*, in
     ``axes.containers``."""
     container._native = native
-    axes.containers.append(container)
-    container._remove_method = axes.containers.remove
-    return container
+    return axes.add_container(container)

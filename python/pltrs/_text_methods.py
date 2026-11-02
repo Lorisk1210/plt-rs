@@ -4,9 +4,12 @@ The methods placing text on a figure or an axes (matplotlib's
 classes include.
 """
 
+import datetime
+from numbers import Real
+
 import numpy as np
 
-from . import _handles
+from . import _handles, units as munits
 from ._native import annotation as _annotation, text as _text
 from .text import (
     Annotation, Text, _is_offset, _native_arrowprops, _native_coords, _point)
@@ -24,6 +27,27 @@ def _text_kwargs(fontdict, kwargs):
     """The properties of a new text: *fontdict* overridden by *kwargs*."""
     return {**(fontdict if fontdict is not None else {}), **kwargs}
 
+
+
+def _in_data_units(axes, xy, coords):
+    """
+    The point *xy* of an annotation of *axes*, its values in units (not
+    numbers, names or dates, which pltrs (Rust) converts) converted when
+    *coords* is ``'data'``, as matplotlib's annotation converts them when
+    drawn: by the axis' converter, else by the converter of the value's
+    type, which the axis does not take (matplotlib's annotation sets none).
+    """
+    if coords != 'data':
+        return xy
+
+    def converted(value, axis):
+        if isinstance(value, (Real, str, bytes, datetime.date, np.datetime64)):
+            return value
+        converter = axis.get_converter() or munits.registry.get_converter(value)
+        return value if converter is None else converter.convert(value, axis.units, axis)
+
+    x, y = xy
+    return converted(x, axes.xaxis), converted(y, axes.yaxis)
 
 class FigureText:
     """`text` on a figure."""
@@ -166,6 +190,9 @@ default: 'data'
         """
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
+        xy = _in_data_units(self, xy, xycoords)
+        if xytext is not None:
+            xytext = _in_data_units(self, xytext, xycoords if textcoords is None else textcoords)
         native = _annotation.axes_annotate(
             self._native, '' if text is None else str(text),
             (_point(xy),

@@ -731,3 +731,9 @@ units.registry[np.datetime64] = \
     units.registry[datetime.date] = \
     units.registry[datetime.datetime] = \
     _SwitchableDateConverter()
+
+
+cbook._set_module(
+    __name__, AutoDateLocator, DateLocator, DayLocator, HourLocator,
+    MicrosecondLocator, MinuteLocator, MonthLocator, RRuleLocator,
+    SecondLocator, WeekdayLocator, YearLocator, rrulewrapper)

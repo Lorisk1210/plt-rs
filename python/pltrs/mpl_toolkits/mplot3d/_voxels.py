@@ -11,20 +11,24 @@ from pltrs._native import mplot3d as _mplot3d
 from . import art3d
 
 
-def _cell_colors(color, shape, name):
+def _cell_colors(color, filled, name):
     """
-    The colour of every cell of *shape* as RGBA rows of shape
-    ``shape + (4,)``: one colour for all, a 3D array of colours or a 4D
-    array of RGB(A) values (matplotlib's ``_broadcast_color_arg``).
+    The colour of every cell of *filled* as RGBA rows of shape
+    ``filled.shape + (4,)``: one colour for all, a 3D array of colours or a
+    4D array of RGB(A) values (matplotlib's ``_broadcast_color_arg``). Only
+    the colours of filled cells are read, as matplotlib reads them (an
+    empty cell's colour may be anything).
     """
+    shape = filled.shape
     if np.ndim(color) in (0, 1):
         return np.broadcast_to(mcolors.to_rgba(color), shape + (4,))
     if np.ndim(color) in (3, 4):
         if np.shape(color)[:3] != shape:
             raise ValueError(
                 f"When multidimensional, {name} must match the shape of filled")
-        flat = np.reshape(color, (-1,) + np.shape(color)[3:])
-        return mcolors.to_rgba_array(flat).reshape(shape + (4,))
+        rows = np.zeros(shape + (4,))
+        rows[filled] = mcolors.to_rgba_array(np.asarray(color)[filled])
+        return rows
     raise ValueError(f"Invalid {name} argument")
 
 
@@ -89,10 +93,11 @@ class VoxelsMixin:
             coord_shape = tuple(np.array(filled.shape) + 1)
             corners = tuple(np.ascontiguousarray(
                 np.broadcast_to(c, coord_shape), dtype=float) for c in xyz)
+        cells = filled.astype(bool)
         faces = (None if facecolors is None
-                 else _cell_colors(facecolors, filled.shape, 'facecolors'))
+                 else _cell_colors(facecolors, cells, 'facecolors'))
         edges = (None if edgecolors is None
-                 else _cell_colors(edgecolors, filled.shape, 'edgecolors'))
+                 else _cell_colors(edgecolors, cells, 'edgecolors'))
         light = (None if lightsource is None
                  else (float(lightsource.azdeg), float(lightsource.altdeg)))
         made = _mplot3d.voxels(

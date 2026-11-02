@@ -158,7 +158,7 @@ class Path:
 
         self._vertices = vertices
         self._codes = codes
-        self._interpolation_steps = _interpolation_steps
+        self._steps = _interpolation_steps
         self._update_values()
 
         if readonly:
@@ -191,12 +191,38 @@ class Path:
         if internals_from is not None:
             pth._should_simplify = internals_from._should_simplify
             pth._simplify_threshold = internals_from._simplify_threshold
-            pth._interpolation_steps = internals_from._interpolation_steps
+            pth._steps = internals_from._interpolation_steps
         else:
             pth._should_simplify = True
             pth._simplify_threshold = _rcParams()['path.simplify_threshold']
-            pth._interpolation_steps = 1
+            pth._steps = 1
         return pth
+
+    #: The native artist's getter and setter of the interpolation steps,
+    #: for the path an artist draws (`drawn_path`); None for any other.
+    _steps_of = None
+
+    @property
+    def _interpolation_steps(self):
+        steps_of = self._steps_of
+        return self._steps if steps_of is None else steps_of[0]()
+
+    @_interpolation_steps.setter
+    def _interpolation_steps(self, steps):
+        if self._steps_of is None:
+            self._steps = steps
+        else:
+            self._steps_of[1](int(steps))
+
+    def __getstate__(self):
+        # A copy or a pickle is a path of its own, not an artist's.
+        state = self.__dict__.copy()
+        if state.pop("_steps_of", None) is not None:
+            state["_steps"] = self._interpolation_steps
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     @classmethod
     def _create_closed(cls, vertices):
@@ -295,7 +321,7 @@ class Path:
         cls = type(self)
         memo[id(self)] = p = cls.__new__(cls)
 
-        for k, v in self.__dict__.items():
+        for k, v in self.__getstate__().items():
             setattr(p, k, copy.deepcopy(v, memo))
 
         p._readonly = False
@@ -974,27 +1000,17 @@ def get_path_collection_extents(
     return Bbox.from_extents(*extents, minpos=minpos)
 
 
-class _DrawnPath(Path):
+def drawn_path(artist, vertices, codes, steps):
     """
-    The path an artist draws (`.Line2D.get_path`, `.Patch.get_path`),
-    whose ``_interpolation_steps`` are the artist's: *steps* reads and sets
-    them on the native artist, so that setting them changes how the artist
-    is drawn, as on the path object matplotlib's artists draw.
+    The `Path` *artist* draws (`.Line2D.get_path`, `.Patch.get_path`): the
+    same object while its vertices and codes stay, whose
+    ``_interpolation_steps`` are the artist's (*steps* reads and sets them on
+    the native artist), so that setting them changes how the artist is
+    drawn, as on the path object matplotlib's artists draw.
     """
-
-    def __init__(self, vertices, codes, steps):
-        self._steps = steps
-        super().__init__(vertices, codes, steps[0]())
-
-    @property
-    def _interpolation_steps(self):
-        return self._steps[0]()
-
-    @_interpolation_steps.setter
-    def _interpolation_steps(self, steps):
-        self._steps[1](int(steps))
-
-    def __deepcopy__(self, memo):
-        """A deep copy, as a `Path` of its own (not the artist's)."""
-        return Path(copy.deepcopy(self.vertices, memo),
-                    copy.deepcopy(self.codes, memo), self._interpolation_steps)
+    path = artist.__dict__.get("_drawn_path")
+    if (path is None or not np.array_equal(path._vertices, vertices, equal_nan=True)
+            or not np.array_equal(path._codes, codes)):
+        path = artist._drawn_path = Path(vertices, codes)
+    path._steps_of = steps
+    return path

@@ -13,15 +13,17 @@ from numbers import Number
 
 import numpy as np
 
-from . import _api, colors as mcolors, units
+from . import _api, _mirrors, _values, cbook, colors as mcolors, units
 from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object
 from ._native import patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
+
+cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
 from .artist import Artist
-from .path import Path, _DrawnPath
+from .path import Path, drawn_path
 from .transforms import Affine2D, IdentityTransform
 
 
@@ -167,7 +169,7 @@ class Patch(Artist):
 
     def get_path(self):
         """Return the path of this patch."""
-        return _DrawnPath(*_patches.get_path(self._native), (
+        return drawn_path(self, *_patches.get_path(self._native), (
             lambda: _patches.get_interpolation_steps(self._native),
             lambda steps: _patches.set_interpolation_steps(self._native, steps)))
 
@@ -230,23 +232,44 @@ class Patch(Artist):
 
     def get_edgecolor(self):
         """Return the edge color."""
-        return self._get("edgecolor")
+        return self._rgba_as_given("edgecolor", self.get_alpha())
 
     def set_edgecolor(self, color):
         """Set the patch edge color (None: the default rule)."""
         if color is not None:
             mcolors.to_rgba(color)
         self._set_native(edgecolor=color)
+        _values.remember(self, "edgecolor", color)
 
     def get_facecolor(self):
         """Return the face color."""
-        return self._get("facecolor")
+        return self._rgba_as_given(
+            "facecolor", self.get_alpha() if self.get_fill() else 0)
 
     def set_facecolor(self, color):
         """Set the patch face color (None: :rc:`patch.facecolor`)."""
         if color is not None:
             mcolors.to_rgba(color)
         self._set_native(facecolor=color)
+        _values.remember(self, "facecolor", color)
+
+    def _rgba_as_given(self, name, alpha):
+        """
+        The colour *name* as matplotlib keeps it, ``to_rgba(color, alpha)``
+        of the colour given (:rc:`patch.facecolor` for a face given as None),
+        while pltrs (Rust) holds that colour; else pltrs (Rust)'s.
+        """
+        native = self._get(name)
+        color = self.__dict__.get("_given_values", {}).get(name, _values.NONE_GIVEN)
+        if color is None and name == "facecolor":
+            color = _rcParams()["patch.facecolor"]
+        if color is None or color is _values.NONE_GIVEN:
+            return native
+        try:
+            rgba = mcolors.to_rgba(color, alpha)
+        except ValueError:
+            return native
+        return rgba if rgba == tuple(native) else native
 
     def get_hatchcolor(self):
         """Return the hatch color."""
@@ -349,11 +372,12 @@ class Patch(Artist):
 
     def get_hatch_linewidth(self):
         """Return the hatch linewidth."""
-        return self._get("hatch_linewidth")
+        return _values.given(self, "hatch_linewidth", self._get("hatch_linewidth"))
 
     def set_hatch_linewidth(self, lw):
         """Set the hatch linewidth."""
         self._set_native(hatch_linewidth=float(lw))
+        _values.remember(self, "hatch_linewidth", lw)
 
     def contains_point(self, point, radius=None):
         """
@@ -430,6 +454,9 @@ class Rectangle(Patch):
             self._native = _patches.new_rectangle(
                 (float(x0), float(y0)), (float(width), float(height)),
                 float(angle))
+            _values.remember_all(self, {"x": x0, "y": y0, "width": width,
+                                        "height": height, "angle": float(angle)},
+                                 self._FIELDS)
         else:
             # Values in units convert once the rectangle joins an axes; the
             # far corner is summed now, which checks that the units add up,
@@ -448,18 +475,26 @@ class Rectangle(Patch):
         y0, y1 = (float(axes.convert_yunits(y)) for y in (y0, y1))
         self._set_fields(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
+    #: The names of `_fields`.
+    _FIELDS = ("x", "y", "width", "height", "angle", "rotation_point")
+
     def _fields(self):
-        """``(x, y, width, height, angle, rotation_point)``."""
-        return _patches.rectangle(self._native)
+        """``(x, y, width, height, angle, rotation_point)``, as given
+        (matplotlib keeps them as given)."""
+        return _values.given_fields(self, self._FIELDS,
+                                    _patches.rectangle(self._native))
 
     def _set_fields(self, x=None, y=None, width=None, height=None, angle=None,
                     rotation_point=None):
+        given = (x, y, width, height, angle, rotation_point)
         current = self._fields()
-        values = [current[i] if value is None else value for i, value in
-                  enumerate((x, y, width, height, angle, rotation_point))]
+        values = [current[i] if value is None else value
+                  for i, value in enumerate(given)]
         _patches.set_rectangle(self._native, (float(values[0]), float(values[1])),
                                (float(values[2]), float(values[3])),
                                float(values[4]), values[5])
+        _values.remember_all(self, {name: value for name, value in zip(self._FIELDS, given)
+                                    if value is not None}, self._FIELDS)
 
     @property
     def rotation_point(self):
@@ -665,7 +700,8 @@ class StepPatch(PathPatch):
             np.asarray(values, dtype=float), np.asarray(edges, dtype=float),
             None if baseline is None else np.asarray(baseline, dtype=float),
             orientation == 'horizontal')
-        super().__init__(**kwargs)
+        # The native step patch holds its path: no `PathPatch.__init__`.
+        Patch.__init__(self, **kwargs)
 
     def get_data(self):
         """Get `.StepPatch` values, edges and baseline as namedtuple."""
@@ -938,6 +974,13 @@ class FancyArrow(Polygon):
         """The vertices of the arrow's polygon."""
         return _patches.fancy_arrow_verts(self._native)
 
+    def get_xy(self):
+        """The vertices of the arrow's polygon, closed (`.Polygon.get_xy`)."""
+        return self.get_path().vertices
+
+    xy = property(get_xy, Polygon.set_xy,
+                  doc='The vertices of the path as a (N, 2) array.')
+
     def set_data(self, *, x=None, y=None, dx=None, dy=None, width=None,
                  head_width=None, head_length=None):
         """
@@ -1027,7 +1070,12 @@ class Ellipse(Patch):
         self._native = _patches.new_ellipse(
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             float(angle))
+        _values.remember_all(self, {"center": xy, "width": width, "height": height,
+                                    "angle": angle}, self._GIVEN)
         super().__init__(**kwargs)
+
+    #: The geometry matplotlib keeps as given.
+    _GIVEN = ("center", "width", "height", "angle")
 
     def _fields(self):
         """``(x, y, width, height, angle)``."""
@@ -1035,11 +1083,14 @@ class Ellipse(Patch):
 
     def _set_fields(self, center=None, width=None, height=None, angle=None):
         x, y, w, h, a = self._fields()
+        given = {"center": center, "width": width, "height": height, "angle": angle}
         center = (x, y) if center is None else center
         _patches.set_ellipse(self._native, (float(center[0]), float(center[1])),
                              float(w if width is None else width),
                              float(h if height is None else height),
                              float(a if angle is None else angle))
+        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
+                             self._GIVEN)
 
     #: The attributes matplotlib's ``draw`` reads (its
     #: ``_recompute_transform``; the size it reads is the one the ellipse
@@ -1064,7 +1115,7 @@ class Ellipse(Patch):
 
     def get_center(self):
         """Return the center of the ellipse."""
-        return self._fields()[:2]
+        return _values.given(self, "center", self._fields()[:2])
 
     center = property(get_center, set_center)
 
@@ -1074,7 +1125,7 @@ class Ellipse(Patch):
 
     def get_width(self):
         """Return the width of the ellipse."""
-        return self._fields()[2]
+        return _values.given(self, "width", self._fields()[2])
 
     width = property(get_width, set_width)
 
@@ -1084,7 +1135,7 @@ class Ellipse(Patch):
 
     def get_height(self):
         """Return the height of the ellipse."""
-        return self._fields()[3]
+        return _values.given(self, "height", self._fields()[3])
 
     height = property(get_height, set_height)
 
@@ -1094,7 +1145,7 @@ class Ellipse(Patch):
 
     def get_angle(self):
         """Return the angle of the ellipse."""
-        return self._fields()[4]
+        return _values.given(self, "angle", self._fields()[4])
 
     angle = property(get_angle, set_angle)
 
@@ -1382,6 +1433,7 @@ class Arc(Ellipse):
                                     float(self.theta2))
 
 
+@_mirrors.mirrorable
 class FancyBboxPatch(FancyStylesMixin, Patch):
     """
     A fancy box around a rectangle with lower left at *xy* = (*x*, *y*)
@@ -1531,6 +1583,7 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
         return Bbox.from_bounds(self._x, self._y, self._width, self._height)
 
 
+@_mirrors.mirrorable
 class FancyArrowPatch(FancyStylesMixin, Patch):
     """
     A fancy arrow patch.

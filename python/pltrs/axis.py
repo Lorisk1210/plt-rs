@@ -1000,9 +1000,12 @@ class Axis(Artist):
         else:
             _api.warn_external(
                 "set_ticklabels() should only be used with a fixed number of "
-                "ticks, i.e. after set_ticks() or using a FixedLocator.")
+                "ticks, i.e. after set_ticks() or using a FixedLocator. "
+                "Otherwise, ticks may be mislabeled.")
             formatter = mticker.FixedFormatter(labels)
         self._set_formatter(formatter, minor=minor)
+        # matplotlib labels the ticks of the level as it returns them.
+        _axis.place_ticks(*self._args())
         ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
         kwargs = {**(fontdict or {}), **kwargs}
         ret = []
@@ -1726,3 +1729,6 @@ class YAxis(Axis):
         Move ticks and ticklabels (if present) to the left of the Axes.
         """
         _axis.tick_to(*self._args(), "left")
+
+
+cbook._set_module(__name__, Tick, XTick, YTick)

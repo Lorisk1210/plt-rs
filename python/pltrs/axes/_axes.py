@@ -7,7 +7,7 @@ aliases, defaults) into the explicit arguments of a native function of
 ``_native.axes``, and wraps the artists it returns (see `.._handles`).
 """
 
-from .. import _handles, cbook
+from .. import _handles, _values, cbook
 from .._native import axes as _axes
 from ._artist_list import ArtistList
 from ._base import _AxesBase
@@ -74,11 +74,11 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
 
     def get_xlim(self):
         """Return the x-axis view limits."""
-        return _axes.get_xlim(self._native)
+        return _values.float64s(_axes.get_xlim(self._native))
 
     def get_ylim(self):
         """Return the y-axis view limits."""
-        return _axes.get_ylim(self._native)
+        return _values.float64s(_axes.get_ylim(self._native))
 
     @property
     def lines(self):

@@ -16,7 +16,7 @@ import warnings
 
 import numpy as np
 
-from pltrs import _api, _handles, cbook, rcParams
+from pltrs import _api, _handles, _values, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
 from pltrs.axes import Axes
@@ -400,15 +400,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
 
     def get_xlim(self):
         # docstring inherited
-        return _mplot3d.get_lim(self._native, 'x')
+        return _values.float64s(_mplot3d.get_lim(self._native, 'x'))
 
     def get_ylim(self):
         # docstring inherited
-        return _mplot3d.get_lim(self._native, 'y')
+        return _values.float64s(_mplot3d.get_lim(self._native, 'y'))
 
     def get_zlim(self):
         """Return the 3D z-axis view limits."""
-        return _mplot3d.get_lim(self._native, 'z')
+        return _values.float64s(_mplot3d.get_lim(self._native, 'z'))
 
     get_xlim3d = get_xlim
     get_ylim3d = get_ylim
@@ -443,15 +443,15 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
 
     def get_xbound(self):
         """Return the lower and upper x-axis bounds, in increasing order."""
-        return _mplot3d.get_bound(self._native, 'x')
+        return _values.float64s(_mplot3d.get_bound(self._native, 'x'))
 
     def get_ybound(self):
         """Return the lower and upper y-axis bounds, in increasing order."""
-        return _mplot3d.get_bound(self._native, 'y')
+        return _values.float64s(_mplot3d.get_bound(self._native, 'y'))
 
     def get_zbound(self):
         """Return the lower and upper z-axis bounds, in increasing order."""
-        return _mplot3d.get_bound(self._native, 'z')
+        return _values.float64s(_mplot3d.get_bound(self._native, 'z'))
 
     def invert_xaxis(self):
         """[*Discouraged*] Invert the x-axis."""

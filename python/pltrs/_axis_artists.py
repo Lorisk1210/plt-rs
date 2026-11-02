@@ -14,11 +14,9 @@ made with its constructor is an ordinary artist outside any axis.
 Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 """
 
-import functools
-
 import numpy as np
 
-from . import _api, cbook
+from . import _api, _mirrors, cbook
 from ._native import axis as _axis
 from .artist import Artist
 from .lines import Line2D
@@ -42,72 +40,26 @@ def _val_or_rc(val, *keys):
     return None
 
 
-def _pushing(cls):
-    """Make every setter of the mirror class *cls* push the mirror back into
-    its axis once it ran."""
-    for name in dir(cls):
-        if not name.startswith("set_"):
-            continue
-        method = getattr(cls, name)
-        if callable(method):
-            setattr(cls, name, _pushing_setter(method))
-    return cls
+class _AxisPart(_mirrors.Mirroring):
+    """A part of an axis a mirror stands for: a tick's line or label, the
+    axis label or the offset text, read back by *owner* (a `Tick` or an
+    `_AxisText`)."""
 
+    def __init__(self, owner):
+        self.owner = owner
 
-def _pushing_setter(method):
-    @functools.wraps(method)
-    def setter(self, *args, **kwargs):
-        result = method(self, *args, **kwargs)
-        if self._owner is not None:
-            self._push()
-        return result
-    return setter
+    def push(self, artist):
+        self.owner._push(artist)
 
-
-class _Mirror:
-    """What the mirrors of an axis share: the object they belong to
-    (``_owner``, None outside an axis) and their figure."""
-
-    _owner = None
-
-    @property
-    def figure(self):
-        """The root `.Figure` of the axis, if any."""
-        owner = self._owner
-        return None if owner is None else owner.axis.figure
-
-    def get_figure(self, root=False):
-        """Return the `.Figure` the axis is on."""
-        owner = self._owner
-        return None if owner is None else owner.axis.get_figure(root=root)
-
-    def _push(self):
-        """Read the mirror back into its axis."""
-        self._owner._push(self)
-
-    def get_window_extent(self, renderer=None, dpi=None):
-        """Return the `.Bbox` bounding the artist, in display units."""
-        owner = self._owner
-        extent = None if owner is None else owner._extent(self)
+    def window_extent(self, artist, renderer=None, dpi=None):
+        extent = self.owner._extent(artist)
         if extent is None:
-            return Bbox.unit() if owner is not None else super().get_window_extent(
-                renderer)
+            return Bbox.unit()
         x0, y0, x1, y1 = extent
         return Bbox([[x0, y0], [x1, y1]])
 
-    def get_tightbbox(self, renderer=None):
-        """Like `get_window_extent`."""
-        return self.get_window_extent(renderer)
-
-
-@_pushing
-class _MirrorText(_Mirror, Text):
-    """A `.Text` mirroring a text an axis draws."""
-
-
-@_pushing
-class _MirrorLine(_Mirror, Line2D):
-    """A `.Line2D` mirroring a line an axis draws."""
+    def figure(self, artist, root=False):
+        return self.owner.axis.get_figure(root=root)
 
 
 class Tick(Artist):
@@ -208,23 +160,23 @@ class Tick(Artist):
                 grid_alpha = _val_or_rc(None, f"grid.{major_minor}.alpha",
                                         "grid.alpha")
         grid_kw = {k[5:]: v for k, v in kwargs.items() if k != "rotation_mode"}
-        self.tick1line = _MirrorLine(
+        self.tick1line = Line2D(
             [], [], color=color, linestyle="none", zorder=zorder,
             visible=tick1On, markeredgecolor=color, markersize=self._size,
             markeredgewidth=self._width)
-        self.tick2line = _MirrorLine(
+        self.tick2line = Line2D(
             [], [], color=color, linestyle="none", zorder=zorder,
             visible=tick2On, markeredgecolor=color, markersize=self._size,
             markeredgewidth=self._width)
-        self.gridline = _MirrorLine(
+        self.gridline = Line2D(
             [], [], color=grid_color, alpha=grid_alpha, visible=gridOn,
             linestyle=grid_linestyle, linewidth=grid_linewidth, marker="",
             **grid_kw)
-        self.label1 = _MirrorText(
+        self.label1 = Text(
             np.nan, np.nan, fontsize=labelsize, color=labelcolor,
             visible=label1On, fontfamily=labelfontfamily,
             rotation=self._labelrotation[1], rotation_mode=labelrotation_mode)
-        self.label2 = _MirrorText(
+        self.label2 = Text(
             np.nan, np.nan, fontsize=labelsize, color=labelcolor,
             visible=label2On, fontfamily=labelfontfamily,
             rotation=self._labelrotation[1], rotation_mode=labelrotation_mode)
@@ -241,13 +193,13 @@ class Tick(Artist):
         tick._major = major
         tick._index = index
         tick._zorder = Line2D.zorder + 0.01 if major else Line2D.zorder
-        tick.tick1line = _MirrorLine([], [])
-        tick.tick2line = _MirrorLine([], [])
-        tick.gridline = _MirrorLine([], [])
-        tick.label1 = _MirrorText(0, 0, '')
-        tick.label2 = _MirrorText(0, 0, '')
+        tick.tick1line = Line2D([], [])
+        tick.tick2line = Line2D([], [])
+        tick.gridline = Line2D([], [])
+        tick.label1 = Text(0, 0, '')
+        tick.label2 = Text(0, 0, '')
         for part in tick.get_children():
-            part._owner = tick
+            _mirrors.attach(part, _AxisPart(tick))
         tick._sync()
         return tick
 
@@ -562,8 +514,7 @@ class _AxisText:
 
     def __init__(self, axis):
         self.axis = axis
-        self.text = _MirrorText(0, 0, '')
-        self.text._owner = self
+        self.text = _mirrors.attach(Text(0, 0, ''), _AxisPart(self))
 
     def _args(self):
         return self.axis.axes._native, self.axis.axis_name

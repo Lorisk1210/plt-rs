@@ -21,6 +21,24 @@ from inspect import Parameter, Signature
 from . import _api
 
 
+class ClassZOrder:
+    """
+    ``zorder``: on a class, the z-order its artists start with
+    (``Line2D.zorder``, matplotlib's class attribute); on an artist, the
+    artist's (``line.zorder``, read and set through `get_zorder` and
+    `set_zorder`). A class setting ``zorder = n`` gets one of these.
+    """
+
+    def __init__(self, default):
+        self.default = default
+
+    def __get__(self, artist, owner=None):
+        return self.default if artist is None else artist.get_zorder()
+
+    def __set__(self, artist, level):
+        artist.set_zorder(level)
+
+
 def _prevent_rasterization(draw):
     """
     Wrap the *draw* method of an artist which cannot be rasterized: drawn
@@ -94,6 +112,9 @@ class SubclassingMixin:
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
+        zorder = vars(cls).get("zorder")
+        if isinstance(zorder, (int, float)) and not isinstance(zorder, bool):
+            cls.zorder = ClassZOrder(zorder)
         if SubclassingMixin in cls.__bases__:
             return  # `.Artist` itself, as matplotlib's runs for subclasses.
         # Decorate draw() method so that all artists are able to stop

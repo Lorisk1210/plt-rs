@@ -1,0 +1,96 @@
+"""
+Values with the types matplotlib gives them.
+
+pltrs (Rust) holds numbers as its own types (``f64``), while matplotlib
+answers with the Python objects it happens to keep: the numpy floats of
+the arrays its boxes hold (``ax.get_xlim()``), and very often the very
+object the program gave (``line.set_zorder(5)`` reads back as the int
+``5``). The helpers here turn what pltrs (Rust) answers into what
+matplotlib answers:
+
+* `float64s` gives the numpy floats of a box's array;
+* `remember` and `given` keep a property as the program gave it: a setter
+  remembers the value matplotlib would keep, and its getter returns that
+  value as long as pltrs (Rust) still holds what it was converted to, else
+  what pltrs (Rust) holds now (a value pltrs (Rust) changed itself).
+"""
+
+import numpy as np
+
+#: No value given (`given`'s default).
+NONE_GIVEN = object()
+
+
+def float64s(values):
+    """*values* as a tuple of numpy floats, as matplotlib reads its limits
+    off a box's array (``tuple(self.viewLim.intervalx)``)."""
+    return tuple(np.asarray(values, dtype=float))
+
+
+def remember(artist, name, value):
+    """Keep *value* as what *artist*'s property *name* reads back as."""
+    artist.__dict__.setdefault("_given_values", {})[name] = value
+
+
+def remember_all(artist, values, names):
+    """`remember` those of the properties *values* (a dict) has among
+    *names*."""
+    for name in names:
+        if name in values:
+            remember(artist, name, values[name])
+
+
+def given_fields(artist, names, native):
+    """The fields *native* (a tuple) of *artist*, named *names*, each as
+    `given` reads it."""
+    return tuple(given(artist, name, value) for name, value in zip(names, native))
+
+
+def given(artist, name, native, default=NONE_GIVEN, same=None):
+    """
+    *artist*'s property *name* as the program gave it (`remember`), or as
+    *default* (matplotlib's default, typed as matplotlib types it) when
+    none was given, while it still equals *native*, what pltrs (Rust)
+    holds (as *same* compares, by default as numbers); else *native*.
+    """
+    value = artist.__dict__.get("_given_values", {}).get(name, default)
+    if value is NONE_GIVEN or not (same or _same)(value, native):
+        return native
+    return value
+
+
+def same_color(a, b):
+    """Whether *a* and *b* are one colour."""
+    from . import colors
+    try:
+        return colors.to_rgba(a) == colors.to_rgba(b)
+    except (TypeError, ValueError):
+        return False
+
+
+def cycle_color(axes, native):
+    """The colour of the property cycle of *axes* that *native* is, as the
+    cycle holds it (matplotlib's ``tab10`` holds triples), or `given`'s
+    default for none."""
+    from . import rcParams
+    cycle = (None if axes is None else axes.__dict__.get("_given_values", {}).get("prop_cycle"))
+    if cycle is None:
+        cycle = rcParams['axes.prop_cycle']
+    for color in cycle.by_key().get("color", []):
+        if same_color(color, native):
+            return color
+    return NONE_GIVEN
+
+
+def _same(value, native):
+    """Whether *value* is what pltrs (Rust) holds as *native*."""
+    if value is None or native is None:
+        return value is native
+    if isinstance(value, str) or isinstance(native, str):
+        return value == native
+    try:
+        a = np.asarray(value, dtype=float)
+        b = np.asarray(native, dtype=float)
+    except (TypeError, ValueError):
+        return False
+    return a.shape == b.shape and bool(np.array_equal(a, b, equal_nan=True))

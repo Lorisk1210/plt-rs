@@ -254,9 +254,13 @@ impl Axes {
     /// counts.
     pub(crate) fn adopt(&self, mut artist: impl Artist, update: &DataUpdate) -> RawHandle {
         let axes_id = self.id();
+        let label = self.child_label(&artist);
         let base = artist.base_mut();
         if base.clip_path.is_none() {
             base.clip_box = Some(axes_id);
+        }
+        if let Some(label) = label {
+            base.label = label;
         }
         let figure = self.raw().figure_state();
         let mut state = figure.borrow_mut();
@@ -264,6 +268,15 @@ impl Axes {
         drop(state);
         self.update_data(update);
         RawHandle::new(Rc::clone(figure), id)
+    }
+
+    /// The label matplotlib gives `artist` as the axes adds it, `None` to
+    /// keep its own: a line, collection or image added without a label is
+    /// `_child<n>`, `n` the number of children before it (`add_line`,
+    /// `add_collection`, `add_image`).
+    pub(crate) fn child_label(&self, artist: &dyn Artist) -> Option<String> {
+        (is_labelled_child(artist) && artist.base().label.is_empty())
+            .then(|| format!("_child{}", self.listed_children()))
     }
 
     /// Adds `artist` as [`adopt`](Self::adopt) does, counted by
@@ -384,6 +397,21 @@ fn listed_by_kind(artist: &dyn Artist) -> bool {
         || any.is::<AxisArtistState>()
 }
 
+/// Whether matplotlib labels `artist` `_child<n>` when it is added
+/// without a label: a line, a collection (contour sets and triangle
+/// meshes included) or an image, which `add_line`, `add_collection` and
+/// `add_image` label (`add_patch` does not).
+fn is_labelled_child(artist: &dyn Artist) -> bool {
+    let any = artist as &dyn Any;
+    any.is::<LineArtist>()
+        || any.is::<CollectionArtist>()
+        || any.is::<TriMeshArtist>()
+        || any.is::<ContourSetArtist>()
+        || any.is::<AxesImageArtist>()
+        || any.is::<NonUniformImageArtist>()
+        || any.is::<PcolorImageArtist>()
+}
+
 /// Whether `artist` is a line, patch, collection (contour sets, triangle
 /// meshes and streamplot arrows included) or image: the kinds matplotlib's
 /// `has_data` looks for.
@@ -480,6 +508,26 @@ mod tests {
             .expect("a valid image");
         ax.relim(false);
         assert_eq!(limits(&ax), (-1.0, -1.0, 4.0, 4.0));
+    }
+
+    #[test]
+    fn plotted_lines_collections_and_images_are_labelled_as_children() {
+        // matplotlib's add_line, add_collection and add_image label an
+        // unlabelled artist `_child<n>`; add_patch leaves patches alone.
+        let ax = Figure::new().subplot();
+        ax.text(0.5, 0.5, "counted");
+        let line = ax.axhline(0.5, LineProps::default());
+        let patch = ax.add_artist(square(0.0, 0.0));
+        let image = ax
+            .imshow(Grid::filled(2, 2, 1.0), ImshowOptions::default())
+            .expect("an image");
+        let mesh = ax
+            .pcolormesh(Mesh::new(Grid::filled(2, 3, 1.0)), PcolorOptions::default())
+            .expect("a valid mesh");
+        assert_eq!(line.label(), "_child1");
+        assert_eq!(patch.label(), "");
+        assert_eq!(image.label(), "_child3");
+        assert_eq!(mesh.label(), "_child4");
     }
 
     #[test]

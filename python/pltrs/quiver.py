@@ -396,6 +396,16 @@ class Barbs(mcollections.PolyCollection):
         self.y = y
         x, y, u, v, c, flip = self._unmasked(u, v, c)
         made, mapped = _mapped(c, cmap, norm, clim)
+        if not all(c is None or _single_color(c) for c in (barbcolor, flagcolor)):
+            # Colours per barb are the collection's, as matplotlib makes
+            # *barbcolor* the edges and *flagcolor* the faces.
+            if None in (barbcolor, flagcolor):
+                kwargs['edgecolors'] = 'face'
+                kwargs['facecolors'] = flagcolor if flagcolor is not None else barbcolor
+            else:
+                kwargs['edgecolors'] = barbcolor
+                kwargs['facecolors'] = flagcolor
+            barbcolor = flagcolor = None
         native = _plotting.barbs(
             ax._native, (np.asarray(x, float), np.asarray(y, float)),
             (_filled(u), _filled(v)), mapped, (pivot, float(length)),

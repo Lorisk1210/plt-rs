@@ -16,9 +16,8 @@ License).
 
 import numpy as np
 
-from . import _api, _handles, _live_transforms, cbook, colors as mcolors
+from . import _api, _handles, _live_transforms, _mirrors, cbook, colors as mcolors
 from ._artist_children import ChildrenSearchMixin
-from ._axis_artists import _pushing
 from ._native import table as _table
 from .artist import Artist
 from .patches import Rectangle
@@ -36,15 +35,24 @@ class _CellHolder:
         self.figure = None
 
 
-@_pushing
-class _CellText(Text):
-    """The text of the cell ``_owner`` as a text artist (`Cell.get_text`):
+class _CellText(_mirrors.Mirroring):
+    """The text of *cell*, which a `.Text` stands for (`Cell.get_text`):
     its string, colour, font and horizontal alignment are the cell's."""
 
-    _owner = None
+    def __init__(self, cell):
+        self.cell = cell
 
-    def _push(self):
-        _table.restyle_text(self._owner._ref(), self._native)
+    def push(self, artist):
+        _table.restyle_text(self.cell._ref(), artist._native)
+
+
+def _points(size):
+    """A font size in points: a number, or a size name (``'large'``) as a
+    text's font properties take it."""
+    if isinstance(size, str):
+        from .font_manager import FontProperties
+        return FontProperties(size=size).get_size_in_points()
+    return float(size)
 
 
 def _measured(value):
@@ -207,15 +215,15 @@ substring of 'BRTL'
         native = _table.text_artist(self._ref())
         text = self.__dict__.get("_text_mirror")
         if text is None:
-            text = self._text_mirror = _CellText._from_native(native, None)
-            text._owner = self
+            text = self._text_mirror = _mirrors.attach(
+                Text._from_native(native, None), _CellText(self))
         else:
             text._native = native
         return text
 
     def set_fontsize(self, size):
         """Set the text fontsize."""
-        _table.set_cell_fontsize(self._ref(), float(size))
+        _table.set_cell_fontsize(self._ref(), _points(size))
 
     def get_fontsize(self):
         """Return the cell fontsize."""
@@ -550,7 +558,7 @@ class Table(Artist):
         However, there is no automatic scaling of the row height so that the
         text may exceed the cell boundary.
         """
-        _table.set_fontsize(self._native, float(size))
+        _table.set_fontsize(self._native, _points(size))
 
     def get_celld(self):
         r"""

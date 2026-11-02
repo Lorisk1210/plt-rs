@@ -276,8 +276,11 @@ class Axis(maxis.XAxis):
                 "only be used if 'labels' are passed as well.")
         _mplot3d.set_ticks(self.axes._native, self.axis_name,
                            [float(t) for t in ticks], bool(minor))
+        result = (self.get_minor_ticks(len(ticks)) if minor
+                  else self.get_major_ticks(len(ticks)))
         if labels is not None:
             self.set_ticklabels(labels, minor=minor, **kwargs)
+        return result
 
     def set_ticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
         """
@@ -288,8 +291,8 @@ class Axis(maxis.XAxis):
         `~.Axis.set_tick_params` sets for its labels (``color``,
         ``fontsize``, ``rotation``, ``fontfamily``) apply to the level.
 
-        pltrs: the tick labels of a 3-D axis are drawn by pltrs (Rust)
-        rather than kept as `.Text` artists, so nothing is returned.
+        Returns the visible labels of the level's ticks, ``label1`` then
+        ``label2`` of each tick.
         """
         from pltrs.text import Text
         if fontdict is not None:
@@ -306,6 +309,9 @@ class Axis(maxis.XAxis):
                                 [str(label) for label in labels], bool(minor))
         if params:
             self.set_tick_params(which="minor" if minor else "major", **params)
+        ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
+        return [label for tick in ticks for label in (tick.label1, tick.label2)
+                if label.get_visible()]
 
     def get_ticklocs(self, *, minor=False):
         """Return this Axis' tick locations in data coordinates."""

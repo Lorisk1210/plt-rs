@@ -33,7 +33,7 @@ import re
 import subprocess
 import sys
 
-from . import _api, cbook, ft2font
+from . import _api, _mirrors, cbook, ft2font
 from ._fontconfig_pattern import (
     parse_fontconfig_pattern, generate_fontconfig_pattern)
 from ._native import font_manager as _font_manager, ft2font as _native_ft2font
@@ -481,6 +481,7 @@ def _cleanup_fontproperties_init(init_method):
     return wrapper
 
 
+@_mirrors.pushing
 class FontProperties:
     """
     A class for storing and manipulating font properties.

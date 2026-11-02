@@ -798,6 +798,27 @@ from .colors import _color_sequences as color_sequences  # noqa: E402
 def get_data_path():
     """Return the path to Matplotlib data: the directory where pltrs (Rust)
     writes the data files it bundles (its fonts), as matplotlib's
-    ``mpl-data``."""
+    ``mpl-data``, which also reaches the files the package ships (the
+    sample data, the toolbar images)."""
     from ._native import font_manager as _font_manager
-    return _font_manager.data_path()
+    path = _font_manager.data_path()
+    _reach_shipped_data(path)
+    return path
+
+
+@functools.cache
+def _reach_shipped_data(path):
+    """Link the entries of the package's ``mpl-data`` into the data directory
+    *path* (copying them where links cannot be made), as programs join
+    ``get_data_path()`` and ``"sample_data"``."""
+    from pathlib import Path
+    for entry in Path(__file__).with_name("mpl-data").iterdir():
+        target = Path(path, entry.name)
+        if target.exists():
+            continue
+        try:
+            target.symlink_to(entry, target_is_directory=entry.is_dir())
+        except FileExistsError:
+            pass  # Another process linked it meanwhile.
+        except OSError:
+            shutil.copytree(entry, target, dirs_exist_ok=True)

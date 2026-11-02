@@ -342,12 +342,16 @@ class BarsMixin:
         elif hasattr(heights, 'shape'):  # numpy array
             heights = heights.T
         _api.check_in_list(["vertical", "horizontal"], orientation=orientation)
+        # Where the bars start, `bar`'s *bottom* (`barh`'s *left*), which
+        # matplotlib's grouped_bar hands its bars.
+        base = kwargs.pop("bottom" if orientation == "vertical" else "left", None)
         kwargs = cbook.normalize_kwargs(kwargs, mpatches.Rectangle)
         facecolor, edgecolor, linewidth, linestyle, hatch = _dataset_styles(kwargs)
         datasets = [[float(v) for v in dataset] for dataset in heights]
         bars = _plotting.grouped_bar(
             self._native, datasets,
-            None if positions is None else [float(p) for p in np.asanyarray(positions)],
+            (None if positions is None else [float(p) for p in np.asanyarray(positions)],
+             None if base is None else [float(v) for v in np.atleast_1d(base)]),
             (float(group_spacing), float(bar_spacing)),
             ([] if tick_labels is None else [str(t) for t in tick_labels],
              [] if labels is None else [str(label) for label in labels]),

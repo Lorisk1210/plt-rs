@@ -427,6 +427,20 @@ Two things matplotlib evaluates at draw time follow it there:
   `PolarAxes._transform_tree`), built of matplotlib's classes around the
   values the figure has now.
 
+### Values as matplotlib types them
+
+pltrs (Rust) holds numbers as `f64` and colours as its `Color`, while
+matplotlib answers with the objects it keeps, very often the object the
+program gave (`line.set_zorder(5)` reads back the int `5`,
+`line.set_color([0.5] * 3)` the list). `_values` makes the answers
+matplotlib's: a setter `remember`s the value given, and its getter returns
+it (`given`) while pltrs (Rust) still holds what it converts to; limits are
+numpy floats (`float64s`), as matplotlib reads them off its boxes. Colours
+pltrs (Rust) took from the property cycle read back as the cycle holds them
+(triples, for `tab10`), and `to_rgba` types alpha as matplotlib does (the
+int `1` for a colour of three components). `cargo xtask diff` compares
+pltrs' answers with matplotlib's (`spec/diff`).
+
 ### Keyword arguments and aliases
 
 * Aliases are declared on the class, as in matplotlib:
@@ -591,6 +605,14 @@ as the ticks of an axis are (`_text_box`, `_annotation_arrow`): loose
 setters give the part their changes (`restyle_bbox`, `restyle_arrow`);
 the arrow's `get_window_extent` is where the annotation draws it, and
 `Text.get_window_extent(annotation)` the text alone.
+
+Mirrors are objects of matplotlib's very classes (`type(ax.set_xlabel("x"))
+is Text`), not subclasses: `Text`, `Line2D`, `FancyBboxPatch`,
+`FancyArrowPatch` and `FontProperties` are made `_mirrors.mirrorable` (or
+`pushing`), so that every setter of an instance attached to a part (its
+`_mirror`, a `_mirrors.Mirroring`) pushes the instance back into the part,
+and the extent and figure are asked of the part. A text's `FontProperties`
+is such a mirror of the text's font, the same object while the font stays.
 
 `ContourLabeler.clabel` and `add_label_near` place every label through
 the Python method `_split_path_and_get_label_rotation`, as matplotlib's

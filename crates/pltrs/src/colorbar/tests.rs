@@ -455,13 +455,14 @@ fn hatched_contours_get_hatched_blocks_and_extensions() {
 }
 
 #[test]
-fn removed_mappables_have_no_colorbar() {
-    let (fig, _, image) = image_figure();
+fn removed_mappables_keep_their_colorbar() {
+    // matplotlib's colorbar reads the mappable wherever it is: its
+    // advanced hillshading example colours a shaded image with the
+    // colorbar of an image it removed.
+    let (fig, ax, image) = image_figure();
     image.remove();
-    assert_eq!(
-        fig.colorbar(&image, ColorbarOptions::default()).err(),
-        Some(ColorbarError::RemovedMappable)
-    );
+    let colorbar = fig.colorbar(&image, ColorbarOptions::beside(&ax)).unwrap();
+    assert_eq!((colorbar.vmin(), colorbar.vmax()), (-0.5, 0.5));
 }
 
 #[test]

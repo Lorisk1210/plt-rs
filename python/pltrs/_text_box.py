@@ -10,30 +10,31 @@ square until `place` moves it where the text draws the box
 (``Text.update_bbox_position_size``), and stays there.
 """
 
-from ._axis_artists import _pushing
+from . import _mirrors
 from ._native import text as _text
 from .patches import FancyBboxPatch
 from .transforms import Affine2D
 
 
-@_pushing
-class _BoxMirror(FancyBboxPatch):
-    """The box of the text ``_owner`` as a patch."""
+class _TextBox(_mirrors.Mirroring):
+    """The box of *text*, which a `.FancyBboxPatch` stands for."""
 
-    _owner = None
-    #: Where `place` put the patch: the size of the frame, the matrix
-    #: placing it in display pixels and the mutation scale.
-    _frame = None
+    def __init__(self, text):
+        self.text = text
+        #: Where `place` put the patch: the size of the frame, the matrix
+        #: placing it in display pixels and the mutation scale.
+        self.frame = None
 
-    def _push(self):
-        _text.restyle_bbox(self._owner._native, self._native)
+    def push(self, artist):
+        _text.restyle_bbox(self.text._native, artist._native)
 
-    def _move_to_frame(self):
-        """Put the patch where `_frame` says, its owner unchanged."""
-        (width, height), matrix, mutation_scale = self._frame
-        FancyBboxPatch.set_bounds(self, 0., 0., width, height)
-        FancyBboxPatch.set_transform(self, Affine2D(matrix))
-        FancyBboxPatch.set_mutation_scale(self, mutation_scale)
+    def move_to_frame(self, patch):
+        """Put *patch* where `frame` says, the box unchanged."""
+        (width, height), matrix, mutation_scale = self.frame
+        with _mirrors.detached(patch):
+            patch.set_bounds(0., 0., width, height)
+            patch.set_transform(Affine2D(matrix))
+            patch.set_mutation_scale(mutation_scale)
 
 
 def mirror(text):
@@ -45,12 +46,12 @@ def mirror(text):
         return None
     patch = text.__dict__.get("_bbox_mirror")
     if patch is None:
-        patch = text._bbox_mirror = _BoxMirror._from_native(native, None)
-        patch._owner = text
+        patch = text._bbox_mirror = _mirrors.attach(
+            FancyBboxPatch._from_native(native, None), _TextBox(text))
     else:
         patch._native = native
-        if patch._frame is not None:
-            patch._move_to_frame()
+        if patch._mirror.frame is not None:
+            patch._mirror.move_to_frame(patch)
     return patch
 
 
@@ -61,5 +62,5 @@ def place(text):
     frame = _text.bbox_frame(text._native)
     if patch is None or frame is None:
         return
-    patch._frame = frame
-    patch._move_to_frame()
+    patch._mirror.frame = frame
+    patch._mirror.move_to_frame(patch)

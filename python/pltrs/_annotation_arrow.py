@@ -10,24 +10,24 @@ arrow their changes once they ran (``restyle_arrow``), and whose extent is
 where the annotation draws the arrow.
 """
 
-from ._axis_artists import _pushing
+from . import _mirrors
 from ._native import annotation as _annotation
 from .patches import FancyArrowPatch
 from .transforms import Bbox
 
 
-@_pushing
-class _ArrowMirror(FancyArrowPatch):
-    """The arrow of the annotation ``_owner`` as a patch."""
+class _AnnotationArrow(_mirrors.Mirroring):
+    """The arrow of *annotation*, which a `.FancyArrowPatch` stands for."""
 
-    _owner = None
+    def __init__(self, annotation):
+        self.annotation = annotation
 
-    def _push(self):
-        _annotation.restyle_arrow(self._owner._native, self._native)
+    def push(self, artist):
+        _annotation.restyle_arrow(self.annotation._native, artist._native)
 
-    def get_window_extent(self, renderer=None):
+    def window_extent(self, artist, renderer=None, dpi=None):
         """The display box of the arrow as the annotation draws it."""
-        extents = _annotation.arrow_extent(self._owner._native)
+        extents = _annotation.arrow_extent(self.annotation._native)
         return Bbox.null() if extents is None else Bbox.from_extents(*extents)
 
 
@@ -40,8 +40,8 @@ def mirror(annotation):
         return None
     patch = annotation.__dict__.get("_arrow_mirror")
     if patch is None:
-        patch = annotation._arrow_mirror = _ArrowMirror._from_native(native, None)
-        patch._owner = annotation
+        patch = annotation._arrow_mirror = _mirrors.attach(
+            FancyArrowPatch._from_native(native, None), _AnnotationArrow(annotation))
     else:
         patch._native = native
     return patch

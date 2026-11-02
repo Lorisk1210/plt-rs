@@ -430,6 +430,9 @@ mod tests {
             .iter()
             .map(|l| shown_label(&l.label()))
             .collect();
-        assert_eq!(labels, ["a", "(no label)"]);
+        // The unlabelled line is `_child1`, as matplotlib's `add_line`
+        // labels it, and its figure options list it so.
+        assert_eq!(labels, ["a", "_child1"]);
+        assert_eq!(shown_label(""), "(no label)");
     }
 }

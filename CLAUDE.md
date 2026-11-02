@@ -122,6 +122,13 @@ must reproduce them.
   against documents matplotlib writes for it then and there), and
   `cargo xtask render PREFIX...` to write a case's rendering plus a diff
   against its golden PNG to `spec/out/` for inspection.
+* Differential testing: `cargo xtask diff [--gallery | --generated]
+  [PATTERN...] [--failures] [--reduce] [--baseline REPORT]` runs
+  matplotlib's gallery and programs generated from its API
+  (`spec/diff/generators`) under matplotlib and under pltrs (Python), and
+  compares every value, type, exception, warning, printed line and figure
+  (RMS ≤ 1); `target/diff/report.md` groups the differences by cause.
+  Intended ones go to `spec/diff/allowlist.txt`, with the proof.
 * Coverage of matplotlib's own tests: `cargo xtask mpl-tests [--strict]`
   sorts every `def test_*` of `matplotlib/tests` into ported (named or
   cited, with or without `test_`, in `spec/reference` or

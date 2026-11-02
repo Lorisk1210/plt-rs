@@ -7,6 +7,8 @@ autoscaling reads the sticky edges where it runs, so the lists
 ``sticky_edges`` hands out give every change in place to the artist.
 """
 
+from collections import namedtuple
+
 from ._native import artist as _artist
 
 #: What the Python side keeps of the transform and the clip regions it
@@ -58,36 +60,24 @@ class _StickyEdgeList(list):
         list.__setitem__(self, slice(None), values)
 
 
-class _XYPair:
+class _XYPair(namedtuple("_XYPair", "x y")):
     """The ``x`` and ``y`` sticky edge lists of an artist (matplotlib's
-    ``_XYPair``)."""
+    ``_XYPair``, a named tuple), which give the artist their changes."""
 
-    __slots__ = ("x", "y", "_native")
-
-    def __init__(self, native):
-        self._native = native
+    def __new__(cls, native):
         x, y = _artist.get_sticky_edges(native)
-        self.x = _StickyEdgeList(self, x)
-        self.y = _StickyEdgeList(self, y)
+        pair = super().__new__(cls, _StickyEdgeList(None, x), _StickyEdgeList(None, y))
+        pair._native = native
+        for edges in pair:
+            edges._owner = pair
+        return pair
+
+    def __getnewargs__(self):
+        return (self._native,)
 
     def _push_sticky_edges(self):
         _artist.set_sticky_edges(self._native, [float(v) for v in self.x],
                                  [float(v) for v in self.y])
-
-    def __iter__(self):
-        return iter((self.x, self.y))
-
-    def __len__(self):
-        return 2
-
-    def __getitem__(self, index):
-        return (self.x, self.y)[index]
-
-    def __eq__(self, other):
-        return tuple(self) == tuple(other)
-
-    def __repr__(self):
-        return f"_XYPair(x={self.x!r}, y={self.y!r})"
 
 
 class CopyingMixin:

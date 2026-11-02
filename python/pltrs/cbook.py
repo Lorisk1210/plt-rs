@@ -1842,6 +1842,21 @@ def _topmost_artist(
     return _cached_max(reversed(artists))
 
 
+def _set_module(module, *classes):
+    """
+    Name *module* (``__name__`` of the public module re-exporting them) as
+    the module of *classes* and of the classes nested in them, as
+    matplotlib defines them there: pltrs defines them in a private module,
+    which neither ``repr`` nor pickling should show.
+    """
+    for cls in classes:
+        cls.__module__ = module
+        for nested in vars(cls).values():
+            if isinstance(nested, type) and nested.__qualname__.startswith(
+                    cls.__qualname__ + "."):
+                _set_module(module, nested)
+
+
 def _str_equal(obj, s):
     """
     Return whether *obj* is a string equal to string *s*.

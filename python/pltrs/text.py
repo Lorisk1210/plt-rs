@@ -14,7 +14,7 @@ import weakref
 
 import numpy as np
 
-from . import _api, _live_transforms, _text_overrides, cbook
+from . import _api, _live_transforms, _mirrors, _text_overrides, _values, cbook, units
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
@@ -145,6 +145,16 @@ def _measuring_with(renderer):
         renderer, _get_text_metrics_function(renderer))
 
 
+class _TextFont(_mirrors.Mirroring):
+    """The font of *text*, which its `.FontProperties` object stands for."""
+
+    def __init__(self, text):
+        self.text = text
+
+    def push(self, fontproperties):
+        _text.set_fontproperties(self.text._native, FontManager._props(fontproperties))
+
+
 @_api.define_aliases({
     "color": ["c"],
     "fontproperties": ["font", "font_properties"],
@@ -159,6 +169,7 @@ def _measuring_with(renderer):
     "verticalalignment": ["va"],
     "multialignment": ["ma"],
 })
+@_mirrors.mirrorable
 class Text(Artist, metaclass=_text_overrides.WatchesDraw):
     """Handle storing and drawing of text in window or data coordinates."""
 
@@ -177,10 +188,23 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         The text is outside any figure until an axes or a figure adds it
         (`~.Axes.add_artist`, `.Figure.add_artist`).
         """
-        self._native = _text.new(float(x), float(y),
+        in_units = not (units._is_natively_supported(x) and units._is_natively_supported(y))
+        self._native = _text.new(0.0 if in_units else float(x),
+                                 0.0 if in_units else float(y),
                                  "" if text is None else str(text))
         super().__init__()
+        if in_units:
+            # Converted once the text joins an axes (`_convert_units_for`),
+            # as matplotlib converts its position when drawn.
+            self._unit_position = (x, y)
         self._init_properties(kwargs)
+
+    def _convert_units_for(self, axes):
+        position = self.__dict__.pop("_unit_position", None)
+        if position is not None:
+            x, y = position
+            self.set_position((float(axes.convert_xunits(x)),
+                               float(axes.convert_yunits(y))))
 
     def _char_index_at(self, x):
         """
@@ -406,12 +430,20 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 
     def get_color(self):
         """Return the color of the text."""
-        return _text.get_color(self._native)
+        return _values.given(self, "color", _text.get_color(self._native),
+                             same=_values.same_color)
 
     def get_fontproperties(self):
-        """Return the `.font_manager.FontProperties`."""
-        return FontProperties._from_native(
-            _text.get_fontproperties(self._native))
+        """
+        Return the `.font_manager.FontProperties`: the same object while the
+        text's font stays, whose setters change the text's font, as
+        matplotlib's text keeps one.
+        """
+        current = FontProperties._from_native(_text.get_fontproperties(self._native))
+        kept = self.__dict__.get("_font_object")
+        if kept is None or kept != current or not _mirrors.is_attached(kept):
+            kept = self._font_object = _mirrors.attach_apart(current, _TextFont(self))
+        return kept
 
     @property
     def _fontproperties(self):
@@ -541,6 +573,7 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         if not cbook._str_equal(color, "auto"):
             _check_color_like(color=color)
         _text.set_color(self._native, color)
+        _values.remember(self, "color", color)
 
     def set_horizontalalignment(self, align):
         """

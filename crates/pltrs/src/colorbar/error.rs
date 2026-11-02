@@ -49,7 +49,8 @@ pub enum ColorbarError {
     FilledContours,
     /// The contour set maps no colours (no levels or no colours given).
     NoColors,
-    /// The mappable's artist was removed from its figure.
+    /// The mappable's artist is not in its figure's state, drawn or
+    /// removed.
     RemovedMappable,
     /// The default colormap is unknown.
     Colormap(ColormapError),

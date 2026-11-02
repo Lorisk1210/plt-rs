@@ -203,7 +203,7 @@ impl Axes {
 
     /// How many children matplotlib's `ax._children` would hold: the
     /// children but the spines, the titles and the legend.
-    fn listed_children(&self) -> usize {
+    pub(crate) fn listed_children(&self) -> usize {
         let figure = self.raw().figure_state().borrow();
         self.raw().with::<AxesState, _>(|axes| {
             axes.children

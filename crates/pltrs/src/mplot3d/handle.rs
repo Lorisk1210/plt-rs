@@ -97,9 +97,13 @@ impl Axes3D {
     /// in projected coordinates, without 3-D geometry yet.
     pub(crate) fn adopt_projected(&self, mut artist: impl Artist) -> RawHandle {
         let plane = self.plane();
+        let label = plane.child_label(&artist);
         let base = artist.base_mut();
         base.clip_box = Some(plane.id());
         base.transform = Some(plane.trans_data());
+        if let Some(label) = label {
+            base.label = label;
+        }
         let figure = self.raw.figure_state();
         let id = figure.borrow_mut().adopt(plane.id(), Box::new(artist));
         RawHandle::new(Rc::clone(figure), id)

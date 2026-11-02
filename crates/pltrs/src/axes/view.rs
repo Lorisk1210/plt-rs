@@ -8,7 +8,7 @@ use super::PlotError;
 use super::axis::{AxisRole, AxisState};
 use super::limits::oriented;
 use super::state::{AxesState, AxisSpace, SharedData};
-use crate::artist::{ArtistId, DrawError};
+use crate::artist::{ArtistId, ArtistLookup, DrawError};
 use crate::figure::FigureState;
 use crate::scale::{Scale, ScaleName};
 use crate::ticker::AxisName;
@@ -284,15 +284,19 @@ impl FigureState {
         axes: ArtistId,
         other: ArtistId,
     ) -> Result<(), PlotError> {
-        let current = self.axes_state(axes).and_then(|state| match name {
-            AxisName::X => state.shares.0,
-            AxisName::Y => state.shares.1,
-        });
+        // Either may be an axes made but not added yet (`Axes(fig, rect,
+        // sharex=other)`), which shares as one in the figure does.
+        let current = self
+            .artist_as::<AxesState>(axes)
+            .and_then(|state| match name {
+                AxisName::X => state.shares.0,
+                AxisName::Y => state.shares.1,
+            });
         if current.is_some_and(|current| current != other) {
             return Err(PlotError::AlreadyShared(name));
         }
         self.unstale_axes(other);
-        let Some(source) = self.axes_state(other) else {
+        let Some(source) = self.artist_as::<AxesState>(other) else {
             return Ok(());
         };
         let tickers = source.axis(name).tickers();
@@ -429,6 +433,29 @@ mod tests {
         b.remove();
         a.plot([0.0, 1.0], [0.0, 1.0]).unwrap();
         assert_eq!(a.xlim(), (-0.05, 1.05));
+    }
+
+    #[test]
+    fn axes_made_apart_share_before_they_are_added() {
+        // matplotlib's `Axes(fig, rect, sharex=a)` then `fig.add_axes(...)`,
+        // as axes_grid1's grids make their axes.
+        let fig = Figure::new();
+        let a = fig.removed_axes([0.1, 0.1, 0.3, 0.3]).unwrap();
+        let b = fig.removed_axes([0.5, 0.1, 0.3, 0.3]).unwrap();
+        b.share_x(&a).unwrap();
+        fig.attach(&a).unwrap();
+        fig.attach(&b).unwrap();
+        b.xaxis()
+            .set_major_locator(MultipleLocator::new(0.5).unwrap());
+        let locs: Vec<f64> = a
+            .ticks(AxisName::X)
+            .unwrap()
+            .major
+            .iter()
+            .map(|t| t.loc)
+            .collect();
+        assert_eq!(locs, [0.0, 0.5, 1.0]);
+        assert_eq!(a.shared_axes(AxisName::X).len(), 2);
     }
 
     #[test]

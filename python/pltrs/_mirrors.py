@@ -1,0 +1,127 @@
+"""
+Artists standing for parts that pltrs (Rust) draws as parts of another
+artist.
+
+matplotlib keeps some parts of an artist as artists of their own: the
+ticks, label and offset text of an axis, the box behind a text, the arrow
+of an annotation, the text of a table cell. pltrs (Rust) draws them as
+parts of their artist. pltrs (Python) hands them out as *mirrors*: plain
+objects of matplotlib's very classes (`.Text`, `.Line2D`,
+`.FancyBboxPatch`, `.FancyArrowPatch`; the `.FontProperties` of a text),
+filled from the part, whose ``_mirror`` is the `Mirroring` of the part
+they stand for. Every setter of
+a class made `mirrorable` gives the part its mirror's state once it ran
+(`Mirroring.push`), and the mirror asks the part where it is drawn and in
+which figure.
+"""
+
+import contextlib
+import functools
+import weakref
+
+#: What a `Mirroring` answers to leave a question to the mirror's class.
+OWN = object()
+
+
+class Mirroring:
+    """
+    The part a mirror stands for.
+
+    A subclass gives the part the mirror's state in ``push(artist)``, and
+    may answer where the part is drawn (`window_extent`) and which figure
+    it is in (`figure`); `OWN` leaves the answer to the mirror's class.
+    """
+
+    def window_extent(self, artist, renderer=None, dpi=None):
+        """The display box of the part *artist* mirrors, or `OWN`."""
+        return OWN
+
+    def tight_box(self, artist, renderer=None):
+        """The tight display box of the part, by default its extent."""
+        return self.window_extent(artist, renderer)
+
+    def figure(self, artist, root=False):
+        """The figure the part is in, or `OWN`."""
+        return OWN
+
+
+#: The mirrorings of objects whose attributes are their value (font
+#: properties hash and compare by them), kept apart, by the object's id.
+_apart = {}
+
+
+def attach_apart(obj, mirroring):
+    """Make *obj* the mirror of what *mirroring* stands for, without an
+    attribute of its own."""
+    _apart[id(obj)] = mirroring
+    weakref.finalize(obj, _apart.pop, id(obj), None)
+    return obj
+
+
+def is_attached(obj):
+    """Whether *obj* mirrors a part."""
+    return _mirror_of(obj) is not None
+
+
+def _mirror_of(obj):
+    mirror = getattr(obj, "__dict__", {}).get("_mirror")
+    return _apart.get(id(obj)) if mirror is None else mirror
+
+
+def _pushing(method):
+    @functools.wraps(method)
+    def setter(self, *args, **kwargs):
+        result = method(self, *args, **kwargs)
+        mirror = _mirror_of(self)
+        if mirror is not None:
+            mirror.push(self)
+        return result
+    return setter
+
+
+def pushing(cls):
+    """Class decorator: every setter of *cls* pushes a mirror of it back
+    into its part once it ran."""
+    for name in dir(cls):
+        if name.startswith("set_") and callable(getattr(cls, name)):
+            setattr(cls, name, _pushing(getattr(cls, name)))
+    return cls
+
+
+def _asking(method, question):
+    @functools.wraps(method)
+    def asking(self, *args, **kwargs):
+        mirror = self.__dict__.get("_mirror")
+        if mirror is not None:
+            answer = getattr(mirror, question)(self, *args, **kwargs)
+            if answer is not OWN:
+                return answer
+        return method(self, *args, **kwargs)
+    return asking
+
+
+def mirrorable(cls):
+    """Class decorator letting the instances of *cls* be mirrors: every
+    setter pushes, and the extent and figure are asked of the part."""
+    pushing(cls)
+    cls.get_window_extent = _asking(cls.get_window_extent, "window_extent")
+    cls.get_tightbbox = _asking(cls.get_tightbbox, "tight_box")
+    cls.get_figure = _asking(cls.get_figure, "figure")
+    return cls
+
+
+def attach(artist, mirroring):
+    """Make *artist* the mirror of the part *mirroring* stands for."""
+    artist._mirror = mirroring
+    return artist
+
+
+@contextlib.contextmanager
+def detached(artist):
+    """Change *artist* without giving its part the changes."""
+    mirror = artist.__dict__.pop("_mirror", None)
+    try:
+        yield artist
+    finally:
+        if mirror is not None:
+            artist._mirror = mirror

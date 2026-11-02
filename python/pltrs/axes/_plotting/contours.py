@@ -41,8 +41,9 @@ def _contour_look(kwargs):
         raise ValueError('Either colors or cmap must be None')
     if colors is not None and mcolors.is_color_like(colors):
         colors = [colors]  # one colour, 'none' included
+    # matplotlib keeps any *extend* and extends the ends it names.
     extend = kwargs.pop("extend", "neither")
-    _api.check_in_list(['neither', 'both', 'min', 'max'], extend=extend)
+    native_extend = extend if extend in ('neither', 'both', 'min', 'max') else 'neither'
     hatches = kwargs.pop("hatches", [None])
     linewidths = kwargs.pop("linewidths", None)
     alpha = kwargs.pop("alpha", None)
@@ -61,13 +62,13 @@ def _contour_look(kwargs):
             None if linewidths is None else
             [float(w) for w in np.atleast_1d(linewidths)],
             _linestyles(linestyles), _linestyles(negative_linestyles)[0])
-    extras = (extend, [None if h is None else str(h) for h in hatches],
+    extras = (native_extend, [None if h is None else str(h) for h in hatches],
               None if antialiased is None else bool(antialiased),
               None if locator is None
               else _tick_helpers._description("locator", locator),
               _live_transforms.given_to_native(kwargs.pop("transform", None)))
     attributes = {"_orig_linestyles": linestyles,
-                  "negative_linestyles": negative_linestyles}
+                  "negative_linestyles": negative_linestyles, "_extend": extend}
     return look, extras, attributes, made, cmap is None
 
 

@@ -10,15 +10,12 @@
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes_grid1::{BboxConnector, BboxConnectorPatch, BboxPatch};
 use pltrs::collections::CollectionPatch;
-use pltrs::colors::{Color, ColorError};
 use pltrs::mplot3d::{ProjectedOutline, ProjectedPath};
 use pltrs::patches::{
     Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
-    FancyArrowPatch, FancyBboxPatch, Patch, PatchColors, PatchError, PatchProps, PatchShape,
-    PatchStyle, PathShape, Polygon, Rectangle, RegularPolygon, RotationPoint, Shadow, ShadowError,
-    StepBaseline, StepPatch, Wedge,
+    FancyArrowPatch, FancyBboxPatch, Patch, PatchError, PatchProps, PatchShape, PathShape, Polygon,
+    Rectangle, RegularPolygon, RotationPoint, Shadow, ShadowError, StepBaseline, StepPatch, Wedge,
 };
-use pltrs::rc::ColorOrEdge;
 use pltrs_core::{Affine2D, Path, Point};
 
 use super::lines::{PyLineStyle, cap_style, join_style};
@@ -32,6 +29,9 @@ mod connection;
 mod fancy;
 mod geometry;
 mod new;
+mod style;
+
+use style::StyleOps;
 
 artist_handle!(
     Patch<Rectangle>,
@@ -57,19 +57,7 @@ artist_handle!(
 
 /// What every patch handle does, whatever its shape (matplotlib's `Patch`
 /// base class).
-trait PatchOps {
-    /// The handle common to all artists.
-    fn raw_handle(&self) -> &RawHandle;
-    /// A copy of the edge/face/hatch properties.
-    fn style(&self) -> PatchStyle;
-    /// Changes the edge/face/hatch properties.
-    fn update_style(&self, f: &mut dyn FnMut(&mut PatchStyle));
-    /// Sets the properties of a property set.
-    fn update_props(&self, props: PatchProps);
-    /// The edge width, defaults applied.
-    fn linewidth(&self) -> f64;
-    /// The colours painted, defaults and alpha applied.
-    fn colors(&self) -> Result<PatchColors, ColorError>;
+trait PatchOps: StyleOps {
     /// The outline in the shape's own coordinates.
     fn path(&self) -> Path;
     /// The map of the outline into the patch's coordinates.
@@ -79,8 +67,6 @@ trait PatchOps {
     fn interpolation_steps(&self) -> usize;
     /// Sets [`PatchOps::interpolation_steps`].
     fn set_interpolation_steps(&self, steps: usize);
-    /// Sets the hatch line width.
-    fn set_hatch_linewidth(&self, width: f64);
     /// The patch as an item of a patch collection.
     fn collection_patch(&self) -> CollectionPatch;
     /// The patch's shadow, offset by `(ox, oy)` points and darkened by
@@ -91,30 +77,6 @@ trait PatchOps {
 }
 
 impl<S: PatchShape> PatchOps for Patch<S> {
-    fn raw_handle(&self) -> &RawHandle {
-        self.raw()
-    }
-
-    fn style(&self) -> PatchStyle {
-        Patch::style(self)
-    }
-
-    fn update_style(&self, f: &mut dyn FnMut(&mut PatchStyle)) {
-        Patch::update_style(self, f);
-    }
-
-    fn update_props(&self, props: PatchProps) {
-        Patch::update_props(self, props);
-    }
-
-    fn linewidth(&self) -> f64 {
-        Patch::linewidth(self)
-    }
-
-    fn colors(&self) -> Result<PatchColors, ColorError> {
-        Patch::colors(self)
-    }
-
     fn path(&self) -> Path {
         self.shape().path()
     }
@@ -129,10 +91,6 @@ impl<S: PatchShape> PatchOps for Patch<S> {
 
     fn set_interpolation_steps(&self, steps: usize) {
         Patch::set_interpolation_steps(self, steps);
-    }
-
-    fn set_hatch_linewidth(&self, width: f64) {
-        Patch::set_hatch_linewidth(self, width);
     }
 
     fn collection_patch(&self) -> CollectionPatch {
@@ -167,6 +125,13 @@ pub(super) fn collection_patches(objects: &[Owned]) -> PyResult<Vec<CollectionPa
 /// The native object of a patch of any shape.
 struct AnyPatch(Box<dyn PatchOps>);
 
+impl AnyPatch {
+    /// The patch as an artist painted as a patch.
+    fn into_style(self) -> Box<dyn StyleOps> {
+        self.0
+    }
+}
+
 /// Tries the patch shapes in turn on a raw handle.
 macro_rules! downcast_patch {
     ($raw:expr; $($shape:ty),* $(,)?) => {{
@@ -188,102 +153,6 @@ impl FromPy<'_> for AnyPatch {
         .map(Self)
         .ok_or_else(|| PyErr::type_error("expected a native patch handle"))
     }
-}
-
-/// A colour, `None` (the default) when the Python value is `None`.
-fn optional_color(value: &Bound<'_>) -> PyResult<Option<Color>> {
-    value.extract()
-}
-
-/// Applies the patch property `key` set to `value` (a resolved name of
-/// matplotlib's `Patch.set`) to `patch`.
-fn set_property(patch: &dyn PatchOps, key: &str, value: &Bound<'_>) -> PyResult<()> {
-    let mut props = PatchProps::default();
-    match key {
-        "color" => {
-            let color = optional_color(value)?;
-            patch.update_style(&mut |style| {
-                style.facecolor.clone_from(&color);
-                style.edgecolor.clone_from(&color);
-            });
-        }
-        "facecolor" => {
-            let color = optional_color(value)?;
-            patch.update_style(&mut |style| style.facecolor.clone_from(&color));
-        }
-        "edgecolor" => {
-            let color = optional_color(value)?;
-            patch.update_style(&mut |style| style.edgecolor.clone_from(&color));
-        }
-        "linewidth" => {
-            let width: Option<f64> = value.extract()?;
-            patch.update_style(&mut |style| style.linewidth = width);
-        }
-        "linestyle" => {
-            let PyLineStyle(linestyle) = value.extract()?;
-            patch.update_style(&mut |style| style.linestyle = linestyle.clone());
-        }
-        "fill" => {
-            let fill: bool = value.extract()?;
-            patch.update_style(&mut |style| style.fill = fill);
-        }
-        "hatch" => {
-            let hatch: Option<String> = value.extract()?;
-            patch.update_style(&mut |style| style.hatch.clone_from(&hatch));
-        }
-        "hatchcolor" => {
-            let color = match value.extract::<Option<String>>() {
-                Ok(Some(edge)) if edge == "edge" => ColorOrEdge::Edge,
-                _ => ColorOrEdge::Color(value.extract()?),
-            };
-            patch.update_style(&mut |style| style.hatchcolor = color.clone());
-        }
-        "hatch_linewidth" => patch.set_hatch_linewidth(value.extract()?),
-        "edgegapcolor" => {
-            let color = optional_color(value)?.unwrap_or_else(Color::none);
-            patch.update_style(&mut |style| style.edgegapcolor = color.clone());
-        }
-        "antialiased" => {
-            let antialiased: Option<bool> = value.extract()?;
-            patch.update_style(&mut |style| style.antialiased = antialiased);
-        }
-        "capstyle" => {
-            let cap = cap_style(value)?;
-            patch.update_style(&mut |style| style.capstyle = cap);
-        }
-        "joinstyle" => {
-            let join = join_style(value)?;
-            patch.update_style(&mut |style| style.joinstyle = join);
-        }
-        "label" => {
-            props.base.label = Some(value.str()?);
-            patch.update_props(props);
-        }
-        "zorder" => {
-            props.base.zorder = Some(value.extract()?);
-            patch.update_props(props);
-        }
-        "visible" => {
-            props.base.visible = Some(value.extract()?);
-            patch.update_props(props);
-        }
-        "clip_on" => {
-            props.base.clip_on = Some(value.extract()?);
-            patch.update_props(props);
-        }
-        "alpha" => {
-            patch
-                .raw_handle()
-                .set_alpha(value.extract::<Option<f64>>()?);
-        }
-        _ => {
-            return Err(PyErr::new(
-                ExceptionKind::AttributeError,
-                format!("Patch.set() got an unexpected keyword argument '{key}'"),
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// The patch properties of a dict of keyword arguments whose aliases the
@@ -324,61 +193,6 @@ impl FromPy<'_> for PatchKwargs {
         }
         Ok(Self(props))
     }
-}
-
-/// Sets the properties of a dict of keyword arguments whose aliases the
-/// Python side resolved (matplotlib's `Patch.set`), in order.
-fn update(patch: AnyPatch, kwargs: Owned) -> PyResult<()> {
-    Python::with_gil(|py| {
-        for (key, value) in dict_items(&kwargs.bind(py))? {
-            let key: String = key.extract()?;
-            set_property(patch.0.as_ref(), &key, &value)?;
-        }
-        Ok(())
-    })
-}
-
-/// `(r, g, b, a)`.
-fn rgba_tuple(rgba: pltrs::colors::Rgba) -> (f64, f64, f64, f64) {
-    (rgba.r, rgba.g, rgba.b, rgba.a)
-}
-
-/// The patch property `name` as matplotlib's `get_<name>` returns it:
-/// colours as RGBA tuples with the defaults and alpha applied, styles
-/// by name.
-fn get(patch: AnyPatch, name: String) -> PyResult<Owned> {
-    let patch = patch.0;
-    Python::with_gil(|py| {
-        let style = patch.style();
-        let value = match name.as_str() {
-            "facecolor" => rgba_tuple(patch.colors()?.face).into_py(py)?,
-            "edgecolor" => rgba_tuple(patch.colors()?.edge).into_py(py)?,
-            "hatchcolor" => rgba_tuple(patch.colors()?.hatch).into_py(py)?,
-            "linewidth" => patch.linewidth().into_py(py)?,
-            "linestyle" => match style.linestyle {
-                pltrs::lines::LineStyle::Dashes { offset, pattern } => {
-                    (offset, pattern).into_py(py)?
-                }
-                named => named.to_string().into_py(py)?,
-            },
-            "fill" => style.fill.into_py(py)?,
-            "hatch" => style.hatch.into_py(py)?,
-            "hatch_linewidth" => style.hatch_linewidth.into_py(py)?,
-            "edgegapcolor" => (!style.edgegapcolor.is_none())
-                .then_some(style.edgegapcolor)
-                .into_py(py)?,
-            "antialiased" => style.antialiased.into_py(py)?,
-            "capstyle" => style.capstyle.name().into_py(py)?,
-            "joinstyle" => style.joinstyle.name().into_py(py)?,
-            _ => {
-                return Err(PyErr::new(
-                    ExceptionKind::AttributeError,
-                    format!("'Patch' object has no property '{name}'"),
-                ));
-            }
-        };
-        Ok(value.unbind())
-    })
 }
 
 /// The outline in the shape's own coordinates, as `(vertices, codes)`
@@ -719,8 +533,8 @@ fn set_fancy_bbox(
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("update", update)?;
-    module.add("get", get)?;
+    module.add("update", style::update)?;
+    module.add("get", style::get)?;
     module.add("get_path", get_path)?;
     module.add("display_path", display_path)?;
     module.add("get_interpolation_steps", get_interpolation_steps)?;

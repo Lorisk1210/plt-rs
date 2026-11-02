@@ -8,10 +8,11 @@ Ready-made artists join an axes here (``add_artist``, ``add_line``,
 that name adds it (`.Artist._add_to_axes`, `.._handles.adopt`).
 """
 
-from .. import _api, _handles, _live_transforms
+from .. import _api, _handles, _live_transforms, _values, cbook
 from .._native import axes_base as _axes_base, gridspec as _gridspec
 from .._native import transforms as _transforms
 from ..artist import Artist
+from ._artist_list import ArtistList
 from ._aspect import AspectMixin
 from ._blitting import BlittingMixin
 from ._construction import ConstructionMixin
@@ -384,11 +385,13 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
                             "arguments to this method.")
         # Can't do `args == (None,)` as that crashes cycler.
         if len(args) == 1 and args[0] is None:
-            prop_cycle = None
+            prop_cycle = given = None
         else:
             from ..rcsetup import _rc_value, cycler
-            prop_cycle = _rc_value(cycler(*args, **kwargs))
+            given = cycler(*args, **kwargs)
+            prop_cycle = _rc_value(given)
         _axes_base.set_prop_cycle(self._native, prop_cycle)
+        _values.remember(self, "prop_cycle", given)
 
     def _make_twin_axes(self, shared, axes_class, delta_zorder, kwargs):
         """
@@ -534,3 +537,9 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         from ..table import Table
         _api.check_isinstance(Table, tab=tab)
         return tab._add_to_axes(self, "artist")
+
+
+# matplotlib's ``_AxesBase.ArtistList``.
+_AxesBase.ArtistList = ArtistList
+ArtistList.__qualname__ = "_AxesBase.ArtistList"
+cbook._set_module(__name__, ArtistList)

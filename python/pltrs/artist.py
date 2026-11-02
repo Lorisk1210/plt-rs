@@ -21,11 +21,11 @@ from numbers import Real
 import numpy as np
 
 from . import _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
-from . import _live_transforms, _program_classes, _python_drawing
+from . import _live_transforms, _program_classes, _python_drawing, _values
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
-from ._artist_copying import CopyingMixin
+from ._artist_copying import CopyingMixin, _XYPair
 from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
@@ -240,7 +240,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_zorder(self):
         """Return the artist's zorder."""
-        return _artist.get_zorder(self._native)
+        # matplotlib's own z-orders are int literals but a few (2.5, 1.5):
+        # one pltrs (Rust) gave and the program did not is an int when whole.
+        native = _artist.get_zorder(self._native)
+        return _values.given(self, "zorder", native,
+                             int(native) if float(native).is_integer() else native)
 
     def set_zorder(self, level):
         """
@@ -252,16 +256,15 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         level : float
         """
         if level is None:
-            # The class' default; `Artist.zorder` itself reads the artist's.
-            default = type(self).zorder
-            level = default if isinstance(default, Real) else 0
-        _artist.set_zorder(self._native, level)
-        self.pchanged()
+            level = type(self).zorder
+        if level != self.get_zorder():
+            _artist.set_zorder(self._native, level)
+            _values.remember(self, "zorder", level)
+            self.pchanged()
+            self.stale = True
 
-    @property
-    def zorder(self):
-        """The drawing order."""
-        return self.get_zorder()
+    #: The drawing order (see `.ClassZOrder`).
+    zorder = 0
 
     def get_alpha(self):
         """Return the alpha value used for blending - not supported on all
@@ -433,7 +436,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         Return the sketch parameters for the artist: ``(scale, length,
         randomness)``, or None if no sketch parameters were set.
         """
-        return _artist.get_sketch_params(self._native)
+        return _values.given(self, "sketch_params",
+                             _artist.get_sketch_params(self._native))
 
     def set_sketch_params(self, scale=None, length=None, randomness=None):
         """
@@ -452,10 +456,11 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
             The scale factor by which the length is shrunken or
             expanded (default 16.0)
         """
+        sketch = (None if scale is None
+                  else (scale, length or 128.0, randomness or 16.0))
         _artist.set_sketch_params(
-            self._native, None if scale is None
-            else (float(scale), float(length or 128.0),
-                  float(randomness or 16.0)))
+            self._native, None if sketch is None else tuple(map(float, sketch)))
+        _values.remember(self, "sketch_params", sketch)
 
     def _add_to_axes(self, axes, kind, autolim=True):
         """
@@ -529,6 +534,10 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """
         ret = []
         for k, v in props.items():
+            # matplotlib lets art.update, art.set and setp set the axes.
+            if k == "axes":
+                ret.append(setattr(self, k, v))
+                continue
             func = getattr(self, f"set_{k}", None)
             if not callable(func):
                 raise AttributeError(
@@ -582,3 +591,6 @@ from ._artist_inspector import ArtistInspector, get, getp, kwdoc, setp  # noqa: 
 # The signature and docstring of `Artist.set`, which subclasses get theirs
 # from as they are defined (`._artist_subclassing`).
 Artist._update_set_signature_and_docstring()
+
+
+cbook._set_module(__name__, _XYPair)

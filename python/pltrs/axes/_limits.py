@@ -8,7 +8,7 @@ The view bounds of an Axes and how it autoscales (matplotlib's
 
 import numpy as np
 
-from .. import _api
+from .. import _api, _values
 from .._native import axes_base as _axes_base
 
 
@@ -115,7 +115,7 @@ class LimitsMixin:
         """
         Return the lower and upper x-axis bounds, in increasing order.
         """
-        return _axes_base.get_bound(self._native, "x")
+        return _values.float64s(_axes_base.get_bound(self._native, "x"))
 
     def set_xbound(self, lower=None, upper=None):
         """
@@ -136,7 +136,7 @@ class LimitsMixin:
         """
         Return the lower and upper y-axis bounds, in increasing order.
         """
-        return _axes_base.get_bound(self._native, "y")
+        return _values.float64s(_axes_base.get_bound(self._native, "y"))
 
     def set_ybound(self, lower=None, upper=None):
         """

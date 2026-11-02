@@ -241,6 +241,7 @@ class Colorizer:
                              f"{self.norm.n_components} variates as required by "
                              f"the {type(self.norm)} on this Colorizer")
         self._cmap = cmap_obj
+        colors._track_colorizer(cmap_obj, self)
         if not in_init:
             self.changed()  # Things are not set up properly yet.
 

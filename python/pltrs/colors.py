@@ -54,6 +54,7 @@ import io
 import itertools
 from numbers import Real
 import re
+import weakref
 
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
@@ -381,11 +382,37 @@ def _to_rgba_no_colorcycle(c, alpha=None):
             c = c.reshape(-1)
         c = tuple(c)
     try:
-        return _colors.to_rgba(c, alpha)
+        rgba = _colors.to_rgba(c, alpha)
     except ValueError as err:
         raise ValueError(f"Invalid RGBA argument: {c!r}") from err
     except TypeError as err:
         raise ValueError(f"Invalid RGBA argument: {c!r}") from err
+    # matplotlib's alpha is the object given, or the int 1 for a colour of
+    # three components.
+    if isinstance(c, str) and c.lower() == "none":
+        return rgba
+    if alpha is not None:
+        return (*rgba[:3], alpha)
+    if _is_rgb_triple(c):
+        return (*rgba[:3], 1)
+    return rgba
+
+
+def _is_rgb_triple(c):
+    """Whether *c* is, or names, a colour of three components (one of
+    `BASE_COLORS`, or a property cycle colour that is a triple)."""
+    if isinstance(c, str) and _is_nth_color(c):
+        from . import rcParams
+        colors = rcParams['axes.prop_cycle'].by_key().get('color', ['k'])
+        c = colors[int(c[1:]) % len(colors)]
+    if isinstance(c, str):
+        named = _colors_full_map.get(c)
+        if named is None and len(c) != 1:
+            named = _colors_full_map.get(c.lower())
+        if named is None or isinstance(named, str):
+            return False
+        c = named
+    return np.iterable(c) and len(c) == 3
 
 
 def to_rgba_array(c, alpha=None):
@@ -651,6 +678,28 @@ def _create_lookup_table(N, data, gamma=1.0):
                                 float(gamma))
 
 
+#: The colorizers drawing with each colormap object, by its id: a colormap
+#: changed in place (`Colormap.set_under`, ...) tells them, as matplotlib
+#: draws with the colormap object as it is then, while pltrs (Rust) draws
+#: with the copy a colorizer gave it.
+_colorizers_of = {}
+
+
+def _track_colorizer(cmap, colorizer):
+    """Tell *colorizer* when *cmap* changes in place."""
+    users = _colorizers_of.get(id(cmap))
+    if users is None:
+        users = _colorizers_of[id(cmap)] = weakref.WeakSet()
+        weakref.finalize(cmap, _colorizers_of.pop, id(cmap), None)
+    users.add(colorizer)
+
+
+def _changed_in_place(cmap):
+    """Have the colorizers drawing with *cmap* give its copy again."""
+    for colorizer in list(_colorizers_of.get(id(cmap), ())):
+        colorizer.changed()
+
+
 class Colormap:
     """
     Baseclass for all scalar to RGBA mappings.
@@ -891,6 +940,7 @@ class Colormap:
             self._rgba_over = to_rgba(over)
         if self._isinit:
             self._update_lut_extremes()
+        _changed_in_place(self)
 
     def _update_lut_extremes(self):
         """Ensure than an existing lookup table has the correct extreme values."""

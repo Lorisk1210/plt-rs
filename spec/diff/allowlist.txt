@@ -1,0 +1,19 @@
+# Differences of pltrs (Python) from matplotlib that are intended, each with
+# the reason it is: `<program regex> | <cause regex> | why`. `cargo xtask
+# diff` leaves them out of its report (it lists them per program as
+# `allowed` in report.json). Anything else is a difference to fix.
+
+# The program reads the clock: the time it prints is its own, under either.
+images_contours_and_fields/plot_streamplot$ | ^value\[(time|joinedstr)\]: | the example times streamplot with time.time() and writes the time into a figure title
+statistics/time_series_histogram$ | ^stdout$ | the example prints the seconds its plotting took
+
+# A PDF names the software that wrote it.
+misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself
+
+# matplotlib salts the ids of its SVG elements with a random uuid unless
+# svg.hashsalt is set, so they differ between two runs of matplotlib too.
+(misc/svg_filter_line|user_interfaces/svg_histogram_sgskip)$ | ^value\[XMLID\]: dict keys$ | SVG ids are hashed with a random salt (svg.hashsalt None)
+
+# pltrs ships its own looks as style sheets (pltrs-modern, pltrs-modern-dark,
+# `pltrs::look`), which style.available lists with matplotlib's.
+style_sheets/style_sheets_reference$ | ^(value\[constant\]: list length|image: other figures open)$ | the example draws one figure per available style, two more with pltrs' own looks

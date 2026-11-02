@@ -12,7 +12,7 @@ import copy
 
 import numpy as np
 
-from . import _api, _live_transforms, cbook
+from . import _api, _live_transforms, _mirrors, _values, cbook, units
 from ._artist_kwargs import native_artist_kwargs
 from ._native import lines as _lines
 from ._program_classes import takes_from_program
@@ -22,7 +22,7 @@ from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
     TICKLEFT, TICKRIGHT, TICKUP, TICKDOWN, MarkerStyle)
-from .path import Path, _DrawnPath
+from .path import Path, drawn_path
 
 
 def _rcParams():
@@ -195,6 +195,19 @@ def _native_kwargs(kwargs):
     return kwargs
 
 
+#: The colours a line reads back as the program gave them, as matplotlib
+#: keeps the objects given (`._values`).
+_GIVEN_COLORS = ("color", "gapcolor", "markeredgecolor", "markerfacecolor",
+                 "markerfacecoloralt")
+#: The numbers a line reads back as given.
+_GIVEN_NUMBERS = ("markeredgewidth", "pickradius")
+
+
+def _remember_given(line, props):
+    """Remember what *line* reads back of its properties *props*."""
+    _values.remember_all(line, props, _GIVEN_COLORS + _GIVEN_NUMBERS)
+
+
 @_api.define_aliases({
     "antialiased": ["aa"],
     "color": ["c"],
@@ -207,6 +220,7 @@ def _native_kwargs(kwargs):
     "markerfacecoloralt": ["mfcalt"],
     "markersize": ["ms"],
 })
+@_mirrors.mirrorable
 class Line2D(Artist):
     """
     A line - the line can have both a solid linestyle connecting all
@@ -315,15 +329,23 @@ class Line2D(Artist):
             else _joinstyle_name(dash_joinstyle),
             "solid_joinstyle": None if solid_joinstyle is None
             else _joinstyle_name(solid_joinstyle),
-            "pickradius": float(pickradius), "drawstyle": drawstyle,
+            "pickradius": pickradius, "drawstyle": drawstyle,
         }
         props = {k: v for k, v in props.items() if v is not None}
         if marker is not None:
             props["marker"] = marker
+        if units._is_natively_supported(xdata) and units._is_natively_supported(ydata):
+            x = cbook._to_unmasked_float_array(xdata).ravel()
+            y = cbook._to_unmasked_float_array(ydata).ravel()
+        else:
+            # Values in units convert once the line joins an axes
+            # (`_convert_units_for`), as matplotlib converts them when drawn.
+            x = y = np.empty(0)
+            self._unit_data = True
         self._native = _lines.new(
-            cbook._to_unmasked_float_array(xdata).ravel(),
-            cbook._to_unmasked_float_array(ydata).ravel(), _native_kwargs(props))
+            x, y, _native_kwargs({**props, "pickradius": float(pickradius)}))
         super().__init__()
+        _remember_given(self, props)
         self._xorig, self._yorig = copy.copy(xdata), copy.copy(ydata)
         # matplotlib's __init__ sets the data through `set_data`, which a
         # class of the program's may override.
@@ -340,6 +362,19 @@ class Line2D(Artist):
     def _set_native(self, **kwargs):
         """Set native properties by their resolved names."""
         _lines.update(self._native, _native_kwargs(kwargs))
+        _values.remember_all(self, kwargs, _GIVEN_COLORS)
+
+    def _given_color(self, name, default=_values.NONE_GIVEN):
+        """The colour property *name* as the program gave it (`._values`)."""
+        return _values.given(self, name, self._get(name), default,
+                             same=_values.same_color)
+
+    def _marker_color(self, name, setting):
+        """A marker colour: the line's colour where it is ``"auto"``."""
+        if (cbook._str_lower_equal(self._get(setting), "auto")
+                and _values.same_color(self._get(name), self._get("color"))):
+            return self.get_color()
+        return self._given_color(name)
 
     # -- data -------------------------------------------------------------
 
@@ -381,7 +416,7 @@ class Line2D(Artist):
 
     def get_path(self):
         """Return the `~matplotlib.path.Path` associated with this line."""
-        return _DrawnPath(*_lines.get_path(self._native), (
+        return drawn_path(self, *_lines.get_path(self._native), (
             lambda: _lines.get_interpolation_steps(self._native),
             lambda steps: _lines.set_interpolation_steps(self._native, steps)))
 
@@ -408,6 +443,13 @@ class Line2D(Artist):
             raise RuntimeError('y must be a sequence')
         self._xorig, self._yorig = copy.copy(x), copy.copy(y)
         self.recache_always()
+
+    def _convert_units_for(self, axes):
+        if self.__dict__.pop("_unit_data", False):
+            _lines.set_data(
+                self._native,
+                cbook._to_unmasked_float_array(axes.convert_xunits(self._xorig)).ravel(),
+                cbook._to_unmasked_float_array(axes.convert_yunits(self._yorig)).ravel())
 
     def recache_always(self):
         """Convert the original data through the units of the line's axes
@@ -466,7 +508,12 @@ class Line2D(Artist):
 
     def get_color(self):
         """Return the line color."""
-        return self._get("color")
+        native = self._get("color")
+        # A colour pltrs (Rust) took from the property cycle reads back as
+        # the cycle holds it (matplotlib's tab10 holds triples).
+        default = (_values.NONE_GIVEN if isinstance(native, str)
+                   else _values.cycle_color(self.axes, native))
+        return self._given_color("color", default)
 
     @property
     def _color(self):
@@ -496,7 +543,7 @@ class Line2D(Artist):
 
     def get_gapcolor(self):
         """Return the line gapcolor."""
-        return self._get("gapcolor")
+        return self._given_color("gapcolor")
 
     def set_gapcolor(self, gapcolor):
         """Set a color to fill the gaps in the dashed line style."""
@@ -580,17 +627,18 @@ class Line2D(Artist):
 
     def get_markeredgewidth(self):
         """Return the marker edge width in points."""
-        return self._get("markeredgewidth")
+        return _values.given(self, "markeredgewidth", self._get("markeredgewidth"))
 
     def set_markeredgewidth(self, ew):
         """Set the marker edge width in points."""
         if ew is None:
             ew = _rcParams()['lines.markeredgewidth']
         self._set_native(markeredgewidth=float(ew))
+        _values.remember(self, "markeredgewidth", ew)
 
     def get_markeredgecolor(self):
         """Return the marker edge color."""
-        return self._get("markeredgecolor")
+        return self._marker_color("markeredgecolor", "markeredgecolor_setting")
 
     def set_markeredgecolor(self, ec):
         """Set the marker edge color."""
@@ -598,7 +646,7 @@ class Line2D(Artist):
 
     def get_markerfacecolor(self):
         """Return the marker face color."""
-        return self._get("markerfacecolor")
+        return self._marker_color("markerfacecolor", "markerfacecolor_setting")
 
     def set_markerfacecolor(self, fc):
         """Set the marker face color."""
@@ -606,7 +654,7 @@ class Line2D(Artist):
 
     def get_markerfacecoloralt(self):
         """Return the alternate marker face color."""
-        return self._get("markerfacecoloralt")
+        return self._marker_color("markerfacecoloralt", "markerfacecoloralt")
 
     def set_markerfacecoloralt(self, fc):
         """Set the alternate marker face color."""
@@ -629,13 +677,14 @@ class Line2D(Artist):
 
     def get_pickradius(self):
         """Return the pick radius used for containment tests."""
-        return self._get("pickradius")
+        return _values.given(self, "pickradius", self._get("pickradius"), 5)
 
     def set_pickradius(self, pickradius):
         """Set the pick radius used for containment tests, in points."""
         if not isinstance(pickradius, (int, float)) or pickradius < 0:
             raise ValueError("pick radius should be a distance")
         self._set_native(pickradius=float(pickradius))
+        _values.remember(self, "pickradius", pickradius)
 
     pickradius = property(get_pickradius, set_pickradius)
 

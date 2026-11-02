@@ -421,8 +421,9 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
     @property
     def extend(self):
-        """Which ends the colors extend: 'neither', 'both', 'min' or 'max'."""
-        return _contour.get_state(self._contour)[3]
+        """Which ends the colors extend: 'neither', 'both', 'min' or 'max'
+        (as given; any other value extends neither end)."""
+        return self.__dict__.get("_extend", _contour.get_state(self._contour)[3])
 
     @property
     def _contour_generator(self):

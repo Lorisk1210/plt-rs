@@ -170,10 +170,12 @@ def use_axis_info(axis, info, default_limits):
 
 
 def _parts(helper):
-    """*helper* and the helpers it wraps (polar axes' ``base``)."""
+    """*helper* and the helpers it wraps (polar axes' ``base``; the
+    ``base`` of a log locator is a number)."""
+    from . import ticker
     yield helper
     base = getattr(helper, "base", None)
-    if base is not None:
+    if isinstance(base, ticker.TickHelper):
         yield from _parts(base)
 
 

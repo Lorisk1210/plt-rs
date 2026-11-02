@@ -5,6 +5,7 @@ and the segment families `~.Axes.hlines` and `~.Axes.vlines`.
 """
 
 import inspect
+import re
 
 import numpy as np
 
@@ -38,6 +39,30 @@ def _format_parts(fmt, ambiguous_fmt_datakey=False):
             raise ValueError(str(err).replace(
                 "is not", "is neither a data key nor", 1)) from None
         raise
+
+
+def _format_color(fmt):
+    """
+    The colour of a format string as matplotlib's ``_process_plot_format``
+    keeps it: ``to_rgba`` of a format that is a colour as a whole, or of the
+    ``"Cn"`` in it; None for the others (``'g--'`` is ``'g'``, as pltrs
+    (Rust) keeps it) and for none.
+    """
+    if not fmt:
+        return None
+    from ... import colors as mcolors
+    try:
+        color = mcolors.to_rgba(fmt)
+    except ValueError:
+        pass
+    else:
+        try:
+            int(fmt)
+        except ValueError:
+            return color
+        return None  # '1' is the tri_down marker, not a grey level.
+    cycle = re.search(r"C\d+", fmt)
+    return None if cycle is None else mcolors.to_rgba(cycle[0])
 
 
 def _plot_datasets(args, data, kwargs):
@@ -189,6 +214,9 @@ class LinesMixin:
                                     mlines._native_kwargs(props),
                                     (bool(scalex), bool(scaley)))
             line = keep_program_picker(wrap(self, native, mlines.Line2D), props)
+            whole = _format_color(fmt)
+            mlines._remember_given(
+                line, props if whole is None else {"color": whole, **props})
             lines.append(keep_unit_data(line, x, y))
         return lines
 

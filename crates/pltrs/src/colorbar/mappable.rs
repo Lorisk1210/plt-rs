@@ -8,7 +8,7 @@ use std::rc::Rc;
 use pltrs_core::Rgba;
 
 use super::ColorbarError;
-use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, RawHandle};
+use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle};
 use crate::axes::{Axes, AxesState, Tripcolor};
 use crate::collections::{Collection, CollectionArtist, TriMesh, TriMeshArtist};
 use crate::colorizer::{MappingChange, change_mapping};
@@ -183,8 +183,13 @@ impl MappableLink {
         }
     }
 
-    /// What to draw from the artist as it is now; `None` once it is gone.
-    pub(crate) fn source(self, store: &ArtistStore) -> Option<Result<Source, ColorbarError>> {
+    /// What to draw from the artist as it is now, in its figure or removed
+    /// from it (matplotlib's colorbar reads the mappable object, wherever
+    /// it is); `None` once it is gone.
+    pub(crate) fn source(
+        self,
+        artists: &impl ArtistLookup,
+    ) -> Option<Result<Source, ColorbarError>> {
         let plain = |mapping: ScalarMappable, alpha| {
             Ok(Source {
                 mapping,
@@ -194,11 +199,11 @@ impl MappableLink {
         };
         Some(match self {
             Self::Image(id) => {
-                let image = store.get_as::<AxesImageArtist>(id)?;
+                let image = artists.artist_as::<AxesImageArtist>(id)?;
                 plain(image.core.mappable.borrow().clone(), image.base().alpha)
             }
             Self::Collection(id) => {
-                let collection = store.get_as::<CollectionArtist>(id)?;
+                let collection = artists.artist_as::<CollectionArtist>(id)?;
                 let alpha = collection.base().alpha;
                 match &collection.mapping {
                     Some(mapped) => plain(mapped.source.mappable.clone(), alpha),
@@ -208,11 +213,11 @@ impl MappableLink {
                 }
             }
             Self::TriMesh(id) => {
-                let mesh = store.get_as::<TriMeshArtist>(id)?;
+                let mesh = artists.artist_as::<TriMeshArtist>(id)?;
                 plain(mesh.mappable().clone(), mesh.base().alpha)
             }
             Self::Contour(id) => {
-                let state = &store.get_as::<ContourSetArtist>(id)?.state;
+                let state = &artists.artist_as::<ContourSetArtist>(id)?.state;
                 state
                     .mapping
                     .clone()
@@ -267,7 +272,7 @@ impl Mappable<'_> {
     pub(crate) fn source(&self) -> Result<Source, ColorbarError> {
         match self.target() {
             Ok((figure, link)) => link
-                .source(&figure.borrow().store)
+                .source(&*figure.borrow())
                 .unwrap_or(Err(ColorbarError::RemovedMappable)),
             Err(mapping) => Ok(Source {
                 mapping: mapping.clone(),

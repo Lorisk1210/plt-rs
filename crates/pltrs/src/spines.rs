@@ -1,6 +1,7 @@
 //! Axes spines: the lines framing the data area (matplotlib.spines).
 
 mod patch;
+mod style;
 
 use std::rc::Rc;
 

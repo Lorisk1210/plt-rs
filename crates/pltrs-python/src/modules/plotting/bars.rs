@@ -151,14 +151,16 @@ type DatasetBars = (Container, Vec<Patch<Rectangle>>, Vec<f64>);
 pub(super) fn grouped_bar(
     axes: Axes,
     datasets: Vec<Vec<f64>>,
-    positions: Option<Vec<f64>>,
+    (positions, base): (Option<Vec<f64>>, Option<Vec<f64>>),
     (group_spacing, bar_spacing): (f64, f64),
     (tick_labels, labels): (Vec<String>, Vec<String>),
     horizontal: bool,
     (colors, facecolor, edgecolor, linewidth, linestyle, hatch): DatasetStyles,
 ) -> PyResult<Vec<DatasetBars>> {
+    let defaults = GroupedBarOptions::default();
     let options = GroupedBarOptions {
         positions,
+        base: base.unwrap_or(defaults.base),
         group_spacing,
         bar_spacing,
         tick_labels,
@@ -174,7 +176,7 @@ pub(super) fn grouped_bar(
         linewidth,
         linestyle: linestyle.into_iter().map(|style| style.0).collect(),
         hatch,
-        ..GroupedBarOptions::default()
+        ..defaults
     };
     Ok(axes
         .grouped_bar(GroupedBarData::Datasets(datasets), options)?

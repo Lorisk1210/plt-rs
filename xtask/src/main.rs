@@ -14,6 +14,8 @@
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
 //!                                                 matplotlib's own test suite run against pltrs (or matplotlib)
 //! cargo xtask ecosystem [setup] [PYTEST ARGS...]  pandas and seaborn drawing with pltrs as matplotlib
+//! cargo xtask diff [--gallery | --generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT]
+//!                                                 programs run under matplotlib and pltrs (Python), compared
 //! ```
 #![forbid(unsafe_code)]
 #![expect(
@@ -23,6 +25,7 @@
 )]
 
 mod bench;
+mod diff;
 mod ecosystem;
 mod examples;
 mod mpl_suite;
@@ -55,6 +58,7 @@ fn main() -> ExitCode {
         Some((command, rest)) if command == "mpl-suite" => mpl_suite::run(rest),
         Some((command, rest)) if command == "examples" => examples::run(rest),
         Some((command, rest)) if command == "ecosystem" => ecosystem::run(rest),
+        Some((command, rest)) if command == "diff" => diff::run(rest),
         _ => {
             eprintln!("usage: cargo xtask spec [AREA...] [--failures]");
             eprintln!("       cargo xtask figures [PREFIX...] [--failures]");
@@ -69,6 +73,9 @@ fn main() -> ExitCode {
                 "       cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]"
             );
             eprintln!("       cargo xtask ecosystem [setup] [PYTEST ARGS...]");
+            eprintln!(
+                "       cargo xtask diff [--gallery | --generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT]"
+            );
             ExitCode::FAILURE
         }
     }

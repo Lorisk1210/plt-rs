@@ -14,7 +14,7 @@ import warnings
 
 import numpy as np
 
-from . import (_api, _live_transforms, cbook, colorizer as mcolorizer,
+from . import (_api, _live_transforms, _values, cbook, colorizer as mcolorizer,
                colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
@@ -416,12 +416,22 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_urls(self):
         """Return a list of URLs, one for each element of the collection."""
-        return _collections.get_urls(self._native)
+        urls = _collections.get_urls(self._native)
+        # A collection starts with `[None]` (matplotlib's `set_urls(None)`).
+        if not urls and "urls" not in self.__dict__.get("_given_values", {}):
+            return [None]
+        return urls
 
     def set_urls(self, urls):
         """Set the URLs, one per element (None: no link)."""
-        _collections.set_urls(self._native,
-                              list(urls) if urls is not None else [None])
+        urls = list(urls) if urls is not None else [None]
+        _collections.set_urls(self._native, urls)
+        _values.remember(self, "urls", urls)
+
+    def get_path_effects(self):
+        """Return the path effects (None until set, as matplotlib's
+        collections start)."""
+        return self.__dict__.get("_path_effects")
 
     def get_hatch(self):
         """Return the current hatching pattern."""
@@ -435,11 +445,12 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_hatch_linewidth(self):
         """Return the hatch linewidth."""
-        return self._get("hatch_linewidth")
+        return _values.given(self, "hatch_linewidth", self._get("hatch_linewidth"))
 
     def set_hatch_linewidth(self, lw):
         """Set the hatch linewidth."""
         _collections.set_hatch_linewidth(self._native, float(lw))
+        _values.remember(self, "hatch_linewidth", lw)
 
     def get_hatchcolor(self):
         """Return the hatch colors."""

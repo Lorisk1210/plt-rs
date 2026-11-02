@@ -17,7 +17,8 @@ impl WindowId {
         Self(raw)
     }
 
-    /// The backend-specific raw value (the X11 window XID on X11).
+    /// The backend-specific raw value: the window's XID on X11, its
+    /// `HWND` on Windows, the address of its view on macOS.
     pub const fn to_raw(self) -> u64 {
         self.0
     }
@@ -47,9 +48,11 @@ pub struct WindowOptions {
     /// Minimum size of the content area the user may resize to.
     pub min_inner_size: Option<Size>,
     /// Application identifier used by the desktop to group windows and
-    /// pick icons (X11 `WM_CLASS`, Wayland `app_id`).
+    /// pick icons (X11 `WM_CLASS`, Wayland `app_id`; macOS and Windows
+    /// group windows by process).
     pub app_id: String,
-    /// Window icon.
+    /// Window icon. macOS windows have none: there it becomes the
+    /// application's icon in the Dock.
     pub icon: Option<Icon>,
 }
 

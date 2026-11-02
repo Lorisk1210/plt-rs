@@ -64,11 +64,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-On Linux, windows open natively under Wayland or X11 (`PLTRS_PLATFORM`
-picks one). On systems without either (macOS, Windows), `show()` serves
-the figures to a web browser instead, like matplotlib's WebAgg backend,
-and prints their address; on Linux without a display it shows nothing, as
-matplotlib falls back to `agg`. `MPLBACKEND=webagg` (or
+Windows open natively: under Wayland or X11 on Linux (`PLTRS_PLATFORM`
+picks one), with AppKit on macOS and Win32 on Windows. Where they cannot
+open, `show()` shows nothing on Linux (a machine without a display), as
+matplotlib falls back to `agg`, and on macOS and Windows serves the
+figures to a web browser instead, like matplotlib's WebAgg backend, and
+prints their address. `MPLBACKEND=webagg` (or
 `plt::switch_backend(Backend::WebAgg)`) picks the browser everywhere (a
 remote machine, WSL), and `pltrs::web::serve(&[fig], WebOptions::from_rc()?)`
 does it without pyplot.

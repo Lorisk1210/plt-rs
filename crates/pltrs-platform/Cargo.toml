@@ -1,6 +1,6 @@
 [package]
 name = "pltrs-platform"
-description = "Native windowing and input abstraction (X11 and Wayland, more platforms pluggable)"
+description = "Native windowing and input abstraction (Wayland, X11, macOS and Windows)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

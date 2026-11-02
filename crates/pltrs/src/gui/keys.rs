@@ -70,6 +70,15 @@ pub(crate) fn history_step(button: PointerButton, rc: &RcParams) -> Option<Histo
     }
 }
 
+/// The Super key's modifier prefix: on macOS it is Command, which
+/// matplotlib's macOS and Qt backends call `cmd` there (its default
+/// keymaps bind `cmd+w` and `cmd+c`).
+const SUPER_PREFIX: &str = if cfg!(target_os = "macos") {
+    "cmd+"
+} else {
+    "super+"
+};
+
 /// matplotlib's name of a key press, or `None` for keys it ignores.
 pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
     let base = match &event.key {
@@ -92,6 +101,7 @@ pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
         Key::Shift => "shift".into(),
         Key::Control => "control".into(),
         Key::Alt => "alt".into(),
+        Key::Super if cfg!(target_os = "macos") => "cmd".into(),
         _ => return None,
     };
     let modifiers = event.modifiers;
@@ -99,7 +109,7 @@ pub(super) fn key_name(event: &KeyEvent) -> Option<String> {
     for (flag, prefix) in [
         (Modifiers::CONTROL, "ctrl+"),
         (Modifiers::ALT, "alt+"),
-        (Modifiers::SUPER, "super+"),
+        (Modifiers::SUPER, SUPER_PREFIX),
     ] {
         if modifiers.contains(flag) {
             name.push_str(prefix);
@@ -235,6 +245,22 @@ mod tests {
             key_name(&press(Key::Left, Modifiers::NONE)).as_deref(),
             Some("left")
         );
+    }
+
+    #[test]
+    fn command_is_cmd_on_macos() {
+        let rc = RcParams::matplotlib();
+        let close = key_name(&press(Key::Character('w'), Modifiers::SUPER));
+        let command = key_name(&press(Key::Super, Modifiers::NONE));
+        if cfg!(target_os = "macos") {
+            assert_eq!(close.as_deref(), Some("cmd+w"));
+            assert_eq!(command.as_deref(), Some("cmd"));
+        } else {
+            assert_eq!(close.as_deref(), Some("super+w"));
+            assert_eq!(command, None);
+        }
+        assert_eq!(action("cmd+w", &rc), Some(KeyAction::Quit));
+        assert_eq!(action("cmd+c", &rc), Some(KeyAction::Copy));
     }
 
     #[test]

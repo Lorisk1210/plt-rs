@@ -177,10 +177,10 @@
 //! # Showing figures
 //!
 //! [`pyplot::show`] shows every open figure with the current backend: a
-//! window each ([`Backend::Windows`], pltrs's own windows on X11), a web
-//! page each ([`Backend::WebAgg`], also the fallback on systems without
-//! X11), or nothing ([`Backend::Agg`], the fallback on a machine without
-//! a display). Like matplotlib, it blocks until the windows are closed
+//! window each ([`Backend::Windows`], pltrs's own windows), a web page
+//! each ([`Backend::WebAgg`], also the fallback on macOS and Windows where
+//! windows cannot open), or nothing ([`Backend::Agg`], the fallback on a
+//! Linux machine without a display). Like matplotlib, it blocks until the windows are closed
 //! unless interactive mode is on.
 //!
 //! ```python

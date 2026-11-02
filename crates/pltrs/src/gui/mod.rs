@@ -142,8 +142,8 @@ impl From<SaveError> for GuiError {
 /// returns once all of them are closed (matplotlib's `pyplot.show()`),
 /// with the backend [`pyplot::show`](crate::pyplot::show) uses, which
 /// falls back the same way: where windows cannot open, the figures are
-/// served to a web browser (macOS, Windows) or not shown at all (an X11
-/// system without a display). `MPLBACKEND` and
+/// not shown at all on Linux (a machine without a display) and served to
+/// a web browser on macOS and Windows. `MPLBACKEND` and
 /// [`pyplot::switch_backend`](crate::pyplot::switch_backend) choose
 /// another backend.
 ///

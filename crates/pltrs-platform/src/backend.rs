@@ -20,48 +20,97 @@ pub enum BackendKind {
     X11,
     /// A Wayland compositor (Linux), spoken over its wire protocol.
     Wayland,
+    /// macOS's `AppKit`, through the Objective-C runtime.
+    MacOs,
+    /// The Windows API (Win32).
+    Windows,
     /// An in-memory backend for tests: records presented frames and lets
     /// tests inject input (see [`HeadlessHandle`](crate::HeadlessHandle)).
     Headless,
 }
 
 impl BackendKind {
+    /// Every backend, in the order their names are matched.
+    const ALL: [Self; 5] = [
+        Self::X11,
+        Self::Wayland,
+        Self::MacOs,
+        Self::Windows,
+        Self::Headless,
+    ];
+
     /// Picks the backend for this session, or `None` if no display server
     /// is reachable:
     ///
-    /// * the one `$PLTRS_PLATFORM` names (`x11`, `wayland` or `headless`), if
-    ///   it names one;
+    /// * the one `$PLTRS_PLATFORM` names (`x11`, `wayland`, `macos`,
+    ///   `windows` or `headless`), if it names one;
+    /// * else the native one on macOS and Windows;
     /// * else Wayland when `$WAYLAND_DISPLAY` is set (on Linux);
-    /// * else X11 when `$DISPLAY` is set (on Unix).
+    /// * else X11 when `$DISPLAY` is set (on other Unix systems).
     pub fn detect() -> Option<Self> {
         let set = |name: &str| std::env::var_os(name).is_some_and(|value| !value.is_empty());
         let requested = std::env::var("PLTRS_PLATFORM").ok();
-        Self::choose(requested.as_deref(), set("WAYLAND_DISPLAY"), set("DISPLAY"))
+        Self::choose(
+            System::CURRENT,
+            requested.as_deref(),
+            set("WAYLAND_DISPLAY"),
+            set("DISPLAY"),
+        )
     }
 
-    /// The backend for a `$PLTRS_PLATFORM` value and whether
+    /// The backend on `os` for a `$PLTRS_PLATFORM` value and whether
     /// `$WAYLAND_DISPLAY` and `$DISPLAY` are set.
-    fn choose(requested: Option<&str>, wayland: bool, x11: bool) -> Option<Self> {
-        let named = [Self::X11, Self::Wayland, Self::Headless]
+    fn choose(system: System, requested: Option<&str>, wayland: bool, x11: bool) -> Option<Self> {
+        let named = Self::ALL
             .into_iter()
             .find(|kind| requested.is_some_and(|name| name.eq_ignore_ascii_case(kind.name())));
-        named.or_else(|| {
-            if cfg!(target_os = "linux") && wayland {
-                Some(Self::Wayland)
-            } else {
-                (cfg!(unix) && x11).then_some(Self::X11)
-            }
+        named.or(match system {
+            System::MacOs => Some(Self::MacOs),
+            System::Windows => Some(Self::Windows),
+            System::Linux if wayland => Some(Self::Wayland),
+            System::Linux | System::OtherUnix if x11 => Some(Self::X11),
+            System::Linux | System::OtherUnix | System::Other => None,
         })
     }
 
-    /// A short lowercase name (`"x11"`, `"wayland"`, `"headless"`).
+    /// A short lowercase name (`"x11"`, `"wayland"`, `"macos"`,
+    /// `"windows"`, `"headless"`).
     pub const fn name(self) -> &'static str {
         match self {
             Self::X11 => "x11",
             Self::Wayland => "wayland",
+            Self::MacOs => "macos",
+            Self::Windows => "windows",
             Self::Headless => "headless",
         }
     }
+}
+
+/// The operating systems backend detection tells apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum System {
+    Linux,
+    MacOs,
+    Windows,
+    /// A Unix system other than Linux and macOS (the BSDs, ...).
+    OtherUnix,
+    /// Anything else, where only the headless backend runs.
+    Other,
+}
+
+impl System {
+    /// The system this crate was compiled for.
+    const CURRENT: Self = if cfg!(target_os = "linux") {
+        Self::Linux
+    } else if cfg!(target_os = "macos") {
+        Self::MacOs
+    } else if cfg!(windows) {
+        Self::Windows
+    } else if cfg!(unix) {
+        Self::OtherUnix
+    } else {
+        Self::Other
+    };
 }
 
 impl fmt::Display for BackendKind {
@@ -204,12 +253,15 @@ mod tests {
     fn names() {
         assert_eq!(BackendKind::X11.to_string(), "x11");
         assert_eq!(BackendKind::Wayland.to_string(), "wayland");
+        assert_eq!(BackendKind::MacOs.to_string(), "macos");
+        assert_eq!(BackendKind::Windows.to_string(), "windows");
         assert_eq!(BackendKind::Headless.name(), "headless");
     }
 
     #[test]
-    fn detection_prefers_the_request_then_wayland_then_x11() {
-        let choose = BackendKind::choose;
+    fn detection_on_linux_prefers_the_request_then_wayland_then_x11() {
+        let choose =
+            |requested, wayland, x11| BackendKind::choose(System::Linux, requested, wayland, x11);
         assert_eq!(choose(Some("x11"), true, true), Some(BackendKind::X11));
         assert_eq!(
             choose(Some("Wayland"), false, false),
@@ -220,9 +272,47 @@ mod tests {
             Some(BackendKind::Headless)
         );
         assert_eq!(choose(Some("bogus"), false, true), Some(BackendKind::X11));
-        let wayland = cfg!(target_os = "linux").then_some(BackendKind::Wayland);
-        assert_eq!(choose(None, true, true), wayland.or(Some(BackendKind::X11)));
+        assert_eq!(choose(None, true, true), Some(BackendKind::Wayland));
         assert_eq!(choose(None, false, true), Some(BackendKind::X11));
         assert_eq!(choose(None, false, false), None);
+        assert_eq!(
+            choose(Some("MACOS"), false, false),
+            Some(BackendKind::MacOs)
+        );
+    }
+
+    #[test]
+    fn macos_and_windows_pick_their_native_backend_unless_asked() {
+        for (system, native) in [
+            (System::MacOs, BackendKind::MacOs),
+            (System::Windows, BackendKind::Windows),
+        ] {
+            assert_eq!(BackendKind::choose(system, None, false, true), Some(native));
+            assert_eq!(
+                BackendKind::choose(system, Some("bogus"), true, true),
+                Some(native)
+            );
+            assert_eq!(
+                BackendKind::choose(system, Some("x11"), false, true),
+                Some(BackendKind::X11)
+            );
+        }
+    }
+
+    #[test]
+    fn other_systems_have_x11_at_most() {
+        assert_eq!(
+            BackendKind::choose(System::OtherUnix, None, true, false),
+            None
+        );
+        assert_eq!(
+            BackendKind::choose(System::OtherUnix, None, true, true),
+            Some(BackendKind::X11)
+        );
+        assert_eq!(BackendKind::choose(System::Other, None, true, true), None);
+        assert_eq!(
+            BackendKind::choose(System::Other, Some("headless"), false, false),
+            Some(BackendKind::Headless)
+        );
     }
 }

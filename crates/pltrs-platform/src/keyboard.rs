@@ -71,7 +71,8 @@ pub enum Key {
     /// Clear (keypad 5 without Num Lock on some layouts).
     Clear,
     /// A key this crate has no name for; the payload is the platform's raw
-    /// key symbol (an X11 keysym on X11).
+    /// key symbol: a keysym on X11 and Wayland, the hardware key code on
+    /// macOS, the virtual-key code on Windows.
     Unidentified(u32),
 }
 

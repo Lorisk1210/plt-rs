@@ -1,6 +1,5 @@
 //! Interactive figures in a web browser (matplotlib's `WebAgg` backend), for
-//! machines without a window system pltrs supports: macOS, Windows, WSL
-//! or a remote host.
+//! machines where pltrs's windows cannot open: WSL, a remote host.
 //!
 //! A [`WebServer`] is a small HTTP/1.1 and WebSocket (RFC 6455) server on
 //! `std::net`. It serves matplotlib's own browser client — `mpl.js`, its
@@ -31,7 +30,7 @@
 //!
 //! [`crate::pyplot`] uses this backend when it is selected
 //! ([`crate::pyplot::Backend::WebAgg`], or `MPLBACKEND=webagg`) and, on
-//! systems without X11 (macOS, Windows), in place of windows.
+//! macOS and Windows, in place of windows that cannot open.
 //!
 //! Figures are single-threaded: the thread that owns the server runs the
 //! figures, and network threads pass it what clients send through bounded

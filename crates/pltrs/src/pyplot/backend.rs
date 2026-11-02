@@ -12,9 +12,10 @@ use super::interactive::forget_session;
 pub enum Backend {
     /// pltrs's figure windows ([`crate::gui`]). When they cannot open and
     /// the `backend_fallback` rcParam is on (the default), the web backend
-    /// takes their place on systems without X11 (macOS, Windows), and
-    /// [`Backend::Agg`] on X11 systems without a display, as matplotlib
-    /// falls back to `agg` on headless machines.
+    /// takes their place on macOS and Windows (away from the main thread
+    /// of a macOS process, say), and [`Backend::Agg`] on Linux systems
+    /// without a display, as matplotlib falls back to `agg` on headless
+    /// machines.
     #[default]
     Windows,
     /// Figures in a web browser (matplotlib's `webagg`, see

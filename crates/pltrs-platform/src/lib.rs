@@ -1,10 +1,12 @@
-//! Native windowing and input abstraction (X11 and Wayland, more platforms
-//! pluggable).
+//! Native windowing and input abstraction (Wayland, X11, macOS and
+//! Windows).
 //!
 //! The crate opens windows, shows pixel buffers in them and turns user input
 //! into platform-neutral [`Event`]s, without linking to any windowing
 //! library: the X11 backend speaks the X protocol directly over a socket,
-//! the Wayland backend the Wayland protocol, keymaps included.
+//! the Wayland backend the Wayland protocol, keymaps included; the macOS
+//! and Windows backends call the operating system (`AppKit` through the
+//! Objective-C runtime, Win32) without any binding crate.
 //!
 //! # Overview
 //!
@@ -23,11 +25,18 @@
 //!
 //! Platform code sits behind an internal backend trait; callers only see
 //! [`BackendKind`]. The available backends are Wayland (Linux), X11 (also
-//! under `XWayland`) and headless; [`BackendKind::detect`] picks Wayland
-//! when `$WAYLAND_DISPLAY` is set, else X11 when `$DISPLAY` is, and
-//! `$PLTRS_PLATFORM` (`wayland`, `x11`, `headless`) overrides the choice.
-//! Adding macOS or Windows means implementing that trait, without changing
-//! this API.
+//! under `XWayland`, and on macOS under `XQuartz`), macOS (`AppKit`),
+//! Windows (Win32) and headless. [`BackendKind::detect`] picks the native
+//! one on macOS and Windows; on Linux, Wayland when `$WAYLAND_DISPLAY` is
+//! set, else X11 when `$DISPLAY` is. `$PLTRS_PLATFORM` (`wayland`, `x11`,
+//! `macos`, `windows`, `headless`) overrides the choice.
+//!
+//! The macOS and Windows backends keep what was presented in each window,
+//! so that they repaint it whenever the system asks (an expose, a live
+//! resize), and the system calls back into the process with input; such
+//! callbacks queue events in a per-thread registry of windows, which the
+//! loop takes in turn. On macOS, the loop must run on the main thread, as
+//! `AppKit` requires.
 //!
 //! Where the desktop leaves window decorations to applications (Wayland
 //! compositors without server-side decorations, such as GNOME's), the
@@ -36,12 +45,18 @@
 //!
 //! # Unsafe code
 //!
-//! Wayland passes file descriptors (shared memory, keymaps, clipboard
-//! pipes) over its socket, which needs `sendmsg`/`recvmsg` with
-//! `SCM_RIGHTS`, and pixel buffers need `memfd_create`; `std` offers
-//! neither on this toolchain. Those three C library calls are the crate's
-//! only unsafe code: one private module wraps them, each `unsafe` block
-//! justified, and denies unsafe code everywhere else.
+//! Unsafe code is denied everywhere but in three private `sys` modules,
+//! the FFI to the operating system, which wrap it safely, each `unsafe`
+//! block justified:
+//!
+//! * `wayland::sys`: Wayland passes file descriptors (shared memory,
+//!   keymaps, clipboard pipes) over its socket, which needs
+//!   `sendmsg`/`recvmsg` with `SCM_RIGHTS`, and pixel buffers need
+//!   `memfd_create`; `std` offers neither on this toolchain.
+//! * `macos::sys`: the Objective-C runtime (`objc_msgSend`, class
+//!   definitions), `AppKit`, Foundation and Core Graphics.
+//! * `windows::sys`: Win32 (`user32`, `gdi32` and `kernel32`, linked with
+//!   `raw-dylib`, so no import libraries are needed).
 //!
 //! ```
 //! use pltrs_platform::{Event, EventLoop, Frame, Key, WindowEvent, WindowOptions};
@@ -65,8 +80,8 @@
 //! # Ok::<(), pltrs_platform::Error>(())
 //! ```
 
-// Unsafe code is denied everywhere but in `wayland::sys`, the FFI that
-// passes file descriptors over the compositor's socket.
+// Unsafe code is denied everywhere but in `wayland::sys`, `macos::sys` and
+// `windows::sys`, the FFI to the operating system.
 #![deny(unsafe_code)]
 
 mod backend;
@@ -81,9 +96,21 @@ mod headless;
 mod keyboard;
 #[cfg(unix)]
 mod keysym;
+// The native backends' pure parts (key tables, event decoding, unit
+// conversions) are compiled for tests everywhere, so that they are
+// tested on Linux too.
+#[cfg(any(target_os = "macos", test))]
+mod macos;
+#[cfg(any(target_os = "macos", windows, test))]
+mod registry;
+mod surface;
+#[cfg(any(target_os = "macos", windows, test))]
+mod wake;
 #[cfg(target_os = "linux")]
 mod wayland;
 mod window;
+#[cfg(any(windows, test))]
+mod windows;
 #[cfg(unix)]
 mod x11;
 

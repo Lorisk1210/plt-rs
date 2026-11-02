@@ -140,10 +140,9 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! Windows need X11, and `gui::show` adapts to the system as
-//! [`pyplot::show`] does: it opens windows where there is X11, serves the
-//! figures to a web browser where there is none (macOS, Windows), and
-//! returns at once on a machine without a display.
+//! `gui::show` adapts to the system as [`pyplot::show`] does: it opens
+//! windows (with Wayland or X11 on Linux, `AppKit` on macOS, Win32 on
+//! Windows), and returns at once on a Linux machine without a display.
 //!
 //! # The pyplot shortcut
 //!

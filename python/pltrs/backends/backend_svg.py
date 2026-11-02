@@ -8,15 +8,147 @@ the Matplotlib License).
 """
 
 import datetime
+from datetime import UTC  # noqa: F401  (matplotlib's backend_svg has it)
 
 import numpy as np
 
 from .. import __version__, _api, rcParams
-from .._native import text_overrides as _text_overrides
+from .._native import backends as _backends, text_overrides as _text_overrides
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..font_manager import FontManager
 from ._native_drawing import DocumentDrawingMixin
 from .backend_mixed import MixedModeRenderer
+
+#: The XML declaration and doctype every SVG document starts with.
+svgProlog = _backends.svg_prolog()
+
+
+@_api.deprecated("3.11")
+class XMLWriter:
+    """
+    Parameters
+    ----------
+    file : writable text file-like object
+
+    pltrs (Rust) writes the XML (``pltrs_render::XmlWriter``); the writer
+    hands the file each piece as matplotlib's does.
+    """
+
+    def __init__(self, file):
+        self.__write = file.write
+        if hasattr(file, "flush"):
+            self.flush = file.flush
+        self.__native = _backends.xml_new()
+
+    def __written(self, result=None):
+        """Write what pltrs (Rust) wrote to the file; return *result*."""
+        text = _backends.xml_take(self.__native)
+        if text:
+            self.__write(text)
+        return result
+
+    def start(self, tag, attrib={}, **extra):
+        """
+        Open a new element.  Attributes can be given as keyword
+        arguments, or as a string/string dictionary. The method returns
+        an opaque identifier that can be passed to the :meth:`close`
+        method, to close all open elements up to and including this one.
+
+        Parameters
+        ----------
+        tag
+            Element tag.
+        attrib
+            Attribute dictionary.  Alternatively, attributes can be given as
+            keyword arguments.
+
+        Returns
+        -------
+        An element identifier.
+        """
+        attributes = [(k, v) for k, v in {**attrib, **extra}.items() if v]
+        return self.__written(_backends.xml_start(self.__native, tag, attributes))
+
+    def comment(self, comment):
+        """
+        Add a comment to the output stream.
+
+        Parameters
+        ----------
+        comment : str
+            Comment text.
+        """
+        _backends.xml_comment(self.__native, comment)
+        self.__written()
+
+    def data(self, text):
+        """
+        Add character data to the output stream.
+
+        Parameters
+        ----------
+        text : str
+            Character data.
+        """
+        _backends.xml_data(self.__native, text)
+
+    def end(self, tag=None, indent=True):
+        """
+        Close the current element (opened by the most recent call to
+        :meth:`start`).
+
+        Parameters
+        ----------
+        tag
+            Element tag.  If given, the tag must match the start tag.  If
+            omitted, the current element is closed.
+        indent : bool, default: True
+        """
+        tags = _backends.xml_tags(self.__native)
+        if tag:
+            assert tags, f"unbalanced end({tag})"
+            assert _backends.xml_closes(self.__native, tag), \
+                f"expected end({tags[-1]}), got {tag}"
+        else:
+            assert tags, "unbalanced end()"
+        _backends.xml_end(self.__native, bool(indent))
+        self.__written()
+
+    def close(self, id):
+        """
+        Close open elements, up to (and including) the element identified
+        by the given identifier.
+
+        Parameters
+        ----------
+        id
+            Element identifier, as returned by the :meth:`start` method.
+        """
+        _backends.xml_close(self.__native, id)
+        self.__written()
+
+    def element(self, tag, text=None, attrib={}, **extra):
+        """
+        Add an entire element.  This is the same as calling :meth:`start`,
+        :meth:`data`, and :meth:`end` in sequence. The *text* argument can be
+        omitted.
+        """
+        self.start(tag, attrib, **extra)
+        if text:
+            self.data(text)
+        self.end(indent=False)
+
+    def flush(self):
+        """Flush the output stream."""
+        pass  # replaced by the constructor
+
+
+def _escape_cdata(s):
+    """*s* with the characters XML character data cannot hold escaped."""
+    s = s.replace("&", "&amp;")
+    s = s.replace("<", "&lt;")
+    s = s.replace(">", "&gt;")
+    return s
 
 #: The metadata keys an SVG document holds.
 _METADATA_KEYS = frozenset([

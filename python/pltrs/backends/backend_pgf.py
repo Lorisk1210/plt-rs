@@ -1,20 +1,26 @@
 """
 The PGF backend (matplotlib's ``backend_pgf``): `FigureCanvasPgf`, whose
-``print_pgf`` writes the figure as a LaTeX PGF picture, and `PdfPages`, a
-PDF document of several figures typeset by the TeX system. pltrs (Rust)
-writes the pictures and their preamble; `PdfPages` runs the TeX system as
-matplotlib's does (its code, from matplotlib 3.11.2, under the Matplotlib
-License).
+``print_pgf`` writes the figure as a LaTeX PGF picture (and ``print_pdf``
+and ``print_png`` that picture typeset by the TeX system), `LatexManager`,
+which measures text with the TeX system, and `PdfPages`, a PDF document of
+several figures typeset by the TeX system. pltrs (Rust) writes the pictures,
+their preamble and the TeX source of their texts; the TeX system runs as
+matplotlib's runs it (its code, from matplotlib 3.11.2, under the
+Matplotlib License).
 """
 
 import datetime
+import functools
 from io import BytesIO
 import logging
+import os
 import pathlib
 import shutil
+import subprocess
 from tempfile import TemporaryDirectory
+import weakref
 
-from .. import _api, cbook, rcParams
+from .. import _api, _get_executable_info, cbook, ExecutableNotFoundError, rcParams
 from .._native import texmanager as _texmanager, text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
@@ -28,8 +34,208 @@ _log = logging.getLogger(__name__)
 
 _DOCUMENTCLASS = r"\documentclass{article}"
 
-#: Inches per point (matplotlib's ``mpl_pt_to_in``).
-_PT_TO_IN = 1. / 72.
+# Note: When formatting floating point values, it is important to use the
+# %f/{:f} format rather than %s/{} to avoid triggering scientific notation,
+# which is not recognized by TeX.
+
+# It's better to use only one unit for all coordinates, since the
+# arithmetic in latex seems to produce inaccurate conversions.
+latex_pt_to_in = 1. / 72.27
+latex_in_to_pt = 1. / latex_pt_to_in
+mpl_pt_to_in = 1. / 72.
+mpl_in_to_pt = 1. / mpl_pt_to_in
+
+
+def make_pdf_to_png_converter():
+    """Return a function that converts a pdf file to a png file."""
+    try:
+        _get_executable_info("pdftocairo")
+    except ExecutableNotFoundError:
+        pass
+    else:
+        return lambda pdffile, pngfile, dpi: subprocess.check_output(
+            ["pdftocairo", "-singlefile", "-transp", "-png", "-r", "%d" % dpi,
+             pdffile, os.path.splitext(pngfile)[0]],
+            stderr=subprocess.STDOUT)
+    try:
+        gs_info = _get_executable_info("gs")
+    except ExecutableNotFoundError:
+        pass
+    else:
+        return lambda pdffile, pngfile, dpi: subprocess.check_output(
+            [gs_info.executable,
+             '-dQUIET', '-dSAFER', '-dBATCH', '-dNOPAUSE', '-dNOPROMPT',
+             '-dUseCIEColor', '-dTextAlphaBits=4',
+             '-dGraphicsAlphaBits=4', '-dDOINTERPOLATE',
+             '-sDEVICE=pngalpha', '-sOutputFile=%s' % pngfile,
+             '-r%d' % dpi, pdffile],
+            stderr=subprocess.STDOUT)
+    raise RuntimeError("No suitable pdf to png renderer found.")
+
+
+class LatexError(Exception):
+    def __init__(self, message, latex_output=""):
+        super().__init__(message)
+        self.latex_output = latex_output
+
+    def __str__(self):
+        s, = self.args
+        if self.latex_output:
+            s += "\n" + self.latex_output
+        return s
+
+
+class LatexManager:
+    """
+    The LatexManager opens an instance of the LaTeX application for
+    determining the metrics of text elements. The LaTeX environment can be
+    modified by setting fonts and/or a custom preamble in `.rcParams`.
+    """
+
+    @staticmethod
+    def _build_latex_header():
+        latex_header = [
+            _DOCUMENTCLASS,
+            # Include TeX program name as a comment for cache invalidation.
+            # TeX does not allow this to be the first line.
+            rf"% !TeX program = {rcParams['pgf.texsystem']}",
+            # Test whether \includegraphics supports interpolate option.
+            r"\usepackage{graphicx}",
+            _texmanager.pgf_preamble(),
+            r"\begin{document}",
+            r"\typeout{pgf_backend_query_start}",
+        ]
+        return "\n".join(latex_header)
+
+    @classmethod
+    def _get_cached_or_new(cls):
+        """
+        Return the previous LatexManager if the header and tex system did not
+        change, or a new instance otherwise.
+        """
+        return cls._get_cached_or_new_impl(cls._build_latex_header())
+
+    @classmethod
+    @functools.lru_cache(1)
+    def _get_cached_or_new_impl(cls, header):  # Helper for _get_cached_or_new.
+        return cls()
+
+    def _stdin_writeln(self, s):
+        if self.latex is None:
+            self._setup_latex_process()
+        self.latex.stdin.write(s)
+        self.latex.stdin.write("\n")
+        self.latex.stdin.flush()
+
+    def _expect(self, s):
+        s = list(s)
+        chars = []
+        while True:
+            c = self.latex.stdout.read(1)
+            chars.append(c)
+            if chars[-len(s):] == s:
+                break
+            if not c:
+                self.latex.kill()
+                self.latex = None
+                raise LatexError("LaTeX process halted", "".join(chars))
+        return "".join(chars)
+
+    def _expect_prompt(self):
+        return self._expect("\n*")
+
+    def __init__(self):
+        # create a tmp directory for running latex, register it for deletion
+        self._tmpdir = TemporaryDirectory()
+        self.tmpdir = self._tmpdir.name
+        self._finalize_tmpdir = weakref.finalize(self, self._tmpdir.cleanup)
+
+        # test the LaTeX setup to ensure a clean startup of the subprocess
+        self._setup_latex_process(expect_reply=False)
+        stdout, stderr = self.latex.communicate("\n\\makeatletter\\@@end\n")
+        if self.latex.returncode != 0:
+            raise LatexError(
+                f"LaTeX errored (probably missing font or error in preamble) "
+                f"while processing the following input:\n"
+                f"{self._build_latex_header()}",
+                stdout)
+        self.latex = None  # Will be set up on first use.
+        # Per-instance cache.
+        self._get_box_metrics = functools.lru_cache(self._get_box_metrics)
+
+    def _setup_latex_process(self, *, expect_reply=True):
+        # Open LaTeX process for real work; register it for deletion.  On
+        # Windows, we must ensure that the subprocess has quit before being
+        # able to delete the tmpdir in which it runs; in order to do so, we
+        # must first `kill()` it, and then `communicate()` with or `wait()` on
+        # it.
+        try:
+            self.latex = subprocess.Popen(
+                [rcParams["pgf.texsystem"], "-halt-on-error", "-no-shell-escape"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                encoding="utf-8", cwd=self.tmpdir)
+        except FileNotFoundError as err:
+            raise RuntimeError(
+                f"{rcParams['pgf.texsystem']!r} not found; install it or change "
+                f"rcParams['pgf.texsystem'] to an available TeX implementation"
+            ) from err
+        except OSError as err:
+            raise RuntimeError(
+                f"Error starting {rcParams['pgf.texsystem']!r}") from err
+
+        def finalize_latex(latex):
+            latex.kill()
+            try:
+                latex.communicate()
+            except RuntimeError:
+                latex.wait()
+
+        self._finalize_latex = weakref.finalize(
+            self, finalize_latex, self.latex)
+        # write header with 'pgf_backend_query_start' token
+        self._stdin_writeln(self._build_latex_header())
+        if expect_reply:  # read until 'pgf_backend_query_start' token appears
+            self._expect("*pgf_backend_query_start")
+            self._expect_prompt()
+
+    def get_width_height_descent(self, text, prop):
+        """
+        Get the width, total height, and descent (in TeX points) for a text
+        typeset by the current LaTeX environment.
+        """
+        return self._get_box_metrics(
+            _texmanager.pgf_text(text, FontManager._props(prop)))
+
+    def _get_box_metrics(self, tex):
+        """
+        Get the width, total height and descent (in TeX points) for a TeX
+        command's output in the current LaTeX environment.
+        """
+        # This method gets wrapped in __init__ for per-instance caching.
+        self._stdin_writeln(  # Send textbox to TeX & request metrics typeout.
+            # \sbox doesn't handle catcode assignments inside its argument,
+            # so repeat the assignment of the catcode of "^" and "%" outside.
+            r"{\catcode`\^=\active\catcode`\%%=\active\sbox0{%s}"
+            r"\typeout{\the\wd0,\the\ht0,\the\dp0}}"
+            % tex)
+        try:
+            answer = self._expect_prompt()
+        except LatexError as err:
+            # Here and below, use '{}' instead of {!r} to avoid doubling all
+            # backslashes.
+            raise ValueError("Error measuring {}\nLaTeX Output:\n{}"
+                             .format(tex, err.latex_output)) from err
+        try:
+            # Parse metrics from the answer string.  Last line is prompt, and
+            # next-to-last-line is blank line from \typeout.
+            width, height, offset = answer.splitlines()[-3].split(",")
+        except Exception as err:
+            raise ValueError("Error measuring {}\nLaTeX Output:\n{}"
+                             .format(tex, answer)) from err
+        w, h, o = float(width[:-2]), float(height[:-2]), float(offset[:-2])
+        # The height returned from LaTeX goes from base to top;
+        # the height Matplotlib expects goes from bottom to top.
+        return w, h + o, o
 
 
 def _metadata_to_str(key, value):
@@ -89,7 +295,7 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
 
     def points_to_pixels(self, points):
         # docstring inherited
-        return points * _PT_TO_IN * self.dpi
+        return points * mpl_pt_to_in * self.dpi
 
     def get_text_width_height_descent(self, s, prop, ismath):
         # docstring inherited
@@ -99,7 +305,9 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
 
 
 class FigureCanvasPgf(FigureCanvasBase):
-    filetypes = {"pgf": "LaTeX PGF picture"}
+    filetypes = {"pgf": "LaTeX PGF picture",
+                 "pdf": "LaTeX compiled PGF picture",
+                 "png": "Portable Network Graphics", }
 
     def get_default_filetype(self):
         return 'pgf'
@@ -122,6 +330,52 @@ class FigureCanvasPgf(FigureCanvasBase):
         self._print_native("pgf", fname_or_fh,
                            bbox_inches_restore=bbox_inches_restore,
                            facecolor=facecolor, edgecolor=edgecolor)
+
+    def print_pdf(self, fname_or_fh, *, metadata=None, **kwargs):
+        """Use LaTeX to compile a pgf generated figure to pdf."""
+        w, h = self.figure.get_size_inches()
+
+        info_dict = _create_pdf_info_dict('pgf', metadata or {})
+        pdfinfo = ','.join(
+            _metadata_to_str(k, v) for k, v in info_dict.items())
+
+        # print figure to pgf and compile it with latex
+        with TemporaryDirectory() as tmpdir:
+            tmppath = pathlib.Path(tmpdir)
+            self.print_pgf(tmppath / "figure.pgf", **kwargs)
+            (tmppath / "figure.tex").write_text(
+                "\n".join([
+                    _DOCUMENTCLASS,
+                    r"\usepackage[pdfinfo={%s}]{hyperref}" % pdfinfo,
+                    r"\usepackage[papersize={%fin,%fin}, margin=0in]{geometry}"
+                    % (w, h),
+                    r"\usepackage{pgf}",
+                    _texmanager.pgf_preamble(),
+                    r"\begin{document}",
+                    r"\centering",
+                    r"\input{figure.pgf}",
+                    r"\end{document}",
+                ]), encoding="utf-8")
+            texcommand = rcParams["pgf.texsystem"]
+            cbook._check_and_log_subprocess(
+                [texcommand, "-interaction=nonstopmode", "-halt-on-error",
+                 "-no-shell-escape", "figure.tex"], _log, cwd=tmpdir)
+            with ((tmppath / "figure.pdf").open("rb") as orig,
+                  cbook.open_file_cm(fname_or_fh, "wb") as dest):
+                shutil.copyfileobj(orig, dest)  # copy file contents to target
+
+    def print_png(self, fname_or_fh, **kwargs):
+        """Use LaTeX to compile a pgf figure to pdf and convert it to png."""
+        converter = make_pdf_to_png_converter()
+        with TemporaryDirectory() as tmpdir:
+            tmppath = pathlib.Path(tmpdir)
+            pdf_path = tmppath / "figure.pdf"
+            png_path = tmppath / "figure.png"
+            self.print_pdf(pdf_path, **kwargs)
+            converter(pdf_path, png_path, dpi=self.figure.dpi)
+            with (png_path.open("rb") as orig,
+                  cbook.open_file_cm(fname_or_fh, "wb") as dest):
+                shutil.copyfileobj(orig, dest)  # copy file contents to target
 
 
 FigureManagerPgf = FigureManagerBase

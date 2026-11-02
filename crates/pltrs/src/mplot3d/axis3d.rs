@@ -70,7 +70,13 @@ impl AxisLabel3D {
     /// Whether the label is drawn parallel to its axis (matplotlib's
     /// `get_rotate_label`).
     pub(crate) fn rotated(&self) -> bool {
-        self.rotate.unwrap_or_else(|| self.text.chars().count() > 4)
+        self.rotates(&self.text)
+    }
+
+    /// Whether the label would be drawn parallel to its axis with the
+    /// text `text`.
+    pub(crate) fn rotates(&self, text: &str) -> bool {
+        self.rotate.unwrap_or_else(|| text.chars().count() > 4)
     }
 }
 

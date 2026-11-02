@@ -17,7 +17,7 @@ use crate::vector::{CharacterTracker, FontCache, FontInfo, FontType, Subset, Vec
 /// A font a document names: a subset of an embedded TrueType font, or a
 /// core font referenced by name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum FontKey {
+pub(super) enum FontKey {
     /// One subset of a TrueType font.
     Embedded(FontId, usize),
     /// One of the 14 PDF core fonts (`pdf.use14corefonts`).
@@ -39,6 +39,11 @@ impl FontNames {
     /// `fontName` for a core font, assigned on first use.
     pub(super) fn core_name(&mut self, font: &'static AfmFont) -> String {
         self.name_of(FontKey::Core(font))
+    }
+
+    /// The fonts named, with their names, in first-use order.
+    pub(super) fn entries(&self) -> impl Iterator<Item = (FontKey, &str)> {
+        self.names.iter().map(|(key, name)| (*key, name.as_str()))
     }
 
     fn name_of(&mut self, key: FontKey) -> String {
@@ -413,13 +418,25 @@ pub(super) fn write_fonts(
             index: subset_index,
             subset,
         };
-        let dict = match fonttype {
-            FontType::Type3 => embed_type3(writer, subset_font, tracker)?,
-            FontType::Type42 => super::type42::embed(writer, subset_font, tracker)?,
-        };
+        let dict = embed_subset(writer, subset_font, tracker, fonttype)?;
         entries.push((name, Obj::Ref(dict)));
     }
     writer.write_object(dictionary, &Obj::Dict(entries))
+}
+
+/// `embedTTF`: one subset of a TrueType font as a Type 3 font or, for
+/// `fonttype` 42, a Type 0 font; returns the font dictionary's object.
+/// The subset has at least one glyph.
+pub(super) fn embed_subset(
+    writer: &mut PdfWriter,
+    subset_font: SubsetFont<'_>,
+    tracker: &CharacterTracker,
+    fonttype: FontType,
+) -> Result<u32, VectorError> {
+    match fonttype {
+        FontType::Type3 => embed_type3(writer, subset_font, tracker),
+        FontType::Type42 => super::type42::embed(writer, subset_font, tracker),
+    }
 }
 
 #[cfg(test)]

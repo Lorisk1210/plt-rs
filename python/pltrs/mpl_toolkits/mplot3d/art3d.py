@@ -11,6 +11,7 @@ the classes here read and replace that geometry.
 import numpy as np
 
 from pltrs import _api, cbook, collections as mcoll, colors as mcolors, lines
+from pltrs import rcParams  # noqa: F401  (matplotlib's art3d has it)
 from pltrs import patches as mpatches, text as mtext
 from pltrs._native import mplot3d as _mplot3d, patches as _patches
 
@@ -294,11 +295,25 @@ class _Loose3D:
 
     _zsort = None
     _closed = True
+    #: What a loose collection keeps for the axes that will add it: the
+    #: position it is ordered by, and the codes of its 3-D polygons.
+    _sort_zpos = None
+    _codes3d = None
 
     def do_3d_projection(self):
         """Project the collection in the current view and return the depth
         of its nearest point (NaN without points)."""
         return _mplot3d.do_3d_projection(self.axes._native, self._native)
+
+    def set_sort_zpos(self, val):
+        """Set the position to use for z-sorting."""
+        axes = _axes3d(self)
+        if axes is None:
+            self._sort_zpos = val
+        else:
+            _mplot3d.set_sort_zpos(axes._native, self._native,
+                                   None if val is None else float(val))
+        self.stale = True
 
     def _add_to_axes(self, axes, kind, autolim=True):
         # docstring inherited
@@ -322,7 +337,43 @@ class _Loose3D:
         native = _mplot3d.adopt_collection3d(
             axes._native, self._native, self._native_geometry(), bool(autolim),
             bool(self._axlim_clip or axlim_clip))
-        return _handles.adopt(self, native, axes.figure)
+        _handles.adopt(self, native, axes.figure)
+        pending = self.__dict__
+        if pending.get('_codes3d') is not None:
+            _mplot3d.set_poly_verts_and_codes(
+                axes._native, self._native, pending.pop('_faces3d'),
+                [np.asarray(c, np.uint8).tolist() for c in pending.pop('_codes3d')])
+        if pending.get('_sort_zpos') is not None:
+            self.set_sort_zpos(pending.pop('_sort_zpos'))
+        return self
+
+
+class Collection3D(_Loose3D, mcoll.Collection):
+    """A collection of 3D paths."""
+
+    def _native_geometry(self):
+        # docstring inherited
+        return ("paths", (self.__dict__.pop('_verts3d_pending'),))
+
+
+def collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
+    """Convert a `.Collection` to a `.Collection3D` object."""
+    paths = col.get_paths()
+    zs = np.broadcast_to(zs, len(paths))
+    verts = [
+        np.column_stack(juggle_axes(
+            *np.column_stack([p.vertices, np.broadcast_to(z, len(p.vertices))]).T,
+            zdir))
+        for p, z in zip(paths, zs)]
+    col.__class__ = cbook._make_class_factory(Collection3D, "{}3D")(type(col))
+    col._axlim_clip = axlim_clip
+    axes = _axes3d(col)
+    if axes is None:
+        col._verts3d_pending = verts
+    else:
+        _mplot3d.lift_paths(axes._native, col._native,
+                            [np.asarray(v, dtype=float) for v in verts],
+                            bool(axlim_clip))
 
 
 class Line3DCollection(_Loose3D, mcoll.LineCollection):
@@ -617,6 +668,96 @@ class Poly3DCollection(_Loose3D, mcoll.PolyCollection):
         super().set_alpha(alpha)
         self._refresh_colors(True, False)
 
+    _zsort_functions = {
+        'average': np.average,
+        'min': np.min,
+        'max': np.max,
+    }
+
+    def set_zsort(self, zsort):
+        """
+        Set the calculation method for the z-order.
+
+        Parameters
+        ----------
+        zsort : {'average', 'min', 'max'}
+            The function applied on the z-coordinates of the vertices in the
+            viewer's coordinate system, to determine the z-order.
+        """
+        if zsort not in self._zsort_functions:
+            raise KeyError(zsort)
+        axes = _axes3d(self)
+        if axes is None:
+            self._zsort = zsort
+            self._sort_zpos = None
+        else:
+            _mplot3d.set_zsort(axes._native, self._native, zsort)
+        self.stale = True
+
+    def _set_faces(self, faces, closed):
+        """Make the polygons those of the 3-D vertices *faces*."""
+        axes = _axes3d(self)
+        if axes is None:
+            self._verts3d_pending = faces
+            self._closed = closed
+        else:
+            _mplot3d.set_poly_verts(axes._native, self._native, faces,
+                                    bool(closed))
+        self.stale = True
+
+    @_api.deprecated("3.10")
+    def get_vector(self, segments3d):
+        """Take the polygons *segments3d* (a list of ``(N, 3)`` arrays, or
+        an ``(M, N, 3)`` array) as the 3-D vertices to project."""
+        if isinstance(segments3d, np.ndarray):
+            _api.check_shape((None, None, 3), segments3d=segments3d)
+        self._set_faces(_vertices_3d(segments3d), self._closed)
+
+    def set_verts(self, verts, closed=True):
+        """
+        Set 3D vertices.
+
+        Parameters
+        ----------
+        verts : list of (N, 3) array-like
+            The sequence of polygons [*verts0*, *verts1*, ...] where each
+            element *verts_i* defines the vertices of polygon *i* as a 2D
+            array-like of shape (N, 3).
+        closed : bool, default: True
+            Whether the polygon should be closed by adding a CLOSEPOLY
+            connection at the end.
+        """
+        self._set_faces(_vertices_3d(verts), closed)
+
+    def set_verts_and_codes(self, verts, codes):
+        """Set 3D vertices with path codes."""
+        faces = _vertices_3d(verts)
+        axes = _axes3d(self)
+        if axes is None:
+            self._verts3d_pending = faces
+            self._faces3d = faces
+            self._codes3d = codes
+            self._closed = False
+        else:
+            _mplot3d.set_poly_verts_and_codes(
+                axes._native, self._native, faces,
+                [np.asarray(c, np.uint8).tolist() for c in codes])
+        self.stale = True
+
+    def set_3d_properties(self, axlim_clip=False):
+        """Take the colours the collection has now as the colours of its
+        polygons, ordered by the mean depth of their vertices."""
+        self._axlim_clip = axlim_clip
+        axes = _axes3d(self)
+        if axes is None:
+            self._zsort = 'average'
+            self._sort_zpos = None
+        else:
+            self.update_scalarmappable()
+            _mplot3d.set_poly_3d_properties(axes._native, self._native)
+            _mplot3d.set_axlim_clip(axes._native, self._native, bool(axlim_clip))
+        self.stale = True
+
 
 def poly_collection_2d_to_3d(col, zs=0, zdir='z', axlim_clip=False):
     """
@@ -687,6 +828,11 @@ class Patch3D(mpatches.Patch):
         _mplot3d.patch_2d_to_3d(self.axes._native, self._native,
                                 np.asarray(segment3d, dtype=float).reshape(-1, 3),
                                 bool(axlim_clip))
+
+    def do_3d_projection(self):
+        """Project the patch in the current view and return the depth of
+        its nearest point."""
+        return _mplot3d.do_3d_projection(self.axes._native, self._native)
 
     def _place(self, *geometry):
         """Lift the patch with *geometry*, or keep it for the 3-D axes

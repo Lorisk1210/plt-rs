@@ -11,6 +11,7 @@ and the 3-D methods here on the 3-D axes (``_native.mplot3d``).
 Matplotlib License, kept as it is).
 """
 
+import textwrap
 import warnings
 
 import numpy as np
@@ -19,6 +20,7 @@ from pltrs import _api, _handles, cbook, rcParams
 from pltrs import collections as mcoll, colors as mcolors, lines as mlines
 from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
 from pltrs.axes import Axes
+from pltrs.axes._ticks import _axis_method_wrapper
 from pltrs._artist_kwargs import keep_program_picker
 from pltrs.axes._plotting._helpers import wrap
 from pltrs.axes._plotting.lines import _plot_datasets
@@ -263,6 +265,46 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         _mplot3d.clear(self._native)
         for axis in (self.xaxis, self.yaxis, self.zaxis):
             axis._given_scale = None
+
+    get_zgridlines = _axis_method_wrapper("zaxis", "get_gridlines")
+    get_zticklines = _axis_method_wrapper("zaxis", "get_ticklines")
+    get_zmajorticklabels = _axis_method_wrapper("zaxis", "get_majorticklabels")
+    get_zminorticklabels = _axis_method_wrapper("zaxis", "get_minorticklabels")
+    get_zticklabels = _axis_method_wrapper("zaxis", "get_ticklabels")
+    set_zinverted = _axis_method_wrapper("zaxis", "set_inverted")
+    get_zinverted = _axis_method_wrapper("zaxis", "get_inverted")
+
+    zaxis_date = _axis_method_wrapper("zaxis", "axis_date")
+    if zaxis_date.__doc__:
+        zaxis_date.__doc__ += textwrap.dedent("""
+
+        Notes
+        -----
+        This function is merely provided for completeness, but 3D Axes do not
+        support dates for ticks, and so this may not work as expected.
+        """)
+
+    _msg = "Use ax.set_xscale/set_yscale/set_zscale and ax.plot(...) instead."
+    semilogz = _api.unsupported_method(append_message=_msg)
+
+    def convert_zunits(self, z):
+        """
+        For artists in an Axes, if the zaxis has units support,
+        convert *z* using zaxis unit type
+        """
+        return self.zaxis.convert_units(z)
+
+    def set_top_view(self):
+        """Show the window of projected coordinates the axes draws in, as
+        a new 3-D axes does."""
+        _mplot3d.set_top_view(self._native)
+        self.stale = True
+
+    def update_datalim(self, xys, **kwargs):
+        """
+        Not implemented in `~mpl_toolkits.mplot3d.axes3d.Axes3D`.
+        """
+        pass
 
     def get_zticks(self, *, minor=False):
         """Return the zaxis' tick locations in data coordinates."""

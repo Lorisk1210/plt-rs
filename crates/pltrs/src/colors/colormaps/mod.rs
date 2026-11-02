@@ -22,6 +22,7 @@ use std::cell::RefCell;
 use std::sync::OnceLock;
 
 pub(crate) use builtin::BuiltinFn;
+pub use builtin::Definition;
 use builtin_data::BUILTINS;
 
 use super::{Colormap, ColormapError};
@@ -135,6 +136,24 @@ pub fn get(name: &str) -> Result<Colormap, ColormapError> {
     Ok(if reversed { cmap.reversed() } else { cmap })
 }
 
+/// matplotlib's definition of the built-in base colormap `name` (its
+/// entry in `_cm_listed.cmaps` or `_cm.datad`), `None` for any other name
+/// (aliases, reversed maps, maps registered at run time).
+///
+/// ```
+/// use pltrs::colors::colormaps::{self, Definition};
+/// let viridis = colormaps::definition("viridis");
+/// assert!(matches!(viridis, Some(Definition::Listed(rows)) if rows.len() == 256));
+/// assert!(matches!(colormaps::definition("Blues"), Some(Definition::Colors(_))));
+/// assert!(colormaps::definition("Blues_r").is_none());
+/// ```
+pub fn definition(name: &str) -> Option<Definition> {
+    BUILTINS
+        .iter()
+        .find(|(base, _)| *base == name)
+        .and_then(|(_, builtin)| builtin.definition().ok())
+}
+
 /// The named colormap, or the default `rcParams["image.cmap"]` for `None`
 /// (`matplotlib.colormaps.get_cmap`).
 pub fn get_cmap(name: Option<&str>) -> Result<Colormap, ColormapError> {
@@ -214,6 +233,35 @@ mod tests {
         unregister("mine").unwrap();
         assert!(!contains("mine"));
         assert!(get("mine").is_err());
+    }
+
+    #[test]
+    fn definitions_are_matplotlibs_data() {
+        let listed = names()
+            .iter()
+            .filter(|name| matches!(definition(name), Some(Definition::Listed(_))))
+            .count();
+        assert_eq!(listed, 11);
+        let defined = names().iter().filter(|name| definition(name).is_some());
+        assert_eq!(defined.count(), BUILTINS.len());
+        let Some(Definition::Segmented([red, _, _])) = definition("jet") else {
+            panic!("jet is segmented");
+        };
+        let jet_red = [
+            [0.0, 0.0, 0.0],
+            [0.35, 0.0, 0.0],
+            [0.66, 1.0, 1.0],
+            [0.89, 1.0, 1.0],
+            [1.0, 0.5, 0.5],
+        ];
+        assert!(matches!(red, crate::colors::Segment::Anchors(rows) if rows == jet_red));
+        let Some(Definition::Listed(shifted)) = definition("twilight_shifted") else {
+            panic!("twilight_shifted is listed");
+        };
+        assert_eq!(shifted.len(), 510);
+        let tab10 = definition("tab10");
+        assert!(matches!(tab10, Some(Definition::ListedData(rows)) if rows.len() == 10));
+        assert!(matches!(definition("terrain"), Some(Definition::Stops(_))));
     }
 
     #[test]

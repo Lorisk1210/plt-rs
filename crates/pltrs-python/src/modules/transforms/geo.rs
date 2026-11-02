@@ -1,12 +1,20 @@
 //! The map projections of geographic axes (matplotlib's
 //! `AitoffTransform`, `HammerTransform`, `LambertTransform`,
-//! `MollweideTransform` and their inverses), computed by pltrs (Rust).
+//! `MollweideTransform` and their inverses), computed by pltrs (Rust),
+//! and the grids of the axes (`set_longitude_grid`, ...,
+//! `GeoAxes.ThetaFormatter`).
 
 use pltrs::axes::Axes;
-use pltrs::geo::GeoProjection;
+use pltrs::geo::{GeoAxes, GeoError, GeoProjection, GeoThetaFormatter};
 
-use super::{points, points_array};
+use super::{matrix, points, points_array};
 use crate::binding::prelude::*;
+
+impl From<GeoError> for PyErr {
+    fn from(err: GeoError) -> Self {
+        PyErr::value_error(err.to_string())
+    }
+}
 
 /// The projection `name` names (`"aitoff"`, `"hammer"`, `"lambert"` with
 /// its centre `(longitude, latitude)` in radians, or `"mollweide"`).
@@ -63,11 +71,58 @@ fn lambert_center(axes: Axes) -> PyResult<Option<(f64, f64)>> {
     }))
 }
 
+/// The geographic axes `axes` is.
+fn geo_axes(axes: &Axes) -> PyResult<GeoAxes> {
+    axes.as_geo()
+        .ok_or_else(|| PyErr::type_error("the axes is not a geographic axes"))
+}
+
+/// The map from the projected plane onto the unit square of `axes`
+/// (matplotlib's `GeoAxes._get_affine_transform()`), as a 3×3 matrix.
+fn geo_affine(axes: Axes) -> PyResult<NdArray> {
+    matrix(geo_axes(&axes)?.geo_projection().affine())
+}
+
+/// `GeoAxes.set_longitude_grid(degrees)`.
+fn set_longitude_grid(axes: Axes, degrees: f64) -> PyResult<()> {
+    geo_axes(&axes)?.set_longitude_grid(degrees)?;
+    Ok(())
+}
+
+/// `GeoAxes.set_latitude_grid(degrees)`.
+fn set_latitude_grid(axes: Axes, degrees: f64) -> PyResult<()> {
+    geo_axes(&axes)?.set_latitude_grid(degrees)?;
+    Ok(())
+}
+
+/// `GeoAxes.set_longitude_grid_ends(degrees)`.
+fn set_longitude_grid_ends(axes: Axes, degrees: f64) -> PyResult<()> {
+    geo_axes(&axes)?.set_longitude_grid_ends(degrees);
+    Ok(())
+}
+
+/// The latitude in degrees where the longitude gridlines of `axes` end.
+fn get_longitude_grid_ends(axes: Axes) -> PyResult<f64> {
+    Ok(geo_axes(&axes)?.longitude_grid_ends())
+}
+
+/// `GeoAxes.ThetaFormatter(round_to)(radians)`: the angle in degrees,
+/// rounded to a multiple of `round_to`, with a degree sign.
+fn geo_theta_label(round_to: f64, radians: f64) -> PyResult<String> {
+    Ok(GeoThetaFormatter::new(round_to).label(radians))
+}
+
 /// Registers the functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("geo_forward", geo_forward)?;
     module.add("geo_inverse", geo_inverse)?;
-    module.add("lambert_center", lambert_center)
+    module.add("lambert_center", lambert_center)?;
+    module.add("geo_affine", geo_affine)?;
+    module.add("set_longitude_grid", set_longitude_grid)?;
+    module.add("set_latitude_grid", set_latitude_grid)?;
+    module.add("set_longitude_grid_ends", set_longitude_grid_ends)?;
+    module.add("get_longitude_grid_ends", get_longitude_grid_ends)?;
+    module.add("geo_theta_label", geo_theta_label)
 }
 
 #[cfg(test)]

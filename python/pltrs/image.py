@@ -7,8 +7,9 @@ draws: an image keeps its data and its colorizer, as matplotlib's do, and
 hands pltrs (Rust) a copy of them whenever they change; pltrs (Rust)
 resamples and colour-maps the image as matplotlib's ``_make_image`` does.
 Images are read and written with Pillow, as matplotlib does (``imread``,
-``imsave``, ``pil_to_array`` and the validation of image arrays are
-matplotlib's, from matplotlib 3.11.2, under the Matplotlib License).
+``imsave``, ``pil_to_array``, ``thumbnail`` and the validation of image
+arrays are matplotlib's, from matplotlib 3.11.2, under the Matplotlib
+License). `composite_images` composites through pltrs (Rust).
 """
 
 import functools
@@ -1310,3 +1311,105 @@ class BboxImage(_ImageBase):
         image._set_mapped_data(colorizer, A)
         image._internal_update(kwargs)
         return image
+
+
+def composite_images(images, renderer, magnification=1.0):
+    """
+    Composite a number of RGBA images into one.  The images are
+    composited in the order in which they appear in the *images* list.
+
+    Parameters
+    ----------
+    images : list of Images
+        Each must have a `!make_image` method.  For each image,
+        `!can_composite` should return `True`, though this is not
+        enforced by this function.  Each image must have a purely
+        affine transformation with no shear.
+
+    renderer : `.RendererBase`
+
+    magnification : float, default: 1
+        The additional magnification to apply for the renderer in use.
+
+    Returns
+    -------
+    image : (M, N, 4) `numpy.uint8` array
+        The composited RGBA image.
+    offset_x, offset_y : float
+        The (left, bottom) offset where the composited image should be placed
+        in the output figure.
+    """
+    parts = []
+    for image in images:
+        data, x, y, trans = image.make_image(renderer, magnification)
+        if data is not None:
+            parts.append((data, x, y, image._get_scalar_alpha()))
+    composite = _native_image.composite_images(parts, float(magnification))
+    if composite is None:
+        return np.empty((0, 0, 4), dtype=np.uint8), 0, 0
+    return composite
+
+
+def thumbnail(infile, thumbfile, scale=0.1, interpolation='bilinear',
+              preview=False):
+    """
+    Make a thumbnail of image in *infile* with output filename *thumbfile*.
+
+    See `Pillow for a replacement
+    <https://pillow.readthedocs.io/en/stable/handbook/tutorial.html#create-jpeg-thumbnails>`_.
+
+    Parameters
+    ----------
+    infile : str or file-like
+        The image file. Matplotlib relies on Pillow_ for image reading, and
+        thus supports a wide range of file formats, including PNG, JPG, TIFF
+        and others.
+
+        .. _Pillow: https://python-pillow.github.io
+
+    thumbfile : str or file-like
+        The thumbnail filename.
+
+    scale : float, default: 0.1
+        The scale factor for the thumbnail.
+
+    interpolation : str, default: 'bilinear'
+        The interpolation scheme used in the resampling. See the
+        *interpolation* parameter of `~.Axes.imshow` for possible values.
+
+    preview : bool, default: False
+        If True, the default backend (presumably a user interface
+        backend) will be used which will cause a figure to be raised if
+        `~matplotlib.pyplot.show` is called.  If it is False, the figure is
+        created using `.FigureCanvasBase` and the drawing backend is selected
+        as `.Figure.savefig` would normally do.
+
+    Returns
+    -------
+    `.Figure`
+        The figure instance containing the thumbnail.
+    """
+    im = imread(infile)
+    rows, cols, depth = im.shape
+
+    # This doesn't really matter (it cancels in the end) but the API needs it.
+    dpi = 100
+
+    height = rows / dpi * scale
+    width = cols / dpi * scale
+
+    if preview:
+        # Let the UI backend do everything.
+        from . import pyplot as plt
+        fig = plt.figure(figsize=(width, height), dpi=dpi)
+    else:
+        from .backend_bases import FigureCanvasBase
+        from .figure import Figure
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        FigureCanvasBase(fig)
+
+    ax = fig.add_axes((0, 0, 1, 1), aspect='auto',
+                      frameon=False, xticks=[], yticks=[])
+    ax.imshow(im, aspect='auto', resample=True, interpolation=interpolation)
+    fig.savefig(thumbfile, dpi=dpi)
+    return fig

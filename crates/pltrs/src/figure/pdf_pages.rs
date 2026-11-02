@@ -111,6 +111,17 @@ impl PdfPages {
         self.document.metadata_mut()
     }
 
+    /// The document itself, for writing objects into it as matplotlib's
+    /// `PdfFile` writes them.
+    pub fn document_mut(&mut self) -> &mut PdfRenderer {
+        &mut self.document
+    }
+
+    /// The document itself, the pages done.
+    pub fn into_document(self) -> PdfRenderer {
+        self.document
+    }
+
     /// The finished document (matplotlib's `close`); a document without
     /// pages is still a valid PDF file.
     ///
@@ -224,6 +235,21 @@ mod tests {
         assert_eq!(count(&pdf, "64.27 36 Td\n(two) Tj"), 1);
         assert_eq!(count(&pdf, "/Subtype /Type1 /BaseFont /Helvetica"), 1);
         assert_eq!(count(&pdf, "/Subtype /Type3"), 0);
+    }
+
+    #[test]
+    fn the_document_takes_objects_between_pages() {
+        let mut pages = PdfPages::new().unwrap();
+        pages.savefig(&Figure::with_size(1.0, 1.0, 72.0)).unwrap();
+        let document = pages.document_mut();
+        assert_eq!(document.alpha_state((0.25, 0.75)), "A1");
+        document.finalize().unwrap();
+        let pdf = pages.into_document().close().unwrap();
+        assert_eq!(
+            count(&pdf, "/A1 << /Type /ExtGState /CA 0.25 /ca 0.75 >>"),
+            1
+        );
+        assert_eq!(count(&pdf, "%%EOF"), 1);
     }
 
     #[test]

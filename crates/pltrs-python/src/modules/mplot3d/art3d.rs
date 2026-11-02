@@ -323,7 +323,7 @@ fn on_plane(coordinates: Columns, atol: f64) -> PyResult<bool> {
 }
 
 /// The vertices of each polygon or polyline: `(N, 3)` arrays.
-fn vertices(arrays: &[NdArray]) -> PyResult<Vec<Vec<Vec3>>> {
+pub(super) fn vertices(arrays: &[NdArray]) -> PyResult<Vec<Vec<Vec3>>> {
     arrays
         .iter()
         .map(|array| match array.shape[..] {
@@ -371,6 +371,10 @@ impl FromPy<'_> for PyGeometry {
             "lines" => {
                 let (verts,): (Vec<NdArray>,) = payload.extract()?;
                 Geometry3D::Lines(vertices(&verts)?)
+            }
+            "paths" => {
+                let (verts,): (Vec<NdArray>,) = payload.extract()?;
+                Geometry3D::Paths(vertices(&verts)?)
             }
             "patches" => {
                 let (zs, zdir, depthshade, min_alpha): (Vec<f64>, String, bool, f64) =

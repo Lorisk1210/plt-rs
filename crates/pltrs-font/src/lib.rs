@@ -62,14 +62,15 @@ mod types;
 
 pub use afm::{
     AfmError, AfmMetrics, AfmSection, CharMetrics, CompositePart, StrBbox, bundled_afm_files,
-    bundled_metrics, type1_name,
+    bundled_metrics, type1_name, uni2type1,
 };
 pub use agl::glyph_name_to_unicode;
 pub use autofit::{AutohintTarget, Autohinter};
 pub use db::{
     AfmDirectory, AfmFont, FaceStyle, FontDatabase, FontEntry, FontId, FontQuery, FontSource,
     FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
-    alternative_family_names, bundled_font_data, bundled_font_files, face_style, score_weight,
+    alternative_family_names, bundled_font_data, bundled_font_files, face_style, score_family,
+    score_size, score_stretch, score_style, score_variant, score_weight,
 };
 pub use error::{FontError, Result};
 pub use face::{Face, StyleFlags};

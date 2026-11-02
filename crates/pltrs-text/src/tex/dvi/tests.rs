@@ -52,14 +52,52 @@ fn empty_pages_measure_nothing() {
 #[test]
 fn the_minus_of_cmsy_has_no_depth() {
     let tfm = Arc::new(Tfm::parse(&tfm_bytes(0, 1, &[100, 100], 0)).unwrap());
-    let cmsy = DviFont::new(1 << 20, Arc::clone(&tfm), b"cmsy10".to_vec(), None);
-    let cmr = DviFont::new(1 << 20, tfm, b"cmr10".to_vec(), None);
+    let cmsy = DviFont::new(
+        1 << 20,
+        DviMetrics::Tfm(Arc::clone(&tfm)),
+        b"cmsy10".to_vec(),
+        None,
+    );
+    let cmr = DviFont::new(1 << 20, DviMetrics::Tfm(tfm), b"cmr10".to_vec(), None);
     assert_eq!(cmsy.height_depth_of(0).unwrap(), (100, 0));
     assert_eq!(cmsy.height_depth_of(1).unwrap(), (100, 30));
     assert_eq!(cmr.height_depth_of(0).unwrap(), (100, 30));
     assert!(is_cmsy(b"cmsy7\n") && !is_cmsy(b"cmsy") && !is_cmsy(b"cmsyx"));
     assert_eq!(cmr.height_depth_of(99).unwrap(), (0, 0));
     assert_eq!(cmr.width_of(99).unwrap(), 0);
+}
+
+#[test]
+fn fonts_made_by_hand_measure_as_those_of_dvi_files() {
+    let tfm = Arc::new(Tfm::parse(&tfm_bytes(65, 67, &[1 << 19, 734_003], 0)).unwrap());
+    let font = DviFont::new(10 << 16, DviMetrics::Tfm(tfm), b"test".to_vec(), None);
+    assert!((font.size() - 10.0 * 72.0 / 72.27).abs() < 1e-12);
+    let widths = font.widths();
+    assert_eq!(widths.len(), 68);
+    assert_eq!(widths[..65], [0; 65]);
+    assert_eq!(widths[65], 500);
+}
+
+#[test]
+fn native_fonts_of_xetex_and_luatex() {
+    let files = files(&[]);
+    let effects = NativeEffects {
+        slant: Some(0.25),
+        ..NativeEffects::default()
+    };
+    let xetex = DviFont::from_xetex(10 << 16, DEJAVU_SANS.as_bytes(), 0, effects, &files).unwrap();
+    assert_eq!(xetex.texname(), format!("[{DEJAVU_SANS}]").as_bytes());
+    let native = xetex.native_font().expect("a native font");
+    assert_eq!((native.subfont, native.effects), (0, effects));
+    assert_eq!(xetex.widths(), Vec::<i64>::new());
+    let luatex = DviFont::from_luatex(
+        10 << 16,
+        format!("[{DEJAVU_SANS}]:index=0").into_bytes(),
+        &files,
+    )
+    .unwrap();
+    assert_eq!(luatex.width_of(36).unwrap(), xetex.width_of(36).unwrap());
+    assert!(DviFont::from_luatex(10 << 16, b"DejaVuSans.ttf".to_vec(), &files).is_err());
 }
 
 #[test]

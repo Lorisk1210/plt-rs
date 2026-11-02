@@ -2,13 +2,21 @@
 Paths made of the outlines of text (matplotlib's ``textpath``).
 
 pltrs (Rust) typesets and outlines the text (``pltrs::text::text_path``, and
-``text_path_tex`` for TeX); this module keeps matplotlib's classes.
+``text_path_tex`` for TeX); this module keeps matplotlib's classes. The
+glyph lists of mathtext and of a font (`TextToPath.get_glyphs_mathtext`,
+`TextToPath.get_glyphs_with_font`) are matplotlib's, from matplotlib
+3.11.2 under the Matplotlib License, over pltrs' mathtext parser and
+`.FT2Font`.
 """
 
 from collections import OrderedDict
 
-from .font_manager import FontManager, FontProperties
+from . import _text_helpers
+from .font_manager import FontManager, FontProperties, fontManager, get_font
+from .ft2font import LoadFlags
+from .mathtext import MathTextParser
 from .path import Path
+from .texmanager import TexManager
 from .transforms import Affine2D
 from ._native import textpath as _textpath
 
@@ -27,6 +35,55 @@ class TextToPath:
 
     FONT_SCALE = 100.
     DPI = 72
+
+    def __init__(self):
+        self.mathtext_parser = MathTextParser('path')
+        self._texmanager = None
+
+    def _get_font(self, prop):
+        """
+        Find the `FT2Font` matching font properties *prop*, with its size set.
+        """
+        filenames = fontManager._find_fonts_by_props(prop)
+        font = get_font(filenames)
+        font.set_size(self.FONT_SCALE, self.DPI)
+        return font
+
+    def _get_hinting_flag(self):
+        return LoadFlags.NO_HINTING
+
+    def _get_glyph_repr(self, font, glyph):
+        """Return a unique id for the given font and glyph index."""
+        return _glyph_repr(font.postscript_name, glyph)
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        """
+        The width, height and descent of the text *s* drawn in the font
+        *prop*, in points, unhinted: as mathtext if *ismath* is true, by
+        TeX if it is ``"TeX"``.
+        """
+        fontsize = prop.get_size_in_points()
+
+        if ismath == "TeX":
+            return TexManager().get_text_width_height_descent(s, fontsize)
+
+        scale = fontsize / self.FONT_SCALE
+
+        if ismath:
+            prop = prop.copy()
+            prop.set_size(self.FONT_SCALE)
+            width, height, descent, *_ = \
+                self.mathtext_parser.parse(s, 72, prop)
+            return width * scale, height * scale, descent * scale
+
+        font = self._get_font(prop)
+        font.set_text(s, 0.0, flags=LoadFlags.NO_HINTING)
+        w, h = font.get_width_height()
+        w /= 64.0  # convert from subpixels
+        h /= 64.0
+        d = font.get_descent()
+        d /= 64.0
+        return w * scale, h * scale, d * scale
 
     def get_text_path(self, prop, s, ismath=False, *, features=None, language=None):
         """
@@ -63,6 +120,91 @@ class TextToPath:
         return _textpath.get_text_path(
             s, FontManager._props(prop), ismath == "TeX",
             None if features is None else list(features), language)
+
+    def get_glyphs_with_font(self, font, s, glyph_map=None,
+                             return_new_glyphs_only=False, *, features=None,
+                             language=None):
+        """
+        Convert string *s* to vertices and codes using the provided ttf font.
+        """
+
+        if glyph_map is None:
+            glyph_map = OrderedDict()
+
+        if return_new_glyphs_only:
+            glyph_map_new = OrderedDict()
+        else:
+            glyph_map_new = glyph_map
+
+        xpositions = []
+        ypositions = []
+        glyph_reprs = []
+        for item in _text_helpers.layout(s, font, features=features,
+                                         language=language):
+            glyph_repr = self._get_glyph_repr(item.ft_object, item.glyph_index)
+            glyph_reprs.append(glyph_repr)
+            xpositions.append(item.x)
+            ypositions.append(item.y)
+            if glyph_repr not in glyph_map:
+                glyph_map_new[glyph_repr] = item.ft_object.get_path()
+
+        sizes = [1.] * len(xpositions)
+
+        rects = []
+
+        return (list(zip(glyph_reprs, xpositions, ypositions, sizes)),
+                glyph_map_new, rects)
+
+    def get_glyphs_mathtext(self, prop, s, glyph_map=None,
+                            return_new_glyphs_only=False):
+        """
+        Parse mathtext string *s* and convert it to a (vertices, codes) pair.
+        """
+
+        prop = prop.copy()
+        prop.set_size(self.FONT_SCALE)
+
+        width, height, descent, glyphs, rects = self.mathtext_parser.parse(
+            s, self.DPI, prop)
+
+        if not glyph_map:
+            glyph_map = OrderedDict()
+
+        if return_new_glyphs_only:
+            glyph_map_new = OrderedDict()
+        else:
+            glyph_map_new = glyph_map
+
+        xpositions = []
+        ypositions = []
+        glyph_reprs = []
+        sizes = []
+
+        for font, fontsize, ccode, glyph_index, ox, oy in glyphs:
+            glyph_repr = self._get_glyph_repr(font, glyph_index)
+            if glyph_repr not in glyph_map:
+                font.clear()
+                font.set_size(self.FONT_SCALE, self.DPI)
+                font.load_glyph(glyph_index, flags=LoadFlags.NO_HINTING)
+                glyph_map_new[glyph_repr] = font.get_path()
+
+            xpositions.append(ox)
+            ypositions.append(oy)
+            glyph_reprs.append(glyph_repr)
+            size = fontsize / self.FONT_SCALE
+            sizes.append(size)
+
+        myrects = []
+        for ox, oy, w, h in rects:
+            vert1 = [(ox, oy), (ox, oy + h), (ox + w, oy + h),
+                     (ox + w, oy), (ox, oy), (0, 0)]
+            code1 = [Path.MOVETO,
+                     Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO,
+                     Path.CLOSEPOLY]
+            myrects.append((vert1, code1))
+
+        return (list(zip(glyph_reprs, xpositions, ypositions, sizes)),
+                glyph_map_new, myrects)
 
     def get_glyphs_tex(self, prop, s, glyph_map=None,
                        return_new_glyphs_only=False):

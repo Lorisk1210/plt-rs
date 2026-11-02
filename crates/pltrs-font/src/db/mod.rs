@@ -16,7 +16,10 @@ pub use entry::{FaceStyle, FontEntry, FontId, alternative_family_names, face_sty
 pub use query::{
     FontQuery, FontStyle, FontVariant, GenericFamilies, GenericFamily, Stretch, Weight,
 };
-pub use score::weight as score_weight;
+pub use score::{
+    family as score_family, size as score_size, stretch as score_stretch, style as score_style,
+    variant as score_variant, weight as score_weight,
+};
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -44,12 +44,12 @@ pub(crate) use frame::{FigureFrame, SuperText};
 pub use mosaic::{Mosaic, MosaicCell, MosaicError, MosaicOptions};
 pub use mosaic_axes::MosaicAxes;
 pub use pdf_pages::PdfPages;
-pub use pgf::{PgfTexSystem, pgf_preamble};
+pub use pgf::{PgfTexSystem, pgf_preamble, pgf_text};
 pub use pltrs_render::{
     Metadata, PageOrientation, PageSetupError, Paper, PngMetadata, SvgFontType, SvgMetadata,
     UnknownSvgFontType,
 };
-pub use postscript::{ProgramError, check_distiller};
+pub use postscript::{DistillOptions, ProgramError, check_distiller, distill_file};
 pub use print::{BboxInches, PadInches, SaveOptions};
 pub use rect::AxesRectError;
 pub(crate) use rect::axes_bounds;

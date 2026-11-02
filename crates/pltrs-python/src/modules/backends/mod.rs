@@ -6,7 +6,9 @@
 
 mod agg_text;
 mod canvas;
+mod documents;
 mod gc;
+mod pdf_file;
 mod pdf_pages;
 mod print;
 
@@ -61,7 +63,9 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     canvas::register(module)?;
     agg_text::register(module)?;
     print::register(module)?;
-    pdf_pages::register(module)
+    documents::register(module)?;
+    pdf_pages::register(module)?;
+    pdf_file::register(module)
 }
 
 #[cfg(test)]

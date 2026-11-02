@@ -83,6 +83,32 @@ def _gen_cmap_registry():
     return cmap_d
 
 
+def _datad_entry(name, kind, data):
+    """The entry of ``_cm.datad`` for the built-in colormap *name*, from
+    its definition in pltrs (Rust)."""
+    if kind == "segmented":
+        return {channel: (_BuiltinSegment(name, channel) if rows is None
+                          else tuple(rows))
+                for channel, rows in zip(("red", "green", "blue"), data)}
+    if kind == "listed_data":
+        return {"listed": tuple(data)}
+    return tuple(data)
+
+
+def _gen_datad():
+    r"""
+    matplotlib's ``_cm.datad``: the definitions of the built-in
+    `.LinearSegmentedColormap`\s, and of the `.ListedColormap`\s of the
+    colour sequences (``{'listed': colors}``), by name.
+    """
+    datad = {}
+    for name in _cm.colormap_names():
+        definition = _cm.builtin_definition(name)
+        if definition is not None and definition[0] != "listed":
+            datad[name] = _datad_entry(name, *definition)
+    return datad
+
+
 def _gen_multivar_cmaps():
     """The multivariate colormaps (matplotlib's ``_cm_multivar``)."""
     families = {}
@@ -295,7 +321,17 @@ class _NativeColormapRegistry(ColormapRegistry):
 _colormaps = _NativeColormapRegistry(_gen_cmap_registry())
 globals().update(_colormaps)
 
-_multivar_colormaps = ColormapRegistry(_gen_multivar_cmaps())
+#: The definitions of the built-in segmented colormaps (matplotlib's
+#: ``_cm.datad``).
+datad = _gen_datad()
+#: The built-in `.ListedColormap`\s of matplotlib's ``_cm_listed`` (the
+#: registry's own objects, as in matplotlib).
+cmaps_listed = {
+    name: _colormaps._cmaps[name] for name in _cm.colormap_names()
+    if (_cm.builtin_definition(name) or ("",))[0] == "listed"}
+#: The multivariate colormaps (matplotlib's ``_cm_multivar.cmap_families``).
+multivar_cmaps = _gen_multivar_cmaps()
+_multivar_colormaps = ColormapRegistry(multivar_cmaps)
 
 
 def _from_native(native):
@@ -315,4 +351,6 @@ def _from_native(native):
     under, over, bad = extremes
     return cmap.with_extremes(under=under, over=over, bad=bad)
 
-_bivar_colormaps = ColormapRegistry(_gen_bivar_cmaps())
+#: The bivariate colormaps (matplotlib's ``_cm_bivar.cmaps``).
+bivar_cmaps = _gen_bivar_cmaps()
+_bivar_colormaps = ColormapRegistry(bivar_cmaps)

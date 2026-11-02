@@ -4,7 +4,7 @@
 
 use std::ops::Deref;
 
-use pltrs_core::Point;
+use pltrs_core::{Bbox, Point};
 
 use super::{AxisArtist, opposite};
 use crate::axes::TickDirection;
@@ -91,6 +91,18 @@ impl Ticks {
     /// reference axis' ticks (matplotlib's `set_markeredgewidth`).
     pub fn set_markeredgewidth(&self, width: Option<f64>) -> &Self {
         self.update(|ticks| ticks.width = width)
+    }
+
+    /// The colour of the marks; `None` when they follow the reference
+    /// axis' ticks (matplotlib's `"auto"`).
+    pub fn color(&self) -> Option<Color> {
+        self.get(|ticks| ticks.color.clone())
+    }
+
+    /// The line width of the marks in points; `None` when it follows the
+    /// reference axis' ticks (matplotlib's `"auto"`).
+    pub fn markeredgewidth(&self) -> Option<f64> {
+        self.get(|ticks| ticks.width)
     }
 
     /// Sets the opacity of the marks.
@@ -193,6 +205,12 @@ impl LabelBase {
         self.update(|label| label.color = color)
     }
 
+    /// The colour of the text(s); `None` for the default (matplotlib's
+    /// `"auto"`).
+    pub fn color(&self) -> Option<Color> {
+        self.get(|label| label.color.clone())
+    }
+
     /// Sets the text angle in degrees, relative to 90° plus the direction
     /// from the line to the text (matplotlib's `set_rotation`).
     pub fn set_rotation(&self, degrees: f64) -> &Self {
@@ -245,6 +263,48 @@ impl TickLabels {
         self.0
             .update(|label| label.set_axis_direction(opposite(label.direction)));
         self
+    }
+
+    /// The level of the tick labels.
+    fn level(&self) -> Level {
+        match self.0.part {
+            Part::TickLabels(level) => level,
+            Part::Label => Level::Major,
+        }
+    }
+
+    /// The display boxes of the tick labels in the figure's current
+    /// layout, none when they are hidden (matplotlib's
+    /// `get_window_extents`).
+    ///
+    /// ```
+    /// use pltrs::axisartist::AxisArtist;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::spines::SpineSide;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let left = AxisArtist::add_fixed(&ax, SpineSide::Left);
+    /// assert!(!left.major_ticklabels().window_extents().is_empty());
+    /// assert_eq!(
+    ///     left.major_ticklabels().window_extents().len(),
+    ///     left.major_ticklabels().texts_widths_heights_descents().len()
+    /// );
+    /// ```
+    pub fn window_extents(&self) -> Vec<Bbox> {
+        let level = self.level();
+        self.0
+            .artist
+            .with_layout(|artist, layout| artist.ticklabel_extents(layout, level))
+    }
+
+    /// The width, height and descent in pixels of each non-empty tick
+    /// label, in the figure's current layout (matplotlib's
+    /// `get_texts_widths_heights_descents`).
+    pub fn texts_widths_heights_descents(&self) -> Vec<(f64, f64, f64)> {
+        let level = self.level();
+        self.0
+            .artist
+            .with_layout(|artist, layout| artist.ticklabel_metrics(layout, level))
     }
 }
 

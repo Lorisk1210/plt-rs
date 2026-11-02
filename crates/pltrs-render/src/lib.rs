@@ -53,8 +53,11 @@ pub use filter::{FilterFn, FilterImage, Filtered};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
 pub use mixed::MixedModeRenderer;
-pub use pdf::{PdfOptions, PdfRenderer};
-pub use pgf::{PgfDocument, PgfOptions, PgfRenderer};
+pub use pdf::{
+    PdfFont, PdfHatch, PdfMarkerPaint, PdfObject, PdfOptions, PdfRenderer, PdfShadingColors,
+    PdfTemplatePaint, pdf_text_string,
+};
+pub use pgf::{PgfDocument, PgfOptions, PgfRenderer, pgf_text};
 pub use ps::{
     PageOrientation, PageSetupError, Paper, PsDocument, PsOptions, PsOutput, PsRenderer,
     PsfragFigure, pstoeps,
@@ -65,7 +68,10 @@ pub use raster::{
     set_texts_as_paths,
 };
 pub use renderer::{Renderer, draw_text_as_path};
-pub use svg::{ImageFile, SvgFontType, SvgOptions, SvgRenderer, UnknownSvgFontType};
+pub use svg::{
+    Attribute, ImageFile, PROLOG as SVG_PROLOG, SvgFontType, SvgOptions, SvgRenderer,
+    UnknownSvgFontType, XmlWriter,
+};
 pub use vector::{
     FontType, Metadata, PNG_SOFTWARE, PngMetadata, SvgMetadata, Timestamp, Trapped, VectorError,
     gzip,

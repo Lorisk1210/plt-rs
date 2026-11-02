@@ -136,25 +136,55 @@ fn flip_rows(image: &RgbaImage) -> RgbaImage {
     RgbaImage::new(image.width(), image.height(), data).expect("flipping keeps the size")
 }
 
-/// One image of a composite and its uniform opacity, which compositing
-/// applies (again) as matplotlib does (`_get_scalar_alpha`).
-struct Part {
-    image: RenderedImage,
-    alpha: f64,
+/// One image of a composite (what matplotlib's `make_image` gives for it)
+/// and its uniform opacity, which compositing applies (again) as
+/// matplotlib does (`_get_scalar_alpha`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct CompositePart {
+    /// The image's pixels, first row at the top.
+    pub pixels: RgbaImage,
+    /// Where its lower left corner goes, in display pixels at the
+    /// renderer's own resolution (before `magnification`).
+    pub origin: Point,
+    /// The opacity applied over its pixels.
+    pub alpha: f64,
 }
 
-/// `composite_images`: the images placed on one canvas, each at its
-/// magnified position, in order; its origin is the canvas's lower left
-/// corner, unmagnified.
-fn composite(parts: &[Part], magnification: f64) -> Result<Option<RenderedImage>, ImageError> {
-    let placed: Vec<(&RenderedImage, f64, f64, f64)> = parts
+/// Composites images into one, each placed at its magnified position, in
+/// order (matplotlib's `image.composite_images`): the composite and its
+/// lower left corner, unmagnified, or `None` when there is nothing to
+/// composite (no parts, or no pixels).
+///
+/// ```
+/// use pltrs::image::{CompositePart, RgbaImage, composite_images};
+/// use pltrs_core::Point;
+/// let red = RgbaImage::new(2, 1, vec![255, 0, 0, 255, 255, 0, 0, 255])?;
+/// let blue = RgbaImage::new(1, 1, vec![0, 0, 255, 255])?;
+/// let parts = [
+///     CompositePart { pixels: red, origin: Point::new(0.0, 0.0), alpha: 1.0 },
+///     CompositePart { pixels: blue, origin: Point::new(1.0, 1.0), alpha: 1.0 },
+/// ];
+/// let (image, origin) = composite_images(&parts, 1.0)?.expect("pixels");
+/// assert_eq!((image.width(), image.height()), (2, 2));
+/// assert_eq!(origin, Point::new(0.0, 0.0));
+/// assert_eq!(&image.data()[4..8], &[0, 0, 255, 255]);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When the composite is too large to allocate.
+pub fn composite_images(
+    parts: &[CompositePart],
+    magnification: f64,
+) -> Result<Option<(RgbaImage, Point)>, ImageError> {
+    let placed: Vec<(&RgbaImage, f64, f64, f64)> = parts
         .iter()
         .map(|part| {
-            let origin = part.image.origin;
             (
-                &part.image,
-                origin.x * magnification,
-                origin.y * magnification,
+                &part.pixels,
+                part.origin.x * magnification,
+                part.origin.y * magnification,
                 part.alpha,
             )
         })
@@ -162,12 +192,7 @@ fn composite(parts: &[Part], magnification: f64) -> Result<Option<RenderedImage>
     let Some(bbox) = placed
         .iter()
         .map(|&(part, x, y, _)| {
-            Bbox::from_extents(
-                x,
-                y,
-                x + part.pixels.width() as f64,
-                y + part.pixels.height() as f64,
-            )
+            Bbox::from_extents(x, y, x + part.width() as f64, y + part.height() as f64)
         })
         .reduce(|a, b| a.union(&b))
     else {
@@ -180,9 +205,9 @@ fn composite(parts: &[Part], magnification: f64) -> Result<Option<RenderedImage>
     let mut output = raster::Grid::filled(width, height, [0u8; 4])?;
     for (part, x, y, alpha) in placed {
         // matplotlib's image arrays have their first row at the bottom.
-        let bottom_up = flip_rows(&part.pixels);
+        let bottom_up = flip_rows(part);
         let pixels: Vec<[u8; 4]> = bottom_up.data().as_chunks::<4>().0.to_vec();
-        let source = raster::Grid::from_vec(part.pixels.width(), part.pixels.height(), pixels)?;
+        let source = raster::Grid::from_vec(part.width(), part.height(), pixels)?;
         let shift = Affine2D::translation(x - bbox.x0(), y - bbox.y0());
         raster::resample(
             &source,
@@ -194,10 +219,10 @@ fn composite(parts: &[Part], magnification: f64) -> Result<Option<RenderedImage>
     }
     let data: Vec<u8> = output.into_vec().into_iter().flatten().collect();
     let canvas = RgbaImage::new(width, height, data).expect("the canvas holds its own pixels");
-    Ok(Some(RenderedImage {
-        pixels: flip_rows(&canvas),
-        origin: Point::new(bbox.x0() / magnification, bbox.y0() / magnification),
-    }))
+    Ok(Some((
+        flip_rows(&canvas),
+        Point::new(bbox.x0() / magnification, bbox.y0() / magnification),
+    )))
 }
 
 impl Figure {
@@ -300,23 +325,25 @@ impl Compositor {
                     };
                     let alpha = artist.base().alpha.unwrap_or(1.0);
                     match image.rendered(ctx, self.magnification) {
-                        Ok(Some(image)) => parts.push(Part { image, alpha }),
+                        Ok(Some(image)) => parts.push(CompositePart {
+                            pixels: image.pixels,
+                            origin: image.origin,
+                            alpha,
+                        }),
                         Ok(None) => {}
                         Err(err) => ctx.report(id, err),
                     }
                 }
-                match composite(&parts, self.magnification) {
-                    Ok(Some(image)) => {
+                match composite_images(&parts, self.magnification) {
+                    Ok(Some((pixels, origin))) => {
                         let gc = GraphicsContext {
                             clip_rect: self.clip.0,
                             clip_path: self.clip.1.clone(),
                             ..GraphicsContext::default()
                         };
-                        let origin = Point::new(
-                            image.origin.x.round_ties_even(),
-                            image.origin.y.round_ties_even(),
-                        );
-                        ctx.renderer().draw_image(&gc, origin, &image.pixels, None);
+                        let origin =
+                            Point::new(origin.x.round_ties_even(), origin.y.round_ties_even());
+                        ctx.renderer().draw_image(&gc, origin, &pixels, None);
                     }
                     Ok(None) => {}
                     Err(err) => ctx.report(several[0], err),

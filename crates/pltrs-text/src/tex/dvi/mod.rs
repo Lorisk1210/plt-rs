@@ -11,7 +11,7 @@ pub(crate) use machine::{Machine, Registers, State, mul1220};
 
 use super::error::{TexError, TexFile};
 use super::files::FontSource;
-use super::native::{NativeFace, NativeFont};
+use super::native::{NativeEffects, NativeFace, NativeFont};
 use super::tfm::{TexMetrics, Tfm};
 use super::vf::Vf;
 use machine::Executed;
@@ -50,20 +50,59 @@ impl PartialEq for DviFont {
 }
 
 impl DviFont {
-    /// A font with TeX font metrics.
-    pub(crate) fn new(
-        scale: i128,
-        metrics: Arc<Tfm>,
-        texname: Vec<u8>,
-        vf: Option<Arc<Vf>>,
-    ) -> Self {
+    /// A font of `metrics` scaled by `scale` (12.20 fixed point) that TeX
+    /// knows as `texname`, the virtual font `vf` if it is one
+    /// (matplotlib's `DviFont(scale, metrics, texname, vf)`).
+    pub fn new(scale: i128, metrics: DviMetrics, texname: Vec<u8>, vf: Option<Arc<Vf>>) -> Self {
         Self {
             texname,
             scale,
-            metrics: DviMetrics::Tfm(metrics),
+            metrics,
             vf,
             native: None,
         }
+    }
+
+    /// A native font of LuaTeX (matplotlib's `DviFont.from_luatex`): its
+    /// `texname` is the font file in brackets, optionally followed by `:`
+    /// and its options (see the DVI files LuaTeX writes); the metrics are
+    /// read from the file through `files`.
+    ///
+    /// # Errors
+    ///
+    /// When the name is not of that form or the font file cannot be read.
+    pub fn from_luatex(
+        scale: i128,
+        texname: Vec<u8>,
+        files: &dyn FontSource,
+    ) -> Result<Self, TexError> {
+        let native = NativeFont::luatex(&texname)?;
+        let metrics = files.native_face(&native.path, native.subfont)?;
+        Ok(Self::native(scale, texname, native, metrics))
+    }
+
+    /// A native font of XeTeX (matplotlib's `DviFont.from_xetex`): face
+    /// `subfont` of the font file `name`, shown with `effects`, its
+    /// metrics read from the file through `files`; TeX knows it as the
+    /// name in brackets.
+    ///
+    /// # Errors
+    ///
+    /// When the font file cannot be read or has no such face.
+    pub fn from_xetex(
+        scale: i128,
+        name: &[u8],
+        subfont: u32,
+        effects: NativeEffects,
+        files: &dyn FontSource,
+    ) -> Result<Self, TexError> {
+        let native = NativeFont::from_file_name(name, subfont, effects);
+        let metrics = files.native_face(&native.path, subfont)?;
+        let mut texname = Vec::with_capacity(name.len() + 2);
+        texname.push(b'[');
+        texname.extend_from_slice(name);
+        texname.push(b']');
+        Ok(Self::native(scale, texname, native, metrics))
     }
 
     /// A native font, its metrics read from its font file.
@@ -118,6 +157,23 @@ impl DviFont {
     /// Where the font's metrics come from.
     pub fn metrics(&self) -> &DviMetrics {
         &self.metrics
+    }
+
+    /// The widths of the characters from 0 to the last the TFM file
+    /// defines, in thousandths of the design size, 0 for those it does
+    /// not (matplotlib's deprecated `DviFont.widths`); none for a native
+    /// font, whose characters are glyph indices.
+    pub fn widths(&self) -> Vec<i64> {
+        let DviMetrics::Tfm(tfm) = &self.metrics else {
+            return Vec::new();
+        };
+        let last = tfm.codes().last().copied().unwrap_or(-1);
+        (0..=last)
+            .map(|code| {
+                tfm.metrics(code)
+                    .map_or(0, |metrics| (1000 * i64::from(metrics.width)) >> 20)
+            })
+            .collect()
     }
 
     /// The virtual font this font is, if it is one.

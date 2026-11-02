@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use super::{DviFont, RawGlyph, RawRule};
+use super::{DviFont, DviMetrics, RawGlyph, RawRule};
 use crate::tex::bytes::Bytes;
 use crate::tex::error::{TexError, TexFile, bytes_repr};
 use crate::tex::files::FontSource;
@@ -380,15 +380,8 @@ impl<'a> Machine<'a> {
         let name = self.read(length);
         let index = self.arg(4, false) as u32;
         let native = NativeFont::xetex(name, index, flags, |n, signed| self.input.arg(n, signed));
-        let metrics = self.files.native_face(&native.path, native.subfont)?;
-        let mut texname = Vec::with_capacity(name.len() + 2);
-        texname.push(b'[');
-        texname.extend_from_slice(name);
-        texname.push(b']');
-        self.fonts.insert(
-            k,
-            FontSlot::Loaded(Arc::new(DviFont::native(scale, texname, native, metrics))),
-        );
+        let font = DviFont::from_xetex(scale, name, native.subfont, native.effects, self.files)?;
+        self.fonts.insert(k, FontSlot::Loaded(Arc::new(font)));
         Ok(())
     }
 
@@ -527,12 +520,8 @@ impl<'a> Machine<'a> {
             &texname[texname.len() - l..]
         };
         if name.starts_with(b"[") && checksum == LUATEX_CHECKSUM {
-            let native = NativeFont::luatex(&texname)?;
-            let metrics = self.files.native_face(&native.path, native.subfont)?;
-            self.fonts.insert(
-                k,
-                FontSlot::Loaded(Arc::new(DviFont::native(scale, texname, native, metrics))),
-            );
+            let font = DviFont::from_luatex(scale, texname, self.files)?;
+            self.fonts.insert(k, FontSlot::Loaded(Arc::new(font)));
             return Ok(());
         }
         let name = std::str::from_utf8(name)
@@ -553,7 +542,12 @@ impl<'a> Machine<'a> {
         let vf = self.files.vf(name)?;
         self.fonts.insert(
             k,
-            FontSlot::Loaded(Arc::new(DviFont::new(scale, tfm, texname, vf))),
+            FontSlot::Loaded(Arc::new(DviFont::new(
+                scale,
+                DviMetrics::Tfm(tfm),
+                texname,
+                vf,
+            ))),
         );
         Ok(())
     }

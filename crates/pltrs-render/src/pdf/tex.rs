@@ -278,6 +278,21 @@ impl PdfRenderer {
 }
 
 impl DviFonts {
+    /// `dviFontName`: registers `font`, whose files `files` finds, under
+    /// its name `F-<texname>` (replacing the font registered under it);
+    /// returns the name.
+    pub(super) fn register(&mut self, font: Arc<DviFont>, files: &'static TexFiles) -> String {
+        self.files.get_or_insert(files);
+        let name = format!("F-{}", font.name());
+        if let Some(used) = self.fonts.get_mut(&name) {
+            used.font = font;
+        } else {
+            let glyphs = BTreeMap::new();
+            self.fonts.insert(name.clone(), UsedFont { font, glyphs });
+        }
+        name
+    }
+
     /// Embeds every TeX font the document uses, by name (`writeFonts`
     /// does them first, sorted); returns the font resource entries.
     pub(super) fn embed(&self, writer: &mut PdfWriter) -> Result<Vec<(String, Obj)>, VectorError> {
@@ -404,7 +419,7 @@ fn tfm_widths(font: &DviFont, codes: RangeInclusive<i64>) -> Result<Vec<Obj>, Te
 
 /// `createType1Descriptor`: writes the font descriptor and the font
 /// program (cleartext and encrypted parts); returns the descriptor.
-fn type1_descriptor(
+pub(super) fn type1_descriptor(
     writer: &mut PdfWriter,
     font: &Type1Font,
     font_name: &str,

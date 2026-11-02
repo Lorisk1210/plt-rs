@@ -39,6 +39,9 @@ pub enum ProgramError {
         /// What it wrote to its standard error.
         stderr: String,
     },
+    /// A page the size of the figure was asked for without the figure's
+    /// bounding box.
+    MissingBbox,
     /// A file in the temporary directory could not be written, read or
     /// moved.
     Io {
@@ -95,6 +98,9 @@ impl fmt::Display for ProgramError {
                 "The command\n    {command}\nfailed and generated the following output:\n\
                  {stdout}\nand the following error:\n{stderr}"
             ),
+            Self::MissingBbox => {
+                f.write_str("a page the size of the figure needs the figure's bounding box")
+            }
             Self::Io { path, message } => write!(f, "PostScript temporary file {path}: {message}"),
         }
     }

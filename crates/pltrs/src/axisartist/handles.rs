@@ -2,14 +2,16 @@
 //! with its `line`, `major_ticks`, `minor_ticks`, `major_ticklabels`,
 //! `minor_ticklabels` and `label` children).
 
+use pltrs_core::Path;
+
 use super::artist::{AxisArtistState, Level};
 use super::axes::adopt_axis_artist;
-use super::helper::AxisHelper;
+use super::helper::{AxisHelper, TickInfo};
 use super::line::{AxislineStyle, LineState};
 use crate::artist::{ArtistHandle, LayoutContext, RawHandle, TypedHandle};
 use crate::spines::SpineSide;
 use crate::ticker::AxisName;
-use crate::transforms::{Bbox, Point};
+use crate::transforms::{Bbox, Point, Transform};
 
 mod parts;
 
@@ -134,16 +136,58 @@ impl AxisArtist {
         state.store.get(self.raw.id())?.tight_extent(&layout)
     }
 
+    /// The major and minor ticks its helper places in the figure's
+    /// current layout (matplotlib's `get_helper().get_tick_iterators(axes)`);
+    /// none when the axes is gone.
+    ///
+    /// ```
+    /// use pltrs::axisartist::AxisArtist;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let bottom = AxisArtist::add_fixed(&ax, SpineSide::Bottom);
+    /// let (major, _) = bottom.helper_ticks();
+    /// assert_eq!(major[0].label, "0.0");
+    /// assert_eq!((major[0].angle_normal, major[0].angle_tangent), (90.0, 0.0));
+    /// ```
+    pub fn helper_ticks(&self) -> (Vec<TickInfo>, Vec<TickInfo>) {
+        self.with_layout(AxisArtistState::helper_ticks)
+    }
+
+    /// The line its helper runs along in the figure's current layout, and
+    /// the coordinates of the line (matplotlib's `get_helper().get_line`
+    /// and `get_line_transform`); `None` when the axes is gone.
+    pub fn helper_line(&self) -> Option<(Path, Transform)> {
+        self.with_layout(AxisArtistState::helper_line)
+    }
+
+    /// Where its helper puts the label in the figure's current layout, in
+    /// display pixels, and the direction of the line there in degrees
+    /// (matplotlib's `get_helper().get_axislabel_pos_angle` through
+    /// `get_axislabel_transform`); `None` for a line outside the axes.
+    pub fn helper_label_position(&self) -> Option<(Point, f64)> {
+        self.with_layout(AxisArtistState::helper_label_position)
+    }
+
     /// The tick marks of `level` in the figure's current layout (see
     /// [`Ticks::locs_angles`]).
     fn locs_angles(&self, level: Level) -> Vec<(Point, f64)> {
+        self.with_layout(|artist, layout| artist.tick_locs_angles(layout, level))
+    }
+
+    /// What `f` finds of the artist in the figure's current layout; the
+    /// default when the artist is gone or `f` fails.
+    fn with_layout<R: Default>(
+        &self,
+        f: impl FnOnce(&AxisArtistState, LayoutContext<'_>) -> Result<R, String>,
+    ) -> R {
         let mut state = self.raw.figure_state().borrow_mut();
         state.prepare();
         let layout = LayoutContext::new(&state);
         state
             .store
             .get_as::<AxisArtistState>(self.raw.id())
-            .and_then(|artist| artist.tick_locs_angles(layout, level).ok())
+            .and_then(|artist| f(artist, layout).ok())
             .unwrap_or_default()
     }
 

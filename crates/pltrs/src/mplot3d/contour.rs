@@ -50,18 +50,24 @@ pub struct Contour3DOptions {
 }
 
 /// Where the contour paths of a set go in 3-D, and whether they are
-/// clipped to the view limits.
-#[derive(Clone, Copy, Debug)]
-struct Placement {
-    zdir: Axis3,
-    offset: Option<f64>,
-    axlim_clip: bool,
+/// clipped to the view limits (the `zdir`, `offset` and `axlim_clip` of
+/// matplotlib's `add_contour_set` and `add_contourf_set`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ContourPlacement {
+    /// The axis the contoured values lie along; the contours lie in planes
+    /// normal to it.
+    pub zdir: Axis3,
+    /// Places every contour in the plane at this position along `zdir`
+    /// instead of at its level.
+    pub offset: Option<f64>,
+    /// Whether the contour points outside the view limits are hidden.
+    pub axlim_clip: bool,
 }
 
 impl Contour3DOptions {
     /// The placement these options ask for.
-    fn placement(&self) -> Placement {
-        Placement {
+    fn placement(&self) -> ContourPlacement {
+        ContourPlacement {
             zdir: self.zdir,
             offset: self.offset,
             axlim_clip: self.axlim_clip,
@@ -114,7 +120,7 @@ impl Axes3D {
         let placement = options.placement();
         let field = rotated_field(&grid, options.zdir);
         let set = self.plane().contourf(&field, options.contour)?;
-        let middles = self.add_contourf_set(&set, extend, placement);
+        let middles = self.lift_contourf(&set, extend, placement);
         let data = [x.as_slice(), y.as_slice(), z.as_slice()];
         self.auto_scale_contourf(data, options.zdir, &middles, had_data)?;
         Ok(set)
@@ -175,19 +181,28 @@ impl Axes3D {
         let placement = options.placement();
         let (rotated, jz) = rotated_triangulation(tri, z, options.zdir)?;
         let set = self.plane().tricontourf(&rotated, &jz, options.contour)?;
-        let middles = self.add_contourf_set(&set, extend, placement);
+        let middles = self.lift_contourf(&set, extend, placement);
         self.auto_scale_contourf([tri.x(), tri.y(), z], options.zdir, &middles, had_data)?;
         Ok(set)
     }
 
-    /// Places line contours in 3-D, or extends them into ribbons
-    /// (matplotlib's `add_contour_set`).
-    fn add_contour_set(
+    /// Places the line contours `set`, drawn on the projection plane of
+    /// these axes, in 3-D: each at its level (or at the placement's
+    /// offset) along the placement's `zdir`, or, with `extend3d`, replaced
+    /// by ribbons of one quadrilateral per that many points (matplotlib's
+    /// `add_contour_set`).
+    ///
+    /// # Errors
+    ///
+    /// When `set` is not drawn on these axes, or has a single level to
+    /// extend.
+    pub fn add_contour_set(
         &self,
         set: &ContourSet,
-        placement: Placement,
+        placement: ContourPlacement,
         extend3d: Option<NonZeroUsize>,
     ) -> Result<(), Axes3DError> {
+        self.check_on_plane(set)?;
         if let Some(stride) = extend3d {
             return self.extend_contour(set, stride);
         }
@@ -195,10 +210,41 @@ impl Axes3D {
         Ok(())
     }
 
-    /// Places filled contours in 3-D at the middles of their bands, the
-    /// extended ends half a band beyond the outer levels, and returns
-    /// those positions (matplotlib's `_add_contourf_set`).
-    fn add_contourf_set(&self, set: &ContourSet, extend: Extend, placement: Placement) -> Vec<f64> {
+    /// Places the filled contours `set`, drawn on the projection plane of
+    /// these axes, in 3-D at the middles of their bands, the extended ends
+    /// half a band beyond the outer levels (or at the placement's offset),
+    /// and returns those positions (matplotlib's `add_contourf_set` and
+    /// `_add_contourf_set`).
+    ///
+    /// # Errors
+    ///
+    /// When `set` is not drawn on these axes.
+    pub fn add_contourf_set(
+        &self,
+        set: &ContourSet,
+        placement: ContourPlacement,
+    ) -> Result<Vec<f64>, Axes3DError> {
+        self.check_on_plane(set)?;
+        Ok(self.lift_contourf(set, set.extend(), placement))
+    }
+
+    /// Fails unless `set` is drawn on the projection plane of these axes.
+    fn check_on_plane(&self, set: &ContourSet) -> Result<(), Axes3DError> {
+        if set.axes().id() == self.plane().id() {
+            Ok(())
+        } else {
+            Err(Axes3DError::ForeignArtist)
+        }
+    }
+
+    /// Places filled contours in 3-D at the middles of their bands (see
+    /// [`Axes3D::add_contourf_set`]).
+    fn lift_contourf(
+        &self,
+        set: &ContourSet,
+        extend: Extend,
+        placement: ContourPlacement,
+    ) -> Vec<f64> {
         let levels = set.levels();
         let mut middles: Vec<f64> = levels
             .windows(2)
@@ -241,7 +287,7 @@ impl Axes3D {
     /// Places the contour paths of `set` in 3-D: path `i` in the plane at
     /// the placement's offset, or at `positions[i]`, along its `zdir`
     /// (matplotlib's `collection_2d_to_3d`).
-    fn lift(&self, set: &ContourSet, placement: Placement, positions: &[f64]) {
+    fn lift(&self, set: &ContourSet, placement: ContourPlacement, positions: &[f64]) {
         let mut index = 0;
         for collection in set.collections() {
             let paths = collection

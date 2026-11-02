@@ -66,6 +66,7 @@ pub use bitmap::{BitmapError, BitmapFormat, BitmapSettings};
 pub use color_image::{color_image_bytes, color_image_rgba};
 pub use colorize::MultivarColorizerOptions;
 pub(crate) use composite::Compositor;
+pub use composite::{CompositePart, composite_images};
 pub(crate) use data::Precision;
 pub use data::{ImageData, ScalarField, ScalarKind};
 pub use error::ImageError;

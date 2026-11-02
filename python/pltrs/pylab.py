@@ -8,6 +8,10 @@ It imports pltrs by name, as it is loaded as the top-level ``pylab`` when
 matplotlib's suite runs.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING  # noqa: F401  (matplotlib's pyplot has it)
+
 from pltrs.dates import (  # noqa: F401
     date2num, num2date, datestr2num, drange, DateFormatter, DateLocator,
     RRuleLocator, YearLocator, MonthLocator, WeekdayLocator, DayLocator,
@@ -23,6 +27,10 @@ from pltrs.mlab import (  # noqa: F401
 
 from pltrs import cbook, mlab, pyplot as plt  # noqa: F401
 from pltrs.pyplot import *  # noqa: F401, F403
+# What matplotlib's pyplot, which has no __all__, brings in besides.
+from pltrs import (  # noqa: F401
+    color_sequences, colormaps, rcParamsDefault, rcParamsOrig)
+from pltrs.backends import backend_registry  # noqa: F401
 
 from numpy import *  # noqa: F401, F403
 from numpy.fft import *  # noqa: F401, F403

@@ -14,10 +14,11 @@ import numpy as np
 
 from .. import _api, _tick_helpers, cbook, ticker as mticker
 from .. import transforms as mtransforms
-from .._native import polar as _polar
+from .._native import axis as _axis, polar as _polar
 from ..axes import Axes
 from ..axis import XAxis, XTick, YAxis, YTick
 from ..path import Path
+from ._polar_text import PolarTextTransforms, _is_full_circle_rad
 
 
 class PolarTransform(mtransforms.Transform):
@@ -397,6 +398,19 @@ class ThetaAxis(XAxis):
     __name__ = 'thetaaxis'
     _tick_class = ThetaTick
 
+    def _wrap_locator_formatter(self):
+        locator = self.get_major_locator()
+        if not isinstance(locator, ThetaLocator):
+            self.set_major_locator(ThetaLocator(locator))
+        self.set_major_formatter(ThetaFormatter())
+        _axis.mark_default_helpers(*self._args())
+
+    def clear(self):
+        # docstring inherited
+        super().clear()
+        self.set_ticks_position('none')
+        self._wrap_locator_formatter()
+
 
 class RadialTick(YTick):
     """
@@ -427,6 +441,16 @@ class RadialAxis(YAxis):
         if not isinstance(locator, RadialLocator):
             locator = RadialLocator(locator)
         super().set_major_locator(locator)
+
+    def _wrap_locator_formatter(self):
+        self.set_major_locator(self.get_major_locator())
+        _axis.mark_default_helpers(*self._args())
+
+    def clear(self):
+        # docstring inherited
+        super().clear()
+        self.set_ticks_position('none')
+        self._wrap_locator_formatter()
 
 
 class _WedgeBbox(mtransforms.Bbox):
@@ -486,7 +510,7 @@ class _WedgeBbox(mtransforms.Bbox):
         return self._points
 
 
-class PolarAxes(Axes):
+class PolarAxes(PolarTextTransforms, Axes):
     """
     A polar graph projection, where the input dimensions are *theta*, *r*.
 

@@ -195,6 +195,39 @@ impl Axes3D {
         Ok(self)
     }
 
+    /// Orders the polygons of a polygon collection of these axes by the
+    /// mean, lowest or highest depth of their vertices, forgetting the
+    /// position it was given to be ordered by (matplotlib's
+    /// `Poly3DCollection.set_zsort`).
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionProps;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::ZSort;
+    /// let ax = Figure::new().subplot_3d();
+    /// let triangle = vec![vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]];
+    /// let polys = ax.add_poly_collection3d(triangle, CollectionProps::default(), true)?;
+    /// ax.set_sort_zpos(&polys, Some(2.0))?;
+    /// ax.set_zsort(&polys, ZSort::Max)?;
+    /// assert_eq!(ax.sort_zpos(&polys)?, None);
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When `collection` is not a polygon collection of these axes.
+    pub fn set_zsort(&self, collection: &Collection, zsort: ZSort) -> Result<&Self, Axes3DError> {
+        self.edit_art(collection, |art| {
+            let Art3D::Polys(polys) = art else {
+                return None;
+            };
+            polys.zsort = zsort;
+            polys.sort_zpos = None;
+            Some(())
+        })?;
+        Ok(self)
+    }
+
     /// The face and edge colours the polygons of a polygon collection of
     /// these axes are drawn with, in polygon order (matplotlib's
     /// `_facecolor3d` and `_edgecolor3d`); colour-mapped polygons are

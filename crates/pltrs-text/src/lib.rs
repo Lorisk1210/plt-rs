@@ -52,7 +52,8 @@ pub use pltrs_font::{
     AfmDirectory, AfmFont, AfmMetrics, Feature, FontDatabase, FontEntry, FontId, FontQuery,
     FontSource, FontStyle, FontVariant, GenericFamilies, GlyphId, Hinting, LanguageRange,
     LanguageTag, ParseFeatureError, Stretch, Type1Effects, Type1Encoding, Type1Face, Type1Font,
-    Type1Glyph, Weight, bundled_afm_files, bundled_font_data, bundled_font_files, score_weight,
+    Type1Glyph, Weight, bundled_afm_files, bundled_font_data, bundled_font_files, score_family,
+    score_size, score_stretch, score_style, score_variant, score_weight,
 };
 pub use run::{GlyphChars, PlacedGlyph, TextAnchor, TextRun, TextSource};
 pub use shaping::{Language, Shaping};

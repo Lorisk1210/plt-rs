@@ -1731,6 +1731,8 @@ class FigureCanvasBase:
         super().__init__()  # Typically the GUI widget init (if any).
 
     callbacks = property(lambda self: self.figure._canvas_callbacks)
+    button_pick_id = property(lambda self: self.figure._button_pick_id)
+    scroll_pick_id = property(lambda self: self.figure._scroll_pick_id)
 
     @classmethod
     def new_manager(cls, figure, num):

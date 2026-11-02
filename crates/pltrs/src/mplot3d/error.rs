@@ -76,6 +76,8 @@ pub enum Axes3DError {
     UnsupportedCollection,
     /// The artist is not a 3-D artist of the axes.
     Not3DArtist,
+    /// The artist is not on the projection plane of the axes.
+    ForeignArtist,
     /// The axis does not label its major ticks with a `ScalarFormatter`.
     NotScalarFormatter(Axis3),
     /// Another unit converter was already set explicitly on the axis
@@ -127,6 +129,7 @@ impl fmt::Display for Axes3DError {
                 f.write_str("only polygon, line and patch collections can be added to 3-D axes")
             }
             Self::Not3DArtist => f.write_str("the artist is not a 3-D artist of these axes"),
+            Self::ForeignArtist => f.write_str("the artist is not drawn on these axes"),
             Self::NotScalarFormatter(axis) => write!(
                 f,
                 "the {}-axis tick labels do not use a ScalarFormatter",

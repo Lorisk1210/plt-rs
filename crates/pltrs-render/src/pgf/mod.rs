@@ -16,6 +16,8 @@
 mod path;
 mod text;
 
+pub use text::pgf_text;
+
 use std::fmt::Write as _;
 
 use pltrs_core::path::convert::SimplifySettings;

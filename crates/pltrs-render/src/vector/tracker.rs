@@ -15,6 +15,11 @@ pub(crate) struct Subset {
 }
 
 impl Subset {
+    /// The subset of the `(code, glyph)` pairs `entries`.
+    pub(crate) const fn from_entries(entries: Vec<(u32, GlyphId)>) -> Self {
+        Self { entries }
+    }
+
     /// `(code, glyph)` pairs in first-use order.
     pub(crate) fn entries(&self) -> &[(u32, GlyphId)] {
         &self.entries

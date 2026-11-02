@@ -25,6 +25,8 @@ use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform};
 
 /// The z-order of axis artists (matplotlib's `AxisArtist.zorder`).
+mod extents;
+
 const ZORDER: f64 = 2.5;
 
 /// The default gap between tick labels and the axis label, in points

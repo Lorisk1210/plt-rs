@@ -161,6 +161,12 @@ def _shaping(features, language):
     return features, ranges
 
 
+def _read_only(name, doc):
+    """A read-only property giving the value *name* of the object's
+    ``_values`` (as matplotlib's C++ classes expose their fields)."""
+    return property(lambda self: self._values[name], doc=doc)
+
+
 class Glyph:
     """
     Information about a single glyph.
@@ -174,23 +180,51 @@ class Glyph:
     """
 
     def __init__(self, metrics, index):
-        ((self.width, self.height, self.horiBearingX, self.horiBearingY),
-         (self.horiAdvance, self.linearHoriAdvance),
-         (self.vertBearingX, self.vertBearingY, self.vertAdvance),
-         self.bbox) = metrics
+        ((width, height, horiBearingX, horiBearingY),
+         (horiAdvance, linearHoriAdvance),
+         (vertBearingX, vertBearingY, vertAdvance),
+         bbox) = metrics
+        self._values = dict(
+            width=width, height=height, horiBearingX=horiBearingX,
+            horiBearingY=horiBearingY, horiAdvance=horiAdvance,
+            linearHoriAdvance=linearHoriAdvance, vertBearingX=vertBearingX,
+            vertBearingY=vertBearingY, vertAdvance=vertAdvance, bbox=bbox)
         self._index = index
+
+    width = _read_only("width", "The glyph's width.")
+    height = _read_only("height", "The glyph's height.")
+    horiBearingX = _read_only(
+        "horiBearingX", "Left side bearing for horizontal layout.")
+    horiBearingY = _read_only(
+        "horiBearingY", "Top side bearing for horizontal layout.")
+    horiAdvance = _read_only(
+        "horiAdvance", "Advance width for horizontal layout.")
+    linearHoriAdvance = _read_only(
+        "linearHoriAdvance", "The advance width of the unhinted glyph.")
+    vertBearingX = _read_only(
+        "vertBearingX", "Left side bearing for vertical layout.")
+    vertBearingY = _read_only(
+        "vertBearingY", "Top side bearing for vertical layout.")
+    vertAdvance = _read_only(
+        "vertAdvance", "Advance height for vertical layout.")
+    bbox = _read_only("bbox", "The control box of the glyph.")
 
 
 class LayoutItem:
     """A glyph of laid out text, as `FT2Font._layout` yields it."""
 
     def __init__(self, ft_object, char, glyph_index, x, y, prev_kern):
-        self.ft_object = ft_object
-        self.char = char
-        self.glyph_index = glyph_index
-        self.x = x
-        self.y = y
-        self.prev_kern = prev_kern
+        self._values = dict(ft_object=ft_object, char=char,
+                            glyph_index=glyph_index, x=x, y=y,
+                            prev_kern=prev_kern)
+
+    ft_object = _read_only("ft_object", "The FT_Face of the item.")
+    char = _read_only("char", "The character code for the item.")
+    glyph_index = _read_only("glyph_index", "The glyph index for the item.")
+    x = _read_only("x", "The x position of the item.")
+    y = _read_only("y", "The y position of the item.")
+    prev_kern = _read_only(
+        "prev_kern", "The kerning between this item and the previous one.")
 
     def __str__(self):
         return (f"LayoutItem(ft_object={self.ft_object.fname}, "
@@ -283,16 +317,53 @@ class FT2Font:
         self._face_index = face_index
         if _kerning_factor:
             _ft2font.set_kerning_factor(self._native, _kerning_factor)
-        ((self.postscript_name, self.family_name, self.style_name),
-         (self.num_faces, self.num_glyphs, self.num_charmaps,
-          self.num_fixed_sizes),
-         (face_flags, style_flags, self.units_per_EM,
-          (self.underline_position, self.underline_thickness)),
-         (self.ascender, self.descender, self.height,
-          (self.max_advance_width, self.max_advance_height, self.bbox))
+        ((postscript_name, family_name, style_name),
+         (num_faces, num_glyphs, num_charmaps, num_fixed_sizes),
+         (face_flags, style_flags, units_per_EM,
+          (underline_position, underline_thickness)),
+         (ascender, descender, height,
+          (max_advance_width, max_advance_height, bbox))
          ) = _ft2font.attributes(self._native)
-        self.face_flags = FaceFlags(face_flags)
-        self.style_flags = StyleFlags(style_flags)
+        self._values = dict(
+            postscript_name=postscript_name, family_name=family_name,
+            style_name=style_name, num_faces=num_faces, num_glyphs=num_glyphs,
+            num_charmaps=num_charmaps, num_fixed_sizes=num_fixed_sizes,
+            face_flags=FaceFlags(face_flags),
+            style_flags=StyleFlags(style_flags), units_per_EM=units_per_EM,
+            underline_position=underline_position,
+            underline_thickness=underline_thickness, ascender=ascender,
+            descender=descender, height=height,
+            max_advance_width=max_advance_width,
+            max_advance_height=max_advance_height, bbox=bbox)
+
+    postscript_name = _read_only(
+        "postscript_name", "PostScript name of the font.")
+    family_name = _read_only("family_name", "Face family name.")
+    style_name = _read_only("style_name", "Style name.")
+    num_faces = _read_only("num_faces", "Number of faces in file.")
+    num_glyphs = _read_only("num_glyphs", "Number of glyphs in the face.")
+    num_charmaps = _read_only("num_charmaps", "Number of charmaps in the face.")
+    num_fixed_sizes = _read_only(
+        "num_fixed_sizes", "Number of bitmap in the face.")
+    face_flags = _read_only("face_flags", "Face flags; see `.FaceFlags`.")
+    style_flags = _read_only("style_flags", "Style flags; see `.StyleFlags`.")
+    units_per_EM = _read_only(
+        "units_per_EM", "Number of font units covered by the EM.")
+    underline_position = _read_only(
+        "underline_position", "Vertical position of the underline bar.")
+    underline_thickness = _read_only(
+        "underline_thickness", "Thickness of the underline bar.")
+    ascender = _read_only("ascender", "Ascender in 26.6 units.")
+    descender = _read_only("descender", "Descender in 26.6 units.")
+    height = _read_only(
+        "height", "Height in 26.6 units; used to compute a default line "
+        "spacing (baseline-to-baseline distance).")
+    max_advance_width = _read_only(
+        "max_advance_width", "Maximum horizontal cursor advance for all glyphs.")
+    max_advance_height = _read_only(
+        "max_advance_height", "Maximum vertical cursor advance for all glyphs.")
+    bbox = _read_only(
+        "bbox", "Face global bounding box (xmin, ymin, xmax, ymax).")
 
     @staticmethod
     def _read(filename):

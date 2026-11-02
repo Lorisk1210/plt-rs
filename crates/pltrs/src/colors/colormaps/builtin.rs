@@ -163,6 +163,27 @@ fn gnuplot(n: u8) -> fn(f64) -> f64 {
     FORMULAE[usize::from(n)]
 }
 
+/// How matplotlib defines a built-in base colormap: an entry of its
+/// `_cm_listed.cmaps` or of its `_cm.datad`.
+#[derive(Clone, Debug)]
+pub enum Definition {
+    /// An entry of `_cm_listed.cmaps`: a `ListedColormap` of these
+    /// colours.
+    Listed(Vec<[f64; 3]>),
+    /// An entry of `datad` with a `"red"`, `"green"` and `"blue"` channel:
+    /// a `LinearSegmentedColormap` of this segment data.
+    Segmented([Segment; 3]),
+    /// An entry of `datad` listing colours spread evenly over the map
+    /// (`LinearSegmentedColormap.from_list`).
+    Colors(Vec<[f64; 3]>),
+    /// An entry of `datad` listing `(value, colour)` pairs
+    /// (`LinearSegmentedColormap.from_list`).
+    Stops(Vec<(f64, [f64; 3])>),
+    /// An entry `{"listed": colours}` of `datad`: a `ListedColormap` of
+    /// the colour sequence of the same name.
+    ListedData(Vec<[f64; 3]>),
+}
+
 impl ChannelDef {
     fn segment(self) -> Segment {
         match self {
@@ -172,18 +193,44 @@ impl ChannelDef {
     }
 }
 
+/// The rows of `twilight_shifted`: `rows` rotated by half their length,
+/// reversed.
+fn shifted(rows: &[[f64; 3]]) -> Vec<[f64; 3]> {
+    let half = rows.len() / 2;
+    let mut shifted = [&rows[half..], &rows[..half]].concat();
+    shifted.reverse();
+    shifted
+}
+
 impl Builtin {
+    /// matplotlib's definition of the map.
+    ///
+    /// # Errors
+    ///
+    /// When the map is a colour sequence that does not exist.
+    pub(super) fn definition(self) -> Result<Definition, ColormapError> {
+        Ok(match self {
+            Self::Listed(rows) => Definition::Listed(rows.to_vec()),
+            Self::Shifted(rows) => Definition::Listed(shifted(rows)),
+            Self::Segmented(channels) => Definition::Segmented(channels.map(ChannelDef::segment)),
+            Self::FromList(rows) => Definition::Colors(rows.to_vec()),
+            Self::FromStops(stops) => Definition::Stops(stops.to_vec()),
+            Self::Sequence(sequence) => Definition::ListedData(
+                color_sequence(sequence)
+                    .ok_or_else(|| ColormapError::Unknown(sequence.to_owned()))?
+                    .into_iter()
+                    .map(|c| [c.r, c.g, c.b])
+                    .collect(),
+            ),
+        })
+    }
+
     /// Builds the colormap; segmented maps get `lutsize` entries.
     pub(super) fn build(self, name: &str, lutsize: usize) -> Result<Colormap, ColormapError> {
         let rgb = |rows: &[[f64; 3]]| -> Vec<Color> { rows.iter().map(|&c| c.into()).collect() };
         match self {
             Self::Listed(rows) => Colormap::listed(name, rgb(rows)),
-            Self::Shifted(rows) => {
-                let half = rows.len() / 2;
-                let mut shifted = [&rows[half..], &rows[..half]].concat();
-                shifted.reverse();
-                Colormap::listed(name, rgb(&shifted))
-            }
+            Self::Shifted(rows) => Colormap::listed(name, rgb(&shifted(rows))),
             Self::Segmented([red, green, blue]) => {
                 let data = SegmentData::new(red.segment(), green.segment(), blue.segment());
                 Colormap::segmented(name, data, lutsize, 1.0)

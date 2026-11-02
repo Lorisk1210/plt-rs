@@ -107,6 +107,33 @@ pltrs_core::archive_struct!(Limits3D {
 });
 
 impl Limits3D {
+    /// The data box holding one axis, and the axis' index in it.
+    fn data_box(&mut self, axis: Axis3) -> (&mut DataBox, usize) {
+        match axis {
+            Axis3::X => (&mut self.xy, 0),
+            Axis3::Y => (&mut self.xy, 1),
+            Axis3::Z => (&mut self.zz, 0),
+        }
+    }
+
+    /// The data interval of one axis (matplotlib's `xy_dataLim.intervalx`,
+    /// `xy_dataLim.intervaly` and `zz_dataLim.intervalx`).
+    pub(crate) fn data_interval(&self, axis: Axis3) -> (f64, f64) {
+        let (data, i) = match axis {
+            Axis3::X => (&self.xy, 0),
+            Axis3::Y => (&self.xy, 1),
+            Axis3::Z => (&self.zz, 0),
+        };
+        (data.lo[i], data.hi[i])
+    }
+
+    /// Replaces the data interval of one axis.
+    pub(crate) fn set_data_interval(&mut self, axis: Axis3, (lo, hi): (f64, f64)) {
+        let (data, i) = self.data_box(axis);
+        data.lo[i] = lo;
+        data.hi[i] = hi;
+    }
+
     /// The initial limits; `zmargin` is the z autoscaling margin.
     pub(crate) fn new(zmargin: f64, rc: &RcParams) -> Self {
         Self {

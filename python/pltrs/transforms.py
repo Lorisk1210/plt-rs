@@ -48,8 +48,10 @@ import weakref
 import math
 
 import numpy as np
+from numpy.linalg import inv  # noqa: F401  (matplotlib's transforms has it)
 from . import _api, _docstring
 from ._native import transforms as _transforms
+from ._path import affine_transform, count_bboxes_overlapping_bbox  # noqa: F401
 from .path import Path
 
 DEBUG = False

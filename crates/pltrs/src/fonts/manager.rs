@@ -7,6 +7,7 @@ use pltrs_text::{
     TextEngine, Type1Face,
 };
 
+use super::properties::generic_families;
 use super::{FontProperties, FontStretch, FontWeight};
 use crate::rc::RcParams;
 use crate::text::TextError;
@@ -147,6 +148,53 @@ impl FontManager {
         }
     }
 
+    /// matplotlib's `FontManager.score_family`: where `family` comes in
+    /// the list `families` (0.0 at its head, 1.0 when it does not come),
+    /// the generic families standing for the fonts their lists in `rc`
+    /// (`font.serif`, ...) name.
+    ///
+    /// ```
+    /// use pltrs::fonts::FontManager;
+    /// use pltrs::rc::RcParams;
+    /// let rc = RcParams::matplotlib();
+    /// let families = ["serif".to_owned(), "DejaVu Sans".to_owned()];
+    /// assert_eq!(FontManager::score_family(&families, "DejaVu Serif", &rc), 0.0);
+    /// assert_eq!(FontManager::score_family(&families, "dejavu sans", &rc), 0.5);
+    /// ```
+    pub fn score_family(families: &[String], family: &str, rc: &RcParams) -> f64 {
+        pltrs_text::score_family(families, family, &generic_families(rc))
+    }
+
+    /// matplotlib's `FontManager.score_style`: 0.0 for the same style, 0.1
+    /// between italic and oblique, else 1.0.
+    pub fn score_style(wanted: FontStyle, actual: FontStyle) -> f64 {
+        pltrs_text::score_style(wanted, actual)
+    }
+
+    /// matplotlib's `FontManager.score_variant`: 0.0 for the same variant,
+    /// else 1.0.
+    pub fn score_variant(wanted: FontVariant, actual: FontVariant) -> f64 {
+        pltrs_text::score_variant(wanted, actual)
+    }
+
+    /// matplotlib's `FontManager.score_stretch`: the difference of the CSS
+    /// values of the stretches, over 1000.
+    ///
+    /// ```
+    /// use pltrs::fonts::{FontManager, FontStretch};
+    /// let condensed = FontStretch::from_name("condensed").unwrap();
+    /// assert_eq!(FontManager::score_stretch(condensed, FontStretch::NORMAL), 0.2);
+    /// ```
+    pub fn score_stretch(wanted: FontStretch, actual: FontStretch) -> f64 {
+        pltrs_text::score_stretch(Stretch(wanted.value()), Stretch(actual.value()))
+    }
+
+    /// matplotlib's `FontManager.score_size`: the difference of the sizes
+    /// in points over 72, or 0.0 for a scalable font (`None`).
+    pub fn score_size(wanted: f64, actual: Option<f64>) -> f64 {
+        pltrs_text::score_size(wanted, actual)
+    }
+
     /// Adds the fonts of the file at `path` (matplotlib's
     /// `fontManager.addfont`): they are matched by their family names
     /// from now on.
@@ -246,6 +294,47 @@ impl FontManager {
                 .file
                 .to_owned()),
         }
+    }
+
+    /// The TrueType font file [`find_font`](Self::find_font) picks for
+    /// `props` as a path on disk, with the index of the face in the file
+    /// (matplotlib's `findfont`, which gives a `FontPath`): a bundled font
+    /// at its place in the [data directory](crate::config::data_dir).
+    ///
+    /// ```
+    /// use pltrs::fonts::{FontManager, FontProperties};
+    /// use pltrs::rc::RcParams;
+    /// let rc = RcParams::matplotlib();
+    /// let (path, index) = FontManager::global().find_font_path(&FontProperties::from_rc(&rc), &rc)?;
+    /// assert!(path.is_file());
+    /// assert_eq!(index, 0);
+    /// # Ok::<(), pltrs::text::TextError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When no font matches, or the data directory cannot be written.
+    pub fn find_font_path(
+        &self,
+        props: &FontProperties,
+        rc: &RcParams,
+    ) -> Result<(std::path::PathBuf, u32), TextError> {
+        if let Some(file) = &props.file {
+            return Ok((file.clone(), 0));
+        }
+        let request = props.request(rc);
+        let db = self.engine.database();
+        let id = db.find_font_with(&request.query, &request.generics)?;
+        let path = match db.source(id) {
+            Some(FontSource::File(path)) => path.clone(),
+            Some(FontSource::Bundled(name)) => crate::config::data_dir()
+                .map_err(|err| TextError::Font(err.to_string()))?
+                .join("fonts")
+                .join("ttf")
+                .join(name),
+            None => std::path::PathBuf::new(),
+        };
+        Ok((path, db.face_index(id).unwrap_or_default()))
     }
 
     /// The best TrueType entry for `props` among the faces whose source

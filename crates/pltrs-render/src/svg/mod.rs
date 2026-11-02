@@ -30,15 +30,16 @@ use pltrs_text::TextRun;
 use pltrs_text::tex::{TexError, TexText};
 
 use self::defs::{Clips, Hatches};
-use self::xml::XmlWriter;
+pub use self::xml::{Attribute, XmlWriter};
 use crate::collection::PathCollection;
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::renderer::Renderer;
 use crate::vector::{FontCache, Metadata, Problems, Timestamp, VectorError, check_canvas, short};
 
-/// The XML declaration and doctype every document starts with.
-const PROLOG: &str = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n\
+/// The XML declaration and doctype every document starts with
+/// (matplotlib's `svgProlog`).
+pub const PROLOG: &str = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>\n\
 <!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\"\n  \
 \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n";
 

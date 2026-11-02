@@ -2,7 +2,8 @@
 
 use pltrs_core::{Affine2D, Point};
 
-use crate::artist::{ArtistBase, ArtistHandle, DrawContext};
+use super::{Text, TextArtist};
+use crate::artist::{ArtistBase, ArtistHandle, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::patches::{
     BoxShape, BoxStyle, ClipRegion, DEFAULT_PAD, FancyBboxPatch, Patch, PatchError, PatchParts,
@@ -39,6 +40,50 @@ impl TextBoxProps {
     #[must_use]
     pub fn with_patch(self, patch: PatchProps) -> Self {
         Self { patch, ..self }
+    }
+}
+
+impl TextArtist {
+    /// The box where the text draws it: its shape and the transform
+    /// placing it in display pixels; `None` without a box or an anchor.
+    fn box_frame(&self, ctx: LayoutContext<'_>) -> Option<(FancyBboxPatch, Affine2D)> {
+        let (bbox, placement) = self.box_placement(ctx, self.box_anchor(ctx)?).ok()??;
+        Some(bbox.shape(&placement))
+    }
+}
+
+impl Text {
+    /// The box behind the text where it is drawn in the figure's current
+    /// layout (laid out first): the [`FancyBboxPatch`] at the origin with
+    /// the size of the text's frame and a mutation scale of its font size
+    /// in pixels, and the transform rotating it and placing it in display
+    /// pixels (matplotlib's `update_bbox_position_size`, which moves the
+    /// patch of `get_bbox_patch` there). `None` without a box, or for a
+    /// text outside any figure.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::text::TextBoxProps;
+    /// let fig = Figure::with_size(4.0, 3.0, 100.0);
+    /// let text = fig.text(0.5, 0.5, "boxed");
+    /// assert!(text.bbox_frame().is_none());
+    /// text.set_bbox(Some(TextBoxProps::default()));
+    /// let (shape, transform) = text.bbox_frame().expect("a box");
+    /// assert_eq!(shape.mutation_scale, text.font().size * 100.0 / 72.0);
+    /// // The frame of the left-aligned text, from its anchor's x and below
+    /// // its baseline; the box style pads it when it is drawn.
+    /// let corner = transform.transform_point((0.0, 0.0).into());
+    /// assert!((corner.x - 200.0).abs() < 1e-9 && corner.y < 150.0);
+    /// ```
+    pub fn bbox_frame(&self) -> Option<(FancyBboxPatch, Affine2D)> {
+        let raw = self.raw();
+        let mut state = raw.figure_state().borrow_mut();
+        state.prepare();
+        let layout = LayoutContext::new(&state);
+        state
+            .store
+            .get_as::<TextArtist>(raw.id())?
+            .box_frame(layout)
     }
 }
 

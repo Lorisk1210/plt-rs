@@ -37,6 +37,35 @@ fn parses_every_name() {
 }
 
 #[test]
+fn descriptions_parse_back() {
+    for text in [
+        "-",
+        "->,head_length=0.6,widthA=2,scaleB=3",
+        "<|-|>",
+        "]-,widthA=1.5,lengthA=0.4,angleA=30",
+        "-[,widthB=2",
+        "]-[,lengthA=0.1",
+        "|-|,widthA=0.3,angleB=10",
+        "]->",
+        "<-[,angleB=5",
+        "simple,tail_width=0.5",
+        "fancy",
+        "wedge,shrink_factor=0.2",
+    ] {
+        let parsed = style(text);
+        let described = parsed.to_string();
+        assert_eq!(style(&described), parsed, "{text} described as {described}");
+    }
+    assert_eq!(
+        style("|-|").to_string(),
+        "|-|,widthA=1,angleA=0,widthB=1,angleB=0"
+    );
+    assert_eq!(style("]-").to_string(), "]-,widthA=1,angleA=0,lengthA=0.2");
+    let unnamed = ArrowStyle::curve(CurveEnd::Bracket, CurveEnd::FilledHead);
+    assert!(unnamed.to_string().parse::<ArrowStyle>().is_err());
+}
+
+#[test]
 fn open_heads_are_stroked_and_filled_heads_filled() {
     let open = style("->")
         .paths(&horizontal_segment(), 10.0, 1.0, 1.0)

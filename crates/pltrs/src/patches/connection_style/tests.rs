@@ -11,6 +11,24 @@ const A: Point = Point::new(0.0, 0.0);
 const B: Point = Point::new(100.0, 100.0);
 
 #[test]
+fn descriptions_parse_back() {
+    for text in [
+        "arc3,rad=0.3",
+        "angle3,angleA=-90,angleB=180",
+        "angle,angleA=0,angleB=90,rad=5",
+        "arc,angleA=0,angleB=180,armA=30,armB=0,rad=10",
+        "arc",
+        "bar,armA=1,armB=2,fraction=-0.3,angle=45",
+        "bar",
+    ] {
+        let parsed = style(text);
+        assert_eq!(style(&parsed.to_string()), parsed, "{text}");
+    }
+    assert_eq!(style("arc3").to_string(), "arc3,rad=0");
+    assert_eq!(style("bar").to_string(), "bar,armA=0,armB=0,fraction=0.3");
+}
+
+#[test]
 fn parses_names_and_defaults() {
     assert_eq!(style("arc3"), ConnectionStyle::Arc3 { rad: 0.0 });
     assert_eq!(

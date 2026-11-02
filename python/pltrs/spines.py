@@ -34,15 +34,87 @@ class Spine(Patch):
     def linear_spine(cls, axes, spine_type, **kwargs):
         """Create and return a linear `Spine`: the spine of *axes* on the
         side *spine_type*, as an object of *cls*."""
-        natives = dict(_spines.axes_spines(axes._native))
-        if spine_type not in natives:
+        if spine_type not in dict(_spines.axes_spines(axes._native)):
             raise ValueError(f'unable to make path for spine "{spine_type}"')
-        spine = _handles.wrap(natives[spine_type], cls, axes.figure)
+        spine = cls._of_axes(axes, spine_type)
+        spine.set(**kwargs)
+        return spine
+
+    @classmethod
+    def _of_axes(cls, axes, spine_type):
+        """The spine of *axes* named *spine_type* (a side, or a spine of
+        polar axes), else the spine framing its outline, as an object of
+        *cls*."""
+        natives = dict(_spines.axes_spines(axes._native))
+        native = natives.get(spine_type, natives.get("top", natives.get("polar")))
+        spine = _handles.wrap(native, cls, axes.figure)
         # Known without asking pltrs (Rust), which the projection of a
         # program's class cannot while it draws.
         spine.__dict__.update(_spine_axes=axes, _spine_type=spine_type)
-        spine.set(**kwargs)
         return spine
+
+    @classmethod
+    def arc_spine(cls, axes, spine_type, center, radius, theta1, theta2,
+                  **kwargs):
+        """
+        Create and return an arc `Spine`.
+
+        pltrs: the spine of *axes* named *spine_type* (its outline's for a
+        name of no side), drawn as the arc.
+        """
+        result = cls._of_axes(axes, spine_type)
+        result.set_patch_arc(center, radius, theta1, theta2)
+        result.set(**kwargs)
+        return result
+
+    @classmethod
+    def circular_spine(cls, axes, center, radius, **kwargs):
+        """
+        Create and return a circular `Spine`.
+
+        pltrs: the spine framing the outline of *axes*, drawn as the
+        circle.
+        """
+        result = cls._of_axes(axes, 'circle')
+        result.set_patch_circle(center, radius)
+        result.set(**kwargs)
+        return result
+
+    def set_patch_arc(self, center, radius, theta1, theta2):
+        """Set the spine to be arc-like."""
+        _spines.set_patch_arc(self._native, tuple(map(float, center)),
+                              float(radius), (float(theta1), float(theta2)))
+        self.stale = True
+
+    def set_patch_circle(self, center, radius):
+        """Set the spine to be circular."""
+        _spines.set_patch_circle(self._native, tuple(map(float, center)),
+                                 float(radius))
+        self.stale = True
+
+    def set_patch_line(self):
+        """Set the spine to be linear."""
+        _spines.set_patch_line(self._native)
+        self.stale = True
+
+    @property
+    def _patch_type(self):
+        """The shape of the spine: 'line', 'arc' or 'circle'."""
+        return _spines.patch_type(self._native)
+
+    def clear(self):
+        """Clear the current spine."""
+        _spines.set_position(self._native, ("outward", 0.0))
+        if self.axis is not None:
+            self.axis.clear()
+
+    def get_spine_transform(self):
+        """Return the spine transform."""
+        from ._live_transforms import from_native
+        native = _spines.spine_transform(self._native)
+        if native is None:
+            raise ValueError(f'unknown spine spine_type: {self.spine_type!r}')
+        return from_native(self._figure, native)
 
     @property
     def axes(self):

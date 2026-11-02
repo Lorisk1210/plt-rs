@@ -20,6 +20,16 @@ impl FigureCanvas {
     /// Draws `artist` of this canvas's figure onto the canvas, as the
     /// figure's last layout places and clips it (a legend is placed anew).
     fn draw_one(&self, artist: &RawHandle) -> Result<(), CanvasError> {
+        self.draw_part(artist, |ctx| ctx.draw_child(artist.id()))
+    }
+
+    /// Draws what `draw` draws of `artist` of this canvas's figure onto
+    /// the canvas, in the figure's last layout (a legend is placed anew).
+    pub(crate) fn draw_part(
+        &self,
+        artist: &RawHandle,
+        draw: impl FnOnce(&mut DrawContext<'_>),
+    ) -> Result<(), CanvasError> {
         if !Rc::ptr_eq(&self.figure.state, artist.figure_state()) {
             return Err(CanvasError::ForeignArtist);
         }
@@ -32,7 +42,7 @@ impl FigureCanvas {
         let errors = {
             let state = self.figure.state();
             let mut ctx = DrawContext::new(&state, &mut kept.renderer);
-            ctx.draw_child(artist.id());
+            draw(&mut ctx);
             ctx.finish_rasterizing();
             ctx.into_errors()
         };

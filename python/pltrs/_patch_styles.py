@@ -230,7 +230,9 @@ class ArrowStyle(_Style):
             return paths, fillables
 
 
-_CURVE = dict(head_length=.4, head_width=.2)
+_CURVE = dict(head_length=.4, head_width=.2, widthA=1., widthB=1.,
+              lengthA=0.2, lengthB=0.2, angleA=0, angleB=0, scaleA=None,
+              scaleB=None)
 for _name, _arrow, _params in [
         ("Curve", "-", {}),
         ("CurveA", "<-", _CURVE),

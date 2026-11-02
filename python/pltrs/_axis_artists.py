@@ -397,6 +397,16 @@ class Tick(Artist):
         """Get the value of the tick label pad in points."""
         return self._base_pad
 
+    def update_position(self, loc):
+        """Set the location of tick in data coords with scalar *loc*."""
+        raise NotImplementedError('Derived must override')
+
+    def get_view_interval(self):
+        """
+        Return the view limits ``(min, max)`` of the axis the tick belongs to.
+        """
+        raise NotImplementedError('Derived must override')
+
     def get_loc(self):
         """Return the tick location (data coords) as a scalar."""
         return self._loc

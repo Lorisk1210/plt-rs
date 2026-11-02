@@ -5,6 +5,7 @@ mod annotate;
 mod aspect;
 pub(crate) mod axis;
 pub(crate) mod axis_artists;
+mod axis_clear;
 pub(crate) mod axis_draw;
 mod axis_handle;
 mod axis_intervals;

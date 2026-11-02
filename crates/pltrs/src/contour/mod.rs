@@ -61,6 +61,7 @@ pub use grid::{ContourOrigin, GeneratorArguments, QuadCoords, QuadField};
 pub use handle::ContourSet;
 pub use label::{
     ClabelFormat, ClabelOptions, ContourLabel, LabelCut, LabelSplitter, MAX_LABELLED_LEVELS,
+    locate_label, print_label, too_close,
 };
 pub use legend::ContourLegendStyle;
 pub use levels::Levels;

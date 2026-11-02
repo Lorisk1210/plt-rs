@@ -13,6 +13,7 @@
 //! [`EllipseCollection`] handles, which change their events or ellipses.
 
 mod array;
+mod copy;
 mod draw;
 mod ellipses;
 mod events;

@@ -1,6 +1,7 @@
 //! Box outlines drawn around a rectangle (matplotlib's `BoxStyle`), used by
 //! [`FancyBboxPatch`](super::FancyBboxPatch) and the boxes of texts.
 
+use std::fmt;
 use std::str::FromStr;
 
 use pltrs_core::Path;
@@ -8,7 +9,7 @@ use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 
 use self::outlines::Padded;
 use super::StyleError;
-use super::style_spec::StyleSpec;
+use super::style_spec::{StyleSpec, write_description};
 
 mod outlines;
 
@@ -259,6 +260,46 @@ impl From<BoxShape> for BoxStyle {
     }
 }
 
+impl fmt::Display for BoxStyle {
+    /// matplotlib's description of the style, which parses back to it:
+    /// `"round,pad=0.3,rounding_size=0.5"`, the parameters left unset
+    /// left out (a custom shape shows its name, which does not parse).
+    ///
+    /// ```
+    /// use pltrs::patches::BoxStyle;
+    /// let style: BoxStyle = "rarrow,head_width=2".parse()?;
+    /// assert_eq!(style.to_string(), "rarrow,head_width=2,head_angle=90");
+    /// assert_eq!(style.to_string().parse::<BoxStyle>()?, style);
+    /// # Ok::<(), pltrs::patches::StyleError>(())
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let pad = ("pad", self.pad);
+        let head = |head: ArrowHead| {
+            [
+                ("head_width", Some(head.head_width)),
+                ("head_angle", Some(head.head_angle)),
+            ]
+        };
+        let (name, sizes): (&str, Vec<(&str, Option<f64>)>) = match self.shape {
+            BoxShape::Square => ("square", Vec::new()),
+            BoxShape::Circle => ("circle", Vec::new()),
+            BoxShape::Ellipse => ("ellipse", Vec::new()),
+            BoxShape::RArrow(h) => ("rarrow", head(h).to_vec()),
+            BoxShape::LArrow(h) => ("larrow", head(h).to_vec()),
+            BoxShape::DArrow(h) => ("darrow", head(h).to_vec()),
+            BoxShape::Round { rounding_size } => ("round", vec![("rounding_size", rounding_size)]),
+            BoxShape::Round4 { rounding_size } => {
+                ("round4", vec![("rounding_size", rounding_size)])
+            }
+            BoxShape::Sawtooth { tooth_size } => ("sawtooth", vec![("tooth_size", tooth_size)]),
+            BoxShape::Roundtooth { tooth_size } => ("roundtooth", vec![("tooth_size", tooth_size)]),
+            BoxShape::Custom(custom) => (custom.name(), Vec::new()),
+        };
+        let attributes: Vec<_> = std::iter::once(pad).chain(sizes).collect();
+        write_description(f, name, &attributes)
+    }
+}
+
 impl FromStr for BoxStyle {
     type Err = StyleError;
 
@@ -309,6 +350,29 @@ mod tests {
 
     fn style(text: &str) -> BoxStyle {
         text.parse().expect("valid style")
+    }
+
+    #[test]
+    fn descriptions_parse_back() {
+        for text in [
+            "square",
+            "circle,pad=0.1",
+            "ellipse",
+            "larrow,pad=0.5,head_width=1.5,head_angle=60",
+            "darrow,head_width=0,head_angle=-45",
+            "round,pad=0.2,rounding_size=0.8",
+            "round4",
+            "sawtooth,tooth_size=0.1",
+            "roundtooth,pad=1",
+        ] {
+            let parsed = style(text);
+            assert_eq!(style(&parsed.to_string()), parsed, "{text}");
+        }
+        assert_eq!(style("Round , pad = 0.25").to_string(), "round,pad=0.25");
+        assert_eq!(
+            style("rarrow").to_string(),
+            "rarrow,head_width=1.5,head_angle=90"
+        );
     }
 
     #[test]

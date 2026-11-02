@@ -6,7 +6,7 @@ use pltrs_core::{Bbox, Point};
 use super::OutsideEdge;
 use super::handlers::{Attach, HandlerMap};
 use super::settings::{Location, Settings};
-use super::{LegendAlignment, LegendMode, LegendShadowStyle};
+use super::{LegendAlignment, LegendDragUpdate, LegendMode, LegendShadowStyle};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext, LayoutContext};
 use crate::collections::CollectionArtist;
 use crate::events::Dragger;
@@ -131,6 +131,9 @@ pub(crate) struct LegendArtist {
     pub(crate) kept: bool,
     /// The callbacks dragging the legend, while it is draggable.
     pub(crate) dragger: Option<Dragger>,
+    /// What dragging the legend changes (kept while it is not draggable,
+    /// unused then).
+    pub(crate) drag_update: LegendDragUpdate,
     /// The handlers the legend was given on top of the default ones
     /// (matplotlib's `_custom_handler_map`).
     pub(crate) handler_map: HandlerMap,
@@ -155,6 +158,7 @@ pltrs_core::archive_struct!(LegendArtist {
     parts,
     kept,
     dragger,
+    drag_update,
     handler_map
 });
 

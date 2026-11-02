@@ -358,6 +358,13 @@ fn scalar_offset(spec: Owned, values: NdArray, info: Option<Owned>) -> PyResult<
     })
 }
 
+/// The printf format of the labels the scalar formatter `spec` gives the
+/// ticks at `values` on the axis `info` (matplotlib's `format`).
+fn scalar_format(spec: Owned, values: NdArray, info: Option<Owned>) -> PyResult<String> {
+    let formatter = Python::with_gil(|py| scalar_formatter(&spec.bind(py)))?;
+    with_context(info, |ctx| Ok(formatter.label_format(&values.data, ctx)?))
+}
+
 /// `format_ticks(values)` of the formatter `spec` on the axis `info`: the
 /// labels and the offset text.
 fn format_ticks(
@@ -437,6 +444,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("nonsingular", nonsingular)?;
     module.add("format_ticks", format_ticks)?;
     module.add("scalar_offset", scalar_offset)?;
+    module.add("scalar_format", scalar_format)?;
     module.add("format_data", format_data)?;
     module.add("log_sublabels", log_sublabels)?;
     module.add("log_label", log_label)?;

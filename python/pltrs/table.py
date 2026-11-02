@@ -16,19 +16,44 @@ License).
 
 import numpy as np
 
-from . import _api, _handles, cbook, colors as mcolors
+from . import _api, _handles, _live_transforms, cbook, colors as mcolors
 from ._artist_children import ChildrenSearchMixin
+from ._axis_artists import _pushing
 from ._native import table as _table
 from .artist import Artist
+from .patches import Rectangle
 from .path import Path
+from .text import Text
 from .transforms import BboxBase, Bbox
 
 
 class _CellHolder:
-    """The native table holding a cell made outside any table."""
+    """The native table holding a cell made outside any table, and the
+    figure given to the cell (`Cell.set_figure`)."""
 
     def __init__(self):
         self._native = _table.new(None, "bottom", None)
+        self.figure = None
+
+
+@_pushing
+class _CellText(Text):
+    """The text of the cell ``_owner`` as a text artist (`Cell.get_text`):
+    its string, colour, font and horizontal alignment are the cell's."""
+
+    _owner = None
+
+    def _push(self):
+        _table.restyle_text(self._owner._ref(), self._native)
+
+
+def _measured(value):
+    """*value*, measured in the figure of a cell's table; None, for a cell
+    in no table's figure, fails as matplotlib's measuring of a text in no
+    figure does."""
+    if value is None:
+        raise AttributeError("'NoneType' object has no attribute 'dpi'")
+    return value
 
 
 class Cell(ChildrenSearchMixin):
@@ -119,6 +144,75 @@ substring of 'BRTL'
         """The cell as ``_native.table`` takes it."""
         return (self._table._native, *self._key)
 
+    @property
+    def _parent_figure(self):
+        """The `.Figure` or `.SubFigure` of the cell's table (the one given
+        to `set_figure` for a cell in no table)."""
+        if isinstance(self._table, _CellHolder):
+            return self._table.figure
+        return self._table.get_figure(root=False)
+
+    def set(self, **kwargs):
+        """
+        Set multiple properties at once, each keyword naming a setter of
+        the cell (``set_<keyword>``), the aliases of `.Rectangle` allowed;
+        return the setters' results.
+        """
+        ret = []
+        for k, v in cbook.normalize_kwargs(kwargs, Rectangle).items():
+            func = getattr(self, f"set_{k}", None)
+            if not callable(func):
+                raise AttributeError(
+                    f"{type(self).__name__}.set() got an unexpected keyword "
+                    f"argument {k!r}", name=k)
+            ret.append(func(v))
+        return ret
+
+    def set_transform(self, t):
+        """
+        Set the artist transform: the cell, its place in its table being in
+        the coordinates of *t* (pltrs: its text is drawn there too).
+
+        Parameters
+        ----------
+        t : `~matplotlib.transforms.Transform`
+        """
+        _table.set_cell_transform(self._ref(), _live_transforms.to_native(t))
+
+    def set_figure(self, fig):
+        """
+        Set the `.Figure` or `.SubFigure` instance the cell belongs to.
+
+        pltrs: a cell in a table belongs to its table's figure; one made by
+        its constructor keeps *fig* until a table takes it.
+        """
+        if self._parent_figure is fig:
+            return
+        if self._parent_figure is not None:
+            raise RuntimeError("Can not put single artist in "
+                               "more than one figure")
+        if isinstance(self._table, _CellHolder):
+            self._table.figure = fig
+        else:
+            self._table.set_figure(fig)
+
+    def get_text(self):
+        """
+        Return the cell `.Text` instance.
+
+        pltrs: the text has the cell's string, colour, font and horizontal
+        alignment, and changing them changes the cell; the table places
+        the text when it is drawn.
+        """
+        native = _table.text_artist(self._ref())
+        text = self.__dict__.get("_text_mirror")
+        if text is None:
+            text = self._text_mirror = _CellText._from_native(native, None)
+            text._owner = self
+        else:
+            text._native = native
+        return text
+
     def set_fontsize(self, size):
         """Set the text fontsize."""
         _table.set_cell_fontsize(self._ref(), float(size))
@@ -126,6 +220,42 @@ substring of 'BRTL'
     def get_fontsize(self):
         """Return the cell fontsize."""
         return _table.get_cell_fontsize(self._ref())
+
+    def auto_set_font_size(self, renderer):
+        """
+        Shrink font size until the text fits into the cell width.
+
+        pltrs: measured in the figure's current layout at its resolution.
+        """
+        if isinstance(self._table, _CellHolder):
+            return _measured(None)
+        return _table.fit_font_size(self._ref())
+
+    def draw(self, renderer):
+        """
+        Draw the cell alone with *renderer*: its rectangle and its text,
+        where its table places it in its figure's last layout.
+        """
+        draw_cell = getattr(renderer, "_draw_cell", None)
+        if draw_cell is None:
+            raise NotImplementedError(
+                "pltrs: Cell.draw(renderer) with a renderer pltrs (Rust) is "
+                "not drawing with")
+        draw_cell(self)
+
+    def get_text_bounds(self, renderer):
+        """
+        Return the text bounds as *(x, y, width, height)* in table
+        coordinates.
+
+        pltrs: measured where the table draws the text in the figure's
+        current layout, at the figure's resolution.
+        """
+        return _measured(_table.text_bounds(self._ref()))
+
+    def get_required_width(self, renderer):
+        """Return the minimal required width for the cell."""
+        return _measured(_table.required_width(self._ref()))
 
     def set_text_props(self, **kwargs):
         """
@@ -335,6 +465,7 @@ class Table(Artist):
         except Exception as err:
             raise KeyError('Only tuples length 2 are accepted as '
                            'coordinates') from err
+        cell.set_figure(self.get_figure(root=False))
         _table.put_cell(self._native, int(row), int(col), cell._ref())
         cell._table = self
         cell._key = (row, col)

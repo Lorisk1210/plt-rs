@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use pltrs_core::Point;
+use pltrs_core::{Path, Point};
 
 use super::{TriError, TriFinder, delaunay};
 
@@ -150,6 +150,29 @@ impl Triangulation {
     pub(crate) fn drawn_triangles(&self) -> Vec<[usize; 3]> {
         let given = self.given_triangles();
         self.unmasked().map(|t| given[t]).collect()
+    }
+
+    /// The outline of each unmasked triangle: its three corners in the
+    /// order they were given (matplotlib's `TriMesh.convert_mesh_to_paths`,
+    /// for backends without meshes).
+    ///
+    /// ```
+    /// use pltrs::transforms::Point;
+    /// use pltrs::tri::Triangulation;
+    /// let tri = Triangulation::new(&[0.0, 1.0, 0.0, 1.0], &[0.0, 0.0, 1.0, 1.0],
+    ///                              vec![[0, 1, 2], [1, 3, 2]])?
+    ///     .with_mask(Some(vec![true, false]))?;
+    /// let paths = tri.triangle_paths();
+    /// assert_eq!(paths.len(), 1);
+    /// assert_eq!(paths[0].vertices(), [(1.0, 0.0), (1.0, 1.0), (0.0, 1.0)].map(Point::from));
+    /// assert!(paths[0].codes().is_none());
+    /// # Ok::<(), pltrs::tri::TriError>(())
+    /// ```
+    pub fn triangle_paths(&self) -> Vec<Path> {
+        self.drawn_triangles()
+            .into_iter()
+            .map(|corners| Path::polyline(corners.map(|i| self.point(i)).to_vec()))
+            .collect()
     }
 
     /// The triangle mask, if any.

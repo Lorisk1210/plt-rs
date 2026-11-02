@@ -9,7 +9,7 @@ use super::artists::{Block, Extensions, Painter, SolidFill};
 use super::blocks::Blocks;
 use super::dividers::Dividers;
 use super::mappable::{ContourLevels, MappableLink, Source};
-use super::placement::{Placement, default_ticklocation, orientation_of};
+use super::placement::{ColorbarCax, default_ticklocation, orientation_of};
 use super::state::{BlockSettings, ColorbarArtist, ColorbarState, Drawn};
 use super::ticking::{self, Tickers};
 use super::{
@@ -33,7 +33,7 @@ impl Colorbar {
         source: Source,
         link: Option<MappableLink>,
         options: &ColorbarOptions,
-        placement: Option<&Placement>,
+        placement: Option<&ColorbarCax>,
     ) -> Result<Self, ColorbarError> {
         let (orientation, ticklocation) = match placement {
             Some(placement) => (placement.orientation, placement.location),

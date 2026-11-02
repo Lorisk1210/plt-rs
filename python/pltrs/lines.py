@@ -16,7 +16,7 @@ from . import _api, _live_transforms, cbook
 from ._artist_kwargs import native_artist_kwargs
 from ._native import lines as _lines
 from .artist import Artist
-from .cbook import ls_mapper
+from .cbook import ls_mapper, ls_mapper_r, STEP_LOOKUP_MAP  # noqa: F401
 from .markers import (  # noqa: F401  (matplotlib re-exports these here)
     CARETLEFT, CARETRIGHT, CARETUP, CARETDOWN,
     CARETLEFTBASE, CARETRIGHTBASE, CARETUPBASE, CARETDOWNBASE,
@@ -407,7 +407,18 @@ class Line2D(Artist):
     def recache_always(self):
         """Convert the original data through the units of the line's axes
         again, and hand the numbers to pltrs (Rust)."""
-        if "_xorig" not in self.__dict__:
+        self.recache(always=True)
+
+    def recache(self, always=False):
+        """
+        Convert the original data through the units of the line's axes
+        again when *always* is true, and hand the numbers to pltrs (Rust).
+
+        pltrs (Rust) builds the line's path from its data whenever it is
+        drawn, and every setter of the data hands the numbers over at once,
+        so without *always* nothing is waiting to be converted.
+        """
+        if not always or "_xorig" not in self.__dict__:
             return
         _lines.set_data(
             self._native,
@@ -674,6 +685,7 @@ class Line2D(Artist):
 
     def update_from(self, other):
         """Copy properties from *other* to self."""
+        super().update_from(other)
         self._set_native(
             linestyle=other._get("dash_pattern"),
             linewidth=other.get_linewidth(), color=other.get_color(),
@@ -881,3 +893,9 @@ class VertexSelector:
         ind = sorted(self.ind)
         xdata, ydata = self.line.get_data()
         self.process_selected(ind, xdata[ind], ydata[ind])
+
+
+lineStyles = Line2D._lineStyles
+lineMarkers = MarkerStyle.markers
+drawStyles = Line2D.drawStyles
+fillStyles = MarkerStyle.fillstyles

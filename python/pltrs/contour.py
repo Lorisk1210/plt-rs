@@ -219,6 +219,74 @@ class ContourLabeler:
         return _handles.wrap_all(_contour.label_texts(self._contour), Text,
                                  self.figure)
 
+    @property
+    def labelXYs(self):
+        """The display positions of the labels."""
+        return _contour.label_positions(self._contour)
+
+    @property
+    def labelLevelList(self):
+        """The levels the last `clabel` labelled."""
+        return _contour.label_levels(self._contour)
+
+    def print_label(self, linecontour, labelwidth):
+        """Return whether a contour is long enough to hold a label."""
+        return _contour.print_label(
+            np.asarray(linecontour, dtype=float).reshape(-1, 2), float(labelwidth))
+
+    def too_close(self, x, y, lw):
+        """Return whether a label is already near this location."""
+        return _contour.too_close(self._contour, (float(x), float(y)), float(lw))
+
+    def get_text(self, lev, fmt):
+        """Get the text of the label."""
+        if isinstance(lev, str):
+            return lev
+        elif isinstance(fmt, dict):
+            return fmt.get(lev, '%1.3f')
+        elif callable(getattr(fmt, "format_ticks", None)):
+            return fmt.format_ticks([*self.labelLevelList, lev])[-1]
+        elif callable(fmt):
+            return fmt(lev)
+        else:
+            return fmt % lev
+
+    def locate_label(self, linecontour, labelwidth):
+        """
+        Find good place to draw a label (relatively flat part of the contour).
+        """
+        return _contour.locate_label(
+            self._contour, np.asarray(linecontour, dtype=float).reshape(-1, 2),
+            float(labelwidth))
+
+    def add_label(self, x, y, rotation, lev, cvalue):
+        """
+        Add a contour label, respecting whether *use_clabeltext* was set.
+
+        pltrs: the label of level *lev* at the display point (*x*, *y*), in
+        the colour and font the last `clabel` gave the labels of that
+        level.
+        """
+        levels = [float(level) for level in self.levels]
+        if float(lev) not in levels:
+            raise ValueError(f"{lev!r} is not a level of the contour set")
+        _contour.add_label(self._contour, (float(x), float(y)), float(rotation),
+                           levels.index(float(lev)))
+
+    def labels(self, inline, inline_spacing):
+        """
+        Label every labelled level as the last `clabel` did: wherever a line
+        is long enough, at its straightest part not too close to a label,
+        cutting the line under the label when *inline*.
+        """
+        _contour.place_labels(self._contour, bool(inline), float(inline_spacing),
+                              self._native_splitter)
+
+    def remove(self):
+        """Remove the contour set, its collections and its labels."""
+        _contour.remove(self._contour)
+        _handles.forget(self)
+
 
 class ContourSet(ContourLabeler, mcoll.Collection):
     """
@@ -483,10 +551,8 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                                  self._norm_replaced())
         super(mcoll.Collection, self).changed()
 
-    def remove(self):
-        """Remove the contour set, its collections and its labels."""
-        _contour.remove(self._contour)
-        _handles.forget(self)
+    alpha = property(lambda self: self.get_alpha())
+    linestyles = property(lambda self: self.__dict__.get("_orig_linestyles"))
 
 
 class _ContourGenerator:

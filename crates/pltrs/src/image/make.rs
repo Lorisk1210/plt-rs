@@ -63,6 +63,17 @@ pub struct MadeImage {
     pub transform: Option<Affine2D>,
 }
 
+impl MadeImage {
+    /// The image `rendered` with the map from array indices to its pixels.
+    pub(crate) fn mapped((rendered, map): (RenderedImage, PixelMap)) -> Self {
+        Self {
+            pixels: rendered.pixels,
+            origin: rendered.origin,
+            transform: map.affine(),
+        }
+    }
+}
+
 /// The colouring and resampling state every image kind shares.
 #[derive(Debug)]
 pub(crate) struct ImageCore {
@@ -180,6 +191,21 @@ impl ImageCore {
         alpha: Option<&ImageAlpha>,
     ) -> Result<Option<RenderedImage>, ImageError> {
         Ok(self.make_mapped(placement, alpha)?.map(|(image, _)| image))
+    }
+
+    /// The image placed as `placement` says, as `make_image` returns it:
+    /// resampled with `alpha`, or at its own resolution when `unsampled`.
+    pub(crate) fn made(
+        &self,
+        placement: &Placement,
+        alpha: Option<&ImageAlpha>,
+        unsampled: bool,
+    ) -> Result<Option<MadeImage>, ImageError> {
+        if unsampled {
+            self.make_unsampled(placement)
+        } else {
+            Ok(self.make_mapped(placement, alpha)?.map(MadeImage::mapped))
+        }
     }
 
     /// [`ImageCore::make_image`] with the map from array indices to the

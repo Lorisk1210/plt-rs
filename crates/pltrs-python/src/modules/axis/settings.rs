@@ -1,7 +1,7 @@
 //! What an axis is apart from its ticks: whether its tick helpers are the
 //! scale's, minor ticks, its place in layouts, label pad and coordinates,
 //! the side of its ticks and offset text, its extent, and its units
-//! (matplotlib's `Axis.isDefault_majloc`, `minorticks_on`,
+//! (matplotlib's `Axis.clear`, `isDefault_majloc`, `minorticks_on`,
 //! `set_in_layout`, `labelpad`, `set_label_coords`, `tick_top`,
 //! `get_tightbbox`, `have_units`, `update_units`, `axis_date`).
 
@@ -230,8 +230,15 @@ fn axis_date(axes: Axes, name: String, tz: Option<Zone>) -> PyResult<()> {
     Ok(())
 }
 
+/// Resets axis `name` to a fresh one (`Axis.clear`).
+fn clear(axes: Axes, name: String) -> PyResult<()> {
+    axis(&axes, &name)?.clear();
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("clear", clear)?;
     module.add("is_default_helper", is_default_helper)?;
     module.add("minorticks", minorticks)?;
     module.add("get_remove_overlapping_locs", get_remove_overlapping_locs)?;

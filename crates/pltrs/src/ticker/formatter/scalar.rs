@@ -576,6 +576,38 @@ impl ScalarFormatter {
         Ok((layout.offset, layout.oom))
     }
 
+    /// The printf format of the labels of the ticks at `locs` (matplotlib's
+    /// `format`, which `set_locs` computes): `%1.<n>f` with as many
+    /// decimals as tell the ticks apart, in `$\mathdefault{...}$` with
+    /// mathtext or TeX; empty without ticks.
+    ///
+    /// ```
+    /// use pltrs::ticker::{AxisInfo, ScalarFormatter, TickContext, TickerSettings};
+    /// let axis = AxisInfo::with_view(0.0, 1.0);
+    /// let settings = TickerSettings::DEFAULT;
+    /// let ctx = TickContext::new(&axis, &settings);
+    /// let formatter = ScalarFormatter::from_settings(&settings);
+    /// assert_eq!(formatter.label_format(&[0.0, 0.25, 0.5], &ctx)?, "%1.2f");
+    /// assert_eq!(formatter.label_format(&[], &ctx)?, "");
+    /// # Ok::<(), pltrs::ticker::TickerError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`ScalarFormatter::offset_and_order`].
+    pub fn label_format(&self, locs: &[f64], ctx: &TickContext<'_>) -> Result<String, TickerError> {
+        if locs.is_empty() {
+            return Ok(String::new());
+        }
+        let layout = self.layout(locs, ctx.view_interval())?;
+        let format = format!("%1.{}f", layout.decimals);
+        Ok(if self.math() {
+            format!("$\\mathdefault{{{format}}}$")
+        } else {
+            format
+        })
+    }
+
     /// The value with as many significant digits as needed to tell it
     /// from values `resolution` away (`%-#.<n>g`; matplotlib's
     /// `format_data_short` with an axis attached, where the resolution is

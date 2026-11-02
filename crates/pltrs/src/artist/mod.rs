@@ -21,6 +21,7 @@ mod archive;
 mod attach;
 mod base;
 mod context;
+mod copy;
 mod cursor;
 mod custom;
 mod detached;

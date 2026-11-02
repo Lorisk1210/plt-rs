@@ -108,5 +108,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("quiverkey_text", fields::quiverkey_text)?;
     module.add("quiverkey_paths", fields::quiverkey_paths)?;
     module.add("barbs", fields::barbs)?;
+    module.add("barbs_set_uvc", fields::barbs_set_uvc)?;
     module.add("streamplot", fields::streamplot)
 }

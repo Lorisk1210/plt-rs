@@ -21,6 +21,7 @@ use super::path::{PathArrays, PyPath, path_arrays};
 use super::transforms::{points, points_array};
 use crate::binding::prelude::*;
 
+mod copy;
 mod new;
 
 artist_handle!(Collection, EllipseCollection, EventCollection);
@@ -561,5 +562,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_event_orientation", set_event_orientation)?;
     module.add("event_lines", event_lines)?;
     module.add("set_event_lines", set_event_lines)?;
+    copy::register(module)?;
     new::register(module)
 }

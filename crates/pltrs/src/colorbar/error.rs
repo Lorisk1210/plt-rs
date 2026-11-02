@@ -20,6 +20,9 @@ pub enum ColorbarError {
     NoAxes,
     /// The parent axes belong to different figures.
     MixedFigures,
+    /// The parent axes whose grid cell a colorbar was to take space from
+    /// is on no grid.
+    NoSubplotSpec,
     /// `location` and `orientation` disagree.
     LocationOrientation {
         /// The requested location.
@@ -75,6 +78,7 @@ impl fmt::Display for ColorbarError {
             Self::MixedFigures => f.write_str(
                 "unable to create a colorbar axes as not all parents share the same figure",
             ),
+            Self::NoSubplotSpec => f.write_str("the parent axes is on no grid"),
             Self::LocationOrientation {
                 location,
                 orientation,

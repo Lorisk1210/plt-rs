@@ -19,6 +19,7 @@ from . import (_api, _live_transforms, cbook, colorizer as mcolorizer,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
 from ._native import collections as _collections
+from ._native import tri as _tri
 from .artist import Artist
 from .path import Path
 
@@ -93,6 +94,7 @@ def _native_kwargs(kwargs):
     "facecolor": ["facecolors", "fc"],
     "linestyle": ["linestyles", "dashes", "ls"],
     "linewidth": ["linewidths", "lw"],
+    "offset_transform": ["transOffset"],
 })
 class Collection(mcolorizer.ColorizingArtist):
     """
@@ -531,6 +533,20 @@ class Collection(mcolorizer.ColorizingArtist):
         _collections.set_antialiaseds(
             self._native, [bool(a) for a in np.atleast_1d(aa)])
 
+    def get_fill(self):
+        """Return whether face is colored."""
+        return _collections.get_fill(self._native)
+
+    def update_from(self, other):
+        """Copy properties from other to self."""
+        self._took_from(other, _collections.update_from(self._native, other._native))
+        self._array_alpha = other.__dict__.get("_array_alpha")
+        # update_from for scalarmappable
+        self._A = other._A
+        self.norm = other.norm
+        self.cmap = other.cmap
+        self.stale = True
+
     def get_facecolor(self):
         """Return the face colors, as drawn."""
         return self._get("facecolor")
@@ -811,6 +827,15 @@ class PolyCollection(_CollectionWithSizes):
 
     set_paths = set_verts
 
+    def set_verts_and_codes(self, verts, codes):
+        """Initialize vertices with path codes."""
+        if len(verts) != len(codes):
+            raise ValueError("'codes' must be a 1D list or array "
+                             "with the same length of 'verts'")
+        Collection.set_paths(self, [Path(xy, cds) if len(xy) else Path(xy)
+                                    for xy, cds in zip(verts, codes)])
+        self.stale = True
+
 
 class FillBetweenPolyCollection(PolyCollection):
     """
@@ -952,6 +977,10 @@ class RegularPolyCollection(_CollectionWithSizes):
     def get_numsides(self):
         """Return the number of sides of the polygons."""
         return len(self.get_paths()[0].vertices) - 1
+
+    def get_rotation(self):
+        """Return the rotation of the polygons in radians."""
+        return _collections.get_rotation(self._native)
 
 
 class StarPolygonCollection(RegularPolyCollection):
@@ -1331,6 +1360,17 @@ class TriMesh(Collection):
 
     def changed(self):
         super(Collection, self).changed()
+
+    @staticmethod
+    def convert_mesh_to_paths(tri):
+        """
+        Convert a given mesh into a sequence of `.Path` objects.
+
+        This function is primarily of use to implementers of backends that do
+        not directly support meshes.
+        """
+        return [Path(vertices, codes)
+                for vertices, codes in _tri.triangle_paths(tri._native)]
 
 
 class _MeshData:

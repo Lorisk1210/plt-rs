@@ -32,6 +32,8 @@ use super::transforms::anchor;
 use crate::binding::dict_value;
 use crate::binding::prelude::*;
 
+mod make_axes;
+
 native_value!(Colorbar);
 
 impl From<ColorbarError> for PyErr {
@@ -266,12 +268,17 @@ fn ax(colorbar: Colorbar) -> PyResult<Axes> {
     Ok(colorbar.ax().clone())
 }
 
-/// `'vertical'` or `'horizontal'`.
-fn get_orientation(colorbar: Colorbar) -> PyResult<&'static str> {
-    Ok(match colorbar.orientation() {
+/// The name of `orientation`, `'vertical'` or `'horizontal'`.
+fn orientation_name(orientation: Orientation) -> &'static str {
+    match orientation {
         Orientation::Vertical => "vertical",
         Orientation::Horizontal => "horizontal",
-    })
+    }
+}
+
+/// `'vertical'` or `'horizontal'`.
+fn get_orientation(colorbar: Colorbar) -> PyResult<&'static str> {
+    Ok(orientation_name(colorbar.orientation()))
 }
 
 /// The ends extended beyond the range.
@@ -402,5 +409,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("outline", outline)?;
     module.add("solids", solids)?;
     module.add("extend_patches", extend_patches)?;
-    module.add("divider_segments", divider_segments)
+    module.add("divider_segments", divider_segments)?;
+    make_axes::register(module)
 }

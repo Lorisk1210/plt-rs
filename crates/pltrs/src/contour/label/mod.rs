@@ -28,6 +28,7 @@ use crate::ticker::{
     Formatter, LabelFormat, OffsetMode, ScalarFormatter, TickContext, TickerSettings,
 };
 
+pub use place::{locate_label, print_label, too_close};
 pub(crate) use placer::LabelSetup;
 pub use split::{LabelCut, LabelSplitter};
 
@@ -282,6 +283,18 @@ impl ContourSet {
                 .label_setup
                 .as_ref()
                 .map(LabelSetup::widths)
+                .unwrap_or_default()
+        })
+    }
+
+    /// The levels last labelled (matplotlib's `labelLevelList`), none
+    /// before the set is labelled.
+    pub fn labelled_levels(&self) -> Vec<f64> {
+        self.read(|state| {
+            state
+                .label_setup
+                .as_ref()
+                .map(|setup| setup.labels.iter().map(|label| label.level).collect())
                 .unwrap_or_default()
         })
     }

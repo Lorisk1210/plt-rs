@@ -15,6 +15,7 @@ use crate::binding::prelude::*;
 
 mod classes;
 mod clip;
+mod copy;
 mod extent;
 mod filter;
 mod picking;
@@ -300,6 +301,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("remove", remove)?;
     classes::register(module)?;
     clip::register(module)?;
+    copy::register(module)?;
     extent::register(module)?;
     filter::register(module)?;
     picking::register(module)?;

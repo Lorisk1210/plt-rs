@@ -26,6 +26,7 @@ const MAX_AUTO_FONTSIZE: f64 = 1000.0;
 
 /// The maps between the axes fractions of a table's axes and display
 /// pixels (matplotlib's `transAxes` and its inverse).
+#[derive(Clone)]
 pub(crate) struct AxesMaps {
     /// Axes fractions to display pixels.
     pub(crate) to_display: Affine2D,

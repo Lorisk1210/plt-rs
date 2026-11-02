@@ -26,6 +26,7 @@ from .gridspec import GridSpec, SubplotParams, SubplotSpec
 from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
+from ._figure_frame import FrameMixin
 from ._figure_interaction import InteractionMixin
 from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
@@ -59,7 +60,7 @@ def _native_maker(projection_class):
 
 
 class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
-                 InteractionMixin, Artist):
+                 InteractionMixin, FrameMixin, Artist):
     """
     Base class for `.Figure` and `.SubFigure` containing the methods that add
     artists to the figure or subfigure, create Axes, etc.
@@ -886,13 +887,6 @@ class SubFigure(FigureBase):
         # The root figure keeps the objects of all artists (`._handles`).
         return self._figure._artists
 
-    def sca(self, a):
-        """
-        Set the current Axes to be *a* and return *a*: the current Axes of
-        the root figure, whose stack of Axes subfigures share.
-        """
-        return self.figure.sca(a)
-
     def remove(self):
         """Remove the subfigure, and its artists, from its parent."""
         super().remove()
@@ -905,6 +899,22 @@ class SubFigure(FigureBase):
         See :ref:`constrainedlayout_guide`.
         """
         return self._parent.get_constrained_layout()
+
+    def get_constrained_layout_pads(self, relative=False):
+        """
+        Get padding for ``constrained_layout``.
+
+        Returns a list of ``w_pad, h_pad`` in inches and
+        ``wspace`` and ``hspace`` as fractions of the subplot.
+
+        See :ref:`constrainedlayout_guide`.
+
+        Parameters
+        ----------
+        relative : bool
+            If `True`, then convert from inches to figure relative.
+        """
+        return self._parent.get_constrained_layout_pads(relative=relative)
 
     def get_layout_engine(self):
         """Return the layout engine of the root figure."""
@@ -1167,20 +1177,46 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
 
     dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
 
+    def set_canvas(self, canvas):
+        """
+        Set the canvas that contains the figure
+
+        Parameters
+        ----------
+        canvas : FigureCanvas
+        """
+        self.canvas = canvas
+
+    @_api.deprecated(
+         "3.6", alternative="figure.get_layout_engine().set()",
+         pending=True)
+    def set_constrained_layout_pads(self, **kwargs):
+        """
+        Set padding for ``constrained_layout``.
+
+        Tip: The parameters can be passed from a dictionary by using
+        ``fig.set_constrained_layout(**pad_dict)``.
+
+        Parameters
+        ----------
+        w_pad : float, default: :rc:`figure.constrained_layout.w_pad`
+            Width padding in inches.
+        h_pad : float, default: :rc:`figure.constrained_layout.h_pad`
+            Height padding in inches.
+        wspace : float, default: :rc:`figure.constrained_layout.wspace`
+            Width padding between subplots, expressed as a fraction of the
+            subplot width.
+        hspace : float, default: :rc:`figure.constrained_layout.hspace`
+            Height padding between subplots, expressed as a fraction of the
+            subplot width.
+        """
+        if isinstance(self.get_layout_engine(), ConstrainedLayoutEngine):
+            self.get_layout_engine().set(**kwargs)
+
     def _axes_at(self, x, y):
         """The topmost visible Axes containing the display point (*x*, *y*),
         or None (``canvas.inaxes``)."""
         return _handles.wrap(_figure.axes_at(self._native, x, y), Axes, self)
-
-    def gca(self):
-        """Get the current Axes, creating one if necessary."""
-        return _handles.wrap(_figure.gca(self._native), Axes, self)
-
-    def sca(self, a):
-        """Set the current Axes to be *a* and return *a*."""
-        _figure.sca(self._native, a._native)
-        self._axes_changed()
-        return a
 
     def show(self, warn=True):
         """

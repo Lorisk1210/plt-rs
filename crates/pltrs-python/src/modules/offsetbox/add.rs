@@ -211,6 +211,37 @@ fn set_placed_offset(placed: RawHandle, offset: (f64, f64)) -> PyResult<()> {
     Ok(())
 }
 
+/// The added annotation box `annotation`.
+fn annotation_bbox(annotation: &RawHandle) -> PyResult<AnnotationBbox> {
+    annotation
+        .downcast::<AnnotationBbox>()
+        .ok_or_else(|| PyErr::type_error("not an annotation box"))
+}
+
+/// Moves the annotated point `xy` and the box position `xybox` of the
+/// added annotation box `annotation`, each kept when `None`.
+fn set_annotation_points(
+    annotation: RawHandle,
+    xy: Option<(f64, f64)>,
+    xybox: Option<(f64, f64)>,
+) -> PyResult<()> {
+    let annotation = annotation_bbox(&annotation)?;
+    if let Some(xy) = xy {
+        annotation.set_xy(xy);
+    }
+    if let Some(xybox) = xybox {
+        annotation.set_xybox(xybox);
+    }
+    Ok(())
+}
+
+/// Places the frame and the parts of the added annotation box
+/// `annotation` where the figure draws them (`update_positions`).
+fn update_annotation_positions(annotation: RawHandle) -> PyResult<()> {
+    annotation_bbox(&annotation)?.update_positions();
+    Ok(())
+}
+
 /// Clips the artists of the drawing area at `area` (in tree order) of the
 /// added box `owner`, an anchored, annotation or plain box, or stops
 /// clipping them (`DrawingArea.clip_children`).
@@ -241,5 +272,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_annotation_bbox", add_annotation_bbox)?;
     module.add("add_placed", add_placed)?;
     module.add("set_placed_offset", set_placed_offset)?;
+    module.add("set_annotation_points", set_annotation_points)?;
+    module.add("update_annotation_positions", update_annotation_positions)?;
     module.add("set_clip_children", set_clip_children)
 }

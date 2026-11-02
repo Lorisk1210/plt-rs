@@ -42,7 +42,7 @@ pub use geometry::{Angles, QuiverUnits};
 pub use key::{KeyCoordinates, LabelPosition, QuiverKey, QuiverKeyOptions};
 
 pub(crate) use barbs::{BarbFlip, barb_outlines};
-pub(crate) use field::retained;
+pub(crate) use field::{FieldPoints, retained};
 pub(crate) use geometry::{ArrowSizing, QuiverGeometry};
 pub(crate) use key::{KeyVector, QuiverKeyArtist};
 

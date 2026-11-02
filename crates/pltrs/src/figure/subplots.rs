@@ -85,13 +85,25 @@ impl Figure {
     }
 
     /// The current axes, `None` when the figure has none (matplotlib's
-    /// `_axstack.current()`).
+    /// `_axstack.current()`): the axes made current last, else the last
+    /// one added; a subfigure shares the current axes of its figure.
     ///
     /// A 3-D axes is current through its projection plane, which comes
     /// back for it (see [`Axes3D::projection_plane`]).
     ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// assert!(fig.current_axes().is_none());
+    /// let (first, second) = (fig.subplot(), fig.subplot());
+    /// assert_eq!(fig.current_axes().map(|ax| ax.id()), Some(second.id()));
+    /// fig.sca(&first);
+    /// assert_eq!(fig.current_axes().map(|ax| ax.id()), Some(first.id()));
+    /// ```
+    ///
     /// [`Axes3D::projection_plane`]: crate::mplot3d::Axes3D::projection_plane
-    pub(crate) fn current_axes(&self) -> Option<Axes> {
+    pub fn current_axes(&self) -> Option<Axes> {
         let mut axes = self.axes();
         let current = self.state.borrow().current_axes;
         if let Some(index) = current.and_then(|id| axes.iter().position(|ax| ax.id() == id)) {

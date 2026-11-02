@@ -165,9 +165,9 @@ fn get_patch_gid(figure: Figure) -> PyResult<Option<String>> {
     Ok(figure.patch_gid())
 }
 
-/// The current axes, made if there are none.
-fn gca(figure: Figure) -> PyResult<Axes> {
-    Ok(figure.gca())
+/// The current axes, `None` when the figure has none.
+fn current_axes(figure: Figure) -> PyResult<Option<Axes>> {
+    Ok(figure.current_axes())
 }
 
 /// Makes `axes` the current axes.
@@ -427,7 +427,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_edgecolor", set_edgecolor)?;
     module.add("set_linewidth", set_linewidth)?;
     module.add("set_frameon", set_frameon)?;
-    module.add("gca", gca)?;
+    module.add("current_axes", current_axes)?;
     module.add("sca", sca)?;
     module.add("axes", axes)?;
     module.add("suptitle", suptitle)?;

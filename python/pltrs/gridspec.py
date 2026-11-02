@@ -78,18 +78,8 @@ class GridSpecBase:
             raise ValueError(
                 f"Number of columns must be a positive integer, not {ncols!r}")
         self._nrows, self._ncols = nrows, ncols
-        if width_ratios is None:
-            width_ratios = [1] * ncols
-        elif len(width_ratios) != ncols:
-            raise ValueError('Expected the given number of width ratios to '
-                             'match the number of columns of the grid')
-        if height_ratios is None:
-            height_ratios = [1] * nrows
-        elif len(height_ratios) != nrows:
-            raise ValueError('Expected the given number of height ratios to '
-                             'match the number of rows of the grid')
-        self._col_width_ratios = width_ratios
-        self._row_height_ratios = height_ratios
+        self.set_height_ratios(height_ratios)
+        self.set_width_ratios(width_ratios)
 
     def _adopt_native(self, native):
         """Hold the native grid *native* (and register this grid)."""
@@ -134,6 +124,40 @@ class GridSpecBase:
         loc1, loc2 = loc
         subplotspec = self[loc1:loc1+rowspan, loc2:loc2+colspan]
         return subplotspec
+
+    def set_width_ratios(self, width_ratios):
+        """
+        Set the relative widths of the columns.
+
+        *width_ratios* must be of length *ncols*. Each column gets a relative
+        width of ``width_ratios[i] / sum(width_ratios)``.
+        """
+        if width_ratios is None:
+            width_ratios = [1] * self._ncols
+        elif len(width_ratios) != self._ncols:
+            raise ValueError('Expected the given number of width ratios to '
+                             'match the number of columns of the grid')
+        self._col_width_ratios = width_ratios
+        native = self.__dict__.get("_native")
+        if native is not None:
+            _gridspec.set_width_ratios(native, [float(r) for r in width_ratios])
+
+    def set_height_ratios(self, height_ratios):
+        """
+        Set the relative heights of the rows.
+
+        *height_ratios* must be of length *nrows*. Each row gets a relative
+        height of ``height_ratios[i] / sum(height_ratios)``.
+        """
+        if height_ratios is None:
+            height_ratios = [1] * self._nrows
+        elif len(height_ratios) != self._nrows:
+            raise ValueError('Expected the given number of height ratios to '
+                             'match the number of rows of the grid')
+        self._row_height_ratios = height_ratios
+        native = self.__dict__.get("_native")
+        if native is not None:
+            _gridspec.set_height_ratios(native, [float(r) for r in height_ratios])
 
     def get_width_ratios(self):
         """

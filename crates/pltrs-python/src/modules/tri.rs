@@ -336,9 +336,19 @@ fn filled_contour(tri: Triangulation, z: NdArray, lower: f64, upper: f64) -> PyR
     path_arrays(&generator.filled(lower, upper)?, false)
 }
 
+/// The outline of each unmasked triangle as a path of its three corners
+/// (matplotlib's `TriMesh.convert_mesh_to_paths`).
+fn triangle_paths(tri: Triangulation) -> PyResult<Vec<PathArrays>> {
+    tri.triangle_paths()
+        .iter()
+        .map(|path| path_arrays(path, false))
+        .collect()
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
+    module.add("triangle_paths", triangle_paths)?;
     module.add("points", points)?;
     module.add("triangles", triangles)?;
     module.add("oriented_triangles", oriented_triangles)?;

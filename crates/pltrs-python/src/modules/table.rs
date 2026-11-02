@@ -17,6 +17,8 @@ use super::font_manager::FontProps;
 use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 
+mod measure;
+
 artist_handle!(Table);
 
 impl From<TableError> for PyErr {
@@ -292,7 +294,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_path", get_path)?;
     module.add("get_size", get_size)?;
     module.add("set_width", set_width)?;
-    module.add("set_height", set_height)
+    module.add("set_height", set_height)?;
+    measure::register(module)
 }
 
 #[cfg(test)]

@@ -7,8 +7,73 @@ use super::data_coords::data_offsets;
 use super::{Axes, DataLimits, PlotError};
 use crate::artist::{Artist, ArtistHandle};
 use crate::collections::{Collection, CollectionArtist, CollectionKind, EdgeColors};
-use crate::quiver::{BarbFlip, BarbsOptions, VectorField, barb_outlines, retained};
+use crate::quiver::{BarbFlip, BarbsOptions, FieldPoints, VectorField, barb_outlines, retained};
 use crate::transforms::Transform;
+
+/// The vectors of `field` left once the masked ones are dropped, and the
+/// outline of the barb of each, as `options` draw them.
+fn barb_items(
+    field: VectorField,
+    options: &BarbsOptions,
+) -> Result<(FieldPoints, Vec<Path>), PlotError> {
+    let rc = crate::rc::params();
+    let points = field.into_points(&rc)?;
+    let n = points.xy.len();
+    let flip = match options.flip.len() {
+        1 => vec![options.flip[0]; n],
+        len if len == n => options.flip.clone(),
+        len => {
+            return Err(PlotError::Broadcast {
+                argument: "flip_barb",
+                len,
+                points: n,
+            });
+        }
+    };
+    let keep = points.unmasked();
+    let points = points.retain(&keep);
+    let flip = retained(flip, &keep);
+    let paths = barb_outlines((&points.u, &points.v), options, BarbFlip(&flip))
+        .into_iter()
+        .map(Path::polygon)
+        .collect();
+    Ok((points, paths))
+}
+
+impl Collection {
+    /// Draws the barbs of `field` in place of those of a collection made
+    /// by [`Axes::barbs`], as `options` draw them (matplotlib's
+    /// `Barbs.set_UVC`): masked vectors are left out, the offsets follow
+    /// the vectors left and their colour values are mapped again.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::quiver::{BarbsOptions, VectorField};
+    /// let ax = Figure::new().subplot();
+    /// let field = VectorField::new([0.0, 1.0], [0.0, 0.0], [15.0, 65.0], [0.0, 10.0]);
+    /// let barbs = ax.barbs(field, BarbsOptions::default())?;
+    /// let calm = VectorField::new([0.0, 1.0], [0.0, 0.0], [1.0, f64::NAN], [0.0, 0.0]);
+    /// barbs.set_barbs(calm, &BarbsOptions::default())?;
+    /// assert_eq!(barbs.paths().len(), 1);
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::barbs`].
+    pub fn set_barbs(
+        &self,
+        field: VectorField,
+        options: &BarbsOptions,
+    ) -> Result<&Self, PlotError> {
+        let (mut points, paths) = barb_items(field, options)?;
+        self.set_paths(paths).set_offsets(points.xy.clone());
+        if let Some(mapping) = points.colors.take() {
+            self.set_mapping(mapping);
+        }
+        Ok(self)
+    }
+}
 
 impl Axes {
     /// Draws a wind barb for every vector of `field` (matplotlib's
@@ -35,28 +100,9 @@ impl Axes {
         field: VectorField,
         options: BarbsOptions,
     ) -> Result<Collection, PlotError> {
-        let rc = crate::rc::params();
-        let points = field.into_points(&rc)?;
-        let n = points.xy.len();
-        let flip = match options.flip.len() {
-            1 => vec![options.flip[0]; n],
-            len if len == n => options.flip.clone(),
-            len => {
-                return Err(PlotError::Broadcast {
-                    argument: "flip_barb",
-                    len,
-                    points: n,
-                });
-            }
-        };
-        let keep = points.unmasked();
-        let mut points = points.retain(&keep);
-        let flip = retained(flip, &keep);
-        let paths = barb_outlines((&points.u, &points.v), &options, BarbFlip(&flip))
-            .into_iter()
-            .map(Path::polygon)
-            .collect();
-        let mut collection = CollectionArtist::new(CollectionKind::Poly, paths, rc);
+        let (mut points, paths) = barb_items(field, &options)?;
+        let mut collection =
+            CollectionArtist::new(CollectionKind::Poly, paths, crate::rc::params());
         // `barbcolor` colours the edges and `flagcolor` the faces; with
         // only one of them, the whole barb takes it.
         let (faces, edges) = match (options.barbcolor, options.flagcolor) {

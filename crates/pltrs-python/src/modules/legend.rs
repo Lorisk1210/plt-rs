@@ -28,6 +28,7 @@ use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
 
+mod anchor;
 mod legend_box;
 mod perf_counter;
 
@@ -396,12 +397,6 @@ fn get_draggable(legend: Legend) -> PyResult<bool> {
     Ok(legend.draggable())
 }
 
-/// Makes the legend draggable or not.
-fn set_draggable(legend: Legend, draggable: bool) -> PyResult<()> {
-    legend.set_draggable(draggable);
-    Ok(())
-}
-
 /// Keeps `legend` on `axes` as an ordinary artist, so that the next
 /// `legend()` adds a legend beside it (`ax.add_artist(legend)`).
 fn keep(axes: Axes, legend: Legend) -> PyResult<()> {
@@ -437,7 +432,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_alignment", get_alignment)?;
     module.add("set_alignment", set_alignment)?;
     module.add("get_draggable", get_draggable)?;
-    module.add("set_draggable", set_draggable)?;
+    anchor::register(module)?;
     module.add("keep", keep)?;
     module.add("axes_legend", axes_legend)?;
     module.add("figure_legends", figure_legends)

@@ -19,8 +19,10 @@
 //! ```
 
 mod cell;
+mod draw;
 mod handle;
 mod layout;
+mod measure;
 
 use std::fmt;
 use std::rc::Rc;
@@ -467,28 +469,14 @@ impl Artist for TableArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
-        let layout = *ctx.layout();
-        let Some(axes) = self.axes_box(layout) else {
-            return ctx.report(self.base.id(), "its axes no longer exist");
-        };
-        let Some(maps) = AxesMaps::of(&axes) else {
-            return ctx.report(self.base.id(), "its axes has no area");
-        };
-        let placed = match self.place(layout, &maps) {
-            Ok(placed) => placed,
-            Err(err) => return ctx.report(self.base.id(), err),
+        let Some((maps, placed)) = self.placed_for_drawing(ctx) else {
+            return;
         };
         let mut order: Vec<usize> = (0..self.cells.len()).collect();
         order.sort_by_key(|&i| self.cells[i].0);
         ctx.renderer().open_group("table", self.base.gid.as_deref());
         for i in order {
-            if let Err(err) =
-                self.cells[i]
-                    .1
-                    .draw(ctx, &self.base, &self.rc, &placed[i], &maps.to_display)
-            {
-                ctx.report(self.base.id(), err);
-            }
+            self.draw_cell(ctx, i, &placed[i], &maps);
         }
         ctx.renderer().close_group("table");
     }

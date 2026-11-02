@@ -29,6 +29,7 @@ use crate::binding::prelude::*;
 
 mod arrow_route;
 mod connection;
+mod fancy;
 mod geometry;
 mod new;
 
@@ -736,6 +737,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_fancy_bbox", set_fancy_bbox)?;
     arrow_route::register(module)?;
     connection::register(module)?;
+    fancy::register(module)?;
     geometry::register(module)?;
     new::register(module)
 }

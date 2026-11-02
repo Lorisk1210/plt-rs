@@ -1,9 +1,10 @@
 //! Cold runs: whole programs in fresh processes, as a user waits for
 //! them, timed from spawn to exit with their peak resident memory. The
 //! harness's `cold` subcommand spawns them (Python's `os.wait4` reports
-//! the memory, which Rust's standard library does not), the commands of a
-//! workload taking turns so that a change in the machine's load weighs on
-//! all of them alike.
+//! the memory, which Rust's standard library does not), in rounds in
+//! which every command runs once, in an order rotated from round to
+//! round, so that a change in the machine's load weighs on all of them
+//! alike and the runs of a round can be paired.
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -26,19 +27,27 @@ pub(super) struct ColdCommand {
     pub(super) env: Vec<(String, String)>,
 }
 
-/// What the cold runs of one command measured.
+/// What the cold runs of one command measured, run by run in round order.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct ColdResult {
     /// The seconds of each run, from spawn to exit.
     pub(super) seconds: Samples,
-    /// The median of the runs' peak resident memory, in KiB.
-    pub(super) peak_kib: u64,
+    /// The peak resident memory of each run, in KiB.
+    pub(super) peaks_kib: Vec<u64>,
 }
 
-/// Times `commands` in fresh processes, taking turns, each run as often as
-/// `sampling` asks, through the harness run by `python`. A command's
-/// standard error goes to `<logs>/<label>.stderr`, where a failure can be
-/// read.
+impl ColdResult {
+    /// The median of the runs' peak resident memory, in KiB.
+    pub(super) fn peak_kib(&self) -> u64 {
+        let mut peaks = self.peaks_kib.clone();
+        peaks.sort_unstable();
+        peaks[peaks.len() / 2]
+    }
+}
+
+/// Times `commands` in fresh processes, in rounds, as often as `sampling`
+/// asks, through the harness run by `python`. A command's standard error
+/// goes to `<logs>/<label>.stderr`, where a failure can be read.
 pub(super) fn time_cold(
     python: &Path,
     commands: &[ColdCommand],
@@ -69,7 +78,7 @@ pub(super) fn time_cold(
     let mut runs: BTreeMap<&str, (Vec<f64>, Vec<u64>)> = BTreeMap::new();
     for line in std::str::from_utf8(&output.stdout)?.lines() {
         let fields: Vec<&str> = line.split('\t').collect();
-        let [label, seconds, peak, code] = fields[..] else {
+        let [_round, label, seconds, peak, code] = fields[..] else {
             return Err(format!("unexpected reply from bench.py cold: {line}").into());
         };
         if code != "0" {
@@ -84,13 +93,12 @@ pub(super) fn time_cold(
     commands
         .iter()
         .map(|command| {
-            let (seconds, mut peaks) = runs
+            let (seconds, peaks_kib) = runs
                 .remove(command.label.as_str())
                 .ok_or_else(|| format!("bench.py cold did not run {}", command.label))?;
-            peaks.sort_unstable();
             Ok(ColdResult {
                 seconds: Samples::new(seconds).ok_or("no cold runs")?,
-                peak_kib: peaks[peaks.len() / 2],
+                peaks_kib,
             })
         })
         .collect()
@@ -115,46 +123,33 @@ fn spec_json(
             .iter()
             .map(|arg| {
                 arg.to_str()
-                    .map(json_string)
+                    .map(pltrs_core::json::string)
                     .ok_or_else(|| format!("{} is not UTF-8", arg.display()))
             })
             .collect::<Result<Vec<_>, _>>()?;
         let env: Vec<String> = command
             .env
             .iter()
-            .map(|(key, value)| format!("{}: {}", json_string(key), json_string(value)))
+            .map(|(key, value)| {
+                format!(
+                    "{}: {}",
+                    pltrs_core::json::string(key),
+                    pltrs_core::json::string(value)
+                )
+            })
             .collect();
         let stderr = logs.join(format!("{}.stderr", command.label));
         write!(
             json,
             "{{\"label\": {}, \"argv\": [{}], \"env\": {{{}}}, \"stderr\": {}}}",
-            json_string(&command.label),
+            pltrs_core::json::string(&command.label),
             argv.join(", "),
             env.join(", "),
-            json_string(path_text(&stderr)?)
+            pltrs_core::json::string(path_text(&stderr)?)
         )?;
     }
     json.push_str("]}");
     Ok(json)
-}
-
-/// `text` as a JSON string literal.
-fn json_string(text: &str) -> String {
-    let mut quoted = String::with_capacity(text.len() + 2);
-    quoted.push('"');
-    for c in text.chars() {
-        match c {
-            '"' => quoted.push_str("\\\""),
-            '\\' => quoted.push_str("\\\\"),
-            '\n' => quoted.push_str("\\n"),
-            c if u32::from(c) < 0x20 => {
-                let _ = write!(quoted, "\\u{:04x}", u32::from(c));
-            }
-            c => quoted.push(c),
-        }
-    }
-    quoted.push('"');
-    quoted
 }
 
 #[cfg(test)]
@@ -162,16 +157,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn json_strings_are_escaped() {
-        assert_eq!(json_string("a\"b\\c\nd\u{1}"), r#""a\"b\\c\nd\u0001""#);
-    }
-
-    #[test]
     fn the_spec_lists_every_command() {
         let command = ColdCommand {
             label: "pltrs-rust".to_owned(),
             argv: vec!["/bin/true".into()],
-            env: vec![("A".to_owned(), "1".to_owned())],
+            env: vec![("A".to_owned(), "1\"".to_owned())],
         };
         let sampling = Sampling {
             min_runs: 5,
@@ -182,8 +172,17 @@ mod tests {
         assert_eq!(
             spec,
             "{\"min_runs\": 5, \"min_seconds\": 2, \"max_runs\": 20, \"commands\": [\
-             {\"label\": \"pltrs-rust\", \"argv\": [\"/bin/true\"], \"env\": {\"A\": \"1\"}, \
+             {\"label\": \"pltrs-rust\", \"argv\": [\"/bin/true\"], \"env\": {\"A\": \"1\\\"\"}, \
              \"stderr\": \"/logs/pltrs-rust.stderr\"}]}"
         );
+    }
+
+    #[test]
+    fn the_peak_is_the_median_run() {
+        let result = ColdResult {
+            seconds: Samples::new(vec![1.0, 2.0, 3.0]).expect("times"),
+            peaks_kib: vec![30, 10, 20],
+        };
+        assert_eq!(result.peak_kib(), 20);
     }
 }

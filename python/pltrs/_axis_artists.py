@@ -46,8 +46,10 @@ def _pushing(cls):
     """Make every setter of the mirror class *cls* push the mirror back into
     its axis once it ran."""
     for name in dir(cls):
+        if not name.startswith("set_"):
+            continue
         method = getattr(cls, name)
-        if name.startswith("set_") and callable(method):
+        if callable(method):
             setattr(cls, name, _pushing_setter(method))
     return cls
 

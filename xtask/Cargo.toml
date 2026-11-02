@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 pltrs.workspace = true
+pltrs-codec.workspace = true
+pltrs-core.workspace = true
 pltrs-render.workspace = true
 pltrs-spec.workspace = true
 

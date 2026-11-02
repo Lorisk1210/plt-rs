@@ -6,7 +6,6 @@ pltrs (Rust) typesets and outlines the text (``pltrs::text::text_path``, and
 """
 
 from collections import OrderedDict
-import urllib.parse
 
 from .font_manager import FontManager, FontProperties
 from .path import Path
@@ -17,6 +16,9 @@ from ._native import textpath as _textpath
 def _glyph_repr(psname, glyph):
     """Return a unique id for the glyph index *glyph* of the font whose
     PostScript name is *psname* (matplotlib's ``_get_glyph_repr``)."""
+    # Imported here, not with the module: `urllib.parse` costs `import
+    # pltrs.pyplot` a few milliseconds, and only vector output asks.
+    import urllib.parse
     return urllib.parse.quote(f"{psname}-{glyph:x}")
 
 

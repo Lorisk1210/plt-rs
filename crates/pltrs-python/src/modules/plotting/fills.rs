@@ -119,10 +119,14 @@ pub(super) fn stairs(
 pub(super) fn stackplot(
     axes: Axes,
     x: NdArray,
-    ys: Vec<Vec<f64>>,
+    ys: Vec<NdArray>,
     baseline: String,
     colors: Vec<Color>,
 ) -> PyResult<Vec<Collection>> {
+    let ys = ys
+        .into_iter()
+        .map(NdArray::into_vec)
+        .collect::<PyResult<Vec<_>>>()?;
     let options = StackplotOptions {
         baseline: match baseline.as_str() {
             "sym" => Baseline::Sym,

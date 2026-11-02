@@ -7,7 +7,8 @@
 //! cargo xtask render --look LOOK PREFIX...       render cases in a pltrs look to spec/out/look-LOOK
 //! cargo xtask vectors [PREFIX...] [--formats F]  SVG/PDF/PS/PGF of every case vs matplotlib
 //! cargo xtask bench [PREFIX...] [--reference]     timings of the benchmark workloads (vs matplotlib)
-//! cargo xtask bench [PREFIX...] --report         matplotlib and pltrs (Python, Rust) timed: benchmarks/README.md
+//! cargo xtask bench [PREFIX...] --report         matplotlib and pltrs (Python, Rust) timed: benchmarks/
+//! cargo xtask bench --rewrite-report             benchmarks/README.md and charts again from results.json
 //! cargo xtask mpl-tests [--strict]               matplotlib's own tests: ported, n/a or unaccounted
 //! cargo xtask python [--release] | setup | test   build pltrs (Python)'s extension, make its venvs, smoke-test it
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
@@ -58,6 +59,7 @@ fn main() -> ExitCode {
             eprintln!("       cargo xtask render --look modern|modern-dark PREFIX...");
             eprintln!("       cargo xtask vectors [PREFIX...] [--formats svg,pdf,ps,pgf]");
             eprintln!("       cargo xtask bench [PREFIX...] [--reference | --report] [--runs N]");
+            eprintln!("       cargo xtask bench --rewrite-report [--to DIR]");
             eprintln!("       cargo xtask mpl-tests [--strict]");
             eprintln!("       cargo xtask python [--release] | setup | test");
             eprintln!(

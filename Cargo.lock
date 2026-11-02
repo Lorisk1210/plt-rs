@@ -117,6 +117,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "pltrs",
+ "pltrs-codec",
+ "pltrs-core",
  "pltrs-render",
  "pltrs-spec",
 ]

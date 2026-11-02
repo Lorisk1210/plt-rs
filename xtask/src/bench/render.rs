@@ -5,12 +5,12 @@
 use std::error::Error;
 use std::time::Instant;
 
+use pltrs::animation::HtmlOptions;
 use pltrs::figure::{BboxInches, Figure, SaveOptions};
 use pltrs::look::{self, Appearance};
 use pltrs_render::Metadata;
 
-use super::stats::{Samples, Sampling};
-use super::workloads::{Build, DPI, Output, Workload};
+use super::workloads::{Built, DPI, Output, Workload};
 
 /// Puts this thread in the configuration a matplotlib user starts from,
 /// which pltrs (Python) also runs in here (the benchmark gives it
@@ -20,62 +20,91 @@ pub(super) fn user_configuration() {
     pltrs::rc::restore_startup();
 }
 
-/// Builds the figure of `workload` with `build` and finishes it as
-/// `output` asks: the document saved, or nothing for a figure only laid
-/// out. Documents carry no metadata and SVG ids a fixed salt, so that two
-/// builds of pltrs can be compared byte for byte.
+/// How documents are written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Documents {
+    /// As a program writes them by default, and as matplotlib's scripts
+    /// do: with the default metadata (creator, producer and date in PDF,
+    /// PostScript and SVG, the software in PNG) and random SVG ids.
+    AsUsers,
+    /// Without metadata and with SVG ids of a fixed salt, so that the
+    /// documents of two builds of pltrs can be compared byte for byte.
+    Reproducible,
+}
+
+/// A run of a workload: how long building and saving the figure took, and
+/// the document saved.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Timed {
+    /// The seconds from making the figure to the end of the save.
+    pub(super) seconds: f64,
+    /// What was saved (empty for a figure only drawn without output).
+    pub(super) document: Vec<u8>,
+}
+
+/// Builds the figure of `workload` from `built` and finishes it as
+/// `output` asks. The clock runs from making the figure until the
+/// document is in memory, as it does around a script's `draw()` and
+/// `savefig`; setting the workload's rcParams comes before it, dropping
+/// the figure after it.
 pub(super) fn render(
     workload: &Workload,
-    build: &Build,
+    built: &Built,
     output: Output,
-) -> Result<Vec<u8>, Box<dyn Error>> {
+    documents: Documents,
+) -> Result<Timed, Box<dyn Error>> {
     pltrs::rc::context(|| {
-        pltrs::rc::set("svg.hashsalt", "plt-rs")?;
+        if documents == Documents::Reproducible {
+            pltrs::rc::set("svg.hashsalt", "plt-rs")?;
+        }
         for (key, value) in workload.rc {
             pltrs::rc::set(key, value)?;
         }
         let (width, height) = workload.figsize;
+        let start = Instant::now();
         let fig = Figure::with_size(width, height, DPI);
-        build(&fig)?;
-        finish(&fig, output)
+        let mut animation = None;
+        let document = match built {
+            Built::Figure(build) => {
+                build(&fig)?;
+                finish(&fig, output, documents)?
+            }
+            Built::Animation(build) => animation
+                .insert(build(&fig)?)
+                .to_jshtml(HtmlOptions::default())?
+                .into_bytes(),
+        };
+        let seconds = start.elapsed().as_secs_f64();
+        drop((animation, fig));
+        Ok(Timed { seconds, document })
     })
 }
 
-/// Saves `fig` to memory as `output` asks, or only lays it out and
+/// Saves `fig` to memory as `output` asks, or draws it without output and
 /// returns no document.
-fn finish(fig: &Figure, output: Output) -> Result<Vec<u8>, Box<dyn Error>> {
+fn finish(fig: &Figure, output: Output, documents: Documents) -> Result<Vec<u8>, Box<dyn Error>> {
     match output {
         Output::Save { format, tight } => {
             let options = SaveOptions {
                 dpi: Some(DPI),
                 bbox_inches: tight.then_some(BboxInches::Tight),
-                metadata: Some(Metadata::none()),
+                metadata: (documents == Documents::Reproducible).then(Metadata::none),
                 ..SaveOptions::default()
             };
             Ok(fig.to_format(format, options)?)
         }
         Output::LayoutOnly => {
-            fig.layout();
+            fig.draw_without_rendering()?;
             Ok(Vec::new())
         }
+        Output::Frames => Err("only an animation renders frames".into()),
     }
 }
 
-/// Times `workload` in this process, its data made by `build`: one run to
-/// warm up, then as many runs as `sampling` asks. Returns the times and
-/// the last document saved.
-pub(super) fn time_warm(
-    workload: &Workload,
-    build: &Build,
-    sampling: Sampling,
-) -> Result<(Samples, Vec<u8>), Box<dyn Error>> {
-    let mut document = render(workload, build, workload.output)?;
-    let mut times = Vec::new();
-    while sampling.wants_more(times.len(), times.iter().sum()) {
-        let start = Instant::now();
-        document = render(workload, build, workload.output)?;
-        times.push(start.elapsed().as_secs_f64());
-    }
-    let samples = Samples::new(times).ok_or("the sampling asked for no runs")?;
-    Ok((samples, document))
+/// A timed run of `workload` as the benchmark makes it: the text pltrs
+/// laid out in earlier runs forgotten first, as matplotlib keeps none from
+/// one figure to the next.
+pub(super) fn timed_run(workload: &Workload, built: &Built) -> Result<Timed, Box<dyn Error>> {
+    pltrs::text::clear_text_caches();
+    render(workload, built, workload.output, Documents::AsUsers)
 }

@@ -155,7 +155,10 @@ def _marker_spec(marker, fillstyle=None):
     The native form of a marker: the `.MarkerStyle` spec of *marker*, its
     fill style, its user transform's matrix and its cap and join styles.
     """
-    style = MarkerStyle(marker, fillstyle)
+    # A MarkerStyle without a fill style to impose is read as it is: a
+    # copy of it would hold the same.
+    style = (marker if isinstance(marker, MarkerStyle) and fillstyle is None
+             else MarkerStyle(marker, fillstyle))
     transform = style.get_user_transform()
     return (style._spec if style._spec is not None else ("code", "None"),
             style.get_fillstyle(),

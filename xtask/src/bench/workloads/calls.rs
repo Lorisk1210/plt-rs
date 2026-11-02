@@ -25,7 +25,7 @@ const fn many(name: &'static str, script: &'static str, setup: fn() -> Build) ->
 
 /// `count` phase-shifted sine waves of `points` points over `[0, 1]`,
 /// each raised above the last: the x values and the waves.
-fn waves(count: u32, points: usize) -> (Vec<f64>, Vec<Vec<f64>>) {
+pub(super) fn waves(count: u32, points: usize) -> (Vec<f64>, Vec<Vec<f64>>) {
     let x = linspace(0.0, 1.0, points);
     let waves = (0..count)
         .map(|k| {

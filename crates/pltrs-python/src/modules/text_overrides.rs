@@ -210,6 +210,15 @@ fn set_metrics_cache(cache: Option<Rc<MetricsCache>>) -> PyResult<Option<Rc<Metr
     Ok(install_metrics_cache(cache))
 }
 
+/// Forgets the lines, formulas and glyph outlines pltrs (Rust) laid out
+/// or made for any figure so far, keeping the fonts loaded
+/// (`pltrs::text::clear_text_caches`): what the benchmark harness does
+/// between runs, as it clears matplotlib's mathtext cache.
+fn text_engine_clear_caches() -> PyResult<()> {
+    pltrs::text::clear_text_caches();
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_metrics_cache", new_metrics_cache)?;
@@ -221,6 +230,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("measure_pdf", measure_pdf)?;
     module.add("set_measurer", set_measurer)?;
     module.add("set_painter", set_painter)?;
+    module.add("text_engine_clear_caches", text_engine_clear_caches)?;
     Ok(())
 }
 

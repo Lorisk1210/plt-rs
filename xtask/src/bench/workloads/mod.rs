@@ -1,14 +1,21 @@
 //! The benchmark workloads. Each draws the figure of a script in
 //! `benchmarks/python` (matplotlib's syntax) from the same data, and saves
 //! it in one format: the script and the workload must draw the same
-//! figure, which the report's pixel comparison checks.
+//! figure, which the report's correctness guard checks.
 
 mod calls;
 mod everyday;
+mod families;
 mod fields;
+mod layouts;
+mod motion;
 mod plots;
+mod space;
 mod text;
 
+use std::error::Error;
+
+use pltrs::animation::FuncAnimation;
 use pltrs::figure::{Figure, SaveFormat};
 use pltrs::numeric::{Grid, linspace};
 use pltrs_spec::figures::CaseResult;
@@ -21,6 +28,27 @@ pub(super) const DPI: f64 = 100.0;
 /// Populates a figure from data made before the clock started.
 pub(super) type Build = Box<dyn Fn(&Figure) -> CaseResult>;
 
+/// Populates a figure and animates it, from data made before the clock
+/// started.
+pub(super) type BuildAnimation = Box<dyn Fn(&Figure) -> Result<FuncAnimation, Box<dyn Error>>>;
+
+/// What a workload's data builds: a figure, or an animation of one.
+pub(super) enum Built {
+    /// A figure, saved or laid out as the workload's output says.
+    Figure(Build),
+    /// An animation, whose frames are rendered into an HTML page.
+    Animation(BuildAnimation),
+}
+
+/// How a workload makes its data.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Setup {
+    /// Makes the data of a figure.
+    Figure(fn() -> Build),
+    /// Makes the data of an animation.
+    Animation(fn() -> BuildAnimation),
+}
+
 /// What a workload does with the figure it built.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Output {
@@ -32,9 +60,25 @@ pub(super) enum Output {
         /// Whether the saved area is the tight bounding box.
         tight: bool,
     },
-    /// Lays the figure out without drawing it (matplotlib's
+    /// Draws the figure without output (matplotlib's
     /// `draw_without_rendering`).
     LayoutOnly,
+    /// Renders every frame of an animation as PNG into the page of
+    /// matplotlib's JavaScript player (`to_jshtml`).
+    Frames,
+}
+
+impl Output {
+    /// The format name the Python harness and the raw data use: the file
+    /// extension, `layout` for a figure only laid out, `html` for the
+    /// frames of an animation.
+    pub(super) fn name(self) -> &'static str {
+        match self {
+            Self::Save { format, .. } => format.extension(),
+            Self::LayoutOnly => "layout",
+            Self::Frames => "html",
+        }
+    }
 }
 
 /// Which table of the report a workload belongs to.
@@ -64,6 +108,21 @@ impl Tier {
             Self::Large => "Large workloads",
         }
     }
+
+    /// The tier's key in the raw data.
+    pub(super) const fn key(self) -> &'static str {
+        match self {
+            Self::Small => "small",
+            Self::Medium => "medium",
+            Self::Calls => "calls",
+            Self::Large => "large",
+        }
+    }
+
+    /// The tier whose key is `key`.
+    pub(super) fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|tier| tier.key() == key)
+    }
 }
 
 /// The matplotlib-syntax script of a workload.
@@ -90,8 +149,8 @@ pub(super) struct Workload {
     pub(super) output: Output,
     /// rcParams set while the figure is built and saved.
     pub(super) rc: &'static [(&'static str, &'static str)],
-    /// Makes the data (untimed) and returns what builds the figure.
-    pub(super) setup: fn() -> Build,
+    /// Makes the data (untimed); what it returns builds the figure.
+    pub(super) setup: Setup,
     /// How many plotting and setter calls build the figure, for a
     /// workload of many small calls.
     pub(super) calls: Option<u32>,
@@ -101,15 +160,31 @@ impl Workload {
     /// A large workload drawing the figure of `benchmarks/python/<script>.py`,
     /// saved as PNG on the default 6.4 × 4.8 in canvas.
     const fn new(name: &'static str, script: &'static str, setup: fn() -> Build) -> Self {
+        let png = Output::Save {
+            format: SaveFormat::Png,
+            tight: false,
+        };
+        Self::of(name, script, Setup::Figure(setup), png)
+    }
+
+    /// A large workload rendering the frames of the animation of
+    /// `benchmarks/python/<script>.py` into the player's page.
+    const fn animation(
+        name: &'static str,
+        script: &'static str,
+        setup: fn() -> BuildAnimation,
+    ) -> Self {
+        Self::of(name, script, Setup::Animation(setup), Output::Frames)
+    }
+
+    /// A large workload on the default 6.4 × 4.8 in canvas.
+    const fn of(name: &'static str, script: &'static str, setup: Setup, output: Output) -> Self {
         Self {
             name,
             script: Script::Python(script),
             tier: Tier::Large,
             figsize: (6.4, 4.8),
-            output: Output::Save {
-                format: SaveFormat::Png,
-                tight: false,
-            },
+            output,
             rc: &[],
             setup,
             calls: None,
@@ -154,7 +229,7 @@ impl Workload {
         }
     }
 
-    /// The same workload laid out but neither drawn nor saved.
+    /// The same workload drawn without output.
     const fn layout_only(self) -> Self {
         Self {
             output: Output::LayoutOnly,
@@ -183,13 +258,28 @@ impl Workload {
         }
     }
 
-    /// What the pixel comparison saves: the figure as PNG, cropped as the
-    /// workload crops it.
-    pub(super) const fn png_output(&self) -> Output {
-        let tight = matches!(self.output, Output::Save { tight: true, .. });
-        Output::Save {
-            format: SaveFormat::Png,
-            tight,
+    /// Makes the workload's data.
+    pub(super) fn build(&self) -> Built {
+        match self.setup {
+            Setup::Figure(setup) => Built::Figure(setup()),
+            Setup::Animation(setup) => Built::Animation(setup()),
+        }
+    }
+
+    /// The figure as PNG, cropped as the workload crops it, which the
+    /// guard compares pixel by pixel; `None` for an animation, whose
+    /// frames are PNG images already.
+    pub(super) const fn png_output(&self) -> Option<Output> {
+        match self.output {
+            Output::Save { tight, .. } => Some(Output::Save {
+                format: SaveFormat::Png,
+                tight,
+            }),
+            Output::LayoutOnly => Some(Output::Save {
+                format: SaveFormat::Png,
+                tight: false,
+            }),
+            Output::Frames => None,
         }
     }
 
@@ -199,6 +289,7 @@ impl Workload {
         match self.output {
             Output::Save { format, .. } => Some(format.extension()),
             Output::LayoutOnly => None,
+            Output::Frames => Some("html"),
         }
     }
 }
@@ -207,10 +298,14 @@ impl Workload {
 pub(super) fn all() -> impl Iterator<Item = &'static Workload> {
     everyday::WORKLOADS
         .iter()
+        .chain(families::WORKLOADS)
         .chain(calls::WORKLOADS)
         .chain(plots::WORKLOADS)
         .chain(fields::WORKLOADS)
+        .chain(space::WORKLOADS)
         .chain(text::WORKLOADS)
+        .chain(layouts::WORKLOADS)
+        .chain(motion::WORKLOADS)
 }
 
 /// The workload called `name`.
@@ -277,16 +372,24 @@ mod tests {
         let tight = named("output/mid_png_tight").expect("a tight workload");
         assert_eq!(
             tight.png_output(),
-            Output::Save {
+            Some(Output::Save {
                 format: SaveFormat::Png,
                 tight: true
-            }
+            })
         );
         let layout = named("layout/constrained_8x8_no_draw").expect("a layout workload");
         assert_eq!(layout.extension(), None);
+        assert_eq!(layout.output.name(), "layout");
         assert!(matches!(
             layout.png_output(),
-            Output::Save { tight: false, .. }
+            Some(Output::Save { tight: false, .. })
         ));
+    }
+
+    #[test]
+    fn tiers_have_keys() {
+        for tier in Tier::ALL {
+            assert_eq!(Tier::from_key(tier.key()), Some(tier));
+        }
     }
 }

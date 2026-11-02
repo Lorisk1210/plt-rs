@@ -8,7 +8,7 @@ pub use outline::{TEXT_PATH_DPI, TEXT_PATH_FONT_SCALE};
 pub use request::FontRequest;
 
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, PoisonError};
 
 use pltrs_core::Path;
 use pltrs_font::{FontDatabase, FontEntry, FontId, ScanOutline};
@@ -135,6 +135,23 @@ impl TextEngine {
         self.lines.clear();
         self.formulas.clear();
         self.heights.clear();
+    }
+
+    /// Forgets every layout and glyph outline made so far, keeping the
+    /// fonts loaded: the next text is laid out and outlined from its font
+    /// again, as by an engine that has not seen it (what a benchmark does
+    /// between runs, so that no run profits from text an earlier one laid
+    /// out).
+    pub fn clear_caches(&self) {
+        self.forget_layouts();
+        self.outlines
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
+        self.scan_outlines
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clear();
     }
 
     /// Lays out a single line of plain text (matplotlib's
@@ -409,6 +426,26 @@ mod tests {
         assert_eq!(run.glyphs.len(), 1);
         std::fs::remove_file(&path).unwrap();
         assert!(engine.add_font_file(&path).is_err());
+    }
+
+    #[test]
+    fn cleared_caches_lay_out_and_outline_the_same_again() {
+        let engine = TextEngine::new(FontDatabase::with_bundled_fonts());
+        let request = FontRequest::dejavu_sans(12.0);
+        let outlined = |engine: &TextEngine| {
+            let run = engine.layout_line("og", &request, 72.0).expect("bundled");
+            let glyph = run.glyphs[0];
+            let outline = engine
+                .glyph_outline(glyph.font, glyph.glyph, 12.0, 72.0)
+                .expect("outline");
+            (run, outline)
+        };
+        let first = outlined(&engine);
+        assert_eq!(engine.outlines.lock().expect("unpoisoned").len(), 1);
+        engine.clear_caches();
+        assert!(engine.outlines.lock().expect("unpoisoned").is_empty());
+        assert!(engine.scan_outlines.lock().expect("unpoisoned").is_empty());
+        assert_eq!(outlined(&engine), first);
     }
 
     #[test]

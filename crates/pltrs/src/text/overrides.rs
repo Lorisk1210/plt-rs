@@ -23,9 +23,9 @@ use pltrs_text::{AfmDirectory, FontHeightMetrics, LineMetrics, TextError};
 
 use super::layout::{LaidOutText, Typesetting};
 use super::{Text, TextArtist};
-use crate::artist::{Artist, ArtistHandle, ArtistLookup, DrawContext, RawHandle};
+use crate::artist::{Artist, ArtistHandle, DrawContext, RawHandle};
 use crate::colors::Color;
-use crate::figure::{Figure, StateRole};
+use crate::figure::Figure;
 use crate::fonts::FontProperties;
 use crate::transforms::Transform;
 
@@ -214,7 +214,7 @@ pub(super) fn paint(
 ) {
     let dpi = ctx.layout().dpi();
     for artist in painter.paint(&stand_in(laid_out, anchor, color, dpi), dpi) {
-        draw_artist_of(ctx, &artist);
+        ctx.draw_handle(&artist);
     }
 }
 
@@ -240,24 +240,6 @@ fn stand_in(laid_out: &LaidOutText, anchor: Point, color: Rgba, dpi: f64) -> Tex
     text.base_mut().transform = Some(Transform::Display);
     let figure = Figure::with_size(width, height, dpi);
     Text::from_raw(figure.add_custom_artist(text).raw().clone())
-}
-
-/// Draws `artist`, of another figure or of none (a loose artist), where
-/// `ctx` draws and at its resolution (matplotlib's `artist.draw(renderer)`
-/// called while a figure draws); its problems are reported as `ctx`'s.
-fn draw_artist_of(ctx: &mut DrawContext<'_>, artist: &RawHandle) {
-    let state = artist.figure_state().borrow();
-    if state.role == StateRole::LooseHolder {
-        state.set_dpi(ctx.layout().dpi());
-    }
-    let Some(drawn) = state.artist(artist.id()) else {
-        return;
-    };
-    let mut inner = DrawContext::new(&state, ctx.renderer());
-    drawn.draw(&mut inner);
-    for error in inner.into_errors() {
-        ctx.report_kind(error.artist, error.kind, error.message);
-    }
 }
 
 /// matplotlib's `get_text_width_height_descent(line, prop, ismath)` as
@@ -304,6 +286,42 @@ pub fn measure_line_pdf(
         .pdf_use14corefonts
         .then_some(AfmDirectory::PdfCore);
     super::metrics::with_afm_metrics(core_fonts, || measure_line(line, font, kind, dpi))
+}
+
+/// [`measure_line`] as the PostScript backend measures the text it draws,
+/// at `dpi` (72 for a document): with the AFM metrics of the standard
+/// PostScript fonts while `ps.useafm` is set (matplotlib's
+/// `RendererPS.get_text_width_height_descent`).
+///
+/// # Errors
+///
+/// As [`measure_line`].
+pub fn measure_line_ps(
+    line: &str,
+    font: &FontProperties,
+    kind: LineKind,
+    dpi: f64,
+) -> Result<LineMetrics, TextError> {
+    let afm = crate::rc::params()
+        .ps_useafm
+        .then_some(AfmDirectory::PdfCore);
+    super::metrics::with_afm_metrics(afm, || measure_line(line, font, kind, dpi))
+}
+
+/// [`measure_line`] as the SVG backend measures the text it draws, at
+/// `dpi` (matplotlib's `RendererSVG.get_text_width_height_descent`, that
+/// of `TextToPath`).
+///
+/// # Errors
+///
+/// As [`measure_line`].
+pub fn measure_line_svg(
+    line: &str,
+    font: &FontProperties,
+    kind: LineKind,
+    dpi: f64,
+) -> Result<LineMetrics, TextError> {
+    super::metrics::with_text_path_metrics(|| measure_line(line, font, kind, dpi))
 }
 
 #[cfg(test)]

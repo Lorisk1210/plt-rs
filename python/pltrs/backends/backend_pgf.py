@@ -14,16 +14,22 @@ import pathlib
 import shutil
 from tempfile import TemporaryDirectory
 
-from .. import cbook, rcParams
-from .._native import texmanager as _texmanager
+from .. import _api, cbook, rcParams
+from .._native import texmanager as _texmanager, text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
-from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
+from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..figure import Figure
+from ..font_manager import FontManager
+from ._native_drawing import DocumentDrawingMixin
+from .backend_mixed import MixedModeRenderer
 from .backend_pdf import _create_pdf_info_dict, _datetime_to_pdf
 
 _log = logging.getLogger(__name__)
 
 _DOCUMENTCLASS = r"\documentclass{article}"
+
+#: Inches per point (matplotlib's ``mpl_pt_to_in``).
+_PT_TO_IN = 1. / 72.
 
 
 def _metadata_to_str(key, value):
@@ -46,11 +52,66 @@ def _metadata_to_str(key, value):
     return f"{key}={{{value}}}"
 
 
+class RendererPgf(DocumentDrawingMixin, RendererBase):
+    """
+    The renderer of a PGF picture of *figure*, written to *fh*, in the
+    figure's pixels.
+
+    pltrs (Rust) writes the pictures itself: this is the renderer the
+    program's drawing receives while a figure is saved as PGF
+    (`FigureCanvasPgf._program_renderer`), which draws into the picture
+    pltrs (Rust) writes.
+    """
+
+    def __init__(self, figure, fh):
+        super().__init__()
+        self.dpi = figure.dpi
+        self.fh = fh
+        self.figure = figure
+        self.image_counter = 0
+
+    def option_scale_image(self):
+        # docstring inherited
+        return True
+
+    def option_image_nocomposite(self):
+        # docstring inherited
+        return not rcParams['image.composite_image']
+
+    def flipy(self):
+        # docstring inherited
+        return False
+
+    def get_canvas_width_height(self):
+        # docstring inherited
+        return (self.figure.get_figwidth() * self.dpi,
+                self.figure.get_figheight() * self.dpi)
+
+    def points_to_pixels(self, points):
+        # docstring inherited
+        return points * _PT_TO_IN * self.dpi
+
+    def get_text_width_height_descent(self, s, prop, ismath):
+        # docstring inherited
+        _api.check_in_list(["TeX", True, False], ismath=ismath)
+        return _text_overrides.measure(s, FontManager._props(prop), ismath,
+                                       float(self.dpi))
+
+
 class FigureCanvasPgf(FigureCanvasBase):
     filetypes = {"pgf": "LaTeX PGF picture"}
 
     def get_default_filetype(self):
         return 'pgf'
+
+    def _program_renderer(self, dpi, bbox_inches_restore):
+        """The renderer the program's drawing receives while the figure is
+        saved at *dpi* (matplotlib's ``print_pgf`` draws the figure with
+        it): a `MixedModeRenderer` around a `RendererPgf`."""
+        width, height = self.figure.get_size_inches()
+        return MixedModeRenderer(
+            self.figure, width, height, dpi, RendererPgf(self.figure, None),
+            bbox_inches_restore=bbox_inches_restore)
 
     def print_pgf(self, fname_or_fh, *, bbox_inches_restore=None,
                   facecolor=None, edgecolor=None):

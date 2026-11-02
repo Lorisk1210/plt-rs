@@ -22,6 +22,7 @@ mod picking;
 mod stale;
 
 pub(super) use clip::ClipSpec;
+pub(super) use filter::python_filter;
 pub(super) use picking::PyPicker;
 
 impl From<AttachError> for PyErr {

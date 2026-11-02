@@ -962,6 +962,37 @@ def _(fig):
     leg.legendPatch.set_path_effects([patheffects.withSimplePatchShadow()])
 
 
+class _Ghost(patheffects.AbstractPathEffect):
+    """A path effect of the program's class (``AbstractPathEffect``'s
+    ``draw_path``, as the path effects guide describes): the path again,
+    offset by *offset* points, in a pale colour, then the path."""
+
+    def __init__(self, offset=(3, -3), color="0.7"):
+        super().__init__(offset)
+        self._color = color
+
+    def draw_path(self, renderer, gc, tpath, affine, rgbFace=None):
+        gc0 = renderer.new_gc()
+        gc0.copy_properties(gc)
+        gc0.set_foreground(self._color)
+        face = None if rgbFace is None else mcolors.to_rgb(self._color)
+        renderer.draw_path(gc0, tpath, affine + self._offset_transform(renderer), face)
+        gc0.restore()
+        renderer.draw_path(gc, tpath, affine, rgbFace)
+
+
+@case(f"{G}/patheffect_demo_custom", figsize=(8, 3))
+def _(fig):
+    """``patheffect_demo``'s kinds of artists with an effect of the
+    program's class."""
+    ax1, ax2, ax3 = fig.subplots(1, 3)
+    ax1.plot([0, 1, 2, 3], [0, 2, 1, 3], "o-", lw=3, path_effects=[_Ghost()])
+    ax1.set_title("lines", path_effects=[_Ghost((1, -1))])
+    ax2.bar([0, 1, 2], [3, 1, 2], color="C1", path_effects=[_Ghost((4, 4), "0.85")])
+    ax3.text(0.5, 0.5, "ghost", size=24, ha="center",
+             path_effects=[_Ghost((2, -2), "pink")])
+
+
 # --- rasterization_demo -------------------------------------------------------
 
 

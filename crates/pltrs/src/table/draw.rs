@@ -123,7 +123,7 @@ impl Figure {
     pub fn draw_cell(&self, cell: &TableCell) -> Result<(), CanvasError> {
         let table = cell.table().raw();
         self.canvas()
-            .draw_part(table, |ctx| draw_alone(ctx, table.id(), cell.key()))
+            .draw_part(table, true, |ctx| draw_alone(ctx, table.id(), cell.key()))
     }
 }
 

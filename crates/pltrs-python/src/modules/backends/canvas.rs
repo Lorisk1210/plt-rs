@@ -5,15 +5,11 @@
 
 use pltrs::artist::RawHandle;
 use pltrs::axes::Axes;
-use pltrs::colors::Color;
 use pltrs::figure::{BufferRegion, CanvasError, Figure, PixelBox};
 use pltrs::transforms::{Bbox, Point};
 use pltrs_render::RasterRenderer;
 
 use super::super::lines::markevery_error;
-use super::super::path::PyPath;
-use super::super::transforms::affine;
-use super::gc::PyGc;
 use crate::binding::prelude::*;
 use crate::binding::wrap_native;
 
@@ -89,10 +85,11 @@ fn region_extents(region: BufferRegion) -> PyResult<(i64, i64, i64, i64)> {
     Ok(pixel_extents(region.extents()))
 }
 
-/// Draws one artist of the figure onto its canvas, over what it holds
-/// (`Figure.draw_artist`).
+/// Draws one artist of the figure onto its canvas, over what it holds,
+/// as pltrs draws it, its painter left out (`Artist.draw` with the
+/// canvas's `RendererAgg`, matplotlib's `draw` of the artist's own class).
 fn draw_artist(figure: Figure, artist: RawHandle) -> PyResult<()> {
-    Ok(figure.draw_artist(&artist)?)
+    Ok(figure.draw_artist_unpainted(&artist)?)
 }
 
 /// Draws the axes onto its figure's canvas without its x and y axes and
@@ -115,9 +112,10 @@ fn new_raster(width: f64, height: f64, dpi: f64) -> PyResult<RasterRenderer> {
 }
 
 /// Draws `artist`, of a figure or of none, onto the raster canvas
-/// `raster` (`Artist.draw` with a `RendererAgg` the program made).
+/// `raster`, as pltrs draws it, its painter left out (`Artist.draw` with
+/// a `RendererAgg` the program made).
 fn draw_onto_raster(raster: Native<RasterRenderer>, artist: RawHandle) -> PyResult<()> {
-    Ok(artist.draw_onto(&mut *raster.borrow_mut())?)
+    Ok(artist.draw_unpainted_onto(&mut *raster.borrow_mut())?)
 }
 
 /// The pixels of the raster canvas `raster`, as `buffer_rgba` gives them.
@@ -143,28 +141,6 @@ fn width_height(figure: Figure) -> PyResult<(u32, u32)> {
     Ok(figure.width_height())
 }
 
-/// Draws `path`, mapped into display pixels by the affine `matrix`, onto
-/// the figure's canvas with the graphics context `gc`, filled with
-/// `fill` if given (matplotlib's `RendererAgg.draw_path`).
-fn draw_path(
-    figure: Figure,
-    gc: PyGc,
-    path: PyPath,
-    matrix: NdArray,
-    fill: Option<Color>,
-) -> PyResult<()> {
-    let fill = fill
-        .map(|color| {
-            color
-                .resolve()
-                .map_err(|err| PyErr::value_error(err.to_string()))
-        })
-        .transpose()?;
-    Ok(figure
-        .canvas()
-        .draw_path(&gc.0, &path.path, &affine(&matrix)?, fill)?)
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("draw", draw)?;
@@ -173,7 +149,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("restore_region", restore_region)?;
     module.add("region_extents", region_extents)?;
     module.add("draw_artist", draw_artist)?;
-    module.add("draw_path", draw_path)?;
     module.add("redraw_in_frame", redraw_in_frame)?;
     module.add("blit", blit)?;
     module.add("get_device_pixel_ratio", get_device_pixel_ratio)?;

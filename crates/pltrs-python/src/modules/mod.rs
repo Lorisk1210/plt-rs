@@ -37,6 +37,7 @@ mod colorbar;
 mod colors;
 mod contour;
 mod dates;
+mod drawing;
 mod dviread;
 mod figure;
 mod figure_layout;
@@ -131,6 +132,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     polar::register(&module.submodule("polar")?)?;
     projections::register(&module.submodule("projections")?)?;
     patheffects::register(&module.submodule("patheffects")?)?;
+    drawing::register(&module.submodule("drawing")?)?;
     rcsetup::register(&module.submodule("rcsetup")?)?;
     sankey::register(&module.submodule("sankey")?)?;
     scale::register(&module.submodule("scale")?)?;

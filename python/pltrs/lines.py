@@ -15,6 +15,7 @@ import numpy as np
 from . import _api, _live_transforms, cbook
 from ._artist_kwargs import native_artist_kwargs
 from ._native import lines as _lines
+from ._program_classes import takes_from_program
 from .artist import Artist
 from .cbook import ls_mapper, ls_mapper_r, STEP_LOOKUP_MAP  # noqa: F401
 from .markers import (  # noqa: F401  (matplotlib re-exports these here)
@@ -324,6 +325,10 @@ class Line2D(Artist):
             cbook._to_unmasked_float_array(ydata).ravel(), _native_kwargs(props))
         super().__init__()
         self._xorig, self._yorig = copy.copy(xdata), copy.copy(ydata)
+        # matplotlib's __init__ sets the data through `set_data`, which a
+        # class of the program's may override.
+        if takes_from_program(type(self), "set_data"):
+            self.set_data(xdata, ydata)
         if markevery is not None:
             self.set_markevery(markevery)
         self._internal_update(kwargs)

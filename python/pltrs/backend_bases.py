@@ -12,7 +12,7 @@ License): Python classes that user code subclasses and instantiates.
 """
 
 from collections import namedtuple
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from enum import Enum, IntEnum
 import functools
 import importlib
@@ -673,6 +673,16 @@ class RendererBase:
 
         Currently only supported by the agg renderer.
         """
+
+    def _draw_artist(self, artist):
+        """
+        Draw *artist* through this renderer's drawing methods (`.Artist.draw`
+        with a renderer of the program's): pltrs (Rust) draws it, calling
+        `draw_path`, `draw_markers`, `draw_image`, ... with matplotlib's
+        arguments. A figure is laid out and drawn whole.
+        """
+        from ._python_drawing import draw_through
+        draw_through(self, artist)
 
     def _draw_disabled(self):
         """
@@ -2129,10 +2139,27 @@ class FigureCanvasBase:
         Drawing the figure emits a ``draw_event``, as matplotlib's
         ``Figure.draw`` does.
         """
-        data = _backends.print_figure(
-            self.figure._native, fmt, self._print_settings(**kwargs))
+        with self._program_drawing(kwargs.get("bbox_inches_restore")):
+            data = _backends.print_figure(
+                self.figure._native, fmt, self._print_settings(**kwargs))
         DrawEvent("draw_event", self, None)._process()
         _write_bytes(data, filename_or_obj)
+
+    def _program_drawing(self, bbox_inches_restore):
+        """
+        While the figure is printed: hand the program's drawing (see
+        `._python_drawing`) the renderer of the format, which a canvas of a
+        vector format makes (``_program_renderer``, made when first needed,
+        for the save resolution and *bbox_inches_restore*), as matplotlib's
+        print methods draw the figure with one; the others draw with the
+        renderer drawing them.
+        """
+        from ._python_drawing import drawing_with
+        make = getattr(self, "_program_renderer", None)
+        if make is None:
+            return nullcontext()
+        return drawing_with(functools.partial(make, self.figure.dpi,
+                                              bbox_inches_restore))
 
     @classmethod
     def get_default_filetype(cls):

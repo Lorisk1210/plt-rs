@@ -13,6 +13,7 @@ mod effects;
 mod filters;
 mod images;
 mod pictures;
+mod program_drawing;
 mod projections;
 mod sankey;
 mod showcase;
@@ -35,6 +36,7 @@ pub(crate) fn cases() -> Vec<FigureCase> {
         filters::CASES,
         images::CASES,
         pictures::CASES,
+        program_drawing::CASES,
         projections::CASES,
         sankey::CASES,
         skewt::CASES,

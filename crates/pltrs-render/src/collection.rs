@@ -177,6 +177,54 @@ impl<'a> PathCollection<'a> {
     }
 }
 
+/// The arguments of a [`PathCollection`] owned rather than borrowed, for
+/// a drawing kept until it is drawn (what a program drew through a
+/// renderer of its own, see `pltrs::artist::Drawing`).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PathCollectionData {
+    /// Applied after each item's own transform.
+    pub master_transform: Affine2D,
+    /// Item shapes.
+    pub paths: Vec<Path>,
+    /// Per-item transforms applied before `master_transform`.
+    pub path_transforms: Vec<Affine2D>,
+    /// Per-item translations in display coordinates.
+    pub offsets: Vec<Point>,
+    /// Face colours; empty = no fills.
+    pub facecolors: Vec<Rgba>,
+    /// Edge colours; empty = no strokes.
+    pub edgecolors: Vec<Rgba>,
+    /// Hatch colours.
+    pub hatchcolors: Vec<Rgba>,
+    /// Edge line widths in points.
+    pub linewidths: Vec<f64>,
+    /// Edge dash patterns.
+    pub dashes: Vec<Dashes>,
+    /// Per-item anti-aliasing.
+    pub antialiased: Vec<bool>,
+    /// Per-item hyperlinks.
+    pub urls: Vec<Option<String>>,
+}
+
+impl PathCollectionData {
+    /// The collection these arguments describe.
+    pub fn view(&self) -> PathCollection<'_> {
+        PathCollection {
+            master_transform: self.master_transform,
+            paths: &self.paths,
+            path_transforms: &self.path_transforms,
+            offsets: &self.offsets,
+            facecolors: &self.facecolors,
+            edgecolors: &self.edgecolors,
+            hatchcolors: &self.hatchcolors,
+            linewidths: &self.linewidths,
+            dashes: &self.dashes,
+            antialiased: &self.antialiased,
+            urls: &self.urls,
+        }
+    }
+}
+
 /// Item `i` of `items` repeated cyclically, or `None` when there are none.
 fn cycled<T>(items: &[T], i: usize) -> Option<&T> {
     (!items.is_empty()).then(|| &items[wrap(i, items.len())])
@@ -244,5 +292,19 @@ mod tests {
         let collection = PathCollection::default();
         assert!(collection.is_empty());
         assert_eq!(collection.items(&GraphicsContext::default()).count(), 0);
+        assert!(PathCollectionData::default().view().is_empty());
+    }
+
+    #[test]
+    fn owned_arguments_describe_the_same_collection() {
+        let data = PathCollectionData {
+            paths: vec![Path::unit_rectangle()],
+            offsets: vec![Point::new(1.0, 2.0), Point::new(3.0, 4.0)],
+            facecolors: vec![Rgba::BLACK],
+            ..PathCollectionData::default()
+        };
+        let items: Vec<_> = data.view().items(&GraphicsContext::default()).collect();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[1].offset, Point::new(3.0, 4.0));
     }
 }

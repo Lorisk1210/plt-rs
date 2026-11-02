@@ -685,7 +685,8 @@ a tick label out again where it draws it; while a cache is installed, pltrs
 the cost of a second layout.
 
 The renderer's text drawing can be replaced too. `RendererAgg.draw_text`
-and `draw_tex` draw a line onto the canvas (`_native.backends.draw_text`).
+and `draw_tex` draw a line onto the canvas (`_native.drawing.draw_text`,
+see "Drawing defined in Python").
 While a canvas's renderer has a `draw_tex` other than its own (assigned to
 the instance, or `RendererBase.draw_tex`), its draws hand pltrs (Rust) a
 `pltrs::text::TexPainter`: every TeX line is drawn by calling it, and the
@@ -698,6 +699,71 @@ usetex looks TeX fonts up through `dviread.PsfontsMap.__getitem__`, which
 tests replace: `PsfontsMap`'s metaclass notices it, and pltrs-text's font
 map lookups (`pltrs_text::tex::set_font_map_lookup`) call the replacement
 while it is in force.
+
+### Drawing defined in Python
+
+matplotlib draws a figure by calling every artist's `draw(renderer)`, so
+a subclass of the program's draws whatever its `draw` draws, a path
+effect of the program's draws through its `draw_path(renderer, gc, tpath,
+affine, rgbFace)`, and an artist drawn with a renderer of the program's
+calls that renderer's methods. pltrs (Rust) draws figures itself and calls
+the Python code back where matplotlib would (`_python_drawing`), never for
+figures without it:
+
+* **Drawings.** The renderers pltrs hands Python are matplotlib's classes
+  with their drawing methods done natively (`backends/_native_drawing`):
+  `draw_path`, `draw_markers`, `draw_path_collection`, `draw_quad_mesh`,
+  `draw_gouraud_triangles`, `draw_image`, `draw_text`, `draw_tex`, the
+  groups and filters, each adds its step to a `pltrs::artist::Drawing`
+  (`_native.drawing`), and `Artist.draw` with one of them adds the artist,
+  drawn as pltrs (Rust) draws it (`_draw_artist`). Between draws the
+  drawing is drawn at once (the canvas's `RendererAgg` onto its canvas, a
+  `RendererAgg` of the program's onto pixels of its own).
+* **Artists.** An artist whose class takes `draw` from outside the
+  package (`_program_classes.takes_from_program`), or computes what
+  matplotlib's `draw` reads (an arc's `theta1` as a property, the
+  `_computed` attributes of the package's class, pushed by
+  `_push_computed` when it is drawn), gets a painter
+  (`pltrs::artist::ArtistPainter`, `_native.drawing.set_painter`) holding
+  the object weakly. Once the figure is laid out, before its artists are
+  drawn and with the figure free to change, pltrs (Rust) calls
+  `record_drawing` for every painted artist the draw reaches, in drawing
+  order: the class' `draw` (without its rasterization wrapper, which pltrs
+  applies as `allow_rasterization` does) runs with the renderer of the
+  draw recording, then pltrs draws the recording at the artist's place;
+  `super().draw(renderer)` is the artist drawn there as pltrs draws it.
+  The draw may change the figure (an image computing its array, as the
+  ribbon box example does); the transforms it reads are those of the
+  laid-out figure (`_live_transforms.invalidate_all`, the artist's given
+  transform handed to pltrs again). The renderer is the one each format
+  hands matplotlib's draw: the canvas's `RendererAgg`, or a
+  `MixedModeRenderer` around `RendererPdf`, `RendererSVG`, `RendererPS` or
+  `RendererPgf` (`FigureCanvas*._program_renderer`, installed for the
+  print by `FigureCanvasBase._program_drawing`, `drawing_with`), whose
+  `start_rasterizing` is recorded too. A loose artist drawn this way
+  resolves its transforms in the figure drawing it.
+* **Adding.** matplotlib's `add_*` methods call `set_figure`,
+  `set_transform` and the `axes` setter of the artist they add, and its
+  constructors the setters of the artist (a line's `set_data`): where a
+  class of the program's overrides them, pltrs calls them too
+  (`_program_classes.set_artist_props`), and gives the artist its class'
+  `zorder` (`take_class_defaults`).
+* **Path effects.** An effect of a class of the program's crosses as
+  itself (`("python", effect)`, `pltrs::patheffects::CustomPathEffect`):
+  pltrs (Rust) calls `effect_draw_path` for every path it draws with it,
+  which runs `draw_path` with the renderer recording, and draws the
+  recording in the path's place. The effects of an artist share the
+  graphics context, as matplotlib hands them all the same one.
+* **Renderers of the program's.** `Artist.draw` with a renderer pltrs did
+  not make (`RendererBase._draw_artist`, also a `MixedModeRenderer`
+  around a renderer of the program's) has pltrs (Rust) draw the artist
+  through the renderer's methods (`_native.drawing.draw_through`,
+  `forward_drawing`): a figure is laid out and drawn whole, its rasterized
+  artists through the renderer's `start_rasterizing`.
+
+A painted artist's object is pickled with its figure (the painter is
+archived as the object), so a figure with one pickles as matplotlib's
+does, or fails with pickle's error for a class pickle cannot find.
 
 ### pyplot's state
 
@@ -756,10 +822,8 @@ A canvas draws and prints through the figure's native handle
   that they survive a change of canvas.
 * The renderer pltrs hands Python (`RendererAgg`, also what
   `fig._get_renderer()` gives under the vector backends) draws onto the
-  figure's raster canvas: its `draw_path` takes matplotlib's graphics
-  context (`backend_agg._native_gc`) to `_native.backends.draw_path`,
-  and `RendererBase`'s fallbacks (`draw_markers`, `draw_path_collection`)
-  draw through it.
+  figure's raster canvas: its drawing methods (see "Drawing defined in
+  Python") draw what they are given onto it at once, between draws.
 
 ### rcParams
 

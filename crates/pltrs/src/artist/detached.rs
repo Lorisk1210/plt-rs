@@ -70,6 +70,11 @@ impl DetachedArtists {
         take_tree(id, |id| self.take(id))
     }
 
+    /// The ids of the removed artists, in creation order.
+    pub(crate) fn ids(&self) -> impl Iterator<Item = ArtistId> + '_ {
+        self.artists.keys().copied()
+    }
+
     /// Whether some removed artist has an id `live` (the figure's store)
     /// also holds (checked on artists read back from an archive).
     pub(crate) fn overlaps(&self, live: &super::ArtistStore) -> bool {

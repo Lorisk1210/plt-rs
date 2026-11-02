@@ -22,6 +22,8 @@ from ..figure import Figure
 from ..font_manager import FontManager
 from ..text import _measuring_with
 from ._backend_pdf_ps import RendererPDFPSBase
+from ._native_drawing import DocumentDrawingMixin
+from .backend_mixed import MixedModeRenderer
 
 
 def _create_pdf_info_dict(backend, metadata):
@@ -270,16 +272,18 @@ class PdfPages:
                                         (x0, y0, x1, y1))
 
 
-class RendererPdf(RendererPDFPSBase):
+class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
     """
     The renderer of a PDF page of *width* × *height* inches, drawn in
     points, its images at *image_dpi*, into the `PdfFile` *file*.
 
-    pltrs (Rust) writes the documents itself: the renderer pltrs hands
-    Python is the one the figure is laid out with for its document (the
+    pltrs (Rust) writes the documents itself: the renderers pltrs hands
+    Python are the one the figure is laid out with for its document (the
     renderer text measurement receives while a figure under the PDF canvas
-    is laid out or saved), which measures text as the PDF backend does and
-    draws into no file (*file* is None).
+    is laid out or saved), which measures text as the PDF backend does,
+    and the one the program's drawing receives while the figure is saved
+    (`FigureCanvasPdf._program_renderer`), which draws into the document
+    pltrs (Rust) writes (*file* is None for both).
     """
 
     _use_afm_rc_name = "pdf.use14corefonts"
@@ -295,6 +299,10 @@ class RendererPdf(RendererPDFPSBase):
         _api.check_in_list(["TeX", True, False], ismath=ismath)
         return _text_overrides.measure_pdf(s, FontManager._props(prop), ismath,
                                            72.0)
+
+    def get_image_magnification(self):
+        # docstring inherited
+        return self.image_dpi / 72.0
 
 
 class FigureCanvasPdf(FigureCanvasBase):
@@ -312,6 +320,17 @@ class FigureCanvasPdf(FigureCanvasBase):
         width, height = self.figure.get_size_inches()
         return RendererPdf(None, self.figure.dpi, height, width)
 
+    def _program_renderer(self, dpi, bbox_inches_restore):
+        """The renderer the program's drawing receives while the figure is
+        saved at *dpi* (matplotlib's ``print_pdf`` draws the figure with
+        it): a `MixedModeRenderer` around a `RendererPdf`, the figure drawn
+        at 72 dpi meanwhile."""
+        width, height = self.figure.get_size_inches()
+        return MixedModeRenderer(
+            self.figure, width, height, dpi,
+            RendererPdf(None, dpi, height, width),
+            bbox_inches_restore=bbox_inches_restore)
+
     def draw(self):
         self.figure.draw_without_rendering()
         return super().draw()
@@ -325,9 +344,10 @@ class FigureCanvasPdf(FigureCanvasBase):
                         facecolor=facecolor, edgecolor=edgecolor)
         with _measuring_with(self._print_renderer()):
             if isinstance(filename, PdfPages):
-                _backends.pdf_pages_savefig(
-                    filename._ensure_file()._native, self.figure._native,
-                    self._print_settings(**settings))
+                with self._program_drawing(bbox_inches_restore):
+                    _backends.pdf_pages_savefig(
+                        filename._ensure_file()._native, self.figure._native,
+                        self._print_settings(**settings))
             else:
                 self._print_native("pdf", filename,
                                    metadata=_native_info(metadata), **settings)

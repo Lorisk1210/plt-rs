@@ -10,7 +10,7 @@ use crate::binding::prelude::*;
 /// The filter running the Python function `function`. When the function
 /// raises, its exception raises from the native call drawing the figure,
 /// and the artist is drawn unfiltered meanwhile.
-fn python_filter(function: Callback) -> AggFilter {
+pub(in crate::modules) fn python_filter(function: Callback) -> AggFilter {
     AggFilter::new(move |image, dpi| {
         let unfiltered = || Filtered {
             image: image.clone(),

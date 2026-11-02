@@ -1,6 +1,8 @@
 //! The renderer proxy applying path effects (matplotlib's
 //! `PathEffectRenderer`).
 
+use std::borrow::Cow;
+
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{
     FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage, draw_text_as_path,
@@ -61,6 +63,47 @@ impl<'r> PathEffectRenderer<'r> {
             ));
         }
     }
+
+    /// Draws `path` through each effect in turn, the effects sharing `gc`
+    /// (an effect of the program's may change it for those after it).
+    fn draw_path_shared(
+        &mut self,
+        gc: &mut Cow<'_, GraphicsContext>,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        for (effect, colors) in &self.effects {
+            effect.draw_path(self.inner, gc, path, transform, fill, *colors);
+        }
+    }
+
+    /// Draws `marker` at every vertex of `path` through the effects, which
+    /// share `gc` over all the markers, one effect after the other
+    /// (matplotlib hands every marker of every effect the same graphics
+    /// context).
+    fn draw_markers_shared(
+        &mut self,
+        gc: &mut Cow<'_, GraphicsContext>,
+        marker: &Path,
+        marker_transform: &Affine2D,
+        path: &Path,
+        transform: &Affine2D,
+        fill: Option<Rgba>,
+    ) {
+        if self.effects.len() > 1 {
+            return self.per_effect(|single| {
+                single.draw_markers_shared(gc, marker, marker_transform, path, transform, fill);
+            });
+        }
+        for &vertex in path.vertices() {
+            let at = transform.transform_point(vertex);
+            if at.is_finite() {
+                let placed = marker_transform.translate(at.x, at.y);
+                self.draw_path_shared(gc, marker, &placed, fill);
+            }
+        }
+    }
 }
 
 impl Renderer for PathEffectRenderer<'_> {
@@ -83,9 +126,7 @@ impl Renderer for PathEffectRenderer<'_> {
         transform: &Affine2D,
         fill: Option<Rgba>,
     ) {
-        for (effect, colors) in &self.effects {
-            effect.draw_path(self.inner, gc, path, transform, fill, *colors);
-        }
+        self.draw_path_shared(&mut Cow::Borrowed(gc), path, transform, fill);
     }
 
     fn draw_markers(
@@ -97,17 +138,8 @@ impl Renderer for PathEffectRenderer<'_> {
         transform: &Affine2D,
         fill: Option<Rgba>,
     ) {
-        if self.effects.len() > 1 {
-            return self.per_effect(|single| {
-                single.draw_markers(gc, marker, marker_transform, path, transform, fill);
-            });
-        }
-        for &vertex in path.vertices() {
-            let at = transform.transform_point(vertex);
-            if at.is_finite() {
-                self.draw_path(gc, marker, &marker_transform.translate(at.x, at.y), fill);
-            }
-        }
+        let mut shared = Cow::Borrowed(gc);
+        self.draw_markers_shared(&mut shared, marker, marker_transform, path, transform, fill);
     }
 
     fn draw_path_collection(&mut self, gc: &GraphicsContext, collection: &PathCollection<'_>) {

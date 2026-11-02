@@ -11,38 +11,20 @@ of each such artist from its ``get_transform()`` once the figure is laid
 out and before its artists are drawn (``_native.transforms.set_draw_hook``).
 """
 
-import functools
-import os
-import sys
 import weakref
 
 from . import _live_transforms
+from ._program_classes import takes_from_program
 from ._native import transforms as _transforms
 
 #: The tracked artists of each root figure.
 _tracked = weakref.WeakKeyDictionary()
 
-#: Where the package's modules are (the classes defined there have their
-#: transforms drawn by pltrs (Rust)).
-_PACKAGE_DIR = os.path.dirname(os.path.realpath(__file__))
-
-
-@functools.cache
-def _overrides_get_transform(cls):
-    """Whether the artist class *cls* takes its ``get_transform`` from a
-    class of the program's rather than one of this package."""
-    for klass in cls.__mro__:
-        if "get_transform" in vars(klass):
-            path = getattr(sys.modules.get(klass.__module__), "__file__", None)
-            return path is None or not os.path.realpath(path).startswith(
-                _PACKAGE_DIR + os.sep)
-    return False
-
 
 def track(artist, figure):
     """Have *figure* evaluate the transform of *artist* at every draw when
     its class overrides ``get_transform``."""
-    if not _overrides_get_transform(type(artist)):
+    if not takes_from_program(type(artist), "get_transform"):
         return
     artists = _tracked.get(figure)
     if artists is None:

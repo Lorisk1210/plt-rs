@@ -4,7 +4,7 @@
 use pltrs_core::Bbox;
 
 use super::PadInches;
-use crate::artist::{ArtistId, LayoutContext};
+use crate::artist::{ArtistId, LayoutContext, tight_extent_of};
 use crate::axes::{AxesState, clipped_extent};
 use crate::figure::frame::FigureFrame;
 use crate::figure::{Figure, FigureState};
@@ -60,7 +60,7 @@ impl FigureState {
             return None;
         }
         let layout = LayoutContext::new(self);
-        clipped_extent(layout, base, artist.tight_extent(&layout)?)
+        clipped_extent(layout, base, tight_extent_of(artist, &layout)?)
     }
 }
 
@@ -69,6 +69,7 @@ impl Figure {
     /// figure's bottom-left corner (matplotlib's `get_tightbbox`); the
     /// whole figure when nothing is drawn.
     pub fn tight_bbox(&self) -> Bbox {
+        self.root_handle().measure_painters();
         let mut state = self.state_mut();
         let dpi = state.dpi();
         state.figure_tight_bbox().map_or_else(

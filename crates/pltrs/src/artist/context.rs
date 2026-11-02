@@ -3,7 +3,7 @@
 use pltrs_core::{Bbox, Point};
 use pltrs_render::{ClipPath, GraphicsContext, Renderer, SnapMode};
 
-use super::{ArtistBase, ArtistId, ArtistStore, ClipPathSpec};
+use super::{Artist, ArtistBase, ArtistId, ArtistLookup, ArtistStore, ClipPathSpec};
 use crate::figure::FigureState;
 use crate::layout::Aligned;
 use crate::ticker::AxisName;
@@ -33,6 +33,11 @@ impl<'a> LayoutContext<'a> {
     /// Every artist of the figure.
     pub fn store(&self) -> &'a ArtistStore {
         &self.figure.store
+    }
+
+    /// The figure's state.
+    pub(crate) fn figure_state(&self) -> &'a FigureState {
+        self.figure
     }
 
     /// The frame of the root figure.
@@ -218,6 +223,9 @@ struct Rasterization {
     /// The figure's resolution to restore when rasterizing stops, while
     /// the figure is drawn at the raster canvas's.
     figure_dpi: Option<f64>,
+    /// The figure's resolution to restore when the rasterizing a program
+    /// asked for stops (see [`DrawContext::start_program_rasterizing`]).
+    program_figure_dpi: Option<f64>,
 }
 
 /// Everything an artist needs while drawing: the renderer plus read-only
@@ -275,6 +283,12 @@ impl<'a> DrawContext<'a> {
     /// Read-only geometry access.
     pub fn layout(&self) -> &LayoutContext<'a> {
         &self.layout
+    }
+
+    /// How many rasterized artists are being drawn, one inside the other
+    /// (matplotlib's `renderer._raster_depth`).
+    pub fn raster_depth(&self) -> usize {
+        self.rasterization.depth
     }
 
     /// The output backend.
@@ -374,13 +388,59 @@ impl<'a> DrawContext<'a> {
         }
     }
 
-    /// Draws a child artist if it exists, through its image filter if it
-    /// has one; an invisible child draws nothing but still ends
-    /// rasterizing like any artist that is not rasterized.
+    /// Sends the following drawing to the renderer's raster canvas, if it
+    /// has one, because the program asked (matplotlib's
+    /// `renderer.start_rasterizing()` called by an artist's `draw`): the
+    /// figure is drawn at the canvas's resolution meanwhile, but whether
+    /// artists count as rasterizing stays as it is.
+    pub(crate) fn start_program_rasterizing(&mut self) {
+        self.renderer.start_rasterizing();
+        if let Some(dpi) = self.renderer.raster_dpi() {
+            let figure = self.layout.figure;
+            self.rasterization
+                .program_figure_dpi
+                .get_or_insert(figure.dpi());
+            figure.set_dpi(dpi);
+        }
+    }
+
+    /// Ends the rasterizing the program asked for (matplotlib's
+    /// `renderer.stop_rasterizing()` called by an artist's `draw`).
+    pub(crate) fn stop_program_rasterizing(&mut self) {
+        self.renderer.stop_rasterizing();
+        if let Some(dpi) = self.rasterization.program_figure_dpi.take() {
+            self.layout.figure.set_dpi(dpi);
+        }
+    }
+
+    /// Draws a child artist if it exists: through its painter if it has
+    /// one (see [`ArtistPainter`](super::ArtistPainter)), else as
+    /// [`draw_unpainted`](Self::draw_unpainted) draws it.
     pub fn draw_child(&mut self, id: ArtistId) {
         let Some(artist) = self.layout.store().get(id) else {
             return;
         };
+        match &artist.base().painter {
+            Some(painter) => self.draw_painted(id, artist, painter),
+            None => self.draw_own(artist, Some(id)),
+        }
+    }
+
+    /// Draws artist `id`, in the figure or removed from it, as pltrs
+    /// draws it, its painter left out (what a painter draws its own
+    /// artist with, matplotlib's `super().draw(renderer)`): through its
+    /// image filter if it has one. An invisible artist draws nothing but
+    /// still ends rasterizing like any artist that is not rasterized.
+    pub fn draw_unpainted(&mut self, id: ArtistId) {
+        let figure = self.layout.figure;
+        if let Some(artist) = figure.artist(id) {
+            self.draw_own(artist, Some(id));
+        }
+    }
+
+    /// Draws `artist` itself (see [`DrawContext::draw_unpainted`]), which
+    /// then counts as drawn when it is artist `id` of the figure drawn.
+    pub(super) fn draw_own(&mut self, artist: &dyn Artist, id: Option<ArtistId>) {
         let base = artist.base();
         self.draw_artist(base.rasterized, |ctx| {
             if !base.visible {
@@ -394,7 +454,9 @@ impl<'a> DrawContext<'a> {
                 }
                 None => artist.draw(ctx),
             }
-            ctx.layout.figure.mark_drawn(id);
+            if let Some(id) = id {
+                ctx.layout.figure.mark_drawn(id);
+            }
         });
     }
 

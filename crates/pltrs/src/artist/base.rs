@@ -3,7 +3,7 @@
 use pltrs_core::Path;
 use pltrs_render::Sketch;
 
-use super::{AggFilter, ArtistId, Picker};
+use super::{AggFilter, ArtistId, Painter, Picker};
 use crate::patheffects::PathEffect;
 use crate::rc::RcParams;
 use crate::transforms::Transform;
@@ -89,6 +89,9 @@ pub struct ArtistBase {
     /// An image filter for what the artist draws (matplotlib's
     /// `agg_filter`).
     pub agg_filter: Option<AggFilter>,
+    /// What draws the artist in place of pltrs (matplotlib's `draw` of an
+    /// `Artist` subclass; see [`ArtistPainter`](super::ArtistPainter)).
+    pub painter: Option<Painter>,
     /// Values autoscaling must not expand past (`x`, `y`).
     pub sticky_edges: (Vec<f64>, Vec<f64>),
     /// Whether the axes count the artist when they recompute their data
@@ -124,6 +127,7 @@ pltrs_core::archive_struct!(ArtistBase {
     picker,
     mouseover,
     agg_filter,
+    painter,
     sticky_edges,
     in_autoscale,
     parent,
@@ -201,6 +205,7 @@ impl Default for ArtistBase {
             picker: None,
             mouseover: false,
             agg_filter: None,
+            painter: None,
             sticky_edges: (Vec::new(), Vec::new()),
             in_autoscale: false,
             parent: None,

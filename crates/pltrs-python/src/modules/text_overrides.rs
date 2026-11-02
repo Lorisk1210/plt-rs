@@ -76,6 +76,30 @@ fn measure_pdf(
     Ok((metrics.width, metrics.height, metrics.descent))
 }
 
+/// `RendererPS.get_text_width_height_descent(text, prop, ismath)` at
+/// `dpi`: the line measured as the PostScript backend measures it.
+fn measure_ps(
+    text: String,
+    props: FontProps,
+    ismath: IsMath,
+    dpi: f64,
+) -> PyResult<(f64, f64, f64)> {
+    let metrics = pltrs::text::measure_line_ps(&text, &props.0, ismath.0, dpi)?;
+    Ok((metrics.width, metrics.height, metrics.descent))
+}
+
+/// `RendererSVG.get_text_width_height_descent(text, prop, ismath)` at
+/// `dpi`: the line measured as the SVG backend measures it.
+fn measure_svg(
+    text: String,
+    props: FontProps,
+    ismath: IsMath,
+    dpi: f64,
+) -> PyResult<(f64, f64, f64)> {
+    let metrics = pltrs::text::measure_line_svg(&text, &props.0, ismath.0, dpi)?;
+    Ok((metrics.width, metrics.height, metrics.descent))
+}
+
 /// Lines measured by Python: `line(text, props, ismath, dpi)` gives
 /// `(width, height, descent)` and `font_height(props, dpi)` the font's
 /// `(ascent, descent, line_gap)` or None.
@@ -228,6 +252,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_metrics_cache", set_metrics_cache)?;
     module.add("measure", measure)?;
     module.add("measure_pdf", measure_pdf)?;
+    module.add("measure_ps", measure_ps)?;
+    module.add("measure_svg", measure_svg)?;
     module.add("set_measurer", set_measurer)?;
     module.add("set_painter", set_painter)?;
     module.add("text_engine_clear_caches", text_engine_clear_caches)?;

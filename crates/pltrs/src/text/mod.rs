@@ -69,7 +69,7 @@ pub use error::TextDrawError;
 pub use handle::{Text, TextProps};
 pub use hinting::TextHinting;
 use layout::rc_language;
-pub(crate) use layout::typeset_line;
+pub use layout::typeset_line;
 pub use layout::{LaidOutText, measure_text, text_path, text_path_shaped, text_path_tex};
 pub(crate) use layout::{Typesetting, lay_out, lay_out_with};
 pub use math::math_style;
@@ -81,7 +81,7 @@ pub use metrics_cache::{METRICS_CACHE_SIZE, MetricsCache, MetricsCacheInfo, set_
 pub(crate) use overrides::has_line_measurer;
 pub use overrides::{
     DrawnPath, LineKind, LineMeasurer, TexPainter, TextPainter, measure_line, measure_line_pdf,
-    set_line_measurer, set_tex_painter, set_text_painter,
+    measure_line_ps, measure_line_svg, set_line_measurer, set_tex_painter, set_text_painter,
 };
 pub use pltrs_text::tex::{TexEngine, TexError};
 pub use pltrs_text::{

@@ -6,7 +6,9 @@ use pltrs_core::Bbox;
 use super::aspect::Placement;
 use super::axis_layout::{AxisPainter, PlacedText};
 use super::{Axes, AxesState, Axis};
-use crate::artist::{Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, LayoutContext};
+use crate::artist::{
+    Artist, ArtistBase, ArtistHandle, ArtistId, ClipPathSpec, LayoutContext, tight_extent_of,
+};
 use crate::axes_grid1::parasites_of;
 use crate::figure::FigureState;
 use crate::spines::SpineArtist;
@@ -306,7 +308,7 @@ fn child_tight_bbox(
     {
         return None;
     }
-    clipped_extent(layout, base, artist.tight_extent(&layout)?)
+    clipped_extent(layout, base, tight_extent_of(artist, &layout)?)
 }
 
 /// A spine's extent widened by the ticks of the visible axis drawn on

@@ -358,7 +358,7 @@ fn line_run(
 /// # Errors
 ///
 /// When the math is malformed, no font is found or TeX fails.
-pub(crate) fn typeset_line(
+pub fn typeset_line(
     text: &str,
     font: &FontProperties,
     kind: LineKind,

@@ -2,16 +2,24 @@
 A renderer switching between vector and raster drawing, from matplotlib
 3.11.2 under the Matplotlib License.
 
-pltrs (Rust) rasterizes the artists of its own vector outputs itself; this
-is matplotlib's helper for the vector renderers of programs. pltrs's print
-methods hand the area to save to pltrs (Rust) instead of adjusting the
-figure (matplotlib's ``bbox_inches_restore``), so a renderer here cannot
-take part in a tight bounding box.
+pltrs (Rust) rasterizes the artists of its own vector outputs itself. A
+`MixedModeRenderer` is what the program's drawing receives while pltrs
+(Rust) saves a figure as PDF, SVG, PostScript or PGF, around the
+renderer of the format, as matplotlib's print methods hand it to the
+figure: its rasterizing is recorded with the rest of the drawing (see
+`.._python_drawing`), and pltrs (Rust) rasterizes there. A
+`MixedModeRenderer` the program makes around a renderer of its own
+rasterizes into a `RendererAgg` of its own, as matplotlib's does.
+pltrs's print methods crop a saved figure natively, so
+*bbox_inches_restore* (the area they save) needs no processing here.
 """
 
 import numpy as np
 
-from .. import cbook
+from .. import _python_drawing, cbook
+from .._native import drawing as _drawing
+from ..backend_bases import RendererBase
+from ._native_drawing import DocumentDrawingMixin
 from .backend_agg import RendererAgg
 
 
@@ -47,14 +55,6 @@ class MixedModeRenderer:
             option anyway.)
 
         """
-        if bbox_inches_restore is not None:
-            # matplotlib's value is the state `_tight_bbox.adjust_bbox`
-            # returns when it moves the figure's artists to crop it; pltrs
-            # (Rust) crops a saved figure itself and keeps no such state.
-            raise NotImplementedError(
-                "pltrs: MixedModeRenderer(bbox_inches_restore=...): pltrs "
-                "crops saved figures natively, without matplotlib's "
-                "_tight_bbox state to restore")
         if raster_renderer_class is None:
             raster_renderer_class = RendererAgg
 
@@ -73,6 +73,8 @@ class MixedModeRenderer:
         self.figure = figure
         self._figdpi = figure.dpi
 
+        self._bbox_inches_restore = bbox_inches_restore
+
         self._renderer = vector_renderer
 
     def __getattr__(self, attr):
@@ -84,16 +86,52 @@ class MixedModeRenderer:
         # to the underlying C implementation).
         return getattr(self._renderer, attr)
 
+    @property
+    def _recording(self):
+        """The drawing pltrs (Rust) records the program's drawing into, if
+        it draws with this renderer now (see `.._python_drawing`); never
+        around a renderer of the program's."""
+        return getattr(self._vector_renderer, "_recording", None)
+
+    @_recording.setter
+    def _recording(self, drawing):
+        self._vector_renderer._recording = drawing
+        if self._raster_renderer is not None:
+            self._raster_renderer._recording = drawing
+
+    def _raster_dpi(self):
+        """The resolution drawing goes to while rasterizing, else None."""
+        return None if self._raster_renderer is None else self.dpi
+
+    def _draw_artist(self, artist):
+        """Draw *artist* (`.Artist.draw` with this renderer): where pltrs
+        (Rust) draws while it records with this renderer, else through this
+        renderer's methods, so that it rasterizes what is rasterized."""
+        if self._recording is not None:
+            self._renderer._draw_artist(artist)
+        else:
+            _python_drawing.draw_through(self, artist)
+
+    def _set_figure_dpi(self, dpi):
+        """Draw the figure at *dpi* from now on, unless pltrs (Rust) is
+        drawing it, which then changes it itself."""
+        if _python_drawing.figure_changeable():
+            self.figure.dpi = dpi
+
     def start_rasterizing(self):
         """
         Enter "raster" mode.  All subsequent drawing commands (until
         `stop_rasterizing` is called) will be drawn with the raster backend.
         """
+        drawing = self._recording
+        if drawing is not None:
+            _drawing.start_rasterizing(drawing)
         # change the dpi of the figure temporarily.
-        self.figure.dpi = self.dpi
+        self._set_figure_dpi(self.dpi)
 
         self._raster_renderer = self._raster_renderer_class(
             self._width*self.dpi, self._height*self.dpi, self.dpi)
+        self._raster_renderer._recording = drawing
         self._renderer = self._raster_renderer
 
     def stop_rasterizing(self):
@@ -104,7 +142,19 @@ class MixedModeRenderer:
         """
 
         self._renderer = self._vector_renderer
+        drawing = self._recording
+        if drawing is not None:
+            _drawing.stop_rasterizing(drawing)
+        else:
+            self._place_raster()
+        self._raster_renderer = None
 
+        # restore the figure dpi.
+        self._set_figure_dpi(self._figdpi)
+
+    def _place_raster(self):
+        """Draw what was rasterized onto the vector renderer, as an image
+        cropped to its drawn pixels."""
         height = self._height * self.dpi
         img = np.asarray(self._raster_renderer.buffer_rgba())
         slice_y, slice_x = cbook._get_nonzero_slices(img[..., 3])
@@ -119,7 +169,46 @@ class MixedModeRenderer:
                 slice_x.start * self._figdpi / self.dpi,
                 (height - slice_y.stop) * self._figdpi / self.dpi,
                 cropped_img[::-1])
-        self._raster_renderer = None
 
-        # restore the figure dpi.
-        self.figure.dpi = self._figdpi
+
+class _VectorRecorder(DocumentDrawingMixin, RendererBase):
+    """
+    The vector renderer the program's drawing receives in a vector draw no
+    canvas of this package started: a page of *width* × *height* points
+    whose images are magnified *magnification* times, recording only.
+    """
+
+    def __init__(self, width, height, magnification):
+        super().__init__()
+        self.width = width
+        self.height = height
+        self._magnification = magnification
+
+    def flipy(self):
+        # docstring inherited
+        return False
+
+    def get_canvas_width_height(self):
+        # docstring inherited
+        return self.width, self.height
+
+    def option_scale_image(self):
+        # docstring inherited
+        return True
+
+    def get_image_magnification(self):
+        # docstring inherited
+        return self._magnification
+
+
+def _stand_in(figure, width, height, magnification):
+    """What the program's drawing receives in a vector draw no canvas of
+    this package started, of a page of *width* × *height* points whose
+    images are magnified *magnification* times: a `MixedModeRenderer` of
+    *figure*, rasterizing at *magnification* × 72 dpi, or for a drawing
+    of no figure (a path effect's) the vector renderer alone."""
+    recorder = _VectorRecorder(width, height, magnification)
+    if figure is None:
+        return recorder
+    return MixedModeRenderer(figure, width / 72, height / 72,
+                             72 * magnification, recorder)

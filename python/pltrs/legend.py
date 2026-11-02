@@ -34,8 +34,10 @@ from .legend_handler import (HandlerCircleCollection, HandlerErrorbar,
                              HandlerStepPatch, HandlerTuple,
                              update_from_first_child)
 from .lines import Line2D
+from .offsetbox import DraggableOffsetBox
 from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
+from .transforms import Bbox, BboxBase, TransformedBbox
 
 # pltrs (Rust) times the search for the best location with Python's
 # performance counter, looked up at every reading as matplotlib's
@@ -50,6 +52,47 @@ _ARTIST_CLASSES = {"Line2D": Line2D, "Collection": Collection, "Text": Text,
 #: The Python class of each kind of artist a legend draws: the
 #: collections its handlers make are path collections.
 _DRAWN_CLASSES = {**_ARTIST_CLASSES, "Collection": PathCollection}
+
+
+class DraggableLegend(DraggableOffsetBox):
+    """
+    Mouse dragging of a `.Legend`.
+
+    pltrs (Rust) drags the legend (``Legend::set_draggable_by``): a press
+    on it picks it up, and as it moves its *loc* or its *bbox_to_anchor*
+    follows its lower-left corner, as matplotlib's ``finalize_offset``
+    sets them.
+    """
+
+    def __init__(self, legend, use_blit=False, update="loc"):
+        """
+        Wrapper around a `.Legend` to support mouse dragging.
+
+        Parameters
+        ----------
+        legend : `.Legend`
+            The `.Legend` instance to wrap.
+        use_blit : bool, optional
+            Use blitting for faster image composition. For details see
+            :ref:`func-animation`.
+        update : {'loc', 'bbox'}, optional
+            If "loc", update the *loc* parameter of the legend upon finalizing.
+            If "bbox", update the *bbox_to_anchor* parameter.
+        """
+        self.legend = legend
+
+        _api.check_in_list(["loc", "bbox"], update=update)
+        self._update = update
+
+        self.ref_artist = legend
+        self.offsetbox = legend._legend_box
+        self.got_artist = False
+        self._use_blit = use_blit and self.canvas.supports_blit
+        _legend.set_draggable(legend._native, True, update)
+
+    def disconnect(self):
+        """Stop dragging the legend."""
+        _legend.set_draggable(self.legend._native, False, self._update)
 
 
 class Legend(Artist):
@@ -171,6 +214,15 @@ class Legend(Artist):
                             else markerscale)
         self.scatterpoints = (rcParams['legend.scatterpoints']
                               if scatterpoints is None else scatterpoints)
+        # The paddings legend handlers read, as fractions of the font size.
+        self.borderpad = _val_or_rc(borderpad, 'legend.borderpad')
+        if scatteryoffsets is None:
+            self._scatteryoffsets = np.array([3. / 8., 4. / 8., 2.5 / 8.])
+        else:
+            self._scatteryoffsets = np.asarray(scatteryoffsets)
+        reps = self.scatterpoints // len(self._scatteryoffsets) + 1
+        self._scatteryoffsets = np.tile(self._scatteryoffsets,
+                                        reps)[:self.scatterpoints]
         handler_map = self.get_legend_handler_map()
         entries, kept = [], []
         for handle, label in zip(handles, labels):
@@ -217,8 +269,12 @@ class Legend(Artist):
             bbox_transform=_live_transforms.given_to_native(bbox_transform),
             frameon=frameon, alignment=alignment, draggable=draggable)
         _api.check_in_list(["center", "left", "right"], alignment=alignment)
+        self._ncols = ncols
+        self._draggable = None
         native = _legend.new(parent._native, entries, kept, kwargs)
         _handles.adopt(self, native, parent.figure)
+        if draggable:
+            self.set_draggable(True)
         if title_fontproperties is not None:
             title_prop_fp = FontProperties._from_any(title_fontproperties)
             if (isinstance(title_fontproperties, dict)
@@ -472,12 +528,107 @@ class Legend(Artist):
         update : {'loc', 'bbox'}, optional
             The legend parameter to be changed when dragged.
         """
-        _api.check_in_list(["loc", "bbox"], update=update)
-        _legend.set_draggable(self._native, bool(state))
+        if state:
+            if self.__dict__.get("_draggable") is None:
+                self._draggable = DraggableLegend(self,
+                                                  use_blit,
+                                                  update=update)
+        else:
+            if self.__dict__.get("_draggable") is not None:
+                self._draggable.disconnect()
+            else:
+                _legend.set_draggable(self._native, False, "loc")
+            self._draggable = None
+        return self._draggable
 
     def get_draggable(self):
         """Return ``True`` if the legend is draggable, ``False`` otherwise."""
         return _legend.get_draggable(self._native)
+
+    def set_ncols(self, ncols):
+        """
+        Set the number of columns.
+
+        As in matplotlib, the columns the legend was made with stay: the
+        number is read when a legend lays out its entries.
+        """
+        self._ncols = ncols
+
+    def _set_artist_props(self, a):
+        """Set the boilerplate props for artists added to Axes."""
+        a.set_figure(self.get_figure(root=False))
+        if self.isaxes:
+            a.axes = self.axes
+        a.set_transform(self.get_transform())
+
+    def _fractions(self):
+        """The transform of the parent's fractions (matplotlib's
+        ``BboxTransformTo(parent.bbox)``)."""
+        return self.parent.transAxes if self.isaxes else self.parent.transSubfigure
+
+    def get_bbox_to_anchor(self):
+        """Return the bbox that the legend will be anchored to."""
+        anchor = _legend.get_bbox_to_anchor(self._native)
+        if anchor is None:
+            return self.parent.bbox
+        bounds, native = anchor
+        given = self.__dict__.get("_bbox_to_anchor")
+        if given is not None and given[1] == bounds:
+            return given[0]
+        bbox = TransformedBbox(Bbox.from_bounds(*bounds),
+                               _live_transforms.from_native(self.figure, native))
+        self._bbox_to_anchor = (bbox, bounds)
+        return bbox
+
+    def set_bbox_to_anchor(self, bbox, transform=None):
+        """
+        Set the bbox that the legend will be anchored to.
+
+        Parameters
+        ----------
+        bbox : `~matplotlib.transforms.BboxBase` or tuple
+            The bounding box can be specified in the following ways:
+
+            - A `.BboxBase` instance
+            - A tuple of ``(left, bottom, width, height)`` in the given
+              transform (normalized axes coordinate if None)
+            - A tuple of ``(left, bottom)`` where the width and height will be
+              assumed to be zero.
+            - *None*, to remove the bbox anchoring, and use the parent bbox.
+
+        transform : `~matplotlib.transforms.Transform`, optional
+            A transform to apply to the bounding box. If not specified, this
+            will use a transform to the bounding box of the parent.
+        """
+        if bbox is None:
+            self.__dict__.pop("_bbox_to_anchor", None)
+            _legend.set_bbox_to_anchor(self._native, None, None)
+            return
+        elif not isinstance(bbox, BboxBase):
+            try:
+                l = len(bbox)
+            except TypeError as err:
+                raise ValueError(f"Invalid bbox: {bbox}") from err
+
+            if l == 2:
+                bbox = [bbox[0], bbox[1], 0, 0]
+
+            bbox = Bbox.from_bounds(*bbox)
+
+        if transform is None:
+            transform = self._fractions()
+
+        anchored = TransformedBbox(bbox, transform)
+        spanning = getattr(bbox, "_spanning", None)
+        if spanning is not None:
+            bbox, transform = Bbox.unit(), spanning + transform
+        elif isinstance(bbox, TransformedBbox):
+            bbox, transform = bbox._bbox, bbox._transform + transform
+        bounds = tuple(map(float, bbox.bounds))
+        _legend.set_bbox_to_anchor(self._native, bounds,
+                                   _live_transforms.to_native(transform))
+        self._bbox_to_anchor = (anchored, bounds)
+        self.stale = True
 
 
 def _get_legend_handles(axs, legend_handler_map=None):

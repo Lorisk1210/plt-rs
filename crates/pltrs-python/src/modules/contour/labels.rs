@@ -1,5 +1,7 @@
 //! Labelling line contours (matplotlib's `ContourLabeler`): `clabel`,
-//! `add_label_near` and the cutting of lines under labels.
+//! `labels`, `add_label_near`, `add_label`, the placement rules
+//! (`print_label`, `too_close`, `locate_label`) and the cutting of lines
+//! under labels.
 //!
 //! matplotlib places every label through the overridable method
 //! `_split_path_and_get_label_rotation`, so the Python side hands
@@ -8,7 +10,9 @@
 //! `labels` loop does, and `split_path` is what the method computes with.
 
 use pltrs::colors::Color;
-use pltrs::contour::{ClabelFormat, ClabelOptions, ContourSet, LabelCut};
+use pltrs::contour::{
+    ClabelFormat, ClabelOptions, ContourSet, LabelCut, locate_label, print_label, too_close,
+};
 use pltrs::fonts::FontSize;
 use pltrs::text::Text;
 use pltrs::ticker::LabelFormat;
@@ -16,6 +20,7 @@ use pltrs::transforms::Transform;
 use pltrs_core::{Path, Point};
 
 use super::super::path::{PathArrays, PyPath, path_arrays};
+use super::super::transforms::points;
 use crate::binding::prelude::*;
 
 /// How labels are written: a template or callable, or `{level: text}`
@@ -160,6 +165,67 @@ fn split_path(
     Ok((rotation, path_arrays(&cut, false)?))
 }
 
+/// Places labels along every labelled line again, the way the last
+/// `clabel` labelled the set (matplotlib's `labels`), each line cut by
+/// `split` (see [`with_splitter`]).
+fn place_labels(
+    set: ContourSet,
+    inline: bool,
+    inline_spacing: f64,
+    split: Owned,
+) -> PyResult<Vec<Text>> {
+    with_splitter(&split, |splitter| {
+        Ok(set.place_labels_split_by(inline, inline_spacing, Some(splitter))?)
+    })
+}
+
+/// Adds a label of the level at index `level` centred at the display
+/// point `(x, y)`, turned by `rotation` degrees (matplotlib's
+/// `add_label`).
+fn add_label(set: ContourSet, (x, y): (f64, f64), rotation: f64, level: usize) -> PyResult<Text> {
+    Ok(set.add_label(Point::new(x, y), &Transform::Display, rotation, level)?)
+}
+
+/// The display positions of the set's labels (matplotlib's `labelXYs`).
+fn label_positions(set: &ContourSet) -> Vec<Point> {
+    set.labels().iter().map(|label| label.position).collect()
+}
+
+/// The display positions `(x, y)` of the set's labels.
+fn get_label_positions(set: ContourSet) -> PyResult<Vec<(f64, f64)>> {
+    Ok(label_positions(&set).iter().map(|p| (p.x, p.y)).collect())
+}
+
+/// Whether the `(N, 2)` display line is long enough to hold a label
+/// `width` pixels wide (`print_label`).
+fn label_fits(line: NdArray, width: f64) -> PyResult<bool> {
+    Ok(print_label(&points(&line)?, width))
+}
+
+/// Whether the display point `(x, y)` is within `1.2 * width` of a label
+/// of the set (`too_close`).
+fn label_too_close(set: ContourSet, (x, y): (f64, f64), width: f64) -> PyResult<bool> {
+    Ok(too_close(Point::new(x, y), width, &label_positions(&set)))
+}
+
+/// Where a label `width` pixels wide goes on the `(N, 2)` display line,
+/// away from the set's labels: `(x, y, index)` (`locate_label`).
+fn locate(set: ContourSet, line: NdArray, width: f64) -> PyResult<(f64, f64, usize)> {
+    let line = points(&line)?;
+    if line.is_empty() {
+        return Err(PyErr::value_error(
+            "a label needs a line of at least one vertex",
+        ));
+    }
+    let (at, index) = locate_label(&line, width, &label_positions(&set));
+    Ok((at.x, at.y, index))
+}
+
+/// The levels last labelled (`labelLevelList`).
+fn label_levels(set: ContourSet) -> PyResult<Vec<f64>> {
+    Ok(set.labelled_levels())
+}
+
 /// The texts of the set's labels.
 fn label_texts(set: ContourSet) -> PyResult<Vec<Text>> {
     Ok(set.labels().into_iter().map(|label| label.artist).collect())
@@ -177,5 +243,12 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("add_label_near", add_label_near)?;
     module.add("split_path", split_path)?;
     module.add("label_texts", label_texts)?;
+    module.add("place_labels", place_labels)?;
+    module.add("label_levels", label_levels)?;
+    module.add("add_label", add_label)?;
+    module.add("label_positions", get_label_positions)?;
+    module.add("print_label", label_fits)?;
+    module.add("too_close", label_too_close)?;
+    module.add("locate_label", locate)?;
     module.add("pop_label", pop_label)
 }

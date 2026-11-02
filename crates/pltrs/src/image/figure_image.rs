@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use pltrs_core::Bbox;
 
-use super::make::{ImageCore, Placement, RenderedImage};
+use super::make::{ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::Resampling;
 use super::shared::{canvas_bbox, draw_rendered, split_alpha};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Origin, rc_defaults};
@@ -103,22 +103,28 @@ impl FigureImageArtist {
     ) -> Result<Option<RenderedImage>, ImageError> {
         let canvas = canvas_bbox(ctx);
         let fac = ctx.renderer().dpi() / ctx.layout().dpi();
+        let placement = self.placement(canvas, fac, magnification);
+        let alpha = self.core.alpha(self.base.alpha);
+        self.core.make_image(&placement, alpha.as_ref())
+    }
+
+    /// Where the image goes on `canvas`, drawn at `fac` times the
+    /// figure's resolution and magnified by `magnification`.
+    fn placement(&self, canvas: Bbox, fac: f64, magnification: f64) -> Placement {
         let (rows, cols) = self.core.data.shape();
         let (x0, y0) = (self.offset.0 / fac, self.offset.1 / fac);
         let (x1, y1) = (x0 + cols as f64, y0 + rows as f64);
         // Like the image, the clip box is the figure at the renderer's
         // resolution rather than at the 72 dpi vector canvases measure in.
         let clip = Bbox::from_extents(0.0, 0.0, canvas.width() * fac, canvas.height() * fac);
-        let placement = Placement {
+        Placement {
             extent: Extent::new(x0, x1, y0, y1),
             transform: None,
             out_bbox: Bbox::from_extents(x0, y0, x1, y1),
             clip,
             round_to_pixels: false,
             magnification: magnification / fac,
-        };
-        let alpha = self.core.alpha(self.base.alpha);
-        self.core.make_image(&placement, alpha.as_ref())
+        }
     }
 }
 
@@ -200,6 +206,56 @@ impl FigureImage {
     /// The pixel offset of the image's bottom-left corner.
     pub fn offset(&self) -> (f64, f64) {
         self.raw.with::<FigureImageArtist, _>(|image| image.offset)
+    }
+
+    /// The image as the figure draws it at its own resolution, magnified
+    /// by `magnification` (matplotlib's `FigureImage.make_image`): one
+    /// image pixel per figure pixel from its offset, clipped to the
+    /// figure, with the map from array indices to the pixels; `None` when
+    /// nothing of it shows.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::image::FigimageOptions;
+    /// use pltrs::numeric::Grid;
+    /// let fig = Figure::with_size(2.0, 2.0, 50.0);
+    /// let image = fig.figimage(Grid::filled(3, 4, 0.5), FigimageOptions { xo: 10.0, ..FigimageOptions::default() })?;
+    /// let made = image.make_image(1.0)?.expect("on the figure");
+    /// assert_eq!((made.pixels.width(), made.pixels.height()), (4, 3));
+    /// assert_eq!(made.origin.x, 10.0);
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the image cannot be colour-mapped.
+    pub fn make_image(&self, magnification: f64) -> Result<Option<MadeImage>, ImageError> {
+        self.made(magnification, false)
+    }
+
+    /// [`FigureImage::make_image`] at the image's own resolution, as
+    /// renderers that scale images themselves receive it (matplotlib's
+    /// `make_image(..., unsampled=True)`).
+    ///
+    /// # Errors
+    ///
+    /// When the image cannot be colour-mapped.
+    pub fn make_image_unsampled(
+        &self,
+        magnification: f64,
+    ) -> Result<Option<MadeImage>, ImageError> {
+        self.made(magnification, true)
+    }
+
+    fn made(&self, magnification: f64, unsampled: bool) -> Result<Option<MadeImage>, ImageError> {
+        let state = self.raw.figure_state().borrow();
+        let (width, height) = state.size_pixels();
+        let canvas = Bbox::from_extents(0.0, 0.0, width, height);
+        self.raw.with::<FigureImageArtist, _>(|image| {
+            let placement = image.placement(canvas, 1.0, magnification);
+            let alpha = image.core.alpha(image.base.alpha);
+            image.core.made(&placement, alpha.as_ref(), unsampled)
+        })
     }
 
     /// `(rows, columns)` of the image array.

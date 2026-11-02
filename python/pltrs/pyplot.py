@@ -6,10 +6,14 @@ The figures pyplot manages are kept in `._pylab_helpers.Gcf`; each
 function here acts on `gcf` or `gca`, as matplotlib's does.
 """
 
+# matplotlib's pyplot defers its annotations and exports both names.
+from __future__ import annotations
+
 from contextlib import ExitStack
 import importlib
 import inspect
 import logging
+from typing import TYPE_CHECKING  # noqa: F401
 
 from . import _pylab_helpers, get_backend, rcParams, style  # noqa: F401  (matplotlib.style, as pyplot imports it)
 from . import _api, cbook, interactive, is_interactive, set_loglevel  # noqa: F401

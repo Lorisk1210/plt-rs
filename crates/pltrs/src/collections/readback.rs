@@ -8,12 +8,49 @@ use pltrs_core::path::DataLimits;
 use pltrs_core::{Bbox, Point};
 use pltrs_render::Dashes;
 
-use super::style::broadcast_widths_and_dashes;
+use super::style::{broadcast_widths_and_dashes, unfilled};
 use super::{Collection, CollectionArtist};
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::numeric::Grid;
 
 impl Collection {
+    /// Whether the faces are coloured (matplotlib's `get_fill`): not when
+    /// they are `'none'`, as the faces of line collections are unless set.
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionSpec;
+    /// use pltrs::colors::Color;
+    /// use pltrs::prelude::*;
+    /// use pltrs::transforms::Point;
+    /// let ax = Figure::new().subplot();
+    /// let segment = vec![Point::new(0.0, 0.0), Point::new(1.0, 2.0)];
+    /// let lines = ax.add_collection(CollectionSpec::lines(vec![segment.clone()]));
+    /// assert!(!lines.fill());
+    /// let polygons = ax.add_collection(CollectionSpec::polygons(vec![segment]));
+    /// assert!(polygons.fill());
+    /// polygons.set_facecolors(vec![Color::none()]);
+    /// assert!(!polygons.fill());
+    /// ```
+    pub fn fill(&self) -> bool {
+        self.raw()
+            .with::<CollectionArtist, _>(|c| !unfilled(&c.face_spec(c.rc())))
+    }
+
+    /// The rotation of the items scaled to their sizes, in radians
+    /// (matplotlib's `RegularPolyCollection.get_rotation`; 0 for the
+    /// other collections).
+    ///
+    /// ```
+    /// use pltrs::collections::CollectionSpec;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let polygons = ax.add_collection(CollectionSpec::regular_polygons(5, 0.25, vec![10.0]));
+    /// assert_eq!(polygons.size_rotation(), 0.25);
+    /// ```
+    pub fn size_rotation(&self) -> f64 {
+        self.raw().with::<CollectionArtist, _>(|c| c.size_rotation)
+    }
+
     /// The points of every item (matplotlib's `LineCollection.get_segments`).
     ///
     /// ```

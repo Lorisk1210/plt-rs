@@ -30,16 +30,8 @@ pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Ve
     let rc = c.rc();
     let alpha = collection_alpha(c);
     let resolve = |colors: &[Color]| with_alpha(c, &alpha, colors);
-    let face_spec = c.facecolors.clone().unwrap_or_else(|| {
-        vec![if c.kind == CollectionKind::Line {
-            Color::none()
-        } else {
-            rc.patch_facecolor.clone()
-        }]
-    });
-    // No colours at all (matplotlib's `'none'` as an empty RGBA array)
-    // count as `'none'`, which leaves the mapping to the edges.
-    let face_is_none = face_spec.is_empty() || (face_spec.len() == 1 && face_spec[0].is_none());
+    let face_spec = c.face_spec(rc);
+    let face_is_none = unfilled(&face_spec);
     let edge_default = c.kind == CollectionKind::Line;
 
     let mapped = c.mapping.as_ref().map(|m| m.colors(&alpha)).transpose()?;
@@ -71,6 +63,31 @@ pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Ve
         }
     };
     Ok((faces, edges))
+}
+
+impl CollectionArtist {
+    /// The face colours as set, else the default of the collection's
+    /// kind: none for lines, `patch.facecolor` for the others.
+    pub(super) fn face_spec(&self, rc: &RcParams) -> Vec<Color> {
+        self.facecolors.clone().unwrap_or_else(|| {
+            vec![if self.kind == CollectionKind::Line {
+                Color::none()
+            } else {
+                rc.patch_facecolor.clone()
+            }]
+        })
+    }
+}
+
+/// Whether faces of `face_spec` are `'none'`; no colours at all
+/// (matplotlib's `'none'` as an empty RGBA array) count as `'none'`,
+/// which leaves the colour mapping to the edges.
+pub(super) fn unfilled(face_spec: &[Color]) -> bool {
+    match face_spec {
+        [] => true,
+        [only] => only.is_none(),
+        _ => false,
+    }
 }
 
 /// The colours drawn in the gaps of dashed edges, with the collection's

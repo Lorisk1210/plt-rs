@@ -22,6 +22,8 @@ use super::font_manager::{FontProps, check_font_file};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
+mod copy;
+
 artist_handle!(Text);
 
 /// Parses one of matplotlib's names, raising `ValueError` with pltrs
@@ -433,5 +435,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_language", set_language)?;
     module.add("get_language", get_language)?;
     module.add("in_data_domain", in_data_domain)?;
-    module.add("get_wrapped_text", get_wrapped_text)
+    module.add("get_wrapped_text", get_wrapped_text)?;
+    copy::register(module)
 }

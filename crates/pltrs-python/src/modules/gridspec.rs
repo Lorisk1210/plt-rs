@@ -96,7 +96,19 @@ fn shape(grid: GridSpec) -> PyResult<(usize, usize)> {
 
 /// `(width_ratios, height_ratios)`.
 fn ratios(grid: GridSpec) -> PyResult<(Vec<f64>, Vec<f64>)> {
-    Ok((grid.width_ratios().to_vec(), grid.height_ratios().to_vec()))
+    Ok((grid.width_ratios(), grid.height_ratios()))
+}
+
+/// Replaces the relative column widths (`None`: equal).
+fn set_width_ratios(grid: GridSpec, ratios: Option<Vec<f64>>) -> PyResult<()> {
+    grid.set_width_ratios(ratios)?;
+    Ok(())
+}
+
+/// Replaces the relative row heights (`None`: equal).
+fn set_height_ratios(grid: GridSpec, ratios: Option<Vec<f64>>) -> PyResult<()> {
+    grid.set_height_ratios(ratios)?;
+    Ok(())
 }
 
 /// The margins and spacings the grid sets itself.
@@ -224,6 +236,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_overrides", set_overrides)?;
     module.add("locally_modified", locally_modified)?;
     module.add("set_in_layout", set_in_layout)?;
+    module.add("set_width_ratios", set_width_ratios)?;
+    module.add("set_height_ratios", set_height_ratios)?;
     module.add("repr", repr)?;
     module.add("same", same)?;
     module.add("parent", parent)?;

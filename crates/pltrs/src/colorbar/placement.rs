@@ -151,15 +151,86 @@ impl Parent {
 }
 
 /// A colorbar axes made by stealing space from parent axes, with what
-/// the colorbar needs to know about it.
+/// the colorbar needs to know about it (what matplotlib's `make_axes` and
+/// `make_axes_gridspec` return: the axes, and the `orientation` and
+/// `ticklocation` keywords they add for the colorbar).
 #[derive(Clone, Debug)]
-pub(crate) struct Placement {
+pub struct ColorbarCax {
     /// The new colorbar axes.
-    pub(crate) cax: Axes,
+    pub cax: Axes,
     /// The colorbar's orientation.
-    pub(crate) orientation: Orientation,
+    pub orientation: Orientation,
     /// The side the colorbar sits on, which is also its tick side.
-    pub(crate) location: SpineSide,
+    pub location: SpineSide,
+}
+
+/// Makes an axes for a colorbar beside `parents`, all axes of one
+/// figure, shrinking them within their bounding box to free its space
+/// (matplotlib's `colorbar.make_axes`): the location or orientation,
+/// fraction, shrink, aspect, pad, anchor and parents' anchor of `options`
+/// say where and how; the padding defaults to 0.05 under constrained
+/// layout. The new axes is the figure's current axes.
+///
+/// ```
+/// use pltrs::colorbar::{ColorbarOptions, make_axes};
+/// use pltrs::prelude::*;
+/// use pltrs::spines::SpineSide;
+/// let fig = Figure::new();
+/// fig.set_layout_engine(None)?;
+/// let ax = fig.subplot();
+/// let made = make_axes(&[ax.clone()], &ColorbarOptions::default())?;
+/// assert_eq!(made.location, SpineSide::Right);
+/// assert!(made.cax.original_position().x0() > ax.original_position().x1());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When there are no parents, they are axes of different figures, or the
+/// options contradict each other.
+pub fn make_axes(
+    parents: &[Axes],
+    options: &ColorbarOptions,
+) -> Result<ColorbarCax, ColorbarError> {
+    let first = parents.first().ok_or(ColorbarError::NoAxes)?;
+    let figure = first.parent_figure();
+    let constrained = matches!(
+        figure.layout_engine(),
+        Some(crate::layout::LayoutEngine::Constrained(_))
+    );
+    let parents: Vec<Parent> = parents.iter().cloned().map(Parent::of).collect();
+    make_axes_in(&figure, &parents, options, constrained)
+}
+
+/// Makes an axes for a colorbar in the grid cell of `parent`, which it
+/// subdivides into the parent's new cell and the colorbar's (matplotlib's
+/// `colorbar.make_axes_gridspec`), as `options` say (see [`make_axes`]).
+///
+/// ```
+/// use pltrs::colorbar::{ColorbarOptions, make_axes_gridspec};
+/// use pltrs::prelude::*;
+/// let fig = Figure::new();
+/// let ax = fig.subplot();
+/// let made = make_axes_gridspec(&ax, &ColorbarOptions::default())?;
+/// assert!(made.cax.subplot_spec().is_some());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Errors
+///
+/// When `parent` was not placed on a grid, or the options contradict each
+/// other.
+pub fn make_axes_gridspec(
+    parent: &Axes,
+    options: &ColorbarOptions,
+) -> Result<ColorbarCax, ColorbarError> {
+    let spec = parent.subplot_spec().ok_or(ColorbarError::NoSubplotSpec)?;
+    make_axes_gridspec_in(
+        &parent.parent_figure(),
+        Parent::of(parent.clone()),
+        &spec,
+        options,
+    )
 }
 
 /// The settings shared by both ways of making room.
@@ -196,7 +267,7 @@ impl<'a> Request<'a> {
     /// Anchors the parents, shapes the colorbar axes and records where
     /// the colorbar took its space for layout engines (matplotlib's
     /// `_colorbar_info`).
-    fn finish(self, cax: Axes, parents: &[Parent], pad: f64) -> Result<Placement, ColorbarError> {
+    fn finish(self, cax: Axes, parents: &[Parent], pad: f64) -> Result<ColorbarCax, ColorbarError> {
         if let Some(panchor) = self.panchor {
             for parent in parents {
                 parent.set_anchor(panchor);
@@ -223,7 +294,7 @@ impl<'a> Request<'a> {
             .layout
             .colorbars
             .push(layout);
-        Ok(Placement {
+        Ok(ColorbarCax {
             cax,
             orientation: self.defaults.orientation,
             location: self.defaults.location,
@@ -245,12 +316,12 @@ pub(super) fn place(ax: &Axes, position: Bbox, spec: Option<SubplotSpec>) {
 
 /// matplotlib's `make_axes`: shrinks the parents within their bounding box
 /// and puts a new colorbar axes in the space freed on `location`.
-pub(crate) fn make_axes(
+pub(crate) fn make_axes_in(
     figure: &Figure,
     parents: &[Parent],
     options: &ColorbarOptions,
     constrained: bool,
-) -> Result<Placement, ColorbarError> {
+) -> Result<ColorbarCax, ColorbarError> {
     let request = Request::new(options)?;
     if parents
         .iter()
@@ -309,12 +380,12 @@ fn split3(pieces: &[Bbox]) -> [Bbox; 3] {
 
 /// matplotlib's `make_axes_gridspec`: subdivides the parent's grid cell
 /// into the parent's new cell and the colorbar's.
-pub(crate) fn make_axes_gridspec(
+pub(crate) fn make_axes_gridspec_in(
     figure: &Figure,
     parent: Parent,
     spec: &SubplotSpec,
     options: &ColorbarOptions,
-) -> Result<Placement, ColorbarError> {
+) -> Result<ColorbarCax, ColorbarError> {
     let request = Request::new(options)?;
     let pad = options.pad.unwrap_or(request.defaults.pad);
     let space = 2.0 * pad / (1.0 - pad);
@@ -398,7 +469,7 @@ mod tests {
         let ax = fig
             .add_axes([0.125, 0.11, 0.775, 0.77])
             .expect("a valid rectangle");
-        let placed = make_axes(
+        let placed = make_axes_in(
             &fig,
             &[Parent::Axes(ax.clone())],
             &ColorbarOptions::default(),
@@ -423,7 +494,8 @@ mod tests {
             location: Some(SpineSide::Bottom),
             ..ColorbarOptions::default()
         };
-        let placed = make_axes_gridspec(&fig, Parent::Axes(ax.clone()), &spec, &options).unwrap();
+        let placed =
+            make_axes_gridspec_in(&fig, Parent::Axes(ax.clone()), &spec, &options).unwrap();
         assert_eq!(placed.orientation, Orientation::Horizontal);
         let (_, y, _, h) = placed.cax.original_position().bounds();
         // The bottom row: 0.15 of the cell height below a 0.15 pad.

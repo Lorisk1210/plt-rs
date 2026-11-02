@@ -42,11 +42,11 @@ impl fmt::Display for GridSpec {
         };
         let (nrows, ncols) = self.shape();
         write!(f, "{name}({nrows}, {ncols}")?;
-        if uneven(self.height_ratios()) {
-            write!(f, ", height_ratios={}", Ratios(self.height_ratios()))?;
+        if uneven(&self.height_ratios()) {
+            write!(f, ", height_ratios={}", Ratios(&self.height_ratios()))?;
         }
-        if uneven(self.width_ratios()) {
-            write!(f, ", width_ratios={}", Ratios(self.width_ratios()))?;
+        if uneven(&self.width_ratios()) {
+            write!(f, ", width_ratios={}", Ratios(&self.width_ratios()))?;
         }
         f.write_str(")")
     }

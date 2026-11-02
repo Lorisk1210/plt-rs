@@ -53,6 +53,16 @@ class BackgroundPatch(ChildrenSearchMixin):
         `.Artist.set_picker`)."""
         return self._picker
 
+    def get_in_layout(self):
+        """Return True: pltrs (Rust) lays the background out with its axes
+        or figure (see `.Artist.get_in_layout`)."""
+        return True
+
+    def _fully_clipped_to_axes(self):
+        """Return False: a background is not clipped (see
+        `.Artist._fully_clipped_to_axes`)."""
+        return False
+
     def set_picker(self, picker):
         """Define the picking behavior of the background (see
         `.Artist.set_picker`)."""
@@ -195,6 +205,11 @@ class FigurePatch(BackgroundPatch):
     def get_figure(self, root=False):
         """Return the (sub)figure the background is the background of."""
         return self._parent.get_figure(root=True) if root else self._parent
+
+    def get_in_layout(self):
+        """Return False: the background of a figure does not count in its
+        bounding box (matplotlib makes it with ``in_layout=False``)."""
+        return False
 
     def get_transform(self):
         """Return the transform of the unit square: the figure's

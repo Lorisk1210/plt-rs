@@ -9,6 +9,7 @@ use pltrs::axes::{Axes, ProjectionKind, ScatterOptions};
 use pltrs::dates::{AutoDateFormatter, DateTime};
 use pltrs::events::{Location, MouseEvent};
 use pltrs::figure::{Figure, Mosaic, MosaicOptions, Share};
+use pltrs::gridspec::GridSpec;
 use pltrs::projections::ProjectionSpec;
 use pltrs::ticker::ScalarFormatter;
 
@@ -241,7 +242,7 @@ pub(super) fn subplot_mosaic(args: Args<'_>) -> Outcome {
                 .find(|(_, a)| *a == ax)
                 .map_or_else(String::new, |(label, _)| label.to_owned())
         };
-        let ratios_of = |pick: fn(&pltrs::gridspec::GridSpec) -> Vec<f64>| {
+        let ratios_of = |pick: fn(&GridSpec) -> Vec<f64>| {
             Json::Object(
                 axd.iter()
                     .map(|(label, ax)| {
@@ -260,13 +261,10 @@ pub(super) fn subplot_mosaic(args: Args<'_>) -> Outcome {
                 "axes".to_owned(),
                 Json::from(fig.axes().iter().map(label_of).collect::<Vec<_>>()),
             ),
-            (
-                "width_ratios".to_owned(),
-                ratios_of(|grid| grid.width_ratios().to_vec()),
-            ),
+            ("width_ratios".to_owned(), ratios_of(GridSpec::width_ratios)),
             (
                 "height_ratios".to_owned(),
-                ratios_of(|grid| grid.height_ratios().to_vec()),
+                ratios_of(GridSpec::height_ratios),
             ),
         ];
         if let Some(scales) = args.get("set_scales") {

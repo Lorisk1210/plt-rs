@@ -1,6 +1,8 @@
 //! Parsing of style descriptions such as `"round,pad=0.2"` (matplotlib's
 //! `_Style.__new__`), shared by box, arrow and connection styles.
 
+use std::fmt;
+
 use super::StyleError;
 
 /// A style name with its numeric `key=value` attributes.
@@ -61,6 +63,23 @@ impl StyleSpec {
     pub(crate) fn unknown(&self) -> StyleError {
         StyleError::UnknownStyle(self.name.clone())
     }
+}
+
+/// Writes a style's description, which [`StyleSpec::parse`] reads back:
+/// `name`, then `,key=value` for each attribute that has a value (the
+/// style strings of matplotlib's `_Style`, `"round,pad=0.2"`).
+pub(crate) fn write_description(
+    f: &mut fmt::Formatter<'_>,
+    name: &str,
+    attributes: &[(&str, Option<f64>)],
+) -> fmt::Result {
+    f.write_str(name)?;
+    for (key, value) in attributes {
+        if let Some(value) = value {
+            write!(f, ",{key}={value}")?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

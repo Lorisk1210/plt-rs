@@ -53,6 +53,7 @@ pub use mappable::Mappable;
 pub use options::{
     ColorbarAxes, ColorbarFormat, ColorbarOptions, ColorbarTicks, ExtendFrac, ParentAnchor, Spacing,
 };
+pub use placement::{ColorbarCax, make_axes, make_axes_gridspec};
 pub(crate) use remove::release;
 pub(crate) use state::{colorbar_of, follow, follow_view};
 
@@ -146,11 +147,13 @@ impl Figure {
         let placement = match parents {
             Parents::One(parent) => match parent.subplot_spec() {
                 Some(spec) if use_gridspec => {
-                    placement::make_axes_gridspec(fig, parent, &spec, &options)?
+                    placement::make_axes_gridspec_in(fig, parent, &spec, &options)?
                 }
-                _ => placement::make_axes(fig, &[parent], &options, constrained)?,
+                _ => placement::make_axes_in(fig, &[parent], &options, constrained)?,
             },
-            Parents::Many(parents) => placement::make_axes(fig, &parents, &options, constrained)?,
+            Parents::Many(parents) => {
+                placement::make_axes_in(fig, &parents, &options, constrained)?
+            }
         };
         if let Some(current) = current {
             fig.sca(&current);

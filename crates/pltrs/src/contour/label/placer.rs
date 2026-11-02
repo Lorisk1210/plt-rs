@@ -94,6 +94,15 @@ impl<'s> Placer<'s> {
         })
     }
 
+    /// The same placer, keeping new automatic labels away from the labels
+    /// the set has already (matplotlib's `labelXYs`).
+    pub(super) fn after_labels(mut self) -> Self {
+        self.positions = self
+            .set
+            .read(|state| state.labels.iter().map(|label| label.position).collect());
+        self
+    }
+
     /// The display position of `point`, in the coordinates of the lines.
     fn to_display(&self, point: Point) -> Point {
         self.geometry.to_display.transform_point(point)
@@ -130,11 +139,11 @@ impl<'s> Placer<'s> {
                     .iter()
                     .map(|&p| self.to_display(p))
                     .collect();
-                if !place::long_enough(&screen, label.width) {
+                if !place::print_label(&screen, label.width) {
                     additions.push(subpath);
                     continue;
                 }
-                let (at, index) = place::locate(&screen, label.width, &self.positions);
+                let (at, index) = place::locate_label(&screen, label.width, &self.positions);
                 let request = LabelCut {
                     path: &subpath,
                     index,

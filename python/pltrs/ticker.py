@@ -437,12 +437,14 @@ class ScalarFormatter(_NativeFormatter):
     """
 
     orderOfMagnitude = _api.deprecate_privatize_attribute("3.11")
+    format = _api.deprecate_privatize_attribute("3.11")
 
     def __init__(self, useOffset=None, useMathText=None, useLocale=None, *,
                  usetex=None):
         useOffset = _val_or_rc(useOffset, 'axes.formatter.useoffset')
         self._offset_threshold = _rc('axes.formatter.offset_threshold')
         self._orderOfMagnitude = 0
+        self._format = ''
         self.set_useOffset(useOffset)
         self.set_usetex(usetex)
         self.set_useMathText(useMathText)
@@ -571,10 +573,13 @@ class ScalarFormatter(_NativeFormatter):
         # docstring inherited
         info = self._axis_info()
         self._set_locs_on(locs, info)
+        locs = np.asarray(self._locs, dtype=float)
         offset, self._orderOfMagnitude = _ticker.scalar_offset(
-            self._spec(), np.asarray(self._locs, dtype=float), info)
+            self._spec(), locs, info)
         if self._useOffset:
             self.offset = offset
+        if len(locs) and self._spec()["kind"] == "scalar":
+            self._format = _ticker.scalar_format(self._spec(), locs, info)
 
     def format_data_short(self, value):
         # docstring inherited
@@ -940,6 +945,10 @@ class PercentFormatter(_NativeFormatter):
                 self._spec(), np.asarray([x], dtype=float), self._axis_info())
             return labels[0]
         return super().__call__(x, pos)
+
+    def convert_to_pct(self, x):
+        """*x* as a percentage of *xmax*."""
+        return 100.0 * (x / self.xmax)
 
     def format_pct(self, x, display_range):
         """

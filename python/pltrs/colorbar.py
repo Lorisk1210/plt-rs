@@ -204,6 +204,7 @@ class Colorbar:
             None if cax is None else cax._native, parents, spec)
         if locator is not None:
             self.locator = locator
+        self._keep_tickers()
         mappable.colorbar = self
         mappable.colorbar_cid = mappable.callbacks.connect(
             'changed', self.update_normal)
@@ -346,6 +347,7 @@ class Colorbar:
     @locator.setter
     def locator(self, loc):
         self.long_axis.set_major_locator(loc)
+        self._locator = loc
 
     @property
     def minorlocator(self):
@@ -355,6 +357,7 @@ class Colorbar:
     @minorlocator.setter
     def minorlocator(self, loc):
         self.long_axis.set_minor_locator(loc)
+        self._minorlocator = loc
 
     @property
     def formatter(self):
@@ -364,6 +367,7 @@ class Colorbar:
     @formatter.setter
     def formatter(self, fmt):
         self.long_axis.set_major_formatter(fmt)
+        self._formatter = fmt
 
     @property
     def minorformatter(self):
@@ -373,6 +377,42 @@ class Colorbar:
     @minorformatter.setter
     def minorformatter(self, fmt):
         self.long_axis.set_minor_formatter(fmt)
+
+    def _keep_tickers(self):
+        """
+        Keep the locators and the formatter of the long axis as the
+        colorbar's own, which `update_ticks` sets back: those pltrs (Rust)
+        chose for the norm, or that were given (matplotlib's
+        ``_get_ticker_locator_formatter``).
+        """
+        self._locator = self.long_axis.get_major_locator()
+        self._minorlocator = self.long_axis.get_minor_locator()
+        self._formatter = self.long_axis.get_major_formatter()
+        self._ticker_norm = self.mappable.norm
+
+    def update_ticks(self):
+        """
+        Set up the ticks and ticklabels. This should not be needed by users.
+
+        pltrs: sets the colorbar's locators and formatter back on its long
+        axis: those given through `locator`, `minorlocator` and
+        `formatter`, else those chosen for its norm.
+        """
+        self.long_axis.set_major_locator(self._locator)
+        self.long_axis.set_minor_locator(self._minorlocator)
+        self.long_axis.set_major_formatter(self._formatter)
+
+    def drag_pan(self, button, key, x, y):
+        """
+        Pan the colorbar: the limits of its norm follow the mouse, as the
+        limits of an Axes do (``Axes.drag_pan``).
+        """
+        points = self.ax._get_pan_points(button, key, x, y)
+        if points is not None:
+            if self.orientation == 'horizontal':
+                self.norm.vmin, self.norm.vmax = points[:, 0]
+            elif self.orientation == 'vertical':
+                self.norm.vmin, self.norm.vmax = points[:, 1]
 
     def update_normal(self, mappable=None):
         """
@@ -392,6 +432,8 @@ class Colorbar:
         self.set_alpha(self.mappable.get_alpha())
         self._scale_norm()
         _colorbar.update_normal(self._native, self._shown())
+        if self.mappable.norm is not self._ticker_norm:
+            self._keep_tickers()
 
     def _shown(self):
         """
@@ -575,3 +617,120 @@ class _Dividers:
 
 
 ColorbarBase = Colorbar  # Backcompat API
+
+
+def _made_axes(make, parents, natives, kwargs):
+    """
+    The colorbar Axes the native *make* (``make_axes`` or
+    ``make_axes_gridspec``) makes beside *parents* (their *natives*) with
+    the placement keywords of *kwargs*, and *kwargs* reduced to the
+    keywords of the colorbar to make in it, as matplotlib returns them.
+    """
+    from .axes import Axes
+    layout = {key: kwargs.pop(key) for key in ('location', 'orientation',
+                                                'fraction', 'shrink', 'aspect')}
+    layout.update({key: kwargs.pop(key, None) for key in ('pad', 'anchor', 'panchor')})
+    layout['fraction'] = float(layout['fraction'])
+    layout['shrink'] = float(layout['shrink'])
+    layout['aspect'] = float(layout['aspect'])
+    if layout['pad'] is not None:
+        layout['pad'] = float(layout['pad'])
+    # matplotlib's errors for unknown names (`_normalize_location_orientation`).
+    if layout['location'] is None:
+        _get_ticklocation_from_orientation(layout['orientation'])
+    else:
+        _get_orientation_from_location(layout['location'])
+    native, kwargs['orientation'], kwargs['ticklocation'] = make(natives, layout)
+    figure = parents[0].get_figure(root=True)
+    return _handles.wrap(native, Axes, figure), kwargs
+
+
+def make_axes(parents, location=None, orientation=None, fraction=0.15,
+              shrink=1.0, aspect=20, **kwargs):
+    """
+    Create an `~.axes.Axes` suitable for a colorbar.
+
+    The Axes is placed in the figure of the *parents* Axes, by resizing and
+    repositioning *parents*.
+
+    Parameters
+    ----------
+    parents : `~matplotlib.axes.Axes` or iterable or `numpy.ndarray` of `~.axes.Axes`
+        The Axes to use as parents for placing the colorbar.
+    location : None or {'left', 'right', 'top', 'bottom'}
+        The location, relative to the parent Axes, where the colorbar Axes
+        is created.  It also determines the *orientation* of the colorbar.
+    orientation : None or {'vertical', 'horizontal'}
+        The orientation of the colorbar; it is determined by *location* if
+        that is given.
+    fraction : float, default: 0.15
+        Fraction of original Axes to use for colorbar.
+    shrink : float, default: 1.0
+        Fraction by which to multiply the size of the colorbar.
+    aspect : float, default: 20
+        Ratio of long to short dimensions.
+    pad : float, default: 0.05 if vertical, 0.15 if horizontal
+        Fraction of original Axes between colorbar and new image Axes.
+    anchor : (float, float), optional
+        The anchor point of the colorbar Axes.
+    panchor : (float, float), or *False*, optional
+        The anchor point of the colorbar parent Axes. If *False*, the parent
+        axes' anchor will be unchanged.
+
+    Returns
+    -------
+    cax : `~matplotlib.axes.Axes`
+        The child Axes.
+    kwargs : dict
+        The reduced keyword dictionary to be passed when creating the colorbar
+        instance.
+    """
+    # turn parents into a list if it is not already.
+    if isinstance(parents, np.ndarray):
+        parents = list(parents.flat)
+    elif np.iterable(parents):
+        parents = list(parents)
+    else:
+        parents = [parents]
+    kwargs.update(location=location, orientation=orientation,
+                  fraction=fraction, shrink=shrink, aspect=aspect)
+    return _made_axes(_colorbar.make_axes, parents,
+                      [ax._native for ax in parents], kwargs)
+
+
+def make_axes_gridspec(parent, *, location=None, orientation=None,
+                       fraction=0.15, shrink=1.0, aspect=20, **kwargs):
+    """
+    Create an `~.axes.Axes` suitable for a colorbar.
+
+    The Axes is placed in the figure of the *parent* Axes, by resizing and
+    repositioning *parent*.
+
+    This function is similar to `.make_axes` and mostly compatible with it.
+    Primary differences are
+
+    - `.make_axes_gridspec` requires the *parent* to have a subplotspec.
+    - `.make_axes` positions the Axes in figure coordinates;
+      `.make_axes_gridspec` positions it using a subplotspec.
+    - `.make_axes` updates the position of the parent.  `.make_axes_gridspec`
+      replaces the parent gridspec with a new one.
+
+    Parameters
+    ----------
+    parent : `~matplotlib.axes.Axes`
+        The Axes to use as parent for placing the colorbar.
+    location, orientation, fraction, shrink, aspect, pad, anchor, panchor
+        As for `.make_axes`.
+
+    Returns
+    -------
+    cax : `~matplotlib.axes.Axes`
+        The child Axes.
+    kwargs : dict
+        The reduced keyword dictionary to be passed when creating the colorbar
+        instance.
+    """
+    kwargs.update(location=location, orientation=orientation,
+                  fraction=fraction, shrink=shrink, aspect=aspect)
+    return _made_axes(_colorbar.make_axes_gridspec, [parent], parent._native,
+                      kwargs)

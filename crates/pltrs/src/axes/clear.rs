@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use super::{Axes, AxesState, AxisName, ProjectionKind, TickStyle};
+use super::{Axes, AxesState, AxisName, ProjectionKind};
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup};
 use crate::figure::{FigureState, TITLE_PLACES, axes_title};
 use crate::rc::RcParams;
@@ -40,20 +40,9 @@ impl AxesState {
         fresh.axisbelow = self.axisbelow;
         for name in [AxisName::X, AxisName::Y] {
             // matplotlib's `Axis.clear` keeps the tick parameters, except
-            // whether gridlines are on, which restarts from the rc.
-            let (old, new) = (self.axis(name), fresh.axis_mut(name));
-            for (kept, restarted) in [
-                (&old.major_style, &mut new.major_style),
-                (&old.minor_style, &mut new.minor_style),
-            ] {
-                *restarted = TickStyle {
-                    grid_on: restarted.grid_on,
-                    ..kept.clone()
-                };
-            }
-            new.label_size = old.label_size;
-            // The axis object stays, with its picker and pick radius.
-            new.picking = old.picking.clone();
+            // whether gridlines are on, which restarts from the rc; the
+            // axis object stays, with its picker and pick radius.
+            fresh.axis_mut(name).keep_tick_styles(self.axis(name));
         }
         if self.shares.0.is_some() {
             fresh.xaxis.visible = self.xaxis.visible;

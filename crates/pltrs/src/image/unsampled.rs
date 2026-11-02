@@ -6,8 +6,9 @@
 use pltrs_core::{Affine2D, Bbox, Point};
 use pltrs_render::RgbaImage;
 
-use super::make::ImageCore;
+use super::make::{ImageCore, MadeImage, Placement};
 use super::pcolor_image::cell_colors;
+use super::resample::PixelMap;
 use super::{Extent, ImageError, Origin};
 
 /// The visible part of an image's coloured array (first row at the top,
@@ -22,7 +23,49 @@ pub(crate) struct UnsampledImage {
     pub(crate) cells: Affine2D,
 }
 
+impl UnsampledImage {
+    /// The image as `make_image(..., unsampled=True)` returns it at
+    /// `magnification`: its pixels, their corner and the map of its cells
+    /// to the magnified output, counted from that corner.
+    pub(crate) fn made(self, magnification: f64) -> MadeImage {
+        MadeImage {
+            transform: Some(self.cells.scale(magnification, magnification).translate(
+                -self.origin.x * magnification,
+                -self.origin.y * magnification,
+            )),
+            pixels: self.pixels,
+            origin: self.origin,
+        }
+    }
+}
+
 impl ImageCore {
+    /// [`ImageCore::unsampled`] for an image placed as `placement` says,
+    /// as `make_image(..., unsampled=True)` returns it.
+    ///
+    /// # Errors
+    ///
+    /// When the image is placed through a non-affine map, or cannot be
+    /// colour-mapped.
+    pub(crate) fn make_unsampled(
+        &self,
+        placement: &Placement,
+    ) -> Result<Option<MadeImage>, ImageError> {
+        let data_to_display = match &placement.transform {
+            None => Affine2D::IDENTITY,
+            Some(PixelMap::Affine(affine)) => *affine,
+            Some(PixelMap::General(_)) => return Err(ImageError::UnsampledNotAffine),
+        };
+        Ok(self
+            .unsampled(
+                placement.extent,
+                data_to_display,
+                placement.out_bbox,
+                placement.clip,
+            )?
+            .map(|made| made.made(placement.magnification)))
+    }
+
     /// `_make_image(..., unsampled=True)` for an image covering `extent`
     /// in data coordinates mapped to display by `data_to_display`, whose
     /// display box `out_bbox` is clipped to `clip`.

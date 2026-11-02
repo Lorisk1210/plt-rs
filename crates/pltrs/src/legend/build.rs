@@ -12,7 +12,10 @@ use super::handlers::{self, HandleBox, HandlerArtist, HandlerContext, HandlerMap
 use super::labelcolor::{HandleView, label_colors};
 use super::layout;
 use super::settings::{Placement, Settings};
-use super::{LegendError, LegendLoc, LegendMode, LegendOptions, LegendShadow, LegendShadowStyle};
+use super::{
+    LegendDragUpdate, LegendError, LegendLoc, LegendMode, LegendOptions, LegendShadow,
+    LegendShadowStyle,
+};
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore};
 use crate::colors::Color;
 use crate::figure::FigureState;
@@ -173,6 +176,7 @@ pub(crate) fn build(
         parts: parts.clone(),
         kept: false,
         dragger: None,
+        drag_update: LegendDragUpdate::Loc,
         handler_map: options.handler_map.clone(),
     };
     let id = state.adopt(parent.id(), Box::new(legend));

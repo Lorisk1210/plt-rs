@@ -9,13 +9,14 @@ use pltrs_render::GraphicsContext;
 use pltrs_text::{BlockStyle, HAlign, VAlign};
 
 use super::TableError;
+use super::layout::AxesMaps;
 use crate::artist::{ArtistBase, DrawContext, LayoutContext};
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontSize};
 use crate::patches::{PatchParts, PatchShape, PatchStyle};
 use crate::rc::RcParams;
 use crate::text::{LaidOutText, TextDrawError, draw_laid_out, lay_out};
-use crate::transforms::{Transform, unit_to_bbox};
+use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
 
 /// Padding between a cell's text and its edges, as a fraction of the cell
 /// width.
@@ -212,6 +213,10 @@ pub(crate) struct Cell {
     pub(crate) edges: CellEdges,
     pub(crate) font: FontProperties,
     pub(crate) text_color: Color,
+    /// The coordinates the cell is drawn in, its place in the table being
+    /// in them (matplotlib's `Cell.set_transform`); `None` draws it in the
+    /// fractions of the table's axes, as the table sets it.
+    pub(crate) transform: Option<Transform>,
 }
 
 pltrs_core::archive_struct!(Cell {
@@ -225,7 +230,8 @@ pltrs_core::archive_struct!(Cell {
     loc,
     edges,
     font,
-    text_color
+    text_color,
+    transform
 });
 
 impl Cell {
@@ -246,7 +252,25 @@ impl Cell {
             edges: CellEdges::CLOSED,
             font: FontProperties::from_rc(rc),
             text_color: rc.text_color.clone(),
+            transform: None,
         }
+    }
+
+    /// The maps between the cell's coordinates and display pixels: those
+    /// of its transform, else the table's `maps`; `None` for a transform
+    /// that cannot be resolved, is not affine or not invertible.
+    pub(crate) fn maps(&self, layout: LayoutContext<'_>, maps: &AxesMaps) -> Option<AxesMaps> {
+        let Some(transform) = &self.transform else {
+            return Some(maps.clone());
+        };
+        let resolved = layout
+            .resolve(transform)
+            .filter(ResolvedTransform::is_affine)?;
+        let to_display = resolved.affine_part();
+        Some(AxesMaps {
+            to_display,
+            to_axes: to_display.inverted()?,
+        })
     }
 
     /// The cell's text laid out at `fontsize` points.
@@ -328,20 +352,49 @@ impl Cell {
         if self.text.is_empty() {
             return Ok(());
         }
-        let display = PlacedCell::display_box(&placed.bbox, to_display);
-        let y = display.y0() + display.height() / 2.0;
-        let x = match self.loc {
-            HAlign::Center => display.x0() + display.width() / 2.0,
-            HAlign::Left => display.x0() + display.width() * PAD,
-            HAlign::Right => display.x0() + display.width() * (1.0 - PAD),
-        };
+        let anchor = self.text_anchor(&PlacedCell::display_box(&placed.bbox, to_display));
         let laid_out = self.laid_out(placed.fontsize, ctx.layout().dpi(), rc)?;
         let gc = GraphicsContext {
             foreground: self.text_color.resolve()?,
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };
-        Ok(draw_laid_out(ctx, &gc, &laid_out, Point::new(x, y), 0.0)?)
+        Ok(draw_laid_out(ctx, &gc, &laid_out, anchor, 0.0)?)
+    }
+
+    /// Where the text of the cell drawn at `display` (display pixels) is
+    /// anchored: centred vertically, and across as its alignment says,
+    /// inside the padding (`Cell._set_text_position`).
+    fn text_anchor(&self, display: &Bbox) -> Point {
+        let y = display.y0() + display.height() / 2.0;
+        let x = match self.loc {
+            HAlign::Center => display.x0() + display.width() / 2.0,
+            HAlign::Left => display.x0() + display.width() * PAD,
+            HAlign::Right => display.x0() + display.width() * (1.0 - PAD),
+        };
+        Point::new(x, y)
+    }
+
+    /// The box of the text of the cell placed at `placed`, in the axes
+    /// fractions `maps` map (`Cell.get_text_bounds`); an empty text has
+    /// the box of no size at its anchor.
+    pub(crate) fn text_box(
+        &self,
+        placed: &PlacedCell,
+        maps: &AxesMaps,
+        layout: LayoutContext<'_>,
+        rc: &RcParams,
+    ) -> Result<Bbox, TextDrawError> {
+        let anchor = self.text_anchor(&PlacedCell::display_box(&placed.bbox, &maps.to_display));
+        let text = if self.text.is_empty() {
+            Bbox::from_bounds(anchor.x, anchor.y, 0.0, 0.0)
+        } else {
+            self.laid_out(placed.fontsize, layout.dpi(), rc)?
+                .block
+                .bbox
+                .translated(anchor.x, anchor.y)
+        };
+        Ok(text.transformed(&maps.to_axes))
     }
 }
 

@@ -136,7 +136,12 @@ impl Table {
     /// assert_eq!((put.key(), put.text(), put.height()), ((2, 1), "moved".into(), 2.0));
     /// ```
     pub fn put_cell(&self, row: i32, column: i32, cell: &TableCell) -> TableCell {
-        let copy = cell.read(Cell::clone);
+        // A cell put in a table is drawn in the table's coordinates, as
+        // matplotlib's `Table.__setitem__` gives it the table's transform.
+        let copy = Cell {
+            transform: None,
+            ..cell.read(Cell::clone)
+        };
         self.update(|t| t.add_cell(row, column, copy));
         TableCell {
             table: self.clone(),
@@ -180,7 +185,12 @@ pub struct TableCell {
 }
 
 impl TableCell {
-    fn read<R>(&self, f: impl FnOnce(&Cell) -> R) -> R {
+    /// The table the cell belongs to.
+    pub(super) fn table(&self) -> &Table {
+        &self.table
+    }
+
+    pub(super) fn read<R>(&self, f: impl FnOnce(&Cell) -> R) -> R {
         self.table.raw.with::<TableArtist, _>(|t| {
             let (_, cell) = t
                 .cells
@@ -191,7 +201,7 @@ impl TableCell {
         })
     }
 
-    fn update(&self, f: impl FnOnce(&mut Cell)) -> &Self {
+    pub(super) fn update(&self, f: impl FnOnce(&mut Cell)) -> &Self {
         self.table.update(|t| {
             if let Some((_, cell)) = t.cells.iter_mut().find(|(key, _)| *key == self.key) {
                 f(cell);

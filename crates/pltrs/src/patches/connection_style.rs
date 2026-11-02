@@ -1,12 +1,13 @@
 //! Paths connecting two points (matplotlib's `ConnectionStyle`), clipped
 //! to the patches at their ends and shrunk away from them.
 
+use std::fmt;
 use std::str::FromStr;
 
 use pltrs_core::bezier::{Direction, get_intersection, inside_circle, split_path_inout};
 use pltrs_core::{Path, PathCode, Point};
 
-use super::style_spec::StyleSpec;
+use super::style_spec::{StyleSpec, write_description};
 use super::{PatchError, StyleError};
 
 /// The bisection tolerance of matplotlib's path splitting.
@@ -322,6 +323,74 @@ fn bar_connection(
         (LineTo, Point::new(b.x + f * ddy, b.y - f * ddx)),
         (LineTo, b0),
     ]))
+}
+
+impl fmt::Display for ConnectionStyle {
+    /// matplotlib's description of the style, which parses back to it:
+    /// `"angle,angleA=90,angleB=0,rad=5"`, the arms and angles left unset
+    /// left out.
+    ///
+    /// ```
+    /// use pltrs::patches::ConnectionStyle;
+    /// let style: ConnectionStyle = "arc,armA=30,rad=10".parse()?;
+    /// assert_eq!(style.to_string(), "arc,angleA=0,angleB=0,armA=30,rad=10");
+    /// # Ok::<(), pltrs::patches::StyleError>(())
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::Arc3 { rad } => write_description(f, "arc3", &[("rad", Some(rad))]),
+            Self::Angle3 { angle_a, angle_b } => write_description(
+                f,
+                "angle3",
+                &[("angleA", Some(angle_a)), ("angleB", Some(angle_b))],
+            ),
+            Self::Angle {
+                angle_a,
+                angle_b,
+                rad,
+            } => write_description(
+                f,
+                "angle",
+                &[
+                    ("angleA", Some(angle_a)),
+                    ("angleB", Some(angle_b)),
+                    ("rad", Some(rad)),
+                ],
+            ),
+            Self::Arc {
+                angle_a,
+                angle_b,
+                arm_a,
+                arm_b,
+                rad,
+            } => write_description(
+                f,
+                "arc",
+                &[
+                    ("angleA", Some(angle_a)),
+                    ("angleB", Some(angle_b)),
+                    ("armA", arm_a),
+                    ("armB", arm_b),
+                    ("rad", Some(rad)),
+                ],
+            ),
+            Self::Bar {
+                arm_a,
+                arm_b,
+                fraction,
+                angle,
+            } => write_description(
+                f,
+                "bar",
+                &[
+                    ("armA", Some(arm_a)),
+                    ("armB", Some(arm_b)),
+                    ("fraction", Some(fraction)),
+                    ("angle", angle),
+                ],
+            ),
+        }
+    }
 }
 
 impl FromStr for ConnectionStyle {

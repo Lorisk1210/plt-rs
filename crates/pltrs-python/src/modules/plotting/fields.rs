@@ -262,19 +262,15 @@ type BarbColors = (Option<Rgba>, Option<Rgba>);
 /// The barb outlines: `(sizes, fill_empty, increments, rounding, flip)`.
 type BarbShape = (Sizes, bool, Increments, bool, Vec<bool>);
 
-/// Wind barbs for the vectors `u`, `v` at `x`, `y` (matplotlib's
-/// `barbs`): staffs of `length` points placed by their `"tip"`,
-/// `"middle"` or an offset along the staff, coloured as `colors` says.
-pub(super) fn barbs(
-    axes: Axes,
-    positions: (NdArray, NdArray),
-    components: (NdArray, NdArray),
-    mapped: Mapped,
+/// How barbs are drawn: staffs of `length` points placed by their
+/// `"tip"`, `"middle"` or an offset along the staff, coloured as
+/// `colors` says, shaped as `shape` says, at positions in `transform`.
+fn barbs_options(
     (pivot, length): (Owned, f64),
     (barbcolor, flagcolor): BarbColors,
     (sizes, fill_empty, increments, rounding, flip): BarbShape,
     transform: Option<Transform>,
-) -> PyResult<Collection> {
+) -> PyResult<BarbsOptions> {
     let pivot = Python::with_gil(|py| {
         let pivot = pivot.bind(py);
         Ok::<_, PyErr>(match pivot.extract::<String>() {
@@ -285,7 +281,7 @@ pub(super) fn barbs(
     })?;
     let (spacing, height, width, emptybarb) = sizes;
     let (half, full, flag) = increments;
-    let options = BarbsOptions {
+    Ok(BarbsOptions {
         pivot,
         length,
         barbcolor: barbcolor.map(color),
@@ -302,8 +298,37 @@ pub(super) fn barbs(
         flip,
         transform,
         ..BarbsOptions::default()
-    };
+    })
+}
+
+/// Wind barbs for the vectors `u`, `v` at `x`, `y` (matplotlib's
+/// `barbs`), drawn as `look` says (see [`barbs_options`]).
+pub(super) fn barbs(
+    axes: Axes,
+    positions: (NdArray, NdArray),
+    components: (NdArray, NdArray),
+    mapped: Mapped,
+    look: (Owned, f64),
+    colors: BarbColors,
+    shape: BarbShape,
+    transform: Option<Transform>,
+) -> PyResult<Collection> {
+    let options = barbs_options(look, colors, shape, transform)?;
     Ok(axes.barbs(vector_field(positions, components, mapped)?, options)?)
+}
+
+/// Draws the barbs of the vectors `u`, `v` at `x`, `y` in place of those
+/// of `barbs` (matplotlib's `Barbs.set_UVC`), as `look` says.
+pub(super) fn barbs_set_uvc(
+    barbs: Collection,
+    positions: (NdArray, NdArray),
+    components: (NdArray, NdArray),
+    mapped: Mapped,
+    (look, colors, shape): ((Owned, f64), BarbColors, BarbShape),
+) -> PyResult<()> {
+    let options = barbs_options(look, colors, shape, None)?;
+    barbs.set_barbs(vector_field(positions, components, mapped)?, &options)?;
+    Ok(())
 }
 
 /// A 2-D float array as a grid.

@@ -7,9 +7,18 @@ use pltrs_core::numeric::{np_maximum, np_minimum};
 use crate::numeric::argsort;
 use crate::stats::pairwise_sum;
 
-/// Whether a line of `line.len()` vertices is long enough to hold a label
-/// `width` pixels wide: many vertices, or a wide enough extent.
-pub(super) fn long_enough(line: &[Point], width: f64) -> bool {
+/// Whether a line of `line.len()` vertices (display pixels) is long
+/// enough to hold a label `width` pixels wide: many vertices, or a wide
+/// enough extent (matplotlib's `ContourLabeler.print_label`).
+///
+/// ```
+/// use pltrs::contour::print_label;
+/// use pltrs::transforms::Point;
+/// let line = [Point::new(0.0, 0.0), Point::new(50.0, 0.0)];
+/// assert!(print_label(&line, 20.0));
+/// assert!(!print_label(&line, 100.0));
+/// ```
+pub fn print_label(line: &[Point], width: f64) -> bool {
     if line.len() as f64 > 10.0 * width {
         return true;
     }
@@ -22,8 +31,16 @@ pub(super) fn long_enough(line: &[Point], width: f64) -> bool {
     !line.is_empty() && (ptp(|p| p.x) > 1.2 * width || ptp(|p| p.y) > 1.2 * width)
 }
 
-/// Whether `p` lies within `1.2 * width` of an existing label.
-pub(super) fn too_close(p: Point, width: f64, labels: &[Point]) -> bool {
+/// Whether `p` lies within `1.2 * width` of one of the `labels`
+/// (display pixels; matplotlib's `ContourLabeler.too_close`).
+///
+/// ```
+/// use pltrs::contour::too_close;
+/// use pltrs::transforms::Point;
+/// assert!(too_close(Point::new(1.0, 0.0), 1.0, &[Point::ORIGIN]));
+/// assert!(!too_close(Point::new(5.0, 0.0), 1.0, &[Point::ORIGIN]));
+/// ```
+pub fn too_close(p: Point, width: f64, labels: &[Point]) -> bool {
     let thresh = (1.2 * width).powi(2);
     labels
         .iter()
@@ -35,8 +52,16 @@ pub(super) fn too_close(p: Point, width: f64, labels: &[Point]) -> bool {
 /// about the label's width (the last one wrapping around to the start),
 /// each scored by the summed distance of its points from its chord. If
 /// every block is too close, the straightest one is used anyway. Returns
-/// the block's middle vertex and its index.
-pub(super) fn locate(line: &[Point], width: f64, labels: &[Point]) -> (Point, usize) {
+/// the block's middle vertex and its index (matplotlib's
+/// `ContourLabeler.locate_label`).
+///
+/// ```
+/// use pltrs::contour::locate_label;
+/// use pltrs::transforms::Point;
+/// let line: Vec<Point> = (0..8).map(|i| Point::new(f64::from(i), 0.0)).collect();
+/// assert_eq!(locate_label(&line, 4.0, &[]), (Point::new(2.0, 0.0), 2));
+/// ```
+pub fn locate_label(line: &[Point], width: f64, labels: &[Point]) -> (Point, usize) {
     let size = line.len();
     let n_blocks = if width > 1.0 {
         (size as f64 / width).ceil() as usize
@@ -81,10 +106,10 @@ mod tests {
     #[test]
     fn long_enough_by_extent_or_vertex_count() {
         let short = points(&[(0.0, 0.0), (5.0, 0.0)]);
-        assert!(!long_enough(&short, 10.0));
-        assert!(long_enough(&short, 4.0));
-        assert!(!long_enough(&[], 1.0));
-        assert!(long_enough(&vec![Point::ORIGIN; 30], 2.0));
+        assert!(!print_label(&short, 10.0));
+        assert!(print_label(&short, 4.0));
+        assert!(!print_label(&[], 1.0));
+        assert!(print_label(&vec![Point::ORIGIN; 30], 2.0));
     }
 
     #[test]
@@ -92,9 +117,9 @@ mod tests {
         // A straight run followed by a zig-zag.
         let mut path = points(&[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)]);
         path.extend(points(&[(4.0, 3.0), (5.0, -3.0), (6.0, 3.0), (7.0, -3.0)]));
-        let (p, index) = locate(&path, 4.0, &[]);
+        let (p, index) = locate_label(&path, 4.0, &[]);
         assert_eq!((p, index), (Point::new(2.0, 0.0), 2));
-        let (_, index) = locate(&path, 4.0, &[Point::new(2.0, 0.0)]);
+        let (_, index) = locate_label(&path, 4.0, &[Point::new(2.0, 0.0)]);
         assert_eq!(index, 6, "the straight block is too close to a label");
     }
 

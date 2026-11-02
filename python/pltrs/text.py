@@ -20,7 +20,7 @@ from . import _text_metrics as _text_metrics_module
 from . import _text_helpers  # noqa: F401
 from ._native import annotation as _annotation, text as _text
 from .artist import Artist
-from .font_manager import FontManager, FontProperties
+from .font_manager import FontManager, FontProperties, fontManager  # noqa: F401
 from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here)
 from .transforms import Bbox, BboxBase, Transform
 
@@ -254,6 +254,26 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             raise NotImplementedError(
                 "pltrs: set_bbox(boxstyle=...) takes a box style name")
         _text.set_bbox(self._native, props)
+
+    def update_bbox_position_size(self, renderer):
+        """
+        Update the location and the size of the bbox.
+
+        This method should be used when the position and size of the bbox needs
+        to be updated before actually drawing the bbox.
+
+        pltrs: the patch of `get_bbox_patch` moves where pltrs (Rust) draws
+        the box in the figure's current layout.
+        """
+        from ._text_box import place
+        place(self)
+
+    def update_from(self, other):
+        # docstring inherited
+        self._took_from(other, _text.update_from(self._native, other._native))
+        if "_picker" in other.__dict__:
+            self._picker = other._picker
+        self.stale = True
 
     def get_bbox_patch(self):
         """

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use pltrs_core::archive::{External, ProgramFn};
 use pltrs_core::{Affine2D, Bbox, Point};
 
-use super::make::{CoreSettings, ImageCore, Placement, RenderedImage};
+use super::make::{CoreSettings, ImageCore, MadeImage, Placement, RenderedImage};
 use super::resample::PixelMap;
 use super::shared::{canvas_bbox, draw_rendered};
 use super::{Extent, ImageAlpha, ImageData, ImageError, Interpolation, InterpolationStage, Origin};
@@ -168,12 +168,25 @@ impl BboxImageArtist {
         ctx: &mut DrawContext<'_>,
         magnification: f64,
     ) -> Result<Option<RenderedImage>, ImageError> {
-        let Some(out_bbox) = self.display_bbox(*ctx.layout()) else {
+        let canvas = canvas_bbox(ctx);
+        let Some(placement) = self.placement(*ctx.layout(), canvas, magnification) else {
             return Ok(None);
         };
-        let canvas = canvas_bbox(ctx);
+        let alpha = self.core.alpha(self.base.alpha);
+        self.core.make_image(&placement, alpha.as_ref())
+    }
+
+    /// Where the image goes on `canvas` in `layout`, magnified by
+    /// `magnification`; `None` while the image is not placed.
+    fn placement(
+        &self,
+        layout: LayoutContext<'_>,
+        canvas: Bbox,
+        magnification: f64,
+    ) -> Option<Placement> {
+        let out_bbox = self.display_bbox(layout)?;
         let (width, height) = (canvas.width(), canvas.height());
-        let placement = Placement {
+        Some(Placement {
             extent: Extent::new(
                 out_bbox.x0() / width,
                 out_bbox.x1() / width,
@@ -185,9 +198,7 @@ impl BboxImageArtist {
             clip: canvas,
             round_to_pixels: true,
             magnification,
-        };
-        let alpha = self.core.alpha(self.base.alpha);
-        self.core.make_image(&placement, alpha.as_ref())
+        })
     }
 }
 
@@ -268,6 +279,59 @@ impl BboxImage {
     ) -> Result<Self, ImageError> {
         let artist = BboxImageArtist::new(data, options, &crate::rc::params())?;
         Ok(Self::from_raw(RawHandle::loose(Box::new(artist))))
+    }
+
+    /// The image as the figure draws it in its current layout, magnified
+    /// by `magnification` (matplotlib's `BboxImage.make_image`): stretched
+    /// over its box, clipped to the canvas, with the map from array
+    /// indices to the pixels; `None` while it has no box or nothing of it
+    /// shows.
+    ///
+    /// ```
+    /// use pltrs::image::{BboxImage, BboxImageOptions};
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::transforms::{Bbox, Transform};
+    /// let image = BboxImage::loose(Grid::filled(2, 3, 0.5), BboxImageOptions::default())?;
+    /// assert!(image.make_image(1.0)?.is_none());
+    /// image.set_bbox(Bbox::from_bounds(0.0, 0.0, 30.0, 20.0), Transform::Display);
+    /// let made = image.make_image(1.0)?.expect("a box");
+    /// assert_eq!((made.pixels.width(), made.pixels.height()), (30, 20));
+    /// # Ok::<(), pltrs::image::ImageError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When the image cannot be colour-mapped.
+    pub fn make_image(&self, magnification: f64) -> Result<Option<MadeImage>, ImageError> {
+        self.made(magnification, false)
+    }
+
+    /// [`BboxImage::make_image`] at the image's own resolution, as
+    /// renderers that scale images themselves receive it (matplotlib's
+    /// `make_image(..., unsampled=True)`).
+    ///
+    /// # Errors
+    ///
+    /// When the image cannot be colour-mapped.
+    pub fn make_image_unsampled(
+        &self,
+        magnification: f64,
+    ) -> Result<Option<MadeImage>, ImageError> {
+        self.made(magnification, true)
+    }
+
+    fn made(&self, magnification: f64, unsampled: bool) -> Result<Option<MadeImage>, ImageError> {
+        let state = self.raw.figure_state().borrow();
+        let layout = LayoutContext::new(&state);
+        let (width, height) = state.size_pixels();
+        let canvas = Bbox::from_extents(0.0, 0.0, width, height);
+        self.raw.with::<BboxImageArtist, _>(|image| {
+            let Some(placement) = image.placement(layout, canvas, magnification) else {
+                return Ok(None);
+            };
+            let alpha = image.core.alpha(image.base.alpha);
+            image.core.made(&placement, alpha.as_ref(), unsampled)
+        })
     }
 
     /// The array's rows and columns.

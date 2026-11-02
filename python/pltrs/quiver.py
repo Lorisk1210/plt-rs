@@ -186,6 +186,7 @@ class QuiverKey(martist.Artist):
         self.label = label
         self._labelsep_inches = labelsep
         self.labelpos = labelpos
+        self._kw = kwargs  # Remove when kw deprecation elapses.
         font = None
         if fontproperties is not None:
             from .font_manager import FontManager, FontProperties
@@ -201,6 +202,18 @@ class QuiverKey(martist.Artist):
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,
                                   self.figure)
+
+    kw = _api.deprecated("3.11")(  # Also remove self._kw when deprecation elapses.
+        property(lambda self: self._kw))
+    fontproperties = _api.deprecated(
+        "3.11", alternative="quiverkey.text.get_fontproperties()")(
+            property(lambda self: self.text.get_fontproperties()))
+    labelcolor = _api.deprecated(
+        "3.11", alternative="quiverkey.text.get_color()")(
+            property(lambda self: self.text.get_color()))
+    verts = _api.deprecated(
+        "3.11", alternative="[p.vertices for p in quiverkey.vector.get_paths()]")(
+            property(lambda self: [p.vertices for p in self.vector.get_paths()]))
 
     @property
     def labelsep(self):
@@ -381,10 +394,28 @@ class Barbs(mcollections.PolyCollection):
         x, y, u, v, c = _parse_args(*args, caller_name='barbs')
         self.x = x
         self.y = y
+        x, y, u, v, c, flip = self._unmasked(u, v, c)
+        made, mapped = _mapped(c, cmap, norm, clim)
+        native = _plotting.barbs(
+            ax._native, (np.asarray(x, float), np.asarray(y, float)),
+            (_filled(u), _filled(v)), mapped, (pivot, float(length)),
+            (_rgba(barbcolor), _rgba(flagcolor)), self._native_shape(flip),
+            _live_transforms.given_to_native(transform))
+        _handles.adopt(self, native, ax.figure)
+        self._attach_native_mapping(colorizer=made)
+        self._internal_update(kwargs)
+
+    def _unmasked(self, U, V, C):
+        """
+        Keep the components *U*, *V* (copies, masked where invalid, as
+        matplotlib's ``u`` and ``v``) and return the positions, components,
+        colour values *C* and flip flags of the vectors left once the
+        masked ones are dropped.
+        """
         # We need to ensure we have a copy, not a reference to an array that
         # might change before draw().
-        self.u = ma.masked_invalid(u, copy=True).ravel()
-        self.v = ma.masked_invalid(v, copy=True).ravel()
+        self.u = ma.masked_invalid(U, copy=True).ravel()
+        self.v = ma.masked_invalid(V, copy=True).ravel()
 
         # Flip needs to have the same number of entries as everything else.
         # Use broadcast_to to avoid a bloated array of identical values.
@@ -394,32 +425,44 @@ class Barbs(mcollections.PolyCollection):
         else:
             flip = self.flip
 
-        if c is not None:
-            c = ma.masked_invalid(c, copy=True).ravel()
+        if C is not None:
+            c = ma.masked_invalid(C, copy=True).ravel()
             x, y, u, v, c, flip = cbook.delete_masked_points(
                 self.x.ravel(), self.y.ravel(), self.u, self.v, c,
                 flip.ravel())
             _check_consistent_shapes(x, y, u, v, c, flip)
         else:
+            c = None
             x, y, u, v, flip = cbook.delete_masked_points(
                 self.x.ravel(), self.y.ravel(), self.u, self.v, flip.ravel())
             _check_consistent_shapes(x, y, u, v, flip)
+        return x, y, u, v, c, flip
 
+    def _native_shape(self, flip):
+        """The sizes, increments and flags of the barbs, with the flip
+        flags *flip*, as pltrs (Rust) takes them."""
         sizes = {'spacing': 0.125, 'height': 0.4, 'width': 0.25,
                  'emptybarb': 0.15, **self.sizes}
         increments = {'half': 5, 'full': 10, 'flag': 50, **self.barb_increments}
-        made, mapped = _mapped(c, cmap, norm, clim)
-        native = _plotting.barbs(
-            ax._native, (np.asarray(x, float), np.asarray(y, float)),
-            (_filled(u), _filled(v)), mapped,
-            (pivot, float(length)), (_rgba(barbcolor), _rgba(flagcolor)),
-            ((float(sizes['spacing']), float(sizes['height']),
-              float(sizes['width']), float(sizes['emptybarb'])),
-             bool(fill_empty),
-             (float(increments['half']), float(increments['full']),
-              float(increments['flag'])),
-             bool(rounding), [bool(f) for f in np.ravel(flip)] or [False]),
-            _live_transforms.given_to_native(transform))
-        _handles.adopt(self, native, ax.figure)
-        self._attach_native_mapping(colorizer=made)
-        self._internal_update(kwargs)
+        return ((float(sizes['spacing']), float(sizes['height']),
+                 float(sizes['width']), float(sizes['emptybarb'])),
+                bool(self.fill_empty),
+                (float(increments['half']), float(increments['full']),
+                 float(increments['flag'])),
+                bool(self.rounding), [bool(f) for f in np.ravel(flip)] or [False])
+
+    def set_UVC(self, U, V, C=None):
+        """
+        Set the components *U*, *V* of the barbs, and their colour values
+        *C*; the barbs at masked vectors are left out.
+        """
+        x, y, u, v, c, flip = self._unmasked(U, V, C)
+        _plotting.barbs_set_uvc(
+            self._native, (np.asarray(x, float), np.asarray(y, float)),
+            (_filled(u), _filled(v)), None,
+            ((self._pivot, float(self._length)), (None, None),
+             self._native_shape(flip)))
+        # Set the color array
+        if C is not None:
+            self.set_array(c)
+        self.stale = True

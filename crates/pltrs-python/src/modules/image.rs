@@ -18,6 +18,7 @@ mod figure;
 mod kinds;
 mod resample;
 
+use pltrs::artist::RawHandle;
 use pltrs::axes::{Axes, ImshowOptions};
 use pltrs::colors::{ColorizerOptions, Colormap, Norm, NormSpec};
 use pltrs::image::{
@@ -366,14 +367,30 @@ fn cursor_element(image: AxesImage, x: f64, y: f64) -> PyResult<Option<(usize, u
 /// and the 3×3 matrix of the map from array indices to them (`None` when
 /// not affine); `None` when nothing is visible.
 fn make_image(
-    image: AxesImage,
+    image: RawHandle,
     magnification: f64,
     unsampled: bool,
 ) -> PyResult<Option<MadeImageParts>> {
-    let made = if unsampled {
-        image.make_image_unsampled(magnification)?
+    let made = if let Some(image) = image.downcast::<AxesImage>() {
+        if unsampled {
+            image.make_image_unsampled(magnification)?
+        } else {
+            image.make_image(magnification)?
+        }
+    } else if let Some(image) = image.downcast::<FigureImage>() {
+        if unsampled {
+            image.make_image_unsampled(magnification)?
+        } else {
+            image.make_image(magnification)?
+        }
+    } else if let Some(image) = image.downcast::<BboxImage>() {
+        if unsampled {
+            image.make_image_unsampled(magnification)?
+        } else {
+            image.make_image(magnification)?
+        }
     } else {
-        image.make_image(magnification)?
+        return Err(PyErr::type_error("the artist is no image"));
     };
     let Some(made) = made else {
         return Ok(None);

@@ -15,12 +15,13 @@ import numpy as np
 
 from . import _api, colors as mcolors, units
 from ._enums import CapStyle, JoinStyle
+from ._fancy_styles import FancyStylesMixin, _style_object
 from ._native import patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
 from .artist import Artist
 from .path import Path, _DrawnPath
-from .transforms import Affine2D
+from .transforms import Affine2D, IdentityTransform
 
 
 def _rcParams():
@@ -195,13 +196,8 @@ class Patch(Artist):
 
     def update_from(self, other):
         """Copy properties from *other* to *self*."""
+        super().update_from(other)
         _patches.update_style_from(self._native, other._native)
-        self.set_visible(other.get_visible())
-        self.set_alpha(other.get_alpha())
-        self.set_clip_on(other.get_clip_on())
-        self.set_label(other.get_label())
-        if other.is_transform_set():
-            self.set_transform(other.get_data_transform())
         if "_linestyle" in other.__dict__:
             self._linestyle = other._linestyle
 
@@ -1360,7 +1356,7 @@ class Arc(Ellipse):
         return _patches.arc(self._native)[1][2]
 
 
-class FancyBboxPatch(Patch):
+class FancyBboxPatch(FancyStylesMixin, Patch):
     """
     A fancy box around a rectangle with lower left at *xy* = (*x*, *y*)
     with specified width and height.
@@ -1393,11 +1389,51 @@ class FancyBboxPatch(Patch):
             the mutation and the mutated box will be stretched by the inverse
             of it.
         """
+        boxstyle = _style_object(boxstyle, BoxStyle)
         self._native = _patches.new_fancy_bbox(
             (float(xy[0]), float(xy[1])), (float(width), float(height)),
             _native_spec(boxstyle, BoxStyle),
-            (float(mutation_scale), float(mutation_aspect)))
+            (float(mutation_scale),
+             1. if mutation_aspect is None else float(mutation_aspect)))
         super().__init__(**kwargs)
+        self.set_boxstyle(boxstyle)
+        self._keep_mutation(mutation_scale, mutation_aspect)
+
+    def set_boxstyle(self, boxstyle=None, **kwargs):
+        """
+        Set the box style, possibly with further attributes.
+
+        Attributes from the previous box style are not reused.
+
+        Without argument (or with ``boxstyle=None``), the available box styles
+        are returned as a human-readable string.
+
+        Parameters
+        ----------
+        boxstyle : str or `~matplotlib.patches.BoxStyle`
+            The style of the box: either a `.BoxStyle` instance, or a string,
+            which is the style name and optionally comma separated attributes
+            (e.g. "Round,pad=0.2"). Such a string is used to construct a
+            `.BoxStyle` object, as documented in that class.
+
+        **kwargs
+            Additional attributes for the box style.
+
+        Examples
+        --------
+        ::
+
+            set_boxstyle("Round,pad=0.2")
+            set_boxstyle("round", pad=0.2)
+        """
+        if boxstyle is None:
+            return BoxStyle.pprint_styles()
+        self._set_style("_bbox_transmuter", _style_object(boxstyle, BoxStyle, **kwargs),
+                        BoxStyle, _patches.set_boxstyle, _patches.get_boxstyle)
+
+    def get_boxstyle(self):
+        """Return the boxstyle object."""
+        return self._get_style("_bbox_transmuter", BoxStyle, _patches.get_boxstyle)
 
     @property
     def _x(self):
@@ -1469,7 +1505,7 @@ class FancyBboxPatch(Patch):
         return Bbox.from_bounds(self._x, self._y, self._width, self._height)
 
 
-class FancyArrowPatch(Patch):
+class FancyArrowPatch(FancyStylesMixin, Patch):
     """
     A fancy arrow patch.
 
@@ -1519,18 +1555,100 @@ class FancyArrowPatch(Patch):
             ends = None
         else:
             raise ValueError("Either posA and posB, or path need to provided")
+        arrowstyle = _style_object(arrowstyle, ArrowStyle)
+        connectionstyle = _style_object(connectionstyle, ConnectionStyle)
         self._native = _patches.new_fancy_arrow_patch(
             (ends, path),
             (_native_spec(arrowstyle, ArrowStyle),
              _native_spec(connectionstyle, ConnectionStyle),
              float(shrinkA), float(shrinkB), float(mutation_scale),
-             float(mutation_aspect)))
+             1. if mutation_aspect is None else float(mutation_aspect)))
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
+        self.set_arrowstyle(arrowstyle)
+        self._keep_mutation(mutation_scale, mutation_aspect)
+        self.set_connectionstyle(connectionstyle)
+
+    def set_connectionstyle(self, connectionstyle=None, **kwargs):
+        """
+        Set the connection style, possibly with further attributes.
+
+        Attributes from the previous connection style are not reused.
+
+        Without argument (or with ``connectionstyle=None``), the available box
+        styles are returned as a human-readable string.
+
+        Parameters
+        ----------
+        connectionstyle : str or `~matplotlib.patches.ConnectionStyle`
+            The style of the connection: either a `.ConnectionStyle` instance,
+            or a string, which is the style name and optionally comma separated
+            attributes (e.g. "Arc,armA=30,rad=10"). Such a string is used to
+            construct a `.ConnectionStyle` object, as documented in that class.
+
+        **kwargs
+            Additional attributes for the connection style.
+
+        Examples
+        --------
+        ::
+
+            set_connectionstyle("Arc,armA=30,rad=10")
+            set_connectionstyle("arc", armA=30, rad=10)
+        """
+        if connectionstyle is None:
+            return ConnectionStyle.pprint_styles()
+        self._set_style(
+            "_connector", _style_object(connectionstyle, ConnectionStyle, **kwargs),
+            ConnectionStyle, _patches.set_connectionstyle,
+            _patches.get_connectionstyle)
+
+    def get_connectionstyle(self):
+        """Return the `ConnectionStyle` used."""
+        return self._get_style("_connector", ConnectionStyle,
+                               _patches.get_connectionstyle)
+
+    def set_arrowstyle(self, arrowstyle=None, **kwargs):
+        """
+        Set the arrow style, possibly with further attributes.
+
+        Attributes from the previous arrow style are not reused.
+
+        Without argument (or with ``arrowstyle=None``), the available box
+        styles are returned as a human-readable string.
+
+        Parameters
+        ----------
+        arrowstyle : str or `~matplotlib.patches.ArrowStyle`
+            The style of the arrow: either a `.ArrowStyle` instance, or a
+            string, which is the style name and optionally comma separated
+            attributes (e.g. "Fancy,head_length=0.2"). Such a string is used to
+            construct a `.ArrowStyle` object, as documented in that class.
+
+        **kwargs
+            Additional attributes for the arrow style.
+
+        Examples
+        --------
+        ::
+
+            set_arrowstyle("Fancy,head_length=0.2")
+            set_arrowstyle("fancy", head_length=0.2)
+        """
+        if arrowstyle is None:
+            return ArrowStyle.pprint_styles()
+        self._set_style("_arrow_transmuter",
+                        _style_object(arrowstyle, ArrowStyle, **kwargs),
+                        ArrowStyle, _patches.set_arrowstyle, _patches.get_arrowstyle)
+
+    def get_arrowstyle(self):
+        """Return the arrowstyle object."""
+        return self._get_style("_arrow_transmuter", ArrowStyle,
+                               _patches.get_arrowstyle)
 
     def _link_patches(self):
         """
@@ -1761,3 +1879,39 @@ class Shadow(Patch):
             patch._native, (float(ox), float(oy)), float(shade))
         Artist.__init__(self)
         self._internal_update(kwargs)
+
+
+def bbox_artist(artist, renderer, props=None, fill=True):
+    """
+    A debug function to draw a rectangle around the bounding
+    box returned by an artist's `.Artist.get_window_extent`
+    to test whether the artist is returning the correct bbox.
+
+    *props* is a dict of rectangle props with the additional property
+    'pad' that sets the padding around the bbox in points.
+    """
+    if props is None:
+        props = {}
+    props = props.copy()  # don't want to alter the pad externally
+    pad = props.pop('pad', 4)
+    pad = renderer.points_to_pixels(pad)
+    bbox = artist.get_window_extent(renderer)
+    r = Rectangle(
+        xy=(bbox.x0 - pad / 2, bbox.y0 - pad / 2),
+        width=bbox.width + pad, height=bbox.height + pad,
+        fill=fill, transform=IdentityTransform(), clip_on=False)
+    r.update(props)
+    r.draw(renderer)
+
+
+def draw_bbox(bbox, renderer, color='k', trans=None):
+    """
+    A debug function to draw a rectangle around the bounding
+    box returned by an artist's `.Artist.get_window_extent`
+    to test whether the artist is returning the correct bbox.
+    """
+    r = Rectangle(xy=bbox.p0, width=bbox.width, height=bbox.height,
+                  edgecolor=color, fill=False, clip_on=False)
+    if trans is not None:
+        r.set_transform(trans)
+    r.draw(renderer)

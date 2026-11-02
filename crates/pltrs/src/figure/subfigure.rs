@@ -173,10 +173,10 @@ fn ratio_extent(spec: &SubplotSpec) -> Bbox {
     let (widths, heights) = (grid.width_ratios(), grid.height_ratios());
     let total = |ratios: &[f64]| ratios.iter().sum::<f64>();
     let span = |ratios: &[f64], range: std::ops::Range<usize>| total(&ratios[range]);
-    let x0 = span(widths, 0..spec.cols().start) / total(widths);
-    let dx = span(widths, spec.cols()) / total(widths);
-    let y0 = 1.0 - span(heights, 0..spec.rows().end) / total(heights);
-    let dy = span(heights, spec.rows()) / total(heights);
+    let x0 = span(&widths, 0..spec.cols().start) / total(&widths);
+    let dx = span(&widths, spec.cols()) / total(&widths);
+    let y0 = 1.0 - span(&heights, 0..spec.rows().end) / total(&heights);
+    let dy = span(&heights, spec.rows()) / total(&heights);
     Bbox::from_extents(x0, y0, x0 + dx, y0 + dy)
 }
 

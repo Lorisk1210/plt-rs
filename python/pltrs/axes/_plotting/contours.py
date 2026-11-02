@@ -27,7 +27,7 @@ def _contour_look(kwargs):
     """
     The look of a contour set popped from *kwargs*: ``(look, extras,
     attributes, colorizer, native_cmap)``, the native look and extras
-    tuples, the attributes the set keeps (``linestyles``,
+    tuples, the attributes the set keeps (``_orig_linestyles``,
     ``negative_linestyles``), the Python `.Colorizer` of its colour mapping,
     and whether its colormap is the one pltrs (Rust) makes (no *cmap* is
     given: the default one, or the listed colormap of *colors*).
@@ -66,7 +66,7 @@ def _contour_look(kwargs):
               None if locator is None
               else _tick_helpers._description("locator", locator),
               _live_transforms.given_to_native(kwargs.pop("transform", None)))
-    attributes = {"linestyles": linestyles,
+    attributes = {"_orig_linestyles": linestyles,
                   "negative_linestyles": negative_linestyles}
     return look, extras, attributes, made, cmap is None
 

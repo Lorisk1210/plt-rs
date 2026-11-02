@@ -494,11 +494,7 @@ impl AxesImage {
             };
             let alpha = image.core.alpha(image.base.alpha);
             let made = image.core.make_mapped(&placement, alpha.as_ref())?;
-            Ok(made.map(|(rendered, map)| MadeImage {
-                pixels: rendered.pixels,
-                origin: rendered.origin,
-                transform: map.affine(),
-            }))
+            Ok(made.map(MadeImage::mapped))
         })
     }
 
@@ -549,14 +545,7 @@ impl AxesImage {
                 image
                     .core
                     .unsampled(image.extent(), resolved.affine_part(), out_bbox, clip)?;
-            Ok(made.map(|made| MadeImage {
-                transform: Some(made.cells.scale(magnification, magnification).translate(
-                    -made.origin.x * magnification,
-                    -made.origin.y * magnification,
-                )),
-                pixels: made.pixels,
-                origin: made.origin,
-            }))
+            Ok(made.map(|made| made.made(magnification)))
         })
     }
 

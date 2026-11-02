@@ -15,6 +15,7 @@ its figure and gives the object the new handle (`._handles.adopt`).
 """
 
 import contextlib
+from functools import reduce, wraps  # noqa: F401  (matplotlib exports reduce here)
 from numbers import Real
 
 import numpy as np
@@ -24,6 +25,7 @@ from . import _live_transforms
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
 from ._artist_clipping import ClippingMixin
+from ._artist_copying import CopyingMixin
 from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
@@ -33,8 +35,54 @@ from ._native import artist as _artist
 from ._native import transforms as _transforms
 
 
+def allow_rasterization(draw):
+    """
+    Decorator for Artist.draw method. Provides routines
+    that run before and after the draw call. The before and after functions
+    are useful for changing artist-dependent renderer attributes or making
+    other setup function calls, such as starting and flushing a mixed-mode
+    renderer.
+
+    (matplotlib's decorator, as it is.)
+    """
+
+    @wraps(draw)
+    def draw_wrapper(artist, renderer):
+        try:
+            if artist.get_rasterized():
+                if renderer._raster_depth == 0 and not renderer._rasterizing:
+                    renderer.start_rasterizing()
+                    renderer._rasterizing = True
+                renderer._raster_depth += 1
+            else:
+                if renderer._raster_depth == 0 and renderer._rasterizing:
+                    # Only stop when we are not in a rasterized parent
+                    # and something has be rasterized since last stop
+                    renderer.stop_rasterizing()
+                    renderer._rasterizing = False
+
+            if artist.get_agg_filter() is not None:
+                renderer.start_filter()
+
+            return draw(artist, renderer)
+        finally:
+            if artist.get_agg_filter() is not None:
+                renderer.stop_filter(artist.get_agg_filter())
+            if artist.get_rasterized():
+                renderer._raster_depth -= 1
+            if (renderer._rasterizing and (fig := artist.get_figure(root=True)) and
+                    fig.suppressComposite):
+                # restart rasterizing to prevent merging
+                renderer.stop_rasterizing()
+                renderer.start_rasterizing()
+
+    draw_wrapper._supports_rasterization = True
+    return draw_wrapper
+
+
 class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
-             EffectsMixin, ExtentMixin, UnitsMixin, ChildrenSearchMixin):
+             EffectsMixin, ExtentMixin, UnitsMixin, ChildrenSearchMixin,
+             CopyingMixin):
     """
     Abstract base class for objects that render into a FigureCanvas.
 

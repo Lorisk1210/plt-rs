@@ -43,6 +43,7 @@ mod figure_layout;
 mod font_manager;
 mod ft2font;
 mod gridspec;
+mod hatch;
 mod image;
 mod insets;
 mod layoutgrid;
@@ -112,6 +113,7 @@ pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     font_manager::register(&module.submodule("font_manager")?)?;
     ft2font::register(&module.submodule("ft2font")?)?;
     gridspec::register(&module.submodule("gridspec")?)?;
+    hatch::register(&module.submodule("hatch")?)?;
     image::register(&module.submodule("image")?)?;
     insets::register(&module.submodule("insets")?)?;
     legend::register(&module.submodule("legend")?)?;
@@ -208,7 +210,8 @@ mod tests {
                 &[number(4.0), number(3.0), number(50.0)],
             )
             .unwrap();
-            let axes = call(&native, "figure", "gca", std::slice::from_ref(&figure)).unwrap();
+            let rect = eval(py, "", "(0.125, 0.11, 0.775, 0.77)");
+            let axes = call(&native, "figure", "add_axes", &[figure.clone(), rect]).unwrap();
             let x = eval(py, "", "[0.0, 1.0, 2.0]");
             let kwargs = eval(py, "", "{'linewidth': 2.0, 'label': 'line'}");
             let rescale = eval(py, "", "(True, True)");

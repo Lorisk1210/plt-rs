@@ -61,6 +61,15 @@ class LayoutEngine:
         self._params = {}
         self._figures = weakref.WeakSet()
 
+    def set(self, **kwargs):
+        """
+        Set the parameters for the layout engine.
+
+        The base class has no parameters to set; the engines deriving from
+        it override this, as in matplotlib.
+        """
+        raise NotImplementedError
+
     @property
     def colorbar_gridspec(self):
         """

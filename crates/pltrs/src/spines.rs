@@ -1,5 +1,7 @@
 //! Axes spines: the lines framing the data area (matplotlib.spines).
 
+mod patch;
+
 use std::rc::Rc;
 
 use pltrs_core::{Affine2D, Bbox, Path, Point};
@@ -17,6 +19,8 @@ use crate::projections::OUTLINE_SPINE;
 use crate::rc::RcParams;
 use crate::ticker::AxisName;
 use crate::transforms::{ResolvedTransform, Transform, unit_to_bbox};
+
+pub use patch::SpinePatch;
 
 /// Which edge of the axes a spine frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -133,6 +137,8 @@ pub(crate) struct SpineArtist {
     pub(crate) position: SpinePosition,
     /// Data interval the spine spans; `None` follows the view limits.
     pub(crate) bounds: Option<(f64, f64)>,
+    /// The shape the spine is drawn with.
+    pub(crate) patch: SpinePatch,
     rc: Rc<RcParams>,
 }
 
@@ -142,6 +148,7 @@ pltrs_core::archive_struct!(SpineArtist {
     style,
     position,
     bounds,
+    patch,
     rc
 });
 
@@ -169,6 +176,7 @@ impl SpineArtist {
             style,
             position: SpinePosition::default(),
             bounds: None,
+            patch: SpinePatch::Line,
             rc,
         }
     }
@@ -274,6 +282,11 @@ impl SpineArtist {
     /// interval a custom projection gives).
     fn display_path(&self, ctx: LayoutContext<'_>) -> Option<(Path, Affine2D)> {
         let axes_id = self.base.parent?;
+        if let Some(outline) = self.patch.outline() {
+            let resolved = ctx.resolve(&Transform::Axes(axes_id))?;
+            let (path, affine) = resolved.split_path(&outline);
+            return Some((path.into_owned(), affine));
+        }
         let axes = ctx.store().get_as::<AxesState>(axes_id)?;
         if let Some(polar) = axes.polar_view() {
             return self.polar_path(&polar, axes_id, ctx);

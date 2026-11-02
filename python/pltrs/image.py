@@ -422,6 +422,28 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         return _native_image.get_filterrad(self._native)
 
 
+def _made_image(image, magnification, unsampled):
+    """
+    *image* (an `AxesImage`, a `FigureImage` or a `BboxImage`) made for
+    display by pltrs (Rust) as ``make_image`` returns it: the RGBA pixels,
+    the display corner they are drawn from and the `.Affine2D` from the
+    image to them (None for an image on non-affine axes); no pixels when
+    nothing of it shows.
+    """
+    if image._A is None:
+        raise RuntimeError('You must first set the image array')
+    if image._A.size == 0:
+        raise RuntimeError("_make_image must get a non-empty image. "
+                           "Your Artist's draw method must filter before "
+                           "this method is called.")
+    made = _native_image.make_image(image._native, float(magnification),
+                                    bool(unsampled))
+    if made is None:
+        return None, 0, 0, None
+    pixels, x, y, matrix = made
+    return pixels, x, y, None if matrix is None else Affine2D(matrix)
+
+
 class AxesImage(_ImageBase):
     """
     An image with pixels on a regular grid, attached to an Axes.
@@ -556,18 +578,7 @@ class AxesImage(_ImageBase):
             The affine transformation from image to pixel space (None, in
             pltrs, for an image on non-affine axes).
         """
-        if self._A is None:
-            raise RuntimeError('You must first set the image array')
-        if self._A.size == 0:
-            raise RuntimeError("_make_image must get a non-empty image. "
-                               "Your Artist's draw method must filter before "
-                               "this method is called.")
-        made = _native_image.make_image(self._native, float(magnification),
-                                        bool(unsampled))
-        if made is None:
-            return None, 0, 0, None
-        pixels, x, y, matrix = made
-        return pixels, x, y, None if matrix is None else Affine2D(matrix)
+        return _made_image(self, magnification, unsampled)
 
 
 def imread(fname, format=None):
@@ -1092,6 +1103,17 @@ class FigureImage(_ImageBase):
         """Return the image extent as tuple (left, right, bottom, top)."""
         return _native_image.figure_image_extent(self._native)
 
+    def make_image(self, renderer, magnification=1.0, unsampled=False):
+        """
+        Normalize, rescale, and colormap this image's data for rendering:
+        one image pixel per figure pixel from the offset, clipped to the
+        figure, scaled by *magnification*.
+
+        pltrs: made at the resolution of the figure (pltrs (Rust) draws
+        the figure itself).
+        """
+        return _made_image(self, magnification, unsampled)
+
 
 def _native_extent_owner(bbox):
     """
@@ -1247,6 +1269,17 @@ class BboxImage(_ImageBase):
             return self.bbox(renderer)
         else:
             raise ValueError("Unknown type of bbox")
+
+    def make_image(self, renderer, magnification=1.0, unsampled=False):
+        """
+        Normalize, rescale, and colormap this image's data for rendering:
+        stretched over its box, clipped to the canvas, scaled by
+        *magnification*.
+
+        pltrs: made in the figure's current layout (pltrs (Rust) draws the
+        figure itself).
+        """
+        return _made_image(self, magnification, unsampled)
 
     def contains(self, mouseevent):
         """Test whether the mouse event occurred within the image."""

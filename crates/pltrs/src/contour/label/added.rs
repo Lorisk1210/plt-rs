@@ -88,6 +88,43 @@ impl ContourSet {
         Ok(Placer::new(self, &setup)?.add(label, at, rotation))
     }
 
+    /// Places labels along every labelled line again, the way the last
+    /// [`ContourSet::clabel`] call labelled the set, and returns the new
+    /// texts (matplotlib's `labels`): where a line is long enough, at its
+    /// straightest stretch not too close to a label; with `inline` the
+    /// lines are cut under the labels, leaving `inline_spacing` pixels on
+    /// each side.
+    ///
+    /// # Errors
+    ///
+    /// When the set has not been labelled yet.
+    pub fn place_labels(
+        &self,
+        inline: bool,
+        inline_spacing: f64,
+    ) -> Result<Vec<Text>, ContourError> {
+        self.place_labels_split_by(inline, inline_spacing, None)
+    }
+
+    /// [`ContourSet::place_labels`], the labels' rotations and the lines
+    /// cut under them by `splitter` when given (matplotlib's `labels` with
+    /// an overridden `_split_path_and_get_label_rotation`).
+    ///
+    /// # Errors
+    ///
+    /// As [`ContourSet::place_labels`].
+    pub fn place_labels_split_by(
+        &self,
+        inline: bool,
+        inline_spacing: f64,
+        splitter: Option<&mut LabelSplitter<'_>>,
+    ) -> Result<Vec<Text>, ContourError> {
+        let setup = self.label_setup()?;
+        let mut placer = Placer::new(self, &setup)?.after_labels();
+        placer.label_all(inline, inline_spacing, splitter);
+        Ok(placer.into_created())
+    }
+
     /// Removes the label at `index` in [`ContourSet::labels`], or the last
     /// one when `None`, with its text (matplotlib's `pop_label`). Lines cut
     /// under an inline label stay cut, as in matplotlib.

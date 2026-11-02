@@ -39,6 +39,17 @@ from .font_manager import FontManager, FontProperties
 from .transforms import Bbox, BboxBase, TransformedBbox
 
 
+DEBUG = False
+
+
+def _update_frame(box, bbox, fontsize=None):
+    """Fit the frame of *box* to *bbox*, its box style scaled by
+    *fontsize* (matplotlib's ``update_frame``)."""
+    box.patch.set_bounds(bbox.bounds)
+    if fontsize:
+        box.patch.set_mutation_scale(fontsize)
+
+
 def _compat_get_offset(meth):
     """
     Decorator for the get_offset method of OffsetBox and subclasses, that
@@ -443,6 +454,23 @@ class PaddedBox(OffsetBox):
         """The bbox of the box and the offset of its child."""
         pad = self.pad * renderer.points_to_pixels(1.)
         return (self._children[0].get_bbox(renderer).padded(pad), [(0, 0)])
+
+    def update_frame(self, bbox, fontsize=None):
+        """
+        Fit the frame to *bbox*, its box style scaled by *fontsize*.
+
+        pltrs: the frame is the patch of the box pltrs (Rust) draws, which
+        exists once the box joined a figure; pltrs fits it again whenever
+        it lays the figure out.
+        """
+        _update_frame(self, bbox, fontsize)
+        self.stale = True
+
+    def draw_frame(self, renderer):
+        """Fit the frame to the box and draw it with *renderer*."""
+        # update the location and size of the legend
+        self.update_frame(self.get_window_extent(renderer))
+        self.patch.draw(renderer)
 
 
 class DrawingArea(OffsetBox):
@@ -873,6 +901,16 @@ class AnchoredOffsetbox(OffsetBox):
         self.get_child()._joined(self)
         return _handles.adopt(self, native, figure)
 
+    def update_frame(self, bbox, fontsize=None):
+        """
+        Fit the frame to *bbox*, its box style scaled by *fontsize*.
+
+        pltrs: the frame is the patch of the box pltrs (Rust) draws, which
+        exists once the box joined a figure; pltrs fits it again whenever
+        it lays the figure out.
+        """
+        _update_frame(self, bbox, fontsize)
+
     def set_child(self, child):
         """Set the child to be anchored."""
         self._child = child
@@ -1097,6 +1135,7 @@ or callable, default: value of *xycoords*
         """
         kwargs.setdefault("zorder", 3)
         super().__init__()
+        self._xy = self._xybox = None
         self.xy = xy
         self.xycoords = xycoords
         self._annotation_clip = annotation_clip
@@ -1148,6 +1187,46 @@ or callable, default: value of *xycoords*
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
         self.offsetbox._joined(self)
         return _handles.adopt(self, native, figure)
+
+    @property
+    def xy(self):
+        """The point *(x, y)* the box annotates, in *xycoords*."""
+        return self._xy
+
+    @xy.setter
+    def xy(self, xy):
+        self._xy = xy
+        self._move(xy, None)
+
+    @property
+    def xybox(self):
+        """The position *(x, y)* of the box, in *boxcoords*."""
+        return self._xybox
+
+    @xybox.setter
+    def xybox(self, xybox):
+        self._xybox = xybox
+        self._move(None, xybox)
+
+    def _move(self, xy, xybox):
+        """Give the annotated point *xy* and the box position *xybox* (each
+        kept when None) to the box pltrs (Rust) draws, once it has one."""
+        if self._figure is None:
+            return
+        _offsetbox.set_annotation_points(
+            self._native, *(None if point is None else tuple(map(float, point))
+                            for point in (xy, xybox)))
+        self.stale = True
+
+    def update_positions(self, renderer):
+        """
+        Update pixel positions for the annotated point, the text, and the arrow.
+
+        pltrs: places the frame (`patch`) and the parts of the offset box
+        where pltrs (Rust) draws them in the figure's current layout.
+        """
+        if self._figure is not None:
+            _offsetbox.update_annotation_positions(self._native)
 
     @property
     def xyann(self):

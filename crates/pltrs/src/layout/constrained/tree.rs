@@ -178,9 +178,9 @@ impl LayoutTree {
             }
         };
         self.owners.push(GridOwner::GridSpec(gridspec.clone()));
-        let index = self
-            .grids
-            .push(&parent, gridspec.width_ratios(), gridspec.height_ratios())?;
+        let index =
+            self.grids
+                .push(&parent, &gridspec.width_ratios(), &gridspec.height_ratios())?;
         self.specs.push((gridspec.clone(), index));
         Ok(index)
     }

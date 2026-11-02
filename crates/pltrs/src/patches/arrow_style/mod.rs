@@ -3,13 +3,14 @@
 mod curve;
 mod quadratic;
 
+use std::fmt;
 use std::str::FromStr;
 
 use pltrs_core::Path;
 
 pub use curve::{Bracket, CurveArrow, CurveEnd};
 
-use super::style_spec::StyleSpec;
+use super::style_spec::{StyleSpec, write_description};
 use super::{PatchError, StyleError};
 
 /// How an arrow is drawn along its path. Sizes are fractions of the
@@ -234,6 +235,122 @@ fn curve_style(
         }
     }
     curve
+}
+
+/// The name of a curve style: its ends' symbols around `-` (`|-|` for
+/// brackets without arms at both ends). Ends matplotlib has no style for
+/// (a bracket and a filled head, say) give a name that does not parse.
+fn curve_name(curve: &CurveArrow) -> String {
+    use CurveEnd::{Bracket, FilledHead, Head, Plain};
+    if (curve.begin, curve.end) == (Bracket, Bracket)
+        && curve.bracket_a.length == 0.0
+        && curve.bracket_b.length == 0.0
+    {
+        return "|-|".to_owned();
+    }
+    let begin = match curve.begin {
+        Plain => "",
+        Head => "<",
+        FilledHead => "<|",
+        Bracket => "]",
+    };
+    let end = match curve.end {
+        Plain => "",
+        Head => ">",
+        FilledHead => "|>",
+        Bracket => "[",
+    };
+    format!("{begin}-{end}")
+}
+
+/// The parameters of `curve` its style `accepted` takes, as
+/// [`curve_style`] reads them.
+fn curve_attributes(curve: &CurveArrow, accepted: CurveParameters) -> Vec<(String, Option<f64>)> {
+    let (a, b, heads) = match accepted {
+        CurveParameters::Nothing => (false, false, false),
+        CurveParameters::All => (true, true, true),
+        CurveParameters::BracketA => (true, false, false),
+        CurveParameters::BracketB => (false, true, false),
+        CurveParameters::BracketAB | CurveParameters::Bars => (true, true, false),
+    };
+    let bars = matches!(accepted, CurveParameters::Bars);
+    let mut attributes = Vec::new();
+    if heads {
+        attributes.push(("head_length".to_owned(), Some(curve.head_length)));
+        attributes.push(("head_width".to_owned(), Some(curve.head_width)));
+    }
+    for (enabled, bracket, suffix) in [(a, &curve.bracket_a, "A"), (b, &curve.bracket_b, "B")] {
+        if !enabled {
+            continue;
+        }
+        attributes.push((format!("width{suffix}"), Some(bracket.width)));
+        attributes.push((format!("angle{suffix}"), Some(bracket.angle)));
+        if !bars {
+            attributes.push((format!("length{suffix}"), Some(bracket.length)));
+        }
+        if heads {
+            attributes.push((format!("scale{suffix}"), bracket.scale));
+        }
+    }
+    attributes
+}
+
+impl fmt::Display for ArrowStyle {
+    /// matplotlib's description of the style, which parses back to it:
+    /// `"-[,widthB=1.5,angleB=0,lengthB=0.2"`, `"simple,head_length=0.5,..."`.
+    ///
+    /// ```
+    /// use pltrs::patches::ArrowStyle;
+    /// let style: ArrowStyle = "fancy,head_length=0.6".parse()?;
+    /// assert_eq!(style.to_string(), "fancy,head_length=0.6,head_width=0.4,tail_width=0.4");
+    /// assert_eq!("-".parse::<ArrowStyle>()?.to_string(), "-");
+    /// # Ok::<(), pltrs::patches::StyleError>(())
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let quadratic = |name, head_length, head_width, tail_width| {
+            (
+                name,
+                vec![
+                    ("head_length".to_owned(), Some(head_length)),
+                    ("head_width".to_owned(), Some(head_width)),
+                    ("tail_width".to_owned(), Some(tail_width)),
+                ],
+            )
+        };
+        let (name, attributes) = match *self {
+            Self::Curve(curve) => {
+                let name = curve_name(&curve);
+                let accepted = curve_kind(&name).map_or(CurveParameters::All, |(.., p)| p);
+                let attributes = curve_attributes(&curve, accepted);
+                (name, attributes)
+            }
+            Self::Simple {
+                head_length,
+                head_width,
+                tail_width,
+            } => quadratic("simple".to_owned(), head_length, head_width, tail_width),
+            Self::Fancy {
+                head_length,
+                head_width,
+                tail_width,
+            } => quadratic("fancy".to_owned(), head_length, head_width, tail_width),
+            Self::Wedge {
+                tail_width,
+                shrink_factor,
+            } => (
+                "wedge".to_owned(),
+                vec![
+                    ("tail_width".to_owned(), Some(tail_width)),
+                    ("shrink_factor".to_owned(), Some(shrink_factor)),
+                ],
+            ),
+        };
+        let attributes: Vec<(&str, Option<f64>)> = attributes
+            .iter()
+            .map(|(key, value)| (key.as_str(), *value))
+            .collect();
+        write_description(f, &name, &attributes)
+    }
 }
 
 impl FromStr for ArrowStyle {

@@ -9,6 +9,8 @@ use super::lines::PyLineStyle;
 use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 
+mod patch;
+
 artist_handle!(Spine);
 
 /// The name of a side, as matplotlib's `spine_type`.
@@ -150,7 +152,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_color", set_color)?;
     module.add("get_edgecolor", get_edgecolor)?;
     module.add("set_linewidth", set_linewidth)?;
-    module.add("set_linestyle", set_linestyle)
+    module.add("set_linestyle", set_linestyle)?;
+    patch::register(module)
 }
 
 #[cfg(test)]

@@ -31,6 +31,7 @@
 
 mod annotation;
 pub(crate) use annotation::reconnect_drag;
+mod copy;
 mod error;
 mod handle;
 mod hinting;
@@ -299,6 +300,15 @@ impl TextArtist {
         anchor.is_finite().then_some(anchor)
     }
 
+    /// Where the text's block is anchored in display coordinates: an
+    /// annotation's text position, a plain text's [`TextArtist::anchor`].
+    fn box_anchor(&self, ctx: LayoutContext<'_>) -> Option<Point> {
+        match &self.annotation {
+            Some(annotation) => annotation.text_display(self, ctx).ok(),
+            None => self.anchor(ctx),
+        }
+    }
+
     /// The extent of the (sub)figure containing the text.
     fn figure_box(&self, ctx: LayoutContext<'_>) -> Option<Bbox> {
         let mut id = self.base.parent?;
@@ -549,11 +559,7 @@ impl Artist for TextArtist {
     /// The text's box, where it is drawn (what matplotlib's
     /// `get_bbox_patch()` clips connections to); `None` without a box.
     fn connection_region(&self, ctx: &LayoutContext<'_>) -> Option<ClipRegion> {
-        let anchor = match &self.annotation {
-            Some(annotation) => annotation.text_display(self, *ctx).ok()?,
-            None => self.anchor(*ctx)?,
-        };
-        let (bbox, placement) = self.box_placement(*ctx, anchor).ok()??;
+        let (bbox, placement) = self.box_placement(*ctx, self.box_anchor(*ctx)?).ok()??;
         bbox.clip_region(&self.rc, &placement).ok()
     }
 

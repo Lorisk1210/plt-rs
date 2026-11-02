@@ -50,6 +50,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub(crate) use artist::LegendArtist;
+pub use drag::LegendDragUpdate;
 pub use error::LegendError;
 pub use handle::{HandlerTuple, LegendHandle};
 pub use handlers::{

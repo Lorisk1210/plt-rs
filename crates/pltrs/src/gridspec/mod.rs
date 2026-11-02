@@ -4,7 +4,7 @@
 //! [`SubplotSpec`] selects a rectangular block of cells and computes the
 //! axes position exactly as matplotlib's `get_grid_positions` does.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -22,8 +22,8 @@ pub use params::{GridSpecError, SubplotOverrides, SubplotParams};
 struct GridData {
     nrows: usize,
     ncols: usize,
-    width_ratios: Vec<f64>,
-    height_ratios: Vec<f64>,
+    width_ratios: RefCell<Vec<f64>>,
+    height_ratios: RefCell<Vec<f64>>,
     /// The grid's own margins and spacing; tight layout of the grid
     /// changes them ([`GridSpec::tight_layout`]).
     overrides: Cell<SubplotOverrides>,
@@ -42,6 +42,18 @@ pltrs_core::archive_struct!(GridData {
     parent,
     in_layout
 });
+
+/// `given` ratios for `n` rows or columns, equal ones for `None`.
+fn ratios(given: Option<Vec<f64>>, n: usize) -> Result<Vec<f64>, GridSpecError> {
+    match given {
+        Some(r) if r.len() != n => Err(GridSpecError::RatioCount {
+            expected: n,
+            actual: r.len(),
+        }),
+        Some(r) => Ok(r),
+        None => Ok(vec![1.0; n]),
+    }
+}
 
 /// A grid of `nrows × ncols` cells (cheap to clone; clones are the same grid).
 #[derive(Clone, Debug, PartialEq)]
@@ -79,20 +91,12 @@ impl GridSpec {
         if nrows == 0 || ncols == 0 {
             return Err(GridSpecError::EmptyGrid);
         }
-        let ratios = |given: Option<Vec<f64>>, n: usize| match given {
-            Some(r) if r.len() != n => Err(GridSpecError::RatioCount {
-                expected: n,
-                actual: r.len(),
-            }),
-            Some(r) => Ok(r),
-            None => Ok(vec![1.0; n]),
-        };
         Ok(Self {
             data: Rc::new(GridData {
                 nrows,
                 ncols,
-                width_ratios: ratios(width_ratios, ncols)?,
-                height_ratios: ratios(height_ratios, nrows)?,
+                width_ratios: RefCell::new(ratios(width_ratios, ncols)?),
+                height_ratios: RefCell::new(ratios(height_ratios, nrows)?),
                 overrides: Cell::new(overrides),
                 parent,
                 in_layout: Cell::new(true),
@@ -135,13 +139,50 @@ impl GridSpec {
     }
 
     /// The relative column widths.
-    pub fn width_ratios(&self) -> &[f64] {
-        &self.data.width_ratios
+    pub fn width_ratios(&self) -> Vec<f64> {
+        self.data.width_ratios.borrow().clone()
     }
 
     /// The relative row heights.
-    pub fn height_ratios(&self) -> &[f64] {
-        &self.data.height_ratios
+    pub fn height_ratios(&self) -> Vec<f64> {
+        self.data.height_ratios.borrow().clone()
+    }
+
+    /// Replaces the relative column widths (`None`: equal widths) without
+    /// moving any axes (matplotlib's `set_width_ratios`): layout engines
+    /// and the positions computed from the grid follow.
+    ///
+    /// ```
+    /// use pltrs::gridspec::GridSpec;
+    /// let grid = GridSpec::new(1, 2)?;
+    /// grid.set_width_ratios(Some(vec![1.0, 3.0]))?;
+    /// assert_eq!(grid.width_ratios(), [1.0, 3.0]);
+    /// assert!(grid.set_width_ratios(Some(vec![1.0])).is_err());
+    /// grid.set_width_ratios(None)?;
+    /// assert_eq!(grid.width_ratios(), [1.0, 1.0]);
+    /// # Ok::<(), pltrs::gridspec::GridSpecError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When there are not as many ratios as columns; the ratios stay.
+    pub fn set_width_ratios(&self, ratios_given: Option<Vec<f64>>) -> Result<&Self, GridSpecError> {
+        *self.data.width_ratios.borrow_mut() = ratios(ratios_given, self.data.ncols)?;
+        Ok(self)
+    }
+
+    /// Replaces the relative row heights (`None`: equal heights) without
+    /// moving any axes (matplotlib's `set_height_ratios`).
+    ///
+    /// # Errors
+    ///
+    /// When there are not as many ratios as rows; the ratios stay.
+    pub fn set_height_ratios(
+        &self,
+        ratios_given: Option<Vec<f64>>,
+    ) -> Result<&Self, GridSpecError> {
+        *self.data.height_ratios.borrow_mut() = ratios(ratios_given, self.data.nrows)?;
+        Ok(self)
     }
 
     /// The `(wspace, hspace)` the grid sets itself, if any.
@@ -360,13 +401,13 @@ impl GridSpec {
         let heights = accumulated(
             params.top - params.bottom,
             params.hspace,
-            &self.data.height_ratios,
+            &self.data.height_ratios.borrow(),
             nrows,
         );
         let widths = accumulated(
             params.right - params.left,
             params.wspace,
-            &self.data.width_ratios,
+            &self.data.width_ratios.borrow(),
             ncols,
         );
         Ok(GridPositions {

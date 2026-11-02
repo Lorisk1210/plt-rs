@@ -164,6 +164,17 @@ class ClippingMixin:
         """Return the clip path."""
         return self.__dict__.get("_clippath")
 
+    def get_transformed_clip_path_and_affine(self):
+        """
+        Return the clip path with the non-affine part of its
+        transformation applied, and the remaining affine part of its
+        transformation.
+        """
+        clippath = self.get_clip_path()
+        if clippath is not None:
+            return clippath.get_transformed_path_and_affine()
+        return None, None
+
     def _fully_clipped_to_axes(self):
         """
         Return a boolean flag, ``True`` if the artist is clipped to the Axes

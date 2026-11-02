@@ -19,7 +19,8 @@ from contextlib import contextmanager, nullcontext
 import numpy as np
 
 from .. import _api, rc_context
-from .._native import backends as _backends, text_overrides as _text_overrides
+from .._native import (
+    backends as _backends, table as _table, text_overrides as _text_overrides)
 from ..backend_bases import (
     _Backend, DrawEvent, FigureCanvasBase, FigureManagerBase, RendererBase)
 from ..font_manager import FontManager, FontProperties
@@ -225,6 +226,14 @@ class RendererAgg(RendererBase, metaclass=_WatchesTextDrawing):
             _backends.draw_onto_raster(self._own_raster(), artist._native)
         else:
             _backends.draw_artist(self._canvas_figure(), artist._native)
+
+    def _draw_cell(self, cell):
+        """Draw the table `.Cell` *cell* alone, as `_draw_artist` draws an
+        artist (`.Cell.draw` with this renderer)."""
+        if self._figure is None:
+            _table.draw_cell_onto_raster(self._own_raster(), cell._ref())
+        else:
+            _table.draw_cell(self._canvas_figure(), cell._ref())
 
     def _own_raster(self):
         """The pixels of a renderer behind no figure's canvas."""

@@ -20,6 +20,10 @@ from .artist import Artist
 
 __all__ = ["Tick", "XTick", "YTick", "Ticker", "Axis", "XAxis", "YAxis"]
 
+#: The number of segments of a gridline curved by its projection (polar
+#: axes' circles), as matplotlib interpolates them.
+GRIDLINE_INTERPOLATION_STEPS = 180
+
 # The Line2D properties gridlines take as ``grid_<name>`` tick parameters.
 _gridline_param_names = [
     'grid_' + name for name in (
@@ -197,6 +201,11 @@ class Axis(Artist):
     #: Whether pltrs (Rust) converts the values in units plotted along the
     #: axis itself, so that they pass as they are (the axes of 3-D axes).
     _native_units = False
+
+    converter = _api.deprecate_privatize_attribute(
+                    "3.10",
+                    alternative="get_converter and set_converter methods"
+                )
 
     def __str__(self):
         return "{}({},{})".format(
@@ -662,6 +671,48 @@ class Axis(Artist):
         if numticks is None:
             numticks = len(self.get_minorticklocs())
         return self._tick_objects(True, numticks)[:numticks]
+
+    def clear(self):
+        """
+        Clear the axis.
+
+        This resets axis properties to their default values:
+
+        - the label
+        - the scale
+        - locators, formatters and ticks
+        - major and minor grid
+        - units
+        - registered callbacks
+        """
+        _axis.clear(*self._args())
+        # Clear the callback registry for this axis, or it may "leak"
+        self.callbacks = cbook.CallbackRegistry(signals=["units"])
+        self.reset_ticks()
+        self._given_scale = None
+        self._converter = None
+        self._converter_is_explicit = False
+        self._units = None
+        self._category_units = None
+        self.__dict__.pop("_category_keys", None)
+        self.stale = True
+
+    def set_default_intervals(self):
+        """
+        Set the default limits for the axis data and view interval if they
+        have not been not mutated yet.
+
+        pltrs (Rust) shows the default limits of the axis info of the
+        axis' converter whenever the axis has neither data nor a view of
+        its own; this gives it those of the converter and units in force.
+        """
+        converter = self._converter
+        if converter is not None and not _is_native_converter(converter):
+            info = converter.axisinfo(self.units, self)
+            if info is not None and info.default_limits is not None:
+                _tick_helpers.use_axis_info(
+                    self, munits.AxisInfo(), self._default_limits(info))
+        self.stale = True
 
     def reset_ticks(self):
         """

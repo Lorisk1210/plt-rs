@@ -10,6 +10,8 @@ arrow their changes once they ran (``restyle_arrow``), and whose extent is
 where the annotation draws the arrow.
 """
 
+import numpy as np
+
 from . import _mirrors
 from ._native import annotation as _annotation
 from .patches import FancyArrowPatch
@@ -29,6 +31,12 @@ class _AnnotationArrow(_mirrors.Mirroring):
         """The display box of the arrow as the annotation draws it."""
         extents = _annotation.arrow_extent(self.annotation._native)
         return Bbox.null() if extents is None else Bbox.from_extents(*extents)
+
+    def display_path(self, artist):
+        """The outline of the arrow as the annotation draws it (no vertex
+        while the annotation is hidden)."""
+        arrays = _annotation.arrow_display_path(self.annotation._native)
+        return (np.empty((0, 2)), None) if arrays is None else arrays
 
 
 def mirror(annotation):

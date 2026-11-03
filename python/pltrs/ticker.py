@@ -372,13 +372,20 @@ class _NativeFormatter(Formatter):
         # docstring inherited
         self._set_locs_on(locs, self._axis_info())
 
+    @staticmethod
+    def _kept_locs(locs):
+        """The tick locations *locs* as the formatter keeps them: as given
+        (an iterator's as a list, which can be read more than once)."""
+        return list(locs) if iter(locs) is locs else locs
+
     def _set_locs_on(self, locs, info):
         """
         Take the tick locations *locs* and their labels on the axis *info*
         describes. The axis is described first: describing it may have
-        pltrs (Rust) label its ticks with this very formatter.
+        pltrs (Rust) label its ticks with this very formatter. The
+        locations are kept as given, as matplotlib's formatters keep them.
         """
-        self._locs = list(locs)
+        self._locs = self._kept_locs(locs)
         values = np.asarray(self._locs, dtype=float)
         self._labels, self._offset = _ticker.format_ticks(
             self._spec(), values, info)
@@ -755,6 +762,11 @@ class LogitFormatter(_NativeFormatter):
                 "one_half": self._one_half, "minor": bool(self._minor),
                 "minor_threshold": int(self._minor_threshold),
                 "minor_number": int(self._minor_number)}
+
+    @staticmethod
+    def _kept_locs(locs):
+        # matplotlib's logit formatter keeps its locations as an array.
+        return np.array(locs)
 
     def use_overline(self, use_overline):
         r"""
@@ -1180,7 +1192,11 @@ class FixedLocator(_NativeLocator):
         """
         if self.nbins is None:
             return self.locs
-        return super().tick_values(0.0, 0.0)
+        # A subset of the locations, as matplotlib slices them.
+        ticks = super().tick_values(0.0, 0.0)
+        if self.locs.dtype.kind in "iu":
+            return ticks.astype(self.locs.dtype)
+        return ticks
 
 
 class NullLocator(Locator):
@@ -1335,7 +1351,9 @@ class MultipleLocator(_NativeLocator):
 def scale_range(vmin, vmax, n=1, threshold=100):
     """The power of ten near ``|vmax - vmin| / n``, and an offset (a power
     of ten) when the mean is large compared to the range."""
-    return _ticker.scale_range(vmin, vmax, n, threshold)
+    scale, offset = _ticker.scale_range(vmin, vmax, n, threshold)
+    # matplotlib's offset of a range near zero is the int 0.
+    return scale, (0 if offset == 0 else offset)
 
 
 class MaxNLocator(_NativeLocator):
@@ -1546,7 +1564,16 @@ class LogLocator(_NativeLocator):
 
     def nonsingular(self, vmin, vmax):
         # docstring inherited
-        return super().nonsingular(vmin, vmax)
+        lower, upper = super().nonsingular(vmin, vmax)
+        # The limits typed as matplotlib's computes them: its initial
+        # range as ints, decades as numpy floats, the limits kept as given.
+        if vmin > vmax:
+            vmin, vmax = vmax, vmin
+        if not np.isfinite(vmin) or not np.isfinite(vmax) or vmax <= 0:
+            return 1, 10
+        if vmin == vmax:
+            return np.float64(lower), np.float64(upper)
+        return (vmin if vmin > 0 else np.float64(lower)), vmax
 
 
 class SymmetricalLogLocator(_NativeLocator):
@@ -1601,6 +1628,16 @@ class SymmetricalLogLocator(_NativeLocator):
                 "linthresh": float(self._linthresh),
                 "subs": [float(s) for s in self._subs],
                 "numticks": int(self.numticks)}
+
+    def tick_values(self, vmin, vmax):
+        # docstring inherited
+        if vmax < vmin:
+            vmin, vmax = vmax, vmin
+        if -self._linthresh <= vmin < vmax <= self._linthresh:
+            # Only the linear range is shown: matplotlib's ticks are the
+            # limits and 0, the values as given.
+            return sorted({vmin, 0, vmax})
+        return super().tick_values(vmin, vmax)
 
 
 class AsinhLocator(_NativeLocator):
@@ -1703,9 +1740,28 @@ class LogitLocator(MaxNLocator):
         return {"kind": "logit", "minor": bool(self._minor),
                 "nbins": self._nbins}
 
+    def tick_values(self, vmin, vmax):
+        # docstring inherited
+        # dummy axis has no axes attribute
+        if hasattr(self.axis, "axes") and self.axis.axes.name == "polar":
+            raise NotImplementedError("Polar axis cannot be logit scaled yet")
+        _warn_outside_logit(vmin, vmax)
+        return super().tick_values(vmin, vmax)
+
     def nonsingular(self, vmin, vmax):
         # docstring inherited
+        _warn_outside_logit(vmin, vmax)
         return super().nonsingular(vmin, vmax)
+
+
+def _warn_outside_logit(vmin, vmax):
+    """matplotlib's warning of `LogitLocator.nonsingular` for finite limits
+    holding no value between 0 and 1."""
+    vmin, vmax = min(vmin, vmax), max(vmin, vmax)
+    if np.isfinite(vmin) and np.isfinite(vmax) and (vmax <= 0 or vmin >= 1):
+        _api.warn_external(
+            "Data has no values between 0 and 1, and therefore cannot be "
+            "logit-scaled.")
 
 
 class AutoLocator(MaxNLocator):

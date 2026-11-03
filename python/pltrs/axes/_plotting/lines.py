@@ -309,6 +309,8 @@ class LinesMixin:
         (ymin, ymax), = self._process_unit_info([("y", [ymin, ymax])], kwargs)
         native = _axes.axspan(self._native, "h", (ymin, ymax), (xmin, xmax))
         patch = wrap(self, native, Rectangle)
+        # Made without a colour, its face is :rc:`patch.facecolor`.
+        _values.remember(patch, "facecolor", None)
         _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()
@@ -327,6 +329,8 @@ class LinesMixin:
         (xmin, xmax), = self._process_unit_info([("x", [xmin, xmax])], kwargs)
         native = _axes.axspan(self._native, "v", (xmin, xmax), (ymin, ymax))
         patch = wrap(self, native, Rectangle)
+        # Made without a colour, its face is :rc:`patch.facecolor`.
+        _values.remember(patch, "facecolor", None)
         _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         _share_span_steps()

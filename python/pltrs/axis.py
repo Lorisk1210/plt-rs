@@ -43,9 +43,13 @@ def _typed_locs(locator, locs, minor):
     """The tick locations *locs* pltrs (Rust) computed with *locator*, as
     matplotlib's locator gives them: a `.FixedLocator` placing all its
     locations gives its array (the minor ones on major ticks left out, in
-    its dtype), a categorical one the list of the category numbers."""
+    its dtype), a categorical one the list of the category numbers, a
+    radial one of a full circle the list of its ticks."""
     from . import ticker as mticker
     from .category import StrCategoryLocator
+    from .projections.polar import RadialLocator
+    if isinstance(locator, RadialLocator) and locator._keeps_off_origin():
+        return list(np.asarray(locs))
     if isinstance(locator, StrCategoryLocator) and not minor:
         values = list(locator._units.values())
         return values if np.array_equal(np.asarray(values, float), locs) else locs
@@ -174,6 +178,19 @@ def _value_map(transform):
         mapped = np.ma.asarray(transform.transform(np.array([x], dtype=float)), dtype=float)
         return float(np.ma.filled(mapped, np.nan).reshape(-1)[0])
     return map_value
+
+
+def _interval_method(kind):
+    """
+    Name the decorated interval method as matplotlib's
+    ``_make_getset_interval`` names the *kind* (``'getter'`` or
+    ``'setter'``) it makes, which Python's errors for a wrong call give
+    (``... setter() missing 1 required positional argument: 'vmax'``).
+    """
+    def name(method):
+        method.__qualname__ = f"_make_getset_interval.<locals>.{kind}"
+        return method
+    return name
 
 
 class Ticker:
@@ -392,6 +409,21 @@ class Axis(Artist):
     def isDefault_minfmt(self):
         return self._default(True, "formatter")
 
+    @property
+    def isDefault_label(self):
+        """Whether the label text was never set, so that the unit
+        converter's label replaces it."""
+        return _axis.is_default_label(*self._args())
+
+    @property
+    def label_position(self):
+        """The side the label is on (see `get_label_position`)."""
+        return self.get_label_position()
+
+    @label_position.setter
+    def label_position(self, position):
+        self.set_label_position(position)
+
     def get_major_locator(self):
         """Get the locator of the major ticker."""
         return self.major.locator
@@ -534,6 +566,7 @@ class Axis(Artist):
             return self._drawn_info
         return _axis.axis_info(*self._args())
 
+    @_interval_method("getter")
     def get_view_interval(self):
         """Return the ``(min, max)`` view limits of this axis."""
         fields = self._drawn_fields()
@@ -541,6 +574,7 @@ class Axis(Artist):
             return np.array(fields[0])
         return np.array(_axis.get_view_interval(*self._args()))
 
+    @_interval_method("setter")
     def set_view_interval(self, vmin, vmax, ignore=False):
         """
         Set the axis view limits.  This method is for internal use; Matplotlib
@@ -557,6 +591,7 @@ class Axis(Artist):
         _axis.set_view_interval(*self._args(), float(vmin), float(vmax),
                                 bool(ignore))
 
+    @_interval_method("getter")
     def get_data_interval(self):
         """Return the ``(min, max)`` data limits of this axis."""
         fields = self._drawn_fields()
@@ -564,6 +599,7 @@ class Axis(Artist):
             return np.array(fields[1])
         return np.array(_axis.get_data_interval(*self._args()))
 
+    @_interval_method("setter")
     def set_data_interval(self, vmin, vmax, ignore=False):
         """
         Set the axis data limits.  This method is for internal use.
@@ -1367,6 +1403,8 @@ class Axis(Artist):
             Merged into fontdict.
         """
         text = self.label
+        # The label counts as set (`isDefault_label`), even to its text.
+        _axis.set_label_text(*self._args(), '' if label is None else str(label))
         text.set_text(label)
         if fontdict is not None:
             text.update(fontdict)
@@ -1740,6 +1778,9 @@ class XAxis(Axis):
     __name__ = 'xaxis'
     axis_name = 'x'  #: Read-only name identifying the axis.
     _tick_class = XTick
+    #: matplotlib's record of the offset text's side, which its draws no
+    #: longer read (the side of the ticks places the text).
+    offset_text_position = 'bottom'
 
     def set_label_position(self, position):
         """
@@ -1788,6 +1829,9 @@ class YAxis(Axis):
     __name__ = 'yaxis'
     axis_name = 'y'  #: Read-only name identifying the axis.
     _tick_class = YTick
+    #: matplotlib's record of the offset text's side, which its draws no
+    #: longer read (`set_offset_position` places the text).
+    offset_text_position = 'left'
 
     def set_label_position(self, position):
         """

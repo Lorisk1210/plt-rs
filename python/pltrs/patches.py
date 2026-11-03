@@ -791,6 +791,12 @@ class StepPatch(PathPatch):
         # The native step patch holds its path: no `PathPatch.__init__`.
         Patch.__init__(self, **kwargs)
 
+    @property
+    def orientation(self):
+        """The direction of the steps: 'vertical' or 'horizontal'."""
+        return ('horizontal' if _patches.step_patch_horizontal(self._native)
+                else 'vertical')
+
     def get_data(self):
         """Get `.StepPatch` values, edges and baseline as namedtuple."""
         from collections import namedtuple
@@ -843,9 +849,16 @@ class Polygon(Patch):
             np.asarray(xy, dtype=float).reshape(-1, 2), bool(closed))
         super().__init__(**kwargs)
 
+    def _outline(self):
+        """The vertices and the closedness of the polygon."""
+        return _patches.polygon(self._native)
+
+    def _set_outline(self, xy, closed):
+        _patches.set_polygon(self._native, xy, closed)
+
     def get_closed(self):
         """Return whether the polygon is closed."""
-        return _patches.polygon(self._native)[1]
+        return self._outline()[1]
 
     def set_closed(self, closed):
         """
@@ -858,7 +871,8 @@ class Polygon(Patch):
         """
         if self.get_closed() == bool(closed):
             return
-        _patches.set_polygon(self._native, self.get_xy(), bool(closed))
+        self._set_outline(self.get_xy(), bool(closed))
+        self.stale = True
 
     def get_xy(self):
         """
@@ -869,7 +883,7 @@ class Polygon(Patch):
         (N, 2) array
             The coordinates of the vertices.
         """
-        return _patches.polygon(self._native)[0]
+        return self._outline()[0]
 
     def set_xy(self, xy):
         """
@@ -882,7 +896,8 @@ class Polygon(Patch):
         """
         xy = np.asarray(xy)
         _, _ = xy.shape  # (N, 2): matplotlib unpacks it, failing otherwise.
-        _patches.set_polygon(self._native, xy.astype(float), self.get_closed())
+        self._set_outline(xy.astype(float), self.get_closed())
+        self.stale = True
 
     xy = property(get_xy, set_xy,
                   doc='The vertices of the path as a (N, 2) array.')
@@ -1082,12 +1097,11 @@ class FancyArrow(Polygon):
         """The vertices of the arrow's polygon."""
         return _patches.fancy_arrow_verts(self._native)
 
-    def get_xy(self):
-        """The vertices of the arrow's polygon, closed (`.Polygon.get_xy`)."""
-        return self.get_path().vertices
+    def _outline(self):
+        return _patches.fancy_arrow_outline(self._native)
 
-    xy = property(get_xy, Polygon.set_xy,
-                  doc='The vertices of the path as a (N, 2) array.')
+    def _set_outline(self, xy, closed):
+        _patches.set_fancy_arrow_outline(self._native, xy, closed)
 
     def set_data(self, *, x=None, y=None, dx=None, dy=None, width=None,
                  head_width=None, head_length=None):
@@ -1119,14 +1133,6 @@ class FancyArrow(Polygon):
             self._native, tuple(map(given, (x, y, dx, dy))),
             tuple(map(given, (width, head_width, head_length))))
         self.stale = True
-
-    def get_xy(self):
-        """Return the vertices of the arrow."""
-        return self.get_path().vertices
-
-    def get_closed(self):
-        """An arrow is closed."""
-        return True
 
 
 class CirclePolygon(RegularPolygon):
@@ -1783,6 +1789,24 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
             return f"{type(self).__name__}(({x1:g}, {y1:g})->({x2:g}, {y2:g}))"
         return f"{type(self).__name__}({Path(*path)})"
 
+    def _shrink(index, name):
+        """The property *name*: how far the arrow is shrunk at its start
+        (*index* 0) or end, in points, as the program gave it."""
+        def get(self):
+            return _values.given(self, name, _patches.get_shrink(self._native)[index])
+
+        def set(self, points):
+            _patches.set_shrink(self._native, *((float(points), None) if index == 0
+                                                else (None, float(points))))
+            _values.remember(self, name, points)
+            self.stale = True
+        side = "start" if index == 0 else "end"
+        return property(get, set, doc=f"How far the arrow's {side} is shrunk, in points.")
+
+    shrinkA = _shrink(0, "shrinkA")
+    shrinkB = _shrink(1, "shrinkB")
+    del _shrink
+
     def __init__(self, posA=None, posB=None, *,
                  path=None, arrowstyle="simple", connectionstyle="arc3",
                  patchA=None, patchB=None, shrinkA=2, shrinkB=2,
@@ -1824,6 +1848,8 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         super().__init__(**kwargs)
+        _values.remember(self, "shrinkA", shrinkA)
+        _values.remember(self, "shrinkB", shrinkB)
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
@@ -1952,8 +1978,12 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
 
     def get_path(self):
         """Return the path of the arrow in the data coordinates."""
-        path = Path(*_patches.display_path(self._native))
-        return self.get_transform().inverted().transform_path(path)
+        # The arrow of an annotation is drawn by the annotation, which
+        # places it (`._annotation_arrow`).
+        arrays = _mirrors.ask(self, "display_path")
+        if arrays is _mirrors.OWN:
+            arrays = _patches.display_path(self._native)
+        return self.get_transform().inverted().transform_path(Path(*arrays))
 
     def _add_to_axes(self, axes, kind, autolim=True):
         added = super()._add_to_axes(axes, kind, autolim)
@@ -2059,6 +2089,9 @@ class ConnectionPatch(FancyArrowPatch):
         kwargs.setdefault("joinstyle", JoinStyle.round)
         kwargs.setdefault("capstyle", CapStyle.round)
         Patch.__init__(self, clip_on=clip_on, **kwargs)
+        _values.remember(self, "shrinkA", shrinkA)
+        _values.remember(self, "shrinkB", shrinkB)
+        self._keep_mutation(mutation_scale, mutation_aspect)
         self.patchA = patchA
         self.patchB = patchB
         self._link_patches()
@@ -2144,6 +2177,8 @@ class Shadow(Patch):
         # The patch's transform, as matplotlib's ``update_from`` copies it.
         if patch.is_transform_set():
             self._given_transform = Artist.get_transform(patch)
+        # Just below the patch, as matplotlib's numpy float.
+        _values.remember(self, "zorder", np.nextafter(patch.get_zorder(), -np.inf))
         self._internal_update(kwargs)
 
     def get_path(self):

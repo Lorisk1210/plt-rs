@@ -14,8 +14,9 @@ use super::axis_artists::{AxisGroup, TickGroups, TickPart, tick_group_name};
 use super::axis_layout::{AxisPainter, PlacedText, TickLabel};
 use super::tick_set::Tick;
 use super::ticks::{GridStyle, TickDirection, TickStyle};
-use crate::artist::{ArtistBase, ArtistId, DrawContext, rc_sketch};
+use crate::artist::{AggFilter, ArtistBase, ArtistId, DrawContext, rc_sketch};
 use crate::colors::{Color, ColorError};
+use crate::lines::{inverse_dashes, line_vertices};
 use crate::markers::{FillStyle, MarkerStyle, MarkerSymbol, marker_sketch};
 use crate::patheffects::with_path_effects;
 use crate::polar;
@@ -41,7 +42,7 @@ impl AxisPainter<'_> {
     fn draw_contents(&self, ctx: &mut DrawContext<'_>, rc: &RcParams) {
         let ticks = match &self.axis.ticks {
             Ok(ticks) => ticks,
-            Err(message) => return ctx.report(self.axes_id, message),
+            Err(err) => return ctx.report_kind(self.axes_id, err.draw_kind(), err),
         };
         let texts = self.texts(*ctx.layout(), rc);
         for problem in &texts.problems {
@@ -168,9 +169,16 @@ impl AxisPainter<'_> {
         groups: TickGroups<'_>,
     ) {
         if style.grid_on {
-            let drawn = groups.part(ctx, TickPart::Gridline, |ctx| {
-                with_path_effects(ctx, &style.grid.path_effects, |ctx| {
-                    self.draw_gridline(ctx, loc, &style.grid, rc);
+            let line = &style.grid.line;
+            // As matplotlib's `Line2D.draw` under `allow_rasterization`:
+            // rasterized and filtered as the gridline says, in its group.
+            let drawn = ctx.draw_artist(line.rasterized, |ctx| {
+                with_agg_filter(ctx, line.agg_filter.as_ref(), |ctx| {
+                    groups.part_or(ctx, TickPart::Gridline, line.gid.as_deref(), |ctx| {
+                        with_path_effects(ctx, &style.grid.path_effects, |ctx| {
+                            self.draw_gridline(ctx, loc, &style.grid, rc);
+                        })
+                    })
                 })
             });
             if let Err(err) = drawn {
@@ -183,11 +191,15 @@ impl AxisPainter<'_> {
                 (style.ticks.first, false, mark1),
                 (style.ticks.second, true, mark2),
             ] {
-                if on {
-                    groups.part(ctx, TickPart::mark(second), |ctx| {
-                        self.draw_tick_mark(ctx, loc, second, mark, style);
-                    });
-                }
+                // A mark is a line of its own, which ends the rasterizing
+                // a rasterized gridline started.
+                ctx.draw_artist(false, |ctx| {
+                    if on {
+                        groups.part(ctx, TickPart::mark(second), |ctx| {
+                            self.draw_tick_mark(ctx, loc, second, mark, style);
+                        });
+                    }
+                });
             }
         });
         if let Err(err) = drawn {
@@ -209,16 +221,33 @@ impl AxisPainter<'_> {
             Ok(gc) => gc,
             Err(err) => return ctx.report(self.axes_id, err),
         };
-        // matplotlib clips gridlines to the axes patch: a rectangle, which
-        // Artist.set_clip_path turns into a clip box, or the outline of a
-        // geographic map.
-        gc.clip_rect = ctx.layout().clip_extent(self.axes_id);
-        gc.clip_path = ctx.layout().clip_outline(self.axes_id);
-        let line = Path::polyline(vec![self.tick_point(loc, 0.0), self.tick_point(loc, 1.0)]);
-        let (path, affine) = resolved.split_path(&line);
-        if grid.linestyle.is_visible() {
-            ctx.renderer().draw_path(&gc, &path, &affine, None);
+        if grid.line.clip_on {
+            // matplotlib clips gridlines to the axes patch: a rectangle,
+            // which Artist.set_clip_path turns into a clip box, or the
+            // outline of a geographic map.
+            gc.clip_rect = ctx.layout().clip_extent(self.axes_id);
+            gc.clip_path = ctx.layout().clip_outline(self.axes_id);
         }
+        let (start, end) = (self.tick_point(loc, 0.0), self.tick_point(loc, 1.0));
+        let points = line_vertices(&[start.x, end.x], &[start.y, end.y], grid.line.drawstyle)
+            .expect("the two ends of a gridline make a line of any draw style");
+        let line = Path::polyline(points);
+        let (path, affine) = resolved.split_path(&line);
+        if !grid.linestyle.is_visible() {
+            return;
+        }
+        let gapcolor = grid.line.gapcolor.as_ref();
+        if let Some(gapcolor) = gapcolor.filter(|_| grid.linestyle.is_dashed()) {
+            // The gaps first, in their colour (matplotlib's `Line2D.draw`).
+            let mut gaps = gc.clone();
+            gaps.foreground = match gapcolor.resolve_alpha(Some(grid.alpha)) {
+                Ok(color) => color,
+                Err(err) => return ctx.report(self.axes_id, err),
+            };
+            gaps.dashes = inverse_dashes(&gc.dashes);
+            ctx.renderer().draw_path(&gaps, &path, &affine, None);
+        }
+        ctx.renderer().draw_path(&gc, &path, &affine, None);
     }
 
     fn draw_tick_mark(
@@ -344,18 +373,35 @@ pub(crate) fn grid_gc(
         foreground: grid.color.resolve_alpha(Some(grid.alpha))?,
         linewidth: grid.linewidth,
         antialiased: grid.stroke.antialiased,
-        sketch: rc_sketch(rc),
-        // Gridlines are lines without a snap setting of their own.
-        snap: if rc.path_snap {
-            SnapMode::Auto
-        } else {
-            SnapMode::Never
+        sketch: grid.line.sketch.unwrap_or_else(|| rc_sketch(rc)),
+        // As a line's: never snapped when `path.snap` is off.
+        snap: match (rc.path_snap, grid.line.snap) {
+            (false, _) | (true, Some(false)) => SnapMode::Never,
+            (true, None) => SnapMode::Auto,
+            (true, Some(true)) => SnapMode::Always,
         },
+        url: grid.line.url.clone(),
         ..GraphicsContext::default()
     };
     (gc.cap, gc.join) = grid.stroke.cap_join(grid.linestyle.is_dashed());
     gc.dashes = grid.linestyle.scaled_dashes(grid.linewidth, rc);
     Ok(gc)
+}
+
+/// Runs `draw` through the image filter `filter`, if there is one (the
+/// `agg_filter` of matplotlib's `allow_rasterization`).
+fn with_agg_filter<R>(
+    ctx: &mut DrawContext<'_>,
+    filter: Option<&AggFilter>,
+    draw: impl FnOnce(&mut DrawContext<'_>) -> R,
+) -> R {
+    let Some(filter) = filter else {
+        return draw(ctx);
+    };
+    ctx.renderer().start_filter();
+    let drawn = draw(ctx);
+    ctx.renderer().stop_shared_filter(filter.shared());
+    drawn
 }
 
 /// Draws an axis text as matplotlib's `Text.draw` draws it (see

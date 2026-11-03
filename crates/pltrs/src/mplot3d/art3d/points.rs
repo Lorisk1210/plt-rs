@@ -5,7 +5,7 @@
 use pltrs_core::{Point, Rgba};
 
 use crate::artist::Artist;
-use crate::collections::{CollectionArtist, DepthSorted};
+use crate::collections::{CollectionArtist, DepthSortError, DepthSorted};
 use crate::mplot3d::camera::Projection;
 use crate::mplot3d::math::Vec3;
 use crate::mplot3d::shade::depth_alphas;
@@ -83,7 +83,10 @@ impl Points3D {
 
     /// Sorts the sizes, widths and colours (faded with depth) of the
     /// markers of `collection` from the deepest to the nearest, worked out
-    /// afresh so that later changes show, and returns that order.
+    /// afresh so that later changes show, and returns that order. Styles
+    /// that cannot be sorted are left to be reported when it is drawn,
+    /// matplotlib failing then (sizes and widths first, as it sorts them
+    /// projecting).
     fn sort_styles(
         &self,
         collection: &mut CollectionArtist,
@@ -91,49 +94,56 @@ impl Points3D {
         depths: &[f64],
     ) -> Vec<usize> {
         let order = deepest_first(depths);
-        let reorder = |values: &[f64]| -> Vec<f64> {
-            if values.len() > 1 {
-                order.iter().map(|&i| values[i]).collect()
-            } else {
-                values.to_vec()
-            }
-        };
         let data_scale = data_scale(projected);
         let alpha = collection.base().alpha;
-        let shade = |colors: &[Rgba]| -> Vec<Rgba> {
-            let shaded = self.shaded(colors, depths, data_scale, alpha);
-            if shaded.len() > 1 {
-                order.iter().map(|&i| shaded[i]).collect()
-            } else {
-                shaded
-            }
+        let shade = |colors: &[Rgba]| {
+            DepthSortError::reorder(&self.shaded(colors, depths, data_scale, alpha)?, &order)
         };
+        let sizes = (collection.sizes.as_deref())
+            .map(|sizes| DepthSortError::reorder(sizes, &order).map_err(|_| DepthSortError::Sizes))
+            .transpose();
+        let linewidths = (collection.linewidths.as_deref())
+            .map(|widths| DepthSortError::reorder(widths, &order))
+            .transpose();
+        let colors = (collection.base_colors().ok())
+            .map(|(faces, edges)| Ok((shade(&faces)?, shade(&edges)?)))
+            .transpose();
+        let problem = [sizes.as_ref(), linewidths.as_ref()]
+            .into_iter()
+            .find_map(Result::err)
+            .or(colors.as_ref().err())
+            .copied();
         collection.depth_sorted = Some(DepthSorted {
-            colors: collection
-                .base_colors()
-                .ok()
-                .map(|(faces, edges)| (shade(&faces), shade(&edges))),
-            sizes: collection.sizes.as_deref().map(reorder),
-            linewidths: collection.linewidths.as_deref().map(reorder),
+            colors: colors.ok().flatten(),
+            sizes: sizes.ok().flatten(),
+            linewidths: linewidths.ok().flatten(),
             offsets: None,
+            problem,
         });
         order
     }
 
     /// `colors` faded with depth (one colour per marker then) when depth
     /// shading is on, with the collection's `alpha` applied once more on
-    /// top, as matplotlib does (`_maybe_depth_shade_and_sort_colors`).
+    /// top, as matplotlib does (`_maybe_depth_shade_and_sort_colors`):
+    /// there must be one colour, or one per marker.
     fn shaded(
         &self,
         colors: &[Rgba],
         depths: &[f64],
         data_scale: f64,
         alpha: Option<f64>,
-    ) -> Vec<Rgba> {
+    ) -> Result<Vec<Rgba>, DepthSortError> {
         if !self.depthshade || colors.is_empty() || depths.is_empty() {
-            return colors.to_vec();
+            return Ok(colors.to_vec());
         }
-        depth_alphas(depths, self.min_alpha, data_scale)
+        if colors.len() != 1 && colors.len() != depths.len() {
+            return Err(DepthSortError::Colors {
+                given: colors.len(),
+                markers: depths.len(),
+            });
+        }
+        Ok(depth_alphas(depths, self.min_alpha, data_scale)
             .into_iter()
             .enumerate()
             .map(|(i, factor)| {
@@ -141,7 +151,7 @@ impl Points3D {
                 let faded = color.a * factor;
                 color.with_alpha(alpha.map_or(faded, |a| a * faded))
             })
-            .collect()
+            .collect())
     }
 }
 
@@ -206,7 +216,38 @@ mod tests {
         };
         let red = Rgba::new(1.0, 0.0, 0.0, 0.5);
         let shaded = points.shaded(&[red], &[0.0, 1.0], 2.0, Some(0.5));
+        let shaded = shaded.expect("one colour shades every marker");
         assert_eq!(shaded[0].a, 0.25);
         assert_eq!(shaded[1].a, 0.125);
+    }
+
+    #[test]
+    fn shading_needs_one_colour_or_one_per_marker() {
+        let points = Points3D {
+            positions: Vec::new(),
+            depthshade: true,
+            min_alpha: 0.3,
+            depth_sorted: true,
+            sort_zpos: None,
+        };
+        let red = Rgba::new(1.0, 0.0, 0.0, 1.0);
+        let shaded = points.shaded(&[red, red], &[0.0, 1.0, 2.0], 2.0, None);
+        assert_eq!(
+            shaded,
+            Err(DepthSortError::Colors {
+                given: 2,
+                markers: 3
+            })
+        );
+        let unshaded = Points3D {
+            depthshade: false,
+            ..points
+        };
+        assert_eq!(
+            unshaded
+                .shaded(&[red, red], &[0.0, 1.0, 2.0], 2.0, None)
+                .map(|c| c.len()),
+            Ok(2)
+        );
     }
 }

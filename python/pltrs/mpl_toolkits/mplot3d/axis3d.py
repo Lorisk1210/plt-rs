@@ -61,6 +61,15 @@ class Axis(maxis.XAxis):
     # pltrs (Rust) converts the values in units of 3-D axes.
     _native_units = True
 
+    #: What `.XAxis` records of its label's side, which a 3-D axis does
+    #: not read: its label goes where `get_label_position` says.
+    label_position = 'bottom'
+
+    pane = property(lambda self: self._pane_artist(),
+                    doc="The polygon the pane of the axis is drawn as.")
+    gridlines = property(lambda self: self._gridline_artist(),
+                         doc="The collection the gridlines are drawn as.")
+
     def __init__(self, axes, *, rotate_label=None):
         super().__init__(axes)
         self.line = _AxisLine(self)
@@ -79,6 +88,7 @@ class Axis(maxis.XAxis):
         """The native 3-D axes and the axis name."""
         return self.axes._native, self.axis_name
 
+    @maxis._interval_method("getter")
     def get_data_interval(self):
         """Return the ``(min, max)`` data limits of this axis."""
         return np.array(_mplot3d.get_data_interval(*self._native_args()))
@@ -96,6 +106,7 @@ class Axis(maxis.XAxis):
         assign(float(vmin), float(vmax))
         self.stale = True
 
+    @maxis._interval_method("setter")
     def set_data_interval(self, vmin, vmax, ignore=False):
         """
         Set the axis data limits.  This method is for internal use.
@@ -114,6 +125,7 @@ class Axis(maxis.XAxis):
                 *self._native_args(), (lo, hi)),
             vmin, vmax, ignore)
 
+    @maxis._interval_method("setter")
     def set_view_interval(self, vmin, vmax, ignore=False):
         """
         Set the axis view limits.  This method is for internal use; Matplotlib

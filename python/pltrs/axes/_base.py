@@ -17,6 +17,7 @@ from ._aspect import AspectMixin
 from ._blitting import BlittingMixin
 from ._construction import ConstructionMixin
 from ._decorations import DecorationsMixin
+from ._insets import _TransformedBoundsLocator  # noqa: F401  (matplotlib defines it here)
 from ._layout import LayoutMixin
 from ._limits import LimitsMixin
 from ._navigation import NavigationMixin
@@ -146,22 +147,39 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         programmed = self.__dict__.get("_program_projection")
         if programmed is not None:
             # The spines a program's projection class made.
-            return Spines(**programmed.named_spines)
-        spines = {name: _handles.wrap(native, Spine, self.figure)
-                  for name, native in _spines.axes_spines(self._native)}
+            spines = dict(programmed.named_spines)
+        else:
+            spines = {name: _handles.wrap(native, Spine, self.figure)
+                      for name, native in _spines.axes_spines(self._native)}
         colorbar = self.__dict__.get("_colorbar")
         if colorbar is not None:
             # A colorbar's outline is a spine of its Axes, as matplotlib's
             # Colorbar makes it (``_ColorbarSpine``).
             spines["outline"] = colorbar.outline
-        return Spines(**spines)
+        # One container, as matplotlib's: what the program adds or deletes
+        # stays, and the spines made since join it.
+        kept = self.__dict__.get("_spines_kept")
+        if kept is None:
+            kept = self._spines_kept = Spines(**spines)
+            self._spines_seen = set(spines)
+        for name in spines.keys() - self._spines_seen:
+            kept[name] = spines[name]
+        self._spines_seen |= spines.keys()
+        return kept
 
     def get_subplotspec(self):
         """Return the `.SubplotSpec` associated with the subplot, or None."""
         from ..gridspec import SubplotSpec
         native = _gridspec.axes_spec(self._native)
-        return None if native is None else SubplotSpec._from_native(
-            native, self.get_figure(root=False))
+        if native is None:
+            return None
+        spec = SubplotSpec._from_native(native, self.get_figure(root=False))
+        # The same object while the Axes stays in that block, as matplotlib
+        # keeps its ``_subplotspec``.
+        kept = self.__dict__.get("_subplotspec_kept")
+        if kept != spec:
+            kept = self._subplotspec_kept = spec
+        return kept
 
     def set_subplotspec(self, subplotspec):
         """Set the `.SubplotSpec`. associated with the subplot."""
@@ -558,3 +576,6 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
 _AxesBase.ArtistList = ArtistList
 ArtistList.__qualname__ = "_AxesBase.ArtistList"
 cbook._set_module(__name__, ArtistList)
+
+# matplotlib defines the methods of the mixins on _AxesBase itself.
+cbook._own_mixin_methods(_AxesBase, Artist)

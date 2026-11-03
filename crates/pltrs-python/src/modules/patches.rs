@@ -506,6 +506,12 @@ fn step_patch(patch: Patch<StepPatch>) -> PyResult<(NdArray, NdArray, Owned)> {
     ))
 }
 
+/// Whether the steps of a step patch run along y (`'horizontal'`) rather
+/// than x (matplotlib's `StepPatch.orientation`).
+fn step_patch_horizontal(patch: Patch<StepPatch>) -> PyResult<bool> {
+    Ok(patch.shape().orientation() == pltrs::orientation::Orientation::Horizontal)
+}
+
 /// Replaces the values, edges and baseline of a step patch; `None`
 /// keeps a part, and `keep_baseline` keeps the baseline.
 fn set_step_patch(
@@ -588,6 +594,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("arc", arc)?;
     module.add("step_patch", step_patch)?;
     module.add("set_step_patch", set_step_patch)?;
+    module.add("step_patch_horizontal", step_patch_horizontal)?;
     module.add("fancy_bbox", fancy_bbox)?;
     module.add("set_fancy_bbox", set_fancy_bbox)?;
     arrow_route::register(module)?;

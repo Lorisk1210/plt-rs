@@ -1,6 +1,6 @@
 """
-pyplot's layout functions, which ``pyplot`` exports: ``plt.tight_layout``,
-``plt.supxlabel`` and ``plt.supylabel``, on the current Figure.
+pyplot's layout function, which ``pyplot`` exports: ``plt.tight_layout``,
+on the current Figure.
 """
 
 
@@ -19,19 +19,6 @@ def tight_layout(*, pad=1.08, h_pad=None, w_pad=None, rect=None):
                                    rect=rect)
 
 
-def supxlabel(t, **kwargs):
-    """Add a centered super xlabel to the current figure
-    (`.Figure.supxlabel`)."""
-    return _current_figure().supxlabel(t, **kwargs)
+tight_layout.__module__ = __name__.rpartition(".")[0] + ".pyplot"
 
-
-def supylabel(t, **kwargs):
-    """Add a centered super ylabel to the current figure
-    (`.Figure.supylabel`)."""
-    return _current_figure().supylabel(t, **kwargs)
-
-
-for _function in (tight_layout, supxlabel, supylabel):
-    _function.__module__ = __name__.rpartition(".")[0] + ".pyplot"
-
-__all__ = ["supxlabel", "supylabel", "tight_layout"]
+__all__ = ["tight_layout"]

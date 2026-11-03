@@ -81,6 +81,10 @@ class _GroupedBarReturn:
         [b.remove() for b in self.bar_containers]
 
 
+# matplotlib defines the class in ``axes._axes``, which imports it from here.
+_GroupedBarReturn.__module__ = __name__.rpartition("._plotting")[0] + "._axes"
+
+
 def _dataset_styles(kwargs):
     """
     The per-dataset styles of `~.Axes.grouped_bar` popped from *kwargs*

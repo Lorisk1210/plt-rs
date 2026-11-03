@@ -155,7 +155,21 @@ impl AxisGids {
         group: AxisGroup,
         draw: impl FnOnce(&mut DrawContext<'_>) -> R,
     ) -> R {
-        ctx.renderer().open_part_group(name, self.get(group));
+        self.part_grouped_or(ctx, name, group, None, draw)
+    }
+
+    /// [`AxisGids::part_grouped`], the group taking the gid `fallback`
+    /// when `group` has none of its own.
+    fn part_grouped_or<R>(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        name: &str,
+        group: AxisGroup,
+        fallback: Option<&str>,
+        draw: impl FnOnce(&mut DrawContext<'_>) -> R,
+    ) -> R {
+        ctx.renderer()
+            .open_part_group(name, self.get(group).or(fallback));
         let drawn = draw(ctx);
         ctx.renderer().close_part_group(name);
         drawn
@@ -196,9 +210,22 @@ impl TickGroups<'_> {
         part: TickPart,
         draw: impl FnOnce(&mut DrawContext<'_>) -> R,
     ) -> R {
+        self.part_or(ctx, part, None, draw)
+    }
+
+    /// [`TickGroups::part`], the group taking the gid `fallback` (that of
+    /// the part's tick level) when the part has none of its own.
+    pub(crate) fn part_or<R>(
+        &self,
+        ctx: &mut DrawContext<'_>,
+        part: TickPart,
+        fallback: Option<&str>,
+        draw: impl FnOnce(&mut DrawContext<'_>) -> R,
+    ) -> R {
         let (minor, index) = self.key;
         let group = AxisGroup::TickPart { minor, index, part };
-        self.gids.part_grouped(ctx, part.group_name(), group, draw)
+        self.gids
+            .part_grouped_or(ctx, part.group_name(), group, fallback, draw)
     }
 }
 

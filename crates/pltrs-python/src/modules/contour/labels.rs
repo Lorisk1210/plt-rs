@@ -226,6 +226,11 @@ fn label_levels(set: ContourSet) -> PyResult<Vec<f64>> {
     Ok(set.labelled_levels())
 }
 
+/// The level of each of the set's labels, in order.
+fn label_text_levels(set: ContourSet) -> PyResult<Vec<f64>> {
+    Ok(set.labels().iter().map(|label| label.level).collect())
+}
+
 /// The texts of the set's labels.
 fn label_texts(set: ContourSet) -> PyResult<Vec<Text>> {
     Ok(set.labels().into_iter().map(|label| label.artist).collect())
@@ -245,6 +250,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("label_texts", label_texts)?;
     module.add("place_labels", place_labels)?;
     module.add("label_levels", label_levels)?;
+    module.add("label_text_levels", label_text_levels)?;
     module.add("add_label", add_label)?;
     module.add("label_positions", get_label_positions)?;
     module.add("print_label", label_fits)?;

@@ -228,6 +228,14 @@ class ContourLabeler:
         return _contour.label_positions(self._contour)
 
     @property
+    def labelCValues(self):
+        """The colour values (`cvalues`) of the levels of the labels."""
+        index = {level: i for i, level in enumerate(self.levels)}
+        cvalues = self.cvalues
+        return [cvalues[index[level]]
+                for level in _contour.label_text_levels(self._contour)]
+
+    @property
     def labelLevelList(self):
         """The levels the last `clabel` labelled."""
         return _contour.label_levels(self._contour)
@@ -453,8 +461,17 @@ class ContourSet(ContourLabeler, mcoll.Collection):
 
     def get_paths(self):
         """Return the paths: one compound path per level or band."""
-        return [Path(vertices, codes)
-                for vertices, codes in _contour.get_paths(self._contour)]
+        native = _contour.get_paths(self._contour)
+        # The same list while the paths stay, as matplotlib keeps its
+        # ``_paths``.
+        kept = self.__dict__.get("_paths_kept")
+        if kept is None or len(kept) != len(native) or not all(
+                np.array_equal(path.vertices, vertices)
+                and np.array_equal(path.codes, codes)
+                for path, (vertices, codes) in zip(kept, native)):
+            kept = self._paths_kept = [Path(vertices, codes)
+                                       for vertices, codes in native]
+        return kept
 
     allsegs = property(lambda self: [
         [subp.vertices for subp in p._iter_connected_components()]
@@ -492,6 +509,17 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         _values.remember(self, "linewidth", lw)
 
     set_linewidths = set_linewidth
+
+    def get_hatch(self):
+        """Return the hatching pattern of the set as a collection: none
+        until one is set (the bands' are `hatches`)."""
+        return self.__dict__.get("_collection_hatch")
+
+    def set_hatch(self, hatch):
+        """Set the hatching pattern of the set as a collection (see
+        `.hatch`)."""
+        super().set_hatch(hatch)
+        self._collection_hatch = hatch
 
     def get_edgecolor(self):
         """Return the edge colors: those of the levels for line contours
@@ -583,10 +611,14 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def changed(self):
         """Call this whenever the mappable is changed to notify listeners."""
         if hasattr(self, "_contour"):
+            # matplotlib's ``changed`` scales the norm to the levels and
+            # maps the contour values again, which fails for limits the
+            # norm cannot take.
+            self.norm.autoscale_None(self.levels)
             _contour.set_mapping(self._contour, self.cmap, self.norm,
                                  self._norm_replaced())
-            # matplotlib's ``changed`` maps the contour values again.
             self._A = self._native_array()
+            self.to_rgba(self._A)
         super(mcoll.Collection, self).changed()
 
     alpha = property(lambda self: self.get_alpha())

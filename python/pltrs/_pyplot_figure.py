@@ -252,6 +252,7 @@ def subplot_tool(targetfig=None):
                          "an associated toolbar")
 
 
+@_api.deprecated("3.7", pending=True)
 def get_plot_commands():
     """
     Get a sorted list of all of the plotting commands.

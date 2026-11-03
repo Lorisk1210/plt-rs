@@ -15,6 +15,7 @@ use pltrs::artist::ArtistHandle;
 use pltrs::axes::{
     Axis, AxisGroup, LabelLoc, TickDirection, TickLabelProps, TickLineProps, TickPart, TickStyle,
 };
+use pltrs::colors::Color;
 use pltrs::lines::Line2D;
 use pltrs::markers::{Marker, MarkerSymbol};
 use pltrs::rc::ColorOrAuto;
@@ -157,6 +158,24 @@ fn sync_gridline(line: &Line2D, name: AxisName, loc: f64, style: &TickStyle) {
     line.set_alpha(Some(style.grid.alpha))
         .set_visible(style.grid_on)
         .set_zorder(style.grid.zorder);
+    let props = &style.grid.line;
+    line.set_drawstyle(props.drawstyle)
+        .set_gapcolor(props.gapcolor.clone().unwrap_or_else(Color::none));
+    line.set_snap(props.snap)
+        .set_clip_on(props.clip_on)
+        .set_rasterized(props.rasterized)
+        .set_animated(props.animated);
+    if let Some(sketch) = props.sketch {
+        line.set_sketch_params(sketch);
+    }
+    match &props.url {
+        Some(url) => line.set_url(url.clone()),
+        None => line.clear_url(),
+    };
+    // The gid of the level, unless the tick's gridline has one of its own.
+    if let (None, Some(gid)) = (line.raw().gid(), &props.gid) {
+        line.raw().set_gid(gid.clone());
+    }
 }
 
 /// The artists mirroring one tick: its two labels, two marks and

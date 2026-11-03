@@ -61,6 +61,11 @@ class Mirroring:
         """Whether the display point is in the part, or `OWN`."""
         return OWN
 
+    def display_path(self, artist):
+        """The ``(vertices, codes)`` of the outline of the part as drawn,
+        in display pixels, or `OWN`."""
+        return OWN
+
     def clip_spec(self, artist):
         """The native clip region of artists clipped to the part (see
         `._artist_clipping`), or `OWN`."""

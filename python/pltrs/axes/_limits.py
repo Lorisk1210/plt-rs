@@ -225,6 +225,16 @@ class LimitsMixin:
                              None if enable is None else bool(enable),
                              None if axis == 'both' else axis,
                              None if tight is None else bool(tight))
+        if tight:
+            # The margins zeroed, which matplotlib zeroes with the int 0.
+            if enable is None:
+                scalex = scaley = True
+            else:
+                scalex = axis in ('x', 'both') and self.get_autoscalex_on()
+                scaley = axis in ('y', 'both') and self.get_autoscaley_on()
+            for name, scaled in (("xmargin", scalex), ("ymargin", scaley)):
+                if scaled:
+                    _values.remember(self, name, 0)
 
     def autoscale_view(self, tight=None, scalex=True, scaley=True):
         """
@@ -395,3 +405,12 @@ class LimitsMixin:
     @use_sticky_edges.setter
     def use_sticky_edges(self, b):
         _axes_base.set_use_sticky_edges(self._native, bool(b))
+
+    @property
+    def ignore_existing_data_limits(self):
+        """
+        Whether the next data added replaces the data limits rather than
+        extending them: True once the Axes is cleared or its limits are
+        recomputed (`relim`), until data extends them.
+        """
+        return _axes_base.data_limits_empty(self._native)

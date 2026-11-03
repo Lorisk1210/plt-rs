@@ -57,8 +57,9 @@ class FillsMixin:
                 # The style the cycle gave, as the cycle spells it.
                 polygon._linestyle = polygon._get("linestyle")
             polygon._internal_update(props)
-            if label is not None:
-                polygon.set_label(label)
+            # None too, as matplotlib's ``_makefill`` gives the polygon the
+            # label of its dataset.
+            polygon.set_label(label)
             patches.append(polygon)
         return patches
 

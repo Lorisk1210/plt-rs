@@ -79,7 +79,7 @@ impl fmt::Display for DateError {
             ),
             Self::NonFinite(x) => write!(f, "cannot convert non-finite date number {x}"),
             Self::Parse { input, reason } => write!(f, "cannot parse date {input:?}: {reason}"),
-            Self::EpochAlreadySet => f.write_str("set_epoch must be called before dates are used"),
+            Self::EpochAlreadySet => f.write_str("set_epoch must be called before dates plotted."),
             Self::UnknownTimeZone(name) => write!(f, "{name} is not a valid time zone"),
             Self::InvalidTimeZoneData(why) => write!(f, "invalid time zone data: {why}"),
             Self::EmptyRule(why) => write!(f, "recurrence rule is empty: {why}"),

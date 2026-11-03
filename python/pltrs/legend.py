@@ -47,7 +47,8 @@ _register("perf_counter", lambda: time.perf_counter())
 
 #: The Python class of each kind of artist a legend can show
 #: (``_native.legend.candidates``).
-_ARTIST_CLASSES = {"Line2D": Line2D, "Collection": Collection, "Text": Text,
+_ARTIST_CLASSES = {"Line2D": Line2D, "Collection": Collection,
+                   "LineCollection": LineCollection, "Text": Text,
                    "Rectangle": Rectangle, "Artist": Artist}
 
 #: The Python class of each kind of artist a legend draws: the
@@ -239,6 +240,11 @@ class Legend(Artist):
         self._fontsize = self.prop.get_size_in_points()
         self.handlelength = _val_or_rc(handlelength, 'legend.handlelength')
         self.handleheight = _val_or_rc(handleheight, 'legend.handleheight')
+        self.labelspacing = _val_or_rc(labelspacing, 'legend.labelspacing')
+        self.handletextpad = _val_or_rc(handletextpad, 'legend.handletextpad')
+        self.borderaxespad = _val_or_rc(borderaxespad, 'legend.borderaxespad')
+        self.columnspacing = _val_or_rc(columnspacing, 'legend.columnspacing')
+        self.shadow = True if isinstance(shadow, dict) else shadow
         # What the handlers running in Python read before the legend is made.
         self._figure = None
         self._axes = parent if self.isaxes else None

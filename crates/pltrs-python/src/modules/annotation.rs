@@ -21,6 +21,7 @@ use pltrs_core::Point;
 
 use super::patch_styles::{PyArrowStyle, PyConnectionStyle};
 use super::patches::PatchKwargs;
+use super::path::{PathArrays, path_arrays};
 use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
 
@@ -312,6 +313,15 @@ fn text_extent(text: Text) -> PyResult<Option<(f64, f64, f64, f64)>> {
         .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
 }
 
+/// The outline of the arrow as drawn, in display pixels, as the arrays of
+/// a path; `None` without an arrow or while the annotation is hidden.
+fn arrow_display_path(text: Text) -> PyResult<Option<PathArrays>> {
+    annotation(&text)?
+        .arrow_display_path()
+        .map(|path| path_arrays(&path, false))
+        .transpose()
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axes_annotate", axes_annotate)?;
@@ -326,5 +336,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("arrow_patch", arrow_patch)?;
     module.add("restyle_arrow", restyle_arrow)?;
     module.add("arrow_extent", arrow_extent)?;
+    module.add("arrow_display_path", arrow_display_path)?;
     module.add("text_extent", text_extent)
 }

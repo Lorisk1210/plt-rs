@@ -794,12 +794,38 @@ class SubplotParams:
             self.wspace = wspace
         if hspace is not None:
             self.hspace = hspace
+        figure_native = _FIGURE_OF_PARAMS.get(self)
+        if figure_native is not None:
+            # The parameters of a figure, which pltrs (Rust) holds.
+            from ._native import figure as _figure
+            _figure.subplots_adjust(figure_native,
+                                    (left, bottom, right, top, wspace, hspace))
 
     def reset(self):
         """Restore the subplot positioning parameters to the default rcParams values"""
-        for key in self.to_dict():
-            setattr(self, key, rcParams[f'figure.subplot.{key}'])
+        self.update(**{key: rcParams[f'figure.subplot.{key}']
+                       for key in self.to_dict()})
 
     def to_dict(self):
         """Return a copy of the subplot parameters as a dict."""
         return self.__dict__.copy()
+
+
+#: The figure (its native handle) of each `SubplotParams` a figure gives
+#: as its `.Figure.subplotpars`.
+_FIGURE_OF_PARAMS = weakref.WeakKeyDictionary()
+
+
+def _figure_subplotpars(figure_native, params=None):
+    """
+    The `SubplotParams` of the figure *figure_native*: *params*, the
+    object the figure gave before (a new one for None), with the
+    parameters pltrs (Rust) holds for the figure now. Its `~.SubplotParams.update`
+    gives the figure its changes.
+    """
+    if params is None:
+        params = SubplotParams.__new__(SubplotParams)
+        _FIGURE_OF_PARAMS[params] = figure_native
+    for key, value in zip(_KEYS, _gridspec.figure_params(figure_native)):
+        setattr(params, key, value)
+    return params

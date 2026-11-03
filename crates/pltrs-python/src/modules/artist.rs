@@ -17,7 +17,7 @@ mod classes;
 mod clip;
 mod copy;
 mod extent;
-mod filter;
+pub(in crate::modules) mod filter;
 mod picking;
 mod stale;
 

@@ -94,6 +94,12 @@ pub struct FancyArrow {
     pub overhang: f64,
     /// Whether the head starts at the end of `delta` instead of ending there.
     pub head_starts_at_zero: bool,
+    /// Whether the outline is closed (matplotlib's `Polygon.set_closed`,
+    /// which the arrow inherits); `true` for a new arrow.
+    pub closed: bool,
+    /// The vertices drawn instead of the arrow's own (matplotlib's
+    /// `Polygon.set_xy` on the arrow), until its geometry changes.
+    pub vertices_set: Option<Vec<Point>>,
 }
 
 pltrs_core::archive_struct!(FancyArrow {
@@ -105,7 +111,9 @@ pltrs_core::archive_struct!(FancyArrow {
     head_length,
     shape,
     overhang,
-    head_starts_at_zero
+    head_starts_at_zero,
+    closed,
+    vertices_set
 });
 
 impl FancyArrow {
@@ -122,7 +130,25 @@ impl FancyArrow {
             shape: ArrowShape::Full,
             overhang: 0.0,
             head_starts_at_zero: false,
+            closed: true,
+            vertices_set: None,
         }
+    }
+
+    /// The polygon drawn: the arrow's vertices, or those set over them,
+    /// closed or not as the arrow is (matplotlib's `FancyArrow` being a
+    /// `Polygon`).
+    ///
+    /// ```
+    /// use pltrs::patches::FancyArrow;
+    /// let mut arrow = FancyArrow::new(0.0, 0.0, 1.0, 0.0);
+    /// assert_eq!(arrow.outline().vertices().len(), 8);
+    /// arrow.closed = false;
+    /// assert_eq!(arrow.outline().vertices().len(), 7);
+    /// ```
+    pub fn outline(&self) -> Polygon {
+        let vertices = self.vertices_set.clone();
+        Polygon::new(vertices.unwrap_or_else(|| self.vertices()), self.closed)
     }
 
     /// The polygon vertices (`FancyArrow._make_verts`). An arrow whose tail
@@ -183,7 +209,7 @@ impl PatchShape for FancyArrow {
     const EDGE_DEFAULT: bool = true;
 
     fn path(&self) -> Path {
-        Polygon::new(self.vertices(), true).path()
+        self.outline().path()
     }
 }
 

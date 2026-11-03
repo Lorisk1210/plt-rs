@@ -51,7 +51,10 @@ impl From<DrawErrors> for PyErr {
     /// The first problem as matplotlib raises it, drawing stopping there:
     /// a `ValueError` with its message for a value of the program's that
     /// cannot be drawn (malformed mathtext, ...), a `TypeError` for one of
-    /// the wrong type, else a `RuntimeError` naming every problem.
+    /// the wrong type, an `OverflowError` for an infinity rounded, a
+    /// `NotImplementedError` for what matplotlib does not support yet, an
+    /// `IndexError` for an index out of range, else a `RuntimeError`
+    /// naming every problem.
     fn from(errors: DrawErrors) -> Self {
         match errors.0.first() {
             Some(first) if first.kind == DrawErrorKind::InvalidValue => {
@@ -59,6 +62,15 @@ impl From<DrawErrors> for PyErr {
             }
             Some(first) if first.kind == DrawErrorKind::InvalidType => {
                 PyErr::new(ExceptionKind::TypeError, first.message.clone())
+            }
+            Some(first) if first.kind == DrawErrorKind::Overflow => {
+                PyErr::new(ExceptionKind::OverflowError, first.message.clone())
+            }
+            Some(first) if first.kind == DrawErrorKind::Unsupported => {
+                PyErr::new(ExceptionKind::NotImplementedError, first.message.clone())
+            }
+            Some(first) if first.kind == DrawErrorKind::OutOfRange => {
+                PyErr::new(ExceptionKind::IndexError, first.message.clone())
             }
             _ => PyErr::runtime_error(errors.to_string()),
         }

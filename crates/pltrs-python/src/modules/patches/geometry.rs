@@ -1,12 +1,13 @@
 //! The geometry of annuli, arrows and polygonal circles: matplotlib's
 //! `Annulus` getters and setters (`center`, `radii`, `width`, `angle`),
-//! `Arrow.set_data`, `FancyArrow.verts` and `FancyArrow.set_data`, and
-//! the `RegularPolygon` attributes of a `CirclePolygon`.
+//! `Arrow.set_data`, `FancyArrow.verts` and `FancyArrow.set_data`, the
+//! polygon a `FancyArrow` is, and the `RegularPolygon` attributes of a
+//! `CirclePolygon`.
 
 use pltrs::patches::{Annulus, Arrow, CirclePolygon, FancyArrow, Patch};
 use pltrs_core::Point;
 
-use super::super::transforms::points_array;
+use super::super::transforms::{points, points_array};
 use crate::binding::prelude::*;
 
 /// matplotlib's `ValueError` for a ring thicker than its smaller
@@ -108,6 +109,35 @@ fn set_fancy_arrow(
         arrow.width = width.unwrap_or(arrow.width);
         arrow.head_width = head_width.or(arrow.head_width);
         arrow.head_length = head_length.or(arrow.head_length);
+        arrow.vertices_set = None;
+    });
+    Ok(())
+}
+
+/// The polygon of a fancy arrow: its vertices (with the closing one of a
+/// closed outline) and whether it is closed (matplotlib's `Polygon.get_xy`
+/// and `get_closed` on the arrow).
+fn fancy_arrow_outline(patch: Patch<FancyArrow>) -> PyResult<(NdArray, bool)> {
+    let outline = patch.shape().outline();
+    let vertices = outline.vertices();
+    Ok((
+        points_array(vertices, vec![vertices.len(), 2])?,
+        outline.is_closed(),
+    ))
+}
+
+/// Draws a fancy arrow through `vertices`, `closed` or not, until its
+/// geometry changes (matplotlib's `Polygon.set_xy` and `set_closed` on
+/// the arrow).
+fn set_fancy_arrow_outline(
+    patch: Patch<FancyArrow>,
+    vertices: NdArray,
+    closed: bool,
+) -> PyResult<()> {
+    let vertices = points(&vertices)?;
+    patch.update_shape(|arrow| {
+        arrow.vertices_set = Some(vertices);
+        arrow.closed = closed;
     });
     Ok(())
 }
@@ -133,5 +163,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("circle_polygon", circle_polygon)?;
     module.add("fancy_arrow_verts", fancy_arrow_verts)?;
     module.add("set_fancy_arrow", set_fancy_arrow)?;
+    module.add("fancy_arrow_outline", fancy_arrow_outline)?;
+    module.add("set_fancy_arrow_outline", set_fancy_arrow_outline)?;
     module.add("set_arrow", set_arrow)
 }

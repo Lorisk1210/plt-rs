@@ -221,7 +221,7 @@ impl fmt::Display for NormError {
                 )
             }
             Self::Unscaled => f.write_str("vmin and vmax must both be set"),
-            Self::InvalidLimits => f.write_str("invalid vmin or vmax for this norm"),
+            Self::InvalidLimits => f.write_str("Invalid vmin or vmax"),
             Self::Scale(err) => write!(f, "{err}"),
             Self::CenterOrder => f.write_str("vmin, vcenter and vmax must be in ascending order"),
             Self::TooFewBoundaries(n) => {

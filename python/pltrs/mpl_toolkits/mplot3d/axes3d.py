@@ -32,6 +32,7 @@ from pltrs.transforms import Bbox
 from . import art3d, axis3d
 from ._charts import ChartsMixin
 from ._contours import ContoursMixin
+from ._limit_boxes import LimitBoxesMixin
 from ._voxels import VoxelsMixin
 
 
@@ -105,7 +106,7 @@ def _face_colors(fcolors, shape):
 _VIEW_ANGLES = ("elev", "azim", "roll")
 
 
-class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
+class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, LimitBoxesMixin, Axes):
     """
     3D Axes object.
 
@@ -796,6 +797,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         """
         if zoom <= 0:
             raise ValueError(f'Argument zoom = {zoom} must be > 0')
+        if aspect is not None:
+            aspect = np.asarray(aspect, dtype=float)
+            _api.check_shape((3,), aspect=aspect)
         _mplot3d.set_box_aspect(
             self._native,
             None if aspect is None else tuple(map(float, aspect)),
@@ -852,6 +856,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     def M(self):
         """The projection matrix of the current view."""
         return self.get_proj()
+
+    @property
+    def invM(self):
+        """The inverse of the projection matrix `M`."""
+        return np.linalg.inv(self.M)
 
     @property
     def computed_zorder(self):
@@ -951,13 +960,19 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         """Return the rotation angles as a string."""
         return _mplot3d.rotation_coords(self._native)
 
+    #: A callable formatting z values for `format_zdata`, or None.
+    fmt_zdata = None
+
     def format_zdata(self, z):
         """
         Return *z* string formatted.  This function will use the
         :attr:`!fmt_zdata` attribute if it is callable, else will fall back
         on the zaxis major formatter
         """
-        return _mplot3d.format_data(self._native, 'z', float(z)) or ""
+        try:
+            return self.fmt_zdata(z)
+        except (AttributeError, TypeError):
+            return _mplot3d.format_data(self._native, 'z', float(z)) or ""
 
     # -- decorations -------------------------------------------------------
 

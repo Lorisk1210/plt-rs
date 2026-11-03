@@ -175,6 +175,16 @@ pub enum DrawErrorKind {
     /// renderers refuse when they draw it, such as a single path given to a
     /// collection as its paths (matplotlib's `TypeError`).
     InvalidType,
+    /// An infinite value where a whole number was needed, such as an
+    /// infinite log limit a locator rounds (Python's `OverflowError`).
+    Overflow,
+    /// What matplotlib does not support yet, such as the logit scale on
+    /// the radial axis of polar axes (matplotlib's `NotImplementedError`).
+    Unsupported,
+    /// An index beyond the values it picks from, such as the depth order
+    /// of 3-D markers indexing fewer colours than markers (numpy's
+    /// `IndexError`).
+    OutOfRange,
     /// Any other problem (matplotlib's `RuntimeError`).
     #[default]
     Other,

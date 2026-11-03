@@ -293,6 +293,11 @@ class Quiver(mcollections.PolyCollection):
         _api.check_in_list(self._PIVOT_VALS, pivot=self.pivot)
 
         transform = kwargs.pop('transform', None)
+        # The keywords of the collection, as matplotlib keeps them for the
+        # key's arrow.
+        polykw = {**kwargs}
+        polykw.setdefault('facecolors', color)
+        polykw.setdefault('linewidths', (0,))
         cmap, norm, clim = (kwargs.pop(key, None) for key in ('cmap', 'norm', 'clim'))
         kwargs = cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)
         facecolor = kwargs.pop('facecolor', color)
@@ -310,13 +315,15 @@ class Quiver(mcollections.PolyCollection):
              else (0., 0., 0., 1.)),
             _live_transforms.given_to_native(transform))
         _handles.adopt(self, native, ax.figure)
+        # matplotlib's attribute: the transform of the arrows' positions.
+        self.transform = ax.transData if transform is None else transform
         self._attach_native_mapping(colorizer=made)
         if not _single_color(facecolor):
             self.set_facecolor(facecolor)
         # The arrows are unstroked, as matplotlib's default ``(0,)`` says.
         _values.remember(self, "linewidth", np.atleast_1d((0,)))
         self._internal_update(kwargs)
-        self.polykw = kwargs
+        self.polykw = polykw
         self._store_uvc(U, V, C)
 
     def _checked_uvc(self, U, V, C):
@@ -348,7 +355,9 @@ class Quiver(mcollections.PolyCollection):
         """Keep the components as matplotlib's attributes."""
         self.U = U.filled(1)
         self.V = V.filled(1)
-        self.Umask = ma.getmask(U)
+        # ``nomask`` when nothing is masked, as matplotlib's ``mask_or``
+        # shrinks it.
+        self.Umask = ma.make_mask(ma.getmask(U), shrink=True)
         self._C = C
 
     def get_transform(self):
@@ -460,6 +469,7 @@ class Barbs(mcollections.PolyCollection):
             (_rgba(barbcolor), _rgba(flagcolor)), self._native_shape(flip),
             _live_transforms.given_to_native(transform))
         _handles.adopt(self, native, ax.figure)
+        self._offsets_dtype = np.result_type(x, y)
         self._attach_native_mapping(colorizer=made)
         # matplotlib's default width of the barbs.
         _values.remember(self, "linewidth", np.atleast_1d(1))
@@ -522,6 +532,8 @@ class Barbs(mcollections.PolyCollection):
             (_filled(u), _filled(v)), None,
             ((self._pivot, float(self._length)), (None, None),
              self._native_shape(flip)))
+        # matplotlib keeps the offsets of the barbs drawn as they are.
+        self._offsets_dtype = np.result_type(x, y)
         # Set the color array
         if C is not None:
             self.set_array(c)

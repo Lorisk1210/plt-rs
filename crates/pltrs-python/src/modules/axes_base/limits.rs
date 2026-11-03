@@ -87,6 +87,17 @@ fn update_datalim(axes: Axes, xys: NdArray, updatex: bool, updatey: bool) -> PyR
     Ok(())
 }
 
+/// Whether the data limits hold no point yet, in either direction, so
+/// that the next data replaces them (`ignore_existing_data_limits`, which
+/// matplotlib sets when it clears the axes or recomputes their limits and
+/// unsets when data extends them).
+fn data_limits_empty(axes: Axes) -> PyResult<bool> {
+    let bbox = axes.data_lim().bbox;
+    Ok(![bbox.p0, bbox.p1]
+        .iter()
+        .any(|corner| corner.x.is_finite() || corner.y.is_finite()))
+}
+
 /// Whether autoscaling stops at the sticky edges (`use_sticky_edges`).
 fn get_use_sticky_edges(axes: Axes) -> PyResult<bool> {
     Ok(axes.use_sticky_edges())
@@ -111,6 +122,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("relim", relim)?;
     module.add("has_data", has_data)?;
     module.add("update_datalim", update_datalim)?;
+    module.add("data_limits_empty", data_limits_empty)?;
     module.add("get_use_sticky_edges", get_use_sticky_edges)?;
     module.add("set_use_sticky_edges", set_use_sticky_edges)
 }

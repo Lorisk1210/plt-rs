@@ -13,7 +13,8 @@ use super::hit_region::hit_region;
 use super::subslice::visible_range;
 use super::{DrawStyle, LineStyle, MarkEvery, StepError, inverse_dashes, line_vertices};
 use crate::artist::{
-    Artist, ArtistBase, ArtistId, DrawContext, LayoutContext, LimitPoints, segment_hits,
+    Artist, ArtistBase, ArtistId, DrawContext, DrawErrorKind, LayoutContext, LimitPoints,
+    segment_hits,
 };
 use crate::colors::Color;
 use crate::markers::{FillStyle, Marker};
@@ -374,7 +375,9 @@ impl Artist for LineArtist {
         };
         match paths {
             Ok((drawn, points)) => self.draw_paths(ctx, &resolved, &drawn, &points),
-            Err(problem) => ctx.report(self.base.id(), problem.to_string()),
+            // Data that cannot be drawn: matplotlib's `recache` raises a
+            // `ValueError` when it draws the line.
+            Err(problem) => ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem),
         }
     }
 

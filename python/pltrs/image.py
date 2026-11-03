@@ -320,6 +320,16 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         # cm.ScalarMappable.set_array method so it is not invoked by mistake.
         self.set_data(A)
 
+    def _resampling(self, name):
+        """The resampling setting *name* (``'interpolation'``,
+        ``'interpolation_stage'``, ``'resample'``, ``'filternorm'``,
+        ``'filterrad'``), which pltrs (Rust) keeps and draws with."""
+        return getattr(_native_image, f"get_{name}")(self._native)
+
+    def _set_resampling(self, name, value):
+        """Set the resampling setting *name* (see `_resampling`)."""
+        getattr(_native_image, f"set_{name}")(self._native, value)
+
     def get_interpolation(self):
         """
         Return the interpolation method the image uses when resizing.
@@ -329,7 +339,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell', 'sinc', 'lanczos',
         or 'none'.
         """
-        return _native_image.get_interpolation(self._native)
+        return self._resampling("interpolation")
 
     def set_interpolation(self, s):
         """
@@ -348,7 +358,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         s = _val_or_rc(s, 'image.interpolation').lower()
         _api.check_in_list(interpolations_names, interpolation=s)
-        _native_image.set_interpolation(self._native, s)
+        self._set_resampling("interpolation", s)
 
     def get_interpolation_stage(self):
         """
@@ -356,7 +366,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
         One of 'data', 'rgba', 'auto'.
         """
-        return _native_image.get_interpolation_stage(self._native)
+        return self._resampling("interpolation_stage")
 
     def set_interpolation_stage(self, s):
         """
@@ -371,7 +381,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """
         s = _val_or_rc(s, 'image.interpolation_stage')
         _api.check_in_list(['data', 'rgba', 'auto'], s=s)
-        _native_image.set_interpolation_stage(self._native, s)
+        self._set_resampling("interpolation_stage", s)
 
     def set_resample(self, v):
         """
@@ -382,11 +392,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         v : bool, default: :rc:`image.resample`
         """
         v = _val_or_rc(v, 'image.resample')
-        _native_image.set_resample(self._native, bool(v))
+        self._set_resampling("resample", bool(v))
 
     def get_resample(self):
         """Return whether image resampling is used."""
-        return _native_image.get_resample(self._native)
+        return self._resampling("resample")
 
     def set_filternorm(self, filternorm):
         """
@@ -398,11 +408,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         ----------
         filternorm : bool
         """
-        _native_image.set_filternorm(self._native, bool(filternorm))
+        self._set_resampling("filternorm", bool(filternorm))
 
     def get_filternorm(self):
         """Return whether the resize filter normalizes the weights."""
-        return _native_image.get_filternorm(self._native)
+        return self._resampling("filternorm")
 
     def set_filterrad(self, filterrad):
         """
@@ -416,11 +426,11 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         r = float(filterrad)
         if r <= 0:
             raise ValueError("The filter radius must be a positive number")
-        _native_image.set_filterrad(self._native, r)
+        self._set_resampling("filterrad", r)
 
     def get_filterrad(self):
         """Return the filterrad setting."""
-        return _native_image.get_filterrad(self._native)
+        return self._resampling("filterrad")
 
     def can_composite(self):
         """Return whether the image can be composited with its neighbors."""
@@ -1118,9 +1128,37 @@ class FigureImage(_ImageBase):
             origin=origin
         )
         self._internal_update(kwargs)
+        self._keep_figimage_settings(offsetx, offsety, origin)
+
+    def _resampling(self, name):
+        # A figure image is drawn unresampled, in matplotlib as in pltrs
+        # (Rust), which keeps none of these: they are kept here, as
+        # matplotlib keeps them, with their defaults of a new image.
+        return self._resampling_settings()[name]
+
+    def _set_resampling(self, name, value):
+        self._resampling_settings()[name] = value
+        self.stale = True
+
+    def _resampling_settings(self):
+        """The resampling settings of the image (see `_resampling`)."""
+        return self.__dict__.setdefault("_resampling_given", {
+            'interpolation': _val_or_rc(None, 'image.interpolation').lower(),
+            'interpolation_stage': _val_or_rc(None, 'image.interpolation_stage'),
+            'filternorm': True, 'filterrad': 4.0, 'resample': False})
+
+    def _keep_figimage_settings(self, xo, yo, origin):
+        """Keep what matplotlib's `FigureImage` keeps of a new image: its
+        offset, origin, magnification and resampling settings."""
+        self.ox, self.oy = xo, yo
+        self.origin = _val_or_rc(origin, 'image.origin')
         self.magnification = 1.0
+        self._resampling_settings()
 
     def _new_native(self, colorizer, spec):
+        self._resampling_given = {name: spec[name] for name in (
+            'interpolation', 'interpolation_stage', 'filternorm',
+            'filterrad', 'resample')}
         return _native_image.new_figure_image(
             colorizer.cmap, colorizer.norm, spec['origin'],
             (float(self.ox), float(self.oy)))

@@ -11,37 +11,62 @@ from ._helpers import convert_units, wrap
 from .scatter import _mapping
 
 
-def _mesh_args(axes, fn, args):
+def _mesh_args(axes, fn, args, shading):
     """
-    ``(C, (X, Y))`` of the positional arguments ``[X, Y,] C`` of *fn* on
-    *axes*, the coordinates None when absent (numbers of the axes' units
-    otherwise) and C masked values as NaN; the RGB or RGBA colours
-    ``pcolormesh`` takes for C come as an ``(M, N, 4)`` array.
+    ``(C, (X, Y), dtype)`` of the positional arguments ``[X, Y,] C`` of
+    *fn* on *axes* drawn with *shading*: the coordinates None when absent
+    (numbers of the axes' units otherwise), C masked values as NaN (the
+    RGB or RGBA colours ``pcolormesh`` takes for C come as an ``(M, N,
+    4)`` array), and the dtype of the coordinates matplotlib's mesh keeps
+    (see `_coordinates_dtype`).
     """
     if len(args) == 1:
         C, = args
         coords = (None, None)
+        given = None
     elif len(args) == 3:
         X, Y, C = args
         X, Y = convert_units(axes, "x", X), convert_units(axes, "y", Y)
+        given = (X, Y)
         coords = tuple(np.asarray(np.ma.filled(np.ma.asarray(v, dtype=float), np.nan))
                        for v in (X, Y))
     else:
         raise _api.nargs_error(fn, takes="1 or 3", given=len(args))
+    dtype = _coordinates_dtype(given, np.shape(C), shading)
     if type(C) is np.ndarray and C.ndim == 2 and C.dtype == np.float64 and C.dtype.isnative:
         # What the masking below makes of plain floats, without its copies:
         # pltrs (Rust) copies the values it keeps.
         finite = np.isfinite(C)
-        return (C if finite.all() else np.where(finite, C, np.nan)), coords
+        return (C if finite.all() else np.where(finite, C, np.nan)), coords, dtype
     C = cbook.safe_masked_invalid(C, copy=True)
     if fn == "pcolormesh" and C.ndim == 3 and C.shape[2] in (3, 4):
         C = np.ma.filled(C.astype(float), np.nan)
         if C.shape[2] == 3:
             C = np.concatenate([C, np.ones(C.shape[:2] + (1,))], axis=2)
-        return C, coords
+        return C, coords, dtype
     if C.ndim != 2:
         raise TypeError(f"Dimensions of C must be 2D, not {C.ndim}D")
-    return np.ma.filled(C.astype(float), np.nan), coords
+    return np.ma.filled(C.astype(float), np.nan), coords, dtype
+
+
+def _coordinates_dtype(given, shape, shading):
+    """
+    The dtype of the coordinates of matplotlib's mesh, which keeps the
+    grids its ``_pcolorargs`` makes: those of the *given* ``(X, Y)`` (the
+    integers of `numpy.arange` without them), made floats where the cells
+    are centred on them (shading 'nearest', or 'auto' with grids of the
+    size of C, of *shape*).
+    """
+    from ... import rcParams
+    shading = (shading or rcParams['pcolor.shading']).lower()
+    if given is None:
+        return np.dtype(float) if shading == 'nearest' else np.arange(1).dtype
+    X, Y = (np.asarray(v) for v in given)
+    dtype = np.result_type(X, Y)
+    centred = (np.shape(X)[-1], np.shape(Y)[0]) == tuple(shape[1::-1])
+    if shading == 'nearest' or shading == 'auto' and centred:
+        return np.result_type(dtype, float)
+    return dtype
 
 
 class MeshMixin:
@@ -56,7 +81,7 @@ class MeshMixin:
             _api.check_in_list(['flat', 'nearest', 'gouraud', 'auto'],
                                shading=shading.lower())
             shading = shading.lower()
-        C, coords = _mesh_args(self, fn, args)
+        C, coords, dtype = _mesh_args(self, fn, args, shading)
         made, native_mapping = mapping
         kwargs = cbook.normalize_kwargs(kwargs, cls)
         if (polygons and "antialiased" not in kwargs
@@ -74,6 +99,7 @@ class MeshMixin:
             native = _plotting.pcolor(self._native, polygons, C, coords, placement,
                                       native_mapping)
         collection = wrap(self, native, cls)
+        collection._coordinates_dtype = dtype
         if antialiased is not None:
             # matplotlib's mesh draws with the antialiasing it is made with,
             # apart from the collection's own (`.QuadMesh.get_antialiased`).

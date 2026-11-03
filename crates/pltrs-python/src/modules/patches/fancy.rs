@@ -75,6 +75,22 @@ fn set_connectionstyle(patch: RawHandle, style: PyConnectionStyle) -> PyResult<(
     update_arrow_spec(&patch, |arrow| arrow.connectionstyle = style.0)
 }
 
+/// How far an arrow is shrunk at its start and end, in points
+/// (matplotlib's `shrinkA` and `shrinkB`).
+fn get_shrink(patch: RawHandle) -> PyResult<(f64, f64)> {
+    let spec = arrow_spec(&patch)?;
+    Ok((spec.shrink_a, spec.shrink_b))
+}
+
+/// Shrinks an arrow by `start` (`shrinkA`) or `end` (`shrinkB`) points,
+/// the one given.
+fn set_shrink(patch: RawHandle, start: Option<f64>, end: Option<f64>) -> PyResult<()> {
+    update_arrow_spec(&patch, |arrow| {
+        arrow.shrink_a = start.unwrap_or(arrow.shrink_a);
+        arrow.shrink_b = end.unwrap_or(arrow.shrink_b);
+    })
+}
+
 /// The mutation scale and aspect of a fancy box or an arrow.
 fn get_mutation(patch: RawHandle) -> PyResult<(f64, f64)> {
     if let Some(fancy) = Patch::<FancyBboxPatch>::from_raw_handle(&patch) {
@@ -109,6 +125,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_arrowstyle", set_arrowstyle)?;
     module.add("get_connectionstyle", get_connectionstyle)?;
     module.add("set_connectionstyle", set_connectionstyle)?;
+    module.add("get_shrink", get_shrink)?;
+    module.add("set_shrink", set_shrink)?;
     module.add("get_mutation", get_mutation)?;
     module.add("set_mutation", set_mutation)
 }

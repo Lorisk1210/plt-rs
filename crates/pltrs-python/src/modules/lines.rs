@@ -389,7 +389,7 @@ fn line_prop(props: LineProps, key: &str, value: &Bound<'_>) -> PyResult<LinePro
 }
 
 /// A draw style by name, with matplotlib's message for others.
-fn drawstyle(value: &Bound<'_>) -> PyResult<DrawStyle> {
+pub(crate) fn drawstyle(value: &Bound<'_>) -> PyResult<DrawStyle> {
     let name: String = value.extract()?;
     name.parse().map_err(|_| {
         PyErr::value_error(format!(

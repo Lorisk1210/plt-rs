@@ -220,7 +220,7 @@ impl Figure {
     pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.root
-            .with_mut::<FigureFrame, _>(|frame| frame.facecolor = color);
+            .with_mut::<FigureFrame, _>(|frame| frame.style.facecolor = Some(color));
         self
     }
 
@@ -229,7 +229,7 @@ impl Figure {
     pub fn set_edgecolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.root
-            .with_mut::<FigureFrame, _>(|frame| frame.edgecolor = color);
+            .with_mut::<FigureFrame, _>(|frame| frame.style.edgecolor = Some(color));
         self
     }
 
@@ -237,14 +237,16 @@ impl Figure {
     /// (matplotlib's `set_linewidth`).
     pub fn set_linewidth(&self, width: f64) -> &Self {
         self.root
-            .with_mut::<FigureFrame, _>(|frame| frame.linewidth = width);
+            .with_mut::<FigureFrame, _>(|frame| frame.style.linewidth = Some(width));
         self
     }
 
     /// The width of the frame around the canvas in points (matplotlib's
     /// `get_linewidth`).
     pub fn linewidth(&self) -> f64 {
-        self.root.with::<FigureFrame, _>(|frame| frame.linewidth)
+        self.root.with::<FigureFrame, _>(|frame| {
+            (frame.style.linewidth).unwrap_or_else(|| crate::rc::params().patch_linewidth)
+        })
     }
 
     /// Sets whether the background and the frame around the canvas are
@@ -265,14 +267,16 @@ impl Figure {
 
     /// The background colour.
     pub fn facecolor(&self) -> Color {
-        self.root
-            .with::<FigureFrame, _>(|frame| frame.facecolor.clone())
+        self.root.with::<FigureFrame, _>(|frame| {
+            (frame.style.facecolor.clone())
+                .unwrap_or_else(|| crate::rc::params().patch_facecolor.clone())
+        })
     }
 
     /// The colour of the frame around the canvas.
     pub fn edgecolor(&self) -> Color {
         self.root
-            .with::<FigureFrame, _>(|frame| frame.edgecolor.clone())
+            .with::<FigureFrame, _>(|frame| frame.style.edge_spec(&crate::rc::params(), false))
     }
 
     /// The margins and spacing of subplot grids.

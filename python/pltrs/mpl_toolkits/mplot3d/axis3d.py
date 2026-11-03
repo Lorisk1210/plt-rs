@@ -249,7 +249,8 @@ class Axis(maxis.XAxis):
 
     def get_inverted(self):
         """Return whether this Axis is oriented in the "inverse" direction."""
-        return _mplot3d.get_inverted(self.axes._native, self.axis_name)
+        # A numpy bool, as matplotlib compares the ends of the view interval.
+        return np.bool_(_mplot3d.get_inverted(self.axes._native, self.axis_name))
 
     def set_inverted(self, inverted):
         """Set whether this Axis is oriented in the "inverse" direction."""
@@ -263,6 +264,25 @@ class Axis(maxis.XAxis):
         length = (x1 - x0) / self.get_figure(root=True).dpi * 72
         size = self._get_tick_label_size('x') * 3
         return int(np.floor(length / size)) if size > 0 else 2**31 - 1
+
+    def get_minpos(self):
+        """Return the smallest positive x datum of the axes: the axes of a
+        3-D axes are `.XAxis` objects in matplotlib, reading the 2-D data
+        limits of the axes."""
+        return self.axes.dataLim.minposx
+
+    def set_label_coords(self, x, y, transform=None):
+        """
+        Set the coordinates of the label, by default in the axes
+        coordinates (matplotlib's `.Axis.set_label_coords`; a 3-D axes
+        places its labels itself when it draws).
+        """
+        self._autolabelpos = False
+        if transform is None:
+            transform = self.axes.transAxes
+        self.label.set_transform(transform)
+        self.label.set_position((x, y))
+        self.stale = True
 
     def get_tick_padding(self):
         """Return the space the outward part of the first ticks of each
@@ -364,6 +384,21 @@ class Axis(maxis.XAxis):
         _api.check_in_list(['lower', 'upper', 'both', 'default', 'none'],
                            position=position)
         _mplot3d.set_ticks_position(self.axes._native, self.axis_name, position)
+
+    def tick_top(self):
+        """
+        Move ticks and ticklabels to the top, as `.XAxis.tick_top` does
+        through `set_ticks_position`, which takes no 'top' on a 3-D axis.
+        """
+        self.set_ticks_position('top')
+
+    def tick_bottom(self):
+        """
+        Move ticks and ticklabels to the bottom, as `.XAxis.tick_bottom`
+        does through `set_ticks_position`, which takes no 'bottom' on a
+        3-D axis.
+        """
+        self.set_ticks_position('bottom')
 
     def get_ticks_position(self):
         """Get the ticks position."""

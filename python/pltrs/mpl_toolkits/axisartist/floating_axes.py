@@ -8,7 +8,7 @@ pltrs (Rust) lays out and fits the axes' limits around
 (``_native.axisartist``).
 """
 
-from pltrs import _api, cbook
+from pltrs import _api, cbook, patches as mpatches
 from pltrs.transforms import Bbox
 from pltrs._native import axisartist as _axisartist
 from ..axes_grid1.parasite_axes import host_axes_class_factory
@@ -122,6 +122,17 @@ class FloatingAxesBase:
     def __init__(self, *args, grid_helper, **kwargs):
         _api.check_isinstance(GridHelperCurveLinear, grid_helper=grid_helper)
         super().__init__(*args, grid_helper=grid_helper, **kwargs)
+
+    def _gen_axes_patch(self):
+        # docstring inherited
+        # The region of the extremes, in the coordinates of the grid
+        # transform, as matplotlib's floating axes place their patch.
+        grid_finder = self.get_grid_helper().grid_finder
+        x0, x1, y0, y1 = grid_finder.extreme_finder(*[None] * 5)
+        patch = mpatches.Polygon([(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+        patch.get_path()._interpolation_steps = 100
+        patch.set_transform(grid_finder.get_transform() + self.transData)
+        return patch
 
     def clear(self):
         # docstring inherited

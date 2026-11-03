@@ -16,7 +16,7 @@ import itertools
 
 import numpy as np
 
-from pltrs import _api
+from pltrs import _api, _handles
 import pltrs.axes as maxes
 from pltrs.path import Path
 from pltrs.transforms import Bbox, _interval_contains_close
@@ -368,14 +368,28 @@ class Axes(maxes.Axes):
         if visible is None:
             visible = True if kwargs else not self._grid_on
         self._grid_on = bool(visible)
+        # The style pltrs (Rust) gives the lines of each level and axis;
+        # the other properties are the collection's (``gridlines.set``).
         style = {"color": None, "alpha": None, "linewidth": None,
                  "linestyle": None}
+        rest = {}
         for key, value in kwargs.items():
             key = {"c": "color", "lw": "linewidth", "ls": "linestyle"}.get(key, key)
-            _api.check_in_list(list(style), keyword=key)
-            style[key] = value
+            (style if key in style else rest)[key] = value
+        gridlines = self.gridlines
+        if rest and gridlines is not None:
+            gridlines.set(**rest)
         _axisartist.grid(self._native, bool(visible), (which, axis),
                          tuple(style.values()))
+
+    @property
+    def gridlines(self):
+        """The `.GridlinesCollection` drawing the gridlines, None once
+        removed."""
+        from .axis_artist import GridlinesCollection
+        native = _axisartist.gridlines(self._native)
+        return (None if native is None
+                else _handles.wrap(native, GridlinesCollection, self.figure))
 
     def new_fixed_axis(self, loc, offset=None):
         return self.get_grid_helper().new_fixed_axis(loc, offset=offset, axes=self)

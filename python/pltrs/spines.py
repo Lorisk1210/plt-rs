@@ -10,7 +10,8 @@ import functools
 
 import numpy as np
 
-from . import _handles
+from . import _handles, _values
+from .colors import to_rgba
 from ._native import spines as _spines
 from .artist import Artist
 from .patches import Patch
@@ -268,10 +269,18 @@ class Spine(Patch):
         `.Patch.set_facecolor` to set the facecolor.
         """
         _spines.set_color(self._native, c)
+        _values.remember(self, "edgecolor", c)
 
     def get_edgecolor(self):
         """Return the edge color."""
-        return _spines.get_edgecolor(self._native)
+        # ``to_rgba`` of the colour given, as matplotlib keeps it, while
+        # pltrs (Rust) holds that colour.
+        native = _spines.get_edgecolor(self._native)
+        given = self.__dict__.get("_given_values", {}).get("edgecolor")
+        if given is None:
+            return native
+        rgba = to_rgba(given, self.get_alpha())
+        return rgba if rgba == tuple(native) else native
 
     def set_linewidth(self, w):
         """Set the spine width in points."""

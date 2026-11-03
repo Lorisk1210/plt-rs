@@ -310,6 +310,7 @@ def _save_figures(plt: Any, out: pathlib.Path, recorder: Recorder) -> list[dict[
         entry: dict[str, Any] = {"number": number}
         try:
             figure = plt.figure(number)
+            entry["label"] = figure.get_label()
             path = out / f"figure-{number}.png"
             figure.savefig(path)
             entry["png"] = path.name

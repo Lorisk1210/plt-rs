@@ -311,6 +311,32 @@ impl Colorbar {
             .collect()
     }
 
+    /// The line collections [`add_lines`](Self::add_lines) and
+    /// [`add_level_lines`](Self::add_level_lines) drew across the
+    /// colorbar since they last erased theirs (matplotlib's `lines`).
+    ///
+    /// ```
+    /// use pltrs::axes::ImshowOptions;
+    /// use pltrs::colorbar::ColorbarOptions;
+    /// use pltrs::colors::Color;
+    /// use pltrs::numeric::Grid;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let image = fig.subplot().imshow(Grid::from_fn(2, 2, |i, j| (i + j) as f64), ImshowOptions::default())?;
+    /// let colorbar = fig.colorbar(&image, ColorbarOptions::default())?;
+    /// assert!(colorbar.lines().is_empty());
+    /// colorbar.add_level_lines(&[0.5], vec![Color::from("k")], vec![2.0], true)?;
+    /// colorbar.add_level_lines(&[1.5], vec![Color::from("r")], vec![1.0], false)?;
+    /// assert_eq!(colorbar.lines().len(), 2);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn lines(&self) -> Vec<Collection> {
+        self.read(|state| state.drawn.lines.clone())
+            .into_iter()
+            .map(|id| Collection::from_raw(self.handle(id)))
+            .collect()
+    }
+
     /// The patches filling the extensions, the one at the lower end of the
     /// long axis first (matplotlib's `_extend_patches`); inverting the
     /// axis swaps their ends.

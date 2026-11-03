@@ -5,12 +5,12 @@
 
 use pltrs_core::{Bbox, Point};
 use pltrs_text::mathtext::is_math_text;
-use pltrs_text::{BlockStyle, HAlign, RotationMode, VAlign};
+use pltrs_text::{BlockStyle, HAlign, LineSpacing, RotationMode, VAlign};
 
 use crate::artist::LayoutContext;
 use crate::axes::{PlacedText, place_text};
 use crate::colors::Color;
-use crate::fonts::{FontProperties, FontSize, FontWeight};
+use crate::fonts::{FontProperties, FontSize};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
 use crate::text::measure_text;
@@ -61,6 +61,65 @@ impl LabelKind {
     }
 }
 
+/// How the texts of an axis artist are typeset beyond their size, colour,
+/// angle and alignment (the other `Text` properties of matplotlib's
+/// `LabelBase`): their font but its size, the alignment and spacing of
+/// the lines of multi-line texts, and how rotation and alignment combine.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextLook {
+    /// The font; the size of the texts replaces its size.
+    pub font: FontProperties,
+    /// The alignment of the lines of multi-line texts; `None` follows the
+    /// horizontal alignment.
+    pub multialign: Option<HAlign>,
+    /// The spacing between lines.
+    pub linespacing: LineSpacing,
+    /// How rotation and alignment combine.
+    pub rotation_mode: RotationMode,
+}
+
+pltrs_core::archive_struct!(TextLook {
+    font,
+    multialign,
+    linespacing,
+    rotation_mode
+});
+
+impl TextLook {
+    /// Texts in `font`, their lines aligned as the texts and spaced
+    /// normally, rotated around their anchor (as matplotlib's `LabelBase`
+    /// sets its rotation mode).
+    ///
+    /// ```
+    /// use pltrs::axisartist::TextLook;
+    /// use pltrs::fonts::FontProperties;
+    /// use pltrs::text::RotationMode;
+    /// let look = TextLook::new(FontProperties::from_rc(&pltrs::rc::params()));
+    /// assert_eq!(look.rotation_mode, RotationMode::Anchor);
+    /// ```
+    pub fn new(font: FontProperties) -> Self {
+        Self {
+            font,
+            multialign: None,
+            linespacing: LineSpacing::Normal,
+            rotation_mode: RotationMode::Anchor,
+        }
+    }
+
+    /// The block style of texts aligned `halign` and `valign`, turned by
+    /// `rotation` degrees.
+    fn block(&self, halign: HAlign, valign: VAlign, rotation: f64) -> BlockStyle {
+        BlockStyle {
+            halign,
+            valign,
+            multialign: self.multialign.unwrap_or(halign),
+            rotation,
+            rotation_mode: self.rotation_mode,
+            linespacing: self.linespacing,
+        }
+    }
+}
+
 /// The look of tick labels or an axis label (matplotlib's `TickLabels`
 /// and `AxisLabel` properties).
 #[derive(Clone, Debug, PartialEq)]
@@ -74,8 +133,9 @@ pub(crate) struct LabelState {
     pub(crate) color: Option<Color>,
     /// The font size in points.
     pub(crate) size: f64,
-    /// The font weight.
-    pub(crate) weight: FontWeight,
+    /// The font but its size, and how the lines and the rotation are
+    /// laid out.
+    pub(crate) look: TextLook,
     /// The text angle in degrees, relative to 90° plus the direction to
     /// the label.
     pub(crate) rotation: f64,
@@ -92,7 +152,7 @@ pltrs_core::archive_struct!(LabelState {
     pad,
     color,
     size,
-    weight,
+    look,
     rotation,
     valign,
     halign,
@@ -100,13 +160,13 @@ pltrs_core::archive_struct!(LabelState {
 });
 
 impl LabelState {
-    /// Labels of `kind` facing `direction`, `pad` points away, in a font
-    /// of `size` points and `weight`.
+    /// Labels of `kind` facing `direction`, `pad` points away, `size`
+    /// points large and typeset as `look` says.
     pub(crate) fn new(
         kind: LabelKind,
         direction: SpineSide,
         pad: f64,
-        (size, weight): (f64, FontWeight),
+        (size, look): (f64, TextLook),
     ) -> Self {
         let (valign, halign) = kind.alignment(direction);
         Self {
@@ -115,7 +175,7 @@ impl LabelState {
             pad,
             color: None,
             size,
-            weight,
+            look,
             rotation: kind.angle(direction).rem_euclid(360.0),
             valign,
             halign,
@@ -133,13 +193,11 @@ impl LabelState {
         self.direction = direction;
     }
 
-    /// How texts of this state are drawn: the rc font at the label size
-    /// and weight, in `default_color` unless a colour was set.
+    /// How texts of this state are drawn: in their font at the label
+    /// size, in `default_color` unless a colour was set.
     pub(crate) fn text_style(&self, rc: &RcParams, default_color: &Color) -> TextStyle {
         TextStyle {
-            font: FontProperties::from_rc(rc)
-                .with_size(FontSize::Points(self.size), rc.font_size)
-                .with_weight(self.weight),
+            font: (self.look.font.clone()).with_size(FontSize::Points(self.size), rc.font_size),
             color: self.color.clone().unwrap_or_else(|| default_color.clone()),
         }
     }
@@ -176,14 +234,11 @@ impl Label<'_> {
             self.reference.x + self.radius * theta.cos(),
             self.reference.y + self.radius * theta.sin(),
         );
-        let block = BlockStyle {
-            halign: self.state.halign,
-            valign: self.state.valign,
-            multialign: self.state.halign,
-            rotation: (self.ref_angle + 90.0 + self.state.rotation).rem_euclid(360.0),
-            rotation_mode: RotationMode::Anchor,
-            ..BlockStyle::default()
-        };
+        let block = self.state.look.block(
+            self.state.halign,
+            self.state.valign,
+            (self.ref_angle + 90.0 + self.state.rotation).rem_euclid(360.0),
+        );
         place_text(
             layout,
             self.text,
@@ -370,17 +425,20 @@ mod tests {
     fn defaults_follow_the_direction_tables() {
         // matplotlib's `axis_direction` table: the angles are relative to
         // 90 + the direction to the label.
-        let font = (10.0, FontWeight::NORMAL);
-        let left = LabelState::new(LabelKind::TickLabels, SpineSide::Left, 4.0, font);
+        let font = (
+            10.0,
+            TextLook::new(FontProperties::from_rc(&crate::rc::params())),
+        );
+        let left = LabelState::new(LabelKind::TickLabels, SpineSide::Left, 4.0, font.clone());
         assert_eq!(
             (left.valign, left.halign, left.rotation),
             (VAlign::Center, HAlign::Right, 90.0)
         );
-        let mut right = LabelState::new(LabelKind::TickLabels, SpineSide::Right, 4.0, font);
+        let mut right = LabelState::new(LabelKind::TickLabels, SpineSide::Right, 4.0, font.clone());
         assert_eq!(right.rotation, 270.0);
         right.set_axis_direction(SpineSide::Top);
         assert_eq!((right.valign, right.rotation), (VAlign::Baseline, 180.0));
-        let label = LabelState::new(LabelKind::AxisLabel, SpineSide::Left, 5.0, font);
+        let label = LabelState::new(LabelKind::AxisLabel, SpineSide::Left, 5.0, font.clone());
         assert_eq!(
             (label.valign, label.halign, label.rotation),
             (VAlign::Bottom, HAlign::Center, 180.0)

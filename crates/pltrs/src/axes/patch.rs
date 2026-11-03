@@ -1,22 +1,68 @@
 //! The background patch of an axes (matplotlib's `Axes.patch`): its face,
-//! its edge (none by default) and its z-order.
+//! its edge (none by default), the rest of its patch style and its
+//! z-order.
 
 use super::Axes;
 use super::state::AxesState;
 use crate::colors::Color;
+use crate::patches::PatchStyle;
 
 impl Axes {
     /// Sets the background colour (matplotlib's `set_facecolor`).
     pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.raw
-            .with_mut::<AxesState, _>(|a| a.patch.facecolor = color);
+            .with_mut::<AxesState, _>(|a| a.patch.style.facecolor = Some(color));
         self
     }
 
-    /// The background colour.
+    /// The background colour (`patch.facecolor` when the patch's was
+    /// reset).
     pub fn facecolor(&self) -> Color {
-        self.raw.with::<AxesState, _>(|a| a.patch.facecolor.clone())
+        self.raw.with::<AxesState, _>(|a| {
+            (a.patch.style.facecolor.clone()).unwrap_or_else(|| a.rc.patch_facecolor.clone())
+        })
+    }
+
+    /// The style of the background patch: its colours, edge width, line
+    /// style, hatch, caps, joins and anti-aliasing, as a patch's (see
+    /// [`Patch::style`](crate::patches::Patch::style)).
+    pub fn patch_style(&self) -> PatchStyle {
+        self.raw.with::<AxesState, _>(|a| a.patch.style.clone())
+    }
+
+    /// Gives the background patch the style of a patch (matplotlib's
+    /// `ax.patch` setters); the background stays where the axes puts it.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::patches::PatchStyle;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_patch_style(PatchStyle {
+    ///     hatch: Some("//".into()),
+    ///     ..ax.patch_style()
+    /// });
+    /// assert_eq!(ax.patch_style().hatch.as_deref(), Some("//"));
+    /// assert!(fig.to_svg()?.contains("<pattern"), "the hatch is drawn");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_patch_style(&self, style: PatchStyle) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| a.patch.style = style);
+        self
+    }
+
+    /// The opacity of the background patch replacing that of its colours
+    /// (matplotlib's `ax.patch.get_alpha`), `None` by default.
+    pub fn patch_alpha(&self) -> Option<f64> {
+        self.raw.with::<AxesState, _>(|a| a.patch.alpha)
+    }
+
+    /// Sets the opacity of the background patch (matplotlib's
+    /// `ax.patch.set_alpha`), replacing that of its colours.
+    pub fn set_patch_alpha(&self, alpha: Option<f64>) -> &Self {
+        self.raw.with_mut::<AxesState, _>(|a| a.patch.alpha = alpha);
+        self
     }
 
     /// Sets the z-order of the background patch (matplotlib's
@@ -40,26 +86,31 @@ impl Axes {
     pub fn set_patch_edgecolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
         self.raw
-            .with_mut::<AxesState, _>(|a| a.patch.edgecolor = color);
+            .with_mut::<AxesState, _>(|a| a.patch.style.edgecolor = Some(color));
         self
     }
 
-    /// The edge colour of the background patch.
+    /// The edge colour of the background patch (a patch's default edge
+    /// when it was reset: `patch.edgecolor` when edges are forced, else
+    /// none).
     pub fn patch_edgecolor(&self) -> Color {
-        self.raw.with::<AxesState, _>(|a| a.patch.edgecolor.clone())
+        self.raw
+            .with::<AxesState, _>(|a| a.patch.style.edge_spec(&a.rc, false))
     }
 
     /// Sets the line width of the background patch's edge in points
     /// (matplotlib's `ax.patch.set_linewidth`; 0 by default).
     pub fn set_patch_linewidth(&self, width: f64) -> &Self {
         self.raw
-            .with_mut::<AxesState, _>(|a| a.patch.linewidth = width);
+            .with_mut::<AxesState, _>(|a| a.patch.style.linewidth = Some(width));
         self
     }
 
-    /// The line width of the background patch's edge in points.
+    /// The line width of the background patch's edge in points
+    /// (`patch.linewidth` when it was reset).
     pub fn patch_linewidth(&self) -> f64 {
-        self.raw.with::<AxesState, _>(|a| a.patch.linewidth)
+        self.raw
+            .with::<AxesState, _>(|a| a.patch.style.linewidth.unwrap_or(a.rc.patch_linewidth))
     }
 
     /// Names the SVG group of the background patch `gid` (matplotlib's

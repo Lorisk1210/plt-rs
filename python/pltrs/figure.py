@@ -12,11 +12,11 @@ import math
 
 import numpy as np
 
-from . import _api, _artist_clipping, _blocking_input, _handles, cbook, rcParams
+from . import _api, _artist_clipping, _blocking_input, _handles, _values, cbook, rcParams
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
 from .artist import Artist
-from ._background_patch import FigurePatch
+from . import _background_patch
 from . import _figure_artists
 from .axes import Axes
 from .axes._base import _AxesBase
@@ -34,6 +34,7 @@ from .text import Text, _layout_renderer, _measuring_with
 from .transforms import BboxBase
 from ._text_methods import FigureText
 from ._transform_trees import FigureTrees
+from ._artist_staleness import _stale_figure_callback  # noqa: F401
 
 _log = logging.getLogger(__name__)
 
@@ -86,11 +87,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
 
     @property
     def patch(self):
-        """The background of the (sub)figure (a `.FigurePatch`)."""
-        patch = self.__dict__.get("_patch")
-        if patch is None:
-            patch = self.__dict__["_patch"] = FigurePatch(self)
-        return patch
+        """The background of the (sub)figure: a `.Rectangle` mirroring the
+        background pltrs (Rust) draws (see `._background_patch`)."""
+        return _background_patch.figure_patch(self)
 
     def get_axes(self):
         """List of Axes in the Figure."""
@@ -793,6 +792,10 @@ class SubFigure(FigureBase):
     or dpi of the figure, and is confined to a prescribed region of the figure.
     """
 
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     @property
     def images(self):
         """The figure images of the subfigure: none (`~.Figure.figimage`
@@ -985,6 +988,7 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
             raise ValueError(
                 f'figure size must be positive finite not {figsize}')
         self._native = _figure.new(float(width), float(height), float(dpi))
+        _values.remember(self, "dpi", dpi)
         self._figure = self
         self._artists = {_artist.id(self._native): self}
         self.subfigs = []
@@ -1179,11 +1183,13 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
 
     def get_dpi(self):
         """Return the resolution in dots per inch as a float."""
-        return _figure.get_dpi(self._native)
+        # As given, as matplotlib keeps it.
+        return _values.given(self, "dpi", _figure.get_dpi(self._native))
 
     def set_dpi(self, val):
         """Set the resolution of the figure in dots-per-inch."""
         _figure.set_dpi(self._native, float(val))
+        _values.remember(self, "dpi", val)
 
     dpi = property(get_dpi, set_dpi, doc="The resolution in dots per inch.")
 

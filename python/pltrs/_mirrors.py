@@ -53,6 +53,19 @@ class Mirroring:
         """Whether the part was given its transform, or `OWN`."""
         return OWN
 
+    def contains(self, artist, *args, **kwargs):
+        """Whether the mouse event is over the part, or `OWN`."""
+        return OWN
+
+    def contains_point(self, artist, *args, **kwargs):
+        """Whether the display point is in the part, or `OWN`."""
+        return OWN
+
+    def clip_spec(self, artist):
+        """The native clip region of artists clipped to the part (see
+        `._artist_clipping`), or `OWN`."""
+        return OWN
+
 
 #: The mirrorings of objects whose attributes are their value (font
 #: properties hash and compare by them), kept apart, by the object's id.
@@ -69,31 +82,43 @@ def attach_apart(obj, mirroring):
 
 def is_attached(obj):
     """Whether *obj* mirrors a part."""
-    return _mirror_of(obj) is not None
+    return mirroring(obj) is not None
 
 
-def _mirror_of(obj):
+def mirroring(obj):
+    """The `Mirroring` of the part *obj* mirrors, or None."""
     mirror = getattr(obj, "__dict__", {}).get("_mirror")
     return _apart.get(id(obj)) if mirror is None else mirror
+
+
+def ask(obj, question, *args):
+    """What the part *obj* mirrors answers to *question* (a method of
+    `Mirroring`), or `OWN` when *obj* mirrors nothing or the part leaves
+    the answer to it."""
+    mirror = mirroring(obj)
+    return OWN if mirror is None else getattr(mirror, question)(obj, *args)
 
 
 def _pushing(method):
     @functools.wraps(method)
     def setter(self, *args, **kwargs):
         result = method(self, *args, **kwargs)
-        mirror = _mirror_of(self)
+        mirror = mirroring(self)
         if mirror is not None:
             mirror.push(self)
         return result
+    setter._pushes = True
     return setter
 
 
 def pushing(cls):
     """Class decorator: every setter of *cls* pushes a mirror of it back
-    into its part once it ran."""
+    into its part once it ran (once: the setters it inherits from a class
+    made pushing already push)."""
     for name in dir(cls):
-        if name.startswith("set_") and callable(getattr(cls, name)):
-            setattr(cls, name, _pushing(getattr(cls, name)))
+        method = getattr(cls, name) if name.startswith("set_") else None
+        if callable(method) and not getattr(method, "_pushes", False):
+            setattr(cls, name, _pushing(method))
     return cls
 
 
@@ -111,13 +136,17 @@ def _asking(method, question):
 
 def mirrorable(cls):
     """Class decorator letting the instances of *cls* be mirrors: every
-    setter pushes, and the extent and figure are asked of the part."""
+    setter pushes, and the extent, the figure and whether a point is over
+    it are asked of the part."""
     pushing(cls)
     cls.get_window_extent = _asking(cls.get_window_extent, "window_extent")
     cls.get_tightbbox = _asking(cls.get_tightbbox, "tight_box")
     cls.get_figure = _asking(cls.get_figure, "figure")
     cls.get_transform = _asking(cls.get_transform, "transform")
     cls.is_transform_set = _asking(cls.is_transform_set, "transform_set")
+    cls.contains = _asking(cls.contains, "contains")
+    if hasattr(cls, "contains_point"):
+        cls.contains_point = _asking(cls.contains_point, "contains_point")
     return cls
 
 

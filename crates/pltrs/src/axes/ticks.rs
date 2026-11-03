@@ -1,5 +1,6 @@
 //! Tick and grid appearance (matplotlib's tick parameters).
 
+use super::grid_stroke::{GridStroke, GridStrokeOptions};
 use super::which::TickLevel;
 use crate::colors::Color;
 use crate::fonts::{FontProperties, FontStyle, FontWeight};
@@ -97,6 +98,12 @@ pub struct GridStyle {
     /// Effects the gridlines are drawn through (`path.effects` by
     /// default, as for any line).
     pub path_effects: Vec<PathEffect>,
+    /// The z-order of the gridlines (2, a line's, by default): a tick draws
+    /// its gridline first whatever its z-order, as matplotlib's `Tick.draw`
+    /// does, so this is only read back (`gridline.get_zorder`).
+    pub zorder: f64,
+    /// Their antialiasing, caps and joins.
+    pub stroke: GridStroke,
 }
 
 pltrs_core::archive_struct!(GridStyle {
@@ -104,7 +111,9 @@ pltrs_core::archive_struct!(GridStyle {
     alpha,
     linewidth,
     linestyle,
-    path_effects
+    path_effects,
+    zorder,
+    stroke
 });
 
 impl GridStyle {
@@ -139,6 +148,8 @@ impl GridStyle {
                 .clone()
                 .unwrap_or_else(|| rc.grid_linestyle.clone()),
             path_effects: rc.path_effects.clone(),
+            zorder: 2.0,
+            stroke: GridStroke::from_rc(rc),
         }
     }
 }
@@ -162,6 +173,10 @@ pub struct GridOptions {
     /// Effects the gridlines are drawn through (matplotlib's
     /// `grid(path_effects=...)`).
     pub path_effects: Option<Vec<PathEffect>>,
+    /// The z-order of the gridlines (see [`GridStyle::zorder`]).
+    pub zorder: Option<f64>,
+    /// Their antialiasing, caps and joins.
+    pub stroke: GridStrokeOptions,
 }
 
 impl GridOptions {
@@ -190,6 +205,10 @@ impl GridOptions {
         if let Some(effects) = &self.path_effects {
             style.path_effects.clone_from(effects);
         }
+        if let Some(zorder) = self.zorder {
+            style.zorder = zorder;
+        }
+        self.stroke.apply(&mut style.stroke);
     }
 }
 

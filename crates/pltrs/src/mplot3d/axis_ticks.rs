@@ -1,5 +1,6 @@
 //! The ticks of a 3-D axis: those drawn, every location with its label,
-//! their marks and gridlines, and ticking an axis of dates (matplotlib's
+//! what tick helpers know of the axis, their marks and gridlines, and
+//! ticking an axis of dates (matplotlib's
 //! `get_ticklocs`, `get_ticklabels`, `get_ticklines`, `get_gridlines` and
 //! `axis_date`, which `Axes3D` wraps as `get_zticks`, `get_zticklabels`,
 //! `get_zticklines`, `get_zgridlines` and `zaxis_date`).
@@ -8,9 +9,9 @@ use super::axis_draw::{GridLine3D, TickLine3D, grid_lines, tick_lines};
 use super::axis_handle::Axis3D;
 use super::state::{Axes3DState, prepare_one};
 use crate::artist::{ArtistHandle, LayoutContext};
-use crate::axes::TickSet;
+use crate::axes::{AxisName, TickSet};
 use crate::dates::TimeZone;
-use crate::ticker::TickerError;
+use crate::ticker::{AxisInfo, TickerError};
 use crate::transforms::TransformContext;
 use crate::units::UnitHandle;
 
@@ -53,6 +54,38 @@ impl Axis3D {
     /// When a locator or formatter fails.
     pub fn ticklocs(&self, minor: bool) -> Result<Vec<f64>, TickerError> {
         Ok(self.ticks()?.unclipped_locs(minor))
+    }
+
+    /// What a locator or formatter attached to this axis knows of it: its
+    /// intervals, smallest positive datum, scale, major tick locations
+    /// and tick space, along the width of the axes (matplotlib's helpers
+    /// query their `Axis`, and every 3-D axis is an `XAxis`).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.set_zlim(0.0, 2.0)?;
+    /// let info = ax.zaxis().info()?;
+    /// assert_eq!(info.view_interval, (0.0, 2.0));
+    /// assert!(info.three_d);
+    /// assert_eq!(info.major_ticks, ax.zaxis().ticklocs(false)?);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a locator or formatter fails.
+    pub fn info(&self) -> Result<AxisInfo, TickerError> {
+        let major_ticks = self.ticklocs(false)?;
+        let points = (self.axes.raw().figure_state().borrow())
+            .axis_length_points(self.axes.id(), AxisName::X);
+        let dir = self.dir;
+        Ok(self.axes.with(|axes| AxisInfo {
+            major_ticks,
+            ..axes
+                .axis(dir)
+                .info(&axes.limits.span(dir), points.unwrap_or(0.0))
+        }))
     }
 
     /// The labels of the [`ticklocs`](Self::ticklocs) on each side that

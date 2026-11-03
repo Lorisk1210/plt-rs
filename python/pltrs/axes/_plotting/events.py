@@ -4,7 +4,7 @@ Events and stems: `~.Axes.eventplot` and `~.Axes.stem`.
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll, colors as mcolors, lines as mlines
+from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
@@ -25,6 +25,26 @@ def _per_row(name, values, n):
     if len(values) != n:
         raise ValueError(f'{name} and positions are unequal sized sequences')
     return list(values)
+
+
+def _remember_rows(collections, lineoffsets, linelengths, linewidths):
+    """Keep the offsets, lengths and widths of the event *collections* as
+    matplotlib types them: the numpy scalars of the arguments as arrays,
+    one offset spreading to the cumulative sums."""
+    n = len(collections)
+    lineoffsets, linelengths, linewidths = (
+        np.asarray(lineoffsets), np.asarray(linelengths), np.asarray(linewidths))
+    if len(lineoffsets) == 1 and n != 1:
+        lineoffsets = np.tile(lineoffsets, n)
+        lineoffsets[0] = 0
+        lineoffsets = np.cumsum(lineoffsets)
+    rows = zip(collections, np.broadcast_to(lineoffsets, n),
+               np.broadcast_to(linelengths, n), np.broadcast_to(linewidths, n))
+    for collection, offset, length, width in rows:
+        _values.remember_all(collection, {"lineoffset": offset, "linelength": length},
+                             ("lineoffset", "linelength"))
+        if width is not None:
+            _values.remember(collection, "linewidth", np.atleast_1d(width))
 
 
 class EventsMixin:
@@ -92,6 +112,7 @@ class EventsMixin:
         except ValueError:
             pass
         n = len(positions)
+        given = (lineoffsets, linelengths, linewidths)
         lineoffsets = np.asarray(lineoffsets, dtype=float)
         if len(lineoffsets) == 1 and n != 1:
             lineoffsets = np.tile(lineoffsets, n)
@@ -119,6 +140,7 @@ class EventsMixin:
              [1.0 if a is None else float(a) for a in alpha],
              [mcoll._native_style(ls) for ls in linestyles]))
         collections = wrap_all(self, native, mcoll.EventCollection)
+        _remember_rows(collections, *given)
         for collection in collections:
             collection._internal_update(kwargs)
         return collections

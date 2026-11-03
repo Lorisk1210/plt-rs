@@ -10,7 +10,7 @@ of another figure, or outside any, clips with its outline as it is when
 it is given.
 """
 
-from . import _api, _live_transforms
+from . import _api, _live_transforms, _mirrors
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 from .path import Path
@@ -91,9 +91,9 @@ def clip_path_spec(path, transform=None):
     """
     from .patches import Patch, Rectangle
     if transform is None:
-        background_spec = getattr(path, "_clip_spec", None)
-        if background_spec is not None:
-            return background_spec()
+        mirrored = _mirrors.ask(path, "clip_spec")
+        if mirrored is not _mirrors.OWN:
+            return mirrored
         if isinstance(path, Rectangle):
             return ("bbox", *_placed(path))
         if isinstance(path, Patch):

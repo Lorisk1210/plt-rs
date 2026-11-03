@@ -153,6 +153,11 @@ class AspectMixin:
             *None* will disable a fixed box aspect so that height and width
             of the Axes are chosen independently.
         """
+        if aspect is not None:
+            # The twinned Axes adjust their data limits from now on (which
+            # Axes overriding get_data_ratio refuse), as matplotlib's do.
+            for ax in self._twinned_axes.get_siblings(self):
+                ax.set_adjustable("datalim")
         _axes_base.set_box_aspect(self._native,
                                   None if aspect is None else float(aspect))
 
@@ -169,8 +174,16 @@ class AspectMixin:
     def get_data_ratio(self):
         """
         Return the aspect ratio of the scaled data.
+
+        Notes
+        -----
+        This method is intended to be overridden by new projection types.
         """
-        return _axes_base.get_data_ratio(self._native)
+        txmin, txmax = self.xaxis.get_transform().transform(self.get_xbound())
+        tymin, tymax = self.yaxis.get_transform().transform(self.get_ybound())
+        xsize = max(abs(txmax - txmin), 1e-30)
+        ysize = max(abs(tymax - tymin), 1e-30)
+        return ysize / xsize
 
     def _get_aspect_ratio(self):
         """

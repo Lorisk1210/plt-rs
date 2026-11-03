@@ -3,7 +3,7 @@
 use pltrs::figure::{Figure, PdfPages};
 use pltrs_render::PdfRenderer;
 
-use super::print::{DocumentMetadata, PrintSettings};
+use super::print::{DocumentMetadata, PrintSettings, sending_draw_event};
 use crate::binding::prelude::*;
 
 /// A PDF document collecting pages, until it is closed.
@@ -49,16 +49,18 @@ fn pdf_pages_new(metadata: Option<DocumentMetadata>) -> PyResult<PdfDocument> {
 }
 
 /// Adds `figure` as a new page, saved with `settings` (those of
-/// `print_figure`).
+/// `print_figure`), calling `on_draw` once it is drawn.
 fn pdf_pages_savefig(
     document: Native<PdfDocument>,
     figure: Figure,
     settings: PrintSettings,
+    on_draw: Option<Callback>,
 ) -> PyResult<()> {
-    Ok(document
-        .borrow_mut()
-        .pages()?
-        .savefig_with(&figure, settings.0)?)
+    let mut document = document.borrow_mut();
+    let pages = document.pages()?;
+    Ok(sending_draw_event(&figure, on_draw, || {
+        pages.savefig_with(&figure, settings.0)
+    })?)
 }
 
 /// How many pages the document has.

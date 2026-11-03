@@ -5,7 +5,7 @@ Bars: `~.Axes.bar`, `~.Axes.barh`, `~.Axes.broken_barh` and
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll, colors as mcolors, lines as mlines
+from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ... import patches as mpatches, units as munits
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -30,6 +30,27 @@ def _converted_span(convert, start, extent):
         return start, extent
     low, high = convert((start, start + extent))
     return low, high - low
+
+
+def _bar_geometry(patches, vertical, align, x, y, width, height):
+    """
+    Keep the geometry of the bars *patches* as matplotlib types it (the
+    numpy scalars of the arguments broadcast, then of the left or bottom
+    edges centred), and return the values the bars show, as
+    `.BarContainer` keeps them (*height*, or *width* for horizontal bars).
+    """
+    try:
+        x, height, width, y = np.broadcast_arrays(np.atleast_1d(x), height, width, y)
+        if align == 'center' and vertical:
+            x = x - width / 2
+        elif align == 'center':
+            y = y - height / 2
+    except (TypeError, ValueError):
+        return None
+    for patch, *fields in zip(patches, x, y, width, height):
+        _values.remember_all(patch, dict(zip(("x", "y", "width", "height"), fields)),
+                             mpatches.Rectangle._FIELDS)
+    return height if vertical else width
 
 
 def _errorbar_style(error_kw):
@@ -242,6 +263,8 @@ class BarsMixin:
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
         for patch in patches:
             patch._internal_update(kwargs)
+        datavalues = _bar_geometry(patches, orientation == 'vertical', align,
+                                   x, y, width, height)
         errorbar_container = None
         if errorbar is not None:
             enative, data_line, caplines, barcols = errorbar
@@ -252,7 +275,8 @@ class BarsMixin:
                 has_xerr=xerr is not None, has_yerr=yerr is not None,
                 label=error_label), enative)
         container = BarContainer(patches, errorbar_container,
-                                 datavalues=np.asarray(values),
+                                 datavalues=(np.asarray(values) if datavalues is None
+                                             else datavalues),
                                  orientation=orientation,
                                  label=bar_container_label)
         return record_container(self, container, native)

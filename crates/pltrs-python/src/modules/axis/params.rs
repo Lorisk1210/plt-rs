@@ -4,12 +4,13 @@
 
 use pltrs::axes::{AxisName, GridOptions, TickLevel, TickParams};
 use pltrs::fonts::FontSize;
+use pltrs::lines::LineStyle;
 use pltrs::mplot3d::{Axis3, Axis3D};
 
 use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
-use crate::modules::lines::{PyLineStyle, parse};
+use crate::modules::lines::{PyLineStyle, cap_style, join_style, parse};
 use crate::modules::patheffects::path_effects;
 
 /// A font size given as points or as a keyword (`"large"`).
@@ -42,6 +43,21 @@ fn label_rotation(params: &mut TickParams, value: &Bound<'_>) -> PyResult<()> {
     });
     params.labelrotation = Some(angle);
     Ok(())
+}
+
+/// The line style `Line2D.set_dashes(seq)` gives: solid for an empty
+/// sequence or `(None, None)`, else the dashes `(0, seq)`.
+fn dashes(value: &Bound<'_>) -> PyResult<LineStyle> {
+    let none_none = value
+        .extract::<(Option<f64>, Option<f64>)>()
+        .is_ok_and(|pair| pair == (None, None));
+    if none_none || value.try_iter()?.next().is_none() {
+        return Ok(LineStyle::Solid);
+    }
+    Ok((0.0, value.clone())
+        .into_py(value.py())?
+        .extract::<PyLineStyle>()?
+        .0)
 }
 
 /// Sets the side switch `key` (`tick1On`, `label2On`, ...) of axis
@@ -88,7 +104,48 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
             "grid_linestyle" | "grid_ls" => {
                 params.grid_linestyle = Some(value.extract::<PyLineStyle>()?.0);
             }
+            "grid_dashes" => params.grid_linestyle = Some(dashes(&value)?),
             "grid_path_effects" => params.grid_path_effects = Some(path_effects(&value)?),
+            "grid_zorder" => params.grid_zorder = Some(value.extract()?),
+            "grid_antialiased" | "grid_aa" => {
+                params.grid_stroke.antialiased = Some(value.is_truthy()?);
+            }
+            "grid_solid_capstyle" => params.grid_stroke.solid_capstyle = Some(cap_style(&value)?),
+            "grid_dash_capstyle" => params.grid_stroke.dash_capstyle = Some(cap_style(&value)?),
+            "grid_solid_joinstyle" => {
+                params.grid_stroke.solid_joinstyle = Some(join_style(&value)?);
+            }
+            "grid_dash_joinstyle" => params.grid_stroke.dash_joinstyle = Some(join_style(&value)?),
+            // Line properties the gridlines do not draw with: matplotlib's
+            // ticks make their gridline without a marker and place it
+            // themselves.
+            "grid_markersize"
+            | "grid_ms"
+            | "grid_markeredgecolor"
+            | "grid_mec"
+            | "grid_markeredgewidth"
+            | "grid_mew"
+            | "grid_markerfacecolor"
+            | "grid_mfc"
+            | "grid_markerfacecoloralt"
+            | "grid_mfcalt"
+            | "grid_fillstyle"
+            | "grid_markevery"
+            | "grid_pickradius"
+            | "grid_picker"
+            | "grid_label"
+            | "grid_data"
+            | "grid_xdata"
+            | "grid_ydata"
+            | "grid_transform" => {}
+            // matplotlib's ticks make their gridline with a marker and a
+            // visibility of their own, which these would give twice.
+            "grid_marker" | "grid_visible" => {
+                return Err(PyErr::type_error(format!(
+                    "Line2D() got multiple values for keyword argument '{}'",
+                    &key["grid_".len()..]
+                )));
+            }
             _ => {
                 return Err(PyErr::new(
                     ExceptionKind::NotImplementedError,

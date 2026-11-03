@@ -5,7 +5,7 @@ Pseudocolour plots: `~.Axes.pcolor` and `~.Axes.pcolormesh`.
 import numpy as np
 
 from ... import _api, _live_transforms, cbook, collections as mcoll
-from ..._native import plotting as _plotting
+from ..._native import collections as _collections, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ._helpers import convert_units, wrap
 from .scatter import _mapping
@@ -42,9 +42,11 @@ def _mesh_args(axes, fn, args):
 class MeshMixin:
     """`pcolor` and `pcolormesh`."""
 
-    def _pcolor(self, fn, polygons, args, shading, mapping, cls, kwargs):
+    def _pcolor(self, fn, polygons, args, shading, mapping, cls, kwargs,
+                antialiased=None):
         """The collection of `pcolor` (*polygons*) or `pcolormesh`, mapping
-        its values as *mapping* (`_mapping`'s pair) says."""
+        its values as *mapping* (`_mapping`'s pair) says; the mesh of
+        `pcolormesh` is drawn *antialiased* or not."""
         if shading is not None:
             _api.check_in_list(['flat', 'nearest', 'gouraud', 'auto'],
                                shading=shading.lower())
@@ -61,6 +63,10 @@ class MeshMixin:
             native = _plotting.pcolor(self._native, polygons, C, coords, placement,
                                       native_mapping)
         collection = wrap(self, native, cls)
+        if antialiased is not None:
+            # matplotlib's mesh draws with the antialiasing it is made with,
+            # apart from the collection's own (`.QuadMesh.get_antialiased`).
+            _collections.set_antialiaseds(collection._native, [bool(antialiased)])
         collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
         return collection
@@ -112,7 +118,6 @@ class MeshMixin:
         """
         if alpha is not None:
             kwargs["alpha"] = alpha
-        kwargs.setdefault("antialiased", antialiased)
         return self._pcolor("pcolormesh", False, args, shading,
                             _mapping(cmap, norm, vmin, vmax, colorizer),
-                            mcoll.QuadMesh, kwargs)
+                            mcoll.QuadMesh, kwargs, antialiased)

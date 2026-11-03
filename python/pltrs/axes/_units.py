@@ -90,10 +90,15 @@ class UnitsMixin:
     def _converted_extent(self, extent, kwargs=None):
         """The image extent ``(left, right, bottom, top)`` in axis numbers,
         its units taken by the axes (matplotlib's ``AxesImage.set_extent``)."""
+        return tuple(map(float, self._extent_values(extent, kwargs)))
+
+    def _extent_values(self, extent, kwargs=None):
+        """The image extent ``[left, right, bottom, top]`` converted from
+        its units, the numbers as given (matplotlib's ``AxesImage._extent``)."""
         (xmin, xmax), (ymin, ymax) = self._process_unit_info(
             [("x", [extent[0], extent[1]]), ("y", [extent[2], extent[3]])],
             kwargs)
-        return tuple(map(float, (xmin, xmax, ymin, ymax)))
+        return [xmin, xmax, ymin, ymax]
 
     def _unit_change_handler(self, axis_name):
         """

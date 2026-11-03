@@ -14,7 +14,8 @@
 
 use std::rc::Rc;
 
-use pltrs::axes::{Axes, Axis};
+use pltrs::axes::{Axes, AxisName};
+use pltrs::mplot3d::Axes3D;
 use pltrs::ticker::{Formatter, Locator, ScalarFormatter, TickerSettings};
 use pltrs::units::UnitAxisInfo;
 
@@ -225,12 +226,24 @@ fn install_formatter(
 
 /// The four tick helpers of `axis`: the major and minor locators, then
 /// the major and minor formatters.
-fn tick_helpers(axis: &Axis) -> [TickHelper; 4] {
+fn tick_helpers(axis: &AnyAxis) -> [TickHelper; 4] {
+    let (locators, formatters) = match axis {
+        AnyAxis::Flat(axis) => (
+            [axis.major_locator(), axis.minor_locator()],
+            [axis.major_formatter(), axis.minor_formatter()],
+        ),
+        AnyAxis::Deep(axis) => (
+            [axis.major_locator(), axis.minor_locator()],
+            [axis.major_formatter(), axis.minor_formatter()],
+        ),
+    };
+    let [major_locator, minor_locator] = locators.map(TickHelper::Locator);
+    let [major_formatter, minor_formatter] = formatters.map(TickHelper::Formatter);
     [
-        TickHelper::Locator(axis.major_locator()),
-        TickHelper::Locator(axis.minor_locator()),
-        TickHelper::Formatter(axis.major_formatter()),
-        TickHelper::Formatter(axis.minor_formatter()),
+        major_locator,
+        minor_locator,
+        major_formatter,
+        minor_formatter,
     ]
 }
 
@@ -241,7 +254,7 @@ fn tick_helpers(axis: &Axis) -> [TickHelper; 4] {
 /// them, or `None`. Returns, for each helper given, the identity of the
 /// helper in use if it was installed, `None` where the axis kept its own.
 fn use_axis_info(
-    axes: Axes,
+    owner: AxisOwner,
     name: String,
     helpers: Vec<Option<(Owned, bool)>>,
     label: Option<String>,
@@ -274,9 +287,16 @@ fn use_axis_info(
         info.majfmt.is_some(),
         info.minfmt.is_some(),
     ];
-    let axis = axis(&axes, &name)?;
+    let axis = owner.axis(&name)?;
     let before = tick_helpers(&axis);
-    axis.take_axis_info(&info);
+    match &axis {
+        AnyAxis::Flat(axis) => {
+            axis.take_axis_info(&info);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.take_axis_info(&info);
+        }
+    }
     Ok(tick_helpers(&axis)
         .into_iter()
         .zip(before)
@@ -341,9 +361,15 @@ fn helper_format_data(
 /// The value `value` along axis `name` as a `ScalarFormatter` writes it
 /// for the cursor: with as many digits as a screen pixel resolves around
 /// it (matplotlib's `format_data_short` on an axis); `None` while the
-/// axes has no extent.
+/// axes has no extent. Every axis of a 3-D axes is an `XAxis`, measured
+/// along the x axis of the axes' 2-D data coordinates: those of its
+/// projection plane, which its native object converts to.
 fn format_data_short(axes: Axes, name: String, value: f64) -> PyResult<Option<String>> {
-    let name = axis(&axes, &name)?.name();
+    let name = if Axes3D::of_plane(&axes).is_some() {
+        AxisName::X
+    } else {
+        axis(&axes, &name)?.name()
+    };
     let settings = TickerSettings::from(&*pltrs::rc::params());
     axes.pixel_resolution(name, value)
         .map(|resolution| ScalarFormatter::format_data_resolved(value, resolution, &settings))

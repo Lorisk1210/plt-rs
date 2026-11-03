@@ -461,10 +461,26 @@ def image_rms(expected: pathlib.Path, actual: pathlib.Path) -> tuple[float | Non
     return float(np.sqrt(((a - b).astype(float) ** 2).mean())), ""
 
 
+def _figures_by_key(mpl: dict, pltrs: dict) -> tuple[dict, dict]:
+    """The figures of both runs keyed by number, or by label when the
+    runs opened other numbers but each figure has a label of its own
+    (``plt.subplots(num=label)``): one figure more under either then
+    leaves the others paired."""
+    def keyed(figures: list[dict], key: str) -> dict:
+        return {f.get(key): f for f in figures}
+    a, b = keyed(mpl["figures"], "number"), keyed(pltrs["figures"], "number")
+    if sorted(a) != sorted(b):
+        labels_a, labels_b = keyed(mpl["figures"], "label"), keyed(pltrs["figures"], "label")
+        labelled = all(len(labels) == len(figures) and "" not in labels and None not in labels
+                       for labels, figures in ((labels_a, a), (labels_b, b)))
+        if labelled:
+            return labels_a, labels_b
+    return a, b
+
+
 def _compare_figures(program: str, mpl: dict, pltrs: dict, mpl_dir: pathlib.Path,
                      pltrs_dir: pathlib.Path) -> Iterator[Difference]:
-    a = {f["number"]: f for f in mpl["figures"]}
-    b = {f["number"]: f for f in pltrs["figures"]}
+    a, b = _figures_by_key(mpl, pltrs)
     if sorted(a) != sorted(b):
         yield Difference(program, "image", "image: other figures open", "figures", f"{sorted(a)} != {sorted(b)}")
     for number in sorted(set(a) & set(b)):

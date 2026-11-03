@@ -240,7 +240,8 @@ mod tests {
                 .unwrap();
             assert!(id > 0, "the figure itself is artist 0");
             let png = "png".into_py(py).unwrap();
-            let args = [figure, png, eval(py, "", "{'metadata': {'Title': 'line'}}")];
+            let settings = eval(py, "", "{'metadata': {'Title': 'line'}}");
+            let args = [figure, png, settings, Bound::none(py)];
             let bytes = call(&native, "backends", "print_figure", &args).unwrap();
             assert!(bytes.repr().unwrap().starts_with("b'\\x89PNG"));
         });

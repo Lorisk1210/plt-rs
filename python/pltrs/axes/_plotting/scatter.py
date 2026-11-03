@@ -299,6 +299,8 @@ class ScatterMixin:
             (None if alpha is None else float(alpha), alphas),
             (bool(plotnonfinite), _live_transforms.given_to_native(offset_transform)))
         collection = wrap(self, native, mcoll.PathCollection)
+        # matplotlib's scatter gives its marker path as a tuple.
+        collection._paths_container = tuple
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)

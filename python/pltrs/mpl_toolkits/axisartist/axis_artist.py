@@ -19,6 +19,7 @@ from pltrs.collections import LineCollection
 from pltrs.transforms import Bbox
 from pltrs._native import artist as _artist, axisartist as _axisartist
 from ._own_texts import OwnTexts
+from ._part_properties import LineProperties, TextProperties
 
 
 class _Part:
@@ -74,7 +75,8 @@ class _TickStyle:
         return _auto(self._own_style()[1])
 
 
-class Ticks(AttributeCopier, _TickStyle, martist.Artist):
+@_api.define_aliases({"markeredgecolor": ["mec"], "markeredgewidth": ["mew"]})
+class Ticks(AttributeCopier, _TickStyle, LineProperties, martist.Artist):
     """
     Ticks are derived from `.Line2D`, and note that ticks themselves
     are markers. Thus, you should use set_mec, set_mew, etc.
@@ -88,6 +90,10 @@ class Ticks(AttributeCopier, _TickStyle, martist.Artist):
     (``ax.add_artist(ticks)``); the ticks of an `AxisArtist`
     (``axis.major_ticks``) are those it draws.
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     def get_window_extent(self, renderer=None):
         """Return the ticks' box in display space, where pltrs (Rust) lays
@@ -190,7 +196,9 @@ class Ticks(AttributeCopier, _TickStyle, martist.Artist):
         else:
             self._set_native("markeredgewidth", width)
 
-    set_mew = set_markeredgewidth
+    # The colour the marks are drawn in, as matplotlib's `Ticks.draw`
+    # strokes them in their edge colour.
+    set_markeredgecolor = set_color
 
     def set_visible(self, b):
         # docstring inherited
@@ -249,7 +257,9 @@ class Ticks(AttributeCopier, _TickStyle, martist.Artist):
         return _handles.adopt(self, native, axes.figure)
 
 
-class LabelBase(martist.Artist):
+@_api.define_aliases({"horizontalalignment": ["ha"],
+                      "verticalalignment": ["va"], "fontsize": ["size"]})
+class LabelBase(TextProperties, martist.Artist):
     """
     A base class for `.AxisLabel` and `.TickLabels`: the texts of an
     axis artist, placed at a distance from their reference point.
@@ -260,6 +270,10 @@ class LabelBase(martist.Artist):
     pixels from its point towards ``_ref_angle`` degrees, turned by that
     direction.
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     def get_window_extent(self, renderer=None):
         """Return the label's box in display space, where pltrs (Rust)
@@ -312,6 +326,18 @@ class LabelBase(martist.Artist):
         axes added them."""
         if self._figure is not None:
             _axisartist.set_axis_texts(self._native, self._own.description())
+
+    def _native_look(self):
+        """How pltrs (Rust) typesets the texts beyond their size, colour,
+        angle and alignment (see `._part_properties.TextProperties`)."""
+        if self._part is not None:
+            return _axisartist.get_label_look(self._part._native,
+                                              self._part._name)
+        return self._own.props["look"]
+
+    def _set_look(self, look):
+        """Have pltrs (Rust) typeset the texts as *look* says."""
+        self._set("look", look)
 
     def _get(self, key):
         """Return the property *key* of the texts."""
@@ -419,31 +445,53 @@ class LabelBase(martist.Artist):
         """Return the rotation of the texts in degrees."""
         return self._get("rotation")
 
-    def set_ha(self, align):
+    def set_horizontalalignment(self, align):
         """Set the horizontal alignment of the texts."""
         self._set("ha", align)
 
-    def set_va(self, align):
+    def set_verticalalignment(self, align):
         """Set the vertical alignment of the texts."""
         self._set("va", align)
 
-    set_horizontalalignment = set_ha
-    set_verticalalignment = set_va
-
-    def set_size(self, size):
+    def set_fontsize(self, fontsize):
         """Set the font size of the texts in points."""
-        self._set("size", float(size))
+        self._set("size", float(fontsize))
 
-    def get_size(self):
+    def get_fontsize(self):
         """Return the font size of the texts in points."""
         return self._get("size")
-
-    set_fontsize = set_size
-    get_fontsize = get_size
 
     def set_text(self, s):
         """Set the text."""
         self._set("text", "" if s is None else str(s))
+
+    def set_x(self, x):
+        """Set the x position of the text's reference point (an axis
+        artist places its texts itself when it draws, as matplotlib's)."""
+        if self._part is None:
+            self._own.props["x"] = x
+            self._push()
+        else:
+            self._props_text().set_x(x)
+
+    def set_y(self, y):
+        """Set the y position of the text's reference point."""
+        if self._part is None:
+            self._own.props["y"] = y
+            self._push()
+        else:
+            self._props_text().set_y(y)
+
+    def set_position(self, xy):
+        """Set the ``(x, y)`` position of the text's reference point."""
+        self.set_x(xy[0])
+        self.set_y(xy[1])
+
+    def get_position(self):
+        """Return the ``(x, y)`` position of the text's reference point."""
+        if self._part is None:
+            return self._own.props["x"], self._own.props["y"]
+        return self._props_text().get_position()
 
     def get_text(self):
         """Return the text."""
@@ -615,6 +663,10 @@ class GridlinesCollection(LineCollection):
     axes drawn by axis artists are drawn by pltrs (Rust) through the axes'
     grid helper (``ax.grid()`` styles them).
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     def __init__(self, *args, which="major", axis="both", **kwargs):
         """

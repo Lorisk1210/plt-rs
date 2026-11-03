@@ -5,7 +5,7 @@
 //! them: `(N, 4)` RGBA arrays, `None` for the default, and the edge
 //! colour `"face"`. Widths and line styles cross as lists.
 
-use pltrs::artist::ArtistHandle;
+use pltrs::artist::{ArtistHandle, RawHandle, TypedHandle};
 use pltrs::collections::{
     Collection, EdgeColors, EllipseCollection, EventCollection, HatchColors, MeshShading,
 };
@@ -123,6 +123,29 @@ fn set_alphas(collection: Collection, alphas: Vec<f64>) -> PyResult<()> {
     Ok(())
 }
 
+/// Sets (or clears) one opacity for every item of a collection (or of a
+/// triangle mesh, whose colours are mapped as it draws), the colours of
+/// a collection as set until the next draw maps the values again
+/// (matplotlib's `set_alpha` with a single value).
+fn set_alpha(artist: RawHandle, alpha: Option<f64>) -> PyResult<()> {
+    match Collection::from_raw_handle(&artist) {
+        Some(collection) => {
+            collection.set_uniform_alpha(alpha);
+        }
+        None => {
+            artist.set_alpha(alpha);
+        }
+    }
+    Ok(())
+}
+
+/// Maps the values onto the colours the getters report, as a draw does
+/// (matplotlib's `update_scalarmappable`).
+fn update_scalarmappable(collection: Collection) -> PyResult<()> {
+    collection.update_scalarmappable();
+    Ok(())
+}
+
 /// Sets the hatch pattern.
 fn set_hatch(collection: Collection, hatch: Option<String>) -> PyResult<()> {
     match hatch {
@@ -175,15 +198,16 @@ fn get_urls(collection: Collection) -> PyResult<Vec<Option<String>>> {
 }
 
 /// The style property `name` as matplotlib's getter returns it: face and
-/// edge colours as `(N, 4)` RGBA arrays after defaults, mapping and alpha
-/// (matplotlib's `get_facecolor` and `get_edgecolor`), widths and line
+/// edge colours as `(N, 4)` RGBA arrays after defaults, alpha and the
+/// mapping the last draw applied (matplotlib's `get_facecolor` and
+/// `get_edgecolor`, see `Collection::reported_colors`), widths and line
 /// styles as lists, the hatch, cap and join styles by name.
 fn get(collection: Collection, name: String) -> PyResult<Owned> {
     Python::with_gil(|py| {
         let style = collection.style();
         let colors = || {
             collection
-                .colors()
+                .reported_colors()
                 .map_err(|err| PyErr::value_error(err.to_string()))
         };
         let value = match name.as_str() {
@@ -524,6 +548,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_linestyles", set_linestyles)?;
     module.add("set_antialiaseds", set_antialiaseds)?;
     module.add("set_alphas", set_alphas)?;
+    module.add("set_alpha", set_alpha)?;
+    module.add("update_scalarmappable", update_scalarmappable)?;
     module.add("set_hatch", set_hatch)?;
     module.add("set_hatch_linewidth", set_hatch_linewidth)?;
     module.add("set_capstyle", set_capstyle)?;

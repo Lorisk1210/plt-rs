@@ -25,6 +25,11 @@ class InsetIndicator(artist.Artist):
 
     .. versionadded:: 3.10
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     zorder = 4.99
 
     def __init__(self, bounds=None, inset_ax=None, zorder=None, **kwargs):

@@ -143,6 +143,10 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         """The `.Spines` of the Axes: its `.Spine` objects by side."""
         from .._native import spines as _spines
         from ..spines import Spine, Spines
+        programmed = self.__dict__.get("_program_projection")
+        if programmed is not None:
+            # The spines a program's projection class made.
+            return Spines(**programmed.named_spines)
         spines = {name: _handles.wrap(native, Spine, self.figure)
                   for name, native in _spines.axes_spines(self._native)}
         colorbar = self.__dict__.get("_colorbar")
@@ -327,11 +331,13 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         ----------
         color : :mpltype:`color`
         """
-        _axes_base.set_facecolor(self._native, color)
+        self._facecolor = color
+        self.stale = True
+        return self.patch.set_facecolor(color)
 
     def get_facecolor(self):
         """Get the facecolor of the Axes."""
-        return _axes_base.get_facecolor(self._native)
+        return self.patch.get_facecolor()
 
     set_fc = set_facecolor
     get_fc = get_facecolor

@@ -96,6 +96,8 @@ class Cell(Rectangle):
     PAD = 0.1
     """Padding between text and rectangle."""
 
+    _default_colors = {"edgecolor": "k", "facecolor": "w"}
+
     _edges = 'BRTL'
     _edge_aliases = {'open':         '',
                      'closed':       _edges,  # default

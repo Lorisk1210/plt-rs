@@ -97,11 +97,6 @@ fn get_box_aspect(axes: Axes) -> PyResult<Option<f64>> {
     Ok(axes.box_aspect())
 }
 
-/// The ratio of the y to the x data span (matplotlib's `get_data_ratio`).
-fn get_data_ratio(axes: Axes) -> PyResult<f64> {
-    Ok(axes.data_ratio())
-}
-
 /// Draws the axes and its twins at their original positions again, until
 /// the aspect is next applied (`reset_position`).
 fn reset_position(axes: Axes) -> PyResult<()> {
@@ -145,7 +140,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_anchor", get_anchor)?;
     module.add("set_box_aspect", set_box_aspect)?;
     module.add("get_box_aspect", get_box_aspect)?;
-    module.add("get_data_ratio", get_data_ratio)?;
     module.add("data_lim", data_lim)?;
     module.add("reset_position", reset_position)?;
     module.add("apply_aspect", apply_aspect)
@@ -174,7 +168,6 @@ mod tests {
         assert_eq!(get_box_aspect(ax.clone()).unwrap(), Some(1.0));
         apply_aspect(ax.clone(), None).unwrap();
         apply_aspect(ax.clone(), Some((0.0, 0.0, 1.0, 1.0))).unwrap();
-        assert!(get_data_ratio(ax.clone()).unwrap() > 0.0);
         let (_, minpos) = data_lim(ax).unwrap();
         assert_eq!(minpos, (f64::INFINITY, f64::INFINITY), "no data");
     }

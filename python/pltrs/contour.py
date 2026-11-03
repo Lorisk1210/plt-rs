@@ -8,12 +8,14 @@ matplotlib, the collection drawing its contours (``self._native``).
 """
 
 import functools
+import math
 from numbers import Integral
 
 import numpy as np
 from numpy import ma
 
-from . import _api, _blocking_input, _handles, collections as mcoll, colors as mcolors
+from . import (_api, _blocking_input, _handles, _values, cbook,
+               collections as mcoll, colors as mcolors)
 from ._native import artist as _artist, contour as _contour
 from .backend_bases import MouseButton
 from .path import Path
@@ -118,7 +120,8 @@ class ContourLabeler:
             fmt, (bool(rightside_up), None if zorder is None else float(zorder),
                   bool(use_clabeltext)), self._native_splitter)
         if not interactive:
-            return _handles.wrap_all(texts, Text, self.figure)
+            return cbook.silent_list(
+                'text.Text', _handles.wrap_all(texts, Text, self.figure))
         print('Select label locations manually using first mouse button.')
         print('End manual selection with second mouse button.')
         if not inline:
@@ -129,7 +132,7 @@ class ContourLabeler:
             timeout=-1, handler=functools.partial(
                 _contour_labeler_event_handler,
                 self, inline, inline_spacing))
-        return self.labelTexts
+        return cbook.silent_list('text.Text', self.labelTexts)
 
     def _native_splitter(self, vertices, codes, idx, screen_pos, lw, spacing):
         """What pltrs (Rust) calls for each label it places: matplotlib's
@@ -376,7 +379,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def _native_array(self):
         if not hasattr(self, "_contour"):
             return None
-        return _contour.get_cvalues(self._contour)[0]
+        return cbook.safe_masked_invalid(_contour.get_cvalues(self._contour)[0])
 
     def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
         # Explicit colors are indexed through a NoNorm (matplotlib's
@@ -392,6 +395,19 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     def levels(self):
         """The contour levels."""
         return _contour.get_levels(self._contour)
+
+    @property
+    def _levels(self):
+        """The levels with the extended ends added, -1e250 and 1e250 (1e-250
+        on a log scale), as matplotlib's ``_process_levels`` keeps them."""
+        levels = list(self.levels)
+        lower, upper = ((1e-250, 1e250) if isinstance(self.norm, mcolors.LogNorm)
+                        else (-1e250, 1e250))
+        if self.extend in ('both', 'min'):
+            levels.insert(0, lower)
+        if self.extend in ('both', 'max'):
+            levels.append(upper)
+        return np.asarray(levels)
 
     @property
     def layers(self):
@@ -412,12 +428,12 @@ class ContourSet(ContourLabeler, mcoll.Collection):
     @property
     def zmin(self):
         """The smallest value of the data."""
-        return _contour.get_state(self._contour)[1]
+        return np.float64(_contour.get_state(self._contour)[1])
 
     @property
     def zmax(self):
         """The largest value of the data."""
-        return _contour.get_state(self._contour)[2]
+        return np.float64(_contour.get_state(self._contour)[2])
 
     @property
     def extend(self):
@@ -448,20 +464,39 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         for p in self.get_paths()])
 
     def get_linewidth(self):
-        """Return the line widths of the levels."""
-        return np.asarray(_contour.get_linewidths(self._contour))
+        """Return the line widths of the levels (of the collection, for
+        filled contours)."""
+        if self.filled:
+            return super().get_linewidth()
+        # The widths given, which pltrs (Rust) holds one per level, as
+        # matplotlib broadcasts them against the dash patterns of the line
+        # styles (``_bcast_lwls``; one per level until a style is set).
+        native = np.asarray(_contour.get_linewidths(self._contour))
+        widths = np.atleast_1d(_values.given(self, "linewidth", native,
+                                             same=_values.same_cycled))
+        dashes = len(self._get("linestyle"))
+        if len(widths) == dashes or not dashes:
+            return widths
+        return list(widths) * (dashes // math.gcd(dashes, len(widths)))
 
     get_linewidths = get_linewidth
 
     def set_linewidth(self, lw):
-        """Set the line widths of the levels."""
-        _contour.set_linewidths(self._contour, [float(w) for w in np.atleast_1d(lw)])
+        """Set the line widths of the levels (of the collection's edges, for
+        filled contours)."""
+        lw = np.atleast_1d(lw)
+        if self.filled:
+            super().set_linewidth(lw)
+            return
+        _contour.set_linewidths(self._contour, [float(w) for w in lw])
+        _values.remember(self, "linewidth", lw)
 
     set_linewidths = set_linewidth
 
     def get_edgecolor(self):
-        """Return the colors of the levels (line contours)."""
-        return _contour.get_colors(self._contour)
+        """Return the edge colors: those of the levels for line contours
+        until others are set, none for filled contours."""
+        return super().get_edgecolor()
 
     get_edgecolors = get_edgecolor
 
@@ -550,6 +585,8 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         if hasattr(self, "_contour"):
             _contour.set_mapping(self._contour, self.cmap, self.norm,
                                  self._norm_replaced())
+            # matplotlib's ``changed`` maps the contour values again.
+            self._A = self._native_array()
         super(mcoll.Collection, self).changed()
 
     alpha = property(lambda self: self.get_alpha())

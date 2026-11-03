@@ -3,7 +3,7 @@
 //! the background and everything up to it become one image in vector
 //! output.
 
-use pltrs_render::{ClipPath, JoinStyle};
+use pltrs_render::ClipPath;
 
 use super::Axes;
 use super::axis_layout::AxisPainter;
@@ -12,6 +12,7 @@ use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistStore, DrawContext};
 use crate::axes_grid1::{is_parasite, parasites_of};
 use crate::image::Compositor;
 use crate::legend::LegendArtist;
+use crate::patches::PatchPaint;
 use crate::patheffects::with_path_effects;
 use crate::ticker::AxisName;
 use crate::transforms::unit_to_bbox;
@@ -173,27 +174,16 @@ impl AxesState {
         }
         ctx.renderer()
             .open_part_group("patch", self.patch.gid.as_deref());
-        match (
-            self.patch.facecolor.resolve(),
-            self.patch.edgecolor.resolve(),
-        ) {
-            (Ok(face), Ok(edge)) => {
-                // A transparent face is left unfilled, a transparent edge
-                // unstroked.
+        // A transparent face is left unfilled, a transparent edge
+        // unstroked, as for any patch.
+        match PatchPaint::new(&self.patch.style, &self.rc, self.patch.alpha, false) {
+            Ok(paint) => {
                 let mut gc = ctx.base_gc(base);
-                gc.linewidth = if edge.is_transparent() {
-                    0.0
-                } else {
-                    self.patch.linewidth
-                };
-                gc.foreground = edge;
-                gc.join = JoinStyle::Miter;
                 if self.patch_outline.is_some() {
                     // Floating axes clip their outline to the axes box
                     // (matplotlib's `patch.set_clip_path(orig_patch)`).
                     gc.clip_rect = Some(extent);
                 }
-                let face = (!face.is_transparent()).then_some(face);
                 let outline = ctx
                     .layout()
                     .clip_outline(base.id())
@@ -203,15 +193,17 @@ impl AxesState {
                     });
                 let drawn = ctx.draw_artist(false, |ctx| {
                     with_path_effects(ctx, &base.path_effects, |ctx| {
-                        ctx.renderer()
-                            .draw_path(&gc, &outline.path, &outline.transform, face);
+                        paint.paint(gc.clone(), |gc, face| {
+                            ctx.renderer()
+                                .draw_path(gc, &outline.path, &outline.transform, face);
+                        });
                     })
                 });
                 if let Err(err) = drawn {
                     ctx.report(base.id(), err);
                 }
             }
-            (Err(err), _) | (_, Err(err)) => ctx.report(base.id(), err),
+            Err(err) => ctx.report(base.id(), err),
         }
         ctx.renderer().close_part_group("patch");
     }

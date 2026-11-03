@@ -326,12 +326,12 @@ mod tests {
                 adopt_into_axes(ax.clone(), line.raw().clone(), "line".into(), true).unwrap();
             let object = adopted.clone().into_py(py).unwrap();
             let typed: Line2D = object.extract().unwrap();
-            assert_eq!(ax.lines(), [typed]);
+            assert_eq!(ax.lines(), std::slice::from_ref(&typed));
             let err = object.extract::<Axes>().unwrap_err();
             assert_eq!(err.class_name(py), "TypeError");
-            let err =
-                adopt_into_axes(ax.clone(), adopted.clone(), "line".into(), true).unwrap_err();
-            assert_eq!(err.class_name(py), "ValueError", "already in the axes");
+            // matplotlib lists a line added again once more.
+            adopt_into_axes(ax.clone(), adopted.clone(), "line".into(), true).unwrap();
+            assert_eq!(ax.lines(), [typed.clone(), typed]);
             let err = adopt_into_axes(ax, adopted, "table".into(), true).unwrap_err();
             assert!(err.message(py).contains("no add_table method"));
         });

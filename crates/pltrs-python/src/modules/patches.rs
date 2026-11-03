@@ -25,6 +25,7 @@ use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
 mod arrow_route;
+mod background;
 mod connection;
 mod fancy;
 mod geometry;
@@ -533,6 +534,7 @@ fn set_fancy_bbox(
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    background::register(module)?;
     module.add("update", style::update)?;
     module.add("get", style::get)?;
     module.add("get_path", get_path)?;

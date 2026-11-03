@@ -7,12 +7,14 @@ use pltrs::axisartist::{
     AxisArtist, AxisArtistAxes, AxislineStyle, AxislineStyleError, LabelBase, TickMarks,
     TickMarksArtist, Toggle,
 };
+use pltrs::collections::Collection;
 use pltrs::colors::Color;
 use pltrs::text::{HAlign, VAlign};
 use pltrs::transforms::Point;
 
 use super::super::axes_grid1::side_named;
 use super::super::lines::PyLineStyle;
+use super::axis_texts::PyTextLook;
 use crate::binding::prelude::*;
 
 artist_handle!(AxisArtist);
@@ -130,6 +132,12 @@ fn grid(
     Ok(())
 }
 
+/// The collection of the gridlines of `axes` (matplotlib's
+/// `ax.gridlines`), `None` once removed.
+fn gridlines(axes: Axes) -> PyResult<Option<Collection>> {
+    Ok(AxisArtistAxes::of(axes).gridlines())
+}
+
 /// Turns the axis artist's texts to the conventions of an axis on
 /// `direction` (`set_axis_direction`).
 fn set_axis_direction(artist: AxisArtist, direction: String) -> PyResult<()> {
@@ -243,7 +251,8 @@ pub(super) fn label_part(artist: &AxisArtist, part: &str) -> PyResult<LabelBase>
 
 /// Sets the property `key` of a text part to `value` (`LabelBase.set_*`):
 /// `"axis_direction"`, `"pad"`, `"visible"`, `"color"`, `"rotation"`,
-/// `"ha"`, `"va"`, `"size"` or, for the label, `"text"`.
+/// `"ha"`, `"va"`, `"size"`, `"look"` (a [`PyTextLook`]) or, for the label,
+/// `"text"`.
 fn set_label(artist: AxisArtist, part: String, key: String, value: Owned) -> PyResult<()> {
     let label = label_part(&artist, &part)?;
     Python::with_gil(|py| {
@@ -272,6 +281,9 @@ fn set_label(artist: AxisArtist, part: String, key: String, value: Owned) -> PyR
             }
             "size" => {
                 label.set_size(value.extract()?);
+            }
+            "look" => {
+                label.set_look(value.extract::<PyTextLook>()?.0);
             }
             "text" if part == "label" => {
                 artist.label().set_text(value.str()?);
@@ -310,6 +322,13 @@ fn get_label(
         label.size(),
         text,
     ))
+}
+
+/// How a text part is typeset beyond its size, colour, angle and
+/// alignment (its font properties, line alignment and spacing, rotation
+/// mode).
+fn get_label_look(artist: AxisArtist, part: String) -> PyResult<PyTextLook> {
+    Ok(PyTextLook(label_part(&artist, &part)?.look()))
 }
 
 /// Sets the property `key` of the line to `value` (`line.set_*`):
@@ -414,6 +433,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new_floating_axis", new_floating_axis)?;
     module.add("assign", assign)?;
     module.add("grid", grid)?;
+    module.add("gridlines", gridlines)?;
     module.add("set_axis_direction", set_axis_direction)?;
     module.add("toggle", toggle)?;
     module.add("set_axisline_style", set_axisline_style)?;
@@ -422,6 +442,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_tick_locs_angles", get_tick_locs_angles)?;
     module.add("set_label", set_label)?;
     module.add("get_label", get_label)?;
+    module.add("get_label_look", get_label_look)?;
     module.add("set_line", set_line)?;
     module.add("get_line_visible", get_line_visible)?;
     module.add("tight_bbox", tight_bbox)?;

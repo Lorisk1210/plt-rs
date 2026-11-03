@@ -635,11 +635,13 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         else:
             _api.check_isinstance(Real, spacing=spacing)
             _text.set_linespacing(self._native, float(spacing))
+            _values.remember(self, "linespacing", spacing)
 
     def get_linespacing(self):
         """Get the line spacing."""
         spacing = _text.get_linespacing(self._native)
-        return 'normal' if spacing is None else spacing
+        return ('normal' if spacing is None
+                else _values.given(self, "linespacing", spacing))
 
     def _update_font(self, method, value):
         """Change the font properties with their setter *method*."""

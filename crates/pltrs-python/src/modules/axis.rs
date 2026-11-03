@@ -8,8 +8,10 @@
 //! in [`mirrors`], tick parameters in [`params`], its visibility, SVG
 //! group ids and the placing of its ticks in [`artist`] and the rest of
 //! what an axis is in [`settings`]. The axes of 3-D axes take part in
-//! the tick helpers, the mirrors, the tick parameters, the label pad, the
-//! tight box, the visibility and the group ids ([`owner`], [`deep`]).
+//! the tick helpers and the axis info, the mirrors, the tick parameters,
+//! the label pad, the tight box, minor ticks, clearing, the visibility
+//! and the group ids ([`owner`], [`deep`]); `axis3d.Axis` overrides the
+//! other methods.
 
 mod artist;
 mod deep;
@@ -34,10 +36,13 @@ use crate::binding::prelude::*;
 /// The axis `name` (`"x"` or `"y"`) of `axes`. The native object of a
 /// 3-D axes converts to its projection plane, whose axes are not those of
 /// the 3-D axes: functions serving these take an [`owner::AxisOwner`],
-/// and the others refuse the plane.
+/// and the others, whose methods `axis3d.Axis` overrides, refuse the
+/// plane.
 fn axis(axes: &Axes, name: &str) -> PyResult<Axis> {
     if Axes3D::of_plane(axes).is_some() {
-        return Err(owner::not_on_3d("this method of Axis"));
+        return Err(PyErr::type_error(
+            "the axes of 3-D axes are not those of their projection plane",
+        ));
     }
     match name {
         "x" => Ok(axes.xaxis()),

@@ -153,6 +153,14 @@ fn install_floating(
     Ok(())
 }
 
+/// Gives the parasite `aux` the background patch of the floating axes
+/// `host` (`aux_ax.patch = ax.patch`): it clips to the patch's outline and
+/// draws the patch again among its children.
+fn share_floating_patch(host: Axes, aux: Axes) -> PyResult<()> {
+    FloatingAxes::of(host).share_patch(&aux);
+    Ok(())
+}
+
 /// Clears the floating axes `axes` and fits it to its outline again
 /// (`FloatingAxes.clear`).
 fn clear_floating(axes: Axes) -> PyResult<()> {
@@ -190,6 +198,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("install_curvilinear", install)?;
     module.add("install_floating", install_floating)?;
     module.add("clear_floating", clear_floating)?;
+    module.add("share_floating_patch", share_floating_patch)?;
     module.add("adjust_floating_lim", adjust_floating_lim)?;
     module.add("set_nth_coord_ticks", set_nth_coord_ticks)?;
     module.add("set_extremes", set_extremes)?;

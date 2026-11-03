@@ -1,7 +1,6 @@
 //! The figure frame artist: the root figure and every subfigure.
 
 use pltrs_core::{Bbox, Path};
-use pltrs_render::JoinStyle;
 
 use crate::artist::{Artist, ArtistBase, ArtistId, ArtistStore, DrawContext};
 use crate::axes::AxesState;
@@ -11,6 +10,7 @@ use crate::gridspec::{SubplotParams, SubplotSpec};
 use crate::image::{Compositor, FigureImageArtist};
 use crate::legend::LegendArtist;
 use crate::mplot3d::is_axes3d;
+use crate::patches::{PatchPaint, PatchStyle};
 use crate::patheffects::with_path_effects;
 use crate::text::TextArtist;
 use crate::transforms::unit_to_bbox;
@@ -21,12 +21,10 @@ use crate::transforms::unit_to_bbox;
 #[derive(Debug)]
 pub(crate) struct FigureFrame {
     base: ArtistBase,
-    /// Background colour.
-    pub(crate) facecolor: Color,
-    /// Border colour.
-    pub(crate) edgecolor: Color,
-    /// Border width in points.
-    pub(crate) linewidth: f64,
+    /// The background colour, the colour and width of the border, and the
+    /// rest of the style of the background patch (matplotlib's
+    /// `Figure.patch`).
+    pub(crate) style: PatchStyle,
     /// Whether the background and border are drawn.
     pub(crate) frameon: bool,
     /// The id of the background's group in SVG output (matplotlib's
@@ -47,9 +45,7 @@ pub(crate) struct FigureFrame {
 
 pltrs_core::archive_struct!(FigureFrame {
     base,
-    facecolor,
-    edgecolor,
-    linewidth,
+    style,
     frameon,
     patch_gid,
     relative_extent,
@@ -110,9 +106,12 @@ impl FigureFrame {
     ) -> Self {
         Self {
             base: ArtistBase::default(),
-            facecolor,
-            edgecolor,
-            linewidth: 0.0,
+            style: PatchStyle {
+                facecolor: Some(facecolor),
+                edgecolor: Some(edgecolor),
+                linewidth: Some(0.0),
+                ..PatchStyle::from_rc(&crate::rc::params())
+            },
             frameon: true,
             patch_gid: None,
             relative_extent,
@@ -126,38 +125,32 @@ impl FigureFrame {
 
 impl FigureFrame {
     /// Draws the background and border over `extent`. The figure patch
-    /// is a `Rectangle`: mitred, without an edge when it has no colour,
-    /// unfilled when transparent, and drawn without anti-aliasing. Like
-    /// any patch, its alpha replaces the alpha of its colours.
+    /// is a `Rectangle` painted as any patch (without an edge when it has
+    /// no colour, unfilled when transparent, its alpha replacing the alpha
+    /// of its colours), but always without anti-aliasing.
     fn draw_patch(&self, ctx: &mut DrawContext<'_>, extent: Bbox) {
-        let (facecolor, edgecolor) = match (
-            self.facecolor.resolve_alpha(self.base.alpha),
-            self.edgecolor.resolve_alpha(self.base.alpha),
-        ) {
-            (Ok(face), Ok(edge)) => (face, edge),
-            (Err(err), _) | (_, Err(err)) => {
+        let style = PatchStyle {
+            antialiased: Some(false),
+            ..self.style.clone()
+        };
+        let paint = match PatchPaint::new(&style, &crate::rc::params(), self.base.alpha, false) {
+            Ok(paint) => paint,
+            Err(err) => {
                 ctx.report(self.base.id(), err);
                 return;
             }
         };
-        let mut gc = ctx.base_gc(&self.base);
-        gc.linewidth = if edgecolor.is_transparent() {
-            0.0
-        } else {
-            self.linewidth
-        };
-        gc.foreground = edgecolor;
-        gc.join = JoinStyle::Miter;
-        gc.antialiased = false;
-        let face = (!facecolor.is_transparent()).then_some(facecolor);
+        let gc = ctx.base_gc(&self.base);
         let drawn = ctx.draw_artist(false, |ctx| {
             with_path_effects(ctx, &self.base.path_effects, |ctx| {
-                ctx.renderer().draw_path(
-                    &gc,
-                    &Path::unit_rectangle(),
-                    &unit_to_bbox(&extent),
-                    face,
-                );
+                paint.paint(gc.clone(), |gc, face| {
+                    ctx.renderer().draw_path(
+                        gc,
+                        &Path::unit_rectangle(),
+                        &unit_to_bbox(&extent),
+                        face,
+                    );
+                });
             })
         });
         if let Err(err) = drawn {
@@ -242,6 +235,35 @@ impl Figure {
     pub fn patch_gid(&self) -> Option<String> {
         self.root
             .with::<FigureFrame, _>(|frame| frame.patch_gid.clone())
+    }
+
+    /// The style of the background patch: its colours, border width, line
+    /// style, hatch, caps and joins, as a patch's (matplotlib's
+    /// `Figure.patch`; it is drawn without anti-aliasing whatever its
+    /// style says).
+    pub fn patch_style(&self) -> PatchStyle {
+        self.root
+            .with::<FigureFrame, _>(|frame| frame.style.clone())
+    }
+
+    /// Gives the background patch the style of a patch (matplotlib's
+    /// `fig.patch` setters).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::patches::PatchStyle;
+    /// let fig = Figure::new();
+    /// fig.set_patch_style(PatchStyle {
+    ///     hatch: Some("x".into()),
+    ///     ..fig.patch_style()
+    /// });
+    /// assert!(fig.to_svg()?.contains("<pattern"), "the hatch is drawn");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_patch_style(&self, style: PatchStyle) -> &Self {
+        self.root
+            .with_mut::<FigureFrame, _>(|frame| frame.style = style);
+        self
     }
 }
 

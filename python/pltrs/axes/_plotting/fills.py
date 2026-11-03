@@ -6,7 +6,8 @@ Filled areas and steps: `~.Axes.fill`, `~.Axes.fill_between`,
 
 import numpy as np
 
-from ... import _api, _live_transforms, _style_helpers, cbook, collections as mcoll
+from ... import (_api, _live_transforms, _style_helpers, _values, cbook,
+                 collections as mcoll)
 from ... import lines as mlines, patches as mpatches
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -51,6 +52,10 @@ class FillsMixin:
                 self._native, *line_data(self, x, y), (fmt_color, bool(closed)),
                 {k: v for k, v in props.items() if k in _CYCLED_PATCH_PROPS})
             polygon = wrap(self, native, mpatches.Polygon)
+            if ("linestyle" not in props
+                    and "linestyle" in _values.prop_cycle(self).keys):
+                # The style the cycle gave, as the cycle spells it.
+                polygon._linestyle = polygon._get("linestyle")
             polygon._internal_update(props)
             if label is not None:
                 polygon.set_label(label)
@@ -169,6 +174,11 @@ class FillsMixin:
             None if baseline is None else np.asarray(baseline, dtype=float),
             (orientation, bool(fill)), color)
         patch = wrap(self, native, mpatches.StepPatch)
+        if color is None:
+            patch._take_cycle_color("facecolor" if fill else "edgecolor")
+        if not fill:
+            # The face keeps the default colour, transparent.
+            _values.remember(patch, "facecolor", None)
         patch._internal_update(kwargs)
         return patch
 

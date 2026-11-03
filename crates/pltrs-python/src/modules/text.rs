@@ -152,14 +152,19 @@ fn set_multialignment(text: Text, align: Option<String>) -> PyResult<()> {
     Ok(())
 }
 
-/// The rotation mode's name.
-fn get_rotation_mode(text: Text) -> PyResult<&'static str> {
-    Ok(match text.rotation_mode() {
+/// The name of the rotation mode `mode`.
+pub(super) fn rotation_mode_name(mode: RotationMode) -> &'static str {
+    match mode {
         RotationMode::Default => "default",
         RotationMode::Anchor => "anchor",
         RotationMode::XTick => "xtick",
         RotationMode::YTick => "ytick",
-    })
+    }
+}
+
+/// The rotation mode's name.
+fn get_rotation_mode(text: Text) -> PyResult<&'static str> {
+    Ok(rotation_mode_name(text.rotation_mode()))
 }
 
 /// Sets the rotation mode by name.

@@ -22,7 +22,7 @@ import numpy as np
 import PIL.Image
 import PIL.PngImagePlugin
 
-from . import _api, _image, cbook, colorizer as mcolorizer, colors as mcolors
+from . import _api, _image, _values, cbook, colorizer as mcolorizer, colors as mcolors
 # For user convenience, the names from _image are also imported into
 # the image namespace
 from ._image import *  # noqa: F401, F403
@@ -536,7 +536,9 @@ class AxesImage(_ImageBase):
 
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
-        return _native_image.get_extent(self._native)
+        # matplotlib keeps the extent it was given (or `imshow` computed)
+        # as the list ``[left, right, bottom, top]``.
+        return _values.given(self, "extent", _native_image.get_extent(self._native))
 
     def get_window_extent(self, renderer=None):
         """Return the image's box in display space: its extent through its
@@ -575,11 +577,13 @@ class AxesImage(_ImageBase):
         This updates `.Axes.dataLim`, and, if autoscaling, sets `.Axes.viewLim`
         to tightly fit the image, regardless of `~.Axes.dataLim`.
         """
-        extent = self.axes._converted_extent(extent, kwargs)
+        values = self.axes._extent_values(extent, kwargs)
         if kwargs:
             raise _api.kwarg_error("set_extent", kwargs)
+        extent = tuple(map(float, values))
         _warn_identical_limits(self.axes, extent)
         _native_image.set_extent(self._native, extent)
+        _values.remember(self, "extent", values)
 
     def make_image(self, renderer, magnification=1.0, unsampled=False):
         """

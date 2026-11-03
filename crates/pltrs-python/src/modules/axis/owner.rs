@@ -46,11 +46,3 @@ impl AxisOwner {
         }
     }
 }
-
-/// `NotImplementedError` for what a 3-D axis does not do as a 2-D one.
-pub(crate) fn not_on_3d(what: &str) -> PyErr {
-    PyErr::new(
-        ExceptionKind::NotImplementedError,
-        format!("pltrs: {what} on 3-D axes"),
-    )
-}

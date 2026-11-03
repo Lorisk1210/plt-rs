@@ -59,6 +59,15 @@ def given(artist, name, native, default=NONE_GIVEN, same=None):
     return value
 
 
+def same_cycled(value, native):
+    """Whether *native* is *value*, an array cycled over the items of
+    *native* (one width given for every level, say)."""
+    value, native = np.atleast_1d(value), np.atleast_1d(native)
+    if value.ndim != 1 or native.ndim != 1 or not value.size or not native.size:
+        return False
+    return bool(np.array_equal(np.resize(value, native.size), native))
+
+
 def same_color(a, b):
     """Whether *a* and *b* are one colour."""
     from . import colors
@@ -68,15 +77,19 @@ def same_color(a, b):
         return False
 
 
+def prop_cycle(axes):
+    """The property cycle of *axes*: the one set on it, else
+    ``axes.prop_cycle``'s."""
+    from . import rcParams
+    cycle = (None if axes is None else axes.__dict__.get("_given_values", {}).get("prop_cycle"))
+    return rcParams['axes.prop_cycle'] if cycle is None else cycle
+
+
 def cycle_color(axes, native):
     """The colour of the property cycle of *axes* that *native* is, as the
     cycle holds it (matplotlib's ``tab10`` holds triples), or `given`'s
     default for none."""
-    from . import rcParams
-    cycle = (None if axes is None else axes.__dict__.get("_given_values", {}).get("prop_cycle"))
-    if cycle is None:
-        cycle = rcParams['axes.prop_cycle']
-    for color in cycle.by_key().get("color", []):
+    for color in prop_cycle(axes).by_key().get("color", []):
         if same_color(color, native):
             return color
     return NONE_GIVEN

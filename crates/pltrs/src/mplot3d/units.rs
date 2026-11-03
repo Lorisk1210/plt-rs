@@ -268,6 +268,28 @@ impl Axis3D {
         self.has_units()
     }
 
+    /// Takes what the axis info of a unit converter gives (matplotlib's
+    /// `_update_axisinfo`), as [`Axis::take_axis_info`] does: tick
+    /// helpers replace only those still the scale's, on the axes sharing
+    /// the axis too; the label replaces only one never set; the default
+    /// view applies while the axis has neither data nor a view of its
+    /// own.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// use pltrs::units::UnitAxisInfo;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.zaxis().take_axis_info(&UnitAxisInfo::default().label("miles"));
+    /// assert_eq!(ax.label(Axis3::Z), "miles");
+    /// ```
+    ///
+    /// [`Axis::take_axis_info`]: crate::axes::Axis::take_axis_info
+    pub fn take_axis_info(&self, info: &UnitAxisInfo) -> &Self {
+        self.use_axis_info(info);
+        self
+    }
+
     /// The category names placed on the axis, in position order, if any
     /// were (matplotlib's `axis.units` on a categorical axis).
     pub fn categories(&self) -> Option<Categories> {

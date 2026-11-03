@@ -83,6 +83,28 @@ def _sampling(rstride, cstride, rcount, ccount):
     return None
 
 
+def _face_colors(fcolors, shape):
+    """
+    The colours *fcolors* of the faces of a surface over a grid of *shape*
+    as an RGBA array of that shape: a face takes the colour at its first
+    vertex, as matplotlib's ``plot_surface`` indexes them, so one colour
+    per face (a row and a column fewer than vertices) is enough.
+    """
+    rows, cols = np.shape(fcolors)[:2]
+    rgba = mcolors.to_rgba_array(
+        np.reshape(fcolors, (-1,) + np.shape(fcolors)[2:])).reshape(rows, cols, 4)
+    if rows < shape[0] - 1 or cols < shape[1] - 1:
+        raise ValueError(f"facecolors of shape {np.shape(fcolors)} do not "
+                         f"cover the faces of a surface of shape {shape}")
+    padded = np.zeros(shape + (4,))
+    rows, cols = min(rows, shape[0]), min(cols, shape[1])
+    padded[:rows, :cols] = rgba[:rows, :cols]
+    return padded
+
+#: The names of the view angles, in the order of a view.
+_VIEW_ANGLES = ("elev", "azim", "roll")
+
+
 class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     """
     3D Axes object.
@@ -204,9 +226,13 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         self.xaxis = axis3d.XAxis(self)
         self.yaxis = axis3d.YAxis(self)
         self.zaxis = axis3d.ZAxis(self)
-        # A new axes looks from its initial view.
+        # A new axes looks from its initial view; matplotlib's default
+        # angles are int literals (``elev=30``), which it keeps as given.
         self.initial_elev, self.initial_azim, self.initial_roll = (
-            _mplot3d.get_view(self._native))
+            default if angle == default else angle
+            for angle, default in zip(_mplot3d.get_view(self._native), (30, -60, 0)))
+        _values.remember_all(self, dict(zip(_VIEW_ANGLES, (
+            self.initial_elev, self.initial_azim, self.initial_roll))), _VIEW_ANGLES)
         self.button_pressed = None
         self.mouse_init()
         canvas = figure.canvas
@@ -551,29 +577,55 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
                            None if axis == 'both' else axis,
                            None if tight is None else bool(tight))
 
+    def _request_autoscale_view(self, axis="all", tight=None):
+        """
+        Autoscale a single axis, or all of them (`.Axes._request_autoscale_view`):
+        pltrs (Rust) autoscales 3-D axes at once, where matplotlib marks
+        them stale until the limits are next read.
+        """
+        axis_names = _api.getitem_checked(
+            {**{k: [k] for k in self._axis_names}, "all": self._axis_names},
+            axis=axis)
+        self.autoscale_view(tight=tight, scalex="x" in axis_names,
+                            scaley="y" in axis_names, scalez="z" in axis_names)
+
+    def _get_margin(self, name):
+        """The margin of axis *name*, as given (matplotlib keeps it)."""
+        return _values.given(self, f"{name}margin", _mplot3d.get_margin(self._native, name))
+
+    def _set_margins(self, margins, tight):
+        """Set the margins (x, y, z) given, None keeping one."""
+        _mplot3d.set_margins(
+            self._native,
+            tuple(None if m is None else _check_margin(m) for m in margins),
+            None if tight is None else bool(tight))
+        for name, m in zip(self._axis_names, margins):
+            if m is not None:
+                _values.remember(self, f"{name}margin", m)
+
     def get_xmargin(self):
         """Retrieve autoscaling margin of the x-axis."""
-        return _mplot3d.get_margin(self._native, 'x')
+        return self._get_margin('x')
 
     def get_ymargin(self):
         """Retrieve autoscaling margin of the y-axis."""
-        return _mplot3d.get_margin(self._native, 'y')
+        return self._get_margin('y')
 
     def get_zmargin(self):
         """Retrieve autoscaling margin of the z-axis."""
-        return _mplot3d.get_margin(self._native, 'z')
+        return self._get_margin('z')
 
     def set_xmargin(self, m):
         """Set padding of X data limits prior to autoscaling."""
-        _mplot3d.set_margins(self._native, (_check_margin(m), None, None), None)
+        self._set_margins((m, None, None), None)
 
     def set_ymargin(self, m):
         """Set padding of Y data limits prior to autoscaling."""
-        _mplot3d.set_margins(self._native, (None, _check_margin(m), None), None)
+        self._set_margins((None, m, None), None)
 
     def set_zmargin(self, m):
         """Set padding of Z data limits prior to autoscaling."""
-        _mplot3d.set_margins(self._native, (None, None, _check_margin(m)), None)
+        self._set_margins((None, None, m), None)
 
     def margins(self, *margins, x=None, y=None, z=None, tight=True):
         """
@@ -599,10 +651,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
                 _api.warn_external(f'ignoring tight={tight!r} in get mode')
             return self.get_xmargin(), self.get_ymargin(), self.get_zmargin()
 
-        _mplot3d.set_margins(
-            self._native,
-            tuple(None if m is None else _check_margin(m) for m in (x, y, z)),
-            None if tight is None else bool(tight))
+        self._set_margins((x, y, z), tight)
 
     # -- scales ------------------------------------------------------------
 
@@ -683,21 +732,27 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         """
         _api.check_in_list(self._axis_names, vertical_axis=vertical_axis)
         self.__dict__['_vertical_axis_name'] = vertical_axis
-        view = (float(self.initial_elev if elev is None else elev),
-                float(self.initial_azim if azim is None else azim),
-                float(self.initial_roll if roll is None else roll))
-        _mplot3d.view_init(self._native, view, vertical_axis, bool(share))
+        view = (self.initial_elev if elev is None else elev,
+                self.initial_azim if azim is None else azim,
+                self.initial_roll if roll is None else roll)
+        _mplot3d.view_init(self._native, tuple(map(float, view)), vertical_axis,
+                           bool(share))
+        _values.remember_all(self, dict(zip(_VIEW_ANGLES, view)), _VIEW_ANGLES)
 
     def _view_angle(index):
-        """The property of one of the view angles."""
+        """The property of one of the view angles (as given, as matplotlib
+        keeps them, until the view turns)."""
+        name = _VIEW_ANGLES[index]
+
         def get(self):
-            return _mplot3d.get_view(self._native)[index]
+            return _values.given(self, name, _mplot3d.get_view(self._native)[index])
 
         def set(self, value):
             view = list(_mplot3d.get_view(self._native))
             view[index] = float(value)
             _mplot3d.view_init(self._native, tuple(view),
                                self._axis_names[self._vertical_axis], False)
+            _values.remember(self, name, value)
         return property(get, set)
 
     elev = _view_angle(0)
@@ -1315,6 +1370,8 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
              None if depthshade_minalpha is None
              else float(depthshade_minalpha), bool(axlim_clip)))
         collection = wrap(self, native, art3d.Path3DCollection)
+        # matplotlib's scatter gives its marker path as a tuple.
+        collection._paths_container = tuple
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)
@@ -1368,9 +1425,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
             raise ValueError("shade cannot be None.")
         shade = kwargs.pop('shade', None)
         if fcolors is not None:
-            fcolors = mcolors.to_rgba_array(
-                np.reshape(fcolors, (-1,) + np.shape(fcolors)[2:])
-            ).reshape(Z.shape + (4,))
+            fcolors = _face_colors(fcolors, Z.shape)
         made, mapping = _surface_mapping(cmap, norm, vmin, vmax)
         grids = tuple(np.ascontiguousarray(np.ma.filled(
             np.ma.asarray(a, dtype=float), np.nan)) for a in (X, Y, Z))

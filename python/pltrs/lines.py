@@ -645,7 +645,9 @@ class Line2D(Artist):
         self._set_native(markeredgecolor=ec)
 
     def get_markerfacecolor(self):
-        """Return the marker face color."""
+        """Return the marker face color ('none' for unfilled markers)."""
+        if self.get_fillstyle() == 'none':
+            return 'none'
         return self._marker_color("markerfacecolor", "markerfacecolor_setting")
 
     def set_markerfacecolor(self, fc):
@@ -653,7 +655,10 @@ class Line2D(Artist):
         self._set_native(markerfacecolor=fc)
 
     def get_markerfacecoloralt(self):
-        """Return the alternate marker face color."""
+        """Return the alternate marker face color ('none' for unfilled
+        markers)."""
+        if self.get_fillstyle() == 'none':
+            return 'none'
         return self._marker_color("markerfacecoloralt", "markerfacecoloralt")
 
     def set_markerfacecoloralt(self, fc):
@@ -802,6 +807,10 @@ class AxLine(Line2D):
     onto the part of the line the view limits show.
     """
 
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     def get_transform(self):
         from .transforms import Bbox, BboxTransformTo
         ax = self.axes
@@ -843,17 +852,22 @@ class AxLine(Line2D):
         return (BboxTransformTo(Bbox([start, stop]))
                 + ax.transLimits + ax.transAxes)
 
+    def _remember_geometry(self, xy1, xy2, slope):
+        """Keep the line's geometry as given (matplotlib keeps it)."""
+        _values.remember_all(self, {"xy1": xy1, "xy2": xy2, "slope": slope},
+                             ("xy1", "xy2", "slope"))
+
     def get_xy1(self):
         """Return the *xy1* value of the line."""
-        return _lines.axline(self._native)[0]
+        return _values.given(self, "xy1", _lines.axline(self._native)[0])
 
     def get_xy2(self):
         """Return the *xy2* value of the line."""
-        return _lines.axline(self._native)[1]
+        return _values.given(self, "xy2", _lines.axline(self._native)[1])
 
     def get_slope(self):
         """Return the *slope* value of the line."""
-        return _lines.axline(self._native)[2]
+        return _values.given(self, "slope", _lines.axline(self._native)[2])
 
     def set_xy1(self, *args, **kwargs):
         """
@@ -875,6 +889,7 @@ class AxLine(Line2D):
         else:
             xy1 = params["xy1"]
         _lines.set_axline_xy1(self._native, tuple(map(float, xy1)))
+        _values.remember(self, "xy1", xy1)
         self.stale = True
 
     def set_xy2(self, *args, **kwargs):
@@ -906,6 +921,7 @@ class AxLine(Line2D):
         else:
             xy2 = params["xy2"]
         _lines.set_axline_xy2(self._native, tuple(map(float, xy2)))
+        _values.remember(self, "xy2", xy2)
         self.stale = True
 
     def set_slope(self, slope):
@@ -923,7 +939,11 @@ class AxLine(Line2D):
         slope : float
             The slope of the line.
         """
+        if self.get_xy2() is not None:
+            raise ValueError("Cannot set a 'slope' value while 'xy2' is set;"
+                             " they differ but their functionalities overlap")
         _lines.set_axline_slope(self._native, float(slope))
+        _values.remember(self, "slope", slope)
         self.stale = True
 
 

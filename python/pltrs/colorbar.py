@@ -117,6 +117,8 @@ class Colorbar:
         colorbar = cls.__new__(cls)
         colorbar._make(figure, mappable, cax=None, parents=parents,
                        layout=layout, **kwargs)
+        # matplotlib's make_axes labels the Axes it makes.
+        colorbar.ax.set_label('<colorbar>')
         return colorbar
 
     def _make(self, figure, mappable, *, cax, parents, layout, alpha=None,
@@ -192,6 +194,9 @@ class Colorbar:
         self.extendrect = extendrect
         self.values = values
         self.boundaries = boundaries
+        self.ticklocation = (ticklocation if ticklocation != 'auto'
+                             else location if location is not None
+                             else _get_ticklocation_from_orientation(orientation))
         self.set_alpha(alpha)
         spec['alpha'] = None if self.alpha is None else float(self.alpha)
         self._scale_norm()
@@ -209,6 +214,17 @@ class Colorbar:
         mappable.colorbar_cid = mappable.callbacks.connect(
             'changed', self.update_normal)
         self._link_axes()
+        self._take_contour_values()
+        self.stale = True
+
+    def _take_contour_values(self):
+        """Give the colorbar of a contour set the contour set's
+        boundaries and values, as matplotlib's constructor and
+        ``update_normal`` take them."""
+        from .contour import ContourSet
+        if isinstance(self.mappable, ContourSet):
+            self.boundaries = self.mappable._levels
+            self.values = self.mappable.cvalues
         # Removing the colorbar's Axes removes the colorbar.
         self.ax._remove_method = functools.partial(_remove_cbar_axes,
                                                    cbar=self)
@@ -285,13 +301,14 @@ class Colorbar:
 
     @property
     def vmin(self):
-        """The lower end of the colorbar's data range."""
-        return _colorbar.limits(self._native)[0]
+        """The lower end of the colorbar's data range (the first boundary
+        inside it, a numpy float as matplotlib reads it off its array)."""
+        return np.float64(_colorbar.limits(self._native)[0])
 
     @property
     def vmax(self):
         """The upper end of the colorbar's data range."""
-        return _colorbar.limits(self._native)[1]
+        return np.float64(_colorbar.limits(self._native)[1])
 
     @property
     def _boundaries(self):
@@ -318,6 +335,21 @@ class Colorbar:
         from .collections import QuadMesh
         return _handles.wrap(_colorbar.solids(self._native), QuadMesh,
                              self._figure)
+
+    @property
+    def solids_patches(self):
+        """The hatched patches drawn as the colour blocks of a hatched
+        contour set, in place of `solids`."""
+        from .patches import PathPatch
+        return _handles.wrap_all(_colorbar.solids_patches(self._native),
+                                 PathPatch, self._figure)
+
+    @property
+    def lines(self):
+        """The `.LineCollection`\\s `add_lines` drew."""
+        from .collections import LineCollection
+        return _handles.wrap_all(_colorbar.lines(self._native),
+                                 LineCollection, self._figure)
 
     @property
     def _extend_patches(self):
@@ -434,6 +466,7 @@ class Colorbar:
         _colorbar.update_normal(self._native, self._shown())
         if self.mappable.norm is not self._ticker_norm:
             self._keep_tickers()
+        self.stale = True
 
     def _shown(self):
         """
@@ -642,7 +675,9 @@ def _made_axes(make, parents, natives, kwargs):
         _get_orientation_from_location(layout['location'])
     native, kwargs['orientation'], kwargs['ticklocation'] = make(natives, layout)
     figure = parents[0].get_figure(root=True)
-    return _handles.wrap(native, Axes, figure), kwargs
+    cax = _handles.wrap(native, Axes, figure)
+    cax.set_label('<colorbar>')
+    return cax, kwargs
 
 
 def make_axes(parents, location=None, orientation=None, fraction=0.15,

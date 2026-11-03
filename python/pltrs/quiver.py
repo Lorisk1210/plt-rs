@@ -22,7 +22,7 @@ matplotlib's ``Quiver.draw`` does.
 import numpy as np
 from numpy import ma
 
-from . import (_api, _artist_clipping, _handles, _live_transforms, cbook,
+from . import (_api, _artist_clipping, _handles, _live_transforms, _values, cbook,
                collections as mcollections,
                colors as mcolors, transforms)
 from . import artist as martist
@@ -300,6 +300,8 @@ class Quiver(mcollections.PolyCollection):
         self._attach_native_mapping(colorizer=made)
         if not _single_color(facecolor):
             self.set_facecolor(facecolor)
+        # The arrows are unstroked, as matplotlib's default ``(0,)`` says.
+        _values.remember(self, "linewidth", np.atleast_1d((0,)))
         self._internal_update(kwargs)
         self.polykw = kwargs
         self._store_uvc(U, V, C)
@@ -416,6 +418,8 @@ class Barbs(mcollections.PolyCollection):
             _live_transforms.given_to_native(transform))
         _handles.adopt(self, native, ax.figure)
         self._attach_native_mapping(colorizer=made)
+        # matplotlib's default width of the barbs.
+        _values.remember(self, "linewidth", np.atleast_1d(1))
         self._internal_update(kwargs)
 
     def _unmasked(self, U, V, C):

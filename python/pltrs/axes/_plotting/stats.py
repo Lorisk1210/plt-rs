@@ -7,12 +7,13 @@ The statistics are computed in Python as matplotlib computes them
 """
 
 import datetime
+import math
 from numbers import Real
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll, colors as mcolors
-from ... import lines as mlines, patches as mpatches
+from ... import _api, _tick_helpers, _values, cbook, collections as mcoll, colors as mcolors
+from ... import lines as mlines, patches as mpatches, ticker as mticker
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import PieContainer
@@ -71,6 +72,23 @@ def _colors_or_empty(color):
         return []
     return [tuple(c) for c in mcolors.to_rgba_array(color)]
 
+
+
+def _pie_geometry(wedges, fracs, explode, radius, startangle, counterclock, center):
+    """Keep the geometry of the pie's *wedges* as matplotlib computes and
+    types it (its loop over the fractions, in numpy and Python numbers)."""
+    theta1 = startangle / 360
+    for wedge, frac, expl in zip(wedges, fracs, explode):
+        x_pos, y_pos = center
+        theta2 = (theta1 + frac) if counterclock else (theta1 - frac)
+        thetam = 2 * np.pi * 0.5 * (theta1 + theta2)
+        x_pos += expl * math.cos(thetam)
+        y_pos += expl * math.sin(thetam)
+        _values.remember_all(wedge, {
+            "center": (x_pos, y_pos), "r": radius,
+            "theta1": 360. * min(theta1, theta2),
+            "theta2": 360. * max(theta1, theta2)}, mpatches.Wedge._GIVEN)
+        theta1 = theta2
 
 class StatsMixin:
     """`boxplot`, `bxp`, `violinplot`, `violin` and `pie`."""
@@ -242,6 +260,8 @@ class StatsMixin:
         else:
             boxkw = _native_lineprops(boxprops)
         mean_kw = _native_lineprops(meanprops_given)
+        tick_axis = self._axis_map["x" if orientation == 'vertical' else "y"]
+        previous = tick_axis.get_major_locator() if manage_ticks else None
         whiskers, caps, box_lines, box_patches, medians, fliers, means = _plotting.bxp(
             self._native, list(bxpstats),
             (list(map(float, positions)), list(map(float, widths)),
@@ -253,6 +273,13 @@ class StatsMixin:
             (_native_lineprops(whiskerprops), _native_lineprops(flierprops),
              _native_lineprops(medianprops), _native_lineprops(capprops), mean_kw),
             (bool(manage_ticks), None if zorder is None else float(zorder), label))
+        if manage_ticks:
+            # matplotlib adds the positions to the locations of its fixed
+            # locator, as an array of them.
+            locator = (previous if isinstance(previous, mticker.FixedLocator)
+                       else mticker.FixedLocator([]))
+            locator.locs = np.array([*locator.locs, *positions])
+            _tick_helpers.adopt(tick_axis, locator, "locator", False)
         boxes = (wrap_all(self, box_patches, mpatches.PathPatch) if patch_artist
                  else wrap_all(self, box_lines, mlines.Line2D))
         for box in boxes if box_rest else ():
@@ -347,7 +374,10 @@ class StatsMixin:
             orientation, (bool(showmeans), bool(showextrema), bool(showmedians)),
             side, (_colors_or_empty(facecolor), _colors_or_empty(linecolor)))
         bodies, *lines = parts
-        artists = {'bodies': wrap_all(self, bodies, mcoll.PolyCollection)}
+        # matplotlib fills each body between two curves along the values.
+        artists = {'bodies': wrap_all(self, bodies, mcoll.FillBetweenPolyCollection)}
+        for body in artists['bodies']:
+            body.t_direction = value_axis
         for name, native in zip(('cmeans', 'cmaxes', 'cmins', 'cbars',
                                  'cmedians', 'cquantiles'), lines):
             if native is not None:
@@ -421,6 +451,11 @@ class StatsMixin:
              bool(frame), bool(normalize)))
         from ...text import Text
         wedges = wrap_all(self, wedges, mpatches.Wedge)
+        _pie_geometry(wedges, x / sx if normalize else x, explode, radius,
+                      startangle, counterclock, center)
+        if colors is None:
+            for wedge in wedges:
+                wedge._take_cycle_color("facecolor")
         for wedge in wedges if wedge_rest else ():
             wedge.set(**wedge_rest)
         container = PieContainer(wedges, x, normalize)

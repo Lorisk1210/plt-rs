@@ -184,10 +184,13 @@ impl FontProperties {
         pattern
     }
 
-    /// The font request used to pick font files, resolving generic family
-    /// names through the `font.serif`, `font.sans-serif`, ... lists of `rc`,
-    /// with the hinting text is laid out with (`text.hinting` unless a
-    /// vector backend draws).
+    /// The font request used to pick font files, with the hinting text is
+    /// laid out with under `rc` (`text.hinting` unless a vector backend
+    /// draws). Generic family names resolve through the `font.serif`,
+    /// `font.sans-serif`, ... lists in force when the request is made, and
+    /// the last resort font as `font.enable_last_resort` then says, as
+    /// matplotlib's `findfont` reads them when it draws (a text made under
+    /// other lists is drawn with those of the moment).
     pub fn request(&self, rc: &RcParams) -> pltrs_text::FontRequest {
         let mut query = pltrs_text::FontQuery::families(self.families.iter().cloned());
         query.style = self.style;
@@ -195,10 +198,11 @@ impl FontProperties {
         query.weight = pltrs_text::Weight(self.weight.value());
         query.stretch = pltrs_text::Stretch(self.stretch.value());
         query.size = self.size;
+        let current = crate::rc::params();
         pltrs_text::FontRequest {
             query,
-            generics: generic_families(rc),
-            last_resort: rc.font_enable_last_resort,
+            generics: generic_families(&current),
+            last_resort: current.font_enable_last_resort,
             hinting: crate::text::hinting(rc),
             weight_keyword: self.weight.name(),
             file: self

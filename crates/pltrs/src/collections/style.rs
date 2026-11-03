@@ -23,10 +23,76 @@ pub(super) fn resolve_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgb
     }
 }
 
+/// Face and edge colours as matplotlib's getters report them: those of
+/// the last 3-D projection, or else [`resolve_base_colors`] with the
+/// mapped colours only where the last draw put them
+/// ([`CollectionArtist::mapped_shown`]), the colours as set elsewhere.
+pub(super) fn resolve_reported_colors(
+    c: &CollectionArtist,
+) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+    match c
+        .depth_sorted
+        .as_ref()
+        .and_then(|sorted| sorted.colors.as_ref())
+    {
+        Some(colors) => Ok(colors.clone()),
+        None => resolve_mapped_on(c, c.mapped_shown.get()),
+    }
+}
+
 /// Face and edge colours after defaults, colour mapping and alpha
 /// (matplotlib's `_set_facecolor`, `_set_edgecolor` and
 /// `update_scalarmappable`).
 pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+    resolve_mapped_on(c, MappedSides::BOTH)
+}
+
+/// The sides of a collection's items (faces, edges) coloured by its
+/// colour mapping.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct MappedSides {
+    /// The faces.
+    pub(crate) faces: bool,
+    /// The edges.
+    pub(crate) edges: bool,
+}
+
+pltrs_core::archive_struct!(MappedSides { faces, edges });
+
+impl MappedSides {
+    /// Both sides, where the mapping colours them.
+    const BOTH: Self = Self {
+        faces: true,
+        edges: true,
+    };
+
+    /// The sides the colour mapping of `c` colours (matplotlib's
+    /// `_set_mappable_flags`): the faces unless they are `'none'`, and the
+    /// edges when they follow the faces, or when the faces are `'none'`
+    /// and the edges keep the default rule; none without a mapping.
+    pub(crate) fn of(c: &CollectionArtist) -> Self {
+        if c.mapping.is_none() {
+            return Self::default();
+        }
+        let face_is_none = unfilled(&c.face_spec(c.rc()));
+        let edges = if face_is_none {
+            matches!(c.edgecolors, EdgeColors::Default)
+        } else {
+            matches!(c.edgecolors, EdgeColors::Face)
+        };
+        Self {
+            faces: !face_is_none,
+            edges,
+        }
+    }
+}
+
+/// Face and edge colours after defaults, alpha and the colour mapping on
+/// the sides of `on` it colours.
+fn resolve_mapped_on(
+    c: &CollectionArtist,
+    on: MappedSides,
+) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
     let rc = c.rc();
     let alpha = collection_alpha(c);
     let resolve = |colors: &[Color]| with_alpha(c, &alpha, colors);
@@ -34,14 +100,17 @@ pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Ve
     let face_is_none = unfilled(&face_spec);
     let edge_default = c.kind == CollectionKind::Line;
 
-    let mapped = c.mapping.as_ref().map(|m| m.colors(&alpha)).transpose()?;
-    let face_mapped = mapped.is_some() && !face_is_none;
-    let edge_mapped = mapped.is_some()
-        && if face_is_none {
-            matches!(c.edgecolors, EdgeColors::Default)
-        } else {
-            matches!(c.edgecolors, EdgeColors::Face)
-        };
+    let sides = MappedSides::of(c);
+    let face_mapped = sides.faces && on.faces;
+    let edge_mapped = sides.edges && on.edges;
+    // A draw maps the values whether or not a side shows them (and fails
+    // when they cannot be mapped), as matplotlib's `update_scalarmappable`.
+    let mapped = match &c.mapping {
+        Some(mapping) if on == MappedSides::BOTH || face_mapped || edge_mapped => {
+            Some(mapping.colors(&alpha)?)
+        }
+        _ => None,
+    };
 
     // The mapped colours move to the faces, or the edges, or both (one
     // copy): meshes map a million of them.
@@ -66,6 +135,24 @@ pub(super) fn resolve_base_colors(c: &CollectionArtist) -> Result<(Vec<Rgba>, Ve
 }
 
 impl CollectionArtist {
+    /// The getters report the face colours as set until the next draw.
+    pub(super) fn unmap_faces(&self) {
+        let shown = self.mapped_shown.get();
+        self.mapped_shown.set(MappedSides {
+            faces: false,
+            ..shown
+        });
+    }
+
+    /// The getters report the edge colours as set until the next draw.
+    pub(super) fn unmap_edges(&self) {
+        let shown = self.mapped_shown.get();
+        self.mapped_shown.set(MappedSides {
+            edges: false,
+            ..shown
+        });
+    }
+
     /// The face colours as set, else the default of the collection's
     /// kind: none for lines, `patch.facecolor` for the others.
     pub(super) fn face_spec(&self, rc: &RcParams) -> Vec<Color> {

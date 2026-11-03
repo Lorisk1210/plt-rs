@@ -15,7 +15,7 @@ use super::state::Axes3DState;
 use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle, TypedHandle};
 use crate::axes::Axes;
-use crate::collections::CollectionArtist;
+use crate::collections::{CollectionArtist, CollectionKind};
 use crate::colors::Color;
 use crate::gridspec::SubplotSpec;
 use crate::text::Text;
@@ -128,7 +128,14 @@ impl Axes3D {
     pub(crate) fn register(&self, id: ArtistId, art: Art3D, axlim_clip: bool) {
         let raw = RawHandle::new(Rc::clone(self.raw.figure_state()), id);
         if raw.is::<CollectionArtist>() {
-            raw.with_mut::<CollectionArtist, _>(|c| c.class_name = art.collection_class(c.kind));
+            raw.with_mut::<CollectionArtist, _>(|c| {
+                c.class_name = art.collection_class(c.kind);
+                // matplotlib's patch, path and polygon collections map their
+                // values when they are lifted (`set_3d_properties`).
+                if c.kind != CollectionKind::Line {
+                    c.update_scalarmappable();
+                }
+            });
         }
         self.with_mut(|axes| {
             axes.artists.push(Artist3D {

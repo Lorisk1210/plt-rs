@@ -1,267 +1,116 @@
 """
 The backgrounds of axes and figures (matplotlib's ``Axes.patch`` and
-``Figure.patch``, each a `.Rectangle`): pltrs (Rust) draws them as part of
-their axes or figure, so their objects read and set the background
-properties pltrs (Rust) keeps there. `BackgroundPatch` holds what both
-have in common; `FigurePatch` is a figure's (an axes' is
-``axes._decorations.AxesPatch``).
+``Figure.patch``).
+
+pltrs (Rust) draws the background of an axes or a (sub)figure as part of
+it. Its ``patch`` is a *mirror* (`._mirrors`): a loose patch of the class
+matplotlib makes it of (the `.Rectangle` of the unit square, or what the
+Axes' ``_gen_axes_patch`` makes: a `.Wedge` for polar axes), in the
+coordinates matplotlib places it in, which takes the background's style
+(colours, edge width and style, hatch, caps, joins, anti-aliasing, alpha,
+visibility, z-order and group id) whenever it is handed out, and whose
+setters give the background their changes. Its extent, its figure,
+whether it contains a point and the region clipping to it clips to are
+those of the background.
 """
 
-from numbers import Real
-
-from . import _live_transforms, cbook
-from ._artist_children import ChildrenSearchMixin
-from ._native import figure as _figure
+from . import _live_transforms, _mirrors
+from ._native import axisartist as _axisartist, patches as _patches
 
 
-class BackgroundPatch(ChildrenSearchMixin):
-    """
-    The `.Rectangle` API of a background whose face colour, edge colour,
-    line width, visibility and gid pltrs (Rust) keeps: subclasses read
-    them (``get_facecolor``, ``_get_gid``, ...) and set them as given
-    (``_set_facecolor``, ``_set_edgecolor``, ``_set_gid``), the colours
-    with the patch's alpha already applied.
-    """
+class _Background(_mirrors.Mirroring):
+    """The background of *owner*, an Axes or a (sub)figure."""
 
-    _ALIASES = {"facecolor": ["fc"], "edgecolor": ["ec"], "linewidth": ["lw"]}
+    def __init__(self, owner):
+        self.owner = owner
 
-    def __init__(self):
-        self._animated = False
-        self._alpha = None
-        self._picker = None
-        # The colours as given, which the alpha overrides when set
-        # (matplotlib's ``_original_facecolor``); None for those never
-        # given through the patch.
-        self._original = {"face": None, "edge": None}
+    def push(self, patch):
+        _patches.push_background(self.owner._native, patch._native)
 
-    def get_animated(self):
-        """Return whether the background is animated."""
-        return self._animated
+    def pull(self, patch):
+        """Give *patch* the background's style."""
+        _patches.pull_background(self.owner._native, patch._native)
 
-    def set_animated(self, b):
-        """
-        Set whether the background is animated.
+    def window_extent(self, patch, renderer=None, dpi=None):
+        return patch.get_path().get_extents(patch.get_transform())
 
-        As in matplotlib, the axes or figure draws its background whatever
-        this flag says; it only tells blitting code (the widgets) to draw
-        the background itself, as it draws every animated child.
-        """
-        self._animated = bool(b)
-
-    def get_picker(self):
-        """Return the picking behavior of the background (see
-        `.Artist.set_picker`)."""
-        return self._picker
-
-    def get_in_layout(self):
-        """Return True: pltrs (Rust) lays the background out with its axes
-        or figure (see `.Artist.get_in_layout`)."""
-        return True
-
-    def _fully_clipped_to_axes(self):
-        """Return False: a background is not clipped (see
-        `.Artist._fully_clipped_to_axes`)."""
-        return False
-
-    def set_picker(self, picker):
-        """Define the picking behavior of the background (see
-        `.Artist.set_picker`)."""
-        self._picker = picker
-
-    def pickable(self):
-        """Return whether the background is pickable."""
-        return self.get_figure(root=False) is not None and self._picker is not None
-
-    def pick(self, mouseevent):
-        """
-        Process a pick event: the background fires one when it has a picker
-        and *mouseevent* is over it (it has no children to pass it on to).
-        """
-        if not self.pickable():
-            return
-        from .backend_bases import PickEvent
-        if callable(self._picker):
-            inside, prop = self._picker(self, mouseevent)
-        else:
-            inside, prop = self.contains(mouseevent)
-        if inside:
-            PickEvent("pick_event", self.get_figure(root=True).canvas,
-                      mouseevent, self, **prop)._process()
-
-    def get_alpha(self):
-        """Return the alpha overriding the colours' own, or None."""
-        return self._alpha
-
-    def set_alpha(self, alpha):
-        """
-        Set the alpha value used for blending: it overrides the alpha of the
-        face and edge colours, as a `.Patch`'s does.
-
-        Parameters
-        ----------
-        alpha : float or None
-            *alpha* must be within the 0-1 range, inclusive.
-        """
-        if alpha is not None and not isinstance(alpha, Real):
-            raise TypeError(
-                f'alpha must be numeric or None, not {type(alpha)}')
-        if alpha is not None and not (0 <= alpha <= 1):
-            raise ValueError(f'alpha ({alpha}) is outside 0-1 range')
-        face = self._original["face"]
-        edge = self._original["edge"]
-        self._alpha = alpha
-        self.set_facecolor(self.get_facecolor() if face is None else face)
-        self.set_edgecolor(self.get_edgecolor() if edge is None else edge)
-
-    def _with_alpha(self, color):
-        """*color* with the patch's alpha, if it has one."""
-        from .colors import to_rgba
-        if self._alpha is None or cbook._str_lower_equal(color, "none"):
-            return color
-        return to_rgba(color, self._alpha)
-
-    def set_facecolor(self, color):
-        """Set the face color of the background."""
-        self._original["face"] = color
-        self._set_facecolor(self._with_alpha(color))
-
-    def set_edgecolor(self, color):
-        """Set the edge color of the background."""
-        color = "none" if color is None else color
-        self._original["edge"] = color
-        self._set_edgecolor(self._with_alpha(color))
-
-    def set_color(self, c):
-        """Set both the edgecolor and the facecolor of the background."""
-        self.set_facecolor(c)
-        self.set_edgecolor(c)
-
-    def get_fc(self):
-        """Alias for `get_facecolor`."""
-        return self.get_facecolor()
-
-    def set_fc(self, color):
-        """Alias for `set_facecolor`."""
-        self.set_facecolor(color)
-
-    def get_ec(self):
-        """Alias for `get_edgecolor`."""
-        return self.get_edgecolor()
-
-    def set_ec(self, color):
-        """Alias for `set_edgecolor`."""
-        self.set_edgecolor(color)
-
-    def get_lw(self):
-        """Alias for `get_linewidth`."""
-        return self.get_linewidth()
-
-    def set_lw(self, w):
-        """Alias for `set_linewidth`."""
-        self.set_linewidth(w)
-
-    def set(self, **kwargs):
-        """Set several properties at once (``set_<name>(value)`` each)."""
-        for name, value in cbook.normalize_kwargs(kwargs, self._ALIASES).items():
-            setter = getattr(self, f"set_{name}", None)
-            if setter is None:
-                raise AttributeError(
-                    f"Rectangle.set() got an unexpected keyword argument {name!r}")
-            setter(value)
-
-    def remove(self):
-        """The background is part of its axes or figure, which cannot lose
-        it."""
-        raise NotImplementedError('cannot remove artist')
-
-    def get_gid(self):
-        """Return the group id of the background."""
-        return self._get_gid()
-
-    def set_gid(self, gid):
-        """
-        Set the (group) id of the background: SVG output names the
-        background's group after it.
-
-        Parameters
-        ----------
-        gid : str
-        """
-        self._set_gid(None if gid is None else str(gid))
+    def contains(self, patch, mouseevent, radius=None):
+        return self.owner.contains(mouseevent)
 
 
-class FigurePatch(BackgroundPatch):
-    """
-    The background of a figure or subfigure (matplotlib's ``Figure.patch``,
-    a unit `.Rectangle` in subfigure coordinates): pltrs (Rust) draws it as
-    part of the figure, so this object reads and sets the figure's
-    background properties.
-    """
+class _AxesBackground(_Background):
+    """The background of an Axes."""
 
-    def __init__(self, figure):
-        super().__init__()
-        self._parent = figure
+    def figure(self, patch, root=False):
+        return self.owner.get_figure(root=root)
 
-    def get_figure(self, root=False):
-        """Return the (sub)figure the background is the background of."""
-        return self._parent.get_figure(root=True) if root else self._parent
+    def contains_point(self, patch, point, radius=None):
+        return self.owner.contains_point(point)
 
-    def get_in_layout(self):
-        """Return False: the background of a figure does not count in its
-        bounding box (matplotlib makes it with ``in_layout=False``)."""
-        return False
+    def clip_spec(self, patch):
+        # The outline of the Axes, followed as it changes.
+        return ("artist", self.owner._native)
 
-    def get_transform(self):
-        """Return the transform of the unit square: the figure's
-        ``transSubfigure``."""
-        return self._parent.transSubfigure
 
-    def get_visible(self):
-        """Return whether the background is drawn."""
-        return _figure.get_frameon(self._parent._native)
+class _FigureBackground(_Background):
+    """The background of a (sub)figure."""
 
-    def set_visible(self, b):
-        """Set whether the background is drawn."""
-        _figure.set_frameon(self._parent._native, bool(b))
+    def figure(self, patch, root=False):
+        return self.owner.get_figure(root=True) if root else self.owner
 
-    def get_facecolor(self):
-        """Return the face color of the background."""
-        from .colors import to_rgba
-        return to_rgba(_figure.get_facecolor(self._parent._native))
-
-    def _set_facecolor(self, color):
-        _figure.set_facecolor(self._parent._native, color)
-
-    def get_edgecolor(self):
-        """Return the edge color of the background."""
-        from .colors import to_rgba
-        return to_rgba(_figure.get_edgecolor(self._parent._native))
-
-    def _set_edgecolor(self, color):
-        _figure.set_edgecolor(self._parent._native, color)
-
-    def contains(self, mouseevent):
-        """Return whether the mouse event occurred in the background."""
-        return self._parent.contains(mouseevent)
-
-    def _clip_spec(self):
-        """The native clip path of artists clipped to the background: the
-        box of the (sub)figure, as matplotlib clips to a `.Rectangle`."""
+    def clip_spec(self, patch):
+        # The box of the (sub)figure, as matplotlib clips to a Rectangle.
         from ._artist_clipping import _rectangle
         from .transforms import Bbox
         return ("bbox", _rectangle(Bbox.unit()),
-                _live_transforms.to_native(self._parent.transSubfigure))
+                _live_transforms.to_native(self.owner.transSubfigure))
 
-    def get_linewidth(self):
-        """Return the line width of the background's edge in points."""
-        return _figure.get_linewidth(self._parent._native)
 
-    def set_linewidth(self, w):
-        """Set the line width of the background's edge in points."""
-        _figure.set_linewidth(self._parent._native, float(w))
+def _made(owner, patch, mirroring, transform):
+    """*patch* made the mirror of the background of *owner*, placed by
+    *transform* unless it was made with a transform of its own, as
+    matplotlib places it."""
+    _mirrors.attach(patch, mirroring)
+    if not patch.is_transform_set():
+        with _mirrors.detached(patch):
+            patch.set_transform(transform)
+    owner.__dict__["_patch"] = patch
+    return patch
 
-    def _get_gid(self):
-        return _figure.get_patch_gid(self._parent._native)
 
-    def _set_gid(self, gid):
-        _figure.set_patch_gid(self._parent._native, gid)
+def axes_patch(axes):
+    """The patch of the background of *axes* (the same object while the
+    Axes keeps it), with the background's style."""
+    patch = axes.__dict__.get("_patch")
+    if patch is None:
+        patch = _made(axes, axes._gen_axes_patch(), _AxesBackground(axes),
+                      axes.transAxes)
+    patch._mirror.pull(patch)
+    return patch
+
+
+def share_axes_patch(axes, patch):
+    """Make *patch*, the background of another Axes, that of *axes*
+    (matplotlib's ``aux_ax.patch = ax.patch``): the parasite *axes* clips
+    to its outline and draws it again among its children."""
+    mirror = _mirrors.mirroring(patch)
+    if not isinstance(mirror, _AxesBackground):
+        raise TypeError("an Axes' patch must be the background patch of an Axes")
+    if mirror.owner is not axes:
+        _axisartist.share_floating_patch(mirror.owner._native, axes._native)
+    axes.__dict__["_patch"] = patch
+
+
+def figure_patch(figure):
+    """The patch of the background of *figure* (a figure or subfigure),
+    with the background's style."""
+    from .patches import Rectangle
+    patch = figure.__dict__.get("_patch")
+    if patch is None:
+        patch = _made(figure, Rectangle((0, 0), 1, 1), _FigureBackground(figure),
+                      figure.transSubfigure)
+        with _mirrors.detached(patch):
+            # Left out of the figure's tight box, as matplotlib makes it.
+            patch.set_in_layout(False)
+    patch._mirror.pull(patch)
+    return patch

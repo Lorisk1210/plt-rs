@@ -8,6 +8,7 @@ property changes once an axes added them.
 """
 
 from pltrs import rcParams
+from pltrs.font_manager import FontManager, FontProperties
 from pltrs._native import axisartist as _axisartist
 
 
@@ -17,7 +18,8 @@ class OwnTexts:
     (`LabelBase`: *offset_radius* pixels from the point), ``"axislabel"``
     (`AxisLabel`: its pad away) or ``"ticklabels"`` (`TickLabels`: one
     text per location, angle and label of *locs_angles_labels*), with
-    matplotlib's `.Text` defaults.
+    matplotlib's `.Text` defaults (rotated around their anchor, as
+    `LabelBase` sets).
     """
 
     def __init__(self, kind, x=0, y=0, text=''):
@@ -25,7 +27,8 @@ class OwnTexts:
         self.props = {
             "x": x, "y": y, "text": str(text), "rotation": 0.0,
             "ha": "left", "va": "baseline", "color": rcParams["text.color"],
-            "size": rcParams["font.size"], "weight": rcParams["font.weight"],
+            "size": rcParams["font.size"],
+            "look": (FontManager._props(FontProperties()), None, None, "anchor"),
             "pad": 5, "axis_direction": "bottom", "ref_angle": 0,
             "offset_radius": 0.0, "locs_angles_labels": [],
         }
@@ -47,5 +50,5 @@ class OwnTexts:
                       float(props["ref_angle"]), props["text"])]
         return (self.kind, float(props["offset_radius"]), texts,
                 (float(props["pad"]), props["color"], float(props["size"]),
-                 str(props["weight"]), float(props["rotation"]),
+                 props["look"], float(props["rotation"]),
                  (props["va"], props["ha"]), props["axis_direction"]))

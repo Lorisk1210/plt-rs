@@ -10,13 +10,14 @@ use pltrs_core::{Bbox, Point};
 use pltrs_text::mathtext::is_math_text;
 use pltrs_text::{HAlign, VAlign};
 
-use super::labels::{LabelKind, LabelState, PlacedTickLabels, TickLabel, axis_label, tick_labels};
+use super::labels::{
+    LabelKind, LabelState, PlacedTickLabels, TextLook, TickLabel, axis_label, tick_labels,
+};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, LayoutContext, RawHandle, TypedHandle,
 };
 use crate::axes::{Axes, DataUpdate, PlacedText};
 use crate::colors::Color;
-use crate::fonts::FontWeight;
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
 use crate::text::{TextError, draw_laid_out, measure_text};
@@ -91,8 +92,9 @@ pub struct AxisTexts {
     pub color: Color,
     /// The font size in points.
     pub size: f64,
-    /// The font weight.
-    pub weight: FontWeight,
+    /// The font but its size, and how the lines and the rotation are
+    /// laid out.
+    pub look: TextLook,
     /// The text angle in degrees, relative to 90° plus the direction to
     /// the text.
     pub rotation: f64,
@@ -111,7 +113,7 @@ pltrs_core::archive_struct!(AxisTexts {
     pad,
     color,
     size,
-    weight,
+    look,
     rotation,
     valign,
     halign,
@@ -131,7 +133,7 @@ impl AxisTexts {
             pad: self.pad,
             color: Some(self.color.clone()),
             size: self.size,
-            weight: self.weight,
+            look: self.look.clone(),
             rotation: self.rotation,
             valign: self.valign,
             halign: self.halign,
@@ -311,8 +313,8 @@ impl Axes {
     /// says nothing.
     ///
     /// ```
-    /// use pltrs::axisartist::{AxisTexts, AxisTextsKind};
-    /// use pltrs::fonts::FontWeight;
+    /// use pltrs::axisartist::{AxisTexts, AxisTextsKind, TextLook};
+    /// use pltrs::fonts::FontProperties;
     /// use pltrs::prelude::*;
     /// use pltrs::spines::SpineSide;
     /// use pltrs::text::{HAlign, VAlign};
@@ -324,7 +326,7 @@ impl Axes {
     ///     pad: 5.0,
     ///     color: "black".into(),
     ///     size: 10.0,
-    ///     weight: FontWeight::NORMAL,
+    ///     look: TextLook::new(FontProperties::from_rc(&pltrs::rc::params())),
     ///     rotation: -90.0,
     ///     valign: VAlign::Top,
     ///     halign: HAlign::Center,
@@ -357,7 +359,7 @@ mod tests {
             pad: 10.0,
             color: Color::from("black"),
             size: 10.0,
-            weight: FontWeight::NORMAL,
+            look: TextLook::new(crate::fonts::FontProperties::from_rc(&crate::rc::params())),
             rotation: 0.0,
             valign: VAlign::Center,
             halign: HAlign::Center,

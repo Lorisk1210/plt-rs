@@ -40,12 +40,19 @@ def _registry(figure):
     return vars(figure).setdefault("_tick_helpers", {})
 
 
+def _axis_registry(axis):
+    """The tick helpers of the figure of *axis*, or of its Axes once that
+    was removed from its figure (whose axis keeps its helpers)."""
+    figure = axis.axes.figure
+    return _registry(axis.axes if figure is None else figure)
+
+
 def get(axis, kind, minor):
     """The locator (*kind* ``"locator"``) or formatter (``"formatter"``) of
     the major or *minor* ticks of *axis*, as one object per helper."""
     helper_id, token = _axis.helper(axis.axes._native, axis.axis_name, kind,
                                     bool(minor))
-    registry = _registry(axis.axes.figure)
+    registry = _axis_registry(axis)
     entry = registry.get(helper_id)
     if entry is not None:
         return entry[1]
@@ -57,6 +64,15 @@ def get(axis, kind, minor):
         _watch_native_formatter(helper, axis)
     registry[helper_id] = (token, helper, axis)
     return helper
+
+
+def adopt(axis, helper, kind, minor):
+    """Make *helper*, a locator (*kind* ``"locator"``) or formatter of the
+    package's class that describes the one pltrs (Rust) installed on the
+    major or *minor* ticks of *axis*, the object that one reads as."""
+    installed = _axis.helper(axis.axes._native, axis.axis_name, kind, bool(minor))
+    helper.set_axis(axis)
+    _keep(axis, helper, installed)
 
 
 def _spec_of(helper):
@@ -140,7 +156,7 @@ def _keep(axis, helper, installed):
     """Register *helper*, installed on *axis* with the identity and token
     *installed*."""
     _watch(helper, axis)
-    registry = _registry(axis.axes.figure)
+    registry = _axis_registry(axis)
     _prune(registry)
     helper_id, token = installed
     registry[helper_id] = (token, helper, axis)
@@ -189,7 +205,7 @@ def _prune(registry):
 def changed(helper):
     """Install *helper*, natively installed and changed since, again in
     place wherever it is used (matplotlib's helpers change in place)."""
-    registry = _registry(helper._native_axis.axes.figure)
+    registry = _axis_registry(helper._native_axis)
     for helper_id, (token, entry, entry_axis) in list(registry.items()):
         if entry is not helper:
             continue

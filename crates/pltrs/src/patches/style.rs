@@ -76,6 +76,19 @@ impl PatchStyle {
         }
     }
 
+    /// The edge colour: the one set, else `patch.edgecolor` when edges
+    /// are forced, the face is not filled or the class has an edge by
+    /// default (`edge_default`), else none.
+    pub(crate) fn edge_spec(&self, rc: &RcParams, edge_default: bool) -> Color {
+        match &self.edgecolor {
+            Some(color) => color.clone(),
+            None if rc.patch_force_edgecolor || !self.fill || edge_default => {
+                rc.patch_edgecolor.clone()
+            }
+            None => Color::none(),
+        }
+    }
+
     /// Colours and widths resolved against `rc` and the artist's alpha.
     pub(crate) fn resolve(
         &self,
@@ -83,14 +96,7 @@ impl PatchStyle {
         alpha: Option<f64>,
         edge_default: bool,
     ) -> Result<ResolvedStyle, ColorError> {
-        let edge_spec = match &self.edgecolor {
-            Some(color) => color.clone(),
-            None if rc.patch_force_edgecolor || !self.fill || edge_default => {
-                rc.patch_edgecolor.clone()
-            }
-            None => Color::none(),
-        };
-        let edge = edge_spec.resolve_alpha(alpha)?;
+        let edge = self.edge_spec(rc, edge_default).resolve_alpha(alpha)?;
         let face_spec = self
             .facecolor
             .clone()

@@ -12,7 +12,7 @@ misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names plt
 
 # matplotlib salts the ids of its SVG elements with a random uuid unless
 # svg.hashsalt is set, so they differ between two runs of matplotlib too.
-(misc/svg_filter_line|user_interfaces/svg_histogram_sgskip)$ | ^value\[XMLID\]: dict keys$ | SVG ids are hashed with a random salt (svg.hashsalt None)
+(misc/svg_filter_line|user_interfaces/svg_histogram_sgskip|user_interfaces/svg_tooltip_sgskip)$ | ^value\[XMLID\]: dict keys$ | SVG ids are hashed with a random salt (svg.hashsalt None)
 
 # pltrs ships its own looks as style sheets (pltrs-modern, pltrs-modern-dark,
 # `pltrs::look`), which style.available lists with matplotlib's.

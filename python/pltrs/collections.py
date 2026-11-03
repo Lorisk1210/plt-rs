@@ -5,8 +5,9 @@ polygons (matplotlib's ``collections``).
 
 A collection wraps the native handle of a pltrs (Rust) collection.
 Colours cross to pltrs (Rust) as matplotlib keeps them, RGBA arrays;
-the face and edge colours read back are the ones drawn, after the
-defaults, the colour mapping and alpha.
+the face and edge colours read back as matplotlib keeps them: as set,
+after the defaults and alpha, until a draw maps the values onto them
+(`Collection.update_scalarmappable`). Widths read back as given.
 """
 
 import math
@@ -33,6 +34,14 @@ def _rcParams():
 def _rgba(colors):
     """*colors* (one colour or a sequence) as an ``(N, 4)`` RGBA array."""
     return mcolors.to_rgba_array(colors)
+
+
+def _same_paths(kept, native):
+    """Whether the native paths *native*, ``(vertices, codes)`` pairs, are
+    those *kept* were read as."""
+    return len(kept) == len(native) and all(
+        np.array_equal(v0, v1) and np.array_equal(c0, c1)
+        for (v0, c0), (v1, c1) in zip(kept, native))
 
 
 def _edge_spec(colors):
@@ -216,10 +225,11 @@ class Collection(mcolorizer.ColorizingArtist):
         """
         Update colors from the scalar mappable array, if any.
 
-        pltrs (Rust) maps the colours when it reads or draws them; this
-        checks the array and the alphas as matplotlib does.
+        Assign colors to edges and faces based on the array and/or
+        colors that were directly set, as appropriate (drawing does it).
         """
         if self._A is None:
+            _collections.update_scalarmappable(self._native)
             return
         if self._A.ndim > 1 and not isinstance(self, (QuadMesh, PolyQuadMesh)):
             raise ValueError('Collections can only map rank 1 arrays')
@@ -233,6 +243,7 @@ class Collection(mcolorizer.ColorizingArtist):
                              'behavior of the "flat" shading option, '
                              'in which a row and/or column of the data '
                              'array is dropped.')
+        _collections.update_scalarmappable(self._native)
 
     def get_offset_transform(self):
         """Return the `.Transform` instance used by this artist offset."""
@@ -258,12 +269,23 @@ class Collection(mcolorizer.ColorizingArtist):
         """The native property *name*."""
         return _collections.get(self._native, name)
 
+    #: The kind of sequence the paths were given in (matplotlib keeps them
+    #: as given: ``scatter`` gives its marker as a tuple).
+    _paths_container = list
+
     def get_paths(self):
-        """Return the paths of the items."""
-        paths = [Path(vertices, codes)
-                 for vertices, codes in _collections.get_paths(self._native)]
+        """Return the paths of the items: the same objects while they
+        stay, as matplotlib's collections keep theirs."""
+        native = _collections.get_paths(self._native)
+        kept = self.__dict__.get("_kept_paths")
+        if kept is not None and _same_paths(kept[0], native):
+            return kept[1]
+        paths = [Path(vertices, codes) for vertices, codes in native]
         if _collections.has_single_path(self._native):
-            return paths[0]
+            paths = paths[0]
+        else:
+            paths = self._paths_container(paths)
+        self._kept_paths = (native, paths)
         return paths
 
     _paths = property(get_paths, doc="The paths of the items.")
@@ -278,7 +300,9 @@ class Collection(mcolorizer.ColorizingArtist):
         if isinstance(paths, Path):
             _collections.set_single_path(self._native, paths)
         else:
+            self._paths_container = tuple if isinstance(paths, tuple) else list
             _collections.set_paths(self._native, list(paths))
+        self.__dict__.pop("_kept_paths", None)
 
     def get_transforms(self):
         """
@@ -406,7 +430,8 @@ class Collection(mcolorizer.ColorizingArtist):
 
     def get_pickradius(self):
         """Return the pick radius used for containment tests."""
-        return _collections.get_pickradius(self._native)
+        return _values.given(self, "pickradius",
+                             _collections.get_pickradius(self._native))
 
     def set_pickradius(self, pickradius):
         """Set the pick radius used for containment tests, in points."""
@@ -414,6 +439,7 @@ class Collection(mcolorizer.ColorizingArtist):
             raise ValueError(
                 f"pickradius must be a real-valued number, not {pickradius!r}")
         _collections.set_pickradius(self._native, float(pickradius))
+        _values.remember(self, "pickradius", pickradius)
 
     pickradius = property(get_pickradius, set_pickradius)
 
@@ -494,8 +520,9 @@ class Collection(mcolorizer.ColorizingArtist):
         """Set the linewidth(s) for the collection (None: the default)."""
         if lw is None:
             lw = self._get_default_linewidth()
-        _collections.set_linewidths(
-            self._native, [float(w) for w in np.atleast_1d(lw)])
+        lw = np.atleast_1d(lw)
+        _collections.set_linewidths(self._native, [float(w) for w in lw])
+        _values.remember(self, "linewidth", lw)
 
     def get_linestyle(self):
         """Return the dash patterns, scaled by the line widths."""
@@ -515,7 +542,8 @@ class Collection(mcolorizer.ColorizingArtist):
     def _lwls(self):
         """The line widths and scaled dash patterns, broadcast as
         matplotlib's ``_bcast_lwls`` does."""
-        linewidths = np.asarray(self._get("linewidth"), dtype=float)
+        linewidths = _values.given(
+            self, "linewidth", np.asarray(self._get("linewidth"), dtype=float))
         dashes = [mlines._get_dash_pattern(style) for style in self._get("linestyle")]
         if _rcParams()['_internal.classic_mode']:
             return linewidths, dashes
@@ -615,6 +643,8 @@ class Collection(mcolorizer.ColorizingArtist):
                     f'alpha must be numeric or None, not {type(alpha)}')
             self._array_alpha = None
             super().set_alpha(alpha)
+            # The colours read back as set again, until the next draw.
+            _collections.set_alpha(self._native, alpha)
 
     def get_alpha(self):
         """Return the transparency: a float, the array of one per element
@@ -656,13 +686,15 @@ class _CollectionWithSizes(Collection):
             The 'area' of each element.
         """
         sizes = _collections.get_sizes(self._native)
-        return np.zeros(0) if sizes is None else sizes
+        return _values.given(self, "sizes", np.zeros(0) if sizes is None else sizes)
 
     def set_sizes(self, sizes, dpi=72.0):
         """Set the sizes of each member of the collection."""
         if sizes is None:
             sizes = np.array([])
-        _collections.set_sizes(self._native, np.atleast_1d(np.asarray(sizes, float)))
+        sizes = np.atleast_1d(sizes)
+        _collections.set_sizes(self._native, np.asarray(sizes, float))
+        _values.remember(self, "sizes", sizes)
 
 
 class PathCollection(_CollectionWithSizes):
@@ -680,6 +712,7 @@ class PathCollection(_CollectionWithSizes):
             The factor by which to scale each drawn `~.path.Path`.
         """
         self._native = _collections.new_path_collection(list(paths))
+        self._paths_container = tuple if isinstance(paths, tuple) else list
         super().__init__(**kwargs)
         self.set_sizes(sizes)
 
@@ -1161,6 +1194,8 @@ class EventCollection(LineCollection):
         self._native = _collections.new_event_collection(
             np.atleast_1d(positions), orientation == 'vertical',
             float(lineoffset), float(linelength))
+        _values.remember_all(self, {"lineoffset": lineoffset, "linelength": linelength},
+                             ("lineoffset", "linelength"))
         Collection.__init__(self, linewidths=linewidth, linestyles=linestyle,
                             antialiaseds=antialiased, facecolors='none',
                             zorder=2, **kwargs)
@@ -1224,19 +1259,23 @@ class EventCollection(LineCollection):
 
     def get_linelength(self):
         """Return the length of the lines used to mark each event."""
-        return _collections.event_lines(self._native)[1]
+        return _values.given(self, "linelength",
+                             _collections.event_lines(self._native)[1])
 
     def set_linelength(self, linelength):
         """Set the length of the lines used to mark each event."""
         _collections.set_event_lines(self._native, None, float(linelength))
+        _values.remember(self, "linelength", linelength)
 
     def get_lineoffset(self):
         """Return the offset of the lines used to mark each event."""
-        return _collections.event_lines(self._native)[0]
+        return _values.given(self, "lineoffset",
+                             _collections.event_lines(self._native)[0])
 
     def set_lineoffset(self, lineoffset):
         """Set the offset of the lines used to mark each event."""
         _collections.set_event_lines(self._native, float(lineoffset), None)
+        _values.remember(self, "lineoffset", lineoffset)
 
     def get_linewidth(self):
         """Get the width of the lines used to mark each event."""
@@ -1421,6 +1460,22 @@ class _MeshData:
         """How the cells are coloured: ``'flat'`` or ``'gouraud'``."""
         return _collections.get_mesh_shading(self._native)
 
+    def _cells(self):
+        """The ``(rows, columns)`` of values the mesh maps."""
+        height, width = self.get_coordinates().shape[0:-1]
+        if self._shading == 'flat':
+            return height - 1, width - 1
+        return height, width
+
+    def _native_array(self):
+        # One value per cell, as the grid of cells (the plotting functions
+        # hand matplotlib's meshes their values as 2D arrays).
+        array = super()._native_array()
+        if array is None or array.ndim != 1:
+            return array
+        rows, columns = self._cells()
+        return array.reshape(rows, columns) if array.size == rows * columns else array
+
     def set_array(self, A):
         """
         Set the data values.
@@ -1444,10 +1499,7 @@ class _MeshData:
             shading.
         """
         height, width = self.get_coordinates().shape[0:-1]
-        if self._shading == 'flat':
-            h, w = height - 1, width - 1
-        else:
-            h, w = height, width
+        h, w = self._cells()
         ok_shapes = [(h, w, 3), (h, w, 4), (h, w), (h * w,)]
         if A is not None:
             shape = np.shape(A)
@@ -1486,6 +1538,27 @@ class QuadMesh(_MeshData, Collection):
         if contained and self.get_array() is not None:
             return self.get_array().ravel()[info["ind"]]
         return None
+
+    def get_pickradius(self):
+        # docstring inherited
+        # matplotlib's meshes are picked at their cells (``pickradius=0``).
+        return _values.given(self, "pickradius",
+                             _collections.get_pickradius(self._native), default=0)
+
+    def get_antialiased(self):
+        """
+        Return the antialiasing of the collection: :rc:`patch.antialiased`
+        until set. matplotlib's mesh draws with the antialiasing it was made
+        with (``pcolormesh(antialiased=...)``), which this does not read.
+        """
+        return np.array(self.__dict__.get(
+            "_antialiaseds", [_rcParams()['patch.antialiased']]), dtype=bool)
+
+    def set_antialiased(self, aa):
+        """Set the antialiasing of the collection (see `get_antialiased`)."""
+        if aa is None:
+            aa = _rcParams()['patch.antialiased']
+        self._antialiaseds = [bool(a) for a in np.atleast_1d(aa)]
 
 
 class PolyQuadMesh(_MeshData, PolyCollection):

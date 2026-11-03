@@ -153,33 +153,39 @@ pub(super) fn accumulate(
     reduce: &HexReduce,
     mincnt: Option<usize>,
 ) -> Vec<f64> {
-    let mut members: Vec<Vec<f64>> = vec![Vec::new(); lattice.len()];
-    for (i, (&x, &y)) in tx.iter().zip(ty).enumerate() {
-        if let Some(k) = lattice.index(x, y) {
-            members[k].push(values.map_or(1.0, |v| v[i]));
+    let Some(values) = values else {
+        let mut counts = vec![0_usize; lattice.len()];
+        for (&x, &y) in tx.iter().zip(ty) {
+            if let Some(k) = lattice.index(x, y) {
+                counts[k] += 1;
+            }
         }
-    }
-    if values.is_some() {
-        let min = mincnt.unwrap_or(1);
-        return members
-            .iter()
-            .map(|m| {
-                if m.len() >= min {
-                    reduce.apply(m)
-                } else {
+        return counts
+            .into_iter()
+            .map(|count| {
+                let count = count as f64;
+                if mincnt.is_some_and(|min| count < min as f64) {
                     f64::NAN
+                } else {
+                    count
                 }
             })
             .collect();
+    };
+    let mut members: Vec<Vec<f64>> = vec![Vec::new(); lattice.len()];
+    for ((&x, &y), &value) in tx.iter().zip(ty).zip(values) {
+        if let Some(k) = lattice.index(x, y) {
+            members[k].push(value);
+        }
     }
+    let min = mincnt.unwrap_or(1);
     members
         .iter()
         .map(|m| {
-            let count = m.len() as f64;
-            if mincnt.is_some_and(|min| count < min as f64) {
-                f64::NAN
+            if m.len() >= min {
+                reduce.apply(m)
             } else {
-                count
+                f64::NAN
             }
         })
         .collect()

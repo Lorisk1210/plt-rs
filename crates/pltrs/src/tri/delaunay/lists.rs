@@ -8,8 +8,7 @@
 //! these heads valid exactly as qhull does, since the list order becomes the
 //! order of the output triangles.
 
-use super::hull::{FacetId, Hull, RidgeId, VertexId};
-use super::inline::InlineVec;
+use super::hull::{Facet, FacetId, Hull, RidgeId, VertexId};
 use super::sets;
 
 /// Which list head [`Hull::prepend_facet`] inserts before.
@@ -206,15 +205,12 @@ impl Hull {
         }
     }
 
-    /// Deletes `facet`: unlinks it and drops its sets (qhull's `qh_delfacet`).
+    /// Deletes `facet`: unlinks it and frees its slot for the next new
+    /// facet (qhull's `qh_delfacet`).
     pub(super) fn delete_facet(&mut self, facet: FacetId) {
         self.remove_facet(facet);
-        let f = self.facet_mut(facet);
-        f.neighbors = InlineVec::new();
-        f.ridges = Vec::new();
-        f.vertices = InlineVec::new();
-        f.outside = Vec::new();
-        f.coplanar = Vec::new();
+        self.facets[facet.index()] = Facet::default();
+        self.free_facets.push(facet);
     }
 
     /// Deletes `vertex` (qhull's `qh_delvertex`).

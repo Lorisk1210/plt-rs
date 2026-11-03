@@ -84,12 +84,13 @@ pub(super) fn signed(size: usize) -> isize {
 }
 
 /// A validated grid: coordinates and values of `nx × ny` points, row by
-/// row, with the point mask if anything is masked.
-#[derive(Clone, Copy, Debug)]
+/// row, with the point mask if anything is masked. The generators keep
+/// the coordinates and values, which they take over.
+#[derive(Clone, Debug)]
 pub(super) struct QuadGrid<'a> {
-    pub(super) x: &'a [f64],
-    pub(super) y: &'a [f64],
-    pub(super) z: &'a [f64],
+    pub(super) x: Vec<f64>,
+    pub(super) y: Vec<f64>,
+    pub(super) z: Vec<f64>,
     pub(super) mask: Option<&'a [bool]>,
     pub(super) nx: usize,
     pub(super) ny: usize,
@@ -176,6 +177,20 @@ impl QuadContourGenerator {
         corner_mask: bool,
         chunk_size: (usize, usize),
     ) -> Result<Self, ContourError> {
+        let coordinates = (x.clone(), y.clone());
+        Self::with_coordinates(algorithm, coordinates, z, mask, corner_mask, chunk_size)
+    }
+
+    /// [`with_algorithm`](Self::with_algorithm) taking over the
+    /// coordinates `(x, y)` rather than copying them.
+    pub(crate) fn with_coordinates(
+        algorithm: ContourAlgorithm,
+        (x, y): (Grid<f64>, Grid<f64>),
+        z: &Grid<f64>,
+        mask: Option<&Grid<bool>>,
+        corner_mask: bool,
+        chunk_size: (usize, usize),
+    ) -> Result<Self, ContourError> {
         let (ny, nx) = z.shape();
         if ny < 2 || nx < 2 {
             return Err(ContourError::GridTooSmall { rows: ny, cols: nx });
@@ -195,19 +210,19 @@ impl QuadContourGenerator {
             return Err(ContourError::CornerMaskUnsupported(algorithm));
         }
         let grid = QuadGrid {
-            x: x.as_slice(),
-            y: y.as_slice(),
-            z: z.as_slice(),
+            x: x.into_vec(),
+            y: y.into_vec(),
+            z: z.as_slice().to_vec(),
             mask: mask.map(Grid::as_slice).filter(|m| m.contains(&true)),
             nx,
             ny,
         };
         let chunks = Chunks::new(nx, ny, chunk_size);
         let engine = match algorithm {
-            ContourAlgorithm::Mpl2005 => Engine::Mpl2005(Mpl2005::new(&grid, chunks)),
-            ContourAlgorithm::Mpl2014 => Engine::Mpl2014(Mpl2014::new(&grid, corner_mask, chunks)),
+            ContourAlgorithm::Mpl2005 => Engine::Mpl2005(Mpl2005::new(grid, chunks)),
+            ContourAlgorithm::Mpl2014 => Engine::Mpl2014(Mpl2014::new(grid, corner_mask, chunks)),
             ContourAlgorithm::Serial | ContourAlgorithm::Threaded => {
-                Engine::Serial(Serial::new(&grid, corner_mask, chunks))
+                Engine::Serial(Serial::new(grid, corner_mask, chunks))
             }
         };
         Ok(Self {

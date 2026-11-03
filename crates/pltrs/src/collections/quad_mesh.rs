@@ -2,6 +2,8 @@
 //! flat (one colour per cell) or Gouraud-shaded (colours interpolated
 //! from the vertices).
 
+use std::borrow::Cow;
+
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::QuadMesh;
 
@@ -39,13 +41,15 @@ pltrs_core::archive_struct!(MeshGeometry {
 
 impl CollectionArtist {
     /// A quad mesh over `coordinates` (matplotlib's `QuadMesh`): the
-    /// cells become the paths, ordered row by row.
+    /// cells are its paths, ordered row by row, made only when asked for
+    /// (see [`shapes`](Self::shapes)), as matplotlib's `get_paths` makes
+    /// them; drawing reads the vertex grid.
     pub(crate) fn quad_mesh(
         coordinates: Grid<Point>,
         shading: MeshShading,
         rc: std::rc::Rc<RcParams>,
     ) -> Self {
-        let mut mesh = Self::new(CollectionKind::QuadMesh, cell_paths(&coordinates), rc);
+        let mut mesh = Self::new(CollectionKind::QuadMesh, Vec::new(), rc);
         // Picks fall inside the cells.
         mesh.pickradius = 0.0;
         mesh.mesh = Some(MeshGeometry {
@@ -57,6 +61,27 @@ impl CollectionArtist {
 }
 
 impl CollectionArtist {
+    /// The item shapes: the stored paths, or the cells of a quad mesh,
+    /// made now from its vertex grid.
+    pub(crate) fn shapes(&self) -> Cow<'_, [Path]> {
+        match &self.mesh {
+            Some(mesh) if self.paths.is_empty() => Cow::Owned(cell_paths(&mesh.coordinates)),
+            _ => Cow::Borrowed(&self.paths),
+        }
+    }
+
+    /// Whether [`shapes`](Self::shapes) holds any shape, without making
+    /// the cells of a quad mesh.
+    pub(crate) fn has_shapes(&self) -> bool {
+        match &self.mesh {
+            Some(mesh) if self.paths.is_empty() => {
+                let (rows, cols) = mesh.coordinates.shape();
+                rows > 1 && cols > 1
+            }
+            _ => !self.paths.is_empty(),
+        }
+    }
+
     /// How many values a quad mesh maps to colours: one per cell, or one
     /// per vertex when Gouraud-shaded (`None` for other collections).
     pub(super) fn mesh_value_count(&self) -> Option<usize> {

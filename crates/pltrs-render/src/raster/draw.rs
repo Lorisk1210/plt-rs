@@ -224,6 +224,7 @@ impl Renderer for RasterRenderer {
         let masked = self.prepare_clip_mask(gc, Some(rect.unwrap_or_else(|| self.full_box())));
         let clip = collection.facecolors.is_empty() && gc.hatch.is_none();
         let mut conditioned = std::mem::take(&mut self.conditioned);
+        let mut flattened = std::mem::take(&mut self.flattened);
         for item in collection.items(gc) {
             let conditioning = Conditioning {
                 has_codes: true,
@@ -235,10 +236,22 @@ impl Renderer for RasterRenderer {
             };
             let transform = self.to_device(&item.transform);
             self.condition_into(item.path, transform, &conditioning, &mut conditioned);
+            // The fill and the stroke would each flatten the curves (of a
+            // marker, say) the same way: flatten them once.
+            let path = if conditioned.has_curves() {
+                conditioned
+                    .iter_vertices()
+                    .flatten_curves(true)
+                    .collect_path_into(&mut flattened);
+                &flattened
+            } else {
+                &conditioned
+            };
             let face = item.fill.map(|c| item.gc.fill_color(c));
-            self.draw_conditioned(&item.gc, &conditioned, face, rect, masked);
+            self.draw_conditioned(&item.gc, path, face, rect, masked);
         }
         self.conditioned = conditioned;
+        self.flattened = flattened;
     }
 
     fn draw_gouraud_triangles(

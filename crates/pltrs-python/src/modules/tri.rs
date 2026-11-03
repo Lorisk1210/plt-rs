@@ -75,7 +75,8 @@ fn triangles_array(triangles: &[[usize; 3]]) -> PyResult<NdArray<i64>> {
 }
 
 /// A triangulation of the points `(x, y)`: of the given `triangles`, else
-/// Delaunay's; masked by `mask`.
+/// Delaunay's; masked by `mask`. Without a mask the topology stays as made
+/// (both Python triangulations set their mask, and so recompute it, next).
 fn new(
     x: NdArray,
     y: NdArray,
@@ -87,7 +88,10 @@ fn new(
         Some(triangles) => Triangulation::new(&x, &y, triangle_rows(&triangles)?)?,
         None => Triangulation::delaunay(&x, &y)?,
     };
-    Ok(tri.with_mask(mask)?)
+    Ok(match mask {
+        Some(mask) => tri.with_mask(Some(mask))?,
+        None => tri,
+    })
 }
 
 /// A triangulation of the points `(x, y)` with `triangles` kept in the
@@ -99,7 +103,8 @@ fn as_given(x: NdArray, y: NdArray, triangles: NdArray<i64>) -> PyResult<Triangu
 }
 
 /// `(x, y)` of the points.
-fn points(tri: Triangulation) -> PyResult<(NdArray, NdArray)> {
+fn points(tri: Native<Triangulation>) -> PyResult<(NdArray, NdArray)> {
+    let tri = tri.borrow();
     Ok((
         NdArray::from_vec(tri.x().to_vec()),
         NdArray::from_vec(tri.y().to_vec()),
@@ -107,19 +112,22 @@ fn points(tri: Triangulation) -> PyResult<(NdArray, NdArray)> {
 }
 
 /// Every triangle, masked or not, in the vertex order given.
-fn triangles(tri: Triangulation) -> PyResult<NdArray<i64>> {
+fn triangles(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
+    let tri = tri.borrow();
     triangles_array(tri.given_triangles())
 }
 
 /// The unmasked triangles, in the vertex order given.
-fn masked_triangles(tri: Triangulation) -> PyResult<NdArray<i64>> {
+fn masked_triangles(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
+    let tri = tri.borrow();
     let given = tri.given_triangles();
     let unmasked: Vec<[usize; 3]> = tri.unmasked().map(|t| given[t]).collect();
     triangles_array(&unmasked)
 }
 
 /// The mask, `None` when unset.
-fn mask(tri: Triangulation) -> PyResult<Option<Vec<bool>>> {
+fn mask(tri: Native<Triangulation>) -> PyResult<Option<Vec<bool>>> {
+    let tri = tri.borrow();
     Ok(tri.mask().map(<[bool]>::to_vec))
 }
 
@@ -130,7 +138,8 @@ fn set_mask(tri: Native<Triangulation>, mask: Option<Vec<bool>>) -> PyResult<()>
 }
 
 /// The edges of the unmasked triangles, as an `(N, 2)` int array.
-fn edges(tri: Triangulation) -> PyResult<NdArray<i64>> {
+fn edges(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
+    let tri = tri.borrow();
     let edges = tri.edges();
     let data = edges
         .iter()
@@ -141,7 +150,8 @@ fn edges(tri: Triangulation) -> PyResult<NdArray<i64>> {
 }
 
 /// The neighbouring triangle across each edge, `-1` for none.
-fn neighbors(tri: Triangulation) -> PyResult<NdArray<i64>> {
+fn neighbors(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
+    let tri = tri.borrow();
     let neighbors = tri.neighbors();
     let data = neighbors
         .iter()
@@ -152,20 +162,23 @@ fn neighbors(tri: Triangulation) -> PyResult<NdArray<i64>> {
 }
 
 /// Whether the triangles are Delaunay's.
-fn is_delaunay(tri: Triangulation) -> PyResult<bool> {
+fn is_delaunay(tri: Native<Triangulation>) -> PyResult<bool> {
+    let tri = tri.borrow();
     Ok(tri.is_delaunay())
 }
 
 /// The plane `z = a·x + b·y + c` through each triangle, as an `(N, 3)`
 /// array.
-fn plane_coefficients(tri: Triangulation, z: NdArray) -> PyResult<NdArray> {
+fn plane_coefficients(tri: Native<Triangulation>, z: NdArray) -> PyResult<NdArray> {
+    let tri = tri.borrow();
     let planes = tri.plane_coefficients(&z.into_vec()?)?;
     let rows = planes.len();
     NdArray::with_shape(planes.into_iter().flatten().collect(), vec![rows, 3])
 }
 
 /// The triangle holding each point `(x[i], y[i])`, `-1` outside.
-fn find(tri: Triangulation, x: NdArray, y: NdArray) -> PyResult<NdArray<i64>> {
+fn find(tri: Native<Triangulation>, x: NdArray, y: NdArray) -> PyResult<NdArray<i64>> {
+    let tri = tri.borrow();
     let finder = TriFinder::new(&tri)?;
     Ok(NdArray::from_vec(
         x.data
@@ -217,12 +230,13 @@ fn with_interpolator<R>(
 /// the points, or in the triangles `tri_index` given for them (`-1` for
 /// none; matplotlib's `_interpolate_multikeys`).
 fn interpolate(
-    tri: Triangulation,
+    tri: Native<Triangulation>,
     z: NdArray,
     kind: Kind,
     (x, y): (NdArray, NdArray),
     tri_index: Option<NdArray<i64>>,
 ) -> PyResult<(NdArray, NdArray, NdArray)> {
+    let tri = tri.borrow();
     let z = z.into_vec()?;
     let ntri = tri.triangles().len();
     let given = tri_index
@@ -271,7 +285,8 @@ fn interpolate(
 
 /// The triangulation refined `subdiv` times, and the original triangle
 /// of each new point (`-1` for none).
-fn refine(tri: Triangulation, subdiv: usize) -> PyResult<(Triangulation, NdArray<i64>)> {
+fn refine(tri: Native<Triangulation>, subdiv: usize) -> PyResult<(Triangulation, NdArray<i64>)> {
+    let tri = tri.borrow();
     let (refined, found) = UniformTriRefiner::new(&tri).refine_triangulation_with_index(subdiv);
     let found = found
         .into_iter()
@@ -283,11 +298,12 @@ fn refine(tri: Triangulation, subdiv: usize) -> PyResult<(Triangulation, NdArray
 /// The triangulation refined `subdiv` times and `z` interpolated (as
 /// `kind` says) at its points, `NaN` where none.
 fn refine_field(
-    tri: Triangulation,
+    tri: Native<Triangulation>,
     z: NdArray,
     kind: Kind,
     subdiv: usize,
 ) -> PyResult<(Triangulation, NdArray)> {
+    let tri = tri.borrow();
     let z = z.into_vec()?;
     let refined = with_interpolator(&tri, &z, kind, |interp| {
         UniformTriRefiner::new(&tri).refine_field(&z, Some(interp), subdiv)
@@ -301,14 +317,16 @@ fn refine_field(
 }
 
 /// The factors scaling the triangulation to a unit square.
-fn scale_factors(tri: Triangulation) -> PyResult<(f64, f64)> {
+fn scale_factors(tri: Native<Triangulation>) -> PyResult<(f64, f64)> {
+    let tri = tri.borrow();
     let [sx, sy] = TriAnalyzer::new(&tri).scale_factors();
     Ok((sx, sy))
 }
 
 /// The ratio of the incircle to the circumcircle radius of each triangle
 /// (`NaN` for masked ones), after rescaling when `rescale`.
-fn circle_ratios(tri: Triangulation, rescale: bool) -> PyResult<NdArray> {
+fn circle_ratios(tri: Native<Triangulation>, rescale: bool) -> PyResult<NdArray> {
+    let tri = tri.borrow();
     Ok(NdArray::from_vec(
         TriAnalyzer::new(&tri)
             .circle_ratios(rescale)
@@ -320,28 +338,41 @@ fn circle_ratios(tri: Triangulation, rescale: bool) -> PyResult<NdArray> {
 
 /// The mask removing flat border triangles (matplotlib's
 /// `get_flat_tri_mask`).
-fn flat_tri_mask(tri: Triangulation, min_circle_ratio: f64, rescale: bool) -> PyResult<Vec<bool>> {
+fn flat_tri_mask(
+    tri: Native<Triangulation>,
+    min_circle_ratio: f64,
+    rescale: bool,
+) -> PyResult<Vec<bool>> {
+    let tri = tri.borrow();
     Ok(TriAnalyzer::new(&tri).flat_tri_mask(min_circle_ratio, rescale))
 }
 
 /// The contour lines of `z` (one value per point) at `level`, as one
 /// compound path whose loops end with a CLOSEPOLY (matplotlib's C++
 /// `TriContourGenerator.create_contour`, its lines concatenated).
-fn contour_lines(tri: Triangulation, z: NdArray, level: f64) -> PyResult<PathArrays> {
+fn contour_lines(tri: Native<Triangulation>, z: NdArray, level: f64) -> PyResult<PathArrays> {
+    let tri = tri.borrow();
     let mut generator = TriContourGenerator::new(&tri, &z.into_vec()?)?;
     path_arrays(&generator.lines(level), false)
 }
 
 /// The region `lower <= z < upper` as one compound path of rings
 /// (matplotlib's C++ `TriContourGenerator.create_filled_contour`).
-fn filled_contour(tri: Triangulation, z: NdArray, lower: f64, upper: f64) -> PyResult<PathArrays> {
+fn filled_contour(
+    tri: Native<Triangulation>,
+    z: NdArray,
+    lower: f64,
+    upper: f64,
+) -> PyResult<PathArrays> {
+    let tri = tri.borrow();
     let mut generator = TriContourGenerator::new(&tri, &z.into_vec()?)?;
     path_arrays(&generator.filled(lower, upper)?, false)
 }
 
 /// The outline of each unmasked triangle as a path of its three corners
 /// (matplotlib's `TriMesh.convert_mesh_to_paths`).
-fn triangle_paths(tri: Triangulation) -> PyResult<Vec<PathArrays>> {
+fn triangle_paths(tri: Native<Triangulation>) -> PyResult<Vec<PathArrays>> {
+    let tri = tri.borrow();
     tri.triangle_paths()
         .iter()
         .map(|path| path_arrays(path, false))

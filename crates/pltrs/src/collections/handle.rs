@@ -443,7 +443,8 @@ impl Collection {
 
     /// The item shapes.
     pub fn paths(&self) -> Vec<Path> {
-        self.raw.with::<CollectionArtist, _>(|c| c.paths.clone())
+        self.raw
+            .with::<CollectionArtist, _>(|c| c.shapes().into_owned())
     }
 
     /// Replaces the items with polylines through the points of each

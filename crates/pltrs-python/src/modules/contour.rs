@@ -270,12 +270,13 @@ pub(super) fn contour_options(
 fn tricontour(
     axes: Axes,
     filled: bool,
-    tri: Triangulation,
+    tri: Native<Triangulation>,
     z: NdArray,
     requested: Option<NdArray>,
     look: Look,
     extras: Extras,
 ) -> PyResult<ContourSet> {
+    let tri = tri.borrow();
     let options = contour_options(requested, look, extras)?;
     let z = z.into_vec()?;
     Ok(if filled {

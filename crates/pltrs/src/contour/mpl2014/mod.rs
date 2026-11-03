@@ -50,7 +50,7 @@ pub(super) struct Mpl2014 {
 
 impl Mpl2014 {
     /// A generator for `grid`, in `chunks`.
-    pub(super) fn new(grid: &QuadGrid<'_>, corner_mask: bool, chunks: Chunks) -> Self {
+    pub(super) fn new(grid: QuadGrid<'_>, corner_mask: bool, chunks: Chunks) -> Self {
         let (nx, ny) = (grid.nx, grid.ny);
         let cache = Cache::new(
             nx,
@@ -61,9 +61,9 @@ impl Mpl2014 {
         );
         Self {
             field: Field {
-                x: grid.x.to_vec(),
-                y: grid.y.to_vec(),
-                z: grid.z.to_vec(),
+                x: grid.x,
+                y: grid.y,
+                z: grid.z,
                 nx,
             },
             corner_mask,

@@ -64,7 +64,7 @@ impl Collection {
     /// ```
     pub fn segments(&self) -> Vec<Vec<Point>> {
         self.raw().with::<CollectionArtist, _>(|c| {
-            c.paths
+            c.shapes()
                 .iter()
                 .map(|path| path.vertices().to_vec())
                 .collect()

@@ -3,6 +3,8 @@
 //! colormap, and `float32` data passes through `Normalize` and the
 //! colormap lookup in single precision.
 
+use pltrs_core::numeric::np_clip;
+
 use super::{Precision, ScalarKind};
 use crate::colors::{NormError, NormKind, Normalized, ScalarMappable};
 
@@ -63,6 +65,43 @@ pub(crate) fn normalize_in(
             })
         })
         .collect())
+}
+
+/// The colormap rows of `values` (those `mask` flags masked) under a
+/// linear `Normalize` in double precision: [`normalize_in`] and the
+/// colormap's lookup in one pass, without their intermediate arrays.
+/// `None` for other norms, for single precision and for limits that are
+/// not increasing, which take the general path.
+pub(crate) fn linear_rows(
+    mappable: &mut ScalarMappable,
+    values: &[f64],
+    mask: &[bool],
+    precision: Precision,
+) -> Option<Vec<u32>> {
+    let norm = mappable.norm_mut();
+    let clip = norm.clip();
+    if !matches!(norm.kind(), NormKind::Linear) || (precision == Precision::Single && !clip) {
+        return None;
+    }
+    if !norm.scaled() {
+        norm.autoscale_none_unmasked(values, mask);
+    }
+    let (lo, hi) = norm.vmin().zip(norm.vmax()).filter(|(lo, hi)| lo < hi)?;
+    let cmap = mappable.cmap();
+    let bad = cmap.lut_index(Normalized::Masked) as u32;
+    Some(
+        values
+            .iter()
+            .zip(mask)
+            .map(|(&v, &masked)| {
+                if masked {
+                    return bad;
+                }
+                let v = if clip { np_clip(v, lo, hi) } else { v };
+                cmap.lut_index(Normalized::Fraction((v - lo) / (hi - lo))) as u32
+            })
+            .collect(),
+    )
 }
 
 /// The colormap row of a `float32` fraction among `n` colours, as

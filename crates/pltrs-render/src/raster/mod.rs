@@ -102,6 +102,8 @@ pub struct RasterRenderer {
     clip_cache: Option<CachedClip>,
     /// The last conditioned path, kept for its allocations.
     conditioned: Path,
+    /// The last conditioned path with its curves flattened, likewise.
+    flattened: Path,
     /// Canvases set aside while filtered artists draw.
     set_aside: Vec<Pixmap>,
     errors: Vec<RasterError>,
@@ -124,6 +126,7 @@ impl RasterRenderer {
             chunksize: 0,
             clip_cache: None,
             conditioned: Path::default(),
+            flattened: Path::default(),
             set_aside: Vec::new(),
             errors: Vec::new(),
         })

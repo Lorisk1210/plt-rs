@@ -102,17 +102,8 @@ pub(super) struct QuadRange {
 
 impl Serial {
     /// A generator for `grid`, in `chunks`.
-    pub(super) fn new(grid: &QuadGrid<'_>, corner_mask: bool, chunks: Chunks) -> Self {
+    pub(super) fn new(grid: QuadGrid<'_>, corner_mask: bool, chunks: Chunks) -> Self {
         Self {
-            field: Field {
-                x: grid.x.to_vec(),
-                y: grid.y.to_vec(),
-                z: grid.z.to_vec(),
-                nx: signed(grid.nx),
-            },
-            ny: signed(grid.ny),
-            corner_mask,
-            chunks,
             cache: Cache::new(
                 grid.nx,
                 grid.ny,
@@ -120,6 +111,15 @@ impl Serial {
                 corner_mask,
                 (chunks.x_size, chunks.y_size),
             ),
+            field: Field {
+                x: grid.x,
+                y: grid.y,
+                z: grid.z,
+                nx: signed(grid.nx),
+            },
+            ny: signed(grid.ny),
+            corner_mask,
+            chunks,
             levels: Levels::default(),
         }
     }
@@ -217,14 +217,14 @@ mod tests {
             .flat_map(|j| (0..nx).map(move |_| j as f64))
             .collect();
         let grid = QuadGrid {
-            x: &x,
-            y: &y,
-            z: &z,
+            x,
+            y,
+            z,
             mask,
             nx,
             ny,
         };
-        Serial::new(&grid, corner_mask, Chunks::new(nx, ny, (chunk, chunk)))
+        Serial::new(grid, corner_mask, Chunks::new(nx, ny, (chunk, chunk)))
     }
 
     const PIT: [&[f64]; 3] = [&[1.0, 1.0, 1.0], &[1.0, 0.0, 1.0], &[1.0, 1.0, 1.0]];

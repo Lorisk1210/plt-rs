@@ -174,10 +174,10 @@ impl QuadField {
         }
         let mask = Grid::from_vec(rows, cols, mask).expect("the mask has the shape of z");
         let chunk = (self.nchunk, self.nchunk);
-        let generator = QuadContourGenerator::with_algorithm(
+        let data_lim = data_lim(&x, &y, to_data);
+        let generator = QuadContourGenerator::with_coordinates(
             algorithm,
-            &x,
-            &y,
+            (x, y),
             &self.z,
             Some(&mask),
             corner_mask,
@@ -187,7 +187,7 @@ impl QuadField {
             generator,
             zmin,
             zmax,
-            data_lim: data_lim(&x, &y, to_data),
+            data_lim,
             boolean: self.boolean,
             warnings,
         })

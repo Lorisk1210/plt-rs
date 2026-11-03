@@ -26,6 +26,8 @@ impl UnicodeMap {
             .collect();
         entries.sort_by_key(|&(code, _)| code);
         entries.dedup_by_key(|&mut (code, _)| code);
+        // Filtering kept the capacity of every mapping, unused glyphs too.
+        entries.shrink_to_fit();
         Some(Self { entries })
     }
 

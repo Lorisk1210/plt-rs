@@ -185,7 +185,7 @@ fn elements(
         num => located(num, (lowest, highest), shown_range, options)?,
     };
     let labels = format_labels(options.fmt.as_deref(), &label_values, shown_range)?;
-    let marker = Marker::Path(collection.paths.first().cloned().unwrap_or_default());
+    let marker = Marker::Path(collection.shapes().first().cloned().unwrap_or_default());
     let edge_width = collection.linewidths_or_default()[0];
     let alpha = options.alpha.or(collection.base().alpha);
     let rc = &collection.rc;

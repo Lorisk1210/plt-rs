@@ -4,10 +4,8 @@
 //! `pltrs-raster`; and matplotlib's public `image.resample`, which runs the
 //! resampler as it is.
 
-use std::borrow::Cow;
-
 use pltrs_core::{Affine2D, Point};
-use pltrs_raster::resample::{self as raster, Pixel, PixelTransform, ResampleParams};
+use pltrs_raster::resample::{self as raster, Pixel, PixelTransform, ResampleParams, Source};
 
 use super::{ImageError, Interpolation, Origin};
 use crate::numeric::Grid;
@@ -299,28 +297,53 @@ impl Resampling {
         map: &PixelMap,
         resample: Option<bool>,
     ) -> Result<Grid<P>, ImageError> {
-        let (data, mut map) = within_agg_limits(data, map);
         let (rows, cols) = data.shape();
-        let interpolation = self.resolved_interpolation(rows, cols, &map);
-        let mut flipped = None;
+        let source = raster::GridRef::new(cols, rows, data.as_slice())?;
+        self.run_source(&source, out_shape, map, resample)
+    }
+
+    /// [`run`](Self::run) for the pixels of any `source`.
+    pub(crate) fn run_source<P: Pixel>(
+        &self,
+        source: &impl Source<P>,
+        out_shape: (usize, usize),
+        map: &PixelMap,
+        resample: Option<bool>,
+    ) -> Result<Grid<P>, ImageError> {
+        if let Some((kept, map)) = within_agg_limits(source, map) {
+            let (rows, cols) = kept.shape();
+            let kept = raster::GridRef::new(cols, rows, kept.as_slice())?;
+            return self.run_source(&kept, out_shape, &map, resample);
+        }
+        let (rows, cols) = (source.height(), source.width());
+        let interpolation = self.resolved_interpolation(rows, cols, map);
+        if interpolation != Interpolation::Nearest {
+            return self.resample(source, interpolation, out_shape, map, resample);
+        }
         // Agg picks the right-hand pixel on exact ties; flipping the data
         // and the transform makes it pick the left (and upper) one.
-        if interpolation == Interpolation::Nearest {
-            let upper = self.origin == Origin::Upper;
-            let mut pixels = Vec::with_capacity(rows * cols);
-            for r in 0..rows {
-                let row = if upper { rows - 1 - r } else { r };
-                pixels.extend(data.row(row).iter().rev());
-            }
-            flipped = Some(pixels);
-            map = map.after(Affine2D::translation(-(cols as f64), 0.0).scale(-1.0, 1.0));
-            if upper {
-                map = map.after(Affine2D::translation(0.0, -(rows as f64)).scale(1.0, -1.0));
-            }
+        let upper = self.origin == Origin::Upper;
+        let mut flipped_map = map
+            .clone()
+            .after(Affine2D::translation(-(cols as f64), 0.0).scale(-1.0, 1.0));
+        if upper {
+            flipped_map =
+                flipped_map.after(Affine2D::translation(0.0, -(rows as f64)).scale(1.0, -1.0));
         }
-        let source = flipped.as_deref().unwrap_or(data.as_slice());
+        let flipped = Flipped { source, upper };
+        self.resample(&flipped, interpolation, out_shape, &flipped_map, resample)
+    }
+
+    /// Runs Agg's resampler from `source` with `interpolation`.
+    fn resample<P: Pixel>(
+        &self,
+        source: &impl Source<P>,
+        interpolation: Interpolation,
+        out_shape: (usize, usize),
+        map: &PixelMap,
+        resample: Option<bool>,
+    ) -> Result<Grid<P>, ImageError> {
         let (out_rows, out_cols) = out_shape;
-        let src = raster::GridRef::new(cols, rows, source)?;
         let mut dst = raster::Grid::filled(out_cols, out_rows, P::default())?;
         // matplotlib's wrapper passes the radius as a C float.
         let radius = f64::from(self.filterrad as f32);
@@ -329,9 +352,33 @@ impl Resampling {
             .with_resample(resample.unwrap_or(self.resample))
             .with_norm(self.filternorm)
             .with_radius(radius);
-        raster::resample(src, &mut dst, &params)?;
+        raster::resample_from(source, &mut dst, &params)?;
         Ok(Grid::from_vec(out_rows, out_cols, dst.into_vec())
             .expect("the destination grid has the requested shape"))
+    }
+}
+
+/// A source read mirrored left to right, and top to bottom too when
+/// `upper`, without copying it.
+struct Flipped<'s, S> {
+    source: &'s S,
+    upper: bool,
+}
+
+impl<P, S: Source<P>> Source<P> for Flipped<'_, S> {
+    fn width(&self) -> usize {
+        self.source.width()
+    }
+
+    fn height(&self) -> usize {
+        self.source.height()
+    }
+
+    fn pixel(&self, index: usize) -> P {
+        let (width, height) = (self.width(), self.height());
+        let (row, column) = (index / width, index % width);
+        let row = if self.upper { height - 1 - row } else { row };
+        self.source.pixel(row * width + width - 1 - column)
     }
 }
 
@@ -339,26 +386,27 @@ impl Resampling {
 /// signed integers.
 const AGG_LIMITS: (usize, usize) = (1 << 24, 1 << 23);
 
-/// `data` with only every `step`-th row and column kept where it has more
-/// rows or columns than Agg handles, and `map` scaled to match
-/// (matplotlib's `_resample` downsamples such data, with a warning).
-fn within_agg_limits<'a, P: Pixel>(
-    data: &'a Grid<P>,
+/// The pixels of `source` with only every `step`-th row and column kept,
+/// and `map` scaled to match, where it has more rows or columns than Agg
+/// handles (matplotlib's `_resample` downsamples such data, with a
+/// warning).
+fn within_agg_limits<P: Pixel>(
+    source: &impl Source<P>,
     map: &PixelMap,
-) -> (Cow<'a, Grid<P>>, PixelMap) {
-    let (rows, cols) = data.shape();
+) -> Option<(Grid<P>, PixelMap)> {
+    let (rows, cols) = (source.height(), source.width());
     let step = |n: usize, limit: usize| if n > limit { n.div_ceil(limit) } else { 1 };
     let (row_step, col_step) = (step(rows, AGG_LIMITS.0), step(cols, AGG_LIMITS.1));
     if (row_step, col_step) == (1, 1) {
-        return (Cow::Borrowed(data), map.clone());
+        return None;
     }
     let kept = Grid::from_fn(rows.div_ceil(row_step), cols.div_ceil(col_step), |r, c| {
-        data[(r * row_step, c * col_step)]
+        source.pixel(r * row_step * cols + c * col_step)
     });
     let scaled = map
         .clone()
         .after(Affine2D::scaling(col_step as f64, row_step as f64));
-    (Cow::Owned(kept), scaled)
+    Some((kept, scaled))
 }
 
 #[cfg(test)]
@@ -430,7 +478,8 @@ mod tests {
         let nearest = settings(Interpolation::Nearest, Origin::Lower);
         let out = nearest.run(&data, (1, 8), &map, None).unwrap();
         assert_eq!(out.row(0), &[0.0; 8]);
-        let (kept, scaled) = within_agg_limits(&data, &map);
+        let source = raster::GridRef::new(cols, 1, data.as_slice()).unwrap();
+        let (kept, scaled) = within_agg_limits(&source, &map).expect("beyond the limits");
         assert_eq!(kept.shape(), (1, (1 << 22) + 1));
         assert_eq!(scaled.apply(Point::new(1.0, 1.0)).x, 16.0 / cols as f64);
     }

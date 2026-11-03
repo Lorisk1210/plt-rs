@@ -52,18 +52,18 @@ struct Mesh {
 
 impl Mpl2005 {
     /// A generator for `grid`, in `chunks`.
-    pub(super) fn new(grid: &QuadGrid<'_>, chunks: Chunks) -> Self {
+    pub(super) fn new(grid: QuadGrid<'_>, chunks: Chunks) -> Self {
         let (imax, jmax) = (grid.nx, grid.ny);
         Self {
+            zones: grid.mask.map(|mask| mask_zones(imax, jmax, mask)),
             mesh: Mesh {
-                x: grid.x.to_vec(),
-                y: grid.y.to_vec(),
-                z: grid.z.to_vec(),
+                x: grid.x,
+                y: grid.y,
+                z: grid.z,
                 imax: signed(imax),
             },
             jmax: signed(jmax),
             chunk: (signed(chunks.x_size), signed(chunks.y_size)),
-            zones: grid.mask.map(|mask| mask_zones(imax, jmax, mask)),
             data: vec![0; imax * jmax + imax + 1],
             saddle: vec![0; imax * jmax],
         }
@@ -163,14 +163,14 @@ mod tests {
             .flat_map(|j| (0..nx).map(move |_| j as f64))
             .collect();
         let grid = QuadGrid {
-            x: &x,
-            y: &y,
-            z: &z,
+            x,
+            y,
+            z,
             mask,
             nx,
             ny,
         };
-        Mpl2005::new(&grid, Chunks::new(nx, ny, (chunk, chunk)))
+        Mpl2005::new(grid, Chunks::new(nx, ny, (chunk, chunk)))
     }
 
     #[test]

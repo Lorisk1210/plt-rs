@@ -19,7 +19,8 @@ pub(super) fn path_collection(
     source: &CollectionArtist,
     area: &HandleBox,
 ) -> Result<Vec<HandlerArtist>, LegendError> {
-    let Some(shape) = source.paths.first() else {
+    let shapes = source.shapes();
+    let Some(shape) = shapes.first() else {
         return Ok(Vec::new());
     };
     let settings = ctx.settings;

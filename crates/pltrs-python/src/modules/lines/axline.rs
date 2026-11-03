@@ -1,5 +1,5 @@
 //! Infinite lines (matplotlib's `AxLine`, which `axline` makes): their
-//! points or slope, and the part of them the axes show.
+//! points or slope.
 
 use pltrs::lines::{AxLineError, Line2D};
 use pltrs_core::Point;
@@ -58,19 +58,10 @@ fn set_axline_slope(line: Line2D, slope: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// The part of an infinite line its axes show, from start to stop in
-/// display pixels, `None` when it cannot be placed.
-fn axline_segment(line: Line2D) -> PyResult<Option<(Pair, Pair)>> {
-    Ok(line
-        .axline_display_segment()
-        .map(|(start, stop)| (pair(start), pair(stop))))
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("axline", axline)?;
     module.add("set_axline_xy1", set_axline_xy1)?;
     module.add("set_axline_xy2", set_axline_xy2)?;
-    module.add("set_axline_slope", set_axline_slope)?;
-    module.add("axline_segment", axline_segment)
+    module.add("set_axline_slope", set_axline_slope)
 }

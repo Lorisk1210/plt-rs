@@ -3,7 +3,6 @@
 //! `make_axes`, `make_axes_gridspec` and
 //! `_normalize_location_orientation`).
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::{Anchor, Bbox};
@@ -11,7 +10,7 @@ use pltrs_core::{Anchor, Bbox};
 use super::{ColorbarError, ColorbarOptions, ParentAnchor};
 use crate::artist::{ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName};
-use crate::figure::{Figure, FigureState};
+use crate::figure::{Figure, FigureCell};
 use crate::gridspec::{GridSpec, SubplotSpec};
 use crate::layout::ColorbarLayout;
 use crate::mplot3d::Axes3D;
@@ -109,7 +108,7 @@ impl Parent {
     }
 
     /// The state of the figure the parent belongs to.
-    pub(crate) fn figure_state(&self) -> &Rc<RefCell<FigureState>> {
+    pub(crate) fn figure_state(&self) -> &Rc<FigureCell> {
         self.raw().figure_state()
     }
 

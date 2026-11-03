@@ -370,15 +370,6 @@ fn get_language(text: Text) -> PyResult<(Option<String>, Vec<LanguageSpan>)> {
     })
 }
 
-/// The text's extent on the canvas as `(x0, y0, x1, y1)` in pixels, `None`
-/// when it has none (matplotlib's `get_window_extent`).
-fn get_window_extent(text: Text) -> PyResult<Option<(f64, f64, f64, f64)>> {
-    Ok(text
-        .raw()
-        .measured_extent()
-        .map(|bbox| (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1())))
-}
-
 /// Whether the display point `(x, y)` is on the text or its box.
 fn contains(text: Text, x: f64, y: f64) -> PyResult<bool> {
     Ok(text.contains(Point::new(x, y)).is_some())
@@ -425,7 +416,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_parse_math", set_parse_math)?;
     module.add("get_usetex", get_usetex)?;
     module.add("set_usetex", set_usetex)?;
-    module.add("get_window_extent", get_window_extent)?;
     module.add("contains", contains)?;
     module.add("set_bbox", set_bbox)?;
     module.add("has_bbox", has_bbox)?;

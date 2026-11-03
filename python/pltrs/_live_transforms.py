@@ -1,54 +1,30 @@
 """
-The transforms pltrs (Rust) resolves in a figure's current layout:
-``ax.transData``, ``ax.transAxes``, ``fig.transFigure``,
-``fig.dpi_scale_trans`` and the boxes they span (``ax.bbox``,
-``fig.bbox``), and the transforms artists are drawn with.
+The bridge between matplotlib's transforms and pltrs (Rust)'s.
 
-A live transform holds a native transform (``_native.transforms``) and
-the root figure resolving it; its points come from pltrs (Rust) whenever
-they are asked for, so it follows layout, limits and scales without
-invalidation. matplotlib's own transform classes combine with it as with
-any `.Transform`. Between Python and pltrs (Rust) a transform crosses as
-the nested tuples ``_native.transforms.native`` reads: `to_native` writes
-them for matplotlib's classes (and for transforms of the program's: an
-affine one as its matrix, any other as a map pltrs (Rust) calls back),
-`from_native` reads the description of a native transform back into the
-objects matplotlib code compares (``line.get_transform() is
-ax.transData``).
+Between Python and pltrs (Rust) a transform crosses as the nested tuples
+``_native.transforms.native`` reads: `to_native` writes them for
+matplotlib's classes (and for transforms of the program's: an affine one
+as its matrix, any other as a map pltrs (Rust) calls back), the nodes of
+the trees of Axes and figures that stand for a transform pltrs (Rust) has
+(``ax.transData``, ``fig.transFigure``; see `._transform_trees`) as that
+transform, which pltrs (Rust) resolves in the figure's layout whenever it
+draws. `from_native` reads the description of a native transform back
+into the objects matplotlib code compares (``line.get_transform() is
+ax.transData``). A transform pltrs (Rust) has that no Python object stands
+for (a map of a projection's) comes back as a `LiveTransform`.
 """
 
-import functools
 import weakref
 
 import numpy as np
 
 from ._native import transforms as _transforms
 from .transforms import (
-    Affine2D, Affine2DBase, AffineDeltaTransform, BboxBase,
-    BlendedAffine2D, BlendedGenericTransform, CompositeAffine2D,
-    CompositeGenericTransform, IdentityTransform, ScaledTranslation,
-    Transform, TransformedPath, TransformWrapper, blended_transform_factory,
-    composite_transform_factory)
+    Affine2D, Affine2DBase, AffineDeltaTransform, BlendedAffine2D,
+    BlendedGenericTransform, CompositeAffine2D, CompositeGenericTransform,
+    IdentityTransform, ScaledTranslation, Transform, TransformedPath,
+    TransformWrapper, blended_transform_factory, composite_transform_factory)
 from .path import Path
-
-
-#: Every live transform alive (see `invalidate_all`).
-_alive = weakref.WeakSet()
-
-
-def invalidate_all():
-    """Invalidate every live transform, so that the transforms of
-    matplotlib's classes built on them compute their values again: a live
-    transform follows its figure without invalidation, but what it is part
-    of keeps what it computed (a `.TransformedBbox`'s points) until
-    invalidated, as matplotlib's limits and layout invalidate
-    ``transData``. Done before the program's drawing runs, which reads
-    them as matplotlib's ``draw`` methods do."""
-    for transform in list(_alive):
-        # A live transform is always up to date, so it counts as valid
-        # until it tells what is built on it that it changed.
-        transform._invalid = transform._VALID
-        transform.invalidate()
 
 
 class LiveTransform(Transform):
@@ -58,17 +34,11 @@ class LiveTransform(Transform):
     output_dims = 2
     has_inverse = True
 
-    def __init__(self, figure, native, shorthand_name=None, tree=None):
+    def __init__(self, figure, native, shorthand_name=None):
         super().__init__(shorthand_name=shorthand_name)
         self._root = figure
         self._native = native
-        self._tree = tree
-        _alive.add(self)
-
-    def __str__(self):
-        # matplotlib's tree of the transform, as the figure is now.
-        tree = None if self._tree is None else self._tree()
-        return super().__str__() if tree is None else str(tree)
+        self._live = native
 
     def _apply(self, values, part):
         values = np.asanyarray(values, dtype=float)
@@ -110,77 +80,6 @@ class LiveTransform(Transform):
         return self
 
 
-def cached(owner, name, native):
-    """The live transform *name* of the axes or figure *owner*
-    (``ax.transData``, ``fig.transFigure``...), made the first time from
-    the native transform ``native(owner._native)``, so that every read
-    gives the same object."""
-    key = f"_live_{name}"
-    transform = owner.__dict__.get(key)
-    if transform is None:
-        from ._transform_trees import tree
-        transform = LiveTransform(owner.figure, native(owner._native),
-                                  shorthand_name=name,
-                                  tree=functools.partial(tree, owner, name))
-        owner.__dict__[key] = transform
-    return transform
-
-
-def inches(figure):
-    """The native transform of physical inches (``fig.dpi_scale_trans``)."""
-    return _transforms.native(("inches",))
-
-
-class LiveBbox(BboxBase):
-    """
-    A box pltrs (Rust) gives the points of whenever they are read: the
-    display box a live transform maps the unit square to (``ax.bbox``,
-    ``fig.bbox``), or the limits of an axes (``ax.dataLim``,
-    ``ax.viewLim``). It is read-only, as matplotlib's `.BboxBase`.
-    """
-
-    def __init__(self, points, minpos=None):
-        super().__init__()
-        self._points_of = points
-        self._minpos_of = minpos
-
-    @classmethod
-    def spanned(cls, transform):
-        """The box *transform* maps the unit square to (kept as
-        ``_spanning``, by which an artist clipped to the box follows it)."""
-        box = cls(lambda: transform.transform([[0.0, 0.0], [1.0, 1.0]]))
-        box._spanning = transform
-        return box
-
-    def get_points(self):
-        return np.asarray(self._points_of(), dtype=float).reshape(2, 2)
-
-    def frozen(self):
-        """A frozen copy of the box, with its smallest positive coordinates
-        when it has them (``dataLim``)."""
-        bbox = super().frozen()
-        if self._minpos_of is not None:
-            bbox._minpos = self.minpos.copy()
-        return bbox
-
-    @property
-    def minpos(self):
-        """The smallest positive coordinates of the data (``dataLim``)."""
-        if self._minpos_of is None:
-            raise AttributeError("minpos")
-        return np.asarray(self._minpos_of(), dtype=float)
-
-    @property
-    def minposx(self):
-        """The smallest positive x of the data."""
-        return self.minpos[0]
-
-    @property
-    def minposy(self):
-        """The smallest positive y of the data."""
-        return self.minpos[1]
-
-
 def to_native(transform):
     """The native transform of the matplotlib transform *transform* (None:
     display coordinates)."""
@@ -208,12 +107,10 @@ def for_axes(transform, axes):
 def _description(t):
     """The nested tuples describing *t* to pltrs (Rust)."""
     live = getattr(t, "_live", None)
-    if live is not None:  # The transform of an axes of a program's projection.
+    if live is not None:  # A transform pltrs (Rust) has.
         return ("native", live)
     if t is None or isinstance(t, IdentityTransform):
         return ("display",)
-    if isinstance(t, LiveTransform):
-        return ("native", t._native)
     if isinstance(t, TransformWrapper):
         return _description(t._child)
     if isinstance(t, (CompositeGenericTransform, CompositeAffine2D)):
@@ -268,14 +165,51 @@ class _Unnamed(Exception):
     """A description names an artist that has no Python object yet."""
 
 
-def of_artist(artist, native):
-    """The matplotlib transform of the native transform *native* set on
-    *artist* (`from_native`): `.IdentityTransform` for none, the display
-    coordinates an artist without a transform is drawn in, and while the
-    artist is outside any figure."""
-    if native is None or artist._figure is None:
-        return IdentityTransform()
-    return from_native(artist._figure, native)
+def of_artist(artist, native, role="transform"):
+    """
+    The matplotlib transform of the native transform *native* set on
+    *artist* as its *role* (``"transform"``, ``"offset"``; `from_native`):
+    `.IdentityTransform` for none, the display coordinates an artist
+    without a transform is drawn in, and while the artist is outside any
+    figure. The object made is kept for the artist and given again while
+    the native transform stays the same, as matplotlib keeps an artist's
+    ``_transform``.
+    """
+    in_figure = native is not None and artist._figure is not None
+    if not in_figure:
+        return kept(artist, role, None, IdentityTransform)
+    return kept(artist, role, _transforms.describe(native),
+                lambda: from_native(artist._figure, native))
+
+
+#: What `kept` keeps, by artist (not pickled with it: the objects it holds
+#: are made again from the native state).
+_kept = weakref.WeakKeyDictionary()
+
+
+def kept(artist, role, description, make):
+    """
+    The object *make()* made for *artist* as its *role* while the native
+    *description* (of `_native.transforms.describe`, or any value
+    comparable by content) stays the same: the transform or clip box an
+    artist keeps in matplotlib, made again when pltrs (Rust)'s changes.
+    """
+    made = _kept.setdefault(artist, {})
+    key = _key(description)
+    entry = made.get(role)
+    if entry is None or entry[0] != key:
+        entry = made[role] = (key, make())
+    return entry[1]
+
+
+def _key(description):
+    """*description* (of `_native.transforms.describe`) as a value that
+    compares by content (its matrices as tuples)."""
+    if isinstance(description, tuple):
+        return tuple(_key(item) for item in description)
+    if isinstance(description, np.ndarray):
+        return ("array", description.tobytes())
+    return description
 
 
 def from_native(figure, native):
@@ -292,7 +226,7 @@ def from_native(figure, native):
 def _transform_of(figure, description):
     kind, *args = description
     if kind in ("data", "axes", "figure"):
-        artist = figure._artists.get(args[0])
+        artist = _named(figure, args[0])
         if artist is None:
             raise _Unnamed
         return {"data": lambda: artist.transData,
@@ -329,9 +263,19 @@ def _axis_transform(figure, x, y):
     kinds = (x[0], y[0])
     if kinds not in (("data", "axes"), ("axes", "data")) or x[1] != y[1]:
         return None
-    ax = figure._artists.get(x[1])
+    ax = _named(figure, x[1])
     if ax is None:
         return None
     if kinds == ("data", "axes"):
         return ax.get_xaxis_transform()
     return ax.get_yaxis_transform()
+
+
+def _named(figure, artist_id):
+    """The object of the artist *artist_id* of the root *figure*: of an
+    Axes, a figure, or an Axes standing for the projection plane it is
+    (a 3-D Axes); None for an artist without one yet."""
+    artist = figure._artists.get(artist_id)
+    if artist is None:
+        artist = figure.__dict__.get("_tree_owners", {}).get(artist_id)
+    return artist

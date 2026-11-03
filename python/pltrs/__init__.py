@@ -810,15 +810,33 @@ def get_data_path():
 def _reach_shipped_data(path):
     """Link the entries of the package's ``mpl-data`` into the data directory
     *path* (copying them where links cannot be made), as programs join
-    ``get_data_path()`` and ``"sample_data"``."""
+    ``get_data_path()`` and ``"sample_data"``.
+
+    The data directory is shared by every installation of pltrs, so a link
+    may lead to another installation's files, or to one since removed: such
+    a link is pointed at this package's files instead."""
     from pathlib import Path
     for entry in Path(__file__).with_name("mpl-data").iterdir():
         target = Path(path, entry.name)
-        if target.exists():
-            continue
-        try:
-            target.symlink_to(entry, target_is_directory=entry.is_dir())
-        except FileExistsError:
-            pass  # Another process linked it meanwhile.
-        except OSError:
-            shutil.copytree(entry, target, dirs_exist_ok=True)
+        if target.is_symlink():
+            if target.resolve() != entry.resolve():
+                _replace_link(entry, target)
+        elif not target.exists():
+            try:
+                target.symlink_to(entry, target_is_directory=entry.is_dir())
+            except FileExistsError:
+                pass  # Another process linked it meanwhile.
+            except OSError:
+                shutil.copytree(entry, target, dirs_exist_ok=True)
+
+
+def _replace_link(entry, target):
+    """Point the link *target* at *entry*, replacing it in one step, so that
+    other processes always find a link there."""
+    temporary = target.with_name(f".{target.name}.{os.getpid()}")
+    try:
+        temporary.unlink(missing_ok=True)
+        temporary.symlink_to(entry, target_is_directory=entry.is_dir())
+        os.replace(temporary, target)
+    except OSError:
+        temporary.unlink(missing_ok=True)

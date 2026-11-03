@@ -57,7 +57,6 @@ pub use placement::{ColorbarCax, make_axes, make_axes_gridspec};
 pub(crate) use remove::release;
 pub(crate) use state::{colorbar_of, follow, follow_view};
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Path};
@@ -67,7 +66,7 @@ use crate::axes::{Axes, AxesState, Axis, AxisName, GridOptions, LabelLoc, TickLe
 use crate::collections::Collection;
 use crate::colors::{Color, Extend};
 use crate::contour::ContourSet;
-use crate::figure::{Figure, FigureState};
+use crate::figure::{Figure, FigureCell};
 use crate::layout::LayoutEngine;
 use crate::orientation::Orientation;
 use crate::patches::{Patch, PathShape};
@@ -187,7 +186,7 @@ impl Parents {
 
 /// The artist a colorbar drawn in the figure owning `figure` follows:
 /// the mappable, when it is drawn in that figure.
-fn link_in(mappable: &Mappable<'_>, figure: &Rc<RefCell<FigureState>>) -> Option<MappableLink> {
+fn link_in(mappable: &Mappable<'_>, figure: &Rc<FigureCell>) -> Option<MappableLink> {
     mappable
         .link()
         .filter(|(state, _)| Rc::ptr_eq(state, figure))

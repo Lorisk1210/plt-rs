@@ -240,7 +240,7 @@ class Collection(mcolorizer.ColorizingArtist):
         if given is not None:
             return given
         return _live_transforms.of_artist(
-            self, _collections.get_offset_transform(self._native))
+            self, _collections.get_offset_transform(self._native), "offset")
 
     def set_offset_transform(self, offset_transform):
         """
@@ -305,6 +305,13 @@ class Collection(mcolorizer.ColorizingArtist):
         """Whether the items are placed at offsets (matplotlib's ``_offsets
         is not None``)."""
         return _collections.get_offset_transform(self._native) is not None
+
+    def get_window_extent(self, renderer=None):
+        """Return the collection's box in display space as matplotlib does:
+        its data limits in display coordinates (`get_datalim` with the
+        identity), null for items placed in other coordinates (a scatter's
+        offsets in data)."""
+        return self.get_datalim(mtransforms.IdentityTransform())
 
     def get_datalim(self, transData):
         """
@@ -852,6 +859,18 @@ class FillBetweenPolyCollection(PolyCollection):
     """
     `.PolyCollection` that fills the area between two x- or y-curves.
     """
+
+    def get_datalim(self, transData):
+        """Calculate the data limits and return them as a `.Bbox`."""
+        # matplotlib's: the box of the points filled between and their
+        # smallest positive coordinates (its ``_bbox``).
+        filled = mtransforms.Bbox.null()
+        for path in self.get_paths():
+            filled.update_from_data_xy(path.vertices, ignore=False)
+        datalim = mtransforms.Bbox.null()
+        datalim.update_from_data_xy((self.get_transform() - transData).transform(
+            np.concatenate([filled.get_points(), [filled.minpos]])))
+        return datalim
 
     def __init__(
             self, t_direction, t, f1, f2, *,
@@ -1452,6 +1471,13 @@ class QuadMesh(_MeshData, Collection):
     """
     Class for the efficient drawing of a quadrilateral mesh.
     """
+
+    def get_datalim(self, transData):
+        """The box of the mesh's coordinates in the coordinates of
+        *transData* (matplotlib's, from its ``_bbox``)."""
+        bbox = mtransforms.Bbox.unit()
+        bbox.update_from_data_xy(self.get_coordinates().reshape(-1, 2))
+        return (self.get_transform() - transData).transform_bbox(bbox)
 
     def get_cursor_data(self, event):
         """The values of the cells under the event position, None outside

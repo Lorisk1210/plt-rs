@@ -9,7 +9,7 @@ use pltrs_core::Point;
 
 use super::{ConnectionId, Event, EventKind};
 use crate::artist::{ArtistHandle, ArtistId, Picker, RawHandle};
-use crate::figure::{Figure, FigureState};
+use crate::figure::{Figure, FigureCell};
 
 /// How a draggable artist follows the pointer (the methods matplotlib's
 /// `DraggableBase` subclasses override).
@@ -37,7 +37,7 @@ pltrs_core::archive_struct!(Dragger { connections });
 struct Drag {
     target: Box<dyn DragTarget>,
     /// The figure, held weakly so that the callbacks do not keep it alive.
-    figure: Weak<RefCell<FigureState>>,
+    figure: Weak<FigureCell>,
     artist: ArtistId,
     /// Where the pointer was when the drag started.
     start: Option<Point>,

@@ -2,7 +2,6 @@
 //! mappable (matplotlib's `Colorbar` attributes, `update_normal` and the
 //! `'changed'` callback connecting them).
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::blocks::{BlockSpec, Blocks};
@@ -14,7 +13,7 @@ use crate::artist::{
 };
 use crate::axes::{Axes, AxesState};
 use crate::colors::{Color, Extend, Norm, NormKind, ScalarMappable};
-use crate::figure::FigureState;
+use crate::figure::FigureCell;
 use crate::image::ScalarKind;
 use crate::orientation::Orientation;
 use crate::spines::SpineSide;
@@ -313,7 +312,7 @@ fn norm_replaced(old: &dyn Norm, new: &dyn Norm) -> bool {
 /// Lets the colorbars following `mappable` take its new colour mapping;
 /// `reset` when its norm was replaced. Problems are reported with the next
 /// draw.
-pub(crate) fn follow(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId, reset: bool) {
+pub(crate) fn follow(figure: &Rc<FigureCell>, mappable: ArtistId, reset: bool) {
     for id in following(figure, mappable) {
         let Some(colorbar) = Colorbar::from_raw(RawHandle::new(Rc::clone(figure), id)) else {
             continue;
@@ -325,7 +324,7 @@ pub(crate) fn follow(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId, rese
 }
 
 /// The colorbars following `mappable`, oldest first.
-fn following(figure: &Rc<RefCell<FigureState>>, mappable: ArtistId) -> Vec<ArtistId> {
+fn following(figure: &Rc<FigureCell>, mappable: ArtistId) -> Vec<ArtistId> {
     let state = figure.borrow();
     state
         .store
@@ -376,7 +375,7 @@ pub(super) fn colorbar_id(store: &ArtistStore, axes: ArtistId) -> Option<ArtistI
 }
 
 /// Reports a problem of the colorbar `artist` with the next draw.
-fn report(figure: &Rc<RefCell<FigureState>>, artist: ArtistId, err: &ColorbarError) {
+fn report(figure: &Rc<FigureCell>, artist: ArtistId, err: &ColorbarError) {
     figure
         .borrow_mut()
         .pending_errors

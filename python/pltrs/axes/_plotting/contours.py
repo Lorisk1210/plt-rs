@@ -81,7 +81,11 @@ def _finish(cls, native, axes, look, kwargs):
     """The *cls* contour set of *native*, mapping its levels through the
     colorizer of *look* (`_contour_look`), its attributes and remaining
     *kwargs* set."""
-    return _style(cls._from_contour(native, axes), look, kwargs)
+    contours = _style(cls._from_contour(native, axes), look, kwargs)
+    # matplotlib's contour sets autoscale the view when made
+    # (``autoscale_view(tight=True)``), where pltrs (Rust) waits.
+    axes._unstale_viewLim()
+    return contours
 
 
 def _style(contours, look, kwargs):

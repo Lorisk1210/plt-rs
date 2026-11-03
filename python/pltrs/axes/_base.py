@@ -8,9 +8,9 @@ Ready-made artists join an axes here (``add_artist``, ``add_line``,
 that name adds it (`.Artist._add_to_axes`, `.._handles.adopt`).
 """
 
-from .. import _api, _handles, _live_transforms, _values, cbook
+from .. import _api, _artist_clipping, _handles, _values, cbook
 from .._native import axes_base as _axes_base, gridspec as _gridspec
-from .._native import transforms as _transforms
+from .._transform_trees import AxesTrees
 from ..artist import Artist
 from ._artist_list import ArtistList
 from ._aspect import AspectMixin
@@ -49,9 +49,10 @@ class _SharedAxes:
         return self._siblings(a)
 
 
-class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
-                DecorationsMixin, AspectMixin, LayoutMixin, UnitsMixin,
-                BlittingMixin, ProjectionMixin, PropCycleMixin, Artist):
+class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
+                LimitsMixin, DecorationsMixin, AspectMixin, LayoutMixin,
+                UnitsMixin, BlittingMixin, ProjectionMixin, PropCycleMixin,
+                Artist):
     """The base class of `~.axes.Axes`: an axes apart from its plotting
     methods."""
 
@@ -81,63 +82,61 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
                 fields += [f"{name}label={axis.get_label().get_text()!r}"]
         return f"<{self.__class__.__name__}: " + ", ".join(fields) + ">"
 
-    @property
-    def transData(self):
-        """The transform from data coordinates to display coordinates."""
-        built = self.__dict__.get("_transData")
-        if built is not None:  # By a projection class of the program's.
-            return built
-        return _live_transforms.cached(self, "transData", _transforms.trans_data)
-
-    @transData.setter
-    def transData(self, transform):
-        self.__dict__["_transData"] = transform
-
-    @property
-    def transAxes(self):
-        """The transform from axes coordinates (0 to 1) to display
-        coordinates."""
-        built = self.__dict__.get("_transAxes")
-        if built is not None:  # By a projection class of the program's.
-            return built
-        return _live_transforms.cached(self, "transAxes", _transforms.trans_axes)
-
-    @transAxes.setter
-    def transAxes(self, transform):
-        self.__dict__["_transAxes"] = transform
-
     def get_xaxis_transform(self, which='grid'):
         """
         Get the transformation used for drawing x-axis labels, ticks
         and gridlines.  The x-direction is in data coordinates and the
         y-direction is in axis coordinates.
+
+        .. note::
+
+            This transformation is primarily used by the
+            `~matplotlib.axis.Axis` class, and is meant to be
+            overridden by new kinds of projections that may need to
+            place axis elements in different locations.
+
+        Parameters
+        ----------
+        which : {'grid', 'tick1', 'tick2'}
         """
-        if which not in ('grid', 'tick1', 'tick2'):
+        if which == 'grid':
+            return self._xaxis_transform
+        elif which == 'tick1':
+            # for cartesian projection, this is bottom spine
+            return self.spines.bottom.get_spine_transform()
+        elif which == 'tick2':
+            # for cartesian projection, this is top spine
+            return self.spines.top.get_spine_transform()
+        else:
             raise ValueError(f'unknown value for which: {which!r}')
-        built = self.__dict__.get("_xaxis_transform")
-        if built is not None:  # By a projection class of the program's.
-            return built
-        return _live_transforms.cached(self, "xaxis_transform",
-                                       _transforms.trans_xaxis)
 
     def get_yaxis_transform(self, which='grid'):
         """
         Get the transformation used for drawing y-axis labels, ticks
         and gridlines.  The x-direction is in axis coordinates and the
         y-direction is in data coordinates.
-        """
-        if which not in ('grid', 'tick1', 'tick2'):
-            raise ValueError(f'unknown value for which: {which!r}')
-        built = self.__dict__.get("_yaxis_transform")
-        if built is not None:  # By a projection class of the program's.
-            return built
-        return _live_transforms.cached(self, "yaxis_transform",
-                                       _transforms.trans_yaxis)
 
-    @property
-    def bbox(self):
-        """The Axes' box in display coordinates."""
-        return _live_transforms.LiveBbox.spanned(self.transAxes)
+        .. note::
+
+            This transformation is primarily used by the
+            `~matplotlib.axis.Axis` class, and is meant to be
+            overridden by new kinds of projections that may need to
+            place axis elements in different locations.
+
+        Parameters
+        ----------
+        which : {'grid', 'tick1', 'tick2'}
+        """
+        if which == 'grid':
+            return self._yaxis_transform
+        elif which == 'tick1':
+            # for cartesian projection, this is left spine
+            return self.spines.left.get_spine_transform()
+        elif which == 'tick2':
+            # for cartesian projection, this is right spine
+            return self.spines.right.get_spine_transform()
+        else:
+            raise ValueError(f'unknown value for which: {which!r}')
 
     @property
     def spines(self):
@@ -498,7 +497,9 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         ``artist.get_transform() == None``) then the transform is set to
         ``ax.transData``.
         """
-        return a._add_to_axes(self, "artist")
+        added = a._add_to_axes(self, "artist")
+        _artist_clipping.take_parent_defaults(a, self)
+        return added
 
     def add_collection(self, collection, autolim=True):
         """
@@ -538,7 +539,9 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
         """Add a `.Table` to the Axes; return the table."""
         from ..table import Table
         _api.check_isinstance(Table, tab=tab)
-        return tab._add_to_axes(self, "artist")
+        added = tab._add_to_axes(self, "artist")
+        _artist_clipping.take_parent_defaults(tab, self)
+        return added
 
 
 # matplotlib's ``_AxesBase.ArtistList``.

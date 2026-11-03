@@ -9,7 +9,7 @@ handling of ``set_title`` and ``get_title`` is matplotlib 3.11.2's,
 under the Matplotlib License.
 """
 
-from .. import _api, _handles
+from .. import _api, _handles, _live_transforms
 from .._native import axes as _axes
 from ..text import Text
 from ..transforms import ScaledTranslation
@@ -43,8 +43,12 @@ class TitlesMixin:
         """The offset of the titles above the top of the Axes, in points of
         the figure (a `.ScaledTranslation`)."""
         pad = _axes.get_title_pad(self._native)
-        return ScaledTranslation(0.0, pad / 72,
-                                 self.get_figure(root=False).dpi_scale_trans)
+        # One object while the pad stays (matplotlib makes a new one when
+        # ``set_title`` is given a pad).
+        return _live_transforms.kept(
+            self, "titleOffsetTrans", pad,
+            lambda: ScaledTranslation(0.0, pad / 72,
+                                      self.get_figure(root=False).dpi_scale_trans))
 
     def set_title(self, label, fontdict=None, loc=None, pad=None, *, y=None,
                   **kwargs):

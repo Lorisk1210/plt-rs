@@ -2,7 +2,6 @@
 //! triangle mesh, a contour set or a bare norm and colormap (matplotlib's
 //! `mappable`), and the link through which a colorbar follows it.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::Rgba;
@@ -14,7 +13,7 @@ use crate::collections::{Collection, CollectionArtist, TriMesh, TriMeshArtist};
 use crate::colorizer::{MappingChange, change_mapping};
 use crate::colors::{Extend, ScalarMappable, colormaps};
 use crate::contour::{ContourSet, ContourSetArtist};
-use crate::figure::FigureState;
+use crate::figure::FigureCell;
 use crate::image::{AxesImage, AxesImageArtist, ScalarKind};
 
 /// Something with a colour mapping a colorbar can show.
@@ -164,7 +163,7 @@ impl MappableLink {
     }
 
     /// The axes the artist is drawn in, if it is still drawn in one.
-    pub(crate) fn host_axes(self, figure: &Rc<RefCell<FigureState>>) -> Option<Axes> {
+    pub(crate) fn host_axes(self, figure: &Rc<FigureCell>) -> Option<Axes> {
         host_axes(&RawHandle::new(Rc::clone(figure), self.id()))
     }
 
@@ -172,7 +171,7 @@ impl MappableLink {
     /// matplotlib's colorbar does by changing the norm it shares with its
     /// mappable (`_process_values` fills unset limits and widens singular
     /// ones); the artist is recoloured and its other colorbars follow.
-    pub(crate) fn share_limits(self, figure: &Rc<RefCell<FigureState>>, vmin: f64, vmax: f64) {
+    pub(crate) fn share_limits(self, figure: &Rc<FigureCell>, vmin: f64, vmax: f64) {
         let raw = RawHandle::new(Rc::clone(figure), self.id());
         let change = MappingChange::Clim(Some(vmin), Some(vmax));
         match self {
@@ -247,7 +246,7 @@ impl MappableLink {
 impl Mappable<'_> {
     /// The figure and artist of a drawn mappable, or the norm and colormap
     /// of a bare one.
-    fn target(&self) -> Result<(&Rc<RefCell<FigureState>>, MappableLink), &ScalarMappable> {
+    fn target(&self) -> Result<(&Rc<FigureCell>, MappableLink), &ScalarMappable> {
         let (raw, link) = match self {
             Self::Image(image) => (image.raw(), MappableLink::Image(image.id())),
             Self::Collection(collection) => {
@@ -264,7 +263,7 @@ impl Mappable<'_> {
 
     /// The figure and artist a colorbar follows; `None` for a bare norm
     /// and colormap.
-    pub(crate) fn link(&self) -> Option<(&Rc<RefCell<FigureState>>, MappableLink)> {
+    pub(crate) fn link(&self) -> Option<(&Rc<FigureCell>, MappableLink)> {
         self.target().ok()
     }
 

@@ -1,13 +1,12 @@
 //! Adding axes to a figure: free placement, grid cells and subplot grids
 //! with shared axes (matplotlib's `add_axes`, `add_subplot`, `subplots`).
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
 use pltrs_text::HAlign;
 
-use super::{AxesRectError, Figure, FigureState, axes_bounds};
+use super::{AxesRectError, Figure, FigureCell, axes_bounds};
 use crate::artist::{Artist, ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, AxisName, share_free};
 use crate::fonts::FontProperties;
@@ -400,7 +399,7 @@ impl Figure {
 /// Adds an axes at `position` (fractions of `frame`) with its spines and
 /// titles.
 pub(crate) fn insert_axes(
-    figure: &Rc<RefCell<FigureState>>,
+    figure: &Rc<FigureCell>,
     frame: ArtistId,
     position: Bbox,
     spec: Option<SubplotSpec>,
@@ -413,7 +412,7 @@ pub(crate) fn insert_axes(
 /// twin of a removed axes is). An axes made in the figure becomes its
 /// current axes.
 pub(crate) fn make_axes(
-    figure: &Rc<RefCell<FigureState>>,
+    figure: &Rc<FigureCell>,
     frame: Option<ArtistId>,
     position: Bbox,
     spec: Option<SubplotSpec>,

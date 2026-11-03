@@ -47,7 +47,6 @@ mod settings;
 #[cfg(test)]
 mod tests;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub(crate) use artist::LegendArtist;
@@ -76,7 +75,7 @@ use crate::artist::{
     Artist, ArtistHandle, ArtistId, ArtistLookup, LayoutContext, RawHandle, TypedHandle,
 };
 use crate::axes::{Axes, AxesState};
-use crate::figure::{Figure, FigureFrame, FigureState};
+use crate::figure::{Figure, FigureCell, FigureFrame, FigureState};
 use crate::offsetbox::OffsetBox;
 use crate::patches::{FancyBboxPatch, Patch};
 use crate::text::{Text, TextArtist};
@@ -106,7 +105,7 @@ impl Legend {
     }
 
     /// The handle of the new legend `id`, draggable if asked.
-    fn made(figure: &Rc<RefCell<FigureState>>, id: ArtistId, draggable: bool) -> Self {
+    fn made(figure: &Rc<FigureCell>, id: ArtistId, draggable: bool) -> Self {
         let legend = Self {
             raw: RawHandle::new(Rc::clone(figure), id),
         };

@@ -762,6 +762,23 @@ class Line2D(Artist):
         bbox.update_from_data_xy(self.get_xydata())
         return bbox
 
+    def get_window_extent(self, renderer=None):
+        """
+        Return the line's box in display space, as matplotlib computes it
+        from the transform as it is: its vertices through the transform,
+        padded by half the marker size when it has markers.
+        """
+        from .transforms import Bbox
+        bbox = Bbox([[0, 0], [0, 0]])
+        trans_data_to_xy = self.get_transform().transform
+        bbox.update_from_data_xy(trans_data_to_xy(self.get_xydata()),
+                                 ignore=True)
+        # correct for marker size, if any
+        if MarkerStyle(self.get_marker()):
+            ms = (self.get_markersize() / 72.0 * self.get_figure(root=True).dpi) * 0.5
+            bbox = bbox.padded(ms)
+        return bbox
+
 
 def _capstyle_name(s):
     """The name of the cap style *s* (a `.CapStyle` or its name)."""
@@ -781,17 +798,50 @@ class AxLine(Line2D):
     transform at draw time.
 
     pltrs: pltrs (Rust) places the line in the view each time it is laid
-    out; `get_transform` maps the diagonal of the unit square onto the part
-    of the line the view shows now.
+    out; `get_transform` is matplotlib's, the diagonal of the unit square
+    onto the part of the line the view limits show.
     """
 
     def get_transform(self):
-        # docstring inherited
         from .transforms import Bbox, BboxTransformTo
-        segment = _lines.axline_segment(self._native)
-        if segment is None:
-            return super().get_transform()
-        return BboxTransformTo(Bbox(segment))
+        ax = self.axes
+        points_transform = (Artist.get_transform(self) - ax.transData
+                            + ax.transScale)
+        xy1, xy2, slope = _lines.axline(self._native)
+        if xy2 is not None:
+            # two points were given
+            (x1, y1), (x2, y2) = points_transform.transform([xy1, xy2])
+            dx = x2 - x1
+            dy = y2 - y1
+            if dx == 0:
+                if dy == 0:
+                    raise ValueError(
+                        f"Cannot draw a line through two identical points "
+                        f"(x={(x1, x2)}, y={(y1, y2)})")
+                slope = np.inf
+            else:
+                slope = dy / dx
+        else:
+            # one point and a slope were given
+            x1, y1 = points_transform.transform(xy1)
+        (vxlo, vylo), (vxhi, vyhi) = ax.transScale.transform(ax.viewLim)
+        # General case: find intersections with view limits in either
+        # direction, and draw between the middle two points.
+        if slope == 0:
+            start = vxlo, y1
+            stop = vxhi, y1
+        elif np.isinf(slope):
+            start = x1, vylo
+            stop = x1, vyhi
+        else:
+            _, start, stop, _ = sorted([
+                (vxlo, y1 + (vxlo - x1) * slope),
+                (vxhi, y1 + (vxhi - x1) * slope),
+                (x1 + (vylo - y1) / slope, vylo),
+                (x1 + (vyhi - y1) / slope, vyhi),
+            ])
+        return (BboxTransformTo(Bbox([start, stop]))
+                + ax.transLimits + ax.transAxes)
 
     def get_xy1(self):
         """Return the *xy1* value of the line."""

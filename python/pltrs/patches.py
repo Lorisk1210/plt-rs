@@ -24,7 +24,8 @@ cbook._set_module(__name__, ArrowStyle, BoxStyle, ConnectionStyle, _Style)
 from ._program_classes import takes_from_program
 from .artist import Artist
 from .path import Path, drawn_path
-from .transforms import Affine2D, IdentityTransform
+from ._transform_trees import set_matrix
+from .transforms import Affine2D, BboxTransformTo, IdentityTransform
 
 
 def _rcParams():
@@ -177,8 +178,27 @@ class Patch(Artist):
         """
         Return the `~.transforms.Transform` instance mapping patch
         coordinates to data coordinates.
+
+        For example, one may define a patch of a circle which represents a
+        radius of 5 by providing coordinates for a unit circle, and a
+        transform which scales the coordinates (the patch coordinate) by 5.
         """
+        return IdentityTransform()
+
+    def _native_patch_transform(self):
+        """The `.Affine2D` of the patch coordinates pltrs (Rust) has for
+        the patch, made anew."""
         return Affine2D(_patches.get_patch_transform(self._native))
+
+    def _kept_patch_transform(self):
+        """The patch transform as the classes keeping one `.Affine2D`
+        (matplotlib's ``_patch_transform``) give it: the same object, with
+        pltrs (Rust)'s matrix."""
+        transform = self.__dict__.get("_patch_transform")
+        if transform is None:
+            transform = self._patch_transform = Affine2D()
+        set_matrix(transform, _patches.get_patch_transform(self._native))
+        return transform
 
     def get_transform(self):
         """Return the `~.transforms.Transform` applied to the `Patch`."""
@@ -190,6 +210,11 @@ class Patch(Artist):
         physical coordinates.
         """
         return Artist.get_transform(self)
+
+    def get_window_extent(self, renderer=None):
+        """Return the patch's box in display space: its path through its
+        transform as it is (matplotlib's)."""
+        return self.get_path().get_extents(self.get_transform())
 
     def get_extents(self):
         """
@@ -591,11 +616,38 @@ class Rectangle(Patch):
         x, y, width, height = self._fields()[:4]
         return x, y, x + width, y + height
 
+    #: The correction of the rotation for unequal axis scales (matplotlib's;
+    #: the selector widgets set it on their rectangles).
+    _aspect_ratio_correction = 1.0
+
+    def get_patch_transform(self):
+        # Note: This cannot be called until after this has been added to
+        # an Axes, otherwise unit conversion will fail. This makes it very
+        # important to call the accessor method and not directly access the
+        # transformation member variable.
+        bbox = self.get_bbox()
+        if self.rotation_point == 'center':
+            width, height = bbox.x1 - bbox.x0, bbox.y1 - bbox.y0
+            rotation_point = bbox.x0 + width / 2., bbox.y0 + height / 2.
+        elif self.rotation_point == 'xy':
+            rotation_point = bbox.x0, bbox.y0
+        else:
+            rotation_point = self.rotation_point
+        return BboxTransformTo(bbox) \
+            + Affine2D() \
+            .translate(-rotation_point[0], -rotation_point[1]) \
+            .scale(1, self._aspect_ratio_correction) \
+            .rotate_deg(self.angle) \
+            .scale(1, 1 / self._aspect_ratio_correction) \
+            .translate(*rotation_point)
+
     xy = property(get_xy, set_xy)
 
 
 class RegularPolygon(Patch):
     """A regular polygon patch."""
+
+    get_patch_transform = Patch._kept_patch_transform
 
     def __str__(self):
         s = "RegularPolygon((%g, %g), %d, radius=%g, orientation=%g)"
@@ -883,6 +935,8 @@ class Wedge(Patch):
 class Arrow(Patch):
     """An arrow patch."""
 
+    get_patch_transform = Patch._kept_patch_transform
+
     def __str__(self):
         return "Arrow()"
 
@@ -1047,6 +1101,11 @@ class CirclePolygon(RegularPolygon):
 
 class Ellipse(Patch):
     """A scale-free ellipse."""
+
+    #: As `Rectangle`'s.
+    _aspect_ratio_correction = 1.0
+
+    get_patch_transform = Patch._native_patch_transform
 
     def __str__(self):
         pars = (self._center[0], self._center[1],
@@ -1954,10 +2013,27 @@ class Shadow(Patch):
         """
         self.patch = patch
         self._ox, self._oy = ox, oy
+        self._shadow_transform = Affine2D()
         self._native = _patches.new_shadow(
             patch._native, (float(ox), float(oy)), float(shade))
         Artist.__init__(self)
+        # The patch's transform, as matplotlib's ``update_from`` copies it.
+        if patch.is_transform_set():
+            self._given_transform = Artist.get_transform(patch)
         self._internal_update(kwargs)
+
+    def get_patch_transform(self):
+        # The offset in points as the shadow is drawn, which matplotlib
+        # sets when it draws the shadow (a shadow drawn is fresh, and stays
+        # offset after that).
+        figure = self.get_figure(root=True)
+        if figure is not None and not self.stale:
+            self._drawn = True
+        if self.__dict__.get("_drawn"):
+            scale = figure.dpi / 72
+            self._shadow_transform.clear().translate(self._ox * scale,
+                                                     self._oy * scale)
+        return self.patch.get_patch_transform() + self._shadow_transform
 
 
 def bbox_artist(artist, renderer, props=None, fill=True):

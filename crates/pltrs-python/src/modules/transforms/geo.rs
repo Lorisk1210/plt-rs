@@ -101,11 +101,6 @@ fn set_longitude_grid_ends(axes: Axes, degrees: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// The latitude in degrees where the longitude gridlines of `axes` end.
-fn get_longitude_grid_ends(axes: Axes) -> PyResult<f64> {
-    Ok(geo_axes(&axes)?.longitude_grid_ends())
-}
-
 /// `GeoAxes.ThetaFormatter(round_to)(radians)`: the angle in degrees,
 /// rounded to a multiple of `round_to`, with a degree sign.
 fn geo_theta_label(round_to: f64, radians: f64) -> PyResult<String> {
@@ -121,7 +116,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_longitude_grid", set_longitude_grid)?;
     module.add("set_latitude_grid", set_latitude_grid)?;
     module.add("set_longitude_grid_ends", set_longitude_grid_ends)?;
-    module.add("get_longitude_grid_ends", get_longitude_grid_ends)?;
     module.add("geo_theta_label", geo_theta_label)
 }
 

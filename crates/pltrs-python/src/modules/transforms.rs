@@ -18,7 +18,9 @@ use crate::binding::registered_error;
 
 mod computed;
 mod geo;
+mod leaves;
 mod live;
+pub(crate) use leaves::sync_watched;
 pub(crate) use live::PyPointMap;
 
 /// The affine map of a 3×3 matrix (its last row is taken as `0 0 1`).
@@ -304,6 +306,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("interval_contains", contains_value)?;
     computed::register(module)?;
     geo::register(module)?;
+    leaves::register(module)?;
     live::register(module)
 }
 

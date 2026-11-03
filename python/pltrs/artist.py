@@ -223,7 +223,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         This is *True* after `.set_transform` has been called.
         """
-        return _transforms.get_transform(self._native) is not None
+        return ("_given_transform" in self.__dict__
+                or _transforms.get_transform(self._native) is not None)
 
     @property
     def stale(self):

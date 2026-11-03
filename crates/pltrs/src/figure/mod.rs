@@ -4,6 +4,7 @@ mod archive;
 mod artists;
 mod autofmt;
 mod canvas;
+mod cell;
 mod clear;
 mod detach;
 mod draw_hook;
@@ -30,7 +31,6 @@ mod svg;
 mod tests;
 mod texts;
 
-use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -39,6 +39,8 @@ use pltrs_render::Renderer;
 
 pub use canvas::{BufferRegion, CanvasError, FigureCanvas, PixelBox};
 pub(crate) use canvas::{CanvasState, Presentation, Presenting};
+pub(crate) use cell::FigureCell;
+pub use cell::{WeakFigure, take_changed_figures};
 pub(crate) use detach::attach;
 pub use draw_hook::DrawHook;
 pub(crate) use draw_order::draws_before;
@@ -110,7 +112,7 @@ impl std::error::Error for DrawErrors {}
 /// ```
 #[derive(Clone)]
 pub struct Figure {
-    state: Rc<RefCell<FigureState>>,
+    state: Rc<FigureCell>,
     root: RawHandle,
 }
 
@@ -158,7 +160,7 @@ impl Figure {
             color(&rc.figure_edgecolor),
         );
         let root = state.root;
-        let state = Rc::new(RefCell::new(state));
+        let state = Rc::new(FigureCell::new(state));
         let root = RawHandle::new(Rc::clone(&state), root);
         Self { state, root }
     }
@@ -432,7 +434,7 @@ impl Figure {
     }
 
     /// The root figure owning `state`.
-    pub(crate) fn root_of(state: &Rc<RefCell<FigureState>>) -> Self {
+    pub(crate) fn root_of(state: &Rc<FigureCell>) -> Self {
         let root = state.borrow().root;
         Self {
             state: Rc::clone(state),
@@ -506,6 +508,28 @@ impl Figure {
     /// subfigures).
     pub fn contains_artist(&self, artist: &impl ArtistHandle) -> bool {
         Rc::ptr_eq(&self.state, artist.raw().figure_state())
+    }
+
+    /// The cell sharing the figure's state.
+    pub(crate) fn state_cell(&self) -> &Rc<FigureCell> {
+        &self.state
+    }
+
+    /// A handle that does not keep the figure alive (see [`WeakFigure`]).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::new();
+    /// let weak = fig.downgrade();
+    /// assert!(weak.upgrade().is_some_and(|alive| alive == fig));
+    /// drop(fig);
+    /// assert!(weak.upgrade().is_none());
+    /// ```
+    pub fn downgrade(&self) -> WeakFigure {
+        WeakFigure {
+            state: Rc::downgrade(&self.state),
+            frame: self.root.id(),
+        }
     }
 
     /// Read access to the figure's state.

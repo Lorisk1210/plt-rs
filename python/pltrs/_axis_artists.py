@@ -16,12 +16,12 @@ Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 
 import numpy as np
 
-from . import _api, _mirrors, cbook
+from . import _api, _artist_clipping, _live_transforms, _mirrors, cbook
 from ._native import axis as _axis
 from .artist import Artist
 from .lines import Line2D
 from .text import Text
-from .transforms import Bbox
+from .transforms import Bbox, IdentityTransform, blended_transform_factory
 
 
 def _rc(key):
@@ -60,6 +60,16 @@ class _AxisPart(_mirrors.Mirroring):
 
     def figure(self, artist, root=False):
         return self.owner.axis.get_figure(root=root)
+
+    def transform(self, artist):
+        # A transform given to the part is its own.
+        if "_given_transform" in artist.__dict__:
+            return _mirrors.OWN
+        return self.owner._transform_of(artist)
+
+    def transform_set(self, artist):
+        # An axis gives every part of it its transform when it makes it.
+        return True
 
 
 class Tick(Artist):
@@ -231,6 +241,34 @@ class Tick(Artist):
             _axis.push_gridline(*args, part._native)
         else:
             _axis.push_tick_mark(*args, part is self.tick2line, part._native)
+
+    def _transform_of(self, part):
+        """
+        matplotlib's transform of the part *part* of the tick: the axis
+        transforms of its lines (``get_xaxis_transform('tick1')``...), the
+        text transforms of its labels at the tick's pad
+        (``get_xaxis_text1_transform``...), each kept while the pad stays.
+        """
+        axes = self.axes
+        prefix = "y" if self.__name__ == "ytick" else "x"
+        if part is self.label1 or part is self.label2:
+            make = getattr(axes, f"get_{prefix}axis_text"
+                                 f"{1 if part is self.label1 else 2}_transform")
+            pad = self._pad
+            return _live_transforms.kept(part, "transform", pad,
+                                         lambda: make(pad)[0])
+        which = ("tick1" if part is self.tick1line
+                 else "tick2" if part is self.tick2line else "grid")
+        return _live_transforms.kept(
+            part, "transform", which,
+            lambda: getattr(axes, f"get_{prefix}axis_transform")(which))
+
+    def get_clip_box(self):
+        """Return the clipbox: that of the Axes' patch for a tick of an
+        axis, as matplotlib's Axes clip their axes (`.Axis.get_clip_box`)."""
+        if "_clipbox" in self.__dict__ or self.axis is None:
+            return super().get_clip_box()
+        return _artist_clipping.patch_clip_box(self, self.axes)
 
     def _extent(self, part):
         """The display box of the label *part* as drawn, if it is."""
@@ -530,9 +568,30 @@ class _AxisText:
     def _extent(self, text):
         return type(self)._extent_native(*self._args())
 
+    def _transform_of(self, text):
+        """matplotlib's transform of the text: x in the Axes' fractions and
+        y in pixels for an x-axis (y, x for a y-axis label), as its axis
+        makes it."""
+        axes = self.axis.axes
+        return _live_transforms.kept(
+            text, "transform", None,
+            lambda: blended_transform_factory(axes.transAxes, IdentityTransform()))
+
 
 class AxisLabel(_AxisText):
     """The mirror of an axis label."""
+
+    def _transform_of(self, text):
+        # The transform `.Axis.set_label_coords` gave, else the default.
+        given = self.axis.__dict__.get("_label_transform")
+        if given is not None:
+            return given
+        if self.axis.axis_name != "y":
+            return super()._transform_of(text)
+        axes = self.axis.axes
+        return _live_transforms.kept(
+            text, "transform", None,
+            lambda: blended_transform_factory(IdentityTransform(), axes.transAxes))
 
     _sync_native = _axis.sync_axis_label
     _push_native = _axis.push_axis_label

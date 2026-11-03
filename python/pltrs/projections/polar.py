@@ -18,7 +18,7 @@ from .._native import axis as _axis, polar as _polar
 from ..axes import Axes
 from ..axis import XAxis, XTick, YAxis, YTick
 from ..path import Path
-from ._polar_text import PolarTextTransforms, _is_full_circle_rad
+from ._polar_trees import PolarTrees, _ThetaShift, _is_full_circle_rad  # noqa: F401
 
 
 class PolarTransform(mtransforms.Transform):
@@ -235,15 +235,6 @@ def _is_full_circle_deg(thetamin, thetamax):
     The condition is derived from :class:`~matplotlib.patches.Wedge`.
     """
     return abs(abs(thetamax - thetamin) - 360.0) < 1e-12
-
-
-def _is_full_circle_rad(thetamin, thetamax):
-    """
-    Determine if a wedge (in radians) spans the full circle.
-
-    The condition is derived from :class:`~matplotlib.patches.Wedge`.
-    """
-    return abs(abs(thetamax - thetamin) - 2 * np.pi) < 1.74e-14
 
 
 class ThetaFormatter(mticker.Formatter):
@@ -510,7 +501,7 @@ class _WedgeBbox(mtransforms.Bbox):
         return self._points
 
 
-class PolarAxes(PolarTextTransforms, Axes):
+class PolarAxes(PolarTrees, Axes):
     """
     A polar graph projection, where the input dimensions are *theta*, *r*.
 
@@ -524,31 +515,6 @@ class PolarAxes(PolarTextTransforms, Axes):
         ax.xaxis = ThetaAxis(ax)
         ax.yaxis = RadialAxis(ax)
         return ax
-
-    def _transform_tree(self, name):
-        """
-        matplotlib's tree of ``transData`` (see `._transform_trees`), built
-        as ``PolarAxes._set_lim_and_transforms`` builds it, around the
-        current limits, offset, direction and origin; None for the other
-        transforms, which are those of every Axes.
-        """
-        from .._transform_trees import trans_axes, trans_scale
-        if name != "transData":
-            return None
-        axes = trans_axes(self)
-        if axes is None:
-            return None
-        view = mtransforms.Bbox(self.viewLim.get_points())
-        origin = mtransforms.LockableBbox(
-            view, y0=_polar.get_rorigin_set(self._native))
-        shift = (mtransforms.Affine2D().scale(self.get_theta_direction(), 1.0)
-                 + mtransforms.Affine2D().translate(self.get_theta_offset(), 0.0))
-        scale = trans_scale(self)
-        projection = self.PolarTransform(self, scale_transform=scale)
-        wedge = mtransforms.BboxTransformFrom(_WedgeBbox(
-            (0.5, 0.5), mtransforms.TransformedBbox(view, shift), origin))
-        return scale + shift + projection + (
-            self.PolarAffine(scale, origin) + wedge + axes)
 
     def format_coord(self, theta, r):
         # docstring inherited

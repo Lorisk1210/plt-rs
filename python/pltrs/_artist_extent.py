@@ -21,6 +21,16 @@ class ExtentMixin:
         "tight" calculation.  Default is to return an empty bounding
         box at 0, 0.
         """
+        return Bbox([[0, 0], [0, 0]])
+
+    def _laid_out_extent(self):
+        """
+        The artist's box in display space where pltrs (Rust) lays it out
+        (the figure laid out first), a zero box outside any figure or for
+        an artist taking no space: the extent of the artists whose layout
+        pltrs (Rust) computes (legends, tables, offset boxes), which
+        matplotlib's compute from theirs.
+        """
         points = None if self._figure is None else \
             _artist.window_extent(self._native)
         return Bbox([[0, 0], [0, 0]]) if points is None else Bbox(points)

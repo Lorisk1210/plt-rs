@@ -174,6 +174,11 @@ class OffsetBox(Artist):
     Being an artist itself, all keyword arguments are passed on to `.Artist`.
     """
 
+    def get_window_extent(self, renderer=None):
+        """Return the box's extent in display space, where pltrs (Rust)
+        lays it out (matplotlib computes it from the box's layout)."""
+        return self._laid_out_extent()
+
     def __init__(self, **kwargs):
         super().__init__()
         self._internal_update(kwargs)
@@ -897,8 +902,8 @@ class AnchoredOffsetbox(OffsetBox):
         """Return the box's extent in display space (for a box inside
         another box's tree, its frame's: the box drawn at its anchor)."""
         if self.__dict__.get("_in_tree"):
-            return self.patch.get_window_extent(renderer)
-        return super().get_window_extent(renderer)
+            return self.patch._laid_out_extent()
+        return self._laid_out_extent()
 
     def _join(self, parent):
         """Join *parent*, an axes or a figure, with the child tree: pltrs
@@ -1092,6 +1097,16 @@ class AnnotationBbox(Artist, mtext._AnnotationBase):
 
     This is like `.Annotation`, but with `OffsetBox` instead of `.Text`.
     """
+
+    def get_window_extent(self, renderer=None):
+        """Return the annotation's box in display space, where pltrs (Rust)
+        lays it out (matplotlib computes it from the annotation's layout)."""
+        return self._laid_out_extent()
+
+    def get_tightbbox(self, renderer=None):
+        """Return the box of the annotation's parts (its box, frame and
+        arrow), which matplotlib does not clip."""
+        return self._laid_out_extent()
 
     def __str__(self):
         return f"AnnotationBbox({self.xy[0]:g},{self.xy[1]:g})"

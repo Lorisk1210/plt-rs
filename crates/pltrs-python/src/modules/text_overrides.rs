@@ -264,6 +264,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
 mod tests {
     use crate::binding::testing::{eval, extension, with_python};
     use crate::binding::{Bound, PyResult};
+    use pltrs::artist::ArtistHandle;
 
     /// Calls `_native.<module>.<name>(*args)`.
     fn call<'py>(
@@ -282,13 +283,11 @@ mod tests {
         let figure = call(native, "figure", "new", &size).unwrap();
         let position = ["0.5", "0.5", "'abcd'"].map(|v| eval(py, "", v));
         let [x, y, s] = position;
-        let text = call(native, "text", "figure_text", &[figure, x, y, s]).unwrap();
-        let (x0, _, x1, _): (f64, f64, f64, f64) =
-            call(native, "text", "get_window_extent", &[text])
-                .unwrap()
-                .extract()
-                .unwrap();
-        x1 - x0
+        let text: pltrs::text::Text = call(native, "text", "figure_text", &[figure, x, y, s])
+            .unwrap()
+            .extract()
+            .unwrap();
+        text.raw().extent_as_is().expect("measured").width()
     }
 
     #[test]

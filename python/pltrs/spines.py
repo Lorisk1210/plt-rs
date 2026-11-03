@@ -300,8 +300,17 @@ class Spine(Patch):
         """
         if self._is_linear:
             return self._linear_path()
-        arrays = _spines.display_path(self._native)
-        return Path([[0, 0]]) if arrays is None else Path(*arrays)
+        vertices, codes = _spines.display_path(self._native) or ([[0, 0]], None)
+        # One path, its vertices moved as the spine is laid out again, as
+        # matplotlib moves those of its ``_path``.
+        path = self.__dict__.get("_path_kept")
+        if path is None:
+            path = self._path_kept = Path(vertices, codes)
+        elif not (np.array_equal(path.vertices, vertices)
+                  and np.array_equal(path.codes, codes)):
+            moved = Path(vertices, codes)
+            path.vertices, path.codes = moved.vertices, moved.codes
+        return path
 
     def get_transform(self):
         """Return the transform of the spine's path: the identity for the

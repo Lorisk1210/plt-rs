@@ -923,7 +923,7 @@ from ._pyplot_text import *  # noqa: E402,F401,F403
 from ._pyplot_text import __all__ as _text_all  # noqa: E402
 __all__ += _text_all
 
-# The layout functions (plt.tight_layout, plt.supxlabel, plt.supylabel).
+# The layout function (plt.tight_layout).
 from ._pyplot_layout import *  # noqa: E402,F401,F403
 from ._pyplot_layout import __all__ as _layout_all  # noqa: E402
 __all__ += _layout_all
@@ -944,6 +944,10 @@ from ._pyplot_figure import *  # noqa: E402,F401,F403
 from ._pyplot_figure import __all__ as _figure_all  # noqa: E402
 from ._pyplot_figure import _copy_docstring_and_deprecators  # noqa: E402,F401
 __all__ += _figure_all
+
+# The configuration functions (plt.rc, plt.rc_context, plt.rcdefaults,
+# plt.set_loglevel), pyplot's own as in matplotlib.
+from ._pyplot_rc import *  # noqa: E402,F401,F403
 
 # What matplotlib's pyplot imports and so exports.
 from cycler import cycler  # noqa: E402,F401

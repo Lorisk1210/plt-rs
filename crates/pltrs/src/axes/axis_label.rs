@@ -140,6 +140,20 @@ impl Axis {
         self.read(|axis| axis.label.text.clone())
     }
 
+    /// Whether the label text was never set, so that a unit converter's
+    /// label replaces it (matplotlib's `isDefault_label`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(ax.xaxis().is_default_label());
+    /// ax.xaxis().set_label_text("time");
+    /// assert!(!ax.xaxis().is_default_label());
+    /// ```
+    pub fn is_default_label(&self) -> bool {
+        self.read(|axis| axis.label.is_default)
+    }
+
     /// Puts the axis label on `side` (matplotlib's `set_label_position`),
     /// with the vertical alignment of that side.
     ///

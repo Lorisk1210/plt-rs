@@ -13,7 +13,6 @@ use super::current_image::CurrentImage;
 use super::limits::{AxisAutoscale, autoscale_axis};
 use super::projection::ProjectionState;
 use super::secondary::Secondary;
-use super::tick_set::TickSet;
 use crate::artist::{Artist, ArtistBase, ArtistId, DrawContext, LayoutContext};
 use crate::axes_grid1::Parasite;
 use crate::colors::Color;
@@ -581,17 +580,18 @@ impl AxesState {
         }
     }
 
-    /// The ticks of axis `name` for an axes `extent` in display pixels at
-    /// `dpi`, without keeping them.
-    pub(crate) fn ticks_for(
+    /// The major (or `minor`) tick locations of axis `name` for an axes
+    /// `extent` in display pixels at `dpi`, without keeping them.
+    pub(crate) fn level_locs_for(
         &self,
         name: AxisName,
         extent: &Bbox,
         dpi: f64,
         tick_space: Option<usize>,
-    ) -> Result<TickSet, TickerError> {
+        minor: bool,
+    ) -> Result<Vec<f64>, TickerError> {
         self.axis(name)
-            .compute_ticks(&self.axis_geometry(name, extent, dpi, tick_space))
+            .level_locs(&self.axis_geometry(name, extent, dpi, tick_space), minor)
     }
 
     /// What the ticks of axis `name` are computed from for an axes

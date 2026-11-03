@@ -3,12 +3,16 @@
 //! the formatters' labels, and the minor ticks that do not fall on major
 //! ones.
 
+use std::any::Any;
+
 use super::AxesState;
-use super::axis::{AxisGeometry, AxisState};
+use super::axis::{AxisGeometry, AxisRole, AxisState};
 use super::axis_handle::Axis;
 use super::tick_set::{Tick, TickSet};
 use crate::artist::ArtistHandle;
-use crate::ticker::{AxisInfo, AxisName, TickContext, TickerError, drawable_ticks};
+use crate::ticker::{
+    AxisInfo, AxisName, LogitLocator, TickContext, TickerError, TickerSettings, drawable_ticks,
+};
 use crate::transforms::{TransformContext, interval_contains_close};
 
 impl Axis {
@@ -42,13 +46,10 @@ impl Axis {
                 state
                     .store
                     .get_as::<AxesState>(id)
-                    .map(|axes| axes.ticks_for(self.name(), &extent, dpi, tick_space))
+                    .map(|axes| axes.level_locs_for(self.name(), &extent, dpi, tick_space, minor))
             })
         };
-        match ticks {
-            Some(ticks) => Ok(ticks?.unclipped_locs(minor)),
-            None => self.ticklocs(minor),
-        }
+        ticks.unwrap_or_else(|| self.ticklocs(minor))
     }
 }
 
@@ -96,28 +97,110 @@ impl AxisState {
     }
 
     /// Computes the ticks to draw for the current view (matplotlib's
-    /// `Axis._update_ticks`), making the ticks of every location.
+    /// `Axis._update_ticks`), making the ticks of every location; ticks a
+    /// level cannot make (see [`GridLineProps::refused`]) fail.
+    ///
+    /// [`GridLineProps::refused`]: crate::axes::GridLineProps::refused
     pub(crate) fn update_ticks(&mut self, geometry: &AxisGeometry) {
         self.ticks = self.compute_ticks(geometry);
-        if let Ok(ticks) = &self.ticks {
-            let (major, minor) = (ticks.major_unclipped.len(), ticks.minor_unclipped.len());
-            self.overrides_mut(false).make_ticks(major);
-            self.overrides_mut(true).make_ticks(minor);
+        let Ok(ticks) = &self.ticks else {
+            return;
+        };
+        let counts = [
+            (false, ticks.major_unclipped.len()),
+            (true, ticks.minor_unclipped.len()),
+        ];
+        for (minor, count) in counts {
+            let style = if minor {
+                &self.minor_style
+            } else {
+                &self.major_style
+            };
+            match style.grid.line.refused {
+                Some(keyword) if count > self.overrides(minor).made => {
+                    self.ticks = Err(TickerError::TickKeywordTwice(keyword));
+                    return;
+                }
+                _ => self.overrides_mut(minor).make_ticks(count),
+            }
         }
+    }
+
+    /// The major tick locations for the view of `geometry`, and what tick
+    /// helpers know about the axis once they are placed.
+    fn major_locs(
+        &self,
+        geometry: &AxisGeometry,
+        settings: &TickerSettings,
+    ) -> Result<(AxisInfo, Vec<f64>), TickerError> {
+        let mut info = self.info(geometry);
+        let ctx = TickContext::new(&info, settings);
+        let mut locs = drawable_ticks(self.major_locator.locate(&ctx)?)?;
+        if let Some(floor) = geometry.tick_floor {
+            locs.retain(|&loc| loc > floor);
+        }
+        info.major_ticks.clone_from(&locs);
+        Ok((info, locs))
+    }
+
+    /// Whether the minor locator places logit ticks on the axis of a polar
+    /// projection, which matplotlib's `LogitLocator` refuses.
+    fn minor_refuses_polar(&self) -> bool {
+        let locator: &dyn Any = self.minor_locator.as_ref();
+        self.role != AxisRole::Cartesian && locator.is::<LogitLocator>()
+    }
+
+    /// Every minor tick location for the view `ctx` knows. The ticks of
+    /// a level are made together here, where matplotlib places the minor
+    /// ones only for what needs them: a logit locator of a polar axis
+    /// places them while it can, failing as matplotlib does when it
+    /// cannot.
+    fn all_minor_locs(&self, ctx: &TickContext<'_>) -> Result<Vec<f64>, TickerError> {
+        let locs = self.minor_locator.locate(ctx).and_then(drawable_ticks);
+        locs.map_err(|err| {
+            if self.minor_refuses_polar() {
+                TickerError::PolarLogit
+            } else {
+                err
+            }
+        })
+    }
+
+    /// The minor tick locations among `all` that are shown: those not on
+    /// a `major` one, unless the axis keeps overlapping ones.
+    fn minor_locs(&self, all: &[f64], major: &[f64], view: (f64, f64)) -> Vec<f64> {
+        if self.remove_overlapping_locs {
+            self.without_overlaps(all.to_vec(), major, view)
+        } else {
+            all.to_vec()
+        }
+    }
+
+    /// The major (or `minor`) tick locations for the view of `geometry`,
+    /// whether their ticks are drawn or not (matplotlib's
+    /// `get_majorticklocs`, which places the major ticks alone, and
+    /// `get_minorticklocs`, which a logit locator refuses on a polar axis).
+    pub(crate) fn level_locs(
+        &self,
+        geometry: &AxisGeometry,
+        minor: bool,
+    ) -> Result<Vec<f64>, TickerError> {
+        let settings = self.settings();
+        let (info, major) = self.major_locs(geometry, &settings)?;
+        if !minor {
+            return Ok(major);
+        }
+        if self.minor_refuses_polar() {
+            return Err(TickerError::PolarLogit);
+        }
+        let all = self.all_minor_locs(&TickContext::new(&info, &settings))?;
+        Ok(self.minor_locs(&all, &major, geometry.view))
     }
 
     /// The ticks to draw for the view of `geometry`.
     pub(crate) fn compute_ticks(&self, geometry: &AxisGeometry) -> Result<TickSet, TickerError> {
-        let mut info = self.info(geometry);
         let settings = self.settings();
-        let mut major_locs = {
-            let ctx = TickContext::new(&info, &settings);
-            drawable_ticks(self.major_locator.locate(&ctx)?)?
-        };
-        if let Some(floor) = geometry.tick_floor {
-            major_locs.retain(|&loc| loc > floor);
-        }
-        info.major_ticks.clone_from(&major_locs);
+        let (info, major_locs) = self.major_locs(geometry, &settings)?;
         let ctx = TickContext::new(&info, &settings);
         let (lo, hi) = (self.forward(geometry.view.0), self.forward(geometry.view.1));
         let visible = |loc: f64| interval_contains_close((lo, hi), self.forward(loc), 1e-10);
@@ -151,12 +234,8 @@ impl AxisState {
             ticks.major_locs.clone_from(&major_locs);
         }
         if self.minor_style.is_drawn() {
-            let all_locs = drawable_ticks(self.minor_locator.locate(&ctx)?)?;
-            let minor_locs = if self.remove_overlapping_locs {
-                self.without_overlaps(all_locs.clone(), &major_locs, geometry.view)
-            } else {
-                all_locs.clone()
-            };
+            let all_locs = self.all_minor_locs(&ctx)?;
+            let minor_locs = self.minor_locs(&all_locs, &major_locs, geometry.view);
             let labels = self.minor_formatter.format_ticks(&minor_locs, &ctx)?;
             ticks.minor_unclipped = unclipped(&minor_locs, labels.labels);
             (ticks.minor_index, ticks.minor) = in_view(&ticks.minor_unclipped);

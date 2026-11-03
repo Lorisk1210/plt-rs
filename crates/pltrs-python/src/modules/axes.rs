@@ -36,9 +36,13 @@ impl IntoPy for Axes {
 }
 
 impl From<PlotError> for PyErr {
-    /// matplotlib's `ValueError` for data it cannot plot.
+    /// matplotlib's `ValueError` for data it cannot plot, and the errors
+    /// statistics raise for their problems.
     fn from(err: PlotError) -> Self {
-        PyErr::value_error(err.to_string())
+        match err {
+            PlotError::Stats(err) => err.into(),
+            other => PyErr::value_error(other.to_string()),
+        }
     }
 }
 

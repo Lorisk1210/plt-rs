@@ -42,10 +42,15 @@ impl From<MlabError> for PyErr {
 
 impl From<StatsError> for PyErr {
     /// numpy's `LinAlgError` (registered by `pltrs.mlab`) for a singular
-    /// covariance, `ValueError` otherwise, with matplotlib's messages.
+    /// covariance, its `TypeError` for a bin estimator given weights,
+    /// `ValueError` otherwise, with matplotlib's (numpy's) messages.
     fn from(err: StatsError) -> Self {
         match err {
             StatsError::SingularCovariance => registered_error("LinAlgError", "Singular matrix"),
+            StatsError::WeightedEstimator => PyErr::new(
+                ExceptionKind::TypeError,
+                "Automated estimation of the number of bins is not supported for weighted data",
+            ),
             StatsError::TooFewSamples => {
                 PyErr::value_error("`dataset` input should have multiple elements.")
             }

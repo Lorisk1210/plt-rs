@@ -1,5 +1,6 @@
 //! Tick and grid appearance (matplotlib's tick parameters).
 
+use super::grid_props::{GridLineProps, GridLinePropsOptions};
 use super::grid_stroke::{GridStroke, GridStrokeOptions};
 use super::which::TickLevel;
 use crate::colors::Color;
@@ -104,6 +105,9 @@ pub struct GridStyle {
     pub zorder: f64,
     /// Their antialiasing, caps and joins.
     pub stroke: GridStroke,
+    /// Their line properties beyond the stroke (draw style, gap colour,
+    /// snapping, clipping, ...).
+    pub line: GridLineProps,
 }
 
 pltrs_core::archive_struct!(GridStyle {
@@ -113,7 +117,8 @@ pltrs_core::archive_struct!(GridStyle {
     linestyle,
     path_effects,
     zorder,
-    stroke
+    stroke,
+    line
 });
 
 impl GridStyle {
@@ -150,6 +155,7 @@ impl GridStyle {
             path_effects: rc.path_effects.clone(),
             zorder: 2.0,
             stroke: GridStroke::from_rc(rc),
+            line: GridLineProps::default(),
         }
     }
 }
@@ -177,6 +183,8 @@ pub struct GridOptions {
     pub zorder: Option<f64>,
     /// Their antialiasing, caps and joins.
     pub stroke: GridStrokeOptions,
+    /// Their line properties beyond the stroke.
+    pub line: GridLinePropsOptions,
 }
 
 impl GridOptions {
@@ -209,6 +217,7 @@ impl GridOptions {
             style.zorder = zorder;
         }
         self.stroke.apply(&mut style.stroke);
+        self.line.apply(&mut style.line);
     }
 }
 

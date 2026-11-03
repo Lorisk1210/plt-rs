@@ -112,8 +112,12 @@ fn to_int(integral: f64, what: &'static str) -> Result<i64, TickerError> {
     // Integral values within ±2^63 convert exactly.
     if integral.is_finite() && integral.abs() < 9.2e18 {
         Ok(integral as i64)
-    } else {
+    } else if integral.is_finite() {
         Err(TickerError::NonFinite(what))
+    } else {
+        Err(TickerError::NotAnInteger {
+            infinite: integral.is_infinite(),
+        })
     }
 }
 

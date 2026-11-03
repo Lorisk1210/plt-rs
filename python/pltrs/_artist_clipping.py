@@ -144,6 +144,15 @@ class ClippingMixin:
         self._clipbox = clipbox
         self.pchanged()
 
+    @property
+    def clipbox(self):
+        """The clip box (matplotlib's attribute; see `get_clip_box`)."""
+        return self.get_clip_box()
+
+    @clipbox.setter
+    def clipbox(self, clipbox):
+        self.set_clip_box(clipbox)
+
     def get_clip_box(self):
         """Return the clipbox."""
         if "_clipbox" in self.__dict__:

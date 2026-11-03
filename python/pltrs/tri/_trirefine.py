@@ -125,4 +125,6 @@ class UniformTriRefiner(TriRefiner):
         refined, refi_z = _tri.refine_field(
             self._triangulation._native, np.asarray(interp._z, dtype=float),
             interp._native_kind, int(subdiv))
-        return Triangulation._from_native(refined), refi_z
+        # A masked array, as matplotlib's interpolators return values.
+        return (Triangulation._from_native(refined),
+                np.ma.masked_invalid(refi_z, copy=False))

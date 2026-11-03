@@ -18,6 +18,7 @@ from ..lines import Line2D
 from ._imaging import ImagingMixin
 from ._insets import InsetsMixin
 from ._plotting import PlottingMixin
+from ._plotting.bars import _GroupedBarReturn  # noqa: F401  (matplotlib defines it here)
 from ._titles import TitlesMixin
 from .._text_methods import AxesText
 
@@ -70,7 +71,8 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         """The data coordinates of the display point *xy*
         (``self.transData.inverted().transform(xy)``)."""
         x, y = xy
-        return _axes.display_to_data(self._native, x, y)
+        # numpy floats, as matplotlib's transform gives them.
+        return _values.float64s(_axes.display_to_data(self._native, x, y))
 
     def get_xlim(self):
         """Return the x-axis view limits."""
@@ -147,3 +149,7 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
         from .._native import legend as _legend
         if not _legend.set_axes_legend(self._native, legend._native):
             raise ValueError("legend_ must be a Legend made for this Axes")
+
+
+# matplotlib defines the methods of the mixins on Axes itself.
+cbook._own_mixin_methods(Axes, _AxesBase)

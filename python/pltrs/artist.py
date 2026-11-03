@@ -371,9 +371,19 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
         If True, the artist is excluded from regular drawing of the figure.
         You have to call `.Figure.draw_artist` / `.Axes.draw_artist`
-        explicitly on the artist.
+        explicitly on the artist. This approach is used to speed up animations
+        using blitting.
+
+        See also `matplotlib.animation` and
+        :ref:`blitting`.
+
+        Parameters
+        ----------
+        b : bool
         """
-        _artist.set_animated(self._native, bool(b))
+        if self.get_animated() != b:
+            _artist.set_animated(self._native, bool(b))
+            self.pchanged()
 
     def get_in_layout(self):
         """
@@ -430,11 +440,18 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
 
     def get_label(self):
         """Return the label used for this artist in the legend."""
-        return _artist.get_label(self._native)
+        label = _artist.get_label(self._native)
+        # A label set to None reads back as None, as matplotlib keeps it.
+        return None if label == "" and self.__dict__.get("_label_none") else label
 
     def set_label(self, s):
         """Set a label that will be displayed in the legend."""
-        _artist.set_label(self._native, str(s) if s is not None else "")
+        label = str(s) if s is not None else None
+        if label != self.get_label():
+            _artist.set_label(self._native, "" if label is None else label)
+            self._label_none = label is None
+            self.pchanged()
+            self.stale = True
 
     def get_gid(self):
         """Return the group id."""

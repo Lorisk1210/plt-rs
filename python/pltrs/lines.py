@@ -263,6 +263,11 @@ class Line2D(Artist):
 
     zorder = 2
 
+    #: The index of the first vertex drawn, which matplotlib's `contains`
+    #: adds to the indices it finds; pltrs (Rust) finds them in the whole
+    #: line.
+    ind_offset = 0
+
     #: The number of points above which pltrs (Rust) draws only the part
     #: of a line with sorted x in the view (``pltrs::lines``' subslicing).
     _subslice_optim_min_size = 1000

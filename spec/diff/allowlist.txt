@@ -7,6 +7,7 @@
 images_contours_and_fields/plot_streamplot$ | ^value\[(time|joinedstr)\]: | the example times streamplot with time.time() and writes the time into a figure title
 images_contours_and_fields/plot_streamplot$ | ^image: RMS > 1$ | the pixels that differ are the digits of the times the titles of figure 2 show
 statistics/time_series_histogram$ | ^stdout$ | the example prints the seconds its plotting took
+(event_handling/pong_sgskip|mplot3d/wire3d_animation|statistics/time_series_histogram)$ | ^value\[time\]: float$ | the example reads time.time(), which differs between the runs (the reference run is cached)
 
 # The program draws object reprs, with their memory addresses.
 users_explain/axes/axes_units$ | ^image: RMS > 1$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run
@@ -21,4 +22,21 @@ misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names plt
 # pltrs ships its own looks as style sheets (pltrs-modern, pltrs-modern-dark,
 # `pltrs::look`), which style.available lists with matplotlib's.
 style_sheets/style_sheets_reference$ | ^(value\[constant\]: list length|image: other figures open)$ | the example draws one figure per available style, two more with pltrs' own looks
-style_sheets/style_sheets_reference$ | ^callback\[[^]]+\]: runs another number of times$ | the example's functions run once more per figure for each of pltrs' two looks (31 styles, not 29; the dark-background branch for pltrs-modern-dark too)
+style_sheets/style_sheets_reference$ | ^(callback|calls)\[[^]]+\]: runs another number of times$ | the example's functions run once more per figure for each of pltrs' two looks (31 styles, not 29; the dark-background branch for pltrs-modern-dark too)
+(tutorials/lifecycle|users_explain/customizing)$ | ^stdout$ | the example prints style.available (its only other printed line, lifecycle's file types, is the same)
+
+# matplotlib's C++ extensions define their classes with pybind11, whose
+# classes derive from pybind11_object; pltrs's are Python classes.
+. | ^type\[\w+\]: MRO of matplotlib\.(ft2font\.(FT2Font|Glyph)|backends\._backend_agg\.BufferRegion): missing \['pybind11_object'\]$ | pybind11_object is the base of pybind11's extension classes, an implementation detail of matplotlib's C++ modules
+
+# matplotlib draws what a program puts in a figure's artists, lines, patches
+# and texts lists (Figure.get_children reads them at each draw); pltrs
+# (Rust) keeps the figure's artists, so these lists are a list subclass
+# whose mutating methods hand the artists over (isinstance(fig.lines, list)
+# holds, and they compare equal to matplotlib's lists).
+artists/(sub)?figure_(getters|setters)$ | ^type\[(artists|lines|patches|texts)\]: list -> matplotlib\._figure_artists\.DrawnList$ | the figure's lists of loose artists are a list subclass that has pltrs (Rust) draw what is put in them
+
+# matplotlib's Artist.set_mouseover adds the artist to self.axes._mouseover_set;
+# the axes of a (sub)figure is the list of its Axes, so a figure with Axes
+# fails there with AttributeError (a matplotlib bug), where pltrs sets it.
+artists/subfigure_setters$ | ^exception\[set_mouseover\]: missing AttributeError$ | matplotlib fails reading _mouseover_set from the list a SubFigure's axes attribute is

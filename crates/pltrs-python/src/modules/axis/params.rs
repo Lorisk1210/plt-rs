@@ -7,10 +7,13 @@ use pltrs::fonts::FontSize;
 use pltrs::lines::LineStyle;
 use pltrs::mplot3d::{Axis3, Axis3D};
 
+use pltrs_render::Sketch;
+
 use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
-use crate::modules::lines::{PyLineStyle, cap_style, join_style, parse};
+use crate::modules::artist::filter::python_filter;
+use crate::modules::lines::{PyLineStyle, cap_style, drawstyle, join_style, parse};
 use crate::modules::patheffects::path_effects;
 
 /// A font size given as points or as a keyword (`"large"`).
@@ -58,6 +61,25 @@ fn dashes(value: &Bound<'_>) -> PyResult<LineStyle> {
         .into_py(value.py())?
         .extract::<PyLineStyle>()?
         .0)
+}
+
+/// The sketch matplotlib's gridline takes from `set(sketch_params=value)`
+/// (its `set_sketch_params(value)`): none for `None`, else the wobble of
+/// scale `value` at the default length and randomness.
+fn sketch(value: &Bound<'_>) -> PyResult<Option<Sketch>> {
+    if value.is_none() {
+        return Ok(None);
+    }
+    let scale: f64 = value.extract().map_err(|_| {
+        PyErr::type_error(
+            "grid_sketch_params gives the gridlines' sketch scale, a number (or None)",
+        )
+    })?;
+    Ok(Some(Sketch {
+        scale,
+        length: 128.0,
+        randomness: 16.0,
+    }))
 }
 
 /// Sets the side switch `key` (`tick1On`, `label2On`, ...) of axis
@@ -116,9 +138,26 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
                 params.grid_stroke.solid_joinstyle = Some(join_style(&value)?);
             }
             "grid_dash_joinstyle" => params.grid_stroke.dash_joinstyle = Some(join_style(&value)?),
+            "grid_drawstyle" | "grid_ds" => params.grid_line.drawstyle = Some(drawstyle(&value)?),
+            "grid_gapcolor" => params.grid_line.gapcolor = Some(value.extract()?),
+            "grid_snap" => params.grid_line.snap = Some(value.extract()?),
+            "grid_sketch_params" => params.grid_line.sketch = Some(sketch(&value)?),
+            "grid_clip_on" => params.grid_line.clip_on = Some(value.is_truthy()?),
+            "grid_url" => params.grid_line.url = Some(value.extract()?),
+            "grid_gid" => params.grid_line.gid = Some(value.extract()?),
+            "grid_rasterized" => params.grid_line.rasterized = Some(value.is_truthy()?),
+            "grid_animated" => params.grid_line.animated = Some(value.is_truthy()?),
+            "grid_agg_filter" => {
+                let filter: Option<Callback> = value.extract()?;
+                params.grid_line.agg_filter = Some(filter.map(python_filter));
+            }
+            // No clip box: the gridlines are not clipped (their clip path is
+            // none already, the axes' rectangle being their clip box).
+            "grid_clip_box" if value.is_none() => params.grid_line.clip_on = Some(false),
+            "grid_clip_path" if value.is_none() => {}
             // Line properties the gridlines do not draw with: matplotlib's
             // ticks make their gridline without a marker and place it
-            // themselves.
+            // themselves, and neither layouts nor the mouse look at it.
             "grid_markersize"
             | "grid_ms"
             | "grid_markeredgecolor"
@@ -137,15 +176,15 @@ fn tick_params(name: AxisName, kwargs: &Bound<'_>) -> PyResult<(TickParams, Opti
             | "grid_data"
             | "grid_xdata"
             | "grid_ydata"
-            | "grid_transform" => {}
+            | "grid_transform"
+            | "grid_in_layout"
+            | "grid_mouseover"
+            | "grid_figure" => {}
             // matplotlib's ticks make their gridline with a marker and a
-            // visibility of their own, which these would give twice.
-            "grid_marker" | "grid_visible" => {
-                return Err(PyErr::type_error(format!(
-                    "Line2D() got multiple values for keyword argument '{}'",
-                    &key["grid_".len()..]
-                )));
-            }
+            // visibility of their own, which these would give twice: the
+            // next tick the level makes fails.
+            "grid_marker" => params.grid_line.refused = Some("marker"),
+            "grid_visible" => params.grid_line.refused = Some("visible"),
             _ => {
                 return Err(PyErr::new(
                     ExceptionKind::NotImplementedError,

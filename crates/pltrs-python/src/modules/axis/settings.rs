@@ -29,6 +29,28 @@ fn is_default_helper(owner: AxisOwner, name: String, kind: String, minor: bool) 
     })
 }
 
+/// Whether the label text was never set (`isDefault_label`).
+fn is_default_label(owner: AxisOwner, name: String) -> PyResult<bool> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.is_default_label(),
+        AnyAxis::Deep(axis) => axis.is_default_label(),
+    })
+}
+
+/// Sets the label text, which unit converters then leave alone, even when
+/// it stays the same (`set_label_text`).
+fn set_label_text(owner: AxisOwner, name: String, text: String) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_label_text(text);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.axes().set_label(axis.dir(), text);
+        }
+    }
+    Ok(())
+}
+
 /// Turns the minor ticks on with the scale's minor locator, or off
 /// (`minorticks_on`, `minorticks_off`).
 fn minorticks(owner: AxisOwner, name: String, on: bool) -> PyResult<()> {
@@ -296,6 +318,8 @@ fn clear(owner: AxisOwner, name: String) -> PyResult<()> {
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("clear", clear)?;
     module.add("is_default_helper", is_default_helper)?;
+    module.add("is_default_label", is_default_label)?;
+    module.add("set_label_text", set_label_text)?;
     module.add("minorticks", minorticks)?;
     module.add("get_remove_overlapping_locs", get_remove_overlapping_locs)?;
     module.add("set_remove_overlapping_locs", set_remove_overlapping_locs)?;

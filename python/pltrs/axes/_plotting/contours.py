@@ -34,8 +34,9 @@ def _contour_look(kwargs):
     """
     if "color" in kwargs:
         raise _api.kwarg_error("ContourSet.__init__", "color")
+    from ... import ticker
     locator = kwargs.pop("locator", None)
-    colors = kwargs.pop("colors", None)
+    given_colors = colors = kwargs.pop("colors", None)
     cmap = kwargs.pop("cmap", None)
     if colors is not None and cmap is not None:
         raise ValueError('Either colors or cmap must be None')
@@ -44,7 +45,12 @@ def _contour_look(kwargs):
     # matplotlib keeps any *extend* and extends the ends it names.
     extend = kwargs.pop("extend", "neither")
     native_extend = extend if extend in ('neither', 'both', 'min', 'max') else 'neither'
-    hatches = kwargs.pop("hatches", [None])
+    hatches = kwargs.pop("hatches", (None,))
+    norm = kwargs.get("norm")
+    if kwargs.get("colorizer") is not None:
+        norm = kwargs["colorizer"].norm
+    logscale = (isinstance(norm, mcolors.LogNorm)
+                or isinstance(locator, ticker.LogLocator))
     linewidths = kwargs.pop("linewidths", None)
     alpha = kwargs.pop("alpha", None)
     antialiased = kwargs.pop("antialiased", None)
@@ -68,7 +74,10 @@ def _contour_look(kwargs):
               else _tick_helpers._description("locator", locator),
               _live_transforms.given_to_native(kwargs.pop("transform", None)))
     attributes = {"_orig_linestyles": linestyles,
-                  "negative_linestyles": negative_linestyles, "_extend": extend}
+                  "negative_linestyles": negative_linestyles, "_extend": extend,
+                  "colors": given_colors, "hatches": hatches,
+                  "logscale": logscale, "origin": None, "extent": None,
+                  "nchunk": 0}
     return look, extras, attributes, made, cmap is None
 
 
@@ -99,6 +108,7 @@ def _style(contours, look, kwargs):
     contours._attach_native_mapping(colorizer=colorizer)
     for name, value in attributes.items():
         setattr(contours, name, value)
+    contours.monochrome = contours.cmap.monochrome
     contours._internal_update(kwargs)
     return contours
 
@@ -136,6 +146,11 @@ class ContoursMixin:
                                   _levels(levels), *look[:2])
         contours = _finish(mcontour.QuadContourSet, native, self, look, kwargs)
         contours._generator = generator
+        if origin == 'image':
+            from ... import rcParams
+            origin = rcParams['image.origin']
+        contours.origin, contours.extent = origin, extent
+        contours.nchunk = generation[1]
         return contours
 
     def _tricontour(self, filled, args, kwargs):

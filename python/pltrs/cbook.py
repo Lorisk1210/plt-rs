@@ -12,6 +12,7 @@ import collections.abc
 import contextlib
 import functools
 import gzip
+import inspect
 import itertools
 import math
 import operator
@@ -1208,7 +1209,8 @@ def boxplot_stats(X, whis=1.5, bootstrap=None, labels=None, autorange=False):
             stats['label'] = label
         bxpstats.append(stats)
         x = np.ma.asarray(x)
-        x = np.asarray(x.data[~x.mask].ravel(), float)
+        data = np.asarray(x.data[~x.mask].ravel())
+        x = np.asarray(data, float)
         ((stats['mean'], stats['iqr'], stats['cilo'], stats['cihi']),
          (stats['whishi'], stats['whislo']), stats['fliers'],
          (stats['q1'], stats['med'], stats['q3'])) = _cbook.box_stats(
@@ -1218,7 +1220,21 @@ def boxplot_stats(X, whis=1.5, bootstrap=None, labels=None, autorange=False):
             for key in ['fliers', 'mean', 'med', 'q1', 'q3', 'iqr', 'cilo',
                         'cihi', 'whislo', 'whishi']:
                 stats[key] = stats.pop(key)
+        else:
+            _type_box_stats(stats, data)
     return bxpstats
+
+
+def _type_box_stats(stats, data):
+    """Give the statistics *stats* of the non-empty *data* the numpy types
+    matplotlib computes them with: floats, the whisker ends that are data
+    points of the data's type."""
+    for key in ('mean', 'iqr', 'cilo', 'cihi', 'q1', 'med', 'q3'):
+        stats[key] = np.float64(stats[key])
+    for key in ('whislo', 'whishi'):
+        value = stats[key]
+        integral = data.dtype.kind in 'iu' and np.any(data == value)
+        stats[key] = data.dtype.type(value) if integral else np.float64(value)
 
 
 #: Maps short codes for line style to their full name used by backends.
@@ -1855,6 +1871,26 @@ def _set_module(module, *classes):
             if isinstance(nested, type) and nested.__qualname__.startswith(
                     cls.__qualname__ + "."):
                 _set_module(module, nested)
+
+
+def _own_mixin_methods(cls, base):
+    """
+    Make the methods *cls* takes from its mixins (the classes of its MRO
+    that are not in *base*'s) methods of *cls*, as matplotlib defines them
+    there: their ``__qualname__`` (which the errors calling them raises
+    name) and ``__module__`` (which pickling looks them up in) are those
+    of *cls*, and so are those of the functions they wrap.
+    """
+    kept = set(base.__mro__)
+    for mixin in cls.__mro__[1:]:
+        if mixin in kept:
+            continue
+        for name, function in vars(mixin).items():
+            while (inspect.isfunction(function)
+                   and function.__qualname__ == f"{mixin.__qualname__}.{name}"):
+                function.__qualname__ = f"{cls.__qualname__}.{name}"
+                function.__module__ = cls.__module__
+                function = getattr(function, "__wrapped__", None)
 
 
 def _str_equal(obj, s):

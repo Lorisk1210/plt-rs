@@ -140,7 +140,7 @@ pub(crate) struct TickOverrides {
     /// How many ticks of the level exist, as matplotlib's tick lists
     /// count them: ticks are made when the axis places them or a program
     /// lists them (`get_major_ticks(n)`), and never unmade but by a reset.
-    made: usize,
+    pub(crate) made: usize,
 }
 
 pltrs_core::archive_struct!(TickOverrides {

@@ -9,8 +9,8 @@ use std::rc::Rc;
 use super::transform::full_circle_deg;
 use crate::scale::Scale;
 use crate::ticker::{
-    AxisInfo, FormattedTicks, Formatter, Locator, MaxNLocator, Nbins, TickContext, TickerError,
-    TickerSettings, pyfmt,
+    AxisInfo, FormattedTicks, Formatter, Locator, LogitLocator, MaxNLocator, Nbins, TickContext,
+    TickerError, TickerSettings, pyfmt,
 };
 use crate::transforms::nonsingular;
 
@@ -199,6 +199,17 @@ impl RadialLocator {
     pub fn base(&self) -> &dyn Locator {
         self.base.as_ref()
     }
+
+    /// The wrapped locator, unless it places logit ticks, which polar
+    /// axes refuse (matplotlib's `LogitLocator` raises on a polar axis).
+    fn placing(&self) -> Result<&dyn Locator, TickerError> {
+        let any: &dyn Any = self.base.as_ref();
+        if any.is::<LogitLocator>() {
+            Err(TickerError::PolarLogit)
+        } else {
+            Ok(self.base.as_ref())
+        }
+    }
 }
 
 impl Locator for RadialLocator {
@@ -208,11 +219,11 @@ impl Locator for RadialLocator {
         vmax: f64,
         ctx: &TickContext<'_>,
     ) -> Result<Vec<f64>, TickerError> {
-        self.base.tick_values(vmin, vmax, ctx)
+        self.placing()?.tick_values(vmin, vmax, ctx)
     }
 
     fn locate(&self, ctx: &TickContext<'_>) -> Result<Vec<f64>, TickerError> {
-        self.base.locate(ctx)
+        self.placing()?.locate(ctx)
     }
 
     fn nonsingular(&self, v0: f64, v1: f64, ctx: &TickContext<'_>) -> (f64, f64) {

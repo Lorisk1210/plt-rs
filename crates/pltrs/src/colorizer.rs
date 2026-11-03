@@ -8,7 +8,7 @@
 //! lets the colorbars showing the artist follow. Colorbars refer to their
 //! mappable by id, so nothing keeps a figure alive from inside itself.
 
-use crate::artist::{Artist, ArtistStore, DrawError, RawHandle};
+use crate::artist::{Artist, ArtistStore, DrawError, DrawErrorKind, RawHandle};
 use crate::colors::{Colormap, Norm, NormError, ScalarMappable};
 
 /// An artist state that colours data through a norm and a colormap.
@@ -75,11 +75,16 @@ pub(crate) fn change_mapping<T: ColorMapped>(raw: &RawHandle, change: MappingCha
     match remapped {
         None => {}
         Some(Ok(())) => notify(raw, reset),
+        // matplotlib's norms raise a `ValueError` for values or limits they
+        // cannot normalise.
         Some(Err(err)) => raw
             .figure_state()
             .borrow_mut()
             .pending_errors
-            .push(DrawError::new(raw.id(), err.to_string())),
+            .push(DrawError {
+                kind: DrawErrorKind::InvalidValue,
+                ..DrawError::new(raw.id(), err.to_string())
+            }),
     }
 }
 

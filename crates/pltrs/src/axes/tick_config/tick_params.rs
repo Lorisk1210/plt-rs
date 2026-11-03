@@ -2,6 +2,7 @@
 //! label and gridline style, and the sides ticks and labels are drawn on.
 
 use crate::axes::axis::TickOverrides;
+use crate::axes::grid_props::GridLinePropsOptions;
 use crate::axes::grid_stroke::GridStrokeOptions;
 use crate::axes::ticks::{GridOptions, TickDirection, TickStyle};
 use crate::axes::{Axes, Axis, AxisName, TickLevel};
@@ -84,6 +85,9 @@ pub struct TickParams {
     /// Gridline antialiasing, caps and joins (`grid_antialiased`,
     /// `grid_solid_capstyle`, ...).
     pub grid_stroke: GridStrokeOptions,
+    /// Gridline draw style, gap colour, snapping, clipping, ...
+    /// (`grid_drawstyle`, `grid_gapcolor`, ...).
+    pub grid_line: GridLinePropsOptions,
 }
 
 impl TickParams {
@@ -135,6 +139,7 @@ impl TickParams {
             path_effects: self.grid_path_effects.clone(),
             zorder: self.grid_zorder,
             stroke: self.grid_stroke,
+            line: self.grid_line.clone(),
             ..GridOptions::default()
         }
         .restyle(&mut style.grid);

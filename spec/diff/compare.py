@@ -7,7 +7,8 @@ matplotlib, as ``Difference``s:
 * ``type``: another class, or other public classes along its MRO;
 * ``value``: another value (numbers within ``RTOL``/``ATOL``, ints,
   strings and booleans exactly, tuples apart from lists, numpy dtypes and
-  shapes);
+  shapes; the elements of masked arrays under their mask are not
+  compared, their mask is);
 * ``identity``: an object that is (or is not) one described before;
 * ``calls``: a statement that ran another number of times;
 * ``exception``: an exception of another class or message, a missing one,
@@ -190,7 +191,7 @@ class _Walk:
         elif "mask" in a and a["mask"] != b["mask"]:
             yield "value", "array mask", where, ""
         if a["dtype"] == b["dtype"] or (a["dtype"][0] in "iuf" and b["dtype"][0] in "iuf"):
-            av, bv = a["v"], b["v"]
+            av, bv = _unmasked(a), _unmasked(b)
             if isinstance(av, dict) and isinstance(bv, dict):
                 keys = ("head", "sum", "min", "max", "nonfinite")
                 bad = [k for k in keys if not _numbers_close(av.get(k), bv.get(k))]
@@ -256,6 +257,17 @@ class _Walk:
                 yield "identity", "another object than matplotlib's", where, ""
 
 
+def _unmasked(description: dict) -> Any:
+    """The elements of an array description a program can read: a masked
+    array's data under its mask is whatever its computation left there
+    (numpy's masked operations leave it unspecified), so masked elements
+    read as None."""
+    values, mask = description["v"], description.get("mask")
+    if isinstance(values, list) and isinstance(mask, list) and len(mask) == len(values):
+        return [None if masked else value for value, masked in zip(values, mask)]
+    return values
+
+
 def _key(description: dict) -> str:
     return repr(description.get("v", description.get("name", description.get("type"))))
 
@@ -278,7 +290,9 @@ def _short(description: dict) -> str:
 
 def _as_array(values: list) -> np.ndarray:
     def number(x: Any) -> Any:
-        """*x* of a description as a number."""
+        """*x* of a description as a number (a masked element as NaN)."""
+        if x is None:
+            return math.nan
         if isinstance(x, str):
             return {"nan": math.nan, "inf": math.inf, "-inf": -math.inf}.get(x, math.nan)
         if isinstance(x, list):

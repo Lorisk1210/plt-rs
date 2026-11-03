@@ -179,7 +179,12 @@ impl fmt::Display for StepError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnknownStyle(name) => write!(f, "{name:?} is not a valid drawstyle"),
-            Self::LengthMismatch { x, y } => write!(f, "y has {y} values but x has {x}"),
+            // numpy's message for the arrays matplotlib broadcasts.
+            Self::LengthMismatch { x, y } => write!(
+                f,
+                "shape mismatch: objects cannot be broadcast to a single shape.  \
+                 Mismatch is between arg 0 with shape ({x},) and arg 1 with shape ({y},)."
+            ),
             Self::NoSeries => f.write_str("at least one y series is required"),
         }
     }

@@ -14,6 +14,7 @@
 
 mod array;
 mod copy;
+mod depth;
 mod draw;
 mod ellipses;
 mod events;
@@ -30,6 +31,7 @@ mod style;
 mod trimesh;
 
 pub use array::ArrayError;
+pub(crate) use depth::{DepthSortError, DepthSorted};
 pub use ellipses::EllipseCollection;
 pub use events::EventCollection;
 pub(crate) use events::EventLines;
@@ -115,31 +117,6 @@ pltrs_core::archive_enum!(EdgeColors {
     Default,
     Face,
     Colors(v0),
-});
-
-/// The item styles of a collection worked out by a 3-D projection, in
-/// depth order (matplotlib's `Path3DCollection` sorting its colours, sizes
-/// and widths at each projection); the collection keeps its own in data
-/// order.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct DepthSorted {
-    /// Face and edge colours, shaded with depth (`None` when the
-    /// collection's colours cannot be resolved, which drawing reports).
-    pub(crate) colors: Option<(Vec<Rgba>, Vec<Rgba>)>,
-    /// Marker areas (`None`: the collection's own).
-    pub(crate) sizes: Option<Vec<f64>>,
-    /// Edge widths (`None`: the collection's own).
-    pub(crate) linewidths: Option<Vec<f64>>,
-    /// The offsets in drawing order (`None`: the collection's own, which
-    /// keep the order of the data, as picking reports it).
-    pub(crate) offsets: Option<Vec<Point>>,
-}
-
-pltrs_core::archive_struct!(DepthSorted {
-    colors,
-    sizes,
-    linewidths,
-    offsets
 });
 
 /// Values mapped to colours through a norm and colormap.
@@ -576,6 +553,12 @@ impl Artist for CollectionArtist {
                 DrawErrorKind::InvalidType,
                 "Object of type 'Path' is not an instance of 'sequence'",
             );
+        } else if let Some(problem) = self.depth_sorted.as_ref().and_then(|s| s.problem) {
+            ctx.report_kind(self.base.id(), problem.kind(), problem);
+        } else if let Some(Err(problem)) = self.mapping.as_ref().map(|m| &m.normalized) {
+            // matplotlib's norms raise a `ValueError` for values or limits
+            // they cannot normalise.
+            ctx.report_kind(self.base.id(), DrawErrorKind::InvalidValue, problem);
         } else if let Err(problem) = self.render(ctx) {
             ctx.report(self.base.id(), problem);
         }

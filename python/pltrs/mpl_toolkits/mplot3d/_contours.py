@@ -7,10 +7,22 @@ The contours of `Axes3D` (matplotlib's ``Axes3D.contour``, ``contourf``,
 
 import numpy as np
 
-from pltrs import contour as mcontour
+from pltrs import cbook, contour as mcontour
 from pltrs._native import mplot3d as _mplot3d
 from pltrs._preprocess import _preprocess_data
 from pltrs.axes._plotting.contours import _contour_look, _finish, _levels
+
+
+def _in_3d(cls, placement):
+    """The class of a contour set of *cls* placed in 3-D as *placement*
+    says: the one matplotlib's ``art3d.collection_2d_to_3d`` makes it
+    (``QuadContourSet3D``), but for line contours extended into ribbons,
+    which matplotlib leaves of *cls*."""
+    from . import art3d
+    _, _, stride, _ = placement
+    if stride is not None:
+        return cls
+    return cbook._make_class_factory(art3d.Collection3D, "{}3D")(cls)
 
 
 def _placement(zdir, offset, stride, axlim_clip):
@@ -64,7 +76,8 @@ class ContoursMixin:
         grids = tuple(np.ascontiguousarray(a, dtype=float) for a in (x, y, z))
         native = _mplot3d.contour(self._native, bool(filled), grids, placement,
                                   _levels(levels), *look[:2])
-        return _finish(mcontour.QuadContourSet, native, self, look, kwargs)
+        return _finish(_in_3d(mcontour.QuadContourSet, placement), native, self,
+                       look, kwargs)
 
     def _tricontour3d(self, filled, args, kwargs, placement):
         """The `.TriContourSet` of ``tricontour`` (or, *filled*,
@@ -82,7 +95,7 @@ class ContoursMixin:
         z = np.ma.filled(np.ma.asarray(z, dtype=float), np.nan).ravel()
         native = _mplot3d.tricontour(self._native, bool(filled), (tri._native, z),
                                      placement, _levels(levels), *look[:2])
-        return _finish(TriContourSet, native, self, look, kwargs)
+        return _finish(_in_3d(TriContourSet, placement), native, self, look, kwargs)
 
     @_preprocess_data()
     def contour(self, X, Y, Z, *args,

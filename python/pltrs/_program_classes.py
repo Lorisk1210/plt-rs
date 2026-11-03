@@ -39,11 +39,19 @@ def set_artist_props(artist, had_transform, axes=None):
 def take_class_defaults(artist):
     """Give *artist* the z-order its class declares when the class is the
     program's (``class RibbonBoxImage(AxesImage): zorder = 1``): matplotlib
-    reads ``zorder`` from the class until it is set."""
+    reads ``zorder`` from the class until it is set; and set its axes to
+    None through the ``axes`` property of such a class, as matplotlib's
+    ``Artist.__init__`` does."""
     cls = type(artist)
     zorder = getattr(cls, "zorder", None)
     if isinstance(zorder, Real) and takes_from_program(cls, "zorder"):
         _artist.set_zorder(artist._native, float(zorder))
+    if takes_from_program(cls, "axes"):
+        try:
+            artist.axes = None
+        except AttributeError:
+            # A read-only ``axes`` property.
+            pass
 
 
 @functools.cache

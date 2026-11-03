@@ -58,6 +58,9 @@ class Container(tuple):
         if label != self._label:
             self._label = label
             self.pchanged()
+            # matplotlib's `Artist.set_label` (which containers take)
+            # marks the container stale: a plain attribute of a container.
+            self.stale = True
 
     def add_callback(self, func):
         """

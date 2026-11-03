@@ -327,6 +327,10 @@ class Collection(mcolorizer.ColorizingArtist):
         if not self._has_offsets():
             return np.zeros((1, 2))
         offsets, masked = _collections.get_offsets(self._native)
+        # A collection made with its offsets (barbs) keeps their dtype.
+        dtype = self.__dict__.get("_offsets_dtype")
+        if dtype is not None and not masked:
+            offsets = offsets.astype(dtype, copy=False)
         return np.ma.masked_invalid(offsets) if masked else offsets
 
     def _has_offsets(self):
@@ -431,6 +435,7 @@ class Collection(mcolorizer.ColorizingArtist):
              np.asanyarray(self.convert_yunits(offsets[:, 1]), float)))
         _collections.set_offsets(
             self._native, np.ma.filled(offsets, np.nan).reshape(-1, 2), masked)
+        self.__dict__.pop("_offsets_dtype", None)
 
     def get_pickradius(self):
         """Return the pick radius used for containment tests."""
@@ -1458,7 +1463,13 @@ class _MeshData:
         mesh, corresponding to (M+1, N+1) vertices.
         The last dimension specifies the components (x, y).
         """
-        return _collections.get_coordinates(self._native)
+        coordinates = _collections.get_coordinates(self._native)
+        # As matplotlib keeps them: integers for a mesh of the default grid
+        # (masked vertices, NaN here, stay floats).
+        dtype = self.__dict__.get("_coordinates_dtype")
+        if dtype is None or not np.isfinite(coordinates).all():
+            return coordinates
+        return coordinates.astype(dtype, copy=False)
 
     @property
     def _shading(self):

@@ -39,6 +39,7 @@ mod eventplot;
 mod extent_tests;
 mod fill;
 mod fill_between;
+mod grid_props;
 mod grid_stroke;
 mod grouped_bar;
 mod hexbin;
@@ -132,6 +133,7 @@ pub use errorbar::{ErrorbarContainer, ErrorbarFormat, ErrorbarOptions};
 pub use eventplot::EventplotOptions;
 pub use fill_between::FillBetweenOptions;
 pub(crate) use fill_between::FillGeometry;
+pub use grid_props::{GridLineProps, GridLinePropsOptions};
 pub use grid_stroke::{GridStroke, GridStrokeOptions};
 pub use grouped_bar::{GroupedBarData, GroupedBarError, GroupedBarOptions};
 pub use hexbin::{

@@ -226,3 +226,8 @@ __all__ = [
     "minorticks_off", "minorticks_on", "rgrids", "thetagrids", "tick_params",
     "ticklabel_format", "xscale", "xticks", "yscale", "yticks",
 ]
+
+# matplotlib defines these in pyplot itself (``get_plot_commands`` lists
+# them).
+for _function in (rgrids, thetagrids, xscale, xticks, yscale, yticks):
+    _function.__module__ = __name__.rpartition(".")[0] + ".pyplot"

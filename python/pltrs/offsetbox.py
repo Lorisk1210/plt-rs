@@ -34,6 +34,7 @@ from . import _api, _handles, _live_transforms, cbook, rcParams
 from . import text as mtext
 from . import transforms as mtransforms
 from ._native import artist as _artist, offsetbox as _offsetbox
+from ._native import patches as _patches
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
 from .transforms import Bbox, BboxBase, TransformedBbox
@@ -186,6 +187,10 @@ class OffsetBox(Artist):
     def __init__(self, **kwargs):
         super().__init__()
         self._internal_update(kwargs)
+        # Clipping has not been implemented in the OffsetBox family, so
+        # disable the clip flag for consistency. It can always be turned back
+        # on to zero effect.
+        self.set_clip_on(False)
         self._children = []
         self._offset = (0, 0)
 

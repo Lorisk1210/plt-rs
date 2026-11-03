@@ -327,12 +327,23 @@ class RadialLocator(mticker.Locator):
 
     def __call__(self):
         # Ensure previous behaviour with full circle non-annular views.
-        ax = self.base.axis.axes
-        if _is_full_circle_rad(*ax.get_xlim()):
-            rorigin = ax.get_rorigin() * ax.get_rsign()
-            if ax.get_rmin() <= rorigin:
-                return [tick for tick in self.base() if tick > rorigin]
+        if self._keeps_off_origin():
+            rorigin = self._rorigin()
+            return [tick for tick in self.base() if tick > rorigin]
         return self.base()
+
+    def _rorigin(self):
+        """The radius of the origin, signed as the radial axis goes."""
+        ax = self.base.axis.axes
+        return ax.get_rorigin() * ax.get_rsign()
+
+    def _keeps_off_origin(self):
+        """Whether the ticks leave out those at and inside the origin: on a
+        full circle that is not annular, as matplotlib's do (a list of
+        them)."""
+        ax = self.base.axis.axes
+        return (_is_full_circle_rad(*ax.get_xlim())
+                and ax.get_rmin() <= self._rorigin())
 
     def _zero_in_bounds(self):
         """

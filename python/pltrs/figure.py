@@ -21,7 +21,7 @@ from . import _figure_artists
 from .axes import Axes
 from .axes._base import _AxesBase
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
-from .gridspec import GridSpec, SubplotParams, SubplotSpec
+from .gridspec import GridSpec, SubplotParams, SubplotSpec, _figure_subplotpars
 from ._figure_images import FigureImagesMixin
 from ._figure_layout import FigureBaseLayout, FigureLayout
 from ._figure_mosaic import _MosaicMixin
@@ -486,7 +486,9 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     @property
     def subplotpars(self):
         """The `.SubplotParams` of the figure."""
-        return SubplotParams(*_gridspec.figure_params(self._native))
+        self._subplotpars = _figure_subplotpars(
+            self._native, self.__dict__.get("_subplotpars"))
+        return self._subplotpars
 
     def subplots_adjust(self, left=None, bottom=None, right=None, top=None,
                         wspace=None, hspace=None):
@@ -800,6 +802,15 @@ class SubFigure(FigureBase):
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
+
+    #: Kept as on every figure, but a subfigure composites its images as
+    #: its root figure says.
+    suppressComposite = None
+
+    @property
+    def subplotpars(self):
+        """The `.SubplotParams` of the subfigure: its parent's."""
+        return self._parent.subplotpars
 
     @property
     def images(self):

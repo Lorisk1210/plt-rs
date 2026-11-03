@@ -283,13 +283,13 @@ impl AnnotationState {
         text.extent_at(layout, anchor)
     }
 
-    /// The extent of the arrow as drawn, `None` without an arrow or while
-    /// the annotation is hidden.
-    fn arrow_extent(
+    /// The outline of the arrow as drawn, in display pixels, `None`
+    /// without an arrow or while the annotation is hidden.
+    fn arrow_display_path(
         &self,
         text: &TextArtist,
         layout: LayoutContext<'_>,
-    ) -> Result<Option<Bbox>, TextDrawError> {
+    ) -> Result<Option<pltrs_core::Path>, TextDrawError> {
         let Some(arrow) = &self.arrow else {
             return Ok(None);
         };
@@ -303,7 +303,19 @@ impl AnnotationState {
             .measured_paths(layout, &text.rc, target)
             .map_err(TextDrawError::Box)?;
         let displayed: Vec<pltrs_core::Path> = paths.iter().map(DisplayPath::to_display).collect();
-        Ok(Some(pltrs_core::Path::compound(&displayed).extents()))
+        Ok(Some(pltrs_core::Path::compound(&displayed)))
+    }
+
+    /// The extent of the arrow as drawn, `None` without an arrow or while
+    /// the annotation is hidden.
+    fn arrow_extent(
+        &self,
+        text: &TextArtist,
+        layout: LayoutContext<'_>,
+    ) -> Result<Option<Bbox>, TextDrawError> {
+        Ok(self
+            .arrow_display_path(text, layout)?
+            .map(|path| path.extents()))
     }
 
     /// The extent of the text and arrow (`Annotation.get_window_extent`;
@@ -477,6 +489,31 @@ impl Annotation {
     pub fn arrow_extent(&self) -> Option<Bbox> {
         self.laid_out(|annotation, text, layout| {
             annotation.arrow_extent(text, layout).ok().flatten()
+        })
+    }
+
+    /// The outline of the arrow in display pixels in the figure's current
+    /// layout (laid out first), `None` without an arrow, while the
+    /// annotation is hidden or when the arrow cannot be placed
+    /// (matplotlib's `arrow_patch.get_path()` once the annotation placed
+    /// its arrow).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::text::{AnnotateOptions, ArrowProps, LegacyArrowProps};
+    /// let ax = Figure::new().subplot();
+    /// let options = AnnotateOptions {
+    ///     xytext: Some((0.2, 0.2).into()),
+    ///     arrowprops: Some(ArrowProps::Legacy(LegacyArrowProps::default())),
+    ///     ..AnnotateOptions::default()
+    /// };
+    /// let annotation = ax.annotate("x", (0.5, 0.5), options)?;
+    /// assert!(annotation.arrow_display_path().is_some_and(|path| !path.is_empty()));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn arrow_display_path(&self) -> Option<pltrs_core::Path> {
+        self.laid_out(|annotation, text, layout| {
+            annotation.arrow_display_path(text, layout).ok().flatten()
         })
     }
 

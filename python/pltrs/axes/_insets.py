@@ -48,6 +48,10 @@ class _TransformedBoundsLocator:
                             _live_transforms.to_native(self._transform))
 
 
+# matplotlib defines the class in ``axes._base``, which imports it from here.
+_TransformedBoundsLocator.__module__ = __name__.rpartition(".")[0] + "._base"
+
+
 class InsetsMixin:
     """The child Axes of an Axes: insets and secondary axes."""
 

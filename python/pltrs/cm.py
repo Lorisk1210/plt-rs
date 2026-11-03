@@ -58,9 +58,13 @@ class _BuiltinSegment:
         return f"<{self._channel} channel of colormap {self._cmap_name!r}>"
 
 
-def _from_spec(spec):
-    """The `.Colormap` a native colormap spec describes."""
+def _from_spec(spec, definition=None):
+    """The `.Colormap` a native colormap spec describes; the colours of a
+    built-in colour sequence (its *definition* a ``{'listed': colors}``
+    entry of ``_cm.datad``) are the tuple of tuples matplotlib keeps."""
     name = spec['name']
+    if definition is not None and definition[0] == "listed_data":
+        return colors.ListedColormap(tuple(definition[1]), name)
     if 'colors' in spec:
         return colors.ListedColormap(spec['colors'].tolist(), name)
     segmentdata = {
@@ -74,7 +78,8 @@ def _gen_cmap_registry():
     Generate a dict mapping standard colormap names to standard colormaps, as
     well as the reversed colormaps.
     """
-    cmap_d = {name: _from_spec(_cm.builtin_colormap(name))
+    cmap_d = {name: _from_spec(_cm.builtin_colormap(name),
+                               _cm.builtin_definition(name))
               for name in _cm.colormap_names()}
     # Generate reversed cmaps.
     for cmap in list(cmap_d.values()):

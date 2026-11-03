@@ -17,10 +17,10 @@ from .axes import Axes
 _METHODS = (
     "axline", "barh", "broken_barh", "errorbar", "eventplot", "fill",
     "fill_between", "fill_betweenx", "hist", "hlines", "stackplot", "stairs",
-    "stem", "step", "vlines", "boxplot", "bxp", "violinplot", "violin", "pie",
+    "stem", "step", "vlines", "boxplot", "violinplot", "pie",
     "contour", "contourf", "clabel", "tricontour", "tricontourf", "triplot",
     "pcolor", "pcolormesh", "quiver", "quiverkey", "barbs", "streamplot",
-    "bar_label", "grouped_bar", "pie_label", "hexbin", "hist2d", "pcolorfast",
+    "bar_label", "grouped_bar", "pie_label", "hexbin", "hist2d",
     "spy", "psd", "csd", "cohere", "magnitude_spectrum", "angle_spectrum",
     "phase_spectrum", "specgram", "acorr", "xcorr", "ecdf", "tripcolor",
     "table",
@@ -33,7 +33,6 @@ _METHODS = (
 _MAPPABLES = {
     "pcolor": lambda ret: ret,
     "pcolormesh": lambda ret: ret,
-    "pcolorfast": lambda ret: ret,
     "hexbin": lambda ret: ret,
     "tripcolor": lambda ret: ret,
     "quiver": lambda ret: ret,
@@ -102,3 +101,4 @@ def polar(*args, **kwargs):
 
 __all__ = [*_METHODS, "polar"]
 globals().update({name: _wrapper(name) for name in _METHODS})
+polar.__module__ = __name__.rpartition(".")[0] + ".pyplot"

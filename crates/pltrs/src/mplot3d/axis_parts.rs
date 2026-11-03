@@ -133,6 +133,12 @@ impl Axis3D {
         self.set_tickers(|t| t.defaults = TickerDefaults::default())
     }
 
+    /// Whether the label text was never set, so that a unit converter's
+    /// label replaces it (matplotlib's `isDefault_label`).
+    pub fn is_default_label(&self) -> bool {
+        self.read(|axes| axes.axis(self.dir).label.is_default)
+    }
+
     /// Whether the major (or `minor`) locator is still the one the scale
     /// installed (matplotlib's `isDefault_majloc`, `isDefault_minloc`).
     pub fn is_default_locator(&self, minor: bool) -> bool {

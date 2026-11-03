@@ -8,7 +8,7 @@
 
 use pltrs::artist::{RawHandle, TypedHandle};
 use pltrs::axes::Axes;
-use pltrs::collections::Collection;
+use pltrs::collections::{Collection, CollectionKind};
 use pltrs::colors::Color;
 use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
@@ -276,8 +276,8 @@ type LocParts = (Option<u8>, Option<(f64, f64)>);
 /// What a legend of the axes `parent` can show, hidden labels included
 /// (matplotlib's `_get_legend_handles`): for each candidate its native
 /// handle, the artist it shows if it is one artist, with that artist's
-/// kind (`"Line2D"`, `"Collection"`, `"Text"`, `"Rectangle"` or
-/// `"Artist"`), and its label.
+/// kind (`"Line2D"`, `"LineCollection"`, `"Collection"`, `"Text"`,
+/// `"Rectangle"` or `"Artist"`), and its label.
 fn candidates(parent: Axes) -> PyResult<Vec<Candidate>> {
     Ok(parent
         .legend_candidates()
@@ -296,8 +296,12 @@ fn candidates(parent: Axes) -> PyResult<Vec<Candidate>> {
 fn artist_kind(raw: &RawHandle) -> &'static str {
     if raw.downcast::<Line2D>().is_some() {
         "Line2D"
-    } else if raw.downcast::<Collection>().is_some() {
-        "Collection"
+    } else if let Some(collection) = raw.downcast::<Collection>() {
+        if collection.kind() == CollectionKind::Line {
+            "LineCollection"
+        } else {
+            "Collection"
+        }
     } else if raw.downcast::<Text>().is_some() {
         "Text"
     } else if raw.downcast::<Patch<Rectangle>>().is_some() {

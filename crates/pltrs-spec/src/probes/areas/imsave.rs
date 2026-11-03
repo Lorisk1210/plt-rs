@@ -81,7 +81,8 @@ fn imsave(args: Args<'_>) -> Outcome {
         .map(str::parse::<Origin>)
         .transpose()
         .map_err(|_| malformed("origin"))?;
-    let jpeg_quality = args
+    // Pillow's `quality` of `pil_kwargs`, for JPEG and AVIF.
+    let quality = args
         .opt_i64("quality")?
         .map(|q| u8::try_from(q).map_err(|_| malformed("quality")))
         .transpose()?;
@@ -94,7 +95,8 @@ fn imsave(args: Args<'_>) -> Outcome {
         },
         origin,
         dpi: args.opt_f64("dpi")?.unwrap_or(100.0),
-        jpeg_quality,
+        jpeg_quality: quality,
+        avif_quality: quality,
         metadata: None,
     };
     let file = imsave_bytes(image_data(args)?, format, options).map_err(ProbeError::rejected)?;

@@ -33,8 +33,9 @@ from ..transforms import BboxBase
 from ._native_drawing import MathtextDrawingMixin, NativeDrawingMixin, native_gc
 
 #: The raster formats written by Pillow, as matplotlib writes them: GIF,
-#: whose palette and transparency are Pillow's choice, and AVIF, which
-#: pltrs (Rust) does not encode.
+#: whose palette and transparency are Pillow's choice, and AVIF, whose
+#: files come from libavif in matplotlib (pltrs (Rust)'s own AV1 encoder
+#: writes other bytes).
 _PILLOW_FORMATS = frozenset({"gif", "avif"})
 
 

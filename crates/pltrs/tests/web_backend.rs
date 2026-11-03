@@ -257,7 +257,10 @@ fn fetch(addr: SocketAddr, number: u32, phase: &Phase) {
     let png = get(addr, &format!("/{number}/download.png"));
     let image = png::decode(&png.body).expect("a PNG download");
     assert_eq!((image.width(), image.height()), (400, 300));
-    assert_eq!(get(addr, &format!("/{number}/download.avif")).status, 404);
+    let avif = get(addr, &format!("/{number}/download.avif"));
+    assert_eq!(avif.header("content-type"), Some("image/avif"));
+    assert_eq!(&avif.body[4..12], b"ftypavif");
+    assert_eq!(get(addr, &format!("/{number}/download.heic")).status, 404);
     // Two requests on one connection.
     let mut stream = connect(addr);
     write!(

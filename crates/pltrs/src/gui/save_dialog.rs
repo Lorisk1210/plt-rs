@@ -17,12 +17,13 @@ use crate::figure::{Figure, SaveFormat};
 const LISTED_ROWS: usize = 10;
 
 /// The formats offered, in the order shown.
-const FORMATS: [SaveFormat; 10] = [
+const FORMATS: [SaveFormat; 11] = [
     SaveFormat::Png,
     SaveFormat::Jpeg,
     SaveFormat::Tiff,
     SaveFormat::Gif,
     SaveFormat::Webp,
+    SaveFormat::Avif,
     SaveFormat::Svg,
     SaveFormat::Pdf,
     SaveFormat::Ps,
@@ -501,8 +502,9 @@ mod tests {
 
     #[test]
     fn names_and_formats() {
-        assert_eq!(format_of("plot.SVG"), Some(5));
+        assert_eq!(format_of("plot.SVG"), Some(6));
         assert_eq!(format_of("frame.webp"), Some(4));
+        assert_eq!(format_of("frame.avif"), Some(5));
         assert_eq!(format_of("photo.jpeg"), Some(1));
         assert_eq!(format_of("scan.tiff"), Some(2));
         assert_eq!(format_of("notes.txt"), None);

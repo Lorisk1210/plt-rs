@@ -2,6 +2,9 @@
  "area": "mpl_agg",
  "matplotlib": "3.11.2",
  "probes": [
+  {"op": "Figure.savefig.avif", "args": {"style": ["classic", "_classic_test_patch"], "transparent": false}, "value": "RGB"},
+  {"op": "Figure.savefig.avif", "args": {"style": ["classic", "_classic_test_patch"], "transparent": true}, "value": "RGBA"},
+  {"op": "Figure.savefig.avif_quality", "args": {"style": ["classic", "_classic_test_patch"], "low": 1, "high": 100}, "value": true},
   {"op": "Figure.savefig.gif", "args": {"style": ["classic", "_classic_test_patch"], "transparent": false}, "value": {"mode": "P", "min_alpha": 255}},
   {"op": "Figure.savefig.gif", "args": {"style": ["classic", "_classic_test_patch"], "transparent": true}, "value": {"mode": "P", "min_alpha": 0}},
   {"op": "Figure.savefig.jpeg", "args": {"style": ["classic", "_classic_test_patch"], "dpi": 200}, "value": [200, 200]},

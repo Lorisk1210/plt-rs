@@ -49,7 +49,7 @@ that needs it; nothing assumes Unix outside `cfg(unix)`.
 | crate            | responsibility                                                       |
 |------------------|----------------------------------------------------------------------|
 | `pltrs-core`     | `Point`, `Affine2D`, `Bbox`, `Path` (+ path conditioning), `Rgba`, archives (pickling) |
-| `pltrs-codec`    | CRC32/Adler32, SHA-1/SHA-256, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, WebP, base64 |
+| `pltrs-codec`    | CRC32/Adler32, SHA-1/SHA-256, DEFLATE/zlib, PNG/APNG, JPEG, TIFF, GIF, WebP, AV1/AVIF, base64 |
 | `pltrs-font`     | TrueType/OpenType and Type 1 parsing, outlines, metrics, kerning, font manager |
 | `pltrs-raster`   | AA scanline rasterizer, stroker, dashes, clipping, compositing       |
 | `pltrs-text`     | text layout into glyph runs, mathtext parser + typesetter, usetex    |

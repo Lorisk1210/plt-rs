@@ -1,7 +1,7 @@
 //! Saving figures and the output formats.
 //!
 //! [`Figure::savefig`] picks the format from the file extension, as
-//! matplotlib does: PNG, JPEG, TIFF, GIF, WebP and raw RGBA pixels; SVG
+//! matplotlib does: PNG, JPEG, TIFF, GIF, WebP, AVIF and raw RGBA pixels; SVG
 //! (and compressed SVGZ), PDF, PostScript and EPS documents; and PGF
 //! pictures for LaTeX. The keywords of `savefig` are the fields of a
 //! [`SaveOptions`], unset ones following the `savefig.*` rcParams.
@@ -41,10 +41,10 @@
 //! | `format="pdf"`                                     | [`SaveOptions::format`]`: Some(SaveFormat::Pdf)`, or `"pdf".parse::<SaveFormat>()?` |
 //! | `metadata={"Title": ..., "Author": ...}`           | [`SaveOptions::metadata`]                      |
 //! | `metadata={"Title": ..., "Software": None}` (PNG)  | [`Metadata::png`]`: PngMetadata::default().with("Title", ..).without("Software")` ([`PngMetadata`]) |
-//! | `pil_kwargs={"quality": 90}`                       | [`SaveOptions::jpeg_quality`]                  |
+//! | `pil_kwargs={"quality": 90}`                       | [`SaveOptions::jpeg_quality`], [`SaveOptions::avif_quality`] |
 //! | `fig.savefig(io.BytesIO(), format="png")`          | [`Figure::to_png`], [`Figure::to_png_with`]    |
 //! | the same for SVG, PDF, PS, EPS, PGF                | [`Figure::to_svg`], [`Figure::to_pdf`], [`Figure::to_ps`], [`Figure::to_eps`], [`Figure::to_pgf`] |
-//! | JPEG, TIFF, GIF, WebP, raw, SVGZ into a buffer     | [`Figure::to_format`] with a [`SaveFormat`]    |
+//! | JPEG, TIFF, GIF, WebP, AVIF, raw, SVGZ into a buffer | [`Figure::to_format`] with a [`SaveFormat`]  |
 //! | `fig.canvas.get_supported_filetypes()`             | the variants of [`SaveFormat`]                 |
 //! | `PdfPages("doc.pdf")`, `pdf.savefig(fig)`          | [`PdfPages::new`], [`PdfPages::savefig`], then [`PdfPages::save`] or [`PdfPages::finish`] |
 //! | `pdf.attach_note(text)`, `pdf.infodict()`          | [`PdfPages::attach_note`], [`PdfPages::metadata_mut`] |
@@ -60,7 +60,7 @@
 //! | `backend_pdf.PdfFile`: `newPage`, `writeObject`, `reserveObject`, ... | [`PdfRenderer`]: [`PdfRenderer::new_page`], [`PdfRenderer::write_object`], [`PdfRenderer::reserve_object`], ... (snake case) |
 //! | `backend_pdf.Name`, `Reference`, `Verbatim`, `pdfRepr` | [`PdfObject`]`::Name`, `::Ref`, `::Raw`, [`PdfObject::repr`] |
 //! | `backend_svg.XMLWriter`                            | `pltrs_render::svg::xml::XmlWriter`            |
-//! | `savefig("fig.avif")`                              | not written by pltrs: matplotlib (and pltrs (Python)) save AVIF through Pillow |
+//! | `savefig("fig.avif")`                              | [`SaveFormat::Avif`]: pltrs' own AV1 encoder, where matplotlib (and pltrs (Python)) go through Pillow and libavif |
 //! | `rcParams["savefig.dpi"]`, `["pdf.fonttype"]`, ... | [`crate::rc::set`] with the same keys          |
 //! | animations                                         | see [`super::interaction`]                     |
 //!
@@ -183,9 +183,11 @@
 //! [`Metadata::png`]: crate::figure::Metadata::png
 //! [`PngMetadata`]: crate::figure::PngMetadata
 //! [`SaveOptions::jpeg_quality`]: crate::figure::SaveOptions::jpeg_quality
+//! [`SaveOptions::avif_quality`]: crate::figure::SaveOptions::avif_quality
 //! [`BboxInches::Inches`]: crate::figure::BboxInches::Inches
 //! [`PadInches::Layout`]: crate::figure::PadInches::Layout
 //! [`SaveFormat`]: crate::figure::SaveFormat
+//! [`SaveFormat::Avif`]: crate::figure::SaveFormat::Avif
 //! [`PdfPages::new`]: crate::figure::PdfPages::new
 //! [`PdfPages::savefig`]: crate::figure::PdfPages::savefig
 //! [`PdfPages::save`]: crate::figure::PdfPages::save

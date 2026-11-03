@@ -2,6 +2,10 @@
 //!
 //! The crate has no dependencies and no `unsafe` code. It provides:
 //!
+//! * [`av1`] — an intra-only AV1 encoder for still pictures: 4:2:0,
+//!   4:4:4 and monochrome, lossy or lossless.
+//! * [`avif`] — AVIF files of RGBA pixels, coded with [`av1`] and laid out
+//!   as Pillow writes them through libavif.
 //! * [`base64`] — base64 encoding for embedding binary data in text, and
 //!   decoding.
 //! * [`checksum`] — CRC-32 (PNG, gzip) and Adler-32 (zlib) checksums, both as
@@ -51,6 +55,8 @@
 //! ```
 #![forbid(unsafe_code)]
 
+pub mod av1;
+pub mod avif;
 pub mod base64;
 pub mod checksum;
 pub mod deflate;

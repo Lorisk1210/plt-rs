@@ -1,12 +1,7 @@
 """What is still missing, with an estimate, and what the audits implemented."""
 
 # Keyed by the note of the missing items (see rules*.py).
-ESTIMATES = {
-    "saving AVIF images (matplotlib saves them through Pillow; pltrs (Python) too)":
-        "large (an AV1 intra-frame encoder, several thousand lines: transforms, prediction "
-        "and the multi-symbol entropy coder, in a HEIF container); matplotlib has no encoder "
-        "of its own either",
-}
+ESTIMATES = {}
 
 # (Rust items, what they give), by audit.
 IMPLEMENTED = [
@@ -31,5 +26,9 @@ IMPLEMENTED = [
         ("testing::image_comparison (ImageComparison), testing::remove_ticks_and_titles",
          "`@image_comparison` and `remove_ticks_and_titles` of `matplotlib.testing.decorators`"),
         ("TexManager::rgba (TexRgba)", "`TexManager.get_rgba`"),
+        ("SaveFormat::Avif, SaveOptions::avif_quality, pltrs_codec::avif, pltrs_codec::av1",
+         "`print_avif`: an AV1 intra-frame encoder of pltrs' own (prediction, transforms and "
+         "the multi-symbol arithmetic coder, lossy at Pillow's quality or lossless) in the "
+         "AVIF container, where matplotlib saves through Pillow and libavif"),
     ]),
 ]

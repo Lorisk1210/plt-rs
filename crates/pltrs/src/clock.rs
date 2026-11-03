@@ -2,7 +2,8 @@
 //! `time.perf_counter`: to time the search for a legend's best location,
 //! which warns when it is slow.
 //!
-//! The counter is the thread's source, which a program installs with
+//! The counter is the thread's source (that of the threads sharing a
+//! [state](pltrs_core::state)), which a program installs with
 //! [`set_source`] (pltrs (Python) reads `time.perf_counter`, which tests
 //! replace to fake slow searches); without one it is [`monotonic`].
 //!
@@ -29,21 +30,24 @@ use std::time::Instant;
 /// A function reading the time in seconds.
 type Source = Rc<dyn Fn() -> f64>;
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The thread's source; `None` reads [`monotonic`].
     static SOURCE: RefCell<Option<Source>> = const { RefCell::new(None) };
+}
+
+thread_local! {
     /// The instant [`monotonic`] counts from.
     static START: Instant = Instant::now();
 }
 
 /// Reads the thread's performance counter from `source` from now on.
 pub fn set_source(source: impl Fn() -> f64 + 'static) {
-    SOURCE.with(|slot| *slot.borrow_mut() = Some(Rc::new(source)));
+    SOURCE.set(Some(Rc::new(source)));
 }
 
 /// Reads the thread's performance counter from [`monotonic`] again.
 pub fn clear_source() {
-    SOURCE.with(|slot| *slot.borrow_mut() = None);
+    SOURCE.set(None);
 }
 
 /// The thread's performance counter in seconds; only differences between

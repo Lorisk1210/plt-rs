@@ -123,7 +123,9 @@ struct UserLibrary {
     sheets: Option<UserSheets>,
 }
 
-thread_local! {
+pltrs_core::thread_state! {
+    /// The thread's user library (matplotlib's `style.library`, beyond the
+    /// bundled sheets).
     static USER_LIBRARY: RefCell<UserLibrary> = RefCell::default();
 }
 

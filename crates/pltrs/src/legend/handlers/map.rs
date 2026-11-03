@@ -317,7 +317,7 @@ impl HandlerMap {
     }
 }
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The handler map legends start from (matplotlib's class attribute
     /// `Legend._default_handler_map`), per thread like the rc parameters.
     static DEFAULT_HANDLERS: RefCell<HandlerMap> = RefCell::new(HandlerMap::builtin());
@@ -328,14 +328,19 @@ pub(crate) fn default_handlers() -> HandlerMap {
     DEFAULT_HANDLERS.with(|map| map.borrow().clone())
 }
 
-/// Replaces the default handler map.
+/// Replaces the default handler map. The handlers replaced are dropped
+/// once the map is no longer borrowed, since dropping a handler of the
+/// program's may run its code.
 pub(crate) fn set_default_handlers(map: HandlerMap) {
-    DEFAULT_HANDLERS.with(|current| *current.borrow_mut() = map);
+    DEFAULT_HANDLERS.set(map);
 }
 
-/// Adds the handlers of `map` to the default handler map.
+/// Adds the handlers of `map` to the default handler map (the handlers
+/// replaced are dropped once it is no longer borrowed).
 pub(crate) fn update_default_handlers(map: &HandlerMap) {
-    DEFAULT_HANDLERS.with(|current| current.borrow_mut().update(map));
+    let mut updated = default_handlers();
+    updated.update(map);
+    set_default_handlers(updated);
 }
 
 /// The default handler map with the handlers of `custom` added

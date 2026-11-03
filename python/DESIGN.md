@@ -36,6 +36,8 @@ crates/pltrs-python/            the native extension (a cdylib, no crates)
     module.rs                   the extension module and its submodules
     callback.rs                 Callback: Python called from pltrs (Rust)
     registry.rs                 Python objects registered for native code
+    threads.rs                  every thread holding the GIL uses every object
+    home.rs                     other threads' calls on windows, run by the main thread
     init.rs                     the module definition
   src/modules/                  one file per matplotlib module
     mod.rs                      registration list (shared, see below)
@@ -148,10 +150,11 @@ a raw pointer.
   never imports the package by name, so it works under any name (see the
   suite's aliasing).
 
-### The native object and its threads
+### The native object
 
-A native object holds one `'static` Rust value in a `RefCell`, the thread
-that made it, and, for artist handles, the artist's `RawHandle`.
+A native object holds one `'static` Rust value in a `RefCell`, for
+artist handles the artist's `RawHandle`, and for the few values tied to
+their thread the thread that made them (see "Threads").
 
 * `artist_handle!(Line2D)` (in the module file that owns the type) lets
   native functions take and return `Line2D` directly. Its native object
@@ -167,34 +170,79 @@ that made it, and, for artist handles, the artist's `RawHandle`.
   artists (a clone comes out). A function that must change the value in
   place takes `Native<T>` instead and uses `borrow_mut()`.
 
-pltrs (Rust) handles share their figure through an `Rc`, so they are not
-`Send`, while Python lets any thread holding the GIL reach any object. A
-native object therefore refuses use from a thread other than its maker's
-(`RuntimeError: this pltrs object belongs to another thread`), and one
-deallocated on another thread leaks its value rather than dropping it
-there. pltrs (Rust)'s rcParams are per thread too.
+### Threads
 
-Holding the GIL is not enough to share them: pltrs (Rust) keeps state per
-thread (rcParams, registries, caches holding `Rc`s), which another thread
-would read instead of the figure's, and which is dropped without the GIL
-when that thread ends. So calls from other threads are queued to the
-thread the objects belong to (`binding/home.rs`). The main thread (the
-thread that imported pltrs) serves other threads while it runs an event
-loop: `FigureCanvasBase.start_event_loop` (behind `ginput`,
-`waitforbuttonpress` and `pause`) brackets its loop with
-`_native.serve_threads(True)` / `(False)` and runs `_native.run_queued_calls()`
-at each step. A native function called on another thread with an
-argument made on the main thread is then queued (`dispatch` checks the
-arguments' owners), the caller waits without the GIL, and the main thread
-runs the call and hands back its result or exception; stopping to serve
-runs what is still queued. A call made while the main thread does not
-serve waits up to a second for it to start (as tkinter waits for its main
-loop), then runs where it is made, where the objects refuse it, so a main
-thread blocked on the caller (`future.result()`) gets the error, not a
-deadlock. `Event._process` hands the figure's callbacks to its thread the
-same way (`_native.call_on_thread_of(figure._native, callable)`), so that
-events a timer thread sends are processed where the figure lives. Objects
-a thread makes for itself stay usable on that thread.
+As in matplotlib, any Python thread holding the GIL may use any pltrs
+object: build a figure in a worker, draw it in a thread pool, save it
+from a web server's request thread, or keep using it after the thread
+that made it ended. matplotlib documents that it is not made for
+concurrent use; neither is pltrs, but nothing ties an object to the
+thread that made it. The model is in `binding/threads.rs`; in short:
+
+* **pltrs (Rust) is single-threaded code**: handles share their figure
+  through `Rc`s and `RefCell`s, so they are not `Send`. What makes them
+  sound to share is the GIL: native objects' values and everything they
+  reach are only touched by native calls and the native type's slots,
+  which hold it, and the GIL's release and acquisition order every touch.
+  The binding never releases the GIL while pltrs (Rust) works (only
+  `home`'s wait for the main thread releases it, touching nothing), and
+  Python code that releases it in the middle of a native call (a
+  callback) runs no Rust code of that thread until it takes it back.
+  abi3 builds exist only for CPython with a GIL.
+* **The state matplotlib keeps in process-wide variables** (rcParams, the
+  registries of colormaps, colour sequences and projections, the style
+  library, the default legend handlers, the warning and log handlers, the
+  program's text measurer and painters, the font map replacement, the
+  watched transform trees) is per thread in pltrs (Rust), so that Rust
+  programs and pltrs (Rust)'s parallel tests keep their own: each such
+  variable is a `pltrs_core::thread_state!`, which a thread reaches in a
+  `pltrs_core::state::State` instead of its own while it works with one.
+  Every Python thread works with the interpreter's `State` while it holds
+  a `GilScope` (a native call, a slot, `Python::with_gil`): rcParams are
+  global, and `rc_context` in one thread is seen by the others, as in
+  matplotlib. What stays per thread is what belongs to one call and its
+  callbacks: the missing glyphs of a layout, the measuring modes of a
+  backend's draw, the exception frames of callbacks, the renderer stacks
+  of `_text_metrics`, `_python_drawing` and `_transform_trees`
+  (`threading.local`).
+* **Thread-local storage never holds what another thread can reach**: it
+  is dropped without the GIL when its thread ends. The one per-thread
+  value kept across native calls, the metrics cache `text._measuring_with`
+  installs, is parked in the shared state when the thread leaves its
+  outermost scope and taken back at the next.
+* **Shared state is never borrowed across a call into Python**, since
+  Python may switch threads there (in a callback, or in any Python code a
+  garbage collection runs): what a change replaces (a handler, a
+  registration, a Python function) is dropped after the borrow ends, and
+  no lock is held while Python runs. A native call that does call back
+  into Python keeps its figure borrowed meanwhile, so a thread's outermost
+  native call on an artist whose figure another thread's call is using
+  waits for it (without the GIL, up to five seconds) instead of finding it
+  borrowed: a worker changing a figure while the main thread's draw runs
+  a `FuncFormatter` changes it once the draw is done.
+* **Values tied to their thread**: pltrs (Rust)'s windows (`_native.gui`'s
+  host: macOS runs windows on its main thread only, Windows delivers their
+  messages to the thread that made them) are made with
+  `wrap_thread_bound`. Their objects refuse other threads
+  (`RuntimeError: this pltrs WindowHost belongs to another thread`), and
+  one deallocated on another thread leaks its value. Calls on them from
+  other threads are queued to the main thread while it runs the windows'
+  loop (`binding/home.rs`, `backends/_pltrs_loop.py` brackets its loop
+  with `_native.serve_threads(True)` / `(False)` and runs
+  `_native.run_queued_calls()` at each step), the caller waiting without
+  the GIL; a call made while the main thread does not serve waits up to a
+  second for it to start (as tkinter waits for its main loop), then runs
+  where it is made and is refused, so a main thread blocked on the caller
+  gets the error, not a deadlock. So a worker drawing a figure shown in a
+  pltrs window has the window show it, as Qt lets any thread ask a widget
+  to repaint.
+
+The tests: `python/tests/test_threads.py` (workers, thread pools rendering
+the bytes one thread renders, `rc_context` and warnings across threads, a
+seeded run of threads using pltrs at once with Python switching as often
+as it can), `test_backend_pltrs.py::test_interactive_thread_safety`, and
+matplotlib's own `test_interactive_thread_safety` (Qt, Tk, GTK, wx), which
+the suite skips here for lack of a display and toolkits.
 
 ## The Python package
 
@@ -214,7 +262,7 @@ pltrs (Python) draws in pltrs' modern look by default, as pltrs (Rust)
 does: the `pltrs-modern` style sheet, Inter, constrained layout (see
 `pltrs::look`). `PLTRS_LOOK=matplotlib` (or `PLTRS_FIGURE_LOOK`) selects
 matplotlib's look, in which the output is matplotlib's. The extension
-does not choose: `modules::register` only starts the thread's parameters
+does not choose: `modules::register` only starts the parameters
 from the look pltrs (Rust) resolves from the environment. `rcParams` then
 holds the look's parameters (`rcParamsOrig` keeps them), while
 `rcParamsDefault`, `rcdefaults()` and `style.use("default")` are
@@ -284,7 +332,7 @@ artist. The `add_*` methods (`axes/_base.py`, `Figure.add_artist`) call
 joins differently), and `_handles.adopt` gives the object the returned
 handle and registers it in the figure. The returned handle is untyped (a
 `RawHandle` native object), which the `artist_handle!` conversions accept
-(see "The native object and its threads"). The loose handle is not used
+(see "The native object"). The loose handle is not used
 again: its holder is empty. An artist's `axes` is the one pltrs (Rust)
 has it in. `artist.set_figure(fig)` alone moves a loose artist into the
 figure as a removed artist (`Figure::take_artist`), which the figure does
@@ -356,8 +404,8 @@ box, the figure's size and resolution, and what a projection's trees rest
 on besides (polar Axes' theta offset, direction, radial origin and label
 position; geographic Axes' longitude cap). They are read when the trees
 are built. A figure whose trees are built is watched
-(`Figure::watch_changes`): it records itself among the changed figures of
-its thread whenever a handle borrows its state for change, and at the end
+(`Figure::watch_changes`): it records itself among the changed figures
+whenever a handle borrows its state for change, and at the end
 of every native call (an after-call hook, `sync_watched` in
 `modules/transforms/leaves.rs`) the figures recorded
 (`take_changed_figures`) are read again and the leaves that changed are
@@ -866,21 +914,19 @@ backend: the framework already running, else pltrs' own windows
   Navigation, keys and callbacks stay matplotlib's (`NavigationToolbar2`
   or the tool manager over pltrs' toolbar). The loop runs in short
   slices, between which signals arrive (Ctrl+C) and the calls other
-  threads queued run; its framework counts as running once the host is
+  threads queued for the windows run (see "Threads"); its framework
+  counts as running once the host is
   made (`cbook._get_running_interactive_framework`). A headless host
   (`_pltrs_loop.connect_headless`) opens windows off screen and takes
   injected input, for tests.
 * **Tk** (`backends/_backend_tk.py`, `backend_tkagg.py`, matplotlib's)
   blits through `_tkagg`, pltrs' counterpart of matplotlib's C helper,
-  which hands Tk the pixels with its photo commands, as PNG data; its main
-  loop serves other threads (`_serving_threads`).
+  which hands Tk the pixels with its photo commands, as PNG data.
 * **Qt, GTK 3 and 4, wx** are matplotlib's modules, kept as they are but
   for their imports; their canvases paint the Agg canvas' pixels through
   the buffer of `copy_from_bbox`'s region (`BufferRegion.__buffer__`).
   Without the toolkit they raise matplotlib's `ImportError` (the Qt
-  backends after its binding selection, `qt_compat`). GTK's application
-  loop and wx's main and event loops serve other threads
-  (`backends/_serving.py`), as Tk's does. pltrs has no Cairo:
+  backends after its binding selection, `qt_compat`). pltrs has no Cairo:
   the `*cairo` backends draw with the raster too, so their widgets show
   the pixels the `*agg` ones show (matplotlib's own Cairo variants differ
   from its Agg ones by their text and antialiasing).

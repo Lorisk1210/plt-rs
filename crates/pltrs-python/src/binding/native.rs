@@ -12,11 +12,15 @@
 //!
 //! pltrs (Rust) values are not `Send` (handles share their figure through an
 //! `Rc`), and Python objects may be reached from any thread holding the
-//! GIL. So a native object remembers the thread that made it and refuses
-//! access from any other (`RuntimeError`), and one deallocated on another
-//! thread leaks its value rather than dropping it there. Calls on objects
-//! of the main thread made from others are run by the main thread while
-//! it runs an event loop ([`home`](super::home)).
+//! GIL. The GIL is what makes that sound ([`threads`](super::threads)): a
+//! native object's value is only reached in native calls and in the type's
+//! slots, with the GIL held, so any thread may use it and drop it. The
+//! values tied to the thread that made them, pltrs (Rust)'s windows (on
+//! macOS only the main thread may use them), are made with
+//! [`wrap_thread_bound`]: their objects refuse other threads
+//! (`RuntimeError`), whose calls the main thread runs while it runs an
+//! event loop ([`home`](super::home)), and one deallocated on another
+//! thread leaks its value rather than dropping it there.
 //!
 //! [`RawHandle`]: pltrs::artist::RawHandle
 
@@ -39,8 +43,9 @@ use pltrs::artist::{ArtistHandle, RawHandle};
 
 /// What a native object holds.
 struct NativeCell {
-    /// The thread that made the value, the only one that may use it.
-    owner: ThreadId,
+    /// The thread that made the value, if it is tied to it: the only one
+    /// that may use it then.
+    owner: Option<ThreadId>,
     /// The value's type, for messages (`pltrs::lines::Line2D`).
     type_name: &'static str,
     /// The untyped handle of the artist the value is a handle of, if it
@@ -134,7 +139,8 @@ unsafe fn cell<'a>(object: *mut ffi::PyObject) -> &'a NativeCell {
     unsafe { &*ffi::PyObject_GetTypeData(object, native_type()).cast::<NativeCell>() }
 }
 
-/// `tp_dealloc`: drops the value (on its thread) and frees the object.
+/// `tp_dealloc`: drops the value (a value tied to its thread only there)
+/// and frees the object.
 unsafe extern "C" fn dealloc(object: *mut ffi::PyObject) {
     // SAFETY: CPython deallocates instances of the native type here, with
     // the GIL held; the cell is dropped once (a panic in a destructor is
@@ -144,7 +150,10 @@ unsafe extern "C" fn dealloc(object: *mut ffi::PyObject) {
     unsafe {
         let scope = GilScope::enter();
         let data = ffi::PyObject_GetTypeData(object, native_type()).cast::<NativeCell>();
-        if (*data).owner == std::thread::current().id() {
+        if (*data)
+            .owner
+            .is_none_or(|owner| owner == std::thread::current().id())
+        {
             let _ = catch_unwind(AssertUnwindSafe(|| std::ptr::drop_in_place(data)));
         }
         drop(scope);
@@ -170,25 +179,41 @@ unsafe extern "C" fn repr(object: *mut ffi::PyObject) -> *mut ffi::PyObject {
     }
 }
 
-/// A new native object holding `value`.
+/// A new native object holding `value`, for every thread.
+///
+/// The value must not be tied to its thread (it holds no pltrs (Rust)
+/// window): what is not `Send` in pltrs (Rust) values is their `Rc`s and
+/// `RefCell`s, which the GIL serialises ([`threads`](super::threads)).
 pub(crate) fn wrap<T: Any>(py: Python<'_>, value: T) -> PyResult<Bound<'_>> {
-    wrap_cell(py, value, None)
+    wrap_cell(py, value, None, None)
+}
+
+/// A new native object holding `value`, which only this thread may use:
+/// a value tied to the thread that made it (a pltrs (Rust) window host).
+pub(crate) fn wrap_thread_bound<T: Any>(py: Python<'_>, value: T) -> PyResult<Bound<'_>> {
+    wrap_cell(py, value, None, Some(std::thread::current().id()))
 }
 
 /// A new native object holding the artist handle `handle`.
 pub(crate) fn wrap_artist<T: ArtistHandle + Any>(py: Python<'_>, handle: T) -> PyResult<Bound<'_>> {
     let raw = handle.raw().clone();
-    wrap_cell(py, handle, Some(raw))
+    wrap_cell(py, handle, Some(raw), None)
 }
 
-/// A new native object holding `value`, and `artist` if it is a handle.
-fn wrap_cell<T: Any>(py: Python<'_>, value: T, artist: Option<RawHandle>) -> PyResult<Bound<'_>> {
+/// A new native object holding `value`, and `artist` if it is a handle,
+/// tied to the thread `owner` if given.
+fn wrap_cell<T: Any>(
+    py: Python<'_>,
+    value: T,
+    artist: Option<RawHandle>,
+    owner: Option<ThreadId>,
+) -> PyResult<Bound<'_>> {
     let class = native_type();
     // SAFETY: the GIL is held; the native type allocates zeroed memory
     // with room for its cell, or returns NULL with an exception.
     let object = unsafe { Bound::from_owned_ptr(py, ffi::PyType_GenericAlloc(class, 0)) }?;
     let cell = NativeCell {
-        owner: std::thread::current().id(),
+        owner,
         type_name: std::any::type_name::<T>(),
         artist,
         value: RefCell::new(Box::new(value)),
@@ -206,9 +231,11 @@ fn wrap_cell<T: Any>(py: Python<'_>, value: T, artist: Option<RawHandle>) -> PyR
 /// The native object `object` holding a `T`, for typed access: what a
 /// native function takes to reach the value inside a native handle.
 ///
-/// Converting checks the object's type, the value's type and the thread,
-/// so the accessors cannot fail but by re-entrant borrowing (a mutable
-/// borrow while another borrow is alive panics, as `RefCell` does).
+/// Converting checks the object's type, the value's type and, for a value
+/// tied to its thread, the thread, so the accessors cannot fail but by
+/// re-entrant borrowing (a mutable borrow while another borrow is alive
+/// panics, as `RefCell` does; a call another thread makes while a
+/// callback of this one runs is re-entrant too).
 pub(crate) struct Native<T> {
     object: Owned,
     _value: PhantomData<(T, *mut ())>,
@@ -218,8 +245,9 @@ impl<T: Any> Native<T> {
     /// The cell, valid while `self` keeps the object.
     fn cell(&self) -> &NativeCell {
         // SAFETY: the type was checked on conversion, and `self` keeps
-        // the object alive; the cell is Rust data, read on the thread
-        // that owns it (`Native` is not `Send`).
+        // the object alive; the cell is Rust data, read by the native call
+        // that converted `self` (`Native` is not `Send`), so with the GIL
+        // held (see `threads`), and on its thread for a value tied to one.
         unsafe { cell(self.object.as_ptr()) }
     }
 
@@ -242,7 +270,8 @@ impl<T: Any> Native<T> {
     }
 }
 
-/// The thread that made `object`, if it is a native object.
+/// The thread `object` is tied to, if it is the native object of a value
+/// tied to its thread.
 ///
 /// # Safety
 ///
@@ -252,10 +281,23 @@ pub(super) unsafe fn owner_of(object: *mut ffi::PyObject) -> Option<ThreadId> {
     // SAFETY: (caller) a live object, whose header is readable; the native
     // type cannot be subclassed, so its instances are those of that exact
     // type, whose cell is live while the object is.
-    unsafe { ((*object).ob_type == native).then(|| cell(object).owner) }
+    unsafe { ((*object).ob_type == native).then(|| cell(object).owner) }.flatten()
 }
 
-/// The cell of `object`, if it is a native object of this thread;
+/// The untyped handle of the artist `object` holds a handle of, if it is
+/// the native object of one.
+///
+/// # Safety
+///
+/// The GIL is held and `object` is a live Python object, which outlives
+/// the handle borrowed from it.
+pub(super) unsafe fn artist_of<'a>(object: *mut ffi::PyObject) -> Option<&'a RawHandle> {
+    let native = NATIVE_TYPE.get()?.0.as_ptr();
+    // SAFETY: as in `owner_of`; the cell lives as long as the object.
+    unsafe { ((*object).ob_type == native).then(|| cell(object).artist.as_ref()) }.flatten()
+}
+
+/// The cell of `object`, if it is a native object this thread may use;
 /// `wanted` names what was expected, for messages.
 fn checked_cell<'a>(object: &'a Bound<'_>, wanted: &str) -> PyResult<&'a NativeCell> {
     if !object.is_type(native_type()) {
@@ -266,14 +308,18 @@ fn checked_cell<'a>(object: &'a Bound<'_>, wanted: &str) -> PyResult<&'a NativeC
     }
     // SAFETY: an instance of the native type, kept alive by `object`.
     let cell = unsafe { cell(object.as_ptr()) };
-    if cell.owner == std::thread::current().id() {
+    if cell
+        .owner
+        .is_none_or(|owner| owner == std::thread::current().id())
+    {
         Ok(cell)
     } else {
-        Err(PyErr::runtime_error(
-            "this pltrs object belongs to another thread: pltrs (Rust) values are used on the \
+        Err(PyErr::runtime_error(format!(
+            "this pltrs {} belongs to another thread: pltrs (Rust)'s windows are used on the \
              thread that made them (the main thread runs the calls of other threads while it \
              runs an event loop)",
-        ))
+            short_name(cell.type_name)
+        )))
     }
 }
 
@@ -437,20 +483,49 @@ mod tests {
     }
 
     #[test]
-    fn values_belong_to_the_thread_that_made_them() {
+    fn values_serve_every_thread_and_outlive_the_one_that_made_them() {
+        let (figure, value) = std::thread::spawn(|| {
+            with_python(|py| {
+                extension(py);
+                let figure = wrap_artist(py, Figure::new()).unwrap().unbind();
+                (figure, wrap(py, vec![1_i32]).unwrap().unbind())
+            })
+        })
+        .join()
+        .unwrap();
+        let (dpi, values) = std::thread::spawn(move || {
+            with_python(|py| {
+                let native: Native<Vec<i32>> = value.bind(py).extract().unwrap();
+                native.borrow_mut().push(2);
+                let values = native.borrow().clone();
+                let figure: Figure = figure.bind(py).extract().unwrap();
+                figure.set_dpi(50.0);
+                (figure.dpi(), values)
+            })
+        })
+        .join()
+        .unwrap();
+        assert_eq!((dpi, values), (50.0, vec![1, 2]));
+    }
+
+    #[test]
+    fn values_tied_to_their_thread_refuse_others() {
         let object = with_python(|py| {
             extension(py);
-            wrap(py, 1_i32).unwrap().unbind()
+            wrap_thread_bound(py, 1_i32).unwrap().unbind()
         });
         let message = std::thread::spawn(move || {
-            Python::with_gil(|py| {
+            with_python(|py| {
                 let err = object.bind(py).extract::<Native<i32>>().unwrap_err();
                 err.message(py)
             })
         })
         .join()
         .unwrap();
-        assert!(message.contains("belongs to another thread"));
+        assert!(
+            message.contains("pltrs i32 belongs to another thread"),
+            "{message}"
+        );
     }
 
     #[test]

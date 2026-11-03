@@ -2,8 +2,7 @@
 Common code for GTK3 and GTK4 backends (matplotlib's ``_backend_gtk``).
 
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is but for
-its imports of the package, and for the application's main loop running the
-calls other threads make on pltrs objects (`._serving`).
+its imports of the package.
 """
 
 import logging
@@ -16,7 +15,6 @@ from ..backend_bases import (
     _Backend, FigureCanvasBase, FigureManagerBase, NavigationToolbar2,
     TimerBase)
 from ..backend_tools import Cursors
-from ._serving import serving_threads
 
 import gi
 # The GTK3/GTK4 backends will have already called `gi.require_version` to set
@@ -45,17 +43,6 @@ def _shutdown_application(app):
     app._created_by_matplotlib = True
     global _application
     _application = None
-
-
-def _start_timer(interval, function):
-    """A GLib timeout calling *function* every *interval* milliseconds; the
-    function removing it (`._serving.serving_threads`)."""
-    def call():
-        function()
-        return GLib.SOURCE_CONTINUE
-
-    source = GLib.timeout_add(interval, call)
-    return lambda: GLib.source_remove(source)
 
 
 def _create_application():
@@ -220,8 +207,7 @@ class _FigureManagerGTK(FigureManagerBase):
             return
 
         try:
-            with serving_threads(_start_timer):
-                _application.run()  # Quits when all added windows close.
+            _application.run()  # Quits when all added windows close.
         except KeyboardInterrupt:
             # Ensure all windows can process their close event from
             # _shutdown_application.

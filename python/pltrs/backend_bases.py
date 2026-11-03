@@ -24,7 +24,6 @@ import pathlib
 import signal
 import socket
 import sys
-import threading
 import time
 import weakref
 from weakref import WeakKeyDictionary
@@ -35,7 +34,6 @@ from . import _api, _docstring, backend_tools as tools, cbook, colors, transform
 from . import _val_or_rc, rcParams
 from ._enums import JoinStyle, CapStyle
 from .colors import to_rgba
-from ._native import call_on_thread_of, run_queued_calls, serve_threads
 from ._pylab_helpers import Gcf
 from .backend_managers import ToolManager
 from .cbook import _setattr_cm
@@ -1206,20 +1204,7 @@ class Event:
         self.guiEvent = guiEvent
 
     def _process(self):
-        """
-        Process this event on ``self.canvas``, then unset ``guiEvent``.
-
-        The callbacks run on the thread of the canvas' figure: an event
-        sent from another thread (a timer's) is handed to that thread, as
-        GUI toolkits hand events to their main loop.
-        """
-        figure = getattr(self.canvas, 'figure', None)
-        if figure is None:
-            self._process_here()
-        else:
-            call_on_thread_of(figure._native, self._process_here)
-
-    def _process_here(self):
+        """Process this event on ``self.canvas``, then unset ``guiEvent``."""
         self.canvas.callbacks.process(self.name, self)
         self.guiEvent = None
 
@@ -1618,14 +1603,10 @@ def _mouse_handler(event):
 def _pick_handler(event):
     """
     Pick the artists under a button press or scroll (matplotlib's
-    ``Figure.pick``), unless a widget holds the canvas' lock. pltrs (Rust)
-    keeps a figure's artists on the thread that made it: an event
-    processed on another thread picks nothing.
+    ``Figure.pick``), unless a widget holds the canvas' lock.
     """
-    figure = event.canvas.figure
-    if (threading.get_ident() == figure._pick_thread
-            and not event.canvas.widgetlock.locked()):
-        figure.pick(event)
+    if not event.canvas.widgetlock.locked():
+        event.canvas.figure.pick(event)
 
 
 def _canvas_callbacks(figure):
@@ -1650,7 +1631,6 @@ def _canvas_callbacks(figure):
     ]
     figure._button_pick_id = connect('button_press_event', _pick_handler)
     figure._scroll_pick_id = connect('scroll_event', _pick_handler)
-    figure._pick_thread = threading.get_ident()
     figure._canvas_callbacks = callbacks
 
 
@@ -2289,23 +2269,20 @@ class FigureCanvasBase:
 
         If *timeout* is 0 or negative, never timeout.
 
-        Meanwhile, the main thread runs the calls other threads make on its
-        figures (events sent from a timer thread, say) at each step.
+        Only interactive backends need to reimplement this method and it relies
+        on `flush_events` being properly implemented.
+
+        Interactive backends should implement this in a more native way.
         """
         if timeout <= 0:
             timeout = np.inf
         timestep = 0.01
         counter = 0
         self._looping = True
-        serve_threads(True)
-        try:
-            while self._looping and counter * timestep < timeout:
-                self.flush_events()
-                run_queued_calls()
-                time.sleep(timestep)
-                counter += 1
-        finally:
-            serve_threads(False)
+        while self._looping and counter * timestep < timeout:
+            self.flush_events()
+            time.sleep(timestep)
+            counter += 1
 
     def stop_event_loop(self):
         """

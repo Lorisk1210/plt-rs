@@ -3,24 +3,18 @@ The Tk GUI backend: figures in Tk windows, and canvases to embed in Tk
 programs (matplotlib's ``_backend_tk``).
 
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is but
-for three things:
+for two things:
 
 * Blitting goes through `._tkagg`, pltrs' counterpart of matplotlib's C
   helper, which puts the pixels into the canvas' ``PhotoImage`` with Tk's
   own photo commands; it reaches the photos of the interpreters this
   module registers with it.
-* Tk's main loop runs the calls other threads make on pltrs objects
-  (`_serving_threads`), as the event loops of `.backend_bases` do: pltrs
-  (Rust) values live on the thread that made them. So that a figure can
-  be closed from another thread, its manager gives it back its base
-  canvas before destroying the window, which may end the loop.
 * What only Windows has is left out (keeping the foreground window,
   per-monitor DPI awareness and the taskbar's app id of a new GUI
   application, which ``_tkagg`` and ``_c_internal_utils`` provide there):
   pltrs (Python)'s GUI backends run on Linux.
 """
 
-from contextlib import contextmanager
 import uuid
 import weakref
 import logging
@@ -43,7 +37,6 @@ from ..backend_bases import (
     TimerBase, ToolContainerBase, cursors, _Mode, MouseButton,
     CloseEvent, KeyEvent, LocationEvent, MouseEvent, ResizeEvent)
 from .._pylab_helpers import Gcf
-from .._native import run_queued_calls, serve_threads
 
 from . import _tkagg
 from ._tkagg import TK_PHOTO_COMPOSITE_OVERLAY, TK_PHOTO_COMPOSITE_SET
@@ -59,42 +52,6 @@ cursord = {
     cursors.RESIZE_HORIZONTAL: "sb_h_double_arrow",
     cursors.RESIZE_VERTICAL: "sb_v_double_arrow",
 }
-
-
-#: How often Tk's main loop runs the calls other threads queue for it, in
-#: milliseconds.
-_SERVE_INTERVAL = 10
-
-
-@contextmanager
-def _serving_threads(widget):
-    """
-    While Tk's main loop runs in the block, the calls other threads make on
-    pltrs objects of this thread run at every `_SERVE_INTERVAL` (as
-    `.FigureCanvasBase.start_event_loop` runs them), so that a figure can
-    be closed or drawn from another thread while it is shown.
-    """
-    after_id = None
-
-    def serve():
-        nonlocal after_id
-        run_queued_calls()
-        try:
-            after_id = widget.after(_SERVE_INTERVAL, serve)
-        except tk.TclError:  # The widget is gone.
-            after_id = None
-
-    serve_threads(True)
-    after_id = widget.after(_SERVE_INTERVAL, serve)
-    try:
-        yield
-    finally:
-        serve_threads(False)
-        if after_id is not None:
-            try:
-                widget.after_cancel(after_id)
-            except tk.TclError:
-                pass
 
 
 _blit_args = {}
@@ -506,8 +463,7 @@ class FigureCanvasTk(FigureCanvasBase):
             else:
                 self._event_loop_id = self._tkcanvas.after_idle(
                     self.stop_event_loop)
-        with _serving_threads(self._tkcanvas):
-            self._tkcanvas.mainloop()
+        self._tkcanvas.mainloop()
 
     def stop_event_loop(self):
         # docstring inherited
@@ -588,8 +544,7 @@ class FigureManagerTk(FigureManagerBase):
                 return
             manager_class._owns_mainloop = True
             try:
-                with _serving_threads(first_manager.window):
-                    first_manager.window.mainloop()
+                first_manager.window.mainloop()
             finally:
                 manager_class._owns_mainloop = False
 
@@ -638,16 +593,13 @@ class FigureManagerTk(FigureManagerBase):
             if self._owns_mainloop and not Gcf.get_num_fig_managers():
                 self.window.quit()
 
-        # The figure gets its base canvas back first, while Tk's main loop
-        # still runs the calls other threads make on pltrs objects
-        # (`_serving_threads`): destroying the window may end the loop.
-        super().destroy()
         if cbook._get_running_interactive_framework() == "tk":
             # "after idle after 0" avoids Tcl error/race (GH #19940)
             self.window.after_idle(self.window.after, 0, delayed_destroy)
         else:
             self.window.update()
             delayed_destroy()
+        super().destroy()
 
     def get_window_title(self):
         return self.window.wm_title()

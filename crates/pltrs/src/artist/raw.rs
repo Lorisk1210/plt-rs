@@ -70,6 +70,21 @@ impl RawHandle {
         Rc::ptr_eq(&self.figure, &other.figure)
     }
 
+    /// Whether code still running uses the artist's figure now: it is
+    /// being laid out, drawn or changed by a caller further up, and a
+    /// change through any handle meanwhile panics, as a `RefCell` borrowed
+    /// twice does. The figure is in use while a callback it runs (a
+    /// program's formatter, say) runs.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// assert!(!ax.raw().figure_in_use());
+    /// ```
+    pub fn figure_in_use(&self) -> bool {
+        self.figure.in_use()
+    }
+
     /// Whether the artist is in its figure: `false` once it, or an artist
     /// owning it, was removed
     /// ([`ArtistHandle::remove`](super::ArtistHandle::remove)).

@@ -18,6 +18,7 @@ of ``_get_text_metrics_with_cache`` receives meanwhile
 
 from collections import namedtuple
 import contextlib
+import threading
 
 from ._native import text_overrides as _native
 from .font_manager import FontManager
@@ -26,13 +27,25 @@ from .font_manager import FontManager
 #: ``cache_info()``).
 CacheInfo = namedtuple("CacheInfo", ["hits", "misses", "maxsize", "currsize"])
 
-#: The renderers pltrs (Rust) lays out and draws with, innermost last.
-_renderers = []
+
+class _Installed(threading.local):
+    """What each thread lays out and draws with, as the cache installed
+    natively is the thread's."""
+
+    def __init__(self):
+        #: The renderers pltrs (Rust) lays out and draws with, innermost
+        #: last.
+        self.renderers = []
+
+
+_installed = _Installed()
 
 
 def current_renderer():
-    """The renderer pltrs (Rust) lays out or draws with now, if any."""
-    return _renderers[-1] if _renderers else None
+    """The renderer pltrs (Rust) lays out or draws with now on this thread,
+    if any."""
+    renderers = _installed.renderers
+    return renderers[-1] if renderers else None
 
 
 class TextMetrics:
@@ -75,12 +88,13 @@ class TextMetrics:
 
 @contextlib.contextmanager
 def measuring_with(renderer, metrics):
-    """Lay out and draw with *renderer*, its text metrics cache *metrics*
-    (a `TextMetrics`) installed natively."""
+    """Lay out and draw with *renderer* on this thread, its text metrics
+    cache *metrics* (a `TextMetrics`) installed natively."""
     previous = _native.set_metrics_cache(metrics._native)
-    _renderers.append(renderer)
+    renderers = _installed.renderers
+    renderers.append(renderer)
     try:
         yield
     finally:
-        _renderers.pop()
+        renderers.pop()
         _native.set_metrics_cache(previous)

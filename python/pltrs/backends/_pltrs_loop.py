@@ -6,16 +6,17 @@ pltrs (Rust) runs the windows (``_native.gui``, a ``WindowHost``): each
 shows its figure's canvas above a toolbar of the backend's buttons, and
 reports what happens as tuples, which this module hands to the canvas
 of the window, the timer or the file chooser waiting for them. The host
-is made when first needed, on the thread that makes it (the main thread:
-pltrs (Rust) values live on the thread that made them, and macOS runs
-windows on its main thread only); from then on its framework counts as
-running (`is_connected`, which `.cbook._get_running_interactive_framework`
-asks), as a Qt application does once it exists.
+is made when first needed, normally on the main thread, and is tied to
+the thread that makes it (macOS runs windows on its main thread only);
+from then on its framework counts as running (`is_connected`, which
+`.cbook._get_running_interactive_framework` asks), as a Qt application
+does once it exists.
 
 The loop runs in slices of `SLICE` seconds, between which Python handles
-signals (Ctrl+C interrupts `plt.show()`) and the calls other threads
-queue for pltrs objects of this thread run; idle draws (``draw_idle``)
-happen before each slice, as Tk's do when its loop is idle.
+signals (Ctrl+C interrupts `plt.show()`) and the calls other threads make
+on the windows run (a worker drawing a shown figure has its window show
+the new pixels); idle draws (``draw_idle``) happen before each slice, as
+Tk's do when its loop is idle.
 """
 
 import sys
@@ -154,7 +155,7 @@ def process_events(timeout=0):
     """
     Run one round of the loop: the idle draws, then whatever the window
     system has within *timeout* seconds (none: wait until something
-    happens), then the calls other threads queued.
+    happens), then the calls other threads queued for the windows.
     """
     _draw_pending()
     for event in _gui.pump(host(), timeout):
@@ -166,8 +167,8 @@ def process_events(timeout=0):
 def run(keep_going, timeout=None):
     """
     Run the loop while *keep_going()* is true, for *timeout* seconds at
-    most (none: no limit), serving the calls other threads make on pltrs
-    objects of this thread meanwhile.
+    most (none: no limit), serving the calls other threads make on the
+    windows meanwhile.
     """
     deadline = None if timeout is None else time.monotonic() + timeout
     serve_threads(True)

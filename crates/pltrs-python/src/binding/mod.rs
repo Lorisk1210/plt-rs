@@ -12,7 +12,9 @@
 //! * [`Module`] — the extension's modules and their native functions;
 //! * [`Callback`] — Python callables pltrs (Rust) calls;
 //! * [`registered_error`] — exceptions of the classes the package registers
-//!   for native code ([`registry::lookup`] finds any registered object).
+//!   for native code ([`registry::lookup`] finds any registered object);
+//! * [`threads`] — why every thread holding the GIL may use every pltrs
+//!   object, and the pltrs (Rust) state all of them share.
 //!
 //! This is the only module besides [`crate::ffi`] with `unsafe` code;
 //! every block says why it is sound. The matplotlib modules
@@ -38,6 +40,7 @@ mod object;
 mod registry;
 #[cfg(test)]
 pub(crate) mod testing;
+mod threads;
 
 pub(crate) use after_call::install as install_after_call;
 pub(crate) use buffer::{Element, NdArray};
@@ -50,6 +53,7 @@ pub(crate) use init::init_module;
 pub(crate) use module::Module;
 pub(crate) use native::{
     Native, artist_handle, native_value, retyped, wrap as wrap_native, wrap_artist,
+    wrap_thread_bound,
 };
 pub(crate) use object::{Bound, Owned};
 pub(crate) use registry::{lookup, registered_error};

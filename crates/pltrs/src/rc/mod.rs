@@ -5,7 +5,8 @@
 //! holds an enum, such as the [`TitleLocation`](crate::axes::TitleLocation)
 //! of `params.axes_titlelocation`) and also offers matplotlib's
 //! string-keyed access ([`RcParams::set`]`("lines.linewidth", "2")`) with
-//! identical validation and spellings. The *current* parameters are per thread, like pyplot state;
+//! identical validation and spellings. The *current* parameters are per thread, like pyplot state,
+//! unless threads share a [state](pltrs_core::state);
 //! threads start from [`RcParams::startup`], matplotlib's defaults with
 //! the figure [look](crate::look)'s style on top and then the user's rc
 //! file, `pltrsrc` (see [`config`](crate::config)):
@@ -149,7 +150,8 @@ impl std::error::Error for RcError {
     }
 }
 
-thread_local! {
+pltrs_core::thread_state! {
+    /// The current parameters (matplotlib's `rcParams`).
     static CURRENT: RefCell<Rc<RcParams>> = RefCell::new(Rc::new(RcParams::startup()));
 }
 

@@ -30,7 +30,7 @@ struct Registration {
 /// 2-D axes but take the name all the same.
 const AXES_3D: &str = "3d";
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The projections registered at run time, on this thread, by name.
     static REGISTERED: RefCell<BTreeMap<&'static str, Registration>> =
         const { RefCell::new(BTreeMap::new()) };

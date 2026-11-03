@@ -1,7 +1,8 @@
 //! An embedded interpreter for the unit tests (`build.rs` links the
 //! libpython it found and names its home in `PLTRS_PYTHON_HOME`).
 
-use std::sync::Once;
+use std::cell::Cell;
+use std::sync::{Mutex, Once, PoisonError};
 
 use super::gil::Python;
 use super::object::Bound;
@@ -40,10 +41,25 @@ fn start() {
     });
 }
 
-/// Runs `f` with the GIL of the embedded interpreter.
+/// Runs `f` with the GIL of the embedded interpreter, alone: the tests
+/// share the pltrs (Rust) state of Python's threads (see `threads`), and
+/// Python may hand the GIL to another test in the middle of one, so they
+/// take turns.
 pub(crate) fn with_python<R>(f: impl for<'py> FnOnce(Python<'py>) -> R) -> R {
+    static ALONE: Mutex<()> = Mutex::new(());
+    thread_local! {
+        /// Whether this thread's test holds `ALONE` already.
+        static HOLDING: Cell<bool> = const { Cell::new(false) };
+    }
     start();
-    Python::with_gil(f)
+    if HOLDING.get() {
+        return Python::with_gil(f);
+    }
+    let _alone = ALONE.lock().unwrap_or_else(PoisonError::into_inner);
+    HOLDING.set(true);
+    let result = Python::with_gil(f);
+    HOLDING.set(false);
+    result
 }
 
 /// Evaluates a Python expression, with `import`s in `setup` run first.

@@ -20,7 +20,7 @@ pub trait FontMapLookup {
     fn lookup(&self, texname: &[u8]) -> Result<PsFont, TexError>;
 }
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The replacement of the thread's font map, if the program set one.
     static LOOKUP: RefCell<Option<Rc<dyn FontMapLookup>>> = const { RefCell::new(None) };
 }

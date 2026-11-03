@@ -1,40 +1,34 @@
-//! Calls from other threads: native calls on objects of the main thread
-//! are run there while it runs an event loop.
+//! Calls from other threads on values tied to the main thread: run there
+//! while it runs an event loop.
 //!
-//! pltrs (Rust) values live on the thread that made them (see
-//! [`native`](super::native)): they share their figures through `Rc`s and
-//! pltrs (Rust) keeps per-thread state (rcParams, registries, caches), so
-//! no other thread may touch them, even holding the GIL (a thread's
-//! thread-local values are dropped when it ends, without the GIL). Python
-//! code still reaches figures from other threads, as matplotlib's tests do
-//! when a timer thread sends a figure events while `ginput` waits for them.
-//! So the main thread (the thread that imported pltrs, where pltrs
-//! (Python) normally makes everything) serves other threads while it runs
-//! an event loop (`FigureCanvasBase.start_event_loop`, behind `ginput`,
-//! `waitforbuttonpress` and `pause`): a native function called on another
-//! thread with an argument made on the main thread is then queued to it,
+//! Every thread holding the GIL may use pltrs objects ([`threads`]), but
+//! for those of values tied to the thread that made them
+//! ([`wrap_thread_bound`]): pltrs (Rust)'s windows, which the main thread
+//! makes and runs (on macOS no other thread may). A worker that draws a
+//! figure shown in one of them still asks its window to show the new
+//! pixels, as matplotlib's GUI toolkits let any thread ask a widget to
+//! repaint. So the main thread (the thread that imported pltrs) serves
+//! other threads while it runs the windows' event loop
+//! (`backends/_pltrs_loop.py`): a native function called on another
+//! thread with an argument tied to the main thread is then queued to it,
 //! the calling thread waits without the GIL, and the main thread runs the
 //! call at its next step and hands back the result or the exception. When
 //! the main thread stops serving it runs what is still queued, so no
 //! caller is left waiting. A call made while the main thread does not
 //! serve waits up to a second for it to start (as tkinter waits for its
 //! main loop), since the main thread may be about to; past that (it may
-//! be blocked waiting for the caller), and for a call taking no object of
-//! the main thread, the call runs where it is made, where objects of
-//! other threads refuse it.
+//! be blocked waiting for the caller), the call runs where it is made,
+//! where the value refuses it.
 //!
-//! [`call_on_thread_of`] gives Python the same: `_native.call_on_thread_of(
-//! native, callable)` calls `callable()` on the thread `native` belongs to
-//! when it serves, else where it is called, so that a figure's events sent
-//! from another thread are processed on the figure's thread.
+//! [`threads`]: super::threads
+//! [`wrap_thread_bound`]: super::native::wrap_thread_bound
 
-use std::ffi::c_void;
 use std::sync::{Arc, Condvar, Mutex, OnceLock, PoisonError};
 use std::thread::ThreadId;
 use std::time::Duration;
 
 use super::error::PyResult;
-use super::gil::{GilScope, Python, entry};
+use super::gil::{GilScope, Python, entry, without_gil};
 use super::module::Module;
 use super::native::owner_of;
 use super::object::{Bound, Owned};
@@ -121,8 +115,8 @@ fn on_main() -> bool {
 }
 
 /// Whether a native call with `args` made on this thread may have to run
-/// on the main thread: this is another thread and an argument was made
-/// there.
+/// on the main thread: this is another thread and an argument is tied to
+/// the main thread.
 ///
 /// # Safety
 ///
@@ -131,11 +125,12 @@ pub(super) unsafe fn belongs_to_main(args: &[*mut ffi::PyObject]) -> bool {
     let Some(&main) = MAIN.get() else {
         return false;
     };
-    // SAFETY: (caller) live objects, with the GIL held.
-    std::thread::current().id() != main
-        && args
-            .iter()
-            .any(|&arg| unsafe { owner_of(arg) } == Some(main))
+    // The arguments first: few values are tied to their thread, and
+    // reading them costs less than finding which thread this is.
+    args.iter()
+        // SAFETY: (caller) live objects, with the GIL held.
+        .any(|&arg| unsafe { owner_of(arg) } == Some(main))
+        && std::thread::current().id() != main
 }
 
 /// Runs `call(capsule, args)` on the main thread once it serves other
@@ -172,7 +167,7 @@ pub(super) unsafe fn call_on_main(
             }
         }
     };
-    let outcome = without_gil(|| {
+    let queue_and_wait = || {
         let service = SERVICE.lock().unwrap_or_else(PoisonError::into_inner);
         let (mut service, _) = SERVING
             .wait_timeout_while(service, WAIT_FOR_SERVICE, |service| service.loops == 0)
@@ -185,28 +180,13 @@ pub(super) unsafe fn call_on_main(
         service.queue.push(job);
         drop(service);
         Some(reply.wait())
-    })?;
+    };
+    // SAFETY: (caller) the GIL is held; the wait touches no Python object
+    // and no pltrs (Rust) value, only the queue and the reply.
+    let outcome = unsafe { without_gil(queue_and_wait) }?;
     // SAFETY: (caller) the GIL is held again; the outcome becomes the
     // native call's result.
     Some(unsafe { entry(|py| outcome.map(|object| object.bind(py))) })
-}
-
-/// Runs `f` with the GIL released, taking it back afterwards (also when
-/// `f` panics).
-fn without_gil<R>(f: impl FnOnce() -> R) -> R {
-    /// Takes the GIL back when dropped.
-    struct Restore(*mut c_void);
-    impl Drop for Restore {
-        fn drop(&mut self) {
-            // SAFETY: the thread state `PyEval_SaveThread` returned below,
-            // on the same thread.
-            unsafe { ffi::PyEval_RestoreThread(self.0) };
-        }
-    }
-    // SAFETY: called from a native call, so this thread holds the GIL and
-    // has a thread state; `f` touches no Python object.
-    let _restore = Restore(unsafe { ffi::PyEval_SaveThread() });
-    f()
 }
 
 /// Runs the queued calls, on the main thread with the GIL held, and hands
@@ -273,21 +253,8 @@ fn run_queued_calls() -> PyResult<()> {
     Ok(())
 }
 
-/// `_native.call_on_thread_of(native, callable)`: `callable()`, on the
-/// thread `native` belongs to when it serves (see the module
-/// documentation).
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "a native function, in the form `Module::add` registers"
-)]
-fn call_on_thread_of(_native: Owned, callable: Owned) -> PyResult<Owned> {
-    Python::with_gil(|py| callable.bind(py).call(&[], &[]).map(Bound::unbind))
-}
-
-/// Adds `serve_threads`, `run_queued_calls` and `call_on_thread_of` to the
-/// extension module.
+/// Adds `serve_threads` and `run_queued_calls` to the extension module.
 pub(crate) fn add_to(module: &Module<'_>) -> PyResult<()> {
     module.add("serve_threads", serve_threads)?;
-    module.add("run_queued_calls", run_queued_calls)?;
-    module.add("call_on_thread_of", call_on_thread_of)
+    module.add("run_queued_calls", run_queued_calls)
 }

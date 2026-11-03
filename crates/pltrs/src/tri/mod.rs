@@ -32,6 +32,7 @@
 mod analyzer;
 mod contour;
 mod delaunay;
+mod edge_map;
 mod error;
 mod finder;
 mod interpolate;

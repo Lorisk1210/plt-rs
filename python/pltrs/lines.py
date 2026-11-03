@@ -441,8 +441,8 @@ class Line2D(Artist):
             raise RuntimeError('x must be a sequence')
         if not np.iterable(y):
             raise RuntimeError('y must be a sequence')
-        self._xorig, self._yorig = copy.copy(x), copy.copy(y)
-        self.recache_always()
+        self._xorig, self._yorig = _copied(x), _copied(y)
+        self.recache(always=True)
 
     def _convert_units_for(self, axes):
         if self.__dict__.pop("_unit_data", False):
@@ -779,10 +779,23 @@ class Line2D(Artist):
         bbox.update_from_data_xy(trans_data_to_xy(self.get_xydata()),
                                  ignore=True)
         # correct for marker size, if any
-        if MarkerStyle(self.get_marker()):
+        if _draws_marker(self.get_marker()):
             ms = (self.get_markersize() / 72.0 * self.get_figure(root=True).dpi) * 0.5
             bbox = bbox.padded(ms)
         return bbox
+
+
+def _copied(values):
+    """``copy.copy(values)``, sparing its type dispatch for numpy arrays."""
+    return values.__copy__() if type(values) is np.ndarray else copy.copy(values)
+
+
+def _draws_marker(marker):
+    """``bool(MarkerStyle(marker))``, whether *marker* has a path: known
+    without making the marker for the codes of `.MarkerStyle.markers`."""
+    if type(marker) in (str, int) and marker in MarkerStyle.markers:
+        return MarkerStyle.markers[marker] != 'nothing'
+    return bool(MarkerStyle(marker))
 
 
 def _capstyle_name(s):

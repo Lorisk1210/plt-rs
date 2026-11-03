@@ -79,49 +79,29 @@ pub(super) enum HullError {
 /// The result of an operation that qhull may abort.
 pub(super) type HullResult<T> = Result<T, HullError>;
 
-/// A facet of the lifted 3-d hull (qhull's `facetT`).
+/// A facet of the lifted 3-d hull (qhull's `facetT`), its flags one `bool`
+/// per role as qhull's bit flags.
 #[derive(Clone, Debug, Default)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "mirrors qhull's facetT bit flags, one per role"
-)]
+// Four cache lines, laid out by use: the first holds what walks and
+// searches follow (vertices, neighbours, links), the second what distance
+// tests and visits read (hyperplane, marker, flags), the others the point
+// sets and what merging uses.
+#[repr(C, align(64))]
 pub(super) struct Facet {
     /// Vertices, sorted by decreasing id.
     pub(super) vertices: InlineVec<VertexId>,
     /// Neighbours; for simplicial facets neighbour `i` is opposite vertex `i`.
     pub(super) neighbors: InlineVec<FacetId>,
-    /// Explicit ridges (non-simplicial facets and their neighbours).
-    pub(super) ridges: Vec<RidgeId>,
-    /// qhull has allocated the ridge set (it may have become empty since);
-    /// a visible facet with a ridge set takes the non-simplicial path when
-    /// its cone is built.
-    pub(super) ridge_set: bool,
-    /// Points above the facet; the last one is the furthest.
-    pub(super) outside: Vec<usize>,
-    /// Coplanar and interior points assigned to the facet.
-    pub(super) coplanar: Vec<usize>,
-    /// Unit outer normal, once the hyperplane is set.
-    pub(super) normal: Option<[f64; 3]>,
-    /// Offset of the hyperplane (`normal . p + offset = 0` on the facet).
-    pub(super) offset: f64,
-    /// The facet's centrum, cached for convexity tests.
-    pub(super) center: Option<[f64; 3]>,
-    /// Distance of the furthest outside point.
-    pub(super) furthest_dist: f64,
-    /// Maximum distance of a point above the facet.
-    pub(super) max_outside: f64,
-    /// qhull's `f` union: the replacement of a visible facet, the next facet
-    /// of a cycle of new facets (`samecycle`), the current cycle of a horizon
-    /// facet (`newcycle`) or the owner of a triangulated facet.
-    pub(super) link: Option<FacetId>,
     /// Next facet in the facet list (`None` only for the tail).
     pub(super) next: Option<FacetId>,
     /// Previous facet in the facet list.
     pub(super) previous: Option<FacetId>,
+    /// Unit outer normal, once the hyperplane is set.
+    pub(super) normal: Option<[f64; 3]>,
+    /// Offset of the hyperplane (`normal . p + offset = 0` on the facet).
+    pub(super) offset: f64,
     /// Visit marker compared with [`Hull::visit_id`].
     pub(super) visit_id: u32,
-    /// Number of merges into this facet.
-    pub(super) nummerge: u16,
     /// Created with top orientation (decides the orientation of the normal).
     pub(super) toporient: bool,
     /// Has exactly three vertices and three neighbours, no explicit ridges.
@@ -132,18 +112,18 @@ pub(super) struct Facet {
     pub(super) visible: bool,
     /// On the new facet list.
     pub(super) newfacet: bool,
-    /// Newly merged, vertices still to be reduced.
-    pub(super) newmerge: bool,
-    /// Convexity with the neighbours has been tested.
-    pub(super) tested: bool,
-    /// Scratch flag.
-    pub(super) seen: bool,
     /// The interior point is above the hyperplane.
     pub(super) flipped: bool,
     /// Horizon facet coplanar with the point being added.
     pub(super) coplanarhorizon: bool,
+    /// Scratch flag.
+    pub(super) seen: bool,
     /// New facet that will merge into its coplanar horizon facet.
     pub(super) mergehorizon: bool,
+    /// Newly merged, vertices still to be reduced.
+    pub(super) newmerge: bool,
+    /// Convexity with the neighbours has been tested.
+    pub(super) tested: bool,
     /// Its merge cycle has been processed.
     pub(super) cycledone: bool,
     /// Has a duplicate ridge.
@@ -160,6 +140,28 @@ pub(super) struct Facet {
     pub(super) redundant: bool,
     /// A triangle of a triangulated non-simplicial facet.
     pub(super) tricoplanar: bool,
+    /// qhull has allocated the ridge set (it may have become empty since);
+    /// a visible facet with a ridge set takes the non-simplicial path when
+    /// its cone is built.
+    pub(super) ridge_set: bool,
+    /// Points above the facet; the last one is the furthest.
+    pub(super) outside: Vec<usize>,
+    /// Distance of the furthest outside point.
+    pub(super) furthest_dist: f64,
+    /// Maximum distance of a point above the facet.
+    pub(super) max_outside: f64,
+    /// qhull's `f` union: the replacement of a visible facet, the next facet
+    /// of a cycle of new facets (`samecycle`), the current cycle of a horizon
+    /// facet (`newcycle`) or the owner of a triangulated facet.
+    pub(super) link: Option<FacetId>,
+    /// Number of merges into this facet.
+    pub(super) nummerge: u16,
+    /// The facet's centrum, cached for convexity tests.
+    pub(super) center: Option<Box<[f64; 3]>>,
+    /// Coplanar and interior points assigned to the facet.
+    pub(super) coplanar: Vec<usize>,
+    /// Explicit ridges (non-simplicial facets and their neighbours).
+    pub(super) ridges: Vec<RidgeId>,
 }
 
 /// A vertex of the hull (qhull's `vertexT`).
@@ -270,6 +272,9 @@ pub(super) struct Hull {
     pub(super) findbest_notsharp: bool,
     /// Total number of merges (qhull's `Ztotmerge` statistic).
     pub(super) total_merges: u32,
+    /// Some facet has stopped being simplicial (merging made its ridges
+    /// explicit), so the hull has facets to triangulate.
+    pub(super) merged: bool,
     /// Facet id guarding against infinite repartitioning.
     pub(super) repart_facetid: u32,
     /// Vertices to delete once their facets are gone (`qh.del_vertices`).
@@ -287,10 +292,14 @@ pub(super) struct Hull {
 impl Hull {
     /// An empty hull over `points` with the sentinel facet and vertex.
     pub(super) fn new(points: Vec<[f64; 3]>, prec: Precision) -> Self {
+        // A hull of n points has at most 2n - 4 facets, and deleted facets'
+        // slots are reused: the arenas rarely grow past these.
+        let facets = Vec::with_capacity(2 * points.len() + 16);
+        let vertices = Vec::with_capacity(points.len() + 1);
         let mut hull = Self {
             points,
-            facets: Vec::new(),
-            vertices: Vec::new(),
+            facets,
+            vertices,
             ridges: Vec::new(),
             facet_list: FacetId::TAIL,
             facet_next: None,
@@ -313,6 +322,7 @@ impl Hull {
             findbestnew: false,
             findbest_notsharp: false,
             total_merges: 0,
+            merged: false,
             repart_facetid: 0,
             del_vertices: Vec::new(),
             merges: None,
@@ -423,5 +433,16 @@ impl Hull {
     pub(super) fn next_vertex_visit(&mut self) -> u32 {
         self.vertex_visit += 1;
         self.vertex_visit
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_facet_fills_four_cache_lines() {
+        assert_eq!(std::mem::align_of::<Facet>(), 64);
+        assert_eq!(std::mem::size_of::<Facet>(), 256);
     }
 }

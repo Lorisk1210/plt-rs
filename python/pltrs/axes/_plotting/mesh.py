@@ -28,6 +28,11 @@ def _mesh_args(axes, fn, args):
                        for v in (X, Y))
     else:
         raise _api.nargs_error(fn, takes="1 or 3", given=len(args))
+    if type(C) is np.ndarray and C.ndim == 2 and C.dtype == np.float64 and C.dtype.isnative:
+        # What the masking below makes of plain floats, without its copies:
+        # pltrs (Rust) copies the values it keeps.
+        finite = np.isfinite(C)
+        return (C if finite.all() else np.where(finite, C, np.nan)), coords
     C = cbook.safe_masked_invalid(C, copy=True)
     if fn == "pcolormesh" and C.ndim == 3 and C.shape[2] in (3, 4):
         C = np.ma.filled(C.astype(float), np.nan)

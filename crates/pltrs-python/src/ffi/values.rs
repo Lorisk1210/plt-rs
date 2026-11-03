@@ -51,11 +51,14 @@ unsafe extern "C" {
     pub(crate) fn PyBytes_AsString(o: *mut PyObject) -> *mut c_char;
     /// `PyBytes_Size`: the length of a `bytes`.
     pub(crate) fn PyBytes_Size(o: *mut PyObject) -> Py_ssize_t;
-    /// `PyByteArray_FromStringAndSize`: `bytearray` from a copy of the data.
+    /// `PyByteArray_FromStringAndSize`: `bytearray` from a copy of the data
+    /// (`size` bytes left to be written when `s` is null).
     pub(crate) fn PyByteArray_FromStringAndSize(
         s: *const c_char,
         size: Py_ssize_t,
     ) -> *mut PyObject;
+    /// `PyByteArray_AsString`: the contents of a `bytearray`, owned by it.
+    pub(crate) fn PyByteArray_AsString(o: *mut PyObject) -> *mut c_char;
 
     /// `PyTuple_New`: a tuple whose items must all be set before use.
     pub(crate) fn PyTuple_New(size: Py_ssize_t) -> *mut PyObject;

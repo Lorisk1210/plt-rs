@@ -11,6 +11,10 @@
 use super::hull::{Facet, FacetId, Hull, RidgeId, VertexId};
 use super::sets;
 
+/// Room a snapshot of a list starts with: the cone of a point usually has
+/// fewer new and visible facets, which then take one allocation.
+const SNAPSHOT: usize = 16;
+
 /// Which list head [`Hull::prepend_facet`] inserts before.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ListHead {
@@ -40,7 +44,7 @@ impl Hull {
 
     /// The facets from `start` to the end of the list, snapshot first.
     pub(super) fn facets_from(&self, start: Option<FacetId>) -> Vec<FacetId> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(SNAPSHOT);
         let mut cursor = self.listed(start);
         while let Some(f) = cursor {
             out.push(f);
@@ -51,7 +55,7 @@ impl Hull {
 
     /// The vertices from `start` to the end of the vertex list.
     pub(super) fn vertices_from(&self, start: Option<VertexId>) -> Vec<VertexId> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(SNAPSHOT);
         let mut cursor = start;
         while let Some(v) = cursor {
             let Some(next) = self.vertex(v).next else {
@@ -65,7 +69,7 @@ impl Hull {
 
     /// The visible facets (`FORALLvisible_facets`).
     pub(super) fn visible_facets(&self) -> Vec<FacetId> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(SNAPSHOT);
         let mut cursor = self.visible_list;
         while let Some(f) = cursor {
             if !self.facet(f).visible {

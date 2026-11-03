@@ -84,6 +84,26 @@ pub(crate) fn blend_pixel(dst: &mut [u8; 4], color: Rgba8, cover: u8) {
     }
 }
 
+/// [`blend_pixel`] for each pixel of `dst` with its cover in `covers`:
+/// for an opaque colour, whose effective alpha is the cover itself
+/// (`multiply(255, c) == c`), without the products.
+#[inline]
+pub(crate) fn blend_covered(dst: &mut [[u8; 4]], covers: &[u8], color: Rgba8) {
+    if color.a != 255 {
+        for (px, &cover) in dst.iter_mut().zip(covers) {
+            blend_pixel(px, color, cover);
+        }
+        return;
+    }
+    for (px, &cover) in dst.iter_mut().zip(covers) {
+        match cover {
+            0 => {}
+            255 => *px = color.to_array(),
+            alpha => blend_translucent(px, color, alpha),
+        }
+    }
+}
+
 /// Blends `color` at the effective alpha `alpha` (neither 0 nor 255) onto
 /// one RGBA pixel.
 ///
@@ -155,6 +175,22 @@ pub(crate) fn blend_run(dst: &mut [[u8; 4]], color: Rgba8, cover: u8) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn covered_runs_blend_as_pixels_do() {
+        let covers: Vec<u8> = (0..=255).collect();
+        for color in [Rgba8::new(30, 200, 90, 255), Rgba8::new(250, 5, 128, 77)] {
+            for dst in [[255, 255, 255, 255], [10, 20, 30, 0], [200, 100, 50, 140]] {
+                let mut run = vec![dst; covers.len()];
+                blend_covered(&mut run, &covers, color);
+                for (&cover, px) in covers.iter().zip(&run) {
+                    let mut expected = dst;
+                    blend_pixel(&mut expected, color, cover);
+                    assert_eq!(*px, expected, "{color:?} over {dst:?} at {cover}");
+                }
+            }
+        }
+    }
 
     #[test]
     fn multiply_is_exact_rounded_product() {

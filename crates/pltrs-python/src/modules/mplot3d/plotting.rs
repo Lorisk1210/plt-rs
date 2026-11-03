@@ -19,9 +19,9 @@ use super::axis3;
 use crate::binding::prelude::*;
 
 /// A 2-D float array as a grid; `name` names it in the error.
-pub(super) fn grid(array: &NdArray, name: &str) -> PyResult<Grid<f64>> {
+pub(super) fn grid(array: NdArray, name: &str) -> PyResult<Grid<f64>> {
     match array.shape[..] {
-        [rows, cols] => Grid::from_vec(rows, cols, array.data.clone())
+        [rows, cols] => Grid::from_vec(rows, cols, array.data)
             .map_err(|err| PyErr::value_error(err.to_string())),
         _ => Err(PyErr::value_error(format!(
             "Argument {name} must be 2-dimensional."
@@ -192,7 +192,7 @@ fn plot_surface(
         axlim_clip,
         ..SurfaceOptions::default()
     };
-    Ok(axes.plot_surface(&grid(&x, "X")?, &grid(&y, "Y")?, &grid(&z, "Z")?, options)?)
+    Ok(axes.plot_surface(&grid(x, "X")?, &grid(y, "Y")?, &grid(z, "Z")?, options)?)
 }
 
 /// A wireframe through the grids `(x, y, z)` (`plot_wireframe`), sampled
@@ -212,7 +212,7 @@ fn plot_wireframe(
         },
         axlim_clip,
     };
-    Ok(axes.plot_wireframe(&grid(&x, "X")?, &grid(&y, "Y")?, &grid(&z, "Z")?, options)?)
+    Ok(axes.plot_wireframe(&grid(x, "X")?, &grid(y, "Y")?, &grid(z, "Z")?, options)?)
 }
 
 /// The text `text` at `(x, y, z)`, its baseline along `(dx, dy, dz)` as

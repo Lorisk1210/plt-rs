@@ -15,7 +15,7 @@ its figure and gives the object the new handle (`._handles.adopt`).
 """
 
 import contextlib
-from functools import reduce, wraps  # noqa: F401  (matplotlib exports reduce here)
+from functools import cache, reduce, wraps  # noqa: F401  (matplotlib exports reduce here)
 from numbers import Real
 
 import numpy as np
@@ -79,6 +79,13 @@ def allow_rasterization(draw):
 
     draw_wrapper._supports_rasterization = True
     return draw_wrapper
+
+
+@cache
+def _axes_class():
+    """`~.axes.Axes`, imported on first use (the axes import this module)."""
+    from .axes import Axes
+    return Axes
 
 
 class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
@@ -177,8 +184,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         """The `~.axes.Axes` instance the artist resides in, or *None*."""
         if self._figure is None:
             return self.__dict__.get("_axes")
-        from .axes import Axes
-        return _handles.wrap(_artist.axes(self._native), Axes, self._figure)
+        return _handles.wrap(_artist.axes(self._native), _axes_class(), self._figure)
 
     @axes.setter
     def axes(self, new_axes):

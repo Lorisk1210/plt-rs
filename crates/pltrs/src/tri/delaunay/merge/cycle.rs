@@ -302,6 +302,7 @@ impl Hull {
         facet.newfacet = true;
         facet.simplicial = false;
         facet.newmerge = true;
+        self.merged = true;
         for &same in cycle {
             self.will_delete(same, Some(newfacet));
         }

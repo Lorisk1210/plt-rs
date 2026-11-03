@@ -45,9 +45,9 @@ impl From<ContourError> for PyErr {
 }
 
 /// A 2-D float array as a grid.
-fn grid(array: &NdArray) -> PyResult<Grid<f64>> {
+fn grid(array: NdArray) -> PyResult<Grid<f64>> {
     match array.shape[..] {
-        [rows, cols] => Grid::from_vec(rows, cols, array.data.clone())
+        [rows, cols] => Grid::from_vec(rows, cols, array.data)
             .map_err(|err| PyErr::value_error(err.to_string())),
         _ => Err(PyErr::type_error(format!(
             "Input z must be 2D, not {}D",
@@ -103,7 +103,7 @@ fn quad_field(
     (z, mask, x, y, (origin, extent)): Field,
     (corner_mask, nchunk, algorithm): Generation,
 ) -> PyResult<QuadField> {
-    let mut field = QuadField::new(grid(&z)?);
+    let mut field = QuadField::new(grid(z)?);
     if let Some(mask) = mask {
         let (rows, cols) = (mask.shape[0], mask.shape.get(1).copied().unwrap_or(0));
         field = field.with_mask(
@@ -113,8 +113,8 @@ fn quad_field(
     }
     field = match (x, y) {
         (Some(x), Some(y)) if x.shape.len() == 2 => field.with_coords(QuadCoords::Mesh {
-            x: grid(&x)?,
-            y: grid(&y)?,
+            x: grid(x)?,
+            y: grid(y)?,
         }),
         (Some(x), Some(y)) => field.with_coords(QuadCoords::Axes {
             x: x.into_vec()?,

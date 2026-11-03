@@ -130,24 +130,66 @@ fn build(mut points: Vec<Vec3>) -> HullResult<Hull> {
     Ok(hull)
 }
 
+/// Not a triangle (a neighbour across the hull's boundary) in
+/// [`Compact`] triangulations.
+const NONE: u32 = u32::MAX;
+
+/// A Delaunay triangulation in 32-bit indices, [`NONE`] standing for no
+/// neighbour: what is gathered from the hull before it goes.
+struct Compact {
+    triangles: Vec<[u32; 3]>,
+    neighbors: Vec<[u32; 3]>,
+}
+
+impl Compact {
+    /// The triangulation in the indices [`Delaunay`] holds.
+    fn widened(&self) -> Delaunay {
+        let neighbor = |n: u32| (n != NONE).then_some(n as usize);
+        Delaunay {
+            triangles: self
+                .triangles
+                .iter()
+                .map(|t| t.map(|v| v as usize))
+                .collect(),
+            neighbors: self.neighbors.iter().map(|n| n.map(neighbor)).collect(),
+        }
+    }
+}
+
 impl Hull {
     /// The lower facets as triangles and their neighbours, oriented like
     /// matplotlib's `_qhull.delaunay` does from qhull's facet orientation.
-    fn delaunay(&self) -> Delaunay {
-        let lower: Vec<_> = self
-            .facets_from(Some(self.facet_list))
-            .into_iter()
-            .filter(|&f| !self.facet(f).upperdelaunay)
-            .collect();
-        let mut index = vec![None; self.facets.len()];
-        for (i, f) in lower.iter().enumerate() {
-            index[f.index()] = Some(i);
+    /// They are gathered compactly, so that the hull is gone before they
+    /// take their full size.
+    fn delaunay(self) -> Delaunay {
+        let compact = self.lower_triangles();
+        drop(self);
+        compact.widened()
+    }
+
+    /// The lower facets as [`Compact`] triangles, in list order.
+    fn lower_triangles(&self) -> Compact {
+        // One walk down the list numbers the lower facets (the walk is a
+        // chain of cache misses; the loop below misses independently).
+        let mut lower = Vec::with_capacity(self.num_facets);
+        let mut index = vec![NONE; self.facets.len()];
+        let mut cursor = self.listed(Some(self.facet_list));
+        while let Some(f) = cursor {
+            let facet = self.facet(f);
+            if !facet.upperdelaunay {
+                index[f.index()] = u32::try_from(lower.len()).expect("fewer than 2^32 facets");
+                lower.push(f);
+            }
+            cursor = self.listed(facet.next);
         }
         let mut triangles = Vec::with_capacity(lower.len());
         let mut neighbors = Vec::with_capacity(lower.len());
         for &f in &lower {
             let facet = self.facet(f);
-            let [a, b, c] = [0, 1, 2].map(|i| self.vertex(facet.vertices[i]).point);
+            let [a, b, c] = [0, 1, 2].map(|i| {
+                let point = self.vertex(facet.vertices[i]).point;
+                u32::try_from(point).expect("fewer than 2^32 points, as there are fewer facets")
+            });
             let [n0, n1, n2] = [0, 1, 2].map(|i| index[facet.neighbors[i].index()]);
             if facet.toporient {
                 triangles.push([a, b, c]);
@@ -157,7 +199,7 @@ impl Hull {
                 neighbors.push([n0, n2, n1]);
             }
         }
-        Delaunay {
+        Compact {
             triangles,
             neighbors,
         }

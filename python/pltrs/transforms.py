@@ -2323,6 +2323,10 @@ class CompositeGenericTransform(Transform):
         self._a = a
         self._b = b
         self.set_children(a, b)
+        # The composed affine part and the inverse, kept until a child
+        # changes (pltrs keeps them; matplotlib composes them anew).
+        self._affine = None
+        self._inverse = None
 
     def frozen(self):
         # docstring inherited
@@ -2338,6 +2342,7 @@ class CompositeGenericTransform(Transform):
         # non-affine, the composite transform is FULLY invalidated.
         if invalidating_node is self._a and not self._b.is_affine:
             level = Transform._INVALID_FULL
+        self._affine = self._inverse = None
         super()._invalidate_internal(level, invalidating_node)
 
     def __eq__(self, other):
@@ -2398,14 +2403,17 @@ class CompositeGenericTransform(Transform):
         # docstring inherited
         if not self._b.is_affine:
             return self._b.get_affine()
-        else:
-            return Affine2D(_transforms.compose(self._a.get_affine().get_matrix(),
-                                                self._b.get_affine().get_matrix()))
+        if self._affine is None:
+            self._affine = Affine2D(_transforms.compose(
+                self._a.get_affine().get_matrix(), self._b.get_affine().get_matrix()))
+        return self._affine
 
     def inverted(self):
         # docstring inherited
-        return CompositeGenericTransform(
-            self._b.inverted(), self._a.inverted())
+        if self._inverse is None:
+            self._inverse = CompositeGenericTransform(
+                self._b.inverted(), self._a.inverted())
+        return self._inverse
 
 
 class CompositeAffine2D(Affine2DBase):

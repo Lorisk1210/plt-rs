@@ -385,6 +385,7 @@ impl Hull {
             return Ok(());
         }
         self.facet_mut(facet).simplicial = false;
+        self.merged = true;
         let neighbors = self.facet(facet).neighbors.clone();
         let merge_ridge = neighbors.contains(&FacetId::MERGE_RIDGE);
         for &n in neighbors.iter().filter(|&&n| n != FacetId::MERGE_RIDGE) {

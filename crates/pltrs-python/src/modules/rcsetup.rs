@@ -161,6 +161,12 @@ fn text(store: Option<Native<RcParams>>, key: String) -> PyResult<String> {
     })
 }
 
+/// The generation of the thread's current parameters (`pltrs::rc::generation`):
+/// values read from the parameters stay valid while it is the same.
+fn generation() -> PyResult<u64> {
+    Ok(pltrs::rc::generation())
+}
+
 /// The rc-file text of `text` (an [`RcText`]) for `key`: Python's `None`
 /// for `savefig.bbox` is `standard`, which matplotlib's `validate_bbox`
 /// takes as the object `None` though not as the text.
@@ -333,6 +339,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("keys", keys)?;
     module.add("get", get)?;
     module.add("text", text)?;
+    module.add("generation", generation)?;
     module.add("set", set)?;
     module.add("set_color", set_color)?;
     module.add("copy", copy)?;

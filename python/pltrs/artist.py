@@ -20,7 +20,7 @@ from numbers import Real
 
 import numpy as np
 
-from . import _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
+from . import _api, _handles, _pickling, cbook  # noqa: F401  (_pickling: how natives pickle)
 from . import _live_transforms, _program_classes, _python_drawing, _values
 from ._artist_callbacks import CallbacksMixin
 from ._artist_children import ChildrenSearchMixin
@@ -29,6 +29,7 @@ from ._artist_copying import CopyingMixin, _XYPair
 from ._artist_effects import EffectsMixin
 from ._artist_extent import ExtentMixin
 from ._artist_picking import PickingMixin
+from ._artist_staleness import StalenessMixin, _stale_axes_callback  # noqa: F401
 from ._artist_subclassing import SubclassingMixin
 from ._artist_units import UnitsMixin
 from ._native import artist as _artist
@@ -82,7 +83,7 @@ def allow_rasterization(draw):
 
 class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
              EffectsMixin, ExtentMixin, UnitsMixin, ChildrenSearchMixin,
-             CopyingMixin):
+             CopyingMixin, StalenessMixin):
     """
     Abstract base class for objects that render into a FigureCanvas.
 
@@ -239,6 +240,7 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         # pltrs (Rust) marks what contains the artist stale too, unless
         # the artist is animated.
         _artist.set_stale(self._native, bool(val))
+        self._went_stale(val)
 
     def get_visible(self):
         """Return the visibility."""
@@ -349,6 +351,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         enable this on an artist that does not support it, the command has no
         effect and a warning will be issued.
         """
+        if rasterized and self._rasterization_ignored():
+            _api.warn_external(f"Rasterization of '{self}' will be ignored")
         _artist.set_rasterized(self._native, bool(rasterized))
 
     def get_animated(self):

@@ -22,6 +22,7 @@ from ._native import legend as _legend
 from ._native import register as _register
 from ._native import text as _text
 from .artist import Artist
+from .cbook import silent_list
 from .collections import (CircleCollection, Collection, LineCollection,
                           PatchCollection, PathCollection, PolyCollection,
                           RegularPolyCollection)
@@ -414,9 +415,12 @@ class Legend(Artist):
 
     def get_texts(self):
         r"""Return the list of `~.text.Text`\s in the legend."""
-        return _handles.wrap_all(_legend.get_texts(self._native), Text, self.figure)
+        return silent_list('Text', self.texts)
 
-    texts = property(get_texts, doc="The `~.text.Text` labels of the legend.")
+    @property
+    def texts(self):
+        """The `~.text.Text` labels of the legend."""
+        return _handles.wrap_all(_legend.get_texts(self._native), Text, self.figure)
 
     def get_title(self):
         """Return the `.Text` instance for the legend title."""
@@ -458,7 +462,8 @@ class Legend(Artist):
 
     def get_patches(self):
         r"""Return the list of `~.patches.Patch`\s in the legend."""
-        return [h for h in self.legend_handles if isinstance(h, Patch)]
+        return silent_list('Patch',
+                           [h for h in self.legend_handles if isinstance(h, Patch)])
 
     @property
     def _legend_box(self):

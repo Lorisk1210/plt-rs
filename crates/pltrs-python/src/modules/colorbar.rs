@@ -372,6 +372,17 @@ fn solids(colorbar: Colorbar) -> PyResult<Option<Collection>> {
     Ok(colorbar.solids())
 }
 
+/// The hatched patches drawn as the colour blocks of hatched contours
+/// (matplotlib's `solids_patches`).
+fn solids_patches(colorbar: Colorbar) -> PyResult<Vec<Patch<PathShape>>> {
+    Ok(colorbar.solids_patches())
+}
+
+/// The line collections `add_lines` drew (matplotlib's `lines`).
+fn lines(colorbar: Colorbar) -> PyResult<Vec<Collection>> {
+    Ok(colorbar.lines())
+}
+
 /// The patches filling the extensions, the one at the lower end of the
 /// long axis first (matplotlib's `_extend_patches`).
 fn extend_patches(colorbar: Colorbar) -> PyResult<Vec<Patch<PathShape>>> {
@@ -409,6 +420,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("outline", outline)?;
     module.add("solids", solids)?;
     module.add("extend_patches", extend_patches)?;
+    module.add("solids_patches", solids_patches)?;
+    module.add("lines", lines)?;
     module.add("divider_segments", divider_segments)?;
     make_axes::register(module)
 }

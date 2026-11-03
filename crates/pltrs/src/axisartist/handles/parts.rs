@@ -9,7 +9,7 @@ use pltrs_core::{Bbox, Point};
 use super::{AxisArtist, opposite};
 use crate::axes::TickDirection;
 use crate::axisartist::artist::Level;
-use crate::axisartist::labels::LabelState;
+use crate::axisartist::labels::{LabelState, TextLook};
 use crate::axisartist::line::LineState;
 use crate::axisartist::ticks::TicksState;
 use crate::colors::Color;
@@ -240,6 +240,33 @@ impl LabelBase {
     /// The font size in points.
     pub fn size(&self) -> f64 {
         self.get(|label| label.size)
+    }
+
+    /// Typesets the text(s) as `look` says: in its font at their own
+    /// size, their lines aligned and spaced as it says, rotated in its
+    /// rotation mode (matplotlib's `set_fontproperties`, `set_family`,
+    /// `set_linespacing`, `set_multialignment`, `set_rotation_mode`, ...).
+    ///
+    /// ```
+    /// use pltrs::axisartist::AxisArtist;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::fonts::FontWeight;
+    /// use pltrs::spines::SpineSide;
+    /// let ax = Figure::new().subplot();
+    /// let label = AxisArtist::add_fixed(&ax, SpineSide::Left).label();
+    /// let mut look = label.look();
+    /// look.font = look.font.with_weight(FontWeight::BOLD);
+    /// label.set_look(look.clone());
+    /// assert_eq!(label.look(), look);
+    /// ```
+    pub fn set_look(&self, look: TextLook) -> &Self {
+        self.update(|label| label.look = look)
+    }
+
+    /// How the text(s) are typeset beyond their size, colour, angle and
+    /// alignment.
+    pub fn look(&self) -> TextLook {
+        self.get(|label| label.look.clone())
     }
 }
 

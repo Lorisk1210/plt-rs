@@ -103,6 +103,22 @@ def _inherits_generated_set(cls):
 class SubclassingMixin:
     """The class-level machinery of `.Artist`."""
 
+    #: Whether drawing artists of the class ignores their rasterization:
+    #: true for the classes of this package whose matplotlib ``draw`` is
+    #: not decorated with `.allow_rasterization`.
+    _ignores_rasterization = False
+
+    def _rasterization_ignored(self):
+        """Whether drawing the artist ignores its rasterization (so that
+        asking for it warns, as matplotlib's ``set_rasterized`` does): its
+        class' own setting, or for a ``draw`` of the program's, whether
+        that is not decorated with `.allow_rasterization`."""
+        from ._program_classes import takes_from_program
+        cls = type(self)
+        if takes_from_program(cls, "draw"):
+            return not getattr(cls.draw, "_supports_rasterization", False)
+        return cls._ignores_rasterization
+
     _PROPERTIES_EXCLUDED_FROM_SET = [
         'navigate_mode',  # not a user-facing function
         'figure',         # changing the figure is such a profound operation

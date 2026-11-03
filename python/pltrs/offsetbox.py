@@ -174,6 +174,10 @@ class OffsetBox(Artist):
     Being an artist itself, all keyword arguments are passed on to `.Artist`.
     """
 
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     def get_window_extent(self, renderer=None):
         """Return the box's extent in display space, where pltrs (Rust)
         lays it out (matplotlib computes it from the box's layout)."""
@@ -1097,6 +1101,10 @@ class AnnotationBbox(Artist, mtext._AnnotationBase):
 
     This is like `.Annotation`, but with `OffsetBox` instead of `.Text`.
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     def get_window_extent(self, renderer=None):
         """Return the annotation's box in display space, where pltrs (Rust)

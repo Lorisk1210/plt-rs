@@ -155,7 +155,8 @@ fn sync_gridline(line: &Line2D, name: AxisName, loc: f64, style: &TickStyle) {
         .set_linestyle(style.grid.linestyle.clone())
         .set_marker(Marker::default());
     line.set_alpha(Some(style.grid.alpha))
-        .set_visible(style.grid_on);
+        .set_visible(style.grid_on)
+        .set_zorder(style.grid.zorder);
 }
 
 /// The artists mirroring one tick: its two labels, two marks and

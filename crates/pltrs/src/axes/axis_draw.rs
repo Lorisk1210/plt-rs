@@ -343,7 +343,7 @@ pub(crate) fn grid_gc(
     let mut gc = GraphicsContext {
         foreground: grid.color.resolve_alpha(Some(grid.alpha))?,
         linewidth: grid.linewidth,
-        antialiased: rc.lines_antialiased,
+        antialiased: grid.stroke.antialiased,
         sketch: rc_sketch(rc),
         // Gridlines are lines without a snap setting of their own.
         snap: if rc.path_snap {
@@ -353,11 +353,7 @@ pub(crate) fn grid_gc(
         },
         ..GraphicsContext::default()
     };
-    (gc.cap, gc.join) = if grid.linestyle.is_dashed() {
-        (rc.lines_dash_capstyle, rc.lines_dash_joinstyle)
-    } else {
-        (rc.lines_solid_capstyle, rc.lines_solid_joinstyle)
-    };
+    (gc.cap, gc.join) = grid.stroke.cap_join(grid.linestyle.is_dashed());
     gc.dashes = grid.linestyle.scaled_dashes(grid.linewidth, rc);
     Ok(gc)
 }

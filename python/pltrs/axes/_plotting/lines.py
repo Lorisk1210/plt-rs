@@ -9,12 +9,19 @@ import re
 
 import numpy as np
 
-from ... import _api, _live_transforms, cbook, collections as mcoll, lines as mlines
+from ... import _api, _live_transforms, _values, cbook, collections as mcoll, lines as mlines
 from ..._artist_kwargs import keep_program_picker
 from ..._native import axes as _axes, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
 from ._helpers import floats, keep_unit_data, line_data, line_kwargs, wrap
+
+
+def _span_geometry(patch, x, y, width, height):
+    """Keep the geometry of the span *patch* as matplotlib's rectangle keeps
+    it: its corner, width and height computed from the arguments as given."""
+    _values.remember_all(patch, {"x": x, "y": y, "width": width, "height": height},
+                         Rectangle._FIELDS)
 
 
 def _check_no_units(vals, names):
@@ -236,7 +243,9 @@ class LinesMixin:
         native = _axes.axline(self._native, "h", float(yy), (xmin, xmax),
                               line_kwargs(kwargs))
         line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
-        return keep_unit_data(line, [xmin, xmax], [y, y])
+        # matplotlib's line keeps the data it was made with.
+        line._xorig, line._yorig = [xmin, xmax], [y, y]
+        return line
 
     def axvline(self, x=0, ymin=0, ymax=1, **kwargs):
         """
@@ -254,7 +263,8 @@ class LinesMixin:
         native = _axes.axline(self._native, "v", float(xx), (ymin, ymax),
                               line_kwargs(kwargs))
         line = keep_program_picker(wrap(self, native, mlines.Line2D), kwargs)
-        return keep_unit_data(line, [x, x], [ymin, ymax])
+        line._xorig, line._yorig = [x, x], [ymin, ymax]
+        return line
 
     def axline(self, xy1, xy2=None, *, slope=None, **kwargs):
         """
@@ -274,7 +284,9 @@ class LinesMixin:
             self._native, tuple(map(float, xy1)),
             None if xy2 is None else tuple(map(float, xy2)),
             None if slope is None else float(slope), line_kwargs(kwargs))
-        return keep_program_picker(wrap(self, native, mlines.AxLine), kwargs)
+        line = wrap(self, native, mlines.AxLine)
+        line._remember_geometry(xy1, xy2, slope)
+        return keep_program_picker(line, kwargs)
 
     def axhspan(self, ymin, ymax, xmin=0, xmax=1, **kwargs):
         """
@@ -289,6 +301,7 @@ class LinesMixin:
         (ymin, ymax), = self._process_unit_info([("y", [ymin, ymax])], kwargs)
         native = _axes.axspan(self._native, "h", (ymin, ymax), (xmin, xmax))
         patch = wrap(self, native, Rectangle)
+        _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         return patch
 
@@ -305,6 +318,7 @@ class LinesMixin:
         (xmin, xmax), = self._process_unit_info([("x", [xmin, xmax])], kwargs)
         native = _axes.axspan(self._native, "v", (xmin, xmax), (ymin, ymax))
         patch = wrap(self, native, Rectangle)
+        _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
         return patch
 

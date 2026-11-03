@@ -73,14 +73,17 @@ class ParasiteAxesBase:
         ax.set_viewlim_mode(viewlim_mode)
         return ax
 
-    @property
-    def transData(self):
-        """The transform from data coordinates to display coordinates:
-        through the aux transform to the parent's data coordinates when
-        there is one."""
+    def _set_lim_and_transforms(self):
+        # The trees of an Axes, then matplotlib's: with an aux transform,
+        # the parasite's data coordinates go through it to the parent's.
+        super()._set_lim_and_transforms()
         if self.transAux is not None:
-            return self.transAux + self._parent_axes.transData
-        return super().transData
+            self.transAxes = self._parent_axes.transAxes
+            self.transData = self.transAux + self._parent_axes.transData
+            self._xaxis_transform = mtransforms.blended_transform_factory(
+                self.transData, self.transAxes)
+            self._yaxis_transform = mtransforms.blended_transform_factory(
+                self.transAxes, self.transData)
 
     def clear(self):
         """Clear the parasite: its host draws the artists added from now
@@ -124,6 +127,10 @@ ParasiteAxes = parasite_axes_class_factory(Axes)
 
 
 class HostAxesBase:
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     @property
     def parasites(self):

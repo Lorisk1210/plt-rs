@@ -2,6 +2,7 @@
 //! matplotlib's canvases, after `print_figure` has resolved its keywords).
 
 use pltrs::colors::Color;
+use pltrs::events::EventKind;
 use pltrs::figure::{
     BboxInches, Figure, Metadata, PadInches, PageOrientation, Paper, SaveError, SaveFormat,
     SaveOptions, SvgMetadata,
@@ -194,17 +195,44 @@ impl FromPy<'_> for PrintSettings {
     }
 }
 
+/// Runs `print` with `on_draw` called once the figure is drawn, before
+/// what was drawn is encoded, as matplotlib's `Figure.draw` sends the
+/// `draw_event` before its canvas writes the file.
+pub(super) fn sending_draw_event<T>(
+    figure: &Figure,
+    on_draw: Option<Callback>,
+    print: impl FnOnce() -> T,
+) -> T {
+    let connection = on_draw.map(|callback| {
+        figure.connect(EventKind::Draw, move |_| {
+            // Its exception is raised from the print (see `Callback`).
+            let _ = callback.call::<Owned>(());
+        })
+    });
+    let printed = print();
+    if let Some(connection) = connection {
+        figure.disconnect(connection);
+    }
+    printed
+}
+
 /// The figure as a file of `format` (`png`, `pdf`, `svg`, `eps`, `raw`,
 /// ...) with `settings`: the bytes the canvas writes to a path or a file
-/// object. A line whose `markevery` does not fit it raises matplotlib's
-/// `ValueError`.
-fn print_figure(figure: Figure, format: String, settings: PrintSettings) -> PyResult<Bytes> {
+/// object; `on_draw` is called once it is drawn (see
+/// [`sending_draw_event`]). A line whose `markevery` does not fit it
+/// raises matplotlib's `ValueError`.
+fn print_figure(
+    figure: Figure,
+    format: String,
+    settings: PrintSettings,
+    on_draw: Option<Callback>,
+) -> PyResult<Bytes> {
     let format: SaveFormat = format.parse()?;
     let options = SaveOptions {
         format: Some(format),
         ..settings.0
     };
-    match figure.to_format(format, options) {
+    match sending_draw_event(&figure, on_draw, || figure.to_format(format, options)) {
         Err(SaveError::Draw(problems)) => {
             Err(markevery_error(&figure, &problems)
                 .unwrap_or_else(|| SaveError::Draw(problems).into()))
@@ -216,9 +244,14 @@ fn print_figure(figure: Figure, format: String, settings: PrintSettings) -> PyRe
 /// The pixels of the figure printed with `settings` for a raster file:
 /// straight-alpha RGBA rows from the top, as a `height × width × 4`
 /// array, for the formats the program's image writer encodes
-/// (`FigureCanvasAgg._print_pil`).
-fn print_rgba(figure: Figure, settings: PrintSettings) -> PyResult<NdArray<u8>> {
-    let image = figure.render_raster_with(settings.0)?.to_image();
+/// (`FigureCanvasAgg._print_pil`); `on_draw` is called once it is drawn.
+fn print_rgba(
+    figure: Figure,
+    settings: PrintSettings,
+    on_draw: Option<Callback>,
+) -> PyResult<NdArray<u8>> {
+    let canvas = sending_draw_event(&figure, on_draw, || figure.render_raster_with(settings.0))?;
+    let image = canvas.to_image();
     let shape = vec![image.height(), image.width(), 4];
     NdArray::with_shape(image.into_data(), shape)
 }
@@ -244,16 +277,45 @@ mod tests {
     /// `_native.backends.print_figure` of a 2 × 1 inch figure at 50 dpi
     /// in `format`, with the settings dict `settings` (Python source).
     fn print<'py>(native: &Bound<'py>, format: &str, settings: &str) -> PyResult<Bound<'py>> {
+        print_calling(native, format, settings, Bound::none(native.py()))
+    }
+
+    /// [`print`] calling `on_draw` once the figure is drawn.
+    fn print_calling<'py>(
+        native: &Bound<'py>,
+        format: &str,
+        settings: &str,
+        on_draw: Bound<'py>,
+    ) -> PyResult<Bound<'py>> {
         let py = native.py();
         let number = |v: f64| v.into_py(py).unwrap();
         let figure = native
             .getattr("figure")?
             .getattr("new")?
             .call(&[number(2.0), number(1.0), number(50.0)], &[])?;
-        native
-            .getattr("backends")?
-            .getattr("print_figure")?
-            .call(&[figure, format.into_py(py)?, eval(py, "", settings)], &[])
+        native.getattr("backends")?.getattr("print_figure")?.call(
+            &[figure, format.into_py(py)?, eval(py, "", settings), on_draw],
+            &[],
+        )
+    }
+
+    #[test]
+    fn the_draw_callback_runs_once_per_print_and_its_exception_raises() {
+        with_python(|py| {
+            let native = extension(py);
+            let calls = eval(py, "", "[]");
+            let on_draw = calls.getattr("append").unwrap();
+            let on_draw = eval(py, "import functools", "functools.partial")
+                .call(&[on_draw, 1.into_py(py).unwrap()], &[])
+                .unwrap();
+            for format in ["png", "pdf", "svg"] {
+                print_calling(&native, format, "{}", on_draw.clone()).unwrap();
+            }
+            assert_eq!(calls.repr().unwrap(), "[1, 1, 1]");
+            let failing = eval(py, "", "lambda: 1 / 0");
+            let err = print_calling(&native, "png", "{}", failing).unwrap_err();
+            assert!(err.message(py).contains("division by zero"));
+        });
     }
 
     #[test]
@@ -300,7 +362,7 @@ mod tests {
             dpi: Some(10.0),
             ..pltrs::figure::SaveOptions::default()
         });
-        let pixels = super::print_rgba(figure, settings).unwrap();
+        let pixels = super::print_rgba(figure, settings, None).unwrap();
         assert_eq!(pixels.shape, [10, 20, 4]);
         assert_eq!(pixels.data[..4], [255, 255, 255, 255], "a white figure");
     }

@@ -8,7 +8,7 @@ from numbers import Integral
 
 import numpy as np
 
-from ... import _api, _style_helpers, cbook, colors as mcolors, patches as mpatches
+from ... import _api, _style_helpers, _values, cbook, colors as mcolors, patches as mpatches
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer
@@ -156,8 +156,15 @@ class HistMixin:
         if histtype.startswith('bar'):
             patches = []
             for native, rectangles, values in bar_groups:
+                bars = wrap_all(self, rectangles, mpatches.Rectangle)
+                for bar in bars:
+                    # matplotlib's bars are made of the float arrays of the
+                    # histogram: their geometry is numpy floats.
+                    _values.remember_all(bar, dict(zip(
+                        ("x", "y", "width", "height"),
+                        np.float64(bar._fields()[:4]))), ("x", "y", "width", "height"))
                 container = BarContainer(
-                    wrap_all(self, rectangles, mpatches.Rectangle),
+                    bars,
                     datavalues=np.asarray(values),
                     orientation=('vertical' if orientation == 'vertical'
                                  else 'horizontal'),

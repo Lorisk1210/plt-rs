@@ -15,6 +15,16 @@ class TriContourSet(ContourSet):
     `~.Axes.tricontour` and `~.Axes.tricontourf`.
     """
 
+    # matplotlib's triangular contours keep the extremes as Python floats.
+    @property
+    def zmin(self):
+        """The smallest value of the data."""
+        return float(super().zmin)
+
+    @property
+    def zmax(self):
+        """The largest value of the data."""
+        return float(super().zmax)
 
 
 class _TriContourGenerator(_ContourGenerator):

@@ -147,12 +147,16 @@ def run_program(setup: Setup, program: Program) -> dict[str, Any]:
     directory = program.directory(setup)
     reference = directory / "mpl"
     stamp = directory / "mpl.digest"
-    if stamp.exists() and stamp.read_text() == program.digest and (reference / "record.json").exists():
+    cached = stamp.exists() and stamp.read_text() == program.digest
+    if cached and (reference / "record.json").exists():
         mpl = json.loads((reference / "record.json").read_text())
+    elif cached and (reference / "failure").exists():
+        # matplotlib could not run it here (a timeout waiting for a mouse,
+        # say): it would not now either.
+        mpl = None
     else:
         mpl = _run(setup, "matplotlib", program, reference)
-        if mpl is not None:
-            stamp.write_text(program.digest)
+        stamp.write_text(program.digest)
     result: dict[str, Any] = {"program": program.name, "path": str(program.path)}
     if mpl is None:
         result["skipped"] = (reference / "failure").read_text()

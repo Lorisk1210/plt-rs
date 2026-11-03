@@ -247,11 +247,12 @@ class LimitsMixin:
 
     def get_xmargin(self):
         """Retrieve autoscaling margin of the x-axis."""
-        return _axes_base.get_margin(self._native, "x")
+        # As given, as matplotlib keeps it.
+        return _values.given(self, "xmargin", _axes_base.get_margin(self._native, "x"))
 
     def get_ymargin(self):
         """Retrieve autoscaling margin of the y-axis."""
-        return _axes_base.get_margin(self._native, "y")
+        return _values.given(self, "ymargin", _axes_base.get_margin(self._native, "y"))
 
     @property
     def _xmargin(self):
@@ -270,6 +271,7 @@ class LimitsMixin:
         m : float greater than -0.5
         """
         _axes_base.set_margins(self._native, _check_margin(m), None, None)
+        _values.remember(self, "xmargin", m)
 
     def set_ymargin(self, m):
         """
@@ -280,6 +282,7 @@ class LimitsMixin:
         m : float greater than -0.5
         """
         _axes_base.set_margins(self._native, None, _check_margin(m), None)
+        _values.remember(self, "ymargin", m)
 
     def margins(self, *margins, x=None, y=None, tight=True):
         """
@@ -328,6 +331,9 @@ class LimitsMixin:
                                None if x is None else _check_margin(x),
                                None if y is None else _check_margin(y),
                                None if tight is None else bool(tight))
+        for name, m in (("xmargin", x), ("ymargin", y)):
+            if m is not None:
+                _values.remember(self, name, m)
 
     def relim(self, visible_only=False):
         """

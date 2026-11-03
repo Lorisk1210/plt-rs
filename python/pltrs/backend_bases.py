@@ -2140,14 +2140,19 @@ class FigureCanvasBase:
         Write the figure as a file of *fmt*, which pltrs (Rust) renders with
         the settings *kwargs* (see `_print_settings`), to *filename_or_obj*:
         what the ``print_<fmt>`` methods of the built-in canvases do.
-        Drawing the figure emits a ``draw_event``, as matplotlib's
-        ``Figure.draw`` does.
+        Drawing the figure emits a ``draw_event`` before the drawing is
+        encoded, as matplotlib's ``Figure.draw`` does.
         """
         with self._program_drawing(kwargs.get("bbox_inches_restore")):
             data = _backends.print_figure(
-                self.figure._native, fmt, self._print_settings(**kwargs))
-        DrawEvent("draw_event", self, None)._process()
+                self.figure._native, fmt, self._print_settings(**kwargs),
+                self._send_draw_event)
         _write_bytes(data, filename_or_obj)
+
+    def _send_draw_event(self):
+        """Emit the ``draw_event`` of a draw that printed the figure
+        (pltrs (Rust) calls it once the figure is drawn)."""
+        DrawEvent("draw_event", self, None)._process()
 
     def _program_drawing(self, bbox_inches_restore):
         """

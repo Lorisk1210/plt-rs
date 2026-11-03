@@ -57,11 +57,6 @@ impl From<ImageError> for PyErr {
                 "Dimensions of C {values:?} are incompatible with X ({nx}) and/or Y ({ny})"
             )),
             ImageError::IncompatibleCoordinates => PyErr::type_error("Incompatible X, Y inputs"),
-            ImageError::UnsampledNotAffine => PyErr::new(
-                ExceptionKind::NotImplementedError,
-                "pltrs: make_image(unsampled=True) of an image whose transform is not \
-                 affine (pltrs subsets the array through the affine map)",
-            ),
             other => PyErr::value_error(other.to_string()),
         }
     }

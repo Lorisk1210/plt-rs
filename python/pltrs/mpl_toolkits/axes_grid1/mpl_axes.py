@@ -77,6 +77,10 @@ class Axes(maxes.Axes):
 
 
 class SimpleAxisArtist(Artist):
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     def __init__(self, axis, axisnum, spine):
         self._axis = axis
         self._axisnum = axisnum

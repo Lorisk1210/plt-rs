@@ -34,6 +34,10 @@ class SecondaryAxis(Axes):
     General class to hold a Secondary_X/Yaxis.
     """
 
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     def __init__(self, parent, orientation, location, functions,
                  transform=None, **kwargs):
         """

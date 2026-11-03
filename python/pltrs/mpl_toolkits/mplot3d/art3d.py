@@ -577,6 +577,10 @@ def patch_collection_2d_to_3d(col, zs=0, zdir="z", depthshade=None,
 class Path3DCollection(_Lifted3DOffsets, mcoll.PathCollection):
     """A collection of 3D paths: the markers of a 3-D scatter plot."""
 
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
 
 class Poly3DCollection(_Loose3D, mcoll.PolyCollection):
     """

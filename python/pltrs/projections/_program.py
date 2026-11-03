@@ -19,7 +19,11 @@ the Axes out and draws it:
 * the sides each tick draws (an overridden ``Tick.draw``, run on a tick
   made alone with a renderer recording what it draws);
 * the interval each spine spans (an overridden ``Spine._adjust_location``)
-  and the order of the spines (``_gen_axes_spines``).
+  and the order of the spines (``_gen_axes_spines``; the sides none of
+  them is drawn on are hidden, and a spine of another shape, such as a
+  circle, is the native spine of a side drawn in that shape);
+* the ratio of the data for the aspect (an overridden ``get_data_ratio``,
+  asked when the Axes is set up).
 
 While pltrs (Rust) lays the figure out or draws it, its Axes cannot be
 asked about themselves: every hook hands the adapter the view limits
@@ -33,7 +37,8 @@ import weakref
 import numpy as np
 
 from .. import _transform_trees
-from .._native import projections as _projections
+from .._native import artist as _artist
+from .._native import projections as _projections, spines as _spines
 from .._native import transforms as _transforms
 from ..axes import Axes
 from ..axis import Axis
@@ -114,8 +119,12 @@ class _NonAffinePart:
         self._transform = transform
 
     def transform(self, values):
-        """*values* through the non-affine part."""
-        return self._transform.transform_non_affine(np.asarray(values, dtype=float))
+        """*values*, a point or points, through the non-affine part (which
+        a class may define for arrays of points only, as matplotlib's
+        `.Transform.transform` hands them)."""
+        values = np.asarray(values, dtype=float)
+        points = self._transform.transform_non_affine(values.reshape(-1, 2))
+        return np.reshape(points, values.shape)
 
     def inverted(self):
         """The inverse of the non-affine part."""
@@ -181,10 +190,15 @@ class _Projection:
     """
 
     def __init__(self, ax, spines):
-        if sorted(spines) != sorted(_LINEAR_PATHS):
-            raise NotImplementedError(
-                "pltrs: a projection whose spines are not the four sides")
-        self.spine_order = list(spines)
+        #: The spines of the class by name, as ``ax.spines`` gives them.
+        self.named_spines = dict(spines)
+        drawn = [_spines.side(spine._native) for spine in spines.values()]
+        # The sides no spine of the class is drawn on are hidden.
+        for name, native in _spines.axes_spines(ax._native):
+            if name not in drawn:
+                _artist.set_visible(native, False)
+        self.spine_order = drawn + [side for side in _LINEAR_PATHS
+                                    if side not in drawn]
         self.to_axes = _to_axes(ax, ax.transData, "transData")
         given = ax.__dict__.get("_rectilinear_axis_transforms", (None, None))
         self.axis_transforms = {}
@@ -202,6 +216,11 @@ class _Projection:
                 self.probes[name] = probe
         self.spines = {side: spine for side, spine in spines.items()
                        if type(spine)._adjust_location is not Spine._adjust_location}
+        #: The ratio the class' ``get_data_ratio`` gives, which pltrs
+        #: (Rust) keeps (matplotlib's geographic axes give a constant).
+        self.data_ratio = (
+            None if type(ax).get_data_ratio is Axes.get_data_ratio
+            else float(ax.get_data_ratio()))
         self.overrides = {
             "axis_transform": list(self.axis_transforms),
             "tick_interval": [
@@ -223,6 +242,7 @@ class _Adapter:
         projection = ax._program_projection
         self.name = type(ax).name
         self.spine_order = projection.spine_order
+        self.data_ratio = projection.data_ratio
         self.overrides = projection.overrides
 
     def __getstate__(self):

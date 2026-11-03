@@ -19,6 +19,7 @@ use crate::axes_grid1::Parasite;
 use crate::colors::Color;
 use crate::geo::GeoState;
 use crate::gridspec::SubplotSpec;
+use crate::patches::PatchStyle;
 use crate::polar::{PolarState, PolarView};
 use crate::projections::SharedOptions;
 use crate::rc::{AxisBelow, Cycler, RcParams};
@@ -211,12 +212,13 @@ impl Decorations {
 /// The background rectangle of an axes (matplotlib's `ax.patch`).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AxesPatch {
-    /// Fill colour.
-    pub(crate) facecolor: Color,
-    /// Edge colour (`"none"` unless set).
-    pub(crate) edgecolor: Color,
-    /// Edge width in points (0 unless set).
-    pub(crate) linewidth: f64,
+    /// Its face (`axes.facecolor`), edge (`"none"` unless set), edge
+    /// width (0 unless set), line style, hatch, caps, joins and
+    /// anti-aliasing, as a patch has them.
+    pub(crate) style: PatchStyle,
+    /// The opacity replacing that of its colours (matplotlib's
+    /// `ax.patch.set_alpha`).
+    pub(crate) alpha: Option<f64>,
     /// Whether it is drawn.
     pub(crate) visible: bool,
     /// Its z-order where it is drawn among children (a parasite sharing
@@ -231,9 +233,8 @@ pub(crate) struct AxesPatch {
 }
 
 pltrs_core::archive_struct!(AxesPatch {
-    facecolor,
-    edgecolor,
-    linewidth,
+    style,
+    alpha,
     visible,
     zorder,
     gid,
@@ -282,9 +283,13 @@ impl AxesState {
             use_sticky_edges: true,
             tight: false,
             patch: AxesPatch {
-                facecolor: rc.axes_facecolor.clone(),
-                edgecolor: Color::from("none"),
-                linewidth: 0.0,
+                style: PatchStyle {
+                    facecolor: Some(rc.axes_facecolor.clone()),
+                    edgecolor: Some(Color::from("none")),
+                    linewidth: Some(0.0),
+                    ..PatchStyle::from_rc(&rc)
+                },
+                alpha: None,
                 visible: true,
                 zorder: 1.0,
                 gid: None,

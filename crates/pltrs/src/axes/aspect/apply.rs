@@ -235,6 +235,16 @@ impl FigureState {
             (AxisName::X, f64::midpoint(xmin, xmax), xsize_target)
         };
         let axis = state.axis(name);
+        if !axis.autoscale.enabled {
+            crate::warnings::log(
+                "axes._base",
+                &format!(
+                    "Ignoring fixed {} limits to fulfill fixed data aspect with adjustable \
+                     data limits.",
+                    name.name()
+                ),
+            );
+        }
         let inverse = |v: f64| axis.map().map_or(v, |m| m.inverse(v));
         let (low, high) = (inverse(centre - size / 2.0), inverse(centre + size / 2.0));
         let (v0, v1) = state.view_interval(name);

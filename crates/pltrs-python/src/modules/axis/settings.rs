@@ -31,12 +31,20 @@ fn is_default_helper(owner: AxisOwner, name: String, kind: String, minor: bool) 
 
 /// Turns the minor ticks on with the scale's minor locator, or off
 /// (`minorticks_on`, `minorticks_off`).
-fn minorticks(axes: Axes, name: String, on: bool) -> PyResult<()> {
-    let axis = axis(&axes, &name)?;
-    if on {
-        axis.minorticks_on();
-    } else {
-        axis.minorticks_off();
+fn minorticks(owner: AxisOwner, name: String, on: bool) -> PyResult<()> {
+    match (owner.axis(&name)?, on) {
+        (AnyAxis::Flat(axis), true) => {
+            axis.minorticks_on();
+        }
+        (AnyAxis::Flat(axis), false) => {
+            axis.minorticks_off();
+        }
+        (AnyAxis::Deep(axis), true) => {
+            axis.minorticks_on();
+        }
+        (AnyAxis::Deep(axis), false) => {
+            axis.minorticks_off();
+        }
     }
     Ok(())
 }
@@ -272,8 +280,15 @@ fn axis_date(owner: AxisOwner, name: String, tz: Option<Zone>) -> PyResult<()> {
 }
 
 /// Resets axis `name` to a fresh one (`Axis.clear`).
-fn clear(axes: Axes, name: String) -> PyResult<()> {
-    axis(&axes, &name)?.clear();
+fn clear(owner: AxisOwner, name: String) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.clear();
+        }
+        AnyAxis::Deep(axis) => {
+            axis.clear();
+        }
+    }
     Ok(())
 }
 
@@ -317,7 +332,7 @@ mod tests {
         let x = || "x".to_owned();
         let owner = || AxisOwner::Flat(ax.clone());
         assert!(is_default_helper(owner(), x(), "locator".into(), false).unwrap());
-        minorticks(ax.clone(), x(), true).unwrap();
+        minorticks(owner(), x(), true).unwrap();
         assert!(!is_default_helper(owner(), x(), "locator".into(), true).unwrap());
         assert!(is_default_helper(owner(), x(), "artist".into(), true).is_err());
         set_labelpad(owner(), "y".into(), 9.0).unwrap();

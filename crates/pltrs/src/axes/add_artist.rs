@@ -2,6 +2,8 @@
 //! `add_collection`), filtered groups of artists, artists made outside
 //! any figure, and removed artists back.
 
+use std::rc::Rc;
+
 use super::children::DataUpdate;
 use super::{Axes, AxesState};
 use crate::artist::{
@@ -132,7 +134,9 @@ impl Axes {
     /// under a new id, which the returned handle refers to, and takes the
     /// axes' data coordinates (`ax.transData`) unless it was given a
     /// transform, while an artist removed from this figure comes back
-    /// under its own id, keeping its coordinates. Without a clip path the
+    /// under its own id, keeping its coordinates, and an artist of this
+    /// axes is listed (and drawn) once more, as matplotlib's `add_*`
+    /// methods append it again. Without a clip path the
     /// artist is clipped to the axes (but for images), it
     /// is drawn above the children of equal z-order, and lines, images and
     /// collections without a label are labelled `_child<n>`, `n` counting
@@ -155,8 +159,8 @@ impl Axes {
     /// # Errors
     ///
     /// [`AttachError`] when the artist belongs to another figure, is still
-    /// in this one (or was removed only with an artist owning it), is a
-    /// figure or a 3-D axes, or owns this axes.
+    /// in this one under another container (or was removed only with an
+    /// artist owning it), is a figure or a 3-D axes, or owns this axes.
     pub fn adopt_artist(
         &self,
         artist: &RawHandle,
@@ -165,6 +169,12 @@ impl Axes {
         let figure = self.raw().figure_state();
         let fresh = artist.is_loose();
         let artist = take_in(figure, artist)?;
+        if self.has_child(&artist) {
+            // matplotlib lists (and draws) an artist added again once more.
+            self.raw
+                .with_mut::<AxesState, _>(|axes| axes.children.push(artist.id()));
+            return Ok(artist);
+        }
         let data = self.trans_data();
         let child_count = self.listed_children();
         attach(figure, self.id(), &artist)?;
@@ -199,6 +209,15 @@ impl Axes {
             }
         }
         Ok(artist)
+    }
+
+    /// Whether `artist` is a child of this axes now.
+    fn has_child(&self, artist: &RawHandle) -> bool {
+        Rc::ptr_eq(self.raw().figure_state(), artist.figure_state())
+            && artist.figure_state().borrow().is_attached(artist.id())
+            && self
+                .raw
+                .with::<AxesState, _>(|axes| axes.children.contains(&artist.id()))
     }
 
     /// How many children matplotlib's `ax._children` would hold: the
@@ -246,6 +265,9 @@ impl Axes {
         if artist.raw().is_loose() {
             return Err(AttachError::OtherFigure);
         }
+        if self.has_child(artist.raw()) {
+            return Err(AttachError::NotRemoved);
+        }
         self.adopt_artist(artist.raw(), AddAs::Patch)?;
         Ok(self)
     }
@@ -277,10 +299,13 @@ mod tests {
         assert_eq!(ax.data_lim().bbox.p1, Point::new(4.0, 3.0));
         let second = ax.adopt_artist(loose_line().raw(), AddAs::Line).unwrap();
         assert_eq!(second.label(), "_child1", "the first line counts");
+        let other = Figure::new().subplot();
         assert_eq!(
-            ax.adopt_artist(&adopted, AddAs::Line),
-            Err(AttachError::NotRemoved)
+            other.adopt_artist(&adopted, AddAs::Line),
+            Err(AttachError::OtherFigure)
         );
+        ax.adopt_artist(&adopted, AddAs::Line).unwrap();
+        assert_eq!(ax.lines().len(), 3, "an artist added again is listed again");
     }
 
     #[test]

@@ -503,8 +503,9 @@ impl AxesImage {
     /// unsampled=True)`): the visible part of the coloured array, top row
     /// first, the display position of its bottom-left corner, and the map
     /// from its cells (column, row) to the display, counted from that
-    /// corner and magnified by `magnification`; `None` when nothing of it
-    /// is visible.
+    /// corner and magnified by `magnification` (when the image's map is
+    /// affine; its data transform maps it otherwise, as for
+    /// [`AxesImage::make_image`]); `None` when nothing of it is visible.
     ///
     /// ```
     /// use pltrs::axes::ImshowOptions;
@@ -522,8 +523,7 @@ impl AxesImage {
     ///
     /// # Errors
     ///
-    /// When the image's transform is not affine, or its colormap or norm
-    /// cannot map its data.
+    /// When its colormap or norm cannot map its data.
     pub fn make_image_unsampled(
         &self,
         magnification: f64,
@@ -532,21 +532,12 @@ impl AxesImage {
         let layout = LayoutContext::new(&state);
         let (width, height) = state.size_pixels();
         let canvas = Bbox::from_extents(0.0, 0.0, width, height);
-        self.read(|image| {
-            let resolved = layout
-                .resolve(&image.transform())
-                .filter(ResolvedTransform::is_affine)
-                .ok_or(ImageError::UnsampledNotAffine)?;
-            let Some(out_bbox) = image.out_bbox(layout) else {
-                return Ok(None);
-            };
-            let clip = image.clip_bbox(layout, canvas);
-            let made =
-                image
-                    .core
-                    .unsampled(image.extent(), resolved.affine_part(), out_bbox, clip)?;
-            Ok(made.map(|made| made.made(magnification)))
-        })
+        self.read(
+            |image| match image.placement(layout, canvas, magnification) {
+                Some(placement) => image.core.make_unsampled(&placement),
+                None => Ok(None),
+            },
+        )
     }
 
     /// The image array (matplotlib's `get_array`).

@@ -278,16 +278,31 @@ class Patch(Artist):
         self._set_native(facecolor=color)
         _values.remember(self, "facecolor", color)
 
+    #: The colours the class gives its patches when none is given
+    #: (matplotlib's constructor defaults: a `.table.Cell`'s).
+    _default_colors = {}
+
+    def _take_cycle_color(self, name):
+        """Keep the colour *name* pltrs (Rust) took from the property cycle
+        as the cycle holds it, as the plotting methods handing a patch the
+        cycle's colour itself (`~.Axes.pie`, `~.Axes.stairs`) keep it."""
+        color = _values.cycle_color(self.axes, self._get(name))
+        if color is not _values.NONE_GIVEN:
+            _values.remember(self, name, color)
+
     def _rgba_as_given(self, name, alpha):
         """
         The colour *name* as matplotlib keeps it, ``to_rgba(color, alpha)``
-        of the colour given (:rc:`patch.facecolor` for a face given as None),
-        while pltrs (Rust) holds that colour; else pltrs (Rust)'s.
+        of the colour given (:rc:`patch.facecolor` for a face given as None;
+        the class' default for none), while pltrs (Rust) holds that colour;
+        else pltrs (Rust)'s.
         """
         native = self._get(name)
         color = self.__dict__.get("_given_values", {}).get(name, _values.NONE_GIVEN)
         if color is None and name == "facecolor":
             color = _rcParams()["patch.facecolor"]
+        if color is _values.NONE_GIVEN:
+            color = self._default_colors.get(name, _values.NONE_GIVEN)
         if color is None or color is _values.NONE_GIVEN:
             return native
         try:
@@ -298,7 +313,11 @@ class Patch(Artist):
 
     def get_hatchcolor(self):
         """Return the hatch color."""
-        return self._get("hatchcolor")
+        # The edge colour, typed as matplotlib keeps it, when the hatch
+        # takes it.
+        native = self._get("hatchcolor")
+        edge = self.get_edgecolor()
+        return edge if tuple(edge) == tuple(native) else native
 
     def set_hatchcolor(self, color):
         """Set the patch hatch color: a color, 'edge' or None (the rc)."""
@@ -332,7 +351,9 @@ class Patch(Artist):
             # matplotlib's dash patterns are.
             offset, dashes = linestyle
             return offset, None if dashes is None else tuple(dashes)
-        return linestyle
+        # A patch pltrs (Rust) made keeps the style matplotlib's constructor
+        # sets when none is given.
+        return 'solid' if linestyle == '-' else linestyle
 
     def set_linestyle(self, ls):
         """
@@ -443,6 +464,7 @@ class Patch(Artist):
                                                radius)
 
 
+@_mirrors.mirrorable
 class Rectangle(Patch):
     """
     A rectangle defined via an anchor point *xy* and its *width* and *height*.
@@ -670,6 +692,9 @@ class RegularPolygon(Patch):
         self._native = _patches.new_regular_polygon(
             (float(xy[0]), float(xy[1])), int(numVertices), float(radius),
             float(orientation))
+        _values.remember_all(self, {"xy": xy, "radius": radius,
+                                    "orientation": orientation},
+                             ("xy", "radius", "orientation"))
         super().__init__(**kwargs)
 
     def _fields(self):
@@ -679,7 +704,7 @@ class RegularPolygon(Patch):
     @property
     def xy(self):
         """The center of the polygon."""
-        return self._fields()[:2]
+        return _values.given(self, "xy", self._fields()[:2])
 
     @property
     def numvertices(self):
@@ -689,12 +714,12 @@ class RegularPolygon(Patch):
     @property
     def radius(self):
         """The distance from the center to each of the vertices."""
-        return self._fields()[3]
+        return _values.given(self, "radius", self._fields()[3])
 
     @property
     def orientation(self):
         """The polygon's rotation, in radians."""
-        return self._fields()[4]
+        return _values.given(self, "orientation", self._fields()[4])
 
 
 class PathPatch(Patch):
@@ -782,6 +807,7 @@ class StepPatch(PathPatch):
              None if baseline is None else np.asarray(baseline, dtype=float)))
 
 
+@_mirrors.mirrorable
 class Polygon(Patch):
     """A general polygon patch."""
 
@@ -850,6 +876,7 @@ class Polygon(Patch):
                   doc='The vertices of the path as a (N, 2) array.')
 
 
+@_mirrors.mirrorable
 class Wedge(Patch):
     """Wedge shaped patch."""
 
@@ -869,7 +896,12 @@ class Wedge(Patch):
         self._native = _patches.new_wedge(
             (float(center[0]), float(center[1])), float(r),
             (float(theta1), float(theta2)), None if width is None else float(width))
+        _values.remember_all(self, {"center": center, "r": r, "theta1": theta1,
+                                    "theta2": theta2, "width": width}, self._GIVEN)
         super().__init__(**kwargs)
+
+    #: The geometry matplotlib keeps as given.
+    _GIVEN = ("center", "r", "theta1", "theta2", "width")
 
     def _fields(self):
         """``(x, y, r, theta1, theta2, width)``."""
@@ -878,6 +910,8 @@ class Wedge(Patch):
     def _set_fields(self, center=None, r=None, theta1=None, theta2=None,
                     width=None, *, clear_width=False):
         x, y, r0, t1, t2, w = self._fields()
+        given = {"center": center, "r": r, "theta1": theta1, "theta2": theta2,
+                 "width": width}
         center = (x, y) if center is None else center
         _patches.set_wedge(
             self._native, (float(center[0]), float(center[1])),
@@ -885,31 +919,39 @@ class Wedge(Patch):
             (float(t1 if theta1 is None else theta1),
              float(t2 if theta2 is None else theta2)),
             None if clear_width else (w if width is None else float(width)))
+        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
+                             self._GIVEN)
+
+    def _given(self, name, index):
+        """Field *name* (at *index* of `_fields`) as given."""
+        fields = self._fields()
+        native = fields[:2] if name == "center" else fields[index]
+        return _values.given(self, name, native)
 
     @property
     def center(self):
         """The center of the wedge."""
-        return self._fields()[:2]
+        return self._given("center", 0)
 
     @property
     def r(self):
         """The radius of the wedge."""
-        return self._fields()[2]
+        return self._given("r", 2)
 
     @property
     def theta1(self):
         """The start angle in degrees."""
-        return self._fields()[3]
+        return self._given("theta1", 3)
 
     @property
     def theta2(self):
         """The end angle in degrees."""
-        return self._fields()[4]
+        return self._given("theta2", 4)
 
     @property
     def width(self):
         """The ring width, or None for a full wedge."""
-        return self._fields()[5]
+        return self._given("width", 5)
 
     def set_center(self, center):
         """Set the center of the wedge."""
@@ -1093,6 +1135,8 @@ class CirclePolygon(RegularPolygon):
         """
         self._native = _patches.new_circle_polygon(
             (float(xy[0]), float(xy[1])), float(radius), int(resolution))
+        _values.remember_all(self, {"xy": xy, "radius": radius, "orientation": 0},
+                             ("xy", "radius", "orientation"))
         Patch.__init__(self, **kwargs)
 
     def _fields(self):
@@ -1126,15 +1170,35 @@ class Ellipse(Patch):
         angle : float, default: 0
             Rotation in degrees anti-clockwise.
         """
-        self._native = _patches.new_ellipse(
-            (float(xy[0]), float(xy[1])), (float(width), float(height)),
-            float(angle))
+        center, size = self._native_geometry(xy, width, height)
+        self._native = _patches.new_ellipse(center, size, float(angle))
         _values.remember_all(self, {"center": xy, "width": width, "height": height,
                                     "angle": angle}, self._GIVEN)
         super().__init__(**kwargs)
 
     #: The geometry matplotlib keeps as given.
     _GIVEN = ("center", "width", "height", "angle")
+
+    def _native_geometry(self, xy, width, height):
+        """The centre and size of the ellipse as numbers; values in units
+        (``basic_units``' ``TaggedValue``) convert once the ellipse joins an
+        Axes, as matplotlib converts them when it draws."""
+        values = (xy[0], xy[1], width, height)
+        if all(units._is_natively_supported(v) for v in values):
+            return (float(xy[0]), float(xy[1])), (float(width), float(height))
+        self._unit_geometry = values
+        return (0., 0.), (0., 0.)
+
+    def _convert_units_for(self, axes):
+        values = self.__dict__.pop("_unit_geometry", None)
+        if values is None:
+            return
+        x, y, width, height = values
+        # matplotlib converts the width and height as coordinates too.
+        self._set_fields(center=(float(axes.convert_xunits(x)),
+                                 float(axes.convert_yunits(y))),
+                         width=float(axes.convert_xunits(width)),
+                         height=float(axes.convert_yunits(height)))
 
     def _fields(self):
         """``(x, y, width, height, angle)``."""
@@ -1264,6 +1328,8 @@ class Annulus(Patch):
         self._native = _patches.new_annulus(
             (float(xy[0]), float(xy[1])), _annulus_radii(r), float(width),
             float(angle))
+        _values.remember_all(self, {"center": xy, "width": width, "angle": angle},
+                             ("center", "width", "angle"))
         super().__init__(**kwargs)
 
     def __str__(self):
@@ -1288,10 +1354,11 @@ class Annulus(Patch):
         xy : (float, float)
         """
         self._set(center=(float(xy[0]), float(xy[1])))
+        _values.remember(self, "center", xy)
 
     def get_center(self):
         """Return the center of the annulus."""
-        return _patches.annulus(self._native)[0]
+        return _values.given(self, "center", _patches.annulus(self._native)[0])
 
     center = property(get_center, set_center)
 
@@ -1306,10 +1373,11 @@ class Annulus(Patch):
         width : float
         """
         self._set(width=float(width))
+        _values.remember(self, "width", width)
 
     def get_width(self):
         """Return the width (thickness) of the annulus ring."""
-        return _patches.annulus(self._native)[2]
+        return _values.given(self, "width", _patches.annulus(self._native)[2])
 
     width = property(get_width, set_width)
 
@@ -1322,10 +1390,11 @@ class Annulus(Patch):
         angle : float
         """
         self._set(angle=float(angle))
+        _values.remember(self, "angle", angle)
 
     def get_angle(self):
         """Return the angle of the annulus."""
-        return _patches.annulus(self._native)[3]
+        return _values.given(self, "angle", _patches.annulus(self._native)[3])
 
     angle = property(get_angle, set_angle)
 
@@ -1385,6 +1454,7 @@ def _annulus_radii(r):
     raise ValueError("Parameter 'r' must be one or two floats.")
 
 
+@_mirrors.mirrorable
 class Circle(Ellipse):
     """A circle patch."""
 
@@ -1398,6 +1468,9 @@ class Circle(Ellipse):
         Create a true circle at center *xy* = (*x*, *y*) with given *radius*.
         """
         self._native = _patches.new_circle((float(xy[0]), float(xy[1])), float(radius))
+        # matplotlib's circle is an ellipse of that width and height.
+        _values.remember_all(self, {"center": xy, "width": radius * 2,
+                                    "height": radius * 2, "angle": 0}, self._GIVEN)
         Patch.__init__(self, **kwargs)
 
     def _fields(self):
@@ -1406,10 +1479,13 @@ class Circle(Ellipse):
 
     def _set_fields(self, center=None, width=None, height=None, angle=None):
         x, y, r = _patches.circle(self._native)
+        given = {"center": center, "width": width, "height": width}
         center = (x, y) if center is None else center
         radius = r if width is None else width / 2
         _patches.set_circle(self._native, (float(center[0]), float(center[1])),
                             float(radius))
+        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
+                             self._GIVEN)
 
     def set_radius(self, radius):
         """Set the radius of the circle."""
@@ -1455,9 +1531,12 @@ class Arc(Ellipse):
         fill = kwargs.setdefault('fill', False)
         if fill:
             raise ValueError("Arc objects cannot be filled")
-        self._native = _patches.new_arc(
-            (float(xy[0]), float(xy[1])), (float(width), float(height)),
-            float(angle), (float(theta1), float(theta2)))
+        center, size = self._native_geometry(xy, width, height)
+        self._native = _patches.new_arc(center, size, float(angle),
+                                        (float(theta1), float(theta2)))
+        _values.remember_all(self, {"center": xy, "width": width, "height": height,
+                                    "angle": angle, "theta1": theta1, "theta2": theta2},
+                             self._GIVEN + ("theta1", "theta2"))
         Patch.__init__(self, **kwargs)
 
     def _fields(self):
@@ -1466,21 +1545,24 @@ class Arc(Ellipse):
 
     def _set_fields(self, center=None, width=None, height=None, angle=None):
         x, y, w, h, a = self._fields()
+        given = {"center": center, "width": width, "height": height, "angle": angle}
         center = (x, y) if center is None else center
         _patches.set_arc(self._native, (float(center[0]), float(center[1])),
                          float(w if width is None else width),
                          float(h if height is None else height),
                          float(a if angle is None else angle))
+        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
+                             self._GIVEN)
 
     @property
     def theta1(self):
         """The start angle of the arc in degrees."""
-        return _patches.arc(self._native)[1][1]
+        return _values.given(self, "theta1", _patches.arc(self._native)[1][1])
 
     @property
     def theta2(self):
         """The end angle of the arc in degrees."""
-        return _patches.arc(self._native)[1][2]
+        return _values.given(self, "theta2", _patches.arc(self._native)[1][2])
 
     _computed = Ellipse._computed + ("theta1", "theta2")
 
@@ -1532,6 +1614,8 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
             _native_spec(boxstyle, BoxStyle),
             (float(mutation_scale),
              1. if mutation_aspect is None else float(mutation_aspect)))
+        _values.remember_all(self, {"x": xy[0], "y": xy[1], "width": width,
+                                    "height": height}, ("x", "y", "width", "height"))
         super().__init__(**kwargs)
         self.set_boxstyle(boxstyle)
         self._keep_mutation(mutation_scale, mutation_aspect)
@@ -1595,22 +1679,25 @@ class FancyBboxPatch(FancyStylesMixin, Patch):
             (float(x0 if x is None else x), float(y0 if y is None else y)),
             float(w0 if width is None else width),
             float(h0 if height is None else height))
+        given = {"x": x, "y": y, "width": width, "height": height}
+        _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
+                             tuple(given))
 
     def get_x(self):
         """Return the left coord of the rectangle."""
-        return self._x
+        return _values.given(self, "x", self._x)
 
     def get_y(self):
         """Return the bottom coord of the rectangle."""
-        return self._y
+        return _values.given(self, "y", self._y)
 
     def get_width(self):
         """Return the width of the rectangle."""
-        return self._width
+        return _values.given(self, "width", self._width)
 
     def get_height(self):
         """Return the height of the rectangle."""
-        return self._height
+        return _values.given(self, "height", self._height)
 
     def set_x(self, x):
         """Set the left coord of the rectangle."""
@@ -1650,6 +1737,10 @@ class FancyArrowPatch(FancyStylesMixin, Patch):
     It draws an arrow using the `ArrowStyle`. It is primarily used by the
     `~.axes.Axes.annotate` method.
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     _edge_default = True
     #: The patches clipping the start and the end (none for an arrow made
@@ -1987,6 +2078,10 @@ class Shadow(Patch):
     A shadow of a patch: its outline, offset and painted in a darker shade
     of its face colour, half transparent, just below it.
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
 
     def __str__(self):
         return f"Shadow({self.patch})"

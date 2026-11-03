@@ -27,7 +27,7 @@ from ..colors import to_rgba
 from .._native import backends as _backends, text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
 from ..backend_bases import (
-    _Backend, _write_bytes, DrawEvent, FigureCanvasBase, FigureManagerBase,
+    _Backend, _write_bytes, FigureCanvasBase, FigureManagerBase,
     GraphicsContextBase)
 from ..dates import UTC
 from ..figure import Figure
@@ -1215,12 +1215,10 @@ class FigureCanvasPdf(FigureCanvasBase):
                 with self._program_drawing(bbox_inches_restore):
                     _backends.pdf_pages_savefig(
                         filename._ensure_file()._native, self.figure._native,
-                        self._print_settings(**settings))
+                        self._print_settings(**settings), self._send_draw_event)
             else:
                 self._print_native("pdf", filename,
                                    metadata=_native_info(metadata), **settings)
-        if isinstance(filename, PdfPages):
-            DrawEvent("draw_event", self, None)._process()
 
 
 FigureManagerPdf = FigureManagerBase

@@ -11,13 +11,15 @@ use pltrs_render::GraphicsContext;
 use super::handles::LabelDirection;
 use super::helper::{AxisHelper, GONE, HelperContext};
 use super::labels::{
-    LabelKind, LabelState, PlacedTickLabels, TextStyle, axis_label, offset_text, tick_labels,
+    LabelKind, LabelState, PlacedTickLabels, TextLook, TextStyle, axis_label, offset_text,
+    tick_labels,
 };
 use super::line::LineState;
 use super::ticks::{TicksState, tick_info};
 use crate::artist::{Artist, ArtistBase, ArtistId, ClipPathSpec, DrawContext, LayoutContext};
 use crate::axes::axis_draw::draw_text;
 use crate::axes::{AxesState, PlacedText};
+use crate::fonts::FontProperties;
 use crate::patches::{DisplayPath, paint_paths};
 use crate::rc::RcParams;
 use crate::spines::SpineSide;
@@ -159,12 +161,14 @@ impl AxisArtistState {
                 rc.ytick_labelsize,
             ),
         };
-        let tick_font = (labelsize.to_points(rc.font_size), rc.font_weight);
+        let look = |weight| TextLook::new(FontProperties::from_rc(&rc).with_weight(weight));
+        let tick_font = (labelsize.to_points(rc.font_size), look(rc.font_weight));
         let label_font = (
             rc.axes_labelsize.to_points(rc.font_size),
-            rc.axes_labelweight,
+            look(rc.axes_labelweight),
         );
-        let tick_labels = |pad| LabelState::new(LabelKind::TickLabels, direction, pad, tick_font);
+        let tick_labels =
+            |pad| LabelState::new(LabelKind::TickLabels, direction, pad, tick_font.clone());
         let mut artist = Self {
             base: ArtistBase::with_zorder(ZORDER),
             name: name.to_owned(),

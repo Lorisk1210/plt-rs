@@ -4,21 +4,65 @@
 //! (Rust) their whole description whenever one changes.
 
 use pltrs::axes::Axes;
-use pltrs::axisartist::{AxisTexts, AxisTextsArtist, AxisTextsKind};
+use pltrs::axisartist::{AxisTexts, AxisTextsArtist, AxisTextsKind, TextLook};
 use pltrs::colors::Color;
-use pltrs::fonts::FontWeight;
-use pltrs::text::{HAlign, VAlign};
+use pltrs::text::{HAlign, LineSpacing, VAlign};
 use pltrs::transforms::Point;
 
 use super::super::axes_grid1::side_named;
+use super::super::font_manager::FontProps;
+use super::super::text::rotation_mode_name;
 use crate::binding::prelude::*;
 
 artist_handle!(AxisTextsArtist);
 
+/// How texts are typeset beyond their size, colour, angle and alignment
+/// ([`TextLook`]), crossing as the tuple of the font properties (as
+/// `FontManager._props` makes them), the alignment of the lines (`None`
+/// follows the texts'), the line spacing (`None` for `normal`) and the
+/// rotation mode, both ways.
+pub(super) struct PyTextLook(pub(super) TextLook);
+
+impl FromPy<'_> for PyTextLook {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let (font, multialign, linespacing, rotation_mode): (
+            FontProps,
+            Option<String>,
+            Option<f64>,
+            String,
+        ) = object.extract()?;
+        Ok(Self(TextLook {
+            font: font.0,
+            multialign: multialign
+                .map(|name| named::<HAlign>(&name, "alignment"))
+                .transpose()?,
+            linespacing: linespacing.map_or(LineSpacing::Normal, LineSpacing::Factor),
+            rotation_mode: named(&rotation_mode, "rotation mode")?,
+        }))
+    }
+}
+
+impl IntoPy for PyTextLook {
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        let look = self.0;
+        let linespacing = match look.linespacing {
+            LineSpacing::Normal => None,
+            LineSpacing::Factor(factor) => Some(factor),
+        };
+        (
+            FontProps(look.font),
+            look.multialign.map(HAlign::name),
+            linespacing,
+            rotation_mode_name(look.rotation_mode),
+        )
+            .into_py(py)
+    }
+}
+
 /// The look of the texts as Python describes it: the pad, the colour,
-/// the font size and weight, the rotation, the vertical and horizontal
-/// alignment and the axis direction.
-type Style = (f64, Color, f64, String, f64, (String, String), String);
+/// the font size, the rest of their typesetting, the rotation, the
+/// vertical and horizontal alignment and the axis direction.
+type Style = (f64, Color, f64, PyTextLook, f64, (String, String), String);
 
 /// The texts as Python describes them: their kind (`"label"`,
 /// `"axislabel"` or `"ticklabels"`), the distance of a `"label"` in
@@ -38,7 +82,7 @@ fn named<T: std::str::FromStr>(name: &str, what: &str) -> PyResult<T> {
 impl FromPy<'_> for PyAxisTexts {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         let (kind, radius, texts, style): Description = object.extract()?;
-        let (pad, color, size, weight, rotation, (valign, halign), direction) = style;
+        let (pad, color, size, look, rotation, (valign, halign), direction) = style;
         let kind = match kind.as_str() {
             "label" => AxisTextsKind::Label { radius },
             "axislabel" => AxisTextsKind::AxisLabel,
@@ -54,7 +98,7 @@ impl FromPy<'_> for PyAxisTexts {
             pad,
             color,
             size,
-            weight: named::<FontWeight>(&weight, "weight")?,
+            look: look.0,
             rotation,
             valign: named::<VAlign>(&valign, "alignment")?,
             halign: named::<HAlign>(&halign, "alignment")?,
@@ -127,13 +171,19 @@ mod tests {
     use crate::binding::testing::{eval, with_python};
     use pltrs::figure::Figure;
 
+    /// A look of texts as Python describes it.
+    const LOOK: &str = "look = ((['serif'], ('italic', 'normal'), ('bold', 'normal', 10.0), \
+                        ('dejavusans', None)), 'right', 1.5, 'anchor')";
+
     #[test]
     fn descriptions_cross_whole() {
         with_python(|py| {
             let description = eval(
                 py,
-                "d = ('ticklabels', 0.0, [((0.2, 0.5), -90.0, '0.2')], \
-                 (10.0, 'black', 10.0, 'normal', 90.0, ('center', 'right'), 'left'))",
+                &format!(
+                    "{LOOK}; d = ('ticklabels', 0.0, [((0.2, 0.5), -90.0, '0.2')], \
+                     (10.0, 'black', 10.0, look, 90.0, ('center', 'right'), 'left'))"
+                ),
                 "d",
             );
             let texts = PyAxisTexts::from_py(&description).expect("a description").0;
@@ -142,6 +192,14 @@ mod tests {
                 (texts.valign, texts.halign),
                 (VAlign::Center, HAlign::Right)
             );
+            assert_eq!(texts.look.font.families, ["serif"]);
+            assert_eq!(
+                (texts.look.multialign, texts.look.linespacing),
+                (Some(HAlign::Right), LineSpacing::Factor(1.5))
+            );
+            let back = PyTextLook(texts.look.clone()).into_py(py).expect("a tuple");
+            let again = PyTextLook::from_py(&back).expect("the same look").0;
+            assert_eq!(again, texts.look);
             let ax = Figure::new().subplot();
             let artist = add_axis_texts(ax, PyAxisTexts(texts.clone())).expect("added");
             set_axis_texts(artist.clone(), PyAxisTexts(AxisTexts { pad: 4.0, ..texts }))
@@ -149,7 +207,9 @@ mod tests {
             assert_eq!(artist.texts().pad, 4.0);
             let bad = eval(
                 py,
-                "b = ('nonsense', 0.0, [], (1.0, 'k', 1.0, 'normal', 0.0, ('top', 'left'), 'left'))",
+                &format!(
+                    "{LOOK}; b = ('nonsense', 0.0, [], (1.0, 'k', 1.0, look, 0.0, ('top', 'left'), 'left'))"
+                ),
                 "b",
             );
             assert!(PyAxisTexts::from_py(&bad).is_err());

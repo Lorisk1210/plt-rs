@@ -35,7 +35,11 @@ impl AxesState {
         fresh.navigate = self.navigate;
         fresh.forward_navigation = self.forward_navigation;
         fresh.fmt_data.clone_from(&self.fmt_data);
-        fresh.patch.facecolor = self.patch.facecolor.clone();
+        fresh
+            .patch
+            .style
+            .facecolor
+            .clone_from(&self.patch.style.facecolor);
         fresh.decorations.frame_on = self.decorations.frame_on;
         fresh.axisbelow = self.axisbelow;
         for name in [AxisName::X, AxisName::Y] {

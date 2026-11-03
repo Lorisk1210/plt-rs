@@ -13,7 +13,7 @@ and `InvertedPolarTransform`, which matplotlib code uses on their own
 import numpy as np
 
 from .. import _api, _tick_helpers, cbook, ticker as mticker
-from .. import transforms as mtransforms
+from .. import patches as mpatches, transforms as mtransforms
 from .._native import axis as _axis, polar as _polar
 from ..axes import Axes
 from ..axis import XAxis, XTick, YAxis, YTick
@@ -507,6 +507,11 @@ class PolarAxes(PolarTrees, Axes):
 
     Theta starts pointing east and goes anti-clockwise.
     """
+
+    # matplotlib's draw of the class is not decorated with
+    # `allow_rasterization`: asking to rasterize it warns.
+    _ignores_rasterization = True
+
     name = 'polar'
 
     @classmethod
@@ -515,6 +520,10 @@ class PolarAxes(PolarTrees, Axes):
         ax.xaxis = ThetaAxis(ax)
         ax.yaxis = RadialAxis(ax)
         return ax
+
+    def _gen_axes_patch(self):
+        # docstring inherited
+        return mpatches.Wedge((0.5, 0.5), 0.5, 0.0, 360.0)
 
     def format_coord(self, theta, r):
         # docstring inherited
@@ -526,7 +535,7 @@ class PolarAxes(PolarTrees, Axes):
 
     def get_thetamax(self):
         """Return the maximum theta limit in degrees."""
-        return _polar.get_thetalim(self._native)[1]
+        return np.float64(_polar.get_thetalim(self._native)[1])
 
     def set_thetamin(self, thetamin):
         """Set the minimum theta limit in degrees."""
@@ -534,7 +543,7 @@ class PolarAxes(PolarTrees, Axes):
 
     def get_thetamin(self):
         """Get the minimum theta limit in degrees."""
-        return _polar.get_thetalim(self._native)[0]
+        return np.float64(_polar.get_thetalim(self._native)[0])
 
     def set_thetalim(self, *args, **kwargs):
         r"""
@@ -575,7 +584,7 @@ class PolarAxes(PolarTrees, Axes):
         """
         Get the offset for the location of 0 in radians.
         """
-        return _polar.get_theta_offset(self._native)
+        return np.float64(_polar.get_theta_offset(self._native))
 
     def set_theta_zero_location(self, loc, offset=0.0):
         """
@@ -621,7 +630,7 @@ class PolarAxes(PolarTrees, Axes):
         1:
            Theta increases in the counterclockwise direction
         """
-        return _polar.get_theta_direction(self._native)
+        return np.float64(_polar.get_theta_direction(self._native))
 
     def set_rmax(self, rmax):
         """
@@ -640,7 +649,7 @@ class PolarAxes(PolarTrees, Axes):
         float
             Outer radial limit.
         """
-        return _polar.get_rlim(self._native)[1]
+        return np.float64(_polar.get_rlim(self._native)[1])
 
     def set_rmin(self, rmin):
         """
@@ -659,7 +668,7 @@ class PolarAxes(PolarTrees, Axes):
         float
             The inner radial limit.
         """
-        return _polar.get_rlim(self._native)[0]
+        return np.float64(_polar.get_rlim(self._native)[0])
 
     def set_rorigin(self, rorigin):
         """
@@ -677,7 +686,7 @@ class PolarAxes(PolarTrees, Axes):
         -------
         float
         """
-        return _polar.get_rorigin(self._native)
+        return np.float64(_polar.get_rorigin(self._native))
 
     def get_rsign(self):
         """The sign of the radial direction: 1 outwards, -1 inwards."""
@@ -716,7 +725,7 @@ class PolarAxes(PolarTrees, Axes):
         float
             The theta position of the radius labels in degrees.
         """
-        return _polar.get_rlabel_position(self._native)
+        return np.float64(_polar.get_rlabel_position(self._native))
 
     def set_rlabel_position(self, value):
         """

@@ -1,7 +1,8 @@
 """
 The frame of a figure or subfigure (matplotlib's ``FigureBase``
 ``get_edgecolor``, ``set_linewidth``, ``frameon``, ...): its background
-patch, which pltrs (Rust) draws as part of the (sub)figure (`.FigurePatch`).
+patch, which pltrs (Rust) draws as part of the (sub)figure (see
+`._background_patch`).
 """
 
 

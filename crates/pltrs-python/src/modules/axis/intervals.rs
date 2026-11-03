@@ -8,6 +8,7 @@ use pltrs::axes::Axes;
 use pltrs::ticker::AxisInfo;
 
 use super::axis;
+use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::prelude::*;
 
 /// The view limits, in the order they were set.
@@ -45,9 +46,12 @@ fn get_tick_space(axes: Axes, name: String) -> PyResult<usize> {
 }
 
 /// What the helpers of axis `name` know of it (see
-/// [`pltrs::axes::Axis::info`]).
-fn axis_info(axes: Axes, name: String) -> PyResult<AxisInfo> {
-    Ok(axis(&axes, &name)?.info()?)
+/// [`pltrs::axes::Axis::info`] and [`pltrs::mplot3d::Axis3D::info`]).
+fn axis_info(owner: AxisOwner, name: String) -> PyResult<AxisInfo> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.info()?,
+        AnyAxis::Deep(axis) => axis.info()?,
+    })
 }
 
 /// The fields of an axis description: view and data intervals, smallest
@@ -96,7 +100,7 @@ mod tests {
             (1.0, 3.0)
         );
         assert!(get_tick_space(ax.clone(), "x".into()).unwrap() > 0);
-        let info = axis_info(ax, "x".into()).unwrap();
+        let info = axis_info(AxisOwner::Flat(ax), "x".into()).unwrap();
         let (view, _, _, _, major) = info_fields(info).unwrap();
         assert_eq!(view, (2.0, -1.0));
         assert_ne!(major.into_vec().unwrap(), [] as [f64; 0]);

@@ -63,6 +63,11 @@ class ClearMixin:
                 artist._figure = None
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)
+        # A new background patch in the Axes' face colour, as matplotlib's
+        # clear makes one.
+        self.__dict__.pop("_patch", None)
+        if "_facecolor" in self.__dict__:
+            self.patch.set_facecolor(self._facecolor)
 
     def clear(self):
         """Clear the Axes."""

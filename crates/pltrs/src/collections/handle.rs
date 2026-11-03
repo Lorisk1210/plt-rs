@@ -49,6 +49,21 @@ pub struct Collection {
 
 pltrs_core::archive_struct!(Collection { raw });
 
+/// The colours of `faces_and_edges` with the hatch colours they give.
+fn with_hatches(
+    c: &CollectionArtist,
+    faces_and_edges: Result<(Vec<Rgba>, Vec<Rgba>), String>,
+) -> Result<CollectionColors, CollectionColorError> {
+    let (faces, edges) = faces_and_edges.map_err(CollectionColorError)?;
+    let hatches = style::resolve_hatch_colors(c, &edges)
+        .map_err(|err| CollectionColorError(err.to_string()))?;
+    Ok(CollectionColors {
+        faces,
+        edges,
+        hatches,
+    })
+}
+
 impl ArtistHandle for Collection {
     fn raw(&self) -> &RawHandle {
         &self.raw
@@ -80,30 +95,37 @@ impl Collection {
 
     /// Sets one face colour for every item.
     pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
-        let color = color.into();
-        self.update(|c| c.facecolors = Some(vec![color]))
+        self.set_facecolors(vec![color.into()])
     }
 
     /// Sets per-item face colours (cycled).
     pub fn set_facecolors(&self, colors: Vec<Color>) -> &Self {
-        self.update(|c| c.facecolors = Some(colors))
+        self.update(|c| {
+            c.facecolors = Some(colors);
+            c.unmap_faces();
+        })
     }
 
     /// Gives the items their kind's default face colour again, which a
     /// colour mapping overrides (matplotlib's `set_facecolor(None)`).
     pub fn reset_facecolor(&self) -> &Self {
-        self.update(|c| c.facecolors = None)
+        self.update(|c| {
+            c.facecolors = None;
+            c.unmap_faces();
+        })
     }
 
     /// Sets the edge colours.
     pub fn set_edgecolors(&self, edges: EdgeColors) -> &Self {
-        self.update(|c| c.edgecolors = edges)
+        self.update(|c| {
+            c.edgecolors = edges;
+            c.unmap_edges();
+        })
     }
 
     /// Sets one edge colour for every item.
     pub fn set_edgecolor(&self, color: impl Into<Color>) -> &Self {
-        let color = color.into();
-        self.update(|c| c.edgecolors = EdgeColors::Colors(vec![color]))
+        self.set_edgecolors(EdgeColors::Colors(vec![color.into()]))
     }
 
     /// Sets the edge widths in points (cycled).
@@ -119,7 +141,11 @@ impl Collection {
     /// Sets one opacity per item (matplotlib's `set_alpha` with an array):
     /// the faces and edges take them, a single colour repeated for each.
     pub fn set_alphas(&self, alphas: Vec<f64>) -> &Self {
-        self.update(|c| c.alphas = Some(alphas))
+        self.update(|c| {
+            c.alphas = Some(alphas);
+            c.unmap_faces();
+            c.unmap_edges();
+        })
     }
 
     /// Sets per-item antialiasing (cycled).
@@ -387,16 +413,57 @@ impl Collection {
     ///
     /// When a colour is invalid or the norm cannot map the values.
     pub fn colors(&self) -> Result<CollectionColors, CollectionColorError> {
+        self.raw
+            .with::<CollectionArtist, _>(|c| with_hatches(c, c.resolved_colors()))
+    }
+
+    /// The colours of the items as matplotlib's `get_facecolor`,
+    /// `get_edgecolor` and `get_hatchcolor` report them: the colours as set
+    /// until a draw maps the values onto them (matplotlib's
+    /// `update_scalarmappable`), and the mapped colours from then on, until
+    /// the faces' or edges' colours or the alpha are set again; without a
+    /// colour mapping, [`Collection::colors`].
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let dots = fig.subplot().scatter(vec![1.0, 2.0], vec![3.0, 4.0])?;
+    /// dots.set_array(vec![Some(0.0), Some(1.0)])?;
+    /// assert_eq!(dots.reported_colors()?.faces.len(), 1, "the default colour");
+    /// dots.update_scalarmappable();
+    /// assert_eq!(dots.reported_colors()?.faces.len(), 2, "mapped");
+    /// dots.set_facecolor(Color::from("red"));
+    /// assert_eq!(dots.reported_colors()?.faces.len(), 1, "as set");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a colour is invalid or the norm cannot map the values.
+    pub fn reported_colors(&self) -> Result<CollectionColors, CollectionColorError> {
+        self.raw
+            .with::<CollectionArtist, _>(|c| with_hatches(c, c.reported_colors()))
+    }
+
+    /// Maps the values onto the faces and edges the colour mapping colours,
+    /// as a draw does, for [`Collection::reported_colors`] (matplotlib's
+    /// `update_scalarmappable`).
+    pub fn update_scalarmappable(&self) -> &Self {
+        self.raw
+            .with::<CollectionArtist, _>(CollectionArtist::update_scalarmappable);
+        self
+    }
+
+    /// Sets (or clears) the opacity of every item, and the colours as set
+    /// again for [`Collection::reported_colors`] (matplotlib's
+    /// `Collection.set_alpha` with a single value).
+    pub fn set_uniform_alpha(&self, alpha: Option<f64>) -> &Self {
+        self.set_alpha(alpha);
         self.raw.with::<CollectionArtist, _>(|c| {
-            let (faces, edges) = c.resolved_colors().map_err(CollectionColorError)?;
-            let hatches = style::resolve_hatch_colors(c, &edges)
-                .map_err(|err| CollectionColorError(err.to_string()))?;
-            Ok(CollectionColors {
-                faces,
-                edges,
-                hatches,
-            })
-        })
+            c.unmap_faces();
+            c.unmap_edges();
+        });
+        self
     }
 
     /// The item offsets.

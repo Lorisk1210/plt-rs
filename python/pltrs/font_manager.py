@@ -1090,12 +1090,16 @@ class FontManager:
         your operating system. See the `FontManager` singleton instance for
         usage and caveats about this function.
         """
-        # Convert to string in case of a path as FT2Font expects this.
+        # Convert to string in case of a path as
+        # afmFontProperty and FT2Font expect this
         path = os.fsdecode(path)
         if Path(path).suffix.lower() == ".afm":
-            raise NotImplementedError(
-                "pltrs: addfont of an AFM file (pltrs matches the AFM "
-                "metrics of the PostScript core fonts only)")
+            from . import _afm
+            with open(path, "rb") as fh:
+                font = _afm.AFM(fh)
+            self.afmlist.append(afmFontProperty(path, font))
+            self._findfont_cached.cache_clear()
+            return
         font = ft2font.FT2Font(path)
         prop = ttfFontProperty(font)
         self.ttflist.append(prop)
@@ -1301,6 +1305,7 @@ class FontManager:
             afm_directory = _afm_directory(directory)
             best = (None if afm_directory is False else
                     _font_manager.best_afm_font(self._props(prop), afm_directory))
+            best = self._best_added_afm(prop, directory, best)
         else:
             best = _font_manager.best_font(
                 self._props(prop), directory, cbook._get_data_path('fonts', 'ttf'))
@@ -1332,6 +1337,34 @@ class FontManager:
                 f"Failed to find font {prop}, and fallback to the default font was "
                 f"disabled")
         return FontPath(_data_font_path(fname, fontext), index)
+
+    def _best_added_afm(self, prop, directory, best):
+        """
+        *best* (pltrs (Rust)'s best bundled AFM font for *prop* and its
+        score, or None), or the AFM font `addfont` added that *prop*
+        matches better: matplotlib scores the fonts of ``afmlist`` in
+        order, the bundled ones first, keeping the first best one.
+        """
+        bundled = Path(cbook._get_data_path('fonts')).resolve()
+        best_score = 1e64 if best is None else best[1]
+        for font in self.afmlist:
+            parents = Path(font.fname).resolve().parents
+            if bundled in parents or (
+                    directory is not None
+                    and Path(directory).resolve() not in parents):
+                continue
+            score = (self.score_family(prop.get_family(), font.name) * 10
+                     + self.score_style(prop.get_style(), font.style)
+                     + self.score_variant(prop.get_variant(), font.variant)
+                     + self.score_weight(prop.get_weight(), font.weight)
+                     + self.score_stretch(prop.get_stretch(), font.stretch)
+                     + self.score_size(prop.get_size(), font.size))
+            if score < best_score:
+                best_score = score
+                best = ((font.fname, font.index, font.name,
+                         (font.style, font.variant, str(font.weight),
+                          font.stretch)), score)
+        return best
 
     @staticmethod
     def _expand_aliases(family):

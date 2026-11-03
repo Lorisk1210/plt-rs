@@ -125,13 +125,28 @@ impl Bbox {
     /// orientation (matplotlib's `TransformedBbox`).
     #[must_use]
     pub fn transformed_enclosing(&self, t: &Affine2D) -> Self {
+        self.mapped_enclosing(|p| t.transform_point(p))
+    }
+
+    /// The box enclosing all four corners mapped by `map`, keeping the
+    /// input's orientation (matplotlib's `TransformedBbox` through any
+    /// transform, which maps only the corners).
+    ///
+    /// ```
+    /// use pltrs_core::{Bbox, Point};
+    /// let squared = Bbox::from_extents(1.0, 2.0, 3.0, 4.0)
+    ///     .mapped_enclosing(|p| Point::new(p.x * p.x, p.y * p.y));
+    /// assert_eq!(squared, Bbox::from_extents(1.0, 4.0, 9.0, 16.0));
+    /// ```
+    #[must_use]
+    pub fn mapped_enclosing(&self, map: impl Fn(Point) -> Point) -> Self {
         let corners = [
             self.p0,
             Point::new(self.p1.x, self.p0.y),
             Point::new(self.p0.x, self.p1.y),
             self.p1,
         ]
-        .map(|p| t.transform_point(p));
+        .map(map);
         // Python's builtin `min` and `max` of the corners, so a NaN
         // behaves according to its position.
         let span = |coord: fn(&Point) -> f64, flip: bool| {

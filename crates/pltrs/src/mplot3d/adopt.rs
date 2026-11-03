@@ -10,7 +10,7 @@ use super::error::{Axes3DError, check_len};
 use super::handle::Axes3D;
 use super::lift::patch_positions;
 use super::math::Vec3;
-use crate::artist::{ArtistHandle, ArtistLookup, RawHandle};
+use crate::artist::{ArtistHandle, ArtistLookup, AttachError, RawHandle};
 use crate::axes::AddAs;
 use crate::collections::{Collection, CollectionArtist};
 
@@ -96,6 +96,12 @@ impl Axes3D {
         autolim: bool,
         axlim_clip: bool,
     ) -> Result<Collection, Axes3DError> {
+        let in_figure = Rc::ptr_eq(self.raw().figure_state(), collection.figure_state())
+            && (collection.figure_state().borrow()).is_attached(collection.id());
+        if in_figure {
+            // Its 3-D geometry is the one it was added with.
+            return Err(AttachError::NotRemoved.into());
+        }
         let had_data = self.has_data();
         let points = geometry.points();
         // matplotlib leaves the limits alone for patch collections.

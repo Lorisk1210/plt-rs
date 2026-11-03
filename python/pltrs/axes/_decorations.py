@@ -5,88 +5,8 @@ blended transforms of its axes (``get_xaxis_transform``): pltrs (Rust)
 keeps them (``_native.axes_base``).
 """
 
-from .. import _api
-from .._background_patch import BackgroundPatch
+from .. import _api, _background_patch
 from .._native import axes_base as _axes_base
-
-
-class AxesPatch(BackgroundPatch):
-    """
-    The background of an Axes (matplotlib's ``Axes.patch``, a unit
-    `.Rectangle` in axes coordinates): pltrs (Rust) draws it as part of the
-    axes, so this object reads and sets the axes' background properties.
-    """
-
-    def __init__(self, axes):
-        super().__init__()
-        self.axes = axes
-
-    def get_figure(self, root=False):
-        """Return the figure of the Axes."""
-        return self.axes.get_figure(root=root)
-
-    def get_transform(self):
-        """Return the transform of the unit square: ``axes.transAxes``."""
-        return self.axes.transAxes
-
-    def get_visible(self):
-        """Return whether the background is drawn."""
-        return _axes_base.get_patch_visible(self.axes._native)
-
-    def set_visible(self, b):
-        """Set whether the background is drawn."""
-        _axes_base.set_patch_visible(self.axes._native, bool(b))
-
-    def get_facecolor(self):
-        """Return the face color of the background."""
-        return self.axes.get_facecolor()
-
-    def _set_facecolor(self, color):
-        self.axes.set_facecolor(color)
-
-    def get_edgecolor(self):
-        """Return the edge color of the background."""
-        return _axes_base.get_patch_edgecolor(self.axes._native)
-
-    def _set_edgecolor(self, color):
-        _axes_base.set_patch_edgecolor(self.axes._native, color)
-
-    def get_linewidth(self):
-        """Return the line width of the background's edge in points."""
-        return _axes_base.get_patch_linewidth(self.axes._native)
-
-    def set_linewidth(self, w):
-        """Set the line width of the background's edge in points."""
-        _axes_base.set_patch_linewidth(self.axes._native, float(w))
-
-    def get_zorder(self):
-        """Return the z-order of the background."""
-        return _axes_base.get_patch_zorder(self.axes._native)
-
-    def set_zorder(self, level):
-        """Set the z-order of the background."""
-        _axes_base.set_patch_zorder(self.axes._native, float(level))
-
-    zorder = property(get_zorder, set_zorder)
-
-    def _get_gid(self):
-        return _axes_base.get_patch_gid(self.axes._native)
-
-    def _set_gid(self, gid):
-        _axes_base.set_patch_gid(self.axes._native, gid)
-
-    def contains_point(self, point, radius=None):
-        """Return whether the display point *point* is in the background."""
-        return self.axes.contains_point(point)
-
-    def contains(self, mouseevent):
-        """Return whether the mouse event occurred in the background."""
-        return self.axes.contains(mouseevent)
-
-    def _clip_spec(self):
-        """The native clip path of artists clipped to the background: the
-        outline of the axes' patch, followed as the axes changes."""
-        return ("artist", self.axes._native)
 
 
 class DecorationsMixin:
@@ -94,11 +14,32 @@ class DecorationsMixin:
 
     @property
     def patch(self):
-        """The background of the Axes (an `AxesPatch`)."""
-        patch = self.__dict__.get("_patch")
-        if patch is None:
-            patch = self.__dict__["_patch"] = AxesPatch(self)
-        return patch
+        """The background of the Axes: the patch `_gen_axes_patch` made,
+        mirroring the background pltrs (Rust) draws (see
+        `._background_patch`)."""
+        return _background_patch.axes_patch(self)
+
+    @patch.setter
+    def patch(self, patch):
+        _background_patch.share_axes_patch(self, patch)
+
+    def _gen_axes_patch(self):
+        """
+        Returns
+        -------
+        Patch
+            The patch used to draw the background of the Axes.  It is also used
+            as the clipping path for any data elements on the Axes.
+
+            In the standard Axes, this is a rectangle, but in other projections
+            it may not be.
+
+        Notes
+        -----
+        Intended to be overridden by new projection types.
+        """
+        from ..patches import Rectangle
+        return Rectangle((0.0, 0.0), 1.0, 1.0)
 
     @property
     def axison(self):

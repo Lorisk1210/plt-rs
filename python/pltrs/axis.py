@@ -39,6 +39,26 @@ _gridline_param_names = [
         "aa", "c", "ds", "ls", "lw", "mec", "mew", "mfc", "mfcalt", "ms")]
 
 
+def _typed_locs(locator, locs, minor):
+    """The tick locations *locs* pltrs (Rust) computed with *locator*, as
+    matplotlib's locator gives them: a `.FixedLocator` placing all its
+    locations gives its array (the minor ones on major ticks left out, in
+    its dtype), a categorical one the list of the category numbers."""
+    from . import ticker as mticker
+    from .category import StrCategoryLocator
+    if isinstance(locator, StrCategoryLocator) and not minor:
+        values = list(locator._units.values())
+        return values if np.array_equal(np.asarray(values, float), locs) else locs
+    if (isinstance(locator, mticker.FixedLocator) and locator.nbins is None
+            and np.issubdtype(locator.locs.dtype, np.number)):
+        given = locator.locs
+        if not minor and np.array_equal(given.astype(float), locs):
+            return given
+        if np.isin(locs, given.astype(float)).all():
+            return np.asarray(locs).astype(given.dtype)
+    return locs
+
+
 def _native_scale_of(scale):
     """The name and options of pltrs (Rust)'s scale matching the scale
     object *scale*, None for a scale of the program's."""
@@ -87,12 +107,34 @@ def _native_converter_kind(converter):
 
 
 def _is_native_converter(converter):
-    """Whether pltrs (Rust) converts what *converter* converts (dates and
-    category names), which None, no converter, stands for too."""
+    """Whether pltrs (Rust) converts what *converter* converts (dates, as
+    :rc:`date.converter` says, and category names), which None, no
+    converter, stands for too. Another date converter (a
+    `.ConciseDateConverter` a program registered) converts as any
+    converter of the program's."""
     from . import category, dates
+    if type(converter) is dates.DateConverter:
+        return converter._interval_multiples
     return converter is None or isinstance(
-        converter, (dates.DateConverter, dates._SwitchableDateConverter,
-                    category.StrCategoryConverter))
+        converter, (dates._SwitchableDateConverter, category.StrCategoryConverter))
+
+
+def _keeps_limit_types(locator):
+    """Whether the limits an axis sets keep the types they were given in
+    under *locator*: matplotlib's date, log and logit locators make them
+    nonsingular without making them floats, as the others do."""
+    from . import dates, ticker
+    return isinstance(locator, (dates.DateLocator, ticker.LogLocator,
+                                ticker.LogitLocator))
+
+
+def _converted_limit(axis, value):
+    """The limit *value* of *axis* as matplotlib keeps it: a plain number
+    as it is, a value in units converted (a numpy scalar)."""
+    if munits._is_natively_supported(value):
+        return value
+    converted = axis.convert_units(value)
+    return np.asarray(converted)[()] if np.ndim(converted) == 0 else converted
 
 
 def _first_value(data):
@@ -267,6 +309,29 @@ class Axis(Artist):
     def axes(self):
         """The `~.axes.Axes` the axis belongs to."""
         return self._axes
+
+    #: The zorder of an axis by the ``axisbelow`` of its Axes (matplotlib's
+    #: ``set_axisbelow`` sets it on the axes of the Axes).
+    _AXISBELOW_ZORDER = {True: 0.5, "line": 1.5, False: 2.5}
+
+    def get_zorder(self):
+        """Return the zorder of the axis: the one set, else the one the
+        ``axisbelow`` of its Axes gives it."""
+        set_ = self.__dict__.get("_zorder_set")
+        if set_ is not None:
+            return set_
+        return self._AXISBELOW_ZORDER[self.axes.get_axisbelow()]
+
+    def set_zorder(self, level):
+        # docstring inherited
+        if level is None:
+            level = type(self).zorder
+        if level != self.get_zorder():
+            self._zorder_set = level
+            self.pchanged()
+            self.stale = True
+
+    zorder = property(get_zorder, set_zorder)
 
     @axes.setter
     def axes(self, axes):
@@ -505,7 +570,8 @@ class Axis(Artist):
         fields = self._drawn_fields()
         if fields is not None:
             return fields[2]
-        return _axis.get_minpos(*self._args())
+        # matplotlib reads it from the data limits, a numpy box.
+        return np.float64(_axis.get_minpos(*self._args()))
 
     def get_tick_space(self):
         """Return the estimated number of ticks that can fit on the axis."""
@@ -585,9 +651,18 @@ class Axis(Artist):
             old0, old1 = getattr(self.axes, f"get_{self.axis_name}lim")()
             v0 = old0 if v0 is None else v0
             v1 = old1 if v1 is None else v1
+        given = [_converted_limit(self, v) for v in (v0, v1)]
         v0, v1 = self._checked_limits(v0, v1)
-        return _axes.set_lim(self.axes._native, self.axis_name, (v0, v1),
-                             None if auto is None else bool(auto), bool(emit))
+        limits = _axes.set_lim(self.axes._native, self.axis_name, (v0, v1),
+                               None if auto is None else bool(auto), bool(emit))
+        if not _keeps_limit_types(self.get_major_locator()):
+            return limits
+        # The limits as matplotlib returns them through these locators: the
+        # numbers given (after their units), numpy floats where the axis
+        # changed them.
+        return tuple(value if np.ndim(value) == 0 and value == limit
+                     else np.float64(limit)
+                     for value, limit in zip(given, limits))
 
     def get_scale(self):
         """Return this Axis' scale (as a str)."""
@@ -774,7 +849,9 @@ class Axis(Artist):
         """
         if self._drawn_info is not None and not minor:
             return self._drawn_fields()[4]
-        return _axis.get_ticklocs(*self._args(), bool(minor))
+        locs = _axis.get_ticklocs(*self._args(), bool(minor))
+        locator = self.get_minor_locator() if minor else self.get_major_locator()
+        return _typed_locs(locator, locs, minor)
 
     def get_majorticklocs(self):
         """Return this Axis' major tick locations in data coordinates."""
@@ -945,6 +1022,10 @@ class Axis(Artist):
             from .axes._plotting._helpers import axis_values
             native = axis_values(ticks)
         _axis.set_ticks(*self._args(), native, bool(minor))
+        if values.dtype.kind in "iub" and values.size:
+            # matplotlib's locator keeps the locations as given (ints).
+            from .ticker import FixedLocator
+            _tick_helpers.adopt(self, FixedLocator(values), "locator", minor)
         if labels is not None:
             self.set_ticklabels(labels, minor=minor, **kwargs)
         get_ticks = self.get_minor_ticks if minor else self.get_major_ticks

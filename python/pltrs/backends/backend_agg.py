@@ -406,8 +406,8 @@ class FigureCanvasAgg(FigureCanvasBase):
         """
         with self.get_renderer()._drawing():
             rgba = _backends.print_rgba(self.figure._native,
-                                        self._print_settings(**kwargs))
-        DrawEvent("draw_event", self, None)._process()
+                                        self._print_settings(**kwargs),
+                                        self._send_draw_event)
         # savefig() has already applied savefig.facecolor; imsave() blends
         # semi-transparent JPEG figures against an assumed white background.
         with (rc_context({"savefig.facecolor": "white"}) if fmt == "jpeg"

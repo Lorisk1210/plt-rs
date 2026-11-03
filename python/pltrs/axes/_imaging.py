@@ -9,7 +9,8 @@ makes the image (``_native.image``).
 
 import PIL.Image
 
-from .. import _api, _handles, _live_transforms, cbook, colorizer as mcolorizer
+from .. import (_api, _handles, _live_transforms, _values, cbook,
+               colorizer as mcolorizer)
 from .. import image as mimage
 from .._native import image as _native_image
 from .._preprocess import _preprocess_data
@@ -82,6 +83,9 @@ class ImagingMixin:
                                       colorizer.cmap, colorizer.norm, spec)
         im = _handles.wrap(native, mimage.AxesImage, self.figure)
         mimage._warn_identical_limits(self, im.get_extent())
+        # The extent as matplotlib's imshow keeps it (``set_extent``).
+        _values.remember(im, "extent", (list(im.get_extent()) if extent is None
+                                        else self._extent_values(extent)))
         im._set_mapped_data(colorizer, A)
         im.set_alpha(alpha)
         im.set_url(url)

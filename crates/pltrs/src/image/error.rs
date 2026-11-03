@@ -92,10 +92,6 @@ pub enum ImageError {
     MultivariateNotSupported(&'static str),
     /// The multivariate norms or colormap cannot map the data.
     Multivar(MultivarError),
-    /// An image whose transform is not affine was asked for at its own
-    /// resolution (`make_image(unsampled=True)`), which needs the affine
-    /// map placing the array.
-    UnsampledNotAffine,
 }
 
 impl fmt::Display for ImageError {
@@ -179,9 +175,6 @@ impl fmt::Display for ImageError {
                 write!(f, "{what} does not support data of several variates")
             }
             Self::Multivar(err) => err.fmt(f),
-            Self::UnsampledNotAffine => {
-                f.write_str("an image whose transform is not affine cannot be made unsampled")
-            }
         }
     }
 }

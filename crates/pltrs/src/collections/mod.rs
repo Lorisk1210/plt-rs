@@ -44,11 +44,13 @@ pub use quad_mesh::MeshShading;
 pub(crate) use spec::Ellipses;
 pub use spec::{CollectionPatch, CollectionSpec, EllipseUnits};
 pub use style::HatchColors;
+use style::MappedSides;
 pub(crate) use trimesh::TriMeshArtist;
 pub use trimesh::{TriMesh, TriMeshError, TriMeshSpec};
 
 use std::any::Any;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -262,6 +264,12 @@ pub(crate) struct CollectionArtist {
     /// collection's own when set.
     pub(crate) depth_sorted: Option<DepthSorted>,
     pub(crate) mapping: Option<Mapped>,
+    /// The sides whose colours matplotlib's getters report as mapped: those
+    /// the mapping coloured at the last draw, until their colours are set
+    /// again (matplotlib keeps the colours as set until
+    /// `update_scalarmappable` maps them, and the mapped ones until the
+    /// next `set_facecolor`, `set_edgecolor` or `set_alpha`).
+    pub(crate) mapped_shown: Cell<MappedSides>,
     /// The norm and colormap of a colour mapping removed by
     /// [`Collection::clear_array`], which the next
     /// [`Collection::set_array`] maps through again.
@@ -314,6 +322,7 @@ pltrs_core::archive_struct!(CollectionArtist {
     fill_geometry,
     depth_sorted,
     mapping,
+    mapped_shown,
     parked_mappable,
     pickradius,
     mesh,
@@ -361,6 +370,7 @@ impl CollectionArtist {
             fill_geometry: None,
             depth_sorted: None,
             mapping: None,
+            mapped_shown: Cell::default(),
             parked_mappable: None,
             pickradius: 5.0,
             mesh: None,
@@ -473,6 +483,19 @@ impl CollectionArtist {
         style::resolve_colors(self)
     }
 
+    /// The face and edge colours as matplotlib's getters report them (see
+    /// [`CollectionArtist::mapped_shown`]), or those of the last 3-D
+    /// projection.
+    pub(crate) fn reported_colors(&self) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
+        style::resolve_reported_colors(self)
+    }
+
+    /// Maps the values onto the sides the mapping colours, for the getters
+    /// (matplotlib's `update_scalarmappable`, which drawing runs).
+    pub(crate) fn update_scalarmappable(&self) {
+        self.mapped_shown.set(MappedSides::of(self));
+    }
+
     /// The face and edge colours after defaults, colour mapping and
     /// alpha, ignoring any 3-D projection: what a projection shades.
     pub(crate) fn base_colors(&self) -> Result<(Vec<Rgba>, Vec<Rgba>), String> {
@@ -539,6 +562,7 @@ impl Artist for CollectionArtist {
     }
 
     fn draw(&self, ctx: &mut DrawContext<'_>) {
+        self.update_scalarmappable();
         if self.single_path {
             // matplotlib's renderers index the paths as a sequence.
             ctx.report_kind(

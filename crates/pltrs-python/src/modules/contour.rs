@@ -328,13 +328,6 @@ fn get_linewidths(set: ContourSet) -> PyResult<Vec<f64>> {
     Ok(set.linewidths())
 }
 
-/// The colours of the levels or bands, as an `(N, 4)` array.
-fn get_colors(set: ContourSet) -> PyResult<NdArray> {
-    let colors = set.colors();
-    let data = colors.iter().flat_map(|c| [c.r, c.g, c.b, c.a]).collect();
-    NdArray::with_shape(data, vec![colors.len(), 4])
-}
-
 /// The collections drawing the set.
 fn get_collections(set: ContourSet) -> PyResult<Vec<Collection>> {
     Ok(set.collections().to_vec())
@@ -466,7 +459,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_state", get_state)?;
     module.add("get_paths", get_paths)?;
     module.add("get_linewidths", get_linewidths)?;
-    module.add("get_colors", get_colors)?;
     module.add("get_collections", get_collections)?;
     module.add("find_nearest_contour", find_nearest_contour)?;
     module.add("set_linewidths", set_linewidths)?;

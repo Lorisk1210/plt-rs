@@ -181,6 +181,9 @@ class TicksMixin:
         axisbelow = validate_axisbelow(b)
         _axis.set_axisbelow(self._native, {True: "below", "line": "line",
                                            False: "above"}[axisbelow])
+        # The axes' axes take the zorder of the new setting.
+        for name in self._axis_names:
+            getattr(self, f"{name}axis").__dict__.pop("_zorder_set", None)
 
     def grid(self, visible=None, which='major', axis='both', **kwargs):
         """

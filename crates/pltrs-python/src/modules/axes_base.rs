@@ -143,21 +143,6 @@ fn get_scale(axes: Axes, name: String) -> PyResult<String> {
     .to_string())
 }
 
-/// Sets the colour of the axes background (`set_facecolor`).
-fn set_facecolor(axes: Axes, color: Color) -> PyResult<()> {
-    axes.set_facecolor(color);
-    Ok(())
-}
-
-/// The colour of the axes background as an RGBA tuple.
-fn get_facecolor(axes: Axes) -> PyResult<(f64, f64, f64, f64)> {
-    let color = axes
-        .facecolor()
-        .resolve()
-        .map_err(|err| PyErr::value_error(err.to_string()))?;
-    Ok((color.r, color.g, color.b, color.a))
-}
-
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("position", position)?;
@@ -170,8 +155,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("share_prop_cycle", share_prop_cycle)?;
     module.add("next_cycle_color", next_cycle_color)?;
     module.add("get_scale", get_scale)?;
-    module.add("set_facecolor", set_facecolor)?;
-    module.add("get_facecolor", get_facecolor)?;
     decorations::register(module)?;
     limits::register(module)?;
     twins::register(module)?;

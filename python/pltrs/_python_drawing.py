@@ -33,6 +33,7 @@ Figures without such artists, effects and renderers never call Python.
 
 import contextlib
 import functools
+import threading
 import types
 import weakref
 
@@ -44,32 +45,40 @@ from ._native import transforms as _transforms
 from ._program_classes import takes_from_program
 from .path import Path
 
-#: The renderers pltrs (Rust) draws with, innermost last: what the program's
-#: drawing receives, as ``[make, renderer]`` (the renderer ``make()`` gives
-#: is made when first needed).
-_renderers = []
 
-#: How many of the calls running draw while pltrs (Rust) is drawing the
-#: figure (an artist the draw reached before it was prepared, a path
-#: effect, a renderer of the program's), which cannot change it then.
-_drawing_figures = 0
+class _Drawing(threading.local):
+    """What the draws running on each thread draw with: a thread's draws
+    are its own."""
+
+    def __init__(self):
+        #: The renderers pltrs (Rust) draws with, innermost last: what the
+        #: program's drawing receives, as ``[make, renderer]`` (the
+        #: renderer ``make()`` gives is made when first needed).
+        self.renderers = []
+        #: How many of the calls running draw while pltrs (Rust) is
+        #: drawing the figure (an artist the draw reached before it was
+        #: prepared, a path effect, a renderer of the program's), which
+        #: cannot change it then.
+        self.figures = 0
+
+
+_drawing_now = _Drawing()
 
 
 def figure_changeable():
     """Whether the program's drawing running now may change the figure it
     draws: not while pltrs (Rust) draws it."""
-    return _drawing_figures == 0
+    return _drawing_now.figures == 0
 
 
 @contextlib.contextmanager
 def _figure_drawn(drawn=True):
     """While pltrs (Rust) draws the figure, with *drawn*."""
-    global _drawing_figures
-    _drawing_figures += drawn
+    _drawing_now.figures += drawn
     try:
         yield
     finally:
-        _drawing_figures -= drawn
+        _drawing_now.figures -= drawn
 
 
 def _own_draw(cls):
@@ -125,20 +134,22 @@ def attach(artist, again=False):
 @contextlib.contextmanager
 def drawing_with(make):
     """Hand the program's drawing the renderer *make()* makes (when first
-    needed) while pltrs (Rust) draws."""
-    _renderers.append([make, None])
+    needed) while pltrs (Rust) draws on this thread."""
+    renderers = _drawing_now.renderers
+    renderers.append([make, None])
     try:
         yield
     finally:
-        _renderers.pop()
+        renderers.pop()
 
 
 def _renderer_for(target, figure):
     """The renderer the program's drawing receives in a draw of *figure*
     with *target* (see ``_native.drawing``): the one installed
     (`drawing_with`), else one standing for pltrs (Rust)'s renderer."""
-    if _renderers:
-        installed = _renderers[-1]
+    renderers = _drawing_now.renderers
+    if renderers:
+        installed = renderers[-1]
         if installed[1] is None:
             installed[1] = installed[0]()
         return installed[1]

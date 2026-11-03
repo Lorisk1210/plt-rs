@@ -26,7 +26,7 @@ use pltrs_core::Bbox;
 use pltrs_platform::CursorIcon;
 
 use crate::binding::prelude::*;
-use crate::binding::wrap_native;
+use crate::binding::wrap_thread_bound;
 
 impl From<GuiError> for PyErr {
     /// A `RuntimeError` naming what the window system or the window
@@ -37,8 +37,11 @@ impl From<GuiError> for PyErr {
 }
 
 impl IntoPy for WindowHost {
+    /// The host's object, tied to the thread that made it: windows are
+    /// (macOS runs them on its main thread only, Windows delivers their
+    /// messages to the thread that made them).
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
-        wrap_native(py, self)
+        wrap_thread_bound(py, self)
     }
 }
 

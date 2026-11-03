@@ -172,15 +172,15 @@ def test_compare_images_reports_differences(tmp_path):
         compare_images(tmp_path / "a.png", tmp_path / "small.png", 0)
 
 
-def test_handles_belong_to_their_thread():
+def test_handles_serve_every_thread():
     import threading
     fig, ax = plt.subplots()
-    errors = []
-    thread = threading.Thread(target=lambda: errors.append(
-        pytest.raises(RuntimeError, ax.get_title)))
+    ax.set_title("made here")
+    titles = []
+    thread = threading.Thread(target=lambda: titles.append(ax.get_title()))
     thread.start()
     thread.join()
-    assert errors and "another thread" in str(errors[0].value)
+    assert titles == ["made here"]
 
 
 def test_style_use_applies_bundled_sheets():

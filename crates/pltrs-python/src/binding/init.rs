@@ -36,9 +36,9 @@ static DEFINITION: Definition = Definition(UnsafeCell::new(ffi::PyModuleDef {
     m_free: std::ptr::null_mut(),
 }));
 
-/// Creates the extension module with the native type, `register` and
-/// `call_on_thread_of`, then lets `fill` add the matplotlib modules: what
-/// `PyInit__native` returns.
+/// Creates the extension module with the native type, `register`,
+/// `serve_threads` and `run_queued_calls`, then lets `fill` add the
+/// matplotlib modules: what `PyInit__native` returns.
 pub(crate) fn init_module(fill: fn(&Module<'_>) -> PyResult<()>) -> *mut ffi::PyObject {
     // SAFETY: CPython calls `PyInit__native` with the GIL held; the
     // definition is static.

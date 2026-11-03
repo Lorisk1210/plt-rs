@@ -28,7 +28,7 @@ use crate::vector::PngMetadata;
 
 pub use self::bitmap::{GlyphBitmap, GlyphShape, glyph_axis_aligned, render_glyph};
 
-thread_local! {
+pltrs_core::thread_state! {
     /// Whether the thread's raster canvases draw text as paths.
     static TEXTS_AS_PATHS: Cell<bool> = const { Cell::new(false) };
 }

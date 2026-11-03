@@ -26,10 +26,14 @@ static REGISTRY: Mutex<BTreeMap<String, Owned>> = Mutex::new(BTreeMap::new());
     reason = "a native function, in the form `Module::add` registers"
 )]
 fn register(name: String, object: Owned) -> PyResult<()> {
-    REGISTRY
+    let replaced = REGISTRY
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .insert(name, object);
+    // Dropped once the registry is unlocked: dropping a Python object may
+    // run Python code, during which another thread holding the GIL may
+    // look an object up.
+    drop(replaced);
     Ok(())
 }
 

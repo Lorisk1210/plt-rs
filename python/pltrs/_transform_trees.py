@@ -29,6 +29,7 @@ boxes of an Axes or figure the transform spanning them, ``_spanning``.
 
 import contextlib
 import functools
+import threading
 import weakref
 
 import numpy as np
@@ -41,20 +42,31 @@ from .transforms import (Affine2D, Bbox, BboxTransformFrom, BboxTransformTo,
                          TransformWrapper, TransformedBbox,
                          blended_transform_factory)
 
-#: How many syncs from pltrs (Rust) are running: a leaf they set is not
-#: handed back to it.
-_syncing = 0
+
+class _Syncs(threading.local):
+    """The syncs from pltrs (Rust) running on each thread."""
+
+    #: How many are running: a leaf they set is not handed back to it.
+    count = 0
+
+
+_syncs = _Syncs()
+
+
+def _syncing():
+    """Whether a sync from pltrs (Rust) is running on this thread."""
+    return _syncs.count > 0
 
 
 @contextlib.contextmanager
 def setting_leaves():
-    """Set leaves to pltrs (Rust)'s values meanwhile (not handed back)."""
-    global _syncing
-    _syncing += 1
+    """Set leaves to pltrs (Rust)'s values meanwhile, on this thread (not
+    handed back)."""
+    _syncs.count += 1
     try:
         yield
     finally:
-        _syncing -= 1
+        _syncs.count -= 1
 
 
 class TreeAttribute:
@@ -119,7 +131,7 @@ class _LeafWatcher(TransformNode):
         leaf.get_points()  # Valid, so that its next change reaches here.
 
     def _invalidate_internal(self, level, invalidating_node):
-        if not _syncing:
+        if not _syncing():
             self._push(invalidating_node)
         # Valid again, so that its next change reaches here too.
         invalidating_node.get_points()
@@ -511,7 +523,7 @@ class AxesTrees:
         """Apply the autoscaling pending (matplotlib's
         ``_unstale_viewLim``), unless pltrs (Rust) is handing its leaves
         (laying the figure out), when they are what it works with."""
-        if not _syncing:
+        if not _syncing():
             from ._native import axes as _axes
             _axes.get_xlim(self._native)
 

@@ -12,9 +12,13 @@
 //! A strong reference dropped where the thread is not known to hold the
 //! GIL is not released there: it waits in a pool released at the next
 //! entry from Python.
+//!
+//! While a scope is open, the thread works with the pltrs (Rust) state
+//! every Python thread shares ([`threads`]).
 
 use std::any::Any;
 use std::cell::Cell;
+use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr::NonNull;
@@ -22,7 +26,7 @@ use std::sync::Mutex;
 
 use super::error::{PyErr, PyResult};
 use super::object::Bound;
-use super::{after_call, callback};
+use super::{after_call, callback, threads};
 use crate::ffi;
 
 thread_local! {
@@ -77,9 +81,35 @@ pub(crate) fn gil_held() -> bool {
     GIL_COUNT.with(|count| count.get() > 0)
 }
 
-/// Counts the thread as holding the GIL while it lives.
+/// Runs `f` with the GIL released, taking it back afterwards (also when
+/// `f` panics), so that other threads run meanwhile.
+///
+/// # Safety
+///
+/// The thread holds the GIL through a thread state of its own (CPython
+/// called it: a native call), and `f` touches no Python object and no
+/// pltrs (Rust) value (see [`threads`]).
+pub(super) unsafe fn without_gil<R>(f: impl FnOnce() -> R) -> R {
+    /// Takes the GIL back when dropped.
+    struct Restore(*mut c_void);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            // SAFETY: the thread state `PyEval_SaveThread` returned below,
+            // on the same thread.
+            unsafe { ffi::PyEval_RestoreThread(self.0) };
+        }
+    }
+    // SAFETY: (caller) this thread holds the GIL and has a thread state.
+    let _restore = Restore(unsafe { ffi::PyEval_SaveThread() });
+    f()
+}
+
+/// Counts the thread as holding the GIL while it lives, and has it work
+/// with the pltrs (Rust) state Python's threads share meanwhile.
 #[derive(Debug)]
 pub(crate) struct GilScope {
+    /// What the thread worked with before, if this is its outermost scope.
+    outside: Option<threads::Outside>,
     _not_send: PhantomData<*mut ()>,
 }
 
@@ -91,9 +121,13 @@ impl GilScope {
     /// The current thread holds the GIL, and keeps it until the scope is
     /// dropped.
     pub(crate) unsafe fn enter() -> Self {
-        GIL_COUNT.with(|count| count.set(count.get() + 1));
+        let outermost = GIL_COUNT.with(|count| count.replace(count.get() + 1)) == 0;
+        // SAFETY: (caller) the GIL is held until the scope is dropped,
+        // which calls `leave`.
+        let outside = outermost.then(|| unsafe { threads::enter() });
         release_pending();
         Self {
+            outside,
             _not_send: PhantomData,
         }
     }
@@ -110,6 +144,9 @@ impl GilScope {
 
 impl Drop for GilScope {
     fn drop(&mut self) {
+        if let Some(outside) = self.outside.take() {
+            threads::leave(outside);
+        }
         GIL_COUNT.with(|count| count.set(count.get() - 1));
     }
 }

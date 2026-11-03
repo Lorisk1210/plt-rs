@@ -178,6 +178,30 @@ def test_interactive_timers(host):
     _run(_timers, host=host)
 
 
+def _thread_safety():
+    """matplotlib's ``_test_thread_impl``: artists made and the figure
+    drawn from worker threads, the window showing what they drew (its
+    calls run by the main thread's loop)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    import pltrs.pyplot as plt
+
+    fig, ax = plt.subplots()
+    plt.pause(0.5)
+    future = ThreadPoolExecutor().submit(ax.plot, [1, 3, 6])
+    future.result()
+    fig.canvas.mpl_connect("close_event", print)
+    future = ThreadPoolExecutor().submit(fig.canvas.draw)
+    plt.pause(0.5)
+    future.result()
+    plt.close()
+
+
+@pytest.mark.parametrize("host", HOSTS)
+def test_interactive_thread_safety(host):
+    assert _run(_thread_safety, host=host).count("CloseEvent") == 1
+
+
 def _number_of_draws():
     """matplotlib's ``_test_number_of_draws_script``: blitting draws
     nothing more."""

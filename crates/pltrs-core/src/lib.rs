@@ -36,6 +36,9 @@
 //! * [`rng`] — the `SplitMix64` generator behind pltrs's reproducible
 //!   pseudo-random streams.
 //! * [`Rgba`] — a straight-alpha colour with components in `[0, 1]`.
+//! * [`state`] — the state pltrs keeps where matplotlib keeps
+//!   process-wide variables: per thread ([`thread_state!`]), unless
+//!   threads work with one [`state::State`] together.
 #![forbid(unsafe_code)]
 
 mod affine;
@@ -52,6 +55,7 @@ pub mod path;
 mod point;
 pub mod pyfmt;
 pub mod rng;
+pub mod state;
 
 pub use affine::Affine2D;
 pub use bbox::{Anchor, Bbox};

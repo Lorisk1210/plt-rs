@@ -7,9 +7,9 @@ use std::rc::{Rc, Weak};
 use super::{Figure, FigureState};
 use crate::artist::{ArtistId, RawHandle};
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The watched figures borrowed for change since they were last taken
-    /// ([`take_changed_figures`]); figures live on one thread.
+    /// ([`take_changed_figures`]).
     static CHANGED: RefCell<Vec<WeakFigure>> = const { RefCell::new(Vec::new()) };
 }
 
@@ -60,6 +60,11 @@ impl FigureCell {
         let state = self.state.try_borrow_mut()?;
         self.changed();
         Ok(state)
+    }
+
+    /// Whether the state is borrowed now (for reading or for change).
+    pub(crate) fn in_use(&self) -> bool {
+        self.state.try_borrow_mut().is_err()
     }
 
     /// The address of the state (as [`RefCell::as_ptr`]), which tells

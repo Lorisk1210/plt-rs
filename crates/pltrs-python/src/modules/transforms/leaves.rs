@@ -39,14 +39,17 @@ struct Watched {
     sync: Owned,
 }
 
-thread_local! {
-    /// The figures watched on this thread (pltrs (Rust) figures live on one).
+pltrs_core::thread_state! {
+    /// The figures watched (by every thread: see `binding::threads`).
     static WATCHED: RefCell<Vec<Watched>> = const { RefCell::new(Vec::new()) };
-    /// Whether the leaves are being handed to Python, whose native calls
-    /// must not hand them again meanwhile.
-    static SYNCING: Cell<bool> = const { Cell::new(false) };
     /// Whether an entry of [`WATCHED`] is `pending`.
     static PENDING: Cell<bool> = const { Cell::new(false) };
+}
+
+thread_local! {
+    /// Whether this thread is handing leaves to Python, whose native calls
+    /// must not hand them again meanwhile.
+    static SYNCING: Cell<bool> = const { Cell::new(false) };
 }
 
 /// A box as `(x0, y0, x1, y1)`.
@@ -138,17 +141,26 @@ fn mark_pending(entry: &mut Watched) {
     PENDING.set(true);
 }
 
+/// Takes the entries of the figures dropped out of `watched`, to be
+/// dropped once [`WATCHED`] is no longer borrowed: dropping their Python
+/// functions may run Python code, and other threads' native calls
+/// meanwhile.
+fn take_dropped(watched: &mut Vec<Watched>) -> Vec<Watched> {
+    watched
+        .extract_if(.., |entry| !entry.figure.is_alive())
+        .collect()
+}
+
 /// Follows the leaves of the root `figure`: `sync((dpi, size, frames,
 /// axes))` gets those that changed at the end of every native call that
 /// changed them.
 fn watch(figure: Figure, sync: Owned) -> PyResult<()> {
     figure.watch_changes();
-    WATCHED.with(|watched| {
-        let mut watched = watched.borrow_mut();
-        watched.retain(|entry| entry.figure.is_alive());
-        if let Some(entry) = entry(&mut watched, &figure) {
-            entry.sync = sync;
+    let replaced = WATCHED.with_borrow_mut(|watched| {
+        let dropped = take_dropped(watched);
+        let replaced = if let Some(entry) = entry(watched, &figure) {
             mark_pending(entry);
+            Some(std::mem::replace(&mut entry.sync, sync))
         } else {
             watched.push(Watched {
                 figure: figure.downgrade(),
@@ -159,8 +171,11 @@ fn watch(figure: Figure, sync: Owned) -> PyResult<()> {
                 sync,
             });
             PENDING.set(true);
-        }
+            None
+        };
+        (dropped, replaced)
     });
+    drop(replaced);
     Ok(())
 }
 
@@ -242,14 +257,13 @@ pub(crate) fn sync_watched(py: Python<'_>) -> PyResult<()> {
     if changed.is_empty() && !PENDING.get() {
         return Ok(());
     }
-    let due = WATCHED.with(|watched| {
-        let mut watched = watched.borrow_mut();
+    let (due, dropped) = WATCHED.with_borrow_mut(|watched| {
         for figure in &changed {
-            if let Some(entry) = entry(&mut watched, figure) {
+            if let Some(entry) = entry(watched, figure) {
                 entry.pending = true;
             }
         }
-        watched.retain(|entry| entry.figure.is_alive());
+        let dropped = take_dropped(watched);
         let mut due = Vec::new();
         let mut still_pending = false;
         for entry in watched.iter_mut().filter(|entry| entry.pending) {
@@ -266,8 +280,9 @@ pub(crate) fn sync_watched(py: Python<'_>) -> PyResult<()> {
             entry.last = Some(now);
         }
         PENDING.set(still_pending);
-        due
+        (due, dropped)
     });
+    drop(dropped);
     for (sync, changed) in due {
         let leaves = PyLeaves(changed);
         let args = leaves.into_py(py)?;

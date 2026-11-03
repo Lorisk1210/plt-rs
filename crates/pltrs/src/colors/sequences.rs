@@ -9,7 +9,7 @@ use pltrs_core::Rgba;
 use super::sequence_data::SEQUENCES;
 use super::{Color, ColorError};
 
-thread_local! {
+pltrs_core::thread_state! {
     /// Sequences registered at run time, in registration order.
     static REGISTERED: RefCell<Vec<(String, Vec<Color>)>> = const { RefCell::new(Vec::new()) };
 }

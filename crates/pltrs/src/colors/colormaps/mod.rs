@@ -54,7 +54,7 @@ pub fn names() -> &'static [String] {
     })
 }
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The colormaps registered at run time, on this thread.
     static REGISTERED: RefCell<Vec<Colormap>> = const { RefCell::new(Vec::new()) };
 }
@@ -104,7 +104,11 @@ pub fn unregister(name: &str) -> Result<(), ColormapError> {
     if base_name(name).is_some() {
         return Err(ColormapError::Builtin(name.to_owned()));
     }
-    REGISTERED.with_borrow_mut(|maps| maps.retain(|cmap| cmap.name() != name));
+    let removed: Vec<Colormap> = REGISTERED
+        .with_borrow_mut(|maps| maps.extract_if(.., |cmap| cmap.name() == name).collect());
+    // Dropped once the registry is no longer borrowed: a colormap's
+    // functions may be the program's, which dropping may run.
+    drop(removed);
     Ok(())
 }
 

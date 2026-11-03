@@ -7,14 +7,15 @@
 //! `draw_tex`. Its tests replace them, so that texts become boxes whose
 //! size depends only on the font size and the number of characters (the
 //! `text_placeholders` fixture), or to see where TeX lines are drawn.
-//! pltrs (Python) hands such replacements to pltrs (Rust) for the thread,
+//! pltrs (Python) hands such replacements to pltrs (Rust) for the thread
+//! (for the threads sharing a [state](pltrs_core::state)),
 //! as a [`LineMeasurer`], a [`TextPainter`] and a [`TexPainter`]: while a
 //! measurer is set, every line pltrs lays out is measured by it, while a
 //! painter is set, every text pltrs draws is drawn by it instead, and
 //! while a TeX painter is set, every TeX line. Without them, laying out a
 //! line or drawing a text costs one thread-local read more.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use pltrs_core::{Affine2D, Path, Point, Rgba};
@@ -104,13 +105,19 @@ pub trait TexPainter {
     ) -> Vec<DrawnPath>;
 }
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The measurer of the thread's lines, if the program set one.
     static MEASURER: RefCell<Option<Rc<dyn LineMeasurer>>> = const { RefCell::new(None) };
     /// The painter of the thread's texts, if the program set one.
     static PAINTER: RefCell<Option<Rc<dyn TextPainter>>> = const { RefCell::new(None) };
     /// The painter of the thread's TeX lines, if the program set one.
     static TEX_PAINTER: RefCell<Option<Rc<dyn TexPainter>>> = const { RefCell::new(None) };
+}
+
+thread_local! {
+    /// Whether the thread measures text itself for now, whatever measurer
+    /// is set ([`without_measurer`]).
+    static MEASURING_ITSELF: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Sets (or, with `None`, removes) what measures the lines of text laid
@@ -136,15 +143,19 @@ pub(super) fn tex_painter() -> Option<Rc<dyn TexPainter>> {
     TEX_PAINTER.with_borrow(Clone::clone)
 }
 
-/// The thread's measurer.
+/// The thread's measurer, unless the thread measures text itself for now.
 fn measurer() -> Option<Rc<dyn LineMeasurer>> {
+    if MEASURING_ITSELF.get() {
+        return None;
+    }
     MEASURER.with_borrow(Clone::clone)
 }
 
 /// Whether the program measures the lines laid out on this thread (a
-/// [`LineMeasurer`] is set).
+/// [`LineMeasurer`] is set, and the thread does not measure text itself
+/// for now).
 pub(crate) fn has_line_measurer() -> bool {
-    MEASURER.with_borrow(Option::is_some)
+    !MEASURING_ITSELF.get() && MEASURER.with_borrow(Option::is_some)
 }
 
 /// The thread's painter.
@@ -152,16 +163,17 @@ pub(super) fn painter() -> Option<Rc<dyn TextPainter>> {
     PAINTER.with_borrow(Clone::clone)
 }
 
-/// Removes the measurer while `f` runs, then puts it back (also on
-/// panics), so that pltrs measures text itself.
+/// Has the thread measure text itself while `f` runs, whatever measurer
+/// is set (for the thread alone: other threads sharing its state still
+/// measure with the measurer).
 pub(super) fn without_measurer<R>(f: impl FnOnce() -> R) -> R {
-    struct Restore(Option<Rc<dyn LineMeasurer>>);
+    struct Restore(bool);
     impl Drop for Restore {
         fn drop(&mut self) {
-            MEASURER.set(self.0.take());
+            MEASURING_ITSELF.set(self.0);
         }
     }
-    let _restore = Restore(MEASURER.take());
+    let _restore = Restore(MEASURING_ITSELF.replace(true));
     f()
 }
 

@@ -2,8 +2,9 @@
 //! where matplotlib calls `_api.warn_external` (data cast to a narrower
 //! type to be drawn, say).
 //!
-//! Warnings go to the handler of the thread, which a program installs
-//! with [`set_handler`] (pltrs (Python) turns them into Python warnings);
+//! Warnings go to the handler of the thread (of the threads sharing a
+//! [state](pltrs_core::state)), which a program installs with
+//! [`set_handler`] (pltrs (Python) turns them into Python warnings);
 //! without one they are written to standard error, as Python prints
 //! warnings nobody filters.
 //!
@@ -35,7 +36,7 @@ type Handler = Rc<dyn Fn(&str)>;
 /// matplotlib's logging it (`backends.backend_ps`) and the message.
 type LogHandler = Rc<dyn Fn(&str, &str)>;
 
-thread_local! {
+pltrs_core::thread_state! {
     /// The thread's handler; `None` writes warnings to standard error.
     static HANDLER: RefCell<Option<Handler>> = const { RefCell::new(None) };
     /// The thread's log handler; `None` writes messages to standard error.
@@ -44,12 +45,12 @@ thread_local! {
 
 /// Sends the warnings of this thread to `handler` from now on.
 pub fn set_handler(handler: impl Fn(&str) + 'static) {
-    HANDLER.with(|slot| *slot.borrow_mut() = Some(Rc::new(handler)));
+    HANDLER.set(Some(Rc::new(handler)));
 }
 
 /// Writes the warnings of this thread to standard error again.
 pub fn clear_handler() {
-    HANDLER.with(|slot| *slot.borrow_mut() = None);
+    HANDLER.set(None);
 }
 
 /// Issues the warning `message` to the thread's handler.
@@ -68,12 +69,12 @@ pub fn warn(message: &str) {
 
 /// Sends the log messages of this thread to `handler` from now on.
 pub fn set_log_handler(handler: impl Fn(&str, &str) + 'static) {
-    LOG_HANDLER.with(|slot| *slot.borrow_mut() = Some(Rc::new(handler)));
+    LOG_HANDLER.set(Some(Rc::new(handler)));
 }
 
 /// Writes the log messages of this thread to standard error again.
 pub fn clear_log_handler() {
-    LOG_HANDLER.with(|slot| *slot.borrow_mut() = None);
+    LOG_HANDLER.set(None);
 }
 
 /// Logs `message` as a warning of matplotlib's module `module` (relative

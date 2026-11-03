@@ -2,10 +2,11 @@
 Smoke tests of the GUI toolkit backends ported from matplotlib (Qt, GTK 3
 and 4, wx, Tk, and their Cairo variants, which draw with pltrs (Rust)'s
 raster): without their toolkits they fail to import as matplotlib's do;
-with stand-ins for GTK, cairo and wx (no system libraries here) their
-modules load over pltrs' canvases. Qt and Tk run for real under
-matplotlib's own tests (``test_backend_qt.py``, ``test_backend_tk.py``,
-``test_backends_interactive.py``) where a display and the toolkit exist.
+with stand-ins for GTK, cairo and wx their modules load over pltrs'
+canvases. They all run for real under matplotlib's own tests
+(``test_backend_qt.py``, ``test_backend_tk.py``, ``test_backend_gtk3.py``,
+``test_backends_interactive.py``) where a display and the toolkit exist,
+and GTK and wx under ``test_backend_gtk_wx.py``.
 """
 
 import importlib.util

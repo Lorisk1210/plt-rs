@@ -7,7 +7,8 @@ Hunter (jdhunter@ace.bsd.uchicago.edu).
 Copyright (C) Jeremy O'Donoghue & John Hunter, 2003-4.
 
 From matplotlib 3.11.2, under the Matplotlib License, kept as it is but for
-its imports of the package. Its ``wx``
+its imports of the package, and for its main and event loops running the
+calls other threads make on pltrs objects (`._serving`). Its ``wx``
 backend draws through `RendererWx`, which pltrs (Rust) hands each
 artist's drawing (`.RendererBase._draw_artist`); ``wxagg`` draws with Agg.
 """
@@ -33,6 +34,7 @@ from .. import _api, cbook, backend_tools, _c_internal_utils
 from .._pylab_helpers import Gcf
 from ..path import Path
 from ..transforms import Affine2D
+from ._serving import serving_threads
 
 import wx
 import wx.svg  # noqa: F401
@@ -54,6 +56,15 @@ def _create_wxapp():
     # Set per-process DPI awareness. This is a NoOp except in MSW
     _c_internal_utils.Win32_SetProcessDpiAwareness_max()
     return wxapp
+
+
+def _start_timer(interval, function):
+    """A wx timer calling *function* every *interval* milliseconds; the
+    function stopping it (`._serving.serving_threads`)."""
+    timer = wx.Timer()
+    timer.Bind(wx.EVT_TIMER, lambda event: function())
+    timer.Start(interval)
+    return timer.Stop
 
 
 class TimerWx(TimerBase):
@@ -567,7 +578,8 @@ class _FigureCanvasWxBase(FigureCanvasBase, wx.Panel):
             self.Bind(wx.EVT_TIMER, self.stop_event_loop, id=timer.GetId())
         # Event loop handler for start/stop event loop
         self._event_loop = wx.GUIEventLoop()
-        self._event_loop.Run()
+        with serving_threads(_start_timer):
+            self._event_loop.Run()
         timer.Stop()
 
     def stop_event_loop(self, event=None):
@@ -1006,7 +1018,8 @@ class FigureManagerWx(FigureManagerBase):
         if not wx.App.IsMainLoopRunning():
             wxapp = wx.GetApp()
             if wxapp is not None:
-                wxapp.MainLoop()
+                with serving_threads(_start_timer):
+                    wxapp.MainLoop()
 
     def show(self):
         # docstring inherited

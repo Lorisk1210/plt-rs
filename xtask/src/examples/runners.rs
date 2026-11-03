@@ -173,11 +173,7 @@ impl Pltrs {
                 python.display()
             ));
         }
-        let inherited = env::var_os("PYTHONPATH").unwrap_or_default();
-        let dirs = [layout.root().join("python")]
-            .into_iter()
-            .chain(env::split_paths(&inherited));
-        let path = env::join_paths(dirs).map_err(|err| format!("cannot set PYTHONPATH: {err}"))?;
+        let path = crate::python::python_path([layout.root().join("python")])?;
         let output = Command::new(&python)
             .args(["-c", "import pltrs.pyplot"])
             .env("PYTHONPATH", &path)

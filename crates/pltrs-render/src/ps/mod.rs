@@ -27,6 +27,7 @@ mod dsc;
 mod fonts;
 mod page;
 mod psfrag;
+mod state;
 mod text;
 mod type42;
 
@@ -144,6 +145,7 @@ struct LineState {
     join: Option<JoinStyle>,
     cap: Option<CapStyle>,
     dash: Option<(f64, Option<Vec<f64>>)>,
+    font: Option<(String, f64)>,
 }
 
 /// Renders into a PostScript document exactly like matplotlib's

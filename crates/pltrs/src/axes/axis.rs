@@ -126,8 +126,12 @@ impl Default for LevelDefaults {
 /// artists changed one by one).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TickOverrides {
-    /// Label properties.
+    /// Properties of the labels on the first side (matplotlib's
+    /// `Tick.label1`).
     pub(crate) labels: Vec<TickLabelProps>,
+    /// Properties of the labels on the second side (matplotlib's
+    /// `Tick.label2`, a text of its own).
+    pub(crate) second_labels: Vec<TickLabelProps>,
     /// Mark and gridline properties.
     pub(crate) lines: Vec<TickLineProps>,
     /// Gaps between the marks and the labels, in points (matplotlib's
@@ -141,6 +145,7 @@ pub(crate) struct TickOverrides {
 
 pltrs_core::archive_struct!(TickOverrides {
     labels,
+    second_labels,
     lines,
     pads,
     made
@@ -157,6 +162,7 @@ impl TickOverrides {
             return;
         }
         copy_first(&mut self.labels, self.made, count);
+        copy_first(&mut self.second_labels, self.made, count);
         copy_first(&mut self.lines, self.made, count);
         copy_first(&mut self.pads, self.made, count);
         self.made = count;

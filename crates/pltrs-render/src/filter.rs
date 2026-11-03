@@ -109,6 +109,10 @@ pub struct Filtered {
 /// per inch.
 pub type FilterFn<'a> = dyn Fn(&FilterImage, f64) -> Filtered + 'a;
 
+/// An image filter the renderer may keep (see
+/// [`Renderer::stop_shared_filter`](crate::Renderer::stop_shared_filter)).
+pub type SharedFilter = std::rc::Rc<FilterFn<'static>>;
+
 #[cfg(test)]
 mod tests {
     use super::*;

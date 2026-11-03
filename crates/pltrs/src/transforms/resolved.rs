@@ -192,6 +192,24 @@ impl ResolvedTransform {
         self.steps.is_empty()
     }
 
+    /// Whether x and y map independently of each other (matplotlib's
+    /// `is_separable`): no step is a general map of the plane, and no
+    /// affine map rotates or shears.
+    ///
+    /// ```
+    /// use pltrs::transforms::{Affine2D, ResolvedTransform};
+    /// assert!(ResolvedTransform::affine(Affine2D::scaling(2.0, 3.0)).is_separable());
+    /// assert!(!ResolvedTransform::affine(Affine2D::rotation(0.5)).is_separable());
+    /// ```
+    pub fn is_separable(&self) -> bool {
+        self.affine.is_separable()
+            && self.steps.iter().all(|step| match step {
+                Step::Affine(affine) => affine.is_separable(),
+                Step::Separable(..) | Step::Blend(..) => true,
+                Step::Plane(_) => false,
+            })
+    }
+
     /// Whether the transform leaves every point where it is.
     pub fn is_identity(&self) -> bool {
         self.is_affine() && self.affine.is_identity()

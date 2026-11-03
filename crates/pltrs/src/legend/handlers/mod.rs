@@ -61,17 +61,24 @@ pub struct HandleBox {
     pub height: f64,
 }
 
-/// How a handle artist follows the box it is drawn in.
+/// How a handle artist follows the box it is drawn in (whether its
+/// transform is the handle box's, matplotlib's `handlebox.get_transform()`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Attach {
+pub enum Attach {
     /// Its coordinates are points in the box: its transform is the box's.
     Transform,
     /// Its offsets are points in the box: a collection's offset transform
     /// is the box's (its shapes keep their own transform).
     Offsets,
+    /// It keeps the transform it has, wherever the box goes.
+    Own,
 }
 
-pltrs_core::archive_enum!(Attach { Transform, Offsets });
+pltrs_core::archive_enum!(Attach {
+    Transform,
+    Offsets,
+    Own
+});
 
 /// One artist of a legend handle, in points in the handle box (matplotlib's
 /// artists of `create_artists`, drawn with the handle box's transform).
@@ -256,6 +263,9 @@ pub(crate) fn create(
     source: &Source,
     area: &HandleBox,
 ) -> Result<Option<Vec<HandlerArtist>>, LegendError> {
+    if let Source::Made(made) = source {
+        return Ok(Some(made.take()));
+    }
     match ctx.handlers.handler_for(source, ctx.store) {
         Some(handler) => draw(ctx, handler.as_ref(), source, area),
         None => Ok(None),

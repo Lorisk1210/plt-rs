@@ -29,10 +29,16 @@ impl Legend {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn handles(&self) -> Vec<Option<RawHandle>> {
-        let ids = self.read(|legend| legend.handles.clone());
-        ids.into_iter()
-            .map(|id| id.map(|id| self.handle(id)))
-            .collect()
+        self.read(|legend| {
+            legend
+                .handles
+                .iter()
+                .map(|ids| ids.first().copied())
+                .collect::<Vec<_>>()
+        })
+        .into_iter()
+        .map(|id| id.map(|id| self.handle(id)))
+        .collect()
     }
 
     /// The handle artists that are lines (matplotlib's `get_lines`).

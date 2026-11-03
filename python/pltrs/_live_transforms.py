@@ -81,6 +81,10 @@ class LiveTransform(Transform):
     def is_affine(self):
         return _transforms.is_affine(self._root._native, self._native)
 
+    @property
+    def is_separable(self):
+        return _transforms.is_separable(self._root._native, self._native)
+
     def transform(self, values):
         return self._apply(values, "all")
 

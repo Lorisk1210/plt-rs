@@ -8,12 +8,9 @@
 //! `FancyArrowPatch` or a `ConnectionPatch`.
 
 use pltrs::artist::{RawHandle, TypedHandle};
-use pltrs::patches::{
-    ArrowSpec, ArrowStyle, BoxStyle, ConnectionPatch, ConnectionStyle, FancyArrowPatch,
-    FancyBboxPatch, Patch,
-};
+use pltrs::patches::{ArrowSpec, ConnectionPatch, FancyArrowPatch, FancyBboxPatch, Patch};
 
-use super::super::patch_styles::style_error;
+use super::super::patch_styles::{PyArrowStyle, PyBoxStyle, PyConnectionStyle};
 use crate::binding::prelude::*;
 
 /// The error for an artist that is no fancy patch.
@@ -49,10 +46,10 @@ fn get_boxstyle(patch: Patch<FancyBboxPatch>) -> PyResult<String> {
     Ok(patch.shape().boxstyle.to_string())
 }
 
-/// Sets the box style of a fancy box from its description.
-fn set_boxstyle(patch: Patch<FancyBboxPatch>, spec: String) -> PyResult<()> {
-    let style = spec.parse::<BoxStyle>().map_err(style_error)?;
-    patch.update_shape(|shape| shape.boxstyle = style);
+/// Sets the box style of a fancy box: a description, or a style of the
+/// program's.
+fn set_boxstyle(patch: Patch<FancyBboxPatch>, style: PyBoxStyle) -> PyResult<()> {
+    patch.update_shape(|shape| shape.boxstyle = style.0);
     Ok(())
 }
 
@@ -61,10 +58,10 @@ fn get_arrowstyle(patch: RawHandle) -> PyResult<String> {
     Ok(arrow_spec(&patch)?.arrowstyle.to_string())
 }
 
-/// Sets the arrow style of an arrow from its description.
-fn set_arrowstyle(patch: RawHandle, spec: String) -> PyResult<()> {
-    let style = spec.parse::<ArrowStyle>().map_err(style_error)?;
-    update_arrow_spec(&patch, |arrow| arrow.arrowstyle = style)
+/// Sets the arrow style of an arrow: a description, or a style of the
+/// program's.
+fn set_arrowstyle(patch: RawHandle, style: PyArrowStyle) -> PyResult<()> {
+    update_arrow_spec(&patch, |arrow| arrow.arrowstyle = style.0)
 }
 
 /// The connection style of an arrow, described.
@@ -72,10 +69,10 @@ fn get_connectionstyle(patch: RawHandle) -> PyResult<String> {
     Ok(arrow_spec(&patch)?.connectionstyle.to_string())
 }
 
-/// Sets the connection style of an arrow from its description.
-fn set_connectionstyle(patch: RawHandle, spec: String) -> PyResult<()> {
-    let style = spec.parse::<ConnectionStyle>().map_err(style_error)?;
-    update_arrow_spec(&patch, |arrow| arrow.connectionstyle = style)
+/// Sets the connection style of an arrow: a description, or a style of
+/// the program's.
+fn set_connectionstyle(patch: RawHandle, style: PyConnectionStyle) -> PyResult<()> {
+    update_arrow_spec(&patch, |arrow| arrow.connectionstyle = style.0)
 }
 
 /// The mutation scale and aspect of a fancy box or an arrow.

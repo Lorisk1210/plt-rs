@@ -90,6 +90,14 @@ fn new(
     Ok(tri.with_mask(mask)?)
 }
 
+/// A triangulation of the points `(x, y)` with `triangles` kept in the
+/// vertex order given, clockwise or not (the C++ triangulation of
+/// matplotlib made with `correct_triangle_orientations=False`).
+fn as_given(x: NdArray, y: NdArray, triangles: NdArray<i64>) -> PyResult<Triangulation> {
+    let (x, y) = (x.into_vec()?, y.into_vec()?);
+    Ok(Triangulation::as_given(&x, &y, triangle_rows(&triangles)?)?)
+}
+
 /// `(x, y)` of the points.
 fn points(tri: Triangulation) -> PyResult<(NdArray, NdArray)> {
     Ok((
@@ -101,11 +109,6 @@ fn points(tri: Triangulation) -> PyResult<(NdArray, NdArray)> {
 /// Every triangle, masked or not, in the vertex order given.
 fn triangles(tri: Triangulation) -> PyResult<NdArray<i64>> {
     triangles_array(tri.given_triangles())
-}
-
-/// Every triangle, masked or not, its vertices turned anticlockwise.
-fn oriented_triangles(tri: Triangulation) -> PyResult<NdArray<i64>> {
-    triangles_array(tri.triangles())
 }
 
 /// The unmasked triangles, in the vertex order given.
@@ -348,10 +351,10 @@ fn triangle_paths(tri: Triangulation) -> PyResult<Vec<PathArrays>> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("new", new)?;
+    module.add("as_given", as_given)?;
     module.add("triangle_paths", triangle_paths)?;
     module.add("points", points)?;
     module.add("triangles", triangles)?;
-    module.add("oriented_triangles", oriented_triangles)?;
     module.add("masked_triangles", masked_triangles)?;
     module.add("mask", mask)?;
     module.add("set_mask", set_mask)?;

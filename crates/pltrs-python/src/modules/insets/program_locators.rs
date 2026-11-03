@@ -19,14 +19,8 @@ use crate::binding::prelude::*;
 /// placed again, or at its original position for `None` (what a locator
 /// returning `None` asks for).
 fn set_located_position(axes: Axes, bounds: Option<(f64, f64, f64, f64)>) -> PyResult<()> {
-    let locator = match bounds {
-        Some((x0, y0, width, height)) => {
-            let position = Bbox::from_bounds(x0, y0, width, height);
-            AxesLocatorFn::new(move |_| position)
-        }
-        None => AxesLocatorFn::new(|original| original),
-    };
-    axes.set_axes_locator(Some(locator));
+    let position = bounds.map(|(x0, y0, width, height)| Bbox::from_bounds(x0, y0, width, height));
+    axes.set_axes_locator(Some(AxesLocatorFn::at(position)));
     Ok(())
 }
 

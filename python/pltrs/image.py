@@ -422,6 +422,20 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         """Return the filterrad setting."""
         return _native_image.get_filterrad(self._native)
 
+    def can_composite(self):
+        """Return whether the image can be composited with its neighbors."""
+        trans = self.get_transform()
+        return (
+            self.get_interpolation() != 'none' and
+            trans.is_affine and
+            trans.is_separable)
+
+    def write_png(self, fname):
+        """Write the image to png file *fname*."""
+        im = self.to_rgba(self._A[::-1] if self.origin == 'lower' else self._A,
+                          bytes=True, norm=True)
+        PIL.Image.fromarray(im).save(fname, format="png")
+
 
 def _made_image(image, magnification, unsampled):
     """

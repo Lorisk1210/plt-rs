@@ -28,7 +28,7 @@ pub(super) fn nums(values: &[f64]) -> String {
 }
 
 /// matplotlib's PostScript codes for join styles.
-const fn join_code(join: JoinStyle) -> u8 {
+pub(super) const fn join_code(join: JoinStyle) -> u8 {
     match join {
         JoinStyle::Miter => 0,
         JoinStyle::Round => 1,
@@ -37,7 +37,7 @@ const fn join_code(join: JoinStyle) -> u8 {
 }
 
 /// matplotlib's PostScript codes for cap styles.
-const fn cap_code(cap: CapStyle) -> u8 {
+pub(super) const fn cap_code(cap: CapStyle) -> u8 {
     match cap {
         CapStyle::Butt => 0,
         CapStyle::Round => 1,
@@ -51,7 +51,7 @@ fn is_transparent(color: Option<Rgba>) -> bool {
 }
 
 /// `setgray` for grey colours, `setrgbcolor` otherwise.
-fn color_cmd(rgb: [f64; 3]) -> String {
+pub(super) fn color_cmd(rgb: [f64; 3]) -> String {
     if rgb[0] == rgb[1] && rgb[1] == rgb[2] {
         format!("{} setgray", nums(&rgb[..1]))
     } else {
@@ -68,7 +68,7 @@ fn hex_lines(data: &[u8]) -> String {
 impl PsRenderer {
     /// `_convert_path`: PostScript path operators, optionally clipped to
     /// the page and simplified.
-    fn convert(
+    pub(super) fn convert(
         &self,
         path: &Path,
         transform: Affine2D,
@@ -84,74 +84,6 @@ impl PsRenderer {
             codes: StringCodes::PS,
             postfix: true,
         })
-    }
-
-    /// `set_color`: writes the colour when it changed, recording it when
-    /// `store` is set.
-    pub(super) fn set_color(&mut self, rgb: [f64; 3], store: bool) {
-        if self.line.color != Some(rgb) {
-            self.body.push_str(&color_cmd(rgb));
-            self.body.push('\n');
-            if store {
-                self.line.color = Some(rgb);
-            }
-        }
-    }
-
-    /// The line properties `_draw_ps` sets before stroking.
-    fn set_line(&mut self, gc: &GraphicsContext) {
-        if self.line.width != Some(gc.linewidth) {
-            let _ = writeln!(self.body, "{} setlinewidth", nums(&[gc.linewidth]));
-            self.line.width = Some(gc.linewidth);
-        }
-        if self.line.join != Some(gc.join) {
-            let _ = writeln!(self.body, "{} setlinejoin", join_code(gc.join));
-            self.line.join = Some(gc.join);
-        }
-        if self.line.cap != Some(gc.cap) {
-            let _ = writeln!(self.body, "{} setlinecap", cap_code(gc.cap));
-            self.line.cap = Some(gc.cap);
-        }
-        // An empty dash list sets no dashes, as no list does.
-        let dash = (
-            gc.dashes.offset,
-            gc.dashes
-                .pattern
-                .clone()
-                .filter(|pattern| !pattern.is_empty()),
-        );
-        if self.line.dash.as_ref() != Some(&dash) {
-            if let Some(pattern) = &dash.1 {
-                let _ = writeln!(self.body, "[{}] {} setdash", nums(pattern), nums(&[dash.0]));
-            } else {
-                self.body.push_str("[] 0 setdash\n");
-            }
-            self.line.dash = Some(dash);
-        }
-    }
-
-    /// `create_hatch`: defines the pattern of `hatch` on first use (hatches
-    /// are told apart by their pattern only).
-    fn hatch_name(&mut self, pattern: &str, linewidth: f64) -> String {
-        if let Some(index) = self.hatches.iter().position(|h| h == pattern) {
-            return format!("H{index}");
-        }
-        let name = format!("H{}", self.hatches.len());
-        let tile = pltrs_core::hatch::pattern_path(pattern, pltrs_core::hatch::DEFAULT_DENSITY)
-            .unwrap_or_default();
-        let path = self.convert(&tile, Affine2D::scaling(72.0, 72.0), false, None);
-        let _ = writeln!(
-            self.body,
-            "  << /PatternType 1\n     /PaintType 2\n     /TilingType 2\n     \
-             /BBox[0 0 72 72]\n     /XStep 72\n     /YStep 72\n\n     /PaintProc {{\n        \
-             pop\n        {} setlinewidth\n{path}\n        gsave\n        fill\n        \
-             grestore\n        stroke\n     }} bind\n   >>\n   matrix\n   0 {} translate\n   \
-             makepattern\n   /{name} exch def",
-            general(linewidth),
-            general(self.height * 72.0)
-        );
-        self.hatches.push(pattern.to_owned());
-        name
     }
 
     /// `_get_clip_cmd`: the clip rectangle, then the clip path's procedure
@@ -214,7 +146,7 @@ impl PsRenderer {
             }
         }
         if let Some(hatch) = hatch {
-            let name = self.hatch_name(&hatch.pattern, hatch.linewidth);
+            let name = self.create_hatch(&hatch.pattern, hatch.linewidth);
             let c = hatch.color;
             let _ = writeln!(
                 self.body,

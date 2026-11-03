@@ -9,10 +9,11 @@ log scales (``loglog``, ``semilogx``, ``semilogy``).
 import inspect
 from operator import attrgetter
 
-from .. import _api
+from .. import _api, rcParams
 from .._native import axis as _axis
 from ..axis import Axis
 from ..rcsetup import validate_axisbelow
+from ..transforms import ScaledTranslation
 
 
 class _axis_method_wrapper:
@@ -70,6 +71,83 @@ class TicksMixin:
     get_yticklabels = _axis_method_wrapper("yaxis", "get_ticklabels")
     xaxis_date = _axis_method_wrapper("xaxis", "axis_date")
     yaxis_date = _axis_method_wrapper("yaxis", "axis_date")
+
+    def _padded(self, transform, dx, dy):
+        """*transform* followed by an offset of (*dx*, *dy*) points."""
+        return transform + ScaledTranslation(
+            dx / 72, dy / 72, self.get_figure(root=False).dpi_scale_trans)
+
+    def get_xaxis_text1_transform(self, pad_points):
+        """
+        Returns
+        -------
+        transform : Transform
+            The transform used for drawing x-axis labels, which will add
+            *pad_points* of padding (in points) between the axis and the label.
+            The x-direction is in data coordinates and the y-direction is in
+            axis coordinates
+        valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
+            The text vertical alignment.
+        halign : {'center', 'left', 'right'}
+            The text horizontal alignment.
+        """
+        return (self._padded(self.get_xaxis_transform(which='tick1'),
+                             0, -pad_points),
+                "top", rcParams["xtick.alignment"])
+
+    def get_xaxis_text2_transform(self, pad_points):
+        """
+        Returns
+        -------
+        transform : Transform
+            The transform used for drawing secondary x-axis labels, which will
+            add *pad_points* of padding (in points) between the axis and the
+            label.  The x-direction is in data coordinates and the y-direction
+            is in axis coordinates
+        valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
+            The text vertical alignment.
+        halign : {'center', 'left', 'right'}
+            The text horizontal alignment.
+        """
+        return (self._padded(self.get_xaxis_transform(which='tick2'),
+                             0, pad_points),
+                "bottom", rcParams["xtick.alignment"])
+
+    def get_yaxis_text1_transform(self, pad_points):
+        """
+        Returns
+        -------
+        transform : Transform
+            The transform used for drawing y-axis labels, which will add
+            *pad_points* of padding (in points) between the axis and the label.
+            The x-direction is in axis coordinates and the y-direction is in
+            data coordinates
+        valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
+            The text vertical alignment.
+        halign : {'center', 'left', 'right'}
+            The text horizontal alignment.
+        """
+        return (self._padded(self.get_yaxis_transform(which='tick1'),
+                             -pad_points, 0),
+                rcParams["ytick.alignment"], "right")
+
+    def get_yaxis_text2_transform(self, pad_points):
+        """
+        Returns
+        -------
+        transform : Transform
+            The transform used for drawing secondary y-axis labels, which will
+            add *pad_points* of padding (in points) between the axis and the
+            label.  The x-direction is in axis coordinates and the y-direction
+            is in data coordinates
+        valign : {'center', 'top', 'bottom', 'baseline', 'center_baseline'}
+            The text vertical alignment.
+        halign : {'center', 'left', 'right'}
+            The text horizontal alignment.
+        """
+        return (self._padded(self.get_yaxis_transform(which='tick2'),
+                             pad_points, 0),
+                rcParams["ytick.alignment"], "left")
 
     def get_axisbelow(self):
         """

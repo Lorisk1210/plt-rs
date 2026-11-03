@@ -14,7 +14,8 @@ import weakref
 
 import numpy as np
 
-from . import _api, _live_transforms, _mirrors, _text_overrides, _values, cbook, units
+from . import (_api, _live_transforms, _mirrors, _text_coords, _text_overrides,
+               _values, cbook, units)
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
@@ -274,9 +275,14 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         props = {_BOX_ALIASES.get(key, key): value
                  for key, value in rectprops.items()}
         boxstyle = props.get("boxstyle")
-        if boxstyle is not None and not isinstance(boxstyle, str):
-            raise NotImplementedError(
-                "pltrs: set_bbox(boxstyle=...) takes a box style name")
+        if boxstyle is not None:
+            from .patches import BoxStyle
+            from ._patch_styles import _native_spec
+            if isinstance(boxstyle, str):
+                boxstyle = BoxStyle(boxstyle)
+            props["boxstyle"] = _native_spec(boxstyle, BoxStyle)
+        # The style object, which a style of the program's is known by.
+        self._bbox_style = boxstyle
         _text.set_bbox(self._native, props)
 
     def update_bbox_position_size(self, renderer):
@@ -1017,12 +1023,47 @@ class OffsetFrom:
         """Return the unit for input to the transform used by ``__call__``."""
         return self._unit
 
-    def _native_coords(self):
-        """The coordinates as `_native.annotation` takes them."""
-        if not isinstance(self._artist, Artist):
-            raise NotImplementedError(
-                "pltrs: OffsetFrom of a Bbox or a Transform")
-        return ("offset_from", self._artist._native, self._ref_coord, self._unit)
+    def __call__(self, renderer):
+        """
+        Return the offset transform.
+
+        Parameters
+        ----------
+        renderer : `RendererBase`
+            The renderer to use to compute the offset
+
+        Returns
+        -------
+        `Transform`
+            Maps (x, y) in pixel or point units to screen units
+            relative to the given artist.
+        """
+        from .transforms import Affine2D
+        if isinstance(self._artist, Artist):
+            bbox = self._artist.get_window_extent(renderer)
+            xf, yf = self._ref_coord
+            x = bbox.x0 + bbox.width * xf
+            y = bbox.y0 + bbox.height * yf
+        elif isinstance(self._artist, BboxBase):
+            bbox = self._artist
+            xf, yf = self._ref_coord
+            x = bbox.x0 + bbox.width * xf
+            y = bbox.y0 + bbox.height * yf
+        elif isinstance(self._artist, Transform):
+            x, y = self._artist.transform(self._ref_coord)
+        else:
+            _api.check_isinstance((Artist, BboxBase, Transform), artist=self._artist)
+        scale = 1 if self._unit == "pixels" else renderer.points_to_pixels(1)
+        return Affine2D().scale(scale).translate(x, y)
+
+    def _native_coords(self, figure):
+        """The coordinates as `_native.annotation` takes them: pltrs (Rust)
+        offsets from an artist itself, and from a box or a transform
+        through the transform this gives (see `._text_coords`)."""
+        if isinstance(self._artist, Artist):
+            return ("offset_from", self._artist._native, self._ref_coord,
+                    self._unit)
+        return _text_coords.native(self, figure)
 
 
 def _native_coords(coords, figure, name="xycoords"):
@@ -1040,20 +1081,13 @@ def _native_coords(coords, figure, name="xycoords"):
         return ("blended", _native_coords(xcoords, figure, name),
                 _native_coords(ycoords, figure, name))
     if isinstance(coords, OffsetFrom):
-        return coords._native_coords()
+        return coords._native_coords(figure)
     if isinstance(coords, Artist):
         return ("artist", coords._native)
     if isinstance(coords, Transform):
         return ("transform", _live_transforms.to_native(coords))
     if callable(coords):
-        get_renderer = getattr(getattr(figure, "canvas", None),
-                               "get_renderer", None)
-        result = coords(get_renderer() if get_renderer is not None else None)
-        if isinstance(result, (BboxBase, Transform)):
-            raise NotImplementedError(f"pltrs: annotate({name}=<callable>)")
-        raise TypeError(
-            f"xycoords callable must return a BboxBase or Transform, not a "
-            f"{type(result).__name__}")
+        return _text_coords.native(coords, figure)
     raise TypeError(
         f"'xycoords' must be an instance of str, tuple[str, str], Artist, "
         f"Transform, or Callable, not a {type(coords).__name__}")
@@ -1101,7 +1135,45 @@ def _native_arrowprops(arrowprops):
     return props
 
 
-class Annotation(Text):
+class _AnnotationBase:
+    """
+    What `Annotation` and `.AnnotationBbox` share (matplotlib's
+    ``_AnnotationBase``): dragging them with the mouse.
+    """
+
+    def draggable(self, state=None, use_blit=False):
+        """
+        Set whether the annotation is draggable with the mouse.
+
+        Parameters
+        ----------
+        state : bool or None
+            - True or False: set the draggability.
+            - None: toggle the draggability.
+        use_blit : bool, default: False
+            Use blitting for faster image composition.
+
+        Returns
+        -------
+        DraggableAnnotation or None
+            If the annotation is draggable, the corresponding
+            `.DraggableAnnotation` helper is returned.
+        """
+        from .offsetbox import DraggableAnnotation
+        is_draggable = self._draggable is not None
+        if state is None:
+            state = not is_draggable
+        if state:
+            if self._draggable is None:
+                self._draggable = DraggableAnnotation(self, use_blit)
+        else:
+            if self._draggable is not None:
+                self._draggable.disconnect()
+            self._draggable = None
+        return self._draggable
+
+
+class Annotation(Text, _AnnotationBase):
     """
     An `.Annotation` is a `.Text` that can refer to a specific position *xy*.
     Optionally an arrow pointing from the text to *xy* can be drawn.
@@ -1159,6 +1231,33 @@ class Annotation(Text):
         self.arrowprops = arrowprops
         self._draggable = None
         self._init_properties(kwargs)
+        self._track_coords()
+
+    @property
+    def _evaluates_coords(self):
+        """Whether a coordinate system of the annotation is one the program
+        evaluates at every draw (see `._text_coords`)."""
+        return (_text_coords.is_evaluated(self._xycoords)
+                or _text_coords.is_evaluated(self._textcoords))
+
+    def _track_coords(self):
+        """Have the figure of the annotation evaluate its coordinate
+        systems at every draw when the program evaluates one (an
+        annotation outside any figure has them evaluated once adopted)."""
+        if self._figure is not None:
+            from ._computed_transforms import track
+            track(self, self._figure)
+
+    def _evaluate_coords(self):
+        """Hand pltrs (Rust) the coordinate systems the program evaluates
+        as they are now."""
+        if _text_coords.is_evaluated(self._xycoords):
+            _annotation.set_xycoords(
+                self._native, _native_coords(self._xycoords, self.figure))
+        if _text_coords.is_evaluated(self._textcoords):
+            _annotation.set_textcoords(
+                self._native,
+                _native_coords(self._textcoords, self.figure, "textcoords"))
 
     def get_window_extent(self, renderer=None):
         """
@@ -1187,37 +1286,6 @@ class Annotation(Text):
         from ._annotation_arrow import mirror
         return mirror(self)
 
-    def draggable(self, state=None, use_blit=False):
-        """
-        Set whether the annotation is draggable with the mouse.
-
-        Parameters
-        ----------
-        state : bool or None
-            - True or False: set the draggability.
-            - None: toggle the draggability.
-        use_blit : bool, default: False
-            Use blitting for faster image composition.
-
-        Returns
-        -------
-        DraggableAnnotation or None
-            If the annotation is draggable, the corresponding
-            `.DraggableAnnotation` helper is returned.
-        """
-        from .offsetbox import DraggableAnnotation
-        is_draggable = self._draggable is not None
-        if state is None:
-            state = not is_draggable
-        if state:
-            if self._draggable is None:
-                self._draggable = DraggableAnnotation(self, use_blit)
-        else:
-            if self._draggable is not None:
-                self._draggable.disconnect()
-            self._draggable = None
-        return self._draggable
-
     @property
     def xy(self):
         """The annotated position, in `xycoords`."""
@@ -1240,6 +1308,7 @@ class Annotation(Text):
         _annotation.set_xycoords(self._native,
                                  _native_coords(xycoords, self.figure))
         self._xycoords = xycoords
+        self._track_coords()
 
     @property
     def xyann(self):
@@ -1271,6 +1340,7 @@ class Annotation(Text):
         _annotation.set_textcoords(self._native,
                                    _native_coords(coords, self.figure, "textcoords"))
         self._textcoords = coords
+        self._track_coords()
 
     anncoords = property(get_anncoords, set_anncoords, doc="""
         The coordinate system to use for `.Annotation.xyann`.""")

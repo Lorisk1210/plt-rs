@@ -2,18 +2,64 @@
 //! `ConnectionStyle` and `ArrowStyle` (`patches`), done by pltrs (Rust)'s
 //! styles.
 //!
-//! A style arrives as matplotlib's description string, `"round,pad=0.2"`,
-//! which the Python classes make from their parameters.
+//! A style of matplotlib's arrives as its description string,
+//! `"round,pad=0.2"`, which the Python classes make from their
+//! parameters; a style of the program's as the callable pltrs (Rust) calls
+//! ([`PyBoxStyle`], [`PyConnectionStyle`], [`PyArrowStyle`]).
 
-use pltrs::patches::{ArrowStyle, BoxStyle, ConnectionStyle, PatchError, StyleError};
+use pltrs::patches::{ArrowStyle, BoxShape, BoxStyle, ConnectionStyle, PatchError, StyleError};
 use pltrs_core::Point;
 
+use super::archive::{program_arrow, program_box, program_connection};
 use super::path::{PathArrays, PyPath, path_arrays};
 use crate::binding::prelude::*;
 
 /// matplotlib's `ValueError` for a bad style description.
 pub(super) fn style_error(err: StyleError) -> PyErr {
     PyErr::value_error(err.to_string())
+}
+
+/// A box style as Python gives it: the description of one of matplotlib's
+/// styles, or a style of the program's, `style(x0, y0, width, height,
+/// mutation_size)` returning the box's path.
+pub(super) struct PyBoxStyle(pub(super) BoxStyle);
+
+impl FromPy<'_> for PyBoxStyle {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        match object.extract::<String>() {
+            Ok(spec) => spec.parse().map(Self).map_err(style_error),
+            Err(_) => Ok(Self(BoxStyle::new(BoxShape::Program(program_box(object)?)))),
+        }
+    }
+}
+
+/// A connection style as Python gives it: the description of one of
+/// matplotlib's styles, or a connection of the program's, `connect(posA,
+/// posB)` returning the path between the points.
+pub(super) struct PyConnectionStyle(pub(super) ConnectionStyle);
+
+impl FromPy<'_> for PyConnectionStyle {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        match object.extract::<String>() {
+            Ok(spec) => spec.parse().map(Self).map_err(style_error),
+            Err(_) => Ok(Self(ConnectionStyle::Program(program_connection(object)?))),
+        }
+    }
+}
+
+/// An arrow style as Python gives it: the description of one of
+/// matplotlib's styles, or an arrow of the program's, `arrow(vertices,
+/// codes, mutation_size, linewidth, aspect)` returning the pieces of the
+/// arrow.
+pub(super) struct PyArrowStyle(pub(super) ArrowStyle);
+
+impl FromPy<'_> for PyArrowStyle {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        match object.extract::<String>() {
+            Ok(spec) => spec.parse().map(Self).map_err(style_error),
+            Err(_) => Ok(Self(ArrowStyle::Program(program_arrow(object)?))),
+        }
+    }
 }
 
 /// `ValueError` for geometry a style cannot build.

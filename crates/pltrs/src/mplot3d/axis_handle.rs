@@ -308,8 +308,9 @@ impl Axis3D {
 
     /// Gives the major ticks their own label pads, in the order of
     /// [`Axis3D::major_tick_pads`]: like matplotlib's `Tick` objects
-    /// after `tick.set_pad`, the ticks past the end take the first pad.
-    /// Tick parameters setting a pad give every tick that pad again.
+    /// after `tick.set_pad`, the ticks the locator adds later take the
+    /// first pad. Tick parameters setting a pad give every tick that pad
+    /// again.
     ///
     /// ```
     /// use pltrs::figure::Figure;
@@ -322,8 +323,9 @@ impl Axis3D {
     /// ```
     pub fn set_major_tick_pads(&self, pads: Vec<f64>) -> &Self {
         let dir = self.dir;
-        self.axes
-            .with_mut(|axes| axes.axis_mut(dir).major_pads = pads);
+        self.axes.with_mut(|axes| {
+            axes.axis_mut(dir).major_overrides.pads = pads.into_iter().map(Some).collect();
+        });
         self
     }
 
@@ -440,14 +442,12 @@ impl Axis3D {
         let dir = self.dir;
         self.axes.with_mut(|axes| {
             let axis = axes.axis_mut(dir);
-            if params.which.major() {
-                apply(true, &mut axis.major_style);
+            let levels = [(false, params.which.major()), (true, params.which.minor())];
+            for (minor, _) in levels.into_iter().filter(|&(_, chosen)| chosen) {
+                apply(!minor, axis.level_style_mut(minor));
                 if params.reset || params.pad.is_some() {
-                    axis.major_pads.clear();
+                    axis.overrides_mut(minor).pads.clear();
                 }
-            }
-            if params.which.minor() {
-                apply(false, &mut axis.minor_style);
             }
             if let Some(color) = label_color {
                 axis.offset_color = color.clone();

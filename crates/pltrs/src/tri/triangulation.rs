@@ -36,6 +36,38 @@ pub(crate) type TriEdge = (usize, usize);
 impl Triangulation {
     /// A triangulation with explicit `triangles` (point indices).
     pub fn new(x: &[f64], y: &[f64], triangles: Vec<[usize; 3]>) -> Result<Self, TriError> {
+        let mut tri = Self::checked(x, y, triangles)?;
+        tri.correct_orientation();
+        tri.neighbors = tri.compute_neighbors();
+        Ok(tri)
+    }
+
+    /// A triangulation with explicit `triangles` kept in the vertex order
+    /// given, clockwise or not (matplotlib's C++ triangulation made with
+    /// `correct_triangle_orientations=False`): their edges and neighbours
+    /// follow that order, an edge pairing only with one running the other
+    /// way.
+    ///
+    /// ```
+    /// use pltrs::tri::Triangulation;
+    /// let (x, y) = ([0.0, 1.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]);
+    /// let triangles = vec![[0, 1, 2], [1, 2, 3]];
+    /// let tri = Triangulation::as_given(&x, &y, triangles.clone())?;
+    /// assert_eq!(tri.triangles(), &triangles[..]);
+    /// assert_eq!(tri.neighbors()[0], [None, None, None], "both edges run from 1 to 2");
+    /// let corrected = Triangulation::new(&x, &y, triangles)?;
+    /// assert_eq!(corrected.neighbors()[0], [None, Some(1), None]);
+    /// # Ok::<(), pltrs::tri::TriError>(())
+    /// ```
+    pub fn as_given(x: &[f64], y: &[f64], triangles: Vec<[usize; 3]>) -> Result<Self, TriError> {
+        let mut tri = Self::checked(x, y, triangles)?;
+        tri.neighbors = tri.compute_neighbors();
+        Ok(tri)
+    }
+
+    /// The triangulation of `triangles`, checked against the points, before
+    /// its orientation and neighbours are worked out.
+    fn checked(x: &[f64], y: &[f64], triangles: Vec<[usize; 3]>) -> Result<Self, TriError> {
         check_lengths(x, y)?;
         if let Some(&index) = triangles.iter().flatten().find(|&&v| v >= x.len()) {
             return Err(TriError::PointIndex {
@@ -43,7 +75,7 @@ impl Triangulation {
                 npoints: x.len(),
             });
         }
-        let mut tri = Self {
+        Ok(Self {
             x: x.to_vec(),
             y: y.to_vec(),
             triangles,
@@ -51,10 +83,7 @@ impl Triangulation {
             mask: None,
             neighbors: Vec::new(),
             is_delaunay: false,
-        };
-        tri.correct_orientation();
-        tri.neighbors = tri.compute_neighbors();
-        Ok(tri)
+        })
     }
 
     /// The Delaunay triangulation of the points.

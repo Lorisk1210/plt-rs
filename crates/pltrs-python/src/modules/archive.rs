@@ -30,11 +30,14 @@ use pltrs::container::Container;
 use pltrs::figure::Figure;
 use pltrs::gridspec::{GridSpec, SubplotSpec};
 use pltrs::legend::LegendHandle;
+use pltrs::patches::{ArrowFn, BoxFn, ConnectFn, ProgramArrow, ProgramBox, ProgramConnection};
+use pltrs::path::Path;
 use pltrs::patheffects::CustomPathEffect;
+use pltrs::projections::Projection;
 use pltrs::rc::RcParams;
 use pltrs::scale::FuncTransform;
 use pltrs::ticker::{FuncFormatter, LabelFormat};
-use pltrs::transforms::{PointMap, Transform};
+use pltrs::transforms::{Point, PointMap, Transform};
 use pltrs_core::archive::{
     self, Archive, ArchiveError, Decoder, Encoder, External, KindOf, ProgramKinds,
 };
@@ -43,6 +46,8 @@ use super::artist::PlainArtist;
 use super::axis::{PyFormatter, PyLocator};
 use super::colors::PythonNorm;
 use super::drawing::{PythonEffect, PythonPainter};
+use super::path::{PyPath, path_arrays};
+use super::projections::PyProjection;
 use super::transforms::PyPointMap;
 use crate::binding::lookup;
 use crate::binding::prelude::*;
@@ -73,11 +78,29 @@ enum Call {
     /// `f(value)` as a number, the functions converting the values of a
     /// secondary axis.
     Numbers,
+    /// `f(x0, y0, width, height, mutation_size)`, a box style of the
+    /// program's, returning the box's path.
+    BoxStyle,
+    /// `f(posA, posB)`, a connection of the program's, returning the path
+    /// connecting the points.
+    Connection,
+    /// `f(vertices, codes, mutation_size, linewidth, aspect)`, an arrow
+    /// style of the program's, returning the pieces of the arrow as
+    /// `(path, filled)` pairs.
+    Arrow,
 }
 
 impl Call {
     /// Every way of calling.
-    const ALL: [Self; 4] = [Self::Ticks, Self::Coordinates, Self::Values, Self::Numbers];
+    const ALL: [Self; 7] = [
+        Self::Ticks,
+        Self::Coordinates,
+        Self::Values,
+        Self::Numbers,
+        Self::BoxStyle,
+        Self::Connection,
+        Self::Arrow,
+    ];
 
     /// The name of the way of calling, the role of its externals.
     fn name(self) -> &'static str {
@@ -86,6 +109,9 @@ impl Call {
             Self::Coordinates => "data-labels",
             Self::Values => "value-labels",
             Self::Numbers => "numbers",
+            Self::BoxStyle => "box-style",
+            Self::Connection => "connection-style",
+            Self::Arrow => "arrow-style",
         }
     }
 
@@ -112,8 +138,93 @@ impl Call {
                 let function: Number = Rc::new(number(callback));
                 (TypeId::of::<Number>(), Box::new(function))
             }
+            Self::BoxStyle => {
+                let function: Rc<BoxFn> = Rc::new(box_outline(callback));
+                (TypeId::of::<Rc<BoxFn>>(), Box::new(function))
+            }
+            Self::Connection => {
+                let function: Rc<ConnectFn> = Rc::new(connection(callback));
+                (TypeId::of::<Rc<ConnectFn>>(), Box::new(function))
+            }
+            Self::Arrow => {
+                let function: Rc<ArrowFn> = Rc::new(arrow_pieces(callback));
+                (TypeId::of::<Rc<ArrowFn>>(), Box::new(function))
+            }
         }
     }
+}
+
+/// `f(x0, y0, width, height, mutation_size)`, the box's path; no path when
+/// it raised (its exception goes to the native call running).
+fn box_outline(callback: Callback) -> impl Fn(f64, f64, f64, f64, f64) -> Path + 'static {
+    move |x0, y0, width, height, mutation_size| {
+        callback
+            .call::<PyPath>((x0, y0, width, height, mutation_size))
+            .map(|path| path.path)
+            .unwrap_or_default()
+    }
+}
+
+/// `f(posA, posB)`, the path connecting the points; no path when it
+/// raised.
+fn connection(callback: Callback) -> impl Fn(Point, Point) -> Path + 'static {
+    move |a, b| {
+        callback
+            .call::<PyPath>(((a.x, a.y), (b.x, b.y)))
+            .map(|path| path.path)
+            .unwrap_or_default()
+    }
+}
+
+/// `f(vertices, codes, mutation_size, linewidth, aspect)`, the pieces of
+/// the arrow along the path; none when it raised.
+fn arrow_pieces(
+    callback: Callback,
+) -> impl Fn(&Path, f64, f64, f64) -> Vec<(Path, bool)> + 'static {
+    move |path, mutation_size, linewidth, aspect| {
+        let Ok((vertices, codes)) = path_arrays(path, false) else {
+            return Vec::new();
+        };
+        callback
+            .call::<Vec<(PyPath, bool)>>((vertices, codes, mutation_size, linewidth, aspect))
+            .map(|pieces| {
+                pieces
+                    .into_iter()
+                    .map(|(path, filled)| (path.path, filled))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+}
+
+/// The box style of the program's `callable(x0, y0, width, height,
+/// mutation_size)`, archived as the callable.
+pub(crate) fn program_box(callable: &Bound<'_>) -> PyResult<ProgramBox> {
+    let callback: Callback = callable.extract()?;
+    Ok(ProgramBox::with_origin(
+        Rc::new(box_outline(callback)),
+        function_external(callable, Call::BoxStyle),
+    ))
+}
+
+/// The connection of the program's `callable(posA, posB)`, archived as the
+/// callable.
+pub(crate) fn program_connection(callable: &Bound<'_>) -> PyResult<ProgramConnection> {
+    let callback: Callback = callable.extract()?;
+    Ok(ProgramConnection::with_origin(
+        Rc::new(connection(callback)),
+        function_external(callable, Call::Connection),
+    ))
+}
+
+/// The arrow style of the program's `callable(vertices, codes,
+/// mutation_size, linewidth, aspect)`, archived as the callable.
+pub(crate) fn program_arrow(callable: &Bound<'_>) -> PyResult<ProgramArrow> {
+    let callback: Callback = callable.extract()?;
+    Ok(ProgramArrow::with_origin(
+        Rc::new(arrow_pieces(callback)),
+        function_external(callable, Call::Arrow),
+    ))
 }
 
 /// `f(value, position)`, empty when it raised.
@@ -258,9 +369,10 @@ fn externals_from_python(pairs: Vec<PythonPair>) -> PyResult<Vec<External>> {
 }
 
 /// How the binding archives its own types behind pltrs (Rust)'s traits:
-/// a Python tick helper, norm or transform as the Python object, the bare
-/// artist of `Artist()` as its common properties; and how it makes the
-/// functions of [`Call`]s again.
+/// a Python tick helper, norm, transform, path effect or painter as the
+/// Python object, the projection of an Axes of a program's projection
+/// class as its adapter, the bare artist of `Artist()` as its common
+/// properties; and how it makes the functions of [`Call`]s again.
 struct PythonProgram;
 
 /// The tags of the binding's kinds.
@@ -271,6 +383,7 @@ const NORM: &str = "python-norm";
 const POINT_MAP: &str = "python-transform";
 const PAINTER: &str = "python-painter";
 const EFFECT: &str = "python-path-effect";
+const PROJECTION: &str = "python-projection";
 
 /// An exception raised while reading an archive, as an archive error.
 fn read_failure(py: Python<'_>, err: &PyErr) -> ArchiveError {
@@ -328,6 +441,11 @@ impl ProgramKinds for PythonProgram {
             (POINT_MAP, Python::with_gil(|py| map.object().clone_ref(py)))
         } else if let Some(effect) = value.downcast_ref::<PythonEffect>() {
             (EFFECT, Python::with_gil(|py| effect.object().clone_ref(py)))
+        } else if let Some(projection) = value.downcast_ref::<PyProjection>() {
+            (
+                PROJECTION,
+                Python::with_gil(|py| projection.adapter().clone_ref(py)),
+            )
         } else {
             return Err(ArchiveError::unsupported(format!(
                 "a {} of a type of the program's",
@@ -382,6 +500,10 @@ impl ProgramKinds for PythonProgram {
                 POINT_MAP => PyPointMap::new(&object).map(|map| {
                     let map: Box<dyn PointMap> = Box::new(map);
                     Box::new(map) as Box<dyn Any>
+                }),
+                PROJECTION => PyProjection::of(&object).map(|projection| {
+                    let projection: Box<dyn Projection> = Box::new(projection);
+                    Box::new(projection) as Box<dyn Any>
                 }),
                 _ => {
                     return Err(ArchiveError::invalid(format!(

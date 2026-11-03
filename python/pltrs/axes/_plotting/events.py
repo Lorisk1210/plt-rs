@@ -123,6 +123,7 @@ class EventsMixin:
             collection._internal_update(kwargs)
         return collections
 
+    @_preprocess_data()
     def stem(self, *args, linefmt=None, markerfmt=None, basefmt=None, bottom=0,
              label=None, orientation='vertical'):
         """
@@ -133,6 +134,11 @@ class EventsMixin:
         `.StemContainer`
             The container may be treated like a tuple
             (*markerline*, *stemlines*, *baseline*)
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         if not 1 <= len(args) <= 3:
             raise _api.nargs_error('stem', '1-3', len(args))

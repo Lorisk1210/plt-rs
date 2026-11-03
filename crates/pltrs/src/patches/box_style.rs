@@ -9,6 +9,7 @@ use pltrs_core::archive::{Archive, ArchiveError, Decoder, Encoder};
 
 use self::outlines::Padded;
 use super::StyleError;
+use super::program_styles::ProgramBox;
 use super::style_spec::{StyleSpec, write_description};
 
 mod outlines;
@@ -18,7 +19,7 @@ pub const DEFAULT_PAD: f64 = 0.3;
 
 /// The shape of a box outline, with its shape-specific parameters.
 /// Lengths are fractions of the mutation size.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum BoxShape {
     /// A rectangle.
     Square,
@@ -56,6 +57,9 @@ pub enum BoxShape {
     /// An outline drawn by a function of the caller's (matplotlib's
     /// callable box styles and registered box style classes).
     Custom(CustomBox),
+    /// An outline drawn by a style of the program's, which pads the box
+    /// itself (matplotlib's `BoxStyle` subclasses and callables).
+    Program(ProgramBox),
 }
 
 pltrs_core::archive_enum!(BoxShape {
@@ -70,6 +74,7 @@ pltrs_core::archive_enum!(BoxShape {
     Sawtooth { tooth_size },
     Roundtooth { tooth_size },
     Custom(v0),
+    Program(v0),
 });
 
 /// The outline of a [`CustomBox`]: from the boxed rectangle `x0, y0,
@@ -176,7 +181,7 @@ impl ArrowHead {
 
 /// A box style: a shape and the padding around the boxed rectangle
 /// (`None` uses [`DEFAULT_PAD`]; texts substitute their own default).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BoxStyle {
     /// The outline.
     pub shape: BoxShape,
@@ -194,7 +199,7 @@ impl BoxStyle {
 
     /// The same style with an explicit padding.
     #[must_use]
-    pub const fn with_pad(self, pad: f64) -> Self {
+    pub fn with_pad(self, pad: f64) -> Self {
         Self {
             pad: Some(pad),
             ..self
@@ -216,19 +221,19 @@ impl BoxStyle {
             dx: width + 2.0 * pad,
             dy: height + 2.0 * pad,
         };
-        match self.shape {
+        match &self.shape {
             BoxShape::Square => padded.square(),
             BoxShape::Circle => padded.circle(),
             BoxShape::Ellipse => padded.ellipse(),
-            BoxShape::RArrow(head) => padded.right_arrow(head),
+            BoxShape::RArrow(head) => padded.right_arrow(*head),
             BoxShape::LArrow(head) => {
-                let mut path = padded.right_arrow(head);
+                let mut path = padded.right_arrow(*head);
                 for p in path.vertices_mut() {
                     p.x = 2.0 * x0 + width - p.x;
                 }
                 path
             }
-            BoxShape::DArrow(head) => padded.double_arrow(head),
+            BoxShape::DArrow(head) => padded.double_arrow(*head),
             BoxShape::Round { rounding_size } => padded.round(
                 rounding_size
                     .filter(|&r| r != 0.0)
@@ -240,12 +245,13 @@ impl BoxStyle {
                     .map_or(pad / 2.0, |r| r * mutation_size),
             ),
             BoxShape::Sawtooth { tooth_size } => {
-                Path::closed(padded.sawtooth(self.tooth(tooth_size, mutation_size)))
+                Path::closed(padded.sawtooth(self.tooth(*tooth_size, mutation_size)))
             }
             BoxShape::Roundtooth { tooth_size } => {
-                padded.roundtooth(self.tooth(tooth_size, mutation_size))
+                padded.roundtooth(self.tooth(*tooth_size, mutation_size))
             }
             BoxShape::Custom(custom) => (custom.outline)(x0, y0, width, height, pad),
+            BoxShape::Program(program) => program.path(x0, y0, width, height, mutation_size),
         }
     }
 
@@ -280,20 +286,23 @@ impl fmt::Display for BoxStyle {
                 ("head_angle", Some(head.head_angle)),
             ]
         };
-        let (name, sizes): (&str, Vec<(&str, Option<f64>)>) = match self.shape {
+        let (name, sizes): (&str, Vec<(&str, Option<f64>)>) = match &self.shape {
             BoxShape::Square => ("square", Vec::new()),
             BoxShape::Circle => ("circle", Vec::new()),
             BoxShape::Ellipse => ("ellipse", Vec::new()),
-            BoxShape::RArrow(h) => ("rarrow", head(h).to_vec()),
-            BoxShape::LArrow(h) => ("larrow", head(h).to_vec()),
-            BoxShape::DArrow(h) => ("darrow", head(h).to_vec()),
-            BoxShape::Round { rounding_size } => ("round", vec![("rounding_size", rounding_size)]),
+            BoxShape::RArrow(h) => ("rarrow", head(*h).to_vec()),
+            BoxShape::LArrow(h) => ("larrow", head(*h).to_vec()),
+            BoxShape::DArrow(h) => ("darrow", head(*h).to_vec()),
+            BoxShape::Round { rounding_size } => ("round", vec![("rounding_size", *rounding_size)]),
             BoxShape::Round4 { rounding_size } => {
-                ("round4", vec![("rounding_size", rounding_size)])
+                ("round4", vec![("rounding_size", *rounding_size)])
             }
-            BoxShape::Sawtooth { tooth_size } => ("sawtooth", vec![("tooth_size", tooth_size)]),
-            BoxShape::Roundtooth { tooth_size } => ("roundtooth", vec![("tooth_size", tooth_size)]),
+            BoxShape::Sawtooth { tooth_size } => ("sawtooth", vec![("tooth_size", *tooth_size)]),
+            BoxShape::Roundtooth { tooth_size } => {
+                ("roundtooth", vec![("tooth_size", *tooth_size)])
+            }
             BoxShape::Custom(custom) => (custom.name(), Vec::new()),
+            BoxShape::Program(_) => ("program", Vec::new()),
         };
         let attributes: Vec<_> = std::iter::once(pad).chain(sizes).collect();
         write_description(f, name, &attributes)
@@ -461,7 +470,7 @@ mod tests {
     #[test]
     fn custom_outlines_get_the_scaled_padding() {
         let angled_box = BoxShape::Custom(CustomBox::new("angled", angled));
-        let path = BoxStyle::new(angled_box).path(0.0, 0.0, 4.0, 2.0, 10.0);
+        let path = BoxStyle::new(angled_box.clone()).path(0.0, 0.0, 4.0, 2.0, 10.0);
         assert_eq!(path.extents().x0(), -6.0, "default padding of 0.3");
         let padded = BoxStyle::new(angled_box)
             .with_pad(0.5)

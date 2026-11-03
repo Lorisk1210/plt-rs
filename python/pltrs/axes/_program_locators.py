@@ -44,6 +44,11 @@ def follow(owner, figure):
     owners.add(owner)
 
 
+def followed(figure):
+    """What the root *figure* places by locators of the program's."""
+    return list(_followed.get(figure, ()))
+
+
 def forget(owner, figure):
     """Stop placing *owner* by a locator of the program's for the root
     *figure*."""

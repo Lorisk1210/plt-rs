@@ -7,7 +7,7 @@
 
 use pltrs::axes::{Axes, AxisBelow};
 use pltrs::spines::SpineSide;
-use pltrs::units::{DateConverter, UnitConverter};
+use pltrs::units::{Categories, DateConverter, UnitConverter};
 
 use super::owner::{AnyAxis, AxisOwner};
 use super::{axis, side};
@@ -42,13 +42,23 @@ fn minorticks(axes: Axes, name: String, on: bool) -> PyResult<()> {
 }
 
 /// Whether minor ticks on major ones are dropped.
-fn get_remove_overlapping_locs(axes: Axes, name: String) -> PyResult<bool> {
-    Ok(axis(&axes, &name)?.remove_overlapping_locs())
+fn get_remove_overlapping_locs(owner: AxisOwner, name: String) -> PyResult<bool> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.remove_overlapping_locs(),
+        AnyAxis::Deep(axis) => axis.remove_overlapping_locs(),
+    })
 }
 
 /// Drops minor ticks on major ones, or keeps them.
-fn set_remove_overlapping_locs(axes: Axes, name: String, remove: bool) -> PyResult<()> {
-    axis(&axes, &name)?.set_remove_overlapping_locs(remove);
+fn set_remove_overlapping_locs(owner: AxisOwner, name: String, remove: bool) -> PyResult<()> {
+    match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => {
+            axis.set_remove_overlapping_locs(remove);
+        }
+        AnyAxis::Deep(axis) => {
+            axis.set_remove_overlapping_locs(remove);
+        }
+    }
     Ok(())
 }
 
@@ -170,45 +180,61 @@ fn mark_default_helpers(owner: AxisOwner, name: String) -> PyResult<()> {
     Ok(())
 }
 
+/// The categories of axis `name` of a 2-D or a 3-D axes, if it holds
+/// category names.
+fn categories(owner: &AxisOwner, name: &str) -> PyResult<Option<Categories>> {
+    Ok(match owner.axis(name)? {
+        AnyAxis::Flat(axis) => axis.categories(),
+        AnyAxis::Deep(axis) => axis.categories(),
+    })
+}
+
 /// Whether the axis holds category names.
-fn has_categories(axes: Axes, name: String) -> PyResult<bool> {
-    Ok(axis(&axes, &name)?.categories().is_some())
+fn has_categories(owner: AxisOwner, name: String) -> PyResult<bool> {
+    Ok(categories(&owner, &name)?.is_some())
 }
 
 /// The category names of the axis, in the order of their positions.
-fn category_names(axes: Axes, name: String) -> PyResult<Vec<String>> {
-    Ok(axis(&axes, &name)?
-        .categories()
+fn category_names(owner: AxisOwner, name: String) -> PyResult<Vec<String>> {
+    Ok(categories(&owner, &name)?
         .map(|categories| categories.names().to_vec())
         .unwrap_or_default())
 }
 
 /// Whether the axis converts units.
-fn have_units(axes: Axes, name: String) -> PyResult<bool> {
-    Ok(axis(&axes, &name)?.have_units())
+fn have_units(owner: AxisOwner, name: String) -> PyResult<bool> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.have_units(),
+        AnyAxis::Deep(axis) => axis.have_units(),
+    })
 }
 
 /// Takes the units `values` bring (`update_units`); whether they have
 /// units.
-fn update_units(axes: Axes, name: String, values: PyAxisValues) -> PyResult<bool> {
-    Ok(axis(&axes, &name)?.update_units(values.0))
+fn update_units(owner: AxisOwner, name: String, values: PyAxisValues) -> PyResult<bool> {
+    Ok(match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.update_units(values.0),
+        AnyAxis::Deep(axis) => axis.update_units(values.0),
+    })
 }
 
 /// The kind of the axis' unit converter: `"dates"`, `"category"`,
 /// `"custom"`, or `None`.
-fn converter_kind(axes: Axes, name: String) -> PyResult<Option<&'static str>> {
-    Ok(axis(&axes, &name)?
-        .converter()
-        .map(|converter| match converter {
-            UnitConverter::Dates | UnitConverter::DatesBy(_) => "dates",
-            UnitConverter::Categories => "category",
-            UnitConverter::Custom(_) => "custom",
-        }))
+fn converter_kind(owner: AxisOwner, name: String) -> PyResult<Option<&'static str>> {
+    let converter = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis.converter(),
+        AnyAxis::Deep(axis) => axis.converter(),
+    };
+    Ok(converter.map(|converter| match converter {
+        UnitConverter::Dates | UnitConverter::DatesBy(_) => "dates",
+        UnitConverter::Categories => "category",
+        UnitConverter::Custom(_) => "custom",
+    }))
 }
 
 /// Gives axis `name` the converter `kind` explicitly (`set_converter`):
 /// dates with `"auto"` or `"concise"` ticks, or `"category"` names.
-fn set_converter(axes: Axes, name: String, kind: String) -> PyResult<()> {
+fn set_converter(owner: AxisOwner, name: String, kind: String) -> PyResult<()> {
     let converter = match kind.as_str() {
         "category" => UnitConverter::Categories,
         dates => UnitConverter::DatesBy(
@@ -217,10 +243,17 @@ fn set_converter(axes: Axes, name: String, kind: String) -> PyResult<()> {
                 .map_err(|err| PyErr::value_error(err.to_string()))?,
         ),
     };
-    axis(&axes, &name)?
-        .set_converter(converter)
-        .map_err(|err| PyErr::new(ExceptionKind::RuntimeError, err.to_string()))?;
-    Ok(())
+    let set = match owner.axis(&name)? {
+        AnyAxis::Flat(axis) => axis
+            .set_converter(converter)
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+        AnyAxis::Deep(axis) => axis
+            .set_converter(converter)
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+    };
+    set.map_err(|err| PyErr::new(ExceptionKind::RuntimeError, err))
 }
 
 /// Ticks the axis, of a 2-D or a 3-D axes, as an axis of dates in the
@@ -292,10 +325,25 @@ mod tests {
         assert!(tick_to(ax.clone(), x(), "left".into()).is_err());
         set_axisbelow(ax.clone(), "line".into()).unwrap();
         assert_eq!(ax.axisbelow(), AxisBelow::Line);
-        assert!(!has_categories(ax.clone(), x()).unwrap());
-        let names = PyAxisValues(vec!["a".to_owned(), "b".to_owned()].into());
-        assert!(update_units(ax.clone(), x(), names).unwrap());
-        assert_eq!(category_names(ax.clone(), x()).unwrap(), ["a", "b"]);
-        assert_eq!(converter_kind(ax, x()).unwrap(), Some("category"));
+        assert!(!has_categories(owner(), x()).unwrap());
+        let names = || PyAxisValues(vec!["a".to_owned(), "b".to_owned()].into());
+        assert!(update_units(owner(), x(), names()).unwrap());
+        assert_eq!(category_names(owner(), x()).unwrap(), ["a", "b"]);
+        assert_eq!(converter_kind(owner(), x()).unwrap(), Some("category"));
+    }
+
+    #[test]
+    fn units_and_overlaps_of_3d_axes() {
+        let ax = Figure::new().subplot_3d();
+        let z = || "z".to_owned();
+        let owner = || AxisOwner::Deep(ax.clone());
+        assert!(!have_units(owner(), z()).unwrap());
+        let names = PyAxisValues(vec!["low".to_owned(), "high".to_owned()].into());
+        assert!(update_units(owner(), z(), names).unwrap());
+        assert_eq!(category_names(owner(), z()).unwrap(), ["low", "high"]);
+        assert_eq!(converter_kind(owner(), z()).unwrap(), Some("category"));
+        assert!(get_remove_overlapping_locs(owner(), z()).unwrap());
+        set_remove_overlapping_locs(owner(), z(), false).unwrap();
+        assert!(!get_remove_overlapping_locs(owner(), z()).unwrap());
     }
 }

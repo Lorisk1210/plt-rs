@@ -40,12 +40,13 @@ artist_handle!(Axes3D);
 
 impl From<Axes3DError> for PyErr {
     /// matplotlib's `ValueError` for invalid values, `TypeError` for error
-    /// sizes with units, `NotImplementedError` for what pltrs (Rust) does
-    /// not lift to 3-D.
+    /// sizes with units and for collections of a kind that is not lifted
+    /// to 3-D (the package adds those as they are, as matplotlib does).
     fn from(err: Axes3DError) -> Self {
         let kind = match err {
-            Axes3DError::UnaddableErrors(_) => ExceptionKind::TypeError,
-            Axes3DError::UnsupportedCollection => ExceptionKind::NotImplementedError,
+            Axes3DError::UnaddableErrors(_) | Axes3DError::UnsupportedCollection => {
+                ExceptionKind::TypeError
+            }
             _ => ExceptionKind::ValueError,
         };
         PyErr::new(kind, err.to_string())

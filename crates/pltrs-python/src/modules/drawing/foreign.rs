@@ -12,20 +12,24 @@
 //! one path per line, through `draw_path`, as `RendererBase.draw_text`
 //! draws it.
 
-use pltrs::artist::{ArtistHandle, RawHandle, Renderer};
-use pltrs::figure::Figure;
+use std::rc::Rc;
+
+use pltrs::artist::{RawHandle, Renderer};
 use pltrs_core::{Affine2D, Path, Point, Rgba};
-use pltrs_render::{GraphicsContext, PathCollection, QuadMesh, RgbaImage, draw_text_as_path};
+use pltrs_render::{
+    GraphicsContext, PathCollection, QuadMesh, RgbaImage, SharedFilter, draw_text_as_path,
+};
 use pltrs_text::TextRun;
 
+use super::super::artist::{filter_image, image_array as filter_array};
 use super::super::backends::PyGc;
 use super::super::path::path_arrays;
 use super::super::transforms::{matrix, points_array};
 use crate::binding::prelude::*;
 use crate::binding::{lookup, report};
 
-/// A renderer of the program's.
-struct PythonRenderer {
+/// A renderer of the program's, which pltrs (Rust) draws through.
+pub(in crate::modules) struct PythonRenderer {
     object: Owned,
 }
 
@@ -64,6 +68,11 @@ fn image_array(image: &RgbaImage) -> PyResult<NdArray<u8>> {
 }
 
 impl PythonRenderer {
+    /// The renderer of the program's `object`.
+    pub(in crate::modules) fn new(object: Owned) -> Self {
+        Self { object }
+    }
+
     /// Runs `call` with the renderer; what it gives, or `None` when it
     /// raised (its exception raises from the native call drawing).
     fn call<R>(&self, call: impl FnOnce(&Bound<'_>) -> PyResult<R>) -> Option<R> {
@@ -279,6 +288,23 @@ impl Renderer for PythonRenderer {
         self.call(|r| r.call_method("start_rasterizing", &[]).map(drop));
     }
 
+    fn start_filter(&mut self) {
+        self.call(|r| r.call_method("start_filter", &[]).map(drop));
+    }
+
+    /// matplotlib's `renderer.stop_filter(artist.get_agg_filter())`: the
+    /// renderer receives the filter as a function of an `(H, W, 4)` image
+    /// of fractions and the resolution, returning the filtered image and
+    /// the offset of its corner (the package's `filter_function`).
+    fn stop_shared_filter(&mut self, filter: &SharedFilter) {
+        self.call(|r| {
+            let py = r.py();
+            let shared = PyFilter(Rc::clone(filter)).into_py(py)?;
+            let function = lookup(py, "filter_function")?.call(&[shared], &[])?;
+            r.call_method("stop_filter", &[function]).map(drop)
+        });
+    }
+
     fn stop_rasterizing(&mut self) {
         self.call(|r| r.call_method("stop_rasterizing", &[]).map(drop));
     }
@@ -308,19 +334,37 @@ impl Renderer for PythonRenderer {
     }
 }
 
+/// An image filter pltrs (Rust) hands a renderer of the program's.
+struct PyFilter(SharedFilter);
+
+impl IntoPy for PyFilter {
+    /// A native object holding the filter.
+    fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
+        crate::binding::wrap_native(py, self)
+    }
+}
+
+/// `filter` applied to `image`, an `(H, W, 4)` array of fractions, at
+/// `dpi`: the filtered image and the offset of its corner.
+fn apply_filter(
+    filter: Native<PyFilter>,
+    image: NdArray,
+    dpi: f64,
+) -> PyResult<(NdArray, f64, f64)> {
+    let filtered = (filter.borrow().0)(&filter_image(&image)?, dpi);
+    let (ox, oy) = filtered.offset;
+    Ok((filter_array(&filtered.image)?, ox, oy))
+}
+
 /// Draws `artist` through the program's renderer `renderer` (matplotlib's
 /// `artist.draw(renderer)`): as pltrs draws it, its painter left out; a
 /// root figure is laid out and drawn whole (`figure.draw(renderer)`).
 fn draw_through(renderer: Owned, artist: RawHandle) -> PyResult<()> {
-    let mut python = PythonRenderer { object: renderer };
-    let figure = artist.figure();
-    if figure.id() == artist.id() {
-        return Ok(Figure::draw(&figure, &mut python)?);
-    }
-    Ok(artist.draw_unpainted_onto(&mut python)?)
+    Ok(artist.draw_unpainted_onto(&mut PythonRenderer::new(renderer))?)
 }
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
-    module.add("draw_through", draw_through)
+    module.add("draw_through", draw_through)?;
+    module.add("apply_filter", apply_filter)
 }

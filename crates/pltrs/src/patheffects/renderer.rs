@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use pltrs_core::{Affine2D, Path, Point, Rgba};
 use pltrs_render::{
-    FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage, draw_text_as_path,
+    FilterFn, GraphicsContext, PathCollection, Renderer, RgbaImage, SharedFilter, draw_text_as_path,
 };
 use pltrs_text::TextRun;
 
@@ -214,6 +214,10 @@ impl Renderer for PathEffectRenderer<'_> {
 
     fn stop_filter(&mut self, filter: &FilterFn<'_>) {
         self.inner.stop_filter(filter);
+    }
+
+    fn stop_shared_filter(&mut self, filter: &SharedFilter) {
+        self.inner.stop_shared_filter(filter);
     }
 
     fn option_image_nocomposite(&self) -> bool {

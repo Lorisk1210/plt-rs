@@ -45,47 +45,94 @@ impl AxesLocator {
     }
 }
 
-/// A function placing an axes at layout time (matplotlib's axes locator,
-/// a callable of the axes and the renderer): given the position the axes
-/// was given, in fractions of its figure, it returns the position to
-/// place the axes at before its aspect is applied. It runs inside the
-/// layout pass and gets what it needs as its argument: it is `Send`, so
-/// it cannot use the figure's handles. Clones share the function. A
-/// figure with one is archived only if the function has an origin
-/// ([`AxesLocatorFn::with_origin`]).
+/// What places an axes at layout time (matplotlib's axes locator, a
+/// callable of the axes and the renderer): given the position the axes
+/// was given, in fractions of its figure, it gives the position to place
+/// the axes at before its aspect is applied.
+///
+/// A function runs inside the layout pass and gets what it needs as its
+/// argument: it is `Send`, so it cannot use the figure's handles. Clones
+/// share the function. A figure with one is archived only if the
+/// function has an origin ([`AxesLocatorFn::with_origin`]). A locator
+/// may also be a fixed position ([`AxesLocatorFn::at`]): where a program
+/// that computes the position itself, before the layout, places the axes.
 #[derive(Clone)]
-pub struct AxesLocatorFn(ProgramFn<dyn Fn(Bbox) -> Bbox>);
+pub struct AxesLocatorFn(Locate);
+
+/// How an [`AxesLocatorFn`] places its axes.
+#[derive(Clone)]
+enum Locate {
+    /// Where the function says.
+    Function(ProgramFn<dyn Fn(Bbox) -> Bbox>),
+    /// At this position, or at the original one for `None`.
+    At(Option<Bbox>),
+}
+
+pltrs_core::archive_enum!(Locate {
+    Function(v0),
+    At(v0),
+});
 
 pltrs_core::archive_struct!(AxesLocatorFn(v0));
 
 impl AxesLocatorFn {
     /// A locator calling `locate`.
     pub fn new(locate: impl Fn(Bbox) -> Bbox + Send + 'static) -> Self {
-        Self(ProgramFn::new(Rc::new(locate)))
+        Self(Locate::Function(ProgramFn::new(Rc::new(locate))))
     }
 
     /// A locator calling `locate`, archived as `origin`, what the program
     /// made it from (see [`ProgramFn`]).
     pub fn with_origin(locate: impl Fn(Bbox) -> Bbox + Send + 'static, origin: External) -> Self {
-        Self(ProgramFn::with_origin(Rc::new(locate), origin))
+        Self(Locate::Function(ProgramFn::with_origin(
+            Rc::new(locate),
+            origin,
+        )))
+    }
+
+    /// A locator placing its axes at `position`, or at its original
+    /// position for `None` (what a locator of matplotlib's returning
+    /// `None` asks for).
+    ///
+    /// ```
+    /// use pltrs::axes::AxesLocatorFn;
+    /// use pltrs::transforms::Bbox;
+    /// let original = Bbox::from_bounds(0.1, 0.1, 0.8, 0.8);
+    /// let placed = Bbox::from_bounds(0.5, 0.5, 0.2, 0.2);
+    /// assert_eq!(AxesLocatorFn::at(Some(placed)).locate(original), placed);
+    /// assert_eq!(AxesLocatorFn::at(None).locate(original), original);
+    /// ```
+    pub fn at(position: Option<Bbox>) -> Self {
+        Self(Locate::At(position))
     }
 
     /// Where the locator places an axes given `original`.
     pub fn locate(&self, original: Bbox) -> Bbox {
-        (self.0.get())(original)
+        match &self.0 {
+            Locate::Function(locate) => (locate.get())(original),
+            Locate::At(position) => position.unwrap_or(original),
+        }
     }
 }
 
 impl fmt::Debug for AxesLocatorFn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AxesLocatorFn").finish_non_exhaustive()
+        match &self.0 {
+            Locate::Function(_) => f.debug_struct("AxesLocatorFn").finish_non_exhaustive(),
+            Locate::At(position) => f.debug_tuple("AxesLocatorFn::at").field(position).finish(),
+        }
     }
 }
 
 impl PartialEq for AxesLocatorFn {
-    /// Locators are equal when they share the function.
+    /// Functions are equal when they are shared, positions when they are
+    /// the same.
     fn eq(&self, other: &Self) -> bool {
-        std::ptr::addr_eq(self.0.get(), other.0.get())
+        match (&self.0, &other.0) {
+            (Locate::Function(a), Locate::Function(b)) => std::ptr::addr_eq(a.get(), b.get()),
+            (Locate::At(a), Locate::At(b)) => a == b,
+            _ => false,
+        }
     }
 }
 

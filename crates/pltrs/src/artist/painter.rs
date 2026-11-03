@@ -296,7 +296,7 @@ impl DrawContext<'_> {
                 Some(filter) => {
                     ctx.renderer().start_filter();
                     painter.draw(ctx, id);
-                    ctx.renderer().stop_filter(filter.function());
+                    ctx.renderer().stop_shared_filter(filter.shared());
                 }
                 None => painter.draw(ctx, id),
             }

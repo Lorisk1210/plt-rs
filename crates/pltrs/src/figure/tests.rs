@@ -233,7 +233,8 @@ fn text_boxes_read_back() {
         rounding_size: None,
     });
     text.set_bbox(Some(
-        TextBoxProps::new(round).with_patch(crate::patches::PatchProps::default().alpha(0.5)),
+        TextBoxProps::new(round.clone())
+            .with_patch(crate::patches::PatchProps::default().alpha(0.5)),
     ));
     let patch = text.bbox_patch().expect("a box");
     assert_eq!(patch.boxstyle().shape, round.shape);

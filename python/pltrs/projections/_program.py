@@ -58,12 +58,28 @@ _LINEAR_PATHS = {
 }
 
 
+def native_name(cls):
+    """
+    The name of the projection of pltrs (Rust) the Axes class *cls* is
+    drawn with: that of the nearest of its classes this package defines
+    (a subclass of `.PolarAxes` registered under a name of its own is
+    polar).
+    """
+    package = __name__.partition(".")[0]
+    for base in cls.__mro__:
+        if (base.__module__.partition(".")[0] == package
+                and getattr(base, "name", None) in _NATIVE_PROJECTIONS):
+            return base.name
+    return "rectilinear"
+
+
 def is_program_class(cls):
     """Whether *cls* is an Axes class of a projection the program defines
-    (one whose ``name`` pltrs (Rust) does not know and which does not make
-    its native Axes itself)."""
+    (one whose ``name`` pltrs (Rust) does not know, deriving from the
+    rectilinear Axes, and which does not make its native Axes itself)."""
     return (issubclass(cls, Axes)
             and cls.name not in _NATIVE_PROJECTIONS
+            and native_name(cls) == "rectilinear"
             and getattr(cls, "_make_native", None) is None)
 
 
@@ -257,6 +273,13 @@ class _Adapter:
         self.spine_order = projection.spine_order
         self.overrides = projection.overrides
 
+    def __getstate__(self):
+        # A pickle of the figure holds the Axes anyway.
+        return {**self.__dict__, "_axes": self._axes()}
+
+    def __setstate__(self, state):
+        self.__dict__.update(state, _axes=weakref.ref(state["_axes"]))
+
     @contextlib.contextmanager
     def _viewing(self, limits):
         """The Axes and its projection, answering with *limits*."""
@@ -270,13 +293,8 @@ class _Adapter:
         """Connect the Axes again (it is new, or was cleared, which
         disconnected what was connected to it)."""
         ax = self._axes()
-        if ax is None:
-            return
-        notify = functools.partial(_limits_changed, weakref.ref(ax._viewLim))
-        for name in "xy":
-            _axes.on_limits_changed(ax._native, name, notify)
-        ax._update_transScale()
-        ax._viewLim.changed()
+        if ax is not None:
+            connect(ax)
 
     def data_to_axes(self, limits):
         """``transData`` up to ``transAxes``, evaluated."""
@@ -309,6 +327,17 @@ class _Adapter:
             along = 1 if side in ("left", "right") else 0
             v0, v1 = spine._path.vertices[:, along]
             return float(v0), float(v1)
+
+
+def connect(ax):
+    """Have the transforms of the Axes *ax* of a program's projection class
+    follow its limits (again, once it was cleared or read back from a
+    pickle, which disconnect what was connected to it)."""
+    notify = functools.partial(_limits_changed, weakref.ref(ax._viewLim))
+    for name in "xy":
+        _axes.on_limits_changed(ax._native, name, notify)
+    ax._update_transScale()
+    ax._viewLim.changed()
 
 
 def set_up(ax):

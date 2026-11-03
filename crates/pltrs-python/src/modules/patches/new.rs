@@ -5,12 +5,12 @@
 
 use pltrs::orientation::Orientation;
 use pltrs::patches::{
-    Annulus, Arc, Arrow, ArrowShape, ArrowStyle, BoxStyle, Circle, CirclePolygon, ConnectionStyle,
-    Ellipse, FancyArrow, FancyArrowPatch, FancyBboxPatch, Patch, PatchProps, PathShape, Polygon,
-    Rectangle, RegularPolygon, Shadow, ShadowError, StepBaseline, StepPatch, Wedge,
+    Annulus, Arc, Arrow, ArrowShape, Circle, CirclePolygon, Ellipse, FancyArrow, FancyArrowPatch,
+    FancyBboxPatch, Patch, PatchProps, PathShape, Polygon, Rectangle, RegularPolygon, Shadow,
+    ShadowError, StepBaseline, StepPatch, Wedge,
 };
 
-use super::super::patch_styles::style_error;
+use super::super::patch_styles::{PyArrowStyle, PyBoxStyle, PyConnectionStyle};
 use super::super::path::PyPath;
 use super::super::transforms::points;
 use super::AnyPatch;
@@ -193,15 +193,10 @@ fn step_patch(
 fn fancy_bbox(
     xy: (f64, f64),
     (width, height): (f64, f64),
-    boxstyle: String,
+    boxstyle: PyBoxStyle,
     (mutation_scale, mutation_aspect): (f64, f64),
 ) -> PyResult<Patch<FancyBboxPatch>> {
-    let mut shape = FancyBboxPatch::new(
-        xy,
-        width,
-        height,
-        boxstyle.parse::<BoxStyle>().map_err(style_error)?,
-    );
+    let mut shape = FancyBboxPatch::new(xy, width, height, boxstyle.0);
     shape.mutation_scale = mutation_scale;
     shape.mutation_aspect = mutation_aspect;
     Ok(Patch::loose(shape, PatchProps::default()))
@@ -213,7 +208,7 @@ type ArrowEnds = (Option<((f64, f64), (f64, f64))>, Option<PyPath>);
 /// The styles of a fancy arrow: `(arrowstyle, connectionstyle, shrinkA,
 /// shrinkB, mutation_scale, mutation_aspect)`, the styles as description
 /// strings.
-type ArrowStyles = (String, String, f64, f64, f64, f64);
+type ArrowStyles = (PyArrowStyle, PyConnectionStyle, f64, f64, f64, f64);
 
 /// A loose fancy arrow patch (matplotlib's `FancyArrowPatch`).
 fn fancy_arrow_patch(
@@ -229,12 +224,8 @@ fn fancy_arrow_patch(
             ));
         }
     }
-    .with_arrowstyle(arrowstyle.parse::<ArrowStyle>().map_err(style_error)?)
-    .with_connectionstyle(
-        connectionstyle
-            .parse::<ConnectionStyle>()
-            .map_err(style_error)?,
-    )
+    .with_arrowstyle(arrowstyle.0)
+    .with_connectionstyle(connectionstyle.0)
     .with_shrink(shrink_a, shrink_b)
     .with_mutation_scale(scale);
     shape.spec.mutation_aspect = aspect;

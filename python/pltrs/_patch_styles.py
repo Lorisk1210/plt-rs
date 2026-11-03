@@ -5,14 +5,22 @@ The patch styles of matplotlib's ``patches``: `BoxStyle`,
 Each is a registry of style classes (the ``_Style`` machinery is
 matplotlib's); a style instance keeps its parameters, and pltrs (Rust)
 draws it from matplotlib's description string (``"round,pad=0.2"``,
-see ``_native.patch_styles``).
+see ``_native.patch_styles``). A style of the program's (a subclass of
+``_Base`` it defines and may `~_Style.register`, or a callable) is called
+by pltrs (Rust) where it draws with it, as matplotlib calls it (see
+`_native_spec`).
 """
 
 import functools
 import inspect
+from types import SimpleNamespace
 import textwrap
 
+import numpy as np
+
+from . import _api
 from ._native import patch_styles as _styles
+from .bezier import inside_circle, split_path_inout
 from .path import Path
 
 
@@ -45,6 +53,17 @@ class _Style:
     def get_styles(cls):
         """Return a dictionary of available styles."""
         return cls._style_list
+
+    @classmethod
+    @_api.deprecated(
+        '3.10',
+        message="This method is never used internally.",
+        alternative="No replacement.  Please open an issue if you use this.")
+    def register(cls, name, style):
+        """Register a new style."""
+        if not issubclass(style, cls._Base):
+            raise ValueError(f"{style} must be a subclass of {cls._Base}")
+        cls._style_list[name] = style
 
     @classmethod
     def pprint_styles(cls):
@@ -181,11 +200,70 @@ class ConnectionStyle(_Style):
     _style_list = {}
 
     class _Base(_Described):
-        def __call__(self, posA, posB, shrinkA=2., shrinkB=2., patchA=None,
-                     patchB=None):
-            """Return the path connecting *posA* and *posB*."""
+        """
+        A base class for connectionstyle classes. The subclass needs
+        to implement a *connect* method whose call signature is::
+
+          connect(posA, posB)
+
+        where posA and posB are tuples of x, y coordinates to be
+        connected.  The method needs to return a path connecting two
+        points. This base class defines a __call__ method, and a few
+        helper methods.
+        """
+
+        def connect(self, posA, posB):
+            """Return the path connecting *posA* and *posB* (pltrs (Rust)
+            draws the styles of matplotlib's)."""
             return Path(*_styles.connection_path(
                 self._spec(), tuple(map(float, posA)), tuple(map(float, posB))))
+
+        def _in_patch(self, patch):
+            """
+            Return a predicate function testing whether a point *xy* is
+            contained in *patch*.
+            """
+            return lambda xy: patch.contains(
+                SimpleNamespace(x=xy[0], y=xy[1]))[0]
+
+        def _clip(self, path, in_start, in_stop):
+            """
+            Clip *path* at its start by the region where *in_start* returns
+            True, and at its stop by the region where *in_stop* returns True.
+
+            The original path is assumed to start in the *in_start* region and
+            to stop in the *in_stop* region.
+            """
+            if in_start:
+                try:
+                    _, path = split_path_inout(path, in_start)
+                except ValueError:
+                    pass
+            if in_stop:
+                try:
+                    path, _ = split_path_inout(path, in_stop)
+                except ValueError:
+                    pass
+            return path
+
+        def __call__(self, posA, posB,
+                     shrinkA=2., shrinkB=2., patchA=None, patchB=None):
+            """
+            Call the *connect* method to create a path between *posA* and
+            *posB*; then clip and shrink the path.
+            """
+            path = self.connect(posA, posB)
+            path = self._clip(
+                path,
+                self._in_patch(patchA) if patchA else None,
+                self._in_patch(patchB) if patchB else None,
+            )
+            path = self._clip(
+                path,
+                inside_circle(*path.vertices[0], shrinkA) if shrinkA else None,
+                inside_circle(*path.vertices[-1], shrinkB) if shrinkB else None
+            )
+            return path
 
 
 for _name, _params in [
@@ -215,19 +293,54 @@ class ArrowStyle(_Style):
     _style_list = {}
 
     class _Base(_Described):
-        def __call__(self, path, mutation_size, linewidth,
-                     aspect_ratio=1.):
+        """
+        Arrow Transmuter Base class
+
+        ArrowTransmuterBase and its derivatives are used to make a fancy
+        arrow around a given path. The __call__ method returns a path
+        (which will be used to create a PathPatch instance) and a boolean
+        value indicating the path is open therefore is not fillable.  This
+        class is not an artist and actual drawing of the fancy arrow is
+        done by the FancyArrowPatch class.
+        """
+
+        def transmute(self, path, mutation_size, linewidth):
             """
             Return the paths of the arrow along *path* and whether each is
-            filled (one path and a bool for a one-piece arrow).
+            filled (one path and a bool for a one-piece arrow; pltrs (Rust)
+            draws the styles of matplotlib's).
             """
             pieces = _styles.arrow_paths(self._spec(), path, float(mutation_size),
-                                         float(linewidth), float(aspect_ratio))
+                                         float(linewidth), 1.0)
             paths = [Path(*arrays) for arrays, _ in pieces]
             fillables = [filled for _, filled in pieces]
             if len(paths) == 1:
                 return paths[0], fillables[0]
             return paths, fillables
+
+        def __call__(self, path, mutation_size, linewidth,
+                     aspect_ratio=1.):
+            """
+            The __call__ method is a thin wrapper around the transmute method
+            and takes care of the aspect ratio.
+            """
+            if aspect_ratio is not None:
+                # Squeeze the given height by the aspect_ratio
+                vertices = path.vertices / [1, aspect_ratio]
+                path_shrunk = Path(vertices, path.codes)
+                # call transmute method with squeezed height.
+                path_mutated, fillable = self.transmute(path_shrunk,
+                                                        mutation_size,
+                                                        linewidth)
+                if np.iterable(fillable):
+                    # Restore the height
+                    path_list = [Path(p.vertices * [1, aspect_ratio], p.codes)
+                                 for p in path_mutated]
+                    return path_list, fillable
+                else:
+                    return path_mutated, fillable
+            else:
+                return self.transmute(path, mutation_size, linewidth)
 
 
 _CURVE = dict(head_length=.4, head_width=.2, widthA=1., widthB=1.,
@@ -259,16 +372,45 @@ for _name, _arrow, _params in [
 del _name, _arrow, _params, _style
 
 
+def _connect_plain(style, posA, posB):
+    """The path a connection style of the program's that is a plain
+    callable gives between *posA* and *posB*, unshrunk (pltrs (Rust)
+    clips and shrinks it as ``ConnectionStyle._Base`` does)."""
+    return style(posA, posB, 0., 0., None, None)
+
+
+def _arrow_pieces(style, vertices, codes, mutation_size, linewidth, aspect):
+    """The pieces of the arrow an arrow style of the program's makes along
+    the path of *vertices* and *codes*: ``(path, filled)`` pairs."""
+    paths, fillable = style(Path(vertices, codes), mutation_size, linewidth,
+                            aspect)
+    if np.iterable(fillable):
+        return [(path, bool(filled)) for path, filled in zip(paths, fillable)]
+    return [(paths, bool(fillable))]
+
+
 def _native_spec(style, registry):
     """
-    The description string of *style* for the native side: a style
-    instance of *registry*, or a style string (validated by *registry*).
+    *style* of *registry* (a name, which *registry* validates, or a style
+    object) as the native side takes it: a style of matplotlib's as its
+    description string; a style of the program's as what pltrs (Rust)
+    calls where it draws with it: a box style itself, a connection
+    style's ``connect`` (that of a plain callable, `_connect_plain`), an
+    arrow style through `_arrow_pieces`.
     """
     if isinstance(style, str):
-        return registry(style)._spec()
-    if isinstance(style, _Described):
+        style = registry(style)
+    if isinstance(style, _Described) and type(style)._spec_name is not None:
         return style._spec()
-    raise TypeError(f"{style!r} is not a {registry.__name__}")
+    if not callable(style):
+        raise TypeError(f"{style!r} is not a {registry.__name__}")
+    if registry is ConnectionStyle:
+        connect = getattr(style, "connect", None)
+        return connect if connect is not None else functools.partial(
+            _connect_plain, style)
+    if registry is ArrowStyle:
+        return functools.partial(_arrow_pieces, style)
+    return style
 
 
 __all__ = ["ArrowStyle", "BoxStyle", "ConnectionStyle"]

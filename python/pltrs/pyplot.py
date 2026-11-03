@@ -488,9 +488,12 @@ def subplots(nrows=1, ncols=1, *, sharex=False, sharey=False, squeeze=True,
     return fig, axs
 
 
-def savefig(*args, **kwargs):
+def savefig(fname, **kwargs):
     """Save the current figure (`.Figure.savefig`)."""
-    return gcf().savefig(*args, **kwargs)
+    fig = gcf()
+    res = fig.savefig(fname, **kwargs)
+    fig.canvas.draw_idle()  # Need this if 'transparent=True', to reset colors.
+    return res
 
 
 def plot(*args, scalex=True, scaley=True, data=None, **kwargs):
@@ -498,12 +501,19 @@ def plot(*args, scalex=True, scaley=True, data=None, **kwargs):
     return gca().plot(*args, scalex=scalex, scaley=scaley, data=data, **kwargs)
 
 
-def scatter(x, y, s=None, c=None, **kwargs):
+def scatter(x, y, s=None, c=None, marker=None, cmap=None, norm=None,
+            vmin=None, vmax=None, alpha=None, linewidths=None, *,
+            edgecolors=None, colorizer=None, plotnonfinite=False, data=None,
+            **kwargs):
     """
     A scatter plot of *y* vs. *x* (`.Axes.scatter`), which becomes the
     current image (`sci`).
     """
-    ret = gca().scatter(x, y, s=s, c=c, **kwargs)
+    ret = gca().scatter(
+        x, y, s=s, c=c, marker=marker, cmap=cmap, norm=norm, vmin=vmin,
+        vmax=vmax, alpha=alpha, linewidths=linewidths, edgecolors=edgecolors,
+        colorizer=colorizer, plotnonfinite=plotnonfinite, data=data,
+        **kwargs)
     sci(ret)
     return ret
 
@@ -624,14 +634,14 @@ def set_cmap(cmap):
 def imshow(X, cmap=None, norm=None, *, aspect=None, interpolation=None,
            alpha=None, vmin=None, vmax=None, colorizer=None, origin=None,
            extent=None, interpolation_stage=None, filternorm=True,
-           filterrad=4.0, resample=None, url=None, **kwargs):
+           filterrad=4.0, resample=None, url=None, data=None, **kwargs):
     """Display data as an image (`.Axes.imshow`)."""
     return gca().imshow(
         X, cmap=cmap, norm=norm, aspect=aspect, interpolation=interpolation,
         alpha=alpha, vmin=vmin, vmax=vmax, colorizer=colorizer,
         origin=origin, extent=extent, interpolation_stage=interpolation_stage,
         filternorm=filternorm, filterrad=filterrad, resample=resample,
-        url=url, **kwargs)
+        url=url, data=data, **kwargs)
 
 
 def imread(fname, format=None):

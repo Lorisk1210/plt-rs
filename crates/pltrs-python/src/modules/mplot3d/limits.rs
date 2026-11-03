@@ -91,6 +91,15 @@ fn autoscale(
     Ok(())
 }
 
+/// Fits the view limits of the axes `scale` selects (x, y, z) that
+/// autoscale to their data, `tight` replacing the tight setting when
+/// given (`autoscale_view`).
+fn autoscale_view(axes: Axes3D, tight: Option<bool>, scale: (bool, bool, bool)) -> PyResult<()> {
+    let (x, y, z) = scale;
+    axes.autoscale_view(tight, [x, y, z])?;
+    Ok(())
+}
+
 /// The autoscaling margin of axis `name` (`get_zmargin`, ...).
 fn get_margin(axes: Axes3D, name: String) -> PyResult<f64> {
     Ok(axes.margin(axis3(&name)?))
@@ -130,10 +139,9 @@ fn scale_options(kwargs: &Bound<'_>) -> PyResult<ScaleOptions> {
                 ));
             }
             _ => {
-                return Err(PyErr::new(
-                    ExceptionKind::NotImplementedError,
-                    format!("pltrs: set_xscale({key}=...) on 3-D axes"),
-                ));
+                return Err(PyErr::type_error(format!(
+                    "the scale got an unexpected keyword argument {key:?}"
+                )));
             }
         }
     }
@@ -190,6 +198,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_autoscale_on", get_autoscale_on)?;
     module.add("set_autoscale_on", set_autoscale_on)?;
     module.add("autoscale", autoscale)?;
+    module.add("autoscale_view", autoscale_view)?;
     module.add("get_margin", get_margin)?;
     module.add("set_margins", set_margins)?;
     module.add("set_scale", set_scale)?;

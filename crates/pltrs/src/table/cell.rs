@@ -202,17 +202,27 @@ pub(crate) struct Cell {
     /// Height in axes fractions.
     pub(crate) height: f64,
     pub(crate) text: String,
-    pub(crate) facecolor: Color,
-    pub(crate) edgecolor: Color,
-    /// Edge width in points (`None` = `patch.linewidth`).
-    pub(crate) linewidth: Option<f64>,
-    /// Opacity of the face and edges (the text keeps its own).
-    pub(crate) alpha: Option<f64>,
+    /// The look of the cell's rectangle (matplotlib's `Cell` is a
+    /// `Rectangle`): its face, edges, line and hatch.
+    pub(crate) style: PatchStyle,
+    /// The artist properties of the rectangle: whether the cell is drawn,
+    /// the opacity of its face and edges (the text keeps its own), its
+    /// effects, sketch, snapping, gid and url. Its transform and parent
+    /// are those of its table, and it is not clipped unless asked
+    /// (matplotlib's `Cell` sets `clip_on` off).
+    pub(crate) base: ArtistBase,
     /// Horizontal alignment of the text, which also sets where it sits.
     pub(crate) loc: HAlign,
     pub(crate) edges: CellEdges,
     pub(crate) font: FontProperties,
     pub(crate) text_color: Color,
+    /// The vertical alignment of the text at the middle of the cell
+    /// (centred, as matplotlib's `Cell` makes its text).
+    pub(crate) text_valign: VAlign,
+    /// The rotation of the text in degrees.
+    pub(crate) text_rotation: f64,
+    /// The opacity of the text.
+    pub(crate) text_alpha: Option<f64>,
     /// The coordinates the cell is drawn in, its place in the table being
     /// in them (matplotlib's `Cell.set_transform`); `None` draws it in the
     /// fractions of the table's axes, as the table sets it.
@@ -223,14 +233,15 @@ pltrs_core::archive_struct!(Cell {
     width,
     height,
     text,
-    facecolor,
-    edgecolor,
-    linewidth,
-    alpha,
+    style,
+    base,
     loc,
     edges,
     font,
     text_color,
+    text_valign,
+    text_rotation,
+    text_alpha,
     transform
 });
 
@@ -240,18 +251,24 @@ impl Cell {
     /// colours (`pltrs.table.*`: white and black), font and text colour of
     /// `rc` (`Cell(xy, width, height)`).
     pub(crate) fn new(width: f64, height: f64, rc: &RcParams) -> Self {
+        let mut style = PatchStyle::from_rc(rc);
+        style.facecolor = Some(rc.pltrs_table_facecolor.clone());
+        style.edgecolor = Some(rc.pltrs_table_edgecolor.clone());
+        let mut base = ArtistBase::with_zorder(1.0);
+        base.clip_on = false;
         Self {
             width,
             height,
             text: String::new(),
-            facecolor: rc.pltrs_table_facecolor.clone(),
-            edgecolor: rc.pltrs_table_edgecolor.clone(),
-            linewidth: None,
-            alpha: None,
+            style,
+            base,
             loc: HAlign::Right,
             edges: CellEdges::CLOSED,
             font: FontProperties::from_rc(rc),
             text_color: rc.text_color.clone(),
+            text_valign: VAlign::Center,
+            text_rotation: 0.0,
+            text_alpha: None,
             transform: None,
         }
     }
@@ -286,8 +303,9 @@ impl Cell {
             .with_size(FontSize::Points(fontsize), rc.font_size);
         let style = BlockStyle {
             halign: self.loc,
-            valign: VAlign::Center,
+            valign: self.text_valign,
             multialign: self.loc,
+            rotation: self.text_rotation,
             ..BlockStyle::default()
         };
         Ok(lay_out(&self.text, &font, &style, dpi, rc)?)
@@ -324,24 +342,19 @@ impl Cell {
         placed: &PlacedCell,
         to_display: &Affine2D,
     ) -> Result<(), TextDrawError> {
-        let mut base = ArtistBase::default();
-        base.clip_on = false;
+        if !self.base.visible {
+            return Ok(());
+        }
+        let mut base = self.base.clone();
         base.parent = table.parent;
         base.transform = Some(Transform::Affine(*to_display));
-        base.alpha = self.alpha;
-        let mut style = PatchStyle::from_rc(rc);
-        style.facecolor = Some(self.facecolor.clone());
-        style.edgecolor = Some(self.edgecolor.clone());
-        if let Some(width) = self.linewidth {
-            style.linewidth = Some(width);
-        }
         let shape = CellShape {
             bbox: placed.bbox,
             edges: self.edges,
         };
         PatchParts {
             base: &base,
-            style: &style,
+            style: &self.style,
             rc,
             shape: &shape,
             interpolation_steps: 1,
@@ -356,6 +369,7 @@ impl Cell {
         let laid_out = self.laid_out(placed.fontsize, ctx.layout().dpi(), rc)?;
         let gc = GraphicsContext {
             foreground: self.text_color.resolve()?,
+            alpha: self.text_alpha,
             antialiased: rc.text_antialiased,
             ..GraphicsContext::default()
         };

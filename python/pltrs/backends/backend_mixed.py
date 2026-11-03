@@ -112,6 +112,14 @@ class MixedModeRenderer:
         else:
             _python_drawing.draw_through(self, artist)
 
+    def _draw_cell(self, cell):
+        """Draw the table `.Cell` *cell* alone (`.Cell.draw` with this
+        renderer), as `_draw_artist` draws an artist."""
+        if self._recording is not None:
+            self._renderer._draw_cell(cell)
+        else:
+            _python_drawing.draw_cell_through(self, cell)
+
     def _set_figure_dpi(self, dpi):
         """Draw the figure at *dpi* from now on, unless pltrs (Rust) is
         drawing it, which then changes it itself."""

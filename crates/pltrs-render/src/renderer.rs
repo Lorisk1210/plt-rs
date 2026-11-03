@@ -6,7 +6,7 @@ use pltrs_text::tex::{TexError, TexText};
 use pltrs_text::{TextEngine, TextRun};
 
 use crate::collection::PathCollection;
-use crate::filter::FilterFn;
+use crate::filter::{FilterFn, SharedFilter};
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
@@ -182,6 +182,14 @@ pub trait Renderer {
     /// cropped to its visible pixels, to `filter` and draws the image it
     /// returns in its place (matplotlib's `stop_filter`).
     fn stop_filter(&mut self, _filter: &FilterFn<'_>) {}
+
+    /// [`stop_filter`](Self::stop_filter) with a filter the renderer may
+    /// keep, as matplotlib hands renderers the artist's filter itself: a
+    /// renderer passing it on (to a program's renderer, say) overrides
+    /// this; the others filter as `stop_filter` does.
+    fn stop_shared_filter(&mut self, filter: &SharedFilter) {
+        self.stop_filter(filter.as_ref());
+    }
 
     /// When `true`, images are drawn one by one instead of being
     /// composited into a single image first.

@@ -10,6 +10,7 @@ import numpy as np
 
 from .. import _api, _values
 from .._native import axes_base as _axes_base
+from ._ticks import _axis_method_wrapper
 
 
 def _check_margin(m):
@@ -339,6 +340,16 @@ class LimitsMixin:
         """
         _axes_base.relim(self._native, bool(visible_only))
 
+    def has_data(self):
+        """
+        Return whether any artists have been added to the Axes.
+
+        This should not be used to determine whether the *dataLim*
+        need to be updated, and may not actually be useful for
+        anything.
+        """
+        return _axes_base.has_data(self._native)
+
     def update_datalim(self, xys, updatex=True, updatey=True):
         """
         Extend the `~.Axes.dataLim` Bbox to include the given points.
@@ -362,6 +373,11 @@ class LimitsMixin:
             return
         _axes_base.update_datalim(
             self._native, xys.reshape(-1, 2), bool(updatex), bool(updatey))
+
+    set_xinverted = _axis_method_wrapper("xaxis", "set_inverted")
+    get_xinverted = _axis_method_wrapper("xaxis", "get_inverted")
+    set_yinverted = _axis_method_wrapper("yaxis", "set_inverted")
+    get_yinverted = _axis_method_wrapper("yaxis", "get_inverted")
 
     @property
     def use_sticky_edges(self):

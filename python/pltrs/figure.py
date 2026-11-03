@@ -18,7 +18,7 @@ from ._native import figure as _figure, gridspec as _gridspec
 from ._native import transforms as _transforms
 from .artist import Artist
 from ._background_patch import FigurePatch
-from ._figure_artists import FigureArtists
+from . import _figure_artists
 from .axes import Axes
 from .axes._base import _AxesBase
 from .backend_bases import FigureCanvasBase, MouseButton, NonGuiException
@@ -133,14 +133,21 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
 
     @property
     def texts(self):
-        """The `.Text` instances added to the (sub)figure itself."""
-        return _handles.wrap_all(_figure.texts(self._native), Text, self)
+        """The `.Text` instances added to the (sub)figure itself, in a list
+        drawing those put in it (see `._figure_artists`)."""
+        return _figure_artists.DrawnList(
+            self, _handles.wrap_all(_figure.texts(self._native), Text, self))
+
+    @texts.setter
+    def texts(self, texts):
+        _figure_artists.replace(self.texts, texts)
 
     def get_children(self):
         """Get a list of artists contained in the figure."""
         return [self.patch,
                 *self.artists,
                 *self._localaxes,
+                *self.lines,
                 *self.patches,
                 *self.texts,
                 *self.images,
@@ -279,8 +286,9 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         elif projection_class.name == "rectilinear":
             native = _figure.add_axes(self._native, rect)
         else:
+            from .projections._program import native_name
             native = _figure.add_axes_projection(self._native, rect,
-                                                 projection_class.name)
+                                                 native_name(projection_class))
         return self._new_axes(native, projection_class, pkw)
 
     def add_subplot(self, *args, **kwargs):
@@ -361,8 +369,9 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         elif projection_class.name == "rectilinear":
             native = _gridspec.add_subplot(self._native, spec)
         else:
+            from .projections._program import native_name
             native = _figure.add_subplot_spec_projection(
-                self._native, spec, projection_class.name)
+                self._native, spec, native_name(projection_class))
         return self._new_axes(native, projection_class, pkw)
 
     def subplots(self, nrows=1, ncols=1, *, sharex=False, sharey=False,
@@ -657,16 +666,37 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
     @property
     def artists(self):
         """The artists added to the figure itself (`add_artist`), in a list
-        that adds those appended to it."""
-        return FigureArtists(self, _handles.wrap_all(
-            _figure.artists(self._native), Artist, self.figure))
+        drawing those put in it (see `._figure_artists`)."""
+        listed = {id(artist) for name in ("_lines", "_patches")
+                  for artist in vars(self).get(name, ())}
+        return _figure_artists.DrawnList(self, [
+            artist for artist in _handles.wrap_all(
+                _figure.artists(self._native), Artist, self.figure)
+            if id(artist) not in listed])
+
+    @artists.setter
+    def artists(self, artists):
+        _figure_artists.replace(self.artists, artists)
 
     @property
     def patches(self):
-        """The patches appended to the figure's list, drawn on it as they
-        are (see `._figure_patches`)."""
-        from ._figure_patches import FigurePatches
-        return vars(self).setdefault("_patches", FigurePatches(self))
+        """The patches put in the figure's list, drawn on it as they are
+        (see `._figure_artists`)."""
+        return vars(self).setdefault("_patches", _figure_artists.DrawnList(self))
+
+    @patches.setter
+    def patches(self, patches):
+        vars(self)["_patches"] = _figure_artists.replace(self.patches, patches)
+
+    @property
+    def lines(self):
+        """The lines put in the figure's list, drawn on it as they are (see
+        `._figure_artists`)."""
+        return vars(self).setdefault("_lines", _figure_artists.DrawnList(self))
+
+    @lines.setter
+    def lines(self, lines):
+        vars(self)["_lines"] = _figure_artists.replace(self.lines, lines)
 
     def legend(self, *args, **kwargs):
         """
@@ -1402,6 +1432,9 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
         from . import _tick_helpers
         state.pop("_tick_helpers", None)
         state["_tick_helper_uses"] = _tick_helpers.pickled(self)
+        # What the figure's hooks follow: the hooks do not pickle.
+        from . import _pickling
+        state["_program_hooks"] = _pickling.program_hooks(self)
 
         # add version information to the state
         from . import __version__
@@ -1425,19 +1458,23 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
             )
         native_state = self.__dict__.pop('_unpickling_state')
         tick_helper_uses = state.pop('_tick_helper_uses')
+        program_hooks = state.pop('_program_hooks')
         self.__dict__.update(state)
         native_state.when_restored(
-            lambda: self._restore_unpickled(restore_to_pylab, tick_helper_uses))
+            lambda: self._restore_unpickled(restore_to_pylab, tick_helper_uses,
+                                            program_hooks))
 
-    def _restore_unpickled(self, restore_to_pylab, tick_helper_uses):
+    def _restore_unpickled(self, restore_to_pylab, tick_helper_uses,
+                           program_hooks):
         """Re-initialise the state not pickled, once the native figure is
         read back (matplotlib's end of ``Figure.__setstate__``)."""
-        from . import _tick_helpers
+        from . import _pickling, _tick_helpers
         _tick_helpers.unpickled(self, tick_helper_uses)
         # discard any changes to the dpi due to pixel ratio changes
         if '_original_dpi' in self.__dict__:
             self.dpi = self._original_dpi
         FigureCanvasBase(self)  # Set self.canvas.
+        _pickling.restore_program_hooks(self, program_hooks)
 
         if restore_to_pylab:
             # lazy import to avoid circularity

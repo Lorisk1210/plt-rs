@@ -73,6 +73,25 @@ fn draw_alone(ctx: &mut DrawContext<'_>, table: ArtistId, key: (i32, i32)) {
 }
 
 impl TableCell {
+    /// Draws the cell alone in `ctx`, where its table places it, when the
+    /// table is in the figure `ctx` draws (a [`DrawStep::TableCell`] of a
+    /// drawing); drawn in another figure, onto the renderer of `ctx`.
+    ///
+    /// [`DrawStep::TableCell`]: crate::artist::DrawStep::TableCell
+    pub(crate) fn draw_in(&self, ctx: &mut DrawContext<'_>) {
+        let raw = self.table().raw();
+        if std::ptr::eq(
+            raw.figure_state().as_ptr().cast_const(),
+            ctx.layout().figure_state(),
+        ) {
+            draw_alone(ctx, raw.id(), self.key());
+        } else if let Err(errors) = self.draw_onto(ctx.renderer()) {
+            for error in errors.0 {
+                ctx.report_kind(error.artist, error.kind, error.message);
+            }
+        }
+    }
+
     /// Draws the cell alone onto `renderer`, its rectangle and its text
     /// where its table places it in the figure's current layout
     /// (matplotlib's `Cell.draw`); a cell of a table in no axes draws

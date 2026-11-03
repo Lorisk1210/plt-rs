@@ -106,6 +106,15 @@ class GeoAxes(Axes):
 
     RESOLUTION = 75
 
+    def format_coord(self, lon, lat):
+        """
+        Override this method to change how the values are displayed in
+        the status bar.
+
+        In this case, we want them to be displayed in degrees N/S/E/W.
+        """
+        return super().format_coord(lon, lat)
+
     @property
     def transProjection(self):
         """The projection of longitudes and latitudes onto the plane."""

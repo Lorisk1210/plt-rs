@@ -10,12 +10,13 @@ use pltrs_core::Path;
 
 pub use curve::{Bracket, CurveArrow, CurveEnd};
 
+use super::program_styles::ProgramArrow;
 use super::style_spec::{StyleSpec, write_description};
 use super::{PatchError, StyleError};
 
 /// How an arrow is drawn along its path. Sizes are fractions of the
 /// mutation size.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ArrowStyle {
     /// The path itself with optional heads or brackets at its ends (`-`,
     /// `->`, `<-`, `<->`, `-|>`, `<|-`, `<|-|>`, `]-`, `-[`, `]-[`, `|-|`,
@@ -46,6 +47,10 @@ pub enum ArrowStyle {
         /// Width at the middle as a fraction of `tail_width`.
         shrink_factor: f64,
     },
+    /// An arrow of the program's (matplotlib's `ArrowStyle._Base`
+    /// subclasses and callables), which squeezes the path by the aspect
+    /// itself.
+    Program(ProgramArrow),
 }
 
 pltrs_core::archive_enum!(ArrowStyle {
@@ -53,6 +58,7 @@ pltrs_core::archive_enum!(ArrowStyle {
     Simple { head_length, head_width, tail_width },
     Fancy { head_length, head_width, tail_width },
     Wedge { tail_width, shrink_factor },
+    Program(v0),
 });
 
 /// The outcome of a transmutation: one fillable outline (the quadratic
@@ -90,6 +96,9 @@ impl ArrowStyle {
         linewidth: f64,
         aspect: f64,
     ) -> Result<Vec<(Path, bool)>, PatchError> {
+        if let Self::Program(program) = self {
+            return Ok(program.pieces(path, mutation_size, linewidth, aspect));
+        }
         let mut squeezed = path.clone();
         for p in squeezed.vertices_mut() {
             p.y /= aspect;
@@ -115,6 +124,9 @@ impl ArrowStyle {
         linewidth: f64,
     ) -> Result<StyledPath, PatchError> {
         Ok(match *self {
+            Self::Program(ref program) => {
+                StyledPath::Many(program.pieces(path, mutation_size, linewidth, 1.0))
+            }
             Self::Curve(curve) => curve.transmute(path, mutation_size, linewidth),
             Self::Simple {
                 head_length,
@@ -318,6 +330,7 @@ impl fmt::Display for ArrowStyle {
             )
         };
         let (name, attributes) = match *self {
+            Self::Program(_) => ("program".to_owned(), Vec::new()),
             Self::Curve(curve) => {
                 let name = curve_name(&curve);
                 let accepted = curve_kind(&name).map_or(CurveParameters::All, |(.., p)| p);

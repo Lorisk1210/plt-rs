@@ -406,6 +406,40 @@ impl AnnotationBbox {
         self
     }
 
+    /// Whether the box is left out while the annotated point is outside
+    /// its axes: always (`Some(true)`), never (`Some(false)`), or for a
+    /// point in data coordinates (`None`; matplotlib's
+    /// `get_annotation_clip`).
+    pub fn annotation_clip(&self) -> Option<bool> {
+        self.raw
+            .with::<AnnotationBboxArtist, _>(|ab| ab.annotation_clip)
+    }
+
+    /// Sets when the box is left out (see
+    /// [`annotation_clip`](Self::annotation_clip); matplotlib's
+    /// `set_annotation_clip`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::offsetbox::{AnnotationBboxOptions, TextArea};
+    /// use pltrs::text::TextProps;
+    /// let ax = Figure::new().subplot();
+    /// let note = ax.add_annotation_bbox(
+    ///     TextArea::from_text("peak", TextProps::default()),
+    ///     (0.5, 0.7),
+    ///     AnnotationBboxOptions::default(),
+    /// )?;
+    /// assert_eq!(note.annotation_clip(), None);
+    /// note.set_annotation_clip(Some(false));
+    /// assert_eq!(note.annotation_clip(), Some(false));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_annotation_clip(&self, clip: Option<bool>) -> &Self {
+        self.raw
+            .with_mut::<AnnotationBboxArtist, _>(|ab| ab.annotation_clip = clip);
+        self
+    }
+
     /// Places the frame and the parts of the child where the figure draws
     /// them in its current layout, as the figure lays out its boxes before
     /// a draw (matplotlib's `update_positions`): the frame's box and

@@ -11,7 +11,7 @@
 use pltrs::artist::{ArtistHandle, RawHandle};
 use pltrs::axes::Axes;
 use pltrs::coords::{CoordError, CoordUnit, Coords};
-use pltrs::patches::{ArrowStyle, ConnectionStyle, FancyArrowPatch, Patch};
+use pltrs::patches::{FancyArrowPatch, Patch};
 use pltrs::text::{
     AnnotateOptions, Annotation, ArrowProps, ArrowStart, FancyArrowProps, LegacyArrowProps, Text,
 };
@@ -19,7 +19,7 @@ use pltrs::transforms::Transform;
 use pltrs::units::{AxisValue, DataPoint};
 use pltrs_core::Point;
 
-use super::patch_styles::style_error;
+use super::patch_styles::{PyArrowStyle, PyConnectionStyle};
 use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 use crate::binding::{dict_items, new_dict};
@@ -147,8 +147,7 @@ impl FromPy<'_> for ArrowKwargs {
         for (key, value) in dict_items(object)? {
             let name: String = key.extract()?;
             if name == "arrowstyle" {
-                let style = value.extract::<String>()?;
-                arrowstyle = Some(style.parse::<ArrowStyle>().map_err(style_error)?);
+                arrowstyle = Some(value.extract::<PyArrowStyle>()?.0);
             } else {
                 items.push((name, value));
             }
@@ -160,10 +159,7 @@ impl FromPy<'_> for ArrowKwargs {
         for (name, value) in items {
             match (fancy.as_mut(), name.as_str()) {
                 (fancy, "connectionstyle") => {
-                    let style = value
-                        .extract::<String>()?
-                        .parse::<ConnectionStyle>()
-                        .map_err(style_error)?;
+                    let style = value.extract::<PyConnectionStyle>()?.0;
                     match fancy {
                         Some(fancy) => fancy.connectionstyle = style,
                         None => legacy.connectionstyle = style,

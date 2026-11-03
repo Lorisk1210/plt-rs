@@ -265,7 +265,7 @@ impl TryFrom<AnchoredDirectionArrows> for AnchoredBox {
         let arrow = |from: (f64, f64), to: (f64, f64)| {
             BoxItem::patch(
                 FancyArrowPatch::between(from, to)
-                    .with_arrowstyle(style)
+                    .with_arrowstyle(style.clone())
                     .with_shrink(0.0, 0.0),
                 arrow_props.clone(),
             )

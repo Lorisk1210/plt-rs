@@ -99,6 +99,16 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         _program_classes.take_class_defaults(self)
         _python_drawing.attach(self)
 
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name == "draw" and "_native" in vars(self):  # As in matplotlib.
+            _python_drawing.attach(self, again=True)
+
+    def __delattr__(self, name):
+        super().__delattr__(name)
+        if name == "draw" and "_native" in vars(self):
+            _python_drawing.attach(self, again=True)
+
     @classmethod
     def _from_native(cls, native, figure):
         """The object of class *cls* around the native handle *native* of

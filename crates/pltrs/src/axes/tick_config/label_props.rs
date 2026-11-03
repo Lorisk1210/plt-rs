@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use pltrs_text::{HAlign, RotationMode, VAlign};
 
-use crate::axes::axis::AxisState;
+use crate::axes::axis::{AxisState, TickOverrides};
 use crate::axes::tick_lines::TickLineProps;
 use crate::axes::ticks::TickStyle;
 use crate::axes::{Axis, TickLevel};
@@ -71,7 +71,7 @@ pltrs_core::archive_struct!(TickLabelProps {
 impl TickLabelProps {
     /// The same properties with a relative font size turned into points
     /// against `base_size` (font sizes are resolved when they are set).
-    fn with_absolute_size(&self, base_size: f64) -> Self {
+    pub(crate) fn with_absolute_size(&self, base_size: f64) -> Self {
         Self {
             fontsize: (self.fontsize).map(|size| FontSize::Points(size.to_points(base_size))),
             ..self.clone()
@@ -100,7 +100,7 @@ impl TickLabelProps {
 
     /// Sets the label properties of `style` that are set here; font sizes
     /// must be absolute ([`Self::with_absolute_size`]).
-    fn apply(&self, style: &mut TickStyle) {
+    pub(crate) fn apply(&self, style: &mut TickStyle) {
         if let Some(rotation) = self.rotation {
             style.label_rotation = rotation;
         }
@@ -149,17 +149,51 @@ impl TickLabelProps {
 impl AxisState {
     /// The style of the major (or `minor`) tick at `index`, counting every
     /// tick the locator places: the style of its level with that tick's
-    /// label, mark and gridline properties and its pad on top.
+    /// label (on the first side), mark and gridline properties and its pad
+    /// on top.
     pub(crate) fn tick_style_at(&self, minor: bool, index: usize) -> Cow<'_, TickStyle> {
+        self.tick_label_style_at(minor, index, true)
+    }
+
+    /// The style the label on the first or the second side of the major
+    /// (or `minor`) tick at `index` is drawn with: as
+    /// [`tick_style_at`](Self::tick_style_at), with what that label has of
+    /// its own (matplotlib's `Tick.label1` and `label2` are texts of their
+    /// own).
+    pub(crate) fn tick_label_style_at(
+        &self,
+        minor: bool,
+        index: usize,
+        first_side: bool,
+    ) -> Cow<'_, TickStyle> {
         let (level, overrides) = if minor {
             (&self.minor_style, &self.minor_overrides)
         } else {
             (&self.major_style, &self.major_overrides)
         };
-        let label =
-            (overrides.labels.get(index)).filter(|props| **props != TickLabelProps::default());
-        let line = (overrides.lines.get(index)).filter(|props| **props != TickLineProps::default());
-        let pad = overrides.pads.get(index).copied().flatten();
+        overrides.style_at(level, index, first_side)
+    }
+}
+
+impl TickOverrides {
+    /// The style the label on the first or the second side of the tick
+    /// at `index` of a level styled `level` is drawn with: `level` with
+    /// the properties of that label, of the tick's mark and gridline and
+    /// its pad on top.
+    pub(crate) fn style_at<'a>(
+        &self,
+        level: &'a TickStyle,
+        index: usize,
+        first_side: bool,
+    ) -> Cow<'a, TickStyle> {
+        let labels = if first_side {
+            &self.labels
+        } else {
+            &self.second_labels
+        };
+        let label = (labels.get(index)).filter(|props| **props != TickLabelProps::default());
+        let line = (self.lines.get(index)).filter(|props| **props != TickLineProps::default());
+        let pad = self.pads.get(index).copied().flatten();
         if label.is_none() && line.is_none() && pad.is_none() {
             return Cow::Borrowed(level);
         }
@@ -174,6 +208,36 @@ impl AxisState {
             style.pad = pad;
         }
         Cow::Owned(style)
+    }
+
+    /// Sets the properties of the label on the first or the second side
+    /// of the tick at `index` to `change(old)`.
+    pub(crate) fn change_label(
+        &mut self,
+        index: usize,
+        first_side: bool,
+        change: impl FnOnce(&TickLabelProps) -> TickLabelProps,
+    ) {
+        let labels = if first_side {
+            &mut self.labels
+        } else {
+            &mut self.second_labels
+        };
+        if labels.len() <= index {
+            labels.resize_with(index + 1, TickLabelProps::default);
+        }
+        labels[index] = change(&labels[index]);
+    }
+
+    /// The properties the label on the first or the second side of the
+    /// tick at `index` has of its own.
+    pub(crate) fn label(&self, index: usize, first_side: bool) -> TickLabelProps {
+        let labels = if first_side {
+            &self.labels
+        } else {
+            &self.second_labels
+        };
+        labels.get(index).cloned().unwrap_or_default()
     }
 }
 
@@ -207,7 +271,16 @@ impl Axis {
     /// ax.xaxis().set_major_ticklabel_props(1, tilted);
     /// ```
     pub fn set_major_ticklabel_props(&self, index: usize, props: TickLabelProps) -> &Self {
-        self.change_tick_label_props(false, index, TickLabelProps::overlay, props)
+        for first_side in [true, false] {
+            self.change_tick_label_props(
+                false,
+                index,
+                first_side,
+                TickLabelProps::overlay,
+                props.clone(),
+            );
+        }
+        self
     }
 
     /// Replaces the text properties of the labels of the major (or
@@ -226,37 +299,82 @@ impl Axis {
     /// assert_eq!(ax.xaxis().tick_label_props(false, 0), TickLabelProps::default());
     /// ```
     pub fn set_tick_label_props(&self, minor: bool, index: usize, props: TickLabelProps) -> &Self {
-        self.change_tick_label_props(minor, index, |_, new| new.clone(), props)
+        for first_side in [true, false] {
+            self.set_tick_label_props_on(minor, index, first_side, props.clone());
+        }
+        self
     }
 
-    /// Sets the label properties of the major (or `minor`) tick at
-    /// `index` to `change(old, props)`.
+    /// Replaces the text properties of the label on the first (bottom or
+    /// left) or the second side of the major (or `minor`) tick at `index`
+    /// with `props`, unset fields following the labels of its level
+    /// (matplotlib's `Tick.label1` and `label2` changed one by one); the
+    /// label on the other side keeps its own.
+    ///
+    /// ```
+    /// use pltrs::axes::TickLabelProps;
+    /// use pltrs::figure::Figure;
+    /// use pltrs::text::VAlign;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_yticks([0.0, 0.5]);
+    /// let centered = TickLabelProps { valign: Some(VAlign::Center), ..TickLabelProps::default() };
+    /// ax.yaxis().set_tick_label_props_on(false, 0, true, centered.clone());
+    /// assert_eq!(ax.yaxis().tick_label_props_on(false, 0, true), centered);
+    /// assert_eq!(ax.yaxis().tick_label_props_on(false, 0, false), TickLabelProps::default());
+    /// ```
+    pub fn set_tick_label_props_on(
+        &self,
+        minor: bool,
+        index: usize,
+        first_side: bool,
+        props: TickLabelProps,
+    ) -> &Self {
+        self.change_tick_label_props(minor, index, first_side, |_, new| new.clone(), props)
+    }
+
+    /// Sets the properties of the label on the first or the second side
+    /// of the major (or `minor`) tick at `index` to `change(old, props)`.
     fn change_tick_label_props(
         &self,
         minor: bool,
         index: usize,
+        first_side: bool,
         change: impl FnOnce(&TickLabelProps, &TickLabelProps) -> TickLabelProps,
         props: TickLabelProps,
     ) -> &Self {
         let props = props.with_absolute_size(crate::rc::params().font_size);
         self.update_labels(|axis| {
-            let labels = &mut axis.overrides_mut(minor).labels;
-            if labels.len() <= index {
-                labels.resize_with(index + 1, TickLabelProps::default);
-            }
-            labels[index] = change(&labels[index], &props);
+            (axis.overrides_mut(minor)).change_label(index, first_side, |old| change(old, &props));
         });
         self
     }
 
-    /// The text properties of the labels of the major (or `minor`) tick at
-    /// `index` of their own (see
+    /// The text properties the label on the first side of the major (or
+    /// `minor`) tick at `index` has of its own (see
     /// [`set_tick_label_props`](Self::set_tick_label_props)).
     pub fn tick_label_props(&self, minor: bool, index: usize) -> TickLabelProps {
+        self.tick_label_props_on(minor, index, true)
+    }
+
+    /// The text properties the label on the first or the second side of
+    /// the major (or `minor`) tick at `index` has of its own (see
+    /// [`set_tick_label_props_on`](Self::set_tick_label_props_on)).
+    pub fn tick_label_props_on(
+        &self,
+        minor: bool,
+        index: usize,
+        first_side: bool,
+    ) -> TickLabelProps {
+        self.read(|axis| axis.overrides(minor).label(index, first_side))
+    }
+
+    /// The style the label on the first or the second side of the major
+    /// (or `minor`) tick at `index` is drawn with: the style of its level
+    /// with the tick's and the label's own properties on top.
+    pub fn tick_label_style_at(&self, minor: bool, index: usize, first_side: bool) -> TickStyle {
         self.read(|axis| {
-            (axis.overrides(minor).labels.get(index))
-                .cloned()
-                .unwrap_or_default()
+            axis.tick_label_style_at(minor, index, first_side)
+                .into_owned()
         })
     }
 }

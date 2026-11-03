@@ -21,7 +21,8 @@ from tempfile import TemporaryDirectory
 import weakref
 
 from .. import _api, _get_executable_info, cbook, ExecutableNotFoundError, rcParams
-from .._native import texmanager as _texmanager, text_overrides as _text_overrides
+from .._native import backends as _backends, texmanager as _texmanager
+from .._native import text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase, RendererBase
 from ..figure import Figure
@@ -275,6 +276,14 @@ class RendererPgf(DocumentDrawingMixin, RendererBase):
         self.fh = fh
         self.figure = figure
         self.image_counter = 0
+        if fh is not None:
+            name = getattr(fh, "name", None)
+            width, height = figure.get_size_inches()
+            self._file = fh
+            self._page = _backends.pgf_page_new(
+                float(width), float(height), float(self.dpi),
+                None if not isinstance(name, str)
+                else os.path.splitext(name)[0])
 
     def option_scale_image(self):
         # docstring inherited
@@ -363,6 +372,11 @@ class FigureCanvasPgf(FigureCanvasBase):
             with ((tmppath / "figure.pdf").open("rb") as orig,
                   cbook.open_file_cm(fname_or_fh, "wb") as dest):
                 shutil.copyfileobj(orig, dest)  # copy file contents to target
+
+    def get_renderer(self):
+        """The renderer of a PGF picture of the figure (one writing to no
+        file), which measures text as LaTeX typesets it."""
+        return RendererPgf(self.figure, None)
 
     def print_png(self, fname_or_fh, **kwargs):
         """Use LaTeX to compile a pgf figure to pdf and convert it to png."""

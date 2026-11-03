@@ -521,6 +521,19 @@ class TickLabels(AxisLabel):
         """Set the locations, angles and labels of the texts."""
         self._locs_angles_labels = locs_angles_labels
 
+    def set_axis_direction(self, label_direction):
+        """
+        Adjust the text angle and text alignment of ticklabels
+        according to the Matplotlib convention.
+
+        The *label_direction* must be one of [left, right, bottom, top].
+
+        Parameters
+        ----------
+        label_direction : {"left", "bottom", "right", "top"}
+        """
+        super().set_axis_direction(label_direction)
+
     def get_ref_artist(self):
         # docstring inherited
         return self._axis.get_ticklabels()[0]

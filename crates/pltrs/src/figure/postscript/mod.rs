@@ -13,7 +13,7 @@ mod distill;
 mod programs;
 mod psfrag;
 
-use pltrs_render::{PsOptions, PsOutput, PsRenderer};
+use pltrs_render::{Metadata, PsOptions, PsOutput, PsRenderer};
 
 use self::distill::{Distillation, WorkFile, gs_distill, xpdf_distill};
 pub(crate) use self::programs::{Executable, Workspace};
@@ -51,6 +51,24 @@ const PARTIAL_USETEX: &str = "The PS backend determines usetex status solely bas
      rcParams['text.usetex'] and does not support having usetex=True only for some \
      elements; this element will thus be rendered as if usetex=False.";
 
+/// The options of a PostScript document on the paper and in the
+/// orientation of the rcParams, as the `ps.*`, `image.composite_image`
+/// and `text.usetex` rcParams configure figures.
+pub(super) fn ps_options() -> PsOptions {
+    let rc = crate::rc::params();
+    PsOptions {
+        eps: false,
+        paper: rc.ps_papersize,
+        orientation: rc.savefig_orientation,
+        metadata: Metadata::default(),
+        simplify: simplify_settings(),
+        composite_images: rc.image_composite_image,
+        fonttype: embedding(rc.ps_fonttype),
+        afm: rc.ps_useafm,
+        usetex: rc.text_usetex,
+    }
+}
+
 /// A document's bytes as text: matplotlib writes PostScript in Latin-1,
 /// whose characters are bytes (pltrs' documents and the distillers' are
 /// ASCII).
@@ -76,11 +94,7 @@ impl Figure {
             paper: options.papertype.unwrap_or(rc.ps_papersize),
             orientation: options.orientation.unwrap_or(rc.savefig_orientation),
             metadata: options.metadata.clone().unwrap_or_default(),
-            simplify: simplify_settings(),
-            composite_images: rc.image_composite_image,
-            fonttype: embedding(rc.ps_fonttype),
-            afm: rc.ps_useafm,
-            usetex: rc.text_usetex,
+            ..ps_options()
         };
         // The programs date what they write as the document is dated.
         let source_date = ps.metadata.date.map_or(0, |date| date.0);

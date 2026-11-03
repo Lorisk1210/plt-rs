@@ -8,13 +8,11 @@
 
 use pltrs::artist::RawHandle;
 use pltrs::coords::Coords;
-use pltrs::patches::{
-    ArrowStyle, ConnectionEnd, ConnectionPatch, ConnectionStyle, Patch, PatchProps,
-};
+use pltrs::patches::{ConnectionEnd, ConnectionPatch, Patch, PatchProps};
 use pltrs::transforms::Transform;
 
 use super::super::annotation::PyCoords;
-use super::super::patch_styles::style_error;
+use super::super::patch_styles::{PyArrowStyle, PyConnectionStyle};
 use crate::binding::prelude::*;
 
 /// The coordinates of an end (see the module documentation).
@@ -48,7 +46,7 @@ impl FromPy<'_> for End {
 /// The styles of a connection patch: `(arrowstyle, connectionstyle,
 /// shrinkA, shrinkB, mutation_scale, mutation_aspect)`, the styles as
 /// description strings.
-type ConnectionStyles = (String, String, f64, f64, f64, f64);
+type ConnectionStyles = (PyArrowStyle, PyConnectionStyle, f64, f64, f64, f64);
 
 /// A loose connection patch from end `a` to end `b` (matplotlib's
 /// `ConnectionPatch(xyA, xyB, coordsA, coordsB, axesA=, axesB=, ...)`).
@@ -58,10 +56,8 @@ fn new_connection_patch(
     (arrowstyle, connectionstyle, shrink_a, shrink_b, scale, aspect): ConnectionStyles,
 ) -> PyResult<Patch<ConnectionPatch>> {
     let mut shape = ConnectionPatch::new(a.0, b.0);
-    shape.spec.arrowstyle = arrowstyle.parse::<ArrowStyle>().map_err(style_error)?;
-    shape.spec.connectionstyle = connectionstyle
-        .parse::<ConnectionStyle>()
-        .map_err(style_error)?;
+    shape.spec.arrowstyle = arrowstyle.0;
+    shape.spec.connectionstyle = connectionstyle.0;
     shape.spec.shrink_a = shrink_a;
     shape.spec.shrink_b = shrink_b;
     shape.spec.mutation_scale = scale;

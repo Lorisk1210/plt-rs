@@ -394,6 +394,41 @@ impl Axes3D {
         Ok(self)
     }
 
+    /// Fits the view limits of the axes `selected` (indexed x, y, z) that
+    /// autoscale to their data now (matplotlib's `autoscale_view(tight,
+    /// scalex, scaley, scalez)`); `tight` replaces the tight setting, which
+    /// skips rounding the view out to ticks.
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// use pltrs::mplot3d::Axis3;
+    /// let ax = Figure::new().subplot_3d();
+    /// ax.plot(&[0.0, 10.0], &[0.0, 1.0], &[0.0, 1.0])?;
+    /// ax.set_xlim(2.0, 3.0)?.set_axis_autoscale_on(Axis3::X, true);
+    /// ax.autoscale_view(Some(true), [false, true, true])?;
+    /// assert_eq!(ax.xlim(), (2.0, 3.0), "x is left alone");
+    /// ax.autoscale_view(None, [true, true, true])?;
+    /// assert_ne!(ax.xlim(), (2.0, 3.0));
+    /// # Ok::<(), pltrs::mplot3d::Axes3DError>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When a locator fails while autoscaling.
+    pub fn autoscale_view(
+        &self,
+        tight: Option<bool>,
+        selected: [bool; 3],
+    ) -> Result<&Self, Axes3DError> {
+        self.with_mut(|axes| {
+            if let Some(tight) = tight {
+                axes.limits.tight = tight;
+            }
+            axes.autoscale_axes(selected)
+        })?;
+        Ok(self)
+    }
+
     /// The autoscaling margin of one axis.
     pub fn margin(&self, axis: Axis3) -> f64 {
         self.with(|axes| axes.limits.margins[axis.index()])

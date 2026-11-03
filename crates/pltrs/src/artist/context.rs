@@ -450,7 +450,7 @@ impl<'a> DrawContext<'a> {
                 Some(filter) => {
                     ctx.renderer().start_filter();
                     artist.draw(ctx);
-                    ctx.renderer().stop_filter(filter.function());
+                    ctx.renderer().stop_shared_filter(filter.shared());
                 }
                 None => artist.draw(ctx),
             }

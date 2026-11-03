@@ -32,13 +32,13 @@ pub(in crate::modules) fn python_filter(function: Callback) -> AggFilter {
 }
 
 /// The image as an `(H, W, 4)` array, top row first.
-fn image_array(image: &FilterImage) -> PyResult<NdArray> {
+pub(in crate::modules) fn image_array(image: &FilterImage) -> PyResult<NdArray> {
     let data = image.pixels().iter().flatten().copied().collect();
     NdArray::with_shape(data, vec![image.height(), image.width(), 4])
 }
 
 /// The image of an `(H, W, 4)` array, top row first.
-fn filter_image(array: &NdArray) -> PyResult<FilterImage> {
+pub(in crate::modules) fn filter_image(array: &NdArray) -> PyResult<FilterImage> {
     let &[height, width, 4] = &array.shape[..] else {
         return Err(PyErr::value_error(format!(
             "an agg filter returns an (H, W, 4) image, not one of shape {:?}",

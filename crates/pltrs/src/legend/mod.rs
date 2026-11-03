@@ -40,6 +40,7 @@ mod handlers;
 mod labelcolor;
 mod layout;
 mod loc;
+mod made;
 mod options;
 mod proxies;
 mod settings;
@@ -54,7 +55,7 @@ pub use drag::LegendDragUpdate;
 pub use error::LegendError;
 pub use handle::{HandlerTuple, LegendHandle};
 pub use handlers::{
-    HandleBox, HandlerArtist, HandlerEntry, HandlerErrorbar, HandlerKey, HandlerLine2D,
+    Attach, HandleBox, HandlerArtist, HandlerEntry, HandlerErrorbar, HandlerKey, HandlerLine2D,
     HandlerLineCollection, HandlerMap, HandlerPatch, HandlerPathCollection, HandlerPolyCollection,
     HandlerStem, HandlerStepPatch, LegendHandler, TypeKey,
 };
@@ -176,6 +177,29 @@ impl Legend {
     pub fn legend_box(&self) -> OffsetBox<RawHandle> {
         self.read(|legend| legend.legend_box.clone())
             .map(&mut |part| self.handle(part.id))
+    }
+
+    /// The artists drawing the handle of every listed handle, in order,
+    /// none for handles no handler draws (the artists of matplotlib's
+    /// handle boxes, which a handler's `legend_artist` adds).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let line = ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("rising"))?;
+    /// ax.plot_with([0.0, 1.0], [1.0, 0.0], LineProps::default().label("falling"))?;
+    /// let legend = ax.legend(Default::default())?;
+    /// let artists = legend.entry_artists();
+    /// assert_eq!(artists.len(), 2);
+    /// assert_eq!(artists[0].len(), 1, "the line of the first entry");
+    /// assert_ne!(artists[0][0], line.raw().clone(), "a copy of the plotted line");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn entry_artists(&self) -> Vec<Vec<RawHandle>> {
+        self.read(|legend| legend.handles.clone())
+            .into_iter()
+            .map(|ids| ids.into_iter().map(|id| self.handle(id)).collect())
+            .collect()
     }
 
     /// Whether the frame is drawn (matplotlib's `get_frame_on`).
@@ -446,6 +470,52 @@ impl Axes {
                 .attach_artist(self.id(), id)
                 .expect("an axes takes back its own removed legend");
         }
+    }
+
+    /// Makes `legend`, a legend made for the axes, its axes legend again
+    /// (matplotlib's `ax.legend_ = legend`), in place of the one it has:
+    /// a legend that a newer one replaced, or one kept as an ordinary
+    /// artist. Returns whether `legend` is a legend of the axes; a legend
+    /// of another parent changes nothing.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.plot_with([0.0, 1.0], [0.0, 1.0], LineProps::default().label("line"))?;
+    /// let first = ax.legend(Default::default())?;
+    /// let second = ax.legend(Default::default())?;
+    /// assert!(ax.set_current_legend(&first));
+    /// assert_eq!(ax.current_legend().map(|l| l.raw().id()), Some(first.raw().id()));
+    /// assert!(!second.raw().is_attached(), "replaced");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_current_legend(&self, legend: &Legend) -> bool {
+        let own = legend.raw.with_mut::<LegendArtist, _>(|made| {
+            let own = made.parent == LegendParent::Axes(self.id());
+            if own {
+                made.kept = false;
+            }
+            own
+        });
+        if !own {
+            return false;
+        }
+        let id = legend.raw.id();
+        let mut state = self.raw().figure_state().borrow_mut();
+        let previous = state
+            .artist_as::<AxesState>(self.id())
+            .map(|axes| axes_legends(&state, &axes.children))
+            .unwrap_or_default();
+        for old in previous.into_iter().filter(|&old| old != id) {
+            state.remove_artist(old);
+        }
+        if state.is_removed(id) {
+            state
+                .attach_artist(self.id(), id)
+                .expect("an axes takes back its own removed legend");
+        }
+        true
     }
 
     /// The artists and containers a legend of the axes can show, with

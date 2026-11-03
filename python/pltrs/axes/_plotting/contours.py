@@ -208,22 +208,19 @@ class ContoursMixin:
         from ...tri import triplot
         return triplot(self, *args, **kwargs)
 
-    @_preprocess_data()
-    def tripcolor(self, *args, **kwargs):
+    def tripcolor(self, *args, alpha=1.0, norm=None, cmap=None, vmin=None,
+                  vmax=None, shading='flat', facecolors=None, **kwargs):
         """
         Create a pseudocolor plot of an unstructured triangular grid.
 
         Returns
         -------
         `~matplotlib.collections.PolyCollection` or `~matplotlib.collections.TriMesh`
-
-        Other Parameters
-        ----------------
-        data : indexable object, optional
-            DATA_PARAMETER_PLACEHOLDER
         """
         from ...tri import tripcolor
-        return tripcolor(self, *args, **kwargs)
+        return tripcolor(self, *args, alpha=alpha, norm=norm, cmap=cmap,
+                         vmin=vmin, vmax=vmax, shading=shading,
+                         facecolors=facecolors, **kwargs)
 
     @_preprocess_data()
     def contour(self, *args, **kwargs):

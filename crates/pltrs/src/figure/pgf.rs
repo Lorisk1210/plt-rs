@@ -91,25 +91,31 @@ impl Figure {
         options: &SaveOptions,
         image_stem: Option<String>,
     ) -> Result<PgfDocument, SaveError> {
-        let rc = crate::rc::params();
-        let fonts = FontManager::global();
-        let pgf = PgfOptions {
-            simplify: simplify_settings(),
-            composite_images: rc.image_composite_image,
-            rcfonts: rc.pgf_rcfonts,
-            font_names: fonts
-                .font_list(FontExt::Ttf)
-                .into_iter()
-                .map(|entry| entry.name)
-                .collect(),
-            preamble: pgf_preamble(&rc),
-            image_stem,
-        };
+        let pgf = pgf_options(image_stem);
         self.render_at_save_resolution(options, |width, height, dpi| {
             PgfRenderer::new(width, height, dpi, pgf)
         })?
         .finish()
         .map_err(SaveError::Vector)
+    }
+}
+
+/// The options of a PGF picture whose images go beside a file named after
+/// `image_stem`, as the `pgf.*` and `image.composite_image` rcParams
+/// configure figures.
+pub(super) fn pgf_options(image_stem: Option<String>) -> PgfOptions {
+    let rc = crate::rc::params();
+    PgfOptions {
+        simplify: simplify_settings(),
+        composite_images: rc.image_composite_image,
+        rcfonts: rc.pgf_rcfonts,
+        font_names: FontManager::global()
+            .font_list(FontExt::Ttf)
+            .into_iter()
+            .map(|entry| entry.name)
+            .collect(),
+        preamble: pgf_preamble(&rc),
+        image_stem,
     }
 }
 

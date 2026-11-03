@@ -189,18 +189,30 @@ class OffsetBox(Artist):
     def _join_at_offset(self, parent):
         """Join *parent*, an axes or a figure, as a box pltrs (Rust) draws
         with its origin at the box's offset in display pixels (a plain
-        offset box given to ``add_artist``); return self."""
-        if callable(self._offset):
-            raise NotImplementedError(
-                "pltrs: an offset box added with a callable offset")
+        offset box given to ``add_artist``); return self. A box whose
+        offset a callable computes is placed where it says before every
+        layout of a draw, as matplotlib calls it when it draws the box."""
+        offset = (0., 0.) if callable(self._offset) else self._offset
         native, parts = _offsetbox.add_placed(
             parent._native, self._native, self._native_tree(),
-            tuple(map(float, self._offset)))
+            tuple(map(float, offset)))
         figure = parent.figure
         self._adopt_tree(iter(parts), figure)
         self._joined(self)
         self._placed = True
-        return _handles.adopt(self, native, figure)
+        _handles.adopt(self, native, figure)
+        if callable(self._offset):
+            from .axes._program_locators import follow
+            follow(self, figure.figure)
+            self._locate_by_program(figure.figure._get_renderer())
+        return self
+
+    def _locate_by_program(self, renderer):
+        """Move the box where its callable offset puts it now (see
+        `.axes._program_locators`)."""
+        if callable(self._offset):
+            offset = self.get_offset(self.get_bbox(renderer), renderer)
+            _offsetbox.set_placed_offset(self._native, tuple(map(float, offset)))
 
     def _native_tree(self):
         """
@@ -1029,17 +1041,18 @@ class OffsetImage(OffsetBox):
 
     def set_data(self, arr):
         """
-        Set the image data: the box's image is made of it, before the box
-        joins a figure.
+        Set the image data: the box's image is made of it before the box
+        joins a figure, and shows it once the box drew it.
         """
         from .image import BboxImage
-        if getattr(self, "image", None) is not None and \
-                self.image.figure is not None:
-            raise NotImplementedError(
-                "pltrs: OffsetImage.set_data once the box is added")
         self._data = np.asarray(arr)
-        self.image = BboxImage._loose(self._data, **self._image_options)
-        self._children = [self.image]
+        image = getattr(self, "image", None)
+        if image is not None and image.figure is not None:
+            image.set_data(self._data)
+        else:
+            self.image = BboxImage._loose(self._data, **self._image_options)
+            self._children = [self.image]
+        self.stale = True
 
     def _native_tree(self):
         return ("image", self.image._native, float(self.get_zoom()),
@@ -1071,7 +1084,7 @@ class OffsetImage(OffsetBox):
         return Bbox.from_bounds(0, 0, w, h)
 
 
-class AnnotationBbox(Artist):
+class AnnotationBbox(Artist, mtext._AnnotationBase):
     """
     Container for an `OffsetBox` referring to a specific position *xy*.
 
@@ -1135,6 +1148,7 @@ or callable, default: value of *xycoords*
         """
         kwargs.setdefault("zorder", 3)
         super().__init__()
+        self._draggable = None
         self._xy = self._xybox = None
         self.xy = xy
         self.xycoords = xycoords
@@ -1187,6 +1201,34 @@ or callable, default: value of *xycoords*
         self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
         self.offsetbox._joined(self)
         return _handles.adopt(self, native, figure)
+
+    def set_annotation_clip(self, b):
+        """
+        Set the annotation's clipping behavior.
+
+        Parameters
+        ----------
+        b : bool or None
+            - True: The annotation will be clipped when ``self.xy`` is
+              outside the Axes.
+            - False: The annotation will always be drawn.
+            - None: The annotation will be clipped when ``self.xy`` is
+              outside the Axes and ``self.xycoords == "data"``.
+        """
+        self._annotation_clip = b
+        if self._figure is not None:
+            _offsetbox.set_annotation_clip(self._native, b)
+            self.stale = True
+
+    def get_annotation_clip(self):
+        """
+        Return the annotation's clipping behavior.
+
+        See `set_annotation_clip` for the meaning of return values.
+        """
+        if self._figure is not None:
+            return _offsetbox.get_annotation_clip(self._native)
+        return self._annotation_clip
 
     @property
     def xy(self):

@@ -45,11 +45,11 @@ struct Parts<'a> {
 type EntryBoxes = (OffsetBox<HandleRef>, OffsetBox<HandleRef>);
 
 /// What the entries add to a legend: per made entry its label, its boxes
-/// and its first handle artist.
+/// and its handle artists.
 struct InsertedEntries {
     texts: Vec<ArtistId>,
     boxes: Vec<EntryBoxes>,
-    first_handles: Vec<Option<ArtistId>>,
+    handle_artists: Vec<Vec<ArtistId>>,
 }
 
 impl Parts<'_> {
@@ -61,7 +61,7 @@ impl Parts<'_> {
 
     /// Adds the handle artists and the label of every entry, the label
     /// coloured by `colors`, and returns the labels, the boxes and the
-    /// first handle artist of each entry.
+    /// handle artists of each entry.
     fn insert_entries(
         &mut self,
         made: Vec<Entry>,
@@ -71,7 +71,7 @@ impl Parts<'_> {
         let mut inserted = InsertedEntries {
             texts: Vec::with_capacity(made.len()),
             boxes: Vec::with_capacity(made.len()),
-            first_handles: Vec::with_capacity(made.len()),
+            handle_artists: Vec::with_capacity(made.len()),
         };
         for (entry, color) in made.into_iter().zip(colors) {
             let mut text = entry.text;
@@ -89,8 +89,8 @@ impl Parts<'_> {
                 })
                 .collect();
             inserted
-                .first_handles
-                .push(drawing.artists.first().map(|handle| handle.id));
+                .handle_artists
+                .push(drawing.artists.iter().map(|handle| handle.id).collect());
             let text = self.insert(Box::new(text));
             inserted.texts.push(text);
             inserted.boxes.push((
@@ -171,7 +171,11 @@ pub(crate) fn build(
         texts: inserted.texts,
         handles: handles
             .iter()
-            .map(|index| index.and_then(|i| inserted.first_handles[i]))
+            .map(|index| {
+                index
+                    .map(|i| inserted.handle_artists[i].clone())
+                    .unwrap_or_default()
+            })
             .collect(),
         parts: parts.clone(),
         kept: false,
@@ -197,9 +201,12 @@ fn entry_colors(
 ) -> Result<Vec<Option<Color>>, LegendError> {
     let views: Vec<HandleView<'_>> = handles
         .iter()
-        .map(|index| HandleView {
-            artist: index.map(|i| made[i].handle[0].artist.as_ref()),
-            mapped: index.is_some_and(|i| made[i].handle[0].mapped),
+        .map(|index| {
+            let first = index.and_then(|i| made[i].handle.first());
+            HandleView {
+                artist: first.map(|handle| handle.artist.as_ref()),
+                mapped: first.is_some_and(|handle| handle.mapped),
+            }
         })
         .collect();
     label_colors(options.labelcolor.as_ref(), &views, made.len(), rc)

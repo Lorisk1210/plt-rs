@@ -173,7 +173,7 @@ impl TextBoxPatch {
     /// The outline, with the padding in font sizes (matplotlib's
     /// `get_boxstyle`).
     pub fn boxstyle(&self) -> BoxStyle {
-        self.boxstyle
+        self.boxstyle.clone()
     }
 
     /// The face, edge and hatch of the box (matplotlib's `get_facecolor`,
@@ -199,7 +199,7 @@ impl TextBoxPatch {
     /// come back with [`TextBoxPatch::restyle_from`].
     pub fn to_patch(&self) -> Patch<FancyBboxPatch> {
         let patch = Patch::loose(
-            FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, self.boxstyle),
+            FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, self.boxstyle.clone()),
             PatchProps::default(),
         );
         patch.update_style(|style| style.clone_from(&self.style));
@@ -222,7 +222,7 @@ impl TextBoxPatch {
     /// The box shape and its placement (`update_bbox_position_size`).
     fn shape(&self, placement: &BoxPlacement) -> (FancyBboxPatch, Affine2D) {
         let (width, height) = placement.size;
-        let shape = FancyBboxPatch::new((0.0, 0.0), width, height, self.boxstyle)
+        let shape = FancyBboxPatch::new((0.0, 0.0), width, height, self.boxstyle.clone())
             .with_mutation_scale(placement.fontsize_px);
         let origin = placement.anchor + placement.corner;
         let transform = Affine2D::identity()
@@ -318,7 +318,7 @@ mod tests {
     fn styles_keep_their_own_padding() {
         let round: BoxStyle = "round".parse().expect("valid style");
         assert_eq!(
-            TextBoxPatch::new(TextBoxProps::new(round), 10.0, &rc())
+            TextBoxPatch::new(TextBoxProps::new(round.clone()), 10.0, &rc())
                 .boxstyle
                 .pad,
             Some(0.3)
@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn boxes_come_back_from_their_patches() {
         let round: BoxStyle = "round".parse().expect("valid style");
-        let mut text_box = TextBoxPatch::new(TextBoxProps::new(round), 10.0, &rc());
+        let mut text_box = TextBoxPatch::new(TextBoxProps::new(round.clone()), 10.0, &rc());
         let patch = text_box.to_patch();
         assert_eq!(patch.shape().boxstyle, text_box.boxstyle);
         patch.set_alpha(Some(0.25));

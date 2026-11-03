@@ -151,17 +151,25 @@ impl<'a> AxisPainter<'a> {
     /// The axis' ticks with their styles: the major ticks, then the minor
     /// ones (empty when the ticks could not be computed).
     pub(super) fn styled_ticks(&self) -> Vec<(&'a Tick, Cow<'a, TickStyle>)> {
+        self.ticks_with(|axis, minor, index| axis.tick_style_at(minor, index))
+    }
+
+    /// The axis' ticks, the major then the minor ones, each with `style`
+    /// of the axis, the level (minor or not) and the tick's index among
+    /// those the locator places.
+    fn ticks_with<S>(&self, style: impl Fn(&'a AxisState, bool, usize) -> S) -> Vec<(&'a Tick, S)> {
         let Ok(ticks) = &self.axis.ticks else {
             return Vec::new();
         };
         let level = |ticks: &'a [Tick], indices: &'a [usize], minor: bool| {
             (ticks.iter())
                 .zip(indices)
-                .map(move |(tick, &index)| (tick, self.axis.tick_style_at(minor, index)))
+                .map(|(tick, &index)| (tick, style(self.axis, minor, index)))
+                .collect::<Vec<_>>()
         };
-        let major = level(&ticks.major, &ticks.major_index, false);
-        let minor = level(&ticks.minor, &ticks.minor_index, true);
-        major.chain(minor).collect()
+        let mut styled = level(&ticks.major, &ticks.major_index, false);
+        styled.extend(level(&ticks.minor, &ticks.minor_index, true));
+        styled
     }
 
     /// Lays out the tick labels, then the axis label beyond those of the
@@ -190,9 +198,16 @@ impl<'a> AxisPainter<'a> {
     /// Lays out the tick labels into `texts` (matplotlib's
     /// `_get_ticklabel_bboxes`).
     fn lay_out_tick_labels(&self, layout: LayoutContext<'_>, rc: &RcParams, texts: &mut AxisTexts) {
-        for (index, (tick, style)) in self.styled_ticks().into_iter().enumerate() {
-            for (enabled, first_side) in [(style.labels.first, true), (style.labels.second, false)]
-            {
+        let labelled = self.ticks_with(|axis, minor, index| {
+            [true, false].map(|first_side| axis.tick_label_style_at(minor, index, first_side))
+        });
+        for (index, (tick, styles)) in labelled.into_iter().enumerate() {
+            for (style, first_side) in styles.into_iter().zip([true, false]) {
+                let enabled = if first_side {
+                    style.labels.first
+                } else {
+                    style.labels.second
+                };
                 if !enabled {
                     continue;
                 }

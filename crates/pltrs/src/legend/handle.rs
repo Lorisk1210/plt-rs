@@ -7,6 +7,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use super::handlers::{HandlerKey, HandlerMap, LegendHandler, TypeKey};
+use super::made::MadeArtists;
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, ArtistStore, RawHandle, downcast_ref,
     is_hidden_label,
@@ -86,6 +87,9 @@ pub(crate) enum Source {
     /// An object that is no artist, drawn by the handler registered for
     /// its type.
     Object(LegendObject),
+    /// Artists made beforehand, which draw the handle (see
+    /// [`LegendHandle::made`]).
+    Made(MadeArtists),
 }
 
 pltrs_core::archive_enum!(Source {
@@ -96,6 +100,7 @@ pltrs_core::archive_enum!(Source {
     Npoints(v0, v1),
     Handled(v0, v1),
     Object(v0),
+    Made(v0),
 });
 
 /// The handler of one entry; entries compare equal when they share it.
@@ -439,7 +444,7 @@ impl Source {
             Self::Artist(id) => store.get(*id).map(|a| a.base().label.clone()),
             Self::Container(container) => container.label().map(str::to_owned),
             Self::Proxy(proxy) => Some(proxy.base().label.clone()),
-            Self::Tuple(..) | Self::Object(_) => None,
+            Self::Tuple(..) | Self::Object(_) | Self::Made(_) => None,
             Self::Npoints(source, _) | Self::Handled(source, _) => source.label(store),
         }
     }
@@ -463,6 +468,7 @@ impl Source {
             Self::Proxy(Proxy::Collection(collection)) => HandlerKey::of_collection(collection),
             Self::Tuple(_) => vec![HandlerKey::Tuple],
             Self::Object(object) => vec![HandlerKey::Type(object.key)],
+            Self::Made(_) => Vec::new(),
             Self::Npoints(source, _) | Self::Handled(source, _) => source.handler_keys(store),
         }
     }

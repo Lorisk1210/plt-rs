@@ -236,7 +236,9 @@ class RendererSVG(DocumentDrawingMixin, RendererBase):
     pltrs (Rust) writes the documents itself: this is the renderer the
     program's drawing receives while a figure is saved as SVG
     (`FigureCanvasSVG._program_renderer`), which draws into the document
-    pltrs (Rust) writes.
+    pltrs (Rust) writes. One the program makes around an *svgwriter* of
+    its own draws into a document of its own, which `finalize` writes
+    there.
     """
 
     def __init__(self, width, height, svgwriter, basename=None, image_dpi=72,
@@ -246,6 +248,20 @@ class RendererSVG(DocumentDrawingMixin, RendererBase):
         self.height = height
         self.image_dpi = image_dpi
         self.basename = basename
+        if svgwriter is not None:
+            self._file = svgwriter
+            self._page = _backends.svg_page_new(
+                float(width), float(height), float(image_dpi),
+                _svg_metadata(metadata))
+
+    def finalize(self):
+        """Write the document drawn to the *svgwriter* (the renderers of
+        pltrs's saves have no document of their own: pltrs (Rust) writes
+        it)."""
+        if self._page is not None:
+            self._file.write(_backends.page_finish(self._page))
+            if hasattr(self._file, "flush"):
+                self._file.flush()
 
     def get_canvas_width_height(self):
         # docstring inherited

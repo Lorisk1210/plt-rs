@@ -119,6 +119,16 @@ impl PgfRenderer {
         })
     }
 
+    /// The picture commands drawn since the picture began or the last
+    /// call, with the images they include, which leaves the picture empty
+    /// (matplotlib's `RendererPgf` writes them to its file as it goes).
+    pub fn take_body(&mut self) -> (String, Vec<ImageFile>) {
+        (
+            std::mem::take(&mut self.body),
+            std::mem::take(&mut self.images),
+        )
+    }
+
     /// The document (matplotlib's `_print_pgf_to_fh`).
     ///
     /// # Errors

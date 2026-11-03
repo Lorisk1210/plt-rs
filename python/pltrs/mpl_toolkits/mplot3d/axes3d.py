@@ -22,6 +22,7 @@ from pltrs._native import artist as _artist, axes as _axes, mplot3d as _mplot3d
 from pltrs.axes import Axes
 from pltrs.axes._ticks import _axis_method_wrapper
 from pltrs._artist_kwargs import keep_program_picker
+from pltrs._preprocess import _preprocess_data
 from pltrs.axes._plotting._helpers import wrap
 from pltrs.axes._plotting.lines import _plot_datasets
 from pltrs.axes._plotting.scatter import _mapping
@@ -314,9 +315,22 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         """Set the zaxis' tick locations (`.Axis.set_ticks`)."""
         return self.zaxis.set_ticks(ticks, labels, minor=minor, **kwargs)
 
-    def set_zticklabels(self, labels, *, minor=False, **kwargs):
+    def set_zticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
         """Set the zaxis' tick labels (`.Axis.set_ticklabels`)."""
-        return self.zaxis.set_ticklabels(labels, minor=minor, **kwargs)
+        return self.zaxis.set_ticklabels(labels, minor=minor,
+                                         fontdict=fontdict, **kwargs)
+
+    def autoscale_view(self, tight=None,
+                       scalex=True, scaley=True, scalez=True):
+        """
+        Autoscale the view limits using the data limits.
+
+        See `.Axes.autoscale_view` for full documentation.  Because this
+        function applies to 3D Axes, it also takes a *scalez* argument.
+        """
+        _mplot3d.autoscale_view(
+            self._native, None if tight is None else bool(tight),
+            (bool(scalex), bool(scaley), bool(scalez)))
 
     def has_data(self):
         """Return whether any artists have been added to the Axes."""
@@ -1218,6 +1232,9 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
 
     plot3D = plot
 
+    @_preprocess_data(replace_names=["xs", "ys", "zs", "s",
+                                     "edgecolors", "c", "facecolor",
+                                     "facecolors", "color"])
     def scatter(self, xs, ys, zs=0, zdir='z', s=20, c=None, depthshade=None,
                 *args, depthshade_minalpha=None, axlim_clip=False, **kwargs):
         """
@@ -1246,6 +1263,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         Returns
         -------
         paths : `~matplotlib.collections.PathCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         if args:
             # matplotlib hands them to 2D `scatter` after *s*, given as a
@@ -1431,6 +1453,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
     text3D = text
     text2D = Axes.text
 
+    @_preprocess_data()
     def bar3d(self, x, y, z, dx, dy, dz, color=None,
               zsort='average', shade=True, lightsource=None, *args,
               axlim_clip=False, **kwargs):
@@ -1461,6 +1484,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         -------
         collection : `~.art3d.Poly3DCollection`
             A collection of three-dimensional polygons representing the bars.
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         # The positional arguments go to the `.Poly3DCollection` after its
         # vertices: its *sizes*.
@@ -1485,6 +1513,7 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         collection._internal_update(kwargs)
         return collection
 
+    @_preprocess_data()
     def quiver(self, X, Y, Z, U, V, W, *,
                length=1, arrow_length_ratio=.3, pivot='tail', normalize=False,
                axlim_clip=False, **kwargs):
@@ -1510,6 +1539,11 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         **kwargs
             Any additional keyword arguments are delegated to
             :class:`.LineCollection`
+
+        Other Parameters
+        ----------------
+        data : indexable object, optional
+            DATA_PARAMETER_PLACEHOLDER
         """
         _api.check_in_list(['tail', 'middle', 'tip'], pivot=pivot)
         input_args = [X, Y, Z, U, V, W]

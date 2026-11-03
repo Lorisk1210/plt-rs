@@ -266,24 +266,24 @@ impl TableCell {
     /// Sets the background colour.
     pub fn set_facecolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
-        self.update(|cell| cell.facecolor = color)
+        self.update(|cell| cell.style.facecolor = Some(color))
     }
 
     /// Sets the colour of the drawn edges.
     pub fn set_edgecolor(&self, color: impl Into<Color>) -> &Self {
         let color = color.into();
-        self.update(|cell| cell.edgecolor = color)
+        self.update(|cell| cell.style.edgecolor = Some(color))
     }
 
     /// Sets the width of the drawn edges in points.
     pub fn set_linewidth(&self, width: f64) -> &Self {
-        self.update(|cell| cell.linewidth = Some(width))
+        self.update(|cell| cell.style.linewidth = Some(width))
     }
 
     /// Sets the opacity of the background and edges; the text keeps its
     /// own.
     pub fn set_alpha(&self, alpha: Option<f64>) -> &Self {
-        self.update(|cell| cell.alpha = alpha)
+        self.update(|cell| cell.base.alpha = alpha)
     }
 
     /// Chooses which edges are drawn (matplotlib's `visible_edges`). The
@@ -355,8 +355,11 @@ mod tests {
         assert_eq!(header.text(), "B2");
         header.read(|cell| {
             assert_eq!(cell.text_color, Color::from("w"));
-            assert_eq!(cell.facecolor, Color::from("k"));
-            assert_eq!((cell.linewidth, cell.alpha), (Some(2.0), Some(0.5)));
+            assert_eq!(cell.style.facecolor, Some(Color::from("k")));
+            assert_eq!(
+                (cell.style.linewidth, cell.base.alpha),
+                (Some(2.0), Some(0.5))
+            );
             assert_eq!((cell.edges, cell.height), (CellEdges::OPEN, 0.2));
         });
     }
@@ -377,7 +380,7 @@ mod tests {
             assert_eq!((cell.width, cell.height), (0.25, 0.0));
             assert_eq!((cell.text.as_str(), cell.loc), ("", HAlign::Right));
             assert_eq!(cell.edges, CellEdges::CLOSED, "not the table's edges");
-            assert_eq!(cell.facecolor, Color::from("w"));
+            assert_eq!(cell.style.facecolor, Some(Color::from("w")));
         });
         table.cell(0, 0).expect("a cell").set_text("old");
         let replaced = table.add_cell(0, 0, 0.5, 0.1);

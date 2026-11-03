@@ -10,7 +10,7 @@ use super::handle::TableCell;
 use super::layout::AxesMaps;
 use crate::artist::{ArtistHandle, LayoutContext};
 use crate::rc::RcParams;
-use crate::text::{Text, TextDrawError, VAlign};
+use crate::text::{Text, TextDrawError};
 use crate::transforms::Transform;
 
 impl TableCell {
@@ -29,6 +29,19 @@ impl TableCell {
         let maps = AxesMaps::of(&layout.axes_extent(table.axes?)?)?;
         let index = table.cells.iter().position(|(key, _)| *key == self.key())?;
         Some(f(&table.cells[index].1, index, table, layout, &maps))
+    }
+
+    /// The box the table places the cell in, in the fractions of the
+    /// table's axes, in the figure's current layout; `None` for a table
+    /// in no axes or one that cannot be placed.
+    pub(crate) fn placed_box(&self) -> Option<Bbox> {
+        self.measured(|_, index, table, layout, maps| {
+            table
+                .place(layout, maps)
+                .ok()
+                .map(|placed| placed[index].bbox)
+        })
+        .flatten()
     }
 
     /// The box of the cell's text where the table draws it, in the
@@ -141,31 +154,41 @@ impl TableCell {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn text_artist(&self) -> Text {
-        let (string, color, font, halign) = self.read(|cell| {
+        let (string, color, font, halign, valign, rotation, alpha) = self.read(|cell| {
             (
                 cell.text.clone(),
                 cell.text_color.clone(),
                 cell.font.clone(),
                 cell.loc,
+                cell.text_valign,
+                cell.text_rotation,
+                cell.text_alpha,
             )
         });
         let text = Text::loose(0.0, 0.0, string);
         text.set_color(color)
             .set_font(font)
             .set_halign(halign)
-            .set_valign(VAlign::Center);
+            .set_valign(valign)
+            .set_rotation(rotation);
+        text.set_alpha(alpha);
         text
     }
 
-    /// Takes the string, colour, font and horizontal alignment of `text`
-    /// (made by [`TableCell::text_artist`]).
+    /// Takes the string, colour, font, alignments, rotation and opacity
+    /// of `text` (made by [`TableCell::text_artist`]).
     pub fn restyle_text_from(&self, text: &Text) -> &Self {
-        let (string, color, font, halign) = (text.text(), text.color(), text.font(), text.halign());
+        let (string, color, font) = (text.text(), text.color(), text.font());
+        let (halign, valign, rotation, alpha) =
+            (text.halign(), text.valign(), text.rotation(), text.alpha());
         self.update(|cell| {
             cell.text = string;
             cell.text_color = color;
             cell.font = font;
             cell.loc = halign;
+            cell.text_valign = valign;
+            cell.text_rotation = rotation;
+            cell.text_alpha = alpha;
         })
     }
 }

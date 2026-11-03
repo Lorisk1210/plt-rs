@@ -325,8 +325,7 @@ impl PdfRenderer {
         if !self.page_open {
             return Ok(());
         }
-        let restore = self.states.finish();
-        self.writer.output(&restore)?;
+        self.restore_gc()?;
         self.writer.end_stream()?;
         self.page_open = false;
         Ok(())
@@ -345,15 +344,27 @@ impl PdfRenderer {
         self.close()
     }
 
+    /// Restores every graphics state the page saved (matplotlib's
+    /// `RendererPdf.finalize`).
+    ///
+    /// # Errors
+    ///
+    /// When the content stream cannot be written.
+    pub fn restore_gc(&mut self) -> Result<(), VectorError> {
+        let restore = self.states.finish();
+        self.writer.output(&restore)
+    }
+
     /// Writes `objects` as one content-stream line.
     fn output(&mut self, objects: &[Obj]) {
         let result = self.writer.output(objects);
         self.problems.record(result);
     }
 
-    /// `check_gc`: emits what changes the graphics state into the one
-    /// `gc` and `fill` need.
-    fn check_gc(&mut self, gc: &GraphicsContext, fill: Option<Rgba>) {
+    /// Writes what changes the graphics state of the page into the one
+    /// `gc` and the fill `fill` need, the state kept by the document
+    /// (matplotlib's `RendererPdf.check_gc`).
+    pub fn check_gc(&mut self, gc: &GraphicsContext, fill: Option<Rgba>) {
         let target = PdfState::from_gc(gc, fill, self.generation);
         let cmds = self.states.delta(&target, &mut self.resources);
         if !cmds.is_empty() {

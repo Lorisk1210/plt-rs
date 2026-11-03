@@ -550,6 +550,10 @@ class PolarAxes(PolarTextTransforms, Axes):
         return scale + shift + projection + (
             self.PolarAffine(scale, origin) + wedge + axes)
 
+    def format_coord(self, theta, r):
+        # docstring inherited
+        return super().format_coord(theta, r)
+
     def set_thetamax(self, thetamax):
         """Set the maximum theta limit in degrees."""
         _polar.set_thetamax(self._native, float(thetamax))

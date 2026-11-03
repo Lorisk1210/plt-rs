@@ -9,21 +9,26 @@ pltrs (Rust) lays the table out and draws it (``_native.table``). Its cells
 are part of the table's native artist, not artists of their own: a `Cell`
 is the cell at its ``(row, column)`` key in its table. A cell made by its
 constructor lives in a table of its own, outside any figure, until it is
-put in a table (``table[row, col] = cell``), which copies it there. The
+put in a table (``table[row, col] = cell``), which copies it there. As
+matplotlib's, a `Cell` is a `.Rectangle`: a rectangle outside any figure
+with the cell's look, from which each setter restyles the cell. A table
+holding a cell whose class (or the cell itself) has a ``draw`` of the
+program's draws each cell by its ``draw``, as matplotlib's does. The
 signatures and checks are matplotlib's (3.11.2, under the Matplotlib
 License).
 """
 
 import numpy as np
 
-from . import _api, _handles, _live_transforms, _mirrors, cbook, colors as mcolors
-from ._artist_children import ChildrenSearchMixin
+from . import (_api, _handles, _live_transforms, _mirrors, _python_drawing, cbook,
+               colors as mcolors)
+from ._program_classes import takes_from_program
 from ._native import table as _table
-from .artist import Artist
+from .artist import Artist, allow_rasterization
 from .patches import Rectangle
 from .path import Path
 from .text import Text
-from .transforms import BboxBase, Bbox
+from .transforms import BboxBase, Bbox, BboxTransformTo
 
 
 class _CellHolder:
@@ -37,7 +42,8 @@ class _CellHolder:
 
 class _CellText(_mirrors.Mirroring):
     """The text of *cell*, which a `.Text` stands for (`Cell.get_text`):
-    its string, colour, font and horizontal alignment are the cell's."""
+    its string, colour, font, alignments, rotation and opacity are the
+    cell's."""
 
     def __init__(self, cell):
         self.cell = cell
@@ -64,16 +70,27 @@ def _measured(value):
     return value
 
 
-class Cell(ChildrenSearchMixin):
+class _CellLook(_mirrors.Mirroring):
+    """The look of a cell, which the cell as a `.Rectangle` stands for (see
+    `Cell`)."""
+
+    def push(self, artist):
+        _table.restyle_cell(artist._ref(), artist._native)
+
+
+@_mirrors.pushing
+class Cell(Rectangle):
     """
-    A cell is a rectangle with some associated text.
+    A cell is a `.Rectangle` with some associated `.Text`.
 
     As a user, you'll most likely not creates cells yourself. Instead, you
     should use either the `~matplotlib.table.table` factory function or
     `.Table.add_cell`.
 
     pltrs: a cell is the cell at its key in a table's native artist (see
-    the module documentation), not a `.Rectangle` artist of its own.
+    the module documentation). As a `.Rectangle` it is a rectangle outside
+    any figure with the cell's look, from which every setter restyles the
+    cell; its table sizes and places it.
     """
 
     PAD = 0.1
@@ -98,8 +115,7 @@ class Cell(ChildrenSearchMixin):
         Parameters
         ----------
         xy : 2-tuple
-            The position of the bottom left corner of the cell (pltrs: the
-            table places its cells when it is drawn).
+            The position of the bottom left corner of the cell.
         width : float
             The cell width.
         height : float
@@ -117,20 +133,21 @@ class Cell(ChildrenSearchMixin):
         fontproperties : dict, optional
             A dict defining the font properties of the text. Supported keys and
             values are the keyword arguments accepted by `.FontProperties`.
-        visible_edges : {'closed', 'open', 'horizontal', 'vertical'} or \
+        visible_edges : {'closed', 'open', 'horizontal', 'vertical'} or \\
 substring of 'BRTL'
             The cell edges to be drawn with a line: a substring of 'BRTL'
             (bottom, right, top, left), or one of 'open' (no edges drawn),
             'closed' (all edges drawn), 'horizontal' (bottom and top),
             'vertical' (right and left).
         """
-        if not fill:
-            raise NotImplementedError("pltrs: Cell(fill=False)")
         self._table = _CellHolder()
         self._key = (0, 0)
         _table.add_cell(self._table._native, 0, 0, float(width), float(height))
-        self.set_edgecolor(edgecolor)
-        self.set_facecolor(facecolor)
+        self._mirror = _CellLook()
+        # Set up text properties
+        super().__init__(xy, width=width, height=height, fill=fill,
+                         edgecolor=edgecolor, facecolor=facecolor)
+        self.set_clip_on(False)
         self.visible_edges = visible_edges
         self._loc = loc
         _table.set_text_halign(self._ref(), loc)
@@ -146,11 +163,19 @@ substring of 'BRTL'
         cell = cls.__new__(cls)
         cell._table = table
         cell._key = key
-        return cell
+        cell._figure = None
+        cell._native = _table.cell_rectangle(cell._ref())
+        return _mirrors.attach(cell, _CellLook())
 
     def _ref(self):
         """The cell as ``_native.table`` takes it."""
         return (self._table._native, *self._key)
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name == "draw" and isinstance(self.__dict__.get("_table"), Table):
+            # Its table draws each cell by its draw from now on.
+            _python_drawing.paint(self._table)
 
     @property
     def _parent_figure(self):
@@ -160,21 +185,12 @@ substring of 'BRTL'
             return self._table.figure
         return self._table.get_figure(root=False)
 
-    def set(self, **kwargs):
-        """
-        Set multiple properties at once, each keyword naming a setter of
-        the cell (``set_<keyword>``), the aliases of `.Rectangle` allowed;
-        return the setters' results.
-        """
-        ret = []
-        for k, v in cbook.normalize_kwargs(kwargs, Rectangle).items():
-            func = getattr(self, f"set_{k}", None)
-            if not callable(func):
-                raise AttributeError(
-                    f"{type(self).__name__}.set() got an unexpected keyword "
-                    f"argument {k!r}", name=k)
-            ret.append(func(v))
-        return ret
+    def get_figure(self, root=False):
+        """Return the `.Figure` or `.SubFigure` the cell's table is on."""
+        figure = self._parent_figure
+        if figure is None or not root:
+            return figure
+        return figure.get_figure(root=True)
 
     def set_transform(self, t):
         """
@@ -185,7 +201,28 @@ substring of 'BRTL'
         ----------
         t : `~matplotlib.transforms.Transform`
         """
+        self._cell_transform = t
         _table.set_cell_transform(self._ref(), _live_transforms.to_native(t))
+
+    def get_data_transform(self):
+        """Return the transform the cell is placed in: the one set, else
+        its table's."""
+        given = self.__dict__.get("_cell_transform")
+        if given is not None:
+            return given
+        if isinstance(self._table, _CellHolder):
+            return super().get_data_transform()
+        return self._table.get_transform()
+
+    def get_patch_transform(self):
+        """Return the transform mapping the unit square to the cell where
+        its table places it."""
+        x, y = self.get_xy()
+        return BboxTransformTo(Bbox.from_bounds(x, y, self.get_width(), self.get_height()))
+
+    def get_transform(self):
+        """Return the `~.transforms.Transform` applied to the cell."""
+        return self.get_patch_transform() + self.get_data_transform()
 
     def set_figure(self, fig):
         """
@@ -208,9 +245,9 @@ substring of 'BRTL'
         """
         Return the cell `.Text` instance.
 
-        pltrs: the text has the cell's string, colour, font and horizontal
-        alignment, and changing them changes the cell; the table places
-        the text when it is drawn.
+        pltrs: the text has the cell's string, colour, font, alignments,
+        rotation and opacity, and changing them changes the cell; the
+        table places the text when it is drawn.
         """
         native = _table.text_artist(self._ref())
         text = self.__dict__.get("_text_mirror")
@@ -224,6 +261,7 @@ substring of 'BRTL'
     def set_fontsize(self, size):
         """Set the text fontsize."""
         _table.set_cell_fontsize(self._ref(), _points(size))
+        self.stale = True
 
     def get_fontsize(self):
         """Return the cell fontsize."""
@@ -239,17 +277,20 @@ substring of 'BRTL'
             return _measured(None)
         return _table.fit_font_size(self._ref())
 
+    @allow_rasterization
     def draw(self, renderer):
         """
-        Draw the cell alone with *renderer*: its rectangle and its text,
-        where its table places it in its figure's last layout.
+        Draw the cell with *renderer*: its rectangle and its text, where
+        its table places it in its figure's layout.
         """
+        if not self.get_visible():
+            return
         draw_cell = getattr(renderer, "_draw_cell", None)
-        if draw_cell is None:
-            raise NotImplementedError(
-                "pltrs: Cell.draw(renderer) with a renderer pltrs (Rust) is "
-                "not drawing with")
-        draw_cell(self)
+        if draw_cell is not None:
+            draw_cell(self)
+        else:
+            _python_drawing.draw_cell_through(renderer, self)
+        self.stale = False
 
     def get_text_bounds(self, renderer):
         """
@@ -266,19 +307,10 @@ substring of 'BRTL'
         return _measured(_table.required_width(self._ref()))
 
     def set_text_props(self, **kwargs):
-        """
-        Update the text properties: its *color*, horizontal alignment
-        (*horizontalalignment*, *ha*) and *fontsize*.
-        """
-        for key, value in kwargs.items():
-            if key in ("color", "c"):
-                _table.set_text_color(self._ref(), mcolors.to_rgba(value))
-            elif key in ("horizontalalignment", "ha"):
-                _table.set_text_halign(self._ref(), value)
-            elif key in ("fontsize", "size"):
-                self.set_fontsize(value)
-            else:
-                raise NotImplementedError(f"pltrs: Cell.set_text_props({key}=...)")
+        """Update the text properties: any `.Text` property of the cell's
+        text (see `get_text`)."""
+        self.get_text()._internal_update(kwargs)
+        self.stale = True
 
     @property
     def visible_edges(self):
@@ -296,11 +328,26 @@ substring of 'BRTL'
     @visible_edges.setter
     def visible_edges(self, value):
         _table.set_visible_edges(self._ref(), 'closed' if value is None else value)
+        self.stale = True
 
     def get_path(self):
         """Return a `.Path` for the `.visible_edges`."""
         vertices, codes = _table.get_path(self._ref())
         return Path(vertices, codes, readonly=True)
+
+    def get_xy(self):
+        """Return the left and bottom coords of the cell as a tuple: where
+        its table places it (pltrs: in the figure's current layout)."""
+        corner = _table.cell_corner(self._ref())
+        return super().get_xy() if corner is None else corner
+
+    def get_x(self):
+        """Return the left coordinate of the cell."""
+        return self.get_xy()[0]
+
+    def get_y(self):
+        """Return the bottom coordinate of the cell."""
+        return self.get_xy()[1]
 
     def get_width(self):
         """Return the width of the cell."""
@@ -312,27 +359,22 @@ substring of 'BRTL'
 
     def set_width(self, w):
         """Set the width of the cell."""
+        super().set_width(w)
         _table.set_width(self._ref(), float(w))
 
     def set_height(self, h):
         """Set the height of the cell."""
+        super().set_height(h)
         _table.set_height(self._ref(), float(h))
 
-    def set_facecolor(self, color):
-        """Set the cell facecolor."""
-        _table.set_facecolor(self._ref(), mcolors.to_rgba(color))
-
-    def set_edgecolor(self, color):
-        """Set the color of the cell border."""
-        _table.set_edgecolor(self._ref(), mcolors.to_rgba(color))
-
-    def set_linewidth(self, w):
-        """Set the width of the cell border in points."""
-        _table.set_linewidth(self._ref(), float(w))
-
-    def set_alpha(self, alpha):
-        """Set the opacity of the cell background and border."""
-        _table.set_alpha(self._ref(), None if alpha is None else float(alpha))
+    def set_bounds(self, *args):
+        """
+        Set the bounds of the cell as *left*, *bottom*, *width*, *height*
+        (pltrs: its table places it, so its size counts).
+        """
+        super().set_bounds(*args)
+        _table.set_width(self._ref(), float(super().get_width()))
+        _table.set_height(self._ref(), float(super().get_height()))
 
 
 CustomCell = Cell  # Backcompat. alias.
@@ -478,6 +520,20 @@ class Table(Artist):
         cell._table = self
         cell._key = (row, col)
         self._cells[row, col] = cell
+        if takes_from_program(type(cell), "draw") or "draw" in vars(cell):
+            # matplotlib's table draws each cell by its own draw.
+            _python_drawing.paint(self)
+
+    @allow_rasterization
+    def draw(self, renderer):
+        # docstring inherited
+        if not self.get_visible():
+            return
+        renderer.open_group('table', gid=self.get_gid())
+        for key in sorted(_table.cell_keys(self._native)):
+            self[key].draw(renderer)
+        renderer.close_group('table')
+        self.stale = False
 
     def __getitem__(self, position):
         """Retrieve a custom cell from a given position."""

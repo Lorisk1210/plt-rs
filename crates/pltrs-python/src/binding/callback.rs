@@ -188,6 +188,7 @@ call_args! {
     (a: A, b: B);
     (a: A, b: B, c: C);
     (a: A, b: B, c: C, d: D);
+    (a: A, b: B, c: C, d: D, e: E);
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ square until `place` moves it where the text draws the box
 """
 
 from . import _mirrors
-from ._native import text as _text
+from ._native import patches as _patches, text as _text
 from .patches import FancyBboxPatch
 from .transforms import Affine2D
 
@@ -48,6 +48,10 @@ def mirror(text):
     if patch is None:
         patch = text._bbox_mirror = _mirrors.attach(
             FancyBboxPatch._from_native(native, None), _TextBox(text))
+        style = text.__dict__.get("_bbox_style")
+        if style is not None:  # A style of the program's, kept as given.
+            patch._bbox_transmuter = (
+                style, _patches.get_boxstyle(patch._native))
     else:
         patch._native = native
         if patch._mirror.frame is not None:

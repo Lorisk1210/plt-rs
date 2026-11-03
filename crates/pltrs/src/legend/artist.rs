@@ -85,6 +85,7 @@ impl ArtistRef for HandleRef {
                     collection.offset_transform = Some(transform);
                 }
             }
+            Attach::Own => {}
         }
     }
 }
@@ -120,9 +121,10 @@ pub(crate) struct LegendArtist {
     pub(crate) title: ArtistId,
     /// One label per entry.
     pub(crate) texts: Vec<ArtistId>,
-    /// The first handle artist of every listed handle, `None` for handles
-    /// no handler draws (matplotlib's `legend_handles`).
-    pub(crate) handles: Vec<Option<ArtistId>>,
+    /// The handle artists of every listed handle, none for handles no
+    /// handler draws (the first of each is matplotlib's
+    /// `legend_handles`).
+    pub(crate) handles: Vec<Vec<ArtistId>>,
     /// Every part, for removal with the legend.
     pub(crate) parts: Vec<ArtistId>,
     /// Whether the legend stays on its axes as an ordinary artist

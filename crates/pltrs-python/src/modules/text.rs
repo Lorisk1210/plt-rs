@@ -12,13 +12,14 @@ use pltrs::axes::Axes;
 use pltrs::colors::Color;
 use pltrs::figure::Figure;
 use pltrs::lines::LineStyle;
-use pltrs::patches::{BoxStyle, FancyBboxPatch, Patch};
+use pltrs::patches::{FancyBboxPatch, Patch};
 use pltrs::text::{
     Feature, HAlign, Language, LanguageRange, LineSpacing, RotationMode, Text, TextBoxProps, VAlign,
 };
 use pltrs_core::Point;
 
 use super::font_manager::{FontProps, check_font_file};
+use super::patch_styles::PyBoxStyle;
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 
@@ -252,7 +253,7 @@ impl FromPy<'_> for BoxKwargs {
             let patch = &mut props.patch;
             match key.as_str() {
                 "boxstyle" => {
-                    props.boxstyle = Some(parse_name::<BoxStyle>(&value.extract::<String>()?)?);
+                    props.boxstyle = Some(value.extract::<PyBoxStyle>()?.0);
                 }
                 "pad" => props.pad = Some(value.extract()?),
                 "color" => patch.color = Some(value.extract()?),

@@ -100,6 +100,35 @@ def _reduce_native(native):
 copyreg.pickle(Native, _reduce_native)
 
 
+def program_hooks(figure):
+    """
+    What the hooks of the root *figure* follow, as a pickle keeps it
+    since the hooks do not pickle: what locators of the program's place
+    (`.axes._program_locators`) and the artists whose transforms the
+    program computes (`._computed_transforms`).
+    """
+    from . import _computed_transforms
+    from .axes import _program_locators
+    return (_program_locators.followed(figure), _computed_transforms.tracked(figure))
+
+
+def restore_program_hooks(figure, hooks):
+    """Give the root *figure*, read back from a pickle, its hooks again
+    (*hooks* from `program_hooks`), and connect the Axes of projections of
+    the program's to their limits again."""
+    from . import _computed_transforms
+    from .axes import _program_locators
+    from .projections import _program
+    followed, tracked = hooks
+    for owner in followed:
+        _program_locators.follow(owner, figure)
+    for artist in tracked:
+        _computed_transforms.track(artist, figure)
+    for artist in list(figure._artists.values()):
+        if "_program_projection" in artist.__dict__:
+            _program.connect(artist)
+
+
 def restore_figure(cls, state):
     """A figure of class *cls* being unpickled: its attributes come from
     ``Figure.__setstate__`` once *state*, its native state, is read."""

@@ -96,6 +96,7 @@ mod state;
 mod stem;
 mod surface;
 mod test_data;
+mod tick_props;
 mod trisurf;
 #[cfg(test)]
 mod unit_tests;

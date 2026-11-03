@@ -136,11 +136,14 @@ class Axes(PlottingMixin, ImagingMixin, InsetsMixin, AxesText, TitlesMixin,
 
     @legend_.setter
     def legend_(self, legend):
-        # matplotlib's attribute: None takes the legend off the Axes.
+        # matplotlib's attribute: None takes the legend off the Axes, a
+        # legend made for the Axes becomes its legend again.
         current = self.get_legend()
         if legend is current:
             return
-        if legend is not None:
-            raise NotImplementedError(
-                "pltrs: legend_ takes None or the Axes' own legend")
-        current.remove()
+        if legend is None:
+            current.remove()
+            return
+        from .._native import legend as _legend
+        if not _legend.set_axes_legend(self._native, legend._native):
+            raise ValueError("legend_ must be a Legend made for this Axes")

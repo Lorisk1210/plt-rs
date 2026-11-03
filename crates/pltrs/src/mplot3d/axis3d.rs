@@ -1,10 +1,12 @@
 //! One axis of a 3-D axes: its scale, tick helpers, tick styles, label,
 //! pane and appearance (the state of matplotlib's `axis3d.Axis`).
 
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use pltrs_core::Rgba;
 
+use crate::axes::axis::TickOverrides;
 use crate::axes::axis_artists::AxisGids;
 use crate::axes::{Tick, TickSet, TickStyle, TickerDefaults, grid_level_on};
 use crate::colors::Color;
@@ -156,7 +158,8 @@ pub(crate) struct AxisSpan {
     pub(crate) minpos: f64,
 }
 
-/// A tick to draw with the style of its level.
+/// A tick to draw, with the style of its level and what it has of its
+/// own ([`Axis3DState::tick_style_at`]).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DrawnTick<'a> {
     pub(crate) tick: &'a Tick,
@@ -165,8 +168,6 @@ pub(crate) struct DrawnTick<'a> {
     /// Its position among the ticks of its level, inside the view or not
     /// (the index of its `Tick` object in matplotlib's `majorTicks`).
     pub(crate) slot: usize,
-    /// The tick parameters of its level (colour, label font).
-    pub(crate) style: &'a TickStyle,
     /// The width of its mark in points.
     pub(crate) width: f64,
     /// The distance of its label in points (its own pad).
@@ -256,11 +257,19 @@ pub(crate) struct Axis3DState {
     pub(crate) tick_position: AxisPosition,
     /// The edges carrying the label.
     pub(crate) label_position: AxisPosition,
-    /// The label pads of the first major ticks in the order the major
-    /// locator places them: matplotlib's `Tick` objects keep their own
-    /// pads, and the ticks it adds later copy the first one. Empty when
-    /// every major tick has the pad of [`Self::major_style`].
-    pub(crate) major_pads: Vec<f64>,
+    /// What single major ticks have of their own, in the order the major
+    /// locator places them (their labels, marks and pads; see
+    /// [`Self::tick_style_at`]): matplotlib's `Tick` objects keep their
+    /// own, and the ticks it adds later copy the first one.
+    pub(crate) major_overrides: TickOverrides,
+    /// What single minor ticks have of their own.
+    pub(crate) minor_overrides: TickOverrides,
+    /// Whether the offset text is drawn when the program decided it
+    /// (`offsetText.set_visible`), instead of with the major tick labels.
+    pub(crate) offset_shown: Option<bool>,
+    /// Whether minor ticks falling on major ones are dropped (matplotlib's
+    /// `remove_overlapping_locs`).
+    pub(crate) remove_overlapping: bool,
     /// Whether tight boxes count the axis (matplotlib's `Axis.set_visible`,
     /// which a 3-D axis' draw does not read).
     pub(crate) visible: bool,
@@ -284,7 +293,10 @@ pltrs_core::archive_struct!(Axis3DState {
     line_visible,
     tick_position,
     label_position,
-    major_pads,
+    major_overrides,
+    minor_overrides,
+    offset_shown,
+    remove_overlapping,
     visible,
     gids
 });
@@ -321,17 +333,67 @@ impl Axis3DState {
             line_visible: true,
             tick_position: AxisPosition::Default,
             label_position: AxisPosition::Default,
-            major_pads: Vec::new(),
+            major_overrides: TickOverrides::default(),
+            minor_overrides: TickOverrides::default(),
+            offset_shown: None,
+            remove_overlapping: true,
             visible: true,
             gids: AxisGids::default(),
         }
     }
 
-    /// Whether the offset text is drawn: with the major tick labels
-    /// (matplotlib's offset text visibility following `label1On` and
-    /// `label2On`).
+    /// Whether the offset text is drawn: as the program decided, else
+    /// with the major tick labels (matplotlib's offset text visibility
+    /// following `label1On` and `label2On`).
     pub(crate) fn offset_visible(&self) -> bool {
-        self.major_style.labels.first || self.major_style.labels.second
+        self.offset_shown
+            .unwrap_or(self.major_style.labels.first || self.major_style.labels.second)
+    }
+
+    /// What single major (or `minor`) ticks have of their own.
+    pub(crate) fn overrides(&self, minor: bool) -> &TickOverrides {
+        if minor {
+            &self.minor_overrides
+        } else {
+            &self.major_overrides
+        }
+    }
+
+    /// The style of the major (or `minor`) ticks, to change.
+    pub(crate) fn level_style_mut(&mut self, minor: bool) -> &mut TickStyle {
+        if minor {
+            &mut self.minor_style
+        } else {
+            &mut self.major_style
+        }
+    }
+
+    /// What single major (or `minor`) ticks have of their own, to change.
+    pub(crate) fn overrides_mut(&mut self, minor: bool) -> &mut TickOverrides {
+        if minor {
+            &mut self.minor_overrides
+        } else {
+            &mut self.major_overrides
+        }
+    }
+
+    /// The style the label on the first or the second side of the major
+    /// (or `minor`) tick at `slot` (in the locator's order) is drawn with:
+    /// the style of its level with what the tick and the label have of
+    /// their own (matplotlib's `Tick` artists changed one by one, which
+    /// `Axis3D.draw` draws as they are, but for the width of the marks).
+    pub(crate) fn tick_style_at(
+        &self,
+        minor: bool,
+        slot: usize,
+        first_side: bool,
+    ) -> Cow<'_, TickStyle> {
+        let level = if minor {
+            &self.minor_style
+        } else {
+            &self.major_style
+        };
+        self.overrides(minor).style_at(level, slot, first_side)
     }
 
     /// Replaces the scale and installs its default tick helpers, made
@@ -393,14 +455,22 @@ impl Axis3DState {
     /// `automargin` the view is inset as `axes3d.automargin` asks.
     pub(crate) fn update_ticks(&mut self, span: &AxisSpan, length_points: f64, automargin: bool) {
         self.ticks = self.compute_ticks(span, length_points, automargin);
+        if let Ok(ticks) = &self.ticks {
+            self.major_overrides.make_ticks(ticks.major_unclipped.len());
+            self.minor_overrides.make_ticks(ticks.minor_unclipped.len());
+        }
     }
 
-    /// The label pad of the major tick at `slot` in the locator's order.
-    pub(crate) fn major_pad(&self, slot: usize) -> f64 {
-        (self.major_pads.get(slot))
-            .or(self.major_pads.first())
-            .copied()
-            .unwrap_or(self.major_style.pad)
+    /// The label pad of the major (or `minor`) tick at `slot` in the
+    /// locator's order.
+    pub(crate) fn tick_pad(&self, minor: bool, slot: usize) -> f64 {
+        let level = if minor {
+            &self.minor_style
+        } else {
+            &self.major_style
+        };
+        let own = self.overrides(minor).pads.get(slot).copied().flatten();
+        own.unwrap_or(level.pad)
     }
 
     /// The label pads of the major ticks the last layout pass placed,
@@ -411,7 +481,9 @@ impl Axis3DState {
             .ticks
             .as_ref()
             .map_or(0, |ticks| ticks.major_unclipped.len());
-        (0..located).map(|slot| self.major_pad(slot)).collect()
+        (0..located)
+            .map(|slot| self.tick_pad(false, slot))
+            .collect()
     }
 
     /// The ticks of the view, inside it or not, with the position among
@@ -455,7 +527,11 @@ impl Axis3DState {
         }
         if Self::level_computed(&self.minor_style, self.tickers.minor_locator.as_ref()) {
             let minor = drawable_ticks(self.tickers.minor_locator.locate(&ctx)?)?;
-            let minor_locs = self.without_overlaps(minor, &major_locs, span.view);
+            let minor_locs = if self.remove_overlapping {
+                self.without_overlaps(minor, &major_locs, span.view)
+            } else {
+                minor
+            };
             let labels = self
                 .tickers
                 .minor_formatter
@@ -522,24 +598,22 @@ impl Axis3DState {
                 ),
                 Err(_) => (&[], &[], &[], &[]),
             };
-        let (style, width) = (&self.major_style, self.style.major_tick_width);
+        let width = self.style.major_tick_width;
         let majors = (major.iter().zip(major_slots)).map(move |(tick, &slot)| DrawnTick {
             tick,
             minor: false,
             slot,
-            style,
             width,
-            pad: self.major_pad(slot),
+            pad: self.tick_pad(false, slot),
         });
-        let (style, width) = (&self.minor_style, self.style.minor_tick_width);
+        let width = self.style.minor_tick_width;
         majors.chain(
             (minor.iter().zip(minor_slots)).map(move |(tick, &slot)| DrawnTick {
                 tick,
                 minor: true,
                 slot,
-                style,
                 width,
-                pad: style.pad,
+                pad: self.tick_pad(true, slot),
             }),
         )
     }

@@ -16,7 +16,7 @@ from .._native import (
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
 from ..font_manager import FontManager
 from ._backend_pdf_ps import RendererPDFPSBase
-from ._native_drawing import DocumentDrawingMixin
+from ._native_drawing import DocumentDrawingMixin, PdfPsDrawingMixin
 from .backend_mixed import MixedModeRenderer
 
 debugPS = False
@@ -97,7 +97,7 @@ def _dsc_metadata(outfile, metadata):
     return dsc_comments
 
 
-class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
+class RendererPS(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
     """
     The renderer of a PostScript page of *width* × *height* inches, drawn
     in points, its images at *imagedpi*, written to *pswriter*.
@@ -105,7 +105,9 @@ class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
     pltrs (Rust) writes the documents itself: this is the renderer the
     program's drawing receives while a figure is saved as PostScript
     (`FigureCanvasPS._program_renderer`), which draws into the document
-    pltrs (Rust) writes.
+    pltrs (Rust) writes. One the program makes around a *pswriter* of its
+    own writes the PostScript of what it draws there, as it draws, with
+    the graphics state it keeps (``set_color``, ...).
     """
 
     _use_afm_rc_name = "ps.useafm"
@@ -114,6 +116,52 @@ class RendererPS(DocumentDrawingMixin, RendererPDFPSBase):
         super().__init__(width, height)
         self._pswriter = pswriter
         self.imagedpi = imagedpi
+        if pswriter is not None:
+            self._file = pswriter
+            self._page = _backends.ps_page_new(float(width), float(height),
+                                               float(imagedpi))
+
+    def _state(self, change, *args):
+        """Change the page's graphics state with ``_native.backends``'
+        *change*, writing what that writes."""
+        self._write((change(self._document_page(), *args), ()))
+
+    def set_color(self, r, g, b, store=True):
+        """Set the colour of the page, kept as its colour when *store*."""
+        self._state(_backends.ps_set_color, (float(r), float(g), float(b)),
+                    bool(store))
+
+    def set_linewidth(self, linewidth, store=True):
+        """Set the line width of the page in points."""
+        self._state(_backends.ps_set_linewidth, float(linewidth), bool(store))
+
+    def set_linejoin(self, linejoin, store=True):
+        """Set the line join of the page (a name, or matplotlib's code)."""
+        self._state(_backends.ps_set_linejoin, linejoin, bool(store))
+
+    def set_linecap(self, linecap, store=True):
+        """Set the line cap of the page (a name, or matplotlib's code)."""
+        self._state(_backends.ps_set_linecap, linecap, bool(store))
+
+    def set_linedash(self, offset, seq, store=True):
+        """Set the dashes of the page: *offset* into *seq* (None or empty
+        for solid lines)."""
+        self._state(_backends.ps_set_linedash, float(offset),
+                    None if seq is None else [float(s) for s in seq],
+                    bool(store))
+
+    def set_font(self, fontname, fontsize, store=True):
+        """Select the font *fontname* at *fontsize* points."""
+        self._state(_backends.ps_set_font, str(fontname), float(fontsize),
+                    bool(store))
+
+    def create_hatch(self, hatch, linewidth):
+        """Return the name of the pattern of *hatch*, defining it with lines
+        *linewidth* points wide on first use."""
+        name, written = _backends.ps_create_hatch(
+            self._document_page(), str(hatch), float(linewidth))
+        self._write((written, ()))
+        return name
 
     def get_image_magnification(self):
         # docstring inherited

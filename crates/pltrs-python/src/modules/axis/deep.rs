@@ -1,15 +1,15 @@
 //! The parts of an axis of a 3-D axes as `_native.axis` mirrors them (see
 //! [`super::mirrors`]): its ticks, offset text and label.
 //!
-//! A 3-D axis draws every tick with the style of its level, but for the
-//! label pad of each major tick; it places its texts and marks anew at
-//! every draw, as matplotlib's `axis3d.Axis.draw` moves the artists of
-//! its ticks, its offset text and its label. A mirror is filled with where
-//! the last layout pass placed them (a tick out of view, or an axes with
-//! no place in its figure, keeps matplotlib's `XTick` position), and what
-//! a program sets on it that matplotlib's draw would overwrite (positions,
-//! alignments, rotations) is not read back. What a single tick would keep
-//! of its own, which a 3-D axis cannot draw, is refused.
+//! A 3-D axis draws every tick with the style of its level and what the
+//! tick has of its own (its pad, the properties of its labels and the
+//! colour of its mark); it places its texts and marks anew at every draw,
+//! as matplotlib's `axis3d.Axis.draw` moves the artists of its ticks, its
+//! offset text and its label. A mirror is filled with where the last
+//! layout pass placed them (a tick out of view, or an axes with no place
+//! in its figure, keeps matplotlib's `XTick` position), and what a program
+//! sets on it that matplotlib's draw overwrites (positions, the width and
+//! visibility of the marks) is not read back.
 
 use pltrs::artist::ArtistHandle;
 use pltrs::lines::{Line2D, LineStyle};
@@ -19,15 +19,10 @@ use pltrs::text::{HAlign, Text, VAlign};
 use pltrs::transforms::Bbox;
 use pltrs_core::Point;
 
-use super::mirrors::{TickMirrors, TickState};
-use super::owner::not_on_3d;
-use crate::binding::prelude::*;
+use pltrs::axes::TickLineProps;
 
-/// Whether a property a mirror reads back is the one it was filled with
-/// (the same number: the mirror holds a copy).
-fn same(value: f64, filled: f64) -> bool {
-    value.total_cmp(&filled).is_eq()
-}
+use super::mirrors::{TickMirrors, TickState, label_props, own};
+use crate::binding::prelude::*;
 
 /// The text `part` of `axis` as the axes last placed it.
 fn drawn(axis: &Axis3D, part: AxisTextPart) -> Option<AxisText3D> {
@@ -58,24 +53,27 @@ pub(super) fn sync_tick(
     (label1, label2, tick1, tick2, grid): TickMirrors,
 ) -> PyResult<TickState> {
     let (loc, label) = located(axis, minor, index)?;
-    let style = axis.tick_style(minor);
     let position = drawn(axis, AxisTextPart::TickLabel { minor, index })
         .map_or(Point::new(loc, 0.0), |text| text.position);
-    let font = style.label_font(&pltrs::rc::params());
-    for (text, visible) in [
-        (&label1, style.labels.first),
-        (&label2, style.labels.second),
-    ] {
+    let rc = pltrs::rc::params();
+    for (text, first_side) in [(&label1, true), (&label2, false)] {
+        let style = axis.tick_style_at(minor, index, first_side);
+        let visible = if first_side {
+            style.labels.first
+        } else {
+            style.labels.second
+        };
         text.set_text(label.clone())
             .set_position(position)
             .set_color(style.label_color.clone())
-            .set_font(font.clone())
+            .set_font(style.label_font(&rc))
             .set_rotation(style.label_rotation)
             .set_rotation_mode(style.label_rotation_mode)
             .set_halign(style.label_halign.unwrap_or(HAlign::Center))
             .set_valign(style.label_valign.unwrap_or(VAlign::Top));
         text.set_visible(visible);
     }
+    let style = axis.tick_style_at(minor, index, true);
     let marks = axis
         .ticklines(minor)
         .map_err(|err| PyErr::value_error(err.to_string()))?;
@@ -122,83 +120,51 @@ pub(super) fn sync_tick(
     ))
 }
 
-/// Checks that the label mirror `text` on the first or `second` side of
-/// a major (or `minor`) tick keeps the style of its level.
+/// Reads the label mirror `text` on the first or `second` side of the
+/// major (or `minor`) tick at `index` back into the axis.
 pub(super) fn push_tick_label(
     axis: &Axis3D,
     minor: bool,
+    index: usize,
     second: bool,
     text: &Text,
 ) -> PyResult<()> {
-    let style = axis.tick_style(minor);
-    let level_visible = if second {
-        style.labels.second
-    } else {
-        style.labels.first
-    };
-    let font = text.font();
-    let level_font = style.label_font(&pltrs::rc::params());
-    let kept = text.visible() == level_visible
-        && text.color() == style.label_color
-        && same(text.rotation(), style.label_rotation)
-        && same(font.size, level_font.size)
-        && font.weight == level_font.weight
-        && font.style == level_font.style
-        && font.families == level_font.families;
-    if kept {
-        Ok(())
-    } else {
-        Err(not_on_3d("the properties of a single tick label"))
-    }
+    let level = axis.tick_style(minor);
+    let props = label_props(text, &level, (HAlign::Center, VAlign::Top), second);
+    axis.set_tick_label_props_on(minor, index, !second, props);
+    Ok(())
 }
 
-/// Checks that the mark mirror `line` on the first or `second` side of a
-/// major (or `minor`) tick keeps the style of its level.
+/// Reads the colour of the mark mirror `line` on the first side of the
+/// major (or `minor`) tick at `index` back into the axis: a 3-D axis
+/// draws the first mark of every tick, as wide as its level says, and
+/// never the second (matplotlib's `_tick_update_position`).
 pub(super) fn push_tick_mark(
     axis: &Axis3D,
     minor: bool,
+    index: usize,
     second: bool,
     line: &Line2D,
 ) -> PyResult<()> {
-    let style = axis.tick_style(minor);
-    let kept = line.visible() != second
-        && line.color() == style.color
-        && same(line.markersize(), style.size)
-        && same(line.markeredgewidth(), style.width);
-    if kept {
-        Ok(())
-    } else {
-        Err(not_on_3d("the properties of a single tick mark"))
+    if !second {
+        let level = axis.tick_style(minor);
+        let props = TickLineProps {
+            color: own(line.color(), &level.color),
+            ..axis.tick_line_props(minor, index)
+        };
+        axis.set_tick_line_props(minor, index, props);
     }
+    Ok(())
 }
 
-/// Checks that the gridline mirror `line` of a major (or `minor`) tick
-/// keeps the style of its level.
-pub(super) fn push_gridline(axis: &Axis3D, minor: bool, line: &Line2D) -> PyResult<()> {
-    let style = axis.tick_style(minor);
-    let kept = line.visible() == style.grid_on
-        && line.color() == style.grid.color
-        && same(line.linewidth(), style.grid.linewidth)
-        && line.linestyle() == style.grid.linestyle
-        && same(line.alpha().unwrap_or(1.0), style.grid.alpha);
-    if kept {
-        Ok(())
-    } else {
-        Err(not_on_3d("the properties of a single gridline"))
-    }
-}
-
-/// Gives the major tick at `index` its own label pad; a minor tick can
-/// only keep the pad of its level.
+/// Gives the major (or `minor`) tick at `index` its own label pad.
 pub(super) fn push_tick_pad(axis: &Axis3D, minor: bool, index: usize, pad: f64) -> PyResult<()> {
-    if !minor {
-        axis.set_major_tick_pad(index, pad);
-        Ok(())
-    } else if same(pad, axis.tick_pad(true, index)) {
-        Ok(())
+    if minor {
+        axis.set_minor_tick_pad(index, pad);
     } else {
-        Err(not_on_3d("the pad of a single minor tick"))
+        axis.set_major_tick_pad(index, pad);
     }
+    Ok(())
 }
 
 /// The display box of the label on the first side of the major (or
@@ -264,16 +230,14 @@ pub(super) fn sync_offset_text(axis: &Axis3D, text: &Text) -> PyResult<()> {
     Ok(())
 }
 
-/// Checks that the mirror `text` of the offset text of `axis` is shown as
-/// the major tick labels are.
+/// Reads whether the mirror `text` of the offset text of `axis` is shown
+/// back into the axis.
 pub(super) fn push_offset_text(axis: &Axis3D, text: &Text) -> PyResult<()> {
-    if text.visible() == axis.offset_text_visible() {
-        Ok(())
-    } else {
-        Err(not_on_3d(
-            "showing the offset text apart from the tick labels",
-        ))
+    let visible = text.visible();
+    if visible != axis.offset_text_visible() {
+        axis.set_offset_text_shown(Some(visible));
     }
+    Ok(())
 }
 
 /// The display box of the offset text of `axis`, if it is drawn.
@@ -300,23 +264,34 @@ mod tests {
     }
 
     #[test]
-    fn ticks_mirror_their_level_and_keep_their_own_pads() {
+    fn ticks_mirror_their_level_and_keep_their_own_properties() {
         let ax = Figure::new().subplot_3d();
         let axis = ax.yaxis();
         let parts = mirrors();
         let (label1, _, tick1, tick2, _) = parts.clone();
-        let state = sync_tick(&axis, false, 1, parts).unwrap();
+        let state = sync_tick(&axis, false, 1, parts.clone()).unwrap();
         assert_eq!(state.0, axis.ticklocs(false).unwrap()[1]);
         assert_eq!(label1.text(), axis.ticklabels(false).unwrap()[1]);
         assert!(tick1.visible() && !tick2.visible());
         assert_eq!(tick1.data().0.len(), 2, "the projected mark");
-        push_tick_mark(&axis, false, false, &tick1).unwrap();
-        tick1.set_color(pltrs::colors::Color::from("r"));
-        assert!(push_tick_mark(&axis, false, false, &tick1).is_err());
+        let red = pltrs::colors::Color::from("r");
+        let level = axis.tick_style(false);
+        push_tick_mark(&axis, false, 1, false, &tick1).unwrap();
+        assert_eq!(axis.tick_line_props(false, 1), TickLineProps::default());
+        tick1.set_color(red.clone());
+        push_tick_mark(&axis, false, 1, false, &tick1).unwrap();
+        assert_eq!(axis.tick_style_at(false, 1, true).color, red);
+        assert_eq!(axis.tick_style_at(false, 2, true).color, level.color);
+        label1.set_color(red.clone());
+        push_tick_label(&axis, false, 1, false, &label1).unwrap();
+        assert_eq!(axis.tick_style_at(false, 1, true).label_color, red);
+        sync_tick(&axis, false, 1, parts).unwrap();
+        assert_eq!(label1.color(), red, "filled with the tick's own colour");
         push_tick_pad(&axis, false, 1, state.3 + 5.0).unwrap();
         assert_eq!(axis.tick_pad(false, 1), state.3 + 5.0);
         assert_eq!(axis.tick_pad(false, 2), state.3);
-        assert!(push_tick_pad(&axis, true, 0, 99.0).is_err());
+        push_tick_pad(&axis, true, 0, 99.0).unwrap();
+        assert_eq!(axis.tick_pad(true, 0), 99.0);
     }
 
     #[test]
@@ -329,7 +304,8 @@ mod tests {
         assert!(!offset.text().is_empty() && offset.visible());
         assert!(offset_text_extent(&axis).unwrap().is_some());
         offset.set_visible(false);
-        assert!(push_offset_text(&axis, &offset).is_err());
+        push_offset_text(&axis, &offset).unwrap();
+        assert!(!axis.offset_text_visible());
         let label = Text::loose(0.0, 0.0, "");
         sync_axis_label(&axis, &label).unwrap();
         label.set_text("depth");

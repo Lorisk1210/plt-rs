@@ -5,7 +5,7 @@
 
 use pltrs_core::Bbox;
 
-use super::{ArtistLookup, DrawContext, LayoutContext, RawHandle, Renderer};
+use super::{ArtistHandle, ArtistLookup, DrawContext, LayoutContext, RawHandle, Renderer};
 use crate::figure::DrawErrors;
 
 impl RawHandle {
@@ -61,8 +61,13 @@ impl RawHandle {
     }
 
     /// Draws the artist through `renderer`, through its painter with
-    /// `painted`.
+    /// `painted`; a root figure is laid out and drawn whole (matplotlib's
+    /// `figure.draw(renderer)`).
     fn draw_apart(&self, renderer: &mut dyn Renderer, painted: bool) -> Result<(), DrawErrors> {
+        let figure = self.figure();
+        if figure.id() == self.id() {
+            return figure.draw(renderer);
+        }
         self.prepare_painters(renderer, painted);
         let state = self.figure_state().borrow();
         let Some(artist) = state.artist(self.id()) else {

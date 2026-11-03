@@ -22,8 +22,8 @@ from contextlib import contextmanager
 
 import numpy as np
 
-from .. import colors as mcolors
-from .._native import drawing as _drawing
+from .. import _python_drawing, colors as mcolors
+from .._native import backends as _drawing_pages, drawing as _drawing
 from ..font_manager import FontManager
 from ..path import Path
 from ..transforms import Affine2D, Bbox, TransformedPath
@@ -229,9 +229,38 @@ class NativeDrawingMixin:
 
     def _draw_artist(self, artist):
         """Draw *artist* as pltrs (Rust) draws it (`.Artist.draw` with this
-        renderer)."""
+        renderer): through the renderer's methods when the program's
+        subclass overrides some."""
+        if self._recording is None and _python_drawing.overrides_drawing(self):
+            _python_drawing.draw_through(self, artist)
+            return
         with self._target() as drawing:
             _drawing.draw_artist(drawing, artist._native)
+
+    def _draw_cell(self, cell):
+        """Draw the table `.Cell` *cell* alone, as pltrs (Rust) draws it
+        where its table places it (`.Cell.draw` with this renderer)."""
+        from .._native import table as _table
+        with self._target() as drawing:
+            _table.draw_cell_into(drawing, cell._ref())
+
+
+class MathtextDrawingMixin:
+    """``draw_mathtext``, which the Agg, PDF and PostScript renderers have:
+    a line typeset as mathtext, drawn as `NativeDrawingMixin` draws text."""
+
+    def draw_mathtext(self, gc, x, y, s, prop, angle):
+        """Draw mathtext using :mod:`matplotlib.mathtext`."""
+        self._draw_line(gc, x, y, s, prop, angle, True)
+
+
+class PdfPsDrawingMixin(MathtextDrawingMixin):
+    """The drawing methods `RendererPdf` and `RendererPS` name as
+    matplotlib's do."""
+
+    def draw_gouraud_triangles(self, gc, points, colors, trans):
+        # docstring inherited
+        super().draw_gouraud_triangles(gc, points, colors, trans)
 
 
 class DocumentDrawingMixin(NativeDrawingMixin):
@@ -240,8 +269,37 @@ class DocumentDrawingMixin(NativeDrawingMixin):
     (`RendererPdf`, `RendererSVG`, `RendererPS`, `RendererPgf`): they draw
     into the document pltrs (Rust) writes while it saves a figure through
     the format's canvas, which hands the program's drawing one of them
-    (see `.._python_drawing`).
+    (see `.._python_drawing`). A renderer the program makes around a file
+    of its own draws into a document of its own (`_page`, see
+    ``_native.backends``), whose drawing it writes to the file as
+    matplotlib's renderers do.
     """
+
+    #: The document a renderer made around a file of the program's draws
+    #: into, None for the renderers of pltrs's saves.
+    _page = None
+    #: The file what the renderer draws is written to.
+    _file = None
+
+    def _document_page(self):
+        """The renderer's own document; refused for the renderers of
+        pltrs's saves, whose document pltrs (Rust) writes."""
+        if self._page is None:
+            raise RuntimeError(
+                f"{type(self).__name__} draws into the document pltrs writes "
+                "while it saves a figure: save the figure through its canvas "
+                "(savefig), or make the renderer with a file to write to")
+        return self._page
+
+    def _write(self, written):
+        """Write what drawing added to the renderer's document, ``(text,
+        images)``, to its file and the image files beside it."""
+        text, images = written
+        for path, png in images:
+            with open(path, "wb") as image:
+                image.write(png)
+        if text:
+            self._file.write(text)
 
     def draw_text(self, gc, x, y, s, prop, angle, ismath=False, mtext=None):
         # docstring inherited
@@ -252,9 +310,6 @@ class DocumentDrawingMixin(NativeDrawingMixin):
         self._draw_line(gc, x, y, s, prop, angle, "TeX")
 
     def _draw_now(self, drawing):
-        """Refuse drawing outside pltrs's saves: pltrs (Rust) writes the
-        documents of vector formats, as it saves a figure."""
-        raise RuntimeError(
-            f"{type(self).__name__} draws into the document pltrs writes "
-            "while it saves a figure: save the figure through its canvas "
-            "(savefig)")
+        """Draw *drawing* into the renderer's own document, writing what
+        it adds to the renderer's file."""
+        self._write(_drawing_pages.page_draw(self._document_page(), drawing))

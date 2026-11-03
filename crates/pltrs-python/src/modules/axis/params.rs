@@ -6,7 +6,7 @@ use pltrs::axes::{AxisName, GridOptions, TickLevel, TickParams};
 use pltrs::fonts::FontSize;
 use pltrs::mplot3d::{Axis3, Axis3D};
 
-use super::owner::{AnyAxis, AxisOwner, not_on_3d};
+use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
 use crate::modules::lines::{PyLineStyle, parse};
@@ -152,10 +152,9 @@ fn set_deep_tick_params(
     } else {
         AxisName::Y
     };
-    let (params, grid_on) = Python::with_gil(|py| tick_params(sides, &kwargs.bind(py)))?;
-    if grid_on.is_some() {
-        return Err(not_on_3d("tick_params(gridOn=...)"));
-    }
+    // A 3-D axis draws its gridlines by the grid switch of its axes, as
+    // matplotlib's `Axis3D.draw_grid` does, whatever its ticks' `gridOn`.
+    let (params, _) = Python::with_gil(|py| tick_params(sides, &kwargs.bind(py)))?;
     axis.set_tick_params(TickParams {
         which,
         reset,

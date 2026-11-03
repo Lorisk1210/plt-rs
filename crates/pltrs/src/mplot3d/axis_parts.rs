@@ -176,14 +176,7 @@ impl Axis3D {
     /// The label pad of the major (or `minor`) tick at `index` among those
     /// the locator places, in points (matplotlib's `tick.get_pad()`).
     pub fn tick_pad(&self, minor: bool, index: usize) -> f64 {
-        self.read(|axes| {
-            let axis = axes.axis(self.dir);
-            if minor {
-                axis.minor_style.pad
-            } else {
-                axis.major_pad(index)
-            }
-        })
+        self.read(|axes| axes.axis(self.dir).tick_pad(minor, index))
     }
 
     /// Gives the major tick at `index` among those the locator places its
@@ -199,16 +192,7 @@ impl Axis3D {
     /// # Ok::<(), pltrs::ticker::TickerError>(())
     /// ```
     pub fn set_major_tick_pad(&self, index: usize, pad: f64) -> &Self {
-        let dir = self.dir;
-        self.axes.with_mut(|axes| {
-            let axis = axes.axis_mut(dir);
-            let mut pads: Vec<f64> = (0..=index.max(axis.major_pads.len().saturating_sub(1)))
-                .map(|slot| axis.major_pad(slot))
-                .collect();
-            pads[index] = pad;
-            axis.major_pads = pads;
-        });
-        self
+        self.set_level_tick_pad(false, index, pad)
     }
 
     /// The distance of the axis label from the axis in points, on top of

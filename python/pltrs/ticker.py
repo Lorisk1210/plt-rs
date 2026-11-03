@@ -1099,9 +1099,9 @@ class _NativeLocator(Locator):
         return self.raise_if_exceeds(
             _ticker.locate(self._spec(), self._axis_info()))
 
-    def view_limits(self, dmin, dmax):
+    def view_limits(self, vmin, vmax):
         # docstring inherited
-        return _ticker.view_limits(self._spec(), float(dmin), float(dmax),
+        return _ticker.view_limits(self._spec(), float(vmin), float(vmax),
                                    self._axis_info())
 
     def nonsingular(self, v0, v1):
@@ -1325,6 +1325,12 @@ class MultipleLocator(_NativeLocator):
         if offset is not None:
             self._offset = offset
 
+    def view_limits(self, dmin, dmax):
+        """
+        Set the view limits to the nearest tick values that contain the data.
+        """
+        return super().view_limits(dmin, dmax)
+
 
 def scale_range(vmin, vmax, n=1, threshold=100):
     """The power of ten near ``|vmax - vmin| / n``, and an offset (a power
@@ -1457,6 +1463,10 @@ class MaxNLocator(_NativeLocator):
                 "symmetric": bool(self._symmetric), "prune": self._prune,
                 "min_n_ticks": int(self._min_n_ticks)}
 
+    def view_limits(self, dmin, dmax):
+        # docstring inherited
+        return super().view_limits(dmin, dmax)
+
 
 class LogLocator(_NativeLocator):
     """
@@ -1533,6 +1543,10 @@ class LogLocator(_NativeLocator):
             float(s) for s in self._subs]
         return {"kind": "log", "base": self._base, "subs": subs,
                 "numticks": self.numticks}
+
+    def nonsingular(self, vmin, vmax):
+        # docstring inherited
+        return super().nonsingular(vmin, vmax)
 
 
 class SymmetricalLogLocator(_NativeLocator):
@@ -1688,6 +1702,10 @@ class LogitLocator(MaxNLocator):
     def _spec(self):
         return {"kind": "logit", "minor": bool(self._minor),
                 "nbins": self._nbins}
+
+    def nonsingular(self, vmin, vmax):
+        # docstring inherited
+        return super().nonsingular(vmin, vmax)
 
 
 class AutoLocator(MaxNLocator):

@@ -58,9 +58,11 @@ pub(crate) const CASES: &[FigureCase] = &[
     FigureCase::new("patches/fancybbox_mutation", |fig| {
         let ax = canvas(fig, (0.0, 10.0), (0.0, 10.0), false)?;
         let round: BoxStyle = "round,pad=0.3".parse()?;
-        ax.add_patch(FancyBboxPatch::new((1.0, 3.0), 2.0, 4.0, round));
-        ax.add_patch(FancyBboxPatch::new((4.0, 3.0), 2.0, 4.0, round).with_mutation_scale(2.0))
-            .set_facecolor("C1");
+        ax.add_patch(FancyBboxPatch::new((1.0, 3.0), 2.0, 4.0, round.clone()));
+        ax.add_patch(
+            FancyBboxPatch::new((4.0, 3.0), 2.0, 4.0, round.clone()).with_mutation_scale(2.0),
+        )
+        .set_facecolor("C1");
         ax.add_patch(FancyBboxPatch::new((7.0, 3.0), 2.0, 4.0, round).with_mutation_aspect(3.0))
             .set_facecolor("C2");
         Ok(())

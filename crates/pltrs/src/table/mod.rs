@@ -22,6 +22,7 @@ mod cell;
 mod draw;
 mod handle;
 mod layout;
+mod look;
 mod measure;
 
 use std::fmt;
@@ -377,12 +378,15 @@ impl TableBuilder {
     fn fill(&self, table: &mut TableArtist, options: &TableOptions, height: f64) {
         let rc = Rc::clone(&table.rc);
         let white = || rc.pltrs_table_facecolor.clone();
-        let make = |width: f64, text: &str, facecolor: Color, loc: HAlign| Cell {
-            text: text.to_owned(),
-            facecolor,
-            loc,
-            edges: options.edges,
-            ..Cell::new(width, height, &rc)
+        let make = |width: f64, text: &str, facecolor: Color, loc: HAlign| {
+            let mut cell = Cell {
+                text: text.to_owned(),
+                loc,
+                edges: options.edges,
+                ..Cell::new(width, height, &rc)
+            };
+            cell.style.facecolor = Some(facecolor);
+            cell
         };
         let has_col_header = options.col_labels.is_some() || options.col_colours.is_some();
         let offset = i32::from(has_col_header);

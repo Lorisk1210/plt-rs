@@ -14,18 +14,14 @@ from .mpl_axes import Axes
 
 
 def _native_link(aux_transform, viewlim_mode):
-    """How pltrs (Rust) relates a parasite with *aux_transform* and
-    *viewlim_mode* to its host: drawn through the affine aux transform, or
+    """How pltrs (Rust) relates a parasite with *aux_transform* (affine)
+    and *viewlim_mode* to its host: drawn through the aux transform, or
     with its own data coordinates, following the host's view limits
     (``"equal"``) or not."""
     if aux_transform is None:
         if viewlim_mode == "transform":
             raise ValueError("viewlim_mode='transform' needs an aux transform")
         return "independent" if viewlim_mode is None else "equal"
-    if not aux_transform.is_affine:
-        raise NotImplementedError(
-            "pltrs: parasite axes of axes_grid1 with a non-affine aux "
-            "transform (use the axisartist axes)")
     return aux_transform.get_matrix()
 
 
@@ -53,10 +49,17 @@ class ParasiteAxesBase:
         self._internal_update(kwargs)
 
     def _parasite_native(self, parent_axes, aux_transform, viewlim_mode):
-        """The native parasite of *parent_axes* this parasite is."""
+        """The native parasite of *parent_axes* this parasite is: one whose
+        data a non-affine aux transform maps onto the host's data is drawn
+        as an axisartist parasite (``get_aux_axes(tr)``) draws it."""
         native_aux = getattr(super(), "_aux_parasite_native", None)
         if native_aux is not None and aux_transform is not None:
             return native_aux(parent_axes, aux_transform, viewlim_mode)
+        if aux_transform is not None and not aux_transform.is_affine:
+            from pltrs._native import axisartist as _axisartist
+            from ..axisartist.grid_helper_curvelinear import _native_aux
+            return _axisartist.aux_axes(parent_axes._native,
+                                        _native_aux(aux_transform))
         return _axes_grid1.aux_axes(parent_axes._native,
                                     _native_link(aux_transform, viewlim_mode))
 

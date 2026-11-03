@@ -16,6 +16,7 @@ use pltrs_text::{TextRun, TextSource};
 
 use super::{AggFilter, ArtistId, ArtistLookup, DrawContext, DrawError, DrawErrorKind, RawHandle};
 use crate::figure::StateRole;
+use crate::table::TableCell;
 
 /// One drawing call of a [`Drawing`].
 #[derive(Clone, Debug)]
@@ -119,6 +120,9 @@ pub enum DrawStep {
     /// An artist drawn as pltrs draws it, its painter left out
     /// (matplotlib's `artist.draw(renderer)`).
     Artist(RawHandle),
+    /// A cell of a table drawn alone where its table places it
+    /// (matplotlib's `cell.draw(renderer)`).
+    TableCell(TableCell),
 }
 
 /// What a program drew through a renderer while pltrs was not drawing,
@@ -171,6 +175,7 @@ impl Drawing {
                 DrawStep::StartRasterizing => ctx.start_program_rasterizing(),
                 DrawStep::StopRasterizing => ctx.stop_program_rasterizing(),
                 DrawStep::Artist(handle) => ctx.draw_handle(handle),
+                DrawStep::TableCell(cell) => cell.draw_in(ctx),
                 other => {
                     if let Some(problem) = render(ctx.renderer(), other) {
                         ctx.report_kind(artist, DrawErrorKind::InvalidValue, problem);
@@ -190,6 +195,11 @@ impl Drawing {
                 DrawStep::StopRasterizing => renderer.stop_rasterizing(),
                 DrawStep::Artist(handle) => {
                     if let Err(errors) = handle.draw_unpainted_onto(renderer) {
+                        problems.extend(errors.0);
+                    }
+                }
+                DrawStep::TableCell(cell) => {
+                    if let Err(errors) = cell.draw_onto(renderer) {
                         problems.extend(errors.0);
                     }
                 }
@@ -274,8 +284,11 @@ fn render(renderer: &mut dyn Renderer, step: &DrawStep) -> Option<String> {
         DrawStep::OpenGroup { name, gid } => renderer.open_group(name, gid.as_deref()),
         DrawStep::CloseGroup { name } => renderer.close_group(name),
         DrawStep::StartFilter => renderer.start_filter(),
-        DrawStep::StopFilter(filter) => renderer.stop_filter(filter.function()),
-        DrawStep::StartRasterizing | DrawStep::StopRasterizing | DrawStep::Artist(_) => {}
+        DrawStep::StopFilter(filter) => renderer.stop_shared_filter(filter.shared()),
+        DrawStep::StartRasterizing
+        | DrawStep::StopRasterizing
+        | DrawStep::Artist(_)
+        | DrawStep::TableCell(_) => {}
     }
     None
 }

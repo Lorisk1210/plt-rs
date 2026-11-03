@@ -49,7 +49,7 @@ mod testing;
 mod vector;
 
 pub use collection::{CollectionItem, PathCollection, PathCollectionData};
-pub use filter::{FilterFn, FilterImage, Filtered};
+pub use filter::{FilterFn, FilterImage, Filtered, SharedFilter};
 pub use gc::{CapStyle, ClipPath, Dashes, GraphicsContext, Hatch, JoinStyle, Sketch, SnapMode};
 pub use image::{ImageSizeError, RgbaImage};
 pub use mixed::MixedModeRenderer;

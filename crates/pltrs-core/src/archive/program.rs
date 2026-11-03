@@ -139,6 +139,11 @@ impl<F: ?Sized> ProgramFn<F> {
         &self.function
     }
 
+    /// The function, shared, for keeping it.
+    pub fn shared(&self) -> &Rc<F> {
+        &self.function
+    }
+
     /// The external the function is archived as, if it has one.
     pub fn origin(&self) -> Option<&External> {
         self.origin.as_ref()

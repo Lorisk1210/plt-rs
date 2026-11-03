@@ -75,6 +75,11 @@ fn relim(axes: Axes, visible_only: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// Whether lines, patches, collections or images were added (`has_data`).
+fn has_data(axes: Axes) -> PyResult<bool> {
+    Ok(axes.has_data())
+}
+
 /// Extends the data limits to the points of the `(N, 2)` array `xys`, in
 /// x when `updatex` and in y when `updatey` (`update_datalim`).
 fn update_datalim(axes: Axes, xys: NdArray, updatex: bool, updatey: bool) -> PyResult<()> {
@@ -104,6 +109,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_margin", get_margin)?;
     module.add("set_margins", set_margins)?;
     module.add("relim", relim)?;
+    module.add("has_data", has_data)?;
     module.add("update_datalim", update_datalim)?;
     module.add("get_use_sticky_edges", get_use_sticky_edges)?;
     module.add("set_use_sticky_edges", set_use_sticky_edges)

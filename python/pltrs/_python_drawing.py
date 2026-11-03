@@ -8,8 +8,9 @@ tpath, affine, rgbFace)``. pltrs (Rust) draws figures itself, and calls
 the Python code back where matplotlib would:
 
 * **Artists.** An artist whose class takes ``draw`` from outside this
-  package, or computes what matplotlib's ``draw`` reads, gets a painter
-  (`attach`, ``_native.drawing.set_painter``).
+  package, or that the program gave a ``draw`` of its own
+  (``artist.draw = ...``), or whose class computes what matplotlib's
+  ``draw`` reads, gets a painter (`attach`, ``_native.drawing.set_painter``).
   Before a figure's artists are drawn, once it is laid out, pltrs (Rust)
   calls `record_drawing` for each such artist the draw reaches, in drawing
   order: the artist's ``draw`` runs with the renderer of the draw (the
@@ -31,6 +32,8 @@ Figures without such artists, effects and renderers never call Python.
 """
 
 import contextlib
+import functools
+import types
 import weakref
 
 import numpy as np
@@ -81,18 +84,42 @@ def _own_draw(cls):
     return getattr(draw, "__wrapped__", draw), rasterizes
 
 
-def attach(artist):
-    """Have pltrs (Rust) draw *artist* through its ``draw`` when its class
-    takes ``draw`` from the program, or computes what matplotlib's ``draw``
-    reads (the ``_computed`` attributes of the package's class, such as an
-    arc's ``theta1``)."""
+def _draw_of(artist):
+    """The ``draw`` *artist* is drawn with, as a function of the renderer,
+    without the rasterization wrapper it got (which pltrs (Rust) applies
+    around the drawing), and whether that wrapper lets the artist be
+    rasterized: the artist's own (``artist.draw = ...``), else its
+    class'."""
+    own = vars(artist).get("draw")
+    if own is None:
+        draw, rasterizes = _own_draw(type(artist))
+        return functools.partial(draw, artist), rasterizes
+    rasterizes = getattr(own, "_supports_rasterization", None)
+    if rasterizes is None:
+        return own, False
+    if isinstance(own, types.MethodType):
+        unwrapped = getattr(own.__func__, "__wrapped__", own.__func__)
+        return types.MethodType(unwrapped, own.__self__), rasterizes
+    return getattr(own, "__wrapped__", own), rasterizes
+
+
+def attach(artist, again=False):
+    """Have pltrs (Rust) draw *artist* through its ``draw`` when the program
+    gives it one (its class takes ``draw`` from the program, or the program
+    set one on the artist), or its class computes what matplotlib's
+    ``draw`` reads (the ``_computed`` attributes of the package's class,
+    such as an arc's ``theta1``); *again* for an artist whose painter may
+    no longer be needed (its own ``draw`` deleted)."""
     cls = type(artist)
-    if any(takes_from_program(cls, name)
-           for name in ("draw", *getattr(cls, "_computed", ()))):
+    if "draw" in vars(artist) or any(
+            takes_from_program(cls, name)
+            for name in ("draw", *getattr(cls, "_computed", ()))):
         measures = any(takes_from_program(cls, name)
                        for name in ("get_window_extent", "get_tightbbox"))
         _drawing.set_painter(artist._native, weakref.ref(artist),
-                             _own_draw(cls)[1], measures)
+                             _draw_of(artist)[1], measures)
+    elif again:
+        _drawing.set_painter(artist._native, None, False, False)
 
 
 @contextlib.contextmanager
@@ -144,11 +171,11 @@ def record_drawing(artist, target):
     ``_native.drawing``), recording: the drawing, which pltrs (Rust) draws
     at the artist's place."""
     renderer = _renderer_for(target, artist.get_figure(root=True))
-    draw, _ = _own_draw(type(artist))
+    draw, _ = _draw_of(artist)
     with _figure_drawn(target[6]), _recording(renderer, target[5]) as drawing:
         if figure_changeable():
             _evaluate_transforms(artist)
-        draw(artist, renderer)
+        draw(renderer)
     return drawing
 
 
@@ -200,6 +227,41 @@ def draw_through(renderer, artist):
     ``artist.draw(renderer)``); a figure is laid out and drawn whole."""
     with _figure_drawn():
         _drawing.draw_through(renderer, artist._native)
+
+
+#: The methods matplotlib's drawing calls on a renderer.
+_DRAWING_METHODS = (
+    "draw_path", "draw_markers", "draw_path_collection", "draw_quad_mesh",
+    "draw_gouraud_triangles", "draw_image", "draw_text", "draw_tex",
+    "start_filter", "stop_filter", "start_rasterizing", "stop_rasterizing",
+    "open_group", "close_group", "new_gc")
+
+
+def overrides_drawing(renderer):
+    """Whether the class of *renderer*, a renderer of this package's
+    classes, takes one of the methods drawing calls from the program (a
+    subclass of ``RendererSVG`` with its own ``start_filter``, say), so
+    that drawing with it goes through its methods, as matplotlib's does
+    (`draw_through`)."""
+    cls = type(renderer)
+    return any(takes_from_program(cls, name) for name in _DRAWING_METHODS)
+
+
+def draw_cell_through(renderer, cell):
+    """Draw the table *cell* alone, as pltrs (Rust) draws it, through the
+    drawing methods of *renderer*, a renderer of the program's
+    (matplotlib's ``cell.draw(renderer)``)."""
+    from ._native import table as _table
+    with _figure_drawn():
+        _table.draw_cell_through(renderer, cell._ref())
+
+
+def paint(artist):
+    """Have pltrs (Rust) draw *artist* through its class' ``draw`` from now
+    on, whichever class defines it (a table holding cells of the program's
+    draws each cell by its ``draw``)."""
+    _drawing.set_painter(artist._native, weakref.ref(artist),
+                         _draw_of(artist)[1], False)
 
 
 @contextlib.contextmanager
@@ -283,6 +345,16 @@ class forward_drawing:
                 renderer.draw_image(gc, x, y, im, mtransforms.Affine2D(matrix))
 
 
+def filter_function(shared):
+    """The image filter *shared* pltrs (Rust) hands a renderer of the
+    program's, as the function matplotlib's renderers receive in
+    ``stop_filter``: of an ``(H, W, 4)`` image of fractions and the
+    resolution, returning the filtered image and the offset of its
+    corner."""
+    return functools.partial(_drawing.apply_filter, shared)
+
+
+_register("filter_function", filter_function)
 _register("record_drawing", record_drawing)
 _register("effect_draw_path", effect_draw_path)
 _register("measure_artist", measure_artist)

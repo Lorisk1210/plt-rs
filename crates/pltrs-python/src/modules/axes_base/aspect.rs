@@ -102,6 +102,13 @@ fn get_data_ratio(axes: Axes) -> PyResult<f64> {
     Ok(axes.data_ratio())
 }
 
+/// Draws the axes and its twins at their original positions again, until
+/// the aspect is next applied (`reset_position`).
+fn reset_position(axes: Axes) -> PyResult<()> {
+    axes.reset_position();
+    Ok(())
+}
+
 /// Data limits as `((x0, y0, x1, y1), (minpos_x, minpos_y))`.
 type Limits = ((f64, f64, f64, f64), (f64, f64));
 
@@ -140,6 +147,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_box_aspect", get_box_aspect)?;
     module.add("get_data_ratio", get_data_ratio)?;
     module.add("data_lim", data_lim)?;
+    module.add("reset_position", reset_position)?;
     module.add("apply_aspect", apply_aspect)
 }
 

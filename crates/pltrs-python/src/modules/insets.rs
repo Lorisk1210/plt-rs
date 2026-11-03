@@ -31,6 +31,13 @@ fn child_axes(axes: Axes) -> PyResult<Vec<Axes>> {
     Ok(axes.child_axes())
 }
 
+/// Adds `child`, an axes made outside the figure or removed from it,
+/// inside `parent` where it is now (`add_child_axes`).
+fn add_child_axes(parent: Axes, child: Axes) -> PyResult<()> {
+    parent.add_child_axes(&child)?;
+    Ok(())
+}
+
 /// A child axes of `parent` at `bounds` in its axes fractions, with the
 /// built-in `projection` if given (`inset_axes`).
 fn inset_axes(
@@ -155,6 +162,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     program_locators::register(module)?;
     module.add("clear_axes_locator", clear_axes_locator)?;
     module.add("child_axes", child_axes)?;
+    module.add("add_child_axes", add_child_axes)?;
     module.add("inset_axes", inset_axes)?;
     module.add("place_inset", place_inset)?;
     module.add("secondary_axis", secondary_axis)?;

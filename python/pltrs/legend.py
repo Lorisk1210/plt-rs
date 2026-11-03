@@ -16,7 +16,7 @@ import time
 
 import numpy as np
 
-from . import _api, _handles, _live_transforms, colors, rcParams
+from . import _api, _handles, _legend_handlers, _live_transforms, colors, rcParams
 from . import _val_or_rc
 from ._native import legend as _legend
 from ._native import register as _register
@@ -37,7 +37,7 @@ from .lines import Line2D
 from .offsetbox import DraggableOffsetBox
 from .patches import FancyBboxPatch, Patch, Rectangle, StepPatch
 from .text import Text
-from .transforms import Bbox, BboxBase, TransformedBbox
+from .transforms import Bbox, BboxBase, IdentityTransform, TransformedBbox
 
 # pltrs (Rust) times the search for the best location with Python's
 # performance counter, looked up at every reading as matplotlib's
@@ -223,10 +223,24 @@ class Legend(Artist):
         reps = self.scatterpoints // len(self._scatteryoffsets) + 1
         self._scatteryoffsets = np.tile(self._scatteryoffsets,
                                         reps)[:self.scatterpoints]
+        if prop is None:
+            self.prop = FontProperties(size=_val_or_rc(fontsize, "legend.fontsize"))
+        else:
+            self.prop = FontProperties._from_any(prop)
+            if isinstance(prop, dict) and "size" not in prop:
+                self.prop.set_size(rcParams["legend.fontsize"])
+        self._fontsize = self.prop.get_size_in_points()
+        self.handlelength = _val_or_rc(handlelength, 'legend.handlelength')
+        self.handleheight = _val_or_rc(handleheight, 'legend.handleheight')
+        # What the handlers running in Python read before the legend is made.
+        self._figure = None
+        self._axes = parent if self.isaxes else None
         handler_map = self.get_legend_handler_map()
         entries, kept = [], []
+        made = _legend_handlers.MadeEntries()
         for handle, label in zip(handles, labels):
-            if self.get_legend_handler(handler_map, handle) is None:
+            handler = self.get_legend_handler(handler_map, handle)
+            if handler is None:
                 _api.warn_external(
                     "Legend does not support handles for "
                     f"{type(handle).__name__} "
@@ -235,15 +249,12 @@ class Legend(Artist):
                     "stable/users/explain/axes/legend_guide.html"
                     "#controlling-the-legend-entries")
                 continue
-            entries.append(self._entry(handle, handler_map))
+            if _legend_handlers.runs_in_python(self, handler_map, handler,
+                                               handle):
+                entries.append(made.entry(self, len(kept), handler, handle))
+            else:
+                entries.append(self._entry(handle, handler_map))
             kept.append(str(label))
-        if prop is None:
-            self.prop = FontProperties(size=_val_or_rc(fontsize, "legend.fontsize"))
-        else:
-            self.prop = FontProperties._from_any(prop)
-            if isinstance(prop, dict) and "size" not in prop:
-                self.prop.set_size(rcParams["legend.fontsize"])
-        self._fontsize = self.prop.get_size_in_points()
         loc = self._validated_loc(loc)
         ncols = ncols if ncols != 1 else ncol
         if (labelcolor is not None and not isinstance(labelcolor, str)
@@ -273,6 +284,8 @@ class Legend(Artist):
         self._draggable = None
         native = _legend.new(parent._native, entries, kept, kwargs)
         _handles.adopt(self, native, parent.figure)
+        made.adopt(self)
+        self._made_handles = made.returned
         if draggable:
             self.set_draggable(True)
         if title_fontproperties is not None:
@@ -335,6 +348,8 @@ class Legend(Artist):
         if native is not None:
             return native
         if isinstance(handle, Container):
+            if getattr(handle, "_native", None) is not None:  # Of an axes.
+                return _legend.container_entry(handle._native)
             first = next(iter(handle.get_children()), None)
             return self._entry(first, handler_map)
         if isinstance(handle, tuple):
@@ -426,9 +441,11 @@ class Legend(Artist):
         the first one each entry's handler draws, None for the entries no
         handler draws.
         """
-        return [None if handle is None else
+        made = self.__dict__.get("_made_handles", {})
+        return [made[index] if index in made else
+                None if handle is None else
                 _handles.wrap(handle[0], _DRAWN_CLASSES[handle[1]], self.figure)
-                for handle in _legend.legend_handles(self._native)]
+                for index, handle in enumerate(_legend.legend_handles(self._native))]
 
     def get_lines(self):
         r"""Return the list of `~.lines.Line2D`\s in the legend."""
@@ -555,6 +572,21 @@ class Legend(Artist):
         """
         self._ncols = ncols
 
+    def get_figure(self, root=False):
+        # docstring inherited
+        if "_native" not in self.__dict__:
+            # Being made, by the handlers of its entries: on its parent's.
+            figure = self.parent.get_figure(root=False) if self.isaxes else self.parent
+            return figure.get_figure(root=True) if root else figure
+        return super().get_figure(root=root)
+
+    def get_transform(self):
+        # docstring inherited
+        if "_native" not in self.__dict__:
+            # Being made, by the handlers of its entries: no transform yet.
+            return IdentityTransform()
+        return super().get_transform()
+
     def _set_artist_props(self, a):
         """Set the boilerplate props for artists added to Axes."""
         a.set_figure(self.get_figure(root=False))
@@ -639,9 +671,7 @@ def _get_legend_handles(axs, legend_handler_map=None):
     for ax in axs:
         for native, artist, label in _legend.candidates(ax._native):
             if artist is None:
-                container = Container([], label=label)
-                container._legend_entry = native
-                yield container
+                yield _container(ax, native, label)
                 continue
             raw, kind = artist
             yield from _handled(
@@ -651,6 +681,18 @@ def _get_legend_handles(axs, legend_handler_map=None):
         for raw in _text.axes_texts(ax._native):
             text = _handles.wrap(raw, Text, ax.figure)
             yield from _handled(text, text.get_label(), handler_map)
+
+
+def _container(ax, native, label):
+    """The container of *ax* the legend handle *native* shows (one standing
+    for it, labelled *label*, when the axes has no such container object)."""
+    for container in ax.containers:
+        if (getattr(container, "_native", None) is not None
+                and _legend.shows_container(native, container._native)):
+            return container
+    container = Container([], label=label)
+    container._legend_entry = native
+    return container
 
 
 def _handled(handle, label, handler_map):

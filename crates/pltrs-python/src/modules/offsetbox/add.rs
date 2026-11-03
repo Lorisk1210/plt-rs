@@ -16,12 +16,13 @@ use pltrs::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOffsetbox, AnchoredOptions, AnnotationBbox,
     AnnotationBboxOptions, BboxToAnchor, PlacedOffsetBox,
 };
-use pltrs::patches::{BoxStyle, FancyBboxPatch, Patch};
+use pltrs::patches::{FancyBboxPatch, Patch};
 use pltrs::text::ArrowProps;
 use pltrs::transforms::Point;
 
 use super::super::annotation::{ArrowKwargs, PyCoords};
 use super::super::font_manager::FontProps;
+use super::super::patch_styles::PyBoxStyle;
 use super::super::patches::PatchKwargs;
 use super::tree::PyOffsetBox;
 use crate::binding::dict_value;
@@ -129,12 +130,7 @@ struct PyAnnotationBboxOptions(AnnotationBboxOptions);
 
 impl FromPy<'_> for PyAnnotationBboxOptions {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
-        let boxstyle = dict_value::<Option<String>>(object, "boxstyle")?
-            .map(|spec| {
-                spec.parse::<BoxStyle>()
-                    .map_err(|err| PyErr::value_error(err.to_string()))
-            })
-            .transpose()?;
+        let boxstyle = dict_value::<Option<PyBoxStyle>>(object, "boxstyle")?.map(|style| style.0);
         let arrowprops = match dict_value::<Option<ArrowKwargs>>(object, "arrowprops")? {
             None => None,
             Some(ArrowKwargs(ArrowProps::Fancy(fancy))) => Some(fancy),
@@ -235,6 +231,19 @@ fn set_annotation_points(
     Ok(())
 }
 
+/// When the added annotation box `annotation` is left out for an
+/// annotated point outside its axes (`get_annotation_clip`).
+fn get_annotation_clip(annotation: RawHandle) -> PyResult<Option<bool>> {
+    Ok(annotation_bbox(&annotation)?.annotation_clip())
+}
+
+/// Sets when the added annotation box `annotation` is left out
+/// (`set_annotation_clip`).
+fn set_annotation_clip(annotation: RawHandle, clip: Option<bool>) -> PyResult<()> {
+    annotation_bbox(&annotation)?.set_annotation_clip(clip);
+    Ok(())
+}
+
 /// Places the frame and the parts of the added annotation box
 /// `annotation` where the figure draws them (`update_positions`).
 fn update_annotation_positions(annotation: RawHandle) -> PyResult<()> {
@@ -274,5 +283,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_placed_offset", set_placed_offset)?;
     module.add("set_annotation_points", set_annotation_points)?;
     module.add("update_annotation_positions", update_annotation_positions)?;
+    module.add("get_annotation_clip", get_annotation_clip)?;
+    module.add("set_annotation_clip", set_annotation_clip)?;
     module.add("set_clip_children", set_clip_children)
 }

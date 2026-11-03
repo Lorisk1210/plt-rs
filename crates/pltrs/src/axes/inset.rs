@@ -6,10 +6,10 @@ use std::rc::Rc;
 use pltrs_core::Bbox;
 
 use super::{Axes, AxesState};
-use crate::artist::{ArtistHandle, ArtistLookup, RawHandle};
+use crate::artist::{ArtistHandle, ArtistLookup, AttachError, RawHandle};
 use crate::axes_grid1::locate_on_bounds;
-use crate::figure::insert_axes;
-use crate::transforms::Transform;
+use crate::figure::{attach, insert_axes};
+use crate::transforms::{Transform, bbox_to_unit};
 
 /// The z-order of inset axes within their parent (matplotlib's default).
 const INSET_ZORDER: f64 = 5.0;
@@ -104,6 +104,43 @@ impl Axes {
             Bbox::from_bounds(left, bottom, width, height),
             transform,
         );
+    }
+
+    /// Adds `child`, an axes of this figure made outside it
+    /// ([`Figure::removed_axes`](crate::figure::Figure::removed_axes)) or
+    /// removed from it, inside this axes, where it is now in the figure
+    /// (matplotlib's `add_child_axes`): it joins the
+    /// [`child_axes`](Self::child_axes), is drawn with this axes and, as
+    /// an inset, follows it from then on.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.add_axes([0.1, 0.1, 0.8, 0.8])?;
+    /// let child = fig.removed_axes([0.5, 0.5, 0.2, 0.2])?;
+    /// ax.add_child_axes(&child)?;
+    /// assert_eq!(ax.child_axes(), [child.clone()]);
+    /// assert_eq!(fig.axes(), [ax]);
+    /// let (x, y, width, height) = child.position().bounds();
+    /// assert!((x - 0.5).abs() < 1e-12 && (y - 0.5).abs() < 1e-12);
+    /// assert!((width - 0.2).abs() < 1e-12 && (height - 0.2).abs() < 1e-12);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`AttachError`] when `child` belongs to another figure, is in this
+    /// figure (remove it first) or contains this axes.
+    pub fn add_child_axes(&self, child: &Self) -> Result<&Self, AttachError> {
+        let host = self.position();
+        let placed = child.position();
+        attach(self.raw().figure_state(), self.id(), child.raw())?;
+        let inside = placed.transformed(&bbox_to_unit(&host));
+        child.raw().with_mut::<AxesState, _>(|axes| {
+            axes.position = inside;
+            axes.aspect.set_active(inside, inside);
+        });
+        Ok(self)
     }
 
     /// The axes placed inside this one, in creation order: its insets and

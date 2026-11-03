@@ -18,7 +18,7 @@ from contextlib import contextmanager, nullcontext
 
 import numpy as np
 
-from .. import _api, rc_context
+from .. import _api, _python_drawing, rc_context
 from .._native import (
     backends as _backends, drawing as _drawing, ft2font as _ft2font, table as _table,
     text_overrides as _text_overrides)
@@ -30,7 +30,7 @@ from ..ft2font import LoadFlags
 from ..image import imsave
 from ..text import _measuring_with
 from ..transforms import BboxBase
-from ._native_drawing import NativeDrawingMixin, native_gc
+from ._native_drawing import MathtextDrawingMixin, NativeDrawingMixin, native_gc
 
 #: The raster formats written by Pillow, as matplotlib writes them: GIF,
 #: whose palette and transparency are Pillow's choice, and AVIF, which
@@ -86,7 +86,7 @@ def _sync_texts_as_paths():
     _backends.set_texts_as_paths(RendererAgg.draw_text is RendererBase.draw_text)
 
 
-class RendererAgg(NativeDrawingMixin, RendererBase,
+class RendererAgg(MathtextDrawingMixin, NativeDrawingMixin, RendererBase,
                   metaclass=_WatchesTextDrawing):
     """
     The renderer of the Agg canvas: the pixels pltrs (Rust) drew for a
@@ -174,6 +174,26 @@ class RendererAgg(NativeDrawingMixin, RendererBase,
         # docstring inherited
         self._draw_line(gc, x, y, s, prop, angle, "TeX")
 
+    def stop_filter(self, post_processing):
+        """
+        Save the current canvas as an image and apply post processing.
+
+        The *post_processing* function::
+
+           def post_processing(image, dpi):
+             # ny, nx, depth = image.shape
+             # image (numpy array) has RGBA channels and has a depth of 4.
+             ...
+             # create a new_image (numpy array of 4 channels, size can be
+             # different). The resulting image may have offsets from
+             # lower-left corner of the original image
+             return new_image, offset_x, offset_y
+
+        The saved renderer is restored and the returned image from
+        post_processing is plotted (using draw_image) on it.
+        """
+        super().stop_filter(post_processing)
+
     def _paint_tex(self, gc_spec, line, props, placement):
         """
         Draw a TeX line pltrs (Rust) is drawing with the program's
@@ -221,6 +241,8 @@ class RendererAgg(NativeDrawingMixin, RendererBase,
         or where pltrs (Rust) is drawing while it draws the figure."""
         if self._recording is not None:
             super()._draw_artist(artist)
+        elif _python_drawing.overrides_drawing(self):
+            _python_drawing.draw_through(self, artist)
         elif self._figure is None:
             _backends.draw_onto_raster(self._own_raster(), artist._native)
         else:
@@ -229,7 +251,9 @@ class RendererAgg(NativeDrawingMixin, RendererBase,
     def _draw_cell(self, cell):
         """Draw the table `.Cell` *cell* alone, as `_draw_artist` draws an
         artist (`.Cell.draw` with this renderer)."""
-        if self._figure is None:
+        if self._recording is not None:
+            super()._draw_cell(cell)
+        elif self._figure is None:
             _table.draw_cell_onto_raster(self._own_raster(), cell._ref())
         else:
             _table.draw_cell(self._canvas_figure(), cell._ref())

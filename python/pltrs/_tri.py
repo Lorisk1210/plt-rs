@@ -73,13 +73,10 @@ class Triangulation:
                                    or neighbors.shape != triangles.shape):
             raise ValueError("neighbors must be a 2D array with the same shape "
                              "as the triangles array")
-        self._native = _native_tri.new(x, y, triangles, None)
-        if (not bound["correct_triangle_orientations"]
-                and not np.array_equal(_native_tri.triangles(self._native),
-                                       _native_tri.oriented_triangles(self._native))):
-            raise NotImplementedError(
-                "pltrs: _tri.Triangulation(correct_triangle_orientations=False) "
-                "with clockwise triangles")
+        if bound["correct_triangle_orientations"]:
+            self._native = _native_tri.new(x, y, triangles, None)
+        else:
+            self._native = _native_tri.as_given(x, y, triangles)
         self._ntri = len(triangles)
         # Given edges and neighbors stand until the mask changes, as the
         # extension keeps them.

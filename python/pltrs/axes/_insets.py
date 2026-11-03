@@ -58,6 +58,16 @@ class InsetsMixin:
         return _handles.wrap_all(_insets.child_axes(self._native), Axes,
                                  self.figure)
 
+    def add_child_axes(self, ax):
+        """
+        Add an `.Axes` to the Axes' children; return the child Axes.
+
+        This is the lowlevel version.  See `.axes.Axes.inset_axes`.
+        """
+        _insets.add_child_axes(self._native, ax._native)
+        self.stale = True
+        return ax
+
     def inset_axes(self, bounds, *, transform=None, zorder=5, **kwargs):
         """
         Add a child inset Axes to this existing Axes.
@@ -96,7 +106,7 @@ class InsetsMixin:
         projection_class, pkw = fig._process_projection_requirements(**kwargs)
         from ..projections import _program
         program = _program.is_program_class(projection_class)
-        name = getattr(projection_class, "name", "rectilinear")
+        name = _program.native_name(projection_class)
         bounds = tuple(map(float, bounds))
         native = _insets.inset_axes(
             self._native, bounds,

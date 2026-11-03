@@ -17,7 +17,7 @@ use pltrs_text::TextRun;
 use pltrs_text::tex::{TexError, TexText};
 
 use crate::collection::PathCollection;
-use crate::filter::FilterFn;
+use crate::filter::{FilterFn, SharedFilter};
 use crate::gc::GraphicsContext;
 use crate::image::RgbaImage;
 use crate::quad_mesh::QuadMesh;
@@ -187,6 +187,10 @@ impl Renderer for MixedModeRenderer<'_> {
 
     fn stop_filter(&mut self, filter: &FilterFn<'_>) {
         self.active().stop_filter(filter);
+    }
+
+    fn stop_shared_filter(&mut self, filter: &SharedFilter) {
+        self.active().stop_shared_filter(filter);
     }
 
     fn close_group(&mut self, name: &str) {

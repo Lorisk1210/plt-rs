@@ -114,10 +114,10 @@ impl Painter<'_> {
             tick,
             minor,
             slot,
-            style,
             width,
             ..
         } = *drawn;
+        let style = axis.tick_style_at(minor, slot, true);
         let gid = |part| {
             (axis.gids).get(AxisGroup::TickPart {
                 minor,
@@ -138,10 +138,7 @@ impl Painter<'_> {
         if !style.labels.first {
             return;
         }
-        let font = FontProperties {
-            size: style.label_size,
-            ..FontProperties::from_rc(self.axes.rc())
-        };
+        let font = style.label_font(self.axes.rc());
         let halign = style.label_halign.unwrap_or(HAlign::Center);
         self.text_in_group(
             sink,

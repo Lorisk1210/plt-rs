@@ -28,6 +28,10 @@ class _ViewLimits(_live_transforms.LiveBbox):
         super().__init__(points)
         self._axes = axes
 
+    def __reduce__(self):
+        # Made again for its Axes, whose limits its points are.
+        return (type(self), (self._axes,))
+
     def set(self, other):
         """Set this bounding box from the "frozen" bounds of another `Bbox`."""
         # Reading the limits applies pending autoscaling first, as
@@ -182,6 +186,16 @@ class AspectMixin:
         """
         _axes_base.set_box_aspect(self._native,
                                   None if aspect is None else float(aspect))
+
+    def reset_position(self):
+        """
+        Reset the active position to the original position.
+
+        This undoes changes to the active position (as defined in
+        `.set_position`) which may have been performed to satisfy fixed-aspect
+        constraints.
+        """
+        _axes_base.reset_position(self._native)
 
     def get_data_ratio(self):
         """

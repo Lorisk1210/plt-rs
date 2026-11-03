@@ -5,7 +5,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::archive::{External, ProgramFn};
-use pltrs_render::{FilterFn, FilterImage, Filtered};
+use pltrs_render::{FilterFn, FilterImage, Filtered, SharedFilter};
 
 use super::{Artist, ArtistBase, ArtistHandle, ArtistId, DrawContext, RawHandle};
 
@@ -53,9 +53,9 @@ impl AggFilter {
         Self(ProgramFn::with_origin(Rc::new(filter), origin))
     }
 
-    /// The filter function.
-    pub(crate) fn function(&self) -> &FilterFn<'static> {
-        self.0.get()
+    /// The filter function, as renderers keep it.
+    pub(crate) fn shared(&self) -> &SharedFilter {
+        self.0.shared()
     }
 }
 
@@ -116,7 +116,7 @@ impl Artist for FilteredGroupArtist {
         for &member in &self.members {
             ctx.draw_child(member);
         }
-        ctx.renderer().stop_filter(self.filter.function());
+        ctx.renderer().stop_shared_filter(self.filter.shared());
     }
 }
 

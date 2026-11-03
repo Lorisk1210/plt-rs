@@ -230,6 +230,12 @@ fn is_affine(figure: Figure, transform: Transform) -> PyResult<bool> {
     Ok(resolved(&figure, &transform)?.is_affine())
 }
 
+/// Whether `transform` maps x and y independently in `figure`'s current
+/// layout (`is_separable`).
+fn is_separable(figure: Figure, transform: Transform) -> PyResult<bool> {
+    Ok(resolved(&figure, &transform)?.is_separable())
+}
+
 /// The inverse of `transform`.
 fn inverted(transform: Transform) -> PyResult<Transform> {
     Ok(transform.inverted())
@@ -281,6 +287,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("apply", apply)?;
     module.add("affine_matrix", affine_matrix)?;
     module.add("is_affine", is_affine)?;
+    module.add("is_separable", is_separable)?;
     module.add("inverted", inverted)?;
     module.add("get_transform", get_transform)?;
     module.add("set_transform", set_transform)?;

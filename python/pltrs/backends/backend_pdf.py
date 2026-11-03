@@ -23,6 +23,7 @@ import types
 import numpy as np
 
 from .. import __version__, _api, _path, cbook, dviread, rcParams
+from ..colors import to_rgba
 from .._native import backends as _backends, text_overrides as _text_overrides
 from .._pylab_helpers import Gcf
 from ..backend_bases import (
@@ -35,7 +36,7 @@ from ..font_manager import (
 from ..text import _measuring_with
 from ..transforms import BboxBase
 from ._backend_pdf_ps import RendererPDFPSBase
-from ._native_drawing import DocumentDrawingMixin
+from ._native_drawing import DocumentDrawingMixin, PdfPsDrawingMixin, native_gc
 from .backend_mixed import MixedModeRenderer
 
 _log = logging.getLogger(__name__)
@@ -897,7 +898,7 @@ class PdfPages:
         self._ensure_file().newTextnote(text, positionRect)
 
 
-class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
+class RendererPdf(PdfPsDrawingMixin, DocumentDrawingMixin, RendererPDFPSBase):
     """
     The renderer of a PDF page of *width* × *height* inches, drawn in
     points, its images at *image_dpi*, into the `PdfFile` *file*.
@@ -928,6 +929,37 @@ class RendererPdf(DocumentDrawingMixin, RendererPDFPSBase):
     def get_image_magnification(self):
         # docstring inherited
         return self.image_dpi / 72.0
+
+    def _file_native(self):
+        """The native document of the renderer's `PdfFile`; refused for the
+        renderers of pltrs's saves, whose document pltrs (Rust) writes."""
+        if self.file is None:
+            raise RuntimeError(
+                "RendererPdf draws into the document pltrs writes while it "
+                "saves a figure: save the figure through its canvas "
+                "(savefig), or make the renderer with a PdfFile")
+        return self.file._native
+
+    def _draw_now(self, drawing):
+        """Draw *drawing* on the current page of the renderer's `PdfFile`."""
+        _backends.pdf_file_draw(self._file_native(), drawing)
+
+    def check_gc(self, gc, fillcolor=None):
+        """Change the graphics state of the page into the one *gc* and the
+        fill *fillcolor* need."""
+        fill = None if fillcolor is None else tuple(map(float, to_rgba(fillcolor)))
+        _backends.pdf_file_check_gc(self._file_native(), native_gc(gc), fill)
+
+    def finalize(self):
+        """Restore every graphics state the page saved."""
+        _backends.pdf_file_restore_gc(self._file_native())
+
+    def encode_string(self, s, fonttype):
+        """*s* encoded as a PDF string shows it in a font of *fonttype*: in
+        cp1252 for Type 1 and Type 3 fonts, else in UTF-16BE."""
+        if fonttype in (1, 3):
+            return s.encode('cp1252', 'replace')
+        return s.encode('utf-16be', 'replace')
 
 
 class GraphicsContextPdf(GraphicsContextBase):

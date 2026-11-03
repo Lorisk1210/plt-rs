@@ -7,6 +7,7 @@ use std::str::FromStr;
 use pltrs_core::bezier::{Direction, get_intersection, inside_circle, split_path_inout};
 use pltrs_core::{Path, PathCode, Point};
 
+use super::program_styles::ProgramConnection;
 use super::style_spec::{StyleSpec, write_description};
 use super::{PatchError, StyleError};
 
@@ -15,7 +16,7 @@ const TOLERANCE: f64 = 0.01;
 
 /// How two points are connected. Angles are in degrees; lengths
 /// (`rad`, arms) in display pixels.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ConnectionStyle {
     /// A quadratic Bézier curve whose control point lies `rad` times the
     /// distance between the points off their midpoint (`arc3`).
@@ -68,6 +69,9 @@ pub enum ConnectionStyle {
         /// Angle of the joining line; `None` is parallel to the points.
         angle: Option<f64>,
     },
+    /// A connection of the program's (matplotlib's `ConnectionStyle._Base`
+    /// subclasses and callables).
+    Program(ProgramConnection),
 }
 
 pltrs_core::archive_enum!(ConnectionStyle {
@@ -76,6 +80,7 @@ pltrs_core::archive_enum!(ConnectionStyle {
     Angle { angle_a, angle_b, rad },
     Arc { angle_a, angle_b, arm_a, arm_b, rad },
     Bar { arm_a, arm_b, fraction, angle },
+    Program(v0),
 });
 
 impl Default for ConnectionStyle {
@@ -144,19 +149,19 @@ impl ConnectionStyle {
     /// The raw connection from `a` to `b` (each style's `connect`).
     pub fn connect(&self, a: Point, b: Point) -> Result<Path, PatchError> {
         use PathCode::{Curve3, LineTo, MoveTo};
-        Ok(match *self {
-            Self::Arc3 { rad } => {
+        Ok(match self {
+            &Self::Arc3 { rad } => {
                 let mid = a.midpoint(b);
                 let (dx, dy) = (b.x - a.x, b.y - a.y);
                 let control = Point::new(mid.x + rad * dy, mid.y - rad * dx);
                 coded(&[(MoveTo, a), (Curve3, control), (Curve3, b)])
             }
-            Self::Angle3 { angle_a, angle_b } => {
+            &Self::Angle3 { angle_a, angle_b } => {
                 let corner = get_intersection(a, direction(angle_a), b, direction(angle_b))
                     .map_err(|_| PatchError::ParallelAngles)?;
                 coded(&[(MoveTo, a), (Curve3, corner), (Curve3, b)])
             }
-            Self::Angle {
+            &Self::Angle {
                 angle_a,
                 angle_b,
                 rad,
@@ -177,19 +182,20 @@ impl ConnectionStyle {
                 segments.push((LineTo, b));
                 coded(&segments)
             }
-            Self::Arc {
+            &Self::Arc {
                 angle_a,
                 angle_b,
                 arm_a,
                 arm_b,
                 rad,
             } => arc_connection(a, b, (angle_a, arm_a), (angle_b, arm_b), rad)?,
-            Self::Bar {
+            &Self::Bar {
                 arm_a,
                 arm_b,
                 fraction,
                 angle,
             } => bar_connection(a, b, arm_a, arm_b, fraction, angle)?,
+            Self::Program(program) => program.path(a, b),
         })
     }
 
@@ -338,6 +344,7 @@ impl fmt::Display for ConnectionStyle {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Self::Program(_) => write_description(f, "program", &[]),
             Self::Arc3 { rad } => write_description(f, "arc3", &[("rad", Some(rad))]),
             Self::Angle3 { angle_a, angle_b } => write_description(
                 f,

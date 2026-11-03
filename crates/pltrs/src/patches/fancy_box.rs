@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn mutation_scales_the_padding() {
         let square: BoxStyle = "square,pad=0.5".parse().unwrap();
-        let unit = FancyBboxPatch::new((0.0, 0.0), 2.0, 2.0, square).path();
+        let unit = FancyBboxPatch::new((0.0, 0.0), 2.0, 2.0, square.clone()).path();
         assert_eq!(unit.extents().x0(), -0.5);
         let doubled = FancyBboxPatch::new((0.0, 0.0), 2.0, 2.0, square)
             .with_mutation_scale(2.0)

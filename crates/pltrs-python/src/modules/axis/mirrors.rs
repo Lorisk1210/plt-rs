@@ -242,7 +242,8 @@ fn sync_flat_tick(
     let style = axis.tick_style_at(minor, index);
     let name = axis.name();
     sync_label(&label1, axis, loc, label.clone(), &style, true);
-    sync_label(&label2, axis, loc, label, &style, false);
+    let second_style = axis.tick_label_style_at(minor, index, false);
+    sync_label(&label2, axis, loc, label, &second_style, false);
     sync_mark(&tick1, name, loc, &style, true);
     sync_mark(&tick2, name, loc, &style, false);
     sync_gridline(&grid, name, loc, &style);
@@ -263,7 +264,7 @@ fn sync_flat_tick(
 
 /// `value` when it differs from the style's `current`, else nothing (a
 /// tick keeps of its own only what differs from its level).
-fn own<T: PartialEq>(value: T, current: &T) -> Option<T> {
+pub(super) fn own<T: PartialEq>(value: T, current: &T) -> Option<T> {
     (value != *current).then_some(value)
 }
 
@@ -281,21 +282,34 @@ fn push_tick_label(
     push_part_gid(&axis, minor, index, TickPart::label(second), &text);
     let axis = match axis {
         AnyAxis::Flat(axis) => axis,
-        AnyAxis::Deep(axis) => return deep::push_tick_label(&axis, minor, second, &text),
+        AnyAxis::Deep(axis) => return deep::push_tick_label(&axis, minor, index, second, &text),
     };
     let level = axis.tick_style(minor);
-    let rc = pltrs::rc::params();
-    let level_font = level.label_font(&rc);
+    let alignment = default_alignment(axis.name(), !second);
+    let props = label_props(&text, &level, alignment, second);
+    axis.set_tick_label_props_on(minor, index, !second, props);
+    Ok(())
+}
+
+/// The text properties the label mirror `text` on the first or `second`
+/// side of a tick has of its own: those that differ from `level`, the
+/// style of its level, whose labels are aligned as `alignment` says
+/// unless it sets an alignment.
+pub(super) fn label_props(
+    text: &Text,
+    level: &TickStyle,
+    (halign, valign): (HAlign, VAlign),
+    second: bool,
+) -> TickLabelProps {
+    let level_font = level.label_font(&pltrs::rc::params());
     let font = text.font();
-    let (halign, valign) = default_alignment(axis.name(), !second);
     let visible = text.visible();
-    let previous = axis.tick_label_props(minor, index);
     let (label1_visible, label2_visible) = if second {
-        (previous.label1_visible, own(visible, &level.labels.second))
+        (None, own(visible, &level.labels.second))
     } else {
-        (own(visible, &level.labels.first), previous.label2_visible)
+        (own(visible, &level.labels.first), None)
     };
-    let props = TickLabelProps {
+    TickLabelProps {
         rotation: own(text.rotation(), &level.label_rotation),
         rotation_mode: own(text.rotation_mode(), &level.label_rotation_mode),
         halign: own(text.halign(), &level.label_halign.unwrap_or(halign)),
@@ -311,9 +325,7 @@ fn push_tick_label(
             .and_then(|families| families.into_iter().next()),
         label1_visible,
         label2_visible,
-    };
-    axis.set_tick_label_props(minor, index, props);
-    Ok(())
+    }
 }
 
 /// Reads the mark mirror `line` on the first or `second` side of the
@@ -330,7 +342,7 @@ fn push_tick_mark(
     push_part_gid(&axis, minor, index, TickPart::mark(second), &line);
     let axis = match axis {
         AnyAxis::Flat(axis) => axis,
-        AnyAxis::Deep(axis) => return deep::push_tick_mark(&axis, minor, second, &line),
+        AnyAxis::Deep(axis) => return deep::push_tick_mark(&axis, minor, index, second, &line),
     };
     let level = axis.tick_style(minor);
     let previous = axis.tick_line_props(minor, index);
@@ -370,7 +382,9 @@ fn push_gridline(
     push_part_gid(&axis, minor, index, TickPart::Gridline, &line);
     let axis = match axis {
         AnyAxis::Flat(axis) => axis,
-        AnyAxis::Deep(axis) => return deep::push_gridline(&axis, minor, &line),
+        // A 3-D axis draws the gridlines of its axes, not those of its
+        // ticks (matplotlib's `Axis3D.draw_grid`).
+        AnyAxis::Deep(_) => return Ok(()),
     };
     let level = axis.tick_style(minor);
     let props = TickLineProps {

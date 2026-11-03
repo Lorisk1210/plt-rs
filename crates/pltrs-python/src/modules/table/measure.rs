@@ -1,14 +1,18 @@
 //! The text of a cell: as a text artist (matplotlib's `Cell.get_text`),
 //! and measured where its table draws it (`Cell.get_text_bounds`,
-//! `get_required_width` and `auto_set_font_size`); the coordinates the
+//! `get_required_width` and `auto_set_font_size`); the cell's look as a
+//! rectangle (matplotlib's `Cell` is a `Rectangle`); the coordinates the
 //! cell is drawn in (`Cell.set_transform`); and the cell drawn alone
 //! (`Cell.draw`).
 
+use pltrs::artist::{DrawStep, Drawing};
 use pltrs::figure::Figure;
+use pltrs::patches::{Patch, Rectangle};
 use pltrs::text::{Text, TextDrawError};
 use pltrs::transforms::Transform;
 use pltrs_render::RasterRenderer;
 
+use super::super::drawing::PythonRenderer;
 use super::CellRef;
 use crate::binding::prelude::*;
 
@@ -67,6 +71,37 @@ fn draw_cell_onto_raster(raster: Native<RasterRenderer>, cell: CellRef) -> PyRes
     Ok(cell.0.draw_onto(&mut *raster.borrow_mut())?)
 }
 
+/// Draws the cell alone into `drawing`, where its table places it
+/// (`Cell.draw` with a renderer recording while pltrs (Rust) draws).
+fn draw_cell_into(drawing: Native<Drawing>, cell: CellRef) -> PyResult<()> {
+    drawing.borrow_mut().push(DrawStep::TableCell(cell.0));
+    Ok(())
+}
+
+/// Draws the cell alone through the drawing methods of `renderer`, a
+/// renderer of the program's (`Cell.draw` with it).
+fn draw_cell_through(renderer: Owned, cell: CellRef) -> PyResult<()> {
+    Ok(cell.0.draw_onto(&mut PythonRenderer::new(renderer))?)
+}
+
+/// A loose rectangle with the cell's look, where its table last placed
+/// it (the mirror of a `Cell`).
+fn cell_rectangle(cell: CellRef) -> PyResult<Patch<Rectangle>> {
+    Ok(cell.0.rectangle())
+}
+
+/// The corner where the table places the cell, in the fractions of its
+/// axes; `None` for a table in no axes.
+fn cell_corner(cell: CellRef) -> PyResult<Option<(f64, f64)>> {
+    Ok(cell.0.placed_corner().map(|p| (p.x, p.y)))
+}
+
+/// Gives the cell the look of `rectangle` (its mirror).
+fn restyle_cell(cell: CellRef, rectangle: Patch<Rectangle>) -> PyResult<()> {
+    cell.0.restyle_from(&rectangle);
+    Ok(())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("text_artist", text_artist)?;
@@ -76,5 +111,10 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("fit_font_size", fit_font_size)?;
     module.add("set_cell_transform", set_cell_transform)?;
     module.add("draw_cell", draw_cell)?;
-    module.add("draw_cell_onto_raster", draw_cell_onto_raster)
+    module.add("draw_cell_onto_raster", draw_cell_onto_raster)?;
+    module.add("draw_cell_through", draw_cell_through)?;
+    module.add("draw_cell_into", draw_cell_into)?;
+    module.add("cell_rectangle", cell_rectangle)?;
+    module.add("cell_corner", cell_corner)?;
+    module.add("restyle_cell", restyle_cell)
 }

@@ -3,7 +3,7 @@
 
 use std::path::Path as FsPath;
 
-use pltrs_render::{ImageFile, SvgOptions, SvgRenderer};
+use pltrs_render::{ImageFile, Metadata, SvgOptions, SvgRenderer};
 
 use super::Figure;
 use super::print::SaveOptions;
@@ -57,16 +57,7 @@ impl Figure {
         options: &SaveOptions,
         image_files: Option<String>,
     ) -> Result<(String, Vec<ImageFile>), SaveError> {
-        let rc = crate::rc::params();
-        let svg = SvgOptions {
-            hashsalt: rc.svg_hashsalt.clone(),
-            id: rc.svg_id.clone(),
-            metadata: options.metadata.clone().unwrap_or_default(),
-            simplify: simplify_settings(),
-            composite_images: rc.image_composite_image,
-            fonttype: rc.svg_fonttype,
-            image_files,
-        };
+        let svg = svg_options(options.metadata.clone().unwrap_or_default(), image_files);
         // matplotlib's SVG backend measures text with `TextToPath`.
         crate::text::with_text_path_metrics(|| {
             self.render_vector_with(options, |width, height, dpi| {
@@ -75,6 +66,22 @@ impl Figure {
         })?
         .finish_with_images()
         .map_err(SaveError::Vector)
+    }
+}
+
+/// The options of an SVG document with `metadata`, its images written to
+/// files named after `image_files` (else embedded), as the `svg.*` and
+/// `image.composite_image` rcParams configure figures.
+pub(super) fn svg_options(metadata: Metadata, image_files: Option<String>) -> SvgOptions {
+    let rc = crate::rc::params();
+    SvgOptions {
+        hashsalt: rc.svg_hashsalt.clone(),
+        id: rc.svg_id.clone(),
+        metadata,
+        simplify: simplify_settings(),
+        composite_images: rc.image_composite_image,
+        fonttype: rc.svg_fonttype,
+        image_files,
     }
 }
 

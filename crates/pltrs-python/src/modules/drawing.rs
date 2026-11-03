@@ -28,6 +28,7 @@ mod painter;
 mod steps;
 
 pub(super) use effect::{PythonEffect, python_effect};
+pub(super) use foreign::PythonRenderer;
 pub(super) use painter::PythonPainter;
 
 use pltrs::artist::Drawing;

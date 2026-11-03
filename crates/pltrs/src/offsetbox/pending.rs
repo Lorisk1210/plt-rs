@@ -260,7 +260,7 @@ mod tests {
     #[test]
     fn frame_colours_replace_both_defaults() {
         let square = BoxStyle::new(BoxShape::Square);
-        let frame = frame_patch(square, false, PatchProps::default().color("r"));
+        let frame = frame_patch(square.clone(), false, PatchProps::default().color("r"));
         let style = frame.artist.as_patch().expect("a patch").style;
         assert_eq!(style.facecolor, Some(Color::from("r")));
         assert_eq!(style.edgecolor, Some(Color::from("r")));

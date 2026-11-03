@@ -30,6 +30,7 @@ use crate::binding::{dict_items, new_dict};
 
 mod anchor;
 mod legend_box;
+mod made;
 mod perf_counter;
 
 artist_handle!(Legend);
@@ -204,15 +205,21 @@ impl FromPy<'_> for LegendKwargs {
 }
 
 /// A legend entry: an artist, a native legend handle (one the axes found,
-/// see [`handles_labels`]), or `("tuple", entries, ndivide, pad)` for
+/// see [`handles_labels`]), `("tuple", entries, ndivide, pad)` for
 /// several handles in one entry (matplotlib's tuple handles and
-/// `HandlerTuple`).
+/// `HandlerTuple`), or `("made", artists)` for the artists a handler of
+/// the program's made (see [`made`]).
 struct Entry(LegendHandle);
 
 impl FromPy<'_> for Entry {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         if let Ok(handle) = object.extract::<LegendHandle>() {
             return Ok(Self(handle));
+        }
+        if let Ok((kind, artists)) = object.extract::<(String, Vec<(RawHandle, String)>)>()
+            && kind == "made"
+        {
+            return made::made_handle(artists).map(Self);
         }
         if let Ok((kind, entries, ndivide, pad)) =
             object.extract::<(String, Vec<Entry>, Option<usize>, Option<f64>)>()
@@ -409,6 +416,12 @@ fn axes_legend(axes: Axes) -> PyResult<Option<Legend>> {
     Ok(axes.current_legend())
 }
 
+/// Makes `legend`, a legend made for `axes`, its axes legend again
+/// (`ax.legend_ = legend`); whether it is a legend of `axes`.
+fn set_axes_legend(axes: Axes, legend: Legend) -> PyResult<bool> {
+    Ok(axes.set_current_legend(&legend))
+}
+
 /// The figure legends, in the order they were made.
 fn figure_legends(figure: Figure) -> PyResult<Vec<Legend>> {
     Ok(figure.legends())
@@ -433,8 +446,10 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_alignment", set_alignment)?;
     module.add("get_draggable", get_draggable)?;
     anchor::register(module)?;
+    made::register(module)?;
     module.add("keep", keep)?;
     module.add("axes_legend", axes_legend)?;
+    module.add("set_axes_legend", set_axes_legend)?;
     module.add("figure_legends", figure_legends)
 }
 

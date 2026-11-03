@@ -117,9 +117,11 @@ impl FromPy<'_> for Overrides {
 }
 
 /// The projection of an axes of a program's projection class: its hooks
-/// call the methods of the class' adapter.
+/// call the methods of the class' adapter, as which it is archived.
 #[derive(Debug)]
-struct PyProjection {
+pub(super) struct PyProjection {
+    /// The adapter.
+    adapter: Owned,
     /// The class' `name`.
     name: &'static str,
     /// The order of the spines of `_gen_axes_spines`.
@@ -143,7 +145,7 @@ fn limits(view: &ProjectionView<'_>) -> (f64, f64, f64, f64) {
 impl PyProjection {
     /// The projection asking `adapter`, which gives its `name`, its
     /// `spine_order` (the four side names) and its `overrides`.
-    fn of(adapter: &Bound<'_>) -> PyResult<Self> {
+    pub(super) fn of(adapter: &Bound<'_>) -> PyResult<Self> {
         let method = |name: &str| -> PyResult<Callback> { adapter.getattr(name)?.extract() };
         let order: Vec<String> = adapter.getattr("spine_order")?.extract()?;
         let spine_order = order
@@ -155,6 +157,7 @@ impl PyProjection {
                 PyErr::value_error(format!("{} spines where axes have 4", sides.len()))
             })?;
         Ok(Self {
+            adapter: adapter.clone().unbind(),
             name: pltrs_core::interned(&adapter.getattr("name")?.extract::<String>()?),
             spine_order,
             overrides: adapter.getattr("overrides")?.extract()?,
@@ -165,6 +168,11 @@ impl PyProjection {
             tick_sides: method("tick_sides")?,
             spine_interval: method("spine_interval")?,
         })
+    }
+
+    /// The adapter the projection asks.
+    pub(super) fn adapter(&self) -> &Owned {
+        &self.adapter
     }
 }
 

@@ -58,6 +58,8 @@ class _AxesBase(ConstructionMixin, TicksMixin, NavigationMixin, LimitsMixin,
     _axis_names = ("x", "y")
     _shared_axes = {name: _SharedAxes(name) for name in _axis_names}
 
+    ArtistList = ArtistList
+
     def __str__(self):
         return "{0}({1[0]:g},{1[1]:g};{1[2]:g}x{1[3]:g})".format(
             type(self).__name__, self.get_position(original=True).bounds)

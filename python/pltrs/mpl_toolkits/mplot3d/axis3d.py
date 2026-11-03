@@ -12,15 +12,9 @@ panes, the axis line) is ``_native.mplot3d``'s.
 
 import numpy as np
 
-from pltrs import _api, axis as maxis, cbook, colors as mcolors
+from pltrs import _api, axis as maxis, colors as mcolors
 from pltrs import collections as mcoll, patches as mpatches
 from pltrs._native import mplot3d as _mplot3d
-
-
-#: The `.Text` properties of tick labels a 3-D axis draws, as the tick
-#: parameters setting them for a whole tick level.
-_LABEL_PARAMS = {"color": "labelcolor", "fontsize": "labelsize",
-                 "rotation": "labelrotation", "fontfamily": "labelfontfamily"}
 
 
 class _AxisLine:
@@ -261,6 +255,31 @@ class Axis(maxis.XAxis):
         """Set whether this Axis is oriented in the "inverse" direction."""
         _mplot3d.set_inverted(self.axes._native, self.axis_name, bool(inverted))
 
+    def get_tick_space(self):
+        """Return the estimated number of ticks that can fit on the axis
+        (matplotlib's ``XAxis.get_tick_space``, which a 3-D axis
+        inherits: the width of the axes over three label heights)."""
+        (x0, _), (x1, _) = self.axes.transAxes.transform([[0, 0], [1, 1]])
+        length = (x1 - x0) / self.get_figure(root=True).dpi * 72
+        size = self._get_tick_label_size('x') * 3
+        return int(np.floor(length / size)) if size > 0 else 2**31 - 1
+
+    def get_tick_padding(self):
+        """Return the space the outward part of the first ticks of each
+        level takes, in points."""
+        return max((ticks[0].get_tick_padding()
+                    for ticks in (self.majorTicks, self.minorTicks) if len(ticks)),
+                   default=0)
+
+    def get_in_layout(self):
+        """Return whether the axis counts in layouts (a 3-D axes counts its
+        axes in its tight box whatever they say, as matplotlib's does)."""
+        return self.__dict__.get("_in_layout", True)
+
+    def set_in_layout(self, in_layout):
+        """Set whether the axis counts in layouts (see `get_in_layout`)."""
+        self._in_layout = in_layout
+
     def set_ticks(self, ticks, labels=None, *, minor=False, **kwargs):
         """
         Set this Axis' tick locations and optionally tick labels.
@@ -283,35 +302,42 @@ class Axis(maxis.XAxis):
         return result
 
     def set_ticklabels(self, labels, *, minor=False, fontdict=None, **kwargs):
-        """
+        r"""
         Set this Axis' tick labels with list of string labels.
 
-        *fontdict* and *kwargs* are `.Text` properties for the labels. A
-        3-D axis draws the labels of a tick level in one style, so those
-        `~.Axis.set_tick_params` sets for its labels (``color``,
-        ``fontsize``, ``rotation``, ``fontfamily``) apply to the level.
+        Parameters
+        ----------
+        labels : sequence of str or of `.Text`\s
+            Texts for labeling each tick location in the sequence set by
+            `.Axis.set_ticks`.
+        minor : bool
+            If True, set minor ticks instead of major ticks.
+        fontdict : dict, optional
+            A dictionary controlling the appearance of the ticklabels.
+        **kwargs
+            Text properties of the labels of the current ticks (those the
+            axis adds later copy the first one's, as matplotlib's do).
 
-        Returns the visible labels of the level's ticks, ``label1`` then
-        ``label2`` of each tick.
+        Returns
+        -------
+        list of `.Text`\s
+            For each tick, includes ``tick.label1`` if it is visible, then
+            ``tick.label2`` if it is visible, in that order.
         """
-        from pltrs.text import Text
-        if fontdict is not None:
-            kwargs.update(fontdict)
-        params = {}
-        for key, value in cbook.normalize_kwargs(kwargs, Text).items():
-            if key not in _LABEL_PARAMS:
-                raise NotImplementedError(
-                    f"pltrs: set_ticklabels({key}=...) on 3-D axes: a 3-D "
-                    f"axis draws the labels of a tick level in one style, "
-                    f"of the properties tick_params sets")
-            params[_LABEL_PARAMS[key]] = value
         _mplot3d.set_ticklabels(self.axes._native, self.axis_name,
                                 [str(label) for label in labels], bool(minor))
-        if params:
-            self.set_tick_params(which="minor" if minor else "major", **params)
         ticks = self.get_minor_ticks() if minor else self.get_major_ticks()
-        return [label for tick in ticks for label in (tick.label1, tick.label2)
-                if label.get_visible()]
+        kwargs = {**(fontdict or {}), **kwargs}
+        ret = []
+        for tick in ticks:
+            if kwargs:
+                tick.label1._internal_update(kwargs)
+                tick.label2._internal_update(kwargs)
+            if tick.label1.get_visible():
+                ret.append(tick.label1)
+            if tick.label2.get_visible():
+                ret.append(tick.label2)
+        return ret
 
     def get_ticklocs(self, *, minor=False):
         """Return this Axis' tick locations in data coordinates."""

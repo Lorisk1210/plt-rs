@@ -17,3 +17,4 @@ misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names plt
 # pltrs ships its own looks as style sheets (pltrs-modern, pltrs-modern-dark,
 # `pltrs::look`), which style.available lists with matplotlib's.
 style_sheets/style_sheets_reference$ | ^(value\[constant\]: list length|image: other figures open)$ | the example draws one figure per available style, two more with pltrs' own looks
+style_sheets/style_sheets_reference$ | ^callback\[[^]]+\]: runs another number of times$ | the example's functions run once more per figure for each of pltrs' two looks (31 styles, not 29; the dark-background branch for pltrs-modern-dark too)

@@ -212,21 +212,34 @@ impl Axis {
     /// The display box of the label on the first (bottom or left) or the
     /// second side of the major (or `minor`) tick at `index` among those
     /// the locator places, in the figure's current layout (laid out
-    /// first), if it is drawn (matplotlib's `tick.label1.get_window_extent()`).
+    /// first), if it has one: where it is drawn, or for a tick outside the
+    /// view where its label would be (matplotlib's
+    /// `tick.label1.get_window_extent()`, whose `Text` is placed at every
+    /// tick the locator gives).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_xlim(0.1, 0.9)?;
+    /// let below = ax.xaxis().tick_label_extent(false, 0, true).expect("a label at 0");
+    /// let frame = ax.window_extent().expect("an extent");
+    /// assert!(below.x1() < frame.x0() + 50.0, "left of the view's first tick");
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
     pub fn tick_label_extent(&self, minor: bool, index: usize, first_side: bool) -> Option<Bbox> {
-        self.with_texts(|texts, axis| {
-            let ticks = axis.ticks.as_ref().ok()?;
-            let position = if minor {
-                let in_view = ticks.minor_index.iter().position(|&i| i == index)?;
-                ticks.major.len() + in_view
-            } else {
-                ticks.major_index.iter().position(|&i| i == index)?
-            };
-            (texts.tick_labels.iter())
-                .find(|label| label.tick == position && label.first_side == first_side)
-                .map(|label| label.text.bbox())
-        })
-        .flatten()
+        let mut state = self.axes.raw().figure_state().borrow_mut();
+        state.prepare();
+        let state = &*state;
+        let axes = state.store.get_as::<AxesState>(self.axes.id())?;
+        AxisPainter::new(self.axes.id(), axes, self.name)
+            .tick_label(
+                LayoutContext::new(state),
+                &axes.rc,
+                (minor, index),
+                first_side,
+            )?
+            .ok()
+            .map(|label| label.bbox())
     }
 
     /// The appearance of the major (or minor) ticks: sides with marks and

@@ -210,24 +210,44 @@ impl PatchShape for Ellipse {
     }
 }
 
-/// A circle (an [`Ellipse`] with equal axes).
+/// A circle: matplotlib's `Circle`, an [`Ellipse`] made with equal axes,
+/// which keeps the width, height and angle of the ellipse it is (so that
+/// setting one of them alone makes it an ellipse, as in matplotlib).
+///
+/// ```
+/// use pltrs::patches::Circle;
+/// let mut circle = Circle::new((1.0, 2.0), 0.5);
+/// assert_eq!((circle.radius(), circle.ellipse.height), (0.5, 1.0));
+/// circle.ellipse.height = 3.0;
+/// circle.set_radius(2.0);
+/// assert_eq!((circle.ellipse.width, circle.ellipse.height), (4.0, 4.0));
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Circle {
-    /// Centre.
-    pub center: Point,
-    /// Radius.
-    pub radius: f64,
+    /// The ellipse the circle is.
+    pub ellipse: Ellipse,
 }
 
-pltrs_core::archive_struct!(Circle { center, radius });
+pltrs_core::archive_struct!(Circle { ellipse });
 
 impl Circle {
     /// A circle of `radius` around `center`.
     pub fn new(center: impl Into<Point>, radius: f64) -> Self {
         Self {
-            center: center.into(),
-            radius,
+            ellipse: Ellipse::new(center, radius * 2.0, radius * 2.0),
         }
+    }
+
+    /// The radius: half the width (matplotlib's `get_radius`).
+    pub fn radius(&self) -> f64 {
+        self.ellipse.width / 2.0
+    }
+
+    /// Makes the width and the height twice `radius` (matplotlib's
+    /// `set_radius`).
+    pub fn set_radius(&mut self, radius: f64) {
+        self.ellipse.width = radius * 2.0;
+        self.ellipse.height = radius * 2.0;
     }
 }
 
@@ -237,7 +257,7 @@ impl PatchShape for Circle {
     }
 
     fn patch_transform(&self) -> Affine2D {
-        Ellipse::new(self.center, self.radius * 2.0, self.radius * 2.0).patch_transform()
+        self.ellipse.patch_transform()
     }
 }
 

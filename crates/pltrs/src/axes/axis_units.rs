@@ -59,9 +59,46 @@ impl UnitHandle for Axis {
             }
         });
     }
+
+    /// Each axis sharing the axis, in turn, takes the category ticks
+    /// (matplotlib's `_update_axisinfo`) and follows the change of unit
+    /// (`_unit_change_handler`, which recomputes the data limits and asks
+    /// for autoscaling); then the axis takes its ticks again, as
+    /// `update_units` updates the axis info of a new converter once more.
+    /// Taking the ticks reads the view limits, bringing the view up to
+    /// date, while the axes has no data in the axis' direction (what
+    /// `set_default_intervals` checks first).
+    fn set_up_categories(&self) {
+        for axis in self.sharing() {
+            axis.default_intervals_read();
+            axis.update(|state| {
+                state.units_mut().adopt(UnitConverter::Categories);
+                state
+                    .categories_mut()
+                    .get_or_insert_with(Categories::default);
+                state.use_category_tickers();
+            });
+            axis.units_changed();
+        }
+        self.default_intervals_read();
+    }
 }
 
 impl Axis {
+    /// Brings the view up to date while no data was added to the axes
+    /// in the axis' direction, as matplotlib's `set_default_intervals`
+    /// reads the view limits only then (after `dataLim.mutatedx()`).
+    fn default_intervals_read(&self) {
+        let name = self.name;
+        let has_data = self.axes.raw().with::<AxesState, _>(|axes| {
+            let ((low, high), _) = axes.data_interval(name);
+            low.is_finite() || high.is_finite()
+        });
+        if !has_data {
+            self.axes.unstale_view();
+        }
+    }
+
     /// Converts plotting values to axis numbers, registering new category
     /// names (matplotlib's `update_units` + `convert_units`). The axes
     /// sharing this axis take over its converter, category names and the

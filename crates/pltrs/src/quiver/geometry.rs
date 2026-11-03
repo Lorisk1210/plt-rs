@@ -379,6 +379,10 @@ impl DrawTimeShapes for QuiverGeometry {
         Ok((paths, Transform::Affine(Affine2D::scaling(scale, scale))))
     }
 
+    fn limits_at_offsets(&self) -> bool {
+        true
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

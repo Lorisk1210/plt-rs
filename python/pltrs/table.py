@@ -23,7 +23,7 @@ import numpy as np
 from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors,
                _python_drawing, cbook, colors as mcolors)
 from ._program_classes import takes_from_program
-from ._native import table as _table
+from ._native import artist as _artist, table as _table
 from .artist import Artist, allow_rasterization
 from .patches import Rectangle
 from .path import Path
@@ -34,6 +34,9 @@ from .transforms import Affine2D, BboxBase, Bbox, BboxTransformTo
 class _CellHolder:
     """The native table holding a cell made outside any table, and the
     figure given to the cell (`Cell.set_figure`)."""
+
+    #: A cell in no table keeps the corner it was made with.
+    _placements = 0
 
     def __init__(self):
         self._native = _table.new(None, "bottom", None)
@@ -167,6 +170,8 @@ substring of 'BRTL'
         cell._key = key
         cell._figure = None
         cell._native = _table.cell_rectangle(cell._ref())
+        # Where matplotlib's tables make their cells (`add_cell`).
+        cell._given_xy = ((0, 0), 0)
         return _mirrors.attach(cell, _CellLook())
 
     def _ref(self):
@@ -205,6 +210,12 @@ substring of 'BRTL'
         """
         self._cell_transform = t
         _table.set_cell_transform(self._ref(), _live_transforms.to_native(t))
+
+    def is_transform_set(self):
+        """Return whether the cell was given its transform: a table gives
+        each cell of it one (`set_transform`)."""
+        return ("_cell_transform" in self.__dict__
+                or not isinstance(self._table, _CellHolder))
 
     def get_data_transform(self):
         """Return the transform the cell is placed in: the one set, else
@@ -340,10 +351,33 @@ substring of 'BRTL'
         return Path(vertices, codes, readonly=True)
 
     def get_xy(self):
-        """Return the left and bottom coords of the cell as a tuple: where
-        its table places it (pltrs: in the figure's current layout)."""
+        """Return the left and bottom coords of the cell as a tuple: the
+        corner it was made with or given since its table last placed it,
+        else where its table placed it when drawn or measured (pltrs: in
+        the figure's current layout)."""
+        given, placements = self.__dict__.get("_given_xy", (None, 0))
+        if given is not None and placements == self._table._placements:
+            return given
         corner = _table.cell_corner(self._ref())
-        return super().get_xy() if corner is None else corner
+        if corner is None or not self._table._placements:
+            return super().get_xy()
+        # The numpy floats matplotlib's table computes the corners as.
+        return tuple(map(np.float64, corner))
+
+    def _set_fields(self, x=None, y=None, *args, **kwargs):
+        # A corner given stays until the table places the cell again.
+        if x is not None or y is not None:
+            corner = self.get_xy()
+            self._given_xy = ((corner[0] if x is None else x,
+                               corner[1] if y is None else y),
+                              self._table._placements)
+        super()._set_fields(x, y, *args, **kwargs)
+
+    def get_bbox(self):
+        """Return the `.Bbox` of the cell: at its corner (`get_xy`), as
+        large as it is."""
+        x, y = self.get_xy()
+        return Bbox.from_extents(x, y, x + self.get_width(), y + self.get_height())
 
     def get_x(self):
         """Return the left coordinate of the cell."""
@@ -431,8 +465,23 @@ class Table(Artist):
 
     def get_window_extent(self, renderer=None):
         """Return the table's box in display space, where pltrs (Rust)
-        lays it out (matplotlib computes it from the table's layout)."""
-        return self._laid_out_extent()
+        lays it out in the figure as it is (matplotlib computes it from the
+        table's layout, placing its cells)."""
+        self._place_cells()
+        return self._extent_as_is()
+
+    def _place_cells(self):
+        """Count a placing of the cells outside the figure's draws."""
+        self._measures = self.__dict__.get("_measures", 0) + 1
+
+    @property
+    def _placements(self):
+        """How many times the table placed its cells, which matplotlib's
+        table does when it is drawn or measured (``_update_positions``):
+        until then they keep the corner they were made with, and a corner
+        given to a cell stays until the next time."""
+        drawn = 0 if self._figure is None else _artist.draw_count(self._native)
+        return self.__dict__.get("_measures", 0) + drawn
 
     codes = {'best': 0,
              'upper right':  1,  # default
@@ -539,6 +588,7 @@ class Table(Artist):
         # docstring inherited
         if not self.get_visible():
             return
+        self._place_cells()  # Drawing places the cells first.
         renderer.open_group('table', gid=self.get_gid())
         for key in sorted(_table.cell_keys(self._native)):
             self[key].draw(renderer)

@@ -242,14 +242,22 @@ impl FigureState {
             .or_else(|| self.figure_bbox_of(self.store.get(artist)?.base().parent?))
     }
 
-    /// [`prepare`](Self::prepare) without the layout engine: the figure
-    /// as it is now, its axes where they are until the next draw or
-    /// layout pass places them (matplotlib computes ticks between draws
-    /// without its layout engine). A due layout pass stays due.
-    pub(crate) fn prepare_as_is(&mut self) {
-        let pending = std::mem::take(&mut self.layout.pending);
-        self.prepare();
-        self.layout.pending |= pending;
+    /// Brings the ticks of `axes` up to date as matplotlib computes them
+    /// between draws (`Axis._update_ticks`): its view autoscaled (reading
+    /// the view limits does), then ticked over the axes where it is now,
+    /// neither the layout engine nor the aspect placing it first (they do
+    /// when the figure is drawn or laid out).
+    pub(crate) fn update_ticks_as_is(&mut self, axes: ArtistId) {
+        self.sync_secondary(axes);
+        self.unstale_axes(axes);
+        let Some(extent) = self.axes_bbox(axes) else {
+            return;
+        };
+        let dpi = self.dpi();
+        let shared = self.shared_tick_spaces(axes);
+        if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
+            state.update_ticks(&extent, dpi, shared);
+        }
     }
 
     /// The mutable pass before drawing: a due layout-engine pass, then

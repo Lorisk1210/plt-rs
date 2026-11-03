@@ -266,6 +266,23 @@ fn set_fill_between_data(
     Ok(())
 }
 
+/// The box of the points a fill between curves fills, `(x0, y0, x1,
+/// y1)`, and their smallest positive coordinates (matplotlib's
+/// `FillBetweenPolyCollection._bbox` and its `minpos`).
+type FilledLimits = ((f64, f64, f64, f64), (f64, f64));
+
+/// The [`FilledLimits`] of a fill between curves, `None` for other
+/// collections.
+fn fill_between_limits(collection: Collection) -> PyResult<Option<FilledLimits>> {
+    Ok(collection.fill_between_limits().map(|limits| {
+        let bbox = limits.bbox;
+        (
+            (bbox.x0(), bbox.y0(), bbox.x1(), bbox.y1()),
+            (limits.minpos.x, limits.minpos.y),
+        )
+    }))
+}
+
 /// The vertex grid of a quad mesh as a `(rows, columns, 2)` array, `None`
 /// for other collections (matplotlib's `get_coordinates`).
 fn get_coordinates(collection: Collection) -> PyResult<Option<NdArray>> {
@@ -567,6 +584,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_offset_transform", get_offset_transform)?;
     module.add("set_offset_transform", set_offset_transform)?;
     module.add("set_fill_between_data", set_fill_between_data)?;
+    module.add("fill_between_limits", fill_between_limits)?;
     module.add("get_coordinates", get_coordinates)?;
     module.add("get_mesh_shape", get_mesh_shape)?;
     module.add("get_mesh_shading", get_mesh_shading)?;

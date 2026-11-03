@@ -4,36 +4,40 @@
 use pltrs_core::Bbox;
 
 use super::PadInches;
-use crate::artist::{ArtistId, LayoutContext, tight_extent_of};
+use crate::artist::{ArtistHandle, ArtistId, LayoutContext, tight_extent_of};
 use crate::axes::{AxesState, clipped_extent};
 use crate::figure::frame::FigureFrame;
 use crate::figure::{Figure, FigureState};
 use crate::layout::LayoutEngine;
+use crate::transforms::TransformContext;
 
 impl FigureState {
-    /// The area everything visible is drawn in, in display pixels
-    /// (matplotlib's `Figure.get_tightbbox`): the figure-level artists
-    /// that take part in layout and the tight boxes of the visible axes;
-    /// `None` when nothing is drawn.
-    fn figure_tight_bbox(&mut self) -> Option<Bbox> {
+    /// The tight box of frame `frame`, the root figure or a subfigure, in
+    /// display pixels (matplotlib's `FigureBase.get_tightbbox`, before the
+    /// root's is turned into inches): the union of its artists that are
+    /// visible and take part in layout, of its subfigures that do (each
+    /// its own tight box, or its box when nothing in it gives one) and of
+    /// its visible axes; `None` when none of them gives a box. The figure
+    /// is laid out first.
+    fn frame_tight_bbox(&mut self, frame: ArtistId) -> Option<Bbox> {
         self.prepare();
+        self.frame_tight_extent(frame)
+    }
+
+    /// [`frame_tight_bbox`](Self::frame_tight_bbox) in the figure laid out.
+    fn frame_tight_extent(&mut self, frame: ArtistId) -> Option<Bbox> {
+        let children = self.store.get_as::<FigureFrame>(frame)?.children.clone();
         let mut boxes = Vec::new();
-        let mut frames = vec![self.root];
         let mut axes = Vec::new();
-        while let Some(frame) = frames.pop() {
-            let Some(node) = self.store.get_as::<FigureFrame>(frame) else {
-                continue;
-            };
-            for &child in &node.children {
-                if self.store.get_as::<FigureFrame>(child).is_some() {
-                    frames.push(child);
-                } else if self.store.get_as::<AxesState>(child).is_some() {
-                    axes.push(child);
-                } else if crate::mplot3d::is_axes3d(&self.store, child) {
-                    boxes.extend(crate::mplot3d::axes3d_tight_bbox(self, child, false));
-                } else {
-                    boxes.extend(self.artist_extent(child));
-                }
+        for child in children {
+            if self.store.get_as::<FigureFrame>(child).is_some() {
+                boxes.extend(self.subfigure_tight_extent(child));
+            } else if self.store.get_as::<AxesState>(child).is_some() {
+                axes.push(child);
+            } else if crate::mplot3d::is_axes3d(&self.store, child) {
+                boxes.extend(crate::mplot3d::axes3d_tight_bbox(self, child, false));
+            } else {
+                boxes.extend(self.artist_extent(child));
             }
         }
         boxes.extend(
@@ -48,6 +52,17 @@ impl FigureState {
                     && (b.width() != 0.0 || b.height() != 0.0)
             })
             .reduce(|a, b| a.union(&b))
+    }
+
+    /// The tight box of the subfigure `frame` in its parent's: its own,
+    /// else its box, `None` while it is hidden or out of layout.
+    fn subfigure_tight_extent(&mut self, frame: ArtistId) -> Option<Bbox> {
+        let base = self.store.get(frame)?.base();
+        if !(base.visible && base.in_layout) {
+            return None;
+        }
+        self.frame_tight_extent(frame)
+            .or_else(|| self.frame_bbox(frame))
     }
 
     /// The extent of a visible figure-level artist that takes part in
@@ -72,13 +87,39 @@ impl Figure {
         self.root_handle().measure_painters();
         let mut state = self.state_mut();
         let dpi = state.dpi();
-        state.figure_tight_bbox().map_or_else(
+        let root = state.root;
+        state.frame_tight_bbox(root).map_or_else(
             || {
                 let (w, h) = state.size_inches;
                 Bbox::from_bounds(0.0, 0.0, w, h)
             },
             |b| Bbox::from_extents(b.x0() / dpi, b.y0() / dpi, b.x1() / dpi, b.y1() / dpi),
         )
+    }
+
+    /// The tight box of this figure or subfigure in display pixels:
+    /// everything visible in it that takes part in layout, its subfigures
+    /// each counting with its own tight box, or its box when nothing in
+    /// it gives one; `None` when nothing does (matplotlib's
+    /// `FigureBase.get_tightbbox`, in pixels for a subfigure, which
+    /// [`tight_bbox`](Self::tight_bbox) turns into inches for the root).
+    ///
+    /// ```
+    /// use pltrs::figure::{Figure, SubfigureOptions};
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
+    /// let subfigs = fig.subfigures(1, 2, SubfigureOptions::default())?;
+    /// subfigs[(0, 0)].subplot();
+    /// let left = subfigs[(0, 0)].tight_extent().expect("an axes");
+    /// assert!(left.x1() < 320.0);
+    /// assert_eq!(subfigs[(0, 1)].tight_extent(), None, "nothing in it");
+    /// let whole = fig.tight_extent().expect("both subfigures");
+    /// assert_eq!(whole.x1(), 640.0, "the empty one counts with its box");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn tight_extent(&self) -> Option<Bbox> {
+        self.root_handle().measure_painters();
+        let frame = self.raw().id();
+        self.state_mut().frame_tight_bbox(frame)
     }
 
     /// The horizontal and vertical padding, in inches, around a tight saved
@@ -98,7 +139,7 @@ impl Figure {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artist::{ArtistHandle, ClipPathSpec};
+    use crate::artist::ClipPathSpec;
 
     #[test]
     fn layout_padding_follows_constrained_layout_only() {

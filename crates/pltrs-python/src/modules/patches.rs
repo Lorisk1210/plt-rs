@@ -300,31 +300,42 @@ fn rotation(rotation_point: &Bound<'_>) -> PyResult<RotationPoint> {
 }
 
 /// `(x, y, width, height, angle)` of an ellipse.
-fn ellipse(patch: Patch<Ellipse>) -> PyResult<(f64, f64, f64, f64, f64)> {
-    let shape = patch.shape();
-    Ok((
-        shape.center.x,
-        shape.center.y,
-        shape.width,
-        shape.height,
-        shape.angle,
-    ))
+type EllipseFields = (f64, f64, f64, f64, f64);
+
+/// The [`EllipseFields`] of `ellipse`.
+fn ellipse_fields(ellipse: &Ellipse) -> EllipseFields {
+    (
+        ellipse.center.x,
+        ellipse.center.y,
+        ellipse.width,
+        ellipse.height,
+        ellipse.angle,
+    )
+}
+
+/// Gives `ellipse` the centre `(x, y)`, the axes `width` and `height` and
+/// the `angle`.
+fn place_ellipse(ellipse: &mut Ellipse, (x, y): (f64, f64), width: f64, height: f64, angle: f64) {
+    ellipse.center = Point::new(x, y);
+    ellipse.width = width;
+    ellipse.height = height;
+    ellipse.angle = angle;
+}
+
+/// `(x, y, width, height, angle)` of an ellipse.
+fn ellipse(patch: Patch<Ellipse>) -> PyResult<EllipseFields> {
+    Ok(ellipse_fields(&patch.shape()))
 }
 
 /// Sets an ellipse's geometry.
 fn set_ellipse(
     patch: Patch<Ellipse>,
-    (x, y): (f64, f64),
+    center: (f64, f64),
     width: f64,
     height: f64,
     angle: f64,
 ) -> PyResult<()> {
-    patch.update_shape(|shape| {
-        shape.center = Point::new(x, y);
-        shape.width = width;
-        shape.height = height;
-        shape.angle = angle;
-    });
+    patch.update_shape(|shape| place_ellipse(shape, center, width, height, angle));
     Ok(())
 }
 
@@ -363,18 +374,20 @@ fn set_arc_angles(patch: Patch<Arc>, theta1: f64, theta2: f64) -> PyResult<()> {
     Ok(())
 }
 
-/// `(x, y, radius)` of a circle.
-fn circle(patch: Patch<Circle>) -> PyResult<(f64, f64, f64)> {
-    let shape = patch.shape();
-    Ok((shape.center.x, shape.center.y, shape.radius))
+/// `(x, y, width, height, angle)` of the ellipse a circle is.
+fn circle(patch: Patch<Circle>) -> PyResult<EllipseFields> {
+    Ok(ellipse_fields(&patch.shape().ellipse))
 }
 
-/// Sets a circle's geometry.
-fn set_circle(patch: Patch<Circle>, (x, y): (f64, f64), radius: f64) -> PyResult<()> {
-    patch.update_shape(|shape| {
-        shape.center = Point::new(x, y);
-        shape.radius = radius;
-    });
+/// Sets the geometry of the ellipse a circle is.
+fn set_circle(
+    patch: Patch<Circle>,
+    center: (f64, f64),
+    width: f64,
+    height: f64,
+    angle: f64,
+) -> PyResult<()> {
+    patch.update_shape(|shape| place_ellipse(&mut shape.ellipse, center, width, height, angle));
     Ok(())
 }
 

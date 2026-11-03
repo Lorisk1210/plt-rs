@@ -548,13 +548,25 @@ impl DrawnDpiCor {
 
     /// The pixels per point the arrow of artist `owner` is measured at:
     /// the canvas resolution when `layout` counts the artist as drawn
-    /// (see [`LayoutContext::with_drawn`]), else that of its last draw, or
-    /// until it draws [`LayoutContext::measured_dpi_cor`].
+    /// (see [`LayoutContext::with_drawn`]), else that of its last draw;
+    /// until it draws, [`LayoutContext::measured_dpi_cor`], or one for an
+    /// animated arrow, which the figure's draws leave out (matplotlib's
+    /// initial `_dpi_cor`, which an arrow never drawn keeps).
     pub(crate) fn measured(&self, layout: LayoutContext<'_>, owner: ArtistId) -> f64 {
         if layout.drawn.contains(&owner) {
             return layout.points_to_pixels(1.0);
         }
-        self.0.get().unwrap_or_else(|| layout.measured_dpi_cor())
+        let animated = layout
+            .store()
+            .get(owner)
+            .is_some_and(|artist| artist.base().animated);
+        self.0.get().unwrap_or_else(|| {
+            if animated {
+                1.0
+            } else {
+                layout.measured_dpi_cor()
+            }
+        })
     }
 }
 

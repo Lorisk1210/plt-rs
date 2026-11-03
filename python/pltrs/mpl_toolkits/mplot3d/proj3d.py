@@ -108,7 +108,10 @@ def proj_transform(xs, ys, zs, M):
     """
     Transform the points by the projection matrix *M*.
     """
-    return _transform(xs, ys, zs, M)
+    # Shaped as the points are given: numpy floats for one point, as
+    # matplotlib divides the rows of its padded array.
+    shape = np.broadcast(xs, ys, zs).shape
+    return tuple(np.reshape(ts, shape)[()] for ts in _transform(xs, ys, zs, M))
 
 
 @_api.deprecated("3.10")

@@ -440,10 +440,40 @@ impl AnnotationBbox {
         self
     }
 
-    /// Places the frame and the parts of the child where the figure draws
-    /// them in its current layout, as the figure lays out its boxes before
-    /// a draw (matplotlib's `update_positions`): the frame's box and
-    /// mutation scale ([`AnnotationBbox::patch`]) are then those drawn.
+    /// The font size, in points, that scales the frame and the arrow
+    /// (matplotlib's `get_fontsize`).
+    pub fn fontsize(&self) -> f64 {
+        self.raw.with::<AnnotationBboxArtist, _>(|ab| ab.fontsize)
+    }
+
+    /// Sets the font size, in points, that scales the frame and the arrow
+    /// (matplotlib's `set_fontsize`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::offsetbox::{AnnotationBboxOptions, TextArea};
+    /// use pltrs::text::TextProps;
+    /// let ax = Figure::new().subplot();
+    /// let note = ax.add_annotation_bbox(
+    ///     TextArea::from_text("peak", TextProps::default()),
+    ///     (0.5, 0.7),
+    ///     AnnotationBboxOptions::default(),
+    /// )?;
+    /// note.set_fontsize(14.0);
+    /// assert_eq!(note.fontsize(), 14.0);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_fontsize(&self, points: f64) -> &Self {
+        self.raw
+            .with_mut::<AnnotationBboxArtist, _>(|ab| ab.fontsize = points);
+        self
+    }
+
+    /// Places the frame and the parts of the child in the figure as it is
+    /// now, not laid out first (matplotlib's `update_positions`, which
+    /// reads the view limits and positions as they are): the frame's box
+    /// and mutation scale ([`AnnotationBbox::patch`]) are then those of
+    /// a draw of the figure in that state.
     ///
     /// ```
     /// use pltrs::prelude::*;
@@ -460,7 +490,7 @@ impl AnnotationBbox {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn update_positions(&self) {
-        self.raw.figure_state().borrow_mut().prepare();
+        super::lay_out_box(&mut self.raw.figure_state().borrow_mut(), self.raw.id());
     }
 
     /// The frame (matplotlib's `patch`).

@@ -5,7 +5,7 @@ Matrices drawn as images: `~.Axes.pcolorfast`, `~.Axes.spy` and
 
 import numpy as np
 
-from ... import _api, cbook, collections as mcoll, colors as mcolors
+from ... import _api, _values, cbook, collections as mcoll, colors as mcolors
 from ... import image as mimage, lines as mlines
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -132,6 +132,9 @@ class ImagesMixin:
              None if markersize is None else float(markersize), aspect, origin, line))
         if image is not None:
             ret = wrap(self, image, mimage.AxesImage)
+            # matplotlib's spy draws through imshow, which keeps the extent
+            # it sets as a list.
+            _values.remember(ret, "extent", list(ret.get_extent()))
             ret._set_mapped_data(made, np.abs(np.asarray(Z)) > precision)
             ret._internal_update(kwargs)
             return ret

@@ -26,7 +26,7 @@ from . import (_api, _artist_clipping, _handles, _live_transforms, _values, cboo
                collections as mcollections,
                colors as mcolors, transforms)
 from . import artist as martist
-from ._native import plotting as _plotting
+from ._native import artist as _artist, plotting as _plotting
 
 
 def _parse_args(*args, caller_name='function'):
@@ -234,6 +234,19 @@ class QuiverKey(martist.Artist):
                  for vertices, codes in _plotting.quiverkey_paths(self._native)]
         return mcollections.PolyCollection([path.vertices for path in paths])
 
+    def get_transform(self):
+        """Return the transform of the key's coordinates once the key was
+        drawn (matplotlib's ``_set_transform``, which its draw runs)."""
+        if self._figure is None or not _artist.draw_count(self._native):
+            return super().get_transform()
+        fig = self.Q.axes.get_figure(root=False)
+        return _api.getitem_checked({
+            "data": self.Q.axes.transData,
+            "axes": self.Q.axes.transAxes,
+            "figure": fig.transFigure,
+            "inches": fig.dpi_scale_trans,
+        }, coordinates=self.coord)
+
 
 class Quiver(mcollections.PolyCollection):
     """
@@ -337,6 +350,36 @@ class Quiver(mcollections.PolyCollection):
         self.V = V.filled(1)
         self.Umask = ma.getmask(U)
         self._C = C
+
+    def get_transform(self):
+        """
+        Return the transform of the arrows: from arrow width units to
+        pixels once the quiver was drawn (matplotlib's ``_set_transform``,
+        which each draw runs, setting a new `.Affine2D`), the one given
+        before.
+        """
+        draws = 0 if self._figure is None else _artist.draw_count(self._native)
+        if not draws:
+            return super().get_transform()
+        made = self.__dict__.get("_drawn_transform")
+        if made is None or made[0] != draws:
+            made = self._drawn_transform = (
+                draws, transforms.Affine2D().scale(self._dots_per_unit(self.units)))
+        return made[1]
+
+    def _dots_per_unit(self, units):
+        """Return a scale factor for converting from units to pixels."""
+        bb = self.axes.bbox
+        vl = self.axes.viewLim
+        return _api.getitem_checked({
+            'x': bb.width / vl.width,
+            'y': bb.height / vl.height,
+            'xy': np.hypot(*bb.size) / np.hypot(*vl.size),
+            'width': bb.width,
+            'height': bb.height,
+            'dots': 1.,
+            'inches': self.axes.get_figure(root=True).dpi,
+        }, units=units)
 
     def get_datalim(self, transData):
         # docstring inherited

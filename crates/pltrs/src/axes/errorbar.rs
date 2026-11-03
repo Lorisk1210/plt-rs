@@ -527,7 +527,6 @@ impl Axes {
                 caps.extend(style.caps(self, points, cap_marker, direction.axis));
             }
         }
-        let inverted = self.axis_of(direction.axis).inverted();
         for (upper_end, lims, ends) in [
             (false, &direction.lolims, high),
             (true, &direction.uplims, low),
@@ -535,6 +534,9 @@ impl Axes {
             if !lims.contains(&true) {
                 continue;
             }
+            // Read only for limit markers, as matplotlib reads it: reading
+            // the view applies the autoscaling pending.
+            let inverted = self.axis_of(direction.axis).inverted();
             let marker = if inverted ^ upper_end {
                 hi_marker
             } else {

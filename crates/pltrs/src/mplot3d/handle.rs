@@ -11,7 +11,7 @@ use super::coords::Axis3;
 use super::error::Axes3DError;
 use super::math::{Matrix4, Vec3};
 use super::share::replay;
-use super::state::Axes3DState;
+use super::state::{Axes3DState, BoxFit};
 use super::units::Sources3D;
 use crate::artist::{Artist, ArtistHandle, ArtistId, ArtistLookup, RawHandle, TypedHandle};
 use crate::axes::Axes;
@@ -209,6 +209,28 @@ impl Axes3D {
     /// once the figure was drawn).
     pub fn position(&self) -> Bbox {
         self.raw.figure_state().borrow_mut().prepare();
+        self.active_position()
+    }
+
+    /// Makes the box square in its placement where the axes is now, the
+    /// figure not laid out, and gives the placement as a fraction of the
+    /// figure (matplotlib's `get_position`, which applies the aspect).
+    ///
+    /// ```
+    /// use pltrs::figure::Figure;
+    /// let fig = Figure::with_size(6.4, 4.8, 100.0);
+    /// let ax = fig.subplot_3d();
+    /// let square = ax.squared_position();
+    /// let pixels = (square.width() * 6.4, square.height() * 4.8);
+    /// assert!((pixels.0 - pixels.1).abs() < 1e-9, "{pixels:?}");
+    /// ```
+    pub fn squared_position(&self) -> Bbox {
+        self.with_mut(|axes| axes.fit = BoxFit::Squared);
+        self.active_position()
+    }
+
+    /// The active position in the fractions of the axes' frame.
+    fn active_position(&self) -> Bbox {
         let state = self.raw.figure_state().borrow();
         self.with(|axes| {
             let frame = axes.base().parent.and_then(|f| state.frame_bbox(f));
@@ -265,6 +287,7 @@ impl Axes3D {
     pub(crate) fn place(&self, position: Bbox, spec: Option<SubplotSpec>) {
         self.with_mut(|axes| {
             axes.position = position;
+            axes.fit = BoxFit::Placed;
             if spec.is_some() {
                 axes.subplot_spec = spec;
             }

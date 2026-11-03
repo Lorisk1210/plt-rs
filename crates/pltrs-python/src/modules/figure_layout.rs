@@ -144,10 +144,11 @@ fn axes_tightbbox(
     Ok(bbox.map(extents))
 }
 
-/// The area everything visible is drawn in, in inches
-/// (`Figure.get_tightbbox`).
-fn figure_tightbbox(figure: Figure) -> PyResult<(f64, f64, f64, f64)> {
-    Ok(extents(figure.tight_bbox()))
+/// The area everything visible in the (sub)figure is drawn in, in display
+/// pixels, None when nothing is (`FigureBase.get_tightbbox` before the
+/// root figure's box is turned into inches).
+fn figure_tightbbox(figure: Figure) -> PyResult<Option<(f64, f64, f64, f64)>> {
+    Ok(figure.tight_extent().map(extents))
 }
 
 /// Registers the module's functions.

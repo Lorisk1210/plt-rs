@@ -435,9 +435,19 @@ markers, a patch's path through its transform, a collection's data
 limits in display coordinates (`get_datalim` with the identity: null for
 a scatter's offsets in data), an image's extent through its transform, a
 text where its transform puts it (`RawHandle::extent_as_is`, the figure
-not laid out), `Artist`'s zero box. Legends, tables, offset boxes and the
-parts of axis artists, whose matplotlib extents come from their layout,
-give where pltrs (Rust) lays them out (`_laid_out_extent`).
+not laid out), `Artist`'s zero box. Legends, tables and annotation boxes,
+which matplotlib lays out when they are measured, give where pltrs (Rust)
+places them in the figure as it is (`_extent_as_is`); anchored offset
+boxes and the parts of axis artists, whose matplotlib extents come from
+their layout, give where pltrs (Rust) lays them out (`_laid_out_extent`).
+
+State matplotlib only updates when it draws an artist (the transform of
+an annotation, the path of a spine or an arc, the transform of a quiver,
+the size transforms of a collection, the corners of table cells)
+follows pltrs (Rust)'s count of the draws of each artist
+(`RawHandle::draw_count`, `_native.artist.draw_count`): the Python side
+keeps what it computed with the count it computed it at, and computes
+it again once the count moved on.
 
 `_live_transforms` is the one bridge between the two trees, both ways:
 

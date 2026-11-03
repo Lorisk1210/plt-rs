@@ -197,6 +197,25 @@ impl RawHandle {
         }
     }
 
+    /// How many times the artist was drawn, in its figure's draws or
+    /// alone (an invisible artist draws nothing): what tells the values
+    /// matplotlib's artists compute as they are drawn (an annotation's
+    /// transform, a spine's path) from those they hold before.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let label = fig.subplot().text(0.5, 0.5, "drawn");
+    /// assert_eq!(label.raw().draw_count(), 0);
+    /// fig.canvas().draw()?;
+    /// fig.canvas().draw()?;
+    /// assert_eq!(label.raw().draw_count(), 2);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn draw_count(&self) -> u64 {
+        self.figure.borrow().draw_count(self.id)
+    }
+
     /// Reads the common artist properties.
     pub(crate) fn with_base<R>(&self, f: impl FnOnce(&ArtistBase) -> R) -> R {
         let state = self.figure.borrow();

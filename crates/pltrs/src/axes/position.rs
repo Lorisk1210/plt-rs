@@ -76,6 +76,32 @@ impl Axes {
     pub fn position(&self) -> Bbox {
         let host = self.host().map(|host| host.position());
         self.apply_aspect();
+        self.active_position_in(host)
+    }
+
+    /// Placement as a fraction of the figure (or subfigure) as the axes
+    /// was last placed, its aspect not applied first: matplotlib's
+    /// `get_position` of an axes with a locator (an inset, a secondary
+    /// axes), which only its draw places and adjusts to its aspect.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// let ax = Figure::new().subplot();
+    /// let inset = ax.inset_axes([0.5, 0.5, 0.25, 0.25]);
+    /// inset.set_box_aspect(Some(2.0))?;
+    /// let placed = inset.located_position();
+    /// assert!((placed.width() - 0.25 * ax.position().width()).abs() < 1e-12);
+    /// assert!(inset.position().width() < placed.width(), "the aspect narrows it");
+    /// # Ok::<(), pltrs::axes::AspectError>(())
+    /// ```
+    pub fn located_position(&self) -> Bbox {
+        let host = self.host().map(|host| host.located_position());
+        self.active_position_in(host)
+    }
+
+    /// The active position, in the figure fractions of `host`'s box for an
+    /// axes placed in another.
+    fn active_position_in(&self, host: Option<Bbox>) -> Bbox {
         let active = self
             .raw
             .with::<AxesState, _>(|a| a.aspect.active_position(&a.position));

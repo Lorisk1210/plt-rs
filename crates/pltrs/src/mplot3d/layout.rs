@@ -6,7 +6,7 @@
 
 use pltrs_core::Bbox;
 
-use super::state::{Axes3DState, axes3d_fresh_tight_bbox};
+use super::state::{Axes3DState, BoxFit, axes3d_fresh_tight_bbox};
 use crate::artist::{Artist, ArtistId, ArtistStore};
 use crate::figure::FigureState;
 use crate::gridspec::SubplotSpec;
@@ -40,6 +40,7 @@ pub(crate) fn set_axes3d_position(figure: &mut FigureState, id: ArtistId, positi
         return false;
     };
     axes.position = position;
+    axes.fit = BoxFit::Placed;
     true
 }
 

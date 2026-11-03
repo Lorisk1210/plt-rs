@@ -887,6 +887,23 @@ class Axes3D(ChartsMixin, ContoursMixin, VoxelsMixin, Axes):
         self.__dict__['_vertical_axis_name'] = other._axis_names[
             other._vertical_axis]
 
+    def set_anchor(self, anchor, share=False):
+        # docstring inherited; the square box of the 3-D axes is anchored
+        # there too.
+        super().set_anchor(anchor, share)
+        named = isinstance(anchor, str)
+        for ax in self._aspect_group(share):
+            _mplot3d.set_anchor(ax._native, anchor if named else None,
+                                (0.0, 0.0) if named else tuple(map(float, anchor)))
+
+    def get_position(self, original=False):
+        """
+        Return the position of the Axes within the figure as a `.Bbox`:
+        its box made square in it (``apply_aspect``), or the original
+        position.
+        """
+        return Bbox.from_extents(*_mplot3d.position(self._native, bool(original)))
+
     def get_tightbbox(self, renderer=None, *, call_axes_locator=True,
                       bbox_extra_artists=None, for_layout_only=False):
         # docstring inherited

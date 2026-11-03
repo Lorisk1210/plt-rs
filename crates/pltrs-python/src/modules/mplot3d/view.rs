@@ -9,6 +9,7 @@ use pltrs::mplot3d::{Aspect3D, Axes3D};
 use pltrs::navigation::DragKey;
 use pltrs_core::Point;
 
+use super::super::axes_base::aspect::anchor;
 use super::axis3;
 use super::create::proj_type_of;
 use crate::binding::prelude::*;
@@ -76,6 +77,24 @@ fn calc_coord(axes: Axes3D, xv: f64, yv: f64) -> PyResult<Option<PanePoint>> {
     Ok(axes
         .pane_point(xv, yv)
         .map(|([x, y, z], pane)| ((x, y, z), pane.index())))
+}
+
+/// Places the square box at the anchor named `code`, or at the fractions
+/// `(x, y)` of its placement (`set_anchor`).
+fn set_anchor(axes: Axes3D, code: Option<String>, fractions: (f64, f64)) -> PyResult<()> {
+    axes.set_anchor(anchor(code, fractions)?);
+    Ok(())
+}
+
+/// `(left, bottom, right, top)` of the axes in figure fractions: its box
+/// made square, or before it is when `original` (`get_position`).
+fn position(axes: Axes3D, original: bool) -> PyResult<(f64, f64, f64, f64)> {
+    let bbox = if original {
+        axes.original_position()
+    } else {
+        axes.squared_position()
+    };
+    Ok(bbox.extents())
 }
 
 /// The tight bounding box of the axes in display coordinates, `(x0, y0,
@@ -269,6 +288,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_axis_position", get_axis_position)?;
     module.add("calc_coord", calc_coord)?;
     module.add("share", share)?;
+    module.add("position", position)?;
+    module.add("set_anchor", set_anchor)?;
     module.add("tightbbox", tightbbox)?;
     module.add("set_aspect", set_aspect)?;
     module.add("get_aspect", get_aspect)?;

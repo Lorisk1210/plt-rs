@@ -107,17 +107,7 @@ impl Axes {
         if !props.sets_face() {
             props = props.facecolor(self.next_patch_color());
         }
-        let geometry = FillGeometry {
-            orientation,
-            step: options.step,
-            interpolate: options.interpolate,
-        };
-        let mut limits = DataLimits::NULL;
-        limits.update_from_points(
-            &curves.selected_points(|t, f| geometry.place(t, f)),
-            true,
-            true,
-        );
+        let geometry = FillGeometry::new(orientation, (options.step, options.interpolate), curves);
         let mut collection = geometry.collection(curves);
         props.apply(&mut collection);
         let transform = collection
@@ -128,7 +118,7 @@ impl Axes {
         // (matplotlib's `_update_collection_limits`).
         let update = DataUpdate {
             update: transform.data_directions(self.id()),
-            ..DataUpdate::limits(limits)
+            ..DataUpdate::limits(geometry.filled)
         };
         Collection::from_raw(self.adopt_collection(collection, &update))
     }
@@ -143,15 +133,37 @@ pub(crate) struct FillGeometry {
     orientation: Orientation,
     step: Option<StepWhere>,
     interpolate: bool,
+    /// The box of the points filled, on both curves, and their smallest
+    /// positive coordinates (matplotlib's `_bbox`, which `get_datalim`
+    /// gives and the data limits take when the collection is made).
+    filled: DataLimits,
 }
 
 pltrs_core::archive_struct!(FillGeometry {
     orientation,
     step,
-    interpolate
+    interpolate,
+    filled
 });
 
 impl FillGeometry {
+    /// The geometry of the collection filling between `curves` along
+    /// `orientation`, with the `step` and `interpolate` options.
+    fn new(
+        orientation: Orientation,
+        (step, interpolate): (Option<StepWhere>, bool),
+        curves: &Curves,
+    ) -> Self {
+        let mut geometry = Self {
+            orientation,
+            step,
+            interpolate,
+            filled: DataLimits::NULL,
+        };
+        geometry.filled = curves.filled_limits(geometry);
+        geometry
+    }
+
     /// The point at parameter `t` with value `f`.
     fn place(self, t: f64, f: f64) -> Point {
         let (x, y) = self.orientation.place(t, f);
@@ -213,11 +225,7 @@ impl CollectionSpec {
         options: FillBetweenOptions,
     ) -> Result<Self, PlotError> {
         let curves = Curves::new(orientation, t, f1, f2, options.mask.as_deref())?;
-        let geometry = FillGeometry {
-            orientation,
-            step: options.step,
-            interpolate: options.interpolate,
-        };
+        let geometry = FillGeometry::new(orientation, (options.step, options.interpolate), &curves);
         let mut artist = geometry.collection(&curves);
         options.props.apply(&mut artist);
         Ok(Self {
@@ -256,15 +264,41 @@ impl Collection {
         f2: &[f64],
         mask: Option<&[bool]>,
     ) -> Result<&Self, PlotError> {
-        let geometry = self
-            .raw()
-            .with::<CollectionArtist, _>(|c| c.fill_geometry)
-            .ok_or(PlotError::NotFillBetween)?;
+        let mut geometry = self.fill_geometry().ok_or(PlotError::NotFillBetween)?;
         let curves = Curves::new(geometry.orientation, t, f1, f2, mask)?;
         let paths = geometry.polygons(&curves);
-        self.raw()
-            .with_mut::<CollectionArtist, _>(|c| c.paths = paths);
+        geometry.filled = curves.filled_limits(geometry);
+        self.raw().with_mut::<CollectionArtist, _>(|c| {
+            c.paths = paths;
+            c.fill_geometry = Some(geometry);
+        });
         Ok(self)
+    }
+
+    /// The box of the points a collection made by [`Axes::fill_between`]
+    /// or [`Axes::fill_betweenx`] fills (where its mask is set), on both
+    /// curves, with their smallest positive coordinates; `None` for other
+    /// collections (matplotlib's `FillBetweenPolyCollection._bbox`, which
+    /// its `get_datalim` gives: the regions extended to where the curves
+    /// cross are left out).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::axes::FillBetweenOptions;
+    /// let ax = Figure::new().subplot();
+    /// let options = FillBetweenOptions { mask: Some(vec![false, true, true]), interpolate: true, ..Default::default() };
+    /// let fill = ax.fill_between([0.0, 1.0, 2.0], [0.0, 2.0, 1.0], [1.0], options)?;
+    /// let filled = fill.fill_between_limits().expect("a fill");
+    /// assert_eq!((filled.bbox.x0(), filled.bbox.x1()), (1.0, 2.0));
+    /// # Ok::<(), pltrs::axes::PlotError>(())
+    /// ```
+    pub fn fill_between_limits(&self) -> Option<DataLimits> {
+        self.fill_geometry().map(|geometry| geometry.filled)
+    }
+
+    /// How the collection makes its polygons, if `fill_between` made it.
+    fn fill_geometry(&self) -> Option<FillGeometry> {
+        self.raw().with::<CollectionArtist, _>(|c| c.fill_geometry)
     }
 }
 
@@ -302,17 +336,20 @@ impl Curves {
         Ok(Self { t, f1, f2, fill })
     }
 
-    /// Every filled point on both curves, for the data limits.
-    fn selected_points(&self, place: impl Fn(f64, f64) -> Point) -> Vec<Point> {
+    /// The box of every filled point on both curves, placed by
+    /// `geometry`, with their smallest positive coordinates.
+    fn filled_limits(&self, geometry: FillGeometry) -> DataLimits {
         let on = |f: &[f64]| -> Vec<Point> {
             (0..self.t.len())
                 .filter(|&i| self.fill[i])
-                .map(|i| place(self.t[i], f[i]))
+                .map(|i| geometry.place(self.t[i], f[i]))
                 .collect()
         };
         let mut points = on(&self.f1);
         points.extend(on(&self.f2));
-        points
+        let mut limits = DataLimits::NULL;
+        limits.update_from_points(&points, true, true);
+        limits
     }
 
     /// The outline of the region `start..stop` as `(t, f)` pairs: along

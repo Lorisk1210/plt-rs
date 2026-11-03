@@ -76,9 +76,18 @@ impl<S: PatchShape> PatchParts<'_, S> {
         )
     }
 
+    /// The outlines in display space, as measured (arrow sizes at the
+    /// pixels per point of the last draw, see [`DrawnDpiCor`]).
+    pub(crate) fn measured_display_paths(
+        &self,
+        layout: LayoutContext<'_>,
+    ) -> Result<Vec<DisplayPath>, PatchError> {
+        self.display_paths(layout, self.measured_dpi_cor(layout))
+    }
+
     /// The extent of the outlines in display space, as measured.
     pub(crate) fn extent(&self, layout: LayoutContext<'_>) -> Option<Bbox> {
-        self.display_paths(layout, self.measured_dpi_cor(layout))
+        self.measured_display_paths(layout)
             .ok()?
             .iter()
             .map(|path| path.to_display().extents())

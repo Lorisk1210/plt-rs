@@ -35,6 +35,19 @@ class ExtentMixin:
             _artist.window_extent(self._native)
         return Bbox([[0, 0], [0, 0]]) if points is None else Bbox(points)
 
+    def _extent_as_is(self):
+        """
+        The artist's box in display space where pltrs (Rust) lays it out
+        in the figure as it is now (not laid out first: with the view
+        limits autoscaling has not computed yet and the positions a layout
+        engine has not set yet), a zero box outside any figure or for an
+        artist taking no space: the extent of the artists matplotlib lays
+        out when they are measured (legends, tables, offset boxes).
+        """
+        points = None if self._figure is None else \
+            _artist.window_extent_as_is(self._native)
+        return Bbox([[0, 0], [0, 0]]) if points is None else Bbox(points)
+
     def get_tightbbox(self, renderer=None):
         """
         Like `.Artist.get_window_extent`, but includes any clipping.

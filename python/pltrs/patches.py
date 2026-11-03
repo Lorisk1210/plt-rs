@@ -16,7 +16,7 @@ import numpy as np
 from . import _api, _mirrors, _values, cbook, colors as mcolors, units
 from ._enums import CapStyle, JoinStyle
 from ._fancy_styles import FancyStylesMixin, _style_object
-from ._native import patches as _patches
+from ._native import artist as _artist, patches as _patches
 from ._patch_styles import (  # noqa: F401  (matplotlib.patches exports them)
     ArrowStyle, BoxStyle, ConnectionStyle, _native_spec, _Style)
 
@@ -869,8 +869,9 @@ class Polygon(Patch):
         xy : (N, 2) array-like
             The coordinates of the vertices.
         """
-        xy = np.asarray(xy, dtype=float).reshape(-1, 2)
-        _patches.set_polygon(self._native, xy, self.get_closed())
+        xy = np.asarray(xy)
+        _, _ = xy.shape  # (N, 2): matplotlib unpacks it, failing otherwise.
+        _patches.set_polygon(self._native, xy.astype(float), self.get_closed())
 
     xy = property(get_xy, set_xy,
                   doc='The vertices of the path as a (N, 2) array.')
@@ -1473,27 +1474,30 @@ class Circle(Ellipse):
                                     "height": radius * 2, "angle": 0}, self._GIVEN)
         Patch.__init__(self, **kwargs)
 
+    # The ellipse the circle is: its width, height and angle change apart,
+    # as matplotlib's `Ellipse` setters change them.
+
     def _fields(self):
-        x, y, r = _patches.circle(self._native)
-        return x, y, 2 * r, 2 * r, 0.0
+        return _patches.circle(self._native)
 
     def _set_fields(self, center=None, width=None, height=None, angle=None):
-        x, y, r = _patches.circle(self._native)
-        given = {"center": center, "width": width, "height": width}
+        x, y, w, h, a = self._fields()
+        given = {"center": center, "width": width, "height": height, "angle": angle}
         center = (x, y) if center is None else center
-        radius = r if width is None else width / 2
         _patches.set_circle(self._native, (float(center[0]), float(center[1])),
-                            float(radius))
+                            float(w if width is None else width),
+                            float(h if height is None else height),
+                            float(a if angle is None else angle))
         _values.remember_all(self, {k: v for k, v in given.items() if v is not None},
                              self._GIVEN)
 
     def set_radius(self, radius):
         """Set the radius of the circle."""
-        self._set_fields(width=2 * radius)
+        self._set_fields(width=2 * radius, height=2 * radius)
 
     def get_radius(self):
         """Return the radius of the circle."""
-        return _patches.circle(self._native)[2]
+        return self.width / 2.
 
     radius = property(get_radius, set_radius)
 
@@ -1538,6 +1542,20 @@ class Arc(Ellipse):
                                     "angle": angle, "theta1": theta1, "theta2": theta2},
                              self._GIVEN + ("theta1", "theta2"))
         Patch.__init__(self, **kwargs)
+        self.get_path()  # The path of the arc as made.
+
+    def get_path(self):
+        """
+        Return the path of the arc: that of its angles stretched for its
+        width and height when it was last drawn, or else made, as
+        matplotlib's ``draw`` computes it (pltrs (Rust) draws the arc of
+        its geometry of then).
+        """
+        draws = _artist.draw_count(self._native)
+        if self.__dict__.get("_path_draws") != draws:
+            self._path_draws = draws
+            self._arc_path = super().get_path()
+        return self._arc_path
 
     def _fields(self):
         (x, y, w, h), (angle, _, _) = _patches.arc(self._native)
@@ -2116,6 +2134,9 @@ class Shadow(Patch):
         if patch.is_transform_set():
             self._given_transform = Artist.get_transform(patch)
         self._internal_update(kwargs)
+
+    def get_path(self):
+        return self.patch.get_path()
 
     def get_patch_transform(self):
         # The offset in points as the shadow is drawn, which matplotlib

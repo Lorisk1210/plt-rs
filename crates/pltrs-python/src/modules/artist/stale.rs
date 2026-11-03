@@ -1,6 +1,6 @@
 //! Whether an artist changed since it was last drawn (matplotlib's
 //! `Artist.stale`), as pltrs (Rust) tracks it for every artist of a
-//! figure, the figure itself included.
+//! figure, the figure itself included, and how many times it was drawn.
 
 use pltrs::artist::{ArtistHandle, RawHandle};
 
@@ -18,8 +18,15 @@ fn set_stale(artist: RawHandle, stale: bool) -> PyResult<()> {
     Ok(())
 }
 
+/// How many times the artist was drawn, which tells what matplotlib's
+/// `draw` methods compute as they draw from what they hold before.
+fn draw_count(artist: RawHandle) -> PyResult<u64> {
+    Ok(artist.draw_count())
+}
+
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("get_stale", get_stale)?;
-    module.add("set_stale", set_stale)
+    module.add("set_stale", set_stale)?;
+    module.add("draw_count", draw_count)
 }

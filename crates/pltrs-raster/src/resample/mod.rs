@@ -44,7 +44,7 @@ mod pixel;
 mod span;
 
 pub use error::ResampleError;
-pub use grid::{Grid, GridRef};
+pub use grid::{Grid, GridRef, Source};
 pub(crate) use lut::WeightLut;
 pub use params::{Interpolation, PixelTransform, ResampleParams};
 pub use pixel::Pixel;
@@ -80,7 +80,19 @@ pub fn resample<'a, P: Pixel>(
     dst: &mut Grid<P>,
     params: &ResampleParams,
 ) -> Result<(), ResampleError> {
-    let src = src.into();
+    resample_from(&src.into(), dst, params)
+}
+
+/// [`resample`] from any [`Source`] of pixels.
+///
+/// # Errors
+///
+/// As for [`resample`].
+pub fn resample_from<P: Pixel>(
+    src: &impl Source<P>,
+    dst: &mut Grid<P>,
+    params: &ResampleParams,
+) -> Result<(), ResampleError> {
     validate(src, dst, params)?;
     if dst.is_empty() {
         return Ok(());
@@ -161,7 +173,7 @@ pub fn resample<'a, P: Pixel>(
 
 /// Checks the arguments the way matplotlib's wrapper and Agg would fail.
 fn validate<P>(
-    src: GridRef<'_, P>,
+    src: &impl Source<P>,
     dst: &Grid<P>,
     params: &ResampleParams,
 ) -> Result<(), ResampleError> {
@@ -198,7 +210,7 @@ fn validate<P>(
 /// resampling (axis-aligned edges bumped out to whole pixels when within
 /// half a pixel), otherwise the whole destination.
 fn coverage<P>(
-    src: GridRef<'_, P>,
+    src: &impl Source<P>,
     dst: &Grid<P>,
     affine: Option<AggAffine>,
     interpolation: Interpolation,
@@ -321,7 +333,7 @@ enum Generator<'m> {
 
 impl Generator<'_> {
     /// Colours the run of `out.len()` pixels starting at `(x, y)`.
-    fn generate<P: Pixel>(&mut self, src: GridRef<'_, P>, x: i32, y: i32, out: &mut [P::Color]) {
+    fn generate<P: Pixel>(&mut self, src: &impl Source<P>, x: i32, y: i32, out: &mut [P::Color]) {
         match self {
             Self::NearestAffine(interpolator) => span::nearest(src, interpolator, x, y, out),
             Self::NearestMesh(interpolator) => span::nearest(src, interpolator, x, y, out),
@@ -565,6 +577,57 @@ mod tests {
                 140, 31, 3, 255, 250, 139, 28, 0
             ]
         );
+    }
+
+    /// Colours looked up in a palette as the resampler reads them.
+    struct Palette<'a> {
+        colors: &'a [[f64; 4]],
+        indices: &'a Grid<u8>,
+    }
+
+    impl Source<[f64; 4]> for Palette<'_> {
+        fn width(&self) -> usize {
+            self.indices.width()
+        }
+
+        fn height(&self) -> usize {
+            self.indices.height()
+        }
+
+        fn pixel(&self, index: usize) -> [f64; 4] {
+            self.colors[usize::from(self.indices.as_slice()[index])]
+        }
+    }
+
+    #[test]
+    fn sources_resample_like_the_grids_they_stand_for() {
+        let colors = [
+            [0.1, 0.2, 0.3, 1.0],
+            [0.9, 0.5, 0.0, 0.5],
+            [0.0, 0.0, 1.0, 1.0],
+        ];
+        let indices =
+            Grid::from_vec(5, 4, (0..20).map(|i| (i * 7 % 3) as u8).collect()).expect("grid");
+        let palette = Palette {
+            colors: &colors,
+            indices: &indices,
+        };
+        let pixels = indices.as_slice().iter().map(|&i| colors[usize::from(i)]);
+        let grid = Grid::from_vec(5, 4, pixels.collect()).expect("grid");
+        for (scale, interpolation) in [
+            (0.4, Interpolation::Hanning),
+            (3.0, Interpolation::Bicubic),
+            (2.5, Interpolation::Nearest),
+        ] {
+            let params = ResampleParams::new(Affine2D::scaling(scale, scale))
+                .with_interpolation(interpolation);
+            let size = |n: usize| (n as f64 * scale).ceil() as usize;
+            let mut from_grid = Grid::filled(size(5), size(4), [0.0; 4]).expect("grid");
+            let mut from_source = from_grid.clone();
+            resample(&grid, &mut from_grid, &params).expect("resample");
+            resample_from(&palette, &mut from_source, &params).expect("resample");
+            assert_eq!(from_source, from_grid, "{interpolation:?}");
+        }
     }
 
     #[test]

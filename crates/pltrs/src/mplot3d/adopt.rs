@@ -200,7 +200,7 @@ fn paths_3d(raw: &RawHandle, vertices: Vec<Vec<Vec3>>) -> Result<Vec<Path3D>, Ax
     if !raw.is::<CollectionArtist>() {
         return Err(Axes3DError::UnsupportedCollection);
     }
-    let paths = raw.with::<CollectionArtist, _>(|c| c.paths.clone());
+    let paths = raw.with::<CollectionArtist, _>(|c| c.shapes().into_owned());
     check_len("vertices", paths.len(), vertices.len())?;
     paths
         .into_iter()

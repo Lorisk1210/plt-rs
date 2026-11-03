@@ -77,8 +77,12 @@ impl Obstacles {
                 .clone()
                 .unwrap_or(Transform::Display);
             if let Some(resolved) = ctx.resolve(&transform) {
-                self.lines
-                    .extend(collection.paths.iter().map(|p| resolved.transform_path(p)));
+                self.lines.extend(
+                    collection
+                        .shapes()
+                        .iter()
+                        .map(|p| resolved.transform_path(p)),
+                );
             }
             return;
         }

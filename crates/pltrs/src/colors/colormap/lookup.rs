@@ -136,7 +136,7 @@ impl Colormap {
 
     /// The LUT row for a value, following `_get_rgba_and_mask`: fractions
     /// scale by `N` (with `N` itself pulled back to `N - 1`) and truncate.
-    fn lut_index(&self, value: Normalized) -> usize {
+    pub(crate) fn lut_index(&self, value: Normalized) -> usize {
         let n = self.n();
         let (under, over, bad) = (n, n + 1, n + 2);
         match value {

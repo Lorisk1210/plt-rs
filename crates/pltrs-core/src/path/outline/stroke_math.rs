@@ -4,6 +4,7 @@
 //! Offsets are computed with the same floating-point expressions in the
 //! same order as the C++ code so outlines match vertex for vertex.
 
+use std::cell::Cell;
 use std::f64::consts::PI;
 
 use super::math::{calc_distance, calc_intersection, cross_product};
@@ -104,6 +105,12 @@ pub struct StrokeMath {
     cap: LineCap,
     join: LineJoin,
     inner_join: InnerJoin,
+    /// The angular step of round caps and joins.
+    arc_step: f64,
+    /// The last angle of a round join and the bits of its arguments:
+    /// consecutive joins share an offset, the end of one starting the
+    /// next, so each angle is computed once.
+    last_angle: Cell<Option<(u64, u64, f64)>>,
 }
 
 impl StrokeMath {
@@ -112,23 +119,35 @@ impl StrokeMath {
     /// widths.
     pub fn new(width: f64, shape: &StrokeShape) -> Self {
         let width = width * 0.5;
+        let width_abs = width.abs();
+        let approx_scale = shape.approximation_scale;
         Self {
             width,
-            width_abs: width.abs(),
+            width_abs,
             width_eps: width / 1024.0,
             width_sign: if width < 0.0 { -1.0 } else { 1.0 },
             miter_limit: shape.miter_limit,
             inner_miter_limit: shape.inner_miter_limit,
-            approx_scale: shape.approximation_scale,
+            approx_scale,
             cap: shape.cap,
             join: shape.join,
             inner_join: shape.inner_join,
+            arc_step: (width_abs / (width_abs + 0.125 / approx_scale)).acos() * 2.0,
+            last_angle: Cell::new(None),
         }
     }
 
-    /// Angular step for round caps and joins.
-    fn arc_step(&self) -> f64 {
-        (self.width_abs / (self.width_abs + 0.125 / self.approx_scale)).acos() * 2.0
+    /// `y.atan2(x)`, remembered for the next join.
+    fn angle(&self, y: f64, x: f64) -> f64 {
+        let key = (y.to_bits(), x.to_bits());
+        if let Some((last_y, last_x, angle)) = self.last_angle.get()
+            && (last_y, last_x) == key
+        {
+            return angle;
+        }
+        let angle = y.atan2(x);
+        self.last_angle.set(Some((key.0, key.1, angle)));
+        angle
     }
 
     /// Agg's `int(angle / step)` intermediate points of a round cap or join.
@@ -150,9 +169,9 @@ impl StrokeMath {
         (dx2, dy2): (f64, f64),
     ) {
         let Point { x, y } = center;
-        let mut a1 = (dy1 * self.width_sign).atan2(dx1 * self.width_sign);
-        let mut a2 = (dy2 * self.width_sign).atan2(dx2 * self.width_sign);
-        let da = self.arc_step();
+        let mut a1 = self.angle(dy1 * self.width_sign, dx1 * self.width_sign);
+        let mut a2 = self.angle(dy2 * self.width_sign, dx2 * self.width_sign);
+        let da = self.arc_step;
         out.push(Point::new(x + dx1, y + dy1));
         if self.width_sign > 0.0 {
             if a1 > a2 {
@@ -271,7 +290,7 @@ impl StrokeMath {
         dx1 *= self.width;
         dy1 *= self.width;
         if self.cap == LineCap::Round {
-            let da = self.arc_step();
+            let da = self.arc_step;
             let n = Self::arc_points(PI, da);
             let da = PI / f64::from(n + 1);
             out.push(Point::new(v0.x - dx1, v0.y + dy1));

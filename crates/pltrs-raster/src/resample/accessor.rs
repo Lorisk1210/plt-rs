@@ -5,7 +5,7 @@
 //! itself repeated); nearest-neighbour sampling reads through
 //! `image_accessor_clip`, which yields a zero background outside.
 
-use super::grid::GridRef;
+use super::grid::Source;
 use super::pixel::ops::PixelOps;
 
 /// Agg's `wrap_mode_reflect`, with its unsigned wrap-around arithmetic.
@@ -58,27 +58,20 @@ impl Reflect {
 /// columns (or rows) starts at a coordinate and continues one at a time,
 /// as Agg's `span`, `next_x` and `next_y` walk them.
 #[derive(Debug)]
-pub(super) struct ReflectAccessor<'a, P> {
-    pixels: &'a [P],
+pub(super) struct ReflectAccessor {
     width: usize,
     wrap_x: Reflect,
     wrap_y: Reflect,
 }
 
-impl<'a, P: Copy> ReflectAccessor<'a, P> {
+impl ReflectAccessor {
     /// An accessor over a non-empty grid whose sides fit in `u32 / 2`.
-    pub(super) fn new(grid: GridRef<'a, P>) -> Self {
+    pub(super) fn new<P>(grid: &impl Source<P>) -> Self {
         Self {
-            pixels: grid.as_slice(),
             width: grid.width(),
             wrap_x: Reflect::new(grid.width() as u32),
             wrap_y: Reflect::new(grid.height() as u32),
         }
-    }
-
-    /// The pixels, row by row.
-    pub(super) const fn pixels(&self) -> &'a [P] {
-        self.pixels
     }
 
     /// The column of coordinate `x`, starting a run of columns.
@@ -104,9 +97,9 @@ impl<'a, P: Copy> ReflectAccessor<'a, P> {
 
 /// `image_accessor_clip` reading a single pixel: the background
 /// (`no_color()`) outside the grid.
-pub(super) fn clipped<P: PixelOps>(grid: GridRef<'_, P>, x: i32, y: i32) -> P {
+pub(super) fn clipped<P: PixelOps>(grid: &impl Source<P>, x: i32, y: i32) -> P {
     match (usize::try_from(x), usize::try_from(y)) {
-        (Ok(x), Ok(y)) => grid.get(x, y).copied().unwrap_or(P::BACKGROUND),
+        (Ok(x), Ok(y)) if x < grid.width() && y < grid.height() => grid.pixel(y * grid.width() + x),
         _ => P::BACKGROUND,
     }
 }
@@ -129,19 +122,19 @@ mod tests {
     #[test]
     fn reflect_accessor_walks_rows_and_columns() {
         let g = Grid::from_vec(2, 2, vec![1, 2, 3, 4]).expect("grid");
-        let mut a = ReflectAccessor::new(g.view());
+        let mut a = ReflectAccessor::new(&g.view());
         let columns = [a.first_column(-1), a.next_column(), a.next_column()];
         assert_eq!(columns, [0, 0, 1]);
         let rows = [a.first_row(-1), a.next_row(), a.next_row()];
         assert_eq!(rows, [0, 0, 2]);
-        assert_eq!(a.pixels()[rows[2] + columns[2]], 4);
+        assert_eq!(g.view().pixel(rows[2] + columns[2]), 4);
     }
 
     #[test]
     fn clipped_uses_background_outside() {
         let g = Grid::from_vec(1, 1, vec![[9_u8; 4]]).expect("grid");
-        assert_eq!(clipped(g.view(), 0, 0), [9; 4]);
-        assert_eq!(clipped(g.view(), -1, 0), [0; 4]);
-        assert_eq!(clipped(g.view(), 0, 1), [0; 4]);
+        assert_eq!(clipped(&g.view(), 0, 0), [9; 4]);
+        assert_eq!(clipped(&g.view(), -1, 0), [0; 4]);
+        assert_eq!(clipped(&g.view(), 0, 1), [0; 4]);
     }
 }

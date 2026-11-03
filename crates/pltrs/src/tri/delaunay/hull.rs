@@ -278,6 +278,10 @@ pub(super) struct Hull {
     pub(super) merges: Option<super::merge::MergeSets>,
     /// Scratch set of coplanar facets for `qh_findbesthorizon`.
     pub(super) coplanar_facets: Vec<FacetId>,
+    /// The arena slots of deleted facets, which new facets take, the
+    /// last deleted first, as qhull's allocator reuses freed memory: the
+    /// arena holds the live hull rather than every facet ever made.
+    pub(super) free_facets: Vec<FacetId>,
 }
 
 impl Hull {
@@ -313,6 +317,7 @@ impl Hull {
             del_vertices: Vec::new(),
             merges: None,
             coplanar_facets: Vec::new(),
+            free_facets: Vec::new(),
         };
         hull.new_facet();
         hull.new_vertex(usize::MAX);
@@ -361,20 +366,22 @@ impl Hull {
             .expect("facets are given a hyperplane before distance tests")
     }
 
-    /// The id the next facet will get (qhull's `qh.facet_id`).
-    pub(super) fn next_facet_id(&self) -> u32 {
-        u32::try_from(self.facets.len()).expect("fewer than 2^32 facets")
-    }
-
-    /// Allocates a facet with the next id (qhull's `qh_newfacet`).
+    /// Allocates a facet (qhull's `qh_newfacet`) in the slot of the facet
+    /// deleted last, or in a new one. Nothing refers to a deleted facet,
+    /// and a facet id orders nothing: it only finds the facet.
     pub(super) fn new_facet(&mut self) -> FacetId {
-        let id = FacetId(self.next_facet_id());
-        self.facets.push(Facet {
+        let facet = Facet {
             max_outside: self.prec.dist_round,
             simplicial: true,
             newfacet: true,
             ..Facet::default()
-        });
+        };
+        if let Some(id) = self.free_facets.pop() {
+            self.facets[id.index()] = facet;
+            return id;
+        }
+        let id = FacetId(u32::try_from(self.facets.len()).expect("fewer than 2^32 facets"));
+        self.facets.push(facet);
         id
     }
 

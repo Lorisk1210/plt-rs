@@ -10,7 +10,7 @@
 //! All generators sample at destination pixel centres.
 
 use super::accessor::{ReflectAccessor, clipped};
-use super::grid::GridRef;
+use super::grid::Source;
 use super::interpolator::{LinearInterpolator, SpanInterpolator};
 use super::lut::WeightLut;
 use super::numeric::{FILTER_SCALE, FILTER_SHIFT, SUBPIXEL_MASK, SUBPIXEL_SHIFT, uround};
@@ -41,13 +41,13 @@ impl Taps {
     /// The weighted sum of the pixels, row by row as Agg reads them, and
     /// the sum of the weights. Each weight is the fixed-point product of
     /// the row's and the column's.
-    fn accumulate<P: PixelOps>(&self, pixels: &[P]) -> (P::Accum, i32) {
+    fn accumulate<P: PixelOps>(&self, pixels: &impl Source<P>) -> (P::Accum, i32) {
         let mut acc = P::ACCUM_ZERO;
         let mut total_weight = 0_i32;
         for &(row, weight_y) in &self.rows {
             for &(column, weight_x) in &self.columns {
                 let weight = (weight_y * weight_x + FILTER_SCALE / 2) >> FILTER_SHIFT;
-                pixels[row + column].accumulate(&mut acc, weight);
+                pixels.pixel(row + column).accumulate(&mut acc, weight);
                 total_weight = total_weight.wrapping_add(weight);
             }
         }
@@ -57,7 +57,7 @@ impl Taps {
 
 /// Nearest-neighbour samples with a zero background outside the source.
 pub(super) fn nearest<P: PixelOps>(
-    src: GridRef<'_, P>,
+    src: &impl Source<P>,
     interpolator: &mut impl SpanInterpolator,
     x: i32,
     y: i32,
@@ -73,7 +73,7 @@ pub(super) fn nearest<P: PixelOps>(
 
 /// Kernel-filtered samples, `diameter × diameter` taps per pixel.
 pub(super) fn filter<P: PixelOps>(
-    src: GridRef<'_, P>,
+    src: &impl Source<P>,
     lut: &WeightLut,
     interpolator: &mut impl SpanInterpolator,
     x: i32,
@@ -103,7 +103,7 @@ pub(super) fn filter<P: PixelOps>(
             let row = if k == 0 { row } else { pixels.next_row() };
             (row, lut.weight(first_y + (k << SUBPIXEL_SHIFT)))
         }));
-        *color = P::filtered(taps.accumulate(pixels.pixels()).0);
+        *color = P::filtered(taps.accumulate(src).0);
         interpolator.advance();
     }
 }
@@ -144,7 +144,7 @@ impl Footprint {
 /// Area-resampled samples: the kernel is stretched by the footprint and
 /// the result divided by the sum of the weights actually used.
 pub(super) fn resample_affine<P: PixelOps>(
-    src: GridRef<'_, P>,
+    src: &impl Source<P>,
     lut: &WeightLut,
     footprint: Footprint,
     interpolator: &mut LinearInterpolator,
@@ -193,7 +193,7 @@ pub(super) fn resample_affine<P: PixelOps>(
                     (row, lut.weight(index))
                 }),
         );
-        let (acc, total_weight) = taps.accumulate(pixels.pixels());
+        let (acc, total_weight) = taps.accumulate(src);
         *color = P::resampled(acc, total_weight);
         interpolator.advance();
     }
@@ -232,7 +232,7 @@ mod tests {
         let mut out = [<f64 as PixelOps>::Color::default(); 3];
         let mut li = LinearInterpolator::new(AggAffine::IDENTITY);
         filter(
-            src.view(),
+            &src.view(),
             &lut(Interpolation::Bilinear),
             &mut li,
             0,
@@ -247,7 +247,7 @@ mod tests {
         let src = Grid::from_vec(2, 1, vec![5.0, 6.0]).expect("grid");
         let mut out = [<f64 as PixelOps>::Color::default(); 4];
         let mut nn = NearestInterpolator::new(AggAffine::IDENTITY);
-        nearest(src.view(), &mut nn, -1, 0, &mut out);
+        nearest(&src.view(), &mut nn, -1, 0, &mut out);
         assert_eq!(values(&out), vec![0.0, 5.0, 6.0, 0.0]);
     }
 
@@ -296,7 +296,7 @@ mod tests {
         let mut li = LinearInterpolator::new(shrink);
         let fp = Footprint::new(&li);
         resample_affine(
-            src.view(),
+            &src.view(),
             &lut(Interpolation::Hanning),
             fp,
             &mut li,

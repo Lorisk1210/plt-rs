@@ -117,10 +117,21 @@ impl<'a> FontChain<'a> {
             .iter()
             .map(|face| Size::new(face, points, dpi))
             .collect();
-        let hinters: Vec<Hinter> = self
+        let text: Vec<(usize, char)> = text.char_indices().collect();
+        let assignment = self.assign_faces(&text, options);
+        // Only the faces some character falls to are hinted, as FreeType
+        // hints only the glyphs it loads: the analysis of a fallback face
+        // no character reaches (the last resort's, which maps every code
+        // point) would cost time and memory for nothing.
+        let mut used = vec![false; self.faces.len()];
+        for &face in &assignment {
+            used[face] = true;
+        }
+        let hinters: Vec<Option<Hinter>> = self
             .faces
             .iter()
-            .map(|face| hinting.hinter(face, true))
+            .zip(&used)
+            .map(|(face, &used)| used.then(|| hinting.hinter(face, true)))
             .collect();
         // Faces from outside a database get their analysis for this call.
         let analyses: Vec<Option<Autohinter>> = self
@@ -129,7 +140,7 @@ impl<'a> FontChain<'a> {
             .zip(&hinters)
             .enumerate()
             .map(|(index, (face, &hinter))| {
-                (hinter == Hinter::Autohinter && self.cached_autohinter(index).is_none())
+                (hinter == Some(Hinter::Autohinter) && self.cached_autohinter(index).is_none())
                     .then(|| Autohinter::new(face))
             })
             .collect();
@@ -140,9 +151,9 @@ impl<'a> FontChain<'a> {
             .zip(&hinters)
             .enumerate()
             .map(|(index, ((face, size), hinter))| match hinter {
-                Hinter::Unhinted => None,
-                Hinter::Bytecode => Some(HintedFace::bytecode(face, size)),
-                Hinter::Autohinter => {
+                None | Some(Hinter::Unhinted) => None,
+                Some(Hinter::Bytecode) => Some(HintedFace::bytecode(face, size)),
+                Some(Hinter::Autohinter) => {
                     let analysis = self
                         .cached_autohinter(index)
                         .or(analyses[index].as_ref())
@@ -151,8 +162,6 @@ impl<'a> FontChain<'a> {
                 }
             })
             .collect();
-        let text: Vec<(usize, char)> = text.char_indices().collect();
-        let assignment = self.assign_faces(&text, options);
         let scaler = |face: usize| match &hinted[face] {
             Some(hinted) => Scaler::Hinted(sizes[face], hinted),
             None => Scaler::Pixels(sizes[face]),

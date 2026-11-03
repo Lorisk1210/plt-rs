@@ -5,8 +5,12 @@ const MODULUS: u32 = 65_521;
 
 /// The largest number of bytes that can be summed before the running sums
 /// must be reduced to stay within `u32` (zlib's `NMAX`). It is a multiple of
-/// eight, so whole groups never straddle a reduction.
+/// [`LANES`], so whole blocks never straddle a reduction.
 const MAX_RUN: usize = 5552;
+
+/// The bytes summed side by side, one per lane of the accumulators, which
+/// the compiler turns into vector operations.
+const LANES: usize = 16;
 
 /// Incremental Adler-32 hasher.
 ///
@@ -36,18 +40,31 @@ impl Adler32 {
     pub fn update(&mut self, data: &[u8]) {
         let (mut a, mut b) = (self.a, self.b);
         for run in data.chunks(MAX_RUN) {
-            let (groups, tail) = run.as_chunks::<8>();
-            for group in groups {
-                // Eight steps of `a += x; b += a` folded into one: `b` gains
-                // eight copies of the old `a` plus each byte weighted by the
-                // number of steps it contributes to.
-                let mut weighted = 8 * a;
-                for (&byte, weight) in group.iter().zip((1..=8).rev()) {
-                    a += u32::from(byte);
-                    weighted += weight * u32::from(byte);
+            let (blocks, tail) = run.as_chunks::<LANES>();
+            // Lane j sums the j-th byte of every block (`sums`) and, after
+            // every block, adds that sum to `steps`: each byte once per block
+            // from its own to the last.
+            let mut sums = [0u32; LANES];
+            let mut steps = [0u32; LANES];
+            for block in blocks {
+                for ((sum, steps), &byte) in sums.iter_mut().zip(&mut steps).zip(block) {
+                    *sum += u32::from(byte);
+                    *steps += *sum;
                 }
-                b += weighted;
             }
+            // Over these n bytes, `b` gains n copies of the old `a` and each
+            // byte once per step from its own to the last: LANES per block
+            // from its own on, less its lane.
+            let n = (blocks.len() * LANES) as u64;
+            let wide = |lanes: [u32; LANES]| lanes.map(u64::from);
+            let byte_steps = LANES as u64 * wide(steps).iter().sum::<u64>()
+                - (0..)
+                    .zip(wide(sums))
+                    .map(|(lane, sum)| lane * sum)
+                    .sum::<u64>();
+            let modulus = u64::from(MODULUS);
+            b = ((u64::from(b) + n * u64::from(a) + byte_steps) % modulus) as u32;
+            a = ((u64::from(a) + wide(sums).iter().sum::<u64>()) % modulus) as u32;
             for &byte in tail {
                 a += u32::from(byte);
                 b += a;

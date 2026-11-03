@@ -309,7 +309,7 @@ impl CollectionArtist {
             .offset_transform
             .as_ref()
             .is_none_or(|t| ox_data || oy_data || *t == Transform::Display);
-        if !offsets_usable || self.paths.is_empty() {
+        if !offsets_usable || !self.has_shapes() {
             return (DataLimits::NULL, directions);
         }
         if x_data || y_data {

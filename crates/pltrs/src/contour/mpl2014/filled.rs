@@ -21,10 +21,15 @@ pub(super) struct ParentCache {
     x_points: usize,
     istart: usize,
     jstart: usize,
-    lines: Vec<Option<usize>>,
+    /// Per point, the polygon or [`ParentCache::NONE`]: a quarter of the
+    /// memory of optional indices for every point of a large grid.
+    lines: Vec<u32>,
 }
 
 impl ParentCache {
+    /// No polygon recorded at the point.
+    const NONE: u32 = u32::MAX;
+
     /// A cache for chunks of `x_points × y_points` points of a grid with
     /// `nx` points per row.
     pub(super) fn new(nx: usize, x_points: usize, y_points: usize) -> Self {
@@ -33,7 +38,7 @@ impl ParentCache {
             x_points,
             istart: 0,
             jstart: 0,
-            lines: vec![None; x_points * y_points],
+            lines: vec![Self::NONE; x_points * y_points],
         }
     }
 
@@ -41,7 +46,7 @@ impl ParentCache {
     pub(super) fn start_chunk(&mut self, istart: usize, jstart: usize) {
         self.istart = istart;
         self.jstart = jstart;
-        self.lines.fill(None);
+        self.lines.fill(Self::NONE);
     }
 
     fn index(&self, point: usize) -> usize {
@@ -52,8 +57,9 @@ impl ParentCache {
     fn get(&self, point: usize) -> Option<usize> {
         let mut index = self.index(point);
         loop {
-            if let Some(line) = self.lines[index] {
-                return Some(line);
+            let line = self.lines[index];
+            if line != Self::NONE {
+                return Some(line as usize);
             }
             index = index.checked_sub(self.x_points)?;
         }
@@ -62,7 +68,12 @@ impl ParentCache {
     /// Records `owner` at `point` unless a polygon is already recorded.
     pub(super) fn set(&mut self, point: usize, owner: usize) {
         let index = self.index(point);
-        self.lines[index].get_or_insert(owner);
+        if self.lines[index] == Self::NONE {
+            self.lines[index] = u32::try_from(owner)
+                .ok()
+                .filter(|&owner| owner != Self::NONE)
+                .expect("fewer polygons than 2^32 - 1");
+        }
     }
 }
 

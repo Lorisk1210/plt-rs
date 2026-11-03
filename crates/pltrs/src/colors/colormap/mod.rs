@@ -333,6 +333,12 @@ impl Colormap {
         &self.lut[..self.n()]
     }
 
+    /// The whole lookup table: the `N` colours, then the under, over and
+    /// bad colours, as [`lut_index`](Self::lut_index) numbers its rows.
+    pub(crate) fn table(&self) -> &[Rgba] {
+        &self.lut
+    }
+
     /// The colour of values below the range.
     pub fn under(&self) -> Rgba {
         self.lut[self.n()]

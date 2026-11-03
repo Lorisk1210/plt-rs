@@ -23,7 +23,7 @@ impl From<TripcolorError> for PyErr {
 /// polygons or the Gouraud mesh (the other `None`).
 pub(super) fn tripcolor(
     axes: Axes,
-    tri: Triangulation,
+    tri: Native<Triangulation>,
     (values, faces): (NdArray, bool),
     mapping: Mapping,
     gouraud: bool,
@@ -43,7 +43,7 @@ pub(super) fn tripcolor(
     } else {
         TriValues::Auto(values)
     };
-    Ok(match axes.tripcolor(&tri, values, options)? {
+    Ok(match axes.tripcolor(&tri.borrow(), values, options)? {
         Tripcolor::Flat(polygons) => (Some(polygons), None),
         Tripcolor::Gouraud(mesh) => (None, Some(mesh)),
     })

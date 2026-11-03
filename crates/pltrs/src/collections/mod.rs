@@ -385,9 +385,10 @@ impl CollectionArtist {
     /// coordinates (matplotlib's `get_datalim` for collections whose shapes
     /// live in data space).
     pub(crate) fn shape_extents(&self) -> DataLimits {
+        let shapes = self.shapes();
         let geometry = CollectionGeometry {
             master_transform: Affine2D::IDENTITY,
-            paths: &self.paths,
+            paths: &shapes,
             transforms: &self.transforms,
             // matplotlib collections without offsets have one at the origin.
             offsets: if self.offsets.is_empty() {
@@ -489,7 +490,7 @@ impl CollectionArtist {
                 let (paths, transform) = generator.shapes(ctx)?;
                 Ok((Cow::Owned(paths), transform))
             }
-            None => Ok((Cow::Borrowed(&self.paths), self.transform())),
+            None => Ok((self.shapes(), self.transform())),
         }
     }
 
@@ -559,11 +560,11 @@ impl Artist for CollectionArtist {
             }
             None => Vec::new(),
         };
-        let shapes = self
-            .paths
+        let shape_box = self
+            .shapes()
             .iter()
-            .map(|p| resolved.transform_path(p).extents());
-        let shape_box = shapes.fold(Bbox::NULL, |acc, b| acc.union(&b));
+            .map(|p| resolved.transform_path(p).extents())
+            .fold(Bbox::NULL, |acc, b| acc.union(&b));
         if offsets.is_empty() {
             return Some(shape_box);
         }

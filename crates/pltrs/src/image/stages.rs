@@ -9,9 +9,9 @@
 
 use std::ops::{Div, Mul};
 
-use pltrs_raster::resample::Pixel;
+use pltrs_raster::resample::{Pixel, Source};
 
-use super::normalize::normalize_in;
+use super::normalize::{linear_rows, normalize_in};
 use super::resample::{PixelMap, Resampling};
 use super::{ImageAlpha, ImageData, ImageError, Precision, ScalarField};
 use crate::colors::ScalarMappable;
@@ -111,12 +111,7 @@ pub(crate) fn rgba_stage(
         _ => None,
     };
     let colors = match data {
-        ImageData::Scalar(field) => {
-            let rgba = scalar_colors(field, mappable)?;
-            Colors::F64(
-                Grid::from_vec(shape.0, shape.1, rgba).expect("one colour per data element"),
-            )
-        }
+        ImageData::Scalar(field) => Colors::Mapped(mapped_colors(field, mappable)?),
         ImageData::Rgb(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),
         ImageData::RgbF32(grid) => return finish_rgb(grid, alpha, resampling, out_shape, map),
         ImageData::RgbBytes(grid) => {
@@ -138,28 +133,60 @@ pub(crate) fn rgba_stage(
         }
         (Colors::F32(rgba), None) => finish(&rgba, uniform(alpha), resampling, out_shape, map),
         (Colors::F64(rgba), None) => finish(&rgba, uniform(alpha), resampling, out_shape, map),
+        (Colors::Mapped(mapped), None) => {
+            finish_mapped(&mapped, uniform(alpha), resampling, out_shape, map)
+        }
     }
 }
 
-/// Values normalised and looked up at a time by [`scalar_colors`]: few
+/// Values normalised and looked up at a time by [`mapped_colors`]: few
 /// enough for the intermediate arrays to stay in the cache.
 const COLOR_BLOCK: usize = 4096;
 
 /// The colours of scalar data (matplotlib's `to_rgba` of the whole
-/// array), normalised and looked up a block at a time so that the
-/// intermediate arrays stay small. An unscaled norm autoscales to the
-/// first values it normalises, so it gets all of them at once.
-fn scalar_colors(
+/// array), as rows of the colormap's table.
+#[expect(
+    clippy::float_cmp,
+    reason = "colours are premultiplied unless every alpha is exactly 1"
+)]
+fn mapped_colors(field: &ScalarField, mappable: &mut ScalarMappable) -> Result<Mapped, ImageError> {
+    let (values, mask) = (field.values().as_slice(), field.mask().as_slice());
+    let rows = match linear_rows(mappable, values, mask, field.precision()) {
+        Some(rows) => rows,
+        None => blockwise_rows(field, mappable)?,
+    };
+    let palette: Vec<[f64; 4]> = mappable
+        .cmap()
+        .table()
+        .iter()
+        .map(|c| c.to_array())
+        .collect();
+    let opaque = rows.iter().all(|&row| palette[row as usize][3] == 1.0);
+    let (height, width) = field.values().shape();
+    Ok(Mapped {
+        palette,
+        rows,
+        width,
+        height,
+        opaque,
+    })
+}
+
+/// The colormap rows of scalar data under any norm, normalised and looked
+/// up a block at a time so that the intermediate arrays stay small. An
+/// unscaled norm autoscales to the first values it normalises, so it gets
+/// all of them at once.
+fn blockwise_rows(
     field: &ScalarField,
     mappable: &mut ScalarMappable,
-) -> Result<Vec<[f64; 4]>, ImageError> {
+) -> Result<Vec<u32>, ImageError> {
     let (values, mask) = (field.values().as_slice(), field.mask().as_slice());
     let block = if mappable.norm().scaled() {
         COLOR_BLOCK
     } else {
         values.len().max(1)
     };
-    let mut rgba = Vec::with_capacity(values.len());
+    let mut rows = Vec::with_capacity(values.len());
     let mut masked = Vec::with_capacity(block.min(values.len()));
     for (values, mask) in values.chunks(block).zip(mask.chunks(block)) {
         masked.clear();
@@ -171,19 +198,52 @@ fn scalar_colors(
         );
         let normalized = normalize_in(mappable, &masked, field.kind(), field.precision())?;
         let cmap = mappable.cmap();
-        rgba.extend(
-            normalized
-                .into_iter()
-                .map(|n| cmap.lookup(n, None).to_array()),
-        );
+        rows.extend(normalized.into_iter().map(|n| cmap.lut_index(n) as u32));
     }
-    Ok(rgba)
+    Ok(rows)
+}
+
+/// Colour-mapped data: each element's row of the colormap's table, which
+/// holds every colour once, so that the colours of a large image take a
+/// few bytes each until the resampler reads them.
+#[derive(Debug)]
+struct Mapped {
+    /// The colormap's table.
+    palette: Vec<[f64; 4]>,
+    /// Each element's row of `palette`, row-major.
+    rows: Vec<u32>,
+    width: usize,
+    height: usize,
+    /// Whether every element's alpha is 1.
+    opaque: bool,
+}
+
+/// The colours of [`Mapped`] data from a palette, looked up as the
+/// resampler reads them.
+struct PaletteSource<'a> {
+    palette: &'a [[f64; 4]],
+    mapped: &'a Mapped,
+}
+
+impl Source<[f64; 4]> for PaletteSource<'_> {
+    fn width(&self) -> usize {
+        self.mapped.width
+    }
+
+    fn height(&self) -> usize {
+        self.mapped.height
+    }
+
+    fn pixel(&self, index: usize) -> [f64; 4] {
+        self.palette[self.mapped.rows[index] as usize]
+    }
 }
 
 /// RGBA colours in the precision numpy would hold them.
 enum Colors {
     F32(Grid<[f32; 4]>),
     F64(Grid<[f64; 4]>),
+    Mapped(Mapped),
 }
 
 impl Colors {
@@ -192,6 +252,15 @@ impl Colors {
         match self {
             Self::F32(grid) => grid.map(|p| p.map(f64::from)),
             Self::F64(grid) => grid,
+            Self::Mapped(mapped) => {
+                let colors = mapped
+                    .rows
+                    .iter()
+                    .map(|&row| mapped.palette[row as usize])
+                    .collect();
+                Grid::from_vec(mapped.height, mapped.width, colors)
+                    .expect("one colour per data element")
+            }
         }
     }
 }
@@ -244,14 +313,46 @@ where
 {
     let premultiplied;
     let source = if rgba.as_slice().iter().any(|p| p[3] != T::ONE) {
-        premultiplied = rgba.map(|&[r, g, b, a]| [r * a, g * a, b * a, a]);
+        premultiplied = rgba.map(|&p| premultiply(p));
         &premultiplied
     } else {
         rgba
     };
     let resampled = resampling.run(source, out_shape, map, None)?;
+    Ok(to_bytes(&resampled, post_alpha))
+}
+
+/// [`finish`] for colour-mapped data, whose palette is premultiplied
+/// rather than every element.
+fn finish_mapped(
+    mapped: &Mapped,
+    post_alpha: Option<f64>,
+    resampling: &Resampling,
+    out_shape: (usize, usize),
+    map: &PixelMap,
+) -> Result<Grid<[u8; 4]>, ImageError> {
+    let premultiplied: Vec<[f64; 4]>;
+    let palette = if mapped.opaque {
+        &mapped.palette
+    } else {
+        premultiplied = mapped.palette.iter().map(|&p| premultiply(p)).collect();
+        &premultiplied
+    };
+    let source = PaletteSource { palette, mapped };
+    let resampled = resampling.run_source(&source, out_shape, map, None)?;
+    Ok(to_bytes(&resampled, post_alpha))
+}
+
+/// A colour with its alpha multiplied in.
+fn premultiply<T: Real>([r, g, b, a]: [T; 4]) -> [T; 4] {
+    [r * a, g * a, b * a, a]
+}
+
+/// Resampled premultiplied colours demultiplied, with a uniform alpha
+/// applied, as bytes.
+fn to_bytes<T: Real>(resampled: &Grid<[T; 4]>, post_alpha: Option<f64>) -> Grid<[u8; 4]> {
     let post = post_alpha.map(T::from_f64);
-    Ok(resampled.map(|&[r, g, b, a]| {
+    resampled.map(|&[r, g, b, a]| {
         let divisor = if a == T::ZERO { T::ONE } else { a };
         let a = post.map_or(a, |post| a * post);
         let pixel = [r / divisor, g / divisor, b / divisor, a];
@@ -260,7 +361,7 @@ where
         } else {
             pixel.map(|v| to_byte(v * T::from_f64(255.0)))
         }
-    }))
+    })
 }
 
 /// numpy's `np.divide(A, 0xff, dtype=np.float32)` for one channel.

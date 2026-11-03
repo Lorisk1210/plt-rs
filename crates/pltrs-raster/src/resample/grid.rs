@@ -195,6 +195,40 @@ impl<'a, P> From<&'a Grid<P>> for GridRef<'a, P> {
     }
 }
 
+/// The pixels [`resample_from`](super::resample_from) reads: a
+/// `width × height` grid, row by row, wherever its pixels come from (a
+/// [`GridRef`], or for example indices into a palette, looked up as they
+/// are read).
+pub trait Source<P> {
+    /// Number of columns.
+    fn width(&self) -> usize;
+
+    /// Number of rows.
+    fn height(&self) -> usize;
+
+    /// The pixel at row-major `index`, which is below `width × height`.
+    fn pixel(&self, index: usize) -> P;
+
+    /// Whether the grid holds no pixels.
+    fn is_empty(&self) -> bool {
+        self.width() == 0 || self.height() == 0
+    }
+}
+
+impl<P: Copy> Source<P> for GridRef<'_, P> {
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    fn pixel(&self, index: usize) -> P {
+        self.data[index]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -27,7 +27,7 @@ pub(crate) fn greedy(data: &[u8], params: &LevelParams, mut sink: BlockSink<'_, 
     while position < data.len() {
         let found = matcher
             .insert(position)
-            .and_then(|candidate| matcher.longest_match(position, candidate, 0, params))
+            .and_then(|chain| matcher.longest_match(position, chain, 0, params))
             .filter(worthwhile);
         let Some(Match { length, distance }) = found else {
             sink.literal();
@@ -42,9 +42,7 @@ pub(crate) fn greedy(data: &[u8], params: &LevelParams, mut sink: BlockSink<'_, 
         } else {
             position + length - 1
         };
-        for inside in skipped..position + length {
-            matcher.insert(inside);
-        }
+        matcher.insert_all(skipped..position + length);
         position += length;
     }
     sink.finish();
@@ -59,13 +57,11 @@ pub(crate) fn lazy(data: &[u8], params: &LevelParams, mut sink: BlockSink<'_, '_
     let mut pending = false;
     let mut position = 0;
     while position < data.len() {
-        let candidate = matcher.insert(position);
+        let chain = matcher.insert(position);
         let previous_length = previous.map_or(0, |m| m.length);
-        let current = candidate
+        let current = chain
             .filter(|_| previous_length < params.lazy_length)
-            .and_then(|candidate| {
-                matcher.longest_match(position, candidate, previous_length, params)
-            })
+            .and_then(|chain| matcher.longest_match(position, chain, previous_length, params))
             .filter(worthwhile);
 
         match previous {
@@ -74,9 +70,7 @@ pub(crate) fn lazy(data: &[u8], params: &LevelParams, mut sink: BlockSink<'_, '_
                 // starting here: emit it and skip past it.
                 sink.matched(length, distance);
                 let end = position - 1 + length;
-                for inside in position + 1..end {
-                    matcher.insert(inside);
-                }
+                matcher.insert_all(position + 1..end);
                 position = end;
                 previous = None;
                 pending = false;

@@ -12,11 +12,21 @@ import numpy as np
 
 from . import _handles, _values
 from .colors import to_rgba
-from ._native import spines as _spines
+from ._native import artist as _artist, spines as _spines
 from .artist import Artist
 from .patches import Patch
 from .path import Path
 from .transforms import Bbox, IdentityTransform
+
+#: matplotlib's paths of the linear spines (``Spine.linear_spine``), in
+#: data along their axis and axes fractions across it, until a draw or a
+#: measure spans them over the view.
+_LINEAR_PATHS = {
+    "left": [(0.0, 0.999), (0.0, 0.999)],
+    "right": [(1.0, 0.999), (1.0, 0.999)],
+    "bottom": [(0.999, 0.0), (0.999, 0.0)],
+    "top": [(0.999, 1.0), (0.999, 1.0)],
+}
 
 
 class Spine(Patch):
@@ -147,6 +157,39 @@ class Spine(Patch):
         else:
             vertices[:, 0] = self.axes.viewLim.intervalx
 
+    def _span_path(self):
+        """Have the spine's path span its bounds, else its axis' view
+        interval, as matplotlib's linear spines do when they are drawn or
+        measured (``_adjust_location``)."""
+        bounds = self.get_bounds()
+        if bounds is None:
+            self._adjust_location()
+        else:
+            along = 1 if self.spine_type in ('left', 'right') else 0
+            self._path.vertices[:, along] = bounds
+
+    @property
+    def _is_linear(self):
+        """Whether the spine is a line along a side of its Axes, drawn
+        through its transform as matplotlib's linear spines are (not an
+        arc, a circle or a spine of polar or geographic Axes, which pltrs
+        (Rust) lays out in display space)."""
+        return self._patch_type == 'line' and self.spine_type in _LINEAR_PATHS
+
+    def _linear_path(self):
+        """The spine's ``_path``, matplotlib's linear one first, which is
+        spanned over the view again when the spine or its Axes was drawn
+        since (drawing an axis measures the spines its label is placed
+        beside, animated ones too)."""
+        if "_path" not in self.__dict__:
+            self._path = Path(np.array(_LINEAR_PATHS[self.spine_type]))
+        draws = (_artist.draw_count(self._native),
+                 0 if self.axes is None else _artist.draw_count(self.axes._native))
+        if draws != self.__dict__.get("_path_draws", (0, 0)):
+            self._path_draws = draws
+            self._span_path()
+        return self._path
+
     def set_position(self, position):
         """
         Set the position of the spine.
@@ -175,6 +218,8 @@ class Spine(Patch):
         kind, amount = {'center': ('axes', 0.5),
                         'zero': ('data', 0.0)}.get(position, position)
         _spines.set_position(self._native, (kind, float(amount)))
+        # The spine takes the transform of its position again.
+        self.__dict__.pop("_given_transform", None)
 
     def get_position(self):
         """Return the spine position."""
@@ -232,6 +277,10 @@ class Spine(Patch):
         Return the window extent of the spines in display space, including
         padding for ticks (but not their labels)
         """
+        if self._is_linear:
+            # Measuring spans the path over the view, as drawing does.
+            self._linear_path()
+            self._span_path()
         extent = _spines.window_extent(self._native)
         if extent is None:
             return Bbox.null()
@@ -244,14 +293,21 @@ class Spine(Patch):
 
     def get_path(self):
         """
-        Return the path of the spine, in display coordinates: pltrs (Rust)
-        lays the spine out, and its `get_transform` is the identity.
+        Return the path of the spine: that of a linear spine in data along
+        its axis and axes fractions across it (spanning the view where it
+        was last drawn or measured), the others in display coordinates,
+        where pltrs (Rust) lays them out.
         """
+        if self._is_linear:
+            return self._linear_path()
         arrays = _spines.display_path(self._native)
         return Path([[0, 0]]) if arrays is None else Path(*arrays)
 
     def get_transform(self):
-        """Return the identity: `get_path` is in display coordinates."""
+        """Return the transform of the spine's path: the identity for the
+        spines whose `get_path` is in display coordinates."""
+        if self._is_linear:
+            return super().get_transform()
         return IdentityTransform()
 
     def set_color(self, c):

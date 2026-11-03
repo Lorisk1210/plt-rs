@@ -20,6 +20,7 @@ from . import (_api, _live_transforms, _mirrors, _text_coords, _text_overrides,
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
+from ._annotation_coords import CoordsMixin, PositionedMixin
 from ._native import annotation as _annotation, artist as _artist, text as _text
 from .artist import Artist
 from .font_manager import FontManager, FontProperties, fontManager  # noqa: F401
@@ -199,6 +200,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             # Converted once the text joins an axes (`_convert_units_for`),
             # as matplotlib converts its position when drawn.
             self._unit_position = (x, y)
+        else:
+            _remember_position(self, (x, y))
         self._init_properties(kwargs)
 
     def _convert_units_for(self, axes):
@@ -497,7 +500,7 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
 
     def get_position(self):
         """Return the (x, y) position of the text."""
-        return _text.get_position(self._native)
+        return _given_position(self, _text.get_position(self._native))
 
     def get_text(self):
         """Return the text string."""
@@ -760,7 +763,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         ----------
         x : float
         """
-        _text.set_position(self._native, float(x), self.get_position()[1])
+        _text.set_position(self._native, float(x), self.get_unitless_position()[1])
+        _values.remember(self, "x", x)
 
     def set_y(self, y):
         """
@@ -770,7 +774,8 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         ----------
         y : float
         """
-        _text.set_position(self._native, self.get_position()[0], float(y))
+        _text.set_position(self._native, self.get_unitless_position()[0], float(y))
+        _values.remember(self, "y", y)
 
     def set_rotation(self, s):
         """
@@ -1120,6 +1125,32 @@ def _coordinate(value):
     return float(value)
 
 
+#: The names `_values` keeps a text's coordinates under.
+_POSITION = ("x", "y")
+
+
+def _given_position(text, native):
+    """
+    The position *native* pltrs (Rust) holds for *text* as matplotlib
+    keeps it: each coordinate as it was given (`_remember_position`)
+    while pltrs (Rust) still holds it, as a numpy float once pltrs (Rust)
+    moved the text from there (as matplotlib's layouts move titles and
+    tick labels to the numpy floats they compute), and as a float when
+    none was given.
+    """
+    given = text.__dict__.get("_given_values", {})
+    return tuple(
+        value if name not in given
+        else _values.given(text, name, np.float64(value))
+        for name, value in zip(_POSITION, native))
+
+
+def _remember_position(text, xy):
+    """Keep the coordinates of *xy* as *text*'s position reads them back
+    (`_given_position`), as matplotlib keeps the objects it is given."""
+    _values.remember_all(text, dict(zip(_POSITION, xy)), _POSITION)
+
+
 def _point(xy):
     """The point *xy* of an annotation, coordinate by coordinate."""
     x, y = xy
@@ -1151,10 +1182,11 @@ def _native_arrowprops(arrowprops):
     return props
 
 
-class _AnnotationBase:
+class _AnnotationBase(CoordsMixin):
     """
     What `Annotation` and `.AnnotationBbox` share (matplotlib's
-    ``_AnnotationBase``): dragging them with the mouse.
+    ``_AnnotationBase``): their coordinate systems, and dragging them with
+    the mouse.
     """
 
     def draggable(self, state=None, use_blit=False):
@@ -1189,7 +1221,7 @@ class _AnnotationBase:
         return self._draggable
 
 
-class Annotation(Text, _AnnotationBase):
+class Annotation(PositionedMixin, Text, _AnnotationBase):
     """
     An `.Annotation` is a `.Text` that can refer to a specific position *xy*.
     Optionally an arrow pointing from the text to *xy* can be drawn.
@@ -1237,6 +1269,7 @@ class Annotation(Text, _AnnotationBase):
              None if arrowprops is None else _native_arrowprops(arrowprops),
              annotation_clip))
         Artist.__init__(self)
+        _remember_position(self, xy if xytext is None else xytext)
         self._init_annotation(xycoords, textcoords, arrowprops, kwargs)
 
     def _init_annotation(self, xycoords, textcoords, arrowprops, kwargs):
@@ -1280,8 +1313,10 @@ class Annotation(Text, _AnnotationBase):
         Return the `.Bbox` bounding the text and the arrow, in display
         units. The renderer is not used: pltrs (Rust) measures them.
         """
-        if not self.get_visible():
+        if not self.get_visible() or (self._figure is not None
+                                      and not self._check_xy(renderer)):
             return Bbox.unit()
+        self._measured()
         return self._native_extent(lambda: Text._text_extent(self))
 
     def _text_extent(self):

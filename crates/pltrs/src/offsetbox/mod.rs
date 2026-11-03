@@ -74,7 +74,7 @@ pub use anchored_box::{AnchoredBox, AnchoredOffsetbox, AnchoredOptions};
 pub use anchored_node::AnchoredNode;
 pub(crate) use annotation_bbox::AnnotationBboxArtist;
 pub use annotation_bbox::{AnnotationBbox, AnnotationBboxOptions};
-pub(crate) use apply::{apply_placements, lay_out_boxes};
+pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes};
 pub use boxes::{OffsetBox, Packer, Placement};
 pub use leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
 pub use pack::{PackAlign, PackMode, aligned_offsets, packed_offsets};

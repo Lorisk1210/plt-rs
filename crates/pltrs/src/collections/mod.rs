@@ -161,6 +161,12 @@ pub(crate) trait DrawTimeShapes: Debug + Any {
     /// coordinates to display space.
     fn shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String>;
 
+    /// Whether the collection's data limits are its offsets alone, its
+    /// shapes left out (matplotlib's `Quiver.get_datalim`).
+    fn limits_at_offsets(&self) -> bool {
+        false
+    }
+
     /// The generator as [`Any`], for artists that read its state.
     fn as_any(&self) -> &dyn Any;
 }

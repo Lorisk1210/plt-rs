@@ -171,7 +171,7 @@ impl SpineArtist {
         let mut base = ArtistBase::with_zorder(2.5);
         base.visible = visible;
         base.parent = Some(axes);
-        Self {
+        let mut spine = Self {
             base,
             side,
             style,
@@ -179,7 +179,17 @@ impl SpineArtist {
             bounds: None,
             patch: SpinePatch::Line,
             rc,
-        }
+        };
+        spine.place(SpinePosition::default());
+        spine
+    }
+
+    /// Moves the spine to `position`, which gives it the transform of
+    /// that position, whatever transform it was given (matplotlib's
+    /// `set_position` sets the transform to `get_spine_transform()`).
+    fn place(&mut self, position: SpinePosition) {
+        self.position = position;
+        self.base.transform = self.base.parent.map(|axes| self.spine_transform(axes));
     }
 
     /// The coordinate system of the spine path: axes fractions across the
@@ -302,7 +312,13 @@ impl SpineArtist {
         let interval = self
             .bounds
             .unwrap_or_else(|| axes.spine_interval(self.side));
-        let resolved = ctx.resolve(&self.spine_transform(axes_id))?;
+        // The transform of its position, or one the program gave it.
+        let transform = self
+            .base
+            .transform
+            .clone()
+            .unwrap_or_else(|| self.spine_transform(axes_id));
+        let resolved = ctx.resolve(&transform)?;
         let outline = self.path(interval);
         let (path, affine) = resolved.split_path(&outline);
         Some((path.into_owned(), affine))
@@ -366,10 +382,23 @@ impl Spine {
         self.raw.with::<SpineArtist, _>(|s| s.side)
     }
 
-    /// Moves the spine (outwards, to an axes fraction or to a data value).
+    /// Moves the spine (outwards, to an axes fraction or to a data value);
+    /// a line spine is then drawn in the coordinates of its position
+    /// again, whatever transform it was given (matplotlib's
+    /// `set_position`).
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::spines::SpinePosition;
+    /// use pltrs::transforms::Transform;
+    /// let ax = Figure::new().subplot();
+    /// let left = &ax.spines().left;
+    /// left.set_transform(Transform::Display);
+    /// left.set_position(SpinePosition::Axes(0.5));
+    /// assert_eq!(left.transform(), left.spine_transform());
+    /// ```
     pub fn set_position(&self, position: SpinePosition) -> &Self {
-        self.raw
-            .with_mut::<SpineArtist, _>(|s| s.position = position);
+        self.raw.with_mut::<SpineArtist, _>(|s| s.place(position));
         self
     }
 

@@ -33,6 +33,19 @@ use crate::transforms::{TransformContext, unit_to_bbox};
 /// 2-D artist of that plane plus a 3-D geometry kept in `artists`; the
 /// layout pass projects each geometry onto its 2-D artist, which then
 /// draws like any other artist.
+/// How the box of a 3-D axes fits its position: matplotlib makes it square
+/// there in `apply_aspect`, which drawing, laying out and `get_position`
+/// run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BoxFit {
+    /// At its position, as placed there.
+    Placed,
+    /// The largest square box in its position.
+    Squared,
+}
+
+pltrs_core::archive_enum!(BoxFit { Placed, Squared });
+
 #[derive(Debug)]
 pub(crate) struct Axes3DState {
     base: ArtistBase,
@@ -41,6 +54,9 @@ pub(crate) struct Axes3DState {
     pub(crate) position: Bbox,
     /// Where the square box sits inside `position`.
     pub(crate) anchor: Anchor,
+    /// Whether the box was made square in `position` since the axes was
+    /// placed there: until then the axes is at `position`.
+    pub(crate) fit: BoxFit,
     /// The grid cell the axes occupies, if placed on a grid.
     pub(crate) subplot_spec: Option<SubplotSpec>,
     /// The 2-D axes the projected artists live in.
@@ -77,6 +93,7 @@ pltrs_core::archive_struct!(Axes3DState {
     base,
     position,
     anchor,
+    fit,
     subplot_spec,
     plane,
     camera,
@@ -107,6 +124,7 @@ impl Axes3DState {
             base: ArtistBase::default(),
             position,
             anchor: Anchor::C,
+            fit: BoxFit::Placed,
             subplot_spec: None,
             plane,
             camera,
@@ -148,8 +166,12 @@ impl Axes3DState {
 
     /// The position the axes is drawn at inside a frame of extent
     /// `frame`: the largest square box in `position`, anchored
-    /// (matplotlib's `Axes3D.apply_aspect`).
+    /// (matplotlib's `Axes3D.apply_aspect`), once it was
+    /// [`Squared`](BoxFit::Squared), `position` before.
     pub(crate) fn active_position(&self, frame: &Bbox) -> Bbox {
+        if self.fit == BoxFit::Placed {
+            return self.position;
+        }
         let fig_aspect = frame.height() / frame.width();
         self.position
             .shrunk_to_aspect(1.0, Some(&self.position), fig_aspect)
@@ -176,8 +198,16 @@ impl Axes3DState {
     /// artist (hiding the points outside the view limits for the artists
     /// clipped to them) and, with computed z-order, collections and
     /// patches ordered by depth above the axes (matplotlib's
-    /// `Axes3D.draw` before drawing).
-    pub(crate) fn prepare(&mut self, store: &mut ArtistStore, extent: &Bbox, dpi: f64) {
+    /// `Axes3D.draw` before drawing). Lines are projected as matplotlib
+    /// projects them when it draws them: animated ones only while the
+    /// figure is `saving`.
+    pub(crate) fn prepare(
+        &mut self,
+        store: &mut ArtistStore,
+        extent: &Bbox,
+        dpi: f64,
+        saving: bool,
+    ) {
         self.artists.retain(|artist| store.contains(artist.id));
         let width_points = extent.width().abs() / dpi * 72.0;
         // matplotlib reads `axes3d.automargin` when the ticks are drawn.
@@ -198,6 +228,10 @@ impl Axes3DState {
             ..
         } in &self.artists
         {
+            let animated = store.get(*id).is_some_and(|a| a.base().animated);
+            if art.projected_when_drawn() && animated && !saving {
+                continue;
+            }
             let projection = if *axlim_clip { &hiding } else { &projection };
             let Some(depth) = art.project(*id, store, projection) else {
                 continue;
@@ -404,15 +438,30 @@ pub(crate) fn axes3d_fresh_tight_bbox(
     id: ArtistId,
     for_layout_only: bool,
 ) -> Option<Bbox> {
+    // matplotlib's `get_tightbbox` applies the aspect.
+    square(figure, id, true);
     prepare_one(figure, id);
     axes3d_tight_bbox(figure, id, for_layout_only)
 }
 
 /// The layout pass of every 3-D axes of a figure (called from
-/// [`FigureState::prepare`]).
+/// [`FigureState::prepare`]), the box of each made square unless it is
+/// animated (matplotlib applies the aspect when it draws the axes, which
+/// the figure's draws leave out when animated).
 pub(crate) fn prepare_axes3d(figure: &mut FigureState) {
     for id in axes3d_ids(&figure.store) {
+        square(figure, id, false);
         prepare_one(figure, id);
+    }
+}
+
+/// Makes the box of the 3-D axes `id` square in its position (matplotlib's
+/// `apply_aspect`), an animated axes only when `animated_too`.
+fn square(figure: &mut FigureState, id: ArtistId, animated_too: bool) {
+    if let Some(axes) = figure.store.get_as_mut::<Axes3DState>(id)
+        && (animated_too || !axes.base().animated)
+    {
+        axes.fit = BoxFit::Squared;
     }
 }
 
@@ -421,8 +470,10 @@ pub(crate) fn prepare_one(figure: &mut FigureState, id: ArtistId) {
     let Some(extent) = figure.axes_bbox(id) else {
         return;
     };
-    let dpi = figure.dpi();
-    figure.with_others::<Axes3DState, _>(id, |axes, store| axes.prepare(store, &extent, dpi));
+    let (dpi, saving) = (figure.dpi(), figure.saving);
+    figure.with_others::<Axes3DState, _>(id, |axes, store| {
+        axes.prepare(store, &extent, dpi, saving);
+    });
 }
 
 #[cfg(test)]

@@ -402,6 +402,14 @@ class ThetaAxis(XAxis):
         self.set_ticks_position('none')
         self._wrap_locator_formatter()
 
+    def _set_axes_scale(self, value, **kwargs):
+        # docstring inherited; the angles stay linear (matplotlib's
+        # ``ThetaAxis._set_scale``).
+        if value != 'linear':
+            raise NotImplementedError(
+                "The xscale cannot be set on a polar plot")
+        super()._set_axes_scale(value, **kwargs)
+
 
 class RadialTick(YTick):
     """

@@ -33,7 +33,7 @@ import numpy as np
 from . import _api, _handles, _live_transforms, cbook, rcParams
 from . import text as mtext
 from . import transforms as mtransforms
-from ._native import offsetbox as _offsetbox
+from ._native import artist as _artist, offsetbox as _offsetbox
 from .artist import Artist
 from .font_manager import FontManager, FontProperties
 from .transforms import Bbox, BboxBase, TransformedBbox
@@ -945,9 +945,11 @@ class AnchoredOffsetbox(OffsetBox):
         return [self._child]
 
     def get_bbox_to_anchor(self):
-        """Return the bbox that the box is anchored to, if one was set."""
+        """Return the bbox that the box is anchored to."""
+        if self._bbox_to_anchor is None:
+            return self.axes.bbox
         transform = self._bbox_to_anchor_transform
-        if self._bbox_to_anchor is None or transform is None:
+        if transform is None:
             return self._bbox_to_anchor
         return TransformedBbox(self._bbox_to_anchor, transform)
 
@@ -1080,8 +1082,23 @@ class OffsetImage(OffsetBox):
         return self._zoom
 
     def get_offset(self):
-        """Return offset of the container."""
+        """
+        Return offset of the container: where the box holding it placed
+        the image when it was last drawn (pltrs (Rust) lays the box out),
+        the offset given before.
+        """
+        image = self.image
+        if image._figure is not None and _artist.draw_count(image._native):
+            return tuple(image.get_window_extent().p0)
         return self._offset
+
+    def get_window_extent(self, renderer=None):
+        """Return the image's box in display space: its size at its zoom,
+        at its offset (matplotlib's)."""
+        if renderer is None:
+            figure = self.image.get_figure(root=True)
+            renderer = None if figure is None else figure._get_renderer()
+        return self.get_bbox(renderer).translated(*self.get_offset())
 
     def get_bbox(self, renderer):
         """Return the bbox of the image, ignoring parent offsets."""
@@ -1108,13 +1125,23 @@ class AnnotationBbox(Artist, mtext._AnnotationBase):
 
     def get_window_extent(self, renderer=None):
         """Return the annotation's box in display space, where pltrs (Rust)
-        lays it out (matplotlib computes it from the annotation's layout)."""
-        return self._laid_out_extent()
+        places it in the figure as it is now (matplotlib places the box
+        when it is measured, without laying out the figure)."""
+        return self._placed_extent()
 
     def get_tightbbox(self, renderer=None):
         """Return the box of the annotation's parts (its box, frame and
         arrow), which matplotlib does not clip."""
-        return self._laid_out_extent()
+        return self._placed_extent()
+
+    def _placed_extent(self):
+        """The box placed in the figure as it is now; a box outside any
+        figure has no renderer to be measured with, as in matplotlib."""
+        if self._figure is None:
+            raise AttributeError(
+                "'NoneType' object has no attribute '_get_renderer'")
+        self.update_positions(None)
+        return self._extent_as_is()
 
     def __str__(self):
         return f"AnnotationBbox({self.xy[0]:g},{self.xy[1]:g})"
@@ -1288,7 +1315,8 @@ or callable, default: value of *xycoords*
         Update pixel positions for the annotated point, the text, and the arrow.
 
         pltrs: places the frame (`patch`) and the parts of the offset box
-        where pltrs (Rust) draws them in the figure's current layout.
+        where pltrs (Rust) draws them in the figure as it is now (not laid
+        out first, as in matplotlib).
         """
         if self._figure is not None:
             _offsetbox.update_annotation_positions(self._native)
@@ -1329,6 +1357,10 @@ or callable, default: value of *xycoords*
         if s is None:
             s = rcParams["legend.fontsize"]
         self.prop = FontProperties(size=s)
+        if self._figure is not None:
+            _offsetbox.set_annotation_fontsize(
+                self._native, float(self.get_fontsize()))
+        self.stale = True
 
     def get_fontsize(self):
         """Return the fontsize in points."""

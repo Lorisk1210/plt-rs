@@ -159,9 +159,11 @@ impl<S: PatchShape> Patch<S> {
         })
     }
 
-    /// The outlines as the patch is drawn now, in display pixels
-    /// (matplotlib's `get_path` of patches placed as they are drawn, such
-    /// as `FancyArrowPatch._get_path_in_displaycoord`).
+    /// The outlines as the patch is drawn now, in display pixels, an
+    /// arrow sized at the pixels per point of its last draw (one before
+    /// its first): matplotlib's `get_path` of patches placed as they are
+    /// drawn, such as `FancyArrowPatch._get_path_in_displaycoord`, which
+    /// reads the `_dpi_cor` only drawing sets.
     ///
     /// ```
     /// use pltrs::patches::{ConnectionStyle, FancyArrowPatch, PatchError};
@@ -189,9 +191,7 @@ impl<S: PatchShape> Patch<S> {
             .store()
             .get_as::<PatchArtist<S>>(self.raw.id())
             .ok_or(PatchError::Detached)?;
-        let paths = patch
-            .parts()
-            .display_paths(layout, layout.points_to_pixels(1.0))?;
+        let paths = patch.parts().measured_display_paths(layout)?;
         Ok(paths.iter().map(DisplayPath::to_display).collect())
     }
 

@@ -5,7 +5,6 @@
 use super::limits::oriented;
 use super::{Axes, AxesState, AxisName, PlotError};
 use crate::artist::ArtistHandle;
-use crate::scale::ScaleName;
 use crate::ticker::AutolimitMode;
 
 /// New view limits for one axis (matplotlib's `set_xlim(left, right,
@@ -114,15 +113,10 @@ impl Axes {
         {
             return Err(PlotError::NonFiniteLimit(axis));
         }
-        let log = self
-            .raw
-            .with::<AxesState, _>(|a| a.axis(axis).scale().name() == ScaleName::Log);
-        let replaced = |limit: Option<f64>| limit.is_none_or(|v| log && v <= 0.0);
-        if replaced(limits.low) || replaced(limits.high) {
-            // matplotlib reads the current limits (autoscaled first) only
-            // when it needs them.
-            self.unstale_view();
-        }
+        // matplotlib reads the view limits, which applies the autoscaling
+        // pending to both axes, before it sets those of this axis
+        // (`Axis.set_view_interval`).
+        self.unstale_view();
         let current = self.raw.with::<AxesState, _>(|a| a.view_interval(axis));
         let requested = (
             limits.low.unwrap_or(current.0),

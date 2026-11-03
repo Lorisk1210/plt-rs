@@ -8,7 +8,7 @@ use pltrs::rc::{Cycler, CyclerError};
 
 use crate::binding::prelude::*;
 
-mod aspect;
+pub(super) mod aspect;
 mod decorations;
 mod limits;
 mod twins;
@@ -47,6 +47,12 @@ fn position(axes: Axes, original: bool) -> PyResult<(f64, f64, f64, f64)> {
         axes.position()
     };
     Ok(bbox.extents())
+}
+
+/// The active position where the axes was last placed, its aspect not
+/// applied first (`get_position` of an axes with a locator).
+fn located_position(axes: Axes) -> PyResult<(f64, f64, f64, f64)> {
+    Ok(axes.located_position().extents())
 }
 
 /// Moves the axes to `rect`, `[left, bottom, width, height]` in figure
@@ -146,6 +152,7 @@ fn get_scale(axes: Axes, name: String) -> PyResult<String> {
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("position", position)?;
+    module.add("located_position", located_position)?;
     module.add("set_position", set_position)?;
     module.add("share", share)?;
     module.add("shared", shared)?;

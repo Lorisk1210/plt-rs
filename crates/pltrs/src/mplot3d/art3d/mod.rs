@@ -198,6 +198,14 @@ impl Art3D {
         !matches!(self, Self::Text { .. })
     }
 
+    /// Whether matplotlib projects the artist as it draws it (a line,
+    /// `Line3D.draw`), not before drawing the axes' artists
+    /// (`do_3d_projection`): an artist the draw leaves out is not
+    /// projected.
+    pub(crate) fn projected_when_drawn(&self) -> bool {
+        matches!(self, Self::Line(_))
+    }
+
     /// How computed z-order counts the artist; lines and texts keep
     /// their own z-order.
     pub(crate) fn sort_kind(&self) -> Option<SortKind> {

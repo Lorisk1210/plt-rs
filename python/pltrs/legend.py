@@ -103,8 +103,9 @@ class Legend(Artist):
 
     def get_window_extent(self, renderer=None):
         """Return the legend's box in display space, where pltrs (Rust)
-        lays it out (matplotlib computes it from the legend's layout)."""
-        return self._laid_out_extent()
+        lays it out in the figure as it is (matplotlib computes it from
+        the legend's layout, the view limits not autoscaled first)."""
+        return self._extent_as_is()
 
     # 'best' is only implemented for Axes legends
     codes = {'best': 0, **{

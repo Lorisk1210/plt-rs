@@ -114,7 +114,13 @@ impl FigureState {
         let before = default_limits(self);
         self.update_shared_axis(axes, name, |axis| axis.set_scale(Rc::clone(scale)));
         if default_limits(self) != before {
-            self.autoscale_axis(axes, name);
+            // matplotlib's `autoscale_view` along this axis, whose setting
+            // of the limits brings any other axis waiting to be rescaled
+            // up to date too.
+            if let Some(state) = self.axes_state_mut(axes) {
+                state.request_autoscale(name == AxisName::X, name == AxisName::Y);
+            }
+            self.unstale_axes(axes);
         }
     }
 

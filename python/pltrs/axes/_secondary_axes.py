@@ -11,7 +11,7 @@ import numbers
 import numpy as np
 
 from .. import _api, _handles, scale as mscale, transforms
-from .._native import insets as _insets
+from .._native import artist as _artist, insets as _insets
 from . import _program_locators
 from ._axes import Axes
 from ._insets import _TransformedBoundsLocator
@@ -37,6 +37,23 @@ class SecondaryAxis(Axes):
     # matplotlib's draw of the class is not decorated with
     # `allow_rasterization`: asking to rasterize it warns.
     _ignores_rasterization = True
+    #: Where matplotlib makes a secondary axes of each orientation, as
+    #: ``[left, bottom, width, height]`` in figure fractions.
+    _MADE_AT = {"x": (0, 1., 1, 0.0001), "y": (0, 1., 0.0001, 1)}
+
+    def get_position(self, original=False):
+        """
+        Return the position of the Axes within the figure as a `.Bbox`.
+
+        pltrs: as in matplotlib, whose figure places a secondary axes by
+        its locator only when it is drawn (``Figure._get_draw_artists``,
+        animated axes too), the original position stays where it was
+        made, and so does the active one until the figure is first drawn.
+        """
+        figure = self.get_figure(root=True)
+        if original or figure is None or not _artist.draw_count(figure._native):
+            return transforms.Bbox.from_bounds(*self._MADE_AT[self._orientation])
+        return super().get_position(original)
 
     def __init__(self, parent, orientation, location, functions,
                  transform=None, **kwargs):

@@ -305,6 +305,13 @@ impl CollectionArtist {
             .as_ref()
             .map_or((false, false), |t| t.data_directions(axes));
         let directions = (x_data || ox_data, y_data || oy_data);
+        if self
+            .draw_time
+            .as_ref()
+            .is_some_and(|shapes| shapes.limits_at_offsets())
+        {
+            return (self.offset_limits(axes), directions);
+        }
         let offsets_usable = self
             .offset_transform
             .as_ref()
@@ -321,6 +328,19 @@ impl CollectionArtist {
             return (limits, directions);
         }
         (DataLimits::NULL, directions)
+    }
+
+    /// The limits of the offsets in the data coordinates of `axes`, when
+    /// their transform passes through the axes' data transform last.
+    fn offset_limits(&self, axes: ArtistId) -> DataLimits {
+        let mut limits = DataLimits::NULL;
+        if let Some(to_data) = self.offset_transform.as_ref().and_then(|t| t.to_data(axes)) {
+            let points: Vec<Point> = (self.offsets.iter())
+                .map(|&p| to_data.transform_point(p))
+                .collect();
+            limits.update_from_points(&points, true, true);
+        }
+        limits
     }
 }
 

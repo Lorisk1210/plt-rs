@@ -68,8 +68,13 @@ def convert_units(axes, name, values):
     array = np.asanyarray(values)
     if array.dtype.kind in "fiub":
         return values
-    return _plotting.convert_units(axes._native, name,
-                                   axis_values(values)).reshape(array.shape)
+    native = axis_values(values)
+    converted = _plotting.convert_units(axes._native, name, native)
+    if array.ndim == 0:
+        # A scalar converts to a scalar, as matplotlib's date and category
+        # converters give it.
+        return converted[0]
+    return converted.reshape(array.shape)
 
 
 def line_data(axes, x, y):

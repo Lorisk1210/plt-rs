@@ -44,23 +44,13 @@ from ..axes import Axes
 from ..axis import Axis
 from .._axis_artists import Tick
 from ..path import Path
-from ..spines import Spine
+from ..spines import _LINEAR_PATHS, Spine
 from ..transforms import (CompositeAffine2D, CompositeGenericTransform,
                           IdentityTransform, TransformWrapper)
 
 #: The projections pltrs (Rust) has: its own Axes are made with them.
 _NATIVE_PROJECTIONS = frozenset(
     ["rectilinear", "polar", "aitoff", "hammer", "lambert", "mollweide", "3d"])
-
-#: matplotlib's paths of the linear spines (``Spine.linear_spine``), in
-#: data along their axis and axes fractions across it.
-_LINEAR_PATHS = {
-    "left": [(0.0, 0.999), (0.0, 0.999)],
-    "right": [(1.0, 0.999), (1.0, 0.999)],
-    "bottom": [(0.999, 0.0), (0.999, 0.0)],
-    "top": [(0.999, 1.0), (0.999, 1.0)],
-}
-
 
 def native_name(cls):
     """

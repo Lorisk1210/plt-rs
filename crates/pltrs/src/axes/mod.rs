@@ -517,10 +517,11 @@ impl Axes {
     }
 
     /// The ticks one axis draws in the current view, where the axes is
-    /// now: a layout engine moves the axes only when the figure is drawn
-    /// or laid out (call [`Figure::layout`](crate::figure::Figure::layout)
-    /// first for the ticks of the axes it places), as matplotlib computes
-    /// ticks between draws.
+    /// now: a layout engine moves the axes, and its aspect adjusts it,
+    /// only when the figure is drawn or laid out (call
+    /// [`Figure::layout`](crate::figure::Figure::layout) first for the
+    /// ticks of the axes it places), as matplotlib computes ticks between
+    /// draws.
     ///
     /// # Errors
     ///
@@ -528,7 +529,10 @@ impl Axes {
     /// places more than [`MAX_DRAWN_TICKS`](crate::ticker::MAX_DRAWN_TICKS)
     /// ticks.
     pub fn ticks(&self, axis: AxisName) -> Result<TickSet, TickerError> {
-        self.raw.figure_state().borrow_mut().prepare_as_is();
+        self.raw
+            .figure_state()
+            .borrow_mut()
+            .update_ticks_as_is(self.id());
         self.raw
             .with::<AxesState, _>(|a| a.axis(axis).ticks.clone())
     }

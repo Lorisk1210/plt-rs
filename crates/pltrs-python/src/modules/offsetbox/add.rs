@@ -244,6 +244,13 @@ fn set_annotation_clip(annotation: RawHandle, clip: Option<bool>) -> PyResult<()
     Ok(())
 }
 
+/// Sets the font size, in points, that scales the frame and the arrow of
+/// the added annotation box `annotation` (`set_fontsize`).
+fn set_annotation_fontsize(annotation: RawHandle, points: f64) -> PyResult<()> {
+    annotation_bbox(&annotation)?.set_fontsize(points);
+    Ok(())
+}
+
 /// Places the frame and the parts of the added annotation box
 /// `annotation` where the figure draws them (`update_positions`).
 fn update_annotation_positions(annotation: RawHandle) -> PyResult<()> {
@@ -285,5 +292,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("update_annotation_positions", update_annotation_positions)?;
     module.add("get_annotation_clip", get_annotation_clip)?;
     module.add("set_annotation_clip", set_annotation_clip)?;
+    module.add("set_annotation_fontsize", set_annotation_fontsize)?;
     module.add("set_clip_children", set_clip_children)
 }

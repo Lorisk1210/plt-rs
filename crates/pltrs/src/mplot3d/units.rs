@@ -158,6 +158,10 @@ impl UnitHandle for Axis3D {
     /// view limits, which matplotlib checks, were set when they were
     /// made).
     fn set_default_intervals(&self, _limits: (f64, f64)) {}
+
+    /// Nothing: 3-D axes autoscale when they are drawn, as matplotlib's
+    /// 3-D view limits are brought up to date then.
+    fn set_up_categories(&self) {}
 }
 
 impl Axis3D {

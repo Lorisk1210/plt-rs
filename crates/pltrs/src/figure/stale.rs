@@ -8,22 +8,36 @@
 //! unless it is animated (figures leave animated artists out of their
 //! draws) or removed. An artist never drawn, one added since the last
 //! draw included, is stale.
+//!
+//! The figure also counts the draws of each artist, which tells what
+//! matplotlib's `draw` methods compute as they draw (an annotation's
+//! transform, a spine's path) from what they hold before a first draw.
 
 use std::cell::RefCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::FigureState;
 use crate::artist::{ArtistId, ArtistLookup};
 
-/// The artists of a figure drawn since they last changed.
+/// The artists of a figure drawn since they last changed, and how many
+/// times each artist was drawn.
 #[derive(Debug, Default)]
-pub(crate) struct FreshArtists(RefCell<BTreeSet<ArtistId>>);
+pub(crate) struct FreshArtists {
+    fresh: RefCell<BTreeSet<ArtistId>>,
+    draws: RefCell<BTreeMap<ArtistId, u64>>,
+}
 
 impl FigureState {
     /// Records that artist `id` was drawn (matplotlib's `self.stale =
     /// False` at the end of `draw`).
     pub(crate) fn mark_drawn(&self, id: ArtistId) {
-        self.fresh.0.borrow_mut().insert(id);
+        self.fresh.fresh.borrow_mut().insert(id);
+        *self.fresh.draws.borrow_mut().entry(id).or_default() += 1;
+    }
+
+    /// How many times artist `id` was drawn, by the figure or alone.
+    pub(crate) fn draw_count(&self, id: ArtistId) -> u64 {
+        self.fresh.draws.borrow().get(&id).copied().unwrap_or(0)
     }
 
     /// Whether artist `id` changed since it was last drawn; for the root
@@ -32,7 +46,7 @@ impl FigureState {
         if id == self.root {
             self.stale
         } else {
-            !self.fresh.0.borrow().contains(&id)
+            !self.fresh.fresh.borrow().contains(&id)
         }
     }
 
@@ -40,7 +54,7 @@ impl FigureState {
     /// it is animated or removed, the artists containing it and the
     /// figure (matplotlib's `artist.stale = True`).
     pub(crate) fn mark_stale(&mut self, id: ArtistId) {
-        let fresh = self.fresh.0.get_mut();
+        let fresh = self.fresh.fresh.get_mut();
         fresh.remove(&id);
         let Some(artist) = self.store.get(id) else {
             return;
@@ -64,7 +78,7 @@ impl FigureState {
             self.stale = false;
         }
         if self.artist(id).is_some() {
-            self.fresh.0.get_mut().insert(id);
+            self.fresh.fresh.get_mut().insert(id);
         }
     }
 }
@@ -112,6 +126,25 @@ mod tests {
         draw(&fig);
         other.set_linewidth(2.0);
         assert!(other.stale() && !fig.stale());
+    }
+
+    #[test]
+    fn draws_are_counted_for_the_artists_drawn() {
+        let fig = Figure::new();
+        let ax = fig.subplot();
+        let line = ax.plot([0.0, 1.0], [1.0, 0.0]).expect("plotted");
+        let hidden = ax.plot([0.0, 1.0], [0.0, 1.0]).expect("plotted");
+        hidden.set_visible(false);
+        assert_eq!(line.raw().draw_count(), 0, "never drawn");
+        draw(&fig);
+        line.set_linewidth(3.0);
+        draw(&fig);
+        assert_eq!(line.raw().draw_count(), 2, "changes keep the count");
+        assert_eq!(
+            hidden.raw().draw_count(),
+            0,
+            "a hidden artist draws nothing"
+        );
     }
 
     #[test]

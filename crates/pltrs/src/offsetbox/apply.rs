@@ -154,17 +154,24 @@ pub(crate) fn lay_out_boxes(state: &mut FigureState) {
         })
         .collect();
     for id in boxes {
-        let Some(mut tree) = tree_mut(&mut state.store, id).map(|tree| tree.clone()) else {
-            continue;
-        };
-        measure_aux_boxes(state, &mut tree);
-        if let Some(stored) = tree_mut(&mut state.store, id) {
-            *stored = tree;
-        }
-        match placements(state, id) {
-            Some(Ok(placements)) => apply_placements(&mut state.store, placements),
-            Some(Err(message)) => state.pending_errors.push(DrawError::new(id, message)),
-            None => {}
-        }
+        lay_out_box(state, id);
+    }
+}
+
+/// Lays out the anchored, annotation or placed box `id` in the figure's
+/// state of now and moves its parts into place; a box that cannot be laid
+/// out is reported with the next draw.
+pub(crate) fn lay_out_box(state: &mut FigureState, id: ArtistId) {
+    let Some(mut tree) = tree_mut(&mut state.store, id).map(|tree| tree.clone()) else {
+        return;
+    };
+    measure_aux_boxes(state, &mut tree);
+    if let Some(stored) = tree_mut(&mut state.store, id) {
+        *stored = tree;
+    }
+    match placements(state, id) {
+        Some(Ok(placements)) => apply_placements(&mut state.store, placements),
+        Some(Err(message)) => state.pending_errors.push(DrawError::new(id, message)),
+        None => {}
     }
 }

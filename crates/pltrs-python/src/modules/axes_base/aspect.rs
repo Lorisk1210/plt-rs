@@ -55,15 +55,20 @@ fn get_adjustable(axes: Axes) -> PyResult<&'static str> {
     })
 }
 
+/// The anchor named `code` (`"C"`, `"SW"`...), or at the fractions `(x,
+/// y)` of the original box without a code.
+pub(in crate::modules) fn anchor(code: Option<String>, (x, y): (f64, f64)) -> PyResult<Anchor> {
+    match code {
+        Some(code) => Anchor::from_code(&code)
+            .ok_or_else(|| PyErr::value_error(format!("unknown anchor {code:?}"))),
+        None => Ok(Anchor::Fraction(x, y)),
+    }
+}
+
 /// Places the shrunk box at the anchor named `code` (`"C"`, `"SW"`...),
 /// or at the fractions `(x, y)` of the original box.
 fn set_anchor(axes: Axes, code: Option<String>, fractions: (f64, f64)) -> PyResult<()> {
-    let anchor = match code {
-        Some(code) => Anchor::from_code(&code)
-            .ok_or_else(|| PyErr::value_error(format!("unknown anchor {code:?}")))?,
-        None => Anchor::Fraction(fractions.0, fractions.1),
-    };
-    axes.set_anchor(anchor);
+    axes.set_anchor(anchor(code, fractions)?);
     Ok(())
 }
 

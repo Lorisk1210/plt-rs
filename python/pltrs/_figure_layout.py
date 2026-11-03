@@ -215,21 +215,24 @@ class FigureBaseLayout:
             containing the bounding box (in figure inches).
         """
         if bbox_extra_artists is None:
-            x0, y0, x1, y1 = _figure_layout.figure_tightbbox(self._native)
-            return Bbox([[x0, y0], [x1, y1]])
-        boxes = [artist.get_tightbbox(renderer) for artist in bbox_extra_artists]
-        for ax in self.axes:
-            if ax.get_visible():
-                # Some Axes don't take the bbox_extra_artists keyword.
-                try:
-                    boxes.append(ax.get_tightbbox(
-                        renderer, bbox_extra_artists=bbox_extra_artists))
-                except TypeError:
-                    boxes.append(ax.get_tightbbox(renderer))
-        boxes = [box for box in boxes
-                 if box is not None and np.isfinite(box.width)
-                 and np.isfinite(box.height)
-                 and (box.width != 0 or box.height != 0)]
+            # pltrs (Rust) unites the boxes of the figure's artists, axes
+            # and subfigures, in pixels.
+            extent = _figure_layout.figure_tightbbox(self._native)
+            boxes = [] if extent is None else [Bbox.from_extents(*extent)]
+        else:
+            boxes = [artist.get_tightbbox(renderer) for artist in bbox_extra_artists]
+            for ax in self.axes:
+                if ax.get_visible():
+                    # Some Axes don't take the bbox_extra_artists keyword.
+                    try:
+                        boxes.append(ax.get_tightbbox(
+                            renderer, bbox_extra_artists=bbox_extra_artists))
+                    except TypeError:
+                        boxes.append(ax.get_tightbbox(renderer))
+            boxes = [box for box in boxes
+                     if box is not None and np.isfinite(box.width)
+                     and np.isfinite(box.height)
+                     and (box.width != 0 or box.height != 0)]
         isfigure = hasattr(self, 'bbox_inches')
         if not boxes:
             if isfigure:

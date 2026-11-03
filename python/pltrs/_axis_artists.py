@@ -16,7 +16,7 @@ Kept close to matplotlib 3.11.2's ``axis`` (Matplotlib License).
 
 import numpy as np
 
-from . import _api, _artist_clipping, _live_transforms, _mirrors, cbook
+from . import _api, _artist_clipping, _live_transforms, _mirrors, _values, cbook
 from ._native import axis as _axis
 from .artist import Artist
 from .lines import Line2D
@@ -235,6 +235,11 @@ class Tick(Artist):
          self._labelrotation) = _axis.sync_tick(
             axis.axes._native, axis.axis_name, not self._major, self._index,
             tuple(part._native for part in parts))
+        # matplotlib's update_position gives the labels the tick's location
+        # as the numpy float of the locator's array.
+        coordinate = "y" if self.__name__ == "ytick" else "x"
+        for label in (self.label1, self.label2):
+            _values.remember(label, coordinate, np.float64(self._loc))
 
     def _push(self, part):
         """Read *part*, changed, back into the axis."""
@@ -488,7 +493,7 @@ class XTick(Tick):
 
     def get_view_interval(self):
         # docstring inherited
-        return self.axes.get_xlim()
+        return self.axes.viewLim.intervalx
 
     def _apply_tickdir(self, tickdir):
         # docstring inherited
@@ -534,7 +539,7 @@ class YTick(Tick):
 
     def get_view_interval(self):
         # docstring inherited
-        return self.axes.get_ylim()
+        return self.axes.viewLim.intervaly
 
     def _apply_tickdir(self, tickdir):
         # docstring inherited
@@ -555,10 +560,14 @@ class _AxisText:
     #: The native functions filling the mirror, reading it back and giving
     #: its extent.
     _sync_native = _push_native = _extent_native = None
+    #: The position matplotlib's axes of each name give the text when they
+    #: make it (``self.label.set(x=0.5, y=0)``...), by axis name.
+    _START = {}
 
     def __init__(self, axis):
         self.axis = axis
-        self.text = _mirrors.attach(Text(0, 0, ''), _AxisPart(self))
+        self.text = _mirrors.attach(
+            Text(*self._START.get(axis.axis_name, (0, 0)), ''), _AxisPart(self))
 
     def _args(self):
         return self.axis.axes._native, self.axis.axis_name
@@ -602,6 +611,7 @@ class AxisLabel(_AxisText):
     _sync_native = _axis.sync_axis_label
     _push_native = _axis.push_axis_label
     _extent_native = _axis.axis_label_extent
+    _START = {"x": (0.5, 0), "y": (0, 0.5)}
 
 
 class OffsetText(_AxisText):
@@ -610,3 +620,4 @@ class OffsetText(_AxisText):
     _sync_native = _axis.sync_offset_text
     _push_native = _axis.push_offset_text
     _extent_native = _axis.offset_text_extent
+    _START = {"x": (1, 0), "y": (0, 0.5)}

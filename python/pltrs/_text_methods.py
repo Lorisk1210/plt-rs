@@ -12,7 +12,8 @@ import numpy as np
 from . import _handles, units as munits
 from ._native import annotation as _annotation, text as _text
 from .text import (
-    Annotation, Text, _is_offset, _native_arrowprops, _native_coords, _point)
+    Annotation, Text, _is_offset, _native_arrowprops, _native_coords, _point,
+    _remember_position)
 
 
 def _coordinate_number(value):
@@ -83,6 +84,7 @@ class FigureText:
         native = _text.figure_text(self._native, float(x), float(y),
                                    '' if s is None else str(s))
         text = _handles.wrap(native, Text, self.figure)
+        _remember_position(text, (x, y))
         text._init_properties(_text_kwargs(fontdict, kwargs))
         return text
 
@@ -134,6 +136,7 @@ class AxesText:
                                  _coordinate_number(self.convert_yunits(y)),
                                  '' if s is None else str(s))
         text = _handles.wrap(native, Text, self.figure)
+        _remember_position(text, (x, y))
         text._init_properties(_text_kwargs(fontdict, kwargs))
         return text
 
@@ -190,6 +193,7 @@ default: 'data'
         """
         if _is_offset(xycoords):
             raise ValueError("xycoords cannot be an offset coordinate")
+        position = xy if xytext is None else xytext
         xy = _in_data_units(self, xy, xycoords)
         if xytext is not None:
             xytext = _in_data_units(self, xytext, xycoords if textcoords is None else textcoords)
@@ -203,5 +207,6 @@ default: 'data'
              None if arrowprops is None else _native_arrowprops(arrowprops),
              annotation_clip))
         annotation = _handles.wrap(native, Annotation, self.figure)
+        _remember_position(annotation, position)
         annotation._init_annotation(xycoords, textcoords, arrowprops, kwargs)
         return annotation

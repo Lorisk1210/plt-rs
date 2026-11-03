@@ -19,7 +19,7 @@ from . import (_api, _live_transforms, _values, cbook, colorizer as mcolorizer,
                colors as mcolors, lines as mlines, path as mpath,
                transforms as mtransforms)
 from ._enums import CapStyle, JoinStyle
-from ._native import collections as _collections
+from ._native import artist as _artist, collections as _collections
 from ._native import tri as _tri
 from .artist import Artist
 from .path import Path
@@ -311,13 +311,16 @@ class Collection(mcolorizer.ColorizingArtist):
         suitable for the *all_transforms* argument of
         `~matplotlib.backend_bases.RendererBase.draw_path_collection`.
 
-        pltrs: markers are scaled to their areas at the resolution of the
-        collection's figure (72 dpi outside any figure), where matplotlib
-        keeps those of the last draw.
+        The items are scaled to their areas at the resolution of the
+        collection's figure once it was drawn since its sizes were set, as
+        matplotlib's ``draw`` scales them, else at the resolution they were
+        set at (72 dpi by default).
         """
+        dpi, draws = self.__dict__.get("_sizes_scaled", (72.0, 0))
         figure = self.get_figure(root=True)
-        return _collections.get_transforms(
-            self._native, 72.0 if figure is None else float(figure.dpi))
+        if figure is not None and _artist.draw_count(self._native) > draws:
+            dpi = float(figure.dpi)
+        return _collections.get_transforms(self._native, dpi)
 
     def get_offsets(self):
         """Return the offsets for the collection."""
@@ -696,6 +699,8 @@ class _CollectionWithSizes(Collection):
         sizes = np.atleast_1d(sizes)
         _collections.set_sizes(self._native, np.asarray(sizes, float))
         _values.remember(self, "sizes", sizes)
+        # The resolution the items are scaled at until the next draw.
+        self._sizes_scaled = (float(dpi), _artist.draw_count(self._native))
 
 
 class PathCollection(_CollectionWithSizes):
@@ -896,14 +901,13 @@ class FillBetweenPolyCollection(PolyCollection):
 
     def get_datalim(self, transData):
         """Calculate the data limits and return them as a `.Bbox`."""
-        # matplotlib's: the box of the points filled between and their
-        # smallest positive coordinates (its ``_bbox``).
-        filled = mtransforms.Bbox.null()
-        for path in self.get_paths():
-            filled.update_from_data_xy(path.vertices, ignore=False)
+        # matplotlib's: the box of the points filled between, where they
+        # are filled, and their smallest positive coordinates (its
+        # ``_bbox``).
+        (x0, y0, x1, y1), minpos = _collections.fill_between_limits(self._native)
         datalim = mtransforms.Bbox.null()
         datalim.update_from_data_xy((self.get_transform() - transData).transform(
-            np.concatenate([filled.get_points(), [filled.minpos]])))
+            np.array([[x0, y0], [x1, y1], minpos])))
         return datalim
 
     def __init__(

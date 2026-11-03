@@ -198,20 +198,11 @@ impl<'a> AxisPainter<'a> {
     /// Lays out the tick labels into `texts` (matplotlib's
     /// `_get_ticklabel_bboxes`).
     fn lay_out_tick_labels(&self, layout: LayoutContext<'_>, rc: &RcParams, texts: &mut AxisTexts) {
-        let labelled = self.ticks_with(|axis, minor, index| {
-            [true, false].map(|first_side| axis.tick_label_style_at(minor, index, first_side))
-        });
-        for (index, (tick, styles)) in labelled.into_iter().enumerate() {
-            for (style, first_side) in styles.into_iter().zip([true, false]) {
-                let enabled = if first_side {
-                    style.labels.first
-                } else {
-                    style.labels.second
-                };
-                if !enabled {
-                    continue;
-                }
-                let Some(placement) = self.label_placement(layout, tick, &style, first_side) else {
+        let labelled = self.ticks_with(|_, minor, index| (minor, index));
+        for (index, (tick, (minor, at))) in labelled.into_iter().enumerate() {
+            for first_side in [true, false] {
+                let Some((style, placement)) = self.labelled(layout, tick, (minor, at), first_side)
+                else {
                     continue;
                 };
                 if tick.label.is_empty() {
@@ -233,6 +224,45 @@ impl<'a> AxisPainter<'a> {
                 }
             }
         }
+    }
+
+    /// The style and placement of the label of `tick` on its first or
+    /// second side, `(minor, index)` naming the tick among those the
+    /// locator places; `None` when that side shows no label or the anchor
+    /// is not finite.
+    fn labelled(
+        &self,
+        layout: LayoutContext<'_>,
+        tick: &Tick,
+        (minor, index): (bool, usize),
+        first_side: bool,
+    ) -> Option<(Cow<'a, TickStyle>, LabelPlacement)> {
+        let style = self.axis.tick_label_style_at(minor, index, first_side);
+        let enabled = if first_side {
+            style.labels.first
+        } else {
+            style.labels.second
+        };
+        let placement = self.label_placement(layout, tick, &style, first_side)?;
+        enabled.then_some((style, placement))
+    }
+
+    /// The label of the major (or `minor`) tick at `index` among those the
+    /// locator places, on its first or second side, laid out where
+    /// matplotlib keeps the label's `Text`, drawn or not (a tick outside
+    /// the view is placed without being drawn); `None` for a side without
+    /// a label, a label without text or a tick not placed.
+    pub(super) fn tick_label(
+        &self,
+        layout: LayoutContext<'_>,
+        rc: &RcParams,
+        (minor, index): (bool, usize),
+        first_side: bool,
+    ) -> Option<Result<PlacedText, String>> {
+        let ticks = self.axis.ticks.as_ref().ok()?;
+        let tick = ticks.unclipped(minor).get(index)?;
+        let (style, placement) = self.labelled(layout, tick, (minor, index), first_side)?;
+        (!tick.label.is_empty()).then(|| lay_out_tick_label(layout, tick, &style, &placement, rc))
     }
 
     /// The tick label boxes of this axis (`own`) and of the same axis of

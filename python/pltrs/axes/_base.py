@@ -187,6 +187,10 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         -------
         `.Bbox`
         """
+        if not original and self.get_axes_locator():
+            # Only drawing places an axes with a locator, and applies its
+            # aspect.
+            return Bbox.from_extents(*_axes_base.located_position(self._native))
         return Bbox.from_extents(*_axes_base.position(self._native,
                                                       bool(original)))
 

@@ -61,7 +61,7 @@ pltrs_core::archive_struct!(TickSet {
 
 impl TickSet {
     /// The major (or minor) ticks of the view, inside it or not.
-    fn unclipped(&self, minor: bool) -> &[Tick] {
+    pub(crate) fn unclipped(&self, minor: bool) -> &[Tick] {
         if minor {
             &self.minor_unclipped
         } else {

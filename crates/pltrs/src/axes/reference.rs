@@ -95,8 +95,10 @@ impl Axes {
         if let AxLineThrough::Point(xy2) = through {
             points.push(xy2);
         }
-        let (x, y) = points.iter().map(|p| (p.x, p.y)).unzip();
-        let mut line = LineArtist::new(x, y, crate::rc::params());
+        // matplotlib's `AxLine` is a line over the diagonal of the unit
+        // square, which its transform maps onto the part of the line in
+        // view: its data, path and extent are those of the diagonal.
+        let mut line = LineArtist::new(vec![0.0, 1.0], vec![0.0, 1.0], crate::rc::params());
         line.infinite = Some(InfiniteLine { xy1, through });
         if props.base.transform.is_some() {
             points.clear();

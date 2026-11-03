@@ -92,6 +92,12 @@ impl Axes3D {
         let [x, y, z] = self.convert_juggled(values, zdir);
         let z = spread(z, x.len());
         let line = self.plane().cycled_line(x.clone(), y.clone(), props);
+        // matplotlib plots the line in 2-D first, which extends the 2-D
+        // data limits by its points (the plane's view stays fixed).
+        let flat: Vec<pltrs_core::Point> = (x.iter().zip(&y))
+            .map(|(&x, &y)| pltrs_core::Point::new(x, y))
+            .collect();
+        self.plane().update_datalim(&flat, true, true);
         let points = juggled(&x, &y, &z, zdir);
         let raw = self.add_artist(line, Art3D::Line(points.clone()), false);
         self.keep_unit_sources(raw.id(), sources);

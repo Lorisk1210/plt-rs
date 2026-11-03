@@ -244,6 +244,12 @@ pub(crate) trait UnitHandle: Sized {
     /// of the axis changed yet (matplotlib's `set_default_intervals`).
     fn set_default_intervals(&self, limits: (f64, f64));
 
+    /// What the first category names do to the axis before they convert
+    /// (matplotlib's `StrCategoryConverter.default_units` setting the
+    /// unit of the axis, then `update_units` taking the axis info of the
+    /// new converter).
+    fn set_up_categories(&self);
+
     /// The unit, once one was set or picked (matplotlib's `get_units`).
     fn unit(&self) -> Option<Unit> {
         self.read_state(|state| state.units().unit.clone())
@@ -323,6 +329,9 @@ pub(crate) trait UnitHandle: Sized {
                 self.update_state(|state| state.convert_dates(numbers))
             }
             AxisValues::Categories(names) => {
+                if self.read_state(|state| state.categories().is_none()) {
+                    self.set_up_categories();
+                }
                 self.update_state(|state| state.convert_categories(&names))
             }
         };

@@ -14,7 +14,7 @@ use pltrs::figure::Figure;
 use pltrs::fonts::FontSize;
 use pltrs::offsetbox::{
     AnchorLoc, AnchoredBox, AnchoredOffsetbox, AnchoredOptions, AnnotationBbox,
-    AnnotationBboxOptions, BboxToAnchor, PlacedOffsetBox,
+    AnnotationBboxOptions, BboxToAnchor, BoxItem, PlacedOffsetBox,
 };
 use pltrs::patches::{FancyBboxPatch, Patch};
 use pltrs::text::ArrowProps;
@@ -81,7 +81,7 @@ fn bbox_to_anchor(value: Option<Vec<f64>>) -> PyResult<Option<BboxToAnchor>> {
 /// The settings of an `AnchoredOffsetbox` as a dict: `loc` (a code),
 /// `pad`, `borderpad` (one or two numbers), `prop` (a `FontProperties`),
 /// `frameon`, `bbox_to_anchor` (bounds or a point) and `bbox_transform`.
-pub(super) struct PyAnchoredOptions(pub(super) AnchoredOptions);
+pub(super) struct PyAnchoredOptions(AnchoredOptions);
 
 impl FromPy<'_> for PyAnchoredOptions {
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
@@ -102,15 +102,35 @@ impl FromPy<'_> for PyAnchoredOptions {
     }
 }
 
-/// Adds the box `child` anchored as `options` say to `owner`, an axes or a
-/// (sub)figure, taking the common properties of `plain`.
+/// A loose frame as an anchored box makes its own, shown when `frameon`
+/// (the `patch` the Python box makes when it is made).
+fn new_frame(frameon: bool) -> PyResult<Patch<FancyBboxPatch>> {
+    Ok(AnchoredBox::new_frame(frameon))
+}
+
+/// The anchored box `child` with `options`, framed by `frame`, the loose
+/// `FancyBboxPatch` the Python box made (its `patch`), which moves in.
+pub(super) fn anchored_box(
+    child: PyOffsetBox,
+    options: PyAnchoredOptions,
+    frame: &RawHandle,
+) -> PyResult<AnchoredBox> {
+    AnchoredBox::new(child.0, options.0)
+        .with_frame(BoxItem::from_loose(frame)?)
+        .map_err(|err| PyErr::type_error(err.to_string()))
+}
+
+/// Adds the box `child` anchored as `options` say and framed by `frame`
+/// (see [`anchored_box`]) to `owner`, an axes or a (sub)figure, taking the
+/// common properties of `plain`.
 fn add_anchored(
     owner: RawHandle,
     plain: RawHandle,
     child: PyOffsetBox,
     options: PyAnchoredOptions,
+    frame: RawHandle,
 ) -> PyResult<Added> {
-    let spec = AnchoredBox::new(child.0, options.0);
+    let spec = anchored_box(child, options, &frame)?;
     let anchored = match Axes::from_raw_handle(&owner) {
         Some(axes) => axes.add_anchored_box(spec),
         None => owner
@@ -284,6 +304,7 @@ fn set_clip_children(owner: RawHandle, area: usize, clip: bool) -> PyResult<()> 
 
 /// Registers the module's functions.
 pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
+    module.add("new_frame", new_frame)?;
     module.add("add_anchored", add_anchored)?;
     module.add("add_annotation_bbox", add_annotation_bbox)?;
     module.add("add_placed", add_placed)?;

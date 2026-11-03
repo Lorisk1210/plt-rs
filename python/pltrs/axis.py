@@ -162,6 +162,20 @@ def _scalar_functions(transform):
             lambda x: float(transform._inverse(np.array(x))))
 
 
+def _value_map(transform):
+    """
+    *transform* (of a scale of the program's) value by value, as pltrs
+    (Rust) maps through it: the value goes through as an array, as
+    matplotlib hands its transforms arrays, and a value the transform masks
+    (outside the scale's domain) becomes NaN, as it does in matplotlib's
+    paths.
+    """
+    def map_value(x):
+        mapped = np.ma.asarray(transform.transform(np.array([x], dtype=float)), dtype=float)
+        return float(np.ma.filled(mapped, np.nan).reshape(-1)[0])
+    return map_value
+
+
 class Ticker:
     """
     A container for the objects defining tick position and format.
@@ -646,6 +660,11 @@ class Axis(Artist):
         """
         # Limits given in units set the axis' units first.
         self.axes._process_unit_info([(self.axis_name, (v0, v1))], convert=False)
+        # matplotlib sets the limits of 2-D axes through ``viewLim``, which
+        # applies the autoscaling pending (of the other axis too) with the
+        # rcParams of now; those of 3-D axes have boxes of their own.
+        if self.axes.name != "3d":
+            self.axes._unstale_viewLim()
         if v0 is None or v1 is None:
             # The view as it is now, autoscaled first.
             old0, old1 = getattr(self.axes, f"get_{self.axis_name}lim")()
@@ -705,8 +724,7 @@ class Axis(Artist):
             inverse = transform.inverted()
             _native_scale.set_python_scale(
                 *self._args(), scale.name,
-                (lambda x: float(transform.transform(x)),
-                 lambda x: float(inverse.transform(x))),
+                (_value_map(transform), _value_map(inverse)),
                 lambda vmin, vmax, minpos: tuple(
                     map(float, scale.limit_range_for_scale(vmin, vmax, minpos))))
             scale.set_default_locators_and_formatters(self)

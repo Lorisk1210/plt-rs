@@ -18,6 +18,8 @@ the Axes out and draws it:
   ``Axis.get_view_interval``);
 * the sides each tick draws (an overridden ``Tick.draw``, run on a tick
   made alone with a renderer recording what it draws);
+* where the tick labels go (an overridden ``get_xaxis_text1_transform``
+  and friends);
 * the interval each spine spans (an overridden ``Spine._adjust_location``)
   and the order of the spines (``_gen_axes_spines``; the sides none of
   them is drawn on are hidden, and a spine of another shape, such as a
@@ -52,6 +54,11 @@ from ..transforms import (CompositeAffine2D, CompositeGenericTransform,
 _NATIVE_PROJECTIONS = frozenset(
     ["rectilinear", "polar", "aitoff", "hammer", "lambert", "mollweide", "3d"])
 
+#: The axis and the label of a tick (1 or 2) on each side.
+_LABEL_TRANSFORMS = {"bottom": ("x", 1), "top": ("x", 2),
+                     "left": ("y", 1), "right": ("y", 2)}
+
+
 def native_name(cls):
     """
     The name of the projection of pltrs (Rust) the Axes class *cls* is
@@ -77,33 +84,56 @@ def is_program_class(cls):
             and getattr(cls, "_make_native", None) is None)
 
 
-def _before(transform, last):
-    """The part of *transform* applied before *last*, when *transform* ends
-    with it (``transData - transAxes``, found by identity so that nothing
-    is evaluated); None otherwise."""
-    if transform is last:
-        return IdentityTransform()
+def _split(transform, middle):
+    """``(before, after)`` such that *transform* is ``before + middle +
+    after``, *middle* found by identity so that nothing is evaluated; None
+    when *transform* is not made with *middle*."""
+    if transform is middle:
+        return IdentityTransform(), IdentityTransform()
     if isinstance(transform, TransformWrapper):
-        return _before(transform._child, last)
+        return _split(transform._child, middle)
     if isinstance(transform, (CompositeGenericTransform, CompositeAffine2D)):
-        rest = _before(transform._b, last)
-        if rest is not None:
-            return transform._a + rest
+        found = _split(transform._b, middle)
+        if found is not None:
+            return transform._a + found[0], found[1]
+        found = _split(transform._a, middle)
+        if found is not None:
+            return found[0], found[1] + transform._b
     return None
 
 
 def _to_axes(ax, transform, what):
     """*transform* of *ax* up to its final ``transAxes``."""
-    before = _before(transform, ax.transAxes)
-    if before is None:
+    found = _split(transform, ax.transAxes)
+    if found is None or not isinstance(found[1], IdentityTransform):
         raise NotImplementedError(
             f"pltrs: a projection whose {what} does not end with transAxes")
-    return before
+    return found[0]
+
+
+def _tick_label_placement(ax, transform, point):
+    """Where a tick label of *ax* at *point* through the label transform
+    *transform* (``get_xaxis_text1_transform`` and friends) goes, as pltrs
+    (Rust) takes it: the anchor in axes fractions and the shift in display
+    pixels after ``transAxes``."""
+    found = _split(transform, ax.transAxes)
+    if found is None:
+        raise NotImplementedError(
+            "pltrs: a projection whose tick label transform is not made with "
+            "transAxes")
+    before, after = found
+    matrix = after.get_matrix() if after.is_affine else None
+    if matrix is None or not np.allclose(matrix[:2, :2], np.eye(2)):
+        raise NotImplementedError(
+            "pltrs: a projection whose tick labels are not shifted after "
+            "transAxes by a translation")
+    anchor = before.transform(np.array([point], dtype=float))[0]
+    return (tuple(map(float, anchor)), (float(matrix[0, 2]), float(matrix[1, 2])))
 
 
 class _NonAffinePart:
     """The non-affine part of a transform, as pltrs (Rust) maps points
-    through it (with its inverse)."""
+    and paths through it (with its inverse)."""
 
     def __init__(self, transform):
         self._transform = transform
@@ -115,6 +145,12 @@ class _NonAffinePart:
         values = np.asarray(values, dtype=float)
         points = self._transform.transform_non_affine(values.reshape(-1, 2))
         return np.reshape(points, values.shape)
+
+    def transform_path(self, vertices, codes):
+        """The `.Path` of *vertices* and *codes* through the non-affine
+        part, as the class' ``transform_path_non_affine`` maps it (curving
+        straight segments, as the Hammer projection's subdivides them)."""
+        return self._transform.transform_path_non_affine(Path(vertices, codes))
 
     def inverted(self):
         """The inverse of the non-affine part."""
@@ -193,6 +229,8 @@ class _Projection:
         given = ax.__dict__.get("_rectilinear_axis_transforms", (None, None))
         self.axis_transforms = {}
         self.probes = {}
+        #: A tick of each axis made alone, whose padding the labels take.
+        self.ticks = {}
         for name, rectilinear in zip("xy", given):
             transform = getattr(ax, f"get_{name}axis_transform")(which="grid")
             if transform is not rectilinear:
@@ -202,6 +240,7 @@ class _Projection:
             probe = axis._get_tick(major=True)
             # The ticks of the axis are of the class the program gives.
             axis._tick_class = type(probe)
+            self.ticks[name] = probe
             if type(probe).draw is not Tick.draw:
                 self.probes[name] = probe
         self.spines = {side: spine for side, spine in spines.items()
@@ -219,6 +258,10 @@ class _Projection:
                 is not Axis.get_view_interval],
             "tick_sides": list(self.probes),
             "spine_interval": list(self.spines),
+            "tick_label": [
+                side for side, (name, which) in _LABEL_TRANSFORMS.items()
+                if getattr(type(ax), f"get_{name}axis_text{which}_transform")
+                is not getattr(Axes, f"get_{name}axis_text{which}_transform")],
         }
 
 
@@ -281,6 +324,20 @@ class _Adapter:
         """The sides the tick at *loc* of axis *name* draws."""
         with self._viewing(limits) as (ax, projection):
             return _drawn_sides(projection.probes[name], loc)
+
+    def tick_label(self, limits, side, loc):
+        """Where the label of the tick at *loc* on *side* goes:
+        ``(anchor, shift, halign, valign)``, the anchor in axes fractions
+        and the shift in display pixels, as the class' label transform of
+        the side puts it."""
+        with self._viewing(limits) as (ax, projection):
+            name, which = _LABEL_TRANSFORMS[side]
+            pad = projection.ticks[name]._pad
+            transform, valign, halign = getattr(
+                ax, f"get_{name}axis_text{which}_transform")(pad)
+            point = (loc, 0.0) if name == "x" else (0.0, loc)
+            anchor, shift = _tick_label_placement(ax, transform, point)
+            return anchor, shift, halign, valign
 
     def spine_interval(self, limits, side):
         """The interval the spine on *side* spans along its axis."""

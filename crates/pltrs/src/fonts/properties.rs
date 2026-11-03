@@ -184,6 +184,14 @@ impl FontProperties {
         pattern
     }
 
+    /// [`request`](Self::request) with the `text.hinting` in force now:
+    /// what text is laid out and drawn with, as matplotlib's Agg backend
+    /// reads `text.hinting` when it draws, whatever the parameters the text
+    /// was made under.
+    pub(crate) fn drawn_request(&self) -> pltrs_text::FontRequest {
+        self.request(&crate::rc::params())
+    }
+
     /// The font request used to pick font files, with the hinting text is
     /// laid out with under `rc` (`text.hinting` unless a vector backend
     /// draws). Generic family names resolve through the `font.serif`,

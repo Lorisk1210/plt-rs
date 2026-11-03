@@ -6,15 +6,13 @@
 
 use pltrs_core::{Bbox, Point};
 
-use super::anchored_box::{AnchoredBox, AnchoredOptions};
-use super::pending::frame_patch;
+use super::anchored_box::{AnchoredBox, AnchoredOptions, AnchoredParts};
 use super::{
     AnchorLoc, ArtistRef, BoxItem, OffsetBox, OffsetBoxError, Placement, TextArea, anchored_bbox,
     transformed_bbox,
 };
 use crate::artist::{ArtistId, LayoutContext};
 use crate::fonts::FontProperties;
-use crate::patches::{BoxShape, BoxStyle, PatchProps};
 use crate::text::TextArtist;
 use crate::transforms::Transform;
 
@@ -176,15 +174,16 @@ pltrs_core::archive_struct!(AnchoredNode<A> {
 
 impl From<AnchoredBox> for AnchoredNode<BoxItem> {
     fn from(spec: AnchoredBox) -> Self {
-        let (child, options, follows_text) = spec.into_parts();
+        let AnchoredParts {
+            child,
+            frame,
+            options,
+            follows_text,
+        } = spec.into_parts();
         let fontsize = (!follows_text).then(|| pad_font_points(options.prop.as_ref()));
         Self {
             child: Box::new(child),
-            frame: frame_patch(
-                BoxStyle::new(BoxShape::Square).with_pad(0.0),
-                options.frameon,
-                PatchProps::default(),
-            ),
+            frame,
             anchoring: Anchoring::from(&options),
             fontsize,
             owner: None,

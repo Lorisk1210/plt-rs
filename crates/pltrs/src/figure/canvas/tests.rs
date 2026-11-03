@@ -316,3 +316,25 @@ fn idle_draws_wait_for_presenters() {
     assert!(fig.is_stale(), "left to the presenter");
     drop(presenting);
 }
+
+#[test]
+fn raster_prints_show_what_their_draw_callbacks_draw() {
+    let (fig, ax, line) = figure_with_line(0.5);
+    // The row of the line once the callback has moved it to y = 0.2.
+    let moved_pixel = |fig: &Figure| {
+        let print = fig.render_raster().unwrap().to_image();
+        print.pixel(25, 34).unwrap()
+    };
+    assert_eq!(moved_pixel(&fig), WHITE, "the print shows the line at 0.5");
+    let drawn = ax.clone();
+    fig.connect(EventKind::Draw, move |_| {
+        line.set_ydata(vec![0.2, 0.2]);
+        drawn.draw_artist(&line).unwrap();
+    });
+    assert_ne!(
+        moved_pixel(&fig),
+        WHITE,
+        "the callback drew the moved line onto the print"
+    );
+    assert_ne!(pixel(&fig, 25, 34), WHITE, "the canvas keeps the print");
+}

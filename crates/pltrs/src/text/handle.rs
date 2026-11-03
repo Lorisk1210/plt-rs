@@ -184,6 +184,13 @@ impl Text {
         self
     }
 
+    /// Puts `bbox`, a box as another text has it ([`Text::bbox_patch`]),
+    /// behind the text, or removes the box with `None`.
+    pub fn set_bbox_patch(&self, bbox: Option<TextBoxPatch>) -> &Self {
+        self.raw.with_mut::<TextArtist, _>(|t| t.bbox = bbox);
+        self
+    }
+
     /// Sets the colour behind the text (matplotlib's
     /// `set_backgroundcolor`): the face of its box, creating a box with
     /// this face and edge colour if there is none.

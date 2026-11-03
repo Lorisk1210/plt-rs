@@ -17,9 +17,10 @@
 use std::rc::Rc;
 
 use pltrs::axes::{Axes, AxisName, Sides};
-use pltrs::projections::{Projection, ProjectionError, ProjectionView};
+use pltrs::projections::{Projection, ProjectionError, ProjectionView, TickLabelPlacement};
 use pltrs::spines::SpineSide;
-use pltrs::transforms::{Affine2D, ResolvedTransform, Step};
+use pltrs::text::{HAlign, VAlign};
+use pltrs::transforms::{Affine2D, Point, ResolvedTransform, Step};
 
 use super::transforms::{PyPointMap, affine};
 use crate::binding::dict_value;
@@ -60,6 +61,29 @@ impl Evaluated {
     }
 }
 
+/// Where the adapter puts a tick label: `((x, y), (dx, dy), halign,
+/// valign)`, the anchor in axes fractions, the shift in display pixels and
+/// matplotlib's alignment names.
+struct PyTickLabel(TickLabelPlacement);
+
+impl FromPy<'_> for PyTickLabel {
+    fn from_py(object: &Bound<'_>) -> PyResult<Self> {
+        let ((x, y), (dx, dy), halign, valign): ((f64, f64), (f64, f64), String, String) =
+            object.extract()?;
+        let invalid = |err: String| PyErr::value_error(err);
+        Ok(Self(TickLabelPlacement {
+            anchor: Point::new(x, y),
+            offset: Point::new(dx, dy),
+            halign: halign
+                .parse::<HAlign>()
+                .map_err(|err| invalid(err.to_string()))?,
+            valign: valign
+                .parse::<VAlign>()
+                .map_err(|err| invalid(err.to_string()))?,
+        }))
+    }
+}
+
 /// The hooks the program's classes override, by axis or side; the others
 /// are those of rectilinear axes and never call Python.
 #[derive(Debug, Default)]
@@ -74,6 +98,9 @@ struct Overrides {
     /// Sides whose spine spans an interval of its own
     /// (`Spine._adjust_location`).
     spine_interval: Vec<SpineSide>,
+    /// Sides whose tick labels go where a transform of their own puts
+    /// them (`get_xaxis_text1_transform` and friends).
+    tick_label: Vec<SpineSide>,
 }
 
 /// The axis called `name`.
@@ -96,7 +123,7 @@ fn spine_side(name: &str) -> PyResult<SpineSide> {
 impl FromPy<'_> for Overrides {
     /// A dict of the names of the axes or sides each hook is overridden
     /// for: `"axis_transform"`, `"tick_interval"`, `"tick_sides"` (axis
-    /// names) and `"spine_interval"` (side names).
+    /// names), `"spine_interval"` and `"tick_label"` (side names).
     fn from_py(object: &Bound<'_>) -> PyResult<Self> {
         let axes = |key: &str| -> PyResult<Vec<AxisName>> {
             dict_value::<Vec<String>>(object, key)?
@@ -104,14 +131,18 @@ impl FromPy<'_> for Overrides {
                 .map(|name| axis_name(name))
                 .collect()
         };
+        let sides = |key: &str| -> PyResult<Vec<SpineSide>> {
+            dict_value::<Vec<String>>(object, key)?
+                .iter()
+                .map(|name| spine_side(name))
+                .collect()
+        };
         Ok(Self {
             axis_transform: axes("axis_transform")?,
             tick_interval: axes("tick_interval")?,
             tick_sides: axes("tick_sides")?,
-            spine_interval: dict_value::<Vec<String>>(object, "spine_interval")?
-                .iter()
-                .map(|name| spine_side(name))
-                .collect::<PyResult<_>>()?,
+            spine_interval: sides("spine_interval")?,
+            tick_label: sides("tick_label")?,
         })
     }
 }
@@ -135,6 +166,7 @@ pub(super) struct PyProjection {
     tick_interval: Callback,
     tick_sides: Callback,
     spine_interval: Callback,
+    tick_label: Callback,
 }
 
 /// The view limits as the adapter takes them: `(x0, y0, x1, y1)`, an
@@ -171,6 +203,7 @@ impl PyProjection {
             tick_interval: method("tick_interval")?,
             tick_sides: method("tick_sides")?,
             spine_interval: method("spine_interval")?,
+            tick_label: method("tick_label")?,
         })
     }
 
@@ -232,6 +265,20 @@ impl Projection for PyProjection {
             .map_or(Sides::BOTH, |(first, second)| Sides { first, second })
     }
 
+    fn tick_label(
+        &self,
+        view: &ProjectionView<'_>,
+        side: SpineSide,
+        loc: f64,
+    ) -> Option<TickLabelPlacement> {
+        if !self.overrides.tick_label.contains(&side) {
+            return None;
+        }
+        self.tick_label
+            .call::<PyTickLabel>((limits(view), side.name(), loc))
+            .map(|placement| placement.0)
+    }
+
     fn spine_order(&self) -> [SpineSide; 4] {
         self.spine_order
     }
@@ -266,7 +313,6 @@ mod tests {
     use super::*;
     use crate::binding::testing::{eval, with_python};
     use pltrs::figure::Figure;
-    use pltrs::transforms::Point;
 
     /// An adapter leaning the x axis by a shear of 1 and ticking it over
     /// twice its view, which records the calls it gets.
@@ -276,7 +322,8 @@ class Adapter:
     spine_order = ['top', 'bottom', 'left', 'right']
     data_ratio = None
     overrides = {'axis_transform': [], 'tick_interval': ['x'],
-                 'tick_sides': ['x'], 'spine_interval': ['top']}
+                 'tick_sides': ['x'], 'spine_interval': ['top'],
+                 'tick_label': ['left']}
 
     def __init__(self):
         self.calls = []
@@ -302,6 +349,11 @@ class Adapter:
 
     def spine_interval(self, limits, side):
         return limits[0] / 2, limits[2]
+
+    def tick_label(self, limits, side, loc):
+        # Left labels 8 pixels inside the axes at their tick's height.
+        x0, y0, x1, y1 = limits
+        return (0.0, (loc - y0) / (y1 - y0)), (8.0, 0.0), 'left', 'center'
 ";
 
     #[test]
@@ -331,6 +383,27 @@ class Adapter:
                 install(axes, adapter.unbind()).is_err(),
                 "only rectilinear axes"
             );
+        });
+    }
+
+    #[test]
+    fn tick_label_placements_take_matplotlib_alignments() {
+        with_python(|py| {
+            let placement: PyTickLabel =
+                eval(py, "", "((0.5, 0.0), (0.0, 4.0), 'center', 'bottom')")
+                    .extract()
+                    .unwrap();
+            assert_eq!(
+                placement.0,
+                TickLabelPlacement {
+                    anchor: Point::new(0.5, 0.0),
+                    offset: Point::new(0.0, 4.0),
+                    halign: HAlign::Center,
+                    valign: VAlign::Bottom,
+                }
+            );
+            let sideways = eval(py, "", "((0.5, 0.0), (0.0, 4.0), 'up', 'bottom')");
+            assert!(sideways.extract::<PyTickLabel>().is_err());
         });
     }
 

@@ -245,6 +245,8 @@ fn shadow_styles_move_and_recolour_the_shadow() {
     let shadow = Patch::<Shadow<FancyBboxPatch>>::from_raw(legend.handle(id));
     let red = Color::from("red").resolve().unwrap();
     assert_eq!(shadow.colors().unwrap().face, red.with_alpha(0.1));
+    // A shadow takes its offset when it is drawn.
+    fig.draw_without_rendering().unwrap();
     let moved = shadow.window_extent().unwrap();
     assert!((moved.x0() - frame.x0() - 10.0).abs() < 1e-9);
     assert!((moved.y0() - frame.y0() + 5.0).abs() < 1e-9);

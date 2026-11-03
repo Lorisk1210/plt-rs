@@ -315,6 +315,16 @@ impl Axis {
         self
     }
 
+    /// Puts `bbox`, a box as a text has it ([`Text::bbox_patch`]), behind
+    /// the axis label, or none (matplotlib's `label.set_bbox` on the label
+    /// itself).
+    ///
+    /// [`Text::bbox_patch`]: crate::text::Text::bbox_patch
+    pub fn set_label_bbox_patch(&self, bbox: Option<TextBoxPatch>) -> &Self {
+        self.update(|axis| axis.label.bbox = bbox);
+        self
+    }
+
     /// Shows or hides the axis label (matplotlib's `label.set_visible`).
     pub fn set_label_visible(&self, visible: bool) -> &Self {
         self.update(|axis| axis.label.visible = visible);
@@ -348,12 +358,15 @@ impl Axis {
             .flatten()
     }
 
-    /// Where the offset (or scale) text is anchored in display pixels in
-    /// the figure's current layout (laid out first), whether or not there
-    /// is one: beyond the tick labels at the end of the axis (matplotlib's
+    /// Where the offset (or scale) text is anchored in display pixels
+    /// with the axes where they are now, whether or not there is one:
+    /// beyond the tick labels at the end of the axis (matplotlib's
     /// `offsetText.get_position()`, in display units across the axis).
+    /// Reading it does not run the layout engine, as matplotlib places the
+    /// text when it draws.
     pub fn offset_text_anchor(&self) -> Option<Point> {
-        self.with_texts(|texts, _| texts.offset_anchor).flatten()
+        self.with_texts_as_is(|texts, _| texts.offset_anchor)
+            .flatten()
     }
 
     /// The side the offset (or scale) text sits on: the side of the ticks

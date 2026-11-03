@@ -222,7 +222,11 @@ class HostAxesBase:
         The y-axis of self will have ticks on the left and the returned axes
         will have ticks on the right.
         """
-        return self._add_twin_axes(axes_class, "x")
+        ax = self._add_twin_axes(axes_class, "x")
+        self.axis["right"].set_visible(False)
+        ax.axis["right"].set_visible(True)
+        ax.axis["left", "top", "bottom"].set_visible(False)
+        return ax
 
     def twiny(self, axes_class=None):
         """
@@ -231,7 +235,11 @@ class HostAxesBase:
         The x-axis of self will have ticks on the bottom and the returned axes
         will have ticks on the top.
         """
-        return self._add_twin_axes(axes_class, "y")
+        ax = self._add_twin_axes(axes_class, "y")
+        self.axis["top"].set_visible(False)
+        ax.axis["top"].set_visible(True)
+        ax.axis["left", "right", "bottom"].set_visible(False)
+        return ax
 
     def twin(self, aux_trans=None, axes_class=None):
         """
@@ -242,7 +250,11 @@ class HostAxesBase:
         """
         if aux_trans is None:
             aux_trans = mtransforms.IdentityTransform()
-        return self._add_twin_axes(axes_class, "both", aux_trans, "transform")
+        ax = self._add_twin_axes(axes_class, "both", aux_trans, "transform")
+        self.axis["top", "right"].set_visible(False)
+        ax.axis["top", "right"].set_visible(True)
+        ax.axis["left", "bottom"].set_visible(False)
+        return ax
 
     def _add_twin_axes(self, axes_class, kind, aux_transform=None,
                        viewlim_mode=None):

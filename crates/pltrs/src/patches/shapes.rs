@@ -99,6 +99,8 @@ fn placed<const N: usize>(shape: &impl PatchShape, points: [(f64, f64); N]) -> [
 }
 
 impl PatchShape for Rectangle {
+    const SHARES_UNIT_PATH: bool = true;
+
     fn path(&self) -> Path {
         Path::unit_rectangle()
     }

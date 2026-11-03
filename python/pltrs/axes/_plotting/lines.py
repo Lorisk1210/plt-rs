@@ -11,7 +11,7 @@ import numpy as np
 
 from ... import _api, _live_transforms, _values, cbook, collections as mcoll, lines as mlines
 from ..._artist_kwargs import keep_program_picker
-from ..._native import axes as _axes, plotting as _plotting
+from ..._native import axes as _axes, patches as _patches, plotting as _plotting
 from ..._preprocess import _label_from_arg, _preprocess_data, _replacer
 from ...patches import Rectangle
 from ._helpers import floats, keep_unit_data, line_data, line_kwargs, wrap
@@ -183,6 +183,14 @@ def _group_datasets(tup, kwargs, ambiguous_fmt_datakey):
         yield x[:, j % ncx], y[:, j % ncy], fmt, label
 
 
+def _share_span_steps():
+    """matplotlib's ``p.get_path()._interpolation_steps =
+    GRIDLINE_INTERPOLATION_STEPS`` for a span, through the path all
+    rectangles share."""
+    from ...axis import GRIDLINE_INTERPOLATION_STEPS
+    _patches.set_shared_rectangle_steps(GRIDLINE_INTERPOLATION_STEPS)
+
+
 class LinesMixin:
     """`plot`, the reference lines and spans, `hlines` and `vlines`."""
 
@@ -303,6 +311,7 @@ class LinesMixin:
         patch = wrap(self, native, Rectangle)
         _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
+        _share_span_steps()
         return patch
 
     def axvspan(self, xmin, xmax, ymin=0, ymax=1, **kwargs):
@@ -320,6 +329,7 @@ class LinesMixin:
         patch = wrap(self, native, Rectangle)
         _span_geometry(patch, xmin, ymin, xmax - xmin, ymax - ymin)
         patch._internal_update(cbook.normalize_kwargs(kwargs, Rectangle))
+        _share_span_steps()
         return patch
 
     def _segments(self, vertical, positions, low, high, colors, linestyles,

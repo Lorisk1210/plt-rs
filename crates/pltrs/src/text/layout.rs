@@ -74,7 +74,9 @@ pub struct LaidOutText {
 
 /// matplotlib's `get_text_width_height_descent` for one line: with `math`
 /// the string is typeset as mathtext (extents rounded up to whole pixels,
-/// malformed math is an error), otherwise it is shaped as is.
+/// malformed math is an error), otherwise it is shaped as is. The glyphs
+/// are hinted as the current `text.hinting` says, which matplotlib's Agg
+/// backend reads when it draws, whatever the parameters of `rc`.
 pub fn measure_text(
     text: &str,
     font: &FontProperties,
@@ -292,7 +294,7 @@ fn typeset(
 ) -> Result<TextRun, TextError> {
     let engine = TextEngine::global();
     match line {
-        Line::Plain(text) => engine.layout_line(text, &font.request(rc), dpi),
+        Line::Plain(text) => engine.layout_line(text, &font.drawn_request(), dpi),
         Line::Math(source) => engine.layout_math(source, &math_style(font, dpi, rc)),
     }
 }
@@ -387,7 +389,8 @@ fn with_metrics(run: TextRun, metrics: LineMetrics) -> TextRun {
 /// [`Line::classify`]) are typeset as mathtext when `rc` enables
 /// `text.parse_math`, every line by TeX when it enables `text.usetex`. A
 /// single plain line is drawn in the language of `text.language`, which
-/// matplotlib gives every text it creates.
+/// matplotlib gives every text it creates. The glyphs are hinted as the
+/// current `text.hinting` says (see [`measure_text`]).
 pub(crate) fn lay_out(
     text: &str,
     font: &FontProperties,
@@ -428,7 +431,7 @@ pub(crate) fn lay_out_with(
                 dpi,
                 source: Some(TextSource::Plain {
                     text: String::new(),
-                    font: font.request(rc),
+                    font: font.drawn_request(),
                     shaping: Shaping::default(),
                 }),
                 ..TextRun::default()
@@ -450,9 +453,7 @@ pub(crate) fn lay_out_with(
                 ..*style
             },
         ),
-        Typesetting::Mathtext { .. } => {
-            (mathtext_height_metrics(font, typesetting, dpi, rc)?, *style)
-        }
+        Typesetting::Mathtext { .. } => (mathtext_height_metrics(font, typesetting, dpi)?, *style),
     };
     Ok(LaidOutText {
         lines,
@@ -472,14 +473,13 @@ fn mathtext_height_metrics(
     font: &FontProperties,
     typesetting: Typesetting,
     dpi: f64,
-    rc: &RcParams,
 ) -> Result<FontHeightMetrics, TextError> {
     if !super::metrics::measures_afm()
         && let Some(measured) = overrides::font_height(font, typesetting, dpi)
     {
         return Ok(measured);
     }
-    super::metrics::font_height_metrics(&font.request(rc), dpi)
+    super::metrics::font_height_metrics(&font.drawn_request(), dpi)
 }
 
 #[cfg(test)]
@@ -497,17 +497,45 @@ mod tests {
         rc
     }
 
+    /// Runs `f` with the reference configuration as the current
+    /// parameters, whose `text.hinting` text is laid out with.
+    fn under_reference(f: impl FnOnce(&RcParams)) {
+        crate::rc::context(|| {
+            let rc = reference();
+            crate::rc::replace(rc.clone());
+            f(&rc);
+        });
+    }
+
     #[test]
     fn math_lines_round_up_to_whole_pixels() {
-        let rc = reference();
-        let font = FontProperties::from_rc(&rc);
-        // matplotlib: get_text_width_height_descent('$x^2$', ismath=True)
-        // at 100 dpi is (16, 13, 0) with dejavusans.
-        let math = measure_text("$x^2$", &font, true, 100.0, &rc).expect("valid math");
-        assert_eq!((math.width, math.height, math.descent), (16.0, 13.0, 0.0));
-        assert!(measure_text("$x^$", &font, true, 100.0, &rc).is_err());
-        let plain = measure_text("$x^$", &font, false, 100.0, &rc).expect("plain text");
-        assert!(plain.width.fract() != 0.0);
+        under_reference(|rc| {
+            let font = FontProperties::from_rc(rc);
+            // matplotlib: get_text_width_height_descent('$x^2$', ismath=True)
+            // at 100 dpi is (16, 13, 0) with dejavusans.
+            let math = measure_text("$x^2$", &font, true, 100.0, rc).expect("valid math");
+            assert_eq!((math.width, math.height, math.descent), (16.0, 13.0, 0.0));
+            assert!(measure_text("$x^$", &font, true, 100.0, rc).is_err());
+            let plain = measure_text("$x^$", &font, false, 100.0, rc).expect("plain text");
+            assert!(plain.width.fract() != 0.0, "unhinted widths are fractional");
+        });
+    }
+
+    #[test]
+    fn text_is_hinted_as_the_current_parameters_say() {
+        let mut hinted = reference();
+        hinted.text_hinting = TextHinting::ForceAutohint;
+        let font = FontProperties::from_rc(&hinted);
+        under_reference(|_| {
+            // Hinted, the line is a whole number of pixels wide.
+            let width = measure_text("$x^$", &font, false, 100.0, &hinted)
+                .expect("plain text")
+                .width;
+            assert!(
+                width.fract() != 0.0,
+                "unhinted, as the current parameters say"
+            );
+        });
     }
 
     #[test]
@@ -609,25 +637,26 @@ mod tests {
 
     #[test]
     fn text_path_runs_keep_the_lines_and_rescale_the_glyphs() {
-        let rc = reference();
-        let font = FontProperties::from_rc(&rc);
-        let laid_out =
-            lay_out("AVA\n\nWAV", &font, &BlockStyle::default(), 100.0, &rc).expect("valid text");
-        let paths = laid_out
-            .as_text_paths(&font, true, 100.0, &rc)
-            .expect("valid text");
-        assert_eq!(paths.block, laid_out.block);
-        assert!(paths.runs[1].is_empty());
-        for (path_run, run) in paths.runs.iter().zip(&laid_out.runs) {
-            assert_eq!(path_run.glyphs.len(), run.glyphs.len());
-            assert_eq!(path_run.dpi, 100.0);
-            for (path_glyph, glyph) in path_run.glyphs.iter().zip(&run.glyphs) {
-                assert!((path_glyph.size - glyph.size).abs() < 1e-9);
-                assert!(
-                    (path_glyph.x - glyph.x).abs() < 0.5,
-                    "only the rounding differs"
-                );
+        under_reference(|rc| {
+            let font = FontProperties::from_rc(rc);
+            let laid_out = lay_out("AVA\n\nWAV", &font, &BlockStyle::default(), 100.0, rc)
+                .expect("valid text");
+            let paths = laid_out
+                .as_text_paths(&font, true, 100.0, rc)
+                .expect("valid text");
+            assert_eq!(paths.block, laid_out.block);
+            assert!(paths.runs[1].is_empty());
+            for (path_run, run) in paths.runs.iter().zip(&laid_out.runs) {
+                assert_eq!(path_run.glyphs.len(), run.glyphs.len());
+                assert_eq!(path_run.dpi, 100.0);
+                for (path_glyph, glyph) in path_run.glyphs.iter().zip(&run.glyphs) {
+                    assert!((path_glyph.size - glyph.size).abs() < 1e-9);
+                    assert!(
+                        (path_glyph.x - glyph.x).abs() < 0.5,
+                        "only the rounding differs"
+                    );
+                }
             }
-        }
+        });
     }
 }

@@ -546,6 +546,11 @@ impl DrawnDpiCor {
         self.0.set(Some(dpi_cor));
     }
 
+    /// The pixels per point of the last draw, `None` before the first.
+    pub(crate) fn last(&self) -> Option<f64> {
+        self.0.get()
+    }
+
     /// The pixels per point the arrow of artist `owner` is measured at:
     /// the canvas resolution when `layout` counts the artist as drawn
     /// (see [`LayoutContext::with_drawn`]), else that of its last draw;

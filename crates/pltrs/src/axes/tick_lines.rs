@@ -57,8 +57,10 @@ pub struct TickLineProps {
     /// Edge colour of the tick marks, the colour of matplotlib's line-like
     /// tick markers (`tick1line.set_markeredgecolor(...)`).
     pub markeredgecolor: Option<Color>,
-    /// Colour of the tick marks (`tick1line.set_color(...)`), which fills
-    /// them and edges them unless `markeredgecolor` is set.
+    /// Colour of the tick marks (`tick1line.set_color(...)`). Their edges,
+    /// all a mark draws, keep the colour they had unless `markeredgecolor`
+    /// is set, as matplotlib's tick lines are made with an edge colour of
+    /// their own.
     pub color: Option<Color>,
     /// Length of the tick marks in points (`set_markersize`).
     pub size: Option<f64>,
@@ -123,6 +125,9 @@ impl TickLineProps {
     /// Sets the mark and gridline properties of `style` that are set here.
     pub(crate) fn apply(&self, style: &mut TickStyle) {
         if let Some(color) = &self.color {
+            if style.edgecolor.is_none() {
+                style.edgecolor = Some(style.color.clone());
+            }
             style.color = color.clone();
         }
         if self.markeredgecolor.is_some() {

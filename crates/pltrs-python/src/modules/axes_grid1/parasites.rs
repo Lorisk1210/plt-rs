@@ -2,7 +2,7 @@
 //! `axes_grid1.parasite_axes`): the parasites pltrs (Rust) makes on a
 //! host, which draws them.
 
-use pltrs::axes::Axes;
+use pltrs::axes::{Axes, AxisName};
 use pltrs::axes_grid1::{HostAxes, ParasiteAxes, ParasiteError, ParasiteLink};
 
 use super::super::transforms::affine;
@@ -46,13 +46,15 @@ fn aux_axes(host: Axes, link: PyLink) -> PyResult<Axes> {
 
 /// A twin of `host`: sharing the x axis (`"x"`, `twinx`), the y axis
 /// (`"y"`, `twiny`), or none, mapped by the affine `aux` matrix (`"both"`,
-/// `twin`).
+/// `twin`), its sides and the host's as they were (`_add_twin_axes`): the
+/// Python methods show and hide them through the axes' `axis` dicts, as
+/// matplotlib's do.
 fn twin(host: Axes, kind: String, aux: Option<NdArray>) -> PyResult<Axes> {
     let host = HostAxes::new(host);
     let made = match kind.as_str() {
-        "x" => host.twinx(),
-        "y" => host.twiny(),
-        "both" => host.twin(aux.as_ref().map(affine).transpose()?)?,
+        "x" => host.shared_twin(AxisName::X),
+        "y" => host.shared_twin(AxisName::Y),
+        "both" => host.linked_twin(aux.as_ref().map(affine).transpose()?)?,
         _ => return Err(PyErr::value_error(format!("no twin {kind:?}"))),
     };
     Ok(parasite_axes(made))

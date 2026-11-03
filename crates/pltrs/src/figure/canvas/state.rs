@@ -4,7 +4,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use pltrs_core::path::convert::SimplifySettings;
-use pltrs_render::{RasterBackendError, RasterRenderer};
+use pltrs_render::{RasterBackendError, RasterRenderer, Renderer};
 
 use super::PixelBox;
 use crate::figure::Figure;
@@ -51,6 +51,18 @@ impl CanvasKey {
         let (width, height) = self.pixels;
         let renderer = crate::figure::save::raster_renderer(width, height, self.dpi)?;
         Ok(KeptCanvas::new(renderer, self))
+    }
+
+    /// Whether `renderer`, made with the current rcParams, has this key's
+    /// size and resolution.
+    pub(super) fn fits(&self, renderer: &RasterRenderer) -> bool {
+        let pixmap = renderer.pixmap();
+        let made = Self {
+            pixels: (pixmap.width(), pixmap.height()),
+            dpi: renderer.dpi(),
+            ..*self
+        };
+        made == *self
     }
 }
 

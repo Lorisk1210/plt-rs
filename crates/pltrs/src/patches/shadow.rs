@@ -175,9 +175,13 @@ impl<S: PatchShape> PatchShape for Shadow<S> {
         base.clip_on = self.clip_on;
     }
 
+    /// The source's outline, offset as the shadow was last drawn: not at
+    /// all before its first draw, as matplotlib's `Shadow` sets its offset
+    /// when it draws (an extent measured before shows the outline in
+    /// place).
     fn display_paths(&self, frame: &ShapeFrame<'_>) -> Result<Vec<DisplayPath>, PatchError> {
         let (ox, oy) = self.offset;
-        let shift = frame.layout.points_to_pixels(1.0);
+        let shift = frame.drawn_dpi_cor.unwrap_or(0.0);
         let placed = ResolvedTransform::affine(
             self.source
                 .patch_transform()

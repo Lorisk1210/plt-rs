@@ -471,6 +471,20 @@ mod tests {
     }
 
     #[test]
+    fn contour_sets_come_back_from_their_raw_handles() {
+        use crate::artist::{ArtistHandle, TypedHandle};
+        let x = linspace(0.0, 3.0, 4);
+        let (xx, yy) = meshgrid(&x, &x);
+        let zz = Grid::from_fn(4, 4, |i, j| xx[(i, j)] + yy[(i, j)]);
+        let ax = Figure::new().subplot_3d();
+        let set = ax
+            .contourf(&xx, &yy, &zz, Contour3DOptions::default())
+            .unwrap();
+        let again = ContourSet::from_raw_handle(set.raw()).expect("a contour set of the plane");
+        assert_eq!(again.levels(), set.levels());
+    }
+
+    #[test]
     fn tricontours_rotate_the_triangulation() {
         let (x, y) = ([0.0, 1.0, 0.0, 1.0, 0.5], [0.0, 0.0, 1.0, 1.0, 0.5]);
         let tri = Triangulation::delaunay(&x, &y).unwrap();

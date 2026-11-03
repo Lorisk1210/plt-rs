@@ -10,13 +10,13 @@ use super::pending::{Parts, adopt_box, frame_patch};
 use super::{AnchorLoc, BboxToAnchor, BoxItem, OffsetBox, OffsetBoxError, TextArea};
 use crate::artist::{
     Artist, ArtistBase, ArtistHandle, ArtistId, ArtistLookup, DrawContext, LayoutContext,
-    RawHandle, TypedHandle,
+    RawHandle, TypedHandle, downcast_ref,
 };
 use crate::axes::Axes;
 use crate::events::Dragger;
 use crate::figure::Figure;
 use crate::fonts::FontProperties;
-use crate::patches::{BoxShape, BoxStyle, FancyBboxPatch, Patch, PatchProps};
+use crate::patches::{BoxShape, BoxStyle, FancyBboxPatch, Patch, PatchArtist, PatchProps};
 use crate::text::{Text, TextArtist, TextProps};
 use crate::transforms::Transform;
 
@@ -72,13 +72,53 @@ pub struct AnchoredBox {
     /// Whether the paddings follow the font of the child text (anchored
     /// texts) rather than `options.prop`.
     follows_text: bool,
+    /// The frame the program made, if any (see [`AnchoredBox::with_frame`]).
+    frame: Option<BoxItem>,
+}
+
+/// The parts of an [`AnchoredBox`] joining a figure.
+pub(super) struct AnchoredParts {
+    /// The child tree.
+    pub(super) child: OffsetBox<BoxItem>,
+    /// The frame: the program's, or a new square one shown when the
+    /// options say `frameon`.
+    pub(super) frame: BoxItem,
+    /// The settings.
+    pub(super) options: AnchoredOptions,
+    /// Whether the paddings follow the font of the child text.
+    pub(super) follows_text: bool,
+}
+
+/// The frame an anchored box makes itself: a snapped square fancy box
+/// without padding, in the `pltrs.offsetbox.*` colours, shown when
+/// `frameon` (matplotlib's `AnchoredOffsetbox.patch`).
+fn default_frame(frameon: bool) -> BoxItem {
+    frame_patch(
+        BoxStyle::new(BoxShape::Square).with_pad(0.0),
+        frameon,
+        PatchProps::default(),
+    )
 }
 
 impl AnchoredBox {
-    /// The child tree, the settings and whether the paddings follow the
-    /// font of the child text.
-    pub(super) fn into_parts(self) -> (OffsetBox<BoxItem>, AnchoredOptions, bool) {
-        (self.child, self.options, self.follows_text)
+    /// The parts of the box, its frame made if the program gave none.
+    pub(super) fn into_parts(self) -> AnchoredParts {
+        let frameon = self.options.frameon;
+        AnchoredParts {
+            child: self.child,
+            frame: self.frame.unwrap_or_else(|| default_frame(frameon)),
+            options: self.options,
+            follows_text: self.follows_text,
+        }
+    }
+
+    /// A loose frame as an anchored box makes its own, shown when
+    /// `frameon`: a snapped square fancy box without padding, in the
+    /// `pltrs.offsetbox.*` colours (matplotlib's `AnchoredOffsetbox.patch`,
+    /// made with the box), for a program to style before it frames a box
+    /// with it ([`AnchoredBox::with_frame`]).
+    pub fn new_frame(frameon: bool) -> Patch<FancyBboxPatch> {
+        Patch::from_raw(RawHandle::loose(default_frame(frameon).artist))
     }
 }
 
@@ -90,7 +130,46 @@ impl AnchoredBox {
             child: child.into(),
             options,
             follows_text: false,
+            frame: None,
         }
+    }
+
+    /// The same box framed by `frame`, a fancy box patch made before the
+    /// box (matplotlib's `AnchoredOffsetbox.patch`, which a program styles
+    /// before adding the box), in place of a new square frame: the frame
+    /// keeps its style and visibility (`frameon` no longer decides it),
+    /// and the box fits its geometry and mutation scale whenever it is
+    /// laid out.
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions, BoxItem};
+    /// use pltrs::patches::{BoxShape, BoxStyle, FancyBboxPatch, Patch, PatchProps};
+    /// use pltrs::text::TextProps;
+    /// use pltrs::prelude::*;
+    /// let circle = BoxStyle::new(BoxShape::Circle).with_pad(0.0);
+    /// let shape = FancyBboxPatch::new((0.0, 0.0), 1.0, 1.0, circle.clone());
+    /// let frame = Patch::loose(shape, PatchProps::default().facecolor("y"));
+    /// let options = AnchoredOptions::new(AnchorLoc::UpperLeft);
+    /// let label = AnchoredBox::text("note", TextProps::default(), options)?
+    ///     .with_frame(BoxItem::from_loose(frame.raw())?)?;
+    /// let ax = Figure::new().subplot();
+    /// let added = ax.add_anchored_box(label);
+    /// assert_eq!(added.patch().shape().boxstyle, circle);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// [`OffsetBoxError::NotAFrame`] when `frame` is not a fancy box patch.
+    pub fn with_frame(self, frame: BoxItem) -> Result<Self, OffsetBoxError> {
+        if downcast_ref::<PatchArtist<FancyBboxPatch>>(&*frame.artist).is_none() {
+            return Err(OffsetBoxError::NotAFrame);
+        }
+        Ok(Self {
+            frame: Some(frame),
+            ..self
+        })
     }
 
     /// A text styled from `props`, anchored as `options` say, whose
@@ -113,6 +192,7 @@ impl AnchoredBox {
             child: TextArea::from_text(text, props).into(),
             options,
             follows_text: true,
+            frame: None,
         })
     }
 }
@@ -395,17 +475,17 @@ impl Figure {
 
 /// Adds the box `spec` to `owner`, an axes or a (sub)figure.
 fn add_anchored(owner: &RawHandle, spec: AnchoredBox) -> AnchoredOffsetbox {
-    let AnchoredBox {
+    let AnchoredParts {
         child,
+        frame,
         options,
         follows_text,
-    } = spec;
+    } = spec.into_parts();
     let points = pad_font_points(options.prop.as_ref());
-    let square = BoxStyle::new(BoxShape::Square).with_pad(0.0);
     let figure = owner.figure_state();
     let mut state = figure.borrow_mut();
     let mut parts = Parts::new(&mut state.store);
-    let frame = parts.insert(frame_patch(square, options.frameon, PatchProps::default()));
+    let frame = parts.insert(frame);
     let child = parts.insert_tree(child, owner.id());
     let parts = parts.into_ids();
     let font = match &child {

@@ -3,13 +3,10 @@ Smoke tests of the shortcuts pltrs (Python) takes for speed and memory:
 the composed affine and inverse a composite transform keeps until a child
 changes, the rcParams values read once per generation of the parameters,
 the marker test of `Line2D.get_window_extent`, the copies `set_data`,
-`pcolormesh` and `tricontourf` no longer make, Pillow and the 3D toolkit
-imported on first use. The expected values were recorded from matplotlib
+`pcolormesh` and `tricontourf` no longer make. The expected values were recorded from matplotlib
 3.11.2 running the same code.
 """
 
-import subprocess
-import sys
 
 import numpy as np
 import pytest
@@ -74,7 +71,7 @@ def test_rcparams_reads_follow_changes():
     assert pltrs.rcParams["path.simplify_threshold"] == 0.111111111111
 
 
-def test_the_3d_projection_is_registered_before_its_import():
+def test_the_3d_projection_is_registered_at_import():
     names = projections.get_projection_names()
     # (Other tests may register projections of their own.)
     assert names == sorted(names)
@@ -84,14 +81,6 @@ def test_the_3d_projection_is_registered_before_its_import():
     ax = fig.add_subplot(projection="3d")
     assert type(ax).__name__ == "Axes3D"
     assert fig.axes == [ax]
-
-
-def test_pyplot_imports_neither_pillow_nor_the_3d_toolkit():
-    code = ("import sys, pltrs.pyplot; "
-            "print(any(m.startswith(('PIL', 'pltrs.mpl_toolkits')) for m in sys.modules))")
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True,
-                         text=True, check=True)
-    assert out.stdout.strip() == "False"
 
 
 def test_pillow_images_still_show(axes):

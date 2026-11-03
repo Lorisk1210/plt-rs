@@ -80,6 +80,11 @@ impl CallbackRegistry {
             .collect()
     }
 
+    /// Whether an event of `kind` would reach a callback.
+    fn has_listeners(&self, kind: EventKind) -> bool {
+        !self.is_blocked(kind) && self.callbacks.iter().any(|(_, k, _)| *k == kind)
+    }
+
     /// Blocks the callbacks of `signal`, or all of them, for as long as the
     /// returned scope lives.
     fn block(&mut self, signal: Option<EventKind>) -> Rc<BlockScope> {
@@ -169,6 +174,12 @@ impl Figure {
     pub fn with_callbacks_blocked<R>(&self, signal: Option<EventKind>, f: impl FnOnce() -> R) -> R {
         let _blocked = self.block_callbacks(signal);
         f()
+    }
+
+    /// Whether an event of `kind` would reach a callback: one is connected
+    /// and not blocked.
+    pub(crate) fn listens(&self, kind: EventKind) -> bool {
+        self.state().callbacks.has_listeners(kind)
     }
 
     /// Delivers `event` to the callbacks connected for its kind, in

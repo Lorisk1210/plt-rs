@@ -59,6 +59,12 @@ class MeshMixin:
         C, coords = _mesh_args(self, fn, args)
         made, native_mapping = mapping
         kwargs = cbook.normalize_kwargs(kwargs, cls)
+        if (polygons and "antialiased" not in kwargs
+                and not cbook._str_lower_equal(kwargs.get("edgecolor", "none"), "none")):
+            # matplotlib's pcolor turns antialiasing off only for unstroked
+            # cells; stroked ones take the collections' default.
+            from ... import rcParams
+            kwargs["antialiased"] = rcParams["patch.antialiased"]
         # The data limits cover the mesh in the coordinates it is drawn in.
         placement = (shading, _live_transforms.given_to_native(
             kwargs.get("transform")))

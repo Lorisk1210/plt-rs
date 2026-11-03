@@ -818,8 +818,9 @@ class AxisArtist(martist.Artist):
         _axisartist.set_ticklabel_direction(self._native, tick_direction)
 
     def invert_ticklabel_direction(self):
-        """Turn the tick labels to the other side of the axis line."""
-        self.major_ticklabels.invert_axis_direction()
+        """Turn the tick labels of both levels to the other side of the
+        axis line, with the alignment of the opposite direction."""
+        _axisartist.invert_ticklabel_direction(self._native)
 
     def set_axislabel_direction(self, label_direction):
         r"""

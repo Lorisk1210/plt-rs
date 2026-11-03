@@ -89,28 +89,33 @@ impl PatchStyle {
         }
     }
 
-    /// Colours and widths resolved against `rc` and the artist's alpha.
+    /// Colours and widths resolved against `rc`, the parameters the patch
+    /// was made with, and the artist's alpha. `"Cn"` colours are those of
+    /// `rc`'s property cycle, as matplotlib's patches resolve their colours
+    /// when they are given them, not when they are drawn.
     pub(crate) fn resolve(
         &self,
         rc: &RcParams,
         alpha: Option<f64>,
         edge_default: bool,
     ) -> Result<ResolvedStyle, ColorError> {
-        let edge = self.edge_spec(rc, edge_default).resolve_alpha(alpha)?;
+        let cycle = rc.axes_prop_cycle.colors();
+        let resolve = |color: &Color, alpha| color.resolve_with(alpha, &cycle);
+        let edge = resolve(&self.edge_spec(rc, edge_default), alpha)?;
         let face_spec = self
             .facecolor
             .clone()
             .unwrap_or_else(|| rc.patch_facecolor.clone());
-        let face = face_spec.resolve_alpha(if self.fill { alpha } else { Some(0.0) })?;
+        let face = resolve(&face_spec, if self.fill { alpha } else { Some(0.0) })?;
         let hatch_color = match &self.hatchcolor {
-            ColorOrEdge::Edge if edge.is_transparent() => rc.patch_edgecolor.resolve()?,
+            ColorOrEdge::Edge if edge.is_transparent() => resolve(&rc.patch_edgecolor, None)?,
             ColorOrEdge::Edge => edge,
-            ColorOrEdge::Color(color) => color.resolve_alpha(alpha)?,
+            ColorOrEdge::Color(color) => resolve(color, alpha)?,
         };
         let gap = if self.edgegapcolor.is_none() {
             None
         } else {
-            Some(self.edgegapcolor.resolve_alpha(alpha)?)
+            Some(resolve(&self.edgegapcolor, alpha)?)
         };
         Ok(ResolvedStyle {
             edge,

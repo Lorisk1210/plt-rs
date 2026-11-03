@@ -92,7 +92,7 @@ pub(crate) fn tex_run(
     dpi: f64,
     rc: &RcParams,
 ) -> Result<TextRun, TextError> {
-    let tex = TexText::new(tex_line(line), font.request(rc), tex_manager(rc)?);
+    let tex = TexText::new(tex_line(line), font.drawn_request(), tex_manager(rc)?);
     let measured = if tex.tex.is_empty() {
         None
     } else {

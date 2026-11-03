@@ -58,7 +58,8 @@ def _native_patch_props(props, cls):
     props = cbook.normalize_kwargs(props or {}, cls)
     native = {k: v for k, v in props.items() if k in _NATIVE_PATCH_PROPS}
     for key in ("facecolor", "edgecolor", "color"):
-        if native.get(key) is not None:
+        # "none" stays itself: no alpha makes it visible.
+        if native.get(key) is not None and not cbook._str_lower_equal(native[key], "none"):
             native[key] = mcolors.to_rgba(native[key])
     if isinstance(native.get("linestyle"), tuple):
         offset, seq = native["linestyle"]

@@ -3,8 +3,11 @@
 use std::str::FromStr;
 
 use pltrs_core::{Bbox, Path, Point};
+use pltrs_render::Sketch;
 
-use crate::artist::{ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext};
+use crate::artist::{
+    ArtistBase, ArtistHandle, ArtistId, DrawContext, DrawnDpiCor, LayoutContext, rc_sketch,
+};
 use crate::patches::{
     ArrowSpec, ArrowStyle, ClipRegion, ConnectionStyle, DisplayPath, FancyArrowPatch, Patch,
     PatchError, PatchProps, PatchStyle, StyleError, paint_paths, round_ends,
@@ -233,6 +236,9 @@ pub(crate) struct AnnotationArrow {
     /// The arrow's own path effects (not the text's): `path.effects` when
     /// it was made, unless given.
     path_effects: Vec<PathEffect>,
+    /// The arrow's own sketch: `path.sketch` when it was made (matplotlib's
+    /// arrow patch takes it when the annotation makes it).
+    sketch: Option<Sketch>,
     /// The resolution of the arrow's last draw.
     dpi_cor: DrawnDpiCor,
 }
@@ -245,6 +251,7 @@ pltrs_core::archive_struct!(AnnotationArrow {
     style,
     alpha,
     path_effects,
+    sketch,
     dpi_cor
 });
 
@@ -260,7 +267,8 @@ impl AnnotationArrow {
         patch
             .raw()
             .set_alpha(self.alpha)
-            .set_path_effects(self.path_effects.clone());
+            .set_path_effects(self.path_effects.clone())
+            .set_sketch_params(self.sketch);
         patch
     }
 
@@ -278,6 +286,7 @@ impl AnnotationArrow {
         self.style = patch.style();
         self.alpha = patch.raw().alpha();
         self.path_effects = patch.raw().path_effects();
+        self.sketch = patch.raw().sketch_params();
     }
 
     /// The arrow `props` describe, styled from `rc`.
@@ -327,6 +336,7 @@ impl AnnotationArrow {
             style,
             alpha: base.alpha,
             path_effects: base.path_effects.unwrap_or_else(|| rc.path_effects.clone()),
+            sketch: rc_sketch(rc),
             dpi_cor: DrawnDpiCor::default(),
         }
     }
@@ -448,6 +458,7 @@ impl AnnotationArrow {
         let mut base = ArtistBase::default();
         base.alpha = self.alpha;
         base.path_effects.clone_from(&self.path_effects);
+        base.sketch = self.sketch;
         paint_paths(ctx, &base, &self.style, rc, true, &paths)?;
         Ok(())
     }

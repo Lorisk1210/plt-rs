@@ -52,6 +52,20 @@ def test_the_modern_look_is_the_default_and_matplotlibs_one_switch_away():
     assert _look_params("matplotlib") == ["center", "False", "center"]
 
 
+def test_pyplot_loads_what_matplotlibs_pyplot_loads():
+    """Importing pyplot leaves Pillow's image modules and the 3-D toolkit
+    loaded, as matplotlib's does: programs reach ``PIL.Image`` after a bare
+    ``import PIL`` and ``mpl_toolkits.mplot3d`` after ``import
+    mpl_toolkits``."""
+    code = ("import sys, pltrs.pyplot; "
+            "print(*(name in sys.modules for name in ("
+            "'PIL.Image', 'PIL.PngImagePlugin', "
+            "'pltrs.mpl_toolkits.mplot3d')))")
+    result = subprocess.run([sys.executable, "-c", code],
+                            capture_output=True, text=True, check=True)
+    assert result.stdout.split() == ["True", "True", "True"]
+
+
 def test_pyplot_slice_draws_and_saves_every_format(tmp_path):
     fig, ax = plt.subplots()
     line, = plt.plot([1, 2, 3], [4, 5, 6], "r--", lw=3, label="line")

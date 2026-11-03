@@ -40,6 +40,7 @@ mod shapes;
 mod step;
 mod style;
 mod style_spec;
+mod unit_path;
 
 pub use arcs::{Annulus, Arc};
 pub use arrow_style::{ArrowStyle, Bracket, CurveArrow, CurveEnd};
@@ -66,3 +67,4 @@ pub use shapes::{
 pub use step::{StepBaseline, StepPatch, StepPatchError};
 pub use style::PatchStyle;
 pub(crate) use style::{PatchPaint, draw_patch_paths, paint_paths};
+pub use unit_path::{set_shared_rectangle_steps, shared_rectangle_steps};

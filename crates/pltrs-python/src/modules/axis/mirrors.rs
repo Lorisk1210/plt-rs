@@ -462,7 +462,8 @@ fn sync_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
         .set_rotation(axis.label_rotation())
         .set_halign(axis.label_halign())
         .set_valign(axis.label_valign())
-        .set_multialign(axis.label_multialign());
+        .set_multialign(axis.label_multialign())
+        .set_bbox_patch(axis.label_bbox());
     text.set_visible(axis.label_visible());
     Ok(())
 }
@@ -506,6 +507,7 @@ fn push_axis_label(owner: AxisOwner, name: String, text: Text) -> PyResult<()> {
     axis.set_label_color(text.color())
         .set_label_font(text.font())
         .set_label_multialign(text.multialign())
+        .set_label_bbox_patch(text.bbox_patch())
         .set_label_visible(text.visible());
     Ok(())
 }

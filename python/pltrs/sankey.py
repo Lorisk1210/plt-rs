@@ -269,12 +269,20 @@ class Sankey:
         else:
             pathlengths = [float(pathlengths)]
 
+        # The outline is made with the face colour and the line width, as
+        # matplotlib's: without a face colour it takes the next of the
+        # property cycle.
+        fc = kwargs.pop('fc', kwargs.pop('facecolor', None))
+        lw = kwargs.pop('lw', kwargs.pop('linewidth', None))
+        style = {key: value for key, value in (("facecolor", fc), ("linewidth", lw))
+                 if value is not None}
         patch, flows, angles, tips, text, texts = _sankey.add(
             self._native, str(patchlabel),
             ([float(f) for f in flows], [int(o) for o in orientations],
              [None if label is None else str(label) for label in labels]),
             (float(trunklength), pathlengths, prior,
-             (int(connect[0]), int(connect[1])), float(rotation)))
+             (int(connect[0]), int(connect[1])), float(rotation)),
+            style)
         figure = self.ax.figure
         patch = _handles.wrap(patch, PathPatch, figure)
         patch._internal_update(cbook.normalize_kwargs(kwargs, PathPatch))

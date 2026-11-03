@@ -45,6 +45,7 @@ from ._native import patheffects as _patheffects
 from ._native import rcsetup as _rcsetup
 from ._native import register as _register
 from . import rcsetup
+from .rcsetup import cycler  # noqa: F401  (matplotlib exports it here)
 
 import numpy as _np
 

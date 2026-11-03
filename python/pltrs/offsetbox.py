@@ -855,6 +855,13 @@ class AnchoredOffsetbox(OffsetBox):
             self.prop = FontProperties._from_any(prop)
             if isinstance(prop, dict) and "size" not in prop:
                 self.prop.set_size(rcParams["legend.fontsize"])
+        from .patches import FancyBboxPatch
+        # The frame: matplotlib's square box without padding, white with a
+        # black edge in its look, which pltrs (Rust) draws once the box is
+        # added and fits to the box whenever it lays the box out.
+        self.patch = FancyBboxPatch._from_native(
+            _offsetbox.new_frame(bool(frameon)), None)
+        self.patch.set_mutation_scale(self.prop.get_size_in_points())
 
     def _add_to_axes(self, axes, kind, autolim=True):
         return self._join(axes)
@@ -894,11 +901,10 @@ class AnchoredOffsetbox(OffsetBox):
     def _native_tree(self):
         # The box inside another box: drawn at its anchor all the same.
         return ("anchored", self.get_child()._native_tree(),
-                self._native_options())
+                self._native_options(), self.patch._native)
 
     def _adopt_tree(self, natives, figure):
-        from .patches import FancyBboxPatch
-        self.patch = _handles.wrap(next(natives), FancyBboxPatch, figure)
+        _handles.adopt(self.patch, next(natives), figure)
         self.get_child()._adopt_tree(natives, figure)
         self._in_tree = True
 
@@ -912,13 +918,12 @@ class AnchoredOffsetbox(OffsetBox):
     def _join(self, parent):
         """Join *parent*, an axes or a figure, with the child tree: pltrs
         (Rust) anchors the box there; return self."""
-        from .patches import FancyBboxPatch
         native, parts, frame = _offsetbox.add_anchored(
             parent._native, self._native, self.get_child()._native_tree(),
-            self._native_options())
+            self._native_options(), self.patch._native)
         figure = parent.figure
         self.get_child()._adopt_tree(iter(parts), figure)
-        self.patch = _handles.wrap(frame, FancyBboxPatch, figure)
+        _handles.adopt(self.patch, frame, figure)
         self.get_child()._joined(self)
         return _handles.adopt(self, native, figure)
 

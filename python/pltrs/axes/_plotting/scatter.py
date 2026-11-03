@@ -252,6 +252,18 @@ class ScatterMixin:
         c, colors, edgecolors = self._parse_scatter_color_args(
             c, edgecolors, kwargs, x.size,
             get_next_color_func=lambda: _plotting.next_patch_color(self._native))
+        # As matplotlib's: a point masked or not finite in one argument is
+        # masked in all of them, its value left out of the colour scaling.
+        if plotnonfinite and colors is None:
+            c = np.ma.masked_invalid(c)
+            x, y, s, edgecolors, linewidths = cbook._combine_masks(
+                x, y, s, edgecolors, linewidths)
+        else:
+            x, y, s, c, colors, edgecolors, linewidths = cbook._combine_masks(
+                x, y, s, c, colors, edgecolors, linewidths)
+        if (x.size in (3, 4) and np.ma.is_masked(edgecolors)
+                and not np.ma.is_masked(orig_edgecolor)):
+            edgecolors = edgecolors.data
         marker = marker if marker is not None else _rcParams()['scatter.marker']
         marker_obj = marker if isinstance(marker, MarkerStyle) else MarkerStyle(marker)
         if cbook._str_equal(marker_obj.get_marker(), ","):
@@ -288,7 +300,7 @@ class ScatterMixin:
         if linewidths is not None:
             linewidths = [float(lw) if lw is not None
                           else _rcParams()['lines.linewidth']
-                          for lw in np.atleast_1d(linewidths)]
+                          for lw in np.ma.getdata(np.atleast_1d(linewidths))]
         alphas = None
         if np.iterable(alpha):
             alphas, alpha = [float(a) for a in alpha], None

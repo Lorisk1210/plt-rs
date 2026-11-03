@@ -5,7 +5,11 @@
 
 # The program reads the clock: the time it prints is its own, under either.
 images_contours_and_fields/plot_streamplot$ | ^value\[(time|joinedstr)\]: | the example times streamplot with time.time() and writes the time into a figure title
+images_contours_and_fields/plot_streamplot$ | ^image: RMS > 1$ | the pixels that differ are the digits of the times the titles of figure 2 show
 statistics/time_series_histogram$ | ^stdout$ | the example prints the seconds its plotting took
+
+# The program draws object reprs, with their memory addresses.
+users_explain/axes/axes_units$ | ^image: RMS > 1$ | figure 12 writes the reprs of each axis' converter, locator and formatter ("<... object at 0x...>"), whose addresses differ from run to run
 
 # A PDF names the software that wrote it.
 misc/multipage_pdf$ | ^value\[infodict\]: str$ | the PDF Creator entry names pltrs, the software writing the file, where matplotlib names itself

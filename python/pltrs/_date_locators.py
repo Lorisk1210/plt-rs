@@ -542,6 +542,14 @@ class AutoDateLocator(DateLocator):
         return vmin, vmax
 
     def _get_unit(self):
+        if self.axis is not None:
+            # pltrs (Rust) locates the ticks of an axis itself: the
+            # frequency is the one it picks for the view now, which
+            # matplotlib's last call of the locator left in ``_freq``.
+            nmin, nmax = _date2num(self.viewlim_to_dt())
+            choice = _dates.auto_date_choice(self._spec(), float(nmin), float(nmax))
+            if choice['frequency'] is not None:
+                self._freq = choice['frequency']
         if self._freq in [MICROSECONDLY]:
             return 1. / MUSECONDS_PER_DAY
         else:

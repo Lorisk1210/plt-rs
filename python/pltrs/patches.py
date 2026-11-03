@@ -525,6 +525,17 @@ class Rectangle(Patch):
     #: The names of `_fields`.
     _FIELDS = ("x", "y", "width", "height", "angle", "rotation_point")
 
+    def get_path(self):
+        """Return the vertices of the rectangle: the unit square all
+        rectangles share, as matplotlib's ``Path.unit_rectangle()``, so
+        that its interpolation steps are those of every rectangle."""
+        def steps():
+            shared = _patches.get_shared_rectangle_steps()
+            return (_patches.get_interpolation_steps(self._native)
+                    if shared is None else shared)
+        return drawn_path(self, *_patches.get_path(self._native), (
+            steps, _patches.set_shared_rectangle_steps))
+
     def _fields(self):
         """``(x, y, width, height, angle, rotation_point)``, as given
         (matplotlib keeps them as given)."""

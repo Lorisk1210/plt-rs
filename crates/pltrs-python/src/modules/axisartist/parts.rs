@@ -92,6 +92,14 @@ fn set_ticklabel_direction(artist: AxisArtist, name: String) -> PyResult<()> {
     Ok(())
 }
 
+/// Moves the tick labels of both levels to the other side of the line,
+/// with the alignment of the opposite direction
+/// (`invert_ticklabel_direction`).
+fn invert_ticklabel_direction(artist: AxisArtist) -> PyResult<()> {
+    artist.invert_ticklabel_direction();
+    Ok(())
+}
+
 /// Puts the label on the `"+"` or `"-"` side of the line
 /// (`set_axislabel_direction`).
 fn set_axislabel_direction(artist: AxisArtist, name: String) -> PyResult<()> {
@@ -139,6 +147,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("ticklabel_extents", ticklabel_extents)?;
     module.add("ticklabel_metrics", ticklabel_metrics)?;
     module.add("set_ticklabel_direction", set_ticklabel_direction)?;
+    module.add("invert_ticklabel_direction", invert_ticklabel_direction)?;
     module.add("set_axislabel_direction", set_axislabel_direction)?;
     module.add("helper_ticks", helper_ticks)?;
     module.add("helper_line", helper_line)?;

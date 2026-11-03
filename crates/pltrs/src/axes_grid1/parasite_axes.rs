@@ -206,13 +206,41 @@ impl HostAxes {
     /// A parasite sharing the x axis, with its y axis on the right, where
     /// the host's is hidden (matplotlib's `HostAxes.twinx`).
     pub fn twinx(&self) -> ParasiteAxes {
-        self.add_shared_twin(AxisName::X)
+        self.show_shared_twin(AxisName::X)
     }
 
     /// A parasite sharing the y axis, with its x axis on top, where the
     /// host's is hidden (matplotlib's `HostAxes.twiny`).
     pub fn twiny(&self) -> ParasiteAxes {
-        self.add_shared_twin(AxisName::Y)
+        self.show_shared_twin(AxisName::Y)
+    }
+
+    /// A parasite sharing the axis `shared`, its sides and the host's as
+    /// they were (matplotlib's `_add_twin_axes(sharex=...)`, which
+    /// [`twinx`](Self::twinx) and [`twiny`](Self::twiny) follow by showing
+    /// and hiding sides): for a host whose sides are drawn by axis artists
+    /// of its own (axisartist's), which the program shows and hides.
+    pub fn shared_twin(&self, shared: AxisName) -> ParasiteAxes {
+        let twin = self.add_parasite(ParasiteLink::Independent, None, true);
+        twin.share(shared, &self.axes)
+            .expect("a new axes of this figure shares nothing yet");
+        twin
+    }
+
+    /// A parasite sharing no axis, whose data coordinates map onto the
+    /// host's through `aux` (`None` = the identity), its sides and the
+    /// host's as they were (matplotlib's `_add_twin_axes(aux_transform=...)`,
+    /// which [`twin`](Self::twin) follows by showing and hiding sides; see
+    /// [`shared_twin`](Self::shared_twin)). Its view limits are the host's
+    /// mapped back.
+    ///
+    /// # Errors
+    ///
+    /// When `aux` rotates, shears or cannot be inverted.
+    pub fn linked_twin(&self, aux: Option<Affine2D>) -> Result<ParasiteAxes, ParasiteError> {
+        let link = ParasiteLink::Transform(aux.unwrap_or(Affine2D::IDENTITY));
+        let view_map = link.view_map()?;
+        Ok(self.add_parasite(link, view_map, true))
     }
 
     /// A parasite sharing no axis, whose data coordinates map onto the
@@ -238,9 +266,7 @@ impl HostAxes {
     ///
     /// When `aux` rotates, shears or cannot be inverted.
     pub fn twin(&self, aux: Option<Affine2D>) -> Result<ParasiteAxes, ParasiteError> {
-        let link = ParasiteLink::Transform(aux.unwrap_or(Affine2D::IDENTITY));
-        let view_map = link.view_map()?;
-        let twin = self.add_parasite(link, view_map, true);
+        let twin = self.linked_twin(aux)?;
         for side in [SpineSide::Top, SpineSide::Right] {
             self.axis(side).set_visible(false);
         }
@@ -254,10 +280,8 @@ impl HostAxes {
     }
 
     /// `twinx` (sharing x) or `twiny` (sharing y).
-    fn add_shared_twin(&self, shared: AxisName) -> ParasiteAxes {
-        let twin = self.add_parasite(ParasiteLink::Independent, None, true);
-        twin.share(shared, &self.axes)
-            .expect("a new axes of this figure shares nothing yet");
+    fn show_shared_twin(&self, shared: AxisName) -> ParasiteAxes {
+        let twin = self.shared_twin(shared);
         let (own, others) = match shared {
             AxisName::X => (
                 SpineSide::Right,

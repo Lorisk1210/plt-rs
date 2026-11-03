@@ -282,7 +282,12 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
         if boxstyle is not None:
             from .patches import BoxStyle
             from ._patch_styles import _native_spec
+            # As matplotlib's: *pad* completes a style name lacking one, and
+            # is ignored otherwise.
+            pad = props.pop("pad", None)
             if isinstance(boxstyle, str):
+                if "pad" not in boxstyle:
+                    boxstyle += ",pad=%0.2f" % (0.3 if pad is None else pad)
                 boxstyle = BoxStyle(boxstyle)
             props["boxstyle"] = _native_spec(boxstyle, BoxStyle)
         # The style object, which a style of the program's is known by.
@@ -1176,9 +1181,14 @@ def _native_arrowprops(arrowprops):
     if "connectionstyle" in props:
         props["connectionstyle"] = _native_spec(
             props["connectionstyle"], ConnectionStyle)
+    from ._text_box import _TextBox
     for key in ("patchA", "patchB"):
-        if props.get(key) is not None:
-            props[key] = props[key]._native
+        patch = props.get(key)
+        if patch is not None:
+            # A text's box clips as the text draws it: pltrs (Rust) clips to
+            # the box of a text it is given.
+            mirror = patch.__dict__.get("_mirror")
+            props[key] = (mirror.text if isinstance(mirror, _TextBox) else patch)._native
     return props
 
 

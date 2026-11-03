@@ -11,6 +11,7 @@ use pltrs::sankey::{FlowOrientation, PathLengths, Sankey, SankeyError, SankeyOpt
 use pltrs::text::Text;
 use pltrs::ticker::LabelFormat;
 
+use super::patches::PatchKwargs;
 use crate::binding::prelude::*;
 use crate::binding::wrap_native;
 
@@ -86,12 +87,16 @@ type Diagram = (
     Vec<Text>,
 );
 
-/// Adds a subdiagram labelled `patchlabel` (matplotlib's `Sankey.add`).
+/// Adds a subdiagram labelled `patchlabel` (matplotlib's `Sankey.add`),
+/// its outline styled as `style` says (the face colour and line width
+/// `add` takes; the next colour of the property cycle without a face
+/// colour).
 fn add(
     sankey: Native<NativeSankey>,
     patchlabel: String,
     (flows, orientations, labels): Flows,
     (trunklength, pathlengths, prior, connect, rotation): Layout,
+    style: PatchKwargs,
 ) -> PyResult<Diagram> {
     let sub = Subdiagram {
         patchlabel,
@@ -113,7 +118,7 @@ fn add(
         prior,
         connect,
         rotation,
-        ..Subdiagram::default()
+        props: style.0,
     };
     let mut sankey = sankey.borrow_mut();
     let diagram = sankey

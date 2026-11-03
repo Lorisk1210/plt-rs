@@ -41,12 +41,12 @@ use std::fmt;
 
 use pltrs_core::{Bbox, Point};
 use pltrs_raster::{Pixmap, RasterError};
-use pltrs_render::{RasterBackendError, RgbaImage};
+use pltrs_render::{RasterBackendError, RasterRenderer, RgbaImage};
 use pltrs_text::TextError;
 
 use super::{DrawErrors, Figure};
 use crate::artist::{ArtistHandle, DrawError};
-use crate::events::Event;
+use crate::events::{Event, EventKind};
 pub use region::{BufferRegion, PixelBox};
 use state::{CanvasKey, Generation, KeptCanvas};
 pub(crate) use state::{CanvasState, Presentation};
@@ -179,6 +179,42 @@ impl FigureCanvas {
         self.figure.state_mut().canvas.drawn();
         self.figure.process_event(&Event::Draw);
         drawn.map_err(CanvasError::Draw)
+    }
+
+    /// Sends [`Event::Draw`] for a raster print with `printed`, the figure
+    /// drawn for it, as the canvas (matplotlib's raster prints draw into
+    /// the canvas's own renderer, `FigureCanvasAgg.draw`), and returns the
+    /// print as the event's callbacks left the canvas, having drawn
+    /// artists onto it (`draw_artist`, `restore_region`) or drawn it again
+    /// (`canvas.draw()`). The canvas keeps the print, into which the
+    /// regions the callbacks saved can be restored. Without callbacks, or
+    /// for a print of another size or resolution than the canvas (part of
+    /// the figure, `bbox_inches`), the canvas stays as it was.
+    ///
+    /// # Errors
+    ///
+    /// When the canvas for the print cannot be made.
+    pub(crate) fn printing(
+        &self,
+        mut printed: RasterRenderer,
+    ) -> Result<RasterRenderer, RasterBackendError> {
+        if !self.figure.listens(EventKind::Draw) {
+            return Ok(printed);
+        }
+        let key = CanvasKey::of(&self.figure);
+        if key.fits(&printed) {
+            let mut canvas = key.make()?;
+            canvas.renderer.pixmap_mut().clone_from(printed.pixmap());
+            self.figure.state_mut().canvas.kept = Some(canvas);
+        }
+        self.figure.process_event(&Event::Draw);
+        if let Some(kept) = &self.figure.state().canvas.kept
+            && kept.key == key
+            && key.fits(&printed)
+        {
+            printed.pixmap_mut().clone_from(kept.renderer.pixmap());
+        }
+        Ok(printed)
     }
 
     /// Asks for a full draw (matplotlib's `draw_idle`): a figure shown in

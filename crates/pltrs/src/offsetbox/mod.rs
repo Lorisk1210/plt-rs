@@ -125,6 +125,8 @@ pub enum OffsetBoxError {
     /// An anchored text was given a vertical alignment, which text areas
     /// cannot honour (matplotlib refuses it too).
     VerticalAlignment,
+    /// The frame given to a box is not a fancy box patch.
+    NotAFrame,
 }
 
 impl fmt::Display for OffsetBoxError {
@@ -138,6 +140,7 @@ impl fmt::Display for OffsetBoxError {
             Self::VerticalAlignment => {
                 f.write_str("mixing a vertical alignment with an anchored text is not supported")
             }
+            Self::NotAFrame => f.write_str("the frame of a box must be a FancyBboxPatch"),
         }
     }
 }
@@ -150,7 +153,8 @@ impl std::error::Error for OffsetBoxError {
             Self::MissingText(_)
             | Self::MissingImage(_)
             | Self::Detached
-            | Self::VerticalAlignment => None,
+            | Self::VerticalAlignment
+            | Self::NotAFrame => None,
         }
     }
 }

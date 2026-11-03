@@ -189,7 +189,11 @@ impl Figure {
 
     /// Renders the figure as [`Figure::savefig_with`] would for raster
     /// output, skipping the artists that cannot be drawn: the canvas, and
-    /// the problems if any.
+    /// the problems if any. The print is drawn as the figure's canvas
+    /// ([`Figure::canvas`]) is, as matplotlib's raster prints are: what the
+    /// callbacks of its [`Event::Draw`](crate::events::Event::Draw) draw on
+    /// the canvas, or draw it again with, is printed too, and the canvas
+    /// keeps the print.
     ///
     /// # Errors
     ///
@@ -200,9 +204,10 @@ impl Figure {
     ) -> Result<(RasterRenderer, Option<DrawErrors>), SaveError> {
         let (saving, page) = self.begin_print(&options, None);
         let mut canvas = Self::raster_canvas_sized(page.width, page.height, page.dpi)?;
-        let problems = self.draw(&mut canvas).err();
+        let problems = self.draw_without_event(&mut canvas).err();
+        let printed = self.canvas().printing(canvas).map_err(SaveError::Backend);
         drop(saving);
-        Ok((canvas, problems))
+        Ok((printed?, problems))
     }
 
     /// Renders the figure with a vector backend as [`Figure::savefig_with`]

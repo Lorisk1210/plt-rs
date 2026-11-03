@@ -250,6 +250,11 @@ impl FigureState {
     pub(crate) fn update_ticks_as_is(&mut self, axes: ArtistId) {
         self.sync_secondary(axes);
         self.unstale_axes(axes);
+        self.tick_axes(axes);
+    }
+
+    /// Places the ticks of the 2-D `axes` over its box as it is now.
+    fn tick_axes(&mut self, axes: ArtistId) {
         let Some(extent) = self.axes_bbox(axes) else {
             return;
         };
@@ -258,6 +263,24 @@ impl FigureState {
         if let Some(state) = self.store.get_as_mut::<AxesState>(axes) {
             state.update_ticks(&extent, dpi, shared);
         }
+    }
+
+    /// The part of [`prepare`](Self::prepare) for the 2-D `axes`.
+    fn prepare_axes(&mut self, id: ArtistId) {
+        self.sync_secondary(id);
+        self.lay_out_axes(id);
+        crate::polar::update_spine_visibility(self, id);
+        self.tick_axes(id);
+    }
+
+    /// [`prepare`](Self::prepare) without the layout engine: the figure
+    /// as it is now, its axes where they are until the next draw or
+    /// layout pass places them (matplotlib computes ticks between draws
+    /// without its layout engine). A due layout pass stays due.
+    pub(crate) fn prepare_as_is(&mut self) {
+        let pending = std::mem::take(&mut self.layout.pending);
+        self.prepare();
+        self.layout.pending |= pending;
     }
 
     /// The mutable pass before drawing: a due layout-engine pass, then
@@ -270,17 +293,7 @@ impl FigureState {
             .filter(|&id| self.store.get_as::<AxesState>(id).is_some())
             .collect();
         for &id in &axes {
-            self.sync_secondary(id);
-            self.lay_out_axes(id);
-            crate::polar::update_spine_visibility(self, id);
-            let Some(extent) = self.axes_bbox(id) else {
-                continue;
-            };
-            let dpi = self.dpi();
-            let shared = self.shared_tick_spaces(id);
-            if let Some(state) = self.store.get_as_mut::<AxesState>(id) {
-                state.update_ticks(&extent, dpi, shared);
-            }
+            self.prepare_axes(id);
         }
         crate::mplot3d::prepare_axes3d(self);
         // Titles clear the decorations of twins and insets, whose ticks

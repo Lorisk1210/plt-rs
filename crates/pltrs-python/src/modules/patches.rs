@@ -226,6 +226,19 @@ fn set_interpolation_steps(patch: AnyPatch, steps: usize) -> PyResult<()> {
     Ok(())
 }
 
+/// The interpolation steps all rectangles draw with, if set (matplotlib's
+/// `Path.unit_rectangle()._interpolation_steps`, which every
+/// `Rectangle.get_path()` is).
+fn get_shared_rectangle_steps() -> PyResult<Option<usize>> {
+    Ok(pltrs::patches::shared_rectangle_steps())
+}
+
+/// Sets the interpolation steps all rectangles draw with.
+fn set_shared_rectangle_steps(steps: usize) -> PyResult<()> {
+    pltrs::patches::set_shared_rectangle_steps(Some(steps));
+    Ok(())
+}
+
 /// The matrix mapping the outline into the patch's coordinates
 /// (matplotlib's `get_patch_transform`).
 fn get_patch_transform(patch: AnyPatch) -> PyResult<NdArray> {
@@ -554,6 +567,8 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("display_path", display_path)?;
     module.add("get_interpolation_steps", get_interpolation_steps)?;
     module.add("set_interpolation_steps", set_interpolation_steps)?;
+    module.add("get_shared_rectangle_steps", get_shared_rectangle_steps)?;
+    module.add("set_shared_rectangle_steps", set_shared_rectangle_steps)?;
     module.add("get_patch_transform", get_patch_transform)?;
     module.add("rectangle", rectangle)?;
     module.add("set_rectangle", set_rectangle)?;

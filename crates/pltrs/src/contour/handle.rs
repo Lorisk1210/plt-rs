@@ -46,7 +46,8 @@ impl TypedHandle for ContourSet {
         if !raw.is::<ContourSetArtist>() {
             return None;
         }
-        Some(Self::from_raw(raw.owning_axes()?, raw.clone()))
+        // A contour set of 3-D axes is drawn on their 2-D plane.
+        Some(Self::from_raw(raw.drawing_axes()?, raw.clone()))
     }
 }
 

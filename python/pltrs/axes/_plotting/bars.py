@@ -7,7 +7,7 @@ import numpy as np
 
 from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, lines as mlines
 from ... import patches as mpatches, units as munits
-from ..._native import plotting as _plotting
+from ..._native import patches as _patches, plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import BarContainer, ErrorbarContainer
 from ._helpers import floats, record_container, wrap, wrap_all
@@ -263,6 +263,10 @@ class BarsMixin:
         patches = wrap_all(self, rectangles, mpatches.Rectangle)
         for patch in patches:
             patch._internal_update(kwargs)
+        if patches:
+            # matplotlib's ``r.get_path()._interpolation_steps = 100``,
+            # through the path all rectangles share.
+            _patches.set_shared_rectangle_steps(100)
         datavalues = _bar_geometry(patches, orientation == 'vertical', align,
                                    x, y, width, height)
         errorbar_container = None
@@ -388,6 +392,9 @@ class BarsMixin:
             patches = wrap_all(self, rectangles, mpatches.Rectangle)
             for patch in patches:
                 patch._internal_update(kwargs)
+            if patches:
+                # As `bar`, which matplotlib's grouped bars are made with.
+                _patches.set_shared_rectangle_steps(100)
             container = BarContainer(patches, None, datavalues=np.asarray(values),
                                      orientation=orientation,
                                      label='_nolegend_' if label is None else str(label))

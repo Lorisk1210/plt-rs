@@ -55,6 +55,19 @@ impl RawHandle {
     /// of its own) or was removed (matplotlib's `remove` sets `axes` to
     /// `None`; the artists it owns keep theirs).
     pub(crate) fn owning_axes(&self) -> Option<Axes> {
+        self.nearest_axes(false)
+    }
+
+    /// The axes the artist is drawn on: its [owning
+    /// axes](Self::owning_axes), or the 2-D plane of the 3-D axes it is in
+    /// (on which the contour sets of 3-D axes are drawn).
+    pub(crate) fn drawing_axes(&self) -> Option<Axes> {
+        self.nearest_axes(true)
+    }
+
+    /// The nearest 2-D axes among the artist and its owners, the plane of
+    /// a 3-D axes only `through_plane`.
+    fn nearest_axes(&self, through_plane: bool) -> Option<Axes> {
         let state = self.figure_state().borrow();
         if state.is_removed(self.id()) {
             return None;
@@ -69,7 +82,7 @@ impl RawHandle {
             if state.artist_as::<AxesState>(id).is_some() {
                 let plane = parent.is_some_and(is_3d);
                 let axes = RawHandle::new(Rc::clone(self.figure_state()), id);
-                return (!plane).then(|| Axes::from_raw(axes));
+                return (through_plane || !plane).then(|| Axes::from_raw(axes));
             }
             id = parent?;
         }

@@ -15,6 +15,12 @@ pub trait PatchShape: Debug + Clone + 'static {
     /// `_edge_default`).
     const EDGE_DEFAULT: bool = false;
 
+    /// Whether patches of the shape draw with the interpolation steps all
+    /// rectangles share once a program sets them (matplotlib's
+    /// `Rectangle`, whose outline is the shared `Path.unit_rectangle()`;
+    /// see [`set_shared_rectangle_steps`](super::set_shared_rectangle_steps)).
+    const SHARES_UNIT_PATH: bool = false;
+
     /// The outline, in the shape's own coordinates.
     fn path(&self) -> Path;
 
@@ -72,6 +78,10 @@ pub struct ShapeFrame<'a> {
     /// the canvas resolution's while drawing,
     /// [`LayoutContext::measured_dpi_cor`] while measuring.
     pub dpi_cor: f64,
+    /// Pixels per point of the patch's last draw (of the draw running
+    /// while it draws), `None` before its first: what the offset of a
+    /// shadow follows, as matplotlib's `Shadow` sets it when it draws.
+    pub drawn_dpi_cor: Option<f64>,
     /// The edge width in points.
     pub linewidth: f64,
     /// The axes or figure containing the patch.

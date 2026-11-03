@@ -300,8 +300,27 @@ impl Axis {
     /// Runs `f` on this axis and its texts laid out in the figure's
     /// current layout (laid out first).
     pub(super) fn with_texts<R>(&self, f: impl FnOnce(&AxisTexts, &AxisState) -> R) -> Option<R> {
+        self.with_texts_prepared(FigureState::prepare, f)
+    }
+
+    /// Runs `f` on this axis and its texts where they are now, the layout
+    /// engine not run (matplotlib places them when it draws).
+    pub(super) fn with_texts_as_is<R>(
+        &self,
+        f: impl FnOnce(&AxisTexts, &AxisState) -> R,
+    ) -> Option<R> {
+        self.with_texts_prepared(FigureState::prepare_as_is, f)
+    }
+
+    /// Runs `f` on this axis and its texts once `prepare` prepared the
+    /// figure.
+    fn with_texts_prepared<R>(
+        &self,
+        prepare: fn(&mut FigureState),
+        f: impl FnOnce(&AxisTexts, &AxisState) -> R,
+    ) -> Option<R> {
         let mut state = self.axes.raw().figure_state().borrow_mut();
-        state.prepare();
+        prepare(&mut state);
         let state = &*state;
         let axes = state.store.get_as::<AxesState>(self.axes.id())?;
         let texts = AxisPainter::new(self.axes.id(), axes, self.name)

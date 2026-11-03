@@ -249,8 +249,9 @@ def build_axes(ax):
     d["bbox"]._spanning = d["transAxes"]
     _watch_leaf(ax, d["_viewLim"], functools.partial(_push_limits, ax, "view"))
     _watch_leaf(ax, d["dataLim"], functools.partial(_push_limits, ax, "data"))
-    if leaves is not None:
-        root._tree_owners[leaves[0]] = ax
+    # Also an Axes outside the figure as its trees are built (one its
+    # class' constructor builds, which joins the figure later under its id).
+    root._tree_owners[_artist.id(ax._native)] = ax
     _transforms.watch_axes(ax._native)
 
 

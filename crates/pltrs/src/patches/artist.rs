@@ -48,6 +48,7 @@ impl<S: PatchShape> PatchParts<'_, S> {
             layout,
             transform: layout.resolve(&transform).ok_or(PatchError::Detached)?,
             dpi_cor,
+            drawn_dpi_cor: self.drawn.and_then(DrawnDpiCor::last),
             linewidth: self.style.linewidth.unwrap_or(self.rc.patch_linewidth),
             parent: self.base.parent,
             interpolation_steps: self.interpolation_steps,
@@ -183,9 +184,18 @@ impl<S: PatchShape> PatchArtist<S> {
             style: &self.style,
             rc: &self.rc,
             shape: &self.shape,
-            interpolation_steps: self.interpolation_steps,
+            interpolation_steps: self.drawn_interpolation_steps(),
             drawn: Some(&self.dpi_cor),
         }
+    }
+
+    /// The interpolation steps the patch draws with: those all rectangles
+    /// share when they are set, else its own.
+    fn drawn_interpolation_steps(&self) -> usize {
+        S::SHARES_UNIT_PATH
+            .then(super::shared_rectangle_steps)
+            .flatten()
+            .unwrap_or(self.interpolation_steps)
     }
 
     /// The outlines in display space, with arrow sizes at `dpi_cor` pixels

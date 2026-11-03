@@ -46,6 +46,7 @@
 //! ax.set_xlabel("time (s)").set_ylabel("amplitude");
 //! fig.savefig("sine.png")?;
 //! # assert!(std::fs::read("sine.png")?.starts_with(b"\x89PNG"));
+//! # std::env::set_current_dir(std::env::temp_dir())?; // Windows cannot remove it otherwise
 //! # std::fs::remove_dir_all(&dir)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

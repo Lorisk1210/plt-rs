@@ -460,7 +460,11 @@ mod tests {
             .into_iter()
             .min_by(|a, b| depth_of(*a).total_cmp(&depth_of(*b)))
             .expect("two candidates");
-        let (near, far) = (depth_of(inside), depth_of(outside));
+        // Projected together, as the artists project their two vertices
+        // (a single point is multiplied otherwise, which may round
+        // differently).
+        let projected = unit_projection().project_all(&[inside, outside]);
+        let (near, far) = (projected[0][2], projected[1][2]);
         assert!(far < near);
         let template = Path::polyline(vec![Point::ORIGIN; 2]);
         let contour = Art3D::Paths(vec![Path3D::new(template, vec![inside, outside])]);

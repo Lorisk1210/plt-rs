@@ -9,7 +9,7 @@
 use std::ffi::c_void;
 
 /// `HWND`, `HDC`, `HINSTANCE`, `HICON`, `HCURSOR`, `HBITMAP`, `HGLOBAL`,
-/// `HMONITOR`, `HKL`, `DPI_AWARENESS_CONTEXT`: opaque handles.
+/// `HMONITOR`, `HKL`, `HRGN`, `DPI_AWARENESS_CONTEXT`: opaque handles.
 pub(super) type Handle = isize;
 
 /// A window procedure (`WNDPROC`).
@@ -204,6 +204,11 @@ pub(super) const ICON_BIG: usize = 1;
 pub(super) const BI_RGB: u32 = 0;
 /// `DIB_RGB_COLORS`.
 pub(super) const DIB_RGB_COLORS: u32 = 0;
+/// `RDW_INVALIDATE`: `RedrawWindow` adds the rectangle to the update
+/// region.
+pub(super) const RDW_INVALIDATE: u32 = 0x0001;
+/// `RDW_UPDATENOW`: `RedrawWindow` sends `WM_PAINT` before returning.
+pub(super) const RDW_UPDATENOW: u32 = 0x0100;
 /// `SRCCOPY`: the raster operation that copies the source.
 pub(super) const SRCCOPY: u32 = 0x00CC_0020;
 /// `CF_UNICODETEXT`.
@@ -317,8 +322,12 @@ unsafe extern "system" {
     pub(super) fn DestroyIcon(icon: Handle) -> i32;
     pub(super) fn BeginPaint(window: Handle, paint: *mut PaintStruct) -> Handle;
     pub(super) fn EndPaint(window: Handle, paint: *const PaintStruct) -> i32;
-    pub(super) fn GetDC(window: Handle) -> Handle;
-    pub(super) fn ReleaseDC(window: Handle, dc: Handle) -> i32;
+    pub(super) fn RedrawWindow(
+        window: Handle,
+        update: *const Rect,
+        region: Handle,
+        flags: u32,
+    ) -> i32;
     pub(super) fn OpenClipboard(owner: Handle) -> i32;
     pub(super) fn CloseClipboard() -> i32;
     pub(super) fn EmptyClipboard() -> i32;

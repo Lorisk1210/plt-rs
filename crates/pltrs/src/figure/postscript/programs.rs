@@ -27,7 +27,8 @@ pub enum ProgramError {
         /// The program.
         program: String,
         /// Python's message, such as `[Errno 2] No such file or directory:
-        /// 'dvips'`.
+        /// 'dvips'` (on Windows `[WinError 2] The system cannot find the
+        /// file specified`).
         message: String,
     },
     /// The program exited with an error (`_check_and_log_subprocess`'s
@@ -72,17 +73,28 @@ impl ProgramError {
 }
 
 /// Python's message of the `OSError` of `program` failing to start with
-/// `err`: `[Errno <n>] <reason>: '<program>'`.
+/// `err`: `[Errno <n>] <reason>: '<program>'`, or on Windows, where
+/// `CreateProcess` names no file, `[WinError <n>] <reason>`.
 fn os_error(program: &str, err: &io::Error) -> String {
-    let text = err.to_string();
-    match err.raw_os_error() {
-        Some(code) => {
-            let reason = text
-                .strip_suffix(&format!(" (os error {code})"))
-                .unwrap_or(&text);
-            format!("[Errno {code}] {reason}: '{program}'")
-        }
-        None => text,
+    let code = err.raw_os_error().or_else(|| {
+        // Rust looks programs up itself on Windows and reports a missing
+        // one without a code, where `CreateProcess` fails with
+        // `ERROR_FILE_NOT_FOUND`.
+        (cfg!(windows) && err.kind() == io::ErrorKind::NotFound).then_some(2)
+    });
+    let Some(code) = code else {
+        return err.to_string();
+    };
+    let text = io::Error::from_raw_os_error(code).to_string();
+    let reason = text
+        .strip_suffix(&format!(" (os error {code})"))
+        .unwrap_or(&text);
+    if cfg!(windows) {
+        // Python drops the period ending the system's message.
+        let reason = reason.trim_end_matches(|c: char| c == '.' || c.is_whitespace());
+        format!("[WinError {code}] {reason}")
+    } else {
+        format!("[Errno {code}] {reason}: '{program}'")
     }
 }
 
@@ -403,13 +415,24 @@ mod tests {
         assert_eq!(Version::parse(""), None);
     }
 
+    /// Whether `message` is Python's for `program` missing: on Windows
+    /// the reason is in the system's language.
+    fn says_missing(message: &str, program: &str) -> bool {
+        if cfg!(windows) {
+            message.starts_with("[WinError 2] ") && !message.ends_with('.')
+        } else {
+            message == format!("[Errno 2] No such file or directory: '{program}'")
+        }
+    }
+
     #[test]
     fn errors_carry_matplotlibs_messages() {
         let missing = io::Error::from_raw_os_error(2);
-        assert_eq!(
-            ProgramError::start("dvips", &missing).to_string(),
-            "[Errno 2] No such file or directory: 'dvips'"
-        );
+        let message = ProgramError::start("dvips", &missing).to_string();
+        assert!(says_missing(&message, "dvips"), "{message}");
+        let unfound = io::Error::new(io::ErrorKind::NotFound, "program not found");
+        let message = ProgramError::start("dvips", &unfound).to_string();
+        assert_eq!(says_missing(&message, "dvips"), cfg!(windows), "{message}");
         let failed = ProgramError::Failed {
             command: "gs -dBATCH 'a b'".to_owned(),
             stdout: "out".to_owned(),
@@ -435,7 +458,7 @@ mod tests {
         let missing = workspace.run("pltrs-no-such-program", &[]);
         assert!(
             matches!(&missing, Err(ProgramError::Start { message, .. })
-                if message == "[Errno 2] No such file or directory: 'pltrs-no-such-program'"),
+                if says_missing(message, "pltrs-no-such-program")),
             "{missing:?}"
         );
         if pltrs_core::os::which("sh").is_some() {
@@ -480,7 +503,7 @@ mod tests {
         if let Err(err) = Executable::Pdftops.check() {
             let message = err.to_string();
             assert!(
-                message == "[Errno 2] No such file or directory: 'pdftops'"
+                says_missing(&message, "pdftops")
                     || message.starts_with("Failed to determine the version of pdftops")
                     || message.starts_with("You have pdftops version"),
                 "{message}"

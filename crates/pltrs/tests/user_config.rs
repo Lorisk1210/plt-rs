@@ -61,7 +61,8 @@ fn child_with_a_user_configuration() {
     let Some(config) = std::env::var_os(CHILD).and(std::env::var_os("PLTRSCONFIGDIR")) else {
         return;
     };
-    let config = fs::canonicalize(config).unwrap();
+    // Resolved as Python resolves it, without Windows' `\\?\` prefix.
+    let config = pltrs_core::os::resolve(Path::new(&config)).unwrap();
     the_configuration_is_found(&config).unwrap();
     threads_start_from_the_rc_file(&config).unwrap();
     the_style_library_holds_the_user_sheets(&config).unwrap();

@@ -827,6 +827,10 @@ def _reach_shipped_data(path):
             except FileExistsError:
                 pass  # Another process linked it meanwhile.
             except OSError:
+                pass  # Windows makes links only with a privilege.
+            if not target.exists():
+                # Copied instead (also under Wine, which reports links it
+                # does not make).
                 shutil.copytree(entry, target, dirs_exist_ok=True)
 
 

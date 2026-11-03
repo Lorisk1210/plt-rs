@@ -113,6 +113,32 @@ impl Os {
         }
     }
 
+    /// The path of a file the path part of a `file:` URL names, before its
+    /// escapes are decoded (Python's `url2pathname`): unchanged except on
+    /// Windows, where a slash before a drive is dropped (`/C:/x`, or the
+    /// older `/C|/x`, is `C:\x`) and slashes become backslashes.
+    pub fn native_url_path(self, url_path: &str) -> String {
+        if self != Self::Windows {
+            return url_path.to_owned();
+        }
+        // As in Python, any character before the colon or bar is a drive;
+        // its length in bytes.
+        let drive = |path: &str| {
+            let mut chars = path.chars();
+            let letter = chars.next()?;
+            matches!(chars.next(), Some(':' | '|')).then_some(letter.len_utf8())
+        };
+        let path = url_path
+            .strip_prefix('/')
+            .filter(|rest| drive(rest).is_some())
+            .unwrap_or(url_path);
+        let path = match drive(path) {
+            Some(len) => format!("{}:{}", &path[..len], &path[len + 1..]),
+            None => path.to_owned(),
+        };
+        path.replace('/', "\\")
+    }
+
     /// `path` with forward slashes (Python's `PurePath.as_posix()`), as
     /// programs such as TeX take paths on any system: on Windows its
     /// backslashes become slashes.
@@ -314,6 +340,26 @@ mod tests {
         assert_eq!(Os::Windows.as_posix(path), "C:/Users/me/tmp.eps");
         assert_eq!(Os::Linux.as_posix(path), r"C:\Users\me\tmp.eps");
         assert_eq!(Os::MacOs.as_posix(Path::new("/tmp/a b")), "/tmp/a b");
+    }
+
+    /// Python's `nturl2path.url2pathname` on the paths of these URLs, but
+    /// for the escapes, which callers decode.
+    #[test]
+    fn url_paths_name_windows_drives() {
+        let windows = |path: &str| Os::Windows.native_url_path(path);
+        assert_eq!(
+            windows("/C:/Users/me/a%20b.mplstyle"),
+            r"C:\Users\me\a%20b.mplstyle"
+        );
+        assert_eq!(windows("/c|/x"), r"c:\x");
+        assert_eq!(windows("D|/x"), r"D:\x");
+        assert_eq!(windows("/dir/x"), r"\dir\x");
+        assert_eq!(windows("/1:/x"), r"1:\x");
+        assert_eq!(windows("/é|/x"), r"é:\x");
+        assert_eq!(windows(""), "");
+        for os in [Os::Linux, Os::MacOs] {
+            assert_eq!(os.native_url_path("/C:/x"), "/C:/x");
+        }
     }
 
     #[test]

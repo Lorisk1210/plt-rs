@@ -171,8 +171,15 @@ impl OptionsDialog {
         if dialog::dismissed(event, self.window.ui()) {
             return Ok(Outcome::Cancelled);
         }
+        let messages = self.window.handle(cx, event)?;
+        // The messages change widgets, which the window does not know of;
+        // without them it scheduled the redraws its widgets need (asking
+        // for one on every event would redraw forever).
+        if !messages.is_empty() {
+            cx.request_redraw(self.window.id())?;
+        }
         let mut outcome = Outcome::Open;
-        for message in self.window.handle(cx, event)? {
+        for message in messages {
             outcome = match message {
                 OptionsMessage::Axes(index) => {
                     self.show_axes(index);
@@ -211,7 +218,6 @@ impl OptionsDialog {
                 break;
             }
         }
-        cx.request_redraw(self.window.id())?;
         Ok(outcome)
     }
 

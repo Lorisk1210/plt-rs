@@ -41,6 +41,8 @@ mod xkcd;
 
 use std::path::{Path, PathBuf};
 
+use pltrs_core::os::Os;
+
 pub(crate) use library::bundled_sheet;
 pub use library::{
     StyleSheet, available, bundled_sheets, library, reload_library, set_user_library_paths, sheet,
@@ -150,7 +152,8 @@ fn defaults() -> Vec<(String, String)> {
 
 /// The file a style name that is no library sheet stands for: the path
 /// itself, or the path of a `file:` URL (`file:/dir/a.mplstyle`,
-/// `file:///dir/a.mplstyle`), percent-escapes decoded.
+/// `file:///dir/a.mplstyle`, on Windows `file:///C:/dir/a.mplstyle`),
+/// percent-escapes decoded.
 fn style_file(name: &str) -> PathBuf {
     let Some(url) = name.strip_prefix("file:") else {
         return PathBuf::from(name);
@@ -161,7 +164,7 @@ fn style_file(name: &str) -> PathBuf {
             .map_or("", |slash| &authority_and_path[slash..]),
         None => url,
     };
-    PathBuf::from(percent_decode(path))
+    PathBuf::from(percent_decode(&Os::CURRENT.native_url_path(path)))
 }
 
 /// `text` with `%XX` escapes replaced by the bytes they stand for.
@@ -320,7 +323,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("my style.mplstyle");
         std::fs::write(&path, "axes.facecolor: adeade\nfoo: bar\n").unwrap();
-        let url = format!("file://{}", path.display()).replace(' ', "%20");
+        // As `Path.as_uri()` spells it: `file:///C:/...` on Windows.
+        let root = if cfg!(windows) { "/" } else { "" };
+        let url = format!("file://{root}{}", Os::CURRENT.as_posix(&path)).replace(' ', "%20");
         for style in [Style::from(path.as_path()), Style::Named(url)] {
             let color = context_with(&[style], || {
                 Ok::<_, RcError>(crate::rc::params().axes_facecolor.clone())

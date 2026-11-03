@@ -29,6 +29,7 @@
 //! }
 //! assert!(fig.savefig("plot.docx").is_err(), "not a format pltrs writes");
 //! # assert!(std::fs::read_to_string("plot.svg")?.contains("<svg"));
+//! # std::env::set_current_dir(std::env::temp_dir())?; // Windows cannot remove it otherwise
 //! # std::fs::remove_dir_all(&dir)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

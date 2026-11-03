@@ -194,11 +194,9 @@ impl Backend for WindowsBackend {
         region: PhysicalRect,
     ) -> Result<(), Error> {
         let hwnd = self.hwnd(window)?;
-        let (region, pixels) = self.with_state(window, |state| {
-            let copied = state.surface.blit(frame, region);
-            state.surface.crop(copied)
-        })?;
-        sys::draw(hwnd, region, &pixels)
+        let copied = self.with_state(window, |state| state.surface.blit(frame, region))?;
+        // The window procedure paints it from the surface.
+        hwnd.repaint(copied)
     }
 
     fn read_pixels(&mut self, window: WindowId) -> Result<OwnedFrame, Error> {

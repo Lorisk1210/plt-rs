@@ -25,6 +25,7 @@ mod blend;
 mod branch;
 mod custom;
 mod interval;
+mod leaves;
 mod lockable_bbox;
 mod nonsingular;
 mod offset;
@@ -38,6 +39,7 @@ pub use bbox_maps::{bbox_to_unit, bbox_transform, bbox_transform_from, unit_to_b
 pub use blend::blended_affine;
 pub use custom::CustomMap;
 pub use interval::{interval_contains, interval_contains_close, interval_contains_open};
+pub use leaves::{AxesLeaves, FrameLeaves, ProjectionLeaves, TreeLeaves};
 pub use lockable_bbox::LockableBbox;
 pub use nonsingular::nonsingular;
 pub use offset::{OffsetUnits, scaled_translation};

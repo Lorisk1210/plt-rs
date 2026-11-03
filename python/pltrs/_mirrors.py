@@ -11,8 +11,8 @@ objects of matplotlib's very classes (`.Text`, `.Line2D`,
 filled from the part, whose ``_mirror`` is the `Mirroring` of the part
 they stand for. Every setter of
 a class made `mirrorable` gives the part its mirror's state once it ran
-(`Mirroring.push`), and the mirror asks the part where it is drawn and in
-which figure.
+(`Mirroring.push`), and the mirror asks the part where it is drawn, in
+which figure and with which transform.
 """
 
 import contextlib
@@ -28,8 +28,9 @@ class Mirroring:
     The part a mirror stands for.
 
     A subclass gives the part the mirror's state in ``push(artist)``, and
-    may answer where the part is drawn (`window_extent`) and which figure
-    it is in (`figure`); `OWN` leaves the answer to the mirror's class.
+    may answer where the part is drawn (`window_extent`), which figure it
+    is in (`figure`) and the transform matplotlib places it with
+    (`transform`); `OWN` leaves the answer to the mirror's class.
     """
 
     def window_extent(self, artist, renderer=None, dpi=None):
@@ -42,6 +43,14 @@ class Mirroring:
 
     def figure(self, artist, root=False):
         """The figure the part is in, or `OWN`."""
+        return OWN
+
+    def transform(self, artist):
+        """The transform of the part *artist* mirrors, or `OWN`."""
+        return OWN
+
+    def transform_set(self, artist):
+        """Whether the part was given its transform, or `OWN`."""
         return OWN
 
 
@@ -107,6 +116,8 @@ def mirrorable(cls):
     cls.get_window_extent = _asking(cls.get_window_extent, "window_extent")
     cls.get_tightbbox = _asking(cls.get_tightbbox, "tight_box")
     cls.get_figure = _asking(cls.get_figure, "figure")
+    cls.get_transform = _asking(cls.get_transform, "transform")
+    cls.is_transform_set = _asking(cls.is_transform_set, "transform_set")
     return cls
 
 

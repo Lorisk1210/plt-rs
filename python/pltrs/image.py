@@ -27,7 +27,7 @@ from . import _api, _image, cbook, colorizer as mcolorizer, colors as mcolors
 # the image namespace
 from ._image import *  # noqa: F401, F403
 from ._native import image as _native_image
-from .transforms import Affine2D, BboxBase, TransformedBbox
+from .transforms import Affine2D, Bbox, BboxBase, TransformedBbox
 
 _log = logging.getLogger(__name__)
 
@@ -537,6 +537,13 @@ class AxesImage(_ImageBase):
     def get_extent(self):
         """Return the image extent as tuple (left, right, bottom, top)."""
         return _native_image.get_extent(self._native)
+
+    def get_window_extent(self, renderer=None):
+        """Return the image's box in display space: its extent through its
+        transform as it is (matplotlib's)."""
+        x0, x1, y0, y1 = self.get_extent()
+        bbox = Bbox.from_extents([x0, y0, x1, y1])
+        return bbox.transformed(self.get_transform())
 
     def get_cursor_data(self, event):
         """
@@ -1275,7 +1282,7 @@ class BboxImage(_ImageBase):
     def get_window_extent(self, renderer=None):
         if self.bbox is None:
             # The image of an offset box: where the box placed it.
-            return super().get_window_extent(renderer)
+            return self._laid_out_extent()
         if isinstance(self.bbox, BboxBase):
             return self.bbox
         elif callable(self.bbox):

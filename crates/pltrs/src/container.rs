@@ -6,12 +6,11 @@
 //! it. The axes keeps the artists' ids rather than handles, so that a
 //! figure never holds references to itself.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::artist::{ArtistHandle, ArtistId, RawHandle};
 use crate::axes::{Axes, AxesState, BarContainer, ErrorbarContainer, StemContainer};
-use crate::figure::FigureState;
+use crate::figure::FigureCell;
 use crate::orientation::Orientation;
 
 /// The artists of one plotting call (an entry of matplotlib's
@@ -204,7 +203,7 @@ impl ContainerIds {
     }
 
     /// The handles again, in `figure`.
-    fn to_container(&self, figure: &Rc<RefCell<FigureState>>) -> Container {
+    fn to_container(&self, figure: &Rc<FigureCell>) -> Container {
         let raw = |id: ArtistId| RawHandle::new(Rc::clone(figure), id);
         match self {
             Self::Bar {
@@ -240,7 +239,7 @@ impl ContainerIds {
 }
 
 impl ErrorbarIds {
-    fn to_container(&self, figure: &Rc<RefCell<FigureState>>) -> ErrorbarContainer {
+    fn to_container(&self, figure: &Rc<FigureCell>) -> ErrorbarContainer {
         let raw = |id: ArtistId| RawHandle::new(Rc::clone(figure), id);
         ErrorbarContainer {
             data_line: self

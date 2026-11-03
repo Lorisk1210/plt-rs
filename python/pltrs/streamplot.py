@@ -155,6 +155,8 @@ def streamplot(axes, x, y, u, v, density=1, linewidth=None, color=None,
     lines = _handles.wrap(lines, mcollections.LineCollection, figure)
     lines._attach_native_mapping(colorizer=made)
     arrows = _handles.wrap_all(arrows, martist.Artist, figure)
+    # matplotlib autoscales the view at once (``autoscale_view``).
+    axes._unstale_viewLim()
     return StreamplotSet(lines, arrows)
 
 

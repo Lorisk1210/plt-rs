@@ -1,13 +1,12 @@
 //! The untyped handle every typed artist handle wraps.
 
-use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
 use pltrs_core::Point;
 
 use super::{Artist, ArtistBase, ArtistId, ArtistLookup, ArtistStore, LayoutContext, TypedHandle};
-use crate::figure::FigureState;
+use crate::figure::{FigureCell, FigureState};
 
 /// An untyped reference to one artist of a figure.
 ///
@@ -19,7 +18,7 @@ use crate::figure::FigureState;
 /// lives.
 #[derive(Clone)]
 pub struct RawHandle {
-    figure: Rc<RefCell<FigureState>>,
+    figure: Rc<FigureCell>,
     id: ArtistId,
 }
 
@@ -40,7 +39,7 @@ impl PartialEq for RawHandle {
 impl Eq for RawHandle {}
 
 impl RawHandle {
-    pub(crate) fn new(figure: Rc<RefCell<FigureState>>, id: ArtistId) -> Self {
+    pub(crate) fn new(figure: Rc<FigureCell>, id: ArtistId) -> Self {
         Self { figure, id }
     }
 
@@ -49,7 +48,7 @@ impl RawHandle {
         self.id
     }
 
-    pub(crate) fn figure_state(&self) -> &Rc<RefCell<FigureState>> {
+    pub(crate) fn figure_state(&self) -> &Rc<FigureCell> {
         &self.figure
     }
 

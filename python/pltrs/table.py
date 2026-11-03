@@ -20,15 +20,15 @@ License).
 
 import numpy as np
 
-from . import (_api, _handles, _live_transforms, _mirrors, _python_drawing, cbook,
-               colors as mcolors)
+from . import (_api, _artist_clipping, _handles, _live_transforms, _mirrors,
+               _python_drawing, cbook, colors as mcolors)
 from ._program_classes import takes_from_program
 from ._native import table as _table
 from .artist import Artist, allow_rasterization
 from .patches import Rectangle
 from .path import Path
 from .text import Text
-from .transforms import BboxBase, Bbox, BboxTransformTo
+from .transforms import Affine2D, BboxBase, Bbox, BboxTransformTo
 
 
 class _CellHolder:
@@ -216,9 +216,11 @@ substring of 'BRTL'
 
     def get_patch_transform(self):
         """Return the transform mapping the unit square to the cell where
-        its table places it."""
+        its table places it (matplotlib's `.Rectangle` transform: the box,
+        then the rotation, none)."""
         x, y = self.get_xy()
-        return BboxTransformTo(Bbox.from_bounds(x, y, self.get_width(), self.get_height()))
+        return (BboxTransformTo(Bbox.from_bounds(x, y, self.get_width(), self.get_height()))
+                + Affine2D())
 
     def get_transform(self):
         """Return the `~.transforms.Transform` applied to the cell."""
@@ -424,6 +426,12 @@ class Table(Artist):
     *Note*: You'll usually not create an empty table from scratch. Instead use
     `~matplotlib.table.table` to create a table from data.
     """
+
+    def get_window_extent(self, renderer=None):
+        """Return the table's box in display space, where pltrs (Rust)
+        lays it out (matplotlib computes it from the table's layout)."""
+        return self._laid_out_extent()
+
     codes = {'best': 0,
              'upper right':  1,  # default
              'upper left':   2,
@@ -773,6 +781,8 @@ def table(ax,
         (_loc_name(loc), _extents(bbox), edges,
          None if fontsize is None else float(fontsize)))
     table = _handles.wrap(native, Table, ax.figure)
+    # matplotlib's ``table`` adds the table with ``add_table``.
+    _artist_clipping.take_parent_defaults(table, ax)
     table.edges = edges
     table._internal_update(kwargs)
     return table

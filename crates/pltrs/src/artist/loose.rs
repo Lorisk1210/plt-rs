@@ -15,7 +15,6 @@
 //! `Annotation::loose`, `Table::loose`, `Custom::loose`) only make
 //! artists without children.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::{Bbox, Point};
@@ -24,7 +23,7 @@ use super::{Artist, ArtistHandle, AttachError, Custom, RawHandle};
 use crate::axes::Axes;
 use crate::collections::{Collection, CollectionSpec};
 use crate::coords::CoordError;
-use crate::figure::{FigureState, StateRole};
+use crate::figure::{FigureCell, FigureState, StateRole};
 use crate::lines::{Line2D, LineArtist, LineProps};
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
 use crate::table::{Table, TableArtist, TableLoc};
@@ -42,7 +41,7 @@ impl RawHandle {
         );
         let mut holder = FigureState::holder();
         let id = holder.insert_removed(artist);
-        Self::new(Rc::new(RefCell::new(holder)), id)
+        Self::new(Rc::new(FigureCell::new(holder)), id)
     }
 
     /// Whether the artist was made outside any figure and no axes or
@@ -213,7 +212,7 @@ impl<A: Artist> Custom<A> {
 ///
 /// [`AttachError::OtherFigure`] when the artist belongs to another figure.
 pub(crate) fn take_in(
-    figure: &Rc<RefCell<FigureState>>,
+    figure: &Rc<FigureCell>,
     artist: &RawHandle,
 ) -> Result<RawHandle, AttachError> {
     if Rc::ptr_eq(figure, artist.figure_state()) {

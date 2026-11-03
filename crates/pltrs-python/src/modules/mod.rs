@@ -91,7 +91,10 @@ use crate::binding::{Module, PyResult};
 pub(crate) fn register(module: &Module<'_>) -> PyResult<()> {
     pltrs::config::honour_matplotlib_config_dir();
     pltrs::rc::restore_startup();
-    crate::binding::install_after_call(vec![text_helpers::warn_missing_glyphs]);
+    crate::binding::install_after_call(vec![
+        text_helpers::warn_missing_glyphs,
+        transforms::sync_watched,
+    ]);
     annotation::register(&module.submodule("annotation")?)?;
     archive::register(&module.submodule("archive")?)?;
     artist::register(&module.submodule("artist")?)?;

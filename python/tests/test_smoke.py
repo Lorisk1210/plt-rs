@@ -682,3 +682,19 @@ def test_dropping_the_text_caches_draws_the_same():
     first = drawn()
     _native.text_overrides.text_engine_clear_caches()
     assert drawn() == first
+
+
+def test_shared_data_links_lead_to_this_package(tmp_path):
+    # The data directory is shared by every installation of pltrs: a link
+    # to one since removed, or to another installation, is pointed here.
+    from pathlib import Path
+    shipped = Path(pltrs.__file__).with_name("mpl-data")
+    gone = tmp_path / "removed-install"
+    (tmp_path / "sample_data").symlink_to(gone / "sample_data", target_is_directory=True)
+    other = tmp_path / "other-install" / "images"
+    other.mkdir(parents=True)
+    (tmp_path / "images").symlink_to(other, target_is_directory=True)
+    pltrs._reach_shipped_data(str(tmp_path))
+    for name in ("sample_data", "images"):
+        assert (tmp_path / name).resolve() == (shipped / name).resolve()
+    assert (tmp_path / "sample_data" / "goog.npz").is_file()

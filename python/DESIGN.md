@@ -334,53 +334,97 @@ names itself among the artists to order; the pick then calls it.
 ### Transforms
 
 `transforms` is matplotlib's Python transform tree, computing with
-`_native.transforms`. The transforms of the layout (`ax.transData`,
-`ax.transAxes`, `ax.get_xaxis_transform()`, `ax.get_yaxis_transform()`,
-`fig.transFigure`, `subfig.transSubfigure`, `fig.dpi_scale_trans`) are
-`_live_transforms.LiveTransform`s: each holds a pltrs (Rust) `Transform`
-(`Transform::Data(axes)`, ...) that the figure resolves in its current
-state whenever points go through it, so they follow limits, scales and
-layout engines without matplotlib's invalidation; `ax.bbox` and
-`fig.bbox` are the boxes they map the unit square to. An axes or figure
-makes each once (`_live_transforms.cached`), so `line.get_transform() is
-ax.transData` holds. matplotlib's classes compose with them as with any
-transform.
+`_native.transforms`. The trees of figures and Axes are matplotlib's too
+(`_transform_trees`): `fig.transFigure` is a `BboxTransformTo` of
+`fig.bbox`, a `TransformedBbox` of `fig.bbox_inches` through
+`fig.dpi_scale_trans`; a subfigure's `transSubfigure` maps its
+`bbox_relative`; an Axes' `transData` is `transScale + (transLimits +
+transAxes)` over its `_position`, `_viewLim` and scales, `bbox` the
+`TransformedBbox` of `_position` through its figure's `transSubfigure`,
+built by the class' `_set_lim_and_transforms` (polar Axes:
+`projections/_polar_trees.py`; geographic Axes: `GeoAxes`). Each object
+is made once, the first time one of them is read (`TreeAttribute`), and
+kept, so `ax.transData is ax.transData` and `line.get_transform() is
+ax.transData`, and the trees compose, invert, freeze, invalidate and
+pickle (they are made anew when read back) as matplotlib's do.
 
-A live transform resolves the state as it is, without laying the figure
-out (`Figure::resolve_transform_as_is`), because matplotlib's
-transforms read the deferred state too, and its tests compute mouse
-positions with them: before a draw, `ax.transData` still maps the view
-limits autoscaling has not computed yet (`(0, 1)` for a fresh axes), the
-position an aspect has not adjusted yet, and the positions a layout
-engine has not set yet. What matplotlib brings up to date brings pltrs
-(Rust)'s state up to date at the same moments: reading the limits
-autoscales, `get_position()` applies the aspect (`Axes::apply_aspect`,
-which leaves the layout engine to the next draw) and a draw lays the
-whole figure out. `canvas.inaxes` and `Axes.contains_point` test the
-axes where it is now, as matplotlib's patch test does. A removed axes
-keeps its transforms, at its last position in the figure.
+The leaves of the trees are pltrs (Rust)'s values
+(`Figure::tree_leaves`): an Axes' position after the aspect, its
+original position, its view and data limits and scales, a subfigure's
+box, the figure's size and resolution, and what a projection's trees rest
+on besides (polar Axes' theta offset, direction, radial origin and label
+position; geographic Axes' longitude cap). They are read when the trees
+are built. A figure whose trees are built is watched
+(`Figure::watch_changes`): it records itself among the changed figures of
+its thread whenever a handle borrows its state for change, and at the end
+of every native call (an after-call hook, `sync_watched` in
+`modules/transforms/leaves.rs`) the figures recorded
+(`take_changed_figures`) are read again and the leaves that changed are
+handed to `_transform_trees._sync`, which sets them as matplotlib sets
+its own, invalidating what is built on them; a call that changed no
+watched figure costs the hook next to nothing. A draw's Python code reads
+those of the laid-out figure (`_transform_trees.sync`).
+A leaf the program sets (`ax.viewLim.set(...)`, `ax.dataLim`,
+`fig.bbox_inches`) is handed to pltrs (Rust) (`_LeafWatcher`).
+
+The trees are the state as it is, as matplotlib's: before a draw,
+`ax.transData` still maps the view limits autoscaling has not computed
+yet (`(0, 1)` for a fresh axes), the position an aspect has not adjusted
+yet, and the positions a layout engine has not set yet. What matplotlib
+brings up to date brings pltrs (Rust)'s state up to date at the same
+moments: reading the limits (`viewLim`) autoscales, `get_position()`
+applies the aspect (`Axes::apply_aspect`, which leaves the layout engine
+to the next draw), contour sets and stream plots autoscale when made, and
+a draw lays the whole figure out. `canvas.inaxes` and
+`Axes.contains_point` test the axes where it is now, as matplotlib's
+patch test does. A removed axes keeps its transforms, at its last
+position in the figure.
+
+Window extents are computed as matplotlib computes them, from the trees
+as they are: a line's vertices through its transform padded by its
+markers, a patch's path through its transform, a collection's data
+limits in display coordinates (`get_datalim` with the identity: null for
+a scatter's offsets in data), an image's extent through its transform, a
+text where its transform puts it (`RawHandle::extent_as_is`, the figure
+not laid out), `Artist`'s zero box. Legends, tables, offset boxes and the
+parts of axis artists, whose matplotlib extents come from their layout,
+give where pltrs (Rust) lays them out (`_laid_out_extent`).
 
 `_live_transforms` is the one bridge between the two trees, both ways:
 
 * **To pltrs (Rust).** A transform crosses as the nested tuples of
   `_native.transforms.native` (`to_native`): composites, blends,
-  `ScaledTranslation`s and affine maps around live transforms. A
-  transform of the program's crosses too: an affine one as its matrix,
-  any other as `("python", t)`, a pltrs (Rust) map calling its
-  `transform` (and its inverse's) back. Everything that gives pltrs (Rust)
-  a transform goes through it: `Artist.set_transform`, the `transform`
-  keyword of the line properties, `Collection.set_offset_transform`, and
-  the `transform=` keywords of plotting functions (`scatter`, `quiver`,
-  `barbs`, `streamplot`), which pass `given_to_native(t)`, None when
-  absent so that the native function picks its default.
+  `ScaledTranslation`s and affine maps around the nodes of the trees that
+  stand for a transform pltrs (Rust) has (`ax.transData`, `ax.transAxes`,
+  `ax.get_xaxis_transform()`, `fig.transFigure`, `fig.dpi_scale_trans`),
+  which carry it as `_live` and cross as it, resolved by pltrs (Rust) in
+  the figure's layout whenever it draws; a box of an Axes or figure
+  crosses as the transform spanning it (`_spanning`). A transform of the
+  program's crosses too: an affine one as its matrix, any other as
+  `("python", t)`, a pltrs (Rust) map calling its `transform` (and its
+  inverse's) back. Everything that gives pltrs (Rust) a transform goes
+  through it: `Artist.set_transform`, the `transform` keyword of the line
+  properties, `Collection.set_offset_transform`, and the `transform=`
+  keywords of plotting functions (`scatter`, `quiver`, `barbs`,
+  `streamplot`), which pass `given_to_native(t)`, None when absent so
+  that the native function picks its default.
 * **Back to Python.** A native transform comes back from `describe` as
-  matplotlib's objects around the live transforms of the axes and
-  figures it names (`from_native`): `ax.transData`, a blend of an axes'
-  data and fractions as its `get_xaxis_transform()`, a composite as a
-  composite. `of_artist(artist, native)` gives an artist's transform or
-  offset transform (`IdentityTransform` for none), so that
-  `Artist.get_transform` and `Collection.get_offset_transform` return
-  the object they were given, or the one pltrs (Rust) has.
+  the nodes of the trees of the Axes and figures it names
+  (`from_native`): `ax.transData`, a blend of an axes' data and fractions
+  as its `get_xaxis_transform()`, a composite as a composite; a transform
+  pltrs (Rust) has that no node stands for (a projection's map) as a
+  `LiveTransform`. `of_artist(artist, native)` gives an artist's transform
+  or offset transform (`IdentityTransform` for none), the same object
+  while pltrs (Rust)'s stays the same (`kept`), so that
+  `Artist.get_transform` and `Collection.get_offset_transform` return the
+  object they were given, or matplotlib's for the one pltrs (Rust) has.
+  A clip box pltrs (Rust) gives is the unit box through the patch of its
+  Axes or figure, as matplotlib's `set_clip_path(self.patch)` makes it,
+  and `add_artist` gives what pltrs (Rust) adopts its own way (offset
+  boxes, inset indicators, quiver keys, tables) matplotlib's transform
+  and clip box (`take_parent_defaults`). The parts of an axis (mirrors)
+  answer with matplotlib's transforms of them
+  (`get_xaxis_text1_transform`...).
 
 A non-affine transform of the program's crosses wrapped in
 `_live_transforms._ProgramMap`: pltrs (Rust) maps points through its
@@ -394,9 +438,10 @@ An `Axes` subclass the program registers with `register_projection`
 (the SkewT-logP example's `SkewXAxes`) is a projection pltrs (Rust)
 does not know (`projections/_program.py`): its Axes is a rectilinear
 pltrs (Rust) axes that `set_up` builds as matplotlib's `__init__` does
-(`_set_lim_and_transforms`, `_gen_axes_spines`, `_init_axis`, from the
-mixin `axes/_projection.py`), then hands over to a pltrs (Rust)
-`Projection` asking the Axes through an adapter (`_native.projections`,
+(its trees with the class' `_set_lim_and_transforms`, then
+`_gen_axes_spines` and `_init_axis`, from the mixin
+`axes/_projection.py`), then hands over to a pltrs (Rust) `Projection`
+asking the Axes through an adapter (`_native.projections`,
 `Axes::install_projection`): the data transform is `transData` up to its
 final `transAxes`, the gridlines' and ticks' transforms those of
 `get_xaxis_transform` where the class gives its own, the tick interval
@@ -405,27 +450,19 @@ those an overridden `Tick.draw` leaves visible on a tick made alone, and
 the interval of a spine that of an overridden `Spine._adjust_location`.
 pltrs (Rust) asks while it lays the figure out or draws it, when the
 figure cannot be asked about itself, so each hook passes the view limits
-it works with and the Axes' `viewLim` (a `_ViewedLimits`, on which the
-class' `transLimits` is built) answers with them meanwhile; the class'
-transforms are matplotlib's Python classes and compute as matplotlib's
-do. The Axes' `transData` and axis transforms reach pltrs (Rust) as the
-Axes' own (`_live`).
+it works with, which the Axes' `_viewLim` is set to meanwhile; the
+class' transforms are matplotlib's Python classes and compute as
+matplotlib's do. The Axes' `transData` and axis transforms reach pltrs
+(Rust) as the Axes' own (`_live`).
 
-Two things matplotlib evaluates at draw time follow it there:
-
-* **Transforms a subclass computes.** matplotlib reads an artist's
-  `get_transform()` in its `draw`. An artist whose class takes
-  `get_transform` from outside the package is kept for its figure
-  (`_computed_transforms`, from `_handles.adopt`); the figure's draw
-  hook (`Figure::set_draw_hook`, set through
-  `_native.transforms.set_draw_hook`), which pltrs (Rust) runs once the
-  figure is laid out and before its artists are drawn, sets each such
-  artist's native transform from its `get_transform()`.
-* **What `str` shows.** A live transform shows matplotlib's tree of it
-  (`_transform_trees`: `transData`, `transAxes`, `transFigure`,
-  `dpi_scale_trans`, and polar axes' `transData` through
-  `PolarAxes._transform_tree`), built of matplotlib's classes around the
-  values the figure has now.
+Transforms a subclass computes are evaluated at draw time, as
+matplotlib reads an artist's `get_transform()` in its `draw`: an artist
+whose class takes `get_transform` from outside the package is kept for
+its figure (`_computed_transforms`, from `_handles.adopt`); the figure's
+draw hook (`Figure::set_draw_hook`, set through
+`_native.transforms.set_draw_hook`), which pltrs (Rust) runs once the
+figure is laid out and before its artists are drawn, sets each such
+artist's native transform from its `get_transform()`.
 
 ### Values as matplotlib types them
 
@@ -763,7 +800,7 @@ figures without it:
   `super().draw(renderer)` is the artist drawn there as pltrs draws it.
   The draw may change the figure (an image computing its array, as the
   ribbon box example does); the transforms it reads are those of the
-  laid-out figure (`_live_transforms.invalidate_all`, the artist's given
+  laid-out figure (`_transform_trees.sync`, the artist's given
   transform handed to pltrs again). The renderer is the one each format
   hands matplotlib's draw: the canvas's `RendererAgg`, or a
   `MixedModeRenderer` around `RendererPdf`, `RendererSVG`, `RendererPS` or

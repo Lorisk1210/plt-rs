@@ -2,20 +2,21 @@
 Geographic axes (matplotlib's ``projections.geo``): pltrs (Rust) axes in the
 Aitoff, Hammer, Lambert or Mollweide projection, made by
 ``add_subplot(projection=...)``, and the transforms of their projections
-(``ax.transProjection``), which pltrs (Rust) computes. The transforms of
-the axes' tick labels are matplotlib's trees of them, around the axes'
-live transforms.
+(``ax.transProjection``), which pltrs (Rust) computes. Their transform
+trees are matplotlib's (``GeoAxes._set_lim_and_transforms``, from
+matplotlib 3.11.2, under the Matplotlib License), over pltrs (Rust)'s
+leaves (`.._transform_trees`).
 """
-
-import functools
 
 import numpy as np
 
+from .. import _api
 from .._native import transforms as _transforms
+from .._transform_trees import TreeAttribute, set_matrix
 from ..axes import Axes
 from ..path import Path
 from ..ticker import Formatter
-from ..transforms import Affine2D, Transform
+from ..transforms import Affine2D, BboxTransformTo, Transform
 
 
 class _GeoTransform(Transform):
@@ -76,20 +77,6 @@ def _transform_pair(projection, forward_doc, inverse_doc):
     return forward, inverse
 
 
-class _LongitudeCap(Affine2D):
-    """The stretch of the longitude gridlines from the axes' fractions to
-    their latitude caps (matplotlib's ``GeoAxes._xaxis_pretransform``),
-    read from the axes whenever it is used."""
-
-    def __init__(self, axes):
-        super().__init__()
-        self._axes = axes
-
-    def get_matrix(self):
-        cap = np.deg2rad(_transforms.get_longitude_grid_ends(self._axes._native))
-        return Affine2D().scale(1.0, cap * 2.0).translate(0.0, -cap).get_matrix()
-
-
 class GeoAxes(Axes):
     """An abstract base class for geographic projections."""
 
@@ -115,54 +102,89 @@ class GeoAxes(Axes):
         """
         return super().format_coord(lon, lat)
 
-    @property
-    def transProjection(self):
-        """The projection of longitudes and latitudes onto the plane."""
-        return self._get_core_transform(self.RESOLUTION)
+    transProjection = TreeAttribute(
+        "The projection of longitudes and latitudes onto the plane.")
+    transAffine = TreeAttribute()
+    _xaxis_pretransform = TreeAttribute()
+    _xaxis_text1_transform = TreeAttribute()
+    _xaxis_text2_transform = TreeAttribute()
+    _yaxis_text1_transform = TreeAttribute()
+    _yaxis_text2_transform = TreeAttribute()
+
+    def _set_lim_and_transforms(self):
+        # A (possibly non-linear) projection on the (already scaled) data
+        self.transProjection = self._get_core_transform(self.RESOLUTION)
+
+        self.transAffine = self._get_affine_transform()
+
+        self.transAxes = BboxTransformTo(self.bbox)
+
+        # The complete data transformation stack -- from data all the
+        # way to display coordinates
+        self.transData = \
+            self.transProjection + \
+            self.transAffine + \
+            self.transAxes
+
+        # This is the transform for longitude ticks (its cap is pltrs
+        # (Rust)'s, given by `_apply_projection_leaves`).
+        self._xaxis_pretransform = \
+            Affine2D() \
+            .scale(1, np.pi) \
+            .translate(0, -np.pi / 2)
+        self._xaxis_transform = \
+            self._xaxis_pretransform + \
+            self.transData
+        self._xaxis_text1_transform = \
+            Affine2D().scale(1, 0) + \
+            self.transData + \
+            Affine2D().translate(0, 4)
+        self._xaxis_text2_transform = \
+            Affine2D().scale(1, 0) + \
+            self.transData + \
+            Affine2D().translate(0, -4)
+
+        # This is the transform for latitude ticks.
+        yaxis_stretch = Affine2D().scale(np.pi * 2, 1).translate(-np.pi, 0)
+        yaxis_space = Affine2D().scale(1, 1.1)
+        self._yaxis_transform = \
+            yaxis_stretch + \
+            self.transData
+        yaxis_text_base = \
+            yaxis_stretch + \
+            self.transProjection + \
+            (yaxis_space +
+             self.transAffine +
+             self.transAxes)
+        self._yaxis_text1_transform = \
+            yaxis_text_base + \
+            Affine2D().translate(-8, 0)
+        self._yaxis_text2_transform = \
+            yaxis_text_base + \
+            Affine2D().translate(8, 0)
+
+    def _apply_projection_leaves(self, leaves):
+        """Give the longitude gridlines pltrs (Rust)'s latitude cap."""
+        _, cap = leaves
+        set_matrix(self._xaxis_pretransform, Affine2D().scale(1.0, cap * 2.0)
+                   .translate(0.0, -cap).get_matrix())
 
     def _get_affine_transform(self):
         return Affine2D(_transforms.geo_affine(self._native))
 
-    @functools.cached_property
-    def _yaxis_text_base(self):
-        """The latitude labels' place, the gridlines stretched over all
-        longitudes and spaced out vertically."""
-        yaxis_stretch = Affine2D().scale(np.pi * 2, 1).translate(-np.pi, 0)
-        yaxis_space = Affine2D().scale(1, 1.1)
-        return (yaxis_stretch + self.transProjection
-                + (yaxis_space + self._get_affine_transform() + self.transAxes))
-
-    @functools.cached_property
-    def _xaxis_text1_transform(self):
-        return Affine2D().scale(1, 0) + self.transData + Affine2D().translate(0, 4)
-
-    @functools.cached_property
-    def _xaxis_text2_transform(self):
-        return Affine2D().scale(1, 0) + self.transData + Affine2D().translate(0, -4)
-
-    @functools.cached_property
-    def _yaxis_text1_transform(self):
-        return self._yaxis_text_base + Affine2D().translate(-8, 0)
-
-    @functools.cached_property
-    def _yaxis_text2_transform(self):
-        return self._yaxis_text_base + Affine2D().translate(8, 0)
-
     def get_xaxis_transform(self, which='grid'):
-        if which not in ('tick1', 'tick2', 'grid'):
-            raise ValueError(
-                "'which' must be one of 'tick1', 'tick2', or 'grid'")
+        _api.check_in_list(['tick1', 'tick2', 'grid'], which=which)
         return self._xaxis_transform
-
-    @functools.cached_property
-    def _xaxis_transform(self):
-        return _LongitudeCap(self) + self.transData
 
     def get_xaxis_text1_transform(self, pad):
         return self._xaxis_text1_transform, 'bottom', 'center'
 
     def get_xaxis_text2_transform(self, pad):
         return self._xaxis_text2_transform, 'top', 'center'
+
+    def get_yaxis_transform(self, which='grid'):
+        _api.check_in_list(['tick1', 'tick2', 'grid'], which=which)
+        return self._yaxis_transform
 
     def get_yaxis_text1_transform(self, pad):
         return self._yaxis_text1_transform, 'center', 'right'

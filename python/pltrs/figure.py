@@ -12,10 +12,9 @@ import math
 
 import numpy as np
 
-from . import _api, _blocking_input, _handles, _live_transforms, cbook, rcParams
+from . import _api, _artist_clipping, _blocking_input, _handles, cbook, rcParams
 from ._native import artist as _artist
 from ._native import figure as _figure, gridspec as _gridspec
-from ._native import transforms as _transforms
 from .artist import Artist
 from ._background_patch import FigurePatch
 from . import _figure_artists
@@ -32,8 +31,9 @@ from .layout_engine import (ConstrainedLayoutEngine, LayoutEngine,
                             PlaceHolderLayoutEngine, TightLayoutEngine)
 from .lines import Line2D
 from .text import Text, _layout_renderer, _measuring_with
-from .transforms import Bbox, BboxBase
+from .transforms import BboxBase
 from ._text_methods import FigureText
+from ._transform_trees import FigureTrees
 
 _log = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def _native_maker(projection_class):
     return make
 
 
-class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
+class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                  InteractionMixin, FrameMixin, Artist):
     """
     Base class for `.Figure` and `.SubFigure` containing the methods that add
@@ -70,30 +70,6 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
     def figure(self):
         """The root `.Figure` (also of a `.SubFigure`)."""
         return self._figure
-
-    @property
-    def transSubfigure(self):
-        """The transform from fractions of this (sub)figure to display
-        coordinates."""
-        return _live_transforms.cached(self, "transSubfigure",
-                                       _transforms.trans_figure)
-
-    @property
-    def transFigure(self):
-        """The transform from fractions of the root figure to display
-        coordinates."""
-        return self.figure.transSubfigure
-
-    @property
-    def dpi_scale_trans(self):
-        """The transform from inches to display coordinates."""
-        return _live_transforms.cached(self.figure, "dpi_scale_trans",
-                                       _live_transforms.inches)
-
-    @property
-    def bbox(self):
-        """The (sub)figure's box in display coordinates."""
-        return _live_transforms.LiveBbox.spanned(self.transSubfigure)
 
     def get_window_extent(self, renderer=None):
         """Return the (sub)figure's box in display coordinates."""
@@ -661,7 +637,9 @@ class FigureBase(FigureText, FigureBaseLayout, _MosaicMixin,
         `~matplotlib.artist.Artist`
             The added artist.
         """
-        return artist._add_to_figure(self, clip)
+        added = artist._add_to_figure(self, clip)
+        _artist_clipping.take_parent_defaults(artist, self, clip)
+        return added
 
     @property
     def artists(self):
@@ -1185,11 +1163,6 @@ class Figure(FigureLayout, FigureImagesMixin, FigureBase):
     def get_size_inches(self):
         """Return the current size of the figure in inches."""
         return np.array(_figure.get_size_inches(self._native))
-
-    @property
-    def bbox_inches(self):
-        """The box of the figure in inches, from ``(0, 0)`` to its size."""
-        return Bbox.from_bounds(0, 0, *self.get_size_inches())
 
     def set_size_inches(self, w, h=None, forward=True):
         """

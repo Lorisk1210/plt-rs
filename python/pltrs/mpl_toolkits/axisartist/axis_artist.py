@@ -89,6 +89,11 @@ class Ticks(AttributeCopier, _TickStyle, martist.Artist):
     (``axis.major_ticks``) are those it draws.
     """
 
+    def get_window_extent(self, renderer=None):
+        """Return the ticks' box in display space, where pltrs (Rust) lays
+        them out (matplotlib computes it from their layout)."""
+        return self._laid_out_extent()
+
     locs_angles_labels = _api.deprecated("3.11")(property(lambda self: []))
 
     def __init__(self, ticksize, tick_out=False, *, axis=None, **kwargs):
@@ -255,6 +260,11 @@ class LabelBase(martist.Artist):
     pixels from its point towards ``_ref_angle`` degrees, turned by that
     direction.
     """
+
+    def get_window_extent(self, renderer=None):
+        """Return the label's box in display space, where pltrs (Rust)
+        lays it out (matplotlib computes it from the label's layout)."""
+        return self._laid_out_extent()
 
     locs_angles_labels = _api.deprecated("3.11")(property(lambda self: []))
 
@@ -660,6 +670,15 @@ class AxisArtist(martist.Artist):
     An artist which draws axis (a line along which the n-th axes coord
     is constant) line, ticks, tick labels, and axis label.
     """
+
+    def get_tightbbox(self, renderer=None):
+        """Return the box of what the axis artist draws (its tick labels,
+        label, offset text and line), None when it is hidden or draws
+        nothing, as matplotlib's (pltrs (Rust) lays the parts out)."""
+        if not self.get_visible():
+            return None
+        extent = _axisartist.tight_bbox(self._native)
+        return None if extent is None else Bbox.from_extents(*extent)
 
     zorder = 2.5
 

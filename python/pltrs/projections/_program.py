@@ -23,20 +23,19 @@ the Axes out and draws it:
 
 While pltrs (Rust) lays the figure out or draws it, its Axes cannot be
 asked about themselves: every hook hands the adapter the view limits
-pltrs (Rust) works with, which the Axes' ``viewLim`` (`_ViewedLimits`)
-answers with meanwhile, so that the class' transforms compute with them.
+pltrs (Rust) works with, which the Axes' ``_viewLim`` is set to, so that
+the class' transforms compute with them.
 """
 
 import contextlib
-import functools
 import weakref
 
 import numpy as np
 
-from .._native import axes as _axes, projections as _projections
+from .. import _transform_trees
+from .._native import projections as _projections
 from .._native import transforms as _transforms
 from ..axes import Axes
-from ..axes._aspect import _ViewLimits
 from ..axis import Axis
 from .._axis_artists import Tick
 from ..path import Path
@@ -81,53 +80,6 @@ def is_program_class(cls):
             and cls.name not in _NATIVE_PROJECTIONS
             and native_name(cls) == "rectilinear"
             and getattr(cls, "_make_native", None) is None)
-
-
-class _ViewedLimits(_ViewLimits):
-    """
-    The view limits of an Axes of a program's projection class
-    (matplotlib's ``_viewLim``), which the transforms of the class compute
-    with: those of the hook pltrs (Rust) is asking (`viewing`), else the
-    Axes' own. Transforms computed with them are invalidated when they
-    change, as matplotlib's ``_viewLim`` invalidates them.
-    """
-
-    def __init__(self, axes):
-        super().__init__(axes)
-        #: The limits of the hook running, as (2, 2) points.
-        self._viewed = None
-        #: The points transforms were last computed with.
-        self._seen = None
-
-    def get_points(self):
-        points = super().get_points() if self._viewed is None else self._viewed
-        self._seen = points
-        self._invalid = 0
-        return points
-
-    @contextlib.contextmanager
-    def viewing(self, limits):
-        """Answer with *limits*, ``(x0, y0, x1, y1)``, meanwhile."""
-        points = np.reshape(np.asarray(limits, dtype=float), (2, 2))
-        if self._seen is None or not np.array_equal(points, self._seen):
-            self.invalidate()
-        self._viewed = points
-        try:
-            yield
-        finally:
-            self._viewed = None
-
-    def changed(self):
-        """The Axes' limits changed: recompute what depends on them."""
-        self._seen = None
-        self.invalidate()
-
-
-def _limits_changed(limits_ref):
-    """The callback of the Axes' limits (holding its limits weakly)."""
-    limits = limits_ref()
-    if limits is not None:
-        limits.changed()
 
 
 def _before(transform, last):
@@ -282,19 +234,21 @@ class _Adapter:
 
     @contextlib.contextmanager
     def _viewing(self, limits):
-        """The Axes and its projection, answering with *limits*."""
+        """The Axes and its projection, its ``_viewLim`` at *limits*
+        (``(x0, y0, x1, y1)``), those pltrs (Rust) works with."""
         ax = self._axes()
         if ax is None:
             raise ReferenceError("the Axes of the projection is gone")
-        with ax._viewLim.viewing(limits):
+        with _transform_trees.setting_leaves():
+            _transform_trees.set_extents(ax._viewLim, limits)
             yield ax, ax._program_projection
 
     def set_up(self):
-        """Connect the Axes again (it is new, or was cleared, which
-        disconnected what was connected to it)."""
+        """Have the trees follow the Axes again (it is new, or was
+        cleared, which set its scales anew)."""
         ax = self._axes()
         if ax is not None:
-            connect(ax)
+            ax._update_transScale()
 
     def data_to_axes(self, limits):
         """``transData`` up to ``transAxes``, evaluated."""
@@ -329,15 +283,26 @@ class _Adapter:
             return float(v0), float(v1)
 
 
+def _build_trees(ax):
+    """Build the trees of the Axes *ax* of a program's projection class with
+    the class' ``_set_lim_and_transforms``; their transforms reach pltrs
+    (Rust) as the Axes' own."""
+    if "_transform_trees" not in ax.__dict__:
+        ax._build_transform_trees()
+    for key, native in (("_xaxis_transform", _transforms.trans_xaxis),
+                        ("_yaxis_transform", _transforms.trans_yaxis)):
+        transform = ax.__dict__.get(key)
+        if transform is not None and not hasattr(transform, "_live"):
+            transform._live = native(ax._native)
+
+
 def connect(ax):
-    """Have the transforms of the Axes *ax* of a program's projection class
-    follow its limits (again, once it was cleared or read back from a
-    pickle, which disconnect what was connected to it)."""
-    notify = functools.partial(_limits_changed, weakref.ref(ax._viewLim))
-    for name in "xy":
-        _axes.on_limits_changed(ax._native, name, notify)
+    """Give the Axes *ax* of a program's projection class, read back from a
+    pickle, trees of its own again (trees are not pickled), and its
+    projection the transforms made of them."""
+    _build_trees(ax)
     ax._update_transScale()
-    ax._viewLim.changed()
+    ax._program_projection = _Projection(ax, ax._gen_axes_spines())
 
 
 def set_up(ax):
@@ -346,19 +311,10 @@ def set_up(ax):
     ``__init__`` does (``_set_lim_and_transforms``, ``_gen_axes_spines``,
     ``_init_axis``) and hand it over to pltrs (Rust).
     """
-    ax._viewLim = _ViewedLimits(ax)
-    ax._set_lim_and_transforms()
+    _build_trees(ax)
     spines = ax._gen_axes_spines()
     ax._init_axis()
     ax._update_transScale()
-    # Given to pltrs (Rust) as what they are: the Axes' own transforms.
-    for key, native in (("_transData", _transforms.trans_data),
-                        ("_transAxes", _transforms.trans_axes),
-                        ("_xaxis_transform", _transforms.trans_xaxis),
-                        ("_yaxis_transform", _transforms.trans_yaxis)):
-        transform = ax.__dict__.get(key)
-        if transform is not None:
-            transform._live = native(ax._native)
     ax._program_projection = _Projection(ax, spines)
     _projections.install(ax._native, _Adapter(ax))
 

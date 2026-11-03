@@ -7,6 +7,7 @@ aliases and validation, and its keyword handling.
 """
 
 from collections.abc import Sequence
+import contextlib
 import datetime
 from numbers import Real
 import sys
@@ -19,7 +20,7 @@ from . import (_api, _live_transforms, _mirrors, _text_coords, _text_overrides,
 from . import _text_metrics as _text_metrics_module
 # pltrs (Rust) warns through it about the glyphs no font has.
 from . import _text_helpers  # noqa: F401
-from ._native import annotation as _annotation, text as _text
+from ._native import annotation as _annotation, artist as _artist, text as _text
 from .artist import Artist
 from .font_manager import FontManager, FontProperties, fontManager  # noqa: F401
 from .textpath import TextPath, TextToPath  # noqa: F401 (logically located here)
@@ -523,10 +524,21 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             The dpi value for computing the bbox, defaults to the figure's
             dpi (*not* the renderer dpi); should be set e.g. if to match
             regions with a figure saved with a custom dpi value.
+
+        The text is where its transform puts it now, as matplotlib reads
+        the transform: before a draw, at the view limits autoscaling has
+        not computed yet.
         """
         if not self.get_visible():
             return Bbox.unit()
         figure = self.get_figure(root=True)
+        if self.get_text() == '':
+            # (A text outside any figure, such as the stand-in a replaced
+            # `Text.draw` draws, is measured at its own place.)
+            with (contextlib.nullcontext() if dpi is None or figure is None
+                  else cbook._setattr_cm(figure, dpi=dpi)):
+                tx, ty = self.get_transform().transform(self.get_unitless_position())
+                return Bbox.from_bounds(tx, ty, 0, 0)
         if renderer is None and figure is not None:
             renderer = _layout_renderer(figure)
         if renderer is None:
@@ -535,8 +547,10 @@ class Text(Artist, metaclass=_text_overrides.WatchesDraw):
             return self._native_extent(self._text_extent, dpi)
 
     def _text_extent(self):
-        """The display box of the text, as ``(x0, y0, x1, y1)`` or None."""
-        return _text.get_window_extent(self._native)
+        """The display box of the text where its transform puts it now (the
+        figure not laid out first), as ``(x0, y0, x1, y1)`` or None."""
+        points = _artist.window_extent_as_is(self._native)
+        return None if points is None else tuple(np.ravel(points))
 
     def _native_extent(self, measure, dpi=None):
         """The box *measure* gives, measured at *dpi* (default: the
@@ -1266,7 +1280,7 @@ class Annotation(Text, _AnnotationBase):
         """
         if not self.get_visible():
             return Bbox.unit()
-        return self._native_extent(lambda: _text.get_window_extent(self._native))
+        return self._native_extent(lambda: Text._text_extent(self))
 
     def _text_extent(self):
         # The text alone, without the arrow (``Text.get_window_extent``).

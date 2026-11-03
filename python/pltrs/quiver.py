@@ -22,7 +22,8 @@ matplotlib's ``Quiver.draw`` does.
 import numpy as np
 from numpy import ma
 
-from . import (_api, _handles, _live_transforms, cbook, collections as mcollections,
+from . import (_api, _artist_clipping, _handles, _live_transforms, cbook,
+               collections as mcollections,
                colors as mcolors, transforms)
 from . import artist as martist
 from ._native import plotting as _plotting
@@ -199,6 +200,8 @@ class QuiverKey(martist.Artist):
             mcollections._native_kwargs(
                 cbook.normalize_kwargs(kwargs, mcollections.PolyCollection)))
         _handles.adopt(self, native, Q.figure)
+        # matplotlib's ``quiverkey`` adds the key with ``add_artist``.
+        _artist_clipping.take_parent_defaults(self, Q.axes)
         from .text import Text
         self.text = _handles.wrap(_plotting.quiverkey_text(native), Text,
                                   self.figure)
@@ -337,7 +340,7 @@ class Quiver(mcollections.PolyCollection):
         # docstring inherited
         trans = self.get_transform()
         offset_trf = self.get_offset_transform()
-        full_transform = (trans - transData) + (offset_trf - trans)
+        full_transform = (trans - transData) + (offset_trf - transData)
         XY = full_transform.transform(self.XY)
         bbox = transforms.Bbox.null()
         bbox.update_from_data_xy(XY, ignore=True)

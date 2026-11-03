@@ -100,6 +100,11 @@ class Legend(Artist):
     Place a legend on the figure/axes.
     """
 
+    def get_window_extent(self, renderer=None):
+        """Return the legend's box in display space, where pltrs (Rust)
+        lays it out (matplotlib computes it from the legend's layout)."""
+        return self._laid_out_extent()
+
     # 'best' is only implemented for Axes legends
     codes = {'best': 0, **{
         'upper right': 1,

@@ -8,7 +8,6 @@
 //! figure; a handle held by a value archived on its own (a colorbar, a
 //! container) is archived as its id and a [`FigureRef`] external.
 
-use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -21,7 +20,7 @@ use crate::axisartist::{AxisArtistState, AxisTextsState, TickMarksState};
 use crate::collections::{CollectionArtist, TriMeshArtist};
 use crate::colorbar::ColorbarArtist;
 use crate::contour::ContourSetArtist;
-use crate::figure::{FigureFrame, FigureState};
+use crate::figure::{FigureCell, FigureFrame, FigureState};
 use crate::image::{
     AxesImageArtist, BboxImageArtist, FigureImageArtist, NonUniformImageArtist, PcolorImageArtist,
 };
@@ -119,7 +118,7 @@ pltrs_core::archive_kinds!(dyn Artist {
 /// to (see [`RawHandle`]'s [`Archive`]): the program keeps it as it keeps
 /// the figure, and gives it back to read the handle.
 #[derive(Clone)]
-pub struct FigureRef(Rc<RefCell<FigureState>>);
+pub struct FigureRef(Rc<FigureCell>);
 
 impl FigureRef {
     /// The figure `handle` reaches.
@@ -196,7 +195,7 @@ impl RawHandle {
         id: ArtistId,
     ) -> Result<Self, ArchiveError> {
         let state: FigureState = archive::from_bytes(bytes, externals, program)?;
-        let handle = Self::new(Rc::new(RefCell::new(state)), id);
+        let handle = Self::new(Rc::new(FigureCell::new(state)), id);
         reconnect_drags(&handle);
         Ok(handle)
     }

@@ -38,7 +38,7 @@ import weakref
 
 import numpy as np
 
-from . import _live_transforms, transforms as mtransforms
+from . import _live_transforms, _transform_trees, transforms as mtransforms
 from ._native import drawing as _drawing, register as _register
 from ._native import transforms as _transforms
 from ._program_classes import takes_from_program
@@ -181,11 +181,13 @@ def record_drawing(artist, target):
 
 def _evaluate_transforms(artist):
     """Bring the transforms *artist*'s ``draw`` reads up to date, as
-    matplotlib evaluates them when it draws: those built on live
-    transforms compute again, and the transform the artist was given is
+    matplotlib evaluates them when it draws: the trees of its figure
+    follow the laid-out figure, and the transform the artist was given is
     handed to pltrs (Rust) again as it is now (a `.BboxTransformTo` of a
     box in data coordinates follows the limits)."""
-    _live_transforms.invalidate_all()
+    figure = artist.get_figure(root=True)
+    if figure is not None:
+        _transform_trees.sync(figure)
     given = artist.__dict__.get("_given_transform")
     if given is not None:
         _transforms.set_transform(artist._native, _live_transforms.to_native(given))

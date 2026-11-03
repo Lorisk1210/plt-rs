@@ -51,7 +51,7 @@ import numpy as np
 from numpy.linalg import inv  # noqa: F401  (matplotlib's transforms has it)
 from . import _api, _docstring
 from ._native import transforms as _transforms
-from ._path import affine_transform, count_bboxes_overlapping_bbox  # noqa: F401
+from ._path import affine_transform, count_bboxes_overlapping_bbox  # noqa: F401  (also matplotlib's names)
 from .path import Path
 
 DEBUG = False
@@ -1841,9 +1841,10 @@ class Affine2DBase(AffineBase):
     def transform_affine(self, values):
         mtx = self.get_matrix()
         if isinstance(values, np.ma.MaskedArray):
-            tpoints = _transforms.affine_transform(values.data, mtx)
+            tpoints = affine_transform(values.data, mtx)
             return np.ma.MaskedArray(tpoints, mask=np.ma.getmask(values))
-        return _transforms.affine_transform(values, mtx)
+        # (Any array-like: a `Bbox` gives its points.)
+        return affine_transform(values, mtx)
 
     if DEBUG:
         _transform_affine = transform_affine

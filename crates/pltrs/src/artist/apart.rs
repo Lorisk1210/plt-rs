@@ -34,6 +34,31 @@ impl RawHandle {
         state.artist(self.id())?.window_extent(&ctx)
     }
 
+    /// [`measured_extent`](Self::measured_extent) in the figure's state of
+    /// now, without laying the figure out first: what matplotlib's
+    /// `Text.get_window_extent` gives, which reads the text's transform as
+    /// it is (before a draw, with the view limits autoscaling has not
+    /// computed yet and the positions a layout engine has not set yet).
+    ///
+    /// ```
+    /// use pltrs::artist::ArtistHandle;
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::with_size(4.0, 4.0, 100.0);
+    /// let ax = fig.add_axes([0.0, 0.0, 1.0, 1.0])?;
+    /// let label = ax.text(1.0, 1.0, "at the corner");
+    /// ax.plot([0.0, 4.0], [0.0, 4.0])?;
+    /// let before = label.raw().extent_as_is().expect("measured");
+    /// assert_eq!(before.x0(), 400.0, "at x = 1 of the unit view");
+    /// let laid_out = label.raw().measured_extent().expect("measured");
+    /// assert!(laid_out.x0() < 400.0, "autoscaled to the line");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn extent_as_is(&self) -> Option<Bbox> {
+        let state = self.figure_state().borrow();
+        let ctx = LayoutContext::new(&state);
+        state.artist(self.id())?.window_extent(&ctx)
+    }
+
     /// Draws the artist through `renderer` in its figure's current layout
     /// (matplotlib's `artist.draw(renderer)`), whether the figure draws
     /// it or not: through its painter if it has one, else as

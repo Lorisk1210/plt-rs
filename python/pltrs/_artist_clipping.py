@@ -14,7 +14,8 @@ from . import _api, _live_transforms
 from ._native import artist as _artist
 from ._native import transforms as _transforms
 from .path import Path
-from .transforms import (Bbox, BboxBase, Transform, TransformedBbox,
+from .transforms import (Affine2D, Bbox, BboxBase, BboxTransformTo,
+                         Transform, TransformedBbox,
                          TransformedPatchPath, TransformedPath)
 
 
@@ -32,6 +33,53 @@ def _rectangle(bbox):
     (x0, y0), (x1, y1) = bbox.get_points()
     return Path([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]],
                 closed=True)
+
+
+def _rectangle_clip_box(transform):
+    """The clip box of an artist clipped to the unit square through
+    *transform* (an Axes' or a (sub)figure's background): matplotlib's
+    ``set_clip_path`` of a `.Rectangle` covering it, the unit box through
+    the rectangle's transform (kept as ``_spanning``, by which the box
+    crosses to pltrs (Rust))."""
+    box = TransformedBbox(Bbox.unit(), BboxTransformTo(Bbox.unit()) + Affine2D()
+                          + transform)
+    box._spanning = transform
+    return box
+
+
+#: The projections whose Axes' background is not a rectangle, whose
+#: artists matplotlib clips to its path rather than to a box.
+_ROUND = frozenset(["polar", "aitoff", "hammer", "lambert", "mollweide"])
+
+
+def patch_clip_box(artist, axes):
+    """The clip box of *artist* clipped to the patch of *axes* (its axis,
+    its ticks), kept for it; None for a background that is no rectangle."""
+    if axes.name in _ROUND:
+        return None
+    return _live_transforms.kept(artist, "clip box", None,
+                                 lambda: _rectangle_clip_box(axes.transAxes))
+
+
+def take_parent_defaults(artist, parent, clip=True):
+    """
+    Give *artist*, added to *parent* (an Axes, or a (sub)figure) by its
+    ``add_artist``, what matplotlib's gives it where pltrs (Rust) adopted
+    it without (an offset box, an inset indicator, a quiver key, a table,
+    which pltrs (Rust) places its own way): the parent's transform
+    (``transData``, ``transSubfigure``) unless it had one, and with *clip*
+    the clip box of the parent's patch unless it has a clip path.
+    """
+    if not artist.is_transform_set():
+        artist._given_transform = getattr(parent, "transData", None) or parent.transSubfigure
+    if (clip and "_clipbox" not in artist.__dict__ and artist.get_clip_path() is None
+            and _artist.get_clip_box(artist._native) is None):
+        if hasattr(parent, "transAxes"):
+            box = patch_clip_box(artist, parent)
+        else:
+            box = _rectangle_clip_box(parent.transSubfigure)
+        if box is not None:
+            artist._clipbox = box
 
 
 def clip_path_spec(path, transform=None):
@@ -105,8 +153,20 @@ class ClippingMixin:
         spanning = _artist.get_clip_box(self._native)
         if spanning is None:
             return None
-        return _live_transforms.LiveBbox.spanned(
-            _live_transforms.from_native(self._figure, spanning))
+        return self._spanned_clip_box(spanning)
+
+    def _spanned_clip_box(self, spanning):
+        """
+        The clip box pltrs (Rust) gave the artist, the unit square through
+        the native transform *spanning*: a `.TransformedBbox` made the first
+        time, as matplotlib's ``add_*`` methods make one of the Axes' patch
+        (kept as ``_spanning`` by which the box crosses to pltrs (Rust)).
+        """
+        def make():
+            transform = _live_transforms.from_native(self._figure, spanning)
+            return _rectangle_clip_box(transform)
+        return _live_transforms.kept(
+            self, "clip box", _transforms.describe(spanning), make)
 
     def set_clip_path(self, path, transform=None):
         """

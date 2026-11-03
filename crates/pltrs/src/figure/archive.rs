@@ -1,12 +1,11 @@
 //! Archived figures: a figure written to bytes and read back, as pickling
 //! a figure does (see [`pltrs_core::archive`]).
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use pltrs_core::archive::{self, ArchiveError, External, ProgramKinds};
 
-use super::{Figure, FigureState, StateRole};
+use super::{Figure, FigureCell, FigureState, StateRole};
 use crate::artist::RawHandle;
 
 impl Figure {
@@ -51,7 +50,7 @@ impl Figure {
             return Err(ArchiveError::invalid("the archive holds no figure"));
         }
         let root = state.root;
-        let state = Rc::new(RefCell::new(state));
+        let state = Rc::new(FigureCell::new(state));
         let figure = Self {
             root: RawHandle::new(Rc::clone(&state), root),
             state,

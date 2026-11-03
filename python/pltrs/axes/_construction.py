@@ -126,7 +126,7 @@ class ConstructionMixin:
         or other labels.  For a bounding box including these elements use
         `~matplotlib.axes.Axes.get_tightbbox`.
         """
-        return Bbox(self.bbox.get_points())
+        return self.bbox
 
     def set_axes_locator(self, locator):
         """

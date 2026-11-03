@@ -6,10 +6,9 @@
 //! searches and autoscales over its store alone; handles find their
 //! artist in either place.
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::{FigureFrame, FigureState};
+use super::{FigureCell, FigureFrame, FigureState};
 use crate::artist::{
     Artist, ArtistId, ArtistLookup, ArtistStore, AttachError, RawHandle, downcast_mut, downcast_ref,
 };
@@ -204,7 +203,7 @@ impl FigureState {
 /// Adds the removed artist behind `artist` back to `figure` as a child of
 /// its container `parent` (see [`FigureState::attach_artist`]).
 pub(crate) fn attach(
-    figure: &Rc<RefCell<FigureState>>,
+    figure: &Rc<FigureCell>,
     parent: ArtistId,
     artist: &RawHandle,
 ) -> Result<(), AttachError> {

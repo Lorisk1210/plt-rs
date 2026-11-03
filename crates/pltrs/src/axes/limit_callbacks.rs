@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 use super::{Axes, AxisName};
 use crate::artist::{ArtistHandle, ArtistId, RawHandle};
-use crate::figure::FigureState;
+use crate::figure::FigureCell;
 
 /// Identifies a limit callback, for [`Axes::disconnect_limits_changed`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -85,7 +85,7 @@ impl LimitCallbacks {
 /// first. A callback that is already running (a change it made itself, or
 /// one a callback it triggered made) is skipped, so callbacks that keep
 /// two axes in step end.
-pub(crate) fn run_limit_callbacks(figure: &Rc<RefCell<FigureState>>) {
+pub(crate) fn run_limit_callbacks(figure: &Rc<FigureCell>) {
     loop {
         let Some((axes, callbacks)) = figure.borrow_mut().limit_callbacks.next_change() else {
             return;

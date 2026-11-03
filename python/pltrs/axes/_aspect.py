@@ -1,46 +1,15 @@
 """
 The aspect of an Axes and the limits it adjusts (matplotlib's
 ``axes._base`` methods ``set_aspect``, ``set_adjustable``, ``set_anchor``,
-``set_box_aspect``, ``apply_aspect`` and their getters, ``dataLim`` and
-``viewLim``): matplotlib's argument handling, the aspect and the limits
-kept and applied by pltrs (Rust).
+``set_box_aspect``, ``apply_aspect`` and their getters): matplotlib's
+argument handling, the aspect kept and applied by pltrs (Rust).
 """
 
 import numpy as np
 
-from .. import _api, _live_transforms, cbook
+from .. import _api, cbook
 from .._native import axes_base as _axes_base
 from ..transforms import Bbox
-
-
-class _ViewLimits(_live_transforms.LiveBbox):
-    """
-    The view limits of an Axes (matplotlib's ``viewLim``): read from
-    pltrs (Rust) whenever they are, and set as they are by `set`, without
-    the autoscaling switch, the axes sharing them or the callbacks
-    ``set_xlim`` involves (matplotlib assigns the box's points).
-    """
-
-    def __init__(self, axes):
-        def points():
-            (x0, x1), (y0, y1) = axes.get_xlim(), axes.get_ylim()
-            return (x0, y0, x1, y1)
-        super().__init__(points)
-        self._axes = axes
-
-    def __reduce__(self):
-        # Made again for its Axes, whose limits its points are.
-        return (type(self), (self._axes,))
-
-    def set(self, other):
-        """Set this bounding box from the "frozen" bounds of another `Bbox`."""
-        # Reading the limits applies pending autoscaling first, as
-        # matplotlib's ``viewLim`` property does, so that it does not
-        # replace the limits set here.
-        self.get_points()
-        (x0, y0), (x1, y1) = other.get_points()
-        self._axes.xaxis.set_view_interval(x0, x1, ignore=True)
-        self._axes.yaxis.set_view_interval(y0, y1, ignore=True)
 
 
 class AspectMixin:
@@ -212,22 +181,6 @@ class AspectMixin:
         ll, ur = np.asarray(self.get_position()) * figure_size
         width, height = ur - ll
         return height / (width * self.get_data_ratio())
-
-    @property
-    def dataLim(self):
-        """The bounding box of the data the Axes autoscales to, kept by
-        pltrs (Rust) (read-only here)."""
-        return _live_transforms.LiveBbox(
-            lambda: _axes_base.data_lim(self._native)[0],
-            lambda: _axes_base.data_lim(self._native)[1])
-
-    @property
-    def viewLim(self):
-        """The view limits of the Axes, ``(x0, y0), (x1, y1)`` in data
-        coordinates, which `~.Bbox.set` sets as they are."""
-        # The box the transforms of a program's projection class are built on.
-        built = self.__dict__.get("_viewLim")
-        return _ViewLimits(self) if built is None else built
 
     def apply_aspect(self, position=None):
         """

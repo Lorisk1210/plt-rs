@@ -12,7 +12,7 @@ import functools
 
 import numpy as np
 
-from . import _api, _tick_helpers, cbook, units as munits
+from . import _api, _artist_clipping, _tick_helpers, cbook, units as munits
 from ._axis_artists import AxisLabel, OffsetText, Tick, XTick, YTick
 from ._native import axes as _axes, axis as _axis, axes_base as _axes_base
 from ._native import scale as _native_scale
@@ -280,6 +280,13 @@ class Axis(Artist):
     def get_figure(self, root=False):
         """Return the `.Figure` or `.SubFigure` the axis is on."""
         return self.axes.get_figure(root=root)
+
+    def get_clip_box(self):
+        """Return the clipbox: that of the Axes' patch for its x and y axes
+        unless set (matplotlib's ``Axes.clear`` clips those to it)."""
+        if "_clipbox" in self.__dict__ or self.axis_name not in ("x", "y"):
+            return super().get_clip_box()
+        return _artist_clipping.patch_clip_box(self, self.axes)
 
     def _args(self):
         """The native axes and the axis name."""
@@ -590,12 +597,11 @@ class Axis(Artist):
     def _scale(self):
         """The axis' scale as an object of `.scale`: the one it was set
         with, or one with the default options of the scale in use."""
-        from . import scale as mscale
         name = self.get_scale()
         given = self._given_scale
         if given is not None and given.name == name:
             return given
-        return mscale.scale_factory(name, self)
+        return self.axes._default_axis_scale(self, name)
 
     def _set_axes_scale(self, value, **kwargs):
         """
@@ -1318,6 +1324,9 @@ class Axis(Artist):
         if transform is not None:
             x, y = (transform - self.axes.transAxes).transform((x, y))
         _axis.set_label_coords(*self._args(), float(x), float(y))
+        # The label's transform, as matplotlib gives it (`_axis_artists`).
+        self._label_transform = (self.axes.transAxes if transform is None
+                                 else transform)
 
     def get_label_position(self):
         """

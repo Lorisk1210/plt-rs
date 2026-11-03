@@ -10,7 +10,7 @@ import numbers
 
 import numpy as np
 
-from .. import _api, _handles, transforms
+from .. import _api, _handles, scale as mscale, transforms
 from .._native import insets as _insets
 from . import _program_locators
 from ._axes import Axes
@@ -209,6 +209,15 @@ class SecondaryAxis(Axes):
                          'must be a two-tuple of callable functions '
                          'with the first function being the transform '
                          'and the second being the inverse')
+
+    def _default_axis_scale(self, axis, name):
+        """The scale of the secondary axis, which pltrs (Rust) sets from
+        the parent's scale: matplotlib's ``_set_scale`` sets the function
+        scale of the inverted functions ('functionlog' over a log axis)."""
+        if axis is self.__dict__.get("_axis") and name in ("function", "functionlog"):
+            scale = mscale.FuncScaleLog if name == "functionlog" else mscale.FuncScale
+            return scale(axis, self._functions[::-1])
+        return super()._default_axis_scale(axis, name)
 
     def _native_functions(self):
         """The functions as pltrs (Rust) calls them, value by value."""

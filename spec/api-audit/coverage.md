@@ -82,7 +82,7 @@ hand rules also override automatic matches found wrong by spot checks.
 | `matplotlib.colorizer` | 14 | 1 | 1 | 0 | 16 |
 | `matplotlib.category` | 10 | 2 | 0 | 0 | 12 |
 | `matplotlib.mlab` | 15 | 1 | 0 | 0 | 16 |
-| `mpl_toolkits.mplot3d` | 299 | 183 | 108 | 0 | 590 |
+| `mpl_toolkits.mplot3d` | 300 | 182 | 108 | 0 | 590 |
 | `mpl_toolkits.mplot3d.axes3d` | 1 | 0 | 0 | 0 | 1 |
 | `mpl_toolkits.mplot3d.art3d` | 39 | 30 | 7 | 0 | 76 |
 | `mpl_toolkits.mplot3d.axis3d` | 22 | 11 | 4 | 0 | 37 |
@@ -111,7 +111,7 @@ hand rules also override automatic matches found wrong by spot checks.
 | `matplotlib.dviread` | 40 | 4 | 18 | 0 | 62 |
 | `matplotlib.ft2font` | 83 | 12 | 56 | 0 | 151 |
 | `matplotlib.backends.registry` | 0 | 13 | 0 | 0 | 13 |
-| `matplotlib.backends.backend_agg` | 31 | 3 | 0 | 1 | 35 |
+| `matplotlib.backends.backend_agg` | 32 | 3 | 0 | 0 | 35 |
 | `matplotlib.backends.backend_pdf` | 70 | 41 | 37 | 0 | 148 |
 | `matplotlib.backends.backend_svg` | 28 | 0 | 3 | 0 | 31 |
 | `matplotlib.backends.backend_ps` | 19 | 0 | 8 | 0 | 27 |
@@ -120,11 +120,11 @@ hand rules also override automatic matches found wrong by spot checks.
 | `matplotlib.testing` | 3 | 0 | 4 | 0 | 7 |
 | `matplotlib.testing.compare` | 9 | 0 | 0 | 0 | 9 |
 | `matplotlib.testing.decorators` | 3 | 0 | 0 | 0 | 3 |
-| **all** | **4419** | **1433** | **887** | **1** | **6740** |
+| **all** | **4421** | **1432** | **887** | **0** | **6740** |
 
-Without the parameters: 4864 classes, functions, methods and attributes (3234 covered, 953 differently, 676 n/a, 1 missing).
+Without the parameters: 4864 classes, functions, methods and attributes (3235 covered, 953 differently, 676 n/a, 0 missing).
 
-Parameters of plotting methods: 1876 (1185 covered, 480 differently, 211 n/a, 0 missing).
+Parameters of plotting methods: 1876 (1186 covered, 479 differently, 211 n/a, 0 missing).
 
 ## Implemented by the audits
 
@@ -139,6 +139,7 @@ doctests and rows in the porting guide (`crates/pltrs/src/porting/`):
 * `testing::save_diff_image / crop_to_same / make_test_filename`: the remaining helpers of `matplotlib.testing.compare`
 * `testing::image_comparison (ImageComparison), testing::remove_ticks_and_titles`: `@image_comparison` and `remove_ticks_and_titles` of `matplotlib.testing.decorators`
 * `TexManager::rgba (TexRgba)`: `TexManager.get_rgba`
+* `SaveFormat::Avif, SaveOptions::avif_quality, pltrs_codec::avif, pltrs_codec::av1`: `print_avif`: an AV1 intra-frame encoder of pltrs' own (prediction, transforms and the multi-symbol arithmetic coder, lossy at Pillow's quality or lossless) in the AVIF container, where matplotlib saves through Pillow and libavif
 
 The items the audit of 2026-10-26 found missing were implemented by it, and checked against
 matplotlib by the probes of area `api_audit` (`spec/reference/probes/test_api_audit.py`,
@@ -149,7 +150,6 @@ implemented since (their verdicts are in `rules_impl.py`).
 
 | matplotlib | what | estimate |
 |---|---|---|
-| `matplotlib.backends.backend_agg:FigureCanvasAgg.print_avif` | saving AVIF images (matplotlib saves them through Pillow; pltrs (Python) too) | large (an AV1 intra-frame encoder, several thousand lines: transforms, prediction and the multi-symbol entropy coder, in a HEIF container); matplotlib has no encoder of its own either |
 
 ## Full table
 
@@ -219,15 +219,15 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `arrow(dy)` | kwarg | covered | FancyArrow::delta |  |
 | `arrow(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `autoscale` | function | covered | pyplot::autoscale |  |
-| `autoscale(enable)` | kwarg | covered | pyplot::autoscale/Axes::autoscale_view/Axes::autoscale_with(enable) |  |
-| `autoscale(axis)` | kwarg | covered | pyplot::autoscale/Axes::autoscale_view/Axes::autoscale_with(axis) |  |
-| `autoscale(tight)` | kwarg | covered | pyplot::autoscale/Axes::autoscale_view/Axes::autoscale_with(tight) |  |
+| `autoscale(enable)` | kwarg | covered | pyplot::autoscale/Axes::autoscale_on/Axes::autoscale(enable) |  |
+| `autoscale(axis)` | kwarg | covered | pyplot::autoscale/Axes::autoscale_on/Axes::autoscale(axis) |  |
+| `autoscale(tight)` | kwarg | covered | pyplot::autoscale/Axes::autoscale_on/Axes::autoscale(tight) |  |
 | `autumn` | function | covered | pyplot::autumn |  |
 | `axes` | function | covered | pyplot::axes |  |
 | `axes(arg)` | kwarg | covered | pyplot::axes(rect) / pyplot::sca |  |
 | `axes(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `axhline` | function | covered | pyplot::axhline |  |
-| `axhline(y)` | kwarg | covered | Axes::axhline/axhline_between(y) |  |
+| `axhline(y)` | kwarg | covered | Axes::axhline_between/axhline(y) |  |
 | `axhline(xmin)` | kwarg | n/a |  | alias: pltrs keeps one name per property (conventions: aliases) |
 | `axhline(xmax)` | kwarg | n/a |  | alias: pltrs keeps one name per property (conventions: aliases) |
 | `axhline(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
@@ -258,11 +258,11 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `axvspan(ymax)` | kwarg | n/a |  | alias: pltrs keeps one name per property (conventions: aliases) |
 | `axvspan(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `bar` | function | covered | pyplot::bar |  |
-| `bar(x)` | kwarg | covered | Axes::bar/bar_label(x) |  |
-| `bar(height)` | kwarg | covered | Axes::bar/bar_label(height) |  |
-| `bar(width)` | kwarg | covered | Axes::bar/bar_label(width) |  |
-| `bar(bottom)` | kwarg | covered | Axes::bar/bar_label(bottom) |  |
-| `bar(align)` | kwarg | covered | Axes::bar/bar_label(align) |  |
+| `bar(x)` | kwarg | covered | Axes::bar_label/bar(x) |  |
+| `bar(height)` | kwarg | covered | Axes::bar_label/bar(height) |  |
+| `bar(width)` | kwarg | covered | Axes::bar_label/bar(width) |  |
+| `bar(bottom)` | kwarg | covered | Axes::bar_label/bar(bottom) |  |
+| `bar(align)` | kwarg | covered | Axes::bar_label/bar(align) |  |
 | `bar(data)` | kwarg | n/a |  | labelled data (`data=` with string keys) indexes Python mappings; pass the columns themselves |
 | `bar(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `bar_label` | function | covered | pyplot::bar_label |  |
@@ -334,7 +334,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `clim(vmin)` | kwarg | covered | pyplot::clim(vmin) |  |
 | `clim(vmax)` | kwarg | covered | pyplot::clim(vmax) |  |
 | `close` | function | covered | pyplot::close |  |
-| `close(fig)` | kwarg | covered | pyplot::close_label/pyplot::close_figure/pyplot::close_num(fig) |  |
+| `close(fig)` | kwarg | covered | pyplot::close/pyplot::close_all/pyplot::close_label(fig) |  |
 | `cohere` | function | covered | pyplot::cohere |  |
 | `cohere(x)` | kwarg | covered | Axes::cohere(x) |  |
 | `cohere(y)` | kwarg | covered | Axes::cohere(y) |  |
@@ -453,14 +453,14 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `figtext(fontdict)` | kwarg | differently | setters of the returned Text (Text::update_props, TextProps) | the text's properties are set on its handle |
 | `figtext(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `figure` | function | covered | pyplot::figure |  |
-| `figure(num)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(num) |  |
-| `figure(figsize)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(figsize) |  |
-| `figure(dpi)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(dpi) |  |
-| `figure(facecolor)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(facecolor) |  |
-| `figure(edgecolor)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(edgecolor) |  |
-| `figure(frameon)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(frameon) |  |
+| `figure(num)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(num) |  |
+| `figure(figsize)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(figsize) |  |
+| `figure(dpi)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(dpi) |  |
+| `figure(facecolor)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(facecolor) |  |
+| `figure(edgecolor)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(edgecolor) |  |
+| `figure(frameon)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(frameon) |  |
 | `figure(FigureClass)` | kwarg | n/a |  | injects a Python Figure subclass |
-| `figure(clear)` | kwarg | covered | pyplot::figure_label/pyplot::figure_with_size/pyplot::figure_num(clear) |  |
+| `figure(clear)` | kwarg | covered | pyplot::figure_activate/pyplot::figure_label/pyplot::figure_with_size(clear) |  |
 | `figure(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `fill` | function | covered | pyplot::fill |  |
 | `fill(args)` | kwarg | differently |  | Python varargs: pltrs takes typed positional arguments |
@@ -758,7 +758,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `quiverkey(label)` | kwarg | covered | Axes::quiverkey(label) |  |
 | `quiverkey(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `rc` | function | covered | pyplot::rc |  |
-| `rc(group)` | kwarg | covered | pyplot::rc_file_context/pyplot::rc_file/pyplot::rc(group) |  |
+| `rc(group)` | kwarg | covered | pyplot::rc/pyplot::rc_file_context/pyplot::rc_file(group) |  |
 | `rc(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `rc_context` | function | covered | pyplot::rc_context |  |
 | `rc_context(rc)` | kwarg | covered | pyplot::rc_context(settings, ..) |  |
@@ -918,13 +918,13 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `subplot_tool` | function | covered | pyplot::subplot_tool |  |
 | `subplot_tool(targetfig)` | kwarg | covered | pyplot::subplot_tool(targetfig) |  |
 | `subplots` | function | covered | pyplot::subplots |  |
-| `subplots(nrows)` | kwarg | covered | pyplot::subplots_adjust/pyplot::subplots_num/pyplot::subplots_with_projection(nrows) |  |
-| `subplots(ncols)` | kwarg | covered | pyplot::subplots_adjust/pyplot::subplots_num/pyplot::subplots_with_projection(ncols) |  |
-| `subplots(sharex)` | kwarg | covered | pyplot::subplots_adjust/pyplot::subplots_num/pyplot::subplots_with_projection(sharex) |  |
-| `subplots(sharey)` | kwarg | covered | pyplot::subplots_adjust/pyplot::subplots_num/pyplot::subplots_with_projection(sharey) |  |
+| `subplots(nrows)` | kwarg | covered | pyplot::subplots_shared/pyplot::subplots_num/pyplot::subplots(nrows) |  |
+| `subplots(ncols)` | kwarg | covered | pyplot::subplots_shared/pyplot::subplots_num/pyplot::subplots(ncols) |  |
+| `subplots(sharex)` | kwarg | covered | pyplot::subplots_shared/pyplot::subplots_num/pyplot::subplots(sharex) |  |
+| `subplots(sharey)` | kwarg | covered | pyplot::subplots_shared/pyplot::subplots_num/pyplot::subplots(sharey) |  |
 | `subplots(squeeze)` | kwarg | n/a |  | numpy array squeezing: pltrs returns a Grid, indexable in 2-D |
-| `subplots(width_ratios)` | kwarg | covered | pyplot::subplots_adjust/pyplot::subplots_num/pyplot::subplots_with_projection(width_ratios) |  |
-| `subplots(height_ratios)` | kwarg | covered | pyplot::subplots_adjust/pyplot::subplots_num/pyplot::subplots_with_projection(height_ratios) |  |
+| `subplots(width_ratios)` | kwarg | covered | pyplot::subplots_shared/pyplot::subplots_num/pyplot::subplots(width_ratios) |  |
+| `subplots(height_ratios)` | kwarg | covered | pyplot::subplots_shared/pyplot::subplots_num/pyplot::subplots(height_ratios) |  |
 | `subplots(subplot_kw)` | kwarg | covered | pyplot::subplots_with_projection |  |
 | `subplots(gridspec_kw)` | kwarg | covered | Figure::subplots_on (GridSpec::with_ratios) |  |
 | `subplots(fig_kw)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
@@ -1216,8 +1216,8 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `Axes.set_title(label)` | kwarg | covered | Axes::set_title(text) |  |
 | `Axes.set_title(fontdict)` | kwarg | differently | setters of the returned Text (Text::update_props, TextProps) | the text's properties are set on its handle |
 | `Axes.set_title(loc)` | kwarg | covered | Axes::set_title_at(TitleLocation, text) |  |
-| `Axes.set_title(pad)` | kwarg | covered | Axes::set_title_pad/set_title/set_title_at(pad) |  |
-| `Axes.set_title(y)` | kwarg | covered | Axes::set_title_pad/set_title/set_title_at(y) |  |
+| `Axes.set_title(pad)` | kwarg | covered | Axes::set_title_at/set_title_y/set_title_pad(pad) |  |
+| `Axes.set_title(y)` | kwarg | covered | Axes::set_title_at/set_title_y/set_title_pad(y) |  |
 | `Axes.set_title(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `Axes.get_legend_handles_labels` | method | covered | Axes::legend_handles_labels |  |
 | `Axes.get_legend_handles_labels(legend_handler_map)` | kwarg | differently | LegendOptions::handler_map | the handler map is consulted when the legend is made |
@@ -1225,8 +1225,8 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `Axes.legend(args)` | kwarg | differently |  | Python varargs: pltrs takes typed positional arguments |
 | `Axes.legend(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `Axes.inset_axes` | method | covered | Axes::inset_axes |  |
-| `Axes.inset_axes(bounds)` | kwarg | covered | Axes::inset_axes_in/inset_axes/inset_axes_with_projection(bounds) |  |
-| `Axes.inset_axes(transform)` | kwarg | covered | Axes::inset_axes_in/inset_axes/inset_axes_with_projection(transform) |  |
+| `Axes.inset_axes(bounds)` | kwarg | covered | Axes::inset_axes_with_projection/inset_axes_in/inset_axes(bounds) |  |
+| `Axes.inset_axes(transform)` | kwarg | covered | Axes::inset_axes_with_projection/inset_axes_in/inset_axes(transform) |  |
 | `Axes.inset_axes(zorder)` | kwarg | differently | ArtistHandle::set_zorder on the inset | set on the returned axes |
 | `Axes.inset_axes(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `Axes.indicate_inset` | method | covered | Axes::indicate_inset |  |
@@ -1267,7 +1267,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `Axes.annotate(annotation_clip)` | kwarg | covered | Axes::annotate(annotation_clip) |  |
 | `Axes.annotate(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `Axes.axhline` | method | covered | Axes::axhline |  |
-| `Axes.axhline(y)` | kwarg | covered | Axes::axhline/axhline_between(y) |  |
+| `Axes.axhline(y)` | kwarg | covered | Axes::axhline_between/axhline(y) |  |
 | `Axes.axhline(xmin)` | kwarg | n/a |  | alias: pltrs keeps one name per property (conventions: aliases) |
 | `Axes.axhline(xmax)` | kwarg | n/a |  | alias: pltrs keeps one name per property (conventions: aliases) |
 | `Axes.axhline(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
@@ -1358,11 +1358,11 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `Axes.step(data)` | kwarg | n/a |  | labelled data (`data=` with string keys) indexes Python mappings; pass the columns themselves |
 | `Axes.step(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `Axes.bar` | method | covered | Axes::bar |  |
-| `Axes.bar(x)` | kwarg | covered | Axes::bar/bar_label(x) |  |
-| `Axes.bar(height)` | kwarg | covered | Axes::bar/bar_label(height) |  |
-| `Axes.bar(width)` | kwarg | covered | Axes::bar/bar_label(width) |  |
-| `Axes.bar(bottom)` | kwarg | covered | Axes::bar/bar_label(bottom) |  |
-| `Axes.bar(align)` | kwarg | covered | Axes::bar/bar_label(align) |  |
+| `Axes.bar(x)` | kwarg | covered | Axes::bar_label/bar(x) |  |
+| `Axes.bar(height)` | kwarg | covered | Axes::bar_label/bar(height) |  |
+| `Axes.bar(width)` | kwarg | covered | Axes::bar_label/bar(width) |  |
+| `Axes.bar(bottom)` | kwarg | covered | Axes::bar_label/bar(bottom) |  |
+| `Axes.bar(align)` | kwarg | covered | Axes::bar_label/bar(align) |  |
 | `Axes.bar(data)` | kwarg | n/a |  | labelled data (`data=` with string keys) indexes Python mappings; pass the columns themselves |
 | `Axes.bar(kwargs)` | kwarg | differently |  | artist properties: a props struct (LineProps/PatchProps/CollectionProps/TextProps) or setters on the returned handle |
 | `Axes.barh` | method | covered | Axes::barh |  |
@@ -3086,7 +3086,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `PcolorImage.set` | method | differently | update_props, typed setters | conventions: `Artist.set(**kwargs)` becomes typed setters or update_props |
 | `composite_images` | function | differently | SvgOptions/PdfOptions/PsOptions::composite_images | backends composite images themselves |
 | `imread` | function | covered | pltrs::image::imread::imread |  |
-| `imsave` | function | covered | pltrs::image::io::imsave |  |
+| `imsave` | function | covered | pltrs::pyplot::images::imsave |  |
 | `pil_to_array` | function | n/a |  | PIL interoperability |
 | `_ImageBase` | private_base | covered | AxesImage, ImshowOptions, ScalarMappable |  |
 | `_ImageBase.zorder` | attribute | covered | AxesImage::zorder |  |
@@ -5066,7 +5066,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 
 | item | kind | status | pltrs | note |
 |---|---|---|---|---|
-| `context` | function | covered | pltrs::style::context |  |
+| `context` | function | covered | pltrs::rc::context |  |
 | `reload_library` | function | covered | pltrs::style::library::reload_library |  |
 | `use` | function | covered | style::use_style |  |
 
@@ -5517,7 +5517,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `detrend_linear` | function | covered | pltrs::mlab::detrend::detrend_linear |  |
 | `detrend_mean` | function | covered | pltrs::mlab::detrend::detrend_mean |  |
 | `detrend_none` | function | covered | pltrs::mlab::detrend::detrend_none |  |
-| `psd` | function | covered | pltrs::mlab::spectral::psd |  |
+| `psd` | function | covered | pltrs::pyplot::spectral::psd |  |
 | `specgram` | function | covered | pltrs::pyplot::spectral::specgram |  |
 | `window_hanning` | function | covered | pltrs::mlab::window::window_hanning |  |
 | `window_none` | function | covered | pltrs::mlab::window::window_none |  |
@@ -5567,7 +5567,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `Axes3D.margins(tight)` | kwarg | covered | Axes3D::set_margins(margins, tight) |  |
 | `Axes3D.autoscale` | method | covered | Axes3D::autoscale |  |
 | `Axes3D.autoscale(enable)` | kwarg | covered | Axes3D::autoscale, Axes3D::set_margins |  |
-| `Axes3D.autoscale(axis)` | kwarg | covered | Axes3D::autoscale_on/autoscale(axis) |  |
+| `Axes3D.autoscale(axis)` | kwarg | covered | Axes3D::autoscale_on/autoscale/autoscale_view(axis) |  |
 | `Axes3D.autoscale(tight)` | kwarg | covered | Axes3D::autoscale, Axes3D::set_margins |  |
 | `Axes3D.auto_scale_xyz` | method | differently | Axes3D::autoscale, Axes3D::set_axis_autoscale_on | autoscaling happens as data are added |
 | `Axes3D.auto_scale_xyz(X)` | kwarg | covered | Axes3D::auto_scale_xyz(x) |  |
@@ -5575,7 +5575,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `Axes3D.auto_scale_xyz(Z)` | kwarg | covered | Axes3D::auto_scale_xyz(z) |  |
 | `Axes3D.auto_scale_xyz(had_data)` | kwarg | covered | Axes3D::auto_scale_xyz(had_data) |  |
 | `Axes3D.autoscale_view` | method | differently | Axes3D::autoscale, Axes3D::set_axis_autoscale_on | autoscaling happens as data are added |
-| `Axes3D.autoscale_view(tight)` | kwarg | differently | Axes3D::autoscale, Axes3D::set_axis_autoscale_on | parameter of `autoscale_view`: autoscaling happens as data are added |
+| `Axes3D.autoscale_view(tight)` | kwarg | covered | Axes3D::autoscale_view(tight) |  |
 | `Axes3D.autoscale_view(scalex)` | kwarg | differently | Axes3D::autoscale, Axes3D::set_axis_autoscale_on | parameter of `autoscale_view`: autoscaling happens as data are added |
 | `Axes3D.autoscale_view(scaley)` | kwarg | differently | Axes3D::autoscale, Axes3D::set_axis_autoscale_on | parameter of `autoscale_view`: autoscaling happens as data are added |
 | `Axes3D.autoscale_view(scalez)` | kwarg | differently | Axes3D::autoscale, Axes3D::set_axis_autoscale_on | parameter of `autoscale_view`: autoscaling happens as data are added |
@@ -7030,7 +7030,7 @@ implemented since (their verdicts are in `rules_impl.py`).
 | `FigureCanvasAgg.print_tif` | method | covered | Figure::to_format(SaveFormat::Tiff) |  |
 | `FigureCanvasAgg.print_tiff` | method | covered | Figure::to_format(SaveFormat::Tiff) |  |
 | `FigureCanvasAgg.print_webp` | method | covered | Figure::to_format(SaveFormat::Webp) |  |
-| `FigureCanvasAgg.print_avif` | method | missing |  | saving AVIF images (matplotlib saves them through Pillow; pltrs (Python) too) |
+| `FigureCanvasAgg.print_avif` | method | covered | Figure::to_format(SaveFormat::Avif) | pltrs' own AV1 encoder, where matplotlib goes through Pillow and libavif |
 | `RendererAgg` | class | covered | RasterRenderer |  |
 | `RendererAgg.draw_path` | method | covered | RasterRenderer::draw_path |  |
 | `RendererAgg.draw_mathtext` | method | covered | Renderer::draw_text | math text is typeset by pltrs_text and drawn as text |

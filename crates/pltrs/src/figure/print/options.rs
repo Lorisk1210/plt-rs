@@ -66,6 +66,9 @@ pub struct SaveOptions {
     /// JPEG quality from 1 to 100 (Pillow's `quality` in matplotlib's
     /// `pil_kwargs`; 75 by default).
     pub jpeg_quality: Option<u8>,
+    /// AVIF quality from 0 to 100, 100 being lossless (Pillow's `quality`
+    /// in matplotlib's `pil_kwargs`; 75 by default).
+    pub avif_quality: Option<u8>,
     /// How PostScript places the figure on the page
     /// (`savefig.orientation`).
     pub orientation: Option<PageOrientation>,

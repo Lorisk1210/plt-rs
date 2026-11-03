@@ -134,7 +134,7 @@ RULES = [
     (r"matplotlib\.backends\.backend_agg:FigureCanvasAgg\.print_(jpg|jpeg)", cov("Figure::to_format(SaveFormat::Jpeg)")),
     (r"matplotlib\.backends\.backend_agg:FigureCanvasAgg\.print_(tif|tiff)", cov("Figure::to_format(SaveFormat::Tiff)")),
     (r"matplotlib\.backends\.backend_agg:FigureCanvasAgg\.print_webp", cov("Figure::to_format(SaveFormat::Webp)")),
-    (r"matplotlib\.backends\.backend_agg:FigureCanvasAgg\.print_avif", miss("saving AVIF images (matplotlib saves them through Pillow; pltrs (Python) too)")),
+    (r"matplotlib\.backends\.backend_agg:FigureCanvasAgg\.print_avif", cov("Figure::to_format(SaveFormat::Avif)", "pltrs' own AV1 encoder, where matplotlib goes through Pillow and libavif")),
     (r"matplotlib\.backends\.backend_agg:RendererAgg", cov("RasterRenderer")),
     (r"matplotlib\.backends\.backend_agg:RendererAgg\.draw_mathtext", cov("Renderer::draw_text", "math text is typeset by pltrs_text and drawn as text")),
     (r"matplotlib\.backends\.backend_agg:RendererAgg\.get_text_width_height_descent", cov("measure_line")),

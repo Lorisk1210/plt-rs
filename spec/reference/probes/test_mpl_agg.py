@@ -26,6 +26,11 @@ Ops
     transparent index is used).
 ``Figure.savefig.webp``  {transparent} -> Pillow's mode of the same figure
     saved as a WebP (``test_webp_alpha``).
+``Figure.savefig.avif``  {transparent} -> Pillow's mode of the same figure
+    saved as an AVIF (``test_avif_alpha``).
+``Figure.savefig.avif_quality``  {low, high} -> whether the same figure
+    saved as an AVIF at quality ``high`` takes more bytes than at ``low``
+    (``test_pil_kwargs_avif``).
 ``Figure.savefig.png_text``  {metadata?} -> {chunks, text}: the chunk types
     before the image data of ``Figure(figsize=(1, 1), dpi=10)`` saved as a
     PNG with ``metadata`` (none when absent; a ``null`` value drops the
@@ -42,7 +47,7 @@ figure cases of ``mpl_tests_agg``; ``test_agg_filter`` is the case
 ``mpl_misc/agg_filter``.
 
 Left out: Pillow's keyword arguments (``test_pil_kwargs_tiff``,
-``test_pil_kwargs_webp``; pltrs writes lossless WebP), AVIF (``test_pil_kwargs_avif``, ``test_avif_alpha``),
+``test_pil_kwargs_webp``; pltrs writes lossless WebP),
 ``test_draw_path_collection_error_handling`` (a lone path given as the
 paths of a collection is a type error in Rust) and ``test_chunksize_fails``
 (the Agg renderer's own limits on splitting huge paths).
@@ -146,6 +151,31 @@ def _webp(transparent):
 def test_webp_alpha():
     for transparent in [False, True]:
         probe("Figure.savefig.webp", _webp, transparent=transparent)
+
+
+def _avif(transparent):
+    return _plotted("avif", transparent=transparent).mode
+
+
+def test_avif_alpha():
+    for transparent in [False, True]:
+        probe("Figure.savefig.avif", _avif, transparent=transparent)
+
+
+def _avif_size(quality):
+    fig = _figure()
+    fig.subplots().plot([0, 1, 2], [0, 1, 0])
+    buf = io.BytesIO()
+    fig.savefig(buf, format="avif", pil_kwargs={"quality": quality})
+    return buf.getbuffer().nbytes
+
+
+def _avif_quality(low, high):
+    return _avif_size(high) > _avif_size(low)
+
+
+def test_pil_kwargs_avif():
+    probe("Figure.savefig.avif_quality", _avif_quality, low=1, high=100)
 
 
 def _chunk_types(png):

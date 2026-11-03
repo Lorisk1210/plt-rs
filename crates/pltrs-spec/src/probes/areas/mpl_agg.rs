@@ -1,8 +1,8 @@
 //! Probe operations for the `mpl_agg` area: matplotlib's own non-image
 //! tests of the Agg canvas (`tests/test_agg.py`; see
 //! `spec/reference/probes/test_mpl_agg.py`): saved colours, canvas sizes
-//! and what the JPEG, GIF, WebP and PNG files record, read as Pillow reads
-//! them.
+//! and what the JPEG, GIF, WebP, AVIF and PNG files record, read as
+//! Pillow reads them.
 
 use pltrs::figure::{Figure, Metadata, PngMetadata, SaveFormat, SaveOptions};
 use pltrs_codec::raster::Pixels;
@@ -20,6 +20,8 @@ pub(crate) const OPS: &[Op] = &[
     Op::new("Figure.savefig.jpeg", jpeg),
     Op::new("Figure.savefig.gif", gif),
     Op::new("Figure.savefig.webp", webp),
+    Op::new("Figure.savefig.avif", avif),
+    Op::new("Figure.savefig.avif_quality", avif_quality),
     Op::new("Figure.savefig.png_text", png_text),
 ];
 
@@ -189,6 +191,31 @@ fn webp(args: Args<'_>) -> Outcome {
             "RGB"
         }))
     })
+}
+
+/// Pillow's mode of the plot saved as an AVIF: RGBA when the file has an
+/// alpha item (an auxiliary image of the alpha URN), RGB otherwise.
+fn avif(args: Args<'_>) -> Outcome {
+    const ALPHA_URN: &[u8] = b"urn:mpeg:mpegB:cicp:systems:auxiliary:alpha";
+    styled(args, || {
+        let data = plotted(SaveFormat::Avif, transparent(args)?)?;
+        let has_alpha = data.windows(ALPHA_URN.len()).any(|w| w == ALPHA_URN);
+        Ok(Json::from(if has_alpha { "RGBA" } else { "RGB" }))
+    })
+}
+
+/// Whether the plot saved as an AVIF at quality `high` takes more bytes
+/// than at `low`.
+fn avif_quality(args: Args<'_>) -> Outcome {
+    let size = |key: &str| -> Result<usize, ProbeError> {
+        let quality = u8::try_from(args.i64(key)?).map_err(|_| malformed(key))?;
+        let options = SaveOptions {
+            avif_quality: Some(quality),
+            ..SaveOptions::default()
+        };
+        Ok(plotted(SaveFormat::Avif, options)?.len())
+    };
+    styled(args, || Ok(Json::from(size("high")? > size("low")?)))
 }
 
 /// The chunk types of `png` before its first `IDAT`.

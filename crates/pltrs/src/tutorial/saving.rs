@@ -4,11 +4,12 @@
 //! extension names. Two families of formats suit different uses:
 //!
 //! * **Raster images** are grids of pixels: PNG (`.png`), JPEG (`.jpg`),
-//!   TIFF (`.tif`), GIF (`.gif`), lossless WebP (`.webp`) and raw RGBA
-//!   bytes (`.raw`). Their size in pixels is the figure's size in inches
-//!   times the resolution. PNG is the usual choice for screens, web pages
-//!   and documents; JPEG blurs thin lines and text and suits photographs
-//!   better than plots.
+//!   TIFF (`.tif`), GIF (`.gif`), lossless WebP (`.webp`), AVIF (`.avif`)
+//!   and raw RGBA bytes (`.raw`). Their size in pixels is the figure's
+//!   size in inches times the resolution. PNG is the usual choice for
+//!   screens, web pages and documents; JPEG blurs thin lines and text and
+//!   suits photographs better than plots; AVIF is smaller than PNG at a
+//!   slight loss, or lossless at quality 100.
 //! * **Vector documents** describe lines, shapes and text as such, and
 //!   stay sharp at any zoom: SVG (`.svg`, or compressed `.svgz`) for the
 //!   web, PDF (`.pdf`) for papers and print, PostScript (`.ps`, `.eps`)
@@ -75,7 +76,8 @@
 //!   formats have no room for them and refuse them
 //!   ([`SaveError::MetadataUnsupported`]), so a loop saving every format
 //!   gives them options without it.
-//! * `jpeg_quality`: from 1 to 100, 75 by default.
+//! * `jpeg_quality`: from 1 to 100, 75 by default; `avif_quality`: from 0
+//!   to 100, 75 by default, 100 lossless.
 //!
 //! ```
 //! use pltrs::figure::{BboxInches, Metadata, SaveOptions};

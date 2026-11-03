@@ -167,6 +167,9 @@ pub struct ImsaveOptions {
     /// JPEG quality from 1 to 100 (Pillow's `quality` in matplotlib's
     /// `pil_kwargs`; 75 when `None`).
     pub jpeg_quality: Option<u8>,
+    /// AVIF quality from 0 to 100, 100 being lossless (Pillow's `quality`
+    /// in matplotlib's `pil_kwargs`; 75 when `None`).
+    pub avif_quality: Option<u8>,
     /// The text entries of a PNG (matplotlib's `metadata`): `None` writes
     /// the `Software` entry naming pltrs, as `savefig` does; build on
     /// [`PngMetadata::default`] to add or drop entries. Only PNG files
@@ -183,6 +186,7 @@ impl Default for ImsaveOptions {
             origin: None,
             dpi: 100.0,
             jpeg_quality: None,
+            avif_quality: None,
             metadata: None,
         }
     }
@@ -212,8 +216,8 @@ pub fn imsave(
 
 /// The format [`imsave`] writes for a format name or file extension,
 /// ignoring case: the names Pillow saves under (`png`, `jpg`, `jpeg`,
-/// `tiff`, `gif` and `webp`), so `tif`, `raw` and `rgba` are refused as
-/// matplotlib refuses them.
+/// `tiff`, `gif`, `webp` and `avif`), so `tif`, `raw` and `rgba` are
+/// refused as matplotlib refuses them.
 ///
 /// # Errors
 ///
@@ -225,6 +229,7 @@ pub fn imsave_format(name: &str) -> Result<BitmapFormat, ImageIoError> {
         "tiff" => Ok(BitmapFormat::Tiff),
         "gif" => Ok(BitmapFormat::Gif),
         "webp" => Ok(BitmapFormat::Webp),
+        "avif" => Ok(BitmapFormat::Avif),
         other => Err(ImageIoError::UnsupportedFormat(other.to_owned())),
     }
 }
@@ -298,6 +303,9 @@ pub fn imsave_bytes(
         jpeg_quality: options
             .jpeg_quality
             .unwrap_or(BitmapSettings::default().jpeg_quality),
+        avif_quality: options
+            .avif_quality
+            .unwrap_or(BitmapSettings::default().avif_quality),
         background: jpeg_background(),
         png_text: options.metadata.unwrap_or_default(),
     };

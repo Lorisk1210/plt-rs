@@ -1,12 +1,14 @@
 //! The bitmap file formats that figures and image arrays are written in:
-//! PNG, raw RGBA buffers (Agg's `print_raw`), and JPEG, TIFF, GIF and
-//! WebP, which matplotlib writes through Pillow (`print_jpg`, `print_tif`,
-//! `print_gif`, `print_webp` and `image.imsave`). JPEG and TIFF files
-//! match Pillow's byte for byte; WebP files are lossless, where Pillow
-//! writes lossy ones by default.
+//! PNG, raw RGBA buffers (Agg's `print_raw`), and JPEG, TIFF, GIF, WebP
+//! and AVIF, which matplotlib writes through Pillow (`print_jpg`,
+//! `print_tif`, `print_gif`, `print_webp`, `print_avif` and
+//! `image.imsave`). JPEG and TIFF files match Pillow's byte for byte;
+//! WebP files are lossless, where Pillow writes lossy ones by default;
+//! AVIF files are coded by pltrs' own AV1 encoder at Pillow's quality.
 
 use std::fmt;
 
+use pltrs_codec::avif::{self, AvifError, AvifOptions};
 use pltrs_codec::gif::{GifEncoder, GifError, GifFrame};
 use pltrs_codec::jpeg::{JpegError, JpegOptions, encode_rgb8};
 use pltrs_codec::png::{self, EncodeError, ImageRef};
@@ -27,6 +29,8 @@ pub enum BitmapFormat {
     Gif,
     /// Lossless WebP, with transparency.
     Webp,
+    /// AVIF: AV1 in 4:2:0 at a quality, lossless at 100, with transparency.
+    Avif,
     /// The bare RGBA bytes, row by row, with no header.
     Raw,
 }
@@ -38,6 +42,8 @@ pub struct BitmapSettings {
     pub dpi: f64,
     /// JPEG quality from 1 to 100 (Pillow's `quality`).
     pub jpeg_quality: u8,
+    /// AVIF quality from 0 to 100, 100 lossless (Pillow's `quality`).
+    pub avif_quality: u8,
     /// The colour JPEG pixels are flattened onto.
     pub background: [u8; 3],
     /// The text entries of a PNG (matplotlib's `metadata`); the other
@@ -46,12 +52,13 @@ pub struct BitmapSettings {
 }
 
 impl Default for BitmapSettings {
-    /// 100 dpi, Pillow's JPEG quality of 75, a white background and no
-    /// PNG text.
+    /// 100 dpi, Pillow's JPEG and AVIF quality of 75, a white background
+    /// and no PNG text.
     fn default() -> Self {
         Self {
             dpi: 100.0,
             jpeg_quality: 75,
+            avif_quality: AvifOptions::default().quality,
             background: [255; 3],
             png_text: PngMetadata::none(),
         }
@@ -71,6 +78,8 @@ pub enum BitmapError {
     Gif(GifError),
     /// As a WebP.
     Webp(webp::EncodeError),
+    /// As an AVIF.
+    Avif(AvifError),
     /// The pixel data does not have `width × height × 4` bytes.
     DataLengthMismatch,
 }
@@ -83,6 +92,7 @@ impl fmt::Display for BitmapError {
             Self::Tiff(err) => write!(f, "cannot encode the TIFF: {err}"),
             Self::Gif(err) => write!(f, "cannot encode the GIF: {err}"),
             Self::Webp(err) => write!(f, "cannot encode the WebP: {err}"),
+            Self::Avif(err) => write!(f, "cannot encode the AVIF: {err}"),
             Self::DataLengthMismatch => f.write_str("the pixel data does not match the image size"),
         }
     }
@@ -96,6 +106,7 @@ impl std::error::Error for BitmapError {
             Self::Tiff(err) => Some(err),
             Self::Gif(err) => Some(err),
             Self::Webp(err) => Some(err),
+            Self::Avif(err) => Some(err),
             Self::DataLengthMismatch => None,
         }
     }
@@ -110,6 +121,7 @@ impl BitmapFormat {
             Self::Tiff => "tiff",
             Self::Gif => "gif",
             Self::Webp => "webp",
+            Self::Avif => "avif",
             Self::Raw => "raw",
         }
     }
@@ -161,6 +173,13 @@ impl BitmapFormat {
                     .map_err(BitmapError::Gif)
             }
             Self::Webp => webp::encode_rgba8(columns, rows, rgba).map_err(BitmapError::Webp),
+            Self::Avif => {
+                let options = AvifOptions {
+                    quality: settings.avif_quality,
+                    ..AvifOptions::default()
+                };
+                avif::encode_rgba8(columns, rows, rgba, &options).map_err(BitmapError::Avif)
+            }
             Self::Raw => Ok(rgba.to_vec()),
         }
     }
@@ -216,6 +235,7 @@ mod tests {
         assert!(encode(BitmapFormat::Gif).starts_with(b"GIF89a"));
         let webp = encode(BitmapFormat::Webp);
         assert!(webp.starts_with(b"RIFF") && &webp[8..16] == b"WEBPVP8L");
+        assert_eq!(&encode(BitmapFormat::Avif)[4..12], b"ftypavif");
         assert_eq!(encode(BitmapFormat::Raw), pixels);
     }
 

@@ -1,5 +1,6 @@
 //! Writing figures: matplotlib's `savefig` with the Agg canvas (PNG, and
-//! JPEG, TIFF, GIF, WebP and raw RGBA through the bitmap encoders) and the
+//! JPEG, TIFF, GIF, WebP, AVIF and raw RGBA through the bitmap encoders)
+//! and the
 //! SVG, PDF, PostScript and PGF backends (the latter two in `postscript`
 //! and `pgf.rs`), chosen from the file extension. The formats are in
 //! `format`, the renderer settings taken from the rcParams in `settings`.
@@ -144,21 +145,24 @@ impl Figure {
             SaveFormat::Tiff => self.to_bitmap(BitmapFormat::Tiff, options),
             SaveFormat::Gif => self.to_bitmap(BitmapFormat::Gif, options),
             SaveFormat::Webp => self.to_bitmap(BitmapFormat::Webp, options),
+            SaveFormat::Avif => self.to_bitmap(BitmapFormat::Avif, options),
             SaveFormat::Raw => self.to_bitmap(BitmapFormat::Raw, options),
         }
     }
 
     /// The canvas rendered with save options and encoded as `format`
-    /// (Agg's `print_raw`, and `print_jpg`, `print_tif` and `print_gif`
-    /// through `imsave`): the save resolution recorded, JPEG flattened onto
-    /// white.
+    /// (Agg's `print_raw`, and `print_jpg`, `print_tif`, `print_gif`,
+    /// `print_webp` and `print_avif` through `imsave`): the save
+    /// resolution recorded, JPEG flattened onto white.
     fn to_bitmap(&self, format: BitmapFormat, options: SaveOptions) -> Result<Vec<u8>, SaveError> {
         let defaults = BitmapSettings::default();
         let jpeg_quality = options.jpeg_quality.unwrap_or(defaults.jpeg_quality);
+        let avif_quality = options.avif_quality.unwrap_or(defaults.avif_quality);
         let canvas = self.render_raster_with(options)?;
         let settings = BitmapSettings {
             dpi: canvas.dpi(),
             jpeg_quality,
+            avif_quality,
             ..defaults
         };
         let image = canvas.to_image();
@@ -168,8 +172,8 @@ impl Figure {
     }
 
     /// Writes the figure to `path` in the format its extension names
-    /// (PNG, JPEG, TIFF, GIF, WebP, raw RGBA, SVG, SVGZ, PDF, PS, EPS or
-    /// PGF;
+    /// (PNG, JPEG, TIFF, GIF, WebP, AVIF, raw RGBA, SVG, SVGZ, PDF, PS, EPS
+    /// or PGF;
     /// `savefig.format` and an appended extension without one).
     pub fn savefig(&self, path: impl AsRef<FsPath>) -> Result<(), SaveError> {
         self.savefig_with(path, SaveOptions::default())
@@ -294,6 +298,29 @@ mod tests {
     }
 
     #[test]
+    fn avif_follows_quality_and_transparency() {
+        // matplotlib's test_pil_kwargs_avif and test_avif_alpha.
+        let fig = Figure::with_size(2.0, 1.5, 50.0);
+        fig.subplot()
+            .plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.0])
+            .unwrap();
+        let save = |quality, transparent| {
+            let options = SaveOptions {
+                avif_quality: Some(quality),
+                transparent: Some(transparent),
+                ..SaveOptions::default()
+            };
+            fig.to_format(SaveFormat::Avif, options).unwrap()
+        };
+        let (small, large) = (save(1, false), save(100, false));
+        assert_eq!(&small[4..12], b"ftypavif");
+        assert!(large.len() > small.len());
+        let has_alpha = |file: &[u8]| file.windows(4).any(|w| w == b"auxC");
+        assert!(!has_alpha(&small));
+        assert!(has_alpha(&save(75, true)));
+    }
+
+    #[test]
     fn svg_images_can_go_beside_the_file() {
         let dir = std::env::temp_dir().join(format!("pltrs-svg-images-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -363,7 +390,7 @@ mod tests {
         assert!(cropped.contains("/MediaBox [ 0 0 72 36 ]"));
         let scratch = crate::scratch::Scratch::new("save-formats");
         assert!(matches!(
-            fig.savefig(scratch.path("figure.avif")),
+            fig.savefig(scratch.path("figure.heic")),
             Err(SaveError::UnsupportedFormat(_))
         ));
     }
@@ -388,6 +415,7 @@ mod tests {
             SaveFormat::Jpeg,
             SaveFormat::Tiff,
             SaveFormat::Webp,
+            SaveFormat::Avif,
             SaveFormat::Raw,
         ] {
             assert!(matches!(

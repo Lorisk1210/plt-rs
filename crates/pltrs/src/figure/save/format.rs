@@ -32,6 +32,8 @@ pub enum SaveFormat {
     Gif,
     /// Lossless WebP.
     Webp,
+    /// AVIF: AV1 images, coded by pltrs' own encoder.
+    Avif,
     /// The bare RGBA bytes of the canvas (`raw` or `rgba`).
     Raw,
 }
@@ -51,6 +53,7 @@ impl SaveFormat {
             Self::Tiff => "tif",
             Self::Gif => "gif",
             Self::Webp => "webp",
+            Self::Avif => "avif",
             Self::Raw => "raw",
         }
     }
@@ -80,7 +83,7 @@ impl SaveFormat {
     pub const fn takes_metadata(self) -> bool {
         !matches!(
             self,
-            Self::Jpeg | Self::Tiff | Self::Gif | Self::Webp | Self::Raw
+            Self::Jpeg | Self::Tiff | Self::Gif | Self::Webp | Self::Avif | Self::Raw
         )
     }
 
@@ -93,6 +96,7 @@ impl SaveFormat {
             Self::Tiff => Some(BitmapFormat::Tiff),
             Self::Gif => Some(BitmapFormat::Gif),
             Self::Webp => Some(BitmapFormat::Webp),
+            Self::Avif => Some(BitmapFormat::Avif),
             Self::Raw => Some(BitmapFormat::Raw),
             Self::Svg | Self::Svgz | Self::Pdf | Self::Ps | Self::Eps | Self::Pgf => None,
         }
@@ -116,6 +120,7 @@ impl FromStr for SaveFormat {
             "tif" | "tiff" => Self::Tiff,
             "gif" => Self::Gif,
             "webp" => Self::Webp,
+            "avif" => Self::Avif,
             "raw" | "rgba" => Self::Raw,
             _ => return Err(SaveError::UnsupportedFormat(name.to_owned())),
         })
@@ -155,8 +160,9 @@ mod tests {
         assert_eq!("jpeg".parse::<SaveFormat>().unwrap(), SaveFormat::Jpeg);
         assert_eq!("rgba".parse::<SaveFormat>().unwrap(), SaveFormat::Raw);
         assert_eq!("WebP".parse::<SaveFormat>().unwrap(), SaveFormat::Webp);
+        assert_eq!("AVIF".parse::<SaveFormat>().unwrap(), SaveFormat::Avif);
         assert!(matches!(
-            "avif".parse::<SaveFormat>(),
+            "heic".parse::<SaveFormat>(),
             Err(SaveError::UnsupportedFormat(_))
         ));
         let (path, format) = resolve_format(FsPath::new("out/plot.pdf"), None).unwrap();

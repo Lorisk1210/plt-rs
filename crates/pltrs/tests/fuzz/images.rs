@@ -1,7 +1,8 @@
 //! Image files: PNG, JPEG, TIFF, GIF and WebP files (the seed corpus of
 //! decoder variants and what pltrs' own encoders write) corrupted and
 //! read with `imread`, the images decoded shown with `imshow` and saved;
-//! and corrupted time zone files.
+//! AVIF files encoded from pixels of every size, kind and quality; and
+//! corrupted time zone files.
 
 use std::path::Path;
 
@@ -10,6 +11,8 @@ use pltrs::dates::TzFile;
 use pltrs::figure::Figure;
 use pltrs::image::{BitmapFormat, ImsaveOptions, imread_bytes, imsave_bytes};
 use pltrs::numeric::Grid;
+use pltrs_codec::av1::ChromaSampling;
+use pltrs_codec::avif::{AvifOptions, encode_rgba8};
 
 use crate::harness::{Gen, fuzz};
 use crate::support::{format, render};
@@ -90,6 +93,108 @@ fn showing_corrupted_images() {
                     render(&fig, *format);
                 }
             }
+        },
+    );
+}
+
+/// The kinds of pixels the AVIF encoder is fed.
+#[derive(Clone, Copy, Debug)]
+enum Pixels {
+    /// Each byte random.
+    Noise,
+    /// One colour, opaque.
+    Constant,
+    /// Everything fully transparent.
+    Transparent,
+    /// Smooth ramps in every channel.
+    Gradient,
+    /// White with a few random pixels, like thin lines on paper.
+    Sparse,
+}
+
+/// `width × height` RGBA pixels of `kind`, drawn from `seed`.
+fn avif_pixels(width: usize, height: usize, kind: Pixels, seed: u64) -> Vec<u8> {
+    let mut g = Gen::new(seed);
+    let count = width * height;
+    let byte = |g: &mut Gen| g.below(256) as u8;
+    match kind {
+        Pixels::Noise => (0..count * 4).map(|_| byte(&mut g)).collect(),
+        Pixels::Constant => [byte(&mut g), byte(&mut g), 7, 255].repeat(count),
+        Pixels::Transparent => vec![0; count * 4],
+        Pixels::Gradient => (0..count)
+            .flat_map(|i| {
+                let (x, y) = (i % width, i / width);
+                let ramp = |v: usize, n: usize| (v * 255 / n) as u8;
+                [
+                    ramp(x, width),
+                    ramp(y, height),
+                    ((x + y) % 256) as u8,
+                    (x % 256) as u8,
+                ]
+            })
+            .collect(),
+        Pixels::Sparse => {
+            let mut pixels = vec![255; count * 4];
+            for _ in 0..g.below(count / 4 + 1) {
+                let at = g.below(count) * 4;
+                pixels[at] = byte(&mut g);
+                pixels[at + 1..at + 3].fill(0);
+            }
+            pixels
+        }
+    }
+}
+
+#[test]
+fn avif_encoding() {
+    let kinds = [
+        Pixels::Noise,
+        Pixels::Constant,
+        Pixels::Transparent,
+        Pixels::Gradient,
+        Pixels::Sparse,
+    ];
+    let samplings = [
+        ChromaSampling::Yuv420,
+        ChromaSampling::Yuv444,
+        ChromaSampling::Monochrome,
+    ];
+    fuzz(
+        "avif encoding",
+        150,
+        |g| {
+            let (width, height) = match g.below(8) {
+                0 => (1 + g.below(3), 1 + g.below(3)),
+                1..=4 => (1 + g.below(80), 1 + g.below(80)),
+                5 => (1 + g.below(300), 1 + g.below(12)),
+                6 => (1 + g.below(12), 1 + g.below(300)),
+                // Wider than one tile.
+                _ => (4097 + g.below(200), 1 + g.below(9)),
+            };
+            let quality = if g.chance(0.2) {
+                100
+            } else {
+                g.below(101) as u8
+            };
+            let seed = g.below(1 << 30) as u64;
+            (
+                width,
+                height,
+                g.pick(&kinds),
+                quality,
+                g.pick(&samplings),
+                seed,
+            )
+        },
+        |&(width, height, kind, quality, subsampling, seed)| {
+            let pixels = avif_pixels(width, height, kind, seed);
+            let options = AvifOptions {
+                quality,
+                subsampling,
+            };
+            let file = encode_rgba8(width as u32, height as u32, &pixels, &options)
+                .expect("valid pixels encode");
+            assert_eq!(&file[4..12], b"ftypavif");
         },
     );
 }

@@ -5,7 +5,7 @@ use pltrs::figure::{Figure, SaveFormat, SaveOptions};
 use crate::harness::Gen;
 
 /// Every format a figure can be saved in.
-pub(crate) const FORMATS: [SaveFormat; 12] = [
+pub(crate) const FORMATS: [SaveFormat; 13] = [
     SaveFormat::Png,
     SaveFormat::Svg,
     SaveFormat::Svgz,
@@ -17,6 +17,7 @@ pub(crate) const FORMATS: [SaveFormat; 12] = [
     SaveFormat::Tiff,
     SaveFormat::Gif,
     SaveFormat::Webp,
+    SaveFormat::Avif,
     SaveFormat::Raw,
 ];
 

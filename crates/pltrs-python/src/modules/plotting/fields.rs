@@ -332,9 +332,9 @@ pub(super) fn barbs_set_uvc(
 }
 
 /// A 2-D float array as a grid.
-fn grid(array: &NdArray) -> PyResult<Grid<f64>> {
+fn grid(array: NdArray) -> PyResult<Grid<f64>> {
     match array.shape[..] {
-        [rows, cols] => Grid::from_vec(rows, cols, array.data.clone())
+        [rows, cols] => Grid::from_vec(rows, cols, array.data)
             .map_err(|err| PyErr::value_error(err.to_string())),
         _ => Err(PyErr::value_error(format!(
             "expected a 2-D array, got shape {:?}",
@@ -383,17 +383,17 @@ pub(super) fn streamplot(
     (zorder, transform): (Option<f64>, Option<Transform>),
 ) -> PyResult<(Collection, Vec<StreamArrow>)> {
     let (density, minlength, maxlength, start_points, direction, broken, scales) = tracing;
-    let field = StreamField::new(x.into_vec()?, y.into_vec()?, grid(&u)?, grid(&v)?);
+    let field = StreamField::new(x.into_vec()?, y.into_vec()?, grid(u)?, grid(v)?);
     let color = match (single, mapped) {
         (_, Some((values, mapping))) => Some(StreamColors::Mapped(Box::new(StreamColorMap {
-            values: grid(&values)?,
+            values: grid(values)?,
             colorizer: colorizer(mapping),
         }))),
         (Some(rgba), None) => Some(StreamColors::Single(color(rgba))),
         (None, None) => None,
     };
     let linewidth = match (uniform, varying) {
-        (_, Some(widths)) => Some(StreamWidths::Varying(grid(&widths)?)),
+        (_, Some(widths)) => Some(StreamWidths::Varying(grid(widths)?)),
         (Some(width), None) => Some(StreamWidths::Uniform(width)),
         (None, None) => None,
     };

@@ -15,6 +15,13 @@ use crate::Point;
 /// the largest canvas (2²³ pixels) needs about 6 400 for a half turn.
 const MAX_ARC_POINTS: i32 = 1 << 13;
 
+/// Steps of round caps and joins below which short arcs are recognised
+/// without arc tangents (their tangent must stay finite).
+const SHORT_ARC_LIMIT: f64 = 1.5;
+
+/// The fraction of the step below which an arc counts as short.
+const SHORT_ARC_MARGIN: f64 = 1.0 - 1e-9;
+
 /// Shape of the ends of open sub-paths and dashes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum LineCap {
@@ -107,6 +114,10 @@ pub struct StrokeMath {
     inner_join: InnerJoin,
     /// The angular step of round caps and joins.
     arc_step: f64,
+    /// `tan` of a hair less than [`arc_step`](Self::arc_step), when that
+    /// is below a right angle: arcs turning through less need no
+    /// intermediate points (see [`StrokeMath::arc_is_short`]).
+    short_arc_tan: Option<f64>,
     /// The last angle of a round join and the bits of its arguments:
     /// consecutive joins share an offset, the end of one starting the
     /// next, so each angle is computed once.
@@ -121,6 +132,7 @@ impl StrokeMath {
         let width = width * 0.5;
         let width_abs = width.abs();
         let approx_scale = shape.approximation_scale;
+        let arc_step = (width_abs / (width_abs + 0.125 / approx_scale)).acos() * 2.0;
         Self {
             width,
             width_abs,
@@ -132,9 +144,31 @@ impl StrokeMath {
             cap: shape.cap,
             join: shape.join,
             inner_join: shape.inner_join,
-            arc_step: (width_abs / (width_abs + 0.125 / approx_scale)).acos() * 2.0,
+            arc_step,
+            short_arc_tan: (arc_step < SHORT_ARC_LIMIT)
+                .then(|| (arc_step * SHORT_ARC_MARGIN).tan()),
             last_angle: Cell::new(None),
         }
+    }
+
+    /// Whether the arc from the offset `u` to the offset `v` turns, in the
+    /// direction of the width's sign, through clearly more than nothing and
+    /// clearly less than one [`arc_step`](Self::arc_step), so that Agg's
+    /// `calc_arc` puts no point between its ends.
+    ///
+    /// The turn is measured by its cross and dot products, which differ
+    /// from the difference of the two angles `calc_arc` takes by a few
+    /// rounding errors: the margins (a millionth of a radian, a billionth
+    /// of the step) are far wider, and an arc within them is computed in
+    /// full. That spares the arc tangents of the short turns of finely
+    /// flattened curves.
+    fn arc_is_short(&self, (ux, uy): (f64, f64), (vx, vy): (f64, f64)) -> bool {
+        let Some(limit) = self.short_arc_tan else {
+            return false;
+        };
+        let turn = (ux * vy - uy * vx) * self.width_sign;
+        let dot = ux * vx + uy * vy;
+        dot > 0.0 && turn > dot * 1e-6 && turn < dot * limit
     }
 
     /// `y.atan2(x)`, remembered for the next join.
@@ -169,6 +203,11 @@ impl StrokeMath {
         (dx2, dy2): (f64, f64),
     ) {
         let Point { x, y } = center;
+        if self.arc_is_short((dx1, dy1), (dx2, dy2)) {
+            out.push(Point::new(x + dx1, y + dy1));
+            out.push(Point::new(x + dx2, y + dy2));
+            return;
+        }
         let mut a1 = self.angle(dy1 * self.width_sign, dx1 * self.width_sign);
         let mut a2 = self.angle(dy2 * self.width_sign, dx2 * self.width_sign);
         let da = self.arc_step;
@@ -491,6 +530,33 @@ mod tests {
         round.approximation_scale = f64::NAN;
         math(2.0, round).calc_cap(&mut out, &a, &b, 10.0);
         assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn short_arcs_match_the_arc_tangent_computation() {
+        // Turns sweeping across the step (and across the ±π cut of the arc
+        // tangent), for both signs of the width: the shortcut must give the
+        // points the full computation gives.
+        for width in [2.08, -2.08, 0.6, 15.0] {
+            let fast = math(width, shaped(LineCap::Butt, LineJoin::Round));
+            let full = StrokeMath {
+                short_arc_tan: None,
+                ..fast.clone()
+            };
+            let (mut a, mut b) = (Vec::new(), Vec::new());
+            for i in 0..2000 {
+                let start = f64::from(i) * 0.0137 - 3.3;
+                let turn = (f64::from(i % 97) - 48.0) * fast.arc_step / 40.0;
+                let r = width.abs() * 0.5;
+                let u = (r * start.cos(), r * start.sin());
+                let v = (r * (start + turn).cos(), r * (start + turn).sin());
+                fast.calc_arc(&mut a, Point::new(1.5, -2.5), u, v);
+                full.calc_arc(&mut b, Point::new(1.5, -2.5), u, v);
+                assert_eq!(a, b, "width {width}, start {start}, turn {turn}");
+                a.clear();
+                b.clear();
+            }
+        }
     }
 
     #[test]

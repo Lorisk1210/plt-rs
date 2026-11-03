@@ -54,6 +54,9 @@ pub(crate) struct Clipper {
     x1: f64,
     y1: f64,
     f1: u32,
+    /// `(x1, y1)` in fixed point, when the last edge ended there unclipped
+    /// (the next edge starts from it).
+    fixed1: Option<(i32, i32)>,
 }
 
 impl Clipper {
@@ -86,28 +89,43 @@ impl Clipper {
     pub(crate) fn move_to(&mut self, x: f64, y: f64) {
         self.x1 = x;
         self.y1 = y;
+        self.fixed1 = None;
         if let Some(r) = &self.clip {
             self.f1 = flags(x, y, r);
         }
     }
 
+    /// Adds the unclipped edge from the current point to `(x2, y2)`,
+    /// converting each end to fixed point once for the edges it joins.
+    fn unclipped_line(&mut self, cells: &mut CellBuffer, x2: f64, y2: f64) {
+        let (fx1, fy1) = self
+            .fixed1
+            .unwrap_or_else(|| (to_fixed(self.x1), to_fixed(self.y1)));
+        let (fx2, fy2) = (to_fixed(x2), to_fixed(y2));
+        cells.line(fx1, fy1, fx2, fy2);
+        self.fixed1 = Some((fx2, fy2));
+    }
+
     pub(crate) fn line_to(&mut self, cells: &mut CellBuffer, x2: f64, y2: f64) {
         let Some(r) = self.clip else {
-            cells.line(
-                to_fixed(self.x1),
-                to_fixed(self.y1),
-                to_fixed(x2),
-                to_fixed(y2),
-            );
+            self.unclipped_line(cells, x2, y2);
             self.x1 = x2;
             self.y1 = y2;
             return;
         };
         let f2 = flags(x2, y2, &r);
+        if self.f1 | f2 == 0 {
+            // Both ends inside: what `clip_y` would draw unchanged.
+            self.unclipped_line(cells, x2, y2);
+            self.x1 = x2;
+            self.y1 = y2;
+            return;
+        }
         let (x1, y1, f1) = (self.x1, self.y1, self.f1);
         self.x1 = x2;
         self.y1 = y2;
         self.f1 = f2;
+        self.fixed1 = None;
         if (f1 & Y_FLAGS) == (f2 & Y_FLAGS) && (f1 & Y_FLAGS) != 0 {
             // Invisible by y.
             return;

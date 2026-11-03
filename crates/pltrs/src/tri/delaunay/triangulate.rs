@@ -14,8 +14,14 @@ use super::sets;
 
 impl Hull {
     /// Replaces every non-simplicial facet by triangles (qhull's
-    /// `qh_triangulate`).
+    /// `qh_triangulate`). Without merges every facet is simplicial, and
+    /// the facets need not be walked.
     pub(super) fn triangulate(&mut self) -> HullResult<()> {
+        if !self.merged {
+            self.visible_list = None;
+            self.num_visible = 0;
+            return Ok(());
+        }
         self.merges = Some(MergeSets::default());
         let mut first_triangulated = None;
         let mut cursor = Some(self.facet_list);

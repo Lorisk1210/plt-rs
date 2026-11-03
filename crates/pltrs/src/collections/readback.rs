@@ -143,6 +143,18 @@ impl Collection {
         })
     }
 
+    /// The `(rows, columns)` of the vertex grid of
+    /// [`mesh_coordinates`](Self::mesh_coordinates), without copying it;
+    /// `None` for other collections.
+    pub fn mesh_shape(&self) -> Option<(usize, usize)> {
+        self.raw().with::<CollectionArtist, _>(|c| {
+            c.mesh
+                .as_ref()
+                .map(|m| m.coordinates.shape())
+                .or_else(|| c.polygon_grid.as_ref().map(Grid::shape))
+        })
+    }
+
     /// The values mapped to colours of the cells of a quad mesh under
     /// display point `at`, in the figure's current layout (matplotlib's
     /// `QuadMesh.get_cursor_data`): `None` when no cell is hit, the mesh
@@ -230,6 +242,7 @@ mod tests {
             .unwrap();
         let grid = mesh.mesh_coordinates().expect("a mesh");
         assert_eq!(grid.shape(), (4, 4));
+        assert_eq!(mesh.mesh_shape(), Some((4, 4)));
         assert_eq!(grid[(1, 2)], Point::new(2.0, 1.0));
         let centre = fig
             .resolve_transform(&ax.trans_data())
@@ -243,5 +256,6 @@ mod tests {
             (lines.mesh_coordinates(), lines.cursor_data(centre)),
             (None, None)
         );
+        assert_eq!(lines.mesh_shape(), None);
     }
 }

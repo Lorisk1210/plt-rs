@@ -87,8 +87,14 @@ def is_attached(obj):
 
 def mirroring(obj):
     """The `Mirroring` of the part *obj* mirrors, or None."""
-    mirror = getattr(obj, "__dict__", {}).get("_mirror")
-    return _apart.get(id(obj)) if mirror is None else mirror
+    mirror = getattr(obj, "__dict__", _NO_ATTRIBUTES).get("_mirror")
+    if mirror is None and _apart:
+        return _apart.get(id(obj))
+    return mirror
+
+
+#: The attributes of an object without a ``__dict__``.
+_NO_ATTRIBUTES = {}
 
 
 def ask(obj, question, *args):

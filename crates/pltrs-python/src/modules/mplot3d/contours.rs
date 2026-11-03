@@ -52,7 +52,7 @@ fn contour(
     look: Look,
     extras: Extras,
 ) -> PyResult<ContourSet> {
-    let (x, y, z) = (grid(&x, "X")?, grid(&y, "Y")?, grid(&z, "Z")?);
+    let (x, y, z) = (grid(x, "X")?, grid(y, "Y")?, grid(z, "Z")?);
     let options = options(placement, requested, look, extras)?;
     Ok(if filled {
         axes.contourf(&x, &y, &z, options)?

@@ -3,7 +3,7 @@
 //! `memoryview`) or from nested sequences, and returned as numpy arrays.
 //!
 //! No numpy C API is involved. Reading goes through the buffer protocol;
-//! writing copies the data into a `bytearray` that `numpy.frombuffer`
+//! writing copies the data into a `bytearray` that `numpy.ndarray`
 //! views, so the array Python gets owns its data and is writable.
 
 use std::sync::OnceLock;
@@ -36,8 +36,9 @@ pub(crate) trait Element: Copy + 'static {
     fn from_scalar(value: Scalar) -> Option<Self>;
     /// A number given as a Python object (in a nested sequence).
     fn from_object(object: &Bound<'_>) -> PyResult<Self>;
-    /// Appends the value's little-endian bytes (numpy's layout here).
-    fn write_le(self, bytes: &mut Vec<u8>);
+    /// Writes the value's little-endian bytes (numpy's layout here) into
+    /// `out`, which holds exactly as many.
+    fn write_le(self, out: &mut [u8]);
     /// The value of its own little-endian bytes (`DTYPE`'s layout), as
     /// many as it takes.
     fn read_le(bytes: &[u8]) -> Self;
@@ -59,8 +60,8 @@ impl Element for f64 {
         object.extract()
     }
 
-    fn write_le(self, bytes: &mut Vec<u8>) {
-        bytes.extend_from_slice(&self.to_le_bytes());
+    fn write_le(self, out: &mut [u8]) {
+        out.copy_from_slice(&self.to_le_bytes());
     }
 
     fn read_le(bytes: &[u8]) -> Self {
@@ -84,8 +85,8 @@ impl Element for i64 {
         object.extract()
     }
 
-    fn write_le(self, bytes: &mut Vec<u8>) {
-        bytes.extend_from_slice(&self.to_le_bytes());
+    fn write_le(self, out: &mut [u8]) {
+        out.copy_from_slice(&self.to_le_bytes());
     }
 
     fn read_le(bytes: &[u8]) -> Self {
@@ -109,8 +110,8 @@ impl Element for u8 {
         object.extract()
     }
 
-    fn write_le(self, bytes: &mut Vec<u8>) {
-        bytes.push(self);
+    fn write_le(self, out: &mut [u8]) {
+        out[0] = self;
     }
 
     fn read_le(bytes: &[u8]) -> Self {
@@ -134,8 +135,8 @@ impl Element for bool {
         object.extract()
     }
 
-    fn write_le(self, bytes: &mut Vec<u8>) {
-        bytes.push(u8::from(self));
+    fn write_le(self, out: &mut [u8]) {
+        out[0] = u8::from(self);
     }
 
     fn read_le(bytes: &[u8]) -> Self {
@@ -197,43 +198,55 @@ impl<'py, T: Element> FromPy<'py> for NdArray<T> {
 }
 
 impl<T: Element> IntoPy for NdArray<T> {
-    /// A numpy array owning a copy of the numbers.
+    /// A numpy array owning a copy of the numbers: they are written once,
+    /// into a new `bytearray`, which `numpy.ndarray` views in their shape.
     fn into_py(self, py: Python<'_>) -> PyResult<Bound<'_>> {
-        let mut bytes = Vec::with_capacity(self.data.len() * std::mem::size_of::<T>());
-        for value in self.data {
-            value.write_le(&mut bytes);
-        }
-        let length = ffi::Py_ssize_t::try_from(bytes.len())
-            .map_err(|_| PyErr::value_error("array too large"))?;
-        // SAFETY: the GIL is held; `length` bytes at the pointer are
-        // copied into a new `bytearray`.
+        let item = std::mem::size_of::<T>();
+        let length = self
+            .data
+            .len()
+            .checked_mul(item)
+            .and_then(|bytes| ffi::Py_ssize_t::try_from(bytes).ok())
+            .ok_or_else(|| PyErr::value_error("array too large"))?;
+        // SAFETY: the GIL is held; without a source, `bytearray` allocates
+        // `length` bytes and leaves them to be written; a new reference.
         let storage = unsafe {
             Bound::from_owned_ptr(
                 py,
-                ffi::PyByteArray_FromStringAndSize(bytes.as_ptr().cast(), length),
+                ffi::PyByteArray_FromStringAndSize(std::ptr::null(), length),
             )
         }?;
-        let flat = numpy_frombuffer(py)?.call(&[storage, T::DTYPE.into_py(py)?], &[])?;
+        // SAFETY: the bytearray was just made with `length` bytes (its
+        // buffer is never null) and nothing else refers to it yet.
+        let bytes = unsafe {
+            std::slice::from_raw_parts_mut(
+                ffi::PyByteArray_AsString(storage.as_ptr()).cast::<u8>(),
+                self.data.len() * item,
+            )
+        };
+        for (out, value) in bytes.chunks_exact_mut(item).zip(self.data) {
+            value.write_le(out);
+        }
         let shape = self
             .shape
             .into_iter()
             .map(|extent| extent.into_py(py))
             .collect::<PyResult<Vec<_>>>()?;
-        flat.call_method("reshape", &[tuple(py, shape)?])
+        numpy_ndarray(py)?.call(&[tuple(py, shape)?, T::DTYPE.into_py(py)?, storage], &[])
     }
 }
 
-/// `numpy.frombuffer`, imported once.
-fn numpy_frombuffer(py: Python<'_>) -> PyResult<Bound<'_>> {
-    static FROMBUFFER: OnceLock<Owned> = OnceLock::new();
-    if let Some(function) = FROMBUFFER.get() {
-        return Ok(function.bind(py));
+/// `numpy.ndarray`, imported once.
+fn numpy_ndarray(py: Python<'_>) -> PyResult<Bound<'_>> {
+    static NDARRAY: OnceLock<Owned> = OnceLock::new();
+    if let Some(class) = NDARRAY.get() {
+        return Ok(class.bind(py));
     }
     // SAFETY: the GIL is held; a NUL-terminated name; a new reference.
     let numpy =
         unsafe { Bound::from_owned_ptr(py, ffi::PyImport_ImportModule(c"numpy".as_ptr())) }?;
-    let function = numpy.getattr("frombuffer")?;
-    Ok(FROMBUFFER.get_or_init(|| function.unbind()).bind(py))
+    let class = numpy.getattr("ndarray")?;
+    Ok(NDARRAY.get_or_init(|| class.unbind()).bind(py))
 }
 
 /// How the items of a buffer are stored.
@@ -362,21 +375,21 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
     }
     let raw = &view.view;
     // SAFETY: a filled view has a NUL-terminated format (requested with
-    // `PyBUF_FORMAT`) and `ndim` entries in `shape` and `strides`.
+    // `PyBUF_FORMAT`) and `ndim` entries in `shape` and `strides`, all
+    // valid (and borrowed here) until the view is released, when this
+    // function returns.
     let (format, shape, strides) = unsafe {
-        let format = std::ffi::CStr::from_ptr(raw.format)
-            .to_string_lossy()
-            .into_owned();
+        let format = std::ffi::CStr::from_ptr(raw.format).to_string_lossy();
         let ndim = usize::try_from(raw.ndim).unwrap_or_default();
-        let (shape, strides) = if ndim == 0 {
-            (&[][..], &[][..])
+        if ndim == 0 {
+            (format, &[][..], &[][..])
         } else {
             (
+                format,
                 std::slice::from_raw_parts(raw.shape, ndim),
                 std::slice::from_raw_parts(raw.strides, ndim),
             )
-        };
-        (format, shape.to_vec(), strides.to_vec())
+        }
     };
     let size = usize::try_from(raw.itemsize).unwrap_or_default();
     let layout = Layout::parse(&format, size).ok_or_else(|| {
@@ -395,7 +408,7 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
             PyErr::value_error(format!("{scalar:?} does not fit an array of {}", T::DTYPE))
         })
     };
-    if is_row_major(&shape, &strides, size) {
+    if is_row_major(&shape, strides, size) {
         // SAFETY: a row-major buffer holds its `count` items of `size`
         // bytes one after another from `buf`, valid until the view is
         // released (when this function returns).
@@ -415,7 +428,7 @@ fn read_buffer<T: Element>(object: &Bound<'_>) -> PyResult<Option<NdArray<T>>> {
     for _ in 0..count {
         let offset: isize = index
             .iter()
-            .zip(&strides)
+            .zip(strides)
             .map(|(&i, &stride)| i as isize * stride)
             .sum();
         // SAFETY: the exporter guarantees an item of `size` bytes at

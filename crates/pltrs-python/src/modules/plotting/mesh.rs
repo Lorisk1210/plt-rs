@@ -21,9 +21,9 @@ fn mesh_error(err: ImageError) -> PyErr {
 }
 
 /// A 2-D float array as a grid.
-fn grid(array: &NdArray) -> PyResult<Grid<f64>> {
+fn grid(array: NdArray) -> PyResult<Grid<f64>> {
     match array.shape[..] {
-        [rows, cols] => Grid::from_vec(rows, cols, array.data.clone())
+        [rows, cols] => Grid::from_vec(rows, cols, array.data)
             .map_err(|err| PyErr::value_error(err.to_string())),
         _ => Err(PyErr::type_error(format!(
             "Dimensions of C must be 2D, not {}D",
@@ -35,7 +35,7 @@ fn grid(array: &NdArray) -> PyResult<Grid<f64>> {
 /// Coordinates: a 1-D array of positions, or a 2-D grid of them.
 fn coords(array: NdArray) -> PyResult<MeshCoords> {
     Ok(if array.shape.len() == 2 {
-        MeshCoords::Grid(grid(&array)?)
+        MeshCoords::Grid(grid(array)?)
     } else {
         MeshCoords::Vector(array.into_vec()?)
     })
@@ -63,7 +63,7 @@ pub(super) fn pcolor(
     (shading, transform): (Option<String>, Option<Transform>),
     mapping: Mapping,
 ) -> PyResult<Collection> {
-    let values = MeshValues::Scalar(ScalarField::new(grid(&values)?));
+    let values = MeshValues::Scalar(ScalarField::new(grid(values)?));
     let mesh = match (x, y) {
         (Some(x), Some(y)) => Mesh::from_coords(coords(x)?, coords(y)?, values),
         _ => Mesh::new(values),

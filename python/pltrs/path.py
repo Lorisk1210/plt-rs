@@ -15,7 +15,7 @@ extents and the unit shapes.
 """
 
 import copy
-from functools import lru_cache
+from functools import cache, lru_cache
 from weakref import WeakValueDictionary
 
 import numpy as np
@@ -26,6 +26,7 @@ from .cbook import _to_unmasked_float_array
 from .bezier import BezierSegment
 
 
+@cache
 def _rcParams():
     """The current rcParams (the package's, imported once it exists)."""
     from . import rcParams

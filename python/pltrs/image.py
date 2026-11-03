@@ -16,11 +16,10 @@ import functools
 import logging
 import os
 from pathlib import Path
+import sys
 import weakref
 
 import numpy as np
-import PIL.Image
-import PIL.PngImagePlugin
 
 from . import _api, _image, _values, cbook, colorizer as mcolorizer, colors as mcolors
 # For user convenience, the names from _image are also imported into
@@ -303,7 +302,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
         ----------
         A : array-like or `PIL.Image.Image`
         """
-        if isinstance(A, PIL.Image.Image):
+        if _is_pil_image(A):
             A = pil_to_array(A)  # Needed e.g. to apply png palette.
         self._A = self._normalize_image_array(A)
         _native_image.set_data(self._native, _native_data(self._A))
@@ -432,6 +431,7 @@ class _ImageBase(mcolorizer.ColorizingArtist):
 
     def write_png(self, fname):
         """Write the image to png file *fname*."""
+        import PIL.Image
         im = self.to_rgba(self._A[::-1] if self.origin == 'lower' else self._A,
                           bytes=True, norm=True)
         PIL.Image.fromarray(im).save(fname, format="png")
@@ -655,6 +655,8 @@ def imread(fname, format=None):
             ext = 'png'
     else:
         ext = format
+    import PIL.Image
+    import PIL.PngImagePlugin
     img_open = (
         PIL.PngImagePlugin.PngImageFile if ext == 'png' else PIL.Image.open)
     if isinstance(fname, str) and len(parse.urlparse(fname).scheme) > 1:
@@ -784,6 +786,8 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
     else:
         # we modify this below, so make a copy (don't modify caller's dict)
         pil_kwargs = pil_kwargs.copy()
+    import PIL.Image
+    import PIL.PngImagePlugin
     pil_shape = (rgba.shape[1], rgba.shape[0])
     rgba = np.require(rgba, requirements='C')
     image = PIL.Image.frombuffer(
@@ -820,6 +824,13 @@ def imsave(fname, arr, vmin=None, vmax=None, cmap=None, format=None,
     pil_kwargs.setdefault("format", format)
     pil_kwargs.setdefault("dpi", (dpi, dpi))
     image.save(fname, **pil_kwargs)
+
+
+def _is_pil_image(obj):
+    """Whether *obj* is a `PIL.Image.Image`: Pillow is imported on first
+    use, and an image can only exist once it is."""
+    module = sys.modules.get("PIL.Image")
+    return module is not None and isinstance(obj, module.Image)
 
 
 def pil_to_array(pilImage):

@@ -6,7 +6,7 @@ pub(crate) mod image;
 pub(crate) mod marker;
 
 use crate::clip::ClipBox;
-use crate::color::{Rgba8, blend_pixel, blend_run, combine_mask};
+use crate::color::{Rgba8, blend_covered, blend_pixel, blend_run, combine_mask};
 use crate::error::RasterError;
 use crate::mask::Mask;
 use crate::pixmap::Pixmap;
@@ -156,11 +156,7 @@ impl<'a> Surface<'a> {
         let pixels = &mut self.pixels.as_chunks_mut::<4>().0[first..first + span.len()];
         match span.covers {
             Covers::Solid { cover, .. } => blend_run(pixels, color, cover),
-            Covers::Varying(covers) => {
-                for (px, &cover) in pixels.iter_mut().zip(covers) {
-                    blend_pixel(px, color, cover);
-                }
-            }
+            Covers::Varying(covers) => blend_covered(pixels, covers, color),
         }
     }
 

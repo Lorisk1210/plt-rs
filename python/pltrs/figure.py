@@ -94,9 +94,14 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
     def get_axes(self):
         """List of Axes in the Figure."""
         from ._native import mplot3d as _mplot3d
-        from .mpl_toolkits.mplot3d import Axes3D
-        return [_handles.wrap(native, Axes3D if is_3d else Axes, self.figure)
-                for native, is_3d in _mplot3d.figure_axes(self._native)]
+        listed = _mplot3d.figure_axes(self._native)
+        # The 3D class (its toolkit imported) only for a figure with 3D axes.
+        axes3d = None
+        if any(is_3d for _, is_3d in listed):
+            from .projections import get_projection_class
+            axes3d = get_projection_class("3d")
+        return [_handles.wrap(native, axes3d if is_3d else Axes, self.figure)
+                for native, is_3d in listed]
 
     axes = property(get_axes, doc="List of Axes in the Figure.")
 

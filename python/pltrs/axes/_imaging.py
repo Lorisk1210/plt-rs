@@ -7,7 +7,6 @@ does (from matplotlib 3.11.2, under the Matplotlib License); pltrs (Rust)
 makes the image (``_native.image``).
 """
 
-import PIL.Image
 
 from .. import (_api, _handles, _live_transforms, _values, cbook,
                colorizer as mcolorizer)
@@ -47,7 +46,7 @@ class ImagingMixin:
         data : indexable object, optional
             DATA_PARAMETER_PLACEHOLDER
         """
-        if isinstance(X, PIL.Image.Image):
+        if mimage._is_pil_image(X):
             X = mimage.pil_to_array(X)  # Needed e.g. to apply png palette.
         A = mimage._ImageBase._normalize_image_array(X)
         mcolorizer._ScalarMappable._check_exclusionary_keywords(

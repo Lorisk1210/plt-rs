@@ -240,9 +240,10 @@ impl Hull {
             return;
         }
         let (dist, span) = if by_centrum {
-            let center = self
+            let center = *self
                 .facet(facet)
                 .center
+                .as_deref()
                 .expect("centrum computed for the test");
             let dist = self.dist(&center, neighbor) * 3.0;
             if dist < 0.0 {

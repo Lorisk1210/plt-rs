@@ -279,6 +279,12 @@ fn get_coordinates(collection: Collection) -> PyResult<Option<NdArray>> {
         .transpose()
 }
 
+/// The `(rows, columns)` of a mesh's vertex grid, without copying it
+/// (`get_coordinates().shape[:2]`); `None` for other collections.
+fn get_mesh_shape(collection: Collection) -> PyResult<Option<(usize, usize)>> {
+    Ok(collection.mesh_shape())
+}
+
 /// How the cells of a mesh are coloured, `"flat"` or `"gouraud"`; `None`
 /// for other collections.
 fn get_mesh_shading(collection: Collection) -> PyResult<Option<&'static str>> {
@@ -562,6 +568,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("set_offset_transform", set_offset_transform)?;
     module.add("set_fill_between_data", set_fill_between_data)?;
     module.add("get_coordinates", get_coordinates)?;
+    module.add("get_mesh_shape", get_mesh_shape)?;
     module.add("get_mesh_shading", get_mesh_shading)?;
     module.add("get_offsets", get_offsets)?;
     module.add("set_offsets", set_offsets)?;

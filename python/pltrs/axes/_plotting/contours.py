@@ -7,7 +7,7 @@ import numpy as np
 from ... import (_api, _live_transforms, _tick_helpers, collections as mcoll,
                  colors as mcolors)
 from ... import contour as mcontour
-from ..._native import contour as _contour
+from ..._native import contour as _contour, tri as _tri
 from ..._preprocess import _preprocess_data
 from .scatter import _mapping
 
@@ -157,7 +157,8 @@ class ContoursMixin:
             if z.shape != tri.x.shape:
                 raise ValueError('z array must have same length as triangulation x'
                                  ' and y arrays')
-            z_check = z[np.unique(tri.get_masked_triangles())]
+            # np.unique(tri.get_masked_triangles()), found natively.
+            z_check = z[_tri.used_points(tri._native)]
             if np.ma.is_masked(z_check):
                 raise ValueError('z must not contain masked points within the '
                                  'triangulation')

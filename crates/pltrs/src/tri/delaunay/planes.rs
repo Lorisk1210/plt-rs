@@ -94,11 +94,11 @@ impl Hull {
 
     /// The cached centrum of `f`, computed on first use.
     pub(super) fn cached_centrum(&mut self, f: FacetId) -> Vec3 {
-        if let Some(center) = self.facet(f).center {
-            return center;
+        if let Some(center) = self.facet(f).center.as_deref() {
+            return *center;
         }
         let center = self.centrum(f);
-        self.facet_mut(f).center = Some(center);
+        self.facet_mut(f).center = Some(Box::new(center));
         center
     }
 

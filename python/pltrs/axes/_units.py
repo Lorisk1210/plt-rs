@@ -6,12 +6,21 @@ converter) into the numbers of the axes' axes here, so that pltrs (Rust)
 only sees numbers.
 """
 
+import functools
+
 import numpy as np
 
 from .. import cbook
 # Register the category and date unit converters as a side effect, as
 # matplotlib's axes module does.
 from .. import category, dates  # noqa: F401
+
+
+@functools.cache
+def _axis_class():
+    """`.Axis`, imported on first use."""
+    from ..axis import Axis
+    return Axis
 
 
 class UnitsMixin:
@@ -24,8 +33,8 @@ class UnitsMixin:
         an axis that takes no units (those of 3-D axes, whose values pass
         as they are).
         """
-        from ..axis import Axis
-        return {name: (axis if isinstance(axis, Axis) and not axis._native_units
+        axis_class = _axis_class()
+        return {name: (axis if isinstance(axis, axis_class) and not axis._native_units
                        else None)
                 for name in self._axis_names
                 for axis in [getattr(self, f"{name}axis")]}

@@ -153,6 +153,11 @@ _STYLE_BLACKLIST = {
 }
 
 
+#: The types of parameter values the current `RcParams` reuses until the
+#: parameters change (a program may change a list or dict it was given).
+_IMMUTABLE_VALUES = frozenset([bool, int, float, str, type(None)])
+
+
 class RcParams(MutableMapping, dict):
     """
     A dict-like key-value store for config parameters, including validation.
@@ -185,6 +190,9 @@ class RcParams(MutableMapping, dict):
         params._keys = None
         params._python = dict(_PYTHON_PARAMS)
         params._given = {}
+        # Immutable values read, by key, with the generation of the
+        # parameters they were read from (`_rcsetup.generation`).
+        params._read = {}
         return params
 
     def _has(self, key):
@@ -236,6 +244,20 @@ class RcParams(MutableMapping, dict):
 
     def _get(self, key):
         """Get *key* without the deprecation checks (matplotlib's ``_get``)."""
+        if self._store is not None or key in _PYTHON_PARAMS:
+            return self._get_uncached(key)
+        # The current parameters: a value read before holds until they change.
+        generation = _rcsetup.generation()
+        read = self._read.get(key)
+        if read is not None and read[0] == generation:
+            return read[1]
+        value = self._get_uncached(key)
+        if type(value) in _IMMUTABLE_VALUES:
+            self._read[key] = (generation, value)
+        return value
+
+    def _get_uncached(self, key):
+        """*key*'s value, read from pltrs (Rust) and validated."""
         if not self._has(key):
             raise KeyError(
                 f"{key} is not a valid rc parameter (see rcParams.keys() for "

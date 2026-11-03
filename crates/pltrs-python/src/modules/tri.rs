@@ -125,6 +125,19 @@ fn masked_triangles(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
     triangles_array(&unmasked)
 }
 
+/// The points that are corners of unmasked triangles, in increasing order
+/// (`np.unique(get_masked_triangles())`).
+fn used_points(tri: Native<Triangulation>) -> PyResult<NdArray<i64>> {
+    let tri = tri.borrow();
+    let indices = tri.used_point_indices();
+    Ok(NdArray::from_vec(
+        indices
+            .into_iter()
+            .map(|i| i64::try_from(i).unwrap_or(i64::MAX))
+            .collect(),
+    ))
+}
+
 /// The mask, `None` when unset.
 fn mask(tri: Native<Triangulation>) -> PyResult<Option<Vec<bool>>> {
     let tri = tri.borrow();
@@ -387,6 +400,7 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("points", points)?;
     module.add("triangles", triangles)?;
     module.add("masked_triangles", masked_triangles)?;
+    module.add("used_points", used_points)?;
     module.add("mask", mask)?;
     module.add("set_mask", set_mask)?;
     module.add("edges", edges)?;

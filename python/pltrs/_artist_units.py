@@ -5,6 +5,16 @@ Unit conversion through an artist's axes (matplotlib's
 categories, the quantities of a registered converter) converts them with.
 """
 
+import numpy as np
+
+
+def _plain_numbers(values):
+    """Whether *values* is a non-empty 1-D numpy array of numbers, which
+    `.units._is_natively_supported` accepts (its items are `~numbers.Number`
+    instances), told without iterating it."""
+    return (type(values) is np.ndarray and values.ndim == 1
+            and values.dtype.kind in "iufc" and len(values) > 0)
+
 
 class UnitsMixin:
     """The unit methods of `.Artist`."""
@@ -44,6 +54,9 @@ class UnitsMixin:
     def _convert_units(self, name, values):
         """*values* converted by the axis *name* of the artist's axes, if
         that axis converts units."""
+        if _plain_numbers(values):
+            # What every axis returns as it is (`.Axis.convert_units`).
+            return values
         ax = getattr(self, 'axes', None)
         axis = None if ax is None else ax._axis_map.get(name)
         return values if axis is None else axis.convert_units(values)

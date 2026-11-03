@@ -56,8 +56,6 @@ from numbers import Real
 import re
 import weakref
 
-from PIL import Image
-from PIL.PngImagePlugin import PngInfo
 
 import numpy as np
 from . import _api, cbook, scale
@@ -1027,6 +1025,8 @@ class Colormap:
         title = self.name + ' colormap'
         from . import __version__
         author = f'Matplotlib v{__version__}, https://matplotlib.org'
+        from PIL import Image
+        from PIL.PngImagePlugin import PngInfo
         pnginfo = PngInfo()
         pnginfo.add_text('Title', title)
         pnginfo.add_text('Description', title)
@@ -1663,6 +1663,8 @@ class MultivarColormap:
         png_bytes = io.BytesIO()
         title = self.name + ' multivariate colormap'
         author = f'Matplotlib v{_mpl().__version__}, https://matplotlib.org'
+        from PIL import Image
+        from PIL.PngImagePlugin import PngInfo
         pnginfo = PngInfo()
         pnginfo.add_text('Title', title)
         pnginfo.add_text('Description', title)
@@ -2134,6 +2136,8 @@ class BivarColormap:
         png_bytes = io.BytesIO()
         title = self.name + ' BivarColormap'
         author = f'Matplotlib v{_mpl().__version__}, https://matplotlib.org'
+        from PIL import Image
+        from PIL.PngImagePlugin import PngInfo
         pnginfo = PngInfo()
         pnginfo.add_text('Title', title)
         pnginfo.add_text('Description', title)

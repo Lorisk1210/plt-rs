@@ -56,6 +56,8 @@ pub(crate) struct CellBuffer {
     sorted: Vec<Cell>,
     /// `row_start[i]..row_start[i + 1]` indexes `sorted` for row `min_y + i`.
     row_start: Vec<usize>,
+    /// The next free slot of each row while sorting (kept for reuse).
+    row_fill: Vec<usize>,
     curr: Cell,
     min_x: i32,
     min_y: i32,
@@ -80,6 +82,7 @@ impl CellBuffer {
             cells: Vec::new(),
             sorted: Vec::new(),
             row_start: Vec::new(),
+            row_fill: Vec::new(),
             curr: Cell::INITIAL,
             min_x: i32::MAX,
             min_y: i32::MAX,
@@ -449,9 +452,10 @@ impl CellBuffer {
 
         self.sorted.clear();
         self.sorted.resize(self.cells.len(), Cell::INITIAL);
-        let mut next: Vec<usize> = self.row_start[..rows].to_vec();
+        self.row_fill.clear();
+        self.row_fill.extend_from_slice(&self.row_start[..rows]);
         for cell in &self.cells {
-            let slot = &mut next[(cell.y - self.min_y) as usize];
+            let slot = &mut self.row_fill[(cell.y - self.min_y) as usize];
             self.sorted[*slot] = *cell;
             *slot += 1;
         }

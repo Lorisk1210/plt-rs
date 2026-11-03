@@ -189,7 +189,8 @@ class Collection(mcolorizer.ColorizingArtist):
     def _native_array(self):
         """The values pltrs (Rust) maps, masked where invalid, or None."""
         array = _collections.get_array(self._native)
-        return None if array is None else np.ma.masked_invalid(array)
+        # The array is a fresh copy: masking it in place spares another.
+        return None if array is None else np.ma.masked_invalid(array, copy=False)
 
     def _attach_native_mapping(self, cmap=None, norm=None, colorizer=None):
         """
@@ -1462,7 +1463,7 @@ class _MeshData:
 
     def _cells(self):
         """The ``(rows, columns)`` of values the mesh maps."""
-        height, width = self.get_coordinates().shape[0:-1]
+        height, width = _collections.get_mesh_shape(self._native)
         if self._shading == 'flat':
             return height - 1, width - 1
         return height, width

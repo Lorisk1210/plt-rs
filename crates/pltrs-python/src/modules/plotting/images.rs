@@ -17,9 +17,9 @@ use crate::binding::prelude::*;
 artist_handle!(PcolorImage);
 
 /// A 2-D float array as a grid.
-fn grid(array: &NdArray) -> PyResult<Grid<f64>> {
+fn grid(array: NdArray) -> PyResult<Grid<f64>> {
     match array.shape[..] {
-        [rows, cols] => Grid::from_vec(rows, cols, array.data.clone())
+        [rows, cols] => Grid::from_vec(rows, cols, array.data)
             .map_err(|err| PyErr::value_error(err.to_string())),
         _ => Err(PyErr::value_error(format!(
             "expected a 2-D array, got shape {:?}",
@@ -31,7 +31,7 @@ fn grid(array: &NdArray) -> PyResult<Grid<f64>> {
 /// Mesh coordinates: one per column or row (1-D), or one per grid point.
 fn coords(array: NdArray) -> PyResult<MeshCoords> {
     Ok(if array.shape.len() == 2 {
-        MeshCoords::Grid(grid(&array)?)
+        MeshCoords::Grid(grid(array)?)
     } else {
         MeshCoords::Vector(array.into_vec()?)
     })
@@ -104,7 +104,7 @@ pub(super) fn spy(
         colorizer: colorizer(mapping),
         line: line.0,
     };
-    Ok(match axes.spy(&grid(&z)?, options)? {
+    Ok(match axes.spy(&grid(z)?, options)? {
         Spy::Image(image) => (Some(image), None),
         Spy::Markers(line) => (None, Some(line)),
     })

@@ -32,10 +32,11 @@ mod table;
 mod validate;
 mod value;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use keywords::UnknownName;
 pub(crate) use keywords::keyword_names;
@@ -153,11 +154,42 @@ impl std::error::Error for RcError {
 pltrs_core::thread_state! {
     /// The current parameters (matplotlib's `rcParams`).
     static CURRENT: RefCell<Rc<RcParams>> = RefCell::new(Rc::new(RcParams::startup()));
+    /// The [`generation`] of the current parameters.
+    static GENERATION: Cell<u64> = Cell::new(next_generation());
+}
+
+/// The last generation handed out, on any thread.
+static GENERATIONS: AtomicU64 = AtomicU64::new(0);
+
+/// A generation no parameters had before.
+fn next_generation() -> u64 {
+    GENERATIONS.fetch_add(1, Ordering::Relaxed) + 1
+}
+
+/// Makes `params` this thread's current parameters, in a new generation.
+fn make_current(params: Rc<RcParams>) -> Rc<RcParams> {
+    GENERATION.set(next_generation());
+    CURRENT.with(|current| current.replace(params))
 }
 
 /// The current parameters (a cheap shared snapshot).
 pub fn params() -> Rc<RcParams> {
     CURRENT.with(|current| Rc::clone(&current.borrow()))
+}
+
+/// A number for the current parameters of this thread, which changes
+/// whenever they do and is never given to other parameters, on any thread:
+/// what was read from parameters of the same generation still holds.
+///
+/// ```
+/// use pltrs::rc;
+/// let before = rc::generation();
+/// assert_eq!(rc::generation(), before);
+/// rc::context(|| rc::set("lines.linewidth", "3").unwrap());
+/// assert_ne!(rc::generation(), before);
+/// ```
+pub fn generation() -> u64 {
+    GENERATION.get()
 }
 
 /// Sets one parameter from its rc-file text.
@@ -179,7 +211,7 @@ pub fn update(f: impl FnOnce(&mut RcParams)) {
 
 /// Replaces the current parameters, returning the previous ones.
 pub fn replace(params: RcParams) -> Rc<RcParams> {
-    CURRENT.with(|current| current.replace(Rc::new(params)))
+    make_current(Rc::new(params))
 }
 
 /// Restores matplotlib's defaults (matplotlib's `rcdefaults()`).
@@ -201,7 +233,7 @@ pub fn context<R>(f: impl FnOnce() -> R) -> R {
     impl Drop for Restore {
         fn drop(&mut self) {
             if let Some(saved) = self.0.take() {
-                CURRENT.with(|current| current.replace(saved));
+                make_current(saved);
             }
         }
     }

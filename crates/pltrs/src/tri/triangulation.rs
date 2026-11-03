@@ -1,9 +1,10 @@
 //! The [`Triangulation`]: points, triangles, mask and derived topology.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use pltrs_core::{Path, Point};
 
+use super::edge_map::EdgeMap;
 use super::{TriError, TriFinder, delaunay};
 
 /// An unstructured triangular grid (matplotlib's `Triangulation`).
@@ -241,6 +242,22 @@ impl Triangulation {
         used
     }
 
+    /// The points that are corners of unmasked triangles, in increasing
+    /// order (what matplotlib's `np.unique(get_masked_triangles())` finds).
+    ///
+    /// ```
+    /// use pltrs::tri::Triangulation;
+    /// let (x, y) = ([0.0, 1.0, 0.0, 1.0, 5.0], [0.0, 0.0, 1.0, 1.0, 5.0]);
+    /// let tri = Triangulation::new(&x, &y, vec![[0, 1, 2], [1, 3, 2]])?
+    ///     .with_mask(Some(vec![false, true]))?;
+    /// assert_eq!(tri.used_point_indices(), [0, 1, 2]);
+    /// # Ok::<(), pltrs::tri::TriError>(())
+    /// ```
+    pub fn used_point_indices(&self) -> Vec<usize> {
+        let used = self.used_points();
+        (0..used.len()).filter(|&i| used[i]).collect()
+    }
+
     /// The x and y coordinates of the points `used` marks (see
     /// [`used_points`](Self::used_points)), in order.
     pub(crate) fn coordinates_of(&self, used: &[bool]) -> (Vec<f64>, Vec<f64>) {
@@ -380,7 +397,7 @@ impl Triangulation {
     /// point can be its own neighbour, as in matplotlib.
     fn compute_neighbors(&self) -> Vec<[Option<usize>; 3]> {
         let mut neighbors = vec![[None; 3]; self.triangles.len()];
-        let mut open: HashMap<(usize, usize), TriEdge> = HashMap::new();
+        let mut open = EdgeMap::<TriEdge>::default();
         for t in self.unmasked() {
             let v = self.triangles[t];
             for e in 0..3 {

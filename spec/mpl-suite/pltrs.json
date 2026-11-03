@@ -1,6 +1,6 @@
 {
   "matplotlib": "3.11.2",
-  "counts": {"passed": 9430, "failed": 1, "error": 0, "skipped": 1037, "xfailed": 28, "xpassed": 0},
+  "counts": {"passed": 9430, "failed": 1, "error": 0, "skipped": 1038, "xfailed": 28, "xpassed": 0},
   "collection_errors": {},
   "outcomes": {
     "matplotlib/tests/test__style_helpers.py::test_style_generator_list[edgecolor-value1]": "passed",
@@ -3027,6 +3027,7 @@
     "matplotlib/tests/test_ft2font.py::test_ft2font_valid_args": "passed",
     "matplotlib/tests/test_ft2font.py::test_ft2image_draw_rect_filled": "passed",
     "matplotlib/tests/test_getattr.py::test_backend_getattr[matplotlib.backends.backend_agg]": "passed",
+    "matplotlib/tests/test_getattr.py::test_backend_getattr[matplotlib.backends.backend_cairo]": "skipped",
     "matplotlib/tests/test_getattr.py::test_backend_getattr[matplotlib.backends.backend_gtk3]": "skipped",
     "matplotlib/tests/test_getattr.py::test_backend_getattr[matplotlib.backends.backend_gtk3agg]": "skipped",
     "matplotlib/tests/test_getattr.py::test_backend_getattr[matplotlib.backends.backend_gtk3cairo]": "skipped",

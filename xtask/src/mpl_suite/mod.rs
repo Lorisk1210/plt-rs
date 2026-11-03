@@ -219,8 +219,8 @@ fn pytest(
     let stderr = log
         .try_clone()
         .map_err(|err| format!("{}: {err}", log_path.display()))?;
-    let python_path = env::join_paths([site.to_path_buf(), root.join("python/mpl_suite")])
-        .map_err(|err| err.to_string())?;
+    let python_path =
+        crate::python::python_path([site.to_path_buf(), root.join("python/mpl_suite")])?;
     println!(
         "running matplotlib's suite with {} (log: {})",
         python.display(),

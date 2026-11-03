@@ -122,9 +122,30 @@ fn smoke_test() -> Result<(), String> {
         .args([OsStr::new("-m"), OsStr::new("pytest"), OsStr::new("-q")])
         .arg(basetemp(&scratch.join("pytest-tmp")))
         .arg(root.join("python/tests"))
-        .env("PYTHONPATH", root.join("python"))
+        .env("PYTHONPATH", python_path([root.join("python")])?)
         .current_dir(&scratch);
     run_checked(&mut command)
+}
+
+/// A `PYTHONPATH` of `dirs` followed by the inherited one, so that what
+/// the environment adds (the GUI toolkits of `python/tools/toolkits.sh`)
+/// stays importable behind them.
+pub(crate) fn python_path<I>(dirs: I) -> Result<OsString, String>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    joined_python_path(dirs, &env::var_os("PYTHONPATH").unwrap_or_default())
+}
+
+/// `dirs` followed by the entries of the path list `inherited`, but its
+/// empty ones (which would name the working directory).
+fn joined_python_path<I>(dirs: I, inherited: &OsStr) -> Result<OsString, String>
+where
+    I: IntoIterator<Item = PathBuf>,
+{
+    let inherited = env::split_paths(inherited).filter(|dir| !dir.as_os_str().is_empty());
+    env::join_paths(dirs.into_iter().chain(inherited))
+        .map_err(|err| format!("cannot set PYTHONPATH: {err}"))
 }
 
 /// pytest's option putting its temporary directories (`tmp_path`) in
@@ -142,5 +163,35 @@ pub(crate) fn run_checked(command: &mut Command) -> Result<(), String> {
         Ok(status) if status.success() => Ok(()),
         Ok(status) => Err(format!("{program} failed ({status})")),
         Err(err) => Err(format!("cannot run {program}: {err}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The entries of the path list `list`.
+    fn entries(list: &OsStr) -> Vec<PathBuf> {
+        env::split_paths(list).collect()
+    }
+
+    #[test]
+    fn python_paths_put_the_inherited_entries_last() {
+        let inherited = env::join_paths(["/toolkits/site", "/other"]).expect("joinable");
+        let path = joined_python_path([PathBuf::from("/site")], &inherited).expect("joinable");
+        assert_eq!(
+            entries(&path),
+            ["/site", "/toolkits/site", "/other"].map(PathBuf::from)
+        );
+    }
+
+    #[test]
+    fn python_paths_leave_out_empty_inherited_entries() {
+        let path = joined_python_path([PathBuf::from("/site")], OsStr::new("")).expect("joinable");
+        assert_eq!(entries(&path), [PathBuf::from("/site")]);
+        let separator = if cfg!(windows) { ";" } else { ":" };
+        let inherited = OsString::from(format!("{separator}/kit{separator}"));
+        let path = joined_python_path([PathBuf::from("/site")], &inherited).expect("joinable");
+        assert_eq!(entries(&path), ["/site", "/kit"].map(PathBuf::from));
     }
 }

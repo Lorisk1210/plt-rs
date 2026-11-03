@@ -64,6 +64,7 @@ python/
   backend/pltrs_backend/        the PEP 517 build backend (standard library only)
   alias/                        the `matplotlib` distribution: matplotlib's names for pltrs
   ecosystem/                    `cargo xtask ecosystem`: pandas and seaborn on pltrs
+  tools/toolkits.sh             GTK 3 and 4, PyGObject, pycairo, wxPython without root
   requirements-pltrs.txt        the pltrs venv (pinned)
   requirements-reference.txt    what the reference venv gets on top
   requirements-ecosystem.txt    the ecosystem venv (pandas, scipy; seaborn apart)
@@ -877,8 +878,19 @@ backend: the framework already running, else pltrs' own windows
   for their imports; their canvases paint the Agg canvas' pixels through
   the buffer of `copy_from_bbox`'s region (`BufferRegion.__buffer__`).
   Without the toolkit they raise matplotlib's `ImportError` (the Qt
-  backends after its binding selection, `qt_compat`). pltrs has no Cairo:
-  the `*cairo` backends draw with the raster too.
+  backends after its binding selection, `qt_compat`). GTK's application
+  loop and wx's main and event loops serve other threads
+  (`backends/_serving.py`), as Tk's does. pltrs has no Cairo:
+  the `*cairo` backends draw with the raster too, so their widgets show
+  the pixels the `*agg` ones show (matplotlib's own Cairo variants differ
+  from its Agg ones by their text and antialiasing).
+* **Cairo** (`backends/backend_cairo.py`) is matplotlib's module, which
+  needs pycairo or cairocffi as matplotlib's does: `RendererCairo` and
+  `GraphicsContextCairo` draw onto a Cairo context of the program's (a
+  figure drawn with one goes through their methods, see "Drawing defined
+  in Python"), while the `cairo` backend's canvas, `FigureCanvasCairo`,
+  is the Agg canvas, printing PDF, PostScript and SVG with pltrs (Rust)'s
+  writers at 72 dpi as matplotlib's Cairo surfaces are.
 * **WebAgg** (`backend_webagg.py`) runs pltrs (Rust)'s web server
   (`_native.web`, a `pltrs::web::WebRelay`) instead of Tornado: it serves
   matplotlib's pages and files and hands the WebSockets' messages and the
@@ -1228,6 +1240,31 @@ cargo xtask mpl-suite --imports          # every missing import of each test fil
   reference skips that pltrs does not (they must skip the same way); then
   the blockers: each reason with the reference-passing tests it holds
   back, the most first, and the files it holds back most.
+* **GUI toolkits.** Without a display the suite skips the GUI backends'
+  tests (`test_backends_interactive.py`, `test_backend_gtk3.py`, `test_backend_tk.py`,
+  ...), and without pycairo the Cairo backend's. Tk needs only tkinter;
+  GTK 3 and 4 with PyGObject and pycairo, and wxPython, come from
+  `python/tools/toolkits.sh install`, which unpacks Debian's packages
+  into `~/.local/gtk` and builds the bindings there for the venvs'
+  Python, without root. `toolkits.sh run COMMAND` runs a command with
+  them (library, typelib and data paths, the bindings on `PYTHONPATH`,
+  which the runner keeps behind its own entries), so with an X server
+  (`Xvfb :117 -screen 0 1280x800x24 -nolisten tcp &`):
+
+  ```sh
+  export DISPLAY=:117
+  python/tools/toolkits.sh run cargo xtask mpl-suite --reference \
+      test_backend_gtk3 test_backends_interactive test_getattr test_backend_cairo
+  python/tools/toolkits.sh run cargo xtask mpl-suite \
+      test_backend_gtk3 test_backends_interactive test_getattr test_backend_cairo
+  python/tools/toolkits.sh run cargo xtask python test
+  ```
+
+  runs those tests in both modes, and the smoke tests of the real
+  toolkits (`python/tests/test_backend_gtk_wx.py`). The committed
+  outcomes are recorded without toolkits or display: put
+  `spec/mpl-suite/*.json` back (`git checkout spec/mpl-suite`) after such
+  a run.
 * **Collection errors hide the next gap.** A test file that fails to
   import shows only its first missing import; `--imports` lists all of
   them, per file and in total, weighted by the reference-passing tests of

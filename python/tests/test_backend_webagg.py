@@ -183,7 +183,7 @@ def test_static_files_are_matplotlibs_web_backend(tmp_path, monkeypatch):
     monkeypatch.setattr(core, "_static_file_path", None)
     monkeypatch.setattr(core, "get_cachedir", lambda: str(tmp_path))
     path = core.FigureManagerWebAgg.get_static_file_path()
-    names = sorted(str(p.relative_to(path)) for p in tmp_path.rglob("*")
+    names = sorted(p.relative_to(path).as_posix() for p in tmp_path.rglob("*")
                    if p.is_file())
     assert names == [
         "LICENSE", "all_figures.html", "css/boilerplate.css", "css/fbm.css",

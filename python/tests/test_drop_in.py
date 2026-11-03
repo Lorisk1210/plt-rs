@@ -7,6 +7,7 @@ were recorded from matplotlib 3.11.2 running the same code.
 import datetime
 import io
 import logging
+import os
 import re
 
 import numpy as np
@@ -346,7 +347,7 @@ def test_afm_fonts_by_directory(caplog):
         found = fm.fontManager._find_fonts_by_props(
             fm.FontProperties(family=['Times', 'Nope', 'Courier']),
             fontext='afm', directory=core)
-    assert [path.rsplit('/', 1)[-1] for path in found] == [
+    assert [os.path.basename(path) for path in found] == [
         'Times-Roman.afm', 'Courier.afm']
     assert "findfont: Font family 'Nope' not found." in caplog.messages
     with pytest.raises(ValueError, match="Failed to find font Nope"):

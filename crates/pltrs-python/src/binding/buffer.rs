@@ -267,7 +267,9 @@ impl Layout {
         let kind = match code {
             b'b' | b'h' | b'i' | b'l' | b'q' | b'n' => Kind::Signed,
             b'B' | b'H' | b'I' | b'L' | b'Q' | b'N' => Kind::Unsigned,
-            b'e' | b'f' | b'd' => Kind::Float,
+            // `g`, long double, is a double on Windows and on Apple's
+            // ARM processors (wider elsewhere, where no size fits).
+            b'e' | b'f' | b'd' | b'g' => Kind::Float,
             b'?' => Kind::Bool,
             _ => return None,
         };
@@ -502,6 +504,13 @@ mod tests {
         assert!(half_to_f64(0x7e00).is_nan());
         assert!(Layout::parse("T{d:x:}", 8).is_none(), "structured items");
         assert!(Layout::parse("d", 3).is_none(), "a size no number has");
+        let long_double = Layout::parse("g", 8).expect("a double, as on Windows");
+        assert_eq!(
+            long_double.decode(&0.25_f64.to_le_bytes()),
+            Scalar::Float(0.25)
+        );
+        assert_eq!(long_double.dtype(), Some("<f8"));
+        assert!(Layout::parse("g", 16).is_none(), "x87's extended precision");
     }
 
     #[test]

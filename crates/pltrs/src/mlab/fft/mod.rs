@@ -265,14 +265,27 @@ mod tests {
     /// Values expected at some indices, as the bits of their parts.
     type Bits = [(usize, u64, u64)];
 
+    /// Asserts that the values at some indices are numpy's: to the bit
+    /// with glibc's `sin` and `cos`, as numpy computed them (on Linux), and
+    /// within 1e-13 of the transform's scale with other C libraries, which
+    /// round some twiddle factors otherwise (Windows' UCRT, Wine's).
     fn assert_bits(values: &[Complex], expected: &Bits) {
+        let scale = values.iter().map(|z| z.abs()).fold(1.0, f64::max);
         for &(index, re, im) in expected {
             let value = values[index];
-            assert_eq!(
-                (value.re.to_bits(), value.im.to_bits()),
-                (re, im),
-                "index {index}: {value}"
-            );
+            if cfg!(all(target_os = "linux", target_env = "gnu")) {
+                assert_eq!(
+                    (value.re.to_bits(), value.im.to_bits()),
+                    (re, im),
+                    "index {index}: {value}"
+                );
+            } else {
+                let numpys = Complex::new(f64::from_bits(re), f64::from_bits(im));
+                assert!(
+                    (value - numpys).abs() <= 1e-13 * scale,
+                    "index {index}: {value} vs {numpys}"
+                );
+            }
         }
     }
 

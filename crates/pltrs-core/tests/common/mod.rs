@@ -73,10 +73,18 @@ pub(crate) fn bbox(value: &Json) -> Bbox {
     }
 }
 
-/// Bit-exact float comparison (NaN equals NaN, `-0.0` equals `0.0`).
+/// Whether `a` and `b` are the same: bit for bit (NaN equals NaN, `-0.0`
+/// equals `0.0`) with glibc's `sin` and `cos`, with which matplotlib
+/// computed the fixtures (on Linux); within four units in the last place
+/// of the larger of them and 1, the fixtures' scale, with other C
+/// libraries, which round some values otherwise (Windows' UCRT, Wine's,
+/// MinGW-w64's `sincos`).
 #[expect(clippy::float_cmp, reason = "fixtures are compared exactly")]
 pub(crate) fn same(a: f64, b: f64) -> bool {
-    a == b || (a.is_nan() && b.is_nan())
+    let glibc = cfg!(all(target_os = "linux", target_env = "gnu"));
+    a == b
+        || (a.is_nan() && b.is_nan())
+        || (!glibc && (a - b).abs() <= 4.0 * f64::EPSILON * a.abs().max(b.abs()).max(1.0))
 }
 
 /// Asserts that `actual` has exactly the vertices and codes of `expected`.

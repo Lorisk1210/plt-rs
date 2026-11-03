@@ -5,7 +5,9 @@ are compiled and linted on Linux for `aarch64-apple-darwin`,
 `x86_64-apple-darwin`, `x86_64-pc-windows-msvc` and
 `aarch64-pc-windows-msvc`, and their pure parts (key tables, modifier
 tracking, `AltGr`, message decoding, unit conversions, pixel formats)
-are unit-tested there. Everything that talks to the operating system is
+are unit-tested there. On Linux, the Windows build also runs under Wine
+(see [Windows under Wine](#windows-under-wine) below, which says what
+that covered). Everything else that talks to the operating system is
 tested by hand, on real machines, with this plan.
 
 Run every step on macOS (a Retina laptop, and an external non-Retina
@@ -30,7 +32,9 @@ cargo clippy -p pltrs-platform --all-targets -- -D warnings
 
 Expected: all three pass. `cargo test -p pltrs-platform` runs the
 headless and pure tests (the X11 and Wayland live tests skip themselves
-without `$DISPLAY`/`$WAYLAND_DISPLAY`).
+without `$DISPLAY`/`$WAYLAND_DISPLAY`); on Windows also the Win32 live
+tests (`tests/windows.rs`), which open a few windows for a moment and
+use the clipboard.
 
 ## 1. The platform example
 
@@ -113,13 +117,14 @@ Press each key with the window focused (no modifier held):
 | Windows, dead keys (French `^` then `e`, or US-International `'` then `e`) | The dead key reports no text; the next key reports `text: Some("ê")` / `"é"` |
 | Windows: Alt alone, then `a` | `Alt` pressed/released; the next `a` is a normal key (no menu mode swallowing it) |
 | Windows: Alt+Space | The system menu opens |
-| macOS: ⌘Q (or Quit in the menu, or the Dock icon's Quit) | `CloseRequested`, the window closes, the program ends |
-| Windows: Alt+F4 | `CloseRequested`, the window closes, the program ends |
+| macOS: ⌘Q (or Quit in the menu, or the Dock icon's Quit) | The window closes ("window closed": the example answers `CloseRequested` by closing it), the program ends |
+| Windows: Alt+F4 | The window closes ("window closed"), the program ends |
 
 ### 1.5 Closing
 
-The close button (red dot / `×`) prints `CloseRequested`, then "window
-closed", and the program ends.
+The close button (red dot / `×`) closes the window ("window closed": the
+example answers `CloseRequested` by closing it, without printing it),
+and the program ends.
 
 ### 1.6 Screenshot
 
@@ -160,7 +165,7 @@ cargo run -p pltrs --example widgets
 | Mouse wheel over an axes | Zooms around the pointer |
 | `h`, then `left`/`right` (or the mouse's side buttons) | Home view, then back and forward through the views |
 | `g`, `G`, `l`, `k` | Major and minor grids, log y and log x |
-| `F1` | The list of shortcuts |
+| `F1` | The list of shortcuts, in a window of its own, drawn at once; the program stays idle (no CPU use) while it is open |
 | `f` | Full screen and back |
 | `s` (or Ctrl+`s`) | The save dialog; save a PNG and open it |
 | Ctrl+`c` on Windows, ⌘C on macOS | The figure is copied as an image (paste as in 1.2 `i`) |
@@ -213,6 +218,78 @@ staying responsive (it can be moved and resized meanwhile).
   Option, Control or Command is held (the crate's rule for shortcuts).
 * The Windows clipboard image is offered in the registered `PNG` format
   only.
+
+## Windows under Wine
+
+`tools/wine.sh` installs Wine 10.0 and the MinGW-w64 runtime for the
+UCRT without root, from Debian's packages, and builds pltrs for
+`x86_64-pc-windows-gnu`, linked by `rust-lld`, running tests and
+programs through Wine. Its header lists the commands; in short:
+
+```sh
+crates/pltrs-platform/tools/wine.sh install   # once
+crates/pltrs-platform/tools/wine.sh python    # once: CPython for Windows, pltrs's requirements
+Xvfb :121 -screen 0 1280x800x24 -nolisten tcp &
+DISPLAY=:121 crates/pltrs-platform/tools/wine.sh cargo test -p pltrs -p pltrs-platform
+DISPLAY=:121 crates/pltrs-platform/tools/wine.sh cargo run -p pltrs --example figure_window
+```
+
+`wine.sh x11 xdotool ...` sends input to Wine's windows and `wine.sh x11
+xwd -root ...` captures the screen.
+
+**What Wine verified** (2026-11-03; Wine 10.0 on Xvfb, without a window
+manager and in Wine's virtual desktop):
+
+* `cargo test` of `pltrs-core`, `pltrs-codec`, `pltrs-font`,
+  `pltrs-raster`, `pltrs-text`, `pltrs-render`, `pltrs-platform` and
+  `pltrs`, doctests included, and the Win32 live tests: everything
+  passes.
+* Section 1: the gradient in the right colours at 640 × 400; `t`, `r`,
+  `f`, `p`, `w`, `0`–`7` (the cursor is set, its look not checked), `c`
+  and `v`, `i` (another Windows program reads the `PNG` format back),
+  Escape and Alt+F4; entering, moving, leaving, the five buttons, double
+  and triple clicks, both wheels, dragging outside with the pointer
+  captured; characters with Shift and Caps Lock, Control+`s`, the named
+  keys, keypad Enter, F1–F12, auto-repeat, Alt alone then `a`; 1.6.
+* Section 2: the canvas, the toolbar and the coordinates in the status
+  line.
+* Section 3: `figure_window` draws; hovering, `g`, the zoom rubber band,
+  panning, the wheel and `F1`; `widgets`' span selector.
+* Section 4 without a window: CPython 3.14.8 for Windows runs pltrs
+  (Python)'s smoke tests (`python/tests`) and saves PNG, PDF, SVG, PS,
+  EPS, JPEG and TIFF.
+
+**What still needs a real Windows machine:** the MSVC build itself;
+DPI scaling (Wine runs at 96 dpi: per-monitor awareness,
+`WM_DPICHANGED`, 150 %); other keyboard layouts (AltGr, dead keys) and
+input methods; what the shell does (snapping, maximizing from the title
+bar, the task bar and Alt+Tab, the minimum size while dragging a border,
+live resize); the clipboard across programs and after the program
+exits; the cursors' look; and the numbers of Microsoft's UCRT, which
+Wine's is not. (The tests comparing with matplotlib's numbers bit for
+bit, which matplotlib computed with glibc's `sin` and `cos`, do so with
+glibc only; with other C libraries they allow the last digits to
+differ.)
+
+**Wine's own limits** (not pltrs's):
+
+* A window wholly inside an older one at the same place stays black
+  until it moves (a plain Win32 program does the same). Wine opens every
+  window at the screen's corner, so pltrs's dialogs (help, options,
+  save) show black there; Windows cascades new windows.
+* Wine 10.0's UCRT lacks `crealf`, `cimagf` and C99's complex functions,
+  which numpy calls: `wine.sh python` points numpy's math imports at a
+  shim holding the accessors, but numpy's complex ufuncs (`np.exp` of a
+  complex array) still stop the program.
+* `CreateSymbolicLinkW` reports success without making the link.
+* `WM_MOUSEHWHEEL` carries client coordinates, where Windows sends screen
+  coordinates: horizontal scrolling reports a position off by the window's
+  client origin.
+
+With the GNU toolchain (MSYS2, rustup's `-gnu` toolchains), LLVM turns
+the sine and cosine of one angle into MinGW-w64's x87 `sincos`, wrong in
+the last digits near multiples of π/2 and entirely for large angles;
+`wine.sh` links a `sincos` calling the UCRT, as MSVC builds compute.
 
 ## Reporting back
 

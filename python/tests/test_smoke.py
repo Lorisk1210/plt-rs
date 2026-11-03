@@ -684,17 +684,48 @@ def test_dropping_the_text_caches_draws_the_same():
     assert drawn() == first
 
 
+def _link_or_skip(link, target):
+    """Make *link* a symbolic link to the directory *target*, or skip the
+    test where the system makes none (Windows without the privilege, Wine,
+    which reports links it does not make)."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError:
+        pytest.skip("this system makes no symbolic links")
+    if not link.is_symlink():
+        pytest.skip("this system makes no symbolic links")
+
+
 def test_shared_data_links_lead_to_this_package(tmp_path):
     # The data directory is shared by every installation of pltrs: a link
     # to one since removed, or to another installation, is pointed here.
     from pathlib import Path
     shipped = Path(pltrs.__file__).with_name("mpl-data")
     gone = tmp_path / "removed-install"
-    (tmp_path / "sample_data").symlink_to(gone / "sample_data", target_is_directory=True)
+    _link_or_skip(tmp_path / "sample_data", gone / "sample_data")
     other = tmp_path / "other-install" / "images"
     other.mkdir(parents=True)
-    (tmp_path / "images").symlink_to(other, target_is_directory=True)
+    _link_or_skip(tmp_path / "images", other)
     pltrs._reach_shipped_data(str(tmp_path))
     for name in ("sample_data", "images"):
         assert (tmp_path / name).resolve() == (shipped / name).resolve()
     assert (tmp_path / "sample_data" / "goog.npz").is_file()
+
+
+def _refuse_link(link, target, target_is_directory=False):
+    raise OSError(1314, "A required privilege is not held by the client")
+
+
+def _pretend_link(link, target, target_is_directory=False):
+    pass
+
+
+@pytest.mark.parametrize("make_link", [_refuse_link, _pretend_link],
+                         ids=["windows-without-privilege", "wine"])
+def test_shipped_data_is_copied_where_no_link_is_made(tmp_path, monkeypatch, make_link):
+    from pathlib import Path
+    monkeypatch.setattr(Path, "symlink_to", make_link)
+    pltrs._reach_shipped_data(str(tmp_path))
+    assert (tmp_path / "sample_data" / "goog.npz").is_file()
+    assert not (tmp_path / "sample_data").is_symlink()
+    assert any((tmp_path / "images").iterdir())

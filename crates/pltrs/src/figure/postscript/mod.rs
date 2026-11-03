@@ -349,6 +349,7 @@ mod tests {
             };
             let err = first.expect_err("a program is missing").to_string();
             let expected = match program.as_str() {
+                "dvips" if cfg!(windows) => "[WinError 2] ",
                 "dvips" => "[Errno 2] No such file or directory: 'dvips'",
                 "the psfrag package" => "psfrag.sty",
                 "ghostscript" => "Failed to find a Ghostscript installation",

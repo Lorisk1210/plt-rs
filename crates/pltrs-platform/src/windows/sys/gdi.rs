@@ -2,8 +2,8 @@
 
 use std::ffi::c_void;
 
-use super::ffi::{self, BitmapInfo, BitmapInfoHeader, Handle, PaintStruct};
-use super::{Hwnd, last_error};
+use super::ffi::{self, BitmapInfo, BitmapInfoHeader, Handle, PaintStruct, Rect};
+use super::{Hwnd, check, last_error};
 use crate::error::Error;
 use crate::geometry::PhysicalRect;
 use crate::window::{CursorIcon, Icon};
@@ -51,18 +51,30 @@ impl Drop for Painter {
     }
 }
 
-/// Paints `region` of `window`'s client area with the BGRA pixels `bgra`,
-/// now.
-pub(crate) fn draw(window: Hwnd, region: PhysicalRect, bgra: &[u8]) -> Result<(), Error> {
-    // SAFETY: a handle-only call; the device context is released below.
-    let dc = unsafe { ffi::GetDC(window.0) };
-    if dc == 0 {
-        return Err(last_error("GetDC"));
+impl Hwnd {
+    /// Has `region` of the client area painted now: invalidates it and
+    /// sends the `WM_PAINT` that paints it, before returning. Painting
+    /// only ever happens between `BeginPaint` and `EndPaint`, which also
+    /// tells Wine to show it (drawing on the device context of `GetDC`
+    /// waits there for a later flush, forever if the program then waits
+    /// for input).
+    pub(crate) fn repaint(self, region: PhysicalRect) -> Result<(), Error> {
+        if region.is_empty() {
+            return Ok(());
+        }
+        let coordinate = |value: u32| i32::try_from(value).unwrap_or(i32::MAX);
+        let rect = Rect {
+            left: coordinate(region.x),
+            top: coordinate(region.y),
+            right: coordinate(region.x.saturating_add(region.width)),
+            bottom: coordinate(region.y.saturating_add(region.height)),
+        };
+        let flags = ffi::RDW_INVALIDATE | ffi::RDW_UPDATENOW;
+        // SAFETY: `rect` is a RECT that outlives the call; no region is
+        // passed.
+        let done = unsafe { ffi::RedrawWindow(self.0, &raw const rect, 0, flags) };
+        check(done, "RedrawWindow")
     }
-    blit(dc, region, bgra);
-    // SAFETY: releases the device context GetDC gave for this window.
-    unsafe { ffi::ReleaseDC(window.0, dc) };
-    Ok(())
 }
 
 /// Copies the top-down BGRA image `bgra` of `region`'s size to `region`

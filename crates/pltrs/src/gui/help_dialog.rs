@@ -168,9 +168,8 @@ impl HelpDialog {
         if dialog::dismissed(event, self.window.ui()) {
             return Ok(false);
         }
-        let open = !self.window.handle(cx, event)?.contains(&HelpMessage::Close);
-        cx.request_redraw(self.window.id())?;
-        Ok(open)
+        // The window schedules the redraws its widgets need.
+        Ok(!self.window.handle(cx, event)?.contains(&HelpMessage::Close))
     }
 
     /// Closes the window.

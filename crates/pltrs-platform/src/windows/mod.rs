@@ -5,7 +5,8 @@
 //!   pixels and the scale factor is the monitor's DPI over 96. Frames are
 //!   kept in a [`Surface`](crate::surface::Surface) of the window's size,
 //!   in the BGRA order of device-independent bitmaps, and drawn with
-//!   `StretchDIBits`, at once and again on `WM_PAINT`. The loop waits
+//!   `StretchDIBits` on `WM_PAINT` only: presenting a frame has its
+//!   region painted at once (`RedrawWindow`). The loop waits
 //!   with `MsgWaitForMultipleObjectsEx`, until the next timer of the
 //!   generic loop at the latest; proxies wake it by posting a message to
 //!   a message-only window.

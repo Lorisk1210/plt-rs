@@ -177,6 +177,7 @@
 //! assert!(window.height() > 300, "and taller by the toolbar");
 //! imsave("window.png", window, ImsaveOptions::default())?;
 //! # assert!(std::fs::read("window.png")?.starts_with(b"\x89PNG"));
+//! # std::env::set_current_dir(std::env::temp_dir())?; // Windows cannot remove it otherwise
 //! # std::fs::remove_dir_all(&dir)?;
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```

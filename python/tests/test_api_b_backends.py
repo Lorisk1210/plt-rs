@@ -8,6 +8,7 @@ were recorded from matplotlib 3.11.2 running the same code.
 
 import datetime
 import io
+import os
 import shutil
 import warnings
 
@@ -168,7 +169,7 @@ def test_pdf_file_fonts():
     assert (pdf.fontName(props), pdf.fontName(props, 1)) == (bp.Name("F1"), bp.Name("F2"))
     with pytest.warns(pltrs.MatplotlibDeprecationWarning):
         names = pdf.fontNames
-    assert sorted((str(k[0]).rsplit("/", 1)[-1], k[1], v) for k, v in names.items()) == [
+    assert sorted((os.path.basename(k[0]), k[1], v) for k, v in names.items()) == [
         ("DejaVuSans.ttf", 0, bp.Name("F1")), ("DejaVuSans.ttf", 1, bp.Name("F2"))]
     with pytest.warns(pltrs.MatplotlibDeprecationWarning):
         assert pdf.multi_byte_charprocs == {}

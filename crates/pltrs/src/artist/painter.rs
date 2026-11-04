@@ -111,6 +111,16 @@ pub trait ArtistPainter: Any + fmt::Debug {
     fn measured_extent(&self) -> MeasuredExtent {
         MeasuredExtent::Unmeasured
     }
+
+    /// The extent of `artist`, an offset box of the program's laid out by
+    /// the box holding it ([`ProgramBox`](crate::offsetbox::ProgramBox)),
+    /// relative to its origin, in display pixels (matplotlib's
+    /// `get_bbox(renderer)`): asked once the figure is laid out, with no
+    /// borrow of it held, before the box holding it is laid out again
+    /// with it. `None` (the default) keeps the extent it had.
+    fn box_extent(&self, _artist: &RawHandle) -> Option<Bbox> {
+        None
+    }
 }
 
 /// What a painter measured of its artist (see

@@ -2,10 +2,13 @@
 //! its edge (none by default), the rest of its patch style and its
 //! z-order.
 
+use pltrs_core::Path;
+
 use super::Axes;
-use super::state::AxesState;
+use super::state::{AxesState, PatchOutline};
 use crate::colors::Color;
 use crate::patches::PatchStyle;
+use crate::transforms::Transform;
 
 impl Axes {
     /// Sets the background colour (matplotlib's `set_facecolor`).
@@ -50,6 +53,46 @@ impl Axes {
     pub fn set_patch_style(&self, style: PatchStyle) -> &Self {
         self.raw.with_mut::<AxesState, _>(|a| a.patch.style = style);
         self
+    }
+
+    /// Makes the closed path `outline`, in axes fractions, the shape of
+    /// the background and what the artists the axes clips are clipped to,
+    /// in place of the axes box (matplotlib's `_gen_axes_patch` of an
+    /// `Axes` subclass making a circle, say); with `as_box` they are
+    /// clipped to its bounding box instead, as matplotlib clips to a
+    /// `Rectangle` patch. `None` gives the axes the projection's
+    /// background again.
+    ///
+    /// ```
+    /// use pltrs::prelude::*;
+    /// use pltrs::path::Path;
+    /// use pltrs::transforms::Point;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// ax.set_patch_outline(Some(Path::circle(Point::new(0.5, 0.5), 0.5)), false);
+    /// assert!(ax.patch_outline().is_some_and(|outline| outline.has_curves()));
+    /// fig.to_png()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_patch_outline(&self, outline: Option<Path>, as_box: bool) -> &Self {
+        let transform = Transform::Axes(self.raw.id());
+        self.raw.with_mut::<AxesState, _>(|a| {
+            a.patch_outline = outline.map(|path| PatchOutline {
+                path,
+                transform,
+                clipped_to_box: false,
+                clips_as_box: as_box,
+            });
+        });
+        self
+    }
+
+    /// The outline replacing the projection's background (see
+    /// [`set_patch_outline`](Self::set_patch_outline)), in the coordinates
+    /// it was given in.
+    pub fn patch_outline(&self) -> Option<Path> {
+        self.raw
+            .with::<AxesState, _>(|a| a.patch_outline.as_ref().map(|o| o.path.clone()))
     }
 
     /// The opacity of the background patch replacing that of its colours

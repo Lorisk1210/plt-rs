@@ -9,11 +9,14 @@
 //! children)`, `("padded", pad, child, draw_frame, patch_kwargs)`,
 //! `("image", image, zoom, dpi_cor)` and `("anchored", child, options,
 //! frame)` (an `AnchoredOffsetbox` inside another box, its options and
-//! frame as `add_anchored` takes them).
+//! frame as `add_anchored` takes them) and `("program", box)` (an
+//! `OffsetBox` subclass of the program's, sizing and drawing itself, its
+//! own loose artist).
 
 use pltrs::artist::RawHandle;
 use pltrs::offsetbox::{
-    AuxTransformBox, BoxItem, DrawingArea, OffsetBox, OffsetImage, Packer, PaddedBox, TextArea,
+    AuxTransformBox, BoxItem, DrawingArea, OffsetBox, OffsetImage, Packer, PaddedBox, ProgramBox,
+    TextArea,
 };
 use pltrs::transforms::Transform;
 
@@ -102,6 +105,9 @@ impl FromPy<'_> for PyOffsetBox {
                 dpi_cor: dpi_cor.extract()?,
                 visible: true,
             }),
+            ("program", [program]) => {
+                OffsetBox::Program(ProgramBox::from_loose(&program.extract::<RawHandle>()?)?)
+            }
             _ => {
                 return Err(PyErr::value_error(format!(
                     "a malformed offset box description of kind {kind:?}"
@@ -152,6 +158,19 @@ mod tests {
             assert!(!text.raw().is_attached(), "the text left its holder");
             let unknown = eval(py, "", "('frame', 1.0)");
             assert!(unknown.extract::<PyOffsetBox>().is_err());
+        });
+    }
+
+    #[test]
+    fn boxes_of_the_program_are_leaves_of_their_own_artist() {
+        with_python(|py| {
+            extension(py);
+            let plain = Text::loose(0.0, 0.0, "");
+            let description = ("program", plain.raw().clone()).into_py(py).unwrap();
+            let PyOffsetBox(tree) = description.extract().unwrap();
+            assert!(matches!(tree, OffsetBox::Program(_)), "{tree:?}");
+            assert_eq!(tree.artists().len(), 1);
+            assert!(!plain.raw().is_attached(), "the artist left its holder");
         });
     }
 }

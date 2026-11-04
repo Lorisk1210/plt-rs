@@ -12,6 +12,7 @@ use pltrs_core::{Bbox, Path, Point};
 
 use super::anchored_node::AnchoredNode;
 use super::leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
+use super::program::ProgramBox;
 use super::{ArtistRef, OffsetBoxError, PackAlign, PackMode, aligned_offsets, packed_offsets};
 use crate::artist::LayoutContext;
 use crate::transforms::Transform;
@@ -36,6 +37,9 @@ pub enum OffsetBox<A> {
     /// A box drawn at its anchor, laid out by its parent with its padded
     /// extent (matplotlib's `AnchoredOffsetbox` as a child).
     Anchored(AnchoredNode<A>),
+    /// A box of the program's, which sizes and draws itself (matplotlib's
+    /// `OffsetBox` subclass of the program's).
+    Program(ProgramBox<A>),
 }
 
 pltrs_core::archive_enum!(OffsetBox<A> {
@@ -47,6 +51,7 @@ pltrs_core::archive_enum!(OffsetBox<A> {
     Image(v0),
     PaddedBox(v0),
     Anchored(v0),
+    Program(v0),
 });
 
 /// The settings and children of an [`OffsetBox::HPacker`] or
@@ -140,6 +145,14 @@ pub enum Placement<A> {
         /// The new mutation scale of the frame's box style, if it changes.
         mutation_scale: Option<f64>,
     },
+    /// A box of the program's with its origin at `offset`, in display
+    /// pixels (what matplotlib's parent gives the child's `set_offset`).
+    Program {
+        /// The box's artist.
+        artist: A,
+        /// Where its origin goes.
+        offset: Point,
+    },
 }
 
 impl<A> OffsetBox<A> {
@@ -153,6 +166,7 @@ impl<A> OffsetBox<A> {
             Self::Image(image) => image.visible,
             Self::PaddedBox(padded) => padded.visible,
             Self::Anchored(anchored) => anchored.visible,
+            Self::Program(program) => program.visible,
         }
     }
 
@@ -166,6 +180,7 @@ impl<A> OffsetBox<A> {
             Self::Image(image) => image.visible = visible,
             Self::PaddedBox(padded) => padded.visible = visible,
             Self::Anchored(anchored) => anchored.visible = visible,
+            Self::Program(program) => program.visible = visible,
         }
         self
     }
@@ -210,6 +225,7 @@ impl<A> OffsetBox<A> {
                     anchored.child.collect_artists(artists);
                 }
             }
+            Self::Program(program) => artists.push(&program.artist),
         }
     }
 
@@ -255,6 +271,7 @@ impl<A> OffsetBox<A> {
                 })
             }
             Self::Anchored(anchored) => OffsetBox::Anchored(anchored.map(f)),
+            Self::Program(program) => OffsetBox::Program(program.map(f)),
         }
     }
 
@@ -276,7 +293,8 @@ impl<A> OffsetBox<A> {
             Self::DrawingArea(_)
             | Self::TextArea(_)
             | Self::AuxTransformBox(_)
-            | Self::Image(_) => {}
+            | Self::Image(_)
+            | Self::Program(_) => {}
         }
     }
 
@@ -284,36 +302,83 @@ impl<A> OffsetBox<A> {
     /// in tree order: a packer's children in order, a padded box's child.
     pub fn drawing_area_mut(&mut self, index: usize) -> Option<&mut DrawingArea<A>> {
         let mut areas = Vec::new();
-        self.collect_drawing_areas(&mut areas);
+        self.collect_leaves(
+            &|tree| match tree {
+                Self::DrawingArea(area) => Some(area),
+                _ => None,
+            },
+            &mut areas,
+        );
         areas.into_iter().nth(index)
     }
 
-    fn collect_drawing_areas<'a>(&'a mut self, areas: &mut Vec<&'a mut DrawingArea<A>>) {
+    /// The offset image at `index` among those of the tree, visible or
+    /// not, in tree order (as [`drawing_area_mut`](Self::drawing_area_mut)
+    /// counts drawing areas).
+    pub fn image_mut(&mut self, index: usize) -> Option<&mut OffsetImage<A>> {
+        let mut images = Vec::new();
+        self.collect_leaves(
+            &|tree| match tree {
+                Self::Image(image) => Some(image),
+                _ => None,
+            },
+            &mut images,
+        );
+        images.into_iter().nth(index)
+    }
+
+    /// The leaves of the tree `leaf` picks, in tree order.
+    fn collect_leaves<'a, T>(
+        &'a mut self,
+        leaf: &impl Fn(&'a mut Self) -> Option<&'a mut T>,
+        found: &mut Vec<&'a mut T>,
+    ) {
         match self {
             Self::HPacker(packer) | Self::VPacker(packer) => {
                 for child in &mut packer.children {
-                    child.collect_drawing_areas(areas);
+                    child.collect_leaves(leaf, found);
                 }
             }
-            Self::DrawingArea(area) => areas.push(area),
-            Self::PaddedBox(padded) => padded.child.collect_drawing_areas(areas),
-            Self::Anchored(anchored) => anchored.child.collect_drawing_areas(areas),
-            Self::TextArea(_) | Self::AuxTransformBox(_) | Self::Image(_) => {}
+            Self::PaddedBox(padded) => padded.child.collect_leaves(leaf, found),
+            Self::Anchored(anchored) => anchored.child.collect_leaves(leaf, found),
+            other => found.extend(leaf(other)),
         }
     }
 
     /// Calls `f` on every aux-transform box of the tree.
     pub(crate) fn for_each_aux_mut(&mut self, f: &mut impl FnMut(&mut AuxTransformBox<A>)) {
+        self.for_each_box_mut(&mut |tree| {
+            if let Self::AuxTransformBox(aux) = tree {
+                f(aux);
+            }
+        });
+    }
+
+    /// Calls `f` on every box of the program's of the tree.
+    pub(crate) fn for_each_program_mut(&mut self, f: &mut impl FnMut(&mut ProgramBox<A>)) {
+        self.for_each_box_mut(&mut |tree| {
+            if let Self::Program(program) = tree {
+                f(program);
+            }
+        });
+    }
+
+    /// Calls `f` on every box of the tree, the box itself first.
+    fn for_each_box_mut(&mut self, f: &mut impl FnMut(&mut Self)) {
+        f(self);
         match self {
             Self::HPacker(packer) | Self::VPacker(packer) => {
                 for child in &mut packer.children {
-                    child.for_each_aux_mut(f);
+                    child.for_each_box_mut(f);
                 }
             }
-            Self::AuxTransformBox(aux) => f(aux),
-            Self::PaddedBox(padded) => padded.child.for_each_aux_mut(f),
-            Self::Anchored(anchored) => anchored.child.for_each_aux_mut(f),
-            Self::DrawingArea(_) | Self::TextArea(_) | Self::Image(_) => {}
+            Self::PaddedBox(padded) => padded.child.for_each_box_mut(f),
+            Self::Anchored(anchored) => anchored.child.for_each_box_mut(f),
+            Self::DrawingArea(_)
+            | Self::TextArea(_)
+            | Self::AuxTransformBox(_)
+            | Self::Image(_)
+            | Self::Program(_) => {}
         }
     }
 
@@ -371,6 +436,7 @@ impl<A: ArtistRef> OffsetBox<A> {
                 Ok(padded.child.bbox(ctx)?.padded(pad, pad))
             }
             Self::Anchored(anchored) => anchored.bbox(ctx),
+            Self::Program(program) => Ok(program.bbox()),
         }
     }
 
@@ -415,6 +481,10 @@ impl<A: ArtistRef> OffsetBox<A> {
                 }
             }
             Self::Anchored(anchored) => placements.extend(anchored.place(ctx)?),
+            Self::Program(program) => placements.push(Placement::Program {
+                artist: program.artist.clone(),
+                offset,
+            }),
         }
         Ok(())
     }
@@ -539,4 +609,5 @@ box_from! {
     OffsetImage => Image,
     PaddedBox => PaddedBox,
     AnchoredNode => Anchored,
+    ProgramBox => Program,
 }

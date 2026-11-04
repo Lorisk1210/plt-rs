@@ -39,7 +39,8 @@ def _default_callback(artist):
     figure's for a subfigure or an artist added to a figure; none for a
     root figure, an artist in no figure, a part of another artist that
     only got its figure (a tick label, an axis label, a table cell, the
-    Axes' patch) or a figure's legend."""
+    Axes' patch, the offset box of an annotation box) or a figure's
+    legend."""
     from . import _mirrors
     from .artist import Artist
     from .figure import Figure, FigureBase
@@ -52,7 +53,7 @@ def _default_callback(artist):
     if isinstance(axes, Artist) and axes is not artist:
         return _stale_axes_callback
     if (artist.get_figure(root=True) is None or _mirrors.is_attached(artist)
-            or isinstance(artist, Legend)):
+            or isinstance(artist, Legend) or getattr(artist, "_figure_only", False)):
         return None
     return _stale_figure_callback
 

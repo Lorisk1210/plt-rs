@@ -12,7 +12,7 @@ use super::{CanvasState, FreshArtists};
 use crate::artist::{
     Artist, ArtistId, ArtistLookup, ArtistStore, DetachedArtists, DrawContext, DrawError,
 };
-use crate::axes::{AxesState, LimitCallbacks, ShareGroups};
+use crate::axes::{AxesState, LimitCallbacks, PatchOutline, ShareGroups};
 use crate::colors::Color;
 use crate::events::{CallbackRegistry, CursorShape, LockOwner, TimerRegistry};
 use crate::gridspec::{GridSpecError, SubplotOverrides, SubplotParams};
@@ -357,19 +357,57 @@ impl FigureState {
         }
     }
 
-    /// The display outline of `axes` when its patch is not a rectangle
-    /// (an outline of its own, the wedge of polar axes, the ellipse of
-    /// geographic axes, the outline of a custom projection); `None`
-    /// otherwise.
+    /// The display outline of `axes` when what it clips is clipped to its
+    /// patch's outline (an outline of its own clipping as an outline, the
+    /// wedge of polar axes, the ellipse of geographic axes, the outline of
+    /// a custom projection); `None` otherwise.
     pub(crate) fn axes_outline(&self, axes: ArtistId) -> Option<ClipPath> {
         let state = self.store.get_as::<AxesState>(axes)?;
-        if let Some((path, transform)) = &state.patch_outline {
-            let (path, transform) = transform.resolve(self).ok()?.split_path(path);
-            return Some(ClipPath {
-                path: path.into_owned(),
-                transform,
-            });
+        if let Some(outline) = &state.patch_outline {
+            return (!outline.clips_as_box)
+                .then(|| self.resolved_outline(outline))
+                .flatten();
         }
+        self.projection_outline(axes, state)
+    }
+
+    /// The display outline the background of `axes` is drawn along when
+    /// it is no rectangle of the axes box: an outline of its own, else
+    /// [`axes_outline`](Self::axes_outline)'s.
+    pub(crate) fn background_outline(&self, axes: ArtistId) -> Option<ClipPath> {
+        let state = self.store.get_as::<AxesState>(axes)?;
+        match &state.patch_outline {
+            Some(outline) => self.resolved_outline(outline),
+            None => self.projection_outline(axes, state),
+        }
+    }
+
+    /// The display box what `axes` clips is clipped to when its own
+    /// outline clips as a box (matplotlib's `Rectangle` patch).
+    pub(crate) fn outline_clip_box(&self, axes: ArtistId) -> Option<Bbox> {
+        let outline = self
+            .store
+            .get_as::<AxesState>(axes)?
+            .patch_outline
+            .as_ref()
+            .filter(|outline| outline.clips_as_box)?;
+        let resolved = outline.transform.resolve(self).ok()?;
+        Some(resolved.transform_path(&outline.path).extents())
+    }
+
+    /// `outline` in display coordinates.
+    fn resolved_outline(&self, outline: &PatchOutline) -> Option<ClipPath> {
+        let resolved = outline.transform.resolve(self).ok()?;
+        let (path, transform) = resolved.split_path(&outline.path);
+        Some(ClipPath {
+            path: path.into_owned(),
+            transform,
+        })
+    }
+
+    /// The display outline of the projection of `axes`, whose state is
+    /// `state`, unless it is the axes box.
+    fn projection_outline(&self, axes: ArtistId, state: &AxesState) -> Option<ClipPath> {
         if state.projection.is_rectangular() {
             return None;
         }

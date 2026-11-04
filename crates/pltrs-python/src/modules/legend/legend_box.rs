@@ -80,7 +80,8 @@ fn describe<'py>(py: Python<'py>, tree: &OffsetBox<RawHandle>) -> PyResult<Bound
         OffsetBox::AuxTransformBox(_)
         | OffsetBox::Image(_)
         | OffsetBox::PaddedBox(_)
-        | OffsetBox::Anchored(_) => Err(PyErr::value_error(
+        | OffsetBox::Anchored(_)
+        | OffsetBox::Program(_) => Err(PyErr::value_error(
             "a legend's box holds packers, text areas and drawing areas",
         )),
     }

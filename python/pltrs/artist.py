@@ -615,6 +615,8 @@ class Artist(SubclassingMixin, CallbacksMixin, ClippingMixin, PickingMixin,
         push_computed = getattr(self, "_push_computed", None)
         if push_computed is not None and _python_drawing.figure_changeable():
             push_computed()
+        if _python_drawing.figure_changeable():
+            _python_drawing.evaluate_given_transform(self)
         draw_artist = getattr(renderer, "_draw_artist", None)
         if draw_artist is not None:
             draw_artist(self)

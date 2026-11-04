@@ -370,7 +370,25 @@ pltrs (Rust) (`OffsetBox._native_tree`, `_native.offsetbox`), whose
 `BoxItem::from_loose` moves each artist out of its holder into the box;
 the box takes the common properties of the plain artist, and
 `OffsetBox._adopt_tree` gives every Python artist of the tree its handle
-in the figure.
+in the figure. The boxes of a joined tree are in the figure of the box
+added with it (`_tree_owner`): their figure, Axes (an `OffsetBox` gives
+its children its Axes, an `AnnotationBbox` none) and staleness are that
+box's. A change to a leaf pltrs (Rust) lays out (the clipping and size of
+a drawing area, the zoom of an offset image) reaches the tree through
+the added box and the leaf's index among those of its kind
+(`_owner_box`, `pltrs::offsetbox::edit_tree`).
+
+A box of a class of the program's that sizes and draws itself (an
+`OffsetBox` subclass describing no tree, `OffsetBox._sizes_itself`) is a
+leaf of the tree, `("program", box)`: its own loose artist becomes a
+`pltrs::offsetbox::ProgramBoxArtist`, whose painter is the box (see
+"Drawing defined in Python"). Once the figure is laid out, pltrs (Rust)
+asks the painter for the box's extent (`ArtistPainter::box_extent`: its
+`get_bbox(renderer)`, through `_python_drawing.measure_box`) and lays the
+boxes holding such leaves out again; the box's `draw` then runs as a
+painted artist's, after its `set_offset` was given where its parent placed
+it (`OffsetBox._place_as_laid_out`), as matplotlib's parents do. Such a box
+added on its own is a painted artist.
 
 A table's cells are no artists of their own in pltrs (Rust): they are
 part of the table's native state, and a Python `Cell` is the cell at its
@@ -529,6 +547,13 @@ final `transAxes`, the gridlines' and ticks' transforms those of
 that of an overridden `Axis.get_view_interval`, the sides a tick draws
 those an overridden `Tick.draw` leaves visible on a tick made alone, and
 the interval of a spine that of an overridden `Spine._adjust_location`.
+Every clear (and the making of the Axes by `add_subplot`, as matplotlib's
+`__init__` clears it) gives the Axes the patch its class'
+`_gen_axes_patch` makes (`_program.cleared`): unless it is the unit
+square, its outline is the background's shape and clips what the Axes
+clips (`Axes::set_patch_outline`; a `Rectangle` clips as its box, as
+matplotlib clips to one), images within the Axes box as matplotlib's
+`get_clip_box() or self.axes.bbox`.
 pltrs (Rust) asks while it lays the figure out or draws it, when the
 figure cannot be asked about itself, so each hook passes the view limits
 it works with, which the Axes' `_viewLim` is set to meanwhile; the
@@ -944,7 +969,10 @@ figures without it:
   order: the class' `draw` (without its rasterization wrapper, which pltrs
   applies as `allow_rasterization` does) runs with the renderer of the
   draw recording, then pltrs draws the recording at the artist's place;
-  `super().draw(renderer)` is the artist drawn there as pltrs draws it.
+  `super().draw(renderer)` is the artist drawn there as pltrs draws it,
+  and any artist drawn from Python is drawn with the transform it was
+  given as it is then (`evaluate_given_transform`: an `Affine2D` the
+  drawing changed in place), as matplotlib's draw reads `get_transform()`.
   The draw may change the figure (an image computing its array, as the
   ribbon box example does); the transforms it reads are those of the
   laid-out figure (`_transform_trees.sync`, the artist's given

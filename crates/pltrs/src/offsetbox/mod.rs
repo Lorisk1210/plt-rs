@@ -30,6 +30,9 @@
 //! ([`AnchoredNode`]): its parent lays it out, but it is drawn at its
 //! anchor, as matplotlib's anchored boxes are.
 //!
+//! A leaf may be a box of the program's ([`ProgramBox`], matplotlib's
+//! `OffsetBox` subclass), sized and drawn by the painter of its artist.
+//!
 //! ```
 //! use pltrs::prelude::*;
 //! use pltrs::offsetbox::{AnchorLoc, AnchoredBox, AnchoredOptions, BoxItem, DrawingArea};
@@ -62,6 +65,7 @@ mod leaves;
 mod pack;
 mod pending;
 mod placed_box;
+mod program;
 #[cfg(test)]
 mod tests;
 
@@ -74,6 +78,7 @@ pub use anchored_box::{AnchoredBox, AnchoredOffsetbox, AnchoredOptions};
 pub use anchored_node::AnchoredNode;
 pub(crate) use annotation_bbox::AnnotationBboxArtist;
 pub use annotation_bbox::{AnnotationBbox, AnnotationBboxOptions};
+pub use apply::edit_tree;
 pub(crate) use apply::{apply_placements, lay_out_box, lay_out_boxes};
 pub use boxes::{OffsetBox, Packer, Placement};
 pub use leaves::{AuxTransformBox, DrawingArea, OffsetImage, PaddedBox, TextArea};
@@ -81,6 +86,8 @@ pub use pack::{PackAlign, PackMode, aligned_offsets, packed_offsets};
 pub use pending::BoxItem;
 pub(crate) use placed_box::PlacedBoxArtist;
 pub use placed_box::PlacedOffsetBox;
+pub(crate) use program::measure_program_boxes;
+pub use program::{ProgramBox, ProgramBoxArtist, ProgramOffsetBox};
 
 use crate::artist::{ArtistId, ArtistStore};
 use crate::coords::CoordError;

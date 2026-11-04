@@ -69,7 +69,11 @@ class _FigureBackground(_Background):
 def _made(owner, patch, mirroring, transform):
     """*patch* made the mirror of the background of *owner*, placed by
     *transform* unless it was made with a transform of its own, as
-    matplotlib places it."""
+    matplotlib places it. A patch of any class may be the background (the
+    one an Axes class of the program's makes, a `.RegularPolygon` say):
+    its class is made `~._mirrors.mirrorable` when one first is."""
+    if not getattr(type(patch).set_facecolor, "_pushes", False):
+        _mirrors.mirrorable(type(patch))
     _mirrors.attach(patch, mirroring)
     if not patch.is_transform_set():
         with _mirrors.detached(patch):

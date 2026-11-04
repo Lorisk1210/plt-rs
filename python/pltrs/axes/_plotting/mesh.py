@@ -125,6 +125,10 @@ class MeshMixin:
             collection._attach_native_mapping(colorizer=made)
         else:
             collection._map_variates_through(made, variates)
+        if C.ndim == 3:
+            # The RGB(A) colours are the mesh's array, as matplotlib's mesh
+            # is made with them (which autoscales its norm to them).
+            collection.set_array(args[-1])
         collection._internal_update(kwargs)
         return collection
 

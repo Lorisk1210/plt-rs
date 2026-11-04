@@ -179,14 +179,18 @@ impl AxesState {
         match PatchPaint::new(&self.patch.style, &self.rc, self.patch.alpha, false) {
             Ok(paint) => {
                 let mut gc = ctx.base_gc(base);
-                if self.patch_outline.is_some() {
+                if self
+                    .patch_outline
+                    .as_ref()
+                    .is_some_and(|o| o.clipped_to_box)
+                {
                     // Floating axes clip their outline to the axes box
                     // (matplotlib's `patch.set_clip_path(orig_patch)`).
                     gc.clip_rect = Some(extent);
                 }
                 let outline = ctx
                     .layout()
-                    .clip_outline(base.id())
+                    .background_outline(base.id())
                     .unwrap_or_else(|| ClipPath {
                         path: self.patch_path(),
                         transform: unit_to_bbox(&extent),

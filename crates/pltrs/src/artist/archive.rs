@@ -28,7 +28,9 @@ use crate::inset::IndicatorArtist;
 use crate::legend::LegendArtist;
 use crate::lines::LineArtist;
 use crate::mplot3d::{Axes3DState, ProjectedOutline, ProjectedPath};
-use crate::offsetbox::{AnchoredBoxArtist, AnnotationBboxArtist, PlacedBoxArtist};
+use crate::offsetbox::{
+    AnchoredBoxArtist, AnnotationBboxArtist, PlacedBoxArtist, ProgramBoxArtist,
+};
 use crate::patches::{
     Annulus, Arc, Arrow, Circle, CirclePolygon, ConnectionPatch, Ellipse, FancyArrow,
     FancyArrowPatch, FancyBboxPatch, PatchArtist, PathShape, Polygon, Rectangle, RegularPolygon,
@@ -63,6 +65,7 @@ pltrs_core::archive_kinds!(dyn Artist {
     "anchored-box" => AnchoredBoxArtist,
     "placed-box" => PlacedBoxArtist,
     "annotation-bbox" => AnnotationBboxArtist,
+    "program-box" => ProgramBoxArtist,
     "axis-artist" => AxisArtistState,
     "tick-marks" => TickMarksState,
     "axis-texts" => AxisTextsState,

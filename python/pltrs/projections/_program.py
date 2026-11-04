@@ -9,7 +9,9 @@ construction then turns into the class' own: `set_up` runs the class'
 ``_set_lim_and_transforms``, ``_gen_axes_spines`` and ``_init_axis`` as
 matplotlib's ``__init__`` does, and hands the Axes over to a pltrs (Rust)
 projection (``_native.projections``) asking an `_Adapter` while it lays
-the Axes out and draws it:
+the Axes out and draws it, and makes the patch its class'
+``_gen_axes_patch`` makes after each clear the background and what the
+Axes clips to (`cleared`):
 
 * the data transform: ``transData`` up to its final ``transAxes``, and
   the transforms of the gridlines and ticks (``get_xaxis_transform``)
@@ -418,8 +420,10 @@ def cleared(ax):
     """
     Give the Axes *ax* the background its class' ``_gen_axes_patch`` makes,
     as matplotlib's ``clear`` makes one, if the class is a program's that
-    overrides it; for polar Axes, its outline clips what the Axes draws
-    unless it is a `.Wedge`, which pltrs (Rust) fits to the view.
+    overrides it: its outline is the background's shape and clips what the
+    Axes draws (matplotlib's ``set_clip_path(self.patch)``: its box for a
+    `.Rectangle`), unless it is the unit square or, for polar Axes, a
+    `.Wedge`, which pltrs (Rust) fits to the view.
     """
     from ..axes._decorations import DecorationsMixin
     from .polar import PolarAxes
@@ -428,13 +432,16 @@ def cleared(ax):
             or cls._gen_axes_patch in (DecorationsMixin._gen_axes_patch,
                                        PolarAxes._gen_axes_patch)):
         return
+    from ..patches import Rectangle, Wedge
     patch = ax.patch
-    if native_name(cls) != "polar":
-        return
-    from ..patches import Wedge
-    outline = (None if isinstance(patch, Wedge)
-               else patch.get_patch_transform().transform_path(patch.get_path()))
-    _polar.set_frame_path(ax._native, outline)
+    outline = patch.get_patch_transform().transform_path(patch.get_path())
+    if native_name(cls) == "polar":
+        _polar.set_frame_path(ax._native, None if isinstance(patch, Wedge) else outline)
+    elif isinstance(patch, Rectangle) and np.allclose(
+            outline.get_extents().bounds, (0, 0, 1, 1)):
+        _projections.set_patch_outline(ax._native, None, True)
+    else:
+        _projections.set_patch_outline(ax._native, outline, isinstance(patch, Rectangle))
 
 
 def _build_trees(ax):
@@ -478,7 +485,8 @@ def set_up(ax):
 def maker(projection_class):
     """How ``add_subplot`` and ``add_axes`` make an Axes of the program's
     *projection_class*: a rectilinear pltrs (Rust) Axes, set up as an Axes
-    of the class (see `.figure._native_maker`)."""
+    of the class, with the background its clear gives it (see
+    `.figure._native_maker`)."""
     def make(figure, kwargs, *, spec=None, rect=None):
         from .._native import figure as _figure, gridspec as _gridspec
         from .. import _handles
@@ -486,5 +494,6 @@ def maker(projection_class):
                   else _gridspec.add_subplot(figure._native, spec))
         ax = _handles.wrap(native, projection_class, figure)
         ax._init_projection()
+        cleared(ax)
         return native, kwargs
     return make

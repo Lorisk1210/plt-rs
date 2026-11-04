@@ -155,6 +155,18 @@ impl ArtistPainter for PythonPainter {
     fn measured_extent(&self) -> MeasuredExtent {
         self.measured.get()
     }
+
+    /// The box's `get_bbox(renderer)`, through the package's
+    /// `measure_box(artist)`: its bounds; an exception raises from the
+    /// native call laying out.
+    fn box_extent(&self, _artist: &RawHandle) -> Option<Bbox> {
+        let (x0, y0, width, height) = Python::with_gil(|py| {
+            let artist = self.artist(py)?;
+            let measure: Callback = lookup(py, "measure_box").ok()?.extract().ok()?;
+            measure.call::<(f64, f64, f64, f64)>((artist,))
+        })?;
+        Some(Bbox::from_bounds(x0, y0, width, height))
+    }
 }
 
 /// Has the Python object the weak reference `artist_ref` refers to draw

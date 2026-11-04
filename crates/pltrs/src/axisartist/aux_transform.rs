@@ -61,6 +61,19 @@ impl Stage {
         }
     }
 
+    /// [`apply`](Self::apply) to every point of `points`, a map called
+    /// once for all of them.
+    fn apply_all(&self, points: &mut [Point]) {
+        match self {
+            Self::Affine(affine) => {
+                for point in points {
+                    *point = affine.transform_point(*point);
+                }
+            }
+            Self::Map(map) => map.forward_all(points),
+        }
+    }
+
     fn inverted(&self) -> Option<Self> {
         Some(match self {
             Self::Affine(affine) => Self::Affine(affine.inverted()?),
@@ -98,8 +111,34 @@ impl AuxTransform {
         inverse: impl Fn(f64, f64) -> (f64, f64) + 'static,
     ) -> Self {
         Self::map(Rc::new(Functions {
-            forward: ProgramFn::new(Rc::new(forward)),
-            inverse: ProgramFn::new(Rc::new(inverse)),
+            forward: PointFn::Point(ProgramFn::new(Rc::new(forward))),
+            inverse: PointFn::Point(ProgramFn::new(Rc::new(inverse))),
+        }))
+    }
+
+    /// The transform given by `forward` and its inverse `inverse`, each
+    /// mapping a slice of points in place: called once with all the
+    /// points a grid line or a sampling of the plane needs, as matplotlib
+    /// calls its `(trans, inv_trans)` pair with arrays.
+    ///
+    /// ```
+    /// use pltrs::axisartist::AuxTransform;
+    /// use pltrs::transforms::Point;
+    /// let shear = AuxTransform::from_array_fns(
+    ///     |points: &mut [Point]| points.iter_mut().for_each(|p| p.y -= p.x),
+    ///     |points: &mut [Point]| points.iter_mut().for_each(|p| p.y += p.x),
+    /// );
+    /// let mut points = [Point::new(1.0, 3.0), Point::new(2.0, 2.0)];
+    /// shear.transform_points(&mut points);
+    /// assert_eq!(points, [Point::new(1.0, 2.0), Point::new(2.0, 0.0)]);
+    /// ```
+    pub fn from_array_fns(
+        forward: impl Fn(&mut [Point]) + 'static,
+        inverse: impl Fn(&mut [Point]) + 'static,
+    ) -> Self {
+        Self::map(Rc::new(Functions {
+            forward: PointFn::Points(ProgramFn::new(Rc::new(forward))),
+            inverse: PointFn::Points(ProgramFn::new(Rc::new(inverse))),
         }))
     }
 
@@ -139,6 +178,14 @@ impl AuxTransform {
             .fold(point, |point, stage| stage.apply(point))
     }
 
+    /// Maps every point of `points` in place, each function of the
+    /// program's called once for all of them.
+    pub fn transform_points(&self, points: &mut [Point]) {
+        for stage in &self.stages {
+            stage.apply_all(points);
+        }
+    }
+
     /// Maps a path; the polar projection turns its steps at constant
     /// radius into arcs when the path has interpolation steps
     /// (matplotlib's `transform_path`).
@@ -176,6 +223,14 @@ impl PointMap for Inverse {
     fn inverse(&self, point: Point) -> Point {
         self.0.forward(point)
     }
+
+    fn forward_all(&self, points: &mut [Point]) {
+        self.0.inverse_all(points);
+    }
+
+    fn inverse_all(&self, points: &mut [Point]) {
+        self.0.forward_all(points);
+    }
 }
 
 /// matplotlib's `PolarTransform()` and its inverse without an axis.
@@ -201,9 +256,52 @@ impl PointMap for Polar {
     }
 }
 
-/// A user-supplied function of `(x, y)`, archived only if it has an
+/// A user-supplied function of `(x, y)`.
+type XyFn = ProgramFn<dyn Fn(f64, f64) -> (f64, f64)>;
+
+/// A user-supplied function mapping a slice of points in place.
+type PointsFn = ProgramFn<dyn Fn(&mut [Point])>;
+
+/// A user-supplied function of the plane, archived only if it has an
 /// origin (see [`ProgramFn`]).
-type PointFn = ProgramFn<dyn Fn(f64, f64) -> (f64, f64)>;
+enum PointFn {
+    /// A function of `(x, y)`.
+    Point(XyFn),
+    /// A function mapping a slice of points in place.
+    Points(PointsFn),
+}
+
+pltrs_core::archive_enum!(PointFn {
+    Point(v0),
+    Points(v0),
+});
+
+impl PointFn {
+    fn call(&self, point: Point) -> Point {
+        match self {
+            Self::Point(function) => {
+                let (x, y) = (function.get())(point.x, point.y);
+                Point::new(x, y)
+            }
+            Self::Points(function) => {
+                let mut one = [point];
+                (function.get())(&mut one);
+                one[0]
+            }
+        }
+    }
+
+    fn call_all(&self, points: &mut [Point]) {
+        match self {
+            Self::Point(_) => {
+                for point in points {
+                    *point = self.call(*point);
+                }
+            }
+            Self::Points(function) => (function.get())(points),
+        }
+    }
+}
 
 /// A transform given by two functions (matplotlib's `_User2DTransform`).
 pub(crate) struct Functions {
@@ -221,13 +319,19 @@ impl fmt::Debug for Functions {
 
 impl PointMap for Functions {
     fn forward(&self, point: Point) -> Point {
-        let (x, y) = (self.forward.get())(point.x, point.y);
-        Point::new(x, y)
+        self.forward.call(point)
     }
 
     fn inverse(&self, point: Point) -> Point {
-        let (x, y) = (self.inverse.get())(point.x, point.y);
-        Point::new(x, y)
+        self.inverse.call(point)
+    }
+
+    fn forward_all(&self, points: &mut [Point]) {
+        self.forward.call_all(points);
+    }
+
+    fn inverse_all(&self, points: &mut [Point]) {
+        self.inverse.call_all(points);
     }
 }
 

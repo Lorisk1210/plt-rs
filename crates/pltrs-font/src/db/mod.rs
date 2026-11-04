@@ -485,24 +485,41 @@ impl FontDatabase {
         query: &FontQuery,
         generics: &GenericFamilies,
     ) -> Result<Vec<FontId>> {
-        let found: Vec<FontId> = query
-            .families
-            .iter()
-            .filter_map(|family| {
-                self.best_match(
-                    &FontQuery {
-                        families: vec![family.clone()],
-                        ..query.clone()
-                    },
-                    generics,
-                )
-            })
+        let found: Vec<FontId> = self
+            .family_matches(query, generics)
+            .into_iter()
+            .flatten()
+            .map(|entry| entry.font)
             .collect();
         if found.is_empty() {
             Err(FontError::NoMatchingFont(query.to_string()))
         } else {
             Ok(found)
         }
+    }
+
+    /// The entry of the best face of each family of the query, in family
+    /// order, `None` for a family no face matches: what
+    /// `_find_fonts_by_props` finds family by family (and logs about, for
+    /// the families it does not find).
+    pub fn family_matches(
+        &self,
+        query: &FontQuery,
+        generics: &GenericFamilies,
+    ) -> Vec<Option<FontEntry>> {
+        query
+            .families
+            .iter()
+            .map(|family| {
+                let single = FontQuery {
+                    families: vec![family.clone()],
+                    ..query.clone()
+                };
+                self.best_entry(&single, generics, |_| true)
+                    .filter(|(_, score)| *score < 10.0)
+                    .map(|(entry, _)| entry)
+            })
+            .collect()
     }
 
     /// A fallback chain over `fonts`, ending with the Last Resort font

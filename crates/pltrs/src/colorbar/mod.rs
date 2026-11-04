@@ -37,7 +37,6 @@ mod artists;
 mod blocks;
 mod build;
 mod dividers;
-pub(crate) use dividers::Dividers;
 mod error;
 mod mappable;
 mod navigation;
@@ -347,22 +346,68 @@ impl Colorbar {
             .collect()
     }
 
-    /// With `drawedges`, the lines between the colours as drawn for the
-    /// current view: across the colorbar at every block edge inside the
-    /// view, and at the ends of the view the colorbar extends
-    /// (matplotlib's `dividers.get_segments()`); empty without.
+    /// The line collection drawing the lines between the colours
+    /// (matplotlib's `dividers`): with `drawedges`, across the colorbar at
+    /// every block edge inside the view of the long axis and at the ends
+    /// of the view the colorbar extends, placed again whenever that view
+    /// changes; without, no lines. It keeps the style given to it.
+    ///
+    /// ```
+    /// use pltrs::colorbar::ColorbarOptions;
+    /// use pltrs::colors::{BoundaryNorm, Extend, ScalarMappable, colormaps};
+    /// use pltrs::prelude::*;
+    /// let fig = Figure::new();
+    /// let ax = fig.subplot();
+    /// let norm = BoundaryNorm::new([0.0, 1.0, 2.0, 3.0], 3, Extend::Neither)?;
+    /// let mappable = ScalarMappable::with_norm(colormaps::get("viridis")?, Box::new(norm));
+    /// let options = ColorbarOptions { drawedges: true, ..ColorbarOptions::beside(&ax) };
+    /// let colorbar = fig.colorbar(&mappable, options)?;
+    /// assert_eq!(colorbar.dividers().paths().len(), 2);
+    /// colorbar.ax().set_ylim(0.0, 1.5)?;
+    /// assert_eq!(colorbar.dividers().paths().len(), 1);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn dividers(&self) -> Collection {
+        let id = self.read(|state| state.drawn.dividers);
+        Collection::from_raw(self.handle(id.expect("a colorbar is drawn with its dividers")))
+    }
+
+    /// The lines between the colours, as [`dividers`](Self::dividers)
+    /// draws them (matplotlib's `dividers.get_segments()`).
     pub fn divider_segments(&self) -> Vec<Path> {
-        let view = match long_axis(self.orientation()) {
-            AxisName::X => self.ax.xlim(),
-            AxisName::Y => self.ax.ylim(),
-        };
-        self.read(|state| {
-            if state.settings.drawedges {
-                state.dividers(&self.ax).segments(view)
-            } else {
-                Vec::new()
-            }
-        })
+        self.dividers().paths()
+    }
+
+    /// The lengths of the lower and upper extensions, as fractions of the
+    /// interior, 0 for an end without one: the room the colorbar's axes
+    /// locator leaves for them (matplotlib's `_ColorbarAxesLocator`).
+    ///
+    /// # Errors
+    ///
+    /// When the norm cannot map the colorbar's values.
+    pub fn extension_lengths(&self) -> Result<(f64, f64), ColorbarError> {
+        self.read(ColorbarState::extension_lengths)
+    }
+
+    /// The long-to-short ratio a colorbar that made its own axes keeps
+    /// when its axes shrinks for the extensions (matplotlib's
+    /// `cax._colorbar_info['aspect']`); `None` for a colorbar drawn in a
+    /// given axes.
+    pub fn aspect(&self) -> Option<f64> {
+        self.read(|state| state.settings.aspect)
+    }
+
+    /// Has the colorbar's axes locator place the axes again, leaving room
+    /// for the extensions inside its position, after another locator
+    /// replaced it (matplotlib's `ax.set_axes_locator` with the
+    /// `_ColorbarAxesLocator`).
+    ///
+    /// # Errors
+    ///
+    /// When the norm cannot map the colorbar's values.
+    pub fn locate_axes(&self) -> Result<&Self, ColorbarError> {
+        self.read(Clone::clone).install_locator(&self.ax)?;
+        Ok(self)
     }
 
     /// A handle to the artist `id` of the colorbar's figure.

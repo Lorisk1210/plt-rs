@@ -157,17 +157,17 @@ fn set_scale(axes: Axes3D, name: String, scale: String, kwargs: Owned) -> PyResu
 }
 
 /// Gives axis `name` the scale of the program's called `scale`, mapping
-/// through `forward` and `inverse` and limiting ranges with
-/// `limit_range(vmin, vmax, minpos)` (`set_xscale` of a `ScaleBase` of
-/// the program's).
+/// through `forward` and `inverse` (called with arrays) and limiting
+/// ranges with `limit_range(vmin, vmax, minpos)` (`set_xscale` of a
+/// `ScaleBase` of the program's).
 fn set_python_scale(
     axes: Axes3D,
     name: String,
     scale: String,
-    functions: (Callback, Callback),
+    functions: (Owned, Owned),
     limit_range: Callback,
 ) -> PyResult<()> {
-    axes.set_scale(axis3(&name)?, python_scale(scale, functions, limit_range))?;
+    axes.set_scale(axis3(&name)?, python_scale(scale, functions, limit_range)?)?;
     Ok(())
 }
 

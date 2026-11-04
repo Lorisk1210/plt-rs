@@ -12,6 +12,7 @@ use pltrs::scale::{
 use pltrs::ticker::{ScaleHint, TickerSettings};
 use pltrs::transforms::AxisMap;
 
+use super::super::archive::func_transform;
 use super::nonpositive;
 use crate::binding::dict_items;
 use crate::binding::prelude::*;
@@ -23,15 +24,6 @@ fn axis_name(name: &str) -> PyResult<AxisName> {
         "y" => Ok(AxisName::Y),
         _ => Err(PyErr::value_error(format!("no axis {name:?}"))),
     }
-}
-
-/// The map calling the Python functions `forward` and `inverse` value by
-/// value; NaN where they raise.
-fn functions(forward: Callback, inverse: Callback) -> FuncTransform {
-    FuncTransform::new(
-        move |x| forward.call::<f64>((x,)).unwrap_or(f64::NAN),
-        move |x| inverse.call::<f64>((x,)).unwrap_or(f64::NAN),
-    )
 }
 
 /// The options of a scale from the keyword arguments the Python scale
@@ -51,8 +43,8 @@ fn options(kwargs: &Bound<'_>) -> PyResult<ScaleOptions> {
             "one_half" => options.one_half = Some(value.extract()?),
             "use_overline" => options.use_overline = Some(value.extract()?),
             "functions" => {
-                let (forward, inverse): (Callback, Callback) = value.extract()?;
-                options.functions = Some(functions(forward, inverse));
+                let (forward, inverse): (Bound<'_>, Bound<'_>) = value.extract()?;
+                options.functions = Some(func_transform(&forward, &inverse)?);
             }
             _ => {
                 return Err(PyErr::type_error(format!(
@@ -107,35 +99,36 @@ impl Scale for PyScale {
 }
 
 /// Gives axis `name` of `axes` (and the axes sharing it) the Python scale
-/// called `scale`, mapping through `forward` and `inverse` and limiting
-/// ranges with `limit_range(vmin, vmax, minpos)`.
+/// called `scale`, mapping through `forward` and `inverse` (called with
+/// arrays) and limiting ranges with `limit_range(vmin, vmax, minpos)`.
 fn set_python_scale(
     axes: Axes,
     name: String,
     scale: String,
-    (forward, inverse): (Callback, Callback),
+    (forward, inverse): (Owned, Owned),
     limit_range: Callback,
 ) -> PyResult<()> {
     axes.set_scale(
         axis_name(&name)?,
-        python_scale(scale, (forward, inverse), limit_range),
+        python_scale(scale, (forward, inverse), limit_range)?,
     );
     Ok(())
 }
 
 /// The scale of the program's called `scale`, mapping through `forward`
-/// and `inverse` and limiting ranges with `limit_range(vmin, vmax,
-/// minpos)`.
+/// and `inverse` (called with arrays) and limiting ranges with
+/// `limit_range(vmin, vmax, minpos)`.
 pub(crate) fn python_scale(
     scale: String,
-    (forward, inverse): (Callback, Callback),
+    (forward, inverse): (Owned, Owned),
     limit_range: Callback,
-) -> Box<dyn Scale> {
-    Box::new(PyScale {
+) -> PyResult<Box<dyn Scale>> {
+    let map = Python::with_gil(|py| func_transform(&forward.bind(py), &inverse.bind(py)))?;
+    Ok(Box::new(PyScale {
         name: scale,
-        map: Rc::new(functions(forward, inverse)),
+        map: Rc::new(map),
         limit_range,
-    })
+    }))
 }
 
 /// Registers the module's functions.
@@ -168,12 +161,13 @@ mod tests {
         });
         assert!(set_scale(ax.clone(), "y".into(), "log".into(), unknown).is_err());
         let (forward, inverse, limit) = with_python(|py| {
-            let callback =
-                |expression: &str| -> Callback { eval(py, "", expression).extract().unwrap() };
+            let object = |expression: &str| eval(py, "", expression).unbind();
             (
-                callback("lambda x: 2 * x"),
-                callback("lambda x: x / 2"),
-                callback("lambda vmin, vmax, minpos: (vmin, vmax)"),
+                object("lambda x: 2 * x"),
+                object("lambda x: x / 2"),
+                eval(py, "", "lambda vmin, vmax, minpos: (vmin, vmax)")
+                    .extract::<Callback>()
+                    .unwrap(),
             )
         });
         set_python_scale(

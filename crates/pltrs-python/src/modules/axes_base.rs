@@ -44,7 +44,7 @@ fn position(axes: Axes, original: bool) -> PyResult<(f64, f64, f64, f64)> {
     let bbox = if original {
         axes.original_position()
     } else {
-        axes.position()
+        axes.try_position()?
     };
     Ok(bbox.extents())
 }

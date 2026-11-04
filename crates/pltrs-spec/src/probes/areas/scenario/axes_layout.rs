@@ -30,10 +30,10 @@ pub(super) fn call(scene: &Scene, ax: &Axes, call: &Call<'_>) -> Handled {
             Adjustable::Box => "box",
             Adjustable::Datalim => "datalim",
         }))),
-        "apply_aspect" => {
-            ax.apply_aspect();
-            Ok(Produced::Nothing)
-        }
+        "apply_aspect" => ax
+            .apply_aspect()
+            .map(|_| Produced::Nothing)
+            .map_err(ProbeError::rejected),
         "set_box_aspect" => call.opt_f64(0, "aspect").and_then(|aspect| {
             ax.set_box_aspect(aspect).map_err(ProbeError::rejected)?;
             Ok(Produced::Nothing)

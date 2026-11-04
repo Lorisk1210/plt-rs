@@ -1,25 +1,16 @@
-//! The dividers of a colorbar with `drawedges`: lines between its colours
-//! inside the view and at the extended ends of the view, placed when drawn
-//! from the long axis' limits as they are then (matplotlib's
-//! `_update_dividers`, which runs again whenever those limits change).
-
-use std::any::Any;
+//! The dividers of a colorbar: with `drawedges`, lines between its colours
+//! inside the view and at the extended ends of the view, placed from the
+//! long axis' limits as they are (matplotlib's `_update_dividers`, which
+//! runs again whenever those limits change); without, no lines.
 
 use pltrs_core::Path;
 
 use super::artists::across;
-use super::long_axis;
-use crate::artist::{ArtistId, LayoutContext};
-use crate::axes::AxesState;
-use crate::collections::DrawTimeShapes;
 use crate::orientation::Orientation;
-use crate::transforms::Transform;
 
 /// Where the dividers of a colorbar go.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Dividers {
-    /// The colorbar axes.
-    pub(crate) axes: ArtistId,
     pub(crate) orientation: Orientation,
     /// The block edges along the long axis.
     pub(crate) edges: Vec<f64>,
@@ -28,14 +19,6 @@ pub(crate) struct Dividers {
     /// Whether the upper end is extended.
     pub(crate) upper: bool,
 }
-
-pltrs_core::archive_struct!(Dividers {
-    axes,
-    orientation,
-    edges,
-    lower,
-    upper
-});
 
 impl Dividers {
     /// The positions along the long axis for the view `(lo, hi)`, in the
@@ -64,31 +47,13 @@ impl Dividers {
     }
 }
 
-impl DrawTimeShapes for Dividers {
-    fn shapes(&self, ctx: LayoutContext<'_>) -> Result<(Vec<Path>, Transform), String> {
-        let axes = ctx
-            .store()
-            .get_as::<AxesState>(self.axes)
-            .ok_or("the colorbar axes is gone")?;
-        let view = axes.view_interval(long_axis(self.orientation));
-        Ok((self.segments(view), Transform::Data(self.axes)))
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artist::ArtistHandle;
-    use crate::figure::Figure;
 
     #[test]
     fn dividers_follow_the_view_and_mark_extended_ends() {
         let dividers = Dividers {
-            axes: Figure::new().subplot().id(),
             orientation: Orientation::Horizontal,
             edges: vec![0.0, 1.0, 2.0, 3.0, 4.0],
             lower: true,

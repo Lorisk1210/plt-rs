@@ -12,9 +12,10 @@ In Matplotlib they are drawn into a dedicated `~.axes.Axes`.
 
 pltrs (Rust) lays colorbars out and draws them (``pltrs::colorbar``): a
 `Colorbar` hands it the colormap and norm of its mappable, and hands them
-over again whenever the mappable changes. The checks of the arguments and
-the helpers resolving *location* and *orientation* are matplotlib's (from
-matplotlib 3.11.2, under the Matplotlib License).
+over again whenever the mappable changes. The checks of the arguments,
+the helpers resolving *location* and *orientation*, and the outline's and
+the locator's classes (`_ColorbarSpine`, `_ColorbarAxesLocator`) are
+matplotlib's (from matplotlib 3.11.2, under the Matplotlib License).
 """
 
 import functools
@@ -22,8 +23,9 @@ import functools
 import numpy as np
 
 from . import _api, _handles, artist as martist, colorizer as mcolorizer, ticker
+from . import patches as mpatches, path as mpath, spines as mspines
 from . import transforms as mtransforms
-from ._native import colorbar as _colorbar
+from ._native import colorbar as _colorbar, patches as _patches
 
 
 def _get_orientation_from_location(location):
@@ -47,6 +49,137 @@ def _remove_cbar_axes(ax, cbar):
     local def within the Colorbar.__init__ method will not work.
     """
     cbar.remove()
+
+
+class _ColorbarSpine(mspines.Spine):
+    """
+    The outline of a colorbar, a spine of its Axes (``ax.spines['outline']``)
+    framing the colours and the extensions: pltrs (Rust) draws it as a patch
+    through the Axes' ``transAxes``, as matplotlib's ``Patch.draw`` draws
+    it, and moves it when the extensions change.
+    """
+
+    # A spine of no side: matplotlib's linear spines' machinery (positions,
+    # the spine transform) holds Python state only.
+    _position = None
+    _patch_type = 'line'
+
+    @property
+    def spine_type(self):
+        """``'colorbar'``."""
+        return 'colorbar'
+
+    def get_window_extent(self, renderer=None):
+        # This Spine has no Axis associated with it, and doesn't need to
+        # adjust its location, so we can directly get the window extent from
+        # the super-super-class.
+        return mpatches.Patch.get_window_extent(self, renderer=renderer)
+
+    def get_tightbbox(self, renderer=None):
+        """Like `get_window_extent`: the outline is not clipped."""
+        return self.get_window_extent(renderer)
+
+    get_path = mpatches.Patch.get_path
+    get_transform = mpatches.Patch.get_transform
+    get_edgecolor = mpatches.Patch.get_edgecolor
+    set_linewidth = mpatches.Patch.set_linewidth
+    set_linestyle = mpatches.Patch.set_linestyle
+    _path = mpatches.PathPatch._path
+
+    def set_xy(self, xy):
+        """Set the vertices of the closed outline, in Axes fractions."""
+        _patches.set_path_shape(self._native, mpath.Path(xy, closed=True))
+        self._xy = xy
+        self.stale = True
+
+    def set_color(self, c):
+        """Set the edgecolor (the facecolor stays "none")."""
+        self.set_edgecolor(c)
+        self.stale = True
+
+    def get_spine_transform(self):
+        """The outline has no side to place a transform on."""
+        raise ValueError(f'unknown spine spine_type: {self.spine_type!r}')
+
+    def set_position(self, position):
+        """
+        Set the position of the spine, as for a `.Spine`; the outline has no
+        transform for it, so this raises `ValueError` once it is set, as
+        matplotlib's does.
+        """
+        mspines._check_position(position)
+        self._position = position
+        self.get_spine_transform()
+
+    def get_position(self):
+        """Return the spine position (setting the default one raises, see
+        `set_position`)."""
+        if self._position is None:
+            self.set_position(('outward', 0.0))
+        return self._position
+
+    def clear(self):
+        """Clear the current spine."""
+        self._position = None
+
+    def set_bounds(self, low=None, high=None):
+        """
+        Set the spine bounds: refused, as matplotlib refuses them, since
+        the outline has no view interval to complete them from.
+        """
+        raise ValueError(f'spine_type: {self.spine_type} not supported')
+
+    def get_bounds(self):
+        """Get the bounds of the spine: none."""
+        return None
+
+
+class _ColorbarAxesLocator:
+    """
+    Shrink the Axes if there are triangular or rectangular extends.
+
+    pltrs (Rust) places a colorbar's Axes so at every layout; calling the
+    locator computes the same position, as matplotlib's does.
+    """
+    def __init__(self, cbar):
+        self._cbar = cbar
+        self._orig_locator = cbar.ax.get_axes_locator()
+
+    def __call__(self, ax, renderer):
+        if self._orig_locator is not None:
+            pos = self._orig_locator(ax, renderer)
+        else:
+            pos = ax.get_position(original=True)
+        if self._cbar.extend == 'neither':
+            return pos
+        (lower, upper), aspect = _colorbar.locator_geometry(self._cbar._native)
+        length = lower + upper + 1
+        shrink = 1 / length
+        offset = lower / length
+        # now shrink and/or offset to take into account the
+        # extend tri/rectangles.
+        if self._cbar.orientation == 'vertical':
+            if aspect:
+                self._cbar.ax.set_box_aspect(aspect*shrink)
+            pos = pos.shrunk(1, shrink).translated(0, offset * pos.height)
+        else:
+            if aspect:
+                self._cbar.ax.set_box_aspect(1/(aspect * shrink))
+            pos = pos.shrunk(shrink, 1).translated(offset * pos.width, 0)
+        return pos
+
+    def _place(self, ax):
+        """Have pltrs (Rust) place *ax* as the locator does at every
+        layout (`.Axes.set_axes_locator`)."""
+        from .axes import _program_locators
+        place = getattr(self._orig_locator, "_place", None)
+        if self._orig_locator is not None and place is None:
+            # The original locator is the program's: call this one.
+            _program_locators.follow(ax, ax._figure)
+            return
+        if place is not None:
+            place(ax)
+        _colorbar.locate_axes(self._cbar._native)
 
 
 #: The keywords of `.Figure.colorbar` that place a new colorbar Axes.
@@ -240,6 +373,9 @@ class Colorbar:
         """
         from .contour import ContourSet
         self.ax._colorbar = self
+        # matplotlib's colorbar places its Axes with its own locator, around
+        # the one the Axes had (pltrs (Rust) composes them natively).
+        self.ax._axes_locator = _ColorbarAxesLocator(self)
         if isinstance(self.mappable, ContourSet):
             self.ax.set_navigate(False)
 
@@ -323,9 +459,9 @@ class Colorbar:
 
     @property
     def outline(self):
-        """The patch outlining the colours and the extensions."""
-        from .patches import PathPatch
-        return _handles.wrap(_colorbar.outline(self._native), PathPatch,
+        """The spine outlining the colours and the extensions, the
+        ``'outline'`` of the Axes' spines."""
+        return _handles.wrap(_colorbar.outline(self._native), _ColorbarSpine,
                              self._figure)
 
     @property
@@ -361,8 +497,12 @@ class Colorbar:
 
     @property
     def dividers(self):
-        """The lines between the colours drawn with *drawedges*."""
-        return _Dividers(self)
+        """The `.LineCollection` of the lines between the colours: with
+        *drawedges*, at the edges of the colours in the view and at the
+        extended ends of the view; else none."""
+        from .collections import LineCollection
+        return _handles.wrap(_colorbar.dividers(self._native),
+                             LineCollection, self._figure)
 
     @property
     def long_axis(self):
@@ -632,21 +772,6 @@ class Colorbar:
         ax = self.ax
         _colorbar.remove(self._native)
         _handles.forget(ax)
-
-
-class _Dividers:
-    """
-    The lines between the colours of a colorbar drawn with *drawedges*
-    (matplotlib's ``Colorbar.dividers``): pltrs (Rust) draws them with the
-    colorbar, for its current view.
-    """
-
-    def __init__(self, colorbar):
-        self._colorbar = colorbar
-
-    def get_segments(self):
-        """The segments, as ``(2, 2)`` arrays of their ends."""
-        return _colorbar.divider_segments(self._colorbar._native)
 
 
 ColorbarBase = Colorbar  # Backcompat API

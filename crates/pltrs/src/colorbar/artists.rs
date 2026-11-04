@@ -3,15 +3,15 @@
 //! at given levels (matplotlib's `_add_solids`, `_do_extends`,
 //! `_update_dividers` and `add_lines`).
 
-use std::rc::Rc;
-
 use pltrs_core::{Path, Point, Rgba};
 use pltrs_render::CapStyle;
 
 use super::ColorbarError;
 use super::dividers::Dividers;
 use crate::artist::{Artist, ArtistHandle, ArtistId, BaseProps, ClipPathSpec};
-use crate::axes::{Axes, DataUpdate, Mesh, MeshCoords, PcolorOptions, RgbaMesh, Shading};
+use crate::axes::{
+    Axes, AxesState, DataUpdate, Mesh, MeshCoords, PcolorOptions, RgbaMesh, Shading,
+};
 use crate::collections::{CollectionArtist, CollectionKind, CollectionProps, EdgeColors};
 use crate::colors::{Color, ColorizerOptions, ScalarMappable};
 use crate::image::ScalarField;
@@ -143,8 +143,9 @@ impl Painter<'_> {
     }
 
     /// Frames the colorbar with an outline around the interior and the
-    /// extensions (matplotlib's `_ColorbarSpine`): moves the `existing`
-    /// outline, keeping its style, or hides the spines and makes one.
+    /// extensions (matplotlib's `_ColorbarSpine`, a spine of the axes):
+    /// moves the `existing` outline, keeping its style, or hides the side
+    /// spines and makes one.
     pub(crate) fn outline(&self, extensions: &Extensions, existing: Option<ArtistId>) -> ArtistId {
         let path = Path::closed(self.points(&extensions.outline()));
         if let Some(id) = existing {
@@ -168,7 +169,15 @@ impl Painter<'_> {
         base.zorder = 2.5;
         base.transform = Some(self.ax.trans_axes());
         base.clip_on = false;
-        self.ax.adopt(outline, &DataUpdate::default()).id()
+        let id = self.ax.adopt(outline, &DataUpdate::default()).id();
+        let replaced = self
+            .ax
+            .raw()
+            .with_mut::<AxesState, _>(|axes| axes.replace_outline_spine(id));
+        // The outline of a colorbar drawn in the axes before is gone, as
+        // matplotlib's replaced `spines['outline']`.
+        self.remove(replaced);
+        id
     }
 
     /// Fills the extensions with the under and over colours and their
@@ -239,26 +248,36 @@ impl Painter<'_> {
         patch
     }
 
-    /// Lines across the colorbar at `positions` along it, in the axes
-    /// edge colour (matplotlib's `dividers`).
-    pub(crate) fn dividers(&self, placement: Dividers) -> ArtistId {
+    /// The line collection drawing the lines between the colours, in the
+    /// axes edge colour, without lines yet (matplotlib's `dividers`, which
+    /// the colorbar adds to its axes first, without autoscaling).
+    pub(crate) fn dividers(&self) -> ArtistId {
         let rc = crate::rc::params();
         let mut dividers = CollectionArtist::new(CollectionKind::Line, Vec::new(), rc.clone());
         dividers.edgecolors = EdgeColors::Colors(vec![rc.axes_edgecolor.clone()]);
         dividers.linewidths = Some(vec![0.5 * rc.axes_linewidth]);
-        dividers.draw_time = Some(Rc::new(placement));
         let base = dividers.base_mut();
         base.transform = Some(self.ax.trans_data());
         base.clip_on = false;
         self.ax.adopt(dividers, &DataUpdate::default()).id()
     }
 
-    /// Replaces where the dividers go.
-    pub(crate) fn move_dividers(&self, dividers: ArtistId, placement: Dividers) {
+    /// Places the lines of the `dividers` collection for the current view
+    /// of the long axis (none without `placement`, a colorbar without
+    /// `drawedges`), keeping its style (matplotlib's
+    /// `dividers.set_segments`).
+    pub(crate) fn place_dividers(&self, dividers: ArtistId, placement: Option<&Dividers>) {
+        let segments = placement.map_or_else(Vec::new, |placement| {
+            let view = match self.orientation {
+                Orientation::Vertical => self.ax.ylim(),
+                Orientation::Horizontal => self.ax.xlim(),
+            };
+            placement.segments(view)
+        });
         let mut figure = self.ax.raw().figure_state().borrow_mut();
-        figure.stale = true;
         if let Some(dividers) = figure.artist_as_mut::<CollectionArtist>(dividers) {
-            dividers.draw_time = Some(Rc::new(placement));
+            dividers.replace_paths(segments);
+            figure.stale = true;
         }
     }
 

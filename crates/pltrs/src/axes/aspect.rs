@@ -46,6 +46,11 @@ pub enum AspectError {
     /// adjust their data limits to an aspect (matplotlib refuses
     /// `datalim` for axes overriding `get_data_ratio`).
     FixedDataRatio(ProjectionKind),
+    /// Adjusting the data limits to the aspect would make them NaN or
+    /// infinite: a scale cannot map the view limits (a logit axis
+    /// beyond `(0, 1)`), so the data ratio is not finite (matplotlib's
+    /// `set_xbound` refuses the limits).
+    NonFiniteLimits,
 }
 
 impl fmt::Display for AspectError {
@@ -59,6 +64,7 @@ impl fmt::Display for AspectError {
                 "cannot adjust the data limits of {} axes: their data ratio is fixed",
                 projection.name()
             ),
+            Self::NonFiniteLimits => f.write_str("Axis limits cannot be NaN or Inf"),
         }
     }
 }
@@ -398,12 +404,32 @@ impl Axes {
     /// than at the next layout (matplotlib's `apply_aspect`). A pending
     /// layout-engine pass waits for the next layout, as in matplotlib,
     /// where layout engines run when the figure is drawn.
-    pub fn apply_aspect(&self) -> &Self {
+    ///
+    /// ```
+    /// use pltrs::axes::{Adjustable, Aspect, AspectError};
+    /// use pltrs::prelude::*;
+    /// use pltrs::scale::ScaleName;
+    /// let ax = Figure::new().subplot();
+    /// ax.set_adjustable(Adjustable::Datalim)?;
+    /// ax.set_aspect(Aspect::Ratio(2.0))?;
+    /// ax.set_ylim(-1.0, 1.0)?;
+    /// ax.set_yscale(ScaleName::Logit)?;
+    /// // The logit scale cannot map -1: no limits fit the aspect.
+    /// assert_eq!(ax.apply_aspect().err(), Some(AspectError::NonFiniteLimits));
+    /// assert_eq!(ax.ylim(), (-1.0, 1.0));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// When adjusting the data limits would make them NaN or infinite
+    /// (they are left as they are).
+    pub fn apply_aspect(&self) -> Result<&Self, AspectError> {
         self.raw
             .figure_state()
             .borrow_mut()
-            .apply_aspect_now(self.id(), Placement::Located);
-        self
+            .apply_aspect_now(self.id(), Placement::Located)?;
+        Ok(self)
     }
 
     /// [`Axes::apply_aspect`] with the axes placed at `position`, in
@@ -411,12 +437,16 @@ impl Axes {
     /// (matplotlib's `apply_aspect(position)`): the axes is drawn at
     /// `position` adjusted for the aspect until the aspect is applied
     /// again (as [`Axes::position`] and every layout do).
-    pub fn apply_aspect_at(&self, position: Bbox) -> &Self {
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::apply_aspect`].
+    pub fn apply_aspect_at(&self, position: Bbox) -> Result<&Self, AspectError> {
         self.raw
             .figure_state()
             .borrow_mut()
-            .apply_aspect_now(self.id(), Placement::Given(position));
-        self
+            .apply_aspect_now(self.id(), Placement::Given(position))?;
+        Ok(self)
     }
 }
 

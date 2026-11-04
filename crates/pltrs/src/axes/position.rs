@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use pltrs_core::Bbox;
 
-use super::{Axes, AxesState};
+use super::{AspectError, Axes, AxesState};
 use crate::artist::{Artist, ArtistHandle, RawHandle};
 use crate::gridspec::{GridSpecError, SubplotParams, SubplotSpec};
 
@@ -74,9 +74,21 @@ impl Axes {
     /// secondary axes, which are placed in their host axes, are reported
     /// in the host's figure fractions too.
     pub fn position(&self) -> Bbox {
-        let host = self.host().map(|host| host.position());
-        self.apply_aspect();
-        self.active_position_in(host)
+        self.try_position()
+            .unwrap_or_else(|_| self.located_position())
+    }
+
+    /// [`position`](Self::position), failing as applying the aspect does
+    /// (matplotlib's `get_position` raises then).
+    ///
+    /// # Errors
+    ///
+    /// As [`Axes::apply_aspect`]: the aspect cannot be applied to the
+    /// axes (or to the axes it is placed in).
+    pub fn try_position(&self) -> Result<Bbox, AspectError> {
+        let host = self.host().map(|host| host.try_position()).transpose()?;
+        self.apply_aspect()?;
+        Ok(self.active_position_in(host))
     }
 
     /// Placement as a fraction of the figure (or subfigure) as the axes

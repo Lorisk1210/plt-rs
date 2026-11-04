@@ -209,7 +209,7 @@ fn scatter_colorbars_follow_the_mapped_values() {
 }
 
 /// The colormap name of the colorbar's colour blocks, and how many
-/// collections its axes holds.
+/// colour-mapped collections (blocks) its axes holds.
 fn solids(colorbar: &Colorbar) -> (String, usize) {
     let id = colorbar.read(|state| state.drawn.solids).expect("filled");
     let children = colorbar
@@ -224,7 +224,7 @@ fn solids(colorbar: &Colorbar) -> (String, usize) {
         .unwrap_or_default();
     let count = children
         .into_iter()
-        .filter(|&c| collection(c).is_some())
+        .filter(|&c| collection(c).is_some_and(|c| c.mapping.is_some()))
         .count();
     (name, count)
 }

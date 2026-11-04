@@ -128,9 +128,9 @@ fn data_lim(axes: Axes) -> PyResult<Limits> {
 fn apply_aspect(axes: Axes, position: Option<(f64, f64, f64, f64)>) -> PyResult<()> {
     match position {
         Some((x0, y0, width, height)) => {
-            axes.apply_aspect_at(Bbox::from_bounds(x0, y0, width, height))
+            axes.apply_aspect_at(Bbox::from_bounds(x0, y0, width, height))?
         }
-        None => axes.apply_aspect(),
+        None => axes.apply_aspect()?,
     };
     Ok(())
 }

@@ -131,7 +131,8 @@ def _description(t):
 class _ProgramMap:
     """
     A non-affine transform of the program's as pltrs (Rust) maps through
-    it: points one by one through its ``transform``, and paths as
+    it: points through its ``transform``, called with the ``(N, 2)`` array
+    of all the points it needs at once, as matplotlib calls it, and paths as
     matplotlib's artists map theirs, through a `.TransformedPath`, which
     keeps the path the transform last gave until the transform is
     invalidated.

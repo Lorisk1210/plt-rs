@@ -207,10 +207,11 @@ impl FloatingLine {
             AxisName::X => (lat_min, lat_max),
             AxisName::Y => (lon_min, lon_max),
         };
-        let line = crate::numeric::linspace(low, high, LINE_POINTS)
+        let mut line: Vec<Point> = crate::numeric::linspace(low, high, LINE_POINTS)
             .into_iter()
-            .map(|along| finder.transform().transform_point(self.point(along)))
+            .map(|along| self.point(along))
             .collect();
+        finder.transform().transform_points(&mut line);
         Ok((AxisGrid::new(finder, extremes)?, line))
     }
 }

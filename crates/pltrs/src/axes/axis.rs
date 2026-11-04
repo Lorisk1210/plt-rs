@@ -254,6 +254,9 @@ pub(crate) struct AxisState {
     /// see [`super::Axis::ticks_placed`]); set while drawing, hence a
     /// cell.
     pub(crate) ticks_placed: Cell<bool>,
+    /// The ends of the view interval last mapped through the scale (their
+    /// bits) and where they went (see [`AxisState::scaled_ends`]).
+    scaled_view: Cell<Option<([u64; 2], [f64; 2])>>,
 }
 
 pltrs_core::archive_struct!(AxisState {
@@ -285,7 +288,8 @@ pltrs_core::archive_struct!(AxisState {
     remove_overlapping_locs,
     picking,
     gids,
-    ticks_placed
+    ticks_placed,
+    scaled_view
 });
 
 impl AxisState {
@@ -349,6 +353,7 @@ impl AxisState {
             picking: AxisPicking::default(),
             gids: AxisGids::default(),
             ticks_placed: Cell::new(false),
+            scaled_view: Cell::new(None),
         }
     }
 
@@ -437,6 +442,7 @@ impl AxisState {
     /// helpers (matplotlib's `sharex` assigning `_scale`).
     pub(crate) fn adopt_scale(&mut self, scale: Rc<dyn Scale>) {
         self.map = scale.axis_map();
+        self.scaled_view.set(None);
         self.scale = scale;
     }
 
@@ -544,6 +550,25 @@ impl AxisState {
     /// Maps a value through the scale.
     pub(crate) fn forward(&self, value: f64) -> f64 {
         self.map.as_ref().map_or(value, |m| m.forward(value))
+    }
+
+    /// The ends of a view interval through the scale, its map called once
+    /// for both and not again while they and the scale stay the same
+    /// (matplotlib's `TransformedBbox` of the view limits keeps its points
+    /// until they change).
+    pub(crate) fn scaled_ends(&self, ends: [f64; 2]) -> [f64; 2] {
+        let bits = ends.map(f64::to_bits);
+        if let Some((given, scaled)) = self.scaled_view.get()
+            && given == bits
+        {
+            return scaled;
+        }
+        let mut scaled = ends;
+        if let Some(map) = &self.map {
+            map.forward_all(&mut scaled);
+        }
+        self.scaled_view.set(Some((bits, scaled)));
+        scaled
     }
 
     /// Maps a scaled value back to data.

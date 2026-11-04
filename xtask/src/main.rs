@@ -14,7 +14,7 @@
 //! cargo xtask mpl-suite [--reference] [PATTERN...] [--failures] [--imports]
 //!                                                 matplotlib's own test suite run against pltrs (or matplotlib)
 //! cargo xtask ecosystem [setup] [PYTEST ARGS...]  pandas and seaborn drawing with pltrs as matplotlib
-//! cargo xtask diff [--gallery | --generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT]
+//! cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT]
 //!                                                 programs run under matplotlib and pltrs (Python), compared
 //! ```
 #![forbid(unsafe_code)]
@@ -74,7 +74,7 @@ fn main() -> ExitCode {
             );
             eprintln!("       cargo xtask ecosystem [setup] [PYTEST ARGS...]");
             eprintln!(
-                "       cargo xtask diff [--gallery | --generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT]"
+                "       cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce] [--baseline REPORT]"
             );
             ExitCode::FAILURE
         }

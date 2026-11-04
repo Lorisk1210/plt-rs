@@ -1,4 +1,4 @@
-//! `cargo xtask diff [--gallery | --generated] [PATTERN...] [--failures] [--reduce]
+//! `cargo xtask diff [--gallery] [--generated] [PATTERN...] [--failures] [--reduce]
 //! [--baseline REPORT] [--jobs N] [--no-build]`: the differential tester of
 //! pltrs (Python) against matplotlib.
 //!
@@ -30,8 +30,9 @@ use std::env;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 
-/// The programs a run takes, by default both suites.
-const SUITES: [&str; 2] = ["--gallery", "--generated"];
+/// The flags choosing the programs a run takes, with the driver's names
+/// of their suites; without either (or with both), a run takes both.
+const SUITES: [(&str, &str); 2] = [("--gallery", "gallery"), ("--generated", "generated")];
 
 /// The flags passed on to the driver as they are, each with its value.
 const VALUE_FLAGS: [&str; 2] = ["--baseline", "--jobs"];
@@ -54,6 +55,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
         PathBuf::from,
     );
     let mut build = true;
+    let mut suites = Vec::new();
     let mut driver = Command::new(root.join(".venv/bin/python"));
     driver
         .arg(root.join("spec/diff/driver.py"))
@@ -67,8 +69,8 @@ fn run_diff(args: &[String]) -> Result<(), String> {
     while let Some(arg) = rest.next() {
         match arg.as_str() {
             "--no-build" => build = false,
-            suite if SUITES.contains(&suite) => {
-                driver.args(["--suite", &suite[2..]]);
+            flag if SUITES.iter().any(|&(name, _)| name == flag) => {
+                suites.push(flag);
             }
             flag if VALUE_FLAGS.contains(&flag) => {
                 let value = rest.next().ok_or_else(|| format!("{flag} needs a value"))?;
@@ -83,6 +85,7 @@ fn run_diff(args: &[String]) -> Result<(), String> {
             }
         }
     }
+    driver.args(["--suite", suite_of(&suites)]);
     if build {
         crate::python::build(crate::python::Profile::Release)?;
     }
@@ -90,4 +93,30 @@ fn run_diff(args: &[String]) -> Result<(), String> {
         .arg("--pltrs-python")
         .arg(crate::python::pltrs_python()?);
     crate::python::run_checked(&mut driver)
+}
+
+/// The driver's name of the programs the suite flags `given` choose: one
+/// suite when only its flag is given, else both (`all`).
+fn suite_of(given: &[&str]) -> &'static str {
+    match SUITES
+        .iter()
+        .filter(|(flag, _)| given.contains(flag))
+        .collect::<Vec<_>>()[..]
+    {
+        [(_, suite)] => suite,
+        _ => "all",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::suite_of;
+
+    #[test]
+    fn suite_flags_add_up() {
+        assert_eq!(suite_of(&[]), "all");
+        assert_eq!(suite_of(&["--gallery"]), "gallery");
+        assert_eq!(suite_of(&["--generated", "--generated"]), "generated");
+        assert_eq!(suite_of(&["--gallery", "--generated"]), "all");
+    }
 }

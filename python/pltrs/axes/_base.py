@@ -22,13 +22,14 @@ from ._layout import LayoutMixin
 from ._limits import LimitsMixin
 from ._navigation import NavigationMixin
 from ._projection import ProjectionMixin
+from ._sharing import SharedGroups
 from ._prop_cycles import PropCycleMixin
 from ._ticks import TicksMixin
 from ._units import UnitsMixin
 from ..transforms import Bbox
 
 
-class _SharedAxes:
+class _SharedAxes(SharedGroups):
     """
     The groups of axes sharing one axis (matplotlib's ``_shared_axes[name]``,
     a `.cbook.Grouper`), as pltrs (Rust) keeps them.
@@ -40,14 +41,6 @@ class _SharedAxes:
     def _siblings(self, a):
         return _handles.wrap_all(_axes_base.shared(a._native, self._name),
                                  type(a), a.figure)
-
-    def joined(self, a, b):
-        """Return whether *a* and *b* are members of the same set."""
-        return a.figure is b.figure and b in self._siblings(a)
-
-    def get_siblings(self, a):
-        """Return all of the items joined with *a*, including itself."""
-        return self._siblings(a)
 
 
 class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
@@ -283,13 +276,15 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
         native = _axes_base.shared_from(self._native, name)
         return None if native is None else _handles.wrap(native, type(self), self.figure)
 
-    def get_shared_x_axes(self):
+    @classmethod
+    def get_shared_x_axes(cls):
         """Return an immutable view on the shared x-axes Grouper."""
-        return self._shared_axes["x"]
+        return cbook.GrouperView(cls._shared_axes["x"])
 
-    def get_shared_y_axes(self):
+    @classmethod
+    def get_shared_y_axes(cls):
         """Return an immutable view on the shared y-axes Grouper."""
-        return self._shared_axes["y"]
+        return cbook.GrouperView(cls._shared_axes["y"])
 
     def get_xticks(self, *, minor=False):
         """Return the xaxis' tick locations in data coordinates."""

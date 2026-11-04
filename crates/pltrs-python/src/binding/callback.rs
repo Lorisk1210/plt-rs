@@ -16,7 +16,7 @@
 use std::cell::RefCell;
 
 use super::convert::{FromPy, IntoPy};
-use super::error::{PyErr, PyResult};
+use super::error::{ExceptionKind, PyErr, PyResult};
 use super::gil::Python;
 use super::object::{Bound, Owned};
 
@@ -70,8 +70,28 @@ fn close(depth: usize) -> Option<PyErr> {
 }
 
 /// Whether the innermost frame already holds an exception.
-fn failed() -> bool {
+pub(crate) fn failed() -> bool {
     FRAMES.with(|frames| frames.borrow().last().is_some_and(Option::is_some))
+}
+
+/// Takes the exception the innermost frame holds out of it when it is a
+/// `kind` (or of a subclass), as an `except kind:` clause would: the
+/// native call goes on as if no callback had raised it, its later
+/// callbacks run. Whether there was one.
+pub(crate) fn forgive(kind: ExceptionKind) -> bool {
+    Python::with_gil(|py| {
+        let forgiven = FRAMES.with(|frames| {
+            let mut frames = frames.borrow_mut();
+            let slot = frames.last_mut()?;
+            slot.as_ref()
+                .is_some_and(|err| err.is_instance(py, kind))
+                .then(|| slot.take())
+                .flatten()
+        });
+        // Released once the frames are free: dropping the exception may
+        // run Python code that calls back.
+        forgiven.is_some()
+    })
 }
 
 /// Keeps `err` in the innermost frame (the first one wins); outside any
@@ -261,6 +281,30 @@ mod tests {
             let name = "calls".into_py(py).unwrap();
             let calls = globals.call_method("__getitem__", &[name]).unwrap();
             assert_eq!(calls.extract::<Vec<i64>>().unwrap(), [1], "called once");
+        });
+    }
+
+    #[test]
+    fn a_forgiven_exception_lets_later_callbacks_run() {
+        with_python(|py| {
+            let counting = eval(
+                py,
+                "calls = []",
+                "lambda: calls.append(1) or (int('x') if len(calls) == 1 else 2.0)",
+            );
+            let forgives = |callback: Callback| {
+                assert!(callback.call::<f64>(()).is_none());
+                assert!(failed());
+                assert!(
+                    !forgive(ExceptionKind::TypeError),
+                    "a ValueError is no TypeError"
+                );
+                assert!(forgive(ExceptionKind::ValueError));
+                assert!(!failed());
+                Ok(callback.call::<f64>(()))
+            };
+            let result = run_with(py, forgives, &counting).unwrap();
+            assert_eq!(result.extract::<Option<f64>>().unwrap(), Some(2.0));
         });
     }
 

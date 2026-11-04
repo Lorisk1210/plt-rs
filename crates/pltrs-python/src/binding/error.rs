@@ -187,6 +187,20 @@ impl PyErr {
         }
     }
 
+    /// Whether the exception is a `kind`, or of a subclass of it (as
+    /// `isinstance` tests it).
+    pub(crate) fn is_instance(&self, py: Python<'_>, kind: ExceptionKind) -> bool {
+        let class = kind.class().cast::<ffi::PyTypeObject>();
+        match &self.state {
+            // SAFETY: both are the classes of built-in exceptions, live
+            // type objects for as long as the interpreter runs.
+            State::New { kind: own, .. } => unsafe {
+                ffi::PyType_IsSubtype(own.class().cast(), class) != 0
+            },
+            State::Raised(instance) => instance.bind(py).is_type(class),
+        }
+    }
+
     /// `str(exception)`.
     pub(crate) fn message(&self, py: Python<'_>) -> String {
         match &self.state {

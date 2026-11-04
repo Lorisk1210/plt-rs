@@ -177,6 +177,12 @@ fn positions(state: &FigureState, id: ArtistId, axes: &AxesState) -> Option<(Bbo
         let active = axes.aspect.active_position(&axes.position);
         return Some((active, axes.position));
     }
+    // An inset or a secondary axes is where its locator placed it, in
+    // figure fractions; an axes covering its host (a parasite axes) where
+    // the host's box is.
+    if let Some((placed, _)) = state.hosted_position(id) {
+        return Some((placed, placed));
+    }
     let display = state.axes_bbox(id)?;
     let figure = state.figure_bbox_of(parent)?;
     let placed = display.transformed(&unit_to_bbox(&figure).inverted()?);

@@ -664,6 +664,193 @@ def _toolkits() -> Iterator[str]:
     yield "aa.get_position().bounds"
 
 
+def _tick_parts() -> Iterator[str]:
+    """The lines of ticks as matplotlib's tick objects hold them: where
+    their class makes them, then at the location the last tick update
+    placed them, on flat and polar axes and for ticks made alone."""
+    yield "fig, ax = plt.subplots()"
+    yield "ax.plot([1, 2, 3])"
+    yield "from matplotlib.axis import XTick, YTick"
+    yield "alone = XTick(ax, 5), YTick(ax, 5)"
+    yield "[(t.tick1line.get_data(), t.tick2line.get_data(), t.gridline.get_data(), t.label1.get_position()) for t in alone]"
+    yield "[t.update_position(3) for t in alone]"
+    yield "[(t.tick1line.get_data(), t.tick2line.get_data(), t.gridline.get_data()) for t in alone]"
+    for axis in ("xaxis", "yaxis"):
+        yield f"ticks = ax.{axis}.get_major_ticks()"
+        yield "[(t.tick1line.get_data(), t.tick2line.get_data(), t.gridline.get_data()) for t in ticks[:3]]"
+    yield "ax.xaxis.get_ticklabels()"
+    yield "[t.tick1line.get_data() for t in ax.xaxis.get_major_ticks()[:3]]"
+    yield "fig.canvas.draw()"
+    for axis in ("xaxis", "yaxis"):
+        yield f"ticks = ax.{axis}.get_major_ticks()"
+        yield "[(t.tick1line.get_data(), t.tick2line.get_data(), t.gridline.get_data()) for t in ticks[:3]]"
+        yield "[t.tick1line.get_xydata() for t in ticks[:2]]"
+    yield "ax.set_xlim(0, 10)"
+    yield "[t.tick1line.get_data() for t in ax.xaxis.get_major_ticks()[:3]]"
+    yield "fig.canvas.draw()"
+    yield "[t.tick1line.get_data() for t in ax.xaxis.get_major_ticks()[:3]]"
+    yield "ax.xaxis.set_minor_locator(ticker.MultipleLocator(0.5))"
+    yield "fig.canvas.draw()"
+    yield "[t.gridline.get_data() for t in ax.xaxis.get_minor_ticks()[:3]]"
+    yield "fig, ax = plt.subplots(subplot_kw=dict(projection='polar'))"
+    yield "fig.canvas.draw()"
+    yield "[(t.tick1line.get_data(), t.gridline.get_data()) for t in ax.xaxis.get_major_ticks()[:2]]"
+    yield "[(t.tick1line.get_data(), t.gridline.get_data()) for t in ax.yaxis.get_major_ticks()[:2]]"
+
+
+def _norm_draws() -> Iterator[str]:
+    """Norms a draw scales: a norm set on a mappable before a draw gets the
+    limits it lacks when the mappable is drawn, unless it is hidden."""
+    makers = {
+        "imshow": "ax.imshow(z + 2)",
+        "pcolormesh": "ax.pcolormesh(z + 2)",
+        "pcolor": "ax.pcolor(z + 2)",
+        "scatter": "ax.scatter([1, 2, 3], [1, 2, 3], c=[1, 5, 9])",
+        "hexbin": "ax.hexbin([1, 2, 3, 3], [1, 2, 3, 3], gridsize=3)",
+        "contourf": "ax.contourf(z + 2)",
+    }
+    for make in makers.values():
+        yield "fig, ax = plt.subplots()"
+        yield f"m = {make}"
+        yield "m.set_norm(colors.LogNorm())"
+        yield "m.get_clim(), m.norm.vmin"
+        yield "fig.canvas.draw()"
+        yield "m.get_clim(), m.norm.vmin, m.norm.vmax"
+        yield "m.set_cmap('magma')"
+        yield "m.get_clim()"
+        yield "m.set_norm(colors.Normalize())"
+        yield "fig.canvas.draw()"
+        yield "m.get_clim()"
+        yield "m.set_visible(False)"
+        yield "m.set_norm(colors.LogNorm())"
+        yield "fig.canvas.draw()"
+        yield "m.get_clim()"
+    yield "fig, ax = plt.subplots()"
+    yield "m = ax.pcolormesh(z + 2)"
+    yield "cb = fig.colorbar(m)"
+    yield "m.set_norm(colors.LogNorm())"
+    yield "m.get_clim()"
+    yield "fig.canvas.draw()"
+    yield "m.get_clim(), cb.norm.vmin"
+    yield "lc = collections.LineCollection([[(0, 0), (1, 1)], [(0, 1), (1, 0)]])"
+    yield "ax.add_collection(lc)"
+    yield "lc.set_array(np.array([2.0, 8.0]))"
+    yield "lc.set_norm(colors.LogNorm())"
+    yield "lc.get_clim()"
+    yield "fig.canvas.draw()"
+    yield "lc.get_clim()"
+
+
+def _sharing() -> Iterator[str]:
+    """The groups of shared axes (``get_shared_x_axes``, a GrouperView over
+    the axes of every figure) and the locator a clear binds to the last
+    of the axes sharing it, whose length decides how many ticks fit."""
+    yield "from matplotlib.axes import Axes"
+    yield "fig, (a, b, c) = plt.subplots(1, 3, sharex=True)"
+    yield "d = fig.add_subplot(2, 2, 4)"
+    yield "g = a.get_shared_x_axes()"
+    yield "type(g).__name__, g.joined(a, b), g.joined(a, d), b in g, d in g"
+    yield "len(g.get_siblings(a)), len(g.get_siblings(a, include_self=False)), g.get_siblings(d) == [d]"
+    yield "[x is a for x in g.get_siblings(a)]"
+    yield "type(Axes.get_shared_y_axes()).__name__, a.get_shared_y_axes().joined(a, b)"
+    yield "other, (e, f) = plt.subplots(1, 2, sharey=True)"
+    yield "twin = e.twinx()"
+    yield "sorted(len(group) for group in e.get_shared_x_axes() if e in group or a in group)"
+    yield "fig, (wide, narrow) = plt.subplots(1, 2, sharex=True, gridspec_kw=dict(width_ratios=[6, 1]))"
+    yield "wide.plot([0, 100], [0, 1]); narrow.plot([0, 100], [0, 1])"
+    yield "fig.canvas.draw()"
+    yield "wide.get_xticks(), narrow.get_xticks()"
+    yield "wide.clear(); wide.plot([0, 100], [0, 1])"
+    yield "fig.canvas.draw()"
+    yield "wide.get_xticks(), narrow.get_xticks()"
+    yield "wide.xaxis.get_major_locator().axis is narrow.xaxis"
+    yield "narrow.clear(); narrow.plot([0, 100], [0, 1])"
+    yield "fig.canvas.draw()"
+    yield "wide.get_xticks(), wide.xaxis.get_major_locator().axis is wide.xaxis"
+
+
+def _layout_failures() -> Iterator[str]:
+    """A formatter failing in a layout engine's pass: matplotlib's draw
+    passes over a ValueError there and draws without the layout, an
+    exception of another class ends the draw."""
+    yield """def failing_once(kind):
+    calls = []
+    def label(x, pos):
+        calls.append(pos)
+        if len(calls) == 1:
+            raise kind('first call fails')
+        return f'{x:.1f}'
+    return ticker.FuncFormatter(label), calls"""
+    for layout in ["'constrained'", "'tight'", "'compressed'"]:
+        for kind in ["ValueError", "TypeError"]:
+            yield f"fig, ax = plt.subplots(layout={layout})"
+            yield "ax.plot([1, 2, 3])"
+            yield f"formatter, calls = failing_once({kind})"
+            yield "ax.xaxis.set_major_formatter(formatter)"
+            yield "fig.canvas.draw()"
+            yield "len(calls), ax.get_position().bounds"
+            yield "fig.canvas.draw()"
+            yield "len(calls), ax.get_position().bounds"
+    yield "fig, ax = plt.subplots()"
+    yield "formatter, calls = failing_once(ValueError)"
+    yield "ax.xaxis.set_major_formatter(formatter)"
+    yield "fig.tight_layout()"
+    yield "len(calls), fig.subplotpars.left"
+
+
+def _font_logs() -> Iterator[str]:
+    """The font lookups that log a family no font has, for legends, titles,
+    texts and tick labels, drawn and printed in each format."""
+    yield "import io"
+    yield "missing = {'family': 'NoSuchFont'}"
+    for setup in ["ax.plot([1, 2], label='a'); ax.legend(prop=missing)",
+                  "ax.plot([1, 2], label='a'); ax.plot([2, 1], label='b'); "
+                  "ax.legend(prop=missing, title='T', title_fontproperties=missing, ncols=2)",
+                  "ax.set_title('t', **missing); ax.text(0.5, 0.5, 'two\\nlines', **missing)",
+                  "ax.tick_params(labelfontfamily='NoSuchFont')"]:
+        yield "fig, ax = plt.subplots()"
+        yield setup
+        yield "fig.canvas.draw()"
+        yield "fig.canvas.draw()"
+        for fmt in ["svg", "pdf", "ps", "png"]:
+            yield f"fig.savefig(io.BytesIO(), format='{fmt}')"
+
+
+def _ft2font_unscaled() -> Iterator[str]:
+    """FT2Font before and after a size is set: unscaled, FreeType loads the
+    glyphs in font units and HarfBuzz positions them with a scale of zero
+    (no kerning, a zero linear advance)."""
+    yield "from matplotlib import ft2font"
+    yield "from matplotlib.font_manager import findfont"
+    for text in ["AVAVToWa", "VA V", "fi ffl"]:
+        yield "font = ft2font.FT2Font(findfont('DejaVu Sans'))"
+        yield f"font.set_text({text!r})"
+        yield "font.get_width_height(), font.get_descent(), font.get_bitmap_offset()"
+        yield f"[(g.glyph_index, g.x, g.y, g.prev_kern) for g in font._layout({text!r}, ft2font.LoadFlags.DEFAULT)]"
+        yield "font.load_char(ord('A')).linearHoriAdvance"
+        yield "font.set_size(12, 72)"
+        yield f"font.set_text({text!r})"
+        yield "font.get_width_height(), font.get_bitmap_offset()"
+
+
+def _hosted_positions() -> Iterator[str]:
+    """The positions of secondary and inset axes as their locators place
+    them, to the last bit, and the str of the axes."""
+    yield "fig, ax = plt.subplots()"
+    yield "top = ax.secondary_xaxis('top', functions=(lambda v: 2 * v, lambda v: v / 2))"
+    yield "right = ax.secondary_yaxis('right')"
+    yield "inset = ax.inset_axes([0.6, 0.6, 0.3, 0.3])"
+    yield "str(top), str(right), str(inset)"
+    yield "fig.canvas.draw()"
+    yield "str(top), str(right), str(inset)"
+    yield "[a.get_position().bounds for a in (top, right, inset)]"
+    yield "[a._position.get_points() for a in (top, right, inset)]"
+    yield "fig, ax = plt.subplots(figsize=(3.3, 2.7), dpi=133)"
+    yield "top = ax.secondary_xaxis(0.5)"
+    yield "fig.canvas.draw()"
+    yield "str(top), top.get_position().bounds"
+
+
 AREAS = {
     "ticker": _ticker,
     "scales": _scales,
@@ -680,6 +867,13 @@ AREAS = {
     "toolkits": _toolkits,
     "drawn_state": _drawn_state,
     "box_parts": _box_parts,
+    "tick_parts": _tick_parts,
+    "norm_draws": _norm_draws,
+    "sharing": _sharing,
+    "layout_failures": _layout_failures,
+    "font_logs": _font_logs,
+    "ft2font_unscaled": _ft2font_unscaled,
+    "hosted_positions": _hosted_positions,
 }
 
 

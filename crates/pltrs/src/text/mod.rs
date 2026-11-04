@@ -33,7 +33,7 @@ mod annotation;
 pub(crate) use annotation::reconnect_drag;
 mod copy;
 mod error;
-mod font_notes;
+pub(crate) mod font_notes;
 mod handle;
 mod hinting;
 mod layout;

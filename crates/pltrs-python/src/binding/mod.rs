@@ -49,7 +49,7 @@ mod threads;
 
 pub(crate) use after_call::install as install_after_call;
 pub(crate) use buffer::{Element, FloatArray, NdArray};
-pub(crate) use callback::{Callback, report};
+pub(crate) use callback::{Callback, failed as callback_failed, forgive, report};
 pub(crate) use containers::{dict_items, dict_value, new_dict};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use deferred::install as install_deferred;

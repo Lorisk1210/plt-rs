@@ -15,6 +15,7 @@ from .._native import (
     backends as _backends, font_manager as _font_manager, text_overrides as _text_overrides)
 from ..backend_bases import _Backend, FigureCanvasBase, FigureManagerBase
 from ..font_manager import FontManager
+from ..text import _measuring_with
 from ._backend_pdf_ps import RendererPDFPSBase
 from ._native_drawing import DocumentDrawingMixin, PdfPsDrawingMixin
 from .backend_mixed import MixedModeRenderer
@@ -202,18 +203,22 @@ class FigureCanvasPS(FigureCanvasBase):
             metadata=None, papertype=None, orientation='portrait',
             bbox_inches_restore=None, facecolor=None, edgecolor=None):
         """Write the figure as *fmt*, ``ps`` or ``eps``, after matplotlib's
-        checks of the paper type and orientation."""
+        checks of the paper type and orientation, its texts measured
+        through the metrics cache of a renderer of the print's own, as
+        matplotlib's ``print_ps`` draws with a new `RendererPS`."""
         if papertype is None:
             papertype = rcParams['ps.papersize']
         papertype = papertype.lower()
         _api.check_in_list(['figure', *papersize], papertype=papertype)
         orientation = _api.getitem_checked(
             _Orientation, orientation=orientation.lower())
-        self._print_native(
-            fmt, outfile, metadata=_dsc_metadata(outfile, metadata),
-            bbox_inches_restore=bbox_inches_restore,
-            facecolor=facecolor, edgecolor=edgecolor,
-            orientation=orientation.name, papertype=papertype)
+        width, height = self.figure.get_size_inches()
+        with _measuring_with(RendererPS(width, height, None, imagedpi=self.figure.dpi)):
+            self._print_native(
+                fmt, outfile, metadata=_dsc_metadata(outfile, metadata),
+                bbox_inches_restore=bbox_inches_restore,
+                facecolor=facecolor, edgecolor=edgecolor,
+                orientation=orientation.name, papertype=papertype)
 
     print_ps = functools.partialmethod(_print_ps, "ps")
     print_eps = functools.partialmethod(_print_ps, "eps")

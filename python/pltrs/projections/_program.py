@@ -444,12 +444,13 @@ def cleared(ax):
         _projections.set_patch_outline(ax._native, outline, isinstance(patch, Rectangle))
 
 
-def _build_trees(ax):
+def _build_trees(ax, made=False):
     """Build the trees of the Axes *ax* of a program's projection class with
-    the class' ``_set_lim_and_transforms``; their transforms reach pltrs
-    (Rust) as the Axes' own."""
+    the class' ``_set_lim_and_transforms`` (as its constructor does for an
+    Axes being *made*, see `._transform_trees.build_axes`); their
+    transforms reach pltrs (Rust) as the Axes' own."""
     if "_transform_trees" not in ax.__dict__:
-        ax._build_transform_trees()
+        ax._build_transform_trees(made)
     for key, native in (("_xaxis_transform", _transforms.trans_xaxis),
                         ("_yaxis_transform", _transforms.trans_yaxis)):
         transform = ax.__dict__.get(key)
@@ -472,7 +473,7 @@ def set_up(ax):
     ``__init__`` does (``_set_lim_and_transforms``, ``_gen_axes_spines``,
     ``_init_axis``) and hand it over to pltrs (Rust).
     """
-    _build_trees(ax)
+    _build_trees(ax, made=True)
     spines = ax._gen_axes_spines()
     ax._init_axis()
     ax._update_transScale()

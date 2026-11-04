@@ -213,6 +213,11 @@ class Tick(Artist):
             visible=label2On, fontfamily=labelfontfamily,
             rotation=self._labelrotation[1], rotation_mode=labelrotation_mode)
         self._apply_tickdir(tickdir)
+        if loc is not None:
+            # A tick made at no location (``loc=None``) is where its class
+            # makes it, as matplotlib's ``__init__`` replaces what
+            # ``update_position(None)`` left.
+            self.update_position(loc)
 
     @classmethod
     def _of_axis(cls, axis, major, index):
@@ -265,20 +270,41 @@ class Tick(Artist):
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
             _values.remember(label, coordinate, self._loc)
+        if axis.axes.name != "3d":
+            self._place_lines(None if loc is None else self._loc)
         self._drawn = _artist.draw_count(axis.axes._native)
 
+    def _place_lines(self, loc):
+        """
+        Give the lines of a tick of an axis the data matplotlib's tick
+        holds: the data its class makes them with (``_made_data``), until
+        ``update_position`` places the tick at *loc* (None for a tick never
+        placed), which becomes ``(loc,)`` along the axis. Their native
+        lines keep what pltrs (Rust) draws. The ticks of a class of the
+        program's deriving from neither `XTick` nor `YTick` keep the lines
+        their class makes.
+        """
+        made_data = getattr(type(self), "_made_data", None)
+        if made_data is None:
+            return
+        for line, made in zip((self.tick1line, self.tick2line, self.gridline),
+                              made_data):
+            data = [list(values) for values in made]
+            if loc is not None:
+                data[self._along] = (loc,)
+            line._xorig, line._yorig = data
+
     def _refresh(self, part):
-        """Give the labels of a tick of an axis drawn since they were
+        """Give the parts of a tick of an axis drawn since they were
         filled what matplotlib's draw gives them (see `_follow_draw`)."""
-        if part in (self.label1, self.label2):
-            self._follow_draw()
+        self._follow_draw()
 
     def _follow_draw(self):
         """
         Give a tick of an axis drawn since it was filled what matplotlib's
         draw gives it (``_update_ticks``): its location along the axis,
-        and its labels that location and the formatter's text, all else
-        they have staying.
+        its labels that location and the formatter's text and its lines
+        that location, all else they have staying.
         """
         axis = self.axis
         if axis is None:
@@ -294,11 +320,12 @@ class Tick(Artist):
             self._sync()
             return
         loc, text = located
-        self._loc = np.float64(loc)
+        self._loc = 0 if loc is None else np.float64(loc)
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
             with _mirrors.detached(label):
                 label.set(text=text, **{coordinate: self._loc})
+        self._place_lines(None if loc is None else self._loc)
 
     def _push(self, part):
         """Read *part*, changed, back into the axis."""
@@ -535,25 +562,28 @@ class XTick(Tick):
     the label text and the grid line
     """
     __name__ = 'xtick'
+    #: The data of the tick1line, tick2line and gridline as the tick is
+    #: made (x in data coords, y in axes coords), and the coordinate
+    #: `update_position` moves.
+    _made_data = (([0], [0]), ([0], [1]), ([0, 0], [0, 1]))
+    _along = 0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # x in data coords, y in axes coords; a tick of no location yet
-        # (``loc=None``) is at NaN.
-        loc = np.nan if self._loc is None else self._loc
-        self.tick1line.set_data([loc], [0])
-        self.tick2line.set_data([loc], [1])
-        self.gridline.set_data([loc, loc], [0, 1])
-        self.label1.set(x=loc, y=0, verticalalignment="top",
+        # The tick is made at 0 whatever its location, as matplotlib's is.
+        for line, (x, y) in zip((self.tick1line, self.tick2line, self.gridline),
+                                self._made_data):
+            line.set_data(x, y)
+        self.label1.set(x=0, y=0, verticalalignment="top",
                         horizontalalignment="center")
-        self.label2.set(x=loc, y=1, verticalalignment="bottom",
+        self.label2.set(x=0, y=1, verticalalignment="bottom",
                         horizontalalignment="center")
 
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""
         self.tick1line.set_xdata((loc,))
         self.tick2line.set_xdata((loc,))
-        self.gridline.set_xdata((loc, loc))
+        self.gridline.set_xdata((loc,))
         self.label1.set_x(loc)
         self.label2.set_x(loc)
         self._loc = loc
@@ -581,25 +611,28 @@ class YTick(Tick):
     the label text and the grid line
     """
     __name__ = 'ytick'
+    #: The data of the tick1line, tick2line and gridline as the tick is
+    #: made (x in axes coords, y in data coords), and the coordinate
+    #: `update_position` moves.
+    _made_data = (([0], [0]), ([1], [0]), ([0, 1], [0, 0]))
+    _along = 1
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # x in axes coords, y in data coords; a tick of no location yet
-        # (``loc=None``) is at NaN.
-        loc = np.nan if self._loc is None else self._loc
-        self.tick1line.set_data([0], [loc])
-        self.tick2line.set_data([1], [loc])
-        self.gridline.set_data([0, 1], [loc, loc])
-        self.label1.set(x=0, y=loc, verticalalignment="center_baseline",
+        # The tick is made at 0 whatever its location, as matplotlib's is.
+        for line, (x, y) in zip((self.tick1line, self.tick2line, self.gridline),
+                                self._made_data):
+            line.set_data(x, y)
+        self.label1.set(x=0, y=0, verticalalignment="center_baseline",
                         horizontalalignment="right")
-        self.label2.set(x=1, y=loc, verticalalignment="center_baseline",
+        self.label2.set(x=1, y=0, verticalalignment="center_baseline",
                         horizontalalignment="left")
 
     def update_position(self, loc):
         """Set the location of tick in data coords with scalar *loc*."""
         self.tick1line.set_ydata((loc,))
         self.tick2line.set_ydata((loc,))
-        self.gridline.set_ydata((loc, loc))
+        self.gridline.set_ydata((loc,))
         self.label1.set_y(loc)
         self.label2.set_y(loc)
         self._loc = loc

@@ -229,6 +229,10 @@ class Line2D(Artist):
     can create "stepped" lines in various styles.
     """
 
+    #: The getters of a mirror that read what drawing its part changed
+    #: (a tick's lines, which matplotlib's draw places).
+    _refreshed_getters = ("get_xdata", "get_ydata")
+
     lineStyles = _lineStyles = {  # hidden names deprecated
         '-':    '_draw_solid',
         '--':   '_draw_dashed',

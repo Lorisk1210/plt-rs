@@ -301,10 +301,13 @@ impl<A: ArtistRef> OffsetBox<A> {
             }
             Self::DrawingArea(area) => placements.push(area.placement(ctx, offset)),
             Self::TextArea(area) => {
+                // matplotlib's text area draws with the baseline its last
+                // measure gave it, measuring nothing.
+                let measured = crate::text::font_notes::unnoted(|| area.extent(ctx))?;
                 placements.push(Placement::Text {
                     text: area.text.clone(),
                     offset,
-                    baseline_shift: area.extent(ctx)?.baseline_shift,
+                    baseline_shift: measured.baseline_shift,
                 });
             }
             Self::AuxTransformBox(aux) => placements.push(aux.placement(offset)),

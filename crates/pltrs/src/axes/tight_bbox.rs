@@ -200,7 +200,7 @@ impl FigureState {
         }
         let for_layout_only = for_layout_only && parasites_of(&self.store, axes).is_empty();
         self.lay_out_axes_at(axes, placement);
-        self.program_axes_measured(axes, for_layout_only, extras == Extras::Children);
+        let in_full = self.program_axes_measured(axes, for_layout_only, extras == Extras::Children);
         let extent = self.axes_bbox(axes)?;
         let dpi = self.dpi();
         let shared = self.shared_tick_spaces(axes);
@@ -220,8 +220,9 @@ impl FigureState {
         let state = self.store.get_as::<AxesState>(axes)?;
         let layout = LayoutContext::new(self);
         if state.decorations.axis_on {
-            for name in [AxisName::X, AxisName::Y] {
+            for (name, in_full) in [AxisName::X, AxisName::Y].into_iter().zip(in_full) {
                 let axis = state.axis(name);
+                let for_layout_only = for_layout_only && !in_full;
                 if axis.visible && (axis.in_layout || !for_layout_only) {
                     let painter = AxisPainter::new(axes, state, name);
                     boxes.extend(axis_tight_bbox(layout, &painter, for_layout_only));

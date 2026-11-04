@@ -2,7 +2,7 @@
 //! (`get_width_height`, `get_descent`, `get_bitmap_offset`), and
 //! `_layout`, as matplotlib's `ft2font.cpp` lays text out with libraqm.
 
-use pltrs_font::{FontChain, ShapeOptions};
+use pltrs_font::{Face, FontChain, Hinting, ShapeOptions, TextLayout};
 
 use super::glyphs::{Loaded, TextBox, control_box, load_hinted};
 use super::{Ft2Font, ft_error};
@@ -34,6 +34,27 @@ fn shape_options((features, languages): Shaping) -> PyResult<ShapeOptions> {
     })
 }
 
+/// The layout `set_text` and `_layout` give `text` with the chain's
+/// `faces`: at the font's size, or unscaled before any `set_size` (see
+/// [`FontChain::layout_unscaled`]: no kerning then, as `FreeType`'s
+/// `HarfBuzz` font has a scale of zero).
+fn chain_layout(
+    font: &Ft2Font,
+    faces: &[Face<'_>],
+    text: &str,
+    options: &ShapeOptions,
+    hinting: Hinting,
+) -> PyResult<TextLayout> {
+    let chain = FontChain::new(faces.to_vec());
+    let layout = if font.unscaled() {
+        chain.layout_unscaled(text, options)
+    } else {
+        let (ptsize, dpi) = font.points_and_dpi(&faces[0]);
+        chain.layout(text, ptsize, dpi, options, hinting)
+    };
+    layout.map_err(|err| ft_error("lay out text", &err))
+}
+
 /// `set_text(string, angle, flags, features, language)`: lays the text
 /// out with the chain's faces, appends its glyphs and returns their pen
 /// positions (26.6, before rotation). The text's box and advance are
@@ -49,10 +70,7 @@ fn set_text(
     let hinting = font.hinting(flags);
     let options = shape_options(shaping)?;
     let faces = font.chain_faces()?;
-    let (ptsize, dpi) = font.points_and_dpi(&faces[0]);
-    let layout = FontChain::new(faces.clone())
-        .layout(&text, ptsize, dpi, &options, hinting)
-        .map_err(|err| ft_error("lay out text", &err))?;
+    let layout = chain_layout(&font, &faces, &text, &options, hinting)?;
     let matrix = Rotation::new(angle);
     let mut bbox: Option<(i64, i64, i64, i64)> = None;
     let mut placed = Vec::with_capacity(layout.glyphs.len());
@@ -62,13 +80,17 @@ fn set_text(
         let hinted = load_hinted(face, &size, glyph.glyph_id, hinting)?;
         let cbox = control_box(face, &size, glyph.glyph_id, hinted.as_ref())?;
         let pen = (i64::from(glyph.x), i64::from(glyph.y));
-        let corners = [
-            (cbox.x_min, cbox.y_min),
-            (cbox.x_max, cbox.y_min),
-            (cbox.x_min, cbox.y_max),
-            (cbox.x_max, cbox.y_max),
-        ]
-        .map(|(x, y)| matrix.apply((i64::from(x) + pen.0, i64::from(y) + pen.1)));
+        // A glyph without an outline stays at the origin, which moving
+        // its outline of no points leaves its box at.
+        let corners = cbox.map_or([(0, 0); 4], |cbox| {
+            [
+                (cbox.x_min, cbox.y_min),
+                (cbox.x_max, cbox.y_min),
+                (cbox.x_min, cbox.y_max),
+                (cbox.x_max, cbox.y_max),
+            ]
+            .map(|(x, y)| matrix.apply((i64::from(x) + pen.0, i64::from(y) + pen.1)))
+        });
         for (x, y) in corners {
             bbox = Some(match bbox {
                 None => (x, y, x, y),
@@ -156,10 +178,7 @@ fn layout(
     let font = font.borrow();
     let options = shape_options(shaping)?;
     let faces = font.chain_faces()?;
-    let (ptsize, dpi) = font.points_and_dpi(&faces[0]);
-    let layout = FontChain::new(faces.clone())
-        .layout(&text, ptsize, dpi, &options, font.hinting(flags))
-        .map_err(|err| ft_error("lay out text", &err))?;
+    let layout = chain_layout(&font, &faces, &text, &options, font.hinting(flags))?;
     let mut clusters: Vec<usize> = layout.glyphs.iter().map(|glyph| glyph.cluster).collect();
     clusters.sort_unstable();
     clusters.dedup();
@@ -176,7 +195,7 @@ fn layout(
                 .unwrap_or(text.len());
             let kern = previous.map_or(0.0, |(x, advance)| f64::from(glyph.x - x) - advance);
             let face = &faces[glyph.face];
-            let linear = font.size_of(face).linear_advance(face, glyph.glyph_id);
+            let linear = font.linear_advance(face, glyph.glyph_id);
             previous = Some((glyph.x, linear as f64 / 1024.0));
             (
                 (glyph.face, chars(glyph.cluster), chars(end)),

@@ -58,12 +58,24 @@ def get(axis, kind, minor):
         return entry[1]
     spec = _axis.describe_helper(token)
     helper = _from_spec(spec, token, axis, kind)
-    helper.set_axis(axis)
+    helper.set_axis(_locator_axis(axis) if kind == "locator" else axis)
     _watch(helper, axis)
     if kind == "formatter" and spec is not None and spec["kind"] != "python":
         _watch_native_formatter(helper, axis)
     registry[helper_id] = (token, helper, axis)
     return helper
+
+
+def _locator_axis(axis):
+    """The axis the locators of *axis* are bound to (matplotlib's
+    ``locator.axis``): that of the axes they were set on, among the axes
+    sharing it (the last of those a clear reset)."""
+    figure = axis.axes.figure
+    owner = _axis.locator_owner(axis.axes._native, axis.axis_name)
+    if owner is None or figure is None:
+        return axis
+    from . import _handles
+    return _handles.wrap(owner, type(axis.axes), figure)._axis_map[axis.axis_name]
 
 
 def adopt(axis, helper, kind, minor):

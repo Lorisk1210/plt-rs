@@ -416,7 +416,13 @@ impl FigureState {
                 self.sync_secondary(id);
             }
         }
+        let failed_before = crate::layout::failures::failed();
         self.run_pending_layout();
+        if preparation == Preparation::Drawing && !failed_before {
+            // matplotlib's `Figure.draw` passes over a `ValueError` its
+            // layout engine raised, and draws as the pass left the figure.
+            crate::layout::failures::pass_over(crate::layout::failures::ErrorClass::ValueError);
+        }
         let axes = self.axes_ids();
         let laid_out: Vec<ArtistId> = (axes.iter().copied())
             .filter(|&id| self.prepare_axes(id, preparation))
@@ -541,6 +547,32 @@ impl FigureState {
             transform: unit_to_bbox(&self.axes_bbox(axes)?),
         })
     }
+
+    /// Where axes `axes` placed in another (an inset, a secondary axes)
+    /// is, in the fractions of the (sub)figure of its host, with that
+    /// figure's box in pixels: the bits matplotlib's
+    /// `_TransformedBoundsLocator` gives the axes' `_position` (see
+    /// [`host_to_figure`]), its aspect applied once a draw or a layout
+    /// placed it. `None` for axes in a figure frame and for axes covering
+    /// their host.
+    pub(crate) fn hosted_position(&self, axes: ArtistId) -> Option<(Bbox, Bbox)> {
+        let state = self.artist_as::<AxesState>(axes)?;
+        let parent = state.base().parent.or(state.home).unwrap_or(self.root);
+        let position = state.aspect.active_position(&state.position);
+        if position == Bbox::UNIT || self.frame_bbox(parent).is_some() {
+            return None;
+        }
+        let host = self.axes_bbox(parent)?;
+        let figure = self.figure_bbox_of(parent)?;
+        let placed = match state
+            .aspect
+            .active_in_figure(&state.position, &host, &figure)
+        {
+            Some(active) => active,
+            None => position.transformed(&host_to_figure(&host, &figure)?),
+        };
+        Some((placed, figure))
+    }
 }
 
 impl TransformContext for FigureState {
@@ -575,20 +607,12 @@ impl TransformContext for FigureState {
         if let Some(frame) = self.frame_bbox(parent) {
             return Some(fraction_of(&frame, &position));
         }
-        let host = self.axes_bbox(parent)?;
         if position == Bbox::UNIT {
             // Covering its host (parasite axes, 3-D planes).
-            return Some(host);
+            return self.axes_bbox(parent);
         }
-        let figure = self.figure_bbox_of(parent)?;
-        if let Some(active) = state
-            .aspect
-            .active_in_figure(&state.position, &host, &figure)
-        {
-            return Some(fraction_of(&figure, &active));
-        }
-        let to_figure = host_to_figure(&host, &figure)?;
-        Some(fraction_of(&figure, &position.transformed(&to_figure)))
+        let (placed, figure) = self.hosted_position(axes)?;
+        Some(fraction_of(&figure, &placed))
     }
 
     /// Auxiliary axes map their data through their transform into the

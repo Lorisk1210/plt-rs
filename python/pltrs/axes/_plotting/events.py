@@ -8,7 +8,8 @@ from ... import _api, _values, cbook, collections as mcoll, colors as mcolors, l
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
 from ...container import StemContainer
-from ._helpers import floats, record_container, wrap, wrap_all
+from ._helpers import floats, keep_unit_data, record_container, wrap, wrap_all
+from .lines import _given_format_color
 
 
 def _rcParams():
@@ -199,8 +200,25 @@ class EventsMixin:
             self._native, (floats(locs), floats(heads)),
             (linefmt, markerfmt, basefmt), float(bottom), orientation,
             None if label is None else str(label))
+        # matplotlib plots the markers and the baseline with `plot`, given
+        # the data and the colours of the formats.
+        markerline = wrap(self, markerline, mlines.Line2D)
+        baseline = wrap(self, baseline, mlines.Line2D)
+        ends = cbook._check_1d([np.min(locs), np.max(locs)])
+        base = cbook._check_1d([bottom, bottom])
+        if orientation == 'vertical':
+            keep_unit_data(markerline, locs, heads)
+            keep_unit_data(baseline, ends, base)
+        else:
+            keep_unit_data(markerline, heads, locs)
+            keep_unit_data(baseline, base, ends)
+        linecolor = _given_format_color(linefmt)
+        markercolor = _given_format_color(markerfmt)
+        for line, color in [(markerline, linecolor if markercolor is None else markercolor),
+                            (baseline, _given_format_color(basefmt))]:
+            if color is not None:
+                mlines._remember_given(line, {"color": color})
         container = StemContainer(
-            (wrap(self, markerline, mlines.Line2D),
-             wrap(self, stemlines, mcoll.LineCollection),
-             wrap(self, baseline, mlines.Line2D)), label=label)
+            (markerline, wrap(self, stemlines, mcoll.LineCollection), baseline),
+            label=label)
         return record_container(self, container, native)

@@ -342,6 +342,15 @@ class ArrowStyle(_Style):
             else:
                 return self.transmute(path, mutation_size, linewidth)
 
+    class _Curve(_Base):
+        """
+        A simple arrow which will work with any path instance. The
+        returned path is the concatenation of the original path, and at
+        most two paths representing the arrow head or bracket at the start
+        point and at the end point. The arrow heads can be either open
+        or closed.
+        """
+
 
 _CURVE = dict(head_length=.4, head_width=.2, widthA=1., widthB=1.,
               lengthA=0.2, lengthB=0.2, angleA=0, angleB=0, scaleA=None,
@@ -364,12 +373,14 @@ for _name, _arrow, _params in [
         ("Simple", "simple", dict(head_length=.5, head_width=.5, tail_width=.2)),
         ("Fancy", "fancy", dict(head_length=.4, head_width=.4, tail_width=.4)),
         ("Wedge", "wedge", dict(tail_width=.3, shrink_factor=0.5))]:
-    _style = type(_name, (ArrowStyle._Base, _described(_name, **_params)),
+    _base = (ArrowStyle._Base if _name in ("Simple", "Fancy", "Wedge")
+             else ArrowStyle._Curve)
+    _style = type(_name, (_base, _described(_name, **_params)),
                   {"_spec_name": _arrow, "arrow": _arrow,
                    "__qualname__": f"ArrowStyle.{_name}"})
     setattr(ArrowStyle, _name, _register_style(ArrowStyle._style_list, _style,
                                                name=_arrow))
-del _name, _arrow, _params, _style
+del _name, _arrow, _params, _base, _style
 
 
 def _connect_plain(style, posA, posB):

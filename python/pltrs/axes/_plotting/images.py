@@ -135,7 +135,11 @@ class ImagesMixin:
             # matplotlib's spy draws through imshow, which keeps the extent
             # it sets as a list.
             _values.remember(ret, "extent", list(ret.get_extent()))
-            ret._set_mapped_data(made, np.abs(np.asarray(Z)) > precision)
+            # matplotlib's imshow keeps the mask as a masked array, and
+            # scales the norm to it.
+            ret._set_mapped_data(made, cbook.safe_masked_invalid(
+                np.abs(np.asarray(Z)) > precision, copy=True))
+            ret.autoscale_None()
             ret._internal_update(kwargs)
             return ret
         return wrap(self, line, mlines.Line2D)

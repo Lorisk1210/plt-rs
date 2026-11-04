@@ -323,19 +323,26 @@ pub(crate) fn follow(figure: &Rc<FigureCell>, mappable: ArtistId, reset: bool) {
     }
 }
 
+/// Whether artist `id` of `store` is a colorbar following `mappable`.
+fn follows(store: &ArtistStore, id: ArtistId, mappable: ArtistId) -> bool {
+    store
+        .get_as::<ColorbarArtist>(id)
+        .and_then(|colorbar| colorbar.state.link)
+        .is_some_and(|link| link.id() == mappable)
+}
+
+/// Whether a colorbar among `store`'s artists follows `mappable`.
+pub(crate) fn is_followed(store: &ArtistStore, mappable: ArtistId) -> bool {
+    store.ids().any(|id| follows(store, id, mappable))
+}
+
 /// The colorbars following `mappable`, oldest first.
 fn following(figure: &Rc<FigureCell>, mappable: ArtistId) -> Vec<ArtistId> {
     let state = figure.borrow();
     state
         .store
         .ids()
-        .filter(|&id| {
-            state
-                .store
-                .get_as::<ColorbarArtist>(id)
-                .and_then(|colorbar| colorbar.state.link)
-                .is_some_and(|link| link.id() == mappable)
-        })
+        .filter(|&id| follows(&state.store, id, mappable))
         .collect()
 }
 

@@ -4,8 +4,8 @@
 
 import numpy as np
 
-from ... import (_api, _live_transforms, cbook, collections as mcoll, colors as mcolors,
-                lines as mlines)
+from ... import (_api, _live_transforms, _values, cbook, collections as mcoll,
+                colors as mcolors, lines as mlines)
 from ... import colorizer as mcolorizer
 from ..._native import plotting as _plotting
 from ..._preprocess import _preprocess_data
@@ -317,8 +317,11 @@ class ScatterMixin:
             (None if alpha is None else float(alpha), alphas),
             (bool(plotnonfinite), _live_transforms.given_to_native(offset_transform)))
         collection = wrap(self, native, mcoll.PathCollection)
-        # matplotlib's scatter gives its marker path as a tuple.
+        # matplotlib's scatter gives its marker path as a tuple, its sizes as
+        # given, and its face colours as an array (a face, even if clear).
         collection._paths_container = tuple
+        _values.remember(collection, "sizes", np.asarray(s))
+        collection._face_fill = True
         if made is not None:
             collection._attach_native_mapping(colorizer=made)
         collection._internal_update(kwargs)

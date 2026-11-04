@@ -29,23 +29,23 @@ use super::owner::{AnyAxis, AxisOwner};
 use crate::binding::prelude::*;
 
 /// The location and label of the major (or `minor`) tick at `index`
-/// among those the locator places; a tick beyond them, or of an axis
-/// whose ticks were never placed, sits at 0 without a label (matplotlib's
-/// first tick of an empty axis, and its `Tick` objects before
-/// `_update_ticks` runs).
-fn located(axis: &Axis, minor: bool, index: usize) -> PyResult<(f64, String)> {
-    if !axis.ticks_placed() {
-        return Ok((0.0, String::new()));
-    }
-    let ticks = axis.axes().ticks(axis.name())?;
+/// among those the axis was last placed with (matplotlib's `Tick` objects
+/// stand where `_update_ticks` last moved them); a tick beyond them, or
+/// of an axis whose ticks were never placed, has no location and no
+/// label: it sits at 0 (matplotlib's first tick of an empty axis, and its
+/// `Tick` objects before `_update_ticks` runs).
+fn located(axis: &Axis, minor: bool, index: usize) -> (Option<f64>, String) {
+    let Some(ticks) = axis.placed_ticks() else {
+        return (None, String::new());
+    };
     let unclipped = if minor {
         &ticks.minor_unclipped
     } else {
         &ticks.major_unclipped
     };
-    Ok(unclipped
-        .get(index)
-        .map_or((0.0, String::new()), |tick| (tick.loc, tick.label.clone())))
+    unclipped.get(index).map_or((None, String::new()), |tick| {
+        (Some(tick.loc), tick.label.clone())
+    })
 }
 
 /// The location and label of the major (or `minor`) tick at `index` of
@@ -59,7 +59,10 @@ fn drawn_tick_label(
     index: usize,
 ) -> PyResult<Option<(f64, String)>> {
     match owner.axis(&name)? {
-        AnyAxis::Flat(axis) => located(&axis, minor, index).map(Some),
+        AnyAxis::Flat(axis) => {
+            let (loc, label) = located(&axis, minor, index);
+            Ok(Some((loc.unwrap_or(0.0), label)))
+        }
         AnyAxis::Deep(_) => Ok(None),
     }
 }
@@ -198,10 +201,17 @@ fn sync_gridline(line: &Line2D, name: AxisName, loc: f64, style: &TickStyle) {
 /// gridline.
 pub(super) type TickMirrors = (Text, Text, Line2D, Line2D, Line2D);
 
-/// What a tick keeps besides its artists: its location, mark length and
-/// width, label pad, direction and label rotation (`"auto"` or
-/// `"default"`, and an angle).
-pub(super) type TickState = (f64, f64, f64, f64, &'static str, (&'static str, f64));
+/// What a tick keeps besides its artists: its location (none for a tick
+/// never placed), mark length and width, label pad, direction and label
+/// rotation (`"auto"` or `"default"`, and an angle).
+pub(super) type TickState = (
+    Option<f64>,
+    f64,
+    f64,
+    f64,
+    &'static str,
+    (&'static str, f64),
+);
 
 /// Fills the mirrors of the major (or `minor`) tick at `index` of axis
 /// `name` from the axis; returns the rest of the tick's state.
@@ -274,7 +284,8 @@ fn sync_flat_tick(
     index: usize,
     (label1, label2, tick1, tick2, grid): TickMirrors,
 ) -> PyResult<TickState> {
-    let (loc, label) = located(axis, minor, index)?;
+    let (placed, label) = located(axis, minor, index);
+    let loc = placed.unwrap_or(0.0);
     let style = axis.tick_style_at(minor, index);
     let name = axis.name();
     sync_label(&label1, axis, loc, label.clone(), &style, true);
@@ -289,7 +300,7 @@ fn sync_flat_tick(
         "default"
     };
     Ok((
-        loc,
+        placed,
         style.size,
         style.width,
         style.pad,
@@ -657,12 +668,12 @@ mod tests {
         let unplaced = sync_tick(AxisOwner::Flat(ax.clone()), "x".into(), false, 1, mirrors());
         assert_eq!(
             unplaced.unwrap().0,
-            0.0,
+            None,
             "matplotlib's ticks sit at 0 until placed"
         );
-        ax.xaxis().place_ticks();
+        ax.xaxis().place_ticks().unwrap();
         let state = sync_tick(AxisOwner::Flat(ax.clone()), "x".into(), false, 1, parts).unwrap();
-        assert_eq!(state.0, 0.5);
+        assert_eq!(state.0, Some(0.5));
         assert_eq!(label1.text(), "0.5");
         assert_eq!(label1.position(), Point::new(0.5, 0.0));
         assert_eq!(

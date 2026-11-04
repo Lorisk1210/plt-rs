@@ -219,6 +219,11 @@ class FigureBaseLayout:
             # and subfigures, in pixels.
             extent = _figure_layout.figure_tightbbox(self._native)
             boxes = [] if extent is None else [Bbox.from_extents(*extent)]
+            # matplotlib measures each Axes with its get_tightbbox, which
+            # applies its aspect and places its ticks anew.
+            for ax in self.axes:
+                if ax.get_visible():
+                    ax.stale = True
         else:
             boxes = [artist.get_tightbbox(renderer) for artist in bbox_extra_artists]
             for ax in self.axes:

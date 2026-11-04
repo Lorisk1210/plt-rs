@@ -14,6 +14,12 @@
 //! it is written to standard error, as Python's unconfigured logging
 //! writes it.
 //!
+//! Where matplotlib's arithmetic meets invalid values, numpy warns
+//! (`RuntimeWarning: divide by zero encountered in log10`): pltrs, doing
+//! that arithmetic itself, issues the same warning in the same cases with
+//! [`warn_runtime`], to the thread's runtime handler
+//! ([`set_runtime_handler`]), or to standard error without one.
+//!
 //! ```
 //! use std::cell::RefCell;
 //! use std::rc::Rc;
@@ -41,6 +47,9 @@ pltrs_core::thread_state! {
     static HANDLER: RefCell<Option<Handler>> = const { RefCell::new(None) };
     /// The thread's log handler; `None` writes messages to standard error.
     static LOG_HANDLER: RefCell<Option<LogHandler>> = const { RefCell::new(None) };
+    /// The thread's handler of runtime warnings; `None` writes them to
+    /// standard error.
+    static RUNTIME_HANDLER: RefCell<Option<Handler>> = const { RefCell::new(None) };
 }
 
 /// Sends the warnings of this thread to `handler` from now on.
@@ -64,6 +73,30 @@ pub fn warn(message: &str) {
     match HANDLER.with(|slot| slot.borrow().clone()) {
         Some(handler) => handler(message),
         None => eprintln!("pltrs warning: {message}"),
+    }
+}
+
+/// Sends the runtime warnings of this thread to `handler` from now on.
+pub fn set_runtime_handler(handler: impl Fn(&str) + 'static) {
+    RUNTIME_HANDLER.set(Some(Rc::new(handler)));
+}
+
+/// Writes the runtime warnings of this thread to standard error again.
+pub fn clear_runtime_handler() {
+    RUNTIME_HANDLER.set(None);
+}
+
+/// Issues the runtime warning `message` (numpy's words for the invalid
+/// arithmetic matplotlib's code would meet: `"invalid value encountered
+/// in log10"`) to the thread's runtime handler.
+#[expect(
+    clippy::print_stderr,
+    reason = "without a handler, warnings go where Python prints unfiltered ones"
+)]
+pub fn warn_runtime(message: &str) {
+    match RUNTIME_HANDLER.with(|slot| slot.borrow().clone()) {
+        Some(handler) => handler(message),
+        None => eprintln!("RuntimeWarning: {message}"),
     }
 }
 
@@ -104,6 +137,16 @@ mod tests {
         warn("second");
         clear_handler();
         assert_eq!(*seen.borrow(), ["first", "second"]);
+    }
+
+    #[test]
+    fn runtime_handlers_receive_runtime_warnings_only() {
+        let seen = Rc::new(RefCell::new(Vec::<String>::new()));
+        let sink = Rc::clone(&seen);
+        set_runtime_handler(move |message| sink.borrow_mut().push(message.to_owned()));
+        warn_runtime("divide by zero encountered in log10");
+        clear_runtime_handler();
+        assert_eq!(*seen.borrow(), ["divide by zero encountered in log10"]);
     }
 
     #[test]

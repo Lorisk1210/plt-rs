@@ -96,6 +96,12 @@ fn cell_corner(cell: CellRef) -> PyResult<Option<(f64, f64)>> {
     Ok(cell.0.placed_corner().map(|p| (p.x, p.y)))
 }
 
+/// The font size the table draws the cell's text at, shrunk to fit when
+/// the table sizes its fonts itself; `None` for a table in no axes.
+fn cell_placed_fontsize(cell: CellRef) -> PyResult<Option<f64>> {
+    Ok(cell.0.placed_fontsize())
+}
+
 /// Gives the cell the look of `rectangle` (its mirror).
 fn restyle_cell(cell: CellRef, rectangle: Patch<Rectangle>) -> PyResult<()> {
     cell.0.restyle_from(&rectangle);
@@ -116,5 +122,6 @@ pub(super) fn register(module: &Module<'_>) -> PyResult<()> {
     module.add("draw_cell_into", draw_cell_into)?;
     module.add("cell_rectangle", cell_rectangle)?;
     module.add("cell_corner", cell_corner)?;
+    module.add("cell_placed_fontsize", cell_placed_fontsize)?;
     module.add("restyle_cell", restyle_cell)
 }

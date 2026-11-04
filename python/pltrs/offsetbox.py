@@ -33,6 +33,7 @@ import numpy as np
 from . import _api, _handles, _live_transforms, _python_drawing, cbook, rcParams
 from . import text as mtext
 from . import transforms as mtransforms
+from ._drawn_with import DrawnWith
 from ._native import artist as _artist, offsetbox as _offsetbox
 from ._native import patches as _patches
 from .artist import Artist
@@ -165,7 +166,7 @@ def _get_aligned_offsets(yspans, height, align="baseline"):
                               None if height is None else float(height), align)
 
 
-class OffsetBox(Artist):
+class OffsetBox(DrawnWith, Artist):
     """
     A simple container artist.
 
@@ -379,63 +380,44 @@ class OffsetBox(Artist):
                 yield from child._boxes()
 
     def _joined(self, owner):
-        """Have the boxes of the child tree be in the figure of *owner*,
-        the box added with the tree, which pltrs (Rust) draws them as, and
-        its drawing areas and offset images reach their native state
-        through it."""
+        """
+        Have the boxes of the tree belong to *owner*, the artist added with
+        it: they are on its figure, in its Axes when it is a box (see
+        `axes`), and drawn by its draws; and the drawing areas and offset
+        images of the tree reach their native state through it.
+        """
         for box in self._boxes():
-            box._tree_owner = owner
+            if box is not owner:
+                box._tree_owner = owner
         for leaves in (self._drawing_areas(), self._offset_images()):
             for index, leaf in enumerate(leaves):
                 leaf._owner_box = (owner, index)
 
-    def _owner_in_figure(self):
-        """The box added with the tree of this box, when this box is drawn
-        as part of it (matplotlib's ``set_figure`` gives a box's figure to
-        its children); None otherwise."""
-        if self.__dict__.get("_figure") is not None:
-            return None
+    def _drawer(self):
+        # The artist added with the tree draws it (see `._drawn_with`).
         return self.__dict__.get("_tree_owner")
 
     def get_figure(self, root=False):
-        # docstring inherited
-        owner = self._owner_in_figure()
-        if owner is not None:
+        """Return the `.Figure` or `.SubFigure` the box is on: that of the
+        artist added with its tree, for a box inside another."""
+        owner = self._drawer()
+        if self._figure is None and owner is not None:
             return owner.get_figure(root=root)
         return super().get_figure(root=root)
 
     @property
     def axes(self):
-        """The `~.axes.Axes` the box is in: for a box drawn as part of the
-        box added with its tree, the Axes an `OffsetBox` gives its children
-        (matplotlib's ``OffsetBox.axes`` setter; an `AnnotationBbox` gives
-        none)."""
-        owner = self._owner_in_figure()
-        if owner is None:
-            return Artist.axes.fget(self)
-        return owner.axes if isinstance(owner, OffsetBox) else None
+        """The `~.axes.Axes` instance the box resides in, or *None*: for a
+        box inside another, that of the box added with its tree (an
+        `AnnotationBbox` gives its box none)."""
+        owner = self._drawer()
+        if self._figure is None and owner is not None:
+            return owner.axes if isinstance(owner, OffsetBox) else None
+        return Artist.axes.fget(self)
 
     @axes.setter
     def axes(self, ax):
         Artist.axes.fset(self, ax)
-
-    @property
-    def _figure_only(self):
-        """Whether the box only got a figure, as a part of another artist
-        (the child of an `AnnotationBbox`): no stale callback then."""
-        return self._owner_in_figure() is not None and self.axes is None
-
-    @property
-    def stale(self):
-        """Whether the box changed since it was drawn: the box added with
-        its tree's, for a box drawn as part of it."""
-        owner = self._owner_in_figure()
-        return Artist.stale.fget(self if owner is None else owner)
-
-    @stale.setter
-    def stale(self, val):
-        owner = self._owner_in_figure()
-        Artist.stale.fset(self if owner is None else owner, val)
 
 
 class PackerBase(OffsetBox):

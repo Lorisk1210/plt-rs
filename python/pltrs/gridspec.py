@@ -368,14 +368,18 @@ class GridSpec(GridSpecBase):
 
     def _override(index):
         """The property of the margin or spacing *index* of `_KEYS`, which
-        the native grid holds."""
+        the native grid holds: the numpy float a tight layout computed, as
+        matplotlib's `tight_layout` sets it, while it stays."""
         def get(self):
-            return _gridspec.overrides(self._native)[index]
+            value = _gridspec.overrides(self._native)[index]
+            computed = self.__dict__.get("_tight_overrides", {}).get(index)
+            return np.float64(value) if value is not None and value == computed else value
 
         def set(self, value):
             values = list(_gridspec.overrides(self._native))
             values[index] = value
             _gridspec.set_overrides(self._native, tuple(values))
+            self.__dict__.get("_tight_overrides", {}).pop(index, None)
 
         return property(get, set, doc=f"The grid's own *{_KEYS[index]}*.")
 
@@ -464,6 +468,8 @@ class GridSpec(GridSpecBase):
             None if rect is None else tuple(rect))
         if not_applied is not None:
             _api.warn_external(not_applied)
+        else:
+            self._tight_overrides = dict(enumerate(_gridspec.overrides(self._native)))
 
 
 class GridSpecFromSubplotSpec(GridSpecBase):
@@ -794,6 +800,9 @@ class SubplotParams:
             self.wspace = wspace
         if hspace is not None:
             self.hspace = hspace
+        given = {key: value for key, value in zip(
+            _KEYS, (left, bottom, right, top, wspace, hspace)) if value is not None}
+        self.__dict__.setdefault("_given", {}).update(given)
         figure_native = _FIGURE_OF_PARAMS.get(self)
         if figure_native is not None:
             # The parameters of a figure, which pltrs (Rust) holds.
@@ -808,7 +817,7 @@ class SubplotParams:
 
     def to_dict(self):
         """Return a copy of the subplot parameters as a dict."""
-        return self.__dict__.copy()
+        return {key: getattr(self, key) for key in _KEYS}
 
 
 #: The figure (its native handle) of each `SubplotParams` a figure gives
@@ -826,6 +835,10 @@ def _figure_subplotpars(figure_native, params=None):
     if params is None:
         params = SubplotParams.__new__(SubplotParams)
         _FIGURE_OF_PARAMS[params] = figure_native
+    given = params.__dict__.get("_given", {})
     for key, value in zip(_KEYS, _gridspec.figure_params(figure_native)):
-        setattr(params, key, value)
+        # A parameter given (or the rc's) reads back as given; one a tight
+        # layout computed is the numpy float matplotlib's computes.
+        kept = given.get(key, rcParams[f"figure.subplot.{key}"])
+        setattr(params, key, kept if kept == value else np.float64(value))
     return params

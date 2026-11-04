@@ -212,3 +212,5 @@ class AspectMixin:
         _axes_base.apply_aspect(
             self._native, None if position is None
             else tuple(map(float, position.bounds)))
+        # matplotlib sets the active position anew.
+        self.stale = True

@@ -3,11 +3,12 @@ What the plotting mixins share: wrapping the artists native functions
 return, the native form of plotting values and of keyword arguments.
 """
 
+import copy
 import datetime
 
 import numpy as np
 
-from ... import _api, _handles, cbook, collections as mcoll, lines as mlines, units
+from ... import _api, _handles, cbook, collections as mcoll, lines as mlines
 from ..._native import plotting as _plotting
 
 
@@ -92,12 +93,12 @@ def line_data(axes, x, y):
 
 
 def keep_unit_data(line, x, y):
-    """Have *line*, made from *x* and *y*, keep them as its original data
-    if they are in units, so that it converts them again when the units
-    of its axes change (matplotlib's lines convert their data when drawn).
+    """Have *line*, made from *x* and *y*, keep copies of them as its
+    original data, as matplotlib's `.Line2D` does (`~.Line2D.get_data`
+    returns them; data in units is converted again when the units of its
+    axes change, as matplotlib's lines convert their data when drawn).
     Returns *line*."""
-    if not (units._is_natively_supported(x) and units._is_natively_supported(y)):
-        line._xorig, line._yorig = x, y
+    line._xorig, line._yorig = copy.copy(x), copy.copy(y)
     return line
 
 

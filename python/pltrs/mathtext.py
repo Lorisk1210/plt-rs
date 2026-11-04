@@ -15,6 +15,8 @@ metrics for those fonts.
 import functools
 import logging
 
+import numpy as np
+
 from . import _api, _mathtext
 from ._native import mathtext as _native_mathtext
 from .font_manager import (
@@ -92,8 +94,9 @@ class MathTextParser:
         if self._output_type == "vector":
             (width, height, depth), glyphs, rects = _native_mathtext.parse_path(
                 s, float(dpi), props)
+            # The numpy floats of the boxes matplotlib's parser sets.
             return VectorParse(
-                width, height, depth,
+                np.float64(width), np.float64(height), np.float64(depth),
                 [(get_font(FontPath(_data_font_path(file), face_index)),
                   size, code, index, ox, oy)
                  for (file, face_index), size, (code, index), (ox, oy)

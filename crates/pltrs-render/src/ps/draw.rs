@@ -50,6 +50,17 @@ fn is_transparent(color: Option<Rgba>) -> bool {
     color.is_none_or(|c| c.a == 0.0)
 }
 
+impl PsRenderer {
+    /// [`is_transparent`], noting a partially transparent colour, which
+    /// PostScript draws opaque (matplotlib logs it once per document).
+    pub(super) fn transparent(&mut self, color: Option<Rgba>) -> bool {
+        if color.is_some_and(|c| c.a != 0.0 && c.a != 1.0) {
+            self.partially_transparent = true;
+        }
+        is_transparent(color)
+    }
+}
+
 /// `setgray` for grey colours, `setrgbcolor` otherwise.
 pub(super) fn color_cmd(rgb: [f64; 3]) -> String {
     if rgb[0] == rgb[1] && rgb[1] == rgb[2] {
@@ -119,9 +130,10 @@ impl PsRenderer {
     /// `gc`, then fills, hatches and strokes as requested.
     fn draw_ps(&mut self, ps: &str, gc: &GraphicsContext, face: Option<Rgba>, paint: bool) {
         let rgb = gc.stroke_color();
-        let might_stroke = gc.linewidth > 0.0 && !is_transparent(Some(rgb));
+        let might_stroke = gc.linewidth > 0.0 && !self.transparent(Some(rgb));
         let stroke = paint && might_stroke;
-        let fill = paint && !is_transparent(face);
+        let face_transparent = self.transparent(face);
+        let fill = paint && !face_transparent;
         let hatch = gc.hatch.clone();
         if might_stroke {
             self.set_line(gc);
@@ -188,8 +200,9 @@ impl PsRenderer {
         transform: Affine2D,
         face: Option<Rgba>,
     ) {
-        let color = face
-            .filter(|f| !is_transparent(Some(*f)))
+        let color = (!self.transparent(face))
+            .then_some(face)
+            .flatten()
             .map(|f| color_cmd([f.r, f.g, f.b]));
         let mut cmd: Vec<String> = ["/o {", "gsave", "newpath", "translate"]
             .map(str::to_owned)

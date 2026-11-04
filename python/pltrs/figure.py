@@ -342,7 +342,8 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
                 and 100 <= args[0] <= 999):
             args = tuple(map(int, str(args[0])))
         projection_class, pkw = self._process_projection_requirements(**kwargs)
-        spec = SubplotSpec._from_subplot_args(self, args)._native_spec()
+        subplotspec = SubplotSpec._from_subplot_args(self, args)
+        spec = subplotspec._native_spec()
         make = _native_maker(projection_class)
         if make is not None:
             native, pkw = make(self, pkw, spec=spec)
@@ -352,7 +353,10 @@ class FigureBase(FigureTrees, FigureText, FigureBaseLayout, _MosaicMixin,
             from .projections._program import native_name
             native = _figure.add_subplot_spec_projection(
                 self._native, spec, native_name(projection_class))
-        return self._new_axes(native, projection_class, pkw)
+        ax = self._new_axes(native, projection_class, pkw)
+        # The spec given, as matplotlib's Axes keeps it (``_subplotspec``).
+        ax._subplotspec_kept = subplotspec
+        return ax
 
     def subplots(self, nrows=1, ncols=1, *, sharex=False, sharey=False,
                  squeeze=True, width_ratios=None, height_ratios=None,

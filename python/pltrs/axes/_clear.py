@@ -63,9 +63,11 @@ class ClearMixin:
                 artist._figure = None
         self.__dict__.pop("_containers", None)
         self.__dict__.pop("_limit_callbacks", None)
-        # A new background patch in the Axes' face colour, as matplotlib's
-        # clear makes one.
+        # A new background patch in the Axes' face colour, and new titles,
+        # as matplotlib's clear makes them.
         self.__dict__.pop("_patch", None)
+        for loc in ("center", "left", "right"):
+            figure._artists.pop(_artist.id(_axes.title_text(self._native, loc)), None)
         from ..projections import _program
         _program.cleared(self)
         if "_facecolor" in self.__dict__:

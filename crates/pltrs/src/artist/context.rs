@@ -491,7 +491,8 @@ impl<'a> DrawContext<'a> {
                 None => artist.draw(ctx),
             }
             if let Some(id) = id {
-                ctx.layout.figure.mark_drawn(id);
+                let fresh = artist.freshened_by_draw(&ctx.layout);
+                ctx.layout.figure.mark_drawn(id, fresh);
             }
         });
     }

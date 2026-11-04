@@ -14,7 +14,7 @@ from . import _api, _handles, _values, rcParams
 from .colors import to_rgba
 from ._native import artist as _artist, spines as _spines
 from .artist import Artist
-from .patches import Patch
+from .patches import Patch, _kept_linestyle
 from .path import Path
 from .transforms import Bbox, IdentityTransform
 
@@ -397,6 +397,7 @@ class Spine(Patch):
     def set_linestyle(self, ls):
         """Set the spine line style."""
         _spines.set_linestyle(self._native, ls)
+        self._linestyle = _kept_linestyle(ls)
 
 
 class SpinesProxy:

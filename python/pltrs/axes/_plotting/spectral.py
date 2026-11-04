@@ -42,6 +42,16 @@ def _line(kwargs):
     return mlines._native_kwargs(cbook.normalize_kwargs(kwargs, mlines.Line2D))
 
 
+def _integer_yticks(axes):
+    """Type the y ticks `psd` and `csd` set as matplotlib's do: an integer
+    ``np.arange`` from the floor of the bottom of the view."""
+    from ... import ticker as mticker
+    locator = axes.yaxis.get_major_locator()
+    if (isinstance(locator, mticker.FixedLocator)
+            and np.array_equal(locator.locs, np.round(locator.locs))):
+        locator.locs = locator.locs.astype(np.int64)
+
+
 def _last_line(axes):
     """The line a spectral plot just drew."""
     return axes.lines[-1]
@@ -83,6 +93,7 @@ class SpectralMixin:
             self._native, mlab._signal(np.asarray(x)),
             (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
                     scale_by_freq), float(Fc)), _line(kwargs))
+        _integer_yticks(self)
         freqs = freqs + Fc
         if return_line is None or not return_line:
             return pxx, freqs
@@ -116,6 +127,7 @@ class SpectralMixin:
             self._native, (_floats(x), _floats(y)),
             (_welch(x, NFFT, Fs, detrend, window, noverlap, pad_to, sides,
                     scale_by_freq), float(Fc)), _line(kwargs))
+        _integer_yticks(self)
         freqs = freqs + Fc
         pxy = re + 1j * im
         if return_line is None or not return_line:

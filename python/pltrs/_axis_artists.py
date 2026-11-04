@@ -238,26 +238,34 @@ class Tick(Artist):
             return
         parts = (self.label1, self.label2, self.tick1line, self.tick2line,
                  self.gridline)
-        (self._loc, self._size, self._width, self._base_pad, self._tickdir,
+        (loc, self._size, self._width, self._base_pad, self._tickdir,
          self._labelrotation) = _axis.sync_tick(
             axis.axes._native, axis.axis_name, not self._major, self._index,
             tuple(part._native for part in parts))
-        # matplotlib's update_position gives the labels the tick's location
-        # as the numpy float of the locator's array.
+        # matplotlib's update_position gives the tick and its labels its
+        # location as the numpy float of the locator's array; a tick never
+        # placed sits at the int 0 it was made at.
+        self._loc = 0 if loc is None else np.float64(loc)
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
-            _values.remember(label, coordinate, np.float64(self._loc))
+            _values.remember(label, coordinate, self._loc)
         self._drawn = _artist.draw_count(axis.axes._native)
 
     def _refresh(self, part):
+        """Give the labels of a tick of an axis drawn since they were
+        filled what matplotlib's draw gives them (see `_follow_draw`)."""
+        if part in (self.label1, self.label2):
+            self._follow_draw()
+
+    def _follow_draw(self):
         """
-        Give the labels of a tick of an axis drawn since they were filled
-        what matplotlib's draw gives them (``_update_ticks``): the tick's
-        location along the axis and the formatter's text, all else they
-        have staying.
+        Give a tick of an axis drawn since it was filled what matplotlib's
+        draw gives it (``_update_ticks``): its location along the axis,
+        and its labels that location and the formatter's text, all else
+        they have staying.
         """
         axis = self.axis
-        if part not in (self.label1, self.label2) or axis is None:
+        if axis is None:
             return
         drawn = _artist.draw_count(axis.axes._native)
         if drawn == self._drawn:
@@ -267,11 +275,12 @@ class Tick(Artist):
                                          not self._major, self._index)
         if located is None:
             return
-        self._loc, text = located
+        loc, text = located
+        self._loc = np.float64(loc)
         coordinate = "y" if self.__name__ == "ytick" else "x"
         for label in (self.label1, self.label2):
             with _mirrors.detached(label):
-                label.set(text=text, **{coordinate: np.float64(self._loc)})
+                label.set(text=text, **{coordinate: self._loc})
 
     def _push(self, part):
         """Read *part*, changed, back into the axis."""
@@ -442,6 +451,7 @@ class Tick(Artist):
 
     def get_loc(self):
         """Return the tick location (data coords) as a scalar."""
+        self._follow_draw()
         return self._loc
 
     def set_url(self, url):

@@ -78,6 +78,16 @@ impl TableCell {
         self.placed_box().map(|bbox| bbox.p0)
     }
 
+    /// The font size the table draws the cell's text at in the figure's
+    /// current layout: the cell's, shrunk until every text fits its cell
+    /// when the table sizes its fonts itself (matplotlib's
+    /// `_auto_set_font_size`, which gives every cell that size when the
+    /// table is drawn); `None` for a table in no axes or one that cannot be
+    /// placed.
+    pub fn placed_fontsize(&self) -> Option<f64> {
+        self.placed().map(|placed| placed.fontsize)
+    }
+
     /// Takes the look of `rectangle` (one [`TableCell::rectangle`] made):
     /// its style, its rotation and its artist properties, but for its
     /// transform and clipping artists; the cell keeps its size (which its

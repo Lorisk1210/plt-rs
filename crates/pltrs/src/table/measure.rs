@@ -5,7 +5,7 @@
 use pltrs_core::Bbox;
 
 use super::TableArtist;
-use super::cell::Cell;
+use super::cell::{Cell, PlacedCell};
 use super::handle::TableCell;
 use super::layout::AxesMaps;
 use crate::artist::{ArtistHandle, LayoutContext};
@@ -35,11 +35,18 @@ impl TableCell {
     /// table's axes, in the figure's current layout; `None` for a table
     /// in no axes or one that cannot be placed.
     pub(crate) fn placed_box(&self) -> Option<Bbox> {
+        self.placed().map(|placed| placed.bbox)
+    }
+
+    /// Where and at what font size the table places the cell in the
+    /// figure's current layout; `None` for a table in no axes or one that
+    /// cannot be placed.
+    pub(crate) fn placed(&self) -> Option<PlacedCell> {
         self.measured(|_, index, table, layout, maps| {
             table
                 .place(layout, maps)
                 .ok()
-                .map(|placed| placed[index].bbox)
+                .map(|mut placed| placed.swap_remove(index))
         })
         .flatten()
     }

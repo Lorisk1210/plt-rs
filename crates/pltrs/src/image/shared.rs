@@ -105,7 +105,7 @@ pub(crate) fn draw_rendered(
                 .draw_image(&gc, image.origin, &image.pixels, None);
         }
         Ok(None) => {}
-        Err(err) => ctx.report(base.id(), err),
+        Err(err) => ctx.report_kind(base.id(), err.draw_kind(), err),
     }
 }
 

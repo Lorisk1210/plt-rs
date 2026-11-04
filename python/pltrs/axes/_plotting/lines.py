@@ -72,6 +72,14 @@ def _format_color(fmt):
     return None if cycle is None else mcolors.to_rgba(cycle[0])
 
 
+def _given_format_color(fmt):
+    """The colour of the format string *fmt* as `plot` is given it from
+    matplotlib's ``_process_plot_format`` (see `_format_color`), None for a
+    format without one."""
+    color = _format_parts(fmt)[2]
+    return None if color is None else _format_color(fmt) or color
+
+
 def _plot_datasets(args, data, kwargs):
     """
     Split ``plot``'s positional arguments into ``(x, y, fmt, label)``

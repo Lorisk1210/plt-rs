@@ -1,7 +1,7 @@
 //! `LogitLocator`: ticks for probabilities on a logit axis.
 
 use super::{Locator, MaxNLocator, Nbins};
-use crate::ticker::pymath::{ceil_int, floor_int, pow10};
+use crate::ticker::pymath::{ceil_int, floor_int, np_log10, pow10};
 use crate::ticker::{TickContext, TickerError};
 
 /// The steps of the `MaxNLocator` used when zoomed in.
@@ -101,18 +101,18 @@ impl Locator for LogitLocator {
         } as i64;
         let (vmin, vmax) = self.nonsingular(vmin, vmax, ctx);
         let binf = if vmin < 0.5 {
-            floor_int(vmin.log10(), "log10 of the lower limit")?
+            floor_int(np_log10(vmin), "log10 of the lower limit")?
         } else if vmin < 0.9 {
             0
         } else {
-            -ceil_int((1.0 - vmin).log10(), "log10 of the lower limit")?
+            -ceil_int(np_log10(1.0 - vmin), "log10 of the lower limit")?
         };
         let bsup = if vmax <= 0.5 {
-            ceil_int(vmax.log10(), "log10 of the upper limit")?
+            ceil_int(np_log10(vmax), "log10 of the upper limit")?
         } else if vmax <= 0.9 {
             1
         } else {
-            -floor_int((1.0 - vmax).log10(), "log10 of the upper limit")?
+            -floor_int(np_log10(1.0 - vmax), "log10 of the upper limit")?
         };
         let numideal = bsup - binf - 1;
         if numideal >= 2 {

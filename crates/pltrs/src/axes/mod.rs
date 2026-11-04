@@ -539,7 +539,7 @@ impl Axes {
         self.raw
             .figure_state()
             .borrow_mut()
-            .update_ticks_as_is(self.id());
+            .update_ticks_as_is(self.id(), axis);
         self.raw
             .with::<AxesState, _>(|a| a.axis(axis).ticks.clone())
     }

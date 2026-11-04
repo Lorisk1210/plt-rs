@@ -13,8 +13,10 @@ class ProjectionMixin:
 
     @property
     def axes(self):
-        """The Axes itself (matplotlib's ``self.axes = self``)."""
-        return self
+        """The Axes itself (matplotlib's ``self.axes = self``), or for a
+        child Axes (an inset, a secondary axis) the Axes it is a child of,
+        as matplotlib's ``add_child_axes`` sets it."""
+        return self.__dict__.get("_child_of", self)
 
     @axes.setter
     def axes(self, new_axes):

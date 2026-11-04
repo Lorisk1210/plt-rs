@@ -2,15 +2,17 @@
 //! `add_collection`), filtered groups of artists, artists made outside
 //! any figure, and removed artists back.
 
+use std::collections::BTreeSet;
 use std::rc::Rc;
 
 use super::children::DataUpdate;
 use super::{Axes, AxesState};
 use crate::artist::{
-    AggFilter, Artist, ArtistHandle, ArtistLookup, AttachError, Custom, FilteredGroup,
+    AggFilter, Artist, ArtistHandle, ArtistId, ArtistLookup, AttachError, Custom, FilteredGroup,
     FilteredGroupArtist, RawHandle, take_in,
 };
 use crate::collections::{Collection, CollectionSpec, TriMesh, TriMeshSpec};
+use crate::contour::ContourSetArtist;
 use crate::figure::attach;
 use crate::legend::LegendArtist;
 use crate::patches::{Patch, PatchArtist, PatchProps, PatchShape};
@@ -221,13 +223,22 @@ impl Axes {
     }
 
     /// How many children matplotlib's `ax._children` would hold: the
-    /// children but the spines, the titles and the legend.
+    /// children but the spines, the titles and the legend, a contour set
+    /// counting once.
     pub(crate) fn listed_children(&self) -> usize {
         let figure = self.raw().figure_state().borrow();
         self.raw().with::<AxesState, _>(|axes| {
+            // A contour set is one child, whatever collections draw it.
+            let drawing: BTreeSet<ArtistId> = axes
+                .children
+                .iter()
+                .filter_map(|&id| figure.artist_as::<ContourSetArtist>(id))
+                .flat_map(|contour| contour.collections.iter().copied())
+                .collect();
             axes.children
                 .iter()
                 .filter(|&&id| !axes.spines.contains(&id) && !axes.titles.contains(&id))
+                .filter(|id| !drawing.contains(id))
                 .filter(|&&id| figure.artist_as::<LegendArtist>(id).is_none())
                 .count()
         })

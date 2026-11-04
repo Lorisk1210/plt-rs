@@ -2,9 +2,11 @@
 Contours: `~.Axes.contour`, `~.Axes.contourf` and `~.Axes.clabel`.
 """
 
+import math
+
 import numpy as np
 
-from ... import (_api, _live_transforms, _tick_helpers, collections as mcoll,
+from ... import (_api, _live_transforms, _tick_helpers, _values, collections as mcoll,
                  colors as mcolors)
 from ... import contour as mcontour
 from ..._native import contour as _contour, tri as _tri
@@ -73,7 +75,8 @@ def _contour_look(kwargs):
               None if locator is None
               else _tick_helpers._description("locator", locator),
               _live_transforms.given_to_native(kwargs.pop("transform", None)))
-    attributes = {"_orig_linestyles": linestyles,
+    attributes = {"_given_linewidths": linewidths,
+                  "_orig_linestyles": linestyles,
                   "negative_linestyles": negative_linestyles, "_extend": extend,
                   "colors": given_colors, "hatches": hatches,
                   "logscale": logscale, "origin": None, "extent": None,
@@ -103,11 +106,20 @@ def _style(contours, look, kwargs):
     return it."""
     from ...cm import _from_native
     _, _, attributes, colorizer, native_cmap = look
+    attributes = dict(attributes)
+    widths = attributes.pop("_given_linewidths")
     if native_cmap:
         colorizer.cmap = _from_native(contours._native_cmap())
     contours._attach_native_mapping(colorizer=colorizer)
     for name, value in attributes.items():
         setattr(contours, name, value)
+    if widths is not None and not contours.filled:
+        # The widths of the levels as matplotlib's ``_process_linewidths``
+        # gives them, cycled as given.
+        levels = len(contours.levels)
+        widths = (list(widths) * math.ceil(levels / len(widths)) if np.iterable(widths)
+                  else [widths] * levels)[:levels]
+        _values.remember(contours, "linewidth", np.atleast_1d(widths))
     contours.monochrome = contours.cmap.monochrome
     contours._internal_update(kwargs)
     return contours

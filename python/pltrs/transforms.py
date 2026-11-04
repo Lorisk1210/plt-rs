@@ -414,13 +414,13 @@ class BboxBase(TransformNode):
         """
         Return whether *x* is in the closed (:attr:`x0`, :attr:`x1`) interval.
         """
-        return _transforms.contains(self.get_points(), x, None, False)
+        return np.bool_(_transforms.contains(self.get_points(), x, None, False))
 
     def containsy(self, y):
         """
         Return whether *y* is in the closed (:attr:`y0`, :attr:`y1`) interval.
         """
-        return _transforms.contains(self.get_points(), None, y, False)
+        return np.bool_(_transforms.contains(self.get_points(), None, y, False))
 
     def contains(self, x, y):
         """
@@ -436,19 +436,19 @@ class BboxBase(TransformNode):
         ----------
         other : `.BboxBase`
         """
-        return _transforms.overlaps(self.get_points(), other.get_points(), False)
+        return np.bool_(_transforms.overlaps(self.get_points(), other.get_points(), False))
 
     def fully_containsx(self, x):
         """
         Return whether *x* is in the open (:attr:`x0`, :attr:`x1`) interval.
         """
-        return _transforms.contains(self.get_points(), x, None, True)
+        return np.bool_(_transforms.contains(self.get_points(), x, None, True))
 
     def fully_containsy(self, y):
         """
         Return whether *y* is in the open (:attr:`y0`, :attr:`y1`) interval.
         """
-        return _transforms.contains(self.get_points(), None, y, True)
+        return np.bool_(_transforms.contains(self.get_points(), None, y, True))
 
     def fully_contains(self, x, y):
         """
@@ -465,7 +465,7 @@ class BboxBase(TransformNode):
         ----------
         other : `.BboxBase`
         """
-        return _transforms.overlaps(self.get_points(), other.get_points(), True)
+        return np.bool_(_transforms.overlaps(self.get_points(), other.get_points(), True))
 
     def transformed(self, transform):
         """
@@ -567,8 +567,8 @@ class BboxBase(TransformNode):
         """
         if len(vertices) == 0:
             return 0
-        return _transforms.count_contains(
-            self.get_points(), np.asarray(vertices, float))
+        return np.int64(_transforms.count_contains(
+            self.get_points(), np.asarray(vertices, float)))
 
     def count_overlaps(self, bboxes):
         """

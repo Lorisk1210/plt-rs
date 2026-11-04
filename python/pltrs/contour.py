@@ -504,7 +504,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         native = np.asarray(_contour.get_linewidths(self._contour))
         widths = np.atleast_1d(_values.given(self, "linewidth", native,
                                              same=_values.same_cycled))
-        dashes = len(self._get("linestyle"))
+        dashes = len(self._given_linestyles())
         if len(widths) == dashes or not dashes:
             return widths
         return list(widths) * (dashes // math.gcd(dashes, len(widths)))
@@ -533,6 +533,24 @@ class ContourSet(ContourLabeler, mcoll.Collection):
         `.hatch`)."""
         super().set_hatch(hatch)
         self._collection_hatch = hatch
+
+    def get_facecolor(self):
+        """
+        Return the face colors.
+
+        A hatched filled set, which matplotlib draws band by band, mapping
+        each band's value on its own, keeps the face of the band it drew
+        last once drawn, until its mapping changes.
+        """
+        faces = super().get_facecolor()
+        values = self.get_array()
+        hatched = self.filled and any(hatch is not None for hatch in self.hatches)
+        if (not hatched or values is None or len(values) < 2 or len(faces) != 1
+                or not np.allclose(faces, self.to_rgba(values[:1], self.get_alpha()))):
+            return faces
+        if _artist.draw_count(self._native) > self.__dict__.get("_mapped_at_draw", 0):
+            values = values[-1:]
+        return self.to_rgba(values, self.get_alpha())
 
     def get_edgecolor(self):
         """Return the edge colors: those of the levels for line contours
@@ -632,6 +650,7 @@ class ContourSet(ContourLabeler, mcoll.Collection):
                                  self._norm_replaced())
             self._A = self._native_array()
             self.to_rgba(self._A)
+            self._mapped_at_draw = _artist.draw_count(self._native)
         super(mcoll.Collection, self).changed()
 
     alpha = property(lambda self: self.get_alpha())

@@ -53,7 +53,7 @@ pub(crate) use callback::{Callback, report};
 pub(crate) use containers::{dict_items, dict_value, new_dict};
 pub(crate) use convert::{Bytes, FromPy, IntoPy};
 pub(crate) use deferred::install as install_deferred;
-pub(crate) use error::{ExceptionKind, PyErr, PyResult};
+pub(crate) use error::{ExceptionKind, PyErr, PyResult, runtime_warning};
 pub(crate) use gil::Python;
 pub(crate) use init::init_module;
 pub(crate) use module::Module;

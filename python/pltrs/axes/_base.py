@@ -183,6 +183,9 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
 
     def set_subplotspec(self, subplotspec):
         """Set the `.SubplotSpec`. associated with the subplot."""
+        # matplotlib places the Axes at the position the spec gives, which
+        # fails first for what is no spec.
+        subplotspec.get_position(self.get_figure(root=False))
         _gridspec.set_axes_spec(self._native, subplotspec._native_spec())
 
     def get_gridspec(self):
@@ -209,8 +212,12 @@ class _AxesBase(AxesTrees, ConstructionMixin, TicksMixin, NavigationMixin,
             # Only drawing places an axes with a locator, and applies its
             # aspect.
             return Bbox.from_extents(*_axes_base.located_position(self._native))
-        return Bbox.from_extents(*_axes_base.position(self._native,
-                                                      bool(original)))
+        position = Bbox.from_extents(*_axes_base.position(self._native,
+                                                          bool(original)))
+        if not original:
+            # matplotlib's apply_aspect sets the active position anew.
+            self.stale = True
+        return position
 
     def set_position(self, pos, which='both'):
         """

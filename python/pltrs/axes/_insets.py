@@ -69,6 +69,7 @@ class InsetsMixin:
         This is the lowlevel version.  See `.axes.Axes.inset_axes`.
         """
         _insets.add_child_axes(self._native, ax._native)
+        ax._child_of = self
         self.stale = True
         return ax
 
@@ -116,6 +117,7 @@ class InsetsMixin:
             self._native, bounds,
             None if name == "rectilinear" or program else name)
         inset_ax = _handles.wrap(native, projection_class, self.figure)
+        inset_ax._child_of = self
         inset_ax._init_projection()
         locator = _TransformedBoundsLocator(
             bounds, self.transAxes if transform is None else transform)
